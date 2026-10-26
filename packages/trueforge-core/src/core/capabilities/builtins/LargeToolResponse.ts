@@ -2,6 +2,7 @@ import dedent from 'dedent';
 import type { Logger } from 'winston';
 import { describeContentSize, estimateTokensForString } from '../../llm/usage';
 import type { ToolCallResult } from '../../mcp/executeToolCalls';
+import { getOperationMetrics } from '../../observability/operationMetrics';
 import type { HarnessSandbox, SandboxInfo } from '../../sandbox/Sandbox';
 import { createSandboxLargeToolResponseGuidance, SANDBOX_SCHEMA_INFER_TAG } from '../../sandbox/Sandbox';
 import { extractErrorLogFields } from '../../util/errorLogFields';
@@ -130,7 +131,9 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
     entry: ToolResultWithInfo,
     pendingSandboxDumps: ToolResultWithInfo[],
     sandbox: HarnessSandbox | undefined,
+    limit: 'large_tool_response_individual' | 'large_tool_response_total',
   ): number {
+    getOperationMetrics()?.recordHarnessLimit({ limit });
     const preview = createContentPreview(entry.originalContent, this.previewNumberOfCharacters);
 
     let newContent: string;
@@ -181,7 +184,10 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
       entry.toolCallResult.isStructuredContent = false;
       return stored.sandboxCreated;
     } catch (error) {
-      this.logger.error('Failed to upload to sandbox', extractErrorLogFields(error));
+      this.logger.error('Failed to upload to sandbox', {
+        ...extractErrorLogFields(error),
+        reportable_error: { error },
+      });
       return undefined;
     }
   }
@@ -213,7 +219,7 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
     const unblocked: ToolResultWithInfo[] = [];
     for (const entry of resultsWithInfo) {
       if (entry.originalTokens >= this.individualTokenThreshold) {
-        runningTotal -= this.blockResult(entry, pendingSandboxDumps, sandbox);
+        runningTotal -= this.blockResult(entry, pendingSandboxDumps, sandbox, 'large_tool_response_individual');
       } else {
         unblocked.push(entry);
       }
@@ -224,7 +230,7 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
       if (runningTotal < this.totalTokenThreshold) {
         break;
       }
-      runningTotal -= this.blockResult(entry, pendingSandboxDumps, sandbox);
+      runningTotal -= this.blockResult(entry, pendingSandboxDumps, sandbox, 'large_tool_response_total');
     }
 
     const sandboxCreated = sandbox ? await this.executeSandboxDumps(pendingSandboxDumps, sandbox) : undefined;

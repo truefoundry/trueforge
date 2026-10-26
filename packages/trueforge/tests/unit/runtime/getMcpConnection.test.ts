@@ -7,7 +7,7 @@ import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import { mcpOAuthCallbackUrl } from '../../../src/mcp/auth/mcpOAuthHelpers';
-import { resolveMcpServer } from '../../../src/runtime/sessionResources';
+import { getMcpConnection } from '../../../src/runtime/sessionResources';
 
 jest.mock('undici', () => {
   const actual = jest.requireActual<typeof import('undici')>('undici');
@@ -20,7 +20,7 @@ jest.mock('undici', () => {
   };
 });
 
-describe('resolveMcpServer', () => {
+describe('getMcpConnection', () => {
   let db: ReturnType<typeof createSqliteDb>;
   let mcpServerStore: IMcpServerWithAuthStore;
   let tokenStore: SqliteOAuthTokenStore;
@@ -96,7 +96,7 @@ describe('resolveMcpServer', () => {
         },
       });
 
-      const connection = await resolveMcpServer({
+      const connection = await getMcpConnection({
         tenant_id: 'default',
         name: 'oauth-mcp',
         store: mcpServerStore,
@@ -155,7 +155,7 @@ describe('resolveMcpServer', () => {
       },
     });
 
-    const connection = await resolveMcpServer({
+    const connection = await getMcpConnection({
       tenant_id: 'default',
       name: 'tokened-mcp',
       store: mcpServerStore,
@@ -182,7 +182,7 @@ describe('resolveMcpServer', () => {
       },
     });
 
-    const connection = await resolveMcpServer({
+    const connection = await getMcpConnection({
       tenant_id: 'default',
       name: 'open-mcp',
       store: mcpServerStore,
@@ -211,7 +211,7 @@ describe('resolveMcpServer', () => {
       },
     });
 
-    const connection = await resolveMcpServer({
+    const connection = await getMcpConnection({
       tenant_id: 'default',
       name: 'header-mcp',
       store: mcpServerStore,
@@ -251,7 +251,7 @@ describe('resolveMcpServer', () => {
         },
       });
 
-      const connection = await resolveMcpServer({
+      const connection = await getMcpConnection({
         tenant_id: 'default',
         name: 'tfy-mcp',
         store,
@@ -270,7 +270,7 @@ describe('resolveMcpServer', () => {
 
   it('returns undefined when the server is not registered', async () => {
     await expect(
-      resolveMcpServer({
+      getMcpConnection({
         tenant_id: 'default',
         name: 'missing-mcp',
         store: mcpServerStore,

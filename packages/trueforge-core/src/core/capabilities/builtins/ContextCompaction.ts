@@ -1,5 +1,6 @@
 import { EventType, newEventId } from '../../events/schema';
 import type { ILLM, LLMCreateParams } from '../../llm/ILLM';
+import { getOperationMetrics } from '../../observability/operationMetrics';
 import type { AgentDefinition } from '../../runtime/AgentDefinition';
 import type { ContextMessage } from '../../runtime/AgentThread.types';
 import { internalSystemMessage, isInternalSystemMessage, isLLMContextMessage } from '../../runtime/contextUtils';
@@ -222,7 +223,14 @@ export class ContextCompaction implements PreLLMAgentContextProcessor {
       stream: false,
     };
 
-    const response = await this.modelClient.createNonStream(body);
+    let response: Awaited<ReturnType<ILLM['createNonStream']>>;
+    try {
+      response = await this.modelClient.createNonStream(body);
+    } catch (error) {
+      getOperationMetrics()?.recordHarnessLimit({ limit: 'context_compaction_error' });
+      throw error;
+    }
+    getOperationMetrics()?.recordHarnessLimit({ limit: 'context_compaction' });
     const context: ContextMessage[] = [{ role: 'assistant', content: response.output.content }, CONTINUATION_MESSAGE];
 
     yield {

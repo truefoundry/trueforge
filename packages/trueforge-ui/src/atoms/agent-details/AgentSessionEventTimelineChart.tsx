@@ -28,19 +28,23 @@ import {
 import {
   buildTimelineAxisTicks,
   formatTimelineAxisDuration,
-  getActiveTimelineMs,
   getSubAgentHoverGroups,
   getSubAgentLanes,
+  getTimelineAxisTickTarget,
   getTimelineHoverTargetId,
   getTimelineLayout,
   getTimelineRange,
+  getTimelineTurnStretch,
   groupCoincidentTimelineMarkers,
   groupOverlappingToolCalls,
   mergeOverlappingSubAgentSegments,
   TIMELINE_TYPE,
+  timelineChartMs,
   type TimelineGap,
   type TimelineHoverTarget,
   type TimelineTurnBar,
+  type TimelineTurnRange,
+  type TimelineTurnStretch,
 } from '../../utils/sessionEventTimelineChart.js';
 import { aggregateSessionTurnBand } from '../../utils/sessionTurnViews.js';
 import { LightTooltip } from '../primitives/Tooltip.js';
@@ -57,6 +61,8 @@ import type { AgentSessionEventTimelineChartProps } from './types.js';
 ChartJS.register(BarController, BarElement, LinearScale, PointElement, ScatterController, Tooltip);
 
 const MARKER_PX = 4;
+/** Wide enough for a T999 label in the 10px turn font. */
+const MIN_TURN_BAR_PX = 32;
 const TURN_GAP_PX = 12;
 const END_PAD_PX = 12;
 const BAR_RADIUS_PX = 2;
@@ -84,11 +90,51 @@ function eventOrder(type: SessionEventTimelineSegment['type']): number {
   return 1;
 }
 
-function turnBarLabelPoint(element: object): { x: number; y: number } | null {
+function chartMsForTurn({
+  realMs,
+  turn,
+  stretch,
+  msPerPx,
+}: {
+  realMs: number;
+  turn: TimelineTurnRange;
+  stretch: TimelineTurnStretch;
+  msPerPx: number;
+}): number {
+  return timelineChartMs({
+    realMs,
+    turnStartMs: turn.startMs,
+    turnEndMs: turn.endMs,
+    ordinal: turn.ordinal,
+    stretch,
+    msPerPx,
+    turnGapPx: TURN_GAP_PX,
+  });
+}
+
+function turnBarEndMs({
+  turn,
+  stretch,
+  msPerPx,
+}: {
+  turn: TimelineTurnRange;
+  stretch: TimelineTurnStretch;
+  msPerPx: number;
+}): number {
+  // Covers zero-length turns too, whose stretch cannot come from scaling.
+  const extraPx = stretch.extraPx[turn.ordinal] ?? 0;
+  return (
+    chartMsForTurn({ realMs: turn.startMs, turn, stretch, msPerPx }) +
+    (turn.endMs - turn.startMs) +
+    (extraPx + MARKER_PX) * msPerPx
+  );
+}
+
+function turnBarLabelPoint(element: object): { x: number; y: number; width: number } | null {
   if (!('x' in element) || !('y' in element) || !('base' in element)) return null;
   const { x, y, base } = element;
   if (typeof x !== 'number' || typeof y !== 'number' || typeof base !== 'number') return null;
-  return { x: (x + base) / 2, y };
+  return { x: (x + base) / 2, y, width: Math.abs(x - base) };
 }
 
 export function AgentSessionEventTimelineChart({
@@ -149,34 +195,52 @@ export function AgentSessionEventTimelineChart({
   }, [refreshTooltipAnchor, tooltipTarget]);
 
   const segmentTotalMs = Math.max(0, ...segments.map(segment => segment.endMs));
-  const activeTotalMs = Math.max(1, roundDurationMsToSecond(segmentTotalMs));
-  const { turnStartsMs, turnOrdinals, turnRanges } = useMemo(() => getTimelineLayout(segments), [segments]);
-  const activeTurnStartsMs = useMemo(
-    () => turnStartsMs.filter((startMs, index) => index === 0 || startMs <= activeTotalMs),
-    [activeTotalMs, turnStartsMs],
+  // Layout uses the real end so the content exactly fills the pane; rounding only applies to axis labels.
+  const activeTotalMs = Math.max(1, segmentTotalMs);
+  const axisTotalMs = Math.max(1, roundDurationMsToSecond(segmentTotalMs));
+  const { turnRanges } = useMemo(() => getTimelineLayout(segments), [segments]);
+  const gapCount = Math.max(0, turnRanges.length - 1);
+  // Long turns keep the pane's time scale. Short turns stretch on top of it and widen the chart.
+  const unclampedScaleWidthPx = widthPx - TURN_GAP_PX * gapCount - END_PAD_PX;
+  const fitScaleWidthPx = Math.max(widthPx / 2, unclampedScaleWidthPx);
+  const msPerPx = activeTotalMs / Math.max(1, fitScaleWidthPx);
+  const orderedRanges = useMemo(
+    () => [...turnRanges].sort((left, right) => left.ordinal - right.ordinal),
+    [turnRanges],
   );
-  const gapCount = Math.max(0, activeTurnStartsMs.length - 1);
-  const scaleWidthPx = Math.max(widthPx / 2, widthPx - TURN_GAP_PX * gapCount - END_PAD_PX);
-  const msPerPx = activeTotalMs / Math.max(1, scaleWidthPx);
-  const turnGapMs = TURN_GAP_PX * msPerPx;
-  const totalMs = activeTotalMs + gapCount * turnGapMs;
-  const timelineMaxMs = totalMs + END_PAD_PX * msPerPx;
-  const timelineGaps = useMemo<TimelineGap[]>(
+  const stretch = useMemo(
     () =>
-      activeTurnStartsMs
-        .slice(1)
-        .map((startMs, index) => ({ startMs: startMs + index * turnGapMs, endMs: startMs + (index + 1) * turnGapMs })),
-    [activeTurnStartsMs, turnGapMs],
+      widthPx > 0
+        ? getTimelineTurnStretch({
+            durationsMs: orderedRanges.map(range => Math.max(0, range.endMs - range.startMs)),
+            msPerPx,
+            minTurnBarPx: MIN_TURN_BAR_PX,
+            markerPx: MARKER_PX,
+          })
+        : {
+            extraPx: orderedRanges.map(() => 0),
+            scale: orderedRanges.map(() => 1),
+            leadingExtraPx: orderedRanges.map(() => 0),
+          },
+    [msPerPx, orderedRanges, widthPx],
   );
+  const turnsByIndex = useMemo(() => new Map(orderedRanges.map(range => [range.turnIndex, range])), [orderedRanges]);
 
   const visibleSegments = useMemo(
     () =>
       segments.flatMap(segment => {
         if (hiddenTypes.has(segment.type)) return [];
-        const shiftMs = (turnOrdinals.get(segment.turnIndex) ?? 0) * turnGapMs;
-        return [{ ...segment, startMs: segment.startMs + shiftMs, endMs: segment.endMs + shiftMs }];
+        const turn = turnsByIndex.get(segment.turnIndex);
+        if (turn == null) return [{ ...segment }];
+        return [
+          {
+            ...segment,
+            startMs: chartMsForTurn({ realMs: segment.startMs, turn, stretch, msPerPx }),
+            endMs: chartMsForTurn({ realMs: segment.endMs, turn, stretch, msPerPx }),
+          },
+        ];
       }),
-    [hiddenTypes, segments, turnGapMs, turnOrdinals],
+    [hiddenTypes, msPerPx, segments, stretch, turnsByIndex],
   );
   const markerGroups = useMemo(
     () => groupCoincidentTimelineMarkers(visibleSegments, { toleranceMs: MARKER_PX * msPerPx }),
@@ -185,17 +249,25 @@ export function AgentSessionEventTimelineChart({
   const durationSegments = useMemo(() => visibleSegments.filter(segment => !segment.isMarker), [visibleSegments]);
   const turnBars = useMemo<TimelineTurnBar[]>(
     () =>
-      turnRanges.length < 2
+      orderedRanges.length < 2
         ? []
-        : turnRanges.map(range => ({
+        : orderedRanges.map(range => ({
             ...range,
             id: `turn-${range.turnIndex}`,
             durationMs: range.endMs - range.startMs,
-            startMs: range.startMs + range.ordinal * turnGapMs,
-            endMs: range.endMs + range.ordinal * turnGapMs + MARKER_PX * msPerPx,
+            startMs: chartMsForTurn({ realMs: range.startMs, turn: range, stretch, msPerPx }),
+            endMs: turnBarEndMs({ turn: range, stretch, msPerPx }),
           })),
-    [msPerPx, turnGapMs, turnRanges],
+    [msPerPx, orderedRanges, stretch],
   );
+  // Unstretched content fills the pane exactly, unless the half-pane floor above clamped the
+  // scale wider than the pane allows for this many gaps; that shortfall must widen the chart
+  // too, or the last turns draw past the axis and clip even though the pane says it scrolls.
+  const floorDeficitPx = widthPx > 0 ? Math.max(0, fitScaleWidthPx - unclampedScaleWidthPx) : 0;
+  const totalExtraPx = stretch.extraPx.reduce((sum, px) => sum + px, 0) + floorDeficitPx;
+  const scrolls = totalExtraPx > 0;
+  const chartWidthPx = widthPx + Math.ceil(totalExtraPx);
+  const timelineMaxMs = Math.max(1, chartWidthPx) * msPerPx;
   const subAgentSegments = useMemo(
     () => durationSegments.filter(segment => segment.type === 'sub_agent'),
     [durationSegments],
@@ -436,7 +508,10 @@ export function AgentSessionEventTimelineChart({
           const element = chart.getDatasetMeta(index).data[0];
           if (element == null) return;
           const point = turnBarLabelPoint(element);
-          if (point) ctx.fillText(`T${bar.ordinal + 1}`, point.x, point.y);
+          if (point == null) return;
+          const label = `T${bar.ordinal + 1}`;
+          if (ctx.measureText(label).width > point.width) return;
+          ctx.fillText(label, point.x, point.y);
         });
         ctx.restore();
       },
@@ -454,8 +529,9 @@ export function AgentSessionEventTimelineChart({
     [],
   );
 
-  const chartOptions = useMemo<ChartOptions<TimelineChartType>>(
-    () => ({
+  const chartOptions = useMemo<ChartOptions<TimelineChartType>>(() => {
+    const tickLabels = new Map<number, string>();
+    return {
       indexAxis: 'y',
       animation: false,
       responsive: true,
@@ -497,20 +573,34 @@ export function AgentSessionEventTimelineChart({
           grid: { color: grid },
           border: { color: grid },
           afterBuildTicks: scale => {
-            scale.ticks = buildTimelineAxisTicks({ activeTotalMs, turnStartsMs: activeTurnStartsMs, turnGapMs });
+            tickLabels.clear();
+            const realTicks = buildTimelineAxisTicks({
+              activeTotalMs: axisTotalMs,
+              turnStartsMs: [],
+              turnGapMs: 0,
+              ...(chartWidthPx > 0 ? { chartWidthPx } : {}),
+            });
+            scale.ticks = realTicks.map(tick => {
+              // A rounded-up end label still sits on the real end.
+              const realMs = Math.min(tick.value, activeTotalMs);
+              let turn = orderedRanges[0];
+              if (turn != null) {
+                for (const range of orderedRanges) {
+                  if (range.startMs <= realMs) turn = range;
+                }
+              }
+              const value = turn == null ? realMs : chartMsForTurn({ realMs, turn, stretch, msPerPx });
+              tickLabels.set(value, formatTimelineAxisDuration(tick.value));
+              return { value };
+            });
           },
           ticks: {
             color: axis,
             align: 'inner',
             autoSkip: false,
             includeBounds: false,
-            maxTicksLimit: 9,
-            callback: value => {
-              const timelineMs = Number(value);
-              return timelineMs <= totalMs
-                ? formatTimelineAxisDuration(getActiveTimelineMs(timelineMs, timelineGaps))
-                : '';
-            },
+            maxTicksLimit: Math.max(9, getTimelineAxisTickTarget(chartWidthPx)),
+            callback: value => tickLabels.get(Number(value)) ?? '',
           },
         },
         y: {
@@ -523,22 +613,22 @@ export function AgentSessionEventTimelineChart({
           grid: { display: false },
         },
       },
-    }),
-    [
-      activeTotalMs,
-      activeTurnStartsMs,
-      axis,
-      band,
-      chartTargets,
-      grid,
-      onSelectTurn,
-      refreshTooltipAnchor,
-      timelineGaps,
-      timelineMaxMs,
-      totalMs,
-      turnGapMs,
-    ],
-  );
+    };
+  }, [
+    activeTotalMs,
+    axis,
+    axisTotalMs,
+    band,
+    chartWidthPx,
+    chartTargets,
+    grid,
+    msPerPx,
+    onSelectTurn,
+    orderedRanges,
+    refreshTooltipAnchor,
+    stretch,
+    timelineMaxMs,
+  ]);
 
   const tooltipTurnNumber = tooltipTarget?.type === TIMELINE_TYPE.turn ? tooltipTarget.bar.ordinal + 1 : undefined;
   const tooltipTurn = tooltipTurnNumber == null ? undefined : aggregateSessionTurnBand(turns, tooltipTurnNumber);
@@ -572,26 +662,28 @@ export function AgentSessionEventTimelineChart({
     ) : null;
 
   return (
-    <div ref={wrapperRef} className="w-full" data-slot="agent-session-event-timeline-chart">
-      <LightTooltip
-        title={tooltipContent}
-        side="bottom"
-        triggerClassName="block w-full"
-        followCursor
-        interactive={false}
-        open={tooltipTarget != null && tooltipContent != null}
-        className="max-w-[min(25rem,calc(100vw-1rem))] whitespace-normal"
-        anchor={tooltipAnchor}
-      >
-        <div className="w-full" style={containerStyle} onMouseLeave={clearTooltip}>
-          <Chart<TimelineChartType, Array<BarPoint | MarkerPoint>, string>
-            type="bar"
-            data={chartData}
-            options={chartOptions}
-            plugins={[turnLabelPlugin, overheadPlugin]}
-          />
-        </div>
-      </LightTooltip>
+    <div ref={wrapperRef} className="w-full overflow-x-auto" data-slot="agent-session-event-timeline-chart">
+      <div style={{ width: scrolls ? chartWidthPx : '100%' }}>
+        <LightTooltip
+          title={tooltipContent}
+          side="bottom"
+          triggerClassName="block w-full"
+          followCursor
+          interactive={false}
+          open={tooltipTarget != null && tooltipContent != null}
+          className="max-w-[min(25rem,calc(100vw-1rem))] whitespace-normal"
+          anchor={tooltipAnchor}
+        >
+          <div className="w-full" style={containerStyle} onMouseLeave={clearTooltip}>
+            <Chart<TimelineChartType, Array<BarPoint | MarkerPoint>, string>
+              type="bar"
+              data={chartData}
+              options={chartOptions}
+              plugins={[turnLabelPlugin, overheadPlugin]}
+            />
+          </div>
+        </LightTooltip>
+      </div>
     </div>
   );
 }

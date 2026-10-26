@@ -160,7 +160,7 @@ export function AgentSessionMetricsStrip({ metrics }: AgentSessionMetricsStripPr
           tooltip={
             metrics.contextByTurn.length > 1 && metrics.contextTokens > 0 ? (
               <SessionMetricTooltipContent title="Context Usage at end of turn">
-                <HorizontalBarRows data={metrics.contextByTurn} formatValue={formatTokenCount} />
+                <HorizontalBarRows scrollX data={metrics.contextByTurn} formatValue={formatTokenCount} />
               </SessionMetricTooltipContent>
             ) : null
           }

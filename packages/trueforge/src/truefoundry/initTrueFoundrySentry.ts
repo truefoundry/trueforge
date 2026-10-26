@@ -75,7 +75,7 @@ export async function initTrueFoundrySentry(input: {
     Object.assign(sentryInitOptions, authData);
     sentryInitOptions.includeLocalVariables = false;
     sentryInitOptions.defaultIntegrations = false;
-    sentryInitOptions.integrations = [];
+    sentryInitOptions.integrations = [Sentry.linkedErrorsIntegration()];
     Sentry.init(sentryInitOptions);
     Sentry.getGlobalScope().setTag('TRUEFORGE_VERSION', PACKAGE_VERSION);
     if (tags) {
