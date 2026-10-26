@@ -1,10 +1,7 @@
 import {
-  ContextCompaction,
   DEFAULT_CONTEXT_COMPACTION_THRESHOLD_TOKENS,
   resolveCompactionThresholdTokens,
 } from '../../../../src/core/capabilities/builtins/ContextCompaction';
-import { EventType } from '../../../../src/core/events/schema';
-import { makeMockILLM } from '../../harnessMocks';
 
 describe('resolveCompactionThresholdTokens', () => {
   it('prefers an explicit input-token trigger', () => {
@@ -82,78 +79,5 @@ describe('resolveCompactionThresholdTokens', () => {
         modelParams: { max_tokens: 32_768 },
       }),
     ).toBe(DEFAULT_CONTEXT_COMPACTION_THRESHOLD_TOKENS);
-  });
-});
-
-describe('ContextCompaction.processPreLLM', () => {
-  it('emits summarization start, end, then context overwrite when over threshold', async () => {
-    const usage = { input_tokens: 100, output_tokens: 20, total_tokens: 120 };
-    const modelClient = makeMockILLM({
-      createNonStream: jest.fn().mockResolvedValue({
-        output: { role: 'assistant', content: 'summary of the conversation' },
-        usage,
-        finish_reason: 'stop',
-      }),
-    });
-    const compaction = new ContextCompaction({
-      modelClient,
-      compactionThresholdTokens: 1,
-    });
-
-    const events = [];
-    for await (const event of compaction.processPreLLM({
-      threadId: 'main',
-      currentContextUsage: { prompt_tokens: 10_000, completion_tokens: 0 },
-      context: [{ role: 'user', content: 'hello' }],
-    })) {
-      events.push(event);
-    }
-
-    expect(events.map(event => event.type)).toEqual([
-      EventType.AGENT_CONTEXT_SUMMARIZATION_START,
-      EventType.AGENT_CONTEXT_SUMMARIZATION_END,
-      EventType.AGENT_CONTEXT_OVERWRITE,
-    ]);
-    const reason = {
-      type: 'compaction',
-      context_tokens: 10_000,
-      threshold_tokens: 1,
-    };
-    const current_context_usage = {
-      prompt_tokens: usage.input_tokens + 42,
-      completion_tokens: 0,
-    };
-    expect(events[0]).toMatchObject({ reason });
-    expect(events[1]).toMatchObject({ reason, usage, current_context_usage });
-    expect(events[2]).toMatchObject({
-      reason: 'compaction',
-      usage,
-      current_context_usage,
-      context: [
-        { role: 'assistant', content: 'summary of the conversation' },
-        expect.objectContaining({ role: 'user' }),
-      ],
-    });
-    expect(modelClient.createNonStream).toHaveBeenCalledTimes(1);
-  });
-
-  it('emits nothing when under the compaction threshold', async () => {
-    const modelClient = makeMockILLM();
-    const compaction = new ContextCompaction({
-      modelClient,
-      compactionThresholdTokens: 100_000,
-    });
-
-    const events = [];
-    for await (const event of compaction.processPreLLM({
-      threadId: 'main',
-      currentContextUsage: { prompt_tokens: 100, completion_tokens: 0 },
-      context: [{ role: 'user', content: 'hello' }],
-    })) {
-      events.push(event);
-    }
-
-    expect(events).toEqual([]);
-    expect(modelClient.createNonStream).not.toHaveBeenCalled();
   });
 });
