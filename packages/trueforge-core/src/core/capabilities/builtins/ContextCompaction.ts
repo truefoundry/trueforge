@@ -200,16 +200,10 @@ function createSummarizationCandidate(context: ContextMessage[]) {
 export class ContextCompaction implements PreLLMAgentContextProcessor {
   private modelClient: ILLM;
   private compactionThresholdTokens: number;
-  private headers: Record<string, string> | undefined;
 
-  constructor(input: {
-    modelClient: ILLM;
-    compactionThresholdTokens: number;
-    headers?: Record<string, string> | undefined;
-  }) {
+  constructor(input: { modelClient: ILLM; compactionThresholdTokens: number }) {
     this.modelClient = input.modelClient;
     this.compactionThresholdTokens = input.compactionThresholdTokens;
-    this.headers = input.headers;
   }
 
   async *processPreLLM(
@@ -231,10 +225,9 @@ export class ContextCompaction implements PreLLMAgentContextProcessor {
 
     let response: Awaited<ReturnType<ILLM['createNonStream']>>;
     try {
-      response = await this.modelClient.createNonStream(
-        body,
-        this.headers === undefined ? undefined : { headers: this.headers },
-      );
+      response = await this.modelClient.createNonStream(body, {
+        metadata: { 'tfg.compaction': 'true' },
+      });
     } catch (error) {
       getOperationMetrics()?.recordHarnessLimit({ limit: 'context_compaction_error' });
       throw error;
@@ -280,7 +273,6 @@ export function contextCompaction(options: {
       new ContextCompaction({
         modelClient: options.definition.modelClient,
         compactionThresholdTokens: threshold,
-        headers: options.definition.compactionHeaders,
       }),
     ],
   };

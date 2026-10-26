@@ -4,7 +4,6 @@ import {
   buildGatewayMetadata,
   gatewayMetadataHeadersForTurn,
   mergeGatewayMetadata,
-  overlayGatewayMetadataHeaders,
   parseGatewayMetadataHeader,
   TFG_METADATA_PREFIX,
   X_TFY_METADATA,
@@ -116,32 +115,5 @@ describe('gatewayMetadataHeadersForTurn', () => {
       [`${TFG_METADATA_PREFIX}.agent_id`]: 'agent-1',
       [`${TFG_METADATA_PREFIX}.agent_name`]: 'my-agent',
     });
-  });
-});
-
-describe('overlayGatewayMetadataHeaders', () => {
-  it('merges call metadata into an existing client header', () => {
-    const headers = overlayGatewayMetadataHeaders({
-      clientHeaders: {
-        [X_TFY_METADATA]: JSON.stringify({
-          [`${TFG_METADATA_PREFIX}.session_id`]: 'sess-1',
-          env: 'prod',
-        }),
-      },
-      metadata: { compaction: 'true' },
-    });
-    expect(JSON.parse(headers[X_TFY_METADATA] ?? '')).toEqual({
-      [`${TFG_METADATA_PREFIX}.session_id`]: 'sess-1',
-      env: 'prod',
-      compaction: 'true',
-    });
-  });
-
-  it('creates the header when the client had none', () => {
-    const headers = overlayGatewayMetadataHeaders({
-      clientHeaders: {},
-      metadata: { compaction: 'true' },
-    });
-    expect(JSON.parse(headers[X_TFY_METADATA] ?? '')).toEqual({ compaction: 'true' });
   });
 });

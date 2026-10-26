@@ -87,16 +87,6 @@ export function gatewayMetadataHeaders(metadata: Record<string, string>): Record
   return { [X_TFY_METADATA]: JSON.stringify(metadata) };
 }
 
-/** Overlay call metadata onto an existing client `x-tfy-metadata` header. */
-export function overlayGatewayMetadataHeaders(input: {
-  clientHeaders: Record<string, string>;
-  metadata: Record<string, string>;
-}): Record<string, string> {
-  const raw = headerValue(input.clientHeaders, X_TFY_METADATA);
-  const existing = raw === undefined ? {} : parseGatewayMetadataHeader(raw);
-  return gatewayMetadataHeaders({ ...existing, ...input.metadata });
-}
-
 /** Metadata header for a turn. Reads `x-tfy-metadata` from the raw request headers. */
 export function gatewayMetadataHeadersForTurn(turnMetadata: TurnMetadata | undefined): Record<string, string> {
   if (turnMetadata === undefined) {

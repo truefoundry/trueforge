@@ -410,7 +410,6 @@ describe('TurnHandle.stream()', () => {
           modelClient: makeMockILLM({ create: jest.fn().mockImplementation(() => emptyLlmStream()) }),
           defaultModelParams: {},
           providerType: undefined,
-          compactionHeaders: undefined,
         }),
       mcp: () =>
         Promise.resolve({
@@ -476,7 +475,6 @@ describe('TurnResourceResolver caches', () => {
           modelClient: makeMockILLM(),
           defaultModelParams: {},
           providerType: undefined,
-          compactionHeaders: undefined,
         }),
       mcp: () =>
         Promise.resolve({
@@ -508,7 +506,6 @@ describe('TurnResourceResolver caches', () => {
           modelClient,
           defaultModelParams: {},
           providerType: undefined,
-          compactionHeaders: undefined,
         };
       },
       mcp: () => Promise.reject(new Error('unused')),
@@ -531,7 +528,6 @@ describe('TurnResourceResolver caches', () => {
           modelClient: makeMockILLM({ create: jest.fn().mockImplementation(() => emptyLlmStream()) }),
           defaultModelParams: {},
           providerType: undefined,
-          compactionHeaders: undefined,
         }),
       mcp: () =>
         Promise.resolve({

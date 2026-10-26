@@ -28,6 +28,4 @@ export interface AgentDefinition {
   iterationLimit?: number | undefined;
 
   toolSets?: readonly IToolSet[] | undefined;
-  /** Optional header overrides for the context-compaction LLM call. */
-  compactionHeaders?: Record<string, string> | undefined;
 }

@@ -135,16 +135,6 @@ function compatibleModel(config: VercelAIProviderConfig): LanguageModel {
   if (baseUrl === undefined) {
     throw new Error(`Provider "${provider.type}" requires a baseUrl`);
   }
-  // More straightforward than mutating tool definitions for fine-grained tool streaming.
-  // TODO: fine-grained-tool-streaming-2025-05-14 is considered deprecated.
-  const outboundHeaders =
-    provider.type === 'truefoundry'
-      ? {
-          ...headers,
-          'anthropic-beta': 'fine-grained-tool-streaming-2025-05-14',
-          'x-tfy-forward-pings': 'true',
-        }
-      : headers;
   const client = createOpenAICompatible({
     name: provider.type,
     baseURL: baseUrl,
@@ -154,9 +144,68 @@ function compatibleModel(config: VercelAIProviderConfig): LanguageModel {
     supportsStructuredOutputs: true,
     // These endpoints omit token counts from streamed responses unless asked.
     includeUsage: true,
-    ...(Object.keys(outboundHeaders).length > 0 ? { headers: outboundHeaders } : {}),
+    ...(Object.keys(headers).length > 0 ? { headers } : {}),
   });
   return client(model.id);
+}
+
+/** Gateway header carrying stringified JSON metadata (TrueFoundry AI Gateway). */
+const X_TFY_METADATA = 'x-tfy-metadata';
+
+/**
+ * Merge client defaults with per-call headers/metadata.
+ * TrueFoundry also stamps anthropic-beta, forward-pings, and folds `metadata` into `x-tfy-metadata`.
+ */
+export function buildOutboundRequestHeaders(input: {
+  providerType: VercelAIProviderName;
+  clientHeaders: Record<string, string>;
+  options: LLMRequestOptions | undefined;
+}): Record<string, string> {
+  let headers: Record<string, string> = {
+    ...input.clientHeaders,
+    ...input.options?.headers,
+  };
+
+  if (input.providerType !== 'truefoundry') {
+    return headers;
+  }
+
+  // More straightforward than mutating tool definitions for fine-grained tool streaming.
+  // TODO: fine-grained-tool-streaming-2025-05-14 is considered deprecated.
+  headers = {
+    ...headers,
+    'anthropic-beta': 'fine-grained-tool-streaming-2025-05-14',
+    'x-tfy-forward-pings': 'true',
+  };
+
+  const metadata = input.options?.metadata;
+  if (metadata === undefined || Object.keys(metadata).length === 0) {
+    return headers;
+  }
+
+  let existing: Record<string, string> = {};
+  const withoutMetadata: Record<string, string> = {};
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() === X_TFY_METADATA) {
+      try {
+        const parsed: unknown = JSON.parse(value);
+        if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          existing = Object.fromEntries(
+            Object.entries(parsed).filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
+          );
+        }
+      } catch {
+        existing = {};
+      }
+      continue;
+    }
+    withoutMetadata[key] = value;
+  }
+
+  return {
+    ...withoutMetadata,
+    [X_TFY_METADATA]: JSON.stringify({ ...existing, ...metadata }),
+  };
 }
 
 export function buildLanguageModel(config: VercelAIProviderConfig): LanguageModel {
@@ -1480,8 +1529,11 @@ export class VercelAILLM implements ILLM {
       abortSignal: this.signal,
     });
 
-    const requestHeaders =
-      options?.headers === undefined ? providerConfig.headers : { ...providerConfig.headers, ...options.headers };
+    const requestHeaders = buildOutboundRequestHeaders({
+      providerType: provider.type,
+      clientHeaders: providerConfig.headers,
+      options,
+    });
 
     let streamResult;
     try {

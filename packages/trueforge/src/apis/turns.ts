@@ -69,7 +69,7 @@ import {
 } from '../runtime/sessionResources';
 import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
 import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
-import { assertGatewayMetadataRequestHeaders, overlayGatewayMetadataHeaders } from '../truefoundry/gatewayMetadata';
+import { assertGatewayMetadataRequestHeaders } from '../truefoundry/gatewayMetadata';
 import { newId } from '../utils/id';
 import { resolveWebSearchProvider } from '../websearch/providers';
 import { canReadAgentBoundResource, canReadSession } from './agentAccess';
@@ -213,10 +213,6 @@ function createTurnResolver(deps: {
         defaultModelParams: resolved.defaultModelParams,
         modelProperties: resolved.modelProperties,
         providerType: resolved.providerConfig.provider.type,
-        compactionHeaders: overlayGatewayMetadataHeaders({
-          clientHeaders: resolved.providerConfig.headers,
-          metadata: { compaction: 'true' },
-        }),
       };
     },
     mcp: async name => {

@@ -106,7 +106,6 @@ export function makeTestResolver<TTurnCustom extends object = Record<string, nev
         modelClient: llm,
         defaultModelParams: {},
         providerType: undefined,
-        compactionHeaders: undefined,
       }),
     mcp: name => {
       return Promise.reject(new Error(`unexpected mcp lookup: ${name}`));
