@@ -1,4 +1,4 @@
-import { EventType, newEventId } from '../../events/schema';
+import { EventType, newEventId, type CompactionSummarizationReason } from '../../events/schema';
 import type { ILLM, LLMCreateParams } from '../../llm/ILLM';
 import type { AgentDefinition } from '../../runtime/AgentDefinition';
 import type { ContextMessage } from '../../runtime/AgentThread.types';
@@ -213,6 +213,19 @@ export class ContextCompaction implements PreLLMAgentContextProcessor {
       return;
     }
 
+    const reason: CompactionSummarizationReason = {
+      type: 'compaction',
+      context_tokens: contextTokens,
+      threshold_tokens: this.compactionThresholdTokens,
+    };
+
+    yield {
+      type: EventType.AGENT_CONTEXT_SUMMARIZATION_START,
+      id: newEventId(),
+      created_at: new Date().toISOString(),
+      reason,
+    };
+
     // Model identity is owned by modelClient — omit OpenAI's required `model` field.
     const body: LLMCreateParams = {
       messages: [
@@ -224,6 +237,20 @@ export class ContextCompaction implements PreLLMAgentContextProcessor {
 
     const response = await this.modelClient.createNonStream(body);
     const context: ContextMessage[] = [{ role: 'assistant', content: response.output.content }, CONTINUATION_MESSAGE];
+    // Approximate post-compaction budget; omits tool-definition tokens and refreshes on the next LLM call.
+    const current_context_usage = {
+      prompt_tokens: response.usage.input_tokens + CONTINUATION_MESSAGE_TOKENS,
+      completion_tokens: 0,
+    };
+
+    yield {
+      type: EventType.AGENT_CONTEXT_SUMMARIZATION_END,
+      id: newEventId(),
+      created_at: new Date().toISOString(),
+      reason,
+      usage: response.usage,
+      current_context_usage,
+    };
 
     yield {
       type: EventType.AGENT_CONTEXT_OVERWRITE,
@@ -231,14 +258,7 @@ export class ContextCompaction implements PreLLMAgentContextProcessor {
       created_at: new Date().toISOString(),
       reason: 'compaction',
       context: context,
-      current_context_usage: {
-        // NOTE(agent): This is not really correct.
-        // This is not taking into account that the original request had
-        // tool definition in them.
-        // This will get refreshed in the next LLM call.
-        prompt_tokens: response.usage.input_tokens + CONTINUATION_MESSAGE_TOKENS,
-        completion_tokens: 0,
-      },
+      current_context_usage,
       usage: response.usage,
     };
   }

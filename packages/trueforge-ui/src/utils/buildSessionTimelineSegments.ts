@@ -202,6 +202,24 @@ export function buildSessionTimelineSegments(turns: SessionTurnView[]): SessionE
     .sort((left, right) => left.startMs - right.startMs || left.endMs - right.endMs);
 }
 
+function readNonNegativeInt(record: Record<string, unknown>, camel: string, snake: string): number | undefined {
+  const camelValue = record[camel];
+  if (typeof camelValue === 'number' && Number.isFinite(camelValue) && camelValue >= 0) return Math.floor(camelValue);
+  const snakeValue = record[snake];
+  if (typeof snakeValue === 'number' && Number.isFinite(snakeValue) && snakeValue >= 0) return Math.floor(snakeValue);
+  return undefined;
+}
+
+/** Compact trigger copy for timeline tooltips when reason carries token counts. */
+function summarizationReasonDescription(event: TimelineEvent): string | undefined {
+  const reason = isRecord(event.reason) ? event.reason : undefined;
+  if (reason == null || reason.type !== 'compaction') return undefined;
+  const contextTokens = readNonNegativeInt(reason, 'contextTokens', 'context_tokens');
+  const thresholdTokens = readNonNegativeInt(reason, 'thresholdTokens', 'threshold_tokens');
+  if (contextTokens == null || thresholdTokens == null || thresholdTokens <= 0) return undefined;
+  return `Context ${String(contextTokens)} / threshold ${String(thresholdTokens)} tokens`;
+}
+
 /**
  * Map one supported server event to zero or more visual segments.
  *
@@ -366,6 +384,8 @@ function appendEventSegments({
     case 'mcp.auth_required':
     case 'mcp.initialize':
     case 'sandbox.created':
+    case 'agent.context.summarization.start':
+    case 'agent.context.summarization.end':
       // These are point-in-time state transitions, so start and end are equal
       // and Chart.js renders them with the configured minimum marker width.
       segments.push({
@@ -386,7 +406,11 @@ function appendEventSegments({
                 ? 'MCP authentication required'
                 : event.type === 'mcp.initialize'
                   ? 'MCP initialized'
-                  : 'Sandbox created',
+                  : event.type === 'agent.context.summarization.start'
+                    ? (summarizationReasonDescription(event) ?? 'Context summarization started')
+                    : event.type === 'agent.context.summarization.end'
+                      ? (summarizationReasonDescription(event) ?? 'Context summarization finished')
+                      : 'Sandbox created',
         startMs: eventMs - originMs,
         endMs: eventMs - originMs,
         turnIndex,

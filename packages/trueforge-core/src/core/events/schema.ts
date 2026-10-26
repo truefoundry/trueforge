@@ -29,6 +29,8 @@ export function newEventId(): string {
 /** Canonical string constants for harness wire-level and user-input event `type` fields. */
 export const EventType = {
   AGENT_CONTEXT_OVERWRITE: 'agent.context.overwrite',
+  AGENT_CONTEXT_SUMMARIZATION_START: 'agent.context.summarization.start',
+  AGENT_CONTEXT_SUMMARIZATION_END: 'agent.context.summarization.end',
   MCP_AUTH_REQUIRED: 'mcp.auth_required',
   MCP_INITIALIZE: 'mcp.initialize',
   MODEL_MESSAGE: 'model.message',
@@ -322,11 +324,8 @@ const ContextMessageSchema = z.union([
   AgentApprovalDecisionMessageSchema,
 ]);
 
+/** Compacted thread context after summarization. Not streamed; mutates durable thread state. */
 export const ThreadOverwriteContextEventSchema = z.object({
-  // TODO(agent): This will be used by summarization.
-
-  // TODO(agent): For summarization, we will add a AgentExecutionContextSummarizationStart and AgentExecutionContextSummarizationEnd
-  // event. Summarization can take some time, this will ensure that the customer is aware of what is happening.
   type: z.literal(EventType.AGENT_CONTEXT_OVERWRITE),
   id: EventIdSchema,
   created_at: z.string(),
@@ -338,6 +337,47 @@ export const ThreadOverwriteContextEventSchema = z.object({
   current_context_usage: CurrentContextUsageSchema,
   usage: CompletionUsageSchema,
 });
+
+/** Compaction trigger details. Promote to a discriminated union when another reason lands. */
+export const CompactionSummarizationReasonSchema = z
+  .object({
+    type: z.literal('compaction').describe('Triggered because estimated context crossed the compaction threshold.'),
+    context_tokens: z
+      .number()
+      .int()
+      .nonnegative()
+      .describe('Estimated context tokens when compaction fired (prompt + completion).'),
+    threshold_tokens: z.number().int().positive().describe('Configured compaction threshold in tokens.'),
+  })
+  .openapi('CompactionSummarizationReason');
+
+export const AgentContextSummarizationStartEventSchema = z
+  .object({
+    type: z
+      .literal(EventType.AGENT_CONTEXT_SUMMARIZATION_START)
+      .describe('Context summarization started; may take noticeable time.'),
+    id: EventIdSchema,
+    created_at: z.string().describe('ISO 8601 event timestamp.'),
+    thread_id: z.string().describe('Thread whose context is being summarized.'),
+    reason: CompactionSummarizationReasonSchema.describe('Why summarization was triggered.'),
+  })
+  .openapi('AgentContextSummarizationStartEvent');
+
+export const AgentContextSummarizationEndEventSchema = z
+  .object({
+    type: z
+      .literal(EventType.AGENT_CONTEXT_SUMMARIZATION_END)
+      .describe('Context summarization finished; context overwrite follows.'),
+    id: EventIdSchema,
+    created_at: z.string().describe('ISO 8601 event timestamp.'),
+    thread_id: z.string().describe('Thread whose context was summarized.'),
+    reason: CompactionSummarizationReasonSchema.describe('Why summarization was triggered.'),
+    usage: CompletionUsageSchema.describe('Token usage for the summarization model call.'),
+    current_context_usage: CurrentContextUsageSchema.describe(
+      'Estimated context budget after compaction (same value applied by the following overwrite).',
+    ),
+  })
+  .openapi('AgentContextSummarizationEndEvent');
 
 export const MCPServerAuthInfoSchema = z
   .object({
@@ -442,6 +482,8 @@ export const AgentOutputEventSchema = z.discriminatedUnion('type', [
   ToolResponseEventSchema,
   ThreadCreatedEventSchema,
   ThreadDoneEventSchema,
+  AgentContextSummarizationStartEventSchema,
+  AgentContextSummarizationEndEventSchema,
   MCPAuthRequiredEventSchema,
   MCPInitializeEventSchema,
   SandboxCreatedEventSchema,
@@ -473,6 +515,9 @@ export type ThreadStateError = z.infer<typeof ThreadStateErrorSchema>;
 export type ThreadState = z.infer<typeof ThreadStateSchema>;
 export type ThreadDoneEvent = z.infer<typeof ThreadDoneEventSchema>;
 export type ThreadOverwriteContextEvent = z.infer<typeof ThreadOverwriteContextEventSchema>;
+export type CompactionSummarizationReason = z.infer<typeof CompactionSummarizationReasonSchema>;
+export type AgentContextSummarizationStartEvent = z.infer<typeof AgentContextSummarizationStartEventSchema>;
+export type AgentContextSummarizationEndEvent = z.infer<typeof AgentContextSummarizationEndEventSchema>;
 export type BaseMCPAuthRequiredEvent = z.infer<typeof BaseMCPAuthRequiredEventSchema>;
 export type MCPServerAuthInfo = z.infer<typeof MCPServerAuthInfoSchema>;
 export type MCPAuthRequiredEvent = z.infer<typeof MCPAuthRequiredEventSchema>;

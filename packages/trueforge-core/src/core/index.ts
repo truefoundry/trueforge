@@ -101,7 +101,10 @@ export type { VercelAILLMConfig, VercelAIProviderConfig, VercelAIProviderName } 
 // Event contracts
 export {
   ActionRequiredEventSchema,
+  AgentContextSummarizationEndEventSchema,
+  AgentContextSummarizationStartEventSchema,
   AgentInputUserMessageSchema,
+  CompactionSummarizationReasonSchema,
   EventIdSchema,
   EventType,
   MCPAuthRequiredEventSchema,
@@ -126,7 +129,10 @@ export {
   newEventId,
 } from './events/schema';
 export type {
+  AgentContextSummarizationEndEvent,
+  AgentContextSummarizationStartEvent,
   AgentOutputEvent,
+  CompactionSummarizationReason,
   MCPAuthRequiredEvent,
   MCPServerAuthInfo,
   MCPServerInitInfo,

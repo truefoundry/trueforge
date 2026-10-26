@@ -13,6 +13,8 @@ import {
   TurnUpdateEventSchema,
 } from '@truefoundry/trueforge-core/agent-session';
 import {
+  AgentContextSummarizationEndEventSchema,
+  AgentContextSummarizationStartEventSchema,
   MCPAuthRequiredEventSchema,
   MCPInitializeEventSchema,
   ModelMessageDeltaEventSchema,
@@ -62,6 +64,8 @@ export const TurnStreamingEventSchema = z
     ToolResponseEventSchema,
     ThreadCreatedEventSchema,
     ThreadDoneEventSchema,
+    AgentContextSummarizationStartEventSchema,
+    AgentContextSummarizationEndEventSchema,
     MCPAuthRequiredEventSchema,
     MCPInitializeEventSchema,
     SandboxCreatedEventSchema,

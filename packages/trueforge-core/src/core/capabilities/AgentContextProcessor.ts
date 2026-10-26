@@ -1,5 +1,9 @@
 import type { ChatCompletionMessageParam } from 'openai/resources/chat';
-import type { ThreadOverwriteContextEvent } from '../events/schema';
+import type {
+  AgentContextSummarizationEndEvent,
+  AgentContextSummarizationStartEvent,
+  ThreadOverwriteContextEvent,
+} from '../events/schema';
 import type {
   AgentThreadAppendContext,
   ContextMessage,
@@ -24,9 +28,15 @@ export type AgentContextProcessorAppendContext = Omit<AgentThreadAppendContext, 
 /** Processors omit thread_id — AgentThread stamps it (same as append/overwrite). */
 export type AgentContextProcessorCapabilityState = Omit<InternalCapabilityStateEvent, 'thread_id'>;
 
+export type AgentContextProcessorSummarizationStart = Omit<AgentContextSummarizationStartEvent, 'thread_id'>;
+
+export type AgentContextProcessorSummarizationEnd = Omit<AgentContextSummarizationEndEvent, 'thread_id'>;
+
 export type AgentContextProcessorOutput =
   | AgentContextProcessorOverwriteContext
   | AgentContextProcessorAppendContext
+  | AgentContextProcessorSummarizationStart
+  | AgentContextProcessorSummarizationEnd
   | InternalPassthroughEvent
   | AgentContextProcessorCapabilityState;
 

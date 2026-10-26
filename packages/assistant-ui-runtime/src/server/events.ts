@@ -175,6 +175,30 @@ export interface McpInitializeEvent {
   [key: string]: unknown;
 }
 
+export interface CompactionSummarizationReason {
+  type: 'compaction';
+  contextTokens: number;
+  thresholdTokens: number;
+}
+
+export interface AgentContextSummarizationStartEvent {
+  type: 'agent.context.summarization.start';
+  id: string;
+  createdAt: string;
+  threadId: string;
+  reason: CompactionSummarizationReason;
+}
+
+export interface AgentContextSummarizationEndEvent {
+  type: 'agent.context.summarization.end';
+  id: string;
+  createdAt: string;
+  threadId: string;
+  reason: CompactionSummarizationReason;
+  usage?: unknown;
+  currentContextUsage: { promptTokens: number; completionTokens: number };
+}
+
 // ---------------------------------------------------------------------------
 // Turn lifecycle events
 // ---------------------------------------------------------------------------
@@ -208,6 +232,8 @@ export type TurnEvent =
   | ToolResponseEvent
   | ThreadCreatedEvent
   | ThreadDoneEvent
+  | AgentContextSummarizationStartEvent
+  | AgentContextSummarizationEndEvent
   | McpAuthRequiredEvent
   | McpInitializeEvent
   | SandboxCreatedEvent

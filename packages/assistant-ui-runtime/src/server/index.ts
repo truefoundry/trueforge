@@ -153,9 +153,12 @@ export type {
 
 export type {
   ActionRequiredEvent,
+  AgentContextSummarizationEndEvent,
+  AgentContextSummarizationStartEvent,
   AgentInfo,
   AgentParent,
   ChunkDeltaToolCall,
+  CompactionSummarizationReason,
   DeltaEvents,
   McpAuthRequiredEvent,
   McpInitializeEvent,
