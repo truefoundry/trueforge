@@ -108,6 +108,8 @@ export class PeerThreadFoldState {
   readonly threadParents = new Map<string, ThreadParentLink>();
   /** Set only while building content for a cancelled/errored parent turn; cleared after. */
   parentTerminalStatus: ParentTerminalStatus | undefined;
+  /** Set only while building a finished turn; later compactions belong to a newer turn. */
+  settledTurnCompletedAtMs: number | undefined;
 
   getOrCreateBucket(threadId: string): ThreadBucket {
     let bucket = this.threads.get(threadId);
@@ -295,10 +297,12 @@ function shouldIncludeCompactionStarted({
   bucket,
   startedId,
   scopedModelIds,
+  settledTurnCompletedAtMs,
 }: {
   bucket: ThreadBucket;
   startedId: string;
   scopedModelIds: ReadonlySet<string> | null;
+  settledTurnCompletedAtMs: number | undefined;
 }): boolean {
   if (scopedModelIds == null) {
     return true;
@@ -309,6 +313,11 @@ function shouldIncludeCompactionStarted({
   }
   if (scopedModelIds.size === 0) {
     return true;
+  }
+  // The fold is session-wide: a compaction that began after this turn finished is the next turn's.
+  const startedAtMs = Date.parse(bucket.events.get(startedId)?.createdAt ?? '');
+  if (settledTurnCompletedAtMs != null && startedAtMs > settledTurnCompletedAtMs) {
+    return false;
   }
   const previousModelId = previousModelMessageIdBefore({ bucket, beforeId: startedId });
   return previousModelId != null && scopedModelIds.has(previousModelId);
@@ -628,6 +637,7 @@ function buildThreadAssistantParts(
           bucket,
           startedId: id,
           scopedModelIds,
+          settledTurnCompletedAtMs: state.settledTurnCompletedAtMs,
         })
       ) {
         continue;
