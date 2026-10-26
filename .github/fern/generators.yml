@@ -72,8 +72,9 @@ groups:
             exports:
               '.':
                 'trueforge-dev':
-                  default: './src/index.ts'
+                  # `types` must precede `default` (exports key order is match priority).
                   types: './dist/esm/index.d.mts'
+                  default: './src/index.ts'
             homepage: https://github.com/truefoundry/trueforge/tree/main/packages/trueforge-sdk#readme
             license: MIT
             name: '@truefoundry/trueforge-sdk'

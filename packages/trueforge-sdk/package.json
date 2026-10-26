@@ -9,8 +9,8 @@
     "exports": {
         ".": {
             "trueforge-dev": {
-                "default": "./src/index.ts",
-                "types": "./dist/esm/index.d.mts"
+                "types": "./dist/esm/index.d.mts",
+                "default": "./src/index.ts"
             },
             "import": {
                 "types": "./dist/esm/index.d.mts",
