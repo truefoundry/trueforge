@@ -10,7 +10,6 @@ import {
 import type { WithTransaction } from '../db/transaction';
 import { nextTriggerAfter } from '../runtime/cron';
 import { InvalidCronError, type ScheduleRunStatus } from '../schemas/schedule';
-import { captureCriticalException } from '../sentry';
 import type { ControlLoop } from './Controller';
 import { internalTrueForgeClient } from './internalTrueForgeClient';
 
@@ -295,13 +294,13 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
           schedule_id: schedule.id,
           run_id: run.id,
           error,
-        });
-        captureCriticalException(error, {
-          tags: { module: 'scheduleDispatch', operation: 'handoff' },
-          extra: {
-            tenant_id: run.tenant_id,
-            schedule_id: schedule.id,
-            run_id: run.id,
+          reportable_error: {
+            error,
+            extra: {
+              tenant_id: run.tenant_id,
+              schedule_id: schedule.id,
+              run_id: run.id,
+            },
           },
         });
         await finishScheduledRun({
@@ -329,13 +328,13 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
         schedule_id: run.schedule_id,
         run_id: run.id,
         error,
-      });
-      captureCriticalException(error, {
-        tags: { module: 'scheduleDispatch', operation: 'processRun' },
-        extra: {
-          tenant_id: run.tenant_id,
-          schedule_id: run.schedule_id,
-          run_id: run.id,
+        reportable_error: {
+          error,
+          extra: {
+            tenant_id: run.tenant_id,
+            schedule_id: run.schedule_id,
+            run_id: run.id,
+          },
         },
       });
     }

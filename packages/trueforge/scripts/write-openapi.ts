@@ -34,6 +34,7 @@ import { SqliteSessionMetricsStore } from '../src/db/sqlite/session-metrics/Sqli
 import { SqliteSkillStore } from '../src/db/sqlite/skill-store/SqliteSkillStore';
 import { SqliteOAuthTokenStore } from '../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import { SqliteWebSearchProviderStore } from '../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
+import { createHttpMetrics } from '../src/http/prometheus';
 import { ActiveTurnRegistry } from '../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../src/runtime/event-subscription';
 
@@ -69,6 +70,8 @@ const sandboxEnvironmentStore = new SqliteSandboxEnvironmentStore(db);
 const skillStore = new SqliteSkillStore(db);
 const sandboxProviderStore = new SqliteSandboxProviderStore(db);
 const webSearchProviderStore = new SqliteWebSearchProviderStore(db);
+// HTTP middleware needs a registry. Document generation does not scrape it.
+const httpMetrics = createHttpMetrics();
 const app = createServerApp({
   modelCatalog: ModelCatalog.load(),
   mcpCatalog: McpCatalog.load(),
@@ -103,6 +106,7 @@ const app = createServerApp({
   oidcClient: undefined,
   authenticator: new StandaloneAuthenticator(),
   authorizer: new TrueForgeAuthorizer(),
+  httpMetrics,
 });
 
 // Runtime apps only advertise BearerAuth when OIDC is configured. The committed

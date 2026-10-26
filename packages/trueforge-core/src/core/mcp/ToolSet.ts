@@ -22,6 +22,10 @@ export class ToolSet implements IToolSet {
   readonly name: string;
   readonly id: string;
   readonly description?: string | undefined;
+
+  get serverClass() {
+    return this.source.serverClass;
+  }
   readonly preload: boolean;
   readonly hasPreloadedTools: boolean;
 

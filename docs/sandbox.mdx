@@ -2,6 +2,7 @@
 title: 'Setup Sandbox'
 sidebarTitle: 'Sandbox'
 description: 'Connect an isolated execution environment for code, files, and shell commands — provisioned only when the agent needs one.'
+boost: 3
 ---
 
 The sandbox gives your agent a secure, isolated environment to run code, manipulate files, and execute shell commands — separate from the TrueForge server and your infrastructure.
@@ -76,6 +77,10 @@ Click **New Environment**, give it a name your agents will reference, then set w
 | **Block All Network** | Blocks all outbound traffic. The domain allow list and secrets are ignored while this is on | When a sandbox is **created** |
 | **Domain Allow List** | Comma-separated hosts the sandbox may reach, for example `api.github.com,api.openai.com` | When a sandbox is **created** |
 | **Secrets** | Network-scoped credentials injected as environment variables, see [Secrets](#secrets) | Value and host edits reach **existing** sandboxes immediately; a newly added secret applies on the next create |
+
+<Warning>
+  Do not put API keys, tokens, or other sensitive values in **Environment Variables**. Those values are stored in plain text and are available inside the sandbox. Use [Secrets](#secrets) instead — they are injected securely through the egress proxy for the hosts you allow.
+</Warning>
 
 <Frame caption="Creating an environment: image and resources, environment variables, networking, and secrets.">
   ![The New environment form with name, build script, CPU, memory, and disk, environment variables, a Block All Network toggle with a domain allow list, and secrets](/images/sandbox-environment-new.png)
