@@ -176,7 +176,7 @@ export interface McpInitializeEvent {
 }
 
 export interface CompactionTrigger {
-  type: 'compaction';
+  type: 'context_threshold_exceeded';
   contextTokens: number;
   thresholdTokens: number;
 }

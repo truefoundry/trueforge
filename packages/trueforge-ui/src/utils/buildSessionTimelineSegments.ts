@@ -221,7 +221,7 @@ function readNonNegativeInt({
 /** Compact trigger copy for timeline tooltips when trigger carries token counts. */
 function compactionTriggerDescription(event: TimelineEvent): string | undefined {
   const trigger = isRecord(event.trigger) ? event.trigger : undefined;
-  if (trigger == null || trigger.type !== 'compaction') return undefined;
+  if (trigger == null || trigger.type !== 'context_threshold_exceeded') return undefined;
   const contextTokens = readNonNegativeInt({ record: trigger, camel: 'contextTokens', snake: 'context_tokens' });
   const thresholdTokens = readNonNegativeInt({
     record: trigger,

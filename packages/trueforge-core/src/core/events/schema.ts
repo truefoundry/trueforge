@@ -341,7 +341,9 @@ export const ThreadOverwriteContextEventSchema = z.object({
 /** Why compaction ran. Promote to a discriminated union when another trigger lands. */
 export const CompactionTriggerSchema = z
   .object({
-    type: z.literal('compaction').describe('Triggered because estimated context crossed the compaction threshold.'),
+    type: z
+      .literal('context_threshold_exceeded')
+      .describe('Triggered because estimated context crossed the compaction threshold.'),
     context_tokens: z
       .number()
       .int()
