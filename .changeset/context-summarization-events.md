@@ -5,4 +5,4 @@
 '@truefoundry/trueforge-assistant-ui-runtime': patch
 ---
 
-Emit `agent.context.summarization.start` / `.end` events around context compaction so clients can show progress while summarization runs.
+Emit `thread.context_compaction_started` / `thread.context_compaction_finished` around context compaction (trigger, usage, duration_ms).

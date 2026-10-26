@@ -1,4 +1,4 @@
-import { EventType, newEventId, type CompactionSummarizationReason } from '../../events/schema';
+import { EventType, newEventId, type CompactionTrigger } from '../../events/schema';
 import type { ILLM, LLMCreateParams } from '../../llm/ILLM';
 import type { AgentDefinition } from '../../runtime/AgentDefinition';
 import type { ContextMessage } from '../../runtime/AgentThread.types';
@@ -213,17 +213,17 @@ export class ContextCompaction implements PreLLMAgentContextProcessor {
       return;
     }
 
-    const reason: CompactionSummarizationReason = {
+    const trigger: CompactionTrigger = {
       type: 'compaction',
       context_tokens: contextTokens,
       threshold_tokens: this.compactionThresholdTokens,
     };
 
     yield {
-      type: EventType.AGENT_CONTEXT_SUMMARIZATION_START,
+      type: EventType.THREAD_CONTEXT_COMPACTION_STARTED,
       id: newEventId(),
       created_at: new Date().toISOString(),
-      reason,
+      trigger,
     };
 
     // Model identity is owned by modelClient — omit OpenAI's required `model` field.
@@ -235,21 +235,18 @@ export class ContextCompaction implements PreLLMAgentContextProcessor {
       stream: false,
     };
 
+    const startedAtMs = Date.now();
     const response = await this.modelClient.createNonStream(body);
+    const duration_ms = Math.max(0, Date.now() - startedAtMs);
     const context: ContextMessage[] = [{ role: 'assistant', content: response.output.content }, CONTINUATION_MESSAGE];
-    // Approximate post-compaction budget; omits tool-definition tokens and refreshes on the next LLM call.
-    const current_context_usage = {
-      prompt_tokens: response.usage.input_tokens + CONTINUATION_MESSAGE_TOKENS,
-      completion_tokens: 0,
-    };
 
     yield {
-      type: EventType.AGENT_CONTEXT_SUMMARIZATION_END,
+      type: EventType.THREAD_CONTEXT_COMPACTION_FINISHED,
       id: newEventId(),
       created_at: new Date().toISOString(),
-      reason,
+      trigger,
       usage: response.usage,
-      current_context_usage,
+      duration_ms,
     };
 
     yield {
@@ -258,7 +255,11 @@ export class ContextCompaction implements PreLLMAgentContextProcessor {
       created_at: new Date().toISOString(),
       reason: 'compaction',
       context: context,
-      current_context_usage,
+      current_context_usage: {
+        // Approximate post-compaction budget; omits tool-definition tokens and refreshes on the next LLM call.
+        prompt_tokens: response.usage.input_tokens + CONTINUATION_MESSAGE_TOKENS,
+        completion_tokens: 0,
+      },
       usage: response.usage,
     };
   }

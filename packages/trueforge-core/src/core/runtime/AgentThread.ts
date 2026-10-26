@@ -18,8 +18,6 @@ import {
   EventType,
   newEventId,
   type AgentApprovalDecisionMessage,
-  type AgentContextSummarizationEndEvent,
-  type AgentContextSummarizationStartEvent,
   type AgentInfo,
   type AgentOutputEvent,
   type AgentParent,
@@ -29,6 +27,8 @@ import {
   type ModelMessageEvent,
   type ModelMessageUsage,
   type SandboxCreatedEvent,
+  type ThreadContextCompactionFinishedEvent,
+  type ThreadContextCompactionStartedEvent,
   type ThreadOverwriteContextEvent,
   type ToolApprovalRequiredEvent,
   type ToolResponseEvent,
@@ -976,8 +976,8 @@ export class AgentThread {
     hook: 'preLLM' | 'postToolCall',
   ): AsyncGenerator<
     | ThreadOverwriteContextEvent
-    | AgentContextSummarizationStartEvent
-    | AgentContextSummarizationEndEvent
+    | ThreadContextCompactionStartedEvent
+    | ThreadContextCompactionFinishedEvent
     | AgentThreadAppendContext
     | { type: typeof InternalEventType.PASSTHROUGH; event: RegisteredPassthroughEvent }
     | InternalCapabilityStateEvent,
@@ -988,8 +988,8 @@ export class AgentThread {
     hook: 'preSend' | 'preLLM' | 'postToolCall',
   ): AsyncGenerator<
     | ThreadOverwriteContextEvent
-    | AgentContextSummarizationStartEvent
-    | AgentContextSummarizationEndEvent
+    | ThreadContextCompactionStartedEvent
+    | ThreadContextCompactionFinishedEvent
     | AgentThreadAppendContext
     | { type: typeof InternalEventType.PASSTHROUGH; event: RegisteredPassthroughEvent }
     | InternalCapabilityStateEvent,
@@ -1034,8 +1034,8 @@ export class AgentThread {
           case EventType.AGENT_CONTEXT_OVERWRITE:
             yield* this.overwriteContext(response);
             break;
-          case EventType.AGENT_CONTEXT_SUMMARIZATION_START:
-          case EventType.AGENT_CONTEXT_SUMMARIZATION_END:
+          case EventType.THREAD_CONTEXT_COMPACTION_STARTED:
+          case EventType.THREAD_CONTEXT_COMPACTION_FINISHED:
             yield {
               ...response,
               thread_id: this.threadId,

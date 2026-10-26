@@ -175,28 +175,28 @@ export interface McpInitializeEvent {
   [key: string]: unknown;
 }
 
-export interface CompactionSummarizationReason {
+export interface CompactionTrigger {
   type: 'compaction';
   contextTokens: number;
   thresholdTokens: number;
 }
 
-export interface AgentContextSummarizationStartEvent {
-  type: 'agent.context.summarization.start';
+export interface ThreadContextCompactionStartedEvent {
+  type: 'thread.context_compaction_started';
   id: string;
   createdAt: string;
   threadId: string;
-  reason: CompactionSummarizationReason;
+  trigger: CompactionTrigger;
 }
 
-export interface AgentContextSummarizationEndEvent {
-  type: 'agent.context.summarization.end';
+export interface ThreadContextCompactionFinishedEvent {
+  type: 'thread.context_compaction_finished';
   id: string;
   createdAt: string;
   threadId: string;
-  reason: CompactionSummarizationReason;
+  trigger: CompactionTrigger;
   usage?: unknown;
-  currentContextUsage: { promptTokens: number; completionTokens: number };
+  durationMs: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -232,8 +232,8 @@ export type TurnEvent =
   | ToolResponseEvent
   | ThreadCreatedEvent
   | ThreadDoneEvent
-  | AgentContextSummarizationStartEvent
-  | AgentContextSummarizationEndEvent
+  | ThreadContextCompactionStartedEvent
+  | ThreadContextCompactionFinishedEvent
   | McpAuthRequiredEvent
   | McpInitializeEvent
   | SandboxCreatedEvent

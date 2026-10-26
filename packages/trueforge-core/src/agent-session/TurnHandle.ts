@@ -450,8 +450,8 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
         return null;
       }
 
-      case HarnessEventType.AGENT_CONTEXT_SUMMARIZATION_START:
-      case HarnessEventType.AGENT_CONTEXT_SUMMARIZATION_END: {
+      case HarnessEventType.THREAD_CONTEXT_COMPACTION_STARTED:
+      case HarnessEventType.THREAD_CONTEXT_COMPACTION_FINISHED: {
         await this.store.appendToEvents({
           ...scope,
           events: [event],

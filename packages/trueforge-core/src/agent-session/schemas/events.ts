@@ -7,14 +7,14 @@
 import { z } from '@hono/zod-openapi';
 import type { WithRegisteredPassthrough } from '../../core/events/PassthroughEvents';
 import {
-  AgentContextSummarizationEndEventSchema,
-  AgentContextSummarizationStartEventSchema,
   EventIdSchema,
   EventType as HarnessEventType,
   MCPAuthRequiredEventSchema,
   MCPInitializeEventSchema,
   ModelMessageEventSchema,
   SandboxCreatedEventSchema,
+  ThreadContextCompactionFinishedEventSchema,
+  ThreadContextCompactionStartedEventSchema,
   ThreadCreatedEventSchema,
   ThreadDoneEventSchema,
   ToolApprovalRequiredEventSchema,
@@ -89,8 +89,8 @@ export const SessionEventSchema = z
     ToolResponseEventSchema,
     ThreadCreatedEventSchema,
     ThreadDoneEventSchema,
-    AgentContextSummarizationStartEventSchema,
-    AgentContextSummarizationEndEventSchema,
+    ThreadContextCompactionStartedEventSchema,
+    ThreadContextCompactionFinishedEventSchema,
     MCPAuthRequiredEventSchema,
     MCPInitializeEventSchema,
     SandboxCreatedEventSchema,

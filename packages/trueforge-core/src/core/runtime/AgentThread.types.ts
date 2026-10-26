@@ -5,8 +5,6 @@ import type { RegisteredPassthroughEvent, WithRegisteredPassthrough } from '../e
 import type {
   ActionRequiredEvent,
   AgentApprovalDecisionMessage,
-  AgentContextSummarizationEndEvent,
-  AgentContextSummarizationStartEvent,
   AgentInfo,
   AgentInputUserMessage,
   AgentOutputEvent,
@@ -17,6 +15,8 @@ import type {
   ModelMessageDeltaEvent,
   ModelMessageEvent,
   SandboxCreatedEvent,
+  ThreadContextCompactionFinishedEvent,
+  ThreadContextCompactionStartedEvent,
   ThreadCreatedEvent,
   ThreadOverwriteContextEvent,
   ThreadStateError,
@@ -139,8 +139,8 @@ export type AgentThreadEvent =
   | AgentThreadCreateSubAgent
   | AgentThreadAppendContext
   | ThreadOverwriteContextEvent
-  | AgentContextSummarizationStartEvent
-  | AgentContextSummarizationEndEvent
+  | ThreadContextCompactionStartedEvent
+  | ThreadContextCompactionFinishedEvent
   | InternalThreadDoneEvent
   | InternalMCPAuthRequiredEvent
   | InternalCapabilityStateEvent

@@ -153,12 +153,10 @@ export type {
 
 export type {
   ActionRequiredEvent,
-  AgentContextSummarizationEndEvent,
-  AgentContextSummarizationStartEvent,
   AgentInfo,
   AgentParent,
   ChunkDeltaToolCall,
-  CompactionSummarizationReason,
+  CompactionTrigger,
   DeltaEvents,
   McpAuthRequiredEvent,
   McpInitializeEvent,
@@ -168,6 +166,8 @@ export type {
   ModelMessageEvent,
   SandboxCreatedEvent,
   SessionEventItem,
+  ThreadContextCompactionFinishedEvent,
+  ThreadContextCompactionStartedEvent,
   ThreadCreatedEvent,
   ThreadDoneEvent,
   ToolApprovalRequiredEvent,

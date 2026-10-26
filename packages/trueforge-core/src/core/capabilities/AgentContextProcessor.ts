@@ -1,7 +1,7 @@
 import type { ChatCompletionMessageParam } from 'openai/resources/chat';
 import type {
-  AgentContextSummarizationEndEvent,
-  AgentContextSummarizationStartEvent,
+  ThreadContextCompactionFinishedEvent,
+  ThreadContextCompactionStartedEvent,
   ThreadOverwriteContextEvent,
 } from '../events/schema';
 import type {
@@ -28,15 +28,15 @@ export type AgentContextProcessorAppendContext = Omit<AgentThreadAppendContext, 
 /** Processors omit thread_id — AgentThread stamps it (same as append/overwrite). */
 export type AgentContextProcessorCapabilityState = Omit<InternalCapabilityStateEvent, 'thread_id'>;
 
-export type AgentContextProcessorSummarizationStart = Omit<AgentContextSummarizationStartEvent, 'thread_id'>;
+export type AgentContextProcessorCompactionStarted = Omit<ThreadContextCompactionStartedEvent, 'thread_id'>;
 
-export type AgentContextProcessorSummarizationEnd = Omit<AgentContextSummarizationEndEvent, 'thread_id'>;
+export type AgentContextProcessorCompactionFinished = Omit<ThreadContextCompactionFinishedEvent, 'thread_id'>;
 
 export type AgentContextProcessorOutput =
   | AgentContextProcessorOverwriteContext
   | AgentContextProcessorAppendContext
-  | AgentContextProcessorSummarizationStart
-  | AgentContextProcessorSummarizationEnd
+  | AgentContextProcessorCompactionStarted
+  | AgentContextProcessorCompactionFinished
   | InternalPassthroughEvent
   | AgentContextProcessorCapabilityState;
 

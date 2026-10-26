@@ -210,12 +210,12 @@ function readNonNegativeInt(record: Record<string, unknown>, camel: string, snak
   return undefined;
 }
 
-/** Compact trigger copy for timeline tooltips when reason carries token counts. */
-function summarizationReasonDescription(event: TimelineEvent): string | undefined {
-  const reason = isRecord(event.reason) ? event.reason : undefined;
-  if (reason == null || reason.type !== 'compaction') return undefined;
-  const contextTokens = readNonNegativeInt(reason, 'contextTokens', 'context_tokens');
-  const thresholdTokens = readNonNegativeInt(reason, 'thresholdTokens', 'threshold_tokens');
+/** Compact trigger copy for timeline tooltips when trigger carries token counts. */
+function compactionTriggerDescription(event: TimelineEvent): string | undefined {
+  const trigger = isRecord(event.trigger) ? event.trigger : undefined;
+  if (trigger == null || trigger.type !== 'compaction') return undefined;
+  const contextTokens = readNonNegativeInt(trigger, 'contextTokens', 'context_tokens');
+  const thresholdTokens = readNonNegativeInt(trigger, 'thresholdTokens', 'threshold_tokens');
   if (contextTokens == null || thresholdTokens == null || thresholdTokens <= 0) return undefined;
   return `Context ${String(contextTokens)} / threshold ${String(thresholdTokens)} tokens`;
 }
@@ -384,8 +384,8 @@ function appendEventSegments({
     case 'mcp.auth_required':
     case 'mcp.initialize':
     case 'sandbox.created':
-    case 'agent.context.summarization.start':
-    case 'agent.context.summarization.end':
+    case 'thread.context_compaction_started':
+    case 'thread.context_compaction_finished':
       // These are point-in-time state transitions, so start and end are equal
       // and Chart.js renders them with the configured minimum marker width.
       segments.push({
@@ -406,10 +406,10 @@ function appendEventSegments({
                 ? 'MCP authentication required'
                 : event.type === 'mcp.initialize'
                   ? 'MCP initialized'
-                  : event.type === 'agent.context.summarization.start'
-                    ? (summarizationReasonDescription(event) ?? 'Context summarization started')
-                    : event.type === 'agent.context.summarization.end'
-                      ? (summarizationReasonDescription(event) ?? 'Context summarization finished')
+                  : event.type === 'thread.context_compaction_started'
+                    ? (compactionTriggerDescription(event) ?? 'Context compaction started')
+                    : event.type === 'thread.context_compaction_finished'
+                      ? (compactionTriggerDescription(event) ?? 'Context compaction finished')
                       : 'Sandbox created',
         startMs: eventMs - originMs,
         endMs: eventMs - originMs,
