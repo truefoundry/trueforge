@@ -118,10 +118,15 @@ export interface GetScheduleInput {
   id: string;
 }
 
-export interface GetOwnedIdsInput {
+export interface GetSchedulesByIdsInput {
   tenant_id: string;
   ids: readonly string[];
-  subject_id: string;
+}
+
+/** Minimal schedule fields for permission evaluation. */
+export interface ScheduleOwnership {
+  id: string;
+  created_by_subject: CreatedBySubject;
 }
 
 export interface CreateScheduleInput {
@@ -262,8 +267,11 @@ export interface IScheduleStore<TTransaction = never> {
     input: ListSchedulesInput,
     transaction?: TTransaction,
   ): Promise<{ data: ScheduleRecord[]; pagination: TokenPagination }>;
-  /** Ids among `ids` owned by `subject_id`. Empty `ids` → `[]`. */
-  getOwnedIds(input: GetOwnedIdsInput, transaction?: TTransaction): Promise<readonly string[]>;
+  /**
+   * Schedules by id (ownership fields only). Empty `ids` → `[]`.
+   * Unknown ids are omitted.
+   */
+  getSchedulesByIds(input: GetSchedulesByIdsInput, transaction?: TTransaction): Promise<ScheduleOwnership[]>;
 
   // --- schedule_run ---
   /** One run by immutable id. */

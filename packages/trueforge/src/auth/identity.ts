@@ -93,7 +93,7 @@ export function canAccessSettings(requestContext: Pick<RequestContext, 'roles'>)
  * - Create (no `created_by_subject_id`): admin only
  * - Update / delete: admin or the environment creator
  */
-export function canEditEnvironment(
+export function canCreateOrEdit(
   requestContext: Pick<RequestContext, 'subject' | 'roles'>,
   created_by_subject_id?: string,
 ): boolean {

@@ -2097,7 +2097,7 @@
               },
               "type": "array"
             },
-            "description": "For agent/schedule/session: keyed by resource id. For tenant: keyed by entity kind (e.g. `agent` → `CREATE`).",
+            "description": "Keyed by resource id for resource types, or by entity kind for `tenant` (e.g. `agent` → `CREATE`).",
             "type": "object"
           },
           "type": {
@@ -3203,7 +3203,8 @@
           "agent",
           "schedule",
           "session",
-          "tenant"
+          "tenant",
+          "sandbox_environment"
         ],
         "type": "string"
       },
