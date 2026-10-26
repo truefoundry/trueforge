@@ -133,6 +133,82 @@
         ],
         "type": "object"
       },
+      "AgentContextSummarizationEndEvent": {
+        "properties": {
+          "created_at": {
+            "description": "ISO 8601 event timestamp.",
+            "type": "string"
+          },
+          "current_context_usage": {
+            "$ref": "#/components/schemas/CurrentContextUsage"
+          },
+          "id": {
+            "description": "Unique identifier for the event (monotonic ULID).",
+            "type": "string"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/CompactionSummarizationReason"
+          },
+          "thread_id": {
+            "description": "Thread whose context was summarized.",
+            "type": "string"
+          },
+          "type": {
+            "description": "Context summarization finished; context overwrite follows.",
+            "enum": [
+              "agent.context.summarization.end"
+            ],
+            "type": "string"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/CompletionUsage"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "created_at",
+          "thread_id",
+          "reason",
+          "usage",
+          "current_context_usage"
+        ],
+        "type": "object"
+      },
+      "AgentContextSummarizationStartEvent": {
+        "properties": {
+          "created_at": {
+            "description": "ISO 8601 event timestamp.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Unique identifier for the event (monotonic ULID).",
+            "type": "string"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/CompactionSummarizationReason"
+          },
+          "thread_id": {
+            "description": "Thread whose context is being summarized.",
+            "type": "string"
+          },
+          "type": {
+            "description": "Context summarization started; may take noticeable time.",
+            "enum": [
+              "agent.context.summarization.start"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "created_at",
+          "thread_id",
+          "reason"
+        ],
+        "type": "object"
+      },
       "AgentInfo": {
         "properties": {
           "input": {
@@ -884,6 +960,80 @@
         },
         "type": "object"
       },
+      "CompactionSummarizationReason": {
+        "description": "Why summarization was triggered.",
+        "properties": {
+          "context_tokens": {
+            "description": "Estimated context tokens when compaction fired (prompt + completion).",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "threshold_tokens": {
+            "description": "Configured compaction threshold in tokens.",
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "type": {
+            "description": "Triggered because estimated context crossed the compaction threshold.",
+            "enum": [
+              "compaction"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "context_tokens",
+          "threshold_tokens"
+        ],
+        "type": "object"
+      },
+      "CompletionUsage": {
+        "description": "Token usage for the summarization model call.",
+        "properties": {
+          "cache_read_tokens": {
+            "description": "Optional cache-read tokens.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "cache_write_tokens": {
+            "description": "Optional cache-write tokens.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "cost_in_usd": {
+            "description": "Optional estimated cost in USD.",
+            "minimum": 0,
+            "type": "number"
+          },
+          "input_tokens": {
+            "description": "Input tokens for this completion.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "output_tokens": {
+            "description": "Output tokens for this completion.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "reasoning_tokens": {
+            "description": "Optional reasoning tokens.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "total_tokens": {
+            "description": "Total tokens (input + output).",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "input_tokens",
+          "output_tokens",
+          "total_tokens"
+        ],
+        "type": "object"
+      },
       "ConfiguredMCPServer": {
         "additionalProperties": false,
         "properties": {
@@ -1252,6 +1402,26 @@
         "description": "Standard 5-field cron expression, evaluated in `timezone`.",
         "pattern": "^[\\d*,\\-/]+(?:\\s+[\\d*,\\-/]+){4}$",
         "type": "string"
+      },
+      "CurrentContextUsage": {
+        "description": "Estimated context budget after compaction (same value applied by the following overwrite).",
+        "properties": {
+          "completion_tokens": {
+            "description": "Live completion-side context tokens for the next LLM call.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "prompt_tokens": {
+            "description": "Live prompt-side context tokens for the next LLM call.",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "prompt_tokens",
+          "completion_tokens"
+        ],
+        "type": "object"
       },
       "CustomModelProvider": {
         "additionalProperties": false,
@@ -4111,6 +4281,8 @@
       "SessionEvent": {
         "discriminator": {
           "mapping": {
+            "agent.context.summarization.end": "#/components/schemas/AgentContextSummarizationEndEvent",
+            "agent.context.summarization.start": "#/components/schemas/AgentContextSummarizationStartEvent",
             "mcp.auth_required": "#/components/schemas/MCPAuthRequiredEvent",
             "mcp.initialize": "#/components/schemas/MCPInitializeEvent",
             "model.message": "#/components/schemas/ModelMessageEvent",
@@ -4151,6 +4323,12 @@
           },
           {
             "$ref": "#/components/schemas/ThreadDoneEvent"
+          },
+          {
+            "$ref": "#/components/schemas/AgentContextSummarizationStartEvent"
+          },
+          {
+            "$ref": "#/components/schemas/AgentContextSummarizationEndEvent"
           },
           {
             "$ref": "#/components/schemas/MCPAuthRequiredEvent"
@@ -5641,6 +5819,8 @@
       "TurnStreamingEvent": {
         "discriminator": {
           "mapping": {
+            "agent.context.summarization.end": "#/components/schemas/AgentContextSummarizationEndEvent",
+            "agent.context.summarization.start": "#/components/schemas/AgentContextSummarizationStartEvent",
             "mcp.auth_required": "#/components/schemas/MCPAuthRequiredEvent",
             "mcp.initialize": "#/components/schemas/MCPInitializeEvent",
             "model.message": "#/components/schemas/ModelMessageEvent",
@@ -5676,6 +5856,12 @@
           },
           {
             "$ref": "#/components/schemas/ThreadDoneEvent"
+          },
+          {
+            "$ref": "#/components/schemas/AgentContextSummarizationStartEvent"
+          },
+          {
+            "$ref": "#/components/schemas/AgentContextSummarizationEndEvent"
           },
           {
             "$ref": "#/components/schemas/MCPAuthRequiredEvent"

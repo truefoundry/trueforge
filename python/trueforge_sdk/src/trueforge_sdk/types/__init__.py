@@ -12,6 +12,8 @@ if typing.TYPE_CHECKING:
     from .agent_code_snippet import AgentCodeSnippet
     from .agent_code_snippet_sample_code import AgentCodeSnippetSampleCode
     from .agent_code_snippets import AgentCodeSnippets
+    from .agent_context_summarization_end_event import AgentContextSummarizationEndEvent
+    from .agent_context_summarization_start_event import AgentContextSummarizationStartEvent
     from .agent_info import AgentInfo
     from .agent_parent import AgentParent
     from .agent_spec import AgentSpec
@@ -46,6 +48,8 @@ if typing.TYPE_CHECKING:
     from .chat_completion_message_tool_call import ChatCompletionMessageToolCall
     from .chat_completion_message_tool_call_function import ChatCompletionMessageToolCallFunction
     from .compaction_config import CompactionConfig
+    from .compaction_summarization_reason import CompactionSummarizationReason
+    from .completion_usage import CompletionUsage
     from .components_schemas_tool_approval_policy_allow_session import ComponentsSchemasToolApprovalPolicyAllowSession
     from .configured_mcp_server import ConfiguredMcpServer
     from .configured_model import ConfiguredModel
@@ -60,6 +64,7 @@ if typing.TYPE_CHECKING:
     from .create_turn_event_response_data_item import CreateTurnEventResponseDataItem
     from .created_by_subject import CreatedBySubject
     from .cron_expression import CronExpression
+    from .current_context_usage import CurrentContextUsage
     from .custom_model_provider import CustomModelProvider
     from .daytona_sandbox_provider_auth import DaytonaSandboxProviderAuth
     from .delete_agent_response import DeleteAgentResponse
@@ -285,6 +290,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AgentCodeSnippet": ".agent_code_snippet",
     "AgentCodeSnippetSampleCode": ".agent_code_snippet_sample_code",
     "AgentCodeSnippets": ".agent_code_snippets",
+    "AgentContextSummarizationEndEvent": ".agent_context_summarization_end_event",
+    "AgentContextSummarizationStartEvent": ".agent_context_summarization_start_event",
     "AgentInfo": ".agent_info",
     "AgentParent": ".agent_parent",
     "AgentSpec": ".agent_spec",
@@ -319,6 +326,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ChatCompletionMessageToolCall": ".chat_completion_message_tool_call",
     "ChatCompletionMessageToolCallFunction": ".chat_completion_message_tool_call_function",
     "CompactionConfig": ".compaction_config",
+    "CompactionSummarizationReason": ".compaction_summarization_reason",
+    "CompletionUsage": ".completion_usage",
     "ComponentsSchemasToolApprovalPolicyAllowSession": ".components_schemas_tool_approval_policy_allow_session",
     "ConfiguredMcpServer": ".configured_mcp_server",
     "ConfiguredModel": ".configured_model",
@@ -333,6 +342,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CreateTurnEventResponseDataItem": ".create_turn_event_response_data_item",
     "CreatedBySubject": ".created_by_subject",
     "CronExpression": ".cron_expression",
+    "CurrentContextUsage": ".current_context_usage",
     "CustomModelProvider": ".custom_model_provider",
     "DaytonaSandboxProviderAuth": ".daytona_sandbox_provider_auth",
     "DeleteAgentResponse": ".delete_agent_response",
@@ -582,6 +592,8 @@ __all__ = [
     "AgentCodeSnippet",
     "AgentCodeSnippetSampleCode",
     "AgentCodeSnippets",
+    "AgentContextSummarizationEndEvent",
+    "AgentContextSummarizationStartEvent",
     "AgentInfo",
     "AgentParent",
     "AgentSpec",
@@ -616,6 +628,8 @@ __all__ = [
     "ChatCompletionMessageToolCall",
     "ChatCompletionMessageToolCallFunction",
     "CompactionConfig",
+    "CompactionSummarizationReason",
+    "CompletionUsage",
     "ComponentsSchemasToolApprovalPolicyAllowSession",
     "ConfiguredMcpServer",
     "ConfiguredModel",
@@ -630,6 +644,7 @@ __all__ = [
     "CreateTurnEventResponseDataItem",
     "CreatedBySubject",
     "CronExpression",
+    "CurrentContextUsage",
     "CustomModelProvider",
     "DaytonaSandboxProviderAuth",
     "DeleteAgentResponse",

@@ -3,6 +3,8 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
+import { AgentContextSummarizationEndEvent } from "./AgentContextSummarizationEndEvent.js";
+import { AgentContextSummarizationStartEvent } from "./AgentContextSummarizationStartEvent.js";
 import { McpAuthRequiredEvent } from "./McpAuthRequiredEvent.js";
 import { McpInitializeEvent } from "./McpInitializeEvent.js";
 import { ModelMessageDeltaEvent } from "./ModelMessageDeltaEvent.js";
@@ -25,6 +27,8 @@ export const TurnStreamingEvent: core.serialization.Schema<
     serializers.TurnStreamingEvent.Raw,
     TrueForge.TurnStreamingEvent
 > = core.serialization.undiscriminatedUnion([
+    AgentContextSummarizationEndEvent,
+    AgentContextSummarizationStartEvent,
     McpAuthRequiredEvent,
     McpInitializeEvent,
     ModelMessageEvent,
@@ -46,6 +50,8 @@ export const TurnStreamingEvent: core.serialization.Schema<
 
 export declare namespace TurnStreamingEvent {
     export type Raw =
+        | AgentContextSummarizationEndEvent.Raw
+        | AgentContextSummarizationStartEvent.Raw
         | McpAuthRequiredEvent.Raw
         | McpInitializeEvent.Raw
         | ModelMessageEvent.Raw

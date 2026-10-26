@@ -3,6 +3,8 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
+import { AgentContextSummarizationEndEvent } from "./AgentContextSummarizationEndEvent.js";
+import { AgentContextSummarizationStartEvent } from "./AgentContextSummarizationStartEvent.js";
 import { McpAuthRequiredEvent } from "./McpAuthRequiredEvent.js";
 import { McpInitializeEvent } from "./McpInitializeEvent.js";
 import { ModelMessageEvent } from "./ModelMessageEvent.js";
@@ -22,6 +24,8 @@ import { UserToolResponseEvent } from "./UserToolResponseEvent.js";
 
 export const SessionEvent: core.serialization.Schema<serializers.SessionEvent.Raw, TrueForge.SessionEvent> =
     core.serialization.undiscriminatedUnion([
+        AgentContextSummarizationEndEvent,
+        AgentContextSummarizationStartEvent,
         McpAuthRequiredEvent,
         McpInitializeEvent,
         ModelMessageEvent,
@@ -42,6 +46,8 @@ export const SessionEvent: core.serialization.Schema<serializers.SessionEvent.Ra
 
 export declare namespace SessionEvent {
     export type Raw =
+        | AgentContextSummarizationEndEvent.Raw
+        | AgentContextSummarizationStartEvent.Raw
         | McpAuthRequiredEvent.Raw
         | McpInitializeEvent.Raw
         | ModelMessageEvent.Raw

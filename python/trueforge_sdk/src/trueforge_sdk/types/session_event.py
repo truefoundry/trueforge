@@ -2,6 +2,8 @@
 
 import typing
 
+from .agent_context_summarization_end_event import AgentContextSummarizationEndEvent
+from .agent_context_summarization_start_event import AgentContextSummarizationStartEvent
 from .mcp_auth_required_event import McpAuthRequiredEvent
 from .mcp_initialize_event import McpInitializeEvent
 from .model_message_event import ModelMessageEvent
@@ -20,6 +22,8 @@ from .user_tool_approval_policy_event import UserToolApprovalPolicyEvent
 from .user_tool_response_event import UserToolResponseEvent
 
 SessionEvent = typing.Union[
+    AgentContextSummarizationEndEvent,
+    AgentContextSummarizationStartEvent,
     McpAuthRequiredEvent,
     McpInitializeEvent,
     ModelMessageEvent,

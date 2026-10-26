@@ -3,6 +3,8 @@
 import type * as TrueForge from "../index.js";
 
 export type TurnStreamingEvent =
+    | TrueForge.AgentContextSummarizationEndEvent
+    | TrueForge.AgentContextSummarizationStartEvent
     | TrueForge.McpAuthRequiredEvent
     | TrueForge.McpInitializeEvent
     | TrueForge.ModelMessageEvent
