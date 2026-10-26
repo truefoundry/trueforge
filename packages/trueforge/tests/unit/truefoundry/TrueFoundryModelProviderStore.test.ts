@@ -2,7 +2,7 @@ import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 import { createLogger } from 'winston';
 import type { AgentRecord } from '../../../src/db/agentStore';
 import { ACTOR_AUTHORIZATION_HEADER, createTrueFoundryRequestContext } from '../../../src/truefoundry/accessToken';
-import { X_TFY_METADATA } from '../../../src/truefoundry/gatewayMetadata';
+import { X_TFY_FORWARD_PINGS, X_TFY_METADATA } from '../../../src/truefoundry/gatewayMetadata';
 import { TrueFoundryModelProviderStore } from '../../../src/truefoundry/TrueFoundryModelProviderStore';
 import type { TrueFoundryServiceFoundryServerClient } from '../../../src/truefoundry/TrueFoundryServiceFoundryServerClient';
 
@@ -74,6 +74,7 @@ describe('TrueFoundryModelProviderStore authorization', () => {
     });
     expect(headers[ACTOR_AUTHORIZATION_HEADER]).toBe(`Bearer ${ACTOR_TOKEN}`);
     expect(headers['Authorization']).toBeUndefined();
+    expect(headers[X_TFY_FORWARD_PINGS]).toBe('true');
     expect(JSON.parse(headers[X_TFY_METADATA] ?? '')).toMatchObject({
       'tfg.session_id': 'sess-1',
       'tfg.agent_id': 'agent-1',
@@ -115,7 +116,9 @@ describe('TrueFoundryModelProviderStore authorization', () => {
     if (provider === undefined) {
       throw new Error('expected a provider');
     }
-    await expect(store.resolveInvokeHeaders({ record: provider })).resolves.toEqual({});
+    await expect(store.resolveInvokeHeaders({ record: provider })).resolves.toEqual({
+      [X_TFY_FORWARD_PINGS]: 'true',
+    });
     expect(client.vendToken).toHaveBeenCalledTimes(1);
   });
 });

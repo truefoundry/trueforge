@@ -22,7 +22,7 @@ import {
   type ResolveServiceFoundryAuthorization,
 } from './accessToken';
 import { trueFoundryManaged } from './errors';
-import { gatewayMetadataHeadersForTurn } from './gatewayMetadata';
+import { gatewayMetadataHeadersForTurn, gatewayModelInvokeHeaders } from './gatewayMetadata';
 import {
   filterEnvModels,
   mapEnabledModels,
@@ -109,6 +109,7 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
     const authorization = await this.#resolveGatewayAuthorization();
     return {
       ...actorAuthorizationHeaders(authorization),
+      ...gatewayModelInvokeHeaders(),
       ...gatewayMetadataHeadersForTurn(input.turnMetadata),
     };
   }

@@ -10,7 +10,7 @@ import type {
 } from '../db/modelProviderStore';
 import type { TurnMetadata } from '../db/turnMetadata';
 import type { AvailableModel } from '../schemas/modelProvider';
-import { gatewayMetadataHeadersForTurn } from './gatewayMetadata';
+import { gatewayMetadataHeadersForTurn, gatewayModelInvokeHeaders } from './gatewayMetadata';
 import type { InlineModelProviders } from './inlineResources';
 
 /**
@@ -76,7 +76,10 @@ export class InlineModelProviderStore<TTransaction = never> implements IModelPro
     if (this.#inline[input.record.name] === undefined) {
       return this.#inner.resolveInvokeHeaders(input);
     }
-    return Promise.resolve(gatewayMetadataHeadersForTurn(input.turnMetadata));
+    return Promise.resolve({
+      ...gatewayModelInvokeHeaders(),
+      ...gatewayMetadataHeadersForTurn(input.turnMetadata),
+    });
   }
 
   #toRecord(input: { tenant_id: string; name: string }): ModelProviderRecord | undefined {

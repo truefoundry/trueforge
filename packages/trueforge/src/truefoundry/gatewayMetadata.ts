@@ -5,8 +5,16 @@ import type { TurnMetadata } from '../db/turnMetadata';
 /** Gateway header carrying stringified JSON metadata. */
 export const X_TFY_METADATA = 'x-tfy-metadata';
 
+/** Ask the gateway to forward SSE ping keepalives on model streams. */
+export const X_TFY_FORWARD_PINGS = 'x-tfy-forward-pings';
+
 /** Prefix for harness-owned keys. */
 export const TFG_METADATA_PREFIX = 'tfg';
+
+/** Headers every TrueFoundry-mode model invoke should carry. */
+export function gatewayModelInvokeHeaders(): Record<string, string> {
+  return { [X_TFY_FORWARD_PINGS]: 'true' };
+}
 
 const GatewayMetadataSchema = z.record(z.string().min(1), z.string());
 
@@ -85,6 +93,16 @@ export function gatewayMetadataHeaders(metadata: Record<string, string>): Record
     return {};
   }
   return { [X_TFY_METADATA]: JSON.stringify(metadata) };
+}
+
+/** Overlay call metadata onto an existing client `x-tfy-metadata` header. */
+export function overlayGatewayMetadataHeaders(input: {
+  clientHeaders: Record<string, string>;
+  metadata: Record<string, string>;
+}): Record<string, string> {
+  const raw = headerValue(input.clientHeaders, X_TFY_METADATA);
+  const existing = raw === undefined ? {} : parseGatewayMetadataHeader(raw);
+  return gatewayMetadataHeaders({ ...existing, ...input.metadata });
 }
 
 /** Metadata header for a turn. Reads `x-tfy-metadata` from the raw request headers. */

@@ -38,7 +38,7 @@ import { ModelProviderError } from '../errors';
 import { getOperationMetrics, httpStatusClass, type OutboundHttpStatusClass } from '../observability/operationMetrics';
 import { describeUnknownError, extractErrorLogFields, isReportableError } from '../util/errorLogFields';
 import { modelSsrfFetch } from '../util/outboundFetch';
-import type { ILLM, LLMCreateParams, LLMCreateParamsStreaming } from './ILLM';
+import type { ILLM, LLMCreateParams, LLMCreateParamsStreaming, LLMRequestOptions } from './ILLM';
 import {
   type CompletionUsage,
   type ExtendedChatCompletionChunk,
@@ -1427,6 +1427,7 @@ export class VercelAILLM implements ILLM {
 
   async *create(
     body: LLMCreateParamsStreaming,
+    options?: LLMRequestOptions,
   ): AsyncGenerator<ExtendedChatCompletionChunk, RawAssistantMessageWithUsage, unknown> {
     const { providerConfig } = this.config;
     const languageModel = buildLanguageModel(providerConfig);
@@ -1475,11 +1476,15 @@ export class VercelAILLM implements ILLM {
       abortSignal: this.signal,
     });
 
+    const requestHeaders =
+      options?.headers === undefined ? providerConfig.headers : { ...providerConfig.headers, ...options.headers };
+
     let streamResult;
     try {
       streamResult = streamText({
         ...streamTextArgs,
         ...(output !== undefined ? { output } : {}),
+        ...(Object.keys(requestHeaders).length > 0 ? { headers: requestHeaders } : {}),
       });
     } catch (error) {
       this.recordStreamError({ error, phase: 'api_call' });
@@ -1556,9 +1561,9 @@ export class VercelAILLM implements ILLM {
     });
   }
 
-  async createNonStream(body: LLMCreateParams): Promise<RawAssistantMessageWithUsage> {
+  async createNonStream(body: LLMCreateParams, options?: LLMRequestOptions): Promise<RawAssistantMessageWithUsage> {
     // Drain the streaming generator — reuses the same accumulation and error handling path.
-    const llmStream = this.create({ ...body, stream: true });
+    const llmStream = this.create({ ...body, stream: true }, options);
     let result = await llmStream.next();
     while (!result.done) {
       result = await llmStream.next();
