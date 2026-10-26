@@ -16,6 +16,21 @@ describe('formatAbsoluteDateTime', () => {
       }).format(date),
     );
   });
+
+  it('includes seconds when the caller needs sub-minute precision', () => {
+    const date = new Date('2026-04-05T14:03:02.000Z');
+    expect(formatAbsoluteDateTime(date, { seconds: true })).toBe(
+      new Intl.DateTimeFormat(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+      }).format(date),
+    );
+  });
 });
 
 describe('formatRelativeTime', () => {
