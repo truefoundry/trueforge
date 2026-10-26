@@ -78,7 +78,9 @@ export function AgentSessionListRow({
                               className="text-primary-button-bg inline-flex shrink-0 cursor-pointer"
                               onClick={event => {
                                 event.stopPropagation();
-                                if (scheduleName.name != null) onOpenSchedule(scheduleName.name);
+                                if (scheduleId != null && scheduleName.name != null) {
+                                  onOpenSchedule({ id: scheduleId, name: scheduleName.name });
+                                }
                               }}
                             >
                               <Icon name="external-link" className="size-3.5" />

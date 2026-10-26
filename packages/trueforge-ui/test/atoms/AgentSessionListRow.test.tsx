@@ -49,7 +49,7 @@ describe('AgentSessionListRow', () => {
     expect(onSelect).toHaveBeenCalledOnce();
   });
 
-  it('links to the schedule by name without selecting the row', async () => {
+  it('links to the schedule by id without selecting the row', async () => {
     const onSelect = vi.fn();
     const onOpenSchedule = vi.fn();
     render(
@@ -65,7 +65,7 @@ describe('AgentSessionListRow', () => {
     fireEvent.mouseEnter(screen.getByLabelText('Scheduled run'));
     fireEvent.click(await screen.findByRole('button', { name: 'View schedule daily-digest' }));
 
-    expect(onOpenSchedule).toHaveBeenCalledWith('daily-digest');
+    expect(onOpenSchedule).toHaveBeenCalledWith({ id: 'sched-1', name: 'daily-digest' });
     expect(onSelect).not.toHaveBeenCalled();
   });
 

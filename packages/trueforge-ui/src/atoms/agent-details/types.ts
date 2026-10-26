@@ -50,8 +50,8 @@ export type AgentSessionListRowProps = {
   onRequestDelete?: () => void;
   /** When false, Delete is disabled via PermissionGuard. Defaults to true. */
   canDelete?: boolean;
-  /** Opens the originating schedule; the tooltip link is hidden when omitted. */
-  onOpenSchedule?: (scheduleName: string) => void;
+  /** Opens the originating schedule by id; the tooltip link is hidden when omitted. */
+  onOpenSchedule?: (schedule: { id: string; name: string }) => void;
   /** Resolved on first tooltip hover; `null` when the schedule can't be loaded. */
   loadScheduleName?: (scheduleId: string) => Promise<string | null>;
 };

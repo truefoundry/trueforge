@@ -18,7 +18,7 @@ import type { Session, SessionEventItem, SessionListEntry } from '../../server/t
 import { useSlot } from '../../theme/SlotsProvider.js';
 import { drainListPages } from '../../utils/drainListPages.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
-import { writeOpenScheduleByNameSearch } from '../../utils/scheduleShareUrl.js';
+import { writeOpenScheduleByIdSearch } from '../../utils/scheduleShareUrl.js';
 import { sessionTimeRangeFromCreatedAt } from '../../utils/sessionShareUrl.js';
 import { EmptyScreen } from '../EmptyScreen.js';
 import { cn } from '../lib/cn.js';
@@ -268,9 +268,9 @@ export function AgentSessions({
     return name;
   };
 
-  const openSchedule = (scheduleName: string) => {
-    track(AnalyticsEvents.Schedule.OPENED_FROM_SESSION, { schedule_name: scheduleName });
-    writeOpenScheduleByNameSearch({ name: scheduleName });
+  const openSchedule = ({ id, name }: { id: string; name: string }) => {
+    track(AnalyticsEvents.Schedule.OPENED_FROM_SESSION, { schedule_id: id });
+    writeOpenScheduleByIdSearch({ id, name });
     shell?.setSchedulesOpen(true);
   };
 
