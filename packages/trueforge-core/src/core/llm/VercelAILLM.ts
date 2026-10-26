@@ -38,7 +38,7 @@ import { ModelProviderError } from '../errors';
 import { getOperationMetrics, httpStatusClass, type OutboundHttpStatusClass } from '../observability/operationMetrics';
 import { describeUnknownError, extractErrorLogFields, isReportableError } from '../util/errorLogFields';
 import { modelSsrfFetch } from '../util/outboundFetch';
-import type { ILLM, LLMCreateParams, LLMCreateParamsStreaming } from './ILLM';
+import type { ILLM, LLMCreateParams, LLMCreateParamsStreaming, LLMRequestOptions } from './ILLM';
 import {
   type CompletionUsage,
   type ExtendedChatCompletionChunk,
@@ -135,12 +135,6 @@ function compatibleModel(config: VercelAIProviderConfig): LanguageModel {
   if (baseUrl === undefined) {
     throw new Error(`Provider "${provider.type}" requires a baseUrl`);
   }
-  // More straightforward than mutating tool definitions for fine-grained tool streaming.
-  // TODO: fine-grained-tool-streaming-2025-05-14 is considered deprecated.
-  const outboundHeaders =
-    provider.type === 'truefoundry'
-      ? { ...headers, 'anthropic-beta': 'fine-grained-tool-streaming-2025-05-14' }
-      : headers;
   const client = createOpenAICompatible({
     name: provider.type,
     baseURL: baseUrl,
@@ -150,9 +144,68 @@ function compatibleModel(config: VercelAIProviderConfig): LanguageModel {
     supportsStructuredOutputs: true,
     // These endpoints omit token counts from streamed responses unless asked.
     includeUsage: true,
-    ...(Object.keys(outboundHeaders).length > 0 ? { headers: outboundHeaders } : {}),
+    ...(Object.keys(headers).length > 0 ? { headers } : {}),
   });
   return client(model.id);
+}
+
+/** Gateway header carrying stringified JSON metadata (TrueFoundry AI Gateway). */
+const X_TFY_METADATA = 'x-tfy-metadata';
+
+/**
+ * Merge client defaults with per-call headers/metadata.
+ * TrueFoundry also stamps anthropic-beta, forward-pings, and folds `metadata` into `x-tfy-metadata`.
+ */
+export function buildOutboundRequestHeaders(input: {
+  providerType: VercelAIProviderName;
+  clientHeaders: Record<string, string>;
+  options: LLMRequestOptions | undefined;
+}): Record<string, string> {
+  let headers: Record<string, string> = {
+    ...input.clientHeaders,
+    ...input.options?.headers,
+  };
+
+  if (input.providerType !== 'truefoundry') {
+    return headers;
+  }
+
+  // More straightforward than mutating tool definitions for fine-grained tool streaming.
+  // TODO: fine-grained-tool-streaming-2025-05-14 is considered deprecated.
+  headers = {
+    ...headers,
+    'anthropic-beta': 'fine-grained-tool-streaming-2025-05-14',
+    'x-tfy-forward-pings': 'true',
+  };
+
+  const metadata = input.options?.metadata;
+  if (metadata === undefined || Object.keys(metadata).length === 0) {
+    return headers;
+  }
+
+  let existing: Record<string, string> = {};
+  const withoutMetadata: Record<string, string> = {};
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() === X_TFY_METADATA) {
+      try {
+        const parsed: unknown = JSON.parse(value);
+        if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          existing = Object.fromEntries(
+            Object.entries(parsed).filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
+          );
+        }
+      } catch {
+        existing = {};
+      }
+      continue;
+    }
+    withoutMetadata[key] = value;
+  }
+
+  return {
+    ...withoutMetadata,
+    [X_TFY_METADATA]: JSON.stringify({ ...existing, ...metadata }),
+  };
 }
 
 export function buildLanguageModel(config: VercelAIProviderConfig): LanguageModel {
@@ -1427,6 +1480,7 @@ export class VercelAILLM implements ILLM {
 
   async *create(
     body: LLMCreateParamsStreaming,
+    options?: LLMRequestOptions,
   ): AsyncGenerator<ExtendedChatCompletionChunk, RawAssistantMessageWithUsage, unknown> {
     const { providerConfig } = this.config;
     const languageModel = buildLanguageModel(providerConfig);
@@ -1475,11 +1529,18 @@ export class VercelAILLM implements ILLM {
       abortSignal: this.signal,
     });
 
+    const requestHeaders = buildOutboundRequestHeaders({
+      providerType: provider.type,
+      clientHeaders: providerConfig.headers,
+      options,
+    });
+
     let streamResult;
     try {
       streamResult = streamText({
         ...streamTextArgs,
         ...(output !== undefined ? { output } : {}),
+        ...(Object.keys(requestHeaders).length > 0 ? { headers: requestHeaders } : {}),
       });
     } catch (error) {
       this.recordStreamError({ error, phase: 'api_call' });
@@ -1556,9 +1617,10 @@ export class VercelAILLM implements ILLM {
     });
   }
 
-  async createNonStream(body: LLMCreateParams): Promise<RawAssistantMessageWithUsage> {
-    // Drain the streaming generator — reuses the same accumulation and error handling path.
-    const llmStream = this.create({ ...body, stream: true });
+  async createNonStream(body: LLMCreateParams, options?: LLMRequestOptions): Promise<RawAssistantMessageWithUsage> {
+    // Implemented by draining the streaming path. If this switches to a real non-stream API,
+    // header and body timeouts must be much higher than streaming (TTFT-oriented) timeouts.
+    const llmStream = this.create({ ...body, stream: true }, options);
     let result = await llmStream.next();
     while (!result.done) {
       result = await llmStream.next();
