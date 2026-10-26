@@ -67,17 +67,13 @@ groups:
             # customConditions. Never name this "development" (Vite/webpack
             # auto-activate it; src/ is not published).
             #
-            # Runtime is ESM (outputEsm). Types stay on the CJS .d.ts from
-            # `pnpm sdk:types` — that script does not emit dist/esm *.d.mts, and
-            # generated source is not exactOptionalPropertyTypes-clean.
-            types: './dist/cjs/index.d.ts'
+            # Runtime loads src/ (no build); types stay on the ESM .d.mts from
+            # `pnpm sdk:types` (generated source is not exactOptionalPropertyTypes-clean).
             exports:
               '.':
                 'trueforge-dev':
-                  types: './dist/cjs/index.d.ts'
+                  types: './dist/esm/index.d.mts'
                   default: './src/index.ts'
-                import:
-                  types: './dist/cjs/index.d.ts'
           allowExtraFields: true
           allowCustomFetcher: true
           # Map query params (OpenAPI additionalProperties) as deepObject brackets, not JSON strings.
