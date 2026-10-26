@@ -454,6 +454,13 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
     setPageToken(previousPageToken);
   };
 
+  const releaseSchedulePin = () => {
+    if (scheduleId == null) return;
+    setScheduleId(null);
+    setPageToken(undefined);
+    setPreviousPageToken(undefined);
+  };
+
   return (
     <div className="flex h-full min-h-0 flex-col bg-primary-bg">
       <PageHeader
@@ -465,17 +472,17 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
                 query={nameQuery}
                 setQuery={next => {
                   setNameQuery(next);
-                  if (scheduleId == null) return;
-                  setScheduleId(null);
-                  setPageToken(undefined);
-                  setPreviousPageToken(undefined);
+                  releaseSchedulePin();
                 }}
                 placeholder="Search schedules by name"
               />
             </div>
             <PopoverSelect
               value={statusFilter}
-              onValueChange={setStatusFilter}
+              onValueChange={next => {
+                setStatusFilter(next);
+                releaseSchedulePin();
+              }}
               options={STATUS_FILTER_OPTIONS}
               className="sm:w-40"
               aria-label="Filter by status"
@@ -488,6 +495,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
                   setAgentFilter(value);
                   setPageToken(undefined);
                   setPreviousPageToken(undefined);
+                  releaseSchedulePin();
                 }}
                 onAgentPicked={agent => {
                   setAgentLabelById(current => ({
