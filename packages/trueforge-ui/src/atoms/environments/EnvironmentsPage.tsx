@@ -75,7 +75,6 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
   // Stay closed until tenant CREATE is known — do not open from envIsNew on first paint.
   const [drawer, setDrawer] = useState<DrawerState>({ kind: 'closed' });
   const [pendingDelete, setPendingDelete] = useState<SandboxEnvironment | null>(null);
-  const [deleting, setDeleting] = useState(false);
   const [pageSize, setPageSize] = useState(() => clampPageSize(DEFAULT_TABLE_PAGE_SIZE));
   const [pageToken, setPageToken] = useState<string | undefined>(undefined);
   const [nextPageToken, setNextPageToken] = useState<string | undefined>(undefined);
@@ -216,22 +215,20 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
 
   const handleDelete = async () => {
     if (pendingDelete == null) return;
-    setDeleting(true);
+    const target = pendingDelete;
+    setPendingDelete(null);
     try {
-      await environmentServer.deleteEnvironment({ name: pendingDelete.name });
+      await environmentServer.deleteEnvironment({ name: target.name });
       track(AnalyticsEvents.Environment.DELETED, {
-        environment_name: pendingDelete.name,
-        environment_id: pendingDelete.id,
+        environment_name: target.name,
+        environment_id: target.id,
       });
       toaster?.showSuccess({ title: 'Environment deleted' });
-      setPendingDelete(null);
       setPageToken(undefined);
       shell?.invalidateEnvironmentsList();
       void loadEnvironments({ token: undefined, size: pageSize });
     } catch (caught) {
       toaster?.showError(caught);
-    } finally {
-      setDeleting(false);
     }
   };
 
@@ -399,11 +396,11 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
             Delete fails if any agent still references the environment.
           </p>
           <DialogFooter>
-            <Button.Secondary type="button" disabled={deleting} onClick={() => setPendingDelete(null)}>
+            <Button.Secondary type="button" onClick={() => setPendingDelete(null)}>
               Cancel
             </Button.Secondary>
-            <Button.Primary type="button" disabled={deleting} onClick={() => void handleDelete()}>
-              {deleting ? 'Deleting…' : 'Delete'}
+            <Button.Primary type="button" onClick={() => void handleDelete()}>
+              Delete
             </Button.Primary>
           </DialogFooter>
         </DialogContent>
