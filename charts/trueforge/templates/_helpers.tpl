@@ -254,9 +254,9 @@ redis.nameOverride / redis.fullnameOverride.
 
 {{/*
 Tier name (small | medium | large), or empty.
-resourceTierOverride wins over a parent chart's global.resourceTier.
+resourceTierOverride wins over global.resourceTier.
 resourceTier is the same override when resourceTierOverride is empty.
-Explicit resources keys are applied later and win over this preset.
+An explicit resources table is applied later and replaces this preset.
 */}}
 {{- define "trueforge.resourceTier" -}}
 {{- $override := .Values.resourceTierOverride | default .Values.resourceTier | default "" | toString | trim -}}
@@ -270,6 +270,21 @@ Explicit resources keys are applied later and win over this preset.
 {{- fail (printf "resourceTier must be small, medium, or large (got %q)" $tier) -}}
 {{- end -}}
 {{- $tier -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Controller tier. controller.resourceTierOverride wins over the chart tier.
+*/}}
+{{- define "trueforge.controller.resourceTier" -}}
+{{- $override := .Values.controller.resourceTierOverride | default "" | toString | trim -}}
+{{- if $override -}}
+{{- if not (has $override (list "small" "medium" "large")) -}}
+{{- fail (printf "resourceTier must be small, medium, or large (got %q)" $override) -}}
+{{- end -}}
+{{- $override -}}
+{{- else -}}
+{{- include "trueforge.resourceTier" . -}}
 {{- end -}}
 {{- end }}
 
@@ -362,46 +377,41 @@ limits:
 {{- end }}
 
 {{/*
-Requests/limits for one workload.
-Explicit keys win. Missing keys come from the tier preset
-(resourceTierOverride, else global.resourceTier). With no tier, fallback
-is the preset that matches the previous chart defaults (server medium,
-controller small).
-Expects: root, prefix, fallback, overrides.
+Requests/limits for one workload. A set resources table is used as-is.
+Otherwise the tier preset is used whole. Empty tier falls back to small.
+Expects: root, prefix, tier, explicit.
 */}}
-{{- define "trueforge.tierResources" -}}
-{{- $tier := include "trueforge.resourceTier" .root | trim -}}
-{{- if not $tier -}}
-{{- $tier = .fallback -}}
-{{- end -}}
-{{- $defaultsYaml := "" -}}
+{{- define "trueforge.explicitOrTierResources" -}}
+{{- if .explicit -}}
+{{- toYaml .explicit -}}
+{{- else -}}
+{{- $tier := .tier | default "small" -}}
 {{- if eq $tier "small" -}}
-{{- $defaultsYaml = include (printf "%s.small" .prefix) .root -}}
+{{- include (printf "%s.small" .prefix) .root -}}
 {{- else if eq $tier "medium" -}}
-{{- $defaultsYaml = include (printf "%s.medium" .prefix) .root -}}
+{{- include (printf "%s.medium" .prefix) .root -}}
 {{- else if eq $tier "large" -}}
-{{- $defaultsYaml = include (printf "%s.large" .prefix) .root -}}
+{{- include (printf "%s.large" .prefix) .root -}}
+{{- else -}}
+{{- fail (printf "resourceTier must be small, medium, or large (got %q)" $tier) -}}
 {{- end -}}
-{{- $defaults := fromYaml $defaultsYaml | default dict -}}
-{{- $overrides := .overrides | default dict -}}
-{{- $requests := merge (dict) ($overrides.requests | default dict) ($defaults.requests | default dict) -}}
-{{- $limits := merge (dict) ($overrides.limits | default dict) ($defaults.limits | default dict) -}}
-{{- dict "requests" $requests "limits" $limits | toYaml -}}
+{{- end -}}
 {{- end }}
 
 {{/*
-Server requests/limits. Explicit `.Values.resources` keys win over the tier.
+Server requests/limits. server.resources replaces the tier preset.
+`.Values.resources` is accepted when server.resources is empty.
 */}}
 {{- define "trueforge.resources" -}}
-{{- include "trueforge.tierResources" (dict "root" . "prefix" "trueforge.defaultResources" "fallback" "medium" "overrides" .Values.resources) -}}
+{{- include "trueforge.explicitOrTierResources" (dict "root" . "prefix" "trueforge.defaultResources" "tier" (include "trueforge.resourceTier" . | trim) "explicit" (.Values.server.resources | default .Values.resources)) -}}
 {{- end }}
 
 {{/*
-Controller requests/limits. Explicit `.Values.controller.resources` keys win
-over the tier. Replica count is always 1, even when a tier is set.
+Controller requests/limits. controller.resources replaces the tier preset.
+Replica count is always 1, even when a tier is set.
 */}}
 {{- define "trueforge.controller.resources" -}}
-{{- include "trueforge.tierResources" (dict "root" . "prefix" "trueforge.controller.defaultResources" "fallback" "small" "overrides" .Values.controller.resources) -}}
+{{- include "trueforge.explicitOrTierResources" (dict "root" . "prefix" "trueforge.controller.defaultResources" "tier" (include "trueforge.controller.resourceTier" . | trim) "explicit" .Values.controller.resources) -}}
 {{- end }}
 
 {{- define "trueforge.tmpEmptyDirSizeLimit" -}}

@@ -166,18 +166,21 @@ The chart's own value wins on conflict; `tolerations` append to
 
 ## Resource tiers
 
-`resourceTierOverride` (`small` / `medium` / `large`) selects sizing presets for
-the server and the controller, and sets the server replica count when
-`server.replicaCount` is empty (an explicit count wins, including `0` to scale
-the server down; the controller is always 1 replica). An unknown tier fails
-the render.
+`global.resourceTier` defaults to `small`. `resourceTierOverride`
+(`small` / `medium` / `large`) replaces that tier for the server, the
+controller, and the server replica count. `controller.resourceTierOverride`
+replaces it for the controller only. An explicit `server.replicaCount` still
+wins, including `0` to scale the server down. The controller is always 1
+replica. An unknown tier fails the render.
 
-Resource keys are merged. A key on `resources` or `controller.resources` wins.
-Missing keys come from the tier preset. The tier is `resourceTierOverride`
-when that is set, otherwise a parent chart's `global.resourceTier`. With
-neither set, the server uses the medium preset, the controller uses the small
-preset, and the server runs 1 replica. `resourceTier` is still accepted as
-`resourceTierOverride` when that field is empty.
+`server.resources` and `controller.resources` are used as a whole table when
+set. The chart does not fill missing keys from the tier, so a table can omit
+CPU limits. An empty table uses the tier preset. `resourceTier` is still
+accepted as `resourceTierOverride` when that field is empty.
+
+Precedence for each workload: its resources table, then
+`controller.resourceTierOverride` for the controller, then
+`resourceTierOverride`, then `global.resourceTier`.
 
 | Preset | Server replicas | Server requests | Controller requests |
 | --- | --- | --- | --- |
@@ -384,8 +387,12 @@ extraObjects:
 
 | Value                 | Default                             | Description                           |
 | --------------------- | ----------------------------------- | ------------------------------------- |
-| `resourceTierOverride`| `""`                                | Optional `small` / `medium` / `large` preset. Empty inherits `global.resourceTier`. Explicit `resources` keys win over the preset. |
-| `server.replicaCount` | `null`                              | Number of server replicas (`0` allowed to scale down). Empty/`null` derives from the resource tier (small=1, medium=2, large=3; 1 with no tier). |
+| `global.resourceTier` | `small`                             | Tier when `resourceTierOverride` is empty. `small` / `medium` / `large`. |
+| `resourceTierOverride`| `""`                                | Optional `small` / `medium` / `large` preset. Empty uses `global.resourceTier`. An explicit resources table wins over this. |
+| `server.replicaCount` | `null`                              | Number of server replicas (`0` allowed to scale down). Empty/`null` derives from the resource tier (small=1, medium=2, large=3). |
+| `server.resources`    | `{}`                                | Server CPU, memory, and ephemeral-storage. A set table replaces the tier preset. |
+| `controller.resourceTierOverride` | `""`                   | Controller tier. Empty uses `resourceTierOverride`, then `global.resourceTier`. |
+| `controller.resources`| `{}`                                | Controller CPU, memory, and ephemeral-storage. A set table replaces the tier preset. |
 | `server.deploymentAnnotations` | `{}`                          | Annotations on the server Deployment, such as an Argo CD sync wave. |
 | `controller.deploymentAnnotations` | `{}`                      | Annotations on the controller Deployment, such as an Argo CD sync wave. |
 | `image.registry`      | `""`                                | Image registry. Empty uses `global.image.registry`, then `tfy.jfrog.io`. |
@@ -404,7 +411,6 @@ extraObjects:
 | `podDisruptionBudget.enabled` | `true`                        | Server PodDisruptionBudget (`minAvailable` defaults to `1`); rendered only when the server runs more than one replica. |
 | `podSecurityContext`  | non-root UID/GID `10001`            | Pod-level restricted security defaults. |
 | `securityContext`     | read-only root FS + drop all capabilities | Container-level restricted security defaults. |
-| `resources`           | medium preset when no tier          | Server CPU, memory, and ephemeral-storage. Set keys to merge over the tier preset. |
 | `mtls.enabled`        | `false`                             | HTTPS listener + controller→server mTLS (`MTLS_*`). When true, probes use `scheme: HTTPS`. |
 | `mtls.secretName`     | `""`                                | Secret with `tls.crt` / `tls.key` / `ca.crt` (required when `mtls.enabled`). |
 | `mtls.certsDir`       | `/etc/tls`                          | Mount path / `MTLS_CERTS_DIR`. |

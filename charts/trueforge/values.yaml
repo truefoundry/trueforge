@@ -5,10 +5,9 @@
 # JFrog mirror instead. Overriding the registry trips Bitnami's image guardrail,
 # so allowInsecureImages must be set for the subcharts to render.
 global:
-  # small | medium | large, usually set by a parent chart. Used when
-  # resourceTierOverride is empty. Keys on resources and controller.resources
-  # still win over the preset.
-  resourceTier: ""
+  # small | medium | large. Used when resourceTierOverride is empty.
+  # An explicit server.resources or controller.resources table wins over this.
+  resourceTier: small
   security:
     allowInsecureImages: true
   # Custom CA trust, set here or inherited from a parent chart. Give an inline
@@ -103,8 +102,8 @@ serviceMonitor:
 # packages/trueforge/src/config.ts.
 server:
   # Number of server replicas (ignored when autoscaling.enabled is true).
-  # null = derived from the resource tier (small=1, medium=2, large=3),
-  # or 1 when no tier is set. Set a number (including 0 to scale down) to
+  # null = derived from the resource tier (small=1, medium=2, large=3).
+  # The default tier is small. Set a number (including 0 to scale down) to
   # override the tier.
   replicaCount: null
   # Annotations on the server Deployment object (for example, Argo CD sync waves).
@@ -127,6 +126,9 @@ server:
   # Escape hatch for knobs not covered by configs.*. Each entry is a full env
   # item: {name, value} or {name, valueFrom: {secretKeyRef|configMapKeyRef: ...}}.
   extraEnv: []
+  # Requests and limits for the server. A set table is used as-is, so CPU
+  # limits can be omitted. Empty uses resourceTierOverride, then global.resourceTier.
+  resources: {}
 # Schedule controller. A dedicated, single-replica Deployment that runs the
 # periodic control loops (schedule dispatch). It MUST run as exactly one replica
 # per database, so it is never autoscaled. It calls the server API over HTTP and
@@ -145,9 +147,11 @@ controller:
   serverUrl: ""
   # Extra env for the controller only; same item shape as server.extraEnv.
   extraEnv: []
-  # Partial requests/limits. Empty keys come from resourceTierOverride, then
-  # global.resourceTier. With no tier, the small preset is used. A key set
-  # here overrides the preset; other keys stay on the preset.
+  # small | medium | large. Empty uses resourceTierOverride, then global.resourceTier.
+  resourceTierOverride: ""
+  # Requests and limits for the controller. A set table is used as-is, so CPU
+  # limits can be omitted. Empty uses controller.resourceTierOverride, then
+  # resourceTierOverride, then global.resourceTier.
   resources: {}
 # Controller → server API key (TRUEFORGE_API_KEY). Dev default is a known
 # placeholder — strongly recommended to create a Secret and set:
@@ -215,9 +219,10 @@ networkPolicy:
     # Example: ["evil.example.com"]
     blockedHosts: []
 # small | medium | large preset for server and controller resources, and for
-# the server replica count. Empty inherits global.resourceTier. Loses to keys
-# set on resources / controller.resources. `resourceTier` is accepted when
-# this is empty.
+# the server replica count. Empty uses global.resourceTier. An explicit
+# server.resources or controller.resources table wins over this.
+# controller.resourceTierOverride wins for the controller only.
+# `resourceTier` is accepted when this is empty.
 resourceTierOverride: ""
 # --- Bundled Postgres (Bitnami subchart) ---------------------------------------
 # Rendered only when postgresql.enabled is true. The server's POSTGRES_* env is
