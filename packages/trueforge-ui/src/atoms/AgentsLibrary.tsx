@@ -664,6 +664,7 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
       status: null,
       q: null,
       isNew: isNew === true ? true : null,
+      scheduleId: null,
     });
     updateShareSearch({
       agentId,

@@ -158,6 +158,7 @@ export type {
   Question as AskUserQuestion,
   AskUserPromptProps as AskUserQuestionCardProps,
 } from './atoms/adapters/AskUserPromptAdapter.js';
+export type { ContextCompactionCardProps } from './atoms/adapters/ContextCompactionCardAdapter.js';
 export type {
   McpAuthPromptProps as McpAuthCardProps,
   McpAuthPromptProps,

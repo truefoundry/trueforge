@@ -166,12 +166,12 @@ describe('SessionsPage', () => {
   });
 
   it('labels sessions created by a schedule run', async () => {
-    const scheduledRow = { ...namedRow, id: 'sess-scheduled', sourceType: 'schedule' as const };
+    const scheduledRow = { ...namedRow, id: 'sess-scheduled', scheduleId: 'sched-1' };
     renderPage({ listSessions: vi.fn(async () => ({ data: [scheduledRow] })) });
 
     const indicator = await screen.findByLabelText('Scheduled run');
     fireEvent.mouseEnter(indicator);
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('Scheduled Session');
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Scheduled Run');
   });
 
   it('shows a single empty screen when there are no sessions', async () => {
