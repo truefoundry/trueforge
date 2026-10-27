@@ -104,7 +104,7 @@ flowchart LR
 | **Turn 3** | Jane (or a support rep) | Approval: allow `process_refund`               | Agent runs the refund and sends a confirmation.                 |
 
 <Note>
-  A turn can also pause when the agent asks a clarifying question ([`tool.response_required`](/create-agent/overview#whats-in-an-agent))
+  A turn can also pause when the agent asks a clarifying question ([`tool.response_required`](/api/use-agent#tool-response_required))
   or needs MCP OAuth ([`mcp.auth_required`](/mcp-servers#in-chat-authentication)). You resume with a new turn, just like
   Turn 3 above.
 </Note>
@@ -145,7 +145,7 @@ Sample payload:
 }
 ```
 
-Every event carries an `id` and a `thread_id` (`"main"` for the root agent, a generated id for [subagents](/key-features/subagents), or `null` for run-level events), plus a **sequence number** used for [resuming after a disconnect](/api/use-agent). The stream always opens with `turn.created` and closes with `turn.done`. Field-level schemas for every event type are in the [turn events reference](/api/use-agent#turn-events-reference).
+Every event carries an `id` and a `thread_id` (`"main"` for the root agent, a generated id for [subagents](/key-features/subagents), or `null` for run-level events), plus a **sequence number** used for [resuming after a disconnect](/api/use-agent#resume-a-stream). The stream always opens with `turn.created` and closes with `turn.done`. Field-level schemas for every event type are in the [turn events reference](/api/use-agent#turn-events-reference).
 
 ### Delta
 

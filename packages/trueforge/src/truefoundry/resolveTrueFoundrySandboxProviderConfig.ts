@@ -88,3 +88,18 @@ export function resolveTrueFoundrySandboxProviderConfig(
   }
   return undefined;
 }
+
+/**
+ * Capability/probe check: true when shared sandbox env resolves.
+ * Standalone, disabled, or incomplete/invalid settings → false (never throws).
+ */
+export function hasTrueFoundrySandboxProviderConfig(config: ServerConfiguration = configuration): boolean {
+  if (config.STANDALONE) {
+    return false;
+  }
+  try {
+    return resolveTrueFoundrySandboxProviderConfig(config) !== undefined;
+  } catch {
+    return false;
+  }
+}

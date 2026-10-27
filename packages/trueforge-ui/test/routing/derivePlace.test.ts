@@ -11,6 +11,7 @@ function snap(partial: Partial<ShellSnapshot>): ShellSnapshot {
     sharedSessionId: null,
     libraryAgentId: null,
     schedulesOpen: false,
+    environmentsOpen: false,
     mode: { status: 'idle' },
     agentConfigMode: 'AgentLibraryWithComposer',
     ...partial,
@@ -56,6 +57,16 @@ describe('derivePlace', () => {
     expect(derivePlace(snap({ settingsOpen: true, schedulesOpen: true }))).toEqual({ type: 'settings' });
   });
 
+  it('environments overlay wins over chat when settings/schedules are closed', () => {
+    expect(derivePlace(snap({ environmentsOpen: true, pendingSessionId: 'abc' }))).toEqual({
+      type: 'environments',
+    });
+  });
+
+  it('schedules wins over environments when both are open', () => {
+    expect(derivePlace(snap({ schedulesOpen: true, environmentsOpen: true }))).toEqual({ type: 'schedules' });
+  });
+
   it('pendingSessionId maps to a session while no thread has reported yet', () => {
     expect(derivePlace(snap({ pendingSessionId: 'abc' }))).toEqual({ type: 'session', sessionId: 'abc' });
   });
@@ -69,6 +80,18 @@ describe('derivePlace', () => {
       type: 'session',
       sessionId: 'r',
     });
+  });
+
+  it('access-error panes keep the pending deep-link id over a stale activeRemoteId', () => {
+    expect(
+      derivePlace(
+        snap({
+          pendingSessionId: 'forbidden',
+          activeRemoteId: 'prior-thread',
+          sessionAccessError: 'Only the session creator can access this session',
+        }),
+      ),
+    ).toEqual({ type: 'session', sessionId: 'forbidden' });
   });
 
   it('agent builder moves to the session place after its session persists', () => {

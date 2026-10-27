@@ -173,6 +173,14 @@ Notes on behaviour:
 Hosts serving the SDK must send the app shell for unknown paths (SPA
 fallback), otherwise deep links 404 before React boots.
 
+## Analytics and slot overrides
+
+Product analytics fire from **containers** that wrap atom callbacks (`onCopy`,
+`onSubmit`, …). Visual slot overrides that keep those props continue to track
+automatically. Overrides that invent new click paths should call
+`useTrackAnalytics()` (and use `AnalyticsEvents`) themselves. Pass
+`analytics={{ track }}` on `<TrueForgeUI />` — the SDK does not ship a vendor.
+
 ## Custom layout
 
 Pass a React component as `layout` to own chrome; compose exported

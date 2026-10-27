@@ -3,6 +3,8 @@
 import type * as TrueForge from "../index.js";
 
 export interface McpServerInitInfo {
+    /** Sticky per-tool approval policies (keyed by tool name) that auto-allow future calls. */
+    approvalPolicies?: Record<string, TrueForge.ComponentsSchemasToolApprovalPolicyAllowSession>;
     /** Internal MCP server id. */
     id: string;
     /** Configured MCP server name. */

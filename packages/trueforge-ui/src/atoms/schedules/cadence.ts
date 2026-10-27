@@ -1,3 +1,5 @@
+import { formatRelativeTime as formatRelativeTimeCommon } from '../lib/dateFormat.js';
+
 export type RecurrenceKind = 'hourly' | 'daily' | 'weekly' | 'custom';
 
 export type ScheduleFormValues = {
@@ -110,6 +112,11 @@ export function valuesToCron(values: ScheduleFormValues): string {
     case 'custom':
       return values.customCron.trim();
   }
+}
+
+/** Shape check only; the server owns full validation and the minimum-interval rule. */
+export function hasFiveCronFields(cron: string): boolean {
+  return cron.trim().split(/\s+/).length === 5;
 }
 
 export function formatCadenceSummary(input: { cron: string; timezone: string }): string {
@@ -254,15 +261,5 @@ export function cronToFormValues(input: {
 }
 
 export function formatRelativeTime(iso: string | null, nowMs = Date.now()): string {
-  if (iso == null) return 'Never';
-  const then = Date.parse(iso);
-  if (Number.isNaN(then)) return 'Never';
-  const deltaSec = Math.round((nowMs - then) / 1000);
-  if (deltaSec < 60) return 'just now';
-  const mins = Math.round(deltaSec / 60);
-  if (mins < 60) return `${String(mins)} min ago`;
-  const hours = Math.round(mins / 60);
-  if (hours < 48) return `${String(hours)} hour${hours === 1 ? '' : 's'} ago`;
-  const days = Math.round(hours / 24);
-  return `${String(days)} day${days === 1 ? '' : 's'} ago`;
+  return formatRelativeTimeCommon(iso, { fallback: 'Never', nowMs });
 }

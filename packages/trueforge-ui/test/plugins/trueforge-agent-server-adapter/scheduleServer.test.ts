@@ -87,7 +87,7 @@ describe('createScheduleServer.listSchedules', () => {
           },
         },
       ],
-      response: { pagination: { limit: 10, nextPageToken: 'tok' } },
+      response: { pagination: { limit: 10, nextPageToken: 'tok', previousPageToken: 'prev-tok' } },
       hasNextPage: () => true,
       getNextPage: async () => undefined,
     }));
@@ -109,6 +109,7 @@ describe('createScheduleServer.listSchedules', () => {
       subjectDisplayName: 'alice@example.com',
     });
     expect(page.nextPageToken).toBe('tok');
+    expect(page.previousPageToken).toBe('prev-tok');
   });
 
   it('caps limit at 25', async () => {

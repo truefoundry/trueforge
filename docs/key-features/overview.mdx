@@ -8,11 +8,11 @@ TrueForge is more than model + tools. These harness features keep long agent run
 
 | Feature | What it does |
 | --- | --- |
-| [Sandbox as a tool](/sandbox) | Isolated code/file execution without putting secrets or the agent loop inside the sandbox |
+| [Sandbox as a tool](#sandbox-as-a-tool) | Isolated code/file execution without putting secrets or the agent loop inside the sandbox |
 | [Context engineering](#what-is-context-engineering) | Progressive skills, deferred tools, subagents, offloading, Code Mode, compaction |
-| [Tool approval](/create-agent/overview#whats-in-an-agent) | Pause before write/destructive MCP tools |
-| [Ask clarifying questions](/create-agent/overview#whats-in-an-agent) | Structured clarification mid-run |
-| [Generative UI](/create-agent/overview#whats-in-an-agent) | Charts, tables, and cards streamed into chat |
+| [Tool approval](/create-agent/overview#tool-approval) | Pause before write/destructive MCP tools |
+| [Ask clarifying questions](/create-agent/overview#ask-clarifying-questions) | Structured clarification mid-run |
+| [Generative UI](/create-agent/overview#generative-ui) | Charts, tables, and cards streamed into chat |
 | [In-chat MCP OAuth](/mcp-servers#in-chat-authentication) | Connect button when a connector needs authorization |
 
 ## Sandbox as a tool
@@ -162,7 +162,7 @@ flowchart TD
 <Note>
   Compaction is **lossy in the working context** — fine-grained details from earlier messages are condensed into the
   summary. The full event history of the session remains persisted and queryable via the [session events
-  API](/api/overview), but the agent works from the summary after compaction.
+  API](/api-reference/agent-sessions/list-session-events), but the agent works from the summary after compaction.
 </Note>
 
 Configuration:

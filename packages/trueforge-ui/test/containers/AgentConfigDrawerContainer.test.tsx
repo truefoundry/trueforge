@@ -10,6 +10,12 @@ import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 import { createMockAgentUIServer } from '../server/mockServer.js';
 
+vi.mock('@/atoms/MonacoEditorCore.js', () => ({
+  MonacoEditorCore: ({ value, onChange }: { value: string; onChange?: (value: string) => void }) => (
+    <textarea aria-label="JSON parameters editor" value={value} onChange={event => onChange?.(event.target.value)} />
+  ),
+}));
+
 const flushAgentSpec = vi.fn(async () => undefined);
 const updateAgentSpec = vi.fn();
 
@@ -18,7 +24,7 @@ vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
     agentSpec: { model: { name: 'openai/gpt-4.1' } },
     draftSessionId: 'draft-1',
   }),
-  useTrueForgeFlushAgentSpec: () => flushAgentSpec,
+  useTrueForgeFlushAgentSpec: () => () => flushAgentSpec(),
   useTrueForgeUpdateAgentSpec: () => updateAgentSpec,
   useTrueForgeAdoptAgentSpec: () => vi.fn(),
 }));
@@ -104,6 +110,7 @@ describe('AgentConfigDrawerContainer', () => {
   });
 
   it('opens Runtime Config in a second right-side drawer', async () => {
+    flushAgentSpec.mockClear();
     render(
       <SlotsProvider>
         <ServerProvider server={createMockAgentUIServer()}>
@@ -128,6 +135,7 @@ describe('AgentConfigDrawerContainer', () => {
       config: { generativeUi: { enabled: false } },
       instructions: undefined,
     });
+    expect(flushAgentSpec).not.toHaveBeenCalled();
   });
 
   it('commits drawer instructions and messages in one spec update', () => {
@@ -145,7 +153,7 @@ describe('AgentConfigDrawerContainer', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Open config' }));
     fireEvent.click(screen.getByRole('button', { name: 'Edit Instructions' }));
-    fireEvent.change(screen.getByLabelText('Agent instructions'), { target: { value: 'Updated instructions' } });
+    fireEvent.change(screen.getByLabelText('JSON parameters editor'), { target: { value: 'Updated instructions' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add User Message' }));
     fireEvent.change(screen.getByLabelText('User Message 1'), { target: { value: 'Start here' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));

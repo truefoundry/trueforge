@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { useLayoutEffect, type ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -8,7 +8,7 @@ import { DraftComposerLeftSection, DraftComposerRightSection } from '@/atoms/dra
 import { CompactLayoutProvider } from '@/atoms/lib/CompactLayoutContext.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
-import type { AgentSpec } from '@/server/types.js';
+import type { AgentSpec, ModelSelection } from '@/server/types.js';
 import { createMockAgentUIServer } from '../../server/mockServer.js';
 
 let agentSpec: AgentSpec;
@@ -88,7 +88,7 @@ describe('draft composer sections', () => {
   it('composes model and reasoning selectors in the right section', async () => {
     render(<DraftSections />);
 
-    expect(await screen.findByTitle('Select model')).toHaveTextContent('gpt-4.1');
+    expect(await screen.findByRole('button', { name: 'Select model' })).toHaveTextContent('gpt-4.1');
     expect(await screen.findByTitle('Select reasoning effort')).toHaveTextContent('high');
     // Without shell builder mode, left chrome is Tools — not Agent config.
     expect(screen.queryByRole('button', { name: 'Agent config' })).not.toBeInTheDocument();
@@ -104,7 +104,7 @@ describe('draft composer sections', () => {
     );
 
     expect(await screen.findByTitle('Select reasoning effort')).toHaveTextContent('high');
-    expect(screen.queryByTitle('Select model')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Select model' })).not.toBeInTheDocument();
   });
 
   it('shows the Agent config trigger only in compact builder layouts', () => {
@@ -143,16 +143,54 @@ describe('draft composer sections', () => {
     expect(screen.getByText('Config open')).toBeInTheDocument();
   });
 
+  it('keeps an explicit reasoning effort when the model lists none', async () => {
+    agentSpec = { model: { name: 'openai/plain', params: { reasoningEffort: 'minimal' } } };
+    let resolveModels: (models: ModelSelection[]) => void = () => {};
+    const modelsReady = new Promise<ModelSelection[]>(resolve => {
+      resolveModels = resolve;
+    });
+    const server = createMockAgentUIServer({
+      getModels: () => modelsReady,
+    });
+
+    render(
+      <ShellModeProvider agentConfig={{ mode: 'AgentComposer' }}>
+        <BuilderMode>
+          <ServerProvider server={server}>
+            <DraftCatalogProvider>
+              <DraftComposerRightSection disabled={false} isRunning={false} />
+            </DraftCatalogProvider>
+          </ServerProvider>
+        </BuilderMode>
+      </ShellModeProvider>,
+    );
+
+    await act(async () => {
+      resolveModels([
+        {
+          id: 'plain',
+          name: 'openai/plain',
+          provider: { name: 'OpenAI' },
+          properties: {},
+        },
+      ]);
+      await modelsReady;
+    });
+
+    expect(updateAgentSpec).not.toHaveBeenCalled();
+    expect(screen.queryByTitle('Select reasoning effort')).not.toBeInTheDocument();
+  });
+
   it('propagates disabled and running state to composed controls', async () => {
     const { rerender } = render(<DraftSections disabled />);
 
     expect(screen.getByRole('button', { name: 'Tools (3)' })).toBeDisabled();
-    expect(await screen.findByTitle('Select model')).toBeDisabled();
+    expect(await screen.findByRole('button', { name: 'Select model' })).toBeDisabled();
     expect(await screen.findByTitle('Select reasoning effort')).toBeDisabled();
 
     rerender(<DraftSections isRunning />);
     expect(screen.getByRole('button', { name: 'Tools (3)' })).toBeDisabled();
-    expect(await screen.findByTitle('Select model')).toBeDisabled();
+    expect(await screen.findByRole('button', { name: 'Select model' })).toBeDisabled();
     expect(await screen.findByTitle('Select reasoning effort')).toBeDisabled();
   });
 });

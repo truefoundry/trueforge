@@ -21,7 +21,9 @@ describe('UserMessageBubble', () => {
     expect(content).toHaveTextContent('First line Second line');
     expect(content).toHaveStyle({ borderRadius: 'var(--composer-radius, 1.5rem)' });
     expect(screen.getByRole('link', { name: 'brief.pdf' })).toHaveAttribute('href', '/brief.pdf');
-    expect(screen.getByRole('button', { name: 'Edit message' })).toBeInTheDocument();
+    const editAction = screen.getByRole('button', { name: 'Edit message' }).parentElement;
+    expect(editAction).toHaveClass('md:opacity-0');
+    expect(editAction).toHaveClass('md:group-hover/user-message:opacity-100');
   });
 
   it('omits optional attachment and edit-action content', () => {

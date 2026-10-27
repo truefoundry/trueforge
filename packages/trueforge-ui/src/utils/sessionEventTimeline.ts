@@ -10,7 +10,7 @@
 export const MAIN_THREAD_ID = 'main';
 
 export type SessionEventType =
-  'system' | 'user' | 'model' | 'tool_call' | 'approval' | 'sub_agent' | 'waiting_on_human' | 'error';
+  'system' | 'user' | 'model' | 'tool_call' | 'approval' | 'sub_agent' | 'waiting_on_human' | 'summary' | 'error';
 
 export type SessionEventTypeDefinition = {
   id: SessionEventType;
@@ -46,6 +46,7 @@ export const SESSION_EVENT_TYPES: SessionEventTypeDefinition[] = [
   { id: 'model', label: 'Model', color: '#3b82f6', darkColor: '#6366f1' },
   { id: 'tool_call', label: 'Tool call', color: '#f59e0b' },
   { id: 'approval', label: 'Approval / HITL', color: '#f472b6' },
+  { id: 'summary', label: 'Summary', color: '#a855f7' },
   { id: 'sub_agent', label: 'Sub-agent', color: '#e2e8f0', darkColor: '#3f3f46' },
   { id: 'waiting_on_human', label: 'Waiting on human', color: '#22d3ee' },
   { id: 'error', label: 'Error', color: '#f87171' },

@@ -2,7 +2,12 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { ASK_USER_CUSTOM_OPTION, AskUserPrompt, type Question } from '@/atoms/adapters/AskUserPromptAdapter.js';
+import {
+  ASK_USER_CUSTOM_OPTION,
+  AskUserPrompt,
+  askUserOptionLetter,
+  type Question,
+} from '@/atoms/adapters/AskUserPromptAdapter.js';
 
 const firstQuestion: Question = {
   id: 'deployment',
@@ -15,6 +20,14 @@ const secondQuestion: Question = {
   question: 'Which region?',
   options: ['US', 'EU'],
 };
+
+describe('askUserOptionLetter', () => {
+  it('maps indices to A…Z then AA…', () => {
+    expect(askUserOptionLetter(0)).toBe('A');
+    expect(askUserOptionLetter(25)).toBe('Z');
+    expect(askUserOptionLetter(26)).toBe('AA');
+  });
+});
 
 describe('AskUserPrompt', () => {
   it('renders nothing without questions or answers, then summarizes answered questions', () => {
@@ -56,6 +69,9 @@ describe('AskUserPrompt', () => {
 
     fireEvent.click(screen.getByRole('radio', { name: 'Immediately' }));
     expect(onCurrentAnswerChange).toHaveBeenCalledWith('deployment', { radioValue: 'Immediately' });
+    expect(screen.getByText('A')).toBeInTheDocument();
+    expect(screen.getByText('B')).toBeInTheDocument();
+    expect(screen.getByText('C')).toBeInTheDocument();
 
     const customAnswer = screen.getByRole('textbox', { name: 'Other (custom answer)' });
     fireEvent.focus(customAnswer);
@@ -69,7 +85,7 @@ describe('AskUserPrompt', () => {
       radioValue: ASK_USER_CUSTOM_OPTION,
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(onSubmit).toHaveBeenCalledOnce();
   });
 
@@ -90,7 +106,7 @@ describe('AskUserPrompt', () => {
     expect(screen.getByText('Which region?')).toBeInTheDocument();
     expect(screen.getByText('Answer all questions to submit')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Next question' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Submit' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Previous question' }));
     expect(onCurrentQuestionIndexChange).toHaveBeenCalledWith(0);
@@ -174,7 +190,7 @@ describe('AskUserPrompt', () => {
       expect(radio).toBeDisabled();
     }
     expect(screen.getByRole('textbox', { name: 'Other (custom answer)' })).toBeDisabled();
-    expect(screen.queryByRole('button', { name: 'Submit' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('radio', { name: 'Immediately' }));
     expect(onCurrentAnswerChange).not.toHaveBeenCalled();

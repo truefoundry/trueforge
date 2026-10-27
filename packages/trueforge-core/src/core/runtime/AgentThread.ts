@@ -12,7 +12,7 @@ import type {
 } from '../capabilities/AgentContextProcessor';
 import { SUB_AGENT_IDENTITY } from '../capabilities/builtins/DynamicSubAgents';
 import type { ToolResponseProcessor } from '../capabilities/ToolResponseProcessor';
-import { AgentHarnessError, InvalidAgentSendInputError } from '../errors';
+import { AgentHarnessError, InvalidAgentSendInputError, ModelProviderError } from '../errors';
 import type { RegisteredPassthroughEvent } from '../events/PassthroughEvents';
 import {
   EventType,
@@ -27,6 +27,8 @@ import {
   type ModelMessageEvent,
   type ModelMessageUsage,
   type SandboxCreatedEvent,
+  type ThreadContextCompactionFinishedEvent,
+  type ThreadContextCompactionStartedEvent,
   type ThreadOverwriteContextEvent,
   type ToolApprovalRequiredEvent,
   type ToolResponseEvent,
@@ -46,15 +48,17 @@ import {
   type LLMUserMessage,
   type RawAssistantMessage,
 } from '../llm/LLMTypes';
+import { ModelSchema, type Model } from '../llm/model';
 import { toOpenAIResponseFormat } from '../llm/responseFormat';
 import { toOpenAIChatMessage } from '../llm/toOpenAIChatMessage';
-import { estimateTokensForString } from '../llm/usage';
+import { estimateTokensForString, resolveMaxOutputTokens } from '../llm/usage';
 import { convertMCPServersToTools, type ConvertToolsResult, type MappedMCPTool } from '../mcp/convertMCPServers';
 import { executeToolCalls } from '../mcp/executeToolCalls';
 import type { IToolSet, MCPAuthRequired } from '../mcp/IMCPServer';
-import type { Sandbox, SandboxInfo } from '../sandbox/Sandbox';
+import { elapsedSeconds, getOperationMetrics, type LlmRequestOutcome } from '../observability/operationMetrics';
+import type { HarnessSandbox, SandboxInfo } from '../sandbox/Sandbox';
 import type { AgentTracing } from '../tracing/AgentTracing';
-import { describeUnknownError, extractErrorLogFields } from '../util/errorLogFields';
+import { describeUnknownError, extractErrorLogFields, isReportableError } from '../util/errorLogFields';
 import type { AgentDefinition } from './AgentDefinition';
 import type {
   AgentThreadConstructorInput,
@@ -68,9 +72,10 @@ import {
   type AgentThreadEvent,
   type ContextMessage,
   type InternalCapabilityStateEvent,
+  type InternalChildThreadDoneEvent,
   type InternalMCPAuthRequiredEvent,
   type InternalThreadDoneEvent,
-  type SubAgentCompletionMarker,
+  type SubAgentCompletion,
 } from './AgentThread.types';
 import {
   currentContextUsageFromCompletion,
@@ -93,6 +98,7 @@ import {
   toToolCallInfo,
 } from './contextUtils';
 import { DeferredTool } from './DeferredTool';
+import { finishReasonErrorMessage } from './finishReasonError';
 import { createEmptyAgentThreadMetrics, updateMetricsFromUsage, type AgentThreadMetrics } from './metrics';
 import { getClosableOpenToolCallIds, OpenToolCallCloser } from './OpenToolCallCloser';
 import { isEmptyMessageContent, processAgentUserInput, type AgentInputUserMessage } from './UserInputMessage';
@@ -234,18 +240,28 @@ function toContextAssistantMessage(
   return forContext;
 }
 
+function modelFromDefinition(definition: AgentDefinition): Model {
+  const params = definition.modelParams;
+  return ModelSchema.parse({
+    name: definition.modelName,
+    ...(params && Object.keys(params).length > 0 ? { params } : {}),
+  });
+}
+
 function buildModelMessageEvent({
   assistantMessage,
   threadId,
   finishReason,
   usage,
   id,
+  model,
 }: {
   assistantMessage: InternalEnrichedAssistantMessage;
   threadId: string;
   finishReason: FinishReason | null;
   usage: ModelMessageUsage | undefined;
   id: string;
+  model: Model;
 }): ModelMessageEvent {
   // `thinking_blocks` / `source` stay on the context message for replay; strip them from the client event.
   // `reasoning_content` stays on the event for UI replay (exact streamed concat).
@@ -266,6 +282,7 @@ function buildModelMessageEvent({
     thread_id: threadId,
     finish_reason: finishReason,
     ...(usage && { usage }),
+    model,
   };
   return event;
 }
@@ -496,8 +513,8 @@ export class AgentThread {
   readonly threadId: string;
   readonly parent?: AgentParent | undefined;
   readonly definition: AgentDefinition;
-  readonly title: string;
   readonly agentInfo?: AgentInfo | undefined;
+  private readonly title: string;
 
   private context: ContextMessage[];
   private currentContextUsage: CurrentContextUsage;
@@ -513,7 +530,7 @@ export class AgentThread {
   private deferredTool?: DeferredTool | undefined;
   private convertedTools: ConvertToolsResult | undefined;
   private pendingSandboxCreatedEvents: SandboxCreatedEvent[] = [];
-  private sandbox?: Sandbox | undefined;
+  private sandbox?: HarnessSandbox | undefined;
   private readonly tracing: AgentTracing;
   private readonly logger: Logger;
 
@@ -523,7 +540,7 @@ export class AgentThread {
   private contextBusy = false;
   private preSendRanThisTurn = false;
   private currentState: AgentThreadState | null = null;
-  private readonly preComputedCompletion?: SubAgentCompletionMarker | undefined;
+  private preComputedCompletion?: SubAgentCompletion | undefined;
   /** Mirrored capability KV — source for toSnapshot().capability_state. */
   private capabilityState: CapabilityState = {};
   private readonly capabilityStateKeys: ReadonlySet<string>;
@@ -602,9 +619,13 @@ export class AgentThread {
   public async *send(messages: AgentThreadRuntimeSendBatch): AsyncGenerator<AgentThreadAppendContext, void, unknown> {
     // An empty batch is a no-op only when the thread is not awaiting user input.
     // While awaiting input, fall through so the validator rejects the empty/incomplete batch.
+    // Already-complete threads (e.g. cancelled children left in a tip before AGENT_DONE
+    // removed them) must also no-op on [] so orchestrator fan-out resume/approval sends
+    // do not fail createTurn.
     if (messages.length === 0 && !this.isAwaitingUserInput()) {
       return;
     }
+    this.throwIfAlreadyComplete();
     this.throwIfContextBusy();
 
     this.contextBusy = true;
@@ -690,7 +711,7 @@ export class AgentThread {
     output: AgentOutputEvent[];
     currentContextUsage: CurrentContextUsage | undefined;
     usage: CompletionUsage | undefined;
-    completion?: SubAgentCompletionMarker | undefined;
+    completion?: SubAgentCompletion | undefined;
   }): Generator<AgentThreadAppendContext, void, unknown> {
     const { context, output, currentContextUsage, usage, completion } = opts;
 
@@ -735,31 +756,91 @@ export class AgentThread {
   }
 
   private generateErrorEvent(message: string, output?: ModelMessageEvent): InternalThreadDoneEvent {
+    if (this.parent !== undefined) {
+      return {
+        type: InternalEventType.AGENT_DONE,
+        thread_id: this.threadId,
+        title: this.title,
+        parent: this.parent,
+        status: 'error',
+        error: message,
+        send_to_parent: {
+          role: 'tool',
+          content: message,
+          tool_call_id: this.parent.tool_call_id,
+        },
+        output,
+      };
+    }
     return {
       type: InternalEventType.AGENT_DONE,
-      status: 'error',
       thread_id: this.threadId,
       title: this.title,
+      status: 'error',
       error: message,
-      parent: this.parent,
-      send_to_parent: this.parent
-        ? {
-            role: 'tool',
-            content: message,
-            tool_call_id: this.parent.tool_call_id,
-          }
-        : undefined,
-      ...(output && { output }),
+      output,
     };
   }
 
-  public hasOpenToolCallId(toolCallId: string): boolean {
+  *cancel(reason: string): Generator<AgentThreadAppendContext, void, unknown> {
+    if (this.parent === undefined) {
+      throw new Error('unreachable: cancel() requires a parent thread');
+    }
+    const completion: SubAgentCompletion = this.preComputedCompletion ?? {
+      type: 'cancelled',
+      reason,
+      send_to_parent: {
+        role: 'tool',
+        tool_call_id: this.parent.tool_call_id,
+        content: reason,
+      },
+    };
+    yield {
+      type: InternalEventType.AGENT_CONTEXT_APPEND,
+      thread_id: this.threadId,
+      context: [],
+      output: [],
+      completion,
+    };
+    this.preComputedCompletion ??= completion;
+  }
+
+  *closeAllOpenToolCalls({
+    toolIdToClosureMessages,
+    defaultToolClosureContent,
+  }: {
+    toolIdToClosureMessages: ReadonlyMap<string, LLMToolMessage>;
+    defaultToolClosureContent: string;
+  }): Generator<AgentThreadAppendContext, void, unknown> {
+    this.throwIfAlreadyComplete();
+    const openToolCallIds = getOpenToolCallIds(this.context);
+    const closed: LLMToolMessage[] = [...openToolCallIds].map(
+      id => toolIdToClosureMessages.get(id) ?? { role: 'tool', tool_call_id: id, content: defaultToolClosureContent },
+    );
+    if (closed.length === 0) {
+      return;
+    }
+    yield* this.appendToContext({
+      context: closed,
+      output: [],
+      currentContextUsage: undefined,
+      usage: undefined,
+    });
+  }
+
+  hasOpenToolCallId(toolCallId: string): boolean {
     return getOpenToolCallIds(this.context).has(toolCallId);
+  }
+
+  // User-configured MCP tool sets (spec.mcp_servers) for this thread. Excludes
+  // system tool sets (sandbox / deferred / capabilities).
+  getUserToolSets(): readonly IToolSet[] {
+    return this.definition.toolSets ?? [];
   }
 
   // True when this thread is paused waiting on the user to resolve a pending tool
   // approval or a client-side tool response.
-  public isAwaitingUserInput(): boolean {
+  private isAwaitingUserInput(): boolean {
     return (
       getPendingApprovalToolCalls(this.context).length > 0 || getPendingClientSideToolCalls(this.context).length > 0
     );
@@ -767,7 +848,12 @@ export class AgentThread {
 
   // Pure validation of an input batch against this thread's current context; throws
   // on an invalid/incomplete batch without mutating the context.
-  public validateSendInput(messages: AgentThreadRuntimeSendBatch): void {
+  validateSendInput(messages: AgentThreadRuntimeSendBatch): void {
+    // Match send(): empty + not awaiting is a no-op, including already-complete threads.
+    if (messages.length === 0 && !this.isAwaitingUserInput()) {
+      return;
+    }
+    this.throwIfAlreadyComplete();
     validateInputMessageTypesGivenContext(this.context, messages);
   }
 
@@ -784,7 +870,7 @@ export class AgentThread {
     };
   }
 
-  public getAgentThreadMetrics(): AgentThreadMetrics {
+  getAgentThreadMetrics(): AgentThreadMetrics {
     return { ...this.metrics };
   }
 
@@ -891,6 +977,8 @@ export class AgentThread {
     hook: 'preLLM' | 'postToolCall',
   ): AsyncGenerator<
     | ThreadOverwriteContextEvent
+    | ThreadContextCompactionStartedEvent
+    | ThreadContextCompactionFinishedEvent
     | AgentThreadAppendContext
     | { type: typeof InternalEventType.PASSTHROUGH; event: RegisteredPassthroughEvent }
     | InternalCapabilityStateEvent,
@@ -901,6 +989,8 @@ export class AgentThread {
     hook: 'preSend' | 'preLLM' | 'postToolCall',
   ): AsyncGenerator<
     | ThreadOverwriteContextEvent
+    | ThreadContextCompactionStartedEvent
+    | ThreadContextCompactionFinishedEvent
     | AgentThreadAppendContext
     | { type: typeof InternalEventType.PASSTHROUGH; event: RegisteredPassthroughEvent }
     | InternalCapabilityStateEvent,
@@ -944,6 +1034,13 @@ export class AgentThread {
             break;
           case EventType.AGENT_CONTEXT_OVERWRITE:
             yield* this.overwriteContext(response);
+            break;
+          case EventType.THREAD_CONTEXT_COMPACTION_STARTED:
+          case EventType.THREAD_CONTEXT_COMPACTION_FINISHED:
+            yield {
+              ...response,
+              thread_id: this.threadId,
+            };
             break;
           case InternalEventType.PASSTHROUGH:
             yield response;
@@ -1011,6 +1108,40 @@ export class AgentThread {
     return this.convertedTools;
   }
 
+  private recordLlmCall({
+    startedMs,
+    outcome,
+    finishReason,
+  }: {
+    startedMs: number;
+    outcome: LlmRequestOutcome;
+    finishReason: FinishReason | null;
+  }): void {
+    const metrics = getOperationMetrics();
+    const providerType = this.definition.providerType;
+    if (metrics === undefined || providerType === undefined) {
+      return;
+    }
+    metrics.recordLlmRequest({
+      providerType,
+      outcome,
+      finishReason: finishReason ?? 'none',
+      durationSeconds: elapsedSeconds(startedMs),
+    });
+  }
+
+  private recordLlmTimeToFirstToken(startedMs: number): void {
+    const metrics = getOperationMetrics();
+    const providerType = this.definition.providerType;
+    if (metrics === undefined || providerType === undefined) {
+      return;
+    }
+    metrics.recordLlmTimeToFirstToken({
+      providerType,
+      durationSeconds: elapsedSeconds(startedMs),
+    });
+  }
+
   private async *stepLLMCall(
     tools: ChatCompletionTool[],
     toolMapping: Map<string, MappedMCPTool>,
@@ -1026,53 +1157,79 @@ export class AgentThread {
     }
 
     const requestBody = this.transformToLLMRequest(tools);
+    // Duration includes the provider stream and each delta's drain. appendToContext stays outside.
+    const requestStartedMs = performance.now();
     const llmStream = this.definition.modelClient.create(requestBody);
 
     // We start the delta stream with a model message event.
+    // `model` FQN is known from the bound client before any chunk arrives.
     yield {
       type: EventType.MODEL_MESSAGE,
       thread_id: this.threadId,
       created_at: new Date().toISOString(),
       id: modelMessageEventId,
+      model: modelFromDefinition(this.definition),
     } satisfies ModelMessageEvent;
 
     let firstDeltaTimestamped = false;
-    let result = await llmStream.next();
     let modelMessageUsage: ModelMessageUsage | undefined = undefined;
-    while (!result.done) {
-      const chunk = result.value;
-      if (chunk.usage) {
-        modelMessageUsage = this.computeAssistantMessageUsage({
-          requestBody,
-          usage: chunk.usage,
-          toolMapping,
-        });
-      }
-      const event = await buildModelMessageDeltaEvent({
-        chunk,
-        threadId: this.threadId,
-        toolMapping,
-        usage: modelMessageUsage,
-        id: modelMessageEventId,
-        logger: this.logger,
-      });
-      if (event) {
-        if (!firstDeltaTimestamped) {
-          firstDeltaTimestamped = true;
-          yield { ...event, created_at: new Date().toISOString() };
-        } else {
-          yield event;
-        }
-      }
+    let result: Awaited<ReturnType<typeof llmStream.next>>;
+    try {
       result = await llmStream.next();
+      while (!result.done) {
+        const chunk = result.value;
+        if (chunk.usage) {
+          modelMessageUsage = this.computeAssistantMessageUsage({
+            requestBody,
+            usage: chunk.usage,
+            toolMapping,
+          });
+        }
+        const event = await buildModelMessageDeltaEvent({
+          chunk,
+          threadId: this.threadId,
+          toolMapping,
+          usage: modelMessageUsage,
+          id: modelMessageEventId,
+          logger: this.logger,
+        });
+        if (event) {
+          if (!firstDeltaTimestamped) {
+            firstDeltaTimestamped = true;
+            this.recordLlmTimeToFirstToken(requestStartedMs);
+            yield { ...event, created_at: new Date().toISOString() };
+          } else {
+            yield event;
+          }
+        }
+        result = await llmStream.next();
+      }
+    } catch (error) {
+      this.recordLlmCall({
+        startedMs: requestStartedMs,
+        outcome: isLlmCallAborted({ error, signal }) ? 'aborted' : 'error',
+        finishReason: null,
+      });
+      throw error;
     }
 
     // If the stream was aborted mid-way, result.value.output is only a partial
     // accumulation of the deltas — not the true complete response. Skip the
     // final model.message event to avoid emitting an inconsistent assembled message.
     if (signal?.aborted) {
+      this.recordLlmCall({
+        startedMs: requestStartedMs,
+        outcome: 'aborted',
+        finishReason: result.value.finish_reason,
+      });
       return { outcome: 'exit', modelMessageEventId };
     }
+
+    this.recordLlmCall({
+      startedMs: requestStartedMs,
+      outcome: 'success',
+      finishReason: result.value.finish_reason,
+    });
 
     // should be computed by this point but in case provider never gives out any delta with usage, compute it now.
     modelMessageUsage ??= this.computeAssistantMessageUsage({
@@ -1100,15 +1257,19 @@ export class AgentThread {
       finishReason,
       usage: modelMessageUsage,
       id: modelMessageEventId,
+      model: modelFromDefinition(this.definition),
     });
 
-    let completion: SubAgentCompletionMarker | undefined;
+    const finishError = finishReasonErrorMessage({
+      finishReason,
+      outputTokens: result.value.usage.output_tokens,
+      maxOutputTokens: resolveMaxOutputTokens(requestBody),
+    });
+
+    let completion: SubAgentCompletion | undefined;
     if (this.parent) {
-      if (finishReason === 'length') {
-        const errorMessage = assistantMessageContentToStringForSubAgent(
-          assistantMessage.content,
-          'max_tokens breached',
-        );
+      if (finishError !== undefined) {
+        const errorMessage = assistantMessageContentToStringForSubAgent(assistantMessage.content, finishError);
         completion = {
           type: 'error',
           output: agentAssistantMessage,
@@ -1133,26 +1294,33 @@ export class AgentThread {
       completion,
     });
 
-    if (finishReason === 'length') {
-      const errorContent = completion?.error_message ?? 'max_tokens breached';
+    if (finishError !== undefined) {
+      const errorContent = completion?.type === 'error' ? completion.error_message : finishError;
       yield this.generateErrorEvent(errorContent, agentAssistantMessage);
       return { outcome: 'exit', modelMessageEventId };
     }
 
-    if (!hasToolCalls(assistantMessage)) {
-      yield {
-        type: InternalEventType.AGENT_DONE,
-        status: 'done',
-        thread_id: this.threadId,
-        title: this.title,
-        output: agentAssistantMessage,
-        parent: this.parent,
-        send_to_parent: completion?.send_to_parent,
-      };
-      return { outcome: 'exit', modelMessageEventId };
+    if (hasToolCalls(assistantMessage)) {
+      return { outcome: 'continue', modelMessageEventId };
     }
 
-    return { outcome: 'continue', modelMessageEventId };
+    // No tool calls: this thread is finished. A child must already have send_to_parent
+    // from the completion built above; the root only reports the assistant output.
+    if (this.parent !== undefined) {
+      if (completion === undefined) {
+        throw new Error('unreachable: child finished without a completion');
+      }
+      yield this.buildReplayEvent(completion);
+    } else {
+      yield {
+        type: InternalEventType.AGENT_DONE,
+        thread_id: this.threadId,
+        title: this.title,
+        status: 'done',
+        output: agentAssistantMessage,
+      };
+    }
+    return { outcome: 'exit', modelMessageEventId };
   }
 
   private async *stepToolResponse(
@@ -1297,17 +1465,30 @@ export class AgentThread {
     return 'exit';
   }
 
-  private buildReplayEvent(c: SubAgentCompletionMarker): InternalThreadDoneEvent {
+  private buildReplayEvent(c: SubAgentCompletion): InternalChildThreadDoneEvent {
+    if (this.parent === undefined) {
+      throw new Error('unreachable: completion replay requires a parent thread');
+    }
     const base = {
       type: InternalEventType.AGENT_DONE,
       thread_id: this.threadId,
       title: this.title,
       parent: this.parent,
       send_to_parent: c.send_to_parent,
-    };
-    return c.type === 'done'
-      ? { ...base, status: 'done', output: c.output }
-      : { ...base, status: 'error', error: c.error_message ?? 'Sub-agent errored', output: c.output };
+    } satisfies Pick<InternalChildThreadDoneEvent, 'type' | 'thread_id' | 'title' | 'parent' | 'send_to_parent'>;
+    if (c.type === 'done') {
+      return { ...base, status: 'done', output: c.output };
+    }
+    if (c.type === 'error') {
+      return { ...base, status: 'error', error: c.error_message, output: c.output };
+    }
+    return { ...base, status: 'cancelled', reason: c.reason };
+  }
+
+  private throwIfAlreadyComplete(): void {
+    if (this.preComputedCompletion !== undefined) {
+      throw new InvalidAgentSendInputError(`thread ${this.threadId} is already complete`);
+    }
   }
 
   public async *execute(options?: {
@@ -1371,6 +1552,7 @@ export class AgentThread {
               return;
             }
             if (this.metrics.iterations >= iterationLimit) {
+              getOperationMetrics()?.recordHarnessLimit({ limit: 'iteration_limit' });
               yield this.generateErrorEvent(
                 `You have reached iteration limit of ${String(iterationLimit)}, please request again`,
               );
@@ -1407,7 +1589,11 @@ export class AgentThread {
     } catch (error) {
       // Providers / transports often reject with plain objects; instanceof Error would
       // otherwise collapse those into an opaque "Unknown error occurred" in Agent Steps.
-      this.logger.error('Agent thread execution failed', extractErrorLogFields(error));
+      // Model-provider failures are classified at the LLM call. turn.done only keeps the message.
+      this.logger.error('Agent thread execution failed', {
+        ...extractErrorLogFields(error),
+        ...(error instanceof ModelProviderError || !isReportableError(error) ? {} : { reportable_error: { error } }),
+      });
       yield this.generateErrorEvent(describeUnknownError(error));
     } finally {
       this.contextBusy = false;
@@ -1450,4 +1636,11 @@ function claimCapabilityState(
     claimed[key] = value;
   }
   return claimed;
+}
+
+function isLlmCallAborted({ error, signal }: { error: unknown; signal: AbortSignal | undefined }): boolean {
+  if (signal?.aborted === true) {
+    return true;
+  }
+  return error instanceof Error && error.name === 'AbortError';
 }

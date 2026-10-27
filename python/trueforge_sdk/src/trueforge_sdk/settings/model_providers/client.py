@@ -4,6 +4,7 @@ import typing
 
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.request_options import RequestOptions
+from ...types.delete_model_provider_response import DeleteModelProviderResponse
 from ...types.get_model_provider_response import GetModelProviderResponse
 from ...types.list_model_providers_response import ListModelProvidersResponse
 from ...types.model_provider_manifest import ModelProviderManifest
@@ -153,6 +154,40 @@ class ModelProvidersClient:
         )
         """
         _response = self._raw_client.create_or_update(manifest=manifest, request_options=request_options)
+        return _response.data
+
+    def delete(
+        self, *, name: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> DeleteModelProviderResponse:
+        """
+        Deletes a provider and every model it declares. Rejected while any agent still uses one of them.
+
+        Parameters
+        ----------
+        name : str
+            Model provider name.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DeleteModelProviderResponse
+            Model provider deleted.
+
+        Examples
+        --------
+        from trueforge_sdk import TrueForge
+
+        client = TrueForge(
+            token="YOUR_TOKEN",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.settings.model_providers.delete(
+            name="name",
+        )
+        """
+        _response = self._raw_client.delete(name=name, request_options=request_options)
         return _response.data
 
 
@@ -320,4 +355,46 @@ class AsyncModelProvidersClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.create_or_update(manifest=manifest, request_options=request_options)
+        return _response.data
+
+    async def delete(
+        self, *, name: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> DeleteModelProviderResponse:
+        """
+        Deletes a provider and every model it declares. Rejected while any agent still uses one of them.
+
+        Parameters
+        ----------
+        name : str
+            Model provider name.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DeleteModelProviderResponse
+            Model provider deleted.
+
+        Examples
+        --------
+        import asyncio
+
+        from trueforge_sdk import AsyncTrueForge
+
+        client = AsyncTrueForge(
+            token="YOUR_TOKEN",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.settings.model_providers.delete(
+                name="name",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.delete(name=name, request_options=request_options)
         return _response.data

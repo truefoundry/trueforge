@@ -1,11 +1,37 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { ArcElement, Chart as ChartJS, type ChartData, type ChartOptions } from 'chart.js';
+import { useMemo, type ReactNode } from 'react';
+import { Doughnut } from 'react-chartjs-2';
 
 import type { SessionMetricBarDatum } from '../../utils/buildSessionMetrics.js';
-import { LightTooltip } from '../primitives/Tooltip.js';
+import { formatCostUsd } from '../../utils/sessionDisplayFormat.js';
 
-const MIN_VERTICAL_BAR_HEIGHT_PERCENT = 6;
+ChartJS.register(ArcElement);
+
+export function CostBreakdownRows({ data }: { data: SessionMetricBarDatum[] }) {
+  const maxValue = Math.max(0, ...data.map(item => item.value)) || 1;
+  return (
+    <div className="max-h-72 w-full overflow-x-hidden overflow-y-auto pr-3">
+      <div className="grid grid-cols-[max-content_minmax(0,1fr)_max-content] items-center gap-x-2 gap-y-2">
+        {data.map(item => (
+          <div key={item.label} className="contents">
+            <span className="max-w-28 truncate text-text-secondary" title={item.label}>
+              {item.label}
+            </span>
+            <div className="h-1.5 min-w-0 overflow-hidden rounded-full bg-secondary-bg">
+              <div
+                className="h-full rounded-full"
+                style={{ width: `${(item.value / maxValue) * 100}%`, backgroundColor: item.color }}
+              />
+            </div>
+            <span className="text-right font-semibold text-text-primary">{formatCostUsd(item.value)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export function SessionMetricTooltipContent({
   title,
@@ -63,58 +89,80 @@ export function StackedProportionBar({
   );
 }
 
-export function HorizontalBarRows({
-  data,
-  formatValue,
-}: {
-  data: SessionMetricBarDatum[];
-  formatValue: (value: number) => string;
-}) {
-  const maxValue = Math.max(0, ...data.map(item => item.value)) || 1;
+const DONUT_OPTIONS: ChartOptions<'doughnut'> = {
+  responsive: true,
+  maintainAspectRatio: false,
+  animation: false,
+  cutout: '60%',
+  events: [],
+  plugins: { legend: { display: false }, tooltip: { enabled: false } },
+};
+
+export function ProportionDonut({ data }: { data: SessionMetricBarDatum[] }) {
+  const visibleData = useMemo(() => data.filter(item => item.value > 0), [data]);
+  const chartData = useMemo<ChartData<'doughnut', number[], string>>(
+    () => ({
+      labels: visibleData.map(item => item.label),
+      datasets: [
+        {
+          data: visibleData.map(item => item.value),
+          backgroundColor: visibleData.map(item => item.color),
+          borderWidth: 0,
+        },
+      ],
+    }),
+    [visibleData],
+  );
+  if (visibleData.length === 0) return null;
+
   return (
-    <div className="grid grid-cols-[max-content_minmax(0,1fr)_max-content] items-center gap-x-2 gap-y-2">
-      {data.map(item => (
-        <div key={item.label} className="contents">
-          <span className="max-w-28 truncate text-text-secondary">{item.label}</span>
-          <div className="h-1.5 min-w-0 overflow-hidden rounded-full bg-secondary-bg">
-            <div
-              className="h-full rounded-full"
-              style={{ width: `${(item.value / maxValue) * 100}%`, backgroundColor: item.color }}
-            />
-          </div>
-          <span className="text-right font-semibold text-text-primary">{formatValue(item.value)}</span>
-        </div>
-      ))}
+    <div className="size-4 shrink-0" aria-hidden="true">
+      <Doughnut data={chartData} options={DONUT_OPTIONS} />
     </div>
   );
 }
 
-export function VerticalBarColumns({
+export function HorizontalBarRows({
   data,
   formatValue,
+  scrollX = false,
 }: {
   data: SessionMetricBarDatum[];
   formatValue: (value: number) => string;
+  /** Context labels can be wider than the popup. Tool-call rows stay truncated and scroll vertically. */
+  scrollX?: boolean;
 }) {
   const maxValue = Math.max(0, ...data.map(item => item.value)) || 1;
   return (
-    <div className="h-24 overflow-x-auto">
-      <div className="mx-auto flex h-full w-fit items-end">
+    <div
+      className={
+        scrollX ? 'max-h-72 w-full overflow-auto pr-3' : 'max-h-72 w-full overflow-x-hidden overflow-y-auto pr-3'
+      }
+    >
+      <div
+        className={
+          scrollX
+            ? 'grid w-max min-w-full grid-cols-[max-content_minmax(6rem,1fr)_max-content] items-center gap-x-2 gap-y-2'
+            : 'grid grid-cols-[max-content_minmax(0,1fr)_max-content] items-center gap-x-2 gap-y-2'
+        }
+      >
         {data.map(item => (
-          <LightTooltip key={item.label} title={formatValue(item.value)} side="top">
-            <div className="flex h-full w-10 shrink-0 flex-col items-center justify-end gap-1">
-              <div className="flex h-[4.5rem] items-end">
-                <div
-                  className="w-6 rounded-t-sm"
-                  style={{
-                    height: `${Math.max(MIN_VERTICAL_BAR_HEIGHT_PERCENT, (item.value / maxValue) * 100)}%`,
-                    backgroundColor: item.color,
-                  }}
-                />
-              </div>
-              <span className="text-[0.625rem] leading-4 text-text-secondary">{item.label}</span>
+          <div key={item.label} className="contents">
+            {scrollX ? (
+              <span className="whitespace-nowrap text-text-secondary">{item.label}</span>
+            ) : (
+              <span className="max-w-28 truncate text-text-secondary" title={item.label}>
+                {item.label}
+              </span>
+            )}
+            <div className="h-1.5 min-w-0 overflow-hidden rounded-full bg-secondary-bg">
+              <div
+                className="h-full rounded-full"
+                style={{ width: `${(item.value / maxValue) * 100}%`, backgroundColor: item.color }}
+              />
             </div>
-          </LightTooltip>
+            <span className="text-right font-semibold text-text-primary">{formatValue(item.value)}</span>
+          </div>
         ))}
       </div>
     </div>

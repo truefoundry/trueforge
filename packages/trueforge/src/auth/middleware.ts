@@ -1,11 +1,13 @@
+import { timingSafeEqual } from 'node:crypto';
+
 import type { Context, MiddlewareHandler } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { jwtVerify } from 'jose';
 
-import configuration from '../config';
+import { updateLogContext } from '../logger';
 import type { Authenticator } from './authenticator';
 import { toRequestContext, type IdTokenClaims } from './claims';
-import { hasAdminRole, type RequestContext } from './identity';
+import { canAccessSettings, type RequestContext } from './identity';
 import { getOidcVerify } from './oidc';
 import { extractRequestToken, readBearerToken } from './token';
 
@@ -13,15 +15,25 @@ export { extractRequestToken, readBearerToken };
 
 export function createAuthMiddleware(authenticator: Authenticator): MiddlewareHandler {
   return async (c, next) => {
-    c.set('request_context', await authenticator.authenticate(c));
+    const requestContext = await tryAuthenticate({ authenticator, context: c });
+    if (requestContext === undefined) {
+      throw new HTTPException(401, { message: 'Authentication required' });
+    }
+    c.set('request_context', requestContext);
+    updateLogContext({ tenant_id: requestContext.tenant_id });
     return next();
   };
 }
 
+/** Gates `/api/v1/settings` — uses {@link canAccessSettings} (always denied in TrueFoundry). */
 export function createAdminAuthMiddleware(authenticator: Authenticator): MiddlewareHandler {
   return async (c, next) => {
-    const requestContext = await authenticator.authenticate(c);
-    if (!hasAdminRole(requestContext)) {
+    const requestContext = await tryAuthenticate({ authenticator, context: c });
+    if (requestContext === undefined) {
+      throw new HTTPException(401, { message: 'Authentication required' });
+    }
+    updateLogContext({ tenant_id: requestContext.tenant_id });
+    if (!canAccessSettings(requestContext)) {
       throw new HTTPException(403, { message: 'Admin access required' });
     }
     c.set('request_context', requestContext);
@@ -29,39 +41,26 @@ export function createAdminAuthMiddleware(authenticator: Authenticator): Middlew
   };
 }
 
+/** Constant-time compare so a rejection does not leak how much of the key matched. */
+function matchesServiceKey({ provided, expected }: { provided: string; expected: string }): boolean {
+  const providedBytes = Buffer.from(provided, 'utf8');
+  const expectedBytes = Buffer.from(expected, 'utf8');
+  if (providedBytes.length !== expectedBytes.length) {
+    return false;
+  }
+  return timingSafeEqual(providedBytes, expectedBytes);
+}
+
 /** Bearer API-key gate for service-only routes. */
 export function createApiKeyAuthMiddleware(apiKey: string): MiddlewareHandler {
   return async (c, next) => {
     const token = readBearerToken(c);
-    if (token === undefined || token !== apiKey) {
+    if (token === undefined || !matchesServiceKey({ provided: token, expected: apiKey })) {
       throw new HTTPException(401, { message: 'Invalid service credential' });
     }
     return next();
   };
 }
-
-/**
- * Service-to-service API key auth for internal import.
- * Sets request_context so resolveAgentStore can build TrueFoundryAgentStore
- * (needs user_credential for ServiceFoundry put/delete). Body supplies tenant_id.
- */
-export const truefoundryAdminMiddleware: MiddlewareHandler = async (c, next) => {
-  const token = extractRequestToken(c);
-  if (configuration.STANDALONE) {
-    throw new HTTPException(403, { message: 'Service API key required' });
-  }
-  const apiKey = configuration.TRUEFOUNDRY_API_KEY;
-  if (apiKey === undefined || token === undefined || token !== apiKey) {
-    throw new HTTPException(403, { message: 'Service API key required' });
-  }
-  c.set('request_context', {
-    tenant_id: 'system',
-    subject: { id: 'tfy-system', type: 'serviceaccount', display_name: 'tfy-system' },
-    roles: [],
-    user_credential: apiKey,
-  });
-  return next();
-};
 
 /**
  * Soft OIDC probe for login/callback — not request-gate middleware.
@@ -98,4 +97,22 @@ export async function resolveOidcRequestContext(c: Context): Promise<RequestCont
     config: oidcVerify.oidcConfig,
     user_credential: token,
   });
+}
+
+/**
+ * Soft authenticate — missing/invalid credentials (`401`) return `undefined` instead of throwing.
+ * Other failures (e.g. ServiceFoundry outage → 500) are rethrown.
+ */
+export async function tryAuthenticate(params: {
+  authenticator: Authenticator;
+  context: Context;
+}): Promise<RequestContext | undefined> {
+  try {
+    return await params.authenticator.authenticate(params.context);
+  } catch (error) {
+    if (error instanceof HTTPException && error.status === 401) {
+      return undefined;
+    }
+    throw error;
+  }
 }

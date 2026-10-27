@@ -3,14 +3,9 @@
  * Runs under jest against a fresh store per test (see backend test files).
  */
 import type { ISandboxProviderStore, UpsertSandboxProviderInput } from '../../src/db/sandboxProviderStore';
-import type { SandboxBuildMetadata, SandboxProviderManifest } from '../../src/schemas/sandboxProvider';
+import type { SandboxProviderManifest } from '../../src/schemas/sandboxProvider';
 
 const TENANT = 'default';
-
-const BUILD_METADATA: SandboxBuildMetadata = {
-  build_ref: 'trueforge-build-029ea5ff',
-  image_uri: 'tfy.jfrog.io/tfy-images/sandbox:029ea5ff',
-};
 
 function manifest(overrides: Partial<SandboxProviderManifest> = {}): SandboxProviderManifest {
   return {
@@ -28,9 +23,6 @@ function upsertInput(overrides: Partial<UpsertSandboxProviderInput> = {}): Upser
   return {
     tenant_id: TENANT,
     manifest: manifest(),
-    status: 'pending',
-    status_reason: 'Sandbox image build started.',
-    build_metadata: BUILD_METADATA,
     ...overrides,
   };
 }
@@ -38,15 +30,12 @@ function upsertInput(overrides: Partial<UpsertSandboxProviderInput> = {}): Upser
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
 export function runSandboxProviderStoreContractSuite(getStore: () => ISandboxProviderStore): void {
-  it('upsert creates a provider and round-trips the manifest + build status', async () => {
+  it('upsert creates a provider and round-trips the manifest', async () => {
     const store = getStore();
     const created = await store.upsertSandboxProvider(upsertInput());
 
     expect(created.tenant_id).toBe(TENANT);
     expect(created.manifest).toEqual(manifest());
-    expect(created.status).toBe('pending');
-    expect(created.status_reason).toBe('Sandbox image build started.');
-    expect(created.build_metadata).toEqual(BUILD_METADATA);
     expect(created.created_at).toMatch(ISO_UTC);
     expect(created.updated_at).toBe(created.created_at);
 
@@ -84,33 +73,5 @@ export function runSandboxProviderStoreContractSuite(getStore: () => ISandboxPro
     const forOther = await store.getSandboxProvider('other-tenant');
     expect(forDefault?.manifest.exec_timeout_ms).toBe(60000);
     expect(forOther?.manifest.exec_timeout_ms).toBe(120000);
-  });
-
-  it('updateSandboxStatus refreshes only the build status, keeping the manifest', async () => {
-    const store = getStore();
-    const created = await store.upsertSandboxProvider(upsertInput());
-
-    const updated = await store.updateSandboxStatus({
-      tenant_id: TENANT,
-      status: 'ready',
-      status_reason: null,
-      build_metadata: BUILD_METADATA,
-    });
-
-    expect(updated?.status).toBe('ready');
-    expect(updated?.status_reason).toBeNull();
-    expect(updated?.manifest).toEqual(created.manifest);
-  });
-
-  it('updateSandboxStatus returns undefined when no provider exists', async () => {
-    const store = getStore();
-    expect(
-      await store.updateSandboxStatus({
-        tenant_id: TENANT,
-        status: 'ready',
-        status_reason: null,
-        build_metadata: BUILD_METADATA,
-      }),
-    ).toBeUndefined();
   });
 }

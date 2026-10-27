@@ -1,17 +1,18 @@
 # trueforge Helm chart
 
 Deploys the TrueForge server, a single container image that serves both the API
-and the UI. **Production** images install `@truefoundry/trueforge` from npm
-(repository-root [`Dockerfile`](../../Dockerfile) with `APP_VERSION`).
-**Local smoke / from-source** builds use [`Dockerfile.dev`](../../Dockerfile.dev)
-(see [`docker-compose.yml`](../../docker-compose.yml)).
+and the UI. Production, Compose smoke, and Railway all build the repository-root
+[`Dockerfile`](../../Dockerfile) from the workspace checkout (see
+[`docker-compose.yml`](../../docker-compose.yml)).
 
 The chart always runs the server in **distributed** mode (`STANDALONE=false`) against
 Postgres and Redis.
 
-Chart `version` / `appVersion` / `image.tag` are maintained on `main` (chart-release
-bot PR or human). Publishing is gated by git tag `charts/trueforge@<version>`.
-See [`RELEASING.md`](../../RELEASING.md).
+Chart `version` / `appVersion` / `image.tag` are written on the branch passed to
+[`release-chart.yml`](../../.github/workflows/release-chart.yml) (`main` from
+[`release.yml`](../../.github/workflows/release.yml) after the image is pushed).
+That workflow then tags `charts/trueforge@<version>` on the metadata commit. See
+[`RELEASING.md`](../../RELEASING.md).
 
 ## Dev defaults (read before exposing)
 
@@ -97,10 +98,11 @@ A literal string still works for throwaway clusters (`apiKey: "…"`), but prefe
 ## Extra environment
 
 `env` is a map of variable name to value, applied to both the server and the
-controller. Values are scalars or `valueFrom` references. A key that matches
-something the chart already sets **replaces** it rather than adding a second
-entry, so it doubles as the override for computed values like `POSTGRES_HOST`
-or `PUBLIC_BASE_URL`.
+controller. Values are scalars, `valueFrom` references, or `${k8s-secret/...}`
+reference strings. A key that matches something the chart already sets
+**replaces** it rather than adding a second entry, so it doubles as the override
+for computed values like `POSTGRES_HOST` or `PUBLIC_BASE_URL`. Setting a key to
+`null` drops the override and hands the variable back to the chart.
 
 This is the extension point for running against a hosting platform. The chart
 does not model any particular platform; those settings live in the caller's
@@ -115,6 +117,20 @@ env:
     valueFrom:
       secretKeyRef: { name: platform-creds, key: api-key }
 ```
+
+A parent chart that wants its own users to be able to redirect a key at a
+different Secret must declare the default as a scalar, because Helm refuses to
+replace a map with a scalar. Write such defaults as `${k8s-secret/<secret>/<key>}`
+strings instead of `valueFrom` maps. The key must not contain `/`.
+
+```yaml
+env:
+  REDIS_SENTINEL_PASSWORD: "${k8s-secret/redis-passwords/application_password}"
+```
+
+The string renders a `secretKeyRef` with `optional: true`, so a missing key
+leaves the variable unset rather than blocking the pod. The same strings are
+accepted by every field listed under [Using Secrets](#using-secrets).
 
 When the platform also needs files (an outbound mTLS client certificate, say),
 mount them with `extraVolumes` / `extraVolumeMounts`, which apply to both
@@ -150,13 +166,18 @@ The chart's own value wins on conflict; `tolerations` append to
 
 ## Resource tiers
 
-`resourceTier` (`small` / `medium` / `large`) selects sizing presets for the
-server and the controller, and sets the server replica count (an explicit
-`server.replicaCount` overrides it; the controller is always 1 replica). When
-set, it **replaces** the `resources` tables; an unknown tier fails the render.
-Empty (the default) keeps the explicit `resources` / `controller.resources`
-and 1 server replica. A parent chart may set `global.resourceTier` instead;
-the chart's own `resourceTier` wins.
+`global.resourceTier` defaults to `small`. `resourceTierOverride`
+(`small` / `medium` / `large`) replaces that tier for the server, the
+controller, and the server replica count. An explicit `server.replicaCount`
+still wins, including `0` to scale the server down. The controller is always
+1 replica. An unknown tier fails the render.
+
+`server.resources` and `controller.resources` are used as a whole table when
+set. The chart does not fill missing keys from the tier, so a table can omit
+CPU limits. An empty table uses the tier preset. `resourceTier` is still
+accepted as `resourceTierOverride` when that field is empty.
+
+Precedence: resources table, then `resourceTierOverride`, then `global.resourceTier`.
 
 | Preset | Server replicas | Server requests | Controller requests |
 | --- | --- | --- | --- |
@@ -214,7 +235,8 @@ The server always runs peered (`STANDALONE=false`), so Redis is always required.
 Bundled by default (`redis.enabled=true`, **auth disabled** — fine only when
 Redis stays unreachable outside the cluster trust boundary). To use an
 **external** Redis, set `redis.enabled=false`, `externalRedis.enabled=true`, and exactly one
-of `externalRedis.url`, `externalRedis.host`, or Sentinel. Fields accept a string or
+of `externalRedis.url`, `externalRedis.host`, or Sentinel. `env.REDIS_HOST` or
+`env.REDIS_SENTINEL_NODES` can supply the transport when those are empty. Fields accept a string or
 `valueFrom.secretKeyRef`. url, host, and sentinel are mutually exclusive:
 
 ```yaml
@@ -311,9 +333,10 @@ OUTBOUND_URL_BLOCKED_HOSTS=["evil.example.com"]
 
 Prefer Kubernetes Secrets over literals in values files for production. This
 chart does **not** create Secrets for chart-owned fields — supply
-`valueFrom.secretKeyRef` (or create Secrets yourself and point at them).
+`valueFrom.secretKeyRef` or a `${k8s-secret/<secret>/<key>}` string (or create
+Secrets yourself and point at them). The key must not contain `/`.
 
-Fields that accept string | `valueFrom.secretKeyRef`:
+Fields that accept string | `valueFrom.secretKeyRef` | `${k8s-secret/...}`:
 `externalPostgres.host`, `externalPostgres.port`, `externalPostgres.database`,
 `externalPostgres.user`, `externalPostgres.password`, `externalRedis.url` / `host` / `auth`,
 `externalRedis.tls` (`caCert`, `cert`, `key`, `keyPassphrase`, `serverName`),
@@ -361,11 +384,15 @@ extraObjects:
 
 | Value                 | Default                             | Description                           |
 | --------------------- | ----------------------------------- | ------------------------------------- |
-| `resourceTier`        | `""`                                | Optional `small` / `medium` / `large` preset for resources and server replicas; empty uses `resources`. |
-| `server.replicaCount` | `""`                                | Number of server replicas. Empty derives from the resource tier (small=1, medium=2, large=3; 1 with no tier). |
+| `global.resourceTier` | `small`                             | Tier when `resourceTierOverride` is empty. `small` / `medium` / `large`. |
+| `resourceTierOverride`| `""`                                | Optional `small` / `medium` / `large` preset. Empty uses `global.resourceTier`. An explicit resources table wins over this. |
+| `server.replicaCount` | `null`                              | Number of server replicas (`0` allowed to scale down). Empty/`null` derives from the resource tier (small=1, medium=2, large=3). |
+| `server.resources`    | `{}`                                | Server CPU, memory, and ephemeral-storage. A set table replaces the tier preset. |
+| `controller.resources`| `{}`                                | Controller CPU, memory, and ephemeral-storage. A set table replaces the tier preset. |
 | `server.deploymentAnnotations` | `{}`                          | Annotations on the server Deployment, such as an Argo CD sync wave. |
 | `controller.deploymentAnnotations` | `{}`                      | Annotations on the controller Deployment, such as an Argo CD sync wave. |
-| `image.repository`    | `tfy.jfrog.io/tfy-images/trueforge` | Image repository.                     |
+| `image.registry`      | `""`                                | Image registry. Empty uses `global.image.registry`, then `tfy.jfrog.io`. |
+| `image.repository`    | `tfy-images/trueforge`              | Image repository without the registry. |
 | `image.tag`           | chart `appVersion`                  | Image tag; stamped on release.        |
 | `server.publicBaseUrl`| `""`                                | Public application URL for OAuth/OIDC callbacks (required for MCP OAuth / OIDC). A pathname is the UI/API public prefix. |
 | `configs.oidc.enabled`| `false`                             | Inject `OIDC_*` env for IdP login.    |
@@ -374,12 +401,12 @@ extraObjects:
 | `redis.nameOverride`  | `trueforge-redis`                   | Bitnami name prefix for bundled Redis objects. |
 | `service.type`        | `ClusterIP`                         | Service type.                         |
 | `service.port`        | `8790`                              | Service port.                         |
+| `serviceMonitor.enabled` | `false`                          | Prometheus Operator ServiceMonitor for `GET /metrics`. Set `labels` so the operator's Prometheus selects the monitor. `mtls.enabled` scrapes `https` and skips certificate verification. |
 | `server.port`         | `8790`                              | Container port (`PORT`).              |
 | `autoscaling.enabled` | `false`                             | Enable a HorizontalPodAutoscaler.     |
 | `podDisruptionBudget.enabled` | `true`                        | Server PodDisruptionBudget (`minAvailable` defaults to `1`); rendered only when the server runs more than one replica. |
 | `podSecurityContext`  | non-root UID/GID `10001`            | Pod-level restricted security defaults. |
 | `securityContext`     | read-only root FS + drop all capabilities | Container-level restricted security defaults. |
-| `resources`           | 100m/256Mi requests, 200m/512Mi limits | Server CPU, memory, and ephemeral-storage. Replaced when a resourceTier is set. |
 | `mtls.enabled`        | `false`                             | HTTPS listener + controller→server mTLS (`MTLS_*`). When true, probes use `scheme: HTTPS`. |
 | `mtls.secretName`     | `""`                                | Secret with `tls.crt` / `tls.key` / `ca.crt` (required when `mtls.enabled`). |
 | `mtls.certsDir`       | `/etc/tls`                          | Mount path / `MTLS_CERTS_DIR`. |
@@ -411,4 +438,4 @@ also sets the `/tmp` `emptyDir.sizeLimit`.
 - If enabling `mtls`, set `mtls.secretName` and ensure any reverse proxy dials HTTPS with a trusted client cert (see Caddy `internal_mtls`).
 - Tune container `resources` (especially CPU requests) before enabling HPA.
 - Default `tfy.jfrog.io` images and the Helm chart are anonymously pullable — set `imagePullSecrets` only if you override to a private registry.
-- Run multiple replicas (`server.replicaCount` or a `resourceTier` of `medium`/`large`); the server PodDisruptionBudget (`{release}-trueforge-server`, `minAvailable: 1`) then applies automatically.
+- Run multiple replicas (`server.replicaCount` or a `resourceTierOverride` of `medium`/`large`); the server PodDisruptionBudget (`{release}-trueforge-server`, `minAvailable: 1`) then applies automatically.

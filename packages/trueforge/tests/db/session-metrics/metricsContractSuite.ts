@@ -53,7 +53,7 @@ export function runSessionMetricsStoreContractSuite(
         completed_at: new Date(turn.created_at.getTime() + 1500).toISOString(),
         metrics: { total_cost_in_usd: 1.25 },
       };
-      await sessionStore.updateTurnState({
+      await sessionStore.updateTurnTerminalState({
         session_id: 'metrics-session',
         turn_id: 'metrics-turn',
         state,
@@ -144,7 +144,7 @@ export function runSessionMetricsStoreContractSuite(
             ...makeDoneTurnState(),
             completed_at: new Date(turn.created_at.getTime() + durationMs).toISOString(),
           };
-          await sessionStore.updateTurnState({
+          await sessionStore.updateTurnTerminalState({
             session_id: definition.id,
             turn_id: turnId,
             state,
@@ -204,7 +204,7 @@ export function runSessionMetricsStoreContractSuite(
         ...makeDoneTurnState(),
         completed_at: new Date(turn.created_at.getTime() + 2000).toISOString(),
       };
-      await sessionStore.updateTurnState({
+      await sessionStore.updateTurnTerminalState({
         session_id: 'completed-session',
         turn_id: 'completed-turn',
         state,

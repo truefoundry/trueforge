@@ -4,7 +4,11 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { createMockAgentSessionsServer, createMockAgentUIServer } from '../server/mockServer.js';
+import {
+  createMockAgentSessionsServer,
+  createMockAgentUIServer,
+  createMockScheduleServer,
+} from '../server/mockServer.js';
 
 /** Thread list driven by the test: a local draft plus one remote session row. */
 const threadState = {
@@ -62,6 +66,27 @@ import { ThreadListContainer } from '@/containers/ThreadListContainer.js';
 import { TrueForgeUI } from '@/containers/TrueForgeUI.js';
 import { useShellMode } from '@/server/ShellModeContext.js';
 import { DEFAULT_SESSION_TIME_WINDOW_MS } from '@/utils/sessionShareUrl.js';
+
+function mobileMatchMedia(query: string): MediaQueryList {
+  return {
+    matches: query === '(max-width: 767px)',
+    media: query,
+    onchange: null,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    dispatchEvent: vi.fn(() => true),
+  };
+}
+
+function withMobileViewport(run: () => Promise<void> | void) {
+  const originalMatchMedia = window.matchMedia;
+  Object.defineProperty(window, 'matchMedia', { configurable: true, value: mobileMatchMedia });
+  return Promise.resolve(run()).finally(() => {
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: originalMatchMedia });
+  });
+}
 
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function showModal() {
@@ -195,7 +220,7 @@ describe('withRouter end to end', () => {
     expect(listSessions).toHaveBeenCalled();
   });
 
-  it('toasts and redirects to the sessions list when a shared session is forbidden', async () => {
+  it('keeps the shared session URL and shows Unable to load session when forbidden', async () => {
     window.history.replaceState(null, '', '/sessions/share/session-forbidden');
     const forbidden = Object.assign(new Error('Only the session creator can access this session'), {
       statusCode: 403,
@@ -220,12 +245,10 @@ describe('withRouter end to end', () => {
       />,
     );
 
-    expect(await screen.findByText('Only the session creator can access this session')).toBeInTheDocument();
-    await waitFor(() => {
-      expect(window.location.pathname).toBe('/sessions');
-    });
-    expect(await screen.findByRole('button', { name: 'Last 30 days' })).toBeInTheDocument();
-    expect(screen.queryByText('Session details could not be loaded.')).not.toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Unable to load session' })).toBeInTheDocument();
+    expect(screen.getByText('Only the session creator can access this session')).toBeInTheDocument();
+    expect(window.location.pathname).toBe('/sessions/share/session-forbidden');
+    expect(screen.queryByRole('button', { name: 'Last 30 days' })).not.toBeInTheDocument();
   });
 
   it('applies a /sessions/:id deep link on boot', async () => {
@@ -319,5 +342,74 @@ describe('withRouter end to end', () => {
       expect(params.get('s_sts')).toBeNull();
       expect(params.get('s_ets')).toBeNull();
     });
+  });
+
+  it('shows a desktop-only notice for restricted routes on mobile without redirecting', async () => {
+    await withMobileViewport(async () => {
+      for (const path of ['/sessions', '/schedules', '/build-agent', '/sessions/share/session-2'] as const) {
+        window.history.replaceState(null, '', path);
+        const view = render(
+          <TrueForgeUI
+            server={createMockAgentUIServer({
+              sessions: createMockAgentSessionsServer(),
+              schedules: createMockScheduleServer(),
+            })}
+            agentConfig={{ mode: 'AgentLibraryWithComposer' }}
+            withRouter
+            layout="sidebar"
+          />,
+        );
+
+        expect(await screen.findByRole('heading', { name: 'Best viewed on desktop' })).toBeInTheDocument();
+        expect(window.location.pathname).toBe(path);
+        expect(screen.queryByRole('heading', { name: 'Agent Sessions' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('heading', { name: 'Agent Schedules' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('dialog', { name: 'Agent Config' })).not.toBeInTheDocument();
+        view.unmount();
+      }
+    });
+  });
+
+  it('still opens /sessions/:id as a chat on mobile', async () => {
+    await withMobileViewport(async () => {
+      window.history.replaceState(null, '', '/sessions/session-2');
+      render(
+        <TrueForgeUI
+          server={createMockAgentUIServer({
+            getSession: async ({ sessionId }) => ({
+              id: sessionId,
+              title: 'Session',
+              isMutable: true,
+              createdAt: '2026-01-01T00:00:00Z',
+              updatedAt: '2026-01-01T00:00:00Z',
+            }),
+          })}
+          agentConfig={{ mode: 'AgentLibraryWithComposer' }}
+          withRouter
+          layout={() => <ShellProbe />}
+        />,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('pending')).toHaveTextContent('session-2');
+      });
+      expect(window.location.pathname).toBe('/sessions/session-2');
+      expect(screen.queryByRole('heading', { name: 'Best viewed on desktop' })).not.toBeInTheDocument();
+    });
+  });
+
+  it('keeps desktop sessions and schedules surfaces available above the mobile breakpoint', async () => {
+    window.history.replaceState(null, '', '/sessions');
+    render(
+      <TrueForgeUI
+        server={createMockAgentUIServer({ sessions: createMockAgentSessionsServer() })}
+        agentConfig={{ mode: 'AgentLibraryWithComposer' }}
+        withRouter
+        layout="sidebar"
+      />,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Agent Sessions' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Best viewed on desktop' })).not.toBeInTheDocument();
   });
 });

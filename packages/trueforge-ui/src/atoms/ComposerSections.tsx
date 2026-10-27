@@ -22,6 +22,8 @@ export type ComposerSendButtonProps = {
   disabled: boolean;
   canSubmit: boolean;
   isRunning: boolean;
+  /** True when the composer has trimmed text or attachments. */
+  hasContent: boolean;
   onSubmit: () => void;
   onCancel?: () => void;
 };
@@ -50,8 +52,10 @@ export function ComposerRightSection(_: ComposerRightSectionProps): ReactNode {
   return null;
 }
 
-export function ComposerSendButton({ canSubmit, isRunning, onSubmit, onCancel }: ComposerSendButtonProps) {
-  if (isRunning) {
+export function ComposerSendButton({ canSubmit, isRunning, hasContent, onSubmit, onCancel }: ComposerSendButtonProps) {
+  // Cancel only while busy with an empty composer. Content (even when Send is
+  // blocked by a missing model) keeps the Send affordance.
+  if (isRunning && !hasContent) {
     return (
       <Button.Primary type="button" size="small" disabled={!onCancel} onClick={onCancel} aria-label="Cancel">
         <Spinner size={14} />

@@ -4,11 +4,12 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
-from .base_thread_done_event import BaseThreadDoneEvent
+from ..core.unchecked_base_model import UncheckedBaseModel
+from .agent_parent import AgentParent
 from .thread_state import ThreadState
 
 
-class ThreadDoneEvent(BaseThreadDoneEvent):
+class ThreadDoneEvent(UncheckedBaseModel):
     created_at: str = pydantic.Field()
     """
     ISO 8601 event timestamp.
@@ -19,7 +20,18 @@ class ThreadDoneEvent(BaseThreadDoneEvent):
     Unique identifier for the event (monotonic ULID).
     """
 
+    parent: typing.Optional[AgentParent] = None
     state: ThreadState
+    thread_id: str = pydantic.Field()
+    """
+    Thread that finished.
+    """
+
+    title: str = pydantic.Field()
+    """
+    Human-readable thread title.
+    """
+
     type: typing.Literal["thread.done"] = "thread.done"
 
     if IS_PYDANTIC_V2:

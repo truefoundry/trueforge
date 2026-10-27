@@ -7,6 +7,7 @@ import type {
 } from '../mcp/auth/types';
 import type { ResourceName } from '../schemas/common';
 import type { McpAuthStatus, McpServerManifest } from '../schemas/mcpServer';
+import type { TurnMetadata } from './turnMetadata';
 
 export interface McpServerRecord {
   id: string;
@@ -38,6 +39,11 @@ export interface CreateMcpServerInput {
 
 /** Same shape as create for now; kept as a distinct name for the upsert path. */
 export type UpsertMcpServerInput = CreateMcpServerInput;
+
+export interface DeleteMcpServerInput {
+  tenant_id: string;
+  name: string;
+}
 
 /** Unique `(tenant_id, name)` violation on create. */
 export class McpServerNameConflictError extends Error {
@@ -99,6 +105,11 @@ export interface IMcpServerStore<TTransaction = never> extends IOAuthClientStore
    * Never overwrites `id`, `oauth_server`, or `oauth_client`.
    */
   upsertServer(input: UpsertMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord>;
+  /**
+   * Removes one server row. Resolves `false` when no row matched.
+   * Stored OAuth tokens and pending authorizations are the caller's to clear first.
+   */
+  deleteServer(input: DeleteMcpServerInput, transaction?: TTransaction): Promise<boolean>;
 }
 
 /** Persistence plus authorize / status / revoke and invoke headers. */
@@ -113,7 +124,11 @@ export interface IMcpServerWithAuthStore<TTransaction = never> extends IMcpServe
   deleteAuthorization(input: DeleteMcpAuthorizationInput): Promise<void>;
 
   /** Headers for MCP invoke; may be static or an async resolver that can return `authRequired`. */
-  resolveInvokeHeaders(input: { record: McpServerRecord; userRef: string }): RemoteMcpHeaders;
+  resolveInvokeHeaders(input: {
+    record: McpServerRecord;
+    userRef: string;
+    turnMetadata?: TurnMetadata;
+  }): RemoteMcpHeaders;
 }
 
 /**

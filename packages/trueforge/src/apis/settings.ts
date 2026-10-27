@@ -7,8 +7,10 @@ import { OpenAPIHono } from '@hono/zod-openapi';
 import type { Context } from 'hono';
 import type { Logger } from 'winston';
 import type { ResolveRequestContext } from '../auth/identity';
+import type { IAgentStore } from '../db/agentStore';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
+import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { WithTransaction } from '../db/transaction';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
@@ -20,12 +22,15 @@ import { createSkillsRouter, type ResolveSkillStore } from './skills';
 import { createWebSearchProvidersRouter } from './webSearchProviders';
 
 export interface SettingsRouterDeps<TTransaction> {
-  resolveModelProviderStore: (c: Context) => IModelProviderStore<TTransaction>;
-  resolveMcpServerStore: (c: Context) => IMcpServerWithAuthStore<TTransaction>;
+  resolveModelProviderStore: (input: { c: Context }) => IModelProviderStore<TTransaction>;
+  resolveMcpServerStore: (input: { c: Context }) => IMcpServerWithAuthStore<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
   resolveSkillStore: ResolveSkillStore<TTransaction>;
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
+  sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore<TTransaction>;
+  /** Delete routes refuse to remove a catalog entry an agent still references. */
+  resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   logger: Logger;
   resolveRequestContext: ResolveRequestContext;
@@ -36,7 +41,8 @@ export function createSettingsRouter<TTransaction>(deps: SettingsRouterDeps<TTra
   router.route(
     '/model-providers',
     createModelProvidersRouter({
-      resolveModelProviderStore: deps.resolveModelProviderStore,
+      resolveModelProviderStore: c => deps.resolveModelProviderStore({ c }),
+      resolveAgentStore: deps.resolveAgentStore,
       withTransaction: deps.withTransaction,
       resolveRequestContext: deps.resolveRequestContext,
     }),
@@ -44,7 +50,8 @@ export function createSettingsRouter<TTransaction>(deps: SettingsRouterDeps<TTra
   router.route(
     '/mcp-servers',
     createSettingsMcpServersRouter({
-      resolveMcpServerStore: deps.resolveMcpServerStore,
+      resolveMcpServerStore: c => deps.resolveMcpServerStore({ c }),
+      resolveAgentStore: deps.resolveAgentStore,
       tokenStore: deps.tokenStore,
       withTransaction: deps.withTransaction,
       logger: deps.logger,
@@ -55,6 +62,7 @@ export function createSettingsRouter<TTransaction>(deps: SettingsRouterDeps<TTra
     '/skills',
     createSkillsRouter({
       resolveSkillStore: deps.resolveSkillStore,
+      resolveAgentStore: deps.resolveAgentStore,
       withTransaction: deps.withTransaction,
       resolveRequestContext: deps.resolveRequestContext,
     }),
@@ -63,6 +71,7 @@ export function createSettingsRouter<TTransaction>(deps: SettingsRouterDeps<TTra
     '/sandbox-providers',
     createSandboxProvidersRouter({
       resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+      sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
       withTransaction: deps.withTransaction,
       logger: deps.logger,
       resolveRequestContext: deps.resolveRequestContext,

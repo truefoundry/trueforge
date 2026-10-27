@@ -80,18 +80,51 @@ export interface SandboxBuild {
   metadata: SandboxBuildMetadata | null;
 }
 
-export interface SandboxProvider {
+/** Create a provider-managed secret for env networking mounts. */
+export interface SandboxCreateSecretParams {
+  name: string;
+  value: string;
+  description: string;
+  hosts: string[];
+}
+
+/** Update a provider-managed secret (hosts and optional value). */
+export interface SandboxUpdateSecretParams {
+  secretId: string;
+  hosts: string[];
+  value?: string | undefined;
+}
+
+/** Delete a provider-managed secret by id. */
+export interface SandboxDeleteSecretParams {
+  secretId: string;
+}
+
+/**
+ * Sandbox backend. `TEnvironment` is provider-specific create/build input
+ * (`DaytonaSandboxEnvironment` for Daytona; `undefined` when the provider has none).
+ */
+export interface SandboxProvider<TEnvironment = undefined> {
   /** Stable provider kind used in fancy sandbox ids and carry-forward (plain string). */
   readonly type: string;
   /**
-   * Ensures the release image is being built into the provider's backing store and
-   * returns its current status. Idempotent: an already-built image reports `ready`;
-   * a fresh build starts in the background and reports `pending`.
+   * Whether this provider uses sandbox environments (snapshot tip / build).
+   * When false, env resolve and env-store builds are skipped.
    */
-  buildImage(): Promise<SandboxBuild>;
-  /** Current build status of the release image. Read-only: never kicks off a build. */
-  getImageBuildStatus(): Promise<SandboxBuild>;
-  createSandbox(): Promise<{ sandboxId: string }>;
+  readonly envSupported: boolean;
+  /**
+   * Optional credential/access probe. Providers that need none may omit or resolve immediately.
+   */
+  validateAccess?(): Promise<void>;
+  /** Fresh sandbox; optional environment pins snapshot + create params. */
+  createSandbox(environment?: TEnvironment): Promise<{ sandboxId: string }>;
+  /** Env snapshot/image build. Only providers that have environments implement these. */
+  build?(environment: TEnvironment): Promise<SandboxBuild>;
+  getBuildStatus?(environment: TEnvironment): Promise<SandboxBuild>;
+  /** Provider-managed secrets for env networking mounts. Unsupported providers throw. */
+  createSecret(params: SandboxCreateSecretParams): Promise<{ id: string; name: string }>;
+  updateSecret(params: SandboxUpdateSecretParams): Promise<void>;
+  deleteSecret(params: SandboxDeleteSecretParams): Promise<void>;
   exec(params: SandboxExecParams): Promise<ExecResult>;
   /** Provider-specific instructions appended to the agent system prompt. */
   getAdditionalInstructions(): string | undefined;

@@ -1,6 +1,3 @@
-// Sandbox capability is driven by the refreshed image status; stub it so tests never touch Daytona.
-jest.mock('../../../src/sandbox/providerUtils', () => ({ checkSnapshotStatus: jest.fn() }));
-
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import type { Configuration } from 'openid-client';
@@ -13,22 +10,25 @@ import { disableOidcAuth, enableOidcAuth, initOidc } from '../../../src/auth/oid
 import { OidcAuthenticator } from '../../../src/auth/oidcAuthenticator';
 import { StandaloneAuthenticator } from '../../../src/auth/standaloneAuthenticator';
 import type { OIDCConfig } from '../../../src/config';
-import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
+import type { ISandboxEnvironmentStore, SandboxEnvironmentWithVersion } from '../../../src/db/sandboxEnvironmentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
-import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import type { IWebSearchProviderStore } from '../../../src/db/webSearchProviderStore';
 import { setCachedLocalSandboxSupport } from '../../../src/sandbox/localRuntime';
-import { checkSnapshotStatus } from '../../../src/sandbox/providerUtils';
-import type { SandboxBuildStatus, SandboxStatus } from '../../../src/schemas/sandboxProvider';
+import type { SandboxEnvironmentVersionStatus } from '../../../src/schemas/sandboxEnvironment';
 
-const mockStatus = checkSnapshotStatus as jest.Mock;
 const silentLogger = createLogger({ silent: true });
 
-const buildWithStatus = (status: SandboxBuildStatus): SandboxStatus => ({
-  status,
-  status_reason: status === 'failed' ? 'Sandbox image build failed (build_failed).' : null,
-  build_metadata: { build_ref: 'trueforge-build-029ea5ff', image_uri: 'tfy.jfrog.io/tfy-images/sandbox:029ea5ff' },
-});
+let mockActiveDefaultStatus: SandboxEnvironmentVersionStatus | undefined;
+let mockLatestDefaultStatus: SandboxEnvironmentVersionStatus | undefined;
+
+function mockDefaultEnvStore(): ISandboxEnvironmentStore {
+  const withStatus = (status: SandboxEnvironmentVersionStatus | undefined) =>
+    status === undefined ? undefined : ({ version: { status } } as unknown as SandboxEnvironmentWithVersion);
+  return {
+    getEnvironment: () => Promise.resolve(withStatus(mockLatestDefaultStatus)),
+    getActiveEnvironment: () => Promise.resolve(withStatus(mockActiveDefaultStatus)),
+  } as unknown as ISandboxEnvironmentStore;
+}
 
 const ISSUER = 'https://issuer.example.com';
 const AUDIENCE = 'harness-client';
@@ -61,8 +61,8 @@ function withAuth(router: OpenAPIHono, authenticator: Authenticator): OpenAPIHon
 
 describe('capabilities routers', () => {
   beforeEach(() => {
-    mockStatus.mockReset();
-    mockStatus.mockResolvedValue(undefined);
+    mockActiveDefaultStatus = undefined;
+    mockLatestDefaultStatus = undefined;
     setCachedLocalSandboxSupport(undefined);
   });
 
@@ -84,9 +84,13 @@ describe('capabilities routers', () => {
     };
     return withAuth(
       createCapabilitiesRouter({
-        resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
+        sandboxEnvironmentStore: mockDefaultEnvStore(),
         resolveWebSearchProviderStore: () => webSearchStore ?? emptyWebSearchStore,
-        withTransaction: callback => db.transaction().execute(callback),
+        withTransaction: (() => {
+          const run = <T>(callback: (trx: never) => Promise<T>): Promise<T> =>
+            db.transaction().execute(callback as never);
+          return run;
+        })() as never,
         logger: silentLogger,
         resolveRequestContext,
       }),
@@ -96,7 +100,7 @@ describe('capabilities routers', () => {
 
   it('reports sandbox + skill disabled when no image status is available', async () => {
     disableOidcAuth();
-    mockStatus.mockResolvedValue(undefined);
+    mockActiveDefaultStatus = undefined;
     const router = makeRouter();
 
     const response = await router.request('/');
@@ -116,7 +120,7 @@ describe('capabilities routers', () => {
 
   it('reports web_search enabled when a provider is configured', async () => {
     disableOidcAuth();
-    mockStatus.mockResolvedValue(undefined);
+    mockActiveDefaultStatus = undefined;
     const configuredStore: IWebSearchProviderStore = {
       getProvider: () =>
         Promise.resolve({
@@ -138,7 +142,7 @@ describe('capabilities routers', () => {
 
   it('reports sandbox + skill enabled when local fallback is cached and no image status exists', async () => {
     disableOidcAuth();
-    mockStatus.mockResolvedValue(undefined);
+    mockActiveDefaultStatus = undefined;
     setCachedLocalSandboxSupport({
       supported: true,
       platform: 'darwin',
@@ -161,7 +165,7 @@ describe('capabilities routers', () => {
 
   it('reports sandbox + skill enabled only when the image is ready', async () => {
     disableOidcAuth();
-    mockStatus.mockResolvedValue(buildWithStatus('ready'));
+    mockActiveDefaultStatus = 'ready';
     const router = makeRouter();
 
     const response = await router.request('/');
@@ -176,9 +180,26 @@ describe('capabilities routers', () => {
     });
   });
 
+  it('stays enabled while a newer default environment version is pending', async () => {
+    disableOidcAuth();
+    mockActiveDefaultStatus = 'ready';
+    mockLatestDefaultStatus = 'pending';
+    const router = makeRouter();
+
+    const response = await router.request('/');
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: {
+        sandbox: { enabled: true },
+        skill: { enabled: true },
+      },
+    });
+  });
+
   it('reports sandbox disabled with a "being prepared" skill reason while the image is still pending', async () => {
     disableOidcAuth();
-    mockStatus.mockResolvedValue(buildWithStatus('pending'));
+    mockActiveDefaultStatus = 'pending';
     const router = makeRouter();
 
     const response = await router.request('/');
@@ -196,7 +217,7 @@ describe('capabilities routers', () => {
 
   it('reports "not configured" skill reason when the image build failed', async () => {
     disableOidcAuth();
-    mockStatus.mockResolvedValue(buildWithStatus('failed'));
+    mockActiveDefaultStatus = 'failed';
     const router = makeRouter();
 
     const response = await router.request('/');
@@ -207,16 +228,6 @@ describe('capabilities routers', () => {
         skill: { enabled: false, reason: 'Skills run in a sandbox, which is not configured.' },
       },
     });
-  });
-
-  it('fails closed (sandbox disabled) when the status check throws', async () => {
-    disableOidcAuth();
-    mockStatus.mockRejectedValue(new Error('daytona unreachable'));
-    const router = makeRouter();
-
-    const response = await router.request('/');
-    expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ data: { sandbox: { enabled: false } } });
   });
 
   describe('when auth is enabled', () => {
@@ -280,16 +291,19 @@ describe('capabilities routers', () => {
 
     it('marks settings enabled for admin callers and disabled for non-admin callers', async () => {
       const db = createSqliteDb(':memory:');
-      await migrateSqliteToLatest(db);
       const emptyWebSearchStore: IWebSearchProviderStore = {
         getProvider: () => Promise.resolve(undefined),
         upsertProvider: () => Promise.reject(new Error('not used')),
       };
       const router = withAuth(
         createCapabilitiesRouter({
-          resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
+          sandboxEnvironmentStore: mockDefaultEnvStore(),
           resolveWebSearchProviderStore: () => emptyWebSearchStore,
-          withTransaction: callback => db.transaction().execute(callback),
+          withTransaction: (() => {
+            const run = <T>(callback: (trx: never) => Promise<T>): Promise<T> =>
+              db.transaction().execute(callback as never);
+            return run;
+          })() as never,
           logger: silentLogger,
           resolveRequestContext,
         }),

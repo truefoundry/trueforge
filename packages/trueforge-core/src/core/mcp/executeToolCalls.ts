@@ -1,7 +1,13 @@
 import type { RegisteredPassthroughEvent } from '../events/PassthroughEvents';
 import type { ApprovalDecision, MCPServerInitInfo } from '../events/schema';
 import type { InternalEnrichedAssistantMessage, InternalEnrichedToolCall, LLMToolMessage } from '../llm/LLMTypes';
-import type { MCPAuthRequired } from '../mcp/IMCPServer';
+import type { CallToolResponse, MCPAuthRequired } from '../mcp/IMCPServer';
+import {
+  elapsedSeconds,
+  getOperationMetrics,
+  type ToolCallOutcome,
+  type ToolCallServerClass,
+} from '../observability/operationMetrics';
 import type { AgentThreadCreateSubAgent } from '../runtime/AgentThread.types';
 import { InternalEventType } from '../runtime/AgentThread.types';
 import type { SandboxInfo } from '../sandbox/Sandbox';
@@ -10,6 +16,7 @@ import {
   isApprovalRequiredResponse,
   isAuthRequired,
   isCallToolResponseCreateSubAgent,
+  isCallToolResponseResult,
   isClientSideToolRequiredResponse,
   toolResultResponse,
 } from './IMCPServer';
@@ -35,6 +42,50 @@ export interface ExecuteToolCallsResult {
   approvalRequiredToolCalls: InternalEnrichedToolCall[];
   clientSideToolCalls: InternalEnrichedToolCall[];
   events: RegisteredPassthroughEvent[];
+}
+
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Parse tool-call `function.arguments`. Fine-grained streaming can leave incomplete JSON;
+ * failures are reported as tool errors so the model can retry rather than treating them as
+ * generic execution failures.
+ */
+function parseToolCallArguments(
+  rawArguments: string,
+): { ok: true; args: Record<string, unknown> } | { ok: false; parseError: string } {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rawArguments || '{}');
+  } catch (error) {
+    return {
+      ok: false,
+      parseError: error instanceof Error ? error.message : 'JSON parse failed',
+    };
+  }
+  if (!isJsonObject(parsed)) {
+    return {
+      ok: false,
+      parseError: 'Tool call arguments must be a JSON object',
+    };
+  }
+  return { ok: true, args: parsed };
+}
+
+/** `isError` is a tool failure. Approval and client-side waits are pauses. A thrown call is `thrown`. */
+function toolCallOutcome(response: CallToolResponse): ToolCallOutcome {
+  if (isAuthRequired(response)) {
+    return 'auth_required';
+  }
+  if (isApprovalRequiredResponse(response) || isClientSideToolRequiredResponse(response)) {
+    return 'paused';
+  }
+  if (isCallToolResponseResult(response) && response.result.isError === true) {
+    return 'tool_error';
+  }
+  return 'success';
 }
 
 export async function executeToolCalls({
@@ -71,8 +122,18 @@ export async function executeToolCalls({
   }
 
   const toolCallPromises = assistantMessage.tool_calls.map(async toolCall => {
+    const metrics = getOperationMetrics();
+    const startedMs = metrics === undefined ? undefined : performance.now();
+    const record = (outcome: ToolCallOutcome, serverClass: ToolCallServerClass): void => {
+      if (metrics === undefined || startedMs === undefined) {
+        return;
+      }
+      metrics.recordToolCall({ serverClass, outcome, durationSeconds: elapsedSeconds(startedMs) });
+    };
+
     const toolInfo = toolMapping.get(toolCall.function.name);
     if (!toolInfo) {
+      record('unknown_tool', 'unknown');
       return {
         toolCall,
         toolInfo,
@@ -82,17 +143,37 @@ export async function executeToolCalls({
       };
     }
 
+    const serverClass = toolInfo.toolSet.serverClass;
+    const parsedArgs = parseToolCallArguments(toolCall.function.arguments);
+    if (!parsedArgs.ok) {
+      record('tool_error', serverClass);
+      return {
+        toolCall,
+        toolInfo,
+        response: toolResultResponse({
+          text: JSON.stringify({
+            error: 'Failed to parse tool call arguments as JSON',
+            parse_error: parsedArgs.parseError,
+          }),
+          isError: true,
+        }),
+        failure: true,
+        completedAt: new Date().toISOString(),
+      };
+    }
+
     try {
-      const args: Record<string, unknown> = JSON.parse(toolCall.function.arguments || '{}') as Record<string, unknown>;
       const response = await toolInfo.toolSet.callTool(
         {
           name: toolInfo.originalToolName,
-          arguments: args,
+          arguments: parsedArgs.args,
         },
         approvalDecisions.get(toolCall.id),
       );
+      record(toolCallOutcome(response), serverClass);
       return { toolCall, toolInfo, response, failure: false, completedAt: new Date().toISOString() };
     } catch (error) {
+      record('thrown', serverClass);
       return {
         toolCall,
         toolInfo,

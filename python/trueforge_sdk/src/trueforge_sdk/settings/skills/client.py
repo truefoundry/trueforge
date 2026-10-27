@@ -4,6 +4,7 @@ import typing
 
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.request_options import RequestOptions
+from ...types.delete_skill_response import DeleteSkillResponse
 from ...types.get_skill_response import GetSkillResponse
 from ...types.list_skills_response import ListSkillsResponse
 from ...types.skill_manifest import SkillManifest
@@ -129,6 +130,38 @@ class SkillsClient:
         )
         """
         _response = self._raw_client.create_or_update(manifest=manifest, request_options=request_options)
+        return _response.data
+
+    def delete(self, *, name: str, request_options: typing.Optional[RequestOptions] = None) -> DeleteSkillResponse:
+        """
+        Deletes a skill by `name`. Rejected while any agent still lists the skill.
+
+        Parameters
+        ----------
+        name : str
+            Skill name.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DeleteSkillResponse
+            Skill deleted.
+
+        Examples
+        --------
+        from trueforge_sdk import TrueForge
+
+        client = TrueForge(
+            token="YOUR_TOKEN",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.settings.skills.delete(
+            name="name",
+        )
+        """
+        _response = self._raw_client.delete(name=name, request_options=request_options)
         return _response.data
 
 
@@ -272,4 +305,46 @@ class AsyncSkillsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.create_or_update(manifest=manifest, request_options=request_options)
+        return _response.data
+
+    async def delete(
+        self, *, name: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> DeleteSkillResponse:
+        """
+        Deletes a skill by `name`. Rejected while any agent still lists the skill.
+
+        Parameters
+        ----------
+        name : str
+            Skill name.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DeleteSkillResponse
+            Skill deleted.
+
+        Examples
+        --------
+        import asyncio
+
+        from trueforge_sdk import AsyncTrueForge
+
+        client = AsyncTrueForge(
+            token="YOUR_TOKEN",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.settings.skills.delete(
+                name="name",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.delete(name=name, request_options=request_options)
         return _response.data

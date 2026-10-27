@@ -4,17 +4,16 @@ export const DRAFT_SESSION_LAST_UPDATED_AT_HEADER = 'x-tfy-session-last-updated-
 
 export interface DraftSessionBridge {
   syncAgentSpec: (draftSessionId: string, agentSpec: AgentSpec) => Promise<string>;
-  getDraftAgentSpec: (draftSessionId: string) => Promise<AgentSpec>;
+  getDraftAgentSpec: (draftSessionId: string) => Promise<AgentSpec | null>;
 }
 
 export function createDraftSessionBridge(server: AgentChatServer): DraftSessionBridge {
   return {
     async getDraftAgentSpec(draftSessionId) {
       const session = await server.getSession({ sessionId: draftSessionId });
-      if (session.agentSpec == null) {
-        throw new Error(`Session ${draftSessionId} has no agentSpec (isMutable=${String(session.isMutable)}).`);
-      }
-      return session.agentSpec;
+      // Sessions without an agentSpec (e.g. immutable/SDK chats) have no draft configuration.
+      // Return null so callers gracefully fallback instead of crashing with a red error toast.
+      return session.agentSpec ?? null;
     },
 
     async syncAgentSpec(draftSessionId, agentSpec) {

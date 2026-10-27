@@ -2,12 +2,15 @@
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 
+import { isSdkHttpTimeoutError } from '../analytics/trackSdkHttpTimeout.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { getErrorMessage } from '../utils/getErrorMessage.js';
 
 const MAX_TOAST_DESCRIPTION_CHARS = 480;
 const MAX_VISIBLE_TOASTS = 5;
 const SUCCESS_TOAST_TTL_MS = 3000;
+const SDK_TIMEOUT_TOAST_TITLE = 'Request timed out';
+const SDK_TIMEOUT_TOAST_DESCRIPTION = 'The request took too long and was cancelled. Try again.';
 
 type ToastContent = { title: string; description?: string };
 
@@ -36,6 +39,10 @@ function isHttpLikeError(error: unknown): error is Error & { statusCode?: number
 }
 
 function normalizeError(error: unknown): ToastContent {
+  if (isSdkHttpTimeoutError(error)) {
+    return { title: SDK_TIMEOUT_TOAST_TITLE, description: SDK_TIMEOUT_TOAST_DESCRIPTION };
+  }
+
   if (isHttpLikeError(error)) {
     const statusCode = error.statusCode;
     if (statusCode != null || error.body != null) {

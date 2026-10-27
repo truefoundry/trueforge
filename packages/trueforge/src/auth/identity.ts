@@ -12,6 +12,8 @@ import { createTrueFoundryRequestContext } from '../truefoundry/accessToken';
 /** Standalone / default TrueForge admin role string. */
 export const STANDALONE_ADMIN_ROLE = 'admin';
 
+export const TRUEFOUNDRY_TENANT_ADMIN_ROLE = 'tenant-admin';
+
 export interface RequestSubject {
   id: string;
   type: string;
@@ -54,17 +56,15 @@ export function resolveRequestContext(c: Context): RequestContext {
 }
 
 /**
- * Whether the caller is treated as admin for settings, capabilities, and schedule bypass.
- * Mode and OIDC admin claim value come from process config ({@link getTrueForgeAuthMode}).
+ * Whether the caller is a TrueForge admin.
  * - Standalone: `roles` includes `admin`
  * - OIDC: `roles` includes configured `OIDC_ADMIN_ROLE_VALUE`
- * - TrueFoundry: no tenant-wide TrueForge admin
+ * - TrueFoundry: `roles` includes `tenant-admin`
  */
-// TODO (chiragjn): hasAdminRole will be renamed to canAccessSettings once all authorizer changes are done
 export function hasAdminRole(requestContext: Pick<RequestContext, 'roles'>): boolean {
   switch (getTrueForgeAuthMode()) {
     case TrueForgeAuthMode.TrueFoundry:
-      return false;
+      return requestContext.roles.includes(TRUEFOUNDRY_TENANT_ADMIN_ROLE);
     case TrueForgeAuthMode.Oidc: {
       if (!isOidcConfigured(configuration)) {
         // this is technically unreachable since case TrueForgeAuthMode.Oidc already ensures OIDC is configured
@@ -75,6 +75,40 @@ export function hasAdminRole(requestContext: Pick<RequestContext, 'roles'>): boo
     case TrueForgeAuthMode.Standalone:
       return requestContext.roles.includes(STANDALONE_ADMIN_ROLE);
   }
+}
+
+/**
+ * Whether the caller may use `/api/v1/settings` and see settings in capabilities.
+ * Always false in TrueFoundry (catalogs are platform-managed); otherwise same as {@link hasAdminRole}.
+ */
+export function canAccessSettings(requestContext: Pick<RequestContext, 'roles'>): boolean {
+  if (getTrueForgeAuthMode() === TrueForgeAuthMode.TrueFoundry) {
+    return false;
+  }
+  return hasAdminRole(requestContext);
+}
+
+/**
+ * Create / update / delete sandbox environments (list/get stay open to all callers).
+ * - Create (no `created_by_subject_id`): admin only
+ * - Update / delete: admin or the environment creator
+ */
+export function canCreateOrEdit(
+  requestContext: Pick<RequestContext, 'subject' | 'roles'>,
+  created_by_subject_id?: string,
+): boolean {
+  return (
+    hasAdminRole(requestContext) ||
+    (created_by_subject_id !== undefined && requestContext.subject.id === created_by_subject_id)
+  );
+}
+
+/** Update / delete / run-now a schedule (and admin/creator schedule reads). */
+export function canEditSchedule(
+  requestContext: Pick<RequestContext, 'subject' | 'roles'>,
+  created_by_subject_id: string,
+): boolean {
+  return hasAdminRole(requestContext) || requestContext.subject.id === created_by_subject_id;
 }
 
 /** Subject rebuilt from a stored creator snapshot, for work that runs without a live request. */

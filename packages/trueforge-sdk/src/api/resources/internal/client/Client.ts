@@ -11,6 +11,7 @@ import * as serializers from "../../../../serialization/index.js";
 import * as TrueForge from "../../../index.js";
 import { AgentsClient } from "../resources/agents/client/Client.js";
 import { MetricsClient } from "../resources/metrics/client/Client.js";
+import { SandboxEnvironmentsClient } from "../resources/sandboxEnvironments/client/Client.js";
 import { SchedulesClient } from "../resources/schedules/client/Client.js";
 import { SessionsClient } from "../resources/sessions/client/Client.js";
 
@@ -23,6 +24,7 @@ export declare namespace InternalClient {
 export class InternalClient {
     protected readonly _options: NormalizedClientOptionsWithAuth<InternalClient.Options>;
     protected _metrics: MetricsClient | undefined;
+    protected _sandboxEnvironments: SandboxEnvironmentsClient | undefined;
     protected _schedules: SchedulesClient | undefined;
     protected _sessions: SessionsClient | undefined;
     protected _agents: AgentsClient | undefined;
@@ -33,6 +35,10 @@ export class InternalClient {
 
     public get metrics(): MetricsClient {
         return (this._metrics ??= new MetricsClient(this._options));
+    }
+
+    public get sandboxEnvironments(): SandboxEnvironmentsClient {
+        return (this._sandboxEnvironments ??= new SandboxEnvironmentsClient(this._options));
     }
 
     public get schedules(): SchedulesClient {

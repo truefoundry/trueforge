@@ -8,8 +8,11 @@ import {
   useAui,
   useAuiState,
 } from '@assistant-ui/react';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type Ref, type RefObject } from 'react';
 
+import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '../analytics/events.js';
+import { withSessionProps } from '../analytics/sessionProps.js';
 import { AgentHistoryFilterButton } from '../atoms/AgentHistoryFilterButton.js';
 import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
@@ -17,6 +20,7 @@ import { useCompactLayout } from '../atoms/lib/CompactLayoutContext.js';
 import {
   canReuseMutableShell,
   readThreadAgentName,
+  readThreadIsMutable,
   threadListIndicesByRecency,
   threadListItemIsMutable,
 } from '../atoms/lib/threadListMeta.js';
@@ -42,8 +46,11 @@ import { useToasterOptional } from './ToasterContainer.js';
 export type ThreadListContainerProps = {
   /** Called after New chat or selecting a row — used by stack/drawer chrome. */
   onThreadOpen?: () => void;
-  /** `recent-history` hides navigation and lists only persisted sessions. */
-  variant?: 'default' | 'recent-history';
+  /**
+   * `recent-history` hides navigation and lists only persisted sessions.
+   * `mobile-drawer` shows New Chat + Agents Library, then persisted sessions (no Sessions/Schedules).
+   */
+  variant?: 'default' | 'recent-history' | 'mobile-drawer';
 };
 
 const actionItemClass =
@@ -58,12 +65,14 @@ function ThreadListItemActionsMenu({
   canDelete,
   deleteDisabled,
   onRename,
+  onDelete,
 }: {
   canRename: boolean;
   renameDisabled: boolean;
   canDelete: boolean;
   deleteDisabled: boolean;
   onRename: () => void;
+  onDelete: () => void;
 }) {
   const PermissionGuard = useSlot('PermissionGuard');
   const compact = useCompactLayout();
@@ -105,7 +114,9 @@ function ThreadListItemActionsMenu({
       <ThreadListItemPrimitive.Delete
         className={deleteItemClass}
         onClick={() => {
-          if (!deleteDisabled) setSheetOpen(false);
+          if (deleteDisabled) return;
+          setSheetOpen(false);
+          onDelete();
         }}
       >
         <Icon name="trash" className="size-3.5" />
@@ -164,12 +175,14 @@ function ThreadListItemActionsMenu({
 }
 
 function ThreadListItemRow({
+  selectionRef,
   onThreadOpen,
   canRenameSession,
   canDeleteSession,
   canManageResource,
   canDeleteResource,
 }: {
+  selectionRef: RefObject<number>;
   onThreadOpen?: () => void;
   canRenameSession: boolean;
   canDeleteSession: boolean;
@@ -178,6 +191,10 @@ function ThreadListItemRow({
 }) {
   const aui = useAui();
   const shell = useOptionalShellMode();
+  const server = useOptionalServer();
+  const runtimeKeyRef = useRef(shell?.runtimeKey);
+  runtimeKeyRef.current = shell?.runtimeKey;
+  const track = useTrackAnalytics();
   const toaster = useToasterOptional();
   const ThreadListRow = useSlot('ThreadListRow');
   const id = useAuiState(s => s.threadListItem.id);
@@ -192,7 +209,11 @@ function ThreadListItemRow({
   const showActions = showRename || showDelete;
   const renameDisabled = remoteId != null && !canManageResource(remoteId);
   const deleteDisabled = remoteId != null && !canDeleteResource(remoteId);
-  const sidebarNavOpen = shell?.libraryOpen === true || shell?.sessionsOpen === true || shell?.schedulesOpen === true;
+  const sidebarNavOpen =
+    shell?.libraryOpen === true ||
+    shell?.sessionsOpen === true ||
+    shell?.schedulesOpen === true ||
+    shell?.environmentsOpen === true;
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameSaving, setRenameSaving] = useState(false);
 
@@ -206,12 +227,47 @@ function ThreadListItemRow({
     setRenameSaving(true);
     try {
       await aui.threadListItem().rename(trimmed);
+      track(AnalyticsEvents.Session.RENAMED, withSessionProps(undefined, { sessionId: remoteId, agentName }));
       setRenameOpen(false);
     } catch (caught) {
       toaster?.showError(caught);
     } finally {
       setRenameSaving(false);
     }
+  };
+
+  const openRow = ({ sessionMutable, rowAgentName }: { sessionMutable: boolean; rowAgentName: string | undefined }) => {
+    const sameImmutable =
+      !sessionMutable &&
+      shell?.mode.status === 'active' &&
+      !shell.mode.isMutable &&
+      (rowAgentName == null
+        ? shell.mode.agentName == null && shell.mode.agentId == null
+        : shell.mode.agentName === rowAgentName || shell.mode.agentId === rowAgentName);
+    const sameMutable = canReuseMutableShell({
+      sessionMutable,
+      shellMutable: shell?.mode.status === 'active' && shell.mode.isMutable,
+      ...(shell?.mode.status === 'active' && shell.mode.isMutable
+        ? { shellAgentName: shell.mode.agentName, shellAgentId: shell.mode.agentId }
+        : {}),
+      remoteId,
+      pendingSessionId: shell?.pendingSessionId,
+    });
+
+    // An access-error pane must go through openHistorySession so the error clears.
+    if ((sameImmutable || sameMutable) && remoteId != null && shell?.sessionAccessError == null) {
+      void Promise.resolve(aui.threads().switchToThread(id)).catch(() => undefined);
+      return;
+    }
+    if (remoteId != null) {
+      shell?.openHistorySession({
+        sessionId: remoteId,
+        isMutable: sessionMutable,
+        ...(rowAgentName != null ? { agentName: rowAgentName } : {}),
+      });
+      return;
+    }
+    void Promise.resolve(aui.threads().switchToThread(id)).catch(() => undefined);
   };
 
   return (
@@ -222,44 +278,37 @@ function ThreadListItemRow({
         agentName={agentName}
         lastMessageAt={lastMessageAt}
         onSelect={() => {
+          track(
+            AnalyticsEvents.Session.SELECTED,
+            withSessionProps({ is_mutable: threadListItemIsMutable(custom) }, { sessionId: remoteId, agentName }),
+          );
+          const selection = ++selectionRef.current;
+          const clickedRuntimeKey = shell?.runtimeKey;
           onThreadOpen?.();
           shell?.setSettingsOpen(false);
           shell?.setLibraryOpen(false);
           shell?.setSessionsOpen(false);
           shell?.setSchedulesOpen(false);
+          shell?.setEnvironmentsOpen(false);
 
+          // A row created in this client has no custom yet; defaulting to mutable would
+          // reopen a saved-agent chat as a draft, so ask the server first.
+          if (remoteId != null && server != null && readThreadIsMutable(custom) === undefined && agentName == null) {
+            void server
+              .getSession({ sessionId: remoteId })
+              .then(
+                session => ({ sessionMutable: session.isMutable, rowAgentName: session.agentName ?? undefined }),
+                () => ({ sessionMutable: threadListItemIsMutable(custom), rowAgentName: agentName }),
+              )
+              .then(resolved => {
+                // A later row click supersedes this open; New Chat / agent switches remount the runtime.
+                if (selectionRef.current === selection && runtimeKeyRef.current === clickedRuntimeKey)
+                  openRow(resolved);
+              });
+            return;
+          }
           // Prefer custom.isMutable (session wire); agentName-only is a legacy fallback.
-          const sessionMutable = threadListItemIsMutable(custom);
-          const sameImmutable =
-            !sessionMutable &&
-            shell?.mode.status === 'active' &&
-            !shell.mode.isMutable &&
-            (agentName == null
-              ? shell.mode.agentName == null && shell.mode.agentId == null
-              : shell.mode.agentName === agentName || shell.mode.agentId === agentName);
-          const sameMutable = canReuseMutableShell({
-            sessionMutable,
-            shellMutable: shell?.mode.status === 'active' && shell.mode.isMutable,
-            ...(shell?.mode.status === 'active' && shell.mode.isMutable
-              ? { shellAgentName: shell.mode.agentName, shellAgentId: shell.mode.agentId }
-              : {}),
-            remoteId,
-            pendingSessionId: shell?.pendingSessionId,
-          });
-
-          if ((sameImmutable || sameMutable) && remoteId != null) {
-            void Promise.resolve(aui.threads().switchToThread(id)).catch(() => undefined);
-            return;
-          }
-          if (remoteId != null) {
-            shell?.openHistorySession({
-              sessionId: remoteId,
-              isMutable: sessionMutable,
-              ...(agentName != null ? { agentName } : {}),
-            });
-            return;
-          }
-          void Promise.resolve(aui.threads().switchToThread(id)).catch(() => undefined);
+          openRow({ sessionMutable: threadListItemIsMutable(custom), rowAgentName: agentName });
         }}
         actions={
           showActions ? (
@@ -269,6 +318,9 @@ function ThreadListItemRow({
               canDelete={showDelete}
               deleteDisabled={deleteDisabled}
               onRename={() => setRenameOpen(true)}
+              onDelete={() => {
+                track(AnalyticsEvents.Session.DELETED, withSessionProps(undefined, { sessionId: remoteId, agentName }));
+              }}
             />
           ) : undefined
         }
@@ -309,7 +361,12 @@ function useThreadListIndicesByRecency(variant: NonNullable<ThreadListContainerP
   }, [threadIds, threadItems, variant]);
 }
 
+function isPersistedHistoryVariant(variant: NonNullable<ThreadListContainerProps['variant']>): boolean {
+  return variant === 'recent-history' || variant === 'mobile-drawer';
+}
+
 function ThreadListItemsByRecency({
+  selectionRef,
   indices,
   onThreadOpen,
   canRenameSession,
@@ -317,6 +374,7 @@ function ThreadListItemsByRecency({
   canManageResource,
   canDeleteResource,
 }: {
+  selectionRef: RefObject<number>;
   indices: number[];
   onThreadOpen?: () => void;
   canRenameSession: boolean;
@@ -334,6 +392,7 @@ function ThreadListItemsByRecency({
         return (
           <ThreadListItemByIndexProvider key={key} index={index} archived={false}>
             <ThreadListItemRow
+              selectionRef={selectionRef}
               onThreadOpen={onThreadOpen}
               canRenameSession={canRenameSession}
               canDeleteSession={canDeleteSession}
@@ -394,6 +453,7 @@ function RecentChatsSection({
 export function ThreadListContainer({ onThreadOpen, variant = 'default' }: ThreadListContainerProps = {}) {
   const aui = useAui();
   const server = useOptionalServer();
+  const track = useTrackAnalytics();
   const isLoading = useAuiState(s => s.threads.isLoading);
   const isLoadingMore = useAuiState(s => s.threads.isLoadingMore);
   const hasMore = useAuiState(s => s.threads.hasMore);
@@ -406,6 +466,7 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
   const AgentsLibraryButton = useSlot('AgentsLibraryButton');
   const SessionsBrowserButton = useSlot('SessionsBrowserButton');
   const SchedulesButton = useSlot('SchedulesButton');
+  const EnvironmentsButton = useSlot('EnvironmentsButton');
   const ThreadListRowSkeleton = useSlot('ThreadListRowSkeleton');
   const ThreadListEmptyState = useSlot('ThreadListEmptyState');
 
@@ -413,12 +474,14 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
   const viewportRef = useRef<HTMLDivElement>(null);
   const hasMoreRef = useRef(hasMore);
   const auiRef = useRef(aui);
+  const selectionRef = useRef(0);
   hasMoreRef.current = hasMore;
   auiRef.current = aui;
 
   const showNewChat = shell?.isNewChatEnabled !== false;
   const isIdle = shell?.mode.status === 'idle';
-  const isRecentHistory = variant === 'recent-history';
+  const isPersistedHistory = isPersistedHistoryVariant(variant);
+  const isMobileDrawer = variant === 'mobile-drawer';
   const canRenameSession = typeof server?.renameSession === 'function';
   const canDeleteSession = typeof server?.deleteSession === 'function';
   const remoteSessionIds = useMemo(
@@ -468,6 +531,16 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
   }, [hasMore, isIdle, isLoading, isLoadingMore, threadIds.length]);
 
   const handleNewChat = () => {
+    // No session_id yet — attaching the prior thread's id would mis-join new-chat funnels.
+    track(
+      AnalyticsEvents.Session.NEW,
+      withSessionProps(
+        { is_composer_enabled: shell?.isComposerEnabled === true },
+        {
+          ...(shell?.mode.status === 'active' ? { agentId: shell.mode.agentId, agentName: shell.mode.agentName } : {}),
+        },
+      ),
+    );
     onThreadOpen?.();
     shell?.setLibraryOpen(false);
     shell?.setSessionsOpen(false);
@@ -477,20 +550,22 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
     }
     shell?.setSettingsOpen(false);
     shell?.setSchedulesOpen(false);
+    shell?.setEnvironmentsOpen(false);
     void Promise.resolve(aui.threads().switchToNewThread()).catch(() => undefined);
   };
 
   let listBody: ReactNode;
   if (isIdle) {
-    listBody = <ThreadListEmptyState message={isRecentHistory ? 'No recent chats' : undefined} />;
+    listBody = <ThreadListEmptyState message={isPersistedHistory ? 'No recent chats' : undefined} />;
   } else if (isLoading) {
     listBody = <ThreadListRowSkeleton />;
   } else if (indices.length === 0) {
-    listBody = <ThreadListEmptyState message={isRecentHistory ? 'No recent chats' : undefined} />;
+    listBody = <ThreadListEmptyState message={isPersistedHistory ? 'No recent chats' : undefined} />;
   } else {
     listBody = (
       <ThreadListPrimitive.Root className="flex min-h-0 flex-col gap-0.5">
         <ThreadListItemsByRecency
+          selectionRef={selectionRef}
           indices={indices}
           onThreadOpen={onThreadOpen}
           canRenameSession={canRenameSession}
@@ -502,20 +577,31 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
     );
   }
 
-  return (
-    <ThreadListShell
-      header={
-        isRecentHistory ? null : (
-          <div className="flex flex-col gap-1">
-            {showNewChat ? <ThreadListNewButton onClick={handleNewChat} /> : null}
-            <AgentsLibraryButton />
+  const header =
+    variant === 'recent-history' ? null : (
+      <div className="flex flex-col gap-1">
+        {showNewChat ? <ThreadListNewButton onClick={handleNewChat} /> : null}
+        <div
+          className="contents"
+          onClick={() => {
+            if (isMobileDrawer) onThreadOpen?.();
+          }}
+        >
+          <AgentsLibraryButton />
+        </div>
+        {isMobileDrawer ? null : (
+          <>
             <SessionsBrowserButton />
             <SchedulesButton />
-          </div>
-        )
-      }
-    >
-      <RecentChatsSection viewportRef={viewportRef} hideScrollbar={isRecentHistory}>
+            <EnvironmentsButton />
+          </>
+        )}
+      </div>
+    );
+
+  return (
+    <ThreadListShell header={header}>
+      <RecentChatsSection viewportRef={viewportRef} hideScrollbar={isPersistedHistory}>
         {listBody}
         {!isIdle && hasMore ? <div className="h-4 shrink-0" aria-hidden /> : null}
       </RecentChatsSection>

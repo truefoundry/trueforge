@@ -54,14 +54,19 @@ export async function convertMCPServersToTools(params: {
       authRequirementInfo.push(listResponse.authRequired);
       continue;
     }
-    const { result: mcpTools, wasInitialized } = listResponse;
-    if (wasInitialized) {
-      initializationInfo.push(wasInitialized);
-    }
-
     const toolSet = allServers[i];
     if (toolSet === undefined) {
       throw new Error(`Unreachable: missing tool set at index ${String(i)}`);
+    }
+
+    const { result: mcpTools, wasInitialized } = listResponse;
+    if (wasInitialized) {
+      const approvalPolicies = toolSet.getApprovalPolicies();
+      initializationInfo.push(
+        Object.keys(approvalPolicies).length > 0
+          ? { ...wasInitialized, approval_policies: approvalPolicies }
+          : wasInitialized,
+      );
     }
     const sortedTools = [...mcpTools.tools].sort((a, b) => (a.name > b.name ? 1 : -1));
     for (const mcpTool of sortedTools) {
@@ -71,6 +76,9 @@ export async function convertMCPServersToTools(params: {
       const { name: toolName } = getUniqueSanitizedToolName(mcpTool.name, registeredNames);
       registeredNames.add(toolName);
       const description = `mcp server: ${serverName}\n${mcpTool.description ?? ''}`;
+      // Keep local definition containers so `$ref`s inside `properties` (e.g. FastMCP-style
+      // `#/$defs/<Model>` pointers to nested pydantic models) resolve on the wire.
+      const { $defs, definitions } = mcpTool.inputSchema;
       tools.push({
         type: 'function',
         function: {
@@ -80,6 +88,8 @@ export async function convertMCPServersToTools(params: {
             type: 'object',
             properties: mcpTool.inputSchema.properties ?? {},
             required: mcpTool.inputSchema.required ?? [],
+            ...($defs !== undefined ? { $defs } : {}),
+            ...(definitions !== undefined ? { definitions } : {}),
           },
         },
       });

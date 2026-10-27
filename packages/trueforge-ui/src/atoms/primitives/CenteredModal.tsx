@@ -13,6 +13,8 @@ export type CenteredModalProps = {
   onOpenChange: (open: boolean) => void;
   title: string;
   description?: string;
+  /** Rendered immediately to the right of the title (e.g. a host action link). */
+  titleAccessory?: ReactNode;
   headerIcon?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
@@ -30,6 +32,7 @@ export function CenteredModal({
   onOpenChange,
   title,
   description,
+  titleAccessory,
   headerIcon,
   children,
   footer,
@@ -92,9 +95,12 @@ export function CenteredModal({
       <header className="bg-topbar-bg flex shrink-0 items-center gap-3 border-b border-border px-5 py-4">
         {headerIcon}
         <div className="min-w-0 flex-1">
-          <h2 id={titleId} className="text-text-primary text-lg font-semibold tracking-tight">
-            {title}
-          </h2>
+          <div className="flex min-w-0 items-center justify-between gap-2">
+            <h2 id={titleId} className="text-text-primary truncate text-lg font-semibold tracking-tight">
+              {title}
+            </h2>
+            {titleAccessory}
+          </div>
           {description ? (
             <p id={descriptionId} className="text-text-secondary mt-1 text-sm">
               {description}

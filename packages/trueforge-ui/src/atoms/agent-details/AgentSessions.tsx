@@ -3,18 +3,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 
+import { useTrackAnalytics } from '../../analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '../../analytics/events.js';
+import { withSessionProps } from '../../analytics/sessionProps.js';
 import { useToasterOptional } from '../../containers/ToasterContainer.js';
 import { useResourcePermissions } from '../../hooks/useResourcePermissions.js';
 import { useSessionShareSearch } from '../../hooks/useSessionShareSearch.js';
 import { Icon } from '../../icons/Icon.js';
 import { buildSessionResumeHref } from '../../routing/paths.js';
 import { useOptionalResolvedRoutes } from '../../routing/ResolvedRoutesContext.js';
-import { useAgentSessionsServer, useServer } from '../../server/ServerContext.js';
+import { useAgentSessionsServer, useOptionalScheduleServer, useServer } from '../../server/ServerContext.js';
 import { useOptionalShellMode } from '../../server/ShellModeContext.js';
 import type { Session, SessionEventItem, SessionListEntry } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
 import { drainListPages } from '../../utils/drainListPages.js';
-import { reportSessionAccessError } from '../../utils/sessionAccessError.js';
+import { getErrorMessage } from '../../utils/getErrorMessage.js';
+import { writeOpenScheduleByIdSearch } from '../../utils/scheduleShareUrl.js';
 import { sessionTimeRangeFromCreatedAt } from '../../utils/sessionShareUrl.js';
 import { EmptyScreen } from '../EmptyScreen.js';
 import { cn } from '../lib/cn.js';
@@ -38,8 +42,9 @@ function entryIsMutable(entry: SessionListEntry): boolean {
   return entry.agentName == null;
 }
 
-function entrySourceType(entry: SessionListEntry): 'schedule' | undefined {
-  return 'sourceType' in entry && Reflect.get(entry, 'sourceType') === 'schedule' ? 'schedule' : undefined;
+function entryScheduleId(entry: SessionListEntry): string | undefined {
+  const scheduleId: unknown = 'scheduleId' in entry ? Reflect.get(entry, 'scheduleId') : undefined;
+  return typeof scheduleId === 'string' && scheduleId.length > 0 ? scheduleId : undefined;
 }
 
 export function AgentSessions({
@@ -51,11 +56,15 @@ export function AgentSessions({
   detailSessionId,
   onCloseDetail,
   onLoadRecentSessions,
+  refreshKey = 0,
+  onLoadingChange,
 }: AgentSessionsProps) {
   const sessionsServer = useAgentSessionsServer();
   const chatServer = useServer();
   const toaster = useToasterOptional();
+  const track = useTrackAnalytics();
   const shell = useOptionalShellMode();
+  const scheduleServer = useOptionalScheduleServer();
   const routes = useOptionalResolvedRoutes();
   const { sessionId: querySessionId, updateShareSearch } = useSessionShareSearch();
   const selectedSessionId = detailOnly ? (detailSessionId ?? null) : querySessionId;
@@ -78,6 +87,7 @@ export function AgentSessions({
   const [detailSession, setDetailSession] = useState<Session>();
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailFailed, setDetailFailed] = useState(false);
+  const [detailErrorMessage, setDetailErrorMessage] = useState('This session could not be loaded.');
   const [pendingDelete, setPendingDelete] = useState<SessionListEntry | null>(null);
 
   const canDeleteSession = typeof chatServer.deleteSession === 'function';
@@ -142,7 +152,7 @@ export function AgentSessions({
     return () => {
       cancelled = true;
     };
-  }, [detailOnly, listRequest, sessionsServer]);
+  }, [detailOnly, listRequest, refreshKey, sessionsServer]);
 
   const loadMore = useCallback(async () => {
     // A ref, not `listLoadingMore`: the observer can fire twice before a re-render.
@@ -185,6 +195,7 @@ export function AgentSessions({
       setDetailEvents(undefined);
       setDetailSession(undefined);
       setDetailFailed(false);
+      setDetailErrorMessage('This session could not be loaded.');
       setDetailLoading(false);
       return;
     }
@@ -192,6 +203,7 @@ export function AgentSessions({
     let cancelled = false;
     setDetailLoading(true);
     setDetailFailed(false);
+    setDetailErrorMessage('This session could not be loaded.');
     setDetailEvents(undefined);
     setDetailSession(undefined);
 
@@ -213,14 +225,7 @@ export function AgentSessions({
       })
       .catch((error: unknown) => {
         if (cancelled) return;
-        reportSessionAccessError({
-          error,
-          ...(toaster != null ? { showError: toaster.showError } : {}),
-        });
-        if (detailOnly) {
-          onCloseDetail?.();
-          return;
-        }
+        setDetailErrorMessage(getErrorMessage(error, 'This session could not be loaded.'));
         setDetailFailed(true);
       })
       .finally(() => {
@@ -230,7 +235,10 @@ export function AgentSessions({
     return () => {
       cancelled = true;
     };
-  }, [chatServer, detailOnly, onCloseDetail, selectedSessionId, sessionsServer, toaster]);
+  }, [chatServer, refreshKey, selectedSessionId, sessionsServer]);
+  useEffect(() => {
+    onLoadingChange?.(listLoading || detailLoading);
+  }, [detailLoading, listLoading, onLoadingChange]);
 
   const selectSession = (entry: SessionListEntry) => {
     const pinned = shareView === 'sessions' ? sessionTimeRangeFromCreatedAt(entry.createdAt) : null;
@@ -240,6 +248,30 @@ export function AgentSessions({
         ? { view: 'sessions', ...(pinned == null ? {} : { timeRange: pinned }) }
         : { agentId: agentId ?? null, tab: 'sessions', view: null, timeRange: null }),
     });
+  };
+
+  // One lookup per schedule, shared by every session row from that schedule.
+  const scheduleNamesRef = useRef(new Map<string, Promise<string | null>>());
+  const loadScheduleName = (scheduleId: string): Promise<string | null> => {
+    if (scheduleServer == null) return Promise.resolve(null);
+    let name = scheduleNamesRef.current.get(scheduleId);
+    if (name == null) {
+      name = scheduleServer.getSchedule({ id: scheduleId }).then(
+        schedule => schedule.name,
+        () => {
+          scheduleNamesRef.current.delete(scheduleId);
+          return null;
+        },
+      );
+      scheduleNamesRef.current.set(scheduleId, name);
+    }
+    return name;
+  };
+
+  const openSchedule = ({ id, name }: { id: string; name: string }) => {
+    track(AnalyticsEvents.Schedule.OPENED_FROM_SESSION, { schedule_id: id });
+    writeOpenScheduleByIdSearch({ id, name });
+    shell?.setSchedulesOpen(true);
   };
 
   const clearSelectedSession = () => {
@@ -256,6 +288,10 @@ export function AgentSessions({
     setPendingDelete(null);
     try {
       await chatServer.deleteSession({ sessionId: entry.id });
+      track(
+        AnalyticsEvents.Session.DELETED,
+        withSessionProps(undefined, { sessionId: entry.id, agentName: entry.agentName }),
+      );
       setEntries(current => current.filter(item => item.id !== entry.id));
       if (selectedSessionId === entry.id) {
         updateShareSearch({ sessionId: null });
@@ -302,20 +338,19 @@ export function AgentSessions({
     resumeHref != null ? { resumeHref, resumeLabel } : shell != null ? { onResume: handleResume, resumeLabel } : {};
 
   const detailPanel = (
-    <section className="flex h-full min-w-0 flex-col bg-primary-bg">
+    <section className="isolate flex h-full min-w-0 flex-col bg-primary-bg">
       {selectedSessionId == null ? (
         <div className="flex flex-1 items-center justify-center px-6 text-sm text-text-secondary">
           Select a session to view details
         </div>
       ) : detailFailed ? (
-        <div className="flex flex-1 items-center justify-center px-6 text-sm text-text-secondary">
-          Session details could not be loaded.
-        </div>
+        <EmptyScreen title="Unable to load session" description={detailErrorMessage} className="bg-primary-bg" />
       ) : (
         <>
           <AgentSessionDetailHeader
             title={selectedTitle}
             sessionId={selectedSessionId}
+            metadata={detailSession?.metadata ?? selectedEntry?.metadata}
             onClose={clearSelectedSession}
             canResume={canResume}
             canShare={canResume}
@@ -329,7 +364,7 @@ export function AgentSessions({
             <AgentSessionTimelineContainer
               sessionId={selectedSessionId}
               events={detailEvents}
-              listMetrics={selectedEntry?.metrics}
+              sessionMetrics={detailSession?.metrics}
               {...(detailOnly ? { contentMaxWidth: '60rem' } : {})}
             />
           )}
@@ -391,11 +426,14 @@ export function AgentSessions({
                   key={entry.id}
                   title={sessionTitle(entry)}
                   agentName={entry.agentName ?? undefined}
-                  sourceType={entrySourceType(entry)}
+                  scheduleId={entryScheduleId(entry)}
                   lastActivityAt={entry.lastActivityAt}
                   metrics={entry.metrics}
+                  {...(entry.createdBySubject == null ? {} : { createdBySubject: entry.createdBySubject })}
                   active={entry.id === selectedSessionId}
                   onSelect={() => selectSession(entry)}
+                  {...(shell == null ? {} : { onOpenSchedule: openSchedule })}
+                  {...(scheduleServer == null ? {} : { loadScheduleName })}
                   {...(canDeleteSession
                     ? {
                         onRequestDelete: () => setPendingDelete(entry),
@@ -428,7 +466,7 @@ export function AgentSessions({
       <Separator
         id="agent-sessions-resizer"
         aria-label="Resize session list"
-        className="group/resizer relative z-10 w-0 cursor-col-resize focus-visible:outline-none"
+        className="group/resizer relative z-30 w-0 cursor-col-resize focus-visible:outline-none"
       >
         <div aria-hidden className="absolute inset-y-0 -left-1.25 w-2.75" />
         <div aria-hidden className="absolute inset-y-0 left-0 w-px bg-border transition-colors" />

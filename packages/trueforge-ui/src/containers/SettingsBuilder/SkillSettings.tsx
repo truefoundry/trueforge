@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 
+import { useTrackAnalytics } from '@/analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '@/analytics/events.js';
 import { Button } from '@/atoms/primitives/Button.js';
 import SearchInput from '@/atoms/primitives/SearchInput.js';
 import { Icon } from '@/icons/Icon.js';
@@ -9,6 +11,7 @@ import { useCatalogServer } from '../../server/ServerContext.js';
 import type { RegistrySkill, SkillBase, SkillCatalogEntry, SkillConfigBase } from '../../server/types.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import { useToasterOptional } from '../ToasterContainer.js';
+import ConfirmDeleteDialog from './ConfirmDeleteDialog.js';
 import ImportGithubSkillForm from './ImportGithubSkillForm.js';
 
 const matchesQuery = (query: string, name: string, description: string) =>
@@ -23,6 +26,7 @@ function isManagedSkillError(error: unknown): boolean {
 const SkillSettings = () => {
   const { skillCatalog } = useCatalogServer();
   const toaster = useToasterOptional();
+  const track = useTrackAnalytics();
 
   const [query, setQuery] = useState('');
   const [skills, setSkills] = useState<SkillBase[]>([]);
@@ -33,6 +37,8 @@ const SkillSettings = () => {
   const [busy, setBusy] = useState(false);
   const [managedExternally, setManagedExternally] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [pendingRemoval, setPendingRemoval] = useState<SkillBase | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!skillCatalog) return;
@@ -96,15 +102,25 @@ const SkillSettings = () => {
         path: entry.path,
         ref: entry.ref,
       });
+      track(AnalyticsEvents.Settings.SKILL_IMPORTED, { skill_name: entry.name });
     }).catch(() => {});
+  };
+
+  const closeRemoveDialog = () => {
+    if (busy) return;
+    setPendingRemoval(null);
+    setRemoveError(null);
   };
 
   const handleRemove = (skill: SkillBase) => {
     const deleteSkill = skillCatalog.deleteSkill;
     if (!deleteSkill) return;
+    setRemoveError(null);
     void runMutation(async () => {
       await deleteSkill({ id: skill.id });
-    }).catch(() => {});
+      track(AnalyticsEvents.Settings.SKILL_DELETED, { skill_name: skill.name });
+      setPendingRemoval(null);
+    }, setRemoveError).catch(() => {});
   };
 
   const handleImport = async (draft: SkillConfigBase) => {
@@ -114,6 +130,7 @@ const SkillSettings = () => {
     }, setFormError);
     setTimeout(() => {
       toaster?.showSuccess({ title: `${draft.name} imported` });
+      track(AnalyticsEvents.Settings.SKILL_IMPORTED, { skill_name: draft.name });
     }, 0);
   };
 
@@ -201,7 +218,8 @@ const SkillSettings = () => {
                         disabled={busy || managedExternally}
                         aria-label={`Remove ${skill.name}`}
                         onClick={() => {
-                          handleRemove(skill);
+                          setRemoveError(null);
+                          setPendingRemoval(skill);
                         }}
                       >
                         Remove
@@ -253,6 +271,19 @@ const SkillSettings = () => {
           ) : null}
         </div>
       </div>
+
+      {pendingRemoval ? (
+        <ConfirmDeleteDialog
+          title="Remove skill?"
+          description={`“${pendingRemoval.name}” will no longer be available to your agents.`}
+          busy={busy}
+          error={removeError}
+          onCancel={closeRemoveDialog}
+          onConfirm={() => {
+            handleRemove(pendingRemoval);
+          }}
+        />
+      ) : null}
 
       <ImportGithubSkillForm
         open={importOpen}

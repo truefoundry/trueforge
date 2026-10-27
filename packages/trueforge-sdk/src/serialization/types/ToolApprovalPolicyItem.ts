@@ -3,20 +3,20 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { ToolApprovalPolicyAllowSession } from "./ToolApprovalPolicyAllowSession.js";
+import { ComponentsSchemasToolApprovalPolicyAllowSession } from "./ComponentsSchemasToolApprovalPolicyAllowSession.js";
 
 export const ToolApprovalPolicyItem: core.serialization.ObjectSchema<
     serializers.ToolApprovalPolicyItem.Raw,
     TrueForge.ToolApprovalPolicyItem
 > = core.serialization.object({
-    action: ToolApprovalPolicyAllowSession,
+    action: ComponentsSchemasToolApprovalPolicyAllowSession,
     name: core.serialization.string(),
     serverName: core.serialization.property("server_name", core.serialization.string()),
 });
 
 export declare namespace ToolApprovalPolicyItem {
     export interface Raw {
-        action: ToolApprovalPolicyAllowSession.Raw;
+        action: ComponentsSchemasToolApprovalPolicyAllowSession.Raw;
         name: string;
         server_name: string;
     }

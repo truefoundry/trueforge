@@ -120,6 +120,18 @@ export function runModelProviderStoreContractSuite(getStore: () => IModelProvide
     expect(manifest.base_url).toBe('https://llm.internal.example.com/v1');
   });
 
+  it('deleteProvider removes only the tenant row and reports whether one matched', async () => {
+    const store = getStore();
+    await store.upsertProvider({ tenant_id: TENANT, name: 'openai', manifest: openai });
+    await store.upsertProvider({ tenant_id: 'other-tenant', name: 'openai', manifest: openai });
+
+    await expect(store.deleteProvider({ tenant_id: TENANT, name: 'openai' })).resolves.toBe(true);
+    await expect(store.listProviders({ tenant_id: TENANT })).resolves.toEqual([]);
+    expect((await store.listProviders({ tenant_id: 'other-tenant' })).map(record => record.name)).toEqual(['openai']);
+
+    await expect(store.deleteProvider({ tenant_id: TENANT, name: 'openai' })).resolves.toBe(false);
+  });
+
   it('listModels flattens documents into fully qualified names', async () => {
     const store = getStore();
     await store.upsertProvider({ tenant_id: TENANT, name: 'anthropic', manifest: anthropic });
@@ -127,7 +139,7 @@ export function runModelProviderStoreContractSuite(getStore: () => IModelProvide
     await store.upsertProvider({ tenant_id: 'other-tenant', name: 'openai', manifest: openai });
 
     const models = await store.listModels({ tenant_id: TENANT });
-    expect(models).toEqual([
+    expect(models).toMatchObject([
       {
         name: 'anthropic/claude-sonnet-4-6',
         model_id: 'claude-sonnet-4-6',

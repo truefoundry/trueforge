@@ -71,7 +71,6 @@ export interface CreateAgentInput {
   manifest: AgentSpec;
   external_id: string | null;
   created_by_subject: CreatedBySubject;
-  custom?: Record<string, unknown>;
 }
 
 /**
@@ -89,6 +88,28 @@ export interface UpdateAgentInput {
 export interface DeleteAgentInput {
   tenant_id: string;
   id: string;
+}
+
+/** Catalog entity kind an AgentSpec references by name. */
+export type AgentCatalogEntity = 'model_provider' | 'model' | 'mcp_server' | 'skill';
+
+export interface ListAgentCatalogUsageInput {
+  tenant_id: string;
+  entity: AgentCatalogEntity;
+  /** Fully-qualified `provider/model` names for `model`; the provider, server, or skill name otherwise. */
+  names: readonly string[];
+}
+
+/** One agent paired with one name it references; an agent repeats per matched name. */
+export interface AgentCatalogUsageRow {
+  agent_name: string;
+  /** The matched entry from the requested `names`. */
+  reference_name: string;
+}
+
+export interface ListAgentNamesUsingSandboxEnvironmentInput {
+  tenant_id: string;
+  environment_name: string;
 }
 
 /** Unique `(tenant_id, name)` violation on create. */
@@ -136,4 +157,14 @@ export interface IAgentStore<TTransaction = never> {
   updateAgent(input: UpdateAgentInput, transaction?: TTransaction): Promise<AgentRecord | undefined>;
   /** Deletes by immutable id. Idempotent if already missing. */
   deleteAgent(input: DeleteAgentInput, transaction?: TTransaction): Promise<void>;
+  /** Which agents reference the named catalog entries — the pre-check for deleting one. */
+  listAgentCatalogUsage(
+    input: ListAgentCatalogUsageInput,
+    transaction?: TTransaction,
+  ): Promise<readonly AgentCatalogUsageRow[]>;
+  /** Agent names whose manifest references the given sandbox environment name. */
+  listAgentNamesUsingSandboxEnvironment(
+    input: ListAgentNamesUsingSandboxEnvironmentInput,
+    transaction?: TTransaction,
+  ): Promise<readonly string[]>;
 }

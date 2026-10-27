@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 
+import { useTrackAnalytics } from '../../analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '../../analytics/events.js';
 import { useToasterOptional } from '../../containers/ToasterContainer.js';
 import { useResourcePermissions } from '../../hooks/useResourcePermissions.js';
 import { Icon } from '../../icons/Icon.js';
@@ -17,6 +19,7 @@ import {
   cronToFormValues,
   defaultScheduleFormValues,
   formatCadenceSummary,
+  hasFiveCronFields,
   valuesToCron,
   type ScheduleFormValues,
 } from './cadence.js';
@@ -46,6 +49,7 @@ function ScheduleFormDrawerBody({
   const server = useServer();
   const shell = useOptionalShellMode();
   const toaster = useToasterOptional();
+  const track = useTrackAnalytics();
   const [form, setForm] = useState<ScheduleFormValues>(defaultScheduleFormValues);
   const [agentId, setAgentId] = useState(initialAgentId);
   const [selectedAgent, setSelectedAgent] = useState<AgentLibraryEntry | null>(null);
@@ -130,7 +134,7 @@ function ScheduleFormDrawerBody({
     return (
       form.name.trim().length > 0 &&
       form.task.trim().length > 0 &&
-      cron.length > 0 &&
+      hasFiveCronFields(cron) &&
       agentId.length > 0 &&
       (!isInitialCreate || allowsAgent(agentId, 'USE'))
     );
@@ -165,6 +169,7 @@ function ScheduleFormDrawerBody({
           timezone: form.timezone,
           status: schedule.status,
         });
+        track(AnalyticsEvents.Schedule.EDITED, { schedule_id: schedule.id, agent_id: schedule.agentId });
         onSaved?.();
         onOpenChange(false);
         return;
@@ -179,6 +184,7 @@ function ScheduleFormDrawerBody({
           timezone: form.timezone,
           status: 'paused',
         });
+        track(AnalyticsEvents.Schedule.EDITED, { schedule_id: saved.id, agent_id: saved.agentId });
         onSaved?.();
         enterTestView(saved);
         toaster?.showSuccess({
@@ -196,6 +202,7 @@ function ScheduleFormDrawerBody({
         timezone: form.timezone,
         status: 'paused',
       });
+      track(AnalyticsEvents.Schedule.CREATED, { schedule_id: saved.id, agent_id: agentId });
       onSaved?.();
       enterTestView(saved);
       toaster?.showSuccess({

@@ -1,8 +1,10 @@
 import {
   getErrorMessage,
+  resolveReasoningEffort,
   ThemeProvider,
   TrueForgeUI,
   useTheme,
+  type AnalyticsConfig,
   type SlotOverrides,
   type ThemeConfig,
 } from '@truefoundry/trueforge-ui';
@@ -12,6 +14,7 @@ import {
   listModels,
   type HarnessAgentSpec,
 } from '@truefoundry/trueforge-ui/plugins/trueforge-agent-server-adapter';
+import posthog from 'posthog-js';
 import { useEffect, useMemo, useState } from 'react';
 import { ThinkingOrb } from 'thinking-orbs';
 import { AuthErrorScreen } from './AuthErrorScreen';
@@ -22,6 +25,24 @@ import { GetStartedScreen } from './GetStartedScreen';
 import { LogoutButton } from './LogoutButton';
 import { NewAgentWelcomeScreen } from './NewAgentWelcomeScreen';
 import { API_BASE_URL, uiRouterBasename } from './publicPath';
+import { RegisterSkillsLink } from './RegisterSkillsLink';
+
+const POSTHOG_API_KEY = import.meta.env.VITE_POSTHOG_API_KEY;
+const POSTHOG_HOST = import.meta.env.VITE_POSTHOG_HOST ?? 'https://us.i.posthog.com';
+
+function initAnalytics(): void {
+  if (!POSTHOG_API_KEY) {
+    return;
+  }
+  posthog.init(POSTHOG_API_KEY, {
+    api_host: POSTHOG_HOST,
+    autocapture: false,
+    capture_pageview: false,
+    disable_session_recording: true,
+  });
+}
+
+initAnalytics();
 
 /** Shared cookie/OIDC fetch for boot helpers and `<TrueForgeUI server />`. */
 const authAwareFetch = createAuthAwareFetch();
@@ -123,9 +144,7 @@ export function App() {
           });
           return;
         }
-        const reasoningEfforts = first.properties.reasoningEfforts;
-        // Default to the lowest real effort, not "none" — catalog lists are ordered ascending.
-        const defaultReasoningEffort = reasoningEfforts?.find(effort => effort !== 'none') ?? reasoningEfforts?.[0];
+        const defaultReasoningEffort = resolveReasoningEffort(first.properties.reasoningEfforts, undefined);
         setBoot({
           status: 'ready',
           openSettings: false,
@@ -152,9 +171,28 @@ export function App() {
   }, [session]);
 
   const overrides: SlotOverrides = useMemo(
-    () => ({ ShellActionsActionSlot: LogoutButton, WelcomeScreen: NewAgentWelcomeScreen }),
+    () => ({
+      ShellActionsActionSlot: LogoutButton,
+      WelcomeScreen: NewAgentWelcomeScreen,
+      AgentSkillsHeaderActionSlot: RegisterSkillsLink,
+    }),
     [],
   );
+
+  const hostAnalytics = useMemo((): AnalyticsConfig | undefined => {
+    if (!POSTHOG_API_KEY || session.status !== 'authenticated') {
+      return undefined;
+    }
+    const { tenantId } = session;
+    return {
+      track: (eventName, data) => {
+        posthog.capture(eventName, {
+          tenant: tenantId,
+          ...data,
+        });
+      },
+    };
+  }, [session]);
 
   const authErrorReason = shouldShowAuthErrorScreen({ authError, session });
   if (authErrorReason != null) {
@@ -202,7 +240,11 @@ export function App() {
   return (
     <div className="app-root">
       <TrueForgeUI
-        server={{ type: 'trueforge', baseUrl: API_BASE_URL, fetch: authAwareFetch }}
+        server={{
+          type: 'trueforge',
+          baseUrl: API_BASE_URL,
+          fetch: authAwareFetch,
+        }}
         layout="sidebar"
         withRouter
         {...(routerBasename ? { routes: { basename: routerBasename } } : {})}
@@ -211,10 +253,11 @@ export function App() {
           defaultAgentSpec: boot.defaultAgentSpec,
         }}
         initialSettingsOpen={boot.openSettings}
-        currentUser={{ displayName: session.displayName }}
+        currentUser={{ subjectId: session.subjectId, displayName: session.displayName }}
         overrides={overrides}
         theme={appTheme}
         className="app-assistant"
+        {...(hostAnalytics ? { analytics: hostAnalytics } : {})}
       />
     </div>
   );

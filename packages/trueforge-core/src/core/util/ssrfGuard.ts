@@ -3,10 +3,69 @@ import { lookup as dnsLookup } from 'node:dns';
 import { lookup as dnsLookupAsync } from 'node:dns/promises';
 import { BlockList, isIP, type LookupFunction } from 'node:net';
 import { Agent, fetch as undiciFetch } from 'undici';
+import {
+  elapsedSeconds,
+  getOperationMetrics,
+  httpStatusClass,
+  type OutboundHttpModule,
+  type OutboundHttpOutcome,
+  type OutboundHttpRetryReason,
+  type OutboundHttpRetryStatus,
+} from '../observability/operationMetrics';
 
 let allowedHosts: string[] = [];
 let blockedHosts: string[] = [];
 let guardEnabled = true;
+
+/** Prefix of every SSRF rejection, including the host, protocol, and redirect messages. */
+export const OUTBOUND_URL_BLOCKED = 'Outbound URL blocked';
+
+/** Thrown when the guard rejects a URL. undici may wrap one lookup failure as `cause`. */
+export class OutboundUrlBlockedError extends Error {
+  constructor(message: string, options?: { cause: unknown }) {
+    super(message, options);
+    this.name = 'OutboundUrlBlockedError';
+  }
+}
+
+const UND_ERR_CONNECT_TIMEOUT = 'UND_ERR_CONNECT_TIMEOUT';
+const UND_ERR_HEADERS_TIMEOUT = 'UND_ERR_HEADERS_TIMEOUT';
+const UND_ERR_BODY_TIMEOUT = 'UND_ERR_BODY_TIMEOUT';
+const OUTBOUND_TIMEOUT_CODES = new Set([UND_ERR_CONNECT_TIMEOUT, UND_ERR_HEADERS_TIMEOUT, UND_ERR_BODY_TIMEOUT]);
+
+const MAX_REDIRECTS = 20;
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+const CROSS_ORIGIN_STRIPPED_HEADERS = ['authorization', 'proxy-authorization', 'cookie', 'host'];
+// Rejected before processing (timeout, rate limit, gateway never reached the origin).
+const UNPROCESSED_RETRY_STATUSES = new Set([408, 429, 503, 521, 522, 523, 530]);
+// Upstream may have processed the request (502 invalid origin response, 409 conflict, 520 bad origin response, 524 origin timeout).
+const MAYBE_PROCESSED_RETRY_STATUSES = new Set([409, 502, 520, 524]);
+const RETRY_INITIAL_DELAY_MS = 1_000;
+const RETRY_BACKOFF_FACTOR = 2;
+const RETRY_JITTER_FACTOR = 0.2;
+// Longer server-requested waits fall back to backoff rather than stalling the caller.
+const MAX_RETRY_AFTER_MS = 5_000;
+
+export interface OutboundFetchOptions {
+  connectTimeoutMs: number;
+  headersTimeoutMs: number;
+  bodyTimeoutMs: number;
+  maxRetries: number;
+  /**
+   * Whether requests are safe to replay after upstream may have received them. When false, headers
+   * timeouts and 409/520/524 are not retried.
+   */
+  idempotent: boolean;
+  /** When set, each fetch records one observation on the process recorder. Absent skips metrics. */
+  metrics?: {
+    module: OutboundHttpModule;
+  };
+}
+
+export interface OutboundFetch {
+  fetch: (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
+  close: () => Promise<void>;
+}
 
 const URL_VERIFY = {
   allowedProtocols: ['http:', 'https:'],
@@ -69,20 +128,6 @@ function addDenyCidrs(cidrs: readonly string[], family: 'ipv4' | 'ipv6'): void {
 addDenyCidrs(URL_VERIFY.denyCidrsV4, 'ipv4');
 addDenyCidrs(URL_VERIFY.denyCidrsV6, 'ipv6');
 
-const MAX_REDIRECTS = 20;
-const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
-const CROSS_ORIGIN_STRIPPED_HEADERS = ['authorization', 'proxy-authorization', 'cookie', 'host'];
-
-export function configureOutboundUrlGuard(config: {
-  enabled?: boolean;
-  allowedHosts: readonly string[];
-  blockedHosts: readonly string[];
-}): void {
-  guardEnabled = config.enabled ?? true;
-  allowedHosts = config.allowedHosts.map(normalizeHost);
-  blockedHosts = config.blockedHosts.map(normalizeHost);
-}
-
 function normalizeHost(hostname: string): string {
   const host = hostname.replace(/\.$/, '').toLowerCase();
   return host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host;
@@ -99,8 +144,9 @@ function isPrivateIp(address: string): boolean {
   return true;
 }
 
-function blockedError(host: string, cause?: unknown): Error {
-  return new Error(`Outbound URL blocked for host "${host}"`, { cause });
+function blockedError(host: string, cause?: unknown): OutboundUrlBlockedError {
+  const message = `${OUTBOUND_URL_BLOCKED} for host "${host}"`;
+  return cause === undefined ? new OutboundUrlBlockedError(message) : new OutboundUrlBlockedError(message, { cause });
 }
 
 function deny(host: string, cause?: unknown): never {
@@ -130,10 +176,10 @@ function parseOutboundUrl(input: string | URL | Request): URL {
   try {
     url = new URL(input instanceof Request ? input.url : input);
   } catch (error) {
-    throw new Error('Outbound URL blocked', { cause: error });
+    throw new OutboundUrlBlockedError(OUTBOUND_URL_BLOCKED, { cause: error });
   }
   if (!URL_VERIFY.allowedProtocols.includes(url.protocol)) {
-    throw new Error('Outbound URL blocked: only http and https are allowed');
+    throw new OutboundUrlBlockedError(`${OUTBOUND_URL_BLOCKED}: only http and https are allowed`);
   }
   return url;
 }
@@ -174,17 +220,16 @@ const guardedLookup: LookupFunction = (hostname, options: LookupOptions, callbac
   });
 };
 
-const MCP_BODY_TIMEOUT_MS = 30 * 60 * 1000;
-
-const outboundAgent = new Agent({
-  connect: { lookup: guardedLookup },
-});
-
-const mcpOutboundAgent = new Agent({
-  // MCP SSE/streamable-HTTP stays idle between tool calls; undici's 300s bodyTimeout kills it.
-  bodyTimeout: MCP_BODY_TIMEOUT_MS,
-  connect: { lookup: guardedLookup },
-});
+/** SSRF allow/block policy for all outbound guarded fetches. Timeouts live on `createOutboundFetch`. */
+export function configureOutboundUrlGuard(config: {
+  enabled?: boolean;
+  allowedHosts: readonly string[];
+  blockedHosts: readonly string[];
+}): void {
+  guardEnabled = config.enabled ?? true;
+  allowedHosts = config.allowedHosts.map(normalizeHost);
+  blockedHosts = config.blockedHosts.map(normalizeHost);
+}
 
 export async function assertSafeOutboundUrl(input: string | URL | Request): Promise<void> {
   const url = parseOutboundUrl(input);
@@ -217,10 +262,14 @@ function nextHop(
   try {
     nextUrl = new URL(location, current);
   } catch (error) {
-    throw new Error('Outbound URL blocked', { cause: error });
+    throw new OutboundUrlBlockedError(OUTBOUND_URL_BLOCKED, { cause: error });
   }
   if (!URL_VERIFY.allowedProtocols.includes(nextUrl.protocol)) {
-    throw new Error('Outbound URL blocked: only http and https are allowed');
+    throw new OutboundUrlBlockedError(`${OUTBOUND_URL_BLOCKED}: only http and https are allowed`);
+  }
+  // Cleartext after TLS would drop confidentiality of the hop; block downgrades.
+  if (current.protocol === 'https:' && nextUrl.protocol === 'http:') {
+    throw new OutboundUrlBlockedError(`${OUTBOUND_URL_BLOCKED}: https to http redirect is not allowed`);
   }
 
   const headers = new Headers(init.headers);
@@ -258,6 +307,140 @@ function mergeRequestInit(input: string | URL | Request, init: RequestInit): Req
     redirect: input.redirect,
     ...init,
   };
+}
+
+/** Bodies that undici can send more than once without re-reading a stream. */
+function isReplayableBodyInit(body: NonNullable<RequestInit['body']>): boolean {
+  return (
+    typeof body === 'string' ||
+    body instanceof ArrayBuffer ||
+    ArrayBuffer.isView(body) ||
+    body instanceof Blob ||
+    body instanceof FormData ||
+    body instanceof URLSearchParams
+  );
+}
+
+/**
+ * Normalize to URL + init, buffering one-shot stream bodies so retries can replay them.
+ * `Request` bodies are always streams even when constructed from a string.
+ */
+async function materializeReplayableOutboundRequest(
+  input: string | URL | Request,
+  init: RequestInit,
+): Promise<{ input: URL; init: RequestInit }> {
+  const url = parseOutboundUrl(input);
+  const merged = mergeRequestInit(input, init);
+  const body = merged.body;
+  if (body == null || isReplayableBodyInit(body)) {
+    return { input: url, init: merged };
+  }
+  const buffer = await new Response(body).arrayBuffer();
+  return {
+    input: url,
+    init: {
+      ...merged,
+      body: buffer,
+    },
+  };
+}
+
+function getErrorCode(error: unknown): string | undefined {
+  let current: unknown = error;
+  for (let depth = 0; depth < 5 && current != null; depth += 1) {
+    if (typeof current === 'object' && 'code' in current) {
+      const code = Reflect.get(current, 'code');
+      if (typeof code === 'string') {
+        return code;
+      }
+    }
+    current = current instanceof Error ? current.cause : undefined;
+  }
+  return undefined;
+}
+
+/** Connect / headers-read timeouts from undici (including nested under TypeError: fetch failed). */
+export function isRetryableOutboundTransportError(error: unknown, options: { idempotent: boolean }): boolean {
+  return transportRetryReason(error, options.idempotent) !== undefined;
+}
+
+/** Connect timeouts always retry. Headers timeouts retry only when the call is safe to replay. */
+function transportRetryReason(error: unknown, idempotent: boolean): 'connect_timeout' | 'headers_timeout' | undefined {
+  const code = getErrorCode(error);
+  if (code === UND_ERR_CONNECT_TIMEOUT) {
+    return 'connect_timeout';
+  }
+  if (idempotent && code === UND_ERR_HEADERS_TIMEOUT) {
+    return 'headers_timeout';
+  }
+  return undefined;
+}
+
+function isRetryableOutboundStatus(
+  status: number,
+  options: { idempotent: boolean },
+): status is OutboundHttpRetryStatus {
+  return UNPROCESSED_RETRY_STATUSES.has(status) || (options.idempotent && MAYBE_PROCESSED_RETRY_STATUSES.has(status));
+}
+
+/** Server-requested delay from `retry-after-ms` or `retry-after` (seconds or HTTP date), if usable. */
+function retryAfterMs(headers: { get(name: string): string | null }): number | undefined {
+  let delayMs: number | undefined;
+  const retryAfterMsHeader = headers.get('retry-after-ms');
+  if (retryAfterMsHeader !== null) {
+    delayMs = Number.parseFloat(retryAfterMsHeader);
+  } else {
+    const retryAfter = headers.get('retry-after');
+    if (retryAfter !== null) {
+      const seconds = Number(retryAfter);
+      delayMs = Number.isFinite(seconds) ? seconds * 1000 : Date.parse(retryAfter) - Date.now();
+    }
+  }
+  if (delayMs === undefined || !Number.isFinite(delayMs) || delayMs < 0 || delayMs > MAX_RETRY_AFTER_MS) {
+    return undefined;
+  }
+  return delayMs;
+}
+
+function abortError(signal: AbortSignal): Error {
+  if (signal.reason instanceof Error) {
+    return signal.reason;
+  }
+  const aborted = new Error('This operation was aborted');
+  aborted.name = 'AbortError';
+  return aborted;
+}
+
+function retryDelayMs(attempt: number): number {
+  const base = RETRY_INITIAL_DELAY_MS * RETRY_BACKOFF_FACTOR ** attempt;
+  const jitterMultiplier = 1 + (Math.random() - 0.5) * RETRY_JITTER_FACTOR;
+  return Math.max(0, Math.round(base * jitterMultiplier));
+}
+
+function sleep(ms: number, signal: AbortSignal | undefined): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(abortError(signal));
+      return;
+    }
+    const timer = setTimeout(() => {
+      if (signal !== undefined) {
+        signal.removeEventListener('abort', onAbort);
+      }
+      resolve();
+    }, ms);
+    const onAbort = (): void => {
+      clearTimeout(timer);
+      if (signal !== undefined) {
+        reject(abortError(signal));
+        return;
+      }
+      reject(new Error('This operation was aborted'));
+    };
+    if (signal !== undefined) {
+      signal.addEventListener('abort', onAbort, { once: true });
+    }
+  });
 }
 
 async function guardedFetch(
@@ -298,17 +481,120 @@ async function guardedFetch(
   }
   void response.body?.cancel().catch(() => undefined);
   if (hopsLeft === 0) {
-    throw new Error('Outbound URL blocked: too many redirects');
+    throw new OutboundUrlBlockedError(`${OUTBOUND_URL_BLOCKED}: too many redirects`);
   }
   const hop = nextHop(response, location, url, merged);
   return guardedFetch(hop.url, hop.init, hopsLeft - 1, agent);
 }
 
-export async function ssrfFetch(input: string | URL | Request, init?: RequestInit): Promise<Response> {
-  return guardedFetch(input, init ?? {}, MAX_REDIRECTS, outboundAgent);
+async function withOutboundHttpRetries(
+  input: string | URL | Request,
+  init: RequestInit,
+  agent: Agent,
+  options: {
+    maxRetries: number;
+    idempotent: boolean;
+    metrics?: OutboundFetchOptions['metrics'];
+  },
+): Promise<Response> {
+  const signal = init.signal ?? (input instanceof Request ? input.signal : undefined);
+  // Buffer stream / Request bodies once so a retry does not hit a consumed-body error.
+  const replayable = options.maxRetries > 0 ? await materializeReplayableOutboundRequest(input, init) : { input, init };
+  let attempt = 0;
+  for (;;) {
+    if (signal?.aborted) {
+      throw abortError(signal);
+    }
+    let delayMs = retryDelayMs(attempt);
+    let retryReason: OutboundHttpRetryReason | undefined;
+    try {
+      const response = await guardedFetch(replayable.input, replayable.init, MAX_REDIRECTS, agent);
+      if (!isRetryableOutboundStatus(response.status, options) || attempt >= options.maxRetries) {
+        return response;
+      }
+      retryReason = response.status;
+      delayMs = retryAfterMs(response.headers) ?? delayMs;
+      void response.body?.cancel().catch(() => undefined);
+    } catch (error) {
+      const reason = transportRetryReason(error, options.idempotent);
+      if (reason === undefined || attempt >= options.maxRetries || signal?.aborted) {
+        throw error;
+      }
+      retryReason = reason;
+    }
+    await sleep(delayMs, signal);
+    const metricsModule = options.metrics?.module;
+    if (metricsModule !== undefined) {
+      getOperationMetrics()?.recordOutboundHttpRetry({ module: metricsModule, reason: retryReason });
+    }
+    attempt += 1;
+  }
 }
 
-/** Same as `ssrfFetch` with a 30m bodyTimeout for idle MCP SSE / streamable-HTTP. */
-export async function mcpSsrfFetch(input: string | URL | Request, init?: RequestInit): Promise<Response> {
-  return guardedFetch(input, init ?? {}, MAX_REDIRECTS, mcpOutboundAgent);
+/** Guard throws directly. undici wraps a blocked lookup once, under `TypeError: fetch failed`. */
+function isBlockedOutboundError(error: unknown): boolean {
+  return (
+    error instanceof OutboundUrlBlockedError ||
+    (error instanceof Error && error.cause instanceof OutboundUrlBlockedError)
+  );
+}
+
+function failedOutboundHttpOutcome(error: unknown): Exclude<OutboundHttpOutcome, 'success'> {
+  if (isBlockedOutboundError(error)) {
+    return 'blocked';
+  }
+  const code = getErrorCode(error);
+  if (code !== undefined && OUTBOUND_TIMEOUT_CODES.has(code)) {
+    return 'timeout';
+  }
+  return 'error';
+}
+
+/** 2xx and 3xx completed the transport. 4xx and 5xx are errors. */
+function responseOutboundHttpOutcome(status: number): OutboundHttpOutcome {
+  return status >= 200 && status < 400 ? 'success' : 'error';
+}
+
+/** Builds a pooled undici Agent + SSRF-guarded fetch with the given timeouts/retries. */
+export function createOutboundFetch(options: OutboundFetchOptions): OutboundFetch {
+  const agent = new Agent({
+    bodyTimeout: options.bodyTimeoutMs,
+    headersTimeout: options.headersTimeoutMs,
+    connectTimeout: options.connectTimeoutMs,
+    connect: { lookup: guardedLookup, timeout: options.connectTimeoutMs },
+  });
+  const maxRetries = options.maxRetries;
+  const idempotent = options.idempotent;
+  const metricsModule = options.metrics?.module;
+  return {
+    fetch: async (input, init) => {
+      const startedMs = performance.now();
+      const metrics = metricsModule === undefined ? undefined : { module: metricsModule };
+      try {
+        const response = await withOutboundHttpRetries(input, init ?? {}, agent, { maxRetries, idempotent, metrics });
+        if (metricsModule !== undefined) {
+          getOperationMetrics()?.recordOutboundHttpRequest({
+            module: metricsModule,
+            outcome: responseOutboundHttpOutcome(response.status),
+            statusClass: httpStatusClass(response.status),
+            durationSeconds: elapsedSeconds(startedMs),
+          });
+        }
+        return response;
+      } catch (error) {
+        if (metricsModule !== undefined) {
+          getOperationMetrics()?.recordOutboundHttpRequest({
+            module: metricsModule,
+            outcome: failedOutboundHttpOutcome(error),
+            statusClass: 'none',
+            durationSeconds: elapsedSeconds(startedMs),
+          });
+        }
+        throw error;
+      }
+    },
+    close: async () => {
+      await agent.close().catch(() => undefined);
+    },
+  };
 }

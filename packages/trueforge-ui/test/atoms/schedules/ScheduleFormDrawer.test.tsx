@@ -3,6 +3,8 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import type { ComponentProps } from 'react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { AnalyticsProvider } from '@/analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '@/analytics/events.js';
 import { ScheduleFormDrawer } from '@/atoms/schedules/ScheduleFormDrawer.js';
 import { ToasterProvider } from '@/containers/ToasterContainer.js';
 import { ServerProvider } from '@/server/ServerContext.js';
@@ -92,26 +94,30 @@ function renderDrawer({
   scheduleServer,
   permissions,
   withShell = false,
+  track,
   ...props
 }: Partial<ComponentProps<typeof ScheduleFormDrawer>> & {
   server?: AgentUIServer;
   scheduleServer?: ScheduleServer;
   permissions?: PermissionsServer;
   withShell?: boolean;
+  track?: (eventName: string, data?: Record<string, string | number | boolean | undefined>) => void;
 }) {
   const agentServer =
     server ??
     createMockAgentUIServer({
-      searchAgents: vi.fn(async () => [
-        {
-          name: 'demo-agent',
-          agentId: 'demo-agent',
-          agentSpec: {
-            model: { name: 'openai/gpt-4.1' },
-            mcpServers: [{ name: 'Slack 1234' }],
+      searchAgents: vi.fn(async () => ({
+        data: [
+          {
+            name: 'demo-agent',
+            agentId: 'demo-agent',
+            agentSpec: {
+              model: { name: 'openai/gpt-4.1' },
+              mcpServers: [{ name: 'Slack 1234' }],
+            },
           },
-        },
-      ]),
+        ],
+      })),
       getMcp: vi.fn(async () => [slackMcp]),
       catalog: createMockCatalog({
         connectorCatalog: {
@@ -128,24 +134,25 @@ function renderDrawer({
     });
   const schedules = scheduleServer ?? mockScheduleServer();
   const drawer = <ScheduleFormDrawer open mode="create" onOpenChange={() => undefined} {...props} />;
+  const tree = (
+    <SlotsProvider>
+      <ToasterProvider>
+        <ServerProvider server={{ ...agentServer, schedules, ...(permissions == null ? {} : { permissions }) }}>
+          {withShell ? (
+            <ShellModeProvider>
+              {drawer}
+              <AgentBuilderProbe />
+            </ShellModeProvider>
+          ) : (
+            drawer
+          )}
+        </ServerProvider>
+      </ToasterProvider>
+    </SlotsProvider>
+  );
   return {
     schedules,
-    ...render(
-      <SlotsProvider>
-        <ToasterProvider>
-          <ServerProvider server={{ ...agentServer, schedules, ...(permissions == null ? {} : { permissions }) }}>
-            {withShell ? (
-              <ShellModeProvider>
-                {drawer}
-                <AgentBuilderProbe />
-              </ShellModeProvider>
-            ) : (
-              drawer
-            )}
-          </ServerProvider>
-        </ToasterProvider>
-      </SlotsProvider>,
-    ),
+    ...render(track != null ? <AnalyticsProvider track={track}>{tree}</AnalyticsProvider> : tree),
   };
 }
 
@@ -177,8 +184,8 @@ describe('ScheduleFormDrawer', () => {
         },
         { name: 'other-agent', agentId: 'other-agent' },
       ];
-      if (query == null || query === '') return agents;
-      return agents.filter(agent => agent.name.toLowerCase().includes(query.toLowerCase()));
+      if (query == null || query === '') return { data: agents };
+      return { data: agents.filter(agent => agent.name.toLowerCase().includes(query.toLowerCase())) };
     });
     renderDrawer({ server: createMockAgentUIServer({ searchAgents }) });
 
@@ -197,7 +204,7 @@ describe('ScheduleFormDrawer', () => {
   it('offers to build an agent when none have been created', async () => {
     const onOpenChange = vi.fn();
     renderDrawer({
-      server: createMockAgentUIServer({ searchAgents: vi.fn(async () => []) }),
+      server: createMockAgentUIServer({ searchAgents: vi.fn(async () => ({ data: [] })) }),
       onOpenChange,
       withShell: true,
     });
@@ -224,7 +231,7 @@ describe('ScheduleFormDrawer', () => {
     expect(recurrence.getByRole('button', { name: 'Daily' })).toBeInTheDocument();
     expect(recurrence.getByRole('button', { name: 'Weekly' })).toBeInTheDocument();
     expect(recurrence.getByLabelText('Timezone')).toBeInTheDocument();
-    expect(recurrence.queryByRole('button', { name: 'Custom' })).not.toBeInTheDocument();
+    expect(recurrence.getByRole('button', { name: 'Custom' })).toBeInTheDocument();
     expect(recurrence.queryByLabelText('Cron expression')).not.toBeInTheDocument();
     expect(recurrence.getByText('Schedule')).toBeInTheDocument();
     expect(recurrence.getByText(/^Daily 9:00 AM/)).toBeInTheDocument();
@@ -236,15 +243,28 @@ describe('ScheduleFormDrawer', () => {
     ).toBeTruthy();
   });
 
-  it('keeps a legacy custom cron read-only until its recurrence is replaced', async () => {
+  it('edits an existing custom cron and rejects malformed expressions', async () => {
     renderDrawer({
       mode: 'edit',
       schedule: pausedSchedule({ cron: '0 9 1 * *' }),
     });
 
-    expect(await screen.findByText('Existing custom schedule')).toBeInTheDocument();
-    expect(screen.getAllByText('0 9 1 * *')).not.toHaveLength(0);
-    expect(screen.queryByLabelText('Cron expression')).not.toBeInTheDocument();
+    const input = await screen.findByLabelText('Cron expression');
+    expect(input).toHaveValue('0 9 1 * *');
+
+    fireEvent.change(input, { target: { value: '0 */4 *' } });
+    expect(screen.getByText('Enter exactly 5 space-separated fields.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+
+    fireEvent.change(input, { target: { value: '0 */4 * * *' } });
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+  });
+
+  it('seeds the custom cron from the current recurrence', async () => {
+    renderDrawer({});
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Custom' }));
+    expect(screen.getByLabelText('Cron expression')).toHaveValue('0 9 * * *');
   });
 
   it('blocks create when the selected agent lacks USE', async () => {
@@ -335,9 +355,11 @@ describe('ScheduleFormDrawer', () => {
         status: req.status,
       }),
     );
+    const track = vi.fn();
     renderDrawer({
       scheduleServer: mockScheduleServer({ createSchedule, updateSchedule }),
       initialAgentId: 'demo-agent',
+      track,
     });
 
     await saveCreateForm();
@@ -355,6 +377,10 @@ describe('ScheduleFormDrawer', () => {
       );
     });
     expect(createSchedule).toHaveBeenCalledTimes(1);
+    expect(track).toHaveBeenCalledWith(
+      AnalyticsEvents.Schedule.EDITED,
+      expect.objectContaining({ schedule_id: 'new', agent_id: 'demo-agent' }),
+    );
     expect(await screen.findByRole('heading', { name: 'Test Schedule' })).toBeInTheDocument();
     expect(screen.getByText('digest-v2')).toBeInTheDocument();
   });
@@ -365,16 +391,18 @@ describe('ScheduleFormDrawer', () => {
     const getMcp = vi.fn(async () => [{ ...slackMcp, authenticated }]);
     renderDrawer({
       server: createMockAgentUIServer({
-        searchAgents: vi.fn(async () => [
-          {
-            name: 'demo-agent',
-            agentId: 'demo-agent',
-            agentSpec: {
-              model: { name: 'openai/gpt-4.1' },
-              mcpServers: [{ name: 'Slack 1234' }],
+        searchAgents: vi.fn(async () => ({
+          data: [
+            {
+              name: 'demo-agent',
+              agentId: 'demo-agent',
+              agentSpec: {
+                model: { name: 'openai/gpt-4.1' },
+                mcpServers: [{ name: 'Slack 1234' }],
+              },
             },
-          },
-        ]),
+          ],
+        })),
         getMcp,
         catalog: createMockCatalog({
           connectorCatalog: {
@@ -461,16 +489,18 @@ describe('ScheduleFormDrawer', () => {
   });
 
   it('prefills create from an agent id that differs from the name', async () => {
-    const searchAgents = vi.fn(async (_opts: { query?: string; limit?: number; offset?: number } = {}) => [
-      {
-        name: 'Demo Bot',
-        agentId: 'agt_demo',
-        agentSpec: {
-          model: { name: 'openai/gpt-4.1' },
-          mcpServers: [{ name: 'Slack 1234' }],
+    const searchAgents = vi.fn(async (_opts: { query?: string; limit?: number; pageToken?: string } = {}) => ({
+      data: [
+        {
+          name: 'Demo Bot',
+          agentId: 'agt_demo',
+          agentSpec: {
+            model: { name: 'openai/gpt-4.1' },
+            mcpServers: [{ name: 'Slack 1234' }],
+          },
         },
-      },
-    ]);
+      ],
+    }));
     renderDrawer({
       server: createMockAgentUIServer({
         searchAgents,
@@ -494,7 +524,7 @@ describe('ScheduleFormDrawer', () => {
     await waitFor(() => {
       expect(screen.getByRole('combobox', { name: 'Agent' })).toHaveValue('Demo Bot');
     });
-    expect(searchAgents).toHaveBeenCalledWith(expect.objectContaining({ limit: expect.any(Number), offset: 0 }));
+    expect(searchAgents).toHaveBeenCalledWith(expect.objectContaining({ limit: expect.any(Number) }));
     expect(searchAgents.mock.calls.some(call => call[0]?.query != null)).toBe(false);
   });
 
@@ -506,21 +536,25 @@ describe('ScheduleFormDrawer', () => {
     const searchAgents = vi.fn(async ({ query }: { query?: string } = {}) => {
       if (query == null || query === '') {
         await prefillPromise;
-        return [
+        return {
+          data: [
+            {
+              name: 'Prefill Bot',
+              agentId: 'agt_prefill',
+              agentSpec: { model: { name: 'openai/gpt-4.1' }, mcpServers: [] },
+            },
+          ],
+        };
+      }
+      return {
+        data: [
           {
-            name: 'Prefill Bot',
-            agentId: 'agt_prefill',
+            name: 'Picked Bot',
+            agentId: 'agt_picked',
             agentSpec: { model: { name: 'openai/gpt-4.1' }, mcpServers: [] },
           },
-        ];
-      }
-      return [
-        {
-          name: 'Picked Bot',
-          agentId: 'agt_picked',
-          agentSpec: { model: { name: 'openai/gpt-4.1' }, mcpServers: [] },
-        },
-      ];
+        ],
+      };
     });
 
     renderDrawer({

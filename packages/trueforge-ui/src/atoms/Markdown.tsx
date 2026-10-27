@@ -7,6 +7,7 @@ import remarkGfm from 'remark-gfm';
 
 import { useSlot, useThemeMode } from '../theme/SlotsProvider.js';
 import { useOptionalContentClassNames } from '../theme/ThemeProvider.js';
+import { ExternalUrlConfirmProvider, MarkdownExternalImage, MarkdownExternalLink } from './externalUrlConfirm.js';
 import { cn } from './lib/cn.js';
 import type { OpenUiFenceBlockProps } from './OpenUiFenceBlock.js';
 import type { SandboxArtifactDownloadProps } from './SandboxArtifactDownload.js';
@@ -84,14 +85,9 @@ function makeComponents(opts: {
   } = opts;
 
   return {
-    // Chat markdown links should open in a new tab.
-    a({ href, children, node: _node, ...props }) {
-      return (
-        <a {...props} href={href} target="_blank" rel="noopener noreferrer">
-          {children}
-        </a>
-      );
-    },
+    // External http(s) links/images confirm first; trusted hosts skip via localStorage.
+    a: MarkdownExternalLink,
+    img: MarkdownExternalImage,
     // Strip default <pre> wrapper — each block renderer provides its own container.
     pre({ children }: { children?: ReactNode }) {
       return <>{children}</>;
@@ -205,13 +201,15 @@ export function Markdown({
   );
 
   return (
-    <div
-      className={cn('aui-markdown markdown-body min-w-0 max-w-full overflow-x-clip', classNames.markdown, className)}
-    >
-      <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={components}>
-        {content}
-      </ReactMarkdown>
-    </div>
+    <ExternalUrlConfirmProvider>
+      <div
+        className={cn('aui-markdown markdown-body min-w-0 max-w-full overflow-x-clip', classNames.markdown, className)}
+      >
+        <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={components}>
+          {content}
+        </ReactMarkdown>
+      </div>
+    </ExternalUrlConfirmProvider>
   );
 }
 

@@ -86,10 +86,6 @@ export function getAskUserAnswerResult(result: unknown): string | undefined {
   return undefined;
 }
 
-export function hasPendingAskUserResponse(part: Pick<ToolCallMessagePartProps, 'interrupt' | 'result'>): boolean {
-  return part.interrupt != null && part.result === undefined;
-}
-
 export function hasPendingToolApproval(
   approval: { approved?: boolean; resolution?: 'cancelled' | 'expired' } | undefined,
 ) {

@@ -22,6 +22,11 @@ const session = {
   created_by: 'trueforge-default',
   created_at: '2026-08-03T00:00:00.000Z',
   updated_at: '2026-08-03T00:00:00.000Z',
+  metrics: {
+    total_turns: 1,
+    total_duration_ms: 12_000,
+    total_cost_in_usd: 0.42,
+  },
 };
 
 const turnRequests: unknown[] = [];
@@ -125,6 +130,35 @@ describe('createHarnessChatServer', () => {
       name: 'echo',
       preload: false,
     });
+  });
+
+  it('preserves sandbox environmentName on UI and harness agent specs', () => {
+    const ui = toUiAgentSpec({
+      model: { name: 'test/model' },
+      config: {
+        sandbox: { enabled: true, environmentName: 'python-dev', fileDownloads: true },
+        webSearch: { enabled: true },
+      },
+    });
+    assert.deepEqual(ui.config?.sandbox, {
+      enabled: true,
+      environmentName: 'python-dev',
+      fileDownloads: true,
+    });
+    assert.deepEqual(
+      toHarnessAgentSpec({
+        model: { name: 'test/model' },
+        config: {
+          sandbox: { enabled: true, environmentName: 'python-dev', fileDownloads: true },
+          webSearch: { enabled: true },
+        },
+      }).config?.sandbox,
+      {
+        enabled: true,
+        environmentName: 'python-dev',
+        fileDownloads: true,
+      },
+    );
   });
 
   it('reports pages under the ListResult pagination contract', async () => {
@@ -285,6 +319,11 @@ describe('createHarnessChatServer', () => {
     assert.equal(listedAgents, false);
     assert.equal(found.agentName, 'reviewer');
     assert.equal(found.isMutable, false);
+    assert.deepEqual(found.metrics, {
+      totalTurns: 1,
+      totalDurationMs: 12_000,
+      totalCostInUsd: 0.42,
+    });
   });
 
   it('getSession leaves a ref session unlabelled when it carries no name snapshot', async () => {

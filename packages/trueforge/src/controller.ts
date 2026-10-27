@@ -1,5 +1,6 @@
 import type { Logger } from 'winston';
 import { Controller } from './controller/Controller';
+import { sandboxEnvBuildLoop } from './controller/sandboxEnvBuild';
 import { scheduleDispatchLoop } from './controller/scheduleDispatch';
 import type { IScheduleStore } from './db/scheduleStore';
 import type { WithTransaction } from './db/transaction';
@@ -8,6 +9,7 @@ import type { WithTransaction } from './db/transaction';
  * Controller whose schedule loop hands runs to the server over HTTP
  * (`SERVER_URL` + `TRUEFORGE_API_KEY` from process config). Standalone uses
  * loopback; distributed uses the dedicated controller against the server Service.
+ * Sandbox-env build loop lists/progresses pending versions over the same HTTP path.
  */
 export function createController<TTransaction>(params: {
   scheduleStore: IScheduleStore<TTransaction>;
@@ -21,6 +23,7 @@ export function createController<TTransaction>(params: {
         withTransaction: params.withTransaction,
         logger: params.logger,
       }),
+      sandboxEnvBuildLoop({ logger: params.logger }),
     ],
     logger: params.logger,
   });
@@ -51,7 +54,11 @@ export function runController<TTransaction>(params: {
 
     // Passes only hold short transactions, so the deadline should never elapse.
     setTimeout(() => {
-      logger.warn(`Controller drain timed out after ${String(gracefulTimeoutSeconds)}s, exiting`);
+      logger.warn(`Controller drain timed out after ${String(gracefulTimeoutSeconds)}s, exiting`, {
+        reportable_error: {
+          error: new Error(`Controller drain timed out after ${String(gracefulTimeoutSeconds)}s, exiting`),
+        },
+      });
       process.exit(1);
     }, gracefulTimeoutSeconds * 1000).unref();
 

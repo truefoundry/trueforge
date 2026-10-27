@@ -48,7 +48,17 @@ export default defineConfig(({ command }) => ({
   plugins: [
     react(),
     monacoEditorPlugin({
-      languageWorkers: ['editorWorkerService', 'css', 'html', 'json', 'typescript'],
+      // monaco-editor 0.56+ remaps `./*` → `./esm/vs/*.js`, so the plugin's
+      // default `monaco-editor/esm/vs/...` entries double-prefix and fail.
+      // Point at current export paths instead (and skip the built-in list).
+      languageWorkers: [],
+      customWorkers: [
+        { label: 'editorWorkerService', entry: 'monaco-editor/editor/editor.worker' },
+        { label: 'css', entry: 'monaco-editor/languages/features/css/css.worker' },
+        { label: 'html', entry: 'monaco-editor/languages/features/html/html.worker' },
+        { label: 'json', entry: 'monaco-editor/languages/features/json/json.worker' },
+        { label: 'typescript', entry: 'monaco-editor/languages/features/typescript/ts.worker' },
+      ],
       // Production `base` is `./`; without this the plugin writes workers under `./monacoeditorwork`.
       customDistPath: (root, buildOutDir) => path.join(root, buildOutDir, 'monacoeditorwork'),
     }),

@@ -12,6 +12,7 @@ export const AvailableModel: core.serialization.ObjectSchema<serializers.Availab
         name: core.serialization.string(),
         properties: ModelProperties,
         provider: AvailableModelProvider,
+        warning: core.serialization.string().optional(),
     });
 
 export declare namespace AvailableModel {
@@ -20,5 +21,6 @@ export declare namespace AvailableModel {
         name: string;
         properties: ModelProperties.Raw;
         provider: AvailableModelProvider.Raw;
+        warning?: string | null;
     }
 }

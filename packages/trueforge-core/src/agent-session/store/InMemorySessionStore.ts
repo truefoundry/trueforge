@@ -4,7 +4,13 @@ import type { SessionRecord } from '../models/SessionRecord';
 import type { TurnRecord, TurnSnapshot } from '../models/TurnRecord';
 import type { PersistedTurnEvent, SessionEventItem } from '../schemas/events';
 import type { TokenPagination } from '../schemas/pagination';
-import type { TerminalTurnState, TurnInboundEventItem } from '../schemas/turn';
+import { SessionLastTurnDetailsSchema } from '../schemas/session';
+import {
+  isNonTerminalTurnState,
+  type TerminalTurnState,
+  type TurnInboundEventItem,
+  type TurnState,
+} from '../schemas/turn';
 import { assertCreateTurnThreadDelta } from './assertCreateTurnThreadDelta';
 import type {
   AddThreadsInput,
@@ -33,7 +39,8 @@ import type {
   TurnContextAppend,
   TurnRecordWithoutSnapshot,
   UpdateSessionInput,
-  UpdateTurnStateInput,
+  UpdateTurnNonTerminalStateInput,
+  UpdateTurnTerminalStateInput,
 } from './ISessionStore';
 import { decodeOffsetPageToken, encodeOffsetPageToken } from './OffsetPageToken';
 import {
@@ -115,6 +122,9 @@ function applyContextAppends(threads: Record<string, AgentThreadSnapshot>, appen
     thread.context.push(...deepCopy(append.context));
     if (append.current_context_usage !== null) {
       thread.current_context_usage = deepCopy(append.current_context_usage);
+    }
+    if (append.completion !== null) {
+      thread.completion = deepCopy(append.completion);
     }
   }
 }
@@ -205,6 +215,7 @@ export class InMemorySessionStore<
       title: null,
       shared: false,
       last_turn_id: null,
+      last_turn_details: null,
       external_id: externalId,
       source: input.source !== null ? deepCopy(input.source) : null,
       created_at: now,
@@ -391,9 +402,9 @@ export class InMemorySessionStore<
       const prevKey = turnKey({ session_id: input.turn.session_id, turn_id: previousTurnId });
       const prev = this.turns.get(prevKey);
       // Unknown previous_turn_id is allowed (relaxed): treat as no inheritance.
-      // A still-running previous must be frozen first.
+      // A still-live previous (running or paused) must be frozen first.
       if (prev !== undefined) {
-        if (prev.state.status === 'running') {
+        if (isNonTerminalTurnState(prev.state)) {
           throw new PreviousTurnRunningError(previousTurnId);
         }
         previousSnapshot = prev.snapshot;
@@ -421,6 +432,10 @@ export class InMemorySessionStore<
     this.events.set(tKey, []);
     stored.turnIds.push(input.turn.turn_id);
     stored.record.last_turn_id = input.turn.turn_id;
+    stored.record.last_turn_details = SessionLastTurnDetailsSchema.parse({
+      id: input.turn.turn_id,
+      state: input.turn.state,
+    });
     stored.record.metrics.total_turns += 1;
     stored.record.last_activity_timestamp_ms = Date.now();
     stored.record.updated_at = new Date();
@@ -433,7 +448,7 @@ export class InMemorySessionStore<
     const tKey = turnKey(input);
     const turn = this.requireTurn(input.session_id, input.turn_id);
 
-    if (turn.state.status === 'running') {
+    if (isNonTerminalTurnState(turn.state)) {
       const cancelledState: TerminalTurnState = {
         status: 'cancelled',
         reason: input.reason,
@@ -445,7 +460,12 @@ export class InMemorySessionStore<
       if (list) {
         list.push(deepCopy(input.turn_done_event));
       }
-      this.addTerminalSessionMetrics(input.session_id, turn.created_at, cancelledState);
+      this.applyTurnStateToSession({
+        id: input.session_id,
+        turn_id: input.turn_id,
+        turn_created_at: turn.created_at,
+        turn_state: cancelledState,
+      });
     }
 
     return deepCopy(turn);
@@ -475,23 +495,53 @@ export class InMemorySessionStore<
     return paginate(records, input.limit, input.page_token);
   }
 
-  async updateTurnState(input: UpdateTurnStateInput): Promise<void> {
+  async updateTurnNonTerminalState(input: UpdateTurnNonTerminalStateInput): Promise<void> {
     // Same as createTurn: synchronous body ⇒ atomic under run-to-completion.
     const tKey = turnKey(input);
     const turn = this.requireTurn(input.session_id, input.turn_id);
-    if (turn.state.status === 'paused') {
-      throw new SessionStoreInvariantError(`expected running state for turn ${input.turn_id}, got paused`);
-    }
-    if (turn.state.status !== 'running') {
+    const expectedSourceStatus = input.state.status === 'paused' ? 'running' : 'paused';
+    if (turn.state.status !== expectedSourceStatus) {
+      if (isNonTerminalTurnState(turn.state)) {
+        throw new SessionStoreInvariantError(
+          `expected ${expectedSourceStatus} state for turn ${input.turn_id}, got ${turn.state.status}`,
+        );
+      }
       throw new TurnNotRunningError(input.turn_id, turn.state);
+    }
+    const list = this.events.get(tKey);
+    if (!list) {
+      throw new TurnNotFoundError(input.turn_id);
     }
     turn.state = deepCopy(input.state);
     turn.updated_at = new Date();
-    const list = this.events.get(tKey);
-    if (list) {
-      list.push(deepCopy(input.turn_done_event));
+    list.push(deepCopy(input.turn_update_event));
+    this.applyTurnStateToSession({
+      id: input.session_id,
+      turn_id: input.turn_id,
+      turn_created_at: turn.created_at,
+      turn_state: input.state,
+    });
+  }
+
+  async updateTurnTerminalState(input: UpdateTurnTerminalStateInput): Promise<void> {
+    const tKey = turnKey(input);
+    const turn = this.requireTurn(input.session_id, input.turn_id);
+    if (!isNonTerminalTurnState(turn.state)) {
+      throw new TurnNotRunningError(input.turn_id, turn.state);
     }
-    this.addTerminalSessionMetrics(input.session_id, turn.created_at, input.state);
+    const list = this.events.get(tKey);
+    if (!list) {
+      throw new TurnNotFoundError(input.turn_id);
+    }
+    turn.state = deepCopy(input.state);
+    turn.updated_at = new Date();
+    list.push(deepCopy(input.turn_done_event));
+    this.applyTurnStateToSession({
+      id: input.session_id,
+      turn_id: input.turn_id,
+      turn_created_at: turn.created_at,
+      turn_state: input.state,
+    });
   }
 
   async appendToEvents(input: AppendToEventsInput): Promise<void> {
@@ -539,18 +589,28 @@ export class InMemorySessionStore<
     }
   }
 
-  /** Cost from turn metrics when present; duration is completed_at − created_at, floored at 0. */
-  private addTerminalSessionMetrics(sessionId: string, created_at: Date, state: TerminalTurnState): void {
-    const stored = this.sessions.get(sessionKey(sessionId));
-    if (!stored) {
-      throw new SessionNotFoundError(sessionId);
+  /** Terminal states fold cost and duration; last_turn_details moves only for the session's last turn. */
+  private applyTurnStateToSession(input: {
+    id: string;
+    turn_id: string;
+    turn_created_at: Date;
+    turn_state: TurnState;
+  }): void {
+    const stored = this.requireSession(input.id);
+    if (!isNonTerminalTurnState(input.turn_state)) {
+      const elapsed_ms = Date.parse(input.turn_state.completed_at) - input.turn_created_at.getTime();
+      const turnCost = input.turn_state.metrics?.total_cost_in_usd;
+      if (turnCost !== undefined) {
+        stored.record.metrics.total_cost_in_usd = (stored.record.metrics.total_cost_in_usd ?? 0) + turnCost;
+      }
+      stored.record.metrics.total_duration_ms += elapsed_ms > 0 ? Math.trunc(elapsed_ms) : 0;
     }
-    const elapsed_ms = Date.parse(state.completed_at) - created_at.getTime();
-    const turnCost = state.metrics?.total_cost_in_usd;
-    if (turnCost !== undefined) {
-      stored.record.metrics.total_cost_in_usd = (stored.record.metrics.total_cost_in_usd ?? 0) + turnCost;
+    if (stored.record.last_turn_details?.id === input.turn_id) {
+      stored.record.last_turn_details = SessionLastTurnDetailsSchema.parse({
+        id: input.turn_id,
+        state: input.turn_state,
+      });
     }
-    stored.record.metrics.total_duration_ms += elapsed_ms > 0 ? Math.trunc(elapsed_ms) : 0;
   }
 
   private requireSession(sessionId: string): StoredSession<TSessionCustom> {

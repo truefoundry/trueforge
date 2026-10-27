@@ -1,8 +1,9 @@
 import dedent from 'dedent';
 import type { Logger } from 'winston';
-import { estimateTokensForString } from '../../llm/usage';
+import { describeContentSize, estimateTokensForString } from '../../llm/usage';
 import type { ToolCallResult } from '../../mcp/executeToolCalls';
-import type { Sandbox, SandboxInfo } from '../../sandbox/Sandbox';
+import { getOperationMetrics } from '../../observability/operationMetrics';
+import type { HarnessSandbox, SandboxInfo } from '../../sandbox/Sandbox';
 import { createSandboxLargeToolResponseGuidance, SANDBOX_SCHEMA_INFER_TAG } from '../../sandbox/Sandbox';
 import { extractErrorLogFields } from '../../util/errorLogFields';
 import type { AgentCapability } from '../AgentCapability';
@@ -24,7 +25,7 @@ interface ToolResultWithInfo {
   category: ResultCategory;
 }
 
-function categorize(result: ToolCallResult, sandbox: Sandbox | undefined): ResultCategory {
+function categorize(result: ToolCallResult, sandbox: HarnessSandbox | undefined): ResultCategory {
   if (result.failure) {
     return 'failure';
   }
@@ -70,7 +71,17 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
     this.logger = param.logger.child({ module: 'LargeToolResponse' });
   }
 
-  private createLargeToolResponseGuidance(sandbox: Sandbox | undefined): string {
+  // Thresholds are configured in tokens, estimated at 4 characters per token; state them in characters for the model.
+  // An entry at/above the individual threshold was blocked for its own size; below it, only the combined limit can block it.
+  private blockReasonDescription(entry: ToolResultWithInfo): string {
+    const perResponse = (this.individualTokenThreshold * 4).toLocaleString('en-US');
+    const combined = (this.totalTokenThreshold * 4).toLocaleString('en-US');
+    return entry.originalTokens >= this.individualTokenThreshold
+      ? `this exceeds the ${perResponse}-character tool call response limit`
+      : `the parallel tool call responses together exceed the ${combined}-character combined tool call response limit`;
+  }
+
+  private createLargeToolResponseGuidance(sandbox: HarnessSandbox | undefined, entry: ToolResultWithInfo): string {
     const steps = ['Check if some parameter can be passed in order to reduce the output size.'];
 
     if (sandbox) {
@@ -81,16 +92,17 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
       steps.push(createDynamicSubAgentLargeToolResponseGuidance());
     }
 
-    return `Content too big. To handle a large tool call the Agent can do the following:\n${steps
+    return `Content too big (${this.blockReasonDescription(entry)}). To handle a large tool call the Agent can do the following:\n${steps
       .map((step, index) => `${String(index + 1)}. ${step}`)
       .join('\n')}`;
   }
 
-  private createFileDumpMessage(params: { filePath: string; preview: string }): string {
-    const { filePath, preview } = params;
+  private createFileDumpMessage(params: { filePath: string; preview: string; size: string; reason: string }): string {
+    const { filePath, preview, size, reason } = params;
     const steps: string[] = [
       dedent`Use sandbox to read parts of the file or extract data.
-      Use ${SANDBOX_SCHEMA_INFER_TAG} to undertand the schema.`,
+      Use ${SANDBOX_SCHEMA_INFER_TAG} to understand the schema.
+      The file's total size is given above. Plan reads against it, for example extract fields with a script or read sized ranges, instead of probing with small incremental reads.`,
     ];
 
     if (this.dynamicSubAgentsPresent) {
@@ -103,10 +115,10 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
       .map((step, index) => `${String(index + 1)}. ${step}`)
       .join('\n')}`;
 
-    return `Content too large. Result saved to: ${filePath}.\n\n${guidance}\n\nPreview (first and last ${String(this.previewNumberOfCharacters)} chars):\n${preview}`;
+    return `Content too large (${size}; ${reason}). Result saved to: ${filePath}.\n\n${guidance}\n\nPreview (first and last ${String(this.previewNumberOfCharacters)} chars):\n${preview}`;
   }
 
-  private buildResultsWithInfo(results: ToolCallResult[], sandbox: Sandbox | undefined): ToolResultWithInfo[] {
+  private buildResultsWithInfo(results: ToolCallResult[], sandbox: HarnessSandbox | undefined): ToolResultWithInfo[] {
     return results.map(toolCallResult => ({
       toolCallResult,
       originalContent: toolCallResult.message.content,
@@ -118,8 +130,10 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
   private blockResult(
     entry: ToolResultWithInfo,
     pendingSandboxDumps: ToolResultWithInfo[],
-    sandbox: Sandbox | undefined,
+    sandbox: HarnessSandbox | undefined,
+    limit: 'large_tool_response_individual' | 'large_tool_response_total',
   ): number {
+    getOperationMetrics()?.recordHarnessLimit({ limit });
     const preview = createContentPreview(entry.originalContent, this.previewNumberOfCharacters);
 
     let newContent: string;
@@ -128,10 +142,10 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
         newContent = entry.originalContent.slice(0, FAILURE_MESSAGE_TRUNCATION_LENGTH);
         break;
       case 'sandbox':
-        newContent = `Content too big. The Agent should write to a file if required and use grep and sed.\n\nPreview:\n${preview}`;
+        newContent = `Content too big (${this.blockReasonDescription(entry)}). The Agent should write to a file if required and use grep and sed.\n\nPreview:\n${preview}`;
         break;
       case 'mcp':
-        newContent = `${this.createLargeToolResponseGuidance(sandbox)}\n\nPreview (first and last ${String(this.previewNumberOfCharacters)} chars):\n${preview}`;
+        newContent = `${this.createLargeToolResponseGuidance(sandbox, entry)}\n\nPreview (first and last ${String(this.previewNumberOfCharacters)} chars):\n${preview}`;
         if (sandbox) {
           pendingSandboxDumps.push(entry);
         }
@@ -146,7 +160,7 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
   private async uploadToSandboxAndPrependFilePath(
     entry: ToolResultWithInfo,
     index: number,
-    sandbox: Sandbox,
+    sandbox: HarnessSandbox,
   ): Promise<SandboxInfo | undefined> {
     if (!entry.toolCallResult.info) {
       throw new Error(`Unreachable`);
@@ -161,16 +175,27 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
         sourceTool: entry.toolCallResult.info,
       });
       const preview = createContentPreview(entry.originalContent, this.previewNumberOfCharacters);
-      entry.toolCallResult.message.content = this.createFileDumpMessage({ filePath: stored.filePath, preview });
+      entry.toolCallResult.message.content = this.createFileDumpMessage({
+        filePath: stored.filePath,
+        preview,
+        size: describeContentSize(entry.originalContent),
+        reason: this.blockReasonDescription(entry),
+      });
       entry.toolCallResult.isStructuredContent = false;
       return stored.sandboxCreated;
     } catch (error) {
-      this.logger.error('Failed to upload to sandbox', extractErrorLogFields(error));
+      this.logger.error('Failed to upload to sandbox', {
+        ...extractErrorLogFields(error),
+        reportable_error: { error },
+      });
       return undefined;
     }
   }
 
-  private async executeSandboxDumps(entries: ToolResultWithInfo[], sandbox: Sandbox): Promise<SandboxInfo | undefined> {
+  private async executeSandboxDumps(
+    entries: ToolResultWithInfo[],
+    sandbox: HarnessSandbox,
+  ): Promise<SandboxInfo | undefined> {
     const results = await Promise.all(
       entries.map((entry, index) => this.uploadToSandboxAndPrependFilePath(entry, index, sandbox)),
     );
@@ -194,7 +219,7 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
     const unblocked: ToolResultWithInfo[] = [];
     for (const entry of resultsWithInfo) {
       if (entry.originalTokens >= this.individualTokenThreshold) {
-        runningTotal -= this.blockResult(entry, pendingSandboxDumps, sandbox);
+        runningTotal -= this.blockResult(entry, pendingSandboxDumps, sandbox, 'large_tool_response_individual');
       } else {
         unblocked.push(entry);
       }
@@ -205,7 +230,7 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
       if (runningTotal < this.totalTokenThreshold) {
         break;
       }
-      runningTotal -= this.blockResult(entry, pendingSandboxDumps, sandbox);
+      runningTotal -= this.blockResult(entry, pendingSandboxDumps, sandbox, 'large_tool_response_total');
     }
 
     const sandboxCreated = sandbox ? await this.executeSandboxDumps(pendingSandboxDumps, sandbox) : undefined;

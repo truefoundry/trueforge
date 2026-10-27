@@ -3,6 +3,7 @@ import { Accordion, AccordionDetails, AccordionSummary } from '../atoms/primitiv
 
 import { AgentStepsCard } from '../atoms/adapters/AgentStepsCardAdapter.js';
 import { AskUserPrompt } from '../atoms/adapters/AskUserPromptAdapter.js';
+import { ContextCompactionCard } from '../atoms/adapters/ContextCompactionCardAdapter.js';
 import { McpAuthPrompt } from '../atoms/adapters/McpAuthPromptAdapter.js';
 import { ReasoningCard } from '../atoms/adapters/ReasoningCardAdapter.js';
 import { ResumeUnavailable } from '../atoms/ResumeUnavailable.js';
@@ -30,6 +31,7 @@ import type {
   AgentSessionEventTimelineProps,
   AgentSessionsProps,
 } from '../atoms/agent-details/types.js';
+import { AgentLibraryUsageCells } from '../atoms/AgentLibraryUsage.js';
 import { AgentLibraryRow, AgentsLibrary } from '../atoms/AgentsLibrary.js';
 import { AgentsLibraryButton } from '../atoms/AgentsLibraryButton.js';
 import { ApprovalNavBanner } from '../atoms/ApprovalNavBanner.js';
@@ -56,21 +58,29 @@ import { AgentRuntimeConfigDrawer } from '../atoms/draft/AgentRuntimeConfigDrawe
 import { AgentRuntimeConfigFields } from '../atoms/draft/AgentRuntimeConfigFields.js';
 import { AgentRuntimeEditorContent } from '../atoms/draft/AgentRuntimeEditorContent.js';
 import { AgentSkillsEditorContent } from '../atoms/draft/AgentSkillsEditorContent.js';
+import { AgentSkillsHeaderActionSlot } from '../atoms/draft/AgentSkillsHeaderActionSlot.js';
 import { DraftAgentConfigTrigger } from '../atoms/draft/DraftAgentConfigTrigger.js';
 import { DraftCapabilitiesPanel } from '../atoms/draft/DraftCapabilitiesPanel.js';
 import { DraftComposerActionsMenu } from '../atoms/draft/DraftComposerActionsMenu.js';
 import { DraftComposerLeftSection, DraftComposerRightSection } from '../atoms/draft/DraftComposerSections.js';
 import { CatalogRow, ConnectorConnectButton, DraftCompositeSelector } from '../atoms/draft/DraftCompositeSelector.js';
 import { DraftModelSelector } from '../atoms/draft/DraftModelSelector.js';
+import { InstructionsFullScreenEditor } from '../atoms/draft/InstructionsFullScreenEditor.js';
+import { InstructionsMarkdownEditor } from '../atoms/draft/InstructionsMarkdownEditor.js';
+import type { EnvironmentsPageProps } from '../atoms/environments/EnvironmentsPage.js';
+import { EnvironmentsButton } from '../atoms/EnvironmentsButton.js';
+import { FilePreviewPanel } from '../atoms/FilePreviewPanel.js';
 import { HistoryLoader } from '../atoms/HistoryLoader.js';
 import { Markdown } from '../atoms/Markdown.js';
 import { MessageActionBar } from '../atoms/MessageActionBar.js';
+import { MessageCancelledBanner } from '../atoms/MessageCancelledBanner.js';
 import { MessageErrorBanner } from '../atoms/MessageErrorBanner.js';
 import { MessageIndicator } from '../atoms/MessageIndicator.js';
 import { MessageTimestamp } from '../atoms/MessageTimestamp.js';
 import { MonacoEditorCore } from '../atoms/MonacoEditorCore.js';
 import { OpenUiFenceBlock } from '../atoms/OpenUiFenceBlock.js';
 import { PermissionGuard } from '../atoms/PermissionGuard.js';
+import { ResetAgentBuilderButton } from '../atoms/ResetAgentBuilderButton.js';
 import { SandboxArtifactDownload } from '../atoms/SandboxArtifactDownload.js';
 import { SandboxToolCallCard } from '../atoms/SandboxToolCallCard.js';
 import { SaveAgentButton } from '../atoms/SaveAgentButton.js';
@@ -121,6 +131,10 @@ const SchedulesPage: ComponentType<SchedulesPageProps> = lazy(async () => {
   const mod = await import('../atoms/schedules/SchedulesPage.js');
   return { default: mod.SchedulesPage };
 });
+const EnvironmentsPage: ComponentType<EnvironmentsPageProps> = lazy(async () => {
+  const mod = await import('../atoms/environments/EnvironmentsPage.js');
+  return { default: mod.EnvironmentsPage };
+});
 const AgentSessionEventTimeline: ComponentType<AgentSessionEventTimelineProps> = lazy(async () => {
   const mod = await import('../atoms/agent-details/AgentSessionEventTimeline.js');
   return { default: mod.AgentSessionEventTimeline };
@@ -161,6 +175,8 @@ export const defaultSlots = {
   AgentCustomParametersEditor,
   AgentConfigEditors,
   AgentInstructionsDrawer,
+  InstructionsFullScreenEditor,
+  InstructionsMarkdownEditor,
   AgentModelEditorContent,
   AgentModelSettingsContent,
   AgentMcpEditorContent,
@@ -168,6 +184,7 @@ export const defaultSlots = {
   AgentResourceEditorContent,
   AgentResourceConfigModal,
   AgentSkillsEditorContent,
+  AgentSkillsHeaderActionSlot,
   AgentConfigPanel,
   AgentConfigSection,
   AgentRuntimeConfigFields,
@@ -182,6 +199,7 @@ export const defaultSlots = {
   UserMessageEdit,
   UserMessageActionBar,
   MessageActionBar,
+  MessageCancelledBanner,
   MessageErrorBanner,
   MessageIndicator,
   MessageTimestamp,
@@ -190,6 +208,7 @@ export const defaultSlots = {
   OpenUiFenceBlock,
   SandboxArtifactDownload,
   ChatFileDownload,
+  FilePreviewPanel,
   MonacoEditorCore,
   CodeEditor,
   WelcomeScreen,
@@ -201,6 +220,7 @@ export const defaultSlots = {
   SandboxToolCallCard,
   AgentStepsCard,
   ReasoningCard,
+  ContextCompactionCard,
   AskUserPrompt,
   McpAuthPrompt,
   ResumeUnavailable,
@@ -212,6 +232,7 @@ export const defaultSlots = {
   ThreadListNewButton,
   AgentsLibrary,
   AgentLibraryRow,
+  AgentLibraryUsageCells,
   AgentsLibraryButton,
   ApprovalNavBanner,
   SessionsBrowserButton,
@@ -241,10 +262,13 @@ export const defaultSlots = {
   AgentCodeBlock,
   SchedulesPage,
   SchedulesButton,
+  EnvironmentsPage,
+  EnvironmentsButton,
   SaveAgentButton,
   SaveAgentForm,
   SelectAgentEmptyState,
   ClearChatButton,
+  ResetAgentBuilderButton,
   ShareChatButton,
   ShareSessionDialog,
   ThreadListRowSkeleton,

@@ -21,8 +21,10 @@ export {
   TurnStatePausedSchema,
   TurnStateRunningSchema,
   TurnStateSchema,
+  isNonTerminalTurnState,
 } from './schemas/turn';
 export type {
+  NonTerminalTurnState,
   TerminalTurnState,
   Turn,
   TurnInboundEventItem,
@@ -32,6 +34,7 @@ export type {
 } from './schemas/turn';
 
 export {
+  SessionLastTurnDetailsSchema,
   SessionMetadataSchema,
   SessionMetricsSchema,
   SessionSchema,
@@ -42,6 +45,7 @@ export {
 export type {
   Session,
   SessionAgent,
+  SessionLastTurnDetails,
   SessionMetadata,
   SessionMetrics,
   SessionSource,
@@ -104,7 +108,8 @@ export type {
   TurnContextAppend,
   TurnRecordWithoutSnapshot,
   UpdateSessionInput,
-  UpdateTurnStateInput,
+  UpdateTurnNonTerminalStateInput,
+  UpdateTurnTerminalStateInput,
 } from './store/ISessionStore';
 export {
   InvalidPageTokenError,

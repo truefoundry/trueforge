@@ -1,7 +1,6 @@
 import type {
   ISandboxProviderStore,
   SandboxProviderRecord,
-  UpdateSandboxStatusInput,
   UpsertSandboxProviderInput,
 } from '../db/sandboxProviderStore';
 import { trueFoundryManaged } from './errors';
@@ -30,12 +29,7 @@ function synthesizeDaytonaRecord({
       auto_archive_interval_in_minutes: settings.autoArchiveIntervalInMinutes,
       auto_delete_interval_in_minutes: settings.autoDeleteIntervalInMinutes,
     },
-    status: 'ready',
-    status_reason: null,
-    // Snapshot name only — no image_uri; TrueFoundry mode never registers a snapshot.
-    build_metadata: { build_ref: settings.snapshotName },
     created_at: now,
-    // Fresh on every get so checkSnapshotStatus short-circuits without Daytona.
     updated_at: now,
   };
 }
@@ -56,9 +50,6 @@ function synthesizeTrueFoundryRecord({
       nats_bridge_url: providerConfig.natsBridgeUrl,
       exec_timeout_ms: SANDBOX_DEFAULT_SETTINGS.timeoutMs,
     },
-    status: 'ready',
-    status_reason: null,
-    build_metadata: null,
     created_at: now,
     updated_at: now,
   };
@@ -87,15 +78,6 @@ export class TrueFoundrySandboxProviderStore<TTransaction = never> implements IS
   }
 
   upsertSandboxProvider(input: UpsertSandboxProviderInput, transaction?: TTransaction): Promise<SandboxProviderRecord> {
-    void input;
-    void transaction;
-    return trueFoundryManaged();
-  }
-
-  updateSandboxStatus(
-    input: UpdateSandboxStatusInput,
-    transaction?: TTransaction,
-  ): Promise<SandboxProviderRecord | undefined> {
     void input;
     void transaction;
     return trueFoundryManaged();

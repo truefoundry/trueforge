@@ -31,10 +31,12 @@ beforeEach(() => {
 
 function mockServer(partial: Partial<AgentUIServer> = {}): AgentUIServer {
   return createMockAgentUIServer({
-    searchAgents: async () => [
-      { name: 'From SDK', agentId: 'from-sdk' },
-      { name: 'Other', agentId: 'other' },
-    ],
+    searchAgents: async () => ({
+      data: [
+        { name: 'From SDK', agentId: 'from-sdk' },
+        { name: 'Other', agentId: 'other' },
+      ],
+    }),
     ...partial,
   });
 }
@@ -98,10 +100,12 @@ describe('AgentHistoryFilterButton', () => {
   });
 
   it('opens popover and sets history filter on agent click', async () => {
-    const searchAgents = vi.fn(async () => [
-      { name: 'From SDK', agentId: 'from-sdk' },
-      { name: 'Other', agentId: 'other' },
-    ]);
+    const searchAgents = vi.fn(async () => ({
+      data: [
+        { name: 'From SDK', agentId: 'from-sdk' },
+        { name: 'Other', agentId: 'other' },
+      ],
+    }));
     const server = mockServer({ searchAgents });
     render(<AgentHistoryFilterButton />, {
       wrapper: wrap({ agentConfig: { mode: 'AgentLibraryWithComposer' }, server }),
@@ -144,7 +148,8 @@ describe('AgentHistoryFilterButton', () => {
         { name: 'From SDK', agentId: 'from-sdk' },
         { name: 'Other', agentId: 'other' },
       ];
-      return q === '' ? all : all.filter(a => a.name.toLowerCase().includes(q));
+      const data = q === '' ? all : all.filter(a => a.name.toLowerCase().includes(q));
+      return { data };
     });
     const server = mockServer({ searchAgents });
     render(<AgentHistoryFilterButton />, {
@@ -165,8 +170,8 @@ describe('AgentHistoryFilterButton', () => {
   it('shows an empty banner and keeps list min-height when search matches nothing', async () => {
     const searchAgents = vi.fn(async (req?: { query?: string }) => {
       const q = req?.query?.trim().toLowerCase() ?? '';
-      if (q === '') return [{ name: 'From SDK', agentId: 'from-sdk' }];
-      return [];
+      if (q === '') return { data: [{ name: 'From SDK', agentId: 'from-sdk' }] };
+      return { data: [] };
     });
     const server = mockServer({ searchAgents });
     render(<AgentHistoryFilterButton />, {

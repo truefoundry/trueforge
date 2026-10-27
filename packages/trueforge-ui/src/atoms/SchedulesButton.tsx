@@ -1,5 +1,7 @@
 'use client';
 
+import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '../analytics/events.js';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalScheduleServer } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
@@ -15,6 +17,7 @@ export type SchedulesButtonProps = {
 export function SchedulesButton({ className, compact = false }: SchedulesButtonProps) {
   const shell = useOptionalShellMode();
   const scheduleServer = useOptionalScheduleServer();
+  const track = useTrackAnalytics();
 
   const enabled = isSchedulesChromeEnabled({ schedules: scheduleServer }) && shell != null;
   const open = shell?.schedulesOpen === true;
@@ -38,7 +41,10 @@ export function SchedulesButton({ className, compact = false }: SchedulesButtonP
               'bg-primary-button-bg font-medium text-primary-button-text hover:bg-primary-button-hover hover:text-primary-button-text',
           ),
         })}
-        onClick={() => shell.setSchedulesOpen(!open)}
+        onClick={() => {
+          if (!open) track(AnalyticsEvents.Schedule.PAGE_OPENED);
+          shell.setSchedulesOpen(!open);
+        }}
       >
         <Icon name="calendar-clock" size={compact ? 14 : undefined} />
         {compact ? (

@@ -3,6 +3,8 @@
 export { trueForgeAttachmentAdapter } from './attachmentAdapter.js';
 export type { PendingApproval, PendingToolResponse } from './collectPending.js';
 export { ROOT_THREAD_ID } from './constants.js';
+export { CONTEXT_COMPACTION_DATA_NAME, isContextCompactionPartData } from './contextCompaction.js';
+export type { ContextCompactionPartData } from './contextCompaction.js';
 export {
   buildEditedUserMessageContent,
   buildTurnAssistantContent,
@@ -39,6 +41,7 @@ export {
   useTrueForgeTurnId,
   useTrueForgeUpdateAgentSpec,
 } from './hooks.js';
+export { CANCELLATION_REASON_CUSTOM_KEY, isMcpServerAuthInfoList } from './messageCustomMetadata.js';
 export type {
   McpAuthMessageCustomMetadata,
   SandboxMessageCustomMetadata,
@@ -49,7 +52,7 @@ export type {
 } from './messageCustomMetadata.js';
 export {
   collectRequiredActionInputs,
-  findPausedAssistantMessage,
+  findCurrentPausedAssistantMessage,
   messageHasPendingRequiredActions,
 } from './requiredActionInputs.js';
 export { getSession } from './sessions.js';
@@ -171,8 +174,6 @@ export type {
   SandboxCreatedEvent,
   SandboxProviderBase,
   SandboxProviderCatalogEntry,
-  SandboxProviderListEntry,
-  SandboxSnapshotSyncStatus,
   SaveAgentRequest,
   SaveAgentResult,
   Schedule,

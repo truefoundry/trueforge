@@ -5,7 +5,7 @@ import {
   useTrueForgeFlushAgentSpec,
   useTrueForgeUpdateAgentSpec,
 } from '@truefoundry/trueforge-assistant-ui-runtime';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { AgentConfigEditor } from '../atoms/draft/AgentConfigEditors.js';
 import { useAgentConfigInstructions } from '../atoms/draft/AgentConfigInstructionsContext.js';
@@ -67,18 +67,21 @@ export function AgentConfigDrawerContainer({ showClose = false }: { showClose?: 
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [closeDrawer, editor, shell.agentConfigOpen, showClose]);
 
-  // Flush pending edits on unmount. ChatProvider remount (runtimeKey) tears the
-  // runtime down first — flush then throws; ignore so the new draft can mount.
+  // Flush only on unmount. These callbacks are new every render; depending on them
+  // runs this cleanup between keystrokes and sends the in-flight spec sync immediately.
+  const flushOnUnmountRef = useRef({ flushAgentSpec, flushInstructions });
+  flushOnUnmountRef.current = { flushAgentSpec, flushInstructions };
   useEffect(
     () => () => {
-      flushInstructions();
+      const { flushAgentSpec: flushSpec, flushInstructions: flushDraft } = flushOnUnmountRef.current;
+      flushDraft();
       try {
-        void flushAgentSpec();
+        void flushSpec();
       } catch {
         // Runtime already gone.
       }
     },
-    [flushAgentSpec, flushInstructions],
+    [],
   );
 
   const commitSpec = useCallback(

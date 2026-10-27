@@ -7,6 +7,8 @@ import { McpAuthRequiredEvent } from "./McpAuthRequiredEvent.js";
 import { McpInitializeEvent } from "./McpInitializeEvent.js";
 import { ModelMessageEvent } from "./ModelMessageEvent.js";
 import { SandboxCreatedEvent } from "./SandboxCreatedEvent.js";
+import { ThreadContextCompactionFinishedEvent } from "./ThreadContextCompactionFinishedEvent.js";
+import { ThreadContextCompactionStartedEvent } from "./ThreadContextCompactionStartedEvent.js";
 import { ThreadCreatedEvent } from "./ThreadCreatedEvent.js";
 import { ThreadDoneEvent } from "./ThreadDoneEvent.js";
 import { ToolApprovalRequiredEvent } from "./ToolApprovalRequiredEvent.js";
@@ -26,6 +28,8 @@ export const SessionEvent: core.serialization.Schema<serializers.SessionEvent.Ra
         McpInitializeEvent,
         ModelMessageEvent,
         SandboxCreatedEvent,
+        ThreadContextCompactionFinishedEvent,
+        ThreadContextCompactionStartedEvent,
         ThreadCreatedEvent,
         ThreadDoneEvent,
         ToolApprovalRequiredEvent,
@@ -46,6 +50,8 @@ export declare namespace SessionEvent {
         | McpInitializeEvent.Raw
         | ModelMessageEvent.Raw
         | SandboxCreatedEvent.Raw
+        | ThreadContextCompactionFinishedEvent.Raw
+        | ThreadContextCompactionStartedEvent.Raw
         | ThreadCreatedEvent.Raw
         | ThreadDoneEvent.Raw
         | ToolApprovalRequiredEvent.Raw

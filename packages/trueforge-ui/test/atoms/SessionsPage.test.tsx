@@ -110,9 +110,9 @@ function renderPage({
 } = {}) {
   const server = createMockAgentUIServer({
     getSession,
-    searchAgents: vi.fn(async () => [
-      { agentId: 'agent-1', name: 'release-notes-writer', agentSpec: { model: { name: 'openai/gpt-5.1' } } },
-    ]),
+    searchAgents: vi.fn(async () => ({
+      data: [{ agentId: 'agent-1', name: 'release-notes-writer', agentSpec: { model: { name: 'openai/gpt-5.1' } } }],
+    })),
     sessions: { getAgent: vi.fn(), getCodeSnippets: vi.fn(), listSessions, listSessionEvents },
     ...(deleteSession == null ? {} : { deleteSession }),
     ...(permissions == null ? {} : { permissions }),
@@ -166,12 +166,12 @@ describe('SessionsPage', () => {
   });
 
   it('labels sessions created by a schedule run', async () => {
-    const scheduledRow = { ...namedRow, id: 'sess-scheduled', sourceType: 'schedule' as const };
+    const scheduledRow = { ...namedRow, id: 'sess-scheduled', scheduleId: 'sched-1' };
     renderPage({ listSessions: vi.fn(async () => ({ data: [scheduledRow] })) });
 
     const indicator = await screen.findByLabelText('Scheduled run');
     fireEvent.mouseEnter(indicator);
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('Scheduled Session');
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Scheduled Run');
   });
 
   it('shows a single empty screen when there are no sessions', async () => {
@@ -229,7 +229,28 @@ describe('SessionsPage', () => {
     expect(getSession).toHaveBeenCalledWith({ sessionId: 'sess-1' });
   });
 
-  it('toasts and keeps the inline failure when a non-share detail load is forbidden', async () => {
+  it('renders session metadata tags in detail header when session has metadata', async () => {
+    window.history.replaceState(null, '', '/?view=sessions&sessionId=sess-1');
+    const getSession = vi.fn(async (): Promise<Session> => ({
+      id: 'sess-1',
+      title: 'Session with metadata',
+      isMutable: false,
+      createdAt: namedRow.createdAt,
+      updatedAt: namedRow.updatedAt,
+      metadata: { env: 'production', cluster: 'us-west-2' },
+    }));
+    renderPage({
+      listSessions: vi.fn(async () => ({ data: [] })),
+      getSession,
+    });
+
+    expect(await screen.findByText('env')).toBeInTheDocument();
+    expect(screen.getByText('production')).toBeInTheDocument();
+    expect(screen.getByText('cluster')).toBeInTheDocument();
+    expect(screen.getByText('us-west-2')).toBeInTheDocument();
+  });
+
+  it('shows a full-pane Unable to load session when a non-share detail load is forbidden', async () => {
     window.history.replaceState(null, '', '/?view=sessions&sessionId=sess-1');
     const forbidden = Object.assign(new Error('Only the session creator can access this session'), {
       statusCode: 403,
@@ -245,19 +266,28 @@ describe('SessionsPage', () => {
       }),
     });
 
-    expect(await screen.findByText('Session details could not be loaded.')).toBeInTheDocument();
-    expect(await screen.findByText('Only the session creator can access this session')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Unable to load session' })).toBeInTheDocument();
+    expect(screen.getByText('Only the session creator can access this session')).toBeInTheDocument();
     expect(window.location.search).toContain('sessionId=sess-1');
   });
 
   it('copies the no-router shared-session query URL for the selected session', async () => {
     window.history.replaceState(null, '', '/?view=sessions&sessionId=sess-1&agentId=agent-1&s_tw=30');
-    renderPage();
+    renderPage({
+      getSession: vi.fn(async (): Promise<Session> => ({
+        id: 'sess-1',
+        title: 'Named session',
+        isMutable: false,
+        shared: true,
+        createdAt: namedRow.createdAt,
+        updatedAt: namedRow.updatedAt,
+      })),
+    });
 
     fireEvent.click(await screen.findByRole('button', { name: 'Share' }));
     expect(await screen.findByText('Change permissions')).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Copy' }));
 
     await waitFor(() => {
       expect(clipboardWriteText).toHaveBeenCalledOnce();
@@ -435,5 +465,60 @@ describe('SessionsPage', () => {
       expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeDisabled();
     });
     expect(deleteSession).not.toHaveBeenCalled();
+  });
+
+  it('renders the reload button before the agent filter and refetches latest data on click', async () => {
+    let now = Date.parse('2026-01-01T12:00:00.000Z');
+    const nowSpy = vi.spyOn(Date, 'now').mockImplementation(() => now);
+    const listSessions = vi.fn(async (_req?: ListSessionsRequest) => ({ data: [namedRow] }));
+    renderPage({ listSessions });
+
+    const reloadButton = await screen.findByRole('button', { name: 'Reload sessions' });
+    expect(reloadButton).toBeInTheDocument();
+    expect(listSessions).toHaveBeenCalledTimes(1);
+
+    // Advance time and click reload
+    now = Date.parse('2026-01-01T13:00:00.000Z');
+    fireEvent.click(reloadButton);
+
+    await waitFor(() => {
+      expect(listSessions).toHaveBeenCalledTimes(2);
+      expect(listSessions).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          startTimestamp: new Date(now - DEFAULT_SESSION_TIME_WINDOW_MS).toISOString(),
+          endTimestamp: new Date(now).toISOString(),
+        }),
+      );
+    });
+
+    nowSpy.mockRestore();
+  });
+
+  it('refetches both session list and selected session detail on reload', async () => {
+    window.history.replaceState(null, '', '/?view=sessions&sessionId=sess-1');
+    const listSessions = vi.fn(async () => ({ data: [namedRow] }));
+    const listSessionEvents = vi.fn(async () => ({ data: [] as SessionEventItem[] }));
+    const getSession = vi.fn(async (): Promise<Session> => ({
+      id: 'sess-1',
+      title: 'Named session',
+      isMutable: false,
+      createdAt: namedRow.createdAt,
+      updatedAt: namedRow.updatedAt,
+    }));
+
+    renderPage({ listSessions, listSessionEvents, getSession });
+
+    const reloadButton = await screen.findByRole('button', { name: 'Reload sessions' });
+    await screen.findByRole('heading', { name: 'Named session' });
+
+    expect(listSessions).toHaveBeenCalledTimes(1);
+    expect(getSession).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(reloadButton);
+
+    await waitFor(() => {
+      expect(listSessions).toHaveBeenCalledTimes(2);
+      expect(getSession).toHaveBeenCalledTimes(2);
+    });
   });
 });

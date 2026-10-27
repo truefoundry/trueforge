@@ -15,7 +15,7 @@
  * Docs: https://docs.railway.com/infrastructure-as-code
  *
  * Auth is off by default (anyone who can reach the URL is admin). Before
- * sharing a deployment, enable OIDC — see the commented block below and
+ * sharing a deployment, enable OIDC - see the commented block below and
  * https://trueforge.dev/authentication/overview
  */
 import { defineRailway, github, group, postgres, project, redis, service } from 'railway/iac';
@@ -28,10 +28,8 @@ export default defineRailway(_ctx => {
     // Deploys from this repository's default branch. Forks: change owner/repo
     // (and optionally branch) to build your own copy.
     source: github('truefoundry/trueforge'),
-    // IaC `build` is a build *command* string (not CaC's builder/dockerfilePath object).
-    // Non-root Dockerfile is selected via RAILWAY_DOCKERFILE_PATH below — without it,
-    // Railway picks the root Dockerfile (npm install of a published version) and fails
-    // without APP_VERSION.
+    // Pin the root from-source Dockerfile (not Dockerfile.dev — that path was removed).
+    build: { dockerfilePath: 'Dockerfile' },
     healthcheck: '/healthz',
     healthcheckTimeout: 300,
     deploy: {
@@ -41,15 +39,13 @@ export default defineRailway(_ctx => {
       drainingSeconds: 35,
     },
     env: {
-      // From-source image; root Dockerfile is the published npm recipe and needs APP_VERSION.
-      RAILWAY_DOCKERFILE_PATH: 'Dockerfile.dev',
       // Postgres + Redis (hosted topology)
       STANDALONE: 'false',
       DATABASE_URL: db.env.DATABASE_URL,
       REDIS_URL: cache.env.REDIS_URL,
       // Expanded by Railway at runtime once a public domain exists on this service.
       PUBLIC_BASE_URL: 'https://${{RAILWAY_PUBLIC_DOMAIN}}',
-      // Set once in Railway (shared); IaC only references it — see header.
+      // Set once in Railway (shared); IaC only references it - see header.
       TRUEFORGE_API_KEY: _ctx.shared.TRUEFORGE_API_KEY,
 
       // Optional OIDC (login off until these are set). Create matching *shared*
@@ -71,6 +67,7 @@ export default defineRailway(_ctx => {
   // network (SERVER_URL); it needs no public domain or healthcheck.
   const controller = service('trueforge-controller', {
     source: github('truefoundry/trueforge'),
+    build: { dockerfilePath: 'Dockerfile' },
     startCommand: 'node dist/controller-main.js',
     replicas: 1,
     deploy: {
@@ -82,7 +79,6 @@ export default defineRailway(_ctx => {
       drainingSeconds: 35,
     },
     env: {
-      RAILWAY_DOCKERFILE_PATH: 'Dockerfile.dev',
       STANDALONE: 'false',
       DATABASE_URL: db.env.DATABASE_URL,
       // Same shared key as the app (Bearer auth for schedule dispatch).

@@ -39,16 +39,13 @@ describe('TrueFoundrySandboxProviderStore', () => {
     await expect(store.getSandboxProvider(TENANT)).resolves.toBeUndefined();
   });
 
-  it('get returns ready Daytona record from static settings', async () => {
+  it('get returns Daytona record from static settings', async () => {
     const store = new TrueFoundrySandboxProviderStore();
 
     const record = await store.getSandboxProvider(TENANT);
 
     expect(record).toMatchObject({
       tenant_id: TENANT,
-      status: 'ready',
-      status_reason: null,
-      build_metadata: { build_ref: DAYTONA_SETTINGS.snapshotName },
       manifest: {
         type: 'daytona',
         auth: { api_key: 'dtn-shared-key' },
@@ -60,7 +57,7 @@ describe('TrueFoundrySandboxProviderStore', () => {
     });
   });
 
-  it('get returns ready truefoundry record from static settings', async () => {
+  it('get returns truefoundry record from static settings', async () => {
     mockResolveConfig.mockReturnValue({
       type: 'truefoundry',
       serverUrl: 'http://sandbox-server',
@@ -72,9 +69,6 @@ describe('TrueFoundrySandboxProviderStore', () => {
 
     expect(record).toMatchObject({
       tenant_id: TENANT,
-      status: 'ready',
-      status_reason: null,
-      build_metadata: null,
       manifest: {
         type: 'truefoundry',
         server_url: 'http://sandbox-server',
@@ -107,17 +101,6 @@ describe('TrueFoundrySandboxProviderStore', () => {
           auto_archive_interval_in_minutes: 60,
           auto_delete_interval_in_minutes: 7200,
         },
-        status: 'ready',
-        status_reason: null,
-        build_metadata: null,
-      }),
-    );
-    assertManaged(() =>
-      store.updateSandboxStatus({
-        tenant_id: TENANT,
-        status: 'ready',
-        status_reason: null,
-        build_metadata: null,
       }),
     );
   });

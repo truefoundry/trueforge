@@ -1,7 +1,8 @@
 import type { CallToolRequest, ListToolsResult } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
-import type { ApprovalDecision } from '../events/schema';
+import type { ApprovalDecision, ToolApprovalPolicyAction } from '../events/schema';
 import type { InternalToolCallInfo } from '../llm/LLMTypes';
+import { type McpServerClass, observeMcpOperation } from '../observability/operationMetrics';
 import type { AgentTracing } from '../tracing/AgentTracing';
 import {
   type CallToolResponse,
@@ -65,9 +66,11 @@ export abstract class LocalToolMCP implements IToolSet {
   readonly tracingEnabled: boolean = true;
 
   private readonly tracing: AgentTracing;
+  readonly serverClass: McpServerClass;
 
-  protected constructor(options: { tracing: AgentTracing }) {
+  protected constructor(options: { tracing: AgentTracing; serverClass?: 'local' | 'sandbox' | undefined }) {
     this.tracing = options.tracing;
+    this.serverClass = options.serverClass ?? 'local';
   }
 
   get id(): string {
@@ -81,36 +84,58 @@ export abstract class LocalToolMCP implements IToolSet {
   protected abstract getTools(): ToolDefinition[];
 
   listTools(): Promise<ListToolsResolvedResponse> {
-    return Promise.resolve({
-      result: {
-        tools: this.getTools().map(t => ({
-          name: t.name,
-          description: t.description,
-          inputSchema: t.inputSchema,
-          preload: true,
-        })),
-      },
-      wasInitialized: undefined,
+    return observeMcpOperation({
+      method: 'tools/list',
+      serverClass: this.serverClass,
+      run: () =>
+        Promise.resolve({
+          result: {
+            tools: this.getTools().map(t => ({
+              name: t.name,
+              description: t.description,
+              inputSchema: t.inputSchema,
+              preload: true,
+            })),
+          },
+          wasInitialized: undefined,
+        }),
+      outcomeOf: () => 'success',
     });
   }
 
   async callTool(params: CallToolRequest['params'], approvalDecision?: ApprovalDecision): Promise<CallToolResponse> {
-    return this.tracing.withLocalToolSpan(
-      {
-        displayName: this.displayName,
-        toolName: params.name,
-        input: JSON.stringify(params.arguments),
-        enabled: this.tracingEnabled,
-      },
-      async span => {
-        const response = await this.executeTool(params, approvalDecision);
-        span.setOutput(JSON.stringify(response));
-        if (isCallToolResponseResult(response) && response.sandboxInfo) {
-          span.setSandboxId(response.sandboxInfo.sandbox_id);
-        }
-        return response;
-      },
-    );
+    return observeMcpOperation({
+      method: 'tools/call',
+      serverClass: this.serverClass,
+      run: () =>
+        this.tracing.withLocalToolSpan(
+          {
+            displayName: this.displayName,
+            toolName: params.name,
+            input: JSON.stringify(params.arguments),
+            enabled: this.tracingEnabled,
+          },
+          async span => {
+            const response = await this.executeTool(params, approvalDecision);
+            span.setOutput(JSON.stringify(response));
+            if (isCallToolResponseResult(response) && response.sandboxInfo) {
+              span.setSandboxId(response.sandboxInfo.sandbox_id);
+            }
+            return response;
+          },
+        ),
+      outcomeOf: () => 'success',
+    });
+  }
+
+  // System tool sets are never approval-gated, so policies are a no-op here.
+  setApprovalPolicy(_toolName: string, _action: ToolApprovalPolicyAction): void {
+    void _toolName;
+    void _action;
+  }
+
+  getApprovalPolicies(): Record<string, ToolApprovalPolicyAction> {
+    return {};
   }
 
   // Local tools are not approval gated by default.

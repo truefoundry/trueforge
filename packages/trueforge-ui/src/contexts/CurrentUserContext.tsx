@@ -2,6 +2,8 @@ import { createContext, useContext, type ReactNode } from 'react';
 
 export type CurrentUser = {
   displayName: string;
+  /** Stable subject identifier used for owner-only UI actions when available. */
+  subjectId?: string;
 };
 
 const CurrentUserContext = createContext<CurrentUser | undefined>(undefined);

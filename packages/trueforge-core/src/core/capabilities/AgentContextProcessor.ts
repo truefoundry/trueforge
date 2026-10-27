@@ -1,5 +1,9 @@
 import type { ChatCompletionMessageParam } from 'openai/resources/chat';
-import type { ThreadOverwriteContextEvent } from '../events/schema';
+import type {
+  ThreadContextCompactionFinishedEvent,
+  ThreadContextCompactionStartedEvent,
+  ThreadOverwriteContextEvent,
+} from '../events/schema';
 import type {
   AgentThreadAppendContext,
   ContextMessage,
@@ -7,12 +11,12 @@ import type {
   InternalPassthroughEvent,
 } from '../runtime/AgentThread.types';
 import type { CurrentContextUsage } from '../runtime/contextUsage';
-import type { Sandbox } from '../sandbox/Sandbox';
+import type { HarnessSandbox } from '../sandbox/Sandbox';
 
 /** Ambient thread snapshot passed Readonly to every capability processor hook. */
 export interface AgentThreadExecutionContext {
   threadId: string;
-  sandbox?: Sandbox | undefined;
+  sandbox?: HarnessSandbox | undefined;
   currentContextUsage: CurrentContextUsage;
   context: ContextMessage[];
 }
@@ -24,9 +28,15 @@ export type AgentContextProcessorAppendContext = Omit<AgentThreadAppendContext, 
 /** Processors omit thread_id — AgentThread stamps it (same as append/overwrite). */
 export type AgentContextProcessorCapabilityState = Omit<InternalCapabilityStateEvent, 'thread_id'>;
 
+export type AgentContextProcessorCompactionStarted = Omit<ThreadContextCompactionStartedEvent, 'thread_id'>;
+
+export type AgentContextProcessorCompactionFinished = Omit<ThreadContextCompactionFinishedEvent, 'thread_id'>;
+
 export type AgentContextProcessorOutput =
   | AgentContextProcessorOverwriteContext
   | AgentContextProcessorAppendContext
+  | AgentContextProcessorCompactionStarted
+  | AgentContextProcessorCompactionFinished
   | InternalPassthroughEvent
   | AgentContextProcessorCapabilityState;
 

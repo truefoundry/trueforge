@@ -2,12 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useTrackAnalytics } from '@/analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '@/analytics/events.js';
 import { Button } from '@/atoms/primitives/Button.js';
 import { CatalogLogo } from '@/atoms/primitives/CatalogLogo.js';
 import SearchInput from '@/atoms/primitives/SearchInput.js';
 import ConfigureModelProviderForm, {
   type ModelProviderKeyDraft,
 } from '@/containers/SettingsBuilder/ConfigureModelProviderForm.js';
+import ConfirmDeleteDialog from '@/containers/SettingsBuilder/ConfirmDeleteDialog.js';
 import CustomModelProviderForm, {
   type CustomProviderDraft,
 } from '@/containers/SettingsBuilder/CustomModelProviderForm.js';
@@ -16,6 +19,25 @@ import { Icon } from '@/icons/Icon.js';
 import { useCatalogServer } from '@/server/ServerContext.js';
 import type { ModelEntry, ModelProviderBase, ModelProviderCatalogEntry } from '@/server/types.js';
 import { getErrorMessage } from '@/utils/getErrorMessage.js';
+
+/** A provider drops every model it declares; a single model leaves the rest of the provider intact. */
+type PendingRemoval =
+  { kind: 'provider'; provider: ModelProviderBase } | { kind: 'model'; provider: ModelProviderBase; model: ModelEntry };
+
+/** A provider must keep at least one model, so dropping the last one removes the provider itself. */
+function removesLastModel(pending: PendingRemoval): boolean {
+  return pending.kind === 'model' && pending.provider.models.length === 1;
+}
+
+function removalDescription(pending: PendingRemoval): string {
+  if (pending.kind === 'provider') {
+    return `“${pending.provider.name}” and all of its models will no longer be available to your agents.`;
+  }
+  if (removesLastModel(pending)) {
+    return `“${pending.model.name}” is the only model left in ${pending.provider.name}, so the whole provider will be removed.`;
+  }
+  return `“${pending.model.name}” will no longer be available to your agents. The rest of ${pending.provider.name} stays configured.`;
+}
 
 function catalogBaseUrl(provider: ModelProviderCatalogEntry): string {
   if ('baseUrl' in provider && typeof provider.baseUrl === 'string') {
@@ -27,6 +49,7 @@ function catalogBaseUrl(provider: ModelProviderCatalogEntry): string {
 const ModelSettings = () => {
   const { modelCatalog } = useCatalogServer();
   const toaster = useToasterOptional();
+  const track = useTrackAnalytics();
 
   const [query, setQuery] = useState('');
   const [configured, setConfigured] = useState<ModelProviderBase[]>([]);
@@ -41,6 +64,8 @@ const ModelSettings = () => {
   const [keyError, setKeyError] = useState<string | null>(null);
   const [customProviderOpen, setCustomProviderOpen] = useState(false);
   const [customProviderToEdit, setCustomProviderToEdit] = useState<ModelProviderBase | null>(null);
+  const [pendingRemoval, setPendingRemoval] = useState<PendingRemoval | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   const modelProviderIconMap = useMemo(() => {
     return (catalog ?? []).reduce(
@@ -160,6 +185,7 @@ const ModelSettings = () => {
       },
       err => setKeyError(getErrorMessage(err, 'Request failed')),
     );
+    track(AnalyticsEvents.Settings.MODEL_PROVIDER_SAVED, { provider_name: entry.name, mode: 'create' });
   };
 
   const handleReplaceKey = async (provider: ModelProviderBase, draft: ModelProviderKeyDraft) => {
@@ -179,18 +205,20 @@ const ModelSettings = () => {
       err => setKeyError(getErrorMessage(err, 'Request failed')),
     );
     toaster?.showSuccess({ title: `${provider.name} updated` });
+    track(AnalyticsEvents.Settings.MODEL_PROVIDER_SAVED, { provider_name: provider.name, mode: 'update' });
   };
 
-  const handleRemoveProvider = (provider: ModelProviderBase) => {
-    if (!modelCatalog.deleteModelProvider) return;
-
-    void runMutation(async () => {
-      await modelCatalog.deleteModelProvider!({ id: provider.id });
-    }).catch(() => {});
+  const closeRemoveDialog = () => {
+    if (busy) return;
+    setPendingRemoval(null);
+    setRemoveError(null);
   };
 
-  const handleUpdateModels = (provider: ModelProviderBase, models: ModelEntry[]) => {
-    void runMutation(async () => {
+  const updateModels = (
+    { provider, models }: { provider: ModelProviderBase; models: ModelEntry[] },
+    onError?: (error: unknown) => void,
+  ) =>
+    runMutation(async () => {
       // apiKey required on update; empty means "keep existing" for hosts that support it.
       await modelCatalog.updateModelProvider({
         id: provider.id,
@@ -200,7 +228,33 @@ const ModelSettings = () => {
         apiKey: '',
         models,
       });
-    }).catch(() => {});
+    }, onError);
+
+  const handleConfirmRemoval = (pending: PendingRemoval) => {
+    setRemoveError(null);
+    const reportError = (err: unknown) => setRemoveError(getErrorMessage(err, 'Request failed'));
+
+    let removal: Promise<void> | undefined;
+    if (pending.kind === 'model' && !removesLastModel(pending)) {
+      removal = updateModels(
+        {
+          provider: pending.provider,
+          models: pending.provider.models.filter(item => item.id !== pending.model.id),
+        },
+        reportError,
+      );
+    } else {
+      const deleteModelProvider = modelCatalog.deleteModelProvider;
+      if (deleteModelProvider !== undefined) {
+        removal = runMutation(async () => {
+          await deleteModelProvider({ id: pending.provider.id });
+          track(AnalyticsEvents.Settings.MODEL_PROVIDER_DELETED, { provider_name: pending.provider.name });
+        }, reportError);
+      }
+    }
+
+    // Rejections keep the dialog open so it can show why the removal was refused.
+    void removal?.then(() => setPendingRemoval(null)).catch(() => {});
   };
 
   const handleAddCustomProvider = async (draft: CustomProviderDraft) => {
@@ -219,6 +273,7 @@ const ModelSettings = () => {
     );
     setTimeout(() => {
       toaster?.showSuccess({ title: `${draft.name} added` });
+      track(AnalyticsEvents.Settings.MODEL_PROVIDER_SAVED, { provider_name: draft.name, mode: 'create' });
     }, 0);
   };
 
@@ -245,6 +300,7 @@ const ModelSettings = () => {
         title: 'Model provider updated',
         description: `${provider.name} was updated successfully.`,
       });
+      track(AnalyticsEvents.Settings.MODEL_PROVIDER_SAVED, { provider_name: provider.name, mode: 'update' });
     }, 0);
   };
 
@@ -274,14 +330,15 @@ const ModelSettings = () => {
         </p>
       ) : null}
 
-      <div className="mt-4 flex-1 overflow-y-hidden">
-        <div className="flex h-full flex-col gap-3">
-          <div className="flex gap-2">
-            <div className="flex-1">
+      <div className="mt-4 min-h-0 min-w-0 flex-1 overflow-y-hidden">
+        <div className="flex h-full min-w-0 flex-col gap-3">
+          <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
+            <div className="min-w-0 flex-1">
               <SearchInput query={query} setQuery={setQuery} placeholder="Search providers and models" />
             </div>
             <Button.Secondary
               type="button"
+              className="shrink-0 sm:self-auto"
               onClick={() => {
                 setFormError(null);
                 setCustomProviderToEdit(null);
@@ -364,7 +421,8 @@ const ModelSettings = () => {
                                 type="button"
                                 disabled={busy}
                                 onClick={() => {
-                                  handleRemoveProvider(provider);
+                                  setRemoveError(null);
+                                  setPendingRemoval({ kind: 'provider', provider });
                                 }}
                               >
                                 Remove
@@ -380,20 +438,21 @@ const ModelSettings = () => {
                               className="flex min-h-10 items-center gap-3 border-b border-border px-3 py-2 text-sm text-text-primary last:border-b-0"
                             >
                               <span className="min-w-0 flex-1 truncate">{model.name}</span>
-                              <button
-                                type="button"
-                                aria-label={`Remove ${model.name}`}
-                                disabled={busy}
-                                className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-ghost-button-hover hover:text-ghost-button-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus-ring disabled:opacity-50"
-                                onClick={() => {
-                                  handleUpdateModels(
-                                    provider,
-                                    provider.models.filter(item => item.id !== model.id),
-                                  );
-                                }}
-                              >
-                                <Icon name="trash" className="size-3.5" />
-                              </button>
+                              {/* The last model can only go by removing the provider with it. */}
+                              {provider.models.length > 1 || modelCatalog.deleteModelProvider ? (
+                                <button
+                                  type="button"
+                                  aria-label={`Remove ${model.name}`}
+                                  disabled={busy}
+                                  className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-ghost-button-hover hover:text-ghost-button-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus-ring disabled:opacity-50"
+                                  onClick={() => {
+                                    setRemoveError(null);
+                                    setPendingRemoval({ kind: 'model', provider, model });
+                                  }}
+                                >
+                                  <Icon name="trash" className="size-3.5" />
+                                </button>
+                              ) : null}
                             </div>
                           ))}
 
@@ -413,7 +472,9 @@ const ModelSettings = () => {
                                     type="button"
                                     disabled={busy}
                                     onClick={() => {
-                                      handleUpdateModels(provider, [...provider.models, model]);
+                                      void updateModels({ provider, models: [...provider.models, model] }).catch(
+                                        () => {},
+                                      );
                                     }}
                                   >
                                     Add
@@ -456,7 +517,7 @@ const ModelSettings = () => {
                                 <Icon name="cpu" className="size-4.5" />
                               )}
                             </span>
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1 overflow-hidden">
                               <h5 className="truncate text-base font-medium text-text-primary">{provider.name}</h5>
                               <p className="truncate text-sm text-text-secondary">
                                 {provider.models.map(model => model.name).join(' · ')}
@@ -489,6 +550,23 @@ const ModelSettings = () => {
               </div>
             ) : null}
           </div>
+
+          {pendingRemoval ? (
+            <ConfirmDeleteDialog
+              title={
+                pendingRemoval.kind === 'model' && !removesLastModel(pendingRemoval)
+                  ? 'Remove model?'
+                  : 'Remove provider?'
+              }
+              description={removalDescription(pendingRemoval)}
+              busy={busy}
+              error={removeError}
+              onCancel={closeRemoveDialog}
+              onConfirm={() => {
+                handleConfirmRemoval(pendingRemoval);
+              }}
+            />
+          ) : null}
 
           <ConfigureModelProviderForm
             open={keyModalOpen}

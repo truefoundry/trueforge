@@ -1,4 +1,3 @@
-import { TrueForgeApi } from '@truefoundry/trueforge-sdk';
 import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 
@@ -9,7 +8,6 @@ import {
   toHarnessManifest,
   toUiCatalogEntry,
   toUiSandboxProvider,
-  toUiSandboxProviderListEntry,
 } from '@/plugins/trueforge-agent-server-adapter/catalogs/sandboxProviderCatalog.js';
 
 describe('sandboxProviderCatalog mappers', () => {
@@ -25,20 +23,6 @@ describe('sandboxProviderCatalog mappers', () => {
     ...harnessCatalog,
     auth: { apiKey: 'dtn_secret' },
   };
-
-  function configuredResponse({
-    status,
-    statusReason,
-  }: {
-    status: TrueForgeApi.SandboxBuildStatus;
-    statusReason: string | null;
-  }): TrueForgeApi.GetSandboxProviderResponse['data'] {
-    return {
-      manifest: harnessConfigured,
-      status,
-      statusReason,
-    };
-  }
 
   it('stamps catalog identity from type and strips auth', () => {
     assert.deepEqual(toUiCatalogEntry(harnessCatalog), {
@@ -67,32 +51,8 @@ describe('sandboxProviderCatalog mappers', () => {
     assert.equal('apiKey' in toUiSandboxProvider(harnessConfigured), false);
   });
 
-  it('wraps configured providers with snapshot sync status', () => {
-    for (const status of [
-      TrueForgeApi.SandboxBuildStatus.Pending,
-      TrueForgeApi.SandboxBuildStatus.Ready,
-      TrueForgeApi.SandboxBuildStatus.Failed,
-    ]) {
-      const statusReason = status === TrueForgeApi.SandboxBuildStatus.Failed ? 'Snapshot build failed' : null;
-      const entry = toUiSandboxProviderListEntry(configuredResponse({ status, statusReason }));
-
-      assert.equal(entry.snapshotSyncStatus.status, status);
-      assert.deepEqual(entry.data, toUiSandboxProvider(harnessConfigured));
-      if (statusReason) {
-        assert.equal(entry.snapshotSyncStatus.statusReason, statusReason);
-      } else {
-        assert.equal('statusReason' in entry.snapshotSyncStatus, false);
-      }
-    }
-  });
-
-  it('filters wrapped providers by provider identity', () => {
-    const provider = toUiSandboxProviderListEntry(
-      configuredResponse({
-        status: TrueForgeApi.SandboxBuildStatus.Ready,
-        statusReason: null,
-      }),
-    );
+  it('filters providers by provider identity', () => {
+    const provider = toUiSandboxProvider(harnessConfigured);
 
     assert.deepEqual(filterUiSandboxProviders({ providers: [provider], query: ' DAYT ' }), [provider]);
     assert.deepEqual(filterUiSandboxProviders({ providers: [provider], query: 'missing' }), []);

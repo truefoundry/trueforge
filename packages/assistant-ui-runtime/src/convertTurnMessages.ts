@@ -30,6 +30,7 @@ import {
 } from './foldPeerThreads.js';
 import { drainListPages } from './listPages.js';
 import { buildMcpAuthTextParts, mcpAuthAssistantStatus, mcpAuthMessageCustom } from './mcpAuth.js';
+import { CANCELLATION_REASON_CUSTOM_KEY } from './messageCustomMetadata.js';
 import type { AssistantContentPart } from './modelMessageContent.js';
 import { extractImageUrlFromUserContentItem, imageUrlToAttachment } from './modelMessageImageContent.js';
 import {
@@ -48,6 +49,7 @@ import {
   applyApprovalDecisionsToContent,
   collectApprovalDecisionsFromTurnInput,
   collectSubsequentApprovalDecisions,
+  hasPendingToolApproval,
   messageHasPendingApprovals,
   TOOL_APPROVAL_THREAD_ID_CUSTOM_KEY,
   toolApprovalMessageCustom,
@@ -58,6 +60,7 @@ import {
   applyUserToolResponsesToFold,
   collectSubsequentToolResponses,
   collectToolResponsesFromTurnInput,
+  hasPendingToolResponse,
   messageHasPendingResponses,
   TOOL_RESPONSE_THREAD_ID_CUSTOM_KEY,
   toolResponseMessageCustom,
@@ -65,6 +68,8 @@ import {
 } from './toolResponse.js';
 import { appendMcpAuthToTurnContent, appendToolApprovalToTurnContent } from './turnEventHelpers.js';
 import type { TurnStreamUpdate } from './turnStreamUpdate.js';
+
+export { CANCELLATION_REASON_CUSTOM_KEY } from './messageCustomMetadata.js';
 
 /**
  * Turn / event → assistant-ui normalization
@@ -346,6 +351,8 @@ function cloneThreadBucket(bucket: ThreadBucket): ThreadBucket {
     approvalDecisions: new Map(bucket.approvalDecisions),
     pendingResponses: new Map(bucket.pendingResponses),
     done: bucket.done,
+    // Keep sub-agent failure text so a cloned bucket still shows as failed.
+    ...(bucket.error != null ? { error: bucket.error } : {}),
     ...(bucket.title != null ? { title: bucket.title } : {}),
     ...(bucket.agentInfo != null ? { agentInfo: bucket.agentInfo } : {}),
   };
@@ -377,6 +384,10 @@ export function prependFoldState(older: PeerThreadFoldState, newer: PeerThreadFo
       approvalDecisions: new Map([...olderBucket.approvalDecisions, ...newerBucket.approvalDecisions]),
       pendingResponses: new Map([...olderBucket.pendingResponses, ...newerBucket.pendingResponses]),
       done: newerBucket.done || olderBucket.done,
+      // Prefer the newer failure text; if only the older turn failed, keep that.
+      ...(newerBucket.error != null || olderBucket.error != null
+        ? { error: newerBucket.error ?? olderBucket.error }
+        : {}),
       ...(newerBucket.title != null || olderBucket.title != null
         ? { title: newerBucket.title ?? olderBucket.title }
         : {}),
@@ -462,15 +473,46 @@ function ingestSessionEventsIntoSnapshot(
   }
 }
 
+function rootModelMessageIdsForOpenTip(snapshot: SessionSnapshot): readonly string[] {
+  const committed = new Set(snapshot.turns.flatMap(turn => turn.rootModelMessageIds ?? []));
+  const rootIds = snapshot.fold.threads.get(ROOT_THREAD_ID)?.modelMessageIds ?? [];
+  return rootIds.filter(id => !committed.has(id));
+}
+
+/** Commits an open tip that finished before `turn.done` was in the events page. */
+function commitFinishedOpenTip(snapshot: SessionSnapshot, turn: Turn): SessionSnapshot {
+  if (snapshot.turns.some(existing => existing.id === turn.id)) {
+    return snapshot;
+  }
+  return replaceSessionSnapshot(snapshot, {
+    turns: [
+      ...snapshot.turns,
+      {
+        ...turnToSessionRecord(turn),
+        rootModelMessageIds: rootModelMessageIdsForOpenTip(snapshot),
+      },
+    ],
+  });
+}
+
 function attachRunningTurn(snapshot: SessionSnapshot, runningTurn: Turn | undefined): SessionSnapshot {
   if (runningTurn == null) {
     return snapshot;
   }
   const pendingUserText = extractTurnUserText(runningTurn.input);
+  // Tip is not in `turns`. Baseline committed groups only — fold already
+  // includes the open tip's messages, which must stay in live resume.
+  //2 scenario for Page Refresh:
+  //    1. only baseline the committed groups(there is only user msg no assistant msg)
+  //    2. the open tip's messages must stay in live resume (there is some assistant msg response in the fold)
+  const groupRootBaseline =
+    pendingUserText !== undefined
+      ? snapshot.turns.flatMap(turn => turn.rootModelMessageIds ?? [])
+      : computeGroupRootBaseline(snapshot.turns);
   return replaceSessionSnapshot(snapshot, {
     runningTurn,
     unstable_resume: true,
-    groupRootBaseline: computeGroupRootBaseline(snapshot.turns),
+    groupRootBaseline,
     ...(pendingUserText !== undefined
       ? {
           pendingUser: {
@@ -517,6 +559,12 @@ interface SessionTip {
   /** Turn to resume and subscribe to; absent once the tip has finished. */
   runningTurn?: Turn;
   /**
+   * Open tip that finished between `listEvents` and `getTurn`. It was not in
+   * the events page as `turn.done`, so the caller must commit it or the user
+   * message painted from the progress snapshot disappears.
+   */
+  finishedTurn?: Turn;
+  /**
    * Tip input that event ingestion could not apply, because it only folds a
    * turn's input once that turn's `turn.done` arrives. Answered ask-user
    * prompts and approvals live here, so this must be folded even when the tip
@@ -528,56 +576,49 @@ interface SessionTip {
 /**
  * Resolves the tip turn of the active branch for resume/subscribe.
  *
- * Prefer an open tip from the events window (works when listTurns is
- * oldest-first and when listEvents includes the running turn). Fall back to
- * `listTurns({ limit: 1 })` for hosts that omit the running turn from
- * listEvents and put the tip first.
+ * An open `turn.created` with no later `turn.done` is the tip. `listEvents`
+ * includes that turn, so a finished window needs no extra turns fetch.
  */
 async function resolveSessionTip(options: {
   server: AgentChatServer;
   sessionId: string;
   itemsAsc: readonly GatewaySessionEventItem[];
 }): Promise<SessionTip> {
-  const { server, sessionId, itemsAsc } = options;
-  const open = findOpenTurnCreated(itemsAsc);
-  if (open != null) {
-    const continuationInput = open.event.input ?? [];
-    if (typeof server.getTurn === 'function') {
-      try {
-        const turn = await server.getTurn({
-          sessionId,
-          turnId: open.turnId,
-        });
-        if (turn.state.status === 'running') {
-          return {
-            runningTurn: turn,
-            continuationInput: turn.input ?? continuationInput,
-          };
-        }
-        // Tip finished between listEvents and getTurn: nothing to
-        // resume, but its answers still belong in the fold.
-        return { continuationInput: turn.input ?? continuationInput };
-      } catch {
-        // getTurn failed; synthesize from the open turn.created below.
-      }
-    }
-    return {
-      runningTurn: turnFromCreatedEvent({
-        sessionId,
-        turnId: open.turnId,
-        event: open.event,
-      }),
-      continuationInput,
-    };
+  const open = findOpenTurnCreated(options.itemsAsc);
+  if (open == null) {
+    return { continuationInput: [] };
   }
 
-  // Hosts that exclude the running turn from listEvents still surface it as
-  // the first row of listTurns when that API is tip-first.
-  const turnsPage = await server.listTurns({ sessionId, limit: 1 });
-  const tip = turnsPage.data[0];
-  return tip?.state.status === 'running'
-    ? { runningTurn: tip, continuationInput: tip.input ?? [] }
-    : { continuationInput: [] };
+  const { server, sessionId } = options;
+  const continuationInput = open.event.input ?? [];
+  if (typeof server.getTurn === 'function') {
+    try {
+      const turn = await server.getTurn({
+        sessionId,
+        turnId: open.turnId,
+      });
+      if (turn.state.status === 'running') {
+        return {
+          runningTurn: turn,
+          continuationInput: turn.input ?? continuationInput,
+        };
+      }
+      // Tip finished between listEvents and getTurn: nothing to
+      // resume, but its answers still belong in the fold, and the turn
+      // itself must be committed so the painted user message stays.
+      return { finishedTurn: turn, continuationInput: turn.input ?? continuationInput };
+    } catch {
+      // getTurn failed; synthesize from the open turn.created below.
+    }
+  }
+  return {
+    runningTurn: turnFromCreatedEvent({
+      sessionId,
+      turnId: open.turnId,
+      event: open.event,
+    }),
+    continuationInput,
+  };
 }
 
 /**
@@ -585,12 +626,10 @@ async function resolveSessionTip(options: {
  *
  * Loads the newest event page (extending only when a page boundary splits a
  * turn group), then leaves older pages for `prependOlderSessionHistory`.
- * Detects a currently-running tip from an open `turn.created` in that window
- * when present; otherwise falls back to `listTurns({ limit: 1 })` for hosts
- * that omit the running turn from listEvents.
+ * A currently-running tip is an open `turn.created` in that window.
  *
- * `onProgress` is called after each complete turn is ingested so callers can
- * update the UI progressively while the processing loop runs.
+ * `onProgress` fires after each complete turn, then once with the paintable
+ * window before `getTurn`, so callers can clear loading before the tip is confirmed.
  */
 export async function buildSnapshotFromSessionEvents(
   server: AgentChatServer,
@@ -611,6 +650,25 @@ export async function buildSnapshotFromSessionEvents(
     historyPagination,
   });
 
+  const open = findOpenTurnCreated(window.itemsAsc);
+  // The open tip is not in `turns` until `turn.done`. Attach it from the
+  // event so the first paint includes its user message.
+  const paintable =
+    open == null
+      ? withHistory
+      : attachRunningTurn(
+          withHistory,
+          turnFromCreatedEvent({
+            sessionId,
+            turnId: open.turnId,
+            event: open.event,
+          }),
+        );
+  if (open != null) {
+    applyUserToolResponsesToFold(paintable.fold, open.event.input ?? []);
+  }
+  onProgress?.(paintable);
+
   const tip = await resolveSessionTip({
     server,
     sessionId,
@@ -618,8 +676,12 @@ export async function buildSnapshotFromSessionEvents(
   });
   // The tip has no turn.done in this window, so ingestion never folded its
   // input. Apply it here so answered approvals / ask-user prompts are not
-  // restored as pending after a refresh.
+  // restored as pending after a refresh. `getTurn` may carry answers that
+  // were not on `turn.created`; the write is keyed by tool call id.
   applyUserToolResponsesToFold(withHistory.fold, tip.continuationInput);
+  if (tip.finishedTurn != null) {
+    return commitFinishedOpenTip(withHistory, tip.finishedTurn);
+  }
   return attachRunningTurn(withHistory, tip.runningTurn);
 }
 
@@ -706,6 +768,32 @@ function assistantStatusFromTurnState(state: Turn['state']): MessageStatus {
     default:
       return { type: 'complete', reason: 'unknown' };
   }
+}
+
+/**
+ * Cancelled-turn UI flow (chat + session detail share this projection):
+ *
+ * Example: turn.done { status: "cancelled", reason: "abandoned" } with no model
+ * text. Without special handling the chat would show only the user bubble.
+ *
+ * 1. Live SSE — streamTurnEvents yields status cancelled +
+ *    metadata.cancellationReason = "abandoned" (no synthetic text part).
+ * 2. Commit — commitActiveStream reads that key, stores TurnStateCancelled on
+ *    the turn record (not a fake "done"), then clears activeStream.
+ * 3. History / reload — projectHistoryTurns sees state.cancelled, puts the wire
+ *    reason on metadata.custom, and always emits an assistant row even when the
+ *    fold has no model.message parts. trueforge-ui renders the orange banner.
+ *
+ * assistant-ui MessageStatus only knows reason: "cancelled" (no wire reason),
+ * so the human-readable reason lives on metadata.custom.cancellationReason.
+ */
+
+/**
+ * Normal turns only get an assistant bubble when the model produced content.
+ * Cancelled/error turns still need a bubble so the banner/error chrome can show.
+ */
+function shouldEmitTerminalAssistant(state: Turn['state'], content: readonly AssistantContentPart[]): boolean {
+  return content.length > 0 || state.status === 'cancelled' || state.status === 'error';
 }
 
 function resolveCreatedAt(
@@ -932,11 +1020,29 @@ function buildTurnUpdateFromFold(
   turn: Pick<Turn, 'state'>,
   rootModelMessageIds: readonly string[],
 ): TurnStreamUpdate {
-  const content = buildRootAssistantContentForIds(foldState, rootModelMessageIds);
-  let update: TurnStreamUpdate = { content };
-  update = appendMcpAuthToTurnContent(update.content, turn);
-  update = appendToolApprovalToTurnContent(update, turn);
-  return update;
+  // While we build this turn's messages, tell nested sub-agents that the parent
+  // already ended (cancelled/error) so they do not stay stuck as "running".
+  // Restore afterward so the flag does not leak into the next turn.
+  const previousParentTerminal = foldState.parentTerminalStatus;
+  const previousSettledCompletedAt = foldState.settledTurnCompletedAtMs;
+  foldState.settledTurnCompletedAtMs = turn.state.status === 'running' ? undefined : Date.parse(turn.state.completedAt);
+  if (turn.state.status === 'cancelled') {
+    foldState.parentTerminalStatus = 'cancelled';
+  } else if (turn.state.status === 'error') {
+    foldState.parentTerminalStatus = 'error';
+  } else {
+    foldState.parentTerminalStatus = undefined;
+  }
+  try {
+    const content = buildRootAssistantContentForIds(foldState, rootModelMessageIds);
+    let update: TurnStreamUpdate = { content };
+    update = appendMcpAuthToTurnContent(update.content, turn);
+    update = appendToolApprovalToTurnContent(update, turn);
+    return update;
+  } finally {
+    foldState.parentTerminalStatus = previousParentTerminal;
+    foldState.settledTurnCompletedAtMs = previousSettledCompletedAt;
+  }
 }
 
 function contentHasPendingRequiredActions(content: readonly AssistantContentPart[]): boolean {
@@ -1047,6 +1153,95 @@ function applyRequiredActionsOverlayToMessages(
   });
 }
 
+type ThreadAssistantMessagePart = Extract<ThreadMessage, { role: 'assistant' }>['content'][number];
+type AssistantToolCallPart = Extract<ThreadAssistantMessagePart, { type: 'tool-call' }>;
+
+function stripInteractivePendingFromContent(
+  content: readonly ThreadAssistantMessagePart[],
+): ThreadAssistantMessagePart[] {
+  return content.map(part => {
+    if (part.type !== 'tool-call') {
+      return part;
+    }
+
+    let next: AssistantToolCallPart = part;
+    if (hasPendingToolResponse(part)) {
+      const { interrupt, ...rest } = part;
+      void interrupt;
+      next = rest;
+    }
+    const approval = next.approval;
+    if (approval != null && hasPendingToolApproval(approval)) {
+      next = {
+        ...next,
+        approval: {
+          ...approval,
+          approved: false,
+          reason: 'Superseded by a later message',
+        },
+      };
+    }
+    if (next.messages != null) {
+      const nested = next.messages.map(message => {
+        if (message.role !== 'assistant' || message.status.type !== 'requires-action') {
+          return message;
+        }
+        return stripInteractivePendingFromAssistant(message);
+      });
+      next = { ...next, messages: nested };
+    }
+    return next;
+  });
+}
+
+function stripInteractivePendingFromAssistant(
+  message: Extract<ThreadMessage, { role: 'assistant' }>,
+): Extract<ThreadMessage, { role: 'assistant' }> {
+  const content = stripInteractivePendingFromContent(message.content);
+  const custom = Object.fromEntries(
+    Object.entries(message.metadata.custom).filter(
+      ([key]) =>
+        key !== 'pendingMcpAuth' &&
+        key !== 'mcpServers' &&
+        key !== TOOL_APPROVAL_THREAD_ID_CUSTOM_KEY &&
+        key !== TOOL_RESPONSE_THREAD_ID_CUSTOM_KEY,
+    ),
+  );
+  return {
+    ...message,
+    content,
+    status: { type: 'complete', reason: 'stop' },
+    metadata: {
+      ...message.metadata,
+      custom,
+    },
+  };
+}
+
+/** Clear interactive pause chrome on assistants that a later user message abandoned. */
+function abandonSupersededPausedMessages(messages: readonly ThreadMessage[]): ThreadMessage[] {
+  let lastUserIndex = -1;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i]?.role === 'user') {
+      lastUserIndex = i;
+      break;
+    }
+  }
+  if (lastUserIndex < 0) {
+    return [...messages];
+  }
+
+  return messages.map((message, index) => {
+    if (index >= lastUserIndex) {
+      return message;
+    }
+    if (message.role !== 'assistant' || message.status.type !== 'requires-action') {
+      return message;
+    }
+    return stripInteractivePendingFromAssistant(message);
+  });
+}
+
 function projectHistoryTurns(snapshot: SessionSnapshot, options?: ProjectSessionMessagesOptions): ThreadMessage[] {
   const messages: ThreadMessage[] = [];
   let lastAssistantIndex: number | undefined;
@@ -1098,6 +1293,7 @@ function projectHistoryTurns(snapshot: SessionSnapshot, options?: ProjectSession
       ...baseCustom,
       turnId: record.id,
       ...(sandboxId != null ? { sandboxId } : {}),
+      ...(record.state.status === 'cancelled' ? { [CANCELLATION_REASON_CUSTOM_KEY]: record.state.reason } : {}),
     };
     const assistantCreatedAt = record.state.status === 'running' ? record.createdAt : record.state.completedAt;
     const replaceAssistantCreatedAt = record.state.status !== 'running';
@@ -1122,7 +1318,8 @@ function projectHistoryTurns(snapshot: SessionSnapshot, options?: ProjectSession
         break;
       }
 
-      if (content.length > 0) {
+      // Includes empty cancelled/error turns so the terminal state is visible.
+      if (shouldEmitTerminalAssistant(record.state, content)) {
         messages.push(
           buildAssistantMessage(
             record.id,
@@ -1135,8 +1332,12 @@ function projectHistoryTurns(snapshot: SessionSnapshot, options?: ProjectSession
           ),
         );
         lastAssistantIndex = messages.length - 1;
+      } else {
+        // New user group with no assistant of its own — do not let a later empty
+        // cancelled/error continuation fold into a prior group's assistant.
+        lastAssistantIndex = undefined;
       }
-    } else if (content.length > 0 && lastAssistantIndex != null) {
+    } else if (shouldEmitTerminalAssistant(record.state, content) && lastAssistantIndex != null) {
       if (record.state.status === 'running') {
         break;
       }
@@ -1193,14 +1394,19 @@ export function projectSessionMessages(
       };
     }
 
-    if (isContinuation && last?.role === 'assistant') {
-      messages = [...messages.slice(0, -1), assistantMessage];
+    // Update existing assistant message in-place if already present (for
+    // continuation turns where assistantMessage reuses last.id, or when a turn
+    // with zero root model messages was already projected by projectHistoryTurns).
+    // Otherwise, append assistantMessage to the thread.
+    const existingIndex = messages.findIndex(m => m.id === assistantMessage.id);
+    if (existingIndex !== -1) {
+      messages = [...messages.slice(0, existingIndex), assistantMessage, ...messages.slice(existingIndex + 1)];
     } else {
       messages = [...messages, assistantMessage];
     }
   }
 
-  return applyRequiredActionsOverlayToMessages(messages, snapshot.requiredActions);
+  return abandonSupersededPausedMessages(applyRequiredActionsOverlayToMessages(messages, snapshot.requiredActions));
 }
 
 const DEFAULT_LIST_EVENTS_CONCURRENCY = 5;
@@ -1523,23 +1729,43 @@ function buildMcpAuthUpdate(
   };
 }
 
+/** Terminal `turn.done` with `status: error`. Not a transport drop — do not subscribe-retry. */
+export class TurnFailedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'TurnFailedError';
+  }
+}
+
+/** SSE body ended without `turn.done` or a pause — subscribe-retry. */
+export class TurnStreamDisconnectedError extends Error {
+  constructor(message = 'Turn stream closed before turn.done') {
+    super(message);
+    this.name = 'TurnStreamDisconnectedError';
+  }
+}
+
 export async function* streamTurnEvents(
   stream: AsyncIterable<TurnStreamData>,
   foldState: PeerThreadFoldState,
   groupRootBaseline?: readonly string[],
   onTurnIdAvailable?: (turnId: string) => void,
+  onSequenceNumber?: (sequenceNumber: number) => void,
 ): AsyncGenerator<TurnStreamUpdate> {
   let pendingMcpAuth: McpAuthRequiredEvent | undefined;
   let sandboxId: string | undefined;
   let sandboxIdYielded = false;
+  let lastSequenceNumber: number | undefined;
+  let sawTurnDone = false;
 
-  const withSandbox = (update: TurnStreamUpdate): TurnStreamUpdate => {
+  const withCursor = (update: TurnStreamUpdate): TurnStreamUpdate => {
+    const withSeq = lastSequenceNumber == null ? update : { ...update, sequenceNumber: lastSequenceNumber };
     if (sandboxId == null) {
-      return update;
+      return withSeq;
     }
     return {
-      ...update,
-      metadata: { ...update.metadata, custom: { ...update.metadata?.custom, sandboxId } },
+      ...withSeq,
+      metadata: { ...withSeq.metadata, custom: { ...withSeq.metadata?.custom, sandboxId } },
     };
   };
 
@@ -1553,6 +1779,8 @@ export async function* streamTurnEvents(
   };
 
   for await (const data of stream) {
+    lastSequenceNumber = data.sequenceNumber;
+    onSequenceNumber?.(data.sequenceNumber);
     const event = data.event;
 
     if (event.type === 'turn.created') {
@@ -1572,7 +1800,28 @@ export async function* streamTurnEvents(
 
     if (event.type === 'turn.done') {
       if (event.state.status === 'error') {
-        throw new Error(event.state.message);
+        throw new TurnFailedError(event.state.message);
+      }
+      // Live cancel: stash wire reason for commit + UI banner. Return so
+      // sandbox/MCP/approval post-loop yields cannot overwrite this update.
+      if (event.state.status === 'cancelled') {
+        const ids =
+          groupRootBaseline != null
+            ? rootModelMessageIdsSinceBaseline(foldState, groupRootBaseline)
+            : (foldState.threads.get(ROOT_THREAD_ID)?.modelMessageIds ?? []);
+        // Same as history: mark parent cancelled so open sub-agents render cancelled too.
+        const previousParentTerminal = foldState.parentTerminalStatus;
+        foldState.parentTerminalStatus = 'cancelled';
+        try {
+          yield withCursor({
+            content: buildRootAssistantContentForIds(foldState, ids),
+            status: { type: 'incomplete', reason: 'cancelled' },
+            metadata: { custom: { [CANCELLATION_REASON_CUSTOM_KEY]: event.state.reason } },
+          });
+        } finally {
+          foldState.parentTerminalStatus = previousParentTerminal;
+        }
+        return;
       }
       // The turn is logically complete once `turn.done` is observed. The
       // resumed-turn transport (`subscribeToTurn`) is a reconnectable live
@@ -1580,6 +1829,7 @@ export async function* streamTurnEvents(
       // event, so we must stop consuming explicitly rather than waiting
       // for the underlying stream to end — otherwise `isRunning` never
       // clears and the composer's cancel/spinner button gets stuck.
+      sawTurnDone = true;
       break;
     }
 
@@ -1592,12 +1842,12 @@ export async function* streamTurnEvents(
       if (sandboxId != null) {
         sandboxIdYielded = true;
       }
-      yield withSandbox({ content });
+      yield withCursor({ content });
     }
   }
 
   if (pendingMcpAuth != null) {
-    yield withSandbox(buildMcpAuthUpdate(pendingMcpAuth, foldState, groupRootBaseline));
+    yield withCursor(buildMcpAuthUpdate(pendingMcpAuth, foldState, groupRootBaseline));
     return;
   }
 
@@ -1621,7 +1871,7 @@ export async function* streamTurnEvents(
       groupRootBaseline != null
         ? rootModelMessageIdsSinceBaseline(foldState, groupRootBaseline)
         : (foldState.threads.get(ROOT_THREAD_ID)?.modelMessageIds ?? []);
-    yield withSandbox({
+    yield withCursor({
       content: buildRootAssistantContentForIds(foldState, ids),
       status: approvalThreadId != null ? toolApprovalStatus() : toolResponseStatus(),
       metadata: { custom },
@@ -1634,7 +1884,11 @@ export async function* streamTurnEvents(
       groupRootBaseline != null
         ? rootModelMessageIdsSinceBaseline(foldState, groupRootBaseline)
         : (foldState.threads.get(ROOT_THREAD_ID)?.modelMessageIds ?? []);
-    yield withSandbox({ content: buildRootAssistantContentForIds(foldState, ids) });
+    yield withCursor({ content: buildRootAssistantContentForIds(foldState, ids) });
+  }
+
+  if (!sawTurnDone) {
+    throw new TurnStreamDisconnectedError();
   }
 }
 

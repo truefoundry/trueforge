@@ -12,10 +12,13 @@ function readyExec(): Promise<ExecResult> {
 function makeProvider(
   overrides: Partial<SandboxProvider> & Pick<SandboxProvider, 'createSandbox' | 'exec'>,
 ): SandboxProvider {
+  const unsupportedOrgSecret = () => Promise.reject(new Error('test provider does not support org secrets'));
   return {
     type: 'local',
-    buildImage: () => Promise.resolve({ status: 'ready', reason: null, metadata: null }),
-    getImageBuildStatus: () => Promise.resolve({ status: 'ready', reason: null, metadata: null }),
+    envSupported: false,
+    createSecret: unsupportedOrgSecret,
+    updateSecret: unsupportedOrgSecret,
+    deleteSecret: unsupportedOrgSecret,
     getAdditionalInstructions: () => undefined,
     getToolResultDumpDir: sandboxId => `${sandboxId}/tool-results`,
     getGitCredentialsPath: sandboxId => `${sandboxId}/.git-credentials`,

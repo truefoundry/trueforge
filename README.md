@@ -104,7 +104,7 @@ We compare TrueForge against Claude Managed Agents and deepagents on the same ta
 
 We love contributions - bug reports, features, and docs fixes. See [CONTRIBUTING.md](CONTRIBUTING.md) and our [Code of Conduct](CODE_OF_CONDUCT.md). Fork PRs should change source only; maintainers regenerate the SDK after merge.
 
-To report a security vulnerability, follow [SECURITY.md](SECURITY.md) instead of opening a public issue.
+To report a security vulnerability, submit it through our [Vulnerability Disclosure Program](https://vdp.truefoundry.com) instead of opening a public issue. See [SECURITY.md](SECURITY.md) for details.
 
 ## Talk to us
 

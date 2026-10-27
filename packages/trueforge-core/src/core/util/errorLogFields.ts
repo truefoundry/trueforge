@@ -1,3 +1,5 @@
+import { MCP_ERROR_PREFIX, MODEL_ERROR_PREFIX, stripErrorPrefix } from '../errors';
+
 export interface ErrorLogFields {
   error: string;
   stack?: string | undefined;
@@ -47,10 +49,25 @@ function describeErrorChain(error: unknown, seen: Set<unknown>): string {
   if (head.length === 0) {
     return tail;
   }
-  if (tail.length === 0 || head.includes(tail)) {
+  if (tail.length === 0 || causeMessageAlreadyIncluded({ head, tail })) {
     return head;
   }
   return `${head}: ${tail}`;
+}
+
+/**
+ * A wrapped MCP or model error keeps the upstream error as `cause`, but its message drops the
+ * source label before adding context. That label must not be joined back onto the outer text.
+ */
+function causeMessageAlreadyIncluded({ head, tail }: { head: string; tail: string }): boolean {
+  if (head.includes(tail)) {
+    return true;
+  }
+  const unlabeledTail = stripErrorPrefix({
+    prefix: [MCP_ERROR_PREFIX, MODEL_ERROR_PREFIX],
+    message: tail,
+  });
+  return unlabeledTail.length > 0 && head.includes(unlabeledTail);
 }
 
 /**
@@ -69,12 +86,67 @@ export function describeUnknownError(error: unknown): string {
   return String(error);
 }
 
+/**
+ * `error.stack` stops at the wrapper. Each `cause` stack is the throw beneath it,
+ * so the log keeps the whole chain.
+ */
+function stackWithCauses(error: Error): string | undefined {
+  const stacks: string[] = [];
+  const seen = new Set<unknown>();
+  let current: unknown = error;
+  while (typeof current === 'object' && current !== null && !seen.has(current)) {
+    seen.add(current);
+    if (current instanceof Error && current.stack !== undefined) {
+      stacks.push(current.stack);
+    }
+    if (!('cause' in current)) {
+      break;
+    }
+    current = Reflect.get(current, 'cause');
+  }
+  return stacks.length > 0 ? stacks.join('\nCaused by: ') : undefined;
+}
+
+function readIntegerProperty(error: object, key: string): number | undefined {
+  if (!(key in error)) {
+    return undefined;
+  }
+  const value: unknown = Reflect.get(error, key);
+  return typeof value === 'number' && Number.isInteger(value) ? value : undefined;
+}
+
+/** `statusCode` (AI SDK, MCP) or `status` (OAuth, HTTPException). */
+function readHttpStatus(error: object): number | undefined {
+  return readIntegerProperty(error, 'statusCode') ?? readIntegerProperty(error, 'status');
+}
+
+function httpStatusInChain(error: unknown, seen: Set<unknown>): number | undefined {
+  if (typeof error !== 'object' || error === null || seen.has(error)) {
+    return undefined;
+  }
+  seen.add(error);
+  const status = readHttpStatus(error);
+  if (status !== undefined) {
+    return status;
+  }
+  if (!('cause' in error)) {
+    return undefined;
+  }
+  return httpStatusInChain(Reflect.get(error, 'cause'), seen);
+}
+
+/** Every failure is reported except an HTTP status from 200 through 499, including on `cause`. */
+export function isReportableError(error: unknown): boolean {
+  const status = httpStatusInChain(error, new Set());
+  return status === undefined || status > 499;
+}
+
 export function extractErrorLogFields(error: unknown): ErrorLogFields {
   if (error instanceof Error) {
     const chain = describeErrorChain(error, new Set());
     return {
       error: chain.length > 0 ? chain : formatObjectErrorForLog(error),
-      stack: error.stack,
+      stack: stackWithCauses(error),
     };
   }
   if (typeof error !== 'object' || error === null) {

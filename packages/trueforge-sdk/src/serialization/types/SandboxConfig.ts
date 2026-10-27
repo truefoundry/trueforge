@@ -7,12 +7,14 @@ import type * as serializers from "../index.js";
 export const SandboxConfig: core.serialization.ObjectSchema<serializers.SandboxConfig.Raw, TrueForge.SandboxConfig> =
     core.serialization.object({
         enabled: core.serialization.boolean(),
+        environmentName: core.serialization.property("environment_name", core.serialization.string().optional()),
         fileDownloads: core.serialization.property("file_downloads", core.serialization.boolean().optional()),
     });
 
 export declare namespace SandboxConfig {
     export interface Raw {
         enabled: boolean;
+        environment_name?: string | null;
         file_downloads?: boolean | null;
     }
 }

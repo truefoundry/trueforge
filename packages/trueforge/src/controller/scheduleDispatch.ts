@@ -1,7 +1,5 @@
 import type { SessionHandle, Sessions, TurnInputItem } from '@truefoundry/trueforge-core/agent-session';
-import { TrueForge } from '@truefoundry/trueforge-sdk';
 import type { Logger } from 'winston';
-import configuration from '../config';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import {
   cronRunName,
@@ -10,11 +8,10 @@ import {
   type ScheduleRunRecord,
 } from '../db/scheduleStore';
 import type { WithTransaction } from '../db/transaction';
-import { createTlsFetch, normalizeTlsUrl } from '../http/tls';
 import { nextTriggerAfter } from '../runtime/cron';
 import { InvalidCronError, type ScheduleRunStatus } from '../schemas/schedule';
-import { captureCriticalException } from '../sentry';
 import type { ControlLoop } from './Controller';
+import { internalTrueForgeClient } from './internalTrueForgeClient';
 
 /**
  * Rows examined per pass.
@@ -43,22 +40,6 @@ const SCHEDULE_DISPATCH_INTERVAL_MS = 60_000;
 const SCHEDULE_DISPATCH_LOOP_NAME = 'schedule-dispatch';
 
 export type ScheduleRunExecutor = (scheduleRunId: string) => Promise<void>;
-
-/** HTTP handoff to `POST /api/internal/schedules/runs/execute` (dedicated controller or standalone loopback). */
-export function createHttpScheduleRunExecutor(): ScheduleRunExecutor {
-  const tls = {
-    enabled: configuration.MTLS_ENABLED,
-    dir: configuration.MTLS_CERTS_DIR,
-  };
-  const tlsFetch = createTlsFetch(tls);
-  const client = new TrueForge({
-    baseUrl: normalizeTlsUrl({ url: configuration.SERVER_URL, enabled: tls.enabled }),
-    token: configuration.TRUEFORGE_API_KEY,
-    timeoutInSeconds: 60,
-    ...(tlsFetch === undefined ? {} : { fetch: tlsFetch }),
-  });
-  return scheduleRunId => client.internal.schedules.executeRun({ scheduleRunId });
-}
 
 /** Schedule's bound agent name is missing from the agent store. */
 export class ScheduleAgentNotFoundError extends Error {
@@ -104,15 +85,17 @@ export interface PreparedScheduleTurn {
   agent: AgentRecord;
 }
 
-export async function startScheduleRun(params: {
+export async function startScheduleRun<TTransaction>(params: {
   item: ScheduleDispatchItem;
   sessions: Sessions;
   agentStore: IAgentStore;
+  scheduleStore: Pick<IScheduleStore<TTransaction>, 'updateRun'>;
 }): Promise<PreparedScheduleTurn | undefined> {
   const {
     item: { run, schedule },
     sessions,
     agentStore,
+    scheduleStore,
   } = params;
 
   const named = await agentStore.getAgent({ tenant_id: schedule.tenant_id, name: schedule.agent_name });
@@ -126,6 +109,14 @@ export async function startScheduleRun(params: {
     created_by_subject: schedule.created_by_subject,
     agent: { type: 'reference', id: named.id, name: named.name },
     source: { type: 'schedule', id: schedule.id, run_id: run.id },
+  });
+
+  // This is not atomic with session creation so a failure here leaves the run unlinked.
+  // Runs before the idempotency check so retries relink it, at the cost of redundant writes on re-delivery.
+  await scheduleStore.updateRun({
+    tenant_id: schedule.tenant_id,
+    id: run.id,
+    session_id: session.session_id,
   });
 
   // idempotency check
@@ -182,7 +173,7 @@ async function finishScheduledRun<TTransaction>(params: {
   await withTransaction(async txn => {
     const latest = await store.getScheduleForUpdate({ tenant_id: run.tenant_id, id: run.schedule_id }, txn);
 
-    const updated = await store.updateRunStatus(
+    const updated = await store.updateRun(
       { tenant_id: run.tenant_id, id: run.id, status, reason: reason ?? null },
       txn,
     );
@@ -303,13 +294,13 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
           schedule_id: schedule.id,
           run_id: run.id,
           error,
-        });
-        captureCriticalException(error, {
-          tags: { module: 'scheduleDispatch', operation: 'handoff' },
-          extra: {
-            tenant_id: run.tenant_id,
-            schedule_id: schedule.id,
-            run_id: run.id,
+          reportable_error: {
+            error,
+            extra: {
+              tenant_id: run.tenant_id,
+              schedule_id: schedule.id,
+              run_id: run.id,
+            },
           },
         });
         await finishScheduledRun({
@@ -337,13 +328,13 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
         schedule_id: run.schedule_id,
         run_id: run.id,
         error,
-      });
-      captureCriticalException(error, {
-        tags: { module: 'scheduleDispatch', operation: 'processRun' },
-        extra: {
-          tenant_id: run.tenant_id,
-          schedule_id: run.schedule_id,
-          run_id: run.id,
+        reportable_error: {
+          error,
+          extra: {
+            tenant_id: run.tenant_id,
+            schedule_id: run.schedule_id,
+            run_id: run.id,
+          },
         },
       });
     }
@@ -358,14 +349,13 @@ export function scheduleDispatchLoop<TTransaction>(params: {
   withTransaction: WithTransaction<TTransaction>;
 }): ControlLoop {
   const { scheduleStore, withTransaction, logger } = params;
-  const executeRun = createHttpScheduleRunExecutor();
   return {
     name: SCHEDULE_DISPATCH_LOOP_NAME,
     intervalMs: SCHEDULE_DISPATCH_INTERVAL_MS,
     async tick(signal: AbortSignal): Promise<void> {
       const result = await dispatchScheduledRuns({
         store: scheduleStore,
-        onTriggered: item => executeRun(item.run.id),
+        onTriggered: item => internalTrueForgeClient.executeScheduleRun(item.run.id),
         logger,
         withTransaction,
         signal,

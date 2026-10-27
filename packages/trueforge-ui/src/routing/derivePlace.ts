@@ -6,10 +6,14 @@ import type { RoutePlace, ShellSnapshot } from './types.js';
  * SingleAgent canonicalizes to `root` so `/` and `/agents/{name}` alias.
  */
 export function deriveChatPlace(snapshot: ShellSnapshot): RoutePlace {
-  // The live thread wins: reusing a mutable shell switches thread without a
-  // remount, leaving `pendingSessionId` on the session the shell last opened.
-  // It only leads while a requested session has not reported its thread yet.
-  const sessionId = snapshot.activeRemoteId ?? snapshot.pendingSessionId;
+  // Access-error panes keep `pendingSessionId` for the deep link. Prefer it over
+  // a prior thread's `activeRemoteId` so shell→URL does not navigate away.
+  // Otherwise the live thread wins: reusing a mutable shell switches thread
+  // without a remount, leaving `pendingSessionId` on the session last opened.
+  const sessionId =
+    snapshot.sessionAccessError != null
+      ? snapshot.pendingSessionId
+      : (snapshot.activeRemoteId ?? snapshot.pendingSessionId);
   if (sessionId != null) return { type: 'session', sessionId };
 
   const { mode, agentConfigMode } = snapshot;
@@ -24,10 +28,11 @@ export function deriveChatPlace(snapshot: ShellSnapshot): RoutePlace {
   return { type: 'root' };
 }
 
-/** Full place with overlay priority: settings, schedules, sessions, library, chat. */
+/** Full place with overlay priority: settings, schedules, environments, sessions, library, chat. */
 export function derivePlace(snapshot: ShellSnapshot): RoutePlace {
   if (snapshot.settingsOpen) return { type: 'settings' };
   if (snapshot.schedulesOpen) return { type: 'schedules' };
+  if (snapshot.environmentsOpen) return { type: 'environments' };
   if (snapshot.sessionsOpen && snapshot.sharedSessionId != null) {
     return { type: 'sharedSession', sessionId: snapshot.sharedSessionId };
   }

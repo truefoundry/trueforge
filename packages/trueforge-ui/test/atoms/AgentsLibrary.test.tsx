@@ -1,8 +1,11 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
+import { useEffect } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { AnalyticsProvider } from '@/analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '@/analytics/events.js';
 import { AgentsLibrary } from '@/atoms/AgentsLibrary.js';
 import { AgentsLibraryButton } from '@/atoms/AgentsLibraryButton.js';
 import { CenteredModal } from '@/atoms/primitives/CenteredModal.js';
@@ -11,6 +14,7 @@ import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
 import type { AgentUIServer, ListPermissionsResponse } from '@/server/types.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 import {
+  createMockAgentMetricsServer,
   createMockAgentSessionsServer,
   createMockAgentUIServer,
   createMockScheduleServer,
@@ -31,6 +35,27 @@ afterEach(() => {
   window.history.replaceState(null, '', '/');
 });
 
+function mobileMatchMedia(query: string): MediaQueryList {
+  return {
+    matches: query === '(max-width: 767px)',
+    media: query,
+    onchange: null,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    dispatchEvent: vi.fn(() => true),
+  };
+}
+
+function withMobileViewport(run: () => Promise<void> | void) {
+  const originalMatchMedia = window.matchMedia;
+  Object.defineProperty(window, 'matchMedia', { configurable: true, value: mobileMatchMedia });
+  return Promise.resolve(run()).finally(() => {
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: originalMatchMedia });
+  });
+}
+
 function mockServer(
   agents: Array<{
     name: string;
@@ -49,7 +74,7 @@ function mockServer(
   }> = [{ name: 'alpha-agent', agentId: 'alpha-agent' }],
 ): AgentUIServer {
   return createMockAgentUIServer({
-    searchAgents: vi.fn(async () => agents),
+    searchAgents: vi.fn(async () => ({ data: agents })),
   });
 }
 
@@ -58,18 +83,21 @@ function renderLibrary(
   {
     server = mockServer(),
     agentConfig,
+    track,
   }: {
     server?: AgentUIServer;
     agentConfig?: Parameters<typeof ShellModeProvider>[0]['agentConfig'];
+    track?: (eventName: string, data?: Record<string, string | number | boolean | undefined>) => void;
   } = {},
 ) {
-  return render(
+  const tree = (
     <SlotsProvider>
       <ServerProvider server={server}>
         <ShellModeProvider agentConfig={agentConfig}>{ui}</ShellModeProvider>
       </ServerProvider>
-    </SlotsProvider>,
+    </SlotsProvider>
   );
+  return render(track != null ? <AnalyticsProvider track={track}>{tree}</AnalyticsProvider> : tree);
 }
 
 function LibraryHarness({ children, onSelectAgent }: { children?: ReactNode; onSelectAgent?: (name: string) => void }) {
@@ -118,10 +146,26 @@ describe('CenteredModal', () => {
 });
 
 describe('AgentsLibrary', () => {
+  it('shows a friendly load error instead of raw fetch failures', async () => {
+    const server = createMockAgentUIServer({
+      searchAgents: vi.fn(async () => {
+        throw new TypeError('Failed to fetch');
+      }),
+    });
+    renderLibrary(<LibraryHarness />, { server });
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
+
+    expect(await screen.findByRole('heading', { name: "Couldn't load agents" })).toBeInTheDocument();
+    expect(screen.getByText('Check your connection and try again.')).toBeInTheDocument();
+    expect(screen.queryByText('Failed to fetch')).not.toBeInTheDocument();
+    expect(screen.queryByText('Failed to load agents.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+  });
+
   it('opens agent details from the row only when the optional server is available', async () => {
     window.history.replaceState(null, '', '/library?theme=dark&sessionId=stale&view=sessions&s_sts=1&s_ets=2');
     const server = createMockAgentUIServer({
-      searchAgents: vi.fn(async () => [{ name: 'alpha-agent', agentId: 'agent-1' }]),
+      searchAgents: vi.fn(async () => ({ data: [{ name: 'alpha-agent', agentId: 'agent-1' }] })),
       sessions: {
         getAgent: vi.fn(),
         getCodeSnippets: vi.fn(),
@@ -155,24 +199,81 @@ describe('AgentsLibrary', () => {
       { name: 'beta-agent', agentId: 'beta-agent' },
     ]);
     const onSelectAgent = vi.fn();
+    const track = vi.fn();
 
-    renderLibrary(<LibraryHarness onSelectAgent={onSelectAgent} />, { server });
+    renderLibrary(<LibraryHarness onSelectAgent={onSelectAgent} />, { server, track });
 
     fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
     expect(screen.getByRole('heading', { name: 'Agents' })).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Try agent alpha-agent' })).toBeInTheDocument();
     });
-    expect(screen.getByText('Alpha handles triage.')).toHaveClass('truncate');
+    expect(screen.getByText('gpt-4.1')).toBeInTheDocument();
+    expect(screen.getByText('no tools')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Try agent beta-agent' }));
     expect(onSelectAgent).toHaveBeenCalledWith('beta-agent');
+    expect(track).toHaveBeenCalledWith(
+      AnalyticsEvents.Library.AGENT_TRIED,
+      expect.objectContaining({ agent_id: 'beta-agent', agent_name: 'beta-agent' }),
+    );
+    expect(track.mock.calls.some(call => call[0] === AnalyticsEvents.Library.CLOSED)).toBe(false);
     await waitFor(() => {
       expect(screen.queryByRole('heading', { name: 'Agents' })).not.toBeInTheDocument();
     });
   });
 
-  it('truncates long descriptions without hiding Try, and skips name-echo descriptions', async () => {
+  it('renders agents as cards on mobile instead of a table', async () => {
+    await withMobileViewport(async () => {
+      const server = createMockAgentUIServer({
+        searchAgents: vi.fn(async () => ({
+          data: [
+            {
+              name: 'alpha-agent',
+              agentId: 'alpha-agent',
+              description: 'Alpha handles triage.',
+              agentSpec: {
+                model: { name: 'openai/gpt-4.1' },
+                skills: [{ id: 's1', name: 'Skill' }],
+                mcpServers: [{ id: 'm1', name: 'Connector' }],
+              },
+            },
+          ],
+        })),
+        sessions: createMockAgentSessionsServer(),
+        schedules: createMockScheduleServer(),
+      });
+
+      renderLibrary(<LibraryHarness />, { server });
+      fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Try agent alpha-agent' })).toBeInTheDocument();
+      });
+
+      expect(screen.queryByRole('table')).not.toBeInTheDocument();
+      expect(screen.queryByRole('columnheader')).not.toBeInTheDocument();
+
+      const cards = screen.getAllByRole('listitem');
+      expect(cards).toHaveLength(1);
+      const card = cards[0]!;
+      expect(within(card).getByRole('button', { name: 'Open alpha-agent' })).toBeInTheDocument();
+      expect(within(card).getByRole('button', { name: 'Try agent alpha-agent' })).toBeInTheDocument();
+      expect(within(card).getByLabelText('openai/gpt-4.1')).toBeInTheDocument();
+      expect(within(card).getByText('1 MCP')).toBeInTheDocument();
+      expect(within(card).getByText('1 skill')).toBeInTheDocument();
+      expect(within(card).getByLabelText('MCP: Connector')).toBeInTheDocument();
+      expect(within(card).getByLabelText('Skills: Skill')).toBeInTheDocument();
+      // Description is tooltip-only; creator nests under the name instead.
+      expect(within(card).queryByText('Alpha handles triage.')).not.toBeInTheDocument();
+
+      const addSchedule = await within(card).findByRole('button', { name: 'Add schedule for alpha-agent' });
+      expect(addSchedule).toBeVisible();
+      expect(addSchedule).toHaveClass('inline-flex');
+    });
+  });
+
+  it('keeps Try visible and skips name-echo descriptions under the agent title', async () => {
     const longDescription = `${'Lorem ipsum dolor sit amet, '.repeat(20)}consectetur.`;
     const server = mockServer([
       {
@@ -195,8 +296,10 @@ describe('AgentsLibrary', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Try agent verbose-agent' })).toBeInTheDocument();
     });
+    expect(screen.getByRole('columnheader', { name: 'Agent' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Configuration' })).toBeInTheDocument();
-    expect(screen.getByText(longDescription)).toHaveClass('truncate');
+    // Description is tooltip-only on the name; name-echo descriptions stay hidden.
+    expect(screen.queryByText(longDescription)).not.toBeInTheDocument();
     expect(screen.queryByText('echo-agent', { selector: '.text-xs' })).not.toBeInTheDocument();
   });
 
@@ -234,13 +337,15 @@ describe('AgentsLibrary', () => {
 
   it('keeps Try and Clone available with USE while disabling Edit and Delete', async () => {
     const server = createMockAgentUIServer({
-      searchAgents: vi.fn(async () => [
-        {
-          name: 'shared-agent',
-          agentId: 'shared-id',
-          agentSpec: { model: { name: 'openai/gpt-5' } },
-        },
-      ]),
+      searchAgents: vi.fn(async () => ({
+        data: [
+          {
+            name: 'shared-agent',
+            agentId: 'shared-id',
+            agentSpec: { model: { name: 'openai/gpt-5' } },
+          },
+        ],
+      })),
       permissions: {
         listPermissions: vi.fn(async ({ resourceType }): Promise<ListPermissionsResponse> =>
           resourceType === 'tenant'
@@ -273,13 +378,15 @@ describe('AgentsLibrary', () => {
 
   it('keeps Clone enabled without USE (read-only agent permissions)', async () => {
     const server = createMockAgentUIServer({
-      searchAgents: vi.fn(async () => [
-        {
-          name: 'shared-agent',
-          agentId: 'shared-id',
-          agentSpec: { model: { name: 'openai/gpt-5' } },
-        },
-      ]),
+      searchAgents: vi.fn(async () => ({
+        data: [
+          {
+            name: 'shared-agent',
+            agentId: 'shared-id',
+            agentSpec: { model: { name: 'openai/gpt-5' } },
+          },
+        ],
+      })),
       permissions: {
         listPermissions: vi.fn(async ({ resourceType }): Promise<ListPermissionsResponse> =>
           resourceType === 'tenant'
@@ -308,14 +415,16 @@ describe('AgentsLibrary', () => {
   it('opens Clone Agent drawer on Clone, creates on save, and stays on the library', async () => {
     const saveAgent = vi.fn(async () => ({ agentId: 'writer-clone-id' }));
     const server = createMockAgentUIServer({
-      searchAgents: vi.fn(async () => [
-        {
-          name: 'writer',
-          agentId: 'writer-id',
-          description: 'Writes release notes.',
-          agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
-        },
-      ]),
+      searchAgents: vi.fn(async () => ({
+        data: [
+          {
+            name: 'writer',
+            agentId: 'writer-id',
+            description: 'Writes release notes.',
+            agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+          },
+        ],
+      })),
       saveAgent,
       deleteAgent: vi.fn(async () => {}),
     });
@@ -353,13 +462,15 @@ describe('AgentsLibrary', () => {
   it('deletes an agent only after the confirmation dialog is accepted', async () => {
     const deleteAgent = vi.fn(async () => {});
     const server = createMockAgentUIServer({
-      searchAgents: vi.fn(async () => [
-        {
-          name: 'writer',
-          agentId: 'writer-id',
-          agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
-        },
-      ]),
+      searchAgents: vi.fn(async () => ({
+        data: [
+          {
+            name: 'writer',
+            agentId: 'writer-id',
+            agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+          },
+        ],
+      })),
       deleteAgent,
     });
 
@@ -390,7 +501,7 @@ describe('AgentsLibrary', () => {
     expect(screen.getByRole('heading', { name: 'Agents' })).toBeInTheDocument();
   });
 
-  it('shows model, skills, and connector under a Configuration column with tooltips', async () => {
+  it('shows model and tools summary under a Configuration column with tooltips', async () => {
     const server = mockServer([
       {
         name: 'algo-art',
@@ -400,6 +511,11 @@ describe('AgentsLibrary', () => {
           skills: [{ id: 's1', name: 'paint' }],
           mcpServers: [{ id: 'm1', name: 'github' }],
         },
+      },
+      {
+        name: 'model-only',
+        agentId: 'model-only',
+        agentSpec: { model: { name: 'openai/gpt-4.1' } },
       },
       { name: 'bare', agentId: 'bare' },
     ]);
@@ -416,8 +532,11 @@ describe('AgentsLibrary', () => {
     });
     expect(screen.getByLabelText('openai/gpt-5-5')).toBeInTheDocument();
     expect(screen.getByText('gpt-5-5')).toBeInTheDocument();
-    expect(screen.getByLabelText('Connectors: github')).toBeInTheDocument();
+    expect(screen.getByText('1 MCP')).toBeInTheDocument();
+    expect(screen.getByText('1 skill')).toBeInTheDocument();
+    expect(screen.getByLabelText('MCP: github')).toBeInTheDocument();
     expect(screen.getByLabelText('Skills: paint')).toBeInTheDocument();
+    expect(screen.getByText('no tools')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Try agent bare' })).toBeInTheDocument();
     expect(screen.getByLabelText('Configuration unavailable for bare')).toBeInTheDocument();
   });
@@ -474,32 +593,73 @@ describe('AgentsLibrary', () => {
     expect(screen.queryByText('Build one in a chat, then save it as an agent.')).not.toBeInTheDocument();
   });
 
+  it('seeds search from agent_name on first paint and keeps the URL in sync', async () => {
+    window.history.replaceState(null, '', '/library?agent_name=ask-ai-clone&theme=dark');
+    const searchAgents = vi.fn(async ({ query }: { query?: string } = {}) => ({
+      data: query === 'ask-ai-clone' ? [{ name: 'ask-ai-clone', agentId: 'agent-clone' }] : [],
+    }));
+    const server = createMockAgentUIServer({ searchAgents });
+
+    function DeepLinkLibrary() {
+      const shell = useShellMode();
+      useEffect(() => {
+        shell.setLibraryOpen(true);
+      }, [shell]);
+      if (!shell.libraryOpen) return null;
+      return <AgentsLibrary />;
+    }
+
+    renderLibrary(<DeepLinkLibrary />, { server });
+
+    expect(await screen.findByPlaceholderText('Search agents')).toHaveValue('ask-ai-clone');
+    expect(new URL(window.location.href).searchParams.get('agent_name')).toBe('ask-ai-clone');
+    await waitFor(() => {
+      expect(searchAgents).toHaveBeenCalled();
+    });
+    // First enabled fetch must already use the deep-link name (no unfiltered preamble).
+    expect(searchAgents.mock.calls[0]?.[0]).toEqual(expect.objectContaining({ query: 'ask-ai-clone' }));
+    expect(await screen.findByRole('button', { name: 'Try agent ask-ai-clone' })).toBeInTheDocument();
+    expect(new URL(window.location.href).searchParams.get('theme')).toBe('dark');
+
+    fireEvent.change(screen.getByPlaceholderText('Search agents'), { target: { value: '' } });
+    await waitFor(() => {
+      expect(new URL(window.location.href).searchParams.get('agent_name')).toBeNull();
+    });
+    expect(new URL(window.location.href).searchParams.get('theme')).toBe('dark');
+  });
+
   it('closes via Escape', () => {
-    renderLibrary(<LibraryHarness />);
+    const track = vi.fn();
+    renderLibrary(<LibraryHarness />, { track });
 
     fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
     expect(screen.getByRole('heading', { name: 'Agents' })).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.queryByRole('heading', { name: 'Agents' })).not.toBeInTheDocument();
+    expect(track).toHaveBeenCalledWith(AnalyticsEvents.Library.CLOSED, undefined);
   });
 });
 
 describe('AgentsLibraryButton', () => {
   it('opens the Agents panel from the trigger', async () => {
     const server = mockServer([{ name: 'alpha-agent', agentId: 'alpha-agent' }]);
+    const track = vi.fn();
 
     renderLibrary(
       <>
         <AgentsLibraryButton />
         <AgentsLibrary />
       </>,
-      { server },
+      { server, track },
     );
 
     fireEvent.click(screen.getByRole('button', { name: /Agents/ }));
     expect(screen.getByRole('heading', { name: 'Agents' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Agents/ })).toHaveAttribute('aria-current', 'page');
+    expect(track).toHaveBeenCalledWith(AnalyticsEvents.Library.OPENED, undefined);
+    fireEvent.click(screen.getByRole('button', { name: /Agents/ }));
+    expect(track).toHaveBeenCalledTimes(1);
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Try agent alpha-agent' })).toBeInTheDocument();
     });
@@ -508,11 +668,13 @@ describe('AgentsLibraryButton', () => {
   it('re-fetches the agent count when agentsListEpoch bumps', async () => {
     const searchAgents = vi
       .fn()
-      .mockResolvedValueOnce([{ name: 'alpha', agentId: 'alpha' }])
-      .mockResolvedValueOnce([
-        { name: 'alpha', agentId: 'alpha' },
-        { name: 'beta', agentId: 'beta' },
-      ]);
+      .mockResolvedValueOnce({ data: [{ name: 'alpha', agentId: 'alpha' }] })
+      .mockResolvedValueOnce({
+        data: [
+          { name: 'alpha', agentId: 'alpha' },
+          { name: 'beta', agentId: 'beta' },
+        ],
+      });
     const server = createMockAgentUIServer({ searchAgents });
 
     function Invalidate() {
@@ -544,12 +706,14 @@ describe('AgentsLibraryButton', () => {
     expect(searchAgents).toHaveBeenCalledTimes(2);
   });
 
-  it('shows 50+ when the first page is full', async () => {
+  it('shows 50+ when the first page has a next token', async () => {
     const agents = Array.from({ length: 50 }, (_, i) => ({
       name: `agent-${i}`,
       agentId: `agent-${i}`,
     }));
-    const server = mockServer(agents);
+    const server = createMockAgentUIServer({
+      searchAgents: vi.fn(async () => ({ data: agents, nextPageToken: 'tok_2' })),
+    });
 
     renderLibrary(<AgentsLibraryButton />, { server });
 
@@ -559,7 +723,7 @@ describe('AgentsLibraryButton', () => {
   });
 
   it('does not fetch agent count when compact', () => {
-    const searchAgents = vi.fn(async () => [{ name: 'alpha', agentId: 'alpha' }]);
+    const searchAgents = vi.fn(async () => ({ data: [{ name: 'alpha', agentId: 'alpha' }] }));
     const server = createMockAgentUIServer({ searchAgents });
 
     renderLibrary(<AgentsLibraryButton compact />, { server });
@@ -596,10 +760,12 @@ describe('AgentsLibraryButton', () => {
       ],
     }));
     const server = createMockAgentUIServer({
-      searchAgents: vi.fn(async () => [
-        { name: 'alpha-agent', agentId: 'alpha-agent' },
-        { name: 'beta-agent', agentId: 'beta-agent' },
-      ]),
+      searchAgents: vi.fn(async () => ({
+        data: [
+          { name: 'alpha-agent', agentId: 'alpha-agent' },
+          { name: 'beta-agent', agentId: 'beta-agent' },
+        ],
+      })),
       sessions: {
         getAgent: vi.fn(),
         getCodeSnippets: vi.fn(),
@@ -671,7 +837,7 @@ describe('AgentsLibraryButton', () => {
       return { data: [] };
     });
     const server = createMockAgentUIServer({
-      searchAgents: vi.fn(async () => [{ name: 'alpha-agent', agentId: 'alpha-agent' }]),
+      searchAgents: vi.fn(async () => ({ data: [{ name: 'alpha-agent', agentId: 'alpha-agent' }] })),
       schedules: {
         listSchedules,
         getSchedule: vi.fn(),
@@ -703,27 +869,34 @@ describe('AgentsLibraryButton', () => {
     expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled();
   });
 
-  it('paginates with next and previous and resets offset when page size changes', async () => {
+  it('paginates with next and previous and resets page token when page size changes', async () => {
     const all = Array.from({ length: 15 }, (_, i) => ({
       name: `agent-${String(i).padStart(2, '0')}`,
       agentId: `agent-${i}`,
     }));
-    const searchAgents = vi.fn(async ({ limit = 10, offset = 0 }: { limit?: number; offset?: number } = {}) =>
-      all.slice(offset, offset + limit),
-    );
+    const searchAgents = vi.fn(async ({ limit = 10, pageToken }: { limit?: number; pageToken?: string } = {}) => {
+      if (pageToken === 'tok_2') {
+        return { data: all.slice(10), previousPageToken: 'tok_1' };
+      }
+      const data = all.slice(0, limit);
+      return {
+        data,
+        ...(data.length < all.length ? { nextPageToken: 'tok_2' } : {}),
+      };
+    });
     const server = createMockAgentUIServer({ searchAgents });
 
     renderLibrary(<LibraryHarness />, { server });
     fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
 
     await screen.findByRole('button', { name: 'Try agent agent-00' });
-    expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 10, offset: 0 });
+    expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 10 });
     expect(screen.getByRole('button', { name: 'Next page' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
     await waitFor(() => {
-      expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 10, offset: 10 });
+      expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 10, pageToken: 'tok_2' });
     });
     await screen.findByRole('button', { name: 'Try agent agent-10' });
     expect(screen.getByRole('button', { name: 'Previous page' })).toBeEnabled();
@@ -731,24 +904,24 @@ describe('AgentsLibraryButton', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Previous page' }));
     await waitFor(() => {
-      expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 10, offset: 0 });
+      expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 10, pageToken: 'tok_1' });
     });
     await screen.findByRole('button', { name: 'Try agent agent-00' });
 
     fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
     await waitFor(() => {
-      expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 10, offset: 10 });
+      expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 10, pageToken: 'tok_2' });
     });
 
     // PopoverSelect: open rows-per-page and pick 25
     fireEvent.click(screen.getByRole('button', { name: 'Rows per page' }));
     fireEvent.click(await screen.findByRole('option', { name: '25' }));
     await waitFor(() => {
-      expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 25, offset: 0 });
+      expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 25 });
     });
   });
 
-  it('shows Created by when agents include createdBySubject', async () => {
+  it('nests creator under the agent name when createdBySubject is present', async () => {
     const server = mockServer([
       {
         name: 'alpha-agent',
@@ -763,15 +936,125 @@ describe('AgentsLibraryButton', () => {
     renderLibrary(<LibraryHarness />, { server });
     fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
 
-    expect(await screen.findByRole('columnheader', { name: 'Created by' })).toBeInTheDocument();
+    expect(await screen.findByRole('columnheader', { name: 'Agent' })).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Created by' })).not.toBeInTheDocument();
     expect(screen.getByText('alice@example.com')).toBeInTheDocument();
     expect(document.querySelector('[data-slot="avatar-fallback"]')).toHaveTextContent(/^A$/);
   });
 
-  it('hides Created by when no agent has createdBySubject', async () => {
+  it('omits creator chrome when no agent has createdBySubject', async () => {
     renderLibrary(<LibraryHarness />, { server: mockServer() });
     fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
     await screen.findByRole('button', { name: 'Try agent alpha-agent' });
     expect(screen.queryByRole('columnheader', { name: 'Created by' })).not.toBeInTheDocument();
+    expect(document.querySelector('[data-slot="avatar-fallback"]')).not.toBeInTheDocument();
+  });
+
+  it('shows sessions, spend, sparkline, and last run when metrics and sessions are available', async () => {
+    const getMeters = vi.fn(async () => [
+      { name: 'total_sessions', aggregateValue: 12, description: 'Total sessions', unit: 'count' },
+      { name: 'total_cost_in_usd', aggregateValue: 4.5, description: 'Total cost', unit: '$' },
+      { name: 'cost_per_session_in_usd', aggregateValue: 0.375, description: 'Cost per session', unit: '$' },
+    ]);
+    const getChartData = vi.fn(async () => ({
+      step: '86400',
+      graphs: [
+        {
+          name: 'sessions_cost_over_time',
+          displayName: 'Cost',
+          description: 'Daily spend',
+          unit: '$',
+          chartType: 'line' as const,
+          graphLines: [
+            {
+              name: 'cost',
+              values: [
+                { timestamp: '2026-10-01T00:00:00.000Z', value: 0.1 },
+                { timestamp: '2026-10-02T00:00:00.000Z', value: 0.4 },
+                { timestamp: '2026-10-03T00:00:00.000Z', value: 0.2 },
+              ],
+            },
+          ],
+        },
+      ],
+    }));
+    const listSessions = vi.fn(async () => ({
+      data: [
+        {
+          id: 'sess-1',
+          createdAt: '2026-10-18T12:00:00.000Z',
+          updatedAt: '2026-10-18T12:30:00.000Z',
+          lastActivityAt: '2026-10-18T12:30:00.000Z',
+          metrics: { totalTurns: 1, totalDurationMs: 1000 },
+        },
+      ],
+    }));
+    const server = createMockAgentUIServer({
+      searchAgents: vi.fn(async () => ({
+        data: [{ name: 'metrics-agent', agentId: 'metrics-agent', agentSpec: { model: { name: 'openai/gpt-4.1' } } }],
+      })),
+      sessions: createMockAgentSessionsServer({ listSessions }),
+      metrics: createMockAgentMetricsServer({ getMeters, getChartData }),
+    });
+
+    renderLibrary(<LibraryHarness />, { server });
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
+
+    expect(await screen.findByRole('columnheader', { name: 'Sessions, 30d' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Spend, 30d' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Daily, 14d' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Last run' })).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(getMeters).toHaveBeenCalled();
+      expect(getChartData).toHaveBeenCalled();
+      expect(listSessions).toHaveBeenCalledWith({ agentId: 'metrics-agent', limit: 1, order: 'desc' });
+    });
+
+    expect(await screen.findByLabelText('12 sessions')).toBeInTheDocument();
+    expect(screen.getByText('$4.50')).toBeInTheDocument();
+    expect(screen.getByText('$0.38 / session')).toBeInTheDocument();
+    const sparkline = screen.getByRole('img', { name: 'Daily spend over 14 days for metrics-agent' });
+    expect(sparkline).toHaveClass('text-success-bg');
+    fireEvent.mouseMove(sparkline, { clientX: 0, clientY: 8 });
+    const utcDay = new Intl.DateTimeFormat(undefined, {
+      month: 'short',
+      day: 'numeric',
+      timeZone: 'UTC',
+    }).format(new Date('2026-10-01T00:00:00.000Z'));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(utcDay);
+    expect(screen.getByRole('tooltip')).toHaveTextContent('$0.10');
+    expect(screen.getByLabelText(/Last run for metrics-agent:/)).toBeInTheDocument();
+  });
+
+  it('shows Never when the agent has no sessions', async () => {
+    const server = createMockAgentUIServer({
+      searchAgents: vi.fn(async () => ({
+        data: [{ name: 'metrics-agent', agentId: 'metrics-agent' }],
+      })),
+      sessions: createMockAgentSessionsServer({
+        listSessions: vi.fn(async () => ({ data: [] })),
+      }),
+    });
+    renderLibrary(<LibraryHarness />, { server });
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
+    expect(await screen.findByLabelText('Last run for metrics-agent: Never')).toBeInTheDocument();
+  });
+
+  it('shows an em dash for last run when the session list fails', async () => {
+    const server = createMockAgentUIServer({
+      searchAgents: vi.fn(async () => ({
+        data: [{ name: 'metrics-agent', agentId: 'metrics-agent' }],
+      })),
+      sessions: createMockAgentSessionsServer({
+        listSessions: vi.fn(async () => {
+          throw new Error('sessions down');
+        }),
+      }),
+    });
+    renderLibrary(<LibraryHarness />, { server });
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
+    expect(await screen.findByLabelText('Last run unavailable for metrics-agent')).toHaveTextContent('—');
+    expect(screen.queryByText('Never')).not.toBeInTheDocument();
   });
 });

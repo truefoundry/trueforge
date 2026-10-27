@@ -50,6 +50,7 @@ export function toModelSelection({
       ...(maxOutputTokens === undefined ? {} : { maxOutputTokens }),
       ...(reasoningEfforts === undefined ? {} : { reasoningEfforts: [...reasoningEfforts] }),
     },
+    ...(model.warning === undefined ? {} : { warning: model.warning }),
   };
 }
 
@@ -123,15 +124,18 @@ export function createHarnessBuilderServer(
 
     async searchAgents(req?: SearchAgentsParams) {
       const limit = clampAgentsPageSize(req?.limit ?? AGENTS_PAGE_DEFAULT);
-      const offset = req?.offset ?? 0;
       const query = req?.query?.trim();
-      const rows = await listAgentsPage({
+      const page = await listAgentsPage({
         client,
         limit,
-        offset,
+        ...(req?.pageToken === undefined || req.pageToken === '' ? {} : { pageToken: req.pageToken }),
         ...(query === undefined || query === '' ? {} : { agentName: query }),
       });
-      return rows.map(toLibraryEntry);
+      return {
+        data: page.data.map(toLibraryEntry),
+        ...(page.nextPageToken === undefined ? {} : { nextPageToken: page.nextPageToken }),
+        ...(page.previousPageToken === undefined ? {} : { previousPageToken: page.previousPageToken }),
+      };
     },
 
     async saveAgent({ agentName, description: descriptionRaw, agentSpec, intent }) {

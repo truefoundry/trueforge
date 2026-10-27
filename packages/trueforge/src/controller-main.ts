@@ -17,14 +17,12 @@ import { runController } from './controller';
 import { createDb } from './db/postgres/client';
 import { PostgresScheduleStore } from './db/postgres/schedule-store/PostgresScheduleStore';
 import { createControllerLogger } from './logger';
-import { PACKAGE_VERSION } from './packageVersion';
 import { initSentry } from './sentry';
 
 try {
   const logger = createControllerLogger({
     level: configuration.LOG_LEVEL,
     standalone: configuration.STANDALONE,
-    version: PACKAGE_VERSION,
   });
 
   await initSentry(configuration, logger, { tags: { component: 'controller' } });

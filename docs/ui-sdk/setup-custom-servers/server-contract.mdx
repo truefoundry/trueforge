@@ -29,10 +29,21 @@ asynchronously, so the SDK renders a loading indicator (`role="status"`) for a m
 ## The composed contract
 
 ```ts
-type AgentUIServer = AgentChatServer & AgentBuilderServer & { catalog?: CatalogServer };
+type AgentUIServer = AgentChatServer & AgentBuilderServer & {
+  catalog?: CatalogServer;
+  sessions?: AgentSessionsServer;
+  schedules?: ScheduleServer;
+  sandboxEnvironments?: SandboxEnvironmentServer;
+  metrics?: AgentMetricsServer;
+  permissions?: PermissionsServer;
+  getMe?: () => Promise<{ tenantId: string }>;
+};
 ```
 
-Chat and session operations, agent-builder operations, and an optional settings catalog. Only the first two are required.
+Chat and agent-builder operations are required. The optional ports add settings catalogs,
+agent detail/session views, schedules, sandbox environments, aggregate metrics, and resource
+permissions. `getMe` supplies the caller's tenant identity for sharing. A custom server can
+attach these ports directly, or pass them to `createTrueForgeServer`.
 
 Every interface is generic. The SDK's types constrain only the fields the UI itself reads, so when your backend returns richer objects you widen the type parameters rather than casting or stripping fields. See [widening](#widening-the-types) below.
 
@@ -211,7 +222,7 @@ interface AgentBuilderServer {
   getModels(): Promise<ModelSelection[]>;
   getSkills(): Promise<AgentSkill[]>;
   getMcp(): Promise<ConnectorState[]>;
-  searchAgents(req?: SearchAgentsParams): Promise<AgentLibraryEntry[]>;
+  searchAgents(req?: SearchAgentsParams): Promise<ListResult<AgentLibraryEntry>>;
   saveAgent(req: SaveAgentRequest): Promise<SaveAgentResult>;
   deleteAgent?(req: { agentName: string }): Promise<void>;
 }
@@ -260,7 +271,7 @@ The remaining methods return the minimum each selector renders:
   Return a non-empty `properties.reasoningEfforts` on a `ModelSelection` and the UI shows a reasoning-effort picker beside the model selector. On `AgentLibraryEntry`, `agentId` is the stable identifier used for selection, history filtering, and session binding; omit it and the row falls back to `name`. Supply `agentSpec` to enable Edit; omit it for try-only agents.
 </Note>
 
-`SearchAgentsParams` is `{ query?, limit?, offset? }` — offset paging, since it backs a search box rather than an infinite list. `SaveAgentRequest` is `{ agentName, agentSpec, intent, sessionId? }`, where `intent` is `"create"` for a new agent and `"update"` when the chat is already bound to one. It returns a `SaveAgentResult` of `{ agentId?, sessionUpdatedAt? }` — `agentId` is the id the host registry allocated, and `sessionUpdatedAt` is set when the active mutable session was updated in the same call.
+`SearchAgentsParams` is `{ query?, limit?, pageToken? }`. `searchAgents` returns `{ data, nextPageToken? }`, using the same token pagination as the session lists; pass the returned token as `pageToken` for the next page. `SaveAgentRequest` is `{ agentName, agentSpec, intent, sessionId? }`, where `intent` is `"create"` for a new agent and `"update"` when the chat is already bound to one. It returns a `SaveAgentResult` of `{ agentId?, sessionUpdatedAt? }` — `agentId` is the id the host registry allocated, and `sessionUpdatedAt` is set when the active mutable session was updated in the same call.
 
 ## AgentSpec
 

@@ -39,7 +39,7 @@ describe('createTrueForgeServer', () => {
       authenticated: true,
     }));
     const getMcpTools = vi.fn(async () => [{ id: 'search', name: 'search', description: 'Search repositories' }]);
-    const searchAgents = vi.fn(async () => [{ name: 'ask-ai-agent', agentId: 'ask-ai-agent' }]);
+    const searchAgents = vi.fn(async () => ({ data: [{ name: 'ask-ai-agent', agentId: 'ask-ai-agent' }] }));
     const saveAgent = vi.fn(async (): Promise<SaveAgentResult> => ({ agentId: 'agent-1' }));
     const sessions = {
       getAgent: vi.fn(),
@@ -78,9 +78,9 @@ describe('createTrueForgeServer', () => {
       { id: 'search', name: 'search', description: 'Search repositories' },
     ]);
     expect(getMcpTools).toHaveBeenCalledWith({ connectorId: 'github' });
-    await expect(server.searchAgents({ query: 'ask' })).resolves.toEqual([
-      { name: 'ask-ai-agent', agentId: 'ask-ai-agent' },
-    ]);
+    await expect(server.searchAgents({ query: 'ask' })).resolves.toEqual({
+      data: [{ name: 'ask-ai-agent', agentId: 'ask-ai-agent' }],
+    });
     expect(searchAgents).toHaveBeenCalledWith({ query: 'ask' });
 
     await server.saveAgent({
@@ -191,7 +191,7 @@ describe('createTrueForgeServer', () => {
       getModels: async () => [],
       getSkills: async () => [],
       getMcp: async () => [],
-      searchAgents: async () => [],
+      searchAgents: async () => ({ data: [] }),
       saveAgent: async () => ({ agentId: 'agent-1' }),
       catalog,
     });

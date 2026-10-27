@@ -9,6 +9,8 @@ import {
   type Question,
 } from '../atoms/adapters/AskUserPromptAdapter.js';
 
+import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '../analytics/events.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 
 const EMPTY_ANSWER: AskUserAnswerDraft = { radioValue: '', custom: '' };
@@ -16,6 +18,7 @@ const EMPTY_ANSWER: AskUserAnswerDraft = { radioValue: '', custom: '' };
 export function AskUserContainer({ disabled = false }: { disabled?: boolean }) {
   const AskUserPrompt = useSlot('AskUserPrompt');
   const { pending, respond } = useTrueForgeToolResponses();
+  const track = useTrackAnalytics();
   const isRunning = useThreadIsRunning();
   const item = pending[0];
 
@@ -73,8 +76,14 @@ export function AskUserContainer({ disabled = false }: { disabled?: boolean }) {
     if (disabled || item == null || !allQuestionsAnswered) return;
     const content = getResponseForQuestion(item.toolCallId);
     if (!content) return;
+    const answer = answers[item.toolCallId] ?? EMPTY_ANSWER;
+    track(AnalyticsEvents.AskUser.SUBMITTED, {
+      tool_call_id: item.toolCallId,
+      question_count: questions.length,
+      is_custom_option: answer.radioValue === ASK_USER_CUSTOM_OPTION,
+    });
     respond({ toolCallId: item.toolCallId, content });
-  }, [allQuestionsAnswered, disabled, getResponseForQuestion, item, respond]);
+  }, [allQuestionsAnswered, answers, disabled, getResponseForQuestion, item, questions.length, respond, track]);
 
   if (item == null || currentQuestion == null) return null;
 

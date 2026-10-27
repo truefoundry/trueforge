@@ -1,7 +1,14 @@
 import type { CallToolRequest, CallToolResult, ListToolsResult } from '@modelcontextprotocol/sdk/types.js';
 import type { RegisteredPassthroughEvent } from '../events/PassthroughEvents';
-import type { AgentInfo, ApprovalDecision, MCPServerAuthInfo, MCPServerInitInfo } from '../events/schema';
+import type {
+  AgentInfo,
+  ApprovalDecision,
+  MCPServerAuthInfo,
+  MCPServerInitInfo,
+  ToolApprovalPolicyAction,
+} from '../events/schema';
 import type { InternalToolCallInfo } from '../llm/LLMTypes';
+import type { McpServerClass } from '../observability/operationMetrics';
 import type { SandboxInfo } from '../sandbox/Sandbox';
 
 export interface MCPAuthRequired {
@@ -96,6 +103,7 @@ export function toolResultResponse(params: {
 export interface IToolSet {
   readonly name: string;
   readonly id: string;
+  readonly serverClass: McpServerClass;
   readonly description?: string | undefined;
 
   // True when every exposed tool is eager. DeferredTool uses the inverse.
@@ -114,12 +122,18 @@ export interface IToolSet {
   // Existing synchronous Code Mode allow-list. Optional implementations fall
   // back to the current unrestricted envelope; callTool still enforces policy.
   getAllowedToolNamesForSandbox?(): string[] | undefined;
+
+  // Per-tool approval policies. User MCP tool sets record and expose policies;
+  // system tool sets are never approval-gated and implement these as no-ops.
+  setApprovalPolicy(toolName: string, action: ToolApprovalPolicyAction): void;
+  getApprovalPolicies(): Record<string, ToolApprovalPolicyAction>;
 }
 
 /** Policy-free tool provider; a {@link ToolSet} wraps it to layer per-agent selector policy on top. */
 export interface ToolSource {
   readonly name: string;
   readonly id: string;
+  readonly serverClass: McpServerClass;
   readonly description?: string | undefined;
 
   listTools(): Promise<ListToolsResolvedResponse | AuthRequiredResponse>;

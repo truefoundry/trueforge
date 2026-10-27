@@ -65,6 +65,8 @@ type CommonPopoverSelectProps<T extends string> = {
   prefix?: string;
   emptyContent?: ReactNode;
   footer?: ReactNode;
+  /** Fires when the menu opens or closes. */
+  onOpenChange?: (open: boolean) => void;
   'aria-label': string;
 };
 
@@ -83,7 +85,11 @@ export type PopoverSelectProps<T extends string> = CommonPopoverSelectProps<T> &
   );
 
 export function PopoverSelect<T extends string>(props: PopoverSelectProps<T>) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpenState] = useState(false);
+  const setOpen = (next: boolean) => {
+    setOpenState(next);
+    props.onOpenChange?.(next);
+  };
   const [pos, setPos] = useState<{ top: number; left: number; width: number; placement: MenuPlacement } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -281,7 +287,7 @@ export function PopoverSelect<T extends string>(props: PopoverSelectProps<T>) {
         aria-expanded={open}
         aria-controls={open ? listboxId : undefined}
         className={props.prefix != null ? auiSelectPrefixTriggerClass() : auiSelectTriggerClass()}
-        onClick={() => setOpen(value => !value)}
+        onClick={() => setOpen(!open)}
         onKeyDown={event => {
           if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();

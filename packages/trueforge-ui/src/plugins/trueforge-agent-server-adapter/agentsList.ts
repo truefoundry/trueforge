@@ -3,6 +3,9 @@
  */
 import type { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
 
+import type { ListResult } from '../../server/types.js';
+import { toListResult } from './chatServer.js';
+
 /** Matches API AGENTS_PAGE_DEFAULT / AGENTS_PAGE_LIMIT. */
 export const AGENTS_PAGE_DEFAULT = 50;
 export const AGENTS_PAGE_LIMIT = 100;
@@ -11,44 +14,40 @@ export function clampAgentsPageSize(size: number): number {
   return Math.min(Math.max(size, 1), AGENTS_PAGE_LIMIT);
 }
 
-/**
- * One page of agents. `offset` must be a multiple of `limit` (page-aligned);
- * advances via SDK `getNextPage` so we never invent page tokens.
- */
+/** One page of agents, with API next/previous page tokens. */
 export async function listAgentsPage({
   client,
   limit,
-  offset = 0,
+  pageToken,
   agentName,
 }: {
   client: TrueForge;
   limit: number;
-  offset?: number;
+  pageToken?: string;
   agentName?: string;
-}): Promise<TrueForgeApi.Agent[]> {
+}): Promise<ListResult<TrueForgeApi.Agent>> {
   const pageSize = clampAgentsPageSize(limit);
-  const start = Math.max(0, offset);
   const page = await client.agents.list({
     limit: pageSize,
+    ...(pageToken === undefined || pageToken === '' ? {} : { pageToken }),
     ...(agentName === undefined ? {} : { agentName }),
   });
-  let at = 0;
-  while (at < start) {
-    if (!page.hasNextPage()) return [];
-    await page.getNextPage();
-    at += pageSize;
-  }
-  return [...page.data];
+  return toListResult(page, agent => agent);
 }
 
 /** Drain every agents page into one array (name lookups, indexes). */
 export async function drainAgentsList(client: TrueForge): Promise<TrueForgeApi.Agent[]> {
   const items: TrueForgeApi.Agent[] = [];
-  const page = await client.agents.list({ limit: AGENTS_PAGE_DEFAULT });
+  let pageToken: string | undefined;
   for (;;) {
+    const page = await listAgentsPage({
+      client,
+      limit: AGENTS_PAGE_DEFAULT,
+      ...(pageToken === undefined ? {} : { pageToken }),
+    });
     items.push(...page.data);
-    if (!page.hasNextPage()) break;
-    await page.getNextPage();
+    if (page.nextPageToken == null || page.nextPageToken === '') break;
+    pageToken = page.nextPageToken;
   }
   return items;
 }

@@ -243,4 +243,165 @@ describe('useDraftAgentSpec', () => {
 
     await expect(result.current.takeTurnHeaderTimestamp()).resolves.toBe('2026-06-30T17:00:00.000Z');
   });
+
+  it('falls back to defaultAgentSpec and does not error when getDraftAgentSpec resolves to null', async () => {
+    const onError = vi.fn();
+    const draftBridge: DraftSessionBridge = {
+      getDraftAgentSpec: vi.fn().mockResolvedValue(null),
+      syncAgentSpec: vi.fn().mockResolvedValue('2026-06-30T17:00:00.000Z'),
+    };
+    const { result } = renderHook(() =>
+      useDraftAgentSpec({
+        draftSessionId: 'session-no-spec',
+        draftBridge,
+        defaultAgentSpec,
+        onError,
+      }),
+    );
+    await flushMicrotasks();
+
+    expect(draftBridge.getDraftAgentSpec).toHaveBeenCalledWith('session-no-spec');
+    expect(onError).not.toHaveBeenCalled();
+    expect(result.current.agentSpec).toEqual(defaultAgentSpec);
+    expect(result.current.specError).toBeNull();
+    expect(result.current.isSpecLoading).toBe(false);
+  });
+
+  it('does not sync dirty edits if the loaded session returns null agentSpec', async () => {
+    const syncAgentSpec = vi.fn().mockResolvedValue('2026-06-30T17:00:00.000Z');
+    const draftBridge: DraftSessionBridge = {
+      getDraftAgentSpec: vi.fn().mockResolvedValue(null),
+      syncAgentSpec,
+    };
+    const initialProps: { draftSessionId: string | undefined } = { draftSessionId: undefined };
+    const { result, rerender } = renderHook(
+      ({ draftSessionId }) =>
+        useDraftAgentSpec({
+          draftSessionId,
+          draftBridge,
+          defaultAgentSpec,
+        }),
+      { initialProps },
+    );
+    await flushMicrotasks();
+
+    // User makes a local edit in New Chat (draftSessionId is undefined)
+    act(() => {
+      result.current.updateAgentSpec({ instructions: 'local edit' });
+    });
+
+    // Chat navigates or attaches to a named/immutable session where getDraftAgentSpec returns null
+    rerender({ draftSessionId: 'immutable-session-1' });
+    await flushMicrotasks();
+
+    expect(draftBridge.getDraftAgentSpec).toHaveBeenCalledWith('immutable-session-1');
+    expect(syncAgentSpec).not.toHaveBeenCalled();
+  });
+
+  it('adopts a resumed session spec instead of PATCHing dirty New Chat edits onto it', async () => {
+    const resumedSpec = {
+      model: { name: 'openai/gpt-5-6-terra' },
+      config: { sandbox: { enabled: true, environmentName: 'python-dev' } },
+    };
+    const syncAgentSpec = vi.fn().mockResolvedValue('2026-06-30T18:00:00.000Z');
+    const draftBridge: DraftSessionBridge = {
+      getDraftAgentSpec: vi.fn().mockResolvedValue(resumedSpec),
+      syncAgentSpec,
+    };
+    const initialProps: { draftSessionId: string | undefined } = { draftSessionId: undefined };
+    const { result, rerender } = renderHook(
+      ({ draftSessionId }) =>
+        useDraftAgentSpec({
+          draftSessionId,
+          draftBridge,
+          defaultAgentSpec,
+        }),
+      { initialProps },
+    );
+    await flushMicrotasks();
+
+    act(() => {
+      result.current.updateAgentSpec({
+        model: { name: 'openai/gpt-4.1' },
+        config: { sandbox: { enabled: true } },
+      });
+    });
+
+    rerender({ draftSessionId: 'existing-session-1' });
+    await flushMicrotasks();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(400);
+    });
+    await flushMicrotasks();
+
+    expect(draftBridge.getDraftAgentSpec).toHaveBeenCalledWith('existing-session-1');
+    expect(result.current.agentSpec).toEqual(resumedSpec);
+    expect(syncAgentSpec).not.toHaveBeenCalled();
+  });
+
+  it('does not PATCH New Chat seed while a resumed session spec is still loading', async () => {
+    const resumedSpec = {
+      model: { name: 'openai/gpt-5-6-terra' },
+      config: { sandbox: { enabled: true, environmentName: 'python-dev' } },
+    };
+    let resolveLoad: ((spec: typeof resumedSpec) => void) | undefined;
+    const syncAgentSpec = vi.fn().mockResolvedValue('2026-06-30T19:00:00.000Z');
+    const draftBridge: DraftSessionBridge = {
+      getDraftAgentSpec: vi.fn(
+        () =>
+          new Promise<typeof resumedSpec>(resolve => {
+            resolveLoad = resolve;
+          }),
+      ),
+      syncAgentSpec,
+    };
+    const initialProps: { draftSessionId: string | undefined } = { draftSessionId: undefined };
+    const { result, rerender } = renderHook(
+      ({ draftSessionId }) =>
+        useDraftAgentSpec({
+          draftSessionId,
+          draftBridge,
+          defaultAgentSpec,
+        }),
+      { initialProps },
+    );
+    await flushMicrotasks();
+
+    act(() => {
+      result.current.updateAgentSpec({
+        config: { sandbox: { enabled: true }, webSearch: { enabled: true } },
+      });
+    });
+
+    // sameMutable history switch: draftSessionId appears before getDraftAgentSpec resolves.
+    rerender({ draftSessionId: 'existing-session-2' });
+    await flushMicrotasks();
+    expect(result.current.isSpecLoading).toBe(true);
+
+    // Preference bridges call updateAgentSpec while the New Chat seed is still mounted.
+    act(() => {
+      result.current.updateAgentSpec({
+        mcpServers: [],
+        skills: [],
+      });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(400);
+    });
+    await flushMicrotasks();
+    expect(syncAgentSpec).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveLoad?.(resumedSpec);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(400);
+    });
+    await flushMicrotasks();
+
+    expect(result.current.agentSpec).toEqual(resumedSpec);
+    expect(syncAgentSpec).not.toHaveBeenCalled();
+  });
 });

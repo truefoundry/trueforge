@@ -86,7 +86,7 @@ function renderPage(
     ...overrides,
   };
   const server = createMockAgentUIServer({
-    searchAgents: searchAgents ?? vi.fn(async () => [{ name: 'demo-agent', agentId: 'demo-agent' }]),
+    searchAgents: searchAgents ?? vi.fn(async () => ({ data: [{ name: 'demo-agent', agentId: 'demo-agent' }] })),
     schedules: scheduleServer,
     ...(options.permissions == null ? {} : { permissions: options.permissions }),
   });
@@ -120,6 +120,17 @@ describe('SchedulesPage', () => {
     expect(scheduleServer.listSchedules).toHaveBeenCalledWith(expect.objectContaining({ limit: 10 }));
     // Agent catalog loads only when the filter opens (infinite scroll), not on mount.
     expect(searchAgents).not.toHaveBeenCalled();
+  });
+
+  it('shows a friendly load error instead of raw fetch failures', async () => {
+    renderPage(sampleSchedules, {}, async () => {
+      throw new TypeError('Failed to fetch');
+    });
+
+    expect(await screen.findByRole('heading', { name: "Couldn't load schedules" })).toBeInTheDocument();
+    expect(screen.getByText('Check your connection and try again.')).toBeInTheDocument();
+    expect(screen.queryByText('Failed to fetch')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
   });
 
   it('disables schedule mutations without MANAGE or DELETE', async () => {
@@ -221,6 +232,7 @@ describe('SchedulesPage', () => {
             name: 'weekly-digest',
           },
         ],
+        previousPageToken: 'page-1',
       });
     renderPage(sampleSchedules, {}, listSchedules);
 
@@ -231,6 +243,12 @@ describe('SchedulesPage', () => {
       expect(listSchedules).toHaveBeenLastCalledWith(expect.objectContaining({ pageToken: 'page-2', limit: 10 }));
     });
     expect(await screen.findByText('weekly-digest')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Previous page' })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Previous page' }));
+    await waitFor(() => {
+      expect(listSchedules).toHaveBeenLastCalledWith(expect.objectContaining({ pageToken: 'page-1', limit: 10 }));
+    });
   });
 
   it('ignores run history returned for a stale schedules page', async () => {
@@ -316,6 +334,127 @@ describe('SchedulesPage', () => {
     });
     expect(new URL(window.location.href).searchParams.get('status')).toBe('paused');
     expect(new URL(window.location.href).searchParams.get('agent')).toBe('demo-agent');
+  });
+
+  it('shows the pinned schedule name from the URL and loads that schedule', async () => {
+    window.history.replaceState(null, '', '/schedules?scheduleId=s1&q=daily-digest');
+    const pinned = sampleSchedules[0];
+    if (pinned === undefined) throw new Error('expected sample schedule');
+    const { scheduleServer } = renderPage([], {
+      getSchedule: vi.fn(async () => pinned),
+    });
+
+    expect(await screen.findByText('daily-digest')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Search schedules by name')).toHaveValue('daily-digest');
+    expect(scheduleServer.getSchedule).toHaveBeenCalledWith({ id: 's1' });
+    expect(scheduleServer.listSchedules).not.toHaveBeenCalled();
+  });
+
+  it('fills the search box from the pinned schedule when the URL has no name', async () => {
+    window.history.replaceState(null, '', '/schedules?scheduleId=s1');
+    const pinned = sampleSchedules[0];
+    if (pinned === undefined) throw new Error('expected sample schedule');
+    renderPage([], {
+      getSchedule: vi.fn(async () => pinned),
+    });
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Search schedules by name')).toHaveValue('daily-digest');
+    });
+    expect(new URL(window.location.href).searchParams.get('q')).toBe('daily-digest');
+    expect(new URL(window.location.href).searchParams.get('scheduleId')).toBe('s1');
+  });
+
+  it('switches to the name filter when the pinned search changes', async () => {
+    window.history.replaceState(null, '', '/schedules?scheduleId=s1&q=daily-digest');
+    const pinned = sampleSchedules[0];
+    if (pinned === undefined) throw new Error('expected sample schedule');
+    const other: Schedule = { ...pinned, id: 's2', name: 'weekly-report' };
+    const { scheduleServer } = renderPage([pinned, other], {
+      getSchedule: vi.fn(async () => pinned),
+    });
+
+    expect(await screen.findByText('daily-digest')).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText('Search schedules by name'), {
+      target: { value: 'weekly' },
+    });
+
+    await waitFor(() => {
+      expect(scheduleServer.listSchedules).toHaveBeenCalled();
+    });
+    expect(screen.getByText('weekly-report')).toBeInTheDocument();
+    expect(screen.queryByText('daily-digest')).not.toBeInTheDocument();
+    expect(new URL(window.location.href).searchParams.get('scheduleId')).toBeNull();
+    expect(new URL(window.location.href).searchParams.get('q')).toBe('weekly');
+  });
+
+  it('shows the list with no name filter when the pinned search is cleared', async () => {
+    window.history.replaceState(null, '', '/schedules?scheduleId=s1&q=daily-digest');
+    const pinned = sampleSchedules[0];
+    if (pinned === undefined) throw new Error('expected sample schedule');
+    const other: Schedule = { ...pinned, id: 's2', name: 'weekly-report' };
+    const { scheduleServer } = renderPage([pinned, other], {
+      getSchedule: vi.fn(async () => pinned),
+    });
+
+    expect(await screen.findByText('daily-digest')).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText('Search schedules by name'), {
+      target: { value: '' },
+    });
+
+    await waitFor(() => {
+      expect(scheduleServer.listSchedules).toHaveBeenCalled();
+    });
+    expect(screen.getByText('daily-digest')).toBeInTheDocument();
+    expect(screen.getByText('weekly-report')).toBeInTheDocument();
+    expect(new URL(window.location.href).searchParams.get('scheduleId')).toBeNull();
+    expect(new URL(window.location.href).searchParams.get('q')).toBeNull();
+  });
+
+  it('drops the pinned schedule when the agent filter changes', async () => {
+    window.history.replaceState(null, '', '/schedules?scheduleId=s1&q=daily-digest');
+    const pinned = sampleSchedules[0];
+    if (pinned === undefined) throw new Error('expected sample schedule');
+    const listed: Schedule = { ...pinned, id: 's2', name: 'daily-digest-copy' };
+    const { scheduleServer } = renderPage([listed], {
+      getSchedule: vi.fn(async () => pinned),
+    });
+
+    expect(await screen.findByText('daily-digest')).toBeInTheDocument();
+    expect(scheduleServer.listSchedules).not.toHaveBeenCalled();
+
+    fireEvent.focus(screen.getByRole('combobox', { name: 'Filter by agent' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'demo-agent' }));
+
+    await waitFor(() => {
+      expect(scheduleServer.listSchedules).toHaveBeenCalledWith(
+        expect.objectContaining({ agentIds: ['demo-agent'], limit: 10 }),
+      );
+    });
+    expect(new URL(window.location.href).searchParams.get('scheduleId')).toBeNull();
+    expect(screen.getByText('daily-digest-copy')).toBeInTheDocument();
+    expect(screen.queryByText('daily-digest')).not.toBeInTheDocument();
+  });
+
+  it('drops the pinned schedule when the status filter changes', async () => {
+    window.history.replaceState(null, '', '/schedules?scheduleId=s1&q=daily-digest');
+    const pinned = sampleSchedules[0];
+    if (pinned === undefined) throw new Error('expected sample schedule');
+    const paused: Schedule = { ...pinned, id: 's2', name: 'daily-digest-paused', status: 'paused' };
+    const { scheduleServer } = renderPage([paused], {
+      getSchedule: vi.fn(async () => pinned),
+    });
+
+    expect(await screen.findByText('daily-digest')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Filter by status' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Paused' }));
+
+    await waitFor(() => {
+      expect(scheduleServer.listSchedules).toHaveBeenCalled();
+    });
+    expect(new URL(window.location.href).searchParams.get('scheduleId')).toBeNull();
+    expect(new URL(window.location.href).searchParams.get('status')).toBe('paused');
+    expect(screen.getByText('daily-digest-paused')).toBeInTheDocument();
   });
 
   it('shows run history chips with tooltip labels', async () => {
@@ -463,12 +602,12 @@ describe('SchedulesPage', () => {
       { agentId: 'beta-agent', name: 'beta-agent' },
     ];
     const searchAgents = vi.fn(
-      async ({ query, limit = 50, offset = 0 }: { query?: string; limit?: number; offset?: number } = {}) => {
+      async ({ query, limit = 50 }: { query?: string; limit?: number; pageToken?: string } = {}) => {
         const matched =
           query == null || query === ''
             ? agents
             : agents.filter(agent => agent.name.toLowerCase().includes(query.toLowerCase()));
-        return matched.slice(offset, offset + limit);
+        return { data: matched.slice(0, limit) };
       },
     );
     renderPage(sampleSchedules, {}, undefined, searchAgents);

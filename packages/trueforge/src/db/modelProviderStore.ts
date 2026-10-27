@@ -4,7 +4,8 @@
  * TrueFoundry (read-only ServiceFoundry server listing).
  */
 import type { ResourceName } from '../schemas/common';
-import type { AvailableModel, ModelProviderManifest } from '../schemas/modelProvider';
+import type { AvailableModel, ModelProperties, ModelProviderManifest } from '../schemas/modelProvider';
+import type { TurnMetadata } from './turnMetadata';
 
 export interface ModelProviderRecord {
   tenant_id: string;
@@ -41,6 +42,11 @@ export interface CreateModelProviderInput {
 /** Same shape as create for now; kept as a distinct name for the upsert path. */
 export type UpsertModelProviderInput = CreateModelProviderInput;
 
+export interface DeleteModelProviderInput {
+  tenant_id: string;
+  name: string;
+}
+
 /** Unique `(tenant_id, name)` violation on create. */
 export class ModelProviderNameConflictError extends Error {
   readonly tenant_id: string;
@@ -70,18 +76,44 @@ export interface IModelProviderStore<TTransaction = never> {
   createProvider(input: CreateModelProviderInput, transaction?: TTransaction): Promise<ModelProviderRecord>;
   /** Single-row write: creates the provider or replaces the whole manifest (models included). */
   upsertProvider(input: UpsertModelProviderInput, transaction?: TTransaction): Promise<ModelProviderRecord>;
+  /** Removes one provider and every model it declares. Resolves `false` when no row matched. */
+  deleteProvider(input: DeleteModelProviderInput, transaction?: TTransaction): Promise<boolean>;
   /** Flattens manifests into the FQN read view for GET /models. */
   listModels(input: ListModelProvidersInput, transaction?: TTransaction): Promise<AvailableModel[]>;
+  /** Extra headers for a model invoke. */
+  resolveInvokeHeaders(input: {
+    record: ModelProviderRecord;
+    turnMetadata?: TurnMetadata;
+  }): Promise<Record<string, string>>;
+}
+
+export function modelPropertiesWarning(input: { properties: ModelProperties }): string | undefined {
+  const missing: string[] = [];
+  if (input.properties.reasoning_efforts === undefined || input.properties.reasoning_efforts.length === 0) {
+    missing.push('reasoning effort');
+  }
+  if (input.properties.context_length === undefined) {
+    missing.push('context length');
+  }
+  if (missing.length === 0) {
+    return undefined;
+  }
+  const missingText = missing.join(' and ');
+  return `${missingText.charAt(0).toUpperCase()}${missingText.slice(1)} ${missing.length > 1 ? 'are' : 'is'} not configured for this model, which may affect TrueForge's performance.`;
 }
 
 /** Application-side flatten shared by both store implementations. */
 export function flattenProviderModels(records: ModelProviderRecord[]): AvailableModel[] {
   return records.flatMap(record =>
-    record.manifest.models.map(model => ({
-      name: `${record.name}/${model.name}`,
-      model_id: model.model_id,
-      provider: { name: record.name },
-      properties: model.properties,
-    })),
+    record.manifest.models.map(model => {
+      const warning = modelPropertiesWarning({ properties: model.properties });
+      return {
+        name: `${record.name}/${model.name}`,
+        model_id: model.model_id,
+        provider: { name: record.name },
+        properties: model.properties,
+        ...(warning === undefined ? {} : { warning }),
+      };
+    }),
   );
 }
