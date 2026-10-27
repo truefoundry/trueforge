@@ -365,10 +365,6 @@ extraContainers: []
 # Extra volumes / mounts on the server container (e.g. CA bundles, projected tokens).
 extraVolumes: []
 extraVolumeMounts: []
-# Partial requests/limits for the server. Empty keys come from
-# resourceTierOverride, then global.resourceTier. With no tier, the medium
-# preset is used. A key set here overrides the preset; other keys stay on it.
-resources: {}
 # Mutual TLS for the server HTTPS listener and controller→server hop.
 # When enabled, chart probes use scheme HTTPS (same pattern as deltafusion-ingestor).
 # Secret must contain tls.crt / tls.key / ca.crt (e.g. truefoundry-internal-tls).

@@ -404,7 +404,7 @@ extraObjects:
 | `podDisruptionBudget.enabled` | `true`                        | Server PodDisruptionBudget (`minAvailable` defaults to `1`); rendered only when the server runs more than one replica. |
 | `podSecurityContext`  | non-root UID/GID `10001`            | Pod-level restricted security defaults. |
 | `securityContext`     | read-only root FS + drop all capabilities | Container-level restricted security defaults. |
-| `resources`           | `{}` (medium preset when no tier)   | Server CPU, memory, and ephemeral-storage. Partial keys merge over the tier preset. |
+| `resources`           | medium preset when no tier          | Server CPU, memory, and ephemeral-storage. Set keys to merge over the tier preset. |
 | `mtls.enabled`        | `false`                             | HTTPS listener + controller→server mTLS (`MTLS_*`). When true, probes use `scheme: HTTPS`. |
 | `mtls.secretName`     | `""`                                | Secret with `tls.crt` / `tls.key` / `ca.crt` (required when `mtls.enabled`). |
 | `mtls.certsDir`       | `/etc/tls`                          | Mount path / `MTLS_CERTS_DIR`. |
