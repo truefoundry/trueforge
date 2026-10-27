@@ -274,21 +274,6 @@ An explicit resources table is applied later and replaces this preset.
 {{- end }}
 
 {{/*
-Controller tier. controller.resourceTierOverride wins over the chart tier.
-*/}}
-{{- define "trueforge.controller.resourceTier" -}}
-{{- $override := .Values.controller.resourceTierOverride | default "" | toString | trim -}}
-{{- if $override -}}
-{{- if not (has $override (list "small" "medium" "large")) -}}
-{{- fail (printf "resourceTier must be small, medium, or large (got %q)" $override) -}}
-{{- end -}}
-{{- $override -}}
-{{- else -}}
-{{- include "trueforge.resourceTier" . -}}
-{{- end -}}
-{{- end }}
-
-{{/*
 Server replica count. An explicit server.replicaCount wins (including 0 to
 scale down); otherwise the resource tier decides (small=1, medium=2, large=3),
 falling back to 1 when no tier is set. Use kindIs so integer 0 is not treated
@@ -400,10 +385,9 @@ Expects: root, prefix, tier, explicit.
 
 {{/*
 Server requests/limits. server.resources replaces the tier preset.
-`.Values.resources` is accepted when server.resources is empty.
 */}}
 {{- define "trueforge.resources" -}}
-{{- include "trueforge.explicitOrTierResources" (dict "root" . "prefix" "trueforge.defaultResources" "tier" (include "trueforge.resourceTier" . | trim) "explicit" (.Values.server.resources | default .Values.resources)) -}}
+{{- include "trueforge.explicitOrTierResources" (dict "root" . "prefix" "trueforge.defaultResources" "tier" (include "trueforge.resourceTier" . | trim) "explicit" .Values.server.resources) -}}
 {{- end }}
 
 {{/*
@@ -411,7 +395,7 @@ Controller requests/limits. controller.resources replaces the tier preset.
 Replica count is always 1, even when a tier is set.
 */}}
 {{- define "trueforge.controller.resources" -}}
-{{- include "trueforge.explicitOrTierResources" (dict "root" . "prefix" "trueforge.controller.defaultResources" "tier" (include "trueforge.controller.resourceTier" . | trim) "explicit" .Values.controller.resources) -}}
+{{- include "trueforge.explicitOrTierResources" (dict "root" . "prefix" "trueforge.controller.defaultResources" "tier" (include "trueforge.resourceTier" . | trim) "explicit" .Values.controller.resources) -}}
 {{- end }}
 
 {{- define "trueforge.tmpEmptyDirSizeLimit" -}}

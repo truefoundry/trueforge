@@ -126,8 +126,8 @@ server:
   # Escape hatch for knobs not covered by configs.*. Each entry is a full env
   # item: {name, value} or {name, valueFrom: {secretKeyRef|configMapKeyRef: ...}}.
   extraEnv: []
-  # Requests and limits for the server. A set table is used as-is, so CPU
-  # limits can be omitted. Empty uses resourceTierOverride, then global.resourceTier.
+  # Requests and limits. A set table is used as-is, so CPU limits can be omitted.
+  # Empty uses resourceTierOverride, then global.resourceTier.
   resources: {}
 # Schedule controller. A dedicated, single-replica Deployment that runs the
 # periodic control loops (schedule dispatch). It MUST run as exactly one replica
@@ -147,11 +147,8 @@ controller:
   serverUrl: ""
   # Extra env for the controller only; same item shape as server.extraEnv.
   extraEnv: []
-  # small | medium | large. Empty uses resourceTierOverride, then global.resourceTier.
-  resourceTierOverride: ""
-  # Requests and limits for the controller. A set table is used as-is, so CPU
-  # limits can be omitted. Empty uses controller.resourceTierOverride, then
-  # resourceTierOverride, then global.resourceTier.
+  # Requests and limits. A set table is used as-is, so CPU limits can be omitted.
+  # Empty uses resourceTierOverride, then global.resourceTier.
   resources: {}
 # Controller → server API key (TRUEFORGE_API_KEY). Dev default is a known
 # placeholder — strongly recommended to create a Secret and set:
@@ -221,7 +218,6 @@ networkPolicy:
 # small | medium | large preset for server and controller resources, and for
 # the server replica count. Empty uses global.resourceTier. An explicit
 # server.resources or controller.resources table wins over this.
-# controller.resourceTierOverride wins for the controller only.
 # `resourceTier` is accepted when this is empty.
 resourceTierOverride: ""
 # --- Bundled Postgres (Bitnami subchart) ---------------------------------------

@@ -168,19 +168,16 @@ The chart's own value wins on conflict; `tolerations` append to
 
 `global.resourceTier` defaults to `small`. `resourceTierOverride`
 (`small` / `medium` / `large`) replaces that tier for the server, the
-controller, and the server replica count. `controller.resourceTierOverride`
-replaces it for the controller only. An explicit `server.replicaCount` still
-wins, including `0` to scale the server down. The controller is always 1
-replica. An unknown tier fails the render.
+controller, and the server replica count. An explicit `server.replicaCount`
+still wins, including `0` to scale the server down. The controller is always
+1 replica. An unknown tier fails the render.
 
 `server.resources` and `controller.resources` are used as a whole table when
 set. The chart does not fill missing keys from the tier, so a table can omit
 CPU limits. An empty table uses the tier preset. `resourceTier` is still
 accepted as `resourceTierOverride` when that field is empty.
 
-Precedence for each workload: its resources table, then
-`controller.resourceTierOverride` for the controller, then
-`resourceTierOverride`, then `global.resourceTier`.
+Precedence: resources table, then `resourceTierOverride`, then `global.resourceTier`.
 
 | Preset | Server replicas | Server requests | Controller requests |
 | --- | --- | --- | --- |
@@ -391,7 +388,6 @@ extraObjects:
 | `resourceTierOverride`| `""`                                | Optional `small` / `medium` / `large` preset. Empty uses `global.resourceTier`. An explicit resources table wins over this. |
 | `server.replicaCount` | `null`                              | Number of server replicas (`0` allowed to scale down). Empty/`null` derives from the resource tier (small=1, medium=2, large=3). |
 | `server.resources`    | `{}`                                | Server CPU, memory, and ephemeral-storage. A set table replaces the tier preset. |
-| `controller.resourceTierOverride` | `""`                   | Controller tier. Empty uses `resourceTierOverride`, then `global.resourceTier`. |
 | `controller.resources`| `{}`                                | Controller CPU, memory, and ephemeral-storage. A set table replaces the tier preset. |
 | `server.deploymentAnnotations` | `{}`                          | Annotations on the server Deployment, such as an Argo CD sync wave. |
 | `controller.deploymentAnnotations` | `{}`                      | Annotations on the controller Deployment, such as an Argo CD sync wave. |
