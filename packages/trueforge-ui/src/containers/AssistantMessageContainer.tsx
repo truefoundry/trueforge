@@ -15,7 +15,7 @@ import { useSlowActivityLabel } from '../hooks/useSlowActivityLabel.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { computeAgentStepsSplit } from '../utils/computeAgentStepsSplit.js';
-import { loaderActivityKey, resolveLoaderLabel } from '../utils/resolveActivityLabel.js';
+import { loaderActivityKey, loaderActivityProgress, resolveLoaderLabel } from '../utils/resolveActivityLabel.js';
 import { AgentStepsContainer } from './AgentStepsContainer.js';
 import { AssistantTextContainer } from './AssistantTextContainer.js';
 import { ContextCompactionContainer } from './ContextCompactionContainer.js';
@@ -89,6 +89,7 @@ export function AssistantMessageContainer() {
   const loaderLabel = useSlowActivityLabel({
     label: resolveLoaderLabel(parts),
     activityKey: showIndicator ? loaderActivityKey(parts) : null,
+    progressKey: showIndicator ? loaderActivityProgress(parts) : null,
   });
 
   const groupBy = (part: PartState, _context: GroupByContext): readonly `group-${string}`[] | null => {
