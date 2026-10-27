@@ -8,6 +8,8 @@ export type TurnStreamingEvent =
     | TrueForge.ModelMessageEvent
     | TrueForge.ModelMessageDeltaEvent
     | TrueForge.SandboxCreatedEvent
+    | TrueForge.ThreadContextCompactionFinishedEvent
+    | TrueForge.ThreadContextCompactionStartedEvent
     | TrueForge.ThreadCreatedEvent
     | TrueForge.ThreadDoneEvent
     | TrueForge.ToolApprovalRequiredEvent

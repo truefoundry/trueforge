@@ -5,7 +5,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType }
 import { useTrackAnalytics } from '../../analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '../../analytics/events.js';
 import { useToasterOptional } from '../../containers/ToasterContainer.js';
-import { useOptionalCurrentUser } from '../../contexts/CurrentUserContext.js';
+import { useCanCreateAgent } from '../../hooks/useCanCreateAgent.js';
+import { useResourcePermissions } from '../../hooks/useResourcePermissions.js';
 import { Icon } from '../../icons/Icon.js';
 import { useSandboxEnvironmentServer } from '../../server/ServerContext.js';
 import { useOptionalShellMode } from '../../server/ShellModeContext.js';
@@ -36,7 +37,12 @@ import {
   TableTokenPagination,
 } from '../primitives/Table.js';
 import { Tooltip } from '../primitives/Tooltip.js';
-import { formatNetworkingSummary, formatResourcesSummary, isEnvironmentReadOnly } from './environmentDisplay.js';
+import {
+  formatNetworkingSummary,
+  formatResourcesSummary,
+  isEnvironmentReadOnly,
+  isReservedEnvironmentName,
+} from './environmentDisplay.js';
 import { EnvironmentFormDrawer } from './EnvironmentFormDrawer.js';
 import { EnvironmentStatusBadge } from './EnvironmentStatusBadge.js';
 
@@ -49,26 +55,26 @@ function clampPageSize(size: number): number {
   return Math.min(Math.max(size, 1), 25);
 }
 
-function initialDrawerState(): DrawerState {
-  return readEnvironmentShareSearch(window.location.search).isNew ? { kind: 'create' } : { kind: 'closed' };
-}
-
 export type EnvironmentsPageProps = Record<string, never>;
 
 export function EnvironmentsPage(_props: EnvironmentsPageProps) {
   const environmentServer = useSandboxEnvironmentServer();
   const shell = useOptionalShellMode();
-  const currentUser = useOptionalCurrentUser();
   const toaster = useToasterOptional();
   const track = useTrackAnalytics();
+  const { canCreateSandboxEnvironment, loading: createPermissionLoading } = useCanCreateAgent();
 
   const [environments, setEnvironments] = useState<SandboxEnvironment[]>([]);
+  const { allows } = useResourcePermissions({
+    resourceType: 'sandbox_environment',
+    resourceIds: environments.map(environment => environment.id),
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [nameQuery, setNameQuery] = useState(() => readEnvironmentShareSearch(window.location.search).q ?? '');
-  const [drawer, setDrawer] = useState<DrawerState>(() => initialDrawerState());
+  // Stay closed until tenant CREATE is known — do not open from envIsNew on first paint.
+  const [drawer, setDrawer] = useState<DrawerState>({ kind: 'closed' });
   const [pendingDelete, setPendingDelete] = useState<SandboxEnvironment | null>(null);
-  const [deleting, setDeleting] = useState(false);
   const [pageSize, setPageSize] = useState(() => clampPageSize(DEFAULT_TABLE_PAGE_SIZE));
   const [pageToken, setPageToken] = useState<string | undefined>(undefined);
   const [nextPageToken, setNextPageToken] = useState<string | undefined>(undefined);
@@ -157,23 +163,42 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
     return () => window.clearInterval(intervalId);
   }, [environments, environmentServer, shell]);
 
+  // Wait for tenant CREATE before honoring envIsNew; close create if CREATE is denied.
   useEffect(() => {
-    if (didConsumeIsNewRef.current) return;
-    if (!readEnvironmentShareSearch(window.location.search).isNew) return;
-    didConsumeIsNewRef.current = true;
-    setDrawer({ kind: 'create' });
-    replaceEnvironmentShareSearch({ isNew: null });
-  }, []);
+    if (createPermissionLoading) return;
+
+    const share = readEnvironmentShareSearch(window.location.search);
+    if (!didConsumeIsNewRef.current && share.isNew) {
+      didConsumeIsNewRef.current = true;
+      replaceEnvironmentShareSearch({ isNew: null });
+      if (canCreateSandboxEnvironment) {
+        setDrawer({ kind: 'create' });
+      } else {
+        setDrawer(current => (current.kind === 'create' ? { kind: 'closed' } : current));
+      }
+      return;
+    }
+
+    if (!canCreateSandboxEnvironment) {
+      setDrawer(current => (current.kind === 'create' ? { kind: 'closed' } : current));
+    }
+  }, [canCreateSandboxEnvironment, createPermissionLoading]);
 
   useEffect(() => {
     const onShareChange = () => {
       const share = readEnvironmentShareSearch(window.location.search);
       setNameQuery(share.q ?? '');
-      if (share.isNew) setDrawer({ kind: 'create' });
+      if (!share.isNew) return;
+      // Leave envIsNew in the URL until CREATE finishes loading so the resolve effect can honor it.
+      if (createPermissionLoading) return;
+      replaceEnvironmentShareSearch({ isNew: null });
+      if (canCreateSandboxEnvironment) {
+        setDrawer({ kind: 'create' });
+      }
     };
     window.addEventListener(ENVIRONMENT_SHARE_CHANGE_EVENT, onShareChange);
     return () => window.removeEventListener(ENVIRONMENT_SHARE_CHANGE_EVENT, onShareChange);
-  }, []);
+  }, [canCreateSandboxEnvironment, createPermissionLoading]);
 
   const filtered = useMemo(() => {
     const q = nameQuery.trim().toLowerCase();
@@ -184,27 +209,26 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
   const hasPageNav = nextPageToken != null || previousPageToken != null || environments.length > 0;
 
   const openCreate = () => {
+    if (!canCreateSandboxEnvironment) return;
     setDrawer({ kind: 'create' });
   };
 
   const handleDelete = async () => {
     if (pendingDelete == null) return;
-    setDeleting(true);
+    const target = pendingDelete;
+    setPendingDelete(null);
     try {
-      await environmentServer.deleteEnvironment({ name: pendingDelete.name });
+      await environmentServer.deleteEnvironment({ name: target.name });
       track(AnalyticsEvents.Environment.DELETED, {
-        environment_name: pendingDelete.name,
-        environment_id: pendingDelete.id,
+        environment_name: target.name,
+        environment_id: target.id,
       });
       toaster?.showSuccess({ title: 'Environment deleted' });
-      setPendingDelete(null);
       setPageToken(undefined);
       shell?.invalidateEnvironmentsList();
       void loadEnvironments({ token: undefined, size: pageSize });
     } catch (caught) {
       toaster?.showError(caught);
-    } finally {
-      setDeleting(false);
     }
   };
 
@@ -217,7 +241,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
             <div className="w-64">
               <SearchInput query={nameQuery} setQuery={setNameQuery} placeholder="Search environments by name" />
             </div>
-            <Button.Primary type="button" onClick={openCreate}>
+            <Button.Primary type="button" onClick={openCreate} disabled={!canCreateSandboxEnvironment}>
               <Icon name="plus" className="size-3.5" />
               New Environment
             </Button.Primary>
@@ -271,13 +295,15 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
               </TableHeader>
               <TableBody>
                 {filtered.map(env => {
-                  const readOnly = isEnvironmentReadOnly(env, currentUser?.subjectId);
+                  const canManage = !isReservedEnvironmentName(env.name) && allows(env.id, 'MANAGE');
+                  const canDelete = !isReservedEnvironmentName(env.name) && allows(env.id, 'DELETE');
+                  const readOnly = isEnvironmentReadOnly(env, canManage);
                   return (
                     <TableRow
                       key={env.id}
                       className={readOnly ? undefined : 'cursor-pointer'}
                       onClick={() => {
-                        if (!readOnly) setDrawer({ kind: 'edit', environment: env });
+                        if (canManage) setDrawer({ kind: 'edit', environment: env });
                       }}
                     >
                       <TableCell className="w-96 max-w-96">
@@ -307,7 +333,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
                         {readOnly ? '—' : formatRelativeTime(env.updatedAt)}
                       </TableCell>
                       <TableCell>
-                        {!readOnly ? (
+                        {canDelete ? (
                           <button
                             type="button"
                             className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
@@ -370,11 +396,11 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
             Delete fails if any agent still references the environment.
           </p>
           <DialogFooter>
-            <Button.Secondary type="button" disabled={deleting} onClick={() => setPendingDelete(null)}>
+            <Button.Secondary type="button" onClick={() => setPendingDelete(null)}>
               Cancel
             </Button.Secondary>
-            <Button.Primary type="button" disabled={deleting} onClick={() => void handleDelete()}>
-              {deleting ? 'Deleting…' : 'Delete'}
+            <Button.Primary type="button" onClick={() => void handleDelete()}>
+              Delete
             </Button.Primary>
           </DialogFooter>
         </DialogContent>

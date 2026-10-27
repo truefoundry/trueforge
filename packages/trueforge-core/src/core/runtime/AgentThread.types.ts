@@ -15,6 +15,8 @@ import type {
   ModelMessageDeltaEvent,
   ModelMessageEvent,
   SandboxCreatedEvent,
+  ThreadContextCompactionFinishedEvent,
+  ThreadContextCompactionStartedEvent,
   ThreadCreatedEvent,
   ThreadOverwriteContextEvent,
   ThreadStateError,
@@ -137,6 +139,8 @@ export type AgentThreadEvent =
   | AgentThreadCreateSubAgent
   | AgentThreadAppendContext
   | ThreadOverwriteContextEvent
+  | ThreadContextCompactionStartedEvent
+  | ThreadContextCompactionFinishedEvent
   | InternalThreadDoneEvent
   | InternalMCPAuthRequiredEvent
   | InternalCapabilityStateEvent

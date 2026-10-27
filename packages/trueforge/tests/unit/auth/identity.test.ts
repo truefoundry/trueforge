@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import {
   canAccessSettings,
-  canEditEnvironment,
+  canCreateOrEdit,
   canEditSchedule,
   hasAdminRole,
   requestContextFromCreatedBySubject,
@@ -85,16 +85,16 @@ describe('canAccessSettings', () => {
   });
 });
 
-describe('canEditEnvironment', () => {
+describe('canCreateOrEdit', () => {
   it('allows create for admins only, and update/delete for admin or creator', () => {
     const alice = { roles: ['everyone'], subject: { id: 'alice', type: 'user', display_name: 'alice' } };
     const bob = { roles: ['everyone'], subject: { id: 'bob', type: 'user', display_name: 'bob' } };
     const admin = { roles: ['admin'], subject: { id: 'root', type: 'user', display_name: 'root' } };
-    expect(canEditEnvironment(admin)).toBe(true);
-    expect(canEditEnvironment(alice)).toBe(false);
-    expect(canEditEnvironment(alice, 'alice')).toBe(true);
-    expect(canEditEnvironment(bob, 'alice')).toBe(false);
-    expect(canEditEnvironment(admin, 'alice')).toBe(true);
+    expect(canCreateOrEdit(admin)).toBe(true);
+    expect(canCreateOrEdit(alice)).toBe(false);
+    expect(canCreateOrEdit(alice, 'alice')).toBe(true);
+    expect(canCreateOrEdit(bob, 'alice')).toBe(false);
+    expect(canCreateOrEdit(admin, 'alice')).toBe(true);
   });
 });
 

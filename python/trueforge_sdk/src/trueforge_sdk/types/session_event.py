@@ -6,6 +6,8 @@ from .mcp_auth_required_event import McpAuthRequiredEvent
 from .mcp_initialize_event import McpInitializeEvent
 from .model_message_event import ModelMessageEvent
 from .sandbox_created_event import SandboxCreatedEvent
+from .thread_context_compaction_finished_event import ThreadContextCompactionFinishedEvent
+from .thread_context_compaction_started_event import ThreadContextCompactionStartedEvent
 from .thread_created_event import ThreadCreatedEvent
 from .thread_done_event import ThreadDoneEvent
 from .tool_approval_required_event import ToolApprovalRequiredEvent
@@ -24,6 +26,8 @@ SessionEvent = typing.Union[
     McpInitializeEvent,
     ModelMessageEvent,
     SandboxCreatedEvent,
+    ThreadContextCompactionFinishedEvent,
+    ThreadContextCompactionStartedEvent,
     ThreadCreatedEvent,
     ThreadDoneEvent,
     ToolApprovalRequiredEvent,

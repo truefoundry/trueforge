@@ -5,6 +5,12 @@ import { AgentHarnessError } from '../core/errors';
 import type { MCPAuthRequiredEvent, ModelMessageDeltaEvent, ThreadDoneEvent } from '../core/events/schema';
 import { EventType as HarnessEventType, newEventId } from '../core/events/schema';
 import {
+  elapsedSeconds,
+  getOperationMetrics,
+  type TurnPersistPhase,
+  type TurnTerminalStatus,
+} from '../core/observability/operationMetrics';
+import {
   InternalEventType,
   type AgentThreadExecutionEvent,
   type AgentThreadExecutionResult,
@@ -21,6 +27,7 @@ import { EventType, type PersistedTurnEvent, type TurnCreatedEvent, type TurnDon
 import type { TokenPagination } from './schemas/pagination';
 import {
   CancellationReason,
+  isNonTerminalTurnState,
   type TerminalTurnState,
   type TurnInputItem,
   type TurnMetrics,
@@ -76,6 +83,13 @@ function toMCPAuthRequiredEvent(event: InternalMCPAuthRequiredEvent): MCPAuthReq
       return server;
     }),
   };
+}
+
+function terminalStatusFromState(state: TurnState): TurnTerminalStatus | undefined {
+  if (isNonTerminalTurnState(state)) {
+    return undefined;
+  }
+  return state.status;
 }
 
 function turnMetricsFromAgentThreadMetrics(metrics: AgentThreadMetrics): TurnMetrics {
@@ -212,6 +226,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       throw new Error('TurnHandle.stream() is only available on turns returned from SessionHandle.createTurn()');
     }
 
+    const startedMs = performance.now();
     let caughtError: Error | undefined;
     let frozenByStore = false;
     let executeResult: AgentThreadExecutionResult | undefined;
@@ -228,11 +243,13 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
         created_at: this.turn.created_at.toISOString(),
         thread_id: null,
       };
-      await this.store.appendToEvents({
-        session_id: this.turn.session_id,
-        turn_id: this.turn.turn_id,
-        events: [turnCreated],
-      });
+      await this.writeStore('append', () =>
+        this.store.appendToEvents({
+          session_id: this.turn.session_id,
+          turn_id: this.turn.turn_id,
+          events: [turnCreated],
+        }),
+      );
       yield turnCreated;
 
       generator = orchestrator.execute({ signal });
@@ -330,6 +347,14 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
         };
       }
 
+      const recordedStatus = frozenByStore
+        ? (terminalStatusFromState(this.turn.state) ?? terminalState.status)
+        : terminalState.status;
+      getOperationMetrics()?.recordTurnDuration({
+        terminalStatus: recordedStatus,
+        durationSeconds: elapsedSeconds(startedMs),
+      });
+
       const turnDone: TurnDoneEvent = {
         type: EventType.TURN_DONE,
         id: newEventId(),
@@ -340,12 +365,14 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
 
       if (!frozenByStore) {
         try {
-          await this.store.updateTurnTerminalState({
-            session_id: this.turn.session_id,
-            turn_id: this.turn.turn_id,
-            state: terminalState,
-            turn_done_event: turnDone,
-          });
+          await this.writeStore('terminal', () =>
+            this.store.updateTurnTerminalState({
+              session_id: this.turn.session_id,
+              turn_id: this.turn.turn_id,
+              state: terminalState,
+              turn_done_event: turnDone,
+            }),
+          );
           this.turn = { ...this.turn, state: terminalState, updated_at: updatedAt };
         } catch (persistError) {
           if (persistError instanceof TurnNotRunningError) {
@@ -374,7 +401,10 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       }
 
       await resolver.close().catch((err: unknown) => {
-        resolver.logger.warn('TurnResourceResolver.close() failed', { err });
+        resolver.logger.warn('TurnResourceResolver.close() failed', {
+          err,
+          reportable_error: { error: err },
+        });
       });
 
       if (!frozenByStore) {
@@ -401,6 +431,18 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     });
   }
 
+  /** Counts a store write failure, then rethrows. A concurrent terminal freeze is not a failure. */
+  private async writeStore<T>(phase: TurnPersistPhase, run: () => Promise<T>): Promise<T> {
+    try {
+      return await run();
+    } catch (error) {
+      if (!(error instanceof TurnNotRunningError)) {
+        getOperationMetrics()?.recordTurnPersistError({ phase });
+      }
+      throw error;
+    }
+  }
+
   /**
    * Persist side effects for one execution event; return a streaming yield when
    * the event should be emitted to the consumer (null = side-effect only / skip).
@@ -418,10 +460,12 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
         return event;
 
       case HarnessEventType.TOOL_RESPONSE:
-        await this.store.appendToEvents({
-          ...scope,
-          events: [event],
-        });
+        await this.writeStore('append', () =>
+          this.store.appendToEvents({
+            ...scope,
+            events: [event],
+          }),
+        );
         return event;
 
       case InternalEventType.AGENT_CREATE_SUBAGENT:
@@ -436,43 +480,62 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
             `CAPABILITY_STATE for key '${event.key}' must not be undefined — use null to clear durable state`,
           );
         }
-        await this.store.patchThreadCapabilityState({
-          ...scope,
-          thread_id: event.thread_id,
-          key: event.key,
-          state: event.state,
-        });
+        await this.writeStore('append', () =>
+          this.store.patchThreadCapabilityState({
+            ...scope,
+            thread_id: event.thread_id,
+            key: event.key,
+            state: event.state,
+          }),
+        );
         return null;
       }
 
       case HarnessEventType.AGENT_CONTEXT_OVERWRITE: {
-        await this.store.overwriteThreadContext({ ...scope, event });
+        await this.writeStore('append', () => this.store.overwriteThreadContext({ ...scope, event }));
         return null;
       }
 
-      case InternalEventType.AGENT_CONTEXT_APPEND: {
-        await this.store.appendToThreadContext({
-          ...scope,
-          thread_id: event.thread_id,
-          context: event.context,
-          current_context_usage: event.current_context_usage ?? null,
-          completion: event.completion ?? null,
-        });
-        if (event.output.length > 0) {
-          await this.store.appendToEvents({
+      case HarnessEventType.THREAD_CONTEXT_COMPACTION_STARTED:
+      case HarnessEventType.THREAD_CONTEXT_COMPACTION_FINISHED: {
+        await this.writeStore('append', () =>
+          this.store.appendToEvents({
             ...scope,
-            events: event.output,
-          });
+            events: [event],
+          }),
+        );
+        return event;
+      }
+
+      case InternalEventType.AGENT_CONTEXT_APPEND: {
+        await this.writeStore('append', () =>
+          this.store.appendToThreadContext({
+            ...scope,
+            thread_id: event.thread_id,
+            context: event.context,
+            current_context_usage: event.current_context_usage ?? null,
+            completion: event.completion ?? null,
+          }),
+        );
+        if (event.output.length > 0) {
+          await this.writeStore('append', () =>
+            this.store.appendToEvents({
+              ...scope,
+              events: event.output,
+            }),
+          );
         }
         return null;
       }
 
       case InternalEventType.AGENT_DONE: {
         if (event.parent) {
-          await this.store.removeThreads({
-            ...scope,
-            thread_ids: [event.thread_id],
-          });
+          await this.writeStore('append', () =>
+            this.store.removeThreads({
+              ...scope,
+              thread_ids: [event.thread_id],
+            }),
+          );
         }
         if (isInternalThreadDoneCancelled(event)) {
           // Do not send thread.done to the user for a cancelled child.
@@ -482,89 +545,109 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
           return null;
         }
         const threadDone = toThreadDoneEvent(event);
-        await this.store.appendToEvents({
-          ...scope,
-          events: [threadDone],
-        });
+        await this.writeStore('append', () =>
+          this.store.appendToEvents({
+            ...scope,
+            events: [threadDone],
+          }),
+        );
         return threadDone;
       }
 
       case HarnessEventType.THREAD_CREATED: {
-        await this.store.addThreads({
-          ...scope,
-          threads: [
-            {
-              thread_id: event.thread_id,
-              parent: event.parent,
-              agent_info: event.agent_info,
-              context: [],
-              current_context_usage: getEmptyCurrentContextUsage(),
-              completion: null,
-              capability_state: null,
-            },
-          ],
-        });
-        await this.store.appendToEvents({
-          ...scope,
-          events: [event],
-        });
+        await this.writeStore('append', () =>
+          this.store.addThreads({
+            ...scope,
+            threads: [
+              {
+                thread_id: event.thread_id,
+                parent: event.parent,
+                agent_info: event.agent_info,
+                context: [],
+                current_context_usage: getEmptyCurrentContextUsage(),
+                completion: null,
+                capability_state: null,
+              },
+            ],
+          }),
+        );
+        await this.writeStore('append', () =>
+          this.store.appendToEvents({
+            ...scope,
+            events: [event],
+          }),
+        );
         return event;
       }
 
       case InternalEventType.MCP_AUTH_REQUIRED: {
         const authEvent = toMCPAuthRequiredEvent(event);
-        await this.store.appendToEvents({
-          ...scope,
-          events: [authEvent],
-        });
+        await this.writeStore('append', () =>
+          this.store.appendToEvents({
+            ...scope,
+            events: [authEvent],
+          }),
+        );
         return authEvent;
       }
 
       case HarnessEventType.MCP_INITIALIZE: {
-        await this.store.patchMCPServers({
-          ...scope,
-          mcp_servers: event.mcp_servers.map(initInfo => ({
-            id: initInfo.id,
-            name: initInfo.name,
-            session_id: initInfo.session_id,
-            transport_type: initInfo.transport_type,
-            approval_policies: initInfo.approval_policies,
-          })),
-        });
-        await this.store.appendToEvents({
-          ...scope,
-          events: [event],
-        });
+        await this.writeStore('append', () =>
+          this.store.patchMCPServers({
+            ...scope,
+            mcp_servers: event.mcp_servers.map(initInfo => ({
+              id: initInfo.id,
+              name: initInfo.name,
+              session_id: initInfo.session_id,
+              transport_type: initInfo.transport_type,
+              approval_policies: initInfo.approval_policies,
+            })),
+          }),
+        );
+        await this.writeStore('append', () =>
+          this.store.appendToEvents({
+            ...scope,
+            events: [event],
+          }),
+        );
         return event;
       }
 
       case HarnessEventType.SANDBOX_CREATED: {
-        await this.store.patchSandboxInfo({
-          ...scope,
-          sandbox_info: { sandbox_id: event.sandbox_id },
-        });
-        await this.store.appendToEvents({
-          ...scope,
-          events: [event],
-        });
+        await this.writeStore('append', () =>
+          this.store.patchSandboxInfo({
+            ...scope,
+            sandbox_info: { sandbox_id: event.sandbox_id },
+          }),
+        );
+        await this.writeStore('append', () =>
+          this.store.appendToEvents({
+            ...scope,
+            events: [event],
+          }),
+        );
         return event;
       }
 
       case HarnessEventType.TOOL_APPROVAL_REQUIRED:
       case HarnessEventType.TOOL_RESPONSE_REQUIRED: {
-        await this.store.appendToEvents({
-          ...scope,
-          events: [event],
-        });
+        await this.writeStore('append', () =>
+          this.store.appendToEvents({
+            ...scope,
+            events: [event],
+          }),
+        );
         return event;
       }
 
       default: {
         // Registered passthrough (orchestrator unwraps PASSTHROUGH before yield).
-        await this.store.appendToEvents({
-          ...scope,
-          events: [event],
-        });
+        await this.writeStore('append', () =>
+          this.store.appendToEvents({
+            ...scope,
+            events: [event],
+          }),
+        );
         return event;
       }
     }

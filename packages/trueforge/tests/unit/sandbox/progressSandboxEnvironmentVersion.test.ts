@@ -5,11 +5,6 @@ import type { ISandboxEnvironmentStore } from '../../../src/db/sandboxEnvironmen
 import type { ISandboxProviderStore } from '../../../src/db/sandboxProviderStore';
 import { progressSandboxEnvironmentVersion } from '../../../src/sandbox/progressSandboxEnvironmentVersion';
 import * as providerUtils from '../../../src/sandbox/providerUtils';
-import * as sentry from '../../../src/sentry';
-
-jest.mock('../../../src/sentry', () => ({
-  captureCriticalException: jest.fn(),
-}));
 
 jest.mock('../../../src/sandbox/providerUtils', () => {
   const actual = jest.requireActual<typeof import('../../../src/sandbox/providerUtils')>(
@@ -76,11 +71,11 @@ function mockProvider(methods: Record<string, jest.Mock>): void {
 describe('progressSandboxEnvironmentVersion', () => {
   beforeEach(() => {
     jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReset();
-    jest.mocked(sentry.captureCriticalException).mockClear();
   });
 
   it('throws 404 when the version is missing', async () => {
     const { sandboxEnvironmentStore, sandboxProviderStore } = makeStores({ pending: null });
+    const warn = jest.spyOn(logger, 'warn');
     await expect(
       progressSandboxEnvironmentVersion({
         sandboxEnvironmentStore,
@@ -89,6 +84,9 @@ describe('progressSandboxEnvironmentVersion', () => {
         logger,
       }),
     ).rejects.toMatchObject({ status: 404 } satisfies Partial<HTTPException>);
+    expect(warn).toHaveBeenCalledWith('Sandbox environment version not found', {
+      environment_version_id: 'missing',
+    });
   });
 
   it('marks ready when getBuildStatus reports ready', async () => {

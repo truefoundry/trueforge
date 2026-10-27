@@ -203,7 +203,7 @@ export function sanitizeSearchForPlace(place: RoutePlace, search: string): strin
     });
     clearEnvironmentShareSearch(params);
     clearLibraryShareSearch(params);
-    // Keep `agent` / `status` / `q` — owned by the schedules place.
+    // Keep `agent` / `status` / `q` / `scheduleId` — owned by the schedules place.
   } else if (place.type === 'environments') {
     writeSessionShareSearch(params, {
       sessionId: null,

@@ -202,9 +202,15 @@ export async function cancelSessionTurn(
         ...extractErrorLogFields(error),
       };
       if (error instanceof RequestTimeoutError) {
-        deps.logger.warn('Timed out waiting for owning executor to cancel; freezing the running turn', fields);
+        deps.logger.warn('Timed out waiting for owning executor to cancel; freezing the running turn', {
+          ...fields,
+          reportable_error: { error, extra: { turn_id: turnId, owner } },
+        });
       } else {
-        deps.logger.warn('Failed to reach owning executor over Redis; freezing the running turn', fields);
+        deps.logger.warn('Failed to reach owning executor over Redis; freezing the running turn', {
+          ...fields,
+          reportable_error: { error, extra: { turn_id: turnId, owner } },
+        });
       }
     }
     await freezeTurnIgnoringMissing(deps.session, { turnId, reason });

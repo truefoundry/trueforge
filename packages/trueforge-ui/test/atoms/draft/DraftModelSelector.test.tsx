@@ -69,6 +69,47 @@ describe('DraftModelSelector', () => {
     updateAgentSpec.mockReset();
   });
 
+  it('shows a model warning on the closed control and its list row', async () => {
+    const warning = "Reasoning effort is not configured for this model, which may affect TrueForge's performance.";
+    renderSelector(
+      {},
+      {
+        getModels: async () => [
+          {
+            id: 'gpt-4.1',
+            name: 'openai/gpt-4.1',
+            provider: { name: 'OpenAI' },
+            properties: {},
+            warning,
+          },
+          {
+            id: 'claude-3.7-sonnet',
+            name: 'anthropic/claude-3.7-sonnet',
+            provider: { name: 'Anthropic' },
+            properties: { reasoningEfforts: ['low', 'high'] },
+          },
+        ],
+      },
+    );
+
+    const trigger = await screen.findByRole('button', { name: 'Select model' });
+    await waitFor(() => expect(trigger).toHaveTextContent('gpt-4.1'));
+    const closedWarning = screen.getByRole('img', { name: warning });
+    expect(closedWarning.closest('button')).toBeNull();
+    fireEvent.mouseEnter(closedWarning.parentElement ?? closedWarning);
+    expect(screen.getByRole('tooltip')).toHaveTextContent(warning);
+
+    fireEvent.click(trigger);
+    const listbox = screen.getByRole('listbox', { name: 'Select model' });
+    const warnedOption = within(listbox).getByRole('option', { name: /gpt-4.1/i });
+    expect(within(warnedOption).getByRole('img', { name: warning })).toBeInTheDocument();
+    expect(
+      within(listbox)
+        .getByRole('option', { name: /claude-3.7-sonnet/i })
+        .querySelector('[role="img"]'),
+    ).toBeNull();
+  });
+
   it('shows the full model name in a tooltip on hover', async () => {
     const longName = 'global.anthropic.claude-sonnet-4-20250514';
     agentSpec = { model: { name: longName } };
@@ -129,7 +170,7 @@ describe('DraftModelSelector', () => {
     expect(updateAgentSpec).toHaveBeenCalledWith({
       model: {
         name: 'anthropic/claude-3.7-sonnet',
-        params: { maxTokens: 512, reasoningEffort: 'low' },
+        params: { maxTokens: 512, reasoningEffort: 'high' },
       },
     });
     expect(screen.queryByRole('listbox', { name: 'Select model' })).not.toBeInTheDocument();

@@ -4,6 +4,7 @@ import type { TrueForgeApi } from '@truefoundry/trueforge-sdk';
 import { useId, useRef, useState } from 'react';
 
 import { Icon } from '../../icons/Icon.js';
+import { useSlot } from '../../theme/SlotsProvider.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { auiInputClass } from '../lib/inputClasses.js';
 import { Button } from '../primitives/Button.js';
@@ -38,9 +39,12 @@ export function AgentInstructionsDrawer({
   onSave,
   onClose,
 }: AgentInstructionsDrawerProps) {
+  const InstructionsFullScreenEditor = useSlot('InstructionsFullScreenEditor');
+  const InstructionsMarkdownEditor = useSlot('InstructionsMarkdownEditor');
   const fieldId = useId();
   const nextMessageId = useRef(messages.length);
   const [instructionDraft, setInstructionDraft] = useState(instructions);
+  const [fullScreen, setFullScreen] = useState(false);
   const [messageDrafts, setMessageDrafts] = useState<UserMessageDraft[]>(() =>
     messages.map((message, id) => ({ id, content: message.content })),
   );
@@ -87,18 +91,35 @@ export function AgentInstructionsDrawer({
     >
       <div className="flex min-h-0 flex-1 flex-col gap-6 p-5">
         <section>
-          <label htmlFor={`${fieldId}-instructions`} className="text-text-primary text-sm font-semibold">
-            Agent instructions
-          </label>
-          <p className="text-text-secondary mt-1 text-xs">Describe the agent&apos;s role, goals, and constraints.</p>
-          <textarea
-            id={`${fieldId}-instructions`}
-            value={instructionDraft}
-            rows={14}
-            placeholder="Enter detailed instructions for your agent…"
-            className={auiInputClass('mt-3 min-h-64 resize-y py-3')}
-            onChange={event => setInstructionDraft(event.target.value)}
-          />
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <span id={`${fieldId}-instructions`} className="text-text-primary text-sm font-semibold">
+                Agent instructions
+              </span>
+              <p className="text-text-secondary mt-1 text-xs">
+                Describe the agent&apos;s role, goals, and constraints.
+              </p>
+            </div>
+            <button
+              type="button"
+              aria-label="Edit instructions full screen"
+              title="Full screen"
+              className={auiButtonClass({ variant: 'ghost', size: 'icon', className: 'size-7 shrink-0' })}
+              onClick={() => setFullScreen(true)}
+            >
+              <Icon name="expand" className="size-4" />
+            </button>
+          </div>
+          <div
+            className="border-border mt-3 overflow-hidden rounded-md border"
+            aria-labelledby={`${fieldId}-instructions`}
+          >
+            {fullScreen ? (
+              <div className="h-72" />
+            ) : (
+              <InstructionsMarkdownEditor value={instructionDraft} onChange={setInstructionDraft} height="18rem" />
+            )}
+          </div>
         </section>
 
         <section className="border-border border-t pt-5">
@@ -150,6 +171,12 @@ export function AgentInstructionsDrawer({
           )}
         </section>
       </div>
+      <InstructionsFullScreenEditor
+        open={fullScreen}
+        value={instructionDraft}
+        onChange={setInstructionDraft}
+        onClose={() => setFullScreen(false)}
+      />
     </SideDrawer>
   );
 }

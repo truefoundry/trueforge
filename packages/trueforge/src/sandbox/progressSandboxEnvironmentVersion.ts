@@ -11,7 +11,6 @@ import {
   toSandboxEnvironment,
   toSandboxStatus,
 } from '../sandbox/providerUtils';
-import { captureCriticalException } from '../sentry';
 
 export async function progressSandboxEnvironmentVersion({
   sandboxEnvironmentStore,
@@ -27,9 +26,8 @@ export async function progressSandboxEnvironmentVersion({
   const pending = await sandboxEnvironmentStore.getSandboxEnvironmentVersion({ environment_version_id });
   if (pending === undefined) {
     const error = new HTTPException(404, { message: 'Sandbox environment version not found' });
-    captureCriticalException(error, {
-      tags: { module: 'progressSandboxEnvironmentVersion', operation: 'notFound' },
-      extra: { environment_version_id },
+    logger.warn('Sandbox environment version not found', {
+      environment_version_id,
     });
     throw error;
   }
@@ -77,16 +75,8 @@ export async function progressSandboxEnvironmentVersion({
         environment_version_id,
         status_reason,
       });
-      captureCriticalException(error, {
-        tags: { module: 'progressSandboxEnvironmentVersion', operation: 'authz' },
-        extra: { environment_version_id, tenant_id: pending.tenant_id, status_reason },
-      });
       return;
     }
-    captureCriticalException(error, {
-      tags: { module: 'progressSandboxEnvironmentVersion', operation: 'build' },
-      extra: { environment_version_id, tenant_id: pending.tenant_id },
-    });
     throw error;
   }
 }

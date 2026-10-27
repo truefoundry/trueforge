@@ -336,6 +336,127 @@ describe('SchedulesPage', () => {
     expect(new URL(window.location.href).searchParams.get('agent')).toBe('demo-agent');
   });
 
+  it('shows the pinned schedule name from the URL and loads that schedule', async () => {
+    window.history.replaceState(null, '', '/schedules?scheduleId=s1&q=daily-digest');
+    const pinned = sampleSchedules[0];
+    if (pinned === undefined) throw new Error('expected sample schedule');
+    const { scheduleServer } = renderPage([], {
+      getSchedule: vi.fn(async () => pinned),
+    });
+
+    expect(await screen.findByText('daily-digest')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Search schedules by name')).toHaveValue('daily-digest');
+    expect(scheduleServer.getSchedule).toHaveBeenCalledWith({ id: 's1' });
+    expect(scheduleServer.listSchedules).not.toHaveBeenCalled();
+  });
+
+  it('fills the search box from the pinned schedule when the URL has no name', async () => {
+    window.history.replaceState(null, '', '/schedules?scheduleId=s1');
+    const pinned = sampleSchedules[0];
+    if (pinned === undefined) throw new Error('expected sample schedule');
+    renderPage([], {
+      getSchedule: vi.fn(async () => pinned),
+    });
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Search schedules by name')).toHaveValue('daily-digest');
+    });
+    expect(new URL(window.location.href).searchParams.get('q')).toBe('daily-digest');
+    expect(new URL(window.location.href).searchParams.get('scheduleId')).toBe('s1');
+  });
+
+  it('switches to the name filter when the pinned search changes', async () => {
+    window.history.replaceState(null, '', '/schedules?scheduleId=s1&q=daily-digest');
+    const pinned = sampleSchedules[0];
+    if (pinned === undefined) throw new Error('expected sample schedule');
+    const other: Schedule = { ...pinned, id: 's2', name: 'weekly-report' };
+    const { scheduleServer } = renderPage([pinned, other], {
+      getSchedule: vi.fn(async () => pinned),
+    });
+
+    expect(await screen.findByText('daily-digest')).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText('Search schedules by name'), {
+      target: { value: 'weekly' },
+    });
+
+    await waitFor(() => {
+      expect(scheduleServer.listSchedules).toHaveBeenCalled();
+    });
+    expect(screen.getByText('weekly-report')).toBeInTheDocument();
+    expect(screen.queryByText('daily-digest')).not.toBeInTheDocument();
+    expect(new URL(window.location.href).searchParams.get('scheduleId')).toBeNull();
+    expect(new URL(window.location.href).searchParams.get('q')).toBe('weekly');
+  });
+
+  it('shows the list with no name filter when the pinned search is cleared', async () => {
+    window.history.replaceState(null, '', '/schedules?scheduleId=s1&q=daily-digest');
+    const pinned = sampleSchedules[0];
+    if (pinned === undefined) throw new Error('expected sample schedule');
+    const other: Schedule = { ...pinned, id: 's2', name: 'weekly-report' };
+    const { scheduleServer } = renderPage([pinned, other], {
+      getSchedule: vi.fn(async () => pinned),
+    });
+
+    expect(await screen.findByText('daily-digest')).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText('Search schedules by name'), {
+      target: { value: '' },
+    });
+
+    await waitFor(() => {
+      expect(scheduleServer.listSchedules).toHaveBeenCalled();
+    });
+    expect(screen.getByText('daily-digest')).toBeInTheDocument();
+    expect(screen.getByText('weekly-report')).toBeInTheDocument();
+    expect(new URL(window.location.href).searchParams.get('scheduleId')).toBeNull();
+    expect(new URL(window.location.href).searchParams.get('q')).toBeNull();
+  });
+
+  it('drops the pinned schedule when the agent filter changes', async () => {
+    window.history.replaceState(null, '', '/schedules?scheduleId=s1&q=daily-digest');
+    const pinned = sampleSchedules[0];
+    if (pinned === undefined) throw new Error('expected sample schedule');
+    const listed: Schedule = { ...pinned, id: 's2', name: 'daily-digest-copy' };
+    const { scheduleServer } = renderPage([listed], {
+      getSchedule: vi.fn(async () => pinned),
+    });
+
+    expect(await screen.findByText('daily-digest')).toBeInTheDocument();
+    expect(scheduleServer.listSchedules).not.toHaveBeenCalled();
+
+    fireEvent.focus(screen.getByRole('combobox', { name: 'Filter by agent' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'demo-agent' }));
+
+    await waitFor(() => {
+      expect(scheduleServer.listSchedules).toHaveBeenCalledWith(
+        expect.objectContaining({ agentIds: ['demo-agent'], limit: 10 }),
+      );
+    });
+    expect(new URL(window.location.href).searchParams.get('scheduleId')).toBeNull();
+    expect(screen.getByText('daily-digest-copy')).toBeInTheDocument();
+    expect(screen.queryByText('daily-digest')).not.toBeInTheDocument();
+  });
+
+  it('drops the pinned schedule when the status filter changes', async () => {
+    window.history.replaceState(null, '', '/schedules?scheduleId=s1&q=daily-digest');
+    const pinned = sampleSchedules[0];
+    if (pinned === undefined) throw new Error('expected sample schedule');
+    const paused: Schedule = { ...pinned, id: 's2', name: 'daily-digest-paused', status: 'paused' };
+    const { scheduleServer } = renderPage([paused], {
+      getSchedule: vi.fn(async () => pinned),
+    });
+
+    expect(await screen.findByText('daily-digest')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Filter by status' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Paused' }));
+
+    await waitFor(() => {
+      expect(scheduleServer.listSchedules).toHaveBeenCalled();
+    });
+    expect(new URL(window.location.href).searchParams.get('scheduleId')).toBeNull();
+    expect(new URL(window.location.href).searchParams.get('status')).toBe('paused');
+    expect(screen.getByText('daily-digest-paused')).toBeInTheDocument();
+  });
+
   it('shows run history chips with tooltip labels', async () => {
     renderPage(sampleSchedules, {
       listScheduleRuns: vi.fn(async (): Promise<ScheduleRun[]> => [

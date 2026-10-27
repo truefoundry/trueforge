@@ -3,6 +3,7 @@ import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
 import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../../../src/schemas/sandboxEnvironment';
 import { resolveTrueFoundrySandboxProviderConfig } from '../../../src/truefoundry/resolveTrueFoundrySandboxProviderConfig';
+import { DEFAULT_ENVIRONMENT_ID } from '../../../src/truefoundry/synthesizeTrueFoundryDefaultSandboxEnvironment';
 import { TrueFoundrySandboxEnvironmentStore } from '../../../src/truefoundry/TrueFoundrySandboxEnvironmentStore';
 
 jest.mock('../../../src/truefoundry/resolveTrueFoundrySandboxProviderConfig', () => {
@@ -111,5 +112,63 @@ describe('TrueFoundrySandboxEnvironmentStore', () => {
       page_token: undefined,
     });
     expect(listed.data).toEqual([]);
+  });
+
+  it('getEnvironmentsByIds includes synthesized default ownership when envSupported', async () => {
+    const { store, persistence } = await createStores(true);
+    const custom = await persistence.upsertEnvironment({
+      tenant_id: TENANT,
+      name: 'pyjokes-env',
+      description: '',
+      created_by_subject: {
+        subject_id: SUBJECT_ID,
+        subject_type: 'user',
+        subject_display_name: 'User',
+      },
+      synced_secrets: [],
+      buildVersion: async () => ({
+        version: 1,
+        manifest: {
+          name: 'pyjokes-env',
+          resources: { cpu: 1, memory: 1, disk: 3 },
+          type: 'daytona',
+          sandbox_provider: 'daytona',
+        },
+        status: 'pending',
+        status_reason: null,
+        external_ref: 'ref-1',
+        created_by_subject: {
+          subject_id: SUBJECT_ID,
+          subject_type: 'user',
+          subject_display_name: 'User',
+        },
+      }),
+    });
+
+    await expect(
+      store.getEnvironmentsByIds({
+        tenant_id: TENANT,
+        ids: [DEFAULT_ENVIRONMENT_ID, custom.environment.id, 'missing'],
+      }),
+    ).resolves.toEqual([
+      {
+        id: DEFAULT_ENVIRONMENT_ID,
+        name: DEFAULT_SANDBOX_ENVIRONMENT_NAME,
+        created_by_subject: {
+          subject_id: 'truefoundry',
+          subject_type: 'user',
+          subject_display_name: 'TrueFoundry',
+        },
+      },
+      {
+        id: custom.environment.id,
+        name: 'pyjokes-env',
+        created_by_subject: {
+          subject_id: SUBJECT_ID,
+          subject_type: 'user',
+          subject_display_name: 'User',
+        },
+      },
+    ]);
   });
 });

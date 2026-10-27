@@ -11,7 +11,8 @@ import {
 } from '../schemas/sandboxEnvironment';
 import { resolveTrueFoundrySandboxProviderConfig } from './resolveTrueFoundrySandboxProviderConfig';
 
-const DEFAULT_ENVIRONMENT_ID = 'tfy-default-sandbox-environment';
+/** Stable id for the in-memory TrueFoundry `"default"` environment. */
+export const DEFAULT_ENVIRONMENT_ID = 'tfy-default-sandbox-environment';
 const DEFAULT_VERSION_ID = 'tfy-default-sandbox-environment-v1';
 const DEFAULT_NAME = NameSchema.parse(DEFAULT_SANDBOX_ENVIRONMENT_NAME);
 const SYSTEM_SUBJECT = {

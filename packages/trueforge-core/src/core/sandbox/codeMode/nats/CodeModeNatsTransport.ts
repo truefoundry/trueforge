@@ -93,7 +93,10 @@ export class CodeModeNatsTransport implements CodeModeTransport {
     try {
       await withTimeout(nc.drain(), NATS_DRAIN_TIMEOUT_MS);
     } catch (e) {
-      this.logger.warn('Code Mode NATS drain failed/timed out; forcing close', extractErrorLogFields(e));
+      this.logger.warn('Code Mode NATS drain failed/timed out; forcing close', {
+        ...extractErrorLogFields(e),
+        reportable_error: { error: e },
+      });
       await nc.close().catch(() => {
         /* no-op */
       });
@@ -160,7 +163,10 @@ export class CodeModeNatsTransport implements CodeModeTransport {
 
   private async handleMessage(err: Error | null, msg: Msg): Promise<void> {
     if (err) {
-      this.logger.error('Code Mode NATS subscription error', extractErrorLogFields(err));
+      this.logger.error('Code Mode NATS subscription error', {
+        ...extractErrorLogFields(err),
+        reportable_error: { error: err },
+      });
       return;
     }
     if (!msg.reply) {
@@ -173,7 +179,10 @@ export class CodeModeNatsTransport implements CodeModeTransport {
       try {
         msg.respond(this.encode({ ok: false, error: 'Code Mode dispatcher is not configured', source: 'internal' }));
       } catch (e) {
-        this.logger.warn(`Failed to send dispatcher-missing reply on '${msg.subject}'`, extractErrorLogFields(e));
+        this.logger.warn(`Failed to send dispatcher-missing reply on '${msg.subject}'`, {
+          ...extractErrorLogFields(e),
+          reportable_error: { error: e },
+        });
       }
       return;
     }
@@ -192,11 +201,17 @@ export class CodeModeNatsTransport implements CodeModeTransport {
     try {
       request = this.decode(msg);
     } catch (e) {
-      this.logger.error(`Failed to decode Code Mode NATS request on '${msg.subject}'`, extractErrorLogFields(e));
+      this.logger.error(`Failed to decode Code Mode NATS request on '${msg.subject}'`, {
+        ...extractErrorLogFields(e),
+        reportable_error: { error: e },
+      });
       try {
         msg.respond(this.encode({ ok: false, error: 'Malformed Code Mode request', source: 'caller' }));
       } catch (respondErr) {
-        this.logger.warn(`Failed to send decode-error reply on '${msg.subject}'`, extractErrorLogFields(respondErr));
+        this.logger.warn(`Failed to send decode-error reply on '${msg.subject}'`, {
+          ...extractErrorLogFields(respondErr),
+          reportable_error: { error: respondErr },
+        });
       }
       return;
     }
@@ -205,7 +220,10 @@ export class CodeModeNatsTransport implements CodeModeTransport {
     try {
       msg.respond(this.encode(reply));
     } catch (e) {
-      this.logger.error('Failed to publish Code Mode NATS reply', extractErrorLogFields(e));
+      this.logger.error('Failed to publish Code Mode NATS reply', {
+        ...extractErrorLogFields(e),
+        reportable_error: { error: e },
+      });
     }
   }
 
