@@ -257,7 +257,8 @@ function appendEventSegments({
       // the chart-layout utility into one parallel-tool-call bar.
       // Pending human-wait tools (ask-user) still emit a bar so strip Tool calls
       // matches Agent steps even before tool.response arrives.
-      for (const toolCall of toolCallsOf(event)) {
+      const requestedToolCalls = toolCallsOf(event);
+      for (const toolCall of requestedToolCalls) {
         const toolCallId = typeof toolCall.id === 'string' ? toolCall.id : undefined;
         // Skip parent create_sub_agent calls and approval-gated calls; they have their own segments.
         if (toolCallId == null || subAgentToolCallIds.has(toolCallId) || approvalIds?.has(toolCallId)) continue;
@@ -280,10 +281,11 @@ function appendEventSegments({
         });
       }
 
-      // The model bar covers processing since the previous event on this thread.
-      // Keep an empty root model segment because it may still contain tool calls
-      // and therefore represents real model time.
-      if (modelContent.length > 0 || threadId === MAIN_THREAD_ID) {
+      // Duration since the previous event on this thread is model time.
+      // Tool-only replies have no text; still draw them on a sub-agent so the
+      // wait between consecutive tool calls is visible. Root keeps a bar even
+      // when the reply has neither text nor tool calls.
+      if (modelContent.length > 0 || requestedToolCalls.length > 0 || threadId === MAIN_THREAD_ID) {
         segments.push({
           id: eventId(event),
           type: 'model',
