@@ -3,6 +3,8 @@
 export { trueForgeAttachmentAdapter } from './attachmentAdapter.js';
 export type { PendingApproval, PendingToolResponse } from './collectPending.js';
 export { ROOT_THREAD_ID } from './constants.js';
+export { CONTEXT_COMPACTION_DATA_NAME, isContextCompactionPartData } from './contextCompaction.js';
+export type { ContextCompactionPartData } from './contextCompaction.js';
 export {
   buildEditedUserMessageContent,
   buildTurnAssistantContent,

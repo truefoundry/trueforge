@@ -8,7 +8,10 @@ import {
   type ToolCallMessagePartComponent,
   type ToolCallMessagePartProps,
 } from '@assistant-ui/react';
-import { useTrueForgeRespondToToolApproval } from '@truefoundry/trueforge-assistant-ui-runtime';
+import {
+  CONTEXT_COMPACTION_DATA_NAME,
+  useTrueForgeRespondToToolApproval,
+} from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useCallback, useState } from 'react';
 
 import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
@@ -35,6 +38,7 @@ import {
 } from '../utils/toolCallParsing.js';
 import { useRegisterApprovalExpand } from './approvalFocus.js';
 import { AssistantTextContainer } from './AssistantTextContainer.js';
+import { ContextCompactionContainer } from './ContextCompactionContainer.js';
 import { NestedApprovalBridgeContext, useNestedApprovalBridge } from './nestedApprovalBridge.js';
 import { SandboxToolCallContainer } from './SandboxToolCallContainer.js';
 import { useSessionReplay } from './sessionReplayContext.js';
@@ -53,6 +57,11 @@ function NestedSubAgentAssistantMessage() {
               Text: AssistantTextContainer,
               Reasoning: AssistantTextContainer,
               tools: { Fallback: ToolCallContainer },
+              data: {
+                by_name: {
+                  [CONTEXT_COMPACTION_DATA_NAME]: ContextCompactionContainer,
+                },
+              },
             }}
           />
         </AssistantMessageBubble>
