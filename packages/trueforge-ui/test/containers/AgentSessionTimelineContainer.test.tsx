@@ -249,9 +249,7 @@ describe('AgentSessionTimelineContainer', () => {
       </SlotsProvider>,
     );
 
-    expect(
-      await screen.findByText('This turn is still running. Some events may be missing or incomplete.'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Turn is still in running, all events might not be visible')).toBeInTheDocument();
     expect(screen.getByText('in flight')).toBeInTheDocument();
     expect(screen.getByText('partial assistant text')).toBeInTheDocument();
     expect(screen.queryByText('This session has no messages yet.')).not.toBeInTheDocument();
