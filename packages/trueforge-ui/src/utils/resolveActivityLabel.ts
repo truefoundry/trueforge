@@ -1,3 +1,5 @@
+import { CONTEXT_COMPACTION_DATA_NAME, isContextCompactionPartData } from '@truefoundry/trueforge-assistant-ui-runtime';
+
 import {
   hasPendingToolApproval,
   parseMcpToolArgs,
@@ -12,11 +14,14 @@ const MAX_INTENT_LENGTH = 60;
 
 export type ActivityPart = {
   type: string;
+  name?: string;
+  data?: unknown;
   toolName?: string;
   argsText?: string;
   status?: { type: string };
   result?: unknown;
   approval?: { approved?: boolean; resolution?: 'cancelled' | 'expired' };
+  toolCallId?: string;
   messages?: readonly { content: readonly ActivityPart[] }[];
 };
 
@@ -37,6 +42,15 @@ function isRunningSubAgent(part: ActivityPart): boolean {
   return part.type === 'tool-call' && part.toolName === SUB_AGENT_TOOL_NAME && toolStatusType(part) === 'running';
 }
 
+function isRunningSummarization(part: ActivityPart): boolean {
+  return (
+    part.type === 'data' &&
+    part.name === CONTEXT_COMPACTION_DATA_NAME &&
+    isContextCompactionPartData(part.data) &&
+    part.data.status === 'running'
+  );
+}
+
 function toolLabel(part: ActivityPart): string {
   const toolName = part.toolName ?? 'tool';
   if (SANDBOX_TOOL_NAMES.has(toolName)) {
@@ -55,6 +69,7 @@ export function resolveActivityLabel(parts: readonly ActivityPart[]): string {
 
   // Only claim "Thinking" while reasoning is actually streaming.
   if (last.type === 'reasoning') return 'Thinking...';
+  if (isRunningSummarization(last)) return 'Summarizing context...';
   if (last.type !== 'tool-call') return DEFAULT_ACTIVITY_LABEL;
 
   const statusType = toolStatusType(last);
@@ -68,6 +83,25 @@ export function resolveActivityLabel(parts: readonly ActivityPart[]): string {
   return toolLabel(last);
 }
 
+/**
+ * Activity the main loader is timing. Null while the wait is on the user or a sub-agent.
+ * A new key restarts the "taking longer than expected" clock.
+ */
+export function loaderActivityKey(parts: readonly ActivityPart[]): string | null {
+  if (parts.some(isRunningSubAgent)) return null;
+
+  const last = parts[parts.length - 1];
+  if (!last) return 'model';
+  if (last.type === 'reasoning') return 'thinking';
+  if (isRunningSummarization(last)) return 'summarizing';
+  if (last.type === 'tool-call') {
+    const statusType = toolStatusType(last);
+    if (statusType === 'requires-action') return null;
+    if (statusType === 'running') return `tool:${last.toolCallId ?? last.toolName ?? 'tool'}`;
+  }
+  return 'model';
+}
+
 /** Main-thread loader: the running tool row already shows its own detail, so stay generic. */
 export function resolveLoaderLabel(parts: readonly ActivityPart[]): string {
   const subAgentCount = parts.filter(isRunningSubAgent).length;
@@ -76,6 +110,7 @@ export function resolveLoaderLabel(parts: readonly ActivityPart[]): string {
 
   const last = parts[parts.length - 1];
   if (last?.type === 'reasoning') return 'Thinking...';
+  if (last && isRunningSummarization(last)) return 'Summarizing context...';
   if (last?.type === 'tool-call' && toolStatusType(last) === 'requires-action') return 'Waiting for your approval';
   return DEFAULT_ACTIVITY_LABEL;
 }

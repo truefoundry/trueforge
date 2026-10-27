@@ -1,6 +1,12 @@
+import { CONTEXT_COMPACTION_DATA_NAME } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { describe, expect, it } from 'vitest';
 
-import { resolveActivityLabel, resolveLoaderLabel, type ActivityPart } from '../../src/utils/resolveActivityLabel.js';
+import {
+  loaderActivityKey,
+  resolveActivityLabel,
+  resolveLoaderLabel,
+  type ActivityPart,
+} from '../../src/utils/resolveActivityLabel.js';
 
 const running = (toolName: string, extra: Partial<ActivityPart> = {}): ActivityPart => ({
   type: 'tool-call',
@@ -68,5 +74,38 @@ describe('resolveActivityLabel', () => {
     const subAgent = running('create_sub_agent');
     expect(resolveLoaderLabel([subAgent])).toBe('Waiting for sub-agent...');
     expect(resolveLoaderLabel([subAgent, subAgent, subAgent])).toBe('Waiting for 3 sub-agents...');
+  });
+
+  it('labels a running context summarization', () => {
+    const summarizing: ActivityPart = {
+      type: 'data',
+      name: CONTEXT_COMPACTION_DATA_NAME,
+      data: { status: 'running', started: {} },
+    };
+    const summarized: ActivityPart = {
+      type: 'data',
+      name: CONTEXT_COMPACTION_DATA_NAME,
+      data: { status: 'complete', started: {}, finished: {} },
+    };
+    expect(resolveLoaderLabel([summarizing])).toBe('Summarizing context...');
+    expect(resolveActivityLabel([summarizing])).toBe('Summarizing context...');
+    expect(resolveLoaderLabel([summarized])).toBe('Working...');
+    expect(resolveActivityLabel([summarized])).toBe('Working...');
+  });
+
+  it('times thinking, the model, a tool call, and summarization, and skips waits', () => {
+    const summarizing: ActivityPart = {
+      type: 'data',
+      name: CONTEXT_COMPACTION_DATA_NAME,
+      data: { status: 'running', started: {} },
+    };
+    expect(loaderActivityKey([])).toBe('model');
+    expect(loaderActivityKey([{ type: 'reasoning' }])).toBe('thinking');
+    expect(loaderActivityKey([running('exec', { toolCallId: 'call-1' })])).toBe('tool:call-1');
+    expect(loaderActivityKey([summarizing])).toBe('summarizing');
+    expect(
+      loaderActivityKey([{ type: 'tool-call', toolName: 'exec', status: { type: 'requires-action' } }]),
+    ).toBeNull();
+    expect(loaderActivityKey([running('create_sub_agent')])).toBeNull();
   });
 });

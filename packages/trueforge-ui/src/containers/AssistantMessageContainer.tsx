@@ -11,10 +11,11 @@ import {
 import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '../analytics/events.js';
 import { withSessionProps } from '../analytics/sessionProps.js';
+import { useSlowActivityLabel } from '../hooks/useSlowActivityLabel.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { computeAgentStepsSplit } from '../utils/computeAgentStepsSplit.js';
-import { resolveLoaderLabel } from '../utils/resolveActivityLabel.js';
+import { loaderActivityKey, resolveLoaderLabel } from '../utils/resolveActivityLabel.js';
 import { AgentStepsContainer } from './AgentStepsContainer.js';
 import { AssistantTextContainer } from './AssistantTextContainer.js';
 import { ContextCompactionContainer } from './ContextCompactionContainer.js';
@@ -85,6 +86,7 @@ export function AssistantMessageContainer() {
 
   // Built-in indicator modes hide the loader while reasoning streams; we want it there too.
   const showIndicator = isMessageRunning && !resumeUnavailable && parts[parts.length - 1]?.type !== 'text';
+  const loaderLabel = useSlowActivityLabel(resolveLoaderLabel(parts), showIndicator ? loaderActivityKey(parts) : null);
 
   const groupBy = (part: PartState, _context: GroupByContext): readonly `group-${string}`[] | null => {
     const index = parts.findIndex(p => p === part);
@@ -146,7 +148,7 @@ export function AssistantMessageContainer() {
             }
           }}
         </MessagePrimitive.GroupedParts>
-        {showIndicator ? <MessageIndicator label={resolveLoaderLabel(parts)} /> : null}
+        {showIndicator ? <MessageIndicator label={loaderLabel} /> : null}
       </AssistantMessageBubble>
     </MessagePrimitive.Root>
   );
