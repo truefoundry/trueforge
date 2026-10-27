@@ -11,9 +11,11 @@ import {
 import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '../analytics/events.js';
 import { withSessionProps } from '../analytics/sessionProps.js';
+import { useSlowActivityLabel } from '../hooks/useSlowActivityLabel.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { computeAgentStepsSplit } from '../utils/computeAgentStepsSplit.js';
+import { loaderActivityKey, resolveLoaderLabel } from '../utils/resolveActivityLabel.js';
 import { AgentStepsContainer } from './AgentStepsContainer.js';
 import { AssistantTextContainer } from './AssistantTextContainer.js';
 import { ContextCompactionContainer } from './ContextCompactionContainer.js';
@@ -82,6 +84,13 @@ export function AssistantMessageContainer() {
 
   const { cutIndex, hasFinal, toolCount, thinkingCount } = computeAgentStepsSplit(parts, isMessageRunning);
 
+  // Built-in indicator modes hide the loader while reasoning streams; we want it there too.
+  const showIndicator = isMessageRunning && !resumeUnavailable && parts[parts.length - 1]?.type !== 'text';
+  const loaderLabel = useSlowActivityLabel({
+    label: resolveLoaderLabel(parts),
+    activityKey: showIndicator ? loaderActivityKey(parts) : null,
+  });
+
   const groupBy = (part: PartState, _context: GroupByContext): readonly `group-${string}`[] | null => {
     const index = parts.findIndex(p => p === part);
     if (index === -1) return null;
@@ -109,7 +118,7 @@ export function AssistantMessageContainer() {
           !isThreadRunning ? <MessageActionBar isCopied={isCopied} onCopy={onCopy} createdAt={createdAt} /> : undefined
         }
       >
-        <MessagePrimitive.GroupedParts groupBy={groupBy}>
+        <MessagePrimitive.GroupedParts groupBy={groupBy} indicator="never">
           {({ part, children }) => {
             switch (part.type) {
               case 'group-agentSteps':
@@ -137,13 +146,12 @@ export function AssistantMessageContainer() {
               case 'image':
               case 'data':
                 return <AssistantLeafPartContainer part={part} />;
-              case 'indicator':
-                return resumeUnavailable ? null : <MessageIndicator />;
               default:
                 return null;
             }
           }}
         </MessagePrimitive.GroupedParts>
+        {showIndicator ? <MessageIndicator label={loaderLabel} /> : null}
       </AssistantMessageBubble>
     </MessagePrimitive.Root>
   );
