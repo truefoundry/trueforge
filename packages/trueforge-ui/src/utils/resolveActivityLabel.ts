@@ -111,6 +111,5 @@ export function resolveLoaderLabel(parts: readonly ActivityPart[]): string {
   const last = parts[parts.length - 1];
   if (last?.type === 'reasoning') return 'Thinking...';
   if (last && isRunningSummarization(last)) return 'Summarizing context...';
-  if (last?.type === 'tool-call' && toolStatusType(last) === 'requires-action') return 'Waiting for your approval';
   return DEFAULT_ACTIVITY_LABEL;
 }

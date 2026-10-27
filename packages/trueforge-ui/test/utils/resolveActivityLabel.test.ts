@@ -68,6 +68,9 @@ describe('resolveActivityLabel', () => {
     expect(resolveLoaderLabel([])).toBe('Working...');
     expect(resolveLoaderLabel([{ type: 'reasoning' }])).toBe('Thinking...');
     expect(resolveLoaderLabel([running('exec', { argsText: '{"intent":"Inspect result"}' })])).toBe('Working...');
+    expect(resolveLoaderLabel([{ type: 'tool-call', toolName: 'exec', status: { type: 'requires-action' } }])).toBe(
+      'Working...',
+    );
   });
 
   it('summarizes running sub-agents in the main loader', () => {

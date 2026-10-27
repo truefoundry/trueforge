@@ -86,7 +86,10 @@ export function AssistantMessageContainer() {
 
   // Built-in indicator modes hide the loader while reasoning streams; we want it there too.
   const showIndicator = isMessageRunning && !resumeUnavailable && parts[parts.length - 1]?.type !== 'text';
-  const loaderLabel = useSlowActivityLabel(resolveLoaderLabel(parts), showIndicator ? loaderActivityKey(parts) : null);
+  const loaderLabel = useSlowActivityLabel({
+    label: resolveLoaderLabel(parts),
+    activityKey: showIndicator ? loaderActivityKey(parts) : null,
+  });
 
   const groupBy = (part: PartState, _context: GroupByContext): readonly `group-${string}`[] | null => {
     const index = parts.findIndex(p => p === part);
