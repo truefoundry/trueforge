@@ -12,12 +12,13 @@ import { useSessionShareSearch } from '../../hooks/useSessionShareSearch.js';
 import { Icon } from '../../icons/Icon.js';
 import { buildSessionResumeHref } from '../../routing/paths.js';
 import { useOptionalResolvedRoutes } from '../../routing/ResolvedRoutesContext.js';
-import { useAgentSessionsServer, useServer } from '../../server/ServerContext.js';
+import { useAgentSessionsServer, useOptionalScheduleServer, useServer } from '../../server/ServerContext.js';
 import { useOptionalShellMode } from '../../server/ShellModeContext.js';
 import type { Session, SessionEventItem, SessionListEntry } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
 import { drainListPages } from '../../utils/drainListPages.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
+import { writeOpenScheduleByIdSearch } from '../../utils/scheduleShareUrl.js';
 import { sessionTimeRangeFromCreatedAt } from '../../utils/sessionShareUrl.js';
 import { EmptyScreen } from '../EmptyScreen.js';
 import { cn } from '../lib/cn.js';
@@ -41,8 +42,9 @@ function entryIsMutable(entry: SessionListEntry): boolean {
   return entry.agentName == null;
 }
 
-function entrySourceType(entry: SessionListEntry): 'schedule' | undefined {
-  return 'sourceType' in entry && Reflect.get(entry, 'sourceType') === 'schedule' ? 'schedule' : undefined;
+function entryScheduleId(entry: SessionListEntry): string | undefined {
+  const scheduleId: unknown = 'scheduleId' in entry ? Reflect.get(entry, 'scheduleId') : undefined;
+  return typeof scheduleId === 'string' && scheduleId.length > 0 ? scheduleId : undefined;
 }
 
 export function AgentSessions({
@@ -62,6 +64,7 @@ export function AgentSessions({
   const toaster = useToasterOptional();
   const track = useTrackAnalytics();
   const shell = useOptionalShellMode();
+  const scheduleServer = useOptionalScheduleServer();
   const routes = useOptionalResolvedRoutes();
   const { sessionId: querySessionId, updateShareSearch } = useSessionShareSearch();
   const selectedSessionId = detailOnly ? (detailSessionId ?? null) : querySessionId;
@@ -247,6 +250,30 @@ export function AgentSessions({
     });
   };
 
+  // One lookup per schedule, shared by every session row from that schedule.
+  const scheduleNamesRef = useRef(new Map<string, Promise<string | null>>());
+  const loadScheduleName = (scheduleId: string): Promise<string | null> => {
+    if (scheduleServer == null) return Promise.resolve(null);
+    let name = scheduleNamesRef.current.get(scheduleId);
+    if (name == null) {
+      name = scheduleServer.getSchedule({ id: scheduleId }).then(
+        schedule => schedule.name,
+        () => {
+          scheduleNamesRef.current.delete(scheduleId);
+          return null;
+        },
+      );
+      scheduleNamesRef.current.set(scheduleId, name);
+    }
+    return name;
+  };
+
+  const openSchedule = ({ id, name }: { id: string; name: string }) => {
+    track(AnalyticsEvents.Schedule.OPENED_FROM_SESSION, { schedule_id: id });
+    writeOpenScheduleByIdSearch({ id, name });
+    shell?.setSchedulesOpen(true);
+  };
+
   const clearSelectedSession = () => {
     if (selectedSessionId == null) return;
     if (detailOnly) {
@@ -399,12 +426,14 @@ export function AgentSessions({
                   key={entry.id}
                   title={sessionTitle(entry)}
                   agentName={entry.agentName ?? undefined}
-                  sourceType={entrySourceType(entry)}
+                  scheduleId={entryScheduleId(entry)}
                   lastActivityAt={entry.lastActivityAt}
                   metrics={entry.metrics}
                   {...(entry.createdBySubject == null ? {} : { createdBySubject: entry.createdBySubject })}
                   active={entry.id === selectedSessionId}
                   onSelect={() => selectSession(entry)}
+                  {...(shell == null ? {} : { onOpenSchedule: openSchedule })}
+                  {...(scheduleServer == null ? {} : { loadScheduleName })}
                   {...(canDeleteSession
                     ? {
                         onRequestDelete: () => setPendingDelete(entry),

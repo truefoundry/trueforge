@@ -13,11 +13,13 @@ import {
   type CreateSandboxEnvironmentInput,
   type DeleteSandboxEnvironmentInput,
   type GetSandboxEnvironmentInput,
+  type GetSandboxEnvironmentsByIdsInput,
   type GetSandboxEnvironmentVersionInput,
   type ISandboxEnvironmentStore,
   type ListSandboxEnvironmentsInput,
   type MarkSandboxEnvironmentVersionFailedInput,
   type MarkSandboxEnvironmentVersionReadyInput,
+  type SandboxEnvironmentOwnership,
   type SandboxEnvironmentSecretRecord,
   type SandboxEnvironmentVersionForProgress,
   type SandboxEnvironmentVersionRecord,
@@ -26,7 +28,10 @@ import {
 } from '../db/sandboxEnvironmentStore';
 import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
 import { trueFoundryManaged } from './errors';
-import { synthesizeTrueFoundryDefaultSandboxEnvironment } from './synthesizeTrueFoundryDefaultSandboxEnvironment';
+import {
+  DEFAULT_ENVIRONMENT_ID,
+  synthesizeTrueFoundryDefaultSandboxEnvironment,
+} from './synthesizeTrueFoundryDefaultSandboxEnvironment';
 
 const logger = createLogger({ defaultMeta: { module: 'TrueFoundrySandboxEnvironmentStore' } });
 
@@ -105,6 +110,33 @@ export class TrueFoundrySandboxEnvironmentStore<
       return Promise.resolve(synthesizeTrueFoundryDefaultSandboxEnvironment(input.tenant_id));
     }
     return this.#persistence.getEnvironment(input, transaction);
+  }
+
+  async getEnvironmentsByIds(
+    input: GetSandboxEnvironmentsByIdsInput,
+    transaction?: TTransaction,
+  ): Promise<SandboxEnvironmentOwnership[]> {
+    if (!this.#envSupported) {
+      return this.#persistence.getEnvironmentsByIds(input, transaction);
+    }
+    const includesDefault = input.ids.includes(DEFAULT_ENVIRONMENT_ID);
+    const persistenceIds = includesDefault ? input.ids.filter(id => id !== DEFAULT_ENVIRONMENT_ID) : input.ids;
+    let rows = await this.#persistence.getEnvironmentsByIds(
+      { tenant_id: input.tenant_id, ids: persistenceIds },
+      transaction,
+    );
+    if (includesDefault) {
+      const synthesized = synthesizeTrueFoundryDefaultSandboxEnvironment(input.tenant_id);
+      rows = [
+        {
+          id: synthesized.environment.id,
+          name: synthesized.environment.name,
+          created_by_subject: synthesized.environment.created_by_subject,
+        },
+        ...rows,
+      ];
+    }
+    return rows;
   }
 
   getActiveEnvironment(

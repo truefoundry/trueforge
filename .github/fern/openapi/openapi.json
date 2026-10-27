@@ -884,6 +884,80 @@
         },
         "type": "object"
       },
+      "CompactionTrigger": {
+        "description": "Why compaction was triggered.",
+        "properties": {
+          "context_tokens": {
+            "description": "Estimated context tokens when compaction fired (prompt + completion).",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "threshold_tokens": {
+            "description": "Configured compaction threshold in tokens.",
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "type": {
+            "description": "Triggered because estimated context crossed the compaction threshold.",
+            "enum": [
+              "context_threshold_exceeded"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "context_tokens",
+          "threshold_tokens"
+        ],
+        "type": "object"
+      },
+      "CompletionUsage": {
+        "description": "Token usage for the compaction model call.",
+        "properties": {
+          "cache_read_tokens": {
+            "description": "Optional cache-read tokens.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "cache_write_tokens": {
+            "description": "Optional cache-write tokens.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "cost_in_usd": {
+            "description": "Optional estimated cost in USD.",
+            "minimum": 0,
+            "type": "number"
+          },
+          "input_tokens": {
+            "description": "Input tokens for this completion.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "output_tokens": {
+            "description": "Output tokens for this completion.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "reasoning_tokens": {
+            "description": "Optional reasoning tokens.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "total_tokens": {
+            "description": "Total tokens (input + output).",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "input_tokens",
+          "output_tokens",
+          "total_tokens"
+        ],
+        "type": "object"
+      },
       "ConfiguredMCPServer": {
         "additionalProperties": false,
         "properties": {
@@ -2023,7 +2097,7 @@
               },
               "type": "array"
             },
-            "description": "For agent/schedule/session: keyed by resource id. For tenant: keyed by entity kind (e.g. `agent` → `CREATE`).",
+            "description": "Keyed by resource id for resource types, or by entity kind for `tenant` (e.g. `agent` → `CREATE`).",
             "type": "object"
           },
           "type": {
@@ -3129,7 +3203,8 @@
           "agent",
           "schedule",
           "session",
-          "tenant"
+          "tenant",
+          "sandbox_environment"
         ],
         "type": "string"
       },
@@ -4115,6 +4190,8 @@
             "mcp.initialize": "#/components/schemas/MCPInitializeEvent",
             "model.message": "#/components/schemas/ModelMessageEvent",
             "sandbox.created": "#/components/schemas/SandboxCreatedEvent",
+            "thread.context_compaction_finished": "#/components/schemas/ThreadContextCompactionFinishedEvent",
+            "thread.context_compaction_started": "#/components/schemas/ThreadContextCompactionStartedEvent",
             "thread.created": "#/components/schemas/ThreadCreatedEvent",
             "thread.done": "#/components/schemas/ThreadDoneEvent",
             "tool.approval_required": "#/components/schemas/ToolApprovalRequiredEvent",
@@ -4151,6 +4228,12 @@
           },
           {
             "$ref": "#/components/schemas/ThreadDoneEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ThreadContextCompactionStartedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ThreadContextCompactionFinishedEvent"
           },
           {
             "$ref": "#/components/schemas/MCPAuthRequiredEvent"
@@ -4639,6 +4722,84 @@
         "required": [
           "type",
           "text"
+        ],
+        "type": "object"
+      },
+      "ThreadContextCompactionFinishedEvent": {
+        "properties": {
+          "created_at": {
+            "description": "ISO 8601 event timestamp.",
+            "type": "string"
+          },
+          "duration_ms": {
+            "description": "Wall time of the compaction model call in milliseconds.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "id": {
+            "description": "Unique identifier for the event (monotonic ULID).",
+            "type": "string"
+          },
+          "thread_id": {
+            "description": "Thread whose context was compacted.",
+            "type": "string"
+          },
+          "trigger": {
+            "$ref": "#/components/schemas/CompactionTrigger"
+          },
+          "type": {
+            "description": "Thread context compaction finished; context overwrite follows.",
+            "enum": [
+              "thread.context_compaction_finished"
+            ],
+            "type": "string"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/CompletionUsage"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "created_at",
+          "thread_id",
+          "trigger",
+          "usage",
+          "duration_ms"
+        ],
+        "type": "object"
+      },
+      "ThreadContextCompactionStartedEvent": {
+        "properties": {
+          "created_at": {
+            "description": "ISO 8601 event timestamp.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Unique identifier for the event (monotonic ULID).",
+            "type": "string"
+          },
+          "thread_id": {
+            "description": "Thread whose context is being compacted.",
+            "type": "string"
+          },
+          "trigger": {
+            "$ref": "#/components/schemas/CompactionTrigger"
+          },
+          "type": {
+            "description": "Thread context compaction started; may take noticeable time.",
+            "enum": [
+              "thread.context_compaction_started"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "created_at",
+          "thread_id",
+          "trigger"
         ],
         "type": "object"
       },
@@ -5646,6 +5807,8 @@
             "model.message": "#/components/schemas/ModelMessageEvent",
             "model.message.delta": "#/components/schemas/ModelMessageDeltaEvent",
             "sandbox.created": "#/components/schemas/SandboxCreatedEvent",
+            "thread.context_compaction_finished": "#/components/schemas/ThreadContextCompactionFinishedEvent",
+            "thread.context_compaction_started": "#/components/schemas/ThreadContextCompactionStartedEvent",
             "thread.created": "#/components/schemas/ThreadCreatedEvent",
             "thread.done": "#/components/schemas/ThreadDoneEvent",
             "tool.approval_required": "#/components/schemas/ToolApprovalRequiredEvent",
@@ -5676,6 +5839,12 @@
           },
           {
             "$ref": "#/components/schemas/ThreadDoneEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ThreadContextCompactionStartedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ThreadContextCompactionFinishedEvent"
           },
           {
             "$ref": "#/components/schemas/MCPAuthRequiredEvent"

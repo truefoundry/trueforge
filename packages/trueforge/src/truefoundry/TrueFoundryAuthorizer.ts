@@ -1,15 +1,22 @@
 import { HTTPException } from 'hono/http-exception';
 
-import type { AgentAction, AgentListAccess, Authorizer, GetPermissionsInput } from '../auth/authorizer';
-import type { RequestContext } from '../auth/identity';
+import {
+  type AgentAction,
+  type AgentListAccess,
+  type Authorizer,
+  type GetPermissionsInput,
+  resolveSandboxEnvironmentPermissions,
+  resolveSchedulePermissions,
+} from '../auth/authorizer';
+import { canCreateOrEdit, type RequestContext } from '../auth/identity';
 import type { AgentRecord } from '../db/agentStore';
 import type { ListPermissionsData, ResourcePermission } from '../schemas/permissions';
 import {
   emptyPermissionsByResourceId,
   listPermissionsData,
-  SCHEDULE_OWNER_PERMISSIONS,
   SESSION_OWNER_PERMISSIONS,
   TENANT_CREATE_AGENT_PERMISSIONS,
+  TENANT_CREATE_SANDBOX_ENVIRONMENT_PERMISSIONS,
 } from '../schemas/permissions';
 import type { AgentPermission, TrueFoundryServiceFoundryServerClient } from './TrueFoundryServiceFoundryServerClient';
 
@@ -83,7 +90,10 @@ export class TrueFoundryAuthorizer implements Authorizer {
         accessToken: requireUserCredential(requestContext),
       });
       const agent = tenantPermissions.includes('CREATE_AGENT') ? [...TENANT_CREATE_AGENT_PERMISSIONS] : [];
-      return listPermissionsData('tenant', { agent });
+      const sandbox_environment = canCreateOrEdit(requestContext)
+        ? [...TENANT_CREATE_SANDBOX_ENVIRONMENT_PERMISSIONS]
+        : [];
+      return listPermissionsData('tenant', { agent, sandbox_environment });
     }
 
     const data = emptyPermissionsByResourceId(resourceIds);
@@ -107,15 +117,11 @@ export class TrueFoundryAuthorizer implements Authorizer {
     }
 
     if (input.resourceType === 'schedule') {
-      const ownedIds = await input.store.getOwnedIds({
-        tenant_id: requestContext.tenant_id,
-        ids: resourceIds,
-        subject_id: requestContext.subject.id,
-      });
-      for (const id of ownedIds) {
-        data[id] = [...SCHEDULE_OWNER_PERMISSIONS];
-      }
-      return listPermissionsData('schedule', data);
+      return resolveSchedulePermissions(input);
+    }
+
+    if (input.resourceType === 'sandbox_environment') {
+      return resolveSandboxEnvironmentPermissions(input);
     }
 
     const ownedIds = await input.store.getOwnedIds({

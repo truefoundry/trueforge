@@ -8,15 +8,18 @@ export type UseCanCreateAgentResult = {
   loading: boolean;
   /** False while loading, on error, or when CREATE is not granted (fail-closed). */
   canCreateAgent: boolean;
+  /** False while loading, on error, or when sandbox environment CREATE is not granted. */
+  canCreateSandboxEnvironment: boolean;
 };
 
 const CanCreateAgentContext = createContext<UseCanCreateAgentResult>({
   loading: false,
   canCreateAgent: true,
+  canCreateSandboxEnvironment: true,
 });
 
 /**
- * Fetches the tenant-scoped CREATE grant once for the given permissions server
+ * Fetches tenant-scoped CREATE grants once for the given permissions server
  * and broadcasts the result via context. Mount once high in the tree (inside
  * ServerProvider) so every useCanCreateAgent consumer shares a single
  * list-permissions call instead of each firing its own.
@@ -31,26 +34,32 @@ export function CanCreateAgentProvider({
   const [state, setState] = useState<UseCanCreateAgentResult>({
     loading: permissionsServer != null,
     canCreateAgent: permissionsServer == null,
+    canCreateSandboxEnvironment: permissionsServer == null,
   });
 
   useEffect(() => {
     if (permissionsServer == null) {
-      setState({ loading: false, canCreateAgent: true });
+      setState({ loading: false, canCreateAgent: true, canCreateSandboxEnvironment: true });
       return;
     }
 
     let cancelled = false;
-    setState({ loading: true, canCreateAgent: false });
+    setState({ loading: true, canCreateAgent: false, canCreateSandboxEnvironment: false });
     void permissionsServer
       .listPermissions({ resourceType: 'tenant', resourceIds: [] })
       .then(response => {
         if (cancelled) return;
-        const granted = response.data.permissions.agent ?? [];
-        setState({ loading: false, canCreateAgent: granted.includes('CREATE') });
+        const agentGranted = response.data.permissions.agent ?? [];
+        const environmentGranted = response.data.permissions.sandbox_environment ?? [];
+        setState({
+          loading: false,
+          canCreateAgent: agentGranted.includes('CREATE'),
+          canCreateSandboxEnvironment: environmentGranted.includes('CREATE'),
+        });
       })
       .catch(() => {
         if (cancelled) return;
-        setState({ loading: false, canCreateAgent: false });
+        setState({ loading: false, canCreateAgent: false, canCreateSandboxEnvironment: false });
       });
 
     return () => {
@@ -62,7 +71,7 @@ export function CanCreateAgentProvider({
 }
 
 /**
- * Tenant-scoped create-agent grant. Reads from CanCreateAgentProvider (mounted
+ * Tenant-scoped create grants. Reads from CanCreateAgentProvider (mounted
  * inside ServerProvider). Falls back to allow-all when no permissions port is configured.
  */
 export function useCanCreateAgent(): UseCanCreateAgentResult {
