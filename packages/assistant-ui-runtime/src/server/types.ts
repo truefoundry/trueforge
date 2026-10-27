@@ -31,6 +31,8 @@ export interface ModelSelectorEntry<
   id: string;
   provider: TProvider;
   properties: TProperties;
+  /** Backend notice when reasoning effort or context length is not configured. */
+  warning?: string;
 }
 
 /** Skill selector row. Host extends for fqn, preload, etc. */
