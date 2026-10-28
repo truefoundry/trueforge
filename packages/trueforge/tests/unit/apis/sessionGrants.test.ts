@@ -458,11 +458,27 @@ describe('session grants API', () => {
       expect(await sharedFlag()).toEqual({ get: false, list: [false] });
     });
 
-    it('can no longer be set through PATCH', async () => {
-      const response = await app.request(`/${SESSION_ID}`, jsonInit('PATCH', { shared: true }));
+    it('the deprecated PATCH { shared } grants and revokes the tenant', async () => {
+      app = buildApp({ db, sessionStore, userStore: new EmptyUserStore() });
 
-      expect(response.status).toBe(400);
-      expect(await sharedFlag()).toEqual({ get: false, list: [false] });
+      const shared = await app.request(`/${SESSION_ID}`, jsonInit('PATCH', { shared: true }));
+
+      expect(shared.status).toBe(200);
+      expect(SharedSessionBodySchema.parse(await shared.json()).data.shared).toBe(true);
+      expect(await listSubjectIds()).toEqual([TENANT]);
+      expect(await readStatuses('alice')).toEqual(CAN_READ);
+
+      const unshared = await app.request(`/${SESSION_ID}`, jsonInit('PATCH', { shared: false }));
+
+      expect(unshared.status).toBe(200);
+      expect(SharedSessionBodySchema.parse(await unshared.json()).data.shared).toBe(false);
+      expect(await listSubjectIds()).toEqual([]);
+      expect(await readStatuses('alice')).toEqual(CANNOT_READ);
+    });
+
+    it('the deprecated PATCH { shared } stays creator-only', async () => {
+      expect((await app.request(`/${SESSION_ID}`, jsonInit('PATCH', { shared: true }, 'alice'))).status).toBe(403);
+      expect(await listSubjectIds()).toEqual([]);
     });
   });
 });

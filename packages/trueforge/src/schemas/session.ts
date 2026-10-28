@@ -68,6 +68,13 @@ export const UpdateSessionRequestSchema = z
     agent: SessionAgentSpecBodySchema.optional(),
     title: SessionTitleSchema.optional(),
     metadata: SessionMetadataSchema.optional(),
+    shared: z
+      .boolean()
+      .optional()
+      .describe(
+        'Deprecated: share through `POST /sessions/{session_id}/grants` with a `tenant` subject. True shares the session with everyone in the tenant; false stops sharing it with them.',
+      )
+      .openapi({ deprecated: true }),
   })
   .strict()
   .openapi('UpdateSessionRequest');

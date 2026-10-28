@@ -304,6 +304,25 @@ async function isSharedWithTenant<TTransaction>(
   return sharedIds.length > 0;
 }
 
+/** Deprecated `PATCH { shared }`: sharing with everyone is the `tenant` grant. */
+async function setSharedWithTenant<TTransaction>(
+  accessControlStore: IAccessControlStore<TTransaction>,
+  input: { requestContext: RequestContext; session_id: string; shared: boolean },
+): Promise<void> {
+  const { requestContext, session_id } = input;
+  const subjects: SessionGrantSubject[] = [{ subject_type: 'tenant', subject_id: requestContext.tenant_id }];
+  if (input.shared) {
+    await accessControlStore.grantSessionAccess({
+      tenant_id: requestContext.tenant_id,
+      session_id,
+      subjects,
+      granted_by_subject: createdBySubjectFromRequestContext(requestContext),
+    });
+    return;
+  }
+  await accessControlStore.revokeSessionAccess({ tenant_id: requestContext.tenant_id, session_id, subjects });
+}
+
 function toWireSessionGrant(record: SessionAccessRecord): SessionGrant {
   return {
     subject: { subject_type: record.subject_type, subject_id: record.subject_id },
@@ -606,6 +625,13 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
         throw new HTTPException(422, { message: error.message, cause: error });
       }
       throw error;
+    }
+    if (body.shared !== undefined) {
+      await setSharedWithTenant(deps.accessControlStore, {
+        requestContext,
+        session_id: sessionId,
+        shared: body.shared,
+      });
     }
     const record = await deps.sessionStore.getSession({
       tenant_id: requestContext.tenant_id,
