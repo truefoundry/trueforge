@@ -60,7 +60,12 @@ const aliceGrant: SessionAccessGrant = {
 function renderDialog({
   session = baseSession,
   grants = [],
-}: { session?: SessionStub; grants?: SessionAccessGrant[] } = {}) {
+  sessionSharingUsers = true,
+}: {
+  session?: SessionStub;
+  grants?: SessionAccessGrant[];
+  sessionSharingUsers?: boolean;
+} = {}) {
   const listAccess = vi.fn(async () => grants);
   const grantAccess = vi.fn(async (req: { sessionId: string; subjects: SessionAccessSubject[] }) => [
     ...grants,
@@ -87,6 +92,14 @@ function renderDialog({
     getMe: vi.fn(async () => ({ tenantId: 'acme' })),
     updateSession,
     sessionAccess: { listAccess, grantAccess, revokeAccess, searchUsers },
+    getCapabilities: async () => ({
+      data: {
+        sandbox: { enabled: true },
+        skill: { enabled: true },
+        settings: { enabled: true },
+        sessionSharing: { users: sessionSharingUsers },
+      },
+    }),
   });
   render(
     <SlotsProvider>
@@ -225,5 +238,15 @@ describe('ShareSessionDialog', () => {
         subjects: [{ subjectType: 'user', subjectId: 'u2' }],
       });
     });
+  });
+
+  it('hides the invite search when session_sharing.users is false', async () => {
+    renderDialog({ sessionSharingUsers: false, grants: [aliceGrant] });
+    await openSharePopover();
+
+    expect(await screen.findByRole('button', { name: 'Session sharing' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Search users')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Invite' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Alice')).not.toBeInTheDocument();
   });
 });

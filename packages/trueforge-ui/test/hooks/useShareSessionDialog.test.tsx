@@ -12,12 +12,13 @@ type ServerHookValue = {
 };
 
 const useOptionalServer = vi.hoisted(() => vi.fn<() => ServerHookValue | null>());
+const useServerCapabilities = vi.hoisted(() => vi.fn<() => { sessionSharing?: { users: boolean } } | null>());
 const allows = vi.hoisted(() => vi.fn<() => boolean>());
 const showError = vi.hoisted(() => vi.fn());
 const showSuccess = vi.hoisted(() => vi.fn());
 const copyLink = vi.hoisted(() => vi.fn<() => Promise<boolean>>());
 
-vi.mock('@/server/ServerContext.js', () => ({ useOptionalServer }));
+vi.mock('@/server/ServerContext.js', () => ({ useOptionalServer, useServerCapabilities }));
 vi.mock('@/containers/ToasterContainer.js', () => ({
   useToasterOptional: () => ({ showError, showSuccess }),
 }));
@@ -60,6 +61,7 @@ describe('useShareSessionDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     allows.mockReturnValue(true);
+    useServerCapabilities.mockReturnValue({ sessionSharing: { users: true } });
     copyLink.mockResolvedValue(true);
     getSession.mockResolvedValue(session);
     listAccess.mockResolvedValue([grant({})]);
@@ -95,6 +97,26 @@ describe('useShareSessionDialog', () => {
     expect(listAccess).not.toHaveBeenCalled();
     expect(result.current.canInvite).toBe(false);
     expect(result.current.canChangePermission).toBe(false);
+  });
+
+  it('hides invite when session_sharing.users is false and still allows tenant permission changes', async () => {
+    useServerCapabilities.mockReturnValue({ sessionSharing: { users: false } });
+    const { result } = renderHook(() => useShareSessionDialog('s1'));
+    await act(() => result.current.load());
+
+    expect(listAccess).not.toHaveBeenCalled();
+    expect(result.current.canInvite).toBe(false);
+    expect(result.current.canChangePermission).toBe(true);
+  });
+
+  it('hides invite when session_sharing is missing from capabilities', async () => {
+    useServerCapabilities.mockReturnValue({});
+    const { result } = renderHook(() => useShareSessionDialog('s1'));
+    await act(() => result.current.load());
+
+    expect(listAccess).not.toHaveBeenCalled();
+    expect(result.current.canInvite).toBe(false);
+    expect(result.current.canChangePermission).toBe(true);
   });
 
   it('shares with the tenant via updateSession shared and unshares the same way', async () => {

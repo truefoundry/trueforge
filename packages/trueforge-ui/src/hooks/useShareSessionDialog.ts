@@ -1,11 +1,11 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useToasterOptional } from '../containers/ToasterContainer.js';
 import { buildSharedSessionHref } from '../routing/paths.js';
 import { useOptionalResolvedRoutes } from '../routing/ResolvedRoutesContext.js';
-import { useOptionalServer } from '../server/ServerContext.js';
+import { useOptionalServer, useServerCapabilities } from '../server/ServerContext.js';
 import type { DirectoryUser, SessionAccessGrant, SessionSubject } from '../server/types.js';
 import { useCopySharedSessionLink } from './useCopySharedSessionLink.js';
 import { useResourcePermissions } from './useResourcePermissions.js';
@@ -35,6 +35,7 @@ export function useShareSessionDialog(sessionId: string | null | undefined): {
 } {
   const server = useOptionalServer();
   const sessionAccess = server?.sessionAccess;
+  const capabilities = useServerCapabilities();
   const toaster = useToasterOptional();
   const routes = useOptionalResolvedRoutes();
   const resourceIds = sessionId == null || sessionId.length === 0 ? [] : [sessionId];
@@ -50,7 +51,31 @@ export function useShareSessionDialog(sessionId: string | null | undefined): {
   const hasSession = sessionId != null && sessionId.length > 0;
   const shareUrl = hasSession ? buildSharedSessionHref({ sessionId, routes }) : '';
   const canChangePermission = canManage;
-  const canInvite = canManage && sessionAccess != null;
+  // Absent until capabilities settle; hide invite so the field does not flash in.
+  const canInviteUsers = capabilities?.sessionSharing?.users === true;
+  const canInvite = canManage && sessionAccess != null && canInviteUsers;
+
+  // Runs when invite-by-user becomes available (capabilities settle after open).
+  useEffect(() => {
+    if (!canInvite || !hasSession || sessionAccess == null) {
+      setCollaborators(current => (current.length === 0 ? current : []));
+      return undefined;
+    }
+    let cancelled = false;
+    void sessionAccess
+      .listAccess({ sessionId })
+      .then(grants => {
+        if (!cancelled) setCollaborators(grants.filter(grant => grant.subjectType === 'user'));
+      })
+      .catch(caught => {
+        if (!cancelled) toaster?.showError(caught);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // toaster is read for errors only; its identity must not retrigger the list.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- toaster
+  }, [canInvite, hasSession, sessionAccess, sessionId]);
 
   const load = useCallback(async () => {
     if (!hasSession || server == null) return;
@@ -67,17 +92,12 @@ export function useShareSessionDialog(sessionId: string | null | undefined): {
           // Keep the generic tenant label when identity is unavailable.
         }
       }
-      // listAccess is creator/manager-only on the host; skip for viewers to avoid a 403.
-      if (sessionAccess != null && canManage) {
-        const grants = await sessionAccess.listAccess({ sessionId });
-        setCollaborators(grants.filter(grant => grant.subjectType === 'user'));
-      }
     } catch (caught) {
       toaster?.showError(caught);
     } finally {
       setLoading(false);
     }
-  }, [canManage, hasSession, server, sessionAccess, sessionId, toaster]);
+  }, [hasSession, server, sessionId, toaster]);
 
   const changePermission = useCallback(
     async (next: SessionSharePermission) => {
