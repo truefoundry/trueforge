@@ -158,6 +158,7 @@ export type {
   Question as AskUserQuestion,
   AskUserPromptProps as AskUserQuestionCardProps,
 } from './atoms/adapters/AskUserPromptAdapter.js';
+export type { ContextCompactionCardProps } from './atoms/adapters/ContextCompactionCardAdapter.js';
 export type {
   McpAuthPromptProps as McpAuthCardProps,
   McpAuthPromptProps,
@@ -303,6 +304,7 @@ export {
   readSessionIsCreateAgent,
   sessionIsCreateAgent,
 } from './atoms/lib/sessionCreateAgent.js';
+export { ResetAgentBuilderButton } from './atoms/ResetAgentBuilderButton.js';
 export { SelectAgentEmptyState } from './atoms/SelectAgentEmptyState.js';
 export { ShareChatButton } from './atoms/ShareChatButton.js';
 export { ShareSessionDialog } from './atoms/ShareSessionDialog.js';
@@ -536,6 +538,12 @@ export { AgentRuntimeEditorContent } from './atoms/draft/AgentRuntimeEditorConte
 export type { AgentRuntimeEditorContentProps } from './atoms/draft/AgentRuntimeEditorContent.js';
 export { AgentSkillsEditorContent } from './atoms/draft/AgentSkillsEditorContent.js';
 export type { AgentSkillsEditorContentProps } from './atoms/draft/AgentSkillsEditorContent.js';
+export {
+  AgentSkillsHeaderActionSlot,
+  DEFAULT_PLATFORM_SKILLS_URL,
+  DEFAULT_SETTINGS_SKILLS_URL,
+} from './atoms/draft/AgentSkillsHeaderActionSlot.js';
+export type { AgentSkillsHeaderActionSlotProps } from './atoms/draft/AgentSkillsHeaderActionSlot.js';
 export { DraftAgentConfigTrigger } from './atoms/draft/DraftAgentConfigTrigger.js';
 export type { DraftAgentConfigTriggerProps } from './atoms/draft/DraftAgentConfigTrigger.js';
 export { DraftCapabilitiesPanel } from './atoms/draft/DraftCapabilitiesPanel.js';
@@ -547,6 +555,7 @@ export { DraftCompositeSelector } from './atoms/draft/DraftCompositeSelector.js'
 export type { DraftCompositeSelectorProps } from './atoms/draft/DraftCompositeSelector.js';
 export { DraftModelSelector } from './atoms/draft/DraftModelSelector.js';
 export type { DraftModelSelectorProps } from './atoms/draft/DraftModelSelector.js';
+export { resolveReasoningEffort } from './atoms/draft/reasoningEffort.js';
 export { SaveAgentButton } from './atoms/SaveAgentButton.js';
 export type { SaveAgentButtonProps } from './atoms/SaveAgentButton.js';
 export { SaveAgentForm } from './atoms/SaveAgentForm.js';

@@ -10,8 +10,9 @@ export function isReservedEnvironmentName(name: string): boolean {
   return name.trim() === RESERVED_ENVIRONMENT_NAME;
 }
 
-export function isEnvironmentReadOnly(env: Pick<SandboxEnvironment, 'name'>): boolean {
-  return isReservedEnvironmentName(env.name);
+/** Reserved `default` env, or lacking MANAGE from list-permissions. */
+export function isEnvironmentReadOnly(env: Pick<SandboxEnvironment, 'name'>, canManage: boolean): boolean {
+  return isReservedEnvironmentName(env.name) || !canManage;
 }
 
 export function formatResourcesSummary(resources: SandboxEnvironmentManifest['resources']): string {

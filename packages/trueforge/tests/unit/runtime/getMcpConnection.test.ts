@@ -108,6 +108,7 @@ describe('getMcpConnection', () => {
       }
 
       expect(connection.url).toBe(mcpUrl);
+      expect(connection.server).toEqual({ name: 'oauth-mcp', description: 'OAuth MCP server.' });
       expect(typeof connection.headers).toBe('function');
       if (typeof connection.headers !== 'function') {
         throw new Error('expected async headers resolver');
@@ -193,6 +194,7 @@ describe('getMcpConnection', () => {
     }
 
     expect(connection.url).toBe('https://mcp.open.example/mcp');
+    expect(connection.server).toEqual({ name: 'open-mcp', description: 'Open MCP server.' });
     expect(connection.headers).toEqual({});
   });
 
@@ -221,6 +223,7 @@ describe('getMcpConnection', () => {
     }
 
     expect(connection.url).toBe('https://mcp.header.example/mcp');
+    expect(connection.server).toEqual({ name: 'header-mcp', description: 'Header MCP server.' });
     expect(connection.headers).toEqual({ Authorization: 'Bearer static-token' });
   });
 

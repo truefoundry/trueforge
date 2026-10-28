@@ -11,6 +11,7 @@ import {
   type UserToolResponseMessage,
 } from '../events/schema';
 import type { LLMToolMessage } from '../llm/LLMTypes';
+import { getOperationMetrics } from '../observability/operationMetrics';
 import type { AgentExecutionTrace, AgentTracing } from '../tracing/AgentTracing';
 import { onSignalAbort } from '../util/abort';
 import { mergeAsyncGenerators } from '../util/promiseUtils';
@@ -88,6 +89,19 @@ function getActiveAgentThreads(agentThreads: Map<string, AgentThread>): AgentThr
     }
     return agentThread;
   });
+}
+
+/** Each thread counts once, the first time it is a leaf. Later loop steps run the same threads again. */
+function countNewlyActiveThreads(threads: readonly AgentThread[], countedThreadIds: Set<string>): number {
+  let started = 0;
+  for (const thread of threads) {
+    if (countedThreadIds.has(thread.threadId)) {
+      continue;
+    }
+    countedThreadIds.add(thread.threadId);
+    started += 1;
+  }
+  return started;
 }
 
 function mergeAuthEvents(events: InternalMCPAuthRequiredEvent[]): InternalMCPAuthRequiredEvent {
@@ -507,6 +521,7 @@ export class AgentThreadOrchestrator {
       shouldStopExecution = true;
     });
 
+    const countedThreadIds = new Set<string>();
     try {
       while (agentThreads.size > 0) {
         if (shouldStopExecution) {
@@ -514,6 +529,10 @@ export class AgentThreadOrchestrator {
         }
 
         const activeThreads = getActiveAgentThreads(agentThreads);
+        const startedCount = countNewlyActiveThreads(activeThreads, countedThreadIds);
+        if (startedCount > 0) {
+          getOperationMetrics()?.recordActiveThreads({ count: startedCount });
+        }
 
         for (let i = 0; i < activeThreads.length && !shouldStopExecution; i += MAX_PARALLEL_SUB_AGENTS) {
           const batch = activeThreads.slice(i, i + MAX_PARALLEL_SUB_AGENTS);

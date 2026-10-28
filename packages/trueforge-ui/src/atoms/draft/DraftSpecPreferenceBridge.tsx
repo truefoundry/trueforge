@@ -16,6 +16,7 @@ import type { AgentSkill, AgentSpec, ConnectorState, ModelSelection } from '../.
 import { mountName } from '../lib/mountName.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
 import { modelPatchWithReasoningEffort } from './reasoningEffort.js';
+import { skillFamilyId } from './SkillVersionSelector.js';
 
 function readDraftSandboxEnabled(spec: AgentSpec): boolean | undefined {
   if (spec.config === undefined) return undefined;
@@ -26,13 +27,43 @@ function readDraftSandboxEnabled(spec: AgentSpec): boolean | undefined {
   return typeof enabled === 'boolean' ? enabled : undefined;
 }
 
-function filterMounts<T extends object>(mounts: T[] | undefined, availableNames: Set<string>): T[] | undefined {
+function filterMounts<T extends object>(
+  mounts: T[] | undefined,
+  availableNames: Set<string>,
+  { matchFamily = false }: { matchFamily?: boolean } = {},
+): T[] | undefined {
   if (mounts === undefined) return undefined;
   const filtered = mounts.filter(mount => {
     const name = mountName(mount);
-    return name !== null && availableNames.has(name);
+    if (name === null) return false;
+    if (availableNames.has(name)) return true;
+    return matchFamily && availableNames.has(skillFamilyId(name));
   });
   return filtered.length === mounts.length ? mounts : filtered;
+}
+
+function skillAvailableKeys(skills: AgentSkill[]): Set<string> {
+  const keys = new Set<string>();
+  for (const skill of skills) {
+    keys.add(skill.name);
+    keys.add(skill.id);
+    keys.add(skillFamilyId(skill.id));
+  }
+  return keys;
+}
+
+/** Chips render `name`. A post-turn mount stores the FQN there; swap in the catalog label. */
+function labelSkillMounts(mounts: object[] | undefined, skills: readonly AgentSkill[]): object[] | undefined {
+  if (mounts === undefined) return undefined;
+  let changed = false;
+  const next = mounts.map(mount => {
+    const name = mountName(mount);
+    const catalog = skills.find(skill => skill.id === name);
+    if (catalog === undefined || name === catalog.name) return mount;
+    changed = true;
+    return { ...mount, id: catalog.id, name: catalog.name };
+  });
+  return changed ? next : mounts;
 }
 
 export function reconcileDraftSpecPreferences({
@@ -73,7 +104,10 @@ export function reconcileDraftSpecPreferences({
       update.skills = [];
     }
   } else {
-    const nextSkills = filterMounts(agentSpec.skills, new Set(skills.map(skill => skill.name)));
+    const nextSkills = labelSkillMounts(
+      filterMounts(agentSpec.skills, skillAvailableKeys(skills), { matchFamily: true }),
+      skills,
+    );
     if (nextSkills !== agentSpec.skills) {
       update.skills = nextSkills;
     }
@@ -149,7 +183,7 @@ export function reconcileDraftWebSearch({
  */
 export function DraftSpecPreferenceBridge() {
   const { mode, pendingSessionId, rememberDraftSpec } = useShellMode();
-  const { agentSpec } = useTrueForgeAgentSpec();
+  const { agentSpec, isSpecLoading } = useTrueForgeAgentSpec();
   const updateAgentSpec = useTrueForgeUpdateAgentSpec();
   const capabilities = useServerCapabilities();
   const sandboxEnabled = capabilities?.sandbox.enabled;
@@ -158,25 +192,28 @@ export function DraftSpecPreferenceBridge() {
   const { models, skills, connectors, loaded, error, ensureLoaded } = useDraftCatalog();
   const isMutableDraft = mode.status === 'active' && mode.isMutable && pendingSessionId == null;
   const isPlainDraft = isMutableDraft && mode.agentId == null;
+  // While a history session's stored spec is loading, agentSpec is still the New Chat
+  // seed — do not reconcile/PATCH that seed onto the resumed session.
+  const canReconcileLiveSpec = !isSpecLoading;
   const preferenceKind = mode.status === 'active' && mode.isMutable && mode.isCreateAgent ? 'agent' : 'chat';
   useEffect(() => {
     if (isPlainDraft) ensureLoaded();
   }, [ensureLoaded, isPlainDraft]);
 
   useEffect(() => {
-    if (isPlainDraft && agentSpec != null) {
+    if (isPlainDraft && canReconcileLiveSpec && agentSpec != null) {
       rememberDraftSpec(agentSpec, preferenceKind);
     }
-  }, [agentSpec, isPlainDraft, preferenceKind, rememberDraftSpec]);
+  }, [agentSpec, canReconcileLiveSpec, isPlainDraft, preferenceKind, rememberDraftSpec]);
 
   useEffect(() => {
     // New Chat mirrors capabilities onto the live draft; New Agent only disables when unavailable.
-    if (!isPlainDraft || agentSpec == null || updateAgentSpec == null) return;
+    if (!isPlainDraft || !canReconcileLiveSpec || agentSpec == null || updateAgentSpec == null) return;
     const update = reconcileDraftSandbox({ agentSpec, sandboxEnabled, kind: preferenceKind });
     if (Object.keys(update).length > 0) {
       updateAgentSpec(update);
     }
-  }, [agentSpec, isPlainDraft, preferenceKind, sandboxEnabled, updateAgentSpec]);
+  }, [agentSpec, canReconcileLiveSpec, isPlainDraft, preferenceKind, sandboxEnabled, updateAgentSpec]);
 
   useEffect(() => {
     // Apply to New Chat / New Agent / edit-existing mutable drafts.
@@ -184,7 +221,7 @@ export function DraftSpecPreferenceBridge() {
     // Force-off recovery is only for plain drafts, and only when no choice was stored.
     const previousWebSearchEnabled = prevWebSearchEnabledRef.current;
     prevWebSearchEnabledRef.current = webSearchEnabled;
-    if (!isMutableDraft || agentSpec == null || updateAgentSpec == null) return;
+    if (!isMutableDraft || !canReconcileLiveSpec || agentSpec == null || updateAgentSpec == null) return;
     const update = reconcileDraftWebSearch({
       agentSpec,
       webSearchEnabled,
@@ -195,10 +232,27 @@ export function DraftSpecPreferenceBridge() {
     if (Object.keys(update).length > 0) {
       updateAgentSpec(update);
     }
-  }, [agentSpec, isMutableDraft, isPlainDraft, preferenceKind, webSearchEnabled, updateAgentSpec]);
+  }, [
+    agentSpec,
+    canReconcileLiveSpec,
+    isMutableDraft,
+    isPlainDraft,
+    preferenceKind,
+    webSearchEnabled,
+    updateAgentSpec,
+  ]);
 
   useEffect(() => {
-    if (!isPlainDraft || agentSpec == null || updateAgentSpec == null || !loaded || error != null) return;
+    if (
+      !isPlainDraft ||
+      !canReconcileLiveSpec ||
+      agentSpec == null ||
+      updateAgentSpec == null ||
+      !loaded ||
+      error != null
+    ) {
+      return;
+    }
 
     const update = reconcileDraftSpecPreferences({
       agentSpec,
@@ -212,6 +266,7 @@ export function DraftSpecPreferenceBridge() {
     }
   }, [
     agentSpec,
+    canReconcileLiveSpec,
     capabilities?.skill.enabled,
     connectors,
     error,

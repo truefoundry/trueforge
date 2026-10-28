@@ -184,6 +184,7 @@ describe('buildRedisStandaloneUrl', () => {
     database: 0,
     username: undefined,
     password: undefined,
+    tls: false,
   };
 
   it('builds a hostname URL', () => {

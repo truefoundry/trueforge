@@ -1,5 +1,68 @@
 # @truefoundry/trueforge-core
 
+## 0.180.0
+
+### Patch Changes
+
+- 5dd0089: Fail the turn with an explanatory error (`Output blocked: the model's content safety filter stopped the response. Rephrase the request and retry.`) when the content filter stops the response, instead of finishing with empty output.
+- 36a0bfa: Preserve supervisord ENTRYPOINT on Daytona custom-environment buildInfo snapshots so the sandbox NATS bridge starts (Daytona otherwise defaults to sleep infinity).
+- 0a1606d: Blocked large tool response messages now state the exact content size and which limit blocked it, in characters (`Content too large (50,000 characters; this response exceeds the 24,000-character limit for a single response). Result saved to: …`, at the default thresholds; responses blocked by the parallel total instead say the parallel responses together exceed the combined limit), and the file-dump message prompts the model to plan reads against the total instead of guessing with small incremental reads.
+- 5fd9cca: Prefix model and MCP failures so logs and the chat error show which system failed.
+- 26c77c4: Add optional AgentSpec-shaped `model` (`{ name: provider/model, params? }`) on `model.message` events, stamp it from the bound agent definition for new turns, and backfill the session tip turn's events / turn output from the session agent model FQN.
+- be2bb87: When a model stops at its output token limit, fail the turn with `Output truncated: hit the <N> token limit. Raise max_tokens and retry.` (or "the provider's default token limit" when none was sent) instead of `max_tokens breached`. The tokens used are included when they differ from the limit.
+- 248e768: Enable fine-grained tool streaming via TrueFoundry `anthropic-beta` header and Anthropic `toolStreaming`, and report invalid tool-arg JSON as a distinct parse error
+- 05cef0b: Add 502 and 503 status codes to SSRF fetch retry logic. These errors indicate temporary upstream failures and are now eligible for automatic retries across model, MCP, and outbound fetch operations.
+
+## 0.180.0-rc.3
+
+### Patch Changes
+
+- 5fd9cca: Prefix model and MCP failures so logs and the chat error show which system failed.
+
+## 0.180.0-rc.2
+
+### Patch Changes
+
+- 0a1606d: The sandbox file-dump message for a blocked large tool response now states its exact size (`Content too large (50,000 characters). Result saved to: …`) and prompts the model to plan reads against that total, instead of guessing with small incremental reads.
+
+## 0.180.0-rc.1
+
+### Patch Changes
+
+- 5dd0089: Fail the turn with an explanatory error (`Output blocked: the model's content safety filter stopped the response. Rephrase the request and retry.`) when the content filter stops the response, instead of finishing with empty output.
+- 36a0bfa: Preserve supervisord ENTRYPOINT on Daytona custom-environment buildInfo snapshots so the sandbox NATS bridge starts (Daytona otherwise defaults to sleep infinity).
+- 26c77c4: Add optional AgentSpec-shaped `model` (`{ name: provider/model, params? }`) on `model.message` events, stamp it from the bound agent definition for new turns, and backfill the session tip turn's events / turn output from the session agent model FQN.
+- be2bb87: When a model stops at its output token limit, fail the turn with `Output truncated: hit the <N> token limit. Raise max_tokens and retry.` (or "the provider's default token limit" when none was sent) instead of `max_tokens breached`. The tokens used are included when they differ from the limit.
+- 248e768: Enable fine-grained tool streaming via TrueFoundry `anthropic-beta` header and Anthropic `toolStreaming`, and report invalid tool-arg JSON as a distinct parse error
+- 05cef0b: Add 502 and 503 status codes to SSRF fetch retry logic. These errors indicate temporary upstream failures and are now eligible for automatic retries across model, MCP, and outbound fetch operations.
+
+## 0.179.0
+
+### Patch Changes
+
+- 97f7d7f: Bump `@modelcontextprotocol/sdk` from 1.30.1 to 1.31.0.
+- bbe23c8: Preserve supervisord ENTRYPOINT on Daytona custom-environment buildInfo snapshots so the sandbox NATS bridge starts (Daytona otherwise defaults to sleep infinity).
+- f975575: On Daytona sandbox create, reactivate inactive snapshots with a clear retry error, and raise a P1 for unexpected create failures (not authz).
+- 8cc8453: `extractErrorLogFields` appends each `cause` stack after the outer stack, joined with `Caused by:`. A wrapper captures the boundary rather than the throw site, so the origin frames stay on the same traceback.
+- e1f470f: Raise the default model HTTP headers and body timeouts to 2 minutes so slow first-token and idle stream responses are not dropped.
+- bbe23c8: Add 502 and 503 status codes to SSRF fetch retry logic. These errors indicate temporary upstream failures and are now eligible for automatic retries across model, MCP, and outbound fetch operations.
+
+## 0.179.0-rc.2
+
+### Patch Changes
+
+- bbe23c8: Preserve supervisord ENTRYPOINT on Daytona custom-environment buildInfo snapshots so the sandbox NATS bridge starts (Daytona otherwise defaults to sleep infinity).
+- bbe23c8: Add 502 and 503 status codes to SSRF fetch retry logic. These errors indicate temporary upstream failures and are now eligible for automatic retries across model, MCP, and outbound fetch operations.
+
+## 0.179.0-rc.1
+
+### Patch Changes
+
+- 97f7d7f: Bump `@modelcontextprotocol/sdk` from 1.30.1 to 1.31.0.
+- f975575: On Daytona sandbox create, reactivate inactive snapshots with a clear retry error, and raise a P1 for unexpected create failures (not authz).
+- 8cc8453: `extractErrorLogFields` appends each `cause` stack after the outer stack, joined with `Caused by:`. A wrapper captures the boundary rather than the throw site, so the origin frames stay on the same traceback.
+- e1f470f: Raise the default model HTTP headers and body timeouts to 2 minutes so slow first-token and idle stream responses are not dropped.
+
 ## 0.178.0
 
 ### Patch Changes

@@ -1,5 +1,148 @@
 # @truefoundry/trueforge
 
+## 0.180.0
+
+### Patch Changes
+
+- 36a0bfa: Preserve supervisord ENTRYPOINT on Daytona custom-environment buildInfo snapshots so the sandbox NATS bridge starts (Daytona otherwise defaults to sleep infinity).
+- d233f44: Set Daytona `requestTimeoutMs` to 60s so the SDK applies a per-exec HTTP deadline (command timeout + 5s) and a hung toolbox response cannot leave a turn blocked without a tool.response.
+- 0a1606d: Default the reasoning effort to `medium` when the selected model offers it, instead of defaulting to the lowest effort. TrueFoundry model listing now passes `mergeParams` to the provider-integrations API so provider-level parameter defaults are included in each model's advertised parameters.
+- 0a42995: In TrueFoundry mode, `x-tfg-skills`, `x-tfg-mcp`, and `x-tfg-models` are allowed when creating an inline session, replacing its spec, or running a turn on it. Create and replace only use the headers to check the spec and do not save them. `x-tfg-skills` must list every skill as a git skill; registry skill ids are not accepted. MCP servers and models fall back to the registry when a name is missing. Other routes reject these headers.
+- 3b2405e: Add tenant, request, session, and turn ids to server and controller logs so a failure can be filtered to one request or turn. Log lines no longer include the package version.
+- ce2a843: Add newer model presets to the shipped model catalog for the providers it already lists.
+- 26c77c4: Add optional AgentSpec-shaped `model` (`{ name: provider/model, params? }`) on `model.message` events, stamp it from the bound agent definition for new turns, and backfill the session tip turn's events / turn output from the session agent model FQN.
+- 8cd3f33: Expose Prometheus request metrics at `GET /metrics` so a scraper can see rate, status, and latency for `/api` requests.
+- f10e3b8: Default reasoning effort now follows `medium` → `high` → `low` in both the draft (New Chat) composer and the agent builder (Agent Config) when the selected model does not offer `medium`, instead of falling back to the lowest offered effort.
+- d3d80a2: Use the `rediss://` URL scheme for standalone Redis when `REDIS_TLS_ENABLED` is true so TLS connections advertise the secure protocol in the connection URL.
+- b037c92: Only validate `model.params.reasoning_effort` against a model's advertised efforts when that list is non-empty, so models without configured efforts no longer reject specs that set it.
+- b575b9a: Compare the service API key with `crypto.timingSafeEqual` so a rejected credential does not leak how much of the key matched.
+- 9208cc8: Allow tenant members to use sandbox environments created by other members while keeping update and delete actions restricted to the creator.
+- 5da156a: Add a host-overridable Register Skills action next to the Skills modal title. The default slot waits for capabilities, routes to Settings → Skills or a platform URL, and hides when neither applies.
+- eb5560c: Add a keyless You.com remote MCP server preset to the shipped MCP catalog so users can opt into You.com web search alongside the existing presets.
+- Updated dependencies [5dd0089]
+- Updated dependencies [36a0bfa]
+- Updated dependencies [0a1606d]
+- Updated dependencies [5fd9cca]
+- Updated dependencies [26c77c4]
+- Updated dependencies [be2bb87]
+- Updated dependencies [248e768]
+- Updated dependencies [05cef0b]
+  - @truefoundry/trueforge-core@0.180.0
+  - @truefoundry/trueforge-sdk@0.180.0
+
+## 0.180.0-rc.4
+
+### Patch Changes
+
+- Updated dependencies [5fd9cca]
+  - @truefoundry/trueforge-core@0.180.0-rc.3
+
+## 0.180.0-rc.3
+
+### Patch Changes
+
+- f10e3b8: Default reasoning effort now follows `medium` → `high` → `low` in both the draft (New Chat) composer and the agent builder (Agent Config) when the selected model does not offer `medium`, instead of falling back to the lowest offered effort.
+
+## 0.180.0-rc.2
+
+### Patch Changes
+
+- 0a1606d: Default the reasoning effort to `medium` when the selected model offers it (falling back to the lowest real effort otherwise), instead of defaulting to the lowest effort. TrueFoundry model listing now passes `mergeParams` to the provider-integrations API so provider-level parameter defaults are included in each model's advertised parameters.
+- Updated dependencies [0a1606d]
+  - @truefoundry/trueforge-core@0.180.0-rc.2
+
+## 0.180.0-rc.1
+
+### Patch Changes
+
+- 36a0bfa: Preserve supervisord ENTRYPOINT on Daytona custom-environment buildInfo snapshots so the sandbox NATS bridge starts (Daytona otherwise defaults to sleep infinity).
+- d233f44: Set Daytona `requestTimeoutMs` to 60s so the SDK applies a per-exec HTTP deadline (command timeout + 5s) and a hung toolbox response cannot leave a turn blocked without a tool.response.
+- 0a42995: In TrueFoundry mode, `x-tfg-skills`, `x-tfg-mcp`, and `x-tfg-models` are allowed when creating an inline session, replacing its spec, or running a turn on it. Create and replace only use the headers to check the spec and do not save them. `x-tfg-skills` must list every skill as a git skill; registry skill ids are not accepted. MCP servers and models fall back to the registry when a name is missing. Other routes reject these headers.
+- 3b2405e: Add tenant, request, session, and turn ids to server and controller logs so a failure can be filtered to one request or turn. Log lines no longer include the package version.
+- ce2a843: Add newer model presets to the shipped model catalog for the providers it already lists.
+- 26c77c4: Add optional AgentSpec-shaped `model` (`{ name: provider/model, params? }`) on `model.message` events, stamp it from the bound agent definition for new turns, and backfill the session tip turn's events / turn output from the session agent model FQN.
+- 8cd3f33: Expose Prometheus request metrics at `GET /metrics` so a scraper can see rate, status, and latency for `/api` requests.
+- d3d80a2: Use the `rediss://` URL scheme for standalone Redis when `REDIS_TLS_ENABLED` is true so TLS connections advertise the secure protocol in the connection URL.
+- b037c92: Only validate `model.params.reasoning_effort` against a model's advertised efforts when that list is non-empty, so models without configured efforts no longer reject specs that set it.
+- b575b9a: Compare the service API key with `crypto.timingSafeEqual` so a rejected credential does not leak how much of the key matched.
+- 9208cc8: Allow tenant members to use sandbox environments created by other members while keeping update and delete actions restricted to the creator.
+- 5da156a: Add a host-overridable Register Skills action next to the Skills modal title. The default slot waits for capabilities, routes to Settings → Skills or a platform URL, and hides when neither applies.
+- eb5560c: Add a keyless You.com remote MCP server preset to the shipped MCP catalog so users can opt into You.com web search alongside the existing presets.
+- Updated dependencies [5dd0089]
+- Updated dependencies [36a0bfa]
+- Updated dependencies [26c77c4]
+- Updated dependencies [be2bb87]
+- Updated dependencies [248e768]
+- Updated dependencies [05cef0b]
+  - @truefoundry/trueforge-core@0.180.0-rc.1
+
+## 0.179.0
+
+### Patch Changes
+
+- 97f7d7f: Bump `@modelcontextprotocol/sdk` from 1.30.1 to 1.31.0.
+- bbe23c8: Preserve supervisord ENTRYPOINT on Daytona custom-environment buildInfo snapshots so the sandbox NATS bridge starts (Daytona otherwise defaults to sleep infinity).
+- f975575: On Daytona sandbox create, reactivate inactive snapshots with a clear retry error, and raise a P1 for unexpected create failures (not authz).
+- 6a38bc1: Map Daytona sandbox-environment secret sync HTTP 4xx failures to 422 instead of 502.
+- 95f5c5c: Remove the sandbox-environments frontend feature flag and always enable environments UI.
+- 8cc8453: Log a traceback for every error that leaves the server as a non-2xx response. Thrown `HTTPException`s below 500 were returned with nothing in the log but the access-log line, so a 400/422/424 could not be traced to the code that raised it. Route handlers that caught an error and converted it into a client error now rethrow it as an `HTTPException` carrying the original as `cause`, and OpenAPI request validation throws instead of answering directly, so the app error handler is the one place that builds the error envelope and logs it. Each line carries method, path, status, the error chain, and the stack. When the handler rethrows with `cause`, the traceback includes the route throw and each cause stack. Routine `401`/`403`/`404` rejections stay at debug level.
+- e1f470f: Raise the default model HTTP headers and body timeouts to 2 minutes so slow first-token and idle stream responses are not dropped.
+- f072150: Remove `AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA` and the Postgres bootstrap that moved public tables into `POSTGRES_SCHEMA`; schema creation stays with the Migrator and init migration.
+- ee3cbc4: Remove the internal ServiceFoundry agent and session import API used for the TrueFoundry to TrueForge backfill, including the unused managed-agent ID passed on agent create.
+- 694a572: Reject duplicate sandbox environment names on create (POST) instead of overwriting via upsert.
+- e25945d: Add configurable sandbox resource caps and limit environment variable and secret names in the UI.
+- 87634d8: Truncate derived session titles on grapheme boundaries so emoji clusters are never split, and leave
+  the title unset when nothing fits instead of storing a blank value.
+- a2f2877: Allow tenant members to use sandbox environments created by other members while keeping update and delete actions restricted to the creator.
+- Updated dependencies [97f7d7f]
+- Updated dependencies [bbe23c8]
+- Updated dependencies [f975575]
+- Updated dependencies [8cc8453]
+- Updated dependencies [e1f470f]
+- Updated dependencies [694a572]
+- Updated dependencies [bbe23c8]
+  - @truefoundry/trueforge-core@0.179.0
+  - @truefoundry/trueforge-sdk@0.179.0
+
+## 0.179.0-rc.3
+
+### Patch Changes
+
+- a2f2877: Allow tenant members to use sandbox environments created by other members while keeping update and delete actions restricted to the creator.
+
+## 0.179.0-rc.2
+
+### Patch Changes
+
+- bbe23c8: Preserve supervisord ENTRYPOINT on Daytona custom-environment buildInfo snapshots so the sandbox NATS bridge starts (Daytona otherwise defaults to sleep infinity).
+- Updated dependencies [bbe23c8]
+- Updated dependencies [bbe23c8]
+  - @truefoundry/trueforge-core@0.179.0-rc.2
+
+## 0.179.0-rc.1
+
+### Patch Changes
+
+- 97f7d7f: Bump `@modelcontextprotocol/sdk` from 1.30.1 to 1.31.0.
+- f975575: On Daytona sandbox create, reactivate inactive snapshots with a clear retry error, and raise a P1 for unexpected create failures (not authz).
+- 6a38bc1: Map Daytona sandbox-environment secret sync HTTP 4xx failures to 422 instead of 502.
+- 95f5c5c: Remove the sandbox-environments frontend feature flag and always enable environments UI.
+- 8cc8453: Log a traceback for every error that leaves the server as a non-2xx response. Thrown `HTTPException`s below 500 were returned with nothing in the log but the access-log line, so a 400/422/424 could not be traced to the code that raised it. Route handlers that caught an error and converted it into a client error now rethrow it as an `HTTPException` carrying the original as `cause`, and OpenAPI request validation throws instead of answering directly, so the app error handler is the one place that builds the error envelope and logs it. Each line carries method, path, status, the error chain, and the stack. When the handler rethrows with `cause`, the traceback includes the route throw and each cause stack. Routine `401`/`403`/`404` rejections stay at debug level.
+- e1f470f: Raise the default model HTTP headers and body timeouts to 2 minutes so slow first-token and idle stream responses are not dropped.
+- f072150: Remove `AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA` and the Postgres bootstrap that moved public tables into `POSTGRES_SCHEMA`; schema creation stays with the Migrator and init migration.
+- ee3cbc4: Remove the internal ServiceFoundry agent and session import API used for the TrueFoundry to TrueForge backfill, including the unused managed-agent ID passed on agent create.
+- 694a572: Reject duplicate sandbox environment names on create (POST) instead of overwriting via upsert.
+- e25945d: Add configurable sandbox resource caps and limit environment variable and secret names in the UI.
+- 87634d8: Truncate derived session titles on grapheme boundaries so emoji clusters are never split, and leave
+  the title unset when nothing fits instead of storing a blank value.
+- Updated dependencies [97f7d7f]
+- Updated dependencies [f975575]
+- Updated dependencies [8cc8453]
+- Updated dependencies [e1f470f]
+- Updated dependencies [694a572]
+  - @truefoundry/trueforge-core@0.179.0-rc.1
+  - @truefoundry/trueforge-sdk@0.179.0-rc.1
+
 ## 0.178.0
 
 ### Patch Changes

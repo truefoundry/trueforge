@@ -1,10 +1,26 @@
 import { fromJson } from "../json.js";
-import { getResponseBody } from "./getResponseBody.js";
+import { getResponseBody, isResponseBodyError } from "./getResponseBody.js";
+
+/** Parses a JSON error body, falling back to the raw text so the status and body are never lost. */
+function parseJsonErrorBody(text: string): unknown {
+    if (text.length === 0) {
+        return undefined;
+    }
+    try {
+        return fromJson(text);
+    } catch {
+        return text;
+    }
+}
 
 export async function getErrorResponseBody(response: Response): Promise<unknown> {
     let contentType = response.headers.get("Content-Type")?.toLowerCase();
     if (contentType == null || contentType.length === 0) {
-        return getResponseBody(response);
+        const body = await getResponseBody(response);
+        if (isResponseBodyError(body)) {
+            return body.error.reason === "non-json" ? body.error.rawBody : undefined;
+        }
+        return body;
     }
 
     if (contentType.indexOf(";") !== -1) {
@@ -16,14 +32,11 @@ export async function getErrorResponseBody(response: Response): Promise<unknown>
         case "application/ld+json":
         case "application/problem+json":
         case "application/vnd.api+json":
-        case "text/json": {
-            const text = await response.text();
-            return text.length > 0 ? fromJson(text) : undefined;
-        }
+        case "text/json":
+            return parseJsonErrorBody(await response.text());
         default:
             if (contentType.startsWith("application/vnd.") && contentType.endsWith("+json")) {
-                const text = await response.text();
-                return text.length > 0 ? fromJson(text) : undefined;
+                return parseJsonErrorBody(await response.text());
             }
 
             // Fallback to plain text if content type is not recognized

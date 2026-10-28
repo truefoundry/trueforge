@@ -13,13 +13,14 @@ interface TurnStreamData {
 ```
 
 <Note>
-  `@truefoundry/trueforge-ui` types `TurnStreamingEvent` openly as
-  `{ type: string; [key: string]: unknown }`, so TypeScript will not check the shapes on this
-  page for you — emit an event whose fields do not match and it compiles cleanly, then fails to
-  render. Treat these shapes as required regardless.
+  `TurnStreamingEvent` is a discriminated union of the concrete event shapes below.
+  Import it and `TurnStreamData` from `@truefoundry/trueforge-ui` to type a custom
+  server's output. TypeScript checks the fields of typed events; JSON received over
+  the network still needs validation before it is used as an event.
 
-  The named event interfaces below are declared in `@truefoundry/trueforge-assistant-ui-runtime`. Import
-  them from there if you want compile-time checking when building a server.
+  Individual event interfaces are defined in
+  `@truefoundry/trueforge-assistant-ui-runtime/server`; the UI package re-exports the
+  streaming union, so most hosts do not need a direct runtime import.
 </Note>
 
 `sequenceNumber` must increase monotonically within a turn. It is what

@@ -156,7 +156,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     expect(stored?.state.status).toBe('running');
     const sessionRecord = await store.getSession({ tenant_id: tenant, session_id: 's1' });
     expect(sessionRecord?.title).toBe('From first message');
-    expect(sessionRecord?.last_turn_id).toBe(turn.id);
+    expect(sessionRecord?.last_turn_details?.id).toBe(turn.id);
   });
 
   it('loads turn handles without reading the session', async () => {
@@ -293,7 +293,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     });
     expect(root2.previous_turn_id).toBeNull();
     const sessionRecord = await store.getSession({ tenant_id: tenant, session_id: 's1' });
-    expect(sessionRecord?.last_turn_id).toBe(root2.id);
+    expect(sessionRecord?.last_turn_details?.id).toBe(root2.id);
   });
 
   it('send/validation failure in run() persists no turn', async () => {
@@ -332,7 +332,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     });
     expect(turns.data).toHaveLength(0);
     const sessionRecord = await store.getSession({ tenant_id: tenant, session_id: 's1' });
-    expect(sessionRecord?.last_turn_id).toBeNull();
+    expect(sessionRecord?.last_turn_details).toBeNull();
   });
 
   it('run() failure closes the resolver; success defers close() to stream()', async () => {

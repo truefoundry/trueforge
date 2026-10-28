@@ -42,6 +42,7 @@ describe('harnessBuilderServer', () => {
             maxOutputTokens: 100_000,
             reasoningEfforts: ['low', 'medium', 'high'],
           },
+          warning: "Reasoning effort is not configured for this model, which may affect TrueForge's performance.",
         },
         logo: 'https://assets.example/openai.svg',
       }),
@@ -54,6 +55,7 @@ describe('harnessBuilderServer', () => {
           maxOutputTokens: 100_000,
           reasoningEfforts: ['low', 'medium', 'high'],
         },
+        warning: "Reasoning effort is not configured for this model, which may affect TrueForge's performance.",
       },
     );
     assert.deepEqual(

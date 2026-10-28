@@ -122,7 +122,10 @@ describe('TrueForgeChatProvider', () => {
       createdAt: '2026-09-10T00:00:00.000Z',
       updatedAt: '2026-09-10T00:00:00.000Z',
     });
-    expect(createSession).toHaveBeenCalledWith({ agentName: 'my-agent' });
+    expect(createSession).toHaveBeenCalledWith({
+      agentName: 'my-agent',
+      metadata: { 'tfg.source': 'ui' },
+    });
   });
 
   it('forwards a discriminated agent configuration', () => {

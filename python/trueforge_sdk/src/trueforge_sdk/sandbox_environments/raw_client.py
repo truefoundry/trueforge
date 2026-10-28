@@ -15,6 +15,7 @@ from ..core.unchecked_base_model import construct_type
 from ..errors.bad_gateway_error import BadGatewayError
 from ..errors.bad_request_error import BadRequestError
 from ..errors.conflict_error import ConflictError
+from ..errors.forbidden_error import ForbiddenError
 from ..errors.not_found_error import NotFoundError
 from ..errors.unauthorized_error import UnauthorizedError
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
@@ -42,7 +43,7 @@ class RawSandboxEnvironmentsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[SandboxEnvironment, ListSandboxEnvironmentsResponse]:
         """
-        List the tenant default environment plus sandbox environments created by the authenticated subject.
+        List available sandbox environments
 
         Parameters
         ----------
@@ -185,6 +186,17 @@ class RawSandboxEnvironmentsClient:
                         ),
                     ),
                 )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 409:
                 raise ConflictError(
                     headers=dict(_response.headers),
@@ -231,7 +243,7 @@ class RawSandboxEnvironmentsClient:
         self, *, manifest: SandboxEnvironmentManifestRequest, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[GetSandboxEnvironmentResponse]:
         """
-        Create or replace by `manifest.name`. Requires a configured sandbox provider.
+        Create a new sandbox environment or update an existing one.
 
         Parameters
         ----------
@@ -291,6 +303,28 @@ class RawSandboxEnvironmentsClient:
                         ),
                     ),
                 )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 409:
                 raise ConflictError(
                     headers=dict(_response.headers),
@@ -337,8 +371,6 @@ class RawSandboxEnvironmentsClient:
         self, *, name: str, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[GetSandboxEnvironmentResponse]:
         """
-        Get a sandbox environment by name. The tenant default is readable by any tenant member; custom environments are owner-scoped.
-
         Parameters
         ----------
         name : str
@@ -402,7 +434,7 @@ class RawSandboxEnvironmentsClient:
         self, *, name: str, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[DeleteSandboxEnvironmentResponse]:
         """
-        Delete by name. Fails if any agent still references the environment.
+        Delete a sandbox environment, fails if any agent still references it.
 
         Parameters
         ----------
@@ -434,6 +466,17 @@ class RawSandboxEnvironmentsClient:
                 return HttpResponse(response=_response, data=_data)
             if _response.status_code == 401:
                 raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         RequestErrorResponse,
@@ -509,7 +552,7 @@ class AsyncRawSandboxEnvironmentsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[SandboxEnvironment, ListSandboxEnvironmentsResponse]:
         """
-        List the tenant default environment plus sandbox environments created by the authenticated subject.
+        List available sandbox environments
 
         Parameters
         ----------
@@ -655,6 +698,17 @@ class AsyncRawSandboxEnvironmentsClient:
                         ),
                     ),
                 )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 409:
                 raise ConflictError(
                     headers=dict(_response.headers),
@@ -701,7 +755,7 @@ class AsyncRawSandboxEnvironmentsClient:
         self, *, manifest: SandboxEnvironmentManifestRequest, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[GetSandboxEnvironmentResponse]:
         """
-        Create or replace by `manifest.name`. Requires a configured sandbox provider.
+        Create a new sandbox environment or update an existing one.
 
         Parameters
         ----------
@@ -761,6 +815,28 @@ class AsyncRawSandboxEnvironmentsClient:
                         ),
                     ),
                 )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 409:
                 raise ConflictError(
                     headers=dict(_response.headers),
@@ -807,8 +883,6 @@ class AsyncRawSandboxEnvironmentsClient:
         self, *, name: str, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[GetSandboxEnvironmentResponse]:
         """
-        Get a sandbox environment by name. The tenant default is readable by any tenant member; custom environments are owner-scoped.
-
         Parameters
         ----------
         name : str
@@ -872,7 +946,7 @@ class AsyncRawSandboxEnvironmentsClient:
         self, *, name: str, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[DeleteSandboxEnvironmentResponse]:
         """
-        Delete by name. Fails if any agent still references the environment.
+        Delete a sandbox environment, fails if any agent still references it.
 
         Parameters
         ----------
@@ -904,6 +978,17 @@ class AsyncRawSandboxEnvironmentsClient:
                 return AsyncHttpResponse(response=_response, data=_data)
             if _response.status_code == 401:
                 raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         RequestErrorResponse,

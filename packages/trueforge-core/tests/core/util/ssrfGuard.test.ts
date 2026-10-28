@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { fetch as undiciFetch, Response as UndiciResponse } from 'undici';
 import {
   configureOutboundFetches,
   defaultMcpOutboundFetchOptions,
@@ -10,6 +11,16 @@ import {
 } from '../../../src/core/util/outboundFetch';
 import { assertSafeOutboundUrl, configureOutboundUrlGuard } from '../../../src/core/util/ssrfGuard';
 
+jest.mock('undici', () => {
+  const actual = jest.requireActual<typeof import('undici')>('undici');
+  return {
+    ...actual,
+    fetch: jest.fn((...args: Parameters<typeof actual.fetch>) => actual.fetch(...args)),
+  };
+});
+
+const mockedUndiciFetch = jest.mocked(undiciFetch);
+
 function resetOutbound(): void {
   configureOutboundUrlGuard({ allowedHosts: [], blockedHosts: [] });
   configureOutboundFetches({
@@ -20,6 +31,10 @@ function resetOutbound(): void {
 }
 
 afterEach(() => {
+  mockedUndiciFetch.mockReset();
+  mockedUndiciFetch.mockImplementation((...args) =>
+    jest.requireActual<typeof import('undici')>('undici').fetch(...args),
+  );
   resetOutbound();
 });
 
@@ -108,6 +123,14 @@ describe('ssrfFetch', () => {
     }
   });
 
+  it('does not follow an https-to-http redirect', async () => {
+    mockedUndiciFetch.mockResolvedValueOnce(
+      new UndiciResponse(null, { status: 302, headers: { location: 'http://93.184.216.34/' } }),
+    );
+    await expect(ssrfFetch('https://example.com/')).rejects.toThrow(/https to http redirect/);
+    expect(mockedUndiciFetch).toHaveBeenCalledTimes(1);
+  });
+
   it('follows a same-origin redirect when the host is allowed', async () => {
     configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
     const { server, origin } = await listen((req, res) => {
@@ -128,31 +151,33 @@ describe('ssrfFetch', () => {
     }
   });
 
-  it('retries gateway 520 then returns success', async () => {
+  it('retries retryable gateway errors then returns success', async () => {
     configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
     configureOutboundFetches({
       outbound: { ...defaultOutboundFetchOptions(), maxRetries: 2 },
       model: defaultModelOutboundFetchOptions(),
       mcp: defaultMcpOutboundFetchOptions(),
     });
-    let hits = 0;
-    const { server, origin } = await listen((_req, res) => {
-      hits += 1;
-      if (hits === 1) {
-        res.writeHead(520, { 'content-type': 'text/plain' });
-        res.end('gateway');
-        return;
+    for (const status of [502, 503, 520]) {
+      let hits = 0;
+      const { server, origin } = await listen((_req, res) => {
+        hits += 1;
+        if (hits === 1) {
+          res.writeHead(status, { 'content-type': 'text/plain', 'retry-after-ms': '0' });
+          res.end('gateway error');
+          return;
+        }
+        res.writeHead(200, { 'content-type': 'text/plain' });
+        res.end('ok');
+      });
+      try {
+        const response = await ssrfFetch(`${origin}/`);
+        expect(response.status).toBe(200);
+        await expect(response.text()).resolves.toBe('ok');
+        expect(hits).toBe(2);
+      } finally {
+        await closeServer(server);
       }
-      res.writeHead(200, { 'content-type': 'text/plain' });
-      res.end('ok');
-    });
-    try {
-      const response = await ssrfFetch(`${origin}/`);
-      expect(response.status).toBe(200);
-      await expect(response.text()).resolves.toBe('ok');
-      expect(hits).toBe(2);
-    } finally {
-      await closeServer(server);
     }
   });
 
@@ -349,7 +374,7 @@ describe('modelSsrfFetch', () => {
 });
 
 describe('mcpSsrfFetch', () => {
-  it('retries statuses where the request was not processed but not 409/520/524', async () => {
+  it('retries statuses where the request was not processed but not 409/502/520/524', async () => {
     configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
     configureOutboundFetches({
       outbound: defaultOutboundFetchOptions(),
@@ -365,14 +390,14 @@ describe('mcpSsrfFetch', () => {
       res.end(String(status));
     });
     try {
-      for (const status of [408, 429, 522]) {
+      for (const status of [408, 429, 503, 522]) {
         firstStatus = status;
         hits = 0;
         const retried = await mcpSsrfFetch(`${origin}/`);
         expect(retried.status).toBe(200);
         expect(hits).toBe(2);
       }
-      for (const status of [409, 520, 524]) {
+      for (const status of [409, 502, 520, 524]) {
         firstStatus = status;
         hits = 0;
         const response = await mcpSsrfFetch(`${origin}/`);

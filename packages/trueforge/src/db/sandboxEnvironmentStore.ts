@@ -77,8 +77,6 @@ export function parseStoredSandboxEnvironmentManifest(manifest: unknown): Stored
 
 export interface ListSandboxEnvironmentsInput {
   tenant_id: string;
-  /** Only environments created by this subject (tenant `"default"` is always included). */
-  created_by_subject_id: string;
   limit: number | undefined;
   page_token: string | undefined;
 }
@@ -87,10 +85,22 @@ export interface GetSandboxEnvironmentInput {
   tenant_id: string;
   name: string;
   /**
-   * When set (CRUD / agent attach), only return if this subject created the environment.
+   * When set, only return if this subject created the environment.
    * Ignored for the tenant `"default"`. Omit when resolving an env during agent execution.
    */
   created_by_subject_id?: string;
+}
+
+export interface GetSandboxEnvironmentsByIdsInput {
+  tenant_id: string;
+  ids: readonly string[];
+}
+
+/** Minimal parent fields for permission evaluation. */
+export interface SandboxEnvironmentOwnership {
+  id: string;
+  name: string;
+  created_by_subject: CreatedBySubject;
 }
 
 /** Version + parent fields needed to progress a build. */
@@ -155,8 +165,6 @@ export interface MarkSandboxEnvironmentVersionFailedInput {
 export interface DeleteSandboxEnvironmentInput {
   tenant_id: string;
   name: string;
-  /** Soft-delete only if created by this subject. */
-  created_by_subject_id: string;
 }
 
 /** Partial unique `(tenant_id, name) WHERE lifecycle_stage = 'active'` violation. */
@@ -193,13 +201,19 @@ export interface ISandboxEnvironmentStore<TTransaction = never> {
   ): Promise<{ data: SandboxEnvironmentWithVersion[]; pagination: TokenPagination }>;
   /**
    * Active environment by name, joined to its latest version for management APIs.
-   * Pass `created_by_subject_id` for owner-scoped CRUD/attach on custom envs; the tenant
-   * `"default"` ignores ownership.
    */
   getEnvironment(
     input: GetSandboxEnvironmentInput,
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentWithVersion | undefined>;
+  /**
+   * Active environments by id (ownership fields only). Empty `ids` → `[]`.
+   * Unknown / deleted ids are omitted.
+   */
+  getEnvironmentsByIds(
+    input: GetSandboxEnvironmentsByIdsInput,
+    transaction?: TTransaction,
+  ): Promise<SandboxEnvironmentOwnership[]>;
   /** Active environment by name, joined to the version currently used for sandbox creation. */
   getActiveEnvironment(
     input: GetSandboxEnvironmentInput,

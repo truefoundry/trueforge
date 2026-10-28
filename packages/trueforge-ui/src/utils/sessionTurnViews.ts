@@ -1,4 +1,5 @@
 import type { SessionEventItem } from '../server/types.js';
+import { MAIN_THREAD_ID } from './sessionEventTimeline.js';
 
 type TurnCreatedEvent = Extract<SessionEventItem['event'], { type: 'turn.created' }>;
 type TurnDoneEvent = Extract<SessionEventItem['event'], { type: 'turn.done' }>;
@@ -24,6 +25,8 @@ export type SessionTurnView = {
   cachedTokens?: number;
   totalCostInUsd?: number;
   durationMs?: number;
+  /** Model FQN of the last root-thread model call in the turn. */
+  modelName?: string;
 };
 
 type TurnGroup = {
@@ -117,6 +120,16 @@ function metricsFromTerminalState(state: unknown): {
   };
 }
 
+function rootModelName(events: readonly TurnEvent[]): string | undefined {
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    const event = events[index];
+    if (event?.type === 'model.message' && event.threadId === MAIN_THREAD_ID && event.model?.name) {
+      return event.model.name;
+    }
+  }
+  return undefined;
+}
+
 /**
  * Build canonical ascending turn groups from durable session events.
  * Pair by turnId so interleaved turn.created / turn.done still match; ignore
@@ -154,6 +167,7 @@ export function buildSessionTurnViews(itemsAsc: SessionEventItem[]): SessionTurn
     const renderable = isRenderableTurn(viewCreated);
     if (renderable) renderableTurnNumber += 1;
     group.events.sort((left, right) => timestampMs(left.createdAt) - timestampMs(right.createdAt));
+    const modelName = rootModelName(group.events);
 
     return {
       turnId,
@@ -170,6 +184,7 @@ export function buildSessionTurnViews(itemsAsc: SessionEventItem[]): SessionTurn
             ...metricsFromTerminalState(done.state),
           }),
       events: group.events,
+      ...(modelName === undefined ? {} : { modelName }),
     };
   });
 }
@@ -195,8 +210,10 @@ export function aggregateSessionTurnBand(
   let hasCached = false;
   let hasCost = false;
   let hasDuration = false;
+  let modelName: string | undefined;
 
   for (const turn of band) {
+    if (turn.modelName != null) modelName = turn.modelName;
     if (turn.totalTokens != null) {
       totalTokens += turn.totalTokens;
       hasTokens = true;
@@ -231,5 +248,6 @@ export function aggregateSessionTurnBand(
     ...(hasCached ? { cachedTokens } : {}),
     ...(hasCost ? { totalCostInUsd } : {}),
     ...(hasDuration ? { durationMs } : {}),
+    ...(modelName === undefined ? {} : { modelName }),
   };
 }

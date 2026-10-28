@@ -317,6 +317,39 @@ describe('validateAgentSpec', () => {
     ).resolves.toBeUndefined();
   });
 
+  it('allows an agent to use a sandbox environment created by another tenant subject', async () => {
+    const stores = await setup();
+    await stores.sandboxProviderStore.upsertSandboxProvider({
+      tenant_id: 'default',
+      manifest: {
+        type: 'daytona',
+        auth: { api_key: 'dtn-test' },
+        exec_timeout_ms: 60_000,
+        auto_stop_interval_in_minutes: 5,
+        auto_archive_interval_in_minutes: 60,
+        auto_delete_interval_in_minutes: 7200,
+      },
+    });
+    const getEnvironment = jest.spyOn(stores.sandboxEnvironmentStore, 'getEnvironment').mockResolvedValue({} as never);
+
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          config: { sandbox: { enabled: true, environment_name: 'shared-env' } },
+        }),
+        tenant_id: 'default',
+        created_by_subject_id: 'agent-author',
+        ...stores,
+      }),
+    ).resolves.toBeUndefined();
+    expect(getEnvironment).toHaveBeenCalledWith({
+      tenant_id: 'default',
+      name: 'shared-env',
+    });
+  });
+
   it('admits sandbox.enabled when local fallback is cached and the store is empty', async () => {
     const stores = await setup();
     setCachedLocalSandboxSupport({

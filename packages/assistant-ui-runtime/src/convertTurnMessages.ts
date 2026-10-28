@@ -351,6 +351,8 @@ function cloneThreadBucket(bucket: ThreadBucket): ThreadBucket {
     approvalDecisions: new Map(bucket.approvalDecisions),
     pendingResponses: new Map(bucket.pendingResponses),
     done: bucket.done,
+    // Keep sub-agent failure text so a cloned bucket still shows as failed.
+    ...(bucket.error != null ? { error: bucket.error } : {}),
     ...(bucket.title != null ? { title: bucket.title } : {}),
     ...(bucket.agentInfo != null ? { agentInfo: bucket.agentInfo } : {}),
   };
@@ -382,6 +384,10 @@ export function prependFoldState(older: PeerThreadFoldState, newer: PeerThreadFo
       approvalDecisions: new Map([...olderBucket.approvalDecisions, ...newerBucket.approvalDecisions]),
       pendingResponses: new Map([...olderBucket.pendingResponses, ...newerBucket.pendingResponses]),
       done: newerBucket.done || olderBucket.done,
+      // Prefer the newer failure text; if only the older turn failed, keep that.
+      ...(newerBucket.error != null || olderBucket.error != null
+        ? { error: newerBucket.error ?? olderBucket.error }
+        : {}),
       ...(newerBucket.title != null || olderBucket.title != null
         ? { title: newerBucket.title ?? olderBucket.title }
         : {}),
@@ -467,6 +473,28 @@ function ingestSessionEventsIntoSnapshot(
   }
 }
 
+function rootModelMessageIdsForOpenTip(snapshot: SessionSnapshot): readonly string[] {
+  const committed = new Set(snapshot.turns.flatMap(turn => turn.rootModelMessageIds ?? []));
+  const rootIds = snapshot.fold.threads.get(ROOT_THREAD_ID)?.modelMessageIds ?? [];
+  return rootIds.filter(id => !committed.has(id));
+}
+
+/** Commits an open tip that finished before `turn.done` was in the events page. */
+function commitFinishedOpenTip(snapshot: SessionSnapshot, turn: Turn): SessionSnapshot {
+  if (snapshot.turns.some(existing => existing.id === turn.id)) {
+    return snapshot;
+  }
+  return replaceSessionSnapshot(snapshot, {
+    turns: [
+      ...snapshot.turns,
+      {
+        ...turnToSessionRecord(turn),
+        rootModelMessageIds: rootModelMessageIdsForOpenTip(snapshot),
+      },
+    ],
+  });
+}
+
 function attachRunningTurn(snapshot: SessionSnapshot, runningTurn: Turn | undefined): SessionSnapshot {
   if (runningTurn == null) {
     return snapshot;
@@ -531,6 +559,12 @@ interface SessionTip {
   /** Turn to resume and subscribe to; absent once the tip has finished. */
   runningTurn?: Turn;
   /**
+   * Open tip that finished between `listEvents` and `getTurn`. It was not in
+   * the events page as `turn.done`, so the caller must commit it or the user
+   * message painted from the progress snapshot disappears.
+   */
+  finishedTurn?: Turn;
+  /**
    * Tip input that event ingestion could not apply, because it only folds a
    * turn's input once that turn's `turn.done` arrives. Answered ask-user
    * prompts and approvals live here, so this must be folded even when the tip
@@ -542,56 +576,49 @@ interface SessionTip {
 /**
  * Resolves the tip turn of the active branch for resume/subscribe.
  *
- * Prefer an open tip from the events window (works when listTurns is
- * oldest-first and when listEvents includes the running turn). Fall back to
- * `listTurns({ limit: 1 })` for hosts that omit the running turn from
- * listEvents and put the tip first.
+ * An open `turn.created` with no later `turn.done` is the tip. `listEvents`
+ * includes that turn, so a finished window needs no extra turns fetch.
  */
 async function resolveSessionTip(options: {
   server: AgentChatServer;
   sessionId: string;
   itemsAsc: readonly GatewaySessionEventItem[];
 }): Promise<SessionTip> {
-  const { server, sessionId, itemsAsc } = options;
-  const open = findOpenTurnCreated(itemsAsc);
-  if (open != null) {
-    const continuationInput = open.event.input ?? [];
-    if (typeof server.getTurn === 'function') {
-      try {
-        const turn = await server.getTurn({
-          sessionId,
-          turnId: open.turnId,
-        });
-        if (turn.state.status === 'running') {
-          return {
-            runningTurn: turn,
-            continuationInput: turn.input ?? continuationInput,
-          };
-        }
-        // Tip finished between listEvents and getTurn: nothing to
-        // resume, but its answers still belong in the fold.
-        return { continuationInput: turn.input ?? continuationInput };
-      } catch {
-        // getTurn failed; synthesize from the open turn.created below.
-      }
-    }
-    return {
-      runningTurn: turnFromCreatedEvent({
-        sessionId,
-        turnId: open.turnId,
-        event: open.event,
-      }),
-      continuationInput,
-    };
+  const open = findOpenTurnCreated(options.itemsAsc);
+  if (open == null) {
+    return { continuationInput: [] };
   }
 
-  // Hosts that exclude the running turn from listEvents still surface it as
-  // the first row of listTurns when that API is tip-first.
-  const turnsPage = await server.listTurns({ sessionId, limit: 1 });
-  const tip = turnsPage.data[0];
-  return tip?.state.status === 'running'
-    ? { runningTurn: tip, continuationInput: tip.input ?? [] }
-    : { continuationInput: [] };
+  const { server, sessionId } = options;
+  const continuationInput = open.event.input ?? [];
+  if (typeof server.getTurn === 'function') {
+    try {
+      const turn = await server.getTurn({
+        sessionId,
+        turnId: open.turnId,
+      });
+      if (turn.state.status === 'running') {
+        return {
+          runningTurn: turn,
+          continuationInput: turn.input ?? continuationInput,
+        };
+      }
+      // Tip finished between listEvents and getTurn: nothing to
+      // resume, but its answers still belong in the fold, and the turn
+      // itself must be committed so the painted user message stays.
+      return { finishedTurn: turn, continuationInput: turn.input ?? continuationInput };
+    } catch {
+      // getTurn failed; synthesize from the open turn.created below.
+    }
+  }
+  return {
+    runningTurn: turnFromCreatedEvent({
+      sessionId,
+      turnId: open.turnId,
+      event: open.event,
+    }),
+    continuationInput,
+  };
 }
 
 /**
@@ -599,12 +626,10 @@ async function resolveSessionTip(options: {
  *
  * Loads the newest event page (extending only when a page boundary splits a
  * turn group), then leaves older pages for `prependOlderSessionHistory`.
- * Detects a currently-running tip from an open `turn.created` in that window
- * when present; otherwise falls back to `listTurns({ limit: 1 })` for hosts
- * that omit the running turn from listEvents.
+ * A currently-running tip is an open `turn.created` in that window.
  *
- * `onProgress` is called after each complete turn is ingested so callers can
- * update the UI progressively while the processing loop runs.
+ * `onProgress` fires after each complete turn, then once with the paintable
+ * window before `getTurn`, so callers can clear loading before the tip is confirmed.
  */
 export async function buildSnapshotFromSessionEvents(
   server: AgentChatServer,
@@ -625,6 +650,25 @@ export async function buildSnapshotFromSessionEvents(
     historyPagination,
   });
 
+  const open = findOpenTurnCreated(window.itemsAsc);
+  // The open tip is not in `turns` until `turn.done`. Attach it from the
+  // event so the first paint includes its user message.
+  const paintable =
+    open == null
+      ? withHistory
+      : attachRunningTurn(
+          withHistory,
+          turnFromCreatedEvent({
+            sessionId,
+            turnId: open.turnId,
+            event: open.event,
+          }),
+        );
+  if (open != null) {
+    applyUserToolResponsesToFold(paintable.fold, open.event.input ?? []);
+  }
+  onProgress?.(paintable);
+
   const tip = await resolveSessionTip({
     server,
     sessionId,
@@ -632,8 +676,12 @@ export async function buildSnapshotFromSessionEvents(
   });
   // The tip has no turn.done in this window, so ingestion never folded its
   // input. Apply it here so answered approvals / ask-user prompts are not
-  // restored as pending after a refresh.
+  // restored as pending after a refresh. `getTurn` may carry answers that
+  // were not on `turn.created`; the write is keyed by tool call id.
   applyUserToolResponsesToFold(withHistory.fold, tip.continuationInput);
+  if (tip.finishedTurn != null) {
+    return commitFinishedOpenTip(withHistory, tip.finishedTurn);
+  }
   return attachRunningTurn(withHistory, tip.runningTurn);
 }
 
@@ -972,11 +1020,29 @@ function buildTurnUpdateFromFold(
   turn: Pick<Turn, 'state'>,
   rootModelMessageIds: readonly string[],
 ): TurnStreamUpdate {
-  const content = buildRootAssistantContentForIds(foldState, rootModelMessageIds);
-  let update: TurnStreamUpdate = { content };
-  update = appendMcpAuthToTurnContent(update.content, turn);
-  update = appendToolApprovalToTurnContent(update, turn);
-  return update;
+  // While we build this turn's messages, tell nested sub-agents that the parent
+  // already ended (cancelled/error) so they do not stay stuck as "running".
+  // Restore afterward so the flag does not leak into the next turn.
+  const previousParentTerminal = foldState.parentTerminalStatus;
+  const previousSettledCompletedAt = foldState.settledTurnCompletedAtMs;
+  foldState.settledTurnCompletedAtMs = turn.state.status === 'running' ? undefined : Date.parse(turn.state.completedAt);
+  if (turn.state.status === 'cancelled') {
+    foldState.parentTerminalStatus = 'cancelled';
+  } else if (turn.state.status === 'error') {
+    foldState.parentTerminalStatus = 'error';
+  } else {
+    foldState.parentTerminalStatus = undefined;
+  }
+  try {
+    const content = buildRootAssistantContentForIds(foldState, rootModelMessageIds);
+    let update: TurnStreamUpdate = { content };
+    update = appendMcpAuthToTurnContent(update.content, turn);
+    update = appendToolApprovalToTurnContent(update, turn);
+    return update;
+  } finally {
+    foldState.parentTerminalStatus = previousParentTerminal;
+    foldState.settledTurnCompletedAtMs = previousSettledCompletedAt;
+  }
 }
 
 function contentHasPendingRequiredActions(content: readonly AssistantContentPart[]): boolean {
@@ -1144,7 +1210,7 @@ function stripInteractivePendingFromAssistant(
   return {
     ...message,
     content,
-    status: { type: 'incomplete', reason: 'cancelled' },
+    status: { type: 'complete', reason: 'stop' },
     metadata: {
       ...message.metadata,
       custom,
@@ -1345,75 +1411,56 @@ export function projectSessionMessages(
 
 const DEFAULT_LIST_EVENTS_CONCURRENCY = 5;
 
-function ingestTurnsIntoSnapshot(
-  snapshot: SessionSnapshot,
-  turns: Turn[],
-  eventArrays: TurnEvent[][],
-): Turn | undefined {
-  let runningTurn: Turn | undefined;
-  // Session-scoped: sandbox.created fires when a sandbox is (re)created and the
-  // sandbox is reused by later turns, so carry the latest one forward.
-  let sessionSandboxId: string | undefined;
-
-  for (let i = 0; i < turns.length; i++) {
-    const turn = turns[i];
-    if (turn == null) {
-      continue;
-    }
-    const rootBucket = snapshot.fold.threads.get(ROOT_THREAD_ID);
-    const beforeCount = rootBucket?.modelMessageIds.length ?? 0;
-
-    ingestCollectedEventsIntoFold(snapshot.fold, eventArrays[i] ?? []);
-    applyUserToolResponsesToFold(snapshot.fold, turn.input ?? []);
-
-    const afterBucket = snapshot.fold.threads.get(ROOT_THREAD_ID);
-    const rootModelMessageIds = (afterBucket?.modelMessageIds ?? []).slice(beforeCount);
-
-    const sandboxEvent = (eventArrays[i] ?? []).find(
-      (event): event is Extract<TurnEvent, { type: 'sandbox.created' }> => event.type === 'sandbox.created',
-    );
-    sessionSandboxId = sandboxEvent?.sandboxId ?? sessionSandboxId;
-
-    snapshot.turns.push({
-      ...turnToSessionRecord(turn),
-      rootModelMessageIds,
-      ...(sessionSandboxId != null ? { sandboxId: sessionSandboxId } : {}),
-    });
-
-    if (turn.state.status === 'running') {
-      runningTurn = turn;
-      break;
-    }
-  }
-
-  return runningTurn;
-}
-
 export async function buildSnapshotFromSession(
   server: AgentChatServer,
   sessionId: string,
   concurrency: number = DEFAULT_LIST_EVENTS_CONCURRENCY,
 ): Promise<SessionSnapshot> {
-  // Completed history comes from session-level listEvents. The session API
-  // excludes the running turn — hydrate that turn via listTurnEvents so
-  // convertTurnsToThreadMessages still surfaces in-flight content.
+  // Session listEvents already folds the open tip. Merge any newer tip events
+  // via listTurnEvents, then attribute uncommitted root ids — a beforeCount
+  // slice is empty when listEvents already ingested the tip.
   const snapshot = await buildSnapshotFromSessionEvents(server, sessionId);
   if (snapshot.runningTurn == null) {
     return snapshot;
   }
 
   const turn = snapshot.runningTurn;
+  if (snapshot.turns.some(existing => existing.id === turn.id)) {
+    const snapshotWithoutPendingUser = { ...snapshot };
+    delete snapshotWithoutPendingUser.pendingUser;
+    return replaceSessionSnapshot(snapshotWithoutPendingUser, {
+      runningTurn: turn,
+      unstable_resume: true,
+      groupRootBaseline: computeGroupRootBaseline(snapshot.turns),
+    });
+  }
+
   const eventArrays = await fetchAllTurnEventsWithConcurrency(server, sessionId, [turn], concurrency);
-  ingestTurnsIntoSnapshot(snapshot, [turn], eventArrays);
+  const tipEvents = eventArrays[0] ?? [];
+  ingestCollectedEventsIntoFold(snapshot.fold, tipEvents);
+  applyUserToolResponsesToFold(snapshot.fold, turn.input ?? []);
+
+  const sandboxEvent = tipEvents.find(
+    (event): event is Extract<TurnEvent, { type: 'sandbox.created' }> => event.type === 'sandbox.created',
+  );
+  const turns = [
+    ...snapshot.turns,
+    {
+      ...turnToSessionRecord(turn),
+      rootModelMessageIds: rootModelMessageIdsForOpenTip(snapshot),
+      ...(sandboxEvent?.sandboxId != null ? { sandboxId: sandboxEvent.sandboxId } : {}),
+    },
+  ];
 
   // Hydrated in-flight content lives in `turns` / `fold` now — drop the
   // reconnect seed so projection does not duplicate the user bubble.
   const snapshotWithoutPendingUser = { ...snapshot };
   delete snapshotWithoutPendingUser.pendingUser;
   return replaceSessionSnapshot(snapshotWithoutPendingUser, {
+    turns,
     runningTurn: turn,
     unstable_resume: true,
-    groupRootBaseline: computeGroupRootBaseline(snapshot.turns),
+    groupRootBaseline: computeGroupRootBaseline(turns),
   });
 }
 
@@ -1743,11 +1790,18 @@ export async function* streamTurnEvents(
           groupRootBaseline != null
             ? rootModelMessageIdsSinceBaseline(foldState, groupRootBaseline)
             : (foldState.threads.get(ROOT_THREAD_ID)?.modelMessageIds ?? []);
-        yield withCursor({
-          content: buildRootAssistantContentForIds(foldState, ids),
-          status: { type: 'incomplete', reason: 'cancelled' },
-          metadata: { custom: { [CANCELLATION_REASON_CUSTOM_KEY]: event.state.reason } },
-        });
+        // Same as history: mark parent cancelled so open sub-agents render cancelled too.
+        const previousParentTerminal = foldState.parentTerminalStatus;
+        foldState.parentTerminalStatus = 'cancelled';
+        try {
+          yield withCursor({
+            content: buildRootAssistantContentForIds(foldState, ids),
+            status: { type: 'incomplete', reason: 'cancelled' },
+            metadata: { custom: { [CANCELLATION_REASON_CUSTOM_KEY]: event.state.reason } },
+          });
+        } finally {
+          foldState.parentTerminalStatus = previousParentTerminal;
+        }
         return;
       }
       // The turn is logically complete once `turn.done` is observed. The

@@ -3,6 +3,7 @@ import type { Sessions } from '@truefoundry/trueforge-core/agent-session';
 import { AgentHarnessError } from '@truefoundry/trueforge-core/core';
 import { createLogger } from 'winston';
 import { createTurnsRouter } from '../../../src/apis/turns';
+import { createAppErrorHandler } from '../../../src/app';
 import { TrueForgeAuthorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
@@ -50,7 +51,7 @@ async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response
         tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
         agent_spec: { model: { name: 'test-provider/test-model' } },
         record: {
-          last_turn_id: null,
+          last_turn_details: null,
           created_by_subject: {
             subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
             subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
@@ -63,7 +64,7 @@ async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response
   } as unknown as Sessions;
 
   const app = new OpenAPIHono();
-  app.onError((_error, c) => c.json({ error: { message: 'Internal server error' } }, 500));
+  app.onError(createAppErrorHandler({ logger: createLogger({ silent: true }) }));
   app.route(
     '/',
     createTurnsRouter({
@@ -77,7 +78,7 @@ async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response
           tokenStore,
           clientName: 'test-client',
         }),
-      resolveSkillStore: () => new SqliteSkillStore(db),
+      resolveTurnSkillsStore: () => new SqliteSkillStore(db),
       resolveAgentStore: () => new SqliteAgentStore(db),
       eventSubscriptions: new EventSubscriptionRegistry(undefined),
       resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),

@@ -129,6 +129,7 @@ const JSON_RESULT_COLUMNS = new Set([
   'custom',
   'metadata',
   'metrics',
+  'last_turn_details',
   'ancestor_ids',
   'input',
   'state',
@@ -150,6 +151,7 @@ const JSON_RESULT_COLUMNS = new Set([
   'token',
   'auth_data',
   'created_by_subject',
+  'granted_by_subject',
   'source',
   // sandbox_environment ↔ version join aliases
   'ver_manifest',

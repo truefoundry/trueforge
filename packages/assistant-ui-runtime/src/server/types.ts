@@ -31,6 +31,8 @@ export interface ModelSelectorEntry<
   id: string;
   provider: TProvider;
   properties: TProperties;
+  /** Backend notice when reasoning effort or context length is not configured. */
+  warning?: string;
 }
 
 /** Skill selector row. Host extends for fqn, preload, etc. */
@@ -123,8 +125,8 @@ export interface AgentCapabilityConfig {
 
 export interface AgentSandboxConfig extends AgentCapabilityConfig {
   fileDownloads?: boolean;
-  /** Name of a configured sandbox environment. */
-  environment_name?: string;
+  /** Name of a configured sandbox environment. Wire JSON is `environment_name`. */
+  environmentName?: string;
 }
 
 export interface AgentInputTokensCompactionTrigger {
@@ -195,6 +197,8 @@ export interface CreateSessionRequest<TSpec extends AgentSpec = AgentSpec> {
   agentName?: string;
   agentSpec?: TSpec;
   title?: string;
+  /** Arbitrary caller key-value metadata strings. */
+  metadata?: Record<string, string>;
 }
 
 export interface UpdateSessionRequest<TSpec extends AgentSpec = AgentSpec> {
@@ -235,6 +239,8 @@ export interface ListSessionsParams extends PageParams {
   startTimestamp?: string;
   /** Inclusive upper bound on session activity (ISO-8601). */
   endTimestamp?: string;
+  /** Only sessions whose metadata contains every given pair. */
+  metadata?: Record<string, string>;
 }
 
 export type PreviousTurnIdInput = string;
@@ -941,6 +947,8 @@ export interface SessionListEntry<TSpec extends AgentSpec = AgentSpec> {
   agentName?: string | null;
   /** Present when bound to a mutable / draft agent spec. */
   agentSpec?: TSpec;
+  /** Session creator; omitted when the host does not track creators. */
+  createdBySubject?: CreatedBySubject;
   /** Arbitrary caller key-value metadata strings. */
   metadata?: Record<string, string>;
 }
@@ -1017,6 +1025,8 @@ export interface ScheduleRun {
   reason?: string | null;
   triggeredAt: string | null;
   triggeredBy: string;
+  /** Session started by this run; null until one is linked. */
+  sessionId?: string | null;
 }
 
 export interface ListSchedulesParams extends Pick<PageParams, 'limit' | 'pageToken'> {
@@ -1128,7 +1138,7 @@ export interface SandboxEnvironmentServer<TEnvironment extends SandboxEnvironmen
 // Permissions — optional resource mutation grants
 // ---------------------------------------------------------------------------
 
-export type PermissionResourceType = 'agent' | 'schedule' | 'session' | 'tenant';
+export type PermissionResourceType = 'agent' | 'schedule' | 'session' | 'tenant' | 'sandbox_environment';
 
 export type ResourcePermission = 'USE' | 'MANAGE' | 'DELETE' | 'CREATE';
 

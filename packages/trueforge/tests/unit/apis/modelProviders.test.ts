@@ -24,6 +24,7 @@ import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkill
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
 import { toRedactedSecretValue } from '../../../src/utils/secretRedaction';
+import { mountWithErrorHandler } from '../mountWithErrorHandler';
 
 const model = {
   model_id: 'claude-sonnet-4-6',
@@ -114,7 +115,7 @@ function withRedactedApiKey<T extends { auth: { api_key: string } }>(provider: T
 }
 
 async function createRouters(): Promise<{
-  settingsRouter: ReturnType<typeof createSettingsRouter>;
+  settingsRouter: ReturnType<typeof mountWithErrorHandler>;
   catalogRouter: ReturnType<typeof createCatalogRouter>;
   modelsRouter: ReturnType<typeof createModelsRouter>;
   modelProviderStore: IModelProviderStore;
@@ -126,24 +127,26 @@ async function createRouters(): Promise<{
   const tokenStore = new SqliteOAuthTokenStore(db);
   const agentStore = new SqliteAgentStore(db);
   return {
-    settingsRouter: createSettingsRouter({
-      resolveModelProviderStore: () => modelProviderStore,
-      resolveMcpServerStore: () =>
-        new McpServerWithAuthStore({
-          store: new SqliteMcpServerStore(db),
-          tokenStore,
-          clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
-        }),
-      tokenStore,
-      resolveSkillStore: () => new SqliteSkillStore(db),
-      resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
-      sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
-      resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
-      resolveAgentStore: () => agentStore,
-      withTransaction: callback => db.transaction().execute(callback),
-      logger: winston.createLogger({ silent: true }),
-      resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
-    }),
+    settingsRouter: mountWithErrorHandler(
+      createSettingsRouter({
+        resolveModelProviderStore: () => modelProviderStore,
+        resolveMcpServerStore: () =>
+          new McpServerWithAuthStore({
+            store: new SqliteMcpServerStore(db),
+            tokenStore,
+            clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
+          }),
+        tokenStore,
+        resolveSkillStore: () => new SqliteSkillStore(db),
+        resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
+        sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
+        resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
+        resolveAgentStore: () => agentStore,
+        withTransaction: callback => db.transaction().execute(callback),
+        logger: winston.createLogger({ silent: true }),
+        resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+      }),
+    ),
     catalogRouter: createCatalogRouter({
       modelCatalog: ModelCatalog.load(),
       mcpCatalog: McpCatalog.load(),
@@ -162,7 +165,7 @@ async function createRouters(): Promise<{
 }
 
 describe('settings model-providers and models routers', () => {
-  let settingsRouter: ReturnType<typeof createSettingsRouter>;
+  let settingsRouter: ReturnType<typeof mountWithErrorHandler>;
   let catalogRouter: ReturnType<typeof createCatalogRouter>;
   let modelsRouter: ReturnType<typeof createModelsRouter>;
 

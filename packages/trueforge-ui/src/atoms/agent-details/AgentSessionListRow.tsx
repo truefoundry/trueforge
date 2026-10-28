@@ -1,12 +1,17 @@
 'use client';
 
+import { useState } from 'react';
+
 import { Icon } from '../../icons/Icon.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
+import { createdByLabel } from '../../utils/createdBySubject.js';
 import { formatSessionListMetrics } from '../../utils/sessionDisplayFormat.js';
+import { getUserInitials } from '../UserAvatar.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { formatAbsoluteDateTime } from '../lib/dateFormat.js';
 import { formatRelativeShort } from '../lib/threadListMeta.js';
+import { Avatar, AvatarFallback } from '../primitives/Avatar.js';
 import { DropdownMenu, DropdownMenuItem } from '../primitives/DropdownMenu.js';
 import { Tooltip } from '../primitives/Tooltip.js';
 import type { AgentSessionListRowProps } from './types.js';
@@ -14,18 +19,35 @@ import type { AgentSessionListRowProps } from './types.js';
 export function AgentSessionListRow({
   title,
   agentName,
-  sourceType,
+  scheduleId,
   lastActivityAt,
   metrics,
+  createdBySubject,
   active,
   onSelect,
   onRequestDelete,
   canDelete = true,
+  onOpenSchedule,
+  loadScheduleName,
 }: AgentSessionListRowProps) {
   const PermissionGuard = useSlot('PermissionGuard');
+  const [scheduleName, setScheduleName] = useState<{ status: 'idle' | 'loading' | 'done'; name: string | null }>({
+    status: 'idle',
+    name: null,
+  });
+  // Idle counts as loading when a loader exists so the first paint on hover doesn't flash an empty row.
+  const scheduleNameLoading =
+    scheduleName.status === 'loading' || (scheduleName.status === 'idle' && loadScheduleName != null);
+  const resolveScheduleName = () => {
+    if (scheduleName.status !== 'idle' || loadScheduleName == null || scheduleId == null) return;
+    setScheduleName({ status: 'loading', name: null });
+    void loadScheduleName(scheduleId).then(name => setScheduleName({ status: 'done', name }));
+  };
   const activityAt = new Date(lastActivityAt);
   const relative = formatRelativeShort(activityAt);
   const absolute = formatAbsoluteDateTime(activityAt);
+  const subjectLabel = createdBySubject != null ? createdByLabel(createdBySubject) : null;
+  const subjectInitials = subjectLabel != null ? getUserInitials(subjectLabel) || '?' : null;
 
   return (
     <div
@@ -38,9 +60,47 @@ export function AgentSessionListRow({
       <div className="flex items-center gap-2 px-4 pt-3">
         <button type="button" onClick={onSelect} className="flex min-w-0 flex-1 items-center gap-1 text-left">
           <span className="truncate text-sm font-medium text-text-primary">{title}</span>
-          {sourceType === 'schedule' ? (
-            <Tooltip content="Scheduled Session">
-              <span aria-label="Scheduled run" className="inline-flex shrink-0">
+          {scheduleId != null ? (
+            <Tooltip
+              content={
+                <span className="flex flex-col items-start gap-0.5">
+                  <span className="font-medium">Scheduled Run</span>
+                  {scheduleNameLoading || scheduleName.name != null ? (
+                    <span className="flex items-center gap-1.5">
+                      <span className="text-text-secondary">Schedule name:</span>
+                      {scheduleName.name != null ? (
+                        <>
+                          <span>{scheduleName.name}</span>
+                          {onOpenSchedule != null ? (
+                            <button
+                              type="button"
+                              aria-label={`View schedule ${scheduleName.name}`}
+                              className="text-primary-button-bg inline-flex shrink-0 cursor-pointer"
+                              onClick={event => {
+                                event.stopPropagation();
+                                if (scheduleId != null && scheduleName.name != null) {
+                                  onOpenSchedule({ id: scheduleId, name: scheduleName.name });
+                                }
+                              }}
+                            >
+                              <Icon name="external-link" className="size-3.5" />
+                            </button>
+                          ) : null}
+                        </>
+                      ) : (
+                        <span role="status">Loading...</span>
+                      )}
+                    </span>
+                  ) : null}
+                </span>
+              }
+            >
+              <span
+                aria-label="Scheduled run"
+                className="inline-flex shrink-0"
+                onMouseEnter={resolveScheduleName}
+                onFocus={resolveScheduleName}
+              >
                 <Icon name="calendar" className="size-3.5 text-primary-button-bg" />
               </span>
             </Tooltip>
@@ -91,7 +151,16 @@ export function AgentSessionListRow({
         onClick={onSelect}
         className="flex w-full items-end justify-between gap-2 px-4 pt-2 pb-3 text-left text-xs text-text-secondary"
       >
-        <span className="flex min-w-0 items-center gap-1">
+        <span className="flex min-w-0 items-center gap-1.5">
+          {subjectLabel != null && subjectInitials != null ? (
+            <Tooltip content={subjectLabel}>
+              <span aria-label={subjectLabel} className="inline-flex shrink-0">
+                <Avatar size="sm" aria-hidden>
+                  <AvatarFallback>{subjectInitials}</AvatarFallback>
+                </Avatar>
+              </span>
+            </Tooltip>
+          ) : null}
           {agentName != null ? (
             <>
               <Icon name="agent-2" className="size-3 shrink-0" />

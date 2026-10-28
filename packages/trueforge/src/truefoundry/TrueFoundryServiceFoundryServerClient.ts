@@ -1,4 +1,11 @@
-import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
+import {
+  elapsedSeconds,
+  extractErrorLogFields,
+  getOperationMetrics,
+  httpStatusClass,
+  type ServiceFoundryOperation,
+  type ServiceFoundryOutcome,
+} from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import { LRUCache } from 'lru-cache';
 import { fetch as undiciFetch, type Dispatcher } from 'undici';
@@ -25,6 +32,7 @@ const AGENT_SKILL_VERSIONS_PATH = 'v1/agent-skill-versions';
 const SESSION_PATH = 'v1/session';
 const AGENT_PERMISSIONS_PATH = 'v1/authorize/permissions';
 const VEND_TOKEN_PATH = 'internal/vend-token';
+const SUBJECTS_PEEK_PATH = 'v1/subjects/peek';
 const AGENT_SKILLS_PAGE_SIZE = 100;
 /** SFY resolve `@ArrayMaxSize(50)` — chunk larger AgentSpec skill lists. */
 const AGENT_SKILL_RESOLVE_CHUNK_SIZE = 50;
@@ -78,6 +86,47 @@ const ListResponseSchema = z.union([
 
 type ListResponse = z.infer<typeof ListResponseSchema>;
 
+/** Public methods that call ServiceFoundry, and the operation label each one records. */
+const SERVICE_FOUNDRY_OPERATIONS: {
+  readonly listProviderIntegrations: ServiceFoundryOperation;
+  readonly listGatewayInstallations: ServiceFoundryOperation;
+  readonly listMcpServers: ServiceFoundryOperation;
+  readonly getMcpServerByName: ServiceFoundryOperation;
+  readonly putRemoteAgent: ServiceFoundryOperation;
+  readonly deleteRemoteAgent: ServiceFoundryOperation;
+  readonly listAgentSkills: ServiceFoundryOperation;
+  readonly listAgentSkillVersions: ServiceFoundryOperation;
+  readonly resolveAgentSkillVersions: ServiceFoundryOperation;
+  readonly getMcpAuthorize: ServiceFoundryOperation;
+  readonly getMcpAuthStatus: ServiceFoundryOperation;
+  readonly deleteMcpAuth: ServiceFoundryOperation;
+  readonly getSession: ServiceFoundryOperation;
+  readonly getTenantControlPlaneUrl: ServiceFoundryOperation;
+  readonly getAgentPermissions: ServiceFoundryOperation;
+  readonly getTenantPermissions: ServiceFoundryOperation;
+  readonly vendToken: ServiceFoundryOperation;
+  readonly peekUsers: ServiceFoundryOperation;
+} = {
+  listProviderIntegrations: 'model_providers',
+  listGatewayInstallations: 'gateway_installations',
+  listMcpServers: 'mcp_servers',
+  getMcpServerByName: 'mcp_servers',
+  putRemoteAgent: 'agents',
+  deleteRemoteAgent: 'agents',
+  listAgentSkills: 'skills',
+  listAgentSkillVersions: 'skills',
+  resolveAgentSkillVersions: 'skills',
+  getMcpAuthorize: 'mcp_servers',
+  getMcpAuthStatus: 'mcp_servers',
+  deleteMcpAuth: 'mcp_servers',
+  getSession: 'get_session',
+  getTenantControlPlaneUrl: 'get_session',
+  getAgentPermissions: 'agent_permissions',
+  getTenantPermissions: 'tenant_permissions',
+  vendToken: 'vend_token',
+  peekUsers: 'users',
+};
+
 const ServiceFoundryErrorSchema = z.object({
   message: z.union([z.string(), z.array(z.string())]).optional(),
 });
@@ -108,6 +157,21 @@ const VendTokenResponseSchema = z.object({
 });
 
 export type VendedTokens = z.infer<typeof VendTokenResponseSchema>;
+
+/** Only the user half of `GET v1/subjects/peek`; teams and other kinds are ignored. */
+const PeekUserSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().nullish(),
+  email: z.string().min(1),
+});
+
+const PeekUsersResponseSchema = z.object({
+  users: z.array(PeekUserSchema),
+  totalUsers: z.number().int().nonnegative(),
+});
+
+export type PeekUser = z.infer<typeof PeekUserSchema>;
+export type PeekUsersResponse = z.infer<typeof PeekUsersResponseSchema>;
 
 export interface PutRemoteAgentInput {
   accessToken: string;
@@ -184,6 +248,8 @@ export class TrueFoundryServiceFoundryServerClient {
   /**
    * Model integrations. No limit/offset → full match set in one response.
    * Pass `filter` (account + model name together) for a point lookup.
+   * `mergeParams` folds provider defaults into `metadata.params`, which
+   * is the only params list the model mapping reads.
    */
   async listProviderIntegrations(input: {
     accessToken: string;
@@ -196,8 +262,9 @@ export class TrueFoundryServiceFoundryServerClient {
             provider_account_name: input.filter.provider_account_name,
             name: input.filter.name,
           };
-    const query: Record<string, string> = { type: 'model', ...filterQuery };
+    const query: Record<string, string> = { type: 'model', mergeParams: 'true', ...filterQuery };
     const payload = await this.#requestJson({
+      operation: SERVICE_FOUNDRY_OPERATIONS.listProviderIntegrations,
       url: this.#url(INTEGRATIONS_PATH, query),
       accessToken: input.accessToken,
       method: 'GET',
@@ -207,6 +274,7 @@ export class TrueFoundryServiceFoundryServerClient {
 
   listGatewayInstallations(accessToken: string): Promise<unknown> {
     return this.#requestJson({
+      operation: SERVICE_FOUNDRY_OPERATIONS.listGatewayInstallations,
       url: this.#url(INSTALLATIONS_PATH),
       accessToken,
       method: 'GET',
@@ -224,6 +292,7 @@ export class TrueFoundryServiceFoundryServerClient {
             }),
           };
     const payload = await this.#requestJson({
+      operation: SERVICE_FOUNDRY_OPERATIONS.listMcpServers,
       url: this.#url(MCP_SERVERS_PATH, query),
       accessToken: input.accessToken,
       method: 'GET',
@@ -238,6 +307,7 @@ export class TrueFoundryServiceFoundryServerClient {
       values: [{ field: 'name', op: 'EQUAL', value: input.name }],
     });
     const payload = await this.#requestJson({
+      operation: SERVICE_FOUNDRY_OPERATIONS.getMcpServerByName,
       url: this.#url(MCP_SERVERS_PATH, { filter, limit: '1', offset: '0' }),
       accessToken: input.accessToken,
       method: 'GET',
@@ -255,6 +325,7 @@ export class TrueFoundryServiceFoundryServerClient {
   /** PUT `/internal/tfg/agents` — create/reuse remote agent + sync model/MCP grants. */
   async putRemoteAgent(input: PutRemoteAgentInput): Promise<PutRemoteAgentResult> {
     const payload = await this.#requestJson({
+      operation: SERVICE_FOUNDRY_OPERATIONS.putRemoteAgent,
       url: this.#url(TFG_AGENTS_PATH),
       accessToken: input.accessToken,
       method: 'PUT',
@@ -270,6 +341,7 @@ export class TrueFoundryServiceFoundryServerClient {
     if (!parsed.success) {
       this.#logger.error('TrueFoundry ServiceFoundry put remote agent returned an unexpected response', {
         ...extractErrorLogFields(parsed.error),
+        reportable_error: { error: parsed.error },
       });
       throw new HTTPException(424, {
         message: 'TrueFoundry ServiceFoundry put remote agent returned an unexpected response',
@@ -282,6 +354,7 @@ export class TrueFoundryServiceFoundryServerClient {
   /** DELETE `/internal/tfg/agents/:id` — remove remote agent. Missing agent (404) is success. */
   async deleteRemoteAgent(input: DeleteRemoteAgentInput): Promise<void> {
     await this.#requestJson({
+      operation: SERVICE_FOUNDRY_OPERATIONS.deleteRemoteAgent,
       url: this.#url(`${TFG_AGENTS_PATH}/${encodeURIComponent(input.externalId)}`),
       accessToken: input.accessToken,
       method: 'DELETE',
@@ -293,6 +366,7 @@ export class TrueFoundryServiceFoundryServerClient {
   /** `GET /v1/agent-skills` with empty skills excluded. */
   async listAgentSkills(input: { accessToken: string }): Promise<unknown[]> {
     return this.#listAllPages({
+      operation: SERVICE_FOUNDRY_OPERATIONS.listAgentSkills,
       path: AGENT_SKILLS_PATH,
       accessToken: input.accessToken,
       query: { include_empty_agent_skills: 'false' },
@@ -314,6 +388,7 @@ export class TrueFoundryServiceFoundryServerClient {
       query['agent_skill_id'] = input.agent_skill_id;
     }
     return this.#listAllPages({
+      operation: SERVICE_FOUNDRY_OPERATIONS.listAgentSkillVersions,
       path: AGENT_SKILL_VERSIONS_PATH,
       accessToken: input.accessToken,
       query,
@@ -341,6 +416,7 @@ export class TrueFoundryServiceFoundryServerClient {
     for (let i = 0; i < input.skills.length; i += AGENT_SKILL_RESOLVE_CHUNK_SIZE) {
       const chunk = input.skills.slice(i, i + AGENT_SKILL_RESOLVE_CHUNK_SIZE);
       const payload = await this.#requestJson({
+        operation: SERVICE_FOUNDRY_OPERATIONS.resolveAgentSkillVersions,
         url: this.#url(TFG_AGENT_SKILL_VERSIONS_RESOLVE_PATH),
         accessToken: input.accessToken,
         method: 'POST',
@@ -369,6 +445,7 @@ export class TrueFoundryServiceFoundryServerClient {
 
   /** Offset/limit list until empty page or `pagination.total`. */
   async #listAllPages(input: {
+    operation: ServiceFoundryOperation;
     path: string;
     accessToken: string;
     query?: Record<string, string>;
@@ -377,6 +454,7 @@ export class TrueFoundryServiceFoundryServerClient {
     const items: unknown[] = [];
     for (;;) {
       const payload = await this.#requestJson({
+        operation: input.operation,
         url: this.#url(input.path, {
           ...input.query,
           offset: String(items.length),
@@ -410,6 +488,7 @@ export class TrueFoundryServiceFoundryServerClient {
       search['gatewayBaseURL'] = input.gatewayBaseURL;
     }
     const payload = await this.#requestJson({
+      operation: SERVICE_FOUNDRY_OPERATIONS.getMcpAuthorize,
       url: this.#url(`${MCP_SERVERS_PATH}/${encodeURIComponent(input.mcpServerId)}/authorize`, search),
       accessToken: input.accessToken,
       method: 'GET',
@@ -420,6 +499,7 @@ export class TrueFoundryServiceFoundryServerClient {
       this.#logger.error('TrueFoundry ServiceFoundry MCP authorize returned an unexpected response', {
         mcpServerId: input.mcpServerId,
         ...extractErrorLogFields(error),
+        reportable_error: { error, extra: { mcp_server_id: input.mcpServerId } },
       });
       throw new HTTPException(424, {
         message: 'TrueFoundry ServiceFoundry MCP authorize returned an unexpected response',
@@ -436,6 +516,7 @@ export class TrueFoundryServiceFoundryServerClient {
     subjectType: string;
   }): Promise<McpAuthStatus> {
     const payload = await this.#requestJson({
+      operation: SERVICE_FOUNDRY_OPERATIONS.getMcpAuthStatus,
       url: this.#url(`${MCP_SERVERS_PATH}/${encodeURIComponent(input.mcpServerId)}/auth/status`, {
         subjectId: input.subjectId,
         subjectType: input.subjectType,
@@ -449,6 +530,7 @@ export class TrueFoundryServiceFoundryServerClient {
       this.#logger.error('TrueFoundry ServiceFoundry MCP auth status returned an unexpected response', {
         mcpServerId: input.mcpServerId,
         ...extractErrorLogFields(error),
+        reportable_error: { error, extra: { mcp_server_id: input.mcpServerId } },
       });
       throw new HTTPException(424, {
         message: 'TrueFoundry ServiceFoundry MCP auth status returned an unexpected response',
@@ -466,6 +548,7 @@ export class TrueFoundryServiceFoundryServerClient {
     authSource: SfyMcpAuthSource;
   }): Promise<void> {
     await this.#requestJson({
+      operation: SERVICE_FOUNDRY_OPERATIONS.deleteMcpAuth,
       url: this.#url(`${MCP_SERVERS_PATH}/${encodeURIComponent(input.mcpServerId)}/auth`),
       accessToken: input.accessToken,
       method: 'DELETE',
@@ -485,6 +568,7 @@ export class TrueFoundryServiceFoundryServerClient {
     let payload: unknown;
     try {
       payload = await this.#requestJson({
+        operation: SERVICE_FOUNDRY_OPERATIONS.getSession,
         url: this.#url(SESSION_PATH),
         accessToken,
         method: 'GET',
@@ -524,6 +608,7 @@ export class TrueFoundryServiceFoundryServerClient {
     let payload: unknown;
     try {
       payload = await this.#requestJson({
+        operation: SERVICE_FOUNDRY_OPERATIONS.getTenantControlPlaneUrl,
         url: this.#url(SESSION_PATH, { tenantName: input.tenantName }),
         accessToken: this.#apiKey,
         method: 'GET',
@@ -552,6 +637,7 @@ export class TrueFoundryServiceFoundryServerClient {
     externalIds?: readonly string[];
   }): Promise<AgentPermissions> {
     const payload = await this.#requestJson({
+      operation: SERVICE_FOUNDRY_OPERATIONS.getAgentPermissions,
       url: this.#url(AGENT_PERMISSIONS_PATH, {
         resourceType: 'agent',
         v2: 'true',
@@ -564,6 +650,7 @@ export class TrueFoundryServiceFoundryServerClient {
     if (!parsed.success) {
       this.#logger.error('TrueFoundry ServiceFoundry agent permissions response was malformed', {
         ...extractErrorLogFields(parsed.error),
+        reportable_error: { error: parsed.error },
       });
       throw new HTTPException(424, {
         message: 'TrueFoundry ServiceFoundry agent permissions response was malformed',
@@ -579,6 +666,7 @@ export class TrueFoundryServiceFoundryServerClient {
    */
   async getTenantPermissions(input: { accessToken: string }): Promise<string[]> {
     const payload = await this.#requestJson({
+      operation: SERVICE_FOUNDRY_OPERATIONS.getTenantPermissions,
       url: this.#url(AGENT_PERMISSIONS_PATH, { resourceType: 'tenant', v2: 'true' }),
       accessToken: input.accessToken,
       method: 'GET',
@@ -587,9 +675,50 @@ export class TrueFoundryServiceFoundryServerClient {
     if (!parsed.success) {
       this.#logger.error('TrueFoundry ServiceFoundry tenant permissions response was malformed', {
         ...extractErrorLogFields(parsed.error),
+        reportable_error: { error: parsed.error },
       });
       throw new HTTPException(424, {
         message: 'TrueFoundry ServiceFoundry tenant permissions response was malformed',
+        cause: parsed.error,
+      });
+    }
+    return parsed.data;
+  }
+
+  /**
+   * `GET v1/subjects/peek` for active tenant users, with the caller's token.
+   * Search needs `limit`, since ServiceFoundry returns every match without one. An id lookup returns
+   * at most one user per id, so it sends no paging.
+   */
+  async peekUsers(
+    input:
+      | { accessToken: string; name?: string; limit: number; offset: number }
+      | { accessToken: string; ids: readonly string[] },
+  ): Promise<PeekUsersResponse> {
+    const search: Record<string, string> =
+      'ids' in input
+        ? { filter: JSON.stringify({ subjects: input.ids.map(id => ({ subjectType: 'user', subjectId: id })) }) }
+        : {
+            filter: JSON.stringify({
+              subjectType: ['user'],
+              ...(input.name === undefined ? {} : { name: input.name }),
+            }),
+            limit: String(input.limit),
+            offset: String(input.offset),
+          };
+    const payload = await this.#requestJson({
+      operation: SERVICE_FOUNDRY_OPERATIONS.peekUsers,
+      url: this.#url(SUBJECTS_PEEK_PATH, search),
+      accessToken: input.accessToken,
+      method: 'GET',
+    });
+    const parsed = PeekUsersResponseSchema.safeParse(payload);
+    if (!parsed.success) {
+      this.#logger.error('TrueFoundry ServiceFoundry subjects response was malformed', {
+        ...extractErrorLogFields(parsed.error),
+      });
+      throw new HTTPException(424, {
+        message: 'TrueFoundry ServiceFoundry subjects response was malformed',
         cause: parsed.error,
       });
     }
@@ -607,6 +736,7 @@ export class TrueFoundryServiceFoundryServerClient {
     tenantName: string;
   }): Promise<VendedTokens> {
     const payload = await this.#requestJson({
+      operation: SERVICE_FOUNDRY_OPERATIONS.vendToken,
       url: this.#url(VEND_TOKEN_PATH),
       accessToken: this.#apiKey,
       method: 'POST',
@@ -622,6 +752,7 @@ export class TrueFoundryServiceFoundryServerClient {
     if (!parsed.success) {
       this.#logger.error('TrueFoundry ServiceFoundry vend-token response was malformed', {
         ...extractErrorLogFields(parsed.error),
+        reportable_error: { error: parsed.error },
       });
       throw new HTTPException(424, {
         message: 'TrueFoundry ServiceFoundry vend-token response was malformed',
@@ -636,6 +767,7 @@ export class TrueFoundryServiceFoundryServerClient {
     if (!parsed.success) {
       this.#logger.error('TrueFoundry ServiceFoundry server returned an unexpected list response', {
         ...extractErrorLogFields(parsed.error),
+        reportable_error: { error: parsed.error },
       });
       throw new HTTPException(424, {
         message: 'TrueFoundry ServiceFoundry server returned an unexpected list response',
@@ -656,6 +788,7 @@ export class TrueFoundryServiceFoundryServerClient {
   }
 
   async #requestJson(input: {
+    operation: ServiceFoundryOperation;
     url: URL;
     accessToken: string;
     method: 'GET' | 'DELETE' | 'POST' | 'PUT';
@@ -665,6 +798,16 @@ export class TrueFoundryServiceFoundryServerClient {
     notFoundOk?: boolean;
   }): Promise<unknown> {
     const startedAt = Date.now();
+    const startedMs = performance.now();
+    const metrics = getOperationMetrics();
+    const record = (outcome: ServiceFoundryOutcome, status?: number): void => {
+      metrics?.recordServiceFoundryRequest({
+        operation: input.operation,
+        outcome,
+        statusClass: httpStatusClass(status),
+        durationSeconds: elapsedSeconds(startedMs),
+      });
+    };
     const timeoutMs = input.timeoutMs ?? this.#httpTimeoutMs;
     const headers: Record<string, string> = {
       accept: 'application/json',
@@ -686,6 +829,7 @@ export class TrueFoundryServiceFoundryServerClient {
       });
     } catch (error) {
       const timedOut = error instanceof Error && error.name === 'TimeoutError';
+      record(timedOut ? 'timeout' : 'error');
       this.#logger.error('TrueFoundry ServiceFoundry server request failed', {
         url: input.url.href,
         method: input.method,
@@ -707,33 +851,42 @@ export class TrueFoundryServiceFoundryServerClient {
       durationMs: Date.now() - startedAt,
     });
     if (response.status === 401 || response.status === 403) {
+      record('error', response.status);
       const detail = await readServiceFoundryErrorMessage(response);
       throw new HTTPException(response.status, {
         message: `TrueFoundry ServiceFoundry server rejected the request: ${detail ?? `HTTP ${String(response.status)}`}`,
       });
     }
     if (response.status === 404 && input.notFoundOk) {
+      record('success', response.status);
       return undefined;
     }
     if (!response.ok) {
+      record('error', response.status);
       const detail = await readServiceFoundryErrorMessage(response);
       throw new HTTPException(424, {
         message: `TrueFoundry ServiceFoundry server request failed: ${detail ?? `HTTP ${String(response.status)}`}`,
       });
     }
     if (response.status === 204) {
+      record('success', response.status);
       return undefined;
     }
     const text = await response.text();
     if (text.length === 0) {
+      record('success', response.status);
       return undefined;
     }
     try {
-      return JSON.parse(text) as unknown;
+      const parsed: unknown = JSON.parse(text);
+      record('success', response.status);
+      return parsed;
     } catch (error) {
+      record('error', response.status);
       this.#logger.error('TrueFoundry ServiceFoundry server returned non-JSON', {
         url: input.url.href,
         ...extractErrorLogFields(error),
+        reportable_error: { error },
       });
       throw new HTTPException(424, {
         message: 'TrueFoundry ServiceFoundry server returned non-JSON',

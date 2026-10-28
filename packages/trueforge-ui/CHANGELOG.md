@@ -1,5 +1,158 @@
 # Changelog
 
+## 0.180.0
+
+### Patch Changes
+
+- ca29d8f: Render lightbulb icon on Skills section header in Agent Config panel.
+- 58d7159: Dense Agents library rows: nest creator under the name, two-line configuration, and per-page sessions/spend/14d sparkline/last-run when metrics are available.
+- 7f2be59: Prefix public `AnalyticsEvents` names with `trueforge.` so host sinks (e.g. PostHog) can namespace product events.
+- 58d7159: Keep the Build Agent config when starting a new chat, confirm before Reset, and honor a stored sandbox environment name.
+- 0a1606d: Default the reasoning effort to `medium` when the selected model offers it, instead of defaulting to the lowest effort. TrueFoundry model listing now passes `mergeParams` to the provider-integrations API so provider-level parameter defaults are included in each model's advertised parameters.
+- 2bbdf4e: Show the full model name in a tooltip when the new-chat model selector label is truncated.
+- 6bf93de: Keep Build Agent skills selected after a turn by matching session FQN mounts against catalog attach keys and display names during draft preference reconcile.
+- 99c39ee: Hide the session share URL when access is Only you.
+- 58d7159: Route shared-session viewers to the read-only session view and hide in-flight turns.
+- 942a0e5: Show the full MCP tool and skill description in a tooltip when the truncated label is hovered in the picker modals.
+- f10e3b8: Default reasoning effort now follows `medium` → `high` → `low` in both the draft (New Chat) composer and the agent builder (Agent Config) when the selected model does not offer `medium`, instead of falling back to the lowest offered effort.
+- aa58442: Reject folder drops in chat attachments so they cannot block message send.
+- aea048e: Clear instructions/MCP/skills when revisiting Build Agent after save, and add a Reset control on the chat header.
+- c6ef7d1: Adopt the loaded session agent spec when resuming chat history so New Chat draft edits no longer PATCH over the saved sandbox environment; lock composer environment selection after a session exists; read/write sandbox `environmentName` so resumed chats show the correct environment; and keep showing a deleted environment from the agent spec.
+- 58d7159: Show check and triangle-alert icons on sandbox environment Ready and Failed status badges.
+- 531350e: Emit `trueforge.sdk.http_timeout` with the request endpoint for every SDK HTTP timeout, and show a clear "Request timed out" toast instead of "Something went wrong" with a bare "timeout" detail.
+- 5c22006: Show the session creator avatar in the sessions list meta row, with the subject name on hover.
+- e4caefb: Surface cancelled turn reasons and failed sub-agents on the Agent Sessions timeline and metrics; project unfinished nested sub-agents as cancelled when the parent turn is already terminal, remap abort-shaped child thread.done errors (e.g. LLM stream aborted) to cancelled on cancelled turns, and close unfinished sub-agent chart bars at turn.done when thread.done is missing.
+- 9208cc8: Allow tenant members to use sandbox environments created by other members while keeping update and delete actions restricted to the creator.
+- 5da156a: Add a host-overridable Register Skills action next to the Skills modal title. The default slot waits for capabilities, routes to Settings → Skills or a platform URL, and hides when neither applies.
+- 8d4cc1c: Show a full-pane "Unable to load session" for inaccessible session deep links and sessions-browser details instead of toasting and redirecting away.
+- Updated dependencies [5d9b938]
+- Updated dependencies [aa58442]
+- Updated dependencies [c6ef7d1]
+- Updated dependencies [5c22006]
+- Updated dependencies [e4caefb]
+  - @truefoundry/trueforge-assistant-ui-runtime@0.180.0
+  - @truefoundry/trueforge-sdk@0.180.0
+
+## 0.180.0-rc.5
+
+### Patch Changes
+
+- f10e3b8: Default reasoning effort now follows `medium` → `high` → `low` in both the draft (New Chat) composer and the agent builder (Agent Config) when the selected model does not offer `medium`, instead of falling back to the lowest offered effort.
+
+## 0.180.0-rc.4
+
+### Patch Changes
+
+- 0a1606d: Default the reasoning effort to `medium` when the selected model offers it (falling back to the lowest real effort otherwise), instead of defaulting to the lowest effort. TrueFoundry model listing now passes `mergeParams` to the provider-integrations API so provider-level parameter defaults are included in each model's advertised parameters.
+
+## 0.180.0-rc.3
+
+### Patch Changes
+
+- 58d7159: Dense Agents library rows: nest creator under the name, two-line configuration, and per-page sessions/spend/14d sparkline/last-run when metrics are available.
+- 58d7159: Keep the Build Agent config when starting a new chat, confirm before Reset, and honor a stored sandbox environment name.
+- 58d7159: Route shared-session viewers to the read-only session view and hide in-flight turns.
+- 58d7159: Show check and triangle-alert icons on sandbox environment Ready and Failed status badges.
+
+## 0.180.0-rc.2
+
+### Patch Changes
+
+- Updated dependencies [5d9b938]
+  - @truefoundry/trueforge-assistant-ui-runtime@0.180.0-rc.2
+
+## 0.180.0-rc.1
+
+### Patch Changes
+
+- ca29d8f: Render lightbulb icon on Skills section header in Agent Config panel.
+- 7f2be59: Prefix public `AnalyticsEvents` names with `trueforge.` so host sinks (e.g. PostHog) can namespace product events.
+- 2bbdf4e: Show the full model name in a tooltip when the new-chat model selector label is truncated.
+- 6bf93de: Keep Build Agent skills selected after a turn by matching session FQN mounts against catalog attach keys and display names during draft preference reconcile.
+- 99c39ee: Hide the session share URL when access is Only you.
+- 942a0e5: Show the full MCP tool and skill description in a tooltip when the truncated label is hovered in the picker modals.
+- aa58442: Reject folder drops in chat attachments so they cannot block message send.
+- aea048e: Clear instructions/MCP/skills when revisiting Build Agent after save, and add a Reset control on the chat header.
+- c6ef7d1: Adopt the loaded session agent spec when resuming chat history so New Chat draft edits no longer PATCH over the saved sandbox environment; lock composer environment selection after a session exists; read/write sandbox `environmentName` so resumed chats show the correct environment; and keep showing a deleted environment from the agent spec.
+- 531350e: Emit `trueforge.sdk.http_timeout` with the request endpoint for every SDK HTTP timeout, and show a clear "Request timed out" toast instead of "Something went wrong" with a bare "timeout" detail.
+- 5c22006: Show the session creator avatar in the sessions list meta row, with the subject name on hover.
+- e4caefb: Surface cancelled turn reasons and failed sub-agents on the Agent Sessions timeline and metrics; project unfinished nested sub-agents as cancelled when the parent turn is already terminal, remap abort-shaped child thread.done errors (e.g. LLM stream aborted) to cancelled on cancelled turns, and close unfinished sub-agent chart bars at turn.done when thread.done is missing.
+- 9208cc8: Allow tenant members to use sandbox environments created by other members while keeping update and delete actions restricted to the creator.
+- 5da156a: Add a host-overridable Register Skills action next to the Skills modal title. The default slot waits for capabilities, routes to Settings → Skills or a platform URL, and hides when neither applies.
+- 8d4cc1c: Show a full-pane "Unable to load session" for inaccessible session deep links and sessions-browser details instead of toasting and redirecting away.
+- Updated dependencies [aa58442]
+- Updated dependencies [c6ef7d1]
+- Updated dependencies [5c22006]
+- Updated dependencies [e4caefb]
+  - @truefoundry/trueforge-assistant-ui-runtime@0.180.0-rc.1
+
+## 0.179.0
+
+### Patch Changes
+
+- 1513e91: Show cancelled turn reasons in chat and session detail via an orange cancelled banner, projecting the wire reason on message metadata from turn.done (including live commits).
+- bf619ad: Show Web search as a Built-in connector toggle in New Chat, persist an explicit chat draft choice across New Chat / reload, and restore capability-forced off only when the user never chose off.
+- 18d4051: Keep draft spec sync on its existing debounce by flushing the agent config drawer only when it unmounts.
+- 95f5c5c: Remove the sandbox-environments frontend feature flag and always enable environments UI.
+- 6c07afa: Toast API errors when creating or updating a sandbox environment so failures are visible outside the drawer form.
+- 84f71bf: Confirm before opening external markdown links or loading external markdown images, with per-host "Don't ask again" in localStorage.
+- f5672f1: Show MCP auth resume turn boundaries and unanswered ask_user prompts in Sessions view.
+- 1674b71: Allow opening model settings dropdown by clicking the model parameters summary in Agent Config.
+- f0aa52d: Adopt the loaded session agent spec when resuming chat history so New Chat draft edits no longer PATCH over the saved sandbox environment; lock composer environment selection after a session exists; read/write sandbox `environmentName` so resumed chats show the correct environment; and keep showing a deleted environment from the agent spec.
+- 694a572: Reject duplicate sandbox environment names on create (POST) instead of overwriting via upsert.
+- e25945d: Add configurable sandbox resource caps and limit environment variable and secret names in the UI.
+- 6b42368: Point the Environments secrets "Learn more" link at the Sandbox docs section on how environment changes reach a running session.
+- 09f07f0: Show the sandbox disabled-with-skills tooltip only on the switch, not the whole row.
+- 7a81826: Explain higher session-level turn counts when the tip lineage is shorter than session total
+- bbe23c8: Surface cancelled turn reasons and failed sub-agents on the Agent Sessions timeline and metrics; project unfinished nested sub-agents as cancelled when the parent turn is already terminal, remap abort-shaped child thread.done errors (e.g. LLM stream aborted) to cancelled on cancelled turns, and close unfinished sub-agent chart bars at turn.done when thread.done is missing.
+- a2f2877: Allow tenant members to use sandbox environments created by other members while keeping update and delete actions restricted to the creator.
+- Updated dependencies [1513e91]
+- Updated dependencies [f5672f1]
+- Updated dependencies [f0aa52d]
+- Updated dependencies [694a572]
+- Updated dependencies [bbe23c8]
+  - @truefoundry/trueforge-assistant-ui-runtime@0.179.0
+  - @truefoundry/trueforge-sdk@0.179.0
+
+## 0.179.0-rc.3
+
+### Patch Changes
+
+- a2f2877: Allow tenant members to use sandbox environments created by other members while keeping update and delete actions restricted to the creator.
+
+## 0.179.0-rc.2
+
+### Patch Changes
+
+- f0aa52d: Adopt the loaded session agent spec when resuming chat history so New Chat draft edits no longer PATCH over the saved sandbox environment; lock composer environment selection after a session exists; read/write sandbox `environmentName` so resumed chats show the correct environment; and keep showing a deleted environment from the agent spec.
+- bbe23c8: Surface cancelled turn reasons and failed sub-agents on the Agent Sessions timeline and metrics; project unfinished nested sub-agents as cancelled when the parent turn is already terminal, remap abort-shaped child thread.done errors (e.g. LLM stream aborted) to cancelled on cancelled turns, and close unfinished sub-agent chart bars at turn.done when thread.done is missing.
+- Updated dependencies [f0aa52d]
+- Updated dependencies [bbe23c8]
+  - @truefoundry/trueforge-assistant-ui-runtime@0.179.0-rc.2
+
+## 0.179.0-rc.1
+
+### Patch Changes
+
+- 1513e91: Show cancelled turn reasons in chat and session detail via an orange cancelled banner, projecting the wire reason on message metadata from turn.done (including live commits).
+- bf619ad: Show Web search as a Built-in connector toggle in New Chat, persist an explicit chat draft choice across New Chat / reload, and restore capability-forced off only when the user never chose off.
+- 18d4051: Keep draft spec sync on its existing debounce by flushing the agent config drawer only when it unmounts.
+- 95f5c5c: Remove the sandbox-environments frontend feature flag and always enable environments UI.
+- 6c07afa: Toast API errors when creating or updating a sandbox environment so failures are visible outside the drawer form.
+- 84f71bf: Confirm before opening external markdown links or loading external markdown images, with per-host "Don't ask again" in localStorage.
+- f5672f1: Show MCP auth resume turn boundaries and unanswered ask_user prompts in Sessions view.
+- 1674b71: Allow opening model settings dropdown by clicking the model parameters summary in Agent Config.
+- 694a572: Reject duplicate sandbox environment names on create (POST) instead of overwriting via upsert.
+- e25945d: Add configurable sandbox resource caps and limit environment variable and secret names in the UI.
+- 6b42368: Point the Environments secrets "Learn more" link at the Sandbox docs section on how environment changes reach a running session.
+- 09f07f0: Show the sandbox disabled-with-skills tooltip only on the switch, not the whole row.
+- 7a81826: Explain higher session-level turn counts when the tip lineage is shorter than session total
+- Updated dependencies [1513e91]
+- Updated dependencies [f5672f1]
+- Updated dependencies [694a572]
+  - @truefoundry/trueforge-assistant-ui-runtime@0.179.0-rc.1
+  - @truefoundry/trueforge-sdk@0.179.0-rc.1
+
 ## 0.178.0
 
 ### Patch Changes

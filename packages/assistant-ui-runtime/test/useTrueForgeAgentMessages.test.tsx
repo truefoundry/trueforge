@@ -472,6 +472,147 @@ describe('useTrueForgeAgentMessages', () => {
     );
   });
 
+  it('clears isLoading from the progress snapshot before load resolves', async () => {
+    const progress = snapshotWithUserTurn('painted early');
+    let resolveLoad: (snapshot: SessionSnapshot) => void = () => undefined;
+    vi.mocked(loadSessionSnapshot).mockImplementation((_server, _sessionId, onProgress) => {
+      onProgress?.(progress);
+      return new Promise(resolve => {
+        resolveLoad = resolve;
+      });
+    });
+
+    const { result } = renderHook(() => useTrueForgeAgentMessages({ server: mockServer, sessionId: 'session-1' }));
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.messages).toHaveLength(1);
+    expect(result.current.messages[0]).toMatchObject({
+      role: 'user',
+      content: [{ type: 'text', text: 'painted early' }],
+    });
+    expect(resumeTurnStream).not.toHaveBeenCalled();
+
+    const runningTurn: Turn = {
+      id: 'turn-1',
+      sessionId: 'session-1',
+      input: [{ type: 'user.message', content: 'painted early' }],
+      state: { status: 'running' },
+      createdAt: new Date().toISOString(),
+    };
+    await act(async () => {
+      resolveLoad(
+        replaceSessionSnapshot(progress, {
+          runningTurn,
+          unstable_resume: true,
+        }),
+      );
+    });
+
+    await waitFor(() => expect(resumeTurnStream).toHaveBeenCalled());
+  });
+
+  it('does not apply a late load over a send started after paint', async () => {
+    const progress = snapshotWithUserTurn('painted early');
+    let resolveLoad: (snapshot: SessionSnapshot) => void = () => undefined;
+    vi.mocked(loadSessionSnapshot).mockImplementation((_server, _sessionId, onProgress) => {
+      onProgress?.(progress);
+      return new Promise(resolve => {
+        resolveLoad = resolve;
+      });
+    });
+
+    const { result } = renderHook(() => useTrueForgeAgentMessages({ server: mockServer, sessionId: 'session-1' }));
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.sendTurn({ userMessage: 'also check' });
+    });
+
+    const runningTurn: Turn = {
+      id: 'turn-old',
+      sessionId: 'session-1',
+      input: [{ type: 'user.message', content: 'painted early' }],
+      state: { status: 'running' },
+      createdAt: new Date().toISOString(),
+    };
+    await act(async () => {
+      resolveLoad(
+        replaceSessionSnapshot(progress, {
+          runningTurn,
+          unstable_resume: true,
+        }),
+      );
+    });
+
+    expect(resumeTurnStream).not.toHaveBeenCalled();
+    const texts = result.current.messages.flatMap(message =>
+      message.content.flatMap(part => (part.type === 'text' ? [part.text] : [])),
+    );
+    expect(texts).toContain('also check');
+  });
+
+  it('keeps the in-flight load when a send fails before applying a message', async () => {
+    const createdAt = new Date();
+    const progress = replaceSessionSnapshot(createEmptySessionSnapshot(), {
+      pendingUser: {
+        turnId: 'turn-open',
+        content: 'what is 2+2',
+        createdAt,
+      },
+    });
+    let resolveLoad: (snapshot: SessionSnapshot) => void = () => undefined;
+    vi.mocked(loadSessionSnapshot).mockImplementation((_server, _sessionId, onProgress) => {
+      onProgress?.(progress);
+      return new Promise(resolve => {
+        resolveLoad = resolve;
+      });
+    });
+    const runningTurn: Turn = {
+      id: 'turn-open',
+      sessionId: 'session-1',
+      input: [{ type: 'user.message', content: 'what is 2+2' }],
+      state: { status: 'running' },
+      createdAt: createdAt.toISOString(),
+    };
+    const getTurnHeaders = vi.fn(async () => {
+      resolveLoad(
+        replaceSessionSnapshot(progress, {
+          runningTurn,
+          unstable_resume: true,
+        }),
+      );
+      throw new Error('headers failed');
+    });
+
+    const { result } = renderHook(() =>
+      useTrueForgeAgentMessages({
+        server: mockServer,
+        sessionId: 'session-1',
+        getTurnHeaders,
+      }),
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.sendTurn({ userMessage: 'also check' }).catch(() => undefined);
+    });
+
+    expect(resumeTurnStream).toHaveBeenCalled();
+    expect(
+      result.current.messages.some(
+        message =>
+          message.role === 'assistant' && message.status.type === 'incomplete' && message.status.reason === 'cancelled',
+      ),
+    ).toBe(false);
+    const texts = result.current.messages.flatMap(message =>
+      message.content.flatMap(part => (part.type === 'text' ? [part.text] : [])),
+    );
+    expect(texts).toContain('what is 2+2');
+    expect(texts).not.toContain('also check');
+  });
+
   it('loads converted session history on mount', async () => {
     vi.mocked(loadSessionSnapshot).mockResolvedValue(snapshotWithUserTurn('hello'));
 

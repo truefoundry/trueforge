@@ -38,6 +38,7 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
   const aui = useAui();
   const shell = useOptionalShellMode();
   const ClearChatButton = useSlot('ClearChatButton');
+  const ResetAgentBuilderButton = useSlot('ResetAgentBuilderButton');
   const AgentDetailsPage = useSlot('AgentDetailsPage');
   const AgentsLibrary = useSlot('AgentsLibrary');
   const SessionsPage = useSlot('SessionsPage');
@@ -180,6 +181,7 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
             title={<NamedAgentHeaderLabel />}
             end={
               <>
+                <ResetAgentBuilderButton />
                 <ShareChatButton />
                 <ClearChatButton />
                 <SaveAgentButton />

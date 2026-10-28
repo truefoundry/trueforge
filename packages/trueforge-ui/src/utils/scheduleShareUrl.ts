@@ -5,6 +5,7 @@ export const SCHEDULE_AGENT_QUERY = 'agent';
 export const SCHEDULE_STATUS_QUERY = 'status';
 export const SCHEDULE_NAME_QUERY = 'q';
 export const SCHEDULE_IS_NEW_QUERY = 'isNew';
+export const SCHEDULE_ID_QUERY = 'scheduleId';
 
 export const SCHEDULE_SHARE_CHANGE_EVENT = 'trueforge-schedule-share';
 
@@ -17,6 +18,8 @@ export type ScheduleShareSearch = {
   q: string | null;
   /** One-shot flag to open the create schedule drawer. */
   isNew: boolean;
+  /** Single schedule to show; `null` when the list is unpinned. */
+  scheduleId: string | null;
 };
 
 export type ScheduleShareWrite = {
@@ -24,6 +27,7 @@ export type ScheduleShareWrite = {
   status?: ScheduleStatus | null;
   q?: string | null;
   isNew?: boolean | null;
+  scheduleId?: string | null;
 };
 
 function nonEmpty(value: string | null): string | null {
@@ -42,6 +46,7 @@ export function readScheduleShareSearch(search: string): ScheduleShareSearch {
     status: parseStatus(params.get(SCHEDULE_STATUS_QUERY)),
     q: nonEmpty(params.get(SCHEDULE_NAME_QUERY)),
     isNew: params.get(SCHEDULE_IS_NEW_QUERY) === 'true',
+    scheduleId: nonEmpty(params.get(SCHEDULE_ID_QUERY)),
   };
 }
 
@@ -54,6 +59,8 @@ export function writeScheduleShareSearch(params: URLSearchParams, next: Schedule
   else if (next.q != null) params.set(SCHEDULE_NAME_QUERY, next.q);
   if (next.isNew === null || next.isNew === false) params.delete(SCHEDULE_IS_NEW_QUERY);
   else if (next.isNew === true) params.set(SCHEDULE_IS_NEW_QUERY, 'true');
+  if (next.scheduleId === null) params.delete(SCHEDULE_ID_QUERY);
+  else if (next.scheduleId != null) params.set(SCHEDULE_ID_QUERY, next.scheduleId);
 }
 
 /** Drop all schedules-owned query keys (used when leaving the schedules place). */
@@ -62,6 +69,7 @@ export function clearScheduleShareSearch(params: URLSearchParams): void {
   params.delete(SCHEDULE_STATUS_QUERY);
   params.delete(SCHEDULE_NAME_QUERY);
   params.delete(SCHEDULE_IS_NEW_QUERY);
+  params.delete(SCHEDULE_ID_QUERY);
 }
 
 export function replaceScheduleShareSearch(next: ScheduleShareWrite): string {
@@ -90,6 +98,21 @@ export function writeOpenSchedulesForAgentSearch({ agentId, isNew }: { agentId: 
     status: null,
     q: null,
     isNew: isNew === true ? true : null,
+    scheduleId: null,
   });
+  window.history.replaceState(window.history.state, '', url);
+}
+
+/** Point the address bar at one schedule. Caller still opens the schedules place via shell. */
+export function writeOpenScheduleByIdSearch({ id, name }: { id: string; name: string }): void {
+  const url = new URL(window.location.href);
+  writeSessionShareSearch(url.searchParams, {
+    sessionId: null,
+    agentId: null,
+    tab: null,
+    view: null,
+    timeRange: null,
+  });
+  writeScheduleShareSearch(url.searchParams, { agent: null, status: null, q: name, isNew: null, scheduleId: id });
   window.history.replaceState(window.history.state, '', url);
 }

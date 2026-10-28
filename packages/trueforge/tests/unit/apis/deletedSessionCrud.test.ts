@@ -9,6 +9,7 @@ import { TrueForgeAuthorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
+import { SqliteAccessControlStore } from '../../../src/db/sqlite/access-control-store/SqliteAccessControlStore';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
@@ -19,6 +20,7 @@ import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteS
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
+import { EmptyUserStore } from '../../../src/db/userStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
 import { ListSessionsResponseSchema } from '../../../src/schemas/session';
@@ -49,6 +51,9 @@ describe('public CRUD after session deletion', () => {
       createSessionsRouter({
         sessions,
         sessionStore,
+        accessControlStore: new SqliteAccessControlStore(db),
+        userStore: new EmptyUserStore(),
+        withTransaction: callback => db.transaction().execute(callback),
         activeTurns,
         resolveModelProviderStore: () => modelProviderStore,
         resolveMcpServerStore: () => mcpServerStore,
@@ -72,7 +77,7 @@ describe('public CRUD after session deletion', () => {
         activeTurns,
         resolveModelProviderStore: () => modelProviderStore,
         resolveMcpServerStore: () => mcpServerStore,
-        resolveSkillStore: () => skillStore,
+        resolveTurnSkillsStore: () => skillStore,
         resolveAgentStore: () => agentStore,
         eventSubscriptions: new EventSubscriptionRegistry(undefined),
         resolveSandboxProviderStore: () => sandboxProviderStore,

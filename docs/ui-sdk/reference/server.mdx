@@ -9,10 +9,12 @@ description: "Server factory, context hooks, shell mode, and contract types."
 createTrueForgeServer(options: CreateTrueForgeServerOptions): TrueForgeServer;
 ```
 
-Options: `{ chatServer, getCapabilities, getModels, getSkills, getMcp, searchAgents, saveAgent, deleteAgent?, catalog? }`.
+Required options: `{ chatServer, getCapabilities, getModels, getSkills, getMcp, searchAgents, saveAgent }`.
 Combines a chat server with your agent-management callbacks into a complete `AgentUIServer`.
-`deleteAgent` and `catalog` are the only optional entries; if you omit `deleteAgent`, calling it
-throws.
+Optional callbacks are `getMcpConnector`, `getMcpTools`, `deleteAgent`, and `getMe`.
+Optional ports are `catalog`, `sessions`, `metrics`, `schedules`, `sandboxEnvironments`, and
+`permissions`; the factory attaches each supplied port to the resulting server.
+If you omit `deleteAgent`, calling it throws.
 
 ## Context
 
@@ -24,6 +26,10 @@ throws.
 | `useServerCapabilities()` | Resolved `getCapabilities()` data, or `null` while loading or on failure. |
 | `useCatalogServer()` | `server.catalog`; **throws** when absent. |
 | `useOptionalCatalogServer()` | `server.catalog`, or `null` when there is none. |
+| `useAgentSessionsServer()` / `useOptionalAgentSessionsServer()` | `server.sessions`; the required hook throws when absent, the optional hook returns `null`. |
+| `useAgentMetricsServer()` / `useOptionalAgentMetricsServer()` | `server.metrics`; the required hook throws when absent, the optional hook returns `null`. |
+| `useScheduleServer()` / `useOptionalScheduleServer()` | `server.schedules`; the required hook throws when absent, the optional hook returns `null`. |
+| `useOptionalPermissionsServer()` | `server.permissions`, or `null` when absent. |
 
 ## Shell mode
 
@@ -72,8 +78,9 @@ to reference:
     `SearchAgentsParams`.
   </Accordion>
   <Accordion title="Pagination">
-    `PageResult`, `PageParams`, `TokenPagination`, `ListSessionsParams`, `ListSessionsOrder`,
-    `ListSessionsResponse`, `ListTurnsResponse`, `ListSessionEventsResponse`.
+    `ListResult`, `PageParams`, `ListSessionsParams`, `ListSessionsOrder`,
+    `ListSessionEventsParams`, `SearchAgentsParams`. List methods return `ListResult<T>`,
+    a plain object with `data` and optional `nextPageToken` / `previousPageToken`.
   </Accordion>
   <Accordion title="Catalog">
     `ModelCatalogServer`, `ConnectorCatalogServer`, `SkillCatalogServer`,

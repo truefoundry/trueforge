@@ -35,7 +35,7 @@ import { TurnHandle } from './TurnHandle';
 /** How many recent ancestors SessionHandle persists on each turn. Store-local. */
 const MAX_TURN_ANCESTORS = 20;
 
-function resolvePreviousTurnId(requested: string | undefined, lastTurnId: string | null | undefined): string | null {
+function resolvePreviousTurnId(requested: string | undefined, lastTurnId: string | undefined): string | null {
   if (requested === 'none') {
     return null;
   }
@@ -180,7 +180,7 @@ export class SessionHandle<
     turn_id: string;
     active_executor_id: string;
     input?: TurnInputItem[] | undefined;
-    /** 'auto'/omitted → session.last_turn_id; 'none' → new root; id → fork from that turn. */
+    /** 'auto'/omitted → session.last_turn_details.id; 'none' → new root; id → fork from that turn. */
     previous_turn_id?: string | undefined;
     signal: AbortSignal;
     resolver: ITurnResourceResolver<TTurnCustom>;
@@ -193,7 +193,7 @@ export class SessionHandle<
      */
     update_session_title_if_not_exist?: string | undefined;
   }): Promise<TurnHandle<TTurnCustom>> {
-    const previousTurnId = resolvePreviousTurnId(input.previous_turn_id, this.session.last_turn_id);
+    const previousTurnId = resolvePreviousTurnId(input.previous_turn_id, this.session.last_turn_details?.id);
     const previous = previousTurnId
       ? await this.freezeTurn({
           turn_id: previousTurnId,
@@ -336,6 +336,7 @@ export class SessionHandle<
       await input.resolver.close().catch((closeError: unknown) => {
         input.resolver.logger.warn('TurnResourceResolver.close() failed after createTurn() error', {
           err: closeError,
+          reportable_error: { error: closeError },
         });
       });
       throw error;

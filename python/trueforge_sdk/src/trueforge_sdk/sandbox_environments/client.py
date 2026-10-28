@@ -39,7 +39,7 @@ class SandboxEnvironmentsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[SandboxEnvironment, ListSandboxEnvironmentsResponse]:
         """
-        List the tenant default environment plus sandbox environments created by the authenticated subject.
+        List available sandbox environments
 
         Parameters
         ----------
@@ -113,7 +113,7 @@ class SandboxEnvironmentsClient:
         self, *, manifest: SandboxEnvironmentManifestRequest, request_options: typing.Optional[RequestOptions] = None
     ) -> GetSandboxEnvironmentResponse:
         """
-        Create or replace by `manifest.name`. Requires a configured sandbox provider.
+        Create a new sandbox environment or update an existing one.
 
         Parameters
         ----------
@@ -148,8 +148,6 @@ class SandboxEnvironmentsClient:
         self, *, name: str, request_options: typing.Optional[RequestOptions] = None
     ) -> GetSandboxEnvironmentResponse:
         """
-        Get a sandbox environment by name. The tenant default is readable by any tenant member; custom environments are owner-scoped.
-
         Parameters
         ----------
         name : str
@@ -182,7 +180,7 @@ class SandboxEnvironmentsClient:
         self, *, name: str, request_options: typing.Optional[RequestOptions] = None
     ) -> DeleteSandboxEnvironmentResponse:
         """
-        Delete by name. Fails if any agent still references the environment.
+        Delete a sandbox environment, fails if any agent still references it.
 
         Parameters
         ----------
@@ -236,7 +234,7 @@ class AsyncSandboxEnvironmentsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[SandboxEnvironment, ListSandboxEnvironmentsResponse]:
         """
-        List the tenant default environment plus sandbox environments created by the authenticated subject.
+        List available sandbox environments
 
         Parameters
         ----------
@@ -327,7 +325,7 @@ class AsyncSandboxEnvironmentsClient:
         self, *, manifest: SandboxEnvironmentManifestRequest, request_options: typing.Optional[RequestOptions] = None
     ) -> GetSandboxEnvironmentResponse:
         """
-        Create or replace by `manifest.name`. Requires a configured sandbox provider.
+        Create a new sandbox environment or update an existing one.
 
         Parameters
         ----------
@@ -370,8 +368,6 @@ class AsyncSandboxEnvironmentsClient:
         self, *, name: str, request_options: typing.Optional[RequestOptions] = None
     ) -> GetSandboxEnvironmentResponse:
         """
-        Get a sandbox environment by name. The tenant default is readable by any tenant member; custom environments are owner-scoped.
-
         Parameters
         ----------
         name : str
@@ -412,7 +408,7 @@ class AsyncSandboxEnvironmentsClient:
         self, *, name: str, request_options: typing.Optional[RequestOptions] = None
     ) -> DeleteSandboxEnvironmentResponse:
         """
-        Delete by name. Fails if any agent still references the environment.
+        Delete a sandbox environment, fails if any agent still references it.
 
         Parameters
         ----------

@@ -3,7 +3,7 @@
 import { useTrueForgeAgentSpec } from '@truefoundry/trueforge-assistant-ui-runtime';
 
 import { useAuiState } from '../assistant-ui.js';
-import { useOptionalShellMode } from '../server/ShellModeContext.js';
+import { shellIsCreateAgent, useOptionalShellMode } from '../server/ShellModeContext.js';
 import { isNewChatView } from '../utils/isNewChatView.js';
 
 export type NamedAgentHeaderState = {
@@ -60,11 +60,17 @@ export function useChatChromeActionsVisible(): boolean {
   return shell != null && shell.mode.status === 'active' && !isFresh;
 }
 
+export function useResetAgentBuilderVisible(): boolean {
+  const shell = useOptionalShellMode();
+  return shell != null && shellIsCreateAgent(shell.mode);
+}
+
 // True when the thread header has anything to show (title, Save, and/or Clear).
 // Clear alone matters for orphaned immutable history (deleted agent, no name).
 export function useChatHeaderContentVisible(): boolean {
   const namedVisible = useNamedAgentHeaderVisible();
   const saveVisible = useSaveAgentVisible();
   const clearVisible = useChatChromeActionsVisible();
-  return namedVisible || saveVisible || clearVisible;
+  const resetVisible = useResetAgentBuilderVisible();
+  return namedVisible || saveVisible || clearVisible || resetVisible;
 }

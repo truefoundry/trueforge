@@ -1,9 +1,10 @@
 import * as Sentry from '@sentry/node';
-import type { Logger } from 'winston';
+import winston, { type Logger } from 'winston';
 
 import { isTrueFoundryModeEnabled, type ServerConfiguration } from '../config';
 import { PACKAGE_VERSION } from '../packageVersion';
 import { initTrueFoundrySentry } from '../truefoundry/initTrueFoundrySentry';
+import { reportMarkedLogFormat } from './reportMarkedLog';
 
 function isLocalLikeEnv(nodeEnv: string | undefined): boolean {
   return nodeEnv === 'development' || nodeEnv === 'test' || nodeEnv === 'local';
@@ -20,9 +21,13 @@ export interface InitSentryOptions {
   tags?: Record<string, string>;
 }
 
+function attachMarkedLogReporting(logger: Pick<Logger, 'format'>): void {
+  logger.format = winston.format.combine(reportMarkedLogFormat(), logger.format);
+}
+
 export async function initSentry(
   config: ServerConfiguration,
-  logger: Pick<Logger, 'info' | 'error'>,
+  logger: Pick<Logger, 'info' | 'error' | 'format'>,
   options?: InitSentryOptions,
 ): Promise<void> {
   if (!config.SENTRY_ENABLED || isLocalLikeEnv(config.NODE_ENV)) {
@@ -38,7 +43,10 @@ export async function initSentry(
   };
 
   if (isTrueFoundryModeEnabled(config)) {
-    await initTrueFoundrySentry({ logger, tags: globalTags });
+    const ready = await initTrueFoundrySentry({ logger, tags: globalTags });
+    if (ready) {
+      attachMarkedLogReporting(logger);
+    }
     return;
   }
 
@@ -51,8 +59,9 @@ export async function initSentry(
     dsn,
     includeLocalVariables: false,
     defaultIntegrations: false,
-    integrations: [],
+    integrations: [Sentry.linkedErrorsIntegration()],
   });
   applyGlobalTags(globalTags);
+  attachMarkedLogReporting(logger);
   logger.info('Sentry initialised');
 }

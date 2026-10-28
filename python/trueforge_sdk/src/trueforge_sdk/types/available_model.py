@@ -22,6 +22,10 @@ class AvailableModel(UncheckedBaseModel):
 
     properties: ModelProperties
     provider: AvailableModelProvider
+    warning: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Set when reasoning effort or context length is not configured; may affect TrueForge performance.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2

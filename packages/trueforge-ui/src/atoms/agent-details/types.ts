@@ -5,6 +5,7 @@ import type {
   AgentMetricGraph,
   AgentMetricMeter,
   CodeSnippet,
+  CreatedBySubject,
 } from '../../server/types.js';
 import type { SessionMetrics } from '../../utils/buildSessionMetrics.js';
 import type { SessionEventTimelineSegment, SessionEventType } from '../../utils/sessionEventTimeline.js';
@@ -33,19 +34,26 @@ export type AgentSessionsProps = {
 export type AgentSessionListRowProps = {
   title: string;
   agentName?: string;
-  sourceType?: 'schedule';
+  /** Set when the session was created by a schedule run. */
+  scheduleId?: string;
   lastActivityAt: string;
   metrics: {
     totalTurns: number;
     totalCostInUsd?: number;
     totalDurationMs: number;
   };
+  /** Session creator; avatar shown in the meta row when present. */
+  createdBySubject?: CreatedBySubject;
   active: boolean;
   onSelect: () => void;
   /** Opens delete confirmation; does not call the API. */
   onRequestDelete?: () => void;
   /** When false, Delete is disabled via PermissionGuard. Defaults to true. */
   canDelete?: boolean;
+  /** Opens the originating schedule by id; the tooltip link is hidden when omitted. */
+  onOpenSchedule?: (schedule: { id: string; name: string }) => void;
+  /** Resolved on first tooltip hover; `null` when the schedule can't be loaded. */
+  loadScheduleName?: (scheduleId: string) => Promise<string | null>;
 };
 
 export type AgentSessionDetailHeaderProps = {
@@ -77,6 +85,7 @@ export type AgentSessionTurnHeaderProps = {
   cachedTokens?: number;
   durationMs?: number;
   totalCostInUsd?: number;
+  modelName?: string;
 };
 
 export type AgentSessionMetricsStripProps = {

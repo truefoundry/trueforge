@@ -24,7 +24,7 @@ export class SandboxEnvironmentsClient {
     }
 
     /**
-     * List the tenant default environment plus sandbox environments created by the authenticated subject.
+     * List available sandbox environments
      *
      * @param {TrueForge.ListSandboxEnvironmentsRequest} request
      * @param {SandboxEnvironmentsClient.RequestOptions} requestOptions - Request-specific configuration.
@@ -149,6 +149,7 @@ export class SandboxEnvironmentsClient {
      *
      * @throws {@link TrueForge.BadRequestError}
      * @throws {@link TrueForge.UnauthorizedError}
+     * @throws {@link TrueForge.ForbiddenError}
      * @throws {@link TrueForge.ConflictError}
      * @throws {@link TrueForge.UnprocessableEntityError}
      * @throws {@link TrueForge.BadGatewayError}
@@ -242,6 +243,17 @@ export class SandboxEnvironmentsClient {
                         }),
                         _response.rawResponse,
                     );
+                case 403:
+                    throw new TrueForge.ForbiddenError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
                 case 409:
                     throw new TrueForge.ConflictError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
@@ -288,13 +300,15 @@ export class SandboxEnvironmentsClient {
     }
 
     /**
-     * Create or replace by `manifest.name`. Requires a configured sandbox provider.
+     * Create a new sandbox environment or update an existing one.
      *
      * @param {TrueForge.UpdateSandboxEnvironmentRequest} request
      * @param {SandboxEnvironmentsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.BadRequestError}
      * @throws {@link TrueForge.UnauthorizedError}
+     * @throws {@link TrueForge.ForbiddenError}
+     * @throws {@link TrueForge.NotFoundError}
      * @throws {@link TrueForge.ConflictError}
      * @throws {@link TrueForge.UnprocessableEntityError}
      * @throws {@link TrueForge.BadGatewayError}
@@ -388,6 +402,28 @@ export class SandboxEnvironmentsClient {
                         }),
                         _response.rawResponse,
                     );
+                case 403:
+                    throw new TrueForge.ForbiddenError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 404:
+                    throw new TrueForge.NotFoundError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
                 case 409:
                     throw new TrueForge.ConflictError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
@@ -434,8 +470,6 @@ export class SandboxEnvironmentsClient {
     }
 
     /**
-     * Get a sandbox environment by name. The tenant default is readable by any tenant member; custom environments are owner-scoped.
-     *
      * @param {string} name - Sandbox environment name.
      * @param {SandboxEnvironmentsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
@@ -468,7 +502,7 @@ export class SandboxEnvironmentsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/sandbox-environments/${core.url.encodePathParam(name)}`,
+                `api/v1/sandbox-environments/${core.url.encodePathParam(name, errors.TrueForgeError)}`,
             ),
             method: "GET",
             headers: _headers,
@@ -534,12 +568,13 @@ export class SandboxEnvironmentsClient {
     }
 
     /**
-     * Delete by name. Fails if any agent still references the environment.
+     * Delete a sandbox environment, fails if any agent still references it.
      *
      * @param {string} name - Sandbox environment name.
      * @param {SandboxEnvironmentsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.UnauthorizedError}
+     * @throws {@link TrueForge.ForbiddenError}
      * @throws {@link TrueForge.NotFoundError}
      * @throws {@link TrueForge.ConflictError}
      * @throws {@link TrueForge.UnprocessableEntityError}
@@ -571,7 +606,7 @@ export class SandboxEnvironmentsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/sandbox-environments/${core.url.encodePathParam(name)}`,
+                `api/v1/sandbox-environments/${core.url.encodePathParam(name, errors.TrueForgeError)}`,
             ),
             method: "DELETE",
             headers: _headers,
@@ -599,6 +634,17 @@ export class SandboxEnvironmentsClient {
             switch (_response.error.statusCode) {
                 case 401:
                     throw new TrueForge.UnauthorizedError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 403:
+                    throw new TrueForge.ForbiddenError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,

@@ -4,6 +4,7 @@ import {
   extractErrorLogFields,
   isAuthRequired,
   McpConnectionError,
+  OUTBOUND_URL_BLOCKED,
   RemoteMCP,
 } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
@@ -207,8 +208,8 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
     try {
       await assertSafeOutboundUrl(incomingManifest.url);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Outbound URL blocked';
-      return c.json({ error: { message } }, 400);
+      const message = error instanceof Error ? error.message : OUTBOUND_URL_BLOCKED;
+      throw new HTTPException(400, { message: message, cause: error });
     }
 
     // DCR finishes before the txn (remote I/O stays out of withTransaction on create).
@@ -239,7 +240,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
       });
     } catch (error) {
       if (error instanceof MissingStoredSecretError) {
-        return c.json({ error: { message: 'Header secret is required' } }, 400);
+        throw new HTTPException(400, { message: 'Header secret is required', cause: error });
       }
       throw error;
     }
@@ -287,8 +288,8 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
     try {
       await assertSafeOutboundUrl(incomingManifest.url);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Outbound URL blocked';
-      return c.json({ error: { message } }, 400);
+      const message = error instanceof Error ? error.message : OUTBOUND_URL_BLOCKED;
+      throw new HTTPException(400, { message: message, cause: error });
     }
 
     try {
@@ -358,7 +359,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
       );
     } catch (error) {
       if (error instanceof MissingStoredSecretError) {
-        return c.json({ error: { message: 'Header secret is required' } }, 400);
+        throw new HTTPException(400, { message: 'Header secret is required', cause: error });
       }
       if (error instanceof McpConnectionError) {
         deps.logger.error(
@@ -457,7 +458,10 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
         }
         return c.json({ error: { message: error.message } }, 500);
       }
-      deps.logger.error(`MCP authorize unexpected failure for "${name}"`, extractErrorLogFields(error));
+      deps.logger.error(`MCP authorize unexpected failure for "${name}"`, {
+        ...extractErrorLogFields(error),
+        reportable_error: { error, extra: { mcp_server_name: name } },
+      });
       return c.json({ error: { message: 'Internal server error' } }, 500);
     }
   };
@@ -480,7 +484,7 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
       id: name,
       name,
       url: connection.url,
-      headers: connection.headers,
+      headers: connection.headers ?? {},
       requestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
       connectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
       maxResponseBytes: configuration.MCP_TOOL_CALL_MAX_RESPONSE_BYTES,

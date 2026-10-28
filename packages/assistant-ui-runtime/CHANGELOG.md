@@ -1,5 +1,55 @@
 # @truefoundry/trueforge-assistant-ui-runtime
 
+## 0.180.0
+
+### Patch Changes
+
+- 5d9b938: Paint a loaded session from its events window before confirming the tip, and stop fetching the oldest turn to decide whether that tip is still running. A send that applies its message in that window is kept, a send that fails before then still lets the load finish, and a tip that finishes before its done event is still shown.
+- aa58442: Reject folder drops in chat attachments so they cannot block message send.
+- c6ef7d1: Adopt the loaded session agent spec when resuming chat history so New Chat draft edits no longer PATCH over the saved sandbox environment; lock composer environment selection after a session exists; read/write sandbox `environmentName` so resumed chats show the correct environment; and keep showing a deleted environment from the agent spec.
+- 5c22006: Show the session creator avatar in the sessions list meta row, with the subject name on hover.
+- e4caefb: Surface cancelled turn reasons and failed sub-agents on the Agent Sessions timeline and metrics; project unfinished nested sub-agents as cancelled when the parent turn is already terminal, remap abort-shaped child thread.done errors (e.g. LLM stream aborted) to cancelled on cancelled turns, and close unfinished sub-agent chart bars at turn.done when thread.done is missing.
+
+## 0.180.0-rc.2
+
+### Patch Changes
+
+- 5d9b938: Paint a loaded session from its events window before confirming the tip, and stop fetching the oldest turn to decide whether that tip is still running. A send that applies its message in that window is kept, a send that fails before then still lets the load finish, and a tip that finishes before its done event is still shown.
+
+## 0.180.0-rc.1
+
+### Patch Changes
+
+- aa58442: Reject folder drops in chat attachments so they cannot block message send.
+- c6ef7d1: Adopt the loaded session agent spec when resuming chat history so New Chat draft edits no longer PATCH over the saved sandbox environment; lock composer environment selection after a session exists; read/write sandbox `environmentName` so resumed chats show the correct environment; and keep showing a deleted environment from the agent spec.
+- 5c22006: Show the session creator avatar in the sessions list meta row, with the subject name on hover.
+- e4caefb: Surface cancelled turn reasons and failed sub-agents on the Agent Sessions timeline and metrics; project unfinished nested sub-agents as cancelled when the parent turn is already terminal, remap abort-shaped child thread.done errors (e.g. LLM stream aborted) to cancelled on cancelled turns, and close unfinished sub-agent chart bars at turn.done when thread.done is missing.
+
+## 0.179.0
+
+### Patch Changes
+
+- 1513e91: Show cancelled turn reasons in chat and session detail via an orange cancelled banner, projecting the wire reason on message metadata from turn.done (including live commits).
+- f5672f1: Show MCP auth resume turn boundaries and unanswered ask_user prompts in Sessions view.
+- f0aa52d: Adopt the loaded session agent spec when resuming chat history so New Chat draft edits no longer PATCH over the saved sandbox environment; lock composer environment selection after a session exists; read/write sandbox `environmentName` so resumed chats show the correct environment; and keep showing a deleted environment from the agent spec.
+- 694a572: Reject duplicate sandbox environment names on create (POST) instead of overwriting via upsert.
+- bbe23c8: Surface cancelled turn reasons and failed sub-agents on the Agent Sessions timeline and metrics; project unfinished nested sub-agents as cancelled when the parent turn is already terminal, remap abort-shaped child thread.done errors (e.g. LLM stream aborted) to cancelled on cancelled turns, and close unfinished sub-agent chart bars at turn.done when thread.done is missing.
+
+## 0.179.0-rc.2
+
+### Patch Changes
+
+- f0aa52d: Adopt the loaded session agent spec when resuming chat history so New Chat draft edits no longer PATCH over the saved sandbox environment; lock composer environment selection after a session exists; read/write sandbox `environmentName` so resumed chats show the correct environment; and keep showing a deleted environment from the agent spec.
+- bbe23c8: Surface cancelled turn reasons and failed sub-agents on the Agent Sessions timeline and metrics; project unfinished nested sub-agents as cancelled when the parent turn is already terminal, remap abort-shaped child thread.done errors (e.g. LLM stream aborted) to cancelled on cancelled turns, and close unfinished sub-agent chart bars at turn.done when thread.done is missing.
+
+## 0.179.0-rc.1
+
+### Patch Changes
+
+- 1513e91: Show cancelled turn reasons in chat and session detail via an orange cancelled banner, projecting the wire reason on message metadata from turn.done (including live commits).
+- f5672f1: Show MCP auth resume turn boundaries and unanswered ask_user prompts in Sessions view.
+- 694a572: Reject duplicate sandbox environment names on create (POST) instead of overwriting via upsert.
+
 ## 0.178.0
 
 ### Patch Changes

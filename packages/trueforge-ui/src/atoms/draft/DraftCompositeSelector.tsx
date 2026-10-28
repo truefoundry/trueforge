@@ -5,6 +5,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNod
 
 import { useMCPAuth } from '../../hooks/useMcpAuth.js';
 import { Icon } from '../../icons/Icon.js';
+import { readSandboxEnvironmentName, sandboxWithEnvironmentName } from '../../server/draftSpecPreferences.js';
 import { useOptionalCatalogServer, useServerCapabilities } from '../../server/ServerContext.js';
 import { useOptionalShellMode, type SettingsSection } from '../../server/ShellModeContext.js';
 import type { AgentSkill, ConnectorState } from '../../server/types.js';
@@ -60,6 +61,7 @@ const TABS: { id: AttachTab; label: string; icon: string }[] = [
 ];
 
 const SPEC_FLUSH_MS = 300;
+const ENVIRONMENT_LOCKED_HINT = "Can't change the environment after a chat has started";
 
 export function CatalogRow({
   title,
@@ -109,7 +111,17 @@ export function CatalogRow({
           <span className="text-text-primary truncate text-sm font-medium">{title}</span>
           {badge}
         </span>
-        {description ? <span className="text-text-secondary line-clamp-1 text-xs">{description}</span> : null}
+        {description ? (
+          <Tooltip
+            content={description}
+            side="bottom"
+            className="max-w-sm whitespace-normal text-left"
+            triggerClassName="block min-w-0 w-full"
+            interactive={false}
+          >
+            <span className="text-text-secondary block truncate text-xs">{description}</span>
+          </Tooltip>
+        ) : null}
       </span>
     </>
   );
@@ -298,8 +310,10 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   const capabilities = useServerCapabilities();
   const settingsCatalog = useOptionalCatalogServer();
   const shell = useOptionalShellMode();
-  const { agentSpec } = useTrueForgeAgentSpec();
+  const { agentSpec, draftSessionId } = useTrueForgeAgentSpec();
   const updateAgentSpec = useTrueForgeUpdateAgentSpec();
+  // Turns reuse the session sandbox; changing environment after create would only update the spec.
+  const environmentLocked = draftSessionId != null;
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<AttachTab>('connectors');
   const [query, setQuery] = useState('');
@@ -572,29 +586,39 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
     shell?.setSettingsOpen(true, section);
   };
 
-  const currentEnvName = agentSpec?.config?.sandbox?.environment_name?.trim() || 'default';
+  const currentEnvName = readSandboxEnvironmentName(agentSpec?.config?.sandbox);
 
   const filteredEnvironments = useMemo(() => {
+    const readyNames = new Set(readyEnvironments.map(e => e.name));
     const all = readyEnvironments.map(e => ({
       name: e.name,
       description: e.manifest.description,
+      unavailable: false,
     }));
+    // Keep the session's recorded environment visible (and selected) if it left the catalog.
+    if (currentEnvName !== 'default' && !readyNames.has(currentEnvName)) {
+      all.unshift({
+        name: currentEnvName,
+        description: undefined,
+        unavailable: true,
+      });
+    }
     const needle = query.trim().toLowerCase();
     if (!needle) return all;
     return all.filter(
       item => item.name.toLowerCase().includes(needle) || (item.description?.toLowerCase().includes(needle) ?? false),
     );
-  }, [readyEnvironments, query]);
+  }, [readyEnvironments, query, currentEnvName]);
 
   const selectEnvironment = (envName: string) => {
+    if (environmentLocked) return;
     const isDefault = envName === 'default';
     updateAgentSpec?.({
       config: {
         ...agentSpec?.config,
         sandbox: {
-          ...agentSpec?.config?.sandbox,
+          ...sandboxWithEnvironmentName(agentSpec?.config?.sandbox, isDefault ? undefined : envName),
           enabled: isDefault ? agentSpec?.config?.sandbox?.enabled : true,
-          environment_name: isDefault ? undefined : envName,
         },
       },
     });
@@ -751,8 +775,18 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
             </>
           ) : (
             <>
+              {environmentLocked ? (
+                <div
+                  role="status"
+                  className="border-primary-button-bg/30 bg-primary-button-bg/5 text-text-primary mx-3 mb-2 flex items-center gap-2 rounded-lg border p-3"
+                >
+                  <Icon name="lock" className="text-primary-button-bg size-3 shrink-0" />
+                  <span className="text-xs leading-none">{ENVIRONMENT_LOCKED_HINT}</span>
+                </div>
+              ) : null}
               {filteredEnvironments.map(env => {
                 const isSelected = currentEnvName === env.name;
+                const rowDisabled = environmentLocked || env.unavailable;
                 return (
                   <CatalogRow
                     key={env.name}
@@ -761,6 +795,8 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                     fallbackIcon="monitor"
                     selectionControl="radio"
                     checked={isSelected}
+                    disabled={rowDisabled}
+                    disabledReason={environmentLocked ? ENVIRONMENT_LOCKED_HINT : undefined}
                     onToggle={() => selectEnvironment(env.name)}
                   />
                 );

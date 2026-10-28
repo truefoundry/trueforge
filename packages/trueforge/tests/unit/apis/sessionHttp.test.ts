@@ -1,6 +1,7 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { AgentSpecSchema, Sessions } from '@truefoundry/trueforge-core/agent-session';
 import { RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
+import type { Transaction } from 'kysely';
 import { createClient } from 'redis';
 import { createLogger } from 'winston';
 import { makeCreateTurnInput } from '../../../../trueforge-core/tests/agent-session/testHelpers';
@@ -15,6 +16,7 @@ import { TrueForgeAuthorizer, type Authorizer } from '../../../src/auth/authoriz
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
+import { SqliteAccessControlStore } from '../../../src/db/sqlite/access-control-store/SqliteAccessControlStore';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
@@ -25,10 +27,12 @@ import { SqliteSessionMetricsStore } from '../../../src/db/sqlite/session-metric
 import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteSessionStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
+import type { Database } from '../../../src/db/sqlite/types';
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
+import { EmptyUserStore } from '../../../src/db/userStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
-import { ListSessionsResponseSchema } from '../../../src/schemas/session';
+import { GetSessionResponseSchema, ListSessionsResponseSchema } from '../../../src/schemas/session';
 import {
   GetSessionMetricsChartDataResponseSchema,
   GetSessionMetricsChartResponseSchema,
@@ -48,6 +52,18 @@ function jsonInit(method: string, body: unknown): RequestInit {
   };
 }
 
+function expectCalledWithAllowInlineResources(...resolvers: jest.Mock[]): void {
+  for (const resolve of resolvers) {
+    expect(resolve).toHaveBeenCalledWith({ c: expect.anything(), allowInlineResources: true });
+  }
+}
+
+function clearResolvers(...resolvers: jest.Mock[]): void {
+  for (const resolve of resolvers) {
+    resolve.mockClear();
+  }
+}
+
 const deniedCanAccessAgent = jest.fn((_input: Parameters<Authorizer['canAccessAgent']>[0]) => Promise.resolve(false));
 const denyAllAuthorizer: Authorizer = {
   listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
@@ -63,7 +79,10 @@ describe('sessions HTTP agent binding', () => {
   let agentStore: SqliteAgentStore;
   let sessionStore: SqliteSessionStore;
   let sessionMetricsStore: SqliteSessionMetricsStore;
-  let sessionDeps: SessionsRouterDeps;
+  let sessionDeps: SessionsRouterDeps<Transaction<Database>>;
+  let resolveModelProviderStore: jest.Mock;
+  let resolveMcpServerStore: jest.Mock;
+  let resolveSkillStore: jest.Mock;
 
   beforeEach(async () => {
     const db = createSqliteDb(':memory:');
@@ -96,13 +115,19 @@ describe('sessions HTTP agent binding', () => {
       },
     });
 
-    const deps: SessionsRouterDeps = {
+    resolveModelProviderStore = jest.fn(() => modelProviderStore);
+    resolveMcpServerStore = jest.fn(() => mcpServerStore);
+    resolveSkillStore = jest.fn(() => skillStore);
+    const deps: SessionsRouterDeps<Transaction<Database>> = {
       sessions,
       sessionStore,
+      accessControlStore: new SqliteAccessControlStore(db),
+      userStore: new EmptyUserStore(),
+      withTransaction: callback => db.transaction().execute(callback),
       activeTurns: new ActiveTurnRegistry(),
-      resolveModelProviderStore: () => modelProviderStore,
-      resolveMcpServerStore: () => mcpServerStore,
-      resolveSkillStore: () => skillStore,
+      resolveModelProviderStore,
+      resolveMcpServerStore,
+      resolveSkillStore,
       resolveAgentStore: () => agentStore,
       resolveSandboxProviderStore: () => sandboxProviderStore,
       sandboxEnvironmentStore,
@@ -130,7 +155,7 @@ describe('sessions HTTP agent binding', () => {
             tokenStore,
             clientName: 'test-client',
           }),
-        resolveSkillStore: () => skillStore,
+        resolveTurnSkillsStore: () => skillStore,
         resolveAgentStore: () => agentStore,
         eventSubscriptions: new EventSubscriptionRegistry(undefined),
         resolveSandboxProviderStore: () => sandboxProviderStore,
@@ -176,6 +201,22 @@ describe('sessions HTTP agent binding', () => {
       subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
     });
     expect(json.data.metrics).toEqual({ total_duration_ms: 0, total_turns: 0 });
+  });
+
+  it('returns last_turn_details on get and list', async () => {
+    const created = await app.request('/', jsonInit('POST', { agent: { spec: inlineSpec } }));
+    expect(created.status).toBe(201);
+    const session = GetSessionResponseSchema.parse(await created.json()).data;
+    expect(session.last_turn_details).toBeNull();
+
+    await sessionStore.createTurn(makeCreateTurnInput({ sessionId: session.id, turnId: 'turn-1' }));
+    const expected = { id: 'turn-1', state: { status: 'running' } };
+
+    const fetched = await app.request(`/${session.id}`);
+    expect(GetSessionResponseSchema.parse(await fetched.json()).data.last_turn_details).toEqual(expected);
+
+    const listed = ListSessionsResponseSchema.parse(await (await app.request('/')).json()).data;
+    expect(listed.find(item => item.id === session.id)?.last_turn_details).toEqual(expected);
   });
 
   it('returns 404 when creating a session for an unknown agent name', async () => {
@@ -435,45 +476,33 @@ describe('sessions HTTP agent binding', () => {
     ).toBe(true);
 
     const forbiddenBody = { error: { message: 'Only the session creator can access this session' } };
+    const forbiddenRequests: Array<[string, RequestInit | undefined]> = [
+      ['/other-user-session', undefined],
+      ['/other-user-session', jsonInit('PATCH', {})],
+      ['/other-user-session', { method: 'DELETE' }],
+      ['/other-user-session/cancel', { method: 'POST' }],
+      ['/other-user-session/events', undefined],
+      [
+        '/other-user-session/turns/any-turn/events',
+        jsonInit('POST', {
+          events: [
+            {
+              type: 'user.tool_approval',
+              thread_id: 'main',
+              tool_call_id: 'tc-1',
+              approval: { status: 'allow' },
+            },
+          ],
+        }),
+      ],
+    ];
+    for (const [path, init] of forbiddenRequests) {
+      const forbidden = await app.request(path, init);
+      expect(forbidden.status).toBe(403);
+      expect(await forbidden.json()).toEqual(forbiddenBody);
+    }
 
-    const getForbidden = await app.request('/other-user-session');
-    expect(getForbidden.status).toBe(403);
-    expect(await getForbidden.json()).toEqual(forbiddenBody);
-
-    const patchForbidden = await app.request('/other-user-session', jsonInit('PATCH', {}));
-    expect(patchForbidden.status).toBe(403);
-    expect(await patchForbidden.json()).toEqual(forbiddenBody);
-
-    const deleteForbidden = await app.request('/other-user-session', { method: 'DELETE' });
-    expect(deleteForbidden.status).toBe(403);
-    expect(await deleteForbidden.json()).toEqual(forbiddenBody);
-
-    const cancelForbidden = await app.request('/other-user-session/cancel', { method: 'POST' });
-    expect(cancelForbidden.status).toBe(403);
-    expect(await cancelForbidden.json()).toEqual(forbiddenBody);
-
-    const eventsForbidden = await app.request('/other-user-session/events');
-    expect(eventsForbidden.status).toBe(403);
-    expect(await eventsForbidden.json()).toEqual(forbiddenBody);
-
-    const sendEventsForbidden = await app.request(
-      '/other-user-session/turns/any-turn/events',
-      jsonInit('POST', {
-        events: [
-          {
-            type: 'user.tool_approval',
-            thread_id: 'main',
-            tool_call_id: 'tc-1',
-            approval: { status: 'allow' },
-          },
-        ],
-      }),
-    );
-    expect(sendEventsForbidden.status).toBe(403);
-    expect(await sendEventsForbidden.json()).toEqual(forbiddenBody);
-
-    const allowed = await app.request(`/${json.data.id}`);
-    expect(allowed.status).toBe(200);
+    expect((await app.request(`/${json.data.id}`)).status).toBe(200);
   });
 
   it('POST /sessions/{id}/turns/{turn_id}/events mints ids for events', async () => {
@@ -572,10 +601,15 @@ describe('sessions HTTP agent binding', () => {
     expect(patchNamed.status).toBe(422);
   });
 
-  it('allows PATCH agent.spec on inline sessions', async () => {
+  it('opts into request-scoped resources when validating inline session specs', async () => {
+    const resolvers = [resolveModelProviderStore, resolveMcpServerStore, resolveSkillStore];
+
     const created = await app.request('/', jsonInit('POST', { agent: { spec: inlineSpec } }));
     expect(created.status).toBe(201);
+    expectCalledWithAllowInlineResources(...resolvers);
+
     const { data } = (await created.json()) as { data: { id: string } };
+    clearResolvers(...resolvers);
 
     const patched = await app.request(
       `/${data.id}`,
@@ -583,9 +617,18 @@ describe('sessions HTTP agent binding', () => {
     );
     expect(patched.status).toBe(200);
     const patchedJson = (await patched.json()) as {
-      data: { agent: { type: 'inline'; spec: { instructions?: string } } };
+      data: { agent: { spec: { instructions?: string } } };
     };
     expect(patchedJson.data.agent.spec.instructions).toBe('updated');
+    expectCalledWithAllowInlineResources(...resolvers);
+
+    clearResolvers(...resolvers);
+    const external = await app.request(
+      '/api/internal/sessions/get-or-create-by-external-id',
+      jsonInit('POST', { external_id: 'inline-create', agent: { spec: inlineSpec } }),
+    );
+    expect(external.status).toBe(201);
+    expectCalledWithAllowInlineResources(...resolvers);
   });
 
   it('create and PATCH round-trip session metadata', async () => {

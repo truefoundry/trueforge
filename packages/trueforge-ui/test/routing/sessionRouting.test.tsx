@@ -16,8 +16,12 @@ import { ThreadListContainer } from '@/containers/ThreadListContainer.js';
 import { resolveRoutesConfig } from '@/routing/paths.js';
 import { RemoteIdRouteBridge } from '@/routing/RemoteIdRouteBridge.js';
 import { ShellRouteSync } from '@/routing/ShellRouteSync.js';
-import { ShellModeProvider } from '@/server/ShellModeContext.js';
+import { ServerProvider } from '@/server/ServerContext.js';
+import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
+import type { AgentUIServer } from '@/server/types.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
+
+import { createMockAgentUIServer } from '../server/mockServer.js';
 
 const routes = resolveRoutesConfig();
 
@@ -60,20 +64,28 @@ function RuntimeHarness({ threadList, children }: { threadList: ExternalStoreThr
   return <AssistantRuntimeProvider runtime={runtime}>{children}</AssistantRuntimeProvider>;
 }
 
+function SessionAccessErrorProbe() {
+  const { sessionAccessError } = useShellMode();
+  return <output data-testid="session-access-error">{sessionAccessError ?? ''}</output>;
+}
+
 /** Mirrors production: sync outside the chat runtime, remote-id bridge inside it. */
 function Harness({
   threads,
   onSwitchToThread,
+  server,
 }: {
   threads: NonNullable<ExternalStoreThreadListAdapter['threads']>;
   onSwitchToThread?: (id: string) => void;
+  server?: AgentUIServer;
 }) {
   const [activeRemoteId, setActiveRemoteId] = useState<string | undefined>(undefined);
   const [threadId, setThreadId] = useState('thread-draft');
-  return (
+  const tree = (
     <SlotsProvider overrides={{ ThreadListRow: ThreadListRowOverride }}>
       <ShellModeProvider agentConfig={{ mode: 'AgentLibraryWithComposer' }}>
         <ShellRouteSync routes={routes} activeRemoteId={activeRemoteId} initialSettingsOpen={false} />
+        <SessionAccessErrorProbe />
         <RuntimeHarness
           threadList={{
             threadId,
@@ -92,6 +104,7 @@ function Harness({
       </ShellModeProvider>
     </SlotsProvider>
   );
+  return server == null ? tree : <ServerProvider server={server}>{tree}</ServerProvider>;
 }
 
 describe('selecting a session updates the URL', () => {
@@ -219,5 +232,44 @@ describe('selecting a session updates the URL', () => {
     });
     expect(search).toBe('?tenant=acme');
     expect(hash).toBe('#top');
+  });
+
+  it('clears the access-error pane when picking another history row', async () => {
+    const forbidden = Object.assign(new Error('Only the session creator can access this session'), {
+      statusCode: 403,
+    });
+    render(
+      <MemoryRouter initialEntries={['/sessions/session-locked']}>
+        <CaptureLocation />
+        <Harness
+          server={createMockAgentUIServer({
+            getSession: async () => {
+              throw forbidden;
+            },
+          })}
+          threads={[
+            { status: 'regular', id: 'thread-draft', title: 'New Chat' },
+            { status: 'regular', id: 'thread-2', remoteId: 'session-2', title: 'Second' },
+          ]}
+        />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('session-access-error')).toHaveTextContent(
+        'Only the session creator can access this session',
+      );
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Second' }));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('session-access-error')).toBeEmptyDOMElement();
+    });
+    await waitFor(() => {
+      expect(pathname).toBe('/sessions/session-2');
+    });
   });
 });

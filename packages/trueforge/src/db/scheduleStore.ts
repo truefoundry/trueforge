@@ -64,6 +64,7 @@ export interface ScheduleRunRecord {
   created_by_subject: CreatedBySubject;
   triggered_at: string | null;
   reason: string | null;
+  session_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -117,10 +118,15 @@ export interface GetScheduleInput {
   id: string;
 }
 
-export interface GetOwnedIdsInput {
+export interface GetSchedulesByIdsInput {
   tenant_id: string;
   ids: readonly string[];
-  subject_id: string;
+}
+
+/** Minimal schedule fields for permission evaluation. */
+export interface ScheduleOwnership {
+  id: string;
+  created_by_subject: CreatedBySubject;
 }
 
 export interface CreateScheduleInput {
@@ -183,11 +189,14 @@ export interface GetScheduledRunForInput {
   schedule_id: string;
 }
 
-export interface UpdateScheduleRunStatusInput {
+/** Patch for one run; omitted fields are left unchanged. */
+export interface UpdateScheduleRunInput {
   tenant_id: string;
   id: string;
-  status: ScheduleRunStatus;
+  status?: ScheduleRunStatus;
+  /** Only applied with `status`; kept for `failed`, cleared otherwise. */
   reason?: string | null;
+  session_id?: string;
 }
 
 export class ScheduleRunConflictError extends Error {
@@ -258,8 +267,11 @@ export interface IScheduleStore<TTransaction = never> {
     input: ListSchedulesInput,
     transaction?: TTransaction,
   ): Promise<{ data: ScheduleRecord[]; pagination: TokenPagination }>;
-  /** Ids among `ids` owned by `subject_id`. Empty `ids` → `[]`. */
-  getOwnedIds(input: GetOwnedIdsInput, transaction?: TTransaction): Promise<readonly string[]>;
+  /**
+   * Schedules by id (ownership fields only). Empty `ids` → `[]`.
+   * Unknown ids are omitted.
+   */
+  getSchedulesByIds(input: GetSchedulesByIdsInput, transaction?: TTransaction): Promise<ScheduleOwnership[]>;
 
   // --- schedule_run ---
   /** One run by immutable id. */
@@ -274,13 +286,10 @@ export interface IScheduleStore<TTransaction = never> {
   /** Inserts a run. Throws {@link ScheduleRunConflictError} on either unique index. */
   createRun(input: CreateScheduleRunInput, transaction?: TTransaction): Promise<ScheduleRunRecord>;
   /**
-   * Status transition. Stamps `triggered_at` when moving to `triggered`.
+   * Patches a run. A status change stamps `triggered_at` when moving to `triggered`.
    * Returns undefined when the row is gone (e.g. pause deleted it).
    */
-  updateRunStatus(
-    input: UpdateScheduleRunStatusInput,
-    transaction?: TTransaction,
-  ): Promise<ScheduleRunRecord | undefined>;
+  updateRun(input: UpdateScheduleRunInput, transaction?: TTransaction): Promise<ScheduleRunRecord | undefined>;
   /**
    * `scheduled` runs with `scheduled_for <= now`, oldest first.
    * Triggered / terminal rows are never returned.

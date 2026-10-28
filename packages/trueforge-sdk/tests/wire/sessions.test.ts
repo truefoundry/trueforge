@@ -20,6 +20,7 @@ describe("SessionsClient", () => {
                         subject_type: "subject_type",
                     },
                     id: "id",
+                    last_turn_details: { id: "id", state: { status: "running" } },
                     metadata: { key: "value" },
                     metrics: { total_duration_ms: 1, total_turns: 1 },
                     shared: true,
@@ -57,6 +58,12 @@ describe("SessionsClient", () => {
                         subjectType: "subject_type",
                     },
                     id: "id",
+                    lastTurnDetails: {
+                        id: "id",
+                        state: {
+                            status: "running",
+                        },
+                    },
                     metadata: {
                         key: "value",
                     },
@@ -115,6 +122,7 @@ describe("SessionsClient", () => {
                     subject_type: "subject_type",
                 },
                 id: "id",
+                last_turn_details: { id: "id", state: { status: "running" } },
                 metadata: { key: "value" },
                 metrics: { total_cost_in_usd: 1.1, total_duration_ms: 1, total_turns: 1 },
                 shared: true,
@@ -155,6 +163,12 @@ describe("SessionsClient", () => {
                     subjectType: "subject_type",
                 },
                 id: "id",
+                lastTurnDetails: {
+                    id: "id",
+                    state: {
+                        status: "running",
+                    },
+                },
                 metadata: {
                     key: "value",
                 },
@@ -261,6 +275,7 @@ describe("SessionsClient", () => {
                     subject_type: "subject_type",
                 },
                 id: "id",
+                last_turn_details: { id: "id", state: { status: "running" } },
                 metadata: { key: "value" },
                 metrics: { total_cost_in_usd: 1.1, total_duration_ms: 1, total_turns: 1 },
                 shared: true,
@@ -296,6 +311,12 @@ describe("SessionsClient", () => {
                     subjectType: "subject_type",
                 },
                 id: "id",
+                lastTurnDetails: {
+                    id: "id",
+                    state: {
+                        status: "running",
+                    },
+                },
                 metadata: {
                     key: "value",
                 },
@@ -397,6 +418,7 @@ describe("SessionsClient", () => {
                     subject_type: "subject_type",
                 },
                 id: "id",
+                last_turn_details: { id: "id", state: { status: "running" } },
                 metadata: { key: "value" },
                 metrics: { total_cost_in_usd: 1.1, total_duration_ms: 1, total_turns: 1 },
                 shared: true,
@@ -433,6 +455,12 @@ describe("SessionsClient", () => {
                     subjectType: "subject_type",
                 },
                 id: "id",
+                lastTurnDetails: {
+                    id: "id",
+                    state: {
+                        status: "running",
+                    },
+                },
                 metadata: {
                     key: "value",
                 },
@@ -728,6 +756,215 @@ describe("SessionsClient", () => {
         await expect(async () => {
             return await client.sessions.listEvents("session_id");
         }).rejects.toThrow(TrueForgeTypes.NotFoundError);
+    });
+
+    test("list_grants (1)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+
+        const rawResponseBody = {
+            data: [
+                {
+                    created_at: "created_at",
+                    granted_by_subject: {
+                        subject_display_name: "subject_display_name",
+                        subject_id: "subject_id",
+                        subject_type: "subject_type",
+                    },
+                    subject: { subject_id: "subject_id", subject_type: "user" },
+                },
+            ],
+        };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/sessions/session_id/grants")
+            .respondWith()
+            .statusCode(200)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        const response = await client.sessions.listGrants("session_id");
+        expect(response).toEqual({
+            data: [
+                {
+                    createdAt: "created_at",
+                    grantedBySubject: {
+                        subjectDisplayName: "subject_display_name",
+                        subjectId: "subject_id",
+                        subjectType: "subject_type",
+                    },
+                    subject: {
+                        subjectId: "subject_id",
+                        subjectType: "user",
+                    },
+                },
+            ],
+        });
+    });
+
+    test("list_grants (2)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/sessions/session_id/grants")
+            .respondWith()
+            .statusCode(403)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sessions.listGrants("session_id");
+        }).rejects.toThrow(TrueForgeTypes.ForbiddenError);
+    });
+
+    test("list_grants (3)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/sessions/session_id/grants")
+            .respondWith()
+            .statusCode(404)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sessions.listGrants("session_id");
+        }).rejects.toThrow(TrueForgeTypes.NotFoundError);
+    });
+
+    test("update_grants (1)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = {};
+        const rawResponseBody = {
+            data: [
+                {
+                    created_at: "created_at",
+                    granted_by_subject: {
+                        subject_display_name: "subject_display_name",
+                        subject_id: "subject_id",
+                        subject_type: "subject_type",
+                    },
+                    subject: { subject_id: "subject_id", subject_type: "user" },
+                },
+            ],
+        };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/sessions/session_id/grants")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(200)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        const response = await client.sessions.updateGrants("session_id");
+        expect(response).toEqual({
+            data: [
+                {
+                    createdAt: "created_at",
+                    grantedBySubject: {
+                        subjectDisplayName: "subject_display_name",
+                        subjectId: "subject_id",
+                        subjectType: "subject_type",
+                    },
+                    subject: {
+                        subjectId: "subject_id",
+                        subjectType: "user",
+                    },
+                },
+            ],
+        });
+    });
+
+    test("update_grants (2)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = {};
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/sessions/session_id/grants")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(400)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sessions.updateGrants("session_id");
+        }).rejects.toThrow(TrueForgeTypes.BadRequestError);
+    });
+
+    test("update_grants (3)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = {};
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/sessions/session_id/grants")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(403)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sessions.updateGrants("session_id");
+        }).rejects.toThrow(TrueForgeTypes.ForbiddenError);
+    });
+
+    test("update_grants (4)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = {};
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/sessions/session_id/grants")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(404)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sessions.updateGrants("session_id");
+        }).rejects.toThrow(TrueForgeTypes.NotFoundError);
+    });
+
+    test("update_grants (5)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = {};
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/sessions/session_id/grants")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(422)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sessions.updateGrants("session_id");
+        }).rejects.toThrow(TrueForgeTypes.UnprocessableEntityError);
     });
 
     test("list_turns (1)", async () => {

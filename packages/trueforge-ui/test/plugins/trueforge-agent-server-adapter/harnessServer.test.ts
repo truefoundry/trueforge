@@ -132,6 +132,35 @@ describe('createHarnessChatServer', () => {
     });
   });
 
+  it('preserves sandbox environmentName on UI and harness agent specs', () => {
+    const ui = toUiAgentSpec({
+      model: { name: 'test/model' },
+      config: {
+        sandbox: { enabled: true, environmentName: 'python-dev', fileDownloads: true },
+        webSearch: { enabled: true },
+      },
+    });
+    assert.deepEqual(ui.config?.sandbox, {
+      enabled: true,
+      environmentName: 'python-dev',
+      fileDownloads: true,
+    });
+    assert.deepEqual(
+      toHarnessAgentSpec({
+        model: { name: 'test/model' },
+        config: {
+          sandbox: { enabled: true, environmentName: 'python-dev', fileDownloads: true },
+          webSearch: { enabled: true },
+        },
+      }).config?.sandbox,
+      {
+        enabled: true,
+        environmentName: 'python-dev',
+        fileDownloads: true,
+      },
+    );
+  });
+
   it('reports pages under the ListResult pagination contract', async () => {
     const server = createHarnessChatServer({ fetch: fetchMock });
 
@@ -236,6 +265,24 @@ describe('createHarnessChatServer', () => {
 
     assert.ok(listUrl !== undefined);
     assert.equal(new URL(listUrl, 'http://test.local').searchParams.get('created_by_me'), 'true');
+  });
+
+  it('forwards metadata to listSessions as a deepObject filter', async () => {
+    let listUrl: string | undefined;
+    const fetchNamed: typeof fetch = async input => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.includes('/api/v1/sessions?')) {
+        listUrl = url;
+        return Response.json({ data: [], pagination: { limit: 20 } });
+      }
+      return new Response(`Unexpected request: ${url}`, { status: 500 });
+    };
+
+    const server = createHarnessChatServer({ fetch: fetchNamed });
+    await server.listSessions({ metadata: { 'tfg.source': 'ui' } });
+
+    assert.ok(listUrl !== undefined);
+    assert.equal(new URL(listUrl, 'http://test.local').searchParams.get('metadata[tfg.source]'), 'ui');
   });
 
   it('PATCHes session title and returns the updated UI session', async () => {
