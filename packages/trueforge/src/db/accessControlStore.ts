@@ -32,7 +32,23 @@ export interface RevokeSessionAccessInput {
   subjects: SessionGrantSubject[];
 }
 
+export interface HasSessionAccessInput {
+  tenant_id: string;
+  session_id: string;
+  /** The calling user; undefined for non-user callers, which only match a `tenant` grant. */
+  user_id: string | undefined;
+}
+
+export interface ListTenantSharedSessionIdsInput {
+  tenant_id: string;
+  session_ids: readonly string[];
+}
+
 export interface IAccessControlStore<TTransaction = never> {
+  /** True when the user holds a `user` grant, or the session is shared with the whole tenant. */
+  hasSessionAccess(input: HasSessionAccessInput, transaction?: TTransaction): Promise<boolean>;
+  /** The ids among `session_ids` that hold a `tenant` grant for `tenant_id`. */
+  listTenantSharedSessionIds(input: ListTenantSharedSessionIdsInput, transaction?: TTransaction): Promise<string[]>;
   /** Ordered by (created_at, subject_id). */
   listSessionAccess(input: ListSessionAccessInput, transaction?: TTransaction): Promise<SessionAccessRecord[]>;
   /**

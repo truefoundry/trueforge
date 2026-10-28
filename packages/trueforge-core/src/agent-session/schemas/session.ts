@@ -123,7 +123,9 @@ export const SessionSchema = z
     title: z.string().nullable().describe('Optional human-readable title; null until set.'),
     shared: z
       .boolean()
-      .describe('When true, any subject in the tenant may read this session and its turns/events by id.'),
+      .describe(
+        'Whether the session is shared with everyone in the tenant (a `tenant` grant). Change it through the session grants API.',
+      ),
     created_by_subject: CreatedBySubjectSchema,
     created_at: z.string().describe('ISO 8601 creation timestamp.'),
     updated_at: z.string().describe('ISO 8601 last-update timestamp.'),

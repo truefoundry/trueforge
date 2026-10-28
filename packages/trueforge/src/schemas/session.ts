@@ -68,10 +68,6 @@ export const UpdateSessionRequestSchema = z
     agent: SessionAgentSpecBodySchema.optional(),
     title: SessionTitleSchema.optional(),
     metadata: SessionMetadataSchema.optional(),
-    shared: z
-      .boolean()
-      .optional()
-      .describe('When true, any subject in the tenant may read this session and its turns/events by id.'),
   })
   .strict()
   .openapi('UpdateSessionRequest');

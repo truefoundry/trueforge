@@ -2,8 +2,10 @@ import type { CreatedBySubject } from '@truefoundry/trueforge-core/agent-session
 import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
 import type {
   GrantSessionAccessInput,
+  HasSessionAccessInput,
   IAccessControlStore,
   ListSessionAccessInput,
+  ListTenantSharedSessionIdsInput,
   RevokeSessionAccessInput,
   SessionAccessRecord,
 } from '../../accessControlStore';
@@ -27,6 +29,44 @@ export class SqliteAccessControlStore implements IAccessControlStore<Transaction
 
   constructor(db: Kysely<Database>) {
     this.#db = db;
+  }
+
+  async hasSessionAccess(input: HasSessionAccessInput, transaction?: Transaction<Database>): Promise<boolean> {
+    const db = transaction ?? this.#db;
+    const { user_id } = input;
+    const row = await db
+      .selectFrom('access_control')
+      .select(eb => eb.lit(1).as('found'))
+      .where('tenant_id', '=', input.tenant_id)
+      .where('session_id', '=', input.session_id)
+      .where(eb =>
+        eb.or([
+          eb.and([eb('subject_type', '=', 'tenant'), eb('subject_id', '=', input.tenant_id)]),
+          ...(user_id === undefined ? [] : [eb.and([eb('subject_type', '=', 'user'), eb('subject_id', '=', user_id)])]),
+        ]),
+      )
+      .limit(1)
+      .executeTakeFirst();
+    return row !== undefined;
+  }
+
+  async listTenantSharedSessionIds(
+    input: ListTenantSharedSessionIdsInput,
+    transaction?: Transaction<Database>,
+  ): Promise<string[]> {
+    if (input.session_ids.length === 0) {
+      return [];
+    }
+    const db = transaction ?? this.#db;
+    const rows = await db
+      .selectFrom('access_control')
+      .select('session_id')
+      .where('tenant_id', '=', input.tenant_id)
+      .where('session_id', 'in', [...input.session_ids])
+      .where('subject_type', '=', 'tenant')
+      .where('subject_id', '=', input.tenant_id)
+      .execute();
+    return rows.map(row => row.session_id);
   }
 
   async listSessionAccess(
