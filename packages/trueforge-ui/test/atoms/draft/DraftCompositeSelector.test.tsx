@@ -173,7 +173,10 @@ describe('DraftCompositeSelector', () => {
     fireEvent.click(screen.getByRole('button', { name: /Tools/ }));
     fireEvent.click(screen.getByRole('button', { name: /Skills/ }));
 
-    expect(await screen.findByRole('menuitemcheckbox', { name: /echo/ })).toBeInTheDocument();
+    // Capabilities arrive a tick after the catalog, which replaces the disabled row with an enabled one.
+    await waitFor(() => {
+      expect(screen.getByRole('menuitemcheckbox', { name: /echo/ })).toBeInTheDocument();
+    });
     expect(screen.queryByRole('button', { name: 'Select version for echo' })).not.toBeInTheDocument();
     expect(loadVersions).not.toHaveBeenCalled();
   });
