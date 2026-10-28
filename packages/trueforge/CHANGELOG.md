@@ -1,5 +1,11 @@
 # @truefoundry/trueforge
 
+## 0.178.3
+
+### Patch Changes
+
+- a45ac4b: Vulnerability fix: rebuild against remirrored `tfy-internal/node:24` / `:24-dev` (verified Node v24.22.1) so published images pick up the updated ECR Node base.
+
 ## 0.178.2
 
 ### Patch Changes
