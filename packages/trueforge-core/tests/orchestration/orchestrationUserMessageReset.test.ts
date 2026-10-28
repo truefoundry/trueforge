@@ -5,7 +5,6 @@ import { AgentThread } from '../../src/core/runtime/AgentThread';
 import type { AgentThreadConstructorInput, ContextMessage } from '../../src/core/runtime/AgentThread.types';
 import { InternalEventType } from '../../src/core/runtime/AgentThread.types';
 import { AgentThreadOrchestrator } from '../../src/core/runtime/AgentThreadOrchestrator';
-import { createEmptyAgentThreadMetrics } from '../../src/core/runtime/metrics';
 import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
 import { makeSilentLogger, TEST_MODEL, TEST_MODEL_NAME } from '../core/harnessMocks';
 import { llmCreateInputs, runExecute, textReplyStream } from './helpers/helpers';
@@ -134,7 +133,6 @@ describe('orchestration: user-message reset', () => {
       logger: makeSilentLogger(),
       pendingTurnEvents: [],
       mcpServers: [],
-      recordedMetrics: createEmptyAgentThreadMetrics(),
     });
 
     const sendEvents = [];
@@ -226,7 +224,6 @@ describe('orchestration: user-message reset', () => {
       logger: makeSilentLogger(),
       pendingTurnEvents: [],
       mcpServers: [],
-      recordedMetrics: createEmptyAgentThreadMetrics(),
     });
 
     const sendEvents: unknown[] = [];
@@ -313,7 +310,6 @@ describe('orchestration: user-message reset', () => {
       logger: makeSilentLogger(),
       pendingTurnEvents: [],
       mcpServers: [],
-      recordedMetrics: createEmptyAgentThreadMetrics(),
     });
 
     await expect(

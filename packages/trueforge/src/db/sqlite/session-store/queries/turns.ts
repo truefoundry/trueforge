@@ -1051,7 +1051,6 @@ export async function updateTurnTerminalState(
         completed_at: input.state.completed_at,
         stored_status: locked.state.status,
         metrics: input.metrics,
-        reported_cost: input.state.metrics?.total_cost_in_usd,
       },
     });
     const updated = await trx

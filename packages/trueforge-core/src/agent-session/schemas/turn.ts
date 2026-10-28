@@ -22,23 +22,6 @@ export enum CancellationReason {
 /** Every `TurnState` arm takes its `status` literal from here. */
 export const TurnStatusSchema = z.enum(['running', 'paused', 'done', 'cancelled', 'error']).openapi('TurnStatus');
 
-export const TurnStateRunningSchema = z
-  .object({
-    status: z.literal(TurnStatusSchema.enum.running).describe('Turn is still executing.'),
-  })
-  .openapi('TurnStateRunning');
-
-export const TurnStatePausedSchema = z
-  .object({
-    status: z.literal(TurnStatusSchema.enum.paused).describe('Turn is paused waiting for user actions.'),
-  })
-  .openapi('TurnStatePaused');
-
-export const TurnStateCancelledReasonSchema = z
-  .enum(CancellationReason)
-  .describe('Reason for the cancellation.')
-  .openapi('TurnStateCancelledReason');
-
 /** Billable aggregate for one turn. */
 export const TurnMetricsSchema = z
   .object({
@@ -81,6 +64,24 @@ export const TurnMetricsSchema = z
     total_cost_in_usd: z.number().nonnegative().optional().describe('Estimated total cost in USD for this turn.'),
   })
   .openapi('TurnMetrics');
+
+export const TurnStateRunningSchema = z
+  .object({
+    status: z.literal(TurnStatusSchema.enum.running).describe('Turn is still executing.'),
+  })
+  .openapi('TurnStateRunning');
+
+export const TurnStatePausedSchema = z
+  .object({
+    status: z.literal(TurnStatusSchema.enum.paused).describe('Turn is paused waiting for user actions.'),
+    metrics: TurnMetricsSchema.optional().describe('Billable aggregate for this turn so far.'),
+  })
+  .openapi('TurnStatePaused');
+
+export const TurnStateCancelledReasonSchema = z
+  .enum(CancellationReason)
+  .describe('Reason for the cancellation.')
+  .openapi('TurnStateCancelledReason');
 
 export const TurnStateCancelledSchema = z
   .object({
@@ -171,8 +172,8 @@ export const CreateTurnRequestSchema = z
   .openapi('CreateTurnRequest');
 
 /**
- * Cumulative thread metrics, closed active duration, and the open running interval.
- * Stored as sibling checkpoint keys. `running_since` is null while paused.
+ * Accumulated billable totals, closed active duration, and the open running interval.
+ * `running_since` is null while paused.
  */
 export const TurnMetricsCheckpointSchema = z.object({
   metrics: AgentThreadMetricsSchema,
@@ -180,7 +181,7 @@ export const TurnMetricsCheckpointSchema = z.object({
   running_since: z.string().nullable(),
 });
 
-/** Pause sends the cumulative. Resume only opens the next running interval. */
+/** Pause sends the stretch since the last resume. Resume only opens the next interval. */
 export const TurnNonTerminalMetricsSchema = z.discriminatedUnion('status', [
   z.object({
     status: z.literal('paused'),

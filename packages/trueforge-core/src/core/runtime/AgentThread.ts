@@ -493,6 +493,8 @@ export class AgentThread {
   private readonly logger: Logger;
 
   private metrics: AgentThreadMetrics = createEmptyAgentThreadMetrics();
+  /** Loop limit for this running stretch. Reset when the turn pauses. */
+  private iterations = 0;
   private tfyManagedServerNames = new Set<string>();
 
   private contextBusy = false;
@@ -781,7 +783,6 @@ export class AgentThread {
     if (input.usage) {
       updateMetricsFromUsage(this.metrics, input.usage);
     }
-    this.metrics.total_summarizations++;
   }
 
   private generateErrorEvent(message: string, output?: ModelMessageEvent): InternalThreadDoneEvent {
@@ -929,6 +930,12 @@ export class AgentThread {
 
   getAgentThreadMetrics(): AgentThreadMetrics {
     return { ...this.metrics };
+  }
+
+  /** Drop this running phase's totals. The next one starts from zero. */
+  resetRunningPhaseMetrics(): void {
+    this.metrics = createEmptyAgentThreadMetrics();
+    this.iterations = 0;
   }
 
   private transformToLLMRequest(tools: ChatCompletionTool[]): LLMCreateParamsStreaming {
@@ -1355,7 +1362,7 @@ export class AgentThread {
         completion,
       });
     }
-    this.metrics.iterations++;
+    this.iterations++;
 
     if (finishError !== undefined) {
       const errorContent = completion?.type === 'error' ? completion.error_message : finishError;
@@ -1478,8 +1485,6 @@ export class AgentThread {
     if (append) {
       yield* this.appendToContext({ ...append, output: [], applied_user_events: [] });
     }
-    this.metrics.total_tool_calls += toolCallResults.length;
-
     if (authRequirementInfo.length > 0) {
       yield buildMCPAuthRequiredEvent(authRequirementInfo, this.threadId);
       this.pendingMCPAuth = true;
@@ -1492,7 +1497,6 @@ export class AgentThread {
     for (const event of createThreadEvents) {
       yield event;
     }
-    this.metrics.total_sub_agents += createThreadEvents.length;
     if (createThreadEvents.length > 0) {
       return 'exit';
     }
@@ -1616,7 +1620,7 @@ export class AgentThread {
             if (signal?.aborted) {
               return;
             }
-            if (this.metrics.iterations >= iterationLimit) {
+            if (this.iterations >= iterationLimit) {
               getOperationMetrics()?.recordHarnessLimit({ limit: 'iteration_limit' });
               yield this.generateErrorEvent(
                 `You have reached iteration limit of ${String(iterationLimit)}, please request again`,

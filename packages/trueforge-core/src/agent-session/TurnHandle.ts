@@ -27,7 +27,7 @@ import {
 import type { AgentThreadOrchestrator } from '../core/runtime/AgentThreadOrchestrator';
 import { getEmptyCurrentContextUsage } from '../core/runtime/contextUsage';
 import { isInternalThreadDoneCancelled } from '../core/runtime/contextUtils';
-import type { AgentThreadMetrics } from '../core/runtime/metrics';
+import { accrueAgentThreadMetrics, type AgentThreadMetrics } from '../core/runtime/metrics';
 import { waitUntilAborted } from '../core/util/abort';
 import type { ITurnResourceResolver } from './ITurnResourceResolver';
 import type { TurnRecord } from './models/TurnRecord';
@@ -417,6 +417,9 @@ export class TurnHandle<TTransaction = never, TTurnCustom extends object = Recor
         const event = iterResult.value;
         if (event.type === InternalEventType.TURN_STATE) {
           const turnUpdate = await this.persistTurnNonTerminal(event.transition, orchestrator.getMetrics());
+          if (event.transition.status === 'paused') {
+            orchestrator.resetRunningPhaseMetrics();
+          }
           if (turnUpdate) {
             yield turnUpdate;
           }
@@ -447,8 +450,9 @@ export class TurnHandle<TTransaction = never, TTurnCustom extends object = Recor
   }): Promise<TurnDoneEvent> {
     const updatedAt = new Date();
     const createdAtIso = updatedAt.toISOString();
-    const aggregate = input.orchestrator.getMetrics();
-    const metrics = turnMetricsFromAgentThreadMetrics(aggregate);
+    const stretch = input.orchestrator.getMetrics();
+    const cumulative = accrueAgentThreadMetrics(this.turn.snapshot.metrics, stretch);
+    const metrics = turnMetricsFromAgentThreadMetrics(cumulative);
     const terminalState = resolveTerminalState({
       signal: input.signal,
       caughtError: input.caughtError,
@@ -464,10 +468,15 @@ export class TurnHandle<TTransaction = never, TTurnCustom extends object = Recor
         active_executor_id: this.turn.active_executor_id,
         state: terminalState,
         turn_done_event: turnDone,
-        metrics: aggregate,
+        metrics: stretch,
       }),
     );
-    this.turn = { ...this.turn, state: terminalState, updated_at: updatedAt };
+    this.turn = {
+      ...this.turn,
+      state: terminalState,
+      updated_at: updatedAt,
+      snapshot: { ...this.turn.snapshot, metrics: cumulative },
+    };
     return turnDone;
   }
 
@@ -479,7 +488,9 @@ export class TurnHandle<TTransaction = never, TTurnCustom extends object = Recor
     const updatedAt = new Date();
     const state: TerminalTurnState = {
       ...error.state,
-      metrics: turnMetricsFromAgentThreadMetrics(orchestrator.getMetrics()),
+      metrics: turnMetricsFromAgentThreadMetrics(
+        accrueAgentThreadMetrics(this.turn.snapshot.metrics, orchestrator.getMetrics()),
+      ),
     };
     this.turn = { ...this.turn, state, updated_at: updatedAt };
     return turnDoneEvent(state, updatedAt.toISOString());
@@ -528,7 +539,14 @@ export class TurnHandle<TTransaction = never, TTurnCustom extends object = Recor
     transition: InternalTurnStateEvent['transition'],
     metrics: AgentThreadMetrics,
   ): Promise<TurnUpdateEvent | null> {
-    const state: NonTerminalTurnState = transition.status === 'paused' ? { status: 'paused' } : { status: 'running' };
+    const cumulative =
+      transition.status === 'paused'
+        ? accrueAgentThreadMetrics(this.turn.snapshot.metrics, metrics)
+        : this.turn.snapshot.metrics;
+    const state: NonTerminalTurnState =
+      transition.status === 'paused'
+        ? { status: 'paused', metrics: turnMetricsFromAgentThreadMetrics(cumulative) }
+        : { status: 'running' };
     const updatedAt = new Date();
     const observed_at = updatedAt.toISOString();
     const turn_metrics: TurnNonTerminalMetrics =
@@ -550,7 +568,12 @@ export class TurnHandle<TTransaction = never, TTurnCustom extends object = Recor
         turn_metrics,
       }),
     );
-    this.turn = { ...this.turn, state, updated_at: updatedAt };
+    this.turn = {
+      ...this.turn,
+      state,
+      updated_at: updatedAt,
+      snapshot: { ...this.turn.snapshot, metrics: cumulative },
+    };
     return turnUpdate;
   }
 

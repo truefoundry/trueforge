@@ -609,7 +609,6 @@ export class InMemorySessionStore<
         completed_at: input.state.completed_at,
         stored_status: storedStatus,
         metrics: input.metrics,
-        reported_cost: input.state.metrics?.total_cost_in_usd,
       },
     });
     turn.state = deepCopy(input.state);

@@ -7,7 +7,6 @@ import { AgentThread } from '../core/runtime/AgentThread';
 import type { AgentThreadAppendContext, AgentThreadSnapshot } from '../core/runtime/AgentThread.types';
 import { AgentThreadOrchestrator } from '../core/runtime/AgentThreadOrchestrator';
 import type { CreateDynamicSubAgentThread } from '../core/runtime/CreateDynamicSubAgentThread';
-import { createEmptyAgentThreadMetrics, type AgentThreadMetrics } from '../core/runtime/metrics';
 import type { HarnessSandbox } from '../core/sandbox/Sandbox';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
 import { builtinsFromSpec } from './builtinsFromSpec';
@@ -202,7 +201,6 @@ export class SessionHandle<
         resolver: input.resolver,
         abortController: input.abortController,
         pendingTurnEvents: [],
-        recordedMetrics: createEmptyAgentThreadMetrics(),
       });
 
       const new_context_appends = await collectContextAppends(orchestrator.send(input.input ?? []));
@@ -330,7 +328,6 @@ export class SessionHandle<
         resolver: input.resolver,
         abortController: input.abortController,
         pendingTurnEvents,
-        recordedMetrics: turn.snapshot.metrics,
       });
 
       return new TurnHandle({
@@ -433,7 +430,6 @@ export class SessionHandle<
     resolver: ITurnResourceResolver<TTurnCustom>;
     abortController: AbortController;
     pendingTurnEvents: TurnUserEvent[];
-    recordedMetrics: AgentThreadMetrics;
   }): Promise<{ orchestrator: AgentThreadOrchestrator; agentThreads: Map<string, AgentThread> }> {
     const tracing = input.resolver.createTracing();
     const agent = this.session.agent;
@@ -489,7 +485,6 @@ export class SessionHandle<
       pendingTurnEvents: input.pendingTurnEvents,
       mcpServers:
         previousMcpServers !== null && previousMcpServers !== undefined ? Object.values(previousMcpServers) : [],
-      recordedMetrics: input.recordedMetrics,
     });
 
     return { orchestrator, agentThreads };

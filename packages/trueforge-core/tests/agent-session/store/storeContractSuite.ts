@@ -1554,7 +1554,7 @@ export function runStoreContractSuite<TTransaction>(
         turn_id: 'turn-1',
         state: doneState,
         turn_done_event: makeTurnDoneEvent(doneState),
-        metrics: createEmptyAgentThreadMetrics(),
+        metrics: metricsWithCost(1.25),
       });
 
       const session = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
@@ -1760,7 +1760,7 @@ export function runStoreContractSuite<TTransaction>(
         turn_id: 'turn-1',
         state: doneState,
         turn_done_event: makeTurnDoneEvent(doneState),
-        metrics: createEmptyAgentThreadMetrics(),
+        metrics: metricsWithCost(1.25),
       });
 
       const session = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
@@ -2734,7 +2734,7 @@ export function runStoreContractSuite<TTransaction>(
       expect(session.metrics).toEqual(metricsBeforeResume);
     });
 
-    it('folds pause cost once and does not fold it again on resume or a later pause', async () => {
+    it('adds each pause stretch once and adds nothing on resume', async () => {
       const store = createStore();
       await seedSession(store);
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
@@ -2776,7 +2776,7 @@ export function runStoreContractSuite<TTransaction>(
         turn_id: 'turn-1',
         state: pausedState,
         turn_update_event: makeTurnUpdateEvent(pausedState),
-        turn_metrics: { status: 'paused', observed_at: secondPauseAt, metrics: metricsWithCost(1.4) },
+        turn_metrics: { status: 'paused', observed_at: secondPauseAt, metrics: metricsWithCost(0.4) },
       });
       const afterSecondPause = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
       expect(afterSecondPause.metrics).toEqual({
@@ -2784,6 +2784,8 @@ export function runStoreContractSuite<TTransaction>(
         total_duration_ms: 600,
         total_turns: 1,
       });
+      const pausedTurn = mustGet(await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' }));
+      expect(pausedTurn.snapshot.metrics.total_cost_in_usd).toBe(1.4);
     });
 
     it('allows a paused turn to be cancelled exactly once', async () => {
@@ -2919,7 +2921,7 @@ export function runStoreContractSuite<TTransaction>(
         turn_id: 'turn-1',
         state,
         turn_done_event: makeTurnDoneEvent(state),
-        metrics: createEmptyAgentThreadMetrics(),
+        metrics: metricsWithCost(1.25),
       });
       const session = await store.getSession({ tenant_id: tenant, session_id: sessionId });
       expect(mustGet(session).metrics).toEqual({
@@ -2974,7 +2976,7 @@ export function runStoreContractSuite<TTransaction>(
         turn_id: 'turn-1',
         state: doneState,
         turn_done_event: makeTurnDoneEvent(doneState),
-        metrics: createEmptyAgentThreadMetrics(),
+        metrics: metricsWithCost(1.25),
       });
       const afterFirst = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId })).metrics;
 
@@ -3019,7 +3021,7 @@ export function runStoreContractSuite<TTransaction>(
         turn_id: 'turn-1',
         state: turn1Done,
         turn_done_event: makeTurnDoneEvent(turn1Done),
-        metrics: createEmptyAgentThreadMetrics(),
+        metrics: metricsWithCost(1.25),
       });
 
       await store.createTurn(
@@ -3037,7 +3039,7 @@ export function runStoreContractSuite<TTransaction>(
         turn_id: 'turn-2',
         state: turn2Done,
         turn_done_event: makeTurnDoneEvent(turn2Done),
-        metrics: createEmptyAgentThreadMetrics(),
+        metrics: metricsWithCost(0.5),
       });
 
       const session = await store.getSession({ tenant_id: tenant, session_id: sessionId });
@@ -3065,7 +3067,7 @@ export function runStoreContractSuite<TTransaction>(
         turn_id: 'turn-1',
         state: turn1Done,
         turn_done_event: makeTurnDoneEvent(turn1Done),
-        metrics: createEmptyAgentThreadMetrics(),
+        metrics: metricsWithCost(1.0),
       });
 
       await store.createTurn(

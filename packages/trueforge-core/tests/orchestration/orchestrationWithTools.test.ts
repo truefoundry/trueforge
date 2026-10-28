@@ -8,7 +8,6 @@ import {
   AgentThreadOrchestrator,
   type AgentThreadOrchestratorInput,
 } from '../../src/core/runtime/AgentThreadOrchestrator';
-import { createEmptyAgentThreadMetrics } from '../../src/core/runtime/metrics';
 import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
 import { makeSilentLogger, TEST_MODEL_NAME } from '../core/harnessMocks';
 import { createSubAgentStream, driveUntilPauseOrDone, llmCreateInputs, textReplyStream } from './helpers/helpers';
@@ -194,7 +193,6 @@ describe('orchestration: dynamic sub-agent', () => {
       logger: makeSilentLogger(),
       pendingTurnEvents: [],
       mcpServers: [],
-      recordedMetrics: createEmptyAgentThreadMetrics(),
     };
 
     const orchestrator = new AgentThreadOrchestrator(orchestratorInput);

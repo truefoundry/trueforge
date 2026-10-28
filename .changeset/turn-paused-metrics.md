@@ -3,4 +3,4 @@
 '@truefoundry/trueforge-core': patch
 ---
 
-Fold session cost and active duration when a turn pauses, and count only later running time when that turn resumes or finishes.
+Add each running stretch's cost when a turn pauses or finishes, keep `running_since` so cancel can close the open interval, and include metrics so far on the paused turn.

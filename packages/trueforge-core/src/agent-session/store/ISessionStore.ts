@@ -386,14 +386,14 @@ export interface ISessionStore<
 
   /**
    * Atomically performs `running ↔ paused` and appends turn.update.
-   * Pause folds the cost delta and the closed running interval. Resume only sets `running_since`.
+   * Pause adds this stretch's cost and the closed running interval. Resume only sets `running_since`.
    */
   updateTurnNonTerminalState(input: UpdateTurnNonTerminalStateInput): Promise<void>;
 
   /**
    * First terminal write wins (`running|paused → done|cancelled|error`) and
    * atomically appends turn.done. Duration is the open running interval.
-   * Cost is the delta from the stored checkpoint.
+   * Cost is this stretch's cost.
    */
   updateTurnTerminalState(input: UpdateTurnTerminalStateInput): Promise<void>;
 

@@ -1,5 +1,5 @@
 import type { AgentThreadMetrics } from '../core/runtime/metrics';
-import { createEmptyAgentThreadMetrics } from '../core/runtime/metrics';
+import { accrueAgentThreadMetrics, createEmptyAgentThreadMetrics } from '../core/runtime/metrics';
 import type {
   CancellationReason,
   TerminalTurnState,
@@ -28,8 +28,8 @@ export type TurnMetricsTransition =
       kind: 'terminal';
       completed_at: string;
       stored_status: 'running' | 'paused';
+      /** Billable totals for the open stretch. Added to the checkpoint. */
       metrics: AgentThreadMetrics;
-      reported_cost: number | undefined;
     }
   | { kind: 'freeze'; completed_at: string; stored_status: 'running' | 'paused' };
 
@@ -125,8 +125,8 @@ export function cancelledStateWithCheckpointMetrics(input: {
 }
 
 /**
- * One fold for every winning transition. Cost is the new cumulative minus the stored
- * checkpoint. Duration is only the interval this transition closes.
+ * One fold for every winning transition. Pause and terminal add the stretch.
+ * Duration is only the interval this transition closes.
  */
 export function foldTurnMetricsCheckpoint(input: {
   stored: TurnMetricsCheckpoint;
@@ -154,15 +154,12 @@ function foldPause(
   });
   return {
     checkpoint: {
-      metrics: transition.metrics,
+      metrics: accrueAgentThreadMetrics(stored.metrics, transition.metrics),
       active_duration_ms: stored.active_duration_ms + duration_ms,
       running_since: null,
     },
     duration_ms,
-    cost_delta: sessionCostDelta({
-      stored: stored.metrics,
-      reported_cost: transition.metrics.total_cost_in_usd,
-    }),
+    cost_delta: transition.metrics.total_cost_in_usd,
     public_metrics: undefined,
   };
 }
@@ -196,15 +193,12 @@ function foldTerminal(
       : 0;
   return {
     checkpoint: {
-      metrics: transition.metrics,
+      metrics: accrueAgentThreadMetrics(stored.metrics, transition.metrics),
       active_duration_ms: stored.active_duration_ms + duration_ms,
       running_since: null,
     },
     duration_ms,
-    cost_delta: sessionCostDelta({
-      stored: stored.metrics,
-      reported_cost: transition.reported_cost,
-    }),
+    cost_delta: transition.metrics.total_cost_in_usd,
     public_metrics: undefined,
   };
 }
@@ -241,25 +235,6 @@ function closedRunningIntervalMs(input: { running_since: string | null; closed_a
     return 0;
   }
   return Math.trunc(elapsed);
-}
-
-function sessionCostDelta(input: {
-  stored: AgentThreadMetrics;
-  reported_cost: number | undefined;
-}): number | undefined {
-  const storedHasCost = input.stored.total_cost_in_usd !== undefined;
-  const reportedHasCost = input.reported_cost !== undefined;
-  if (!storedHasCost && !reportedHasCost) {
-    return undefined;
-  }
-  const storedCost = input.stored.total_cost_in_usd ?? 0;
-  const newCost = input.reported_cost ?? 0;
-  if (!Number.isFinite(storedCost) || !Number.isFinite(newCost) || newCost < storedCost) {
-    throw new SessionStoreInvariantError(
-      `turn metrics cost regressed from ${String(storedCost)} to ${String(newCost)}`,
-    );
-  }
-  return newCost - storedCost;
 }
 
 function publicMetricsIfRecorded(metrics: AgentThreadMetrics): TurnMetrics | undefined {

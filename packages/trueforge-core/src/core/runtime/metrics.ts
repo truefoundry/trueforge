@@ -11,10 +11,6 @@ export const AgentThreadMetricsSchema = z
     total_cache_write_tokens: z.number().int().nonnegative().optional(),
     total_reasoning_tokens: z.number().int().nonnegative().optional(),
     total_cost_in_usd: z.number().nonnegative().optional(),
-    iterations: z.number().int().nonnegative(),
-    total_tool_calls: z.number().int().nonnegative(),
-    total_summarizations: z.number().int().nonnegative(),
-    total_sub_agents: z.number().int().nonnegative(),
   })
   .openapi('AgentThreadMetrics');
 
@@ -32,10 +28,6 @@ export function createEmptyAgentThreadMetrics(): AgentThreadMetrics {
     total_input_tokens: 0,
     total_output_tokens: 0,
     total_tokens: 0,
-    iterations: 0,
-    total_tool_calls: 0,
-    total_summarizations: 0,
-    total_sub_agents: 0,
   };
 }
 
@@ -58,8 +50,12 @@ export function addAgentThreadMetrics(target: AgentThreadMetrics, source: AgentT
   target.total_cache_write_tokens = sumOptional(target.total_cache_write_tokens, source.total_cache_write_tokens);
   target.total_reasoning_tokens = sumOptional(target.total_reasoning_tokens, source.total_reasoning_tokens);
   target.total_cost_in_usd = sumOptional(target.total_cost_in_usd, source.total_cost_in_usd);
-  target.iterations += source.iterations;
-  target.total_tool_calls += source.total_tool_calls;
-  target.total_summarizations += source.total_summarizations;
-  target.total_sub_agents += source.total_sub_agents;
+}
+
+/** Closed checkpoint plus the open stretch. Does not mutate either input. */
+export function accrueAgentThreadMetrics(stored: AgentThreadMetrics, stretch: AgentThreadMetrics): AgentThreadMetrics {
+  const total = createEmptyAgentThreadMetrics();
+  addAgentThreadMetrics(total, stored);
+  addAgentThreadMetrics(total, stretch);
+  return total;
 }

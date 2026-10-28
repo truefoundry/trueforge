@@ -3,7 +3,6 @@ import { EventType } from '../../src/core/events/schema';
 import { AgentThread } from '../../src/core/runtime/AgentThread';
 import { InternalEventType } from '../../src/core/runtime/AgentThread.types';
 import { AgentThreadOrchestrator } from '../../src/core/runtime/AgentThreadOrchestrator';
-import { createEmptyAgentThreadMetrics } from '../../src/core/runtime/metrics';
 import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
 import { makeSilentLogger, TEST_MODEL_NAME } from '../core/harnessMocks';
 import { driveUntilPauseOrDone, llmCreateInputs, textReplyStream } from './helpers/helpers';
@@ -77,7 +76,6 @@ describe('orchestration: mocked LLM and no tools', () => {
       logger: makeSilentLogger(),
       pendingTurnEvents: [],
       mcpServers: [],
-      recordedMetrics: createEmptyAgentThreadMetrics(),
     });
 
     for await (const _event of orchestrator.send([{ type: EventType.USER_MESSAGE, content: 'hello' }])) {

@@ -203,8 +203,6 @@ export interface AgentThreadOrchestratorInput {
    * is patched onto these records. This turn often does not emit `mcp.initialize` again.
    */
   mcpServers: MCPServerInitInfo[];
-  /** Empty for a new turn. A rebuilt paused turn passes its checkpoint cumulative. */
-  recordedMetrics: AgentThreadMetrics;
 }
 
 export class AgentThreadOrchestrator {
@@ -212,10 +210,8 @@ export class AgentThreadOrchestrator {
   private readonly createDynamicSubAgentThread: CreateDynamicSubAgentThread;
   private readonly tracing: AgentTracing;
   private readonly logger: Logger;
-  // Finished sub-agents removed from `agentThreads`; kept so totals still include them.
+  // Finished sub-agents removed from `agentThreads`; kept so this stretch still includes them.
   private finishedSubAgentMetrics: AgentThreadMetrics = createEmptyAgentThreadMetrics();
-  // Paused checkpoint on rebuild. Empty on create. Not copied onto threads.
-  private readonly recordedMetrics: AgentThreadMetrics;
   private readonly wakeSignal: Signalable = signalable();
   private readonly pendingTurnEvents: TurnUserEvent[];
   // Last-seen MCP server init records (by id)/
@@ -227,9 +223,6 @@ export class AgentThreadOrchestrator {
     this.tracing = params.tracing;
     this.logger = params.logger.child({ module: 'AgentThreadOrchestrator' });
     this.pendingTurnEvents = [...params.pendingTurnEvents];
-    const recordedMetrics = createEmptyAgentThreadMetrics();
-    addAgentThreadMetrics(recordedMetrics, params.recordedMetrics);
-    this.recordedMetrics = recordedMetrics;
     for (const server of params.mcpServers) {
       this.mcpServerInitInfoById.set(server.id, server);
     }
@@ -240,18 +233,24 @@ export class AgentThreadOrchestrator {
   }
 
   /**
-   * Turn-wide metrics so far: recorded metrics, live threads, and finished sub-agents.
-   * Safe mid-flight and after cancel/error (`execute()` may not return).
+   * Billable totals for the open running stretch. Reset after a successful pause.
    * Each thread is counted once — a sub-agent moves from live → finished atomically.
    */
   public getMetrics(): AgentThreadMetrics {
     const total = createEmptyAgentThreadMetrics();
-    addAgentThreadMetrics(total, this.recordedMetrics);
     addAgentThreadMetrics(total, this.finishedSubAgentMetrics);
     for (const thread of this.agentThreads.values()) {
       addAgentThreadMetrics(total, thread.getAgentThreadMetrics());
     }
     return total;
+  }
+
+  /** Zero this running phase so the next one does not bill it again. */
+  public resetRunningPhaseMetrics(): void {
+    this.finishedSubAgentMetrics = createEmptyAgentThreadMetrics();
+    for (const thread of this.agentThreads.values()) {
+      thread.resetRunningPhaseMetrics();
+    }
   }
 
   private getMainThread(): AgentThread {
