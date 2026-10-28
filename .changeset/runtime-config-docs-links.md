@@ -2,4 +2,4 @@
 '@truefoundry/trueforge-ui': patch
 ---
 
-Link Runtime Config capability toggles to their docs pages.
+Link the Runtime Config header to the create-agent docs.

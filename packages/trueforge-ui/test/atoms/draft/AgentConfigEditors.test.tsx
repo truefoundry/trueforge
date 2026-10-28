@@ -493,6 +493,9 @@ describe('AgentConfigEditors', () => {
 
     expect(screen.getByRole('dialog', { name: 'Runtime Config' })).toHaveClass('md:ml-auto', 'md:mr-0', 'md:h-dvh');
     expect(screen.getByRole('switch', { name: 'Context compaction' })).toBeInTheDocument();
+    const docs = screen.getByRole('link', { name: 'View docs' });
+    expect(docs).toHaveAttribute('href', 'https://trueforge.dev/create-agent/overview');
+    expect(docs).toHaveAttribute('target', '_blank');
   });
 
   it('changes runtime switches only when the switch is clicked', () => {
