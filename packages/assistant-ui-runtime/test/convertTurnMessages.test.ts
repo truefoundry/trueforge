@@ -930,6 +930,51 @@ describe('convertTurnMessages', () => {
       expect(result.messages.at(-1)?.role).toBe('assistant');
     });
 
+    it('projects open-tip assistant content when listEvents already includes tip events', async () => {
+      const tipMessage = modelMessage({
+        id: 'm-tip',
+        threadId: ROOT_THREAD_ID,
+        content: 'partial in-flight reply',
+      });
+      const runningTurn = {
+        id: 'turn-running',
+        sessionId: SESSION_ID,
+        state: { status: 'running' as const },
+        createdAt,
+        input: [{ type: 'user.message' as const, content: 'in flight' }],
+      };
+      const items: SessionEventItem[] = [
+        {
+          turnId: 'turn-running',
+          event: {
+            type: 'turn.created',
+            id: 'evt-c-running',
+            turnId: 'turn-running',
+            input: [{ type: 'user.message', content: 'in flight' }],
+            state: { status: 'running' },
+            createdAt,
+          },
+        },
+        { turnId: 'turn-running', event: tipMessage },
+      ];
+      const server = {
+        listTurns: async () => ({ data: [runningTurn] }),
+        getTurn: async () => runningTurn,
+        listEvents: sessionEventsPage(items),
+        // Same tip events as listEvents — beforeCount slice would attribute nothing.
+        listTurnEvents: async () => ({ data: [tipMessage] }),
+      } as unknown as AgentChatServer;
+
+      const result = await convertTurnsToThreadMessages(server, SESSION_ID);
+
+      expect(result.runningTurn?.id).toBe('turn-running');
+      expect(result.messages).toHaveLength(2);
+      expect(result.messages[0]).toMatchObject({ role: 'user', id: 'turn-running-user' });
+      expect(result.messages[1]?.role).toBe('assistant');
+      const texts = (result.messages[1]?.content ?? []).filter(part => part.type === 'text').map(part => part.text);
+      expect(texts).toEqual(['partial in-flight reply']);
+    });
+
     it('merges continuation turns without user input into the last assistant message', async () => {
       const firstTurn = mockTurn({
         id: 'turn-1',

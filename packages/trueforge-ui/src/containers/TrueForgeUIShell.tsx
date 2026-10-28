@@ -198,9 +198,10 @@ function ChatProviderFromShell({
         if (request.agentSpec === undefined) {
           return server.createSession(request);
         }
-        const withMetadata: CreateSessionRequest & { metadata: Record<string, string> } = {
+        const withMetadata: CreateSessionRequest = {
           ...request,
           metadata: {
+            ...request.metadata,
             [IS_CREATE_AGENT_METADATA_KEY]: isCreateAgentMetadataValue(isCreateAgent),
           },
         };
