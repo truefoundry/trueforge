@@ -267,6 +267,24 @@ describe('createHarnessChatServer', () => {
     assert.equal(new URL(listUrl, 'http://test.local').searchParams.get('created_by_me'), 'true');
   });
 
+  it('forwards metadata to listSessions as a deepObject filter', async () => {
+    let listUrl: string | undefined;
+    const fetchNamed: typeof fetch = async input => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.includes('/api/v1/sessions?')) {
+        listUrl = url;
+        return Response.json({ data: [], pagination: { limit: 20 } });
+      }
+      return new Response(`Unexpected request: ${url}`, { status: 500 });
+    };
+
+    const server = createHarnessChatServer({ fetch: fetchNamed });
+    await server.listSessions({ metadata: { 'tfg.source': 'ui' } });
+
+    assert.ok(listUrl !== undefined);
+    assert.equal(new URL(listUrl, 'http://test.local').searchParams.get('metadata[tfg.source]'), 'ui');
+  });
+
   it('PATCHes session title and returns the updated UI session', async () => {
     sessionRequests.length = 0;
     const server = createHarnessChatServer({ fetch: fetchMock });
