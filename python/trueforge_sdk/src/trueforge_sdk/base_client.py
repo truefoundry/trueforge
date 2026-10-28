@@ -21,6 +21,7 @@ if typing.TYPE_CHECKING:
     from .sessions.client import AsyncSessionsClient, SessionsClient
     from .settings.client import AsyncSettingsClient, SettingsClient
     from .skills.client import AsyncSkillsClient, SkillsClient
+    from .users.client import AsyncUsersClient, UsersClient
 
 
 class BaseTrueForge:
@@ -108,6 +109,7 @@ class BaseTrueForge:
         self._schedules: typing.Optional[SchedulesClient] = None
         self._sessions: typing.Optional[SessionsClient] = None
         self._skills: typing.Optional[SkillsClient] = None
+        self._users: typing.Optional[UsersClient] = None
         self._catalogs: typing.Optional[CatalogsClient] = None
         self._settings: typing.Optional[SettingsClient] = None
 
@@ -190,6 +192,14 @@ class BaseTrueForge:
 
             self._skills = SkillsClient(client_wrapper=self._client_wrapper)
         return self._skills
+
+    @property
+    def users(self):
+        if self._users is None:
+            from .users.client import UsersClient  # noqa: E402
+
+            self._users = UsersClient(client_wrapper=self._client_wrapper)
+        return self._users
 
     @property
     def catalogs(self):
@@ -314,6 +324,7 @@ class AsyncBaseTrueForge:
         self._schedules: typing.Optional[AsyncSchedulesClient] = None
         self._sessions: typing.Optional[AsyncSessionsClient] = None
         self._skills: typing.Optional[AsyncSkillsClient] = None
+        self._users: typing.Optional[AsyncUsersClient] = None
         self._catalogs: typing.Optional[AsyncCatalogsClient] = None
         self._settings: typing.Optional[AsyncSettingsClient] = None
 
@@ -396,6 +407,14 @@ class AsyncBaseTrueForge:
 
             self._skills = AsyncSkillsClient(client_wrapper=self._client_wrapper)
         return self._skills
+
+    @property
+    def users(self):
+        if self._users is None:
+            from .users.client import AsyncUsersClient  # noqa: E402
+
+            self._users = AsyncUsersClient(client_wrapper=self._client_wrapper)
+        return self._users
 
     @property
     def catalogs(self):

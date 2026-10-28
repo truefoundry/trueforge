@@ -219,7 +219,14 @@ function messageBelongsToTurn(message: ThreadMessageLike, turnId: string): boole
 function messagesForTurn(messages: ThreadMessageLike[], turn: SessionTurnView): ThreadMessageLike[] {
   const matched = messages.filter(message => messageBelongsToTurn(message, turn.turnId));
   const withMcpAuth = applyMcpAuthState(matched, turn);
-  return applyTerminalState(withMcpAuth, turn);
+  const withTerminal = applyTerminalState(withMcpAuth, turn);
+  // Session detail is a static snapshot — coerce running assistant status so
+  // markdown does not typewrite as if the live stream were still open.
+  if (turn.done != null) return withTerminal;
+  return withTerminal.map(message => {
+    if (message.role !== 'assistant' || message.status?.type !== 'running') return message;
+    return { ...message, status: { type: 'complete', reason: 'stop' } };
+  });
 }
 
 export type AgentSessionTimelineContainerProps = {
@@ -317,8 +324,7 @@ export function AgentSessionTimelineContainer({
     );
   }
 
-  // Running tips are omitted from listEvents (and thus from turn views). Orphan
-  // projected content with no section to attach to must not blank the pane.
+  // No renderable turn.created inputs — nothing to section under.
   if (renderableTurnViews.length === 0) {
     return (
       <div className="flex flex-1 items-center justify-center px-6 text-sm text-text-secondary">
@@ -384,7 +390,8 @@ function SessionTurnSection({
   }>;
   onMount: (node: HTMLElement | null) => void;
 }) {
-  if (!turn.showHeader && messages.length === 0) {
+  const isRunning = turn.done == null;
+  if (!turn.showHeader && messages.length === 0 && !isRunning) {
     return null;
   }
 
@@ -412,6 +419,14 @@ function SessionTurnSection({
             </div>
           </ThreadPrimitive.Root>
         </ReadOnlySessionTurnRuntime>
+      ) : null}
+      {isRunning ? (
+        <div
+          role="status"
+          className="border-warning-bg bg-warning-bg/10 text-warning-bg inline-flex w-fit max-w-full items-center gap-3 rounded-xl border px-3 py-1.5 text-sm font-medium leading-[1.4]"
+        >
+          Turn is still in running, all events might not be visible
+        </div>
       ) : null}
     </section>
   );

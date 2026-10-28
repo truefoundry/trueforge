@@ -117,6 +117,7 @@ if typing.TYPE_CHECKING:
     from .list_schedule_runs_response import ListScheduleRunsResponse
     from .list_schedules_response import ListSchedulesResponse
     from .list_session_events_response import ListSessionEventsResponse
+    from .list_session_grants_response import ListSessionGrantsResponse
     from .list_sessions_order import ListSessionsOrder
     from .list_sessions_response import ListSessionsResponse
     from .list_skill_versions_response import ListSkillVersionsResponse
@@ -124,6 +125,7 @@ if typing.TYPE_CHECKING:
     from .list_turn_events_order import ListTurnEventsOrder
     from .list_turn_events_response import ListTurnEventsResponse
     from .list_turns_response import ListTurnsResponse
+    from .list_users_response import ListUsersResponse
     from .mcp_auth_required_event import McpAuthRequiredEvent
     from .mcp_auth_status import McpAuthStatus
     from .mcp_auth_status_status import McpAuthStatusStatus
@@ -201,6 +203,9 @@ if typing.TYPE_CHECKING:
     from .session_agent_spec_body import SessionAgentSpecBody
     from .session_event import SessionEvent
     from .session_event_item import SessionEventItem
+    from .session_grant import SessionGrant
+    from .session_grant_subject import SessionGrantSubject
+    from .session_grant_subject_type import SessionGrantSubjectType
     from .session_last_turn_details import SessionLastTurnDetails
     from .session_last_turn_state import SessionLastTurnState
     from .session_metadata import SessionMetadata
@@ -266,6 +271,7 @@ if typing.TYPE_CHECKING:
     from .turn_update_event_state import TurnUpdateEventState
     from .turn_user_event import TurnUserEvent
     from .turn_user_event_message import TurnUserEventMessage
+    from .user import User
     from .user_mcp_auth_continue_event import UserMcpAuthContinueEvent
     from .user_mcp_auth_continue_input_event import UserMcpAuthContinueInputEvent
     from .user_message import UserMessage
@@ -393,6 +399,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ListScheduleRunsResponse": ".list_schedule_runs_response",
     "ListSchedulesResponse": ".list_schedules_response",
     "ListSessionEventsResponse": ".list_session_events_response",
+    "ListSessionGrantsResponse": ".list_session_grants_response",
     "ListSessionsOrder": ".list_sessions_order",
     "ListSessionsResponse": ".list_sessions_response",
     "ListSkillVersionsResponse": ".list_skill_versions_response",
@@ -400,6 +407,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ListTurnEventsOrder": ".list_turn_events_order",
     "ListTurnEventsResponse": ".list_turn_events_response",
     "ListTurnsResponse": ".list_turns_response",
+    "ListUsersResponse": ".list_users_response",
     "McpAuthRequiredEvent": ".mcp_auth_required_event",
     "McpAuthStatus": ".mcp_auth_status",
     "McpAuthStatusStatus": ".mcp_auth_status_status",
@@ -477,6 +485,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SessionAgentSpecBody": ".session_agent_spec_body",
     "SessionEvent": ".session_event",
     "SessionEventItem": ".session_event_item",
+    "SessionGrant": ".session_grant",
+    "SessionGrantSubject": ".session_grant_subject",
+    "SessionGrantSubjectType": ".session_grant_subject_type",
     "SessionLastTurnDetails": ".session_last_turn_details",
     "SessionLastTurnState": ".session_last_turn_state",
     "SessionMetadata": ".session_metadata",
@@ -542,6 +553,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TurnUpdateEventState": ".turn_update_event_state",
     "TurnUserEvent": ".turn_user_event",
     "TurnUserEventMessage": ".turn_user_event_message",
+    "User": ".user",
     "UserMcpAuthContinueEvent": ".user_mcp_auth_continue_event",
     "UserMcpAuthContinueInputEvent": ".user_mcp_auth_continue_input_event",
     "UserMessage": ".user_message",
@@ -693,6 +705,7 @@ __all__ = [
     "ListScheduleRunsResponse",
     "ListSchedulesResponse",
     "ListSessionEventsResponse",
+    "ListSessionGrantsResponse",
     "ListSessionsOrder",
     "ListSessionsResponse",
     "ListSkillVersionsResponse",
@@ -700,6 +713,7 @@ __all__ = [
     "ListTurnEventsOrder",
     "ListTurnEventsResponse",
     "ListTurnsResponse",
+    "ListUsersResponse",
     "McpAuthRequiredEvent",
     "McpAuthStatus",
     "McpAuthStatusStatus",
@@ -777,6 +791,9 @@ __all__ = [
     "SessionAgentSpecBody",
     "SessionEvent",
     "SessionEventItem",
+    "SessionGrant",
+    "SessionGrantSubject",
+    "SessionGrantSubjectType",
     "SessionLastTurnDetails",
     "SessionLastTurnState",
     "SessionMetadata",
@@ -842,6 +859,7 @@ __all__ = [
     "TurnUpdateEventState",
     "TurnUserEvent",
     "TurnUserEventMessage",
+    "User",
     "UserMcpAuthContinueEvent",
     "UserMcpAuthContinueInputEvent",
     "UserMessage",
