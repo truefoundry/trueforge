@@ -134,7 +134,7 @@ describe('orchestration: user-message reset', () => {
       logger: makeSilentLogger(),
       pendingTurnEvents: [],
       mcpServers: [],
-      metricsBaseline: createEmptyAgentThreadMetrics(),
+      recordedMetrics: createEmptyAgentThreadMetrics(),
     });
 
     const sendEvents = [];
@@ -226,7 +226,7 @@ describe('orchestration: user-message reset', () => {
       logger: makeSilentLogger(),
       pendingTurnEvents: [],
       mcpServers: [],
-      metricsBaseline: createEmptyAgentThreadMetrics(),
+      recordedMetrics: createEmptyAgentThreadMetrics(),
     });
 
     const sendEvents: unknown[] = [];
@@ -313,7 +313,7 @@ describe('orchestration: user-message reset', () => {
       logger: makeSilentLogger(),
       pendingTurnEvents: [],
       mcpServers: [],
-      metricsBaseline: createEmptyAgentThreadMetrics(),
+      recordedMetrics: createEmptyAgentThreadMetrics(),
     });
 
     await expect(

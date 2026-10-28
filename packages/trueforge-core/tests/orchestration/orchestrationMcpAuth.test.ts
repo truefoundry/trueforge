@@ -74,7 +74,7 @@ describe('orchestration: MCP auth continuation', () => {
       logger: makeSilentLogger(),
       pendingTurnEvents: [],
       mcpServers: [],
-      metricsBaseline: createEmptyAgentThreadMetrics(),
+      recordedMetrics: createEmptyAgentThreadMetrics(),
     });
     const iterator = orchestrator.execute({ signal: new AbortController().signal });
 

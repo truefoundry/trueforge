@@ -650,7 +650,7 @@ describe('AgentThreadOrchestrator.send: approval policy validation', () => {
       logger: makeSilentLogger(),
       pendingTurnEvents: [],
       mcpServers: [],
-      metricsBaseline: createEmptyAgentThreadMetrics(),
+      recordedMetrics: createEmptyAgentThreadMetrics(),
     });
   });
 
@@ -842,7 +842,7 @@ function makeApprovalHarness(finalReply: string): {
     logger: makeSilentLogger(),
     pendingTurnEvents: [],
     mcpServers: [],
-    metricsBaseline: createEmptyAgentThreadMetrics(),
+    recordedMetrics: createEmptyAgentThreadMetrics(),
   });
   return { orchestrator, thread, callTool };
 }
@@ -896,7 +896,7 @@ function makeApprovalHarnessWithUserToolSet(
     logger: makeSilentLogger(),
     pendingTurnEvents: [],
     mcpServers: mcpServers ?? [],
-    metricsBaseline: createEmptyAgentThreadMetrics(),
+    recordedMetrics: createEmptyAgentThreadMetrics(),
   });
   return { orchestrator, thread, callTool, toolSet };
 }

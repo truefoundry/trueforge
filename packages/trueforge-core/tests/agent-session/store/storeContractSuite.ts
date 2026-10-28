@@ -73,8 +73,8 @@ function isoPlus(start: string, deltaMs: number): string {
   return new Date(Date.parse(start) + deltaMs).toISOString();
 }
 
-function openRunningSince(turn: { snapshot: { metrics_checkpoint: { running_since: string | null } } }): string {
-  const runningSince = turn.snapshot.metrics_checkpoint.running_since;
+function openRunningSince(turn: { snapshot: { running_since: string | null } }): string {
+  const runningSince = turn.snapshot.running_since;
   if (runningSince === null) {
     throw new Error('expected an open running interval');
   }

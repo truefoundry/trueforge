@@ -42,26 +42,56 @@ export function createInitialTurnMetricsCheckpoint(running_since: string): TurnM
   };
 }
 
+/** Copy the three metrics keys onto a snapshot or checkpoint. */
+export function writeTurnMetricsCheckpoint(target: TurnMetricsCheckpoint, source: TurnMetricsCheckpoint): void {
+  target.metrics = source.metrics;
+  target.active_duration_ms = source.active_duration_ms;
+  target.running_since = source.running_since;
+}
+
 /**
- * Legacy rows omit `metrics_checkpoint`. A running row keeps `created_at` as the open
+ * Legacy rows omit the metrics keys. A running row keeps `created_at` as the open
  * interval so a never-paused terminal duration stays `completed_at - created_at`.
+ * A nested `metrics_checkpoint` is the shape written before these keys were flattened.
  */
 export function resolveStoredTurnMetricsCheckpoint(input: {
   checkpoint: object;
   state: TurnState;
   created_at: Date;
 }): TurnMetricsCheckpoint {
-  const raw = ownProperty(input.checkpoint, 'metrics_checkpoint');
-  if (raw === undefined) {
-    return {
-      metrics: createEmptyAgentThreadMetrics(),
-      active_duration_ms: 0,
-      running_since: input.state.status === 'running' ? input.created_at.toISOString() : null,
-    };
+  const flat = readFlatTurnMetrics(input.checkpoint);
+  if (flat !== undefined) {
+    return flat;
   }
+  const nested = ownProperty(input.checkpoint, 'metrics_checkpoint');
+  if (nested !== undefined) {
+    return parseTurnMetricsCheckpoint(nested);
+  }
+  return {
+    metrics: createEmptyAgentThreadMetrics(),
+    active_duration_ms: 0,
+    running_since: input.state.status === 'running' ? input.created_at.toISOString() : null,
+  };
+}
+
+function readFlatTurnMetrics(checkpoint: object): TurnMetricsCheckpoint | undefined {
+  const metrics = ownProperty(checkpoint, 'metrics');
+  const activeDurationMs = ownProperty(checkpoint, 'active_duration_ms');
+  const runningSince = ownProperty(checkpoint, 'running_since');
+  if (metrics === undefined && activeDurationMs === undefined && runningSince === undefined) {
+    return undefined;
+  }
+  return parseTurnMetricsCheckpoint({
+    metrics,
+    active_duration_ms: activeDurationMs,
+    running_since: runningSince,
+  });
+}
+
+function parseTurnMetricsCheckpoint(raw: unknown): TurnMetricsCheckpoint {
   const parsed = TurnMetricsCheckpointSchema.safeParse(raw);
   if (!parsed.success) {
-    throw new SessionStoreInvariantError('turn checkpoint metrics_checkpoint is invalid');
+    throw new SessionStoreInvariantError('turn checkpoint metrics are invalid');
   }
   return parsed.data;
 }

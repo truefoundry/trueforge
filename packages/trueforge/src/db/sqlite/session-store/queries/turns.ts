@@ -46,7 +46,7 @@ import { getEmptyCurrentContextUsage } from '@truefoundry/trueforge-core/core/ru
 import type { SandboxInfo } from '@truefoundry/trueforge-core/core/sandbox/Sandbox';
 import { sql, type Kysely, type RawBuilder, type Transaction } from 'kysely';
 import { isUniqueViolation } from '../../client';
-import { jsonbBind, jsonbSet, jsonText, nowIso } from '../../sqlExpressions';
+import { jsonbBind, jsonbSetTurnMetrics, jsonText, nowIso } from '../../sqlExpressions';
 import type { Database, TurnCheckpoint, TurnThreadCheckpoint } from '../../types';
 import { sortedByAppendId } from '../sqlExpressions';
 
@@ -443,7 +443,7 @@ async function assembleTurnRecord(
     threads,
     mcp_servers: checkpoint.mcp_servers,
     sandbox_info: checkpoint.sandbox_info,
-    metrics_checkpoint: resolveStoredTurnMetricsCheckpoint({
+    ...resolveStoredTurnMetricsCheckpoint({
       checkpoint,
       state: turn.state,
       created_at: new Date(turn.created_at),
@@ -582,7 +582,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
       const checkpoint: TurnCheckpoint = {
         mcp_servers: input.mcp_servers ?? prevCheckpoint?.mcp_servers ?? null,
         sandbox_info: input.sandbox_info ?? prevCheckpoint?.sandbox_info ?? null,
-        metrics_checkpoint: createInitialTurnMetricsCheckpoint(now),
+        ...createInitialTurnMetricsCheckpoint(now),
       };
 
       const turnCustom = input.turn.custom ?? null;
@@ -849,7 +849,7 @@ export async function freezeAndGetTurn(db: Kysely<Database>, input: FreezeAndGet
         .updateTable('turn')
         .set({
           state: jsonbBind(cancelledState),
-          checkpoint: jsonbSet(sql.ref('checkpoint'), '$.metrics_checkpoint', folded.checkpoint),
+          checkpoint: jsonbSetTurnMetrics(sql.ref('checkpoint'), folded.checkpoint),
           updated_at: nowIso(),
         })
         .where('session_id', '=', input.session_id)
@@ -992,7 +992,7 @@ export async function updateTurnNonTerminalState(
       .updateTable('turn')
       .set({
         state: jsonbBind(input.state),
-        checkpoint: jsonbSet(sql.ref('checkpoint'), '$.metrics_checkpoint', folded.checkpoint),
+        checkpoint: jsonbSetTurnMetrics(sql.ref('checkpoint'), folded.checkpoint),
         updated_at: nowIso(),
       })
       .where('session_id', '=', input.session_id)
@@ -1058,7 +1058,7 @@ export async function updateTurnTerminalState(
       .updateTable('turn')
       .set({
         state: jsonbBind(input.state),
-        checkpoint: jsonbSet(sql.ref('checkpoint'), '$.metrics_checkpoint', folded.checkpoint),
+        checkpoint: jsonbSetTurnMetrics(sql.ref('checkpoint'), folded.checkpoint),
         updated_at: nowIso(),
       })
       .where('session_id', '=', input.session_id)

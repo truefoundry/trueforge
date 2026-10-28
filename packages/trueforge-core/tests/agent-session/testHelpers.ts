@@ -283,7 +283,7 @@ export function makeRunningTurnRecord(input: {
       },
       mcp_servers: null,
       sandbox_info: null,
-      metrics_checkpoint: createInitialTurnMetricsCheckpoint(now.toISOString()),
+      ...createInitialTurnMetricsCheckpoint(now.toISOString()),
     },
     created_at: now,
     updated_at: now,

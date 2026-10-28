@@ -51,7 +51,7 @@ function turnRecord(input: { turnId: string; state: TurnState; activeExecutorId?
       threads: {},
       mcp_servers: null,
       sandbox_info: null,
-      metrics_checkpoint: createInitialTurnMetricsCheckpoint(createdAt.toISOString()),
+      ...createInitialTurnMetricsCheckpoint(createdAt.toISOString()),
     },
     created_at: createdAt,
     updated_at: createdAt,

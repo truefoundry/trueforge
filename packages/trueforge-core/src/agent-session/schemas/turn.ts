@@ -170,7 +170,10 @@ export const CreateTurnRequestSchema = z
   })
   .openapi('CreateTurnRequest');
 
-/** Cumulative usage and the open running interval. `running_since` is null while paused. */
+/**
+ * Cumulative thread metrics, closed active duration, and the open running interval.
+ * Stored as sibling checkpoint keys. `running_since` is null while paused.
+ */
 export const TurnMetricsCheckpointSchema = z.object({
   metrics: AgentThreadMetricsSchema,
   active_duration_ms: z.number().int().nonnegative(),

@@ -54,11 +54,9 @@ export interface TurnThreadCheckpoint {
 }
 
 /** Turn-level checkpoint — threads live in `turn_thread`; only owned top-level keys remain. */
-export interface TurnCheckpoint {
+export interface TurnCheckpoint extends TurnMetricsCheckpoint {
   mcp_servers: Record<string, MCPServerInitInfo> | null;
   sandbox_info: SandboxInfo | null;
-  /** Missing on legacy rows. Readers fill the default; writers replace this key only. */
-  metrics_checkpoint: TurnMetricsCheckpoint;
 }
 
 /** Insert via `jsonbBind()`; select via `jsonText()` (parsed at top-level only). */

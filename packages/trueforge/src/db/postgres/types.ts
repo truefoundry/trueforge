@@ -51,11 +51,9 @@ export interface TurnThreadCheckpoint {
 }
 
 /** Turn-level checkpoint — threads live in `turn_thread`; only owned top-level keys remain. */
-export interface TurnCheckpoint {
+export interface TurnCheckpoint extends TurnMetricsCheckpoint {
   mcp_servers: Record<string, MCPServerInitInfo> | null;
   sandbox_info: SandboxInfo | null;
-  /** Missing on legacy rows. Readers fill the default; writers replace this key only. */
-  metrics_checkpoint: TurnMetricsCheckpoint;
 }
 
 /**
@@ -151,8 +149,9 @@ export interface TurnTable {
    */
   state: JSONColumnType<TurnState, TurnState, TurnState>;
   /**
-   * inlined: {mcp_servers, sandbox_info, metrics_checkpoint}.
-   *      Sandbox and MCP stay small patches. metrics_checkpoint is replaced on pause, resume, and terminal.
+   * inlined: {mcp_servers, sandbox_info, metrics, active_duration_ms, running_since}.
+   *      Sandbox and MCP stay small patches. The metrics keys are replaced together on pause, resume, and terminal.
+   *      Legacy rows omit the metrics keys; readers fill the defaults.
    *      extensible without migration
    */
   checkpoint: JSONColumnType<TurnCheckpoint, TurnCheckpoint, TurnCheckpoint>;

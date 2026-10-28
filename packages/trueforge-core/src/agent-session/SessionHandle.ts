@@ -202,7 +202,7 @@ export class SessionHandle<
         resolver: input.resolver,
         abortController: input.abortController,
         pendingTurnEvents: [],
-        metricsBaseline: createEmptyAgentThreadMetrics(),
+        recordedMetrics: createEmptyAgentThreadMetrics(),
       });
 
       const new_context_appends = await collectContextAppends(orchestrator.send(input.input ?? []));
@@ -244,7 +244,7 @@ export class SessionHandle<
           threads: threadsRecordFromMap(agentThreads),
           mcp_servers: previous?.snapshot.mcp_servers ?? null,
           sandbox_info: previous?.snapshot.sandbox_info ?? null,
-          metrics_checkpoint: createInitialTurnMetricsCheckpoint(now.toISOString()),
+          ...createInitialTurnMetricsCheckpoint(now.toISOString()),
         },
       };
 
@@ -330,7 +330,7 @@ export class SessionHandle<
         resolver: input.resolver,
         abortController: input.abortController,
         pendingTurnEvents,
-        metricsBaseline: turn.snapshot.metrics_checkpoint.metrics,
+        recordedMetrics: turn.snapshot.metrics,
       });
 
       return new TurnHandle({
@@ -433,7 +433,7 @@ export class SessionHandle<
     resolver: ITurnResourceResolver<TTurnCustom>;
     abortController: AbortController;
     pendingTurnEvents: TurnUserEvent[];
-    metricsBaseline: AgentThreadMetrics;
+    recordedMetrics: AgentThreadMetrics;
   }): Promise<{ orchestrator: AgentThreadOrchestrator; agentThreads: Map<string, AgentThread> }> {
     const tracing = input.resolver.createTracing();
     const agent = this.session.agent;
@@ -489,7 +489,7 @@ export class SessionHandle<
       pendingTurnEvents: input.pendingTurnEvents,
       mcpServers:
         previousMcpServers !== null && previousMcpServers !== undefined ? Object.values(previousMcpServers) : [],
-      metricsBaseline: input.metricsBaseline,
+      recordedMetrics: input.recordedMetrics,
     });
 
     return { orchestrator, agentThreads };

@@ -77,7 +77,7 @@ describe('orchestration: mocked LLM and no tools', () => {
       logger: makeSilentLogger(),
       pendingTurnEvents: [],
       mcpServers: [],
-      metricsBaseline: createEmptyAgentThreadMetrics(),
+      recordedMetrics: createEmptyAgentThreadMetrics(),
     });
 
     for await (const _event of orchestrator.send([{ type: EventType.USER_MESSAGE, content: 'hello' }])) {

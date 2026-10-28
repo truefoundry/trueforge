@@ -12,6 +12,7 @@ import {
   createInitialTurnMetricsCheckpoint,
   foldTurnMetricsCheckpoint,
   resolveStoredTurnMetricsCheckpoint,
+  writeTurnMetricsCheckpoint,
 } from '../turnMetrics';
 import { assertCreateTurnThreadDelta } from './assertCreateTurnThreadDelta';
 import type {
@@ -173,7 +174,7 @@ function buildSnapshotFromDelta(input: {
     threads,
     mcp_servers: input.previousSnapshot ? deepCopy(input.previousSnapshot.mcp_servers) : null,
     sandbox_info: input.previousSnapshot ? deepCopy(input.previousSnapshot.sandbox_info) : null,
-    metrics_checkpoint: createInitialTurnMetricsCheckpoint(input.created_at.toISOString()),
+    ...createInitialTurnMetricsCheckpoint(input.created_at.toISOString()),
   };
 }
 
@@ -484,7 +485,7 @@ export class InMemorySessionStore<
         public_metrics: folded.public_metrics,
       });
       turn.state = cancelledState;
-      turn.snapshot.metrics_checkpoint = deepCopy(folded.checkpoint);
+      writeTurnMetricsCheckpoint(turn.snapshot, deepCopy(folded.checkpoint));
       turn.updated_at = new Date();
       const list = this.events.get(tKey);
       if (list) {
@@ -574,7 +575,7 @@ export class InMemorySessionStore<
           : { kind: 'resume', observed_at: input.turn_metrics.observed_at },
     });
     turn.state = deepCopy(input.state);
-    turn.snapshot.metrics_checkpoint = deepCopy(folded.checkpoint);
+    writeTurnMetricsCheckpoint(turn.snapshot, deepCopy(folded.checkpoint));
     turn.updated_at = new Date();
     list.push(deepCopy(input.turn_update_event));
     this.applyTurnStateToSession({
@@ -612,7 +613,7 @@ export class InMemorySessionStore<
       },
     });
     turn.state = deepCopy(input.state);
-    turn.snapshot.metrics_checkpoint = deepCopy(folded.checkpoint);
+    writeTurnMetricsCheckpoint(turn.snapshot, deepCopy(folded.checkpoint));
     turn.updated_at = new Date();
     list.push(deepCopy(input.turn_done_event));
     this.applyTurnStateToSession({

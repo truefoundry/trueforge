@@ -194,7 +194,7 @@ describe('orchestration: dynamic sub-agent', () => {
       logger: makeSilentLogger(),
       pendingTurnEvents: [],
       mcpServers: [],
-      metricsBaseline: createEmptyAgentThreadMetrics(),
+      recordedMetrics: createEmptyAgentThreadMetrics(),
     };
 
     const orchestrator = new AgentThreadOrchestrator(orchestratorInput);

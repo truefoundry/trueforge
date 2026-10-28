@@ -10,13 +10,12 @@ export const MAIN_THREAD_ID = 'main';
  * Public wire / store shape — JSON-friendly `Record`, not `Map`, so every
  * backend can persist it directly. In-process runtime may still use Map;
  * adapt at the store/Session boundary.
+ * Metrics, active duration, and `running_since` are sibling keys. Readers fill them when legacy jsonb omits them.
  */
-export interface TurnSnapshot {
+export interface TurnSnapshot extends TurnMetricsCheckpoint {
   threads: Record<string, AgentThreadSnapshot>;
   mcp_servers: Record<string, MCPServerInitInfo> | null;
   sandbox_info: SandboxInfo | null;
-  /** Cumulative usage and the open running interval. Readers fill this when legacy jsonb omits it. */
-  metrics_checkpoint: TurnMetricsCheckpoint;
 }
 
 export interface TurnRecord<TCustom extends object = Record<string, never>> {
