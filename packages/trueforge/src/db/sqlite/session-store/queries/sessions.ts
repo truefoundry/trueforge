@@ -67,7 +67,6 @@ function mapRowToSessionRecord(row: {
   agent_spec: AgentSpec | null;
   title: string | null;
   shared: number;
-  last_turn_id: string | null;
   last_turn_details: SessionLastTurnDetails | null;
   external_id: string | null;
   custom: Record<string, unknown> | null;
@@ -90,7 +89,6 @@ function mapRowToSessionRecord(row: {
     }),
     title: row.title,
     shared: row.shared !== 0,
-    last_turn_id: row.last_turn_id,
     last_turn_details: SessionLastTurnDetailsSchema.nullable().parse(row.last_turn_details),
     external_id: row.external_id,
     custom: parseSessionCustom(row.custom),
@@ -113,7 +111,6 @@ function sessionSelectColumns() {
     jsonText<AgentSpec | null>(sql.ref('agent_spec')).as('agent_spec'),
     'title' as const,
     'shared' as const,
-    'last_turn_id' as const,
     jsonText<SessionLastTurnDetails | null>(sql.ref('last_turn_details')).as('last_turn_details'),
     'external_id' as const,
     jsonText<Record<string, unknown> | null>(sql.ref('custom')).as('custom'),

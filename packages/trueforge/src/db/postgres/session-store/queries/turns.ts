@@ -434,7 +434,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
       // step1: lock session tip, bump. Two statements on purpose — see PROVEN-UNSAFE-CTE note above.
       const locked = await trx
         .selectFrom('session')
-        .select(['last_turn_id'])
+        .select(['session_id'])
         .where('session_id', '=', input.session_id)
         .forUpdate()
         .executeTakeFirst();
@@ -446,7 +446,6 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
       await trx
         .updateTable('session')
         .set({
-          last_turn_id: input.turn.turn_id,
           last_turn_details: lastTurnDetails({ turn_id: input.turn.turn_id, turn_state: input.turn.state }),
           updated_at: sql`now()`,
           last_activity_timestamp_ms: input.last_activity_timestamp_ms,

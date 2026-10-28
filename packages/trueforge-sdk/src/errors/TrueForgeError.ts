@@ -38,7 +38,21 @@ export class TrueForgeError extends Error {
     }
 
     public get requestId(): string | undefined {
-        return this.rawResponse?.headers?.get("x-request-id") ?? undefined;
+        const headers = this.rawResponse?.headers;
+        if (headers == null) {
+            return undefined;
+        }
+        const requestId = headers.get("X-Request-Id");
+        if (requestId != null) {
+            return requestId;
+        }
+        let fallback: string | undefined;
+        headers.forEach((value, name) => {
+            if (fallback === undefined && /request[-_]?id$/i.test(name)) {
+                fallback = value;
+            }
+        });
+        return fallback;
     }
 }
 

@@ -1,6 +1,7 @@
 import type { Logger } from 'winston';
 import type { ILLM } from '../core/llm/ILLM';
 import type { ModelParams } from '../core/llm/model';
+import type { VercelAIProviderName } from '../core/llm/VercelAILLM';
 import type { ToolSource } from '../core/mcp/IMCPServer';
 import { RemoteMCP, type McpConnection } from '../core/mcp/RemoteMCP';
 import type { ToolSelectorConfig } from '../core/mcp/ToolSelectorPolicy';
@@ -55,6 +56,8 @@ interface ResolvedModel {
   modelClient: ILLM;
   defaultModelParams: ModelParams;
   modelProperties?: AgentDefinition['modelProperties'];
+  /** Explicit `undefined` when the host has no provider label for the model call series. */
+  providerType: VercelAIProviderName | undefined;
 }
 
 export class TurnResourceResolver<
@@ -217,6 +220,7 @@ export class TurnResourceResolver<
       definition: {
         modelClient: resolvedModel.modelClient,
         modelName,
+        ...(resolvedModel.providerType !== undefined ? { providerType: resolvedModel.providerType } : {}),
         modelProperties: resolvedModel.modelProperties,
         // Sub-agents receive the delegated task as a user message; their system
         // prompt is SUB_AGENT_IDENTITY (added by AgentThread), not user instructions.

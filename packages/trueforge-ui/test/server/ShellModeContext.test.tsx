@@ -9,7 +9,7 @@ import {
   DRAFT_SPEC_PREFERENCES_STORAGE_KEY,
   readDraftSpecPreferences,
 } from '@/server/draftSpecPreferences.js';
-import { ServerProvider, useServerCapabilities } from '@/server/ServerContext.js';
+import { ServerProvider, useServerCapabilities, useServerCapabilitiesSettled } from '@/server/ServerContext.js';
 import { ShellModeProvider, useOptionalShellMode, useShellMode, type AgentConfig } from '@/server/ShellModeContext.js';
 import type { AgentUIServer } from '@/server/types.js';
 import { createMockAgentSessionsServer, createMockAgentUIServer, createMockCatalog } from './mockServer.js';
@@ -543,8 +543,8 @@ describe('ShellModeProvider', () => {
     expect(result.current.runtimeKey).not.toBe(keyBefore);
   });
 
-  it('clearChat and openDraft keep a disabled chat web-search preference', () => {
-    const { result } = renderHook(() => useShellMode(), {
+  it('clearChat and openDraft keep a disabled chat web-search preference', async () => {
+    const { result } = renderHook(() => ({ shell: useShellMode(), settled: useServerCapabilitiesSettled() }), {
       wrapper: wrap({
         mode: 'AgentComposer',
         defaultAgentSpec: {
@@ -553,9 +553,10 @@ describe('ShellModeProvider', () => {
         },
       }),
     });
+    await waitFor(() => expect(result.current.settled).toBe(true));
 
     act(() =>
-      result.current.rememberDraftSpec(
+      result.current.shell.rememberDraftSpec(
         {
           model: { name: 'openai-main/gpt-4.1' },
           config: { webSearch: { enabled: false } },
@@ -564,8 +565,8 @@ describe('ShellModeProvider', () => {
       ),
     );
 
-    act(() => result.current.clearChat());
-    expect(result.current.mode).toMatchObject({
+    act(() => result.current.shell.clearChat());
+    expect(result.current.shell.mode).toMatchObject({
       status: 'active',
       isMutable: true,
       isCreateAgent: false,
@@ -573,7 +574,7 @@ describe('ShellModeProvider', () => {
     });
 
     act(() =>
-      result.current.rememberDraftSpec(
+      result.current.shell.rememberDraftSpec(
         {
           model: { name: 'openai-main/gpt-4.1' },
           config: { webSearch: { enabled: false } },
@@ -581,9 +582,47 @@ describe('ShellModeProvider', () => {
         'chat',
       ),
     );
-    act(() => result.current.openDraft());
-    expect(result.current.mode).toMatchObject({
+    act(() => result.current.shell.openDraft());
+    expect(result.current.shell.mode).toMatchObject({
       agentSpec: { config: { webSearch: { enabled: false } } },
+    });
+  });
+
+  it('openDraft and clearChat enable web search on New Chat when the capability is available', async () => {
+    const getCapabilities = vi.fn(async () => ({
+      data: {
+        sandbox: { enabled: true },
+        skill: { enabled: true },
+        settings: { enabled: true },
+        webSearch: { enabled: true },
+      },
+    }));
+    const server = createMockAgentUIServer({ catalog: createMockCatalog(), getCapabilities });
+    const { result } = renderHook(
+      () => ({
+        shell: useShellMode(),
+        capabilities: useServerCapabilities(),
+      }),
+      {
+        wrapper: wrapWithServer(server, {
+          mode: 'AgentComposer',
+          defaultAgentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+        }),
+      },
+    );
+    await waitFor(() => expect(result.current.capabilities?.webSearch?.enabled).toBe(true));
+
+    act(() => result.current.shell.openDraft());
+    expect(result.current.shell.mode).toMatchObject({
+      status: 'active',
+      isMutable: true,
+      isCreateAgent: false,
+      agentSpec: { config: { webSearch: { enabled: true } } },
+    });
+
+    act(() => result.current.shell.clearChat());
+    expect(result.current.shell.mode).toMatchObject({
+      agentSpec: { config: { webSearch: { enabled: true } } },
     });
   });
 

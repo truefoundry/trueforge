@@ -7,12 +7,13 @@ import { EndpointSupplier } from "./EndpointSupplier.js";
 import { getErrorResponseBody } from "./getErrorResponseBody.js";
 import { getFetchFn } from "./getFetchFn.js";
 import { getRequestBody } from "./getRequestBody.js";
-import { getResponseBody } from "./getResponseBody.js";
+import { getResponseBody, isResponseBodyError } from "./getResponseBody.js";
 import { Headers } from "./Headers.js";
-import { makeRequest } from "./makeRequest.js";
+import { clearResponseTimeout, makeRequest } from "./makeRequest.js";
 import { abortRawResponse, toRawResponse, unknownRawResponse } from "./RawResponse.js";
 import { redactUrl, SENSITIVE_QUERY_PARAMS } from "./redactUrl.js";
 import { requestWithRetries } from "./requestWithRetries.js";
+import { TIMEOUT } from "./signals.js";
 
 export type FetchFunction = <R = unknown>(args: Fetcher.Args) => Promise<APIResponse<R, Fetcher.Error>>;
 
@@ -152,6 +153,11 @@ async function getHeaders(args: Fetcher.Args): Promise<Headers> {
     return newHeaders;
 }
 
+function isJsonContentType(contentType: string | null): boolean {
+    const mediaType = contentType?.split(";")[0]?.trim().toLowerCase() ?? "";
+    return mediaType === "application/json" || mediaType === "text/json" || mediaType.endsWith("+json");
+}
+
 export async function fetcherImpl<R = unknown>(args: Fetcher.Args): Promise<APIResponse<R, Fetcher.Error>> {
     let url = args.url;
     if (args.queryString != null && args.queryString.length > 0) {
@@ -178,10 +184,18 @@ export async function fetcherImpl<R = unknown>(args: Fetcher.Args): Promise<APIR
         logger.debug("Making HTTP request", metadata);
     }
 
+    // Bodies that are read in full here stay covered by the timeout; streamed bodies are read by the caller.
+    const keepTimeoutUntilBodyRead =
+        args.responseType !== "streaming" && args.responseType !== "sse" && args.responseType !== "binary-response";
+    const attemptResponses: Response[] = [];
     try {
         const response = await requestWithRetries(
-            async () =>
-                makeRequest(
+            async () => {
+                // A retry means the previous attempt is over; stop its timer now rather than at the end.
+                for (const previousResponse of attemptResponses) {
+                    clearResponseTimeout(previousResponse);
+                }
+                const attemptResponse = await makeRequest(
                     fetchFn,
                     url,
                     args.method,
@@ -192,8 +206,13 @@ export async function fetcherImpl<R = unknown>(args: Fetcher.Args): Promise<APIR
                     args.withCredentials,
                     args.duplex,
                     args.responseType === "streaming" || args.responseType === "sse",
-                ),
+                    keepTimeoutUntilBodyRead,
+                );
+                attemptResponses.push(attemptResponse);
+                return attemptResponse;
+            },
             args.maxRetries,
+            args.abortSignal,
         );
 
         if (response.status >= 200 && response.status < 400) {
@@ -207,6 +226,18 @@ export async function fetcherImpl<R = unknown>(args: Fetcher.Args): Promise<APIR
                 logger.debug("HTTP request succeeded", metadata);
             }
             const body = await getResponseBody(response, args.responseType);
+            // Only a body the server labelled as JSON is an error here; void endpoints may return plain text.
+            if (
+                isResponseBodyError(body) &&
+                body.error.reason === "non-json" &&
+                isJsonContentType(response.headers.get("Content-Type"))
+            ) {
+                return {
+                    ok: false,
+                    error: body.error,
+                    rawResponse: toRawResponse(response),
+                };
+            }
             return {
                 ok: true,
                 body: body as R,
@@ -251,7 +282,7 @@ export async function fetcherImpl<R = unknown>(args: Fetcher.Args): Promise<APIR
                 },
                 rawResponse: abortRawResponse,
             };
-        } else if (error instanceof Error && error.name === "AbortError") {
+        } else if (error === TIMEOUT || (error instanceof Error && error.name === "AbortError")) {
             if (logger.isError()) {
                 const metadata = {
                     method: args.method,
@@ -305,6 +336,10 @@ export async function fetcherImpl<R = unknown>(args: Fetcher.Args): Promise<APIR
             },
             rawResponse: unknownRawResponse,
         };
+    } finally {
+        for (const attemptResponse of attemptResponses) {
+            clearResponseTimeout(attemptResponse);
+        }
     }
 }
 

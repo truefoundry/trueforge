@@ -51,7 +51,7 @@ async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response
         tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
         agent_spec: { model: { name: 'test-provider/test-model' } },
         record: {
-          last_turn_id: null,
+          last_turn_details: null,
           created_by_subject: {
             subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
             subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,

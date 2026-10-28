@@ -1,6 +1,8 @@
 import type { MessageStatus, ThreadMessage } from '@assistant-ui/core';
 import {
   isEventDelta,
+  type ThreadContextCompactionFinishedEvent,
+  type ThreadContextCompactionStartedEvent,
   type ThreadCreatedEvent,
   type ToolResponseRequiredEvent,
   type TurnEvent,
@@ -9,6 +11,7 @@ import {
 
 import { parseAskUserQuestionArgs } from './askUserQuestion.js';
 import { ROOT_THREAD_ID } from './constants.js';
+import { CONTEXT_COMPACTION_DATA_NAME, type ContextCompactionPartData } from './contextCompaction.js';
 import { isCreateSubAgentToolCall } from './createSubAgent.js';
 import type { SubAgentMessageCustomMetadata } from './messageCustomMetadata.js';
 import { buildAssistantContent, type AssistantContentPart, type SdkToolCall } from './modelMessageContent.js';
@@ -105,6 +108,8 @@ export class PeerThreadFoldState {
   readonly threadParents = new Map<string, ThreadParentLink>();
   /** Set only while building content for a cancelled/errored parent turn; cleared after. */
   parentTerminalStatus: ParentTerminalStatus | undefined;
+  /** Set only while building a finished turn; later compactions belong to a newer turn. */
+  settledTurnCompletedAtMs: number | undefined;
 
   getOrCreateBucket(threadId: string): ThreadBucket {
     let bucket = this.threads.get(threadId);
@@ -228,8 +233,168 @@ function isContentAffectingEvent(message: TurnStreamingEvent): boolean {
     message.type === 'model.message.delta' ||
     message.type === 'tool.response' ||
     message.type === 'tool.approval_required' ||
-    message.type === 'tool.response_required'
+    message.type === 'tool.response_required' ||
+    message.type === 'thread.context_compaction_started' ||
+    message.type === 'thread.context_compaction_finished'
   );
+}
+
+/**
+ * Events in emission-time order. Event ids are allocated before the work runs (a
+ * model.message id precedes the compaction that runs before it), so insertion
+ * order can disagree with `createdAt`; pairing and placement must follow time.
+ */
+function eventsInTimeOrder(bucket: ThreadBucket): [string, TurnEvent][] {
+  return [...bucket.events].sort(([, a], [, b]) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+}
+
+/** Next model.message id after `fromId` in insertion order, if any. */
+function nextModelMessageIdAfter({ bucket, fromId }: { bucket: ThreadBucket; fromId: string }): string | undefined {
+  let passed = false;
+  for (const [id, event] of eventsInTimeOrder(bucket)) {
+    if (!passed) {
+      if (id === fromId) {
+        passed = true;
+      }
+      continue;
+    }
+    if (event.type === 'model.message') {
+      return id;
+    }
+  }
+  return undefined;
+}
+
+/** Last model.message id before `beforeId` in insertion order, if any. */
+function previousModelMessageIdBefore({
+  bucket,
+  beforeId,
+}: {
+  bucket: ThreadBucket;
+  beforeId: string;
+}): string | undefined {
+  let previous: string | undefined;
+  for (const [id, event] of eventsInTimeOrder(bucket)) {
+    if (id === beforeId) {
+      return previous;
+    }
+    if (event.type === 'model.message') {
+      previous = id;
+    }
+  }
+  return previous;
+}
+
+/**
+ * Compaction started events belonging to a model-message scope.
+ *
+ * A started event pairs with the next model.message after it. When that model
+ * message is in scope, include the compaction. When there is no following model
+ * message yet, it is the live tip: include for an empty scope, or when the
+ * scope holds the model message right before it (mid-turn compaction).
+ */
+function shouldIncludeCompactionStarted({
+  bucket,
+  startedId,
+  scopedModelIds,
+  settledTurnCompletedAtMs,
+}: {
+  bucket: ThreadBucket;
+  startedId: string;
+  scopedModelIds: ReadonlySet<string> | null;
+  settledTurnCompletedAtMs: number | undefined;
+}): boolean {
+  if (scopedModelIds == null) {
+    return true;
+  }
+  const nextModelId = nextModelMessageIdAfter({ bucket, fromId: startedId });
+  if (nextModelId != null) {
+    return scopedModelIds.has(nextModelId);
+  }
+  // The fold is session-wide: a compaction that began after this turn finished is the next turn's.
+  const startedAtMs = Date.parse(bucket.events.get(startedId)?.createdAt ?? '');
+  if (settledTurnCompletedAtMs != null && startedAtMs > settledTurnCompletedAtMs) {
+    return false;
+  }
+  if (scopedModelIds.size === 0) {
+    return true;
+  }
+  const previousModelId = previousModelMessageIdBefore({ bucket, beforeId: startedId });
+  return previousModelId != null && scopedModelIds.has(previousModelId);
+}
+
+function findFinishedForStarted({
+  bucket,
+  startedId,
+}: {
+  bucket: ThreadBucket;
+  startedId: string;
+}): ThreadContextCompactionFinishedEvent | undefined {
+  let passed = false;
+  for (const [id, event] of eventsInTimeOrder(bucket)) {
+    if (!passed) {
+      if (id === startedId) {
+        passed = true;
+      }
+      continue;
+    }
+    if (event.type === 'thread.context_compaction_started') {
+      return undefined;
+    }
+    if (event.type === 'thread.context_compaction_finished') {
+      return event;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Unfinished compaction (started, no finished) stays `running` only while the
+ * thread/turn is still live. Terminal parent/bucket state mirrors
+ * `bucketAssistantStatus` so cancel/error does not leave a stuck spinner.
+ */
+function compactionPartDataFromStarted({
+  bucket,
+  state,
+  started,
+}: {
+  bucket: ThreadBucket;
+  state: PeerThreadFoldState;
+  started: ThreadContextCompactionStartedEvent;
+}): ContextCompactionPartData {
+  const finished = findFinishedForStarted({ bucket, startedId: started.id });
+  if (finished != null) {
+    return { status: 'complete', started, finished };
+  }
+
+  if (state.parentTerminalStatus === 'cancelled') {
+    if (!bucket.done || (bucket.error != null && isAbortShapedThreadError(bucket.error))) {
+      return { status: 'incomplete', reason: 'cancelled', started };
+    }
+  }
+  if (bucket.error != null) {
+    return { status: 'incomplete', reason: 'error', started };
+  }
+  if (!bucket.done && state.parentTerminalStatus === 'error') {
+    return { status: 'incomplete', reason: 'error', started };
+  }
+  return { status: 'running', started };
+}
+
+function compactionPartFromStarted({
+  bucket,
+  state,
+  started,
+}: {
+  bucket: ThreadBucket;
+  state: PeerThreadFoldState;
+  started: ThreadContextCompactionStartedEvent;
+}): Extract<AssistantContentPart, { type: 'data' }> {
+  return {
+    type: 'data',
+    name: CONTEXT_COMPACTION_DATA_NAME,
+    data: compactionPartDataFromStarted({ bucket, state, started }),
+  };
 }
 
 export function ingestStreamEvent(state: PeerThreadFoldState, message: TurnStreamingEvent): boolean {
@@ -450,7 +615,10 @@ function buildThreadAssistantParts(
     return [];
   }
 
-  const ids = threadId === ROOT_THREAD_ID && modelMessageIds != null ? modelMessageIds : bucket.modelMessageIds;
+  const scopedModelIds = threadId === ROOT_THREAD_ID && modelMessageIds != null ? new Set(modelMessageIds) : null;
+  const modelIdSet = new Set(
+    threadId === ROOT_THREAD_ID && modelMessageIds != null ? modelMessageIds : bucket.modelMessageIds,
+  );
 
   const parts: AssistantContentPart[] = [];
   // A single tool call can appear in more than one `model.message` event (e.g.
@@ -459,11 +627,29 @@ function buildThreadAssistantParts(
   // so emitting the same id twice crashes the render. Collapse duplicates,
   // letting the latest occurrence win while preserving the original position.
   const toolCallIndexById = new Map<string, number>();
-  for (const id of ids) {
-    const event = bucket.events.get(id);
-    if (event?.type !== 'model.message') {
+
+  // Walk insertion order so compaction steps sit before the model message they
+  // prepare for (PreLLM). Scoped builds still filter via model-message pairing.
+  for (const [id, event] of eventsInTimeOrder(bucket)) {
+    if (event.type === 'thread.context_compaction_started') {
+      if (
+        !shouldIncludeCompactionStarted({
+          bucket,
+          startedId: id,
+          scopedModelIds,
+          settledTurnCompletedAtMs: state.settledTurnCompletedAtMs,
+        })
+      ) {
+        continue;
+      }
+      parts.push(compactionPartFromStarted({ bucket, state, started: event }));
       continue;
     }
+
+    if (event.type !== 'model.message' || !modelIdSet.has(id)) {
+      continue;
+    }
+
     for (const part of buildAssistantContent(event, {
       toolResults: bucket.toolResults,
       pendingApprovals: bucket.pendingApprovals,

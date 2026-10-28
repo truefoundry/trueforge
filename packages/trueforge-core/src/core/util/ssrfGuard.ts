@@ -3,10 +3,35 @@ import { lookup as dnsLookup } from 'node:dns';
 import { lookup as dnsLookupAsync } from 'node:dns/promises';
 import { BlockList, isIP, type LookupFunction } from 'node:net';
 import { Agent, fetch as undiciFetch } from 'undici';
+import {
+  elapsedSeconds,
+  getOperationMetrics,
+  httpStatusClass,
+  type OutboundHttpModule,
+  type OutboundHttpOutcome,
+  type OutboundHttpRetryReason,
+  type OutboundHttpRetryStatus,
+} from '../observability/operationMetrics';
 
 let allowedHosts: string[] = [];
 let blockedHosts: string[] = [];
 let guardEnabled = true;
+
+/** Prefix of every SSRF rejection, including the host, protocol, and redirect messages. */
+export const OUTBOUND_URL_BLOCKED = 'Outbound URL blocked';
+
+/** Thrown when the guard rejects a URL. undici may wrap one lookup failure as `cause`. */
+export class OutboundUrlBlockedError extends Error {
+  constructor(message: string, options?: { cause: unknown }) {
+    super(message, options);
+    this.name = 'OutboundUrlBlockedError';
+  }
+}
+
+const UND_ERR_CONNECT_TIMEOUT = 'UND_ERR_CONNECT_TIMEOUT';
+const UND_ERR_HEADERS_TIMEOUT = 'UND_ERR_HEADERS_TIMEOUT';
+const UND_ERR_BODY_TIMEOUT = 'UND_ERR_BODY_TIMEOUT';
+const OUTBOUND_TIMEOUT_CODES = new Set([UND_ERR_CONNECT_TIMEOUT, UND_ERR_HEADERS_TIMEOUT, UND_ERR_BODY_TIMEOUT]);
 
 const MAX_REDIRECTS = 20;
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
@@ -31,6 +56,10 @@ export interface OutboundFetchOptions {
    * timeouts and 409/520/524 are not retried.
    */
   idempotent: boolean;
+  /** When set, each fetch records one observation on the process recorder. Absent skips metrics. */
+  metrics?: {
+    module: OutboundHttpModule;
+  };
 }
 
 export interface OutboundFetch {
@@ -115,8 +144,9 @@ function isPrivateIp(address: string): boolean {
   return true;
 }
 
-function blockedError(host: string, cause?: unknown): Error {
-  return new Error(`Outbound URL blocked for host "${host}"`, { cause });
+function blockedError(host: string, cause?: unknown): OutboundUrlBlockedError {
+  const message = `${OUTBOUND_URL_BLOCKED} for host "${host}"`;
+  return cause === undefined ? new OutboundUrlBlockedError(message) : new OutboundUrlBlockedError(message, { cause });
 }
 
 function deny(host: string, cause?: unknown): never {
@@ -146,10 +176,10 @@ function parseOutboundUrl(input: string | URL | Request): URL {
   try {
     url = new URL(input instanceof Request ? input.url : input);
   } catch (error) {
-    throw new Error('Outbound URL blocked', { cause: error });
+    throw new OutboundUrlBlockedError(OUTBOUND_URL_BLOCKED, { cause: error });
   }
   if (!URL_VERIFY.allowedProtocols.includes(url.protocol)) {
-    throw new Error('Outbound URL blocked: only http and https are allowed');
+    throw new OutboundUrlBlockedError(`${OUTBOUND_URL_BLOCKED}: only http and https are allowed`);
   }
   return url;
 }
@@ -232,10 +262,14 @@ function nextHop(
   try {
     nextUrl = new URL(location, current);
   } catch (error) {
-    throw new Error('Outbound URL blocked', { cause: error });
+    throw new OutboundUrlBlockedError(OUTBOUND_URL_BLOCKED, { cause: error });
   }
   if (!URL_VERIFY.allowedProtocols.includes(nextUrl.protocol)) {
-    throw new Error('Outbound URL blocked: only http and https are allowed');
+    throw new OutboundUrlBlockedError(`${OUTBOUND_URL_BLOCKED}: only http and https are allowed`);
+  }
+  // Cleartext after TLS would drop confidentiality of the hop; block downgrades.
+  if (current.protocol === 'https:' && nextUrl.protocol === 'http:') {
+    throw new OutboundUrlBlockedError(`${OUTBOUND_URL_BLOCKED}: https to http redirect is not allowed`);
   }
 
   const headers = new Headers(init.headers);
@@ -327,14 +361,25 @@ function getErrorCode(error: unknown): string | undefined {
 
 /** Connect / headers-read timeouts from undici (including nested under TypeError: fetch failed). */
 export function isRetryableOutboundTransportError(error: unknown, options: { idempotent: boolean }): boolean {
-  const code = getErrorCode(error);
-  if (code === 'UND_ERR_CONNECT_TIMEOUT') {
-    return true;
-  }
-  return options.idempotent && code === 'UND_ERR_HEADERS_TIMEOUT';
+  return transportRetryReason(error, options.idempotent) !== undefined;
 }
 
-function isRetryableOutboundStatus(status: number, options: { idempotent: boolean }): boolean {
+/** Connect timeouts always retry. Headers timeouts retry only when the call is safe to replay. */
+function transportRetryReason(error: unknown, idempotent: boolean): 'connect_timeout' | 'headers_timeout' | undefined {
+  const code = getErrorCode(error);
+  if (code === UND_ERR_CONNECT_TIMEOUT) {
+    return 'connect_timeout';
+  }
+  if (idempotent && code === UND_ERR_HEADERS_TIMEOUT) {
+    return 'headers_timeout';
+  }
+  return undefined;
+}
+
+function isRetryableOutboundStatus(
+  status: number,
+  options: { idempotent: boolean },
+): status is OutboundHttpRetryStatus {
   return UNPROCESSED_RETRY_STATUSES.has(status) || (options.idempotent && MAYBE_PROCESSED_RETRY_STATUSES.has(status));
 }
 
@@ -436,7 +481,7 @@ async function guardedFetch(
   }
   void response.body?.cancel().catch(() => undefined);
   if (hopsLeft === 0) {
-    throw new Error('Outbound URL blocked: too many redirects');
+    throw new OutboundUrlBlockedError(`${OUTBOUND_URL_BLOCKED}: too many redirects`);
   }
   const hop = nextHop(response, location, url, merged);
   return guardedFetch(hop.url, hop.init, hopsLeft - 1, agent);
@@ -446,7 +491,11 @@ async function withOutboundHttpRetries(
   input: string | URL | Request,
   init: RequestInit,
   agent: Agent,
-  options: { maxRetries: number; idempotent: boolean },
+  options: {
+    maxRetries: number;
+    idempotent: boolean;
+    metrics?: OutboundFetchOptions['metrics'];
+  },
 ): Promise<Response> {
   const signal = init.signal ?? (input instanceof Request ? input.signal : undefined);
   // Buffer stream / Request bodies once so a retry does not hit a consumed-body error.
@@ -457,21 +506,53 @@ async function withOutboundHttpRetries(
       throw abortError(signal);
     }
     let delayMs = retryDelayMs(attempt);
+    let retryReason: OutboundHttpRetryReason | undefined;
     try {
       const response = await guardedFetch(replayable.input, replayable.init, MAX_REDIRECTS, agent);
       if (!isRetryableOutboundStatus(response.status, options) || attempt >= options.maxRetries) {
         return response;
       }
+      retryReason = response.status;
       delayMs = retryAfterMs(response.headers) ?? delayMs;
       void response.body?.cancel().catch(() => undefined);
     } catch (error) {
-      if (!isRetryableOutboundTransportError(error, options) || attempt >= options.maxRetries || signal?.aborted) {
+      const reason = transportRetryReason(error, options.idempotent);
+      if (reason === undefined || attempt >= options.maxRetries || signal?.aborted) {
         throw error;
       }
+      retryReason = reason;
     }
     await sleep(delayMs, signal);
+    const metricsModule = options.metrics?.module;
+    if (metricsModule !== undefined) {
+      getOperationMetrics()?.recordOutboundHttpRetry({ module: metricsModule, reason: retryReason });
+    }
     attempt += 1;
   }
+}
+
+/** Guard throws directly. undici wraps a blocked lookup once, under `TypeError: fetch failed`. */
+function isBlockedOutboundError(error: unknown): boolean {
+  return (
+    error instanceof OutboundUrlBlockedError ||
+    (error instanceof Error && error.cause instanceof OutboundUrlBlockedError)
+  );
+}
+
+function failedOutboundHttpOutcome(error: unknown): Exclude<OutboundHttpOutcome, 'success'> {
+  if (isBlockedOutboundError(error)) {
+    return 'blocked';
+  }
+  const code = getErrorCode(error);
+  if (code !== undefined && OUTBOUND_TIMEOUT_CODES.has(code)) {
+    return 'timeout';
+  }
+  return 'error';
+}
+
+/** 2xx and 3xx completed the transport. 4xx and 5xx are errors. */
+function responseOutboundHttpOutcome(status: number): OutboundHttpOutcome {
+  return status >= 200 && status < 400 ? 'success' : 'error';
 }
 
 /** Builds a pooled undici Agent + SSRF-guarded fetch with the given timeouts/retries. */
@@ -484,8 +565,34 @@ export function createOutboundFetch(options: OutboundFetchOptions): OutboundFetc
   });
   const maxRetries = options.maxRetries;
   const idempotent = options.idempotent;
+  const metricsModule = options.metrics?.module;
   return {
-    fetch: (input, init) => withOutboundHttpRetries(input, init ?? {}, agent, { maxRetries, idempotent }),
+    fetch: async (input, init) => {
+      const startedMs = performance.now();
+      const metrics = metricsModule === undefined ? undefined : { module: metricsModule };
+      try {
+        const response = await withOutboundHttpRetries(input, init ?? {}, agent, { maxRetries, idempotent, metrics });
+        if (metricsModule !== undefined) {
+          getOperationMetrics()?.recordOutboundHttpRequest({
+            module: metricsModule,
+            outcome: responseOutboundHttpOutcome(response.status),
+            statusClass: httpStatusClass(response.status),
+            durationSeconds: elapsedSeconds(startedMs),
+          });
+        }
+        return response;
+      } catch (error) {
+        if (metricsModule !== undefined) {
+          getOperationMetrics()?.recordOutboundHttpRequest({
+            module: metricsModule,
+            outcome: failedOutboundHttpOutcome(error),
+            statusClass: 'none',
+            durationSeconds: elapsedSeconds(startedMs),
+          });
+        }
+        throw error;
+      }
+    },
     close: async () => {
       await agent.close().catch(() => undefined);
     },

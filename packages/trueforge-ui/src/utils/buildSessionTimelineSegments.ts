@@ -153,11 +153,14 @@ export function buildSessionTimelineSegments(turns: SessionTurnView[]): SessionE
         (left, right) => (parseTimestamp(eventCreatedAt(left)) ?? 0) - (parseTimestamp(eventCreatedAt(right)) ?? 0),
       );
 
+    const compactionEndMsByStartedId = compactionEndTimes(events);
+
     for (const event of events) {
       const eventMs = parseTimestamp(eventCreatedAt(event));
       if (eventMs == null) continue;
       const threadId = eventThreadId(event);
       appendEventSegments({
+        compactionEndMsByStartedId,
         event,
         eventMs,
         createdMs,
@@ -202,6 +205,56 @@ export function buildSessionTimelineSegments(turns: SessionTurnView[]): SessionE
     .sort((left, right) => left.startMs - right.startMs || left.endMs - right.endMs);
 }
 
+function readNonNegativeInt({
+  record,
+  camel,
+  snake,
+}: {
+  record: Record<string, unknown>;
+  camel: string;
+  snake: string;
+}): number | undefined {
+  const camelValue = record[camel];
+  if (typeof camelValue === 'number' && Number.isFinite(camelValue) && camelValue >= 0) return Math.floor(camelValue);
+  const snakeValue = record[snake];
+  if (typeof snakeValue === 'number' && Number.isFinite(snakeValue) && snakeValue >= 0) return Math.floor(snakeValue);
+  return undefined;
+}
+
+/** Compact trigger copy for timeline tooltips when trigger carries token counts. */
+function compactionTriggerDescription(event: TimelineEvent): string | undefined {
+  const trigger = isRecord(event.trigger) ? event.trigger : undefined;
+  if (trigger == null || trigger.type !== 'context_threshold_exceeded') return undefined;
+  const contextTokens = readNonNegativeInt({ record: trigger, camel: 'contextTokens', snake: 'context_tokens' });
+  const thresholdTokens = readNonNegativeInt({
+    record: trigger,
+    camel: 'thresholdTokens',
+    snake: 'threshold_tokens',
+  });
+  if (contextTokens == null || thresholdTokens == null || thresholdTokens <= 0) return undefined;
+  return `Context ${String(contextTokens)} / threshold ${String(thresholdTokens)} tokens`;
+}
+
+/** Maps each compaction-started id to the next finished time on the same thread. */
+function compactionEndTimes(events: TimelineEvent[]): Map<string, number> {
+  const openByThread = new Map<string, string>();
+  const ends = new Map<string, number>();
+  for (const event of events) {
+    const threadId = eventThreadId(event);
+    if (event.type === 'thread.context_compaction_started') {
+      openByThread.set(threadId, eventId(event));
+    } else if (event.type === 'thread.context_compaction_finished') {
+      const startedId = openByThread.get(threadId);
+      const endMs = parseTimestamp(eventCreatedAt(event));
+      if (startedId != null && endMs != null) {
+        ends.set(startedId, endMs);
+        openByThread.delete(threadId);
+      }
+    }
+  }
+  return ends;
+}
+
 /**
  * Map one supported server event to zero or more visual segments.
  *
@@ -224,6 +277,7 @@ function appendEventSegments({
   toolCallRequestsByTurnId,
   threadDoneEvents,
   emittedWaitingRequestIds,
+  compactionEndMsByStartedId,
   segments,
 }: {
   event: TimelineEvent;
@@ -241,6 +295,7 @@ function appendEventSegments({
   toolCallRequestsByTurnId: Map<string, Map<string, SubAgentToolCallRequest>>;
   threadDoneEvents: Map<string, TimelineEvent>;
   emittedWaitingRequestIds: Set<string>;
+  compactionEndMsByStartedId: Map<string, number>;
   segments: SessionEventTimelineSegment[];
 }): void {
   switch (event.type) {
@@ -257,7 +312,8 @@ function appendEventSegments({
       // the chart-layout utility into one parallel-tool-call bar.
       // Pending human-wait tools (ask-user) still emit a bar so strip Tool calls
       // matches Agent steps even before tool.response arrives.
-      for (const toolCall of toolCallsOf(event)) {
+      const requestedToolCalls = toolCallsOf(event);
+      for (const toolCall of requestedToolCalls) {
         const toolCallId = typeof toolCall.id === 'string' ? toolCall.id : undefined;
         // Skip parent create_sub_agent calls and approval-gated calls; they have their own segments.
         if (toolCallId == null || subAgentToolCallIds.has(toolCallId) || approvalIds?.has(toolCallId)) continue;
@@ -280,10 +336,11 @@ function appendEventSegments({
         });
       }
 
-      // The model bar covers processing since the previous event on this thread.
-      // Keep an empty root model segment because it may still contain tool calls
-      // and therefore represents real model time.
-      if (modelContent.length > 0 || threadId === MAIN_THREAD_ID) {
+      // Duration since the previous event on this thread is model time.
+      // Tool-only replies have no text; still draw them on a sub-agent so the
+      // wait between consecutive tool calls is visible. Root keeps a bar even
+      // when the reply has neither text nor tool calls.
+      if (modelContent.length > 0 || requestedToolCalls.length > 0 || threadId === MAIN_THREAD_ID) {
         segments.push({
           id: eventId(event),
           type: 'model',
@@ -361,6 +418,25 @@ function appendEventSegments({
       }
       return;
     }
+    case 'thread.context_compaction_started': {
+      // Drawn as one bar from start to finish; unfinished compaction stays a marker.
+      const endMs = compactionEndMsByStartedId.get(eventId(event)) ?? eventMs;
+      segments.push({
+        id: eventId(event),
+        type: 'summary',
+        title: event.type,
+        description: compactionTriggerDescription(event) ?? 'Summarizing context',
+        startMs: eventMs - originMs,
+        endMs: endMs - originMs,
+        turnIndex,
+        threadId,
+        ...(endMs <= eventMs ? { isMarker: true } : {}),
+      });
+      return;
+    }
+    case 'thread.context_compaction_finished':
+      // Covered by the bar emitted for its started event.
+      return;
     case 'tool.approval_required':
     case 'tool.response_required':
     case 'mcp.auth_required':

@@ -107,11 +107,11 @@ export async function getModelDetails({
 }
 
 /**
- * Resolve a configured MCP server for a turn.
+ * Load MCP url + headers for a configured server. Returns undefined when unregistered.
  *
  * TODO: OAuth header resolvers re-run on every RemoteMCP listTools/callTool; cache or gate later.
  */
-export async function resolveMcpServer({
+export async function getMcpConnection({
   tenant_id,
   name,
   store,

@@ -11,7 +11,13 @@ import { ToasterProvider } from '@/containers/ToasterContainer.js';
 import { CurrentUserProvider, type CurrentUser } from '@/contexts/CurrentUserContext.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider } from '@/server/ShellModeContext.js';
-import type { SandboxEnvironment, SandboxEnvironmentServer } from '@/server/types.js';
+import type {
+  ListPermissionsRequest,
+  ListPermissionsResponse,
+  PermissionsServer,
+  SandboxEnvironment,
+  SandboxEnvironmentServer,
+} from '@/server/types.js';
 import {
   createMockAgentUIServer,
   createMockCatalog,
@@ -69,15 +75,48 @@ afterEach(() => {
   }
 });
 
+function defaultPermissions(environments: SandboxEnvironment[]): PermissionsServer {
+  const ownerGrants = Object.fromEntries(
+    environments
+      .filter(environment => environment.createdBySubject.subjectId === 'user-1')
+      .map(environment => [environment.id, ['MANAGE', 'DELETE'] as const]),
+  );
+  return {
+    listPermissions: vi.fn(
+      async ({ resourceType, resourceIds }: ListPermissionsRequest): Promise<ListPermissionsResponse> => {
+        if (resourceType === 'tenant') {
+          return {
+            data: {
+              type: 'tenant',
+              permissions: { agent: ['CREATE'], sandbox_environment: ['CREATE'] },
+            },
+          };
+        }
+        if (resourceType === 'sandbox_environment') {
+          return {
+            data: {
+              type: 'sandbox_environment',
+              permissions: Object.fromEntries(resourceIds.map(id => [id, [...(ownerGrants[id] ?? [])]])),
+            },
+          };
+        }
+        return { data: { type: resourceType, permissions: {} } };
+      },
+    ),
+  };
+}
+
 function renderPage({
   environments = sampleEnvironments,
   environmentOverrides = {},
   currentUser = { subjectId: 'user-1', displayName: 'alice' },
+  permissions,
   track,
 }: {
   environments?: SandboxEnvironment[];
   environmentOverrides?: Partial<SandboxEnvironmentServer>;
   currentUser?: CurrentUser;
+  permissions?: PermissionsServer;
   track?: TrackAnalytics;
 } = {}) {
   const environmentServer = createMockSandboxEnvironmentServer({
@@ -87,6 +126,7 @@ function renderPage({
   const server = createMockAgentUIServer({
     catalog: createMockCatalog(),
     sandboxEnvironments: environmentServer,
+    permissions: permissions ?? defaultPermissions(environments),
   });
 
   const tree = (
@@ -141,7 +181,49 @@ describe('EnvironmentsPage', () => {
     });
   });
 
-  it('does not offer edit or delete actions for another subject’s environment', async () => {
+  it('opens create drawer from envIsNew only after CREATE is granted', async () => {
+    window.history.replaceState(null, '', '/environments?envIsNew=true');
+    renderPage();
+    expect(await screen.findByRole('heading', { name: 'New environment' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(new URL(window.location.href).searchParams.get('envIsNew')).toBeNull();
+    });
+  });
+
+  it('does not open create drawer from envIsNew when CREATE is denied', async () => {
+    window.history.replaceState(null, '', '/environments?envIsNew=true');
+    let resolveTenant: ((value: ListPermissionsResponse) => void) | undefined;
+    renderPage({
+      permissions: {
+        listPermissions: vi.fn(async ({ resourceType }): Promise<ListPermissionsResponse> => {
+          if (resourceType !== 'tenant') {
+            return { data: { type: resourceType, permissions: {} } };
+          }
+          return new Promise(resolve => {
+            resolveTenant = resolve;
+          });
+        }),
+      },
+    });
+
+    expect(screen.queryByRole('heading', { name: 'New environment' })).not.toBeInTheDocument();
+
+    await act(async () => {
+      resolveTenant?.({
+        data: { type: 'tenant', permissions: { agent: ['CREATE'], sandbox_environment: [] } },
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /New Environment/i })).toBeDisabled();
+    });
+    expect(screen.queryByRole('heading', { name: 'New environment' })).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(new URL(window.location.href).searchParams.get('envIsNew')).toBeNull();
+    });
+  });
+
+  it('does not offer edit or delete actions without MANAGE/DELETE', async () => {
     renderPage({
       environments: [
         {
@@ -153,6 +235,18 @@ describe('EnvironmentsPage', () => {
           },
         },
       ],
+      permissions: {
+        listPermissions: vi.fn(async ({ resourceType }): Promise<ListPermissionsResponse> =>
+          resourceType === 'tenant'
+            ? {
+                data: {
+                  type: 'tenant',
+                  permissions: { agent: ['CREATE'], sandbox_environment: ['CREATE'] },
+                },
+              }
+            : { data: { type: 'sandbox_environment', permissions: { e1: [] } } },
+        ),
+      },
     });
 
     const name = await screen.findByText('python-data');
@@ -161,13 +255,18 @@ describe('EnvironmentsPage', () => {
     expect(screen.queryByText('Save')).not.toBeInTheDocument();
   });
 
-  it('does not offer owner actions when the current subject id is unavailable', async () => {
-    renderPage({ currentUser: { displayName: 'alice' } });
+  it('disables New Environment without tenant sandbox_environment CREATE', async () => {
+    renderPage({
+      permissions: {
+        listPermissions: vi.fn(async ({ resourceType }): Promise<ListPermissionsResponse> =>
+          resourceType === 'tenant'
+            ? { data: { type: 'tenant', permissions: { agent: ['CREATE'], sandbox_environment: [] } } }
+            : { data: { type: 'sandbox_environment', permissions: { e1: ['MANAGE', 'DELETE'] } } },
+        ),
+      },
+    });
 
-    const name = await screen.findByText('python-data');
-    expect(screen.queryByRole('button', { name: 'Delete python-data' })).not.toBeInTheDocument();
-    fireEvent.click(name);
-    expect(screen.queryByText('Save')).not.toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /New Environment/i })).toBeDisabled();
   });
 
   it('polls pending environments using getEnvironment in the background', async () => {
@@ -200,7 +299,7 @@ describe('EnvironmentsPage', () => {
       expect(getEnvironment).not.toHaveBeenCalled();
 
       await act(async () => {
-        vi.advanceTimersByTime(PENDING_ENVIRONMENTS_POLL_INTERVAL_MS + 100);
+        await vi.advanceTimersByTimeAsync(PENDING_ENVIRONMENTS_POLL_INTERVAL_MS);
       });
 
       expect(getEnvironment).toHaveBeenCalledWith({ name: 'building-env' });
@@ -249,9 +348,7 @@ describe('EnvironmentsPage', () => {
     const deleteEnvironment = vi.fn(async () => {});
     const track = vi.fn();
     renderPage({ environmentOverrides: { deleteEnvironment }, track });
-    await waitFor(() => {
-      expect(screen.getByText('python-data')).toBeInTheDocument();
-    });
+    expect(await screen.findByRole('button', { name: 'Delete python-data' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete python-data' }));
     const dialog = screen.getByRole('dialog');
@@ -269,6 +366,28 @@ describe('EnvironmentsPage', () => {
       environment_name: 'python-data',
       environment_id: 'e1',
     });
+  });
+
+  it('shows an error toast when delete fails after closing the confirm dialog', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const httpError = Object.assign(new Error('Status code: 409'), {
+      statusCode: 409,
+      body: { error: { message: 'Environment is still referenced by an agent' } },
+    });
+    const deleteEnvironment = vi.fn(async () => {
+      throw httpError;
+    });
+    renderPage({ environmentOverrides: { deleteEnvironment } });
+    expect(await screen.findByRole('button', { name: 'Delete python-data' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete python-data' }));
+    const dialog = screen.getByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => expect(deleteEnvironment).toHaveBeenCalledWith({ name: 'python-data' }));
+    expect(await screen.findByText('Request failed (409)')).toBeInTheDocument();
+    expect(screen.getByText('Environment is still referenced by an agent')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });
 

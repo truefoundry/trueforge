@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   hasReasoningEfforts,
   modelPatchWithReasoningEffort,
+  reasoningEffortSeed,
   resolveReasoningEffort,
 } from '@/atoms/draft/reasoningEffort.js';
 
@@ -52,6 +53,21 @@ describe('resolveReasoningEffort', () => {
 
   it('falls back to "none" only when it is the sole effort', () => {
     expect(resolveReasoningEffort(['none'], undefined)).toBe('none');
+  });
+});
+
+describe('reasoningEffortSeed', () => {
+  it('defaults to medium when the catalog or playground fallback offers it', () => {
+    expect(reasoningEffortSeed(['none', 'low', 'medium', 'high'])).toBe('medium');
+    expect(reasoningEffortSeed(undefined)).toBe('medium');
+  });
+
+  it('prefers high over low when medium is absent', () => {
+    expect(reasoningEffortSeed(['none', 'low', 'high'])).toBe('high');
+  });
+
+  it('uses the lowest non-none effort when no preferred effort is listed', () => {
+    expect(reasoningEffortSeed(['none', 'minimal'])).toBe('minimal');
   });
 });
 

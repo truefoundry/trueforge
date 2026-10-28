@@ -12,7 +12,7 @@ import type {
 } from '../capabilities/AgentContextProcessor';
 import { SUB_AGENT_IDENTITY } from '../capabilities/builtins/DynamicSubAgents';
 import type { ToolResponseProcessor } from '../capabilities/ToolResponseProcessor';
-import { AgentHarnessError, InvalidAgentSendInputError } from '../errors';
+import { AgentHarnessError, InvalidAgentSendInputError, ModelProviderError } from '../errors';
 import type { RegisteredPassthroughEvent } from '../events/PassthroughEvents';
 import {
   EventType,
@@ -27,6 +27,8 @@ import {
   type ModelMessageEvent,
   type ModelMessageUsage,
   type SandboxCreatedEvent,
+  type ThreadContextCompactionFinishedEvent,
+  type ThreadContextCompactionStartedEvent,
   type ThreadOverwriteContextEvent,
   type ToolApprovalRequiredEvent,
   type ToolResponseEvent,
@@ -53,9 +55,10 @@ import { estimateTokensForString, resolveMaxOutputTokens } from '../llm/usage';
 import { convertMCPServersToTools, type ConvertToolsResult, type MappedMCPTool } from '../mcp/convertMCPServers';
 import { executeToolCalls } from '../mcp/executeToolCalls';
 import type { IToolSet, MCPAuthRequired } from '../mcp/IMCPServer';
+import { elapsedSeconds, getOperationMetrics, type LlmRequestOutcome } from '../observability/operationMetrics';
 import type { HarnessSandbox, SandboxInfo } from '../sandbox/Sandbox';
 import type { AgentTracing } from '../tracing/AgentTracing';
-import { describeUnknownError, extractErrorLogFields } from '../util/errorLogFields';
+import { describeUnknownError, extractErrorLogFields, isReportableError } from '../util/errorLogFields';
 import type { AgentDefinition } from './AgentDefinition';
 import type {
   AgentThreadConstructorInput,
@@ -974,6 +977,8 @@ export class AgentThread {
     hook: 'preLLM' | 'postToolCall',
   ): AsyncGenerator<
     | ThreadOverwriteContextEvent
+    | ThreadContextCompactionStartedEvent
+    | ThreadContextCompactionFinishedEvent
     | AgentThreadAppendContext
     | { type: typeof InternalEventType.PASSTHROUGH; event: RegisteredPassthroughEvent }
     | InternalCapabilityStateEvent,
@@ -984,6 +989,8 @@ export class AgentThread {
     hook: 'preSend' | 'preLLM' | 'postToolCall',
   ): AsyncGenerator<
     | ThreadOverwriteContextEvent
+    | ThreadContextCompactionStartedEvent
+    | ThreadContextCompactionFinishedEvent
     | AgentThreadAppendContext
     | { type: typeof InternalEventType.PASSTHROUGH; event: RegisteredPassthroughEvent }
     | InternalCapabilityStateEvent,
@@ -1027,6 +1034,13 @@ export class AgentThread {
             break;
           case EventType.AGENT_CONTEXT_OVERWRITE:
             yield* this.overwriteContext(response);
+            break;
+          case EventType.THREAD_CONTEXT_COMPACTION_STARTED:
+          case EventType.THREAD_CONTEXT_COMPACTION_FINISHED:
+            yield {
+              ...response,
+              thread_id: this.threadId,
+            };
             break;
           case InternalEventType.PASSTHROUGH:
             yield response;
@@ -1094,6 +1108,40 @@ export class AgentThread {
     return this.convertedTools;
   }
 
+  private recordLlmCall({
+    startedMs,
+    outcome,
+    finishReason,
+  }: {
+    startedMs: number;
+    outcome: LlmRequestOutcome;
+    finishReason: FinishReason | null;
+  }): void {
+    const metrics = getOperationMetrics();
+    const providerType = this.definition.providerType;
+    if (metrics === undefined || providerType === undefined) {
+      return;
+    }
+    metrics.recordLlmRequest({
+      providerType,
+      outcome,
+      finishReason: finishReason ?? 'none',
+      durationSeconds: elapsedSeconds(startedMs),
+    });
+  }
+
+  private recordLlmTimeToFirstToken(startedMs: number): void {
+    const metrics = getOperationMetrics();
+    const providerType = this.definition.providerType;
+    if (metrics === undefined || providerType === undefined) {
+      return;
+    }
+    metrics.recordLlmTimeToFirstToken({
+      providerType,
+      durationSeconds: elapsedSeconds(startedMs),
+    });
+  }
+
   private async *stepLLMCall(
     tools: ChatCompletionTool[],
     toolMapping: Map<string, MappedMCPTool>,
@@ -1109,6 +1157,8 @@ export class AgentThread {
     }
 
     const requestBody = this.transformToLLMRequest(tools);
+    // Duration includes the provider stream and each delta's drain. appendToContext stays outside.
+    const requestStartedMs = performance.now();
     const llmStream = this.definition.modelClient.create(requestBody);
 
     // We start the delta stream with a model message event.
@@ -1122,42 +1172,64 @@ export class AgentThread {
     } satisfies ModelMessageEvent;
 
     let firstDeltaTimestamped = false;
-    let result = await llmStream.next();
     let modelMessageUsage: ModelMessageUsage | undefined = undefined;
-    while (!result.done) {
-      const chunk = result.value;
-      if (chunk.usage) {
-        modelMessageUsage = this.computeAssistantMessageUsage({
-          requestBody,
-          usage: chunk.usage,
-          toolMapping,
-        });
-      }
-      const event = await buildModelMessageDeltaEvent({
-        chunk,
-        threadId: this.threadId,
-        toolMapping,
-        usage: modelMessageUsage,
-        id: modelMessageEventId,
-        logger: this.logger,
-      });
-      if (event) {
-        if (!firstDeltaTimestamped) {
-          firstDeltaTimestamped = true;
-          yield { ...event, created_at: new Date().toISOString() };
-        } else {
-          yield event;
-        }
-      }
+    let result: Awaited<ReturnType<typeof llmStream.next>>;
+    try {
       result = await llmStream.next();
+      while (!result.done) {
+        const chunk = result.value;
+        if (chunk.usage) {
+          modelMessageUsage = this.computeAssistantMessageUsage({
+            requestBody,
+            usage: chunk.usage,
+            toolMapping,
+          });
+        }
+        const event = await buildModelMessageDeltaEvent({
+          chunk,
+          threadId: this.threadId,
+          toolMapping,
+          usage: modelMessageUsage,
+          id: modelMessageEventId,
+          logger: this.logger,
+        });
+        if (event) {
+          if (!firstDeltaTimestamped) {
+            firstDeltaTimestamped = true;
+            this.recordLlmTimeToFirstToken(requestStartedMs);
+            yield { ...event, created_at: new Date().toISOString() };
+          } else {
+            yield event;
+          }
+        }
+        result = await llmStream.next();
+      }
+    } catch (error) {
+      this.recordLlmCall({
+        startedMs: requestStartedMs,
+        outcome: isLlmCallAborted({ error, signal }) ? 'aborted' : 'error',
+        finishReason: null,
+      });
+      throw error;
     }
 
     // If the stream was aborted mid-way, result.value.output is only a partial
     // accumulation of the deltas — not the true complete response. Skip the
     // final model.message event to avoid emitting an inconsistent assembled message.
     if (signal?.aborted) {
+      this.recordLlmCall({
+        startedMs: requestStartedMs,
+        outcome: 'aborted',
+        finishReason: result.value.finish_reason,
+      });
       return { outcome: 'exit', modelMessageEventId };
     }
+
+    this.recordLlmCall({
+      startedMs: requestStartedMs,
+      outcome: 'success',
+      finishReason: result.value.finish_reason,
+    });
 
     // should be computed by this point but in case provider never gives out any delta with usage, compute it now.
     modelMessageUsage ??= this.computeAssistantMessageUsage({
@@ -1480,6 +1552,7 @@ export class AgentThread {
               return;
             }
             if (this.metrics.iterations >= iterationLimit) {
+              getOperationMetrics()?.recordHarnessLimit({ limit: 'iteration_limit' });
               yield this.generateErrorEvent(
                 `You have reached iteration limit of ${String(iterationLimit)}, please request again`,
               );
@@ -1516,7 +1589,11 @@ export class AgentThread {
     } catch (error) {
       // Providers / transports often reject with plain objects; instanceof Error would
       // otherwise collapse those into an opaque "Unknown error occurred" in Agent Steps.
-      this.logger.error('Agent thread execution failed', extractErrorLogFields(error));
+      // Model-provider failures are classified at the LLM call. turn.done only keeps the message.
+      this.logger.error('Agent thread execution failed', {
+        ...extractErrorLogFields(error),
+        ...(error instanceof ModelProviderError || !isReportableError(error) ? {} : { reportable_error: { error } }),
+      });
       yield this.generateErrorEvent(describeUnknownError(error));
     } finally {
       this.contextBusy = false;
@@ -1559,4 +1636,11 @@ function claimCapabilityState(
     claimed[key] = value;
   }
   return claimed;
+}
+
+function isLlmCallAborted({ error, signal }: { error: unknown; signal: AbortSignal | undefined }): boolean {
+  if (signal?.aborted === true) {
+    return true;
+  }
+  return error instanceof Error && error.name === 'AbortError';
 }

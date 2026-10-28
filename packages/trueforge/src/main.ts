@@ -10,6 +10,7 @@
  * Postgres store modules stay dynamic so only the active engine is loaded.
  */
 import {
+  configureOperationMetrics,
   configureOutboundFetches,
   configureOutboundUrlGuard,
   extractErrorLogFields,
@@ -30,6 +31,7 @@ let isTrueFoundryModeEnabled: typeof import('./config').isTrueFoundryModeEnabled
 let getTrueForgeAuthMode: typeof import('./config').getTrueForgeAuthMode;
 let getPublicUiBasePath: typeof import('./config').getPublicUiBasePath;
 let TrueForgeAuthMode: typeof import('./config').TrueForgeAuthMode;
+let serverHttpMetrics: HttpMetrics;
 
 try {
   ({
@@ -45,6 +47,8 @@ try {
     allowedHosts: configuration.OUTBOUND_URL_ALLOWED_HOSTS,
     blockedHosts: configuration.OUTBOUND_URL_BLOCKED_HOSTS,
   });
+  serverHttpMetrics = createHttpMetrics();
+  configureOperationMetrics(createOperationMetrics(serverHttpMetrics.registry));
   configureOutboundFetches({
     outbound: {
       connectTimeoutMs: configuration.OUTBOUND_HTTP_CONNECT_TIMEOUT_MS,
@@ -52,6 +56,7 @@ try {
       bodyTimeoutMs: configuration.OUTBOUND_HTTP_BODY_TIMEOUT_MS,
       maxRetries: configuration.OUTBOUND_HTTP_MAX_RETRIES,
       idempotent: true,
+      metrics: { module: 'generic' },
     },
     model: {
       connectTimeoutMs: configuration.MODEL_HTTP_CONNECT_TIMEOUT_MS,
@@ -59,6 +64,7 @@ try {
       bodyTimeoutMs: configuration.MODEL_HTTP_BODY_TIMEOUT_MS,
       maxRetries: configuration.MODEL_HTTP_MAX_RETRIES,
       idempotent: true,
+      metrics: { module: 'model' },
     },
     mcp: {
       connectTimeoutMs: configuration.MCP_HTTP_CONNECT_TIMEOUT_MS,
@@ -66,6 +72,7 @@ try {
       bodyTimeoutMs: configuration.MCP_HTTP_BODY_TIMEOUT_MS,
       maxRetries: configuration.MCP_HTTP_MAX_RETRIES,
       idempotent: false,
+      metrics: { module: 'mcp' },
     },
   });
 } catch (error) {
@@ -105,6 +112,7 @@ import { SkillCatalog } from './catalog/SkillCatalog';
 import { WebSearchCatalog } from './catalog/WebSearchCatalog';
 import { type DistributedServerConfiguration } from './config';
 import { createController } from './controller';
+import type { IAccessControlStore } from './db/accessControlStore';
 import type { AgentRecord, IAgentStore } from './db/agentStore';
 import type { IMcpServerStore, IMcpServerWithAuthStore } from './db/mcpServerStore';
 import { McpServerWithAuthStore } from './db/McpServerWithAuthStore';
@@ -118,15 +126,20 @@ import type { ISessionMetricsStore } from './db/sessionMetricsStore';
 import type { ISkillStore } from './db/skillStore';
 import type { Database as SqliteDatabase } from './db/sqlite/types';
 import type { WithTransaction } from './db/transaction';
+import { EmptyUserStore, type IUserStore } from './db/userStore';
 import type { IWebSearchProviderStore } from './db/webSearchProviderStore';
 import { mountFrontend } from './frontend';
+import type { HttpMetrics } from './http/prometheus';
+import { createHttpMetrics, setMetricsScrapeAppendix } from './http/prometheus';
 import { serverTlsServeOptions } from './http/tls';
 import { createServerLogger, shouldColorize } from './logger';
 import type { IOAuthTokenStore } from './mcp/auth/types';
+import { createOperationMetrics } from './observability/agentMetrics';
+import { startSdkMetrics } from './observability/sdkMetrics';
 import { PACKAGE_VERSION } from './packageVersion';
 import { ActiveTurnRegistry } from './runtime/activeTurns';
 import { EventSubscriptionRegistry } from './runtime/event-subscription';
-import type { ConnectedRedis } from './runtime/redis';
+import { enableRedisOpenTelemetry, type ConnectedRedis } from './runtime/redis';
 import { initSentry } from './sentry';
 import { printStandaloneStartupBanner } from './startupBanner';
 import { InlineMcpServerStore } from './truefoundry/InlineMcpServerStore';
@@ -157,6 +170,7 @@ import { TrueFoundrySandboxEnvironmentStore } from './truefoundry/TrueFoundrySan
 import { TrueFoundrySandboxProviderStore } from './truefoundry/TrueFoundrySandboxProviderStore';
 import { TrueFoundryServiceFoundryServerClient } from './truefoundry/TrueFoundryServiceFoundryServerClient';
 import { TrueFoundryAdminSkillStore, TrueFoundrySkillStore } from './truefoundry/TrueFoundrySkillStore';
+import { TrueFoundryUserStore } from './truefoundry/TrueFoundryUserStore';
 import { TrueFoundryWebSearchProviderStore } from './truefoundry/TrueFoundryWebSearchProviderStore';
 
 /** Persistence-layer model store resolve (RequestContext, not Hono Context). */
@@ -183,6 +197,7 @@ type ResolveTurnSkillsStore<TTransaction> = (input: {
 interface ServerPersistence<TTransaction> {
   withTransaction: WithTransaction<TTransaction>;
   sessionStore: ISessionStore;
+  accessControlStore: IAccessControlStore<TTransaction>;
   sessionMetricsStore: ISessionMetricsStore;
   tokenStore: IOAuthTokenStore<TTransaction>;
   scheduleStore: IScheduleStore<TTransaction>;
@@ -330,8 +345,9 @@ function buildResolveAgentStore(options: {
   persistenceStore: PostgresAgentStore;
   db: Kysely<PostgresDatabase>;
   client: TrueFoundryServiceFoundryServerClient | undefined;
+  logger: Logger;
 }): (rc: RequestContext) => IAgentStore<Transaction<PostgresDatabase>> {
-  const { persistenceStore, client, db } = options;
+  const { persistenceStore, client, db, logger } = options;
   return rc => {
     if (client) {
       return new TrueFoundryAgentStore({
@@ -339,6 +355,7 @@ function buildResolveAgentStore(options: {
         client,
         context: rc,
         db,
+        logger,
       });
     }
     return persistenceStore;
@@ -403,6 +420,7 @@ async function createStandalonePersistence(options: {
       import('./db/sqlite/agent-store/SqliteAgentStore'),
       import('./db/sqlite/schedule-store/SqliteScheduleStore'),
       import('./db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore'),
+      import('./db/sqlite/access-control-store/SqliteAccessControlStore'),
     ]),
   ]);
   const [
@@ -417,6 +435,7 @@ async function createStandalonePersistence(options: {
     { SqliteAgentStore },
     { SqliteScheduleStore },
     { SqliteSandboxEnvironmentStore },
+    { SqliteAccessControlStore },
   ] = sqliteStores;
 
   const db = createSqliteDb(sqlitePath);
@@ -439,6 +458,7 @@ async function createStandalonePersistence(options: {
   return {
     withTransaction: callback => db.transaction().execute(callback),
     sessionStore: new SqliteSessionStore(db),
+    accessControlStore: new SqliteAccessControlStore(db),
     sessionMetricsStore: new SqliteSessionMetricsStore(db),
     mcpOAuthStore: mcpServerStore,
     tokenStore,
@@ -503,6 +523,7 @@ async function createDistributedPersistence(options: {
       import('./db/postgres/agent-store/PostgresAgentStore'),
       import('./db/postgres/schedule-store/PostgresScheduleStore'),
       import('./db/postgres/sandbox-environment-store/PostgresSandboxEnvironmentStore'),
+      import('./db/postgres/access-control-store/PostgresAccessControlStore'),
     ]),
   ]);
   const [
@@ -517,6 +538,7 @@ async function createDistributedPersistence(options: {
     { PostgresAgentStore },
     { PostgresScheduleStore },
     { PostgresSandboxEnvironmentStore },
+    { PostgresAccessControlStore },
   ] = postgresStores;
 
   logger.info('Connecting to Postgres');
@@ -568,6 +590,7 @@ async function createDistributedPersistence(options: {
     persistenceStore: agentStore,
     db,
     client: serviceFoundryClient,
+    logger,
   });
   const resolveSandboxProviderStore = buildResolveSandboxProviderStore({
     persistenceStore: sandboxProviderStore,
@@ -582,6 +605,7 @@ async function createDistributedPersistence(options: {
   return {
     withTransaction: callback => db.transaction().execute(callback),
     sessionStore: new PostgresSessionStore(db),
+    accessControlStore: new PostgresAccessControlStore(db),
     sessionMetricsStore: new PostgresSessionMetricsStore(db),
     mcpOAuthStore: mcpServerWithAuthStore,
     tokenStore,
@@ -621,6 +645,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
   const {
     withTransaction,
     sessionStore,
+    accessControlStore,
     sessionMetricsStore,
     tokenStore,
     scheduleStore,
@@ -648,6 +673,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
 
   let authenticator;
   let authorizer: Authorizer;
+  let userStore: IUserStore;
   const mode = getTrueForgeAuthMode(configuration);
   if (mode === TrueForgeAuthMode.TrueFoundry) {
     if (serviceFoundryClient === undefined) {
@@ -658,12 +684,15 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
       serviceFoundryClient,
     });
     authorizer = new TrueFoundryAuthorizer(serviceFoundryClient);
+    userStore = new TrueFoundryUserStore(serviceFoundryClient);
   } else if (mode === TrueForgeAuthMode.Oidc) {
     authenticator = createAuthenticator({ mode: TrueForgeAuthMode.Oidc });
     authorizer = new TrueForgeAuthorizer();
+    userStore = new EmptyUserStore();
   } else {
     authenticator = createAuthenticator({ mode: TrueForgeAuthMode.Standalone });
     authorizer = new TrueForgeAuthorizer();
+    userStore = new EmptyUserStore();
   }
 
   // Standalone owns the control loops in-process; they hand off via HTTP loopback
@@ -780,7 +809,9 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     sandboxEnvironmentStore,
     sandboxProviderStore: persistence.sandboxProviderStore,
     sessionStore,
+    accessControlStore,
     sessionMetricsStore,
+    userStore,
     sessions,
     activeTurns,
     redis: redis?.client,
@@ -790,6 +821,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     oidcClient,
     authenticator,
     authorizer,
+    httpMetrics: serverHttpMetrics,
   });
 
   return { activeTurns, app, controller, destroyDb, redis, requestReplyRouter };
@@ -802,6 +834,13 @@ try {
   });
 
   await initSentry(configuration, logger, { tags: { component: 'server' } });
+  setMetricsScrapeAppendix({
+    scrape: startSdkMetrics(),
+    onError(error) {
+      logger.error('SDK metrics scrape failed', extractErrorLogFields(error));
+    },
+  });
+  enableRedisOpenTelemetry();
 
   if (configuration.STANDALONE) {
     printStandaloneStartupBanner({ version: PACKAGE_VERSION, color: shouldColorize() });
@@ -862,7 +901,10 @@ try {
     if (redis.mode !== 'sentinel') {
       requestReplySubscriber = redis.client.duplicate();
       requestReplySubscriber.on('error', (error: Error) => {
-        logger.error('[RedisSubscriber] Client error', extractErrorLogFields(error));
+        logger.error('[RedisSubscriber] Client error', {
+          ...extractErrorLogFields(error),
+          reportable_error: { error },
+        });
       });
       await requestReplySubscriber.connect();
     } else {
@@ -921,7 +963,11 @@ try {
 
       // Arm at the start of each shutdown; unref so this timer alone cannot keep the process alive.
       setTimeout(() => {
-        logger.warn(`Drain timed out after ${String(configuration.GRACEFUL_TIMEOUT_SECONDS)}s, exiting`);
+        logger.warn(`Drain timed out after ${String(configuration.GRACEFUL_TIMEOUT_SECONDS)}s, exiting`, {
+          reportable_error: {
+            error: new Error(`Drain timed out after ${String(configuration.GRACEFUL_TIMEOUT_SECONDS)}s, exiting`),
+          },
+        });
         process.exit(1);
       }, configuration.GRACEFUL_TIMEOUT_SECONDS * 1000).unref();
 

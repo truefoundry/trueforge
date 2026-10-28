@@ -2,14 +2,14 @@
     "name": "@truefoundry/trueforge-sdk",
     "version": "0.0.0",
     "private": false,
-    "type": "commonjs",
-    "main": "./dist/cjs/index.js",
+    "type": "module",
+    "main": "./dist/esm/index.mjs",
     "module": "./dist/esm/index.mjs",
-    "types": "./dist/cjs/index.d.ts",
+    "types": "./dist/esm/index.d.mts",
     "exports": {
         ".": {
             "trueforge-dev": {
-                "types": "./dist/cjs/index.d.ts",
+                "types": "./dist/esm/index.d.mts",
                 "default": "./src/index.ts"
             },
             "import": {
@@ -20,7 +20,7 @@
                 "types": "./dist/cjs/index.d.ts",
                 "default": "./dist/cjs/index.js"
             },
-            "default": "./dist/cjs/index.js"
+            "default": "./dist/esm/index.mjs"
         },
         "./serialization": {
             "import": {
@@ -31,7 +31,7 @@
                 "types": "./dist/cjs/serialization/index.d.ts",
                 "default": "./dist/cjs/serialization/index.js"
             },
-            "default": "./dist/cjs/serialization/index.js"
+            "default": "./dist/esm/serialization/index.mjs"
         },
         "./internal": {
             "import": {
@@ -42,7 +42,7 @@
                 "types": "./dist/cjs/api/resources/internal/exports.d.ts",
                 "default": "./dist/cjs/api/resources/internal/exports.js"
             },
-            "default": "./dist/cjs/api/resources/internal/exports.js"
+            "default": "./dist/esm/api/resources/internal/exports.mjs"
         },
         "./agents": {
             "import": {
@@ -53,7 +53,7 @@
                 "types": "./dist/cjs/api/resources/agents/exports.d.ts",
                 "default": "./dist/cjs/api/resources/agents/exports.js"
             },
-            "default": "./dist/cjs/api/resources/agents/exports.js"
+            "default": "./dist/esm/api/resources/agents/exports.mjs"
         },
         "./auth": {
             "import": {
@@ -64,7 +64,7 @@
                 "types": "./dist/cjs/api/resources/auth/exports.d.ts",
                 "default": "./dist/cjs/api/resources/auth/exports.js"
             },
-            "default": "./dist/cjs/api/resources/auth/exports.js"
+            "default": "./dist/esm/api/resources/auth/exports.mjs"
         },
         "./server": {
             "import": {
@@ -75,7 +75,7 @@
                 "types": "./dist/cjs/api/resources/server/exports.d.ts",
                 "default": "./dist/cjs/api/resources/server/exports.js"
             },
-            "default": "./dist/cjs/api/resources/server/exports.js"
+            "default": "./dist/esm/api/resources/server/exports.mjs"
         },
         "./mcpServers": {
             "import": {
@@ -86,7 +86,7 @@
                 "types": "./dist/cjs/api/resources/mcpServers/exports.d.ts",
                 "default": "./dist/cjs/api/resources/mcpServers/exports.js"
             },
-            "default": "./dist/cjs/api/resources/mcpServers/exports.js"
+            "default": "./dist/esm/api/resources/mcpServers/exports.mjs"
         },
         "./models": {
             "import": {
@@ -97,7 +97,7 @@
                 "types": "./dist/cjs/api/resources/models/exports.d.ts",
                 "default": "./dist/cjs/api/resources/models/exports.js"
             },
-            "default": "./dist/cjs/api/resources/models/exports.js"
+            "default": "./dist/esm/api/resources/models/exports.mjs"
         },
         "./sandboxEnvironments": {
             "import": {
@@ -108,7 +108,7 @@
                 "types": "./dist/cjs/api/resources/sandboxEnvironments/exports.d.ts",
                 "default": "./dist/cjs/api/resources/sandboxEnvironments/exports.js"
             },
-            "default": "./dist/cjs/api/resources/sandboxEnvironments/exports.js"
+            "default": "./dist/esm/api/resources/sandboxEnvironments/exports.mjs"
         },
         "./schedules": {
             "import": {
@@ -119,7 +119,7 @@
                 "types": "./dist/cjs/api/resources/schedules/exports.d.ts",
                 "default": "./dist/cjs/api/resources/schedules/exports.js"
             },
-            "default": "./dist/cjs/api/resources/schedules/exports.js"
+            "default": "./dist/esm/api/resources/schedules/exports.mjs"
         },
         "./sessions": {
             "import": {
@@ -130,7 +130,7 @@
                 "types": "./dist/cjs/api/resources/sessions/exports.d.ts",
                 "default": "./dist/cjs/api/resources/sessions/exports.js"
             },
-            "default": "./dist/cjs/api/resources/sessions/exports.js"
+            "default": "./dist/esm/api/resources/sessions/exports.mjs"
         },
         "./skills": {
             "import": {
@@ -141,7 +141,18 @@
                 "types": "./dist/cjs/api/resources/skills/exports.d.ts",
                 "default": "./dist/cjs/api/resources/skills/exports.js"
             },
-            "default": "./dist/cjs/api/resources/skills/exports.js"
+            "default": "./dist/esm/api/resources/skills/exports.mjs"
+        },
+        "./users": {
+            "import": {
+                "types": "./dist/esm/api/resources/users/exports.d.mts",
+                "default": "./dist/esm/api/resources/users/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/users/exports.d.ts",
+                "default": "./dist/cjs/api/resources/users/exports.js"
+            },
+            "default": "./dist/esm/api/resources/users/exports.mjs"
         },
         "./catalogs": {
             "import": {
@@ -152,7 +163,7 @@
                 "types": "./dist/cjs/api/resources/catalogs/exports.d.ts",
                 "default": "./dist/cjs/api/resources/catalogs/exports.js"
             },
-            "default": "./dist/cjs/api/resources/catalogs/exports.js"
+            "default": "./dist/esm/api/resources/catalogs/exports.mjs"
         },
         "./catalogs/mcpServers": {
             "import": {
@@ -163,7 +174,7 @@
                 "types": "./dist/cjs/api/resources/catalogs/resources/mcpServers/exports.d.ts",
                 "default": "./dist/cjs/api/resources/catalogs/resources/mcpServers/exports.js"
             },
-            "default": "./dist/cjs/api/resources/catalogs/resources/mcpServers/exports.js"
+            "default": "./dist/esm/api/resources/catalogs/resources/mcpServers/exports.mjs"
         },
         "./catalogs/modelProviders": {
             "import": {
@@ -174,7 +185,7 @@
                 "types": "./dist/cjs/api/resources/catalogs/resources/modelProviders/exports.d.ts",
                 "default": "./dist/cjs/api/resources/catalogs/resources/modelProviders/exports.js"
             },
-            "default": "./dist/cjs/api/resources/catalogs/resources/modelProviders/exports.js"
+            "default": "./dist/esm/api/resources/catalogs/resources/modelProviders/exports.mjs"
         },
         "./catalogs/sandboxProviders": {
             "import": {
@@ -185,7 +196,7 @@
                 "types": "./dist/cjs/api/resources/catalogs/resources/sandboxProviders/exports.d.ts",
                 "default": "./dist/cjs/api/resources/catalogs/resources/sandboxProviders/exports.js"
             },
-            "default": "./dist/cjs/api/resources/catalogs/resources/sandboxProviders/exports.js"
+            "default": "./dist/esm/api/resources/catalogs/resources/sandboxProviders/exports.mjs"
         },
         "./catalogs/skills": {
             "import": {
@@ -196,7 +207,7 @@
                 "types": "./dist/cjs/api/resources/catalogs/resources/skills/exports.d.ts",
                 "default": "./dist/cjs/api/resources/catalogs/resources/skills/exports.js"
             },
-            "default": "./dist/cjs/api/resources/catalogs/resources/skills/exports.js"
+            "default": "./dist/esm/api/resources/catalogs/resources/skills/exports.mjs"
         },
         "./catalogs/webSearchProviders": {
             "import": {
@@ -207,7 +218,7 @@
                 "types": "./dist/cjs/api/resources/catalogs/resources/webSearchProviders/exports.d.ts",
                 "default": "./dist/cjs/api/resources/catalogs/resources/webSearchProviders/exports.js"
             },
-            "default": "./dist/cjs/api/resources/catalogs/resources/webSearchProviders/exports.js"
+            "default": "./dist/esm/api/resources/catalogs/resources/webSearchProviders/exports.mjs"
         },
         "./internal/metrics": {
             "import": {
@@ -218,7 +229,7 @@
                 "types": "./dist/cjs/api/resources/internal/resources/metrics/exports.d.ts",
                 "default": "./dist/cjs/api/resources/internal/resources/metrics/exports.js"
             },
-            "default": "./dist/cjs/api/resources/internal/resources/metrics/exports.js"
+            "default": "./dist/esm/api/resources/internal/resources/metrics/exports.mjs"
         },
         "./internal/sandboxEnvironments": {
             "import": {
@@ -229,7 +240,7 @@
                 "types": "./dist/cjs/api/resources/internal/resources/sandboxEnvironments/exports.d.ts",
                 "default": "./dist/cjs/api/resources/internal/resources/sandboxEnvironments/exports.js"
             },
-            "default": "./dist/cjs/api/resources/internal/resources/sandboxEnvironments/exports.js"
+            "default": "./dist/esm/api/resources/internal/resources/sandboxEnvironments/exports.mjs"
         },
         "./internal/schedules": {
             "import": {
@@ -240,7 +251,7 @@
                 "types": "./dist/cjs/api/resources/internal/resources/schedules/exports.d.ts",
                 "default": "./dist/cjs/api/resources/internal/resources/schedules/exports.js"
             },
-            "default": "./dist/cjs/api/resources/internal/resources/schedules/exports.js"
+            "default": "./dist/esm/api/resources/internal/resources/schedules/exports.mjs"
         },
         "./internal/sessions": {
             "import": {
@@ -251,7 +262,7 @@
                 "types": "./dist/cjs/api/resources/internal/resources/sessions/exports.d.ts",
                 "default": "./dist/cjs/api/resources/internal/resources/sessions/exports.js"
             },
-            "default": "./dist/cjs/api/resources/internal/resources/sessions/exports.js"
+            "default": "./dist/esm/api/resources/internal/resources/sessions/exports.mjs"
         },
         "./internal/agents": {
             "import": {
@@ -262,7 +273,7 @@
                 "types": "./dist/cjs/api/resources/internal/resources/agents/exports.d.ts",
                 "default": "./dist/cjs/api/resources/internal/resources/agents/exports.js"
             },
-            "default": "./dist/cjs/api/resources/internal/resources/agents/exports.js"
+            "default": "./dist/esm/api/resources/internal/resources/agents/exports.mjs"
         },
         "./settings": {
             "import": {
@@ -273,7 +284,7 @@
                 "types": "./dist/cjs/api/resources/settings/exports.d.ts",
                 "default": "./dist/cjs/api/resources/settings/exports.js"
             },
-            "default": "./dist/cjs/api/resources/settings/exports.js"
+            "default": "./dist/esm/api/resources/settings/exports.mjs"
         },
         "./settings/mcpServers": {
             "import": {
@@ -284,7 +295,7 @@
                 "types": "./dist/cjs/api/resources/settings/resources/mcpServers/exports.d.ts",
                 "default": "./dist/cjs/api/resources/settings/resources/mcpServers/exports.js"
             },
-            "default": "./dist/cjs/api/resources/settings/resources/mcpServers/exports.js"
+            "default": "./dist/esm/api/resources/settings/resources/mcpServers/exports.mjs"
         },
         "./settings/modelProviders": {
             "import": {
@@ -295,7 +306,7 @@
                 "types": "./dist/cjs/api/resources/settings/resources/modelProviders/exports.d.ts",
                 "default": "./dist/cjs/api/resources/settings/resources/modelProviders/exports.js"
             },
-            "default": "./dist/cjs/api/resources/settings/resources/modelProviders/exports.js"
+            "default": "./dist/esm/api/resources/settings/resources/modelProviders/exports.mjs"
         },
         "./settings/sandboxProviders": {
             "import": {
@@ -306,7 +317,7 @@
                 "types": "./dist/cjs/api/resources/settings/resources/sandboxProviders/exports.d.ts",
                 "default": "./dist/cjs/api/resources/settings/resources/sandboxProviders/exports.js"
             },
-            "default": "./dist/cjs/api/resources/settings/resources/sandboxProviders/exports.js"
+            "default": "./dist/esm/api/resources/settings/resources/sandboxProviders/exports.mjs"
         },
         "./settings/skills": {
             "import": {
@@ -317,7 +328,7 @@
                 "types": "./dist/cjs/api/resources/settings/resources/skills/exports.d.ts",
                 "default": "./dist/cjs/api/resources/settings/resources/skills/exports.js"
             },
-            "default": "./dist/cjs/api/resources/settings/resources/skills/exports.js"
+            "default": "./dist/esm/api/resources/settings/resources/skills/exports.mjs"
         },
         "./settings/webSearchProviders": {
             "import": {
@@ -328,7 +339,7 @@
                 "types": "./dist/cjs/api/resources/settings/resources/webSearchProviders/exports.d.ts",
                 "default": "./dist/cjs/api/resources/settings/resources/webSearchProviders/exports.js"
             },
-            "default": "./dist/cjs/api/resources/settings/resources/webSearchProviders/exports.js"
+            "default": "./dist/esm/api/resources/settings/resources/webSearchProviders/exports.mjs"
         },
         "./package.json": "./package.json"
     },
@@ -347,7 +358,7 @@
         "check:fix": "biome check --fix --unsafe --skip-parse-errors --no-errors-on-unmatched --max-diagnostics=none",
         "build": "pnpm build:cjs && pnpm build:esm",
         "build:cjs": "tsc --project ./tsconfig.cjs.json",
-        "build:esm": "tsc --project ./tsconfig.esm.json && node scripts/rename-to-esm-files.js dist/esm",
+        "build:esm": "tsc --project ./tsconfig.esm.json && node scripts/rename-to-esm-files.cjs dist/esm",
         "test": "vitest",
         "test:unit": "vitest --project unit",
         "test:wire": "vitest --project wire"
@@ -374,19 +385,19 @@
         "node": ">=22"
     },
     "sideEffects": false,
-    "license": "MIT",
     "author": "TrueForge",
-    "repository": {
-        "type": "git",
-        "url": "git+https://github.com/truefoundry/trueforge.git",
-        "directory": "packages/trueforge-sdk"
-    },
-    "homepage": "https://github.com/truefoundry/trueforge/tree/main/packages/trueforge-sdk#readme",
     "bugs": {
         "url": "https://github.com/truefoundry/trueforge/issues"
     },
+    "homepage": "https://github.com/truefoundry/trueforge/tree/main/packages/trueforge-sdk#readme",
+    "license": "MIT",
     "publishConfig": {
         "access": "public",
         "provenance": true
+    },
+    "repository": {
+        "directory": "packages/trueforge-sdk",
+        "type": "git",
+        "url": "git+https://github.com/truefoundry/trueforge.git"
     }
 }

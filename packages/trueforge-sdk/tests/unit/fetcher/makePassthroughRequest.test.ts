@@ -342,6 +342,44 @@ describe("makePassthroughRequest", () => {
 
             vi.restoreAllMocks();
         });
+
+        it("should reject with an Error named TimeoutError when the request times out", async () => {
+            mockFetch.mockImplementation(
+                (_url: string, init: RequestInit) =>
+                    new Promise((_resolve, reject) => {
+                        init.signal?.addEventListener("abort", () => reject(init.signal?.reason));
+                    }),
+            );
+
+            const error = await makePassthroughRequest("https://api.example.com", undefined, {
+                timeoutInSeconds: 0.01,
+                maxRetries: 0,
+                fetch: mockFetch,
+            }).catch((e: unknown) => e);
+
+            expect(error).toBeInstanceOf(Error);
+            expect((error as Error).name).toBe("TimeoutError");
+        });
+
+        it("should keep the caller's abort reason when the caller aborts", async () => {
+            mockFetch.mockImplementation(
+                (_url: string, init: RequestInit) =>
+                    new Promise((_resolve, reject) => {
+                        init.signal?.addEventListener("abort", () => reject(init.signal?.reason));
+                    }),
+            );
+            const controller = new AbortController();
+
+            const promise = makePassthroughRequest(
+                "https://api.example.com",
+                undefined,
+                { timeoutInSeconds: 10, maxRetries: 0, fetch: mockFetch },
+                { abortSignal: controller.signal },
+            ).catch((e: unknown) => e);
+            controller.abort("cancelled");
+
+            expect(await promise).toBe("cancelled");
+        });
     });
 
     describe("abort signal", () => {

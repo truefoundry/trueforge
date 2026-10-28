@@ -177,7 +177,8 @@ describe('AgentSessionTimelineContainer', () => {
     expect(await screen.findByText('timeline turns=1')).toBeInTheDocument();
     expect(await screen.findByText('Turn 1')).toBeInTheDocument();
     expect(screen.getByText('Turn')).toBeInTheDocument();
-    expect(screen.getByText('Duration')).toBeInTheDocument();
+    const metricsStrip = container.querySelector('[data-slot="agent-session-metrics-sticky"]');
+    expect(metricsStrip).toHaveTextContent('Duration');
     expect(await screen.findAllByRole('button', { name: 'Copy' })).not.toHaveLength(0);
     expect(container.querySelector('[data-slot="agent-session-scroll"]')).toHaveClass('overflow-y-auto');
     expect(container.querySelector('[data-slot="agent-session-metrics-sticky"]')).toHaveClass(
@@ -192,22 +193,37 @@ describe('AgentSessionTimelineContainer', () => {
     });
   });
 
-  it('shows the empty state when the only turn is still running', async () => {
+  it('renders a running tip with partial events and an incomplete banner', async () => {
+    const runningEvents: SessionEventItem[] = [
+      {
+        turnId: 'turn-running',
+        event: {
+          type: 'turn.created',
+          id: 'c-running',
+          turnId: 'turn-running',
+          previousTurnId: null,
+          input: [{ type: 'user.message', content: 'in flight' }],
+          state: { status: 'running' },
+          createdAt: '2026-01-01T00:00:00.000Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 'turn-running',
+        event: {
+          type: 'model.message',
+          id: 'm1',
+          threadId: 'main',
+          content: 'partial assistant text',
+          createdAt: '2026-01-01T00:00:01.000Z',
+        },
+      },
+    ];
+
     render(
       <SlotsProvider overrides={{ AgentSessionEventTimeline: () => null }}>
         <ServerProvider
           server={createMockAgentUIServer({
-            listTurns: async () => ({
-              data: [
-                {
-                  id: 'turn-running',
-                  sessionId: 'sess-1',
-                  state: { status: 'running' as const },
-                  createdAt: '2026-01-01T00:00:00.000Z',
-                  input: [{ type: 'user.message' as const, content: 'in flight' }],
-                },
-              ],
-            }),
             getTurn: async () => ({
               id: 'turn-running',
               sessionId: 'sess-1',
@@ -228,14 +244,15 @@ describe('AgentSessionTimelineContainer', () => {
             }),
           })}
         >
-          <AgentSessionTimelineContainer sessionId="sess-1" events={[]} />
+          <AgentSessionTimelineContainer sessionId="sess-1" events={runningEvents} />
         </ServerProvider>
       </SlotsProvider>,
     );
 
-    expect(await screen.findByText('This session has no messages yet.')).toBeInTheDocument();
-    expect(screen.queryByText('in flight')).not.toBeInTheDocument();
-    expect(screen.queryByText('partial assistant text')).not.toBeInTheDocument();
+    expect(await screen.findByText('Turn is still in running, all events might not be visible')).toBeInTheDocument();
+    expect(screen.getByText('in flight')).toBeInTheDocument();
+    expect(screen.getByText('partial assistant text')).toBeInTheDocument();
+    expect(screen.queryByText('This session has no messages yet.')).not.toBeInTheDocument();
   });
 
   it('keeps responses in their backend turns and renders terminal failures', async () => {

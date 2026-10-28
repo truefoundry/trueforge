@@ -46,6 +46,8 @@ if typing.TYPE_CHECKING:
     from .chat_completion_message_tool_call import ChatCompletionMessageToolCall
     from .chat_completion_message_tool_call_function import ChatCompletionMessageToolCallFunction
     from .compaction_config import CompactionConfig
+    from .compaction_trigger import CompactionTrigger
+    from .completion_usage import CompletionUsage
     from .components_schemas_tool_approval_policy_allow_session import ComponentsSchemasToolApprovalPolicyAllowSession
     from .configured_mcp_server import ConfiguredMcpServer
     from .configured_model import ConfiguredModel
@@ -116,6 +118,7 @@ if typing.TYPE_CHECKING:
     from .list_schedule_runs_response import ListScheduleRunsResponse
     from .list_schedules_response import ListSchedulesResponse
     from .list_session_events_response import ListSessionEventsResponse
+    from .list_session_grants_response import ListSessionGrantsResponse
     from .list_sessions_order import ListSessionsOrder
     from .list_sessions_response import ListSessionsResponse
     from .list_skill_versions_response import ListSkillVersionsResponse
@@ -123,6 +126,7 @@ if typing.TYPE_CHECKING:
     from .list_turn_events_order import ListTurnEventsOrder
     from .list_turn_events_response import ListTurnEventsResponse
     from .list_turns_response import ListTurnsResponse
+    from .list_users_response import ListUsersResponse
     from .mcp_auth_required_event import McpAuthRequiredEvent
     from .mcp_auth_status import McpAuthStatus
     from .mcp_auth_status_status import McpAuthStatusStatus
@@ -200,6 +204,9 @@ if typing.TYPE_CHECKING:
     from .session_agent_spec_body import SessionAgentSpecBody
     from .session_event import SessionEvent
     from .session_event_item import SessionEventItem
+    from .session_grant import SessionGrant
+    from .session_grant_subject import SessionGrantSubject
+    from .session_grant_subject_type import SessionGrantSubjectType
     from .session_last_turn_details import SessionLastTurnDetails
     from .session_last_turn_state import SessionLastTurnState
     from .session_metadata import SessionMetadata
@@ -223,6 +230,8 @@ if typing.TYPE_CHECKING:
     from .skill_manifest import SkillManifest
     from .skill_version import SkillVersion
     from .text_content import TextContent
+    from .thread_context_compaction_finished_event import ThreadContextCompactionFinishedEvent
+    from .thread_context_compaction_started_event import ThreadContextCompactionStartedEvent
     from .thread_created_event import ThreadCreatedEvent
     from .thread_done_event import ThreadDoneEvent
     from .thread_state import ThreadState
@@ -263,6 +272,7 @@ if typing.TYPE_CHECKING:
     from .turn_streaming_event import TurnStreamingEvent
     from .turn_update_event import TurnUpdateEvent
     from .turn_update_event_state import TurnUpdateEventState
+    from .user import User
     from .user_mcp_auth_continue_event import UserMcpAuthContinueEvent
     from .user_mcp_auth_continue_input_event import UserMcpAuthContinueInputEvent
     from .user_message import UserMessage
@@ -319,6 +329,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ChatCompletionMessageToolCall": ".chat_completion_message_tool_call",
     "ChatCompletionMessageToolCallFunction": ".chat_completion_message_tool_call_function",
     "CompactionConfig": ".compaction_config",
+    "CompactionTrigger": ".compaction_trigger",
+    "CompletionUsage": ".completion_usage",
     "ComponentsSchemasToolApprovalPolicyAllowSession": ".components_schemas_tool_approval_policy_allow_session",
     "ConfiguredMcpServer": ".configured_mcp_server",
     "ConfiguredModel": ".configured_model",
@@ -389,6 +401,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ListScheduleRunsResponse": ".list_schedule_runs_response",
     "ListSchedulesResponse": ".list_schedules_response",
     "ListSessionEventsResponse": ".list_session_events_response",
+    "ListSessionGrantsResponse": ".list_session_grants_response",
     "ListSessionsOrder": ".list_sessions_order",
     "ListSessionsResponse": ".list_sessions_response",
     "ListSkillVersionsResponse": ".list_skill_versions_response",
@@ -396,6 +409,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ListTurnEventsOrder": ".list_turn_events_order",
     "ListTurnEventsResponse": ".list_turn_events_response",
     "ListTurnsResponse": ".list_turns_response",
+    "ListUsersResponse": ".list_users_response",
     "McpAuthRequiredEvent": ".mcp_auth_required_event",
     "McpAuthStatus": ".mcp_auth_status",
     "McpAuthStatusStatus": ".mcp_auth_status_status",
@@ -473,6 +487,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SessionAgentSpecBody": ".session_agent_spec_body",
     "SessionEvent": ".session_event",
     "SessionEventItem": ".session_event_item",
+    "SessionGrant": ".session_grant",
+    "SessionGrantSubject": ".session_grant_subject",
+    "SessionGrantSubjectType": ".session_grant_subject_type",
     "SessionLastTurnDetails": ".session_last_turn_details",
     "SessionLastTurnState": ".session_last_turn_state",
     "SessionMetadata": ".session_metadata",
@@ -496,6 +513,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SkillManifest": ".skill_manifest",
     "SkillVersion": ".skill_version",
     "TextContent": ".text_content",
+    "ThreadContextCompactionFinishedEvent": ".thread_context_compaction_finished_event",
+    "ThreadContextCompactionStartedEvent": ".thread_context_compaction_started_event",
     "ThreadCreatedEvent": ".thread_created_event",
     "ThreadDoneEvent": ".thread_done_event",
     "ThreadState": ".thread_state",
@@ -536,6 +555,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TurnStreamingEvent": ".turn_streaming_event",
     "TurnUpdateEvent": ".turn_update_event",
     "TurnUpdateEventState": ".turn_update_event_state",
+    "User": ".user",
     "UserMcpAuthContinueEvent": ".user_mcp_auth_continue_event",
     "UserMcpAuthContinueInputEvent": ".user_mcp_auth_continue_input_event",
     "UserMessage": ".user_message",
@@ -616,6 +636,8 @@ __all__ = [
     "ChatCompletionMessageToolCall",
     "ChatCompletionMessageToolCallFunction",
     "CompactionConfig",
+    "CompactionTrigger",
+    "CompletionUsage",
     "ComponentsSchemasToolApprovalPolicyAllowSession",
     "ConfiguredMcpServer",
     "ConfiguredModel",
@@ -686,6 +708,7 @@ __all__ = [
     "ListScheduleRunsResponse",
     "ListSchedulesResponse",
     "ListSessionEventsResponse",
+    "ListSessionGrantsResponse",
     "ListSessionsOrder",
     "ListSessionsResponse",
     "ListSkillVersionsResponse",
@@ -693,6 +716,7 @@ __all__ = [
     "ListTurnEventsOrder",
     "ListTurnEventsResponse",
     "ListTurnsResponse",
+    "ListUsersResponse",
     "McpAuthRequiredEvent",
     "McpAuthStatus",
     "McpAuthStatusStatus",
@@ -770,6 +794,9 @@ __all__ = [
     "SessionAgentSpecBody",
     "SessionEvent",
     "SessionEventItem",
+    "SessionGrant",
+    "SessionGrantSubject",
+    "SessionGrantSubjectType",
     "SessionLastTurnDetails",
     "SessionLastTurnState",
     "SessionMetadata",
@@ -793,6 +820,8 @@ __all__ = [
     "SkillManifest",
     "SkillVersion",
     "TextContent",
+    "ThreadContextCompactionFinishedEvent",
+    "ThreadContextCompactionStartedEvent",
     "ThreadCreatedEvent",
     "ThreadDoneEvent",
     "ThreadState",
@@ -833,6 +862,7 @@ __all__ = [
     "TurnStreamingEvent",
     "TurnUpdateEvent",
     "TurnUpdateEventState",
+    "User",
     "UserMcpAuthContinueEvent",
     "UserMcpAuthContinueInputEvent",
     "UserMessage",
