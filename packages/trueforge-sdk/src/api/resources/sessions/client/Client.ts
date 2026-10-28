@@ -282,7 +282,7 @@ export class SessionsClient {
     }
 
     /**
-     * Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+     * Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or anyone the session is shared with.
      *
      * @param {string} session_id - Session identifier.
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
@@ -453,7 +453,7 @@ export class SessionsClient {
     }
 
     /**
-     * Update a session: optional `title`, `metadata`, `shared`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
+     * Update a session: optional `title`, `metadata`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
      *
      * @param {string} session_id - Session identifier.
      * @param {TrueForge.UpdateSessionRequest} request
@@ -717,7 +717,7 @@ export class SessionsClient {
     }
 
     /**
-     * List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+     * List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or anyone the session is shared with.
      *
      * @param {string} session_id - Session identifier.
      * @param {TrueForge.ListEventsSessionsRequest} request
@@ -950,7 +950,7 @@ export class SessionsClient {
     }
 
     /**
-     * Share this session with subjects and remove access for others in one atomic request. Granting an existing subject or revoking one without access is a no-op. Returns every subject the session is shared with.
+     * Share this session with subjects and remove access for others in one atomic request. Subjects get read access to the session, its turns and its events. A `tenant` subject, whose `subject_id` must be your tenant ID, shares with everyone in the tenant. Granting an existing subject or revoking one without access is a no-op. Returns every subject the session is shared with.
      *
      * @param {string} session_id - Session identifier.
      * @param {TrueForge.UpdateSessionGrantsRequest} request
@@ -1088,7 +1088,7 @@ export class SessionsClient {
     }
 
     /**
-     * List turns for a session (newest first by default), token-paginated. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+     * List turns for a session (newest first by default), token-paginated. Allowed for the creator, a manager of the bound named agent, or anyone the session is shared with.
      *
      * @param {string} session_id - Session identifier.
      * @param {TrueForge.ListTurnsSessionsRequest} request
@@ -1575,7 +1575,7 @@ export class SessionsClient {
     }
 
     /**
-     * Fetch a single turn by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+     * Fetch a single turn by ID. Allowed for the creator, a manager of the bound named agent, or anyone the session is shared with.
      *
      * @param {string} session_id - Session identifier.
      * @param {string} turn_id - Turn identifier.
@@ -1838,7 +1838,7 @@ export class SessionsClient {
     }
 
     /**
-     * Paginated persisted events for a turn (insertion order by default). Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+     * Paginated persisted events for a turn (insertion order by default). Allowed for the creator, a manager of the bound named agent, or anyone the session is shared with.
      *
      * @param {string} session_id - Session identifier.
      * @param {string} turn_id - Turn identifier.

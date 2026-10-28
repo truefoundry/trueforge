@@ -182,7 +182,7 @@ class SessionsClient:
 
     def get(self, *, session_id: str, request_options: typing.Optional[RequestOptions] = None) -> GetSessionResponse:
         """
-        Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+        Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or anyone the session is shared with.
 
         Parameters
         ----------
@@ -249,12 +249,11 @@ class SessionsClient:
         session_id: str,
         agent: typing.Optional[SessionAgentSpecBody] = OMIT,
         metadata: typing.Optional[SessionMetadata] = OMIT,
-        shared: typing.Optional[bool] = OMIT,
         title: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetSessionResponse:
         """
-        Update a session: optional `title`, `metadata`, `shared`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
+        Update a session: optional `title`, `metadata`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
 
         Parameters
         ----------
@@ -264,9 +263,6 @@ class SessionsClient:
         agent : typing.Optional[SessionAgentSpecBody]
 
         metadata : typing.Optional[SessionMetadata]
-
-        shared : typing.Optional[bool]
-            When true, any subject in the tenant may read this session and its turns/events by id.
 
         title : typing.Optional[str]
             Human-readable session title.
@@ -292,12 +288,7 @@ class SessionsClient:
         )
         """
         _response = self._raw_client.update(
-            session_id=session_id,
-            agent=agent,
-            metadata=metadata,
-            shared=shared,
-            title=title,
-            request_options=request_options,
+            session_id=session_id, agent=agent, metadata=metadata, title=title, request_options=request_options
         )
         return _response.data
 
@@ -345,7 +336,7 @@ class SessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[SessionEventItem, ListSessionEventsResponse]:
         """
-        List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+        List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or anyone the session is shared with.
 
         Parameters
         ----------
@@ -437,7 +428,7 @@ class SessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ListSessionGrantsResponse:
         """
-        Share this session with subjects and remove access for others in one atomic request. Granting an existing subject or revoking one without access is a no-op. Returns every subject the session is shared with.
+        Share this session with subjects and remove access for others in one atomic request. Subjects get read access to the session, its turns and its events. A `tenant` subject, whose `subject_id` must be your tenant ID, shares with everyone in the tenant. Granting an existing subject or revoking one without access is a no-op. Returns every subject the session is shared with.
 
         Parameters
         ----------
@@ -484,7 +475,7 @@ class SessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[Turn, ListTurnsResponse]:
         """
-        List turns for a session (newest first by default), token-paginated. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+        List turns for a session (newest first by default), token-paginated. Allowed for the creator, a manager of the bound named agent, or anyone the session is shared with.
 
         Parameters
         ----------
@@ -636,7 +627,7 @@ class SessionsClient:
         self, *, session_id: str, turn_id: str, request_options: typing.Optional[RequestOptions] = None
     ) -> GetTurnResponse:
         """
-        Fetch a single turn by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+        Fetch a single turn by ID. Allowed for the creator, a manager of the bound named agent, or anyone the session is shared with.
 
         Parameters
         ----------
@@ -725,7 +716,7 @@ class SessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[SessionEvent, ListTurnEventsResponse]:
         """
-        Paginated persisted events for a turn (insertion order by default). Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+        Paginated persisted events for a turn (insertion order by default). Allowed for the creator, a manager of the bound named agent, or anyone the session is shared with.
 
         Parameters
         ----------
@@ -1050,7 +1041,7 @@ class AsyncSessionsClient:
         self, *, session_id: str, request_options: typing.Optional[RequestOptions] = None
     ) -> GetSessionResponse:
         """
-        Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+        Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or anyone the session is shared with.
 
         Parameters
         ----------
@@ -1133,12 +1124,11 @@ class AsyncSessionsClient:
         session_id: str,
         agent: typing.Optional[SessionAgentSpecBody] = OMIT,
         metadata: typing.Optional[SessionMetadata] = OMIT,
-        shared: typing.Optional[bool] = OMIT,
         title: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetSessionResponse:
         """
-        Update a session: optional `title`, `metadata`, `shared`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
+        Update a session: optional `title`, `metadata`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
 
         Parameters
         ----------
@@ -1148,9 +1138,6 @@ class AsyncSessionsClient:
         agent : typing.Optional[SessionAgentSpecBody]
 
         metadata : typing.Optional[SessionMetadata]
-
-        shared : typing.Optional[bool]
-            When true, any subject in the tenant may read this session and its turns/events by id.
 
         title : typing.Optional[str]
             Human-readable session title.
@@ -1184,12 +1171,7 @@ class AsyncSessionsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.update(
-            session_id=session_id,
-            agent=agent,
-            metadata=metadata,
-            shared=shared,
-            title=title,
-            request_options=request_options,
+            session_id=session_id, agent=agent, metadata=metadata, title=title, request_options=request_options
         )
         return _response.data
 
@@ -1245,7 +1227,7 @@ class AsyncSessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[SessionEventItem, ListSessionEventsResponse]:
         """
-        List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+        List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or anyone the session is shared with.
 
         Parameters
         ----------
@@ -1354,7 +1336,7 @@ class AsyncSessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ListSessionGrantsResponse:
         """
-        Share this session with subjects and remove access for others in one atomic request. Granting an existing subject or revoking one without access is a no-op. Returns every subject the session is shared with.
+        Share this session with subjects and remove access for others in one atomic request. Subjects get read access to the session, its turns and its events. A `tenant` subject, whose `subject_id` must be your tenant ID, shares with everyone in the tenant. Granting an existing subject or revoking one without access is a no-op. Returns every subject the session is shared with.
 
         Parameters
         ----------
@@ -1409,7 +1391,7 @@ class AsyncSessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[Turn, ListTurnsResponse]:
         """
-        List turns for a session (newest first by default), token-paginated. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+        List turns for a session (newest first by default), token-paginated. Allowed for the creator, a manager of the bound named agent, or anyone the session is shared with.
 
         Parameters
         ----------
@@ -1587,7 +1569,7 @@ class AsyncSessionsClient:
         self, *, session_id: str, turn_id: str, request_options: typing.Optional[RequestOptions] = None
     ) -> GetTurnResponse:
         """
-        Fetch a single turn by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+        Fetch a single turn by ID. Allowed for the creator, a manager of the bound named agent, or anyone the session is shared with.
 
         Parameters
         ----------
@@ -1695,7 +1677,7 @@ class AsyncSessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[SessionEvent, ListTurnEventsResponse]:
         """
-        Paginated persisted events for a turn (insertion order by default). Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+        Paginated persisted events for a turn (insertion order by default). Allowed for the creator, a manager of the bound named agent, or anyone the session is shared with.
 
         Parameters
         ----------

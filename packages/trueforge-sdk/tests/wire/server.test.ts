@@ -12,6 +12,7 @@ describe("ServerClient", () => {
         const rawResponseBody = {
             data: {
                 sandbox: { enabled: true },
+                session_sharing: { users: true },
                 settings: { enabled: true },
                 skill: { enabled: true, reason: "reason" },
                 web_search: { enabled: true },
@@ -31,6 +32,9 @@ describe("ServerClient", () => {
             data: {
                 sandbox: {
                     enabled: true,
+                },
+                sessionSharing: {
+                    users: true,
                 },
                 settings: {
                     enabled: true,

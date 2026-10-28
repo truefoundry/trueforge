@@ -12,7 +12,7 @@ export interface Session {
     lastTurnDetails: TrueForge.SessionLastTurnDetails | null;
     metadata: TrueForge.SessionMetadata;
     metrics: TrueForge.SessionMetrics;
-    /** When true, any subject in the tenant may read this session and its turns/events by id. */
+    /** Whether the session is shared with everyone in the tenant (a `tenant` grant). Change it through the session grants API. */
     shared: boolean;
     source: TrueForge.SessionSource | null;
     /** Optional human-readable title; null until set. */

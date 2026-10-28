@@ -12,7 +12,6 @@ export const UpdateSessionRequest: core.serialization.Schema<
 > = core.serialization.object({
     agent: SessionAgentSpecBody.optional(),
     metadata: SessionMetadata.optional(),
-    shared: core.serialization.boolean().optional(),
     title: core.serialization.string().optional(),
 });
 
@@ -20,7 +19,6 @@ export declare namespace UpdateSessionRequest {
     export interface Raw {
         agent?: SessionAgentSpecBody.Raw | null;
         metadata?: SessionMetadata.Raw | null;
-        shared?: boolean | null;
         title?: string | null;
     }
 }

@@ -31,7 +31,7 @@ class Session(UncheckedBaseModel):
     metrics: SessionMetrics
     shared: bool = pydantic.Field()
     """
-    When true, any subject in the tenant may read this session and its turns/events by id.
+    Whether the session is shared with everyone in the tenant (a `tenant` grant). Change it through the session grants API.
     """
 
     source: typing.Optional[SessionSource] = None
