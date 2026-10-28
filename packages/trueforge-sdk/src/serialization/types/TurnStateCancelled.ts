@@ -3,7 +3,7 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { TurnStateCancelledMetrics } from "./TurnStateCancelledMetrics.js";
+import { TurnMetrics } from "./TurnMetrics.js";
 import { TurnStateCancelledReason } from "./TurnStateCancelledReason.js";
 
 export const TurnStateCancelled: core.serialization.ObjectSchema<
@@ -11,7 +11,7 @@ export const TurnStateCancelled: core.serialization.ObjectSchema<
     TrueForge.TurnStateCancelled
 > = core.serialization.object({
     completedAt: core.serialization.property("completed_at", core.serialization.string()),
-    metrics: TurnStateCancelledMetrics.optional(),
+    metrics: TurnMetrics.optional(),
     reason: TurnStateCancelledReason,
     status: core.serialization.stringLiteral("cancelled"),
 });
@@ -19,7 +19,7 @@ export const TurnStateCancelled: core.serialization.ObjectSchema<
 export declare namespace TurnStateCancelled {
     export interface Raw {
         completed_at: string;
-        metrics?: TurnStateCancelledMetrics.Raw | null;
+        metrics?: TurnMetrics.Raw | null;
         reason: TurnStateCancelledReason.Raw;
         status: "cancelled";
     }

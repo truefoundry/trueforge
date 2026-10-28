@@ -5,8 +5,7 @@ import type * as TrueForge from "../index.js";
 export interface TurnStateDone {
     /** ISO 8601 time when the turn reached a terminal state. */
     completedAt: string;
-    /** Optional billable aggregate for the whole turn. */
-    metrics?: TrueForge.TurnStateDoneMetrics;
+    metrics?: TrueForge.TurnMetrics;
     /** Final `model.message` for the turn, or null when the turn ended without a final message. */
     output: TrueForge.ModelMessageEvent | null;
     /** Pending actions (`tool.approval_required`, `tool.response_required`, `mcp.auth_required`); empty when none. */

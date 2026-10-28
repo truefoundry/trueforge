@@ -7,7 +7,7 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
 from .action_required_event import ActionRequiredEvent
 from .model_message_event import ModelMessageEvent
-from .turn_state_done_metrics import TurnStateDoneMetrics
+from .turn_metrics import TurnMetrics
 
 
 class TurnStateDone(UncheckedBaseModel):
@@ -16,11 +16,7 @@ class TurnStateDone(UncheckedBaseModel):
     ISO 8601 time when the turn reached a terminal state.
     """
 
-    metrics: typing.Optional[TurnStateDoneMetrics] = pydantic.Field(default=None)
-    """
-    Optional billable aggregate for the whole turn.
-    """
-
+    metrics: typing.Optional[TurnMetrics] = None
     output: typing.Optional[ModelMessageEvent] = pydantic.Field(default=None)
     """
     Final `model.message` for the turn, or null when the turn ended without a final message.

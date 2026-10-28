@@ -5,7 +5,7 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .turn_state_error_metrics import TurnStateErrorMetrics
+from .turn_metrics import TurnMetrics
 
 
 class TurnStateError(UncheckedBaseModel):
@@ -19,11 +19,7 @@ class TurnStateError(UncheckedBaseModel):
     Human-readable error message.
     """
 
-    metrics: typing.Optional[TurnStateErrorMetrics] = pydantic.Field(default=None)
-    """
-    Optional billable aggregate for work done before the error.
-    """
-
+    metrics: typing.Optional[TurnMetrics] = None
     status: typing.Literal["error"] = "error"
 
     if IS_PYDANTIC_V2:

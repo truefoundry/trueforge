@@ -5,12 +5,12 @@ import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { ActionRequiredEvent } from "./ActionRequiredEvent.js";
 import { ModelMessageEvent } from "./ModelMessageEvent.js";
-import { TurnStateDoneMetrics } from "./TurnStateDoneMetrics.js";
+import { TurnMetrics } from "./TurnMetrics.js";
 
 export const TurnStateDone: core.serialization.ObjectSchema<serializers.TurnStateDone.Raw, TrueForge.TurnStateDone> =
     core.serialization.object({
         completedAt: core.serialization.property("completed_at", core.serialization.string()),
-        metrics: TurnStateDoneMetrics.optional(),
+        metrics: TurnMetrics.optional(),
         output: ModelMessageEvent.nullable(),
         requiredActions: core.serialization.property("required_actions", core.serialization.list(ActionRequiredEvent)),
         status: core.serialization.stringLiteral("done"),
@@ -19,7 +19,7 @@ export const TurnStateDone: core.serialization.ObjectSchema<serializers.TurnStat
 export declare namespace TurnStateDone {
     export interface Raw {
         completed_at: string;
-        metrics?: TurnStateDoneMetrics.Raw | null;
+        metrics?: TurnMetrics.Raw | null;
         output?: ModelMessageEvent.Raw | null;
         required_actions: ActionRequiredEvent.Raw[];
         status: "done";

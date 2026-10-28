@@ -5657,14 +5657,7 @@
             "type": "string"
           },
           "metrics": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/TurnMetrics"
-              },
-              {
-                "description": "Optional billable aggregate for work done before cancel."
-              }
-            ]
+            "$ref": "#/components/schemas/TurnMetrics"
           },
           "reason": {
             "$ref": "#/components/schemas/TurnStateCancelledReason"
@@ -5701,14 +5694,7 @@
             "type": "string"
           },
           "metrics": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/TurnMetrics"
-              },
-              {
-                "description": "Optional billable aggregate for the whole turn."
-              }
-            ]
+            "$ref": "#/components/schemas/TurnMetrics"
           },
           "output": {
             "anyOf": [
@@ -5755,14 +5741,7 @@
             "type": "string"
           },
           "metrics": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/TurnMetrics"
-              },
-              {
-                "description": "Optional billable aggregate for work done before the error."
-              }
-            ]
+            "$ref": "#/components/schemas/TurnMetrics"
           },
           "status": {
             "description": "Turn ended with an error.",
