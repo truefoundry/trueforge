@@ -63,6 +63,7 @@ export const TurnMetricsSchema = z
       .describe('Total reasoning tokens across model calls in this turn.'),
     total_cost_in_usd: z.number().nonnegative().optional().describe('Estimated total cost in USD for this turn.'),
   })
+  .describe('Billable aggregate for this turn so far.')
   .openapi('TurnMetrics');
 
 export const TurnStateRunningSchema = z
@@ -74,7 +75,7 @@ export const TurnStateRunningSchema = z
 export const TurnStatePausedSchema = z
   .object({
     status: z.literal(TurnStatusSchema.enum.paused).describe('Turn is paused waiting for user actions.'),
-    metrics: TurnMetricsSchema.optional().describe('Billable aggregate for this turn so far.'),
+    metrics: TurnMetricsSchema.optional(),
   })
   .openapi('TurnStatePaused');
 
@@ -88,7 +89,7 @@ export const TurnStateCancelledSchema = z
     status: z.literal(TurnStatusSchema.enum.cancelled).describe('Turn was cancelled before completion.'),
     reason: TurnStateCancelledReasonSchema,
     completed_at: z.string().describe('ISO 8601 time when cancellation completed.'),
-    metrics: TurnMetricsSchema.optional().describe('Optional billable aggregate for work done before cancel.'),
+    metrics: TurnMetricsSchema.optional(),
   })
   .openapi('TurnStateCancelled');
 
@@ -97,7 +98,7 @@ export const TurnStateErrorSchema = z
     status: z.literal(TurnStatusSchema.enum.error).describe('Turn ended with an error.'),
     message: z.string().describe('Human-readable error message.'),
     completed_at: z.string().describe('ISO 8601 time when the error state was recorded.'),
-    metrics: TurnMetricsSchema.optional().describe('Optional billable aggregate for work done before the error.'),
+    metrics: TurnMetricsSchema.optional(),
   })
   .openapi('TurnStateError');
 
@@ -113,7 +114,7 @@ export const TurnStateDoneSchema = z
         'Pending actions (`tool.approval_required`, `tool.response_required`, `mcp.auth_required`); empty when none.',
       ),
     completed_at: z.string().describe('ISO 8601 time when the turn reached a terminal state.'),
-    metrics: TurnMetricsSchema.optional().describe('Optional billable aggregate for the whole turn.'),
+    metrics: TurnMetricsSchema.optional(),
   })
   .openapi('TurnStateDone');
 
