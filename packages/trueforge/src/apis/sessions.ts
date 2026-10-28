@@ -271,8 +271,8 @@ function isSessionOwner({
 const FORBIDDEN_SESSION_ACCESS_MANAGEMENT = 'Only the session creator can manage access to this session';
 
 /** Session the caller created; 404 when missing, 403 for anyone else. */
-async function requireOwnedSession(
-  deps: Pick<SessionsRouterDeps, 'sessionStore' | 'resolveRequestContext'>,
+async function requireOwnedSession<TTransaction>(
+  deps: Pick<SessionsRouterDeps<TTransaction>, 'sessionStore' | 'resolveRequestContext'>,
   input: { c: Context; session_id: string },
 ): Promise<{ requestContext: RequestContext; record: SessionRecord }> {
   const requestContext = deps.resolveRequestContext(input.c);

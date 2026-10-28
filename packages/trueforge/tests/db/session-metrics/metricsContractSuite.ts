@@ -61,7 +61,7 @@ export function runSessionMetricsStoreContractSuite(
         turn_id: 'metrics-turn',
         state,
         turn_done_event: makeTurnDoneEvent(state),
-        metrics: createEmptyAgentThreadMetrics(),
+        metrics: { ...createEmptyAgentThreadMetrics(), total_cost_in_usd: 1.25 },
       });
 
       const metricsQuery = {

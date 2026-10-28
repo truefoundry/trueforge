@@ -6,7 +6,7 @@ import type { AgentThreadMetrics } from '../../core/runtime/metrics';
 import type { SandboxInfo } from '../../core/sandbox/Sandbox';
 import type { SessionRecord } from '../models/SessionRecord';
 import type { TurnRecord } from '../models/TurnRecord';
-import type { PersistedTurnEvent, SessionEventItem, TurnUpdateEvent } from '../schemas/events';
+import type { PersistedTurnEvent, SessionEventItem, TurnDoneEvent, TurnUpdateEvent } from '../schemas/events';
 import type { TokenPagination } from '../schemas/pagination';
 import type { SessionMetadata } from '../schemas/session';
 import type {
@@ -154,7 +154,7 @@ export interface FreezeAndGetTurnInput {
   /** Written onto the turn row when the freeze actually cancels a running turn. */
   reason: CancellationReason;
   /** Caller-built cancelled turn.done event; store persists atomically with state flip when it cancels. */
-  turn_done_event: PersistedTurnEvent;
+  turn_done_event: TurnDoneEvent;
 }
 
 export interface GetTurnInput {
@@ -179,7 +179,7 @@ export interface UpdateTurnTerminalStateInput extends TurnProgressKeys {
   state: TerminalTurnState;
   /** Caller-built turn.done; written atomically with the state flip. */
   turn_done_event: PersistedTurnEvent;
-  /** Full aggregate stored on the checkpoint. Session cost uses `state.metrics`. */
+  /** Stretch since the last checkpoint. Added to the turn checkpoint and to session cost. */
   metrics: AgentThreadMetrics;
 }
 
