@@ -3,7 +3,7 @@ import type { Logger } from 'winston';
 import { describeContentSize, estimateTokensForString } from '../../llm/usage';
 import type { ToolCallResult } from '../../mcp/executeToolCalls';
 import { getOperationMetrics } from '../../observability/operationMetrics';
-import { GET_TOOL_INFO_NAME } from '../../runtime/DeferredTool';
+import { DEFERRED_TOOLS_SERVER_ID, GET_TOOL_INFO_NAME } from '../../runtime/DeferredTool';
 import type { CurrentContextUsage } from '../../runtime/contextUsage';
 import type { HarnessSandbox, SandboxInfo } from '../../sandbox/Sandbox';
 import { createSandboxLargeToolResponseGuidance, SANDBOX_SCHEMA_INFER_TAG } from '../../sandbox/Sandbox';
@@ -71,11 +71,12 @@ function elevatedCharacterLimit(remainingChars: number | undefined): number {
 }
 
 function isWithinElevatedCharacterLimit(entry: ToolResultWithInfo, limit: number): boolean {
-  const toolName = entry.toolCallResult.info?.originalToolName;
-  if (toolName === undefined || !ELEVATED_TOOLS.has(toolName)) {
+  const info = entry.toolCallResult.info;
+  // Name alone is not enough: a preloaded remote MCP tool can also be called get_tool_info.
+  if (info?.toolSet.name !== DEFERRED_TOOLS_SERVER_ID) {
     return false;
   }
-  return entry.originalContent.length <= limit;
+  return ELEVATED_TOOLS.has(info.originalToolName) && entry.originalContent.length <= limit;
 }
 
 export class LargeToolResponseProcessor implements ToolResponseProcessor {
@@ -112,11 +113,11 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
     return String(this.individualTokenThreshold * 4);
   }
 
-  // An entry at/above the individual threshold was blocked for its own size; below it, only the combined limit can block it.
+  // Strict `>` so a response at the stated character cap (threshold * 4) is allowed, matching guidance.
   private blockReasonDescription(entry: ToolResultWithInfo): string {
     const perResponse = this.individualResponseCharacterLimit();
     const combined = String(this.totalTokenThreshold * 4);
-    return entry.originalTokens >= this.individualTokenThreshold
+    return entry.originalTokens > this.individualTokenThreshold
       ? `this exceeds the ${perResponse}-character tool call response limit`
       : `the parallel tool call responses together exceed the ${combined}-character combined tool call response limit`;
   }
@@ -278,7 +279,7 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
     const resultsWithInfo = this.buildResultsWithInfo({ results, sandbox, elevatedLimit });
     let runningTotal = resultsWithInfo.reduce((sum, e) => sum + e.originalTokens, 0);
 
-    if (runningTotal < this.individualTokenThreshold) {
+    if (runningTotal <= this.individualTokenThreshold) {
       return {};
     }
 
@@ -286,7 +287,7 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
 
     const unblocked: ToolResultWithInfo[] = [];
     for (const entry of resultsWithInfo) {
-      if (entry.originalTokens >= this.individualTokenThreshold) {
+      if (entry.originalTokens > this.individualTokenThreshold) {
         runningTotal -= this.blockResult(entry, pendingSandboxDumps, sandbox, 'large_tool_response_individual');
       } else {
         unblocked.push(entry);
