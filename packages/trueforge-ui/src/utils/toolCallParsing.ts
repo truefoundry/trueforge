@@ -13,7 +13,6 @@ export type ApprovalOptionView = {
 
 export const SUB_AGENT_TOOL_NAME = 'create_sub_agent';
 export const ASK_USER_TOOL_NAME = 'ask_user_question';
-export const ASK_USER_SECRET_TOOL_NAME = 'ask_user_secret';
 
 /** Tool names that should be rendered as a sandbox execution card. */
 export const SANDBOX_TOOL_NAMES = new Set(['exec', 'sandbox_exec']);

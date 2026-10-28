@@ -85,17 +85,6 @@ describe('AskUserContainer', () => {
     useToolResponses.mockReturnValue({ pending: [], respond });
   });
 
-  it('does not render a plaintext answer for ask_user_secret', () => {
-    useToolResponses.mockReturnValue({
-      pending: [{ toolCallId: 'secret-1', toolName: 'ask_user_secret', question: 'Paste the token', options: [] }],
-      respond,
-    });
-    renderSubject();
-
-    expect(screen.queryByTestId('ask-user-probe')).not.toBeInTheDocument();
-    expect(respond).not.toHaveBeenCalled();
-  });
-
   it('renders nothing while there is no pending question', () => {
     renderSubject();
 

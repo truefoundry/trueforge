@@ -231,17 +231,6 @@ function ComposerWithOptionalDraft({
   return <ComposerBody placeholder={placeholder} connectedToBanner={connectedToBanner} />;
 }
 
-function SecretUnavailableNotice() {
-  return (
-    <p
-      data-slot="aui_secret-unavailable"
-      className="mx-auto w-[calc(100%-2rem)] rounded-lg border border-border bg-primary-bg px-4 py-3 font-sans text-sm text-text-secondary"
-    >
-      This agent asked for a secret. This chat does not collect it.
-    </p>
-  );
-}
-
 export function ComposerContainer({
   placeholder = 'Ask anything... (Shift+Enter for new line)',
 }: ComposerContainerProps) {
@@ -255,8 +244,6 @@ export function ComposerContainer({
       <CustomActionContainer disabled={!canManageSession} />
     ) : pauseView.kind === 'ask-user' ? (
       <AskUserContainer disabled={!canManageSession} />
-    ) : pauseView.kind === 'secret-unavailable' ? (
-      <SecretUnavailableNotice />
     ) : pauseView.kind === 'approval' ? (
       <ApprovalNavContainer />
     ) : null;
