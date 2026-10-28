@@ -1,5 +1,42 @@
 # Changelog
 
+## 0.181.0
+
+### Patch Changes
+
+- af832dc: Always show max tokens and reasoning effort in Agent Config, with playground fallbacks when the model does not advertise them.
+- 47b8bb3: Dense Agents library rows: nest creator under the name, two-line configuration, and per-page sessions/spend/14d sparkline/last-run when metrics are available.
+- e02faa5: Render ask-question prompt text as Markdown so bold and lists display correctly.
+- 8f1a03c: Fix sandbox artifact download when the path contains parentheses.
+- 258f528: Keep the Build Agent config when starting a new chat, confirm before Reset, and honor a stored sandbox environment name.
+- 9bed345: Emit `thread.context_compaction_started` / `thread.context_compaction_finished` around context compaction (trigger, usage, duration_ms).
+- 28f5105: Allow entering a custom cron expression when creating or editing a schedule.
+- 67fc305: Default the reasoning effort to `medium` when the selected model offers it, instead of defaulting to the lowest effort. TrueFoundry model listing now passes `mergeParams` to the provider-integrations API so provider-level parameter defaults are included in each model's advertised parameters.
+- c9702cb: Fix model and tools controls reappearing when reopening a new chat created with a saved agent.
+- 4dc8aeb: Route shared-session viewers to the read-only session view and hide in-flight turns.
+- f6aa5d3: Edit agent instructions in a Monaco markdown editor with line numbers, folding, and a full-screen mode.
+- e02faa5: Restore bullet and number markers for Markdown lists.
+- 7fbb394: Let context, cost-per-turn, and tool-call metric tooltips scroll when the list or a label is too long to fit.
+- e057a23: Keep web search enabled by default in New Chat when the web search capability is available.
+- 0c071f6: Default reasoning effort now follows `medium` → `high` → `low` in both the draft (New Chat) composer and the agent builder (Agent Config) when the selected model does not offer `medium`, instead of falling back to the lowest offered effort.
+- 90c7b1c: Unify admin checks with `hasAdminRole` (tenant-admin in TrueFoundry) and gate sandbox environment create to admins while allowing the creator or an admin to update or delete. Expose schedule and sandbox environment `MANAGE`/`DELETE` (and tenant `sandbox_environment` `CREATE`) via list-permissions so the UI matches the API; settings access remains disabled in TrueFoundry via `canAccessSettings`.
+- 1825269: Show check and triangle-alert icons on sandbox environment Ready and Failed status badges.
+- 36f95f5: Open the linked session in the Sessions page when clicking a schedule run on the Schedules page.
+- 5da7916: Show a token breakdown donut next to the session Tokens metric.
+- 457d16e: Show the model name in each turn header of the session view.
+- 3171ad8: Show sub-agent model time between tool-only replies on the session timeline.
+- 7fbb394: Let the session timeline chart scroll horizontally when a session has many turns.
+- 8f5b347: Show each turn's created and completed time in the session timeline hover.
+- Updated dependencies [5bb093e]
+- Updated dependencies [9bed345]
+- Updated dependencies [2b88c4b]
+- Updated dependencies [90c7b1c]
+- Updated dependencies [36f95f5]
+- Updated dependencies [457d16e]
+- Updated dependencies [28f5105]
+  - @truefoundry/trueforge-sdk@0.181.0
+  - @truefoundry/trueforge-assistant-ui-runtime@0.181.0
+
 ## 0.181.0-rc.1
 
 ### Patch Changes

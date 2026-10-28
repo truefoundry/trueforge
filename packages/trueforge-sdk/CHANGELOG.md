@@ -1,3 +1,5 @@
+## [0.181.0] - 2026-10-28
+
 ## [0.181.0-rc.1] - 2026-10-26
 
 ## [0.180.0] - 2026-10-23
@@ -23,6 +25,13 @@
 ## [0.2.1] - 2026-09-29
 
 ## [0.2.1-rc.0] - 2026-09-22
+
+## 0.181.0
+
+### Patch Changes
+
+- 5bb093e: Regenerate SDK from updated OpenAPI spec.
+- 90c7b1c: Unify admin checks with `hasAdminRole` (tenant-admin in TrueFoundry) and gate sandbox environment create to admins while allowing the creator or an admin to update or delete. Expose schedule and sandbox environment `MANAGE`/`DELETE` (and tenant `sandbox_environment` `CREATE`) via list-permissions so the UI matches the API; settings access remains disabled in TrueFoundry via `canAccessSettings`.
 
 ## 0.181.0-rc.1
 

@@ -1,5 +1,16 @@
 # @truefoundry/trueforge-assistant-ui-runtime
 
+## 0.181.0
+
+### Patch Changes
+
+- 9bed345: Emit `thread.context_compaction_started` / `thread.context_compaction_finished` around context compaction (trigger, usage, duration_ms).
+- 2b88c4b: Paint a loaded session from its events window before confirming the tip, and stop fetching the oldest turn to decide whether that tip is still running. A send that applies its message in that window is kept, a send that fails before then still lets the load finish, and a tip that finishes before its done event is still shown.
+- 90c7b1c: Unify admin checks with `hasAdminRole` (tenant-admin in TrueFoundry) and gate sandbox environment create to admins while allowing the creator or an admin to update or delete. Expose schedule and sandbox environment `MANAGE`/`DELETE` (and tenant `sandbox_environment` `CREATE`) via list-permissions so the UI matches the API; settings access remains disabled in TrueFoundry via `canAccessSettings`.
+- 36f95f5: Open the linked session in the Sessions page when clicking a schedule run on the Schedules page.
+- 457d16e: Show the model name in each turn header of the session view.
+- 28f5105: Stop showing a "cancelled" banner on a turn that paused for user input when the user sends a new message instead of answering.
+
 ## 0.181.0-rc.1
 
 ### Patch Changes
