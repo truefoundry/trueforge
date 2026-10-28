@@ -24,7 +24,7 @@ export type ModelSetConfig = Record<string, ModelSetEntry>;
 export function createDynamicSubAgentLargeToolResponseGuidance(): string {
   return dedent`
     For large unstructured output like web search, documentation lookup, or broad search results,
-    the Agent should prefer delegating to a sub-agent and ask it to return only the relevant summary, with citations
+    it SHOULD prefer delegating to a sub-agent and MUST ask it to return only the relevant summary, with citations
     when they improve verification.`;
 }
 
