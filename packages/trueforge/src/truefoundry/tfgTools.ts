@@ -1,22 +1,51 @@
 import {
   ClientSideTool,
-  defineTool,
   toolResultResponse,
   type AgentCapability,
   type ToolDefinition,
 } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
-import { z } from 'zod';
 
-/** Per-turn tool names. Not stored, so a resume turn must send the header again. */
+/** Per-turn tool definitions. Not stored, so a resume turn must send the header again. */
 export const X_TFG_TOOLS = 'x-tfg-tools';
 
-const ASK_USER_SECRET_SERVER_ID = 'ask-user-secret';
-export const ASK_USER_SECRET_TOOL_NAME = 'ask_user_secret';
+const TFG_TOOLS_SERVER_ID = 'tfg-tools';
+const MAX_TOOLS = 16;
+const MAX_DESCRIPTION_LENGTH = 4_000;
+const MAX_HEADER_LENGTH = 16_000;
+const TOOL_NAME_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/;
 
-const TfgToolNameSchema = z.enum([ASK_USER_SECRET_TOOL_NAME]);
+/**
+ * Harness system tools register first and keep their names. A header tool with one of these
+ * names would be renamed, so the caller and the UI would no longer find it.
+ */
+const RESERVED_TOOL_NAMES = new Set([
+  'ask_user_question',
+  'call_tool',
+  'create_sub_agent',
+  'exec',
+  'get_current_datetime',
+  'get_openui_instructions',
+  'get_tool_info',
+  'get_tool_output_schema',
+  'list_tools',
+  'unknown',
+  'web_fetch',
+  'web_search',
+]);
 
-export type TfgToolName = z.infer<typeof TfgToolNameSchema>;
+export interface TfgToolParameters {
+  type: 'object';
+  properties?: Record<string, object>;
+  required?: string[];
+  [key: string]: unknown;
+}
+
+export interface TfgToolDefinition {
+  name: string;
+  description: string;
+  parameters: TfgToolParameters;
+}
 
 /** Reject the header outside TrueFoundry mode before parsing, so a bad payload does not hide the mode error. */
 export function assertTfgToolsHeaderAllowed(input: { isTrueFoundryMode: boolean }): void {
@@ -26,10 +55,13 @@ export function assertTfgToolsHeaderAllowed(input: { isTrueFoundryMode: boolean 
 }
 
 /**
- * Names from `x-tfg-tools` for this turn. Not stored, so a resume must send the header again.
- * Rejects a bad value rather than mounting nothing.
+ * Tool definitions from `x-tfg-tools` for this turn. Not stored, so a resume must send the header again.
+ * Rejects a bad value rather than mounting a partial list.
  */
-export function parseTfgTools(raw: string): readonly TfgToolName[] {
+export function parseTfgTools(raw: string): readonly TfgToolDefinition[] {
+  if (raw.length > MAX_HEADER_LENGTH) {
+    throw new HTTPException(400, { message: `${X_TFG_TOOLS} is too large` });
+  }
   let decoded: unknown;
   try {
     decoded = JSON.parse(raw);
@@ -37,84 +69,136 @@ export function parseTfgTools(raw: string): readonly TfgToolName[] {
     throw new HTTPException(400, { message: `${X_TFG_TOOLS} must be a JSON array`, cause: error });
   }
   if (!Array.isArray(decoded)) {
-    throw new HTTPException(400, { message: `${X_TFG_TOOLS} must be a JSON array of tool names` });
+    throw new HTTPException(400, { message: `${X_TFG_TOOLS} must be a JSON array of tool definitions` });
+  }
+  if (decoded.length > MAX_TOOLS) {
+    throw new HTTPException(400, { message: `${X_TFG_TOOLS} lists more than ${String(MAX_TOOLS)} tools` });
   }
 
-  const names: TfgToolName[] = [];
-  const seen = new Set<TfgToolName>();
-  for (const entry of decoded) {
-    if (typeof entry !== 'string') {
-      throw new HTTPException(400, { message: `${X_TFG_TOOLS} entries must be tool names` });
+  const tools: TfgToolDefinition[] = [];
+  const seen = new Set<string>();
+  for (let index = 0; index < decoded.length; index++) {
+    const tool = parseToolDefinition(decoded[index], index);
+    if (seen.has(tool.name)) {
+      throw new HTTPException(400, { message: entryMessage(index, `name "${tool.name}" is listed more than once`) });
     }
-    const parsed = TfgToolNameSchema.safeParse(entry);
-    if (!parsed.success) {
-      throw new HTTPException(400, { message: `${X_TFG_TOOLS} entry "${entry}" is not a supported tool` });
-    }
-    if (!seen.has(parsed.data)) {
-      seen.add(parsed.data);
-      names.push(parsed.data);
-    }
+    seen.add(tool.name);
+    tools.push(tool);
   }
-  return names;
+  return tools;
 }
 
-const AskUserSecretFieldSchema = z.object({
-  key: z.string().describe('Unique identifier for this field, used as the key in the response mapping.'),
-  label: z.string().describe('Human-readable label shown to the user for this input field.'),
-  required: z.boolean().default(true).describe('Whether the user must provide this field. Defaults to true.'),
-});
+export function tfgToolsCapability(tools: readonly TfgToolDefinition[]): AgentCapability {
+  return {
+    systemToolSets: [new HeaderClientSideTools(tools)],
+  };
+}
 
-const askUserSecretInputSchema = z.object({
-  question: z.string().describe('A short prompt explaining what secret data is needed and why.'),
-  fields: z.array(AskUserSecretFieldSchema).min(1).max(10).describe('The secret fields to collect from the user.'),
-});
-
-/** Client stores the secret and returns a `tfy-ephemeral-secret://` placeholder. The value is not sent here. */
-export class AskUserSecret extends ClientSideTool {
-  readonly name = ASK_USER_SECRET_SERVER_ID;
-  readonly displayName = 'AskUserSecret';
+class HeaderClientSideTools extends ClientSideTool {
+  readonly name = TFG_TOOLS_SERVER_ID;
+  readonly displayName = 'TfgTools';
   override readonly tracingEnabled = false;
+  readonly #tools: ToolDefinition[];
+
+  constructor(tools: readonly TfgToolDefinition[]) {
+    super();
+    this.#tools = tools.map(tool => ({
+      name: tool.name,
+      description: tool.description,
+      inputSchema: tool.parameters,
+      execute: () =>
+        Promise.resolve(
+          toolResultResponse({
+            text: 'This tool requires client-side execution and cannot be run server-side.',
+            isError: true,
+          }),
+        ),
+    }));
+  }
 
   protected getTools(): ToolDefinition[] {
-    return [
-      defineTool({
-        name: ASK_USER_SECRET_TOOL_NAME,
-        description: [
-          'Collect secrets from the user via a secure masked form. Returns opaque tfy-ephemeral-secret:// placeholders that only apply_manifest can dereference.',
-          '',
-          'A secret is a value that grants access: passwords, API keys, tokens, client secrets, private keys, connection strings.',
-          'Public metadata (project names, regions, endpoint URLs, display names) is NOT a secret. Use ask_user_question for those.',
-          '',
-          'Rules:',
-          '- Never fabricate placeholder values. Only use exactly what this tool returns.',
-          '- Placeholders work ONLY inside apply_manifest. Do not pass them to any other tool.',
-          '- Optional fields left blank by the user are omitted from the response.',
-          '',
-          'Example:',
-          'question: "Provide your OAuth credentials for the AWS integration."',
-          'fields: [{"key": "client_id", "label": "Client ID", "required": true}, {"key": "client_secret", "label": "Client Secret", "required": true}]',
-          '',
-          'Response:',
-          '{"data": [{"key": "client_id", "placeholder": "tfy-ephemeral-secret://clx9abc123"}, {"key": "client_secret", "placeholder": "tfy-ephemeral-secret://clx9def456"}]}',
-          '',
-          'Then pass the placeholders to apply_manifest:',
-          '{"manifest": {"type": "cloud-integration", "auth_data": {"client_id": "tfy-ephemeral-secret://clx9abc123", "client_secret": "tfy-ephemeral-secret://clx9def456"}}}',
-        ].join('\n'),
-        schema: askUserSecretInputSchema,
-        handler: () =>
-          Promise.resolve(
-            toolResultResponse({
-              text: 'This tool requires client-side execution and cannot be run server-side.',
-              isError: true,
-            }),
-          ),
-      }),
-    ];
+    return this.#tools;
   }
 }
 
-export function askUserSecret(): AgentCapability {
+function parseToolDefinition(value: unknown, index: number): TfgToolDefinition {
+  if (!isPlainObject(value)) {
+    throw new HTTPException(400, { message: entryMessage(index, 'must be an object') });
+  }
+  const name = value['name'];
+  if (typeof name !== 'string' || !TOOL_NAME_PATTERN.test(name)) {
+    throw new HTTPException(400, {
+      message: entryMessage(index, 'name must be 1-64 characters of letters, numbers, "_" or "-"'),
+    });
+  }
+  if (RESERVED_TOOL_NAMES.has(name)) {
+    throw new HTTPException(400, { message: entryMessage(index, `name "${name}" is reserved`) });
+  }
+  const description = value['description'];
+  if (typeof description !== 'string') {
+    throw new HTTPException(400, { message: entryMessage(index, 'description must be a non-empty string') });
+  }
+  const trimmedDescription = description.trim();
+  if (trimmedDescription.length === 0) {
+    throw new HTTPException(400, { message: entryMessage(index, 'description must be a non-empty string') });
+  }
+  if (trimmedDescription.length > MAX_DESCRIPTION_LENGTH) {
+    throw new HTTPException(400, {
+      message: entryMessage(index, `description must be at most ${String(MAX_DESCRIPTION_LENGTH)} characters`),
+    });
+  }
   return {
-    systemToolSets: [new AskUserSecret()],
+    name,
+    description: trimmedDescription,
+    parameters: parseParameters(value['parameters'], index),
   };
+}
+
+function parseParameters(value: unknown, index: number): TfgToolParameters {
+  if (!isPlainObject(value) || value['type'] !== 'object') {
+    throw new HTTPException(400, { message: entryMessage(index, 'parameters must be a JSON object schema') });
+  }
+  const parameters: TfgToolParameters = { type: 'object' };
+  const properties = value['properties'];
+  if (properties !== undefined) {
+    if (!isPropertyMap(properties)) {
+      throw new HTTPException(400, { message: entryMessage(index, 'parameters.properties must be an object') });
+    }
+    parameters.properties = properties;
+  }
+  const required = value['required'];
+  if (required !== undefined) {
+    if (!isStringArray(required)) {
+      throw new HTTPException(400, {
+        message: entryMessage(index, 'parameters.required must be an array of strings'),
+      });
+    }
+    parameters.required = required;
+  }
+  for (const [key, entry] of Object.entries(value)) {
+    if (key === 'type' || key === 'properties' || key === 'required') {
+      continue;
+    }
+    parameters[key] = entry;
+  }
+  return parameters;
+}
+
+function entryMessage(index: number, detail: string): string {
+  return `${X_TFG_TOOLS}[${String(index)}] ${detail}`;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isPropertyMap(value: unknown): value is Record<string, object> {
+  if (!isPlainObject(value)) {
+    return false;
+  }
+  return Object.values(value).every(entry => isPlainObject(entry));
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every(entry => typeof entry === 'string');
 }

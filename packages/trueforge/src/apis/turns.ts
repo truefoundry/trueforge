@@ -70,7 +70,12 @@ import {
 import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
 import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
 import { assertGatewayMetadataRequestHeaders } from '../truefoundry/gatewayMetadata';
-import { assertTfgToolsHeaderAllowed, parseTfgTools, X_TFG_TOOLS, type TfgToolName } from '../truefoundry/tfgTools';
+import {
+  assertTfgToolsHeaderAllowed,
+  parseTfgTools,
+  X_TFG_TOOLS,
+  type TfgToolDefinition,
+} from '../truefoundry/tfgTools';
 import { TrueFoundryTurnResourceResolver } from '../truefoundry/TrueFoundryTurnResourceResolver';
 import { newId } from '../utils/id';
 import { resolveWebSearchProvider } from '../websearch/providers';
@@ -160,8 +165,8 @@ interface BeginTurnExecutionParams {
   userRef: string;
   /** Raw inbound request headers. Absent for a schedule run. */
   requestHeaders?: Record<string, string>;
-  /** Tools from `x-tfg-tools`. Absent on schedule runs, which have no request headers. */
-  enabledTools?: readonly TfgToolName[];
+  /** Tool definitions from `x-tfg-tools`. Absent on schedule runs, which have no request headers. */
+  tfgTools?: readonly TfgToolDefinition[];
   deps: BeginTurnExecutionDeps;
 }
 
@@ -182,7 +187,7 @@ function createTurnResolver(deps: {
   userRef: string;
   session: SessionHandle;
   turnMetadata: TurnMetadata;
-  enabledTools: readonly TfgToolName[];
+  tfgTools: readonly TfgToolDefinition[];
 }): TurnResourceResolver {
   const {
     mcpServerStore,
@@ -197,13 +202,13 @@ function createTurnResolver(deps: {
     userRef,
     session,
     turnMetadata,
-    enabledTools,
+    tfgTools,
   } = deps;
   const tenant_id = session.tenant_id;
   const sessionId = session.session_id;
 
   return new TrueFoundryTurnResourceResolver({
-    enabledTools,
+    tools: tfgTools,
     deps: {
       llm: async name => {
         const resolved = await getModelDetails({
@@ -462,7 +467,7 @@ export interface TurnEventDrainInput {
 export async function beginTurnExecution(
   params: BeginTurnExecutionParams,
 ): Promise<{ turn: TurnHandle; drainInput: TurnEventDrainInput }> {
-  const { session, input, previous_turn_id: previousTurnId, userRef, requestHeaders, enabledTools, deps } = params;
+  const { session, input, previous_turn_id: previousTurnId, userRef, requestHeaders, tfgTools, deps } = params;
   // Fail closed on a bad inbound header before minting a turn id / starting execution.
   assertGatewayMetadataRequestHeaders(requestHeaders);
   const sessionId = session.session_id;
@@ -499,7 +504,7 @@ export async function beginTurnExecution(
       ...(sessionAgent.type === 'reference' ? { agent: { id: sessionAgent.id, name: sessionAgent.name } } : {}),
       ...(requestHeaders === undefined ? {} : { requestHeaders }),
     },
-    enabledTools: enabledTools ?? [],
+    tfgTools: tfgTools ?? [],
   });
 
   // First turn only: derive the title from the first user message. The store
@@ -861,14 +866,14 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     if (rawTfgTools !== undefined) {
       assertTfgToolsHeaderAllowed({ isTrueFoundryMode: isTrueFoundryModeEnabled(configuration) });
     }
-    const enabledTools = rawTfgTools === undefined ? undefined : parseTfgTools(rawTfgTools);
+    const tfgTools = rawTfgTools === undefined ? undefined : parseTfgTools(rawTfgTools);
     const turnParams: BeginTurnExecutionParams = {
       session,
       input: body.input,
       previous_turn_id: body.previous_turn_id,
       userRef: requestContext.subject.id,
       requestHeaders: c.req.header(),
-      ...(enabledTools === undefined ? {} : { enabledTools }),
+      ...(tfgTools === undefined ? {} : { tfgTools }),
       deps: {
         ...deps,
         modelProviderStore: deps.resolveModelProviderStore({

@@ -1,25 +1,25 @@
 import { TurnResourceResolver } from '@truefoundry/trueforge-core/agent-session';
-import { ASK_USER_SECRET_TOOL_NAME, askUserSecret, type TfgToolName } from './tfgTools';
+import { tfgToolsCapability, type TfgToolDefinition } from './tfgTools';
 
 type TurnResolverDeps = ConstructorParameters<typeof TurnResourceResolver>[0];
 
-/** Root-only mount for `x-tfg-tools`. A child thread passes `agent_info` and does not get the tool. */
+/** Root-only mount for `x-tfg-tools`. A child thread passes `agent_info` and does not get the tools. */
 export class TrueFoundryTurnResourceResolver extends TurnResourceResolver {
-  readonly #enabledTools: ReadonlySet<TfgToolName>;
+  readonly #tools: readonly TfgToolDefinition[];
 
-  constructor(input: { deps: TurnResolverDeps; enabledTools: readonly TfgToolName[] }) {
+  constructor(input: { deps: TurnResolverDeps; tools: readonly TfgToolDefinition[] }) {
     super(input.deps);
-    this.#enabledTools = new Set(input.enabledTools);
+    this.#tools = input.tools;
   }
 
   override async resolveAgentDefinition(input: Parameters<TurnResourceResolver['resolveAgentDefinition']>[0]) {
     const resolved = await super.resolveAgentDefinition(input);
-    if (input.agent_info !== undefined || !this.#enabledTools.has(ASK_USER_SECRET_TOOL_NAME)) {
+    if (input.agent_info !== undefined || this.#tools.length === 0) {
       return resolved;
     }
     return {
       ...resolved,
-      extraCapabilities: [...(resolved.extraCapabilities ?? []), askUserSecret()],
+      extraCapabilities: [...(resolved.extraCapabilities ?? []), tfgToolsCapability(this.#tools)],
     };
   }
 }

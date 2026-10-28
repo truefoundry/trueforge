@@ -2,7 +2,7 @@ import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 import type { AgentInfo, ILLM } from '@truefoundry/trueforge-core/core';
 import { createLogger } from 'winston';
 import { TrueFoundryTurnResourceResolver } from '../../../src/truefoundry/TrueFoundryTurnResourceResolver';
-import type { TfgToolName } from '../../../src/truefoundry/tfgTools';
+import { parseTfgTools, type TfgToolDefinition } from '../../../src/truefoundry/tfgTools';
 
 const unusedLlm: ILLM = {
   create: () => {
@@ -11,9 +11,19 @@ const unusedLlm: ILLM = {
   createNonStream: () => Promise.reject(new Error('unused')),
 };
 
-function resolverWith(enabledTools: readonly TfgToolName[]): TrueFoundryTurnResourceResolver {
+const askUserSecret = parseTfgTools(
+  JSON.stringify([
+    {
+      name: 'ask_user_secret',
+      description: 'Collect a secret.',
+      parameters: { type: 'object', properties: { question: { type: 'string' } }, required: ['question'] },
+    },
+  ]),
+);
+
+function resolverWith(tools: readonly TfgToolDefinition[]): TrueFoundryTurnResourceResolver {
   return new TrueFoundryTurnResourceResolver({
-    enabledTools,
+    tools,
     deps: {
       llm: () =>
         Promise.resolve({
@@ -33,8 +43,8 @@ const spec = AgentSpecSchema.parse({ model: { name: 'provider/model' } });
 const child: AgentInfo = { type: 'dynamic', name: 'child', input: 'do the task' };
 
 describe('TrueFoundryTurnResourceResolver', () => {
-  it('mounts ask_user_secret on the root thread only', async () => {
-    const resolver = resolverWith(['ask_user_secret']);
+  it('mounts header tools on the root thread only', async () => {
+    const resolver = resolverWith(askUserSecret);
     const tracing = resolver.createTracing();
     const signal = new AbortController().signal;
 
@@ -43,7 +53,7 @@ describe('TrueFoundryTurnResourceResolver', () => {
 
     expect(
       root.extraCapabilities?.flatMap(capability => capability.systemToolSets ?? []).map(toolSet => toolSet.name),
-    ).toEqual(['ask-user-secret']);
+    ).toEqual(['tfg-tools']);
     expect(nested.extraCapabilities).toBeUndefined();
   });
 
