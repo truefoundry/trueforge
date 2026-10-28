@@ -3,4 +3,4 @@
 '@truefoundry/trueforge-ui': patch
 ---
 
-Accept `x-tfg-tools` on a TrueFoundry-mode turn so the root agent can call `ask_user_secret`. Hide that pending call in live chat so the host secret form owns the prompt.
+Accept `x-tfg-tools` as an array of client-side tool definitions on a TrueFoundry-mode turn. A pending `ask_user_secret` call stays out of the plaintext composer unless the host registers a secret form.

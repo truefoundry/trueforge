@@ -96,6 +96,28 @@ describe('useComposerPauseView', () => {
     expect(useAuiState).toHaveBeenCalledWith(threadHasPendingMcpAuth);
   });
 
+  it('does not offer a plaintext answer for ask_user_secret without a host form', () => {
+    useToolResponses.mockReturnValue({
+      pending: [{ toolCallId: 'secret-1', toolName: 'ask_user_secret', question: 'Paste the token' }],
+    });
+
+    const { result } = renderHook(() => useComposerPauseView());
+
+    expect(result.current).toEqual({ kind: 'secret-unavailable' });
+  });
+
+  it('uses the host form for ask_user_secret when one is registered', () => {
+    useToolResponses.mockReturnValue({
+      pending: [{ toolCallId: 'secret-1', toolName: 'ask_user_secret', args: {} }],
+    });
+
+    const { result } = renderHook(() => useComposerPauseView(), {
+      wrapper: withRenderers({ ask_user_secret: () => null }),
+    });
+
+    expect(result.current).toEqual({ kind: 'custom', toolName: 'ask_user_secret' });
+  });
+
   it('shows the ask-user view while tool responses are pending without a custom renderer', () => {
     useToolResponses.mockReturnValue({ pending: [{ toolCallId: 'question-1', toolName: 'ask_user_question' }] });
 

@@ -4,6 +4,7 @@ import { useAuiState } from '@assistant-ui/react';
 import { useTrueForgeApprovals, useTrueForgeToolResponses } from '@truefoundry/trueforge-assistant-ui-runtime';
 
 import { useOptionalCustomActionRenderers } from '../server/CustomActionRenderersContext.js';
+import { ASK_USER_SECRET_TOOL_NAME } from '../utils/toolCallParsing.js';
 
 export type ThreadPauseState = {
   thread: {
@@ -28,6 +29,7 @@ export type ComposerPauseView =
   | { kind: 'mcp' }
   | { kind: 'custom'; toolName: string }
   | { kind: 'ask-user' }
+  | { kind: 'secret-unavailable' }
   | { kind: 'approval' }
   | { kind: 'compose' };
 
@@ -47,6 +49,10 @@ export function useComposerPauseView(): ComposerPauseView {
     const toolName = firstPending.toolName;
     if (toolName != null && customActionRenderers?.[toolName] != null) {
       return { kind: 'custom', toolName };
+    }
+    // A typed answer would be stored as the tool result. Only a host secret form may answer this.
+    if (toolName === ASK_USER_SECRET_TOOL_NAME) {
+      return { kind: 'secret-unavailable' };
     }
     return { kind: 'ask-user' };
   }

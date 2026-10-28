@@ -317,6 +317,23 @@ describe('ComposerContainer', () => {
     expect(screen.getByText('Custom right')).toBeInTheDocument();
   });
 
+  it('does not collect a typed secret when no host form is registered', () => {
+    toolResponsesState.pending = [
+      { toolCallId: 'secret-1', toolName: 'ask_user_secret', args: { question: 'Paste the token' } },
+    ];
+
+    renderComposer();
+
+    expect(screen.getByText('This agent asked for a secret. This chat does not collect it.')).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'Your answer' })).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Message input' })).toBeEnabled();
+    expect(document.querySelector('[data-slot="aui_composer-pause"]')).toHaveAttribute(
+      'data-pause-kind',
+      'secret-unavailable',
+    );
+    expect(toolResponsesState.respond).not.toHaveBeenCalled();
+  });
+
   it('keeps the composer enabled under a custom action renderer', () => {
     toolResponsesState.pending = [{ toolCallId: 'tc-1', toolName: 'secret_select', args: { secrets: ['a'] } }];
 

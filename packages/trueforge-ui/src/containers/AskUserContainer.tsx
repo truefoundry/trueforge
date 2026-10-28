@@ -12,6 +12,7 @@ import {
 import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '../analytics/events.js';
 import { useSlot } from '../theme/SlotsProvider.js';
+import { ASK_USER_SECRET_TOOL_NAME } from '../utils/toolCallParsing.js';
 
 const EMPTY_ANSWER: AskUserAnswerDraft = { radioValue: '', custom: '' };
 
@@ -85,7 +86,8 @@ export function AskUserContainer({ disabled = false }: { disabled?: boolean }) {
     respond({ toolCallId: item.toolCallId, content });
   }, [allQuestionsAnswered, answers, disabled, getResponseForQuestion, item, questions.length, respond, track]);
 
-  if (item == null || currentQuestion == null) return null;
+  // The plaintext answer is sent as the tool result. A secret must not take that path.
+  if (item == null || item.toolName === ASK_USER_SECRET_TOOL_NAME || currentQuestion == null) return null;
 
   return (
     <AskUserPrompt
