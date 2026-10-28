@@ -205,7 +205,7 @@ function InviteCollaborators({
           ))}
         </div>
       ) : null}
-      {query.trim().length > 0 ? (
+      {query.trim().length > 0 && (candidates.length > 0 || hasMore) ? (
         <div role="listbox" aria-label="Matching users" className="flex max-h-40 w-full flex-col overflow-y-auto">
           {candidates.map(user => (
             <button
@@ -222,9 +222,6 @@ function InviteCollaborators({
               </span>
             </button>
           ))}
-          {!loading && candidates.length === 0 ? (
-            <p className="text-text-secondary px-2 py-1.5 text-sm">No matching users</p>
-          ) : null}
           {hasMore ? (
             <button
               type="button"
