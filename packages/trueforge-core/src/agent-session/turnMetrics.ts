@@ -52,7 +52,6 @@ export function writeTurnMetricsCheckpoint(target: TurnMetricsCheckpoint, source
 /**
  * Legacy rows omit the metrics keys. A running row keeps `created_at` as the open
  * interval so a never-paused terminal duration stays `completed_at - created_at`.
- * A nested `metrics_checkpoint` is the shape written before these keys were flattened.
  */
 export function resolveStoredTurnMetricsCheckpoint(input: {
   checkpoint: object;
@@ -62,10 +61,6 @@ export function resolveStoredTurnMetricsCheckpoint(input: {
   const flat = readFlatTurnMetrics(input.checkpoint);
   if (flat !== undefined) {
     return flat;
-  }
-  const nested = ownProperty(input.checkpoint, 'metrics_checkpoint');
-  if (nested !== undefined) {
-    return parseTurnMetricsCheckpoint(nested);
   }
   return {
     metrics: createEmptyAgentThreadMetrics(),

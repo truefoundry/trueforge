@@ -20,11 +20,10 @@ export function jsonbSet(column: Expression<unknown>, path: string, value: unkno
   return sql`jsonb_set(${column}, ${path}, ${jsonbBind(value)})`;
 }
 
-/** Replace the flat turn metrics keys and drop a nested `metrics_checkpoint` from earlier writes. */
+/** Set `metrics`, `active_duration_ms`, and `running_since` in one expression. */
 export function jsonbSetTurnMetrics(column: Expression<unknown>, metrics: TurnMetricsCheckpoint): RawBuilder<string> {
-  const withoutNested = sql`json_remove(${column}, '$.metrics_checkpoint')`;
   return jsonbSet(
-    jsonbSet(jsonbSet(withoutNested, '$.metrics', metrics.metrics), '$.active_duration_ms', metrics.active_duration_ms),
+    jsonbSet(jsonbSet(column, '$.metrics', metrics.metrics), '$.active_duration_ms', metrics.active_duration_ms),
     '$.running_since',
     metrics.running_since,
   );
