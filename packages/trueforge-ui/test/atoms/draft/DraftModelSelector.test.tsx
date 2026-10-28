@@ -238,7 +238,7 @@ describe('DraftModelSelector', () => {
     expect(screen.getByRole('button', { name: 'Select model' })).toBeDisabled();
   });
 
-  it('shows Configure model when the host has a catalog and no models', async () => {
+  it('shows Configure model when settings chrome is available and no models', async () => {
     renderSelector(
       {},
       {
@@ -253,6 +253,44 @@ describe('DraftModelSelector', () => {
     fireEvent.click(cta);
     expect(screen.queryByRole('listbox', { name: 'Select model' })).not.toBeInTheDocument();
     expect(screen.getByTestId('settings-open')).toHaveTextContent('true');
+  });
+
+  it('does not flash Configure model before the catalog finishes loading', async () => {
+    let resolveModels!: (value: ModelSelection[]) => void;
+    const modelsPromise = new Promise<ModelSelection[]>(resolve => {
+      resolveModels = resolve;
+    });
+
+    renderSelector(
+      {},
+      {
+        getModels: () => modelsPromise,
+        catalog: createMockCatalog(),
+      },
+    );
+
+    expect(await screen.findByRole('button', { name: 'Select model' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Configure model' })).not.toBeInTheDocument();
+
+    resolveModels([]);
+    expect(await screen.findByRole('button', { name: 'Configure model' })).toBeInTheDocument();
+  });
+
+  it('keeps the model picker when settings chrome is disabled', async () => {
+    renderSelector(
+      {},
+      {
+        getModels: async () => [],
+        catalog: createMockCatalog(),
+        getCapabilities: async () => ({
+          data: { sandbox: { enabled: true }, skill: { enabled: true }, settings: { enabled: false } },
+        }),
+      },
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Select model' }));
+    await waitFor(() => expect(screen.getByText('No models')).toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: 'Configure model' })).not.toBeInTheDocument();
   });
 
   it('shows No models when the catalog is not configured', async () => {

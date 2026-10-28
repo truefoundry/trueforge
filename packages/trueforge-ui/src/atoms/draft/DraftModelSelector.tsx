@@ -6,7 +6,8 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { useTrackAnalytics } from '../../analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '../../analytics/events.js';
 import { Icon } from '../../icons/Icon.js';
-import { useOptionalCatalogServer } from '../../server/ServerContext.js';
+import { isSettingsChromeEnabled } from '../../server/serverChrome.js';
+import { useOptionalCatalogServer, useServerCapabilities } from '../../server/ServerContext.js';
 import { useOptionalShellMode } from '../../server/ShellModeContext.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
@@ -25,10 +26,11 @@ export type DraftModelSelectorProps = {
 };
 
 export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorProps) {
-  const { models, loading, ensureLoaded } = useDraftCatalog();
+  const { models, loading, loaded, ensureLoaded } = useDraftCatalog();
   const { agentSpec } = useTrueForgeAgentSpec();
   const updateAgentSpec = useTrueForgeUpdateAgentSpec();
   const catalog = useOptionalCatalogServer();
+  const capabilities = useServerCapabilities();
   const shell = useOptionalShellMode();
   const track = useTrackAnalytics();
   const [open, setOpen] = useState(false);
@@ -37,7 +39,8 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
   const menuId = useId();
   const isMobile = useIsMobile();
   const compactLayout = useCompactLayout();
-  const showConfigureSettingsCta = !loading && models.length === 0 && catalog != null;
+  const settingsChromeEnabled = isSettingsChromeEnabled({ catalog, capabilities });
+  const showConfigureSettingsCta = loaded && models.length === 0 && settingsChromeEnabled && shell != null;
   const seededDefaultModelRef = useRef<string | null>(null);
 
   useEffect(() => {
