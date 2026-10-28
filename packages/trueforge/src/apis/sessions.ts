@@ -32,7 +32,7 @@ import type { ResolveSkillStoreInput } from '../app';
 import type { Authorizer } from '../auth/authorizer';
 import { createdBySubjectFromRequestContext, type RequestContext, type ResolveRequestContext } from '../auth/identity';
 import configuration from '../config';
-import type { IAccessControlStore, SessionAccessRecord } from '../db/accessControlStore';
+import type { AccessGrantRecord, IAccessControlStore } from '../db/accessControlStore';
 import type { IAgentStore } from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
@@ -293,15 +293,28 @@ function uniqueSubjects(subjects: readonly SessionGrantSubject[]): SessionGrantS
   return [...byKey.values()];
 }
 
+/** The ids among `session_ids` shared with everyone in the tenant, i.e. holding its `tenant` grant. */
+async function tenantSharedSessionIds<TTransaction>(
+  accessControlStore: IAccessControlStore<TTransaction>,
+  input: { tenant_id: string; session_ids: readonly string[] },
+): Promise<Set<string>> {
+  const grants = await accessControlStore.listAccessGrants({
+    tenant_id: input.tenant_id,
+    session_ids: input.session_ids,
+    subjects: [{ subject_type: 'tenant', subject_id: input.tenant_id }],
+  });
+  return new Set(grants.map(grant => grant.session_id));
+}
+
 async function isSharedWithTenant<TTransaction>(
   accessControlStore: IAccessControlStore<TTransaction>,
   input: { tenant_id: string; session_id: string },
 ): Promise<boolean> {
-  const sharedIds = await accessControlStore.listTenantSharedSessionIds({
+  const sharedIds = await tenantSharedSessionIds(accessControlStore, {
     tenant_id: input.tenant_id,
     session_ids: [input.session_id],
   });
-  return sharedIds.length > 0;
+  return sharedIds.has(input.session_id);
 }
 
 /** Deprecated `PATCH { shared }`: sharing with everyone is the `tenant` grant. */
@@ -312,7 +325,7 @@ async function setSharedWithTenant<TTransaction>(
   const { requestContext, session_id } = input;
   const subjects: SessionGrantSubject[] = [{ subject_type: 'tenant', subject_id: requestContext.tenant_id }];
   if (input.shared) {
-    await accessControlStore.grantSessionAccess({
+    await accessControlStore.createAccessGrants({
       tenant_id: requestContext.tenant_id,
       session_id,
       subjects,
@@ -320,10 +333,10 @@ async function setSharedWithTenant<TTransaction>(
     });
     return;
   }
-  await accessControlStore.revokeSessionAccess({ tenant_id: requestContext.tenant_id, session_id, subjects });
+  await accessControlStore.deleteAccessGrants({ tenant_id: requestContext.tenant_id, session_id, subjects });
 }
 
-function toWireSessionGrant(record: SessionAccessRecord): SessionGrant {
+function toWireSessionGrant(record: AccessGrantRecord): SessionGrant {
   return {
     subject: { subject_type: record.subject_type, subject_id: record.subject_id },
     granted_by_subject: record.granted_by_subject,
@@ -674,12 +687,10 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
         source_type: query.source_type,
         source_id: query.source_id,
       });
-      const sharedIds = new Set(
-        await deps.accessControlStore.listTenantSharedSessionIds({
-          tenant_id: requestContext.tenant_id,
-          session_ids: data.map(record => record.session_id),
-        }),
-      );
+      const sharedIds = await tenantSharedSessionIds(deps.accessControlStore, {
+        tenant_id: requestContext.tenant_id,
+        session_ids: data.map(record => record.session_id),
+      });
       return c.json(
         { data: data.map(record => toWireSession(record, sharedIds.has(record.session_id))), pagination },
         200,
@@ -763,9 +774,9 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
   const listSessionGrantsHandler: RouteHandler<typeof listSessionGrantsRoute> = async c => {
     const { session_id: sessionId } = c.req.valid('param');
     const { requestContext } = await requireOwnedSession(deps, { c, session_id: sessionId });
-    const records = await deps.accessControlStore.listSessionAccess({
+    const records = await deps.accessControlStore.listAccessGrants({
       tenant_id: requestContext.tenant_id,
-      session_id: sessionId,
+      session_ids: [sessionId],
     });
     return c.json({ data: records.map(toWireSessionGrant) }, 200);
   };
@@ -797,7 +808,7 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
     }
     await deps.withTransaction(async transaction => {
       if (toGrant.length > 0) {
-        await deps.accessControlStore.grantSessionAccess(
+        await deps.accessControlStore.createAccessGrants(
           {
             tenant_id: requestContext.tenant_id,
             session_id: sessionId,
@@ -808,15 +819,15 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
         );
       }
       if (toRevoke.length > 0) {
-        await deps.accessControlStore.revokeSessionAccess(
+        await deps.accessControlStore.deleteAccessGrants(
           { tenant_id: requestContext.tenant_id, session_id: sessionId, subjects: toRevoke },
           transaction,
         );
       }
     });
-    const records = await deps.accessControlStore.listSessionAccess({
+    const records = await deps.accessControlStore.listAccessGrants({
       tenant_id: requestContext.tenant_id,
-      session_id: sessionId,
+      session_ids: [sessionId],
     });
     return c.json({ data: records.map(toWireSessionGrant) }, 200);
   };

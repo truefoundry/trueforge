@@ -34,7 +34,7 @@ export const listTurnsRoute = createRoute({
   tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'List turns in a session',
   description:
-    'List turns for a session (newest first by default), token-paginated. Allowed for the creator, a manager of the bound named agent, or anyone the session is shared with.',
+    'List turns for a session (newest first by default), token-paginated. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'list_turns',
   'x-fern-pagination': TOKEN_PAGINATION,
@@ -68,7 +68,7 @@ export const getTurnRoute = createRoute({
   tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'Get a turn',
   description:
-    'Fetch a single turn by ID. Allowed for the creator, a manager of the bound named agent, or anyone the session is shared with.',
+    'Fetch a single turn by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'get_turn',
   request: {
@@ -145,7 +145,7 @@ export const listTurnEventsRoute = createRoute({
   tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'List turn events',
   description:
-    'Paginated persisted events for a turn (insertion order by default). Allowed for the creator, a manager of the bound named agent, or anyone the session is shared with.',
+    'Paginated persisted events for a turn (insertion order by default). Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'list_turn_events',
   'x-fern-pagination': TOKEN_PAGINATION,

@@ -307,7 +307,7 @@ describe('turns', () => {
         external_id: null,
         source: null,
       });
-      await new SqliteAccessControlStore(db).grantSessionAccess({
+      await new SqliteAccessControlStore(db).createAccessGrants({
         tenant_id: 'default',
         session_id: 'shared-session',
         subjects: [{ subject_type: 'tenant', subject_id: 'default' }],

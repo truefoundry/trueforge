@@ -71,9 +71,7 @@ export const UpdateSessionRequestSchema = z
     shared: z
       .boolean()
       .optional()
-      .describe(
-        'Deprecated: share through `POST /sessions/{session_id}/grants` with a `tenant` subject. True shares the session with everyone in the tenant; false stops sharing it with them.',
-      )
+      .describe('Deprecated; use `POST /sessions/{session_id}/grants` with a `tenant` subject.')
       .openapi({ deprecated: true }),
   })
   .strict()

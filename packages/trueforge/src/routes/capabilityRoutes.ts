@@ -31,7 +31,7 @@ const WebSearchCapabilitySchema = z
 
 const SessionSharingCapabilitySchema = z
   .object({
-    users: z
+    enabled: z
       .boolean()
       .describe(
         'Whether sessions can be shared with specific users. Sharing with the whole tenant is always available.',

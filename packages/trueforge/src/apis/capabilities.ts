@@ -57,7 +57,7 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
           skill: sandboxEnabled ? { enabled: true } : { enabled: false, reason: skillDisabledReason(status) },
           settings: { enabled: settingsEnabled },
           web_search: { enabled: webSearchEnabled },
-          session_sharing: { users: deps.userStore.supportsUserLookup },
+          session_sharing: { enabled: deps.userStore.supportsUserLookup },
         },
       },
       200,

@@ -1,13 +1,11 @@
 import type { CreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
 import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
 import type {
-  GrantSessionAccessInput,
-  HasSessionAccessInput,
+  AccessGrantRecord,
+  CreateAccessGrantsInput,
+  DeleteAccessGrantsInput,
   IAccessControlStore,
-  ListSessionAccessInput,
-  ListTenantSharedSessionIdsInput,
-  RevokeSessionAccessInput,
-  SessionAccessRecord,
+  ListAccessGrantsInput,
 } from '../../accessControlStore';
 import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
 import type { Database } from '../types';
@@ -31,60 +29,7 @@ export class SqliteAccessControlStore implements IAccessControlStore<Transaction
     this.#db = db;
   }
 
-  async hasSessionAccess(input: HasSessionAccessInput, transaction?: Transaction<Database>): Promise<boolean> {
-    const db = transaction ?? this.#db;
-    const { user_id } = input;
-    const row = await db
-      .selectFrom('access_control')
-      .select(eb => eb.lit(1).as('found'))
-      .where('tenant_id', '=', input.tenant_id)
-      .where('session_id', '=', input.session_id)
-      .where(eb =>
-        eb.or([
-          eb.and([eb('subject_type', '=', 'tenant'), eb('subject_id', '=', input.tenant_id)]),
-          ...(user_id === undefined ? [] : [eb.and([eb('subject_type', '=', 'user'), eb('subject_id', '=', user_id)])]),
-        ]),
-      )
-      .limit(1)
-      .executeTakeFirst();
-    return row !== undefined;
-  }
-
-  async listTenantSharedSessionIds(
-    input: ListTenantSharedSessionIdsInput,
-    transaction?: Transaction<Database>,
-  ): Promise<string[]> {
-    if (input.session_ids.length === 0) {
-      return [];
-    }
-    const db = transaction ?? this.#db;
-    const rows = await db
-      .selectFrom('access_control')
-      .select('session_id')
-      .where('tenant_id', '=', input.tenant_id)
-      .where('session_id', 'in', [...input.session_ids])
-      .where('subject_type', '=', 'tenant')
-      .where('subject_id', '=', input.tenant_id)
-      .execute();
-    return rows.map(row => row.session_id);
-  }
-
-  async listSessionAccess(
-    input: ListSessionAccessInput,
-    transaction?: Transaction<Database>,
-  ): Promise<SessionAccessRecord[]> {
-    const db = transaction ?? this.#db;
-    return await db
-      .selectFrom('access_control')
-      .select(recordColumns)
-      .where('tenant_id', '=', input.tenant_id)
-      .where('session_id', '=', input.session_id)
-      .orderBy('created_at')
-      .orderBy('subject_id')
-      .execute();
-  }
-
-  async grantSessionAccess(input: GrantSessionAccessInput, transaction?: Transaction<Database>): Promise<void> {
+  async createAccessGrants(input: CreateAccessGrantsInput, transaction?: Transaction<Database>): Promise<void> {
     const db = transaction ?? this.#db;
     const timestamp = nowIso();
     await db
@@ -103,7 +48,33 @@ export class SqliteAccessControlStore implements IAccessControlStore<Transaction
       .execute();
   }
 
-  async revokeSessionAccess(input: RevokeSessionAccessInput, transaction?: Transaction<Database>): Promise<void> {
+  async listAccessGrants(
+    input: ListAccessGrantsInput,
+    transaction?: Transaction<Database>,
+  ): Promise<AccessGrantRecord[]> {
+    const { subjects } = input;
+    if (input.session_ids.length === 0 || subjects?.length === 0) {
+      return [];
+    }
+    const db = transaction ?? this.#db;
+    let query = db
+      .selectFrom('access_control')
+      .select(recordColumns)
+      .where('tenant_id', '=', input.tenant_id)
+      .where('session_id', 'in', [...input.session_ids]);
+    if (subjects !== undefined) {
+      query = query.where(eb =>
+        eb.or(
+          subjects.map(subject =>
+            eb.and([eb('subject_type', '=', subject.subject_type), eb('subject_id', '=', subject.subject_id)]),
+          ),
+        ),
+      );
+    }
+    return await query.orderBy('session_id').orderBy('created_at').orderBy('subject_id').execute();
+  }
+
+  async deleteAccessGrants(input: DeleteAccessGrantsInput, transaction?: Transaction<Database>): Promise<void> {
     const db = transaction ?? this.#db;
     await db
       .deleteFrom('access_control')

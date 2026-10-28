@@ -119,7 +119,7 @@ describe('capabilities routers', () => {
         },
         settings: { enabled: true },
         web_search: { enabled: false },
-        session_sharing: { users: false },
+        session_sharing: { enabled: false },
       },
     });
   });
@@ -154,7 +154,7 @@ describe('capabilities routers', () => {
     const response = await router.request('/');
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
-      data: { session_sharing: { users: true } },
+      data: { session_sharing: { enabled: true } },
     });
   });
 
@@ -177,7 +177,7 @@ describe('capabilities routers', () => {
         skill: { enabled: true },
         settings: { enabled: true },
         web_search: { enabled: false },
-        session_sharing: { users: false },
+        session_sharing: { enabled: false },
       },
     });
   });
@@ -195,7 +195,7 @@ describe('capabilities routers', () => {
         skill: { enabled: true },
         settings: { enabled: true },
         web_search: { enabled: false },
-        session_sharing: { users: false },
+        session_sharing: { enabled: false },
       },
     });
   });
@@ -344,7 +344,7 @@ describe('capabilities routers', () => {
           },
           settings: { enabled: true },
           web_search: { enabled: false },
-          session_sharing: { users: false },
+          session_sharing: { enabled: false },
         },
       });
 
@@ -361,7 +361,7 @@ describe('capabilities routers', () => {
           },
           settings: { enabled: false },
           web_search: { enabled: false },
-          session_sharing: { users: false },
+          session_sharing: { enabled: false },
         },
       });
     });

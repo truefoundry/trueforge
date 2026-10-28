@@ -8,6 +8,7 @@ import type { AgentAction, Authorizer } from '../auth/authorizer';
 import type { RequestContext } from '../auth/identity';
 import type { IAccessControlStore } from '../db/accessControlStore';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
+import type { SessionGrantSubject } from '../schemas/sessionGrant';
 
 /** The agent only when the caller may act on it, so callers answer 404 for missing and forbidden alike. */
 export async function agentIfAccessible(input: {
@@ -117,12 +118,17 @@ export async function canReadSession<TTransaction>(input: {
   if (input.created_by_subject_id === context.subject.id) {
     return true;
   }
-  const granted = await input.accessControlStore.hasSessionAccess({
+  // A `user` grant only matches user callers; service accounts and agents read through `tenant` grants.
+  const subjects: SessionGrantSubject[] = [{ subject_type: 'tenant', subject_id: context.tenant_id }];
+  if (context.subject.type === 'user') {
+    subjects.push({ subject_type: 'user', subject_id: context.subject.id });
+  }
+  const grants = await input.accessControlStore.listAccessGrants({
     tenant_id: context.tenant_id,
-    session_id: input.session_id,
-    user_id: context.subject.type === 'user' ? context.subject.id : undefined,
+    session_ids: [input.session_id],
+    subjects,
   });
-  if (granted) {
+  if (grants.length > 0) {
     return true;
   }
   return canReadAgentBoundResource(input);
