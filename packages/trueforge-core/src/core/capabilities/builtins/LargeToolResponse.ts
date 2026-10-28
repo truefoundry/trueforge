@@ -11,12 +11,13 @@ import { extractErrorLogFields } from '../../util/errorLogFields';
 import type { AgentCapability } from '../AgentCapability';
 import type { AgentThreadExecutionContext } from '../AgentContextProcessor';
 import type { ToolResponseProcessor, ToolResponseProcessorResult } from '../ToolResponseProcessor';
+import { DEFAULT_CONTEXT_COMPACTION_RATIO } from './ContextCompaction';
 import { createDynamicSubAgentLargeToolResponseGuidance } from './DynamicSubAgents';
 
 export const DEFAULT_INDIVIDUAL_TOOL_TOKEN_THRESHOLD = 6000;
 export const DEFAULT_TOTAL_TOOL_TOKEN_THRESHOLD = 10000;
 export const DEFAULT_PREVIEW_NUMBER_OF_CHARACTERS = 100;
-/** Upper bound for elevated tools; effective limit is min(this, remaining context characters). */
+/** Upper bound for elevated tools; effective limit is min(this, 80% of remaining context characters). */
 const ELEVATED_TOOL_CHARACTER_LIMIT_CAP = 50_000;
 const ELEVATED_TOOLS: ReadonlySet<string> = new Set([GET_TOOL_INFO_NAME]);
 const FAILURE_MESSAGE_TRUNCATION_LENGTH = 500;
@@ -61,11 +62,12 @@ function remainingContextCharacters(params: {
   return Math.max(0, (params.modelContextLength - used) * 4);
 }
 
-function elevatedCharacterLimit(remainingContextCharacters: number | undefined): number {
-  if (remainingContextCharacters === undefined) {
+function elevatedCharacterLimit(remainingChars: number | undefined): number {
+  if (remainingChars === undefined) {
     return ELEVATED_TOOL_CHARACTER_LIMIT_CAP;
   }
-  return Math.min(ELEVATED_TOOL_CHARACTER_LIMIT_CAP, remainingContextCharacters);
+  // Match compaction's 80% trigger so elevated tools leave headroom for summarization.
+  return Math.min(ELEVATED_TOOL_CHARACTER_LIMIT_CAP, Math.floor(remainingChars * DEFAULT_CONTEXT_COMPACTION_RATIO));
 }
 
 function isWithinElevatedCharacterLimit(entry: ToolResultWithInfo, limit: number): boolean {
@@ -107,13 +109,13 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
 
   // Thresholds are configured in tokens, estimated at 4 characters per token; state them in characters for the model.
   private individualResponseCharacterLimit(): string {
-    return (this.individualTokenThreshold * 4).toLocaleString('en-US');
+    return String(this.individualTokenThreshold * 4);
   }
 
   // An entry at/above the individual threshold was blocked for its own size; below it, only the combined limit can block it.
   private blockReasonDescription(entry: ToolResultWithInfo): string {
     const perResponse = this.individualResponseCharacterLimit();
-    const combined = (this.totalTokenThreshold * 4).toLocaleString('en-US');
+    const combined = String(this.totalTokenThreshold * 4);
     return entry.originalTokens >= this.individualTokenThreshold
       ? `this exceeds the ${perResponse}-character tool call response limit`
       : `the parallel tool call responses together exceed the ${combined}-character combined tool call response limit`;
@@ -150,7 +152,7 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
       dedent`It MUST use the sandbox to read or extract from the file.
       It MUST use ${SANDBOX_SCHEMA_INFER_TAG} to understand the schema.
       Each sandbox tool response MUST stay under the ${charCap}-character tool call response limit.
-      It MUST prefer one read or extract that returns only what it needs; it MAY use up to that ${charCap}-character limit when useful.`,
+      It MUST prefer one read or extract that returns only what it needs; it MAY use up to ${charCap} character limit when useful.`,
     ];
 
     if (this.dynamicSubAgentsPresent) {
@@ -166,13 +168,26 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
     return `${this.formatBlockedContentPreamble(entry)}. Result saved to: ${filePath}.\n\n${guidance}\n\n${this.formatPreview(preview)}`;
   }
 
-  private buildResultsWithInfo(results: ToolCallResult[], sandbox: HarnessSandbox | undefined): ToolResultWithInfo[] {
-    return results.map(toolCallResult => ({
-      toolCallResult,
-      originalContent: toolCallResult.message.content,
-      originalTokens: estimateTokensForString(toolCallResult.message.content),
-      category: categorize(toolCallResult, sandbox),
-    }));
+  private buildResultsWithInfo(params: {
+    results: ToolCallResult[];
+    sandbox: HarnessSandbox | undefined;
+    elevatedLimit: number;
+  }): ToolResultWithInfo[] {
+    const { results, sandbox, elevatedLimit } = params;
+    const out: ToolResultWithInfo[] = [];
+    for (const toolCallResult of results) {
+      const entry: ToolResultWithInfo = {
+        toolCallResult,
+        originalContent: toolCallResult.message.content,
+        originalTokens: estimateTokensForString(toolCallResult.message.content),
+        category: categorize(toolCallResult, sandbox),
+      };
+      if (isWithinElevatedCharacterLimit(entry, elevatedLimit)) {
+        continue;
+      }
+      out.push(entry);
+    }
+    return out;
   }
 
   private blockResult(
@@ -190,7 +205,7 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
         newContent = entry.originalContent.slice(0, FAILURE_MESSAGE_TRUNCATION_LENGTH);
         break;
       case 'sandbox':
-        newContent = `${this.formatBlockedContentPreamble(entry)}. It MUST write the full output to a file, then return only what it needs. Each tool call response MUST stay under the ${this.individualResponseCharacterLimit()}-character tool call response limit (it MAY use up to that limit). It MUST use grep and sed on the file as needed.\n\n${this.formatPreview(preview)}`;
+        newContent = `${this.formatBlockedContentPreamble(entry)}. It MUST write the full output to a file, then return only what it needs. Each tool call response MUST stay under the ${this.individualResponseCharacterLimit()} character tool call response limit. It MAY use grep and sed on the file as needed.\n\n${this.formatPreview(preview)}`;
         break;
       case 'mcp':
         newContent = `${this.createLargeToolResponseGuidance(sandbox, entry)}\n\n${this.formatPreview(preview)}`;
@@ -260,9 +275,7 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
         currentContextUsage: execution.currentContextUsage,
       }),
     );
-    const resultsWithInfo = this.buildResultsWithInfo(results, sandbox).filter(
-      entry => !isWithinElevatedCharacterLimit(entry, elevatedLimit),
-    );
+    const resultsWithInfo = this.buildResultsWithInfo({ results, sandbox, elevatedLimit });
     let runningTotal = resultsWithInfo.reduce((sum, e) => sum + e.originalTokens, 0);
 
     if (runningTotal < this.individualTokenThreshold) {
