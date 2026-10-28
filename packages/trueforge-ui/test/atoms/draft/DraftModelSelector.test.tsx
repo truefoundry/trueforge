@@ -238,7 +238,7 @@ describe('DraftModelSelector', () => {
     expect(screen.getByRole('button', { name: 'Select model' })).toBeDisabled();
   });
 
-  it('shows a settings CTA when the host has a catalog and no models', async () => {
+  it('shows Configure model when the host has a catalog and no models', async () => {
     renderSelector(
       {},
       {
@@ -247,9 +247,8 @@ describe('DraftModelSelector', () => {
       },
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Select model' }));
-    const cta = await screen.findByRole('button', { name: /Please configure Models in the settings/i });
-    expect(cta.querySelector('.underline')).toHaveTextContent('settings');
+    const cta = await screen.findByRole('button', { name: 'Configure model' });
+    expect(screen.queryByRole('button', { name: 'Select model' })).not.toBeInTheDocument();
 
     fireEvent.click(cta);
     expect(screen.queryByRole('listbox', { name: 'Select model' })).not.toBeInTheDocument();
@@ -261,6 +260,6 @@ describe('DraftModelSelector', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Select model' }));
     await waitFor(() => expect(screen.getByText('No models')).toBeInTheDocument());
-    expect(screen.queryByRole('button', { name: /Please configure Models/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Configure model' })).not.toBeInTheDocument();
   });
 });
