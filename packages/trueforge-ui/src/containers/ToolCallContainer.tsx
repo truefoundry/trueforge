@@ -19,6 +19,7 @@ import { AnalyticsEvents } from '../analytics/events.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { resolveActivityLabel } from '../utils/resolveActivityLabel.js';
 import {
+  ASK_USER_SECRET_TOOL_NAME,
   ASK_USER_TOOL_NAME,
   MCP_META_TOOLS,
   SANDBOX_TOOL_NAMES,
@@ -181,6 +182,11 @@ export const ToolCallContainer: ToolCallMessagePartComponent = part => {
   const onToggle = () => setExpanded(prev => !prev);
   const expandSubAgent = useCallback(() => setExpanded(true), []);
   useRegisterApprovalExpand(isSubAgent ? part.toolCallId : '', expandSubAgent);
+
+  // Live chat: the host secret form owns this pause. A thread card would repeat the field list.
+  if (part.toolName === ASK_USER_SECRET_TOOL_NAME && !isSessionReplay && getAskUserAnswerResult(part.result) == null) {
+    return null;
+  }
 
   if (part.toolName === ASK_USER_TOOL_NAME) {
     const { question, options = [] } = parseAskUserQuestionArgs(part.argsText);

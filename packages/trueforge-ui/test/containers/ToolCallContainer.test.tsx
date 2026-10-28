@@ -193,6 +193,68 @@ describe('ToolCallContainer', () => {
     );
   });
 
+  it('hides pending ask_user_secret in live chat so the host form owns the prompt', () => {
+    renderToolCallMessage([
+      {
+        type: 'tool-call',
+        toolCallId: 'secret-pending',
+        toolName: 'ask_user_secret',
+        args: {},
+        argsText: JSON.stringify({
+          question: 'Provide the API key',
+          fields: [{ key: 'api_key', label: 'API key', required: true }],
+        }),
+        interrupt: { type: 'human', payload: {} },
+      },
+    ]);
+
+    expect(screen.queryByText('ask_user_secret')).not.toBeInTheDocument();
+  });
+
+  it('shows a pending ask_user_secret card in session replay', () => {
+    const message: ThreadMessageLike = {
+      role: 'assistant',
+      content: [
+        {
+          type: 'tool-call',
+          toolCallId: 'secret-pending',
+          toolName: 'ask_user_secret',
+          args: {},
+          argsText: JSON.stringify({
+            question: 'Provide the API key',
+            fields: [{ key: 'api_key', label: 'API key', required: true }],
+          }),
+          interrupt: { type: 'human', payload: {} },
+        },
+      ],
+    };
+
+    render(
+      <SessionReplayContext.Provider value={true}>
+        <RuntimeHarness messages={[message]}>
+          <ThreadPrimitive.Messages>{() => <AssistantMessageContainer />}</ThreadPrimitive.Messages>
+        </RuntimeHarness>
+      </SessionReplayContext.Provider>,
+    );
+
+    expect(screen.getByText('ask_user_secret')).toBeInTheDocument();
+  });
+
+  it('shows ask_user_secret after the placeholder is stored', () => {
+    renderToolCallMessage([
+      {
+        type: 'tool-call',
+        toolCallId: 'secret-done',
+        toolName: 'ask_user_secret',
+        args: {},
+        argsText: '{}',
+        result: '{"data":[{"key":"api_key","placeholder":"tfy-ephemeral-secret://abc"}]}',
+      },
+    ]);
+
+    expect(screen.getByText('ask_user_secret')).toBeInTheDocument();
+  });
+
   it('hides pending ask_user in live chat so the composer owns the prompt', () => {
     const AskUserPrompt = createAskUserPromptProbe();
 

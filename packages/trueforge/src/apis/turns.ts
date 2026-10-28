@@ -8,11 +8,11 @@ import {
   EventType,
   SessionStoreConflictError,
   SessionStoreNotFoundError,
-  TurnResourceResolver,
   type SessionHandle,
   type TurnHandle,
   type TurnInputItem,
   type TurnRecordWithoutSnapshot,
+  type TurnResourceResolver,
 } from '@truefoundry/trueforge-core/agent-session';
 import type { IWebSearchProvider } from '@truefoundry/trueforge-core/core';
 import {
@@ -38,7 +38,7 @@ import type { Logger } from 'winston';
 import type { ResolveMcpServerStoreInput, ResolveModelProviderStoreInput, ResolveTurnSkillsStoreInput } from '../app';
 import type { Authorizer } from '../auth/authorizer';
 import type { ResolveRequestContext } from '../auth/identity';
-import configuration from '../config';
+import configuration, { isTrueFoundryModeEnabled } from '../config';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
@@ -70,6 +70,8 @@ import {
 import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
 import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
 import { assertGatewayMetadataRequestHeaders } from '../truefoundry/gatewayMetadata';
+import { assertTfgToolsHeaderAllowed, parseTfgTools, X_TFG_TOOLS, type TfgToolName } from '../truefoundry/tfgTools';
+import { TrueFoundryTurnResourceResolver } from '../truefoundry/TrueFoundryTurnResourceResolver';
 import { newId } from '../utils/id';
 import { resolveWebSearchProvider } from '../websearch/providers';
 import { canReadAgentBoundResource, canReadSession } from './agentAccess';
@@ -158,6 +160,8 @@ interface BeginTurnExecutionParams {
   userRef: string;
   /** Raw inbound request headers. Absent for a schedule run. */
   requestHeaders?: Record<string, string>;
+  /** Tools from `x-tfg-tools`. Absent on schedule runs, which have no request headers. */
+  enabledTools?: readonly TfgToolName[];
   deps: BeginTurnExecutionDeps;
 }
 
@@ -178,6 +182,7 @@ function createTurnResolver(deps: {
   userRef: string;
   session: SessionHandle;
   turnMetadata: TurnMetadata;
+  enabledTools: readonly TfgToolName[];
 }): TurnResourceResolver {
   const {
     mcpServerStore,
@@ -192,106 +197,110 @@ function createTurnResolver(deps: {
     userRef,
     session,
     turnMetadata,
+    enabledTools,
   } = deps;
   const tenant_id = session.tenant_id;
   const sessionId = session.session_id;
 
-  return new TurnResourceResolver({
-    llm: async name => {
-      const resolved = await getModelDetails({
-        tenant_id,
-        name,
-        store: modelProviderStore,
-        turnMetadata,
-      });
-      return {
-        modelClient: new VercelAILLM({
-          providerConfig: resolved.providerConfig,
-          logger,
-          signal,
-        }),
-        defaultModelParams: resolved.defaultModelParams,
-        modelProperties: resolved.modelProperties,
-        providerType: resolved.providerConfig.provider.type,
-      };
-    },
-    mcp: async name => {
-      const connection = await getMcpConnection({
-        tenant_id,
-        name,
-        store: mcpServerStore,
-        userRef,
-        turnMetadata,
-      });
-      if (connection === undefined) {
-        throw new HTTPException(422, {
-          message: `Unknown MCP server "${name}" — not configured`,
-        });
-      }
-      return connection;
-    },
-    mcpRequestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
-    mcpConnectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
-    mcpMaxResponseBytes: configuration.MCP_TOOL_CALL_MAX_RESPONSE_BYTES,
-    sandboxProvider: async ({ spec, existingSandboxId, tracing }) => {
-      const provider = await resolveSandboxProvider({
-        tenant_id,
-        store: sandboxProviderStore,
-        logger,
-        sessionId,
-      });
-      if (provider === undefined) {
-        throw new HTTPException(422, {
-          message: 'no sandbox provider configured — PUT /settings/sandbox-providers',
-        });
-      }
-      const skills = spec.skills ?? [];
-      const mountSkills =
-        skills.length === 0
-          ? []
-          : await skillStore.resolveTurnSkills({
-              tenant_id,
-              skills,
-            });
-      const carriedSandboxId = existingSandboxIdForProvider({
-        existingSandboxId,
-        currentProviderType: provider.type,
-      });
-      const turnSandboxBase = {
-        logger,
-        skills: mountSkills,
-        fileDownloadEnabled: spec.config.sandbox.file_downloads,
-        existingSandboxId: carriedSandboxId,
-        tracing,
-      };
-      // Env-capable providers (Daytona): resolve env. Others skip (no snapshot concept).
-      if (provider.envSupported) {
-        const environment = await resolveSandboxEnvironment({
+  return new TrueFoundryTurnResourceResolver({
+    enabledTools,
+    deps: {
+      llm: async name => {
+        const resolved = await getModelDetails({
           tenant_id,
-          name: spec.config.sandbox.environment_name ?? DEFAULT_SANDBOX_ENVIRONMENT_NAME,
-          sandboxEnvironmentStore,
-          optional: spec.config.sandbox.environment_name === undefined,
+          name,
+          store: modelProviderStore,
+          turnMetadata,
         });
+        return {
+          modelClient: new VercelAILLM({
+            providerConfig: resolved.providerConfig,
+            logger,
+            signal,
+          }),
+          defaultModelParams: resolved.defaultModelParams,
+          modelProperties: resolved.modelProperties,
+          providerType: resolved.providerConfig.provider.type,
+        };
+      },
+      mcp: async name => {
+        const connection = await getMcpConnection({
+          tenant_id,
+          name,
+          store: mcpServerStore,
+          userRef,
+          turnMetadata,
+        });
+        if (connection === undefined) {
+          throw new HTTPException(422, {
+            message: `Unknown MCP server "${name}" — not configured`,
+          });
+        }
+        return connection;
+      },
+      mcpRequestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
+      mcpConnectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
+      mcpMaxResponseBytes: configuration.MCP_TOOL_CALL_MAX_RESPONSE_BYTES,
+      sandboxProvider: async ({ spec, existingSandboxId, tracing }) => {
+        const provider = await resolveSandboxProvider({
+          tenant_id,
+          store: sandboxProviderStore,
+          logger,
+          sessionId,
+        });
+        if (provider === undefined) {
+          throw new HTTPException(422, {
+            message: 'no sandbox provider configured — PUT /settings/sandbox-providers',
+          });
+        }
+        const skills = spec.skills ?? [];
+        const mountSkills =
+          skills.length === 0
+            ? []
+            : await skillStore.resolveTurnSkills({
+                tenant_id,
+                skills,
+              });
+        const carriedSandboxId = existingSandboxIdForProvider({
+          existingSandboxId,
+          currentProviderType: provider.type,
+        });
+        const turnSandboxBase = {
+          logger,
+          skills: mountSkills,
+          fileDownloadEnabled: spec.config.sandbox.file_downloads,
+          existingSandboxId: carriedSandboxId,
+          tracing,
+        };
+        // Env-capable providers (Daytona): resolve env. Others skip (no snapshot concept).
+        if (provider.envSupported) {
+          const environment = await resolveSandboxEnvironment({
+            tenant_id,
+            name: spec.config.sandbox.environment_name ?? DEFAULT_SANDBOX_ENVIRONMENT_NAME,
+            sandboxEnvironmentStore,
+            optional: spec.config.sandbox.environment_name === undefined,
+          });
+          return buildTurnSandbox({
+            provider,
+            ...(environment !== undefined ? { environment } : {}),
+            ...turnSandboxBase,
+          });
+        }
         return buildTurnSandbox({
           provider,
-          ...(environment !== undefined ? { environment } : {}),
           ...turnSandboxBase,
         });
-      }
-      return buildTurnSandbox({
-        provider,
-        ...turnSandboxBase,
-      });
+      },
+      agent: async agentId => {
+        const record = await agentStore.getAgent({ tenant_id, id: agentId });
+        if (record === undefined) {
+          throw new HTTPException(422, { message: `Agent not found: ${agentId}` });
+        }
+        return record.manifest;
+      },
+      webSearchProvider,
+      logger,
     },
-    agent: async agentId => {
-      const record = await agentStore.getAgent({ tenant_id, id: agentId });
-      if (record === undefined) {
-        throw new HTTPException(422, { message: `Agent not found: ${agentId}` });
-      }
-      return record.manifest;
-    },
-    webSearchProvider,
-    logger,
   });
 }
 
@@ -453,7 +462,7 @@ export interface TurnEventDrainInput {
 export async function beginTurnExecution(
   params: BeginTurnExecutionParams,
 ): Promise<{ turn: TurnHandle; drainInput: TurnEventDrainInput }> {
-  const { session, input, previous_turn_id: previousTurnId, userRef, requestHeaders, deps } = params;
+  const { session, input, previous_turn_id: previousTurnId, userRef, requestHeaders, enabledTools, deps } = params;
   // Fail closed on a bad inbound header before minting a turn id / starting execution.
   assertGatewayMetadataRequestHeaders(requestHeaders);
   const sessionId = session.session_id;
@@ -490,6 +499,7 @@ export async function beginTurnExecution(
       ...(sessionAgent.type === 'reference' ? { agent: { id: sessionAgent.id, name: sessionAgent.name } } : {}),
       ...(requestHeaders === undefined ? {} : { requestHeaders }),
     },
+    enabledTools: enabledTools ?? [],
   });
 
   // First turn only: derive the title from the first user message. The store
@@ -846,12 +856,19 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
 
     // x-tfg-skills / x-tfg-mcp / x-tfg-models on turns only when the session agent is inline.
     const allowInlineResources = session.record.agent.type === 'inline';
+    // x-tfg-tools is per turn and is not stored. A resume must send it again.
+    const rawTfgTools = c.req.header(X_TFG_TOOLS);
+    if (rawTfgTools !== undefined) {
+      assertTfgToolsHeaderAllowed({ isTrueFoundryMode: isTrueFoundryModeEnabled(configuration) });
+    }
+    const enabledTools = rawTfgTools === undefined ? undefined : parseTfgTools(rawTfgTools);
     const turnParams: BeginTurnExecutionParams = {
       session,
       input: body.input,
       previous_turn_id: body.previous_turn_id,
       userRef: requestContext.subject.id,
       requestHeaders: c.req.header(),
+      ...(enabledTools === undefined ? {} : { enabledTools }),
       deps: {
         ...deps,
         modelProviderStore: deps.resolveModelProviderStore({
