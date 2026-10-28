@@ -1,7 +1,7 @@
 import { sql } from 'kysely';
 
 import { SqliteAccessControlStore } from '../../../../src/db/sqlite/access-control-store/SqliteAccessControlStore';
-import { down, up } from '../../../../src/db/sqlite/migrations/20261027_000002_access_control_tenant_backfill';
+import { down, up } from '../../../../src/db/sqlite/migrations/20261028_000003_access_control_tenant_backfill';
 import { SqliteSessionStore } from '../../../../src/db/sqlite/session-store/SqliteSessionStore';
 import { runTenantBackfillMigrationSuite } from '../../accessControlTenantBackfillSuite';
 import { createSqliteTestDatabase, type SqliteTestDatabase } from '../testDatabase';

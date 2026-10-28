@@ -1,7 +1,7 @@
 import { sql } from 'kysely';
 
 import { PostgresAccessControlStore } from '../../../../src/db/postgres/access-control-store/PostgresAccessControlStore';
-import { down, up } from '../../../../src/db/postgres/migrations/20261027_000002_access_control_tenant_backfill';
+import { down, up } from '../../../../src/db/postgres/migrations/20261028_000003_access_control_tenant_backfill';
 import { PostgresSessionStore } from '../../../../src/db/postgres/session-store/PostgresSessionStore';
 import { runTenantBackfillMigrationSuite } from '../../accessControlTenantBackfillSuite';
 import { createPostgresTestDatabase, type PostgresTestDatabase } from '../testDatabase';
