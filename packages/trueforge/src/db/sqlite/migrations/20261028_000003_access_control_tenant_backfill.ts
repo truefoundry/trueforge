@@ -1,7 +1,7 @@
 import { sql, type Kysely } from 'kysely';
 
 /** Mirrors db/postgres/migrations/20261028_000003_access_control_tenant_backfill.ts. */
-export async function up<TDatabase>(db: Kysely<TDatabase>): Promise<void> {
+export async function up(db: Kysely<unknown>): Promise<void> {
   await db.transaction().execute(async trx => {
     await sql`
       INSERT INTO access_control (tenant_id, session_id, subject_type, subject_id, granted_by_subject, created_at)
@@ -13,7 +13,7 @@ export async function up<TDatabase>(db: Kysely<TDatabase>): Promise<void> {
   });
 }
 
-export async function down<TDatabase>(db: Kysely<TDatabase>): Promise<void> {
+export async function down(db: Kysely<unknown>): Promise<void> {
   await db.transaction().execute(async trx => {
     await sql`
       UPDATE session

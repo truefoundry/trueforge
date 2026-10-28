@@ -4,7 +4,7 @@ import { sql, type Kysely } from 'kysely';
  * Sessions shared with everyone become `tenant` grants; `session.shared` is no longer read or written.
  * Down copies tenant grants back onto the column so a rollback keeps sharing intact.
  */
-export async function up<TDatabase>(db: Kysely<TDatabase>): Promise<void> {
+export async function up(db: Kysely<unknown>): Promise<void> {
   await sql`SET LOCAL lock_timeout = '5s'`.execute(db);
   await sql`
     INSERT INTO access_control (tenant_id, session_id, subject_type, subject_id, granted_by_subject, created_at)
@@ -15,7 +15,7 @@ export async function up<TDatabase>(db: Kysely<TDatabase>): Promise<void> {
   `.execute(db);
 }
 
-export async function down<TDatabase>(db: Kysely<TDatabase>): Promise<void> {
+export async function down(db: Kysely<unknown>): Promise<void> {
   await sql`SET LOCAL lock_timeout = '5s'`.execute(db);
   await sql`
     UPDATE session AS s
