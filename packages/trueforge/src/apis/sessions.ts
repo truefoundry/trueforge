@@ -32,12 +32,15 @@ import { z } from 'zod';
 import type { Authorizer } from '../auth/authorizer';
 import { createdBySubjectFromRequestContext, type RequestContext, type ResolveRequestContext } from '../auth/identity';
 import configuration from '../config';
+import type { IAccessControlStore, SessionAccessRecord } from '../db/accessControlStore';
 import type { IAgentStore } from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
+import type { WithTransaction } from '../db/transaction';
+import type { IUserStore } from '../db/userStore';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { updateLogContext } from '../logger';
 import {
@@ -47,13 +50,16 @@ import {
   getOrCreateSessionByExternalIdRoute,
   getSessionRoute,
   listSessionEventsRoute,
+  listSessionGrantsRoute,
   listSessionsRoute,
+  updateSessionGrantsRoute,
   updateSessionRoute,
 } from '../routes/sessionRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import { validateAgentSpec } from '../runtime/sessionResources';
 import { honoQueriesToRecord } from '../schemas/deepObjectQuery';
 import { isSessionAgentNameRef, parseListSessionsQuery, type Session } from '../schemas/session';
+import type { SessionGrant, SessionGrantSubject } from '../schemas/sessionGrant';
 import { newId } from '../utils/id';
 import { agentIfAccessible, canReadAgentBoundResource, canReadSession, resolveManagedAgentIds } from './agentAccess';
 
@@ -85,6 +91,7 @@ export function toWireSession(record: SessionRecord): Session {
 }
 
 export interface SessionsRouterDeps<TTransaction = never> {
+  accessControlStore: IAccessControlStore<TTransaction>;
   activeTurns: ActiveTurnRegistry<TTransaction>;
   authorizer: Authorizer;
   logger: Logger;
@@ -109,7 +116,9 @@ export interface SessionsRouterDeps<TTransaction = never> {
   sandboxProviderStore: ISandboxProviderStore;
   sessions: Sessions<TTransaction>;
   sessionStore: ISessionStore<TTransaction>;
+  userStore: IUserStore;
   webSearchProviderStore: IWebSearchProviderStore;
+  withTransaction: WithTransaction<TTransaction>;
 }
 
 /**
@@ -257,6 +266,47 @@ function isSessionOwner({
   created_by_subject: { subject_id: string };
 }): boolean {
   return subject_id === created_by_subject.subject_id;
+}
+
+const FORBIDDEN_SESSION_ACCESS_MANAGEMENT = 'Only the session creator can manage access to this session';
+
+/** Session the caller created; 404 when missing, 403 for anyone else. */
+async function requireOwnedSession(
+  deps: Pick<SessionsRouterDeps, 'sessionStore' | 'resolveRequestContext'>,
+  input: { c: Context; session_id: string },
+): Promise<{ requestContext: RequestContext; record: SessionRecord }> {
+  const requestContext = deps.resolveRequestContext(input.c);
+  const record = await deps.sessionStore.getSession({
+    tenant_id: requestContext.tenant_id,
+    session_id: input.session_id,
+  });
+  if (!record) {
+    throw new HTTPException(404, { message: `Session not found: ${input.session_id}` });
+  }
+  if (!isSessionOwner({ subject_id: requestContext.subject.id, created_by_subject: record.created_by_subject })) {
+    throw new HTTPException(403, { message: FORBIDDEN_SESSION_ACCESS_MANAGEMENT });
+  }
+  return { requestContext, record };
+}
+
+function subjectKey(subject: SessionGrantSubject): string {
+  return `${subject.subject_type}:${subject.subject_id}`;
+}
+
+function uniqueSubjects(subjects: readonly SessionGrantSubject[]): SessionGrantSubject[] {
+  const byKey = new Map<string, SessionGrantSubject>();
+  for (const subject of subjects) {
+    byKey.set(subjectKey(subject), subject);
+  }
+  return [...byKey.values()];
+}
+
+function toWireSessionGrant(record: SessionAccessRecord): SessionGrant {
+  return {
+    subject: { subject_type: record.subject_type, subject_id: record.subject_id },
+    granted_by_subject: record.granted_by_subject,
+    created_at: record.created_at,
+  };
 }
 
 /**
@@ -653,6 +703,64 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
     }
   };
 
+  const listSessionGrantsHandler: RouteHandler<typeof listSessionGrantsRoute> = async c => {
+    const { session_id: sessionId } = c.req.valid('param');
+    const { requestContext } = await requireOwnedSession(deps, { c, session_id: sessionId });
+    const records = await deps.accessControlStore.listSessionAccess({
+      tenant_id: requestContext.tenant_id,
+      session_id: sessionId,
+    });
+    return c.json({ data: records.map(toWireSessionGrant) }, 200);
+  };
+
+  const updateSessionGrantsHandler: RouteHandler<typeof updateSessionGrantsRoute> = async c => {
+    const { session_id: sessionId } = c.req.valid('param');
+    const body = c.req.valid('json');
+    const { requestContext } = await requireOwnedSession(deps, { c, session_id: sessionId });
+    const toGrant = uniqueSubjects(body.grant);
+    const toRevoke = uniqueSubjects(body.revoke);
+    const revokeKeys = new Set(toRevoke.map(subjectKey));
+    if (toGrant.some(subject => revokeKeys.has(subjectKey(subject)))) {
+      throw new HTTPException(422, { message: 'A subject cannot be both granted and revoked.' });
+    }
+    const userIds = toGrant.map(subject => subject.subject_id);
+    if (userIds.includes(requestContext.subject.id)) {
+      throw new HTTPException(422, { message: 'The session creator already has access.' });
+    }
+    if (userIds.length > 0) {
+      const knownUsers = await deps.userStore.getUsersByIds({ context: requestContext, ids: userIds });
+      const knownIds = new Set(knownUsers.map(user => user.id));
+      const unknownIds = userIds.filter(id => !knownIds.has(id));
+      if (unknownIds.length > 0) {
+        throw new HTTPException(422, { message: `Unknown users: ${unknownIds.join(', ')}` });
+      }
+    }
+    await deps.withTransaction(async transaction => {
+      if (toGrant.length > 0) {
+        await deps.accessControlStore.grantSessionAccess(
+          {
+            tenant_id: requestContext.tenant_id,
+            session_id: sessionId,
+            subjects: toGrant,
+            granted_by_subject: createdBySubjectFromRequestContext(requestContext),
+          },
+          transaction,
+        );
+      }
+      if (toRevoke.length > 0) {
+        await deps.accessControlStore.revokeSessionAccess(
+          { tenant_id: requestContext.tenant_id, session_id: sessionId, subjects: toRevoke },
+          transaction,
+        );
+      }
+    });
+    const records = await deps.accessControlStore.listSessionAccess({
+      tenant_id: requestContext.tenant_id,
+      session_id: sessionId,
+    });
+    return c.json({ data: records.map(toWireSessionGrant) }, 200);
+  };
+
   const router = new OpenAPIHono();
   router.openapi(createSessionRoute, createSessionHandler);
   router.openapi(getSessionRoute, getSessionHandler);
@@ -661,6 +769,8 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
   router.openapi(listSessionsRoute, listSessionsHandler);
   router.openapi(cancelSessionRoute, cancelSessionHandler);
   router.openapi(listSessionEventsRoute, listSessionEventsHandler);
+  router.openapi(listSessionGrantsRoute, listSessionGrantsHandler);
+  router.openapi(updateSessionGrantsRoute, updateSessionGrantsHandler);
   deps.requestReplyRouter.registerRoute(SESSIONS_CANCEL_PATH, cancelSessionTurnPeerHandler(deps.activeTurns));
   return router;
 }

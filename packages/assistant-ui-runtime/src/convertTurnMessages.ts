@@ -1542,90 +1542,56 @@ export function projectSessionMessages(
 
 const DEFAULT_LIST_EVENTS_CONCURRENCY = 5;
 
-function ingestTurnsIntoSnapshot(
-  snapshot: SessionSnapshot,
-  turns: Turn[],
-  eventArrays: PersistedTurnEvent[][],
-): Turn | undefined {
-  let runningTurn: Turn | undefined;
-  // Session-scoped: sandbox.created fires when a sandbox is (re)created and the
-  // sandbox is reused by later turns, so carry the latest one forward.
-  let sessionSandboxId: string | undefined;
-
-  for (let i = 0; i < turns.length; i++) {
-    const turn = turns[i];
-    if (turn == null) {
-      continue;
-    }
-    const rootBucket = snapshot.fold.threads.get(ROOT_THREAD_ID);
-    const beforeCount = rootBucket?.modelMessageIds.length ?? 0;
-
-    ingestCollectedEventsIntoFold(snapshot.fold, eventArrays[i] ?? []);
-    applyUserToolResponsesToFold(snapshot.fold, turn.input ?? []);
-
-    const afterBucket = snapshot.fold.threads.get(ROOT_THREAD_ID);
-    const rootModelMessageIds = (afterBucket?.modelMessageIds ?? []).slice(beforeCount);
-
-    const sandboxEvent = (eventArrays[i] ?? []).find(
-      (event): event is Extract<TurnEvent, { type: typeof EVENT_TYPE.SANDBOX_CREATED }> =>
-        event.type === EVENT_TYPE.SANDBOX_CREATED,
-    );
-    sessionSandboxId = sandboxEvent?.sandboxId ?? sessionSandboxId;
-    let pendingMcpAuth: McpAuthRequiredEvent | undefined;
-    for (const event of eventArrays[i] ?? []) {
-      if (event.type === EVENT_TYPE.MCP_AUTH_REQUIRED) {
-        pendingMcpAuth = event;
-      } else if (
-        event.type === EVENT_TYPE.USER_MCP_AUTH_CONTINUE ||
-        (event.type === EVENT_TYPE.TURN_UPDATE && event.state.status === TURN_STATUS.RUNNING) ||
-        event.type === EVENT_TYPE.TURN_DONE
-      ) {
-        pendingMcpAuth = undefined;
-      }
-    }
-
-    snapshot.turns.push({
-      ...turnToSessionRecord(turn),
-      rootModelMessageIds,
-      ...(sessionSandboxId != null ? { sandboxId: sessionSandboxId } : {}),
-      ...(pendingMcpAuth != null ? { pendingMcpAuth } : {}),
-    });
-    snapshot.pendingMcpAuth = pendingMcpAuth;
-
-    if (turn.state.status === TURN_STATUS.RUNNING || turn.state.status === TURN_STATUS.PAUSED) {
-      runningTurn = turn;
-      break;
-    }
-  }
-
-  return runningTurn;
-}
-
 export async function buildSnapshotFromSession(
   server: AgentChatServer,
   sessionId: string,
   concurrency: number = DEFAULT_LIST_EVENTS_CONCURRENCY,
 ): Promise<SessionSnapshot> {
-  // Completed history comes from session-level listEvents. The session API
-  // excludes the running turn — hydrate that turn via listTurnEvents so
-  // convertTurnsToThreadMessages still surfaces in-flight content.
+  // Session listEvents already folds the open tip. Merge any newer tip events
+  // via listTurnEvents, then attribute uncommitted root ids — a beforeCount
+  // slice is empty when listEvents already ingested the tip.
   const snapshot = await buildSnapshotFromSessionEvents(server, sessionId);
   if (snapshot.runningTurn == null) {
     return snapshot;
   }
 
   const turn = snapshot.runningTurn;
+  if (snapshot.turns.some(existing => existing.id === turn.id)) {
+    const snapshotWithoutPendingUser = { ...snapshot };
+    delete snapshotWithoutPendingUser.pendingUser;
+    return replaceSessionSnapshot(snapshotWithoutPendingUser, {
+      runningTurn: turn,
+      unstable_resume: true,
+      groupRootBaseline: computeGroupRootBaseline(snapshot.turns),
+    });
+  }
+
   const eventArrays = await fetchAllTurnEventsWithConcurrency(server, sessionId, [turn], concurrency);
-  ingestTurnsIntoSnapshot(snapshot, [turn], eventArrays);
+  const tipEvents = eventArrays[0] ?? [];
+  ingestCollectedEventsIntoFold(snapshot.fold, tipEvents);
+  applyUserToolResponsesToFold(snapshot.fold, turn.input ?? []);
+
+  const sandboxEvent = tipEvents.find(
+    (event): event is Extract<TurnEvent, { type: 'sandbox.created' }> => event.type === 'sandbox.created',
+  );
+  const turns = [
+    ...snapshot.turns,
+    {
+      ...turnToSessionRecord(turn),
+      rootModelMessageIds: rootModelMessageIdsForOpenTip(snapshot),
+      ...(sandboxEvent?.sandboxId != null ? { sandboxId: sandboxEvent.sandboxId } : {}),
+    },
+  ];
 
   // Hydrated in-flight content lives in `turns` / `fold` now — drop the
   // reconnect seed so projection does not duplicate the user bubble.
   const snapshotWithoutPendingUser = { ...snapshot };
   delete snapshotWithoutPendingUser.pendingUser;
   return replaceSessionSnapshot(snapshotWithoutPendingUser, {
+    turns,
     runningTurn: turn,
     unstable_resume: true,
-    groupRootBaseline: computeGroupRootBaseline(snapshot.turns),
+    groupRootBaseline: computeGroupRootBaseline(turns),
   });
 }
 

@@ -17,6 +17,7 @@ import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import configuration from '../../../src/config';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
+import { SqliteAccessControlStore } from '../../../src/db/sqlite/access-control-store/SqliteAccessControlStore';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
@@ -29,6 +30,7 @@ import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkill
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import type { Database } from '../../../src/db/sqlite/types';
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
+import { EmptyUserStore } from '../../../src/db/userStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
 import { GetSessionResponseSchema, ListSessionsResponseSchema } from '../../../src/schemas/session';
@@ -118,6 +120,7 @@ describe('sessions HTTP agent binding', () => {
     resolveMcpServerStore = jest.fn(() => mcpServerStore);
     resolveSkillStore = jest.fn(() => skillStore);
     const deps: SessionsRouterDeps<Transaction<Database>> = {
+      accessControlStore: new SqliteAccessControlStore(db),
       activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
       authorizer: new TrueForgeAuthorizer(),
       logger: createLogger({ silent: true }),
@@ -132,7 +135,9 @@ describe('sessions HTTP agent binding', () => {
       sandboxProviderStore,
       sessions,
       sessionStore,
+      userStore: new EmptyUserStore(),
       webSearchProviderStore,
+      withTransaction: callback => db.transaction().execute(callback),
     };
     sessionDeps = deps;
     app = new OpenAPIHono();

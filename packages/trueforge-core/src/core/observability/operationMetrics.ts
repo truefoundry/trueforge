@@ -88,7 +88,8 @@ export type ServiceFoundryOperation =
   | 'agents'
   | 'skills'
   | 'agent_permissions'
-  | 'tenant_permissions';
+  | 'tenant_permissions'
+  | 'users';
 
 export type ServiceFoundryOutcome = 'success' | 'error' | 'timeout';
 

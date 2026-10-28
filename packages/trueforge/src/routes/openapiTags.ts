@@ -2,6 +2,7 @@
 export enum OpenApiTag {
   INTERNAL = 'Internal',
   AUTH = 'Auth',
+  USERS = 'Users',
   CAPABILITIES = 'Capabilities',
   MODELS = 'Models',
   MCP_SERVERS = 'MCP Servers',
@@ -17,6 +18,7 @@ export enum OpenApiTag {
 export const OPENAPI_DOCUMENT_TAGS: { name: OpenApiTag }[] = [
   { name: OpenApiTag.INTERNAL },
   { name: OpenApiTag.AUTH },
+  { name: OpenApiTag.USERS },
   { name: OpenApiTag.CAPABILITIES },
   { name: OpenApiTag.MODELS },
   { name: OpenApiTag.MCP_SERVERS },
