@@ -222,6 +222,12 @@ providers:
         properties:
           context_length: 1000000
           max_output_tokens: 128000
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
       - model_id: claude-opus-4-8
         name: claude-opus-4-8
         properties:
@@ -314,6 +320,11 @@ providers:
         properties:
           context_length: 1048576
           max_output_tokens: 65536
+          reasoning_efforts:
+            - minimal
+            - low
+            - medium
+            - high
       - model_id: gemini-3.5-flash-lite
         name: gemini-3-5-flash-lite
         properties:
@@ -696,6 +707,17 @@ providers:
         name: minimax-m3
         properties:
           context_length: 524288
+      - model_id: MiniMaxAI/MiniMax-M3.1-Flash
+        name: minimax-m3-1-flash
+        properties:
+          context_length: 1048576
+          max_output_tokens: 524288
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
       - model_id: moonshotai/Kimi-K2.6
         name: kimi-k2-6
         properties:
