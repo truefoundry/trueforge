@@ -1,8 +1,17 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 
 import { CanCreateAgentProvider } from '../hooks/useCanCreateAgent.js';
+import {
+  createServerQueryClient,
+  rescopeServerQueryClient,
+  ServerQueryClientContext,
+  useMountServerQueryClient,
+  useServerQueryClient,
+} from './queryClient.js';
+import { queryKeys } from './queryKeys.js';
 import type {
   AgentBuilderCapabilitiesResponse,
   AgentMetricsServer,
@@ -22,37 +31,40 @@ const ServerCapabilitiesContext = createContext<{
 } | null>(null);
 
 export function ServerProvider({ server, children }: { server: AgentUIServer; children: ReactNode }) {
-  const [capabilities, setCapabilities] = useState<AgentBuilderCapabilitiesResponse['data'] | null>(null);
-  const [capabilitiesSettled, setCapabilitiesSettled] = useState(false);
-  const cancelActiveRequestRef = useRef<(() => void) | null>(null);
+  const [queryClient] = useState(createServerQueryClient);
+  useMountServerQueryClient(queryClient);
+  const [scope, setScope] = useState({ server, generation: 0 });
+  if (scope.server !== server) {
+    // A swapped server must never read the previous server's cache.
+    const generation = scope.generation + 1;
+    rescopeServerQueryClient({ queryClient, scope: generation });
+    setScope({ server, generation });
+  }
+  return (
+    <ServerQueryClientContext.Provider value={queryClient}>
+      <ServerScope server={server}>{children}</ServerScope>
+    </ServerQueryClientContext.Provider>
+  );
+}
+
+function ServerScope({ server, children }: { server: AgentUIServer; children: ReactNode }) {
+  const queryClient = useServerQueryClient();
+  const capabilitiesQuery = useQuery(
+    {
+      queryKey: queryKeys.capabilities(),
+      queryFn: async () => (await server.getCapabilities()).data,
+      // After a server swap, keep the previous flags until the new ones load so gated chrome does not flicker closed.
+      placeholderData: keepPreviousData,
+    },
+    queryClient,
+  );
   const refreshCapabilities = useCallback(() => {
-    cancelActiveRequestRef.current?.();
-    let cancelled = false;
-    cancelActiveRequestRef.current = () => {
-      cancelled = true;
-    };
-    void server
-      .getCapabilities()
-      .then(response => {
-        if (!cancelled) setCapabilities(response.data);
-      })
-      .catch(() => {
-        // Preserve the last known capabilities when a refresh fails.
-      })
-      .finally(() => {
-        if (!cancelled) setCapabilitiesSettled(true);
-      });
-  }, [server]);
+    // A failed refresh keeps the last known capabilities.
+    void queryClient.invalidateQueries({ queryKey: queryKeys.capabilities() });
+  }, [queryClient]);
 
-  useEffect(() => {
-    setCapabilities(null);
-    setCapabilitiesSettled(false);
-    refreshCapabilities();
-    return () => {
-      cancelActiveRequestRef.current?.();
-    };
-  }, [refreshCapabilities]);
-
+  const capabilities = capabilitiesQuery.data ?? null;
+  const capabilitiesSettled = capabilitiesQuery.isFetched;
   const capabilitiesValue = useMemo(
     () => ({ capabilities, settled: capabilitiesSettled, refresh: refreshCapabilities }),
     [capabilities, capabilitiesSettled, refreshCapabilities],
