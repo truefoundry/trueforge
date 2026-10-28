@@ -169,6 +169,12 @@ export function createOperationMetrics(registry: Registry): OperationMetrics {
     buckets: HTTP_REQUEST_DURATION_BUCKETS_SECONDS,
     registers: [registry],
   });
+  const serviceFoundryRetries = new Counter({
+    name: 'tfg_servicefoundry_retries_total',
+    help: 'ServiceFoundry GET retries after a transport failure or retryable status',
+    labelNames: ['operation', 'reason'],
+    registers: [registry],
+  });
   const postgresQueryDuration = new Histogram({
     name: 'tfg_postgres_query_duration_seconds',
     help: 'Postgres query duration in seconds',
@@ -247,6 +253,9 @@ export function createOperationMetrics(registry: Registry): OperationMetrics {
     recordServiceFoundryRequest({ operation, outcome, statusClass, durationSeconds }): void {
       serviceFoundryRequests.inc({ operation, outcome, status_class: statusClass });
       serviceFoundryDuration.observe({ operation, outcome }, durationSeconds);
+    },
+    recordServiceFoundryRetry({ operation, reason }): void {
+      serviceFoundryRetries.inc({ operation, reason });
     },
     recordPostgresQuery({ outcome, durationSeconds }): void {
       postgresQueryDuration.observe({ outcome }, durationSeconds);

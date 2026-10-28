@@ -122,6 +122,7 @@ function mockClient(
     tls: { enabled: false, dir: '' },
     httpTimeoutMs: 10_000,
     httpAgentTimeoutMs: 3_000,
+    maxRetries: 0,
     apiKey: 'tfy-api-key',
   });
   client.putRemoteAgent =
