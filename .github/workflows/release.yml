@@ -417,6 +417,7 @@ jobs:
     permissions:
       id-token: write
       contents: read
+      packages: write
     with:
       artifactory_oidc_provider_name: github-jfrog-trueforge
       # The shared build.yml inherits THIS run's github.sha, which is the
@@ -446,6 +447,7 @@ jobs:
     permissions:
       id-token: write
       contents: read
+      packages: write
     with:
       artifactory_oidc_provider_name: github-jfrog-trueforge-private
       # Same reason as the public image: build the version commit, not the
