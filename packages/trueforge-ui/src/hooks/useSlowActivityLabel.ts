@@ -2,24 +2,34 @@
 
 import { useEffect, useState } from 'react';
 
-export const SLOW_ACTIVITY_AFTER_MS = 10_000;
+export const SLOW_ACTIVITY_AFTER_MS = 60_000;
 
 const SLOW_ACTIVITY_NOTE = 'Taking longer than expected';
 
-export function useSlowActivityLabel({ label, activityKey }: { label: string; activityKey: string | null }): string {
+export function useSlowActivityLabel({
+  label,
+  activityKey,
+  progressKey,
+}: {
+  label: string;
+  activityKey: string | null;
+  progressKey?: string | null;
+}): string {
+  // Phase plus the latest stream fingerprint. A new delta must restart the minute and clear a warning already on screen.
+  const clockKey = activityKey == null ? null : `${activityKey}:${progressKey ?? ''}`;
   const [slowKey, setSlowKey] = useState<string | null>(null);
-  const [trackedKey, setTrackedKey] = useState(activityKey);
-  if (trackedKey !== activityKey) {
-    setTrackedKey(activityKey);
+  const [trackedKey, setTrackedKey] = useState(clockKey);
+  if (trackedKey !== clockKey) {
+    setTrackedKey(clockKey);
     setSlowKey(null);
   }
 
   useEffect(() => {
-    if (activityKey == null) return;
-    const id = window.setTimeout(() => setSlowKey(activityKey), SLOW_ACTIVITY_AFTER_MS);
+    if (clockKey == null) return;
+    const id = window.setTimeout(() => setSlowKey(clockKey), SLOW_ACTIVITY_AFTER_MS);
     return () => window.clearTimeout(id);
-  }, [activityKey]);
+  }, [clockKey]);
 
-  if (activityKey == null || slowKey !== activityKey) return label;
+  if (clockKey == null || slowKey !== clockKey) return label;
   return SLOW_ACTIVITY_NOTE;
 }
