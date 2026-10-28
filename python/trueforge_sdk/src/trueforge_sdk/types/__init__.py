@@ -261,6 +261,7 @@ if typing.TYPE_CHECKING:
     from .turn_state_cancelled_metrics import TurnStateCancelledMetrics
     from .turn_state_cancelled_reason import TurnStateCancelledReason
     from .turn_state_done import TurnStateDone
+    from .turn_state_done_metrics import TurnStateDoneMetrics
     from .turn_state_error import TurnStateError
     from .turn_state_error_metrics import TurnStateErrorMetrics
     from .turn_state_paused import TurnStatePaused
@@ -543,6 +544,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TurnStateCancelledMetrics": ".turn_state_cancelled_metrics",
     "TurnStateCancelledReason": ".turn_state_cancelled_reason",
     "TurnStateDone": ".turn_state_done",
+    "TurnStateDoneMetrics": ".turn_state_done_metrics",
     "TurnStateError": ".turn_state_error",
     "TurnStateErrorMetrics": ".turn_state_error_metrics",
     "TurnStatePaused": ".turn_state_paused",
@@ -849,6 +851,7 @@ __all__ = [
     "TurnStateCancelledMetrics",
     "TurnStateCancelledReason",
     "TurnStateDone",
+    "TurnStateDoneMetrics",
     "TurnStateError",
     "TurnStateErrorMetrics",
     "TurnStatePaused",

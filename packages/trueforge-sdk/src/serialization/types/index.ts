@@ -253,6 +253,7 @@ export * from "./TurnStateCancelled.js";
 export * from "./TurnStateCancelledMetrics.js";
 export * from "./TurnStateCancelledReason.js";
 export * from "./TurnStateDone.js";
+export * from "./TurnStateDoneMetrics.js";
 export * from "./TurnStateError.js";
 export * from "./TurnStateErrorMetrics.js";
 export * from "./TurnStatePaused.js";

@@ -5581,7 +5581,7 @@
         "type": "object"
       },
       "TurnMetrics": {
-        "description": "Optional billable aggregate for the whole turn.",
+        "description": "Billable aggregate for this turn so far.",
         "properties": {
           "total_cache_read_tokens": {
             "description": "Total cache-read tokens across model calls in this turn.",
@@ -5701,7 +5701,14 @@
             "type": "string"
           },
           "metrics": {
-            "$ref": "#/components/schemas/TurnMetrics"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TurnMetrics"
+              },
+              {
+                "description": "Optional billable aggregate for the whole turn."
+              }
+            ]
           },
           "output": {
             "anyOf": [
@@ -5774,6 +5781,9 @@
       },
       "TurnStatePaused": {
         "properties": {
+          "metrics": {
+            "$ref": "#/components/schemas/TurnMetrics"
+          },
           "status": {
             "description": "Turn is paused waiting for user actions.",
             "enum": [
