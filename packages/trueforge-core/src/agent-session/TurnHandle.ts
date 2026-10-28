@@ -27,6 +27,7 @@ import {
 import type { AgentThreadOrchestrator } from '../core/runtime/AgentThreadOrchestrator';
 import { getEmptyCurrentContextUsage } from '../core/runtime/contextUsage';
 import { isInternalThreadDoneCancelled } from '../core/runtime/contextUtils';
+import type { AgentThreadMetrics } from '../core/runtime/metrics';
 import { waitUntilAborted } from '../core/util/abort';
 import type { ITurnResourceResolver } from './ITurnResourceResolver';
 import type { TurnRecord } from './models/TurnRecord';
@@ -415,7 +416,7 @@ export class TurnHandle<TTransaction = never, TTurnCustom extends object = Recor
       while (!iterResult.done) {
         const event = iterResult.value;
         if (event.type === InternalEventType.TURN_STATE) {
-          const turnUpdate = await this.persistTurnNonTerminal(event.transition, orchestrator);
+          const turnUpdate = await this.persistTurnNonTerminal(event.transition, orchestrator.getMetrics());
           if (turnUpdate) {
             yield turnUpdate;
           }
@@ -525,15 +526,13 @@ export class TurnHandle<TTransaction = never, TTurnCustom extends object = Recor
 
   private async persistTurnNonTerminal(
     transition: InternalTurnStateEvent['transition'],
-    orchestrator: AgentThreadOrchestrator,
+    metrics: AgentThreadMetrics,
   ): Promise<TurnUpdateEvent | null> {
     const state: NonTerminalTurnState = transition.status === 'paused' ? { status: 'paused' } : { status: 'running' };
     const updatedAt = new Date();
     const observed_at = updatedAt.toISOString();
     const turn_metrics: TurnNonTerminalMetrics =
-      state.status === 'paused'
-        ? { status: 'paused', observed_at, metrics: orchestrator.getMetrics() }
-        : { status: 'running', observed_at };
+      state.status === 'paused' ? { status: 'paused', observed_at, metrics } : { status: 'running', observed_at };
     const turnUpdate: TurnUpdateEvent = {
       type: EventType.TURN_UPDATE,
       id: newEventId(),
