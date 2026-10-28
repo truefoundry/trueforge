@@ -3,11 +3,8 @@ import {
   extractErrorLogFields,
   getOperationMetrics,
   httpStatusClass,
-  type OperationMetrics,
-  type ServiceFoundryHttpRetryStatus,
   type ServiceFoundryOperation,
   type ServiceFoundryOutcome,
-  type ServiceFoundryRetryReason,
 } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import { LRUCache } from 'lru-cache';
@@ -57,6 +54,11 @@ const RETRYABLE_NETWORK_CODES = new Set([
   'UND_ERR_CONNECT_TIMEOUT',
   'UND_ERR_HEADERS_TIMEOUT',
 ]);
+/** Gateway and timeout statuses replayed on a ServiceFoundry GET. */
+type ServiceFoundryHttpRetryStatus = 408 | 409 | 429 | 502 | 503 | 504 | 520 | 521 | 522 | 523 | 524 | 530;
+
+type ServiceFoundryRetryReason = 'timeout' | 'network' | ServiceFoundryHttpRetryStatus;
+
 /** GET statuses safe to replay. Matches idempotent retries in ssrfGuard.ts, plus 504. */
 const RETRYABLE_GET_STATUSES: readonly ServiceFoundryHttpRetryStatus[] = [
   408, 409, 429, 502, 503, 504, 520, 521, 522, 523, 524, 530,
@@ -930,8 +932,6 @@ export class TrueFoundryServiceFoundryServerClient {
         if (retryReason !== undefined && attempt < this.#maxRetries) {
           const delayMs = retryDelayMs(attempt);
           await this.#waitForRetry({
-            metrics,
-            operation: input.operation,
             url: input.url,
             method: input.method,
             attempt,
@@ -964,8 +964,6 @@ export class TrueFoundryServiceFoundryServerClient {
           void responseBody.cancel().catch(() => undefined);
         }
         await this.#waitForRetry({
-          metrics,
-          operation: input.operation,
           url: input.url,
           method: input.method,
           attempt,
@@ -1028,8 +1026,6 @@ export class TrueFoundryServiceFoundryServerClient {
   }
 
   async #waitForRetry(input: {
-    metrics: OperationMetrics | undefined;
-    operation: ServiceFoundryOperation;
     url: URL;
     method: 'GET' | 'DELETE' | 'POST' | 'PUT';
     attempt: number;
@@ -1044,7 +1040,6 @@ export class TrueFoundryServiceFoundryServerClient {
       reason: input.reason,
       delayMs: input.delayMs,
     });
-    input.metrics?.recordServiceFoundryRetry({ operation: input.operation, reason: input.reason });
     await sleep(input.delayMs);
   }
 }

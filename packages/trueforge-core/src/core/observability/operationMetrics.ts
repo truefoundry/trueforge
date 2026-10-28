@@ -93,12 +93,6 @@ export type ServiceFoundryOperation =
 
 export type ServiceFoundryOutcome = 'success' | 'error' | 'timeout';
 
-/** Gateway and timeout statuses replayed on a ServiceFoundry GET. */
-export type ServiceFoundryHttpRetryStatus = 408 | 409 | 429 | 502 | 503 | 504 | 520 | 521 | 522 | 523 | 524 | 530;
-
-/** Why a ServiceFoundry GET was replayed. HTTP retries use the status that was replayed. */
-export type ServiceFoundryRetryReason = 'timeout' | 'network' | ServiceFoundryHttpRetryStatus;
-
 /** Postgres query result. SQL text and table names stay off the label. */
 export type PostgresQueryOutcome = 'success' | 'error';
 
@@ -162,7 +156,6 @@ export interface OperationMetrics {
     statusClass: OutboundHttpStatusClass;
     durationSeconds: number;
   }): void;
-  recordServiceFoundryRetry(options: { operation: ServiceFoundryOperation; reason: ServiceFoundryRetryReason }): void;
   recordPostgresQuery(options: { outcome: PostgresQueryOutcome; durationSeconds: number }): void;
 }
 
