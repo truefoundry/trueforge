@@ -1,5 +1,6 @@
 import type { AgentThreadMetrics } from '../core/runtime/metrics';
 import { accrueAgentThreadMetrics, createEmptyAgentThreadMetrics } from '../core/runtime/metrics';
+import type { TurnDoneEvent } from './schemas/events';
 import type {
   CancellationReason,
   TerminalTurnState,
@@ -122,6 +123,11 @@ export function cancelledStateWithCheckpointMetrics(input: {
     completed_at: input.completed_at,
     metrics: input.public_metrics,
   };
+}
+
+/** The logged turn.done uses the same terminal state as the turn row. */
+export function turnDoneEventWithTerminalState(event: TurnDoneEvent, state: TerminalTurnState): TurnDoneEvent {
+  return { ...event, state };
 }
 
 /**

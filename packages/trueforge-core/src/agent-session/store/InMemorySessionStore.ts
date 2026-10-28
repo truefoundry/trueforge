@@ -12,6 +12,7 @@ import {
   createInitialTurnMetricsCheckpoint,
   foldTurnMetricsCheckpoint,
   resolveStoredTurnMetricsCheckpoint,
+  turnDoneEventWithTerminalState,
   writeTurnMetricsCheckpoint,
 } from '../turnMetrics';
 import { assertCreateTurnThreadDelta } from './assertCreateTurnThreadDelta';
@@ -489,7 +490,7 @@ export class InMemorySessionStore<
       turn.updated_at = new Date();
       const list = this.events.get(tKey);
       if (list) {
-        list.push(deepCopy(input.turn_done_event));
+        list.push(deepCopy(turnDoneEventWithTerminalState(input.turn_done_event, cancelledState)));
       }
       this.applyTurnStateToSession({
         id: input.session_id,

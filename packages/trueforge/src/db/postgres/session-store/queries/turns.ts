@@ -34,6 +34,7 @@ import {
   createInitialTurnMetricsCheckpoint,
   foldTurnMetricsCheckpoint,
   resolveStoredTurnMetricsCheckpoint,
+  turnDoneEventWithTerminalState,
 } from '@truefoundry/trueforge-core/agent-session/turnMetrics';
 import type { CapabilityState, JsonValue } from '@truefoundry/trueforge-core/core/capabilities/AgentCapability';
 import type { AgentInfo, AgentParent, MCPServerInitInfo } from '@truefoundry/trueforge-core/core/events/schema';
@@ -808,14 +809,15 @@ export async function freezeAndGetTurn(db: Kysely<Database>, input: FreezeAndGet
         .executeTakeFirst();
 
       if (Number(updated.numUpdatedRows) > 0) {
+        const turnDoneEvent = turnDoneEventWithTerminalState(input.turn_done_event, cancelledState);
         await trx
           .insertInto('session_event')
           .values({
             session_id: input.session_id,
             turn_id: input.turn_id,
-            event_id: input.turn_done_event.id,
-            event: json(input.turn_done_event),
-            created_at: new Date(input.turn_done_event.created_at),
+            event_id: turnDoneEvent.id,
+            event: json(turnDoneEvent),
+            created_at: new Date(turnDoneEvent.created_at),
           })
           .execute();
         // Only the winning cancel folds; a freeze of an already-terminal turn is a read.

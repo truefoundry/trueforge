@@ -2544,12 +2544,26 @@ export function runStoreContractSuite<TTransaction>(
         turn_metrics: { status: 'paused', observed_at: pauseAt, metrics: metricsWithCost(1.5) },
       });
       const pausedCancel = makeCancelledTurnState(CancellationReason.CancelledForNextTurn);
-      await store.freezeAndGetTurn({
+      const frozenPaused = await store.freezeAndGetTurn({
         session_id: sessionId,
         turn_id: 'turn-2',
         reason: CancellationReason.CancelledForNextTurn,
         turn_done_event: makeTurnDoneEvent(pausedCancel),
       });
+      const { data: pausedEvents } = await store.listTurnEvents({
+        session_id: sessionId,
+        turn_id: 'turn-2',
+        limit: 10,
+        page_token: undefined,
+        order: undefined,
+      });
+      const pausedDone = pausedEvents.filter(event => event.type === EventType.TURN_DONE);
+      expect(pausedDone).toHaveLength(1);
+      const pausedDoneEvent = pausedDone[0];
+      if (pausedDoneEvent?.type !== EventType.TURN_DONE) {
+        throw new Error('expected turn.done');
+      }
+      expect(pausedDoneEvent.state).toEqual(frozenPaused.state);
       const afterPausedFreeze = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
       expect(afterPausedFreeze.metrics).toEqual({
         total_cost_in_usd: 1.5,
