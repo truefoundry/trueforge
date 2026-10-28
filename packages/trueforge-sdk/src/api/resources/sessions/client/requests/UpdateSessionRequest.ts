@@ -9,6 +9,8 @@ import type * as TrueForge from "../../../../index.js";
 export interface UpdateSessionRequest {
     agent?: TrueForge.SessionAgentSpecBody;
     metadata?: TrueForge.SessionMetadata;
+    /** Deprecated: share through `POST /sessions/{session_id}/grants` with a `tenant` subject. True shares the session with everyone in the tenant; false stops sharing it with them. */
+    shared?: boolean;
     /** Human-readable session title. */
     title?: string;
 }
