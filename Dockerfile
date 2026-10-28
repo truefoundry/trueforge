@@ -21,8 +21,6 @@
 ARG BUILD_BASE_IMAGE=node:24-slim
 ARG RUNTIME_BASE_IMAGE=node:24-slim
 
-# INFRA-2029: rebuild trigger for updated tfy-internal/node:24 (v24.22.1)
-
 FROM ${BUILD_BASE_IMAGE} AS base
 # The hardened bases default to uid 65532. Package install must run as root.
 # node:24-slim is already root.
