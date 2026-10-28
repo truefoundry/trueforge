@@ -20,13 +20,9 @@ export function jsonbSet(column: Expression<unknown>, path: string, value: unkno
   return sql`jsonb_set(${column}, ${path}, ${jsonbBind(value)})`;
 }
 
-/** Set `metrics`, `active_duration_ms`, and `running_since` in one expression. */
+/** Set `metrics`, `active_duration_ms`, and `running_since` in one `jsonb_set`. */
 export function jsonbSetTurnMetrics(column: Expression<unknown>, metrics: TurnMetricsCheckpoint): RawBuilder<string> {
-  return jsonbSet(
-    jsonbSet(jsonbSet(column, '$.metrics', metrics.metrics), '$.active_duration_ms', metrics.active_duration_ms),
-    '$.running_since',
-    metrics.running_since,
-  );
+  return sql`jsonb_set(${column}, '$.metrics', ${jsonbBind(metrics.metrics)}, '$.active_duration_ms', ${jsonbBind(metrics.active_duration_ms)}, '$.running_since', ${jsonbBind(metrics.running_since)})`;
 }
 
 /**

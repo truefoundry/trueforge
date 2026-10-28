@@ -234,8 +234,8 @@ export function turnNonTerminalFence(db: TurnFenceDb, keys: TurnKeys) {
     .forShare();
 }
 
-/** Lock the turn row and read the checkpoint used to fold this transition. */
-async function loadTurnMetricsRow(
+/** `FOR UPDATE`. Reads the checkpoint folded by this transition. */
+async function lockTurnMetricsRow(
   db: Transaction<Database>,
   keys: { session_id: string; turn_id: string },
 ): Promise<
@@ -774,7 +774,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
  */
 export async function freezeAndGetTurn(db: Kysely<Database>, input: FreezeAndGetTurnInput): Promise<TurnRecord> {
   return await db.transaction().execute(async trx => {
-    const locked = await loadTurnMetricsRow(trx, input);
+    const locked = await lockTurnMetricsRow(trx, input);
     if (locked !== undefined && isNonTerminalTurnState(locked.state)) {
       const completed_at = new Date().toISOString();
       const folded = foldTurnMetricsCheckpoint({
@@ -794,7 +794,7 @@ export async function freezeAndGetTurn(db: Kysely<Database>, input: FreezeAndGet
         completed_at,
         public_metrics: folded.public_metrics,
       });
-      // The row lock is held from loadTurnMetricsRow. The status predicate is the winning cancel.
+      // The row lock is held from lockTurnMetricsRow. The status predicate is the winning cancel.
       const updated = await trx
         .updateTable('turn')
         .set({
@@ -895,7 +895,7 @@ export async function updateTurnNonTerminalState(
 ): Promise<void> {
   await db.transaction().execute(async trx => {
     const expectedSourceStatus = input.state.status === 'paused' ? 'running' : 'paused';
-    const locked = await loadTurnMetricsRow(trx, input);
+    const locked = await lockTurnMetricsRow(trx, input);
     if (locked === undefined) {
       throw new TurnNotFoundError(input.turn_id);
     }
@@ -972,7 +972,7 @@ export async function updateTurnTerminalState(
   input: UpdateTurnTerminalStateInput,
 ): Promise<void> {
   await db.transaction().execute(async trx => {
-    const locked = await loadTurnMetricsRow(trx, input);
+    const locked = await lockTurnMetricsRow(trx, input);
     if (locked === undefined) {
       throw new TurnNotFoundError(input.turn_id);
     }

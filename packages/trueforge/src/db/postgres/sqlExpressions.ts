@@ -28,20 +28,16 @@ export function jsonbSet<T = unknown>(
   return sql<T>`jsonb_set(${target}, ${path}, ${newValue})`;
 }
 
-/** Set `metrics`, `active_duration_ms`, and `running_since` in one expression. */
+/** Merge `metrics`, `active_duration_ms`, and `running_since` onto the checkpoint. */
 export function jsonbSetTurnMetrics(
   target: Expression<unknown>,
   metrics: TurnMetricsCheckpoint,
 ): RawBuilder<TurnCheckpoint> {
-  return jsonbSet<TurnCheckpoint>(
-    jsonbSet(
-      jsonbSet(target, sql`'{metrics}'`, json(metrics.metrics)),
-      sql`'{active_duration_ms}'`,
-      json(metrics.active_duration_ms),
-    ),
-    sql`'{running_since}'`,
-    json(metrics.running_since),
-  );
+  return sql<TurnCheckpoint>`${target} || ${json({
+    metrics: metrics.metrics,
+    active_duration_ms: metrics.active_duration_ms,
+    running_since: metrics.running_since,
+  })}`;
 }
 
 /** `now()` timestamptz expression. */
