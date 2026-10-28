@@ -210,7 +210,7 @@ export class AgentThreadOrchestrator {
   private readonly createDynamicSubAgentThread: CreateDynamicSubAgentThread;
   private readonly tracing: AgentTracing;
   private readonly logger: Logger;
-  // Finished sub-agents removed from `agentThreads`; kept so this stretch still includes them.
+  // Finished sub-agents removed from `agentThreads`; kept so the current run still includes them.
   private finishedSubAgentMetrics: AgentThreadMetrics = createEmptyAgentThreadMetrics();
   private readonly wakeSignal: Signalable = signalable();
   private readonly pendingTurnEvents: TurnUserEvent[];
@@ -233,7 +233,7 @@ export class AgentThreadOrchestrator {
   }
 
   /**
-   * Billable totals for the open running stretch. Reset after a successful pause.
+   * Billable totals since the last resume. Reset after a successful pause.
    * Each thread is counted once — a sub-agent moves from live → finished atomically.
    */
   public getMetrics(): AgentThreadMetrics {

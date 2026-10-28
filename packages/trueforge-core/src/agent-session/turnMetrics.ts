@@ -1,5 +1,5 @@
 import type { AgentThreadMetrics } from '../core/runtime/metrics';
-import { accrueAgentThreadMetrics, createEmptyAgentThreadMetrics } from '../core/runtime/metrics';
+import { createEmptyAgentThreadMetrics, sumAgentThreadMetrics } from '../core/runtime/metrics';
 import type { TurnDoneEvent } from './schemas/events';
 import type {
   CancellationReason,
@@ -29,7 +29,7 @@ export type TurnMetricsTransition =
       kind: 'terminal';
       completed_at: string;
       stored_status: 'running' | 'paused';
-      /** Billable totals for the open stretch. Added to the checkpoint. */
+      /** Billable totals since the last resume. Added to the checkpoint. */
       metrics: AgentThreadMetrics;
     }
   | { kind: 'freeze'; completed_at: string; stored_status: 'running' | 'paused' };
@@ -131,7 +131,7 @@ export function turnDoneEventWithTerminalState(event: TurnDoneEvent, state: Term
 }
 
 /**
- * One fold for every winning transition. Pause and terminal add the stretch.
+ * One fold for every winning transition. Pause and terminal add the metrics since the last resume.
  * Duration is only the interval this transition closes.
  */
 export function foldTurnMetricsCheckpoint(input: {
@@ -160,7 +160,7 @@ function foldPause(
   });
   return {
     checkpoint: {
-      metrics: accrueAgentThreadMetrics(stored.metrics, transition.metrics),
+      metrics: sumAgentThreadMetrics(stored.metrics, transition.metrics),
       active_duration_ms: stored.active_duration_ms + duration_ms,
       running_since: null,
     },
@@ -199,7 +199,7 @@ function foldTerminal(
       : 0;
   return {
     checkpoint: {
-      metrics: accrueAgentThreadMetrics(stored.metrics, transition.metrics),
+      metrics: sumAgentThreadMetrics(stored.metrics, transition.metrics),
       active_duration_ms: stored.active_duration_ms + duration_ms,
       running_since: null,
     },

@@ -52,10 +52,10 @@ export function addAgentThreadMetrics(target: AgentThreadMetrics, source: AgentT
   target.total_cost_in_usd = sumOptional(target.total_cost_in_usd, source.total_cost_in_usd);
 }
 
-/** Closed checkpoint plus the open stretch. Does not mutate either input. */
-export function accrueAgentThreadMetrics(stored: AgentThreadMetrics, stretch: AgentThreadMetrics): AgentThreadMetrics {
+/** Sum of the two metrics objects. Does not mutate either input. */
+export function sumAgentThreadMetrics(current: AgentThreadMetrics, added: AgentThreadMetrics): AgentThreadMetrics {
   const total = createEmptyAgentThreadMetrics();
-  addAgentThreadMetrics(total, stored);
-  addAgentThreadMetrics(total, stretch);
+  addAgentThreadMetrics(total, current);
+  addAgentThreadMetrics(total, added);
   return total;
 }

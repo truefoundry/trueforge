@@ -182,7 +182,7 @@ export const TurnMetricsCheckpointSchema = z.object({
   running_since: z.string().nullable(),
 });
 
-/** Pause sends the stretch since the last resume. Resume only opens the next interval. */
+/** Pause sends the metrics since the last resume. Resume only opens the next interval. */
 export const TurnNonTerminalMetricsSchema = z.discriminatedUnion('status', [
   z.object({
     status: z.literal('paused'),

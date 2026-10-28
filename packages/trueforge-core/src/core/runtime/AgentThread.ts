@@ -493,7 +493,7 @@ export class AgentThread {
   private readonly logger: Logger;
 
   private metrics: AgentThreadMetrics = createEmptyAgentThreadMetrics();
-  /** Loop limit for this running stretch. Reset when the turn pauses. */
+  /** Loop limit since the last resume. Reset when the turn pauses. */
   private iterations = 0;
   private tfyManagedServerNames = new Set<string>();
 

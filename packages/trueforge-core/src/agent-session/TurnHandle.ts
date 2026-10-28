@@ -27,7 +27,7 @@ import {
 import type { AgentThreadOrchestrator } from '../core/runtime/AgentThreadOrchestrator';
 import { getEmptyCurrentContextUsage } from '../core/runtime/contextUsage';
 import { isInternalThreadDoneCancelled } from '../core/runtime/contextUtils';
-import { accrueAgentThreadMetrics, type AgentThreadMetrics } from '../core/runtime/metrics';
+import { sumAgentThreadMetrics, type AgentThreadMetrics } from '../core/runtime/metrics';
 import { waitUntilAborted } from '../core/util/abort';
 import type { ITurnResourceResolver } from './ITurnResourceResolver';
 import type { TurnRecord } from './models/TurnRecord';
@@ -450,8 +450,8 @@ export class TurnHandle<TTransaction = never, TTurnCustom extends object = Recor
   }): Promise<TurnDoneEvent> {
     const updatedAt = new Date();
     const createdAtIso = updatedAt.toISOString();
-    const stretch = input.orchestrator.getMetrics();
-    const cumulative = accrueAgentThreadMetrics(this.turn.snapshot.metrics, stretch);
+    const running = input.orchestrator.getMetrics();
+    const cumulative = sumAgentThreadMetrics(this.turn.snapshot.metrics, running);
     const metrics = turnMetricsFromAgentThreadMetrics(cumulative);
     const terminalState = resolveTerminalState({
       signal: input.signal,
@@ -468,7 +468,7 @@ export class TurnHandle<TTransaction = never, TTurnCustom extends object = Recor
         active_executor_id: this.turn.active_executor_id,
         state: terminalState,
         turn_done_event: turnDone,
-        metrics: stretch,
+        metrics: running,
       }),
     );
     this.turn = {
@@ -489,7 +489,7 @@ export class TurnHandle<TTransaction = never, TTurnCustom extends object = Recor
     const state: TerminalTurnState = {
       ...error.state,
       metrics: turnMetricsFromAgentThreadMetrics(
-        accrueAgentThreadMetrics(this.turn.snapshot.metrics, orchestrator.getMetrics()),
+        sumAgentThreadMetrics(this.turn.snapshot.metrics, orchestrator.getMetrics()),
       ),
     };
     this.turn = { ...this.turn, state, updated_at: updatedAt };
@@ -541,7 +541,7 @@ export class TurnHandle<TTransaction = never, TTurnCustom extends object = Recor
   ): Promise<TurnUpdateEvent | null> {
     const cumulative =
       transition.status === 'paused'
-        ? accrueAgentThreadMetrics(this.turn.snapshot.metrics, metrics)
+        ? sumAgentThreadMetrics(this.turn.snapshot.metrics, metrics)
         : this.turn.snapshot.metrics;
     const state: NonTerminalTurnState =
       transition.status === 'paused'

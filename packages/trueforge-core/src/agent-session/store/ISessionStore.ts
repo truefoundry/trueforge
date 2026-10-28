@@ -179,7 +179,7 @@ export interface UpdateTurnTerminalStateInput extends TurnProgressKeys {
   state: TerminalTurnState;
   /** Caller-built turn.done; written atomically with the state flip. */
   turn_done_event: PersistedTurnEvent;
-  /** Stretch since the last checkpoint. Added to the turn checkpoint and to session cost. */
+  /** Metrics since the last checkpoint. Added to the turn checkpoint and to session cost. */
   metrics: AgentThreadMetrics;
 }
 
@@ -386,14 +386,14 @@ export interface ISessionStore<
 
   /**
    * Atomically performs `running ↔ paused` and appends turn.update.
-   * Pause adds this stretch's cost and the closed running interval. Resume only sets `running_since`.
+   * Pause adds the cost since the last resume and the closed running interval. Resume only sets `running_since`.
    */
   updateTurnNonTerminalState(input: UpdateTurnNonTerminalStateInput): Promise<void>;
 
   /**
    * First terminal write wins (`running|paused → done|cancelled|error`) and
    * atomically appends turn.done. Duration is the open running interval.
-   * Cost is this stretch's cost.
+   * Cost is the cost since the last checkpoint.
    */
   updateTurnTerminalState(input: UpdateTurnTerminalStateInput): Promise<void>;
 

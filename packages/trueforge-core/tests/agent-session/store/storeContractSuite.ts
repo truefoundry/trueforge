@@ -2748,7 +2748,7 @@ export function runStoreContractSuite<TTransaction>(
       expect(session.metrics).toEqual(metricsBeforeResume);
     });
 
-    it('adds each pause stretch once and adds nothing on resume', async () => {
+    it('adds each pause once and adds nothing on resume', async () => {
       const store = createStore();
       await seedSession(store);
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
