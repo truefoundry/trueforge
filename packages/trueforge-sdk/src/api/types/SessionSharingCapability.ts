@@ -2,5 +2,5 @@
 
 export interface SessionSharingCapability {
     /** Whether sessions can be shared with specific users. Sharing with the whole tenant is always available. */
-    users: boolean;
+    enabled: boolean;
 }

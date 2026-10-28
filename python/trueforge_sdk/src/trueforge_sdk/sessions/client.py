@@ -182,7 +182,7 @@ class SessionsClient:
 
     def get(self, *, session_id: str, request_options: typing.Optional[RequestOptions] = None) -> GetSessionResponse:
         """
-        Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or anyone the session is shared with.
+        Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
 
         Parameters
         ----------
@@ -254,7 +254,7 @@ class SessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetSessionResponse:
         """
-        Update a session: optional `title`, `metadata`, `shared` (deprecated; use the session grants API), and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
+        Update a session: optional `title`, `metadata`, `shared`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
 
         Parameters
         ----------
@@ -266,7 +266,7 @@ class SessionsClient:
         metadata : typing.Optional[SessionMetadata]
 
         shared : typing.Optional[bool]
-            Deprecated: share through `POST /sessions/{session_id}/grants` with a `tenant` subject. True shares the session with everyone in the tenant; false stops sharing it with them.
+            Deprecated; use `POST /sessions/{session_id}/grants` with a `tenant` subject.
 
         title : typing.Optional[str]
             Human-readable session title.
@@ -345,7 +345,7 @@ class SessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[SessionEventItem, ListSessionEventsResponse]:
         """
-        List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or anyone the session is shared with.
+        List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
 
         Parameters
         ----------
@@ -484,7 +484,7 @@ class SessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[Turn, ListTurnsResponse]:
         """
-        List turns for a session (newest first by default), token-paginated. Allowed for the creator, a manager of the bound named agent, or anyone the session is shared with.
+        List turns for a session (newest first by default), token-paginated. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
 
         Parameters
         ----------
@@ -636,7 +636,7 @@ class SessionsClient:
         self, *, session_id: str, turn_id: str, request_options: typing.Optional[RequestOptions] = None
     ) -> GetTurnResponse:
         """
-        Fetch a single turn by ID. Allowed for the creator, a manager of the bound named agent, or anyone the session is shared with.
+        Fetch a single turn by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
 
         Parameters
         ----------
@@ -725,7 +725,7 @@ class SessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[SessionEvent, ListTurnEventsResponse]:
         """
-        Paginated persisted events for a turn (insertion order by default). Allowed for the creator, a manager of the bound named agent, or anyone the session is shared with.
+        Paginated persisted events for a turn (insertion order by default). Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
 
         Parameters
         ----------
@@ -1050,7 +1050,7 @@ class AsyncSessionsClient:
         self, *, session_id: str, request_options: typing.Optional[RequestOptions] = None
     ) -> GetSessionResponse:
         """
-        Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or anyone the session is shared with.
+        Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
 
         Parameters
         ----------
@@ -1138,7 +1138,7 @@ class AsyncSessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetSessionResponse:
         """
-        Update a session: optional `title`, `metadata`, `shared` (deprecated; use the session grants API), and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
+        Update a session: optional `title`, `metadata`, `shared`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
 
         Parameters
         ----------
@@ -1150,7 +1150,7 @@ class AsyncSessionsClient:
         metadata : typing.Optional[SessionMetadata]
 
         shared : typing.Optional[bool]
-            Deprecated: share through `POST /sessions/{session_id}/grants` with a `tenant` subject. True shares the session with everyone in the tenant; false stops sharing it with them.
+            Deprecated; use `POST /sessions/{session_id}/grants` with a `tenant` subject.
 
         title : typing.Optional[str]
             Human-readable session title.
@@ -1245,7 +1245,7 @@ class AsyncSessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[SessionEventItem, ListSessionEventsResponse]:
         """
-        List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or anyone the session is shared with.
+        List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
 
         Parameters
         ----------
@@ -1409,7 +1409,7 @@ class AsyncSessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[Turn, ListTurnsResponse]:
         """
-        List turns for a session (newest first by default), token-paginated. Allowed for the creator, a manager of the bound named agent, or anyone the session is shared with.
+        List turns for a session (newest first by default), token-paginated. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
 
         Parameters
         ----------
@@ -1587,7 +1587,7 @@ class AsyncSessionsClient:
         self, *, session_id: str, turn_id: str, request_options: typing.Optional[RequestOptions] = None
     ) -> GetTurnResponse:
         """
-        Fetch a single turn by ID. Allowed for the creator, a manager of the bound named agent, or anyone the session is shared with.
+        Fetch a single turn by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
 
         Parameters
         ----------
@@ -1695,7 +1695,7 @@ class AsyncSessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[SessionEvent, ListTurnEventsResponse]:
         """
-        Paginated persisted events for a turn (insertion order by default). Allowed for the creator, a manager of the bound named agent, or anyone the session is shared with.
+        Paginated persisted events for a turn (insertion order by default). Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
 
         Parameters
         ----------

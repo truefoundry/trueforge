@@ -8,7 +8,7 @@ from ..core.unchecked_base_model import UncheckedBaseModel
 
 
 class SessionSharingCapability(UncheckedBaseModel):
-    users: bool = pydantic.Field()
+    enabled: bool = pydantic.Field()
     """
     Whether sessions can be shared with specific users. Sharing with the whole tenant is always available.
     """

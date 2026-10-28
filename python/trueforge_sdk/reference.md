@@ -2228,7 +2228,7 @@ client.sessions.create(
 <dl>
 <dd>
 
-Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or anyone the session is shared with.
+Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
 </dd>
 </dl>
 </dd>
@@ -2372,7 +2372,7 @@ client.sessions.delete(
 <dl>
 <dd>
 
-Update a session: optional `title`, `metadata`, `shared` (deprecated; use the session grants API), and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
+Update a session: optional `title`, `metadata`, `shared`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
 </dd>
 </dl>
 </dd>
@@ -2436,7 +2436,7 @@ client.sessions.update(
 <dl>
 <dd>
 
-**shared:** `typing.Optional[bool]` — Deprecated: share through `POST /sessions/{session_id}/grants` with a `tenant` subject. True shares the session with everyone in the tenant; false stops sharing it with them.
+**shared:** `typing.Optional[bool]` — Deprecated; use `POST /sessions/{session_id}/grants` with a `tenant` subject.
     
 </dd>
 </dl>
@@ -2548,7 +2548,7 @@ client.sessions.cancel(
 <dl>
 <dd>
 
-List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or anyone the session is shared with.
+List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
 </dd>
 </dl>
 </dd>
@@ -2804,7 +2804,7 @@ client.sessions.update_grants(
 <dl>
 <dd>
 
-List turns for a session (newest first by default), token-paginated. Allowed for the creator, a manager of the bound named agent, or anyone the session is shared with.
+List turns for a session (newest first by default), token-paginated. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
 </dd>
 </dl>
 </dd>
@@ -3092,7 +3092,7 @@ client.sessions.create_turn_stream(
 <dl>
 <dd>
 
-Fetch a single turn by ID. Allowed for the creator, a manager of the bound named agent, or anyone the session is shared with.
+Fetch a single turn by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
 </dd>
 </dl>
 </dd>
@@ -3263,7 +3263,7 @@ client.sessions.download_sandbox_file(
 <dl>
 <dd>
 
-Paginated persisted events for a turn (insertion order by default). Allowed for the creator, a manager of the bound named agent, or anyone the session is shared with.
+Paginated persisted events for a turn (insertion order by default). Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
 </dd>
 </dl>
 </dd>

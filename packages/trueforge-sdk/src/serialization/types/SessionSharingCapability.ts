@@ -8,11 +8,11 @@ export const SessionSharingCapability: core.serialization.ObjectSchema<
     serializers.SessionSharingCapability.Raw,
     TrueForge.SessionSharingCapability
 > = core.serialization.object({
-    users: core.serialization.boolean(),
+    enabled: core.serialization.boolean(),
 });
 
 export declare namespace SessionSharingCapability {
     export interface Raw {
-        users: boolean;
+        enabled: boolean;
     }
 }
