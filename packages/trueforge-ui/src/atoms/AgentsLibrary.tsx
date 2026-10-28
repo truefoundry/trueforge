@@ -1,5 +1,6 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
@@ -8,6 +9,8 @@ import { AnalyticsEvents } from '../analytics/events.js';
 import { useResourcePermissions } from '../hooks/useResourcePermissions.js';
 import { useSessionShareSearch } from '../hooks/useSessionShareSearch.js';
 import { Icon } from '../icons/Icon.js';
+import { useServerQueryClient } from '../server/queryClient.js';
+import { queryKeys } from '../server/queryKeys.js';
 import { isSchedulesChromeEnabled, isSessionsChromeEnabled } from '../server/serverChrome.js';
 import { useOptionalAgentSessionsServer, useOptionalScheduleServer } from '../server/ServerContext.js';
 import { libraryAgentId, useShellMode } from '../server/ShellModeContext.js';
@@ -563,7 +566,7 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
   const SlottedAgentLibraryRow = useSlot('AgentLibraryRow');
   const track = useTrackAnalytics();
   const [query, setQuery] = useState(() => readLibraryShareSearch(window.location.search).agentName ?? '');
-  const [scheduleByAgent, setScheduleByAgent] = useState<Map<string, AgentScheduleSummary> | null>(null);
+  const queryClient = useServerQueryClient();
   const skipNextLibraryShareSyncRef = useRef(false);
   const open = shell.libraryOpen;
 
@@ -617,7 +620,6 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
     useSearchAgentsList({
       enabled: open,
       query,
-      refreshKey: agentsListEpoch,
       mode: 'paged',
       limit: DEFAULT_TABLE_PAGE_SIZE,
     });
@@ -637,25 +639,28 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
     refreshKey: agentsListEpoch,
   });
 
+  const scheduleAgentIds = agents.map(libraryAgentId);
+  const scheduleSummaryQuery = useQuery(
+    {
+      queryKey: queryKeys.schedules.forAgents(scheduleAgentIds),
+      queryFn: () =>
+        scheduleServer == null
+          ? Promise.reject(new Error('Schedules server is not configured.'))
+          : listAllSchedulesForAgents({ listSchedules: scheduleServer.listSchedules, agentIds: scheduleAgentIds }),
+      enabled: open && scheduleServer != null && scheduleAgentIds.length > 0,
+      select: summarizeSchedulesByAgent,
+    },
+    queryClient,
+  );
+  const scheduleByAgent = open && scheduleAgentIds.length > 0 ? (scheduleSummaryQuery.data ?? null) : null;
+
+  // Agent saves/deletes can add or drop schedules, so refresh the summary with the agents list.
+  const seenAgentsListEpochRef = useRef(agentsListEpoch);
   useEffect(() => {
-    if (!open || scheduleServer == null || agents.length === 0) {
-      setScheduleByAgent(null);
-      return;
-    }
-    let cancelled = false;
-    setScheduleByAgent(null);
-    const agentIds = agents.map(libraryAgentId);
-    void listAllSchedulesForAgents({ listSchedules: scheduleServer.listSchedules, agentIds })
-      .then(rows => {
-        if (!cancelled) setScheduleByAgent(summarizeSchedulesByAgent(rows));
-      })
-      .catch(() => {
-        if (!cancelled) setScheduleByAgent(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [agents, open, scheduleServer, agentsListEpoch]);
+    if (seenAgentsListEpochRef.current === agentsListEpoch) return;
+    seenAgentsListEpochRef.current = agentsListEpoch;
+    void queryClient.invalidateQueries({ queryKey: queryKeys.schedules.all() });
+  }, [agentsListEpoch, queryClient]);
 
   const openSchedulesForAgent = ({ agentId, isNew }: { agentId: string; isNew?: boolean }) => {
     track(AnalyticsEvents.Library.AGENT_SCHEDULES_OPENED, { agent_id: agentId });

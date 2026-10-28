@@ -1,9 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useCallback, useEffect, useState } from 'react';
 
+import { useServerQueryClient } from '../../server/queryClient.js';
+import { queryKeys } from '../../server/queryKeys.js';
 import { useOptionalServer } from '../../server/ServerContext.js';
-import type { AgentBuilderServer, AgentLibraryEntry } from '../../server/types.js';
+import type { AgentBuilderServer, AgentLibraryEntry, AgentUIServer } from '../../server/types.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import { useDebouncedValue } from './useDebouncedValue.js';
 
@@ -73,8 +76,6 @@ export type UseSearchAgentsListOptions = {
   /** When false, no fetches run. */
   enabled: boolean;
   query: string;
-  /** Bump to force a replace fetch (e.g. agentsListEpoch). */
-  refreshKey?: number;
   /** Page size for infinite mode, or initial size for paged mode. Capped at 100. */
   limit?: number;
   debounceMs?: number;
@@ -104,144 +105,114 @@ export type UseSearchAgentsListResult = {
   goNext: () => void;
 };
 
+const EMPTY_AGENTS: AgentLibraryEntry[] = [];
+
+function requireServer(server: AgentUIServer | null): AgentUIServer {
+  if (server == null) throw new Error('Agent search requires a server.');
+  return server;
+}
+
+function nonEmptyToken(token: string | undefined): string | undefined {
+  return token === undefined || token === '' ? undefined : token;
+}
+
 /**
- * Debounced `searchAgents` with token pagination.
+ * Debounced, cached `searchAgents` with token pagination. Results refresh when the shell
+ * invalidates the agents list.
  * Infinite mode: attach `listRef` / `sentinelRef` for IntersectionObserver load-more.
  * Paged mode: use `goPrev` / `goNext` / `setPageSize` (rows replaced each fetch).
  */
 export function useSearchAgentsList({
   enabled,
   query,
-  refreshKey = 0,
   limit: limitOption = SEARCH_AGENTS_PAGE_SIZE,
   debounceMs = DEFAULT_DEBOUNCE_MS,
   mode = 'infinite',
 }: UseSearchAgentsListOptions): UseSearchAgentsListResult {
   const server = useOptionalServer();
+  const queryClient = useServerQueryClient();
   // While closed, sync immediately so reopen never fetches a stale query.
   const debouncedQuery = useDebouncedValue(query, enabled ? debounceMs : 0);
+  const searchQuery = debouncedQuery.trim() || undefined;
 
-  const [agents, setAgents] = useState<AgentLibraryEntry[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(false);
   const [pageSize, setPageSizeState] = useState(() => clampPageSize(limitOption));
-  const [pageToken, setPageToken] = useState<string | undefined>(undefined);
-  const [nextPageToken, setNextPageToken] = useState<string | undefined>(undefined);
-  const [previousPageToken, setPreviousPageToken] = useState<string | undefined>(undefined);
-
-  const genRef = useRef(0);
-  const loadMoreInflightRef = useRef(false);
-  const hasMoreRef = useRef(false);
-  const nextPageTokenRef = useRef<string | undefined>(undefined);
-  const listElRef = useRef<HTMLElement | null>(null);
-  const sentinelElRef = useRef<HTMLElement | null>(null);
+  // The token belongs to one query/size; a new search starts from the first page.
+  const [pageCursor, setPageCursor] = useState<{ scope: string; token: string | undefined }>({
+    scope: '',
+    token: undefined,
+  });
   const [listEl, setListEl] = useState<HTMLElement | null>(null);
   const [sentinelEl, setSentinelEl] = useState<HTMLElement | null>(null);
 
   const limit = mode === 'paged' ? pageSize : clampPageSize(limitOption);
+  const pageScope = JSON.stringify([searchQuery ?? '', limit]);
+  const pageToken = pageCursor.scope === pageScope ? pageCursor.token : undefined;
+  const active = enabled && server != null;
 
-  hasMoreRef.current = hasMore;
-  nextPageTokenRef.current = nextPageToken;
-
-  const listRef = useCallback((node: HTMLElement | null) => {
-    listElRef.current = node;
-    setListEl(node);
-  }, []);
-
-  const sentinelRef = useCallback((node: HTMLElement | null) => {
-    sentinelElRef.current = node;
-    setSentinelEl(node);
-  }, []);
-
-  const searchQuery = debouncedQuery.trim() || undefined;
-
-  // Reset to first page when the query or catalog epoch changes.
-  useEffect(() => {
-    if (mode !== 'paged') return;
-    setPageToken(undefined);
-  }, [mode, searchQuery, refreshKey]);
-
-  useEffect(() => {
-    if (!enabled || server == null) return;
-
-    const gen = ++genRef.current;
-    loadMoreInflightRef.current = false;
-    setLoading(true);
-    setError(null);
-
-    const fetchToken = mode === 'paged' ? pageToken : undefined;
-
-    void server
-      .searchAgents({
-        query: searchQuery,
+  const pagedQuery = useQuery(
+    {
+      queryKey: queryKeys.agents.search({
+        ...(searchQuery === undefined ? {} : { query: searchQuery }),
         limit,
-        ...(fetchToken === undefined || fetchToken === '' ? {} : { pageToken: fetchToken }),
-      })
-      .then(page => {
-        if (gen !== genRef.current) return;
-        setAgents(page.data);
-        setNextPageToken(page.nextPageToken);
-        setPreviousPageToken(page.previousPageToken);
-        setHasMore(page.nextPageToken != null && page.nextPageToken !== '');
-      })
-      .catch((err: unknown) => {
-        if (gen !== genRef.current) return;
-        setAgents([]);
-        setNextPageToken(undefined);
-        setPreviousPageToken(undefined);
-        setHasMore(false);
-        setError(getErrorMessage(err, 'Check your connection and try again.'));
-      })
-      .finally(() => {
-        if (gen === genRef.current) setLoading(false);
-      });
+        ...(pageToken === undefined ? {} : { pageToken }),
+      }),
+      queryFn: () =>
+        requireServer(server).searchAgents({
+          query: searchQuery,
+          limit,
+          ...(pageToken === undefined ? {} : { pageToken }),
+        }),
+      enabled: active && mode === 'paged',
+      placeholderData: keepPreviousData,
+    },
+    queryClient,
+  );
 
-    return () => {
-      genRef.current += 1;
-    };
-  }, [enabled, server, searchQuery, limit, refreshKey, mode, pageToken]);
+  const infiniteQuery = useInfiniteQuery(
+    {
+      queryKey: queryKeys.agents.searchPages({ ...(searchQuery === undefined ? {} : { query: searchQuery }), limit }),
+      queryFn: ({ pageParam }) => {
+        const token = nonEmptyToken(pageParam);
+        return requireServer(server).searchAgents({
+          query: searchQuery,
+          limit,
+          ...(token === undefined ? {} : { pageToken: token }),
+        });
+      },
+      // Empty token means the first page.
+      initialPageParam: '',
+      getNextPageParam: lastPage => nonEmptyToken(lastPage.nextPageToken),
+      enabled: active && mode === 'infinite',
+      placeholderData: keepPreviousData,
+    },
+    queryClient,
+  );
 
+  const isPaged = mode === 'paged';
+  const currentQuery = isPaged ? pagedQuery : infiniteQuery;
+  const loading = active && (currentQuery.isPending || currentQuery.isPlaceholderData);
+  const agents = isPaged
+    ? (pagedQuery.data?.data ?? EMPTY_AGENTS)
+    : (infiniteQuery.data?.pages.flatMap(page => page.data) ?? EMPTY_AGENTS);
+  // A failed load-more only stops paging; it does not replace the list with an error.
+  const replaceError = isPaged || !infiniteQuery.isFetchNextPageError ? currentQuery.error : null;
+  const error =
+    active && replaceError != null ? getErrorMessage(replaceError, 'Check your connection and try again.') : null;
+  const nextPageToken = nonEmptyToken(pagedQuery.data?.nextPageToken);
+  const previousPageToken = nonEmptyToken(pagedQuery.data?.previousPageToken);
+  const hasMore = isPaged
+    ? nextPageToken !== undefined
+    : infiniteQuery.hasNextPage && !infiniteQuery.isFetchNextPageError;
+  const loadingMore = !isPaged && infiniteQuery.isFetchingNextPage;
+
+  const { fetchNextPage } = infiniteQuery;
   const loadMore = useCallback(() => {
-    if (mode !== 'infinite') return;
-    const token = nextPageTokenRef.current;
-    if (
-      !enabled ||
-      server == null ||
-      !hasMoreRef.current ||
-      token == null ||
-      token === '' ||
-      loadMoreInflightRef.current ||
-      loading
-    ) {
-      return;
-    }
-
-    const gen = genRef.current;
-    loadMoreInflightRef.current = true;
-    setLoadingMore(true);
-
-    void server
-      .searchAgents({ query: searchQuery, limit, pageToken: token })
-      .then(page => {
-        if (gen !== genRef.current) return;
-        setAgents(prev => [...prev, ...page.data]);
-        setNextPageToken(page.nextPageToken);
-        setHasMore(page.nextPageToken != null && page.nextPageToken !== '');
-      })
-      .catch(() => {
-        if (gen !== genRef.current) return;
-        setHasMore(false);
-      })
-      .finally(() => {
-        loadMoreInflightRef.current = false;
-        if (gen === genRef.current) setLoadingMore(false);
-      });
-  }, [enabled, server, searchQuery, limit, loading, mode]);
+    if (isPaged || !active || !hasMore || loadingMore || loading) return;
+    void fetchNextPage();
+  }, [active, fetchNextPage, hasMore, isPaged, loading, loadingMore]);
 
   useEffect(() => {
-    if (mode !== 'infinite' || !enabled || !hasMore || listEl == null || sentinelEl == null) return;
+    if (isPaged || !enabled || !hasMore || listEl == null || sentinelEl == null) return;
 
     const observer = new IntersectionObserver(
       entries => {
@@ -253,24 +224,21 @@ export function useSearchAgentsList({
     );
     observer.observe(sentinelEl);
     return () => observer.disconnect();
-  }, [mode, enabled, hasMore, listEl, sentinelEl, loadMore, agents.length]);
+  }, [isPaged, enabled, hasMore, listEl, sentinelEl, loadMore, agents.length]);
 
   const setPageSize = useCallback((size: number) => {
     setPageSizeState(clampPageSize(size));
-    setPageToken(undefined);
   }, []);
 
   const goNext = useCallback(() => {
-    if (mode !== 'paged' || loading) return;
-    const token = nextPageTokenRef.current;
-    if (token == null || token === '') return;
-    setPageToken(token);
-  }, [mode, loading]);
+    if (!isPaged || loading || nextPageToken === undefined) return;
+    setPageCursor({ scope: pageScope, token: nextPageToken });
+  }, [isPaged, loading, nextPageToken, pageScope]);
 
   const goPrev = useCallback(() => {
-    if (mode !== 'paged' || loading) return;
-    setPageToken(previousPageToken === undefined || previousPageToken === '' ? undefined : previousPageToken);
-  }, [mode, loading, previousPageToken]);
+    if (!isPaged || loading) return;
+    setPageCursor({ scope: pageScope, token: previousPageToken });
+  }, [isPaged, loading, pageScope, previousPageToken]);
 
   return {
     agents,
@@ -279,12 +247,12 @@ export function useSearchAgentsList({
     loadingMore,
     error,
     hasMore,
-    listRef,
-    sentinelRef,
+    listRef: setListEl,
+    sentinelRef: setSentinelEl,
     pageSize,
     setPageSize,
-    canPrev: mode === 'paged' && previousPageToken != null && previousPageToken !== '',
-    canNext: mode === 'paged' && nextPageToken != null && nextPageToken !== '',
+    canPrev: isPaged && previousPageToken !== undefined,
+    canNext: isPaged && nextPageToken !== undefined,
     goPrev,
     goNext,
   };

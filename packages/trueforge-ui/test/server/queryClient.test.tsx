@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
 import { onlineManager } from '@tanstack/react-query';
 import { act, render, renderHook, screen } from '@testing-library/react';
+import { useEffect } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
+import { DraftCatalogProvider, useDraftCatalog } from '@/atoms/draft/DraftCatalogProvider.js';
 import { useServerQueryClient } from '@/server/queryClient.js';
 import { ServerProvider, useServerCapabilities } from '@/server/ServerContext.js';
 import type { AgentBuilderCapabilitiesResponse } from '@/server/types.js';
@@ -20,7 +22,35 @@ function CapabilitiesProbe() {
   return <output>{capabilities == null ? 'pending' : String(capabilities.settings?.enabled)}</output>;
 }
 
+function CatalogProbe({ label }: { label: string }) {
+  const { ensureLoaded, loaded } = useDraftCatalog();
+  useEffect(() => {
+    ensureLoaded();
+  }, [ensureLoaded]);
+  return <output>{`${label}:${loaded ? 'loaded' : 'loading'}`}</output>;
+}
+
 describe('ServerProvider query cache', () => {
+  it('shares one catalog request across separate catalog providers', async () => {
+    const getModels = vi.fn(async () => []);
+    const server = createMockAgentUIServer({ getModels });
+
+    render(
+      <ServerProvider server={server}>
+        <DraftCatalogProvider>
+          <CatalogProbe label="first" />
+        </DraftCatalogProvider>
+        <DraftCatalogProvider>
+          <CatalogProbe label="second" />
+        </DraftCatalogProvider>
+      </ServerProvider>,
+    );
+
+    await screen.findByText('first:loaded');
+    await screen.findByText('second:loaded');
+    expect(getModels).toHaveBeenCalledTimes(1);
+  });
+
   it('resumes a request paused while the browser was offline', async () => {
     const getCapabilities = vi.fn(async () => capabilitiesResponse(true));
     onlineManager.setOnline(false);

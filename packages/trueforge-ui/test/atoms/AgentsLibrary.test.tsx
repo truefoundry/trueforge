@@ -908,10 +908,11 @@ describe('AgentsLibraryButton', () => {
     });
     await screen.findByRole('button', { name: 'Try agent agent-00' });
 
+    // A revisited page is served from the cache.
+    const callsBeforeRevisit = searchAgents.mock.calls.length;
     fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
-    await waitFor(() => {
-      expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 10, pageToken: 'tok_2' });
-    });
+    await screen.findByRole('button', { name: 'Try agent agent-10' });
+    expect(searchAgents).toHaveBeenCalledTimes(callsBeforeRevisit);
 
     // PopoverSelect: open rows-per-page and pick 25
     fireEvent.click(screen.getByRole('button', { name: 'Rows per page' }));

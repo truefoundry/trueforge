@@ -14,6 +14,8 @@ import {
   writeDraftSpecPreferences,
   type DraftPreferenceKind,
 } from './draftSpecPreferences.js';
+import { useServerQueryClient } from './queryClient.js';
+import { queryKeys } from './queryKeys.js';
 import {
   isEnvironmentsChromeEnabled,
   isSchedulesChromeEnabled,
@@ -254,6 +256,7 @@ export function ShellModeProvider({
   initialSettingsOpen?: boolean;
   children: ReactNode;
 }) {
+  const queryClient = useServerQueryClient();
   const capabilities = useServerCapabilities();
   const capabilitiesPending = !useServerCapabilitiesSettled();
   const catalog = useOptionalCatalogServer();
@@ -455,8 +458,9 @@ export function ShellModeProvider({
   }, [environmentsEnabled]);
 
   const invalidateAgentsList = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.agents.all() });
     setAgentsListEpoch(n => n + 1);
-  }, []);
+  }, [queryClient]);
 
   const invalidateEnvironmentsList = useCallback(() => {
     setEnvironmentsListEpoch(n => n + 1);

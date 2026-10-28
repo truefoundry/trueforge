@@ -1,17 +1,21 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
 import { Suspense, useCallback, useEffect, useState } from 'react';
+
 import { useTrackAnalytics } from '../../analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '../../analytics/events.js';
 import { useSessionShareSearch } from '../../hooks/useSessionShareSearch.js';
+import { useServerQueryClient } from '../../server/queryClient.js';
+import { queryKeys } from '../../server/queryKeys.js';
+import { isMetricsChromeEnabled, isSchedulesChromeEnabled } from '../../server/serverChrome.js';
 import {
   useOptionalAgentMetricsServer,
   useOptionalAgentSessionsServer,
   useOptionalScheduleServer,
 } from '../../server/ServerContext.js';
 import { useShellMode } from '../../server/ShellModeContext.js';
-import { isMetricsChromeEnabled, isSchedulesChromeEnabled } from '../../server/serverChrome.js';
-import type { AgentDetail, CodeSnippet } from '../../server/types.js';
+import type { AgentSessionsServer } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
 import { defaultMetricsTimeRange, libraryAgentTabFromSearch } from '../../utils/sessionShareUrl.js';
 import { DesktopOnlyNotice } from '../DesktopOnlyNotice.js';
@@ -20,8 +24,14 @@ import { useIsMobile } from '../lib/useIsMobile.js';
 import { Skeleton } from '../primitives/Skeleton.js';
 import type { AgentDetailsPageProps } from './types.js';
 
+function requireSessionsServer(server: AgentSessionsServer | null): AgentSessionsServer {
+  if (server == null) throw new Error('Agent details require a sessions server.');
+  return server;
+}
+
 export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
   const sessionsServer = useOptionalAgentSessionsServer();
+  const queryClient = useServerQueryClient();
   const metricsServer = useOptionalAgentMetricsServer();
   const scheduleServer = useOptionalScheduleServer();
   const shell = useShellMode();
@@ -45,10 +55,6 @@ export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
   const AgentMetrics = useSlot('AgentMetrics');
   const AgentMetricsTimeRangeFilter = useSlot('AgentMetricsTimeRangeFilter');
   const AgentCodeSnippets = useSlot('AgentCodeSnippets');
-  const [detail, setDetail] = useState<AgentDetail>();
-  const [detailFailed, setDetailFailed] = useState(false);
-  const [snippets, setSnippets] = useState<CodeSnippet[]>();
-  const [snippetsFailed, setSnippetsFailed] = useState(false);
   const [metricsTimeRange, setMetricsTimeRange] = useState(defaultMetricsTimeRange);
 
   const goBack = useCallback(() => {
@@ -80,37 +86,28 @@ export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
     return () => window.removeEventListener('keydown', onKeyDown, true);
   }, [goBack]);
 
-  useEffect(() => {
-    if (sessionsServer == null) return;
-    let cancelled = false;
-    void sessionsServer.getAgent({ agentId }).then(
-      result => {
-        if (!cancelled) setDetail(result);
-      },
-      () => {
-        if (!cancelled) setDetailFailed(true);
-      },
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [agentId, sessionsServer]);
+  const detailQuery = useQuery(
+    {
+      queryKey: queryKeys.agentDetails.agent(agentId),
+      queryFn: () => requireSessionsServer(sessionsServer).getAgent({ agentId }),
+      enabled: sessionsServer != null,
+    },
+    queryClient,
+  );
+  const detail = detailQuery.data;
+  const detailFailed = detail == null && detailQuery.isError;
 
-  useEffect(() => {
-    if (activeTab !== 'code' || sessionsServer == null || snippets !== undefined || snippetsFailed) return;
-    let cancelled = false;
-    void sessionsServer.getCodeSnippets({ agentId }).then(
-      result => {
-        if (!cancelled) setSnippets(result);
-      },
-      () => {
-        if (!cancelled) setSnippetsFailed(true);
-      },
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [activeTab, agentId, sessionsServer, snippets, snippetsFailed]);
+  // Snippets load on first visit to the code tab and stay cached afterwards.
+  const snippetsQuery = useQuery(
+    {
+      queryKey: queryKeys.agentDetails.codeSnippets(agentId),
+      queryFn: () => requireSessionsServer(sessionsServer).getCodeSnippets({ agentId }),
+      enabled: sessionsServer != null && activeTab === 'code',
+    },
+    queryClient,
+  );
+  const snippets = snippetsQuery.data;
+  const snippetsFailed = snippets == null && snippetsQuery.isError;
 
   let content;
   if (sessionsServer == null) {

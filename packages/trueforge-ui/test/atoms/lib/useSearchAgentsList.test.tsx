@@ -161,6 +161,10 @@ describe('useSearchAgentsList', () => {
       await vi.advanceTimersByTimeAsync(1);
       await Promise.resolve();
     });
+    // Query results are delivered on the next timer tick.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
     expect(searchAgents).toHaveBeenCalledTimes(2);
     expect(searchAgents).toHaveBeenLastCalledWith({ query: 'alpha', limit: SEARCH_AGENTS_PAGE_SIZE });
     expect(result.current.agents).toEqual([{ name: 'alpha', agentId: 'alpha' } satisfies AgentLibraryEntry]);
