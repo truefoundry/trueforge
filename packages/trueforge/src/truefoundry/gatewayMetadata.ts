@@ -5,6 +5,9 @@ import type { TurnMetadata } from '../db/turnMetadata';
 /** Gateway header carrying stringified JSON metadata. */
 export const X_TFY_METADATA = 'x-tfy-metadata';
 
+/** Gateway header for conversation correlation; value is the TrueForge session id. */
+export const X_TFY_CONVERSATION_ID = 'x-tfy-conversation-id';
+
 /** Prefix for harness-owned keys. */
 export const TFG_METADATA_PREFIX = 'tfg';
 
@@ -87,20 +90,23 @@ export function gatewayMetadataHeaders(metadata: Record<string, string>): Record
   return { [X_TFY_METADATA]: JSON.stringify(metadata) };
 }
 
-/** Metadata header for a turn. Reads `x-tfy-metadata` from the raw request headers. */
+/** Metadata + conversation-id headers for a turn. Reads `x-tfy-metadata` from the raw request headers. */
 export function gatewayMetadataHeadersForTurn(turnMetadata: TurnMetadata | undefined): Record<string, string> {
   if (turnMetadata === undefined) {
     return {};
   }
   const raw = headerValue(turnMetadata.requestHeaders, X_TFY_METADATA);
-  return gatewayMetadataHeaders(
-    mergeGatewayMetadata({
-      sessionId: turnMetadata.sessionId,
-      turnId: turnMetadata.turnId,
-      ...(turnMetadata.agent === undefined ? {} : { agent: turnMetadata.agent }),
-      requestMetadata: raw === undefined ? {} : parseGatewayMetadataHeader(raw),
-    }),
-  );
+  return {
+    ...gatewayMetadataHeaders(
+      mergeGatewayMetadata({
+        sessionId: turnMetadata.sessionId,
+        turnId: turnMetadata.turnId,
+        ...(turnMetadata.agent === undefined ? {} : { agent: turnMetadata.agent }),
+        requestMetadata: raw === undefined ? {} : parseGatewayMetadataHeader(raw),
+      }),
+    ),
+    [X_TFY_CONVERSATION_ID]: turnMetadata.sessionId,
+  };
 }
 
 function headerValue(headers: Record<string, string> | undefined, name: string): string | undefined {
