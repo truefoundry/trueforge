@@ -2,7 +2,6 @@
 
 import { useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 
-import { formatRelativeShort } from './lib/threadListMeta.js';
 import {
   AGENT_LIBRARY_METERS_WINDOW_DAYS,
   AGENT_LIBRARY_SPARKLINE_DAYS,
@@ -28,13 +27,6 @@ function formatSparklineDay(iso: string): string {
   const ms = Date.parse(iso);
   if (Number.isNaN(ms)) return iso;
   return sparklineDayFormatter.format(new Date(ms));
-}
-
-function formatLastRunLabel(iso: string | null): string {
-  if (iso == null) return 'Never';
-  const ms = Date.parse(iso);
-  if (Number.isNaN(ms)) return '—';
-  return `${formatRelativeShort(new Date(ms))} ago`;
 }
 
 export const agentLibraryUsageLabels = {
@@ -238,34 +230,6 @@ export function AgentSpendCell({
   );
 }
 
-export function AgentLastRunCell({
-  usage,
-  loading,
-  agentName,
-}: {
-  usage: AgentLibraryUsageStats | undefined;
-  loading: boolean;
-  agentName: string;
-}) {
-  if (loading) return <Skeleton className="h-4 w-16 rounded" />;
-  if (usage?.lastRunAt === undefined) {
-    return (
-      <span
-        className="text-text-secondary whitespace-nowrap text-sm"
-        aria-label={`Last run unavailable for ${agentName}`}
-      >
-        —
-      </span>
-    );
-  }
-  const label = formatLastRunLabel(usage.lastRunAt);
-  return (
-    <span className="text-text-secondary whitespace-nowrap text-sm" aria-label={`Last run for ${agentName}: ${label}`}>
-      {label}
-    </span>
-  );
-}
-
 function UsageField({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-0.5">
@@ -280,25 +244,11 @@ export type AgentLibraryUsageCellsProps = {
   loading: boolean;
   agentName: string;
   showMetrics: boolean;
-  showLastRun: boolean;
 };
 
 /** Mobile card usage block. Desktop rows place the same cells in table columns. */
-export function AgentLibraryUsageCells({
-  usage,
-  loading,
-  agentName,
-  showMetrics,
-  showLastRun,
-}: AgentLibraryUsageCellsProps) {
-  if (!showMetrics && !showLastRun) return null;
-  if (!showMetrics) {
-    return (
-      <UsageField label="Last run">
-        <AgentLastRunCell usage={usage} loading={loading} agentName={agentName} />
-      </UsageField>
-    );
-  }
+export function AgentLibraryUsageCells({ usage, loading, agentName, showMetrics }: AgentLibraryUsageCellsProps) {
+  if (!showMetrics) return null;
   return (
     <div className="grid grid-cols-2 gap-3 text-sm">
       <UsageField label={agentLibraryUsageLabels.sessions}>
@@ -310,11 +260,6 @@ export function AgentLibraryUsageCells({
       <UsageField label={agentLibraryUsageLabels.daily}>
         <AgentLibrarySparklineCell points={usage?.dailyPoints} loading={loading} agentName={agentName} />
       </UsageField>
-      {showLastRun ? (
-        <UsageField label="Last run">
-          <AgentLastRunCell usage={usage} loading={loading} agentName={agentName} />
-        </UsageField>
-      ) : null}
     </div>
   );
 }
