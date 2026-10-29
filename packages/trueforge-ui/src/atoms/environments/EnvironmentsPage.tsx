@@ -46,7 +46,8 @@ import {
 import { EnvironmentFormDrawer } from './EnvironmentFormDrawer.js';
 import { EnvironmentStatusBadge } from './EnvironmentStatusBadge.js';
 
-type DrawerState = { kind: 'closed' } | { kind: 'create' } | { kind: 'edit'; environment: SandboxEnvironment };
+type DrawerState =
+  { kind: 'closed' } | { kind: 'create' } | { kind: 'edit'; environment: SandboxEnvironment; readOnly: boolean };
 
 const ENVIRONMENTS_PAGE_SIZE_OPTIONS = [10, 25] as const;
 export const PENDING_ENVIRONMENTS_POLL_INTERVAL_MS = 10_000;
@@ -301,10 +302,8 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
                   return (
                     <TableRow
                       key={env.id}
-                      className={readOnly ? undefined : 'cursor-pointer'}
-                      onClick={() => {
-                        if (canManage) setDrawer({ kind: 'edit', environment: env });
-                      }}
+                      className="cursor-pointer"
+                      onClick={() => setDrawer({ kind: 'edit', environment: env, readOnly })}
                     >
                       <TableCell className="w-96 max-w-96">
                         <div className="flex flex-col gap-0.5">
@@ -375,7 +374,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
       <EnvironmentFormDrawer
         open={drawer.kind !== 'closed'}
         mode={drawer.kind === 'edit' ? 'edit' : 'create'}
-        {...(drawer.kind === 'edit' ? { environment: drawer.environment } : {})}
+        {...(drawer.kind === 'edit' ? { environment: drawer.environment, readOnly: drawer.readOnly } : {})}
         onOpenChange={open => {
           if (!open) setDrawer({ kind: 'closed' });
         }}
