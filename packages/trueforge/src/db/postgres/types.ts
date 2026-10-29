@@ -91,8 +91,6 @@ export interface SessionTable {
    *      (COALESCE) targets it directly
    */
   title: string | null;
-  /** When true, any subject in the tenant may GET this session. */
-  shared: boolean;
   /** Null until the first turn; always replaced as a whole document. */
   last_turn_details: JSONColumnType<
     SessionLastTurnDetails,
