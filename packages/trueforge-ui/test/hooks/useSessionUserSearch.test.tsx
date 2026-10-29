@@ -94,14 +94,44 @@ describe('useSessionUserSearch', () => {
       await vi.advanceTimersByTimeAsync(300);
     });
     act(() => result.current.setQuery('b'));
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(300);
-    });
+    expect(result.current.users).toEqual([]);
     await act(async () => {
       resolveFirst({ data: [alice] });
       await Promise.resolve();
     });
+    expect(result.current.users).toEqual([]);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
 
+    expect(result.current.users).toEqual([bob]);
+  });
+
+  it('resets pagination on query change and blocks loadMore until the first page returns', async () => {
+    searchUsers.mockResolvedValueOnce({ data: [alice], nextPageToken: 'p2' }).mockResolvedValueOnce({ data: [bob] });
+    const { result } = renderHook(() => useSessionUserSearch({ enabled: true }));
+
+    act(() => result.current.setQuery('a'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+    expect(result.current.hasMore).toBe(true);
+
+    act(() => result.current.setQuery('b'));
+    expect(result.current.users).toEqual([]);
+    expect(result.current.hasMore).toBe(false);
+    expect(result.current.loading).toBe(true);
+
+    act(() => {
+      result.current.loadMore();
+    });
+    expect(searchUsers).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+    expect(searchUsers).toHaveBeenCalledTimes(2);
+    expect(searchUsers).toHaveBeenLastCalledWith({ query: 'b', limit: 25 });
     expect(result.current.users).toEqual([bob]);
   });
 

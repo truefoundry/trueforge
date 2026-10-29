@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useToasterOptional } from '../containers/ToasterContainer.js';
 import { buildSharedSessionHref } from '../routing/paths.js';
@@ -46,6 +46,8 @@ export function useShareSessionDialog(sessionId: string | null | undefined): {
   const [tenantId, setTenantId] = useState<string | undefined>();
   const [owner, setOwner] = useState<SessionSubject | undefined>();
   const [collaborators, setCollaborators] = useState<SessionAccessGrant[]>([]);
+  const collaboratorsRef = useRef(collaborators);
+  collaboratorsRef.current = collaborators;
   const [loading, setLoading] = useState(false);
 
   const hasSession = sessionId != null && sessionId.length > 0;
@@ -92,12 +94,17 @@ export function useShareSessionDialog(sessionId: string | null | undefined): {
           // Keep the generic tenant label when identity is unavailable.
         }
       }
+      // Re-fetch on every open so external grant/revoke changes are visible.
+      if (canInvite && sessionAccess != null) {
+        const grants = await sessionAccess.listAccess({ sessionId });
+        setCollaborators(grants.filter(grant => grant.subjectType === 'user'));
+      }
     } catch (caught) {
       toaster?.showError(caught);
     } finally {
       setLoading(false);
     }
-  }, [hasSession, server, sessionId, toaster]);
+  }, [canInvite, hasSession, server, sessionAccess, sessionId, toaster]);
 
   const changePermission = useCallback(
     async (next: SessionSharePermission) => {
@@ -137,16 +144,21 @@ export function useShareSessionDialog(sessionId: string | null | undefined): {
   const removeCollaborator = useCallback(
     async (subjectId: string) => {
       if (!canInvite || !hasSession || sessionAccess == null) return;
-      const previous = collaborators;
+      // Only this grant — a failed revoke must not resurrect peers removed concurrently.
+      const removed = collaboratorsRef.current.find(grant => grant.subjectId === subjectId);
       setCollaborators(current => current.filter(grant => grant.subjectId !== subjectId));
       try {
         await sessionAccess.revokeAccess({ sessionId, subjectType: 'user', subjectId });
       } catch (caught) {
-        setCollaborators(previous);
+        if (removed != null) {
+          setCollaborators(current =>
+            current.some(item => item.subjectId === subjectId) ? current : [...current, removed],
+          );
+        }
         toaster?.showError(caught);
       }
     },
-    [canInvite, collaborators, hasSession, sessionAccess, sessionId, toaster],
+    [canInvite, hasSession, sessionAccess, sessionId, toaster],
   );
 
   const copySharedSessionLink = useCallback(async () => {

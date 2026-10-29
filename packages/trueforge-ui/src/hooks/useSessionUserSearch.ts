@@ -56,13 +56,17 @@ export function useSessionUserSearch({ enabled }: { enabled: boolean }): {
 
   useEffect(() => {
     const term = query.trim();
+    // Drop stale results/tokens and invalidate in-flight responses before debounce.
+    requestIdRef.current++;
+    setUsers([]);
+    setNextPageToken(undefined);
+
     if (!enabled || sessionAccess == null || term.length === 0) {
-      requestIdRef.current++;
-      setUsers([]);
-      setNextPageToken(undefined);
       setLoading(false);
       return undefined;
     }
+
+    setLoading(true);
     const timer = window.setTimeout(() => {
       void fetchPage({ term });
     }, SEARCH_DEBOUNCE_MS);

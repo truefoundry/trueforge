@@ -89,6 +89,16 @@ describe('useShareSessionDialog', () => {
     expect(result.current.tenantId).toBe('t1');
   });
 
+  it('refreshes collaborators on each load so external grant changes appear', async () => {
+    const { result } = renderHook(() => useShareSessionDialog('s1'));
+    await act(() => result.current.load());
+    expect(result.current.collaborators.map(item => item.subjectId)).toEqual(['u1']);
+
+    listAccess.mockResolvedValue([]);
+    await act(() => result.current.load());
+    expect(result.current.collaborators).toEqual([]);
+  });
+
   it('does not list grants for viewers who cannot manage the session', async () => {
     allows.mockReturnValue(false);
     const { result } = renderHook(() => useShareSessionDialog('s1'));
@@ -171,6 +181,34 @@ describe('useShareSessionDialog', () => {
     expect(revokeAccess).toHaveBeenCalledWith({ sessionId: 's1', subjectType: 'user', subjectId: 'u1' });
     expect(result.current.collaborators.map(item => item.subjectId)).toEqual(['u1']);
     expect(showError).toHaveBeenCalledWith(failure);
+  });
+
+  it('on concurrent removals, a failed revoke restores only that collaborator', async () => {
+    listAccess.mockResolvedValue([grant({}), grant({ subjectId: 'u2', displayName: 'Bob', email: 'bob@example.com' })]);
+    let rejectU1: (reason: Error) => void = () => undefined;
+    const u1Failed = new Promise<never>((_, reject) => {
+      rejectU1 = reject;
+    });
+    revokeAccess.mockImplementation(async req => {
+      if (req.subjectId === 'u1') return u1Failed;
+    });
+    const { result } = renderHook(() => useShareSessionDialog('s1'));
+    await act(() => result.current.load());
+
+    let removeU1: Promise<void> = Promise.resolve();
+    await act(() => {
+      removeU1 = result.current.removeCollaborator('u1');
+      return result.current.removeCollaborator('u2');
+    });
+    expect(result.current.collaborators).toEqual([]);
+
+    await act(async () => {
+      rejectU1(new Error('nope'));
+      await removeU1.catch(() => undefined);
+    });
+
+    expect(result.current.collaborators.map(item => item.subjectId)).toEqual(['u1']);
+    expect(showError).toHaveBeenCalledWith(expect.any(Error));
   });
 
   it('toasts the audience after copying the link, and nothing when the copy fails', async () => {
