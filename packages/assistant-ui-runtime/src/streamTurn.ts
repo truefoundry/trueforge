@@ -75,6 +75,12 @@ export async function* resumeTurnStream(
   groupRootBaseline?: readonly string[],
   onSequenceNumber?: (sequenceNumber: number) => void,
 ): AsyncGenerator<TurnStreamUpdate> {
+  // Optional on custom backends. Callers detect the gap and report it, so an
+  // empty stream here is safer than throwing mid-render.
+  if (server.subscribeToTurn == null) {
+    return;
+  }
+
   if (abortSignal.aborted) {
     return;
   }

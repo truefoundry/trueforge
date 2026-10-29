@@ -5,6 +5,7 @@ import { MessagePrimitive, useAuiState, type EnrichedPartState, type GroupByCont
 import {
   CANCELLATION_REASON_CUSTOM_KEY,
   CONTEXT_COMPACTION_DATA_NAME,
+  useTrueForgeResumeUnavailable,
 } from '@truefoundry/trueforge-assistant-ui-runtime';
 
 import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
@@ -53,6 +54,7 @@ export function AssistantMessageContainer() {
   const MessageCancelledBanner = useSlot('MessageCancelledBanner');
   const MessageIndicator = useSlot('MessageIndicator');
   const isThreadRunning = useThreadIsRunning();
+  const resumeUnavailable = useTrueForgeResumeUnavailable();
   const error = useMessageError();
   const createdAt = useAuiState(s => s.message.createdAt);
   const sessionId = useAuiState(s => s.threadListItem.remoteId);
@@ -83,7 +85,8 @@ export function AssistantMessageContainer() {
   const { cutIndex, hasFinal, toolCount, thinkingCount } = computeAgentStepsSplit(parts, isMessageRunning);
 
   // Built-in indicator modes hide the loader while reasoning streams; we want it there too.
-  const showIndicator = isMessageRunning && parts[parts.length - 1]?.type !== 'text';
+  // Hide when resume is unavailable: the message stays "running" but no events will arrive.
+  const showIndicator = isMessageRunning && !resumeUnavailable && parts[parts.length - 1]?.type !== 'text';
   const loaderLabel = useSlowActivityLabel({
     label: resolveLoaderLabel(parts),
     activityKey: showIndicator ? loaderActivityKey(parts) : null,

@@ -480,7 +480,11 @@ export interface AgentChatServer<
     order?: ListSessionsOrder;
   }): Promise<ListResult<PersistedTurnEvent>>;
 
-  subscribeToTurn(req: SubscribeToTurnRequest): AsyncIterable<TurnStreamData>;
+  /**
+   * Optional reconnect path. When omitted, a running turn still loads as
+   * history but this client cannot stream live updates (`resumeUnavailable`).
+   */
+  subscribeToTurn?(req: SubscribeToTurnRequest): AsyncIterable<TurnStreamData>;
 
   /**
    * Reads a file the agent wrote inside its sandbox. Hosts whose download route is scoped to a
