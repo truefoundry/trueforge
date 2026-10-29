@@ -41,6 +41,45 @@ describe('createHarnessSessionAccessServer', () => {
     ]);
   });
 
+  it('omits tenant grants from the collaborator list', async () => {
+    const fetchMock: typeof fetch = vi.fn(async input => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith('/grants')) {
+        return jsonResponse({
+          data: [
+            GRANT,
+            {
+              subject: { subject_type: 'tenant', subject_id: 'tenant-1' },
+              granted_by_subject: {
+                subject_id: 'owner',
+                subject_type: 'user',
+                subject_display_name: 'Owner',
+              },
+              created_at: '2026-10-28T00:00:00.000Z',
+            },
+          ],
+        });
+      }
+      expect(url.searchParams.get('ids')).toBe('user-1');
+      return jsonResponse({ data: [USER], pagination: { limit: 25 } });
+    });
+    const server = createHarnessSessionAccessServer({
+      baseUrl: 'https://trueforge.test',
+      token: 'test-token',
+      fetch: fetchMock,
+    });
+
+    await expect(server.listAccess({ sessionId: 'sess-1' })).resolves.toEqual([
+      {
+        subjectType: 'user',
+        subjectId: 'user-1',
+        displayName: 'Ada',
+        email: 'ada@example.com',
+        createdAt: '2026-10-28T00:00:00.000Z',
+      },
+    ]);
+  });
+
   it('grants and revokes through one update call', async () => {
     const bodies: unknown[] = [];
     const fetchMock: typeof fetch = vi.fn(async (input, init) => {

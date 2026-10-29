@@ -37,8 +37,10 @@ async function toAccessGrants({
   client: TrueForge;
   grants: TrueForgeApi.SessionGrant[];
 }): Promise<SessionAccessGrant[]> {
-  const users = await usersById({ client, ids: grants.map(grant => grant.subject.subjectId) });
-  return grants.map(grant => {
+  // Tenant-wide sharing is session.shared (a tenant grant); this port is user collaborators only.
+  const userGrants = grants.filter(grant => grant.subject.subjectType === 'user');
+  const users = await usersById({ client, ids: userGrants.map(grant => grant.subject.subjectId) });
+  return userGrants.map(grant => {
     const user = users.get(grant.subject.subjectId);
     return {
       subjectType: 'user',
