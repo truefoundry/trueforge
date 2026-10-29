@@ -308,11 +308,6 @@ providers:
   - type: google-gemini
     logo: https://assets.production.truefoundry.com/google-gemini.svg
     models:
-      - model_id: antigravity-preview-latest
-        name: antigravity-preview-latest
-        properties:
-          context_length: 1048576
-          max_output_tokens: 65536
       - model_id: gemini-3.1-flash-lite
         name: gemini-3-1-flash-lite
         properties:
