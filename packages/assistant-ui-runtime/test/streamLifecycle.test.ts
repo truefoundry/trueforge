@@ -130,6 +130,28 @@ describe('createStreamLifecycleReporter', () => {
     ]);
   });
 
+  it('does not flush create-mode started on stall before the gateway turn id is known', () => {
+    const events: TurnStreamLifecycleEvent[] = [];
+    let turnId = 'optimistic';
+    const reporter = createStreamLifecycleReporter({
+      sessionId: 's1',
+      getTurnId: () => turnId,
+      emit: event => events.push(event),
+    });
+    reporter.start('create');
+    vi.advanceTimersByTime(31_000);
+    expect(events).toEqual([]);
+    turnId = 'gateway';
+    reporter.onEvent(1);
+    reporter.completed('done');
+    expect(events.map(e => [e.type, e.turnId])).toEqual([
+      ['started', 'gateway'],
+      ['first_event', 'gateway'],
+      ['completed', 'gateway'],
+    ]);
+    reporter.dispose();
+  });
+
   it('reports a terminal event only once', () => {
     const { reporter, types } = setup();
     reporter.start('subscribe');

@@ -136,6 +136,14 @@ export function createStreamLifecycleReporter({
 
   const checkStall = (): void => {
     const silentMs = now() - lastActivityAt;
+    // Create `started` is held until the gateway turn id is known. `send` would
+    // flush it under the optimistic id; record silence for abandon() only.
+    if (heldStart != null) {
+      if (silentMs >= (STREAM_STALL_THRESHOLDS_MS[0] ?? Infinity)) {
+        stalled = true;
+      }
+      return;
+    }
     while (
       firedThresholds < STREAM_STALL_THRESHOLDS_MS.length &&
       silentMs >= (STREAM_STALL_THRESHOLDS_MS[firedThresholds] ?? Infinity)
