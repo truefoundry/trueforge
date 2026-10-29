@@ -51,8 +51,9 @@ export function getDaytonaAuthorizationErrorMessage(error: unknown): string | un
 
 /**
  * Daytona failures that should fail a pending env-version build (no retry).
- * Authz, other 4xx client rejects (e.g. per-sandbox disk/cpu caps), excluding 409 conflict
- * (handled as concurrent create) and 429 rate limit (retryable).
+ * Authz and other 4xx client rejects (e.g. per-sandbox disk/cpu caps).
+ * 409 is excluded: DaytonaProvider.build treats snapshot-name conflict as a
+ * concurrent create and continues via getBuildStatus. 429 is retryable.
  */
 export function getDaytonaBuildFailureMessage(error: unknown): string | undefined {
   const authorizationMessage = getDaytonaAuthorizationErrorMessage(error);

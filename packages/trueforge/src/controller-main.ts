@@ -25,7 +25,7 @@ try {
     standalone: configuration.STANDALONE,
   });
 
-  await initSentry(configuration, logger, { tags: { component: 'trueforge-controller' } });
+  await initSentry(configuration, logger, { tags: { component: 'controller' } });
 
   if (configuration.STANDALONE) {
     // Not an error: in standalone the server process owns the controller in-process, so a

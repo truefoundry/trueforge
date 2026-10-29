@@ -745,11 +745,11 @@ export interface SharedServerConfiguration {
    * Env: `SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD`. Default 20 MB (same as gateway).
    */
   SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD: number;
-  /** Max CPU cores for a sandbox environment. Env: `SANDBOX_ENVIRONMENT_CPU_MAX`. Default 8. */
+  /** Max CPU cores for a sandbox environment. Env: `SANDBOX_ENVIRONMENT_CPU_MAX`. Default 4. */
   SANDBOX_ENVIRONMENT_CPU_MAX: number;
-  /** Max memory GiB for a sandbox environment. Env: `SANDBOX_ENVIRONMENT_MEMORY_GIB_MAX`. Default 16. */
+  /** Max memory GiB for a sandbox environment. Env: `SANDBOX_ENVIRONMENT_MEMORY_GIB_MAX`. Default 8. */
   SANDBOX_ENVIRONMENT_MEMORY_GIB_MAX: number;
-  /** Max disk GiB for a sandbox environment. Env: `SANDBOX_ENVIRONMENT_DISK_GIB_MAX`. Default 100. */
+  /** Max disk GiB for a sandbox environment. Env: `SANDBOX_ENVIRONMENT_DISK_GIB_MAX`. Default 10. */
   SANDBOX_ENVIRONMENT_DISK_GIB_MAX: number;
   /**
    * Max bytes for an HTTP request body. Env: `MAX_REQUEST_BODY_BYTES`. Default 30 MB.
@@ -1133,17 +1133,17 @@ const shared: SharedServerConfiguration = {
   SANDBOX_ENVIRONMENT_CPU_MAX: parsePositiveInt({
     envKey: 'SANDBOX_ENVIRONMENT_CPU_MAX',
     raw: getEnv('SANDBOX_ENVIRONMENT_CPU_MAX'),
-    defaultValue: 8,
+    defaultValue: 4,
   }),
   SANDBOX_ENVIRONMENT_MEMORY_GIB_MAX: parsePositiveInt({
     envKey: 'SANDBOX_ENVIRONMENT_MEMORY_GIB_MAX',
     raw: getEnv('SANDBOX_ENVIRONMENT_MEMORY_GIB_MAX'),
-    defaultValue: 16,
+    defaultValue: 8,
   }),
   SANDBOX_ENVIRONMENT_DISK_GIB_MAX: parsePositiveInt({
     envKey: 'SANDBOX_ENVIRONMENT_DISK_GIB_MAX',
     raw: getEnv('SANDBOX_ENVIRONMENT_DISK_GIB_MAX'),
-    defaultValue: 100,
+    defaultValue: 10,
   }),
   MAX_REQUEST_BODY_BYTES: parsePositiveInt({
     envKey: 'MAX_REQUEST_BODY_BYTES',
