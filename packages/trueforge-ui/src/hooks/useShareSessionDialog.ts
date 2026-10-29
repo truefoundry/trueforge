@@ -48,6 +48,9 @@ export function useShareSessionDialog(sessionId: string | null | undefined): {
   const [collaborators, setCollaborators] = useState<SessionAccessGrant[]>([]);
   const collaboratorsRef = useRef(collaborators);
   collaboratorsRef.current = collaborators;
+  // List fetches and invite/remove each bump this so an older listAccess cannot replace a newer list.
+  const collaboratorListEpochRef = useRef(0);
+  const collaboratorMutationsRef = useRef(0);
   const [loading, setLoading] = useState(false);
 
   const hasSession = sessionId != null && sessionId.length > 0;
@@ -57,27 +60,31 @@ export function useShareSessionDialog(sessionId: string | null | undefined): {
   const canInviteUsers = capabilities?.sessionSharing?.enabled === true;
   const canInvite = canManage && sessionAccess != null && canInviteUsers;
 
+  const refreshCollaborators = useCallback(async () => {
+    if (!hasSession || sessionAccess == null || collaboratorMutationsRef.current > 0) return;
+    const epoch = ++collaboratorListEpochRef.current;
+    const grants = await sessionAccess.listAccess({ sessionId });
+    if (epoch !== collaboratorListEpochRef.current || collaboratorMutationsRef.current > 0) return;
+    setCollaborators(grants.filter(grant => grant.subjectType === 'user'));
+  }, [hasSession, sessionAccess, sessionId]);
+
   // Runs when invite-by-user becomes available (capabilities settle after open).
   useEffect(() => {
     if (!canInvite || !hasSession || sessionAccess == null) {
+      collaboratorListEpochRef.current++;
       setCollaborators(current => (current.length === 0 ? current : []));
       return undefined;
     }
     let cancelled = false;
-    void sessionAccess
-      .listAccess({ sessionId })
-      .then(grants => {
-        if (!cancelled) setCollaborators(grants.filter(grant => grant.subjectType === 'user'));
-      })
-      .catch(caught => {
-        if (!cancelled) toaster?.showError(caught);
-      });
+    void refreshCollaborators().catch(caught => {
+      if (!cancelled) toaster?.showError(caught);
+    });
     return () => {
       cancelled = true;
     };
     // toaster is read for errors only; its identity must not retrigger the list.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- toaster
-  }, [canInvite, hasSession, sessionAccess, sessionId]);
+  }, [canInvite, hasSession, refreshCollaborators, sessionAccess, sessionId]);
 
   const load = useCallback(async () => {
     if (!hasSession || server == null) return;
@@ -95,16 +102,13 @@ export function useShareSessionDialog(sessionId: string | null | undefined): {
         }
       }
       // Re-fetch on every open so external grant/revoke changes are visible.
-      if (canInvite && sessionAccess != null) {
-        const grants = await sessionAccess.listAccess({ sessionId });
-        setCollaborators(grants.filter(grant => grant.subjectType === 'user'));
-      }
+      if (canInvite && sessionAccess != null) await refreshCollaborators();
     } catch (caught) {
       toaster?.showError(caught);
     } finally {
       setLoading(false);
     }
-  }, [canInvite, hasSession, server, sessionAccess, sessionId, toaster]);
+  }, [canInvite, hasSession, refreshCollaborators, server, sessionAccess, sessionId, toaster]);
 
   const changePermission = useCallback(
     async (next: SessionSharePermission) => {
@@ -126,6 +130,8 @@ export function useShareSessionDialog(sessionId: string | null | undefined): {
   const invite = useCallback(
     async (users: DirectoryUser[]) => {
       if (!canInvite || !hasSession || sessionAccess == null || users.length === 0) return false;
+      collaboratorMutationsRef.current++;
+      collaboratorListEpochRef.current++;
       try {
         const granted = await sessionAccess.grantAccess({
           sessionId,
@@ -136,6 +142,9 @@ export function useShareSessionDialog(sessionId: string | null | undefined): {
       } catch (caught) {
         toaster?.showError(caught);
         return false;
+      } finally {
+        collaboratorMutationsRef.current--;
+        collaboratorListEpochRef.current++;
       }
     },
     [canInvite, hasSession, sessionAccess, sessionId, toaster],
@@ -144,6 +153,8 @@ export function useShareSessionDialog(sessionId: string | null | undefined): {
   const removeCollaborator = useCallback(
     async (subjectId: string) => {
       if (!canInvite || !hasSession || sessionAccess == null) return;
+      collaboratorMutationsRef.current++;
+      collaboratorListEpochRef.current++;
       // Only this grant — a failed revoke must not resurrect peers removed concurrently.
       const removed = collaboratorsRef.current.find(grant => grant.subjectId === subjectId);
       setCollaborators(current => current.filter(grant => grant.subjectId !== subjectId));
@@ -156,6 +167,9 @@ export function useShareSessionDialog(sessionId: string | null | undefined): {
           );
         }
         toaster?.showError(caught);
+      } finally {
+        collaboratorMutationsRef.current--;
+        collaboratorListEpochRef.current++;
       }
     },
     [canInvite, hasSession, sessionAccess, sessionId, toaster],

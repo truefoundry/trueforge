@@ -183,6 +183,75 @@ describe('useShareSessionDialog', () => {
     expect(showError).toHaveBeenCalledWith(failure);
   });
 
+  it('ignores a listAccess snapshot that arrives after a collaborator was removed', async () => {
+    const bob = grant({ subjectId: 'u2', displayName: 'Bob', email: 'bob@example.com' });
+    let releaseStale: (grants: SessionAccessGrant[]) => void = () => undefined;
+    const stale = new Promise<SessionAccessGrant[]>(resolve => {
+      releaseStale = resolve;
+    });
+    let calls = 0;
+    listAccess.mockImplementation(() => {
+      calls += 1;
+      return calls === 1 ? Promise.resolve([grant({}), bob]) : stale;
+    });
+    const { result } = renderHook(() => useShareSessionDialog('s1'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.collaborators.map(item => item.subjectId)).toEqual(['u1', 'u2']);
+
+    let loadDone: Promise<void> = Promise.resolve();
+    await act(async () => {
+      loadDone = result.current.load();
+      for (let attempt = 0; attempt < 10 && listAccess.mock.calls.length < 2; attempt += 1) {
+        await Promise.resolve();
+      }
+    });
+    expect(listAccess).toHaveBeenCalledTimes(2);
+
+    await act(() => result.current.removeCollaborator('u2'));
+    expect(result.current.collaborators.map(item => item.subjectId)).toEqual(['u1']);
+
+    await act(async () => {
+      releaseStale([grant({}), bob]);
+      await loadDone;
+    });
+    expect(result.current.collaborators.map(item => item.subjectId)).toEqual(['u1']);
+  });
+
+  it('ignores a listAccess snapshot that arrives after an invite', async () => {
+    let releaseStale: (grants: SessionAccessGrant[]) => void = () => undefined;
+    const stale = new Promise<SessionAccessGrant[]>(resolve => {
+      releaseStale = resolve;
+    });
+    let calls = 0;
+    listAccess.mockImplementation(() => {
+      calls += 1;
+      return calls === 1 ? Promise.resolve([grant({})]) : stale;
+    });
+    const { result } = renderHook(() => useShareSessionDialog('s1'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    let loadDone: Promise<void> = Promise.resolve();
+    await act(async () => {
+      loadDone = result.current.load();
+      for (let attempt = 0; attempt < 10 && listAccess.mock.calls.length < 2; attempt += 1) {
+        await Promise.resolve();
+      }
+    });
+
+    await act(() => result.current.invite([{ id: 'u2', displayName: 'Bob', email: null }]));
+    expect(result.current.collaborators.map(item => item.subjectId)).toEqual(['u1', 'u2']);
+
+    await act(async () => {
+      releaseStale([grant({})]);
+      await loadDone;
+    });
+    expect(result.current.collaborators.map(item => item.subjectId)).toEqual(['u1', 'u2']);
+  });
+
   it('on concurrent removals, a failed revoke restores only that collaborator', async () => {
     listAccess.mockResolvedValue([grant({}), grant({ subjectId: 'u2', displayName: 'Bob', email: 'bob@example.com' })]);
     let rejectU1: (reason: Error) => void = () => undefined;
