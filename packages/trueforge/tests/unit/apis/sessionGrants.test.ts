@@ -111,6 +111,7 @@ function buildApp(input: { db: Kysely<Database>; sessionStore: SqliteSessionStor
           clientName: 'test-client',
         }),
       resolveTurnSkillsStore: () => new SqliteSkillStore(db),
+      resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
       resolveAgentStore: () => agentStore,
       eventSubscriptions: new EventSubscriptionRegistry(undefined),
       resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
