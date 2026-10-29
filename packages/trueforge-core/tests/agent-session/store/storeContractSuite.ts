@@ -2202,6 +2202,7 @@ export function runStoreContractSuite<TTransaction>(
       });
       expect(record.state.status).toBe('cancelled');
       expect(record.state).toMatchObject({ reason: CancellationReason.CancelledForNextTurn });
+      expect(record.state).not.toHaveProperty('metrics');
       const { data } = await store.listTurnEvents({
         session_id: sessionId,
         turn_id: 'turn-1',
@@ -2320,7 +2321,9 @@ export function runStoreContractSuite<TTransaction>(
       expect(record.state).toMatchObject({
         status: 'cancelled',
         reason: CancellationReason.CancelledForNextTurn,
+        metrics: { total_cost_in_usd: 1.5 },
       });
+      expect(record.state).not.toHaveProperty('metrics.total_input_tokens');
       if (record.state.status !== 'cancelled') {
         throw new Error(`expected cancelled turn, got ${record.state.status}`);
       }

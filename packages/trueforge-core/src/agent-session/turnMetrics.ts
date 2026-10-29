@@ -196,17 +196,51 @@ export function resolveStoredTurnMetricsCheckpoint(input: {
   };
 }
 
+/** Drop zero totals. An empty checkpoint is not a measurement of zero usage. */
+function recordedTurnMetrics(metrics: AgentThreadMetrics): TurnMetrics | undefined {
+  const recorded: TurnMetrics = {};
+  if (metrics.total_input_tokens > 0) {
+    recorded.total_input_tokens = metrics.total_input_tokens;
+  }
+  if (metrics.total_output_tokens > 0) {
+    recorded.total_output_tokens = metrics.total_output_tokens;
+  }
+  if (metrics.total_tokens > 0) {
+    recorded.total_tokens = metrics.total_tokens;
+  }
+  if (metrics.total_cache_read_tokens !== undefined && metrics.total_cache_read_tokens > 0) {
+    recorded.total_cache_read_tokens = metrics.total_cache_read_tokens;
+  }
+  if (metrics.total_cache_write_tokens !== undefined && metrics.total_cache_write_tokens > 0) {
+    recorded.total_cache_write_tokens = metrics.total_cache_write_tokens;
+  }
+  if (metrics.total_reasoning_tokens !== undefined && metrics.total_reasoning_tokens > 0) {
+    recorded.total_reasoning_tokens = metrics.total_reasoning_tokens;
+  }
+  if (metrics.total_cost_in_usd !== undefined && metrics.total_cost_in_usd > 0) {
+    recorded.total_cost_in_usd = metrics.total_cost_in_usd;
+  }
+  if (Object.keys(recorded).length === 0) {
+    return undefined;
+  }
+  return recorded;
+}
+
 export function cancelledStateWithCheckpointMetrics(input: {
   reason: CancellationReason;
   completed_at: string;
-  turn_metrics: TurnMetrics;
+  metrics: AgentThreadMetrics;
 }): TerminalTurnState {
-  return {
+  const metrics = recordedTurnMetrics(input.metrics);
+  const state: TerminalTurnState = {
     status: 'cancelled',
     reason: input.reason,
     completed_at: input.completed_at,
-    metrics: input.turn_metrics,
   };
+  if (metrics === undefined) {
+    return state;
+  }
+  return { ...state, metrics };
 }
 
 /**

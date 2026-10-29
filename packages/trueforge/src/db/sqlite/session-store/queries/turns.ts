@@ -33,7 +33,6 @@ import {
   createInitialTurnMetricsCheckpoint,
   foldTurnMetricsCheckpoint,
   resolveStoredTurnMetricsCheckpoint,
-  toTurnMetrics,
 } from '@truefoundry/trueforge-core/agent-session/turnMetrics';
 import type { CapabilityState, JsonValue } from '@truefoundry/trueforge-core/core/capabilities/AgentCapability';
 import type { AgentInfo, AgentParent, MCPServerInitInfo } from '@truefoundry/trueforge-core/core/events/schema';
@@ -844,7 +843,7 @@ export async function freezeAndGetTurn(db: Kysely<Database>, input: FreezeAndGet
       const cancelledState = cancelledStateWithCheckpointMetrics({
         reason: input.reason,
         completed_at,
-        turn_metrics: toTurnMetrics(folded.checkpoint.metrics),
+        metrics: folded.checkpoint.metrics,
       });
       const updated = await trx
         .updateTable('turn')

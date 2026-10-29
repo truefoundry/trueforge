@@ -12,7 +12,6 @@ import {
   createInitialTurnMetricsCheckpoint,
   foldTurnMetricsCheckpoint,
   resolveStoredTurnMetricsCheckpoint,
-  toTurnMetrics,
   writeTurnMetricsCheckpoint,
 } from '../turnMetrics';
 import { assertCreateTurnThreadDelta } from './assertCreateTurnThreadDelta';
@@ -483,7 +482,7 @@ export class InMemorySessionStore<
       const cancelledState = cancelledStateWithCheckpointMetrics({
         reason: input.reason,
         completed_at,
-        turn_metrics: toTurnMetrics(folded.checkpoint.metrics),
+        metrics: folded.checkpoint.metrics,
       });
       turn.state = cancelledState;
       writeTurnMetricsCheckpoint(turn.snapshot, deepCopy(folded.checkpoint));
