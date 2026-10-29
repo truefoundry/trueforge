@@ -12,9 +12,11 @@ import { StandaloneAuthenticator } from '../../../src/auth/standaloneAuthenticat
 import type { OIDCConfig } from '../../../src/config';
 import type { ISandboxEnvironmentStore, SandboxEnvironmentWithVersion } from '../../../src/db/sandboxEnvironmentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
+import { EmptyUserStore, type IUserStore } from '../../../src/db/userStore';
 import type { IWebSearchProviderStore } from '../../../src/db/webSearchProviderStore';
 import { setCachedLocalSandboxSupport } from '../../../src/sandbox/localRuntime';
 import type { SandboxEnvironmentVersionStatus } from '../../../src/schemas/sandboxEnvironment';
+import { TrueFoundryUserStore } from '../../../src/truefoundry/TrueFoundryUserStore';
 
 const silentLogger = createLogger({ silent: true });
 
@@ -73,9 +75,11 @@ describe('capabilities routers', () => {
   function makeRouter({
     authenticator = new StandaloneAuthenticator(),
     webSearchStore,
+    userStore = new EmptyUserStore(),
   }: {
     authenticator?: Authenticator;
     webSearchStore?: IWebSearchProviderStore;
+    userStore?: IUserStore;
   } = {}): OpenAPIHono {
     const db = createSqliteDb(':memory:');
     const emptyWebSearchStore: IWebSearchProviderStore = {
@@ -86,6 +90,7 @@ describe('capabilities routers', () => {
       createCapabilitiesRouter({
         sandboxEnvironmentStore: mockDefaultEnvStore(),
         resolveWebSearchProviderStore: () => webSearchStore ?? emptyWebSearchStore,
+        userStore,
         withTransaction: (() => {
           const run = <T>(callback: (trx: never) => Promise<T>): Promise<T> =>
             db.transaction().execute(callback as never);
@@ -114,6 +119,7 @@ describe('capabilities routers', () => {
         },
         settings: { enabled: true },
         web_search: { enabled: false },
+        session_sharing: { enabled: false },
       },
     });
   });
@@ -140,6 +146,18 @@ describe('capabilities routers', () => {
     });
   });
 
+  it('reports sharing with users only when a user source is configured', async () => {
+    disableOidcAuth();
+    const peekUsers = () => Promise.reject(new Error('not used'));
+    const router = makeRouter({ userStore: new TrueFoundryUserStore({ peekUsers }) });
+
+    const response = await router.request('/');
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: { session_sharing: { enabled: true } },
+    });
+  });
+
   it('reports sandbox + skill enabled when local fallback is cached and no image status exists', async () => {
     disableOidcAuth();
     mockActiveDefaultStatus = undefined;
@@ -159,6 +177,7 @@ describe('capabilities routers', () => {
         skill: { enabled: true },
         settings: { enabled: true },
         web_search: { enabled: false },
+        session_sharing: { enabled: false },
       },
     });
   });
@@ -176,6 +195,7 @@ describe('capabilities routers', () => {
         skill: { enabled: true },
         settings: { enabled: true },
         web_search: { enabled: false },
+        session_sharing: { enabled: false },
       },
     });
   });
@@ -299,6 +319,7 @@ describe('capabilities routers', () => {
         createCapabilitiesRouter({
           sandboxEnvironmentStore: mockDefaultEnvStore(),
           resolveWebSearchProviderStore: () => emptyWebSearchStore,
+          userStore: new EmptyUserStore(),
           withTransaction: (() => {
             const run = <T>(callback: (trx: never) => Promise<T>): Promise<T> =>
               db.transaction().execute(callback as never);
@@ -323,6 +344,7 @@ describe('capabilities routers', () => {
           },
           settings: { enabled: true },
           web_search: { enabled: false },
+          session_sharing: { enabled: false },
         },
       });
 
@@ -339,6 +361,7 @@ describe('capabilities routers', () => {
           },
           settings: { enabled: false },
           web_search: { enabled: false },
+          session_sharing: { enabled: false },
         },
       });
     });
