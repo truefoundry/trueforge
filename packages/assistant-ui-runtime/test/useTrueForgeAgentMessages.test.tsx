@@ -14,6 +14,7 @@ import {
 import { buildRootAssistantContent, ingestTurnEvent, PeerThreadFoldState } from '../src/foldPeerThreads.js';
 import { loadSessionSnapshot } from '../src/loadSessionSnapshot.js';
 import { createEmptySessionSnapshot, replaceSessionSnapshot, type SessionSnapshot } from '../src/sessionSnapshot.js';
+import type { TurnStreamLifecycleEvent } from '../src/streamLifecycle.js';
 import { delayReconnect } from '../src/streamReconnect.js';
 import { resumeTurnStream, streamTurnContent } from '../src/streamTurn.js';
 import { messageHasPendingApprovals, TOOL_APPROVAL_THREAD_ID_CUSTOM_KEY } from '../src/toolApproval.js';
@@ -2151,7 +2152,7 @@ describe('useTrueForgeAgentMessages', () => {
 
   it('does not subscribe when cancel aborts a reconnect delay', async () => {
     const onError = vi.fn();
-    const onStreamLifecycle = vi.fn();
+    const onStreamLifecycle = vi.fn<(event: TurnStreamLifecycleEvent) => void>();
     let delayStarted: (() => void) | undefined;
     const delayReady = new Promise<void>(resolve => {
       delayStarted = resolve;
@@ -2204,7 +2205,7 @@ describe('useTrueForgeAgentMessages', () => {
     expect(mockServer.cancelSession).toHaveBeenCalledWith({ sessionId: 'session-1' });
     expect(result.current.isRunning).toBe(false);
     expect(onError).not.toHaveBeenCalled();
-    const lifecycleTypes = onStreamLifecycle.mock.calls.map(([event]: [{ type: string }]) => event.type);
+    const lifecycleTypes = onStreamLifecycle.mock.calls.map(([event]) => event.type);
     expect(lifecycleTypes).not.toContain('abandoned');
     expect(onStreamLifecycle).toHaveBeenLastCalledWith(
       expect.objectContaining({ type: 'completed', status: 'cancelled' }),
