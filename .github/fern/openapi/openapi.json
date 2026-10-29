@@ -4095,7 +4095,7 @@
             "$ref": "#/components/schemas/SessionMetrics"
           },
           "shared": {
-            "description": "Whether the session is shared with everyone in the tenant (a `tenant` grant). Change it through the session grants API.",
+            "description": "When true, any subject in the tenant may read this session and its turns/events by id.",
             "type": "boolean"
           },
           "source": {
