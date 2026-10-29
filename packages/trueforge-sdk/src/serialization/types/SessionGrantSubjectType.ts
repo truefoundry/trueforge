@@ -7,8 +7,8 @@ import type * as serializers from "../index.js";
 export const SessionGrantSubjectType: core.serialization.Schema<
     serializers.SessionGrantSubjectType.Raw,
     TrueForge.SessionGrantSubjectType
-> = core.serialization.stringLiteral("user");
+> = core.serialization.enum_(["user", "tenant"]);
 
 export declare namespace SessionGrantSubjectType {
-    export type Raw = "user";
+    export type Raw = "user" | "tenant";
 }
