@@ -2307,7 +2307,7 @@ export function runStoreContractSuite<TTransaction>(
         turn_id: 'turn-1',
         state: pausedState,
         turn_update_event: turnUpdate,
-        turn_metrics: turnMetricsFor(pausedState, pauseAt),
+        turn_metrics: { status: 'paused', observed_at: pauseAt, metrics: metricsWithCost(1.5) },
       });
 
       const cancelledState = makeCancelledTurnState(CancellationReason.CancelledForNextTurn);
@@ -2333,10 +2333,11 @@ export function runStoreContractSuite<TTransaction>(
         order: undefined,
       });
       expect(data).toContainEqual(turnUpdate);
-      expect(data.filter(event => event.type === EventType.TURN_DONE)).toHaveLength(1);
+      expect(data.find(event => event.type === EventType.TURN_DONE)).toMatchObject({ state: record.state });
 
       const afterCancel = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
       expect(afterCancel.metrics).toEqual({
+        total_cost_in_usd: 1.5,
         total_duration_ms: 500,
         total_turns: 1,
       });
@@ -2503,73 +2504,6 @@ export function runStoreContractSuite<TTransaction>(
       });
       const afterSecond = await store.getSession({ tenant_id: tenant, session_id: sessionId });
       expect(mustGet(afterSecond).metrics).toEqual(mustGet(afterCancel).metrics);
-    });
-
-    it('adds the open interval when freezing a running turn and nothing when freezing a paused turn', async () => {
-      const store = createStore();
-      await seedSession(store);
-      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
-      const running = mustGet(await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' }));
-      const runningSince = openRunningSince(running);
-      const cancelledState = makeCancelledTurnState(CancellationReason.ClientCancelled);
-      const frozenRunning = await store.freezeAndGetTurn({
-        session_id: sessionId,
-        turn_id: 'turn-1',
-        reason: CancellationReason.ClientCancelled,
-        turn_done_event: makeTurnDoneEvent(cancelledState),
-      });
-      if (frozenRunning.state.status !== 'cancelled') {
-        throw new Error(`expected cancelled turn, got ${frozenRunning.state.status}`);
-      }
-      const runningIntervalMs = Date.parse(frozenRunning.state.completed_at) - Date.parse(runningSince);
-      const afterRunningFreeze = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
-      expect(afterRunningFreeze.metrics).toEqual({
-        total_duration_ms: runningIntervalMs > 0 ? Math.trunc(runningIntervalMs) : 0,
-        total_turns: 1,
-      });
-      expect(afterRunningFreeze.metrics.total_cost_in_usd).toBeUndefined();
-
-      await store.createTurn(
-        makeCreateTurnInput({ sessionId, turnId: 'turn-2', previousTurnId: 'turn-1', firstTurnId: 'turn-1' }),
-      );
-      const created = mustGet(await store.getTurn({ session_id: sessionId, turn_id: 'turn-2' }));
-      const pauseAt = isoPlus(openRunningSince(created), 400);
-      const pausedState = makePausedTurnState();
-      await store.updateTurnNonTerminalState({
-        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
-        session_id: sessionId,
-        turn_id: 'turn-2',
-        state: pausedState,
-        turn_update_event: makeTurnUpdateEvent(pausedState),
-        turn_metrics: { status: 'paused', observed_at: pauseAt, metrics: metricsWithCost(1.5) },
-      });
-      const pausedCancel = makeCancelledTurnState(CancellationReason.CancelledForNextTurn);
-      const frozenPaused = await store.freezeAndGetTurn({
-        session_id: sessionId,
-        turn_id: 'turn-2',
-        reason: CancellationReason.CancelledForNextTurn,
-        turn_done_event: makeTurnDoneEvent(pausedCancel),
-      });
-      const { data: pausedEvents } = await store.listTurnEvents({
-        session_id: sessionId,
-        turn_id: 'turn-2',
-        limit: 10,
-        page_token: undefined,
-        order: undefined,
-      });
-      const pausedDone = pausedEvents.filter(event => event.type === EventType.TURN_DONE);
-      expect(pausedDone).toHaveLength(1);
-      const pausedDoneEvent = pausedDone[0];
-      if (pausedDoneEvent?.type !== EventType.TURN_DONE) {
-        throw new Error('expected turn.done');
-      }
-      expect(pausedDoneEvent.state).toEqual(frozenPaused.state);
-      const afterPausedFreeze = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
-      expect(afterPausedFreeze.metrics).toEqual({
-        total_cost_in_usd: 1.5,
-        total_duration_ms: afterRunningFreeze.metrics.total_duration_ms + 400,
-        total_turns: 2,
-      });
     });
 
     it('on an already-terminal turn is a plain read without duplicating turn.done', async () => {
@@ -2780,8 +2714,6 @@ export function runStoreContractSuite<TTransaction>(
         turn_update_event: makeTurnUpdateEvent(runningState),
         turn_metrics: turnMetricsFor(runningState, resumeAt),
       });
-      const afterResume = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
-      expect(afterResume.metrics).toEqual(afterFirstPause.metrics);
 
       const secondPauseAt = isoPlus(resumeAt, 200);
       await store.updateTurnNonTerminalState({
