@@ -463,8 +463,8 @@ export interface AgentBuilderCapabilitiesResponse {
     skill: { enabled: boolean; reason?: string };
     settings?: { enabled: boolean };
     webSearch?: { enabled: boolean };
-    /** Present when the host reports session sharing; `users` gates invite-by-user. */
-    sessionSharing?: { users: boolean };
+    /** Present when the host reports session sharing; `enabled` gates invite-by-user. */
+    sessionSharing?: { enabled: boolean };
   };
 }
 

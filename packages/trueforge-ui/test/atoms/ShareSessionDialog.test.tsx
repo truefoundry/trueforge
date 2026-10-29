@@ -60,11 +60,11 @@ const aliceGrant: SessionAccessGrant = {
 function renderDialog({
   session = baseSession,
   grants = [],
-  sessionSharingUsers = true,
+  sessionSharingEnabled = true,
 }: {
   session?: SessionStub;
   grants?: SessionAccessGrant[];
-  sessionSharingUsers?: boolean;
+  sessionSharingEnabled?: boolean;
 } = {}) {
   const listAccess = vi.fn(async () => grants);
   const grantAccess = vi.fn(async (req: { sessionId: string; subjects: SessionAccessSubject[] }) => [
@@ -97,7 +97,7 @@ function renderDialog({
         sandbox: { enabled: true },
         skill: { enabled: true },
         settings: { enabled: true },
-        sessionSharing: { users: sessionSharingUsers },
+        sessionSharing: { enabled: sessionSharingEnabled },
       },
     }),
   });
@@ -240,8 +240,8 @@ describe('ShareSessionDialog', () => {
     });
   });
 
-  it('hides the invite search when session_sharing.users is false', async () => {
-    renderDialog({ sessionSharingUsers: false, grants: [aliceGrant] });
+  it('hides the invite search when session_sharing.enabled is false', async () => {
+    renderDialog({ sessionSharingEnabled: false, grants: [aliceGrant] });
     await openSharePopover();
 
     expect(await screen.findByRole('button', { name: 'Session sharing' })).toBeInTheDocument();

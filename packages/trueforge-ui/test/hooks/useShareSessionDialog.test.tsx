@@ -12,7 +12,7 @@ type ServerHookValue = {
 };
 
 const useOptionalServer = vi.hoisted(() => vi.fn<() => ServerHookValue | null>());
-const useServerCapabilities = vi.hoisted(() => vi.fn<() => { sessionSharing?: { users: boolean } } | null>());
+const useServerCapabilities = vi.hoisted(() => vi.fn<() => { sessionSharing?: { enabled: boolean } } | null>());
 const allows = vi.hoisted(() => vi.fn<() => boolean>());
 const showError = vi.hoisted(() => vi.fn());
 const showSuccess = vi.hoisted(() => vi.fn());
@@ -61,7 +61,7 @@ describe('useShareSessionDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     allows.mockReturnValue(true);
-    useServerCapabilities.mockReturnValue({ sessionSharing: { users: true } });
+    useServerCapabilities.mockReturnValue({ sessionSharing: { enabled: true } });
     copyLink.mockResolvedValue(true);
     getSession.mockResolvedValue(session);
     listAccess.mockResolvedValue([grant({})]);
@@ -99,8 +99,8 @@ describe('useShareSessionDialog', () => {
     expect(result.current.canChangePermission).toBe(false);
   });
 
-  it('hides invite when session_sharing.users is false and still allows tenant permission changes', async () => {
-    useServerCapabilities.mockReturnValue({ sessionSharing: { users: false } });
+  it('hides invite when session_sharing.enabled is false and still allows tenant permission changes', async () => {
+    useServerCapabilities.mockReturnValue({ sessionSharing: { enabled: false } });
     const { result } = renderHook(() => useShareSessionDialog('s1'));
     await act(() => result.current.load());
 

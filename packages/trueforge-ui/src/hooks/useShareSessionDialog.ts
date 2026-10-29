@@ -52,7 +52,7 @@ export function useShareSessionDialog(sessionId: string | null | undefined): {
   const shareUrl = hasSession ? buildSharedSessionHref({ sessionId, routes }) : '';
   const canChangePermission = canManage;
   // Absent until capabilities settle; hide invite so the field does not flash in.
-  const canInviteUsers = capabilities?.sessionSharing?.users === true;
+  const canInviteUsers = capabilities?.sessionSharing?.enabled === true;
   const canInvite = canManage && sessionAccess != null && canInviteUsers;
 
   // Runs when invite-by-user becomes available (capabilities settle after open).
