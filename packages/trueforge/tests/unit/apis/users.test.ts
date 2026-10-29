@@ -27,7 +27,7 @@ function pagedUserStore(): { userStore: IUserStore; listUsers: jest.Mock; getUse
   const getUsersByIds = jest.fn((input: GetUsersByIdsInput) =>
     Promise.resolve(USERS.filter(user => input.ids.includes(user.id))),
   );
-  return { userStore: { listUsers, getUsersByIds }, listUsers, getUsersByIds };
+  return { userStore: { supportsUserLookup: true, listUsers, getUsersByIds }, listUsers, getUsersByIds };
 }
 
 describe('users API', () => {

@@ -147,6 +147,7 @@ describe('sessions HTTP agent binding', () => {
       createTurnsRouter({
         sessions,
         sessionStore,
+        accessControlStore: new SqliteAccessControlStore(db),
         activeTurns: deps.activeTurns,
         resolveModelProviderStore: () => modelProviderStore,
         resolveMcpServerStore: () =>
