@@ -34,7 +34,7 @@ import {
   createInitialTurnMetricsCheckpoint,
   foldTurnMetricsCheckpoint,
   resolveStoredTurnMetricsCheckpoint,
-  turnDoneEventWithTerminalState,
+  toTurnMetrics,
 } from '@truefoundry/trueforge-core/agent-session/turnMetrics';
 import type { CapabilityState, JsonValue } from '@truefoundry/trueforge-core/core/capabilities/AgentCapability';
 import type { AgentInfo, AgentParent, MCPServerInitInfo } from '@truefoundry/trueforge-core/core/events/schema';
@@ -793,7 +793,7 @@ export async function freezeAndGetTurn(db: Kysely<Database>, input: FreezeAndGet
       const cancelledState = cancelledStateWithCheckpointMetrics({
         reason: input.reason,
         completed_at,
-        public_metrics: folded.public_metrics,
+        turn_metrics: toTurnMetrics(folded.checkpoint.metrics),
       });
       // The row lock is held from lockTurnMetricsRow. The status predicate is the winning cancel.
       const updated = await trx
@@ -809,7 +809,7 @@ export async function freezeAndGetTurn(db: Kysely<Database>, input: FreezeAndGet
         .executeTakeFirst();
 
       if (Number(updated.numUpdatedRows) > 0) {
-        const turnDoneEvent = turnDoneEventWithTerminalState(input.turn_done_event, cancelledState);
+        const turnDoneEvent = { ...input.turn_done_event, state: cancelledState };
         await trx
           .insertInto('session_event')
           .values({
@@ -992,7 +992,7 @@ export async function updateTurnTerminalState(
         kind: 'terminal',
         completed_at: input.state.completed_at,
         stored_status: locked.state.status,
-        metrics: input.metrics,
+        runningPhaseMetrics: input.metrics,
       },
     });
     const updated = await trx

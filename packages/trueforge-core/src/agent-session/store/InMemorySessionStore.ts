@@ -12,7 +12,7 @@ import {
   createInitialTurnMetricsCheckpoint,
   foldTurnMetricsCheckpoint,
   resolveStoredTurnMetricsCheckpoint,
-  turnDoneEventWithTerminalState,
+  toTurnMetrics,
   writeTurnMetricsCheckpoint,
 } from '../turnMetrics';
 import { assertCreateTurnThreadDelta } from './assertCreateTurnThreadDelta';
@@ -483,14 +483,14 @@ export class InMemorySessionStore<
       const cancelledState = cancelledStateWithCheckpointMetrics({
         reason: input.reason,
         completed_at,
-        public_metrics: folded.public_metrics,
+        turn_metrics: toTurnMetrics(folded.checkpoint.metrics),
       });
       turn.state = cancelledState;
       writeTurnMetricsCheckpoint(turn.snapshot, deepCopy(folded.checkpoint));
       turn.updated_at = new Date();
       const list = this.events.get(tKey);
       if (list) {
-        list.push(deepCopy(turnDoneEventWithTerminalState(input.turn_done_event, cancelledState)));
+        list.push(deepCopy({ ...input.turn_done_event, state: cancelledState }));
       }
       this.applyTurnStateToSession({
         id: input.session_id,
@@ -609,7 +609,7 @@ export class InMemorySessionStore<
         kind: 'terminal',
         completed_at: input.state.completed_at,
         stored_status: storedStatus,
-        metrics: input.metrics,
+        runningPhaseMetrics: input.metrics,
       },
     });
     turn.state = deepCopy(input.state);

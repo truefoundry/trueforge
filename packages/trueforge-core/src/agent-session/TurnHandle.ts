@@ -51,7 +51,7 @@ import {
 } from './schemas/turn';
 import type { ISessionStore } from './store/ISessionStore';
 import { TurnNotRunningError, TurnOwnershipLostError } from './store/SessionStoreErrors';
-import { turnMetricsFromAgentThreadMetrics } from './turnMetrics';
+import { toTurnMetrics } from './turnMetrics';
 
 /** Streaming yield union — deltas pass through; never persisted. No sequence_number. */
 export type TurnStreamingEvent = PersistedTurnEvent | ModelMessageDeltaEvent;
@@ -148,10 +148,10 @@ function resolveTerminalState(input: {
   signal: AbortSignal;
   caughtError: Error | undefined;
   executeResult: AgentThreadExecutionResult | undefined;
-  metrics: TurnMetrics;
+  turnMetrics: TurnMetrics;
   completed_at: string;
 }): TerminalTurnState {
-  const { signal, caughtError, executeResult, metrics, completed_at } = input;
+  const { signal, caughtError, executeResult, turnMetrics: metrics, completed_at } = input;
   if (signal.aborted) {
     return {
       status: 'cancelled',
@@ -450,14 +450,14 @@ export class TurnHandle<TTransaction = never, TTurnCustom extends object = Recor
   }): Promise<TurnDoneEvent> {
     const updatedAt = new Date();
     const createdAtIso = updatedAt.toISOString();
-    const running = input.orchestrator.getMetrics();
-    const cumulative = sumAgentThreadMetrics(this.turn.snapshot.metrics, running);
-    const metrics = turnMetricsFromAgentThreadMetrics(cumulative);
+    const runningPhaseMetrics = input.orchestrator.getMetrics();
+    const cumulativeAgentThreadMetrics = sumAgentThreadMetrics(this.turn.snapshot.metrics, runningPhaseMetrics);
+    const turnMetrics = toTurnMetrics(cumulativeAgentThreadMetrics);
     const terminalState = resolveTerminalState({
       signal: input.signal,
       caughtError: input.caughtError,
       executeResult: input.executeResult,
-      metrics,
+      turnMetrics,
       completed_at: createdAtIso,
     });
     const turnDone = turnDoneEvent(terminalState, createdAtIso);
@@ -468,14 +468,14 @@ export class TurnHandle<TTransaction = never, TTurnCustom extends object = Recor
         active_executor_id: this.turn.active_executor_id,
         state: terminalState,
         turn_done_event: turnDone,
-        metrics: running,
+        metrics: runningPhaseMetrics,
       }),
     );
     this.turn = {
       ...this.turn,
       state: terminalState,
       updated_at: updatedAt,
-      snapshot: { ...this.turn.snapshot, metrics: cumulative },
+      snapshot: { ...this.turn.snapshot, metrics: cumulativeAgentThreadMetrics },
     };
     return turnDone;
   }
@@ -488,9 +488,7 @@ export class TurnHandle<TTransaction = never, TTurnCustom extends object = Recor
     const updatedAt = new Date();
     const state: TerminalTurnState = {
       ...error.state,
-      metrics: turnMetricsFromAgentThreadMetrics(
-        sumAgentThreadMetrics(this.turn.snapshot.metrics, orchestrator.getMetrics()),
-      ),
+      metrics: toTurnMetrics(sumAgentThreadMetrics(this.turn.snapshot.metrics, orchestrator.getMetrics())),
     };
     this.turn = { ...this.turn, state, updated_at: updatedAt };
     return turnDoneEvent(state, updatedAt.toISOString());
@@ -537,20 +535,18 @@ export class TurnHandle<TTransaction = never, TTurnCustom extends object = Recor
 
   private async persistTurnNonTerminal(
     transition: InternalTurnStateEvent['transition'],
-    metrics: AgentThreadMetrics,
+    agentThreadMetrics: AgentThreadMetrics,
   ): Promise<TurnUpdateEvent | null> {
-    const cumulative =
+    const cumulativeAgentThreadMetrics =
       transition.status === 'paused'
-        ? sumAgentThreadMetrics(this.turn.snapshot.metrics, metrics)
+        ? sumAgentThreadMetrics(this.turn.snapshot.metrics, agentThreadMetrics)
         : this.turn.snapshot.metrics;
     const state: NonTerminalTurnState =
       transition.status === 'paused'
-        ? { status: 'paused', metrics: turnMetricsFromAgentThreadMetrics(cumulative) }
+        ? { status: 'paused', metrics: toTurnMetrics(cumulativeAgentThreadMetrics) }
         : { status: 'running' };
     const updatedAt = new Date();
     const observed_at = updatedAt.toISOString();
-    const turn_metrics: TurnNonTerminalMetrics =
-      state.status === 'paused' ? { status: 'paused', observed_at, metrics } : { status: 'running', observed_at };
     const turnUpdate: TurnUpdateEvent = {
       type: EventType.TURN_UPDATE,
       id: newEventId(),
@@ -558,6 +554,10 @@ export class TurnHandle<TTransaction = never, TTurnCustom extends object = Recor
       created_at: observed_at,
       thread_id: null,
     };
+    const turn_metrics: TurnNonTerminalMetrics =
+      state.status === 'paused'
+        ? { status: 'paused', observed_at, metrics: agentThreadMetrics }
+        : { status: 'running', observed_at };
     await this.writeStore('append', () =>
       this.store.updateTurnNonTerminalState({
         session_id: this.turn.session_id,
@@ -572,7 +572,7 @@ export class TurnHandle<TTransaction = never, TTurnCustom extends object = Recor
       ...this.turn,
       state,
       updated_at: updatedAt,
-      snapshot: { ...this.turn.snapshot, metrics: cumulative },
+      snapshot: { ...this.turn.snapshot, metrics: cumulativeAgentThreadMetrics },
     };
     return turnUpdate;
   }

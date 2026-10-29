@@ -353,6 +353,7 @@ export class SessionHandle<
    * Missing turn → {@link TurnNotFoundError}.
    */
   async freezeTurn(input: { turn_id: string; reason: CancellationReason }): Promise<TurnRecord<TTurnCustom>> {
+    // TODO: freeze omits token usage and cost accumulated since the last resume.
     return this.store.freezeAndGetTurn({
       session_id: this.session.session_id,
       turn_id: input.turn_id,
