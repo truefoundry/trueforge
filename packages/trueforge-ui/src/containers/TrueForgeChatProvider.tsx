@@ -13,6 +13,7 @@ import { sessionIsCreateAgent } from '../atoms/lib/sessionCreateAgent.js';
 import { UI_SESSION_SOURCE_METADATA } from '../atoms/lib/sessionSource.js';
 import { notifyComposerBusyFailure } from '../hooks/useComposerBusyState.js';
 import { ActiveSessionPermissionsProvider } from '../hooks/useResourcePermissions.js';
+import { useTurnStreamLifecycle } from '../observability/useTurnStreamLifecycle.js';
 import type { AgentUIServer } from '../server/types.js';
 import { ToasterProvider, useToaster } from './ToasterContainer.js';
 
@@ -101,6 +102,7 @@ function ChatRuntimeScope({
 }) {
   const { showError } = useToaster();
   const reportError = onError ?? showError;
+  const onStreamLifecycle = useTurnStreamLifecycle(agent?.mode === 'named' ? agent.agentName : agentName);
   const localSessionState = useMemo(() => ({ server, ids: new Set<string>() }), [server]);
   const locallyCreatedSessionIds = localSessionState.ids;
   const historyServer = useMemo(
@@ -125,6 +127,7 @@ function ChatRuntimeScope({
     listSessionsCreatedByMe: true,
     initialSessionId,
     onError: resolvedOnError,
+    onStreamLifecycle,
     adapters: {
       ...adapters,
       attachments: adapters?.attachments ?? trueForgeAttachmentAdapter,

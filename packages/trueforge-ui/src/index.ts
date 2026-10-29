@@ -265,6 +265,8 @@ export { MCP_AUTH_POPUP_CHANNEL, useMCPAuth } from './hooks/useMcpAuth.js';
 export type { McpAuthCallback, McpAuthPopupMessage, UseMCPAuthOptions } from './hooks/useMcpAuth.js';
 export { useResourcePermissions } from './hooks/useResourcePermissions.js';
 export type { UseResourcePermissionsOptions, UseResourcePermissionsResult } from './hooks/useResourcePermissions.js';
+export { ObservabilityProvider, useObservability } from './observability/index.js';
+export type { ObservabilityConfig, ObservabilityContext } from './observability/index.js';
 
 // Curated chrome hooks (same instance as the SDK runtime). Deep primitives: install @assistant-ui/react.
 export { useAui, useAuiState } from './assistant-ui.js';

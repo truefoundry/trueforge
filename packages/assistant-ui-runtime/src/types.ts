@@ -8,6 +8,7 @@ import type {
 } from '@assistant-ui/core';
 
 import type { AgentChatServer, AgentSpec } from './server/types.js';
+import type { TurnStreamLifecycleEvent } from './streamLifecycle.js';
 
 export interface NamedAgentConfig {
   mode: 'named';
@@ -28,6 +29,8 @@ type TrueForgeAgentRuntimeBaseOptions = ExternalStoreSharedOptions & {
   threadId?: string | undefined;
   onThreadIdChange?: ((threadId: string | undefined) => void) | undefined;
   onError?: ((error: unknown) => void) | undefined;
+  /** Observability tap for each turn stream (start, stall, drop, retry, finish). */
+  onStreamLifecycle?: ((event: TurnStreamLifecycleEvent) => void) | undefined;
   /**
    * Optional filter forwarded to `listSessions({ agentId })`.
    * Omit for all chats; hosts that key agents by name pass that name as the id.

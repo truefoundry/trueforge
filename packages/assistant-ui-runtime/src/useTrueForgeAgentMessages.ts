@@ -45,6 +45,11 @@ import {
   type SessionSnapshot,
   type SessionTurnRecord,
 } from './sessionSnapshot.js';
+import {
+  createStreamLifecycleReporter,
+  type TurnStreamLifecycleEvent,
+  type TurnStreamMode,
+} from './streamLifecycle.js';
 import { delayReconnect, isAbortError, STREAM_RECONNECT_MAX_ATTEMPTS } from './streamReconnect.js';
 import { resumeTurnStream, streamTurnContent } from './streamTurn.js';
 import { TOOL_APPROVAL_THREAD_ID_CUSTOM_KEY, type RespondToToolApprovalOptions } from './toolApproval.js';
@@ -63,6 +68,8 @@ export interface UseTrueForgeAgentMessagesOptions {
   /** URL-selected session may load before the thread list marks it as main. */
   isInitialSession?: boolean | undefined;
   onError?: ((error: unknown) => void) | undefined;
+  /** Observability tap for each turn stream (start, stall, drop, retry, finish). Must not throw. */
+  onStreamLifecycle?: ((event: TurnStreamLifecycleEvent) => void) | undefined;
   initializeSession?: () => Promise<{
     remoteId: string;
     externalId: string | undefined;
@@ -472,6 +479,8 @@ interface StreamSequenceTrack {
 
 interface RunStreamReconnect {
   sessionId: string;
+  /** Transport of the first attempt; retries always use subscribe. */
+  mode: TurnStreamMode;
   gatewayTurnAccepted: { current: boolean };
 }
 
@@ -481,6 +490,7 @@ export function useTrueForgeAgentMessages({
   isMain,
   isInitialSession,
   onError,
+  onStreamLifecycle,
   initializeSession,
   resolveConversationSessionId,
   getTurnHeaders,
@@ -507,6 +517,8 @@ export function useTrueForgeAgentMessages({
 
   const onErrorRef = useRef(onError);
   onErrorRef.current = onError;
+  const onStreamLifecycleRef = useRef(onStreamLifecycle);
+  onStreamLifecycleRef.current = onStreamLifecycle;
   const resolveConversationSessionIdRef = useRef(resolveConversationSessionId);
   resolveConversationSessionIdRef.current = resolveConversationSessionId;
   const initializeSessionRef = useRef(initializeSession);
@@ -595,11 +607,17 @@ export function useTrueForgeAgentMessages({
         };
         let useSubscribe = false;
         let consecutiveFailures = 0;
+        const lifecycle = createStreamLifecycleReporter({
+          sessionId: reconnect.sessionId,
+          getTurnId: () => turnIdRef.current,
+          emit: event => onStreamLifecycleRef.current?.(event),
+        });
 
         const track: StreamSequenceTrack = {
           onSequenceNumber: sequenceNumber => {
             lastSequenceNumberRef.current = sequenceNumber;
             consecutiveFailures = 0;
+            lifecycle.onEvent(sequenceNumber);
           },
         };
 
@@ -654,12 +672,14 @@ export function useTrueForgeAgentMessages({
         try {
           while (streamGeneration === streamGenerationRef.current) {
             try {
+              lifecycle.start(useSubscribe ? 'subscribe' : reconnect.mode);
               for await (const update of readStream(abortController.signal)) {
                 if (streamGeneration !== streamGenerationRef.current) {
                   return;
                 }
                 applyStreamUpdate(update);
               }
+              lifecycle.completed(cancelRequestedRef.current ? 'cancelled' : 'done');
               return;
             } catch (error) {
               if (isAbortError(error) || streamGeneration !== streamGenerationRef.current) {
@@ -668,6 +688,7 @@ export function useTrueForgeAgentMessages({
               // Cancel keeps consuming a healthy live SSE for turn.done. A
               // drop after cancelSession must not start subscribe-retry.
               if (cancelRequestedRef.current) {
+                lifecycle.completed('cancelled');
                 abortController.abort();
                 return;
               }
@@ -676,9 +697,11 @@ export function useTrueForgeAgentMessages({
                 reconnect.gatewayTurnAccepted.current &&
                 !(error instanceof TurnFailedError);
               if (!canSubscribe || consecutiveFailures >= STREAM_RECONNECT_MAX_ATTEMPTS) {
+                lifecycle.failed(error);
                 onErrorRef.current?.(error);
                 throw error;
               }
+              lifecycle.disconnected(error);
               consecutiveFailures += 1;
               useSubscribe = true;
               // Stay pending through delay and the subscribe attempt so
@@ -695,6 +718,10 @@ export function useTrueForgeAgentMessages({
             }
           }
         } finally {
+          if (abortController.signal.aborted) {
+            lifecycle.abandon();
+          }
+          lifecycle.dispose();
           streamReconnectPendingRef.current = false;
           cancelScheduledAnimationFrame(streamUpdateRaf);
           if (streamGeneration === streamGenerationRef.current) {
@@ -851,7 +878,7 @@ export function useTrueForgeAgentMessages({
             ),
           { current: turn.id },
           isContinuation,
-          { sessionId: conversationSessionId, gatewayTurnAccepted: { current: true } },
+          { sessionId: conversationSessionId, mode: 'subscribe', gatewayTurnAccepted: { current: true } },
         ).catch(() => undefined);
       }
     } catch (error) {
@@ -1080,7 +1107,7 @@ export function useTrueForgeAgentMessages({
           },
           turnIdRef,
           isContinuation,
-          { sessionId: conversationSessionId, gatewayTurnAccepted },
+          { sessionId: conversationSessionId, mode: 'create', gatewayTurnAccepted },
         );
       } catch (error) {
         if (!runStreamStarted && sendGeneration !== streamGenerationRef.current) {
@@ -1242,7 +1269,7 @@ export function useTrueForgeAgentMessages({
         ),
       { current: turn.id },
       true,
-      { sessionId: resumeSessionId, gatewayTurnAccepted: { current: true } },
+      { sessionId: resumeSessionId, mode: 'subscribe', gatewayTurnAccepted: { current: true } },
     );
   }, [runStream, server, sessionId]);
 

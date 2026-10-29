@@ -30,7 +30,8 @@ export function resolveTrueForgeBaseUrl(baseUrl: string): string {
 }
 
 export function createTrueForgeClient(options: CreateTrueForgeClientOptions = {}): TrueForge {
-  const fetchFn = withSdkHttpTimeoutTracking(options.fetch ?? globalThis.fetch.bind(globalThis));
+  // Resolve per call so a vendor that patches `globalThis.fetch` after client creation (trace headers) still applies.
+  const fetchFn = withSdkHttpTimeoutTracking(options.fetch ?? ((input, init) => globalThis.fetch(input, init)));
   return new TrueForge({
     baseUrl: resolveTrueForgeBaseUrl(options.baseUrl ?? DEFAULT_BASE_URL),
     fetch: fetchFn,

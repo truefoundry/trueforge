@@ -17,6 +17,8 @@ import { IS_CREATE_AGENT_METADATA_KEY, isCreateAgentMetadataValue } from '../ato
 import { preloadMonaco } from '../atoms/monacoPreload.js';
 import { CurrentUserProvider, type CurrentUser } from '../contexts/CurrentUserContext.js';
 import { WidgetVisibilityProvider } from '../layouts/WidgetVisibilityContext.js';
+import { ObservabilityProvider } from '../observability/ObservabilityProvider.js';
+import type { ObservabilityConfig } from '../observability/types.js';
 import { HistorySessionSwitchBridge } from '../routing/HistorySessionSwitchBridge.js';
 import { LibrarySessionShareBoot } from '../routing/LibrarySessionShareBoot.js';
 import { RemoteIdRouteBridge } from '../routing/RemoteIdRouteBridge.js';
@@ -57,6 +59,8 @@ export type TrueForgeUIProps = {
   onError?: (error: unknown) => void;
   /** Host product-analytics sink; SDK never ships a vendor. */
   analytics?: AnalyticsConfig;
+  /** Host error/trace sink (e.g. Sentry); SDK never ships a vendor. */
+  observability?: ObservabilityConfig;
   /**
    * Agent / library / composer shell mode.
    * Defaults to `{ mode: "AgentLibraryWithComposer" }`.
@@ -298,6 +302,7 @@ export function TrueForgeUIShell(props: TrueForgeUIShellProps) {
     server: serverConfig,
     onError,
     analytics,
+    observability,
     customActionRenderers,
     currentUser,
     resolvedRoutes,
@@ -338,28 +343,30 @@ export function TrueForgeUIShell(props: TrueForgeUIShellProps) {
   // the same tree so chrome + chat share one sink.
   const shellTree = (
     <AnalyticsProvider track={analytics?.track}>
-      <ToasterProvider>
-        <ShellModeProvider agentConfig={agentConfig} initialSettingsOpen={initialSettingsOpen}>
-          <LibrarySessionShareBoot />
-          {resolvedRoutes != null ? (
-            <Suspense fallback={null}>
-              <ShellRouteSync
-                routes={resolvedRoutes}
-                activeRemoteId={activeRemoteId}
-                initialSettingsOpen={initialSettingsOpen}
-              />
-            </Suspense>
-          ) : null}
-          <ChatProviderFromShell
-            server={server}
-            onError={onError}
-            onRemoteIdChange={resolvedRoutes != null ? handleRemoteIdChange : undefined}
-            {...providerRest}
-          >
-            {layoutTree}
-          </ChatProviderFromShell>
-        </ShellModeProvider>
-      </ToasterProvider>
+      <ObservabilityProvider observability={observability}>
+        <ToasterProvider>
+          <ShellModeProvider agentConfig={agentConfig} initialSettingsOpen={initialSettingsOpen}>
+            <LibrarySessionShareBoot />
+            {resolvedRoutes != null ? (
+              <Suspense fallback={null}>
+                <ShellRouteSync
+                  routes={resolvedRoutes}
+                  activeRemoteId={activeRemoteId}
+                  initialSettingsOpen={initialSettingsOpen}
+                />
+              </Suspense>
+            ) : null}
+            <ChatProviderFromShell
+              server={server}
+              onError={onError}
+              onRemoteIdChange={resolvedRoutes != null ? handleRemoteIdChange : undefined}
+              {...providerRest}
+            >
+              {layoutTree}
+            </ChatProviderFromShell>
+          </ShellModeProvider>
+        </ToasterProvider>
+      </ObservabilityProvider>
     </AnalyticsProvider>
   );
   // Widget visibility provider is used to control the visibility of the widget with isolated state

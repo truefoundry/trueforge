@@ -60,7 +60,7 @@ function useTrueForgeAgentRuntimeImpl(
   options: ReturnType<typeof resolveTrueForgeAgentRuntimeOptions>,
   pendingAgentSpecRef: RefObject<AgentSpec | undefined>,
 ) {
-  const { server, agent, adapters, onError, ...sharedOptions } = options;
+  const { server, agent, adapters, onError, onStreamLifecycle, ...sharedOptions } = options;
 
   const draftBridgeRef = useRef(agent.mode === 'draft' ? createDraftSessionBridge(server) : null);
   if (agent.mode === 'draft' && draftBridgeRef.current == null) {
@@ -140,6 +140,7 @@ function useTrueForgeAgentRuntimeImpl(
     isMain,
     isInitialSession,
     onError,
+    onStreamLifecycle,
     initializeSession,
     ...(agent.mode === 'draft' ? { getTurnHeaders } : {}),
   });

@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/react';
 import {
   getErrorMessage,
   resolveReasoningEffort,
@@ -5,6 +6,7 @@ import {
   TrueForgeUI,
   useTheme,
   type AnalyticsConfig,
+  type ObservabilityConfig,
   type SlotOverrides,
   type ThemeConfig,
 } from '@truefoundry/trueforge-ui';
@@ -29,6 +31,23 @@ import { RegisterSkillsLink } from './RegisterSkillsLink';
 
 const POSTHOG_API_KEY = import.meta.env.VITE_POSTHOG_API_KEY;
 const POSTHOG_HOST = import.meta.env.VITE_POSTHOG_HOST ?? 'https://us.i.posthog.com';
+
+const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN;
+
+// Must run before any API client is created so Sentry's fetch tracing covers SDK calls.
+function initSentry(): void {
+  if (!SENTRY_DSN) {
+    return;
+  }
+  Sentry.init({
+    dsn: SENTRY_DSN,
+    integrations: [Sentry.browserTracingIntegration()],
+    tracesSampleRate: 1.0,
+    tracePropagationTargets: [window.location.origin],
+  });
+}
+
+initSentry();
 
 function initAnalytics(): void {
   if (!POSTHOG_API_KEY) {
@@ -194,6 +213,21 @@ export function App() {
     };
   }, [session]);
 
+  const hostObservability = useMemo((): ObservabilityConfig | undefined => {
+    if (!SENTRY_DSN || session.status !== 'authenticated') {
+      return undefined;
+    }
+    const { tenantId } = session;
+    return {
+      captureError: (error, context) => {
+        Sentry.captureException(error, { tags: { tenant: tenantId }, extra: context });
+      },
+      addBreadcrumb: breadcrumb => {
+        Sentry.addBreadcrumb({ ...breadcrumb, level: 'info' });
+      },
+    };
+  }, [session]);
+
   const authErrorReason = shouldShowAuthErrorScreen({ authError, session });
   if (authErrorReason != null) {
     return (
@@ -258,6 +292,7 @@ export function App() {
         theme={appTheme}
         className="app-assistant"
         {...(hostAnalytics ? { analytics: hostAnalytics } : {})}
+        {...(hostObservability ? { observability: hostObservability } : {})}
       />
     </div>
   );

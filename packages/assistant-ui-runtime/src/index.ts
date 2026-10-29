@@ -56,6 +56,8 @@ export {
   messageHasPendingRequiredActions,
 } from './requiredActionInputs.js';
 export { getSession } from './sessions.js';
+export { STREAM_STALL_THRESHOLDS_MS } from './streamLifecycle.js';
+export type { TurnStreamFailureReason, TurnStreamLifecycleEvent, TurnStreamMode } from './streamLifecycle.js';
 export { collectApprovalInputs, messageHasPendingApprovals, toTrueForgeApprovalInputs } from './toolApproval.js';
 export {
   TOOL_RESPONSE_THREAD_ID_CUSTOM_KEY,
