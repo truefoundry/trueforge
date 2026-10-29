@@ -1,5 +1,24 @@
 # @truefoundry/trueforge
 
+## 0.182.0-rc.1
+
+### Patch Changes
+
+- 3a73934: Use an explicit server or controller resources table as-is, then resourceTierOverride, then global.resourceTier. The default tier is small.
+- 7b325d9: Drop the redundant `last_turn_id` column from sessions; the session tip is now read from `last_turn_details.id`.
+- 92748e0: Add an EvoLink remote MCP server preset to the shipped MCP catalog, signed in with OAuth dynamic client registration, so users can generate images, video, music and speech with 150+ models.
+- f91d0c3: Send `x-tfy-conversation-id` (session id) on gateway model/MCP calls alongside `tfg.session_id` metadata.
+- b094bff: Vulnerability fix: rebuild against remirrored `tfy-internal/node:24` / `:24-dev` (verified Node v24.22.1) so published images pick up the updated ECR Node base.
+- 6722969: Add session grants API (share, list, revoke) and user listing.
+- 141b33a: Backfill `tfg.source: ui` session metadata on existing non-scheduled sessions so they stay in Chat History once it filters on that key.
+- Updated dependencies [7a7a0b6]
+- Updated dependencies [7b325d9]
+- Updated dependencies [e6a2e9e]
+- Updated dependencies [cf786ee]
+- Updated dependencies [6722969]
+  - @truefoundry/trueforge-core@0.182.0-rc.1
+  - @truefoundry/trueforge-sdk@0.182.0-rc.1
+
 ## 0.181.0
 
 ### Patch Changes

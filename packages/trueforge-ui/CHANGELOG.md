@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.182.0-rc.1
+
+### Patch Changes
+
+- 48efe38: Show context compaction in chat agent steps as Summarizing/Summarized context with expandable event JSON, and mark Summary on the session event timeline.
+- 00f5d15: Close the environment delete confirm dialog before the request so error toasts stay visible above the modal.
+- cc28923: Stamp `tfg.source: ui` metadata on UI-created sessions and filter Chat History on it so scheduled sessions are hidden by default.
+- 343d271: Show what the agent or sub-agent is currently doing in the loader instead of a static "Working...", including context summarization, and add "Taking longer than expected" when thinking, the model, a tool call, or summarization runs long. Show step count on sub-agent cards.
+- 834d1f6: Show the model catalog warning in the composer and agent-config model pickers when reasoning effort or context length is not configured.
+- c743bff: Remove the Last run column from the agents library page.
+- 0c84db0: Link scheduled sessions to their schedule by id from the session list tooltip.
+- ac5c91f: Render in-progress tip turns in session detail from already-loaded events and show that the turn may still be incomplete.
+- ef6f332: Show "Taking longer than expected" only after a minute without new stream content, so live tool-argument and reasoning updates keep the working label.
+- Updated dependencies [48efe38]
+- Updated dependencies [cc28923]
+- Updated dependencies [834d1f6]
+- Updated dependencies [cf786ee]
+- Updated dependencies [ee31bcd]
+- Updated dependencies [ac5c91f]
+  - @truefoundry/trueforge-assistant-ui-runtime@0.182.0-rc.1
+  - @truefoundry/trueforge-sdk@0.182.0-rc.1
+
 ## 0.181.0
 
 ### Patch Changes

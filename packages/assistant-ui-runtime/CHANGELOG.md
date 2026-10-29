@@ -1,5 +1,15 @@
 # @truefoundry/trueforge-assistant-ui-runtime
 
+## 0.182.0-rc.1
+
+### Patch Changes
+
+- 48efe38: Show context compaction in chat agent steps as Summarizing/Summarized context with expandable event JSON, and mark Summary on the session event timeline.
+- cc28923: Stamp `tfg.source: ui` metadata on UI-created sessions and filter Chat History on it so scheduled sessions are hidden by default.
+- 834d1f6: Show the model catalog warning in the composer and agent-config model pickers when reasoning effort or context length is not configured.
+- ee31bcd: Fix older chat history not rendering when a session event page ends mid-turn: the split turn is now held and joined with the next older page instead of being dropped.
+- ac5c91f: Render in-progress tip turns in session detail from already-loaded events and show that the turn may still be incomplete.
+
 ## 0.181.0
 
 ### Patch Changes

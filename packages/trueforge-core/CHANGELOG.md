@@ -1,5 +1,14 @@
 # @truefoundry/trueforge-core
 
+## 0.182.0-rc.1
+
+### Patch Changes
+
+- 7a7a0b6: Trim context compaction prompt: drop analysis scratchpad; list at most 15 relevant files with short reasons instead of full code dumps.
+- 7b325d9: Drop the redundant `last_turn_id` column from sessions; the session tip is now read from `last_turn_details.id`.
+- e6a2e9e: Large tool response guidance now includes content size in the blocked preamble for MCP and sandbox dumps, shares the same "Content too big (size; reason)" framing, uses RFC 2119 wording (MUST/MAY/SHOULD), and states the per-response character limit for dumped-file reads and oversized sandbox stdout. Elevated tools (deferred-tools `get_tool_info` only) skip offload up to min(50000 characters, 80% of remaining context). Individual offload uses a strict `>` threshold so the stated character cap is usable. Size figures are plain digits without thousands separators.
+- 6722969: Add session grants API (share, list, revoke) and user listing.
+
 ## 0.181.0
 
 ### Patch Changes

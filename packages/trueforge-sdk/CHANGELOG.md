@@ -1,3 +1,5 @@
+## [0.182.0-rc.1] - 2026-10-29
+
 ## [0.181.0] - 2026-10-28
 
 ## [0.181.0-rc.1] - 2026-10-26
@@ -25,6 +27,12 @@
 ## [0.2.1] - 2026-09-29
 
 ## [0.2.1-rc.0] - 2026-09-22
+
+## 0.182.0-rc.1
+
+### Patch Changes
+
+- cf786ee: Enable Fern `outputEsm` so the SDK package is `"type": "module"` and `trueforge-dev` star re-exports resolve for workspace ESM importers.
 
 ## 0.181.0
 
