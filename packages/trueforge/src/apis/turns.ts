@@ -70,12 +70,7 @@ import {
 import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
 import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
 import { assertGatewayMetadataRequestHeaders } from '../truefoundry/gatewayMetadata';
-import {
-  assertTfgToolsHeaderAllowed,
-  parseTfgTools,
-  X_TFG_TOOLS,
-  type TfgToolDefinition,
-} from '../truefoundry/inlineTools';
+import { assertTfgToolsHeaderAllowed, parseTfgTools, X_TFG_TOOLS, type InlineTool } from '../truefoundry/inlineTools';
 import { TrueFoundryTurnResourceResolver } from '../truefoundry/TrueFoundryTurnResourceResolver';
 import { newId } from '../utils/id';
 import { resolveWebSearchProvider } from '../websearch/providers';
@@ -166,7 +161,7 @@ interface BeginTurnExecutionParams {
   /** Raw inbound request headers. Absent for a schedule run. */
   requestHeaders?: Record<string, string>;
   /** Tool definitions from `x-tfg-tools`. Absent on schedule runs, which have no request headers. */
-  tfgTools?: readonly TfgToolDefinition[];
+  tfgTools?: readonly InlineTool[];
   deps: BeginTurnExecutionDeps;
 }
 
@@ -187,7 +182,7 @@ function createTurnResolver(deps: {
   userRef: string;
   session: SessionHandle;
   turnMetadata: TurnMetadata;
-  tfgTools: readonly TfgToolDefinition[];
+  tfgTools: readonly InlineTool[];
 }): TurnResourceResolver {
   const {
     mcpServerStore,

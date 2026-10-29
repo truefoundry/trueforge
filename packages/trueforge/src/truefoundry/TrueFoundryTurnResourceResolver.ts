@@ -1,13 +1,13 @@
 import { TurnResourceResolver } from '@truefoundry/trueforge-core/agent-session';
-import { tfgToolsCapability, type TfgToolDefinition } from './inlineTools';
+import { tfgToolsCapability, type InlineTool } from './inlineTools';
 
 type TurnResolverDeps = ConstructorParameters<typeof TurnResourceResolver>[0];
 
 /** Root-only mount for `x-tfg-tools`. A child thread passes `agent_info` and does not get the tools. */
 export class TrueFoundryTurnResourceResolver extends TurnResourceResolver {
-  readonly #tools: readonly TfgToolDefinition[];
+  readonly #tools: readonly InlineTool[];
 
-  constructor(input: { deps: TurnResolverDeps; tools: readonly TfgToolDefinition[] }) {
+  constructor(input: { deps: TurnResolverDeps; tools: readonly InlineTool[] }) {
     super(input.deps);
     this.#tools = input.tools;
   }

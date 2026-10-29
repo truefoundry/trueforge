@@ -1,4 +1,5 @@
 import { HTTPException } from 'hono/http-exception';
+import { ZodError } from 'zod';
 import {
   assertTfgToolsHeaderAllowed,
   parseTfgTools,
@@ -9,7 +10,7 @@ import {
 const askUserSecret = {
   name: 'ask_user_secret',
   description: 'Collect a secret and return a tfy-ephemeral-secret:// placeholder for apply_manifest.',
-  parameters: {
+  inputSchema: {
     type: 'object',
     properties: {
       question: { type: 'string' },
@@ -17,6 +18,12 @@ const askUserSecret = {
     },
     required: ['question', 'fields'],
     additionalProperties: false,
+  },
+  outputSchema: {
+    type: 'object',
+    properties: {
+      secret: { type: 'string' },
+    },
   },
 };
 
@@ -33,8 +40,13 @@ describe('assertTfgToolsHeaderAllowed', () => {
 });
 
 describe('parseTfgTools', () => {
-  it('parses a tool definition and keeps extra parameter keys', () => {
+  it('parses a tool definition and keeps outputSchema and extra inputSchema keys', () => {
     expect(parseTfgTools(JSON.stringify([askUserSecret]))).toEqual([askUserSecret]);
+  });
+
+  it('accepts a tool with only a name and inputSchema', () => {
+    const tool = { name: 'ask_user_secret', inputSchema: { type: 'object' } };
+    expect(parseTfgTools(JSON.stringify([tool]))).toEqual([tool]);
   });
 
   it('accepts a name that matches a harness tool', () => {
@@ -49,21 +61,11 @@ describe('parseTfgTools', () => {
   it.each([
     ['not json', 'not-json', `${X_TFG_TOOLS} must be a JSON array`],
     ['an object', '{}', `${X_TFG_TOOLS} must be a JSON array of tool definitions`],
-    ['a string entry', '["ask_user_secret"]', `${X_TFG_TOOLS}[0] must be an object`],
+    ['a string entry', '["ask_user_secret"]', `${X_TFG_TOOLS}[0]`],
     [
-      'a bad name',
-      JSON.stringify([{ ...askUserSecret, name: 'has space' }]),
-      `${X_TFG_TOOLS}[0] name must be 1-64 characters of letters, numbers, "_" or "-"`,
-    ],
-    [
-      'an empty description',
-      JSON.stringify([{ ...askUserSecret, description: '  ' }]),
-      `${X_TFG_TOOLS}[0] description must be a non-empty string`,
-    ],
-    [
-      'parameters that are not an object schema',
-      JSON.stringify([{ ...askUserSecret, parameters: { type: 'string' } }]),
-      `${X_TFG_TOOLS}[0] parameters must be a JSON object schema`,
+      'parameters instead of inputSchema',
+      JSON.stringify([{ name: 'ask_user_secret', description: 'Collect a secret.', parameters: { type: 'object' } }]),
+      `${X_TFG_TOOLS}[0].inputSchema`,
     ],
     [
       'a duplicate name',
@@ -76,7 +78,7 @@ describe('parseTfgTools', () => {
       `${X_TFG_TOOLS} lists more than 16 tools`,
     ],
   ])('rejects %s', (_case, raw, message) => {
-    expect(() => parseTfgTools(raw)).toThrow(expect.objectContaining({ message }));
+    expect(() => parseTfgTools(raw)).toThrow(expect.objectContaining({ message: expect.stringContaining(message) }));
   });
 
   it('rejects a header that is too large', () => {
@@ -87,6 +89,12 @@ describe('parseTfgTools', () => {
 
   it('keeps a bad JSON parse as the cause', () => {
     expect(() => parseTfgTools('not-json')).toThrow(expect.objectContaining({ cause: expect.any(SyntaxError) }));
+  });
+
+  it('keeps a schema failure as the cause', () => {
+    expect(() => parseTfgTools('["ask_user_secret"]')).toThrow(
+      expect.objectContaining({ cause: expect.any(ZodError) }),
+    );
   });
 
   it('rejects with HTTPException', () => {
