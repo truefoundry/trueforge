@@ -49,6 +49,29 @@ export function getDaytonaAuthorizationErrorMessage(error: unknown): string | un
   return undefined;
 }
 
+/**
+ * Daytona failures that should fail a pending env-version build (no retry).
+ * Authz, other 4xx client rejects (e.g. per-sandbox disk/cpu caps), excluding 409 conflict
+ * (handled as concurrent create) and 429 rate limit (retryable).
+ */
+export function getDaytonaBuildFailureMessage(error: unknown): string | undefined {
+  const authorizationMessage = getDaytonaAuthorizationErrorMessage(error);
+  if (authorizationMessage !== undefined) {
+    return authorizationMessage;
+  }
+  if (!(error instanceof DaytonaError) || error.statusCode === undefined) {
+    return undefined;
+  }
+  const { statusCode } = error;
+  if (statusCode === 409 || statusCode === 429) {
+    return undefined;
+  }
+  if (statusCode >= 400 && statusCode < 500) {
+    return error.message;
+  }
+  return undefined;
+}
+
 /** Configured tenant sandbox backends (not local fallback). */
 export type ResolvedSandboxProvider = DaytonaSandboxProvider | TFYSandboxProvider;
 

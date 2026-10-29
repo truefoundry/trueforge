@@ -1,6 +1,6 @@
 /**
  * Process logger: human-readable lines in standalone mode, JSON otherwise.
- * JSON output carries `component` ('server' | 'controller') in defaultMeta
+ * JSON output carries `component` ('server' | 'trueforge-controller') in defaultMeta
  * so hosted aggregators can tell the two processes apart; it is omitted from the
  * human-readable standalone format to keep local logs terse.
  * In-flight work stamps `tenant_id`, `request_id`, `session_id`, and `turn_id` when known.
@@ -146,7 +146,11 @@ function serverLogFormat(options: { standalone: boolean }): winston.Logform.Form
   );
 }
 
-function createLogger(options: { level: string; standalone: boolean; component: 'server' | 'controller' }): Logger {
+function createLogger(options: {
+  level: string;
+  standalone: boolean;
+  component: 'server' | 'trueforge-controller';
+}): Logger {
   return winston.createLogger({
     level: options.level,
     defaultMeta: { component: options.component },
@@ -160,5 +164,5 @@ export function createServerLogger(options: { level: string; standalone: boolean
 }
 
 export function createControllerLogger(options: { level: string; standalone: boolean }): Logger {
-  return createLogger({ ...options, component: 'controller' });
+  return createLogger({ ...options, component: 'trueforge-controller' });
 }
