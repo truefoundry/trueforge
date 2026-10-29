@@ -1,7 +1,12 @@
 import { HTTPException } from 'hono/http-exception';
 import { ZodError } from 'zod';
-import { assertTfgToolsHeaderAllowed, parseTfgTools } from '../../../src/apis/turns';
-import { tfgToolsCapability, X_TFG_TOOLS } from '../../../src/truefoundry/inlineTools';
+import {
+  assertTfgToolsHeaderAllowed,
+  capabilitiesStoreFromHeader,
+  parseTfgTools,
+  tfgToolsCapability,
+  X_TFG_TOOLS,
+} from '../../../src/truefoundry/inlineTools';
 
 const askUserSecret = {
   name: 'ask_user_secret',
@@ -130,5 +135,35 @@ describe('tfgToolsCapability', () => {
       mcp_server_name: 'x-tfg-tools',
       is_client_side: true,
     });
+  });
+});
+
+describe('capabilitiesStoreFromHeader', () => {
+  it('mounts nothing when the header is absent', () => {
+    const store = capabilitiesStoreFromHeader({ header: undefined, isTrueFoundryMode: false });
+    expect(store.resolveCapabilities()).toEqual([]);
+  });
+
+  it('mounts nothing for an empty list', () => {
+    const store = capabilitiesStoreFromHeader({ header: '[]', isTrueFoundryMode: true });
+    expect(store.resolveCapabilities()).toEqual([]);
+  });
+
+  it('rejects the header outside TrueFoundry mode before parsing', () => {
+    expect(() => capabilitiesStoreFromHeader({ header: 'not-json', isTrueFoundryMode: false })).toThrow(
+      expect.objectContaining({ message: `${X_TFG_TOOLS} requires TrueFoundry mode` }),
+    );
+  });
+
+  it('returns a fresh tool set on every resolve', () => {
+    const store = capabilitiesStoreFromHeader({
+      header: JSON.stringify([askUserSecret]),
+      isTrueFoundryMode: true,
+    });
+    const first = store.resolveCapabilities();
+    const second = store.resolveCapabilities();
+    expect(first[0]?.systemToolSets?.[0]?.name).toBe(X_TFG_TOOLS);
+    expect(second[0]?.systemToolSets?.[0]?.name).toBe(X_TFG_TOOLS);
+    expect(first[0]?.systemToolSets?.[0]).not.toBe(second[0]?.systemToolSets?.[0]);
   });
 });

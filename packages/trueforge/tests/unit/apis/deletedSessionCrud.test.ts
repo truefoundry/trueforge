@@ -79,6 +79,7 @@ describe('public CRUD after session deletion', () => {
         resolveModelProviderStore: () => modelProviderStore,
         resolveMcpServerStore: () => mcpServerStore,
         resolveTurnSkillsStore: () => skillStore,
+        resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
         resolveAgentStore: () => agentStore,
         eventSubscriptions: new EventSubscriptionRegistry(undefined),
         resolveSandboxProviderStore: () => sandboxProviderStore,
