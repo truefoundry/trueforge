@@ -1,8 +1,9 @@
 import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 import type { AgentInfo, ILLM } from '@truefoundry/trueforge-core/core';
 import { createLogger } from 'winston';
+import { parseTfgTools } from '../../../src/apis/turns';
+import type { InlineTool } from '../../../src/truefoundry/inlineTools';
 import { TrueFoundryTurnResourceResolver } from '../../../src/truefoundry/TrueFoundryTurnResourceResolver';
-import { parseTfgTools, type InlineTool } from '../../../src/truefoundry/inlineTools';
 
 const unusedLlm: ILLM = {
   create: () => {

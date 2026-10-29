@@ -2,6 +2,7 @@
  * DB-backed turns API (mounted at /api/v1/sessions).
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
+import { ToolSchema as McpToolSchema } from '@modelcontextprotocol/sdk/types.js';
 import type { ISessionStore, Sessions, Turn, TurnStreamingEvent } from '@truefoundry/trueforge-core/agent-session';
 import {
   CancellationReason,
@@ -35,6 +36,7 @@ import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { streamSSE } from 'hono/streaming';
 import type { Logger } from 'winston';
+import { z } from 'zod';
 import type { ResolveMcpServerStoreInput, ResolveModelProviderStoreInput, ResolveTurnSkillsStoreInput } from '../app';
 import type { Authorizer } from '../auth/authorizer';
 import type { ResolveRequestContext } from '../auth/identity';
@@ -71,7 +73,7 @@ import {
 import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
 import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
 import { assertGatewayMetadataRequestHeaders } from '../truefoundry/gatewayMetadata';
-import { assertTfgToolsHeaderAllowed, parseTfgTools, X_TFG_TOOLS, type InlineTool } from '../truefoundry/inlineTools';
+import { X_TFG_TOOLS, type InlineTool } from '../truefoundry/inlineTools';
 import { TrueFoundryTurnResourceResolver } from '../truefoundry/TrueFoundryTurnResourceResolver';
 import { newId } from '../utils/id';
 import { resolveWebSearchProvider } from '../websearch/providers';
@@ -636,6 +638,78 @@ function isSessionOwner({
 
 const FORBIDDEN_SESSION_ACCESS = 'Only the session creator can access this session';
 const FORBIDDEN_CREATE_TURN = 'Only the session creator can create turns';
+
+const MAX_TFG_TOOLS = 16;
+const MAX_TFG_TOOLS_HEADER_LENGTH = 16_000;
+const InlineToolsHeaderSchema = z.array(McpToolSchema);
+
+/** Reject the header outside TrueFoundry mode before parsing, so a bad payload does not hide the mode error. */
+export function assertTfgToolsHeaderAllowed(input: { isTrueFoundryMode: boolean }): void {
+  if (!input.isTrueFoundryMode) {
+    throw new HTTPException(400, { message: `${X_TFG_TOOLS} requires TrueFoundry mode` });
+  }
+}
+
+/**
+ * Tool definitions from `x-tfg-tools` for this turn. Not stored, so a resume must send the header again.
+ * Rejects a bad value rather than mounting a partial list.
+ */
+export function parseTfgTools(raw: string): readonly InlineTool[] {
+  if (raw.length > MAX_TFG_TOOLS_HEADER_LENGTH) {
+    throw new HTTPException(400, { message: `${X_TFG_TOOLS} is too large` });
+  }
+  let decoded: unknown;
+  try {
+    decoded = JSON.parse(raw);
+  } catch (error) {
+    throw new HTTPException(400, { message: `${X_TFG_TOOLS} must be a JSON array`, cause: error });
+  }
+  if (!Array.isArray(decoded)) {
+    throw new HTTPException(400, { message: `${X_TFG_TOOLS} must be a JSON array of tool definitions` });
+  }
+  if (decoded.length > MAX_TFG_TOOLS) {
+    throw new HTTPException(400, { message: `${X_TFG_TOOLS} lists more than ${String(MAX_TFG_TOOLS)} tools` });
+  }
+
+  const parsed = InlineToolsHeaderSchema.safeParse(decoded);
+  if (!parsed.success) {
+    throw new HTTPException(400, {
+      message: tfgToolsSchemaErrorMessage(parsed.error),
+      cause: parsed.error,
+    });
+  }
+
+  const seen = new Set<string>();
+  for (const [index, tool] of parsed.data.entries()) {
+    if (seen.has(tool.name)) {
+      throw new HTTPException(400, {
+        message: `${X_TFG_TOOLS}[${String(index)}] name "${tool.name}" is listed more than once`,
+      });
+    }
+    seen.add(tool.name);
+  }
+  return parsed.data;
+}
+
+function tfgToolsSchemaErrorMessage(error: z.ZodError): string {
+  const issue = error.issues[0];
+  if (issue === undefined) {
+    return `${X_TFG_TOOLS} must be an array of MCP tool definitions`;
+  }
+  return `${X_TFG_TOOLS}${tfgToolsIssuePath(issue.path)} ${issue.message}`;
+}
+
+function tfgToolsIssuePath(path: readonly PropertyKey[]): string {
+  let rendered = '';
+  for (const part of path) {
+    if (typeof part === 'number') {
+      rendered += `[${String(part)}]`;
+    } else {
+      rendered += `.${String(part)}`;
+    }
+  }
+  return rendered;
+}
 
 /** DB-backed turns (mounted at /api/v1/sessions). */
 export function createTurnsRouter(deps: TurnsRouterDeps) {

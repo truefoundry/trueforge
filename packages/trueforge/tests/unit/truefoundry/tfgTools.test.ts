@@ -1,11 +1,7 @@
 import { HTTPException } from 'hono/http-exception';
 import { ZodError } from 'zod';
-import {
-  assertTfgToolsHeaderAllowed,
-  parseTfgTools,
-  tfgToolsCapability,
-  X_TFG_TOOLS,
-} from '../../../src/truefoundry/inlineTools';
+import { assertTfgToolsHeaderAllowed, parseTfgTools } from '../../../src/apis/turns';
+import { tfgToolsCapability, X_TFG_TOOLS } from '../../../src/truefoundry/inlineTools';
 
 const askUserSecret = {
   name: 'ask_user_secret',
@@ -25,6 +21,7 @@ const askUserSecret = {
       secret: { type: 'string' },
     },
   },
+  annotations: { readOnlyHint: true },
 };
 
 describe('assertTfgToolsHeaderAllowed', () => {
@@ -119,6 +116,8 @@ describe('tfgToolsCapability', () => {
       required: ['question', 'fields'],
       additionalProperties: false,
     });
+    expect(listed.result.tools[0]?.outputSchema).toEqual(askUserSecret.outputSchema);
+    expect(listed.result.tools[0]?.annotations).toEqual({ readOnlyHint: true });
 
     const response = await toolSet.callTool({ name: 'ask_user_secret', arguments: {} });
     if (!('clientSideToolRequired' in response)) {
