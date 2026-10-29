@@ -3,14 +3,18 @@
 import { useTrueForgeAgentSpec, useTrueForgeUpdateAgentSpec } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useEffect, useId, useRef, useState } from 'react';
 
+import { useTrackAnalytics } from '../../analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '../../analytics/events.js';
 import { Icon } from '../../icons/Icon.js';
-import { useOptionalCatalogServer } from '../../server/ServerContext.js';
+import { isSettingsChromeEnabled } from '../../server/serverChrome.js';
+import { useOptionalCatalogServer, useServerCapabilities } from '../../server/ServerContext.js';
 import { useOptionalShellMode } from '../../server/ShellModeContext.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { useCompactLayout } from '../lib/CompactLayoutContext.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
 import { BottomSheet } from '../primitives/BottomSheet.js';
+import { Button } from '../primitives/Button.js';
 import { Tooltip } from '../primitives/Tooltip.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
 import { displayModelLabel, DraftModelCatalogPanel, ModelWarningMark, ProviderMark } from './DraftModelCatalogPanel.js';
@@ -22,18 +26,21 @@ export type DraftModelSelectorProps = {
 };
 
 export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorProps) {
-  const { models, loading, ensureLoaded } = useDraftCatalog();
+  const { models, loading, loaded, ensureLoaded } = useDraftCatalog();
   const { agentSpec } = useTrueForgeAgentSpec();
   const updateAgentSpec = useTrueForgeUpdateAgentSpec();
   const catalog = useOptionalCatalogServer();
+  const capabilities = useServerCapabilities();
   const shell = useOptionalShellMode();
+  const track = useTrackAnalytics();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
   const isMobile = useIsMobile();
   const compactLayout = useCompactLayout();
-  const showConfigureSettingsCta = !loading && models.length === 0 && catalog != null;
+  const settingsChromeEnabled = isSettingsChromeEnabled({ catalog, capabilities });
+  const showConfigureSettingsCta = loaded && models.length === 0 && settingsChromeEnabled && shell != null;
   const seededDefaultModelRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -84,6 +91,24 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
+  if (showConfigureSettingsCta) {
+    return (
+      <Button.Ghost
+        type="button"
+        size="small"
+        disabled={disabled || isRunning}
+        aria-label="Configure model"
+        className="h-8 max-w-48 rounded-full px-2 text-xs font-medium"
+        onClick={() => {
+          if (!shell?.settingsOpen) track(AnalyticsEvents.Settings.OPENED);
+          shell?.setSettingsOpen(true, 'models');
+        }}
+      >
+        Configure model
+      </Button.Ghost>
+    );
+  }
+
   const account = selected?.provider.name ?? selectedName;
 
   const content = (
@@ -94,15 +119,6 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
       query={query}
       onQueryChange={setQuery}
       listboxId={menuId}
-      onOpenSettings={
-        showConfigureSettingsCta
-          ? () => {
-              setOpen(false);
-              setQuery('');
-              shell?.setSettingsOpen(true, 'models');
-            }
-          : undefined
-      }
       onSelect={model => {
         updateAgentSpec?.({
           model: modelPatchWithReasoningEffort(model.name, agentSpec?.model?.params, model.properties.reasoningEfforts),
