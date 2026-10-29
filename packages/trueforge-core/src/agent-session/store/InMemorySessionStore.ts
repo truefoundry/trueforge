@@ -213,7 +213,6 @@ export class InMemorySessionStore<
       created_by_subject: input.created_by_subject,
       agent: deepCopy(input.agent),
       title: null,
-      shared: false,
       last_turn_details: null,
       external_id: externalId,
       source: input.source !== null ? deepCopy(input.source) : null,
@@ -295,9 +294,6 @@ export class InMemorySessionStore<
     }
     if (input.metadata !== undefined) {
       stored.record.metadata = deepCopy(input.metadata);
-    }
-    if (input.shared !== undefined) {
-      stored.record.shared = input.shared;
     }
     const now = Date.now();
     stored.record.updated_at = new Date(now);

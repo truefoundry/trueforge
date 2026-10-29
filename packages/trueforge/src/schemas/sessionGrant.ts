@@ -5,8 +5,8 @@ import { CreatedBySubjectSchema } from '@truefoundry/trueforge-core/agent-sessio
 const SESSION_GRANT_MAX_SUBJECTS_PER_LIST = 50;
 
 export const SessionGrantSubjectTypeSchema = z
-  .enum(['user'])
-  .describe('Kind of subject.')
+  .enum(['user', 'tenant'])
+  .describe('Kind of subject. A `tenant` subject shares the session with everyone in the tenant.')
   .openapi('SessionGrantSubjectType');
 
 export const SessionGrantSubjectSchema = z
