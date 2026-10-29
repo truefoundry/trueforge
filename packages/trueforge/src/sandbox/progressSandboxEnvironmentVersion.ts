@@ -6,7 +6,7 @@ import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import {
   DAYTONA_RPC_TIMEOUT_MS,
-  getDaytonaAuthorizationErrorMessage,
+  getDaytonaBuildFailureMessage,
   toDaytonaSandboxProvider,
   toSandboxEnvironment,
   toSandboxStatus,
@@ -68,10 +68,10 @@ export async function progressSandboxEnvironmentVersion({
     }
     // pending / building — leave as pending for the next tick.
   } catch (error) {
-    const status_reason = getDaytonaAuthorizationErrorMessage(error);
+    const status_reason = getDaytonaBuildFailureMessage(error);
     if (status_reason !== undefined) {
       await sandboxEnvironmentStore.markVersionFailed({ environment_version_id, status_reason });
-      logger.warn('Sandbox environment build failed authz', {
+      logger.warn('Sandbox environment build failed', {
         environment_version_id,
         status_reason,
       });
