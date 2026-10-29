@@ -1,5 +1,11 @@
 # @truefoundry/trueforge-assistant-ui-runtime
 
+## 0.182.0-rc.2
+
+### Patch Changes
+
+- ae7c705: Share sessions with specific users when capabilities report `session_sharing.users`: Harness implements the session access port (invite search, grants, revoke); tenant-wide access still uses the session `shared` flag.
+
 ## 0.182.0-rc.1
 
 ### Patch Changes

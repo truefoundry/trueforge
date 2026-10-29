@@ -1,5 +1,13 @@
 # @truefoundry/trueforge
 
+## 0.182.0-rc.2
+
+### Patch Changes
+
+- ae7c705: Session grants now give read access, and sharing with everyone in the tenant is a `tenant` grant. `Session.shared` reflects the tenant grant, and the deprecated `PATCH /sessions/{id} { shared }` now grants or revokes it. Adds the `session_sharing.enabled` capability.
+- Updated dependencies [ae7c705]
+  - @truefoundry/trueforge-core@0.182.0-rc.2
+
 ## 0.182.0-rc.1
 
 ### Patch Changes
