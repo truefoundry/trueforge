@@ -170,6 +170,7 @@ describe('sessions HTTP agent binding', () => {
         sandboxProviderStore,
         sessions,
         sessionStore,
+        accessControlStore: new SqliteAccessControlStore(db),
       }),
     );
     app.route('/api/internal/sessions', createInternalSessionsRouter(deps));

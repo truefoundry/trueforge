@@ -92,6 +92,7 @@ describe('public CRUD after session deletion', () => {
         sandboxProviderStore,
         sessions,
         sessionStore,
+        accessControlStore: new SqliteAccessControlStore(db),
       }),
     );
 

@@ -9,6 +9,7 @@ import { TrueForgeAuthorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
+import { SqliteAccessControlStore } from '../../../src/db/sqlite/access-control-store/SqliteAccessControlStore';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
@@ -93,6 +94,7 @@ async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
       sessions,
       sessionStore: new SqliteSessionStore(db),
+      accessControlStore: new SqliteAccessControlStore(db),
     }),
   );
 

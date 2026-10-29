@@ -376,6 +376,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       createCapabilitiesRouter({
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         webSearchProviderStore: deps.webSearchProviderStore,
+        userStore: deps.userStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
         resolveRequestContext,
@@ -539,6 +540,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     '/api/internal/sessions',
     withAuth(
       createInternalSessionsRouter({
+        accessControlStore: deps.accessControlStore,
         authorizer: deps.authorizer,
         resolveAgentStore: resolveHttpAgentStore,
         resolveMcpServerStore: deps.resolveMcpServerStore,
@@ -609,6 +611,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     '/api/v1/sessions',
     withAuth(
       createTurnsRouter({
+        accessControlStore: deps.accessControlStore,
         activeTurns: deps.activeTurns,
         authorizer: deps.authorizer,
         eventSubscriptions: deps.eventSubscriptions,

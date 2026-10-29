@@ -212,6 +212,7 @@ export * from "./SessionMetricsMeter.js";
 export * from "./SessionMetricsMeterName.js";
 export * from "./SessionMetricsMeterResponse.js";
 export * from "./SessionMetricsPoint.js";
+export * from "./SessionSharingCapability.js";
 export * from "./SessionSource.js";
 export * from "./SessionSourceSchedule.js";
 export * from "./SessionSourceType.js";

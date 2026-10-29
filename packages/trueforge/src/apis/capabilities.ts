@@ -3,6 +3,7 @@ import type { Logger } from 'winston';
 import { canAccessSettings, type ResolveRequestContext } from '../auth/identity';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { WithTransaction } from '../db/transaction';
+import type { IUserStore } from '../db/userStore';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { getCapabilitiesRoute } from '../routes/capabilityRoutes';
 import { isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
@@ -24,6 +25,7 @@ function skillDisabledReason(status: SandboxEnvironmentVersionStatus | undefined
 export function createCapabilitiesRouter<TTransaction>(deps: {
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
   webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
+  userStore: IUserStore;
   withTransaction: WithTransaction<TTransaction>;
   logger: Logger;
   resolveRequestContext: ResolveRequestContext;
@@ -54,6 +56,7 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
           skill: sandboxEnabled ? { enabled: true } : { enabled: false, reason: skillDisabledReason(status) },
           settings: { enabled: settingsEnabled },
           web_search: { enabled: webSearchEnabled },
+          session_sharing: { enabled: deps.userStore.supportsUserLookup },
         },
       },
       200,

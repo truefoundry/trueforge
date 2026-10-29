@@ -2436,7 +2436,7 @@ client.sessions.update(
 <dl>
 <dd>
 
-**shared:** `typing.Optional[bool]` — When true, any subject in the tenant may read this session and its turns/events by id.
+**shared:** `typing.Optional[bool]` — Deprecated; use `POST /sessions/{session_id}/grants` with a `tenant` subject.
     
 </dd>
 </dl>
@@ -2716,7 +2716,7 @@ client.sessions.list_grants(
 <dl>
 <dd>
 
-Share this session with subjects and remove access for others in one atomic request. Granting an existing subject or revoking one without access is a no-op. Returns every subject the session is shared with.
+Share this session with subjects and remove access for others in one atomic request. Subjects get read access to the session, its turns and its events. A `tenant` subject, whose `subject_id` must be your tenant ID, shares with everyone in the tenant. Granting an existing subject or revoking one without access is a no-op. Returns every subject the session is shared with.
 </dd>
 </dl>
 </dd>

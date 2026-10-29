@@ -412,7 +412,7 @@ class RawSessionsClient:
         metadata : typing.Optional[SessionMetadata]
 
         shared : typing.Optional[bool]
-            When true, any subject in the tenant may read this session and its turns/events by id.
+            Deprecated; use `POST /sessions/{session_id}/grants` with a `tenant` subject.
 
         title : typing.Optional[str]
             Human-readable session title.
@@ -769,7 +769,7 @@ class RawSessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ListSessionGrantsResponse]:
         """
-        Share this session with subjects and remove access for others in one atomic request. Granting an existing subject or revoking one without access is a no-op. Returns every subject the session is shared with.
+        Share this session with subjects and remove access for others in one atomic request. Subjects get read access to the session, its turns and its events. A `tenant` subject, whose `subject_id` must be your tenant ID, shares with everyone in the tenant. Granting an existing subject or revoking one without access is a no-op. Returns every subject the session is shared with.
 
         Parameters
         ----------
@@ -2235,7 +2235,7 @@ class AsyncRawSessionsClient:
         metadata : typing.Optional[SessionMetadata]
 
         shared : typing.Optional[bool]
-            When true, any subject in the tenant may read this session and its turns/events by id.
+            Deprecated; use `POST /sessions/{session_id}/grants` with a `tenant` subject.
 
         title : typing.Optional[str]
             Human-readable session title.
@@ -2595,7 +2595,7 @@ class AsyncRawSessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ListSessionGrantsResponse]:
         """
-        Share this session with subjects and remove access for others in one atomic request. Granting an existing subject or revoking one without access is a no-op. Returns every subject the session is shared with.
+        Share this session with subjects and remove access for others in one atomic request. Subjects get read access to the session, its turns and its events. A `tenant` subject, whose `subject_id` must be your tenant ID, shares with everyone in the tenant. Granting an existing subject or revoking one without access is a no-op. Returns every subject the session is shared with.
 
         Parameters
         ----------
