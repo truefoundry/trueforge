@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/react';
 import {
   getErrorMessage,
   resolveReasoningEffort,
@@ -29,6 +30,16 @@ import { RegisterSkillsLink } from './RegisterSkillsLink';
 
 const POSTHOG_API_KEY = import.meta.env.VITE_POSTHOG_API_KEY;
 const POSTHOG_HOST = import.meta.env.VITE_POSTHOG_HOST ?? 'https://us.i.posthog.com';
+const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN;
+
+if (SENTRY_DSN) {
+  Sentry.init({
+    dsn: SENTRY_DSN,
+    integrations: [Sentry.browserTracingIntegration()],
+    tracesSampleRate: 1.0,
+    tracePropagationTargets: [window.location.origin],
+  });
+}
 
 function initAnalytics(): void {
   if (!POSTHOG_API_KEY) {
