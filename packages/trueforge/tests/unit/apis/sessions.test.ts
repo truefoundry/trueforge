@@ -9,6 +9,7 @@ import { CancellationReason, TurnNotFoundError } from '@truefoundry/trueforge-co
 import { NoResponderError, redisRequest, RequestTimeoutError } from '@truefoundry/trueforge-core/request-reply';
 import type { RedisClientType } from 'redis';
 import { createLogger } from 'winston';
+import { createInitialTurnMetricsCheckpoint } from '../../../../trueforge-core/src/agent-session/turnMetrics';
 import { cancelSessionTurn } from '../../../src/apis/sessions';
 import configuration from '../../../src/config';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
@@ -36,6 +37,7 @@ function silentLogger(): { warn: jest.Mock } {
 }
 
 function turnRecord(input: { turnId: string; state: TurnState; activeExecutorId?: string }): TurnRecord {
+  const createdAt = new Date('2026-07-31T00:00:00.000Z');
   return {
     turn_id: input.turnId,
     session_id: SESSION_ID,
@@ -45,9 +47,14 @@ function turnRecord(input: { turnId: string; state: TurnState; activeExecutorId?
     active_executor_id: input.activeExecutorId ?? configuration.EXECUTOR_ID,
     state: input.state,
     input: [],
-    snapshot: { threads: {}, mcp_servers: null, sandbox_info: null },
-    created_at: new Date('2026-07-31T00:00:00.000Z'),
-    updated_at: new Date('2026-07-31T00:00:00.000Z'),
+    snapshot: {
+      threads: {},
+      mcp_servers: null,
+      sandbox_info: null,
+      ...createInitialTurnMetricsCheckpoint(createdAt.toISOString()),
+    },
+    created_at: createdAt,
+    updated_at: createdAt,
     custom: null,
   };
 }

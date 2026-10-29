@@ -17,6 +17,7 @@ import type {
   TurnState,
   TurnUserEventMessage,
 } from '@truefoundry/trueforge-core/agent-session';
+import type { TurnMetricsCheckpoint } from '@truefoundry/trueforge-core/agent-session/schemas/turn';
 import type {
   AgentInfo,
   AgentParent,
@@ -38,6 +39,7 @@ import type {
 } from '../../schemas/sandboxEnvironment';
 import type { StoredSandboxProviderManifest } from '../../schemas/sandboxProvider';
 import type { ScheduleManifest, ScheduleRunStatus, ScheduleStatus } from '../../schemas/schedule';
+import type { SessionGrantSubjectType } from '../../schemas/sessionGrant';
 import type { SkillManifest } from '../../schemas/skill';
 import type { WebSearchProviderManifest } from '../../schemas/webSearchProvider';
 import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpServerStore';
@@ -53,7 +55,7 @@ export interface TurnThreadCheckpoint {
 }
 
 /** Turn-level checkpoint — threads live in `turn_thread`; only owned top-level keys remain. */
-export interface TurnCheckpoint {
+export interface TurnCheckpoint extends TurnMetricsCheckpoint {
   mcp_servers: Record<string, MCPServerInitInfo> | null;
   sandbox_info: SandboxInfo | null;
 }
@@ -82,8 +84,6 @@ export interface SessionTable {
   /** Inline spec binding; XOR with `agent_id`. */
   agent_spec: JsonbColumn<AgentSpec> | null;
   title: string | null;
-  /** 0/1. When 1, any subject in the tenant may GET this session. */
-  shared: number;
   /** Null until the first turn; always replaced as a whole document. */
   last_turn_details: JsonbColumn<SessionLastTurnDetails> | null;
   /** Optional unique key within `tenant_id` when set. */
@@ -94,6 +94,20 @@ export interface SessionTable {
   created_at: string;
   updated_at: string;
   last_activity_timestamp_ms: number;
+}
+
+/**
+ * Explicit read grants on a session — mirrors the Postgres `access_control`.
+ * PRIMARY KEY (tenant_id, session_id, subject_type, subject_id)
+ * FK (session_id) → session(session_id) ON DELETE CASCADE
+ */
+export interface AccessControlTable {
+  tenant_id: string;
+  session_id: string;
+  subject_type: SessionGrantSubjectType;
+  subject_id: string;
+  granted_by_subject: JsonbColumn<CreatedBySubject>;
+  created_at: string;
 }
 
 /**
@@ -420,6 +434,7 @@ export interface OAuthPendingAuthorizationTable {
 
 export interface Database {
   session: SessionTable;
+  access_control: AccessControlTable;
   turn: TurnTable;
   turn_thread: TurnThreadTable;
   turn_thread_context: TurnThreadContextTable;

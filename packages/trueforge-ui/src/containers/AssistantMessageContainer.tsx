@@ -85,7 +85,10 @@ export function AssistantMessageContainer() {
   const { cutIndex, hasFinal, toolCount, thinkingCount } = computeAgentStepsSplit(parts, isMessageRunning);
 
   // Built-in indicator modes hide the loader while reasoning streams; we want it there too.
-  const showIndicator = isMessageRunning && !resumeUnavailable && parts[parts.length - 1]?.type !== 'text';
+  // Hide when resume is unavailable (message stays "running" but no events arrive) or the
+  // thread is idle — a stale running status after cancel must not revive the spinner.
+  const showIndicator =
+    isMessageRunning && isThreadRunning && !resumeUnavailable && parts[parts.length - 1]?.type !== 'text';
   const loaderLabel = useSlowActivityLabel({
     label: resolveLoaderLabel(parts),
     activityKey: showIndicator ? loaderActivityKey(parts) : null,

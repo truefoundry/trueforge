@@ -45,6 +45,7 @@ function makeWriteNoteSource(callTool: ToolSource['callTool']): ToolSource {
   return {
     name: 'notes',
     id: 'notes',
+    serverClass: 'local',
     listTools: () =>
       Promise.resolve({
         result: {
@@ -101,6 +102,7 @@ function makeAuthCapability() {
   const toolSet: IToolSet = {
     id: 'oauth-server',
     name: 'oauth-server',
+    serverClass: 'local',
     preload: true,
     hasPreloadedTools: true,
     listTools,
@@ -146,6 +148,7 @@ function makeToolExecutionAuthCapability() {
     source: {
       name: 'oauth-server',
       id: 'oauth-server',
+      serverClass: 'local',
       listTools,
       callTool,
       toolCallInfo: () =>

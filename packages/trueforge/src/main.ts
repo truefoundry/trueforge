@@ -105,6 +105,7 @@ import { SkillCatalog } from './catalog/SkillCatalog';
 import { WebSearchCatalog } from './catalog/WebSearchCatalog';
 import { type DistributedServerConfiguration } from './config';
 import { createController } from './controller';
+import type { IAccessControlStore } from './db/accessControlStore';
 import type { IAgentStore } from './db/agentStore';
 import type { IMcpServerWithAuthStore } from './db/mcpServerStore';
 import { McpServerWithAuthStore } from './db/McpServerWithAuthStore';
@@ -116,6 +117,7 @@ import type { ISessionMetricsStore } from './db/sessionMetricsStore';
 import type { ISkillStore } from './db/skillStore';
 import type { Database as SqliteDatabase } from './db/sqlite/types';
 import type { WithTransaction } from './db/transaction';
+import { EmptyUserStore, type IUserStore } from './db/userStore';
 import type { IWebSearchProviderStore } from './db/webSearchProviderStore';
 import { mountFrontend } from './frontend';
 import type { HttpMetrics } from './http/prometheus';
@@ -146,10 +148,12 @@ import { TrueFoundryAuthorizer } from './truefoundry/TrueFoundryAuthorizer';
 import { TrueFoundrySandboxEnvironmentStore } from './truefoundry/TrueFoundrySandboxEnvironmentStore';
 import { TrueFoundrySandboxProviderStore } from './truefoundry/TrueFoundrySandboxProviderStore';
 import { TrueFoundryServiceFoundryServerClient } from './truefoundry/TrueFoundryServiceFoundryServerClient';
+import { TrueFoundryUserStore } from './truefoundry/TrueFoundryUserStore';
 import { TrueFoundryWebSearchProviderStore } from './truefoundry/TrueFoundryWebSearchProviderStore';
 
 /** Persistence + optional Redis wired for the selected topology. */
 interface ServerPersistence<TTransaction> {
+  accessControlStore: IAccessControlStore<TTransaction>;
   /** extra pre-resolved stores for scheduled runs */
   agentStore: IAgentStore<TTransaction>;
   destroyDb: () => Promise<void>;
@@ -259,6 +263,7 @@ async function createStandalonePersistence(options: {
       import('./db/sqlite/agent-store/SqliteAgentStore'),
       import('./db/sqlite/schedule-store/SqliteScheduleStore'),
       import('./db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore'),
+      import('./db/sqlite/access-control-store/SqliteAccessControlStore'),
     ]),
   ]);
   const [
@@ -273,6 +278,7 @@ async function createStandalonePersistence(options: {
     { SqliteAgentStore },
     { SqliteScheduleStore },
     { SqliteSandboxEnvironmentStore },
+    { SqliteAccessControlStore },
   ] = sqliteStores;
 
   const db = createSqliteDb(sqlitePath);
@@ -299,6 +305,7 @@ async function createStandalonePersistence(options: {
     persistenceStore: new SqliteWebSearchProviderStore(db),
   });
   return {
+    accessControlStore: new SqliteAccessControlStore(db),
     agentStore,
     destroyDb: () => db.destroy(),
     mcpOAuthStore: mcpServerStore,
@@ -364,6 +371,7 @@ async function createDistributedPersistence(options: {
       import('./db/postgres/agent-store/PostgresAgentStore'),
       import('./db/postgres/schedule-store/PostgresScheduleStore'),
       import('./db/postgres/sandbox-environment-store/PostgresSandboxEnvironmentStore'),
+      import('./db/postgres/access-control-store/PostgresAccessControlStore'),
     ]),
   ]);
   const [
@@ -378,6 +386,7 @@ async function createDistributedPersistence(options: {
     { PostgresAgentStore },
     { PostgresScheduleStore },
     { PostgresSandboxEnvironmentStore },
+    { PostgresAccessControlStore },
   ] = postgresStores;
 
   logger.info('Connecting to Postgres');
@@ -442,6 +451,7 @@ async function createDistributedPersistence(options: {
     client: serviceFoundryClient,
   });
   return {
+    accessControlStore: new PostgresAccessControlStore(db),
     agentStore,
     destroyDb: () => db.destroy(),
     mcpOAuthStore: mcpServerWithAuthStore,
@@ -480,6 +490,7 @@ async function createDistributedPersistence(options: {
 /** Keeps `TTransaction` concrete when wiring a single persistence topology into the app. */
 async function createServerRuntime<TTransaction>(persistence: ServerPersistence<TTransaction>, logger: Logger) {
   const {
+    accessControlStore,
     agentStore,
     destroyDb,
     mcpOAuthStore,
@@ -514,6 +525,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
 
   let authenticator;
   let authorizer: Authorizer;
+  let userStore: IUserStore;
   const mode = getTrueForgeAuthMode(configuration);
   if (mode === TrueForgeAuthMode.TrueFoundry) {
     if (serviceFoundryClient === undefined) {
@@ -524,12 +536,15 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
       serviceFoundryClient,
     });
     authorizer = new TrueFoundryAuthorizer(serviceFoundryClient);
+    userStore = new TrueFoundryUserStore(serviceFoundryClient);
   } else if (mode === TrueForgeAuthMode.Oidc) {
     authenticator = createAuthenticator({ mode: TrueForgeAuthMode.Oidc });
     authorizer = new TrueForgeAuthorizer();
+    userStore = new EmptyUserStore();
   } else {
     authenticator = createAuthenticator({ mode: TrueForgeAuthMode.Standalone });
     authorizer = new TrueForgeAuthorizer();
+    userStore = new EmptyUserStore();
   }
 
   // Standalone owns the control loops in-process; they hand off via HTTP loopback
@@ -560,6 +575,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     webSearchProviderStore,
   });
   const app = createServerApp({
+    accessControlStore,
     activeTurns,
     agentStore,
     authenticator,
@@ -586,6 +602,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     sessionStore,
     skillCatalog: SkillCatalog.load(),
     tokenStore,
+    userStore,
     webSearchCatalog: WebSearchCatalog.load(),
     webSearchProviderStore,
     withTransaction,

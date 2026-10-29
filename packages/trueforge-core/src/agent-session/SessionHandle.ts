@@ -22,6 +22,7 @@ import { CancellationReason } from './schemas/turn';
 import type { ISessionStore, NewThreadInit, TurnContextAppend, TurnRecordWithoutSnapshot } from './store/ISessionStore';
 import { TurnNotFoundError, TurnNotRunningError, TurnOwnershipLostError } from './store/SessionStoreErrors';
 import { TurnHandle } from './TurnHandle';
+import { createInitialTurnMetricsCheckpoint } from './turnMetrics';
 
 /** How many recent ancestors SessionHandle persists on each turn. Store-local. */
 const MAX_TURN_ANCESTORS = 20;
@@ -241,6 +242,7 @@ export class SessionHandle<
           threads: threadsRecordFromMap(agentThreads),
           mcp_servers: previous?.snapshot.mcp_servers ?? null,
           sandbox_info: previous?.snapshot.sandbox_info ?? null,
+          ...createInitialTurnMetricsCheckpoint(now.toISOString()),
         },
       };
 
@@ -351,6 +353,7 @@ export class SessionHandle<
    * Missing turn → {@link TurnNotFoundError}.
    */
   async freezeTurn(input: { turn_id: string; reason: CancellationReason }): Promise<TurnRecord<TTurnCustom>> {
+    // TODO: freeze omits token usage and cost accumulated since the last resume.
     return this.store.freezeAndGetTurn({
       session_id: this.session.session_id,
       turn_id: input.turn_id,

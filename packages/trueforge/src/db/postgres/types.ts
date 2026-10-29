@@ -14,6 +14,7 @@ import type {
   TurnState,
   TurnUserEventMessage,
 } from '@truefoundry/trueforge-core/agent-session';
+import type { TurnMetricsCheckpoint } from '@truefoundry/trueforge-core/agent-session/schemas/turn';
 import type {
   AgentInfo,
   AgentParent,
@@ -35,6 +36,7 @@ import type {
 } from '../../schemas/sandboxEnvironment';
 import type { StoredSandboxProviderManifest } from '../../schemas/sandboxProvider';
 import type { ScheduleManifest, ScheduleRunStatus, ScheduleStatus } from '../../schemas/schedule';
+import type { SessionGrantSubjectType } from '../../schemas/sessionGrant';
 import type { SkillManifest } from '../../schemas/skill';
 import type { WebSearchProviderManifest } from '../../schemas/webSearchProvider';
 import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpServerStore';
@@ -50,7 +52,7 @@ export interface TurnThreadCheckpoint {
 }
 
 /** Turn-level checkpoint — threads live in `turn_thread`; only owned top-level keys remain. */
-export interface TurnCheckpoint {
+export interface TurnCheckpoint extends TurnMetricsCheckpoint {
   mcp_servers: Record<string, MCPServerInitInfo> | null;
   sandbox_info: SandboxInfo | null;
 }
@@ -91,8 +93,6 @@ export interface SessionTable {
    *      (COALESCE) targets it directly
    */
   title: string | null;
-  /** When true, any subject in the tenant may GET this session. */
-  shared: boolean;
   /** Null until the first turn; always replaced as a whole document. */
   last_turn_details: JSONColumnType<
     SessionLastTurnDetails,
@@ -116,6 +116,20 @@ export interface SessionTable {
    * top: hot, bumped with the tip ("activity" = turn creation)
    */
   last_activity_timestamp_ms: number;
+}
+
+/**
+ * Explicit read grants on a session. Rows are insert-only; revoke deletes the row.
+ * PRIMARY KEY (tenant_id, session_id, subject_type, subject_id)
+ * FK (session_id) → session(session_id) ON DELETE CASCADE
+ */
+export interface AccessControlTable {
+  tenant_id: string;
+  session_id: string;
+  subject_type: SessionGrantSubjectType;
+  subject_id: string;
+  granted_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
+  created_at: Date;
 }
 
 /**
@@ -148,8 +162,9 @@ export interface TurnTable {
    */
   state: JSONColumnType<TurnState, TurnState, TurnState>;
   /**
-   * inlined: {mcp_servers, sandbox_info, ...future} — both small,
-   *      patched at most once or twice per turn (resource init);
+   * inlined: {mcp_servers, sandbox_info, metrics, active_duration_ms, running_since}.
+   *      Sandbox and MCP stay small patches. The metrics keys are replaced together on pause, resume, and terminal.
+   *      Legacy rows omit the metrics keys; readers fill the defaults.
    *      extensible without migration
    */
   checkpoint: JSONColumnType<TurnCheckpoint, TurnCheckpoint, TurnCheckpoint>;
@@ -609,6 +624,7 @@ export interface OAuthPendingAuthorizationTable {
  */
 export interface Database {
   session: SessionTable;
+  access_control: AccessControlTable;
   turn: TurnTable;
   turn_thread: TurnThreadTable;
   session_event: SessionEventTable;

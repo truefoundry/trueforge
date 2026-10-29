@@ -10,6 +10,7 @@ import {
   type TurnState,
 } from '../../src/agent-session/schemas/turn';
 import type { CreateTurnInput, NewThreadInit, TurnContextAppend } from '../../src/agent-session/store/ISessionStore';
+import { createInitialTurnMetricsCheckpoint } from '../../src/agent-session/turnMetrics';
 import { TurnResourceResolver } from '../../src/agent-session/TurnResourceResolver';
 import type { AgentCapability } from '../../src/core/capabilities/AgentCapability';
 import { newEventId } from '../../src/core/events/schema';
@@ -282,6 +283,7 @@ export function makeRunningTurnRecord(input: {
       },
       mcp_servers: null,
       sandbox_info: null,
+      ...createInitialTurnMetricsCheckpoint(now.toISOString()),
     },
     created_at: now,
     updated_at: now,

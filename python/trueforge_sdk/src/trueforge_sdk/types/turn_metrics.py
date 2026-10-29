@@ -9,7 +9,7 @@ from ..core.unchecked_base_model import UncheckedBaseModel
 
 class TurnMetrics(UncheckedBaseModel):
     """
-    Optional billable aggregate for the whole turn.
+    Billable aggregate for this turn so far.
     """
 
     total_cache_read_tokens: typing.Optional[int] = pydantic.Field(default=None)

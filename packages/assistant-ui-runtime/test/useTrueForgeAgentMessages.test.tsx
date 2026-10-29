@@ -717,6 +717,230 @@ describe('useTrueForgeAgentMessages', () => {
     );
   });
 
+  it('shows loaded history as running when the server cannot resume the turn', async () => {
+    const onError = vi.fn();
+    const runningTurn = {
+      id: 'turn-running',
+      input: [{ type: 'user.message', content: 'keep going' }],
+      createdAt: new Date().toISOString(),
+    } as Turn;
+    vi.mocked(loadSessionSnapshot).mockResolvedValue(
+      replaceSessionSnapshot(createEmptySessionSnapshot(), {
+        runningTurn,
+        unstable_resume: true,
+        pendingUser: {
+          turnId: runningTurn.id,
+          content: 'keep going',
+          createdAt: new Date(runningTurn.createdAt),
+        },
+      }),
+    );
+    const serverWithoutSubscribe = {
+      cancelSession: vi.fn().mockResolvedValue(undefined),
+      listTurns: vi.fn().mockResolvedValue({ data: [] }),
+    } as unknown as AgentChatServer;
+
+    const { result } = renderHook(() =>
+      useTrueForgeAgentMessages({
+        server: serverWithoutSubscribe,
+        sessionId: 'session-1',
+        onError,
+      }),
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(resumeTurnStream).not.toHaveBeenCalled();
+    // The turn keeps running server-side, so history renders with a
+    // pending indicator rather than an endless skeleton.
+    await waitFor(() => expect(result.current.isRunning).toBe(true));
+    expect(result.current.messages[0]).toMatchObject({
+      role: 'user',
+      content: [{ type: 'text', text: 'keep going' }],
+    });
+    // Waiting, not failing: hosts render this as state, not an error.
+    expect(result.current.resumeUnavailable).toBe(true);
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('clears the running state when cancelling a turn it could not resume', async () => {
+    const onError = vi.fn();
+    const runningTurn: Turn = {
+      id: 'turn-running',
+      sessionId: 'session-1',
+      input: [{ type: 'user.message', content: 'keep going' }],
+      state: { status: 'running' },
+      createdAt: new Date().toISOString(),
+    };
+    vi.mocked(loadSessionSnapshot).mockResolvedValue(
+      replaceSessionSnapshot(createEmptySessionSnapshot(), {
+        runningTurn,
+        unstable_resume: true,
+        pendingUser: {
+          turnId: runningTurn.id,
+          content: 'keep going',
+          createdAt: new Date(runningTurn.createdAt),
+        },
+        activeStream: {
+          turnId: runningTurn.id,
+          segmentStatus: 'disconnected',
+          update: {
+            content: [{ type: 'text', text: 'partial reply' }],
+            status: { type: 'running' },
+            turnState: { status: 'running' },
+          },
+        },
+      }),
+    );
+    const serverWithoutSubscribe = {
+      cancelSession: vi.fn().mockResolvedValue(undefined),
+      listTurns: vi.fn().mockResolvedValue({ data: [] }),
+    } as unknown as AgentChatServer;
+
+    const { result } = renderHook(() =>
+      useTrueForgeAgentMessages({
+        server: serverWithoutSubscribe,
+        sessionId: 'session-1',
+        onError,
+      }),
+    );
+
+    await waitFor(() => expect(result.current.isRunning).toBe(true));
+    await waitFor(() => expect(result.current.messages.some(message => message.status?.type === 'running')).toBe(true));
+
+    await act(async () => {
+      await result.current.cancel();
+    });
+
+    expect(serverWithoutSubscribe.cancelSession).toHaveBeenCalledWith({
+      sessionId: 'session-1',
+    });
+    // No stream was attached, so nothing else would release the composer.
+    expect(result.current.isRunning).toBe(false);
+    expect(result.current.resumeUnavailable).toBe(false);
+    // Snapshot must not keep a running tip — otherwise clearing resumeUnavailable
+    // would bring the activity loader back on the last assistant message.
+    expect(result.current.messages.some(message => message.status?.type === 'running')).toBe(false);
+    expect(result.current.messages.at(-1)).toMatchObject({
+      role: 'assistant',
+      status: { type: 'incomplete', reason: 'cancelled' },
+    });
+  });
+
+  it('stays in the waiting state instead of resuming when resumeRun has no subscribeToTurn', async () => {
+    const onError = vi.fn();
+    const runningTurn = { id: 'turn-running' } as Turn;
+    vi.mocked(loadSessionSnapshot).mockResolvedValue(
+      replaceSessionSnapshot(createEmptySessionSnapshot(), {
+        runningTurn,
+        unstable_resume: true,
+      }),
+    );
+    const serverWithoutSubscribe = {
+      cancelSession: vi.fn().mockResolvedValue(undefined),
+      listTurns: vi.fn().mockResolvedValue({ data: [] }),
+    } as unknown as AgentChatServer;
+
+    const { result } = renderHook(() =>
+      useTrueForgeAgentMessages({
+        server: serverWithoutSubscribe,
+        sessionId: 'session-1',
+        onError,
+      }),
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    onError.mockClear();
+
+    await act(async () => {
+      await result.current.resumeRun();
+    });
+
+    expect(resumeTurnStream).not.toHaveBeenCalled();
+    expect(result.current.resumeUnavailable).toBe(true);
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('keeps running with resumeUnavailable when create-turn reconnect has no subscribeToTurn', async () => {
+    const onError = vi.fn();
+    const serverWithoutSubscribe = {
+      cancelSession: vi.fn().mockResolvedValue(undefined),
+      listTurns: vi.fn().mockResolvedValue({ data: [] }),
+      sendTurnEvents: vi.fn().mockResolvedValue([]),
+    } as unknown as AgentChatServer;
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      vi.fn((callback: FrameRequestCallback) => {
+        callback(performance.now());
+        return 1;
+      }),
+    );
+    vi.stubGlobal('cancelAnimationFrame', vi.fn());
+    vi.mocked(streamTurnContent).mockImplementation(
+      (_server, _sessionId, _fold, _options, _signal, _baseline, onTurnIdAvailable) =>
+        (async function* () {
+          onTurnIdAvailable?.('turn-1');
+          yield {
+            content: [{ type: 'text' as const, text: 'partial' }],
+            turnState: { status: 'running' as const },
+          };
+          throw new Error('SSE dropped');
+        })(),
+    );
+
+    const { result } = renderHook(() =>
+      useTrueForgeAgentMessages({
+        server: serverWithoutSubscribe,
+        sessionId: 'session-1',
+        onError,
+      }),
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.sendTurn({ userMessage: 'hello' });
+    });
+
+    await waitFor(() => expect(result.current.resumeUnavailable).toBe(true));
+    expect(result.current.isRunning).toBe(true);
+    expect(resumeTurnStream).not.toHaveBeenCalled();
+    // Waiting state, not a hard stream failure: the turn still runs server-side.
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('does not empty-complete when ensureTurnSubscription has no subscribeToTurn', async () => {
+    const pausedSnapshot = snapshotWithAssistantMessage(assistantMessageWithPendingApproval(), {
+      runningTurn: {
+        id: 'turn-1',
+        sessionId: 'session-1',
+        input: [{ type: 'user.message', content: 'run it' }],
+        state: { status: 'paused' },
+        createdAt: new Date().toISOString(),
+      },
+    });
+    vi.mocked(loadSessionSnapshot).mockResolvedValue(pausedSnapshot);
+    const serverWithoutSubscribe = {
+      cancelSession: vi.fn().mockResolvedValue(undefined),
+      sendTurnEvents: vi.fn().mockResolvedValue([]),
+      listTurns: vi.fn().mockResolvedValue({ data: [] }),
+    } as unknown as AgentChatServer;
+
+    const { result } = renderHook(() =>
+      useTrueForgeAgentMessages({
+        server: serverWithoutSubscribe,
+        sessionId: 'session-1',
+      }),
+    );
+    await waitFor(() => expect(result.current.resumeUnavailable).toBe(true));
+    expect(result.current.isRunning).toBe(true);
+
+    await act(async () => {
+      await result.current.respondToToolApproval({ approvalId: 'approval-1', approved: true });
+    });
+
+    expect(resumeTurnStream).not.toHaveBeenCalled();
+    expect(result.current.resumeUnavailable).toBe(true);
+    expect(result.current.isRunning).toBe(true);
+  });
+
   it('clears isLoading while a resumed turn is still streaming', async () => {
     let releaseStream: (() => void) | undefined;
     vi.mocked(resumeTurnStream).mockReturnValue(
@@ -2096,10 +2320,76 @@ describe('useTrueForgeAgentMessages', () => {
           .join(''),
       );
     expect(userTexts).toEqual(['turn 1']);
+    // Failed send never installed a message, so the open tip stays painted.
     expect(result.current.messages.find(message => message.role === 'assistant')).toMatchObject({
       role: 'assistant',
-      status: { type: 'incomplete', reason: 'cancelled' },
+      content: [{ type: 'text', text: 'partial' }],
     });
+    expect(
+      result.current.messages.some(
+        message =>
+          message.role === 'assistant' && message.status.type === 'incomplete' && message.status.reason === 'cancelled',
+      ),
+    ).toBe(false);
+  });
+
+  it('restores a paused tip when createTurn fails before turn.created', async () => {
+    const onPreTurnFailure = vi.fn();
+    const pausedSnapshot = snapshotWithAssistantMessage(assistantMessageWithPendingApproval(), {
+      pendingUser: {
+        turnId: 'turn-1',
+        content: 'run it',
+        createdAt: new Date(),
+      },
+      runningTurn: {
+        id: 'turn-1',
+        sessionId: 'session-1',
+        input: [{ type: 'user.message', content: 'run it' }],
+        state: { status: 'paused' },
+        createdAt: new Date().toISOString(),
+      },
+    });
+    vi.mocked(loadSessionSnapshot).mockResolvedValue(pausedSnapshot);
+    vi.mocked(resumeTurnStream).mockReturnValue(
+      (async function* () {
+        // Keep the load-time subscribe open until send aborts it.
+        await new Promise<void>(() => undefined);
+      })(),
+    );
+    vi.mocked(streamTurnContent).mockImplementation(async function* () {
+      throw new Error('Turn preparation failed');
+    });
+
+    const { result } = renderHook(() =>
+      useTrueForgeAgentMessages({
+        server: mockServer,
+        sessionId: 'session-1',
+      }),
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await waitFor(() => expect(collectPendingApprovals(result.current.messages).length).toBe(1));
+
+    await act(async () => {
+      await expect(
+        result.current.sendTurn({
+          userMessage: 'never mind',
+          onPreTurnFailure,
+        }),
+      ).rejects.toThrow('Turn preparation failed');
+    });
+
+    expect(onPreTurnFailure).toHaveBeenCalledOnce();
+    expect(
+      result.current.messages.some(
+        message =>
+          message.role === 'user' && message.content.some(part => part.type === 'text' && part.text === 'never mind'),
+      ),
+    ).toBe(false);
+    expect(collectPendingApprovals(result.current.messages)).toMatchObject([{ approvalId: 'approval-1' }]);
+    expect(result.current.messages.find(message => message.role === 'assistant')).toMatchObject({
+      status: { type: 'requires-action', reason: 'tool-calls' },
+    });
+    expect(result.current.isRunning).toBe(false);
   });
 
   it('keeps paused state when the backend rejects cancellation', async () => {

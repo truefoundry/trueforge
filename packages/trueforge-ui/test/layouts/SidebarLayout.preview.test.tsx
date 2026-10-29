@@ -28,6 +28,7 @@ function SidebarPreviewHarness({ children }: { children: ReactNode }) {
       pendingApprovals: [],
       pendingToolResponses: [],
       pendingMcpAuth: null,
+      resumeUnavailable: false,
       sandboxId: 'sbx-1',
       respondToToolApproval: async () => {},
       respondToToolResponse: async () => {},

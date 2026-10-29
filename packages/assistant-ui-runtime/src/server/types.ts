@@ -204,6 +204,8 @@ export interface CreateSessionRequest<TSpec extends AgentSpec = AgentSpec> {
   agentName?: string;
   agentSpec?: TSpec;
   title?: string;
+  /** Arbitrary caller key-value metadata strings. */
+  metadata?: Record<string, string>;
 }
 
 export interface UpdateSessionRequest<TSpec extends AgentSpec = AgentSpec> {
@@ -244,6 +246,8 @@ export interface ListSessionsParams extends PageParams {
   startTimestamp?: string;
   /** Inclusive upper bound on session activity (ISO-8601). */
   endTimestamp?: string;
+  /** Only sessions whose metadata contains every given pair. */
+  metadata?: Record<string, string>;
 }
 
 export type PreviousTurnIdInput = string;
@@ -476,7 +480,11 @@ export interface AgentChatServer<
     order?: ListSessionsOrder;
   }): Promise<ListResult<PersistedTurnEvent>>;
 
-  subscribeToTurn(req: SubscribeToTurnRequest): AsyncIterable<TurnStreamData>;
+  /**
+   * Optional reconnect path. When omitted, a running turn still loads as
+   * history but this client cannot stream live updates (`resumeUnavailable`).
+   */
+  subscribeToTurn?(req: SubscribeToTurnRequest): AsyncIterable<TurnStreamData>;
 
   /**
    * Reads a file the agent wrote inside its sandbox. Hosts whose download route is scoped to a

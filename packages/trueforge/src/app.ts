@@ -26,6 +26,7 @@ import { createInternalSessionsRouter, createSessionsRouter } from './apis/sessi
 import { createSettingsRouter } from './apis/settings';
 import { createAvailableSkillsRouter } from './apis/skills';
 import { createTurnsRouter, type ResolveTurnExecutionStoresInput, type TurnExecutionStores } from './apis/turns';
+import { createUsersRouter } from './apis/users';
 import type { Authenticator } from './auth/authenticator';
 import type { Authorizer } from './auth/authorizer';
 import { resolveRequestContext, type RequestContext } from './auth/identity';
@@ -41,6 +42,7 @@ import type { SandboxCatalog } from './catalog/SandboxCatalog';
 import type { SkillCatalog } from './catalog/SkillCatalog';
 import type { WebSearchCatalog } from './catalog/WebSearchCatalog';
 import configuration, { getPublicUiBasePath, getTrueForgeAuthMode, TrueForgeAuthMode } from './config';
+import type { IAccessControlStore } from './db/accessControlStore';
 import type { AgentRecord, IAgentStore } from './db/agentStore';
 import type { IMcpServerWithAuthStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
@@ -50,6 +52,7 @@ import type { IScheduleStore } from './db/scheduleStore';
 import type { ISessionMetricsStore } from './db/sessionMetricsStore';
 import type { ISkillStore } from './db/skillStore';
 import type { WithTransaction } from './db/transaction';
+import type { IUserStore } from './db/userStore';
 import type { IWebSearchProviderStore } from './db/webSearchProviderStore';
 import type { HttpMetrics } from './http/prometheus';
 import { createClientCertificateMiddleware } from './http/tls';
@@ -270,6 +273,7 @@ export interface ResolveSkillStoreInput {
 }
 
 export interface ServerDeps<TTransaction> {
+  accessControlStore: IAccessControlStore<TTransaction>;
   activeTurns: ActiveTurnRegistry<TTransaction>;
   /** Persistence agent store (schedule runs resolve the bound agent without an HTTP caller). */
   agentStore: IAgentStore<TTransaction>;
@@ -322,6 +326,8 @@ export interface ServerDeps<TTransaction> {
   sessionStore: ISessionStore<TTransaction>;
   skillCatalog: SkillCatalog;
   tokenStore: IOAuthTokenStore<TTransaction>;
+  /** Tenant users that sessions can be shared with. */
+  userStore: IUserStore;
   webSearchCatalog: WebSearchCatalog;
   /** DB singleton, or the env-backed shared store in TrueFoundry mode. */
   webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
@@ -361,11 +367,16 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     }),
   );
   app.route(
+    '/api/v1/users',
+    withAuth(createUsersRouter({ userStore: deps.userStore, resolveRequestContext }), authMiddleware),
+  );
+  app.route(
     '/api/v1/capabilities',
     withAuth(
       createCapabilitiesRouter({
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         webSearchProviderStore: deps.webSearchProviderStore,
+        userStore: deps.userStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
         resolveRequestContext,
@@ -529,6 +540,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     '/api/internal/sessions',
     withAuth(
       createInternalSessionsRouter({
+        accessControlStore: deps.accessControlStore,
         authorizer: deps.authorizer,
         resolveAgentStore: resolveHttpAgentStore,
         resolveMcpServerStore: deps.resolveMcpServerStore,
@@ -573,6 +585,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     '/api/v1/sessions',
     withAuth(
       createSessionsRouter({
+        accessControlStore: deps.accessControlStore,
         activeTurns: deps.activeTurns,
         authorizer: deps.authorizer,
         logger: deps.logger,
@@ -587,7 +600,9 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         sandboxProviderStore: deps.sandboxProviderStore,
         sessions: deps.sessions,
         sessionStore: deps.sessionStore,
+        userStore: deps.userStore,
         webSearchProviderStore: deps.webSearchProviderStore,
+        withTransaction: deps.withTransaction,
       }),
       authMiddleware,
     ),
@@ -596,6 +611,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     '/api/v1/sessions',
     withAuth(
       createTurnsRouter({
+        accessControlStore: deps.accessControlStore,
         activeTurns: deps.activeTurns,
         authorizer: deps.authorizer,
         eventSubscriptions: deps.eventSubscriptions,

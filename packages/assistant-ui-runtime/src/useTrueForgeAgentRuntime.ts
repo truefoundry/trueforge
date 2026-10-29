@@ -119,6 +119,7 @@ function useTrueForgeAgentRuntimeImpl(
   const {
     messages,
     isRunning,
+    resumeUnavailable,
     isLoading,
     isLoadingOlderHistory,
     hasOlderHistory,
@@ -200,6 +201,7 @@ function useTrueForgeAgentRuntimeImpl(
       pendingApprovals,
       pendingToolResponses,
       pendingMcpAuth,
+      resumeUnavailable,
       sandboxId,
       respondToToolApproval,
       respondToToolResponse,

@@ -6,6 +6,7 @@ import {
   UserToolApprovalMessageSchema,
   UserToolResponseMessageSchema,
 } from '../../core/events/schema';
+import { AgentThreadMetricsSchema } from '../../core/runtime/metrics';
 
 export enum CancellationReason {
   // AbortController.abort() reason for the max-execution timer.
@@ -20,23 +21,6 @@ export enum CancellationReason {
 
 /** Every `TurnState` arm takes its `status` literal from here. */
 export const TurnStatusSchema = z.enum(['running', 'paused', 'done', 'cancelled', 'error']).openapi('TurnStatus');
-
-export const TurnStateRunningSchema = z
-  .object({
-    status: z.literal(TurnStatusSchema.enum.running).describe('Turn is still executing.'),
-  })
-  .openapi('TurnStateRunning');
-
-export const TurnStatePausedSchema = z
-  .object({
-    status: z.literal(TurnStatusSchema.enum.paused).describe('Turn is paused waiting for user actions.'),
-  })
-  .openapi('TurnStatePaused');
-
-export const TurnStateCancelledReasonSchema = z
-  .enum(CancellationReason)
-  .describe('Reason for the cancellation.')
-  .openapi('TurnStateCancelledReason');
 
 /** Billable aggregate for one turn. */
 export const TurnMetricsSchema = z
@@ -79,14 +63,33 @@ export const TurnMetricsSchema = z
       .describe('Total reasoning tokens across model calls in this turn.'),
     total_cost_in_usd: z.number().nonnegative().optional().describe('Estimated total cost in USD for this turn.'),
   })
+  .describe('Billable aggregate for this turn so far.')
   .openapi('TurnMetrics');
+
+export const TurnStateRunningSchema = z
+  .object({
+    status: z.literal(TurnStatusSchema.enum.running).describe('Turn is still executing.'),
+  })
+  .openapi('TurnStateRunning');
+
+export const TurnStatePausedSchema = z
+  .object({
+    status: z.literal(TurnStatusSchema.enum.paused).describe('Turn is paused waiting for user actions.'),
+    metrics: TurnMetricsSchema.optional(),
+  })
+  .openapi('TurnStatePaused');
+
+export const TurnStateCancelledReasonSchema = z
+  .enum(CancellationReason)
+  .describe('Reason for the cancellation.')
+  .openapi('TurnStateCancelledReason');
 
 export const TurnStateCancelledSchema = z
   .object({
     status: z.literal(TurnStatusSchema.enum.cancelled).describe('Turn was cancelled before completion.'),
     reason: TurnStateCancelledReasonSchema,
     completed_at: z.string().describe('ISO 8601 time when cancellation completed.'),
-    metrics: TurnMetricsSchema.optional().describe('Optional billable aggregate for work done before cancel.'),
+    metrics: TurnMetricsSchema.optional(),
   })
   .openapi('TurnStateCancelled');
 
@@ -95,7 +98,7 @@ export const TurnStateErrorSchema = z
     status: z.literal(TurnStatusSchema.enum.error).describe('Turn ended with an error.'),
     message: z.string().describe('Human-readable error message.'),
     completed_at: z.string().describe('ISO 8601 time when the error state was recorded.'),
-    metrics: TurnMetricsSchema.optional().describe('Optional billable aggregate for work done before the error.'),
+    metrics: TurnMetricsSchema.optional(),
   })
   .openapi('TurnStateError');
 
@@ -111,7 +114,7 @@ export const TurnStateDoneSchema = z
         'Pending actions (`tool.approval_required`, `tool.response_required`, `mcp.auth_required`); empty when none.',
       ),
     completed_at: z.string().describe('ISO 8601 time when the turn reached a terminal state.'),
-    metrics: TurnMetricsSchema.optional().describe('Optional billable aggregate for the whole turn.'),
+    metrics: TurnMetricsSchema.optional(),
   })
   .openapi('TurnStateDone');
 
@@ -169,12 +172,37 @@ export const CreateTurnRequestSchema = z
   })
   .openapi('CreateTurnRequest');
 
+/**
+ * Accumulated billable totals, closed active duration, and the open running interval.
+ * `running_since` is null while paused.
+ */
+export const TurnMetricsCheckpointSchema = z.object({
+  metrics: AgentThreadMetricsSchema,
+  active_duration_ms: z.number().int().nonnegative(),
+  running_since: z.string().nullable(),
+});
+
+/** Pause sends the metrics since the last resume. Resume only opens the next interval. */
+export const TurnNonTerminalMetricsSchema = z.discriminatedUnion('status', [
+  z.object({
+    status: z.literal('paused'),
+    observed_at: z.string(),
+    metrics: AgentThreadMetricsSchema,
+  }),
+  z.object({
+    status: z.literal('running'),
+    observed_at: z.string(),
+  }),
+]);
+
 export type Turn = z.infer<typeof TurnSchema>;
 export type LegacyTurnInputItem = z.infer<typeof LegacyTurnInputItemSchema>;
 export type TurnState = z.infer<typeof TurnStateSchema>;
 export type NonTerminalTurnState = Extract<TurnState, { status: 'running' | 'paused' }>;
 export type TerminalTurnState = Exclude<TurnState, NonTerminalTurnState>;
 export type TurnMetrics = z.infer<typeof TurnMetricsSchema>;
+export type TurnMetricsCheckpoint = z.infer<typeof TurnMetricsCheckpointSchema>;
+export type TurnNonTerminalMetrics = z.infer<typeof TurnNonTerminalMetricsSchema>;
 
 export function isNonTerminalTurnState(state: TurnState): state is NonTerminalTurnState {
   return state.status === 'running' || state.status === 'paused';
