@@ -261,7 +261,7 @@ function materializeAbandonedStreamRootIds(options: {
  */
 function abandonInFlightClientTurn(
   snapshot: SessionSnapshot,
-  reason: string = 'Superseded by a later message',
+  reason = 'Superseded by a later message',
 ): SessionSnapshot {
   const active = snapshot.activeStream;
   const hasIncompleteStream = isIncompleteActiveStream(snapshot);
