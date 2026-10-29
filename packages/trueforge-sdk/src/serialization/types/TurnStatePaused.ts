@@ -3,16 +3,19 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
+import { TurnMetrics } from "./TurnMetrics.js";
 
 export const TurnStatePaused: core.serialization.ObjectSchema<
     serializers.TurnStatePaused.Raw,
     TrueForge.TurnStatePaused
 > = core.serialization.object({
+    metrics: TurnMetrics.optional(),
     status: core.serialization.stringLiteral("paused"),
 });
 
 export declare namespace TurnStatePaused {
     export interface Raw {
+        metrics?: TurnMetrics.Raw | null;
         status: "paused";
     }
 }

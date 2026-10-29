@@ -210,7 +210,7 @@ export class AgentThreadOrchestrator {
   private readonly createDynamicSubAgentThread: CreateDynamicSubAgentThread;
   private readonly tracing: AgentTracing;
   private readonly logger: Logger;
-  // Finished sub-agents removed from `agentThreads`; kept so totals still include them.
+  // Finished sub-agents removed from `agentThreads`; kept so the current run still includes them.
   private finishedSubAgentMetrics: AgentThreadMetrics = createEmptyAgentThreadMetrics();
   private readonly wakeSignal: Signalable = signalable();
   private readonly pendingTurnEvents: TurnUserEvent[];
@@ -233,8 +233,7 @@ export class AgentThreadOrchestrator {
   }
 
   /**
-   * Turn-wide metrics so far: live threads plus finished sub-agents.
-   * Safe mid-flight and after cancel/error (`execute()` may not return).
+   * Billable totals since the last resume. Reset after a successful pause.
    * Each thread is counted once — a sub-agent moves from live → finished atomically.
    */
   public getMetrics(): AgentThreadMetrics {
@@ -244,6 +243,14 @@ export class AgentThreadOrchestrator {
       addAgentThreadMetrics(total, thread.getAgentThreadMetrics());
     }
     return total;
+  }
+
+  /** Zero this running phase so the next one does not bill it again. */
+  public resetRunningPhaseMetrics(): void {
+    this.finishedSubAgentMetrics = createEmptyAgentThreadMetrics();
+    for (const thread of this.agentThreads.values()) {
+      thread.resetRunningPhaseMetrics();
+    }
   }
 
   private getMainThread(): AgentThread {

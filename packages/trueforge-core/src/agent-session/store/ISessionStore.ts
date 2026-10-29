@@ -2,13 +2,19 @@ import type { JsonValue } from '../../core/capabilities/AgentCapability';
 import type { MCPServerInitInfo, ThreadOverwriteContextEvent, TurnUserEvent } from '../../core/events/schema';
 import type { AgentThreadSnapshot, ContextMessage, SubAgentCompletion } from '../../core/runtime/AgentThread.types';
 import type { CurrentContextUsage } from '../../core/runtime/contextUsage';
+import type { AgentThreadMetrics } from '../../core/runtime/metrics';
 import type { SandboxInfo } from '../../core/sandbox/Sandbox';
 import type { SessionRecord } from '../models/SessionRecord';
 import type { TurnRecord } from '../models/TurnRecord';
-import type { PersistedTurnEvent, SessionEventItem, TurnUpdateEvent } from '../schemas/events';
+import type { PersistedTurnEvent, SessionEventItem, TurnDoneEvent, TurnUpdateEvent } from '../schemas/events';
 import type { TokenPagination } from '../schemas/pagination';
 import type { SessionMetadata } from '../schemas/session';
-import type { CancellationReason, NonTerminalTurnState, TerminalTurnState } from '../schemas/turn';
+import type {
+  CancellationReason,
+  NonTerminalTurnState,
+  TerminalTurnState,
+  TurnNonTerminalMetrics,
+} from '../schemas/turn';
 
 /**
  * Caller-supplied fields for creating a session; the store owns timestamps and tip state.
@@ -148,7 +154,7 @@ export interface FreezeAndGetTurnInput {
   /** Written onto the turn row when the freeze actually cancels a running turn. */
   reason: CancellationReason;
   /** Caller-built cancelled turn.done event; store persists atomically with state flip when it cancels. */
-  turn_done_event: PersistedTurnEvent;
+  turn_done_event: TurnDoneEvent;
 }
 
 export interface GetTurnInput {
@@ -173,12 +179,16 @@ export interface UpdateTurnTerminalStateInput extends TurnProgressKeys {
   state: TerminalTurnState;
   /** Caller-built turn.done; written atomically with the state flip. */
   turn_done_event: PersistedTurnEvent;
+  /** Metrics since the last checkpoint. Added to the turn checkpoint and to session cost. */
+  metrics: AgentThreadMetrics;
 }
 
 export interface UpdateTurnNonTerminalStateInput extends TurnProgressKeys {
   state: NonTerminalTurnState;
   /** Caller-built turn.update; written atomically with the non-terminal state transition. */
   turn_update_event: TurnUpdateEvent;
+  /** Pause carries the cumulative. Resume only opens `running_since`. */
+  turn_metrics: TurnNonTerminalMetrics;
 }
 
 export interface AppendToEventsInput extends TurnProgressKeys {
@@ -353,8 +363,9 @@ export interface ISessionStore<
   createTurn(input: CreateTurnInput<TTurnCustom>): Promise<void>;
 
   /**
-   * Cancel a non-terminal turn (`running` or `paused`): persist `turn_done` and fold cost/duration into
-   * `session.metrics`. Already-terminal turns are a read. Missing → {@link TurnNotFoundError}.
+   * Cancel a non-terminal turn (`running` or `paused`): persist `turn_done` and fold the open
+   * running interval into `session.metrics`. A paused freeze adds no cost or duration.
+   * Already-terminal turns are a read. Missing → TurnNotFoundError.
    */
   freezeAndGetTurn(input: FreezeAndGetTurnInput): Promise<TurnRecord<TTurnCustom>>;
 
@@ -373,12 +384,16 @@ export interface ISessionStore<
     input: ListTurnsInput,
   ): Promise<{ data: TurnRecordWithoutSnapshot<TTurnCustom>[]; pagination: TokenPagination }>;
 
-  /** Atomically performs `running ↔ paused` and appends turn.update. */
+  /**
+   * Atomically performs `running ↔ paused` and appends turn.update.
+   * Pause adds the cost since the last resume and the closed running interval. Resume only sets `running_since`.
+   */
   updateTurnNonTerminalState(input: UpdateTurnNonTerminalStateInput): Promise<void>;
 
   /**
    * First terminal write wins (`running|paused → done|cancelled|error`) and
-   * atomically appends turn.done and folds cost/duration into session metrics.
+   * atomically appends turn.done. Duration is the open running interval.
+   * Cost is the cost since the last checkpoint.
    */
   updateTurnTerminalState(input: UpdateTurnTerminalStateInput): Promise<void>;
 

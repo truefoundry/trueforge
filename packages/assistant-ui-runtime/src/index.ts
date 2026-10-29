@@ -36,6 +36,7 @@ export {
   useTrueForgeResetFromTurn,
   useTrueForgeRespondToToolApproval,
   useTrueForgeRespondToToolResponse,
+  useTrueForgeResumeUnavailable,
   useTrueForgeSandboxId,
   useTrueForgeToolResponses,
   useTrueForgeTurnId,

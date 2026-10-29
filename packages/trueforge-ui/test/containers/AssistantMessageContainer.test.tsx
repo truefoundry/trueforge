@@ -1,10 +1,31 @@
 // @vitest-environment jsdom
-import { ThreadPrimitive, type ThreadMessageLike } from '@assistant-ui/react';
+import {
+  AssistantRuntimeProvider,
+  ThreadPrimitive,
+  useExternalStoreRuntime,
+  type ThreadMessageLike,
+} from '@assistant-ui/react';
 import { render, screen } from '@testing-library/react';
+import { trueForgeExtras } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { describe, expect, it } from 'vitest';
 
 import { AssistantMessageContainer } from '@/containers/AssistantMessageContainer.js';
+import { SlotsProvider } from '@/theme/SlotsProvider.js';
 import { RuntimeHarness } from './RuntimeHarness.js';
+
+const runningToolCallMessage: ThreadMessageLike = {
+  role: 'assistant',
+  content: [
+    {
+      type: 'tool-call',
+      toolCallId: 'call-1',
+      toolName: 'bash',
+      args: {},
+      argsText: '{}',
+    },
+  ],
+  status: { type: 'running' },
+};
 
 function renderAssistantMessage(messages: ThreadMessageLike[], options?: { isRunning?: boolean }) {
   return render(
@@ -12,6 +33,46 @@ function renderAssistantMessage(messages: ThreadMessageLike[], options?: { isRun
       <ThreadPrimitive.Messages>{() => <AssistantMessageContainer />}</ThreadPrimitive.Messages>
     </RuntimeHarness>,
   );
+}
+
+function renderAssistantMessageWithExtras(
+  messages: ThreadMessageLike[],
+  options: { isRunning: boolean; resumeUnavailable: boolean },
+) {
+  function Harness() {
+    const runtime = useExternalStoreRuntime({
+      messages,
+      isRunning: options.isRunning,
+      convertMessage: (message: ThreadMessageLike) => message,
+      onNew: async () => {},
+      extras: trueForgeExtras.provide({
+        pendingApprovals: [],
+        pendingToolResponses: [],
+        pendingMcpAuth: null,
+        resumeUnavailable: options.resumeUnavailable,
+        sandboxId: undefined,
+        respondToToolApproval: async () => {},
+        respondToToolResponse: async () => {},
+        continueMcpAuth: async () => {},
+        downloadSandboxFile: async () => new Blob(),
+        cancel: async () => {},
+        resetFromTurn: async () => {},
+        reload: () => {},
+        hasOlderHistory: false,
+        isLoadingOlderHistory: false,
+        loadOlderHistory: async () => {},
+        draft: null,
+      }),
+    });
+    return (
+      <AssistantRuntimeProvider runtime={runtime}>
+        <SlotsProvider>
+          <ThreadPrimitive.Messages>{() => <AssistantMessageContainer />}</ThreadPrimitive.Messages>
+        </SlotsProvider>
+      </AssistantRuntimeProvider>
+    );
+  }
+  return render(<Harness />);
 }
 
 describe('AssistantMessageContainer', () => {
@@ -60,5 +121,31 @@ describe('AssistantMessageContainer', () => {
   it('hides the branch indicator when there is only a single branch', () => {
     renderAssistantMessage([{ role: 'assistant', content: 'hi' }]);
     expect(screen.queryByText(/^\d+ \/ \d+$/)).not.toBeInTheDocument();
+  });
+
+  it('shows the activity indicator while the thread and message are running', () => {
+    renderAssistantMessageWithExtras([runningToolCallMessage], {
+      isRunning: true,
+      resumeUnavailable: false,
+    });
+    expect(screen.getByRole('status')).toHaveTextContent(/Working/);
+  });
+
+  it('hides the activity indicator when the thread is idle even if the message status is still running', () => {
+    // Stale tip after cancel without a subscribe stream: isRunning cleared but
+    // message status can lag until the snapshot is finalized.
+    renderAssistantMessageWithExtras([runningToolCallMessage], {
+      isRunning: false,
+      resumeUnavailable: false,
+    });
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('hides the activity indicator when resume is unavailable', () => {
+    renderAssistantMessageWithExtras([runningToolCallMessage], {
+      isRunning: true,
+      resumeUnavailable: true,
+    });
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 });

@@ -12,6 +12,7 @@ function makeAuthBlockedThread(threadId: string): AgentThread {
   const authToolSet: IToolSet = {
     id: `oauth-${threadId}`,
     name: `oauth-${threadId}`,
+    serverClass: 'local',
     preload: true,
     hasPreloadedTools: true,
     listTools: jest

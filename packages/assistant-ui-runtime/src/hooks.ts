@@ -133,6 +133,12 @@ export const useTrueForgeHistoryPagination = () => {
   );
 };
 
+/**
+ * True while a turn runs that this server cannot stream, so its result will not
+ * arrive in this client. Falls back to `false` on runtimes that predate the flag.
+ */
+export const useTrueForgeResumeUnavailable = () => useTrueForgeRuntimeExtras()?.resumeUnavailable ?? false;
+
 /** Returns a function to reset (re-submit) a user turn from any render context. */
 export const useTrueForgeResetFromTurn = () => {
   const aui = useAui();

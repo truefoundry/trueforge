@@ -1,4 +1,5 @@
 import type { ISessionStore } from '@truefoundry/trueforge-core/agent-session';
+import { createEmptyAgentThreadMetrics } from '../../../../trueforge-core/src/core/runtime/metrics';
 import {
   makeCreateTurnInput,
   makeDoneTurnState,
@@ -60,6 +61,7 @@ export function runSessionMetricsStoreContractSuite(
         turn_id: 'metrics-turn',
         state,
         turn_done_event: makeTurnDoneEvent(state),
+        metrics: { ...createEmptyAgentThreadMetrics(), total_cost_in_usd: 1.25 },
       });
 
       const metricsQuery = {
@@ -152,6 +154,7 @@ export function runSessionMetricsStoreContractSuite(
             turn_id: turnId,
             state,
             turn_done_event: makeTurnDoneEvent(state),
+            metrics: createEmptyAgentThreadMetrics(),
           });
         }
       }
@@ -213,6 +216,7 @@ export function runSessionMetricsStoreContractSuite(
         turn_id: 'completed-turn',
         state,
         turn_done_event: makeTurnDoneEvent(state),
+        metrics: createEmptyAgentThreadMetrics(),
       });
 
       const meters = await metricsStore.getSessionMetricsMeters({

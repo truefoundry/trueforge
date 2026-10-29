@@ -1,7 +1,7 @@
 import type { MCPServerInitInfo } from '../../core/events/schema';
 import type { AgentThreadSnapshot } from '../../core/runtime/AgentThread.types';
 import type { SandboxInfo } from '../../core/sandbox/Sandbox';
-import type { LegacyTurnInputItem, TurnState } from '../schemas/turn';
+import type { LegacyTurnInputItem, TurnMetricsCheckpoint, TurnState } from '../schemas/turn';
 
 /** Root thread id for every session. */
 export const MAIN_THREAD_ID = 'main';
@@ -10,8 +10,9 @@ export const MAIN_THREAD_ID = 'main';
  * Public wire / store shape — JSON-friendly `Record`, not `Map`, so every
  * backend can persist it directly. In-process runtime may still use Map;
  * adapt at the store/Session boundary.
+ * Metrics, active duration, and `running_since` are sibling keys. Readers fill them when legacy jsonb omits them.
  */
-export interface TurnSnapshot {
+export interface TurnSnapshot extends TurnMetricsCheckpoint {
   threads: Record<string, AgentThreadSnapshot>;
   mcp_servers: Record<string, MCPServerInitInfo> | null;
   sandbox_info: SandboxInfo | null;

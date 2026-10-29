@@ -14,6 +14,7 @@ import type {
   TurnState,
   TurnUserEventMessage,
 } from '@truefoundry/trueforge-core/agent-session';
+import type { TurnMetricsCheckpoint } from '@truefoundry/trueforge-core/agent-session/schemas/turn';
 import type {
   AgentInfo,
   AgentParent,
@@ -51,7 +52,7 @@ export interface TurnThreadCheckpoint {
 }
 
 /** Turn-level checkpoint — threads live in `turn_thread`; only owned top-level keys remain. */
-export interface TurnCheckpoint {
+export interface TurnCheckpoint extends TurnMetricsCheckpoint {
   mcp_servers: Record<string, MCPServerInitInfo> | null;
   sandbox_info: SandboxInfo | null;
 }
@@ -163,8 +164,9 @@ export interface TurnTable {
    */
   state: JSONColumnType<TurnState, TurnState, TurnState>;
   /**
-   * inlined: {mcp_servers, sandbox_info, ...future} — both small,
-   *      patched at most once or twice per turn (resource init);
+   * inlined: {mcp_servers, sandbox_info, metrics, active_duration_ms, running_since}.
+   *      Sandbox and MCP stay small patches. The metrics keys are replaced together on pause, resume, and terminal.
+   *      Legacy rows omit the metrics keys; readers fill the defaults.
    *      extensible without migration
    */
   checkpoint: JSONColumnType<TurnCheckpoint, TurnCheckpoint, TurnCheckpoint>;

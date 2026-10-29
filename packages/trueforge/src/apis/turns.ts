@@ -677,7 +677,6 @@ export async function beginTurnExecution<TTransaction>(
 
   // Freeze the predecessor in the store and leave its generator parked. A paused previous
   // turn stays in memory until the keepalive timer offloads it. That is deliberate.
-  // TODO: freezing drops the previous turn's token cost. Fix when paused turns persist metrics.
   const turn = await session.createTurn({
     turn_id: turnId,
     active_executor_id: configuration.EXECUTOR_ID,
