@@ -2,7 +2,7 @@ import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 import type { AgentInfo, ILLM } from '@truefoundry/trueforge-core/core';
 import { createLogger } from 'winston';
 import { TrueFoundryTurnResourceResolver } from '../../../src/truefoundry/TrueFoundryTurnResourceResolver';
-import { parseTfgTools, type TfgToolDefinition } from '../../../src/truefoundry/tfgTools';
+import { parseTfgTools, type TfgToolDefinition } from '../../../src/truefoundry/inlineTools';
 
 const unusedLlm: ILLM = {
   create: () => {
@@ -53,7 +53,7 @@ describe('TrueFoundryTurnResourceResolver', () => {
 
     expect(
       root.extraCapabilities?.flatMap(capability => capability.systemToolSets ?? []).map(toolSet => toolSet.name),
-    ).toEqual(['tfg-tools']);
+    ).toEqual(['x-tfg-tools']);
     expect(nested.extraCapabilities).toBeUndefined();
   });
 

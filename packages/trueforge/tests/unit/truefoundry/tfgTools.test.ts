@@ -4,7 +4,7 @@ import {
   parseTfgTools,
   tfgToolsCapability,
   X_TFG_TOOLS,
-} from '../../../src/truefoundry/tfgTools';
+} from '../../../src/truefoundry/inlineTools';
 
 const askUserSecret = {
   name: 'ask_user_secret',
@@ -37,6 +37,11 @@ describe('parseTfgTools', () => {
     expect(parseTfgTools(JSON.stringify([askUserSecret]))).toEqual([askUserSecret]);
   });
 
+  it('accepts a name that matches a harness tool', () => {
+    const tool = { ...askUserSecret, name: 'ask_user_question' };
+    expect(parseTfgTools(JSON.stringify([tool]))).toEqual([tool]);
+  });
+
   it('accepts an empty list', () => {
     expect(parseTfgTools('[]')).toEqual([]);
   });
@@ -45,11 +50,6 @@ describe('parseTfgTools', () => {
     ['not json', 'not-json', `${X_TFG_TOOLS} must be a JSON array`],
     ['an object', '{}', `${X_TFG_TOOLS} must be a JSON array of tool definitions`],
     ['a string entry', '["ask_user_secret"]', `${X_TFG_TOOLS}[0] must be an object`],
-    [
-      'a reserved name',
-      JSON.stringify([{ ...askUserSecret, name: 'ask_user_question' }]),
-      `${X_TFG_TOOLS}[0] name "ask_user_question" is reserved`,
-    ],
     [
       'a bad name',
       JSON.stringify([{ ...askUserSecret, name: 'has space' }]),
@@ -119,8 +119,8 @@ describe('tfgToolsCapability', () => {
     expect(response.clientSideToolRequired.tool_info).toEqual({
       type: 'truefoundry-system',
       original_tool_name: 'ask_user_secret',
-      mcp_server_id: 'tfg-tools',
-      mcp_server_name: 'tfg-tools',
+      mcp_server_id: 'x-tfg-tools',
+      mcp_server_name: 'x-tfg-tools',
       is_client_side: true,
     });
   });

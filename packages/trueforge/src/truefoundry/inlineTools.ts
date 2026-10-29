@@ -9,30 +9,10 @@ import { HTTPException } from 'hono/http-exception';
 /** Per-turn tool definitions. Not stored, so a resume turn must send the header again. */
 export const X_TFG_TOOLS = 'x-tfg-tools';
 
-const TFG_TOOLS_SERVER_ID = 'tfg-tools';
 const MAX_TOOLS = 16;
 const MAX_DESCRIPTION_LENGTH = 4_000;
 const MAX_HEADER_LENGTH = 16_000;
 const TOOL_NAME_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/;
-
-/**
- * Harness system tools register first and keep their names. A header tool with one of these
- * names would be renamed, so the caller and the UI would no longer find it.
- */
-const RESERVED_TOOL_NAMES = new Set([
-  'ask_user_question',
-  'call_tool',
-  'create_sub_agent',
-  'exec',
-  'get_current_datetime',
-  'get_openui_instructions',
-  'get_tool_info',
-  'get_tool_output_schema',
-  'list_tools',
-  'unknown',
-  'web_fetch',
-  'web_search',
-]);
 
 export interface TfgToolParameters {
   type: 'object';
@@ -90,12 +70,12 @@ export function parseTfgTools(raw: string): readonly TfgToolDefinition[] {
 
 export function tfgToolsCapability(tools: readonly TfgToolDefinition[]): AgentCapability {
   return {
-    systemToolSets: [new HeaderClientSideTools(tools)],
+    systemToolSets: [new InlineClientSideTools(tools)],
   };
 }
 
-class HeaderClientSideTools extends ClientSideTool {
-  readonly name = TFG_TOOLS_SERVER_ID;
+class InlineClientSideTools extends ClientSideTool {
+  readonly name = X_TFG_TOOLS;
   readonly displayName = 'TfgTools';
   override readonly tracingEnabled = false;
   readonly #tools: ToolDefinition[];
@@ -130,9 +110,6 @@ function parseToolDefinition(value: unknown, index: number): TfgToolDefinition {
     throw new HTTPException(400, {
       message: entryMessage(index, 'name must be 1-64 characters of letters, numbers, "_" or "-"'),
     });
-  }
-  if (RESERVED_TOOL_NAMES.has(name)) {
-    throw new HTTPException(400, { message: entryMessage(index, `name "${name}" is reserved`) });
   }
   const description = value['description'];
   if (typeof description !== 'string') {

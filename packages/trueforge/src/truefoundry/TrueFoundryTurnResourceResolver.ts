@@ -1,5 +1,5 @@
 import { TurnResourceResolver } from '@truefoundry/trueforge-core/agent-session';
-import { tfgToolsCapability, type TfgToolDefinition } from './tfgTools';
+import { tfgToolsCapability, type TfgToolDefinition } from './inlineTools';
 
 type TurnResolverDeps = ConstructorParameters<typeof TurnResourceResolver>[0];
 

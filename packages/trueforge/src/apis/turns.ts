@@ -75,7 +75,7 @@ import {
   parseTfgTools,
   X_TFG_TOOLS,
   type TfgToolDefinition,
-} from '../truefoundry/tfgTools';
+} from '../truefoundry/inlineTools';
 import { TrueFoundryTurnResourceResolver } from '../truefoundry/TrueFoundryTurnResourceResolver';
 import { newId } from '../utils/id';
 import { resolveWebSearchProvider } from '../websearch/providers';
