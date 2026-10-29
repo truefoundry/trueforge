@@ -27,8 +27,8 @@ pnpm --filter @truefoundry/trueforge-core build
 pnpm openapi:write
 fern check
 # --force skips the overwrite prompt when the SDK dirs already exist (needed non-interactively / in CI).
-fern generate --group ts-sdk --version "$ts_version" --local --generate-tests --force --log-level debug
-fern generate --group python-sdk --version "$py_version" --local --generate-tests --force --log-level debug
+fern generate --target typescript --version "$ts_version" --local --generate-tests --force --log-level debug
+fern generate --target python --version "$py_version" --local --generate-tests --force --log-level debug
 test -f python/trueforge_sdk/src/trueforge_sdk/client.py
 
 # Fern's generated verify.sh runs `pnpm install` from packages/trueforge-sdk, which now
