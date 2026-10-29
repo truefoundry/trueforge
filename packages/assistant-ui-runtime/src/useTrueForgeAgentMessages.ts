@@ -928,6 +928,17 @@ export function useTrueForgeAgentMessages({
       const sendGeneration = ++streamGenerationRef.current;
       abortControllerRef.current?.abort();
 
+      // Put back on a pre-turn.created failure so a paused tip is not left cancelled
+      // while the server turn is still waiting for an answer.
+      let restoreSnapshot: SessionSnapshot | undefined = options.branchRollbackSnapshot;
+
+      const applyRestoredSnapshot = (restored: SessionSnapshot) => {
+        snapshotRef.current = restored;
+        runningTurnRef.current = restored.runningTurn;
+        setSnapshot(restored);
+        setIsRunning(restored.runningTurn?.state.status === TURN_STATUS.RUNNING);
+      };
+
       try {
         let activeSessionId = sessionId;
         if (activeSessionId == null) {
@@ -1023,6 +1034,8 @@ export function useTrueForgeAgentMessages({
           pendingUserWasSet = true;
           pendingUserTurnId = turnId;
         } else {
+          // Capture before abandon so createTurn failure can restore a paused tip.
+          restoreSnapshot = snapshotRef.current;
           const abandoned = abandonInFlightClientTurn(commitActiveStream(snapshotRef.current));
           const rootBucket = abandoned.fold.threads.get(ROOT_THREAD_ID);
           groupRootBaseline = [...(rootBucket?.modelMessageIds ?? [])];
@@ -1089,35 +1102,19 @@ export function useTrueForgeAgentMessages({
             (snapshotRef.current === options.branchFromSnapshot ||
               snapshotRef.current.pendingUser?.turnId === pendingUserTurnId);
           if (canRestoreBranch) {
-            snapshotRef.current = branchRollbackSnapshot;
-            setSnapshot(branchRollbackSnapshot);
-          } else if (pendingUserWasSet) {
-            const clearPendingUser = (previous: SessionSnapshot): SessionSnapshot => {
-              if (previous.pendingUser?.turnId !== pendingUserTurnId) {
-                return previous;
-              }
-              return replaceSessionSnapshot(previous, {
-                pendingUser: undefined,
-              });
-            };
-            snapshotRef.current = clearPendingUser(snapshotRef.current);
-            setSnapshot(snapshotRef.current);
+            applyRestoredSnapshot(branchRollbackSnapshot);
+          } else if (pendingUserWasSet && restoreSnapshot != null) {
+            applyRestoredSnapshot(restoreSnapshot);
           }
           options.onPreTurnFailure?.();
         }
         if (!runStreamStarted) {
           // A supersede already aborted the live stream. A send that fails
           // before it installs a message must not cancel the painted open tip.
-          const hasIncompleteStream = isIncompleteActiveStream(snapshotRef.current);
-          if ('userMessage' in options && (pendingUserWasSet || hasIncompleteStream)) {
-            const abandoned = abandonInFlightClientTurn(commitActiveStream(snapshotRef.current));
-            snapshotRef.current = abandoned;
-            setSnapshot(abandoned);
-          }
           if (abortControllerRef.current?.signal.aborted) {
             abortControllerRef.current = null;
           }
-          setIsRunning(false);
+          setIsRunning(snapshotRef.current.runningTurn?.state.status === TURN_STATUS.RUNNING);
           onErrorRef.current?.(error);
         }
         throw error;

@@ -3922,6 +3922,171 @@ describe('buildSnapshotFromSessionEvents', () => {
     expect(snapshot.pendingUser?.content).toBe('now');
   });
 
+  it('publishes a paused tip with requires-action before getTurn resolves', async () => {
+    const progress: SessionSnapshot[] = [];
+    let resolveGetTurn: (turn: Turn) => void = () => undefined;
+    const getTurn = vi.fn(
+      () =>
+        new Promise<Turn>(resolve => {
+          resolveGetTurn = resolve;
+        }),
+    );
+    const items: SessionEventItem[] = [
+      {
+        turnId: 't-paused',
+        event: {
+          type: 'turn.created',
+          id: 'created-paused',
+          turnId: 't-paused',
+          input: [{ type: 'user.message', content: 'run it' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      {
+        turnId: 't-paused',
+        event: modelMessage({
+          id: 'model-paused',
+          threadId: ROOT_THREAD_ID,
+          toolCalls: [
+            {
+              id: 'approval-1',
+              type: 'function',
+              function: { name: 'bash', arguments: '{}' },
+            },
+          ],
+        }),
+      },
+      {
+        turnId: 't-paused',
+        event: approvalRequired({
+          id: 'approval-required-1',
+          threadId: ROOT_THREAD_ID,
+          toolCalls: [{ id: 'approval-1', sourceEventId: 'model-paused' }],
+        }),
+      },
+      {
+        turnId: 't-paused',
+        event: {
+          type: 'turn.update',
+          id: 'paused-update',
+          createdAt,
+          threadId: null,
+          state: { status: 'paused' },
+        },
+      },
+    ];
+    const server = {
+      listTurns: vi.fn(async () => ({ data: [] })),
+      getTurn,
+      listEvents: sessionEventsPage(items),
+      listTurnEvents: async () => ({ data: [] }),
+    } as unknown as AgentChatServer;
+
+    let notifyProgress: () => void = () => undefined;
+    const progressed = new Promise<void>(resolve => {
+      notifyProgress = resolve;
+    });
+    const pending = buildSnapshotFromSessionEvents(server, SESSION_ID, snap => {
+      progress.push(snap);
+      if (snap.runningTurn?.state.status === 'paused') {
+        notifyProgress();
+      }
+    });
+
+    await progressed;
+    const painted = progress.at(-1);
+    expect(painted?.runningTurn?.state.status).toBe('paused');
+    expect(collectPendingApprovals(projectSessionMessages(painted!))).toMatchObject([
+      { approvalId: 'approval-1', threadId: ROOT_THREAD_ID },
+    ]);
+
+    resolveGetTurn({
+      id: 't-paused',
+      sessionId: SESSION_ID,
+      state: { status: 'paused' },
+      input: [{ type: 'user.message', content: 'run it' }],
+      createdAt,
+    });
+    const snapshot = await pending;
+    expect(snapshot.runningTurn?.state.status).toBe('paused');
+  });
+
+  it('prefers getTurn running over a stale events-page pause', async () => {
+    const items: SessionEventItem[] = [
+      {
+        turnId: 't-tip',
+        event: {
+          type: 'turn.created',
+          id: 'created-tip',
+          turnId: 't-tip',
+          input: [{ type: 'user.message', content: 'run it' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      {
+        turnId: 't-tip',
+        event: modelMessage({
+          id: 'model-tip',
+          threadId: ROOT_THREAD_ID,
+          toolCalls: [
+            {
+              id: 'approval-1',
+              type: 'function',
+              function: { name: 'bash', arguments: '{}' },
+            },
+          ],
+        }),
+      },
+      {
+        turnId: 't-tip',
+        event: approvalRequired({
+          id: 'approval-required-1',
+          threadId: ROOT_THREAD_ID,
+          toolCalls: [{ id: 'approval-1', sourceEventId: 'model-tip' }],
+        }),
+      },
+      {
+        turnId: 't-tip',
+        event: {
+          type: 'turn.update',
+          id: 'paused-update',
+          createdAt,
+          threadId: null,
+          state: { status: 'paused' },
+        },
+      },
+    ];
+    const resumed: Turn = {
+      id: 't-tip',
+      sessionId: SESSION_ID,
+      state: { status: 'running' },
+      input: [
+        { type: 'user.message', content: 'run it' },
+        {
+          type: 'user.tool_approval',
+          threadId: ROOT_THREAD_ID,
+          toolCallId: 'approval-1',
+          approval: { status: 'allow' },
+        },
+      ],
+      createdAt,
+    };
+    const snapshot = await buildSnapshotFromSessionEvents(
+      {
+        listTurns: vi.fn(async () => ({ data: [] })),
+        getTurn: vi.fn(async () => resumed),
+        listEvents: sessionEventsPage(items),
+        listTurnEvents: async () => ({ data: [] }),
+      } as unknown as AgentChatServer,
+      SESSION_ID,
+    );
+
+    expect(snapshot.runningTurn?.state.status).toBe('running');
+    expect(snapshot.runningTurn?.input).toEqual(resumed.input);
+  });
+
   it('attaches an open tip from events when listTurns is oldest-first and clears answered ask-user', async () => {
     // listEvents includes the running turn. Tip detection uses the open
     // turn.created, because listTurns is oldest-first.

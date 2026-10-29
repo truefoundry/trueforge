@@ -680,16 +680,10 @@ async function resolveSessionTip(options: {
         turnId: open.turnId,
       });
       if (turn.state.status === TURN_STATUS.RUNNING || turn.state.status === TURN_STATUS.PAUSED) {
+        // getTurn is after listEvents — prefer it over a stale events-page pause
+        // so a tip that resumed between the two calls keeps requires-action off.
         return {
-          runningTurn:
-            open.update?.state.status === TURN_STATUS.PAUSED && turn.state.status === TURN_STATUS.RUNNING
-              ? turnFromCreatedEvent({
-                  sessionId,
-                  turnId: open.turnId,
-                  event: open.event,
-                  update: open.update,
-                })
-              : turn,
+          runningTurn: turn,
           ...(open.sandboxId != null ? { sandboxId: open.sandboxId } : {}),
           continuationInput: turn.input ?? continuationInput,
         };
@@ -742,7 +736,8 @@ export async function buildSnapshotFromSessionEvents(
 
   const open = findOpenTurnCreated(window.itemsAsc);
   // The open tip is not in `turns` until `turn.done`. Attach it from the
-  // event so the first paint includes its user message.
+  // event so the first paint includes its user message. Include the latest
+  // turn.update so a paused tip is not painted as running before getTurn.
   const paintable =
     open == null
       ? withHistory
@@ -752,6 +747,7 @@ export async function buildSnapshotFromSessionEvents(
             sessionId,
             turnId: open.turnId,
             event: open.event,
+            ...(open.update != null ? { update: open.update } : {}),
           }),
         );
   if (open != null) {

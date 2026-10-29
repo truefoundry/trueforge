@@ -2320,10 +2320,76 @@ describe('useTrueForgeAgentMessages', () => {
           .join(''),
       );
     expect(userTexts).toEqual(['turn 1']);
+    // Failed send never installed a message, so the open tip stays painted.
     expect(result.current.messages.find(message => message.role === 'assistant')).toMatchObject({
       role: 'assistant',
-      status: { type: 'incomplete', reason: 'cancelled' },
+      content: [{ type: 'text', text: 'partial' }],
     });
+    expect(
+      result.current.messages.some(
+        message =>
+          message.role === 'assistant' && message.status.type === 'incomplete' && message.status.reason === 'cancelled',
+      ),
+    ).toBe(false);
+  });
+
+  it('restores a paused tip when createTurn fails before turn.created', async () => {
+    const onPreTurnFailure = vi.fn();
+    const pausedSnapshot = snapshotWithAssistantMessage(assistantMessageWithPendingApproval(), {
+      pendingUser: {
+        turnId: 'turn-1',
+        content: 'run it',
+        createdAt: new Date(),
+      },
+      runningTurn: {
+        id: 'turn-1',
+        sessionId: 'session-1',
+        input: [{ type: 'user.message', content: 'run it' }],
+        state: { status: 'paused' },
+        createdAt: new Date().toISOString(),
+      },
+    });
+    vi.mocked(loadSessionSnapshot).mockResolvedValue(pausedSnapshot);
+    vi.mocked(resumeTurnStream).mockReturnValue(
+      (async function* () {
+        // Keep the load-time subscribe open until send aborts it.
+        await new Promise<void>(() => undefined);
+      })(),
+    );
+    vi.mocked(streamTurnContent).mockImplementation(async function* () {
+      throw new Error('Turn preparation failed');
+    });
+
+    const { result } = renderHook(() =>
+      useTrueForgeAgentMessages({
+        server: mockServer,
+        sessionId: 'session-1',
+      }),
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await waitFor(() => expect(collectPendingApprovals(result.current.messages).length).toBe(1));
+
+    await act(async () => {
+      await expect(
+        result.current.sendTurn({
+          userMessage: 'never mind',
+          onPreTurnFailure,
+        }),
+      ).rejects.toThrow('Turn preparation failed');
+    });
+
+    expect(onPreTurnFailure).toHaveBeenCalledOnce();
+    expect(
+      result.current.messages.some(
+        message =>
+          message.role === 'user' && message.content.some(part => part.type === 'text' && part.text === 'never mind'),
+      ),
+    ).toBe(false);
+    expect(collectPendingApprovals(result.current.messages)).toMatchObject([{ approvalId: 'approval-1' }]);
+    expect(result.current.messages.find(message => message.role === 'assistant')).toMatchObject({
+      status: { type: 'requires-action', reason: 'tool-calls' },
+    });
+    expect(result.current.isRunning).toBe(false);
   });
 
   it('keeps paused state when the backend rejects cancellation', async () => {
