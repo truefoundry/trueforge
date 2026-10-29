@@ -19,7 +19,7 @@ const session = {
     },
   },
   title: null,
-  created_by: 'trueforge-default',
+  created_by_subject: { subject_id: 'u_owner', subject_type: 'user', subject_display_name: 'Owner' },
   created_at: '2026-08-03T00:00:00.000Z',
   updated_at: '2026-08-03T00:00:00.000Z',
   metrics: {
@@ -54,7 +54,11 @@ const fetchMock: typeof fetch = async (input, init) => {
       body !== null && typeof body === 'object' && 'title' in body && typeof body.title === 'string'
         ? body.title
         : session.title;
-    return Response.json({ data: { ...session, title } });
+    const shared =
+      body !== null && typeof body === 'object' && 'shared' in body && typeof body.shared === 'boolean'
+        ? body.shared
+        : false;
+    return Response.json({ data: { ...session, title, shared } });
   }
   if (url.endsWith('/api/v1/sessions/ses_1') && method === 'DELETE') {
     deletedSessions.push('ses_1');
@@ -267,6 +271,24 @@ describe('createHarnessChatServer', () => {
     assert.equal(new URL(listUrl, 'http://test.local').searchParams.get('created_by_me'), 'true');
   });
 
+  it('forwards metadata to listSessions as a deepObject filter', async () => {
+    let listUrl: string | undefined;
+    const fetchNamed: typeof fetch = async input => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.includes('/api/v1/sessions?')) {
+        listUrl = url;
+        return Response.json({ data: [], pagination: { limit: 20 } });
+      }
+      return new Response(`Unexpected request: ${url}`, { status: 500 });
+    };
+
+    const server = createHarnessChatServer({ fetch: fetchNamed });
+    await server.listSessions({ metadata: { 'tfg.source': 'ui' } });
+
+    assert.ok(listUrl !== undefined);
+    assert.equal(new URL(listUrl, 'http://test.local').searchParams.get('metadata[tfg.source]'), 'ui');
+  });
+
   it('PATCHes session title and returns the updated UI session', async () => {
     sessionRequests.length = 0;
     const server = createHarnessChatServer({ fetch: fetchMock });
@@ -277,6 +299,14 @@ describe('createHarnessChatServer', () => {
     const updated = await server.updateSession({ sessionId: 'ses_1', title: 'Acme onboarding' });
     assert.deepEqual(sessionRequests.at(-1), { title: 'Acme onboarding' });
     assert.equal(updated.title, 'Acme onboarding');
+  });
+
+  it('PATCHes session shared when updateSession receives shared', async () => {
+    sessionRequests.length = 0;
+    const server = createHarnessChatServer({ fetch: fetchMock });
+    const updated = await server.updateSession({ sessionId: 'ses_1', shared: true });
+    assert.deepEqual(sessionRequests.at(-1), { shared: true });
+    assert.equal(updated.shared, true);
   });
 
   it('listSessions forwards an unknown agentId to the API (empty page from the server)', async () => {
@@ -319,6 +349,7 @@ describe('createHarnessChatServer', () => {
     assert.equal(listedAgents, false);
     assert.equal(found.agentName, 'reviewer');
     assert.equal(found.isMutable, false);
+    assert.deepEqual(found.createdBy, { id: 'u_owner', displayName: 'Owner' });
     assert.deepEqual(found.metrics, {
       totalTurns: 1,
       totalDurationMs: 12_000,

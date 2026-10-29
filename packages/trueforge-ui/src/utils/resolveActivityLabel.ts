@@ -18,6 +18,7 @@ export type ActivityPart = {
   data?: unknown;
   toolName?: string;
   argsText?: string;
+  text?: string;
   status?: { type: string };
   result?: unknown;
   approval?: { approved?: boolean; resolution?: 'cancelled' | 'expired' };
@@ -100,6 +101,16 @@ export function loaderActivityKey(parts: readonly ActivityPart[]): string | null
     if (statusType === 'running') return `tool:${last.toolCallId ?? last.toolName ?? 'tool'}`;
   }
   return 'model';
+}
+
+/** Stream fingerprint for the slow-activity clock; changes while tokens or tool args arrive. */
+// This is to avoid showing `taking longer..` label when events are arriving
+export function loaderActivityProgress(parts: readonly ActivityPart[]): string {
+  const last = parts[parts.length - 1];
+  if (!last) return `${parts.length}:empty`;
+  if (last.type === 'reasoning') return `${parts.length}:reasoning:${last.text?.length ?? 0}`;
+  if (last.type === 'tool-call') return `${parts.length}:tool-call:${last.argsText?.length ?? 0}`;
+  return `${parts.length}:${last.type}`;
 }
 
 /** Main-thread loader: the running tool row already shows its own detail, so stay generic. */

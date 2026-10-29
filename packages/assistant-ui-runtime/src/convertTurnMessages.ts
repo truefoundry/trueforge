@@ -267,55 +267,68 @@ async function fetchSessionEventsPage(
   };
 }
 
+interface SessionEventsWindow {
+  itemsAsc: GatewaySessionEventItem[];
+  olderPageToken?: string;
+  hasOlder: boolean;
+  /** Leading events cut from `itemsAsc` whose `turn.created` is still on an older page. */
+  pendingItemsAsc: GatewaySessionEventItem[];
+}
+
+function toSessionEventsWindow(
+  itemsNewestFirst: readonly GatewaySessionEventItem[],
+  page: { olderPageToken?: string; hasOlder: boolean },
+): SessionEventsWindow {
+  const chronological = [...itemsNewestFirst].reverse();
+  const itemsAsc = trimIncompleteLeadingEvents(chronological);
+  const hasOlder = page.hasOlder && page.olderPageToken != null;
+  return {
+    itemsAsc,
+    ...(hasOlder ? { olderPageToken: page.olderPageToken } : {}),
+    hasOlder,
+    // At the session start there is no older half to wait for.
+    pendingItemsAsc: hasOlder ? chronological.slice(0, chronological.length - itemsAsc.length) : [],
+  };
+}
+
+function toHistoryPagination(window: SessionEventsWindow): SessionHistoryPagination {
+  return {
+    hasOlder: window.hasOlder,
+    ...(window.olderPageToken != null ? { olderPageToken: window.olderPageToken } : {}),
+    ...(window.pendingItemsAsc.length > 0 ? { pendingItemsAsc: window.pendingItemsAsc } : {}),
+  };
+}
+
 /**
  * Fetches pages until the chronological window starts on a complete user-message
- * turn group (or history is exhausted).
+ * turn group (or history is exhausted). `pendingItemsAsc` seeds the chain with a
+ * split turn held back by the previous window.
  */
 async function fetchSessionEventsWindow(
   server: AgentChatServer,
   sessionId: string,
-  options?: FetchSessionEventsOptions & { pageToken?: string },
-): Promise<{
-  itemsAsc: GatewaySessionEventItem[];
-  olderPageToken?: string;
-  hasOlder: boolean;
-}> {
-  let itemsNewestFirst: GatewaySessionEventItem[] = [];
+  options?: FetchSessionEventsOptions & {
+    pageToken?: string;
+    pendingItemsAsc?: readonly GatewaySessionEventItem[];
+  },
+): Promise<SessionEventsWindow> {
+  let itemsNewestFirst: GatewaySessionEventItem[] = [...(options?.pendingItemsAsc ?? [])].reverse();
   let pageToken = options?.pageToken;
-  let olderPageToken: string | undefined;
-  let hasOlder = false;
+  let window = toSessionEventsWindow(itemsNewestFirst, { hasOlder: false });
 
   for (let pageCount = 0; pageCount < MAX_HISTORY_BOUNDARY_PAGES; pageCount++) {
     const page = await fetchSessionEventsPage(server, sessionId, {
-      ...options,
+      ...(options?.lastTurnId != null ? { lastTurnId: options.lastTurnId } : {}),
       ...(pageToken != null ? { pageToken } : {}),
     });
     itemsNewestFirst = [...itemsNewestFirst, ...page.itemsNewestFirst];
-    olderPageToken = page.olderPageToken;
-    hasOlder = page.hasOlder;
-
-    const itemsAsc = trimIncompleteLeadingEvents([...itemsNewestFirst].reverse());
-    const groupState = oldestCompleteTurnGroupState(itemsAsc);
-    if (groupState === 'user-group' || !hasOlder) {
-      return {
-        itemsAsc,
-        ...(olderPageToken != null ? { olderPageToken } : {}),
-        hasOlder,
-      };
+    window = toSessionEventsWindow(itemsNewestFirst, page);
+    if (oldestCompleteTurnGroupState(window.itemsAsc) === 'user-group' || !window.hasOlder) {
+      return window;
     }
-
-    if (olderPageToken == null) {
-      return { itemsAsc, hasOlder: false };
-    }
-    pageToken = olderPageToken;
+    pageToken = window.olderPageToken;
   }
-
-  const itemsAsc = trimIncompleteLeadingEvents([...itemsNewestFirst].reverse());
-  return {
-    itemsAsc,
-    ...(olderPageToken != null ? { olderPageToken } : {}),
-    hasOlder,
-  };
+  return window;
 }
 
 /**
@@ -637,10 +650,7 @@ export async function buildSnapshotFromSessionEvents(
   onProgress?: (snap: SessionSnapshot) => void,
 ): Promise<SessionSnapshot> {
   const window = await fetchSessionEventsWindow(server, sessionId);
-  const historyPagination: SessionHistoryPagination = {
-    hasOlder: window.hasOlder,
-    ...(window.olderPageToken != null ? { olderPageToken: window.olderPageToken } : {}),
-  };
+  const historyPagination = toHistoryPagination(window);
 
   const snapshot = createEmptySessionSnapshot();
   ingestSessionEventsIntoSnapshot(snapshot, window.itemsAsc, onProgress);
@@ -667,7 +677,12 @@ export async function buildSnapshotFromSessionEvents(
   if (open != null) {
     applyUserToolResponsesToFold(paintable.fold, open.event.input ?? []);
   }
-  onProgress?.(paintable);
+  // Scroll-up waits until this function returns. Publishing `hasOlder` on the
+  // pre-getTurn paint lets HistoryLoader prepend, and the caller's final
+  // setSnapshot then replaces that prepend with this window.
+  const progressSnapshot: SessionSnapshot = { ...paintable };
+  delete progressSnapshot.historyPagination;
+  onProgress?.(progressSnapshot);
 
   const tip = await resolveSessionTip({
     server,
@@ -701,11 +716,11 @@ export async function prependOlderSessionHistory(
 
   const window = await fetchSessionEventsWindow(server, sessionId, {
     pageToken: pagination.olderPageToken,
+    ...(pagination.pendingItemsAsc != null ? { pendingItemsAsc: pagination.pendingItemsAsc } : {}),
   });
   if (window.itemsAsc.length === 0) {
-    return replaceSessionSnapshot(snapshot, {
-      historyPagination: { hasOlder: false },
-    });
+    // Still inside one turn longer than the page cap: keep its events and cursor.
+    return replaceSessionSnapshot(snapshot, { historyPagination: toHistoryPagination(window) });
   }
 
   const olderSnap = createEmptySessionSnapshot();
@@ -736,10 +751,7 @@ export async function prependOlderSessionHistory(
     fold: mergedFold,
     turns: mergedTurns,
     historyEvents,
-    historyPagination: {
-      hasOlder: window.hasOlder,
-      ...(window.olderPageToken != null ? { olderPageToken: window.olderPageToken } : {}),
-    },
+    historyPagination: toHistoryPagination(window),
     ...(snapshot.groupRootBaseline != null
       ? {
           groupRootBaseline: [...olderRootIds, ...snapshot.groupRootBaseline],
@@ -1411,75 +1423,56 @@ export function projectSessionMessages(
 
 const DEFAULT_LIST_EVENTS_CONCURRENCY = 5;
 
-function ingestTurnsIntoSnapshot(
-  snapshot: SessionSnapshot,
-  turns: Turn[],
-  eventArrays: TurnEvent[][],
-): Turn | undefined {
-  let runningTurn: Turn | undefined;
-  // Session-scoped: sandbox.created fires when a sandbox is (re)created and the
-  // sandbox is reused by later turns, so carry the latest one forward.
-  let sessionSandboxId: string | undefined;
-
-  for (let i = 0; i < turns.length; i++) {
-    const turn = turns[i];
-    if (turn == null) {
-      continue;
-    }
-    const rootBucket = snapshot.fold.threads.get(ROOT_THREAD_ID);
-    const beforeCount = rootBucket?.modelMessageIds.length ?? 0;
-
-    ingestCollectedEventsIntoFold(snapshot.fold, eventArrays[i] ?? []);
-    applyUserToolResponsesToFold(snapshot.fold, turn.input ?? []);
-
-    const afterBucket = snapshot.fold.threads.get(ROOT_THREAD_ID);
-    const rootModelMessageIds = (afterBucket?.modelMessageIds ?? []).slice(beforeCount);
-
-    const sandboxEvent = (eventArrays[i] ?? []).find(
-      (event): event is Extract<TurnEvent, { type: 'sandbox.created' }> => event.type === 'sandbox.created',
-    );
-    sessionSandboxId = sandboxEvent?.sandboxId ?? sessionSandboxId;
-
-    snapshot.turns.push({
-      ...turnToSessionRecord(turn),
-      rootModelMessageIds,
-      ...(sessionSandboxId != null ? { sandboxId: sessionSandboxId } : {}),
-    });
-
-    if (turn.state.status === 'running') {
-      runningTurn = turn;
-      break;
-    }
-  }
-
-  return runningTurn;
-}
-
 export async function buildSnapshotFromSession(
   server: AgentChatServer,
   sessionId: string,
   concurrency: number = DEFAULT_LIST_EVENTS_CONCURRENCY,
 ): Promise<SessionSnapshot> {
-  // Completed history comes from session-level listEvents. The session API
-  // excludes the running turn — hydrate that turn via listTurnEvents so
-  // convertTurnsToThreadMessages still surfaces in-flight content.
+  // Session listEvents already folds the open tip. Merge any newer tip events
+  // via listTurnEvents, then attribute uncommitted root ids — a beforeCount
+  // slice is empty when listEvents already ingested the tip.
   const snapshot = await buildSnapshotFromSessionEvents(server, sessionId);
   if (snapshot.runningTurn == null) {
     return snapshot;
   }
 
   const turn = snapshot.runningTurn;
+  if (snapshot.turns.some(existing => existing.id === turn.id)) {
+    const snapshotWithoutPendingUser = { ...snapshot };
+    delete snapshotWithoutPendingUser.pendingUser;
+    return replaceSessionSnapshot(snapshotWithoutPendingUser, {
+      runningTurn: turn,
+      unstable_resume: true,
+      groupRootBaseline: computeGroupRootBaseline(snapshot.turns),
+    });
+  }
+
   const eventArrays = await fetchAllTurnEventsWithConcurrency(server, sessionId, [turn], concurrency);
-  ingestTurnsIntoSnapshot(snapshot, [turn], eventArrays);
+  const tipEvents = eventArrays[0] ?? [];
+  ingestCollectedEventsIntoFold(snapshot.fold, tipEvents);
+  applyUserToolResponsesToFold(snapshot.fold, turn.input ?? []);
+
+  const sandboxEvent = tipEvents.find(
+    (event): event is Extract<TurnEvent, { type: 'sandbox.created' }> => event.type === 'sandbox.created',
+  );
+  const turns = [
+    ...snapshot.turns,
+    {
+      ...turnToSessionRecord(turn),
+      rootModelMessageIds: rootModelMessageIdsForOpenTip(snapshot),
+      ...(sandboxEvent?.sandboxId != null ? { sandboxId: sandboxEvent.sandboxId } : {}),
+    },
+  ];
 
   // Hydrated in-flight content lives in `turns` / `fold` now — drop the
   // reconnect seed so projection does not duplicate the user bubble.
   const snapshotWithoutPendingUser = { ...snapshot };
   delete snapshotWithoutPendingUser.pendingUser;
   return replaceSessionSnapshot(snapshotWithoutPendingUser, {
+    turns,
     runningTurn: turn,
     unstable_resume: true,
-    groupRootBaseline: computeGroupRootBaseline(snapshot.turns),
+    groupRootBaseline: computeGroupRootBaseline(turns),
   });
 }
 

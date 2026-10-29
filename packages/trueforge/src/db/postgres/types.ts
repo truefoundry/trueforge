@@ -35,6 +35,7 @@ import type {
 } from '../../schemas/sandboxEnvironment';
 import type { StoredSandboxProviderManifest } from '../../schemas/sandboxProvider';
 import type { ScheduleManifest, ScheduleRunStatus, ScheduleStatus } from '../../schemas/schedule';
+import type { SessionGrantSubjectType } from '../../schemas/sessionGrant';
 import type { SkillManifest } from '../../schemas/skill';
 import type { WebSearchProviderManifest } from '../../schemas/webSearchProvider';
 import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpServerStore';
@@ -90,13 +91,6 @@ export interface SessionTable {
    *      (COALESCE) targets it directly
    */
   title: string | null;
-  /** When true, any subject in the tenant may GET this session. */
-  shared: boolean;
-  /**
-   * top: HOT — bumped once per createTurn under the session lock;
-   *      tiny fixed-width column keeps the bump a cheap HOT update
-   */
-  last_turn_id: string | null;
   /** Null until the first turn; always replaced as a whole document. */
   last_turn_details: JSONColumnType<
     SessionLastTurnDetails,
@@ -120,6 +114,20 @@ export interface SessionTable {
    * top: hot, bumped with the tip ("activity" = turn creation)
    */
   last_activity_timestamp_ms: number;
+}
+
+/**
+ * Explicit read grants on a session. Rows are insert-only; revoke deletes the row.
+ * PRIMARY KEY (tenant_id, session_id, subject_type, subject_id)
+ * FK (session_id) → session(session_id) ON DELETE CASCADE
+ */
+export interface AccessControlTable {
+  tenant_id: string;
+  session_id: string;
+  subject_type: SessionGrantSubjectType;
+  subject_id: string;
+  granted_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
+  created_at: Date;
 }
 
 /**
@@ -608,6 +616,7 @@ export interface OAuthPendingAuthorizationTable {
  */
 export interface Database {
   session: SessionTable;
+  access_control: AccessControlTable;
   turn: TurnTable;
   turn_thread: TurnThreadTable;
   session_event: SessionEventTable;

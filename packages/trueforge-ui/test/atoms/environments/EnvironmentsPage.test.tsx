@@ -367,6 +367,28 @@ describe('EnvironmentsPage', () => {
       environment_id: 'e1',
     });
   });
+
+  it('shows an error toast when delete fails after closing the confirm dialog', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const httpError = Object.assign(new Error('Status code: 409'), {
+      statusCode: 409,
+      body: { error: { message: 'Environment is still referenced by an agent' } },
+    });
+    const deleteEnvironment = vi.fn(async () => {
+      throw httpError;
+    });
+    renderPage({ environmentOverrides: { deleteEnvironment } });
+    expect(await screen.findByRole('button', { name: 'Delete python-data' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete python-data' }));
+    const dialog = screen.getByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => expect(deleteEnvironment).toHaveBeenCalledWith({ name: 'python-data' }));
+    expect(await screen.findByText('Request failed (409)')).toBeInTheDocument();
+    expect(screen.getByText('Environment is still referenced by an agent')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
 });
 
 describe('EnvironmentsButton', () => {

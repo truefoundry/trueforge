@@ -38,8 +38,6 @@ export type UpdateSessionInput<TSessionCustom extends object = Record<string, ne
   agent: Extract<SessionRecord<TSessionCustom>['agent'], { type: 'inline' }> | undefined;
   title: SessionRecord<TSessionCustom>['title'] | undefined;
   metadata: SessionRecord<TSessionCustom>['metadata'] | undefined;
-  /** When omitted, the stored flag is left unchanged. */
-  shared: SessionRecord<TSessionCustom>['shared'] | undefined;
 };
 
 export interface GetSessionInput {
@@ -306,7 +304,6 @@ export interface ISessionStore<
    * - agent: replace inline binding (inline sessions only; reference → invariant error).
    * - title: set/replace the session title.
    * - metadata: full replace of the caller-owned string map when set.
-   * - shared: set/replace the share flag when set; omitted leaves the stored value.
    * Bumps `last_activity_timestamp_ms` (= now) in the same update.
    */
   updateSession(input: UpdateSessionInput<TSessionCustom>): Promise<void>;
@@ -326,16 +323,16 @@ export interface ISessionStore<
   ): Promise<{ data: SessionRecord<TSessionCustom>[]; pagination: TokenPagination }>;
 
   /**
-   * Creates the turn AND advances `session.last_turn_id`. Context merging is the
+   * Creates the turn AND advances `session.last_turn_details`. Context merging is the
    * store's responsibility: `new_context_appends` and `new_threads` are applied
    * on top of the previous turn's snapshot when `turn.previous_turn_id` is set.
    * `capability_states` is the complete authoritative map for every resulting
    * thread and is persisted directly without store-side carry-forward.
    *
-   * Atomicity (store contract): insert turn + set `last_turn_id` (+ session
+   * Atomicity (store contract): insert turn + set `last_turn_details` (+ session
    * turn-list append if the backend has one) MUST be one atomic unit per
    * session. Concurrent createTurn on the same session must not drop a turn
-   * row or leave `last_turn_id` pointing at a turn that was never created.
+   * row or leave `last_turn_details` pointing at a turn that was never created.
    * The implementation supplies the mechanism (session lock, row lock/tx, …).
    *
    * Also bumps `session.last_activity_timestamp_ms` and increments
@@ -348,7 +345,7 @@ export interface ISessionStore<
    *   allowed (relaxed) and treated as no inheritance. If that turn exists and
    *   is still `running` or `paused`, reject with {@link PreviousTurnRunningError} —
    *   callers must {@link freezeAndGetTurn} first.
-   * `last_turn_id` always advances to the new turn in the same atomic unit.
+   * `last_turn_details` always advances to the new turn in the same atomic unit.
    *
    * `update_session_title_if_not_exist`: when set AND `session.title` is
    * unset/null, set it in the same atomic unit; an existing title is NEVER

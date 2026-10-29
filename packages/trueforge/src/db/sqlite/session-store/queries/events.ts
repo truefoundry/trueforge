@@ -156,7 +156,7 @@ export async function listSessionEvents(
 
   const session = await db
     .selectFrom('session')
-    .select('last_turn_id')
+    .select(sql<string | null>`json_extract(last_turn_details, '$.id')`.as('last_turn_id'))
     .where('session_id', '=', input.session_id)
     .executeTakeFirst();
   if (!session) {

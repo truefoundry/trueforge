@@ -32,12 +32,15 @@ import type { ResolveSkillStoreInput } from '../app';
 import type { Authorizer } from '../auth/authorizer';
 import { createdBySubjectFromRequestContext, type RequestContext, type ResolveRequestContext } from '../auth/identity';
 import configuration from '../config';
+import type { AccessGrantRecord, IAccessControlStore } from '../db/accessControlStore';
 import type { IAgentStore } from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
+import type { WithTransaction } from '../db/transaction';
+import type { IUserStore } from '../db/userStore';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { updateLogContext } from '../logger';
 import {
@@ -47,13 +50,16 @@ import {
   getOrCreateSessionByExternalIdRoute,
   getSessionRoute,
   listSessionEventsRoute,
+  listSessionGrantsRoute,
   listSessionsRoute,
+  updateSessionGrantsRoute,
   updateSessionRoute,
 } from '../routes/sessionRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import { validateAgentSpec } from '../runtime/sessionResources';
 import { honoQueriesToRecord } from '../schemas/deepObjectQuery';
 import { isSessionAgentNameRef, parseListSessionsQuery, type Session } from '../schemas/session';
+import type { SessionGrant, SessionGrantSubject } from '../schemas/sessionGrant';
 import { newId } from '../utils/id';
 import { agentIfAccessible, canReadAgentBoundResource, canReadSession, resolveManagedAgentIds } from './agentAccess';
 
@@ -68,12 +74,13 @@ const CancelPeerBodySchema = z.object({
 });
 type CancelPeerBody = z.infer<typeof CancelPeerBodySchema>;
 
-export function toWireSession(record: SessionRecord): Session {
+/** `shared` is whether the session holds a `tenant` grant. */
+export function toWireSession(record: SessionRecord, shared: boolean): Session {
   return {
     id: record.session_id,
     agent: record.agent,
     title: record.title,
-    shared: record.shared,
+    shared,
     created_by_subject: record.created_by_subject,
     created_at: record.created_at.toISOString(),
     updated_at: record.updated_at.toISOString(),
@@ -84,9 +91,12 @@ export function toWireSession(record: SessionRecord): Session {
   };
 }
 
-export interface SessionsRouterDeps {
+export interface SessionsRouterDeps<TTransaction = never> {
   sessions: Sessions;
   sessionStore: ISessionStore;
+  accessControlStore: IAccessControlStore<TTransaction>;
+  userStore: IUserStore;
+  withTransaction: WithTransaction<TTransaction>;
   activeTurns: ActiveTurnRegistry;
   resolveModelProviderStore: (input: { c: Context; allowInlineResources?: boolean }) => IModelProviderStore;
   resolveMcpServerStore: (input: { c: Context; allowInlineResources?: boolean }) => IMcpServerStore;
@@ -250,6 +260,90 @@ function isSessionOwner({
   return subject_id === created_by_subject.subject_id;
 }
 
+const FORBIDDEN_SESSION_ACCESS_MANAGEMENT = 'Only the session creator can manage access to this session';
+
+/** Session the caller created; 404 when missing, 403 for anyone else. */
+async function requireOwnedSession(
+  deps: Pick<SessionsRouterDeps, 'sessionStore' | 'resolveRequestContext'>,
+  input: { c: Context; session_id: string },
+): Promise<{ requestContext: RequestContext; record: SessionRecord }> {
+  const requestContext = deps.resolveRequestContext(input.c);
+  const record = await deps.sessionStore.getSession({
+    tenant_id: requestContext.tenant_id,
+    session_id: input.session_id,
+  });
+  if (!record) {
+    throw new HTTPException(404, { message: `Session not found: ${input.session_id}` });
+  }
+  if (!isSessionOwner({ subject_id: requestContext.subject.id, created_by_subject: record.created_by_subject })) {
+    throw new HTTPException(403, { message: FORBIDDEN_SESSION_ACCESS_MANAGEMENT });
+  }
+  return { requestContext, record };
+}
+
+function subjectKey(subject: SessionGrantSubject): string {
+  return `${subject.subject_type}:${subject.subject_id}`;
+}
+
+function uniqueSubjects(subjects: readonly SessionGrantSubject[]): SessionGrantSubject[] {
+  const byKey = new Map<string, SessionGrantSubject>();
+  for (const subject of subjects) {
+    byKey.set(subjectKey(subject), subject);
+  }
+  return [...byKey.values()];
+}
+
+/** The ids among `session_ids` shared with everyone in the tenant, i.e. holding its `tenant` grant. */
+async function tenantSharedSessionIds<TTransaction>(
+  accessControlStore: IAccessControlStore<TTransaction>,
+  input: { tenant_id: string; session_ids: readonly string[] },
+): Promise<Set<string>> {
+  const grants = await accessControlStore.listAccessGrants({
+    tenant_id: input.tenant_id,
+    session_ids: input.session_ids,
+    subjects: [{ subject_type: 'tenant', subject_id: input.tenant_id }],
+  });
+  return new Set(grants.map(grant => grant.session_id));
+}
+
+async function isSharedWithTenant<TTransaction>(
+  accessControlStore: IAccessControlStore<TTransaction>,
+  input: { tenant_id: string; session_id: string },
+): Promise<boolean> {
+  const sharedIds = await tenantSharedSessionIds(accessControlStore, {
+    tenant_id: input.tenant_id,
+    session_ids: [input.session_id],
+  });
+  return sharedIds.has(input.session_id);
+}
+
+/** Deprecated `PATCH { shared }`: sharing with everyone is the `tenant` grant. */
+async function setSharedWithTenant<TTransaction>(
+  accessControlStore: IAccessControlStore<TTransaction>,
+  input: { requestContext: RequestContext; session_id: string; shared: boolean },
+): Promise<void> {
+  const { requestContext, session_id } = input;
+  const subjects: SessionGrantSubject[] = [{ subject_type: 'tenant', subject_id: requestContext.tenant_id }];
+  if (input.shared) {
+    await accessControlStore.createAccessGrants({
+      tenant_id: requestContext.tenant_id,
+      session_id,
+      subjects,
+      granted_by_subject: createdBySubjectFromRequestContext(requestContext),
+    });
+    return;
+  }
+  await accessControlStore.deleteAccessGrants({ tenant_id: requestContext.tenant_id, session_id, subjects });
+}
+
+function toWireSessionGrant(record: AccessGrantRecord): SessionGrant {
+  return {
+    subject: { subject_type: record.subject_type, subject_id: record.subject_id },
+    granted_by_subject: record.granted_by_subject,
+    created_at: record.created_at,
+  };
+}
+
 /**
  * Inline create and spec replace check model, MCP, and skill names against `x-tfg-*` when those
  * headers are present. The headers are not written onto the session.
@@ -283,6 +377,7 @@ function validateInlineSessionSpec(
 type InternalSessionsRouterDeps = Pick<
   SessionsRouterDeps,
   | 'sessions'
+  | 'accessControlStore'
   | 'resolveModelProviderStore'
   | 'resolveMcpServerStore'
   | 'resolveSkillStore'
@@ -316,7 +411,11 @@ function createGetOrCreateSessionByExternalIdHandler(
       if (!allowed) {
         return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
       }
-      return c.json({ data: toWireSession(existing.record) }, 200);
+      const shared = await isSharedWithTenant(deps.accessControlStore, {
+        tenant_id: requestContext.tenant_id,
+        session_id: existing.record.session_id,
+      });
+      return c.json({ data: toWireSession(existing.record, shared) }, 200);
     }
 
     let agent: SessionRecord['agent'];
@@ -350,19 +449,24 @@ function createGetOrCreateSessionByExternalIdHandler(
       agent,
       source: body.source ?? null,
     });
-    if (!created) {
-      const allowed = await canReadAgentBoundResource({
-        store: deps.resolveAgentStore(c),
-        context: requestContext,
-        authorizer: deps.authorizer,
-        agent_id: session.record.agent.type === 'reference' ? session.record.agent.id : undefined,
-        created_by_subject_id: session.record.created_by_subject.subject_id,
-      });
-      if (!allowed) {
-        return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
-      }
+    if (created) {
+      return c.json({ data: toWireSession(session.record, false) }, 201);
     }
-    return c.json({ data: toWireSession(session.record) }, created ? 201 : 200);
+    const allowed = await canReadAgentBoundResource({
+      store: deps.resolveAgentStore(c),
+      context: requestContext,
+      authorizer: deps.authorizer,
+      agent_id: session.record.agent.type === 'reference' ? session.record.agent.id : undefined,
+      created_by_subject_id: session.record.created_by_subject.subject_id,
+    });
+    if (!allowed) {
+      return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
+    }
+    const shared = await isSharedWithTenant(deps.accessControlStore, {
+      tenant_id: requestContext.tenant_id,
+      session_id: session.record.session_id,
+    });
+    return c.json({ data: toWireSession(session.record, shared) }, 200);
   };
 }
 
@@ -374,7 +478,7 @@ export function createInternalSessionsRouter(deps: InternalSessionsRouterDeps) {
 }
 
 /** DB-backed sessions (mounted at /api/v1/sessions). */
-export function createSessionsRouter(deps: SessionsRouterDeps) {
+export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTransaction>) {
   const createSessionHandler: RouteHandler<typeof createSessionRoute> = async c => {
     const body = c.req.valid('json');
     const sessionId = newId();
@@ -402,7 +506,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
         metadata: body.metadata,
         external_id: null,
       });
-      return c.json({ data: toWireSession(session.record) }, 201);
+      return c.json({ data: toWireSession(session.record, false) }, 201);
     }
 
     await validateInlineSessionSpec(deps, {
@@ -418,7 +522,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       metadata: body.metadata,
       external_id: null,
     });
-    return c.json({ data: toWireSession(session.record) }, 201);
+    return c.json({ data: toWireSession(session.record, false) }, 201);
   };
 
   const getSessionHandler: RouteHandler<typeof getSessionRoute> = async c => {
@@ -432,7 +536,8 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
     const allowed = await canReadSession({
-      shared: record.shared,
+      session_id: sessionId,
+      accessControlStore: deps.accessControlStore,
       store: deps.resolveAgentStore(c),
       context: requestContext,
       authorizer: deps.authorizer,
@@ -442,7 +547,11 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     if (!allowed) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
-    return c.json({ data: toWireSession(record) }, 200);
+    const shared = await isSharedWithTenant(deps.accessControlStore, {
+      tenant_id: requestContext.tenant_id,
+      session_id: sessionId,
+    });
+    return c.json({ data: toWireSession(record, shared) }, 200);
   };
 
   const deleteSessionHandler: RouteHandler<typeof deleteSessionRoute> = async c => {
@@ -520,7 +629,6 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
         agent: body.agent === undefined ? undefined : { type: 'inline', spec: body.agent.spec },
         title: body.title,
         metadata: body.metadata,
-        shared: body.shared,
       });
     } catch (error) {
       if (error instanceof SessionStoreNotFoundError) {
@@ -531,6 +639,13 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       }
       throw error;
     }
+    if (body.shared !== undefined) {
+      await setSharedWithTenant(deps.accessControlStore, {
+        requestContext,
+        session_id: sessionId,
+        shared: body.shared,
+      });
+    }
     const record = await deps.sessionStore.getSession({
       tenant_id: requestContext.tenant_id,
       session_id: sessionId,
@@ -538,7 +653,11 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     if (!record) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    return c.json({ data: toWireSession(record) }, 200);
+    const shared = await isSharedWithTenant(deps.accessControlStore, {
+      tenant_id: requestContext.tenant_id,
+      session_id: sessionId,
+    });
+    return c.json({ data: toWireSession(record, shared) }, 200);
   };
 
   const listSessionsHandler: RouteHandler<typeof listSessionsRoute> = async c => {
@@ -568,7 +687,14 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
         source_type: query.source_type,
         source_id: query.source_id,
       });
-      return c.json({ data: data.map(toWireSession), pagination }, 200);
+      const sharedIds = await tenantSharedSessionIds(deps.accessControlStore, {
+        tenant_id: requestContext.tenant_id,
+        session_ids: data.map(record => record.session_id),
+      });
+      return c.json(
+        { data: data.map(record => toWireSession(record, sharedIds.has(record.session_id))), pagination },
+        200,
+      );
     } catch (error) {
       if (error instanceof SessionStoreConflictError) {
         throw new HTTPException(400, { message: error.message, cause: error });
@@ -595,7 +721,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     ) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
-    const turnId = session.record.last_turn_id;
+    const turnId = session.record.last_turn_details?.id;
     if (!turnId) {
       return c.json({}, 200);
     }
@@ -616,7 +742,8 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
     const allowed = await canReadSession({
-      shared: session.record.shared,
+      session_id: sessionId,
+      accessControlStore: deps.accessControlStore,
       store: deps.resolveAgentStore(c),
       context: requestContext,
       authorizer: deps.authorizer,
@@ -644,6 +771,67 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     }
   };
 
+  const listSessionGrantsHandler: RouteHandler<typeof listSessionGrantsRoute> = async c => {
+    const { session_id: sessionId } = c.req.valid('param');
+    const { requestContext } = await requireOwnedSession(deps, { c, session_id: sessionId });
+    const records = await deps.accessControlStore.listAccessGrants({
+      tenant_id: requestContext.tenant_id,
+      session_ids: [sessionId],
+    });
+    return c.json({ data: records.map(toWireSessionGrant) }, 200);
+  };
+
+  const updateSessionGrantsHandler: RouteHandler<typeof updateSessionGrantsRoute> = async c => {
+    const { session_id: sessionId } = c.req.valid('param');
+    const body = c.req.valid('json');
+    const { requestContext } = await requireOwnedSession(deps, { c, session_id: sessionId });
+    const toGrant = uniqueSubjects(body.grant);
+    const toRevoke = uniqueSubjects(body.revoke);
+    const revokeKeys = new Set(toRevoke.map(subjectKey));
+    if (toGrant.some(subject => revokeKeys.has(subjectKey(subject)))) {
+      throw new HTTPException(422, { message: 'A subject cannot be both granted and revoked.' });
+    }
+    if (toGrant.some(subject => subject.subject_type === 'tenant' && subject.subject_id !== requestContext.tenant_id)) {
+      throw new HTTPException(422, { message: 'A tenant subject must be your own tenant.' });
+    }
+    const userIds = toGrant.filter(subject => subject.subject_type === 'user').map(subject => subject.subject_id);
+    if (userIds.includes(requestContext.subject.id)) {
+      throw new HTTPException(422, { message: 'The session creator already has access.' });
+    }
+    if (userIds.length > 0) {
+      const knownUsers = await deps.userStore.getUsersByIds({ context: requestContext, ids: userIds });
+      const knownIds = new Set(knownUsers.map(user => user.id));
+      const unknownIds = userIds.filter(id => !knownIds.has(id));
+      if (unknownIds.length > 0) {
+        throw new HTTPException(422, { message: `Unknown users: ${unknownIds.join(', ')}` });
+      }
+    }
+    await deps.withTransaction(async transaction => {
+      if (toGrant.length > 0) {
+        await deps.accessControlStore.createAccessGrants(
+          {
+            tenant_id: requestContext.tenant_id,
+            session_id: sessionId,
+            subjects: toGrant,
+            granted_by_subject: createdBySubjectFromRequestContext(requestContext),
+          },
+          transaction,
+        );
+      }
+      if (toRevoke.length > 0) {
+        await deps.accessControlStore.deleteAccessGrants(
+          { tenant_id: requestContext.tenant_id, session_id: sessionId, subjects: toRevoke },
+          transaction,
+        );
+      }
+    });
+    const records = await deps.accessControlStore.listAccessGrants({
+      tenant_id: requestContext.tenant_id,
+      session_ids: [sessionId],
+    });
+    return c.json({ data: records.map(toWireSessionGrant) }, 200);
+  };
+
   const router = new OpenAPIHono();
   router.openapi(createSessionRoute, createSessionHandler);
   router.openapi(getSessionRoute, getSessionHandler);
@@ -652,6 +840,8 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
   router.openapi(listSessionsRoute, listSessionsHandler);
   router.openapi(cancelSessionRoute, cancelSessionHandler);
   router.openapi(listSessionEventsRoute, listSessionEventsHandler);
+  router.openapi(listSessionGrantsRoute, listSessionGrantsHandler);
+  router.openapi(updateSessionGrantsRoute, updateSessionGrantsHandler);
   deps.requestReplyRouter.registerRoute(SESSIONS_CANCEL_PATH, cancelSessionTurnPeerHandler(deps.activeTurns));
   return router;
 }

@@ -8,6 +8,7 @@ import { TrueForgeAuthorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
+import { SqliteAccessControlStore } from '../../../src/db/sqlite/access-control-store/SqliteAccessControlStore';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
@@ -51,7 +52,7 @@ async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response
         tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
         agent_spec: { model: { name: 'test-provider/test-model' } },
         record: {
-          last_turn_id: null,
+          last_turn_details: null,
           created_by_subject: {
             subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
             subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
@@ -70,6 +71,7 @@ async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response
     createTurnsRouter({
       sessions,
       sessionStore: new SqliteSessionStore(db),
+      accessControlStore: new SqliteAccessControlStore(db),
       activeTurns: new ActiveTurnRegistry(),
       resolveModelProviderStore: () => modelProviderStore,
       resolveMcpServerStore: () =>
