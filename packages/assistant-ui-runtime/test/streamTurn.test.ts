@@ -424,5 +424,13 @@ describe('streamTurn', () => {
       expect(subscribeToTurn).not.toHaveBeenCalled();
       expect(updates).toEqual([]);
     });
+
+    it('yields nothing when subscribeToTurn is missing so callers can detect the gap', async () => {
+      const server = mockServer({});
+      const updates = await collectUpdates(
+        resumeTurnStream(server, SESSION_ID, 'turn-1', new PeerThreadFoldState(), new AbortController().signal),
+      );
+      expect(updates).toEqual([]);
+    });
   });
 });

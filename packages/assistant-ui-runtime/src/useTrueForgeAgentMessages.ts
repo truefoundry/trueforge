@@ -259,7 +259,10 @@ function materializeAbandonedStreamRootIds(options: {
  * stream) as cancelled so a superseding user send keeps that half-baked chat
  * in history. Does not call cancelSession — the backend supersedes on its own.
  */
-function abandonInFlightClientTurn(snapshot: SessionSnapshot): SessionSnapshot {
+function abandonInFlightClientTurn(
+  snapshot: SessionSnapshot,
+  reason: string = 'Superseded by a later message',
+): SessionSnapshot {
   const active = snapshot.activeStream;
   const hasIncompleteStream = isIncompleteActiveStream(snapshot);
   const hasPendingUser = snapshot.pendingUser != null;
@@ -269,7 +272,7 @@ function abandonInFlightClientTurn(snapshot: SessionSnapshot): SessionSnapshot {
   }
 
   const completedAt = new Date().toISOString();
-  const cancelledState = buildCancelledTurnState({ completedAt });
+  const cancelledState = buildCancelledTurnState({ completedAt, reason });
 
   if (hasIncompleteStream && active != null) {
     const activeSandboxIdValue = active.update.metadata?.custom?.[MESSAGE_CUSTOM_KEY.SANDBOX_ID];
@@ -338,6 +341,66 @@ function abandonInFlightClientTurn(snapshot: SessionSnapshot): SessionSnapshot {
     pendingUser: undefined,
     activeStream: undefined,
     runningTurn: undefined,
+  });
+}
+
+/**
+ * cancelSession succeeded but no client stream delivered turn.done (missing
+ * subscribe, or a reconnect that already detached). Mark the open tip cancelled
+ * so projection stops treating the last assistant message as running — otherwise
+ * clearing resumeUnavailable brings the activity loader back.
+ *
+ * Leave terminal activeStream leftovers alone: commitActiveStream may keep them
+ * when the fold has no root model ids, and clearing them would drop the message.
+ */
+function finalizeLocallyCancelledTurn(snapshot: SessionSnapshot): SessionSnapshot {
+  const running = snapshot.runningTurn;
+  const hasOpenRunningTurn =
+    running != null && (running.state.status === TURN_STATUS.RUNNING || running.state.status === TURN_STATUS.PAUSED);
+  if (!hasOpenRunningTurn && !isIncompleteActiveStream(snapshot) && snapshot.pendingUser == null) {
+    return snapshot;
+  }
+
+  const abandoned = abandonInFlightClientTurn(snapshot, 'client-cancelled');
+  if (
+    abandoned.runningTurn == null ||
+    (abandoned.runningTurn.state.status !== TURN_STATUS.RUNNING &&
+      abandoned.runningTurn.state.status !== TURN_STATUS.PAUSED)
+  ) {
+    return abandoned;
+  }
+
+  const openTurn = abandoned.runningTurn;
+  const completedAt = new Date().toISOString();
+  const cancelledState = buildCancelledTurnState({
+    completedAt,
+    reason: 'client-cancelled',
+  });
+  const tipIndex = abandoned.turns.findIndex(turn => turn.id === openTurn.id);
+  if (tipIndex >= 0) {
+    return replaceSessionSnapshot(abandoned, {
+      turns: abandoned.turns.map((turn, index) => (index === tipIndex ? { ...turn, state: cancelledState } : turn)),
+      runningTurn: undefined,
+      activeStream: undefined,
+      pendingUser: undefined,
+    });
+  }
+
+  const userText = userMessageContentToText(extractTurnUserMessageContent(openTurn.input));
+  const record: SessionTurnRecord = {
+    id: openTurn.id,
+    createdAt: openTurn.createdAt,
+    state: cancelledState,
+    input: openTurn.input ?? [],
+    ...(userText.length > 0 ? { userText } : {}),
+    rootModelMessageIds: [],
+  };
+
+  return replaceSessionSnapshot(abandoned, {
+    turns: [...abandoned.turns, record],
+    runningTurn: undefined,
+    activeStream: undefined,
+    pendingUser: undefined,
   });
 }
 
@@ -511,6 +574,10 @@ export function useTrueForgeAgentMessages({
         let pendingStreamUpdate: TurnStreamUpdate | null = null;
         let streamUpdateRaf: number | null = null;
         let terminalErrorReported = false;
+        // Live SSE dropped after the gateway accepted the turn, but this server
+        // cannot subscribe. Keep the partial transcript running instead of
+        // treating an empty reconnect as a successful completion.
+        let leaveRunningWithoutStream = false;
         const activeAtStart = snapshotRef.current.activeStream;
         let lastSequenceNumber: number | undefined =
           activeAtStart?.turnId === turnIdRef.current ? activeAtStart.lastSequenceNumber : undefined;
@@ -631,6 +698,19 @@ export function useTrueForgeAgentMessages({
                 abortController.abort();
                 return;
               }
+              // resumeTurnStream returns an empty generator when subscribe is
+              // missing; calling it would complete normally and clear isRunning
+              // while the backend is still generating.
+              if (server.subscribeToTurn == null) {
+                if (options.reconnect.gatewayTurnAccepted.current) {
+                  leaveRunningWithoutStream = true;
+                  markResumeUnavailable(true);
+                  setIsRunning(true);
+                  return;
+                }
+                onErrorRef.current?.(error);
+                throw error;
+              }
               const canSubscribe = options.reconnect.gatewayTurnAccepted.current;
               if (!canSubscribe || consecutiveFailures >= STREAM_RECONNECT_MAX_ATTEMPTS) {
                 onErrorRef.current?.(error);
@@ -659,26 +739,30 @@ export function useTrueForgeAgentMessages({
             if (abortControllerRef.current === abortController) {
               abortControllerRef.current = null;
             }
-            if (abortController.signal.aborted) {
-              updateSnapshot(prev => abandonInFlightClientTurn(prev));
-            } else {
-              updateSnapshot(prev => {
-                if (prev.activeStream == null) {
-                  return prev;
-                }
-                const state = prev.activeStream.update.turnState;
-                const segmentStatus = streamSegmentStatus({ turnState: state, segmentEnded: true });
-                const marked = replaceSessionSnapshot(prev, {
-                  activeStream: {
-                    ...prev.activeStream,
-                    segmentStatus,
-                    ...(lastSequenceNumber != null ? { lastSequenceNumber } : {}),
-                  },
+            // Missing subscribe after an accepted turn: keep isRunning /
+            // resumeUnavailable and the in-flight snapshot as-is.
+            if (!leaveRunningWithoutStream) {
+              if (abortController.signal.aborted) {
+                updateSnapshot(prev => abandonInFlightClientTurn(prev));
+              } else {
+                updateSnapshot(prev => {
+                  if (prev.activeStream == null) {
+                    return prev;
+                  }
+                  const state = prev.activeStream.update.turnState;
+                  const segmentStatus = streamSegmentStatus({ turnState: state, segmentEnded: true });
+                  const marked = replaceSessionSnapshot(prev, {
+                    activeStream: {
+                      ...prev.activeStream,
+                      segmentStatus,
+                      ...(lastSequenceNumber != null ? { lastSequenceNumber } : {}),
+                    },
+                  });
+                  return commitActiveStream(marked);
                 });
-                return commitActiveStream(marked);
-              });
+              }
+              setIsRunning(false);
             }
-            setIsRunning(false);
           }
         }
       })();
@@ -1044,6 +1128,16 @@ export function useTrueForgeAgentMessages({
 
   const ensureTurnSubscription = useCallback(
     ({ conversationSessionId, turnId }: { conversationSessionId: string; turnId: string }): Promise<void> => {
+      // Same gap as load/resumeRun: an empty resumeTurnStream would complete
+      // normally and clear isRunning while the backend is still generating.
+      if (server.subscribeToTurn == null) {
+        markResumeUnavailable(true);
+        if (snapshotRef.current.runningTurn != null) {
+          setIsRunning(true);
+        }
+        return Promise.resolve();
+      }
+
       const startSubscription = () => {
         const latest = snapshotRef.current.activeStream;
         const afterSequenceNumber = latest?.turnId === turnId ? latest.lastSequenceNumber : undefined;
@@ -1108,7 +1202,7 @@ export function useTrueForgeAgentMessages({
       });
       return promise;
     },
-    [runStream, server],
+    [markResumeUnavailable, runStream, server],
   );
 
   const cancel = useCallback(async () => {
@@ -1143,9 +1237,13 @@ export function useTrueForgeAgentMessages({
       throw error;
     }
     await activeRunRef.current?.promise.catch(() => undefined);
+    // No attached stream delivered turn.done (resumeUnavailable / detached
+    // reconnect). Finalize locally so the tip is not left status:running —
+    // clearing resumeUnavailable would otherwise bring the activity loader back.
+    updateSnapshot(finalizeLocallyCancelledTurn);
     markResumeUnavailable(false);
     setIsRunning(false);
-  }, [ensureTurnSubscription, markResumeUnavailable, server, sessionId]);
+  }, [ensureTurnSubscription, markResumeUnavailable, server, sessionId, updateSnapshot]);
 
   const submitTurnEvents = useCallback(
     async ({
