@@ -57,6 +57,7 @@ export function builtinsFromSpec(input: {
     capabilities.push(
       largeToolResponse({
         dynamicSubAgentsPresent: !isChild && dynamicSubAgentsEnabled,
+        modelContextLength: definition.modelProperties?.contextLength,
         logger,
       }),
     );

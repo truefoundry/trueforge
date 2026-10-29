@@ -3,7 +3,7 @@ import { createLogger } from 'winston';
 import type { AgentRecord } from '../../../src/db/agentStore';
 import { McpServerNotFoundError, type McpServerRecord } from '../../../src/db/mcpServerStore';
 import { ACTOR_AUTHORIZATION_HEADER, createTrueFoundryRequestContext } from '../../../src/truefoundry/accessToken';
-import { X_TFY_METADATA } from '../../../src/truefoundry/gatewayMetadata';
+import { X_TFY_CONVERSATION_ID, X_TFY_METADATA } from '../../../src/truefoundry/gatewayMetadata';
 import { MCP_PROXY_BASE_URL_TEMPLATE } from '../../../src/truefoundry/mapSfyMcpServers';
 import type { TrueFoundryMcpApiClient } from '../../../src/truefoundry/TrueFoundryMcpServerStore';
 import {
@@ -349,6 +349,7 @@ describe('TrueFoundryMcpServerStore', () => {
         headers: {
           Authorization: `Bearer ${ACCESS_TOKEN}`,
           [X_TFY_METADATA]: expect.any(String),
+          [X_TFY_CONVERSATION_ID]: 'sess-1',
         },
       });
       if (!('headers' in resolved) || resolved.headers === undefined) {
