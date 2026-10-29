@@ -1,5 +1,11 @@
 # @truefoundry/trueforge
 
+## 0.182.0-rc.3
+
+### Patch Changes
+
+- 8d3413a: Mark sandbox env builds failed on Daytona 4xx (e.g. over provider resource caps), lower default env resource caps to 4 CPU / 8 GiB / 10 GiB, and name the Helm controller container trueforge-controller.
+
 ## 0.182.0-rc.2
 
 ### Patch Changes
