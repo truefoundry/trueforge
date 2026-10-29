@@ -1773,13 +1773,15 @@ export async function* streamTurnEvents(
 
   for await (const data of stream) {
     lastSequenceNumber = data.sequenceNumber;
-    onSequenceNumber?.(data.sequenceNumber);
     const event = data.event;
 
     if (event.type === 'turn.created') {
+      // Before onSequenceNumber so observers of this event already see the gateway turn id.
       onTurnIdAvailable?.(event.turnId);
+      onSequenceNumber?.(data.sequenceNumber);
       continue;
     }
+    onSequenceNumber?.(data.sequenceNumber);
 
     if (event.type === 'sandbox.created') {
       sandboxId = event.sandboxId;

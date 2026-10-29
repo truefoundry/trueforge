@@ -110,6 +110,35 @@ describe('createStreamLifecycleReporter', () => {
     expect(types()).toEqual(['started', 'completed']);
   });
 
+  it('holds create-mode started until the gateway turn id is known', () => {
+    const events: TurnStreamLifecycleEvent[] = [];
+    let turnId = 'optimistic';
+    const reporter = createStreamLifecycleReporter({
+      sessionId: 's1',
+      getTurnId: () => turnId,
+      emit: event => events.push(event),
+    });
+    reporter.start('create');
+    expect(events).toEqual([]);
+    turnId = 'gateway';
+    reporter.onEvent(1);
+    reporter.completed('done');
+    expect(events.map(e => [e.type, e.turnId])).toEqual([
+      ['started', 'gateway'],
+      ['first_event', 'gateway'],
+      ['completed', 'gateway'],
+    ]);
+  });
+
+  it('reports a terminal event only once', () => {
+    const { reporter, types } = setup();
+    reporter.start('subscribe');
+    reporter.completed('cancelled');
+    reporter.completed('cancelled');
+    reporter.failed(new TypeError('Failed to fetch'));
+    expect(types()).toEqual(['started', 'completed']);
+  });
+
   it('never throws when the sink throws', () => {
     const reporter = createStreamLifecycleReporter({
       sessionId: 's1',

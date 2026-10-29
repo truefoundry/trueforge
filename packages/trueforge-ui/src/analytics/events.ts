@@ -76,16 +76,6 @@ export const AnalyticsEvents = {
     EDITED: 'trueforge.environment.edited',
     DELETED: 'trueforge.environment.deleted',
   },
-  TurnStream: {
-    STARTED: 'trueforge.turn_stream.started',
-    FIRST_EVENT: 'trueforge.turn_stream.first_event',
-    STALLED: 'trueforge.turn_stream.stalled',
-    DISCONNECTED: 'trueforge.turn_stream.disconnected',
-    RECONNECTED: 'trueforge.turn_stream.reconnected',
-    FAILED: 'trueforge.turn_stream.failed',
-    COMPLETED: 'trueforge.turn_stream.completed',
-    ABANDONED: 'trueforge.turn_stream.abandoned',
-  },
   Sdk: {
     HTTP_TIMEOUT: 'trueforge.sdk.http_timeout',
   },

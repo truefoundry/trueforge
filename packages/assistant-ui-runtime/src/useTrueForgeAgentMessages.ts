@@ -719,7 +719,12 @@ export function useTrueForgeAgentMessages({
           }
         } finally {
           if (abortController.signal.aborted) {
-            lifecycle.abandon();
+            // Cancel aborts a reconnect wait/subscribe; that is the user's cancel, not a detach.
+            if (cancelRequestedRef.current) {
+              lifecycle.completed('cancelled');
+            } else {
+              lifecycle.abandon();
+            }
           }
           lifecycle.dispose();
           streamReconnectPendingRef.current = false;

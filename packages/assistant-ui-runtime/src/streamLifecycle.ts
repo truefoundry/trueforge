@@ -108,14 +108,24 @@ export function createStreamLifecycleReporter({
   let stalled = false;
   let firedThresholds = 0;
   let timer: ReturnType<typeof setInterval> | null = null;
+  let heldStart: DistributiveOmit<TurnStreamLifecycleEvent> | null = null;
 
-  const send = (event: DistributiveOmit<TurnStreamLifecycleEvent>): void => {
+  const emitSafely = (event: DistributiveOmit<TurnStreamLifecycleEvent>): void => {
     // Analytics must never break the stream.
     try {
       emit({ sessionId, turnId: getTurnId(), ...event });
     } catch {
       /* swallow */
     }
+  };
+
+  const send = (event: DistributiveOmit<TurnStreamLifecycleEvent>): void => {
+    if (heldStart != null) {
+      const started = heldStart;
+      heldStart = null;
+      emitSafely(started);
+    }
+    emitSafely(event);
   };
 
   const resetSilence = (): void => {
@@ -152,7 +162,14 @@ export function createStreamLifecycleReporter({
     start(mode) {
       attempts += 1;
       resetSilence();
-      send({ type: 'started', mode, attempt: attempts });
+      const started: DistributiveOmit<TurnStreamLifecycleEvent> = { type: 'started', mode, attempt: attempts };
+      // A create stream learns its gateway turn id from `turn.created`; hold `started`
+      // until the next event so it carries the same id as the outcome.
+      if (mode === 'create') {
+        heldStart = started;
+      } else {
+        send(started);
+      }
       timer ??= setInterval(checkStall, STREAM_STALL_CHECK_INTERVAL_MS);
     },
     onEvent(sequenceNumber) {
@@ -185,6 +202,9 @@ export function createStreamLifecycleReporter({
       });
     },
     failed(error) {
+      if (terminal) {
+        return;
+      }
       terminal = true;
       stopTimer();
       const { reason, httpStatus } = classifyStreamError(error);
@@ -197,6 +217,9 @@ export function createStreamLifecycleReporter({
       });
     },
     completed(status) {
+      if (terminal) {
+        return;
+      }
       terminal = true;
       stopTimer();
       send({

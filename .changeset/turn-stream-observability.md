@@ -4,4 +4,4 @@
 '@truefoundry/trueforge': patch
 ---
 
-Report turn stream health (started, stalled, disconnected, reconnected, failed, completed, abandoned) through host analytics and a new vendor-neutral `observability` sink.
+Report turn stream health (started, stalled, disconnected, reconnected, failed, completed, abandoned) through a new vendor-neutral `observability` sink: a breadcrumb per step, and a captured error for stalls and transport failures.

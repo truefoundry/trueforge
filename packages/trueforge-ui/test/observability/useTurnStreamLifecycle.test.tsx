@@ -4,8 +4,6 @@ import type { TurnStreamLifecycleEvent } from '@truefoundry/trueforge-assistant-
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { AnalyticsProvider } from '@/analytics/AnalyticsProvider.js';
-import { AnalyticsEvents } from '@/analytics/events.js';
 import { ObservabilityProvider } from '@/observability/ObservabilityProvider.js';
 import type { ObservabilityConfig } from '@/observability/types.js';
 import { useTurnStreamLifecycle } from '@/observability/useTurnStreamLifecycle.js';
@@ -13,19 +11,17 @@ import { useTurnStreamLifecycle } from '@/observability/useTurnStreamLifecycle.j
 const ids = { sessionId: 's1', turnId: 't1' };
 
 function setup(observability?: ObservabilityConfig) {
-  const track = vi.fn();
   const wrapper = ({ children }: { children: ReactNode }) => (
-    <AnalyticsProvider track={track}>
-      <ObservabilityProvider observability={observability}>{children}</ObservabilityProvider>
-    </AnalyticsProvider>
+    <ObservabilityProvider observability={observability}>{children}</ObservabilityProvider>
   );
   const { result } = renderHook(() => useTurnStreamLifecycle('my-agent'), { wrapper });
-  return { track, emit: result.current };
+  return { emit: result.current };
 }
 
 describe('useTurnStreamLifecycle', () => {
-  it('tracks snake_case props with session, turn and agent identity', () => {
-    const { track, emit } = setup();
+  it('breadcrumbs snake_case context with session, turn and agent identity', () => {
+    const addBreadcrumb = vi.fn();
+    const { emit } = setup({ addBreadcrumb });
     const event: TurnStreamLifecycleEvent = {
       ...ids,
       type: 'completed',
@@ -35,14 +31,18 @@ describe('useTurnStreamLifecycle', () => {
       reconnectCount: 1,
     };
     emit(event);
-    expect(track).toHaveBeenCalledWith(AnalyticsEvents.TurnStream.COMPLETED, {
-      status: 'done',
-      duration_ms: 900,
-      event_count: 4,
-      reconnect_count: 1,
-      turn_id: 't1',
-      session_id: 's1',
-      agent_name: 'my-agent',
+    expect(addBreadcrumb).toHaveBeenCalledWith({
+      category: 'trueforge.turn_stream',
+      message: 'completed',
+      data: {
+        status: 'done',
+        duration_ms: 900,
+        event_count: 4,
+        reconnect_count: 1,
+        turn_id: 't1',
+        session_id: 's1',
+        agent_name: 'my-agent',
+      },
     });
   });
 

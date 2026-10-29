@@ -2151,6 +2151,7 @@ describe('useTrueForgeAgentMessages', () => {
 
   it('does not subscribe when cancel aborts a reconnect delay', async () => {
     const onError = vi.fn();
+    const onStreamLifecycle = vi.fn();
     let delayStarted: (() => void) | undefined;
     const delayReady = new Promise<void>(resolve => {
       delayStarted = resolve;
@@ -2183,6 +2184,7 @@ describe('useTrueForgeAgentMessages', () => {
         server: mockServer,
         sessionId: 'session-1',
         onError,
+        onStreamLifecycle,
       }),
     );
     await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -2202,6 +2204,11 @@ describe('useTrueForgeAgentMessages', () => {
     expect(mockServer.cancelSession).toHaveBeenCalledWith({ sessionId: 'session-1' });
     expect(result.current.isRunning).toBe(false);
     expect(onError).not.toHaveBeenCalled();
+    const lifecycleTypes = onStreamLifecycle.mock.calls.map(([event]: [{ type: string }]) => event.type);
+    expect(lifecycleTypes).not.toContain('abandoned');
+    expect(onStreamLifecycle).toHaveBeenLastCalledWith(
+      expect.objectContaining({ type: 'completed', status: 'cancelled' }),
+    );
   });
 
   it('does not subscribe-retry when a cancelled live stream drops without turn.done', async () => {
