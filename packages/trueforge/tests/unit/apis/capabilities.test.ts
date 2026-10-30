@@ -96,7 +96,7 @@ describe('capabilities routers', () => {
       getTenantSetting: () =>
         Promise.resolve({
           tenant_id: 'default',
-          manifest: { web_search: { enabled: tenantWebSearchEnabled }, sandbox: { enabled: true } },
+          manifest: { web_search: { enabled: tenantWebSearchEnabled } },
         }),
       upsertTenantSetting: () => Promise.reject(new Error('not used')),
     };

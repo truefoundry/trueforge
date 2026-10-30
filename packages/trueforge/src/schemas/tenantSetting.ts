@@ -9,17 +9,9 @@ const TenantWebSearchSettingSchema = z
   .strict()
   .openapi('TenantWebSearchSetting');
 
-const TenantSandboxSettingSchema = z
-  .object({
-    enabled: z.boolean().describe('Whether new chats may use a sandbox.'),
-  })
-  .strict()
-  .openapi('TenantSandboxSetting');
-
 export const TenantSettingManifestSchema = z
   .object({
     web_search: TenantWebSearchSettingSchema,
-    sandbox: TenantSandboxSettingSchema,
   })
   .strict()
   .openapi('TenantSettingManifest');
@@ -51,5 +43,4 @@ export type UpdateTenantSettingRequest = z.infer<typeof UpdateTenantSettingReque
 /** Applied when a tenant has no row yet, so existing tenants keep every feature on. */
 export const DEFAULT_TENANT_SETTING_MANIFEST: TenantSettingManifest = {
   web_search: { enabled: true },
-  sandbox: { enabled: true },
 };

@@ -3,9 +3,9 @@ import { sql, type Kysely } from 'kysely';
 /**
  * Tenant-wide feature switches (canonical DDL owner).
  *
- * Singleton per tenant: PK is `tenant_id` only. Manifest (web search, sandbox)
- * is one jsonb document validated by Zod on every write. A tenant with no row
- * keeps every switch on.
+ * Singleton per tenant: PK is `tenant_id` only. The manifest is one jsonb
+ * document validated by Zod on every write. A tenant with no row keeps every
+ * switch on.
  */
 export async function up(db: Kysely<unknown>): Promise<void> {
   await sql`SET LOCAL lock_timeout = '5s'`.execute(db);

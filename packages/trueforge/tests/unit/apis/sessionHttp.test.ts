@@ -891,7 +891,7 @@ describe('sessions HTTP agent binding', () => {
 
     await tenantSettingStore.upsertTenantSetting({
       tenant_id: 'default',
-      manifest: { web_search: { enabled: false }, sandbox: { enabled: true } },
+      manifest: { web_search: { enabled: false } },
     });
     try {
       const blocked = await app.request('/', jsonInit('POST', { agent: { name: agent.name } }));
@@ -899,7 +899,7 @@ describe('sessions HTTP agent binding', () => {
     } finally {
       await tenantSettingStore.upsertTenantSetting({
         tenant_id: 'default',
-        manifest: { web_search: { enabled: true }, sandbox: { enabled: true } },
+        manifest: { web_search: { enabled: true } },
       });
     }
 

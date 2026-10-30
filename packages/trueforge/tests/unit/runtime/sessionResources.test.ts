@@ -266,7 +266,7 @@ describe('validateAgentSpec', () => {
     jest.mocked(hasConfiguredWebSearchProvider).mockResolvedValue(true);
     await stores.tenantSettingStore.upsertTenantSetting({
       tenant_id: 'default',
-      manifest: { web_search: { enabled: false }, sandbox: { enabled: true } },
+      manifest: { web_search: { enabled: false } },
     });
     await expect(
       validateAgentSpec({
@@ -290,7 +290,7 @@ describe('validateAgentSpec', () => {
     jest.mocked(hasConfiguredWebSearchProvider).mockResolvedValue(true);
     await stores.tenantSettingStore.upsertTenantSetting({
       tenant_id: 'default',
-      manifest: { web_search: { enabled: false }, sandbox: { enabled: true } },
+      manifest: { web_search: { enabled: false } },
     });
     await expect(
       validateAgentSpec({
@@ -311,7 +311,7 @@ describe('validateAgentSpec', () => {
     const stores = await setup();
     await stores.tenantSettingStore.upsertTenantSetting({
       tenant_id: 'default',
-      manifest: { web_search: { enabled: false }, sandbox: { enabled: true } },
+      manifest: { web_search: { enabled: false } },
     });
     await expect(
       validateAgentSpec({
