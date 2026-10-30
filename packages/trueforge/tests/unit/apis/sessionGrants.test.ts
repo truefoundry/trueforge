@@ -18,6 +18,7 @@ import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-en
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteSessionStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
+import { SqliteTenantSettingStore } from '../../../src/db/sqlite/tenant-setting-store/SqliteTenantSettingStore';
 import type { Database } from '../../../src/db/sqlite/types';
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
 import { EmptyUserStore, type IUserStore } from '../../../src/db/userStore';
@@ -95,6 +96,7 @@ function buildApp(input: { db: Kysely<Database>; sessionStore: SqliteSessionStor
       resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
       sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
       resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
+      resolveTenantSettingStore: () => new SqliteTenantSettingStore(db),
       redis: createClient(),
       requestReplyRouter: new RequestReplyRouter(),
       resolveRequestContext: c => contextFor(c.req.header(CALLER_HEADER) ?? 'owner'),

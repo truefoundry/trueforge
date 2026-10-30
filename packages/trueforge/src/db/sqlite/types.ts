@@ -40,6 +40,7 @@ import type { StoredSandboxProviderManifest } from '../../schemas/sandboxProvide
 import type { ScheduleManifest, ScheduleRunStatus, ScheduleStatus } from '../../schemas/schedule';
 import type { SessionGrantSubjectType } from '../../schemas/sessionGrant';
 import type { SkillManifest } from '../../schemas/skill';
+import type { TenantSettingManifest } from '../../schemas/tenantSetting';
 import type { WebSearchProviderManifest } from '../../schemas/webSearchProvider';
 import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpServerStore';
 
@@ -233,6 +234,15 @@ export interface WebSearchProviderTable {
   manifest: JsonbColumn<WebSearchProviderManifest>;
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * Tenant-wide feature switches — mirrors the Postgres `tenant_setting` table.
+ * PRIMARY KEY (tenant_id)
+ */
+export interface TenantSettingTable {
+  tenant_id: string;
+  manifest: JsonbColumn<TenantSettingManifest>;
 }
 
 /**
@@ -439,6 +449,7 @@ export interface Database {
   thread_capability_state: ThreadCapabilityStateTable;
   model_provider: ModelProviderTable;
   web_search_provider: WebSearchProviderTable;
+  tenant_setting: TenantSettingTable;
   skill: SkillTable;
   sandbox_provider: SandboxProviderTable;
   agent: AgentTable;

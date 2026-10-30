@@ -33,6 +33,7 @@ import { SqliteSandboxProviderStore } from '../src/db/sqlite/sandbox-provider-st
 import { SqliteScheduleStore } from '../src/db/sqlite/schedule-store/SqliteScheduleStore';
 import { SqliteSessionMetricsStore } from '../src/db/sqlite/session-metrics/SqliteSessionMetricsStore';
 import { SqliteSkillStore } from '../src/db/sqlite/skill-store/SqliteSkillStore';
+import { SqliteTenantSettingStore } from '../src/db/sqlite/tenant-setting-store/SqliteTenantSettingStore';
 import { SqliteOAuthTokenStore } from '../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import { SqliteWebSearchProviderStore } from '../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
 import { EmptyUserStore } from '../src/db/userStore';
@@ -72,6 +73,7 @@ const sandboxEnvironmentStore = new SqliteSandboxEnvironmentStore(db);
 const skillStore = new SqliteSkillStore(db);
 const sandboxProviderStore = new SqliteSandboxProviderStore(db);
 const webSearchProviderStore = new SqliteWebSearchProviderStore(db);
+const tenantSettingStore = new SqliteTenantSettingStore(db);
 // HTTP middleware needs a registry. Document generation does not scrape it.
 const httpMetrics = createHttpMetrics();
 const app = createServerApp({
@@ -91,6 +93,7 @@ const app = createServerApp({
   resolveTurnSkillsStore: () => skillStore,
   resolveSandboxProviderStore: () => sandboxProviderStore,
   resolveWebSearchProviderStore: () => webSearchProviderStore,
+  resolveTenantSettingStore: () => tenantSettingStore,
   resolveAgentStore: () => agentStore,
   agentStore,
   sandboxEnvironmentStore,

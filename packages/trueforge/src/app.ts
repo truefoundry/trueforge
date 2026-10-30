@@ -25,6 +25,7 @@ import { createInternalMetricsRouter } from './apis/sessionMetrics';
 import { createInternalSessionsRouter, createSessionsRouter } from './apis/sessions';
 import { createSettingsRouter } from './apis/settings';
 import { createAvailableSkillsRouter } from './apis/skills';
+import { createTenantSettingsRouter } from './apis/tenantSettings';
 import { createTurnsRouter } from './apis/turns';
 import { createUsersRouter } from './apis/users';
 import type { Authenticator } from './auth/authenticator';
@@ -34,6 +35,7 @@ import {
   createAdminAuthMiddleware,
   createApiKeyAuthMiddleware,
   createAuthMiddleware,
+  createTenantAdminAuthMiddleware,
   tryAuthenticate,
 } from './auth/middleware';
 import type { McpCatalog } from './catalog/McpCatalog';
@@ -51,6 +53,7 @@ import type { ISandboxProviderStore } from './db/sandboxProviderStore';
 import type { IScheduleStore } from './db/scheduleStore';
 import type { ISessionMetricsStore } from './db/sessionMetricsStore';
 import type { ISkillStore } from './db/skillStore';
+import type { ITenantSettingStore } from './db/tenantSettingStore';
 import type { WithTransaction } from './db/transaction';
 import type { IUserStore } from './db/userStore';
 import type { IWebSearchProviderStore } from './db/webSearchProviderStore';
@@ -293,6 +296,8 @@ export interface ServerDeps<TTransaction> {
    */
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore<TTransaction>;
+  /** Tenant-wide feature switches; DB-backed in every mode. */
+  resolveTenantSettingStore: (c: Context) => ITenantSettingStore<TTransaction>;
   /** Per-request store: DB git skills, or TrueFoundry registry catalog in TrueFoundry mode. */
   resolveSkillStore: (input: ResolveSkillStoreInput) => ISkillStore<TTransaction>;
   /**
@@ -340,6 +345,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   const app = new OpenAPIHono({ defaultHook: zodValidationHook });
   const authMiddleware = createAuthMiddleware(deps.authenticator);
   const adminAuthMiddleware = createAdminAuthMiddleware(deps.authenticator);
+  const tenantAdminAuthMiddleware = createTenantAdminAuthMiddleware(deps.authenticator);
   const scheduleExecutionAuthMiddleware = createApiKeyAuthMiddleware(configuration.TRUEFORGE_API_KEY);
   const authEnabled = getTrueForgeAuthMode() !== TrueForgeAuthMode.Standalone;
   const scheduleTurnDeps = {
@@ -392,6 +398,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       createCapabilitiesRouter({
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
+        resolveTenantSettingStore: deps.resolveTenantSettingStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
         resolveRequestContext,
@@ -469,6 +476,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
+        resolveTenantSettingStore: deps.resolveTenantSettingStore,
         withTransaction: deps.withTransaction,
         resolveRequestContext,
         authorizer: deps.authorizer,
@@ -517,6 +525,18 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       authMiddleware,
     ),
   );
+  // Registered before /api/v1/settings: tenant-wide switches are admin-gated in every mode,
+  // while the catalog settings below stay closed in TrueFoundry mode.
+  app.route(
+    '/api/v1/settings/tenant-settings',
+    withAuth(
+      createTenantSettingsRouter({
+        resolveTenantSettingStore: deps.resolveTenantSettingStore,
+        resolveRequestContext,
+      }),
+      tenantAdminAuthMiddleware,
+    ),
+  );
   app.route(
     '/api/v1/settings',
     withAdminAuth(
@@ -548,6 +568,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
+        resolveTenantSettingStore: deps.resolveTenantSettingStore,
         resolveRequestContext,
         authorizer: deps.authorizer,
       }),
@@ -597,6 +618,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
+        resolveTenantSettingStore: deps.resolveTenantSettingStore,
         redis: deps.redis,
         requestReplyRouter: deps.requestReplyRouter,
         resolveRequestContext,

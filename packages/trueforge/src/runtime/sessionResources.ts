@@ -20,6 +20,7 @@ import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
+import type { ITenantSettingStore } from '../db/tenantSettingStore';
 import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProvider';
@@ -31,6 +32,7 @@ import {
 } from '../sandbox/providerUtils';
 import type { ReasoningEffort } from '../schemas/modelProvider';
 import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
+import { isTenantWebSearchEnabled } from '../tenantSettings/tenantSettings';
 import { hasConfiguredWebSearchProvider } from '../websearch/providers';
 
 /** Split `provider/model` FQN. Returns undefined when the shape is not exactly one slash. */
@@ -267,6 +269,8 @@ export async function validateAgentSpec({
   sandboxProviderStore,
   sandboxEnvironmentStore,
   webSearchProviderStore,
+  tenantSettingStore,
+  previous_web_search_enabled,
 }: {
   spec: AgentSpec;
   tenant_id: string;
@@ -277,6 +281,9 @@ export async function validateAgentSpec({
   sandboxProviderStore: ISandboxProviderStore;
   sandboxEnvironmentStore: ISandboxEnvironmentStore;
   webSearchProviderStore: IWebSearchProviderStore;
+  tenantSettingStore: ITenantSettingStore;
+  /** Web-search value already saved on this session or agent; undefined when creating. */
+  previous_web_search_enabled: boolean | undefined;
 }): Promise<void> {
   const resolved = await getModelDetails({
     tenant_id,
@@ -344,6 +351,15 @@ export async function validateAgentSpec({
   }
 
   if (spec.config.web_search.enabled) {
+    // Already saved with web search on: the tenant switch only gates turning it on.
+    if (previous_web_search_enabled !== true) {
+      const tenantAllows = await isTenantWebSearchEnabled({ tenant_id, store: tenantSettingStore });
+      if (!tenantAllows) {
+        throw new HTTPException(422, {
+          message: 'web_search is disabled for this tenant — an admin can re-enable it in settings',
+        });
+      }
+    }
     const hasProvider = await hasConfiguredWebSearchProvider({ tenant_id, store: webSearchProviderStore });
     if (!hasProvider) {
       throw new HTTPException(422, {

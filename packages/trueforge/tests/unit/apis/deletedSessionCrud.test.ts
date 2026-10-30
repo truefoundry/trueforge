@@ -18,6 +18,7 @@ import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-en
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteSessionStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
+import { SqliteTenantSettingStore } from '../../../src/db/sqlite/tenant-setting-store/SqliteTenantSettingStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
 import { EmptyUserStore } from '../../../src/db/userStore';
@@ -44,6 +45,7 @@ describe('public CRUD after session deletion', () => {
     const sandboxProviderStore = new SqliteSandboxProviderStore(db);
     const sandboxEnvironmentStore = new SqliteSandboxEnvironmentStore(db);
     const webSearchProviderStore = new SqliteWebSearchProviderStore(db);
+    const tenantSettingStore = new SqliteTenantSettingStore(db);
     const app = new OpenAPIHono();
 
     app.route(
@@ -62,6 +64,7 @@ describe('public CRUD after session deletion', () => {
         resolveSandboxProviderStore: () => sandboxProviderStore,
         sandboxEnvironmentStore,
         resolveWebSearchProviderStore: () => webSearchProviderStore,
+        resolveTenantSettingStore: () => tenantSettingStore,
         redis: createClient(),
         requestReplyRouter: new RequestReplyRouter(),
         resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,

@@ -26,6 +26,7 @@ import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provi
 import { SqliteSessionMetricsStore } from '../../../src/db/sqlite/session-metrics/SqliteSessionMetricsStore';
 import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteSessionStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
+import { SqliteTenantSettingStore } from '../../../src/db/sqlite/tenant-setting-store/SqliteTenantSettingStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import type { Database } from '../../../src/db/sqlite/types';
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
@@ -77,6 +78,7 @@ const denyAllAuthorizer: Authorizer = {
 describe('sessions HTTP agent binding', () => {
   let app: OpenAPIHono;
   let agentStore: SqliteAgentStore;
+  let tenantSettingStore: SqliteTenantSettingStore;
   let sessionStore: SqliteSessionStore;
   let sessionMetricsStore: SqliteSessionMetricsStore;
   let sessionDeps: SessionsRouterDeps<Transaction<Database>>;
@@ -96,6 +98,7 @@ describe('sessions HTTP agent binding', () => {
     const sandboxProviderStore = new SqliteSandboxProviderStore(db);
     const sandboxEnvironmentStore = new SqliteSandboxEnvironmentStore(db);
     const webSearchProviderStore = new SqliteWebSearchProviderStore(db);
+    tenantSettingStore = new SqliteTenantSettingStore(db);
     agentStore = new SqliteAgentStore(db);
 
     await modelProviderStore.upsertProvider({
@@ -132,6 +135,7 @@ describe('sessions HTTP agent binding', () => {
       resolveSandboxProviderStore: () => sandboxProviderStore,
       sandboxEnvironmentStore,
       resolveWebSearchProviderStore: () => webSearchProviderStore,
+      resolveTenantSettingStore: () => tenantSettingStore,
       redis: createClient(),
       requestReplyRouter: new RequestReplyRouter(),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
@@ -863,6 +867,42 @@ describe('sessions HTTP agent binding', () => {
     expect(getOrCreate.status).toBe(404);
     expect(await getOrCreate.json()).toEqual({ error: { message: `Agent not found: ${agent.name}` } });
     expect(deniedCanAccessAgent.mock.calls.map(([input]) => input.action)).toEqual(['use', 'use']);
+  });
+
+  it('rejects a new session on a web-search agent while the tenant disabled web search', async () => {
+    const agent = await agentStore.createAgent({
+      tenant_id: 'default',
+      created_by_subject: {
+        subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+        subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+        subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+      },
+      name: 'web-search-agent',
+      description: 'Test agent.',
+      manifest: AgentSpecSchema.parse({
+        model: { name: 'anthropic/claude-sonnet-4-6' },
+        instructions: 'searches',
+        config: { web_search: { enabled: true } },
+      }),
+      external_id: null,
+    });
+
+    await tenantSettingStore.upsertTenantSetting({
+      tenant_id: 'default',
+      manifest: { web_search: { enabled: false }, sandbox: { enabled: true } },
+    });
+    try {
+      const blocked = await app.request('/', jsonInit('POST', { agent: { name: agent.name } }));
+      expect(blocked.status).toBe(422);
+    } finally {
+      await tenantSettingStore.upsertTenantSetting({
+        tenant_id: 'default',
+        manifest: { web_search: { enabled: true }, sandbox: { enabled: true } },
+      });
+    }
+
+    const allowed = await app.request('/', jsonInit('POST', { agent: { name: agent.name } }));
+    expect(allowed.status).toBe(201);
   });
 
   it('rejects create bodies that mix name and AgentSpec fields', async () => {
