@@ -96,6 +96,7 @@ if typing.TYPE_CHECKING:
     from .get_session_response import GetSessionResponse
     from .get_skill_catalog_response import GetSkillCatalogResponse
     from .get_skill_response import GetSkillResponse
+    from .get_tenant_setting_response import GetTenantSettingResponse
     from .get_turn_response import GetTurnResponse
     from .get_web_search_provider_catalog_response import GetWebSearchProviderCatalogResponse
     from .get_web_search_provider_response import GetWebSearchProviderResponse
@@ -230,6 +231,9 @@ if typing.TYPE_CHECKING:
     from .skill_capability import SkillCapability
     from .skill_manifest import SkillManifest
     from .skill_version import SkillVersion
+    from .tenant_setting import TenantSetting
+    from .tenant_setting_manifest import TenantSettingManifest
+    from .tenant_web_search_setting import TenantWebSearchSetting
     from .text_content import TextContent
     from .thread_context_compaction_finished_event import ThreadContextCompactionFinishedEvent
     from .thread_context_compaction_started_event import ThreadContextCompactionStartedEvent
@@ -380,6 +384,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "GetSessionResponse": ".get_session_response",
     "GetSkillCatalogResponse": ".get_skill_catalog_response",
     "GetSkillResponse": ".get_skill_response",
+    "GetTenantSettingResponse": ".get_tenant_setting_response",
     "GetTurnResponse": ".get_turn_response",
     "GetWebSearchProviderCatalogResponse": ".get_web_search_provider_catalog_response",
     "GetWebSearchProviderResponse": ".get_web_search_provider_response",
@@ -514,6 +519,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SkillCapability": ".skill_capability",
     "SkillManifest": ".skill_manifest",
     "SkillVersion": ".skill_version",
+    "TenantSetting": ".tenant_setting",
+    "TenantSettingManifest": ".tenant_setting_manifest",
+    "TenantWebSearchSetting": ".tenant_web_search_setting",
     "TextContent": ".text_content",
     "ThreadContextCompactionFinishedEvent": ".thread_context_compaction_finished_event",
     "ThreadContextCompactionStartedEvent": ".thread_context_compaction_started_event",
@@ -688,6 +696,7 @@ __all__ = [
     "GetSessionResponse",
     "GetSkillCatalogResponse",
     "GetSkillResponse",
+    "GetTenantSettingResponse",
     "GetTurnResponse",
     "GetWebSearchProviderCatalogResponse",
     "GetWebSearchProviderResponse",
@@ -822,6 +831,9 @@ __all__ = [
     "SkillCapability",
     "SkillManifest",
     "SkillVersion",
+    "TenantSetting",
+    "TenantSettingManifest",
+    "TenantWebSearchSetting",
     "TextContent",
     "ThreadContextCompactionFinishedEvent",
     "ThreadContextCompactionStartedEvent",

@@ -13,9 +13,9 @@ describe("ServerClient", () => {
             data: {
                 sandbox: { enabled: true },
                 session_sharing: { enabled: true },
-                settings: { enabled: true },
+                settings: { enabled: true, limited_to_web_search: true },
                 skill: { enabled: true, reason: "reason" },
-                web_search: { enabled: true },
+                web_search: { enabled: true, reason: "reason" },
             },
         };
 
@@ -38,6 +38,7 @@ describe("ServerClient", () => {
                 },
                 settings: {
                     enabled: true,
+                    limitedToWebSearch: true,
                 },
                 skill: {
                     enabled: true,
@@ -45,6 +46,7 @@ describe("ServerClient", () => {
                 },
                 webSearch: {
                     enabled: true,
+                    reason: "reason",
                 },
             },
         });

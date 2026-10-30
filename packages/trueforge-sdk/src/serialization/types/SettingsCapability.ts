@@ -9,10 +9,12 @@ export const SettingsCapability: core.serialization.ObjectSchema<
     TrueForge.SettingsCapability
 > = core.serialization.object({
     enabled: core.serialization.boolean(),
+    limitedToWebSearch: core.serialization.property("limited_to_web_search", core.serialization.boolean()),
 });
 
 export declare namespace SettingsCapability {
     export interface Raw {
         enabled: boolean;
+        limited_to_web_search: boolean;
     }
 }

@@ -12,6 +12,7 @@ if typing.TYPE_CHECKING:
     from .model_providers.client import AsyncModelProvidersClient, ModelProvidersClient
     from .sandbox_providers.client import AsyncSandboxProvidersClient, SandboxProvidersClient
     from .skills.client import AsyncSkillsClient, SkillsClient
+    from .tenant_settings.client import AsyncTenantSettingsClient, TenantSettingsClient
     from .web_search_providers.client import AsyncWebSearchProvidersClient, WebSearchProvidersClient
 
 
@@ -23,6 +24,7 @@ class SettingsClient:
         self._model_providers: typing.Optional[ModelProvidersClient] = None
         self._sandbox_providers: typing.Optional[SandboxProvidersClient] = None
         self._skills: typing.Optional[SkillsClient] = None
+        self._tenant_settings: typing.Optional[TenantSettingsClient] = None
         self._web_search_providers: typing.Optional[WebSearchProvidersClient] = None
 
     @property
@@ -69,6 +71,14 @@ class SettingsClient:
         return self._skills
 
     @property
+    def tenant_settings(self):
+        if self._tenant_settings is None:
+            from .tenant_settings.client import TenantSettingsClient  # noqa: E402
+
+            self._tenant_settings = TenantSettingsClient(client_wrapper=self._client_wrapper)
+        return self._tenant_settings
+
+    @property
     def web_search_providers(self):
         if self._web_search_providers is None:
             from .web_search_providers.client import WebSearchProvidersClient  # noqa: E402
@@ -85,6 +95,7 @@ class AsyncSettingsClient:
         self._model_providers: typing.Optional[AsyncModelProvidersClient] = None
         self._sandbox_providers: typing.Optional[AsyncSandboxProvidersClient] = None
         self._skills: typing.Optional[AsyncSkillsClient] = None
+        self._tenant_settings: typing.Optional[AsyncTenantSettingsClient] = None
         self._web_search_providers: typing.Optional[AsyncWebSearchProvidersClient] = None
 
     @property
@@ -129,6 +140,14 @@ class AsyncSettingsClient:
 
             self._skills = AsyncSkillsClient(client_wrapper=self._client_wrapper)
         return self._skills
+
+    @property
+    def tenant_settings(self):
+        if self._tenant_settings is None:
+            from .tenant_settings.client import AsyncTenantSettingsClient  # noqa: E402
+
+            self._tenant_settings = AsyncTenantSettingsClient(client_wrapper=self._client_wrapper)
+        return self._tenant_settings
 
     @property
     def web_search_providers(self):

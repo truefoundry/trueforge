@@ -1,14 +1,16 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import type { Context } from 'hono';
 import type { Logger } from 'winston';
-import { canAccessSettings, type ResolveRequestContext } from '../auth/identity';
+import { canAccessSettings, hasAdminRole, type ResolveRequestContext } from '../auth/identity';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
+import type { ITenantSettingStore } from '../db/tenantSettingStore';
 import type { WithTransaction } from '../db/transaction';
 import type { IUserStore } from '../db/userStore';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { getCapabilitiesRoute } from '../routes/capabilityRoutes';
 import { isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import { DEFAULT_SANDBOX_ENVIRONMENT_NAME, type SandboxEnvironmentVersionStatus } from '../schemas/sandboxEnvironment';
+import { isTenantWebSearchEnabled } from '../tenantSettings/tenantSettings';
 import { hasTrueFoundrySandboxProviderConfig } from '../truefoundry/resolveTrueFoundrySandboxProviderConfig';
 import { hasConfiguredWebSearchProvider } from '../websearch/providers';
 
@@ -23,9 +25,27 @@ function skillDisabledReason(status: SandboxEnvironmentVersionStatus | undefined
   return 'Skills run in a sandbox, which is not configured.';
 }
 
+/** Why a new chat cannot turn web search on; undefined when it can. */
+function webSearchDisabledReason({
+  tenantAllows,
+  hasProvider,
+}: {
+  tenantAllows: boolean;
+  hasProvider: boolean;
+}): string | undefined {
+  if (!tenantAllows) {
+    return 'Web search is turned off for this tenant. An admin can turn it back on in settings.';
+  }
+  if (!hasProvider) {
+    return 'Web search needs a provider, which is not configured.';
+  }
+  return undefined;
+}
+
 export function createCapabilitiesRouter<TTransaction>(deps: {
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore<TTransaction>;
+  resolveTenantSettingStore: (c: Context) => ITenantSettingStore<TTransaction>;
   userStore: IUserStore;
   withTransaction: WithTransaction<TTransaction>;
   logger: Logger;
@@ -46,17 +66,26 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
       status === 'ready' ||
       (defaultEnv === undefined && isLocalSandboxFallbackEnabled());
     const settingsEnabled = canAccessSettings(requestContext);
-    const webSearchEnabled = await hasConfiguredWebSearchProvider({
-      tenant_id: requestContext.tenant_id,
-      store: deps.resolveWebSearchProviderStore(c),
-    });
+    // Admins outside full settings access (TrueFoundry) still own the tenant web-search switch.
+    const settingsLimitedToWebSearch = !settingsEnabled && hasAdminRole(requestContext);
+    const [hasProvider, tenantAllowsWebSearch] = await Promise.all([
+      hasConfiguredWebSearchProvider({
+        tenant_id: requestContext.tenant_id,
+        store: deps.resolveWebSearchProviderStore(c),
+      }),
+      isTenantWebSearchEnabled({
+        tenant_id: requestContext.tenant_id,
+        store: deps.resolveTenantSettingStore(c),
+      }),
+    ]);
+    const reason = webSearchDisabledReason({ tenantAllows: tenantAllowsWebSearch, hasProvider });
     return c.json(
       {
         data: {
           sandbox: { enabled: sandboxEnabled },
           skill: sandboxEnabled ? { enabled: true } : { enabled: false, reason: skillDisabledReason(status) },
-          settings: { enabled: settingsEnabled },
-          web_search: { enabled: webSearchEnabled },
+          settings: { enabled: settingsEnabled, limited_to_web_search: settingsLimitedToWebSearch },
+          web_search: reason === undefined ? { enabled: true } : { enabled: false, reason },
           session_sharing: { enabled: deps.userStore.supportsUserLookup },
         },
       },

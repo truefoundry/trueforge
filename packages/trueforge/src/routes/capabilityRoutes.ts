@@ -20,12 +20,18 @@ const SkillCapabilitySchema = z
 const SettingsCapabilitySchema = z
   .object({
     enabled: z.boolean().describe('Whether the settings UI/API is enabled.'),
+    limited_to_web_search: z
+      .boolean()
+      .describe('Whether web search is the only settings section available, even though `enabled` is false.'),
   })
   .openapi('SettingsCapability');
 
 const WebSearchCapabilitySchema = z
   .object({
-    enabled: z.boolean().describe('Whether a host web-search provider is configured.'),
+    enabled: z
+      .boolean()
+      .describe('Whether new chats may use web search: the tenant allows it and a provider is configured.'),
+    reason: z.string().optional().describe('Present when web search is unavailable. Explains why.'),
   })
   .openapi('WebSearchCapability');
 

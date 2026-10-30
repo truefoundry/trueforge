@@ -3,4 +3,6 @@
 export interface SettingsCapability {
     /** Whether the settings UI/API is enabled. */
     enabled: boolean;
+    /** Whether web search is the only settings section available, even though `enabled` is false. */
+    limitedToWebSearch: boolean;
 }

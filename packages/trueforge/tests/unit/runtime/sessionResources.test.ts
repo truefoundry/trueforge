@@ -9,6 +9,7 @@ import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-
 import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
+import { SqliteTenantSettingStore } from '../../../src/db/sqlite/tenant-setting-store/SqliteTenantSettingStore';
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
 import { getModelDetails, localSandboxSessionSegment, validateAgentSpec } from '../../../src/runtime/sessionResources';
 import { setCachedLocalSandboxSupport } from '../../../src/sandbox/localRuntime';
@@ -70,6 +71,8 @@ describe('validateAgentSpec', () => {
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
       sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
       webSearchProviderStore: new SqliteWebSearchProviderStore(db),
+      tenantSettingStore: new SqliteTenantSettingStore(db),
+      previous_web_search_enabled: undefined,
     };
   }
 
@@ -254,6 +257,73 @@ describe('validateAgentSpec', () => {
         tenant_id: 'default',
         created_by_subject_id: 'test-subject',
         ...stores,
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('rejects turning web_search on when the tenant disabled it', async () => {
+    const stores = await setup();
+    jest.mocked(hasConfiguredWebSearchProvider).mockResolvedValue(true);
+    await stores.tenantSettingStore.upsertTenantSetting({
+      tenant_id: 'default',
+      manifest: { web_search: { enabled: false } },
+    });
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          config: { web_search: { enabled: true } },
+        }),
+        tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
+        ...stores,
+      }),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: expect.stringContaining('web_search is disabled for this tenant'),
+    } satisfies Partial<HTTPException>);
+  });
+
+  it('keeps web_search on a spec that already had it while the tenant is disabled', async () => {
+    const stores = await setup();
+    jest.mocked(hasConfiguredWebSearchProvider).mockResolvedValue(true);
+    await stores.tenantSettingStore.upsertTenantSetting({
+      tenant_id: 'default',
+      manifest: { web_search: { enabled: false } },
+    });
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          config: { web_search: { enabled: true } },
+        }),
+        tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
+        ...stores,
+        previous_web_search_enabled: true,
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('admits turning web_search off while the tenant is disabled', async () => {
+    const stores = await setup();
+    await stores.tenantSettingStore.upsertTenantSetting({
+      tenant_id: 'default',
+      manifest: { web_search: { enabled: false } },
+    });
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          config: { web_search: { enabled: false } },
+        }),
+        tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
+        ...stores,
+        previous_web_search_enabled: true,
       }),
     ).resolves.toBeUndefined();
   });

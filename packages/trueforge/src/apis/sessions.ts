@@ -39,6 +39,7 @@ import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
+import type { ITenantSettingStore } from '../db/tenantSettingStore';
 import type { WithTransaction } from '../db/transaction';
 import type { IUserStore } from '../db/userStore';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
@@ -60,6 +61,7 @@ import { validateAgentSpec } from '../runtime/sessionResources';
 import { honoQueriesToRecord } from '../schemas/deepObjectQuery';
 import { isSessionAgentNameRef, parseListSessionsQuery, type Session } from '../schemas/session';
 import type { SessionGrant, SessionGrantSubject } from '../schemas/sessionGrant';
+import { isTenantWebSearchEnabled } from '../tenantSettings/tenantSettings';
 import { newId } from '../utils/id';
 import { agentIfAccessible, canReadAgentBoundResource, canReadSession, resolveManagedAgentIds } from './agentAccess';
 
@@ -106,6 +108,7 @@ export interface SessionsRouterDeps<TTransaction = never> {
   sandboxEnvironmentStore: ISandboxEnvironmentStore;
   redis?: RedisClient | undefined;
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore;
+  resolveTenantSettingStore: (c: Context) => ITenantSettingStore;
   requestReplyRouter: RequestReplyRouter;
   resolveRequestContext: ResolveRequestContext;
   logger: Logger;
@@ -357,10 +360,16 @@ function validateInlineSessionSpec(
     | 'resolveSandboxProviderStore'
     | 'sandboxEnvironmentStore'
     | 'resolveWebSearchProviderStore'
+    | 'resolveTenantSettingStore'
   >,
-  input: { c: Context; spec: AgentSpec; requestContext: RequestContext },
+  input: {
+    c: Context;
+    spec: AgentSpec;
+    requestContext: RequestContext;
+    previous_web_search_enabled: boolean | undefined;
+  },
 ): Promise<void> {
-  const { c, spec, requestContext } = input;
+  const { c, spec, requestContext, previous_web_search_enabled } = input;
   return validateAgentSpec({
     spec,
     tenant_id: requestContext.tenant_id,
@@ -371,7 +380,36 @@ function validateInlineSessionSpec(
     sandboxProviderStore: deps.resolveSandboxProviderStore(c),
     sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
     webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
+    tenantSettingStore: deps.resolveTenantSettingStore(c),
+    previous_web_search_enabled,
   });
+}
+
+/** Web-search value already saved on a session, so a re-save is not treated as turning it on. */
+function savedWebSearchEnabled(record: SessionRecord): boolean | undefined {
+  return record.agent.type === 'inline' ? record.agent.spec.config.web_search.enabled : undefined;
+}
+
+/**
+ * Named-agent sessions run the live agent spec, so a new session is how web search
+ * starts for them. Sessions created earlier keep running.
+ */
+async function assertNamedAgentWebSearchAllowed(
+  deps: Pick<SessionsRouterDeps, 'resolveTenantSettingStore'>,
+  input: { c: Context; spec: AgentSpec; requestContext: RequestContext },
+): Promise<void> {
+  if (!input.spec.config.web_search.enabled) {
+    return;
+  }
+  const allowed = await isTenantWebSearchEnabled({
+    tenant_id: input.requestContext.tenant_id,
+    store: deps.resolveTenantSettingStore(input.c),
+  });
+  if (!allowed) {
+    throw new HTTPException(422, {
+      message: 'web_search is disabled for this tenant — an admin can re-enable it in settings',
+    });
+  }
 }
 
 type InternalSessionsRouterDeps = Pick<
@@ -385,6 +423,7 @@ type InternalSessionsRouterDeps = Pick<
   | 'resolveSandboxProviderStore'
   | 'sandboxEnvironmentStore'
   | 'resolveWebSearchProviderStore'
+  | 'resolveTenantSettingStore'
   | 'resolveRequestContext'
   | 'authorizer'
 >;
@@ -432,12 +471,14 @@ function createGetOrCreateSessionByExternalIdHandler(
       if (named === undefined) {
         return c.json({ error: { message: `Agent not found: ${body.agent.name}` } }, 404);
       }
+      await assertNamedAgentWebSearchAllowed(deps, { c, spec: named.manifest, requestContext });
       agent = { type: 'reference', id: named.id, name: named.name };
     } else {
       await validateInlineSessionSpec(deps, {
         c,
         spec: body.agent.spec,
         requestContext,
+        previous_web_search_enabled: undefined,
       });
       agent = { type: 'inline', spec: body.agent.spec };
     }
@@ -498,6 +539,7 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
       if (agent === undefined) {
         return c.json({ error: { message: `Agent not found: ${body.agent.name}` } }, 404);
       }
+      await assertNamedAgentWebSearchAllowed(deps, { c, spec: agent.manifest, requestContext });
       const session = await deps.sessions.create({
         tenant_id: requestContext.tenant_id,
         session_id: sessionId,
@@ -513,6 +555,7 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
       c,
       spec: body.agent.spec,
       requestContext,
+      previous_web_search_enabled: undefined,
     });
     const session = await deps.sessions.create({
       tenant_id: requestContext.tenant_id,
@@ -607,6 +650,7 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
           c,
           spec: body.agent.spec,
           requestContext,
+          previous_web_search_enabled: savedWebSearchEnabled(existing),
         });
       } else {
         await validateAgentSpec({
@@ -619,6 +663,8 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
           sandboxProviderStore: deps.resolveSandboxProviderStore(c),
           sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
           webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
+          tenantSettingStore: deps.resolveTenantSettingStore(c),
+          previous_web_search_enabled: savedWebSearchEnabled(existing),
         });
       }
     }

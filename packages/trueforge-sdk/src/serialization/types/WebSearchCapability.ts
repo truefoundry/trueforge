@@ -9,10 +9,12 @@ export const WebSearchCapability: core.serialization.ObjectSchema<
     TrueForge.WebSearchCapability
 > = core.serialization.object({
     enabled: core.serialization.boolean(),
+    reason: core.serialization.string().optional(),
 });
 
 export declare namespace WebSearchCapability {
     export interface Raw {
         enabled: boolean;
+        reason?: string | null;
     }
 }

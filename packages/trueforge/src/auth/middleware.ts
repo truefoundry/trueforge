@@ -7,7 +7,7 @@ import { jwtVerify } from 'jose';
 import { updateLogContext } from '../logger';
 import type { Authenticator } from './authenticator';
 import { toRequestContext, type IdTokenClaims } from './claims';
-import { canAccessSettings, type RequestContext } from './identity';
+import { canAccessSettings, hasAdminRole, type RequestContext } from './identity';
 import { getOidcVerify } from './oidc';
 import { extractRequestToken, readBearerToken } from './token';
 
@@ -34,6 +34,25 @@ export function createAdminAuthMiddleware(authenticator: Authenticator): Middlew
     }
     updateLogContext({ tenant_id: requestContext.tenant_id });
     if (!canAccessSettings(requestContext)) {
+      throw new HTTPException(403, { message: 'Admin access required' });
+    }
+    c.set('request_context', requestContext);
+    return next();
+  };
+}
+
+/**
+ * Gates `/api/v1/settings/tenant-settings` — uses {@link hasAdminRole}, so a TrueFoundry
+ * tenant-admin may set tenant-wide switches even though catalog settings stay closed there.
+ */
+export function createTenantAdminAuthMiddleware(authenticator: Authenticator): MiddlewareHandler {
+  return async (c, next) => {
+    const requestContext = await tryAuthenticate({ authenticator, context: c });
+    if (requestContext === undefined) {
+      throw new HTTPException(401, { message: 'Authentication required' });
+    }
+    updateLogContext({ tenant_id: requestContext.tenant_id });
+    if (!hasAdminRole(requestContext)) {
       throw new HTTPException(403, { message: 'Admin access required' });
     }
     c.set('request_context', requestContext);
