@@ -30,6 +30,7 @@ import type { SessionAgent } from './schemas/session';
 import type { TurnInputItem } from './schemas/turn';
 import { CancellationReason } from './schemas/turn';
 import type { ISessionStore, NewThreadInit, TurnContextAppend, TurnRecordWithoutSnapshot } from './store/ISessionStore';
+import { TurnNotFoundError } from './store/SessionStoreErrors';
 import { TurnHandle } from './TurnHandle';
 
 /** How many recent ancestors SessionHandle persists on each turn. Store-local. */
@@ -164,9 +165,10 @@ export class SessionHandle<
    * TurnHandle.stream()). Builds threads from the previous turn's snapshot, then
    * sends the input through the orchestrator fully drained (validation +
    * context append; empty input still preflights threads awaiting user input),
-   * then persists via one atomic store.createTurn LAST. A send/validation
-   * failure therefore persists nothing. The returned turn is durable with
-   * state { status: 'running' }.
+   * then persists via one atomic store.createTurn LAST. The previous turn is
+   * frozen in that same transaction only if the new turn commits, so a failed
+   * send, validation, or store write leaves it unchanged. The returned turn is
+   * durable with state { status: 'running' }.
    *
    * On any failure, createTurn() closes the resolver (best-effort) before rethrowing,
    * so resources acquired here (e.g. a sandbox VM) never outlive a failed run.
@@ -194,12 +196,14 @@ export class SessionHandle<
     update_session_title_if_not_exist?: string | undefined;
   }): Promise<TurnHandle<TTurnCustom>> {
     const previousTurnId = resolvePreviousTurnId(input.previous_turn_id, this.session.last_turn_details?.id);
-    const previous = previousTurnId
-      ? await this.freezeTurn({
-          turn_id: previousTurnId,
-          reason: CancellationReason.CancelledForNextTurn,
-        })
-      : undefined;
+    const previous =
+      previousTurnId === null
+        ? undefined
+        : await this.store.getTurn({ session_id: this.session.session_id, turn_id: previousTurnId });
+    if (previousTurnId !== null && previous === undefined) {
+      throw new TurnNotFoundError(previousTurnId);
+    }
+    const expectedPreviousSnapshot = previous ? structuredClone(previous.snapshot) : undefined;
 
     const custom = typeof input.custom === 'function' ? input.custom(previous?.custom ?? undefined) : input.custom;
 
@@ -308,6 +312,10 @@ export class SessionHandle<
 
       await this.store.createTurn({
         turn: turnInit,
+        expected_previous_snapshot: expectedPreviousSnapshot,
+        previous_turn_done_event: previous
+          ? cancelledTurnDoneEvent(CancellationReason.CancelledForNextTurn)
+          : undefined,
         new_threads,
         new_context_appends,
         capability_states: [...agentThreads].map(([thread_id, thread]) => ({

@@ -4,7 +4,9 @@ import {
   type SessionMetrics,
 } from '@truefoundry/trueforge-core/agent-session';
 import type { TurnRecord, TurnSnapshot } from '@truefoundry/trueforge-core/agent-session/models/TurnRecord';
+import type { TurnDoneEvent } from '@truefoundry/trueforge-core/agent-session/schemas/events';
 import {
+  CancellationReason,
   isNonTerminalTurnState,
   type TerminalTurnState,
   type TurnInputItem,
@@ -26,6 +28,7 @@ import {
   TurnAlreadyExistsError,
   TurnNotFoundError,
   TurnNotRunningError,
+  TurnSnapshotChangedError,
 } from '@truefoundry/trueforge-core/agent-session/store/SessionStoreErrors';
 import type { CapabilityState, JsonValue } from '@truefoundry/trueforge-core/core/capabilities/AgentCapability';
 import type { AgentInfo, AgentParent, MCPServerInitInfo } from '@truefoundry/trueforge-core/core/events/schema';
@@ -38,6 +41,7 @@ import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runti
 import { getEmptyCurrentContextUsage } from '@truefoundry/trueforge-core/core/runtime/contextUsage';
 import type { SandboxInfo } from '@truefoundry/trueforge-core/core/sandbox/Sandbox';
 import { sql, type Kysely, type QueryCreator, type RawBuilder, type Transaction } from 'kysely';
+import { isDeepStrictEqual } from 'node:util';
 import { isUniqueViolation } from '../../client';
 import { json, jsonbSet } from '../../sqlExpressions';
 import type { Database, TurnCheckpoint, TurnThreadCheckpoint } from '../../types';
@@ -91,6 +95,8 @@ export interface CreateTurnTurnFields {
 
 export interface CreateTurnInput {
   session_id: string;
+  expected_previous_snapshot: TurnSnapshot | undefined;
+  previous_turn_done_event: TurnDoneEvent | undefined;
   turn: CreateTurnTurnFields;
   new_threads: NewThreadRegistration[];
   new_context_appends: NewContextAppend[];
@@ -431,6 +437,64 @@ interface CapabilityStateInsertRow {
 export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): Promise<void> {
   try {
     await db.transaction().execute(async trx => {
+      const prevTurnId = input.turn.previous_turn_id;
+
+      // Lock the predecessor before the session row, matching turn-state writers'
+      // lock order. Failed preparation leaves the predecessor running; stale
+      // preparation is rejected before the atomic freeze-and-create commit.
+      if (prevTurnId !== null && input.expected_previous_snapshot !== undefined) {
+        const previousLock = await trx
+          .selectFrom('turn')
+          .select('turn_id')
+          .where('session_id', '=', input.session_id)
+          .where('turn_id', '=', prevTurnId)
+          .forUpdate()
+          .executeTakeFirst();
+        if (previousLock === undefined) {
+          throw new TurnNotFoundError(prevTurnId);
+        }
+
+        const previous = await assembleTurnRecord(trx, { session_id: input.session_id, turn_id: prevTurnId });
+        if (previous === undefined) {
+          throw new TurnNotFoundError(prevTurnId);
+        }
+        if (!isDeepStrictEqual(previous.snapshot, input.expected_previous_snapshot)) {
+          throw new TurnSnapshotChangedError(prevTurnId);
+        }
+
+        if (isNonTerminalTurnState(previous.state)) {
+          const doneEvent = input.previous_turn_done_event;
+          if (
+            doneEvent?.state.status !== 'cancelled' ||
+            doneEvent.state.reason !== CancellationReason.CancelledForNextTurn
+          ) {
+            throw new PreviousTurnRunningError(prevTurnId);
+          }
+          await trx
+            .updateTable('turn')
+            .set({ state: json(doneEvent.state), updated_at: sql`now()` })
+            .where('session_id', '=', input.session_id)
+            .where('turn_id', '=', prevTurnId)
+            .execute();
+          await trx
+            .insertInto('session_event')
+            .values({
+              session_id: input.session_id,
+              turn_id: prevTurnId,
+              event_id: doneEvent.id,
+              event: json(doneEvent),
+              created_at: new Date(doneEvent.created_at),
+            })
+            .execute();
+          await applyTurnStateToSession(trx, {
+            id: input.session_id,
+            turn_id: prevTurnId,
+            turn_created_at: previous.created_at,
+            turn_state: doneEvent.state,
+          });
+        }
+      }
+
       // step1: lock session tip, bump. Two statements on purpose — see PROVEN-UNSAFE-CTE note above.
       const locked = await trx
         .selectFrom('session')
@@ -459,8 +523,6 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
         })
         .where('session_id', '=', input.session_id)
         .execute();
-
-      const prevTurnId = input.turn.previous_turn_id;
 
       // step2: previous turn state + its turn_thread rows (pointer-copy source).
       let prevCheckpoint: TurnCheckpoint | null = null;

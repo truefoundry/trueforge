@@ -74,6 +74,16 @@ export class TurnAlreadyExistsError extends SessionStoreConflictError {
   }
 }
 
+export class TurnSnapshotChangedError extends SessionStoreConflictError {
+  readonly turn_id: string;
+
+  constructor(turn_id: string) {
+    super(`Turn ${turn_id} changed while preparing its successor; retry turn creation`);
+    this.name = 'TurnSnapshotChangedError';
+    this.turn_id = turn_id;
+  }
+}
+
 export class TurnEventAlreadyExistsError extends SessionStoreConflictError {
   readonly session_id: string;
   readonly turn_id: string;
@@ -93,7 +103,7 @@ export class PreviousTurnRunningError extends SessionStoreConflictError {
 
   constructor(previous_turn_id: string) {
     super(
-      `Previous turn ${previous_turn_id} is still non-terminal; freezeAndGetTurn must be called before creating a successor`,
+      `Previous turn ${previous_turn_id} is still non-terminal; an expected snapshot and cancellation event are required to create a successor`,
     );
     this.name = 'PreviousTurnRunningError';
     this.previous_turn_id = previous_turn_id;

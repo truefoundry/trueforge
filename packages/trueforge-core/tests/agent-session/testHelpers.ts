@@ -200,6 +200,8 @@ export function makeCreateTurnInput(input: {
   })[];
   capability_states?: CreateTurnInput['capability_states'];
   update_session_title_if_not_exist?: string;
+  expected_previous_snapshot?: CreateTurnInput['expected_previous_snapshot'];
+  previous_turn_done_event?: CreateTurnInput['previous_turn_done_event'];
 }): CreateTurnInput {
   const turn = makeRunningTurnRecord({
     sessionId: input.sessionId,
@@ -213,6 +215,8 @@ export function makeCreateTurnInput(input: {
   const isFirstInChain = input.previousTurnId === undefined || input.previousTurnId === null;
   return {
     turn: turnInit,
+    expected_previous_snapshot: input.expected_previous_snapshot,
+    previous_turn_done_event: input.previous_turn_done_event,
     new_threads: isFirstInChain ? (input.new_threads ?? [defaultRootThread]) : (input.new_threads ?? []),
     new_context_appends: (input.new_context_appends ?? []).map(append => ({
       ...append,

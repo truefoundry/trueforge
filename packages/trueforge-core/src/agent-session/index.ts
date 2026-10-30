@@ -124,6 +124,7 @@ export {
   TurnEventAlreadyExistsError,
   TurnNotFoundError,
   TurnNotRunningError,
+  TurnSnapshotChangedError,
 } from './store/SessionStoreErrors';
 
 export type { ITurnResourceResolver } from './ITurnResourceResolver';

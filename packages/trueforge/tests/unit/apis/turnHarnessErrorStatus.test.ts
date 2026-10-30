@@ -1,5 +1,5 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
-import type { Sessions } from '@truefoundry/trueforge-core/agent-session';
+import { TurnSnapshotChangedError, type Sessions } from '@truefoundry/trueforge-core/agent-session';
 import { AgentHarnessError } from '@truefoundry/trueforge-core/core';
 import { createLogger } from 'winston';
 import { createTurnsRouter } from '../../../src/apis/turns';
@@ -22,7 +22,7 @@ import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
 
-async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response> {
+async function postTurnRejectingWith(error: unknown): Promise<Response> {
   const db = createSqliteDb(':memory:');
   await migrateSqliteToLatest(db);
   const modelProviderStore = new SqliteModelProviderStore(db);
@@ -115,5 +115,13 @@ describe('harness rejections on POST /{session_id}/turns', () => {
   it('keeps capability state failures as internal errors', async () => {
     const response = await postTurnRejectingWith(new AgentHarnessError('capability_state_error', 'rejected'));
     expect(response.status).toBe(500);
+  });
+
+  it('maps stale predecessor conflicts to a retryable 409', async () => {
+    const response = await postTurnRejectingWith(new TurnSnapshotChangedError('turn-1'));
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error: { message: 'Turn turn-1 changed while preparing its successor; retry turn creation' },
+    });
   });
 });

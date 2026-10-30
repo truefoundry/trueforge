@@ -574,7 +574,7 @@ export async function startTurnInProcess(params: BeginTurnExecutionParams): Prom
 
 /** Mapped client error from turn execution; undefined means rethrow. */
 export interface TurnExecutionError {
-  status: 400 | 404 | 422;
+  status: 400 | 404 | 409 | 422;
   message: string;
 }
 
@@ -584,13 +584,16 @@ export interface TurnExecutionError {
  */
 export function getTurnExecutionError(error: unknown): TurnExecutionError | undefined {
   if (error instanceof HTTPException) {
-    if (error.status === 400 || error.status === 404 || error.status === 422) {
+    if (error.status === 400 || error.status === 404 || error.status === 409 || error.status === 422) {
       return { status: error.status, message: error.message };
     }
     return undefined;
   }
   if (error instanceof SessionStoreNotFoundError) {
     return { status: 404, message: error.message };
+  }
+  if (error instanceof SessionStoreConflictError) {
+    return { status: 409, message: error.message };
   }
   if (error instanceof AgentHarnessError && !(error instanceof McpConnectionError)) {
     switch (error.code) {

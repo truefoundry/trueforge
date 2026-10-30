@@ -15,6 +15,7 @@ import {
   TurnAlreadyExistsError,
   TurnNotFoundError,
   TurnNotRunningError,
+  TurnSnapshotChangedError,
 } from '../../../src/agent-session/store/SessionStoreErrors';
 import { newEventId } from '../../../src/core/events/schema';
 import { getEmptyUsage } from '../../../src/core/llm/LLMTypes';
@@ -1576,6 +1577,71 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           makeCreateTurnInput({ sessionId, turnId: 'turn-2', previousTurnId: 'turn-1', firstTurnId: 'turn-1' }),
         ),
       ).rejects.toBeInstanceOf(PreviousTurnRunningError);
+    });
+
+    it('does not freeze the previous turn when atomic successor creation fails', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      const previous = mustGet(await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' }));
+      const failedInput = makeCreateTurnInput({
+        sessionId,
+        turnId: 'turn-2',
+        previousTurnId: 'turn-1',
+        firstTurnId: 'turn-1',
+        expected_previous_snapshot: previous.snapshot,
+        previous_turn_done_event: makeTurnDoneEvent(makeCancelledTurnState(CancellationReason.CancelledForNextTurn)),
+        new_context_appends: [
+          {
+            thread_id: 'unknown-thread',
+            context: [userMessage('invalid append')],
+            current_context_usage: null,
+          },
+        ],
+      });
+
+      await expect(store.createTurn(failedInput)).rejects.toBeInstanceOf(SessionStoreInvariantError);
+
+      const unchanged = mustGet(await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' }));
+      expect(unchanged.state.status).toBe('running');
+      expect(await store.getTurn({ session_id: sessionId, turn_id: 'turn-2' })).toBeUndefined();
+    });
+
+    it('rejects a stale predecessor snapshot without freezing the turn', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      const previous = mustGet(await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' }));
+
+      await store.appendToThreadContext({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        thread_id: MAIN_THREAD_ID,
+        context: [userMessage('concurrent context update')],
+        current_context_usage: null,
+        completion: null,
+      });
+
+      await expect(
+        store.createTurn(
+          makeCreateTurnInput({
+            sessionId,
+            turnId: 'turn-2',
+            previousTurnId: 'turn-1',
+            firstTurnId: 'turn-1',
+            expected_previous_snapshot: previous.snapshot,
+            previous_turn_done_event: makeTurnDoneEvent(
+              makeCancelledTurnState(CancellationReason.CancelledForNextTurn),
+            ),
+          }),
+        ),
+      ).rejects.toBeInstanceOf(TurnSnapshotChangedError);
+
+      const unchanged = mustGet(await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' }));
+      expect(unchanged.state.status).toBe('running');
+      expect(contextContents(unchanged.snapshot.threads[MAIN_THREAD_ID]?.context)).toEqual([
+        'concurrent context update',
+      ]);
     });
 
     it('rejects createTurn when previous turn is paused, then counts metrics once after resume', async () => {
