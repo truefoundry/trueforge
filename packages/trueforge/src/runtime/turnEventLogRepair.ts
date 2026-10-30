@@ -2,9 +2,9 @@ import type { ISessionStore, TurnStreamingEvent } from '@truefoundry/trueforge-c
 import type { EventLogEntry, EventSubscription } from './event-subscription';
 
 /**
- * Rebuild the live turn stream from the durable event log.
- * The producing owner records any missing sequence numbers and claims the
- * stream-owner key. Subscribe omits `producerExecutorId` and only appends.
+ * Rebuild a paused turn's live stream from the durable log.
+ * Subscribe omits `producerExecutorId` and only appends.
+ * The producing resume records any missing sequence numbers and claims the stream-owner key.
  */
 export async function repairTurnEventLog<TTransaction>(input: {
   sessionStore: Pick<ISessionStore<TTransaction>, 'listTurnEventLog' | 'assignTurnEventSequenceNumbers'>;

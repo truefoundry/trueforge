@@ -2077,16 +2077,19 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
 
     const turnEventStream = deps.eventSubscriptions.get(turnStreamId(requestContext.tenant_id, sessionId, turnId));
 
-    // Read-only log repair. Does not claim the stream owner or start execute.
-    // A stream that is still missing after repair (nothing durable to replay) is 412.
+    // A paused turn may have been offloaded after its Redis stream expired.
+    // Restore that stream only. Do not rebuild the turn; a later send does that.
+    // A running turn is expected to still have its stream. A finished turn is not restored.
     try {
-      await repairTurnEventLog({
-        sessionStore: deps.sessionStore,
-        subscription: turnEventStream,
-        sessionId,
-        turnId,
-        streamTTLSeconds: configuration.TURN_STREAM_TTL_SECONDS,
-      });
+      if (turn.state.status === 'paused') {
+        await repairTurnEventLog({
+          sessionStore: deps.sessionStore,
+          subscription: turnEventStream,
+          sessionId,
+          turnId,
+          streamTTLSeconds: configuration.TURN_STREAM_TTL_SECONDS,
+        });
+      }
       await turnEventStream.assertSubscribable();
     } catch (error) {
       if (error instanceof StreamGoneError) {
