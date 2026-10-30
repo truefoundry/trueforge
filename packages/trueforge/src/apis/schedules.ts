@@ -10,7 +10,7 @@ import {
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
-import type { ResolveTurnSkillsStoreInput } from '../app';
+import type { ResolveCapabilitiesStoreInput, ResolveTurnSkillsStoreInput } from '../app';
 import type { Authorizer } from '../auth/authorizer';
 import {
   canEditSchedule,
@@ -65,6 +65,7 @@ import {
   type ScheduleManifest,
   type ScheduleRun,
 } from '../schemas/schedule';
+import type { ICapabilitiesStore } from '../truefoundry/inlineTools';
 import { agentIfAccessible, canReadAgentBoundResource, resolveManagedAgentIds } from './agentAccess';
 import { getTurnExecutionError, startTurnInProcess } from './turns';
 
@@ -84,6 +85,8 @@ export interface ScheduleTurnExecutionDeps<TTransaction> {
   agentStore: IAgentStore<TTransaction>;
   /** Call with `{}` — schedules have no caller `x-tfg-skills`. */
   resolveTurnSkillsStore: (input: ResolveTurnSkillsStoreInput) => Pick<ISkillStore, 'resolveTurnSkills'>;
+  /** Call with `{}` — schedules have no caller `x-tfg-tools`. */
+  resolveCapabilitiesStore: (input: ResolveCapabilitiesStoreInput) => ICapabilitiesStore;
 }
 
 export interface SchedulesRouterDeps<TTransaction> extends ScheduleTurnExecutionDeps<TTransaction> {
@@ -127,6 +130,7 @@ export async function startScheduleRunOnRequest<TTransaction>(params: {
       sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
       webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
       skillStore: deps.resolveTurnSkillsStore({}),
+      capabilitiesStore: deps.resolveCapabilitiesStore({}),
       logger: deps.logger,
     },
   });
