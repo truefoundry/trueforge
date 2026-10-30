@@ -276,7 +276,7 @@ export const ToolResponseEventSchema = LLMToolMessageSchema.omit({ role: true })
 
 export const ThreadCreatedEventSchema = z
   .object({
-    type: z.literal(EventType.THREAD_CREATED).describe('A dynamic subagent thread was created.'),
+    type: z.literal(EventType.THREAD_CREATED).describe('A dynamic subagent thread started executing.'),
     id: EventIdSchema,
     agent_info: AgentInfoSchema,
     created_at: z.string().describe('ISO 8601 event timestamp.'),
