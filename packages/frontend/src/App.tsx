@@ -36,7 +36,9 @@ const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN;
 if (SENTRY_DSN) {
   Sentry.init({
     dsn: SENTRY_DSN,
-    integrations: [Sentry.browserTracingIntegration()],
+    integrations: [
+      Sentry.browserTracingIntegration({ instrumentPageLoad: false, instrumentNavigation: false, enableInp: false }),
+    ],
     tracesSampleRate: 1.0,
     tracePropagationTargets: [window.location.origin],
   });
