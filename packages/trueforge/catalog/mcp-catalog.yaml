@@ -116,3 +116,11 @@ mcp_servers:
     description: Generate images, video, music and speech with 150+ AI models. Sign in with your EvoLink account (OAuth); model search, prices and quotes are free, and generation is billed to your EvoLink balance.
     auth:
       type: dcr
+  - type: remote
+    name: serply
+    url: https://api.serply.io/mcp
+    description: Search Google web, News, and Scholar, and scrape pages, using Serply.
+    auth:
+      type: header
+      headers:
+        X-Api-Key: YOUR_SERPLY_API_KEY
