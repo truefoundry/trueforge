@@ -4818,19 +4818,6 @@
         ],
         "type": "object"
       },
-      "TenantSandboxSetting": {
-        "additionalProperties": false,
-        "properties": {
-          "enabled": {
-            "description": "Whether new chats may use a sandbox.",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "enabled"
-        ],
-        "type": "object"
-      },
       "TenantSetting": {
         "additionalProperties": false,
         "properties": {
@@ -4846,16 +4833,12 @@
       "TenantSettingManifest": {
         "additionalProperties": false,
         "properties": {
-          "sandbox": {
-            "$ref": "#/components/schemas/TenantSandboxSetting"
-          },
           "web_search": {
             "$ref": "#/components/schemas/TenantWebSearchSetting"
           }
         },
         "required": [
-          "web_search",
-          "sandbox"
+          "web_search"
         ],
         "type": "object"
       },

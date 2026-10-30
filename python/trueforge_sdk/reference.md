@@ -5908,7 +5908,7 @@ Replaces the tenant-wide switches. Turning web search off applies to new chats; 
 <dd>
 
 ```python
-from trueforge_sdk import TrueForge, TenantSettingManifest, TenantSandboxSetting, TenantWebSearchSetting
+from trueforge_sdk import TrueForge, TenantSettingManifest, TenantWebSearchSetting
 
 client = TrueForge(
     token="<token>",
@@ -5917,9 +5917,6 @@ client = TrueForge(
 
 client.settings.tenant_settings.create_or_update(
     manifest=TenantSettingManifest(
-        sandbox=TenantSandboxSetting(
-            enabled=True,
-        ),
         web_search=TenantWebSearchSetting(
             enabled=True,
         ),

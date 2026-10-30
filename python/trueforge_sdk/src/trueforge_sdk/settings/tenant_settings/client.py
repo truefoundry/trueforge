@@ -75,7 +75,6 @@ class TenantSettingsClient:
         Examples
         --------
         from trueforge_sdk import (
-            TenantSandboxSetting,
             TenantSettingManifest,
             TenantWebSearchSetting,
             TrueForge,
@@ -87,9 +86,6 @@ class TenantSettingsClient:
         )
         client.settings.tenant_settings.create_or_update(
             manifest=TenantSettingManifest(
-                sandbox=TenantSandboxSetting(
-                    enabled=True,
-                ),
                 web_search=TenantWebSearchSetting(
                     enabled=True,
                 ),
@@ -174,7 +170,6 @@ class AsyncTenantSettingsClient:
 
         from trueforge_sdk import (
             AsyncTrueForge,
-            TenantSandboxSetting,
             TenantSettingManifest,
             TenantWebSearchSetting,
         )
@@ -188,9 +183,6 @@ class AsyncTenantSettingsClient:
         async def main() -> None:
             await client.settings.tenant_settings.create_or_update(
                 manifest=TenantSettingManifest(
-                    sandbox=TenantSandboxSetting(
-                        enabled=True,
-                    ),
                     web_search=TenantWebSearchSetting(
                         enabled=True,
                     ),

@@ -9,7 +9,7 @@ describe("TenantSettingsClient", () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
-        const rawResponseBody = { data: { manifest: { sandbox: { enabled: true }, web_search: { enabled: true } } } };
+        const rawResponseBody = { data: { manifest: { web_search: { enabled: true } } } };
 
         server
             .mockEndpoint()
@@ -23,9 +23,6 @@ describe("TenantSettingsClient", () => {
         expect(response).toEqual({
             data: {
                 manifest: {
-                    sandbox: {
-                        enabled: true,
-                    },
                     webSearch: {
                         enabled: true,
                     },
@@ -75,8 +72,8 @@ describe("TenantSettingsClient", () => {
     test("create_or_update (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { manifest: { sandbox: { enabled: true }, web_search: { enabled: true } } };
-        const rawResponseBody = { data: { manifest: { sandbox: { enabled: true }, web_search: { enabled: true } } } };
+        const rawRequestBody = { manifest: { web_search: { enabled: true } } };
+        const rawResponseBody = { data: { manifest: { web_search: { enabled: true } } } };
 
         server
             .mockEndpoint()
@@ -89,9 +86,6 @@ describe("TenantSettingsClient", () => {
 
         const response = await client.settings.tenantSettings.createOrUpdate({
             manifest: {
-                sandbox: {
-                    enabled: true,
-                },
                 webSearch: {
                     enabled: true,
                 },
@@ -100,9 +94,6 @@ describe("TenantSettingsClient", () => {
         expect(response).toEqual({
             data: {
                 manifest: {
-                    sandbox: {
-                        enabled: true,
-                    },
                     webSearch: {
                         enabled: true,
                     },
@@ -114,7 +105,7 @@ describe("TenantSettingsClient", () => {
     test("create_or_update (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { manifest: { sandbox: { enabled: true }, web_search: { enabled: true } } };
+        const rawRequestBody = { manifest: { web_search: { enabled: true } } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -129,9 +120,6 @@ describe("TenantSettingsClient", () => {
         await expect(async () => {
             return await client.settings.tenantSettings.createOrUpdate({
                 manifest: {
-                    sandbox: {
-                        enabled: true,
-                    },
                     webSearch: {
                         enabled: true,
                     },
@@ -143,7 +131,7 @@ describe("TenantSettingsClient", () => {
     test("create_or_update (3)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { manifest: { sandbox: { enabled: true }, web_search: { enabled: true } } };
+        const rawRequestBody = { manifest: { web_search: { enabled: true } } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -158,9 +146,6 @@ describe("TenantSettingsClient", () => {
         await expect(async () => {
             return await client.settings.tenantSettings.createOrUpdate({
                 manifest: {
-                    sandbox: {
-                        enabled: true,
-                    },
                     webSearch: {
                         enabled: true,
                     },
@@ -172,7 +157,7 @@ describe("TenantSettingsClient", () => {
     test("create_or_update (4)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { manifest: { sandbox: { enabled: true }, web_search: { enabled: true } } };
+        const rawRequestBody = { manifest: { web_search: { enabled: true } } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -187,9 +172,6 @@ describe("TenantSettingsClient", () => {
         await expect(async () => {
             return await client.settings.tenantSettings.createOrUpdate({
                 manifest: {
-                    sandbox: {
-                        enabled: true,
-                    },
                     webSearch: {
                         enabled: true,
                     },

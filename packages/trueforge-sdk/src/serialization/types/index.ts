@@ -223,7 +223,6 @@ export * from "./Skill.js";
 export * from "./SkillCapability.js";
 export * from "./SkillManifest.js";
 export * from "./SkillVersion.js";
-export * from "./TenantSandboxSetting.js";
 export * from "./TenantSetting.js";
 export * from "./TenantSettingManifest.js";
 export * from "./TenantWebSearchSetting.js";

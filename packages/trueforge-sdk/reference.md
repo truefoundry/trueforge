@@ -5054,9 +5054,6 @@ Replaces the tenant-wide switches. Turning web search off applies to new chats; 
 ```typescript
 await client.settings.tenantSettings.createOrUpdate({
     manifest: {
-        sandbox: {
-            enabled: true
-        },
         webSearch: {
             enabled: true
         }

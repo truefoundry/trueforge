@@ -3,6 +3,5 @@
 import type * as TrueForge from "../index.js";
 
 export interface TenantSettingManifest {
-    sandbox: TrueForge.TenantSandboxSetting;
     webSearch: TrueForge.TenantWebSearchSetting;
 }

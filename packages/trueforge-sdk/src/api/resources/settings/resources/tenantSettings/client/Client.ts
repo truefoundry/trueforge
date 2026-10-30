@@ -135,9 +135,6 @@ export class TenantSettingsClient {
      * @example
      *     await client.settings.tenantSettings.createOrUpdate({
      *         manifest: {
-     *             sandbox: {
-     *                 enabled: true
-     *             },
      *             webSearch: {
      *                 enabled: true
      *             }

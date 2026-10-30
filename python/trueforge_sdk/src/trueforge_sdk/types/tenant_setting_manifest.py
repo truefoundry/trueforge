@@ -5,12 +5,10 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .tenant_sandbox_setting import TenantSandboxSetting
 from .tenant_web_search_setting import TenantWebSearchSetting
 
 
 class TenantSettingManifest(UncheckedBaseModel):
-    sandbox: TenantSandboxSetting
     web_search: TenantWebSearchSetting
 
     if IS_PYDANTIC_V2:

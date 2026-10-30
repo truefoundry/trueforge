@@ -6,9 +6,6 @@ import type * as TrueForge from "../../../../../../index.js";
  * @example
  *     {
  *         manifest: {
- *             sandbox: {
- *                 enabled: true
- *             },
  *             webSearch: {
  *                 enabled: true
  *             }

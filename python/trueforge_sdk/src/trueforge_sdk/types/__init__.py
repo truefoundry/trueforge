@@ -231,7 +231,6 @@ if typing.TYPE_CHECKING:
     from .skill_capability import SkillCapability
     from .skill_manifest import SkillManifest
     from .skill_version import SkillVersion
-    from .tenant_sandbox_setting import TenantSandboxSetting
     from .tenant_setting import TenantSetting
     from .tenant_setting_manifest import TenantSettingManifest
     from .tenant_web_search_setting import TenantWebSearchSetting
@@ -520,7 +519,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SkillCapability": ".skill_capability",
     "SkillManifest": ".skill_manifest",
     "SkillVersion": ".skill_version",
-    "TenantSandboxSetting": ".tenant_sandbox_setting",
     "TenantSetting": ".tenant_setting",
     "TenantSettingManifest": ".tenant_setting_manifest",
     "TenantWebSearchSetting": ".tenant_web_search_setting",
@@ -833,7 +831,6 @@ __all__ = [
     "SkillCapability",
     "SkillManifest",
     "SkillVersion",
-    "TenantSandboxSetting",
     "TenantSetting",
     "TenantSettingManifest",
     "TenantWebSearchSetting",
