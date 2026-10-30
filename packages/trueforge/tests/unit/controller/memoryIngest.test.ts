@@ -66,10 +66,12 @@ class FakeStore implements IMemoryIngestStore {
       const tipUpdatedAt = tip.state.status === 'running' ? tip.created_at : stateCompletedAt(tip);
       // session.updated_at moves when a turn is created.
       const sessionUpdatedAt = tip.created_at;
-      if (
-        cursor?.last_ingested_turn_id === tip.turn_id ||
-        Date.parse(sessionUpdatedAt) < input.updated_since.getTime()
-      ) {
+      const updatedMs = Date.parse(sessionUpdatedAt);
+      const tipPaused = tip.state.status === 'done' && tip.state.required_actions.length > 0;
+      const inRange =
+        updatedMs >= input.recent_since.getTime() ||
+        (tipPaused && updatedMs >= input.paused_from.getTime() && updatedMs < input.paused_until.getTime());
+      if (cursor?.last_ingested_turn_id === tip.turn_id || !inRange) {
         continue;
       }
       candidates.push({
@@ -232,6 +234,40 @@ describe('runMemoryIngestPass', () => {
     ]);
     expect(store.upserts.map(u => u.last_ingested_turn_id)).toEqual(['t1', 't2']);
     expect(store.cursors.get('s1')).toMatchObject({ external_thread_id: 'thread-s1', last_error: null });
+  });
+
+  it('looks back 2 hours for all sessions and 12-14 hours only for paused ones', async () => {
+    const store = new FakeStore();
+    const list = jest.spyOn(store, 'listCandidateSessions');
+    // Last turn started 3 hours ago and finished: out of the recent range.
+    store.add(session({ id: 'stale', turns: [closedTurn('t1', null, -119)] }));
+    // Paused on a question 13 hours ago: in the paused range, and past the pause timeout.
+    store.add(
+      session({
+        id: 'paused',
+        turns: [
+          turn({
+            id: 'u1',
+            previous: null,
+            input: [userMessage('Plan dinner')],
+            state: pausedState({ completedAt: at(-12 * 60 * MINUTE + MINUTE), toolCallId: 'call-1' }),
+            createdAt: at(-12 * 60 * MINUTE),
+          }),
+        ],
+      }),
+    );
+    const { provider, calls } = fakeProvider();
+
+    await runMemoryIngestPass({ deps: deps({ store, provider }), signal: signal(), resumeAfter: undefined });
+
+    expect(list).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recent_since: new Date(NOW.getTime() - 120 * MINUTE),
+        paused_from: new Date(NOW.getTime() - 14 * 60 * MINUTE),
+        paused_until: new Date(NOW.getTime() - 12 * 60 * MINUTE),
+      }),
+    );
+    expect(calls.map(call => call.exchange.sessionId)).toEqual(['paused']);
   });
 
   it('waits for the settle window before sending a just-finished exchange', async () => {

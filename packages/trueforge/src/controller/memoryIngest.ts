@@ -264,8 +264,13 @@ export async function runMemoryIngestPass({
   const now = deps.now ?? (() => new Date());
   const startedAt = now();
 
+  // Recent sessions within the lookback; paused ones only once their pause has timed out, for one
+  // lookback-wide range. A paused session the user answers gets a new turn and so becomes recent.
+  const startedMs = startedAt.getTime();
   const listed = await store.listCandidateSessions({
-    updated_since: new Date(startedAt.getTime() - config.lookbackMs - config.pauseTimeoutMs),
+    recent_since: new Date(startedMs - config.lookbackMs),
+    paused_from: new Date(startedMs - config.pauseTimeoutMs - config.lookbackMs),
+    paused_until: new Date(startedMs - config.pauseTimeoutMs),
     ...(resumeAfter === undefined ? {} : { after: resumeAfter }),
     limit: config.maxSessionsPerRun + 1,
   });

@@ -26,6 +26,12 @@ const UI: SessionMetadata = { 'tfg.source': 'ui' };
 const SPEC = AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' }, instructions: 'test' });
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const HOUR_AGO = () => new Date(Date.now() - 60 * 60 * 1000);
+const IN_A_MINUTE = () => new Date(Date.now() + 60 * 1000);
+
+/** Every session updated since `since`; an empty paused range. */
+function recent(since: Date) {
+  return { recent_since: since, paused_from: since, paused_until: since };
+}
 
 export interface MemoryIngestStoreContractEnv {
   store: IMemoryIngestStore;
@@ -88,7 +94,7 @@ export function runMemoryIngestStoreContractSuite(getEnv: () => MemoryIngestStor
   }
 
   async function candidateIds(since: Date = HOUR_AGO()): Promise<string[]> {
-    const candidates = await getEnv().store.listCandidateSessions({ updated_since: since, limit: 100 });
+    const candidates = await getEnv().store.listCandidateSessions({ ...recent(since), limit: 100 });
     return candidates.map(candidate => candidate.session_id);
   }
 
@@ -97,7 +103,7 @@ export function runMemoryIngestStoreContractSuite(getEnv: () => MemoryIngestStor
     await addTurn({ session_id: 's1', turn_id: 't1' });
 
     const [candidate, ...rest] = await getEnv().store.listCandidateSessions({
-      updated_since: HOUR_AGO(),
+      ...recent(HOUR_AGO()),
       limit: 10,
     });
     expect(rest).toEqual([]);
@@ -128,6 +134,36 @@ export function runMemoryIngestStoreContractSuite(getEnv: () => MemoryIngestStor
     expect(await candidateIds(new Date(Date.now() + 60_000))).toEqual([]);
   });
 
+  it('lists only sessions paused on the user from the paused range', async () => {
+    await createSession({ session_id: 'paused' });
+    const pausedState: TerminalTurnState = {
+      status: 'done',
+      output: null,
+      completed_at: new Date().toISOString(),
+      required_actions: [
+        {
+          type: 'tool.response_required',
+          id: 'evt-req',
+          created_at: new Date().toISOString(),
+          thread_id: MAIN_THREAD_ID,
+          tool_calls: [{ id: 'call-1', source_event_id: 'evt-ask' }],
+        },
+      ],
+    };
+    await addTurn({ session_id: 'paused', turn_id: 't1', state: pausedState });
+    await createSession({ session_id: 'closed' });
+    await addTurn({ session_id: 'closed', turn_id: 't1' });
+
+    // Nothing is recent; both sessions fall inside the paused range.
+    const candidates = await getEnv().store.listCandidateSessions({
+      recent_since: IN_A_MINUTE(),
+      paused_from: HOUR_AGO(),
+      paused_until: IN_A_MINUTE(),
+      limit: 10,
+    });
+    expect(candidates.map(c => c.session_id)).toEqual(['paused']);
+  });
+
   it('includes sessions on a registry agent only when its memory is enabled, even from the UI', async () => {
     const { seedAgent } = getEnv();
     await seedAgent({ tenant_id: TENANT, agent_id: 'agent-on', memory_enabled: true });
@@ -139,7 +175,7 @@ export function runMemoryIngestStoreContractSuite(getEnv: () => MemoryIngestStor
     await createSession({ session_id: 'ui-off', agent_id: 'agent-off' });
     await addTurn({ session_id: 'ui-off', turn_id: 't1' });
 
-    const candidates = await getEnv().store.listCandidateSessions({ updated_since: HOUR_AGO(), limit: 10 });
+    const candidates = await getEnv().store.listCandidateSessions({ ...recent(HOUR_AGO()), limit: 10 });
     expect(candidates.map(c => [c.session_id, c.agent_id, c.agent_memory_enabled])).toEqual([['on', 'agent-on', true]]);
   });
 
@@ -157,7 +193,7 @@ export function runMemoryIngestStoreContractSuite(getEnv: () => MemoryIngestStor
     expect(await candidateIds()).toEqual([]);
 
     await addTurn({ session_id: 's1', turn_id: 't2', previous_turn_id: 't1' });
-    const [candidate] = await store.listCandidateSessions({ updated_since: HOUR_AGO(), limit: 10 });
+    const [candidate] = await store.listCandidateSessions({ ...recent(HOUR_AGO()), limit: 10 });
     expect(candidate?.tip_turn_id).toBe('t2');
     expect(candidate?.cursor).toMatchObject({
       session_id: 's1',
@@ -178,7 +214,7 @@ export function runMemoryIngestStoreContractSuite(getEnv: () => MemoryIngestStor
       external_thread_id: null,
       last_error: 'boom',
     });
-    const [failed] = await store.listCandidateSessions({ updated_since: HOUR_AGO(), limit: 10 });
+    const [failed] = await store.listCandidateSessions({ ...recent(HOUR_AGO()), limit: 10 });
     expect(failed?.cursor).toMatchObject({ last_ingested_turn_id: null, external_thread_id: null, last_error: 'boom' });
 
     await store.upsertCursor({
@@ -202,7 +238,7 @@ export function runMemoryIngestStoreContractSuite(getEnv: () => MemoryIngestStor
 
     expect(await candidateIds()).toEqual(['b', 'c', 'a']);
     const { store } = getEnv();
-    const limited = await store.listCandidateSessions({ updated_since: HOUR_AGO(), limit: 2 });
+    const limited = await store.listCandidateSessions({ ...recent(HOUR_AGO()), limit: 2 });
     expect(limited.map(c => c.session_id)).toEqual(['b', 'c']);
 
     const [, last] = limited;
@@ -210,7 +246,7 @@ export function runMemoryIngestStoreContractSuite(getEnv: () => MemoryIngestStor
       throw new Error('expected two candidates');
     }
     const after = { session_updated_at: last.session_updated_at, session_id: last.session_id };
-    const next = await store.listCandidateSessions({ updated_since: HOUR_AGO(), after, limit: 2 });
+    const next = await store.listCandidateSessions({ ...recent(HOUR_AGO()), after, limit: 2 });
     expect(next.map(c => c.session_id)).toEqual(['a']);
   });
 
@@ -231,7 +267,7 @@ export function runMemoryIngestStoreContractSuite(getEnv: () => MemoryIngestStor
     // Re-creating the id surfaces the surviving row.
     await createSession({ session_id: 's1' });
     await addTurn({ session_id: 's1', turn_id: 't1' });
-    const [candidate] = await store.listCandidateSessions({ updated_since: HOUR_AGO(), limit: 10 });
+    const [candidate] = await store.listCandidateSessions({ ...recent(HOUR_AGO()), limit: 10 });
     expect(candidate?.cursor).toMatchObject({ last_ingested_turn_id: 'old', external_thread_id: 'thread' });
   });
 

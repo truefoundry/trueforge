@@ -17,6 +17,8 @@ const agentMemoryEnabled = sql<string | null>`a.manifest #>> ${sql.lit(`{${AGENT
 const tfgSource = sql<string | null>`s.metadata->>'tfg.source'`;
 /** Same predicate as SESSION_MEMORY_INGEST_IDX (literal, not a bind) so the planner can use the partial index. */
 const memoryIngestIndexPredicate = sql<boolean>`s.source IS NULL AND (s.metadata->>'tfg.source' = 'ui' OR s.agent_id IS NOT NULL)`;
+/** The tip turn finished waiting on the user (a question, approval or auth). */
+const tipPaused = sql<boolean>`(t.state->>'status' = 'done' AND jsonb_array_length(COALESCE(t.state->'required_actions', '[]'::jsonb)) > 0)`;
 /** Microsecond ISO text, so the keyset round-trips exactly. */
 const sessionUpdatedAtText = sql<string>`to_char(s.updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
 
@@ -53,7 +55,12 @@ export class PostgresMemoryIngestStore implements IMemoryIngestStore {
         'c.updated_at as cursor_updated_at',
       ])
       .where(memoryIngestIndexPredicate)
-      .where('s.updated_at', '>=', input.updated_since)
+      .where(eb =>
+        eb.or([
+          eb('s.updated_at', '>=', input.recent_since),
+          eb.and([eb('s.updated_at', '>=', input.paused_from), eb('s.updated_at', '<', input.paused_until), tipPaused]),
+        ]),
+      )
       // Matches resolveMemoryScope: a bound agent's manifest decides; UI chats without one use the default scope.
       .where(eb =>
         eb.or([eb.and([eb('s.agent_id', 'is', null), eb(tfgSource, '=', 'ui')]), eb(agentMemoryEnabled, '=', 'true')]),

@@ -1088,10 +1088,14 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
   MEMORY_INGEST_MAX_SESSIONS_PER_RUN: number;
   /** Exchanges sent per session per run. Env: `MEMORY_INGEST_MAX_EXCHANGES_PER_SESSION`. Default 20. */
   MEMORY_INGEST_MAX_EXCHANGES_PER_SESSION: number;
-  /** How far back a session's latest turn is picked up. Env: `MEMORY_INGEST_LOOKBACK_MS`. Default 2 hours. */
+  /**
+   * How far back a session's latest turn is picked up; sessions not ingested by then are dropped.
+   * Env: `MEMORY_INGEST_LOOKBACK_MS`. Default 2 hours.
+   */
   MEMORY_INGEST_LOOKBACK_MS: number;
   /**
-   * An exchange paused on a question is sent as-is after this long; also widens the lookback.
+   * An exchange paused on the user (a question, approval or auth) is sent as-is after this long.
+   * Paused sessions are looked up again in a lookback-wide range this far back.
    * Env: `MEMORY_INGEST_PAUSE_TIMEOUT_MS`. Default 12 hours.
    */
   MEMORY_INGEST_PAUSE_TIMEOUT_MS: number;

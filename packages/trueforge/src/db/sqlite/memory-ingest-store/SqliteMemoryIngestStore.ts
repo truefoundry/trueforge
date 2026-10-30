@@ -21,6 +21,8 @@ import type { Database } from '../types';
 // TODO(agent-memory-toggle): read through a typed MemoryConfig once RuntimeConfigSchema has one.
 const agentMemoryEnabled = sql<number>`json_type(a.manifest, ${sql.lit(`$.${AGENT_MEMORY_ENABLED_PATH.join('.')}`)}) IS 'true'`;
 const tfgSource = sql<string | null>`json_extract(s.metadata, '$."tfg.source"')`;
+/** The tip turn finished waiting on the user (a question, approval or auth). */
+const tipPaused = sql<boolean>`(json_extract(t.state, '$.status') = 'done' AND json_array_length(t.state, '$.required_actions') > 0)`;
 /** Same terms as SESSION_MEMORY_INGEST_IDX (literal, not a bind) so SQLite can use the partial index. */
 const memoryIngestIndexPredicate = sql<boolean>`s.source IS NULL AND (json_extract(s.metadata, '$."tfg.source"') = 'ui' OR s.agent_id IS NOT NULL)`;
 
@@ -60,7 +62,16 @@ export class SqliteMemoryIngestStore implements IMemoryIngestStore {
         'c.updated_at as cursor_updated_at',
       ])
       .where(memoryIngestIndexPredicate)
-      .where('s.updated_at', '>=', input.updated_since.toISOString())
+      .where(eb =>
+        eb.or([
+          eb('s.updated_at', '>=', input.recent_since.toISOString()),
+          eb.and([
+            eb('s.updated_at', '>=', input.paused_from.toISOString()),
+            eb('s.updated_at', '<', input.paused_until.toISOString()),
+            tipPaused,
+          ]),
+        ]),
+      )
       // Matches resolveMemoryScope: a bound agent's manifest decides; UI chats without one use the default scope.
       .where(eb =>
         eb.or([eb.and([eb('s.agent_id', 'is', null), eb(tfgSource, '=', 'ui')]), eb(agentMemoryEnabled, '=', 1)]),

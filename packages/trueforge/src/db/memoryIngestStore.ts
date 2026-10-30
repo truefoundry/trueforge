@@ -59,12 +59,19 @@ export interface MemoryIngestModelMessage {
 /** Keyset position in the candidate order. */
 export type MemoryIngestCandidateKey = Pick<MemoryIngestCandidate, 'session_updated_at' | 'session_id'>;
 
+/**
+ * Which sessions a run looks at, by `session.updated_at`. That moves when a turn is created, so it
+ * bounds the latest turn's start; turns finish within the execution timeout.
+ */
 export interface ListMemoryIngestCandidatesInput {
+  /** Any session updated at or after this instant. */
+  recent_since: Date;
   /**
-   * Only sessions updated at or after this instant. `session.updated_at` moves when a turn is
-   * created, so this bounds the latest turn's start; turns finish within the execution timeout.
+   * Plus sessions whose tip turn is paused on the user (a question, approval or auth), updated in
+   * [`paused_from`, `paused_until`): their pause has timed out, so what exists is sent.
    */
-  updated_since: Date;
+  paused_from: Date;
+  paused_until: Date;
   /** Only candidates strictly after this key, so runs can continue where the last one stopped. */
   after?: MemoryIngestCandidateKey;
   limit: number;
@@ -74,8 +81,8 @@ export type UpsertMemoryIngestCursorInput = Omit<MemoryIngestCursor, 'updated_at
 
 export interface IMemoryIngestStore {
   /**
-   * Non-scheduled sessions that are UI chats without an agent or bound to an agent with memory enabled, updated
-   * since `updated_since`, whose tip turn is not yet ingested. Ordered by
+   * Non-scheduled sessions that are UI chats without an agent or bound to an agent with memory
+   * enabled, in the recent or paused range, whose tip turn is not yet ingested. Ordered by
    * (session.updated_at, session_id), oldest first, which `session_memory_ingest_idx` serves.
    */
   listCandidateSessions(input: ListMemoryIngestCandidatesInput): Promise<MemoryIngestCandidate[]>;
