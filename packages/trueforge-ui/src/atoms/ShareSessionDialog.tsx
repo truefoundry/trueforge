@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react';
 
 import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '../analytics/events.js';
+import { useOptionalCurrentUser } from '../contexts/CurrentUserContext.js';
 import { useSessionUserSearch } from '../hooks/useSessionUserSearch.js';
 import {
   SESSION_SHARE_PRIVATE,
@@ -18,6 +19,8 @@ import { auiSelectOptionClass, auiSelectTriggerClass } from './lib/selectClasses
 import { Avatar, AvatarFallback } from './primitives/Avatar.js';
 import { Button } from './primitives/Button.js';
 import { DropdownMenu } from './primitives/DropdownMenu.js';
+import { MultiSelectInput } from './primitives/MultiSelectInput.js';
+import { getUserInitials } from './UserAvatar.js';
 
 export type ShareSessionDialogProps = {
   sessionId: string;
@@ -25,7 +28,7 @@ export type ShareSessionDialogProps = {
 };
 
 const SHARE_PERMISSIONS: Record<SessionSharePermission, { title: string; description: string }> = {
-  [SESSION_SHARE_PRIVATE]: { title: 'Only you', description: 'Only you have access' },
+  [SESSION_SHARE_PRIVATE]: { title: 'Restricted', description: 'Only people with access can open' },
   [SESSION_SHARE_TENANT]: { title: 'Everyone within this tenant', description: 'Everyone has access' },
 };
 
@@ -107,10 +110,6 @@ function AccessSelector({
   );
 }
 
-function initialsOf(label: string): string {
-  return label.trim().slice(0, 2).toUpperCase();
-}
-
 function PersonRow({
   label,
   role,
@@ -123,7 +122,7 @@ function PersonRow({
   return (
     <div className="flex h-8 w-full items-center gap-2 text-sm">
       <Avatar size="sm">
-        <AvatarFallback>{initialsOf(label)}</AvatarFallback>
+        <AvatarFallback>{getUserInitials(label) || '?'}</AvatarFallback>
       </Avatar>
       <span className="text-text-primary min-w-0 flex-1 truncate">{label}</span>
       <span className="text-text-secondary shrink-0">{role}</span>
@@ -168,13 +167,17 @@ function InviteCollaborators({
 
   return (
     <div className="flex w-full flex-col gap-2">
-      <div className="flex h-8 w-full items-center gap-2">
-        <input
-          value={query}
-          onChange={event => setQuery(event.target.value)}
-          placeholder="Add collaborator username or email"
+      <div className="flex w-full items-start gap-2">
+        <MultiSelectInput
+          selected={selected}
+          getKey={user => user.id}
+          getLabel={user => user.displayName}
+          onRemove={user => setSelected(current => current.filter(item => item.id !== user.id))}
+          query={query}
+          onQueryChange={setQuery}
+          placeholder="Add people by name or email"
           aria-label="Search users"
-          className={auiInputClass('h-8 min-w-0 flex-1 px-3.5 text-[0.8125rem]')}
+          className="flex-1"
         />
         <Button.Primary
           type="button"
@@ -189,22 +192,6 @@ function InviteCollaborators({
           Invite
         </Button.Primary>
       </div>
-      {selected.length > 0 ? (
-        <div className="flex flex-wrap gap-1.5">
-          {selected.map(user => (
-            <button
-              key={user.id}
-              type="button"
-              aria-label={`Remove ${user.displayName} from invite`}
-              className="bg-secondary-bg text-text-primary flex cursor-pointer items-center gap-1 rounded-full px-2 py-0.5 text-xs"
-              onClick={() => setSelected(current => current.filter(item => item.id !== user.id))}
-            >
-              {user.displayName}
-              <Icon name="xmark" size="0.625rem" />
-            </button>
-          ))}
-        </div>
-      ) : null}
       {query.trim().length > 0 && (candidates.length > 0 || hasMore) ? (
         <div role="listbox" aria-label="Matching users" className="flex max-h-40 w-full flex-col overflow-y-auto">
           {candidates.map(user => (
@@ -214,7 +201,12 @@ function InviteCollaborators({
               role="option"
               aria-selected={false}
               className={auiSelectOptionClass()}
-              onClick={() => setSelected(current => [...current, user])}
+              // Keep focus in the search field so the next name can be typed right away.
+              onMouseDown={event => event.preventDefault()}
+              onClick={() => {
+                setSelected(current => [...current, user]);
+                setQuery('');
+              }}
             >
               <span className="flex min-w-0 flex-1 items-baseline gap-2">
                 <span className="font-semibold">{user.displayName}</span>
@@ -256,6 +248,8 @@ export function ShareSessionDialog({ sessionId, trigger }: ShareSessionDialogPro
     copySharedSessionLink,
   } = useShareSessionDialog(sessionId);
   const track = useTrackAnalytics();
+  const currentUser = useOptionalCurrentUser();
+  const ownerIsCurrentUser = owner != null && currentUser?.subjectId === owner.id;
 
   return (
     <DropdownMenu
@@ -299,13 +293,16 @@ export function ShareSessionDialog({ sessionId, trigger }: ShareSessionDialogPro
       ) : null}
       {collaborators.length > 0 || owner != null ? (
         <div className="flex w-full flex-col gap-1">
+          {owner == null ? null : (
+            <PersonRow label={ownerIsCurrentUser ? `${owner.displayName} (you)` : owner.displayName} role="Owner" />
+          )}
           {collaborators.map(grant => {
             const label = grant.displayName ?? grant.email ?? grant.subjectId;
             return (
               <PersonRow
                 key={grant.subjectId}
                 label={label}
-                role="can access"
+                role="Can access"
                 {...(canInvite
                   ? {
                       action: {
@@ -320,7 +317,6 @@ export function ShareSessionDialog({ sessionId, trigger }: ShareSessionDialogPro
               />
             );
           })}
-          {owner == null ? null : <PersonRow label={owner.displayName} role="owner" />}
         </div>
       ) : null}
       {permission === SESSION_SHARE_TENANT || collaborators.length > 0 ? (
