@@ -34,7 +34,7 @@ import {
   type TurnState,
 } from './schemas/turn';
 import type { ISessionStore } from './store/ISessionStore';
-import { TurnNotRunningError } from './store/SessionStoreErrors';
+import { SessionStoreInvariantError, TurnNotRunningError } from './store/SessionStoreErrors';
 
 /** Streaming yield union — deltas pass through; never persisted. No sequence_number. */
 export type TurnStreamingEvent = PersistedTurnEvent | ModelMessageDeltaEvent;
@@ -508,15 +508,23 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       }
 
       case InternalEventType.AGENT_CONTEXT_APPEND: {
-        await this.writeStore('append', () =>
-          this.store.appendToThreadContext({
-            ...scope,
-            thread_id: event.thread_id,
-            context: event.context,
-            current_context_usage: event.current_context_usage ?? null,
-            completion: event.completion ?? null,
-          }),
-        );
+        try {
+          await this.writeStore('append', () =>
+            this.store.appendToThreadContext({
+              ...scope,
+              thread_id: event.thread_id,
+              context: event.context,
+              current_context_usage: event.current_context_usage ?? null,
+              completion: event.completion ?? null,
+            }),
+          );
+        } catch (error) {
+          // Queued child cancelled before thread.created: no store row yet.
+          if (event.completion?.type === 'cancelled' && error instanceof SessionStoreInvariantError) {
+            return null;
+          }
+          throw error;
+        }
         if (event.output.length > 0) {
           await this.writeStore('append', () =>
             this.store.appendToEvents({

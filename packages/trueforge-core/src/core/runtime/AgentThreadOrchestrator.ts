@@ -104,6 +104,41 @@ function countNewlyActiveThreads(threads: readonly AgentThread[], countedThreadI
   return started;
 }
 
+/** Public thread.created when a child is about to run — not when it was only queued. */
+function* emitThreadCreatedOnStart({
+  thread,
+  emittedThreadCreatedIds,
+}: {
+  thread: AgentThread;
+  emittedThreadCreatedIds: Set<string>;
+}): Generator<Extract<AgentThreadExecutionEvent, { type: typeof EventType.THREAD_CREATED }>, void, unknown> {
+  if (!thread.parent) {
+    return;
+  }
+  // Same child can be batched again after a nested subagent finishes (leaf → parent → leaf).
+  if (emittedThreadCreatedIds.has(thread.threadId)) {
+    return;
+  }
+  // Cancelled/complete before first run: no public created (and no public done).
+  if (thread.toSnapshot().completion !== null) {
+    return;
+  }
+  const agentInfo = thread.agentInfo;
+  if (!agentInfo) {
+    throw new Error('Sub-agent thread is missing agentInfo');
+  }
+  emittedThreadCreatedIds.add(thread.threadId);
+  yield {
+    type: EventType.THREAD_CREATED,
+    id: newEventId(),
+    agent_info: agentInfo,
+    created_at: new Date().toISOString(),
+    parent: thread.parent,
+    title: agentInfo.name,
+    thread_id: thread.threadId,
+  };
+}
+
 function mergeAuthEvents(events: InternalMCPAuthRequiredEvent[]): InternalMCPAuthRequiredEvent {
   const serverMap = new Map<string, InternalMCPServerAuthInfo>();
   for (const event of events) {
@@ -478,20 +513,7 @@ export class AgentThreadOrchestrator {
           signal,
         });
 
-        yield {
-          type: EventType.THREAD_CREATED,
-          id: newEventId(),
-          agent_info: {
-            type: 'dynamic',
-            name: chunk.agent_info.name,
-            input: chunk.agent_info.input,
-            model: chunk.agent_info.model,
-          },
-          created_at: new Date().toISOString(),
-          parent,
-          title: chunk.agent_info.name,
-          thread_id: subAgentThreadId,
-        };
+        // Queued in memory only; public thread.created (+ store addThreads) waits until execute starts.
         this.agentThreads.set(subAgentThreadId, subAgentThread);
         return { shouldStopExecution: false };
       }
@@ -522,6 +544,10 @@ export class AgentThreadOrchestrator {
     });
 
     const countedThreadIds = new Set<string>();
+    // Restored children already had thread.created; only emit for kids created in this execute().
+    const emittedThreadCreatedIds = new Set(
+      [...agentThreads.values()].filter(thread => thread.parent).map(thread => thread.threadId),
+    );
     try {
       while (agentThreads.size > 0) {
         if (shouldStopExecution) {
@@ -536,6 +562,9 @@ export class AgentThreadOrchestrator {
 
         for (let i = 0; i < activeThreads.length && !shouldStopExecution; i += MAX_PARALLEL_SUB_AGENTS) {
           const batch = activeThreads.slice(i, i + MAX_PARALLEL_SUB_AGENTS);
+          for (const thread of batch) {
+            yield* emitThreadCreatedOnStart({ thread, emittedThreadCreatedIds });
+          }
           const generators = batch.map(thread => {
             if (!thread.parent) {
               return rootSpan.wrapThreadWithContext(thread, signal);

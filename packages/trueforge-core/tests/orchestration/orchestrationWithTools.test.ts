@@ -42,7 +42,7 @@ const EXPECTED_EVENTS = [
       },
     ],
   },
-  // create_sub_agent tool path yields an empty append before THREAD_CREATED.
+  // create_sub_agent tool path yields an empty append; THREAD_CREATED waits until execute starts.
   { type: InternalEventType.AGENT_CONTEXT_APPEND, thread_id: ROOT_ID, context: [] },
   {
     type: EventType.THREAD_CREATED,
