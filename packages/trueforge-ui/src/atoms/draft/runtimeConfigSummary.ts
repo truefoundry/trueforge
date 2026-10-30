@@ -29,6 +29,7 @@ export function runtimeConfigSummary(
     { label: 'dynamic sub-agents', value: enabledLabel(config?.dynamicSubAgents?.enabled, true) },
     { label: 'generative UI', value: enabledLabel(config?.generativeUi?.enabled, true) },
     { label: 'ask user questions', value: enabledLabel(config?.askUserQuestions?.enabled, true) },
+    { label: 'memory', value: enabledLabel(config?.memory?.enabled, false) },
     ...(webSearchAvailable ? [{ label: 'web search', value: enabledLabel(config?.webSearch?.enabled, true) }] : []),
   ];
 }

@@ -182,6 +182,15 @@ const WebSearchConfigSchema = z
   })
   .openapi('WebSearchConfig');
 
+const MemoryConfigSchema = z
+  .object({
+    enabled: z
+      .boolean()
+      .default(false)
+      .describe('Enable long-term memory for this agent. Set only when creating the agent. Default: false.'),
+  })
+  .openapi('MemoryConfig');
+
 export const RuntimeConfigSchema = z
   .object({
     iteration_limit: z
@@ -202,6 +211,7 @@ export const RuntimeConfigSchema = z
     generative_ui: GenerativeUIConfigSchema.default(() => ({ enabled: true })),
     ask_user_questions: AskUserQuestionsConfigSchema.default(() => ({ enabled: true })),
     web_search: WebSearchConfigSchema.default(() => ({ enabled: false })),
+    memory: MemoryConfigSchema.default(() => ({ enabled: false })),
   })
   .openapi('RuntimeConfig');
 

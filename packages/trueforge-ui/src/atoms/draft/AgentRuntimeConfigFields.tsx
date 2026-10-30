@@ -38,6 +38,7 @@ function parsePositiveInteger(raw: string): number | null {
 }
 
 const ENVIRONMENT_LOCKED_HINT = "Can't change the environment after a chat has started";
+const MEMORY_LOCKED_HINT = 'Memory can only be set when creating an agent';
 const NO_SANDBOX_PROVIDER_HINT = 'No sandbox provider yet, add one in Settings → Sandbox';
 const DEFAULT_COMPACTION_THRESHOLD_TOKENS = 50_000;
 
@@ -72,6 +73,8 @@ export function AgentRuntimeConfigFields({
   const { draftSessionId } = useTrueForgeAgentSpec();
   // Turns reuse the session sandbox, so the environment is fixed once a chat has started.
   const environmentLocked = draftSessionId != null;
+  // Memory is create-time only; bound agents already have an id from a prior save.
+  const memoryLocked = shell?.mode.status === 'active' && shell.mode.agentId !== undefined;
   const selectedEnvironmentName = readSandboxEnvironmentName(value.sandbox);
 
   const environmentOptions = useMemo(() => {
@@ -151,6 +154,14 @@ export function AgentRuntimeConfigFields({
         update: enabled => ({ ...value, webSearch: { enabled } }),
       }
     : null;
+  const memoryField: RuntimeSwitchField = {
+    label: 'Memory',
+    description: 'Remember facts across sessions for this agent.',
+    checked: value.memory?.enabled ?? false,
+    disabled: memoryLocked,
+    disabledTooltip: memoryLocked ? MEMORY_LOCKED_HINT : undefined,
+    update: enabled => ({ ...value, memory: { enabled } }),
+  };
   const sandboxField: RuntimeSwitchField = {
     label: 'Sandbox',
     description: 'Provide an isolated environment for code, files, and skills.',
@@ -285,6 +296,7 @@ export function AgentRuntimeConfigFields({
           />
         </label>
         {webSearchField != null ? switchField({ field: webSearchField, className: cn('py-4', rowClassName) }) : null}
+        {switchField({ field: memoryField, className: cn('py-4', rowClassName) })}
         <section className="py-4">
           {switchField({ field: sandboxField, className: rowClassName })}
           <div className={`mt-3 border-l-2 border-primary-button-bg/50 pl-3 ${sandboxEnabled ? '' : 'opacity-50'}`}>
@@ -398,6 +410,7 @@ export function AgentRuntimeConfigFields({
       </label>
       {[
         ...(webSearchField != null ? [webSearchField] : []),
+        memoryField,
         ...runtimeFields,
         ...(showCapabilities ? capabilityFields : []),
       ].map(field => switchField({ field }))}

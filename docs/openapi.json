@@ -2763,6 +2763,19 @@
         ],
         "type": "string"
       },
+      "MemoryConfig": {
+        "default": {
+          "enabled": false
+        },
+        "properties": {
+          "enabled": {
+            "default": false,
+            "description": "Enable long-term memory for this agent. Set only when creating the agent. Default: false.",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
       "MetricsUnit": {
         "enum": [
           "count",
@@ -3519,6 +3532,9 @@
             "enabled": true
           },
           "iteration_limit": 512,
+          "memory": {
+            "enabled": false
+          },
           "sandbox": {
             "enabled": false,
             "file_downloads": true
@@ -3546,6 +3562,9 @@
             "exclusiveMinimum": 0,
             "maximum": 1024,
             "type": "integer"
+          },
+          "memory": {
+            "$ref": "#/components/schemas/MemoryConfig"
           },
           "sandbox": {
             "$ref": "#/components/schemas/SandboxConfig"

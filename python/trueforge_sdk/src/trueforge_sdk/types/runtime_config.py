@@ -9,6 +9,7 @@ from .ask_user_questions_config import AskUserQuestionsConfig
 from .context_management_config import ContextManagementConfig
 from .dynamic_sub_agents_config import DynamicSubAgentsConfig
 from .generative_ui_config import GenerativeUiConfig
+from .memory_config import MemoryConfig
 from .sandbox_config import SandboxConfig
 from .web_search_config import WebSearchConfig
 
@@ -23,6 +24,7 @@ class RuntimeConfig(UncheckedBaseModel):
     Max agent-loop iterations per turn (1–1024). Default: 512.
     """
 
+    memory: typing.Optional[MemoryConfig] = None
     sandbox: typing.Optional[SandboxConfig] = None
     web_search: typing.Optional[WebSearchConfig] = None
 

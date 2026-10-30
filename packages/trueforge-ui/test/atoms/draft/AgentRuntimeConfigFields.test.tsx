@@ -7,9 +7,14 @@ import type { AgentRuntimeConfig } from '@/server/types.js';
 import { createMockAgentUIServer, createMockSandboxEnvironmentServer } from '../../server/mockServer.js';
 
 const setEnvironmentsOpen = vi.fn();
+const shellModeState: {
+  mode: { status: 'active'; isMutable: boolean; isCreateAgent: boolean; agentId?: string };
+} = {
+  mode: { status: 'active', isMutable: true, isCreateAgent: true },
+};
 
 vi.mock('@/server/ShellModeContext.js', () => ({
-  useOptionalShellMode: () => ({ setEnvironmentsOpen }),
+  useOptionalShellMode: () => ({ setEnvironmentsOpen, mode: shellModeState.mode }),
 }));
 
 function renderRuntimeFields({
@@ -157,6 +162,33 @@ describe('AgentRuntimeConfigFields', () => {
     const missing = await screen.findByRole('option', { name: 'gone-env' });
     expect(missing).toBeDisabled();
     expect(missing).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('toggles memory when creating an unbound agent', () => {
+    shellModeState.mode = { status: 'active', isMutable: true, isCreateAgent: true };
+    const onChange = vi.fn();
+    renderRuntimeFields({ onChange });
+
+    const memorySwitch = screen.getByRole('switch', { name: 'Memory' });
+    expect(memorySwitch).not.toBeDisabled();
+    expect(memorySwitch).toHaveAttribute('aria-checked', 'false');
+
+    fireEvent.click(memorySwitch);
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ memory: { enabled: true } }));
+  });
+
+  it('locks memory after the agent has been saved', () => {
+    shellModeState.mode = {
+      status: 'active',
+      isMutable: true,
+      isCreateAgent: true,
+      agentId: 'agent-1',
+    };
+    renderRuntimeFields({ value: { memory: { enabled: true } } });
+
+    const memorySwitch = screen.getByRole('switch', { name: 'Memory' });
+    expect(memorySwitch).toBeDisabled();
+    expect(memorySwitch).toHaveAttribute('aria-checked', 'true');
   });
 
   it('shows a wire-only sandbox environment name and clears it when default is chosen', async () => {

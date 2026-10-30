@@ -94,6 +94,17 @@ async function validateManifest<TTransaction>({
   return spec;
 }
 
+/** Memory is create-time only; keep the stored value across updates. */
+function withCreateTimeMemory({ manifest, existing }: { manifest: AgentSpec; existing: AgentSpec }): AgentSpec {
+  return {
+    ...manifest,
+    config: {
+      ...manifest.config,
+      memory: existing.config.memory,
+    },
+  };
+}
+
 export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransaction>) {
   const listHandler: RouteHandler<typeof listAgentsRoute> = async c => {
     const { limit, page_token: pageToken, agent_name: agentName } = c.req.valid('query');
@@ -227,7 +238,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
     if (existing === undefined) {
       return c.json({ error: { message: `Agent not found: ${agentId}` } }, 404);
     }
-    const manifest = await validateManifest({
+    const validated = await validateManifest({
       spec: body.manifest,
       modelProviderStore: deps.resolveModelProviderStore(c),
       mcpServerStore: deps.resolveMcpServerStore(c),
@@ -238,6 +249,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       tenant_id: requestContext.tenant_id,
       created_by_subject_id: requestContext.subject.id,
     });
+    const manifest = withCreateTimeMemory({ manifest: validated, existing: existing.manifest });
     const record = await deps.resolveAgentStore(c).updateAgent({
       tenant_id: requestContext.tenant_id,
       id: agentId,
