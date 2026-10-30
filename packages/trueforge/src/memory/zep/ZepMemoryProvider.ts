@@ -2,6 +2,8 @@
  * Zep Cloud v4 provider over `fetch`. Each scope is a Zep user; each session is a Zep thread.
  * @see https://help.getzep.com/v4/sdk-reference
  */
+import type { MemoryFact } from '@truefoundry/trueforge-core/core';
+import { randomUUID } from 'node:crypto';
 import type { Logger } from 'winston';
 import { z } from 'zod';
 import {
@@ -30,7 +32,30 @@ const ZepMessagesResponseSchema = z.object({
   items: z.array(z.object({ metadata: z.record(z.string(), z.unknown()).nullish() })),
 });
 
-type ZepOperation = 'lookup_user' | 'create_user' | 'create_thread' | 'add_messages' | 'list_messages';
+/** `GET /users/{uuid}/node`: the user's graph node, whose `summary` Zep keeps up to date. */
+const ZepUserNodeResponseSchema = z.object({ summary: z.string().nullish() });
+/** `POST /graphs/{uuid}/search/edges`: edges (facts), best first. */
+const ZepEdgePageSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        fact: z.string().nullish(),
+        valid_at: z.string().nullish(),
+        invalid_at: z.string().nullish(),
+      }),
+    )
+    .default([]),
+});
+
+type ZepOperation =
+  | 'lookup_user'
+  | 'create_user'
+  | 'create_thread'
+  | 'add_messages'
+  | 'list_messages'
+  | 'get_user_node'
+  | 'search_edges'
+  | 'add_episode';
 
 export class ZepRequestError extends Error {
   readonly operation: ZepOperation;
@@ -203,6 +228,93 @@ export class ZepMemoryProvider implements MemoryProvider {
     );
   }
 
+  async getUserSummary({
+    scope,
+    signal,
+  }: {
+    scope: MemoryScope;
+    signal: AbortSignal | undefined;
+  }): Promise<string | null> {
+    const userUuid = await this.#existingUserUuid(scope, { signal, maxAttempts: 1 });
+    if (userUuid === undefined) {
+      return null;
+    }
+    const node = await this.#request({
+      operation: 'get_user_node',
+      method: 'GET',
+      path: `/users/${encodeURIComponent(userUuid)}/node`,
+      allowNotFound: true,
+      signal,
+      maxAttempts: 1,
+    });
+    if (node.status === 404) {
+      return null;
+    }
+    const summary = ZepUserNodeResponseSchema.parse(node.body).summary?.trim();
+    return summary === undefined || summary === '' ? null : summary;
+  }
+
+  async search({ scope, query, limit }: { scope: MemoryScope; query: string; limit: number }): Promise<MemoryFact[]> {
+    const userUuid = await this.#existingUserUuid(scope, { signal: undefined, maxAttempts: undefined });
+    if (userUuid === undefined) {
+      return [];
+    }
+    // A user's graph can be addressed by the user's uuid.
+    const found = await this.#request({
+      operation: 'search_edges',
+      path: `/graphs/${encodeURIComponent(userUuid)}/search/edges?page_size=${String(limit)}`,
+      body: { query },
+    });
+    return ZepEdgePageSchema.parse(found.body).items.flatMap(edge =>
+      edge.fact === undefined || edge.fact === null || edge.fact.trim() === ''
+        ? []
+        : [{ fact: edge.fact, valid_at: edge.valid_at ?? null, invalid_at: edge.invalid_at ?? null }],
+    );
+  }
+
+  async addMemory({
+    scope,
+    content,
+    sessionId,
+    createdAt,
+  }: {
+    scope: MemoryScope;
+    content: string;
+    sessionId: string;
+    createdAt: string;
+  }): Promise<void> {
+    const userUuid = await this.#userUuid(scope);
+    await this.#request({
+      operation: 'add_episode',
+      path: `/graphs/${encodeURIComponent(userUuid)}/episodes`,
+      body: {
+        type: 'text',
+        data: `${scope.displayName} asked to remember: ${content}`,
+        source_description: 'Saved at the user’s explicit request in a TrueForge chat',
+        reference_time: createdAt,
+        metadata: { session_id: sessionId, source: 'memory_add', scope: scope.type },
+      },
+      // Fixed across retries, so Zep stores the episode once even if a response is lost.
+      headers: { 'Idempotency-Key': randomUUID() },
+    });
+  }
+
+  /** The scope's Zep user uuid without creating the user; reads use it so they don't create users. */
+  async #existingUserUuid(
+    scope: MemoryScope,
+    options: { signal: AbortSignal | undefined; maxAttempts: number | undefined },
+  ): Promise<string | undefined> {
+    const cached = this.#userUuids.get(scope.key);
+    if (cached !== undefined) {
+      return cached;
+    }
+    const uuid = await this.#lookupUser(scope, options);
+    if (uuid !== undefined) {
+      this.#userUuids.set(scope.key, uuid);
+    }
+    return uuid;
+  }
+
   async #createThread(scope: MemoryScope): Promise<string> {
     const userUuid = await this.#userUuid(scope);
     const created = await this.#request({
@@ -223,12 +335,20 @@ export class ZepMemoryProvider implements MemoryProvider {
     return uuid;
   }
 
-  async #lookupUser(scope: MemoryScope): Promise<string | undefined> {
+  async #lookupUser(
+    scope: MemoryScope,
+    options: { signal: AbortSignal | undefined; maxAttempts: number | undefined } = {
+      signal: undefined,
+      maxAttempts: undefined,
+    },
+  ): Promise<string | undefined> {
     const found = await this.#request({
       operation: 'lookup_user',
       path: '/users/lookup',
       body: { user_id: scope.key },
       allowNotFound: true,
+      signal: options.signal,
+      maxAttempts: options.maxAttempts,
     });
     return found.status === 404 ? undefined : ZepUuidResponseSchema.parse(found.body).uuid;
   }
@@ -269,6 +389,9 @@ export class ZepMemoryProvider implements MemoryProvider {
     body,
     allowNotFound = false,
     retryUnclearFailures = true,
+    headers = {},
+    signal,
+    maxAttempts = this.#maxAttempts,
   }: {
     operation: ZepOperation;
     method?: 'GET' | 'POST';
@@ -277,6 +400,10 @@ export class ZepMemoryProvider implements MemoryProvider {
     allowNotFound?: boolean;
     /** False for non-idempotent writes: no retry after a failure that may have reached Zep (no response, 5xx). */
     retryUnclearFailures?: boolean;
+    headers?: Record<string, string>;
+    /** Aborts the request on top of the per-request timeout. */
+    signal?: AbortSignal | undefined;
+    maxAttempts?: number | undefined;
   }): Promise<{ status: number; body: unknown }> {
     for (let attempt = 1; ; attempt++) {
       const startedAt = Date.now();
@@ -287,7 +414,7 @@ export class ZepMemoryProvider implements MemoryProvider {
         duration_ms: Date.now() - startedAt,
         attempt,
       });
-      const canRetry = attempt < this.#maxAttempts;
+      const canRetry = attempt < maxAttempts && signal?.aborted !== true;
       const backoffMs = Math.min(MAX_BACKOFF_MS, BASE_BACKOFF_MS * 2 ** (attempt - 1));
 
       let response: Response;
@@ -295,9 +422,12 @@ export class ZepMemoryProvider implements MemoryProvider {
       try {
         response = await this.#fetch(`${this.#baseUrl}${path}`, {
           method,
-          headers: { Authorization: `Api-Key ${this.#apiKey}`, 'Content-Type': 'application/json' },
+          headers: { ...headers, Authorization: `Api-Key ${this.#apiKey}`, 'Content-Type': 'application/json' },
           ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-          signal: AbortSignal.timeout(this.#timeoutMs),
+          signal:
+            signal === undefined
+              ? AbortSignal.timeout(this.#timeoutMs)
+              : AbortSignal.any([AbortSignal.timeout(this.#timeoutMs), signal]),
         });
         // Inside the try: a connection dropped while reading the body is a network failure too.
         text = await response.text();

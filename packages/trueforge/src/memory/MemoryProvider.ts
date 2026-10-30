@@ -1,3 +1,4 @@
+import type { MemoryFact } from '@truefoundry/trueforge-core/core';
 import type { MemoryScope } from './scope';
 
 export const MEMORY_PROVIDER_NAMES = ['zep'] as const;
@@ -57,11 +58,20 @@ export class MemoryIngestError extends Error {
 }
 
 /**
- * Long-term memory backend. Ingestion only for now; retrieval (user context, search), agent writes
- * and deletes will be added here so every caller shares one provider contract.
+ * Long-term memory backend shared by ingestion (controller) and retrieval and writes (agent turns).
+ * Every call names its scope; callers derive it with `resolveMemoryScope`, never from model input.
  */
 export interface MemoryProvider {
   readonly name: MemoryProviderName;
   /** Resolves once the provider has accepted the exchange; extraction may finish later. */
   ingestExchange(input: IngestExchangeInput): Promise<{ externalThreadId: string }>;
+  /**
+   * The scope's user summary; null when the user or summary doesn't exist yet. Single attempt, for
+   * the latency-bound session start; `signal` aborts it.
+   */
+  getUserSummary(input: { scope: MemoryScope; signal: AbortSignal | undefined }): Promise<string | null>;
+  /** Facts in the scope's memory relevant to `query`, best first; empty when the user doesn't exist yet. */
+  search(input: { scope: MemoryScope; query: string; limit: number }): Promise<MemoryFact[]>;
+  /** Store a note the user asked to be remembered; the provider extracts facts from it later. */
+  addMemory(input: { scope: MemoryScope; content: string; sessionId: string; createdAt: string }): Promise<void>;
 }

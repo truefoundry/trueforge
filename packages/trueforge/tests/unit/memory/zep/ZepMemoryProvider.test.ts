@@ -41,8 +41,10 @@ function fakeLogger() {
 
 interface Call {
   path: string;
+  method: string;
   body: unknown;
   authorization: string | null;
+  idempotencyKey: string | null;
 }
 
 /** Replays `responses` in order and records each request. */
@@ -52,8 +54,10 @@ function fakeFetch(responses: (Response | Error)[]) {
     const headers = new Headers(init?.headers);
     calls.push({
       path: String(url).replace(BASE_URL, ''),
+      method: init?.method ?? 'GET',
       body: typeof init?.body === 'string' ? JSON.parse(init.body) : null,
       authorization: headers.get('authorization'),
+      idempotencyKey: headers.get('idempotency-key'),
     });
     const next = responses.shift();
     if (next === undefined) {
@@ -400,5 +404,117 @@ describe('ZepMemoryProvider', () => {
     await expect(
       zep.ingestExchange({ scope: SCOPE, exchange: EXCHANGE, externalThreadId: null, mayAlreadyBeStored: false }),
     ).rejects.toMatchObject({ name: 'MemoryIngestError', externalThreadId: 'thread-new' });
+  });
+});
+
+describe('ZepMemoryProvider retrieval and writes', () => {
+  it('reads the user summary from the user node, in a single attempt', async () => {
+    const { calls, fetchImpl } = fakeFetch([
+      jsonResponse(200, { uuid: 'user-uuid' }),
+      jsonResponse(200, { summary: '  Priya is vegetarian.  ' }),
+    ]);
+    const { zep } = provider(fetchImpl);
+
+    await expect(zep.getUserSummary({ scope: SCOPE, signal: undefined })).resolves.toBe('Priya is vegetarian.');
+    expect(calls.map(call => [call.method, call.path])).toEqual([
+      ['POST', '/users/lookup'],
+      ['GET', '/users/user-uuid/node'],
+    ]);
+  });
+
+  it('returns no summary for a user Zep has never seen, without creating one', async () => {
+    const { calls, fetchImpl } = fakeFetch([jsonResponse(404)]);
+    const { zep } = provider(fetchImpl);
+
+    await expect(zep.getUserSummary({ scope: SCOPE, signal: undefined })).resolves.toBeNull();
+    expect(calls.map(call => call.path)).toEqual(['/users/lookup']);
+  });
+
+  it('does not retry the summary, so session start stays fast', async () => {
+    const { calls, fetchImpl } = fakeFetch([jsonResponse(503)]);
+    const { zep } = provider(fetchImpl);
+
+    await expect(zep.getUserSummary({ scope: SCOPE, signal: undefined })).rejects.toBeInstanceOf(ZepRequestError);
+    expect(calls).toHaveLength(1);
+  });
+
+  it('treats an empty summary as none', async () => {
+    const { fetchImpl } = fakeFetch([jsonResponse(200, { uuid: 'user-uuid' }), jsonResponse(200, { summary: '' })]);
+    const { zep } = provider(fetchImpl);
+
+    await expect(zep.getUserSummary({ scope: SCOPE, signal: undefined })).resolves.toBeNull();
+  });
+
+  it('searches facts on the user graph and drops empty edges', async () => {
+    const { calls, fetchImpl } = fakeFetch([
+      jsonResponse(200, { uuid: 'user-uuid' }),
+      jsonResponse(200, {
+        items: [
+          { fact: 'Priya is vegetarian', valid_at: '2026-10-01T00:00:00Z', invalid_at: null },
+          { fact: '' },
+          { fact: 'Priya lived in Pune', valid_at: '2025-01-01T00:00:00Z', invalid_at: '2026-01-01T00:00:00Z' },
+        ],
+      }),
+    ]);
+    const { zep } = provider(fetchImpl);
+
+    await expect(zep.search({ scope: SCOPE, query: 'diet', limit: 5 })).resolves.toEqual([
+      { fact: 'Priya is vegetarian', valid_at: '2026-10-01T00:00:00Z', invalid_at: null },
+      { fact: 'Priya lived in Pune', valid_at: '2025-01-01T00:00:00Z', invalid_at: '2026-01-01T00:00:00Z' },
+    ]);
+    expect(calls[1]).toMatchObject({
+      method: 'POST',
+      path: '/graphs/user-uuid/search/edges?page_size=5',
+      body: { query: 'diet' },
+    });
+  });
+
+  it('returns no facts for a user Zep has never seen', async () => {
+    const { calls, fetchImpl } = fakeFetch([jsonResponse(404)]);
+    const { zep } = provider(fetchImpl);
+
+    await expect(zep.search({ scope: SCOPE, query: 'diet', limit: 5 })).resolves.toEqual([]);
+    expect(calls).toHaveLength(1);
+  });
+
+  it('adds a note as a text episode attributed to the user, creating the user when needed', async () => {
+    const { calls, fetchImpl } = fakeFetch([
+      jsonResponse(404),
+      jsonResponse(201, { uuid: 'user-uuid' }),
+      jsonResponse(202, { task_id: 'task-1' }),
+    ]);
+    const { zep } = provider(fetchImpl);
+
+    await zep.addMemory({
+      scope: SCOPE,
+      content: 'I am allergic to peanuts',
+      sessionId: 'session-1',
+      createdAt: '2026-10-30T10:00:00.000Z',
+    });
+
+    expect(calls.map(call => call.path)).toEqual(['/users/lookup', '/users', '/graphs/user-uuid/episodes']);
+    expect(calls[2]?.body).toEqual({
+      type: 'text',
+      data: 'Priya asked to remember: I am allergic to peanuts',
+      source_description: 'Saved at the user’s explicit request in a TrueForge chat',
+      reference_time: '2026-10-30T10:00:00.000Z',
+      metadata: { session_id: 'session-1', source: 'memory_add', scope: 'default' },
+    });
+    expect(calls[2]?.idempotencyKey).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it('retries a lost episode write with the same idempotency key, so Zep stores it once', async () => {
+    const { calls, fetchImpl } = fakeFetch([
+      jsonResponse(200, { uuid: 'user-uuid' }),
+      new TypeError('fetch failed'),
+      jsonResponse(202, { task_id: 'task-1' }),
+    ]);
+    const { zep } = provider(fetchImpl);
+
+    await zep.addMemory({ scope: SCOPE, content: 'note', sessionId: 's', createdAt: '2026-10-30T10:00:00.000Z' });
+
+    const writes = calls.filter(call => call.path === '/graphs/user-uuid/episodes');
+    expect(writes).toHaveLength(2);
+    expect(writes[0]?.idempotencyKey).toBe(writes[1]?.idempotencyKey);
   });
 });

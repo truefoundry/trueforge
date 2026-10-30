@@ -92,6 +92,7 @@ const app = createServerApp({
   resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
   resolveSandboxProviderStore: () => sandboxProviderStore,
   resolveWebSearchProviderStore: () => webSearchProviderStore,
+  memory: undefined,
   resolveAgentStore: () => agentStore,
   agentStore,
   sandboxEnvironmentStore,

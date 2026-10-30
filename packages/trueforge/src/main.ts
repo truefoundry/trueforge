@@ -135,6 +135,7 @@ import { createHttpMetrics, setMetricsScrapeAppendix } from './http/prometheus';
 import { serverTlsServeOptions } from './http/tls';
 import { createServerLogger, shouldColorize } from './logger';
 import type { IOAuthTokenStore } from './mcp/auth/types';
+import { memoryFromConfig } from './memory/memoryFromConfig';
 import { createOperationMetrics } from './observability/agentMetrics';
 import { startSdkMetrics } from './observability/sdkMetrics';
 import { PACKAGE_VERSION } from './packageVersion';
@@ -808,6 +809,8 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     resolveAgentStore,
     resolveSandboxProviderStore,
     resolveWebSearchProviderStore,
+    // TrueFoundry mode only, like the shared sandbox and web search.
+    memory: isTrueFoundryModeEnabled(configuration) ? memoryFromConfig({ config: configuration, logger }) : undefined,
     resolveSkillStore,
     resolveTurnSkillsStore: resolveTurnSkillsStoreForRequest,
     resolveCapabilitiesStore,

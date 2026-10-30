@@ -10,7 +10,6 @@ import type {
   MemoryIngestCandidateKey,
   MemoryIngestTurn,
 } from '../db/memoryIngestStore';
-import { createMemoryProvider } from '../memory/createMemoryProvider';
 import {
   activePath,
   askUserQuestionsByToolCallId,
@@ -20,8 +19,9 @@ import {
   resumePoint,
   type TurnExchange,
 } from '../memory/exchanges';
+import { memoryFromConfig, type MemoryProviderConfiguration } from '../memory/memoryFromConfig';
 import { MemoryIngestError, type MemoryProvider } from '../memory/MemoryProvider';
-import { FlagMemorySettings, type MemorySettings } from '../memory/MemorySettings';
+import type { MemorySettings } from '../memory/MemorySettings';
 import { resolveMemoryScope, type MemoryScope } from '../memory/scope';
 import type { ControlLoop } from './Controller';
 
@@ -417,18 +417,16 @@ async function processCandidate({
 /** What the controller needs to register the loop; the controller supplies the logger. */
 export type MemoryIngestWiring = Omit<MemoryIngestDeps, 'logger' | 'now'>;
 
-type MemoryConfiguration = Pick<
-  DistributedServerConfiguration,
-  | 'TRUEFOUNDRY_MEMORY_ENABLED'
-  | 'TRUEFOUNDRY_ZEP_API_KEY'
-  | 'TRUEFOUNDRY_ZEP_BASE_URL'
-  | 'MEMORY_INGEST_INTERVAL_MS'
-  | 'MEMORY_INGEST_MAX_SESSIONS_PER_RUN'
-  | 'MEMORY_INGEST_MAX_EXCHANGES_PER_SESSION'
-  | 'MEMORY_INGEST_LOOKBACK_MS'
-  | 'MEMORY_INGEST_PAUSE_TIMEOUT_MS'
-  | 'MEMORY_INGEST_SETTLE_MS'
->;
+type MemoryConfiguration = MemoryProviderConfiguration &
+  Pick<
+    DistributedServerConfiguration,
+    | 'MEMORY_INGEST_INTERVAL_MS'
+    | 'MEMORY_INGEST_MAX_SESSIONS_PER_RUN'
+    | 'MEMORY_INGEST_MAX_EXCHANGES_PER_SESSION'
+    | 'MEMORY_INGEST_LOOKBACK_MS'
+    | 'MEMORY_INGEST_PAUSE_TIMEOUT_MS'
+    | 'MEMORY_INGEST_SETTLE_MS'
+  >;
 
 /**
  * Loop wiring from TrueFoundry-mode configuration (like the shared sandbox and web search);
@@ -443,19 +441,14 @@ export function memoryIngestFromConfig({
   store: IMemoryIngestStore;
   logger: Logger;
 }): MemoryIngestWiring | undefined {
-  if (!config.TRUEFOUNDRY_MEMORY_ENABLED) {
+  const memory = memoryFromConfig({ config, logger });
+  if (memory === undefined) {
     return undefined;
-  }
-  if (config.TRUEFOUNDRY_ZEP_API_KEY === undefined) {
-    throw new Error('TRUEFOUNDRY_MEMORY_ENABLED=true requires TRUEFOUNDRY_ZEP_API_KEY');
   }
   return {
     store,
-    provider: createMemoryProvider({
-      zep: { apiKey: config.TRUEFOUNDRY_ZEP_API_KEY, baseUrl: config.TRUEFOUNDRY_ZEP_BASE_URL },
-      logger,
-    }),
-    settings: new FlagMemorySettings({ enabled: true }),
+    provider: memory.provider,
+    settings: memory.settings,
     config: {
       intervalMs: config.MEMORY_INGEST_INTERVAL_MS,
       maxSessionsPerRun: config.MEMORY_INGEST_MAX_SESSIONS_PER_RUN,

@@ -12,7 +12,6 @@ import {
 import { now } from '../sqlExpressions';
 import type { Database } from '../types';
 
-// TODO(agent-memory-toggle): read through a typed MemoryConfig once RuntimeConfigSchema has one.
 const agentMemoryEnabled = sql<string | null>`a.manifest #>> ${sql.lit(`{${AGENT_MEMORY_ENABLED_PATH.join(',')}}`)}`;
 const tfgSource = sql<string | null>`s.metadata->>'tfg.source'`;
 /**
