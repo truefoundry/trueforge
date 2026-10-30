@@ -110,6 +110,7 @@ function buildApp(input: { db: Kysely<Database>; sessionStore: SqliteSessionStor
       resolveTurnExecutionStores: () =>
         Promise.resolve({
           agentStore,
+          capabilitiesStore: { resolveCapabilities: () => [] },
           modelProviderStore: new SqliteModelProviderStore(db),
           mcpServerStore: new McpServerWithAuthStore({
             store: new SqliteMcpServerStore(db),

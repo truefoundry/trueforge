@@ -156,6 +156,7 @@ describe('sessions HTTP agent binding', () => {
         resolveTurnExecutionStores: () =>
           Promise.resolve({
             agentStore,
+            capabilitiesStore: { resolveCapabilities: () => [] },
             modelProviderStore,
             mcpServerStore: new McpServerWithAuthStore({
               store: mcpServerStore,

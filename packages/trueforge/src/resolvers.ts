@@ -35,6 +35,7 @@ import {
   type InlineSkills,
 } from './truefoundry/inlineResources';
 import { InlineSkillStore } from './truefoundry/InlineSkillStore';
+import { capabilitiesStoreFromHeader, X_TFG_TOOLS } from './truefoundry/inlineTools';
 import {
   parsePerServerMcpHeaders,
   X_TFG_MCP_HEADERS,
@@ -361,8 +362,13 @@ export function createRequestStoreResolvers<TTransaction>(input: {
   const resolveTurnExecutionStores = (turnInput: ResolveTurnExecutionStoresInput<TTransaction>) => {
     const { runAsAgent } = turnInput;
     const allowInlineResources = turnInput.session.record.agent.type === 'inline';
+    // x-tfg-tools is per turn and is not stored. Schedules omit headers and mount nothing.
     return Promise.resolve({
       agentStore: input.resolveAgentStore(turnInput.requestContext),
+      capabilitiesStore: capabilitiesStoreFromHeader({
+        header: headerValue(turnInput.requestHeaders, X_TFG_TOOLS),
+        isTrueFoundryMode,
+      }),
       modelProviderStore: modelProviderStoreFor({
         requestContext: turnInput.requestContext,
         headers: turnInput.requestHeaders,

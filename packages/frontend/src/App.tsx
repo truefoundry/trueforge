@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/react';
 import {
   getErrorMessage,
   resolveReasoningEffort,
@@ -26,9 +27,20 @@ import { LogoutButton } from './LogoutButton';
 import { NewAgentWelcomeScreen } from './NewAgentWelcomeScreen';
 import { API_BASE_URL, uiRouterBasename } from './publicPath';
 import { RegisterSkillsLink } from './RegisterSkillsLink';
+import { withSentryRootSpan } from './sentryFetch';
 
 const POSTHOG_API_KEY = import.meta.env.VITE_POSTHOG_API_KEY;
 const POSTHOG_HOST = import.meta.env.VITE_POSTHOG_HOST ?? 'https://us.i.posthog.com';
+const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN;
+
+if (SENTRY_DSN) {
+  Sentry.init({
+    dsn: SENTRY_DSN,
+    integrations: [Sentry.browserTracingIntegration()],
+    tracesSampleRate: 1.0,
+    tracePropagationTargets: [window.location.origin],
+  });
+}
 
 function initAnalytics(): void {
   if (!POSTHOG_API_KEY) {
@@ -45,7 +57,7 @@ function initAnalytics(): void {
 initAnalytics();
 
 /** Shared cookie/OIDC fetch for boot helpers and `<TrueForgeUI server />`. */
-const authAwareFetch = createAuthAwareFetch();
+const authAwareFetch = SENTRY_DSN ? withSentryRootSpan(createAuthAwareFetch()) : createAuthAwareFetch();
 // UI + API share the public prefix from `window.__TRUEFORGE_BASE_PATH__`.
 const bootClient = createTrueForgeClient({ baseUrl: API_BASE_URL, fetch: authAwareFetch });
 const routerBasename = uiRouterBasename();

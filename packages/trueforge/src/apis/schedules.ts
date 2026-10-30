@@ -132,6 +132,8 @@ export async function startScheduleRunOnRequest<TTransaction>(params: {
       sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
       webSearchProviderStore: deps.webSearchProviderStore,
       skillStore: deps.resolveTurnSkillsStore({}),
+      // Schedules have no caller `x-tfg-tools`.
+      capabilitiesStore: { resolveCapabilities: () => [] },
       logger: deps.logger,
       sessionStore: deps.sessionStore,
     },

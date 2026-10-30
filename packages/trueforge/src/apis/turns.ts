@@ -94,6 +94,7 @@ import {
 import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
 import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
 import { assertGatewayMetadataRequestHeaders } from '../truefoundry/gatewayMetadata';
+import type { ICapabilitiesStore } from '../truefoundry/inlineTools';
 import { newId } from '../utils/id';
 import { resolveWebSearchProvider } from '../websearch/providers';
 import { canReadAgentBoundResource, canReadSession } from './agentAccess';
@@ -158,6 +159,8 @@ export interface ResolveTurnExecutionStoresInput<TTransaction = never> {
 
 export interface TurnExecutionStores<TTransaction = never> {
   agentStore: IAgentStore<TTransaction>;
+  /** `x-tfg-tools` for this turn. Schedules pass a store that mounts nothing. */
+  capabilitiesStore: ICapabilitiesStore;
   modelProviderStore: IModelProviderStore<TTransaction>;
   mcpServerStore: IMcpServerWithAuthStore<TTransaction>;
   skillStore: Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'>;
@@ -214,6 +217,7 @@ export type BeginTurnExecutionDeps<TTransaction> = Pick<
   'activeTurns' | 'eventSubscriptions' | 'logger' | 'sandboxEnvironmentStore'
 > & {
   agentStore: IAgentStore;
+  capabilitiesStore: ICapabilitiesStore;
   modelProviderStore: IModelProviderStore;
   mcpServerStore: IMcpServerWithAuthStore;
   sandboxProviderStore: ISandboxProviderStore;
@@ -283,6 +287,7 @@ function createTurnResolver(deps: {
   userRef: string;
   session: Pick<SessionHandle, 'tenant_id' | 'session_id'>;
   turnMetadata: TurnMetadata;
+  capabilitiesStore: ICapabilitiesStore;
 }): TurnResourceResolver {
   const {
     mcpServerStore,
@@ -297,6 +302,7 @@ function createTurnResolver(deps: {
     userRef,
     session,
     turnMetadata,
+    capabilitiesStore,
   } = deps;
   const tenant_id = session.tenant_id;
   const sessionId = session.session_id;
@@ -397,6 +403,7 @@ function createTurnResolver(deps: {
     },
     webSearchProvider,
     logger,
+    rootCapabilities: () => capabilitiesStore.resolveCapabilities(),
   });
 }
 
@@ -617,6 +624,7 @@ async function prepareTurnExecution<TTransaction>(input: {
       ...(sessionAgent.type === 'reference' ? { agent: { id: sessionAgent.id, name: sessionAgent.name } } : {}),
       ...(input.requestHeaders === undefined ? {} : { requestHeaders: input.requestHeaders }),
     },
+    capabilitiesStore: input.deps.capabilitiesStore,
   });
   let executionTimer: NodeJS.Timeout | undefined;
   const executionTimeout: TurnExecutionTimeout = {

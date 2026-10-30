@@ -41,6 +41,7 @@ function mcpServerStoreWithAuth(db: Kysely<Database>, tokenStore: SqliteOAuthTok
 function turnExecutionStores(db: Kysely<Database>, tokenStore: SqliteOAuthTokenStore) {
   return {
     agentStore: new SqliteAgentStore(db),
+    capabilitiesStore: { resolveCapabilities: () => [] },
     modelProviderStore: new SqliteModelProviderStore(db),
     mcpServerStore: mcpServerStoreWithAuth(db, tokenStore),
     skillStore: new SqliteSkillStore(db),

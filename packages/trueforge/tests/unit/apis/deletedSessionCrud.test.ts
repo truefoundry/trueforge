@@ -82,6 +82,7 @@ describe('public CRUD after session deletion', () => {
         resolveTurnExecutionStores: () =>
           Promise.resolve({
             agentStore,
+            capabilitiesStore: { resolveCapabilities: () => [] },
             modelProviderStore,
             mcpServerStore,
             skillStore,

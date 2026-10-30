@@ -80,6 +80,7 @@ async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response
       resolveTurnExecutionStores: () =>
         Promise.resolve({
           agentStore: new SqliteAgentStore(db),
+          capabilitiesStore: { resolveCapabilities: () => [] },
           modelProviderStore,
           mcpServerStore: new McpServerWithAuthStore({
             store: new SqliteMcpServerStore(db),

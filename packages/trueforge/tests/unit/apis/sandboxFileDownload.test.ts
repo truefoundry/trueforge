@@ -51,6 +51,7 @@ async function buildApp() {
       resolveTurnExecutionStores: () =>
         Promise.resolve({
           agentStore: new SqliteAgentStore(db),
+          capabilitiesStore: { resolveCapabilities: () => [] },
           modelProviderStore: new SqliteModelProviderStore(db),
           mcpServerStore: new McpServerWithAuthStore({
             store: new SqliteMcpServerStore(db),
