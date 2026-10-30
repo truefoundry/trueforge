@@ -1802,6 +1802,17 @@
         ],
         "type": "object"
       },
+      "GetTenantSettingResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/TenantSetting"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "GetTurnResponse": {
         "properties": {
           "data": {
@@ -4713,10 +4724,15 @@
           "enabled": {
             "description": "Whether the settings UI/API is enabled.",
             "type": "boolean"
+          },
+          "limited_to_web_search": {
+            "description": "Whether web search is the only settings section available, even though `enabled` is false.",
+            "type": "boolean"
           }
         },
         "required": [
-          "enabled"
+          "enabled",
+          "limited_to_web_search"
         ],
         "type": "object"
       },
@@ -4799,6 +4815,60 @@
           "display_name",
           "description",
           "version"
+        ],
+        "type": "object"
+      },
+      "TenantSandboxSetting": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "description": "Whether new chats may use a sandbox.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "type": "object"
+      },
+      "TenantSetting": {
+        "additionalProperties": false,
+        "properties": {
+          "manifest": {
+            "$ref": "#/components/schemas/TenantSettingManifest"
+          }
+        },
+        "required": [
+          "manifest"
+        ],
+        "type": "object"
+      },
+      "TenantSettingManifest": {
+        "additionalProperties": false,
+        "properties": {
+          "sandbox": {
+            "$ref": "#/components/schemas/TenantSandboxSetting"
+          },
+          "web_search": {
+            "$ref": "#/components/schemas/TenantWebSearchSetting"
+          }
+        },
+        "required": [
+          "web_search",
+          "sandbox"
+        ],
+        "type": "object"
+      },
+      "TenantWebSearchSetting": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "description": "Whether new chats may use web search. Chats that already use it keep their own setting.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
         ],
         "type": "object"
       },
@@ -6173,6 +6243,18 @@
         ],
         "type": "object"
       },
+      "UpdateTenantSettingRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "manifest": {
+            "$ref": "#/components/schemas/TenantSettingManifest"
+          }
+        },
+        "required": [
+          "manifest"
+        ],
+        "type": "object"
+      },
       "UpdateWebSearchProviderRequest": {
         "additionalProperties": false,
         "properties": {
@@ -6503,8 +6585,12 @@
       "WebSearchCapability": {
         "properties": {
           "enabled": {
-            "description": "Whether a host web-search provider is configured.",
+            "description": "Whether new chats may use web search: the tenant allows it and a provider is configured.",
             "type": "boolean"
+          },
+          "reason": {
+            "description": "Present when web search is unavailable. Explains why.",
+            "type": "string"
           }
         },
         "required": [
@@ -11600,6 +11686,116 @@
         "x-fern-sdk-method-name": "delete"
       }
     },
+    "/api/v1/settings/tenant-settings": {
+      "get": {
+        "description": "Tenant-wide feature switches. Tenants with nothing saved yet get every switch enabled.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetTenantSettingResponse"
+                }
+              }
+            },
+            "description": "The tenant settings."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid Bearer token or auth cookie."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated but not an admin."
+          }
+        },
+        "summary": "Get the tenant settings",
+        "tags": [
+          "Tenant Settings"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "tenantSettings"
+        ],
+        "x-fern-sdk-method-name": "get"
+      },
+      "put": {
+        "description": "Replaces the tenant-wide switches. Turning web search off applies to new chats; chats already using it keep it.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTenantSettingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetTenantSettingResponse"
+                }
+              }
+            },
+            "description": "The saved tenant settings."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid Bearer token or auth cookie."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated but not an admin."
+          }
+        },
+        "summary": "Create or replace the tenant settings",
+        "tags": [
+          "Tenant Settings"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "tenantSettings"
+        ],
+        "x-fern-sdk-method-name": "create_or_update"
+      }
+    },
     "/api/v1/settings/web-search-providers": {
       "get": {
         "description": "The configured provider for this tenant. `auth.api_key` is redacted when present.",
@@ -11913,6 +12109,9 @@
     },
     {
       "name": "Web Search Providers"
+    },
+    {
+      "name": "Tenant Settings"
     },
     {
       "name": "Agents"

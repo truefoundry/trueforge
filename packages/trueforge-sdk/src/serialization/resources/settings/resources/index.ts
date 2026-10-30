@@ -6,5 +6,7 @@ export * from "./sandboxProviders/client/requests/index.js";
 export * as sandboxProviders from "./sandboxProviders/index.js";
 export * from "./skills/client/requests/index.js";
 export * as skills from "./skills/index.js";
+export * from "./tenantSettings/client/requests/index.js";
+export * as tenantSettings from "./tenantSettings/index.js";
 export * from "./webSearchProviders/client/requests/index.js";
 export * as webSearchProviders from "./webSearchProviders/index.js";

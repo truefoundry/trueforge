@@ -6,6 +6,7 @@ import { McpServersClient } from "../resources/mcpServers/client/Client.js";
 import { ModelProvidersClient } from "../resources/modelProviders/client/Client.js";
 import { SandboxProvidersClient } from "../resources/sandboxProviders/client/Client.js";
 import { SkillsClient } from "../resources/skills/client/Client.js";
+import { TenantSettingsClient } from "../resources/tenantSettings/client/Client.js";
 import { WebSearchProvidersClient } from "../resources/webSearchProviders/client/Client.js";
 
 export declare namespace SettingsClient {
@@ -18,6 +19,7 @@ export class SettingsClient {
     protected _modelProviders: ModelProvidersClient | undefined;
     protected _sandboxProviders: SandboxProvidersClient | undefined;
     protected _skills: SkillsClient | undefined;
+    protected _tenantSettings: TenantSettingsClient | undefined;
     protected _webSearchProviders: WebSearchProvidersClient | undefined;
 
     constructor(options: SettingsClient.Options) {
@@ -38,6 +40,10 @@ export class SettingsClient {
 
     public get skills(): SkillsClient {
         return (this._skills ??= new SkillsClient(this._options));
+    }
+
+    public get tenantSettings(): TenantSettingsClient {
+        return (this._tenantSettings ??= new TenantSettingsClient(this._options));
     }
 
     public get webSearchProviders(): WebSearchProvidersClient {

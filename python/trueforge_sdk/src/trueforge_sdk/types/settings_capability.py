@@ -13,6 +13,11 @@ class SettingsCapability(UncheckedBaseModel):
     Whether the settings UI/API is enabled.
     """
 
+    limited_to_web_search: bool = pydantic.Field()
+    """
+    Whether web search is the only settings section available, even though `enabled` is false.
+    """
+
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2
     else:

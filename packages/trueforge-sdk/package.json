@@ -330,6 +330,17 @@
             },
             "default": "./dist/esm/api/resources/settings/resources/skills/exports.mjs"
         },
+        "./settings/tenantSettings": {
+            "import": {
+                "types": "./dist/esm/api/resources/settings/resources/tenantSettings/exports.d.mts",
+                "default": "./dist/esm/api/resources/settings/resources/tenantSettings/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/settings/resources/tenantSettings/exports.d.ts",
+                "default": "./dist/cjs/api/resources/settings/resources/tenantSettings/exports.js"
+            },
+            "default": "./dist/esm/api/resources/settings/resources/tenantSettings/exports.mjs"
+        },
         "./settings/webSearchProviders": {
             "import": {
                 "types": "./dist/esm/api/resources/settings/resources/webSearchProviders/exports.d.mts",

@@ -4969,6 +4969,134 @@ await client.settings.skills.delete("name");
 </dl>
 </details>
 
+## Settings TenantSettings
+<details><summary><code>client.settings.tenantSettings.<a href="/src/api/resources/settings/resources/tenantSettings/client/Client.ts">get</a>() -> TrueForge.GetTenantSettingResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Tenant-wide feature switches. Tenants with nothing saved yet get every switch enabled.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.settings.tenantSettings.get();
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**requestOptions:** `TenantSettingsClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.settings.tenantSettings.<a href="/src/api/resources/settings/resources/tenantSettings/client/Client.ts">createOrUpdate</a>({ ...params }) -> TrueForge.GetTenantSettingResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Replaces the tenant-wide switches. Turning web search off applies to new chats; chats already using it keep it.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.settings.tenantSettings.createOrUpdate({
+    manifest: {
+        sandbox: {
+            enabled: true
+        },
+        webSearch: {
+            enabled: true
+        }
+    }
+});
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**request:** `TrueForge.settings.UpdateTenantSettingRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `TenantSettingsClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 ## Settings WebSearchProviders
 <details><summary><code>client.settings.webSearchProviders.<a href="/src/api/resources/settings/resources/webSearchProviders/client/Client.ts">get</a>() -> TrueForge.GetWebSearchProviderResponse</code></summary>
 <dl>
