@@ -37,8 +37,18 @@ export class ZepRequestError extends Error {
   /** HTTP status; null when no response arrived (network error or timeout). */
   readonly status: number | null;
 
-  constructor({ operation, status, message }: { operation: ZepOperation; status: number | null; message: string }) {
-    super(message);
+  constructor({
+    operation,
+    status,
+    message,
+    cause,
+  }: {
+    operation: ZepOperation;
+    status: number | null;
+    message: string;
+    cause?: unknown;
+  }) {
+    super(message, { cause });
     this.name = 'ZepRequestError';
     this.operation = operation;
     this.status = status;
@@ -281,6 +291,7 @@ export class ZepMemoryProvider implements MemoryProvider {
       const backoffMs = Math.min(MAX_BACKOFF_MS, BASE_BACKOFF_MS * 2 ** (attempt - 1));
 
       let response: Response;
+      let text: string;
       try {
         response = await this.#fetch(`${this.#baseUrl}${path}`, {
           method,
@@ -288,6 +299,8 @@ export class ZepMemoryProvider implements MemoryProvider {
           ...(body === undefined ? {} : { body: JSON.stringify(body) }),
           signal: AbortSignal.timeout(this.#timeoutMs),
         });
+        // Inside the try: a connection dropped while reading the body is a network failure too.
+        text = await response.text();
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         if (canRetry && retryUnclearFailures) {
@@ -296,20 +309,26 @@ export class ZepMemoryProvider implements MemoryProvider {
           continue;
         }
         this.#logger.error('Memory provider request failed', { ...logFields(null), error: message });
-        throw new ZepRequestError({ operation, status: null, message: `Zep ${operation} failed: ${message}` });
+        throw new ZepRequestError({
+          operation,
+          status: null,
+          message: `Zep ${operation} failed: ${message}`,
+          cause: error,
+        });
       }
 
       if (response.ok || (allowNotFound && response.status === 404)) {
         this.#logger.debug('Memory provider request', logFields(response.status));
-        const text = await response.text();
         return { status: response.status, body: text === '' ? {} : JSON.parse(text) };
       }
 
-      const detail = (await response.text()).slice(0, 500);
+      const detail = text.slice(0, 500);
       const retryable = response.status === 429 || (retryUnclearFailures && isRetryableStatus(response.status));
-      if (retryable && canRetry) {
+      const waitMs = retryAfterMs(response) ?? backoffMs;
+      // A cooldown longer than the cap isn't waited out inside the run; the next run retries.
+      if (retryable && canRetry && waitMs <= MAX_BACKOFF_MS) {
         this.#logger.warn('Memory provider request failed; retrying', logFields(response.status));
-        await this.#sleep(Math.min(MAX_BACKOFF_MS, retryAfterMs(response) ?? backoffMs));
+        await this.#sleep(waitMs);
         continue;
       }
       this.#logger.error('Memory provider request failed', { ...logFields(response.status), error: detail });

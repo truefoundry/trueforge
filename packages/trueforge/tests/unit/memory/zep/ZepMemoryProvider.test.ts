@@ -324,6 +324,56 @@ describe('ZepMemoryProvider', () => {
     );
   });
 
+  it('does not wait out a Retry-After longer than the backoff cap; the next run retries', async () => {
+    const { calls, fetchImpl } = fakeFetch([jsonResponse(429, {}, { 'retry-after': '120' })]);
+    const { zep, sleep } = provider(fetchImpl);
+
+    await expect(
+      zep.ingestExchange({ scope: SCOPE, exchange: EXCHANGE, externalThreadId: 'thread-1', mayAlreadyBeStored: false }),
+    ).rejects.toMatchObject({ cause: expect.objectContaining({ status: 429 }) });
+    expect(calls).toHaveLength(1);
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it('treats a body that fails mid-read as a network error, retried for idempotent calls', async () => {
+    const brokenBody = new Response(
+      new ReadableStream({
+        start(controller) {
+          controller.error(new TypeError('terminated'));
+        },
+      }),
+      { status: 200 },
+    );
+    const { calls, fetchImpl } = fakeFetch([
+      brokenBody,
+      jsonResponse(200, { uuid: 'user-uuid' }),
+      jsonResponse(201, { uuid: 'thread-1' }),
+      jsonResponse(202),
+    ]);
+    const { zep } = provider(fetchImpl);
+
+    await zep.ingestExchange({ scope: SCOPE, exchange: EXCHANGE, externalThreadId: null, mayAlreadyBeStored: false });
+
+    expect(calls.map(call => call.path)).toEqual([
+      '/users/lookup',
+      '/users/lookup',
+      '/threads',
+      '/threads/thread-1/messages',
+    ]);
+  });
+
+  it('keeps the underlying network error as the cause', async () => {
+    const networkError = new TypeError('fetch failed');
+    const { fetchImpl } = fakeFetch([networkError]);
+    const { zep } = provider(fetchImpl);
+
+    const failure = await zep
+      .ingestExchange({ scope: SCOPE, exchange: EXCHANGE, externalThreadId: 'thread-1', mayAlreadyBeStored: false })
+      .catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(MemoryIngestError);
+    expect(failure).toMatchObject({ cause: expect.objectContaining({ cause: networkError }) });
+  });
+
   it('gives up after the last attempt on repeated 429s', async () => {
     const { calls, fetchImpl } = fakeFetch([
       jsonResponse(429),

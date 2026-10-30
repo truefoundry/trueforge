@@ -271,6 +271,40 @@ export function runMemoryIngestStoreContractSuite(getEnv: () => MemoryIngestStor
     expect(candidate?.cursor).toMatchObject({ last_ingested_turn_id: 'old', external_thread_id: 'thread' });
   });
 
+  it('returns turn input without attachment data, keeping text parts in order and other items whole', async () => {
+    const { store } = getEnv();
+    await createSession({ session_id: 's1' });
+    await addTurn({
+      session_id: 's1',
+      turn_id: 't1',
+      input: [
+        {
+          type: 'user.message',
+          content: [
+            { type: 'text', text: 'first' },
+            { type: 'file', name: 'big.pdf', data: `data:application/pdf;base64,${'A'.repeat(10_000)}` },
+            { type: 'text', text: 'second' },
+          ],
+        },
+        { type: 'user.message', content: 'plain' },
+        { type: 'user.tool_response', thread_id: MAIN_THREAD_ID, tool_call_id: 'call-1', content: 'Thai' },
+      ],
+    });
+
+    const [turn] = await store.listSessionTurns({ session_id: 's1' });
+    expect(turn?.input).toEqual([
+      {
+        type: 'user.message',
+        content: [
+          { type: 'text', text: 'first' },
+          { type: 'text', text: 'second' },
+        ],
+      },
+      { type: 'user.message', content: 'plain' },
+      { type: 'user.tool_response', thread_id: MAIN_THREAD_ID, tool_call_id: 'call-1', content: 'Thai' },
+    ]);
+  });
+
   it('lists every turn with input and state, and only main-thread model messages of the requested turns', async () => {
     const { store } = getEnv();
     await createSession({ session_id: 's1' });
