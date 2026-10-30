@@ -585,8 +585,11 @@ export class AgentThread {
       }
     }
 
-    if (this.definition.toolSets?.length) {
-      this.deferredTool = new DeferredTool(this.definition.toolSets, {
+    // The meta tools are only useful when a server is deferred, or for Code Mode, which reads
+    // preloaded servers' output schemas through get_tool_output_schema.
+    const toolSets = this.definition.toolSets ?? [];
+    if (toolSets.some(s => !s.preload) || (this.sandbox && toolSets.length > 0)) {
+      this.deferredTool = new DeferredTool(toolSets, {
         tracing: this.tracing,
         logger: input.logger,
       });
