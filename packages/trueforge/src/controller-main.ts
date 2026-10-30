@@ -1,7 +1,7 @@
 /**
  * Controller entry point (`dist/controller-main.js`).
  *
- * Runs the periodic control loops (schedule dispatch, …) as a dedicated,
+ * Runs the periodic control loops (schedule dispatch, memory ingestion, …) as a dedicated,
  * single-replica process for distributed mode (`STANDALONE=false`). The controller
  * must run in exactly ONE process per database (see `controller/Controller.ts`);
  * in standalone mode the server process already owns it (HTTP loopback to itself), so this
@@ -14,7 +14,9 @@
  */
 import configuration from './config';
 import { runController } from './controller';
+import { memoryIngestFromConfig } from './controller/memoryIngest';
 import { createDb } from './db/postgres/client';
+import { PostgresMemoryIngestStore } from './db/postgres/memory-ingest-store/PostgresMemoryIngestStore';
 import { PostgresScheduleStore } from './db/postgres/schedule-store/PostgresScheduleStore';
 import { createControllerLogger } from './logger';
 import { initSentry } from './sentry';
@@ -49,10 +51,20 @@ try {
     mTlsEnabled: configuration.MTLS_ENABLED,
   });
 
+  const memory = memoryIngestFromConfig({ config: configuration, store: new PostgresMemoryIngestStore(db), logger });
+  if (memory !== undefined) {
+    logger.info('Memory ingestion enabled', {
+      provider: memory.provider.name,
+      interval_ms: memory.config.intervalMs,
+      max_sessions_per_run: memory.config.maxSessionsPerRun,
+    });
+  }
+
   runController({
     scheduleStore: new PostgresScheduleStore(db),
     withTransaction: callback => db.transaction().execute(callback),
     logger,
+    memory,
     gracefulTimeoutSeconds: configuration.GRACEFUL_TIMEOUT_SECONDS,
     onStopped: () => db.destroy(),
   });

@@ -113,10 +113,12 @@ import { SkillCatalog } from './catalog/SkillCatalog';
 import { WebSearchCatalog } from './catalog/WebSearchCatalog';
 import { type DistributedServerConfiguration } from './config';
 import { createController } from './controller';
+import { memoryIngestFromConfig } from './controller/memoryIngest';
 import type { IAccessControlStore } from './db/accessControlStore';
 import type { AgentRecord, IAgentStore } from './db/agentStore';
 import type { IMcpServerStore, IMcpServerWithAuthStore } from './db/mcpServerStore';
 import { McpServerWithAuthStore } from './db/McpServerWithAuthStore';
+import type { IMemoryIngestStore } from './db/memoryIngestStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
 import type { PostgresAgentStore } from './db/postgres/agent-store/PostgresAgentStore';
 import type { Database as PostgresDatabase } from './db/postgres/types';
@@ -200,6 +202,8 @@ interface ServerPersistence<TTransaction> {
   withTransaction: WithTransaction<TTransaction>;
   sessionStore: ISessionStore;
   accessControlStore: IAccessControlStore<TTransaction>;
+  /** Read by the in-process memory-ingest loop (standalone) when MEMORY_ENABLED. */
+  memoryIngestStore: IMemoryIngestStore;
   sessionMetricsStore: ISessionMetricsStore;
   tokenStore: IOAuthTokenStore<TTransaction>;
   scheduleStore: IScheduleStore<TTransaction>;
@@ -423,6 +427,7 @@ async function createStandalonePersistence(options: {
       import('./db/sqlite/schedule-store/SqliteScheduleStore'),
       import('./db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore'),
       import('./db/sqlite/access-control-store/SqliteAccessControlStore'),
+      import('./db/sqlite/memory-ingest-store/SqliteMemoryIngestStore'),
     ]),
   ]);
   const [
@@ -438,6 +443,7 @@ async function createStandalonePersistence(options: {
     { SqliteScheduleStore },
     { SqliteSandboxEnvironmentStore },
     { SqliteAccessControlStore },
+    { SqliteMemoryIngestStore },
   ] = sqliteStores;
 
   const db = createSqliteDb(sqlitePath);
@@ -461,6 +467,7 @@ async function createStandalonePersistence(options: {
     withTransaction: callback => db.transaction().execute(callback),
     sessionStore: new SqliteSessionStore(db),
     accessControlStore: new SqliteAccessControlStore(db),
+    memoryIngestStore: new SqliteMemoryIngestStore(db),
     sessionMetricsStore: new SqliteSessionMetricsStore(db),
     mcpOAuthStore: mcpServerStore,
     tokenStore,
@@ -526,6 +533,7 @@ async function createDistributedPersistence(options: {
       import('./db/postgres/schedule-store/PostgresScheduleStore'),
       import('./db/postgres/sandbox-environment-store/PostgresSandboxEnvironmentStore'),
       import('./db/postgres/access-control-store/PostgresAccessControlStore'),
+      import('./db/postgres/memory-ingest-store/PostgresMemoryIngestStore'),
     ]),
   ]);
   const [
@@ -541,6 +549,7 @@ async function createDistributedPersistence(options: {
     { PostgresScheduleStore },
     { PostgresSandboxEnvironmentStore },
     { PostgresAccessControlStore },
+    { PostgresMemoryIngestStore },
   ] = postgresStores;
 
   logger.info('Connecting to Postgres');
@@ -608,6 +617,7 @@ async function createDistributedPersistence(options: {
     withTransaction: callback => db.transaction().execute(callback),
     sessionStore: new PostgresSessionStore(db),
     accessControlStore: new PostgresAccessControlStore(db),
+    memoryIngestStore: new PostgresMemoryIngestStore(db),
     sessionMetricsStore: new PostgresSessionMetricsStore(db),
     mcpOAuthStore: mcpServerWithAuthStore,
     tokenStore,
@@ -648,6 +658,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     withTransaction,
     sessionStore,
     accessControlStore,
+    memoryIngestStore,
     sessionMetricsStore,
     tokenStore,
     scheduleStore,
@@ -704,6 +715,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
         scheduleStore,
         withTransaction,
         logger,
+        memory: memoryIngestFromConfig({ config: configuration, store: memoryIngestStore, logger }),
       })
     : undefined;
 

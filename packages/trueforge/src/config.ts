@@ -19,6 +19,8 @@ import { fileURLToPath } from 'node:url';
 import envPaths from 'env-paths';
 import { z } from 'zod';
 
+import { MEMORY_PROVIDER_NAMES, type MemoryProviderName } from './memory/MemoryProvider';
+import { ZEP_DEFAULT_BASE_URL } from './memory/zep/ZepMemoryProvider';
 import { parseRedisSentinelNodes, type RedisConnection } from './runtime/redis';
 
 export type { RedisConnection };
@@ -243,6 +245,24 @@ function parseBoolean(options: { envKey: string; raw: string | undefined; defaul
     return false;
   }
   throw new Error(`Environment variable ${envKey} must be "true" or "false", got "${raw}"`);
+}
+
+/** Parses an env var that must be one of `values`, falling back to `defaultValue` when unset/blank. */
+function parseEnumValue<const T extends readonly string[]>(options: {
+  envKey: string;
+  raw: string | undefined;
+  values: T;
+  defaultValue: T[number];
+}): T[number] {
+  const { envKey, raw, values, defaultValue } = options;
+  if (raw === undefined || raw.trim() === '') {
+    return defaultValue;
+  }
+  const value = values.find(candidate => candidate === raw.trim());
+  if (value === undefined) {
+    throw new Error(`Environment variable ${envKey} must be one of ${values.join(', ')}, got ${JSON.stringify(raw)}`);
+  }
+  return value;
 }
 
 function parsePostgresSchema(raw: string | undefined): string {
@@ -916,6 +936,37 @@ export interface SharedServerConfiguration {
   SENTRY_ENABLED: boolean;
   SENTRY_DSN: string | undefined;
   SENTRY_ADDITIONAL_TAGS: Record<string, string>;
+  /**
+   * Long-term memory feature flag. Off → no memory ingestion loop (and, later, no retrieval or
+   * MCP writes). Env: `MEMORY_ENABLED`. Default false.
+   */
+  MEMORY_ENABLED: boolean;
+  /** Env: `MEMORY_PROVIDER`. Default `zep`. */
+  MEMORY_PROVIDER: MemoryProviderName;
+  /** Required when `MEMORY_ENABLED` and `MEMORY_PROVIDER=zep`. Env: `ZEP_API_KEY`. */
+  ZEP_API_KEY: string | undefined;
+  /** Env: `ZEP_BASE_URL`. Default Zep Cloud v4. */
+  ZEP_BASE_URL: string;
+  /**
+   * Tenants with memory on while `MEMORY_ENABLED`; empty → every tenant.
+   * Placeholder for the per-tenant setting. Env: `MEMORY_TENANT_ALLOWLIST` (comma-separated).
+   */
+  MEMORY_TENANT_ALLOWLIST: string[];
+  /** Env: `MEMORY_INGEST_INTERVAL_MS`. Default 5 minutes. */
+  MEMORY_INGEST_INTERVAL_MS: number;
+  /** Sessions processed per ingest run. Env: `MEMORY_INGEST_MAX_SESSIONS_PER_RUN`. Default 50. */
+  MEMORY_INGEST_MAX_SESSIONS_PER_RUN: number;
+  /** Exchanges sent per session per run. Env: `MEMORY_INGEST_MAX_EXCHANGES_PER_SESSION`. Default 20. */
+  MEMORY_INGEST_MAX_EXCHANGES_PER_SESSION: number;
+  /** How far back a session's latest turn is picked up. Env: `MEMORY_INGEST_LOOKBACK_MS`. Default 2 hours. */
+  MEMORY_INGEST_LOOKBACK_MS: number;
+  /**
+   * An exchange paused on a question is sent as-is after this long; also widens the lookback.
+   * Env: `MEMORY_INGEST_PAUSE_TIMEOUT_MS`. Default 12 hours.
+   */
+  MEMORY_INGEST_PAUSE_TIMEOUT_MS: number;
+  /** Minimum age of a finished exchange before it is sent. Env: `MEMORY_INGEST_SETTLE_MS`. Default 60 seconds. */
+  MEMORY_INGEST_SETTLE_MS: number;
 }
 
 export type StandaloneServerConfiguration = SharedServerConfiguration & {
@@ -1294,6 +1345,46 @@ const shared: SharedServerConfiguration = {
   }),
   SENTRY_DSN: getEnv('SENTRY_DSN', { required: false }),
   SENTRY_ADDITIONAL_TAGS: parseSentryAdditionalTags(getEnv('SENTRY_ADDITIONAL_TAGS', { required: false })),
+  MEMORY_ENABLED: parseBoolean({ envKey: 'MEMORY_ENABLED', raw: getEnv('MEMORY_ENABLED'), defaultValue: false }),
+  MEMORY_PROVIDER: parseEnumValue({
+    envKey: 'MEMORY_PROVIDER',
+    raw: getEnv('MEMORY_PROVIDER'),
+    values: MEMORY_PROVIDER_NAMES,
+    defaultValue: 'zep',
+  }),
+  ZEP_API_KEY: optionalNonEmptyEnv('ZEP_API_KEY'),
+  ZEP_BASE_URL: optionalNonEmptyEnv('ZEP_BASE_URL') ?? ZEP_DEFAULT_BASE_URL,
+  MEMORY_TENANT_ALLOWLIST: parseCommaSeparatedEnvList(getEnv('MEMORY_TENANT_ALLOWLIST')),
+  MEMORY_INGEST_INTERVAL_MS: parsePositiveInt({
+    envKey: 'MEMORY_INGEST_INTERVAL_MS',
+    raw: getEnv('MEMORY_INGEST_INTERVAL_MS'),
+    defaultValue: 5 * 60 * 1000,
+  }),
+  MEMORY_INGEST_MAX_SESSIONS_PER_RUN: parsePositiveInt({
+    envKey: 'MEMORY_INGEST_MAX_SESSIONS_PER_RUN',
+    raw: getEnv('MEMORY_INGEST_MAX_SESSIONS_PER_RUN'),
+    defaultValue: 50,
+  }),
+  MEMORY_INGEST_MAX_EXCHANGES_PER_SESSION: parsePositiveInt({
+    envKey: 'MEMORY_INGEST_MAX_EXCHANGES_PER_SESSION',
+    raw: getEnv('MEMORY_INGEST_MAX_EXCHANGES_PER_SESSION'),
+    defaultValue: 20,
+  }),
+  MEMORY_INGEST_LOOKBACK_MS: parsePositiveInt({
+    envKey: 'MEMORY_INGEST_LOOKBACK_MS',
+    raw: getEnv('MEMORY_INGEST_LOOKBACK_MS'),
+    defaultValue: 2 * 60 * 60 * 1000,
+  }),
+  MEMORY_INGEST_PAUSE_TIMEOUT_MS: parsePositiveInt({
+    envKey: 'MEMORY_INGEST_PAUSE_TIMEOUT_MS',
+    raw: getEnv('MEMORY_INGEST_PAUSE_TIMEOUT_MS'),
+    defaultValue: 12 * 60 * 60 * 1000,
+  }),
+  MEMORY_INGEST_SETTLE_MS: parseNonNegativeInt({
+    envKey: 'MEMORY_INGEST_SETTLE_MS',
+    raw: getEnv('MEMORY_INGEST_SETTLE_MS'),
+    defaultValue: 60 * 1000,
+  }),
 };
 
 const configuration: ServerConfiguration = standalone
@@ -1481,6 +1572,11 @@ if (isTrueFoundryModeEnabled(configuration)) {
 
 if (!configuration.STANDALONE && configuration.TRUEFORGE_API_KEY.trim() === '') {
   throw new Error('TRUEFORGE_API_KEY must not be empty when STANDALONE=false.');
+}
+
+// Zep is the only provider today; check the provider here once a second one lands.
+if (configuration.MEMORY_ENABLED && configuration.ZEP_API_KEY === undefined) {
+  throw new Error('MEMORY_ENABLED=true with MEMORY_PROVIDER=zep requires ZEP_API_KEY, or set MEMORY_ENABLED=false.');
 }
 
 /**

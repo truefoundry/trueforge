@@ -34,7 +34,7 @@ export type {
 } from './capabilities/AgentContextProcessor';
 
 // Built-in factories
-export { askUserQuestion } from './capabilities/builtins/AskUserQuestion';
+export { ASK_USER_QUESTION_TOOL_NAME, askUserQuestion } from './capabilities/builtins/AskUserQuestion';
 export {
   DEFAULT_CONTEXT_COMPACTION_THRESHOLD_TOKENS,
   contextCompaction,

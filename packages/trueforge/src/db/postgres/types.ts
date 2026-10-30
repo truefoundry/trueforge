@@ -131,6 +131,20 @@ export interface AccessControlTable {
 }
 
 /**
+ * Memory ingestion checkpoint per session.
+ * PRIMARY KEY (session_id)
+ * FK (session_id) → session(session_id) ON DELETE CASCADE
+ */
+export interface MemoryIngestCursorTable {
+  session_id: string;
+  scope_key: string;
+  last_ingested_turn_id: string | null;
+  external_thread_id: string | null;
+  last_error: string | null;
+  updated_at: Date;
+}
+
+/**
  * PRIMARY KEY (session_id, turn_id)
  * WITH (fillfactor = 85); headroom for the state flip + rare checkpoint patches
  * CREATE INDEX turn_list_idx ON turn (session_id, created_at, turn_id)
@@ -617,6 +631,7 @@ export interface OAuthPendingAuthorizationTable {
 export interface Database {
   session: SessionTable;
   access_control: AccessControlTable;
+  memory_ingest_cursor: MemoryIngestCursorTable;
   turn: TurnTable;
   turn_thread: TurnThreadTable;
   session_event: SessionEventTable;
