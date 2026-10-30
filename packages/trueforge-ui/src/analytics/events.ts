@@ -19,6 +19,9 @@ export const AnalyticsEvents = {
     RENAMED: 'trueforge.agent.session_renamed',
     SHARE_OPENED: 'trueforge.agent.session_share_opened',
     SHARE_LINK_COPIED: 'trueforge.agent.session_share_link_copied',
+    SHARE_PERMISSION_CHANGED: 'trueforge.agent.session_share_permission_changed',
+    SHARE_COLLABORATORS_INVITED: 'trueforge.agent.session_share_collaborators_invited',
+    SHARE_COLLABORATOR_REMOVED: 'trueforge.agent.session_share_collaborator_removed',
   },
   Tool: {
     APPROVAL_RESOLVED: 'trueforge.agent.tool_approval_resolved',

@@ -206,6 +206,10 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
     return environments.filter(env => env.name.toLowerCase().includes(q) || env.description.toLowerCase().includes(q));
   }, [environments, nameQuery]);
 
+  // Derived live so the drawer gains Save once permissions load after it was opened.
+  const drawerReadOnly =
+    drawer.kind === 'edit' && isEnvironmentReadOnly(drawer.environment, allows(drawer.environment.id, 'MANAGE'));
+
   const hasPageNav = nextPageToken != null || previousPageToken != null || environments.length > 0;
 
   const openCreate = () => {
@@ -301,10 +305,8 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
                   return (
                     <TableRow
                       key={env.id}
-                      className={readOnly ? undefined : 'cursor-pointer'}
-                      onClick={() => {
-                        if (canManage) setDrawer({ kind: 'edit', environment: env });
-                      }}
+                      className="cursor-pointer"
+                      onClick={() => setDrawer({ kind: 'edit', environment: env })}
                     >
                       <TableCell className="w-96 max-w-96">
                         <div className="flex flex-col gap-0.5">
@@ -375,7 +377,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
       <EnvironmentFormDrawer
         open={drawer.kind !== 'closed'}
         mode={drawer.kind === 'edit' ? 'edit' : 'create'}
-        {...(drawer.kind === 'edit' ? { environment: drawer.environment } : {})}
+        {...(drawer.kind === 'edit' ? { environment: drawer.environment, readOnly: drawerReadOnly } : {})}
         onOpenChange={open => {
           if (!open) setDrawer({ kind: 'closed' });
         }}

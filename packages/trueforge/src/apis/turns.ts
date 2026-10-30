@@ -35,10 +35,16 @@ import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { streamSSE } from 'hono/streaming';
 import type { Logger } from 'winston';
-import type { ResolveMcpServerStoreInput, ResolveModelProviderStoreInput, ResolveTurnSkillsStoreInput } from '../app';
+import type {
+  ResolveCapabilitiesStoreInput,
+  ResolveMcpServerStoreInput,
+  ResolveModelProviderStoreInput,
+  ResolveTurnSkillsStoreInput,
+} from '../app';
 import type { Authorizer } from '../auth/authorizer';
 import type { ResolveRequestContext } from '../auth/identity';
 import configuration from '../config';
+import type { IAccessControlStore } from '../db/accessControlStore';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
@@ -70,6 +76,7 @@ import {
 import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
 import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
 import { assertGatewayMetadataRequestHeaders } from '../truefoundry/gatewayMetadata';
+import type { ICapabilitiesStore } from '../truefoundry/inlineTools';
 import { newId } from '../utils/id';
 import { resolveWebSearchProvider } from '../websearch/providers';
 import { canReadAgentBoundResource, canReadSession } from './agentAccess';
@@ -119,10 +126,13 @@ export function toContentDisposition(path: string): string {
 export interface TurnsRouterDeps {
   sessions: Sessions;
   sessionStore: ISessionStore;
+  accessControlStore: IAccessControlStore;
   activeTurns: ActiveTurnRegistry;
   resolveModelProviderStore: (input: ResolveModelProviderStoreInput) => IModelProviderStore;
   resolveMcpServerStore: (input: ResolveMcpServerStoreInput) => IMcpServerWithAuthStore;
   resolveTurnSkillsStore: (input: ResolveTurnSkillsStoreInput) => Pick<ISkillStore, 'resolveTurnSkills'>;
+  /** `x-tfg-tools` for this turn. Schedules omit `c` and mount nothing. */
+  resolveCapabilitiesStore: (input: ResolveCapabilitiesStoreInput) => ICapabilitiesStore;
   resolveAgentStore: (c: Context) => IAgentStore;
   /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
@@ -149,6 +159,7 @@ export type BeginTurnExecutionDeps = Pick<
   sandboxProviderStore: ISandboxProviderStore;
   webSearchProviderStore: IWebSearchProviderStore;
   skillStore: Pick<ISkillStore, 'resolveTurnSkills'>;
+  capabilitiesStore: ICapabilitiesStore;
 };
 
 interface BeginTurnExecutionParams {
@@ -178,6 +189,7 @@ function createTurnResolver(deps: {
   userRef: string;
   session: SessionHandle;
   turnMetadata: TurnMetadata;
+  capabilitiesStore: ICapabilitiesStore;
 }): TurnResourceResolver {
   const {
     mcpServerStore,
@@ -192,6 +204,7 @@ function createTurnResolver(deps: {
     userRef,
     session,
     turnMetadata,
+    capabilitiesStore,
   } = deps;
   const tenant_id = session.tenant_id;
   const sessionId = session.session_id;
@@ -292,6 +305,7 @@ function createTurnResolver(deps: {
     },
     webSearchProvider,
     logger,
+    rootCapabilities: () => capabilitiesStore.resolveCapabilities(),
   });
 }
 
@@ -490,6 +504,7 @@ export async function beginTurnExecution(
       ...(sessionAgent.type === 'reference' ? { agent: { id: sessionAgent.id, name: sessionAgent.name } } : {}),
       ...(requestHeaders === undefined ? {} : { requestHeaders }),
     },
+    capabilitiesStore: deps.capabilitiesStore,
   });
 
   // First turn only: derive the title from the first user message. The store
@@ -639,7 +654,8 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
     const allowed = await canReadSession({
-      shared: session.record.shared,
+      session_id: session.record.session_id,
+      accessControlStore: deps.accessControlStore,
       store: deps.resolveAgentStore(c),
       context: requestContext,
       authorizer: deps.authorizer,
@@ -674,7 +690,8 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
     const allowed = await canReadSession({
-      shared: session.record.shared,
+      session_id: session.record.session_id,
+      accessControlStore: deps.accessControlStore,
       store: deps.resolveAgentStore(c),
       context: requestContext,
       authorizer: deps.authorizer,
@@ -773,7 +790,8 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
     const allowed = await canReadSession({
-      shared: session.record.shared,
+      session_id: session.record.session_id,
+      accessControlStore: deps.accessControlStore,
       store: deps.resolveAgentStore(c),
       context: requestContext,
       authorizer: deps.authorizer,
@@ -865,6 +883,8 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
           ...(referencedAgent !== undefined ? { runAsAgent: referencedAgent } : {}),
         }),
         skillStore: deps.resolveTurnSkillsStore({ c, allowInlineResources }),
+        // Parsed here, before a turn id is minted.
+        capabilitiesStore: deps.resolveCapabilitiesStore({ c }),
         agentStore: deps.resolveAgentStore(c),
         sandboxProviderStore: deps.resolveSandboxProviderStore(c),
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,

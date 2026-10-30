@@ -89,6 +89,7 @@ const app = createServerApp({
     }),
   resolveSkillStore: () => skillStore,
   resolveTurnSkillsStore: () => skillStore,
+  resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
   resolveSandboxProviderStore: () => sandboxProviderStore,
   resolveWebSearchProviderStore: () => webSearchProviderStore,
   resolveAgentStore: () => agentStore,

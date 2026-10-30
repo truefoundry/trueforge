@@ -16,6 +16,8 @@ export interface GetUsersByIdsInput {
 
 /** Tenant users that sessions can be shared with. */
 export interface IUserStore {
+  /** False when there is no user source, so sessions can only be shared with the whole tenant. */
+  readonly supportsUserLookup: boolean;
   /** Searches first, then paginates; `total` counts all matches. */
   listUsers(input: ListUsersInput): Promise<{ data: User[]; total: number }>;
   /** Active users among `ids`; unknown or inactive ids are absent. */
@@ -24,6 +26,8 @@ export interface IUserStore {
 
 /** Standalone and OIDC have no user source, so sharing with users is unavailable. */
 export class EmptyUserStore implements IUserStore {
+  readonly supportsUserLookup = false;
+
   listUsers(): Promise<{ data: User[]; total: number }> {
     return Promise.resolve({ data: [], total: 0 });
   }

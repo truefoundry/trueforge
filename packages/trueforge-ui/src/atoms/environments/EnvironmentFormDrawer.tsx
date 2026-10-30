@@ -24,10 +24,19 @@ export type EnvironmentFormDrawerProps = {
   onOpenChange: (open: boolean) => void;
   mode: 'create' | 'edit';
   environment?: SandboxEnvironment;
+  /** View-only: fields are disabled and there is no save action. */
+  readOnly?: boolean;
   onSaved?: () => void;
 };
 
-export function EnvironmentFormDrawer({ open, onOpenChange, mode, environment, onSaved }: EnvironmentFormDrawerProps) {
+export function EnvironmentFormDrawer({
+  open,
+  onOpenChange,
+  mode,
+  environment,
+  readOnly = false,
+  onSaved,
+}: EnvironmentFormDrawerProps) {
   const environmentServer = useSandboxEnvironmentServer();
   const toaster = useToasterOptional();
   const track = useTrackAnalytics();
@@ -86,16 +95,18 @@ export function EnvironmentFormDrawer({ open, onOpenChange, mode, environment, o
       open={open}
       onOpenChange={onOpenChange}
       title={title}
-      description="Configure the environment."
+      description={readOnly ? 'View the environment configuration.' : 'Configure the environment.'}
       size="xl"
       footer={
         <div className="flex justify-end gap-2">
           <Button.Secondary type="button" disabled={saving} onClick={() => onOpenChange(false)}>
-            Cancel
+            {readOnly ? 'Close' : 'Cancel'}
           </Button.Secondary>
-          <Button.Primary type="submit" form="environment-form" disabled={saving}>
-            {saving ? 'Saving…' : mode === 'create' ? 'Create' : 'Save'}
-          </Button.Primary>
+          {readOnly ? null : (
+            <Button.Primary type="submit" form="environment-form" disabled={saving}>
+              {saving ? 'Saving…' : mode === 'create' ? 'Create' : 'Save'}
+            </Button.Primary>
+          )}
         </div>
       }
     >
@@ -105,7 +116,7 @@ export function EnvironmentFormDrawer({ open, onOpenChange, mode, environment, o
         onSubmit={event => void handleSave(event)}
       >
         {error != null ? <p className="text-sm text-failure-bg">{error}</p> : null}
-        <EnvironmentFormFields values={form} onChange={setForm} nameDisabled={mode === 'edit'} />
+        <EnvironmentFormFields values={form} onChange={setForm} nameDisabled={mode === 'edit'} readOnly={readOnly} />
       </form>
     </SideDrawer>
   );
