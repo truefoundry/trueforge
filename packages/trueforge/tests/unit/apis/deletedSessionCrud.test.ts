@@ -7,6 +7,7 @@ import { createSessionsRouter } from '../../../src/apis/sessions';
 import { createTurnsRouter } from '../../../src/apis/turns';
 import { TrueForgeAuthorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
+import { EmptyCapabilitiesStore } from '../../../src/db/capabilitiesStore';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAccessControlStore } from '../../../src/db/sqlite/access-control-store/SqliteAccessControlStore';
@@ -82,6 +83,7 @@ describe('public CRUD after session deletion', () => {
         resolveTurnExecutionStores: () =>
           Promise.resolve({
             agentStore,
+            capabilitiesStore: new EmptyCapabilitiesStore(),
             modelProviderStore,
             mcpServerStore,
             skillStore,

@@ -10,6 +10,7 @@ import { createTurnsRouter } from '../../../src/apis/turns';
 import { createAppErrorHandler } from '../../../src/app';
 import { TrueForgeAuthorizer } from '../../../src/auth/authorizer';
 import type { RequestContext } from '../../../src/auth/identity';
+import { EmptyCapabilitiesStore } from '../../../src/db/capabilitiesStore';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAccessControlStore } from '../../../src/db/sqlite/access-control-store/SqliteAccessControlStore';
@@ -110,6 +111,7 @@ function buildApp(input: { db: Kysely<Database>; sessionStore: SqliteSessionStor
       resolveTurnExecutionStores: () =>
         Promise.resolve({
           agentStore,
+          capabilitiesStore: new EmptyCapabilitiesStore(),
           modelProviderStore: new SqliteModelProviderStore(db),
           mcpServerStore: new McpServerWithAuthStore({
             store: new SqliteMcpServerStore(db),

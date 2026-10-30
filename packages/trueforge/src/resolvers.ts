@@ -10,6 +10,7 @@ import {
 import { resolveRequestContext, type RequestContext } from './auth/identity';
 import configuration from './config';
 import type { AgentRecord, IAgentStore } from './db/agentStore';
+import { EmptyCapabilitiesStore } from './db/capabilitiesStore';
 import type { IMcpServerStore, IMcpServerWithAuthStore } from './db/mcpServerStore';
 import { McpServerWithAuthStore } from './db/McpServerWithAuthStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
@@ -27,14 +28,17 @@ import {
   parseInlineMcpServers,
   parseInlineModelProviders,
   parseInlineSkills,
+  parseInlineTools,
   X_TFG_MCP,
   X_TFG_MODELS,
   X_TFG_SKILLS,
+  X_TFG_TOOLS,
   type InlineMcpServers,
   type InlineModelProviders,
   type InlineSkills,
 } from './truefoundry/inlineResources';
 import { InlineSkillStore } from './truefoundry/InlineSkillStore';
+import { InlineCapabilitiesStore } from './truefoundry/inlineTools';
 import {
   parsePerServerMcpHeaders,
   X_TFG_MCP_HEADERS,
@@ -206,6 +210,12 @@ interface TurnSkillStoreForInput {
   allowInlineResources?: boolean;
 }
 
+/** Turn capabilities. No request context: empty, or a closed `x-tfg-tools` set. */
+interface CapabilitiesStoreForInput {
+  headers?: Record<string, string> | undefined;
+  allowInlineResources?: boolean;
+}
+
 /**
  * HTTP and peer entrypoints share these. HTTP passes Hono `Context`; a peered send passes the
  * forwarded request context and headers.
@@ -315,6 +325,18 @@ export function createRequestStoreResolvers<TTransaction>(input: {
       rawInlineSkillsHeader === undefined ? {} : { inlineSkills: parseInlineSkills(rawInlineSkillsHeader) },
     );
   };
+  const capabilitiesStoreFor = (storeInput: CapabilitiesStoreForInput) => {
+    const { headers, allowInlineResources } = storeInput;
+    const rawInlineToolsHeader = inlineHeader({
+      headers,
+      name: X_TFG_TOOLS,
+      allowInlineResources: allowInlineResources ?? false,
+    });
+    if (rawInlineToolsHeader === undefined) {
+      return new EmptyCapabilitiesStore();
+    }
+    return new InlineCapabilitiesStore({ inline: parseInlineTools(rawInlineToolsHeader) });
+  };
   const resolveModelProviderStore = (modelInput: ResolveModelProviderStoreInput) => {
     const { c, allowInlineResources, runAsAgent } = modelInput;
     return modelProviderStoreFor({
@@ -361,8 +383,13 @@ export function createRequestStoreResolvers<TTransaction>(input: {
   const resolveTurnExecutionStores = (turnInput: ResolveTurnExecutionStoresInput<TTransaction>) => {
     const { runAsAgent } = turnInput;
     const allowInlineResources = turnInput.session.record.agent.type === 'inline';
+    // x-tfg-tools is per turn and is not stored. Schedules omit headers and mount nothing.
     return Promise.resolve({
       agentStore: input.resolveAgentStore(turnInput.requestContext),
+      capabilitiesStore: capabilitiesStoreFor({
+        headers: turnInput.requestHeaders,
+        allowInlineResources,
+      }),
       modelProviderStore: modelProviderStoreFor({
         requestContext: turnInput.requestContext,
         headers: turnInput.requestHeaders,

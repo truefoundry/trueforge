@@ -29,6 +29,7 @@ import {
   startScheduleRun,
 } from '../controller/scheduleDispatch';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
+import { EmptyCapabilitiesStore } from '../db/capabilitiesStore';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
@@ -132,6 +133,8 @@ export async function startScheduleRunOnRequest<TTransaction>(params: {
       sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
       webSearchProviderStore: deps.webSearchProviderStore,
       skillStore: deps.resolveTurnSkillsStore({}),
+      // Schedules have no caller `x-tfg-tools`.
+      capabilitiesStore: new EmptyCapabilitiesStore(),
       logger: deps.logger,
       sessionStore: deps.sessionStore,
     },
