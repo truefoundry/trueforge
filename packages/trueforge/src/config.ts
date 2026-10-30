@@ -19,6 +19,7 @@ import { fileURLToPath } from 'node:url';
 import envPaths from 'env-paths';
 import { z } from 'zod';
 
+import { ZEP_DEFAULT_BASE_URL } from './memory/zep/ZepMemoryProvider';
 import { parseRedisSentinelNodes, type RedisConnection } from './runtime/redis';
 
 export type { RedisConnection };
@@ -1072,6 +1073,34 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
   TRUEFOUNDRY_WEB_SEARCH_PROVIDER: TrueFoundryWebSearchProviderEnv | undefined;
   TRUEFOUNDRY_AUTH_SERVER_URL: string | undefined;
   TRUEFOUNDRY_TENANT_NAME: string | undefined;
+  /**
+   * Long-term memory (TrueFoundry mode only): the controller's memory-ingest loop sends chats to
+   * Zep. Env: `TRUEFOUNDRY_MEMORY_ENABLED`. Default false.
+   */
+  TRUEFOUNDRY_MEMORY_ENABLED: boolean;
+  /** Required when `TRUEFOUNDRY_MEMORY_ENABLED`. Env: `TRUEFOUNDRY_ZEP_API_KEY`. */
+  TRUEFOUNDRY_ZEP_API_KEY: string | undefined;
+  /** Env: `TRUEFOUNDRY_ZEP_BASE_URL`. Default Zep Cloud v4. */
+  TRUEFOUNDRY_ZEP_BASE_URL: string;
+  /** Env: `MEMORY_INGEST_INTERVAL_MS`. Default 5 minutes. */
+  MEMORY_INGEST_INTERVAL_MS: number;
+  /** Sessions processed per ingest run. Env: `MEMORY_INGEST_MAX_SESSIONS_PER_RUN`. Default 50. */
+  MEMORY_INGEST_MAX_SESSIONS_PER_RUN: number;
+  /** Exchanges sent per session per run. Env: `MEMORY_INGEST_MAX_EXCHANGES_PER_SESSION`. Default 20. */
+  MEMORY_INGEST_MAX_EXCHANGES_PER_SESSION: number;
+  /**
+   * How far back a session's latest turn is picked up; sessions not ingested by then are dropped.
+   * Env: `MEMORY_INGEST_LOOKBACK_MS`. Default 2 hours.
+   */
+  MEMORY_INGEST_LOOKBACK_MS: number;
+  /**
+   * An exchange paused on the user (a question, approval or auth) is sent as-is after this long.
+   * Paused sessions are looked up again in a lookback-wide range this far back.
+   * Env: `MEMORY_INGEST_PAUSE_TIMEOUT_MS`. Default 12 hours.
+   */
+  MEMORY_INGEST_PAUSE_TIMEOUT_MS: number;
+  /** Minimum age of a finished exchange before it is sent. Env: `MEMORY_INGEST_SETTLE_MS`. Default 60 seconds. */
+  MEMORY_INGEST_SETTLE_MS: number;
 };
 
 export type ServerConfiguration = StandaloneServerConfiguration | DistributedServerConfiguration;
@@ -1390,6 +1419,43 @@ const configuration: ServerConfiguration = standalone
       ),
       TRUEFOUNDRY_AUTH_SERVER_URL: getEnv('TRUEFOUNDRY_AUTH_SERVER_URL', { required: false }),
       TRUEFOUNDRY_TENANT_NAME: getEnv('TRUEFOUNDRY_TENANT_NAME', { required: false }),
+      TRUEFOUNDRY_MEMORY_ENABLED: parseBoolean({
+        envKey: 'TRUEFOUNDRY_MEMORY_ENABLED',
+        raw: getEnv('TRUEFOUNDRY_MEMORY_ENABLED'),
+        defaultValue: false,
+      }),
+      TRUEFOUNDRY_ZEP_API_KEY: optionalNonEmptyEnv('TRUEFOUNDRY_ZEP_API_KEY'),
+      TRUEFOUNDRY_ZEP_BASE_URL: optionalNonEmptyEnv('TRUEFOUNDRY_ZEP_BASE_URL') ?? ZEP_DEFAULT_BASE_URL,
+      MEMORY_INGEST_INTERVAL_MS: parsePositiveInt({
+        envKey: 'MEMORY_INGEST_INTERVAL_MS',
+        raw: getEnv('MEMORY_INGEST_INTERVAL_MS'),
+        defaultValue: 5 * 60 * 1000,
+      }),
+      MEMORY_INGEST_MAX_SESSIONS_PER_RUN: parsePositiveInt({
+        envKey: 'MEMORY_INGEST_MAX_SESSIONS_PER_RUN',
+        raw: getEnv('MEMORY_INGEST_MAX_SESSIONS_PER_RUN'),
+        defaultValue: 50,
+      }),
+      MEMORY_INGEST_MAX_EXCHANGES_PER_SESSION: parsePositiveInt({
+        envKey: 'MEMORY_INGEST_MAX_EXCHANGES_PER_SESSION',
+        raw: getEnv('MEMORY_INGEST_MAX_EXCHANGES_PER_SESSION'),
+        defaultValue: 20,
+      }),
+      MEMORY_INGEST_LOOKBACK_MS: parsePositiveInt({
+        envKey: 'MEMORY_INGEST_LOOKBACK_MS',
+        raw: getEnv('MEMORY_INGEST_LOOKBACK_MS'),
+        defaultValue: 2 * 60 * 60 * 1000,
+      }),
+      MEMORY_INGEST_PAUSE_TIMEOUT_MS: parsePositiveInt({
+        envKey: 'MEMORY_INGEST_PAUSE_TIMEOUT_MS',
+        raw: getEnv('MEMORY_INGEST_PAUSE_TIMEOUT_MS'),
+        defaultValue: 12 * 60 * 60 * 1000,
+      }),
+      MEMORY_INGEST_SETTLE_MS: parseNonNegativeInt({
+        envKey: 'MEMORY_INGEST_SETTLE_MS',
+        raw: getEnv('MEMORY_INGEST_SETTLE_MS'),
+        defaultValue: 60 * 1000,
+      }),
     };
 
 export function isOidcConfigured(
@@ -1476,6 +1542,13 @@ if (isTrueFoundryModeEnabled(configuration)) {
         'TRUEFOUNDRY_SANDBOX_PROVIDER=truefoundry requires TRUEFOUNDRY_SANDBOX_SERVER_URL, or set TRUEFOUNDRY_SANDBOX_ENABLED=false.',
       );
     }
+  }
+
+  if (configuration.TRUEFOUNDRY_MEMORY_ENABLED && configuration.TRUEFOUNDRY_ZEP_API_KEY === undefined) {
+    throw new Error(
+      'TRUEFOUNDRY_MEMORY_ENABLED is true but TRUEFOUNDRY_ZEP_API_KEY is not set. ' +
+        'Set TRUEFOUNDRY_ZEP_API_KEY, or set TRUEFOUNDRY_MEMORY_ENABLED=false.',
+    );
   }
 }
 
