@@ -294,9 +294,9 @@ export const subscribeTurnRoute = createRoute({
   method: 'get',
   path: '/{session_id}/turns/{turn_id}/subscribe',
   tags: [OpenApiTag.AGENT_SESSIONS],
-  summary: 'Subscribe to a running turn',
+  summary: 'Subscribe to a turn stream',
   description:
-    'Subscribe to the live SSE stream for a turn. Only the session creator may subscribe. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).',
+    'Subscribe to the live SSE stream. A paused turn with an expired stream is restored from stored events. A running or finished turn is not restored. Pass `after_sequence_number` to resume after that sequence.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'subscribe_to_turn',
   'x-fern-streaming': { format: 'sse', resumable: true },
@@ -327,7 +327,7 @@ export const subscribeTurnRoute = createRoute({
     },
     412: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Cannot subscribe — the live stream no longer exists.',
+      description: 'The live stream does not exist and this turn is not paused, so it was not restored.',
     },
   },
 });

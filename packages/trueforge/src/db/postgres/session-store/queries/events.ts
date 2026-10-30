@@ -2,8 +2,11 @@ import type { PersistedTurnEvent, SessionEventItem } from '@truefoundry/trueforg
 import type { TokenPagination } from '@truefoundry/trueforge-core/agent-session/schemas/pagination';
 import type {
   AppendToEventsInput,
+  AssignTurnEventSequenceNumbersInput,
   ListSessionEventsInput,
+  ListTurnEventLogInput,
   ListTurnEventsInput,
+  TurnEventLogEntry,
 } from '@truefoundry/trueforge-core/agent-session/store/ISessionStore';
 import {
   decodeOffsetPageToken,
@@ -16,10 +19,13 @@ import {
 } from '@truefoundry/trueforge-core/agent-session/store/SessionEventPageToken';
 import {
   SessionNotFoundError,
+  SessionStoreInvariantError,
   TurnNotFoundError,
 } from '@truefoundry/trueforge-core/agent-session/store/SessionStoreErrors';
+import { assertTurnEventSequenceNumber } from '@truefoundry/trueforge-core/agent-session/store/turnEventSequence';
 import type { Kysely, Transaction } from 'kysely';
 import { sql } from 'kysely';
+import { isTransaction } from '../../../transaction';
 import { json } from '../../sqlExpressions';
 import type { Database } from '../../types';
 import { unnestWithOrdinality, values } from '../sqlExpressions';
@@ -67,6 +73,124 @@ export async function appendToEvents(
 
   if (inserted.length === 0) {
     await classifyTurnFenceWriteFailure(db, keys);
+  }
+}
+
+export async function listTurnEventLog(
+  db: Kysely<Database>,
+  input: ListTurnEventLogInput,
+): Promise<TurnEventLogEntry[]> {
+  const turn = await db
+    .selectFrom('turn')
+    .select('turn_id')
+    .where('session_id', '=', input.session_id)
+    .where('turn_id', '=', input.turn_id)
+    .executeTakeFirst();
+  if (!turn) {
+    throw new TurnNotFoundError(input.turn_id);
+  }
+
+  const rows = await db
+    .selectFrom('session_event')
+    .select(['event', 'sequence_number'])
+    .where('session_id', '=', input.session_id)
+    .where('turn_id', '=', input.turn_id)
+    .orderBy('event_id', 'asc')
+    .execute();
+
+  return rows.map(row => ({
+    event: row.event,
+    sequence_number: row.sequence_number,
+  }));
+}
+
+export async function assignTurnEventSequenceNumbers(
+  db: Kysely<Database> | Transaction<Database>,
+  input: AssignTurnEventSequenceNumbersInput,
+): Promise<void> {
+  if (isTransaction<Database>(db)) {
+    await assignTurnEventSequenceNumbersInTransaction(db, input);
+    return;
+  }
+  await db.transaction().execute(trx => assignTurnEventSequenceNumbersInTransaction(trx, input));
+}
+
+async function assignTurnEventSequenceNumbersInTransaction(
+  db: Transaction<Database>,
+  input: AssignTurnEventSequenceNumbersInput,
+): Promise<void> {
+  for (const assignment of input.assignments) {
+    assertTurnEventSequenceNumber(assignment.sequence_number);
+  }
+
+  const keys = {
+    session_id: input.session_id,
+    turn_id: input.turn_id,
+    active_executor_id: input.active_executor_id,
+  };
+  const fence = await db
+    .selectFrom('turn')
+    .select(sql`1`.as('one'))
+    .where('session_id', '=', keys.session_id)
+    .where('turn_id', '=', keys.turn_id)
+    .where('active_executor_id', '=', keys.active_executor_id)
+    .where(sql<boolean>`state->>'status' IN ('running', 'paused')`)
+    .forShare()
+    .executeTakeFirst();
+  if (!fence) {
+    await classifyTurnFenceWriteFailure(db, keys);
+  }
+  if (input.assignments.length === 0) {
+    return;
+  }
+
+  const rows = await db
+    .selectFrom('session_event')
+    .select(['event_id', 'sequence_number'])
+    .where('session_id', '=', input.session_id)
+    .where('turn_id', '=', input.turn_id)
+    .where(
+      'event_id',
+      'in',
+      input.assignments.map(assignment => assignment.event_id),
+    )
+    .execute();
+  const stored = new Map(rows.map(row => [row.event_id, row.sequence_number]));
+
+  for (const assignment of input.assignments) {
+    if (!stored.has(assignment.event_id)) {
+      throw new SessionStoreInvariantError(`event ${assignment.event_id} is not in the log for turn ${input.turn_id}`);
+    }
+    const current = stored.get(assignment.event_id);
+    if (current === null || current === undefined) {
+      const updated = await db
+        .updateTable('session_event')
+        .set({ sequence_number: assignment.sequence_number })
+        .where('session_id', '=', input.session_id)
+        .where('turn_id', '=', input.turn_id)
+        .where('event_id', '=', assignment.event_id)
+        .where('sequence_number', 'is', null)
+        .executeTakeFirst();
+      if (updated.numUpdatedRows === 0n) {
+        const again = await db
+          .selectFrom('session_event')
+          .select('sequence_number')
+          .where('session_id', '=', input.session_id)
+          .where('turn_id', '=', input.turn_id)
+          .where('event_id', '=', assignment.event_id)
+          .executeTakeFirst();
+        if (again?.sequence_number !== assignment.sequence_number) {
+          throw new SessionStoreInvariantError(
+            `event ${assignment.event_id} already has sequence_number ${String(again?.sequence_number ?? 'none')}`,
+          );
+        }
+      }
+      stored.set(assignment.event_id, assignment.sequence_number);
+    } else if (current !== assignment.sequence_number) {
+      throw new SessionStoreInvariantError(
+        `event ${assignment.event_id} already has sequence_number ${String(current)}`,
+      );
+    }
   }
 }
 

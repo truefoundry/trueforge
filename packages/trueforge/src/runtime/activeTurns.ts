@@ -6,10 +6,12 @@
  */
 import { CancellationReason, TurnOffloadReason, type TurnHandle } from '@truefoundry/trueforge-core/agent-session';
 import { getOperationMetrics } from '@truefoundry/trueforge-core/core';
-import { Mutex } from 'async-mutex';
+import { E_TIMEOUT, Mutex, withTimeout } from 'async-mutex';
 import type { Logger } from 'winston';
 
 const DEFAULT_PAUSED_KEEPALIVE_MS = 300_000;
+/** `0` waits until the lock is free. A positive value is the acquire budget in milliseconds. */
+const DEFAULT_LOCK_ACQUIRE_TIMEOUT_MS = 0;
 
 interface TurnRunCompletion {
   abortController: AbortController;
@@ -28,6 +30,18 @@ interface LiveTurnRun<TTransaction> extends TurnRunCompletion {
 }
 
 type ActiveTurnRun<TTransaction> = RebuildingTurnRun | LiveTurnRun<TTransaction>;
+
+/** `withTurnLock` did not acquire the per-turn lock before `timeoutMs`. */
+export class TurnLockAcquireTimeoutError extends Error {
+  readonly timeoutMs: number;
+
+  constructor(options: { timeoutMs: number; cause: Error }) {
+    super(`Timed out acquiring the turn lock after ${String(options.timeoutMs)}ms`, { cause: options.cause });
+    this.name = 'TurnLockAcquireTimeoutError';
+    this.timeoutMs = options.timeoutMs;
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
 
 function setupTurnRun(abortController: AbortController): TurnRunCompletion {
   const { promise: waitUntilCompleted, resolve } = Promise.withResolvers<undefined>();
@@ -60,11 +74,14 @@ export class ActiveTurnRegistry<TTransaction = never> {
   private readonly keepaliveTimers = new Map<string, NodeJS.Timeout>();
   // the time to keep the turn alive for, in milliseconds
   private readonly pausedKeepaliveMs: number;
+  /** Milliseconds to wait for the per-turn lock. `0` waits without a timeout. */
+  private readonly lockAcquireTimeoutMs: number;
   private readonly logger: Logger;
   private alreadyShutDownAbortReason: CancellationReason | undefined;
 
-  constructor(options: { logger: Logger; pausedKeepaliveMs?: number }) {
+  constructor(options: { logger: Logger; pausedKeepaliveMs?: number; lockAcquireTimeoutMs?: number }) {
     this.pausedKeepaliveMs = options.pausedKeepaliveMs ?? DEFAULT_PAUSED_KEEPALIVE_MS;
+    this.lockAcquireTimeoutMs = options.lockAcquireTimeoutMs ?? DEFAULT_LOCK_ACQUIRE_TIMEOUT_MS;
     this.logger = options.logger.child({ module: 'ActiveTurnRegistry' });
   }
 
@@ -73,6 +90,8 @@ export class ActiveTurnRegistry<TTransaction = never> {
    * the same turn has released it. Different turns never wait on each other.
    * Callers MUST re-read registry state inside `fn` instead of trusting a
    * lookup made before acquiring the lock.
+   * `lockAcquireTimeoutMs` of 0 waits until the lock is free. A positive value
+   * throws `TurnLockAcquireTimeoutError` when the wait exceeds it.
    */
   async withTurnLock<T>(input: { sessionId: string; turnId: string }, fn: () => Promise<T>): Promise<T> {
     const key = activeTurnKey(input.sessionId, input.turnId);
@@ -81,9 +100,18 @@ export class ActiveTurnRegistry<TTransaction = never> {
     if (!existing) {
       this.turnLocks.set(key, mutex);
     }
+    // 0 waits forever. withTimeout(0) would reject on the next timer turn.
+    const guarded = this.lockAcquireTimeoutMs > 0 ? withTimeout(mutex, this.lockAcquireTimeoutMs) : mutex;
     try {
-      // TODO (chiragjn): support acquire timeout
-      return await mutex.runExclusive(fn);
+      return await guarded.runExclusive(fn);
+    } catch (caught) {
+      if (caught === E_TIMEOUT) {
+        throw new TurnLockAcquireTimeoutError({
+          timeoutMs: this.lockAcquireTimeoutMs,
+          cause: caught,
+        });
+      }
+      throw caught;
     } finally {
       if (!mutex.isLocked()) {
         this.turnLocks.delete(key);

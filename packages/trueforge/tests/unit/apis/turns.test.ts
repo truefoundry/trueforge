@@ -1,6 +1,7 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import {
   AgentSpecSchema,
+  CancellationReason,
   Sessions,
   TurnNotFoundError,
   type TurnStreamingEvent,
@@ -9,6 +10,16 @@ import {
 import { RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
 import type { Kysely } from 'kysely';
 import { createLogger } from 'winston';
+import { createEmptyAgentThreadMetrics } from '../../../../trueforge-core/src/core/runtime/metrics';
+import {
+  makeCancelledTurnState,
+  makeCreateTurnInput,
+  makePausedTurnState,
+  makeTurnCreatedEvent,
+  makeTurnDoneEvent,
+  makeTurnUpdateEvent,
+  TEST_ACTIVE_EXECUTOR_ID,
+} from '../../../../trueforge-core/tests/agent-session/testHelpers';
 import { createTurnsRouter, deriveSessionTitle, turnStreamId } from '../../../src/apis/turns';
 import { TrueForgeAuthorizer, type Authorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
@@ -880,6 +891,123 @@ describe('turns', () => {
       expect(response.status).toBe(404);
       expect(await response.json()).toEqual({ error: { message: `Agent not found: ${agent.id}` } });
       expect(deniedCanAccessAgent.mock.calls.map(([input]) => input.action)).toEqual(['use']);
+    });
+  });
+
+  describe('subscribe stream restore', () => {
+    it('restores an expired stream only while the turn is paused', async () => {
+      const db = createSqliteDb(':memory:');
+      await migrateSqliteToLatest(db);
+      const sessionStore = new SqliteSessionStore(db);
+      const sessions = new Sessions({ sessionStore });
+      const sessionId = 's1';
+      await sessionStore.createSession({
+        tenant_id: 'default',
+        session_id: sessionId,
+        created_by_subject: {
+          subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+          subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+          subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+        },
+        agent: {
+          type: 'inline',
+          spec: AgentSpecSchema.parse({
+            model: { name: 'test-provider/test-model' },
+            instructions: 'test',
+          }),
+        },
+        custom: null,
+        metadata: {},
+        external_id: null,
+        source: null,
+      });
+      const activeTurns = new ActiveTurnRegistry({ logger: createLogger({ silent: true }) });
+      const tokenStore = new SqliteOAuthTokenStore(db);
+      const app = new OpenAPIHono();
+      app.route(
+        '/',
+        createTurnsRouter({
+          activeTurns,
+          authorizer: new TrueForgeAuthorizer(),
+          eventSubscriptions: new EventSubscriptionRegistry(undefined),
+          logger: createLogger({ silent: true }),
+          requestReplyRouter: new RequestReplyRouter(),
+          resolveAgentStore: () => new SqliteAgentStore(db),
+          resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+          resolveTurnExecutionStores: () => Promise.resolve(turnExecutionStores(db, tokenStore)),
+          sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
+          sandboxProviderStore: new SqliteSandboxProviderStore(db),
+          sessions,
+          sessionStore,
+          accessControlStore: new SqliteAccessControlStore(db),
+        }),
+      );
+
+      const runningTurnId = 'running-turn';
+      await sessionStore.createTurn(makeCreateTurnInput({ sessionId, turnId: runningTurnId }));
+      const runningEvent = makeTurnCreatedEvent(runningTurnId);
+      await sessionStore.appendToEvents({
+        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+        session_id: sessionId,
+        turn_id: runningTurnId,
+        events: [runningEvent],
+      });
+      const runningSubscribe = await app.request(`/${sessionId}/turns/${runningTurnId}/subscribe`);
+      expect(runningSubscribe.status).toBe(412);
+
+      const cancelled = makeCancelledTurnState(CancellationReason.ClientCancelled);
+      await sessionStore.freezeAndGetTurn({
+        session_id: sessionId,
+        turn_id: runningTurnId,
+        reason: CancellationReason.ClientCancelled,
+        turn_done_event: makeTurnDoneEvent(cancelled),
+      });
+      const finishedSubscribe = await app.request(`/${sessionId}/turns/${runningTurnId}/subscribe`);
+      expect(finishedSubscribe.status).toBe(412);
+
+      const pausedTurnId = 'paused-turn';
+      await sessionStore.createTurn(makeCreateTurnInput({ sessionId, turnId: pausedTurnId }));
+      const paused = makePausedTurnState();
+      await sessionStore.updateTurnNonTerminalState({
+        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+        session_id: sessionId,
+        turn_id: pausedTurnId,
+        state: paused,
+        turn_update_event: makeTurnUpdateEvent(paused),
+        turn_metrics: {
+          status: 'paused',
+          observed_at: new Date().toISOString(),
+          metrics: createEmptyAgentThreadMetrics(),
+        },
+      });
+      const pausedEvent = makeTurnCreatedEvent(pausedTurnId);
+      await sessionStore.appendToEvents({
+        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+        session_id: sessionId,
+        turn_id: pausedTurnId,
+        events: [pausedEvent],
+      });
+      const pausedSubscribe = await app.request(`/${sessionId}/turns/${pausedTurnId}/subscribe`);
+      expect(pausedSubscribe.status).toBe(200);
+      const reader = pausedSubscribe.body?.getReader();
+      if (reader === undefined) {
+        throw new Error('subscribe response has no body');
+      }
+      const decoder = new TextDecoder();
+      let replayed = '';
+      try {
+        while (!replayed.includes(pausedEvent.id)) {
+          const { value, done } = await reader.read();
+          if (done || value === undefined) {
+            break;
+          }
+          replayed += decoder.decode(value, { stream: true });
+        }
+      } finally {
+        await reader.cancel();
+      }
+      expect(replayed).toContain(pausedEvent.id);
+      expect(activeTurns.getTurnHandle({ sessionId, turnId: pausedTurnId })).toBeUndefined();
     });
   });
 });

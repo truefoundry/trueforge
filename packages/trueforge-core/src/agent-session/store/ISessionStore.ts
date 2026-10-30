@@ -193,6 +193,32 @@ export interface AppendToEventsInput extends TurnProgressKeys {
   events: PersistedTurnEvent[];
 }
 
+/** One durable event plus the stream sequence assigned when it was first appended. */
+export interface TurnEventLogEntry {
+  event: PersistedTurnEvent;
+  /** Null until a producer streams the event and records the number. */
+  sequence_number: number | null;
+}
+
+export interface ListTurnEventLogInput {
+  session_id: string;
+  turn_id: string;
+}
+
+/** Sequence written onto an existing event row. The event payload is not rewritten. */
+export interface TurnEventSequenceAssignment {
+  event_id: string;
+  sequence_number: number;
+}
+
+export interface AssignTurnEventSequenceNumbersInput extends TurnProgressKeys {
+  /**
+   * Empty still checks `active_executor_id`. Producer repair uses that so a stale
+   * executor fails before it claims or appends the live stream.
+   */
+  assignments: TurnEventSequenceAssignment[];
+}
+
 export interface InsertTurnInboundEventsInput extends TurnProgressKeys {
   /** Empty array is a no-op. */
   events: TurnUserEvent[];
@@ -411,6 +437,20 @@ export interface ISessionStore<
    */
   /** Appends events while the caller owns a `running` or `paused` turn; terminal turns are immutable. */
   appendToEvents(input: AppendToEventsInput, transaction?: TTransaction): Promise<void>;
+
+  /**
+   * Full turn event log in persist order (`event_id` ascending), with the stream
+   * sequence stored beside each payload. Missing turn throws TurnNotFoundError.
+   */
+  listTurnEventLog(input: ListTurnEventLogInput): Promise<TurnEventLogEntry[]>;
+
+  /**
+   * Records sequence numbers for events that do not have one yet. The caller must
+   * own a non-terminal turn. Already-stored numbers that match are a no-op; a
+   * different stored number is an invariant failure. Unknown `event_id` is too.
+   * An empty assignment still fences on `active_executor_id`.
+   */
+  assignTurnEventSequenceNumbers(input: AssignTurnEventSequenceNumbersInput, transaction?: TTransaction): Promise<void>;
 
   /**
    * Durable inbound send-event inbox for a tip the caller still owns. Tip must be

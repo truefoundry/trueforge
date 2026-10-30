@@ -789,6 +789,12 @@ export interface SharedServerConfiguration {
    */
   TURN_PAUSED_KEEPALIVE_SECONDS: number;
   /**
+   * Max ms to wait when acquiring the per-turn lock.
+   * `0` waits until the holder releases it.
+   * Env: `TURN_LOCK_ACQUIRE_TIMEOUT_MS`. Default 0.
+   */
+  TURN_LOCK_ACQUIRE_TIMEOUT_MS: number;
+  /**
    * Max ms to wait for one create-turn SSE write before dropping that client
    * and keeping the turn drain running. Env: `TURN_SSE_STREAM_WRITE_TIMEOUT_MS`. Default 60000.
    */
@@ -1183,6 +1189,11 @@ const shared: SharedServerConfiguration = {
     envKey: 'TURN_PAUSED_KEEPALIVE_SECONDS',
     raw: getEnv('TURN_PAUSED_KEEPALIVE_SECONDS'),
     defaultValue: 300,
+  }),
+  TURN_LOCK_ACQUIRE_TIMEOUT_MS: parseNonNegativeInt({
+    envKey: 'TURN_LOCK_ACQUIRE_TIMEOUT_MS',
+    raw: getEnv('TURN_LOCK_ACQUIRE_TIMEOUT_MS'),
+    defaultValue: 0,
   }),
   TURN_SSE_STREAM_WRITE_TIMEOUT_MS: parsePositiveInt({
     envKey: 'TURN_SSE_STREAM_WRITE_TIMEOUT_MS',

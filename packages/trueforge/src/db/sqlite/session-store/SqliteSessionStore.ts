@@ -7,6 +7,7 @@ import type {
   AddThreadsInput,
   AppendToEventsInput,
   AppendToThreadContextInput,
+  AssignTurnEventSequenceNumbersInput,
   ClaimTurnExecutorInput,
   CreateSessionInput,
   CreateTurnInput,
@@ -20,6 +21,7 @@ import type {
   ISessionStore,
   ListSessionEventsInput,
   ListSessionsInput,
+  ListTurnEventLogInput,
   ListTurnEventsInput,
   ListTurnsInput,
   ListUnconsumedTurnInboundEventsInput,
@@ -30,6 +32,7 @@ import type {
   PatchThreadCapabilityStateInput,
   PatchThreadsMCPAuthInput,
   RemoveThreadsInput,
+  TurnEventLogEntry,
   TurnRecordWithoutSnapshot,
   UpdateSessionInput,
   UpdateTurnNonTerminalStateInput,
@@ -44,7 +47,9 @@ import type { Database } from '../types';
 import { patchThreadCapabilityState as patchThreadCapabilityStateQuery } from './queries/capabilities';
 import {
   appendToEvents as appendToEventsQuery,
+  assignTurnEventSequenceNumbers as assignTurnEventSequenceNumbersQuery,
   listSessionEvents as listSessionEventsQuery,
+  listTurnEventLog as listTurnEventLogQuery,
   listTurnEvents as listTurnEventsQuery,
 } from './queries/events';
 import {
@@ -218,6 +223,17 @@ export class SqliteSessionStore implements ISessionStore<Transaction<Database>, 
 
   appendToEvents(input: AppendToEventsInput, transaction?: Transaction<Database>): Promise<void> {
     return appendToEventsQuery(transaction ?? this.db, input);
+  }
+
+  listTurnEventLog(input: ListTurnEventLogInput): Promise<TurnEventLogEntry[]> {
+    return listTurnEventLogQuery(this.db, input);
+  }
+
+  assignTurnEventSequenceNumbers(
+    input: AssignTurnEventSequenceNumbersInput,
+    transaction?: Transaction<Database>,
+  ): Promise<void> {
+    return assignTurnEventSequenceNumbersQuery(transaction ?? this.db, input);
   }
 
   insertTurnInboundEvents(input: InsertTurnInboundEventsInput): Promise<void> {

@@ -1,7 +1,13 @@
-import type { EventSubscriptionRegistry, SequencedEvent } from '../../../src/runtime/event-subscription';
+import {
+  StreamGoneError,
+  StreamOwnerMismatchError,
+  type EventSubscriptionRegistry,
+  type SequencedEvent,
+} from '../../../src/runtime/event-subscription';
 
 /** Payload shape used by the suite; distinct per event so round-trips are provable. */
 export interface TestEvent {
+  id?: string;
   type: string;
   payload: { index: number; text: string };
 }
@@ -122,6 +128,111 @@ export function runEventSubscriptionContractSuite(createRegistry: () => EventSub
     expect(received).toEqual([
       { ...makeEvent(1), sequence_number: 2 },
       { ...makeEvent(2), sequence_number: 3 },
+    ]);
+  });
+
+  it('rebuilds a missing stream from stored sequences and continues after the tail', async () => {
+    const registry = createRegistry();
+    const streamId = nextStreamId();
+    const producer = registry.get(streamId);
+    const first = { id: 'evt-1', ...makeEvent(0) };
+    const second = { id: 'evt-2', ...makeEvent(1) };
+    await producer.put(first, { streamTTLSeconds: STREAM_TTL_SECONDS, executorId: 'owner' });
+    await producer.put(second, { streamTTLSeconds: STREAM_TTL_SECONDS, executorId: 'owner' });
+    await registry.evictStream(streamId);
+
+    await producer.repairLog({
+      entries: [
+        { id: 'evt-1', event: first, sequence_number: 1 },
+        { id: 'evt-2', event: second, sequence_number: 2 },
+      ],
+      streamTTLSeconds: STREAM_TTL_SECONDS,
+      executorId: 'owner',
+      persistSequences: () => Promise.resolve(),
+    });
+
+    const third = { id: 'evt-3', ...makeEvent(2) };
+    const next = await producer.put(third, { streamTTLSeconds: STREAM_TTL_SECONDS, executorId: 'owner' });
+    expect(next).toBe(3);
+    const received = await collect(registry, streamId, 3);
+    expect(received).toEqual([
+      { ...first, sequence_number: 1 },
+      { ...second, sequence_number: 2 },
+      { ...third, sequence_number: 3 },
+    ]);
+  });
+
+  it('leaves an existing stream untouched and a second repair does not append again', async () => {
+    const registry = createRegistry();
+    const streamId = nextStreamId();
+    const producer = registry.get(streamId);
+    const first = { id: 'evt-1', ...makeEvent(0) };
+    const second = { id: 'evt-2', ...makeEvent(1) };
+    await producer.put(first, { streamTTLSeconds: STREAM_TTL_SECONDS });
+    await producer.put(second, { streamTTLSeconds: STREAM_TTL_SECONDS });
+    const repair = () =>
+      producer.repairLog({
+        entries: [
+          { id: 'evt-1', event: first, sequence_number: 1 },
+          { id: 'evt-2', event: second, sequence_number: 2 },
+        ],
+        streamTTLSeconds: STREAM_TTL_SECONDS,
+        executorId: 'owner',
+        persistSequences: () => Promise.resolve(),
+      });
+    await repair();
+    await repair();
+
+    const third = { id: 'evt-3', ...makeEvent(2) };
+    const next = await producer.put(third, { streamTTLSeconds: STREAM_TTL_SECONDS, executorId: 'owner' });
+    expect(next).toBe(3);
+    const received = await collect(registry, streamId, 3);
+    expect(received).toEqual([
+      { ...first, sequence_number: 1 },
+      { ...second, sequence_number: 2 },
+      { ...third, sequence_number: 3 },
+    ]);
+  });
+
+  it('rejects a stale producer when the stream is missing', async () => {
+    const registry = createRegistry();
+    const streamId = nextStreamId();
+    const owner = registry.get(streamId);
+    const event = { id: 'evt-1', ...makeEvent(0) };
+    await owner.repairLog({
+      entries: [{ id: 'evt-1', event, sequence_number: 1 }],
+      streamTTLSeconds: STREAM_TTL_SECONDS,
+      executorId: 'owner',
+      persistSequences: () => Promise.resolve(),
+    });
+    await registry.evictStream(streamId);
+
+    const stale = registry.get(streamId);
+    await expect(
+      stale.put({ id: 'evt-late', ...makeEvent(9) }, { streamTTLSeconds: STREAM_TTL_SECONDS, executorId: 'stale' }),
+    ).rejects.toBeInstanceOf(StreamOwnerMismatchError);
+    await expect(stale.assertSubscribable()).rejects.toBeInstanceOf(StreamGoneError);
+  });
+
+  it('treats an explicit-id conflict as a no-op when the event id is already the tail', async () => {
+    const registry = createRegistry();
+    const streamId = nextStreamId();
+    const left = registry.get(streamId);
+    const right = registry.get(streamId);
+    const event = { id: 'evt-same', ...makeEvent(0) };
+    const sequences = await Promise.all([
+      left.put(event, { streamTTLSeconds: STREAM_TTL_SECONDS }),
+      right.put(event, { streamTTLSeconds: STREAM_TTL_SECONDS }),
+    ]);
+    expect(sequences).toEqual([1, 1]);
+
+    const follow = { id: 'evt-next', ...makeEvent(1) };
+    const next = await left.put(follow, { streamTTLSeconds: STREAM_TTL_SECONDS });
+    expect(next).toBe(2);
+    const received = await collect(registry, streamId, 2);
+    expect(received).toEqual([
+      { ...event, sequence_number: 1 },
+      { ...follow, sequence_number: 2 },
     ]);
   });
 }

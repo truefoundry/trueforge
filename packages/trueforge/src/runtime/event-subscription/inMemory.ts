@@ -6,15 +6,17 @@
 import { EventEmitter, once } from 'node:events';
 import {
   StreamGoneError,
+  StreamOwnerMismatchError,
   SUBSCRIBE_STREAM_THRESHOLD_MS,
   type EventSubscription,
   type EventSubscriptionPollOptions,
   type EventSubscriptionPutOptions,
   type SequencedEvent,
 } from '.';
+import { applyEventLogRepair, eventIdOf, type RepairLogOptions } from './repair';
 
 interface InMemoryStream<T extends object> {
-  /** Dense log: the event at index i has sequence_number i + 1 (1-indexed). */
+  /** Appended in increasing sequence_number order. */
   events: SequencedEvent<T>[];
   /** Undefined = no TTL set yet (mirrors a Redis key without EXPIRE). */
   expiresAtMs?: number | undefined;
@@ -27,6 +29,8 @@ interface InMemoryStream<T extends object> {
  */
 export class InMemoryEventStreamStore<T extends object> {
   private readonly streams = new Map<string, InMemoryStream<T>>();
+  /** Survives stream eviction so a stale producer cannot recreate a missing log. */
+  private readonly owners = new Map<string, string>();
   /** Rings per stream id on append and expiry so parked pollers wake instantly. */
   private readonly changes = new EventEmitter();
 
@@ -35,20 +39,63 @@ export class InMemoryEventStreamStore<T extends object> {
     this.changes.setMaxListeners(0);
   }
 
-  append(streamId: string, event: T, streamTTLSeconds?: number): number {
-    const stream = this.getLiveStream(streamId) ?? { events: [] };
-    this.streams.set(streamId, stream);
+  claimOwner(streamId: string, executorId: string): void {
+    this.owners.set(streamId, executorId);
+  }
 
-    const sequenceNumber = stream.events.length + 1;
-    // Deep-copy so the log is isolated from caller mutations (mirrors JSON round-trip in Redis).
-    stream.events.push({ ...structuredClone(event), sequence_number: sequenceNumber });
-
-    if (streamTTLSeconds && streamTTLSeconds > 0) {
-      stream.expiresAtMs = Date.now() + streamTTLSeconds * 1_000;
-      this.scheduleExpiry(streamId, stream);
+  /**
+   * Appends at an explicit sequence. A sequence at or below the tail is a duplicate
+   * when the tail already has that event id, and a conflict otherwise.
+   */
+  appendExplicit(input: {
+    streamId: string;
+    event: T;
+    sequenceNumber: number;
+    eventId: string | undefined;
+    executorId: string | undefined;
+    checkOwner: boolean;
+    streamTTLSeconds: number | undefined;
+  }): 'ok' | 'duplicate' | 'owner_mismatch' | 'conflict' {
+    const owner = this.owners.get(input.streamId);
+    if (input.checkOwner && owner !== undefined && owner !== input.executorId) {
+      return 'owner_mismatch';
     }
-    this.changes.emit(streamId);
-    return sequenceNumber;
+    const stream = this.getLiveStream(input.streamId) ?? { events: [] };
+    const last = stream.events[stream.events.length - 1];
+    if (last !== undefined && input.sequenceNumber <= last.sequence_number) {
+      const tailId = eventIdOf(last);
+      if (input.eventId !== undefined && tailId === input.eventId) {
+        return 'duplicate';
+      }
+      return 'conflict';
+    }
+    this.streams.set(input.streamId, stream);
+    // Deep-copy so the log is isolated from caller mutations (mirrors JSON round-trip in Redis).
+    stream.events.push({ ...structuredClone(input.event), sequence_number: input.sequenceNumber });
+    if (input.streamTTLSeconds !== undefined && input.streamTTLSeconds > 0) {
+      stream.expiresAtMs = Date.now() + input.streamTTLSeconds * 1_000;
+      this.scheduleExpiry(input.streamId, stream);
+    }
+    this.changes.emit(input.streamId);
+    return 'ok';
+  }
+
+  readTail(streamId: string): { eventId: string; sequenceNumber: number } | undefined {
+    const stream = this.getLiveStream(streamId);
+    const last = stream?.events[stream.events.length - 1];
+    if (last === undefined) {
+      return undefined;
+    }
+    return { eventId: eventIdOf(last) ?? '', sequenceNumber: last.sequence_number };
+  }
+
+  /** Drops the log and keeps the owner, matching Redis stream-key expiry. */
+  evictStream(streamId: string): void {
+    const stream = this.streams.get(streamId);
+    if (stream === undefined) {
+      return;
+    }
+    this.dropStream(streamId, stream);
   }
 
   /** Refreshes TTL on a live stream. Sequence numbers already follow the log length. */
@@ -118,28 +165,88 @@ export class InMemoryEventStreamStore<T extends object> {
 
 /** Stream-scoped view over the shared store; implements the transport contract. */
 export class InMemoryEventSubscription<T extends object> implements EventSubscription<T> {
+  private nextSequenceNumber = 1;
+
   constructor(
     private readonly store: InMemoryEventStreamStore<T>,
     private readonly streamId: string,
   ) {}
 
-  resumeProducer(options?: EventSubscriptionPutOptions): Promise<void> {
-    this.store.refreshStreamTtl(this.streamId, options?.streamTTLSeconds);
-    return Promise.resolve();
+  repairLog(options: RepairLogOptions<T>): Promise<void> {
+    const executorId = options.executorId;
+    return applyEventLogRepair({
+      entries: options.entries,
+      persistSequences: options.persistSequences,
+      claimOwner:
+        executorId === undefined
+          ? undefined
+          : () => {
+              this.store.claimOwner(this.streamId, executorId);
+              return Promise.resolve();
+            },
+      readTail: () => Promise.resolve(this.store.readTail(this.streamId)),
+      append: entry => {
+        const outcome = this.store.appendExplicit({
+          streamId: this.streamId,
+          event: entry.event,
+          sequenceNumber: entry.sequence_number,
+          eventId: entry.id,
+          executorId,
+          checkOwner: false,
+          streamTTLSeconds: options.streamTTLSeconds,
+        });
+        if (outcome === 'ok') {
+          return Promise.resolve('appended');
+        }
+        if (outcome === 'duplicate') {
+          return Promise.resolve('duplicate');
+        }
+        if (outcome === 'owner_mismatch') {
+          return Promise.reject(new StreamOwnerMismatchError(this.streamId));
+        }
+        return Promise.reject(
+          new Error(`explicit stream id ${String(entry.sequence_number)} conflicts on ${this.streamId}`),
+        );
+      },
+      refreshTtl: () => {
+        this.store.refreshStreamTtl(this.streamId, options.streamTTLSeconds);
+        return Promise.resolve();
+      },
+      refreshTtlOnUntouchedStream: executorId !== undefined,
+    }).then(next => {
+      this.nextSequenceNumber = next;
+    });
   }
 
   put(event: T, options?: EventSubscriptionPutOptions): Promise<number> {
-    return Promise.resolve(this.store.append(this.streamId, event, options?.streamTTLSeconds));
+    const sequenceNumber = this.nextSequenceNumber;
+    this.nextSequenceNumber += 1;
+    const outcome = this.store.appendExplicit({
+      streamId: this.streamId,
+      event,
+      sequenceNumber,
+      eventId: eventIdOf(event),
+      executorId: options?.executorId,
+      checkOwner: true,
+      streamTTLSeconds: options?.streamTTLSeconds,
+    });
+    if (outcome === 'owner_mismatch') {
+      return Promise.reject(new StreamOwnerMismatchError(this.streamId));
+    }
+    if (outcome === 'conflict') {
+      return Promise.reject(new Error(`explicit stream id ${String(sequenceNumber)} conflicts on ${this.streamId}`));
+    }
+    return Promise.resolve(sequenceNumber);
   }
 
   assertSubscribable(): Promise<void> {
     const stream = this.store.getLiveStream(this.streamId);
     if (!stream) {
-      throw new StreamGoneError(this.streamId);
+      return Promise.reject(new StreamGoneError(this.streamId));
     }
     // Expiring within the threshold is treated as already gone, mirroring the Redis backend.
     if (stream.expiresAtMs !== undefined && stream.expiresAtMs - Date.now() < SUBSCRIBE_STREAM_THRESHOLD_MS) {
-      throw new StreamGoneError(this.streamId);
+      return Promise.reject(new StreamGoneError(this.streamId));
     }
     return Promise.resolve();
   }
@@ -149,9 +256,8 @@ export class InMemoryEventSubscription<T extends object> implements EventSubscri
     options?: EventSubscriptionPollOptions,
   ): AsyncGenerator<SequencedEvent<T>, void, unknown> {
     const signal = options?.signal;
-    // 0 and omitted both mean "from the start". With 1-indexed sequences stored at
-    // index seq-1, "strictly after N" starts at array index N.
-    let cursor = afterSequenceNumber === undefined || afterSequenceNumber === 0 ? 0 : afterSequenceNumber;
+    // 0 and omitted both mean "from the start". Yield events whose sequence is strictly greater.
+    let after = afterSequenceNumber === undefined || afterSequenceNumber === 0 ? 0 : afterSequenceNumber;
     for (;;) {
       if (signal?.aborted) {
         return;
@@ -160,8 +266,8 @@ export class InMemoryEventSubscription<T extends object> implements EventSubscri
       if (!live) {
         throw new StreamGoneError(this.streamId);
       }
-      const end = live.events.length;
-      if (cursor >= end) {
+      const pending = live.events.filter(event => event.sequence_number > after);
+      if (pending.length === 0) {
         try {
           await this.store.waitForChange(this.streamId, signal);
         } catch (error) {
@@ -173,13 +279,8 @@ export class InMemoryEventSubscription<T extends object> implements EventSubscri
         continue;
       }
       // Deep-copy each yielded event so consumers cannot mutate the stored log.
-      // Snapshot `end` so appends during yield are left for the next pass.
-      while (cursor < end) {
-        const event = live.events[cursor];
-        if (event === undefined) {
-          throw new Error(`Corrupt stream ${this.streamId}: missing event at index ${String(cursor)}`);
-        }
-        cursor += 1;
+      for (const event of pending) {
+        after = event.sequence_number;
         yield structuredClone(event);
       }
     }

@@ -1,10 +1,18 @@
 import type { RedisClient } from '@truefoundry/trueforge-core/request-reply';
 import { InMemoryEventStreamStore, InMemoryEventSubscription } from './inMemory';
 import { RedisEventSubscription } from './redis';
+import type { RepairLogOptions } from './repair';
+
+export type { EventLogEntry, RepairLogOptions } from './repair';
 
 export interface EventSubscriptionPutOptions {
   /** Sets the lifetime of the whole stream after this append. */
   streamTTLSeconds?: number | undefined;
+  /**
+   * XADD runs only when the stream-owner key is unset or equals this id.
+   * A missing stream still rejects a caller that does not own the key.
+   */
+  executorId?: string | undefined;
 }
 
 export type SequencedEvent<T extends object> = T & { sequence_number: number };
@@ -20,11 +28,11 @@ export interface EventSubscriptionPollOptions {
  */
 export interface EventSubscription<T extends object> {
   /**
-   * Seeds the producer sequence from the last stored entry and refreshes the stream TTL.
-   * A missing stream stays at 1. Call this on a new producer before put.
-   * Repairing a missing or partial log from the TurnRecord is a later phase.
+   * Rebuilds a missing or behind stream from the durable log, then reseeds the
+   * producer counter. An existing stream whose tail event id is the last log id
+   * is left in place. Pass `executorId` only for the database owner that will put.
    */
-  resumeProducer(options?: EventSubscriptionPutOptions): Promise<void>;
+  repairLog(options: RepairLogOptions<T>): Promise<void>;
 
   /** Appends an event, assigns its sequence number, and returns that number. */
   put(event: T, options?: EventSubscriptionPutOptions): Promise<number>;
@@ -62,6 +70,18 @@ export class EventSubscriptionRegistry<T extends object> {
     }
     return new InMemoryEventSubscription(this.memoryStore, streamId);
   }
+
+  /**
+   * Drops the live log the way a TTL expiry does, and keeps the stream-owner key
+   * so a stale producer still cannot recreate it.
+   */
+  evictStream(streamId: string): Promise<void> {
+    if (this.redis) {
+      return this.redis.del(streamId).then(() => undefined);
+    }
+    this.memoryStore.evictStream(streamId);
+    return Promise.resolve();
+  }
 }
 
 /** Reject new subscriptions when the stream expires within this window. */
@@ -74,6 +94,17 @@ export class StreamGoneError extends Error {
   constructor(readonly streamId: string) {
     super(`Cannot read from stream, stream does not exist anymore: ${streamId}`);
     this.name = 'StreamGoneError';
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
+/** put refused because the stream-owner key belongs to another executor. */
+export class StreamOwnerMismatchError extends Error {
+  readonly code = 'STREAM_OWNER_MISMATCH' as const;
+
+  constructor(readonly streamId: string) {
+    super(`Cannot append to stream ${streamId}: caller is not the stream owner`);
+    this.name = 'StreamOwnerMismatchError';
     Object.setPrototypeOf(this, new.target.prototype);
   }
 }

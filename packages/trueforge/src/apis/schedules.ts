@@ -87,8 +87,8 @@ export interface ScheduleTurnExecutionDeps<TTransaction> {
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   scheduleStore: IScheduleStore<TTransaction>;
   sessions: Sessions<TTransaction>;
-  /** Previous-turn cancel when a schedule run supersedes a turn that is not in this process. */
-  sessionStore: Pick<ISessionStore<TTransaction>, 'getTurn'>;
+  /** Previous-turn cancel, and sequence numbers for the turn event stream. */
+  sessionStore: Pick<ISessionStore<TTransaction>, 'getTurn' | 'listTurnEventLog' | 'assignTurnEventSequenceNumbers'>;
   webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
 }
 

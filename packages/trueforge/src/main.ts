@@ -508,6 +508,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
 
   const activeTurns = new ActiveTurnRegistry<TTransaction>({
     pausedKeepaliveMs: configuration.TURN_PAUSED_KEEPALIVE_SECONDS * 1000,
+    lockAcquireTimeoutMs: configuration.TURN_LOCK_ACQUIRE_TIMEOUT_MS,
     logger,
   });
   const requestReplyRouter = new RequestReplyRouter();
