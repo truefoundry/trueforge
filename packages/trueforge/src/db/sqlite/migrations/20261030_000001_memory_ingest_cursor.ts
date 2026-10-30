@@ -5,7 +5,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
   await db.transaction().execute(async trx => {
     await sql`
       CREATE TABLE memory_ingest_cursor (
-        session_id TEXT NOT NULL PRIMARY KEY REFERENCES session(session_id) ON DELETE CASCADE,
+        session_id TEXT NOT NULL PRIMARY KEY,
         last_ingested_turn_id TEXT,
         external_thread_id TEXT,
         last_error TEXT,

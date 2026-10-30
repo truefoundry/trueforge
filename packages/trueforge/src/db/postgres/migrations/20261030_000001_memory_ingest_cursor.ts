@@ -1,6 +1,9 @@
 import { sql, type Kysely } from 'kysely';
 
-/** Per-session memory ingestion checkpoint; removed with the session. */
+/**
+ * Per-session memory ingestion checkpoint. No foreign key to `session`: the row outlives a deleted
+ * session so its provider thread can still be cleaned up.
+ */
 export async function up(db: Kysely<unknown>): Promise<void> {
   await sql`SET LOCAL lock_timeout = '5s'`.execute(db);
   await db.schema
@@ -11,9 +14,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('last_error', 'text')
     .addColumn('updated_at', 'timestamptz', col => col.notNull())
     .addPrimaryKeyConstraint('memory_ingest_cursor_pkey', ['session_id'])
-    .addForeignKeyConstraint('memory_ingest_cursor_session_fkey', ['session_id'], 'session', ['session_id'], fk =>
-      fk.onDelete('cascade'),
-    )
     .execute();
 }
 

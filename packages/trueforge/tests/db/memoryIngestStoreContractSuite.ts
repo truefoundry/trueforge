@@ -217,7 +217,7 @@ export function runMemoryIngestStoreContractSuite(getEnv: () => MemoryIngestStor
     expect(next.map(c => c.session_id)).toEqual(['a']);
   });
 
-  it('removes the cursor with its session', async () => {
+  it('lets a session be deleted while keeping its cursor for provider cleanup', async () => {
     const { store, sessionStore } = getEnv();
     await createSession({ session_id: 's1' });
     await addTurn({ session_id: 's1', turn_id: 't1' });
@@ -229,11 +229,13 @@ export function runMemoryIngestStoreContractSuite(getEnv: () => MemoryIngestStor
     });
 
     await sessionStore.deleteSession({ tenant_id: TENANT, session_id: 's1' });
+    expect(await candidateIds()).toEqual([]);
+
+    // Re-creating the id surfaces the surviving row.
     await createSession({ session_id: 's1' });
     await addTurn({ session_id: 's1', turn_id: 't1' });
-
     const [candidate] = await store.listCandidateSessions({ updated_since: HOUR_AGO(), limit: 10 });
-    expect(candidate?.cursor).toBeNull();
+    expect(candidate?.cursor).toMatchObject({ last_ingested_turn_id: 'old', external_thread_id: 'thread' });
   });
 
   it('lists every turn with input and state, and only main-thread model messages of the requested turns', async () => {

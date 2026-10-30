@@ -132,8 +132,7 @@ export interface AccessControlTable {
 
 /**
  * Memory ingestion checkpoint per session.
- * PRIMARY KEY (session_id)
- * FK (session_id) → session(session_id) ON DELETE CASCADE
+ * PRIMARY KEY (session_id); no FK, so the row outlives a deleted session for provider cleanup.
  */
 export interface MemoryIngestCursorTable {
   session_id: string;
