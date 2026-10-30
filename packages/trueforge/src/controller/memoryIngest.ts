@@ -3,7 +3,7 @@
  * per-session checkpoint. Runs in the controller; provider calls are made outside any transaction.
  */
 import type { Logger } from 'winston';
-import type { SharedServerConfiguration } from '../config';
+import type { DistributedServerConfiguration } from '../config';
 import type {
   IMemoryIngestStore,
   MemoryIngestCandidate,
@@ -410,11 +410,10 @@ async function processCandidate({
 export type MemoryIngestWiring = Omit<MemoryIngestDeps, 'logger' | 'now'>;
 
 type MemoryConfiguration = Pick<
-  SharedServerConfiguration,
-  | 'MEMORY_ENABLED'
-  | 'MEMORY_PROVIDER'
-  | 'ZEP_API_KEY'
-  | 'ZEP_BASE_URL'
+  DistributedServerConfiguration,
+  | 'TRUEFOUNDRY_MEMORY_ENABLED'
+  | 'TRUEFOUNDRY_ZEP_API_KEY'
+  | 'TRUEFOUNDRY_ZEP_BASE_URL'
   | 'MEMORY_INGEST_INTERVAL_MS'
   | 'MEMORY_INGEST_MAX_SESSIONS_PER_RUN'
   | 'MEMORY_INGEST_MAX_EXCHANGES_PER_SESSION'
@@ -423,7 +422,10 @@ type MemoryConfiguration = Pick<
   | 'MEMORY_INGEST_SETTLE_MS'
 >;
 
-/** Loop wiring from server configuration; undefined while `MEMORY_ENABLED` is off. */
+/**
+ * Loop wiring from TrueFoundry-mode configuration (like the shared sandbox and web search);
+ * undefined while `TRUEFOUNDRY_MEMORY_ENABLED` is off.
+ */
 export function memoryIngestFromConfig({
   config,
   store,
@@ -433,17 +435,16 @@ export function memoryIngestFromConfig({
   store: IMemoryIngestStore;
   logger: Logger;
 }): MemoryIngestWiring | undefined {
-  if (!config.MEMORY_ENABLED) {
+  if (!config.TRUEFOUNDRY_MEMORY_ENABLED) {
     return undefined;
   }
-  if (config.ZEP_API_KEY === undefined) {
-    throw new Error('MEMORY_ENABLED=true requires ZEP_API_KEY');
+  if (config.TRUEFOUNDRY_ZEP_API_KEY === undefined) {
+    throw new Error('TRUEFOUNDRY_MEMORY_ENABLED=true requires TRUEFOUNDRY_ZEP_API_KEY');
   }
   return {
     store,
     provider: createMemoryProvider({
-      provider: config.MEMORY_PROVIDER,
-      zep: { apiKey: config.ZEP_API_KEY, baseUrl: config.ZEP_BASE_URL },
+      zep: { apiKey: config.TRUEFOUNDRY_ZEP_API_KEY, baseUrl: config.TRUEFOUNDRY_ZEP_BASE_URL },
       logger,
     }),
     settings: new FlagMemorySettings({ enabled: true }),

@@ -6,7 +6,7 @@ export interface MemorySettings {
   isTenantMemoryEnabled(tenantId: string): Promise<boolean>;
 }
 
-/** Placeholder until tenant settings land: every tenant follows the global `MEMORY_ENABLED` flag. */
+/** Placeholder until tenant settings land: every tenant follows the global `TRUEFOUNDRY_MEMORY_ENABLED` flag. */
 export class FlagMemorySettings implements MemorySettings {
   readonly #enabled: boolean;
 

@@ -12,7 +12,7 @@
  * each tick until the schema is present. The loops call the server over HTTP(S) at
  * `SERVER_URL` (mutual TLS when `MTLS_ENABLED`), so no Redis peering is wired here.
  */
-import configuration from './config';
+import configuration, { isTrueFoundryModeEnabled } from './config';
 import { runController } from './controller';
 import { memoryIngestFromConfig } from './controller/memoryIngest';
 import { createDb } from './db/postgres/client';
@@ -51,7 +51,9 @@ try {
     mTlsEnabled: configuration.MTLS_ENABLED,
   });
 
-  const memory = memoryIngestFromConfig({ config: configuration, store: new PostgresMemoryIngestStore(db), logger });
+  const memory = isTrueFoundryModeEnabled(configuration)
+    ? memoryIngestFromConfig({ config: configuration, store: new PostgresMemoryIngestStore(db), logger })
+    : undefined;
   if (memory !== undefined) {
     logger.info('Memory ingestion enabled', {
       provider: memory.provider.name,

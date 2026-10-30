@@ -163,9 +163,9 @@ apiKey: "placeholder-value-please-generate-your-own"
 # back to the chart. This is the extension point for a parent chart, which can
 # only override a key it declares as a scalar - Helm refuses to replace a map
 # with a scalar, so a default written as { valueFrom: ... } is final.
-# Long-term memory (off by default; see MEMORY_* in packages/trueforge/.env.example):
-#   MEMORY_ENABLED: "true"
-#   ZEP_API_KEY: "${k8s-secret/trueforge-zep/ZEP_API_KEY}"
+# Long-term memory (TrueFoundry mode only, off by default; see packages/trueforge/.env.example):
+#   TRUEFOUNDRY_MEMORY_ENABLED: "true"
+#   TRUEFOUNDRY_ZEP_API_KEY: "${k8s-secret/trueforge-zep/TRUEFOUNDRY_ZEP_API_KEY}"
 #   MEMORY_INGEST_INTERVAL_MS: "300000"   # plus MEMORY_INGEST_* bounds and windows
 env: {}
 # Application feature config (maps to env vars in packages/trueforge/src/config.ts).

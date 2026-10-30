@@ -1,17 +1,13 @@
 import type { Logger } from 'winston';
-import type { MemoryProvider, MemoryProviderName } from './MemoryProvider';
+import type { MemoryProvider } from './MemoryProvider';
 import { ZepMemoryProvider } from './zep/ZepMemoryProvider';
 
 export interface MemoryProviderOptions {
-  provider: MemoryProviderName;
   zep: { apiKey: string; baseUrl: string };
   logger: Logger;
 }
 
-const PROVIDER_FACTORIES: Record<MemoryProviderName, (options: MemoryProviderOptions) => MemoryProvider> = {
-  zep: options => new ZepMemoryProvider({ ...options.zep, logger: options.logger }),
-};
-
+/** Zep is the only provider today; choose by configuration here once a second one lands. */
 export function createMemoryProvider(options: MemoryProviderOptions): MemoryProvider {
-  return PROVIDER_FACTORIES[options.provider](options);
+  return new ZepMemoryProvider({ ...options.zep, logger: options.logger });
 }

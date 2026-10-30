@@ -11,7 +11,7 @@ import type { WithTransaction } from './db/transaction';
  * (`SERVER_URL` + `TRUEFORGE_API_KEY` from process config). Standalone uses
  * loopback; distributed uses the dedicated controller against the server Service.
  * Sandbox-env build loop lists/progresses pending versions over the same HTTP path.
- * The memory-ingest loop is registered only when `memory` is given (MEMORY_ENABLED); it reads
+ * The memory-ingest loop is registered only when `memory` is given (TRUEFOUNDRY_MEMORY_ENABLED); it reads
  * the database directly and calls the memory provider, not the server.
  */
 export function createController<TTransaction>(params: {
