@@ -158,6 +158,18 @@ export interface ListTurnsInput {
   page_token: string | undefined;
 }
 
+/** Input for listing running turns whose last activity is older than a cutoff. */
+export interface ListStaleRunningTurnsInput {
+  older_than: Date;
+}
+
+/** Session/turn id pair for a stale running turn (tenant needed to load the session). */
+export interface StaleRunningTurnRef {
+  tenant_id: string;
+  session_id: string;
+  turn_id: string;
+}
+
 interface TurnStateUpdateKeys {
   session_id: string;
   turn_id: string;
@@ -367,6 +379,13 @@ export interface ISessionStore<
   listTurns(
     input: ListTurnsInput,
   ): Promise<{ data: TurnRecordWithoutSnapshot<TTurnCustom>[]; pagination: TokenPagination }>;
+
+  /**
+   * All `running` turns whose last activity is strictly before `older_than`.
+   * Last activity is `MAX(session_event.created_at)`, or `turn.created_at` when
+   * the turn has no events. Oldest-first; no limit (caller batches).
+   */
+  listStaleRunningTurns(input: ListStaleRunningTurnsInput): Promise<StaleRunningTurnRef[]>;
 
   /** Atomically performs `running ↔ paused` and appends turn.update. */
   updateTurnNonTerminalState(input: UpdateTurnNonTerminalStateInput): Promise<void>;

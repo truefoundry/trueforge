@@ -18,7 +18,7 @@ export enum CancellationReason {
   ClientCancelled = 'client-cancelled',
   // Prior turn aborted because the client started a new turn.
   CancelledForNextTurn = 'cancelled-for-next-turn',
-  // Process shutting down (SIGTERM/SIGINT).
+  // Process shutting down (SIGTERM/SIGINT), or controller closed a stale running turn.
   Abandoned = 'abandoned',
 }
 

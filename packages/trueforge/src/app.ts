@@ -10,6 +10,7 @@ import { HTTPException } from 'hono/http-exception';
 import { randomUUID } from 'node:crypto';
 import type { Configuration } from 'openid-client';
 import type { Logger } from 'winston';
+import { createAbandonedTurnsRouter } from './apis/abandonedTurns';
 import { createAgentsRouter } from './apis/agents';
 import { createAuthRouter } from './apis/auth';
 import { createCapabilitiesRouter } from './apis/capabilities';
@@ -509,6 +510,19 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       createSandboxEnvironmentBuildRouter({
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         sandboxProviderStore: deps.sandboxProviderStore,
+        logger: deps.logger,
+      }),
+      scheduleExecutionAuthMiddleware,
+    ),
+  );
+  app.route(
+    '/api/internal/turns',
+    withAuth(
+      createAbandonedTurnsRouter({
+        sessionStore: deps.sessionStore,
+        sessions: deps.sessions,
+        activeTurns: deps.activeTurns,
+        redis: deps.redis,
         logger: deps.logger,
       }),
       scheduleExecutionAuthMiddleware,

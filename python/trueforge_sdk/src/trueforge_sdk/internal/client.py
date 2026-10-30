@@ -16,6 +16,7 @@ if typing.TYPE_CHECKING:
     from .sandbox_environments.client import AsyncSandboxEnvironmentsClient, SandboxEnvironmentsClient
     from .schedules.client import AsyncSchedulesClient, SchedulesClient
     from .sessions.client import AsyncSessionsClient, SessionsClient
+    from .turns.client import AsyncTurnsClient, TurnsClient
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
 
@@ -28,6 +29,7 @@ class InternalClient:
         self._sandbox_environments: typing.Optional[SandboxEnvironmentsClient] = None
         self._schedules: typing.Optional[SchedulesClient] = None
         self._sessions: typing.Optional[SessionsClient] = None
+        self._turns: typing.Optional[TurnsClient] = None
         self._agents: typing.Optional[AgentsClient] = None
 
     @property
@@ -117,6 +119,14 @@ class InternalClient:
         return self._sessions
 
     @property
+    def turns(self):
+        if self._turns is None:
+            from .turns.client import TurnsClient  # noqa: E402
+
+            self._turns = TurnsClient(client_wrapper=self._client_wrapper)
+        return self._turns
+
+    @property
     def agents(self):
         if self._agents is None:
             from .agents.client import AgentsClient  # noqa: E402
@@ -133,6 +143,7 @@ class AsyncInternalClient:
         self._sandbox_environments: typing.Optional[AsyncSandboxEnvironmentsClient] = None
         self._schedules: typing.Optional[AsyncSchedulesClient] = None
         self._sessions: typing.Optional[AsyncSessionsClient] = None
+        self._turns: typing.Optional[AsyncTurnsClient] = None
         self._agents: typing.Optional[AsyncAgentsClient] = None
 
     @property
@@ -228,6 +239,14 @@ class AsyncInternalClient:
 
             self._sessions = AsyncSessionsClient(client_wrapper=self._client_wrapper)
         return self._sessions
+
+    @property
+    def turns(self):
+        if self._turns is None:
+            from .turns.client import AsyncTurnsClient  # noqa: E402
+
+            self._turns = AsyncTurnsClient(client_wrapper=self._client_wrapper)
+        return self._turns
 
     @property
     def agents(self):

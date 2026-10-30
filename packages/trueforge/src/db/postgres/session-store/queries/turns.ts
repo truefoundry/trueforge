@@ -13,6 +13,8 @@ import {
 import { assertCreateTurnThreadDelta } from '@truefoundry/trueforge-core/agent-session/store/assertCreateTurnThreadDelta';
 import type {
   FreezeAndGetTurnInput,
+  ListStaleRunningTurnsInput,
+  StaleRunningTurnRef,
   TurnRecordWithoutSnapshot,
   UpdateTurnNonTerminalStateInput,
   UpdateTurnTerminalStateInput,
@@ -772,6 +774,48 @@ export async function listTurns(db: Kysely<Database>, input: ListTurnsInput): Pr
     turns,
     next_offset: hasMore ? input.offset + input.limit : null,
   };
+}
+
+/**
+ * listStaleRunningTurns — running turns whose last event (or created_at) is before older_than.
+ * Oldest-first; no limit. Joins session for tenant_id (needed to load the session on close).
+ * Last-event aggregate is restricted to currently running turns so finished turns' events
+ * are not scanned.
+ */
+export async function listStaleRunningTurns(
+  db: Kysely<Database>,
+  input: ListStaleRunningTurnsInput,
+): Promise<StaleRunningTurnRef[]> {
+  const rows = await db
+    .selectFrom('turn as t')
+    .innerJoin('session as s', 's.session_id', 't.session_id')
+    .leftJoin(
+      eb =>
+        eb
+          .selectFrom('session_event as e')
+          .innerJoin('turn as rt', join =>
+            join.onRef('rt.session_id', '=', 'e.session_id').onRef('rt.turn_id', '=', 'e.turn_id'),
+          )
+          .select(['e.session_id', 'e.turn_id'])
+          .select(eb2 => eb2.fn.max('e.created_at').as('last_event_at'))
+          .where(sql<boolean>`rt.state->>'status' = 'running'`)
+          .groupBy(['e.session_id', 'e.turn_id'])
+          .as('e'),
+      join => join.onRef('e.session_id', '=', 't.session_id').onRef('e.turn_id', '=', 't.turn_id'),
+    )
+    .select(['s.tenant_id', 't.session_id', 't.turn_id'])
+    .where(sql<boolean>`t.state->>'status' = 'running'`)
+    .where(sql<boolean>`COALESCE(e.last_event_at, t.created_at) < ${input.older_than}`)
+    .orderBy(sql`COALESCE(e.last_event_at, t.created_at)`, 'asc')
+    .orderBy('t.session_id', 'asc')
+    .orderBy('t.turn_id', 'asc')
+    .execute();
+
+  return rows.map(row => ({
+    tenant_id: row.tenant_id,
+    session_id: row.session_id,
+    turn_id: row.turn_id,
+  }));
 }
 
 /** Atomically transitions running ↔ paused and appends turn.update. */
