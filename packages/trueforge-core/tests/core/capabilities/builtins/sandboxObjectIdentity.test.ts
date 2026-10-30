@@ -48,11 +48,10 @@ describe('LargeToolResponse sandbox object identity (ISSUE-035)', () => {
       context: [],
     });
 
-    expect(sandboxResult.message.content).toContain('It MUST save the full content to a file');
-    expect(sandboxResult.message.content).toContain('do not pipe fetches through grep or sed');
+    expect(sandboxResult.message.content).toContain('It MUST write the full output to a file');
     expect(sandboxResult.message.content).toContain('character tool call response limit');
     expect(sandboxResult.message.content).toMatch(/Content too big \([^;]+;/);
-    expect(mcpResult.message.content).not.toContain('It MUST save the full content to a file');
+    expect(mcpResult.message.content).not.toContain('It MUST write the full output to a file');
     expect(mcpResult.message.content).toMatch(/Content too big \([^;]+;/);
   });
 });

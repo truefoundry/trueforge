@@ -206,7 +206,7 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
         newContent = entry.originalContent.slice(0, FAILURE_MESSAGE_TRUNCATION_LENGTH);
         break;
       case 'sandbox':
-        newContent = `${this.formatBlockedContentPreamble(entry)}. It MUST save the full content to a file, then return only what it needs from that file. When fetching remote content, it MUST write the fetch to a file first — do not pipe fetches through grep or sed. Each tool call response MUST stay under the ${this.individualResponseCharacterLimit()} character tool call response limit. It MAY use grep and sed on the file as needed.\n\n${this.formatPreview(preview)}`;
+        newContent = `${this.formatBlockedContentPreamble(entry)}. It MUST write the full output to a file, then return only what it needs. Each tool call response MUST stay under the ${this.individualResponseCharacterLimit()} character tool call response limit. It MAY use grep and sed on the file as needed.\n\n${this.formatPreview(preview)}`;
         break;
       case 'mcp':
         newContent = `${this.createLargeToolResponseGuidance(sandbox, entry)}\n\n${this.formatPreview(preview)}`;
