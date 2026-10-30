@@ -174,6 +174,40 @@ describe('agents router', () => {
     expect(updatedJson.data.manifest.instructions).toBe('Updated instructions.');
   });
 
+  it('PUT can flip memory on an existing agent', async () => {
+    const created = await router.request(
+      '/',
+      jsonInit('POST', {
+        ...writeBody,
+        name: 'memory-toggle',
+        manifest: {
+          ...manifest,
+          config: { ...manifest.config, memory: { enabled: true } },
+        },
+      }),
+    );
+    expect(created.status).toBe(201);
+    const createdJson = (await created.json()) as {
+      data: { id: string; manifest: { config?: { memory?: { enabled: boolean } } } };
+    };
+    expect(createdJson.data.manifest.config?.memory).toEqual({ enabled: true });
+
+    const updated = await router.request(
+      `/${createdJson.data.id}`,
+      jsonInit('PUT', {
+        manifest: {
+          ...updateBody.manifest,
+          config: { memory: { enabled: false } },
+        },
+      }),
+    );
+    expect(updated.status).toBe(200);
+    const updatedJson = (await updated.json()) as {
+      data: { manifest: { config?: { memory?: { enabled: boolean } } } };
+    };
+    expect(updatedJson.data.manifest.config?.memory).toEqual({ enabled: false });
+  });
+
   it('PUT rejects metadata in the request body', async () => {
     const created = await router.request('/', jsonInit('POST', { ...writeBody, name: 'no-meta' }));
     expect(created.status).toBe(201);

@@ -27,4 +27,15 @@ describe('runtimeConfigSummary', () => {
       ),
     ).toEqual({ label: 'web search', value: 'off' });
   });
+
+  it('includes memory defaulting to off', () => {
+    expect(runtimeConfigSummary({}).find(entry => entry.label === 'memory')).toEqual({
+      label: 'memory',
+      value: 'off',
+    });
+    expect(runtimeConfigSummary({ memory: { enabled: true } }).find(entry => entry.label === 'memory')).toEqual({
+      label: 'memory',
+      value: 'on',
+    });
+  });
 });

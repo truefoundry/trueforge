@@ -159,6 +159,18 @@ describe('AgentRuntimeConfigFields', () => {
     expect(missing).toHaveAttribute('aria-selected', 'true');
   });
 
+  it('toggles memory', () => {
+    const onChange = vi.fn();
+    renderRuntimeFields({ onChange });
+
+    const memorySwitch = screen.getByRole('switch', { name: 'Memory' });
+    expect(memorySwitch).not.toBeDisabled();
+    expect(memorySwitch).toHaveAttribute('aria-checked', 'false');
+
+    fireEvent.click(memorySwitch);
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ memory: { enabled: true } }));
+  });
+
   it('shows a wire-only sandbox environment name and clears it when default is chosen', async () => {
     const onChange = vi.fn();
     const sandbox: NonNullable<AgentRuntimeConfig['sandbox']> = { enabled: true };

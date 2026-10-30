@@ -138,6 +138,7 @@ export * from "./McpServerManifestAuth.js";
 export * from "./McpServerToolSelector.js";
 export * from "./McpToolInfo.js";
 export * from "./Me.js";
+export * from "./MemoryConfig.js";
 export * from "./MeSessionType.js";
 export * from "./MetricsUnit.js";
 export * from "./Model.js";
