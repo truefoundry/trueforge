@@ -10610,7 +10610,7 @@
     },
     "/api/v1/sessions/{session_id}/turns/{turn_id}/subscribe": {
       "get": {
-        "description": "Subscribe to the live SSE stream for a turn. Only the session creator may subscribe. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).",
+        "description": "Subscribe to the live SSE stream. A paused turn with an expired stream is restored from stored events. A running or finished turn is not restored. Pass `after_sequence_number` to resume after that sequence.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -10699,10 +10699,10 @@
                 }
               }
             },
-            "description": "Cannot subscribe — the live stream no longer exists."
+            "description": "The live stream does not exist and this turn is not paused, so it was not restored."
           }
         },
-        "summary": "Subscribe to a running turn",
+        "summary": "Subscribe to a turn stream",
         "tags": [
           "Agent Sessions"
         ],
