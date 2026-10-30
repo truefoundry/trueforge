@@ -52,6 +52,7 @@ async function buildApp() {
           clientName: 'test-client',
         }),
       resolveTurnSkillsStore: () => new SqliteSkillStore(db),
+      resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
       resolveAgentStore: () => new SqliteAgentStore(db),
       eventSubscriptions: new EventSubscriptionRegistry(undefined),
       resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
