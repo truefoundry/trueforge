@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { FlagMemorySettings, type MemorySettings } from '../../../src/memory/MemorySettings';
 import { memoryScopeKey, resolveMemoryScope, type MemoryScopeSession } from '../../../src/memory/scope';
 
@@ -24,7 +25,7 @@ describe('resolveMemoryScope', () => {
         subjectId: 'user-1',
         displayName: 'Priya',
         agentId: null,
-        key: 'tfg-acme-trueforge-user-1',
+        key: memoryScopeKey({ tenantId: 'acme', agentKey: 'trueforge', subjectId: 'user-1' }),
       },
     });
   });
@@ -32,7 +33,10 @@ describe('resolveMemoryScope', () => {
   it('uses the agent scope when the bound agent has memory, with or without UI metadata', () => {
     for (const tfgSource of ['ui', null]) {
       const resolution = resolveMemoryScope(session({ agentId: 'agent-9', agentMemoryEnabled: true, tfgSource }));
-      expect(resolution).toMatchObject({ eligible: true, scope: { type: 'agent', key: 'tfg-acme-agent-9-user-1' } });
+      expect(resolution).toMatchObject({
+        eligible: true,
+        scope: { type: 'agent', key: memoryScopeKey({ tenantId: 'acme', agentKey: 'agent-9', subjectId: 'user-1' }) },
+      });
     }
   });
 
@@ -52,9 +56,20 @@ describe('resolveMemoryScope', () => {
     });
   });
 
-  it('replaces unsafe characters in scope keys', () => {
-    expect(memoryScopeKey({ tenantId: 'acme corp', agentKey: 'trueforge', subjectId: 'a@b.com/x' })).toBe(
-      'tfg-acme-corp-trueforge-a-b.com-x',
+  it('gives distinct users distinct keys, even when their ids differ only in punctuation', () => {
+    const key = (tenantId: string, agentKey: string, subjectId: string) =>
+      memoryScopeKey({ tenantId, agentKey, subjectId });
+    expect(key('acme', 'trueforge', 'john+x@corp.com')).not.toBe(key('acme', 'trueforge', 'john-x@corp.com'));
+    expect(key('a-b', 'c', 'u')).not.toBe(key('a', 'b-c', 'u'));
+    expect(key('acme', 'trueforge', 'u')).toBe(key('acme', 'trueforge', 'u'));
+  });
+
+  it('is tfg- plus a sha256 hex digest, with no raw ids in it', () => {
+    const key = memoryScopeKey({ tenantId: 'acme', agentKey: 'trueforge', subjectId: 'john@corp.com' });
+    expect(key).toMatch(/^tfg-[0-9a-f]{64}$/);
+    // Pinned so a change to the scheme (which would orphan existing Zep users) is deliberate.
+    expect(memoryScopeKey({ tenantId: 'acme', agentKey: 'trueforge', subjectId: 'user-1' })).toBe(
+      `tfg-${createHash('sha256').update('["acme","trueforge","user-1"]').digest('hex')}`,
     );
   });
 });

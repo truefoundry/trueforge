@@ -7,6 +7,7 @@ import { z } from 'zod';
 import {
   MemoryIngestError,
   type IngestExchangeInput,
+  type MemoryExchange,
   type MemoryMessage,
   type MemoryProvider,
 } from '../MemoryProvider';
@@ -21,8 +22,15 @@ const BASE_BACKOFF_MS = 500;
 const MAX_BACKOFF_MS = 30_000;
 
 const ZepUuidResponseSchema = z.object({ uuid: z.string().min(1) });
+/**
+ * `GET /threads/{id}/messages` lists newest first; the exchange being checked is the session's
+ * latest write, so the default first page covers it.
+ */
+const ZepMessagesResponseSchema = z.object({
+  items: z.array(z.object({ metadata: z.record(z.string(), z.unknown()).nullish() })),
+});
 
-type ZepOperation = 'lookup_user' | 'create_user' | 'create_thread' | 'add_messages';
+type ZepOperation = 'lookup_user' | 'create_user' | 'create_thread' | 'add_messages' | 'list_messages';
 
 export class ZepRequestError extends Error {
   readonly operation: ZepOperation;
@@ -116,21 +124,20 @@ export class ZepMemoryProvider implements MemoryProvider {
 
     let threadId = input.externalThreadId;
     try {
+      if (threadId !== null && input.mayAlreadyBeStored && (await this.#threadHasExchange(threadId, exchange))) {
+        this.#logger.info('Memory exchange already stored by an earlier attempt; not resending', {
+          provider: PROVIDER_NAME,
+          session_id: exchange.sessionId,
+          last_turn_id: exchange.lastTurnId,
+        });
+        return { externalThreadId: threadId };
+      }
       threadId ??= await this.#createThread(scope);
-      const sent = await this.#request({
-        operation: 'add_messages',
-        path: `/threads/${encodeURIComponent(threadId)}/messages`,
-        body,
-        allowNotFound: input.externalThreadId !== null,
-      });
+      const sent = await this.#addMessages({ threadId, body, allowNotFound: input.externalThreadId !== null });
       if (sent.status === 404) {
         // The stored thread was deleted on the Zep side; start a new one for the session.
         threadId = await this.#createThread(scope);
-        await this.#request({
-          operation: 'add_messages',
-          path: `/threads/${encodeURIComponent(threadId)}/messages`,
-          body,
-        });
+        await this.#addMessages({ threadId, body, allowNotFound: false });
       }
       return { externalThreadId: threadId };
     } catch (error) {
@@ -141,6 +148,49 @@ export class ZepMemoryProvider implements MemoryProvider {
         cause: error,
       });
     }
+  }
+
+  /**
+   * Adding messages isn't idempotent, and Zep doesn't deduplicate by metadata. A timeout or 5xx may
+   * have stored them, so it isn't retried here: the caller retries next run, flagged
+   * `mayAlreadyBeStored`, which checks the thread first. A 429 is a rejection and is retried.
+   */
+  async #addMessages({
+    threadId,
+    body,
+    allowNotFound,
+  }: {
+    threadId: string;
+    body: unknown;
+    allowNotFound: boolean;
+  }): Promise<{ status: number }> {
+    return await this.#request({
+      operation: 'add_messages',
+      path: `/threads/${encodeURIComponent(threadId)}/messages`,
+      body,
+      allowNotFound,
+      retryUnclearFailures: false,
+    });
+  }
+
+  /** Whether the thread's newest messages already include this exchange, matched by its metadata. */
+
+  async #threadHasExchange(threadId: string, exchange: MemoryExchange): Promise<boolean> {
+    const listed = await this.#request({
+      operation: 'list_messages',
+      method: 'GET',
+      path: `/threads/${encodeURIComponent(threadId)}/messages`,
+      allowNotFound: true,
+    });
+    if (listed.status === 404) {
+      return false;
+    }
+    return ZepMessagesResponseSchema.parse(listed.body).items.some(
+      ({ metadata }) =>
+        metadata?.['session_id'] === exchange.sessionId &&
+        metadata['first_turn_id'] === exchange.firstTurnId &&
+        metadata['last_turn_id'] === exchange.lastTurnId,
+    );
   }
 
   async #createThread(scope: MemoryScope): Promise<string> {
@@ -204,14 +254,19 @@ export class ZepMemoryProvider implements MemoryProvider {
 
   async #request({
     operation,
+    method = 'POST',
     path,
     body,
     allowNotFound = false,
+    retryUnclearFailures = true,
   }: {
     operation: ZepOperation;
+    method?: 'GET' | 'POST';
     path: string;
-    body: unknown;
+    body?: unknown;
     allowNotFound?: boolean;
+    /** False for non-idempotent writes: no retry after a failure that may have reached Zep (no response, 5xx). */
+    retryUnclearFailures?: boolean;
   }): Promise<{ status: number; body: unknown }> {
     for (let attempt = 1; ; attempt++) {
       const startedAt = Date.now();
@@ -228,14 +283,14 @@ export class ZepMemoryProvider implements MemoryProvider {
       let response: Response;
       try {
         response = await this.#fetch(`${this.#baseUrl}${path}`, {
-          method: 'POST',
+          method,
           headers: { Authorization: `Api-Key ${this.#apiKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
+          ...(body === undefined ? {} : { body: JSON.stringify(body) }),
           signal: AbortSignal.timeout(this.#timeoutMs),
         });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        if (canRetry) {
+        if (canRetry && retryUnclearFailures) {
           this.#logger.warn('Memory provider request failed; retrying', { ...logFields(null), error: message });
           await this.#sleep(backoffMs);
           continue;
@@ -251,7 +306,8 @@ export class ZepMemoryProvider implements MemoryProvider {
       }
 
       const detail = (await response.text()).slice(0, 500);
-      if (isRetryableStatus(response.status) && canRetry) {
+      const retryable = response.status === 429 || (retryUnclearFailures && isRetryableStatus(response.status));
+      if (retryable && canRetry) {
         this.#logger.warn('Memory provider request failed; retrying', logFields(response.status));
         await this.#sleep(Math.min(MAX_BACKOFF_MS, retryAfterMs(response) ?? backoffMs));
         continue;

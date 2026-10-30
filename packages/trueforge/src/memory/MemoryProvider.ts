@@ -27,6 +27,11 @@ export interface IngestExchangeInput {
   exchange: MemoryExchange;
   /** Provider-side thread for the session; null on the first exchange of a session. */
   externalThreadId: string | null;
+  /**
+   * The previous attempt at this exchange failed, possibly after the provider stored it (e.g. a
+   * timeout). The provider checks before sending, so a retry doesn't store it twice.
+   */
+  mayAlreadyBeStored: boolean;
 }
 
 /**

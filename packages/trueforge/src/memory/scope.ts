@@ -1,4 +1,5 @@
 import type { CreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
+import { createHash } from 'node:crypto';
 
 /** Agent key for sessions without an agent that has memory: TrueForge acts as the default agent. */
 export const DEFAULT_MEMORY_AGENT_KEY = 'trueforge';
@@ -15,7 +16,7 @@ export interface MemoryScope {
   displayName: string;
   /** Registry agent id for agent scopes; null for the default scope. */
   agentId: string | null;
-  /** Provider-side identity of the scope (e.g. the Zep user id). */
+  /** Provider-side identity of the scope (e.g. the Zep user id); see {@link memoryScopeKey}. */
   key: string;
 }
 
@@ -33,12 +34,11 @@ export interface MemoryScopeSession {
 export type MemoryScopeResolution =
   { eligible: true; scope: MemoryScope } | { eligible: false; reason: 'agent_disabled' | 'not_memory_session' };
 
-const UNSAFE_KEY_CHARS = /[^A-Za-z0-9._-]+/g;
-
-function keyPart(value: string): string {
-  return value.replace(UNSAFE_KEY_CHARS, '-');
-}
-
+/**
+ * Provider identity of a scope: `tfg-` plus sha256 of the JSON-encoded parts. Encoding keeps parts
+ * apart (`a-b`+`c` ≠ `a`+`b-c`) and hashing keeps distinct subjects distinct (`john+x@` ≠ `john-x@`),
+ * so two users can never share memory; it also keeps emails out of the provider id.
+ */
 export function memoryScopeKey({
   tenantId,
   agentKey,
@@ -48,7 +48,10 @@ export function memoryScopeKey({
   agentKey: string;
   subjectId: string;
 }): string {
-  return ['tfg', tenantId, agentKey, subjectId].map(keyPart).join('-');
+  const digest = createHash('sha256')
+    .update(JSON.stringify([tenantId, agentKey, subjectId]))
+    .digest('hex');
+  return `tfg-${digest}`;
 }
 
 /**

@@ -184,6 +184,8 @@ async function ingestSession({
 
   const lagsS: number[] = [];
   let exchangesSent = 0;
+  // The last attempt failed on the next exchange, possibly after the provider stored it.
+  let mayAlreadyBeStored = cursor !== null && cursor.last_error !== null;
   for (const exchange of ready) {
     if (signal.aborted) {
       break;
@@ -197,8 +199,10 @@ async function ingestSession({
           scope,
           exchange: { sessionId: candidate.session_id, firstTurnId, lastTurnId, messages },
           externalThreadId: threadId,
+          mayAlreadyBeStored,
         });
         threadId = sent.externalThreadId;
+        mayAlreadyBeStored = false;
         exchangesSent += 1;
         if (exchange.completedAt !== null) {
           lagsS.push(seconds(now().getTime() - Date.parse(exchange.completedAt)));

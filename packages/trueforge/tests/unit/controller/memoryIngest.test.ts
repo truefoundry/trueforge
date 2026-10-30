@@ -14,6 +14,7 @@ import type {
   UpsertMemoryIngestCursorInput,
 } from '../../../src/db/memoryIngestStore';
 import { MemoryIngestError, type IngestExchangeInput, type MemoryProvider } from '../../../src/memory/MemoryProvider';
+import { memoryScopeKey } from '../../../src/memory/scope';
 import {
   answer,
   askCall,
@@ -227,7 +228,7 @@ describe('runMemoryIngestPass', () => {
       ['t1', null],
       ['t2', 'thread-s1'],
     ]);
-    expect(calls[0]?.scope.key).toBe('tfg-acme-trueforge-user-1');
+    expect(calls[0]?.scope.key).toBe(memoryScopeKey({ tenantId: 'acme', agentKey: 'trueforge', subjectId: 'user-1' }));
     expect(calls[0]?.exchange.messages.map(m => [m.role, m.content, m.extract])).toEqual([
       ['user', 'message t1', true],
       ['assistant', 'reply t1', false],
@@ -318,7 +319,9 @@ describe('runMemoryIngestPass', () => {
     });
 
     expect(summary.sessions_by_outcome).toEqual({ agent_disabled: 1, ingested: 1 });
-    expect(calls.map(call => [call.exchange.sessionId, call.scope.key])).toEqual([['on', 'tfg-acme-chef-user-1']]);
+    expect(calls.map(call => [call.exchange.sessionId, call.scope.key])).toEqual([
+      ['on', memoryScopeKey({ tenantId: 'acme', agentKey: 'chef', subjectId: 'user-1' })],
+    ]);
     expect(calls[0]?.exchange.messages[1]?.name).toBe('Chef');
   });
 
@@ -341,6 +344,32 @@ describe('runMemoryIngestPass', () => {
       'Memory ingest failed for session',
       expect.objectContaining({ session_id: 's1', last_error: 'zep unavailable', reportable_error: expect.anything() }),
     );
+  });
+
+  it('after a failure, asks the provider to check before resending only the exchange that failed', async () => {
+    const store = new FakeStore();
+    store.add(
+      session({
+        id: 's1',
+        turns: [closedTurn('t1', null, 10), closedTurn('t2', 't1', 20), closedTurn('t3', 't2', 30)],
+      }),
+    );
+    let failT2 = true;
+    const { provider, calls } = fakeProvider(input => failT2 && input.exchange.firstTurnId === 't2');
+    const run = () =>
+      runMemoryIngestPass({ deps: deps({ store, provider }), signal: signal(), resumeAfter: undefined });
+
+    await run();
+    failT2 = false;
+    await run();
+
+    expect(calls.map(call => [call.exchange.firstTurnId, call.mayAlreadyBeStored])).toEqual([
+      ['t1', false],
+      ['t2', false],
+      ['t2', true],
+      ['t3', false],
+    ]);
+    expect(store.cursors.get('s1')).toMatchObject({ last_ingested_turn_id: 't3', last_error: null });
   });
 
   it('saves a thread the provider created before failing, so the retry reuses it', async () => {
