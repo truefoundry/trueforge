@@ -4925,7 +4925,7 @@
             "type": "string"
           },
           "type": {
-            "description": "A dynamic subagent thread was created.",
+            "description": "A dynamic subagent thread started executing.",
             "enum": [
               "thread.created"
             ],
