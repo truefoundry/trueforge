@@ -70,9 +70,11 @@ export function SkillVersionSelector({
   const [versions, setVersions] = useState<SkillVersionOption[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Badge uses max from the loaded list — catalog can lag behind listVersions.
+  // Displayed selection stays on selectedId / catalog so toggle still attaches skill.id.
   const latestVersion =
     versions !== null && versions.length > 0 ? Math.max(...versions.map(option => option.version)) : catalogVersion;
-  const selectedVersion = selectedId === undefined ? latestVersion : versionFromSkillId(selectedId);
+  const selectedVersion = selectedId === undefined ? catalogVersion : versionFromSkillId(selectedId);
 
   if (catalogVersion === undefined) return null;
 
@@ -124,7 +126,7 @@ export function SkillVersionSelector({
       {versions?.map(option => (
         <DropdownMenuItem
           key={option.id}
-          aria-selected={option.id === selectedId || (selectedId === undefined && option.version === latestVersion)}
+          aria-selected={option.id === selectedId || (selectedId === undefined && option.version === catalogVersion)}
           className={cn('justify-between', option.id === selectedId && 'font-medium')}
           onClick={() => onChange(option)}
         >

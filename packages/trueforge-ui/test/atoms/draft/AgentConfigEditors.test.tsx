@@ -1578,6 +1578,7 @@ describe('AgentConfigEditors', () => {
   });
 
   it('marks latest on the highest loaded version when catalog is stale', async () => {
+    const onChange = vi.fn();
     const loadVersions = vi.fn(async () => [
       {
         name: 'agent-skill:acme/team-a/echo:10',
@@ -1611,17 +1612,29 @@ describe('AgentConfigEditors', () => {
           skills={[skill]}
           loading={false}
           error={null}
-          onChange={vi.fn()}
+          onChange={onChange}
           onClose={vi.fn()}
         />
       </SlotsProvider>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Select version for echo' }));
+    const trigger = screen.getByRole('button', { name: 'Select version for echo' });
+    fireEvent.click(trigger);
     const v11 = await screen.findByRole('menuitem', { name: /v11/ });
     const v10 = screen.getByRole('menuitem', { name: /^v10/ });
     expect(v11).toHaveTextContent('latest');
     expect(v10).not.toHaveTextContent('latest');
+    expect(v10).toHaveAttribute('aria-selected', 'true');
+    expect(v11).toHaveAttribute('aria-selected', 'false');
+    expect(trigger).toHaveTextContent('v10');
+    expect(trigger).not.toHaveTextContent('latest');
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select echo' }));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skills: [{ id: 'agent-skill:acme/team-a/echo:10', name: 'echo' }],
+      }),
+    );
   });
 
   it('shows a concise version error and copies its details', async () => {
