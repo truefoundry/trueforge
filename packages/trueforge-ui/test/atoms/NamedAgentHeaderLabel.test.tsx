@@ -63,6 +63,11 @@ function OpenAgentBuilder() {
   );
 }
 
+function LibraryOpenProbe() {
+  const shell = useShellMode();
+  return <output aria-label="Library open">{shell.libraryOpen ? 'yes' : 'no'}</output>;
+}
+
 describe('NamedAgentHeaderLabel', () => {
   it('shows the agent name for a named (immutable) chat', () => {
     render(
@@ -152,6 +157,29 @@ describe('NamedAgentHeaderLabel', () => {
     act(() => {
       screen.getByRole('button', { name: 'select' }).click();
     });
-    expect(screen.getByRole('heading', { name: 'reviewer' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /reviewer/ })).toBeInTheDocument();
+  });
+
+  it('returns to the agents page from a Try session', () => {
+    render(
+      <ShellModeProvider agentConfig={{ mode: 'AgentLibrary' }}>
+        <RuntimeHarness messages={[]}>
+          <SelectNamed />
+          <LibraryOpenProbe />
+          <NamedAgentHeaderLabel />
+        </RuntimeHarness>
+      </ShellModeProvider>,
+    );
+
+    act(() => {
+      screen.getByRole('button', { name: 'select' }).click();
+    });
+    expect(screen.getByRole('button', { name: 'Back to all agents' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Library open')).toHaveTextContent('no');
+
+    act(() => {
+      screen.getByRole('button', { name: 'Back to all agents' }).click();
+    });
+    expect(screen.getByLabelText('Library open')).toHaveTextContent('yes');
   });
 });
