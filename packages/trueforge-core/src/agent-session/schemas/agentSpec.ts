@@ -184,10 +184,7 @@ const WebSearchConfigSchema = z
 
 const MemoryConfigSchema = z
   .object({
-    enabled: z
-      .boolean()
-      .default(false)
-      .describe('Enable long-term memory for this agent. Set only when creating the agent. Default: false.'),
+    enabled: z.boolean().default(false).describe('Enable long-term memory for this agent. Default: false.'),
   })
   .openapi('MemoryConfig');
 

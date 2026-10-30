@@ -38,7 +38,6 @@ function parsePositiveInteger(raw: string): number | null {
 }
 
 const ENVIRONMENT_LOCKED_HINT = "Can't change the environment after a chat has started";
-const MEMORY_LOCKED_HINT = 'Memory can only be set when creating an agent';
 const NO_SANDBOX_PROVIDER_HINT = 'No sandbox provider yet, add one in Settings → Sandbox';
 const DEFAULT_COMPACTION_THRESHOLD_TOKENS = 50_000;
 
@@ -73,8 +72,6 @@ export function AgentRuntimeConfigFields({
   const { draftSessionId } = useTrueForgeAgentSpec();
   // Turns reuse the session sandbox, so the environment is fixed once a chat has started.
   const environmentLocked = draftSessionId != null;
-  // Memory is create-time only; bound agents already have an id from a prior save.
-  const memoryLocked = shell?.mode.status === 'active' && shell.mode.agentId !== undefined;
   const selectedEnvironmentName = readSandboxEnvironmentName(value.sandbox);
 
   const environmentOptions = useMemo(() => {
@@ -156,10 +153,8 @@ export function AgentRuntimeConfigFields({
     : null;
   const memoryField: RuntimeSwitchField = {
     label: 'Memory',
-    description: 'Remember facts across sessions for this agent.',
+    description: 'Remember details from your past chats.',
     checked: value.memory?.enabled ?? false,
-    disabled: memoryLocked,
-    disabledTooltip: memoryLocked ? MEMORY_LOCKED_HINT : undefined,
     update: enabled => ({ ...value, memory: { enabled } }),
   };
   const sandboxField: RuntimeSwitchField = {

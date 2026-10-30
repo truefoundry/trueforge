@@ -151,7 +151,7 @@ export interface AgentRuntimeConfig {
   dynamicSubAgents?: AgentCapabilityConfig;
   askUserQuestions?: AgentCapabilityConfig;
   webSearch?: AgentCapabilityConfig;
-  /** Long-term memory; set at agent create time only. */
+  /** Long-term memory for this agent. */
   memory?: AgentCapabilityConfig;
 }
 

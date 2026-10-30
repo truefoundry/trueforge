@@ -6,4 +6,4 @@
 '@truefoundry/trueforge-sdk': patch
 ---
 
-Add create-time `config.memory.enabled` on agent specs so builders can opt an agent into long-term memory. Updates keep the create-time value.
+Add `config.memory.enabled` on agent specs so builders can opt an agent into long-term memory.

@@ -174,12 +174,12 @@ describe('agents router', () => {
     expect(updatedJson.data.manifest.instructions).toBe('Updated instructions.');
   });
 
-  it('PUT keeps create-time memory even when the request flips it', async () => {
+  it('PUT can flip memory on an existing agent', async () => {
     const created = await router.request(
       '/',
       jsonInit('POST', {
         ...writeBody,
-        name: 'memory-locked',
+        name: 'memory-toggle',
         manifest: {
           ...manifest,
           config: { ...manifest.config, memory: { enabled: true } },
@@ -205,7 +205,7 @@ describe('agents router', () => {
     const updatedJson = (await updated.json()) as {
       data: { manifest: { config?: { memory?: { enabled: boolean } } } };
     };
-    expect(updatedJson.data.manifest.config?.memory).toEqual({ enabled: true });
+    expect(updatedJson.data.manifest.config?.memory).toEqual({ enabled: false });
   });
 
   it('PUT rejects metadata in the request body', async () => {

@@ -10,7 +10,7 @@ from ..core.unchecked_base_model import UncheckedBaseModel
 class MemoryConfig(UncheckedBaseModel):
     enabled: typing.Optional[bool] = pydantic.Field(default=False)
     """
-    Enable long-term memory for this agent. Set only when creating the agent. Default: false.
+    Enable long-term memory for this agent. Default: false.
     """
 
     if IS_PYDANTIC_V2:
