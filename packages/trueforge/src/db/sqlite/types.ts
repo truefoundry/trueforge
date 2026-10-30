@@ -115,7 +115,6 @@ export interface AccessControlTable {
  */
 export interface MemoryIngestCursorTable {
   session_id: string;
-  scope_key: string;
   last_ingested_turn_id: string | null;
   external_thread_id: string | null;
   last_error: string | null;

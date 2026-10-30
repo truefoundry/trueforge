@@ -6,7 +6,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
   await db.schema
     .createTable('memory_ingest_cursor')
     .addColumn('session_id', 'text', col => col.notNull())
-    .addColumn('scope_key', 'text', col => col.notNull())
     .addColumn('last_ingested_turn_id', 'text')
     .addColumn('external_thread_id', 'text')
     .addColumn('last_error', 'text')

@@ -16,11 +16,9 @@ export const AGENT_MEMORY_ENABLED_PATH = ['runtime', 'memory', 'enabled'] as con
 
 export interface MemoryIngestCursor {
   session_id: string;
-  /** Memory scope the session was last ingested under. */
-  scope_key: string;
   /** Last turn whose exchange the provider accepted; null before the first send. */
   last_ingested_turn_id: string | null;
-  /** Provider-side thread for the session in `scope_key`. */
+  /** Provider-side thread for the session. A session's memory scope never changes, so neither does its owner. */
   external_thread_id: string | null;
   last_error: string | null;
   /** ISO-8601 UTC instant. */
@@ -72,13 +70,7 @@ export interface ListMemoryIngestCandidatesInput {
   limit: number;
 }
 
-export interface UpsertMemoryIngestCursorInput {
-  session_id: string;
-  scope_key: string;
-  last_ingested_turn_id: string | null;
-  external_thread_id: string | null;
-  last_error: string | null;
-}
+export type UpsertMemoryIngestCursorInput = Omit<MemoryIngestCursor, 'updated_at'>;
 
 export interface IMemoryIngestStore {
   /**

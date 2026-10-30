@@ -153,7 +153,6 @@ export function runMemoryIngestStoreContractSuite(getEnv: () => MemoryIngestStor
 
     await store.upsertCursor({
       session_id: 's1',
-      scope_key: 'tfg-default-trueforge-owner',
       last_ingested_turn_id: 't1',
       external_thread_id: 'thread-1',
       last_error: null,
@@ -165,7 +164,6 @@ export function runMemoryIngestStoreContractSuite(getEnv: () => MemoryIngestStor
     expect(candidate?.tip_turn_id).toBe('t2');
     expect(candidate?.cursor).toMatchObject({
       session_id: 's1',
-      scope_key: 'tfg-default-trueforge-owner',
       last_ingested_turn_id: 't1',
       external_thread_id: 'thread-1',
       last_error: null,
@@ -177,13 +175,21 @@ export function runMemoryIngestStoreContractSuite(getEnv: () => MemoryIngestStor
     const { store } = getEnv();
     await createSession({ session_id: 's1' });
     await addTurn({ session_id: 's1', turn_id: 't1' });
-    const base = { session_id: 's1', scope_key: 'k1', external_thread_id: null };
-
-    await store.upsertCursor({ ...base, last_ingested_turn_id: null, last_error: 'boom' });
+    await store.upsertCursor({
+      session_id: 's1',
+      last_ingested_turn_id: null,
+      external_thread_id: null,
+      last_error: 'boom',
+    });
     const [failed] = await store.listCandidateSessions({ updated_since: HOUR_AGO(), limit: 10 });
-    expect(failed?.cursor).toMatchObject({ last_ingested_turn_id: null, last_error: 'boom' });
+    expect(failed?.cursor).toMatchObject({ last_ingested_turn_id: null, external_thread_id: null, last_error: 'boom' });
 
-    await store.upsertCursor({ ...base, scope_key: 'k2', last_ingested_turn_id: 't1', last_error: null });
+    await store.upsertCursor({
+      session_id: 's1',
+      last_ingested_turn_id: 't1',
+      external_thread_id: 'thread-1',
+      last_error: null,
+    });
     expect(await candidateIds()).toEqual([]);
   });
 
@@ -217,7 +223,6 @@ export function runMemoryIngestStoreContractSuite(getEnv: () => MemoryIngestStor
     await addTurn({ session_id: 's1', turn_id: 't1' });
     await store.upsertCursor({
       session_id: 's1',
-      scope_key: 'k',
       last_ingested_turn_id: 'old',
       external_thread_id: 'thread',
       last_error: null,

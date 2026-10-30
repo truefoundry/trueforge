@@ -6,7 +6,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     await sql`
       CREATE TABLE memory_ingest_cursor (
         session_id TEXT NOT NULL PRIMARY KEY REFERENCES session(session_id) ON DELETE CASCADE,
-        scope_key TEXT NOT NULL,
         last_ingested_turn_id TEXT,
         external_thread_id TEXT,
         last_error TEXT,

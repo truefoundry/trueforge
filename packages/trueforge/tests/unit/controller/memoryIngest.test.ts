@@ -307,21 +307,13 @@ describe('runMemoryIngestPass', () => {
     );
   });
 
-  it('starts a new provider thread when the scope changes', async () => {
+  it('continues after the checkpoint in the stored provider thread', async () => {
     const store = new FakeStore();
-    store.add(
-      session({
-        id: 's1',
-        agentId: 'chef',
-        agentMemoryEnabled: true,
-        turns: [closedTurn('t1', null, 10), closedTurn('t2', 't1', 20)],
-      }),
-    );
+    store.add(session({ id: 's1', turns: [closedTurn('t1', null, 10), closedTurn('t2', 't1', 20)] }));
     store.cursors.set('s1', {
       session_id: 's1',
-      scope_key: 'tfg-acme-trueforge-user-1',
       last_ingested_turn_id: 't1',
-      external_thread_id: 'old-thread',
+      external_thread_id: 'existing-thread',
       last_error: null,
       updated_at: at(0),
     });
@@ -333,11 +325,12 @@ describe('runMemoryIngestPass', () => {
       resumeAfter: undefined,
     });
 
-    expect(calls.map(call => [call.exchange.firstTurnId, call.externalThreadId, call.scope.key])).toEqual([
-      ['t2', null, 'tfg-acme-chef-user-1'],
-    ]);
-    expect(summary.sessions_by_outcome).toEqual({ scope_changed: 1 });
-    expect(store.cursors.get('s1')?.scope_key).toBe('tfg-acme-chef-user-1');
+    expect(calls.map(call => [call.exchange.firstTurnId, call.externalThreadId])).toEqual([['t2', 'existing-thread']]);
+    expect(summary.sessions_by_outcome).toEqual({ ingested: 1 });
+    expect(store.cursors.get('s1')).toMatchObject({
+      last_ingested_turn_id: 't2',
+      external_thread_id: 'existing-thread',
+    });
   });
 
   it('sends only the new branch after the user edits an ingested turn', async () => {
@@ -350,7 +343,6 @@ describe('runMemoryIngestPass', () => {
     );
     store.cursors.set('s1', {
       session_id: 's1',
-      scope_key: 'tfg-acme-trueforge-user-1',
       last_ingested_turn_id: 't2',
       external_thread_id: 'thread-s1',
       last_error: null,

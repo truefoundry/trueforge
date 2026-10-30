@@ -54,7 +54,6 @@ export class SqliteMemoryIngestStore implements IMemoryIngestStore {
         't.turn_id as tip_turn_id',
         't.updated_at as tip_updated_at',
         's.updated_at as session_updated_at',
-        'c.scope_key as cursor_scope_key',
         'c.last_ingested_turn_id as cursor_last_ingested_turn_id',
         'c.external_thread_id as cursor_external_thread_id',
         'c.last_error as cursor_last_error',
@@ -83,11 +82,10 @@ export class SqliteMemoryIngestStore implements IMemoryIngestStore {
       tip_updated_at: row.tip_updated_at,
       session_updated_at: row.session_updated_at,
       cursor:
-        row.cursor_scope_key === null || row.cursor_updated_at === null
+        row.cursor_updated_at === null
           ? null
           : {
               session_id: row.session_id,
-              scope_key: row.cursor_scope_key,
               last_ingested_turn_id: row.cursor_last_ingested_turn_id,
               external_thread_id: row.cursor_external_thread_id,
               last_error: row.cursor_last_error,
@@ -136,7 +134,6 @@ export class SqliteMemoryIngestStore implements IMemoryIngestStore {
 
   async upsertCursor(input: UpsertMemoryIngestCursorInput): Promise<void> {
     const values = {
-      scope_key: input.scope_key,
       last_ingested_turn_id: input.last_ingested_turn_id,
       external_thread_id: input.external_thread_id,
       last_error: input.last_error,

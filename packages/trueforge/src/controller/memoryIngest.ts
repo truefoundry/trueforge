@@ -54,7 +54,6 @@ export const MEMORY_INGEST_OUTCOMES = [
   'agent_disabled',
   'not_eligible',
   'fork',
-  'scope_changed',
   'failed',
 ] as const;
 export type MemoryIngestOutcome = (typeof MEMORY_INGEST_OUTCOMES)[number];
@@ -152,14 +151,7 @@ async function ingestSession({
     agent_id: candidate.agent_id,
   };
 
-  const scopeChanged = cursor !== null && cursor.scope_key !== scope.key;
-  if (scopeChanged) {
-    logger.warn('Memory scope changed for session; continuing in a new provider thread', {
-      ...logFields,
-      previous_scope_key: cursor.scope_key,
-    });
-  }
-  let threadId = scopeChanged ? null : (cursor?.external_thread_id ?? null);
+  let threadId = cursor?.external_thread_id ?? null;
   let lastIngestedTurnId = cursor?.last_ingested_turn_id ?? null;
 
   const turns = await store.listSessionTurns({ session_id: candidate.session_id });
@@ -174,9 +166,8 @@ async function ingestSession({
 
   const sentAt = now();
   const { ready, capped } = readyExchanges({ exchanges: buildExchanges(path.slice(startIndex)), now: sentAt, config });
-  const notReadyOutcome: MemoryIngestOutcome = forked ? 'fork' : scopeChanged ? 'scope_changed' : 'not_ready';
   if (ready.length === 0) {
-    return { outcome: notReadyOutcome, exchangesSent: 0, exchangesFailed: 0, lagsS: [], pending: true };
+    return { outcome: forked ? 'fork' : 'not_ready', exchangesSent: 0, exchangesFailed: 0, lagsS: [], pending: true };
   }
 
   // A continuation's answer refers to a question asked in the turn before it.
@@ -225,7 +216,6 @@ async function ingestSession({
       });
       await store.upsertCursor({
         session_id: candidate.session_id,
-        scope_key: scope.key,
         last_ingested_turn_id: lastIngestedTurnId,
         external_thread_id: threadId,
         last_error: lastError.slice(0, 1_000),
@@ -235,7 +225,6 @@ async function ingestSession({
     lastIngestedTurnId = lastTurnId;
     await store.upsertCursor({
       session_id: candidate.session_id,
-      scope_key: scope.key,
       last_ingested_turn_id: lastIngestedTurnId,
       external_thread_id: threadId,
       last_error: null,
@@ -249,7 +238,7 @@ async function ingestSession({
     lag_max_s: lagsS.length === 0 ? null : Math.max(...lagsS),
   });
   return {
-    outcome: forked ? 'fork' : scopeChanged ? 'scope_changed' : 'ingested',
+    outcome: forked ? 'fork' : 'ingested',
     exchangesSent,
     exchangesFailed: 0,
     lagsS,
