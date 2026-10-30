@@ -1,5 +1,14 @@
 # @truefoundry/trueforge
 
+## 0.182.0-rc.4
+
+### Patch Changes
+
+- 6b40e15: Add optional Sentry error reporting to the frontend, enabled by the VITE_SENTRY_DSN build arg. Trace user-triggered API calls (session create, turn streams) in Sentry.
+- e87e9f2: Accept `x-tfg-tools` as an array of MCP tool definitions (`inputSchema`, optional `outputSchema`) on a TrueFoundry-mode turn. The header is read by a per-request store and mounted on the main thread through `TurnResourceResolver`. Local tool lists keep `outputSchema` and `annotations`.
+- Updated dependencies [e87e9f2]
+  - @truefoundry/trueforge-core@0.182.0-rc.3
+
 ## 0.182.0-rc.3
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @truefoundry/trueforge-core
 
+## 0.182.0-rc.3
+
+### Patch Changes
+
+- e87e9f2: Accept `x-tfg-tools` as an array of MCP tool definitions (`inputSchema`, optional `outputSchema`) on a TrueFoundry-mode turn. The header is read by a per-request store and mounted on the main thread through `TurnResourceResolver`. Local tool lists keep `outputSchema` and `annotations`.
+
 ## 0.182.0-rc.2
 
 ### Patch Changes
