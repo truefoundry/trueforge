@@ -8,11 +8,8 @@ import type {
 
 export type StoredModelMessage = Extract<PersistedTurnEvent, { type: 'model.message' }>;
 
-/**
- * JSON path of the agent-level memory toggle in a registry agent's manifest.
- * TODO(agent-memory-toggle): add a MemoryConfig to RuntimeConfigSchema when agent builder exposes it.
- */
-export const AGENT_MEMORY_ENABLED_PATH = ['runtime', 'memory', 'enabled'] as const;
+/** JSON path of `AgentSpec.config.memory.enabled` in a registry agent's stored manifest. */
+export const AGENT_MEMORY_ENABLED_PATH = ['config', 'memory', 'enabled'] as const;
 
 export interface MemoryIngestCursor {
   session_id: string;

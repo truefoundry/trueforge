@@ -18,7 +18,6 @@ import {
 import { jsonText, nowIso } from '../sqlExpressions';
 import type { Database } from '../types';
 
-// TODO(agent-memory-toggle): read through a typed MemoryConfig once RuntimeConfigSchema has one.
 const agentMemoryEnabled = sql<number>`json_type(a.manifest, ${sql.lit(`$.${AGENT_MEMORY_ENABLED_PATH.join('.')}`)}) IS 'true'`;
 const tfgSource = sql<string | null>`json_extract(s.metadata, '$."tfg.source"')`;
 /**

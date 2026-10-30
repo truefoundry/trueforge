@@ -14,6 +14,7 @@ import { getModelDetails, localSandboxSessionSegment, validateAgentSpec } from '
 import { setCachedLocalSandboxSupport } from '../../../src/sandbox/localRuntime';
 import type { ReasoningEffort } from '../../../src/schemas/modelProvider';
 import { hasConfiguredWebSearchProvider } from '../../../src/websearch/providers';
+import { fakeMemoryProvider } from '../memory/fakeMemoryProvider';
 
 jest.mock('../../../src/websearch/providers', () => ({
   hasConfiguredWebSearchProvider: jest.fn(() => Promise.resolve(false)),
@@ -70,6 +71,7 @@ describe('validateAgentSpec', () => {
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
       sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
       webSearchProviderStore: new SqliteWebSearchProviderStore(db),
+      memory: undefined,
     };
   }
 
@@ -256,6 +258,63 @@ describe('validateAgentSpec', () => {
         ...stores,
       }),
     ).resolves.toBeUndefined();
+  });
+
+  describe('config.memory', () => {
+    const memorySpec = () =>
+      AgentSpecSchema.parse({
+        model: { name: 'test-provider/test-model' },
+        instructions: 'test',
+        config: { memory: { enabled: true } },
+      });
+    const configuredMemory = (tenantEnabled: boolean) => ({
+      provider: fakeMemoryProvider(),
+      settings: { isTenantMemoryEnabled: async () => tenantEnabled },
+    });
+
+    it('rejects memory.enabled with 422 when the deployment has memory off', async () => {
+      const stores = await setup();
+      await expect(
+        validateAgentSpec({
+          spec: memorySpec(),
+          tenant_id: 'default',
+          created_by_subject_id: 'test-subject',
+          ...stores,
+        }),
+      ).rejects.toMatchObject({
+        status: 422,
+        message: expect.stringContaining('not available on this deployment'),
+      } satisfies Partial<HTTPException>);
+    });
+
+    it('rejects memory.enabled with 422 when the tenant has memory off', async () => {
+      const stores = await setup();
+      await expect(
+        validateAgentSpec({
+          spec: memorySpec(),
+          tenant_id: 'default',
+          created_by_subject_id: 'test-subject',
+          ...stores,
+          memory: configuredMemory(false),
+        }),
+      ).rejects.toMatchObject({
+        status: 422,
+        message: expect.stringContaining('turned off for this tenant'),
+      } satisfies Partial<HTTPException>);
+    });
+
+    it('admits memory.enabled when memory is on for the tenant', async () => {
+      const stores = await setup();
+      await expect(
+        validateAgentSpec({
+          spec: memorySpec(),
+          tenant_id: 'default',
+          created_by_subject_id: 'test-subject',
+          ...stores,
+          memory: configuredMemory(true),
+        }),
+      ).resolves.toBeUndefined();
+    });
   });
 
   it('rejects skills when no sandbox provider is configured', async () => {

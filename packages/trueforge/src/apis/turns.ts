@@ -54,6 +54,8 @@ import type { ISkillStore } from '../db/skillStore';
 import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { currentLogContext, updateLogContext } from '../logger';
+import type { ConfiguredMemory } from '../memory/memoryFromConfig';
+import { resolveSessionMemory, type SessionMemoryCapability } from '../memory/sessionMemory';
 import {
   createAndExecuteTurnRoute,
   createTurnEventRoute,
@@ -139,6 +141,8 @@ export interface TurnsRouterDeps {
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore;
   sandboxEnvironmentStore: ISandboxEnvironmentStore;
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore;
+  /** Long-term memory; undefined when the deployment has it off. */
+  memory: ConfiguredMemory | undefined;
   logger: Logger;
   resolveRequestContext: ResolveRequestContext;
   authorizer: Authorizer;
@@ -151,7 +155,7 @@ export interface TurnsRouterDeps {
  */
 export type BeginTurnExecutionDeps = Pick<
   TurnsRouterDeps,
-  'activeTurns' | 'eventSubscriptions' | 'logger' | 'sandboxEnvironmentStore'
+  'activeTurns' | 'eventSubscriptions' | 'logger' | 'sandboxEnvironmentStore' | 'memory'
 > & {
   agentStore: IAgentStore;
   modelProviderStore: IModelProviderStore;
@@ -184,6 +188,8 @@ function createTurnResolver(deps: {
   agentStore: IAgentStore;
   modelProviderStore: IModelProviderStore;
   webSearchProvider: IWebSearchProvider | undefined;
+  /** Root-thread memory for this turn; undefined when memory doesn't apply to the session. */
+  memoryCapability: SessionMemoryCapability | undefined;
   logger: Logger;
   signal: AbortSignal;
   userRef: string;
@@ -199,6 +205,7 @@ function createTurnResolver(deps: {
     agentStore,
     modelProviderStore,
     webSearchProvider,
+    memoryCapability,
     logger,
     signal,
     userRef,
@@ -305,7 +312,11 @@ function createTurnResolver(deps: {
     },
     webSearchProvider,
     logger,
-    rootCapabilities: () => capabilitiesStore.resolveCapabilities(),
+    // Root thread only: sub-agents get neither memory tools nor the summary.
+    rootCapabilities: ({ tracing }) => [
+      ...capabilitiesStore.resolveCapabilities(),
+      ...(memoryCapability === undefined ? [] : [memoryCapability({ tracing })]),
+    ],
   });
 }
 
@@ -482,10 +493,17 @@ export async function beginTurnExecution(
   const sessionAgent = session.record.agent;
 
   const abortController = new AbortController();
-  const webSearchProvider = await resolveWebSearchProvider({
-    tenant_id: tenantId,
-    store: deps.webSearchProviderStore,
-  });
+  const [webSearchProvider, memoryCapability] = await Promise.all([
+    resolveWebSearchProvider({ tenant_id: tenantId, store: deps.webSearchProviderStore }),
+    resolveSessionMemory({
+      sessionId,
+      tenantId,
+      record: session.record,
+      memory: deps.memory,
+      agentStore: deps.agentStore,
+      logger: deps.logger,
+    }),
+  ]);
   const resolver = createTurnResolver({
     mcpServerStore: deps.mcpServerStore,
     skillStore: deps.skillStore,
@@ -494,6 +512,7 @@ export async function beginTurnExecution(
     agentStore: deps.agentStore,
     modelProviderStore: deps.modelProviderStore,
     webSearchProvider,
+    memoryCapability,
     logger: deps.logger,
     signal: abortController.signal,
     userRef,
@@ -889,6 +908,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         sandboxProviderStore: deps.resolveSandboxProviderStore(c),
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
+        memory: deps.memory,
       },
     };
 

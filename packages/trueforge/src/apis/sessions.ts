@@ -43,6 +43,7 @@ import type { WithTransaction } from '../db/transaction';
 import type { IUserStore } from '../db/userStore';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { updateLogContext } from '../logger';
+import type { ConfiguredMemory } from '../memory/memoryFromConfig';
 import {
   cancelSessionRoute,
   createSessionRoute,
@@ -106,6 +107,8 @@ export interface SessionsRouterDeps<TTransaction = never> {
   sandboxEnvironmentStore: ISandboxEnvironmentStore;
   redis?: RedisClient | undefined;
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore;
+  /** Long-term memory; undefined when the deployment has it off. */
+  memory: ConfiguredMemory | undefined;
   requestReplyRouter: RequestReplyRouter;
   resolveRequestContext: ResolveRequestContext;
   logger: Logger;
@@ -357,6 +360,7 @@ function validateInlineSessionSpec(
     | 'resolveSandboxProviderStore'
     | 'sandboxEnvironmentStore'
     | 'resolveWebSearchProviderStore'
+    | 'memory'
   >,
   input: { c: Context; spec: AgentSpec; requestContext: RequestContext },
 ): Promise<void> {
@@ -371,6 +375,7 @@ function validateInlineSessionSpec(
     sandboxProviderStore: deps.resolveSandboxProviderStore(c),
     sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
     webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
+    memory: deps.memory,
   });
 }
 
@@ -385,6 +390,7 @@ type InternalSessionsRouterDeps = Pick<
   | 'resolveSandboxProviderStore'
   | 'sandboxEnvironmentStore'
   | 'resolveWebSearchProviderStore'
+  | 'memory'
   | 'resolveRequestContext'
   | 'authorizer'
 >;
@@ -619,6 +625,7 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
           sandboxProviderStore: deps.resolveSandboxProviderStore(c),
           sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
           webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
+          memory: deps.memory,
         });
       }
     }
