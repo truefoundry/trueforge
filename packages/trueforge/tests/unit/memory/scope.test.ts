@@ -1,4 +1,4 @@
-import { FlagMemorySettings } from '../../../src/memory/MemorySettings';
+import { FlagMemorySettings, type MemorySettings } from '../../../src/memory/MemorySettings';
 import { memoryScopeKey, resolveMemoryScope, type MemoryScopeSession } from '../../../src/memory/scope';
 
 const SUBJECT = { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'Priya' } as const;
@@ -60,17 +60,10 @@ describe('resolveMemoryScope', () => {
 });
 
 describe('FlagMemorySettings', () => {
-  it('is off for every tenant when the global flag is off', async () => {
-    const settings = new FlagMemorySettings({ enabled: false, tenantAllowlist: [] });
-    await expect(settings.isTenantMemoryEnabled('acme')).resolves.toBe(false);
-  });
-
-  it('allows every tenant with an empty allowlist, otherwise only listed tenants', async () => {
-    await expect(
-      new FlagMemorySettings({ enabled: true, tenantAllowlist: [] }).isTenantMemoryEnabled('acme'),
-    ).resolves.toBe(true);
-    const listed = new FlagMemorySettings({ enabled: true, tenantAllowlist: ['acme'] });
-    await expect(listed.isTenantMemoryEnabled('acme')).resolves.toBe(true);
-    await expect(listed.isTenantMemoryEnabled('other')).resolves.toBe(false);
+  it('follows the global flag for every tenant', async () => {
+    const off: MemorySettings = new FlagMemorySettings({ enabled: false });
+    const on: MemorySettings = new FlagMemorySettings({ enabled: true });
+    await expect(off.isTenantMemoryEnabled('acme')).resolves.toBe(false);
+    await expect(on.isTenantMemoryEnabled('acme')).resolves.toBe(true);
   });
 });

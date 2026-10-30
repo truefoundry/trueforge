@@ -947,11 +947,6 @@ export interface SharedServerConfiguration {
   ZEP_API_KEY: string | undefined;
   /** Env: `ZEP_BASE_URL`. Default Zep Cloud v4. */
   ZEP_BASE_URL: string;
-  /**
-   * Tenants with memory on while `MEMORY_ENABLED`; empty → every tenant.
-   * Placeholder for the per-tenant setting. Env: `MEMORY_TENANT_ALLOWLIST` (comma-separated).
-   */
-  MEMORY_TENANT_ALLOWLIST: string[];
   /** Env: `MEMORY_INGEST_INTERVAL_MS`. Default 5 minutes. */
   MEMORY_INGEST_INTERVAL_MS: number;
   /** Sessions processed per ingest run. Env: `MEMORY_INGEST_MAX_SESSIONS_PER_RUN`. Default 50. */
@@ -1354,7 +1349,6 @@ const shared: SharedServerConfiguration = {
   }),
   ZEP_API_KEY: optionalNonEmptyEnv('ZEP_API_KEY'),
   ZEP_BASE_URL: optionalNonEmptyEnv('ZEP_BASE_URL') ?? ZEP_DEFAULT_BASE_URL,
-  MEMORY_TENANT_ALLOWLIST: parseCommaSeparatedEnvList(getEnv('MEMORY_TENANT_ALLOWLIST')),
   MEMORY_INGEST_INTERVAL_MS: parsePositiveInt({
     envKey: 'MEMORY_INGEST_INTERVAL_MS',
     raw: getEnv('MEMORY_INGEST_INTERVAL_MS'),

@@ -426,7 +426,6 @@ type MemoryConfiguration = Pick<
   | 'MEMORY_PROVIDER'
   | 'ZEP_API_KEY'
   | 'ZEP_BASE_URL'
-  | 'MEMORY_TENANT_ALLOWLIST'
   | 'MEMORY_INGEST_INTERVAL_MS'
   | 'MEMORY_INGEST_MAX_SESSIONS_PER_RUN'
   | 'MEMORY_INGEST_MAX_EXCHANGES_PER_SESSION'
@@ -458,7 +457,7 @@ export function memoryIngestFromConfig({
       zep: { apiKey: config.ZEP_API_KEY, baseUrl: config.ZEP_BASE_URL },
       logger,
     }),
-    settings: new FlagMemorySettings({ enabled: true, tenantAllowlist: config.MEMORY_TENANT_ALLOWLIST }),
+    settings: new FlagMemorySettings({ enabled: true }),
     config: {
       intervalMs: config.MEMORY_INGEST_INTERVAL_MS,
       maxSessionsPerRun: config.MEMORY_INGEST_MAX_SESSIONS_PER_RUN,

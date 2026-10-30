@@ -14,7 +14,6 @@ import type {
   UpsertMemoryIngestCursorInput,
 } from '../../../src/db/memoryIngestStore';
 import type { IngestExchangeInput, MemoryProvider } from '../../../src/memory/MemoryProvider';
-import { FlagMemorySettings } from '../../../src/memory/MemorySettings';
 import {
   answer,
   askCall,
@@ -137,18 +136,19 @@ function deps({
   provider,
   logger = fakeLogger(),
   config = {},
-  tenantAllowlist = [],
+  disabledTenants = [],
 }: {
   store: FakeStore;
   provider: MemoryProvider;
   logger?: ReturnType<typeof fakeLogger>;
   config?: Partial<MemoryIngestConfig>;
-  tenantAllowlist?: string[];
+  /** Stands in for tenants whose memory setting is off. */
+  disabledTenants?: string[];
 }): MemoryIngestDeps {
   return {
     store,
     provider,
-    settings: new FlagMemorySettings({ enabled: true, tenantAllowlist }),
+    settings: { isTenantMemoryEnabled: async tenantId => !disabledTenants.includes(tenantId) },
     logger: logger as never,
     config: { ...CONFIG, ...config },
     now: () => NOW,
@@ -258,7 +258,7 @@ describe('runMemoryIngestPass', () => {
     const logger = fakeLogger();
 
     const { summary } = await runMemoryIngestPass({
-      deps: deps({ store, provider, logger, tenantAllowlist: ['acme'] }),
+      deps: deps({ store, provider, logger, disabledTenants: ['other'] }),
       signal: signal(),
       resumeAfter: undefined,
     });
