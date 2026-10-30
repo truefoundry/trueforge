@@ -13,6 +13,7 @@ import { TrueForgeAuthorizer, type Authorizer } from '../../../src/auth/authoriz
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
+import { SqliteAccessControlStore } from '../../../src/db/sqlite/access-control-store/SqliteAccessControlStore';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
@@ -121,10 +122,12 @@ describe('turns', () => {
         createTurnsRouter({
           sessions,
           sessionStore,
+          accessControlStore: new SqliteAccessControlStore(db),
           activeTurns: new ActiveTurnRegistry(),
           resolveModelProviderStore: () => new SqliteModelProviderStore(db),
           resolveMcpServerStore: () => mcpServerStoreWithAuth(db, tokenStore),
           resolveTurnSkillsStore: () => new SqliteSkillStore(db),
+          resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
           resolveAgentStore: () => new SqliteAgentStore(db),
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
           resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
@@ -217,10 +220,12 @@ describe('turns', () => {
         createTurnsRouter({
           sessions: new Sessions({ sessionStore }),
           sessionStore,
+          accessControlStore: new SqliteAccessControlStore(db),
           activeTurns: new ActiveTurnRegistry(),
           resolveModelProviderStore: () => new SqliteModelProviderStore(db),
           resolveMcpServerStore: () => mcpServerStoreWithAuth(db, new SqliteOAuthTokenStore(db)),
           resolveTurnSkillsStore: () => new SqliteSkillStore(db),
+          resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
           resolveAgentStore: () => agentStore,
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
           resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
@@ -284,7 +289,7 @@ describe('turns', () => {
       ).toBe(403);
     });
 
-    it('lets any tenant member read a shared session but keeps create, subscribe, and sandbox download creator-only', async () => {
+    it('lets any tenant member read a tenant-shared session but keeps create, subscribe, and sandbox download creator-only', async () => {
       const db = createSqliteDb(':memory:');
       await migrateSqliteToLatest(db);
       const sessionStore = new SqliteSessionStore(db);
@@ -304,13 +309,11 @@ describe('turns', () => {
         external_id: null,
         source: null,
       });
-      await sessionStore.updateSession({
+      await new SqliteAccessControlStore(db).createAccessGrants({
         tenant_id: 'default',
         session_id: 'shared-session',
-        agent: undefined,
-        title: undefined,
-        metadata: undefined,
-        shared: true,
+        subjects: [{ subject_type: 'tenant', subject_id: 'default' }],
+        granted_by_subject: { subject_id: 'someone-else', subject_type: 'user', subject_display_name: 'someone-else' },
       });
 
       const app = new OpenAPIHono();
@@ -319,10 +322,12 @@ describe('turns', () => {
         createTurnsRouter({
           sessions: new Sessions({ sessionStore }),
           sessionStore,
+          accessControlStore: new SqliteAccessControlStore(db),
           activeTurns: new ActiveTurnRegistry(),
           resolveModelProviderStore: () => new SqliteModelProviderStore(db),
           resolveMcpServerStore: () => mcpServerStoreWithAuth(db, new SqliteOAuthTokenStore(db)),
           resolveTurnSkillsStore: () => new SqliteSkillStore(db),
+          resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
           resolveAgentStore: () => new SqliteAgentStore(db),
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
           resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
@@ -390,10 +395,12 @@ describe('turns', () => {
         createTurnsRouter({
           sessions,
           sessionStore,
+          accessControlStore: new SqliteAccessControlStore(db),
           activeTurns: new ActiveTurnRegistry(),
           resolveModelProviderStore: () => new SqliteModelProviderStore(db),
           resolveMcpServerStore: () => mcpServerStoreWithAuth(db, new SqliteOAuthTokenStore(db)),
           resolveTurnSkillsStore: () => new SqliteSkillStore(db),
+          resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
           resolveAgentStore: () => new SqliteAgentStore(db),
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
           resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
@@ -498,11 +505,13 @@ describe('turns', () => {
         createTurnsRouter({
           sessions,
           sessionStore: new SqliteSessionStore(db),
+          accessControlStore: new SqliteAccessControlStore(db),
           activeTurns: new ActiveTurnRegistry(),
           resolveModelProviderStore: () => modelProviderStore,
           resolveMcpServerStore: () => mcpServerStoreWithAuth(db, tokenStore),
           resolveAgentStore: () => new SqliteAgentStore(db),
           resolveTurnSkillsStore: () => new SqliteSkillStore(db),
+          resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
           eventSubscriptions,
           resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
           sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
@@ -629,11 +638,13 @@ describe('turns', () => {
         createTurnsRouter({
           sessions,
           sessionStore: new SqliteSessionStore(db),
+          accessControlStore: new SqliteAccessControlStore(db),
           activeTurns: new ActiveTurnRegistry(),
           resolveModelProviderStore: () => modelProviderStore,
           resolveMcpServerStore: () => mcpServerStoreWithAuth(db, tokenStore),
           resolveAgentStore: () => new SqliteAgentStore(db),
           resolveTurnSkillsStore: () => new SqliteSkillStore(db),
+          resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
           eventSubscriptions: new EventSubscriptionRegistry<TurnStreamingEvent>(undefined),
           resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
           sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
@@ -748,10 +759,12 @@ describe('turns', () => {
         createTurnsRouter({
           sessions,
           sessionStore: new SqliteSessionStore(db),
+          accessControlStore: new SqliteAccessControlStore(db),
           activeTurns: new ActiveTurnRegistry(),
           resolveModelProviderStore: () => modelProviderStore,
           resolveMcpServerStore: () => mcpServerStoreWithAuth(db, tokenStore),
           resolveTurnSkillsStore: () => new SqliteSkillStore(db),
+          resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
           resolveAgentStore: () => new SqliteAgentStore(db),
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
           resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
@@ -835,10 +848,12 @@ describe('turns', () => {
         createTurnsRouter({
           sessions,
           sessionStore,
+          accessControlStore: new SqliteAccessControlStore(db),
           activeTurns: new ActiveTurnRegistry(),
           resolveModelProviderStore: () => new SqliteModelProviderStore(db),
           resolveMcpServerStore: () => mcpServerStoreWithAuth(db, tokenStore),
           resolveTurnSkillsStore: () => new SqliteSkillStore(db),
+          resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
           resolveAgentStore: () => agentStore,
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
           resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),

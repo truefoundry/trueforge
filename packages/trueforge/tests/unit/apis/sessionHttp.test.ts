@@ -151,6 +151,7 @@ describe('sessions HTTP agent binding', () => {
       createTurnsRouter({
         sessions,
         sessionStore,
+        accessControlStore: new SqliteAccessControlStore(db),
         activeTurns: deps.activeTurns,
         resolveModelProviderStore: () => modelProviderStore,
         resolveMcpServerStore: () =>
@@ -160,6 +161,7 @@ describe('sessions HTTP agent binding', () => {
             clientName: 'test-client',
           }),
         resolveTurnSkillsStore: () => skillStore,
+        resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
         resolveAgentStore: () => agentStore,
         eventSubscriptions: new EventSubscriptionRegistry(undefined),
         resolveSandboxProviderStore: () => sandboxProviderStore,

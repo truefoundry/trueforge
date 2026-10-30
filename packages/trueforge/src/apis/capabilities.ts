@@ -5,6 +5,7 @@ import { canAccessSettings, hasAdminRole, type ResolveRequestContext } from '../
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ITenantSettingStore } from '../db/tenantSettingStore';
 import type { WithTransaction } from '../db/transaction';
+import type { IUserStore } from '../db/userStore';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { getCapabilitiesRoute } from '../routes/capabilityRoutes';
 import { isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
@@ -45,6 +46,7 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore<TTransaction>;
   resolveTenantSettingStore: (c: Context) => ITenantSettingStore<TTransaction>;
+  userStore: IUserStore;
   withTransaction: WithTransaction<TTransaction>;
   logger: Logger;
   resolveRequestContext: ResolveRequestContext;
@@ -84,6 +86,7 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
           skill: sandboxEnabled ? { enabled: true } : { enabled: false, reason: skillDisabledReason(status) },
           settings: { enabled: settingsEnabled, limited_to_web_search: settingsLimitedToWebSearch },
           web_search: reason === undefined ? { enabled: true } : { enabled: false, reason },
+          session_sharing: { enabled: deps.userStore.supportsUserLookup },
         },
       },
       200,

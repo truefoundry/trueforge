@@ -66,6 +66,7 @@ import { OPENAPI_DOCUMENT_TAGS } from './routes/openapiTags';
 import type { ActiveTurnRegistry } from './runtime/activeTurns';
 import type { EventSubscriptionRegistry } from './runtime/event-subscription';
 import { InvalidCronError } from './schemas/schedule';
+import type { ICapabilitiesStore } from './truefoundry/inlineTools';
 import { zodErrorResponse, zodValidationHook } from './zodErrorResponse';
 
 const BEARER_AUTH_SCHEME = 'BearerAuth';
@@ -269,6 +270,11 @@ export interface ResolveTurnSkillsStoreInput {
   allowInlineResources?: boolean;
 }
 
+/** Turn capability resolve. Omit `c` for schedules, which have no `x-tfg-tools`. */
+export interface ResolveCapabilitiesStoreInput {
+  c?: Context;
+}
+
 /** HTTP skill-store resolve. `allowInlineResources` for inline session create and spec replace. */
 export interface ResolveSkillStoreInput {
   c: Context;
@@ -305,6 +311,8 @@ export interface ServerDeps<TTransaction> {
    * schedules call with `{}` (registry/DB only).
    */
   resolveTurnSkillsStore: (input: ResolveTurnSkillsStoreInput) => Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'>;
+  /** `x-tfg-tools` for this turn. Schedules call with `{}` and mount nothing. */
+  resolveCapabilitiesStore: (input: ResolveCapabilitiesStoreInput) => ICapabilitiesStore;
   withTransaction: WithTransaction<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
   scheduleStore: IScheduleStore<TTransaction>;
@@ -361,6 +369,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
     activeTurns: deps.activeTurns,
     resolveTurnSkillsStore: deps.resolveTurnSkillsStore,
+    resolveCapabilitiesStore: deps.resolveCapabilitiesStore,
   };
 
   const httpMetrics = deps.httpMetrics;
@@ -399,6 +408,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
         resolveTenantSettingStore: deps.resolveTenantSettingStore,
+        userStore: deps.userStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
         resolveRequestContext,
@@ -561,6 +571,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     withAuth(
       createInternalSessionsRouter({
         sessions: deps.sessions,
+        accessControlStore: deps.accessControlStore,
         resolveModelProviderStore: deps.resolveModelProviderStore,
         resolveMcpServerStore: deps.resolveMcpServerStore,
         resolveSkillStore: deps.resolveSkillStore,
@@ -634,10 +645,12 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       createTurnsRouter({
         sessions: deps.sessions,
         sessionStore: deps.sessionStore,
+        accessControlStore: deps.accessControlStore,
         activeTurns: deps.activeTurns,
         resolveModelProviderStore: deps.resolveModelProviderStore,
         resolveMcpServerStore: deps.resolveMcpServerStore,
         resolveTurnSkillsStore: deps.resolveTurnSkillsStore,
+        resolveCapabilitiesStore: deps.resolveCapabilitiesStore,
         resolveAgentStore: deps.resolveAgentStore,
         eventSubscriptions: deps.eventSubscriptions,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
