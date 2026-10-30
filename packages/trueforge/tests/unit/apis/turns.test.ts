@@ -12,6 +12,7 @@ import { createLogger } from 'winston';
 import { createTurnsRouter, deriveSessionTitle, turnStreamId } from '../../../src/apis/turns';
 import { TrueForgeAuthorizer, type Authorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
+import { EmptyCapabilitiesStore } from '../../../src/db/capabilitiesStore';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAccessControlStore } from '../../../src/db/sqlite/access-control-store/SqliteAccessControlStore';
@@ -41,7 +42,7 @@ function mcpServerStoreWithAuth(db: Kysely<Database>, tokenStore: SqliteOAuthTok
 function turnExecutionStores(db: Kysely<Database>, tokenStore: SqliteOAuthTokenStore) {
   return {
     agentStore: new SqliteAgentStore(db),
-    capabilitiesStore: { resolveCapabilities: () => [] },
+    capabilitiesStore: new EmptyCapabilitiesStore(),
     modelProviderStore: new SqliteModelProviderStore(db),
     mcpServerStore: mcpServerStoreWithAuth(db, tokenStore),
     skillStore: new SqliteSkillStore(db),

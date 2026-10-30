@@ -64,6 +64,7 @@ import { requestContextFromWire, type RequestContext, type ResolveRequestContext
 import configuration from '../config';
 import type { IAccessControlStore } from '../db/accessControlStore';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
+import type { ICapabilitiesStore } from '../db/capabilitiesStore';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
@@ -94,7 +95,6 @@ import {
 import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
 import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
 import { assertGatewayMetadataRequestHeaders } from '../truefoundry/gatewayMetadata';
-import type { ICapabilitiesStore } from '../truefoundry/inlineTools';
 import { newId } from '../utils/id';
 import { resolveWebSearchProvider } from '../websearch/providers';
 import { canReadAgentBoundResource, canReadSession } from './agentAccess';
@@ -403,7 +403,7 @@ function createTurnResolver(deps: {
     },
     webSearchProvider,
     logger,
-    rootCapabilities: () => capabilitiesStore.resolveCapabilities(),
+    rootCapabilities: () => capabilitiesStore.list(),
   });
 }
 
