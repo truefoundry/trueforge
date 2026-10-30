@@ -166,6 +166,18 @@ providers:
             - high
             - xhigh
             - max
+      - model_id: gpt-6.1-terra
+        name: gpt-6-1-terra
+        properties:
+          context_length: 1050000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
   - type: anthropic
     logo: https://assets.production.truefoundry.com/anthropic.svg
     models:
@@ -198,6 +210,27 @@ providers:
           max_output_tokens: 64000
       - model_id: claude-haiku-5-5
         name: claude-haiku-5-5
+        properties:
+          context_length: 1000000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
+      - model_id: claude-opus-4-6
+        name: claude-opus-4-6
+        properties:
+          context_length: 1000000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+            - max
+      - model_id: claude-opus-4-7
+        name: claude-opus-4-7
         properties:
           context_length: 1000000
           max_output_tokens: 128000
@@ -281,6 +314,7 @@ providers:
           context_length: 1048576
           max_output_tokens: 65536
           reasoning_efforts:
+            - none
             - minimal
             - low
             - medium
@@ -299,12 +333,19 @@ providers:
         properties:
           context_length: 1048576
           max_output_tokens: 65536
+          reasoning_efforts:
+            - none
+            - minimal
+            - low
+            - medium
+            - high
       - model_id: gemini-3.5-flash-lite
         name: gemini-3-5-flash-lite
         properties:
           context_length: 1048576
           max_output_tokens: 65536
           reasoning_efforts:
+            - none
             - minimal
             - low
             - medium
@@ -315,6 +356,7 @@ providers:
           context_length: 1048576
           max_output_tokens: 65536
           reasoning_efforts:
+            - none
             - minimal
             - low
             - medium
@@ -330,6 +372,15 @@ providers:
             - high
       - model_id: gemini-3.8-flash
         name: gemini-3-8-flash
+        properties:
+          context_length: 1048576
+          max_output_tokens: 65536
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+      - model_id: gemini-4-argon
+        name: gemini-4-argon
         properties:
           context_length: 1048576
           max_output_tokens: 65536
@@ -377,7 +428,11 @@ providers:
       - model_id: accounts/fireworks/models/deepseek-v4p1-flash
         name: deepseek-v4p1-flash
         properties:
-          context_length: 1000000
+          context_length: 1048576
+      - model_id: accounts/fireworks/models/deepseek-v4p1-flash-1017
+        name: deepseek-v4p1-flash-1017
+        properties:
+          context_length: 1048576
       - model_id: accounts/fireworks/models/ember-1
         name: ember-1
         properties:
@@ -412,6 +467,10 @@ providers:
             - low
             - high
             - max
+      - model_id: accounts/fireworks/models/gpt-oss-120b
+        name: gpt-oss-120b
+        properties:
+          context_length: 131072
       - model_id: accounts/fireworks/models/kimi-k2p7-code
         name: kimi-k2p7-code
         properties:
@@ -627,6 +686,35 @@ providers:
         name: deepseek-v4-1-flash
         properties:
           context_length: 1000000
+      - model_id: deepseek-ai/DeepSeek-V4.1-Flash-1017
+        name: deepseek-v4-1-flash-1017
+        properties:
+          context_length: 1048576
+          max_output_tokens: 384000
+      - model_id: google/gemma-4-12B-it
+        name: gemma-4-12b-it
+        properties:
+          context_length: 262144
+      - model_id: google/gemma-4-26B-A4B-it
+        name: gemma-4-26b-a4b-it
+        properties:
+          context_length: 262144
+      - model_id: google/gemma-4-E2B-it
+        name: gemma-4-e2b-it
+        properties:
+          context_length: 128000
+      - model_id: google/gemma-4-E4B-it
+        name: gemma-4-e4b-it
+        properties:
+          context_length: 131072
+      - model_id: meta-models/Muse-Glimmer-30B
+        name: muse-glimmer-30b
+        properties:
+          context_length: 131072
+      - model_id: meta-models/Muse-Spark-Open-816B-A42B
+        name: muse-spark-open-816b-a42b
+        properties:
+          context_length: 1048576
       - model_id: MiniMaxAI/MiniMax-M2.7
         name: minimax-m2-7
         properties:
@@ -635,6 +723,17 @@ providers:
         name: minimax-m3
         properties:
           context_length: 524288
+      - model_id: MiniMaxAI/MiniMax-M3.1-Flash
+        name: minimax-m3-1-flash
+        properties:
+          context_length: 1048576
+          max_output_tokens: 524288
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
       - model_id: moonshotai/Kimi-K2.6
         name: kimi-k2-6
         properties:
@@ -657,6 +756,22 @@ providers:
         name: nemotron-3-ultra-550b-a55b
         properties:
           context_length: 1000000
+      - model_id: nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16
+        name: nvidia-nemotron-3-nano-30b-a3b-bf16
+        properties:
+          context_length: 1000000
+      - model_id: nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16
+        name: nvidia-nemotron-3-super-120b-a12b-bf16
+        properties:
+          context_length: 1000000
+      - model_id: nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-FP8
+        name: nvidia-nemotron-3-super-120b-a12b-fp8
+        properties:
+          context_length: 1000000
+      - model_id: nvidia/NVIDIA-Nemotron-3.5-Super-VL
+        name: nvidia-nemotron-3-5-super-vl
+        properties:
+          context_length: 262144
       - model_id: openai/gpt-oss-120b
         name: gpt-oss-120b
         properties:
@@ -665,6 +780,20 @@ providers:
             - low
             - medium
             - high
+      - model_id: Prism-ML/Ternary-Bonsai-27B
+        name: ternary-bonsai-27b
+        properties:
+          context_length: 262144
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - max
+      - model_id: Qwen/Qwen3.6-35B-A3B-FP8
+        name: qwen3-6-35b-a3b-fp8
+        properties:
+          context_length: 262144
       - model_id: Qwen/Qwen3.6-Plus
         name: qwen3-6-plus
         properties:
@@ -711,6 +840,10 @@ providers:
             - low
             - medium
             - xhigh
+      - model_id: reflection/Beam-1.0-501B-A23B
+        name: beam-1-0-501b-a23b
+        properties:
+          context_length: 1048576
       - model_id: thinkingmachines/Inkling
         name: inkling
         properties:
