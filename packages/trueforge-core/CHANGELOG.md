@@ -1,5 +1,16 @@
 # @truefoundry/trueforge-core
 
+## 0.182.0
+
+### Patch Changes
+
+- 7a7a0b6: Trim context compaction prompt: drop analysis scratchpad; list at most 15 relevant files with short reasons instead of full code dumps.
+- 7b325d9: Drop the redundant `last_turn_id` column from sessions; the session tip is now read from `last_turn_details.id`.
+- e6a2e9e: Large tool response guidance now includes content size in the blocked preamble for MCP and sandbox dumps, shares the same "Content too big (size; reason)" framing, uses RFC 2119 wording (MUST/MAY/SHOULD), and states the per-response character limit for dumped-file reads and oversized sandbox stdout. Elevated tools (deferred-tools `get_tool_info` only) skip offload up to min(50000 characters, 80% of remaining context). Individual offload uses a strict `>` threshold so the stated character cap is usable. Size figures are plain digits without thousands separators.
+- 6722969: Add session grants API (share, list, revoke) and user listing.
+- ae7c705: Session grants now give read access, and sharing with everyone in the tenant is a `tenant` grant. `Session.shared` reflects the tenant grant, and the deprecated `PATCH /sessions/{id} { shared }` now grants or revokes it. Adds the `session_sharing.enabled` capability.
+- e87e9f2: Accept `x-tfg-tools` as an array of MCP tool definitions (`inputSchema`, optional `outputSchema`) on a TrueFoundry-mode turn. The header is read by a per-request store and mounted on the main thread through `TurnResourceResolver`. Local tool lists keep `outputSchema` and `annotations`.
+
 ## 0.182.0-rc.3
 
 ### Patch Changes

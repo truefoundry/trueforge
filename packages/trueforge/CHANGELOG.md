@@ -1,5 +1,30 @@
 # @truefoundry/trueforge
 
+## 0.182.0
+
+### Patch Changes
+
+- 3a73934: Use an explicit server or controller resources table as-is, then resourceTierOverride, then global.resourceTier. The default tier is small.
+- 7b325d9: Drop the redundant `last_turn_id` column from sessions; the session tip is now read from `last_turn_details.id`.
+- 92748e0: Add an EvoLink remote MCP server preset to the shipped MCP catalog, signed in with OAuth dynamic client registration, so users can generate images, video, music and speech with 150+ models.
+- 6b40e15: Add optional Sentry error reporting to the frontend, enabled by the VITE_SENTRY_DSN build arg. Trace user-triggered API calls (session create, turn streams) in Sentry.
+- f91d0c3: Send `x-tfy-conversation-id` (session id) on gateway model/MCP calls alongside `tfg.session_id` metadata.
+- b094bff: Vulnerability fix: rebuild against remirrored `tfy-internal/node:24` / `:24-dev` (verified Node v24.22.1) so published images pick up the updated ECR Node base.
+- 8d3413a: Mark sandbox env builds failed on Daytona 4xx (e.g. over provider resource caps), lower default env resource caps to 4 CPU / 8 GiB / 10 GiB, and name the Helm controller container trueforge-controller.
+- 6722969: Add session grants API (share, list, revoke) and user listing.
+- ae7c705: Session grants now give read access, and sharing with everyone in the tenant is a `tenant` grant. `Session.shared` reflects the tenant grant, and the deprecated `PATCH /sessions/{id} { shared }` now grants or revokes it. Adds the `session_sharing.enabled` capability.
+- 141b33a: Backfill `tfg.source: ui` session metadata on existing non-scheduled sessions so they stay in Chat History once it filters on that key.
+- e87e9f2: Accept `x-tfg-tools` as an array of MCP tool definitions (`inputSchema`, optional `outputSchema`) on a TrueFoundry-mode turn. The header is read by a per-request store and mounted on the main thread through `TurnResourceResolver`. Local tool lists keep `outputSchema` and `annotations`.
+- Updated dependencies [7a7a0b6]
+- Updated dependencies [7b325d9]
+- Updated dependencies [e6a2e9e]
+- Updated dependencies [cf786ee]
+- Updated dependencies [6722969]
+- Updated dependencies [ae7c705]
+- Updated dependencies [e87e9f2]
+  - @truefoundry/trueforge-core@0.182.0
+  - @truefoundry/trueforge-sdk@0.182.0
+
 ## 0.182.0-rc.4
 
 ### Patch Changes
