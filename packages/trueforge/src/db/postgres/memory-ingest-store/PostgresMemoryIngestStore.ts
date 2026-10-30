@@ -15,8 +15,6 @@ import type { Database } from '../types';
 // TODO(agent-memory-toggle): read through a typed MemoryConfig once RuntimeConfigSchema has one.
 const agentMemoryEnabled = sql<string | null>`a.manifest #>> ${sql.lit(`{${AGENT_MEMORY_ENABLED_PATH.join(',')}}`)}`;
 const tfgSource = sql<string | null>`s.metadata->>'tfg.source'`;
-/** Same predicate as SESSION_MEMORY_INGEST_IDX (literal, not a bind) so the planner can use the partial index. */
-const memoryIngestIndexPredicate = sql<boolean>`s.source IS NULL AND (s.metadata->>'tfg.source' = 'ui' OR s.agent_id IS NOT NULL)`;
 /** The tip turn finished waiting on the user (a question, approval or auth). */
 const tipPaused = sql<boolean>`(t.state->>'status' = 'done' AND jsonb_array_length(COALESCE(t.state->'required_actions', '[]'::jsonb)) > 0)`;
 /** Microsecond ISO text, so the keyset round-trips exactly. */
@@ -54,7 +52,7 @@ export class PostgresMemoryIngestStore implements IMemoryIngestStore {
         'c.last_error as cursor_last_error',
         'c.updated_at as cursor_updated_at',
       ])
-      .where(memoryIngestIndexPredicate)
+      .where('s.source', 'is', null)
       .where(eb =>
         eb.or([
           eb('s.updated_at', '>=', input.recent_since),

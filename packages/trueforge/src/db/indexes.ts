@@ -22,12 +22,6 @@ export const SESSION_METADATA_GIN = 'session_metadata_gin';
  */
 export const SESSION_TFG_SOURCE_LIST_IDX = 'session_tfg_source_list_idx';
 
-/**
- * `(updated_at, session_id)` on session, partial `WHERE source IS NULL AND (metadata.tfg.source = 'ui'
- * OR agent_id IS NOT NULL)` — the memory-ingest loop's cross-tenant scan of recently active sessions.
- */
-export const SESSION_MEMORY_INGEST_IDX = 'session_memory_ingest_idx';
-
 /** `(tenant_id, created_by_subject.subject_id)` on agent. */
 export const AGENT_CREATED_BY_SUBJECT_ID_IDX = 'agent_created_by_subject_id_idx';
 

@@ -83,7 +83,8 @@ export interface IMemoryIngestStore {
   /**
    * Non-scheduled sessions that are UI chats without an agent or bound to an agent with memory
    * enabled, in the recent or paused range, whose tip turn is not yet ingested. Ordered by
-   * (session.updated_at, session_id), oldest first, which `session_memory_ingest_idx` serves.
+   * (session.updated_at, session_id), oldest first. Not index-backed yet: the scan crosses tenants,
+   * so add a `session (updated_at, session_id)` index if traffic grows.
    */
   listCandidateSessions(input: ListMemoryIngestCandidatesInput): Promise<MemoryIngestCandidate[]>;
   /** Every turn of the session (all branches), ordered by (created_at, turn_id). */

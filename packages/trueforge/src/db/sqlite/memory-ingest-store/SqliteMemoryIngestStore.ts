@@ -23,9 +23,6 @@ const agentMemoryEnabled = sql<number>`json_type(a.manifest, ${sql.lit(`$.${AGEN
 const tfgSource = sql<string | null>`json_extract(s.metadata, '$."tfg.source"')`;
 /** The tip turn finished waiting on the user (a question, approval or auth). */
 const tipPaused = sql<boolean>`(json_extract(t.state, '$.status') = 'done' AND json_array_length(t.state, '$.required_actions') > 0)`;
-/** Same terms as SESSION_MEMORY_INGEST_IDX (literal, not a bind) so SQLite can use the partial index. */
-const memoryIngestIndexPredicate = sql<boolean>`s.source IS NULL AND (json_extract(s.metadata, '$."tfg.source"') = 'ui' OR s.agent_id IS NOT NULL)`;
-
 /** Mirrors PostgresMemoryIngestStore; timestamps are ISO-8601 TEXT. */
 export class SqliteMemoryIngestStore implements IMemoryIngestStore {
   readonly #db: Kysely<Database>;
@@ -61,7 +58,7 @@ export class SqliteMemoryIngestStore implements IMemoryIngestStore {
         'c.last_error as cursor_last_error',
         'c.updated_at as cursor_updated_at',
       ])
-      .where(memoryIngestIndexPredicate)
+      .where('s.source', 'is', null)
       .where(eb =>
         eb.or([
           eb('s.updated_at', '>=', input.recent_since.toISOString()),
