@@ -241,6 +241,7 @@ function createServiceFoundryServerClient(logger: Logger): TrueFoundryServiceFou
     logger,
     httpTimeoutMs: configuration.TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS,
     httpAgentTimeoutMs: configuration.TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS,
+    maxRetries: configuration.TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_MAX_RETRIES,
     tls: { enabled: configuration.TRUEFOUNDRY_MTLS_ENABLED, dir: configuration.TRUEFOUNDRY_MTLS_CERTS_DIR },
     apiKey,
   });

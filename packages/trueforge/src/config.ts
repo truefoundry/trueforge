@@ -1019,6 +1019,12 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
   /** Max ms for agent CRUD ServiceFoundry HTTP calls. Env: `TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS`. Default 3000. */
   TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS: number;
   /**
+   * Retries after the first ServiceFoundry GET for transport failures, TimeoutError,
+   * and 408/409/429/502/503/504/520-524/530 (honors Retry-After up to 5s, else backoff).
+   * Env: `TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_MAX_RETRIES`. Default 2. Set to 0 for a single attempt.
+   */
+  TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_MAX_RETRIES: number;
+  /**
    * Present this pod's client certificate on outbound calls to the ServiceFoundry server (internal
    * mutual TLS) and upgrade a mesh-direct peer URL from http to https. Off by default, so an
    * unconfigured deployment keeps calling over plain HTTP exactly as before.
@@ -1363,6 +1369,11 @@ const configuration: ServerConfiguration = standalone
         envKey: 'TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS',
         raw: getEnv('TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS'),
         defaultValue: 3_000,
+      }),
+      TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_MAX_RETRIES: parseNonNegativeInt({
+        envKey: 'TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_MAX_RETRIES',
+        raw: getEnv('TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_MAX_RETRIES'),
+        defaultValue: 2,
       }),
       TRUEFOUNDRY_MTLS_ENABLED: parseBoolean({
         envKey: 'TRUEFOUNDRY_MTLS_ENABLED',

@@ -36,6 +36,33 @@ const SUBJECTS_PEEK_PATH = 'v1/subjects/peek';
 const AGENT_SKILLS_PAGE_SIZE = 100;
 /** SFY resolve `@ArrayMaxSize(50)` — chunk larger AgentSpec skill lists. */
 const AGENT_SKILL_RESOLVE_CHUNK_SIZE = 50;
+const RETRY_INITIAL_DELAY_MS = 1_000;
+const RETRY_BACKOFF_FACTOR = 2;
+const RETRY_JITTER_FACTOR = 0.2;
+/** Longer server-requested waits fall back to backoff rather than stalling the caller. */
+const MAX_RETRY_AFTER_MS = 5_000;
+/** Dropped connections and undici connect/headers timeouts. `TimeoutError` is classified separately. */
+const RETRYABLE_NETWORK_CODES = new Set([
+  'ECONNRESET',
+  'ECONNREFUSED',
+  'ETIMEDOUT',
+  'EAI_AGAIN',
+  'ENOTFOUND',
+  'EPIPE',
+  'EHOSTUNREACH',
+  'UND_ERR_SOCKET',
+  'UND_ERR_CONNECT_TIMEOUT',
+  'UND_ERR_HEADERS_TIMEOUT',
+]);
+/** Gateway and timeout statuses replayed on a ServiceFoundry GET. */
+type ServiceFoundryHttpRetryStatus = 408 | 409 | 429 | 502 | 503 | 504 | 520 | 521 | 522 | 523 | 524 | 530;
+
+type ServiceFoundryRetryReason = 'timeout' | 'network' | ServiceFoundryHttpRetryStatus;
+
+/** GET statuses safe to replay. Matches idempotent retries in ssrfGuard.ts, plus 504. */
+const RETRYABLE_GET_STATUSES: readonly ServiceFoundryHttpRetryStatus[] = [
+  408, 409, 429, 502, 503, 504, 520, 521, 522, 523, 524, 530,
+];
 
 /**
  * Fields required to build RequestContext from ServiceFoundry `GET /v1/session`.
@@ -190,6 +217,71 @@ export interface DeleteRemoteAgentInput {
   externalId: string;
 }
 
+function errorCode(error: unknown): string | undefined {
+  let current: unknown = error;
+  for (let depth = 0; depth < 5 && current != null; depth += 1) {
+    if (typeof current === 'object' && 'code' in current) {
+      const code = Reflect.get(current, 'code');
+      if (typeof code === 'string') {
+        return code;
+      }
+    }
+    current = current instanceof Error ? current.cause : undefined;
+  }
+  return undefined;
+}
+
+function transportRetryReason(error: unknown): 'timeout' | 'network' | undefined {
+  if (error instanceof Error && error.name === 'TimeoutError') {
+    return 'timeout';
+  }
+  const code = errorCode(error);
+  if (code !== undefined && RETRYABLE_NETWORK_CODES.has(code)) {
+    return 'network';
+  }
+  return undefined;
+}
+
+function isRetryableGetStatus(status: number): status is ServiceFoundryHttpRetryStatus {
+  for (const retryStatus of RETRYABLE_GET_STATUSES) {
+    if (retryStatus === status) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** Server-requested delay from `retry-after-ms` or `retry-after` (seconds or HTTP date), if usable. */
+function retryAfterMs(headers: { get(name: string): string | null }): number | undefined {
+  let delayMs: number | undefined;
+  const retryAfterMsHeader = headers.get('retry-after-ms');
+  if (retryAfterMsHeader !== null) {
+    delayMs = Number.parseFloat(retryAfterMsHeader);
+  } else {
+    const retryAfter = headers.get('retry-after');
+    if (retryAfter !== null) {
+      const seconds = Number(retryAfter);
+      delayMs = Number.isFinite(seconds) ? seconds * 1000 : Date.parse(retryAfter) - Date.now();
+    }
+  }
+  if (delayMs === undefined || !Number.isFinite(delayMs) || delayMs < 0 || delayMs > MAX_RETRY_AFTER_MS) {
+    return undefined;
+  }
+  return delayMs;
+}
+
+function retryDelayMs(attempt: number): number {
+  const base = RETRY_INITIAL_DELAY_MS * RETRY_BACKOFF_FACTOR ** attempt;
+  const jitterMultiplier = 1 + (Math.random() - 0.5) * RETRY_JITTER_FACTOR;
+  return Math.max(0, Math.round(base * jitterMultiplier));
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => {
+    setTimeout(resolve, ms);
+  });
+}
+
 async function readServiceFoundryErrorMessage(
   response: Awaited<ReturnType<typeof undiciFetch>>,
 ): Promise<string | undefined> {
@@ -213,6 +305,8 @@ export class TrueFoundryServiceFoundryServerClient {
   readonly #dispatcher: Dispatcher | undefined;
   readonly #httpTimeoutMs: number;
   readonly #httpAgentTimeoutMs: number;
+  /** Extra attempts after the first GET. Writes stay a single attempt. */
+  readonly #maxRetries: number;
   readonly #apiKey: string;
   readonly #controlPlaneUrlByTenant = new LRUCache<string, string>({
     max: TENANT_CONTROL_PLANE_URL_CACHE_MAX,
@@ -225,6 +319,8 @@ export class TrueFoundryServiceFoundryServerClient {
     tls: InternalTlsOptions;
     httpTimeoutMs: number;
     httpAgentTimeoutMs: number;
+    /** Extra attempts after the first GET. `0` keeps a single attempt. */
+    maxRetries: number;
     /** Service API key for vend-token and other privileged SFY calls. */
     apiKey: string;
   }) {
@@ -237,6 +333,7 @@ export class TrueFoundryServiceFoundryServerClient {
     this.#logger = input.logger;
     this.#httpTimeoutMs = input.httpTimeoutMs;
     this.#httpAgentTimeoutMs = input.httpAgentTimeoutMs;
+    this.#maxRetries = input.maxRetries;
     this.#apiKey = input.apiKey;
   }
 
@@ -818,80 +915,131 @@ export class TrueFoundryServiceFoundryServerClient {
       headers['content-type'] = 'application/json';
       body = JSON.stringify(input.body);
     }
-    let response: Awaited<ReturnType<typeof undiciFetch>>;
-    try {
-      response = await undiciFetch(input.url, {
-        method: input.method,
-        headers,
-        ...(body !== undefined ? { body } : {}),
-        signal: AbortSignal.timeout(timeoutMs),
-        ...(this.#dispatcher ? { dispatcher: this.#dispatcher } : {}),
-      });
-    } catch (error) {
-      const timedOut = error instanceof Error && error.name === 'TimeoutError';
-      record(timedOut ? 'timeout' : 'error');
-      this.#logger.error('TrueFoundry ServiceFoundry server request failed', {
+    const retryGets = input.method === 'GET';
+    let attempt = 0;
+    for (;;) {
+      let response: Awaited<ReturnType<typeof undiciFetch>>;
+      try {
+        response = await undiciFetch(input.url, {
+          method: input.method,
+          headers,
+          ...(body !== undefined ? { body } : {}),
+          signal: AbortSignal.timeout(timeoutMs),
+          ...(this.#dispatcher ? { dispatcher: this.#dispatcher } : {}),
+        });
+      } catch (error) {
+        const retryReason = retryGets ? transportRetryReason(error) : undefined;
+        if (retryReason !== undefined && attempt < this.#maxRetries) {
+          const delayMs = retryDelayMs(attempt);
+          await this.#waitForRetry({
+            url: input.url,
+            method: input.method,
+            attempt,
+            reason: retryReason,
+            delayMs,
+          });
+          attempt += 1;
+          continue;
+        }
+        const timedOut = error instanceof Error && error.name === 'TimeoutError';
+        record(timedOut ? 'timeout' : 'error');
+        this.#logger.error('TrueFoundry ServiceFoundry server request failed', {
+          url: input.url.href,
+          method: input.method,
+          durationMs: Date.now() - startedAt,
+          timedOut,
+          ...extractErrorLogFields(error),
+        });
+        throw new HTTPException(500, {
+          message: timedOut
+            ? `TrueFoundry ServiceFoundry server request timed out after ${String(timeoutMs / 1000)}s`
+            : 'TrueFoundry ServiceFoundry server request failed',
+          cause: error,
+        });
+      }
+      if (retryGets && isRetryableGetStatus(response.status) && attempt < this.#maxRetries) {
+        const delayMs = retryAfterMs(response.headers) ?? retryDelayMs(attempt);
+        const responseBody = response.body;
+        if (responseBody != null) {
+          void responseBody.cancel().catch(() => undefined);
+        }
+        await this.#waitForRetry({
+          url: input.url,
+          method: input.method,
+          attempt,
+          reason: response.status,
+          delayMs,
+        });
+        attempt += 1;
+        continue;
+      }
+      this.#logger.debug('TrueFoundry ServiceFoundry server request completed', {
         url: input.url.href,
         method: input.method,
+        status: response.status,
         durationMs: Date.now() - startedAt,
-        timedOut,
-        ...extractErrorLogFields(error),
       });
-      throw new HTTPException(500, {
-        message: timedOut
-          ? `TrueFoundry ServiceFoundry server request timed out after ${String(timeoutMs / 1000)}s`
-          : 'TrueFoundry ServiceFoundry server request failed',
-        cause: error,
-      });
+      if (response.status === 401 || response.status === 403) {
+        record('error', response.status);
+        const detail = await readServiceFoundryErrorMessage(response);
+        throw new HTTPException(response.status, {
+          message: `TrueFoundry ServiceFoundry server rejected the request: ${detail ?? `HTTP ${String(response.status)}`}`,
+        });
+      }
+      if (response.status === 404 && input.notFoundOk) {
+        record('success', response.status);
+        return undefined;
+      }
+      if (!response.ok) {
+        record('error', response.status);
+        const detail = await readServiceFoundryErrorMessage(response);
+        throw new HTTPException(424, {
+          message: `TrueFoundry ServiceFoundry server request failed: ${detail ?? `HTTP ${String(response.status)}`}`,
+        });
+      }
+      if (response.status === 204) {
+        record('success', response.status);
+        return undefined;
+      }
+      const text = await response.text();
+      if (text.length === 0) {
+        record('success', response.status);
+        return undefined;
+      }
+      try {
+        const parsed: unknown = JSON.parse(text);
+        record('success', response.status);
+        return parsed;
+      } catch (error) {
+        record('error', response.status);
+        this.#logger.error('TrueFoundry ServiceFoundry server returned non-JSON', {
+          url: input.url.href,
+          ...extractErrorLogFields(error),
+          reportable_error: { error },
+        });
+        throw new HTTPException(424, {
+          message: 'TrueFoundry ServiceFoundry server returned non-JSON',
+          cause: error,
+        });
+      }
     }
-    this.#logger.debug('TrueFoundry ServiceFoundry server request completed', {
+  }
+
+  async #waitForRetry(input: {
+    url: URL;
+    method: 'GET' | 'DELETE' | 'POST' | 'PUT';
+    attempt: number;
+    reason: ServiceFoundryRetryReason;
+    delayMs: number;
+  }): Promise<void> {
+    this.#logger.warn('TrueFoundry ServiceFoundry server request retrying', {
       url: input.url.href,
       method: input.method,
-      status: response.status,
-      durationMs: Date.now() - startedAt,
+      attempt: input.attempt + 1,
+      maxRetries: this.#maxRetries,
+      reason: input.reason,
+      delayMs: input.delayMs,
     });
-    if (response.status === 401 || response.status === 403) {
-      record('error', response.status);
-      const detail = await readServiceFoundryErrorMessage(response);
-      throw new HTTPException(response.status, {
-        message: `TrueFoundry ServiceFoundry server rejected the request: ${detail ?? `HTTP ${String(response.status)}`}`,
-      });
-    }
-    if (response.status === 404 && input.notFoundOk) {
-      record('success', response.status);
-      return undefined;
-    }
-    if (!response.ok) {
-      record('error', response.status);
-      const detail = await readServiceFoundryErrorMessage(response);
-      throw new HTTPException(424, {
-        message: `TrueFoundry ServiceFoundry server request failed: ${detail ?? `HTTP ${String(response.status)}`}`,
-      });
-    }
-    if (response.status === 204) {
-      record('success', response.status);
-      return undefined;
-    }
-    const text = await response.text();
-    if (text.length === 0) {
-      record('success', response.status);
-      return undefined;
-    }
-    try {
-      const parsed: unknown = JSON.parse(text);
-      record('success', response.status);
-      return parsed;
-    } catch (error) {
-      record('error', response.status);
-      this.#logger.error('TrueFoundry ServiceFoundry server returned non-JSON', {
-        url: input.url.href,
-        ...extractErrorLogFields(error),
-        reportable_error: { error },
-      });
-      throw new HTTPException(424, {
-        message: 'TrueFoundry ServiceFoundry server returned non-JSON',
-        cause: error,
-      });
-    }
+    await sleep(input.delayMs);
   }
 }
