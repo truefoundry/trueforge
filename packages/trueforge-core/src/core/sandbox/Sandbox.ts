@@ -313,6 +313,9 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
     sandboxInstructions.addContent('The Agent has access to a persistent sandbox environment for executing code.');
     sandboxInstructions.addContent('The Agent must NOT read or modify any git credential files.');
     sandboxInstructions.addContent(
+      'When fetching remote content, the Agent MUST save it to a file first, then extract from the file. Do not pipe large fetches through grep or sed into the tool response.',
+    );
+    sandboxInstructions.addContent(
       'Prefer OpenUI for inline charts when available; sandbox chart images only for downloads.',
     );
 
