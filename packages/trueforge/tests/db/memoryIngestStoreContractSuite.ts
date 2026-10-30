@@ -30,7 +30,7 @@ const IN_A_MINUTE = () => new Date(Date.now() + 60 * 1000);
 
 /** Every session updated since `since`; an empty paused range. */
 function recent(since: Date) {
-  return { recent_since: since, paused_from: since, paused_until: since };
+  return { recent_since: since, paused_from: since, paused_until: since, after: undefined };
 }
 
 export interface MemoryIngestStoreContractEnv {
@@ -159,6 +159,7 @@ export function runMemoryIngestStoreContractSuite(getEnv: () => MemoryIngestStor
       recent_since: IN_A_MINUTE(),
       paused_from: HOUR_AGO(),
       paused_until: IN_A_MINUTE(),
+      after: undefined,
       limit: 10,
     });
     expect(candidates.map(c => c.session_id)).toEqual(['paused']);

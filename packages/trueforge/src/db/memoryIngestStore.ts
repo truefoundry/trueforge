@@ -73,7 +73,7 @@ export interface ListMemoryIngestCandidatesInput {
   paused_from: Date;
   paused_until: Date;
   /** Only candidates strictly after this key, so runs can continue where the last one stopped. */
-  after?: MemoryIngestCandidateKey;
+  after: MemoryIngestCandidateKey | undefined;
   limit: number;
 }
 

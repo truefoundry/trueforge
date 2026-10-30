@@ -29,7 +29,7 @@ export function createController<TTransaction>(params: {
     sandboxEnvBuildLoop({ logger: params.logger }),
   ];
   if (params.memory !== undefined) {
-    loops.push(memoryIngestLoop({ ...params.memory, logger: params.logger }));
+    loops.push(memoryIngestLoop({ ...params.memory, logger: params.logger, now: () => new Date() }));
   }
   return new Controller({ loops, logger: params.logger });
 }

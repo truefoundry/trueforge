@@ -43,7 +43,7 @@ export interface MemoryIngestDeps {
   settings: MemorySettings;
   logger: Logger;
   config: MemoryIngestConfig;
-  now?: () => Date;
+  now: () => Date;
 }
 
 export const MEMORY_INGEST_OUTCOMES = [
@@ -140,8 +140,7 @@ async function ingestSession({
   deps: MemoryIngestDeps;
   signal: AbortSignal;
 }): Promise<SessionResult> {
-  const { store, provider, logger, config } = deps;
-  const now = deps.now ?? (() => new Date());
+  const { store, provider, logger, config, now } = deps;
   const { cursor } = candidate;
   const logFields = {
     session_id: candidate.session_id,
@@ -264,8 +263,7 @@ export async function runMemoryIngestPass({
   signal: AbortSignal;
   resumeAfter: MemoryIngestCandidateKey | undefined;
 }): Promise<MemoryIngestRunResult> {
-  const { store, logger, config } = deps;
-  const now = deps.now ?? (() => new Date());
+  const { store, logger, config, now } = deps;
   const startedAt = now();
 
   // Recent sessions within the lookback; paused ones only once their pause has timed out, for one
@@ -275,7 +273,7 @@ export async function runMemoryIngestPass({
     recent_since: new Date(startedMs - config.lookbackMs),
     paused_from: new Date(startedMs - config.pauseTimeoutMs - config.lookbackMs),
     paused_until: new Date(startedMs - config.pauseTimeoutMs),
-    ...(resumeAfter === undefined ? {} : { after: resumeAfter }),
+    after: resumeAfter,
     limit: config.maxSessionsPerRun + 1,
   });
   if (listed.length === 0 && resumeAfter !== undefined) {
