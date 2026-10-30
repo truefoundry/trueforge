@@ -23,6 +23,8 @@ import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
+import type { ConfiguredMemory } from '../memory/memoryFromConfig';
+import { isTenantMemoryEnabled } from '../memory/MemorySettings';
 import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProvider';
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import {
@@ -270,6 +272,7 @@ export async function validateAgentSpec({
   webSearchProviderStore,
   configurationStore,
   previousSpec,
+  memory,
 }: {
   spec: AgentSpec;
   tenant_id: string;
@@ -283,6 +286,8 @@ export async function validateAgentSpec({
   configurationStore: IConfigurationStore;
   /** Spec already saved on this session or agent; undefined when creating. */
   previousSpec: AgentSpec | undefined;
+  /** Undefined when the deployment has memory off. */
+  memory: ConfiguredMemory | undefined;
 }): Promise<void> {
   const resolved = await getModelDetails({
     tenant_id,
@@ -364,6 +369,15 @@ export async function validateAgentSpec({
       throw new HTTPException(422, {
         message: 'web_search is enabled but no web-search provider is configured',
       });
+    }
+  }
+
+  if (spec.config.memory.enabled) {
+    if (memory === undefined) {
+      throw new HTTPException(422, { message: 'memory is enabled but memory is not available on this deployment' });
+    }
+    if (!(await isTenantMemoryEnabled(memory.settings, tenant_id))) {
+      throw new HTTPException(422, { message: 'memory is enabled but memory is turned off for this tenant' });
     }
   }
 }

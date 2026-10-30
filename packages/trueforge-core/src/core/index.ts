@@ -47,6 +47,15 @@ export {
   DEFAULT_TOTAL_TOOL_TOKEN_THRESHOLD,
   largeToolResponse,
 } from './capabilities/builtins/LargeToolResponse';
+export {
+  MEMORY_ADD_TOOL_NAME,
+  MEMORY_INSTRUCTION_TAG,
+  MEMORY_SEARCH_TOOL_NAME,
+  MEMORY_SERVER_ID,
+  MEMORY_STATE_KEY,
+  buildMemoryInstruction,
+  memory,
+} from './capabilities/builtins/Memory';
 export { openUI } from './capabilities/builtins/OpenUI';
 export {
   WEB_FETCH_TOOL_NAME,
@@ -160,6 +169,7 @@ export type {
   AgentRemoteMcpToolTrace,
   AgentTracing,
 } from './tracing/AgentTracing';
+export { NOOP_AGENT_TRACING } from './tracing/NoopAgentTracing';
 
 export {
   configureOperationMetrics,
@@ -295,6 +305,9 @@ export type {
   WebSearchHit,
   WebSearchHits,
 } from './web-search/WebSearchProvider';
+
+// Memory
+export type { MemoryFact, ScopedMemory } from './memory/ScopedMemory';
 
 // Skills: the ISkillMounter seam lets hosts plug in their own skill sources
 export { InstructionBuilder } from './InstructionBuilder';

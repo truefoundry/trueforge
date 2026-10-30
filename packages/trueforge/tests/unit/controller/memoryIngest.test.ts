@@ -107,9 +107,17 @@ class FakeStore implements IMemoryIngestStore {
   }
 }
 
+/** Ingestion never reads or writes memory directly. */
+const RETRIEVAL_UNUSED = {
+  getUserSummary: () => Promise.reject(new Error('not used by ingestion')),
+  search: () => Promise.reject(new Error('not used by ingestion')),
+  addMemory: () => Promise.reject(new Error('not used by ingestion')),
+};
+
 function fakeProvider(fail: (input: IngestExchangeInput) => boolean = () => false) {
   const calls: IngestExchangeInput[] = [];
   const provider: MemoryProvider = {
+    ...RETRIEVAL_UNUSED,
     name: 'zep',
     async ingestExchange(input) {
       calls.push(input);
@@ -387,6 +395,7 @@ describe('runMemoryIngestPass', () => {
     const store = new FakeStore();
     store.add(session({ id: 's1', turns: [closedTurn('t1', null, 10)] }));
     const provider: MemoryProvider = {
+      ...RETRIEVAL_UNUSED,
       name: 'zep',
       async ingestExchange() {
         throw new MemoryIngestError({ message: 'add failed', externalThreadId: 'created-thread', cause: null });

@@ -35,9 +35,10 @@ function specWantsSandbox(spec: AgentSpec): boolean {
 }
 
 function rootCapabilitiesOf(
-  rootCapabilities: (() => readonly AgentCapability[]) | undefined,
+  rootCapabilities: ((input: { tracing: AgentTracing }) => readonly AgentCapability[]) | undefined,
+  tracing: AgentTracing,
 ): { extraCapabilities: AgentCapability[] } | Record<string, never> {
-  const capabilities = rootCapabilities?.() ?? [];
+  const capabilities = rootCapabilities?.({ tracing }) ?? [];
   if (capabilities.length === 0) {
     return {};
   }
@@ -104,7 +105,7 @@ export class TurnResourceResolver<
        * A child thread passes `agent_info` and does not receive these. A subclass that replaces
        * `resolveAgentDefinition` without calling `super` does not mount them.
        */
-      rootCapabilities?: (() => readonly AgentCapability[]) | undefined;
+      rootCapabilities?: ((input: { tracing: AgentTracing }) => readonly AgentCapability[]) | undefined;
       /** Forwarded to RemoteMCP / AgentThread (required by their constructors). */
       logger: Logger;
     },
@@ -254,7 +255,7 @@ export class TurnResourceResolver<
         iterationLimit: spec.config.iteration_limit,
         toolSets,
       },
-      ...(agentInfo === undefined ? rootCapabilitiesOf(this.deps.rootCapabilities) : {}),
+      ...(agentInfo === undefined ? rootCapabilitiesOf(this.deps.rootCapabilities, tracing) : {}),
     };
   }
 

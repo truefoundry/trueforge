@@ -131,6 +131,8 @@ export async function startScheduleRunOnRequest<TTransaction>(params: {
       webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
       skillStore: deps.resolveTurnSkillsStore({}),
       capabilitiesStore: deps.resolveCapabilitiesStore({}),
+      // Scheduled sessions never read or write memory.
+      memory: undefined,
       logger: deps.logger,
     },
   });
