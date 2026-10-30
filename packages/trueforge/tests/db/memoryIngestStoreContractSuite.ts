@@ -128,7 +128,7 @@ export function runMemoryIngestStoreContractSuite(getEnv: () => MemoryIngestStor
     expect(await candidateIds(new Date(Date.now() + 60_000))).toEqual([]);
   });
 
-  it('includes non-UI sessions on a registry agent only when its memory is enabled', async () => {
+  it('includes sessions on a registry agent only when its memory is enabled, even from the UI', async () => {
     const { seedAgent } = getEnv();
     await seedAgent({ tenant_id: TENANT, agent_id: 'agent-on', memory_enabled: true });
     await seedAgent({ tenant_id: TENANT, agent_id: 'agent-off', memory_enabled: false });
@@ -140,10 +140,7 @@ export function runMemoryIngestStoreContractSuite(getEnv: () => MemoryIngestStor
     await addTurn({ session_id: 'ui-off', turn_id: 't1' });
 
     const candidates = await getEnv().store.listCandidateSessions({ updated_since: HOUR_AGO(), limit: 10 });
-    expect(candidates.map(c => [c.session_id, c.agent_id, c.agent_memory_enabled]).sort()).toEqual([
-      ['on', 'agent-on', true],
-      ['ui-off', 'agent-off', false],
-    ]);
+    expect(candidates.map(c => [c.session_id, c.agent_id, c.agent_memory_enabled])).toEqual([['on', 'agent-on', true]]);
   });
 
   it('drops a session once its tip is ingested and returns it with the cursor after a new turn', async () => {

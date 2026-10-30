@@ -1,4 +1,4 @@
-import type { MemoryExchange } from '../../../../src/memory/MemoryProvider';
+import { MemoryIngestError, type MemoryExchange } from '../../../../src/memory/MemoryProvider';
 import type { MemoryScope } from '../../../../src/memory/scope';
 import { ZepMemoryProvider, ZepRequestError } from '../../../../src/memory/zep/ZepMemoryProvider';
 
@@ -217,8 +217,11 @@ describe('ZepMemoryProvider', () => {
     const { zep, logger } = provider(fetchImpl);
 
     const result = zep.ingestExchange({ scope: SCOPE, exchange: EXCHANGE, externalThreadId: 'thread-1' });
-    await expect(result).rejects.toBeInstanceOf(ZepRequestError);
-    await expect(result).rejects.toMatchObject({ operation: 'add_messages', status: 400 });
+    await expect(result).rejects.toBeInstanceOf(MemoryIngestError);
+    await expect(result).rejects.toMatchObject({
+      externalThreadId: 'thread-1',
+      cause: expect.objectContaining({ operation: 'add_messages', status: 400 }),
+    });
     expect(calls).toHaveLength(1);
     expect(logger.error).toHaveBeenCalledWith(
       'Memory provider request failed',
@@ -237,7 +240,20 @@ describe('ZepMemoryProvider', () => {
 
     await expect(
       zep.ingestExchange({ scope: SCOPE, exchange: EXCHANGE, externalThreadId: 'thread-1' }),
-    ).rejects.toMatchObject({ status: 503 });
+    ).rejects.toMatchObject({ cause: expect.any(ZepRequestError) });
     expect(calls).toHaveLength(4);
+  });
+
+  it('reports a thread it created when adding messages then fails, so it is not lost', async () => {
+    const { fetchImpl } = fakeFetch([
+      jsonResponse(200, { uuid: 'user-uuid' }),
+      jsonResponse(201, { uuid: 'thread-new' }),
+      jsonResponse(400, { message: 'bad request' }),
+    ]);
+    const { zep } = provider(fetchImpl);
+
+    await expect(
+      zep.ingestExchange({ scope: SCOPE, exchange: EXCHANGE, externalThreadId: null }),
+    ).rejects.toMatchObject({ name: 'MemoryIngestError', externalThreadId: 'thread-new' });
   });
 });

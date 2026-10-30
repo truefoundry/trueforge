@@ -74,7 +74,7 @@ export type UpsertMemoryIngestCursorInput = Omit<MemoryIngestCursor, 'updated_at
 
 export interface IMemoryIngestStore {
   /**
-   * Non-scheduled sessions that are UI chats or bound to an agent with memory enabled, updated
+   * Non-scheduled sessions that are UI chats without an agent or bound to an agent with memory enabled, updated
    * since `updated_since`, whose tip turn is not yet ingested. Ordered by
    * (session.updated_at, session_id), oldest first, which `session_memory_ingest_idx` serves.
    */

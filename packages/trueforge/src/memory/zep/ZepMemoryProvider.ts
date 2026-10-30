@@ -4,7 +4,12 @@
  */
 import type { Logger } from 'winston';
 import { z } from 'zod';
-import type { IngestExchangeInput, MemoryMessage, MemoryProvider } from '../MemoryProvider';
+import {
+  MemoryIngestError,
+  type IngestExchangeInput,
+  type MemoryMessage,
+  type MemoryProvider,
+} from '../MemoryProvider';
 import type { MemoryScope } from '../scope';
 
 export const ZEP_DEFAULT_BASE_URL = 'https://api.getzep.com/api/v4';
@@ -109,23 +114,33 @@ export class ZepMemoryProvider implements MemoryProvider {
       ...(roles.length === 0 ? {} : { ignore_roles: roles }),
     };
 
-    let threadId = input.externalThreadId ?? (await this.#createThread(scope));
-    const sent = await this.#request({
-      operation: 'add_messages',
-      path: `/threads/${encodeURIComponent(threadId)}/messages`,
-      body,
-      allowNotFound: input.externalThreadId !== null,
-    });
-    if (sent.status === 404) {
-      // The stored thread was deleted on the Zep side; start a new one for the session.
-      threadId = await this.#createThread(scope);
-      await this.#request({
+    let threadId = input.externalThreadId;
+    try {
+      threadId ??= await this.#createThread(scope);
+      const sent = await this.#request({
         operation: 'add_messages',
         path: `/threads/${encodeURIComponent(threadId)}/messages`,
         body,
+        allowNotFound: input.externalThreadId !== null,
+      });
+      if (sent.status === 404) {
+        // The stored thread was deleted on the Zep side; start a new one for the session.
+        threadId = await this.#createThread(scope);
+        await this.#request({
+          operation: 'add_messages',
+          path: `/threads/${encodeURIComponent(threadId)}/messages`,
+          body,
+        });
+      }
+      return { externalThreadId: threadId };
+    } catch (error) {
+      // Hand back a thread created in this attempt so the retry reuses it instead of starting another.
+      throw new MemoryIngestError({
+        message: error instanceof Error ? error.message : String(error),
+        externalThreadId: threadId,
+        cause: error,
       });
     }
-    return { externalThreadId: threadId };
   }
 
   async #createThread(scope: MemoryScope): Promise<string> {

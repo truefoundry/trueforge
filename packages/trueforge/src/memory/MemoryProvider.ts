@@ -25,8 +25,30 @@ export interface MemoryExchange {
 export interface IngestExchangeInput {
   scope: MemoryScope;
   exchange: MemoryExchange;
-  /** Provider-side thread for the session; null on the first exchange of a session or scope. */
+  /** Provider-side thread for the session; null on the first exchange of a session. */
   externalThreadId: string | null;
+}
+
+/**
+ * Ingestion failed. `externalThreadId` is the thread the session should keep using, which may have
+ * been created during the failed attempt.
+ */
+export class MemoryIngestError extends Error {
+  readonly externalThreadId: string | null;
+
+  constructor({
+    message,
+    externalThreadId,
+    cause,
+  }: {
+    message: string;
+    externalThreadId: string | null;
+    cause: unknown;
+  }) {
+    super(message, { cause });
+    this.name = 'MemoryIngestError';
+    this.externalThreadId = externalThreadId;
+  }
 }
 
 /**

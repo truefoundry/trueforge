@@ -8,7 +8,7 @@ export const MAX_MEMORY_MESSAGE_CHARS = 4_000;
 const TRUNCATION_MARKER = ' [truncated]';
 
 /**
- * - `closed`: the last turn is terminal with nothing pending.
+ * - `closed`: the last turn is terminal with nothing pending, or a later user message superseded it.
  * - `paused`: the last turn finished waiting on the user (a question, approval or auth).
  * - `running`: the last turn has not finished.
  */
@@ -18,6 +18,8 @@ export type ExchangeStatus = 'closed' | 'paused' | 'running';
 export interface TurnExchange {
   turns: [MemoryIngestTurn, ...MemoryIngestTurn[]];
   status: ExchangeStatus;
+  /** When the exchange ended; null while it is running. */
+  completedAt: string | null;
   /** Starts with a resume turn (e.g. an answer) whose exchange was partly ingested earlier. */
   continuation: boolean;
 }
@@ -59,17 +61,31 @@ export function activePath({
   return path.reverse();
 }
 
-/** Groups consecutive turns into exchanges; a turn with a user message starts a new one. */
+/**
+ * Groups consecutive turns into exchanges; a turn with a user message starts a new one. An exchange
+ * still waiting when the user sends a new message (an ignored question or approval) closes there.
+ */
 export function buildExchanges(turns: readonly MemoryIngestTurn[]): TurnExchange[] {
   const exchanges: TurnExchange[] = [];
   let current: TurnExchange | undefined;
   for (const turn of turns) {
-    if (current === undefined || hasUserMessage(turn)) {
-      current = { turns: [turn], status: statusAfter(turn.state), continuation: !hasUserMessage(turn) };
+    if (current !== undefined && hasUserMessage(turn)) {
+      current.status = 'closed';
+      current.completedAt ??= turn.created_at;
+      current = undefined;
+    }
+    if (current === undefined) {
+      current = {
+        turns: [turn],
+        status: statusAfter(turn.state),
+        completedAt: completedAt(turn.state),
+        continuation: !hasUserMessage(turn),
+      };
       exchanges.push(current);
     } else {
       current.turns.push(turn);
       current.status = statusAfter(turn.state);
+      current.completedAt = completedAt(turn.state);
     }
     if (current.status === 'closed') {
       current = undefined;
@@ -120,11 +136,6 @@ function completedAt(state: TurnState): string | null {
     : null;
 }
 
-/** When the exchange's last turn finished; null while it is running. */
-export function exchangeCompletedAt(exchange: TurnExchange): string | null {
-  return completedAt(exchange.turns[exchange.turns.length - 1]?.state ?? exchange.turns[0].state);
-}
-
 export type ExchangeReadiness = { ready: true; partial: boolean } | { ready: false };
 
 /**
@@ -142,7 +153,7 @@ export function exchangeReadiness({
   settleMs: number;
   pauseTimeoutMs: number;
 }): ExchangeReadiness {
-  const finishedAt = exchangeCompletedAt(exchange);
+  const finishedAt = exchange.completedAt;
   if (exchange.status === 'running' || finishedAt === null) {
     return { ready: false };
   }

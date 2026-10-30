@@ -13,7 +13,7 @@ import type {
   MemoryIngestTurn,
   UpsertMemoryIngestCursorInput,
 } from '../../../src/db/memoryIngestStore';
-import type { IngestExchangeInput, MemoryProvider } from '../../../src/memory/MemoryProvider';
+import { MemoryIngestError, type IngestExchangeInput, type MemoryProvider } from '../../../src/memory/MemoryProvider';
 import {
   answer,
   askCall,
@@ -305,6 +305,25 @@ describe('runMemoryIngestPass', () => {
       'Memory ingest failed for session',
       expect.objectContaining({ session_id: 's1', last_error: 'zep unavailable', reportable_error: expect.anything() }),
     );
+  });
+
+  it('saves a thread the provider created before failing, so the retry reuses it', async () => {
+    const store = new FakeStore();
+    store.add(session({ id: 's1', turns: [closedTurn('t1', null, 10)] }));
+    const provider: MemoryProvider = {
+      name: 'zep',
+      async ingestExchange() {
+        throw new MemoryIngestError({ message: 'add failed', externalThreadId: 'created-thread', cause: null });
+      },
+    };
+
+    await runMemoryIngestPass({ deps: deps({ store, provider }), signal: signal(), resumeAfter: undefined });
+
+    expect(store.cursors.get('s1')).toMatchObject({
+      last_ingested_turn_id: null,
+      external_thread_id: 'created-thread',
+      last_error: 'add failed',
+    });
   });
 
   it('continues after the checkpoint in the stored provider thread', async () => {

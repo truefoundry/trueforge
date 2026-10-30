@@ -61,7 +61,10 @@ export class SqliteMemoryIngestStore implements IMemoryIngestStore {
       ])
       .where(memoryIngestIndexPredicate)
       .where('s.updated_at', '>=', input.updated_since.toISOString())
-      .where(eb => eb.or([eb(tfgSource, '=', 'ui'), eb(agentMemoryEnabled, '=', 1)]))
+      // Matches resolveMemoryScope: a bound agent's manifest decides; UI chats without one use the default scope.
+      .where(eb =>
+        eb.or([eb.and([eb('s.agent_id', 'is', null), eb(tfgSource, '=', 'ui')]), eb(agentMemoryEnabled, '=', 1)]),
+      )
       .where(sql<boolean>`c.last_ingested_turn_id IS NOT t.turn_id`);
     if (after !== undefined) {
       query = query.where(

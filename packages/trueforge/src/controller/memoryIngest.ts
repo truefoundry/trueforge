@@ -15,13 +15,12 @@ import {
   activePath,
   askUserQuestionsByToolCallId,
   buildExchanges,
-  exchangeCompletedAt,
   exchangeReadiness,
   renderExchange,
   resumePoint,
   type TurnExchange,
 } from '../memory/exchanges';
-import type { MemoryProvider } from '../memory/MemoryProvider';
+import { MemoryIngestError, type MemoryProvider } from '../memory/MemoryProvider';
 import { FlagMemorySettings, type MemorySettings } from '../memory/MemorySettings';
 import { resolveMemoryScope, type MemoryScope } from '../memory/scope';
 import type { ControlLoop } from './Controller';
@@ -201,12 +200,14 @@ async function ingestSession({
         });
         threadId = sent.externalThreadId;
         exchangesSent += 1;
-        const completedAt = exchangeCompletedAt(exchange);
-        if (completedAt !== null) {
-          lagsS.push(seconds(now().getTime() - Date.parse(completedAt)));
+        if (exchange.completedAt !== null) {
+          lagsS.push(seconds(now().getTime() - Date.parse(exchange.completedAt)));
         }
       }
     } catch (error) {
+      if (error instanceof MemoryIngestError && error.externalThreadId !== null) {
+        threadId = error.externalThreadId;
+      }
       const lastError = errorMessage(error);
       logger.error('Memory ingest failed for session', {
         ...logFields,

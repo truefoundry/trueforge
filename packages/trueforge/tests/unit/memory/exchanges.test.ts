@@ -85,6 +85,40 @@ describe('buildExchanges', () => {
     expect(only(buildExchanges([running])).status).toBe('running');
   });
 
+  it('closes an exchange the user moved on from, so later exchanges are not held back', () => {
+    const [u1] = pausedThenAnsweredTurns();
+    if (u1 === undefined) {
+      throw new Error('fixture');
+    }
+    const next = turn({
+      id: 'u2',
+      previous: 'u1',
+      input: [userMessage('Never mind, book a table instead')],
+      state: doneState({ completedAt: at(6 * MINUTE), output: reply('Booked for 8pm.') }),
+      createdAt: at(5 * MINUTE),
+    });
+    const exchanges = buildExchanges([u1, next]);
+    expect(exchanges.map(e => [e.turns.map(t => t.turn_id), e.status, e.completedAt])).toEqual([
+      [['u1'], 'closed', at(MINUTE)],
+      [['u2'], 'closed', at(6 * MINUTE)],
+    ]);
+    const settled = { now: new Date(T0 + 10 * MINUTE), settleMs: MINUTE, pauseTimeoutMs: 12 * HOUR };
+    expect(exchanges.map(exchange => exchangeReadiness({ exchange, ...settled }).ready)).toEqual([true, true]);
+  });
+
+  it('ends a turn left running (e.g. a crashed executor) when the next user message arrives', () => {
+    const stale = turn({ id: 'r', previous: null, input: [userMessage('hi')], state: RUNNING, createdAt: at(0) });
+    const next = turn({
+      id: 'u2',
+      previous: 'r',
+      input: [userMessage('hello?')],
+      state: doneState({ completedAt: at(3 * MINUTE), output: reply('Hi!') }),
+      createdAt: at(2 * MINUTE),
+    });
+    const [first] = buildExchanges([stale, next]);
+    expect(first).toMatchObject({ status: 'closed', completedAt: at(2 * MINUTE) });
+  });
+
   it('marks an exchange that starts with a resume turn as a continuation', () => {
     const [, a2] = pausedThenAnsweredTurns();
     if (a2 === undefined) {
