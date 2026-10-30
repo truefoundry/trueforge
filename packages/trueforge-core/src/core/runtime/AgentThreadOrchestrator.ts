@@ -544,7 +544,10 @@ export class AgentThreadOrchestrator {
     });
 
     const countedThreadIds = new Set<string>();
-    const emittedThreadCreatedIds = new Set<string>();
+    // Restored children already had thread.created; only emit for kids created in this execute().
+    const emittedThreadCreatedIds = new Set(
+      [...agentThreads.values()].filter(thread => thread.parent).map(thread => thread.threadId),
+    );
     try {
       while (agentThreads.size > 0) {
         if (shouldStopExecution) {
