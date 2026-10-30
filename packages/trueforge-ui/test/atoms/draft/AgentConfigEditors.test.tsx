@@ -1577,6 +1577,53 @@ describe('AgentConfigEditors', () => {
     });
   });
 
+  it('marks latest on the highest loaded version when catalog is stale', async () => {
+    const loadVersions = vi.fn(async () => [
+      {
+        name: 'agent-skill:acme/team-a/echo:10',
+        displayName: 'echo',
+        description: 'v10',
+        version: 10,
+      },
+      {
+        name: 'agent-skill:acme/team-a/echo:11',
+        displayName: 'echo',
+        description: 'v11',
+        version: 11,
+      },
+    ]);
+    const skill: AgentSkill = Object.assign(
+      {
+        id: 'agent-skill:acme/team-a/echo:10',
+        name: 'echo',
+        description: 'Echo skill',
+      },
+      { version: 10, loadVersions },
+    );
+
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="skills"
+          spec={{ model: { name: 'openai/gpt' } }}
+          models={[]}
+          connectors={[]}
+          skills={[skill]}
+          loading={false}
+          error={null}
+          onChange={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select version for echo' }));
+    const v11 = await screen.findByRole('menuitem', { name: /v11/ });
+    const v10 = screen.getByRole('menuitem', { name: /^v10/ });
+    expect(v11).toHaveTextContent('latest');
+    expect(v10).not.toHaveTextContent('latest');
+  });
+
   it('shows a concise version error and copies its details', async () => {
     const clipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
     const writeText = vi.fn().mockResolvedValue(undefined);

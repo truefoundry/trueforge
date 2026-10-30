@@ -66,13 +66,15 @@ export function SkillVersionSelector({
   selectedId?: string;
   onChange: (version: SkillVersionOption) => void;
 }) {
-  const latestVersion = skillVersion(skill);
-  const selectedVersion = selectedId === undefined ? latestVersion : versionFromSkillId(selectedId);
+  const catalogVersion = skillVersion(skill);
   const [versions, setVersions] = useState<SkillVersionOption[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const latestVersion =
+    versions !== null && versions.length > 0 ? Math.max(...versions.map(option => option.version)) : catalogVersion;
+  const selectedVersion = selectedId === undefined ? latestVersion : versionFromSkillId(selectedId);
 
-  if (latestVersion === undefined) return null;
+  if (catalogVersion === undefined) return null;
 
   const load = () => {
     if (versions !== null || loading) return;
