@@ -241,6 +241,10 @@ export const ModelMessageEventSchema = EnrichedAssistantMessageSchema.omit({ rol
       .optional()
       .describe('Model finish reason; null when the provider omitted it.'),
     created_at: z.string().describe('ISO 8601 event timestamp.'),
+    completed_at: z
+      .string()
+      .optional()
+      .describe('ISO 8601 time when the provider stream finished. Absent on older events.'),
     usage: ModelMessageUsageSchema.optional(),
     // Optional: legacy rows may lack model when the session agent FQN cannot be backfilled.
     model: ModelSchema.optional(),

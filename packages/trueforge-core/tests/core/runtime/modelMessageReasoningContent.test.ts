@@ -78,7 +78,12 @@ describe('AgentThread model.message reasoning_content', () => {
     });
 
     let append: AgentThreadAppendContext | undefined;
+    let streamedModelMessageCount = 0;
     for await (const event of thread.execute({ signal: new AbortController().signal })) {
+      if (event.type === 'model.message') {
+        streamedModelMessageCount += 1;
+        expect(event.completed_at).toBeUndefined();
+      }
       if (event.type === InternalEventType.AGENT_CONTEXT_APPEND) {
         append = event;
       }
@@ -92,5 +97,12 @@ describe('AgentThread model.message reasoning_content', () => {
     const modelMessage = append?.output.find(e => e.type === 'model.message');
     expect(modelMessage).toMatchObject({ reasoning_content: 'step one' });
     expect(modelMessage).not.toHaveProperty('thinking_blocks');
+    expect(streamedModelMessageCount).toBe(1);
+    const completedAt = modelMessage?.completed_at;
+    expect(completedAt).toEqual(expect.any(String));
+    if (modelMessage?.type !== 'model.message' || completedAt === undefined) {
+      throw new Error('expected stored model.message completed_at');
+    }
+    expect(Date.parse(completedAt)).toBeLessThanOrEqual(Date.parse(modelMessage.created_at));
   });
 });

@@ -2860,6 +2860,10 @@
       },
       "ModelMessageEvent": {
         "properties": {
+          "completed_at": {
+            "description": "ISO 8601 time when the provider stream finished. Absent on older events.",
+            "type": "string"
+          },
           "content": {
             "anyOf": [
               {

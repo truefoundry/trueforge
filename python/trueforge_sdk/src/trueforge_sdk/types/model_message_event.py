@@ -13,6 +13,11 @@ from .tool_call import ToolCall
 
 
 class ModelMessageEvent(UncheckedBaseModel):
+    completed_at: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    ISO 8601 time when the provider stream finished. Absent on older events.
+    """
+
     content: typing.Optional[ModelMessageEventContent] = pydantic.Field(default=None)
     """
     Assistant message content as text or content parts.

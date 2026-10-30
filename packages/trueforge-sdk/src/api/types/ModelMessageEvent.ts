@@ -3,6 +3,8 @@
 import type * as TrueForge from "../index.js";
 
 export interface ModelMessageEvent {
+    /** ISO 8601 time when the provider stream finished. Absent on older events. */
+    completedAt?: string;
     /** Assistant message content as text or content parts. */
     content?: TrueForge.ModelMessageEventContent | null;
     /** ISO 8601 event timestamp. */
