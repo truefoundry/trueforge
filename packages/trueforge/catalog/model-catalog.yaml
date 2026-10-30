@@ -314,6 +314,7 @@ providers:
           context_length: 1048576
           max_output_tokens: 65536
           reasoning_efforts:
+            - none
             - minimal
             - low
             - medium
@@ -333,6 +334,7 @@ providers:
           context_length: 1048576
           max_output_tokens: 65536
           reasoning_efforts:
+            - none
             - minimal
             - low
             - medium
@@ -343,6 +345,7 @@ providers:
           context_length: 1048576
           max_output_tokens: 65536
           reasoning_efforts:
+            - none
             - minimal
             - low
             - medium
@@ -353,6 +356,7 @@ providers:
           context_length: 1048576
           max_output_tokens: 65536
           reasoning_efforts:
+            - none
             - minimal
             - low
             - medium
