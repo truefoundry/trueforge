@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://schema.buildwithfern.dev/generators-yml.json
+#
+# SDK generation lives in sdk-config.yml; Fern still discovers the API definition here.
+api:
+  specs:
+    - openapi: openapi/openapi.json
+      settings:
+        title-as-schema-name: false
+        prefer-undiscriminated-unions-with-literals: true
+        only-include-referenced-schemas: true
+        type-dates-as-strings: true
+        object-query-parameters: true
+        idiomatic-request-names: true
+        respect-nullable-schemas: true
+        wrap-references-to-nullable-in-optional: false
+        coerce-optional-schemas-to-nullable: false
+        inline-path-parameters: false
+        coerce-enums-to-literals: true
+        respect-forward-compatible-enums: true
+groups: {}

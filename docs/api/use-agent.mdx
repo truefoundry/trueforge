@@ -871,7 +871,7 @@ if turn.state.status == "running":
         session_id=session.data.id,
         turn_id=turn_id,
         after_sequence_number=last_sequence_number,
-        request_options={"timeout": 600},
+        request_config={"timeout": 600},
     )
     for meta in resume.with_metadata():
         event = meta.data

@@ -112,7 +112,7 @@ jobs:
           elif ! git rev-parse --verify --quiet "${BASE_SHA}^{commit}" >/dev/null; then
             # A branch's first push reports an all-zero base commit.
             reason="there is no base commit to compare against"
-          elif ! git diff --quiet "$BASE_SHA" HEAD -- .github/fern/generators.yml .github/fern/fern.config.json scripts/generate-sdk.sh; then
+          elif ! git diff --quiet "$BASE_SHA" HEAD -- .github/fern/sdk-config.yml .github/fern/generators.legacy.yml .github/fern/fern.config.json scripts/generate-sdk.sh; then
             reason="the generator config changed"
           fi
 

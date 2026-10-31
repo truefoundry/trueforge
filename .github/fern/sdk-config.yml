@@ -1,0 +1,111 @@
+# openapi/openapi.json is committed by `pnpm openapi:write`, so Fern never needs the server.
+schemaVersion: sdk-config/v1
+sdkName: truefoundry
+source:
+  specs:
+    - id: openapi
+      type: openapi
+      path: ./openapi/openapi.json
+  apiImportSettings:
+    respectNullableSchemas: true
+    titleAsSchemaName: false
+    coerceEnumsToLiterals: true
+    idiomaticRequestNames: true
+    wrapReferencesToNullableInOptional: false
+    coerceOptionalSchemasToNullable: false
+    onlyIncludeReferencedSchemas: true
+    objectQueryParameters: true
+    typeDatesAsStrings: true
+    discriminatedUnionV2: true
+    undiscriminatedUnionsWithLiterals: true
+client:
+  responseValidation: false
+  pathParameterStyle: inline
+  useDefaultRequestParameterValues: true
+docs:
+  readme:
+    apiName: TrueForge
+    introduction: |
+      API client for the TrueForge Agent Harness Server: a self-hosted runtime that executes agent turns and streams them over Server-Sent Events.
+
+      When auth is enabled on the server, pass an ID token via the optional `token` client option (`Authorization: Bearer`).
+    apiReferenceLink: https://trueforge.dev/api/use-agent
+    # Fern keys this lookup on the stream flag, so the string form misses and fails.
+    defaultEndpoint:
+      method: POST
+      path: /api/v1/sessions/{session_id}/turns
+      stream: true
+generation:
+  naming:
+    exportedClientName: TrueForge
+    smartCasing: true
+targets:
+  - language: typescript
+    generatorVersion: 4.0.0
+    output:
+      delivery: files
+      path: ../../packages/trueforge-sdk
+    client:
+      filePropertyStyle: inline
+    docs:
+      includeApiReference: true
+    package:
+      packageName: "@truefoundry/trueforge-sdk"
+      authors:
+        - name: TrueForge
+      homepage: https://github.com/truefoundry/trueforge/tree/main/packages/trueforge-sdk#readme
+      license:
+        type: MIT
+      bugs:
+        url: https://github.com/truefoundry/trueforge/issues
+      repository: git+https://github.com/truefoundry/trueforge.git
+    generation:
+      naming:
+        clientName: TrueForge
+      streams:
+        enabled: true
+        responseType: web
+        fileResponseType: binary-response
+      serialization:
+        inlineTypes: false
+        omitUndefined: true
+      formDataSupport: Node18
+      allowExtraFields: true
+      outputEsm: true
+      # Opt-in via --conditions=trueforge-dev / customConditions. Never
+      # name this "development" (Vite/webpack auto-activate; src/ unpublished).
+      # Types stay on sdk:types .d.mts (src is not exactOptionalPropertyTypes-clean).
+      exports:
+        .:
+          trueforge-dev:
+            # `types` must precede `default` (exports key order is match priority).
+            types: ./dist/esm/index.d.mts
+            default: ./src/index.ts
+      engines:
+        node: ">=22"
+      httpClient:
+        name: fetch
+      namespaceExportName: TrueForge
+      allowCustomFetcher: true
+      serdeLayer: true
+  - language: python
+    generatorVersion: 6.0.0
+    output:
+      delivery: files
+      path: ../../python/trueforge_sdk
+    package:
+      # Import + upload name. pip install trueforge-sdk resolves via PEP 503.
+      packageName: trueforge_sdk
+      moduleName: trueforge_sdk
+    generation:
+      naming:
+        clientName: BaseTrueForge
+      serialization:
+        enumRepresentation: forward-compatible-enum
+      pydantic:
+        frozen: false
+      pythonVersion: ">=3.10"
+      client:
+        fileName: base_client.py
+        exportedFileName: client.py
+      streamAbstraction: true
