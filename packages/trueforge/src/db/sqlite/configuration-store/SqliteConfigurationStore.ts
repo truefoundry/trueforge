@@ -1,12 +1,16 @@
 import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
-import type { SettingsManifest } from '../../../schemas/settings';
+import type { ConfigurationsManifest } from '../../../schemas/configurations';
 import type { ConfigurationRecord, IConfigurationStore, UpsertConfigurationInput } from '../../configurationStore';
 import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
 import type { Database } from '../types';
 
 /** Projects JSONB manifest via JSON_RESULT_COLUMNS. */
 function recordColumns(eb: ExpressionBuilder<Database, 'configuration'>) {
-  return ['tenant_id' as const, jsonText<SettingsManifest>(eb.ref('manifest')).as('manifest'), 'updated_at' as const];
+  return [
+    'tenant_id' as const,
+    jsonText<ConfigurationsManifest>(eb.ref('manifest')).as('manifest'),
+    'updated_at' as const,
+  ];
 }
 
 export class SqliteConfigurationStore implements IConfigurationStore<Transaction<Database>> {

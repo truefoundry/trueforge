@@ -1,4 +1,4 @@
-import { createConfigurationRouter } from '../../../src/apis/configuration';
+import { createConfigurationsRouter } from '../../../src/apis/configurations';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -16,14 +16,14 @@ async function createRouter() {
   const db = createSqliteDb(':memory:');
   await migrateSqliteToLatest(db);
   const store = new SqliteConfigurationStore(db);
-  const router = createConfigurationRouter({
+  const router = createConfigurationsRouter({
     resolveConfigurationStore: () => store,
     resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
   });
   return { router, store };
 }
 
-describe('settings configuration router', () => {
+describe('settings configurations router', () => {
   it('GET reports everything enabled and materialises the row on first read', async () => {
     const { router, store } = await createRouter();
 

@@ -15,6 +15,7 @@ import { HTTPException } from 'hono/http-exception';
 import { join } from 'node:path';
 import type { Logger } from 'winston';
 import configuration from '../config';
+import { isWebSearchEnabledForTenant } from '../configurations/configurations';
 import type { IConfigurationStore } from '../db/configurationStore';
 import type { IMcpServerStore, IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
@@ -32,7 +33,6 @@ import {
 } from '../sandbox/providerUtils';
 import type { ReasoningEffort } from '../schemas/modelProvider';
 import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
-import { isWebSearchEnabledForTenant } from '../settings/settings';
 import { hasConfiguredWebSearchProvider } from '../websearch/providers';
 
 /** Split `provider/model` FQN. Returns undefined when the shape is not exactly one slash. */

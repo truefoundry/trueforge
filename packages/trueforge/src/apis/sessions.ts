@@ -32,6 +32,7 @@ import type { ResolveSkillStoreInput } from '../app';
 import type { Authorizer } from '../auth/authorizer';
 import { createdBySubjectFromRequestContext, type RequestContext, type ResolveRequestContext } from '../auth/identity';
 import configuration from '../config';
+import { isWebSearchEnabledForTenant } from '../configurations/configurations';
 import type { AccessGrantRecord, IAccessControlStore } from '../db/accessControlStore';
 import type { IAgentStore } from '../db/agentStore';
 import type { IConfigurationStore } from '../db/configurationStore';
@@ -61,7 +62,6 @@ import { validateAgentSpec } from '../runtime/sessionResources';
 import { honoQueriesToRecord } from '../schemas/deepObjectQuery';
 import { isSessionAgentNameRef, parseListSessionsQuery, type Session } from '../schemas/session';
 import type { SessionGrant, SessionGrantSubject } from '../schemas/sessionGrant';
-import { isWebSearchEnabledForTenant } from '../settings/settings';
 import { newId } from '../utils/id';
 import { agentIfAccessible, canReadAgentBoundResource, canReadSession, resolveManagedAgentIds } from './agentAccess';
 

@@ -28,6 +28,7 @@ import type {
 } from '@truefoundry/trueforge-core/core';
 import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
+import type { ConfigurationsManifest } from '../../schemas/configurations';
 import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { ModelProviderManifest } from '../../schemas/modelProvider';
 import type {
@@ -39,7 +40,6 @@ import type {
 import type { StoredSandboxProviderManifest } from '../../schemas/sandboxProvider';
 import type { ScheduleManifest, ScheduleRunStatus, ScheduleStatus } from '../../schemas/schedule';
 import type { SessionGrantSubjectType } from '../../schemas/sessionGrant';
-import type { SettingsManifest } from '../../schemas/settings';
 import type { SkillManifest } from '../../schemas/skill';
 import type { WebSearchProviderManifest } from '../../schemas/webSearchProvider';
 import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpServerStore';
@@ -240,7 +240,7 @@ export interface WebSearchProviderTable {
  */
 export interface ConfigurationTable {
   tenant_id: string;
-  manifest: JsonbColumn<SettingsManifest>;
+  manifest: JsonbColumn<ConfigurationsManifest>;
   updated_at: string;
 }
 

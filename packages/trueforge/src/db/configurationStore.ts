@@ -1,14 +1,14 @@
-import type { SettingsManifest } from '../schemas/settings';
+import type { ConfigurationsManifest } from '../schemas/configurations';
 
 export interface ConfigurationRecord {
   tenant_id: string;
-  manifest: SettingsManifest;
+  manifest: ConfigurationsManifest;
   updated_at: string;
 }
 
 export interface UpsertConfigurationInput {
   tenant_id: string;
-  manifest: SettingsManifest;
+  manifest: ConfigurationsManifest;
 }
 
 export interface IConfigurationStore<TTransaction = never> {

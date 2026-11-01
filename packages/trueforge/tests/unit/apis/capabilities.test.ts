@@ -371,7 +371,7 @@ describe('capabilities routers', () => {
         getProvider: () => Promise.resolve(undefined),
         upsertProvider: () => Promise.reject(new Error('not used')),
       };
-      const allOnTenantSettingStore: IConfigurationStore = {
+      const allOnConfigurationStore: IConfigurationStore = {
         getConfiguration: () => Promise.resolve(undefined),
         upsertConfiguration: () => Promise.reject(new Error('not used')),
       };
@@ -379,7 +379,7 @@ describe('capabilities routers', () => {
         createCapabilitiesRouter({
           sandboxEnvironmentStore: mockDefaultEnvStore(),
           resolveWebSearchProviderStore: () => emptyWebSearchStore,
-          resolveConfigurationStore: () => allOnTenantSettingStore,
+          resolveConfigurationStore: () => allOnConfigurationStore,
           userStore: new EmptyUserStore(),
           withTransaction: (() => {
             const run = <T>(callback: (trx: never) => Promise<T>): Promise<T> =>
