@@ -74,6 +74,8 @@ describe('sandbox environment wire schemas', () => {
     lifecycle_stage: 'active' as const,
     status: 'ready' as const,
     status_reason: null,
+    enabled: true,
+    disabled_at: null,
     manifest: {
       name: 'default',
       resources: { cpu: 1, memory: 1, disk: 3 },

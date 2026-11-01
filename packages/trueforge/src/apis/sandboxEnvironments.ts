@@ -22,6 +22,8 @@ import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandbox
 import {
   createSandboxEnvironmentRoute,
   deleteSandboxEnvironmentRoute,
+  disableSandboxEnvironmentRoute,
+  enableSandboxEnvironmentRoute,
   getSandboxEnvironmentRoute,
   listSandboxEnvironmentsRoute,
   putSandboxEnvironmentRoute,
@@ -62,6 +64,8 @@ function toSandboxEnvironment({ environment, version }: SandboxEnvironmentWithVe
     lifecycle_stage: environment.lifecycle_stage,
     status: version.status,
     status_reason: version.status_reason,
+    enabled: environment.enabled,
+    disabled_at: environment.disabled_at,
     manifest: redactManifestSecrets(manifest),
     created_by_subject: environment.created_by_subject,
     created_at: environment.created_at,
@@ -252,6 +256,31 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
     return c.json({ data: outcome.environment }, 200);
   };
 
+  /**
+   * Parent-row switch only, so a toggle never appends a version or queues a snapshot
+   * rebuild. Gated like PUT and DELETE: disabling is weaker than deleting, and the
+   * system-owned `"default"` therefore ends up admin-only.
+   */
+  function setEnabledHandler(enabled: boolean): RouteHandler<typeof enableSandboxEnvironmentRoute> {
+    return async c => {
+      const requestContext = resolveRequestContext(c);
+      const { tenant_id } = requestContext;
+      const { name } = c.req.valid('param');
+      const existing = await store.getEnvironment({ tenant_id, name });
+      if (!existing) {
+        return c.json({ error: { message: `Sandbox environment not found: ${name}` } }, 404);
+      }
+      if (!canCreateOrEdit(requestContext, existing.environment.created_by_subject.subject_id)) {
+        return c.json({ error: { message: FORBIDDEN_SANDBOX_ENVIRONMENT_WRITE } }, 403);
+      }
+      const saved = await store.setEnvironmentEnabled({ tenant_id, name, enabled });
+      if (!saved) {
+        return c.json({ error: { message: `Sandbox environment not found: ${name}` } }, 404);
+      }
+      return c.json({ data: toSandboxEnvironment(saved) }, 200);
+    };
+  }
+
   const deleteHandler: RouteHandler<typeof deleteSandboxEnvironmentRoute> = async c => {
     const requestContext = resolveRequestContext(c);
     const { tenant_id } = requestContext;
@@ -314,6 +343,8 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
   router.openapi(getSandboxEnvironmentRoute, getHandler);
   router.openapi(createSandboxEnvironmentRoute, createHandler);
   router.openapi(putSandboxEnvironmentRoute, putHandler);
+  router.openapi(enableSandboxEnvironmentRoute, setEnabledHandler(true));
+  router.openapi(disableSandboxEnvironmentRoute, setEnabledHandler(false));
   router.openapi(deleteSandboxEnvironmentRoute, deleteHandler);
   return router;
 }

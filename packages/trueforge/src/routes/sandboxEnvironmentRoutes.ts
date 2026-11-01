@@ -186,6 +186,64 @@ export const putSandboxEnvironmentRoute = createRoute({
   },
 });
 
+/** Enable and disable share a shape: no body, the saved environment back. */
+function sandboxEnvironmentStateRoute({
+  path,
+  methodName,
+  summary,
+  description,
+}: {
+  path: string;
+  methodName: string;
+  summary: string;
+  description: string;
+}) {
+  return createRoute({
+    method: 'post' as const,
+    path,
+    tags: [OpenApiTag.SANDBOXES],
+    summary,
+    description,
+    'x-fern-sdk-group-name': ['sandboxEnvironments'],
+    'x-fern-sdk-method-name': methodName,
+    request: {
+      params: SandboxEnvironmentNameParamsSchema,
+    },
+    responses: {
+      200: {
+        content: { 'application/json': { schema: GetSandboxEnvironmentResponseSchema } },
+        description: 'The saved sandbox environment.',
+      },
+      401: {
+        content: { 'application/json': { schema: RequestErrorResponseSchema } },
+        description: 'Unauthenticated.',
+      },
+      403: {
+        content: { 'application/json': { schema: RequestErrorResponseSchema } },
+        description: 'User does not have permission to edit Sandbox environment',
+      },
+      404: {
+        content: { 'application/json': { schema: RequestErrorResponseSchema } },
+        description: 'Sandbox environment not found.',
+      },
+    },
+  });
+}
+
+export const enableSandboxEnvironmentRoute = sandboxEnvironmentStateRoute({
+  path: '/{name}/enable',
+  methodName: 'enable',
+  summary: 'Enable a sandbox environment',
+  description: 'Allow new chats to select this environment again.',
+});
+
+export const disableSandboxEnvironmentRoute = sandboxEnvironmentStateRoute({
+  path: '/{name}/disable',
+  methodName: 'disable',
+  summary: 'Disable a sandbox environment',
+  description: 'Stop new chats from selecting this environment. Chats already using it keep access.',
+});
+
 export const deleteSandboxEnvironmentRoute = createRoute({
   method: 'delete',
   path: '/{name}',

@@ -40,6 +40,17 @@ const daytonaManifest = {
   auto_delete_interval_in_minutes: 7200,
 };
 
+/** Secret sync is not under test here; stub the provider so writes go straight through. */
+function mockDaytonaProvider(): void {
+  jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReturnValue({
+    createSecret: jest.fn(),
+    updateSecret: jest.fn(),
+    deleteSecret: jest.fn(),
+    getBuildStatus: jest.fn(),
+    build: jest.fn(),
+  } as never);
+}
+
 describe('sandbox environments API → build controller path', () => {
   afterEach(() => {
     jest.restoreAllMocks();
@@ -454,5 +465,116 @@ describe('sandbox environments API → build controller path', () => {
 
     expect((await publicRouter.request('/tfy-env', { method: 'DELETE' })).status).toBe(200);
     expect((await publicRouter.request('/tfy-env')).status).toBe(404);
+  });
+
+  describe('enable / disable', () => {
+    type EnvironmentBody = {
+      data: { enabled: boolean; disabled_at: string | null; status: string; description: string };
+    };
+
+    async function setupWithEnvironment() {
+      const harness = await setup();
+      mockDaytonaProvider();
+      const created = await harness.publicRouter.request('/', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ manifest: { name: 'pyjokes-env', description: 'has pyjokes' } }),
+      });
+      expect(created.status).toBe(201);
+      return harness;
+    }
+
+    function readBody(response: Response): Promise<EnvironmentBody> {
+      return response.json() as Promise<EnvironmentBody>;
+    }
+
+    it('starts enabled, disables with a timestamp, and enables again', async () => {
+      const { publicRouter } = await setupWithEnvironment();
+
+      expect((await readBody(await publicRouter.request('/pyjokes-env'))).data).toMatchObject({
+        enabled: true,
+        disabled_at: null,
+      });
+
+      const disabled = await publicRouter.request('/pyjokes-env/disable', { method: 'POST' });
+      expect(disabled.status).toBe(200);
+      const disabledBody = await readBody(disabled);
+      expect(disabledBody.data.enabled).toBe(false);
+      expect(disabledBody.data.disabled_at).not.toBeNull();
+
+      const enabled = await publicRouter.request('/pyjokes-env/enable', { method: 'POST' });
+      expect(enabled.status).toBe(200);
+      expect((await readBody(enabled)).data).toMatchObject({ enabled: true, disabled_at: null });
+    });
+
+    it('does not append a version, so a toggle never queues a rebuild', async () => {
+      const { publicRouter, sandboxEnvironmentStore } = await setupWithEnvironment();
+      const before = await sandboxEnvironmentStore.getEnvironment({
+        tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
+        name: 'pyjokes-env',
+      });
+
+      await publicRouter.request('/pyjokes-env/disable', { method: 'POST' });
+
+      const after = await sandboxEnvironmentStore.getEnvironment({
+        tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
+        name: 'pyjokes-env',
+      });
+      expect(after?.version.version).toBe(before?.version.version);
+      expect(after?.version.id).toBe(before?.version.id);
+      expect(after?.version.external_ref).toBe(before?.version.external_ref);
+    });
+
+    it('keeps a disabled environment in the list so it can be turned back on', async () => {
+      const { publicRouter } = await setupWithEnvironment();
+      await publicRouter.request('/pyjokes-env/disable', { method: 'POST' });
+
+      const listed = (await (await publicRouter.request('/')).json()) as {
+        data: { name: string; enabled: boolean }[];
+      };
+
+      expect(listed.data).toEqual([expect.objectContaining({ name: 'pyjokes-env', enabled: false })]);
+    });
+
+    it('keeps the environment disabled when its manifest is edited', async () => {
+      const { publicRouter } = await setupWithEnvironment();
+      await publicRouter.request('/pyjokes-env/disable', { method: 'POST' });
+
+      const updated = await publicRouter.request('/', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ manifest: { name: 'pyjokes-env', description: 'still disabled' } }),
+      });
+
+      expect(updated.status).toBe(200);
+      expect((await readBody(updated)).data).toMatchObject({ enabled: false, description: 'still disabled' });
+    });
+
+    it('answers 404 for an unknown environment', async () => {
+      const { publicRouter } = await setup();
+
+      expect((await publicRouter.request('/missing-env/disable', { method: 'POST' })).status).toBe(404);
+    });
+
+    it('allows the creator but not another non-admin', async () => {
+      const { publicRouter, setSubject } = await setup();
+      mockDaytonaProvider();
+      setSubject('alice');
+      expect(
+        (
+          await publicRouter.request('/', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ manifest: { name: 'alice-env', description: 'alice' } }),
+          })
+        ).status,
+      ).toBe(201);
+
+      setSubject('alice', ['everyone']);
+      expect((await publicRouter.request('/alice-env/disable', { method: 'POST' })).status).toBe(200);
+
+      setSubject('bob', ['everyone']);
+      expect((await publicRouter.request('/alice-env/enable', { method: 'POST' })).status).toBe(403);
+    });
   });
 });

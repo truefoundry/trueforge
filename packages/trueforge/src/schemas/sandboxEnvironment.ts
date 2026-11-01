@@ -219,6 +219,11 @@ export const UpdateSandboxEnvironmentRequestSchema = z
   .openapi('UpdateSandboxEnvironmentRequest');
 
 const IsoTimestamp = z.iso.datetime().openapi({ type: 'string', format: 'date-time' });
+// `.openapi({ type })` replaces the emitted type, so nullability has to be spelled out here.
+const NullableIsoTimestamp = z.iso
+  .datetime()
+  .nullable()
+  .openapi({ type: ['string', 'null'], format: 'date-time' });
 
 export const SandboxEnvironmentSchema = z
   .object({
@@ -228,6 +233,10 @@ export const SandboxEnvironmentSchema = z
     lifecycle_stage: SandboxEnvironmentLifecycleStageSchema,
     status: SandboxEnvironmentVersionStatusSchema.describe('Readiness of the environment.'),
     status_reason: z.string().nullable().describe('Failure detail when status is failed; null otherwise.'),
+    enabled: z
+      .boolean()
+      .describe('Whether new chats may select this environment. Chats that already use it keep access.'),
+    disabled_at: NullableIsoTimestamp.describe('ISO-8601 time the environment was last disabled; null when on.'),
     manifest: SandboxEnvironmentManifestSchema,
     created_by_subject: CreatedBySubjectSchema,
     created_at: IsoTimestamp.describe('ISO-8601 create time.'),
