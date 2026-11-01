@@ -3,18 +3,27 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
+import { SettingsSectionCapability } from "./SettingsSectionCapability.js";
 
 export const SettingsCapability: core.serialization.ObjectSchema<
     serializers.SettingsCapability.Raw,
     TrueForge.SettingsCapability
 > = core.serialization.object({
-    enabled: core.serialization.boolean(),
-    limitedToWebSearch: core.serialization.property("limited_to_web_search", core.serialization.boolean()),
+    mcpServers: core.serialization.property("mcp_servers", SettingsSectionCapability),
+    memory: SettingsSectionCapability,
+    modelProviders: core.serialization.property("model_providers", SettingsSectionCapability),
+    sandboxProviders: core.serialization.property("sandbox_providers", SettingsSectionCapability),
+    skills: SettingsSectionCapability,
+    webSearch: core.serialization.property("web_search", SettingsSectionCapability),
 });
 
 export declare namespace SettingsCapability {
     export interface Raw {
-        enabled: boolean;
-        limited_to_web_search: boolean;
+        mcp_servers: SettingsSectionCapability.Raw;
+        memory: SettingsSectionCapability.Raw;
+        model_providers: SettingsSectionCapability.Raw;
+        sandbox_providers: SettingsSectionCapability.Raw;
+        skills: SettingsSectionCapability.Raw;
+        web_search: SettingsSectionCapability.Raw;
     }
 }

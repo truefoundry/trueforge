@@ -5,11 +5,11 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .tenant_setting import TenantSetting
+from .web_search_configuration import WebSearchConfiguration
 
 
-class GetTenantSettingResponse(UncheckedBaseModel):
-    data: TenantSetting
+class ConfigurationsManifestPatch(UncheckedBaseModel):
+    web_search: typing.Optional[WebSearchConfiguration] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2

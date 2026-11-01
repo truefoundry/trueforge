@@ -2,11 +2,11 @@
 
 import type { BaseClientOptions } from "../../../../BaseClient.js";
 import { type NormalizedClientOptionsWithAuth, normalizeClientOptionsWithAuth } from "../../../../BaseClient.js";
+import { ConfigurationsClient } from "../resources/configurations/client/Client.js";
 import { McpServersClient } from "../resources/mcpServers/client/Client.js";
 import { ModelProvidersClient } from "../resources/modelProviders/client/Client.js";
 import { SandboxProvidersClient } from "../resources/sandboxProviders/client/Client.js";
 import { SkillsClient } from "../resources/skills/client/Client.js";
-import { TenantSettingsClient } from "../resources/tenantSettings/client/Client.js";
 import { WebSearchProvidersClient } from "../resources/webSearchProviders/client/Client.js";
 
 export declare namespace SettingsClient {
@@ -15,15 +15,19 @@ export declare namespace SettingsClient {
 
 export class SettingsClient {
     protected readonly _options: NormalizedClientOptionsWithAuth<SettingsClient.Options>;
+    protected _configurations: ConfigurationsClient | undefined;
     protected _mcpServers: McpServersClient | undefined;
     protected _modelProviders: ModelProvidersClient | undefined;
     protected _sandboxProviders: SandboxProvidersClient | undefined;
     protected _skills: SkillsClient | undefined;
-    protected _tenantSettings: TenantSettingsClient | undefined;
     protected _webSearchProviders: WebSearchProvidersClient | undefined;
 
     constructor(options: SettingsClient.Options) {
         this._options = normalizeClientOptionsWithAuth(options);
+    }
+
+    public get configurations(): ConfigurationsClient {
+        return (this._configurations ??= new ConfigurationsClient(this._options));
     }
 
     public get mcpServers(): McpServersClient {
@@ -40,10 +44,6 @@ export class SettingsClient {
 
     public get skills(): SkillsClient {
         return (this._skills ??= new SkillsClient(this._options));
-    }
-
-    public get tenantSettings(): TenantSettingsClient {
-        return (this._tenantSettings ??= new TenantSettingsClient(this._options));
     }
 
     public get webSearchProviders(): WebSearchProvidersClient {

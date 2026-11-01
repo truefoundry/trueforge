@@ -13,20 +13,22 @@ from ...core.unchecked_base_model import construct_type
 from ...errors.bad_request_error import BadRequestError
 from ...errors.forbidden_error import ForbiddenError
 from ...errors.unauthorized_error import UnauthorizedError
-from ...types.get_tenant_setting_response import GetTenantSettingResponse
+from ...types.configurations_manifest_patch import ConfigurationsManifestPatch
+from ...types.get_configurations_response import GetConfigurationsResponse
 from ...types.request_error_response import RequestErrorResponse
-from ...types.tenant_setting_manifest import TenantSettingManifest
 from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
 
 
-class RawTenantSettingsClient:
+class RawConfigurationsClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    def get(self, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[GetTenantSettingResponse]:
+    def get(
+        self, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[GetConfigurationsResponse]:
         """
         Tenant-wide feature switches. Tenants with nothing saved yet get every switch enabled.
 
@@ -37,20 +39,20 @@ class RawTenantSettingsClient:
 
         Returns
         -------
-        HttpResponse[GetTenantSettingResponse]
-            The tenant settings.
+        HttpResponse[GetConfigurationsResponse]
+            The tenant configurations.
         """
         _response = self._client_wrapper.httpx_client.request(
-            "api/v1/settings/tenant-settings",
+            "api/v1/settings/configurations",
             method="GET",
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    GetTenantSettingResponse,
+                    GetConfigurationsResponse,
                     construct_type(
-                        type_=GetTenantSettingResponse,  # type: ignore
+                        type_=GetConfigurationsResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -86,30 +88,30 @@ class RawTenantSettingsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-    def create_or_update(
-        self, *, manifest: TenantSettingManifest, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[GetTenantSettingResponse]:
+    def update(
+        self, *, manifest: ConfigurationsManifestPatch, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[GetConfigurationsResponse]:
         """
-        Replaces the tenant-wide switches. Turning web search off applies to new chats; chats already using it keep it.
+        Updates the switches present in the body and leaves the rest. Turning web search off applies to new chats; chats already using it keep it.
 
         Parameters
         ----------
-        manifest : TenantSettingManifest
+        manifest : ConfigurationsManifestPatch
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        HttpResponse[GetTenantSettingResponse]
-            The saved tenant settings.
+        HttpResponse[GetConfigurationsResponse]
+            The saved tenant configurations.
         """
         _response = self._client_wrapper.httpx_client.request(
-            "api/v1/settings/tenant-settings",
-            method="PUT",
+            "api/v1/settings/configurations",
+            method="PATCH",
             json={
                 "manifest": convert_and_respect_annotation_metadata(
-                    object_=manifest, annotation=TenantSettingManifest, direction="write"
+                    object_=manifest, annotation=ConfigurationsManifestPatch, direction="write"
                 ),
             },
             headers={
@@ -121,9 +123,9 @@ class RawTenantSettingsClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    GetTenantSettingResponse,
+                    GetConfigurationsResponse,
                     construct_type(
-                        type_=GetTenantSettingResponse,  # type: ignore
+                        type_=GetConfigurationsResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -171,13 +173,13 @@ class RawTenantSettingsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
 
-class AsyncRawTenantSettingsClient:
+class AsyncRawConfigurationsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
 
     async def get(
         self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[GetTenantSettingResponse]:
+    ) -> AsyncHttpResponse[GetConfigurationsResponse]:
         """
         Tenant-wide feature switches. Tenants with nothing saved yet get every switch enabled.
 
@@ -188,20 +190,20 @@ class AsyncRawTenantSettingsClient:
 
         Returns
         -------
-        AsyncHttpResponse[GetTenantSettingResponse]
-            The tenant settings.
+        AsyncHttpResponse[GetConfigurationsResponse]
+            The tenant configurations.
         """
         _response = await self._client_wrapper.httpx_client.request(
-            "api/v1/settings/tenant-settings",
+            "api/v1/settings/configurations",
             method="GET",
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    GetTenantSettingResponse,
+                    GetConfigurationsResponse,
                     construct_type(
-                        type_=GetTenantSettingResponse,  # type: ignore
+                        type_=GetConfigurationsResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -237,30 +239,30 @@ class AsyncRawTenantSettingsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-    async def create_or_update(
-        self, *, manifest: TenantSettingManifest, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[GetTenantSettingResponse]:
+    async def update(
+        self, *, manifest: ConfigurationsManifestPatch, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[GetConfigurationsResponse]:
         """
-        Replaces the tenant-wide switches. Turning web search off applies to new chats; chats already using it keep it.
+        Updates the switches present in the body and leaves the rest. Turning web search off applies to new chats; chats already using it keep it.
 
         Parameters
         ----------
-        manifest : TenantSettingManifest
+        manifest : ConfigurationsManifestPatch
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        AsyncHttpResponse[GetTenantSettingResponse]
-            The saved tenant settings.
+        AsyncHttpResponse[GetConfigurationsResponse]
+            The saved tenant configurations.
         """
         _response = await self._client_wrapper.httpx_client.request(
-            "api/v1/settings/tenant-settings",
-            method="PUT",
+            "api/v1/settings/configurations",
+            method="PATCH",
             json={
                 "manifest": convert_and_respect_annotation_metadata(
-                    object_=manifest, annotation=TenantSettingManifest, direction="write"
+                    object_=manifest, annotation=ConfigurationsManifestPatch, direction="write"
                 ),
             },
             headers={
@@ -272,9 +274,9 @@ class AsyncRawTenantSettingsClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    GetTenantSettingResponse,
+                    GetConfigurationsResponse,
                     construct_type(
-                        type_=GetTenantSettingResponse,  # type: ignore
+                        type_=GetConfigurationsResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )

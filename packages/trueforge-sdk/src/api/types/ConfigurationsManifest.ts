@@ -2,6 +2,6 @@
 
 import type * as TrueForge from "../index.js";
 
-export interface TenantSetting {
-    manifest: TrueForge.TenantSettingManifest;
+export interface ConfigurationsManifest {
+    webSearch: TrueForge.WebSearchConfiguration;
 }

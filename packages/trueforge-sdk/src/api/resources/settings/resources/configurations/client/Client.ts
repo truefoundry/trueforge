@@ -10,23 +10,23 @@ import * as errors from "../../../../../../errors/index.js";
 import * as serializers from "../../../../../../serialization/index.js";
 import * as TrueForge from "../../../../../index.js";
 
-export declare namespace TenantSettingsClient {
+export declare namespace ConfigurationsClient {
     export type Options = BaseClientOptions;
 
     export interface RequestOptions extends BaseRequestOptions {}
 }
 
-export class TenantSettingsClient {
-    protected readonly _options: NormalizedClientOptionsWithAuth<TenantSettingsClient.Options>;
+export class ConfigurationsClient {
+    protected readonly _options: NormalizedClientOptionsWithAuth<ConfigurationsClient.Options>;
 
-    constructor(options: TenantSettingsClient.Options) {
+    constructor(options: ConfigurationsClient.Options) {
         this._options = normalizeClientOptionsWithAuth(options);
     }
 
     /**
      * Tenant-wide feature switches. Tenants with nothing saved yet get every switch enabled.
      *
-     * @param {TenantSettingsClient.RequestOptions} requestOptions - Request-specific configuration.
+     * @param {ConfigurationsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.UnauthorizedError}
      * @throws {@link TrueForge.ForbiddenError}
@@ -34,17 +34,17 @@ export class TenantSettingsClient {
      * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
-     *     await client.settings.tenantSettings.get()
+     *     await client.settings.configurations.get()
      */
     public get(
-        requestOptions?: TenantSettingsClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueForge.GetTenantSettingResponse> {
+        requestOptions?: ConfigurationsClient.RequestOptions,
+    ): core.HttpResponsePromise<TrueForge.GetConfigurationsResponse> {
         return core.HttpResponsePromise.fromPromise(this.__get(requestOptions));
     }
 
     private async __get(
-        requestOptions?: TenantSettingsClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueForge.GetTenantSettingResponse>> {
+        requestOptions?: ConfigurationsClient.RequestOptions,
+    ): Promise<core.WithRawResponse<TrueForge.GetConfigurationsResponse>> {
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
             _authRequest.headers,
@@ -55,7 +55,7 @@ export class TenantSettingsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                "api/v1/settings/tenant-settings",
+                "api/v1/settings/configurations",
             ),
             method: "GET",
             headers: _headers,
@@ -68,7 +68,7 @@ export class TenantSettingsClient {
         });
         if (_response.ok) {
             return {
-                data: serializers.GetTenantSettingResponse.parseOrThrow(_response.body, {
+                data: serializers.GetConfigurationsResponse.parseOrThrow(_response.body, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,
@@ -116,15 +116,15 @@ export class TenantSettingsClient {
             _response.error,
             _response.rawResponse,
             "GET",
-            "/api/v1/settings/tenant-settings",
+            "/api/v1/settings/configurations",
         );
     }
 
     /**
-     * Replaces the tenant-wide switches. Turning web search off applies to new chats; chats already using it keep it.
+     * Updates the switches present in the body and leaves the rest. Turning web search off applies to new chats; chats already using it keep it.
      *
-     * @param {TrueForge.settings.UpdateTenantSettingRequest} request
-     * @param {TenantSettingsClient.RequestOptions} requestOptions - Request-specific configuration.
+     * @param {TrueForge.settings.CreateOrUpdateConfigurations} request
+     * @param {ConfigurationsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.BadRequestError}
      * @throws {@link TrueForge.UnauthorizedError}
@@ -133,25 +133,21 @@ export class TenantSettingsClient {
      * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
-     *     await client.settings.tenantSettings.createOrUpdate({
-     *         manifest: {
-     *             webSearch: {
-     *                 enabled: true
-     *             }
-     *         }
+     *     await client.settings.configurations.update({
+     *         manifest: {}
      *     })
      */
-    public createOrUpdate(
-        request: TrueForge.settings.UpdateTenantSettingRequest,
-        requestOptions?: TenantSettingsClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueForge.GetTenantSettingResponse> {
-        return core.HttpResponsePromise.fromPromise(this.__createOrUpdate(request, requestOptions));
+    public update(
+        request: TrueForge.settings.CreateOrUpdateConfigurations,
+        requestOptions?: ConfigurationsClient.RequestOptions,
+    ): core.HttpResponsePromise<TrueForge.GetConfigurationsResponse> {
+        return core.HttpResponsePromise.fromPromise(this.__update(request, requestOptions));
     }
 
-    private async __createOrUpdate(
-        request: TrueForge.settings.UpdateTenantSettingRequest,
-        requestOptions?: TenantSettingsClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueForge.GetTenantSettingResponse>> {
+    private async __update(
+        request: TrueForge.settings.CreateOrUpdateConfigurations,
+        requestOptions?: ConfigurationsClient.RequestOptions,
+    ): Promise<core.WithRawResponse<TrueForge.GetConfigurationsResponse>> {
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
             _authRequest.headers,
@@ -162,15 +158,15 @@ export class TenantSettingsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                "api/v1/settings/tenant-settings",
+                "api/v1/settings/configurations",
             ),
-            method: "PUT",
+            method: "PATCH",
             headers: _headers,
             contentType: "application/json",
             queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
             requestType: "json",
             body: mergeAdditionalBodyParameters(
-                serializers.settings.UpdateTenantSettingRequest.jsonOrThrow(request, {
+                serializers.settings.CreateOrUpdateConfigurations.jsonOrThrow(request, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,
@@ -186,7 +182,7 @@ export class TenantSettingsClient {
         });
         if (_response.ok) {
             return {
-                data: serializers.GetTenantSettingResponse.parseOrThrow(_response.body, {
+                data: serializers.GetConfigurationsResponse.parseOrThrow(_response.body, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,
@@ -244,8 +240,8 @@ export class TenantSettingsClient {
         return handleNonStatusCodeError(
             _response.error,
             _response.rawResponse,
-            "PUT",
-            "/api/v1/settings/tenant-settings",
+            "PATCH",
+            "/api/v1/settings/configurations",
         );
     }
 }

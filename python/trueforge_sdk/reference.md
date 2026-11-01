@@ -4719,6 +4719,141 @@ client.internal.agents.get_code_snippets(
 </dl>
 </details>
 
+## Settings Configurations
+<details><summary><code>client.settings.configurations.<a href="src/trueforge_sdk/settings/configurations/client.py">get</a>() -> GetConfigurationsResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Tenant-wide feature switches. Tenants with nothing saved yet get every switch enabled.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.settings.configurations.get()
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.settings.configurations.<a href="src/trueforge_sdk/settings/configurations/client.py">update</a>(...) -> GetConfigurationsResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Updates the switches present in the body and leaves the rest. Turning web search off applies to new chats; chats already using it keep it.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge, ConfigurationsManifestPatch
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.settings.configurations.update(
+    manifest=ConfigurationsManifestPatch(),
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**manifest:** `ConfigurationsManifestPatch` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 ## Settings McpServers
 <details><summary><code>client.settings.mcp_servers.<a href="src/trueforge_sdk/settings/mcp_servers/client.py">list</a>() -> ListMcpServersResponse</code></summary>
 <dl>
@@ -5799,145 +5934,6 @@ client.settings.skills.delete(
 <dd>
 
 **name:** `str` — Skill name.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
-## Settings TenantSettings
-<details><summary><code>client.settings.tenant_settings.<a href="src/trueforge_sdk/settings/tenant_settings/client.py">get</a>() -> GetTenantSettingResponse</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Tenant-wide feature switches. Tenants with nothing saved yet get every switch enabled.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```python
-from trueforge_sdk import TrueForge
-
-client = TrueForge(
-    token="<token>",
-    base_url="https://yourhost.com/path/to/api",
-)
-
-client.settings.tenant_settings.get()
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
-<details><summary><code>client.settings.tenant_settings.<a href="src/trueforge_sdk/settings/tenant_settings/client.py">create_or_update</a>(...) -> GetTenantSettingResponse</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Replaces the tenant-wide switches. Turning web search off applies to new chats; chats already using it keep it.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```python
-from trueforge_sdk import TrueForge, TenantSettingManifest, TenantWebSearchSetting
-
-client = TrueForge(
-    token="<token>",
-    base_url="https://yourhost.com/path/to/api",
-)
-
-client.settings.tenant_settings.create_or_update(
-    manifest=TenantSettingManifest(
-        web_search=TenantWebSearchSetting(
-            enabled=True,
-        ),
-    ),
-)
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**manifest:** `TenantSettingManifest` 
     
 </dd>
 </dl>

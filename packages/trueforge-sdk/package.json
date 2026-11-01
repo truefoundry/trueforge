@@ -286,6 +286,17 @@
             },
             "default": "./dist/esm/api/resources/settings/exports.mjs"
         },
+        "./settings/configurations": {
+            "import": {
+                "types": "./dist/esm/api/resources/settings/resources/configurations/exports.d.mts",
+                "default": "./dist/esm/api/resources/settings/resources/configurations/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/settings/resources/configurations/exports.d.ts",
+                "default": "./dist/cjs/api/resources/settings/resources/configurations/exports.js"
+            },
+            "default": "./dist/esm/api/resources/settings/resources/configurations/exports.mjs"
+        },
         "./settings/mcpServers": {
             "import": {
                 "types": "./dist/esm/api/resources/settings/resources/mcpServers/exports.d.mts",
@@ -329,17 +340,6 @@
                 "default": "./dist/cjs/api/resources/settings/resources/skills/exports.js"
             },
             "default": "./dist/esm/api/resources/settings/resources/skills/exports.mjs"
-        },
-        "./settings/tenantSettings": {
-            "import": {
-                "types": "./dist/esm/api/resources/settings/resources/tenantSettings/exports.d.mts",
-                "default": "./dist/esm/api/resources/settings/resources/tenantSettings/exports.mjs"
-            },
-            "require": {
-                "types": "./dist/cjs/api/resources/settings/resources/tenantSettings/exports.d.ts",
-                "default": "./dist/cjs/api/resources/settings/resources/tenantSettings/exports.js"
-            },
-            "default": "./dist/esm/api/resources/settings/resources/tenantSettings/exports.mjs"
         },
         "./settings/webSearchProviders": {
             "import": {

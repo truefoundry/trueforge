@@ -5,13 +5,11 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
+from .configurations import Configurations
 
 
-class TenantWebSearchSetting(UncheckedBaseModel):
-    enabled: bool = pydantic.Field()
-    """
-    Whether new chats may use web search. Chats that already use it keep their own setting.
-    """
+class GetConfigurationsResponse(UncheckedBaseModel):
+    data: Configurations
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2

@@ -4,15 +4,17 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 
-export const TenantWebSearchSetting: core.serialization.ObjectSchema<
-    serializers.TenantWebSearchSetting.Raw,
-    TrueForge.TenantWebSearchSetting
+export const SettingsSectionCapability: core.serialization.ObjectSchema<
+    serializers.SettingsSectionCapability.Raw,
+    TrueForge.SettingsSectionCapability
 > = core.serialization.object({
     enabled: core.serialization.boolean(),
+    manageProviders: core.serialization.property("manage_providers", core.serialization.boolean()),
 });
 
-export declare namespace TenantWebSearchSetting {
+export declare namespace SettingsSectionCapability {
     export interface Raw {
         enabled: boolean;
+        manage_providers: boolean;
     }
 }

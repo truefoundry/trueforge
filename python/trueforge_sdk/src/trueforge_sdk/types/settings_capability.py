@@ -5,18 +5,16 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
+from .settings_section_capability import SettingsSectionCapability
 
 
 class SettingsCapability(UncheckedBaseModel):
-    enabled: bool = pydantic.Field()
-    """
-    Whether the settings UI/API is enabled.
-    """
-
-    limited_to_web_search: bool = pydantic.Field()
-    """
-    Whether web search is the only settings section available, even though `enabled` is false.
-    """
+    mcp_servers: SettingsSectionCapability
+    memory: SettingsSectionCapability
+    model_providers: SettingsSectionCapability
+    sandbox_providers: SettingsSectionCapability
+    skills: SettingsSectionCapability
+    web_search: SettingsSectionCapability
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2

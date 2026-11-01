@@ -4,22 +4,24 @@ import * as TrueForgeTypes from "../../../src/api/index";
 import { TrueForge } from "../../../src/Client";
 import { mockServerPool } from "../../mock-server/MockServerPool";
 
-describe("TenantSettingsClient", () => {
+describe("ConfigurationsClient", () => {
     test("get (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
-        const rawResponseBody = { data: { manifest: { web_search: { enabled: true } } } };
+        const rawResponseBody = {
+            data: { manifest: { web_search: { enabled: true } }, updated_at: "2024-01-15T09:30:00Z" },
+        };
 
         server
             .mockEndpoint()
-            .get("/api/v1/settings/tenant-settings")
+            .get("/api/v1/settings/configurations")
             .respondWith()
             .statusCode(200)
             .jsonBody(rawResponseBody)
             .build();
 
-        const response = await client.settings.tenantSettings.get();
+        const response = await client.settings.configurations.get();
         expect(response).toEqual({
             data: {
                 manifest: {
@@ -27,6 +29,7 @@ describe("TenantSettingsClient", () => {
                         enabled: true,
                     },
                 },
+                updatedAt: new Date("2024-01-15T09:30:00.000Z"),
             },
         });
     });
@@ -39,14 +42,14 @@ describe("TenantSettingsClient", () => {
 
         server
             .mockEndpoint()
-            .get("/api/v1/settings/tenant-settings")
+            .get("/api/v1/settings/configurations")
             .respondWith()
             .statusCode(401)
             .jsonBody(rawResponseBody)
             .build();
 
         await expect(async () => {
-            return await client.settings.tenantSettings.get();
+            return await client.settings.configurations.get();
         }).rejects.toThrow(TrueForgeTypes.UnauthorizedError);
     });
 
@@ -58,38 +61,36 @@ describe("TenantSettingsClient", () => {
 
         server
             .mockEndpoint()
-            .get("/api/v1/settings/tenant-settings")
+            .get("/api/v1/settings/configurations")
             .respondWith()
             .statusCode(403)
             .jsonBody(rawResponseBody)
             .build();
 
         await expect(async () => {
-            return await client.settings.tenantSettings.get();
+            return await client.settings.configurations.get();
         }).rejects.toThrow(TrueForgeTypes.ForbiddenError);
     });
 
-    test("create_or_update (1)", async () => {
+    test("update (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { manifest: { web_search: { enabled: true } } };
-        const rawResponseBody = { data: { manifest: { web_search: { enabled: true } } } };
+        const rawRequestBody = { manifest: {} };
+        const rawResponseBody = {
+            data: { manifest: { web_search: { enabled: true } }, updated_at: "2024-01-15T09:30:00Z" },
+        };
 
         server
             .mockEndpoint()
-            .put("/api/v1/settings/tenant-settings")
+            .patch("/api/v1/settings/configurations")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(200)
             .jsonBody(rawResponseBody)
             .build();
 
-        const response = await client.settings.tenantSettings.createOrUpdate({
-            manifest: {
-                webSearch: {
-                    enabled: true,
-                },
-            },
+        const response = await client.settings.configurations.update({
+            manifest: {},
         });
         expect(response).toEqual({
             data: {
@@ -98,19 +99,20 @@ describe("TenantSettingsClient", () => {
                         enabled: true,
                     },
                 },
+                updatedAt: new Date("2024-01-15T09:30:00.000Z"),
             },
         });
     });
 
-    test("create_or_update (2)", async () => {
+    test("update (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { manifest: { web_search: { enabled: true } } };
+        const rawRequestBody = { manifest: {} };
         const rawResponseBody = { error: { message: "message" } };
 
         server
             .mockEndpoint()
-            .put("/api/v1/settings/tenant-settings")
+            .patch("/api/v1/settings/configurations")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(400)
@@ -118,25 +120,21 @@ describe("TenantSettingsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.settings.tenantSettings.createOrUpdate({
-                manifest: {
-                    webSearch: {
-                        enabled: true,
-                    },
-                },
+            return await client.settings.configurations.update({
+                manifest: {},
             });
         }).rejects.toThrow(TrueForgeTypes.BadRequestError);
     });
 
-    test("create_or_update (3)", async () => {
+    test("update (3)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { manifest: { web_search: { enabled: true } } };
+        const rawRequestBody = { manifest: {} };
         const rawResponseBody = { error: { message: "message" } };
 
         server
             .mockEndpoint()
-            .put("/api/v1/settings/tenant-settings")
+            .patch("/api/v1/settings/configurations")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(401)
@@ -144,25 +142,21 @@ describe("TenantSettingsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.settings.tenantSettings.createOrUpdate({
-                manifest: {
-                    webSearch: {
-                        enabled: true,
-                    },
-                },
+            return await client.settings.configurations.update({
+                manifest: {},
             });
         }).rejects.toThrow(TrueForgeTypes.UnauthorizedError);
     });
 
-    test("create_or_update (4)", async () => {
+    test("update (4)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { manifest: { web_search: { enabled: true } } };
+        const rawRequestBody = { manifest: {} };
         const rawResponseBody = { error: { message: "message" } };
 
         server
             .mockEndpoint()
-            .put("/api/v1/settings/tenant-settings")
+            .patch("/api/v1/settings/configurations")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(403)
@@ -170,12 +164,8 @@ describe("TenantSettingsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.settings.tenantSettings.createOrUpdate({
-                manifest: {
-                    webSearch: {
-                        enabled: true,
-                    },
-                },
+            return await client.settings.configurations.update({
+                manifest: {},
             });
         }).rejects.toThrow(TrueForgeTypes.ForbiddenError);
     });

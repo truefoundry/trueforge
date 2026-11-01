@@ -4,30 +4,30 @@ import typing
 
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.request_options import RequestOptions
-from ...types.get_tenant_setting_response import GetTenantSettingResponse
-from ...types.tenant_setting_manifest import TenantSettingManifest
-from .raw_client import AsyncRawTenantSettingsClient, RawTenantSettingsClient
+from ...types.configurations_manifest_patch import ConfigurationsManifestPatch
+from ...types.get_configurations_response import GetConfigurationsResponse
+from .raw_client import AsyncRawConfigurationsClient, RawConfigurationsClient
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
 
 
-class TenantSettingsClient:
+class ConfigurationsClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
-        self._raw_client = RawTenantSettingsClient(client_wrapper=client_wrapper)
+        self._raw_client = RawConfigurationsClient(client_wrapper=client_wrapper)
 
     @property
-    def with_raw_response(self) -> RawTenantSettingsClient:
+    def with_raw_response(self) -> RawConfigurationsClient:
         """
         Retrieves a raw implementation of this client that returns raw responses.
 
         Returns
         -------
-        RawTenantSettingsClient
+        RawConfigurationsClient
         """
         return self._raw_client
 
-    def get(self, *, request_options: typing.Optional[RequestOptions] = None) -> GetTenantSettingResponse:
+    def get(self, *, request_options: typing.Optional[RequestOptions] = None) -> GetConfigurationsResponse:
         """
         Tenant-wide feature switches. Tenants with nothing saved yet get every switch enabled.
 
@@ -38,8 +38,8 @@ class TenantSettingsClient:
 
         Returns
         -------
-        GetTenantSettingResponse
-            The tenant settings.
+        GetConfigurationsResponse
+            The tenant configurations.
 
         Examples
         --------
@@ -49,69 +49,61 @@ class TenantSettingsClient:
             token="YOUR_TOKEN",
             base_url="https://yourhost.com/path/to/api",
         )
-        client.settings.tenant_settings.get()
+        client.settings.configurations.get()
         """
         _response = self._raw_client.get(request_options=request_options)
         return _response.data
 
-    def create_or_update(
-        self, *, manifest: TenantSettingManifest, request_options: typing.Optional[RequestOptions] = None
-    ) -> GetTenantSettingResponse:
+    def update(
+        self, *, manifest: ConfigurationsManifestPatch, request_options: typing.Optional[RequestOptions] = None
+    ) -> GetConfigurationsResponse:
         """
-        Replaces the tenant-wide switches. Turning web search off applies to new chats; chats already using it keep it.
+        Updates the switches present in the body and leaves the rest. Turning web search off applies to new chats; chats already using it keep it.
 
         Parameters
         ----------
-        manifest : TenantSettingManifest
+        manifest : ConfigurationsManifestPatch
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        GetTenantSettingResponse
-            The saved tenant settings.
+        GetConfigurationsResponse
+            The saved tenant configurations.
 
         Examples
         --------
-        from trueforge_sdk import (
-            TenantSettingManifest,
-            TenantWebSearchSetting,
-            TrueForge,
-        )
+        from trueforge_sdk import ConfigurationsManifestPatch, TrueForge
 
         client = TrueForge(
             token="YOUR_TOKEN",
             base_url="https://yourhost.com/path/to/api",
         )
-        client.settings.tenant_settings.create_or_update(
-            manifest=TenantSettingManifest(
-                web_search=TenantWebSearchSetting(
-                    enabled=True,
-                ),
-            ),
+        client.settings.configurations.update(
+            manifest=ConfigurationsManifestPatch(),
         )
         """
-        _response = self._raw_client.create_or_update(manifest=manifest, request_options=request_options)
+        _response = self._raw_client.update(manifest=manifest, request_options=request_options)
         return _response.data
 
 
-class AsyncTenantSettingsClient:
+class AsyncConfigurationsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
-        self._raw_client = AsyncRawTenantSettingsClient(client_wrapper=client_wrapper)
+        self._raw_client = AsyncRawConfigurationsClient(client_wrapper=client_wrapper)
 
     @property
-    def with_raw_response(self) -> AsyncRawTenantSettingsClient:
+    def with_raw_response(self) -> AsyncRawConfigurationsClient:
         """
         Retrieves a raw implementation of this client that returns raw responses.
 
         Returns
         -------
-        AsyncRawTenantSettingsClient
+        AsyncRawConfigurationsClient
         """
         return self._raw_client
 
-    async def get(self, *, request_options: typing.Optional[RequestOptions] = None) -> GetTenantSettingResponse:
+    async def get(self, *, request_options: typing.Optional[RequestOptions] = None) -> GetConfigurationsResponse:
         """
         Tenant-wide feature switches. Tenants with nothing saved yet get every switch enabled.
 
@@ -122,8 +114,8 @@ class AsyncTenantSettingsClient:
 
         Returns
         -------
-        GetTenantSettingResponse
-            The tenant settings.
+        GetConfigurationsResponse
+            The tenant configurations.
 
         Examples
         --------
@@ -138,7 +130,7 @@ class AsyncTenantSettingsClient:
 
 
         async def main() -> None:
-            await client.settings.tenant_settings.get()
+            await client.settings.configurations.get()
 
 
         asyncio.run(main())
@@ -146,33 +138,29 @@ class AsyncTenantSettingsClient:
         _response = await self._raw_client.get(request_options=request_options)
         return _response.data
 
-    async def create_or_update(
-        self, *, manifest: TenantSettingManifest, request_options: typing.Optional[RequestOptions] = None
-    ) -> GetTenantSettingResponse:
+    async def update(
+        self, *, manifest: ConfigurationsManifestPatch, request_options: typing.Optional[RequestOptions] = None
+    ) -> GetConfigurationsResponse:
         """
-        Replaces the tenant-wide switches. Turning web search off applies to new chats; chats already using it keep it.
+        Updates the switches present in the body and leaves the rest. Turning web search off applies to new chats; chats already using it keep it.
 
         Parameters
         ----------
-        manifest : TenantSettingManifest
+        manifest : ConfigurationsManifestPatch
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        GetTenantSettingResponse
-            The saved tenant settings.
+        GetConfigurationsResponse
+            The saved tenant configurations.
 
         Examples
         --------
         import asyncio
 
-        from trueforge_sdk import (
-            AsyncTrueForge,
-            TenantSettingManifest,
-            TenantWebSearchSetting,
-        )
+        from trueforge_sdk import AsyncTrueForge, ConfigurationsManifestPatch
 
         client = AsyncTrueForge(
             token="YOUR_TOKEN",
@@ -181,16 +169,12 @@ class AsyncTenantSettingsClient:
 
 
         async def main() -> None:
-            await client.settings.tenant_settings.create_or_update(
-                manifest=TenantSettingManifest(
-                    web_search=TenantWebSearchSetting(
-                        enabled=True,
-                    ),
-                ),
+            await client.settings.configurations.update(
+                manifest=ConfigurationsManifestPatch(),
             )
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.create_or_update(manifest=manifest, request_options=request_options)
+        _response = await self._raw_client.update(manifest=manifest, request_options=request_options)
         return _response.data
