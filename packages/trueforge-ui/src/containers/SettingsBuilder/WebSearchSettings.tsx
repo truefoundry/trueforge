@@ -5,8 +5,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTrackAnalytics } from '@/analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '@/analytics/events.js';
 import { Button } from '../../atoms/primitives/Button.js';
+import { Switch } from '../../atoms/primitives/Switch.js';
 import { Icon } from '../../icons/Icon.js';
-import { useCatalogServer } from '../../server/ServerContext.js';
+import { useCatalogServer, useOptionalConfigurationsServer } from '../../server/ServerContext.js';
 import type { WebSearchProviderBase, WebSearchProviderCatalogEntry } from '../../server/types.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import { useToasterOptional } from '../ToasterContainer.js';
@@ -14,9 +15,13 @@ import ConfigureWebSearchForm, { type WebSearchConfigDraft } from './ConfigureWe
 
 const WebSearchSettings = () => {
   const { webSearchCatalog } = useCatalogServer();
+  const configurations = useOptionalConfigurationsServer();
   const toaster = useToasterOptional();
   const track = useTrackAnalytics();
 
+  // `null` until the tenant switch loads, so the control is not rendered half-known.
+  const [tenantEnabled, setTenantEnabled] = useState<boolean | null>(null);
+  const [tenantBusy, setTenantBusy] = useState(false);
   const [providers, setProviders] = useState<WebSearchProviderBase[]>([]);
   const [catalog, setCatalog] = useState<WebSearchProviderCatalogEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,6 +56,38 @@ const WebSearchSettings = () => {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    if (!configurations) return;
+    let cancelled = false;
+    void configurations
+      .getConfigurations()
+      .then(loaded => {
+        if (!cancelled) setTenantEnabled(loaded.webSearch.enabled);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(getErrorMessage(err, 'Failed to load the web search setting'));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [configurations]);
+
+  const handleTenantToggle = async (next: boolean) => {
+    if (!configurations) return;
+    setTenantBusy(true);
+    setError(null);
+    try {
+      const saved = await configurations.updateConfigurations({ webSearch: { enabled: next } });
+      setTenantEnabled(saved.webSearch.enabled);
+      toaster?.showSuccess({ title: saved.webSearch.enabled ? 'Web search turned on' : 'Web search turned off' });
+      track(AnalyticsEvents.Settings.WEB_SEARCH_TENANT_TOGGLED, { enabled: saved.webSearch.enabled });
+    } catch (err) {
+      setError(getErrorMessage(err, 'Failed to save the web search setting'));
+    } finally {
+      setTenantBusy(false);
+    }
+  };
 
   // Tenant/UI-wide: only one web-search provider may be configured at a time.
   const hasConfiguredProvider = providers.length > 0;
@@ -133,8 +170,27 @@ const WebSearchSettings = () => {
         </p>
       ) : null}
 
+      {tenantEnabled !== null ? (
+        <div className="mt-4 flex items-center justify-between gap-4 rounded-xl border border-border bg-card-bg p-3">
+          <div className="min-w-0">
+            <h4 className="text-sm font-medium text-text-primary">Allow web search</h4>
+            <p className="mt-0.5 text-xs text-text-secondary">
+              New chats may use web search. Chats already using it keep it.
+            </p>
+          </div>
+          <Switch
+            checked={tenantEnabled}
+            disabled={tenantBusy}
+            aria-label="Allow web search"
+            onCheckedChange={next => {
+              void handleTenantToggle(next);
+            }}
+          />
+        </div>
+      ) : null}
+
       <div className="mt-4 flex-1 overflow-y-auto">
-        {loading ? (
+        {tenantEnabled === false ? null : loading ? (
           <p className="text-sm text-text-secondary">Loading web search providers…</p>
         ) : (
           <div className="space-y-6">

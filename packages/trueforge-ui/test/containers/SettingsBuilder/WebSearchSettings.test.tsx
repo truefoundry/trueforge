@@ -1,165 +1,82 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import type { ReactNode } from 'react';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 
 import WebSearchSettings from '@/containers/SettingsBuilder/WebSearchSettings.js';
 import { ServerProvider } from '@/server/ServerContext.js';
-import type {
-  CreateWebSearchProviderRequest,
-  UpdateWebSearchProviderRequest,
-  WebSearchProviderBase,
-  WebSearchProviderCatalogEntry,
-} from '@/server/types.js';
+import type { ConfigurationsServer, WebSearchCatalogServer } from '@/server/types.js';
 import { createMockAgentUIServer, createMockCatalog } from '../../server/mockServer.js';
 
-beforeAll(() => {
-  HTMLDialogElement.prototype.showModal = function showModal() {
-    this.setAttribute('open', '');
-  };
-  HTMLDialogElement.prototype.close = function close() {
-    this.removeAttribute('open');
-  };
-});
-
-const catalogEntry: WebSearchProviderCatalogEntry = {
-  id: 'parallel',
-  name: 'Parallel',
-  type: 'parallel',
-};
-
-function createFakeHost(initial: WebSearchProviderBase[] = []) {
-  let providers = [...initial];
-  const created: CreateWebSearchProviderRequest[] = [];
-  const updated: UpdateWebSearchProviderRequest[] = [];
-
-  const webSearchCatalog = {
-    getWebSearchProviderCatalog: async () => [catalogEntry],
-    listWebSearchProviders: async () => providers,
-    createWebSearchProvider: async (req: CreateWebSearchProviderRequest) => {
-      created.push(req);
-      const provider: WebSearchProviderBase = {
-        id: req.catalogId,
-        name: req.name,
-        catalogId: req.catalogId,
-        isConnected: true,
-      };
-      providers = [...providers, provider];
-      return provider;
-    },
-    updateWebSearchProvider: async (req: UpdateWebSearchProviderRequest) => {
-      updated.push(req);
-      const next = providers.find(provider => provider.id === req.id);
-      if (next === undefined) {
-        throw new Error(`Web search provider "${req.id}" not found`);
-      }
-      return next;
-    },
-  };
-
-  const server = createMockAgentUIServer({
-    catalog: createMockCatalog({ webSearchCatalog }),
-  });
-
-  return {
-    created,
-    updated,
-    wrapper: ({ children }: { children: ReactNode }) => <ServerProvider server={server}>{children}</ServerProvider>,
-  };
+async function unavailable(): Promise<never> {
+  throw new Error('Unexpected web search call');
 }
 
-describe('WebSearchSettings', () => {
-  it('requires apiKey on create', async () => {
-    const host = createFakeHost();
-    const { wrapper: Wrapper } = host;
-    render(
-      <Wrapper>
-        <WebSearchSettings />
-      </Wrapper>,
-    );
+const webSearchCatalog: WebSearchCatalogServer = {
+  getWebSearchProviderCatalog: async () => [{ id: 'parallel', name: 'Parallel', type: 'parallel' }],
+  listWebSearchProviders: async () => [],
+  createWebSearchProvider: unavailable,
+  updateWebSearchProvider: unavailable,
+};
 
+function renderSettings(configurations: ConfigurationsServer | undefined) {
+  const server = createMockAgentUIServer({
+    catalog: createMockCatalog({ webSearchCatalog }),
+    ...(configurations ? { configurations } : {}),
+  });
+  return render(
+    <ServerProvider server={server}>
+      <WebSearchSettings />
+    </ServerProvider>,
+  );
+}
+
+describe('WebSearchSettings tenant switch', () => {
+  it('shows the switch on and lists providers when the tenant allows web search', async () => {
+    renderSettings({
+      getConfigurations: async () => ({ webSearch: { enabled: true } }),
+      updateConfigurations: unavailable,
+    });
+
+    const toggle = await screen.findByRole('switch', { name: 'Allow web search' });
+    expect(toggle).toHaveAttribute('aria-checked', 'true');
+    expect(await screen.findByText('Parallel')).toBeInTheDocument();
+  });
+
+  it('hides the provider list while the tenant switch is off', async () => {
+    renderSettings({
+      getConfigurations: async () => ({ webSearch: { enabled: false } }),
+      updateConfigurations: unavailable,
+    });
+
+    const toggle = await screen.findByRole('switch', { name: 'Allow web search' });
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
     await waitFor(() => {
-      expect(screen.getByText('Parallel')).toBeTruthy();
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Configure' }));
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('API key')).toBeTruthy();
-    });
-    expect(screen.getByLabelText('API key')).toHaveProperty('value', '');
-
-    fireEvent.change(screen.getByLabelText('API key'), {
-      target: { value: 'par_secret' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-
-    await waitFor(() => {
-      expect(host.created).toHaveLength(1);
-    });
-    expect(host.created[0]).toMatchObject({
-      catalogId: 'parallel',
-      name: 'Parallel',
-      type: 'parallel',
-      apiKey: 'par_secret',
+      expect(screen.queryByText('Parallel')).not.toBeInTheDocument();
     });
   });
 
-  it('allows update without re-entering apiKey', async () => {
-    const existing: WebSearchProviderBase = {
-      id: 'parallel',
-      name: 'Parallel',
-      catalogId: 'parallel',
-      isConnected: true,
-    };
-    const host = createFakeHost([existing]);
-    const { wrapper: Wrapper } = host;
-    render(
-      <Wrapper>
-        <WebSearchSettings />
-      </Wrapper>,
-    );
+  it('saves the new value and re-renders from the response', async () => {
+    const updateConfigurations = vi.fn(async () => ({ webSearch: { enabled: false } }));
+    renderSettings({
+      getConfigurations: async () => ({ webSearch: { enabled: true } }),
+      updateConfigurations,
+    });
+
+    const toggle = await screen.findByRole('switch', { name: 'Allow web search' });
+    toggle.click();
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Update' })).toBeTruthy();
+      expect(updateConfigurations).toHaveBeenCalledWith({ webSearch: { enabled: false } });
     });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Update' }));
-
     await waitFor(() => {
-      expect(screen.getByLabelText(/API key/)).toHaveProperty('value', '');
+      expect(screen.getByRole('switch', { name: 'Allow web search' })).toHaveAttribute('aria-checked', 'false');
     });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-
-    await waitFor(() => {
-      expect(host.updated).toHaveLength(1);
-    });
-    expect(host.updated[0]).toEqual({
-      id: 'parallel',
-    });
-    expect(host.updated[0]).not.toHaveProperty('apiKey');
   });
 
-  it('hides other catalog providers once one is configured', async () => {
-    const existing: WebSearchProviderBase = {
-      id: 'parallel',
-      name: 'Parallel',
-      catalogId: 'parallel',
-      isConnected: true,
-    };
-    const host = createFakeHost([existing]);
-    const { wrapper: Wrapper } = host;
-    render(
-      <Wrapper>
-        <WebSearchSettings />
-      </Wrapper>,
-    );
+  it('omits the switch and keeps providers when the host has no configurations port', async () => {
+    renderSettings(undefined);
 
-    await waitFor(() => {
-      expect(screen.getByText('Web search')).toBeTruthy();
-    });
-    expect(screen.queryByRole('button', { name: 'Configure' })).toBeNull();
-    expect(screen.queryByText(/^Available ·/)).toBeNull();
+    expect(await screen.findByText('Parallel')).toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: 'Allow web search' })).not.toBeInTheDocument();
   });
 });

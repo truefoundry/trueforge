@@ -909,6 +909,31 @@ export interface CatalogServer<
   webSearchCatalog?: TWebSearchCatalog;
 }
 
+/** One tenant-wide switch. */
+export interface TenantConfigurationSwitch {
+  enabled: boolean;
+}
+
+/** Tenant-wide feature switches an admin controls, independent of any provider catalog. */
+export interface TenantConfigurations {
+  webSearch: TenantConfigurationSwitch;
+}
+
+export interface UpdateTenantConfigurationsRequest {
+  /** Omit a switch to leave it as stored. */
+  webSearch?: TenantConfigurationSwitch;
+}
+
+/**
+ * Read and change the tenant switches. Kept apart from the provider catalogs
+ * because a deployment may let an admin flip a switch while the platform owns
+ * the providers behind it.
+ */
+export interface ConfigurationsServer<TConfigurations extends TenantConfigurations = TenantConfigurations> {
+  getConfigurations(): Promise<TConfigurations>;
+  updateConfigurations(req: UpdateTenantConfigurationsRequest): Promise<TConfigurations>;
+}
+
 // ---------------------------------------------------------------------------
 // AgentSessions — optional agent-detail shell (Overview + sessions under agent)
 // ---------------------------------------------------------------------------
@@ -1319,9 +1344,12 @@ export type AgentUIServerPort<
   TMetrics extends AgentMetricsServer = AgentMetricsServer,
   TPermissions extends PermissionsServer = PermissionsServer,
   TSessionAccess extends SessionAccessServer = SessionAccessServer,
+  TConfigurations extends ConfigurationsServer = ConfigurationsServer,
 > = TChat &
   TBuilder & {
     catalog?: TCatalog;
+    /** Optional tenant-switch port; omit to hide the tenant controls in settings. */
+    configurations?: TConfigurations;
     sessions?: TSessions;
     schedules?: TSchedules;
     sandboxEnvironments?: TSandboxEnvironments;

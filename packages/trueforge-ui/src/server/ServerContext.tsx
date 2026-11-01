@@ -9,6 +9,7 @@ import type {
   AgentSessionsServer,
   AgentUIServer,
   CatalogServer,
+  ConfigurationsServer,
   PermissionsServer,
   SandboxEnvironmentServer,
   ScheduleServer,
@@ -155,4 +156,8 @@ export function useOptionalSandboxEnvironmentServer(): SandboxEnvironmentServer 
 
 export function useOptionalPermissionsServer(): PermissionsServer | null {
   return useOptionalServer()?.permissions ?? null;
+}
+
+export function useOptionalConfigurationsServer(): ConfigurationsServer | null {
+  return useOptionalServer()?.configurations ?? null;
 }

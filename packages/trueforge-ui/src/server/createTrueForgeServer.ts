@@ -8,6 +8,7 @@ import type {
   AgentSkill,
   AgentSpec,
   CatalogServer,
+  ConfigurationsServer,
   ConnectorState,
   ListResult,
   ModelSelection,
@@ -58,6 +59,8 @@ export type CreateTrueForgeServerOptions<
   sandboxEnvironments?: TSandboxEnvironments;
   /** Per-resource grants. Omit to leave actions enabled. */
   permissions?: TPermissions;
+  /** Tenant-wide switches (web search, …). Optional. */
+  configurations?: ConfigurationsServer;
   /** Session sharing (collaborator invite + list). Optional. */
   sessionAccess?: SessionAccessServer;
   /** Authenticated caller identity. Used for tenant-scoped share copy. */
@@ -86,6 +89,7 @@ export type TrueForgeServer<
     schedules?: TSchedules;
     sandboxEnvironments?: TSandboxEnvironments;
     permissions?: TPermissions;
+    configurations?: ConfigurationsServer;
     sessionAccess?: SessionAccessServer;
     getMe?: () => Promise<{ tenantId: string }>;
   };
@@ -181,6 +185,7 @@ export function createTrueForgeServer<
     ...(opts.schedules != null ? { schedules: opts.schedules } : {}),
     ...(opts.sandboxEnvironments != null ? { sandboxEnvironments: opts.sandboxEnvironments } : {}),
     ...(opts.permissions != null ? { permissions: opts.permissions } : {}),
+    ...(opts.configurations != null ? { configurations: opts.configurations } : {}),
     ...(opts.sessionAccess != null ? { sessionAccess: opts.sessionAccess } : {}),
     ...(opts.getMe != null ? { getMe: opts.getMe } : {}),
   };
