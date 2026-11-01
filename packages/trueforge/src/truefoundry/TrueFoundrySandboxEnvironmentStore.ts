@@ -1,12 +1,12 @@
 /**
- * TrueFoundry-mode sandbox environments: in-memory always-ready `"default"` when the
- * shared provider supports environments (Daytona); custom env CRUD delegated to persistence.
+ * TrueFoundry-mode sandbox environments: `"default"` is a persisted row created on first
+ * read, pinned to the shared provider snapshot. Custom env CRUD is plain persistence.
  *
  * When the shared provider does not support environments (TFY on-prem sandbox) there is no
- * env/snapshot concept — get/upsert/list-inject no-op (list still returns persistence leftovers).
+ * env/snapshot concept — get/upsert no-op and nothing is ensured (list still returns
+ * persistence leftovers).
  */
 import type { TokenPagination } from '@truefoundry/trueforge-core/agent-session';
-import { encodeOffsetPageToken } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import { createLogger } from 'winston';
 import {
   SandboxEnvironmentNameConflictError,
@@ -27,24 +27,21 @@ import {
   type UpsertSandboxEnvironmentInput,
 } from '../db/sandboxEnvironmentStore';
 import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
+import { ensureTrueFoundryDefaultSandboxEnvironment } from './ensureTrueFoundryDefaultSandboxEnvironment';
 import { trueFoundryManaged } from './errors';
-import {
-  DEFAULT_ENVIRONMENT_ID,
-  synthesizeTrueFoundryDefaultSandboxEnvironment,
-} from './synthesizeTrueFoundryDefaultSandboxEnvironment';
 
 const logger = createLogger({ defaultMeta: { module: 'TrueFoundrySandboxEnvironmentStore' } });
 
 export interface TrueFoundrySandboxEnvironmentStoreOptions {
   /**
    * From the shared sandbox provider's `envSupported` (Daytona true; TFY on-prem false).
-   * When false, env CRUD/progress no-ops. Default tip comes from provider config via synthesize.
+   * When false, env CRUD/progress no-ops and the default row is not created.
    */
   envSupported: boolean;
 }
 
 /**
- * Wraps persistence for custom envs; `"default"` is always in-memory when env is supported.
+ * Wraps persistence for custom envs; `"default"` is created on demand when env is supported.
  */
 export class TrueFoundrySandboxEnvironmentStore<
   TTransaction = never,
@@ -57,45 +54,27 @@ export class TrueFoundrySandboxEnvironmentStore<
     this.#envSupported = options.envSupported;
   }
 
+  /** Create the tenant default before a read that may be the first touch for this tenant. */
+  async #ensureDefault(tenant_id: string, transaction?: TTransaction): Promise<void> {
+    if (!this.#envSupported) {
+      return;
+    }
+    await ensureTrueFoundryDefaultSandboxEnvironment({
+      persistence: this.#persistence,
+      tenant_id,
+      ...(transaction === undefined ? {} : { transaction }),
+    });
+  }
+
   async listEnvironments(
     input: ListSandboxEnvironmentsInput,
     transaction?: TTransaction,
   ): Promise<{ data: SandboxEnvironmentWithVersion[]; pagination: TokenPagination }> {
-    // No env/snapshot concept — persistence only (e.g. leftovers after a flip).
-    if (!this.#envSupported || input.page_token) {
-      return this.#persistence.listEnvironments(input, transaction);
-    }
-
-    const synthesized = synthesizeTrueFoundryDefaultSandboxEnvironment(input.tenant_id);
-    const withoutDefault = (rows: SandboxEnvironmentWithVersion[]) =>
-      rows.filter(row => row.environment.name !== DEFAULT_SANDBOX_ENVIRONMENT_NAME);
-
-    // First page: inject default; when limited, reserve one slot for it.
-    const customLimit = input.limit === undefined ? undefined : Math.max(input.limit - 1, 0);
-    if (customLimit === 0) {
-      const peek = await this.#persistence.listEnvironments({ ...input, limit: 1 }, transaction);
-      const hasMore = withoutDefault(peek.data).length > 0 || peek.pagination.next_page_token !== undefined;
-      return {
-        data: [synthesized],
-        pagination: {
-          limit: input.limit ?? 1,
-          ...(hasMore ? { next_page_token: peek.pagination.next_page_token ?? encodeOffsetPageToken(0) } : {}),
-        },
-      };
-    }
-
-    const listed = await this.#persistence.listEnvironments(
-      customLimit === undefined ? input : { ...input, limit: customLimit },
-      transaction,
-    );
-    const customs = withoutDefault(listed.data);
-    return {
-      data: [synthesized, ...customs],
-      pagination: customLimit === undefined ? { limit: customs.length + 1 } : listed.pagination,
-    };
+    await this.#ensureDefault(input.tenant_id, transaction);
+    return this.#persistence.listEnvironments(input, transaction);
   }
 
-  getEnvironment(
+  async getEnvironment(
     input: GetSandboxEnvironmentInput,
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentWithVersion | undefined> {
@@ -104,11 +83,9 @@ export class TrueFoundrySandboxEnvironmentStore<
         name: input.name,
         tenant_id: input.tenant_id,
       });
-      return Promise.resolve(undefined);
+      return undefined;
     }
-    if (input.name === DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
-      return Promise.resolve(synthesizeTrueFoundryDefaultSandboxEnvironment(input.tenant_id));
-    }
+    await this.#ensureDefault(input.tenant_id, transaction);
     return this.#persistence.getEnvironment(input, transaction);
   }
 
@@ -116,30 +93,11 @@ export class TrueFoundrySandboxEnvironmentStore<
     input: GetSandboxEnvironmentsByIdsInput,
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentOwnership[]> {
-    if (!this.#envSupported) {
-      return this.#persistence.getEnvironmentsByIds(input, transaction);
-    }
-    const includesDefault = input.ids.includes(DEFAULT_ENVIRONMENT_ID);
-    const persistenceIds = includesDefault ? input.ids.filter(id => id !== DEFAULT_ENVIRONMENT_ID) : input.ids;
-    let rows = await this.#persistence.getEnvironmentsByIds(
-      { tenant_id: input.tenant_id, ids: persistenceIds },
-      transaction,
-    );
-    if (includesDefault) {
-      const synthesized = synthesizeTrueFoundryDefaultSandboxEnvironment(input.tenant_id);
-      rows = [
-        {
-          id: synthesized.environment.id,
-          name: synthesized.environment.name,
-          created_by_subject: synthesized.environment.created_by_subject,
-        },
-        ...rows,
-      ];
-    }
-    return rows;
+    await this.#ensureDefault(input.tenant_id, transaction);
+    return this.#persistence.getEnvironmentsByIds(input, transaction);
   }
 
-  getActiveEnvironment(
+  async getActiveEnvironment(
     input: GetSandboxEnvironmentInput,
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentWithVersion | undefined> {
@@ -148,11 +106,9 @@ export class TrueFoundrySandboxEnvironmentStore<
         name: input.name,
         tenant_id: input.tenant_id,
       });
-      return Promise.resolve(undefined);
+      return undefined;
     }
-    if (input.name === DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
-      return Promise.resolve(synthesizeTrueFoundryDefaultSandboxEnvironment(input.tenant_id));
-    }
+    await this.#ensureDefault(input.tenant_id, transaction);
     return this.#persistence.getActiveEnvironment(input, transaction);
   }
 
@@ -184,8 +140,9 @@ export class TrueFoundrySandboxEnvironmentStore<
       });
       return trueFoundryManaged();
     }
+    // The platform owns the default tip; only ensure may write it.
     if (input.name === DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
-      return Promise.resolve(synthesizeTrueFoundryDefaultSandboxEnvironment(input.tenant_id));
+      return trueFoundryManaged();
     }
     return this.#persistence.upsertEnvironment(input, transaction);
   }
