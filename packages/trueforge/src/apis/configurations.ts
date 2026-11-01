@@ -23,6 +23,8 @@ function toConfigurations(record: ConfigurationRecord): Configurations {
 /**
  * Reading or updating materialises the row, so a tenant always has a stored
  * document after its first visit and callers never need a separate create.
+ * The store only inserts when nothing is saved, so a read never overwrites a
+ * concurrent update.
  */
 async function loadOrCreate({
   tenant_id,
@@ -31,11 +33,10 @@ async function loadOrCreate({
   tenant_id: string;
   store: IConfigurationStore;
 }): Promise<ConfigurationRecord> {
-  const existing = await store.getConfiguration(tenant_id);
-  if (existing !== undefined) {
-    return existing;
-  }
-  return await store.upsertConfiguration({ tenant_id, manifest: DEFAULT_CONFIGURATIONS_MANIFEST });
+  return await store.getOrCreateConfiguration({
+    tenant_id,
+    default_manifest: DEFAULT_CONFIGURATIONS_MANIFEST,
+  });
 }
 
 /** Listed per switch so a new switch cannot be silently dropped from a patch. */

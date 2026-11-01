@@ -1,5 +1,6 @@
 import { createConfigurationsRouter } from '../../../src/apis/configurations';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
+import type { IConfigurationStore } from '../../../src/db/configurationStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteConfigurationStore } from '../../../src/db/sqlite/configuration-store/SqliteConfigurationStore';
@@ -85,6 +86,33 @@ describe('settings configurations router', () => {
     expect(empty.status).toBe(200);
 
     await expect(store.getConfiguration(STANDALONE_REQUEST_CONTEXT.tenant_id)).resolves.toMatchObject({
+      manifest: { web_search: { enabled: false } },
+    });
+  });
+
+  it('GET does not roll back an update that landed while it was in flight', async () => {
+    const { store } = await createRouter();
+    const tenant_id = STANDALONE_REQUEST_CONTEXT.tenant_id;
+    // Stands in for a PATCH committing after the GET found no row.
+    const racingStore: IConfigurationStore = {
+      getConfiguration: tenant => store.getConfiguration(tenant),
+      upsertConfiguration: input => store.upsertConfiguration(input),
+      getOrCreateConfiguration: async input => {
+        await store.upsertConfiguration({ tenant_id, manifest: { web_search: { enabled: false } } });
+        return await store.getOrCreateConfiguration(input);
+      },
+    };
+    const router = createConfigurationsRouter({
+      resolveConfigurationStore: () => racingStore,
+      resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+    });
+
+    const response = await router.request('/');
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: { manifest: { web_search: { enabled: false } } },
+    });
+    await expect(store.getConfiguration(tenant_id)).resolves.toMatchObject({
       manifest: { web_search: { enabled: false } },
     });
   });

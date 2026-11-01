@@ -118,6 +118,7 @@ describe('capabilities routers', () => {
           updated_at: '2026-01-01T00:00:00.000Z',
         }),
       upsertConfiguration: () => Promise.reject(new Error('not used')),
+      getOrCreateConfiguration: () => Promise.reject(new Error('not used')),
     };
     return withAuth(
       createCapabilitiesRouter({
@@ -374,6 +375,7 @@ describe('capabilities routers', () => {
       const allOnConfigurationStore: IConfigurationStore = {
         getConfiguration: () => Promise.resolve(undefined),
         upsertConfiguration: () => Promise.reject(new Error('not used')),
+        getOrCreateConfiguration: () => Promise.reject(new Error('not used')),
       };
       const router = withAuth(
         createCapabilitiesRouter({

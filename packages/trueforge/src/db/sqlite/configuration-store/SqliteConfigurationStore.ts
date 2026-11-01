@@ -1,6 +1,11 @@
 import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
 import type { ConfigurationsManifest } from '../../../schemas/configurations';
-import type { ConfigurationRecord, IConfigurationStore, UpsertConfigurationInput } from '../../configurationStore';
+import type {
+  ConfigurationRecord,
+  GetOrCreateConfigurationInput,
+  IConfigurationStore,
+  UpsertConfigurationInput,
+} from '../../configurationStore';
 import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
 import type { Database } from '../types';
 
@@ -52,6 +57,32 @@ export class SqliteConfigurationStore implements IConfigurationStore<Transaction
         }),
       )
       .returning(recordColumns)
+      .executeTakeFirstOrThrow();
+  }
+
+  async getOrCreateConfiguration(
+    input: GetOrCreateConfigurationInput,
+    transaction?: Transaction<Database>,
+  ): Promise<ConfigurationRecord> {
+    const db = transaction ?? this.#db;
+    const inserted = await db
+      .insertInto('configuration')
+      .values({
+        tenant_id: input.tenant_id,
+        manifest: jsonbBind(input.default_manifest),
+        updated_at: nowIso(),
+      })
+      .onConflict(oc => oc.column('tenant_id').doNothing())
+      .returning(recordColumns)
+      .executeTakeFirst();
+    if (inserted !== undefined) {
+      return inserted;
+    }
+    // Lost the insert race: the row another writer stored wins.
+    return await db
+      .selectFrom('configuration')
+      .select(recordColumns)
+      .where('tenant_id', '=', input.tenant_id)
       .executeTakeFirstOrThrow();
   }
 }
