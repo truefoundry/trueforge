@@ -210,6 +210,74 @@ class SandboxEnvironmentsClient:
         _response = self._raw_client.delete(name=name, request_options=request_options)
         return _response.data
 
+    def disable(
+        self, *, name: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> GetSandboxEnvironmentResponse:
+        """
+        Stop new chats from selecting this environment. Chats already using it keep access.
+
+        Parameters
+        ----------
+        name : str
+            Sandbox environment name.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        GetSandboxEnvironmentResponse
+            The saved sandbox environment.
+
+        Examples
+        --------
+        from trueforge_sdk import TrueForge
+
+        client = TrueForge(
+            token="YOUR_TOKEN",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.sandbox_environments.disable(
+            name="name",
+        )
+        """
+        _response = self._raw_client.disable(name=name, request_options=request_options)
+        return _response.data
+
+    def enable(
+        self, *, name: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> GetSandboxEnvironmentResponse:
+        """
+        Allow new chats to select this environment again.
+
+        Parameters
+        ----------
+        name : str
+            Sandbox environment name.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        GetSandboxEnvironmentResponse
+            The saved sandbox environment.
+
+        Examples
+        --------
+        from trueforge_sdk import TrueForge
+
+        client = TrueForge(
+            token="YOUR_TOKEN",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.sandbox_environments.enable(
+            name="name",
+        )
+        """
+        _response = self._raw_client.enable(name=name, request_options=request_options)
+        return _response.data
+
 
 class AsyncSandboxEnvironmentsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -444,4 +512,88 @@ class AsyncSandboxEnvironmentsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.delete(name=name, request_options=request_options)
+        return _response.data
+
+    async def disable(
+        self, *, name: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> GetSandboxEnvironmentResponse:
+        """
+        Stop new chats from selecting this environment. Chats already using it keep access.
+
+        Parameters
+        ----------
+        name : str
+            Sandbox environment name.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        GetSandboxEnvironmentResponse
+            The saved sandbox environment.
+
+        Examples
+        --------
+        import asyncio
+
+        from trueforge_sdk import AsyncTrueForge
+
+        client = AsyncTrueForge(
+            token="YOUR_TOKEN",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.sandbox_environments.disable(
+                name="name",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.disable(name=name, request_options=request_options)
+        return _response.data
+
+    async def enable(
+        self, *, name: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> GetSandboxEnvironmentResponse:
+        """
+        Allow new chats to select this environment again.
+
+        Parameters
+        ----------
+        name : str
+            Sandbox environment name.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        GetSandboxEnvironmentResponse
+            The saved sandbox environment.
+
+        Examples
+        --------
+        import asyncio
+
+        from trueforge_sdk import AsyncTrueForge
+
+        client = AsyncTrueForge(
+            token="YOUR_TOKEN",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.sandbox_environments.enable(
+                name="name",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.enable(name=name, request_options=request_options)
         return _response.data

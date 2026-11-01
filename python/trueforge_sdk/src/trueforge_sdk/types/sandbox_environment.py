@@ -25,6 +25,16 @@ class SandboxEnvironment(UncheckedBaseModel):
     Human-readable description; empty when unset.
     """
 
+    disabled_at: typing.Optional[dt.datetime] = pydantic.Field(default=None)
+    """
+    ISO-8601 time the environment was last disabled; null when on.
+    """
+
+    enabled: bool = pydantic.Field()
+    """
+    Whether new chats may select this environment. Chats that already use it keep access.
+    """
+
     id: str = pydantic.Field()
     """
     Immutable server-generated environment identifier.

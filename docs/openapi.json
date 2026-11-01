@@ -3621,8 +3621,12 @@
       "SandboxCapability": {
         "properties": {
           "enabled": {
-            "description": "Whether a sandbox provider is configured for this tenant.",
+            "description": "Whether new chats may use a sandbox: the tenant allows it and a provider is configured.",
             "type": "boolean"
+          },
+          "reason": {
+            "description": "Present when sandboxes are unavailable. Explains why.",
+            "type": "string"
           }
         },
         "required": [
@@ -3709,6 +3713,18 @@
             "description": "Human-readable description; empty when unset.",
             "type": "string"
           },
+          "disabled_at": {
+            "description": "ISO-8601 time the environment was last disabled; null when on.",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "enabled": {
+            "description": "Whether new chats may select this environment. Chats that already use it keep access.",
+            "type": "boolean"
+          },
           "id": {
             "description": "Immutable server-generated environment identifier.",
             "minLength": 1,
@@ -3746,6 +3762,8 @@
           "lifecycle_stage",
           "status",
           "status_reason",
+          "enabled",
+          "disabled_at",
           "manifest",
           "created_by_subject",
           "created_at",
@@ -8819,6 +8837,152 @@
           "sandboxEnvironments"
         ],
         "x-fern-sdk-method-name": "get"
+      }
+    },
+    "/api/v1/sandbox-environments/{name}/disable": {
+      "post": {
+        "description": "Stop new chats from selecting this environment. Chats already using it keep access.",
+        "parameters": [
+          {
+            "description": "Sandbox environment name.",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ResourceName"
+                },
+                {
+                  "description": "Sandbox environment name."
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSandboxEnvironmentResponse"
+                }
+              }
+            },
+            "description": "The saved sandbox environment."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthenticated."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "User does not have permission to edit Sandbox environment"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Sandbox environment not found."
+          }
+        },
+        "summary": "Disable a sandbox environment",
+        "tags": [
+          "Sandboxes"
+        ],
+        "x-fern-sdk-group-name": [
+          "sandboxEnvironments"
+        ],
+        "x-fern-sdk-method-name": "disable"
+      }
+    },
+    "/api/v1/sandbox-environments/{name}/enable": {
+      "post": {
+        "description": "Allow new chats to select this environment again.",
+        "parameters": [
+          {
+            "description": "Sandbox environment name.",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ResourceName"
+                },
+                {
+                  "description": "Sandbox environment name."
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSandboxEnvironmentResponse"
+                }
+              }
+            },
+            "description": "The saved sandbox environment."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthenticated."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "User does not have permission to edit Sandbox environment"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Sandbox environment not found."
+          }
+        },
+        "summary": "Enable a sandbox environment",
+        "tags": [
+          "Sandboxes"
+        ],
+        "x-fern-sdk-group-name": [
+          "sandboxEnvironments"
+        ],
+        "x-fern-sdk-method-name": "enable"
       }
     },
     "/api/v1/schedules": {

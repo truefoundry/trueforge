@@ -16,6 +16,8 @@ export const SandboxEnvironment: core.serialization.ObjectSchema<
     createdAt: core.serialization.property("created_at", core.serialization.date()),
     createdBySubject: core.serialization.property("created_by_subject", CreatedBySubject),
     description: core.serialization.string(),
+    disabledAt: core.serialization.property("disabled_at", core.serialization.date().nullable()),
+    enabled: core.serialization.boolean(),
     id: core.serialization.string(),
     lifecycleStage: core.serialization.property("lifecycle_stage", SandboxEnvironmentLifecycleStage),
     manifest: SandboxEnvironmentManifest,
@@ -30,6 +32,8 @@ export declare namespace SandboxEnvironment {
         created_at: string;
         created_by_subject: CreatedBySubject.Raw;
         description: string;
+        disabled_at?: string | null;
+        enabled: boolean;
         id: string;
         lifecycle_stage: SandboxEnvironmentLifecycleStage.Raw;
         manifest: SandboxEnvironmentManifest.Raw;

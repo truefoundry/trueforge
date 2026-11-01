@@ -10,7 +10,12 @@ from ..core.unchecked_base_model import UncheckedBaseModel
 class SandboxCapability(UncheckedBaseModel):
     enabled: bool = pydantic.Field()
     """
-    Whether a sandbox provider is configured for this tenant.
+    Whether new chats may use a sandbox: the tenant allows it and a provider is configured.
+    """
+
+    reason: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Present when sandboxes are unavailable. Explains why.
     """
 
     if IS_PYDANTIC_V2:

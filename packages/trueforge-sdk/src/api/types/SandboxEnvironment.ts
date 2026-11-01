@@ -8,6 +8,10 @@ export interface SandboxEnvironment {
     createdBySubject: TrueForge.CreatedBySubject;
     /** Human-readable description; empty when unset. */
     description: string;
+    /** ISO-8601 time the environment was last disabled; null when on. */
+    disabledAt: Date | null;
+    /** Whether new chats may select this environment. Chats that already use it keep access. */
+    enabled: boolean;
     /** Immutable server-generated environment identifier. */
     id: string;
     lifecycleStage: TrueForge.SandboxEnvironmentLifecycleStage;
