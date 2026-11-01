@@ -148,7 +148,7 @@ export function App() {
         if (first === undefined) {
           setBoot({
             status: 'ready',
-            openSettings: capabilities.settings.modelProviders.enabled,
+            openSettings: capabilities.settings.enabled,
             defaultAgentSpec: {
               model: { name: '' },
               config: sandboxConfig,
