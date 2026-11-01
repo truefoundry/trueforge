@@ -85,7 +85,7 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
       }),
     ]);
 
-    var webSearchResponse = {
+    const webSearchResponse = {
       enabled: true,
       reason: 'Web search is available.',
     };
