@@ -300,6 +300,9 @@ export interface SandboxEnvironmentTable {
   description: string;
   active_version: number;
   lifecycle_stage: SandboxEnvironmentLifecycleStage;
+  /** INTEGER 0/1 — STRICT has no boolean. */
+  enabled: number;
+  disabled_at: string | null;
   created_by_subject: JsonbColumn<CreatedBySubject>;
   created_at: string;
   updated_at: string;

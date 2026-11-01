@@ -20,6 +20,10 @@ export interface SandboxEnvironmentRecord {
   description: string;
   active_version: number;
   lifecycle_stage: SandboxEnvironmentLifecycleStage;
+  /** Whether new chats may select this environment; saved chats keep theirs either way. */
+  enabled: boolean;
+  /** ISO-8601 UTC instant of the most recent disable; null while enabled. */
+  disabled_at: string | null;
   created_by_subject: CreatedBySubject;
   /** ISO-8601 UTC instant. */
   created_at: string;
@@ -167,6 +171,12 @@ export interface DeleteSandboxEnvironmentInput {
   name: string;
 }
 
+export interface SetSandboxEnvironmentEnabledInput {
+  tenant_id: string;
+  name: string;
+  enabled: boolean;
+}
+
 /** Partial unique `(tenant_id, name) WHERE lifecycle_stage = 'active'` violation. */
 export class SandboxEnvironmentNameConflictError extends Error {
   readonly tenant_id: string;
@@ -257,6 +267,15 @@ export interface ISandboxEnvironmentStore<TTransaction = never> {
     input: MarkSandboxEnvironmentVersionFailedInput,
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentVersionRecord | undefined>;
+  /**
+   * Flip the parent switch only — no version row, no `active_version` change, so a
+   * toggle never queues a snapshot rebuild. Disabling stamps `disabled_at`; enabling
+   * clears it. Returns undefined when no active environment uses the name.
+   */
+  setEnvironmentEnabled(
+    input: SetSandboxEnvironmentEnabledInput,
+    transaction?: TTransaction,
+  ): Promise<SandboxEnvironmentWithVersion | undefined>;
   /** Soft-delete: set lifecycle_stage = deleted. Idempotent if missing or already deleted. */
   deleteEnvironment(input: DeleteSandboxEnvironmentInput, transaction?: TTransaction): Promise<void>;
   listSecretsByEnvironment(

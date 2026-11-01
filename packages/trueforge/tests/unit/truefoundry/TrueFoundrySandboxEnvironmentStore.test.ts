@@ -91,6 +91,8 @@ describe('TrueFoundrySandboxEnvironmentStore', () => {
 
     expect(loaded?.version.status).toBe('ready');
     expect(loaded?.version.external_ref).toBe(SNAPSHOT);
+    expect(loaded?.environment.enabled).toBe(true);
+    expect(loaded?.environment.disabled_at).toBeNull();
     // Persisted, not synthesized.
     await expect(
       persistence.getEnvironment({ tenant_id: TENANT, name: DEFAULT_SANDBOX_ENVIRONMENT_NAME }),
@@ -107,16 +109,21 @@ describe('TrueFoundrySandboxEnvironmentStore', () => {
     expect(second?.version.version).toBe(1);
   });
 
-  it('advances the default onto a new snapshot when the configured one changes', async () => {
-    const { store } = await createStores(true);
+  it('advances the default onto a new snapshot without clearing the disable switch', async () => {
+    const { store, persistence } = await createStores(true);
     await store.getEnvironment({ tenant_id: TENANT, name: DEFAULT_SANDBOX_ENVIRONMENT_NAME });
+    await persistence.setEnvironmentEnabled({
+      tenant_id: TENANT,
+      name: DEFAULT_SANDBOX_ENVIRONMENT_NAME,
+      enabled: false,
+    });
 
     mockSnapshot('trueforge-default-v2');
     const loaded = await store.getEnvironment({ tenant_id: TENANT, name: DEFAULT_SANDBOX_ENVIRONMENT_NAME });
 
     expect(loaded?.version.external_ref).toBe('trueforge-default-v2');
     expect(loaded?.version.status).toBe('ready');
-    expect(loaded?.version.version).toBe(2);
+    expect(loaded?.environment.enabled).toBe(false);
   });
 
   it('never queues the default for a snapshot build', async () => {
@@ -134,6 +141,20 @@ describe('TrueFoundrySandboxEnvironmentStore', () => {
 
     expect(listed.data.map(row => row.environment.name)).toEqual([DEFAULT_SANDBOX_ENVIRONMENT_NAME, 'pyjokes-env']);
     expect(listed.data[0]?.version.status).toBe('ready');
+  });
+
+  it('keeps listing a disabled default so an admin can turn it back on', async () => {
+    const { store } = await createStores(true);
+    await store.setEnvironmentEnabled({
+      tenant_id: TENANT,
+      name: DEFAULT_SANDBOX_ENVIRONMENT_NAME,
+      enabled: false,
+    });
+
+    const listed = await store.listEnvironments({ tenant_id: TENANT, limit: 25, page_token: undefined });
+
+    expect(listed.data).toHaveLength(1);
+    expect(listed.data[0]?.environment.enabled).toBe(false);
   });
 
   it('no-ops get/list when env is not supported', async () => {

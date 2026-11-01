@@ -24,6 +24,7 @@ import {
   type SandboxEnvironmentVersionForProgress,
   type SandboxEnvironmentVersionRecord,
   type SandboxEnvironmentWithVersion,
+  type SetSandboxEnvironmentEnabledInput,
   type UpsertSandboxEnvironmentInput,
 } from '../db/sandboxEnvironmentStore';
 import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
@@ -192,6 +193,21 @@ export class TrueFoundrySandboxEnvironmentStore<
       return Promise.resolve(undefined);
     }
     return this.#persistence.markVersionFailed(input, transaction);
+  }
+
+  async setEnvironmentEnabled(
+    input: SetSandboxEnvironmentEnabledInput,
+    transaction?: TTransaction,
+  ): Promise<SandboxEnvironmentWithVersion | undefined> {
+    if (!this.#envSupported) {
+      logger.info('Skipping sandbox environment enable toggle (provider does not support environments)', {
+        name: input.name,
+        tenant_id: input.tenant_id,
+      });
+      return undefined;
+    }
+    await this.#ensureDefault(input.tenant_id, transaction);
+    return this.#persistence.setEnvironmentEnabled(input, transaction);
   }
 
   deleteEnvironment(input: DeleteSandboxEnvironmentInput, transaction?: TTransaction): Promise<void> {

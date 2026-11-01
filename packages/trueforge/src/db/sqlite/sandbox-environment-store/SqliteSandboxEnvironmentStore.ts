@@ -37,6 +37,7 @@ import {
   type SandboxEnvironmentVersionForProgress,
   type SandboxEnvironmentVersionRecord,
   type SandboxEnvironmentWithVersion,
+  type SetSandboxEnvironmentEnabledInput,
   type UpsertSandboxEnvironmentInput,
   type UpsertSandboxEnvironmentVersionWrite,
 } from '../../sandboxEnvironmentStore';
@@ -83,6 +84,8 @@ function activeVersionJoin(db: Kysely<Database> | Transaction<Database>) {
       'env.description',
       'env.active_version',
       'env.lifecycle_stage',
+      'env.enabled',
+      'env.disabled_at',
       jsonText<CreatedBySubject>(sql.ref('env.created_by_subject')).as('created_by_subject'),
       'env.created_at',
       'env.updated_at',
@@ -111,6 +114,8 @@ function latestVersionJoin(db: Kysely<Database> | Transaction<Database>) {
       'env.description',
       'env.active_version',
       'env.lifecycle_stage',
+      'env.enabled',
+      'env.disabled_at',
       jsonText<CreatedBySubject>(sql.ref('env.created_by_subject')).as('created_by_subject'),
       'env.created_at',
       'env.updated_at',
@@ -158,6 +163,8 @@ function toEnvironmentRecord(row: {
   description: string;
   active_version: number;
   lifecycle_stage: SandboxEnvironmentRecord['lifecycle_stage'];
+  enabled: number;
+  disabled_at: string | null;
   created_by_subject: CreatedBySubject;
   created_at: string;
   updated_at: string;
@@ -169,6 +176,8 @@ function toEnvironmentRecord(row: {
     description: row.description,
     active_version: row.active_version,
     lifecycle_stage: row.lifecycle_stage,
+    enabled: row.enabled !== 0,
+    disabled_at: row.disabled_at,
     created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
     created_at: row.created_at,
     updated_at: row.updated_at,
@@ -210,6 +219,8 @@ function toWithVersion(row: {
   description: string;
   active_version: number;
   lifecycle_stage: SandboxEnvironmentRecord['lifecycle_stage'];
+  enabled: number;
+  disabled_at: string | null;
   created_by_subject: CreatedBySubject;
   created_at: string;
   updated_at: string;
@@ -427,6 +438,8 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
         'description',
         'active_version',
         'lifecycle_stage',
+        'enabled',
+        'disabled_at',
         jsonText<CreatedBySubject>(sql.ref('created_by_subject')).as('created_by_subject'),
         'created_at',
         'updated_at',
@@ -461,6 +474,8 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
             description: input.description,
             active_version: 1,
             lifecycle_stage: 'active',
+            enabled: 1,
+            disabled_at: null,
             created_by_subject: jsonbBind(input.created_by_subject),
             created_at,
             updated_at: created_at,
@@ -489,6 +504,8 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
           description: input.description,
           active_version: versionWrite.version,
           lifecycle_stage: 'active',
+          enabled: true,
+          disabled_at: null,
           created_by_subject: input.created_by_subject,
           created_at,
           updated_at: created_at,
@@ -615,6 +632,34 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
       .where('id', '=', input.environment_version_id)
       .executeTakeFirst();
     return row ? toVersionRecord(row) : undefined;
+  }
+
+  async setEnvironmentEnabled(
+    input: SetSandboxEnvironmentEnabledInput,
+    transaction?: Transaction<Database>,
+  ): Promise<SandboxEnvironmentWithVersion | undefined> {
+    const db = transaction ?? this.#db;
+    const updated_at = nowIso();
+    const result = await db
+      .updateTable('sandbox_environment')
+      .set({
+        enabled: input.enabled ? 1 : 0,
+        disabled_at: input.enabled ? null : updated_at,
+        updated_at,
+      })
+      .where('tenant_id', '=', input.tenant_id)
+      .where('name', '=', input.name)
+      .where('lifecycle_stage', '=', 'active')
+      .executeTakeFirst();
+    if (!Number(result.numUpdatedRows)) {
+      return undefined;
+    }
+    const row = await latestVersionJoin(db)
+      .where('env.tenant_id', '=', input.tenant_id)
+      .where('env.name', '=', input.name)
+      .where('env.lifecycle_stage', '=', 'active')
+      .executeTakeFirst();
+    return row ? toWithVersion(row) : undefined;
   }
 
   async deleteEnvironment(input: DeleteSandboxEnvironmentInput, transaction?: Transaction<Database>): Promise<void> {

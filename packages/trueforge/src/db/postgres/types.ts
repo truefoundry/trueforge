@@ -455,6 +455,9 @@ export interface SandboxEnvironmentTable {
   description: string;
   active_version: number;
   lifecycle_stage: SandboxEnvironmentLifecycleStage;
+  /** Whether new chats may select this environment; saved chats keep theirs either way. */
+  enabled: boolean;
+  disabled_at: Date | null;
   created_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
   created_at: Date;
   updated_at: Date;
