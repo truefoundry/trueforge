@@ -19,11 +19,22 @@ import { DEFAULT_SANDBOX_ENVIRONMENT_NAME, type SandboxEnvironmentVersionStatus 
 import { hasTrueFoundrySandboxProviderConfig } from '../truefoundry/resolveTrueFoundrySandboxProviderConfig';
 import { hasConfiguredWebSearchProvider } from '../websearch/providers';
 
+const SANDBOX_DISABLED_REASON = 'Sandboxes are turned off for this tenant. An admin can turn them back on in settings.';
+
 /**
  * Why skills are unavailable, keyed off the default sandbox environment status.
  * `pending` is transient (retry); everything else (missing / failed) reads as not configured.
  */
-function skillDisabledReason(status: SandboxEnvironmentVersionStatus | undefined): string {
+function skillDisabledReason({
+  status,
+  tenantAllows,
+}: {
+  status: SandboxEnvironmentVersionStatus | undefined;
+  tenantAllows: boolean;
+}): string {
+  if (!tenantAllows) {
+    return SANDBOX_DISABLED_REASON;
+  }
   if (status === 'pending') {
     return 'Skills run in a sandbox whose image is still being prepared — retry shortly.';
   }
@@ -63,7 +74,7 @@ function settingsCapability(requestContext: Pick<RequestContext, 'roles'>) {
 }
 
 export function createCapabilitiesRouter<TTransaction>(deps: {
-  sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
+  sandboxEnvironmentStore: Pick<ISandboxEnvironmentStore<TTransaction>, 'getActiveEnvironment'>;
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore<TTransaction>;
   resolveConfigurationStore: (c: Context) => IConfigurationStore<TTransaction>;
   userStore: IUserStore;
@@ -79,12 +90,16 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
       name: DEFAULT_SANDBOX_ENVIRONMENT_NAME,
     });
     const status = defaultEnv?.version.status;
+    // The default environment is what a chat gets when its spec names none, so turning it
+    // off is the tenant-wide sandbox switch and outranks every "is it configured" branch.
+    const tenantAllowsSandbox = defaultEnv?.environment.enabled !== false;
     // Shared TFY provider (incl. on-prem with no env tip), ready default env, or local fallback.
     // hasTrueFoundrySandboxProviderConfig never throws — incomplete TFY settings stay "disabled".
     const sandboxEnabled =
-      hasTrueFoundrySandboxProviderConfig() ||
-      status === 'ready' ||
-      (defaultEnv === undefined && isLocalSandboxFallbackEnabled());
+      tenantAllowsSandbox &&
+      (hasTrueFoundrySandboxProviderConfig() ||
+        status === 'ready' ||
+        (defaultEnv === undefined && isLocalSandboxFallbackEnabled()));
     const [hasProvider, tenantAllowsWebSearch] = await Promise.all([
       hasConfiguredWebSearchProvider({
         tenant_id: requestContext.tenant_id,
@@ -99,8 +114,12 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
     return c.json(
       {
         data: {
-          sandbox: { enabled: sandboxEnabled },
-          skill: sandboxEnabled ? { enabled: true } : { enabled: false, reason: skillDisabledReason(status) },
+          sandbox: sandboxEnabled
+            ? { enabled: true }
+            : { enabled: false, ...(tenantAllowsSandbox ? {} : { reason: SANDBOX_DISABLED_REASON }) },
+          skill: sandboxEnabled
+            ? { enabled: true }
+            : { enabled: false, reason: skillDisabledReason({ status, tenantAllows: tenantAllowsSandbox }) },
           settings: settingsCapability(requestContext),
           web_search: webSearchEnabled
             ? { enabled: true }

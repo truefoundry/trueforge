@@ -33,6 +33,7 @@ import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-
 import { EmptyUserStore } from '../../../src/db/userStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
+import { NameSchema } from '../../../src/schemas/common';
 import { GetSessionResponseSchema, ListSessionsResponseSchema } from '../../../src/schemas/session';
 import {
   GetSessionMetricsChartDataResponseSchema,
@@ -79,6 +80,7 @@ describe('sessions HTTP agent binding', () => {
   let app: OpenAPIHono;
   let agentStore: SqliteAgentStore;
   let configurationStore: SqliteConfigurationStore;
+  let sandboxEnvironmentStore: SqliteSandboxEnvironmentStore;
   let sessionStore: SqliteSessionStore;
   let sessionMetricsStore: SqliteSessionMetricsStore;
   let sessionDeps: SessionsRouterDeps<Transaction<Database>>;
@@ -96,7 +98,7 @@ describe('sessions HTTP agent binding', () => {
     const mcpServerStore = new SqliteMcpServerStore(db);
     const skillStore = new SqliteSkillStore(db);
     const sandboxProviderStore = new SqliteSandboxProviderStore(db);
-    const sandboxEnvironmentStore = new SqliteSandboxEnvironmentStore(db);
+    sandboxEnvironmentStore = new SqliteSandboxEnvironmentStore(db);
     const webSearchProviderStore = new SqliteWebSearchProviderStore(db);
     configurationStore = new SqliteConfigurationStore(db);
     agentStore = new SqliteAgentStore(db);
@@ -903,6 +905,63 @@ describe('sessions HTTP agent binding', () => {
       });
     }
 
+    const allowed = await app.request('/', jsonInit('POST', { agent: { name: agent.name } }));
+    expect(allowed.status).toBe(201);
+  });
+
+  it('rejects a new session on an agent pinned to a disabled sandbox environment', async () => {
+    const created_by_subject = {
+      subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+      subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+      subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+    };
+    await sandboxEnvironmentStore.upsertEnvironment({
+      tenant_id: 'default',
+      name: NameSchema.parse('pinned-env'),
+      description: '',
+      created_by_subject,
+      synced_secrets: [],
+      buildVersion: () =>
+        Promise.resolve({
+          version: 1,
+          manifest: {
+            name: NameSchema.parse('pinned-env'),
+            resources: { cpu: 1, memory: 1, disk: 3 },
+            type: 'daytona' as const,
+            sandbox_provider: 'daytona' as const,
+          },
+          status: 'ready' as const,
+          status_reason: null,
+          external_ref: 'ref-pinned',
+          created_by_subject,
+        }),
+    });
+    const agent = await agentStore.createAgent({
+      tenant_id: 'default',
+      created_by_subject,
+      name: 'pinned-env-agent',
+      description: 'Test agent.',
+      manifest: AgentSpecSchema.parse({
+        model: { name: 'anthropic/claude-sonnet-4-6' },
+        instructions: 'builds',
+        config: { sandbox: { enabled: true, environment_name: 'pinned-env' } },
+      }),
+      external_id: null,
+    });
+
+    await sandboxEnvironmentStore.setEnvironmentEnabled({
+      tenant_id: 'default',
+      name: 'pinned-env',
+      enabled: false,
+    });
+    const blocked = await app.request('/', jsonInit('POST', { agent: { name: agent.name } }));
+    expect(blocked.status).toBe(422);
+
+    await sandboxEnvironmentStore.setEnvironmentEnabled({
+      tenant_id: 'default',
+      name: 'pinned-env',
+      enabled: true,
+    });
     const allowed = await app.request('/', jsonInit('POST', { agent: { name: agent.name } }));
     expect(allowed.status).toBe(201);
   });

@@ -13,6 +13,7 @@ import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkill
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
 import { getModelDetails, localSandboxSessionSegment, validateAgentSpec } from '../../../src/runtime/sessionResources';
 import { setCachedLocalSandboxSupport } from '../../../src/sandbox/localRuntime';
+import { NameSchema } from '../../../src/schemas/common';
 import type { ReasoningEffort } from '../../../src/schemas/modelProvider';
 import { hasConfiguredWebSearchProvider } from '../../../src/websearch/providers';
 
@@ -74,6 +75,58 @@ describe('validateAgentSpec', () => {
       configurationStore: new SqliteConfigurationStore(db),
       previous_spec: undefined,
     };
+  }
+
+  function specWithEnvironment(environment_name: string) {
+    return AgentSpecSchema.parse({
+      model: { name: 'test-provider/test-model' },
+      instructions: 'test',
+      config: { sandbox: { enabled: true, environment_name } },
+    });
+  }
+
+  function configureSandboxProvider(store: SqliteSandboxProviderStore) {
+    return store.upsertSandboxProvider({
+      tenant_id: 'default',
+      manifest: {
+        type: 'daytona',
+        auth: { api_key: 'dtn-test' },
+        exec_timeout_ms: 60_000,
+        auto_stop_interval_in_minutes: 5,
+        auto_archive_interval_in_minutes: 60,
+        auto_delete_interval_in_minutes: 7200,
+      },
+    });
+  }
+
+  /** Created by another subject, so owner filters are exercised alongside the switch. */
+  function createEnvironment(store: SqliteSandboxEnvironmentStore, { name }: { name: string }) {
+    const created_by_subject = {
+      subject_id: 'env-owner',
+      subject_type: 'user',
+      subject_display_name: 'Env Owner',
+    };
+    return store.upsertEnvironment({
+      tenant_id: 'default',
+      name: NameSchema.parse(name),
+      description: '',
+      created_by_subject,
+      synced_secrets: [],
+      buildVersion: () =>
+        Promise.resolve({
+          version: 1,
+          manifest: {
+            name: NameSchema.parse(name),
+            resources: { cpu: 1, memory: 1, disk: 3 },
+            type: 'daytona' as const,
+            sandbox_provider: 'daytona' as const,
+          },
+          status: 'ready' as const,
+          status_reason: null,
+          external_ref: `ref-${name}`,
+          created_by_subject,
+        }),
+    });
   }
 
   it('maps the configured model output limit to runtime max_tokens', async () => {
@@ -408,7 +461,8 @@ describe('validateAgentSpec', () => {
         auto_delete_interval_in_minutes: 7200,
       },
     });
-    const getEnvironment = jest.spyOn(stores.sandboxEnvironmentStore, 'getEnvironment').mockResolvedValue({} as never);
+    await createEnvironment(stores.sandboxEnvironmentStore, { name: 'shared-env' });
+    const getEnvironment = jest.spyOn(stores.sandboxEnvironmentStore, 'getEnvironment');
 
     await expect(
       validateAgentSpec({
@@ -426,6 +480,93 @@ describe('validateAgentSpec', () => {
       tenant_id: 'default',
       name: 'shared-env',
     });
+  });
+
+  it('rejects selecting a disabled sandbox environment', async () => {
+    const stores = await setup();
+    await configureSandboxProvider(stores.sandboxProviderStore);
+    await createEnvironment(stores.sandboxEnvironmentStore, { name: 'shared-env' });
+    await stores.sandboxEnvironmentStore.setEnvironmentEnabled({
+      tenant_id: 'default',
+      name: 'shared-env',
+      enabled: false,
+    });
+
+    await expect(
+      validateAgentSpec({
+        spec: specWithEnvironment('shared-env'),
+        tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
+        ...stores,
+      }),
+    ).rejects.toThrow(/disabled/);
+  });
+
+  it('allows re-saving a spec that already selected the environment before it was disabled', async () => {
+    const stores = await setup();
+    await configureSandboxProvider(stores.sandboxProviderStore);
+    await createEnvironment(stores.sandboxEnvironmentStore, { name: 'shared-env' });
+    await stores.sandboxEnvironmentStore.setEnvironmentEnabled({
+      tenant_id: 'default',
+      name: 'shared-env',
+      enabled: false,
+    });
+
+    await expect(
+      validateAgentSpec({
+        spec: specWithEnvironment('shared-env'),
+        tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
+        ...stores,
+        previous_spec: specWithEnvironment('shared-env'),
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('rejects switching from one disabled environment to another', async () => {
+    const stores = await setup();
+    await configureSandboxProvider(stores.sandboxProviderStore);
+    await createEnvironment(stores.sandboxEnvironmentStore, { name: 'shared-env' });
+    await createEnvironment(stores.sandboxEnvironmentStore, { name: 'other-env' });
+    await stores.sandboxEnvironmentStore.setEnvironmentEnabled({
+      tenant_id: 'default',
+      name: 'other-env',
+      enabled: false,
+    });
+
+    await expect(
+      validateAgentSpec({
+        spec: specWithEnvironment('other-env'),
+        tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
+        ...stores,
+        previous_spec: specWithEnvironment('shared-env'),
+      }),
+    ).rejects.toThrow(/disabled/);
+  });
+
+  it('allows a spec that names no environment while the default is disabled', async () => {
+    const stores = await setup();
+    await configureSandboxProvider(stores.sandboxProviderStore);
+    await createEnvironment(stores.sandboxEnvironmentStore, { name: 'default' });
+    await stores.sandboxEnvironmentStore.setEnvironmentEnabled({
+      tenant_id: 'default',
+      name: 'default',
+      enabled: false,
+    });
+
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          config: { sandbox: { enabled: true } },
+        }),
+        tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
+        ...stores,
+      }),
+    ).resolves.toBeUndefined();
   });
 
   it('admits sandbox.enabled when local fallback is cached and the store is empty', async () => {

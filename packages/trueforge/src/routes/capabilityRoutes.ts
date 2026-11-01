@@ -4,7 +4,10 @@ import { OpenApiTag } from './openapiTags';
 
 const SandboxCapabilitySchema = z
   .object({
-    enabled: z.boolean().describe('Whether a sandbox provider is configured for this tenant.'),
+    enabled: z
+      .boolean()
+      .describe('Whether new chats may use a sandbox: the tenant allows it and a provider is configured.'),
+    reason: z.string().optional().describe('Present when sandboxes are unavailable. Explains why.'),
   })
   .openapi('SandboxCapability');
 

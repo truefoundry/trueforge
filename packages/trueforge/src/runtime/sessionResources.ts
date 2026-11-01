@@ -338,14 +338,21 @@ export async function validateAgentSpec({
   }
 
   const environmentName = spec.config.sandbox.environment_name;
-  if (environmentName && environmentName !== DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
+  if (environmentName) {
     const environment = await sandboxEnvironmentStore.getEnvironment({
       tenant_id,
       name: environmentName,
     });
-    if (environment === undefined) {
+    if (environment === undefined && environmentName !== DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
       throw new HTTPException(422, {
         message: `Unknown sandbox environment "${environmentName}" — not configured`,
+      });
+    }
+    // Already saved against this environment: the switch only gates selecting it.
+    const alreadySelected = previous_spec?.config.sandbox.environment_name === environmentName;
+    if (environment?.environment.enabled === false && !alreadySelected) {
+      throw new HTTPException(422, {
+        message: `sandbox environment "${environmentName}" cannot be selected because it is disabled - an admin can re-enable it in settings`,
       });
     }
   }

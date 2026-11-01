@@ -16,7 +16,12 @@ import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { EmptyUserStore, type IUserStore } from '../../../src/db/userStore';
 import type { IWebSearchProviderStore } from '../../../src/db/webSearchProviderStore';
 import { setCachedLocalSandboxSupport } from '../../../src/sandbox/localRuntime';
-import type { SandboxEnvironmentVersionStatus } from '../../../src/schemas/sandboxEnvironment';
+import { defaultSandboxEnvironmentStoredManifest } from '../../../src/sandbox/sandboxEnvironmentVersion';
+import { NameSchema } from '../../../src/schemas/common';
+import {
+  DEFAULT_SANDBOX_ENVIRONMENT_NAME,
+  type SandboxEnvironmentVersionStatus,
+} from '../../../src/schemas/sandboxEnvironment';
 import { TrueFoundryUserStore } from '../../../src/truefoundry/TrueFoundryUserStore';
 
 const silentLogger = createLogger({ silent: true });
@@ -42,16 +47,49 @@ const ALL_SETTINGS_OFF = {
 const NO_PROVIDER_REASON = 'Web search needs a provider, which is not configured.';
 const TENANT_OFF_REASON = 'Web search is turned off for this tenant - an admin can turn it back on in settings.';
 
-let mockActiveDefaultStatus: SandboxEnvironmentVersionStatus | undefined;
-let mockLatestDefaultStatus: SandboxEnvironmentVersionStatus | undefined;
+const SANDBOX_OFF_REASON = 'Sandboxes are turned off for this tenant. An admin can turn them back on in settings.';
 
-function mockDefaultEnvStore(): ISandboxEnvironmentStore {
-  const withStatus = (status: SandboxEnvironmentVersionStatus | undefined) =>
-    status === undefined ? undefined : ({ version: { status } } as unknown as SandboxEnvironmentWithVersion);
+let mockActiveDefaultStatus: SandboxEnvironmentVersionStatus | undefined;
+let mockDefaultEnabled: boolean;
+
+function defaultEnvRecord(status: SandboxEnvironmentVersionStatus): SandboxEnvironmentWithVersion {
+  const subject = { subject_id: 'truefoundry', subject_type: 'user', subject_display_name: 'TrueFoundry' };
+  const timestamp = '2026-11-02T00:00:00.000Z';
   return {
-    getEnvironment: () => Promise.resolve(withStatus(mockLatestDefaultStatus)),
-    getActiveEnvironment: () => Promise.resolve(withStatus(mockActiveDefaultStatus)),
-  } as unknown as ISandboxEnvironmentStore;
+    environment: {
+      id: 'env-default',
+      tenant_id: 'default',
+      name: NameSchema.parse(DEFAULT_SANDBOX_ENVIRONMENT_NAME),
+      description: '',
+      active_version: 1,
+      lifecycle_stage: 'active',
+      enabled: mockDefaultEnabled,
+      disabled_at: mockDefaultEnabled ? null : timestamp,
+      created_by_subject: subject,
+      created_at: timestamp,
+      updated_at: timestamp,
+    },
+    version: {
+      id: 'ver-default',
+      environment_id: 'env-default',
+      version: 1,
+      manifest: defaultSandboxEnvironmentStoredManifest('daytona'),
+      status,
+      status_reason: null,
+      external_ref: 'snapshot',
+      internal_metadata: { secrets: [] },
+      created_by_subject: subject,
+      created_at: timestamp,
+      updated_at: timestamp,
+    },
+  };
+}
+
+function mockDefaultEnvStore(): Pick<ISandboxEnvironmentStore, 'getActiveEnvironment'> {
+  return {
+    getActiveEnvironment: () =>
+      Promise.resolve(mockActiveDefaultStatus === undefined ? undefined : defaultEnvRecord(mockActiveDefaultStatus)),
+  };
 }
 
 const ISSUER = 'https://issuer.example.com';
@@ -86,7 +124,7 @@ function withAuth(router: OpenAPIHono, authenticator: Authenticator): OpenAPIHon
 describe('capabilities routers', () => {
   beforeEach(() => {
     mockActiveDefaultStatus = undefined;
-    mockLatestDefaultStatus = undefined;
+    mockDefaultEnabled = true;
     setCachedLocalSandboxSupport(undefined);
   });
 
@@ -256,10 +294,10 @@ describe('capabilities routers', () => {
     });
   });
 
+  // Capabilities read the active version, so a newer pending build never flips the switch.
   it('stays enabled while a newer default environment version is pending', async () => {
     disableOidcAuth();
     mockActiveDefaultStatus = 'ready';
-    mockLatestDefaultStatus = 'pending';
     const router = makeRouter();
 
     const response = await router.request('/');
@@ -269,6 +307,23 @@ describe('capabilities routers', () => {
       data: {
         sandbox: { enabled: true },
         skill: { enabled: true },
+      },
+    });
+  });
+
+  it('reports sandbox and skill off when the tenant disabled the default environment', async () => {
+    disableOidcAuth();
+    mockActiveDefaultStatus = 'ready';
+    mockDefaultEnabled = false;
+    const router = makeRouter();
+
+    const response = await router.request('/');
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: {
+        sandbox: { enabled: false, reason: SANDBOX_OFF_REASON },
+        skill: { enabled: false, reason: SANDBOX_OFF_REASON },
       },
     });
   });

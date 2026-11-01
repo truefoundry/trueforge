@@ -391,25 +391,36 @@ function savedSpec(record: SessionRecord): AgentSpec | undefined {
 }
 
 /**
- * Named-agent sessions run the live agent spec, so a new session is how web search
- * starts for them. Sessions created earlier keep running.
+ * Named-agent sessions run the live agent spec, so a new session is how the agent's
+ * web-search and sandbox-environment choices start being used. Sessions created
+ * earlier keep running.
  */
-async function assertNamedAgentWebSearchAllowed(
-  deps: Pick<SessionsRouterDeps, 'resolveConfigurationStore'>,
+async function assertNamedAgentSpecAllowed(
+  deps: Pick<SessionsRouterDeps, 'resolveConfigurationStore' | 'sandboxEnvironmentStore'>,
   input: { c: Context; spec: AgentSpec; requestContext: RequestContext },
 ): Promise<void> {
-  if (!input.spec.config.web_search.enabled) {
-    return;
-  }
-  const allowed = await isWebSearchEnabledForTenant({
-    tenant_id: input.requestContext.tenant_id,
-    store: deps.resolveConfigurationStore(input.c),
-  });
-  if (!allowed) {
-    throw new HTTPException(422, {
-      message:
-        'web_search cannot be enabled because it is disabled for this tenant - an admin can re-enable it in settings',
+  const { tenant_id } = input.requestContext;
+  if (input.spec.config.web_search.enabled) {
+    const allowed = await isWebSearchEnabledForTenant({
+      tenant_id,
+      store: deps.resolveConfigurationStore(input.c),
     });
+    if (!allowed) {
+      throw new HTTPException(422, {
+        message:
+          'web_search cannot be enabled because it is disabled for this tenant - an admin can re-enable it in settings',
+      });
+    }
+  }
+
+  const environmentName = input.spec.config.sandbox.environment_name;
+  if (environmentName !== undefined) {
+    const environment = await deps.sandboxEnvironmentStore.getEnvironment({ tenant_id, name: environmentName });
+    if (environment?.environment.enabled === false) {
+      throw new HTTPException(422, {
+        message: `sandbox environment "${environmentName}" cannot be selected because it is disabled - an admin can re-enable it in settings`,
+      });
+    }
   }
 }
 
@@ -472,7 +483,7 @@ function createGetOrCreateSessionByExternalIdHandler(
       if (named === undefined) {
         return c.json({ error: { message: `Agent not found: ${body.agent.name}` } }, 404);
       }
-      await assertNamedAgentWebSearchAllowed(deps, { c, spec: named.manifest, requestContext });
+      await assertNamedAgentSpecAllowed(deps, { c, spec: named.manifest, requestContext });
       agent = { type: 'reference', id: named.id, name: named.name };
     } else {
       await validateInlineSessionSpec(deps, {
@@ -540,7 +551,7 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
       if (agent === undefined) {
         return c.json({ error: { message: `Agent not found: ${body.agent.name}` } }, 404);
       }
-      await assertNamedAgentWebSearchAllowed(deps, { c, spec: agent.manifest, requestContext });
+      await assertNamedAgentSpecAllowed(deps, { c, spec: agent.manifest, requestContext });
       const session = await deps.sessions.create({
         tenant_id: requestContext.tenant_id,
         session_id: sessionId,
