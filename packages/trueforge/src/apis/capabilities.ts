@@ -30,21 +30,15 @@ function skillDisabledReason(status: SandboxEnvironmentVersionStatus | undefined
   return 'Skills run in a sandbox, which is not configured.';
 }
 
-/** Why a new chat cannot turn web search on; undefined when it can. */
-function webSearchDisabledReason({
-  tenantAllows,
-  hasProvider,
-}: {
-  tenantAllows: boolean;
-  hasProvider: boolean;
-}): string | undefined {
+/**
+ * Why a new chat cannot turn web search on.
+ * The tenant switch is reported first; otherwise no provider is configured.
+ */
+function webSearchDisabledReason({ tenantAllows }: { tenantAllows: boolean }): string {
   if (!tenantAllows) {
-    return 'Web search is turned off for this tenant. An admin can turn it back on in settings.';
+    return 'Web search is turned off for this tenant - an admin can turn it back on in settings.';
   }
-  if (!hasProvider) {
-    return 'Web search needs a provider, which is not configured.';
-  }
-  return undefined;
+  return 'Web search needs a provider, which is not configured.';
 }
 
 /**
@@ -101,14 +95,16 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
         store: deps.resolveConfigurationStore(c),
       }),
     ]);
-    const reason = webSearchDisabledReason({ tenantAllows: tenantAllowsWebSearch, hasProvider });
+    const webSearchEnabled = tenantAllowsWebSearch && hasProvider;
     return c.json(
       {
         data: {
           sandbox: { enabled: sandboxEnabled },
           skill: sandboxEnabled ? { enabled: true } : { enabled: false, reason: skillDisabledReason(status) },
           settings: settingsCapability(requestContext),
-          web_search: reason === undefined ? { enabled: true } : { enabled: false, reason },
+          web_search: webSearchEnabled
+            ? { enabled: true }
+            : { enabled: false, reason: webSearchDisabledReason({ tenantAllows: tenantAllowsWebSearch }) },
           session_sharing: { enabled: deps.userStore.supportsUserLookup },
         },
       },

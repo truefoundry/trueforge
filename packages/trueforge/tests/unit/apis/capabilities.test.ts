@@ -40,7 +40,7 @@ const ALL_SETTINGS_OFF = {
 };
 
 const NO_PROVIDER_REASON = 'Web search needs a provider, which is not configured.';
-const TENANT_OFF_REASON = 'Web search is turned off for this tenant. An admin can turn it back on in settings.';
+const TENANT_OFF_REASON = 'Web search is turned off for this tenant - an admin can turn it back on in settings.';
 
 let mockActiveDefaultStatus: SandboxEnvironmentVersionStatus | undefined;
 let mockLatestDefaultStatus: SandboxEnvironmentVersionStatus | undefined;
