@@ -12,13 +12,13 @@ import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAccessControlStore } from '../../../src/db/sqlite/access-control-store/SqliteAccessControlStore';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
+import { SqliteConfigurationStore } from '../../../src/db/sqlite/configuration-store/SqliteConfigurationStore';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteSessionStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
-import { SqliteTenantSettingStore } from '../../../src/db/sqlite/tenant-setting-store/SqliteTenantSettingStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
 import { EmptyUserStore } from '../../../src/db/userStore';
@@ -45,7 +45,7 @@ describe('public CRUD after session deletion', () => {
     const sandboxProviderStore = new SqliteSandboxProviderStore(db);
     const sandboxEnvironmentStore = new SqliteSandboxEnvironmentStore(db);
     const webSearchProviderStore = new SqliteWebSearchProviderStore(db);
-    const tenantSettingStore = new SqliteTenantSettingStore(db);
+    const configurationStore = new SqliteConfigurationStore(db);
     const app = new OpenAPIHono();
 
     app.route(
@@ -64,7 +64,7 @@ describe('public CRUD after session deletion', () => {
         resolveSandboxProviderStore: () => sandboxProviderStore,
         sandboxEnvironmentStore,
         resolveWebSearchProviderStore: () => webSearchProviderStore,
-        resolveTenantSettingStore: () => tenantSettingStore,
+        resolveConfigurationStore: () => configurationStore,
         redis: createClient(),
         requestReplyRouter: new RequestReplyRouter(),
         resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,

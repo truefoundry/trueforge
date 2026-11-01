@@ -78,14 +78,19 @@ export function hasAdminRole(requestContext: Pick<RequestContext, 'roles'>): boo
 }
 
 /**
- * Whether the caller may use `/api/v1/settings` and see settings in capabilities.
- * Always false in TrueFoundry (catalogs are platform-managed); otherwise same as {@link hasAdminRole}.
+ * Whether provider catalogs are editable in this deployment at all, regardless of caller.
+ * False in TrueFoundry, where the platform owns them.
+ */
+export function areCatalogSettingsAvailable(): boolean {
+  return getTrueForgeAuthMode() !== TrueForgeAuthMode.TrueFoundry;
+}
+
+/**
+ * Whether the caller may use the catalog routes under `/api/v1/settings`.
+ * Always false in TrueFoundry; otherwise same as {@link hasAdminRole}.
  */
 export function canAccessSettings(requestContext: Pick<RequestContext, 'roles'>): boolean {
-  if (getTrueForgeAuthMode() === TrueForgeAuthMode.TrueFoundry) {
-    return false;
-  }
-  return hasAdminRole(requestContext);
+  return areCatalogSettingsAvailable() && hasAdminRole(requestContext);
 }
 
 /**

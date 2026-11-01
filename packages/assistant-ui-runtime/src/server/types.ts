@@ -454,6 +454,22 @@ export interface McpToolSelection {
   description?: string;
 }
 
+/** One settings section. `manageProviders` is false when the platform owns the providers. */
+export interface SettingsSectionCapability {
+  enabled: boolean;
+  manageProviders: boolean;
+}
+
+/** Settings sections the caller may open. A host may report only the ones it has. */
+export interface SettingsCapability {
+  modelProviders?: SettingsSectionCapability;
+  mcpServers?: SettingsSectionCapability;
+  skills?: SettingsSectionCapability;
+  sandboxProviders?: SettingsSectionCapability;
+  webSearch?: SettingsSectionCapability;
+  memory?: SettingsSectionCapability;
+}
+
 /**
  * Builder feature flags — atoms gate sandbox / skill / settings surfaces on these.
  */
@@ -461,7 +477,7 @@ export interface AgentBuilderCapabilitiesResponse {
   data: {
     sandbox: { enabled: boolean };
     skill: { enabled: boolean; reason?: string };
-    settings?: { enabled: boolean };
+    settings?: SettingsCapability;
     webSearch?: { enabled: boolean };
     /** Present when the host reports session sharing; `enabled` gates invite-by-user. */
     sessionSharing?: { enabled: boolean };

@@ -15,6 +15,7 @@ import {
   type DraftPreferenceKind,
 } from './draftSpecPreferences.js';
 import {
+  hasAnySettingsSectionEnabled,
   isEnvironmentsChromeEnabled,
   isSchedulesChromeEnabled,
   isSessionsChromeEnabled,
@@ -429,11 +430,12 @@ export function ShellModeProvider({
     [environmentsEnabled, setSessionsOpen],
   );
 
+  const settingsCapability = capabilities?.settings;
   useEffect(() => {
-    if (catalog == null || capabilities?.settings?.enabled === false) {
+    if (catalog == null || (settingsCapability !== undefined && !hasAnySettingsSectionEnabled(settingsCapability))) {
       setSettingsOpenState(false);
     }
-  }, [capabilities?.settings?.enabled, catalog]);
+  }, [settingsCapability, catalog]);
 
   useEffect(() => {
     if (!sessionsEnabled) {

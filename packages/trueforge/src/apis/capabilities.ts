@@ -1,16 +1,21 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import type { Context } from 'hono';
 import type { Logger } from 'winston';
-import { canAccessSettings, hasAdminRole, type ResolveRequestContext } from '../auth/identity';
+import {
+  areCatalogSettingsAvailable,
+  hasAdminRole,
+  type RequestContext,
+  type ResolveRequestContext,
+} from '../auth/identity';
+import type { IConfigurationStore } from '../db/configurationStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
-import type { ITenantSettingStore } from '../db/tenantSettingStore';
 import type { WithTransaction } from '../db/transaction';
 import type { IUserStore } from '../db/userStore';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { getCapabilitiesRoute } from '../routes/capabilityRoutes';
 import { isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import { DEFAULT_SANDBOX_ENVIRONMENT_NAME, type SandboxEnvironmentVersionStatus } from '../schemas/sandboxEnvironment';
-import { isTenantWebSearchEnabled } from '../tenantSettings/tenantSettings';
+import { isWebSearchEnabledForTenant } from '../settings/settings';
 import { hasTrueFoundrySandboxProviderConfig } from '../truefoundry/resolveTrueFoundrySandboxProviderConfig';
 import { hasConfiguredWebSearchProvider } from '../websearch/providers';
 
@@ -42,10 +47,31 @@ function webSearchDisabledReason({
   return undefined;
 }
 
+/**
+ * Settings sections the caller may open.
+ *
+ * Catalog sections need a deployment that owns its own catalogs; the tenant switches
+ * (web search, memory) only need the admin role, so a TrueFoundry tenant admin reaches
+ * them while provider editing stays with the platform.
+ */
+function settingsCapability(requestContext: Pick<RequestContext, 'roles'>) {
+  const isAdmin = hasAdminRole(requestContext);
+  const catalogs = areCatalogSettingsAvailable() && isAdmin;
+  const catalogSection = { enabled: catalogs, manage_providers: catalogs };
+  return {
+    model_providers: catalogSection,
+    mcp_servers: catalogSection,
+    skills: catalogSection,
+    sandbox_providers: catalogSection,
+    web_search: { enabled: isAdmin, manage_providers: catalogs },
+    memory: { enabled: isAdmin, manage_providers: catalogs },
+  };
+}
+
 export function createCapabilitiesRouter<TTransaction>(deps: {
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore<TTransaction>;
-  resolveTenantSettingStore: (c: Context) => ITenantSettingStore<TTransaction>;
+  resolveConfigurationStore: (c: Context) => IConfigurationStore<TTransaction>;
   userStore: IUserStore;
   withTransaction: WithTransaction<TTransaction>;
   logger: Logger;
@@ -65,17 +91,14 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
       hasTrueFoundrySandboxProviderConfig() ||
       status === 'ready' ||
       (defaultEnv === undefined && isLocalSandboxFallbackEnabled());
-    const settingsEnabled = canAccessSettings(requestContext);
-    // Admins outside full settings access (TrueFoundry) still own the tenant web-search switch.
-    const settingsLimitedToWebSearch = !settingsEnabled && hasAdminRole(requestContext);
     const [hasProvider, tenantAllowsWebSearch] = await Promise.all([
       hasConfiguredWebSearchProvider({
         tenant_id: requestContext.tenant_id,
         store: deps.resolveWebSearchProviderStore(c),
       }),
-      isTenantWebSearchEnabled({
+      isWebSearchEnabledForTenant({
         tenant_id: requestContext.tenant_id,
-        store: deps.resolveTenantSettingStore(c),
+        store: deps.resolveConfigurationStore(c),
       }),
     ]);
     const reason = webSearchDisabledReason({ tenantAllows: tenantAllowsWebSearch, hasProvider });
@@ -84,7 +107,7 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
         data: {
           sandbox: { enabled: sandboxEnabled },
           skill: sandboxEnabled ? { enabled: true } : { enabled: false, reason: skillDisabledReason(status) },
-          settings: { enabled: settingsEnabled, limited_to_web_search: settingsLimitedToWebSearch },
+          settings: settingsCapability(requestContext),
           web_search: reason === undefined ? { enabled: true } : { enabled: false, reason },
           session_sharing: { enabled: deps.userStore.supportsUserLookup },
         },

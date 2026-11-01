@@ -5,7 +5,7 @@ import type { Configuration } from 'openid-client';
 import type { Authenticator } from '../../../src/auth/authenticator';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import {
-  createAdminAuthMiddleware,
+  buildAdminAuthMiddleware,
   createApiKeyAuthMiddleware,
   createAuthMiddleware,
 } from '../../../src/auth/middleware';
@@ -58,14 +58,14 @@ function createApp(authenticator: Authenticator) {
   app.route('/api/v1/models', models);
 
   const settings = new OpenAPIHono();
-  settings.use('*', createAdminAuthMiddleware(authenticator));
+  settings.use('*', buildAdminAuthMiddleware({ authenticator, accessible: true }));
   settings.get('/', c => c.json({ ok: true, user: c.get('request_context') }));
   app.route('/api/v1/settings', settings);
 
   return app;
 }
 
-describe('createAuthMiddleware / createAdminAuthMiddleware', () => {
+describe('createAuthMiddleware / buildAdminAuthMiddleware', () => {
   it('propagates non-401 authenticate failures instead of turning them into 401', async () => {
     const authenticator: Authenticator = {
       authenticate: async () => {

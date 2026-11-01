@@ -47,7 +47,7 @@ vi.mock('@/plugins/trueforge-agent-server-adapter/index.js', () => ({
         data: {
           sandbox: { enabled: true },
           skill: { enabled: true },
-          settings: { enabled: true },
+          settings: allSettingsSections(true),
         },
       }),
     }),
@@ -65,6 +65,7 @@ import { WidgetVisibilityProvider } from '@/layouts/WidgetVisibilityContext.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
+import { allSettingsSections } from '../server/settingsCapabilityFixture.js';
 import { RuntimeHarness } from './RuntimeHarness.js';
 
 function mockServer(catalog?: CatalogServer) {
@@ -827,7 +828,7 @@ describe('SidebarLayout', () => {
               data: {
                 sandbox: { enabled: true },
                 skill: { enabled: true },
-                settings: { enabled: false },
+                settings: allSettingsSections(false),
               },
             }),
           })}

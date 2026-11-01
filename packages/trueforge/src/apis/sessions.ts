@@ -34,12 +34,12 @@ import { createdBySubjectFromRequestContext, type RequestContext, type ResolveRe
 import configuration from '../config';
 import type { AccessGrantRecord, IAccessControlStore } from '../db/accessControlStore';
 import type { IAgentStore } from '../db/agentStore';
+import type { IConfigurationStore } from '../db/configurationStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
-import type { ITenantSettingStore } from '../db/tenantSettingStore';
 import type { WithTransaction } from '../db/transaction';
 import type { IUserStore } from '../db/userStore';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
@@ -61,7 +61,7 @@ import { validateAgentSpec } from '../runtime/sessionResources';
 import { honoQueriesToRecord } from '../schemas/deepObjectQuery';
 import { isSessionAgentNameRef, parseListSessionsQuery, type Session } from '../schemas/session';
 import type { SessionGrant, SessionGrantSubject } from '../schemas/sessionGrant';
-import { isTenantWebSearchEnabled } from '../tenantSettings/tenantSettings';
+import { isWebSearchEnabledForTenant } from '../settings/settings';
 import { newId } from '../utils/id';
 import { agentIfAccessible, canReadAgentBoundResource, canReadSession, resolveManagedAgentIds } from './agentAccess';
 
@@ -108,7 +108,7 @@ export interface SessionsRouterDeps<TTransaction = never> {
   sandboxEnvironmentStore: ISandboxEnvironmentStore;
   redis?: RedisClient | undefined;
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore;
-  resolveTenantSettingStore: (c: Context) => ITenantSettingStore;
+  resolveConfigurationStore: (c: Context) => IConfigurationStore;
   requestReplyRouter: RequestReplyRouter;
   resolveRequestContext: ResolveRequestContext;
   logger: Logger;
@@ -360,16 +360,16 @@ function validateInlineSessionSpec(
     | 'resolveSandboxProviderStore'
     | 'sandboxEnvironmentStore'
     | 'resolveWebSearchProviderStore'
-    | 'resolveTenantSettingStore'
+    | 'resolveConfigurationStore'
   >,
   input: {
     c: Context;
     spec: AgentSpec;
     requestContext: RequestContext;
-    previous_web_search_enabled: boolean | undefined;
+    previous_spec: AgentSpec | undefined;
   },
 ): Promise<void> {
-  const { c, spec, requestContext, previous_web_search_enabled } = input;
+  const { c, spec, requestContext, previous_spec } = input;
   return validateAgentSpec({
     spec,
     tenant_id: requestContext.tenant_id,
@@ -380,14 +380,14 @@ function validateInlineSessionSpec(
     sandboxProviderStore: deps.resolveSandboxProviderStore(c),
     sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
     webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
-    tenantSettingStore: deps.resolveTenantSettingStore(c),
-    previous_web_search_enabled,
+    configurationStore: deps.resolveConfigurationStore(c),
+    previous_spec,
   });
 }
 
-/** Web-search value already saved on a session, so a re-save is not treated as turning it on. */
-function savedWebSearchEnabled(record: SessionRecord): boolean | undefined {
-  return record.agent.type === 'inline' ? record.agent.spec.config.web_search.enabled : undefined;
+/** Spec already saved on a session, so a re-save is not treated as turning features on. */
+function savedSpec(record: SessionRecord): AgentSpec | undefined {
+  return record.agent.type === 'inline' ? record.agent.spec : undefined;
 }
 
 /**
@@ -395,19 +395,20 @@ function savedWebSearchEnabled(record: SessionRecord): boolean | undefined {
  * starts for them. Sessions created earlier keep running.
  */
 async function assertNamedAgentWebSearchAllowed(
-  deps: Pick<SessionsRouterDeps, 'resolveTenantSettingStore'>,
+  deps: Pick<SessionsRouterDeps, 'resolveConfigurationStore'>,
   input: { c: Context; spec: AgentSpec; requestContext: RequestContext },
 ): Promise<void> {
   if (!input.spec.config.web_search.enabled) {
     return;
   }
-  const allowed = await isTenantWebSearchEnabled({
+  const allowed = await isWebSearchEnabledForTenant({
     tenant_id: input.requestContext.tenant_id,
-    store: deps.resolveTenantSettingStore(input.c),
+    store: deps.resolveConfigurationStore(input.c),
   });
   if (!allowed) {
     throw new HTTPException(422, {
-      message: 'web_search is disabled for this tenant — an admin can re-enable it in settings',
+      message:
+        'web_search cannot be enabled because it is disabled for this tenant - an admin can re-enable it in settings',
     });
   }
 }
@@ -423,7 +424,7 @@ type InternalSessionsRouterDeps = Pick<
   | 'resolveSandboxProviderStore'
   | 'sandboxEnvironmentStore'
   | 'resolveWebSearchProviderStore'
-  | 'resolveTenantSettingStore'
+  | 'resolveConfigurationStore'
   | 'resolveRequestContext'
   | 'authorizer'
 >;
@@ -478,7 +479,7 @@ function createGetOrCreateSessionByExternalIdHandler(
         c,
         spec: body.agent.spec,
         requestContext,
-        previous_web_search_enabled: undefined,
+        previous_spec: undefined,
       });
       agent = { type: 'inline', spec: body.agent.spec };
     }
@@ -555,7 +556,7 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
       c,
       spec: body.agent.spec,
       requestContext,
-      previous_web_search_enabled: undefined,
+      previous_spec: undefined,
     });
     const session = await deps.sessions.create({
       tenant_id: requestContext.tenant_id,
@@ -650,7 +651,7 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
           c,
           spec: body.agent.spec,
           requestContext,
-          previous_web_search_enabled: savedWebSearchEnabled(existing),
+          previous_spec: savedSpec(existing),
         });
       } else {
         await validateAgentSpec({
@@ -663,8 +664,8 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
           sandboxProviderStore: deps.resolveSandboxProviderStore(c),
           sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
           webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
-          tenantSettingStore: deps.resolveTenantSettingStore(c),
-          previous_web_search_enabled: savedWebSearchEnabled(existing),
+          configurationStore: deps.resolveConfigurationStore(c),
+          previous_spec: savedSpec(existing),
         });
       }
     }

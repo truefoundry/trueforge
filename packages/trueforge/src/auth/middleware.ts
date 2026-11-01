@@ -7,7 +7,7 @@ import { jwtVerify } from 'jose';
 import { updateLogContext } from '../logger';
 import type { Authenticator } from './authenticator';
 import { toRequestContext, type IdTokenClaims } from './claims';
-import { canAccessSettings, hasAdminRole, type RequestContext } from './identity';
+import { hasAdminRole, type RequestContext } from './identity';
 import { getOidcVerify } from './oidc';
 import { extractRequestToken, readBearerToken } from './token';
 
@@ -25,33 +25,31 @@ export function createAuthMiddleware(authenticator: Authenticator): MiddlewareHa
   };
 }
 
-/** Gates `/api/v1/settings` — uses {@link canAccessSettings} (always denied in TrueFoundry). */
-export function createAdminAuthMiddleware(authenticator: Authenticator): MiddlewareHandler {
-  return async (c, next) => {
-    const requestContext = await tryAuthenticate({ authenticator, context: c });
-    if (requestContext === undefined) {
-      throw new HTTPException(401, { message: 'Authentication required' });
-    }
-    updateLogContext({ tenant_id: requestContext.tenant_id });
-    if (!canAccessSettings(requestContext)) {
-      throw new HTTPException(403, { message: 'Admin access required' });
-    }
-    c.set('request_context', requestContext);
-    return next();
-  };
-}
-
 /**
- * Gates `/api/v1/settings/tenant-settings` — uses {@link hasAdminRole}, so a TrueFoundry
- * tenant-admin may set tenant-wide switches even though catalog settings stay closed there.
+ * Admin gate for a route group.
+ *
+ * `accessible` says whether the group exists in the current deployment mode at all.
+ * Catalog settings pass `canAccessSettings`, which is false in TrueFoundry because
+ * the platform owns those catalogs; a group that is merely admin-only passes `true`.
+ * An inaccessible group answers 404 so callers cannot tell an unavailable feature
+ * from one they lack the role for.
  */
-export function createTenantAdminAuthMiddleware(authenticator: Authenticator): MiddlewareHandler {
+export function buildAdminAuthMiddleware({
+  authenticator,
+  accessible,
+}: {
+  authenticator: Authenticator;
+  accessible: boolean;
+}): MiddlewareHandler {
   return async (c, next) => {
     const requestContext = await tryAuthenticate({ authenticator, context: c });
     if (requestContext === undefined) {
       throw new HTTPException(401, { message: 'Authentication required' });
     }
     updateLogContext({ tenant_id: requestContext.tenant_id });
+    if (!accessible) {
+      throw new HTTPException(404, { message: 'Not found' });
+    }
     if (!hasAdminRole(requestContext)) {
       throw new HTTPException(403, { message: 'Admin access required' });
     }

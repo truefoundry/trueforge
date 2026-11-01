@@ -7,6 +7,7 @@ import { DraftCompositeSelector } from '@/atoms/draft/DraftCompositeSelector.js'
 import { CompactLayoutProvider } from '@/atoms/lib/CompactLayoutContext.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import type {
+  AgentBuilderCapabilitiesResponse,
   AgentSkill,
   AgentSpec,
   CatalogServer,
@@ -19,6 +20,7 @@ import {
   createMockCatalog,
   createMockSandboxEnvironmentServer,
 } from '../../server/mockServer.js';
+import { allSettingsSections } from '../../server/settingsCapabilityFixture.js';
 
 let agentSpec: AgentSpec;
 let draftSessionId: string | undefined;
@@ -76,14 +78,7 @@ function renderSelector({
   environmentServer,
 }: {
   onAttach?: () => void;
-  getCapabilities?: () => Promise<{
-    data: {
-      sandbox: { enabled: boolean };
-      skill: { enabled: boolean; reason?: string };
-      settings?: { enabled: boolean };
-      webSearch?: { enabled: boolean };
-    };
-  }>;
+  getCapabilities?: () => Promise<AgentBuilderCapabilitiesResponse>;
   getSkills?: () => Promise<AgentSkill[]>;
   getMcp?: () => Promise<{ id: string; name: string; authenticated: boolean }[]>;
   catalog?: CatalogServer | null;
@@ -347,7 +342,7 @@ describe('DraftCompositeSelector', () => {
         data: {
           sandbox: { enabled: true },
           skill: { enabled: true },
-          settings: { enabled: false },
+          settings: allSettingsSections(false),
         },
       }),
       getMcp: async () => [],

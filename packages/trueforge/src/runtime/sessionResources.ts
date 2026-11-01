@@ -15,12 +15,12 @@ import { HTTPException } from 'hono/http-exception';
 import { join } from 'node:path';
 import type { Logger } from 'winston';
 import configuration from '../config';
+import type { IConfigurationStore } from '../db/configurationStore';
 import type { IMcpServerStore, IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
-import type { ITenantSettingStore } from '../db/tenantSettingStore';
 import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProvider';
@@ -32,7 +32,7 @@ import {
 } from '../sandbox/providerUtils';
 import type { ReasoningEffort } from '../schemas/modelProvider';
 import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
-import { isTenantWebSearchEnabled } from '../tenantSettings/tenantSettings';
+import { isWebSearchEnabledForTenant } from '../settings/settings';
 import { hasConfiguredWebSearchProvider } from '../websearch/providers';
 
 /** Split `provider/model` FQN. Returns undefined when the shape is not exactly one slash. */
@@ -269,8 +269,8 @@ export async function validateAgentSpec({
   sandboxProviderStore,
   sandboxEnvironmentStore,
   webSearchProviderStore,
-  tenantSettingStore,
-  previous_web_search_enabled,
+  configurationStore,
+  previous_spec,
 }: {
   spec: AgentSpec;
   tenant_id: string;
@@ -281,9 +281,9 @@ export async function validateAgentSpec({
   sandboxProviderStore: ISandboxProviderStore;
   sandboxEnvironmentStore: ISandboxEnvironmentStore;
   webSearchProviderStore: IWebSearchProviderStore;
-  tenantSettingStore: ITenantSettingStore;
-  /** Web-search value already saved on this session or agent; undefined when creating. */
-  previous_web_search_enabled: boolean | undefined;
+  configurationStore: IConfigurationStore;
+  /** Spec already saved on this session or agent; undefined when creating. */
+  previous_spec: AgentSpec | undefined;
 }): Promise<void> {
   const resolved = await getModelDetails({
     tenant_id,
@@ -352,11 +352,12 @@ export async function validateAgentSpec({
 
   if (spec.config.web_search.enabled) {
     // Already saved with web search on: the tenant switch only gates turning it on.
-    if (previous_web_search_enabled !== true) {
-      const tenantAllows = await isTenantWebSearchEnabled({ tenant_id, store: tenantSettingStore });
+    if (previous_spec?.config.web_search.enabled !== true) {
+      const tenantAllows = await isWebSearchEnabledForTenant({ tenant_id, store: configurationStore });
       if (!tenantAllows) {
         throw new HTTPException(422, {
-          message: 'web_search is disabled for this tenant — an admin can re-enable it in settings',
+          message:
+            'web_search cannot be enabled because it is disabled for this tenant - an admin can re-enable it in settings',
         });
       }
     }

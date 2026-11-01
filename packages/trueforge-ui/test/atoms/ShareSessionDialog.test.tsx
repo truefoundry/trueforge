@@ -10,6 +10,7 @@ import { ServerProvider } from '@/server/ServerContext.js';
 import type { SessionAccessGrant, SessionAccessSubject } from '@/server/types.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 import { createMockAgentUIServer } from '../server/mockServer.js';
+import { allSettingsSections } from '../server/settingsCapabilityFixture.js';
 
 const originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
 let writeText: ReturnType<typeof vi.fn>;
@@ -96,7 +97,7 @@ function renderDialog({
       data: {
         sandbox: { enabled: true },
         skill: { enabled: true },
-        settings: { enabled: true },
+        settings: allSettingsSections(true),
         sessionSharing: { enabled: sessionSharingEnabled },
       },
     }),

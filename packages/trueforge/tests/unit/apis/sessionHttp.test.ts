@@ -19,6 +19,7 @@ import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAccessControlStore } from '../../../src/db/sqlite/access-control-store/SqliteAccessControlStore';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
+import { SqliteConfigurationStore } from '../../../src/db/sqlite/configuration-store/SqliteConfigurationStore';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
@@ -26,7 +27,6 @@ import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provi
 import { SqliteSessionMetricsStore } from '../../../src/db/sqlite/session-metrics/SqliteSessionMetricsStore';
 import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteSessionStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
-import { SqliteTenantSettingStore } from '../../../src/db/sqlite/tenant-setting-store/SqliteTenantSettingStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import type { Database } from '../../../src/db/sqlite/types';
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
@@ -78,7 +78,7 @@ const denyAllAuthorizer: Authorizer = {
 describe('sessions HTTP agent binding', () => {
   let app: OpenAPIHono;
   let agentStore: SqliteAgentStore;
-  let tenantSettingStore: SqliteTenantSettingStore;
+  let configurationStore: SqliteConfigurationStore;
   let sessionStore: SqliteSessionStore;
   let sessionMetricsStore: SqliteSessionMetricsStore;
   let sessionDeps: SessionsRouterDeps<Transaction<Database>>;
@@ -98,7 +98,7 @@ describe('sessions HTTP agent binding', () => {
     const sandboxProviderStore = new SqliteSandboxProviderStore(db);
     const sandboxEnvironmentStore = new SqliteSandboxEnvironmentStore(db);
     const webSearchProviderStore = new SqliteWebSearchProviderStore(db);
-    tenantSettingStore = new SqliteTenantSettingStore(db);
+    configurationStore = new SqliteConfigurationStore(db);
     agentStore = new SqliteAgentStore(db);
 
     await modelProviderStore.upsertProvider({
@@ -135,7 +135,7 @@ describe('sessions HTTP agent binding', () => {
       resolveSandboxProviderStore: () => sandboxProviderStore,
       sandboxEnvironmentStore,
       resolveWebSearchProviderStore: () => webSearchProviderStore,
-      resolveTenantSettingStore: () => tenantSettingStore,
+      resolveConfigurationStore: () => configurationStore,
       redis: createClient(),
       requestReplyRouter: new RequestReplyRouter(),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
@@ -889,7 +889,7 @@ describe('sessions HTTP agent binding', () => {
       external_id: null,
     });
 
-    await tenantSettingStore.upsertTenantSetting({
+    await configurationStore.upsertConfiguration({
       tenant_id: 'default',
       manifest: { web_search: { enabled: false } },
     });
@@ -897,7 +897,7 @@ describe('sessions HTTP agent binding', () => {
       const blocked = await app.request('/', jsonInit('POST', { agent: { name: agent.name } }));
       expect(blocked.status).toBe(422);
     } finally {
-      await tenantSettingStore.upsertTenantSetting({
+      await configurationStore.upsertConfiguration({
         tenant_id: 'default',
         manifest: { web_search: { enabled: true } },
       });

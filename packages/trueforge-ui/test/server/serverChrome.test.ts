@@ -16,6 +16,7 @@ import {
   createMockSandboxEnvironmentServer,
   createMockScheduleServer,
 } from './mockServer.js';
+import { allSettingsSections } from './settingsCapabilityFixture.js';
 
 describe('serverChrome', () => {
   const catalog = createMockCatalog();
@@ -32,13 +33,13 @@ describe('serverChrome', () => {
     expect(
       isSettingsChromeEnabled({
         catalog,
-        capabilities: { settings: { enabled: true } },
+        capabilities: { settings: allSettingsSections(true) },
       }),
     ).toBe(true);
     expect(
       isSettingsChromeEnabled({
         catalog,
-        capabilities: { settings: { enabled: false } },
+        capabilities: { settings: allSettingsSections(false) },
       }),
     ).toBe(false);
   });
@@ -75,7 +76,7 @@ describe('serverChrome', () => {
     const enabled = toEffectiveRoutes({
       routes,
       catalog,
-      capabilities: { settings: { enabled: true } },
+      capabilities: { settings: allSettingsSections(true) },
       sessions,
       schedules,
       sandboxEnvironments,

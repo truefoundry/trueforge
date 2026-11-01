@@ -188,6 +188,8 @@ export type {
   SessionEventItem,
   SessionListEntry,
   SessionListMetrics,
+  SettingsCapability,
+  SettingsSectionCapability,
   SkillBase,
   SkillCatalogEntry,
   SkillCatalogServer,

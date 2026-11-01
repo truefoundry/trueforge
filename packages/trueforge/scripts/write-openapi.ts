@@ -26,6 +26,7 @@ import { McpServerWithAuthStore } from '../src/db/McpServerWithAuthStore';
 import { SqliteAccessControlStore } from '../src/db/sqlite/access-control-store/SqliteAccessControlStore';
 import { SqliteAgentStore } from '../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../src/db/sqlite/client';
+import { SqliteConfigurationStore } from '../src/db/sqlite/configuration-store/SqliteConfigurationStore';
 import { SqliteMcpServerStore } from '../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteModelProviderStore } from '../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { SqliteSandboxEnvironmentStore } from '../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
@@ -33,7 +34,6 @@ import { SqliteSandboxProviderStore } from '../src/db/sqlite/sandbox-provider-st
 import { SqliteScheduleStore } from '../src/db/sqlite/schedule-store/SqliteScheduleStore';
 import { SqliteSessionMetricsStore } from '../src/db/sqlite/session-metrics/SqliteSessionMetricsStore';
 import { SqliteSkillStore } from '../src/db/sqlite/skill-store/SqliteSkillStore';
-import { SqliteTenantSettingStore } from '../src/db/sqlite/tenant-setting-store/SqliteTenantSettingStore';
 import { SqliteOAuthTokenStore } from '../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import { SqliteWebSearchProviderStore } from '../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
 import { EmptyUserStore } from '../src/db/userStore';
@@ -73,7 +73,7 @@ const sandboxEnvironmentStore = new SqliteSandboxEnvironmentStore(db);
 const skillStore = new SqliteSkillStore(db);
 const sandboxProviderStore = new SqliteSandboxProviderStore(db);
 const webSearchProviderStore = new SqliteWebSearchProviderStore(db);
-const tenantSettingStore = new SqliteTenantSettingStore(db);
+const configurationStore = new SqliteConfigurationStore(db);
 // HTTP middleware needs a registry. Document generation does not scrape it.
 const httpMetrics = createHttpMetrics();
 const app = createServerApp({
@@ -94,7 +94,7 @@ const app = createServerApp({
   resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
   resolveSandboxProviderStore: () => sandboxProviderStore,
   resolveWebSearchProviderStore: () => webSearchProviderStore,
-  resolveTenantSettingStore: () => tenantSettingStore,
+  resolveConfigurationStore: () => configurationStore,
   resolveAgentStore: () => agentStore,
   agentStore,
   sandboxEnvironmentStore,

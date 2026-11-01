@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { isSettingsChromeEnabled } from '@/server/settingsChrome.js';
 import { createMockCatalog } from './mockServer.js';
+import { allSettingsSections } from './settingsCapabilityFixture.js';
 
 /** Re-export path still works for Settings chrome. */
 describe('isSettingsChromeEnabled', () => {
@@ -14,7 +15,7 @@ describe('isSettingsChromeEnabled', () => {
     expect(
       isSettingsChromeEnabled({
         catalog,
-        capabilities: { settings: { enabled: true } },
+        capabilities: { settings: allSettingsSections(true) },
       }),
     ).toBe(true);
   });
@@ -23,7 +24,7 @@ describe('isSettingsChromeEnabled', () => {
     expect(
       isSettingsChromeEnabled({
         catalog,
-        capabilities: { settings: { enabled: false } },
+        capabilities: { settings: allSettingsSections(false) },
       }),
     ).toBe(false);
   });

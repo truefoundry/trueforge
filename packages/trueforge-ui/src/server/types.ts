@@ -122,6 +122,8 @@ export type {
   SessionListEntry,
   SessionListMetrics,
   SessionSubject,
+  SettingsCapability,
+  SettingsSectionCapability,
   SkillBase,
   SkillCatalogEntry,
   SkillCatalogServer,

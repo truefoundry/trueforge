@@ -14,12 +14,12 @@ import {
   type AgentRecord,
   type IAgentStore,
 } from '../db/agentStore';
+import type { IConfigurationStore } from '../db/configurationStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
-import type { ITenantSettingStore } from '../db/tenantSettingStore';
 import type { WithTransaction } from '../db/transaction';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import {
@@ -44,7 +44,7 @@ export interface AgentsRouterDeps<TTransaction> {
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore<TTransaction>;
-  resolveTenantSettingStore: (c: Context) => ITenantSettingStore<TTransaction>;
+  resolveConfigurationStore: (c: Context) => IConfigurationStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   resolveRequestContext: ResolveRequestContext;
   authorizer: Authorizer;
@@ -69,8 +69,8 @@ async function validateManifest<TTransaction>({
   sandboxProviderStore,
   sandboxEnvironmentStore,
   webSearchProviderStore,
-  tenantSettingStore,
-  previous_web_search_enabled,
+  configurationStore,
+  previous_spec,
   tenant_id,
   created_by_subject_id,
 }: {
@@ -81,9 +81,9 @@ async function validateManifest<TTransaction>({
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
   webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
-  tenantSettingStore: ITenantSettingStore<TTransaction>;
-  /** Web-search value already saved on this agent; undefined when creating. */
-  previous_web_search_enabled: boolean | undefined;
+  configurationStore: IConfigurationStore<TTransaction>;
+  /** Manifest already saved on this agent; undefined when creating. */
+  previous_spec: AgentSpec | undefined;
   tenant_id: string;
   created_by_subject_id: string;
 }): Promise<AgentSpec> {
@@ -97,8 +97,8 @@ async function validateManifest<TTransaction>({
     sandboxProviderStore,
     sandboxEnvironmentStore,
     webSearchProviderStore,
-    tenantSettingStore,
-    previous_web_search_enabled,
+    configurationStore,
+    previous_spec,
   });
   return spec;
 }
@@ -137,8 +137,8 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       sandboxProviderStore: deps.resolveSandboxProviderStore(c),
       sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
       webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
-      tenantSettingStore: deps.resolveTenantSettingStore(c),
-      previous_web_search_enabled: undefined,
+      configurationStore: deps.resolveConfigurationStore(c),
+      previous_spec: undefined,
       tenant_id: requestContext.tenant_id,
       created_by_subject_id: requestContext.subject.id,
     });
@@ -246,8 +246,8 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       sandboxProviderStore: deps.resolveSandboxProviderStore(c),
       sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
       webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
-      tenantSettingStore: deps.resolveTenantSettingStore(c),
-      previous_web_search_enabled: existing.manifest.config.web_search.enabled,
+      configurationStore: deps.resolveConfigurationStore(c),
+      previous_spec: existing.manifest,
       tenant_id: requestContext.tenant_id,
       created_by_subject_id: requestContext.subject.id,
     });

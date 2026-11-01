@@ -14,6 +14,7 @@ import type {
   WebSearchCatalogServer,
 } from '@/server/types.js';
 import { createMockAgentUIServer, createMockCatalog } from '../../server/mockServer.js';
+import { allSettingsSections } from '../../server/settingsCapabilityFixture.js';
 
 vi.mock('@/containers/SettingsBuilder/ModelSettings.js', () => ({
   default: () => <div>Model settings content</div>,
@@ -209,7 +210,7 @@ describe('TruefoundrySettingsBuilder', () => {
     const getSkills = vi.fn(async () => []);
     const getMcp = vi.fn(async () => []);
     const getCapabilities = vi.fn(async () => ({
-      data: { sandbox: { enabled: true }, skill: { enabled: true }, settings: { enabled: true } },
+      data: { sandbox: { enabled: true }, skill: { enabled: true }, settings: allSettingsSections(true) },
     }));
     const server = createMockAgentUIServer({
       catalog: createMockCatalog(),

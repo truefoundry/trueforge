@@ -6,6 +6,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNod
 import { useMCPAuth } from '../../hooks/useMcpAuth.js';
 import { Icon } from '../../icons/Icon.js';
 import { readSandboxEnvironmentName, sandboxWithEnvironmentName } from '../../server/draftSpecPreferences.js';
+import { isSettingsSectionEnabled } from '../../server/serverChrome.js';
 import { useOptionalCatalogServer, useServerCapabilities } from '../../server/ServerContext.js';
 import { useOptionalShellMode, type SettingsSection } from '../../server/ShellModeContext.js';
 import type { AgentSkill, ConnectorState } from '../../server/types.js';
@@ -339,10 +340,13 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   const webSearchCapabilityEnabled = capabilities?.webSearch?.enabled === true;
   const webSearchEnabled = agentSpec?.config?.webSearch?.enabled ?? webSearchCapabilityEnabled;
   const needsSandbox = capabilities?.sandbox.enabled === false;
-  const settingsEnabled = capabilities?.settings?.enabled !== false;
-  const canConfigureConnectors = settingsEnabled && settingsCatalog?.connectorCatalog != null;
-  const canConfigureSkills = settingsEnabled && settingsCatalog?.skillCatalog != null;
-  const canConfigureSandbox = settingsEnabled && settingsCatalog?.sandboxCatalog != null;
+  const settings = capabilities?.settings;
+  const canConfigureConnectors =
+    isSettingsSectionEnabled({ settings, section: 'mcpServers' }) && settingsCatalog?.connectorCatalog != null;
+  const canConfigureSkills =
+    isSettingsSectionEnabled({ settings, section: 'skills' }) && settingsCatalog?.skillCatalog != null;
+  const canConfigureSandbox =
+    isSettingsSectionEnabled({ settings, section: 'sandboxProviders' }) && settingsCatalog?.sandboxCatalog != null;
 
   const specMcp = useMemo(() => draftMountsFromSpec(agentSpec?.mcpServers), [agentSpec?.mcpServers]);
   const specSkills = useMemo(() => draftMountsFromSpec(agentSpec?.skills), [agentSpec?.skills]);

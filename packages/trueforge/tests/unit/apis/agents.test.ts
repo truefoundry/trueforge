@@ -5,12 +5,12 @@ import configuration from '../../../src/config';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
+import { SqliteConfigurationStore } from '../../../src/db/sqlite/configuration-store/SqliteConfigurationStore';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
-import { SqliteTenantSettingStore } from '../../../src/db/sqlite/tenant-setting-store/SqliteTenantSettingStore';
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
 import { ListAgentsResponseSchema } from '../../../src/schemas/agent';
 
@@ -109,7 +109,7 @@ describe('agents router', () => {
       resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
       sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
       resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
-      resolveTenantSettingStore: () => new SqliteTenantSettingStore(db),
+      resolveConfigurationStore: () => new SqliteConfigurationStore(db),
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
       authorizer: new TrueForgeAuthorizer(),
@@ -122,7 +122,7 @@ describe('agents router', () => {
       resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
       sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
       resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
-      resolveTenantSettingStore: () => new SqliteTenantSettingStore(db),
+      resolveConfigurationStore: () => new SqliteConfigurationStore(db),
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
       authorizer: denyAllAuthorizer,

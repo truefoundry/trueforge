@@ -8,6 +8,7 @@ import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
 import type { AgentSpec, AgentUIServer, ModelSelection } from '@/server/types.js';
 import { createMockAgentUIServer, createMockCatalog } from '../../server/mockServer.js';
+import { allSettingsSections } from '../../server/settingsCapabilityFixture.js';
 
 let agentSpec: AgentSpec | undefined;
 const updateAgentSpec = vi.fn();
@@ -283,7 +284,7 @@ describe('DraftModelSelector', () => {
         getModels: async () => [],
         catalog: createMockCatalog(),
         getCapabilities: async () => ({
-          data: { sandbox: { enabled: true }, skill: { enabled: true }, settings: { enabled: false } },
+          data: { sandbox: { enabled: true }, skill: { enabled: true }, settings: allSettingsSections(false) },
         }),
       },
     );
