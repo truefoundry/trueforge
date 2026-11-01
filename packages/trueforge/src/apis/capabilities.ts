@@ -31,17 +31,6 @@ function skillDisabledReason(status: SandboxEnvironmentVersionStatus | undefined
 }
 
 /**
- * Why a new chat cannot turn web search on.
- * The tenant switch is reported first; otherwise no provider is configured.
- */
-function webSearchDisabledReason({ tenantAllows }: { tenantAllows: boolean }): string {
-  if (!tenantAllows) {
-    return 'Web search is turned off for this tenant - an admin can turn it back on in settings.';
-  }
-  return 'Web search needs a provider, which is not configured.';
-}
-
-/**
  * Settings sections the caller may open.
  *
  * Catalog sections need a deployment that owns its own catalogs; the tenant switches
@@ -95,16 +84,26 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
         store: deps.resolveConfigurationStore(c),
       }),
     ]);
-    const webSearchEnabled = tenantAllowsWebSearch && hasProvider;
+
+    var webSearchResponse = {
+      enabled: true,
+      reason: 'Web search is available.',
+    };
+    if (!tenantAllowsWebSearch) {
+      webSearchResponse.enabled = false;
+      webSearchResponse.reason = 'Web search is turned off for this tenant - an admin can turn it back on in settings.';
+    }
+    if (!hasProvider) {
+      webSearchResponse.enabled = false;
+      webSearchResponse.reason = 'Web search needs a provider, which is not configured.';
+    }
     return c.json(
       {
         data: {
           sandbox: { enabled: sandboxEnabled },
           skill: sandboxEnabled ? { enabled: true } : { enabled: false, reason: skillDisabledReason(status) },
           settings: settingsCapability(requestContext),
-          web_search: webSearchEnabled
-            ? { enabled: true }
-            : { enabled: false, reason: webSearchDisabledReason({ tenantAllows: tenantAllowsWebSearch }) },
+          web_search: webSearchResponse,
           session_sharing: { enabled: deps.userStore.supportsUserLookup },
         },
       },
