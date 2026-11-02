@@ -1,6 +1,8 @@
 import type { SessionHandle, Sessions, TurnInputItem } from '@truefoundry/trueforge-core/agent-session';
 import type { Logger } from 'winston';
+import { isWebSearchEnabledForTenant } from '../configurations/configurations';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
+import type { IConfigurationStore } from '../db/configurationStore';
 import {
   cronRunName,
   type IScheduleStore,
@@ -68,6 +70,17 @@ export class ScheduleNotFoundError extends Error {
   }
 }
 
+/** Each run opens a new session, so the tenant switch applies the same as it does to a new chat. */
+export class ScheduleWebSearchDisabledError extends Error {
+  constructor(agentName: string, options?: ErrorOptions) {
+    super(
+      `Agent "${agentName}" has web_search enabled, which is disabled for this tenant - an admin can re-enable it in settings`,
+      options,
+    );
+    this.name = 'ScheduleWebSearchDisabledError';
+  }
+}
+
 /**
  * Start a schedule run in-process: get-or-create a session keyed by `run.id`,
  * then prepare a non-streaming turn with the schedule task when that session has
@@ -90,17 +103,29 @@ export async function startScheduleRun<TTransaction>(params: {
   sessions: Sessions;
   agentStore: IAgentStore;
   scheduleStore: Pick<IScheduleStore<TTransaction>, 'updateRun'>;
+  configurationStore: IConfigurationStore;
 }): Promise<PreparedScheduleTurn | undefined> {
   const {
     item: { run, schedule },
     sessions,
     agentStore,
     scheduleStore,
+    configurationStore,
   } = params;
 
   const named = await agentStore.getAgent({ tenant_id: schedule.tenant_id, name: schedule.agent_name });
   if (named === undefined) {
     throw new ScheduleAgentNotFoundError(schedule.agent_name);
+  }
+
+  if (named.manifest.config.web_search.enabled) {
+    const allowed = await isWebSearchEnabledForTenant({
+      tenant_id: schedule.tenant_id,
+      store: configurationStore,
+    });
+    if (!allowed) {
+      throw new ScheduleWebSearchDisabledError(schedule.agent_name);
+    }
   }
 
   const { session } = await sessions.getOrCreateByExternalId({

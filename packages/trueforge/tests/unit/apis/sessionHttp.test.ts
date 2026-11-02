@@ -79,6 +79,7 @@ describe('sessions HTTP agent binding', () => {
   let app: OpenAPIHono;
   let agentStore: SqliteAgentStore;
   let configurationStore: SqliteConfigurationStore;
+  let webSearchProviderStore: SqliteWebSearchProviderStore;
   let sessionStore: SqliteSessionStore;
   let sessionMetricsStore: SqliteSessionMetricsStore;
   let sessionDeps: SessionsRouterDeps<Transaction<Database>>;
@@ -97,7 +98,7 @@ describe('sessions HTTP agent binding', () => {
     const skillStore = new SqliteSkillStore(db);
     const sandboxProviderStore = new SqliteSandboxProviderStore(db);
     const sandboxEnvironmentStore = new SqliteSandboxEnvironmentStore(db);
-    const webSearchProviderStore = new SqliteWebSearchProviderStore(db);
+    webSearchProviderStore = new SqliteWebSearchProviderStore(db);
     configurationStore = new SqliteConfigurationStore(db);
     agentStore = new SqliteAgentStore(db);
 
@@ -888,6 +889,10 @@ describe('sessions HTTP agent binding', () => {
       }),
       external_id: null,
     });
+    await webSearchProviderStore.upsertProvider({
+      tenant_id: 'default',
+      manifest: { type: 'parallel', auth: { api_key: 'parallel-key' } },
+    });
 
     await configurationStore.upsertConfiguration({
       tenant_id: 'default',
@@ -905,6 +910,27 @@ describe('sessions HTTP agent binding', () => {
 
     const allowed = await app.request('/', jsonInit('POST', { agent: { name: agent.name } }));
     expect(allowed.status).toBe(201);
+  });
+
+  it('validates a named agent spec the same way it validates an inline one', async () => {
+    const agent = await agentStore.createAgent({
+      tenant_id: 'default',
+      created_by_subject: {
+        subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+        subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+        subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+      },
+      name: 'stale-model-agent',
+      description: 'Test agent.',
+      manifest: AgentSpecSchema.parse({
+        model: { name: 'anthropic/model-that-was-removed' },
+        instructions: 'test',
+      }),
+      external_id: null,
+    });
+
+    const created = await app.request('/', jsonInit('POST', { agent: { name: agent.name } }));
+    expect(created.status).toBe(422);
   });
 
   it('rejects create bodies that mix name and AgentSpec fields', async () => {

@@ -9,7 +9,12 @@ import winston from 'winston';
 import { createScheduleExecutionRouter, createSchedulesRouter } from '../../../src/apis/schedules';
 import { TrueForgeAuthorizer, type Authorizer } from '../../../src/auth/authorizer';
 import type { RequestContext } from '../../../src/auth/identity';
-import { ScheduleAgentNotFoundError, startScheduleRun } from '../../../src/controller/scheduleDispatch';
+import {
+  ScheduleAgentNotFoundError,
+  ScheduleWebSearchDisabledError,
+  startScheduleRun,
+} from '../../../src/controller/scheduleDispatch';
+import type { IConfigurationStore } from '../../../src/db/configurationStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -59,6 +64,13 @@ const scheduleBody = {
   manifest: { task: 'Say hi', cron: '0 13 * * *', timezone: 'UTC' },
 };
 
+/** No stored row means every switch is on, which is what these schedules assume. */
+const allOnConfigurationStore: IConfigurationStore = {
+  getConfiguration: () => Promise.resolve(undefined),
+  upsertConfiguration: () => Promise.reject(new Error('not used')),
+  getOrCreateConfiguration: () => Promise.reject(new Error('not used')),
+};
+
 function stubTurnExecutionDeps(agentStore: SqliteAgentStore, scheduleStore: SqliteScheduleStore) {
   const sessionStore = new InMemorySessionStore();
   return {
@@ -75,6 +87,7 @@ function stubTurnExecutionDeps(agentStore: SqliteAgentStore, scheduleStore: Sqli
     resolveSandboxProviderStore: () => ({}) as never,
     sandboxEnvironmentStore: {} as never,
     resolveWebSearchProviderStore: () => ({}) as never,
+    resolveConfigurationStore: () => allOnConfigurationStore,
   };
 }
 
@@ -519,6 +532,53 @@ describe('internal schedule execution', () => {
     expect(mockedStartScheduleRun).toHaveBeenCalledWith(
       expect.objectContaining({ item: expect.objectContaining({ run: expect.objectContaining({ id: run.id }) }) }),
     );
+  });
+
+  it('maps a tenant-disabled web search to 422', async () => {
+    mockedStartScheduleRun.mockReset();
+    mockedStartScheduleRun.mockRejectedValue(new ScheduleWebSearchDisabledError('reporter'));
+    const db = createSqliteDb(':memory:');
+    await migrateSqliteToLatest(db);
+    const agentStore = new SqliteAgentStore(db);
+    const scheduleStore = new SqliteScheduleStore(db);
+    const agent = await agentStore.createAgent({
+      tenant_id: 'default',
+      created_by_subject: { subject_id: 'alice', subject_type: 'user', subject_display_name: 'alice' },
+      name: 'reporter',
+      description: 'reporter description',
+      manifest: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' }, instructions: 'test' }),
+      external_id: 'reporter-external-id',
+    });
+    const { schedule } = await scheduleStore.createScheduleAndRun({
+      tenant_id: 'default',
+      agent_id: agent.id,
+      agent_name: agent.name,
+      name: 'daily-report',
+      manifest: { task: 'Say hi', cron: '0 13 * * *', timezone: 'UTC', status: 'active' },
+      created_by_subject: { subject_id: 'alice', subject_type: 'user', subject_display_name: 'alice' },
+      runFrom: new Date(),
+    });
+    const run = await scheduleStore.createRun({
+      tenant_id: 'default',
+      schedule_id: schedule.id,
+      name: 'manual-test',
+      scheduled_for: new Date(),
+      status: 'triggered',
+      created_by_subject: { subject_id: 'alice', subject_type: 'user', subject_display_name: 'alice' },
+      triggered_at: new Date(),
+    });
+    const app = createScheduleExecutionRouter(stubTurnExecutionDeps(agentStore, scheduleStore));
+
+    const response = await app.request('/runs/execute', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ schedule_run_id: run.id }),
+    });
+
+    expect(response.status).toBe(422);
+    expect(await response.json()).toEqual({
+      error: { message: expect.stringContaining('disabled for this tenant') },
+    });
   });
 
   it('maps an unknown run to 404', async () => {

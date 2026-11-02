@@ -1,3 +1,4 @@
+import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 import configuration, { STANDALONE_TRUEFORGE_API_KEY } from '../../../src/config';
 import { internalTrueForgeClient } from '../../../src/controller/internalTrueForgeClient';
 import {
@@ -6,10 +7,44 @@ import {
   scheduleDispatchLoop,
   scheduleRunFailureReason,
   ScheduleRunNotFoundError,
+  ScheduleWebSearchDisabledError,
   startScheduleRun,
 } from '../../../src/controller/scheduleDispatch';
+import type { IConfigurationStore } from '../../../src/db/configurationStore';
 import type { ScheduleDispatchItem, ScheduleRunRecord } from '../../../src/db/scheduleStore';
 import { ScheduleManifestSchema } from '../../../src/schemas/schedule';
+
+/** No stored row means every switch is on. */
+const allOnConfigurationStore: IConfigurationStore = {
+  getConfiguration: () => Promise.resolve(undefined),
+  upsertConfiguration: () => Promise.reject(new Error('not used')),
+  getOrCreateConfiguration: () => Promise.reject(new Error('not used')),
+};
+
+function webSearchOffConfigurationStore(): IConfigurationStore {
+  return {
+    getConfiguration: () =>
+      Promise.resolve({
+        tenant_id: 'default',
+        manifest: { web_search: { enabled: false } },
+        updated_at: '2026-01-01T00:00:00.000Z',
+      }),
+    upsertConfiguration: () => Promise.reject(new Error('not used')),
+    getOrCreateConfiguration: () => Promise.reject(new Error('not used')),
+  };
+}
+
+function agentRecord({ webSearch = false }: { webSearch?: boolean } = {}) {
+  return {
+    id: 'agent-1',
+    name: 'reporter',
+    manifest: AgentSpecSchema.parse({
+      model: { name: 'test-provider/test-model' },
+      instructions: 'test',
+      config: { web_search: { enabled: webSearch } },
+    }),
+  };
+}
 
 describe('scheduleRunFailureReason', () => {
   it('uses Error.message when non-empty', () => {
@@ -139,7 +174,7 @@ describe('startScheduleRun', () => {
     const listTurns = jest.fn().mockResolvedValue({ data: [] });
     const session = { session_id: 'session-1', listTurns };
     const getOrCreateByExternalId = jest.fn().mockResolvedValue({ session, created: true });
-    const getAgent = jest.fn().mockResolvedValue({ id: 'agent-1', name: 'reporter' });
+    const getAgent = jest.fn().mockResolvedValue(agentRecord());
     const updateRun = jest.fn().mockResolvedValue(undefined);
 
     const prepared = await startScheduleRun({
@@ -147,6 +182,7 @@ describe('startScheduleRun', () => {
       sessions: { getOrCreateByExternalId } as never,
       agentStore: { getAgent } as never,
       scheduleStore: { updateRun },
+      configurationStore: allOnConfigurationStore,
     });
 
     expect(getAgent).toHaveBeenCalledWith({ tenant_id: 'default', name: 'reporter' });
@@ -163,7 +199,7 @@ describe('startScheduleRun', () => {
       input: [{ type: 'user.message', content: 'Write the report' }],
       previous_turn_id: 'none',
       userRef: 'tester',
-      agent: { id: 'agent-1', name: 'reporter' },
+      agent: agentRecord(),
     });
   });
 
@@ -173,7 +209,7 @@ describe('startScheduleRun', () => {
       session: { session_id: 'session-1', listTurns },
       created: false,
     });
-    const getAgent = jest.fn().mockResolvedValue({ id: 'agent-1', name: 'reporter' });
+    const getAgent = jest.fn().mockResolvedValue(agentRecord());
     const updateRun = jest.fn().mockResolvedValue(undefined);
 
     const prepared = await startScheduleRun({
@@ -181,10 +217,46 @@ describe('startScheduleRun', () => {
       sessions: { getOrCreateByExternalId } as never,
       agentStore: { getAgent } as never,
       scheduleStore: { updateRun },
+      configurationStore: allOnConfigurationStore,
     });
 
     expect(prepared).toBeUndefined();
     expect(updateRun).toHaveBeenCalledWith({ tenant_id: 'default', id: 'run-1', session_id: 'session-1' });
+  });
+
+  it('throws without creating a session when the tenant turned web search off', async () => {
+    const getOrCreateByExternalId = jest.fn();
+    const updateRun = jest.fn();
+
+    await expect(
+      startScheduleRun({
+        item: item(),
+        sessions: { getOrCreateByExternalId } as never,
+        agentStore: { getAgent: jest.fn().mockResolvedValue(agentRecord({ webSearch: true })) } as never,
+        scheduleStore: { updateRun },
+        configurationStore: webSearchOffConfigurationStore(),
+      }),
+    ).rejects.toBeInstanceOf(ScheduleWebSearchDisabledError);
+    expect(getOrCreateByExternalId).not.toHaveBeenCalled();
+    expect(updateRun).not.toHaveBeenCalled();
+  });
+
+  it('runs a web-search agent while the tenant allows it', async () => {
+    const listTurns = jest.fn().mockResolvedValue({ data: [] });
+    const getOrCreateByExternalId = jest
+      .fn()
+      .mockResolvedValue({ session: { session_id: 'session-1', listTurns }, created: true });
+
+    await expect(
+      startScheduleRun({
+        item: item(),
+        sessions: { getOrCreateByExternalId } as never,
+        agentStore: { getAgent: jest.fn().mockResolvedValue(agentRecord({ webSearch: true })) } as never,
+        scheduleStore: { updateRun: jest.fn() },
+        configurationStore: allOnConfigurationStore,
+      }),
+    ).resolves.toBeDefined();
+    expect(getOrCreateByExternalId).toHaveBeenCalled();
   });
 
   it('throws without linking when the schedule agent is missing', async () => {
@@ -195,6 +267,7 @@ describe('startScheduleRun', () => {
         sessions: { getOrCreateByExternalId: jest.fn() } as never,
         agentStore: { getAgent: jest.fn().mockResolvedValue(undefined) } as never,
         scheduleStore: { updateRun },
+        configurationStore: allOnConfigurationStore,
       }),
     ).rejects.toBeInstanceOf(ScheduleAgentNotFoundError);
     expect(updateRun).not.toHaveBeenCalled();

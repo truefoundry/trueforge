@@ -25,9 +25,11 @@ import {
   ScheduleNotFoundError,
   scheduleRunFailureReason,
   ScheduleRunNotFoundError,
+  ScheduleWebSearchDisabledError,
   startScheduleRun,
 } from '../controller/scheduleDispatch';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
+import type { IConfigurationStore } from '../db/configurationStore';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
@@ -81,6 +83,7 @@ export interface ScheduleTurnExecutionDeps<TTransaction> {
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore<TTransaction>;
+  resolveConfigurationStore: (c: Context) => IConfigurationStore<TTransaction>;
   /** Persistence agent store (schedule agent binding is not caller-scoped). */
   agentStore: IAgentStore<TTransaction>;
   /** Call with `{}` — schedules have no caller `x-tfg-skills`. */
@@ -111,6 +114,7 @@ export async function startScheduleRunOnRequest<TTransaction>(params: {
     sessions: deps.sessions,
     agentStore: deps.agentStore,
     scheduleStore: deps.scheduleStore,
+    configurationStore: deps.resolveConfigurationStore(c),
   });
   if (prepared === undefined) {
     return;
@@ -220,6 +224,9 @@ export function createScheduleExecutionRouter<TTransaction>(deps: ScheduleTurnEx
         error instanceof ScheduleAgentNotFoundError
       ) {
         return c.json({ error: { message: error.message } }, 404);
+      }
+      if (error instanceof ScheduleWebSearchDisabledError) {
+        return c.json({ error: { message: error.message } }, 422);
       }
       throw error;
     }
