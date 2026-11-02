@@ -102,6 +102,28 @@ describe('AgentRuntimeConfigFields', () => {
     expect(screen.queryByRole('button', { name: /Manage Environments/ })).not.toBeInTheDocument();
   });
 
+  it('shows a sandbox-off warning only when a provider exists and the switch is off', () => {
+    const warning = "Disabling sandbox will degrade trueforge's performance.";
+
+    const { unmount: unmountOff } = renderRuntimeFields({ value: { sandbox: { enabled: false } } });
+    expect(screen.getByRole('status')).toHaveTextContent(warning);
+    unmountOff();
+
+    const { unmount: unmountOn } = renderRuntimeFields();
+    expect(screen.queryByText(warning)).not.toBeInTheDocument();
+    unmountOn();
+
+    const { unmount: unmountUnavailable } = renderRuntimeFields({
+      value: { sandbox: { enabled: false } },
+      sandboxAvailable: false,
+    });
+    expect(screen.queryByText(warning)).not.toBeInTheDocument();
+    unmountUnavailable();
+
+    renderRuntimeFields({ hasSkills: true, value: { sandbox: { enabled: true } } });
+    expect(screen.queryByText(warning)).not.toBeInTheDocument();
+  });
+
   it('shows skills lock tooltip only when hovering the sandbox switch', () => {
     renderRuntimeFields({ hasSkills: true });
 
