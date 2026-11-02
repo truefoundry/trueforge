@@ -379,6 +379,9 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
       ) {
         return c.json({ error: { message: error.message } }, 404);
       }
+      if (error instanceof ScheduleWebSearchDisabledError) {
+        return c.json({ error: { message: error.message } }, 422);
+      }
       const turnError = getTurnExecutionError(error);
       if (turnError) {
         throw new HTTPException(turnError.status, { message: turnError.message, cause: error });

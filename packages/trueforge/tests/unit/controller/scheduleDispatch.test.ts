@@ -99,6 +99,20 @@ function fakeLogger() {
   return { error: jest.fn(), debug: jest.fn(), info: jest.fn(), warn: jest.fn() };
 }
 
+/** No session for this run yet unless `existing` is given. */
+function fakeSessions({
+  getOrCreateByExternalId,
+  existing,
+}: {
+  getOrCreateByExternalId?: jest.Mock;
+  existing?: { session_id: string; listTurns: jest.Mock };
+}) {
+  return {
+    getByExternalId: jest.fn().mockResolvedValue(existing),
+    getOrCreateByExternalId: getOrCreateByExternalId ?? jest.fn(),
+  };
+}
+
 function fakeStore(dispatchItem: ScheduleDispatchItem) {
   return {
     listScheduledRuns: jest.fn().mockResolvedValue([dispatchItem.run]),
@@ -180,7 +194,7 @@ describe('startScheduleRun', () => {
 
     const prepared = await startScheduleRun({
       item: dispatchItem,
-      sessions: { getOrCreateByExternalId } as never,
+      sessions: fakeSessions({ getOrCreateByExternalId }) as never,
       agentStore: { getAgent } as never,
       scheduleStore: { updateRun },
       configurationStore: allOnConfigurationStore,
@@ -215,7 +229,7 @@ describe('startScheduleRun', () => {
 
     const prepared = await startScheduleRun({
       item: item(),
-      sessions: { getOrCreateByExternalId } as never,
+      sessions: fakeSessions({ getOrCreateByExternalId }) as never,
       agentStore: { getAgent } as never,
       scheduleStore: { updateRun },
       configurationStore: allOnConfigurationStore,
@@ -232,7 +246,7 @@ describe('startScheduleRun', () => {
     await expect(
       startScheduleRun({
         item: item(),
-        sessions: { getOrCreateByExternalId } as never,
+        sessions: fakeSessions({ getOrCreateByExternalId }) as never,
         agentStore: { getAgent: jest.fn().mockResolvedValue(agentRecord({ webSearch: true })) } as never,
         scheduleStore: { updateRun },
         configurationStore: webSearchOffConfigurationStore(),
@@ -251,13 +265,31 @@ describe('startScheduleRun', () => {
     await expect(
       startScheduleRun({
         item: item(),
-        sessions: { getOrCreateByExternalId } as never,
+        sessions: fakeSessions({ getOrCreateByExternalId }) as never,
         agentStore: { getAgent: jest.fn().mockResolvedValue(agentRecord({ webSearch: true })) } as never,
         scheduleStore: { updateRun: jest.fn() },
         configurationStore: allOnConfigurationStore,
       }),
     ).resolves.toBeDefined();
     expect(getOrCreateByExternalId).toHaveBeenCalled();
+  });
+
+  it('stays idempotent on re-delivery of a run that already executed', async () => {
+    const existing = { session_id: 'session-1', listTurns: jest.fn().mockResolvedValue({ data: [{ id: 'turn-1' }] }) };
+    const getOrCreateByExternalId = jest.fn();
+    const updateRun = jest.fn();
+
+    await expect(
+      startScheduleRun({
+        item: item(),
+        sessions: fakeSessions({ getOrCreateByExternalId, existing }) as never,
+        agentStore: { getAgent: jest.fn().mockResolvedValue(agentRecord({ webSearch: true })) } as never,
+        scheduleStore: { updateRun },
+        configurationStore: webSearchOffConfigurationStore(),
+      }),
+    ).resolves.toBeUndefined();
+    expect(getOrCreateByExternalId).not.toHaveBeenCalled();
+    expect(updateRun).toHaveBeenCalledWith({ tenant_id: 'default', id: 'run-1', session_id: 'session-1' });
   });
 
   it('keeps running a schedule created while web search was still allowed', async () => {
@@ -270,7 +302,7 @@ describe('startScheduleRun', () => {
     await expect(
       startScheduleRun({
         item: item({ webSearchAllowed: true }),
-        sessions: { getOrCreateByExternalId } as never,
+        sessions: fakeSessions({ getOrCreateByExternalId }) as never,
         agentStore: { getAgent: jest.fn().mockResolvedValue(agentRecord({ webSearch: true })) } as never,
         scheduleStore: { updateRun: jest.fn() },
         configurationStore: { ...webSearchOffConfigurationStore(), getConfiguration },
@@ -286,7 +318,7 @@ describe('startScheduleRun', () => {
     await expect(
       startScheduleRun({
         item: item(),
-        sessions: { getOrCreateByExternalId: jest.fn() } as never,
+        sessions: fakeSessions({}) as never,
         agentStore: { getAgent: jest.fn().mockResolvedValue(undefined) } as never,
         scheduleStore: { updateRun },
         configurationStore: allOnConfigurationStore,

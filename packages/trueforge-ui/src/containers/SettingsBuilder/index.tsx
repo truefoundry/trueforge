@@ -17,6 +17,7 @@ import { Icon } from '@/icons/Icon.js';
 import { isSettingsSectionEnabled } from '@/server/serverChrome.js';
 import {
   useOptionalCatalogServer,
+  useOptionalConfigurationsServer,
   useOptionalRefreshServerCapabilities,
   useServerCapabilities,
 } from '@/server/ServerContext.js';
@@ -49,6 +50,7 @@ function SettingsSectionFallback() {
 const TruefoundrySettingsBuilder = ({ headerStart }: { headerStart?: ReactNode } = {}) => {
   const { settingsOpen, settingsSection: section, setSettingsOpen } = useShellMode();
   const catalog = useOptionalCatalogServer();
+  const configurations = useOptionalConfigurationsServer();
   const settings = useServerCapabilities()?.settings;
   const refreshServerCapabilities = useOptionalRefreshServerCapabilities();
   const track = useTrackAnalytics();
@@ -60,7 +62,9 @@ const TruefoundrySettingsBuilder = ({ headerStart }: { headerStart?: ReactNode }
   const compact = compactLayout || isMobile;
   const hasSkills = catalog?.skillCatalog != null;
   const hasSandbox = catalog?.sandboxCatalog != null;
-  const hasWebSearch = catalog?.webSearchCatalog != null;
+  // The section also hosts the tenant switch, so a deployment where the platform owns
+  // the providers still reaches it through the configurations port alone.
+  const hasWebSearch = catalog?.webSearchCatalog != null || configurations != null;
 
   const closeSettings = useCallback(() => {
     track(AnalyticsEvents.Settings.CLOSED, { section });

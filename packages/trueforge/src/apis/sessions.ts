@@ -33,7 +33,7 @@ import type { Authorizer } from '../auth/authorizer';
 import { createdBySubjectFromRequestContext, type RequestContext, type ResolveRequestContext } from '../auth/identity';
 import configuration from '../config';
 import type { AccessGrantRecord, IAccessControlStore } from '../db/accessControlStore';
-import type { IAgentStore } from '../db/agentStore';
+import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import type { IConfigurationStore } from '../db/configurationStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
@@ -369,6 +369,9 @@ type ValidateSessionSpecDeps = Pick<
  * `allowInlineResources` is for caller-supplied specs only: it checks model, MCP, and
  * skill names against `x-tfg-*` when those headers are present. A named agent runs a
  * stored spec, so those headers must not widen what it may reference.
+ *
+ * `runAsAgent` matches the identity a turn runs under, so a caller who may use an
+ * agent is not rejected for models or connectors only the agent can reach.
  */
 function validateSessionSpec(
   deps: ValidateSessionSpecDeps,
@@ -378,15 +381,17 @@ function validateSessionSpec(
     requestContext: RequestContext;
     previous_spec: AgentSpec | undefined;
     allowInlineResources: boolean;
+    runAsAgent?: AgentRecord;
   },
 ): Promise<void> {
-  const { c, spec, requestContext, previous_spec, allowInlineResources } = input;
+  const { c, spec, requestContext, previous_spec, allowInlineResources, runAsAgent } = input;
+  const asAgent = runAsAgent === undefined ? {} : { runAsAgent };
   return validateAgentSpec({
     spec,
     tenant_id: requestContext.tenant_id,
     created_by_subject_id: requestContext.subject.id,
-    modelProviderStore: deps.resolveModelProviderStore({ c, allowInlineResources }),
-    mcpServerStore: deps.resolveMcpServerStore({ c, allowInlineResources }),
+    modelProviderStore: deps.resolveModelProviderStore({ c, allowInlineResources, ...asAgent }),
+    mcpServerStore: deps.resolveMcpServerStore({ c, allowInlineResources, ...asAgent }),
     skillStore: deps.resolveSkillStore({ c, allowInlineResources }),
     sandboxProviderStore: deps.resolveSandboxProviderStore(c),
     sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
@@ -438,6 +443,7 @@ async function resolveNewSessionAgent(
     requestContext,
     previous_spec: undefined,
     allowInlineResources: false,
+    runAsAgent: named,
   });
   return { found: true, agent: { type: 'reference', id: named.id, name: named.name } };
 }

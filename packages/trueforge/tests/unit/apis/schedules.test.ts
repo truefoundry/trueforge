@@ -460,6 +460,27 @@ describe('create schedule run', () => {
     expect(mockedStartScheduleRun).toHaveBeenCalled();
   });
 
+  it('marks the run failed and returns 422 when the tenant turned web search off', async () => {
+    const { asUser, postJson, scheduleStore } = await setup();
+    mockedStartScheduleRun.mockRejectedValue(new ScheduleWebSearchDisabledError('reporter'));
+
+    asUser(ALICE);
+    const created = await postJson('/', 'POST', scheduleBody);
+    const { id: scheduleId } = ((await created.json()) as { data: { id: string } }).data;
+
+    const res = await postJson('/runs', 'POST', { schedule_id: scheduleId });
+    expect(res.status).toBe(422);
+    expect(((await res.json()) as { error: { message: string } }).error.message).toContain('disabled for this tenant');
+
+    const runs = await scheduleStore.listRuns({
+      tenant_id: 'default',
+      schedule_id: scheduleId,
+      limit: 25,
+      page_token: undefined,
+    });
+    expect(runs.data.find(r => r.name.startsWith('manual-'))?.status).toBe('failed');
+  });
+
   it('marks the run failed and returns 404 when startScheduleRun reports a missing agent', async () => {
     const { asUser, postJson, scheduleStore } = await setup();
     mockedStartScheduleRun.mockRejectedValue(new ScheduleAgentNotFoundError('reporter'));
