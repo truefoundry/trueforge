@@ -62,8 +62,8 @@ const TruefoundrySettingsBuilder = ({ headerStart }: { headerStart?: ReactNode }
   const compact = compactLayout || isMobile;
   const hasSkills = catalog?.skillCatalog != null;
   const hasSandbox = catalog?.sandboxCatalog != null;
-  // The section also hosts the tenant switch, so a deployment where the platform owns
-  // the providers still reaches it through the configuration port alone.
+  // The tab also hosts the tenant switch, so a catalog with no web-search provider
+  // list still shows it whenever the host wires the configuration port.
   const hasWebSearch = catalog?.webSearchCatalog != null || configuration != null;
 
   const closeSettings = useCallback(() => {

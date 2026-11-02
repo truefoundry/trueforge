@@ -26,14 +26,9 @@ export const CreateSessionAgentSchema = z
   .openapi('CreateSessionAgent');
 
 export type CreateSessionAgent = z.infer<typeof CreateSessionAgentSchema>;
-export type SessionAgentNameRef = z.infer<typeof SessionAgentNameRefSchema>;
 export type SessionAgentSpecBody = z.infer<typeof SessionAgentSpecBodySchema>;
 
 /** Narrows the create-body union after OpenAPI already accepted either arm. */
-export function isSessionAgentNameRef(agent: CreateSessionAgent): agent is SessionAgentNameRef {
-  return SessionAgentNameRefSchema.safeParse(agent).success;
-}
-
 export function isSessionAgentSpecBody(agent: CreateSessionAgent): agent is SessionAgentSpecBody {
   return SessionAgentSpecBodySchema.safeParse(agent).success;
 }
