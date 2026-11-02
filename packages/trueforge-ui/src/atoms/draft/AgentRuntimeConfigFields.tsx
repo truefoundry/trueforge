@@ -14,7 +14,7 @@ import { auiInputClass } from '../lib/inputClasses.js';
 import { PopoverSelect } from '../primitives/PopoverSelect.js';
 import { Switch } from '../primitives/Switch.js';
 import { Tooltip } from '../primitives/Tooltip.js';
-import { WEB_SEARCH_ONE_WAY_OFF_HINT, WEB_SEARCH_UNAVAILABLE_HINT } from './agentCapabilities.js';
+import { WEB_SEARCH_ONE_WAY_OFF_HINT, WEB_SEARCH_UNAVAILABLE_HINT, webSearchGate } from './agentCapabilities.js';
 
 export type AgentRuntimeConfigFieldsProps = {
   value: AgentRuntimeConfig;
@@ -157,13 +157,13 @@ export function AgentRuntimeConfigFields({
   const compactionEnabled = value.contextManagement?.compaction?.enabled ?? true;
   const thresholdMode: CompactionThresholdMode =
     value.contextManagement?.compaction?.trigger != null ? 'custom' : 'auto';
-  const webSearchAvailable = capabilities?.webSearch?.enabled === true;
-  const webSearchChecked = value.webSearch?.enabled ?? webSearchAvailable;
+  const webSearchChecked = value.webSearch?.enabled ?? capabilities?.webSearch?.enabled === true;
   // A spec that already searches the web can still be turned off; only turning it back on
   // needs the capability, so the row stays visible either way and says why it is locked.
-  const webSearchLocked = !webSearchAvailable && !webSearchChecked;
-  // Still on because the host allowed it earlier, so turning it off here cannot be undone.
-  const webSearchOffIsFinal = webSearchChecked && !webSearchAvailable;
+  const { locked: webSearchLocked, offIsFinal: webSearchOffIsFinal } = webSearchGate({
+    capabilities,
+    enabled: webSearchChecked,
+  });
   const webSearchField: RuntimeSwitchField = {
     label: 'Web search',
     description: 'Allow the agent to search the web and fetch pages.',

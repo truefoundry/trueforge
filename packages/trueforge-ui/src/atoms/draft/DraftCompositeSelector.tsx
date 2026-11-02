@@ -22,7 +22,7 @@ import { Button } from '../primitives/Button.js';
 import { CatalogLogo } from '../primitives/CatalogLogo.js';
 import { Checkbox } from '../primitives/Checkbox.js';
 import { Tooltip } from '../primitives/Tooltip.js';
-import { WEB_SEARCH_ONE_WAY_OFF_HINT, WEB_SEARCH_UNAVAILABLE_HINT } from './agentCapabilities.js';
+import { WEB_SEARCH_ONE_WAY_OFF_HINT, WEB_SEARCH_UNAVAILABLE_HINT, webSearchGate } from './agentCapabilities.js';
 import { DraftCatalogEmptyState } from './DraftCatalogEmptyState.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
 import { connectorsWithSelectedStubs } from './mcpConnectorStubs.js';
@@ -350,13 +350,15 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   const compactLayout = useCompactLayout();
   const skillsDisabled = capabilities?.skill.enabled !== true;
   const skillsDisabledReason = capabilities?.skill.reason;
-  const webSearchCapabilityEnabled = capabilities?.webSearch?.enabled === true;
   const webSearchDisabledReason = capabilities?.webSearch?.reason ?? WEB_SEARCH_UNAVAILABLE_HINT;
-  const webSearchEnabled = agentSpec?.config?.webSearch?.enabled ?? webSearchCapabilityEnabled;
+  const webSearchEnabled = agentSpec?.config?.webSearch?.enabled ?? capabilities?.webSearch?.enabled === true;
   // A chat that already searches the web keeps it until the user turns it off; only
   // turning it back on needs the capability.
-  const canToggleWebSearch = webSearchCapabilityEnabled || webSearchEnabled;
-  const webSearchOffIsFinal = webSearchEnabled && !webSearchCapabilityEnabled;
+  const { locked: webSearchLocked, offIsFinal: webSearchOffIsFinal } = webSearchGate({
+    capabilities,
+    enabled: webSearchEnabled,
+  });
+  const canToggleWebSearch = !webSearchLocked;
   const needsSandbox = capabilities?.sandbox.enabled === false;
   const settings = capabilities?.settings;
   const canConfigureConnectors =

@@ -151,10 +151,11 @@ describe('AgentRuntimeConfigFields', () => {
   it('keeps the web search switch visible and locked with the host reason', async () => {
     renderRuntimeFields({ webSearch: { enabled: false, reason: 'Web search is turned off for this tenant.' } });
 
-    const webSearchSwitch = screen.getByRole('switch', { name: 'Web search' });
+    // Re-query each poll: the row only locks once capabilities resolve, which re-renders it.
     await waitFor(() => {
-      expect(webSearchSwitch).toBeDisabled();
+      expect(screen.getByRole('switch', { name: 'Web search' })).toBeDisabled();
     });
+    const webSearchSwitch = screen.getByRole('switch', { name: 'Web search' });
     expect(webSearchSwitch).not.toBeChecked();
 
     fireEvent.mouseEnter(webSearchSwitch.parentElement!);
