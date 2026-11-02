@@ -9,6 +9,7 @@ import {
   isSettingsChromeEnabled,
   toEffectiveRoutes,
 } from '@/server/serverChrome.js';
+import type { SettingsCapability } from '@/server/types.js';
 import {
   createMockAgentMetricsServer,
   createMockAgentSessionsServer,
@@ -16,6 +17,7 @@ import {
   createMockSandboxEnvironmentServer,
   createMockScheduleServer,
 } from './mockServer.js';
+import { allSettingsSections } from './settingsCapabilityFixture.js';
 
 describe('serverChrome', () => {
   const catalog = createMockCatalog();
@@ -25,22 +27,44 @@ describe('serverChrome', () => {
   const metrics = createMockAgentMetricsServer();
   const routes = resolveRoutesConfig();
 
-  it('isSettingsChromeEnabled requires a catalog and explicit capability', () => {
+  it('isSettingsChromeEnabled requires a catalog and one open section', () => {
     expect(isSettingsChromeEnabled({ catalog: null, capabilities: null })).toBe(false);
-    expect(isSettingsChromeEnabled({ catalog, capabilities: null })).toBe(false);
-    expect(isSettingsChromeEnabled({ catalog, capabilities: {} })).toBe(false);
     expect(
       isSettingsChromeEnabled({
         catalog,
-        capabilities: { settings: { enabled: true } },
+        capabilities: { settings: allSettingsSections(true) },
       }),
     ).toBe(true);
     expect(
       isSettingsChromeEnabled({
         catalog,
-        capabilities: { settings: { enabled: false } },
+        capabilities: { settings: allSettingsSections(false) },
       }),
     ).toBe(false);
+  });
+
+  it('isSettingsChromeEnabled waits while capabilities are still loading', () => {
+    expect(isSettingsChromeEnabled({ catalog, capabilities: null })).toBe(false);
+    expect(isSettingsChromeEnabled({ catalog, capabilities: undefined })).toBe(false);
+  });
+
+  it('isSettingsChromeEnabled keeps chrome for sections the host never reported', () => {
+    // Matches isSettingsSectionEnabled, which renders an unreported section.
+    expect(isSettingsChromeEnabled({ catalog, capabilities: {} })).toBe(true);
+    expect(isSettingsChromeEnabled({ catalog, capabilities: { settings: {} } })).toBe(true);
+    expect(
+      isSettingsChromeEnabled({
+        catalog,
+        capabilities: { settings: { modelProviders: { enabled: false, manageProviders: false } } },
+      }),
+    ).toBe(true);
+  });
+
+  it('isSettingsChromeEnabled tolerates the pre-sections capability shape', () => {
+    // A host on the old flat `{ enabled, manageProviders }` reports no section,
+    // so every section reads as unreported rather than closed.
+    const legacy: SettingsCapability = JSON.parse('{"enabled":true,"manageProviders":true}');
+    expect(isSettingsChromeEnabled({ catalog, capabilities: { settings: legacy } })).toBe(true);
   });
 
   it('gates sessions / schedules / environments / metrics on port presence', () => {
@@ -75,7 +99,7 @@ describe('serverChrome', () => {
     const enabled = toEffectiveRoutes({
       routes,
       catalog,
-      capabilities: { settings: { enabled: true } },
+      capabilities: { settings: allSettingsSections(true) },
       sessions,
       schedules,
       sandboxEnvironments,
