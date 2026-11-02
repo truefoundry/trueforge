@@ -22,7 +22,7 @@ import { Button } from '../primitives/Button.js';
 import { CatalogLogo } from '../primitives/CatalogLogo.js';
 import { Checkbox } from '../primitives/Checkbox.js';
 import { Tooltip } from '../primitives/Tooltip.js';
-import { WEB_SEARCH_UNAVAILABLE_HINT } from './agentCapabilities.js';
+import { WEB_SEARCH_ONE_WAY_OFF_HINT, WEB_SEARCH_UNAVAILABLE_HINT } from './agentCapabilities.js';
 import { DraftCatalogEmptyState } from './DraftCatalogEmptyState.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
 import { connectorsWithSelectedStubs } from './mcpConnectorStubs.js';
@@ -305,14 +305,14 @@ function SectionHeading({ label, count }: { label: string; count?: number }) {
   );
 }
 
-/** Why a row in this panel cannot be used, kept readable while the row itself is dimmed. */
-function LockedNote({ children }: { children: string }) {
+/** What a row in this panel cannot do, kept readable while the row itself is dimmed. */
+function RowNote({ children, icon = 'lock' }: { children: string; icon?: 'lock' | 'info' }) {
   return (
     <div
       role="status"
       className="border-primary-button-bg/30 bg-primary-button-bg/5 text-text-primary mx-3 mb-2 flex items-start gap-2 rounded-lg border p-3"
     >
-      <Icon name="lock" className="text-primary-button-bg mt-px size-3 shrink-0" />
+      <Icon name={icon} className="text-primary-button-bg mt-px size-3 shrink-0" />
       <span className="text-xs leading-snug">{children}</span>
     </div>
   );
@@ -356,6 +356,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   // A chat that already searches the web keeps it until the user turns it off; only
   // turning it back on needs the capability.
   const canToggleWebSearch = webSearchCapabilityEnabled || webSearchEnabled;
+  const webSearchOffIsFinal = webSearchEnabled && !webSearchCapabilityEnabled;
   const needsSandbox = capabilities?.sandbox.enabled === false;
   const settings = capabilities?.settings;
   const canConfigureConnectors =
@@ -689,9 +690,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                 : 'Search environment...'
           }
         />
-        {tab === 'skills' && skillsDisabled && skillsDisabledReason ? (
-          <LockedNote>{skillsDisabledReason}</LockedNote>
-        ) : null}
+        {tab === 'skills' && skillsDisabled && skillsDisabledReason ? <RowNote>{skillsDisabledReason}</RowNote> : null}
         <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-2">
           {tab === 'connectors' ? (
             <>
@@ -707,7 +706,8 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                     disabledReason={webSearchDisabledReason}
                     onToggle={toggleWebSearch}
                   />
-                  {canToggleWebSearch ? null : <LockedNote>{webSearchDisabledReason}</LockedNote>}
+                  {canToggleWebSearch ? null : <RowNote>{webSearchDisabledReason}</RowNote>}
+                  {webSearchOffIsFinal ? <RowNote icon="info">{WEB_SEARCH_ONE_WAY_OFF_HINT}</RowNote> : null}
                 </>
               ) : null}
               {pinnedSelectedConnectors.length > 0 ? (
@@ -791,7 +791,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
             </>
           ) : (
             <>
-              {environmentLocked ? <LockedNote>{ENVIRONMENT_LOCKED_HINT}</LockedNote> : null}
+              {environmentLocked ? <RowNote>{ENVIRONMENT_LOCKED_HINT}</RowNote> : null}
               {filteredEnvironments.map(env => {
                 const isSelected = currentEnvName === env.name;
                 const rowDisabled = environmentLocked || env.unavailable;

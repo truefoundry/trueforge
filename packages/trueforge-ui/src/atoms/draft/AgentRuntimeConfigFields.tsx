@@ -151,7 +151,7 @@ export function AgentRuntimeConfigFields({
   const webSearchLocked = !webSearchAvailable && !webSearchChecked;
   const webSearchField: RuntimeSwitchField = {
     label: 'Web search',
-    description: 'Allow the agent to search the web and fetch pages.',
+    description: webSearchChecked && !webSearchAvailable ? WEB_SEARCH_ONE_WAY_OFF_HINT : WEB_SEARCH_DESCRIPTION,
     checked: webSearchChecked,
     disabled: webSearchLocked,
     ...(webSearchLocked ? { disabledTooltip: capabilities?.webSearch?.reason ?? WEB_SEARCH_UNAVAILABLE_HINT } : {}),
@@ -270,7 +270,7 @@ export function AgentRuntimeConfigFields({
             )}
           </div>
         ) : null}
-        <label className={cn('flex py-4', rowClassName)}>
+        <div className={cn('flex py-4', rowClassName)}>
           <span className="min-w-0">
             <span className="text-text-primary block text-sm font-medium">Iteration limit</span>
             <span className="text-text-secondary mt-0.5 block text-xs leading-snug">
@@ -282,6 +282,7 @@ export function AgentRuntimeConfigFields({
             min={1}
             max={1024}
             disabled={disabled}
+            aria-label="Iteration limit"
             value={value.iterationLimit ?? 512}
             className={auiInputClass('h-8 w-24 shrink-0 disabled:opacity-60')}
             onChange={event => {
@@ -289,10 +290,30 @@ export function AgentRuntimeConfigFields({
               if (iterationLimit !== null) onChange({ ...value, iterationLimit });
             }}
           />
-        </label>
+        </div>
         {switchField({ field: webSearchField, className: cn('py-4', rowClassName) })}
         <section className="py-4">
           {switchField({ field: sandboxField, className: rowClassName })}
+          {sandboxAvailable && !sandboxEnabled ? (
+            <p
+              role="status"
+              className="border-warning-bg bg-warning-bg/10 text-warning-bg mt-2 flex items-start gap-2 rounded-md border px-3 py-2 text-xs"
+            >
+              <Icon name="circle-exclamation" className="size-3.5 shrink-0" aria-hidden />
+              <span className="flex w-full justify-between items-center gap-1">
+                <span>Disabling sandbox will degrade trueforge's performance.</span>
+                <a
+                  className="flex items-center gap-1 font-medium text-xs cursor-pointer text-amber-500 "
+                  href="https://trueforge.dev/key-features/code-mode#what-is-code-mode"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <span>Learn more</span>
+                  <Icon name="external-link" className="size-3" />
+                </a>
+              </span>
+            </p>
+          ) : null}
           <div className={`mt-3 border-l-2 border-primary-button-bg/50 pl-3 ${sandboxEnabled ? '' : 'opacity-50'}`}>
             <div className={cn('flex py-4', rowClassName)}>
               <span className="min-w-0 flex-1">
