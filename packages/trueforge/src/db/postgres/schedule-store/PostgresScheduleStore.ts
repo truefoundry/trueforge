@@ -44,7 +44,6 @@ function toScheduleRecord(row: Selectable<ScheduleTable>): ScheduleRecord {
     name: row.name,
     manifest: parseStoredScheduleManifest(row.manifest),
     status: row.status,
-    web_search_allowed: row.web_search_allowed,
     created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
@@ -152,7 +151,6 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
           manifest: json(input.manifest),
           // Column mirrors the manifest so the dispatch scan and API reads share one value.
           status: input.manifest.status,
-          web_search_allowed: input.web_search_allowed,
           created_by_subject: json(input.created_by_subject),
           created_at: now(),
           updated_at: now(),

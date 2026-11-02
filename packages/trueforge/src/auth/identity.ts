@@ -86,14 +86,6 @@ export function areCatalogSettingsAvailable(): boolean {
 }
 
 /**
- * Whether the caller may use the catalog routes under `/api/v1/settings`.
- * Always false in TrueFoundry; otherwise same as {@link hasAdminRole}.
- */
-export function canAccessSettings(requestContext: Pick<RequestContext, 'roles'>): boolean {
-  return areCatalogSettingsAvailable() && hasAdminRole(requestContext);
-}
-
-/**
  * Create / update / delete sandbox environments (list/get stay open to all callers).
  * - Create (no `created_by_subject_id`): admin only
  * - Update / delete: admin or the environment creator

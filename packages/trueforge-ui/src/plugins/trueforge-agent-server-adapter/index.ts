@@ -75,7 +75,7 @@ export {
 } from './chatServer.js';
 export { createTrueForgeClient } from './client.js';
 export type { CreateTrueForgeClientOptions } from './client.js';
-export { createConfigurationsServer, toUiConfigurations } from './configurationsServer.js';
+export { createConfigurationsServer } from './configurationsServer.js';
 export { getCapabilities, listConfiguredMcpServers, listModels, listSkills } from './lists.js';
 export { createHarnessPermissionsServer, type CreateHarnessPermissionsServerOptions } from './permissionsServer.js';
 export { createSandboxEnvironmentServer } from './sandboxEnvironments/sandboxEnvironmentServer.js';

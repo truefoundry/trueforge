@@ -9,7 +9,7 @@ const WebSearchConfigurationSchema = z
   .strict()
   .openapi('WebSearchConfiguration');
 
-export const ConfigurationsManifestSchema = z
+const ConfigurationsManifestSchema = z
   .object({
     web_search: WebSearchConfigurationSchema,
   })
@@ -17,10 +17,9 @@ export const ConfigurationsManifestSchema = z
   .openapi('ConfigurationsManifest');
 
 /** Partial so a caller may send one switch without restating the rest. */
-export const ConfigurationsManifestPatchSchema =
-  ConfigurationsManifestSchema.partial().openapi('ConfigurationsManifestPatch');
+const ConfigurationsManifestPatchSchema = ConfigurationsManifestSchema.partial().openapi('ConfigurationsManifestPatch');
 
-export const ConfigurationsSchema = z
+const ConfigurationsSchema = z
   .object({
     manifest: ConfigurationsManifestSchema,
     updated_at: z.iso.datetime().describe('When the configurations were last saved.'),

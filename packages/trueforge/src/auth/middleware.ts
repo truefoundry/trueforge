@@ -29,8 +29,8 @@ export function createAuthMiddleware(authenticator: Authenticator): MiddlewareHa
  * Admin gate for a route group.
  *
  * `accessible` says whether the group exists in the current deployment mode at all.
- * Catalog settings pass `canAccessSettings`, which is false in TrueFoundry because
- * the platform owns those catalogs; a group that is merely admin-only passes `true`.
+ * Catalog settings pass `areCatalogSettingsAvailable()`, which is false in TrueFoundry
+ * because the platform owns those catalogs; a group that is merely admin-only passes `true`.
  * An inaccessible group answers 404 so callers cannot tell an unavailable feature
  * from one they lack the role for.
  */

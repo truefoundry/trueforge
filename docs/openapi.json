@@ -8967,16 +8967,6 @@
               }
             },
             "description": "The name is already taken for this agent, or the schedule was modified concurrently (retry)."
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "The agent uses web search, which is turned off for this tenant."
           }
         },
         "summary": "Create a schedule",

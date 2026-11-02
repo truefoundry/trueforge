@@ -5,7 +5,7 @@
 import type { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
 import type { ConfigurationsServer, TenantConfigurations } from '../../server/types.js';
 
-export function toUiConfigurations(manifest: TrueForgeApi.ConfigurationsManifest): TenantConfigurations {
+function toUiConfigurations(manifest: TrueForgeApi.ConfigurationsManifest): TenantConfigurations {
   return { webSearch: { enabled: manifest.webSearch.enabled } };
 }
 

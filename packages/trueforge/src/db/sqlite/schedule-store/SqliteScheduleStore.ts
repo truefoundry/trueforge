@@ -50,7 +50,6 @@ function scheduleColumns(eb: ExpressionBuilder<Database, 'schedule'>) {
     'name' as const,
     jsonText<ScheduleManifest>(eb.ref('manifest')).as('manifest'),
     'status' as const,
-    'web_search_allowed' as const,
     jsonText<CreatedBySubject>(eb.ref('created_by_subject')).as('created_by_subject'),
     'created_at' as const,
     'updated_at' as const,
@@ -82,8 +81,6 @@ interface ScheduleRow {
   name: string;
   manifest: ScheduleManifest;
   status: ScheduleStatus;
-  /** INTEGER 0/1 (STRICT has no boolean). */
-  web_search_allowed: number;
   created_by_subject: CreatedBySubject;
   created_at: string;
   updated_at: string;
@@ -108,7 +105,6 @@ function toScheduleRecord(row: ScheduleRow): ScheduleRecord {
   return {
     ...row,
     manifest: parseStoredScheduleManifest(row.manifest),
-    web_search_allowed: row.web_search_allowed === 1,
     created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
   };
 }
@@ -168,7 +164,6 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
           manifest: jsonbBind(input.manifest),
           // Column mirrors the manifest so the dispatch scan and API reads share one value.
           status: input.manifest.status,
-          web_search_allowed: input.web_search_allowed ? 1 : 0,
           created_by_subject: jsonbBind(input.created_by_subject),
           created_at: timestamp,
           updated_at: timestamp,

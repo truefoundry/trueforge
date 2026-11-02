@@ -524,8 +524,6 @@ export interface ScheduleTable {
   manifest: JSONColumnType<ScheduleManifest, ScheduleManifest, ScheduleManifest>;
   /** `paused` stops triggering and drops the pending run; in-flight runs continue */
   status: ScheduleStatus;
-  /** Create-time snapshot of the tenant web search switch; untouched by updates. */
-  web_search_allowed: boolean;
   created_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
   created_at: Date;
   updated_at: Date;

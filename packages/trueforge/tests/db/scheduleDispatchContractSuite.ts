@@ -116,7 +116,6 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
       manifest: manifest({ status, cron }),
       created_by_subject: USER_SUBJECT,
       // Far enough ahead so that it doesnt clash with actual test.
-      web_search_allowed: true,
       runFrom: new Date(Date.now() + 10 * 365 * 24 * 3600 * 1000),
     });
     // Mark the auto-added pending run failed so the exact run can be added.

@@ -2,7 +2,7 @@ import type { IConfigurationStore } from '../db/configurationStore';
 import { DEFAULT_CONFIGURATIONS_MANIFEST, type ConfigurationsManifest } from '../schemas/configurations';
 
 /** Stored switches, or the all-on default when the tenant has no row yet. Does not write. */
-export async function resolveConfigurationsManifest({
+async function resolveConfigurationsManifest({
   tenant_id,
   store,
 }: {

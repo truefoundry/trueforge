@@ -1,8 +1,6 @@
 import type { SessionHandle, Sessions, TurnInputItem } from '@truefoundry/trueforge-core/agent-session';
 import type { Logger } from 'winston';
-import { isWebSearchEnabledForTenant } from '../configurations/configurations';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
-import type { IConfigurationStore } from '../db/configurationStore';
 import {
   cronRunName,
   type IScheduleStore,
@@ -70,19 +68,6 @@ export class ScheduleNotFoundError extends Error {
   }
 }
 
-/** Shared so schedule create and a schedule run refuse in the same words. */
-export function scheduleWebSearchDisabledMessage(agentName: string): string {
-  return `Agent "${agentName}" has web_search enabled, which is disabled for this tenant - an admin can re-enable it in settings`;
-}
-
-/** Thrown for a run whose schedule was created without the tenant web search switch. */
-export class ScheduleWebSearchDisabledError extends Error {
-  constructor(agentName: string, options?: ErrorOptions) {
-    super(scheduleWebSearchDisabledMessage(agentName), options);
-    this.name = 'ScheduleWebSearchDisabledError';
-  }
-}
-
 /**
  * Start a schedule run in-process: get-or-create a session keyed by `run.id`,
  * then prepare a non-streaming turn with the schedule task when that session has
@@ -105,14 +90,12 @@ export async function startScheduleRun<TTransaction>(params: {
   sessions: Sessions;
   agentStore: IAgentStore;
   scheduleStore: Pick<IScheduleStore<TTransaction>, 'updateRun'>;
-  configurationStore: IConfigurationStore;
 }): Promise<PreparedScheduleTurn | undefined> {
   const {
     item: { run, schedule },
     sessions,
     agentStore,
     scheduleStore,
-    configurationStore,
   } = params;
 
   const named = await agentStore.getAgent({ tenant_id: schedule.tenant_id, name: schedule.agent_name });
@@ -133,18 +116,6 @@ export async function startScheduleRun<TTransaction>(params: {
         session_id: started.session_id,
       });
       return undefined;
-    }
-  }
-
-  // A schedule created while the tenant allowed web search keeps it. Only one created
-  // without it has to ask, since every run otherwise starts a fresh session.
-  if (named.manifest.config.web_search.enabled && !schedule.web_search_allowed) {
-    const allowed = await isWebSearchEnabledForTenant({
-      tenant_id: schedule.tenant_id,
-      store: configurationStore,
-    });
-    if (!allowed) {
-      throw new ScheduleWebSearchDisabledError(schedule.agent_name);
     }
   }
 

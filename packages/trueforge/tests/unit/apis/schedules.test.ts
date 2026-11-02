@@ -9,12 +9,7 @@ import winston from 'winston';
 import { createScheduleExecutionRouter, createSchedulesRouter } from '../../../src/apis/schedules';
 import { TrueForgeAuthorizer, type Authorizer } from '../../../src/auth/authorizer';
 import type { RequestContext } from '../../../src/auth/identity';
-import {
-  ScheduleAgentNotFoundError,
-  ScheduleWebSearchDisabledError,
-  startScheduleRun,
-} from '../../../src/controller/scheduleDispatch';
-import type { IConfigurationStore } from '../../../src/db/configurationStore';
+import { ScheduleAgentNotFoundError, startScheduleRun } from '../../../src/controller/scheduleDispatch';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -64,29 +59,7 @@ const scheduleBody = {
   manifest: { task: 'Say hi', cron: '0 13 * * *', timezone: 'UTC' },
 };
 
-/** No stored row means every switch is on, which is what these schedules assume. */
-const allOnConfigurationStore: IConfigurationStore = {
-  getConfiguration: () => Promise.resolve(undefined),
-  upsertConfiguration: () => Promise.reject(new Error('not used')),
-  getOrCreateConfiguration: () => Promise.reject(new Error('not used')),
-};
-
-const webSearchOffConfigurationStore: IConfigurationStore = {
-  getConfiguration: () =>
-    Promise.resolve({
-      tenant_id: 'default',
-      manifest: { web_search: { enabled: false } },
-      updated_at: '2026-01-01T00:00:00.000Z',
-    }),
-  upsertConfiguration: () => Promise.reject(new Error('not used')),
-  getOrCreateConfiguration: () => Promise.reject(new Error('not used')),
-};
-
-function stubTurnExecutionDeps(
-  agentStore: SqliteAgentStore,
-  scheduleStore: SqliteScheduleStore,
-  configurationStore: IConfigurationStore,
-) {
+function stubTurnExecutionDeps(agentStore: SqliteAgentStore, scheduleStore: SqliteScheduleStore) {
   const sessionStore = new InMemorySessionStore();
   return {
     scheduleStore,
@@ -102,14 +75,10 @@ function stubTurnExecutionDeps(
     resolveSandboxProviderStore: () => ({}) as never,
     sandboxEnvironmentStore: {} as never,
     resolveWebSearchProviderStore: () => ({}) as never,
-    resolveConfigurationStore: () => configurationStore,
   };
 }
 
-async function setup(
-  authorizer: Authorizer = new TrueForgeAuthorizer(),
-  configurationStore: IConfigurationStore = allOnConfigurationStore,
-) {
+async function setup(authorizer: Authorizer = new TrueForgeAuthorizer()) {
   const db = createSqliteDb(':memory:');
   await migrateSqliteToLatest(db);
   const agentStore = new SqliteAgentStore(db);
@@ -135,7 +104,7 @@ async function setup(
   app.route(
     '/',
     createSchedulesRouter({
-      ...stubTurnExecutionDeps(agentStore, scheduleStore, configurationStore),
+      ...stubTurnExecutionDeps(agentStore, scheduleStore),
       resolveAgentStore: () => agentStore,
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => current,
@@ -198,47 +167,6 @@ describe('schedule RBAC', () => {
     expect(aliceRunsBody.data).toEqual([expect.objectContaining({ schedule_id: id })]);
     expect(aliceRunsBody.pagination.next_page_token).toBeUndefined();
     expect((await app.request(`/${id}`, { method: 'DELETE' })).status).toBe(200);
-  });
-
-  it('snapshots the tenant web search switch on the schedule it creates', async () => {
-    const { asUser, postJson, scheduleStore } = await setup();
-    asUser(ALICE);
-
-    const created = await postJson('/', 'POST', scheduleBody);
-    const { id } = ((await created.json()) as { data: { id: string } }).data;
-
-    const stored = await scheduleStore.getSchedule({ tenant_id: 'default', id });
-    expect(stored?.web_search_allowed).toBe(true);
-  });
-
-  it('refuses a schedule on a web-search agent while the tenant switch is off', async () => {
-    const { asUser, postJson, agentStore, scheduleStore } = await setup(
-      new TrueForgeAuthorizer(),
-      webSearchOffConfigurationStore,
-    );
-    await agentStore.createAgent({
-      tenant_id: 'default',
-      created_by_subject: { subject_id: 'alice', subject_type: 'user', subject_display_name: 'alice' },
-      name: 'searcher',
-      description: 'Test agent.',
-      manifest: AgentSpecSchema.parse({
-        model: { name: 'test-provider/test-model' },
-        instructions: 'test',
-        config: { web_search: { enabled: true } },
-      }),
-      external_id: 'searcher-external-id',
-    });
-    asUser(ALICE);
-
-    const refused = await postJson('/', 'POST', { ...scheduleBody, agent_name: 'searcher' });
-    expect(refused.status).toBe(422);
-
-    // An agent that does not search still gets a schedule, with the switch recorded as off.
-    const created = await postJson('/', 'POST', scheduleBody);
-    expect(created.status).toBe(201);
-    const { id } = ((await created.json()) as { data: { id: string } }).data;
-    const stored = await scheduleStore.getSchedule({ tenant_id: 'default', id });
-    expect(stored?.web_search_allowed).toBe(false);
   });
 
   it('rejects an invalid page_token when listing runs', async () => {
@@ -460,27 +388,6 @@ describe('create schedule run', () => {
     expect(mockedStartScheduleRun).toHaveBeenCalled();
   });
 
-  it('marks the run failed and returns 422 when the tenant turned web search off', async () => {
-    const { asUser, postJson, scheduleStore } = await setup();
-    mockedStartScheduleRun.mockRejectedValue(new ScheduleWebSearchDisabledError('reporter'));
-
-    asUser(ALICE);
-    const created = await postJson('/', 'POST', scheduleBody);
-    const { id: scheduleId } = ((await created.json()) as { data: { id: string } }).data;
-
-    const res = await postJson('/runs', 'POST', { schedule_id: scheduleId });
-    expect(res.status).toBe(422);
-    expect(((await res.json()) as { error: { message: string } }).error.message).toContain('disabled for this tenant');
-
-    const runs = await scheduleStore.listRuns({
-      tenant_id: 'default',
-      schedule_id: scheduleId,
-      limit: 25,
-      page_token: undefined,
-    });
-    expect(runs.data.find(r => r.name.startsWith('manual-'))?.status).toBe('failed');
-  });
-
   it('marks the run failed and returns 404 when startScheduleRun reports a missing agent', async () => {
     const { asUser, postJson, scheduleStore } = await setup();
     mockedStartScheduleRun.mockRejectedValue(new ScheduleAgentNotFoundError('reporter'));
@@ -585,7 +492,6 @@ describe('internal schedule execution', () => {
         subject_type: 'user',
         subject_display_name: 'alice',
       },
-      web_search_allowed: true,
       runFrom: new Date(),
     });
     const run = await scheduleStore.createRun({
@@ -601,9 +507,7 @@ describe('internal schedule execution', () => {
       },
       triggered_at: new Date(),
     });
-    const app = createScheduleExecutionRouter(
-      stubTurnExecutionDeps(agentStore, scheduleStore, allOnConfigurationStore),
-    );
+    const app = createScheduleExecutionRouter(stubTurnExecutionDeps(agentStore, scheduleStore));
 
     const response = await app.request('/runs/execute', {
       method: 'POST',
@@ -617,56 +521,6 @@ describe('internal schedule execution', () => {
     );
   });
 
-  it('maps a tenant-disabled web search to 422', async () => {
-    mockedStartScheduleRun.mockReset();
-    mockedStartScheduleRun.mockRejectedValue(new ScheduleWebSearchDisabledError('reporter'));
-    const db = createSqliteDb(':memory:');
-    await migrateSqliteToLatest(db);
-    const agentStore = new SqliteAgentStore(db);
-    const scheduleStore = new SqliteScheduleStore(db);
-    const agent = await agentStore.createAgent({
-      tenant_id: 'default',
-      created_by_subject: { subject_id: 'alice', subject_type: 'user', subject_display_name: 'alice' },
-      name: 'reporter',
-      description: 'reporter description',
-      manifest: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' }, instructions: 'test' }),
-      external_id: 'reporter-external-id',
-    });
-    const { schedule } = await scheduleStore.createScheduleAndRun({
-      tenant_id: 'default',
-      agent_id: agent.id,
-      agent_name: agent.name,
-      name: 'daily-report',
-      manifest: { task: 'Say hi', cron: '0 13 * * *', timezone: 'UTC', status: 'active' },
-      created_by_subject: { subject_id: 'alice', subject_type: 'user', subject_display_name: 'alice' },
-      web_search_allowed: true,
-      runFrom: new Date(),
-    });
-    const run = await scheduleStore.createRun({
-      tenant_id: 'default',
-      schedule_id: schedule.id,
-      name: 'manual-test',
-      scheduled_for: new Date(),
-      status: 'triggered',
-      created_by_subject: { subject_id: 'alice', subject_type: 'user', subject_display_name: 'alice' },
-      triggered_at: new Date(),
-    });
-    const app = createScheduleExecutionRouter(
-      stubTurnExecutionDeps(agentStore, scheduleStore, allOnConfigurationStore),
-    );
-
-    const response = await app.request('/runs/execute', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ schedule_run_id: run.id }),
-    });
-
-    expect(response.status).toBe(422);
-    expect(await response.json()).toEqual({
-      error: { message: expect.stringContaining('disabled for this tenant') },
-    });
-  });
-
   it('maps an unknown run to 404', async () => {
     mockedStartScheduleRun.mockReset();
     mockedStartScheduleRun.mockResolvedValue(undefined);
@@ -674,9 +528,7 @@ describe('internal schedule execution', () => {
     await migrateSqliteToLatest(db);
     const agentStore = new SqliteAgentStore(db);
     const scheduleStore = new SqliteScheduleStore(db);
-    const app = createScheduleExecutionRouter(
-      stubTurnExecutionDeps(agentStore, scheduleStore, allOnConfigurationStore),
-    );
+    const app = createScheduleExecutionRouter(stubTurnExecutionDeps(agentStore, scheduleStore));
 
     const response = await app.request('/runs/execute', {
       method: 'POST',

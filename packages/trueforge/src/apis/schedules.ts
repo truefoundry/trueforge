@@ -19,19 +19,15 @@ import {
   requestContextFromCreatedBySubject,
   type ResolveRequestContext,
 } from '../auth/identity';
-import { isWebSearchEnabledForTenant } from '../configurations/configurations';
 import {
   loadScheduleDispatchItem,
   ScheduleAgentNotFoundError,
   ScheduleNotFoundError,
   scheduleRunFailureReason,
   ScheduleRunNotFoundError,
-  ScheduleWebSearchDisabledError,
-  scheduleWebSearchDisabledMessage,
   startScheduleRun,
 } from '../controller/scheduleDispatch';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
-import type { IConfigurationStore } from '../db/configurationStore';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
@@ -85,7 +81,6 @@ export interface ScheduleTurnExecutionDeps<TTransaction> {
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore<TTransaction>;
-  resolveConfigurationStore: (c: Context) => IConfigurationStore<TTransaction>;
   /** Persistence agent store (schedule agent binding is not caller-scoped). */
   agentStore: IAgentStore<TTransaction>;
   /** Call with `{}` — schedules have no caller `x-tfg-skills`. */
@@ -116,7 +111,6 @@ export async function startScheduleRunOnRequest<TTransaction>(params: {
     sessions: deps.sessions,
     agentStore: deps.agentStore,
     scheduleStore: deps.scheduleStore,
-    configurationStore: deps.resolveConfigurationStore(c),
   });
   if (prepared === undefined) {
     return;
@@ -226,9 +220,6 @@ export function createScheduleExecutionRouter<TTransaction>(deps: ScheduleTurnEx
         error instanceof ScheduleAgentNotFoundError
       ) {
         return c.json({ error: { message: error.message } }, 404);
-      }
-      if (error instanceof ScheduleWebSearchDisabledError) {
-        return c.json({ error: { message: error.message } }, 422);
       }
       throw error;
     }
@@ -379,9 +370,6 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
       ) {
         return c.json({ error: { message: error.message } }, 404);
       }
-      if (error instanceof ScheduleWebSearchDisabledError) {
-        return c.json({ error: { message: error.message } }, 422);
-      }
       const turnError = getTurnExecutionError(error);
       if (turnError) {
         throw new HTTPException(turnError.status, { message: turnError.message, cause: error });
@@ -412,15 +400,6 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
       return c.json({ error: { message: `Agent not found: ${body.agent_name}` } }, 404);
     }
 
-    // Snapshotted so later runs keep the permission this schedule was created with.
-    const webSearchAllowed = await isWebSearchEnabledForTenant({
-      tenant_id: requestContext.tenant_id,
-      store: deps.resolveConfigurationStore(c),
-    });
-    if (!webSearchAllowed && agent.manifest.config.web_search.enabled) {
-      return c.json({ error: { message: scheduleWebSearchDisabledMessage(agent.name) } }, 422);
-    }
-
     let record: ScheduleRecord;
     try {
       record = await deps.withTransaction(async transaction => {
@@ -431,7 +410,6 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
             agent_name: agent.name,
             name: body.name,
             manifest: body.manifest,
-            web_search_allowed: webSearchAllowed,
             created_by_subject: createdBySubjectFromRequestContext(requestContext),
             runFrom: new Date(),
           },

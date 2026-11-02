@@ -7,32 +7,10 @@ import {
   scheduleDispatchLoop,
   scheduleRunFailureReason,
   ScheduleRunNotFoundError,
-  ScheduleWebSearchDisabledError,
   startScheduleRun,
 } from '../../../src/controller/scheduleDispatch';
-import type { IConfigurationStore } from '../../../src/db/configurationStore';
 import type { ScheduleDispatchItem, ScheduleRunRecord } from '../../../src/db/scheduleStore';
 import { ScheduleManifestSchema } from '../../../src/schemas/schedule';
-
-/** No stored row means every switch is on. */
-const allOnConfigurationStore: IConfigurationStore = {
-  getConfiguration: () => Promise.resolve(undefined),
-  upsertConfiguration: () => Promise.reject(new Error('not used')),
-  getOrCreateConfiguration: () => Promise.reject(new Error('not used')),
-};
-
-function webSearchOffConfigurationStore(): IConfigurationStore {
-  return {
-    getConfiguration: () =>
-      Promise.resolve({
-        tenant_id: 'default',
-        manifest: { web_search: { enabled: false } },
-        updated_at: '2026-01-01T00:00:00.000Z',
-      }),
-    upsertConfiguration: () => Promise.reject(new Error('not used')),
-    getOrCreateConfiguration: () => Promise.reject(new Error('not used')),
-  };
-}
 
 function agentRecord({ webSearch = false }: { webSearch?: boolean } = {}) {
   return {
@@ -58,7 +36,7 @@ describe('scheduleRunFailureReason', () => {
   });
 });
 
-function item({ webSearchAllowed = false }: { webSearchAllowed?: boolean } = {}): ScheduleDispatchItem {
+function item(): ScheduleDispatchItem {
   return {
     run: {
       id: 'run-1',
@@ -87,7 +65,6 @@ function item({ webSearchAllowed = false }: { webSearchAllowed?: boolean } = {})
         status: 'active',
       }),
       status: 'active',
-      web_search_allowed: webSearchAllowed,
       created_by_subject: { subject_id: 'tester', subject_type: 'user', subject_display_name: 'tester' },
       created_at: '2026-08-31T00:00:00.000Z',
       updated_at: '2026-08-31T00:00:00.000Z',
@@ -197,7 +174,6 @@ describe('startScheduleRun', () => {
       sessions: fakeSessions({ getOrCreateByExternalId }) as never,
       agentStore: { getAgent } as never,
       scheduleStore: { updateRun },
-      configurationStore: allOnConfigurationStore,
     });
 
     expect(getAgent).toHaveBeenCalledWith({ tenant_id: 'default', name: 'reporter' });
@@ -232,46 +208,10 @@ describe('startScheduleRun', () => {
       sessions: fakeSessions({ getOrCreateByExternalId }) as never,
       agentStore: { getAgent } as never,
       scheduleStore: { updateRun },
-      configurationStore: allOnConfigurationStore,
     });
 
     expect(prepared).toBeUndefined();
     expect(updateRun).toHaveBeenCalledWith({ tenant_id: 'default', id: 'run-1', session_id: 'session-1' });
-  });
-
-  it('throws without creating a session when the tenant turned web search off', async () => {
-    const getOrCreateByExternalId = jest.fn();
-    const updateRun = jest.fn();
-
-    await expect(
-      startScheduleRun({
-        item: item(),
-        sessions: fakeSessions({ getOrCreateByExternalId }) as never,
-        agentStore: { getAgent: jest.fn().mockResolvedValue(agentRecord({ webSearch: true })) } as never,
-        scheduleStore: { updateRun },
-        configurationStore: webSearchOffConfigurationStore(),
-      }),
-    ).rejects.toBeInstanceOf(ScheduleWebSearchDisabledError);
-    expect(getOrCreateByExternalId).not.toHaveBeenCalled();
-    expect(updateRun).not.toHaveBeenCalled();
-  });
-
-  it('runs a web-search agent while the tenant allows it', async () => {
-    const listTurns = jest.fn().mockResolvedValue({ data: [] });
-    const getOrCreateByExternalId = jest
-      .fn()
-      .mockResolvedValue({ session: { session_id: 'session-1', listTurns }, created: true });
-
-    await expect(
-      startScheduleRun({
-        item: item(),
-        sessions: fakeSessions({ getOrCreateByExternalId }) as never,
-        agentStore: { getAgent: jest.fn().mockResolvedValue(agentRecord({ webSearch: true })) } as never,
-        scheduleStore: { updateRun: jest.fn() },
-        configurationStore: allOnConfigurationStore,
-      }),
-    ).resolves.toBeDefined();
-    expect(getOrCreateByExternalId).toHaveBeenCalled();
   });
 
   it('stays idempotent on re-delivery of a run that already executed', async () => {
@@ -285,32 +225,10 @@ describe('startScheduleRun', () => {
         sessions: fakeSessions({ getOrCreateByExternalId, existing }) as never,
         agentStore: { getAgent: jest.fn().mockResolvedValue(agentRecord({ webSearch: true })) } as never,
         scheduleStore: { updateRun },
-        configurationStore: webSearchOffConfigurationStore(),
       }),
     ).resolves.toBeUndefined();
     expect(getOrCreateByExternalId).not.toHaveBeenCalled();
     expect(updateRun).toHaveBeenCalledWith({ tenant_id: 'default', id: 'run-1', session_id: 'session-1' });
-  });
-
-  it('keeps running a schedule created while web search was still allowed', async () => {
-    const listTurns = jest.fn().mockResolvedValue({ data: [] });
-    const getOrCreateByExternalId = jest
-      .fn()
-      .mockResolvedValue({ session: { session_id: 'session-1', listTurns }, created: true });
-    const getConfiguration = jest.fn();
-
-    await expect(
-      startScheduleRun({
-        item: item({ webSearchAllowed: true }),
-        sessions: fakeSessions({ getOrCreateByExternalId }) as never,
-        agentStore: { getAgent: jest.fn().mockResolvedValue(agentRecord({ webSearch: true })) } as never,
-        scheduleStore: { updateRun: jest.fn() },
-        configurationStore: { ...webSearchOffConfigurationStore(), getConfiguration },
-      }),
-    ).resolves.toBeDefined();
-    expect(getOrCreateByExternalId).toHaveBeenCalled();
-    // The snapshot answers on its own; the tenant switch is never read.
-    expect(getConfiguration).not.toHaveBeenCalled();
   });
 
   it('throws without linking when the schedule agent is missing', async () => {
@@ -321,7 +239,6 @@ describe('startScheduleRun', () => {
         sessions: fakeSessions({}) as never,
         agentStore: { getAgent: jest.fn().mockResolvedValue(undefined) } as never,
         scheduleStore: { updateRun },
-        configurationStore: allOnConfigurationStore,
       }),
     ).rejects.toBeInstanceOf(ScheduleAgentNotFoundError);
     expect(updateRun).not.toHaveBeenCalled();

@@ -358,11 +358,6 @@ export interface ScheduleTable {
   manifest: JsonbColumn<ScheduleManifest>;
   /** `paused` stops triggering and drops the pending run; in-flight runs continue */
   status: ScheduleStatus;
-  /**
-   * Create-time snapshot of the tenant web search switch; untouched by updates.
-   * INTEGER 0/1 (STRICT has no boolean).
-   */
-  web_search_allowed: number;
   created_by_subject: JsonbColumn<CreatedBySubject>;
   created_at: string;
   updated_at: string;
