@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { FlagMemorySettings, type MemorySettings } from '../../../src/memory/MemorySettings';
+import { TenantAllowlistMemorySettings, type MemorySettings } from '../../../src/memory/MemorySettings';
 import { memoryScopeKey, resolveMemoryScope, type MemoryScopeSession } from '../../../src/memory/scope';
 
 const SUBJECT = { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'Priya' } as const;
@@ -74,11 +74,15 @@ describe('resolveMemoryScope', () => {
   });
 });
 
-describe('FlagMemorySettings', () => {
-  it('follows the global flag for every tenant', async () => {
-    const off: MemorySettings = new FlagMemorySettings({ enabled: false });
-    const on: MemorySettings = new FlagMemorySettings({ enabled: true });
-    await expect(off.isTenantMemoryEnabled('acme')).resolves.toBe(false);
-    await expect(on.isTenantMemoryEnabled('acme')).resolves.toBe(true);
+describe('TenantAllowlistMemorySettings', () => {
+  it('enables memory only for listed tenants', async () => {
+    const settings: MemorySettings = new TenantAllowlistMemorySettings({ tenantIds: ['acme'] });
+    await expect(settings.isTenantMemoryEnabled('acme')).resolves.toBe(true);
+    await expect(settings.isTenantMemoryEnabled('globex')).resolves.toBe(false);
+  });
+
+  it('enables no tenant when the allowlist is empty', async () => {
+    const settings: MemorySettings = new TenantAllowlistMemorySettings({ tenantIds: [] });
+    await expect(settings.isTenantMemoryEnabled('acme')).resolves.toBe(false);
   });
 });

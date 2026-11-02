@@ -21,7 +21,7 @@ import {
   type TurnExchange,
 } from '../memory/exchanges';
 import { MemoryIngestError, type MemoryProvider } from '../memory/MemoryProvider';
-import { FlagMemorySettings, type MemorySettings } from '../memory/MemorySettings';
+import { TenantAllowlistMemorySettings, type MemorySettings } from '../memory/MemorySettings';
 import { resolveMemoryScope, type MemoryScope } from '../memory/scope';
 import type { ControlLoop } from './Controller';
 
@@ -422,6 +422,7 @@ type MemoryConfiguration = Pick<
   | 'MEMORY_ENABLED'
   | 'ZEP_API_KEY'
   | 'ZEP_BASE_URL'
+  | 'MEMORY_TENANT_ALLOWLIST'
   | 'MEMORY_INGEST_INTERVAL_MS'
   | 'MEMORY_INGEST_MAX_SESSIONS_PER_RUN'
   | 'MEMORY_INGEST_MAX_EXCHANGES_PER_SESSION'
@@ -449,13 +450,16 @@ export function memoryIngestFromConfig({
   if (config.ZEP_API_KEY === undefined) {
     throw new Error('MEMORY_ENABLED=true requires ZEP_API_KEY');
   }
+  if (config.MEMORY_TENANT_ALLOWLIST.length === 0) {
+    logger.warn('MEMORY_ENABLED is true but MEMORY_TENANT_ALLOWLIST is empty; no tenant has memory');
+  }
   return {
     store,
     provider: createMemoryProvider({
       zep: { apiKey: config.ZEP_API_KEY, baseUrl: config.ZEP_BASE_URL },
       logger,
     }),
-    settings: new FlagMemorySettings({ enabled: true }),
+    settings: new TenantAllowlistMemorySettings({ tenantIds: config.MEMORY_TENANT_ALLOWLIST }),
     config: {
       intervalMs: config.MEMORY_INGEST_INTERVAL_MS,
       maxSessionsPerRun: config.MEMORY_INGEST_MAX_SESSIONS_PER_RUN,

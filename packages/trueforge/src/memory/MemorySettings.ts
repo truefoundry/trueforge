@@ -6,16 +6,15 @@ export interface MemorySettings {
   isTenantMemoryEnabled(tenantId: string): Promise<boolean>;
 }
 
-/** Placeholder until tenant settings land: every tenant follows the global `MEMORY_ENABLED` flag. */
-export class FlagMemorySettings implements MemorySettings {
-  readonly #enabled: boolean;
+/** Memory for the tenants in `MEMORY_TENANT_ALLOWLIST` only. */
+export class TenantAllowlistMemorySettings implements MemorySettings {
+  readonly #tenantIds: ReadonlySet<string>;
 
-  constructor(options: { enabled: boolean }) {
-    this.#enabled = options.enabled;
+  constructor(options: { tenantIds: readonly string[] }) {
+    this.#tenantIds = new Set(options.tenantIds);
   }
 
-  isTenantMemoryEnabled(): Promise<boolean> {
-    // TODO(tenant_setting): read tenant_setting.manifest.memory.enabled once that table exists.
-    return Promise.resolve(this.#enabled);
+  isTenantMemoryEnabled(tenantId: string): Promise<boolean> {
+    return Promise.resolve(this.#tenantIds.has(tenantId));
   }
 }
