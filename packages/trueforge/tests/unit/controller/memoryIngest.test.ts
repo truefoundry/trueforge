@@ -40,7 +40,7 @@ const CONFIG: MemoryIngestConfig = {
 };
 
 interface FakeSession {
-  candidate: Omit<MemoryIngestCandidate, 'cursor' | 'tip_turn_id' | 'session_updated_at'>;
+  candidate: Omit<MemoryIngestCandidate, 'cursor' | 'tip_turn_id'>;
   turns: MemoryIngestTurn[];
   messages: MemoryIngestModelMessage[];
 }
@@ -56,7 +56,7 @@ class FakeStore implements IMemoryIngestStore {
   }
 
   async listCandidateSessions(input: ListMemoryIngestCandidatesInput): Promise<MemoryIngestCandidate[]> {
-    const candidates: MemoryIngestCandidate[] = [];
+    const candidates: { updatedAt: string; candidate: MemoryIngestCandidate }[] = [];
     for (const session of this.sessions.values()) {
       if (!input.tenant_ids.includes(session.candidate.tenant_id)) {
         continue;
@@ -77,18 +77,15 @@ class FakeStore implements IMemoryIngestStore {
         continue;
       }
       candidates.push({
-        ...session.candidate,
-        tip_turn_id: tip.turn_id,
-        session_updated_at: sessionUpdatedAt,
-        cursor,
+        updatedAt: sessionUpdatedAt,
+        candidate: { ...session.candidate, tip_turn_id: tip.turn_id, cursor },
       });
     }
-    const key = (c: { session_updated_at: string; session_id: string }) => `${c.session_updated_at}|${c.session_id}`;
-    const { after } = input;
+    const key = (c: (typeof candidates)[number]) => `${c.updatedAt}|${c.candidate.session_id}`;
     return candidates
       .sort((a, b) => key(a).localeCompare(key(b)))
-      .filter(c => after === undefined || key(c) > key(after))
-      .slice(0, input.limit);
+      .slice(0, input.limit)
+      .map(c => c.candidate);
   }
 
   async listSessionTurns(input: { session_id: string }): Promise<MemoryIngestTurn[]> {
@@ -217,7 +214,7 @@ describe('runMemoryIngestPass', () => {
     );
     const { provider, calls } = fakeProvider();
 
-    await runMemoryIngestPass({ deps: deps({ store, provider }), signal: signal(), resumeAfter: undefined });
+    await runMemoryIngestPass({ deps: deps({ store, provider }), signal: signal() });
 
     expect(calls.map(call => [call.exchange.firstTurnId, call.externalThreadId])).toEqual([
       ['t1', null],
@@ -254,7 +251,7 @@ describe('runMemoryIngestPass', () => {
     );
     const { provider, calls } = fakeProvider();
 
-    await runMemoryIngestPass({ deps: deps({ store, provider }), signal: signal(), resumeAfter: undefined });
+    await runMemoryIngestPass({ deps: deps({ store, provider }), signal: signal() });
 
     expect(list).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -271,10 +268,9 @@ describe('runMemoryIngestPass', () => {
     store.add(session({ id: 's1', turns: [closedTurn('t1', null, 59.5)] }));
     const { provider, calls } = fakeProvider();
 
-    const { summary } = await runMemoryIngestPass({
+    const summary = await runMemoryIngestPass({
       deps: deps({ store, provider }),
       signal: signal(),
-      resumeAfter: undefined,
     });
 
     expect(calls.map(call => call.exchange.firstTurnId)).toEqual(['t1']);
@@ -288,10 +284,9 @@ describe('runMemoryIngestPass', () => {
     store.add(session({ id: 's3', turns: [closedTurn('t1', null, 12)] }));
     const { provider, calls } = fakeProvider();
 
-    const { summary } = await runMemoryIngestPass({
+    const summary = await runMemoryIngestPass({
       deps: deps({ store, provider, config: { maxSessionsPerRun: 1 } }),
       signal: signal(),
-      resumeAfter: undefined,
     });
 
     expect(calls.map(call => call.exchange.sessionId)).toEqual(['s3']);
@@ -304,10 +299,9 @@ describe('runMemoryIngestPass', () => {
     store.add(session({ id: 's1', turns: [closedTurn('t1', null, 10)] }));
     const { provider, calls } = fakeProvider();
 
-    const { summary } = await runMemoryIngestPass({
+    const summary = await runMemoryIngestPass({
       deps: deps({ store, provider, enabledTenants: [] }),
       signal: signal(),
-      resumeAfter: undefined,
     });
 
     expect(calls).toHaveLength(0);
@@ -320,10 +314,9 @@ describe('runMemoryIngestPass', () => {
     store.add(session({ id: 'on', agentId: 'chef', agentMemoryEnabled: true, turns: [closedTurn('t1', null, 11)] }));
     const { provider, calls } = fakeProvider();
 
-    const { summary } = await runMemoryIngestPass({
+    const summary = await runMemoryIngestPass({
       deps: deps({ store, provider }),
       signal: signal(),
-      resumeAfter: undefined,
     });
 
     expect(summary.sessions_by_outcome).toEqual({ memory_disabled: 1, ingested: 1 });
@@ -339,10 +332,9 @@ describe('runMemoryIngestPass', () => {
     const { provider, calls } = fakeProvider(input => input.exchange.firstTurnId === 't2');
     const logger = fakeLogger();
 
-    const { summary } = await runMemoryIngestPass({
+    const summary = await runMemoryIngestPass({
       deps: deps({ store, provider, logger }),
       signal: signal(),
-      resumeAfter: undefined,
     });
 
     expect(calls).toHaveLength(2);
@@ -364,8 +356,7 @@ describe('runMemoryIngestPass', () => {
     );
     let failT2 = true;
     const { provider, calls } = fakeProvider(input => failT2 && input.exchange.firstTurnId === 't2');
-    const run = () =>
-      runMemoryIngestPass({ deps: deps({ store, provider }), signal: signal(), resumeAfter: undefined });
+    const run = () => runMemoryIngestPass({ deps: deps({ store, provider }), signal: signal() });
 
     await run();
     failT2 = false;
@@ -390,7 +381,7 @@ describe('runMemoryIngestPass', () => {
       },
     };
 
-    await runMemoryIngestPass({ deps: deps({ store, provider }), signal: signal(), resumeAfter: undefined });
+    await runMemoryIngestPass({ deps: deps({ store, provider }), signal: signal() });
 
     expect(store.cursors.get('s1')).toMatchObject({
       last_ingested_turn_id: null,
@@ -411,10 +402,9 @@ describe('runMemoryIngestPass', () => {
     });
     const { provider, calls } = fakeProvider();
 
-    const { summary } = await runMemoryIngestPass({
+    const summary = await runMemoryIngestPass({
       deps: deps({ store, provider }),
       signal: signal(),
-      resumeAfter: undefined,
     });
 
     expect(calls.map(call => [call.exchange.firstTurnId, call.externalThreadId])).toEqual([['t2', 'existing-thread']]);
@@ -443,10 +433,9 @@ describe('runMemoryIngestPass', () => {
     const { provider, calls } = fakeProvider();
     const logger = fakeLogger();
 
-    const { summary } = await runMemoryIngestPass({
+    const summary = await runMemoryIngestPass({
       deps: deps({ store, provider, logger }),
       signal: signal(),
-      resumeAfter: undefined,
     });
 
     expect(calls.map(call => call.exchange.firstTurnId)).toEqual(['t2-edit']);
@@ -473,8 +462,7 @@ describe('runMemoryIngestPass', () => {
     });
     store.add(fakeSession);
     const { provider, calls } = fakeProvider();
-    const run = () =>
-      runMemoryIngestPass({ deps: deps({ store, provider }), signal: signal(), resumeAfter: undefined });
+    const run = () => runMemoryIngestPass({ deps: deps({ store, provider }), signal: signal() });
 
     await run();
     expect(calls[0]?.exchange.messages.map(m => m.content)).toEqual(['Plan dinner']);
@@ -497,7 +485,7 @@ describe('runMemoryIngestPass', () => {
     expect(calls[1]?.externalThreadId).toBe('thread-s1');
   });
 
-  it('caps exchanges per session and sessions per run, then continues where the last run stopped', async () => {
+  it('caps exchanges per session and sessions per run; each run starts from the oldest unfinished session', async () => {
     const store = new FakeStore();
     store.add(session({ id: 'a', turns: [closedTurn('t1', null, 10), closedTurn('t2', 't1', 40)] }));
     store.add(session({ id: 'b', turns: [closedTurn('t1', null, 20)] }));
@@ -506,17 +494,15 @@ describe('runMemoryIngestPass', () => {
     const logger = fakeLogger();
     const runDeps = deps({ store, provider, logger, config: { maxSessionsPerRun: 2, maxExchangesPerSession: 1 } });
 
-    const first = await runMemoryIngestPass({ deps: runDeps, signal: signal(), resumeAfter: undefined });
+    const first = await runMemoryIngestPass({ deps: runDeps, signal: signal() });
     expect(calls.map(call => `${call.exchange.sessionId}/${call.exchange.firstTurnId}`)).toEqual(['b/t1', 'c/t1']);
-    expect(first.summary).toMatchObject({ sessions: 2, backlog: true });
-    expect(first.resumeAfter?.session_id).toBe('c');
+    expect(first).toMatchObject({ sessions: 2, backlog: true });
 
-    const second = await runMemoryIngestPass({ deps: runDeps, signal: signal(), resumeAfter: first.resumeAfter });
+    const second = await runMemoryIngestPass({ deps: runDeps, signal: signal() });
     expect(calls.slice(2).map(call => `${call.exchange.sessionId}/${call.exchange.firstTurnId}`)).toEqual(['a/t1']);
-    expect(second.summary.backlog).toBe(false);
-    expect(second.resumeAfter).toBeUndefined();
+    expect(second.backlog).toBe(false);
 
-    await runMemoryIngestPass({ deps: runDeps, signal: signal(), resumeAfter: second.resumeAfter });
+    await runMemoryIngestPass({ deps: runDeps, signal: signal() });
     expect(calls.slice(3).map(call => `${call.exchange.sessionId}/${call.exchange.firstTurnId}`)).toEqual(['a/t2']);
   });
 
@@ -526,7 +512,7 @@ describe('runMemoryIngestPass', () => {
     const { provider } = fakeProvider();
     const logger = fakeLogger();
 
-    await runMemoryIngestPass({ deps: deps({ store, provider, logger }), signal: signal(), resumeAfter: undefined });
+    await runMemoryIngestPass({ deps: deps({ store, provider, logger }), signal: signal() });
 
     expect(logger.info).toHaveBeenCalledWith('Memory ingest run finished', {
       sessions: 1,

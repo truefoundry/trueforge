@@ -37,8 +37,6 @@ export interface MemoryIngestCandidate {
   create_agent_session: boolean;
   agent_memory_enabled: boolean;
   tip_turn_id: string;
-  /** `session.updated_at` as ISO-8601 UTC, at the backend's full precision; the keyset position. */
-  session_updated_at: string;
   cursor: MemoryIngestCursor | null;
 }
 
@@ -56,9 +54,6 @@ export interface MemoryIngestModelMessage {
   message: StoredModelMessage;
 }
 
-/** Keyset position in the candidate order. */
-export type MemoryIngestCandidateKey = Pick<MemoryIngestCandidate, 'session_updated_at' | 'session_id'>;
-
 /**
  * Which sessions a run looks at, by `session.updated_at`. That moves when a turn is created, so it
  * bounds the latest turn's start; turns finish within the execution timeout.
@@ -74,8 +69,6 @@ export interface ListMemoryIngestCandidatesInput {
    */
   paused_from: Date;
   paused_until: Date;
-  /** Only candidates strictly after this key, so runs can continue where the last one stopped. */
-  after: MemoryIngestCandidateKey | undefined;
   limit: number;
 }
 

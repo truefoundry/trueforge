@@ -30,7 +30,7 @@ const IN_A_MINUTE = () => new Date(Date.now() + 60 * 1000);
 
 /** Every session updated since `since`; an empty paused range. */
 function recent(since: Date) {
-  return { tenant_ids: [TENANT], recent_since: since, paused_from: since, paused_until: since, after: undefined };
+  return { tenant_ids: [TENANT], recent_since: since, paused_from: since, paused_until: since };
 }
 
 export interface MemoryIngestStoreContractEnv {
@@ -120,7 +120,6 @@ export function runMemoryIngestStoreContractSuite(getEnv: () => MemoryIngestStor
       tip_turn_id: 't1',
       cursor: null,
     });
-    expect(candidate?.session_updated_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3,6}Z$/);
   });
 
   it('skips scheduled, non-UI, turnless and out-of-window sessions', async () => {
@@ -180,7 +179,6 @@ export function runMemoryIngestStoreContractSuite(getEnv: () => MemoryIngestStor
       recent_since: IN_A_MINUTE(),
       paused_from: HOUR_AGO(),
       paused_until: IN_A_MINUTE(),
-      after: undefined,
       limit: 10,
     });
     expect(candidates.map(c => c.session_id)).toEqual(['paused']);
@@ -248,7 +246,7 @@ export function runMemoryIngestStoreContractSuite(getEnv: () => MemoryIngestStor
     expect(await candidateIds()).toEqual([]);
   });
 
-  it('orders by session update time, honours the limit and continues after a keyset', async () => {
+  it('orders by session update time and honours the limit', async () => {
     for (const session_id of ['a', 'b', 'c']) {
       await createSession({ session_id });
     }
@@ -262,14 +260,6 @@ export function runMemoryIngestStoreContractSuite(getEnv: () => MemoryIngestStor
     const { store } = getEnv();
     const limited = await store.listCandidateSessions({ ...recent(HOUR_AGO()), limit: 2 });
     expect(limited.map(c => c.session_id)).toEqual(['b', 'c']);
-
-    const [, last] = limited;
-    if (last === undefined) {
-      throw new Error('expected two candidates');
-    }
-    const after = { session_updated_at: last.session_updated_at, session_id: last.session_id };
-    const next = await store.listCandidateSessions({ ...recent(HOUR_AGO()), after, limit: 2 });
-    expect(next.map(c => c.session_id)).toEqual(['a']);
   });
 
   it('lets a session be deleted while keeping its cursor for provider cleanup', async () => {

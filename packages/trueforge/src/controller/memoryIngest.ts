@@ -4,12 +4,7 @@
  */
 import type { Logger } from 'winston';
 import type { DistributedServerConfiguration } from '../config';
-import type {
-  IMemoryIngestStore,
-  MemoryIngestCandidate,
-  MemoryIngestCandidateKey,
-  MemoryIngestTurn,
-} from '../db/memoryIngestStore';
+import type { IMemoryIngestStore, MemoryIngestCandidate, MemoryIngestTurn } from '../db/memoryIngestStore';
 import { createMemoryProvider } from '../memory/createMemoryProvider';
 import {
   activePath,
@@ -61,12 +56,6 @@ export interface MemoryIngestRunSummary {
   exchanges_sent: number;
   exchanges_failed: number;
   duration_ms: number;
-}
-
-export interface MemoryIngestRunResult {
-  summary: MemoryIngestRunSummary;
-  /** Where the next run continues; undefined → start from the oldest candidate. */
-  resumeAfter: MemoryIngestCandidateKey | undefined;
 }
 
 function errorMessage(error: unknown): string {
@@ -202,18 +191,16 @@ async function ingestSession({
 }
 
 /**
- * One bounded pass: up to `maxSessionsPerRun` candidates after `resumeAfter`, one session in
- * memory at a time. Returns the run summary and where the next pass should continue.
+ * One bounded pass over the oldest `maxSessionsPerRun` candidates, one session in memory at a time.
+ * Keeps no state between passes: every pass starts from the oldest candidate.
  */
 export async function runMemoryIngestPass({
   deps,
   signal,
-  resumeAfter,
 }: {
   deps: MemoryIngestDeps;
   signal: AbortSignal;
-  resumeAfter: MemoryIngestCandidateKey | undefined;
-}): Promise<MemoryIngestRunResult> {
+}): Promise<MemoryIngestRunSummary> {
   const { store, settings, logger, config, now } = deps;
   const startedAt = now();
 
@@ -229,12 +216,8 @@ export async function runMemoryIngestPass({
           recent_since: new Date(startedMs - config.lookbackMs),
           paused_from: new Date(startedMs - config.pauseTimeoutMs - config.lookbackMs),
           paused_until: new Date(startedMs - config.pauseTimeoutMs),
-          after: resumeAfter,
           limit: config.maxSessionsPerRun + 1,
         });
-  if (listed.length === 0 && resumeAfter !== undefined) {
-    return await runMemoryIngestPass({ deps, signal, resumeAfter: undefined });
-  }
   const backlog = listed.length > config.maxSessionsPerRun;
   const candidates = listed.slice(0, config.maxSessionsPerRun);
 
@@ -242,13 +225,11 @@ export async function runMemoryIngestPass({
   let exchangesSent = 0;
   let exchangesFailed = 0;
   let sessionsProcessed = 0;
-  let lastVisited: MemoryIngestCandidate | undefined;
 
   for (const candidate of candidates) {
     if (signal.aborted) {
       break;
     }
-    lastVisited = candidate;
     sessionsProcessed += 1;
     const result = await processCandidate({ candidate, deps, signal });
     outcomes[result.outcome] = (outcomes[result.outcome] ?? 0) + 1;
@@ -269,16 +250,7 @@ export async function runMemoryIngestPass({
   } else {
     logger.debug('Memory ingest run finished', summary);
   }
-
-  // Continue after the last visited candidate while more remain; otherwise wrap to the oldest.
-  const more = backlog || sessionsProcessed < candidates.length;
-  return {
-    summary,
-    resumeAfter:
-      more && lastVisited !== undefined
-        ? { session_updated_at: lastVisited.session_updated_at, session_id: lastVisited.session_id }
-        : undefined,
-  };
+  return summary;
 }
 
 async function processCandidate({
@@ -379,7 +351,6 @@ export function memoryIngestFromConfig({
 }
 
 export function memoryIngestLoop(deps: MemoryIngestDeps): ControlLoop {
-  let resumeAfter: MemoryIngestCandidateKey | undefined;
   return {
     name: MEMORY_INGEST_LOOP_NAME,
     intervalMs: deps.config.intervalMs,
@@ -387,8 +358,7 @@ export function memoryIngestLoop(deps: MemoryIngestDeps): ControlLoop {
       if (signal.aborted) {
         return;
       }
-      const result = await runMemoryIngestPass({ deps, signal, resumeAfter });
-      resumeAfter = result.resumeAfter;
+      await runMemoryIngestPass({ deps, signal });
     },
   };
 }

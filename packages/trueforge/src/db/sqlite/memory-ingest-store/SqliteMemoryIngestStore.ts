@@ -47,8 +47,7 @@ export class SqliteMemoryIngestStore implements IMemoryIngestStore {
   }
 
   async listCandidateSessions(input: ListMemoryIngestCandidatesInput): Promise<MemoryIngestCandidate[]> {
-    const { after } = input;
-    let query = this.#db
+    const query = this.#db
       .selectFrom('session as s')
       .innerJoin('turn as t', join =>
         join
@@ -67,7 +66,6 @@ export class SqliteMemoryIngestStore implements IMemoryIngestStore {
         createAgentSession.as('create_agent_session'),
         agentMemoryEnabled.as('agent_memory_enabled'),
         't.turn_id as tip_turn_id',
-        's.updated_at as session_updated_at',
         'c.last_ingested_turn_id as cursor_last_ingested_turn_id',
         'c.external_thread_id as cursor_external_thread_id',
         'c.last_error as cursor_last_error',
@@ -91,11 +89,6 @@ export class SqliteMemoryIngestStore implements IMemoryIngestStore {
         eb.or([eb.and([eb('s.agent_id', 'is', null), eb(tfgSource, '=', 'ui')]), eb(agentMemoryEnabled, '=', 1)]),
       )
       .where(sql<boolean>`c.last_ingested_turn_id IS NOT t.turn_id`);
-    if (after !== undefined) {
-      query = query.where(
-        sql<boolean>`(s.updated_at, s.session_id) > (${after.session_updated_at}, ${after.session_id})`,
-      );
-    }
     const rows = await query.orderBy('s.updated_at', 'asc').orderBy('s.session_id', 'asc').limit(input.limit).execute();
 
     return rows.map(row => ({
@@ -108,7 +101,6 @@ export class SqliteMemoryIngestStore implements IMemoryIngestStore {
       create_agent_session: row.create_agent_session === 1,
       agent_memory_enabled: row.agent_memory_enabled === 1,
       tip_turn_id: row.tip_turn_id,
-      session_updated_at: row.session_updated_at,
       cursor:
         row.cursor_updated_at === null
           ? null

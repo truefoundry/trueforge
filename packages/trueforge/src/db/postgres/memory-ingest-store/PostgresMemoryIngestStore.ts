@@ -33,8 +33,6 @@ const textOnlyInput = sql<TurnInputItem[]>`(
 )`;
 /** The tip turn finished waiting on the user (a question, approval or auth). */
 const tipPaused = sql<boolean>`(t.state->>'status' = 'done' AND jsonb_array_length(COALESCE(t.state->'required_actions', '[]'::jsonb)) > 0)`;
-/** Microsecond ISO text, so the keyset round-trips exactly. */
-const sessionUpdatedAtText = sql<string>`to_char(s.updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
 
 export class PostgresMemoryIngestStore implements IMemoryIngestStore {
   readonly #db: Kysely<Database>;
@@ -44,8 +42,7 @@ export class PostgresMemoryIngestStore implements IMemoryIngestStore {
   }
 
   async listCandidateSessions(input: ListMemoryIngestCandidatesInput): Promise<MemoryIngestCandidate[]> {
-    const { after } = input;
-    let query = this.#db
+    const query = this.#db
       .selectFrom('session as s')
       .innerJoin('turn as t', join =>
         join.onRef('t.session_id', '=', 's.session_id').on(sql<boolean>`t.turn_id = s.last_turn_details->>'id'`),
@@ -62,7 +59,6 @@ export class PostgresMemoryIngestStore implements IMemoryIngestStore {
         createAgentSession.as('create_agent_session'),
         sql<boolean>`COALESCE(${agentMemoryEnabled} = 'true', false)`.as('agent_memory_enabled'),
         't.turn_id as tip_turn_id',
-        sessionUpdatedAtText.as('session_updated_at'),
         'c.last_ingested_turn_id as cursor_last_ingested_turn_id',
         'c.external_thread_id as cursor_external_thread_id',
         'c.last_error as cursor_last_error',
@@ -82,11 +78,6 @@ export class PostgresMemoryIngestStore implements IMemoryIngestStore {
         eb.or([eb.and([eb('s.agent_id', 'is', null), eb(tfgSource, '=', 'ui')]), eb(agentMemoryEnabled, '=', 'true')]),
       )
       .where(sql<boolean>`c.last_ingested_turn_id IS DISTINCT FROM t.turn_id`);
-    if (after !== undefined) {
-      query = query.where(
-        sql<boolean>`(s.updated_at, s.session_id) > (${after.session_updated_at}::timestamptz, ${after.session_id})`,
-      );
-    }
     const rows = await query.orderBy('s.updated_at', 'asc').orderBy('s.session_id', 'asc').limit(input.limit).execute();
 
     return rows.map(row => ({
@@ -99,7 +90,6 @@ export class PostgresMemoryIngestStore implements IMemoryIngestStore {
       create_agent_session: row.create_agent_session,
       agent_memory_enabled: row.agent_memory_enabled,
       tip_turn_id: row.tip_turn_id,
-      session_updated_at: row.session_updated_at,
       cursor:
         row.cursor_updated_at === null
           ? null
