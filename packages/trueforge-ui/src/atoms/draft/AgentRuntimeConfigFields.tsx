@@ -264,7 +264,7 @@ export function AgentRuntimeConfigFields({
             )}
           </div>
         ) : null}
-        <label className={cn('flex py-4', rowClassName)}>
+        <div className={cn('flex py-4', rowClassName)}>
           <span className="min-w-0">
             <span className="text-text-primary block text-sm font-medium">Iteration limit</span>
             <span className="text-text-secondary mt-0.5 block text-xs leading-snug">
@@ -276,6 +276,7 @@ export function AgentRuntimeConfigFields({
             min={1}
             max={1024}
             disabled={disabled}
+            aria-label="Iteration limit"
             value={value.iterationLimit ?? 512}
             className={auiInputClass('h-8 w-24 shrink-0 disabled:opacity-60')}
             onChange={event => {
@@ -283,7 +284,7 @@ export function AgentRuntimeConfigFields({
               if (iterationLimit !== null) onChange({ ...value, iterationLimit });
             }}
           />
-        </label>
+        </div>
         {webSearchField != null ? switchField({ field: webSearchField, className: cn('py-4', rowClassName) }) : null}
         <section className="py-4">
           {switchField({ field: sandboxField, className: rowClassName })}
