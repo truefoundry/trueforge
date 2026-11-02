@@ -7,9 +7,17 @@ import type { TurnState } from './server/index.js';
 /** Resume cursor chosen from the last event the client applied. */
 export type TurnSubscribeCursor = { fromEventId: string } | { afterEventId: string };
 
-/** A model message replays from its shell. Every other event resumes after itself. */
+/**
+ * A model message replays from its shell. `mcp.auth_required` is replayed too:
+ * the connect prompt lives only on that event, and the next `turn.update`
+ * does not repeat it. Every other event resumes after itself.
+ */
 export function subscribeCursorForEvent(event: { type: string; id: string }): TurnSubscribeCursor {
-  if (event.type === EVENT_TYPE.MODEL_MESSAGE || event.type === EVENT_TYPE.MODEL_MESSAGE_DELTA) {
+  if (
+    event.type === EVENT_TYPE.MODEL_MESSAGE ||
+    event.type === EVENT_TYPE.MODEL_MESSAGE_DELTA ||
+    event.type === EVENT_TYPE.MCP_AUTH_REQUIRED
+  ) {
     return { fromEventId: event.id };
   }
   return { afterEventId: event.id };

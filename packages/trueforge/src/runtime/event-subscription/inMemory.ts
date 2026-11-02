@@ -16,8 +16,8 @@ import {
 import {
   entryIdMilliseconds,
   EventIdSeek,
+  eventIdSeekCursor,
   eventIdTimestampMs,
-  exclusiveCursorBeforeMillisecond,
   isEntryAfterCursor,
   isLegacySequenceEntryId,
 } from './entryId';
@@ -325,8 +325,7 @@ export class InMemoryEventSubscription<T extends object> implements EventSubscri
       fromEventId !== undefined ? 'from' : 'after',
       eventId,
     );
-    const timestamp = eventIdTimestampMs(eventId);
-    const readCursor = timestamp === undefined ? '0-0' : exclusiveCursorBeforeMillisecond(timestamp);
+    const readCursor = eventIdSeekCursor({ eventId, firstEntryId: this.store.firstEntryId(this.streamId) });
     let index = 0;
     let scanning = true;
     for (;;) {
@@ -344,6 +343,9 @@ export class InMemoryEventSubscription<T extends object> implements EventSubscri
           for (const event of seek.caughtUp()) {
             yield structuredClone(event);
           }
+          // An append during the replay yield happened before this poller was
+          // waiting. Look at the log again before parking.
+          continue;
         }
         try {
           await this.store.waitForChange(this.streamId, signal);

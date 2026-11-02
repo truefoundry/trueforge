@@ -35,9 +35,9 @@ export interface EventSubscriptionPollOptions {
  */
 export interface EventSubscription<T extends object> {
   /**
-   * Rebuilds a missing or behind stream from the durable log, then reseeds the
-   * producer counter. An existing stream whose tail event id is the last log id
-   * is left in place. Pass `executorId` only for the database owner that will put.
+   * Rebuilds a missing or behind stream from the durable log using event-id
+   * stream ids. An existing stream whose tail is already the log tail is left
+   * in place. Pass `executorId` only for the database owner that will put.
    */
   repairLog(options: RepairLogOptions<T>): Promise<void>;
 

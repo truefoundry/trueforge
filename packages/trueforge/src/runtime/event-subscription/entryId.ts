@@ -32,6 +32,21 @@ export function isLegacySequenceEntryId(entryId: string): boolean {
   return entryIdMilliseconds(entryId) <= LEGACY_SEQUENCE_ID_MAX;
 }
 
+/**
+ * Where an event-id scan starts. A leftover `{sequence}-1` stream is ordered by
+ * sequence, not by the payload ULID, so the scan has to walk it from the start.
+ */
+export function eventIdSeekCursor(input: { eventId: string; firstEntryId: string | undefined }): string {
+  if (input.firstEntryId !== undefined && isLegacySequenceEntryId(input.firstEntryId)) {
+    return '0-0';
+  }
+  const timestamp = eventIdTimestampMs(input.eventId);
+  if (timestamp === undefined) {
+    return '0-0';
+  }
+  return exclusiveCursorBeforeMillisecond(timestamp);
+}
+
 /** Exclusive XREAD cursor that includes every entry at `milliseconds` and later. */
 export function exclusiveCursorBeforeMillisecond(milliseconds: number): string {
   if (milliseconds <= 0) {

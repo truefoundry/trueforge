@@ -604,6 +604,8 @@ export function useTrueForgeAgentMessages({
         let subscribeCursor = cursorForTurn(snapshotRef.current, turnIdRef.current);
         let useSubscribe = false;
         let consecutiveFailures = 0;
+        let eventsThisAttempt = 0;
+        let attemptCursor: TurnSubscribeCursor | undefined = subscribeCursor;
 
         const track: StreamSequenceTrack = {
           onSequenceNumber: sequenceNumber => {
@@ -611,8 +613,19 @@ export function useTrueForgeAgentMessages({
             consecutiveFailures = 0;
           },
           onSubscribeCursor: cursor => {
+            eventsThisAttempt += 1;
+            // Inclusive replay delivers the shell we already have. That is not
+            // new progress, so a stream that dies on the shell still counts.
+            const replayedShell =
+              eventsThisAttempt === 1 &&
+              attemptCursor !== undefined &&
+              'fromEventId' in attemptCursor &&
+              'fromEventId' in cursor &&
+              attemptCursor.fromEventId === cursor.fromEventId;
             subscribeCursor = cursor;
-            consecutiveFailures = 0;
+            if (!replayedShell) {
+              consecutiveFailures = 0;
+            }
           },
         };
 
@@ -689,6 +702,8 @@ export function useTrueForgeAgentMessages({
         };
 
         const readStream = (signal: AbortSignal): AsyncGenerator<TurnStreamUpdate> => {
+          eventsThisAttempt = 0;
+          attemptCursor = subscribeCursor;
           if (!useSubscribe) {
             return createStream(signal, track);
           }

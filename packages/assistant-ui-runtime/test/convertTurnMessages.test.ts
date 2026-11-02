@@ -1897,6 +1897,15 @@ describe('convertTurnMessages', () => {
             };
             yield {
               event: {
+                type: 'mcp.auth_required' as const,
+                id: 'auth-1',
+                createdAt,
+                threadId: null,
+                mcpServers: [{ id: 'github', name: 'GitHub', authUrl: 'https://example.com/auth' }],
+              },
+            };
+            yield {
+              event: {
                 type: 'turn.done' as const,
                 id: 'turn-done',
                 createdAt,
@@ -1914,7 +1923,7 @@ describe('convertTurnMessages', () => {
         ),
       );
 
-      expect(cursors).toEqual([{ fromEventId: 'm1' }, { afterEventId: 'turn-done' }]);
+      expect(cursors).toEqual([{ fromEventId: 'm1' }, { fromEventId: 'auth-1' }, { afterEventId: 'turn-done' }]);
     });
 
     it('yields folded content after each ingested stream event', async () => {

@@ -12,8 +12,8 @@ import {
 import {
   entryIdMilliseconds,
   EventIdSeek,
+  eventIdSeekCursor,
   eventIdTimestampMs,
-  exclusiveCursorBeforeMillisecond,
   isLegacySequenceEntryId,
 } from './entryId';
 import { applyEventLogRepair, eventIdFromStreamData, eventIdOf, type RepairLogOptions } from './repair';
@@ -200,8 +200,7 @@ export class RedisEventSubscription<T extends object> implements EventSubscripti
       fromEventId !== undefined ? 'from' : 'after',
       eventId,
     );
-    const timestamp = eventIdTimestampMs(eventId);
-    let cursor = timestamp === undefined ? '0-0' : exclusiveCursorBeforeMillisecond(timestamp);
+    let cursor = eventIdSeekCursor({ eventId, firstEntryId: await this.firstEntryId() });
     let scanning = true;
     for (;;) {
       const messages = await this.readAfter(cursor, signal);
@@ -348,9 +347,9 @@ export class RedisEventSubscription<T extends object> implements EventSubscripti
     if (reply.status === 'error') {
       throw new Error(`Redis stream append failed on ${this.streamId}: ${reply.detail}`);
     }
-    if (eventIdFromStreamData(reply.detail) === eventIdOf(input.event)) {
-      return 'duplicate';
-    }
+    // The tail id can match a delta of the same message. Identical payloads
+    // already returned `duplicate` above; a distinct payload must be retried
+    // at the tail millisecond.
     const lastId = await this.lastEntryId();
     if (lastId === undefined) {
       throw new Error(`Redis stream append conflicted on an empty stream ${this.streamId}`);

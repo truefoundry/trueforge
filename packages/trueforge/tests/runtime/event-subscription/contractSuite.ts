@@ -109,6 +109,73 @@ export function runEventSubscriptionContractSuite(createRegistry: () => EventSub
     expect(received.map(event => event.id)).toEqual(['evt-2', 'evt-3', 'evt-4']);
   });
 
+  it('keeps an event appended while an event-id replay is delivered', async () => {
+    const registry = createRegistry();
+    const streamId = nextStreamId();
+    const producer = registry.get(streamId);
+    const sent = [0, 1, 2].map(index => ({ id: `evt-${String(index)}`, ...makeEvent(index) }));
+    for (const event of sent) {
+      await producer.put(event, { streamTTLSeconds: STREAM_TTL_SECONDS });
+    }
+
+    const abort = new AbortController();
+    const generator = registry.get(streamId).poll(undefined, {
+      signal: abort.signal,
+      afterEventId: 'evt-1',
+    });
+    try {
+      const replayed = await generator.next();
+      expect(replayed.value?.id).toBe('evt-2');
+      const extra = { id: 'evt-extra', ...makeEvent(9) };
+      await producer.put(extra, { streamTTLSeconds: STREAM_TTL_SECONDS });
+      const appended = await generator.next();
+      expect(appended.value).toEqual(extra);
+    } finally {
+      abort.abort();
+      await generator.return(undefined);
+    }
+  });
+
+  it('appends a distinct shared-id payload when its timestamp is behind the tail', async () => {
+    const { ulid } = await import('ulid');
+    const registry = createRegistry();
+    const streamId = nextStreamId();
+    const producer = registry.get(streamId);
+    const later = { id: ulid(2_000_000_000_000).toLowerCase(), ...makeEvent(0) };
+    const shell = { id: ulid(1_000_000_000_000).toLowerCase(), ...makeEvent(1) };
+    const delta = { ...shell, payload: { index: 2, text: 'delta' } };
+    await producer.put(later, { streamTTLSeconds: STREAM_TTL_SECONDS });
+    await producer.put(shell, { streamTTLSeconds: STREAM_TTL_SECONDS });
+    await producer.put(delta, { streamTTLSeconds: STREAM_TTL_SECONDS });
+
+    const received = await collect(registry, streamId, 3);
+    expect(received).toEqual([later, shell, delta]);
+  });
+
+  it('repairs a suffix when the durable row key order differs from the stream payload', async () => {
+    const registry = createRegistry();
+    const streamId = nextStreamId();
+    const producer = registry.get(streamId);
+    const stored = { id: 'evt-1', ...makeEvent(0) };
+    await producer.put(stored, { streamTTLSeconds: STREAM_TTL_SECONDS });
+    const fromDatabase = {
+      id: 'evt-1',
+      type: stored.type,
+      payload: { text: stored.payload.text, index: stored.payload.index },
+    };
+    const third = { id: 'evt-3', ...makeEvent(2) };
+    await producer.repairLog({
+      entries: [
+        { id: 'evt-1', event: fromDatabase },
+        { id: 'evt-3', event: third },
+      ],
+      streamTTLSeconds: STREAM_TTL_SECONDS,
+    });
+
+    const received = await collect(registry, streamId, 2);
+    expect(received.map(event => event.id)).toEqual(['evt-1', 'evt-3']);
+  });
+
   it('poll parked at the tip receives events put after it subscribed', async () => {
     const registry = createRegistry();
     const streamId = nextStreamId();

@@ -34,6 +34,41 @@ export function eventIdOf(event: object): string | undefined {
   return typeof id === 'string' ? id : undefined;
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** Key order and a legacy `sequence_number` field are not part of event identity. */
+function canonicalize(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(item => canonicalize(item));
+  }
+  if (!isPlainObject(value)) {
+    return value;
+  }
+  const normalized: Record<string, unknown> = {};
+  for (const key of Object.keys(value).sort()) {
+    if (key === 'sequence_number') {
+      continue;
+    }
+    const child = value[key];
+    if (child !== undefined) {
+      normalized[key] = canonicalize(child);
+    }
+  }
+  return normalized;
+}
+
+export function eventPayloadMatches(event: object, payload: string): boolean {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(payload);
+  } catch {
+    return false;
+  }
+  return JSON.stringify(canonicalize(event)) === JSON.stringify(canonicalize(parsed));
+}
+
 export function eventIdFromStreamData(data: string): string | undefined {
   let parsed: unknown;
   try {
@@ -62,7 +97,7 @@ function suffixAfterTail<T extends object>(
   let match = -1;
   for (let index = 0; index < entries.length; index += 1) {
     const entry = entries[index];
-    if (entry?.id === tail.eventId && JSON.stringify(entry.event) === tail.payload) {
+    if (entry?.id === tail.eventId && eventPayloadMatches(entry.event, tail.payload)) {
       match = index;
     }
   }
