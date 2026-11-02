@@ -7,6 +7,7 @@ import { DraftCompositeSelector } from '@/atoms/draft/DraftCompositeSelector.js'
 import { CompactLayoutProvider } from '@/atoms/lib/CompactLayoutContext.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import type {
+  AgentBuilderCapabilitiesResponse,
   AgentSkill,
   AgentSpec,
   CatalogServer,
@@ -19,6 +20,7 @@ import {
   createMockCatalog,
   createMockSandboxEnvironmentServer,
 } from '../../server/mockServer.js';
+import { allSettingsSections } from '../../server/settingsCapabilityFixture.js';
 
 let agentSpec: AgentSpec;
 let draftSessionId: string | undefined;
@@ -76,14 +78,7 @@ function renderSelector({
   environmentServer,
 }: {
   onAttach?: () => void;
-  getCapabilities?: () => Promise<{
-    data: {
-      sandbox: { enabled: boolean };
-      skill: { enabled: boolean; reason?: string };
-      settings?: { enabled: boolean };
-      webSearch?: { enabled: boolean };
-    };
-  }>;
+  getCapabilities?: () => Promise<AgentBuilderCapabilitiesResponse>;
   getSkills?: () => Promise<AgentSkill[]>;
   getMcp?: () => Promise<{ id: string; name: string; authenticated: boolean }[]>;
   catalog?: CatalogServer | null;
@@ -347,7 +342,7 @@ describe('DraftCompositeSelector', () => {
         data: {
           sandbox: { enabled: true },
           skill: { enabled: true },
-          settings: { enabled: false },
+          settings: allSettingsSections(false),
         },
       }),
       getMcp: async () => [],
@@ -630,5 +625,77 @@ describe('DraftCompositeSelector', () => {
 
     fireEvent.click(checkbox);
     expect(updateAgentSpec).not.toHaveBeenCalled();
+  });
+
+  it('explains why web search is unavailable using the host reason', async () => {
+    agentSpec = {
+      ...agentSpec,
+      config: { webSearch: { enabled: false } },
+    };
+    renderSelector({
+      getCapabilities: async () => ({
+        data: {
+          sandbox: { enabled: true },
+          skill: { enabled: true },
+          webSearch: { enabled: false, reason: 'Web search is turned off for this tenant.' },
+        },
+      }),
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
+    // The row renders locked with a generic hint until capabilities land, so wait for the reason.
+    const note = await screen.findByText('Web search is turned off for this tenant.');
+    expect(note.closest('[role="status"]')).not.toBeNull();
+  });
+
+  it('lets a chat that already searches the web turn it off after the capability goes away', async () => {
+    agentSpec = {
+      ...agentSpec,
+      config: { webSearch: { enabled: true } },
+    };
+    renderSelector({
+      getCapabilities: async () => ({
+        data: {
+          sandbox: { enabled: true },
+          skill: { enabled: true },
+          webSearch: { enabled: false },
+        },
+      }),
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
+    await waitFor(() => {
+      const row = screen.getByRole('menuitemcheckbox', { name: /Web search/ });
+      expect(row).toHaveAttribute('aria-checked', 'true');
+      expect(row).not.toHaveAttribute('aria-disabled', 'true');
+    });
+
+    // Turning it off is the last chance, so the row has to say so before the click.
+    expect(await screen.findByText(/Turning it off here is final/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /Web search/ }));
+    expect(updateAgentSpec).toHaveBeenCalledWith({ config: { webSearch: { enabled: false } } });
+  });
+
+  it('does not caution a chat the host still allows', async () => {
+    agentSpec = {
+      ...agentSpec,
+      config: { webSearch: { enabled: true } },
+    };
+    renderSelector({
+      getCapabilities: async () => ({
+        data: {
+          sandbox: { enabled: true },
+          skill: { enabled: true },
+          webSearch: { enabled: true },
+        },
+      }),
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
+    await waitFor(() => {
+      expect(screen.getByRole('menuitemcheckbox', { name: /Web search/ })).toHaveAttribute('aria-checked', 'true');
+    });
+    expect(screen.queryByText(/Turning it off here is final/)).not.toBeInTheDocument();
   });
 });

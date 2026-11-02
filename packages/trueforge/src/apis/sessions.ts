@@ -33,7 +33,8 @@ import type { Authorizer } from '../auth/authorizer';
 import { createdBySubjectFromRequestContext, type RequestContext, type ResolveRequestContext } from '../auth/identity';
 import configuration from '../config';
 import type { AccessGrantRecord, IAccessControlStore } from '../db/accessControlStore';
-import type { IAgentStore } from '../db/agentStore';
+import type { AgentRecord, IAgentStore } from '../db/agentStore';
+import type { IConfigurationStore } from '../db/configurationStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
@@ -58,7 +59,12 @@ import {
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import { validateAgentSpec } from '../runtime/sessionResources';
 import { honoQueriesToRecord } from '../schemas/deepObjectQuery';
-import { isSessionAgentNameRef, parseListSessionsQuery, type Session } from '../schemas/session';
+import {
+  isSessionAgentSpecBody,
+  parseListSessionsQuery,
+  type CreateSessionAgent,
+  type Session,
+} from '../schemas/session';
 import type { SessionGrant, SessionGrantSubject } from '../schemas/sessionGrant';
 import { newId } from '../utils/id';
 import { agentIfAccessible, canReadAgentBoundResource, canReadSession, resolveManagedAgentIds } from './agentAccess';
@@ -106,6 +112,7 @@ export interface SessionsRouterDeps<TTransaction = never> {
   sandboxEnvironmentStore: ISandboxEnvironmentStore;
   redis?: RedisClient | undefined;
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore;
+  resolveConfigurationStore: (c: Context) => IConfigurationStore;
   requestReplyRouter: RequestReplyRouter;
   resolveRequestContext: ResolveRequestContext;
   logger: Logger;
@@ -344,34 +351,116 @@ function toWireSessionGrant(record: AccessGrantRecord): SessionGrant {
   };
 }
 
+type ValidateSessionSpecDeps = Pick<
+  SessionsRouterDeps,
+  | 'resolveModelProviderStore'
+  | 'resolveMcpServerStore'
+  | 'resolveSkillStore'
+  | 'resolveSandboxProviderStore'
+  | 'sandboxEnvironmentStore'
+  | 'resolveWebSearchProviderStore'
+  | 'resolveConfigurationStore'
+>;
+
 /**
- * Inline create and spec replace check model, MCP, and skill names against `x-tfg-*` when those
- * headers are present. The headers are not written onto the session.
+ * One spec check for every session write, so a named agent and an inline spec are
+ * held to the same rules.
+ *
+ * `allowInlineResources` is for caller-supplied specs only: it checks model, MCP, and
+ * skill names against `x-tfg-*` when those headers are present. A named agent runs a
+ * stored spec, so those headers must not widen what it may reference.
+ *
+ * `runAsAgent` matches the identity a turn runs under, so a caller who may use an
+ * agent is not rejected for models or connectors only the agent can reach.
  */
-function validateInlineSessionSpec(
-  deps: Pick<
-    SessionsRouterDeps,
-    | 'resolveModelProviderStore'
-    | 'resolveMcpServerStore'
-    | 'resolveSkillStore'
-    | 'resolveSandboxProviderStore'
-    | 'sandboxEnvironmentStore'
-    | 'resolveWebSearchProviderStore'
-  >,
-  input: { c: Context; spec: AgentSpec; requestContext: RequestContext },
-): Promise<void> {
-  const { c, spec, requestContext } = input;
+function validateSessionSpec({
+  deps,
+  c,
+  spec,
+  requestContext,
+  previousSpec,
+  allowInlineResources,
+  runAsAgent,
+}: {
+  deps: ValidateSessionSpecDeps;
+  c: Context;
+  spec: AgentSpec;
+  requestContext: RequestContext;
+  previousSpec: AgentSpec | undefined;
+  allowInlineResources: boolean;
+  runAsAgent?: AgentRecord;
+}): Promise<void> {
+  const asAgent = runAsAgent === undefined ? {} : { runAsAgent };
   return validateAgentSpec({
     spec,
     tenant_id: requestContext.tenant_id,
     created_by_subject_id: requestContext.subject.id,
-    modelProviderStore: deps.resolveModelProviderStore({ c, allowInlineResources: true }),
-    mcpServerStore: deps.resolveMcpServerStore({ c, allowInlineResources: true }),
-    skillStore: deps.resolveSkillStore({ c, allowInlineResources: true }),
+    modelProviderStore: deps.resolveModelProviderStore({ c, allowInlineResources, ...asAgent }),
+    mcpServerStore: deps.resolveMcpServerStore({ c, allowInlineResources, ...asAgent }),
+    skillStore: deps.resolveSkillStore({ c, allowInlineResources }),
     sandboxProviderStore: deps.resolveSandboxProviderStore(c),
     sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
     webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
+    configurationStore: deps.resolveConfigurationStore(c),
+    previousSpec,
   });
+}
+
+/** Spec already saved on a session, so a re-save is not treated as turning features on. */
+function savedInlineAgentSpec(record: SessionRecord): AgentSpec | undefined {
+  return record.agent.type === 'inline' ? record.agent.spec : undefined;
+}
+
+/** `not_found` covers both a missing named agent and one the caller may not use. */
+type NewSessionAgent = { found: true; agent: SessionRecord['agent'] } | { found: false; message: string };
+
+/** Validated agent to persist for a new session, shared by both create paths. */
+async function resolveNewSessionAgent({
+  deps,
+  c,
+  agent,
+  requestContext,
+}: {
+  deps: Pick<InternalSessionsRouterDeps, keyof ValidateSessionSpecDeps | 'resolveAgentStore' | 'authorizer'>;
+  c: Context;
+  agent: CreateSessionAgent;
+  requestContext: RequestContext;
+}): Promise<NewSessionAgent> {
+  if (isSessionAgentSpecBody(agent)) {
+    await validateSessionSpec({
+      deps,
+      c,
+      spec: agent.spec,
+      requestContext,
+      previousSpec: undefined,
+      allowInlineResources: true,
+    });
+    return { found: true, agent: { type: 'inline', spec: agent.spec } };
+  }
+  const named = await agentIfAccessible({
+    authorizer: deps.authorizer,
+    context: requestContext,
+    action: 'use',
+    agent: await deps.resolveAgentStore(c).getAgent({
+      tenant_id: requestContext.tenant_id,
+      name: agent.name,
+    }),
+  });
+  if (named === undefined) {
+    return { found: false, message: `Agent not found: ${agent.name}` };
+  }
+  await validateSessionSpec({
+    deps,
+    c,
+    spec: named.manifest,
+    requestContext,
+    // The stored spec is its own previous state, so starting a chat is not turning
+    // a feature on. Saving the agent is where the tenant switch applies.
+    previousSpec: named.manifest,
+    allowInlineResources: false,
+    runAsAgent: named,
+  });
+  return { found: true, agent: { type: 'reference', id: named.id, name: named.name } };
 }
 
 type InternalSessionsRouterDeps = Pick<
@@ -385,6 +474,7 @@ type InternalSessionsRouterDeps = Pick<
   | 'resolveSandboxProviderStore'
   | 'sandboxEnvironmentStore'
   | 'resolveWebSearchProviderStore'
+  | 'resolveConfigurationStore'
   | 'resolveRequestContext'
   | 'authorizer'
 >;
@@ -418,35 +508,16 @@ function createGetOrCreateSessionByExternalIdHandler(
       return c.json({ data: toWireSession(existing.record, shared) }, 200);
     }
 
-    let agent: SessionRecord['agent'];
-    if (isSessionAgentNameRef(body.agent)) {
-      const named = await agentIfAccessible({
-        authorizer: deps.authorizer,
-        context: requestContext,
-        action: 'use',
-        agent: await deps.resolveAgentStore(c).getAgent({
-          tenant_id: requestContext.tenant_id,
-          name: body.agent.name,
-        }),
-      });
-      if (named === undefined) {
-        return c.json({ error: { message: `Agent not found: ${body.agent.name}` } }, 404);
-      }
-      agent = { type: 'reference', id: named.id, name: named.name };
-    } else {
-      await validateInlineSessionSpec(deps, {
-        c,
-        spec: body.agent.spec,
-        requestContext,
-      });
-      agent = { type: 'inline', spec: body.agent.spec };
+    const resolved = await resolveNewSessionAgent({ deps, c, agent: body.agent, requestContext });
+    if (!resolved.found) {
+      return c.json({ error: { message: resolved.message } }, 404);
     }
 
     const { session, created } = await deps.sessions.getOrCreateByExternalId({
       tenant_id: requestContext.tenant_id,
       external_id: body.external_id,
       created_by_subject: createdBySubjectFromRequestContext(requestContext),
-      agent,
+      agent: resolved.agent,
       source: body.source ?? null,
     });
     if (created) {
@@ -485,40 +556,15 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
     updateLogContext({ session_id: sessionId });
     const requestContext = deps.resolveRequestContext(c);
 
-    if (isSessionAgentNameRef(body.agent)) {
-      const agent = await agentIfAccessible({
-        authorizer: deps.authorizer,
-        context: requestContext,
-        action: 'use',
-        agent: await deps.resolveAgentStore(c).getAgent({
-          tenant_id: requestContext.tenant_id,
-          name: body.agent.name,
-        }),
-      });
-      if (agent === undefined) {
-        return c.json({ error: { message: `Agent not found: ${body.agent.name}` } }, 404);
-      }
-      const session = await deps.sessions.create({
-        tenant_id: requestContext.tenant_id,
-        session_id: sessionId,
-        created_by_subject: createdBySubjectFromRequestContext(requestContext),
-        agent: { type: 'reference', id: agent.id, name: agent.name },
-        metadata: body.metadata,
-        external_id: null,
-      });
-      return c.json({ data: toWireSession(session.record, false) }, 201);
+    const resolved = await resolveNewSessionAgent({ deps, c, agent: body.agent, requestContext });
+    if (!resolved.found) {
+      return c.json({ error: { message: resolved.message } }, 404);
     }
-
-    await validateInlineSessionSpec(deps, {
-      c,
-      spec: body.agent.spec,
-      requestContext,
-    });
     const session = await deps.sessions.create({
       tenant_id: requestContext.tenant_id,
       session_id: sessionId,
       created_by_subject: createdBySubjectFromRequestContext(requestContext),
-      agent: { type: 'inline', spec: body.agent.spec },
+      agent: resolved.agent,
       metadata: body.metadata,
       external_id: null,
     });
@@ -602,25 +648,14 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
     // Inline sessions may replace their agent; named (reference) sessions
     // cannot — the store rejects that with SessionStoreInvariantError → 422 below.
     if (body.agent !== undefined) {
-      if (existing.agent.type === 'inline') {
-        await validateInlineSessionSpec(deps, {
-          c,
-          spec: body.agent.spec,
-          requestContext,
-        });
-      } else {
-        await validateAgentSpec({
-          spec: body.agent.spec,
-          tenant_id: requestContext.tenant_id,
-          created_by_subject_id: requestContext.subject.id,
-          modelProviderStore: deps.resolveModelProviderStore({ c }),
-          mcpServerStore: deps.resolveMcpServerStore({ c }),
-          skillStore: deps.resolveSkillStore({ c }),
-          sandboxProviderStore: deps.resolveSandboxProviderStore(c),
-          sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-          webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
-        });
-      }
+      await validateSessionSpec({
+        deps,
+        c,
+        spec: body.agent.spec,
+        requestContext,
+        previousSpec: savedInlineAgentSpec(existing),
+        allowInlineResources: existing.agent.type === 'inline',
+      });
     }
     try {
       await deps.sessionStore.updateSession({
