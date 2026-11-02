@@ -1007,7 +1007,24 @@ describe('turns', () => {
         await reader.cancel();
       }
       expect(replayed).toContain(pausedEvent.id);
+      expect(replayed.split('\n').some(line => line.startsWith('id:'))).toBe(false);
       expect(activeTurns.getTurnHandle({ sessionId, turnId: pausedTurnId })).toBeUndefined();
+
+      const mixed = await app.request(
+        `/${sessionId}/turns/${pausedTurnId}/subscribe?after_sequence_number=1&from_event_id=${pausedEvent.id}`,
+      );
+      expect(mixed.status).toBe(400);
+
+      const huge = await app.request(`/${sessionId}/turns/missing-turn/subscribe?after_sequence_number=100001`);
+      expect(huge.status).toBe(400);
+
+      const invalid = await app.request(`/${sessionId}/turns/${pausedTurnId}/subscribe?from_event_id=not-a-ulid`);
+      expect(invalid.status).toBe(400);
+
+      const sequenceOnEventIdStream = await app.request(
+        `/${sessionId}/turns/${pausedTurnId}/subscribe?after_sequence_number=1`,
+      );
+      expect(sequenceOnEventIdStream.status).toBe(400);
     });
   });
 });

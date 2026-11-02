@@ -31,9 +31,10 @@ async function collect(
   streamId: string,
   count: number,
   afterSequenceNumber?: number,
+  cursor?: { fromEventId?: string; afterEventId?: string },
 ): Promise<SequencedEvent<TestEvent>[]> {
   const abort = new AbortController();
-  const generator = registry.get(streamId).poll(afterSequenceNumber, { signal: abort.signal });
+  const generator = registry.get(streamId).poll(afterSequenceNumber, { signal: abort.signal, ...cursor });
   const received: SequencedEvent<TestEvent>[] = [];
   try {
     for await (const event of generator) {
@@ -51,16 +52,18 @@ async function collect(
 
 /** EventSubscription contract suite — factory-injected so both backends run it. */
 export function runEventSubscriptionContractSuite(createRegistry: () => EventSubscriptionRegistry<TestEvent>) {
-  it('put assigns dense 1-indexed sequence numbers', async () => {
+  it('put appends events in order without a sequence number', async () => {
     const registry = createRegistry();
     const streamId = nextStreamId();
     const producer = registry.get(streamId);
 
-    const sequenceNumbers = [];
-    for (let i = 0; i < 3; i += 1) {
-      sequenceNumbers.push(await producer.put(makeEvent(i), { streamTTLSeconds: STREAM_TTL_SECONDS }));
+    const sent = [makeEvent(0), makeEvent(1), makeEvent(2)];
+    for (const event of sent) {
+      await producer.put(event, { streamTTLSeconds: STREAM_TTL_SECONDS });
     }
-    expect(sequenceNumbers).toEqual([1, 2, 3]);
+    const received = await collect(registry, streamId, sent.length);
+    expect(received).toEqual(sent);
+    expect(received.every(event => !Object.hasOwn(event, 'sequence_number'))).toBe(true);
   });
 
   it('poll from the start yields every event sent, in order, with identical payloads', async () => {
@@ -74,7 +77,7 @@ export function runEventSubscriptionContractSuite(createRegistry: () => EventSub
     }
 
     const received = await collect(registry, streamId, sent.length);
-    expect(received).toEqual(sent.map((event, index) => ({ ...event, sequence_number: index + 1 })));
+    expect(received).toEqual(sent);
   });
 
   it('poll with afterSequenceNumber 0 matches an omitted cursor (from the start)', async () => {
@@ -90,7 +93,6 @@ export function runEventSubscriptionContractSuite(createRegistry: () => EventSub
     const fromOmitted = await collect(registry, streamId, sent.length);
     const fromZero = await collect(registry, streamId, sent.length, 0);
     expect(fromZero).toEqual(fromOmitted);
-    expect(fromZero[0]?.sequence_number).toBe(1);
   });
 
   it('poll from a mid-stream cursor yields only events strictly after it', async () => {
@@ -98,18 +100,13 @@ export function runEventSubscriptionContractSuite(createRegistry: () => EventSub
     const streamId = nextStreamId();
     const producer = registry.get(streamId);
 
-    const sent = [makeEvent(0), makeEvent(1), makeEvent(2), makeEvent(3), makeEvent(4)];
+    const sent = [0, 1, 2, 3, 4].map(index => ({ id: `evt-${String(index)}`, ...makeEvent(index) }));
     for (const event of sent) {
       await producer.put(event, { streamTTLSeconds: STREAM_TTL_SECONDS });
     }
 
-    // after 1 → skip seq 1; replay seq 2, 3, 4
-    const received = await collect(registry, streamId, 3, 1);
-    expect(received).toEqual([
-      { ...sent[1], sequence_number: 2 },
-      { ...sent[2], sequence_number: 3 },
-      { ...sent[3], sequence_number: 4 },
-    ]);
+    const received = await collect(registry, streamId, 3, undefined, { afterEventId: 'evt-1' });
+    expect(received.map(event => event.id)).toEqual(['evt-2', 'evt-3', 'evt-4']);
   });
 
   it('poll parked at the tip receives events put after it subscribed', async () => {
@@ -117,21 +114,20 @@ export function runEventSubscriptionContractSuite(createRegistry: () => EventSub
     const streamId = nextStreamId();
     const producer = registry.get(streamId);
 
-    await producer.put(makeEvent(0), { streamTTLSeconds: STREAM_TTL_SECONDS });
+    const first = { id: 'evt-0', ...makeEvent(0) };
+    await producer.put(first, { streamTTLSeconds: STREAM_TTL_SECONDS });
 
-    // after 1 (= tip): nothing to replay, so the poller parks for live events.
-    const pending = collect(registry, streamId, 2, 1);
-    await producer.put(makeEvent(1));
-    await producer.put(makeEvent(2));
+    const pending = collect(registry, streamId, 2, undefined, { afterEventId: 'evt-0' });
+    const second = { id: 'evt-1', ...makeEvent(1) };
+    const third = { id: 'evt-2', ...makeEvent(2) };
+    await producer.put(second);
+    await producer.put(third);
 
     const received = await pending;
-    expect(received).toEqual([
-      { ...makeEvent(1), sequence_number: 2 },
-      { ...makeEvent(2), sequence_number: 3 },
-    ]);
+    expect(received).toEqual([second, third]);
   });
 
-  it('rebuilds a missing stream from stored sequences and continues after the tail', async () => {
+  it('rebuilds a missing stream from the event log and continues after the tail', async () => {
     const registry = createRegistry();
     const streamId = nextStreamId();
     const producer = registry.get(streamId);
@@ -143,23 +139,17 @@ export function runEventSubscriptionContractSuite(createRegistry: () => EventSub
 
     await producer.repairLog({
       entries: [
-        { id: 'evt-1', event: first, sequence_number: 1 },
-        { id: 'evt-2', event: second, sequence_number: 2 },
+        { id: 'evt-1', event: first },
+        { id: 'evt-2', event: second },
       ],
       streamTTLSeconds: STREAM_TTL_SECONDS,
       executorId: 'owner',
-      persistSequences: () => Promise.resolve(),
     });
 
     const third = { id: 'evt-3', ...makeEvent(2) };
-    const next = await producer.put(third, { streamTTLSeconds: STREAM_TTL_SECONDS, executorId: 'owner' });
-    expect(next).toBe(3);
+    await producer.put(third, { streamTTLSeconds: STREAM_TTL_SECONDS, executorId: 'owner' });
     const received = await collect(registry, streamId, 3);
-    expect(received).toEqual([
-      { ...first, sequence_number: 1 },
-      { ...second, sequence_number: 2 },
-      { ...third, sequence_number: 3 },
-    ]);
+    expect(received).toEqual([first, second, third]);
   });
 
   it('leaves an existing stream untouched and a second repair does not append again', async () => {
@@ -173,25 +163,19 @@ export function runEventSubscriptionContractSuite(createRegistry: () => EventSub
     const repair = () =>
       producer.repairLog({
         entries: [
-          { id: 'evt-1', event: first, sequence_number: 1 },
-          { id: 'evt-2', event: second, sequence_number: 2 },
+          { id: 'evt-1', event: first },
+          { id: 'evt-2', event: second },
         ],
         streamTTLSeconds: STREAM_TTL_SECONDS,
         executorId: 'owner',
-        persistSequences: () => Promise.resolve(),
       });
     await repair();
     await repair();
 
     const third = { id: 'evt-3', ...makeEvent(2) };
-    const next = await producer.put(third, { streamTTLSeconds: STREAM_TTL_SECONDS, executorId: 'owner' });
-    expect(next).toBe(3);
+    await producer.put(third, { streamTTLSeconds: STREAM_TTL_SECONDS, executorId: 'owner' });
     const received = await collect(registry, streamId, 3);
-    expect(received).toEqual([
-      { ...first, sequence_number: 1 },
-      { ...second, sequence_number: 2 },
-      { ...third, sequence_number: 3 },
-    ]);
+    expect(received).toEqual([first, second, third]);
   });
 
   it('rejects a stale producer when the stream is missing', async () => {
@@ -200,10 +184,9 @@ export function runEventSubscriptionContractSuite(createRegistry: () => EventSub
     const owner = registry.get(streamId);
     const event = { id: 'evt-1', ...makeEvent(0) };
     await owner.repairLog({
-      entries: [{ id: 'evt-1', event, sequence_number: 1 }],
+      entries: [{ id: 'evt-1', event }],
       streamTTLSeconds: STREAM_TTL_SECONDS,
       executorId: 'owner',
-      persistSequences: () => Promise.resolve(),
     });
     await registry.evictStream(streamId);
 
@@ -220,19 +203,14 @@ export function runEventSubscriptionContractSuite(createRegistry: () => EventSub
     const left = registry.get(streamId);
     const right = registry.get(streamId);
     const event = { id: 'evt-same', ...makeEvent(0) };
-    const sequences = await Promise.all([
+    await Promise.all([
       left.put(event, { streamTTLSeconds: STREAM_TTL_SECONDS }),
       right.put(event, { streamTTLSeconds: STREAM_TTL_SECONDS }),
     ]);
-    expect(sequences).toEqual([1, 1]);
 
     const follow = { id: 'evt-next', ...makeEvent(1) };
-    const next = await left.put(follow, { streamTTLSeconds: STREAM_TTL_SECONDS });
-    expect(next).toBe(2);
+    await left.put(follow, { streamTTLSeconds: STREAM_TTL_SECONDS });
     const received = await collect(registry, streamId, 2);
-    expect(received).toEqual([
-      { ...event, sequence_number: 1 },
-      { ...follow, sequence_number: 2 },
-    ]);
+    expect(received).toEqual([event, follow]);
   });
 }

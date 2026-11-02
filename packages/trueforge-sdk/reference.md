@@ -2921,7 +2921,7 @@ await client.sessions.createTurnEvents("session_id", "turn_id", {
 <dl>
 <dd>
 
-Subscribe to the live SSE stream. A paused turn with an expired stream is restored from stored events. A running or finished turn is not restored. Pass `after_sequence_number` to resume after that sequence.
+Subscribe to the live SSE stream. A paused turn with an expired stream is restored from stored events. Resume with from_event_id or after_event_id. after_sequence_number remains for older clients.
 </dd>
 </dl>
 </dd>

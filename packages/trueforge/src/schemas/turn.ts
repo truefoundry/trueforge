@@ -6,6 +6,11 @@ import { EVENTS_PAGE_LIMIT, PAGE_LIMIT } from './common';
 export { CreateTurnRequestSchema, TurnSchema } from '@truefoundry/trueforge-core/agent-session';
 export type { Turn } from '@truefoundry/trueforge-core/agent-session';
 
+const optionalEventId = z.preprocess(
+  val => (val === null || val === '' ? undefined : val),
+  z.string().min(1).optional(),
+);
+
 export const SubscribeTurnQuerySchema = z
   .object({
     // Query strings need coerce; map null/'' to undefined first so Number(null)→0
@@ -17,10 +22,25 @@ export const SubscribeTurnQuerySchema = z
         .int()
         .nonnegative()
         .optional()
-        .describe(
-          'Exclusive resume cursor: replay only events with a sequence number greater than this value. Omit to start from the beginning of the live buffer.',
-        ),
+        .describe('Legacy exclusive cursor. Replay events after this sequence. Omit when using an event id.'),
     ),
+    from_event_id: optionalEventId.describe(
+      'Inclusive cursor. Replay starts at this event, including a model.message and its later deltas.',
+    ),
+    after_event_id: optionalEventId.describe(
+      'Exclusive cursor. Replay starts after the last entry with this event id.',
+    ),
+  })
+  .superRefine((query, ctx) => {
+    const cursors = [query.after_sequence_number, query.from_event_id, query.after_event_id].filter(
+      value => value !== undefined,
+    );
+    if (cursors.length > 1) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Pass only one of after_sequence_number, from_event_id, or after_event_id.',
+      });
+    }
   })
   .openapi('SubscribeTurnQuery');
 

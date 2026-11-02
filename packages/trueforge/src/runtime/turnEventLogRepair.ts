@@ -4,7 +4,8 @@ import type { EventLogEntry, EventSubscription } from './event-subscription';
 /**
  * Rebuild a paused turn's live stream from the durable log.
  * Subscribe omits `producerExecutorId` and only appends.
- * The producing resume records any missing sequence numbers and claims the stream-owner key.
+ * The producing resume claims the stream-owner key. Rows are appended with the
+ * same event-id stream ids as a live put.
  */
 export async function repairTurnEventLog<TTransaction>(input: {
   sessionStore: Pick<ISessionStore<TTransaction>, 'listTurnEventLog' | 'assignTurnEventSequenceNumbers'>;
@@ -21,23 +22,20 @@ export async function repairTurnEventLog<TTransaction>(input: {
   const entries: EventLogEntry<TurnStreamingEvent>[] = rows.map(row => ({
     id: row.event.id,
     event: row.event,
-    ...(row.sequence_number === null ? {} : { sequence_number: row.sequence_number }),
   }));
   const producerExecutorId = input.producerExecutorId;
+  if (producerExecutorId !== undefined) {
+    // Empty assignment still takes the turn-owner fence. It does not write sequence numbers.
+    await input.sessionStore.assignTurnEventSequenceNumbers({
+      session_id: input.sessionId,
+      turn_id: input.turnId,
+      active_executor_id: producerExecutorId,
+      assignments: [],
+    });
+  }
   await input.subscription.repairLog({
     entries,
     streamTTLSeconds: input.streamTTLSeconds,
-    ...(producerExecutorId === undefined
-      ? {}
-      : {
-          executorId: producerExecutorId,
-          persistSequences: assignments =>
-            input.sessionStore.assignTurnEventSequenceNumbers({
-              session_id: input.sessionId,
-              turn_id: input.turnId,
-              active_executor_id: producerExecutorId,
-              assignments,
-            }),
-        }),
+    ...(producerExecutorId === undefined ? {} : { executorId: producerExecutorId }),
   });
 }

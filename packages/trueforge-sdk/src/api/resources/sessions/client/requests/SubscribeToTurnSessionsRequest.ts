@@ -5,6 +5,10 @@
  *     {}
  */
 export interface SubscribeToTurnSessionsRequest {
-    /** Exclusive resume cursor: replay only events with a sequence number greater than this value. Omit to start from the beginning of the live buffer. */
+    /** Legacy exclusive cursor. Replay events after this sequence. Omit when using an event id. */
     afterSequenceNumber?: number | null;
+    /** Inclusive cursor. Replay starts at this event, including a model.message and its later deltas. */
+    fromEventId?: string | null;
+    /** Exclusive cursor. Replay starts after the last entry with this event id. */
+    afterEventId?: string | null;
 }

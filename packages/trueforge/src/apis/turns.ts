@@ -84,11 +84,15 @@ import {
 } from '../routes/turnRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import {
+  isLegacySequenceEntryId,
+  LEGACY_SEQUENCE_ID_MAX,
   StreamGoneError,
   StreamOwnerMismatchError,
   type EventSubscription,
+  type EventSubscriptionPollOptions,
   type EventSubscriptionRegistry,
 } from '../runtime/event-subscription';
+import { eventIdTimestampMs } from '../runtime/event-subscription/entryId';
 import { validateSandboxFilePath } from '../runtime/sandboxFilePath';
 import {
   buildTurnSandbox,
@@ -473,9 +477,9 @@ export function deriveSessionTitle(input: UserMessage[] | undefined): string | u
  * sequence number; the event body itself is not numbered (yield order is
  * persist order, so the transport boundary stamps).
  */
-export function turnEventSsePayload(event: TurnStreamingEvent, sequenceNumber: number): { id: string; data: string } {
+export function turnEventSsePayload(event: TurnStreamingEvent, sequenceNumber?: number): { id?: string; data: string } {
   return {
-    id: String(sequenceNumber),
+    ...(sequenceNumber === undefined ? {} : { id: String(sequenceNumber) }),
     data: JSON.stringify(event),
   };
 }
@@ -542,25 +546,6 @@ interface TurnExecutionTimeout {
   clear: () => void;
 }
 
-async function recordPersistedEventSequence(input: {
-  sessionStore: Pick<ISessionStore, 'assignTurnEventSequenceNumbers'>;
-  sessionId: string;
-  turnId: string;
-  executorId: string;
-  event: TurnStreamingEvent;
-  sequenceNumber: number;
-}): Promise<void> {
-  if (input.event.type === EventType.MODEL_MESSAGE_DELTA) {
-    return;
-  }
-  await input.sessionStore.assignTurnEventSequenceNumbers({
-    session_id: input.sessionId,
-    turn_id: input.turnId,
-    active_executor_id: input.executorId,
-    assignments: [{ event_id: input.event.id, sequence_number: input.sequenceNumber }],
-  });
-}
-
 export async function drainTurnEvents(input: {
   trackedStream: AsyncIterable<TurnStreamingEvent>;
   turnEventStream: EventSubscription<TurnStreamingEvent>;
@@ -568,29 +553,17 @@ export async function drainTurnEvents(input: {
   logger: Logger;
   pausedKeepalive: TurnPausedKeepalive;
   executorId: string;
-  /** Writes the sequence put just assigned onto the durable event row. */
-  recordSequence: (event: TurnStreamingEvent, sequenceNumber: number) => Promise<void>;
-  onEvent?: (event: TurnStreamingEvent, sequenceNumber: number) => Promise<void>;
+  onEvent?: (event: TurnStreamingEvent) => Promise<void>;
 }): Promise<void> {
-  const {
-    trackedStream,
-    turnEventStream,
-    executionTimeout,
-    logger,
-    pausedKeepalive,
-    executorId,
-    recordSequence,
-    onEvent,
-  } = input;
+  const { trackedStream, turnEventStream, executionTimeout, logger, pausedKeepalive, executorId, onEvent } = input;
   try {
     for await (const event of trackedStream) {
       reportUnexpectedTurnDone({ event, logger });
       // Dual-write before any client sink so subscribers can resume after disconnect.
-      const sequenceNumber = await turnEventStream.put(event, {
+      await turnEventStream.put(event, {
         streamTTLSeconds: streamTTLSecondsFor(event),
         executorId,
       });
-      await recordSequence(event, sequenceNumber);
       if (event.type === EventType.TURN_UPDATE) {
         if (event.state.status === 'paused') {
           pausedKeepalive.start();
@@ -600,7 +573,7 @@ export async function drainTurnEvents(input: {
           executionTimeout.start();
         }
       }
-      await onEvent?.(event, sequenceNumber);
+      await onEvent?.(event);
     }
   } catch (error) {
     if (
@@ -631,7 +604,6 @@ export interface TurnEventDrainInput {
   logger: Logger;
   pausedKeepalive: TurnPausedKeepalive;
   executorId: string;
-  recordSequence: (event: TurnStreamingEvent, sequenceNumber: number) => Promise<void>;
 }
 
 /**
@@ -755,7 +727,7 @@ export async function beginTurnExecution<TTransaction>(
     turn,
   });
 
-  // Held for the whole turn. Repair reseeds the counter when this replica resumes.
+  // Held for the whole turn. Repair appends any missing log suffix with event-id stream ids.
   const turnEventStream = deps.eventSubscriptions.get(turnStreamId(tenantId, sessionId, turn.id));
 
   return {
@@ -774,15 +746,6 @@ export async function beginTurnExecution<TTransaction>(
         },
       },
       executorId: configuration.EXECUTOR_ID,
-      recordSequence: (event, sequenceNumber) =>
-        recordPersistedEventSequence({
-          sessionStore: deps.sessionStore,
-          sessionId,
-          turnId: turn.id,
-          executorId: configuration.EXECUTOR_ID,
-          event,
-          sequenceNumber,
-        }),
     },
   };
 }
@@ -939,15 +902,6 @@ async function resumePausedTurn<TTransaction>(input: {
         executionTimeout,
         logger: input.deps.logger,
         executorId: configuration.EXECUTOR_ID,
-        recordSequence: (event, sequenceNumber) =>
-          recordPersistedEventSequence({
-            sessionStore: input.deps.sessionStore,
-            sessionId: input.session.session_id,
-            turnId: turn.id,
-            executorId: configuration.EXECUTOR_ID,
-            event,
-            sequenceNumber,
-          }),
         pausedKeepalive: {
           start: () => {
             input.deps.activeTurns.startPausedKeepalive({
@@ -1943,11 +1897,11 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
         });
         await drainTurnEvents({
           ...drainInput,
-          onEvent: async (event, sequenceNumber) => {
+          onEvent: async event => {
             if (!stream.closed && !stream.aborted && shouldWriteToSSEStream) {
               try {
                 await withTimeout(
-                  stream.writeSSE(turnEventSsePayload(event, sequenceNumber)),
+                  stream.writeSSE(turnEventSsePayload(event)),
                   configuration.TURN_SSE_STREAM_WRITE_TIMEOUT_MS,
                 );
               } catch (error) {
@@ -2050,7 +2004,25 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
   const subscribeTurnHandler: RouteHandler<typeof subscribeTurnRoute> = async c => {
     const { session_id: sessionId, turn_id: turnId } = c.req.valid('param');
     const query = c.req.valid('query');
+    const fromEventId = query.from_event_id;
+    const afterEventId = query.after_event_id;
     const afterSequenceNumber = resolveAfterSequenceNumber(c, query.after_sequence_number);
+    if (afterSequenceNumber !== undefined && (fromEventId !== undefined || afterEventId !== undefined)) {
+      throw new HTTPException(400, {
+        message: 'Pass only one of after_sequence_number, from_event_id, or after_event_id.',
+      });
+    }
+    if (afterSequenceNumber !== undefined && afterSequenceNumber > LEGACY_SEQUENCE_ID_MAX) {
+      throw new HTTPException(400, {
+        message: 'after_sequence_number is not supported above 100000.',
+      });
+    }
+    if (fromEventId !== undefined && eventIdTimestampMs(fromEventId) === undefined) {
+      throw new HTTPException(400, { message: 'Invalid event id.' });
+    }
+    if (afterEventId !== undefined && eventIdTimestampMs(afterEventId) === undefined) {
+      throw new HTTPException(400, { message: 'Invalid event id.' });
+    }
     const requestContext = deps.resolveRequestContext(c);
 
     const session = await deps.sessions.get({
@@ -2098,6 +2070,23 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
       throw error;
     }
 
+    let includeSequenceId = false;
+    if (afterSequenceNumber !== undefined) {
+      const firstEntryId = await turnEventStream.firstEntryId();
+      if (firstEntryId !== undefined && !isLegacySequenceEntryId(firstEntryId)) {
+        throw new HTTPException(400, {
+          message: 'after_sequence_number is not supported for this stream.',
+        });
+      }
+      includeSequenceId = true;
+    }
+    const pollOptions: EventSubscriptionPollOptions = {};
+    if (fromEventId !== undefined) {
+      pollOptions.fromEventId = fromEventId;
+    } else if (afterEventId !== undefined) {
+      pollOptions.afterEventId = afterEventId;
+    }
+
     // One lifecycle controller: server-side timeout, client disconnect, and
     // normal teardown all abort it, which ends poll even while it is parked
     // waiting for events.
@@ -2118,10 +2107,17 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
         subscribeAbort.abort(new Error('client-disconnected'));
       });
 
-      const generator = turnEventStream.poll(afterSequenceNumber, { signal: subscribeAbort.signal });
+      const generator = turnEventStream.poll(
+        fromEventId !== undefined || afterEventId !== undefined ? undefined : afterSequenceNumber,
+        { ...pollOptions, signal: subscribeAbort.signal },
+      );
       try {
         for await (const { sequence_number: sequenceNumber, ...event } of generator) {
-          await stream.writeSSE(turnEventSsePayload(event, sequenceNumber));
+          await stream.writeSSE(
+            includeSequenceId && sequenceNumber !== undefined
+              ? turnEventSsePayload(event, sequenceNumber)
+              : turnEventSsePayload(event),
+          );
           if (event.type === EventType.TURN_DONE) {
             break;
           }

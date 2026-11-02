@@ -15,11 +15,18 @@ export interface EventSubscriptionPutOptions {
   executorId?: string | undefined;
 }
 
-export type SequencedEvent<T extends object> = T & { sequence_number: number };
+/** `sequence_number` is set only when replaying an old `{sequence}-1` entry. */
+export type SequencedEvent<T extends object> = T & { sequence_number?: number };
+
+export { isLegacySequenceEntryId, LEGACY_SEQUENCE_ID_MAX } from './entryId';
 
 export interface EventSubscriptionPollOptions {
   /** Ends the generator promptly on abort, releasing any parked idle wait. */
   signal?: AbortSignal | undefined;
+  /** Inclusive payload cursor. Replay starts at this event id. */
+  fromEventId?: string | undefined;
+  /** Exclusive payload cursor. Replay starts after the last entry with this event id. */
+  afterEventId?: string | undefined;
 }
 
 /**
@@ -34,8 +41,11 @@ export interface EventSubscription<T extends object> {
    */
   repairLog(options: RepairLogOptions<T>): Promise<void>;
 
-  /** Appends an event, assigns its sequence number, and returns that number. */
-  put(event: T, options?: EventSubscriptionPutOptions): Promise<number>;
+  /** Appends an event. The stream id is `{ulidMillisecond}-{n}` when the event id is a ULID. */
+  put(event: T, options?: EventSubscriptionPutOptions): Promise<void>;
+
+  /** First entry id, or undefined when the stream has no entries yet. */
+  firstEntryId(): Promise<string | undefined>;
 
   /**
    * Subscription admission check, run before SSE headers are sent: rejects with

@@ -417,6 +417,39 @@ describe('createHarnessChatServer', () => {
     assert.deepEqual(deletedSessions, ['ses_1']);
   });
 
+  it('omits sequenceNumber when the SSE id is absent and forwards fromEventId', async () => {
+    const queries: string[] = [];
+    const eventId = '01arz3ndektsv4rrffq69g5fav';
+    const fetchCursor: typeof fetch = async input => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.includes('/api/v1/sessions/ses_1/turns/trn_1/subscribe')) {
+        queries.push(new URL(url, 'http://test.local').search);
+        return new Response(
+          `data: {"type":"model.message.delta","id":"${eventId}","thread_id":"main","content":"world"}\n\n`,
+          { headers: { 'content-type': 'text/event-stream' } },
+        );
+      }
+      return new Response(`Unexpected request: ${url}`, { status: 500 });
+    };
+    const server = createHarnessChatServer({ fetch: fetchCursor });
+    if (server.subscribeToTurn === undefined) {
+      throw new Error('Expected subscribeToTurn');
+    }
+
+    const events = [];
+    for await (const event of server.subscribeToTurn({
+      sessionId: 'ses_1',
+      turnId: 'trn_1',
+      fromEventId: eventId,
+    })) {
+      events.push(event);
+    }
+
+    assert.match(queries.at(-1) ?? '', /from_event_id=01arz3ndektsv4rrffq69g5fav/);
+    assert.equal(events[0]?.sequenceNumber, undefined);
+    assert.equal(events[0]?.event.id, eventId);
+  });
+
   it('subscribes to a turn and forwards afterSequenceNumber', async () => {
     const server = createHarnessChatServer({ fetch: fetchMock });
     assert.ok(server.subscribeToTurn);

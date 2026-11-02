@@ -2140,7 +2140,7 @@ export class SessionsClient {
     }
 
     /**
-     * Subscribe to the live SSE stream. A paused turn with an expired stream is restored from stored events. A running or finished turn is not restored. Pass `after_sequence_number` to resume after that sequence.
+     * Subscribe to the live SSE stream. A paused turn with an expired stream is restored from stored events. Resume with from_event_id or after_event_id. after_sequence_number remains for older clients.
      */
     public subscribeToTurn(
         session_id: string,
@@ -2159,9 +2159,11 @@ export class SessionsClient {
         request: TrueForge.SubscribeToTurnSessionsRequest = {},
         requestOptions?: SessionsClient.RequestOptions,
     ): Promise<core.WithRawResponse<core.Stream<TrueForge.TurnStreamingEvent>>> {
-        const { afterSequenceNumber } = request;
+        const { afterSequenceNumber, fromEventId, afterEventId } = request;
         const _queryParams: Record<string, unknown> = {
             after_sequence_number: afterSequenceNumber,
+            from_event_id: fromEventId,
+            after_event_id: afterEventId,
         };
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
