@@ -7,6 +7,9 @@ export type AgentCapabilityValues = {
   webSearch: boolean;
 };
 
+/** Shown when the host locks web search without saying why. */
+export const WEB_SEARCH_UNAVAILABLE_HINT = 'Web search is not configured';
+
 export const DEFAULT_AGENT_CAPABILITIES: AgentCapabilityValues = {
   generativeUi: true,
   dynamicSubAgents: true,

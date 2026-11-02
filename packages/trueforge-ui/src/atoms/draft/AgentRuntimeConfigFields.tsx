@@ -5,6 +5,7 @@ import { useMemo } from 'react';
 
 import { Icon } from '../../icons/Icon.js';
 import { readSandboxEnvironmentName, sandboxWithEnvironmentName } from '../../server/draftSpecPreferences.js';
+import { useServerCapabilities } from '../../server/ServerContext.js';
 import { useOptionalShellMode } from '../../server/ShellModeContext.js';
 import type { AgentCompactionConfig, AgentRuntimeConfig } from '../../server/types.js';
 import { useReadySandboxEnvironments } from '../environments/useReadySandboxEnvironments.js';
@@ -13,11 +14,11 @@ import { auiInputClass } from '../lib/inputClasses.js';
 import { PopoverSelect } from '../primitives/PopoverSelect.js';
 import { Switch } from '../primitives/Switch.js';
 import { Tooltip } from '../primitives/Tooltip.js';
+import { WEB_SEARCH_UNAVAILABLE_HINT } from './agentCapabilities.js';
 
 export type AgentRuntimeConfigFieldsProps = {
   value: AgentRuntimeConfig;
   sandboxAvailable: boolean;
-  webSearchAvailable?: boolean;
   hasSkills: boolean;
   disabled?: boolean;
   showCapabilities?: boolean;
@@ -60,7 +61,6 @@ type RuntimeSwitchField = {
 export function AgentRuntimeConfigFields({
   value,
   sandboxAvailable,
-  webSearchAvailable = false,
   hasSkills,
   disabled = false,
   showCapabilities = true,
@@ -68,6 +68,7 @@ export function AgentRuntimeConfigFields({
   onChange,
 }: AgentRuntimeConfigFieldsProps) {
   const shell = useOptionalShellMode();
+  const capabilities = useServerCapabilities();
   const { environments: readyEnvironments, refetch: refetchEnvironments } = useReadySandboxEnvironments();
   const { draftSessionId } = useTrueForgeAgentSpec();
   // Turns reuse the session sandbox, so the environment is fixed once a chat has started.
@@ -143,17 +144,19 @@ export function AgentRuntimeConfigFields({
   const compactionEnabled = value.contextManagement?.compaction?.enabled ?? true;
   const thresholdMode: CompactionThresholdMode =
     value.contextManagement?.compaction?.trigger != null ? 'custom' : 'auto';
-  // A spec that already searches the web keeps the row so it can still be turned off.
+  const webSearchAvailable = capabilities?.webSearch?.enabled === true;
   const webSearchChecked = value.webSearch?.enabled ?? webSearchAvailable;
-  const webSearchField: RuntimeSwitchField | null =
-    webSearchAvailable || webSearchChecked
-      ? {
-          label: 'Web search',
-          description: 'Allow the agent to search the web and fetch pages.',
-          checked: webSearchChecked,
-          update: enabled => ({ ...value, webSearch: { enabled } }),
-        }
-      : null;
+  // A spec that already searches the web can still be turned off; only turning it back on
+  // needs the capability, so the row stays visible either way and says why it is locked.
+  const webSearchLocked = !webSearchAvailable && !webSearchChecked;
+  const webSearchField: RuntimeSwitchField = {
+    label: 'Web search',
+    description: 'Allow the agent to search the web and fetch pages.',
+    checked: webSearchChecked,
+    disabled: webSearchLocked,
+    ...(webSearchLocked ? { disabledTooltip: capabilities?.webSearch?.reason ?? WEB_SEARCH_UNAVAILABLE_HINT } : {}),
+    update: enabled => ({ ...value, webSearch: { enabled } }),
+  };
   const sandboxField: RuntimeSwitchField = {
     label: 'Sandbox',
     description: 'Provide an isolated environment for code, files, and skills.',
@@ -287,7 +290,7 @@ export function AgentRuntimeConfigFields({
             }}
           />
         </label>
-        {webSearchField != null ? switchField({ field: webSearchField, className: cn('py-4', rowClassName) }) : null}
+        {switchField({ field: webSearchField, className: cn('py-4', rowClassName) })}
         <section className="py-4">
           {switchField({ field: sandboxField, className: rowClassName })}
           <div className={`mt-3 border-l-2 border-primary-button-bg/50 pl-3 ${sandboxEnabled ? '' : 'opacity-50'}`}>
@@ -399,11 +402,9 @@ export function AgentRuntimeConfigFields({
           }}
         />
       </label>
-      {[
-        ...(webSearchField != null ? [webSearchField] : []),
-        ...runtimeFields,
-        ...(showCapabilities ? capabilityFields : []),
-      ].map(field => switchField({ field }))}
+      {[webSearchField, ...runtimeFields, ...(showCapabilities ? capabilityFields : [])].map(field =>
+        switchField({ field }),
+      )}
     </div>
   );
 }

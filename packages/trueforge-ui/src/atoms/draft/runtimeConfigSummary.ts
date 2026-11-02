@@ -14,6 +14,7 @@ export function runtimeConfigValueClassName(value: string): string {
   return value === 'off' ? 'text-failure-bg font-medium' : 'text-primary-button-bg font-medium';
 }
 
+/** `webSearchAvailable` only sets what an unset spec falls back to, matching the editor. */
 export function runtimeConfigSummary(
   config?: AgentRuntimeConfig,
   { webSearchAvailable = false }: { webSearchAvailable?: boolean } = {},
@@ -29,9 +30,6 @@ export function runtimeConfigSummary(
     { label: 'dynamic sub-agents', value: enabledLabel(config?.dynamicSubAgents?.enabled, true) },
     { label: 'generative UI', value: enabledLabel(config?.generativeUi?.enabled, true) },
     { label: 'ask user questions', value: enabledLabel(config?.askUserQuestions?.enabled, true) },
-    // Still listed when the spec searches the web but the tenant no longer allows it.
-    ...(webSearchAvailable || config?.webSearch?.enabled === true
-      ? [{ label: 'web search', value: enabledLabel(config?.webSearch?.enabled, true) }]
-      : []),
+    { label: 'web search', value: enabledLabel(config?.webSearch?.enabled, webSearchAvailable) },
   ];
 }

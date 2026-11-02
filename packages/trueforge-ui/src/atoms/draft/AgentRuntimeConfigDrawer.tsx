@@ -8,7 +8,6 @@ export type AgentRuntimeConfigDrawerProps = {
   open: boolean;
   spec: AgentSpec;
   sandboxAvailable: boolean;
-  webSearchAvailable?: boolean;
   onChange: (spec: AgentSpec) => void;
   onClose: () => void;
 };
@@ -17,7 +16,6 @@ export function AgentRuntimeConfigDrawer({
   open,
   spec,
   sandboxAvailable,
-  webSearchAvailable = false,
   onChange,
   onClose,
 }: AgentRuntimeConfigDrawerProps) {
@@ -34,12 +32,7 @@ export function AgentRuntimeConfigDrawer({
       className="md:w-3xl"
       aria-label="Edit Runtime Config"
     >
-      <AgentRuntimeEditorContent
-        spec={spec}
-        sandboxAvailable={sandboxAvailable}
-        webSearchAvailable={webSearchAvailable}
-        onChange={onChange}
-      />
+      <AgentRuntimeEditorContent spec={spec} sandboxAvailable={sandboxAvailable} onChange={onChange} />
     </SideDrawer>
   );
 }
