@@ -245,7 +245,7 @@ describe('ShareSessionDialog', () => {
     const results = await screen.findByRole('listbox', { name: 'Matching users' });
     expect(within(results).queryByText('Alice')).not.toBeInTheDocument();
     fireEvent.click(await within(results).findByRole('option', { name: /Bob/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Invite' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
 
     await waitFor(() => {
       expect(grantAccess).toHaveBeenCalledWith({
@@ -281,7 +281,7 @@ describe('ShareSessionDialog', () => {
 
     expect(await screen.findByRole('button', { name: 'Session sharing' })).toBeInTheDocument();
     expect(screen.queryByLabelText('Search users')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Invite' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add' })).not.toBeInTheDocument();
     expect(screen.queryByText('Alice')).not.toBeInTheDocument();
   });
 });
