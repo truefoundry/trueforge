@@ -183,7 +183,7 @@ export function reconcileDraftWebSearch({
  */
 export function DraftSpecPreferenceBridge() {
   const { mode, pendingSessionId, rememberDraftSpec } = useShellMode();
-  const { agentSpec, isSpecLoading } = useTrueForgeAgentSpec();
+  const { agentSpec, draftSessionId, isSpecLoading } = useTrueForgeAgentSpec();
   const updateAgentSpec = useTrueForgeUpdateAgentSpec();
   const capabilities = useServerCapabilities();
   const sandboxEnabled = capabilities?.sandbox.enabled;
@@ -196,6 +196,9 @@ export function DraftSpecPreferenceBridge() {
   // seed — do not reconcile/PATCH that seed onto the resumed session.
   const canReconcileLiveSpec = !isSpecLoading;
   const preferenceKind = mode.status === 'active' && mode.isMutable && mode.isCreateAgent ? 'agent' : 'chat';
+  // A chat that already exists keeps the web search it was saved with, matching the
+  // server: the tenant switch gates turning web search on, not keeping it on.
+  const chatHasSession = preferenceKind === 'chat' && draftSessionId != null;
   useEffect(() => {
     if (isPlainDraft) ensureLoaded();
   }, [ensureLoaded, isPlainDraft]);
@@ -216,12 +219,15 @@ export function DraftSpecPreferenceBridge() {
   }, [agentSpec, canReconcileLiveSpec, isPlainDraft, preferenceKind, sandboxEnabled, updateAgentSpec]);
 
   useEffect(() => {
-    // Apply to New Chat / New Agent / edit-existing mutable drafts.
+    // Apply to New Chat / New Agent / edit-existing mutable drafts, never to a chat
+    // that is already a session.
     // Available → default on when absent; unavailable → force off. Explicit toggles are preserved.
     // Force-off recovery is only for plain drafts, and only when no choice was stored.
     const previousWebSearchEnabled = prevWebSearchEnabledRef.current;
     prevWebSearchEnabledRef.current = webSearchEnabled;
-    if (!isMutableDraft || !canReconcileLiveSpec || agentSpec == null || updateAgentSpec == null) return;
+    if (!isMutableDraft || chatHasSession || !canReconcileLiveSpec || agentSpec == null || updateAgentSpec == null) {
+      return;
+    }
     const update = reconcileDraftWebSearch({
       agentSpec,
       webSearchEnabled,
@@ -235,6 +241,7 @@ export function DraftSpecPreferenceBridge() {
   }, [
     agentSpec,
     canReconcileLiveSpec,
+    chatHasSession,
     isMutableDraft,
     isPlainDraft,
     preferenceKind,

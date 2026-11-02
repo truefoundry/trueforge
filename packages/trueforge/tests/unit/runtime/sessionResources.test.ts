@@ -311,6 +311,27 @@ describe('validateAgentSpec', () => {
     ).resolves.toBeUndefined();
   });
 
+  it('keeps web_search on a spec that already had it after the provider went away', async () => {
+    const stores = await setup();
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          config: { web_search: { enabled: true } },
+        }),
+        tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
+        ...stores,
+        previous_spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          config: { web_search: { enabled: true } },
+        }),
+      }),
+    ).resolves.toBeUndefined();
+  });
+
   it('admits turning web_search off while the tenant is disabled', async () => {
     const stores = await setup();
     await stores.configurationStore.upsertConfiguration({

@@ -350,16 +350,15 @@ export async function validateAgentSpec({
     }
   }
 
-  if (spec.config.web_search.enabled) {
-    // Already saved with web search on: the tenant switch only gates turning it on.
-    if (previous_spec?.config.web_search.enabled !== true) {
-      const tenantAllows = await isWebSearchEnabledForTenant({ tenant_id, store: configurationStore });
-      if (!tenantAllows) {
-        throw new HTTPException(422, {
-          message:
-            'web_search cannot be enabled because it is disabled for this tenant - an admin can re-enable it in settings',
-        });
-      }
+  // Both checks gate turning web search on. A spec already saved with it on keeps it,
+  // so later edits are not blocked by a switch or a provider that changed since.
+  if (spec.config.web_search.enabled && previous_spec?.config.web_search.enabled !== true) {
+    const tenantAllows = await isWebSearchEnabledForTenant({ tenant_id, store: configurationStore });
+    if (!tenantAllows) {
+      throw new HTTPException(422, {
+        message:
+          'web_search cannot be enabled because it is disabled for this tenant - an admin can re-enable it in settings',
+      });
     }
     const hasProvider = await hasConfiguredWebSearchProvider({ tenant_id, store: webSearchProviderStore });
     if (!hasProvider) {

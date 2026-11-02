@@ -143,14 +143,17 @@ export function AgentRuntimeConfigFields({
   const compactionEnabled = value.contextManagement?.compaction?.enabled ?? true;
   const thresholdMode: CompactionThresholdMode =
     value.contextManagement?.compaction?.trigger != null ? 'custom' : 'auto';
-  const webSearchField: RuntimeSwitchField | null = webSearchAvailable
-    ? {
-        label: 'Web search',
-        description: 'Allow the agent to search the web and fetch pages.',
-        checked: value.webSearch?.enabled ?? true,
-        update: enabled => ({ ...value, webSearch: { enabled } }),
-      }
-    : null;
+  // A spec that already searches the web keeps the row so it can still be turned off.
+  const webSearchChecked = value.webSearch?.enabled ?? webSearchAvailable;
+  const webSearchField: RuntimeSwitchField | null =
+    webSearchAvailable || webSearchChecked
+      ? {
+          label: 'Web search',
+          description: 'Allow the agent to search the web and fetch pages.',
+          checked: webSearchChecked,
+          update: enabled => ({ ...value, webSearch: { enabled } }),
+        }
+      : null;
   const sandboxField: RuntimeSwitchField = {
     label: 'Sandbox',
     description: 'Provide an isolated environment for code, files, and skills.',

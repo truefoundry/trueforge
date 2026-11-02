@@ -29,6 +29,9 @@ export function runtimeConfigSummary(
     { label: 'dynamic sub-agents', value: enabledLabel(config?.dynamicSubAgents?.enabled, true) },
     { label: 'generative UI', value: enabledLabel(config?.generativeUi?.enabled, true) },
     { label: 'ask user questions', value: enabledLabel(config?.askUserQuestions?.enabled, true) },
-    ...(webSearchAvailable ? [{ label: 'web search', value: enabledLabel(config?.webSearch?.enabled, true) }] : []),
+    // Still listed when the spec searches the web but the tenant no longer allows it.
+    ...(webSearchAvailable || config?.webSearch?.enabled === true
+      ? [{ label: 'web search', value: enabledLabel(config?.webSearch?.enabled, true) }]
+      : []),
   ];
 }

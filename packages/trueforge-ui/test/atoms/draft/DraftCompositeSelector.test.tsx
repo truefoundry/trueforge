@@ -626,4 +626,30 @@ describe('DraftCompositeSelector', () => {
     fireEvent.click(checkbox);
     expect(updateAgentSpec).not.toHaveBeenCalled();
   });
+
+  it('lets a chat that already searches the web turn it off after the capability goes away', async () => {
+    agentSpec = {
+      ...agentSpec,
+      config: { webSearch: { enabled: true } },
+    };
+    renderSelector({
+      getCapabilities: async () => ({
+        data: {
+          sandbox: { enabled: true },
+          skill: { enabled: true },
+          webSearch: { enabled: false },
+        },
+      }),
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
+    await waitFor(() => {
+      const row = screen.getByRole('menuitemcheckbox', { name: /Web search/ });
+      expect(row).toHaveAttribute('aria-checked', 'true');
+      expect(row).not.toHaveAttribute('aria-disabled', 'true');
+    });
+
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /Web search/ }));
+    expect(updateAgentSpec).toHaveBeenCalledWith({ config: { webSearch: { enabled: false } } });
+  });
 });

@@ -339,6 +339,9 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   const skillsDisabledReason = capabilities?.skill.reason;
   const webSearchCapabilityEnabled = capabilities?.webSearch?.enabled === true;
   const webSearchEnabled = agentSpec?.config?.webSearch?.enabled ?? webSearchCapabilityEnabled;
+  // A chat that already searches the web keeps it until the user turns it off; only
+  // turning it back on needs the capability.
+  const canToggleWebSearch = webSearchCapabilityEnabled || webSearchEnabled;
   const needsSandbox = capabilities?.sandbox.enabled === false;
   const settings = capabilities?.settings;
   const canConfigureConnectors =
@@ -493,7 +496,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   };
 
   const toggleWebSearch = () => {
-    if (!webSearchCapabilityEnabled || agentSpec == null) return;
+    if (!canToggleWebSearch || agentSpec == null) return;
     const nextEnabled = !webSearchEnabled;
     const nextSpec = {
       ...agentSpec,
@@ -692,7 +695,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                     description={WEB_SEARCH_BUILTIN_DESCRIPTION}
                     fallbackIcon="searchGlobe"
                     checked={webSearchEnabled}
-                    disabled={!webSearchCapabilityEnabled}
+                    disabled={!canToggleWebSearch}
                     disabledReason={NO_WEB_SEARCH_PROVIDER_HINT}
                     onToggle={toggleWebSearch}
                   />
