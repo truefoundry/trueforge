@@ -8,7 +8,7 @@ import {
   type Configurations,
   type ConfigurationsManifest,
   type ConfigurationsManifestPatch,
-  type CreateOrUpdateConfigurations,
+  type UpdateConfigurationsRequest,
 } from '../schemas/configurations';
 
 export interface ConfigurationsRouterDeps {
@@ -61,7 +61,7 @@ export function createConfigurationsRouter(deps: ConfigurationsRouterDeps) {
   };
 
   const patchHandler: RouteHandler<typeof patchConfigurationsRoute> = async c => {
-    const body: CreateOrUpdateConfigurations = c.req.valid('json');
+    const body: UpdateConfigurationsRequest = c.req.valid('json');
     const requestContext = deps.resolveRequestContext(c);
     const store = deps.resolveConfigurationStore(c);
     const current = await loadOrCreate({ tenant_id: requestContext.tenant_id, store });

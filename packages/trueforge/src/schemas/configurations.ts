@@ -28,12 +28,12 @@ export const ConfigurationsSchema = z
   .strict()
   .openapi('Configurations');
 
-export const CreateOrUpdateConfigurationsSchema = z
+export const UpdateConfigurationsRequestSchema = z
   .object({
     manifest: ConfigurationsManifestPatchSchema,
   })
   .strict()
-  .openapi('CreateOrUpdateConfigurations');
+  .openapi('UpdateConfigurationsRequest');
 
 export const GetConfigurationsResponseSchema = z
   .object({
@@ -44,7 +44,7 @@ export const GetConfigurationsResponseSchema = z
 export type ConfigurationsManifest = z.infer<typeof ConfigurationsManifestSchema>;
 export type ConfigurationsManifestPatch = z.infer<typeof ConfigurationsManifestPatchSchema>;
 export type Configurations = z.infer<typeof ConfigurationsSchema>;
-export type CreateOrUpdateConfigurations = z.infer<typeof CreateOrUpdateConfigurationsSchema>;
+export type UpdateConfigurationsRequest = z.infer<typeof UpdateConfigurationsRequestSchema>;
 
 /** Written the first time a tenant is read or updated, so existing tenants keep every feature on. */
 export const DEFAULT_CONFIGURATIONS_MANIFEST: ConfigurationsManifest = {

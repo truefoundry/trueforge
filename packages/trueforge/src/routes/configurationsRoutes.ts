@@ -1,5 +1,5 @@
 import { createRoute } from '@hono/zod-openapi';
-import { CreateOrUpdateConfigurationsSchema, GetConfigurationsResponseSchema } from '../schemas/configurations';
+import { GetConfigurationsResponseSchema, UpdateConfigurationsRequestSchema } from '../schemas/configurations';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import { OpenApiTag } from './openapiTags';
 
@@ -38,7 +38,7 @@ export const patchConfigurationsRoute = createRoute({
   'x-fern-sdk-method-name': 'update',
   request: {
     body: {
-      content: { 'application/json': { schema: CreateOrUpdateConfigurationsSchema } },
+      content: { 'application/json': { schema: UpdateConfigurationsRequestSchema } },
       required: true,
     },
   },
