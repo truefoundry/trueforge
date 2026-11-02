@@ -71,7 +71,22 @@ const allOnConfigurationStore: IConfigurationStore = {
   getOrCreateConfiguration: () => Promise.reject(new Error('not used')),
 };
 
-function stubTurnExecutionDeps(agentStore: SqliteAgentStore, scheduleStore: SqliteScheduleStore) {
+const webSearchOffConfigurationStore: IConfigurationStore = {
+  getConfiguration: () =>
+    Promise.resolve({
+      tenant_id: 'default',
+      manifest: { web_search: { enabled: false } },
+      updated_at: '2026-01-01T00:00:00.000Z',
+    }),
+  upsertConfiguration: () => Promise.reject(new Error('not used')),
+  getOrCreateConfiguration: () => Promise.reject(new Error('not used')),
+};
+
+function stubTurnExecutionDeps(
+  agentStore: SqliteAgentStore,
+  scheduleStore: SqliteScheduleStore,
+  configurationStore: IConfigurationStore,
+) {
   const sessionStore = new InMemorySessionStore();
   return {
     scheduleStore,
@@ -87,11 +102,14 @@ function stubTurnExecutionDeps(agentStore: SqliteAgentStore, scheduleStore: Sqli
     resolveSandboxProviderStore: () => ({}) as never,
     sandboxEnvironmentStore: {} as never,
     resolveWebSearchProviderStore: () => ({}) as never,
-    resolveConfigurationStore: () => allOnConfigurationStore,
+    resolveConfigurationStore: () => configurationStore,
   };
 }
 
-async function setup(authorizer: Authorizer = new TrueForgeAuthorizer()) {
+async function setup(
+  authorizer: Authorizer = new TrueForgeAuthorizer(),
+  configurationStore: IConfigurationStore = allOnConfigurationStore,
+) {
   const db = createSqliteDb(':memory:');
   await migrateSqliteToLatest(db);
   const agentStore = new SqliteAgentStore(db);
@@ -117,7 +135,7 @@ async function setup(authorizer: Authorizer = new TrueForgeAuthorizer()) {
   app.route(
     '/',
     createSchedulesRouter({
-      ...stubTurnExecutionDeps(agentStore, scheduleStore),
+      ...stubTurnExecutionDeps(agentStore, scheduleStore, configurationStore),
       resolveAgentStore: () => agentStore,
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => current,
@@ -180,6 +198,47 @@ describe('schedule RBAC', () => {
     expect(aliceRunsBody.data).toEqual([expect.objectContaining({ schedule_id: id })]);
     expect(aliceRunsBody.pagination.next_page_token).toBeUndefined();
     expect((await app.request(`/${id}`, { method: 'DELETE' })).status).toBe(200);
+  });
+
+  it('snapshots the tenant web search switch on the schedule it creates', async () => {
+    const { asUser, postJson, scheduleStore } = await setup();
+    asUser(ALICE);
+
+    const created = await postJson('/', 'POST', scheduleBody);
+    const { id } = ((await created.json()) as { data: { id: string } }).data;
+
+    const stored = await scheduleStore.getSchedule({ tenant_id: 'default', id });
+    expect(stored?.web_search_allowed).toBe(true);
+  });
+
+  it('refuses a schedule on a web-search agent while the tenant switch is off', async () => {
+    const { asUser, postJson, agentStore, scheduleStore } = await setup(
+      new TrueForgeAuthorizer(),
+      webSearchOffConfigurationStore,
+    );
+    await agentStore.createAgent({
+      tenant_id: 'default',
+      created_by_subject: { subject_id: 'alice', subject_type: 'user', subject_display_name: 'alice' },
+      name: 'searcher',
+      description: 'Test agent.',
+      manifest: AgentSpecSchema.parse({
+        model: { name: 'test-provider/test-model' },
+        instructions: 'test',
+        config: { web_search: { enabled: true } },
+      }),
+      external_id: 'searcher-external-id',
+    });
+    asUser(ALICE);
+
+    const refused = await postJson('/', 'POST', { ...scheduleBody, agent_name: 'searcher' });
+    expect(refused.status).toBe(422);
+
+    // An agent that does not search still gets a schedule, with the switch recorded as off.
+    const created = await postJson('/', 'POST', scheduleBody);
+    expect(created.status).toBe(201);
+    const { id } = ((await created.json()) as { data: { id: string } }).data;
+    const stored = await scheduleStore.getSchedule({ tenant_id: 'default', id });
+    expect(stored?.web_search_allowed).toBe(false);
   });
 
   it('rejects an invalid page_token when listing runs', async () => {
@@ -505,6 +564,7 @@ describe('internal schedule execution', () => {
         subject_type: 'user',
         subject_display_name: 'alice',
       },
+      web_search_allowed: true,
       runFrom: new Date(),
     });
     const run = await scheduleStore.createRun({
@@ -520,7 +580,9 @@ describe('internal schedule execution', () => {
       },
       triggered_at: new Date(),
     });
-    const app = createScheduleExecutionRouter(stubTurnExecutionDeps(agentStore, scheduleStore));
+    const app = createScheduleExecutionRouter(
+      stubTurnExecutionDeps(agentStore, scheduleStore, allOnConfigurationStore),
+    );
 
     const response = await app.request('/runs/execute', {
       method: 'POST',
@@ -556,6 +618,7 @@ describe('internal schedule execution', () => {
       name: 'daily-report',
       manifest: { task: 'Say hi', cron: '0 13 * * *', timezone: 'UTC', status: 'active' },
       created_by_subject: { subject_id: 'alice', subject_type: 'user', subject_display_name: 'alice' },
+      web_search_allowed: true,
       runFrom: new Date(),
     });
     const run = await scheduleStore.createRun({
@@ -567,7 +630,9 @@ describe('internal schedule execution', () => {
       created_by_subject: { subject_id: 'alice', subject_type: 'user', subject_display_name: 'alice' },
       triggered_at: new Date(),
     });
-    const app = createScheduleExecutionRouter(stubTurnExecutionDeps(agentStore, scheduleStore));
+    const app = createScheduleExecutionRouter(
+      stubTurnExecutionDeps(agentStore, scheduleStore, allOnConfigurationStore),
+    );
 
     const response = await app.request('/runs/execute', {
       method: 'POST',
@@ -588,7 +653,9 @@ describe('internal schedule execution', () => {
     await migrateSqliteToLatest(db);
     const agentStore = new SqliteAgentStore(db);
     const scheduleStore = new SqliteScheduleStore(db);
-    const app = createScheduleExecutionRouter(stubTurnExecutionDeps(agentStore, scheduleStore));
+    const app = createScheduleExecutionRouter(
+      stubTurnExecutionDeps(agentStore, scheduleStore, allOnConfigurationStore),
+    );
 
     const response = await app.request('/runs/execute', {
       method: 'POST',

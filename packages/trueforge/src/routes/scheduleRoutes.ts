@@ -234,6 +234,10 @@ export const createScheduleRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'The name is already taken for this agent, or the schedule was modified concurrently (retry).',
     },
+    422: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'The agent uses web search, which is turned off for this tenant.',
+    },
   },
 });
 

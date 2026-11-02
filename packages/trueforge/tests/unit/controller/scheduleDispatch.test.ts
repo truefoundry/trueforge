@@ -58,7 +58,7 @@ describe('scheduleRunFailureReason', () => {
   });
 });
 
-function item(): ScheduleDispatchItem {
+function item({ webSearchAllowed = false }: { webSearchAllowed?: boolean } = {}): ScheduleDispatchItem {
   return {
     run: {
       id: 'run-1',
@@ -87,6 +87,7 @@ function item(): ScheduleDispatchItem {
         status: 'active',
       }),
       status: 'active',
+      web_search_allowed: webSearchAllowed,
       created_by_subject: { subject_id: 'tester', subject_type: 'user', subject_display_name: 'tester' },
       created_at: '2026-08-31T00:00:00.000Z',
       updated_at: '2026-08-31T00:00:00.000Z',
@@ -257,6 +258,27 @@ describe('startScheduleRun', () => {
       }),
     ).resolves.toBeDefined();
     expect(getOrCreateByExternalId).toHaveBeenCalled();
+  });
+
+  it('keeps running a schedule created while web search was still allowed', async () => {
+    const listTurns = jest.fn().mockResolvedValue({ data: [] });
+    const getOrCreateByExternalId = jest
+      .fn()
+      .mockResolvedValue({ session: { session_id: 'session-1', listTurns }, created: true });
+    const getConfiguration = jest.fn();
+
+    await expect(
+      startScheduleRun({
+        item: item({ webSearchAllowed: true }),
+        sessions: { getOrCreateByExternalId } as never,
+        agentStore: { getAgent: jest.fn().mockResolvedValue(agentRecord({ webSearch: true })) } as never,
+        scheduleStore: { updateRun: jest.fn() },
+        configurationStore: { ...webSearchOffConfigurationStore(), getConfiguration },
+      }),
+    ).resolves.toBeDefined();
+    expect(getOrCreateByExternalId).toHaveBeenCalled();
+    // The snapshot answers on its own; the tenant switch is never read.
+    expect(getConfiguration).not.toHaveBeenCalled();
   });
 
   it('throws without linking when the schedule agent is missing', async () => {

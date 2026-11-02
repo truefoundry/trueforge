@@ -70,13 +70,15 @@ export class ScheduleNotFoundError extends Error {
   }
 }
 
-/** Each run opens a new session, so the tenant switch applies the same as it does to a new chat. */
+/** Shared so schedule create and a schedule run refuse in the same words. */
+export function scheduleWebSearchDisabledMessage(agentName: string): string {
+  return `Agent "${agentName}" has web_search enabled, which is disabled for this tenant - an admin can re-enable it in settings`;
+}
+
+/** Thrown for a run whose schedule was created without the tenant web search switch. */
 export class ScheduleWebSearchDisabledError extends Error {
   constructor(agentName: string, options?: ErrorOptions) {
-    super(
-      `Agent "${agentName}" has web_search enabled, which is disabled for this tenant - an admin can re-enable it in settings`,
-      options,
-    );
+    super(scheduleWebSearchDisabledMessage(agentName), options);
     this.name = 'ScheduleWebSearchDisabledError';
   }
 }
@@ -118,7 +120,9 @@ export async function startScheduleRun<TTransaction>(params: {
     throw new ScheduleAgentNotFoundError(schedule.agent_name);
   }
 
-  if (named.manifest.config.web_search.enabled) {
+  // A schedule created while the tenant allowed web search keeps it. Only one created
+  // without it has to ask, since every run otherwise starts a fresh session.
+  if (named.manifest.config.web_search.enabled && !schedule.web_search_allowed) {
     const allowed = await isWebSearchEnabledForTenant({
       tenant_id: schedule.tenant_id,
       store: configurationStore,

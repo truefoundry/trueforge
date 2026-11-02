@@ -19,6 +19,7 @@ import {
   requestContextFromCreatedBySubject,
   type ResolveRequestContext,
 } from '../auth/identity';
+import { isWebSearchEnabledForTenant } from '../configurations/configurations';
 import {
   loadScheduleDispatchItem,
   ScheduleAgentNotFoundError,
@@ -26,6 +27,7 @@ import {
   scheduleRunFailureReason,
   ScheduleRunNotFoundError,
   ScheduleWebSearchDisabledError,
+  scheduleWebSearchDisabledMessage,
   startScheduleRun,
 } from '../controller/scheduleDispatch';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
@@ -407,6 +409,15 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
       return c.json({ error: { message: `Agent not found: ${body.agent_name}` } }, 404);
     }
 
+    // Snapshotted so later runs keep the permission this schedule was created with.
+    const webSearchAllowed = await isWebSearchEnabledForTenant({
+      tenant_id: requestContext.tenant_id,
+      store: deps.resolveConfigurationStore(c),
+    });
+    if (!webSearchAllowed && agent.manifest.config.web_search.enabled) {
+      return c.json({ error: { message: scheduleWebSearchDisabledMessage(agent.name) } }, 422);
+    }
+
     let record: ScheduleRecord;
     try {
       record = await deps.withTransaction(async transaction => {
@@ -417,6 +428,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
             agent_name: agent.name,
             name: body.name,
             manifest: body.manifest,
+            web_search_allowed: webSearchAllowed,
             created_by_subject: createdBySubjectFromRequestContext(requestContext),
             runFrom: new Date(),
           },

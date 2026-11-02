@@ -46,6 +46,12 @@ export interface ScheduleRecord {
   name: string;
   manifest: ScheduleManifest;
   status: ScheduleStatus;
+  /**
+   * Create-time snapshot of the tenant web search switch. Each run opens a new
+   * session, so without it a schedule made while web search was allowed would
+   * start failing the moment an admin turns the switch off.
+   */
+  web_search_allowed: boolean;
   created_by_subject: CreatedBySubject;
   /** ISO-8601 UTC instant. */
   created_at: string;
@@ -135,6 +141,8 @@ export interface CreateScheduleInput {
   agent_name: string;
   name: string;
   manifest: ScheduleManifest;
+  /** Tenant web search switch as it stands now; later runs keep honoring it. */
+  web_search_allowed: boolean;
   created_by_subject: CreatedBySubject;
   /** Instant used to compute the first pending run when status is active. */
   runFrom: Date;

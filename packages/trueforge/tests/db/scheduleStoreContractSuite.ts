@@ -54,6 +54,7 @@ export function runScheduleStoreContractSuite(deps: {
       name: 'daily',
       manifest: m,
       created_by_subject: USER_SUBJECT,
+      web_search_allowed: true,
       runFrom,
     });
 
@@ -82,6 +83,7 @@ export function runScheduleStoreContractSuite(deps: {
       name: 'paused-at-create',
       manifest: manifest({ status: 'paused' }),
       created_by_subject: USER_SUBJECT,
+      web_search_allowed: true,
       runFrom: new Date(),
     });
 
@@ -99,6 +101,7 @@ export function runScheduleStoreContractSuite(deps: {
       name: 'toggle',
       manifest: manifest({ cron: '0 * * * *', timezone: 'UTC' }),
       created_by_subject: USER_SUBJECT,
+      web_search_allowed: true,
       runFrom: new Date('2026-08-27T10:15:00.000Z'),
     });
     expect(await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id })).toBeDefined();
@@ -138,6 +141,7 @@ export function runScheduleStoreContractSuite(deps: {
       name: 'reclock',
       manifest: manifest({ cron: '0 9 * * *', timezone: 'UTC' }),
       created_by_subject: USER_SUBJECT,
+      web_search_allowed: true,
       runFrom,
     });
     expect(first?.scheduled_for).toBe(
@@ -171,6 +175,7 @@ export function runScheduleStoreContractSuite(deps: {
       name: 'label-only',
       manifest: manifest({ cron: '0 9 * * *', timezone: 'UTC', task: 'old task' }),
       created_by_subject: USER_SUBJECT,
+      web_search_allowed: true,
       runFrom,
     });
     expect(first).toBeDefined();
@@ -201,6 +206,7 @@ export function runScheduleStoreContractSuite(deps: {
         name,
         manifest: manifest({ status: 'paused' }),
         created_by_subject: USER_SUBJECT,
+        web_search_allowed: true,
         runFrom: new Date(),
       });
 
@@ -219,6 +225,7 @@ export function runScheduleStoreContractSuite(deps: {
         name: 'daily-report',
         manifest: manifest({ status: 'paused' }),
         created_by_subject: USER_SUBJECT,
+        web_search_allowed: true,
         runFrom: new Date(),
       });
 
@@ -236,6 +243,7 @@ export function runScheduleStoreContractSuite(deps: {
       name: 'taken',
       manifest: manifest({ status: 'paused' }),
       created_by_subject: USER_SUBJECT,
+      web_search_allowed: true,
       runFrom: new Date(),
     });
     const { schedule: other } = await store.createScheduleAndRun({
@@ -245,6 +253,7 @@ export function runScheduleStoreContractSuite(deps: {
       name: 'free',
       manifest: manifest({ status: 'paused' }),
       created_by_subject: USER_SUBJECT,
+      web_search_allowed: true,
       runFrom: new Date(),
     });
 
@@ -269,6 +278,7 @@ export function runScheduleStoreContractSuite(deps: {
       name: 'paused-edit',
       manifest: manifest({ status: 'paused', cron: '0 9 * * *' }),
       created_by_subject: USER_SUBJECT,
+      web_search_allowed: true,
       runFrom: new Date('2026-08-27T08:00:00.000Z'),
     });
 
@@ -297,6 +307,7 @@ export function runScheduleStoreContractSuite(deps: {
         name,
         manifest: manifest({ status: 'paused' }),
         created_by_subject: USER_SUBJECT,
+        web_search_allowed: true,
         runFrom: new Date(),
       });
       return schedule;
@@ -359,6 +370,7 @@ export function runScheduleStoreContractSuite(deps: {
       name: 'to-delete',
       manifest: manifest({ status: 'paused' }),
       created_by_subject: USER_SUBJECT,
+      web_search_allowed: true,
       runFrom: new Date(),
     });
 
@@ -403,6 +415,7 @@ export function runScheduleStoreContractSuite(deps: {
         name: 'orphan',
         manifest: manifest(),
         created_by_subject: USER_SUBJECT,
+        web_search_allowed: true,
         runFrom: new Date(),
       }),
     ).rejects.toThrow();
@@ -418,6 +431,7 @@ export function runScheduleStoreContractSuite(deps: {
       name: 'bound-to-agent',
       manifest: manifest({ cron: '0 * * * *', timezone: 'UTC' }),
       created_by_subject: USER_SUBJECT,
+      web_search_allowed: true,
       runFrom: new Date('2026-08-27T10:00:00.000Z'),
     });
     expect(pendingRun).toBeDefined();
@@ -442,6 +456,7 @@ export function runScheduleStoreContractSuite(deps: {
       name: 'name-unique',
       manifest: manifest({ status: 'paused' }),
       created_by_subject: USER_SUBJECT,
+      web_search_allowed: true,
       runFrom: new Date(),
     });
 
@@ -478,6 +493,7 @@ export function runScheduleStoreContractSuite(deps: {
       name: 'one-pending',
       manifest: manifest({ status: 'paused' }),
       created_by_subject: USER_SUBJECT,
+      web_search_allowed: true,
       runFrom: new Date(),
     });
 
@@ -516,6 +532,7 @@ export function runScheduleStoreContractSuite(deps: {
       name: 'list-older',
       manifest: manifest({ status: 'paused' }),
       created_by_subject: USER_SUBJECT,
+      web_search_allowed: true,
       runFrom: new Date(),
     });
     // Distinct `created_at` so newest-first order is stable.
@@ -527,6 +544,7 @@ export function runScheduleStoreContractSuite(deps: {
       name: 'list-newer',
       manifest: manifest({ status: 'paused' }),
       created_by_subject: USER_SUBJECT,
+      web_search_allowed: true,
       runFrom: new Date(),
     });
     await new Promise(resolve => setTimeout(resolve, 5));
@@ -537,6 +555,7 @@ export function runScheduleStoreContractSuite(deps: {
       name: 'list-other-agent',
       manifest: manifest({ status: 'paused' }),
       created_by_subject: USER_SUBJECT,
+      web_search_allowed: true,
       runFrom: new Date(),
     });
 
@@ -626,6 +645,7 @@ export function runScheduleStoreContractSuite(deps: {
       name: 'owned',
       manifest: manifest({ status: 'paused' }),
       created_by_subject: USER_SUBJECT,
+      web_search_allowed: true,
       runFrom: new Date(),
     });
     const managed = await store.createScheduleAndRun({
@@ -635,6 +655,7 @@ export function runScheduleStoreContractSuite(deps: {
       name: 'managed',
       manifest: manifest({ status: 'paused' }),
       created_by_subject: otherSubject,
+      web_search_allowed: true,
       runFrom: new Date(),
     });
     await store.createScheduleAndRun({
@@ -644,6 +665,7 @@ export function runScheduleStoreContractSuite(deps: {
       name: 'unmanaged',
       manifest: manifest({ status: 'paused' }),
       created_by_subject: otherSubject,
+      web_search_allowed: true,
       runFrom: new Date(),
     });
 
@@ -699,6 +721,7 @@ export function runScheduleStoreContractSuite(deps: {
       name: 'runs-a',
       manifest: manifest({ status: 'paused' }),
       created_by_subject: USER_SUBJECT,
+      web_search_allowed: true,
       runFrom: new Date(),
     });
     const older = await store.createRun({
@@ -725,6 +748,7 @@ export function runScheduleStoreContractSuite(deps: {
       name: 'runs-b',
       manifest: manifest({ status: 'paused' }),
       created_by_subject: USER_SUBJECT,
+      web_search_allowed: true,
       runFrom: new Date(),
     });
     const otherScheduleRun = await store.createRun({
@@ -795,6 +819,7 @@ export function runScheduleStoreContractSuite(deps: {
       name: 'run-status',
       manifest: manifest({ status: 'paused' }),
       created_by_subject: USER_SUBJECT,
+      web_search_allowed: true,
       runFrom: new Date(),
     });
 
@@ -911,6 +936,7 @@ export function runScheduleStoreContractSuite(deps: {
       name: 'run-session',
       manifest: manifest({ status: 'paused' }),
       created_by_subject: USER_SUBJECT,
+      web_search_allowed: true,
       runFrom: new Date(),
     });
     const triggeredAt = new Date('2026-08-27T10:00:00.000Z');
