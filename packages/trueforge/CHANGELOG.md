@@ -1,5 +1,18 @@
 # @truefoundry/trueforge
 
+## 0.183.0-rc.1
+
+### Patch Changes
+
+- 65078a1: Add optional Sentry error reporting to the frontend, enabled by the VITE_SENTRY_DSN build arg. Trace user-triggered API calls (session create, turn streams) in Sentry.
+- 6a014b6: Mark sandbox env builds failed on Daytona 4xx (e.g. over provider resource caps), lower default env resource caps to 4 CPU / 8 GiB / 10 GiB, and name the Helm controller container trueforge-controller.
+- 4d0c0f9: Session grants now give read access, and sharing with everyone in the tenant is a `tenant` grant. `Session.shared` reflects the tenant grant, and the deprecated `PATCH /sessions/{id} { shared }` now grants or revokes it. Adds the `session_sharing.enabled` capability.
+- a718e71: Accept `x-tfg-tools` as an array of MCP tool definitions (`inputSchema`, optional `outputSchema`) on a TrueFoundry-mode turn. The header is read by a per-request store and mounted on the main thread through `TurnResourceResolver`. Local tool lists keep `outputSchema` and `annotations`.
+- Updated dependencies [e7c661a]
+- Updated dependencies [4d0c0f9]
+- Updated dependencies [a718e71]
+  - @truefoundry/trueforge-core@0.183.0-rc.1
+
 ## 0.182.0
 
 ### Patch Changes

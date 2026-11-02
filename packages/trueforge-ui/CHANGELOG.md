@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.183.0-rc.1
+
+### Patch Changes
+
+- 218c95e: Show a Configure model button that opens Settings when the model catalog is empty, instead of a Select model dropdown with a ? monogram.
+- e3fed89: Let users without manage access open an environment in a read-only drawer to view its configuration.
+- ecb51f7: Omit tenant session grants from the session access collaborator list; tenant-wide sharing stays on `session.shared`.
+- f2ead70: Link the Runtime Config header to the create-agent docs.
+- ecb51f7: Share sessions with specific users when capabilities report `session_sharing.users`: Harness implements the session access port (invite search, grants, revoke); tenant-wide access still uses the session `shared` flag.
+- 0c8bd18: Mark the Skills version dropdown "latest" badge from the highest version returned by listVersions, so a stale catalog snapshot cannot label an older row.
+- Updated dependencies [ecb51f7]
+  - @truefoundry/trueforge-assistant-ui-runtime@0.183.0-rc.1
+
 ## 0.182.0
 
 ### Patch Changes
