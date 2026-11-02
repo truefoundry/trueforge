@@ -59,8 +59,11 @@ function ServerScope({ server, children }: { server: AgentUIServer; children: Re
     queryClient,
   );
   const refreshCapabilities = useCallback(() => {
-    // A failed refresh keeps the last known capabilities.
-    void queryClient.invalidateQueries({ queryKey: queryKeys.capabilities() });
+    // Cancel any in-flight first load so invalidate always starts a fresh request
+    // (invalidate alone reuses a pending query that still has no data).
+    void queryClient
+      .cancelQueries({ queryKey: queryKeys.capabilities() })
+      .then(() => queryClient.invalidateQueries({ queryKey: queryKeys.capabilities() }));
   }, [queryClient]);
 
   const capabilities = capabilitiesQuery.data ?? null;

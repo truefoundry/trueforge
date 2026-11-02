@@ -4,7 +4,7 @@ import { act, render, renderHook, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { useServerQueryClient } from '@/server/queryClient.js';
-import { ServerProvider, useServerCapabilities } from '@/server/ServerContext.js';
+import { ServerProvider, useOptionalRefreshServerCapabilities, useServerCapabilities } from '@/server/ServerContext.js';
 import type { AgentBuilderCapabilitiesResponse } from '@/server/types.js';
 
 import { createMockAgentUIServer } from './mockServer.js';
@@ -18,6 +18,15 @@ function capabilitiesResponse(settingsEnabled: boolean): AgentBuilderCapabilitie
 function CapabilitiesProbe() {
   const capabilities = useServerCapabilities();
   return <output>{capabilities == null ? 'pending' : String(capabilities.settings?.enabled)}</output>;
+}
+
+function RefreshProbe() {
+  const refresh = useOptionalRefreshServerCapabilities();
+  return (
+    <button type="button" onClick={() => refresh?.()}>
+      refresh
+    </button>
+  );
 }
 
 describe('ServerProvider query cache', () => {
@@ -69,5 +78,38 @@ describe('ServerProvider query cache', () => {
     await screen.findByText('false');
     expect(firstCapabilities).toHaveBeenCalledTimes(1);
     expect(secondCapabilities).toHaveBeenCalledTimes(1);
+  });
+
+  it('starts a new capabilities request when refresh runs during the first load', async () => {
+    let resolveFirst!: (value: AgentBuilderCapabilitiesResponse) => void;
+    const firstPending = new Promise<AgentBuilderCapabilitiesResponse>(resolve => {
+      resolveFirst = resolve;
+    });
+    const getCapabilities = vi
+      .fn()
+      .mockImplementationOnce(() => firstPending)
+      .mockImplementationOnce(async () => capabilitiesResponse(false));
+
+    render(
+      <ServerProvider server={createMockAgentUIServer({ getCapabilities })}>
+        <CapabilitiesProbe />
+        <RefreshProbe />
+      </ServerProvider>,
+    );
+
+    expect(screen.getByText('pending')).toBeTruthy();
+    expect(getCapabilities).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      screen.getByRole('button', { name: 'refresh' }).click();
+    });
+
+    await act(async () => {
+      resolveFirst(capabilitiesResponse(true));
+      await Promise.resolve();
+    });
+
+    await screen.findByText('false');
+    expect(getCapabilities).toHaveBeenCalledTimes(2);
   });
 });
