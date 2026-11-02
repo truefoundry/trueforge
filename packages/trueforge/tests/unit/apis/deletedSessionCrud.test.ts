@@ -74,10 +74,12 @@ describe('public CRUD after session deletion', () => {
       createTurnsRouter({
         sessions,
         sessionStore,
+        accessControlStore: new SqliteAccessControlStore(db),
         activeTurns,
         resolveModelProviderStore: () => modelProviderStore,
         resolveMcpServerStore: () => mcpServerStore,
         resolveTurnSkillsStore: () => skillStore,
+        resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
         resolveAgentStore: () => agentStore,
         eventSubscriptions: new EventSubscriptionRegistry(undefined),
         resolveSandboxProviderStore: () => sandboxProviderStore,

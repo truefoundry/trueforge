@@ -1,11 +1,11 @@
 import type { CreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
 import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
 import type {
-  GrantSessionAccessInput,
+  AccessGrantRecord,
+  CreateAccessGrantsInput,
+  DeleteAccessGrantsInput,
   IAccessControlStore,
-  ListSessionAccessInput,
-  RevokeSessionAccessInput,
-  SessionAccessRecord,
+  ListAccessGrantsInput,
 } from '../../accessControlStore';
 import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
 import type { Database } from '../types';
@@ -29,22 +29,7 @@ export class SqliteAccessControlStore implements IAccessControlStore<Transaction
     this.#db = db;
   }
 
-  async listSessionAccess(
-    input: ListSessionAccessInput,
-    transaction?: Transaction<Database>,
-  ): Promise<SessionAccessRecord[]> {
-    const db = transaction ?? this.#db;
-    return await db
-      .selectFrom('access_control')
-      .select(recordColumns)
-      .where('tenant_id', '=', input.tenant_id)
-      .where('session_id', '=', input.session_id)
-      .orderBy('created_at')
-      .orderBy('subject_id')
-      .execute();
-  }
-
-  async grantSessionAccess(input: GrantSessionAccessInput, transaction?: Transaction<Database>): Promise<void> {
+  async createAccessGrants(input: CreateAccessGrantsInput, transaction?: Transaction<Database>): Promise<void> {
     const db = transaction ?? this.#db;
     const timestamp = nowIso();
     await db
@@ -63,7 +48,33 @@ export class SqliteAccessControlStore implements IAccessControlStore<Transaction
       .execute();
   }
 
-  async revokeSessionAccess(input: RevokeSessionAccessInput, transaction?: Transaction<Database>): Promise<void> {
+  async listAccessGrants(
+    input: ListAccessGrantsInput,
+    transaction?: Transaction<Database>,
+  ): Promise<AccessGrantRecord[]> {
+    const { subjects } = input;
+    if (input.session_ids.length === 0 || subjects?.length === 0) {
+      return [];
+    }
+    const db = transaction ?? this.#db;
+    let query = db
+      .selectFrom('access_control')
+      .select(recordColumns)
+      .where('tenant_id', '=', input.tenant_id)
+      .where('session_id', 'in', [...input.session_ids]);
+    if (subjects !== undefined) {
+      query = query.where(eb =>
+        eb.or(
+          subjects.map(subject =>
+            eb.and([eb('subject_type', '=', subject.subject_type), eb('subject_id', '=', subject.subject_id)]),
+          ),
+        ),
+      );
+    }
+    return await query.orderBy('session_id').orderBy('created_at').orderBy('subject_id').execute();
+  }
+
+  async deleteAccessGrants(input: DeleteAccessGrantsInput, transaction?: Transaction<Database>): Promise<void> {
     const db = transaction ?? this.#db;
     await db
       .deleteFrom('access_control')

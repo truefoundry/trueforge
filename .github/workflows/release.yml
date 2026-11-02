@@ -476,6 +476,7 @@ jobs:
       # shared workflow can append them to image_build_args.
       image_build_secrets: |
         VITE_POSTHOG_API_KEY=${{ secrets.TRUEFORGE_POSTHOG_API_KEY }}
+        VITE_SENTRY_DSN=${{ secrets.TRUEFORGE_SENTRY_DSN }}
 
   release-chart:
     name: Publish Helm chart

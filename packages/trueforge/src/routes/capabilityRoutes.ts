@@ -29,12 +29,23 @@ const WebSearchCapabilitySchema = z
   })
   .openapi('WebSearchCapability');
 
+const SessionSharingCapabilitySchema = z
+  .object({
+    enabled: z
+      .boolean()
+      .describe(
+        'Whether sessions can be shared with specific users. Sharing with the whole tenant is always available.',
+      ),
+  })
+  .openapi('SessionSharingCapability');
+
 const CapabilitiesDataSchema = z
   .object({
     sandbox: SandboxCapabilitySchema,
     skill: SkillCapabilitySchema,
     settings: SettingsCapabilitySchema,
     web_search: WebSearchCapabilitySchema,
+    session_sharing: SessionSharingCapabilitySchema,
   })
   .openapi('CapabilitiesData');
 

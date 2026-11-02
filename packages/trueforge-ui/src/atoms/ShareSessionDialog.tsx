@@ -1,13 +1,21 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 
 import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '../analytics/events.js';
-import { useShareSessionDialog, type SessionSharePermission } from '../hooks/useShareSessionDialog.js';
+import { useSessionUserSearch } from '../hooks/useSessionUserSearch.js';
+import {
+  SESSION_SHARE_PRIVATE,
+  SESSION_SHARE_TENANT,
+  useShareSessionDialog,
+  type SessionSharePermission,
+} from '../hooks/useShareSessionDialog.js';
 import { Icon } from '../icons/Icon.js';
+import type { DirectoryUser } from '../server/types.js';
 import { auiInputClass } from './lib/inputClasses.js';
 import { auiSelectOptionClass, auiSelectTriggerClass } from './lib/selectClasses.js';
+import { Avatar, AvatarFallback } from './primitives/Avatar.js';
 import { Button } from './primitives/Button.js';
 import { DropdownMenu } from './primitives/DropdownMenu.js';
 
@@ -17,11 +25,11 @@ export type ShareSessionDialogProps = {
 };
 
 const SHARE_PERMISSIONS: Record<SessionSharePermission, { title: string; description: string }> = {
-  private: { title: 'Only you', description: 'Only you have access' },
-  tenant: { title: 'Everyone within this tenant', description: 'Everyone has access' },
+  [SESSION_SHARE_PRIVATE]: { title: 'Only you', description: 'Only you have access' },
+  [SESSION_SHARE_TENANT]: { title: 'Everyone within this tenant', description: 'Everyone has access' },
 };
 
-const SHARE_PERMISSION_VALUES: readonly SessionSharePermission[] = ['private', 'tenant'];
+const SHARE_PERMISSION_VALUES: readonly SessionSharePermission[] = [SESSION_SHARE_PRIVATE, SESSION_SHARE_TENANT];
 
 function permissionCopy({
   permission,
@@ -30,8 +38,8 @@ function permissionCopy({
   permission: SessionSharePermission;
   tenantId: string | undefined;
 }): { title: string; description: string } {
-  if (permission === 'tenant' && tenantId != null && tenantId.length > 0) {
-    return { title: `Everyone within ${tenantId}`, description: SHARE_PERMISSIONS.tenant.description };
+  if (permission === SESSION_SHARE_TENANT && tenantId != null && tenantId.length > 0) {
+    return { title: `Everyone within ${tenantId}`, description: SHARE_PERMISSIONS[SESSION_SHARE_TENANT].description };
   }
   return SHARE_PERMISSIONS[permission];
 }
@@ -99,9 +107,154 @@ function AccessSelector({
   );
 }
 
+function initialsOf(label: string): string {
+  return label.trim().slice(0, 2).toUpperCase();
+}
+
+function PersonRow({
+  label,
+  role,
+  action,
+}: {
+  label: string;
+  role: string;
+  action?: { label: string; onClick: () => void };
+}) {
+  return (
+    <div className="flex h-8 w-full items-center gap-2 text-sm">
+      <Avatar size="sm">
+        <AvatarFallback>{initialsOf(label)}</AvatarFallback>
+      </Avatar>
+      <span className="text-text-primary min-w-0 flex-1 truncate">{label}</span>
+      <span className="text-text-secondary shrink-0">{role}</span>
+      {action == null ? null : (
+        <button
+          type="button"
+          aria-label={action.label}
+          title={action.label}
+          className="text-text-secondary hover:text-text-primary shrink-0 cursor-pointer"
+          onClick={action.onClick}
+        >
+          <Icon name="xmark" size="0.875rem" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function InviteCollaborators({
+  excludedIds,
+  onInvite,
+}: {
+  excludedIds: ReadonlySet<string>;
+  onInvite: (users: DirectoryUser[]) => Promise<boolean>;
+}) {
+  const { query, setQuery, users, loading, hasMore, loadMore } = useSessionUserSearch({ enabled: true });
+  const [selected, setSelected] = useState<DirectoryUser[]>([]);
+  const [inviting, setInviting] = useState(false);
+  const selectedIds = new Set(selected.map(user => user.id));
+  const candidates = users.filter(user => !excludedIds.has(user.id) && !selectedIds.has(user.id));
+
+  const submit = async () => {
+    if (selected.length === 0 || inviting) return;
+    setInviting(true);
+    const ok = await onInvite(selected);
+    setInviting(false);
+    if (ok) {
+      setSelected([]);
+      setQuery('');
+    }
+  };
+
+  return (
+    <div className="flex w-full flex-col gap-2">
+      <div className="flex h-8 w-full items-center gap-2">
+        <input
+          value={query}
+          onChange={event => setQuery(event.target.value)}
+          placeholder="Add collaborator username or email"
+          aria-label="Search users"
+          className={auiInputClass('h-8 min-w-0 flex-1 px-3.5 text-[0.8125rem]')}
+        />
+        <Button.Primary
+          type="button"
+          size="large"
+          className="h-8 shrink-0 rounded px-2.5 text-xs"
+          disabled={selected.length === 0 || inviting}
+          onClick={() => {
+            void submit();
+          }}
+        >
+          <Icon name="users" size="0.875rem" />
+          Invite
+        </Button.Primary>
+      </div>
+      {selected.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5">
+          {selected.map(user => (
+            <button
+              key={user.id}
+              type="button"
+              aria-label={`Remove ${user.displayName} from invite`}
+              className="bg-secondary-bg text-text-primary flex cursor-pointer items-center gap-1 rounded-full px-2 py-0.5 text-xs"
+              onClick={() => setSelected(current => current.filter(item => item.id !== user.id))}
+            >
+              {user.displayName}
+              <Icon name="xmark" size="0.625rem" />
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {query.trim().length > 0 && (candidates.length > 0 || hasMore) ? (
+        <div role="listbox" aria-label="Matching users" className="flex max-h-40 w-full flex-col overflow-y-auto">
+          {candidates.map(user => (
+            <button
+              key={user.id}
+              type="button"
+              role="option"
+              aria-selected={false}
+              className={auiSelectOptionClass()}
+              onClick={() => setSelected(current => [...current, user])}
+            >
+              <span className="flex min-w-0 flex-1 items-baseline gap-2">
+                <span className="font-semibold">{user.displayName}</span>
+                {user.email == null ? null : <span className="text-text-secondary truncate">{user.email}</span>}
+              </span>
+            </button>
+          ))}
+          {hasMore ? (
+            <button
+              type="button"
+              className="text-text-secondary hover:text-text-primary cursor-pointer px-2 py-1.5 text-left text-sm"
+              disabled={loading}
+              onClick={loadMore}
+            >
+              {loading ? 'Loading…' : 'Load more'}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function ShareSessionDialog({ sessionId, trigger }: ShareSessionDialogProps) {
-  const { permission, canManage, loading, shareUrl, copied, tenantId, load, changePermission, copySharedSessionLink } =
-    useShareSessionDialog(sessionId);
+  const {
+    permission,
+    canChangePermission,
+    canInvite,
+    loading,
+    shareUrl,
+    copied,
+    tenantId,
+    owner,
+    collaborators,
+    load,
+    changePermission,
+    invite,
+    removeCollaborator,
+    copySharedSessionLink,
+  } = useShareSessionDialog(sessionId);
   const track = useTrackAnalytics();
 
   return (
@@ -124,12 +277,53 @@ export function ShareSessionDialog({ sessionId, trigger }: ShareSessionDialogPro
       <AccessSelector
         permission={permission}
         tenantId={tenantId}
-        disabled={!canManage || loading}
+        disabled={!canChangePermission || loading}
         onChange={next => {
+          track(AnalyticsEvents.Session.SHARE_PERMISSION_CHANGED, { session_id: sessionId, permission: next });
           void changePermission(next);
         }}
       />
-      {permission === 'tenant' ? (
+      {canInvite ? (
+        <InviteCollaborators
+          excludedIds={new Set([...collaborators.map(grant => grant.subjectId), ...(owner == null ? [] : [owner.id])])}
+          onInvite={async users => {
+            const ok = await invite(users);
+            if (ok)
+              track(AnalyticsEvents.Session.SHARE_COLLABORATORS_INVITED, {
+                session_id: sessionId,
+                count: users.length,
+              });
+            return ok;
+          }}
+        />
+      ) : null}
+      {collaborators.length > 0 || owner != null ? (
+        <div className="flex w-full flex-col gap-1">
+          {collaborators.map(grant => {
+            const label = grant.displayName ?? grant.email ?? grant.subjectId;
+            return (
+              <PersonRow
+                key={grant.subjectId}
+                label={label}
+                role="can access"
+                {...(canInvite
+                  ? {
+                      action: {
+                        label: `Remove ${label}`,
+                        onClick: () => {
+                          track(AnalyticsEvents.Session.SHARE_COLLABORATOR_REMOVED, { session_id: sessionId });
+                          void removeCollaborator(grant.subjectId);
+                        },
+                      },
+                    }
+                  : {})}
+              />
+            );
+          })}
+          {owner == null ? null : <PersonRow label={owner.displayName} role="owner" />}
+        </div>
+      ) : null}
+      {permission === SESSION_SHARE_TENANT || collaborators.length > 0 ? (
         <>
           <div role="separator" className="bg-border h-px w-full" />
           <div className="flex w-full items-center gap-2">

@@ -1,5 +1,158 @@
 # @truefoundry/trueforge
 
+## 0.182.0
+
+### Patch Changes
+
+- 3a73934: Use an explicit server or controller resources table as-is, then resourceTierOverride, then global.resourceTier. The default tier is small.
+- 7b325d9: Drop the redundant `last_turn_id` column from sessions; the session tip is now read from `last_turn_details.id`.
+- 92748e0: Add an EvoLink remote MCP server preset to the shipped MCP catalog, signed in with OAuth dynamic client registration, so users can generate images, video, music and speech with 150+ models.
+- 6b40e15: Add optional Sentry error reporting to the frontend, enabled by the VITE_SENTRY_DSN build arg. Trace user-triggered API calls (session create, turn streams) in Sentry.
+- f91d0c3: Send `x-tfy-conversation-id` (session id) on gateway model/MCP calls alongside `tfg.session_id` metadata.
+- b094bff: Vulnerability fix: rebuild against remirrored `tfy-internal/node:24` / `:24-dev` (verified Node v24.22.1) so published images pick up the updated ECR Node base.
+- 8d3413a: Mark sandbox env builds failed on Daytona 4xx (e.g. over provider resource caps), lower default env resource caps to 4 CPU / 8 GiB / 10 GiB, and name the Helm controller container trueforge-controller.
+- 6722969: Add session grants API (share, list, revoke) and user listing.
+- ae7c705: Session grants now give read access, and sharing with everyone in the tenant is a `tenant` grant. `Session.shared` reflects the tenant grant, and the deprecated `PATCH /sessions/{id} { shared }` now grants or revokes it. Adds the `session_sharing.enabled` capability.
+- 141b33a: Backfill `tfg.source: ui` session metadata on existing non-scheduled sessions so they stay in Chat History once it filters on that key.
+- e87e9f2: Accept `x-tfg-tools` as an array of MCP tool definitions (`inputSchema`, optional `outputSchema`) on a TrueFoundry-mode turn. The header is read by a per-request store and mounted on the main thread through `TurnResourceResolver`. Local tool lists keep `outputSchema` and `annotations`.
+- Updated dependencies [7a7a0b6]
+- Updated dependencies [7b325d9]
+- Updated dependencies [e6a2e9e]
+- Updated dependencies [cf786ee]
+- Updated dependencies [6722969]
+- Updated dependencies [ae7c705]
+- Updated dependencies [e87e9f2]
+  - @truefoundry/trueforge-core@0.182.0
+  - @truefoundry/trueforge-sdk@0.182.0
+
+## 0.182.0-rc.4
+
+### Patch Changes
+
+- 6b40e15: Add optional Sentry error reporting to the frontend, enabled by the VITE_SENTRY_DSN build arg. Trace user-triggered API calls (session create, turn streams) in Sentry.
+- e87e9f2: Accept `x-tfg-tools` as an array of MCP tool definitions (`inputSchema`, optional `outputSchema`) on a TrueFoundry-mode turn. The header is read by a per-request store and mounted on the main thread through `TurnResourceResolver`. Local tool lists keep `outputSchema` and `annotations`.
+- Updated dependencies [e87e9f2]
+  - @truefoundry/trueforge-core@0.182.0-rc.3
+
+## 0.182.0-rc.3
+
+### Patch Changes
+
+- 8d3413a: Mark sandbox env builds failed on Daytona 4xx (e.g. over provider resource caps), lower default env resource caps to 4 CPU / 8 GiB / 10 GiB, and name the Helm controller container trueforge-controller.
+
+## 0.182.0-rc.2
+
+### Patch Changes
+
+- ae7c705: Session grants now give read access, and sharing with everyone in the tenant is a `tenant` grant. `Session.shared` reflects the tenant grant, and the deprecated `PATCH /sessions/{id} { shared }` now grants or revokes it. Adds the `session_sharing.enabled` capability.
+- Updated dependencies [ae7c705]
+  - @truefoundry/trueforge-core@0.182.0-rc.2
+
+## 0.182.0-rc.1
+
+### Patch Changes
+
+- 3a73934: Use an explicit server or controller resources table as-is, then resourceTierOverride, then global.resourceTier. The default tier is small.
+- 7b325d9: Drop the redundant `last_turn_id` column from sessions; the session tip is now read from `last_turn_details.id`.
+- 92748e0: Add an EvoLink remote MCP server preset to the shipped MCP catalog, signed in with OAuth dynamic client registration, so users can generate images, video, music and speech with 150+ models.
+- f91d0c3: Send `x-tfy-conversation-id` (session id) on gateway model/MCP calls alongside `tfg.session_id` metadata.
+- b094bff: Vulnerability fix: rebuild against remirrored `tfy-internal/node:24` / `:24-dev` (verified Node v24.22.1) so published images pick up the updated ECR Node base.
+- 6722969: Add session grants API (share, list, revoke) and user listing.
+- 141b33a: Backfill `tfg.source: ui` session metadata on existing non-scheduled sessions so they stay in Chat History once it filters on that key.
+- Updated dependencies [7a7a0b6]
+- Updated dependencies [7b325d9]
+- Updated dependencies [e6a2e9e]
+- Updated dependencies [cf786ee]
+- Updated dependencies [6722969]
+  - @truefoundry/trueforge-core@0.182.0-rc.1
+  - @truefoundry/trueforge-sdk@0.182.0-rc.1
+
+## 0.181.0
+
+### Patch Changes
+
+- 8e2563e: Use an explicit server or controller resources table as-is, then resourceTierOverride, then global.resourceTier. The default tier is small.
+- 9bed345: Emit `thread.context_compaction_started` / `thread.context_compaction_finished` around context compaction (trigger, usage, duration_ms).
+- 67fc305: Default the reasoning effort to `medium` when the selected model offers it, instead of defaulting to the lowest effort. TrueFoundry model listing now passes `mergeParams` to the provider-integrations API so provider-level parameter defaults are included in each model's advertised parameters.
+- f5427d9: Pass each MCP server's saved description into deferred tool instructions. A server with `preload: false` now shows its description before its tools are listed.
+- a527e57: Send `x-tfy-forward-pings: true` on TrueFoundry-mode model invokes. Support per-call LLM `headers` and `metadata` (TrueFoundry folds metadata into `x-tfy-metadata`), and stamp `tfg.compaction: true` on context-compaction calls so those requests are visible in traces.
+- 6f36cdd: Vulnerability fix: rebuild against remirrored `tfy-internal/node:24` / `:24-dev` (verified Node v24.22.1) so published images pick up the updated ECR Node base.
+- d11b369: Add a keyless Keenable remote MCP server preset to the shipped MCP catalog so users can opt into Keenable web search alongside the existing presets.
+- 288d76e: Add a `warning` field to models returned by `GET /api/v1/models` when reasoning effort or context length is not configured, noting it may affect TrueForge performance.
+- 4682d87: Bump npm-security dependencies: `@modelcontextprotocol/sdk`, `hono`, and `undici`.
+- e0566ef: Record outbound HTTP, model calls, MCP, harness limits, tool-call duration, active threads, turn lifetime, Parallel web search, ServiceFoundry requests, and Postgres query duration on the existing Prometheus scrape. Daytona and Redis SDK meters are included on that same scrape.
+- 0c071f6: Default reasoning effort now follows `medium` → `high` → `low` in both the draft (New Chat) composer and the agent builder (Agent Config) when the selected model does not offer `medium`, instead of falling back to the lowest offered effort.
+- f5d3b75: Reject backslash and control-character open redirects in OIDC `return_to` handling.
+- 90c7b1c: Unify admin checks with `hasAdminRole` (tenant-admin in TrueFoundry) and gate sandbox environment create to admins while allowing the creator or an admin to update or delete. Expose schedule and sandbox environment `MANAGE`/`DELETE` (and tenant `sandbox_environment` `CREATE`) via list-permissions so the UI matches the API; settings access remains disabled in TrueFoundry via `canAccessSettings`.
+- 5bb093e: Schedule runs now return `session_id`, the session each run created, so clients can open a run's
+  session. Existing runs are backfilled; runs without a session return `null`.
+- 82e50e2: Report logged failures to Sentry except HTTP statuses from 200 through 499, including when that status sits on a wrapped cause. The log message is the Sentry title, and the thrown error is the cause and stack. Those events include the active tenant, request, session, and turn ids. Printed lines omit that marker even when Sentry is off.
+- c21132e: Sessions now return `last_turn_details` (`{ id, state: { status } }`, null before the first turn), kept in sync as the last turn changes status. Existing sessions are backfilled.
+- 012f8fc: Block HTTPS-to-HTTP redirects in the outbound SSRF-guarded fetch so cleartext downgrades cannot follow a secure hop.
+- Updated dependencies [5bb093e]
+- Updated dependencies [9bed345]
+- Updated dependencies [f5427d9]
+- Updated dependencies [a527e57]
+- Updated dependencies [7318806]
+- Updated dependencies [fcb48de]
+- Updated dependencies [6247d67]
+- Updated dependencies [4682d87]
+- Updated dependencies [e0566ef]
+- Updated dependencies [90c7b1c]
+- Updated dependencies [82e50e2]
+- Updated dependencies [c21132e]
+- Updated dependencies [012f8fc]
+  - @truefoundry/trueforge-sdk@0.181.0
+  - @truefoundry/trueforge-core@0.181.0
+
+## 0.181.0-rc.3
+
+### Patch Changes
+
+- 6f36cdd: Vulnerability fix: rebuild against remirrored `tfy-internal/node:24` / `:24-dev` (verified Node v24.22.1) so published images pick up the updated ECR Node base.
+
+## 0.181.0-rc.2
+
+### Patch Changes
+
+- 8e2563e: Use an explicit server or controller resources table as-is, then resourceTierOverride, then global.resourceTier. The default tier is small.
+
+## 0.181.0-rc.1
+
+### Patch Changes
+
+- 9bed345: Emit `thread.context_compaction_started` / `thread.context_compaction_finished` around context compaction (trigger, usage, duration_ms).
+- 67fc305: Default the reasoning effort to `medium` when the selected model offers it, instead of defaulting to the lowest effort. TrueFoundry model listing now passes `mergeParams` to the provider-integrations API so provider-level parameter defaults are included in each model's advertised parameters.
+- f5427d9: Pass each MCP server's saved description into deferred tool instructions. A server with `preload: false` now shows its description before its tools are listed.
+- a527e57: Send `x-tfy-forward-pings: true` on TrueFoundry-mode model invokes. Support per-call LLM `headers` and `metadata` (TrueFoundry folds metadata into `x-tfy-metadata`), and stamp `tfg.compaction: true` on context-compaction calls so those requests are visible in traces.
+- d11b369: Add a keyless Keenable remote MCP server preset to the shipped MCP catalog so users can opt into Keenable web search alongside the existing presets.
+- 288d76e: Add a `warning` field to models returned by `GET /api/v1/models` when reasoning effort or context length is not configured, noting it may affect TrueForge performance.
+- 4682d87: Bump npm-security dependencies: `@modelcontextprotocol/sdk`, `hono`, and `undici`.
+- e0566ef: Record outbound HTTP, model calls, MCP, harness limits, tool-call duration, active threads, turn lifetime, Parallel web search, ServiceFoundry requests, and Postgres query duration on the existing Prometheus scrape. Daytona and Redis SDK meters are included on that same scrape.
+- 0c071f6: Default reasoning effort now follows `medium` → `high` → `low` in both the draft (New Chat) composer and the agent builder (Agent Config) when the selected model does not offer `medium`, instead of falling back to the lowest offered effort.
+- f5d3b75: Reject backslash and control-character open redirects in OIDC `return_to` handling.
+- 90c7b1c: Unify admin checks with `hasAdminRole` (tenant-admin in TrueFoundry) and gate sandbox environment create to admins while allowing the creator or an admin to update or delete. Expose schedule and sandbox environment `MANAGE`/`DELETE` (and tenant `sandbox_environment` `CREATE`) via list-permissions so the UI matches the API; settings access remains disabled in TrueFoundry via `canAccessSettings`.
+- 5bb093e: Schedule runs now return `session_id`, the session each run created, so clients can open a run's
+  session. Existing runs are backfilled; runs without a session return `null`.
+- 82e50e2: Report logged failures to Sentry except HTTP statuses from 200 through 499, including when that status sits on a wrapped cause. The log message is the Sentry title, and the thrown error is the cause and stack. Those events include the active tenant, request, session, and turn ids. Printed lines omit that marker even when Sentry is off.
+- c21132e: Sessions now return `last_turn_details` (`{ id, state: { status } }`, null before the first turn), kept in sync as the last turn changes status. Existing sessions are backfilled.
+- 012f8fc: Block HTTPS-to-HTTP redirects in the outbound SSRF-guarded fetch so cleartext downgrades cannot follow a secure hop.
+- Updated dependencies [5bb093e]
+- Updated dependencies [9bed345]
+- Updated dependencies [f5427d9]
+- Updated dependencies [a527e57]
+- Updated dependencies [7318806]
+- Updated dependencies [fcb48de]
+- Updated dependencies [6247d67]
+- Updated dependencies [4682d87]
+- Updated dependencies [e0566ef]
+- Updated dependencies [90c7b1c]
+- Updated dependencies [82e50e2]
+- Updated dependencies [c21132e]
+- Updated dependencies [012f8fc]
+  - @truefoundry/trueforge-sdk@0.181.0-rc.1
+  - @truefoundry/trueforge-core@0.181.0-rc.1
+
 ## 0.180.0
 
 ### Patch Changes

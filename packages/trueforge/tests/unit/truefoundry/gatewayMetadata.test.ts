@@ -6,6 +6,7 @@ import {
   mergeGatewayMetadata,
   parseGatewayMetadataHeader,
   TFG_METADATA_PREFIX,
+  X_TFY_CONVERSATION_ID,
   X_TFY_METADATA,
 } from '../../../src/truefoundry/gatewayMetadata';
 
@@ -100,7 +101,7 @@ describe('gatewayMetadataHeadersForTurn', () => {
     expect(gatewayMetadataHeadersForTurn(undefined)).toEqual({});
   });
 
-  it('reads x-tfy-metadata from the raw request headers', () => {
+  it('reads x-tfy-metadata from the raw request headers and stamps conversation id', () => {
     const headers = gatewayMetadataHeadersForTurn({
       sessionId: 'sess-1',
       turnId: 'turn-1',
@@ -108,6 +109,7 @@ describe('gatewayMetadataHeadersForTurn', () => {
       requestHeaders: { 'X-Tfy-Metadata': JSON.stringify({ env: 'prod' }) },
     });
 
+    expect(headers[X_TFY_CONVERSATION_ID]).toBe('sess-1');
     expect(JSON.parse(headers[X_TFY_METADATA] ?? '')).toEqual({
       env: 'prod',
       [`${TFG_METADATA_PREFIX}.session_id`]: 'sess-1',

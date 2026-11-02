@@ -327,7 +327,7 @@ export const updateSessionGrantsRoute = createRoute({
   tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'Update session grants',
   description:
-    'Share this session with subjects and remove access for others in one atomic request. Granting an existing subject or revoking one without access is a no-op. Returns every subject the session is shared with.',
+    'Share this session with subjects and remove access for others in one atomic request. Subjects get read access to the session, its turns and its events. A `tenant` subject, whose `subject_id` must be your tenant ID, shares with everyone in the tenant. Granting an existing subject or revoking one without access is a no-op. Returns every subject the session is shared with.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'update_grants',
   request: {

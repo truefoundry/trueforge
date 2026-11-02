@@ -1,4 +1,5 @@
 import type { Logger } from 'winston';
+import type { AgentCapability } from '../core/capabilities/AgentCapability';
 import type { ILLM } from '../core/llm/ILLM';
 import type { ModelParams } from '../core/llm/model';
 import type { VercelAIProviderName } from '../core/llm/VercelAILLM';
@@ -31,6 +32,16 @@ export type TurnSandboxFactory = (input: {
 
 function specWantsSandbox(spec: AgentSpec): boolean {
   return spec.config.sandbox.enabled;
+}
+
+function rootCapabilitiesOf(
+  rootCapabilities: (() => readonly AgentCapability[]) | undefined,
+): { extraCapabilities: AgentCapability[] } | Record<string, never> {
+  const capabilities = rootCapabilities?.() ?? [];
+  if (capabilities.length === 0) {
+    return {};
+  }
+  return { extraCapabilities: [...capabilities] };
 }
 
 function toSelectors(entry: {
@@ -88,6 +99,12 @@ export class TurnResourceResolver<
       agent?: ((agentId: string) => Promise<AgentSpec>) | undefined;
       /** Host web-search backend; omit when not configured. */
       webSearchProvider?: IWebSearchProvider | undefined;
+      /**
+       * Main-thread capabilities. Called once per root resolve, so each call gets fresh instances.
+       * A child thread passes `agent_info` and does not receive these. A subclass that replaces
+       * `resolveAgentDefinition` without calling `super` does not mount them.
+       */
+      rootCapabilities?: (() => readonly AgentCapability[]) | undefined;
       /** Forwarded to RemoteMCP / AgentThread (required by their constructors). */
       logger: Logger;
     },
@@ -237,6 +254,7 @@ export class TurnResourceResolver<
         iterationLimit: spec.config.iteration_limit,
         toolSets,
       },
+      ...(agentInfo === undefined ? rootCapabilitiesOf(this.deps.rootCapabilities) : {}),
     };
   }
 
