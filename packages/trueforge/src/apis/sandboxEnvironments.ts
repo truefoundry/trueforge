@@ -26,7 +26,7 @@ import {
   listSandboxEnvironmentsRoute,
   putSandboxEnvironmentRoute,
 } from '../routes/sandboxEnvironmentRoutes';
-import { getDaytonaAuthorizationErrorMessage, toDaytonaSandboxProvider } from '../sandbox/providerUtils';
+import { getDaytonaAuthorizationErrorMessage, toSandboxProviderFromRecord } from '../sandbox/providerUtils';
 import {
   buildNextVersion,
   redactManifestSecrets,
@@ -170,8 +170,8 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
         secrets: manifest.networking?.secrets ?? [],
         previous: existing?.version.manifest.networking?.secrets ?? [],
         existing: existingSecrets,
-        provider: toDaytonaSandboxProvider({
-          manifest: provider.manifest,
+        provider: toSandboxProviderFromRecord({
+          record: provider,
           tenant_id: requestContext.tenant_id,
           logger,
         }),
@@ -297,7 +297,11 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
         }
         await deleteSandboxEnvironmentSecrets({
           secrets,
-          provider: toDaytonaSandboxProvider({ manifest: provider.manifest, tenant_id, logger }),
+          provider: toSandboxProviderFromRecord({
+            record: provider,
+            tenant_id,
+            logger,
+          }),
         });
       }
       await store.deleteEnvironment({
