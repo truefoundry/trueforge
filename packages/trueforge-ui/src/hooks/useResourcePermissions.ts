@@ -1,29 +1,16 @@
 'use client';
 
-import {
-  createContext,
-  createElement,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { createContext, createElement, useCallback, useContext, useMemo, useRef, type ReactNode } from 'react';
 
+import { useServerQueryClient } from '../server/queryClient.js';
+import { queryKeys } from '../server/queryKeys.js';
 import { useOptionalPermissionsServer } from '../server/ServerContext.js';
 import type { PermissionResourceType, PermissionsServer, ResourcePermission } from '../server/types.js';
 
 const PERMISSIONS_BATCH_SIZE = 100;
 
-type PermissionsLoadState = {
-  server: PermissionsServer | null;
-  resourceType: PermissionResourceType | null;
-  key: string;
-  data: Record<string, ResourcePermission[]>;
-  loading: boolean;
-  error: unknown | null;
-};
+const EMPTY_PERMISSIONS: Record<string, ResourcePermission[]> = {};
 
 export type UseResourcePermissionsOptions = {
   resourceType: PermissionResourceType;
@@ -50,79 +37,78 @@ function permissionBatches(resourceIds: string[]): string[][] {
   return batches;
 }
 
+type PermissionsById = Record<string, ResourcePermission[]>;
+
+type PermissionsQueryMeta = {
+  server: PermissionsServer;
+};
+
 export function useResourcePermissions({
   resourceType,
   resourceIds,
 }: UseResourcePermissionsOptions): UseResourcePermissionsResult {
   const server = useOptionalPermissionsServer();
+  const queryClient = useServerQueryClient();
   const idsKey = JSON.stringify([...new Set(resourceIds.filter(resourceId => resourceId.length > 0))]);
-  const hasResourceIds = idsKey !== '[]';
-  const requestKey = `${resourceType}:${idsKey}`;
   const requestedIds = useMemo(() => parseResourceIds(idsKey), [idsKey]);
   const requestedIdSet = useMemo(() => new Set(requestedIds), [requestedIds]);
-  const [state, setState] = useState<PermissionsLoadState>({
-    server: null,
-    resourceType: null,
-    key: '',
-    data: {},
-    loading: false,
-    error: null,
-  });
+  const enabled = server != null && requestedIds.length > 0;
 
-  useEffect(() => {
-    if (server == null || !hasResourceIds) return;
-
-    let cancelled = false;
-    setState(current =>
-      current.server === server && current.resourceType === resourceType
-        ? { ...current, key: requestKey, loading: true, error: null }
-        : { server, resourceType, key: requestKey, data: {}, loading: true, error: null },
-    );
-    void Promise.all(
-      permissionBatches(requestedIds).map(resourceIdsBatch =>
-        server.listPermissions({ resourceType, resourceIds: resourceIdsBatch }),
-      ),
-    ).then(
-      responses => {
-        if (cancelled) return;
-        setState({
-          server,
-          resourceType,
-          key: requestKey,
-          data: Object.assign({}, ...responses.map(response => response.data.permissions)),
-          loading: false,
-          error: null,
-        });
+  const query = useQuery(
+    {
+      queryKey: queryKeys.permissions.list({ resourceType, resourceIds: requestedIds }),
+      queryFn: async (): Promise<PermissionsById> => {
+        if (server == null) {
+          throw new Error('permissions server missing');
+        }
+        const responses = await Promise.all(
+          permissionBatches(requestedIds).map(resourceIdsBatch =>
+            server.listPermissions({ resourceType, resourceIds: resourceIdsBatch }),
+          ),
+        );
+        return Object.assign({}, ...responses.map(response => response.data.permissions));
       },
-      caught => {
-        if (cancelled) return;
-        setState(current => ({
-          server,
-          resourceType,
-          key: requestKey,
-          data: current.server === server && current.resourceType === resourceType ? current.data : {},
-          loading: false,
-          error: caught,
-        }));
+      enabled,
+      // Keep prior grants while an expanded id set loads; drop them across server swaps (fail closed).
+      placeholderData: (previousData, previousQuery) => {
+        const previousServer = (previousQuery?.meta as PermissionsQueryMeta | undefined)?.server;
+        if (previousServer !== server) return undefined;
+        if (previousQuery != null && queryKeys.permissions.listResourceType(previousQuery.queryKey) !== resourceType) {
+          return undefined;
+        }
+        return previousData;
       },
-    );
+      meta: server == null ? undefined : ({ server } satisfies PermissionsQueryMeta),
+    },
+    queryClient,
+  );
 
-    return () => {
-      cancelled = true;
-    };
-  }, [hasResourceIds, requestKey, requestedIds, resourceType, server]);
+  // Survives a failed expansion so already-known grants stay usable (fail closed for new ids only).
+  const lastSuccessRef = useRef<{
+    server: PermissionsServer;
+    resourceType: PermissionResourceType;
+    data: PermissionsById;
+  } | null>(null);
+  if (server != null && query.isSuccess && query.data != null && !query.isPlaceholderData) {
+    lastSuccessRef.current = { server, resourceType, data: query.data };
+  }
 
-  const sameScope = state.server === server && state.resourceType === resourceType;
-  const loading = server != null && hasResourceIds && (!sameScope || state.key !== requestKey || state.loading);
-  const error = sameScope && state.key === requestKey ? state.error : null;
+  const data =
+    query.data ??
+    (lastSuccessRef.current?.server === server && lastSuccessRef.current.resourceType === resourceType
+      ? lastSuccessRef.current.data
+      : EMPTY_PERMISSIONS);
+
+  const loading = enabled && (query.isPending || query.isFetching);
+  const error = query.error ?? null;
 
   const allows = useCallback(
     (resourceId: string | null | undefined, permission: ResourcePermission) => {
       if (server == null || resourceId == null || resourceId === '') return true;
-      if (!requestedIdSet.has(resourceId) || !sameScope) return false;
-      return (state.data[resourceId] ?? []).includes(permission);
+      if (!requestedIdSet.has(resourceId)) return false;
+      return (data[resourceId] ?? []).includes(permission);
     },
-    [requestedIdSet, sameScope, server, state.data],
+    [data, requestedIdSet, server],
   );
 
   return { loading, error, allows };
