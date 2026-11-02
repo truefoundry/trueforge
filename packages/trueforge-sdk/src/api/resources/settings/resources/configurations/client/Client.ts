@@ -123,7 +123,7 @@ export class ConfigurationsClient {
     /**
      * Updates the switches present in the body and leaves the rest. Turning web search off applies to new chats; chats already using it keep it.
      *
-     * @param {TrueForge.settings.CreateOrUpdateConfigurations} request
+     * @param {TrueForge.settings.UpdateConfigurationsRequest} request
      * @param {ConfigurationsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.BadRequestError}
@@ -138,14 +138,14 @@ export class ConfigurationsClient {
      *     })
      */
     public update(
-        request: TrueForge.settings.CreateOrUpdateConfigurations,
+        request: TrueForge.settings.UpdateConfigurationsRequest,
         requestOptions?: ConfigurationsClient.RequestOptions,
     ): core.HttpResponsePromise<TrueForge.GetConfigurationsResponse> {
         return core.HttpResponsePromise.fromPromise(this.__update(request, requestOptions));
     }
 
     private async __update(
-        request: TrueForge.settings.CreateOrUpdateConfigurations,
+        request: TrueForge.settings.UpdateConfigurationsRequest,
         requestOptions?: ConfigurationsClient.RequestOptions,
     ): Promise<core.WithRawResponse<TrueForge.GetConfigurationsResponse>> {
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
@@ -166,7 +166,7 @@ export class ConfigurationsClient {
             queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
             requestType: "json",
             body: mergeAdditionalBodyParameters(
-                serializers.settings.CreateOrUpdateConfigurations.jsonOrThrow(request, {
+                serializers.settings.UpdateConfigurationsRequest.jsonOrThrow(request, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,

@@ -8,6 +8,6 @@ import type * as TrueForge from "../../../../../../index.js";
  *         manifest: {}
  *     }
  */
-export interface CreateOrUpdateConfigurations {
+export interface UpdateConfigurationsRequest {
     manifest: TrueForge.ConfigurationsManifestPatch;
 }

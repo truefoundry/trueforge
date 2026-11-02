@@ -4088,7 +4088,7 @@ await client.settings.configurations.update({
 <dl>
 <dd>
 
-**request:** `TrueForge.settings.CreateOrUpdateConfigurations` 
+**request:** `TrueForge.settings.UpdateConfigurationsRequest` 
     
 </dd>
 </dl>

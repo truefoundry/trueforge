@@ -1169,18 +1169,6 @@
         ],
         "type": "object"
       },
-      "CreateOrUpdateConfigurations": {
-        "additionalProperties": false,
-        "properties": {
-          "manifest": {
-            "$ref": "#/components/schemas/ConfigurationsManifestPatch"
-          }
-        },
-        "required": [
-          "manifest"
-        ],
-        "type": "object"
-      },
       "CreateSandboxEnvironmentRequest": {
         "additionalProperties": false,
         "properties": {
@@ -6148,6 +6136,18 @@
         ],
         "type": "object"
       },
+      "UpdateConfigurationsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "manifest": {
+            "$ref": "#/components/schemas/ConfigurationsManifestPatch"
+          }
+        },
+        "required": [
+          "manifest"
+        ],
+        "type": "object"
+      },
       "UpdateMCPServerRequest": {
         "additionalProperties": false,
         "properties": {
@@ -10900,7 +10900,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateOrUpdateConfigurations"
+                "$ref": "#/components/schemas/UpdateConfigurationsRequest"
               }
             }
           },

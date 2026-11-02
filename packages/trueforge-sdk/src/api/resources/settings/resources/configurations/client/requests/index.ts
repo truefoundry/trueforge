@@ -1,1 +1,1 @@
-export type { CreateOrUpdateConfigurations } from "./CreateOrUpdateConfigurations.js";
+export type { UpdateConfigurationsRequest } from "./UpdateConfigurationsRequest.js";

@@ -5,14 +5,14 @@ import * as core from "../../../../../../../core/index.js";
 import type * as serializers from "../../../../../../index.js";
 import { ConfigurationsManifestPatch } from "../../../../../../types/ConfigurationsManifestPatch.js";
 
-export const CreateOrUpdateConfigurations: core.serialization.Schema<
-    serializers.settings.CreateOrUpdateConfigurations.Raw,
-    TrueForge.settings.CreateOrUpdateConfigurations
+export const UpdateConfigurationsRequest: core.serialization.Schema<
+    serializers.settings.UpdateConfigurationsRequest.Raw,
+    TrueForge.settings.UpdateConfigurationsRequest
 > = core.serialization.object({
     manifest: ConfigurationsManifestPatch,
 });
 
-export declare namespace CreateOrUpdateConfigurations {
+export declare namespace UpdateConfigurationsRequest {
     export interface Raw {
         manifest: ConfigurationsManifestPatch.Raw;
     }
