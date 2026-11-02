@@ -643,7 +643,9 @@ describe('DraftCompositeSelector', () => {
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
-    expect(await screen.findByRole('status')).toHaveTextContent('Web search is turned off for this tenant.');
+    // The row renders locked with a generic hint until capabilities land, so wait for the reason.
+    const note = await screen.findByText('Web search is turned off for this tenant.');
+    expect(note.closest('[role="status"]')).not.toBeNull();
   });
 
   it('lets a chat that already searches the web turn it off after the capability goes away', async () => {
