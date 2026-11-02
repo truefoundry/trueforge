@@ -85,15 +85,13 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
       }),
     ]);
 
-    const webSearchResponse = {
+    const webSearchResponse: { enabled: boolean; reason?: string } = {
       enabled: true,
-      reason: 'Web search is available.',
     };
     if (!tenantAllowsWebSearch) {
       webSearchResponse.enabled = false;
       webSearchResponse.reason = 'Web search is turned off for this tenant - an admin can turn it back on in settings.';
-    }
-    if (!hasProvider) {
+    } else if (!hasProvider) {
       webSearchResponse.enabled = false;
       webSearchResponse.reason = 'Web search needs a provider, which is not configured.';
     }
