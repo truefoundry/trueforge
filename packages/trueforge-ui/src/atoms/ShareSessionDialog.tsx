@@ -189,7 +189,7 @@ function InviteCollaborators({
           }}
         >
           <Icon name="users" size="0.875rem" />
-          Invite
+          Add
         </Button.Primary>
       </div>
       {query.trim().length > 0 && (candidates.length > 0 || hasMore) ? (
