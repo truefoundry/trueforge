@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.183.0-rc.3
+
+### Patch Changes
+
+- b51ed35: Show a back control before the agent name after Try so the header can return to the agents page.
+
 ## 0.183.0-rc.2
 
 ### Patch Changes
