@@ -68,6 +68,31 @@ describe('WebSearchSettings tenant switch', () => {
     });
   });
 
+  it('says the switch can be turned back on while it is off', async () => {
+    renderSettings({
+      getConfigurations: async () => ({ webSearch: { enabled: false } }),
+      updateConfigurations: unavailable,
+    });
+
+    expect(await screen.findByText(/Turn this back on whenever you want/)).toHaveTextContent(
+      'provider setup comes back with it',
+    );
+    expect(screen.getByText('New chats cannot use web search. Chats already using it keep it.')).toBeInTheDocument();
+  });
+
+  it('drops the provider sentence when the platform owns providers', async () => {
+    renderSettings(
+      {
+        getConfigurations: async () => ({ webSearch: { enabled: false } }),
+        updateConfigurations: unavailable,
+      },
+      { manageProviders: false },
+    );
+
+    const note = await screen.findByText(/Turn this back on whenever you want/);
+    expect(note).not.toHaveTextContent('provider setup comes back with it');
+  });
+
   it('saves the new value and re-renders from the response', async () => {
     const updateConfigurations = vi.fn(async () => ({ webSearch: { enabled: false } }));
     renderSettings({

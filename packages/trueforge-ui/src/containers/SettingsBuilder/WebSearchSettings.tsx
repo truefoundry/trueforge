@@ -195,7 +195,9 @@ const WebSearchSettings = () => {
           <div className="min-w-0">
             <h4 className="text-sm font-medium text-text-primary">Allow web search</h4>
             <p className="mt-0.5 text-xs text-text-secondary">
-              New chats may use web search. Chats already using it keep it.
+              {tenantEnabled
+                ? 'New chats may use web search. Chats already using it keep it.'
+                : 'New chats cannot use web search. Chats already using it keep it.'}
             </p>
           </div>
           <Switch
@@ -207,6 +209,13 @@ const WebSearchSettings = () => {
             }}
           />
         </div>
+      ) : null}
+
+      {tenantEnabled === false ? (
+        <p className="mt-3 text-sm text-text-secondary">
+          Turn this back on whenever you want. Nothing is deleted while web search is off
+          {webSearchCatalog == null ? '.' : ', and provider setup comes back with it.'}
+        </p>
       ) : null}
 
       <div className="mt-4 flex-1 overflow-y-auto">

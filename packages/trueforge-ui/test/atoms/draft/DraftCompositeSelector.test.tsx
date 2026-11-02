@@ -670,7 +670,32 @@ describe('DraftCompositeSelector', () => {
       expect(row).not.toHaveAttribute('aria-disabled', 'true');
     });
 
+    // Turning it off is the last chance, so the row has to say so before the click.
+    expect(await screen.findByText(/Turning it off here is final/)).toBeInTheDocument();
+
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /Web search/ }));
     expect(updateAgentSpec).toHaveBeenCalledWith({ config: { webSearch: { enabled: false } } });
+  });
+
+  it('does not caution a chat the host still allows', async () => {
+    agentSpec = {
+      ...agentSpec,
+      config: { webSearch: { enabled: true } },
+    };
+    renderSelector({
+      getCapabilities: async () => ({
+        data: {
+          sandbox: { enabled: true },
+          skill: { enabled: true },
+          webSearch: { enabled: true },
+        },
+      }),
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
+    await waitFor(() => {
+      expect(screen.getByRole('menuitemcheckbox', { name: /Web search/ })).toHaveAttribute('aria-checked', 'true');
+    });
+    expect(screen.queryByText(/Turning it off here is final/)).not.toBeInTheDocument();
   });
 });

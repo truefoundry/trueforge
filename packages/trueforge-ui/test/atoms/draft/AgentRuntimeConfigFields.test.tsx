@@ -169,8 +169,20 @@ describe('AgentRuntimeConfigFields', () => {
     expect(webSearchSwitch).toBeEnabled();
     expect(webSearchSwitch).toBeChecked();
 
+    // Turning it off is the last chance, so the row has to say so before the click.
+    expect(await screen.findByText(/Turning it off here is final/)).toBeInTheDocument();
+
     fireEvent.click(webSearchSwitch);
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ webSearch: { enabled: false } }));
+  });
+
+  it('does not caution a spec the host still allows', async () => {
+    renderRuntimeFields({ value: { webSearch: { enabled: true } }, webSearch: { enabled: true } });
+
+    await waitFor(() => {
+      expect(screen.getByRole('switch', { name: 'Web search' })).toBeChecked();
+    });
+    expect(screen.queryByText(/Turning it off here is final/)).not.toBeInTheDocument();
   });
 
   it('populates environment dropdown with default and ready environments only', async () => {
