@@ -19,12 +19,27 @@ export function isSettingsChromeEnabled({
   catalog: CatalogServer | null | undefined;
   capabilities: { settings?: SettingsCapability } | null | undefined;
 }): boolean {
-  return catalog != null && hasAnySettingsSectionEnabled(capabilities?.settings);
+  // Absent capabilities mean "still loading", so wait rather than flash Settings
+  // open and shut. Loaded capabilities that omit `settings` are an older host.
+  return catalog != null && capabilities != null && hasAnySettingsSectionEnabled(capabilities.settings);
 }
 
-/** Settings chrome is worth showing once the caller may open at least one section. */
+const SETTINGS_SECTIONS = [
+  'modelProviders',
+  'mcpServers',
+  'skills',
+  'sandboxProviders',
+  'webSearch',
+  'memory',
+] as const satisfies readonly (keyof SettingsCapability)[];
+
+/**
+ * Settings chrome is worth showing until every section is closed. Counting the
+ * sections the host never reported keeps this agreeing with
+ * {@link isSettingsSectionEnabled}, which treats those as open.
+ */
 export function hasAnySettingsSectionEnabled(settings: SettingsCapability | undefined): boolean {
-  return settings !== undefined && Object.values(settings).some(section => section?.enabled === true);
+  return SETTINGS_SECTIONS.some(section => isSettingsSectionEnabled({ settings, section }));
 }
 
 /** A section the host never reported stays open, so older hosts keep working. */

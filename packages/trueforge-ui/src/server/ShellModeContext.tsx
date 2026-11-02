@@ -432,7 +432,7 @@ export function ShellModeProvider({
 
   const settingsCapability = capabilities?.settings;
   useEffect(() => {
-    if (catalog == null || (settingsCapability !== undefined && !hasAnySettingsSectionEnabled(settingsCapability))) {
+    if (catalog == null || !hasAnySettingsSectionEnabled(settingsCapability)) {
       setSettingsOpenState(false);
     }
   }, [settingsCapability, catalog]);
