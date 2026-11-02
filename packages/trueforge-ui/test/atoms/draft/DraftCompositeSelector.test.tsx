@@ -627,6 +627,25 @@ describe('DraftCompositeSelector', () => {
     expect(updateAgentSpec).not.toHaveBeenCalled();
   });
 
+  it('explains why web search is unavailable using the host reason', async () => {
+    agentSpec = {
+      ...agentSpec,
+      config: { webSearch: { enabled: false } },
+    };
+    renderSelector({
+      getCapabilities: async () => ({
+        data: {
+          sandbox: { enabled: true },
+          skill: { enabled: true },
+          webSearch: { enabled: false, reason: 'Web search is turned off for this tenant.' },
+        },
+      }),
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
+    expect(await screen.findByRole('status')).toHaveTextContent('Web search is turned off for this tenant.');
+  });
+
   it('lets a chat that already searches the web turn it off after the capability goes away', async () => {
     agentSpec = {
       ...agentSpec,

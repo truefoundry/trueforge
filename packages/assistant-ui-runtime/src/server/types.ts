@@ -478,7 +478,7 @@ export interface AgentBuilderCapabilitiesResponse {
     sandbox: { enabled: boolean };
     skill: { enabled: boolean; reason?: string };
     settings?: SettingsCapability;
-    webSearch?: { enabled: boolean };
+    webSearch?: { enabled: boolean; reason?: string };
     /** Present when the host reports session sharing; `enabled` gates invite-by-user. */
     sessionSharing?: { enabled: boolean };
   };

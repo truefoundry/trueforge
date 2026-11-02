@@ -305,6 +305,19 @@ function SectionHeading({ label, count }: { label: string; count?: number }) {
   );
 }
 
+/** Why a row in this panel cannot be used, kept readable while the row itself is dimmed. */
+function LockedNote({ children }: { children: string }) {
+  return (
+    <div
+      role="status"
+      className="border-primary-button-bg/30 bg-primary-button-bg/5 text-text-primary mx-3 mb-2 flex items-start gap-2 rounded-lg border p-3"
+    >
+      <Icon name="lock" className="text-primary-button-bg mt-px size-3 shrink-0" />
+      <span className="text-xs leading-snug">{children}</span>
+    </div>
+  );
+}
+
 export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftCompositeSelectorProps) {
   const DraftComposerActionsMenu = useSlot('DraftComposerActionsMenu');
   const { skills, connectors, connectorLogos, loading, ensureLoaded, refreshConnectors } = useDraftCatalog();
@@ -338,6 +351,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   const skillsDisabled = capabilities?.skill.enabled !== true;
   const skillsDisabledReason = capabilities?.skill.reason;
   const webSearchCapabilityEnabled = capabilities?.webSearch?.enabled === true;
+  const webSearchDisabledReason = capabilities?.webSearch?.reason ?? NO_WEB_SEARCH_PROVIDER_HINT;
   const webSearchEnabled = agentSpec?.config?.webSearch?.enabled ?? webSearchCapabilityEnabled;
   // A chat that already searches the web keeps it until the user turns it off; only
   // turning it back on needs the capability.
@@ -676,13 +690,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
           }
         />
         {tab === 'skills' && skillsDisabled && skillsDisabledReason ? (
-          <div
-            role="status"
-            className="border-primary-button-bg/30 bg-primary-button-bg/5 text-text-primary mx-3 mb-2 flex items-center gap-2 rounded-lg border p-3"
-          >
-            <Icon name="lock" className="text-primary-button-bg size-3 shrink-0" />
-            <span className="text-xs leading-none">{skillsDisabledReason}</span>
-          </div>
+          <LockedNote>{skillsDisabledReason}</LockedNote>
         ) : null}
         <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-2">
           {tab === 'connectors' ? (
@@ -696,9 +704,10 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                     fallbackIcon="searchGlobe"
                     checked={webSearchEnabled}
                     disabled={!canToggleWebSearch}
-                    disabledReason={NO_WEB_SEARCH_PROVIDER_HINT}
+                    disabledReason={webSearchDisabledReason}
                     onToggle={toggleWebSearch}
                   />
+                  {canToggleWebSearch ? null : <LockedNote>{webSearchDisabledReason}</LockedNote>}
                 </>
               ) : null}
               {pinnedSelectedConnectors.length > 0 ? (
@@ -782,15 +791,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
             </>
           ) : (
             <>
-              {environmentLocked ? (
-                <div
-                  role="status"
-                  className="border-primary-button-bg/30 bg-primary-button-bg/5 text-text-primary mx-3 mb-2 flex items-center gap-2 rounded-lg border p-3"
-                >
-                  <Icon name="lock" className="text-primary-button-bg size-3 shrink-0" />
-                  <span className="text-xs leading-none">{ENVIRONMENT_LOCKED_HINT}</span>
-                </div>
-              ) : null}
+              {environmentLocked ? <LockedNote>{ENVIRONMENT_LOCKED_HINT}</LockedNote> : null}
               {filteredEnvironments.map(env => {
                 const isSelected = currentEnvName === env.name;
                 const rowDisabled = environmentLocked || env.unavailable;
