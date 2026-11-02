@@ -6,6 +6,7 @@ import {
   modelProviderLogosByName,
   toModelSelection,
 } from '@/plugins/trueforge-agent-server-adapter/builderServer.js';
+import { allSettingsSections } from '../../server/settingsCapabilityFixture.js';
 
 function isAgentsCollectionUrl(url: string): boolean {
   return new URL(url).pathname.endsWith('/api/v1/agents');
@@ -223,7 +224,7 @@ describe('harnessBuilderServer', () => {
           data: {
             sandbox: { enabled: false },
             skill: { enabled: false, reason: 'Configure a sandbox provider' },
-            settings: { enabled: true },
+            settings: allSettingsSections(true),
           },
         });
       }
@@ -236,7 +237,7 @@ describe('harnessBuilderServer', () => {
       data: {
         sandbox: { enabled: false },
         skill: { enabled: false, reason: 'Configure a sandbox provider' },
-        settings: { enabled: true },
+        settings: allSettingsSections(true),
       },
     });
   });

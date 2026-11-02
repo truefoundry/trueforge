@@ -20,7 +20,7 @@ type TrueForgeServerConfig =
 
 An `AgentUIServer` object is used immediately. The built-in `trueforge` config resolves
 asynchronously, so the SDK renders a loading indicator (`role="status"`) for a moment first. It loads
-`plugins/trueforge-agent-server-adapter` and composes a full Harness `AgentUIServer` — see
+`plugins/trueforge-agent-server-adapter` and composes a full Harness `AgentUIServer` - see
 [Quickstart](/ui-sdk/get-started/quickstart).
 
 `catalog` and `permissions` optionally override the adapter's built-in ports. A custom
@@ -109,7 +109,7 @@ interface AgentChatServer {
 }
 ```
 
-`deleteSession` and `renameSession` are optional. Presence gates Delete and Rename in the session list; `renameSession` persists `{ sessionId, title }`. TrueForge implements both. TrueFoundry Gateway does not persist titles and should omit `renameSession`. `listTurnEvents` hydrates the events of a single in-flight turn when your backend can serve them per turn. `subscribeToTurn` lets a reconnecting client resume a stream from `afterSequenceNumber` rather than replaying it — pass the same `abortSignal` you use on `createTurn` to tear it down. `downloadSandboxFile` enables artifact downloads.
+`deleteSession` and `renameSession` are optional. Presence gates Delete and Rename in the session list; `renameSession` persists `{ sessionId, title }`. TrueForge implements both. TrueFoundry Gateway does not persist titles and should omit `renameSession`. `listTurnEvents` hydrates the events of a single in-flight turn when your backend can serve them per turn. `subscribeToTurn` lets a reconnecting client resume a stream from `afterSequenceNumber` rather than replaying it - pass the same `abortSignal` you use on `createTurn` to tear it down. `downloadSandboxFile` enables artifact downloads.
 
 <Note>
   `downloadSandboxFile` receives both `turnId` and `sandboxId` because backends address sandboxes differently. If your download route is scoped to a turn, resolve the sandbox from `turnId` and ignore `sandboxId`; if you address sandboxes directly, use `sandboxId`.
@@ -144,7 +144,7 @@ interface ListResult<T> {
 }
 ```
 
-`ListResult` is a plain DTO — `data` holds the rows and `nextPageToken` carries the cursor for the next page, absent on the last page. Requests accept a matching `pageToken`, which the SDK feeds back on the following call.
+`ListResult` is a plain DTO - `data` holds the rows and `nextPageToken` carries the cursor for the next page, absent on the last page. Requests accept a matching `pageToken`, which the SDK feeds back on the following call.
 
 ```ts
 async listSessions({ pageToken, limit = 20 } = {}) {
@@ -189,7 +189,7 @@ interface UserToolResponseEvent {
 }
 ```
 
-A plain chat message arrives as `user.message`. Approving or rejecting a tool call, and answering a prompt the agent raised, arrive as the other two — all three through the same `createTurn` entry point, so branch on `type`.
+A plain chat message arrives as `user.message`. Approving or rejecting a tool call, and answering a prompt the agent raised, arrive as the other two - all three through the same `createTurn` entry point, so branch on `type`.
 
 ## Turn state
 
@@ -210,7 +210,7 @@ type TurnState =
   | { status: "error"; message: string; completedAt: string };
 ```
 
-A turn ends in one of three terminal states, each carrying `completedAt`. A `done` turn may still carry `requiredActions` — that is how a turn signals it is waiting on the user, such as a tool approval, rather than being finished outright. The user's reply arrives on the next `createTurn` call as a `user.tool_approval` or `user.tool_response` input item.
+A turn ends in one of three terminal states, each carrying `completedAt`. A `done` turn may still carry `requiredActions` - that is how a turn signals it is waiting on the user, such as a tool approval, rather than being finished outright. The user's reply arrives on the next `createTurn` call as a `user.tool_approval` or `user.tool_response` input item.
 
 ## AgentBuilderServer
 
@@ -228,7 +228,7 @@ interface AgentBuilderServer {
 }
 ```
 
-`deleteAgent` is the only optional method here — the rest must be implemented.
+`deleteAgent` is the only optional method here - the rest must be implemented.
 
 ### Capabilities
 
@@ -239,12 +239,28 @@ interface AgentBuilderCapabilitiesResponse {
   data: {
     sandbox: { enabled: boolean };
     skill: { enabled: boolean; reason?: string };
-    settings?: { enabled: boolean };
+    settings?: SettingsCapability;
   };
+}
+
+interface SettingsCapability {
+  modelProviders?: SettingsCapabilitySection;
+  mcpServers?: SettingsCapabilitySection;
+  skills?: SettingsCapabilitySection;
+  sandboxProviders?: SettingsCapabilitySection;
+  webSearch?: SettingsCapabilitySection;
+  memory?: SettingsCapabilitySection;
+}
+
+interface SettingsCapabilitySection {
+  enabled: boolean;
+  manageProviders: boolean;
 }
 ```
 
-It is fetched once when the server resolves. `skill.reason` is shown to the user when skills are disabled, so use it to explain why — for example that no skill registry is configured. Setting `settings.enabled` to `false` hides the settings control even when a `catalog` is attached; omitting `settings` leaves it visible.
+It is fetched once when the server resolves. `skill.reason` is shown to the user when skills are disabled, so use it to explain why - for example that no skill registry is configured.
+
+`settings` reports one entry per settings section rather than a single switch, so you can open the sections a caller may use and close the rest. A section you omit stays **visible**, which is what keeps servers written before this existed working. Set `enabled: false` on a section to hide it; the settings control itself disappears once every section is closed. Use `manageProviders: false` for a section whose providers your platform owns centrally - the section still opens, but the controls that add or edit providers do not render.
 
 ```ts
 async getCapabilities() {
@@ -260,18 +276,18 @@ The remaining methods return the minimum each selector renders:
 
 | Type | Required | Optional |
 | --- | --- | --- |
-| `ModelSelection` | `id`, `name`, `provider`, `properties` | — |
+| `ModelSelection` | `id`, `name`, `provider`, `properties` | - |
 | `AgentSkill` | `id`, `name` | `description` |
 | `ConnectorState` | `id`, `name` | `description`, `requiresAuth`, `authenticated` |
 | `AgentLibraryEntry` | `name` | `agentId`, `agentSpec` |
 
-`provider` is a `{ name; logo? }` object, and `properties` is a `{ reasoningEfforts?: string[] }` object — both are required on the row even when empty (`properties: {}`).
+`provider` is a `{ name; logo? }` object, and `properties` is a `{ reasoningEfforts?: string[] }` object - both are required on the row even when empty (`properties: {}`).
 
 <Note>
   Return a non-empty `properties.reasoningEfforts` on a `ModelSelection` and the UI shows a reasoning-effort picker beside the model selector. On `AgentLibraryEntry`, `agentId` is the stable identifier used for selection, history filtering, and session binding; omit it and the row falls back to `name`. Supply `agentSpec` to enable Edit; omit it for try-only agents.
 </Note>
 
-`SearchAgentsParams` is `{ query?, limit?, pageToken? }`. `searchAgents` returns `{ data, nextPageToken? }`, using the same token pagination as the session lists; pass the returned token as `pageToken` for the next page. `SaveAgentRequest` is `{ agentName, agentSpec, intent, sessionId? }`, where `intent` is `"create"` for a new agent and `"update"` when the chat is already bound to one. It returns a `SaveAgentResult` of `{ agentId?, sessionUpdatedAt? }` — `agentId` is the id the host registry allocated, and `sessionUpdatedAt` is set when the active mutable session was updated in the same call.
+`SearchAgentsParams` is `{ query?, limit?, pageToken? }`. `searchAgents` returns `{ data, nextPageToken? }`, using the same token pagination as the session lists; pass the returned token as `pageToken` for the next page. `SaveAgentRequest` is `{ agentName, agentSpec, intent, sessionId? }`, where `intent` is `"create"` for a new agent and `"update"` when the chat is already bound to one. It returns a `SaveAgentResult` of `{ agentId?, sessionUpdatedAt? }` - `agentId` is the id the host registry allocated, and `sessionUpdatedAt` is set when the active mutable session was updated in the same call.
 
 ## AgentSpec
 
@@ -299,7 +315,7 @@ interface AgentRuntimeConfig {
 
 Only `model` is required. `instructions` carries the system prompt. `config` toggles runtime features per agent (generative UI, dynamic sub-agents, ask-user questions), and `variables` holds string substitutions the backend interpolates.
 
-`SkillMount` and `McpServerMount` are typed as `object`. The runtime stores and forwards mounts without reading any field, and your backend owns their shape — so the base constrains only that a mount is an object, and you intersect your concrete type over it.
+`SkillMount` and `McpServerMount` are typed as `object`. The runtime stores and forwards mounts without reading any field, and your backend owns their shape - so the base constrains only that a mount is an object, and you intersect your concrete type over it.
 
 ## Widening the types
 
@@ -319,7 +335,7 @@ const server: AgentChatServer<MySpec> & AgentBuilderServer<MySpec, MyModel> = {
 };
 ```
 
-The UI keeps reading only the fields it knows about; your own components — supplied through [slot overrides](/ui-sdk/setup-custom-ui/slot-overrides) — can read the rest.
+The UI keeps reading only the fields it knows about; your own components - supplied through [slot overrides](/ui-sdk/setup-custom-ui/slot-overrides) - can read the rest.
 
 ## Next
 

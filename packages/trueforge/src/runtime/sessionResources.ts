@@ -15,6 +15,7 @@ import { HTTPException } from 'hono/http-exception';
 import { join } from 'node:path';
 import type { Logger } from 'winston';
 import configuration from '../config';
+import { isWebSearchEnabledForTenant, type IConfigurationStore } from '../db/configurationStore';
 import type { IMcpServerStore, IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
@@ -267,6 +268,8 @@ export async function validateAgentSpec({
   sandboxProviderStore,
   sandboxEnvironmentStore,
   webSearchProviderStore,
+  configurationStore,
+  previousSpec,
 }: {
   spec: AgentSpec;
   tenant_id: string;
@@ -277,6 +280,9 @@ export async function validateAgentSpec({
   sandboxProviderStore: ISandboxProviderStore;
   sandboxEnvironmentStore: ISandboxEnvironmentStore;
   webSearchProviderStore: IWebSearchProviderStore;
+  configurationStore: IConfigurationStore;
+  /** Spec already saved on this session or agent; undefined when creating. */
+  previousSpec: AgentSpec | undefined;
 }): Promise<void> {
   const resolved = await getModelDetails({
     tenant_id,
@@ -343,7 +349,16 @@ export async function validateAgentSpec({
     }
   }
 
-  if (spec.config.web_search.enabled) {
+  // Both checks gate turning web search on. A spec already saved with it on keeps it,
+  // so later edits are not blocked by a switch or a provider that changed since.
+  if (spec.config.web_search.enabled && previousSpec?.config.web_search.enabled !== true) {
+    const tenantAllows = await isWebSearchEnabledForTenant({ tenant_id, store: configurationStore });
+    if (!tenantAllows) {
+      throw new HTTPException(422, {
+        message:
+          'web_search cannot be enabled because it is disabled for this tenant - an admin can re-enable it in settings',
+      });
+    }
     const hasProvider = await hasConfiguredWebSearchProvider({ tenant_id, store: webSearchProviderStore });
     if (!hasProvider) {
       throw new HTTPException(422, {
