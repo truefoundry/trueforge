@@ -1,10 +1,10 @@
 import type { Kysely, Transaction } from 'kysely';
 import type {
-  GrantSessionAccessInput,
+  AccessGrantRecord,
+  CreateAccessGrantsInput,
+  DeleteAccessGrantsInput,
   IAccessControlStore,
-  ListSessionAccessInput,
-  RevokeSessionAccessInput,
-  SessionAccessRecord,
+  ListAccessGrantsInput,
 } from '../../accessControlStore';
 import { json, now } from '../sqlExpressions';
 import type { Database } from '../types';
@@ -16,30 +16,7 @@ export class PostgresAccessControlStore implements IAccessControlStore<Transacti
     this.#db = db;
   }
 
-  async listSessionAccess(
-    input: ListSessionAccessInput,
-    transaction?: Transaction<Database>,
-  ): Promise<SessionAccessRecord[]> {
-    const db = transaction ?? this.#db;
-    const rows = await db
-      .selectFrom('access_control')
-      .selectAll()
-      .where('tenant_id', '=', input.tenant_id)
-      .where('session_id', '=', input.session_id)
-      .orderBy('created_at')
-      .orderBy('subject_id')
-      .execute();
-    return rows.map(row => ({
-      tenant_id: row.tenant_id,
-      session_id: row.session_id,
-      subject_type: row.subject_type,
-      subject_id: row.subject_id,
-      granted_by_subject: row.granted_by_subject,
-      created_at: row.created_at.toISOString(),
-    }));
-  }
-
-  async grantSessionAccess(input: GrantSessionAccessInput, transaction?: Transaction<Database>): Promise<void> {
+  async createAccessGrants(input: CreateAccessGrantsInput, transaction?: Transaction<Database>): Promise<void> {
     const db = transaction ?? this.#db;
     await db
       .insertInto('access_control')
@@ -57,7 +34,41 @@ export class PostgresAccessControlStore implements IAccessControlStore<Transacti
       .execute();
   }
 
-  async revokeSessionAccess(input: RevokeSessionAccessInput, transaction?: Transaction<Database>): Promise<void> {
+  async listAccessGrants(
+    input: ListAccessGrantsInput,
+    transaction?: Transaction<Database>,
+  ): Promise<AccessGrantRecord[]> {
+    const { subjects } = input;
+    if (input.session_ids.length === 0 || subjects?.length === 0) {
+      return [];
+    }
+    const db = transaction ?? this.#db;
+    let query = db
+      .selectFrom('access_control')
+      .selectAll()
+      .where('tenant_id', '=', input.tenant_id)
+      .where('session_id', 'in', [...input.session_ids]);
+    if (subjects !== undefined) {
+      query = query.where(eb =>
+        eb.or(
+          subjects.map(subject =>
+            eb.and([eb('subject_type', '=', subject.subject_type), eb('subject_id', '=', subject.subject_id)]),
+          ),
+        ),
+      );
+    }
+    const rows = await query.orderBy('session_id').orderBy('created_at').orderBy('subject_id').execute();
+    return rows.map(row => ({
+      tenant_id: row.tenant_id,
+      session_id: row.session_id,
+      subject_type: row.subject_type,
+      subject_id: row.subject_id,
+      granted_by_subject: row.granted_by_subject,
+      created_at: row.created_at.toISOString(),
+    }));
+  }
+
+  async deleteAccessGrants(input: DeleteAccessGrantsInput, transaction?: Transaction<Database>): Promise<void> {
     const db = transaction ?? this.#db;
     await db
       .deleteFrom('access_control')

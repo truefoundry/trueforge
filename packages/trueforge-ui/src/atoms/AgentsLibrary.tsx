@@ -19,7 +19,6 @@ import { useSlot } from '../theme/SlotsProvider.js';
 import { readLibraryShareSearch, replaceLibraryShareSearch } from '../utils/libraryShareUrl.js';
 import { replaceScheduleShareSearch } from '../utils/scheduleShareUrl.js';
 import {
-  AgentLastRunCell,
   AgentLibrarySparklineCell,
   AgentSessionsCell,
   AgentSpendCell,
@@ -76,7 +75,6 @@ export type AgentLibraryRowProps = {
   scheduleSummary?: AgentScheduleSummary | null;
   usage?: AgentLibraryUsageStats;
   showMetricsColumns?: boolean;
-  showLastRunColumn?: boolean;
   onOpenSchedules?: () => void;
   onCreateSchedule?: () => void;
   onOpen?: () => void;
@@ -372,7 +370,6 @@ export function AgentLibraryRow({
   scheduleSummary,
   usage,
   showMetricsColumns = false,
-  showLastRunColumn = false,
   onOpenSchedules,
   onCreateSchedule,
   onOpen,
@@ -395,13 +392,12 @@ export function AgentLibraryRow({
   const storedDescription = agent.description?.trim() || null;
   // Create falls back to name when description is missing; don't echo it under the title.
   const description = storedDescription != null && storedDescription !== agent.name ? storedDescription : null;
-  const usageLoading = (showMetricsColumns || showLastRunColumn) && usage == null;
+  const usageLoading = showMetricsColumns && usage == null;
   const usageCells = (
     <SlottedUsageCells
       loading={usageLoading}
       agentName={agent.name}
       showMetrics={showMetricsColumns}
-      showLastRun={showLastRunColumn}
       {...(usage !== undefined ? { usage } : {})}
     />
   );
@@ -506,7 +502,6 @@ export function AgentLibraryRow({
       ) : null}
       <TableCell className="w-px">
         <div className="flex items-center justify-end gap-3">
-          {showLastRunColumn ? <AgentLastRunCell usage={usage} loading={usageLoading} agentName={agent.name} /> : null}
           {tryButton}
           {overflowMenu}
         </div>
@@ -630,11 +625,7 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
     resourceIds: permissionAgentIds,
   });
 
-  const {
-    usageByAgentId,
-    metricsEnabled: showMetricsColumns,
-    lastRunEnabled: showLastRunColumn,
-  } = useAgentLibraryUsageStats({
+  const { usageByAgentId, metricsEnabled: showMetricsColumns } = useAgentLibraryUsageStats({
     agentIds: permissionAgentIds,
     refreshKey: agentsListEpoch,
   });
@@ -726,7 +717,6 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
         canDeleteAgent={allows(id, 'DELETE')}
         canManageSchedules={canOpenAgentSchedules}
         showMetricsColumns={showMetricsColumns}
-        showLastRunColumn={showLastRunColumn}
         variant={variant}
         {...(usage !== undefined ? { usage } : {})}
         {...(summary !== undefined ? { scheduleSummary: summary } : {})}
@@ -875,9 +865,7 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
                       </>
                     ) : null}
                     <TableHead className="w-px">
-                      <span className={showLastRunColumn ? undefined : 'sr-only'}>
-                        {showLastRunColumn ? 'Last run' : 'Actions'}
-                      </span>
+                      <span className="sr-only">Actions</span>
                     </TableHead>
                   </TableRow>
                 </TableHeader>

@@ -8,6 +8,7 @@ import { TrueForgeAuthorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
+import { SqliteAccessControlStore } from '../../../src/db/sqlite/access-control-store/SqliteAccessControlStore';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
@@ -70,6 +71,7 @@ async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response
     createTurnsRouter({
       sessions,
       sessionStore: new SqliteSessionStore(db),
+      accessControlStore: new SqliteAccessControlStore(db),
       activeTurns: new ActiveTurnRegistry(),
       resolveModelProviderStore: () => modelProviderStore,
       resolveMcpServerStore: () =>
@@ -79,6 +81,7 @@ async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response
           clientName: 'test-client',
         }),
       resolveTurnSkillsStore: () => new SqliteSkillStore(db),
+      resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
       resolveAgentStore: () => new SqliteAgentStore(db),
       eventSubscriptions: new EventSubscriptionRegistry(undefined),
       resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),

@@ -1,5 +1,69 @@
 # @truefoundry/trueforge-core
 
+## 0.182.0
+
+### Patch Changes
+
+- 7a7a0b6: Trim context compaction prompt: drop analysis scratchpad; list at most 15 relevant files with short reasons instead of full code dumps.
+- 7b325d9: Drop the redundant `last_turn_id` column from sessions; the session tip is now read from `last_turn_details.id`.
+- e6a2e9e: Large tool response guidance now includes content size in the blocked preamble for MCP and sandbox dumps, shares the same "Content too big (size; reason)" framing, uses RFC 2119 wording (MUST/MAY/SHOULD), and states the per-response character limit for dumped-file reads and oversized sandbox stdout. Elevated tools (deferred-tools `get_tool_info` only) skip offload up to min(50000 characters, 80% of remaining context). Individual offload uses a strict `>` threshold so the stated character cap is usable. Size figures are plain digits without thousands separators.
+- 6722969: Add session grants API (share, list, revoke) and user listing.
+- ae7c705: Session grants now give read access, and sharing with everyone in the tenant is a `tenant` grant. `Session.shared` reflects the tenant grant, and the deprecated `PATCH /sessions/{id} { shared }` now grants or revokes it. Adds the `session_sharing.enabled` capability.
+- e87e9f2: Accept `x-tfg-tools` as an array of MCP tool definitions (`inputSchema`, optional `outputSchema`) on a TrueFoundry-mode turn. The header is read by a per-request store and mounted on the main thread through `TurnResourceResolver`. Local tool lists keep `outputSchema` and `annotations`.
+
+## 0.182.0-rc.3
+
+### Patch Changes
+
+- e87e9f2: Accept `x-tfg-tools` as an array of MCP tool definitions (`inputSchema`, optional `outputSchema`) on a TrueFoundry-mode turn. The header is read by a per-request store and mounted on the main thread through `TurnResourceResolver`. Local tool lists keep `outputSchema` and `annotations`.
+
+## 0.182.0-rc.2
+
+### Patch Changes
+
+- ae7c705: Session grants now give read access, and sharing with everyone in the tenant is a `tenant` grant. `Session.shared` reflects the tenant grant, and the deprecated `PATCH /sessions/{id} { shared }` now grants or revokes it. Adds the `session_sharing.enabled` capability.
+
+## 0.182.0-rc.1
+
+### Patch Changes
+
+- 7a7a0b6: Trim context compaction prompt: drop analysis scratchpad; list at most 15 relevant files with short reasons instead of full code dumps.
+- 7b325d9: Drop the redundant `last_turn_id` column from sessions; the session tip is now read from `last_turn_details.id`.
+- e6a2e9e: Large tool response guidance now includes content size in the blocked preamble for MCP and sandbox dumps, shares the same "Content too big (size; reason)" framing, uses RFC 2119 wording (MUST/MAY/SHOULD), and states the per-response character limit for dumped-file reads and oversized sandbox stdout. Elevated tools (deferred-tools `get_tool_info` only) skip offload up to min(50000 characters, 80% of remaining context). Individual offload uses a strict `>` threshold so the stated character cap is usable. Size figures are plain digits without thousands separators.
+- 6722969: Add session grants API (share, list, revoke) and user listing.
+
+## 0.181.0
+
+### Patch Changes
+
+- 9bed345: Emit `thread.context_compaction_started` / `thread.context_compaction_finished` around context compaction (trigger, usage, duration_ms).
+- f5427d9: Pass each MCP server's saved description into deferred tool instructions. A server with `preload: false` now shows its description before its tools are listed.
+- a527e57: Send `x-tfy-forward-pings: true` on TrueFoundry-mode model invokes. Support per-call LLM `headers` and `metadata` (TrueFoundry folds metadata into `x-tfy-metadata`), and stamp `tfg.compaction: true` on context-compaction calls so those requests are visible in traces.
+- 7318806: Blocked large tool response messages now state the exact content size and which limit blocked it, in characters (`Content too large (50,000 characters; this response exceeds the 24,000-character limit for a single response). Result saved to: …`, at the default thresholds; responses blocked by the parallel total instead say the parallel responses together exceed the combined limit), and the file-dump message prompts the model to plan reads against the total instead of guessing with small incremental reads.
+- fcb48de: Keep local `$defs`/`definitions` containers when converting preloaded MCP tool input schemas, so `$ref` pointers resolve instead of being dropped.
+- 6247d67: Prefix model and MCP failures so logs and the chat error show which system failed.
+- 4682d87: Bump npm-security dependencies: `@modelcontextprotocol/sdk`, `hono`, and `undici`.
+- e0566ef: Record outbound HTTP, model calls, MCP, harness limits, tool-call duration, active threads, turn lifetime, Parallel web search, ServiceFoundry requests, and Postgres query duration on the existing Prometheus scrape. Daytona and Redis SDK meters are included on that same scrape.
+- 82e50e2: Report logged failures to Sentry except HTTP statuses from 200 through 499, including when that status sits on a wrapped cause. The log message is the Sentry title, and the thrown error is the cause and stack. Those events include the active tenant, request, session, and turn ids. Printed lines omit that marker even when Sentry is off.
+- c21132e: Sessions now return `last_turn_details` (`{ id, state: { status } }`, null before the first turn), kept in sync as the last turn changes status. Existing sessions are backfilled.
+- 012f8fc: Block HTTPS-to-HTTP redirects in the outbound SSRF-guarded fetch so cleartext downgrades cannot follow a secure hop.
+
+## 0.181.0-rc.1
+
+### Patch Changes
+
+- 9bed345: Emit `thread.context_compaction_started` / `thread.context_compaction_finished` around context compaction (trigger, usage, duration_ms).
+- f5427d9: Pass each MCP server's saved description into deferred tool instructions. A server with `preload: false` now shows its description before its tools are listed.
+- a527e57: Send `x-tfy-forward-pings: true` on TrueFoundry-mode model invokes. Support per-call LLM `headers` and `metadata` (TrueFoundry folds metadata into `x-tfy-metadata`), and stamp `tfg.compaction: true` on context-compaction calls so those requests are visible in traces.
+- 7318806: Blocked large tool response messages now state the exact content size and which limit blocked it, in characters (`Content too large (50,000 characters; this response exceeds the 24,000-character limit for a single response). Result saved to: …`, at the default thresholds; responses blocked by the parallel total instead say the parallel responses together exceed the combined limit), and the file-dump message prompts the model to plan reads against the total instead of guessing with small incremental reads.
+- fcb48de: Keep local `$defs`/`definitions` containers when converting preloaded MCP tool input schemas, so `$ref` pointers resolve instead of being dropped.
+- 6247d67: Prefix model and MCP failures so logs and the chat error show which system failed.
+- 4682d87: Bump npm-security dependencies: `@modelcontextprotocol/sdk`, `hono`, and `undici`.
+- e0566ef: Record outbound HTTP, model calls, MCP, harness limits, tool-call duration, active threads, turn lifetime, Parallel web search, ServiceFoundry requests, and Postgres query duration on the existing Prometheus scrape. Daytona and Redis SDK meters are included on that same scrape.
+- 82e50e2: Report logged failures to Sentry except HTTP statuses from 200 through 499, including when that status sits on a wrapped cause. The log message is the Sentry title, and the thrown error is the cause and stack. Those events include the active tenant, request, session, and turn ids. Printed lines omit that marker even when Sentry is off.
+- c21132e: Sessions now return `last_turn_details` (`{ id, state: { status } }`, null before the first turn), kept in sync as the last turn changes status. Existing sessions are backfilled.
+- 012f8fc: Block HTTPS-to-HTTP redirects in the outbound SSRF-guarded fetch so cleartext downgrades cannot follow a secure hop.
+
 ## 0.180.0
 
 ### Patch Changes

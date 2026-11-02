@@ -96,6 +96,7 @@ import type { Logger } from 'winston';
 
 import {
   createServerApp,
+  type ResolveCapabilitiesStoreInput,
   type ResolveMcpServerStoreInput,
   type ResolveModelProviderStoreInput,
   type ResolveSkillStoreInput,
@@ -157,6 +158,7 @@ import {
   type InlineSkills,
 } from './truefoundry/inlineResources';
 import { InlineSkillStore } from './truefoundry/InlineSkillStore';
+import { capabilitiesStoreFromHeader, X_TFG_TOOLS } from './truefoundry/inlineTools';
 import {
   parsePerServerMcpHeaders,
   X_TFG_MCP_HEADERS,
@@ -789,6 +791,12 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
       rawInlineSkillsHeader === undefined ? {} : { inlineSkills: parseInlineSkills(rawInlineSkillsHeader) },
     );
   };
+  // x-tfg-tools is per turn and is not stored. Schedules omit `c` and mount nothing.
+  const resolveCapabilitiesStore = (input: ResolveCapabilitiesStoreInput) =>
+    capabilitiesStoreFromHeader({
+      header: input.c?.req.header(X_TFG_TOOLS),
+      isTrueFoundryMode,
+    });
   const app = createServerApp({
     modelCatalog: ModelCatalog.load(),
     mcpCatalog: McpCatalog.load(),
@@ -802,6 +810,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     resolveWebSearchProviderStore,
     resolveSkillStore,
     resolveTurnSkillsStore: resolveTurnSkillsStoreForRequest,
+    resolveCapabilitiesStore,
     withTransaction,
     tokenStore,
     scheduleStore,

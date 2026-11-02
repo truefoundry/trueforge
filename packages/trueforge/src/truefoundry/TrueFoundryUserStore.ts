@@ -16,6 +16,7 @@ function toUser(user: PeekUser): User {
 
 /** Tenant users from ServiceFoundry, looked up with the caller's token. */
 export class TrueFoundryUserStore implements IUserStore {
+  readonly supportsUserLookup = true;
   readonly #client: Pick<TrueFoundryServiceFoundryServerClient, 'peekUsers'>;
 
   constructor(client: Pick<TrueFoundryServiceFoundryServerClient, 'peekUsers'>) {

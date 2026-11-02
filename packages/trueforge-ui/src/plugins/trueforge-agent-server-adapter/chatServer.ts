@@ -88,6 +88,7 @@ function toUiSession(session: TrueForgeApi.Session): HarnessUiSession {
     isMutable: session.agent.type === 'inline',
     isCreateAgent: readSessionIsCreateAgent(session.metadata),
     shared: session.shared,
+    createdBy: { id: session.createdBySubject.subjectId, displayName: session.createdBySubject.subjectDisplayName },
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
     metrics: {

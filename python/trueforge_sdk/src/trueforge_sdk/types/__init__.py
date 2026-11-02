@@ -221,6 +221,7 @@ if typing.TYPE_CHECKING:
     from .session_metrics_meter_name import SessionMetricsMeterName
     from .session_metrics_meter_response import SessionMetricsMeterResponse
     from .session_metrics_point import SessionMetricsPoint
+    from .session_sharing_capability import SessionSharingCapability
     from .session_source import SessionSource
     from .session_source_schedule import SessionSourceSchedule
     from .session_source_type import SessionSourceType
@@ -504,6 +505,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SessionMetricsMeterName": ".session_metrics_meter_name",
     "SessionMetricsMeterResponse": ".session_metrics_meter_response",
     "SessionMetricsPoint": ".session_metrics_point",
+    "SessionSharingCapability": ".session_sharing_capability",
     "SessionSource": ".session_source",
     "SessionSourceSchedule": ".session_source_schedule",
     "SessionSourceType": ".session_source_type",
@@ -811,6 +813,7 @@ __all__ = [
     "SessionMetricsMeterName",
     "SessionMetricsMeterResponse",
     "SessionMetricsPoint",
+    "SessionSharingCapability",
     "SessionSource",
     "SessionSourceSchedule",
     "SessionSourceType",

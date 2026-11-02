@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useServerQueryClient } from '../../server/queryClient.js';
 import { queryKeys } from '../../server/queryKeys.js';
-import { useOptionalAgentMetricsServer, useOptionalAgentSessionsServer } from '../../server/ServerContext.js';
+import { useOptionalAgentMetricsServer } from '../../server/ServerContext.js';
 import type { AgentMetricChartData, AgentMetricMeter, AgentMetricPoint } from '../../server/types.js';
 import { DEFAULT_SESSION_TIME_WINDOW_MS } from '../../utils/sessionShareUrl.js';
 
@@ -28,11 +28,6 @@ export type AgentLibraryUsageStats = {
   totalCostUsd: number | null;
   costPerSessionUsd: number | null;
   dailyPoints: AgentLibraryDailyPoint[] | null;
-  /**
-   * Present only after `listSessions` succeeds. `null` means the agent has no
-   * sessions; omitted when the fetch failed (distinct from "never ran").
-   */
-  lastRunAt?: string | null;
 };
 
 function meterValue(meters: readonly AgentMetricMeter[], name: string): number | null {
@@ -51,21 +46,17 @@ function chartPoints(points: readonly AgentMetricPoint[] | undefined): AgentLibr
 type UsageQueries = {
   meters: { data: AgentMetricMeter[] | undefined; isError: boolean; isPending: boolean } | undefined;
   chart: { data: AgentMetricChartData | undefined; isError: boolean; isPending: boolean } | undefined;
-  lastRun: { data: string | null | undefined; isError: boolean; isPending: boolean } | undefined;
 };
 
 /** `undefined` until every enabled request for the agent settles, so each row paints once. */
-function usageFromQueries({ meters, chart, lastRun }: UsageQueries): AgentLibraryUsageStats | undefined {
-  if (meters?.isPending === true || chart?.isPending === true || lastRun?.isPending === true) return undefined;
+function usageFromQueries({ meters, chart }: UsageQueries): AgentLibraryUsageStats | undefined {
+  if (meters?.isPending === true || chart?.isPending === true) return undefined;
   const meterRows = meters?.data;
-  const lastRunAt = lastRun?.data;
   return {
     totalSessions: meterRows == null ? null : meterValue(meterRows, 'total_sessions'),
     totalCostUsd: meterRows == null ? null : meterValue(meterRows, 'total_cost_in_usd'),
     costPerSessionUsd: meterRows == null ? null : meterValue(meterRows, 'cost_per_session_in_usd'),
     dailyPoints: chart?.data == null ? null : chartPoints(chart.data.graphs[0]?.graphLines[0]?.values),
-    // `undefined` = sessions server absent or the call failed; `null` = no sessions.
-    ...(lastRun == null || lastRun.isError || lastRunAt === undefined ? {} : { lastRunAt }),
   };
 }
 
@@ -85,9 +76,9 @@ function usageWindow(): { metersStart: string; sparklineStart: string; end: stri
 }
 
 /**
- * Loads per-agent spend/session meters, a 14d cost sparkline, and last-run
- * for the visible library page. Each agent paints as its own requests finish.
- * ponytail: three requests per agent (N+1). Replace with one batched metrics
+ * Loads per-agent spend/session meters and a 14d cost sparkline for the
+ * visible library page. Each agent paints as its own requests finish.
+ * ponytail: two requests per agent (N+1). Replace with one batched metrics
  * call if the library page grows past a few dozen rows.
  */
 export function useAgentLibraryUsageStats({
@@ -99,13 +90,10 @@ export function useAgentLibraryUsageStats({
 }): {
   usageByAgentId: Map<string, AgentLibraryUsageStats>;
   metricsEnabled: boolean;
-  lastRunEnabled: boolean;
 } {
   const metrics = useOptionalAgentMetricsServer();
-  const sessions = useOptionalAgentSessionsServer();
   const queryClient = useServerQueryClient();
   const metricsEnabled = metrics != null;
-  const lastRunEnabled = sessions != null;
   const [range, setRange] = useState(usageWindow);
   const ids = useMemo(() => [...new Set(agentIds)], [agentIds]);
 
@@ -142,19 +130,6 @@ export function useAgentLibraryUsageStats({
     },
     queryClient,
   );
-  const lastRunQueries = useQueries(
-    {
-      queries: ids.map(agentId => ({
-        queryKey: queryKeys.sessions.lastRun(agentId),
-        queryFn: async () => {
-          const page = await requireServer(sessions).listSessions({ agentId, limit: 1, order: 'desc' });
-          return page.data[0]?.lastActivityAt ?? null;
-        },
-        enabled: lastRunEnabled,
-      })),
-    },
-    queryClient,
-  );
 
   // The library bumps refreshKey after agent changes; move the window up to now, keeping rows'
   // previous numbers until the new window loads.
@@ -163,20 +138,18 @@ export function useAgentLibraryUsageStats({
     if (lastRefreshKeyRef.current === refreshKey) return;
     lastRefreshKeyRef.current = refreshKey;
     setRange(usageWindow());
-    void queryClient.invalidateQueries({ queryKey: queryKeys.sessions.lists() });
-  }, [queryClient, refreshKey]);
+  }, [refreshKey]);
 
   const usageByAgentId = new Map<string, AgentLibraryUsageStats>();
-  if (metricsEnabled || lastRunEnabled) {
+  if (metricsEnabled) {
     ids.forEach((agentId, index) => {
       const usage = usageFromQueries({
-        meters: metricsEnabled ? metersQueries[index] : undefined,
-        chart: metricsEnabled ? chartQueries[index] : undefined,
-        lastRun: lastRunEnabled ? lastRunQueries[index] : undefined,
+        meters: metersQueries[index],
+        chart: chartQueries[index],
       });
       if (usage != null) usageByAgentId.set(agentId, usage);
     });
   }
 
-  return { usageByAgentId, metricsEnabled, lastRunEnabled };
+  return { usageByAgentId, metricsEnabled };
 }

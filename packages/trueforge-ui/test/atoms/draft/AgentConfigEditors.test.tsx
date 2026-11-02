@@ -493,6 +493,9 @@ describe('AgentConfigEditors', () => {
 
     expect(screen.getByRole('dialog', { name: 'Runtime Config' })).toHaveClass('md:ml-auto', 'md:mr-0', 'md:h-dvh');
     expect(screen.getByRole('switch', { name: 'Context compaction' })).toBeInTheDocument();
+    const docs = screen.getByRole('link', { name: 'View docs' });
+    expect(docs).toHaveAttribute('href', 'https://trueforge.dev/create-agent/overview');
+    expect(docs).toHaveAttribute('target', '_blank');
   });
 
   it('changes runtime switches only when the switch is clicked', () => {
@@ -1575,6 +1578,66 @@ describe('AgentConfigEditors', () => {
       skills: [{ id: 'agent-skill:acme/team-a/echo:1', name: 'echo' }],
       config: { sandbox: { enabled: true } },
     });
+  });
+
+  it('marks latest on the highest loaded version when catalog is stale', async () => {
+    const onChange = vi.fn();
+    const loadVersions = vi.fn(async () => [
+      {
+        name: 'agent-skill:acme/team-a/echo:10',
+        displayName: 'echo',
+        description: 'v10',
+        version: 10,
+      },
+      {
+        name: 'agent-skill:acme/team-a/echo:11',
+        displayName: 'echo',
+        description: 'v11',
+        version: 11,
+      },
+    ]);
+    const skill: AgentSkill = Object.assign(
+      {
+        id: 'agent-skill:acme/team-a/echo:10',
+        name: 'echo',
+        description: 'Echo skill',
+      },
+      { version: 10, loadVersions },
+    );
+
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="skills"
+          spec={{ model: { name: 'openai/gpt' } }}
+          models={[]}
+          connectors={[]}
+          skills={[skill]}
+          loading={false}
+          error={null}
+          onChange={onChange}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    const trigger = screen.getByRole('button', { name: 'Select version for echo' });
+    fireEvent.click(trigger);
+    const v11 = await screen.findByRole('menuitem', { name: /v11/ });
+    const v10 = screen.getByRole('menuitem', { name: /^v10/ });
+    expect(v11).toHaveTextContent('latest');
+    expect(v10).not.toHaveTextContent('latest');
+    expect(v10).toHaveAttribute('aria-selected', 'true');
+    expect(v11).toHaveAttribute('aria-selected', 'false');
+    expect(trigger).toHaveTextContent('v10');
+    expect(trigger).not.toHaveTextContent('latest');
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select echo' }));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skills: [{ id: 'agent-skill:acme/team-a/echo:10', name: 'echo' }],
+      }),
+    );
   });
 
   it('shows a concise version error and copies its details', async () => {

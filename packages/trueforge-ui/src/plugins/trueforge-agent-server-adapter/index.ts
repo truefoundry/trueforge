@@ -16,6 +16,7 @@ import { createTrueForgeClient, type CreateTrueForgeClientOptions } from './clie
 import { createHarnessPermissionsServer } from './permissionsServer.js';
 import { createSandboxEnvironmentServer } from './sandboxEnvironments/sandboxEnvironmentServer.js';
 import { createScheduleServer } from './schedules/scheduleServer.js';
+import { createHarnessSessionAccessServer } from './sessionAccessServer.js';
 import type { HarnessAgentSpec } from './types.js';
 
 export { createHarnessAgentMetricsServer, type CreateHarnessAgentMetricsServerOptions } from './agentMetricsServer.js';
@@ -77,6 +78,10 @@ export { getCapabilities, listConfiguredMcpServers, listModels, listSkills } fro
 export { createHarnessPermissionsServer, type CreateHarnessPermissionsServerOptions } from './permissionsServer.js';
 export { createSandboxEnvironmentServer } from './sandboxEnvironments/sandboxEnvironmentServer.js';
 export { createScheduleServer } from './schedules/scheduleServer.js';
+export {
+  createHarnessSessionAccessServer,
+  type CreateHarnessSessionAccessServerOptions,
+} from './sessionAccessServer.js';
 export type { HarnessAgentSpec, HarnessMcpServerMount, HarnessSkillMount } from './types.js';
 
 export type CreateTrueForgeAgentUIServerOptions = CreateTrueForgeClientOptions & {
@@ -111,6 +116,7 @@ export function createTrueForgeAgentUIServer(options: CreateTrueForgeAgentUIServ
     schedules: createScheduleServer({ client }),
     sandboxEnvironments: createSandboxEnvironmentServer({ client }),
     permissions: permissions ?? createHarnessPermissionsServer({ client }),
+    sessionAccess: createHarnessSessionAccessServer({ client }),
     getMe: async () => {
       const { data } = await client.auth.me();
       return { tenantId: data.tenantId };
