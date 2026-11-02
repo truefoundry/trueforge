@@ -21,14 +21,6 @@ The list comes from the shipped [`web-search-catalog.yaml`](https://github.com/t
 
 One provider is active at a time. API and UI reads redact the key, so when you update the provider later, leave the API key blank to keep the stored value, or enter a new key to rotate it.
 
-## Turn web search off for the whole tenant
-
-**Settings → Web search** also has an **Allow web search** switch, above the provider. It is on by default and only an admin can change it.
-
-Turning it off stops web search from being *newly* enabled anywhere in the tenant: new agents, new chats, and scheduled runs whose agent has web search on are all rejected, and the provider section disappears. Chats that are already running keep working, and an agent that already had web search on can still be saved without turning it off first - the switch gates turning the feature on, not having it on.
-
-Turning it back on restores everything; nothing is lost while it is off.
-
 ## Enable web search on an agent
 
 | Where | How                                                                                                                                |
@@ -56,5 +48,4 @@ An MCP server with search tools works as well, and the [Quickstart](/quickstart)
 - `GET /api/v1/settings/web-search-providers` reads the provider, with the key redacted.
 - `PUT /api/v1/settings/web-search-providers` creates, replaces, or rotates the key.
 - `GET /api/v1/catalogs/web-search-providers` lists the presets.
-- `GET /api/v1/settings/configurations` reads the tenant switch; `PATCH` the same path with `{ "manifest": { "web_search": { "enabled": false } } }` to change it.
-- `GET /api/v1/capabilities` reports whether web search is available, and `web_search.reason` says why when it is not.
+- `GET /api/v1/capabilities` reports whether web search is available.
