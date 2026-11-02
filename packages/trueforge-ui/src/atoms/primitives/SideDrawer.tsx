@@ -111,10 +111,10 @@ export function SideDrawer({
         className,
       )}
     >
-      <header className="bg-topbar-bg flex shrink-0 items-center gap-3 border-b border-border px-5 py-4">
+      <header className="bg-topbar-bg flex shrink-0 items-start gap-3 border-b border-border px-5 py-4">
         {headerIcon}
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-baseline gap-1.5">
             <h2 id={titleId} className="text-text-primary text-lg font-semibold tracking-tight">
               {title}
             </h2>

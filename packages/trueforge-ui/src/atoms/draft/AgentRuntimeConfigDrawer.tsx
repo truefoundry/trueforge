@@ -14,9 +14,10 @@ function RuntimeConfigDocsLink() {
       target="_blank"
       rel="noreferrer"
       aria-label="View docs"
-      className="text-text-secondary hover:text-text-primary inline-flex rounded-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus-ring"
+      className="text-indigo-400 flex items-center gap-1"
     >
-      <Icon name="circle-question" className="size-4" />
+      <span className="text-xs">Docs</span>
+      <Icon name="external-link" className="size-3 shrink-0" />
     </a>
   );
 }
