@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ShareSessionDialog } from '@/atoms/ShareSessionDialog.js';
 import { ToasterProvider } from '@/containers/ToasterContainer.js';
+import { CurrentUserProvider, type CurrentUser } from '@/contexts/CurrentUserContext.js';
 import { resolveRoutesConfig } from '@/routing/paths.js';
 import { ResolvedRoutesProvider } from '@/routing/ResolvedRoutesContext.js';
 import { ServerProvider } from '@/server/ServerContext.js';
@@ -62,10 +63,12 @@ function renderDialog({
   session = baseSession,
   grants = [],
   sessionSharingEnabled = true,
+  currentUser,
 }: {
   session?: SessionStub;
   grants?: SessionAccessGrant[];
   sessionSharingEnabled?: boolean;
+  currentUser?: CurrentUser;
 } = {}) {
   const listAccess = vi.fn(async () => grants);
   const grantAccess = vi.fn(async (req: { sessionId: string; subjects: SessionAccessSubject[] }) => [
@@ -107,7 +110,9 @@ function renderDialog({
       <ToasterProvider>
         <ServerProvider server={server}>
           <ResolvedRoutesProvider routes={resolveRoutesConfig()}>
-            <ShareSessionDialog sessionId="session-1" trigger={<button type="button">Share</button>} />
+            <CurrentUserProvider currentUser={currentUser}>
+              <ShareSessionDialog sessionId="session-1" trigger={<button type="button">Share</button>} />
+            </CurrentUserProvider>
           </ResolvedRoutesProvider>
         </ServerProvider>
       </ToasterProvider>
@@ -123,11 +128,11 @@ async function openSharePopover() {
 }
 
 describe('ShareSessionDialog', () => {
-  it('hides the share URL while access is Only you', async () => {
+  it('hides the share URL while access is Restricted', async () => {
     renderDialog();
     await openSharePopover();
 
-    expect(await screen.findByRole('button', { name: 'Session sharing' })).toHaveTextContent('Only you');
+    expect(await screen.findByRole('button', { name: 'Session sharing' })).toHaveTextContent('Restricted');
     expect(screen.queryByLabelText('Share URL')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Copy' })).not.toBeInTheDocument();
   });
@@ -163,7 +168,7 @@ describe('ShareSessionDialog', () => {
     expect(screen.getByLabelText('Share URL')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Session sharing' }));
-    fireEvent.click(await screen.findByRole('option', { name: 'Only you' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Restricted' }));
 
     await waitFor(() => {
       expect(updateSession).toHaveBeenCalledWith({ sessionId: 'session-1', shared: false });
@@ -189,9 +194,9 @@ describe('ShareSessionDialog', () => {
     await openSharePopover();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Session sharing' }));
-    fireEvent.click(await screen.findByRole('option', { name: 'Only you' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Restricted' }));
 
-    expect(screen.queryByRole('option', { name: 'Only you' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Restricted' })).not.toBeInTheDocument();
     expect(updateSession).not.toHaveBeenCalled();
   });
 
@@ -200,10 +205,20 @@ describe('ShareSessionDialog', () => {
     await openSharePopover();
 
     expect(await screen.findByText('Alice')).toBeInTheDocument();
-    expect(screen.getByText('can access')).toBeInTheDocument();
+    expect(screen.getByText('Can access')).toBeInTheDocument();
     expect(screen.getByText('Sajal Preet Singh')).toBeInTheDocument();
-    expect(screen.getByText('owner')).toBeInTheDocument();
+    expect(screen.getByText('Owner')).toBeInTheDocument();
     expect(screen.getByLabelText('Share URL')).toBeInTheDocument();
+    expect(screen.getByText('Sajal Preet Singh').compareDocumentPosition(screen.getByText('Alice'))).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+  });
+
+  it('marks the owner as you when the current user owns the session', async () => {
+    renderDialog({ grants: [aliceGrant], currentUser: { displayName: 'Sajal Preet Singh', subjectId: 'owner' } });
+    await openSharePopover();
+
+    expect(await screen.findByText('Sajal Preet Singh (you)')).toBeInTheDocument();
   });
 
   it('removes a collaborator', async () => {
@@ -231,7 +246,7 @@ describe('ShareSessionDialog', () => {
     const results = await screen.findByRole('listbox', { name: 'Matching users' });
     expect(within(results).queryByText('Alice')).not.toBeInTheDocument();
     fireEvent.click(await within(results).findByRole('option', { name: /Bob/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Invite' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
 
     await waitFor(() => {
       expect(grantAccess).toHaveBeenCalledWith({
@@ -241,13 +256,33 @@ describe('ShareSessionDialog', () => {
     });
   });
 
+  it('shows selected people inside the search field and removes the last one on Backspace', async () => {
+    renderDialog();
+    await openSharePopover();
+
+    const input = await screen.findByLabelText('Search users');
+    fireEvent.change(input, { target: { value: 'b' } });
+    const results = await screen.findByRole('listbox', { name: 'Matching users' });
+    fireEvent.click(await within(results).findByRole('option', { name: /Bob/ }));
+
+    const chip = screen.getByRole('button', { name: 'Remove Bob' });
+    expect(input.closest('label')).toContainElement(chip);
+    expect(input).not.toHaveAttribute('placeholder');
+    expect(input).toHaveValue('');
+    expect(screen.queryByRole('listbox', { name: 'Matching users' })).not.toBeInTheDocument();
+
+    fireEvent.keyDown(input, { key: 'Backspace' });
+    expect(screen.queryByRole('button', { name: 'Remove Bob' })).not.toBeInTheDocument();
+    expect(input).toHaveAttribute('placeholder', 'Add people by name or email');
+  });
+
   it('hides the invite search when session_sharing.enabled is false', async () => {
     renderDialog({ sessionSharingEnabled: false, grants: [aliceGrant] });
     await openSharePopover();
 
     expect(await screen.findByRole('button', { name: 'Session sharing' })).toBeInTheDocument();
     expect(screen.queryByLabelText('Search users')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Invite' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add' })).not.toBeInTheDocument();
     expect(screen.queryByText('Alice')).not.toBeInTheDocument();
   });
 });
