@@ -62,7 +62,6 @@ export class PostgresMemoryIngestStore implements IMemoryIngestStore {
         createAgentSession.as('create_agent_session'),
         sql<boolean>`COALESCE(${agentMemoryEnabled} = 'true', false)`.as('agent_memory_enabled'),
         't.turn_id as tip_turn_id',
-        't.updated_at as tip_updated_at',
         sessionUpdatedAtText.as('session_updated_at'),
         'c.last_ingested_turn_id as cursor_last_ingested_turn_id',
         'c.external_thread_id as cursor_external_thread_id',
@@ -100,7 +99,6 @@ export class PostgresMemoryIngestStore implements IMemoryIngestStore {
       create_agent_session: row.create_agent_session,
       agent_memory_enabled: row.agent_memory_enabled,
       tip_turn_id: row.tip_turn_id,
-      tip_updated_at: row.tip_updated_at.toISOString(),
       session_updated_at: row.session_updated_at,
       cursor:
         row.cursor_updated_at === null

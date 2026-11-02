@@ -46,37 +46,21 @@ export interface MemoryIngestDeps {
   now: () => Date;
 }
 
-export const MEMORY_INGEST_OUTCOMES = [
-  'ingested',
-  'not_ready',
-  'agent_disabled',
-  'not_eligible',
-  'fork',
-  'failed',
-] as const;
-export type MemoryIngestOutcome = (typeof MEMORY_INGEST_OUTCOMES)[number];
+export type MemoryIngestOutcome = 'ingested' | 'not_ready' | 'memory_disabled' | 'failed';
 
 interface SessionResult {
   outcome: MemoryIngestOutcome;
   exchangesSent: number;
   exchangesFailed: number;
-  /** Seconds from each sent exchange's completion to its send. */
-  lagsS: number[];
-  /** Work is left for a later run (not ready, capped, or failed). */
-  pending: boolean;
 }
 
 export interface MemoryIngestRunSummary {
-  candidates: number;
+  sessions: number;
   backlog: boolean;
-  sessions_processed: number;
   sessions_by_outcome: Partial<Record<MemoryIngestOutcome, number>>;
   exchanges_sent: number;
   exchanges_failed: number;
   duration_ms: number;
-  lag_p50_s: number | null;
-  lag_max_s: number | null;
-  oldest_pending_age_s: number | null;
 }
 
 export interface MemoryIngestRunResult {
@@ -89,21 +73,6 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function seconds(ms: number): number {
-  return Math.round(ms / 100) / 10;
-}
-
-function median(values: readonly number[]): number | null {
-  const sorted = [...values].sort((a, b) => a - b);
-  const middle = Math.floor(sorted.length / 2);
-  const upper = sorted[middle];
-  if (upper === undefined) {
-    return null;
-  }
-  const lower = sorted[middle - 1];
-  return sorted.length % 2 === 0 && lower !== undefined ? (lower + upper) / 2 : upper;
-}
-
 /** Exchanges that may be sent now, in order, stopping at the first one that is not ready. */
 function readyExchanges({
   exchanges,
@@ -113,18 +82,18 @@ function readyExchanges({
   exchanges: readonly TurnExchange[];
   now: Date;
   config: MemoryIngestConfig;
-}): { ready: TurnExchange[]; capped: boolean } {
+}): TurnExchange[] {
   const ready: TurnExchange[] = [];
   for (const exchange of exchanges) {
-    if (!exchangeReadiness({ exchange, now, pauseTimeoutMs: config.pauseTimeoutMs }).ready) {
-      return { ready, capped: false };
-    }
-    if (ready.length === config.maxExchangesPerSession) {
-      return { ready, capped: true };
+    if (
+      ready.length === config.maxExchangesPerSession ||
+      !exchangeReadiness({ exchange, now, pauseTimeoutMs: config.pauseTimeoutMs }).ready
+    ) {
+      break;
     }
     ready.push(exchange);
   }
-  return { ready, capped: false };
+  return ready;
 }
 
 async function ingestSession({
@@ -160,10 +129,9 @@ async function ingestSession({
     });
   }
 
-  const sentAt = now();
-  const { ready, capped } = readyExchanges({ exchanges: buildExchanges(path.slice(startIndex)), now: sentAt, config });
+  const ready = readyExchanges({ exchanges: buildExchanges(path.slice(startIndex)), now: now(), config });
   if (ready.length === 0) {
-    return { outcome: forked ? 'fork' : 'not_ready', exchangesSent: 0, exchangesFailed: 0, lagsS: [], pending: true };
+    return { outcome: 'not_ready', exchangesSent: 0, exchangesFailed: 0 };
   }
 
   // A continuation's answer refers to a question asked in the turn before it.
@@ -179,7 +147,6 @@ async function ingestSession({
   const questions = askUserQuestionsByToolCallId(modelMessages.map(entry => entry.message));
   const agentName = candidate.agent_name ?? DEFAULT_AGENT_NAME;
 
-  const lagsS: number[] = [];
   let exchangesSent = 0;
   // The last attempt failed on the next exchange, possibly after the provider stored it.
   let mayAlreadyBeStored = cursor !== null && cursor.last_error !== null;
@@ -201,9 +168,6 @@ async function ingestSession({
         threadId = sent.externalThreadId;
         mayAlreadyBeStored = false;
         exchangesSent += 1;
-        if (exchange.completedAt !== null) {
-          lagsS.push(seconds(now().getTime() - Date.parse(exchange.completedAt)));
-        }
       }
     } catch (error) {
       if (error instanceof MemoryIngestError && error.externalThreadId !== null) {
@@ -222,7 +186,7 @@ async function ingestSession({
         external_thread_id: threadId,
         last_error: lastError.slice(0, 1_000),
       });
-      return { outcome: 'failed', exchangesSent, exchangesFailed: 1, lagsS, pending: true };
+      return { outcome: 'failed', exchangesSent, exchangesFailed: 1 };
     }
     lastIngestedTurnId = lastTurnId;
     await store.upsertCursor({
@@ -233,19 +197,8 @@ async function ingestSession({
     });
   }
 
-  const pending = capped || lastIngestedTurnId !== candidate.tip_turn_id;
-  logger.debug('Memory ingest session finished', {
-    ...logFields,
-    exchanges_sent: exchangesSent,
-    lag_max_s: lagsS.length === 0 ? null : Math.max(...lagsS),
-  });
-  return {
-    outcome: forked ? 'fork' : 'ingested',
-    exchangesSent,
-    exchangesFailed: 0,
-    lagsS,
-    pending,
-  };
+  logger.debug('Memory ingest session finished', { ...logFields, exchanges_sent: exchangesSent });
+  return { outcome: 'ingested', exchangesSent, exchangesFailed: 0 };
 }
 
 /**
@@ -286,17 +239,10 @@ export async function runMemoryIngestPass({
   const candidates = listed.slice(0, config.maxSessionsPerRun);
 
   const outcomes: Partial<Record<MemoryIngestOutcome, number>> = {};
-  const lagsS: number[] = [];
   let exchangesSent = 0;
   let exchangesFailed = 0;
   let sessionsProcessed = 0;
-  let oldestPendingMs: number | undefined;
   let lastVisited: MemoryIngestCandidate | undefined;
-
-  const notePending = (candidate: MemoryIngestCandidate) => {
-    const tipMs = Date.parse(candidate.tip_updated_at);
-    oldestPendingMs = oldestPendingMs === undefined ? tipMs : Math.min(oldestPendingMs, tipMs);
-  };
 
   for (const candidate of candidates) {
     if (signal.aborted) {
@@ -308,26 +254,15 @@ export async function runMemoryIngestPass({
     outcomes[result.outcome] = (outcomes[result.outcome] ?? 0) + 1;
     exchangesSent += result.exchangesSent;
     exchangesFailed += result.exchangesFailed;
-    lagsS.push(...result.lagsS);
-    if (result.pending) {
-      notePending(candidate);
-    }
-  }
-  for (const candidate of listed.slice(sessionsProcessed)) {
-    notePending(candidate);
   }
 
   const summary: MemoryIngestRunSummary = {
-    candidates: listed.length,
+    sessions: sessionsProcessed,
     backlog,
-    sessions_processed: sessionsProcessed,
     sessions_by_outcome: outcomes,
     exchanges_sent: exchangesSent,
     exchanges_failed: exchangesFailed,
     duration_ms: now().getTime() - startedAt.getTime(),
-    lag_p50_s: median(lagsS),
-    lag_max_s: lagsS.length === 0 ? null : Math.max(...lagsS),
-    oldest_pending_age_s: oldestPendingMs === undefined ? null : seconds(startedAt.getTime() - oldestPendingMs),
   };
   if (exchangesSent > 0 || exchangesFailed > 0 || backlog) {
     logger.info('Memory ingest run finished', summary);
@@ -360,8 +295,6 @@ async function processCandidate({
     outcome,
     exchangesSent: 0,
     exchangesFailed: 0,
-    lagsS: [],
-    pending: false,
   });
 
   const resolution = resolveMemoryScope({
@@ -373,7 +306,7 @@ async function processCandidate({
     createAgentSession: candidate.create_agent_session,
   });
   if (!resolution.eligible) {
-    return skipped(resolution.reason === 'agent_disabled' ? 'agent_disabled' : 'not_eligible');
+    return skipped('memory_disabled');
   }
 
   try {
@@ -388,7 +321,7 @@ async function processCandidate({
       last_error: errorMessage(error),
       reportable_error: { error, extra: { session_id: candidate.session_id, tenant_id: candidate.tenant_id } },
     });
-    return { ...skipped('failed'), pending: true };
+    return skipped('failed');
   }
 }
 

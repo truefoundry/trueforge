@@ -67,7 +67,6 @@ export class SqliteMemoryIngestStore implements IMemoryIngestStore {
         createAgentSession.as('create_agent_session'),
         agentMemoryEnabled.as('agent_memory_enabled'),
         't.turn_id as tip_turn_id',
-        't.updated_at as tip_updated_at',
         's.updated_at as session_updated_at',
         'c.last_ingested_turn_id as cursor_last_ingested_turn_id',
         'c.external_thread_id as cursor_external_thread_id',
@@ -109,7 +108,6 @@ export class SqliteMemoryIngestStore implements IMemoryIngestStore {
       create_agent_session: row.create_agent_session === 1,
       agent_memory_enabled: row.agent_memory_enabled === 1,
       tip_turn_id: row.tip_turn_id,
-      tip_updated_at: row.tip_updated_at,
       session_updated_at: row.session_updated_at,
       cursor:
         row.cursor_updated_at === null

@@ -37,8 +37,6 @@ export interface MemoryIngestCandidate {
   create_agent_session: boolean;
   agent_memory_enabled: boolean;
   tip_turn_id: string;
-  /** ISO-8601 UTC instant the tip turn last changed. */
-  tip_updated_at: string;
   /** `session.updated_at` as ISO-8601 UTC, at the backend's full precision; the keyset position. */
   session_updated_at: string;
   cursor: MemoryIngestCursor | null;

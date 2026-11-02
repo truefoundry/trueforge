@@ -120,7 +120,6 @@ export function runMemoryIngestStoreContractSuite(getEnv: () => MemoryIngestStor
       tip_turn_id: 't1',
       cursor: null,
     });
-    expect(candidate?.tip_updated_at).toMatch(ISO_UTC);
     expect(candidate?.session_updated_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3,6}Z$/);
   });
 

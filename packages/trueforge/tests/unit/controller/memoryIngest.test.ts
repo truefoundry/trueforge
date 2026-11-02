@@ -40,7 +40,7 @@ const CONFIG: MemoryIngestConfig = {
 };
 
 interface FakeSession {
-  candidate: Omit<MemoryIngestCandidate, 'cursor' | 'tip_turn_id' | 'tip_updated_at' | 'session_updated_at'>;
+  candidate: Omit<MemoryIngestCandidate, 'cursor' | 'tip_turn_id' | 'session_updated_at'>;
   turns: MemoryIngestTurn[];
   messages: MemoryIngestModelMessage[];
 }
@@ -66,7 +66,6 @@ class FakeStore implements IMemoryIngestStore {
         continue;
       }
       const cursor = this.cursors.get(session.candidate.session_id) ?? null;
-      const tipUpdatedAt = tip.state.status === 'running' ? tip.created_at : stateCompletedAt(tip);
       // session.updated_at moves when a turn is created.
       const sessionUpdatedAt = tip.created_at;
       const updatedMs = Date.parse(sessionUpdatedAt);
@@ -80,7 +79,6 @@ class FakeStore implements IMemoryIngestStore {
       candidates.push({
         ...session.candidate,
         tip_turn_id: tip.turn_id,
-        tip_updated_at: tipUpdatedAt,
         session_updated_at: sessionUpdatedAt,
         cursor,
       });
@@ -109,12 +107,6 @@ class FakeStore implements IMemoryIngestStore {
     this.upserts.push(input);
     this.cursors.set(input.session_id, { ...input, updated_at: NOW.toISOString() });
   }
-}
-
-function stateCompletedAt(t: MemoryIngestTurn): string {
-  return t.state.status === 'done' || t.state.status === 'error' || t.state.status === 'cancelled'
-    ? t.state.completed_at
-    : t.created_at;
 }
 
 function fakeProvider(fail: (input: IngestExchangeInput) => boolean = () => false) {
@@ -304,7 +296,7 @@ describe('runMemoryIngestPass', () => {
 
     expect(calls.map(call => call.exchange.sessionId)).toEqual(['s3']);
     expect(store.upserts.map(upsert => upsert.session_id)).toEqual(['s3']);
-    expect(summary).toMatchObject({ candidates: 1, backlog: false, sessions_by_outcome: { ingested: 1 } });
+    expect(summary).toMatchObject({ sessions: 1, backlog: false, sessions_by_outcome: { ingested: 1 } });
   });
 
   it('reads no sessions when no tenant is allowlisted', async () => {
@@ -319,7 +311,7 @@ describe('runMemoryIngestPass', () => {
     });
 
     expect(calls).toHaveLength(0);
-    expect(summary).toMatchObject({ candidates: 0, sessions_processed: 0 });
+    expect(summary).toMatchObject({ sessions: 0 });
   });
 
   it('follows the agent manifest: skips UI sessions on an agent with memory off, uses the agent scope when on', async () => {
@@ -334,7 +326,7 @@ describe('runMemoryIngestPass', () => {
       resumeAfter: undefined,
     });
 
-    expect(summary.sessions_by_outcome).toEqual({ agent_disabled: 1, ingested: 1 });
+    expect(summary.sessions_by_outcome).toEqual({ memory_disabled: 1, ingested: 1 });
     expect(calls.map(call => [call.exchange.sessionId, call.scope.key])).toEqual([
       ['on', memoryScopeKey({ tenantId: 'acme', agentKey: 'chef', subjectId: 'user-1' })],
     ]);
@@ -458,7 +450,7 @@ describe('runMemoryIngestPass', () => {
     });
 
     expect(calls.map(call => call.exchange.firstTurnId)).toEqual(['t2-edit']);
-    expect(summary.sessions_by_outcome).toEqual({ fork: 1 });
+    expect(summary.sessions_by_outcome).toEqual({ ingested: 1 });
     expect(logger.warn).toHaveBeenCalledWith(
       'Memory checkpoint is off the active path; resuming after the fork point',
       expect.objectContaining({ session_id: 's1', last_ingested_turn_id: 't2' }),
@@ -516,7 +508,7 @@ describe('runMemoryIngestPass', () => {
 
     const first = await runMemoryIngestPass({ deps: runDeps, signal: signal(), resumeAfter: undefined });
     expect(calls.map(call => `${call.exchange.sessionId}/${call.exchange.firstTurnId}`)).toEqual(['b/t1', 'c/t1']);
-    expect(first.summary).toMatchObject({ candidates: 3, backlog: true, sessions_processed: 2 });
+    expect(first.summary).toMatchObject({ sessions: 2, backlog: true });
     expect(first.resumeAfter?.session_id).toBe('c');
 
     const second = await runMemoryIngestPass({ deps: runDeps, signal: signal(), resumeAfter: first.resumeAfter });
@@ -528,7 +520,7 @@ describe('runMemoryIngestPass', () => {
     expect(calls.slice(3).map(call => `${call.exchange.sessionId}/${call.exchange.firstTurnId}`)).toEqual(['a/t2']);
   });
 
-  it('logs a run summary with outcome counts and lag', async () => {
+  it('logs a run summary with session and exchange counts', async () => {
     const store = new FakeStore();
     store.add(session({ id: 's1', turns: [closedTurn('t1', null, 50), closedTurn('t2', 't1', 58)] }));
     const { provider } = fakeProvider();
@@ -537,16 +529,12 @@ describe('runMemoryIngestPass', () => {
     await runMemoryIngestPass({ deps: deps({ store, provider, logger }), signal: signal(), resumeAfter: undefined });
 
     expect(logger.info).toHaveBeenCalledWith('Memory ingest run finished', {
-      candidates: 1,
+      sessions: 1,
       backlog: false,
-      sessions_processed: 1,
       sessions_by_outcome: { ingested: 1 },
       exchanges_sent: 2,
       exchanges_failed: 0,
       duration_ms: 0,
-      lag_p50_s: 360,
-      lag_max_s: 600,
-      oldest_pending_age_s: null,
     });
   });
 
