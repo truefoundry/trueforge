@@ -872,7 +872,7 @@ describe('sessions HTTP agent binding', () => {
     expect(deniedCanAccessAgent.mock.calls.map(([input]) => input.action)).toEqual(['use', 'use']);
   });
 
-  it('rejects a new session on a web-search agent while the tenant disabled web search', async () => {
+  it('still runs a stored web-search agent after the tenant turns web search off', async () => {
     const agent = await agentStore.createAgent({
       tenant_id: 'default',
       created_by_subject: {
@@ -899,7 +899,17 @@ describe('sessions HTTP agent binding', () => {
       manifest: { web_search: { enabled: false } },
     });
     try {
-      const blocked = await app.request('/', jsonInit('POST', { agent: { name: agent.name } }));
+      // The agent was saved while web search was allowed, so its stored spec is grandfathered.
+      const grandfathered = await app.request('/', jsonInit('POST', { agent: { name: agent.name } }));
+      expect(grandfathered.status).toBe(201);
+
+      // Newly asking for web search in an inline spec is still refused.
+      const blocked = await app.request(
+        '/',
+        jsonInit('POST', {
+          agent: { spec: { ...inlineSpec, config: { ...inlineSpec.config, web_search: { enabled: true } } } },
+        }),
+      );
       expect(blocked.status).toBe(422);
     } finally {
       await configurationStore.upsertConfiguration({

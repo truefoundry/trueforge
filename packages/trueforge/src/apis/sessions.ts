@@ -441,7 +441,9 @@ async function resolveNewSessionAgent(
     c,
     spec: named.manifest,
     requestContext,
-    previous_spec: undefined,
+    // The stored spec is its own previous state, so starting a chat is not turning
+    // a feature on. Saving the agent is where the tenant switch applies.
+    previous_spec: named.manifest,
     allowInlineResources: false,
     runAsAgent: named,
   });
