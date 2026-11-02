@@ -24,6 +24,12 @@ export interface SessionHistoryPagination {
   /** Token for the next older page; omit when exhausted. */
   olderPageToken?: string | undefined;
   hasOlder: boolean;
+  /**
+   * Chronological events of the oldest loaded turn whose `turn.created` is on an
+   * older page. Event pages split turns, so these are held and re-joined with
+   * the next older page instead of being discarded.
+   */
+  pendingItemsAsc?: readonly GatewaySessionEventItem[] | undefined;
 }
 
 /** Turn metadata retained for cross-turn projection and subsequent required-action replay. */

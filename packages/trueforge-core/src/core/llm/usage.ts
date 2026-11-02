@@ -7,7 +7,7 @@ export function estimateTokensForString(s: string): number {
 
 /** Size label for prompts replacing full content, so the model can size reads without guessing. */
 export function describeContentSize(content: string): string {
-  return `${content.length.toLocaleString('en-US')} characters`;
+  return `${String(content.length)} characters`;
 }
 
 function sumOptional(a: number | undefined, b: number | undefined): number | undefined {

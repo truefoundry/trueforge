@@ -12,6 +12,7 @@ describe("ServerClient", () => {
         const rawResponseBody = {
             data: {
                 sandbox: { enabled: true },
+                session_sharing: { enabled: true },
                 settings: { enabled: true },
                 skill: { enabled: true, reason: "reason" },
                 web_search: { enabled: true },
@@ -30,6 +31,9 @@ describe("ServerClient", () => {
         expect(response).toEqual({
             data: {
                 sandbox: {
+                    enabled: true,
+                },
+                sessionSharing: {
                     enabled: true,
                 },
                 settings: {

@@ -267,55 +267,68 @@ async function fetchSessionEventsPage(
   };
 }
 
+interface SessionEventsWindow {
+  itemsAsc: GatewaySessionEventItem[];
+  olderPageToken?: string;
+  hasOlder: boolean;
+  /** Leading events cut from `itemsAsc` whose `turn.created` is still on an older page. */
+  pendingItemsAsc: GatewaySessionEventItem[];
+}
+
+function toSessionEventsWindow(
+  itemsNewestFirst: readonly GatewaySessionEventItem[],
+  page: { olderPageToken?: string; hasOlder: boolean },
+): SessionEventsWindow {
+  const chronological = [...itemsNewestFirst].reverse();
+  const itemsAsc = trimIncompleteLeadingEvents(chronological);
+  const hasOlder = page.hasOlder && page.olderPageToken != null;
+  return {
+    itemsAsc,
+    ...(hasOlder ? { olderPageToken: page.olderPageToken } : {}),
+    hasOlder,
+    // At the session start there is no older half to wait for.
+    pendingItemsAsc: hasOlder ? chronological.slice(0, chronological.length - itemsAsc.length) : [],
+  };
+}
+
+function toHistoryPagination(window: SessionEventsWindow): SessionHistoryPagination {
+  return {
+    hasOlder: window.hasOlder,
+    ...(window.olderPageToken != null ? { olderPageToken: window.olderPageToken } : {}),
+    ...(window.pendingItemsAsc.length > 0 ? { pendingItemsAsc: window.pendingItemsAsc } : {}),
+  };
+}
+
 /**
  * Fetches pages until the chronological window starts on a complete user-message
- * turn group (or history is exhausted).
+ * turn group (or history is exhausted). `pendingItemsAsc` seeds the chain with a
+ * split turn held back by the previous window.
  */
 async function fetchSessionEventsWindow(
   server: AgentChatServer,
   sessionId: string,
-  options?: FetchSessionEventsOptions & { pageToken?: string },
-): Promise<{
-  itemsAsc: GatewaySessionEventItem[];
-  olderPageToken?: string;
-  hasOlder: boolean;
-}> {
-  let itemsNewestFirst: GatewaySessionEventItem[] = [];
+  options?: FetchSessionEventsOptions & {
+    pageToken?: string;
+    pendingItemsAsc?: readonly GatewaySessionEventItem[];
+  },
+): Promise<SessionEventsWindow> {
+  let itemsNewestFirst: GatewaySessionEventItem[] = [...(options?.pendingItemsAsc ?? [])].reverse();
   let pageToken = options?.pageToken;
-  let olderPageToken: string | undefined;
-  let hasOlder = false;
+  let window = toSessionEventsWindow(itemsNewestFirst, { hasOlder: false });
 
   for (let pageCount = 0; pageCount < MAX_HISTORY_BOUNDARY_PAGES; pageCount++) {
     const page = await fetchSessionEventsPage(server, sessionId, {
-      ...options,
+      ...(options?.lastTurnId != null ? { lastTurnId: options.lastTurnId } : {}),
       ...(pageToken != null ? { pageToken } : {}),
     });
     itemsNewestFirst = [...itemsNewestFirst, ...page.itemsNewestFirst];
-    olderPageToken = page.olderPageToken;
-    hasOlder = page.hasOlder;
-
-    const itemsAsc = trimIncompleteLeadingEvents([...itemsNewestFirst].reverse());
-    const groupState = oldestCompleteTurnGroupState(itemsAsc);
-    if (groupState === 'user-group' || !hasOlder) {
-      return {
-        itemsAsc,
-        ...(olderPageToken != null ? { olderPageToken } : {}),
-        hasOlder,
-      };
+    window = toSessionEventsWindow(itemsNewestFirst, page);
+    if (oldestCompleteTurnGroupState(window.itemsAsc) === 'user-group' || !window.hasOlder) {
+      return window;
     }
-
-    if (olderPageToken == null) {
-      return { itemsAsc, hasOlder: false };
-    }
-    pageToken = olderPageToken;
+    pageToken = window.olderPageToken;
   }
-
-  const itemsAsc = trimIncompleteLeadingEvents([...itemsNewestFirst].reverse());
-  return {
-    itemsAsc,
-    ...(olderPageToken != null ? { olderPageToken } : {}),
-    hasOlder,
-  };
+  return window;
 }
 
 /**
@@ -637,10 +650,7 @@ export async function buildSnapshotFromSessionEvents(
   onProgress?: (snap: SessionSnapshot) => void,
 ): Promise<SessionSnapshot> {
   const window = await fetchSessionEventsWindow(server, sessionId);
-  const historyPagination: SessionHistoryPagination = {
-    hasOlder: window.hasOlder,
-    ...(window.olderPageToken != null ? { olderPageToken: window.olderPageToken } : {}),
-  };
+  const historyPagination = toHistoryPagination(window);
 
   const snapshot = createEmptySessionSnapshot();
   ingestSessionEventsIntoSnapshot(snapshot, window.itemsAsc, onProgress);
@@ -667,7 +677,12 @@ export async function buildSnapshotFromSessionEvents(
   if (open != null) {
     applyUserToolResponsesToFold(paintable.fold, open.event.input ?? []);
   }
-  onProgress?.(paintable);
+  // Scroll-up waits until this function returns. Publishing `hasOlder` on the
+  // pre-getTurn paint lets HistoryLoader prepend, and the caller's final
+  // setSnapshot then replaces that prepend with this window.
+  const progressSnapshot: SessionSnapshot = { ...paintable };
+  delete progressSnapshot.historyPagination;
+  onProgress?.(progressSnapshot);
 
   const tip = await resolveSessionTip({
     server,
@@ -701,11 +716,11 @@ export async function prependOlderSessionHistory(
 
   const window = await fetchSessionEventsWindow(server, sessionId, {
     pageToken: pagination.olderPageToken,
+    ...(pagination.pendingItemsAsc != null ? { pendingItemsAsc: pagination.pendingItemsAsc } : {}),
   });
   if (window.itemsAsc.length === 0) {
-    return replaceSessionSnapshot(snapshot, {
-      historyPagination: { hasOlder: false },
-    });
+    // Still inside one turn longer than the page cap: keep its events and cursor.
+    return replaceSessionSnapshot(snapshot, { historyPagination: toHistoryPagination(window) });
   }
 
   const olderSnap = createEmptySessionSnapshot();
@@ -736,10 +751,7 @@ export async function prependOlderSessionHistory(
     fold: mergedFold,
     turns: mergedTurns,
     historyEvents,
-    historyPagination: {
-      hasOlder: window.hasOlder,
-      ...(window.olderPageToken != null ? { olderPageToken: window.olderPageToken } : {}),
-    },
+    historyPagination: toHistoryPagination(window),
     ...(snapshot.groupRootBaseline != null
       ? {
           groupRootBaseline: [...olderRootIds, ...snapshot.groupRootBaseline],

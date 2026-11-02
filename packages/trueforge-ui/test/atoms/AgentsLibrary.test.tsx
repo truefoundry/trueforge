@@ -1003,12 +1003,11 @@ describe('AgentsLibraryButton', () => {
     expect(await screen.findByRole('columnheader', { name: 'Sessions, 30d' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Spend, 30d' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Daily, 14d' })).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: 'Last run' })).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Last run' })).not.toBeInTheDocument();
 
     await waitFor(() => {
       expect(getMeters).toHaveBeenCalled();
       expect(getChartData).toHaveBeenCalled();
-      expect(listSessions).toHaveBeenCalledWith({ agentId: 'metrics-agent', limit: 1, order: 'desc' });
     });
 
     expect(await screen.findByLabelText('12 sessions')).toBeInTheDocument();
@@ -1024,37 +1023,6 @@ describe('AgentsLibraryButton', () => {
     }).format(new Date('2026-10-01T00:00:00.000Z'));
     expect(await screen.findByRole('tooltip')).toHaveTextContent(utcDay);
     expect(screen.getByRole('tooltip')).toHaveTextContent('$0.10');
-    expect(screen.getByLabelText(/Last run for metrics-agent:/)).toBeInTheDocument();
-  });
-
-  it('shows Never when the agent has no sessions', async () => {
-    const server = createMockAgentUIServer({
-      searchAgents: vi.fn(async () => ({
-        data: [{ name: 'metrics-agent', agentId: 'metrics-agent' }],
-      })),
-      sessions: createMockAgentSessionsServer({
-        listSessions: vi.fn(async () => ({ data: [] })),
-      }),
-    });
-    renderLibrary(<LibraryHarness />, { server });
-    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
-    expect(await screen.findByLabelText('Last run for metrics-agent: Never')).toBeInTheDocument();
-  });
-
-  it('shows an em dash for last run when the session list fails', async () => {
-    const server = createMockAgentUIServer({
-      searchAgents: vi.fn(async () => ({
-        data: [{ name: 'metrics-agent', agentId: 'metrics-agent' }],
-      })),
-      sessions: createMockAgentSessionsServer({
-        listSessions: vi.fn(async () => {
-          throw new Error('sessions down');
-        }),
-      }),
-    });
-    renderLibrary(<LibraryHarness />, { server });
-    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
-    expect(await screen.findByLabelText('Last run unavailable for metrics-agent')).toHaveTextContent('—');
-    expect(screen.queryByText('Never')).not.toBeInTheDocument();
+    expect(listSessions).not.toHaveBeenCalledWith(expect.objectContaining({ agentId: 'metrics-agent', limit: 1 }));
   });
 });

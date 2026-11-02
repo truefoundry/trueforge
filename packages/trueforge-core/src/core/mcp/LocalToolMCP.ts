@@ -90,10 +90,13 @@ export abstract class LocalToolMCP implements IToolSet {
       run: () =>
         Promise.resolve({
           result: {
-            tools: this.getTools().map(t => ({
-              name: t.name,
-              description: t.description,
-              inputSchema: t.inputSchema,
+            tools: this.getTools().map(tool => ({
+              name: tool.name,
+              description: tool.description,
+              inputSchema: tool.inputSchema,
+              // Discovery and selector policy read these from the list, not the definition.
+              ...(tool.outputSchema !== undefined ? { outputSchema: tool.outputSchema } : {}),
+              ...(tool.annotations !== undefined ? { annotations: tool.annotations } : {}),
               preload: true,
             })),
           },

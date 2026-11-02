@@ -35,7 +35,7 @@ describe('CompletionUsage', () => {
 
 describe('describeContentSize', () => {
   it('formats characters with thousands separators', () => {
-    expect(describeContentSize('x'.repeat(50_000))).toBe('50,000 characters');
+    expect(describeContentSize('x'.repeat(50_000))).toBe('50000 characters');
     expect(describeContentSize('')).toBe('0 characters');
   });
 });

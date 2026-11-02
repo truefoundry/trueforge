@@ -494,6 +494,9 @@
           "sandbox": {
             "$ref": "#/components/schemas/SandboxCapability"
           },
+          "session_sharing": {
+            "$ref": "#/components/schemas/SessionSharingCapability"
+          },
           "settings": {
             "$ref": "#/components/schemas/SettingsCapability"
           },
@@ -508,7 +511,8 @@
           "sandbox",
           "skill",
           "settings",
-          "web_search"
+          "web_search",
+          "session_sharing"
         ],
         "type": "object"
       },
@@ -4354,9 +4358,10 @@
         "type": "object"
       },
       "SessionGrantSubjectType": {
-        "description": "Kind of subject.",
+        "description": "Kind of subject. A `tenant` subject shares the session with everyone in the tenant.",
         "enum": [
-          "user"
+          "user",
+          "tenant"
         ],
         "type": "string"
       },
@@ -4621,6 +4626,18 @@
         "required": [
           "timestamp",
           "value"
+        ],
+        "type": "object"
+      },
+      "SessionSharingCapability": {
+        "properties": {
+          "enabled": {
+            "description": "Whether sessions can be shared with specific users. Sharing with the whole tenant is always available.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
         ],
         "type": "object"
       },
@@ -6131,7 +6148,8 @@
             "$ref": "#/components/schemas/SessionMetadata"
           },
           "shared": {
-            "description": "When true, any subject in the tenant may read this session and its turns/events by id.",
+            "deprecated": true,
+            "description": "Deprecated; use `POST /sessions/{session_id}/grants` with a `tenant` subject.",
             "type": "boolean"
           },
           "title": {
@@ -9874,7 +9892,7 @@
         "x-fern-sdk-method-name": "list_grants"
       },
       "post": {
-        "description": "Share this session with subjects and remove access for others in one atomic request. Granting an existing subject or revoking one without access is a no-op. Returns every subject the session is shared with.",
+        "description": "Share this session with subjects and remove access for others in one atomic request. Subjects get read access to the session, its turns and its events. A `tenant` subject, whose `subject_id` must be your tenant ID, shares with everyone in the tenant. Granting an existing subject or revoking one without access is a no-op. Returns every subject the session is shared with.",
         "parameters": [
           {
             "description": "Session identifier.",
