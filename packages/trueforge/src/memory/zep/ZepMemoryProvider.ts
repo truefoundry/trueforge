@@ -23,8 +23,9 @@ const MAX_BACKOFF_MS = 30_000;
 
 const ZepUuidResponseSchema = z.object({ uuid: z.string().min(1) });
 /**
- * `GET /threads/{id}/messages` lists newest first; the exchange being checked is the session's
- * latest write, so the default first page covers it.
+ * `GET /threads/{id}/messages` page. Zep doesn't document a default order, so the check asks for
+ * newest first: the exchange being checked is the session's latest write, so a page the size of the
+ * exchange covers it.
  */
 const ZepMessagesResponseSchema = z.object({
   items: z.array(z.object({ metadata: z.record(z.string(), z.unknown()).nullish() })),
@@ -184,12 +185,16 @@ export class ZepMemoryProvider implements MemoryProvider {
   }
 
   /** Whether the thread's newest messages already include this exchange, matched by its metadata. */
-
   async #threadHasExchange(threadId: string, exchange: MemoryExchange): Promise<boolean> {
+    const query = new URLSearchParams({
+      order_by: 'created_at',
+      order: 'desc',
+      page_size: String(exchange.messages.length),
+    });
     const listed = await this.#request({
       operation: 'list_messages',
       method: 'GET',
-      path: `/threads/${encodeURIComponent(threadId)}/messages`,
+      path: `/threads/${encodeURIComponent(threadId)}/messages?${query.toString()}`,
       allowNotFound: true,
     });
     if (listed.status === 404) {

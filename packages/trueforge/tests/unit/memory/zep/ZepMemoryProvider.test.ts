@@ -281,7 +281,9 @@ describe('ZepMemoryProvider', () => {
     await expect(
       zep.ingestExchange({ scope: SCOPE, exchange: EXCHANGE, externalThreadId: 'thread-1', mayAlreadyBeStored: true }),
     ).resolves.toEqual({ externalThreadId: 'thread-1' });
-    expect(calls.map(call => [call.path, call.body])).toEqual([['/threads/thread-1/messages', null]]);
+    expect(calls.map(call => [call.path, call.body])).toEqual([
+      ['/threads/thread-1/messages?order_by=created_at&order=desc&page_size=2', null],
+    ]);
   });
 
   it('resends when the check finds the exchange missing', async () => {
@@ -299,7 +301,10 @@ describe('ZepMemoryProvider', () => {
       mayAlreadyBeStored: true,
     });
 
-    expect(calls.map(call => call.path)).toEqual(['/threads/thread-1/messages', '/threads/thread-1/messages']);
+    expect(calls.map(call => call.path)).toEqual([
+      '/threads/thread-1/messages?order_by=created_at&order=desc&page_size=2',
+      '/threads/thread-1/messages',
+    ]);
   });
 
   it('fails without retrying on a client error', async () => {
