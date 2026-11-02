@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.183.0-rc.2
+
+### Patch Changes
+
+- 5d9f7e1: Warn in agent runtime settings when the sandbox is turned off, since TrueForge will not work properly without it.
+- 5d9f7e1: Clarify share dialog copy: private access is now "Restricted" and the invite field asks for a name or email. People picked for an invite now show as chips inside the search field (Backspace removes the last one). The session owner is listed first, marked "(you)" when they are the current user, with capitalized access roles and the shared avatar initials.
+
 ## 0.183.0-rc.1
 
 ### Patch Changes

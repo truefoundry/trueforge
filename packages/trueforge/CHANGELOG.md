@@ -1,5 +1,11 @@
 # @truefoundry/trueforge
 
+## 0.183.0-rc.2
+
+### Patch Changes
+
+- 5d9f7e1: Limit frontend Sentry tracing to session API calls, one trace per call, and record SSE first-chunk latency, stall count and stream errors as span attributes.
+
 ## 0.183.0-rc.1
 
 ### Patch Changes
