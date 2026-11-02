@@ -235,6 +235,33 @@ describe("SchedulesClient", () => {
         }).rejects.toThrow(TrueForgeTypes.ConflictError);
     });
 
+    test("create (5)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { agent_name: "xy", manifest: { cron: "cron", task: "x" }, name: "xy" };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/schedules")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(422)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.schedules.create({
+                agentName: "xy",
+                manifest: {
+                    cron: "cron",
+                    task: "x",
+                },
+                name: "xy",
+            });
+        }).rejects.toThrow(TrueForgeTypes.UnprocessableEntityError);
+    });
+
     test("create_run (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });

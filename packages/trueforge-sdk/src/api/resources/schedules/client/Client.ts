@@ -147,6 +147,7 @@ export class SchedulesClient {
      * @throws {@link TrueForge.BadRequestError}
      * @throws {@link TrueForge.NotFoundError}
      * @throws {@link TrueForge.ConflictError}
+     * @throws {@link TrueForge.UnprocessableEntityError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
      *
@@ -242,6 +243,17 @@ export class SchedulesClient {
                     );
                 case 409:
                     throw new TrueForge.ConflictError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 422:
+                    throw new TrueForge.UnprocessableEntityError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
