@@ -59,6 +59,9 @@ class FakeStore implements IMemoryIngestStore {
   async listCandidateSessions(input: ListMemoryIngestCandidatesInput): Promise<MemoryIngestCandidate[]> {
     const candidates: MemoryIngestCandidate[] = [];
     for (const session of this.sessions.values()) {
+      if (!input.tenant_ids.includes(session.candidate.tenant_id)) {
+        continue;
+      }
       const tip = session.turns[session.turns.length - 1];
       if (tip === undefined) {
         continue;
@@ -139,19 +142,19 @@ function deps({
   provider,
   logger = fakeLogger(),
   config = {},
-  disabledTenants = [],
+  enabledTenants = ['acme'],
 }: {
   store: FakeStore;
   provider: MemoryProvider;
   logger?: ReturnType<typeof fakeLogger>;
   config?: Partial<MemoryIngestConfig>;
-  /** Stands in for tenants whose memory setting is off. */
-  disabledTenants?: string[];
+  /** Stands in for `MEMORY_TENANT_ALLOWLIST`. */
+  enabledTenants?: string[];
 }): MemoryIngestDeps {
   return {
     store,
     provider,
-    settings: { isTenantMemoryEnabled: async tenantId => !disabledTenants.includes(tenantId) },
+    settings: { listEnabledTenantIds: async () => enabledTenants },
     logger: logger as never,
     config: { ...CONFIG, ...config },
     now: () => NOW,
@@ -288,23 +291,37 @@ describe('runMemoryIngestPass', () => {
     expect(summary.oldest_pending_age_s).toBe(30);
   });
 
-  it('skips tenants with memory off without writing cursors', async () => {
+  it('reads only sessions of allowlisted tenants, so others never take a run slot', async () => {
     const store = new FakeStore();
     store.add(session({ id: 's1', tenant: 'other', turns: [closedTurn('t1', null, 10)] }));
     store.add(session({ id: 's2', tenant: 'other', turns: [closedTurn('t1', null, 11)] }));
+    store.add(session({ id: 's3', turns: [closedTurn('t1', null, 12)] }));
     const { provider, calls } = fakeProvider();
-    const logger = fakeLogger();
 
     const { summary } = await runMemoryIngestPass({
-      deps: deps({ store, provider, logger, disabledTenants: ['other'] }),
+      deps: deps({ store, provider, config: { maxSessionsPerRun: 1 } }),
+      signal: signal(),
+      resumeAfter: undefined,
+    });
+
+    expect(calls.map(call => call.exchange.sessionId)).toEqual(['s3']);
+    expect(store.upserts.map(upsert => upsert.session_id)).toEqual(['s3']);
+    expect(summary).toMatchObject({ candidates: 1, backlog: false, sessions_by_outcome: { ingested: 1 } });
+  });
+
+  it('reads no sessions when no tenant is allowlisted', async () => {
+    const store = new FakeStore();
+    store.add(session({ id: 's1', turns: [closedTurn('t1', null, 10)] }));
+    const { provider, calls } = fakeProvider();
+
+    const { summary } = await runMemoryIngestPass({
+      deps: deps({ store, provider, enabledTenants: [] }),
       signal: signal(),
       resumeAfter: undefined,
     });
 
     expect(calls).toHaveLength(0);
-    expect(store.upserts).toHaveLength(0);
-    expect(summary).toMatchObject({ tenants_skipped_disabled: 1, sessions_by_outcome: { tenant_disabled: 2 } });
-    expect(logger.warn).toHaveBeenCalledTimes(1);
+    expect(summary).toMatchObject({ candidates: 0, sessions_processed: 0 });
   });
 
   it('follows the agent manifest: skips UI sessions on an agent with memory off, uses the agent scope when on', async () => {
@@ -528,7 +545,6 @@ describe('runMemoryIngestPass', () => {
       sessions_by_outcome: { ingested: 1 },
       exchanges_sent: 2,
       exchanges_failed: 0,
-      tenants_skipped_disabled: 0,
       duration_ms: 0,
       lag_p50_s: 360,
       lag_max_s: 600,

@@ -74,6 +74,7 @@ export class SqliteMemoryIngestStore implements IMemoryIngestStore {
         'c.last_error as cursor_last_error',
         'c.updated_at as cursor_updated_at',
       ])
+      .where('s.tenant_id', 'in', [...input.tenant_ids])
       .where('s.source', 'is', null)
       .where(eb =>
         eb.or([

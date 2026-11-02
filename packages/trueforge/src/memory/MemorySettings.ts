@@ -1,20 +1,17 @@
-/**
- * Tenant-level memory switch. Off stops ingestion now, and retrieval and agent memory writes once
- * they exist, for that tenant.
- */
+/** Tenant-level memory switch: only these tenants' sessions are read for ingestion. */
 export interface MemorySettings {
-  isTenantMemoryEnabled(tenantId: string): Promise<boolean>;
+  listEnabledTenantIds(): Promise<readonly string[]>;
 }
 
 /** Memory for the tenants in `MEMORY_TENANT_ALLOWLIST` only. */
 export class TenantAllowlistMemorySettings implements MemorySettings {
-  readonly #tenantIds: ReadonlySet<string>;
+  readonly #tenantIds: readonly string[];
 
   constructor(options: { tenantIds: readonly string[] }) {
-    this.#tenantIds = new Set(options.tenantIds);
+    this.#tenantIds = [...new Set(options.tenantIds)];
   }
 
-  isTenantMemoryEnabled(tenantId: string): Promise<boolean> {
-    return Promise.resolve(this.#tenantIds.has(tenantId));
+  listEnabledTenantIds(): Promise<readonly string[]> {
+    return Promise.resolve(this.#tenantIds);
   }
 }

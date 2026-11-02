@@ -86,14 +86,13 @@ describe('resolveMemoryScope', () => {
 });
 
 describe('TenantAllowlistMemorySettings', () => {
-  it('enables memory only for listed tenants', async () => {
-    const settings: MemorySettings = new TenantAllowlistMemorySettings({ tenantIds: ['acme'] });
-    await expect(settings.isTenantMemoryEnabled('acme')).resolves.toBe(true);
-    await expect(settings.isTenantMemoryEnabled('globex')).resolves.toBe(false);
+  it('lists the allowlisted tenants once each', async () => {
+    const settings: MemorySettings = new TenantAllowlistMemorySettings({ tenantIds: ['acme', 'globex', 'acme'] });
+    await expect(settings.listEnabledTenantIds()).resolves.toEqual(['acme', 'globex']);
   });
 
-  it('enables no tenant when the allowlist is empty', async () => {
+  it('lists no tenant when the allowlist is empty', async () => {
     const settings: MemorySettings = new TenantAllowlistMemorySettings({ tenantIds: [] });
-    await expect(settings.isTenantMemoryEnabled('acme')).resolves.toBe(false);
+    await expect(settings.listEnabledTenantIds()).resolves.toEqual([]);
   });
 });

@@ -49,7 +49,6 @@ export interface MemoryIngestDeps {
 export const MEMORY_INGEST_OUTCOMES = [
   'ingested',
   'not_ready',
-  'tenant_disabled',
   'agent_disabled',
   'not_eligible',
   'fork',
@@ -74,7 +73,6 @@ export interface MemoryIngestRunSummary {
   sessions_by_outcome: Partial<Record<MemoryIngestOutcome, number>>;
   exchanges_sent: number;
   exchanges_failed: number;
-  tenants_skipped_disabled: number;
   duration_ms: number;
   lag_p50_s: number | null;
   lag_max_s: number | null;
@@ -263,26 +261,30 @@ export async function runMemoryIngestPass({
   signal: AbortSignal;
   resumeAfter: MemoryIngestCandidateKey | undefined;
 }): Promise<MemoryIngestRunResult> {
-  const { store, logger, config, now } = deps;
+  const { store, settings, logger, config, now } = deps;
   const startedAt = now();
 
   // Recent sessions within the lookback; paused ones only once their pause has timed out, for one
   // lookback-wide range. A paused session the user answers gets a new turn and so becomes recent.
   const startedMs = startedAt.getTime();
-  const listed = await store.listCandidateSessions({
-    recent_since: new Date(startedMs - config.lookbackMs),
-    paused_from: new Date(startedMs - config.pauseTimeoutMs - config.lookbackMs),
-    paused_until: new Date(startedMs - config.pauseTimeoutMs),
-    after: resumeAfter,
-    limit: config.maxSessionsPerRun + 1,
-  });
+  const tenantIds = await settings.listEnabledTenantIds();
+  const listed =
+    tenantIds.length === 0
+      ? []
+      : await store.listCandidateSessions({
+          tenant_ids: tenantIds,
+          recent_since: new Date(startedMs - config.lookbackMs),
+          paused_from: new Date(startedMs - config.pauseTimeoutMs - config.lookbackMs),
+          paused_until: new Date(startedMs - config.pauseTimeoutMs),
+          after: resumeAfter,
+          limit: config.maxSessionsPerRun + 1,
+        });
   if (listed.length === 0 && resumeAfter !== undefined) {
     return await runMemoryIngestPass({ deps, signal, resumeAfter: undefined });
   }
   const backlog = listed.length > config.maxSessionsPerRun;
   const candidates = listed.slice(0, config.maxSessionsPerRun);
 
-  const tenantEnabled = new Map<string, boolean>();
   const outcomes: Partial<Record<MemoryIngestOutcome, number>> = {};
   const lagsS: number[] = [];
   let exchangesSent = 0;
@@ -302,7 +304,7 @@ export async function runMemoryIngestPass({
     }
     lastVisited = candidate;
     sessionsProcessed += 1;
-    const result = await processCandidate({ candidate, deps, signal, tenantEnabled });
+    const result = await processCandidate({ candidate, deps, signal });
     outcomes[result.outcome] = (outcomes[result.outcome] ?? 0) + 1;
     exchangesSent += result.exchangesSent;
     exchangesFailed += result.exchangesFailed;
@@ -315,7 +317,6 @@ export async function runMemoryIngestPass({
     notePending(candidate);
   }
 
-  const tenantsSkipped = [...tenantEnabled.values()].filter(enabled => !enabled).length;
   const summary: MemoryIngestRunSummary = {
     candidates: listed.length,
     backlog,
@@ -323,7 +324,6 @@ export async function runMemoryIngestPass({
     sessions_by_outcome: outcomes,
     exchanges_sent: exchangesSent,
     exchanges_failed: exchangesFailed,
-    tenants_skipped_disabled: tenantsSkipped,
     duration_ms: now().getTime() - startedAt.getTime(),
     lag_p50_s: median(lagsS),
     lag_max_s: lagsS.length === 0 ? null : Math.max(...lagsS),
@@ -350,14 +350,12 @@ async function processCandidate({
   candidate,
   deps,
   signal,
-  tenantEnabled,
 }: {
   candidate: MemoryIngestCandidate;
   deps: MemoryIngestDeps;
   signal: AbortSignal;
-  tenantEnabled: Map<string, boolean>;
 }): Promise<SessionResult> {
-  const { settings, logger } = deps;
+  const { logger } = deps;
   const skipped = (outcome: MemoryIngestOutcome): SessionResult => ({
     outcome,
     exchangesSent: 0,
@@ -365,27 +363,6 @@ async function processCandidate({
     lagsS: [],
     pending: false,
   });
-
-  let enabled = tenantEnabled.get(candidate.tenant_id);
-  if (enabled === undefined) {
-    try {
-      enabled = await settings.isTenantMemoryEnabled(candidate.tenant_id);
-    } catch (error) {
-      logger.error('Memory settings lookup failed; skipping tenant for this run', {
-        tenant_id: candidate.tenant_id,
-        error: errorMessage(error),
-        reportable_error: { error, extra: { tenant_id: candidate.tenant_id } },
-      });
-      return { ...skipped('failed'), pending: true };
-    }
-    tenantEnabled.set(candidate.tenant_id, enabled);
-    if (!enabled) {
-      logger.warn('Memory is disabled for tenant; skipping its sessions', { tenant_id: candidate.tenant_id });
-    }
-  }
-  if (!enabled) {
-    return skipped('tenant_disabled');
-  }
 
   const resolution = resolveMemoryScope({
     tenantId: candidate.tenant_id,

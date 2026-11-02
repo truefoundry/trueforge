@@ -30,7 +30,7 @@ const IN_A_MINUTE = () => new Date(Date.now() + 60 * 1000);
 
 /** Every session updated since `since`; an empty paused range. */
 function recent(since: Date) {
-  return { recent_since: since, paused_from: since, paused_until: since, after: undefined };
+  return { tenant_ids: [TENANT], recent_since: since, paused_from: since, paused_until: since, after: undefined };
 }
 
 export interface MemoryIngestStoreContractEnv {
@@ -43,17 +43,19 @@ export interface MemoryIngestStoreContractEnv {
 export function runMemoryIngestStoreContractSuite(getEnv: () => MemoryIngestStoreContractEnv): void {
   async function createSession({
     session_id,
+    tenant_id = TENANT,
     metadata = UI,
     agent_id = null,
     scheduled = false,
   }: {
     session_id: string;
+    tenant_id?: string;
     metadata?: SessionMetadata;
     agent_id?: string | null;
     scheduled?: boolean;
   }) {
     await getEnv().sessionStore.createSession({
-      tenant_id: TENANT,
+      tenant_id,
       session_id,
       created_by_subject: OWNER,
       agent: agent_id === null ? { type: 'inline', spec: SPEC } : { type: 'reference', id: agent_id, name: 'Agent' },
@@ -135,6 +137,15 @@ export function runMemoryIngestStoreContractSuite(getEnv: () => MemoryIngestStor
     expect(await candidateIds(new Date(Date.now() + 60_000))).toEqual([]);
   });
 
+  it('lists only sessions of the given tenants', async () => {
+    await createSession({ session_id: 'other', tenant_id: 'other-tenant' });
+    await addTurn({ session_id: 'other', turn_id: 't1' });
+    await createSession({ session_id: 'ui' });
+    await addTurn({ session_id: 'ui', turn_id: 't1' });
+
+    expect(await candidateIds()).toEqual(['ui']);
+  });
+
   it('never lists agent-builder chats, even from the UI', async () => {
     await createSession({ session_id: 'builder', metadata: { ...UI, is_create_agent: 'true' } });
     await addTurn({ session_id: 'builder', turn_id: 't1' });
@@ -166,6 +177,7 @@ export function runMemoryIngestStoreContractSuite(getEnv: () => MemoryIngestStor
 
     // Nothing is recent; both sessions fall inside the paused range.
     const candidates = await getEnv().store.listCandidateSessions({
+      tenant_ids: [TENANT],
       recent_since: IN_A_MINUTE(),
       paused_from: HOUR_AGO(),
       paused_until: IN_A_MINUTE(),

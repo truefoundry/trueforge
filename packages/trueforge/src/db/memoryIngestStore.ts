@@ -66,6 +66,8 @@ export type MemoryIngestCandidateKey = Pick<MemoryIngestCandidate, 'session_upda
  * bounds the latest turn's start; turns finish within the execution timeout.
  */
 export interface ListMemoryIngestCandidatesInput {
+  /** Only sessions of these tenants (non-empty): the ones with memory on. */
+  tenant_ids: readonly string[];
   /** Any session updated at or after this instant. */
   recent_since: Date;
   /**
