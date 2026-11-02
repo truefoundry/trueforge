@@ -239,12 +239,30 @@ interface AgentBuilderCapabilitiesResponse {
   data: {
     sandbox: { enabled: boolean };
     skill: { enabled: boolean; reason?: string };
-    settings?: { enabled: boolean };
+    settings?: SettingsCapability;
+    webSearch?: { enabled: boolean; reason?: string };
+    sessionSharing?: { enabled: boolean };
   };
+}
+
+interface SettingsCapability {
+  modelProviders?: SettingsSectionCapability;
+  mcpServers?: SettingsSectionCapability;
+  skills?: SettingsSectionCapability;
+  sandboxProviders?: SettingsSectionCapability;
+  webSearch?: SettingsSectionCapability;
+  memory?: SettingsSectionCapability;
+}
+
+interface SettingsSectionCapability {
+  enabled: boolean;
+  manageProviders: boolean;
 }
 ```
 
-It is fetched once when the server resolves. `skill.reason` is shown to the user when skills are disabled, so use it to explain why — for example that no skill registry is configured. Setting `settings.enabled` to `false` hides the settings control even when a `catalog` is attached; omitting `settings` leaves it visible.
+It is fetched once when the server resolves. `skill.reason` and `webSearch.reason` are shown to the user when the feature is unavailable, so use them to explain why — for example that no skill registry is configured.
+
+`settings` reports one entry per settings section rather than a single switch, so you can open the sections a caller may use and close the rest. A section you omit stays **visible**, which is what keeps servers written before this existed working. Set `enabled: false` on a section to hide it; the settings control itself disappears once every section is closed. Use `manageProviders: false` for a section whose providers your platform owns centrally — the section still opens, but the controls that add or edit providers do not render.
 
 ```ts
 async getCapabilities() {

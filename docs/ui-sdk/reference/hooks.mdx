@@ -18,7 +18,9 @@ description: "Composer state, MCP auth, runtime hooks, and re-exports."
 import { useServerCapabilities } from "@truefoundry/trueforge-ui";
 
 const capabilities = useServerCapabilities();
-// { sandbox: { enabled }, skill: { enabled, reason? }, settings?: { enabled } } | null
+// { sandbox: { enabled }, skill: { enabled, reason? },
+//   settings?: { modelProviders?, mcpServers?, skills?, sandboxProviders?, webSearch?, memory? },
+//   webSearch?: { enabled, reason? }, sessionSharing?: { enabled } } | null
 ```
 
 Returns the resolved value from your server's `getCapabilities()`, or `null` while it is still
