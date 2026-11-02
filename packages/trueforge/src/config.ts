@@ -1102,23 +1102,12 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    * string array of tenant ids. Env: `TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST`. Default empty (no tenant).
    */
   TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST: string[];
-  /** Env: `MEMORY_INGEST_INTERVAL_MS`. Default 5 minutes. */
-  MEMORY_INGEST_INTERVAL_MS: number;
-  /** Sessions processed per ingest run. Env: `MEMORY_INGEST_MAX_SESSIONS_PER_RUN`. Default 50. */
-  MEMORY_INGEST_MAX_SESSIONS_PER_RUN: number;
-  /** Exchanges sent per session per run. Env: `MEMORY_INGEST_MAX_EXCHANGES_PER_SESSION`. Default 20. */
-  MEMORY_INGEST_MAX_EXCHANGES_PER_SESSION: number;
   /**
-   * How far back a session's latest turn is picked up; sessions not ingested by then are dropped.
-   * Env: `MEMORY_INGEST_LOOKBACK_MS`. Default 2 hours.
+   * Static JSON settings for the memory-ingest loop: `interval_ms`, `max_sessions_per_run`,
+   * `max_exchanges_per_session`, `lookback_ms`, `pause_timeout_ms` (each optional, with defaults).
+   * Env: `TRUEFOUNDRY_MEMORY_SETTINGS`.
    */
-  MEMORY_INGEST_LOOKBACK_MS: number;
-  /**
-   * An exchange paused on the user (a question, approval or auth) is sent as-is after this long.
-   * Paused sessions are looked up again in a lookback-wide range this far back.
-   * Env: `MEMORY_INGEST_PAUSE_TIMEOUT_MS`. Default 12 hours.
-   */
-  MEMORY_INGEST_PAUSE_TIMEOUT_MS: number;
+  TRUEFOUNDRY_MEMORY_SETTINGS: string | undefined;
 };
 
 export type ServerConfiguration = StandaloneServerConfiguration | DistributedServerConfiguration;
@@ -1451,31 +1440,7 @@ const configuration: ServerConfiguration = standalone
         envKey: 'TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST',
         raw: getEnv('TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST'),
       }),
-      MEMORY_INGEST_INTERVAL_MS: parsePositiveInt({
-        envKey: 'MEMORY_INGEST_INTERVAL_MS',
-        raw: getEnv('MEMORY_INGEST_INTERVAL_MS'),
-        defaultValue: 5 * 60 * 1000,
-      }),
-      MEMORY_INGEST_MAX_SESSIONS_PER_RUN: parsePositiveInt({
-        envKey: 'MEMORY_INGEST_MAX_SESSIONS_PER_RUN',
-        raw: getEnv('MEMORY_INGEST_MAX_SESSIONS_PER_RUN'),
-        defaultValue: 50,
-      }),
-      MEMORY_INGEST_MAX_EXCHANGES_PER_SESSION: parsePositiveInt({
-        envKey: 'MEMORY_INGEST_MAX_EXCHANGES_PER_SESSION',
-        raw: getEnv('MEMORY_INGEST_MAX_EXCHANGES_PER_SESSION'),
-        defaultValue: 20,
-      }),
-      MEMORY_INGEST_LOOKBACK_MS: parsePositiveInt({
-        envKey: 'MEMORY_INGEST_LOOKBACK_MS',
-        raw: getEnv('MEMORY_INGEST_LOOKBACK_MS'),
-        defaultValue: 2 * 60 * 60 * 1000,
-      }),
-      MEMORY_INGEST_PAUSE_TIMEOUT_MS: parsePositiveInt({
-        envKey: 'MEMORY_INGEST_PAUSE_TIMEOUT_MS',
-        raw: getEnv('MEMORY_INGEST_PAUSE_TIMEOUT_MS'),
-        defaultValue: 12 * 60 * 60 * 1000,
-      }),
+      TRUEFOUNDRY_MEMORY_SETTINGS: getEnv('TRUEFOUNDRY_MEMORY_SETTINGS', { required: false }),
     };
 
 export function isOidcConfigured(
@@ -1576,6 +1541,13 @@ if (isTrueFoundryModeEnabled(configuration)) {
       throw new Error(
         'TRUEFOUNDRY_MEMORY_PROVIDER=zep requires TRUEFOUNDRY_MEMORY_API_KEY, or set TRUEFOUNDRY_MEMORY_ENABLED=false.',
       );
+    }
+    if (configuration.TRUEFOUNDRY_MEMORY_SETTINGS !== undefined) {
+      try {
+        JSON.parse(configuration.TRUEFOUNDRY_MEMORY_SETTINGS);
+      } catch (error) {
+        throw new Error('TRUEFOUNDRY_MEMORY_SETTINGS must be valid JSON', { cause: error });
+      }
     }
   }
 }

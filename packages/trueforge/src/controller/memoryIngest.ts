@@ -22,7 +22,6 @@ import { resolveTrueFoundryMemoryProviderConfig } from '../truefoundry/resolveTr
 import type { ControlLoop } from './Controller';
 
 const MEMORY_INGEST_LOOP_NAME = 'memory-ingest';
-const DEFAULT_AGENT_NAME = 'TrueForge';
 
 export interface MemoryIngestConfig {
   intervalMs: number;
@@ -134,7 +133,6 @@ async function ingestSession({
     turn_ids: turnIds,
   });
   const questions = askUserQuestionsByToolCallId(modelMessages.map(entry => entry.message));
-  const agentName = candidate.agent_name ?? DEFAULT_AGENT_NAME;
 
   let exchangesSent = 0;
   // The last attempt failed on the next exchange, possibly after the provider stored it.
@@ -145,12 +143,12 @@ async function ingestSession({
     }
     const firstTurnId = exchange.turns[0].turn_id;
     const lastTurnId = exchange.turns[exchange.turns.length - 1]?.turn_id ?? firstTurnId;
-    const messages = renderExchange({ exchange, questions, userName: scope.displayName, agentName });
+    const messages = renderExchange({ exchange, questions });
     try {
       if (messages.length > 0) {
         const sent = await provider.ingestExchange({
           scope,
-          exchange: { sessionId: candidate.session_id, firstTurnId, lastTurnId, messages },
+          exchange: { sessionId: candidate.session_id, lastTurnId, messages },
           externalThreadId: threadId,
           mayAlreadyBeStored,
         });
@@ -209,7 +207,7 @@ export async function runMemoryIngestPass({
   const startedMs = startedAt.getTime();
   const tenantIds = await settings.listEnabledTenantIds();
   const listed =
-    tenantIds.length === 0
+    tenantIds?.length === 0
       ? []
       : await store.listCandidateSessions({
           tenant_ids: tenantIds,
@@ -269,7 +267,7 @@ async function processCandidate({
     exchangesFailed: 0,
   });
 
-  const resolution = resolveMemoryScope({
+  const scope = resolveMemoryScope({
     tenantId: candidate.tenant_id,
     createdBySubject: candidate.created_by_subject,
     agentId: candidate.agent_id,
@@ -277,18 +275,18 @@ async function processCandidate({
     tfgSource: candidate.tfg_source,
     createAgentSession: candidate.create_agent_session,
   });
-  if (!resolution.eligible) {
+  if (scope === undefined) {
     return skipped('memory_disabled');
   }
 
   try {
-    return await ingestSession({ candidate, scope: resolution.scope, deps, signal });
+    return await ingestSession({ candidate, scope, deps, signal });
   } catch (error) {
     // Store failures (loading turns, writing the checkpoint); the session is retried next run.
     logger.error('Memory ingest failed for session', {
       session_id: candidate.session_id,
       tenant_id: candidate.tenant_id,
-      scope_type: resolution.scope.type,
+      scope_type: scope.type,
       agent_id: candidate.agent_id,
       last_error: errorMessage(error),
       reportable_error: { error, extra: { session_id: candidate.session_id, tenant_id: candidate.tenant_id } },
@@ -307,11 +305,7 @@ type MemoryConfiguration = Pick<
   | 'TRUEFOUNDRY_MEMORY_API_KEY'
   | 'TRUEFOUNDRY_MEMORY_SERVER_URL'
   | 'TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST'
-  | 'MEMORY_INGEST_INTERVAL_MS'
-  | 'MEMORY_INGEST_MAX_SESSIONS_PER_RUN'
-  | 'MEMORY_INGEST_MAX_EXCHANGES_PER_SESSION'
-  | 'MEMORY_INGEST_LOOKBACK_MS'
-  | 'MEMORY_INGEST_PAUSE_TIMEOUT_MS'
+  | 'TRUEFOUNDRY_MEMORY_SETTINGS'
 >;
 
 /**
@@ -331,21 +325,17 @@ export function memoryIngestFromConfig({
   if (providerConfig === undefined) {
     return undefined;
   }
-  if (config.TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST.length === 0) {
-    logger.warn(
-      'TRUEFOUNDRY_MEMORY_ENABLED is true but TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST is empty; no tenant has memory',
-    );
-  }
+  const { settings } = providerConfig;
   return {
     store,
     provider: createMemoryProvider({ config: providerConfig, logger }),
     settings: new TenantAllowlistMemorySettings({ tenantIds: config.TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST }),
     config: {
-      intervalMs: config.MEMORY_INGEST_INTERVAL_MS,
-      maxSessionsPerRun: config.MEMORY_INGEST_MAX_SESSIONS_PER_RUN,
-      maxExchangesPerSession: config.MEMORY_INGEST_MAX_EXCHANGES_PER_SESSION,
-      lookbackMs: config.MEMORY_INGEST_LOOKBACK_MS,
-      pauseTimeoutMs: config.MEMORY_INGEST_PAUSE_TIMEOUT_MS,
+      intervalMs: settings.interval_ms,
+      maxSessionsPerRun: settings.max_sessions_per_run,
+      maxExchangesPerSession: settings.max_exchanges_per_session,
+      lookbackMs: settings.lookback_ms,
+      pauseTimeoutMs: settings.pause_timeout_ms,
     },
   };
 }

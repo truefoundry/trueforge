@@ -54,7 +54,6 @@ export class PostgresMemoryIngestStore implements IMemoryIngestStore {
         's.tenant_id',
         's.created_by_subject',
         's.agent_id',
-        's.agent_name',
         tfgSource.as('tfg_source'),
         createAgentSession.as('create_agent_session'),
         sql<boolean>`COALESCE(${agentMemoryEnabled} = 'true', false)`.as('agent_memory_enabled'),
@@ -64,7 +63,6 @@ export class PostgresMemoryIngestStore implements IMemoryIngestStore {
         'c.last_error as cursor_last_error',
         'c.updated_at as cursor_updated_at',
       ])
-      .where('s.tenant_id', 'in', [...input.tenant_ids])
       .where('s.source', 'is', null)
       .where(eb =>
         eb.or([
@@ -78,14 +76,18 @@ export class PostgresMemoryIngestStore implements IMemoryIngestStore {
         eb.or([eb.and([eb('s.agent_id', 'is', null), eb(tfgSource, '=', 'ui')]), eb(agentMemoryEnabled, '=', 'true')]),
       )
       .where(sql<boolean>`c.last_ingested_turn_id IS DISTINCT FROM t.turn_id`);
-    const rows = await query.orderBy('s.updated_at', 'asc').orderBy('s.session_id', 'asc').limit(input.limit).execute();
+    const scoped = input.tenant_ids === undefined ? query : query.where('s.tenant_id', 'in', [...input.tenant_ids]);
+    const rows = await scoped
+      .orderBy('s.updated_at', 'asc')
+      .orderBy('s.session_id', 'asc')
+      .limit(input.limit)
+      .execute();
 
     return rows.map(row => ({
       session_id: row.session_id,
       tenant_id: row.tenant_id,
       created_by_subject: row.created_by_subject,
       agent_id: row.agent_id,
-      agent_name: row.agent_name,
       tfg_source: row.tfg_source,
       create_agent_session: row.create_agent_session,
       agent_memory_enabled: row.agent_memory_enabled,

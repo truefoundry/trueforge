@@ -11,7 +11,7 @@ import {
   type MemoryMessage,
   type MemoryProvider,
 } from '../MemoryProvider';
-import type { MemoryScope } from '../scope';
+import { DEFAULT_MEMORY_AGENT_KEY, type MemoryScope } from '../scope';
 
 export const ZEP_DEFAULT_BASE_URL = 'https://api.getzep.com/api/v4';
 
@@ -83,6 +83,14 @@ function retryAfterMs(response: Response): number | undefined {
   return Number.isNaN(date) ? undefined : Math.max(0, date - Date.now());
 }
 
+/**
+ * Zep's speaker `name`: the user's or agent's id, never a display name, so no person's name reaches
+ * Zep. A Zep user maps back to its TrueForge user through its `metadata` (tenant and subject ids).
+ */
+function speakerId(scope: MemoryScope, role: MemoryMessage['role']): string {
+  return role === 'user' ? scope.subjectId : (scope.agentId ?? DEFAULT_MEMORY_AGENT_KEY);
+}
+
 /** Roles whose messages are all context-only; Zep skips extraction for them. */
 function ignoredRoles(messages: readonly MemoryMessage[]): MemoryMessage['role'][] {
   const roles = new Set(messages.map(message => message.role));
@@ -114,18 +122,17 @@ export class ZepMemoryProvider implements MemoryProvider {
   async ingestExchange(input: IngestExchangeInput): Promise<{ externalThreadId: string }> {
     const { scope, exchange } = input;
     if (exchange.messages.length === 0) {
-      throw new Error(`Exchange ${exchange.firstTurnId}..${exchange.lastTurnId} has no messages`);
+      throw new Error(`Exchange ending at turn ${exchange.lastTurnId} has no messages`);
     }
     const roles = ignoredRoles(exchange.messages);
     const body = {
       messages: exchange.messages.map(message => ({
         role: message.role,
-        name: message.name,
+        name: speakerId(scope, message.role),
         content: message.content,
         reference_time: message.createdAt,
         metadata: {
           session_id: exchange.sessionId,
-          first_turn_id: exchange.firstTurnId,
           last_turn_id: exchange.lastTurnId,
           scope: scope.type,
         },
@@ -184,7 +191,10 @@ export class ZepMemoryProvider implements MemoryProvider {
     });
   }
 
-  /** Whether the thread's newest messages already include this exchange, matched by its metadata. */
+  /**
+   * Whether the thread's newest messages already include this exchange, matched by its metadata.
+   * TODO(memory-idempotency): see `IngestExchangeInput.mayAlreadyBeStored`.
+   */
   async #threadHasExchange(threadId: string, exchange: MemoryExchange): Promise<boolean> {
     const query = new URLSearchParams({
       order_by: 'created_at',
@@ -202,9 +212,7 @@ export class ZepMemoryProvider implements MemoryProvider {
     }
     return ZepMessagesResponseSchema.parse(listed.body).items.some(
       ({ metadata }) =>
-        metadata?.['session_id'] === exchange.sessionId &&
-        metadata['first_turn_id'] === exchange.firstTurnId &&
-        metadata['last_turn_id'] === exchange.lastTurnId,
+        metadata?.['session_id'] === exchange.sessionId && metadata['last_turn_id'] === exchange.lastTurnId,
     );
   }
 
@@ -245,7 +253,9 @@ export class ZepMemoryProvider implements MemoryProvider {
         path: '/users',
         body: {
           user_id: scope.key,
-          first_name: scope.displayName,
+          // An id, never a display name: no person's name reaches Zep.
+          first_name: scope.subjectId,
+          // Maps the Zep user back to its TrueForge user and scope.
           metadata: {
             tenant_id: scope.tenantId,
             subject_id: scope.subjectId,

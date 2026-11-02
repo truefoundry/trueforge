@@ -8,28 +8,24 @@ const SCOPE: MemoryScope = {
   type: 'default',
   tenantId: 'acme',
   subjectId: 'user-1',
-  displayName: 'Priya',
   agentId: null,
   key: 'tfg-acme-trueforge-user-1',
 };
 
 const EXCHANGE: MemoryExchange = {
   sessionId: 'session-1',
-  firstTurnId: 't1',
   lastTurnId: 't2',
   messages: [
     {
       role: 'user',
       content: 'I am vegetarian',
       createdAt: '2026-10-01T00:00:00.000Z',
-      name: 'Priya',
       extract: true,
     },
     {
       role: 'assistant',
       content: 'Noted.',
       createdAt: '2026-10-01T00:01:00.000Z',
-      name: 'TrueForge',
       extract: false,
     },
   ],
@@ -108,7 +104,7 @@ describe('ZepMemoryProvider', () => {
     expect(calls.every(call => call.authorization === 'Api-Key test-key')).toBe(true);
     expect(calls[1]?.body).toEqual({
       user_id: SCOPE.key,
-      first_name: 'Priya',
+      first_name: 'user-1',
       metadata: { tenant_id: 'acme', subject_id: 'user-1', agent_id: null, scope_type: 'default' },
     });
     expect(calls[2]?.body).toEqual({ user_uuid: 'user-uuid' });
@@ -116,17 +112,35 @@ describe('ZepMemoryProvider', () => {
       ignore_roles: ['assistant'],
       messages: EXCHANGE.messages.map(message => ({
         role: message.role,
-        name: message.name,
+        name: message.role === 'user' ? 'user-1' : 'trueforge',
         content: message.content,
         reference_time: message.createdAt,
         metadata: {
           session_id: 'session-1',
-          first_turn_id: 't1',
           last_turn_id: 't2',
           scope: 'default',
         },
       })),
     });
+  });
+
+  it('names speakers by id in an agent scope: the user by subject id, the agent by agent id', async () => {
+    const { calls, fetchImpl } = fakeFetch([jsonResponse(202)]);
+    const { zep } = provider(fetchImpl);
+    const agentScope: MemoryScope = { ...SCOPE, type: 'agent', agentId: 'agent-chef', key: 'tfg-acme-chef-user-1' };
+
+    await zep.ingestExchange({
+      scope: agentScope,
+      exchange: EXCHANGE,
+      externalThreadId: 'thread-1',
+      mayAlreadyBeStored: false,
+    });
+
+    const body = calls[0]?.body;
+    if (typeof body !== 'object' || body === null || !('messages' in body) || !Array.isArray(body.messages)) {
+      throw new Error('expected an add-messages body');
+    }
+    expect(body.messages.map((message: { name: unknown }) => message.name)).toEqual(['user-1', 'agent-chef']);
   });
 
   it('reuses an existing thread and caches user lookups across sessions', async () => {
@@ -274,7 +288,7 @@ describe('ZepMemoryProvider', () => {
   });
 
   it('skips resending an exchange an earlier attempt already stored', async () => {
-    const stored = { session_id: 'session-1', first_turn_id: 't1', last_turn_id: 't2', scope: 'default' };
+    const stored = { session_id: 'session-1', last_turn_id: 't2', scope: 'default' };
     const { calls, fetchImpl } = fakeFetch([jsonResponse(200, { items: [{ metadata: stored }], total_size: 1 })]);
     const { zep } = provider(fetchImpl);
 
@@ -287,7 +301,7 @@ describe('ZepMemoryProvider', () => {
   });
 
   it('resends when the check finds the exchange missing', async () => {
-    const other = { session_id: 'session-1', first_turn_id: 't0', last_turn_id: 't0', scope: 'default' };
+    const other = { session_id: 'session-1', last_turn_id: 't0', scope: 'default' };
     const { calls, fetchImpl } = fakeFetch([
       jsonResponse(200, { items: [{ metadata: other }, { metadata: null }], total_size: 2 }),
       jsonResponse(202),

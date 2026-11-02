@@ -134,23 +134,19 @@ describe('renderExchange', () => {
     const messages = renderExchange({
       exchange: only(buildExchanges(pausedThenAnsweredTurns())),
       questions,
-      userName: 'Priya',
-      agentName: 'TrueForge',
     });
     expect(messages).toEqual([
-      { role: 'user', content: 'Dinner ideas? I am vegetarian.', createdAt: at(0), name: 'Priya', extract: true },
+      { role: 'user', content: 'Dinner ideas? I am vegetarian.', createdAt: at(0), extract: true },
       {
         role: 'user',
         content: '(Answering "Which cuisine?") South Indian',
         createdAt: at(2 * MINUTE),
-        name: 'Priya',
         extract: true,
       },
       {
         role: 'assistant',
         content: 'Try lemon rice and rasam.',
         createdAt: at(3 * MINUTE),
-        name: 'TrueForge',
         extract: false,
       },
     ]);
@@ -184,8 +180,6 @@ describe('renderExchange', () => {
     const messages = renderExchange({
       exchange,
       questions: new Map(),
-      userName: 'U',
-      agentName: 'A',
     });
     expect(messages.map(m => [m.role, m.content])).toEqual([
       ['user', 'Summarise this'],
@@ -207,8 +201,6 @@ describe('renderExchange', () => {
     const messages = renderExchange({
       exchange,
       questions: new Map(),
-      userName: 'U',
-      agentName: 'A',
     });
     expect(messages).toHaveLength(1);
     expect(messages[0]?.content.length).toBe(MAX_MEMORY_MESSAGE_CHARS);

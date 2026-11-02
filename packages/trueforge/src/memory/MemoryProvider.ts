@@ -3,13 +3,12 @@ import type { MemoryScope } from './scope';
 export const MEMORY_PROVIDER_NAMES = ['zep'] as const;
 export type MemoryProviderName = (typeof MEMORY_PROVIDER_NAMES)[number];
 
+/** A message to remember. Carries no speaker name: providers identify speakers by scope ids only. */
 export interface MemoryMessage {
   role: 'user' | 'assistant';
   content: string;
   /** ISO-8601 UTC instant the message was produced. */
   createdAt: string;
-  /** Speaker name shown to the provider (user display name or agent name). */
-  name: string;
   /** False keeps the message as context only; the provider must not extract facts from it. */
   extract: boolean;
 }
@@ -17,7 +16,7 @@ export interface MemoryMessage {
 /** One user request and the turns that answered it, rendered for a provider. */
 export interface MemoryExchange {
   sessionId: string;
-  firstTurnId: string;
+  /** Last turn of the exchange; the session's checkpoint once the provider accepts it. */
   lastTurnId: string;
   messages: MemoryMessage[];
 }
@@ -30,6 +29,8 @@ export interface IngestExchangeInput {
   /**
    * The previous attempt at this exchange failed, possibly after the provider stored it (e.g. a
    * timeout). The provider checks before sending, so a retry doesn't store it twice.
+   * TODO(memory-idempotency): a deterministic idempotency key per exchange (session + last turn)
+   * could replace this check and its extra read, once the provider's key retention is known.
    */
   mayAlreadyBeStored: boolean;
 }

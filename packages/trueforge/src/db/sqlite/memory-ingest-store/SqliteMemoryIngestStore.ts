@@ -61,7 +61,6 @@ export class SqliteMemoryIngestStore implements IMemoryIngestStore {
         's.tenant_id',
         jsonText<CreatedBySubject>(sql.ref('s.created_by_subject')).as('created_by_subject'),
         's.agent_id',
-        's.agent_name',
         tfgSource.as('tfg_source'),
         createAgentSession.as('create_agent_session'),
         agentMemoryEnabled.as('agent_memory_enabled'),
@@ -71,7 +70,6 @@ export class SqliteMemoryIngestStore implements IMemoryIngestStore {
         'c.last_error as cursor_last_error',
         'c.updated_at as cursor_updated_at',
       ])
-      .where('s.tenant_id', 'in', [...input.tenant_ids])
       .where('s.source', 'is', null)
       .where(eb =>
         eb.or([
@@ -89,14 +87,18 @@ export class SqliteMemoryIngestStore implements IMemoryIngestStore {
         eb.or([eb.and([eb('s.agent_id', 'is', null), eb(tfgSource, '=', 'ui')]), eb(agentMemoryEnabled, '=', 1)]),
       )
       .where(sql<boolean>`c.last_ingested_turn_id IS NOT t.turn_id`);
-    const rows = await query.orderBy('s.updated_at', 'asc').orderBy('s.session_id', 'asc').limit(input.limit).execute();
+    const scoped = input.tenant_ids === undefined ? query : query.where('s.tenant_id', 'in', [...input.tenant_ids]);
+    const rows = await scoped
+      .orderBy('s.updated_at', 'asc')
+      .orderBy('s.session_id', 'asc')
+      .limit(input.limit)
+      .execute();
 
     return rows.map(row => ({
       session_id: row.session_id,
       tenant_id: row.tenant_id,
       created_by_subject: row.created_by_subject,
       agent_id: row.agent_id,
-      agent_name: row.agent_name,
       tfg_source: row.tfg_source,
       create_agent_session: row.create_agent_session === 1,
       agent_memory_enabled: row.agent_memory_enabled === 1,

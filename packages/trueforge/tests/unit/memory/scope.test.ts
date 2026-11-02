@@ -21,50 +21,36 @@ describe('resolveMemoryScope', () => {
     ['without an agent', {}],
     ['on an agent with memory on', { agentId: 'chef', agentMemoryEnabled: true }],
   ])('gives agent-builder chats no memory, %s', (_label, overrides) => {
-    expect(resolveMemoryScope(session({ ...overrides, createAgentSession: true }))).toEqual({
-      eligible: false,
-      reason: 'not_memory_session',
-    });
+    expect(resolveMemoryScope(session({ ...overrides, createAgentSession: true }))).toBeUndefined();
   });
 
   it('uses the default TrueForge scope for UI sessions without an agent', () => {
     expect(resolveMemoryScope(session({}))).toEqual({
-      eligible: true,
-      scope: {
-        type: 'default',
-        tenantId: 'acme',
-        subjectId: 'user-1',
-        displayName: 'Priya',
-        agentId: null,
-        key: memoryScopeKey({ tenantId: 'acme', agentKey: 'trueforge', subjectId: 'user-1' }),
-      },
+      type: 'default',
+      tenantId: 'acme',
+      subjectId: 'user-1',
+      agentId: null,
+      key: memoryScopeKey({ tenantId: 'acme', agentKey: 'trueforge', subjectId: 'user-1' }),
     });
   });
 
   it('uses the agent scope when the bound agent has memory, with or without UI metadata', () => {
     for (const tfgSource of ['ui', null]) {
-      const resolution = resolveMemoryScope(session({ agentId: 'agent-9', agentMemoryEnabled: true, tfgSource }));
-      expect(resolution).toMatchObject({
-        eligible: true,
-        scope: { type: 'agent', key: memoryScopeKey({ tenantId: 'acme', agentKey: 'agent-9', subjectId: 'user-1' }) },
+      expect(resolveMemoryScope(session({ agentId: 'agent-9', agentMemoryEnabled: true, tfgSource }))).toMatchObject({
+        type: 'agent',
+        key: memoryScopeKey({ tenantId: 'acme', agentKey: 'agent-9', subjectId: 'user-1' }),
       });
     }
   });
 
   it('follows the agent manifest: no memory for sessions on an agent with memory off, even from the UI', () => {
     for (const tfgSource of ['ui', null]) {
-      expect(resolveMemoryScope(session({ agentId: 'agent-9', agentMemoryEnabled: false, tfgSource }))).toEqual({
-        eligible: false,
-        reason: 'agent_disabled',
-      });
+      expect(resolveMemoryScope(session({ agentId: 'agent-9', agentMemoryEnabled: false, tfgSource }))).toBeUndefined();
     }
   });
 
-  it('is not eligible without UI metadata or an agent with memory', () => {
-    expect(resolveMemoryScope(session({ tfgSource: null }))).toEqual({
-      eligible: false,
-      reason: 'not_memory_session',
-    });
+  it('has no memory without UI metadata or an agent with memory', () => {
+    expect(resolveMemoryScope(session({ tfgSource: null }))).toBeUndefined();
   });
 
   it('gives distinct users distinct keys, even when their ids differ only in punctuation', () => {
@@ -91,8 +77,8 @@ describe('TenantAllowlistMemorySettings', () => {
     await expect(settings.listEnabledTenantIds()).resolves.toEqual(['acme', 'globex']);
   });
 
-  it('lists no tenant when the allowlist is empty', async () => {
+  it('means every tenant when the allowlist is empty', async () => {
     const settings: MemorySettings = new TenantAllowlistMemorySettings({ tenantIds: [] });
-    await expect(settings.listEnabledTenantIds()).resolves.toEqual([]);
+    await expect(settings.listEnabledTenantIds()).resolves.toBeUndefined();
   });
 });

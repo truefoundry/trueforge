@@ -8,7 +8,14 @@ export interface MemoryProviderOptions {
   logger: Logger;
 }
 
-/** Zep is the only provider today; choose by `config.type` here once a second one lands. */
 export function createMemoryProvider({ config, logger }: MemoryProviderOptions): MemoryProvider {
-  return new ZepMemoryProvider({ apiKey: config.apiKey, baseUrl: config.serverUrl, logger });
+  switch (config.type) {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- one provider today; more get a case here
+    case 'zep':
+      return new ZepMemoryProvider({ apiKey: config.apiKey, baseUrl: config.serverUrl, logger });
+    default: {
+      const _exhaustive: never = config.type;
+      throw new Error(`Unsupported memory provider: ${String(_exhaustive)}`);
+    }
+  }
 }

@@ -167,8 +167,8 @@ apiKey: "placeholder-value-please-generate-your-own"
 #   TRUEFOUNDRY_MEMORY_ENABLED: "true"
 #   TRUEFOUNDRY_MEMORY_PROVIDER: "zep"
 #   TRUEFOUNDRY_MEMORY_API_KEY: "${k8s-secret/trueforge-memory/TRUEFOUNDRY_MEMORY_API_KEY}"
-#   TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST: '["tenant-a"]'   # only listed tenants get memory
-#   MEMORY_INGEST_INTERVAL_MS: "300000"   # plus MEMORY_INGEST_* bounds and windows
+#   TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST: '["tenant-a"]'   # unset or empty: every tenant
+#   TRUEFOUNDRY_MEMORY_SETTINGS: '{"interval_ms":300000}'   # optional loop settings, see .env.example
 env: {}
 # Application feature config (maps to env vars in packages/trueforge/src/config.ts).
 # clientSecret (and other secret-like fields) accept a string or

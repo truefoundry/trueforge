@@ -30,7 +30,6 @@ export interface MemoryIngestCandidate {
   tenant_id: string;
   created_by_subject: CreatedBySubject;
   agent_id: string | null;
-  agent_name: string | null;
   /** `metadata['tfg.source']`, when present. */
   tfg_source: string | null;
   /** Agent-builder chat; such sessions are never listed. */
@@ -59,8 +58,8 @@ export interface MemoryIngestModelMessage {
  * bounds the latest turn's start; turns finish within the execution timeout.
  */
 export interface ListMemoryIngestCandidatesInput {
-  /** Only sessions of these tenants (non-empty): the ones with memory on. */
-  tenant_ids: readonly string[];
+  /** Only sessions of these tenants (non-empty), the ones with memory on; undefined means every tenant. */
+  tenant_ids: readonly string[] | undefined;
   /** Any session updated at or after this instant. */
   recent_since: Date;
   /**

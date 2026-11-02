@@ -219,18 +219,14 @@ function capped(text: string): string {
 export function renderExchange({
   exchange,
   questions,
-  userName,
-  agentName,
 }: {
   exchange: TurnExchange;
   questions: ReadonlyMap<string, string>;
-  userName: string;
-  agentName: string;
 }): MemoryMessage[] {
   const messages: MemoryMessage[] = [];
   const user = (content: string, createdAt: string) => {
     if (content !== '') {
-      messages.push({ role: 'user', content: capped(content), createdAt, name: userName, extract: true });
+      messages.push({ role: 'user', content: capped(content), createdAt, extract: true });
     }
   };
 
@@ -260,7 +256,6 @@ export function renderExchange({
         role: 'assistant',
         content: capped(reply),
         createdAt: last.state.completed_at,
-        name: agentName,
         extract: false,
       });
     }
