@@ -419,9 +419,9 @@ export type MemoryIngestWiring = Omit<MemoryIngestDeps, 'logger' | 'now'>;
 
 type MemoryConfiguration = Pick<
   DistributedServerConfiguration,
-  | 'TRUEFOUNDRY_MEMORY_ENABLED'
-  | 'TRUEFOUNDRY_ZEP_API_KEY'
-  | 'TRUEFOUNDRY_ZEP_BASE_URL'
+  | 'MEMORY_ENABLED'
+  | 'ZEP_API_KEY'
+  | 'ZEP_BASE_URL'
   | 'MEMORY_INGEST_INTERVAL_MS'
   | 'MEMORY_INGEST_MAX_SESSIONS_PER_RUN'
   | 'MEMORY_INGEST_MAX_EXCHANGES_PER_SESSION'
@@ -432,7 +432,7 @@ type MemoryConfiguration = Pick<
 
 /**
  * Loop wiring from TrueFoundry-mode configuration (like the shared sandbox and web search);
- * undefined while `TRUEFOUNDRY_MEMORY_ENABLED` is off.
+ * undefined while `MEMORY_ENABLED` is off.
  */
 export function memoryIngestFromConfig({
   config,
@@ -443,16 +443,16 @@ export function memoryIngestFromConfig({
   store: IMemoryIngestStore;
   logger: Logger;
 }): MemoryIngestWiring | undefined {
-  if (!config.TRUEFOUNDRY_MEMORY_ENABLED) {
+  if (!config.MEMORY_ENABLED) {
     return undefined;
   }
-  if (config.TRUEFOUNDRY_ZEP_API_KEY === undefined) {
-    throw new Error('TRUEFOUNDRY_MEMORY_ENABLED=true requires TRUEFOUNDRY_ZEP_API_KEY');
+  if (config.ZEP_API_KEY === undefined) {
+    throw new Error('MEMORY_ENABLED=true requires ZEP_API_KEY');
   }
   return {
     store,
     provider: createMemoryProvider({
-      zep: { apiKey: config.TRUEFOUNDRY_ZEP_API_KEY, baseUrl: config.TRUEFOUNDRY_ZEP_BASE_URL },
+      zep: { apiKey: config.ZEP_API_KEY, baseUrl: config.ZEP_BASE_URL },
       logger,
     }),
     settings: new FlagMemorySettings({ enabled: true }),

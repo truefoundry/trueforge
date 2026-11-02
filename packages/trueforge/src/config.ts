@@ -1075,13 +1075,13 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
   TRUEFOUNDRY_TENANT_NAME: string | undefined;
   /**
    * Long-term memory (TrueFoundry mode only): the controller's memory-ingest loop sends chats to
-   * Zep. Env: `TRUEFOUNDRY_MEMORY_ENABLED`. Default false.
+   * Zep. Env: `MEMORY_ENABLED`. Default false.
    */
-  TRUEFOUNDRY_MEMORY_ENABLED: boolean;
-  /** Required when `TRUEFOUNDRY_MEMORY_ENABLED`. Env: `TRUEFOUNDRY_ZEP_API_KEY`. */
-  TRUEFOUNDRY_ZEP_API_KEY: string | undefined;
-  /** Env: `TRUEFOUNDRY_ZEP_BASE_URL`. Default Zep Cloud v4. */
-  TRUEFOUNDRY_ZEP_BASE_URL: string;
+  MEMORY_ENABLED: boolean;
+  /** Required when `MEMORY_ENABLED`. Env: `ZEP_API_KEY`. */
+  ZEP_API_KEY: string | undefined;
+  /** Env: `ZEP_BASE_URL`. Default Zep Cloud v4. */
+  ZEP_BASE_URL: string;
   /** Env: `MEMORY_INGEST_INTERVAL_MS`. Default 5 minutes. */
   MEMORY_INGEST_INTERVAL_MS: number;
   /** Sessions processed per ingest run. Env: `MEMORY_INGEST_MAX_SESSIONS_PER_RUN`. Default 50. */
@@ -1419,13 +1419,13 @@ const configuration: ServerConfiguration = standalone
       ),
       TRUEFOUNDRY_AUTH_SERVER_URL: getEnv('TRUEFOUNDRY_AUTH_SERVER_URL', { required: false }),
       TRUEFOUNDRY_TENANT_NAME: getEnv('TRUEFOUNDRY_TENANT_NAME', { required: false }),
-      TRUEFOUNDRY_MEMORY_ENABLED: parseBoolean({
-        envKey: 'TRUEFOUNDRY_MEMORY_ENABLED',
-        raw: getEnv('TRUEFOUNDRY_MEMORY_ENABLED'),
+      MEMORY_ENABLED: parseBoolean({
+        envKey: 'MEMORY_ENABLED',
+        raw: getEnv('MEMORY_ENABLED'),
         defaultValue: false,
       }),
-      TRUEFOUNDRY_ZEP_API_KEY: optionalNonEmptyEnv('TRUEFOUNDRY_ZEP_API_KEY'),
-      TRUEFOUNDRY_ZEP_BASE_URL: optionalNonEmptyEnv('TRUEFOUNDRY_ZEP_BASE_URL') ?? ZEP_DEFAULT_BASE_URL,
+      ZEP_API_KEY: optionalNonEmptyEnv('ZEP_API_KEY'),
+      ZEP_BASE_URL: optionalNonEmptyEnv('ZEP_BASE_URL') ?? ZEP_DEFAULT_BASE_URL,
       MEMORY_INGEST_INTERVAL_MS: parsePositiveInt({
         envKey: 'MEMORY_INGEST_INTERVAL_MS',
         raw: getEnv('MEMORY_INGEST_INTERVAL_MS'),
@@ -1544,10 +1544,9 @@ if (isTrueFoundryModeEnabled(configuration)) {
     }
   }
 
-  if (configuration.TRUEFOUNDRY_MEMORY_ENABLED && configuration.TRUEFOUNDRY_ZEP_API_KEY === undefined) {
+  if (configuration.MEMORY_ENABLED && configuration.ZEP_API_KEY === undefined) {
     throw new Error(
-      'TRUEFOUNDRY_MEMORY_ENABLED is true but TRUEFOUNDRY_ZEP_API_KEY is not set. ' +
-        'Set TRUEFOUNDRY_ZEP_API_KEY, or set TRUEFOUNDRY_MEMORY_ENABLED=false.',
+      'MEMORY_ENABLED is true but ZEP_API_KEY is not set. ' + 'Set ZEP_API_KEY, or set MEMORY_ENABLED=false.',
     );
   }
 }
