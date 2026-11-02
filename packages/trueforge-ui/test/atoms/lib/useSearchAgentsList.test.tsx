@@ -9,6 +9,8 @@ import {
   SEARCH_AGENTS_PAGE_SIZE,
   useSearchAgentsList,
 } from '@/atoms/lib/useSearchAgentsList.js';
+import { useServerQueryClient } from '@/server/queryClient.js';
+import { queryKeys } from '@/server/queryKeys.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import type { AgentLibraryEntry, AgentUIServer } from '@/server/types.js';
 import { createMockAgentUIServer } from '../../server/mockServer.js';
@@ -161,6 +163,10 @@ describe('useSearchAgentsList', () => {
       await vi.advanceTimersByTimeAsync(1);
       await Promise.resolve();
     });
+    // Query results are delivered on the next timer tick.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
     expect(searchAgents).toHaveBeenCalledTimes(2);
     expect(searchAgents).toHaveBeenLastCalledWith({ query: 'alpha', limit: SEARCH_AGENTS_PAGE_SIZE });
     expect(result.current.agents).toEqual([{ name: 'alpha', agentId: 'alpha' } satisfies AgentLibraryEntry]);
@@ -201,6 +207,71 @@ describe('useSearchAgentsList', () => {
     });
     await waitFor(() => expect(result.current.agents).toHaveLength(10));
     expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 10, pageToken: 'tok_1' });
+  });
+
+  it('starts over on the first page when a search is repeated', async () => {
+    const searchAgents = vi.fn(async (request: { query?: string; pageToken?: string } = {}) => {
+      if (request.pageToken === 'tok_2') {
+        return { data: [{ name: 'bot-page-2', agentId: 'bot-page-2' }], previousPageToken: 'tok_1' };
+      }
+      if (request.query === 'bot') {
+        return { data: [{ name: 'bot-1', agentId: 'bot-1' }], nextPageToken: 'tok_2' };
+      }
+      return { data: [{ name: 'all', agentId: 'all' }] };
+    });
+    const server = createMockAgentUIServer({ searchAgents });
+    const { result, rerender } = renderHook(
+      ({ query }: { query: string }) => useSearchAgentsList({ enabled: true, query, mode: 'paged', limit: 10 }),
+      { wrapper: wrapperFor(server), initialProps: { query: 'bot' } },
+    );
+
+    await waitFor(() => expect(result.current.canNext).toBe(true));
+    act(() => {
+      result.current.goNext();
+    });
+    await waitFor(() => expect(result.current.agents).toEqual([{ name: 'bot-page-2', agentId: 'bot-page-2' }]));
+
+    rerender({ query: '' });
+    await waitFor(() => expect(result.current.agents).toEqual([{ name: 'all', agentId: 'all' }]));
+
+    rerender({ query: 'bot' });
+    await waitFor(() => expect(result.current.agents).toEqual([{ name: 'bot-1', agentId: 'bot-1' }]));
+    expect(result.current.canPrev).toBe(false);
+  });
+
+  it('leaves an empty trailing page for the first page after the list is invalidated', async () => {
+    const page1 = Array.from({ length: 10 }, (_, i) => ({
+      name: `agent-${i}`,
+      agentId: `agent-${i}`,
+    }));
+    const page2 = [{ name: 'agent-10', agentId: 'agent-10' }];
+    const searchAgents = vi
+      .fn()
+      .mockResolvedValueOnce({ data: page1, nextPageToken: 'tok_2' })
+      .mockResolvedValueOnce({ data: page2, previousPageToken: 'tok_1' })
+      .mockResolvedValueOnce({ data: [], previousPageToken: 'tok_1' })
+      .mockResolvedValue({ data: page1, nextPageToken: 'tok_2' });
+    const server = createMockAgentUIServer({ searchAgents });
+    const { result } = renderHook(
+      () => ({
+        list: useSearchAgentsList({ enabled: true, query: '', mode: 'paged', limit: 10 }),
+        queryClient: useServerQueryClient(),
+      }),
+      { wrapper: wrapperFor(server) },
+    );
+
+    await waitFor(() => expect(result.current.list.agents).toHaveLength(10));
+    act(() => {
+      result.current.list.goNext();
+    });
+    await waitFor(() => expect(result.current.list.agents).toEqual(page2));
+
+    await act(async () => {
+      await result.current.queryClient.invalidateQueries({ queryKey: queryKeys.agents.all() });
+    });
+
+    await waitFor(() => expect(result.current.list.agents).toEqual(page1));
+    expect(result.current.list.canPrev).toBe(false);
   });
 
   it('disables next when the only page is exactly full but has no next token', async () => {

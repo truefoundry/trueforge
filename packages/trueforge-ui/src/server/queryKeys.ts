@@ -59,7 +59,6 @@ export const queryKeys = {
     list: (params: ListSessionsParams) => key('sessions', 'list', params),
     /** Infinite pages for the sessions browser; nested under `lists()` so session invalidation reaches them. */
     pages: (params: ListSessionsParams) => key('sessions', 'list', 'pages', params),
-    lastRun: (agentId: string) => key('sessions', 'list', 'last-run', agentId),
     detail: (sessionId: string) => key('sessions', 'detail', sessionId),
     events: (params: ListSessionEventsParams) => key('sessions', 'events', params),
   },

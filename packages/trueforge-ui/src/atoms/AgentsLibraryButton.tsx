@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
 import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '../analytics/events.js';
 import { Icon } from '../icons/Icon.js';
+import { useServerQueryClient } from '../server/queryClient.js';
+import { queryKeys } from '../server/queryKeys.js';
 import { useOptionalServer } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { auiButtonClass, sidebarButtonRadiusClassName, sidebarRailButtonClassName } from './lib/buttonClasses.js';
@@ -20,32 +22,32 @@ export function AgentsLibraryButton({ className, compact = false }: AgentsLibrar
   const server = useOptionalServer();
   const shell = useOptionalShellMode();
   const track = useTrackAnalytics();
-  const [countLabel, setCountLabel] = useState<string | null>(null);
+  const queryClient = useServerQueryClient();
 
   const enabled = shell?.isLibraryEnabled === true && server != null;
   const libraryOpen = shell?.libraryOpen === true;
-  const agentsListEpoch = shell?.agentsListEpoch ?? 0;
 
-  useEffect(() => {
-    // Compact rail has no count badge; skip the catalog request.
-    if (!enabled || !server || compact) return;
-    let cancelled = false;
-    void server
-      .searchAgents({ limit: SEARCH_AGENTS_PAGE_SIZE })
-      .then(page => {
-        if (cancelled) return;
-        // API has no total; a next-page token means there may be more.
-        setCountLabel(
-          page.nextPageToken != null && page.nextPageToken !== ''
-            ? `${SEARCH_AGENTS_PAGE_SIZE}+`
-            : String(page.data.length),
-        );
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [enabled, server, agentsListEpoch, compact]);
+  // Same key as the library's first page, so opening the library reuses this response.
+  const firstPageQuery = useQuery(
+    {
+      queryKey: queryKeys.agents.search({ limit: SEARCH_AGENTS_PAGE_SIZE }),
+      queryFn: () =>
+        server == null
+          ? Promise.reject(new Error('Agent search requires a server.'))
+          : server.searchAgents({ limit: SEARCH_AGENTS_PAGE_SIZE }),
+      // Compact rail has no count badge; skip the catalog request.
+      enabled: enabled && !compact,
+    },
+    queryClient,
+  );
+  const firstPage = firstPageQuery.data;
+  // API has no total; a next-page token means there may be more.
+  const countLabel =
+    firstPage == null
+      ? null
+      : firstPage.nextPageToken != null && firstPage.nextPageToken !== ''
+        ? `${SEARCH_AGENTS_PAGE_SIZE}+`
+        : String(firstPage.data.length);
 
   if (!enabled) return null;
 
