@@ -3,11 +3,10 @@ import * as Sentry from '@sentry/react';
 // OpenTelemetry span status code for ERROR.
 const SPAN_STATUS_ERROR = 2;
 const STALL_MS = 10_000;
-// Bounds span size on long turns; deltas are only counted, never recorded individually.
-const MAX_EVENT_MARKS = 200;
-const DELTA_EVENT = 'model.message.delta';
 const TURN_DONE_EVENT = 'turn.done';
 const TURN_UPDATE_EVENT = 'turn.update';
+// Tracing is limited to session/turn calls (where streaming failures happen) to keep Sentry cost down.
+const SESSIONS_API_PATH = '/api/v1/sessions';
 
 /** `completed` once `turn.done` arrived; the client cancels the body right after it, so that is not a failure. */
 type EndReason = 'completed' | 'closed' | 'cancelled' | 'error';
@@ -39,11 +38,11 @@ function readPayload(data: string): { type?: string; status?: string; message?: 
   }
 }
 
+// Sentry drops span events that are not measurements, so stream state is recorded as attributes.
 function createSseTracker(span: Sentry.Span) {
   const decoder = new TextDecoder();
   const startedAt = performance.now();
   let lineBuffer = '';
-  let pendingEvent: string | undefined;
   let pendingId: string | undefined;
   let pendingData: string | undefined;
   let lastChunkAt = startedAt;
@@ -51,7 +50,8 @@ function createSseTracker(span: Sentry.Span) {
   let chunks = 0;
   let bytes = 0;
   let events = 0;
-  let marks = 0;
+  let stalls = 0;
+  let firstChunkMs: number | undefined;
   let lastEvent: string | undefined;
   let lastId: string | undefined;
   let turnStatus: string | undefined;
@@ -60,11 +60,11 @@ function createSseTracker(span: Sentry.Span) {
   let ended = false;
 
   function dispatch() {
-    if (pendingEvent === undefined && pendingId === undefined && pendingData === undefined) {
+    if (pendingId === undefined && pendingData === undefined) {
       return;
     }
     const payload = pendingData === undefined ? {} : readPayload(pendingData);
-    const type = pendingEvent ?? payload.type ?? 'message';
+    const type = payload.type ?? 'message';
     events += 1;
     lastEvent = type;
     lastId = pendingId ?? lastId;
@@ -73,15 +73,6 @@ function createSseTracker(span: Sentry.Span) {
       turnStatus = payload.status ?? turnStatus;
       turnError = payload.message ?? turnError;
     }
-    if (type !== DELTA_EVENT && marks < MAX_EVENT_MARKS) {
-      marks += 1;
-      span.addEvent(`sse.${type}`, {
-        'sse.id': pendingId ?? '',
-        'sse.elapsed_ms': Math.round(performance.now() - startedAt),
-        ...(payload.status === undefined ? {} : { 'sse.turn_status': payload.status }),
-      });
-    }
-    pendingEvent = undefined;
     pendingId = undefined;
     pendingData = undefined;
   }
@@ -89,8 +80,6 @@ function createSseTracker(span: Sentry.Span) {
   function readLine(line: string) {
     if (line === '') {
       dispatch();
-    } else if (line.startsWith('event:')) {
-      pendingEvent = line.slice('event:'.length).trim();
     } else if (line.startsWith('id:')) {
       pendingId = line.slice('id:'.length).trim();
     } else if (line.startsWith('data:')) {
@@ -104,15 +93,10 @@ function createSseTracker(span: Sentry.Span) {
       const now = performance.now();
       const gap = now - lastChunkAt;
       if (chunks > 0 && gap > STALL_MS) {
-        span.addEvent('sse.stall', {
-          'sse.gap_ms': Math.round(gap),
-          ...(lastEvent ? { 'sse.after_event': lastEvent } : {}),
-        });
+        stalls += 1;
       }
       maxGapMs = Math.max(maxGapMs, gap);
-      if (chunks === 0) {
-        span.addEvent('sse.first_chunk', { 'sse.elapsed_ms': Math.round(now - startedAt) });
-      }
+      firstChunkMs ??= Math.round(now - startedAt);
       lastChunkAt = now;
       chunks += 1;
       bytes += value.byteLength;
@@ -133,9 +117,11 @@ function createSseTracker(span: Sentry.Span) {
         'sse.chunks': chunks,
         'sse.bytes': bytes,
         'sse.events': events,
+        'sse.stalls': stalls,
         'sse.max_gap_ms': Math.round(maxGapMs),
         'sse.ms_since_last_chunk': Math.round(now - lastChunkAt),
         'sse.duration_ms': Math.round(now - startedAt),
+        ...(firstChunkMs === undefined ? {} : { 'sse.first_chunk_ms': firstChunkMs }),
         ...(lastEvent === undefined ? {} : { 'sse.last_event': lastEvent }),
         ...(lastId === undefined ? {} : { 'sse.last_id': lastId }),
         ...(turnStatus === undefined ? {} : { 'sse.turn_status': turnStatus }),
@@ -143,7 +129,7 @@ function createSseTracker(span: Sentry.Span) {
       });
       if (reason === 'error') {
         span.setStatus({ code: SPAN_STATUS_ERROR, message: 'stream_error' });
-        span.addEvent('sse.error', { message: error instanceof Error ? error.message : String(error) });
+        span.setAttribute('sse.error', error instanceof Error ? error.message : String(error));
       } else if (turnStatus === 'error') {
         span.setStatus({ code: SPAN_STATUS_ERROR, message: 'turn_error' });
       }
@@ -179,46 +165,43 @@ function traceSseBody(body: ReadableStream<Uint8Array>, span: Sentry.Span): Read
 }
 
 /**
- * Sentry only records fetch spans under an active parent, and the pageload span ends
- * shortly after load. Opening a root span for user-triggered calls keeps them traced;
- * for SSE responses it stays open until the stream ends, recording event arrival,
- * stalls and how the stream finished.
- *
- * Stream requests always get their own root span: nested under the pageload idle span
- * they would be cut off at its final timeout and lose the stream data.
+ * Only session API calls are traced, each as the root of its own trace. For SSE responses
+ * the span stays open until the stream ends, recording stream timing, stalls and how the
+ * stream finished.
  */
 export function withSentryRootSpan(baseFetch: typeof fetch): typeof fetch {
   return (input, init) => {
     // Read from `input` directly: constructing a Request would consume its body.
     const isRequest = input instanceof Request;
-    const headers = new Headers(init?.headers ?? (isRequest ? input.headers : undefined));
-    const expectsStream = headers.get('accept')?.includes('text/event-stream') === true;
-    if (!expectsStream && Sentry.getActiveSpan()) {
-      return baseFetch(input, init);
-    }
     const url = isRequest ? input.url : String(input);
-    const method = init?.method ?? (isRequest ? input.method : 'GET');
     const { pathname } = new URL(url, window.location.origin);
-    const spanOptions = { name: `${method} ${pathname}`, op: 'ui.api', ...(expectsStream ? { parentSpan: null } : {}) };
-    return Sentry.startSpanManual(spanOptions, async span => {
-      try {
-        const response = await baseFetch(input, init);
-        span.setAttribute('http.response.status_code', response.status);
-        const isEventStream = response.headers.get('content-type')?.includes('text/event-stream') === true;
-        if (!isEventStream || response.body === null) {
+    if (!pathname.includes(SESSIONS_API_PATH)) {
+      // A session span stays active while its request is in flight; keep unrelated calls out of it.
+      return Sentry.withActiveSpan(null, () => baseFetch(input, init));
+    }
+    const method = init?.method ?? (isRequest ? input.method : 'GET');
+    // Without page-load/navigation spans the trace id never rotates, so start one per call.
+    return Sentry.startNewTrace(() =>
+      Sentry.startSpanManual({ name: `${method} ${pathname}`, op: 'ui.api' }, async span => {
+        try {
+          const response = await baseFetch(input, init);
+          span.setAttribute('http.response.status_code', response.status);
+          const isEventStream = response.headers.get('content-type')?.includes('text/event-stream') === true;
+          if (!isEventStream || response.body === null) {
+            span.end();
+            return response;
+          }
+          return new Response(traceSseBody(response.body, span), {
+            status: response.status,
+            statusText: response.statusText,
+            headers: response.headers,
+          });
+        } catch (err) {
+          span.setStatus({ code: SPAN_STATUS_ERROR, message: 'fetch_failed' });
           span.end();
-          return response;
+          throw err;
         }
-        return new Response(traceSseBody(response.body, span), {
-          status: response.status,
-          statusText: response.statusText,
-          headers: response.headers,
-        });
-      } catch (err) {
-        span.setStatus({ code: SPAN_STATUS_ERROR, message: 'fetch_failed' });
-        span.end();
-        throw err;
-      }
-    });
+      }),
+    );
   };
 }
