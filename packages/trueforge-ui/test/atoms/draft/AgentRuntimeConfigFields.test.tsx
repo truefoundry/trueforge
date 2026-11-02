@@ -103,7 +103,7 @@ describe('AgentRuntimeConfigFields', () => {
   });
 
   it('shows a sandbox-off warning only when a provider exists and the switch is off', () => {
-    const warning = 'Enable the sandbox. TrueForge will not work properly without it.';
+    const warning = "Disabling sandbox will degrade trueforge's performance.";
 
     const { unmount: unmountOff } = renderRuntimeFields({ value: { sandbox: { enabled: false } } });
     expect(screen.getByRole('status')).toHaveTextContent(warning);
