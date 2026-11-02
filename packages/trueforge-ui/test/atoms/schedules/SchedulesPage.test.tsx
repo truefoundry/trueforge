@@ -588,15 +588,16 @@ describe('SchedulesPage', () => {
       </ServerProvider>,
     );
     if (queryClient == null) throw new Error('query client missing');
+    const client = queryClient;
     const summaryKey = queryKeys.schedules.forAgents(['demo-agent']);
-    await queryClient.fetchQuery({ queryKey: summaryKey, queryFn: async () => [] });
+    await client.fetchQuery({ queryKey: summaryKey, queryFn: async () => [] });
 
     fireEvent.click(await screen.findByRole('button', { name: 'Actions for daily-digest' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => {
-      expect(queryClient.getQueryState(summaryKey)?.isInvalidated).toBe(true);
+      expect(client.getQueryState(summaryKey)?.isInvalidated).toBe(true);
     });
   });
 
