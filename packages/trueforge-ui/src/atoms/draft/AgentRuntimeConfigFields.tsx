@@ -287,6 +287,15 @@ export function AgentRuntimeConfigFields({
         {webSearchField != null ? switchField({ field: webSearchField, className: cn('py-4', rowClassName) }) : null}
         <section className="py-4">
           {switchField({ field: sandboxField, className: rowClassName })}
+          {sandboxAvailable && !sandboxEnabled ? (
+            <p
+              role="status"
+              className="border-warning-bg bg-warning-bg/10 text-warning-bg mt-2 flex items-start gap-2 rounded-md border px-3 py-2 text-xs"
+            >
+              <Icon name="circle-exclamation" className="size-3.5 shrink-0" aria-hidden />
+              <span>Disabling sandbox will degrade trueforge's performance.</span>
+            </p>
+          ) : null}
           <div className={`mt-3 border-l-2 border-primary-button-bg/50 pl-3 ${sandboxEnabled ? '' : 'opacity-50'}`}>
             <div className={cn('flex py-4', rowClassName)}>
               <span className="min-w-0 flex-1">
