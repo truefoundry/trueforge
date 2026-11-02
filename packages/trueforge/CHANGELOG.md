@@ -1,5 +1,13 @@
 # @truefoundry/trueforge
 
+## 0.183.0-rc.3
+
+### Patch Changes
+
+- 61872ac: Add a tenant-wide web search switch stored in the new `configuration` table, with `GET` and `PATCH /api/v1/settings/configuration` behind an admin gate. Capabilities and session or agent writes follow it, so web search cannot be turned on while the switch is off; a spec that already has it on keeps it, which also leaves existing agents and their schedules running. The `settings` capability now reports one entry per settings section with its own `enabled` and `manage_providers`. Catalog settings routes that the deployment does not own answer 422 naming the route, where they previously answered 403.
+- Updated dependencies [61872ac]
+  - @truefoundry/trueforge-sdk@0.183.0-rc.1
+
 ## 0.183.0-rc.2
 
 ### Patch Changes
