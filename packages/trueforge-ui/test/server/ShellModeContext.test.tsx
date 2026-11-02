@@ -9,6 +9,8 @@ import {
   DRAFT_SPEC_PREFERENCES_STORAGE_KEY,
   readDraftSpecPreferences,
 } from '@/server/draftSpecPreferences.js';
+import { useServerQueryClient } from '@/server/queryClient.js';
+import { queryKeys } from '@/server/queryKeys.js';
 import { ServerProvider, useServerCapabilities, useServerCapabilitiesSettled } from '@/server/ServerContext.js';
 import { ShellModeProvider, useOptionalShellMode, useShellMode, type AgentConfig } from '@/server/ShellModeContext.js';
 import type { AgentUIServer } from '@/server/types.js';
@@ -994,11 +996,18 @@ describe('ShellModeProvider', () => {
     expect(result.current.pendingSessionId).toBe('sess-other');
   });
 
-  it('invalidateAgentsList bumps agentsListEpoch', () => {
-    const { result } = renderHook(() => useShellMode(), { wrapper: wrap() });
-    expect(result.current.agentsListEpoch).toBe(0);
-    act(() => result.current.invalidateAgentsList());
-    expect(result.current.agentsListEpoch).toBe(1);
+  it('invalidateAgentsList bumps agentsListEpoch and marks cached agent details stale', async () => {
+    const { result } = renderHook(() => ({ shell: useShellMode(), queryClient: useServerQueryClient() }), {
+      wrapper: wrap(),
+    });
+    await result.current.queryClient.fetchQuery({
+      queryKey: queryKeys.agentDetails.agent('writer'),
+      queryFn: async () => ({ agentId: 'writer', name: 'writer', agentSpec: { model: { name: 'm' } } }),
+    });
+    expect(result.current.shell.agentsListEpoch).toBe(0);
+    act(() => result.current.shell.invalidateAgentsList());
+    expect(result.current.shell.agentsListEpoch).toBe(1);
+    expect(result.current.queryClient.getQueryState(queryKeys.agentDetails.agent('writer'))?.isInvalidated).toBe(true);
   });
 
   it('invalidateEnvironmentsList bumps environmentsListEpoch', () => {

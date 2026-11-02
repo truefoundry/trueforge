@@ -459,6 +459,8 @@ export function ShellModeProvider({
 
   const invalidateAgentsList = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.agents.all() });
+    // Detail and code-snippet reads are not under the library list key.
+    void queryClient.invalidateQueries({ queryKey: queryKeys.agentDetails.all() });
     setAgentsListEpoch(n => n + 1);
   }, [queryClient]);
 

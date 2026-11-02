@@ -136,16 +136,20 @@ export function useSearchAgentsList({
   const searchQuery = debouncedQuery.trim() || undefined;
 
   const [pageSize, setPageSizeState] = useState(() => clampPageSize(limitOption));
-  // The token belongs to one query/size; a new search starts from the first page.
-  const [pageCursor, setPageCursor] = useState<{ scope: string; token: string | undefined }>({
-    scope: '',
-    token: undefined,
-  });
   const [listEl, setListEl] = useState<HTMLElement | null>(null);
   const [sentinelEl, setSentinelEl] = useState<HTMLElement | null>(null);
 
   const limit = mode === 'paged' ? pageSize : clampPageSize(limitOption);
   const pageScope = JSON.stringify([searchQuery ?? '', limit]);
+  // A token belongs to one query and page size. Drop it when that scope changes so
+  // returning to the same search or size starts on the first page.
+  const [pageCursor, setPageCursor] = useState<{ scope: string; token: string | undefined }>(() => ({
+    scope: pageScope,
+    token: undefined,
+  }));
+  if (pageCursor.scope !== pageScope) {
+    setPageCursor({ scope: pageScope, token: undefined });
+  }
   const pageToken = pageCursor.scope === pageScope ? pageCursor.token : undefined;
   const active = enabled && server != null;
 
@@ -204,6 +208,23 @@ export function useSearchAgentsList({
     ? nextPageToken !== undefined
     : infiniteQuery.hasNextPage && !infiniteQuery.isFetchNextPageError;
   const loadingMore = !isPaged && infiniteQuery.isFetchingNextPage;
+
+  // Deleting the last row of the last page refetches that offset and gets nothing.
+  // Drop the cursor so the library shows the first page instead of a blank one.
+  useEffect(() => {
+    if (!isPaged || pageToken === undefined) return;
+    if (pagedQuery.fetchStatus !== 'idle' || !pagedQuery.isSuccess || pagedQuery.isPlaceholderData) return;
+    if (pagedQuery.data.data.length > 0) return;
+    setPageCursor({ scope: pageScope, token: undefined });
+  }, [
+    isPaged,
+    pageScope,
+    pageToken,
+    pagedQuery.data,
+    pagedQuery.fetchStatus,
+    pagedQuery.isPlaceholderData,
+    pagedQuery.isSuccess,
+  ]);
 
   const { fetchNextPage } = infiniteQuery;
   const loadMore = useCallback(() => {
