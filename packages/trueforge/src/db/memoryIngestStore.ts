@@ -33,6 +33,8 @@ export interface MemoryIngestCandidate {
   agent_name: string | null;
   /** `metadata['tfg.source']`, when present. */
   tfg_source: string | null;
+  /** Agent-builder chat; such sessions are never listed. */
+  create_agent_session: boolean;
   agent_memory_enabled: boolean;
   tip_turn_id: string;
   /** ISO-8601 UTC instant the tip turn last changed. */

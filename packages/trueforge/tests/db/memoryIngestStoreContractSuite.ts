@@ -113,6 +113,7 @@ export function runMemoryIngestStoreContractSuite(getEnv: () => MemoryIngestStor
       created_by_subject: OWNER,
       agent_id: null,
       tfg_source: 'ui',
+      create_agent_session: false,
       agent_memory_enabled: false,
       tip_turn_id: 't1',
       cursor: null,
@@ -132,6 +133,15 @@ export function runMemoryIngestStoreContractSuite(getEnv: () => MemoryIngestStor
 
     expect(await candidateIds()).toEqual(['ui']);
     expect(await candidateIds(new Date(Date.now() + 60_000))).toEqual([]);
+  });
+
+  it('never lists agent-builder chats, even from the UI', async () => {
+    await createSession({ session_id: 'builder', metadata: { ...UI, is_create_agent: 'true' } });
+    await addTurn({ session_id: 'builder', turn_id: 't1' });
+    await createSession({ session_id: 'ui' });
+    await addTurn({ session_id: 'ui', turn_id: 't1' });
+
+    expect(await candidateIds()).toEqual(['ui']);
   });
 
   it('lists only sessions paused on the user from the paused range', async () => {

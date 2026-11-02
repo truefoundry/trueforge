@@ -181,6 +181,7 @@ function session({
       agent_id: agentId,
       agent_name: agentId === null ? null : 'Chef',
       tfg_source: 'ui',
+      create_agent_session: false,
       agent_memory_enabled: agentMemoryEnabled,
     },
     turns,

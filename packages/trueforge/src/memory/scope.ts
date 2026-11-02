@@ -29,6 +29,8 @@ export interface MemoryScopeSession {
   agentMemoryEnabled: boolean;
   /** `metadata['tfg.source']`, when present. */
   tfgSource: string | null;
+  /** Agent-builder chat (`metadata['is_create_agent'] = 'true'`). */
+  createAgentSession: boolean;
 }
 
 export type MemoryScopeResolution =
@@ -55,11 +57,14 @@ export function memoryScopeKey({
 }
 
 /**
- * Which memory a session reads and writes. A registry agent's manifest decides for sessions bound
- * to it: its own scope when memory is on, none when off. Other UI sessions use the default
- * TrueForge scope. Shared by ingestion and, later, retrieval.
+ * Which memory a session reads and writes. Agent-builder chats have none. A registry agent's
+ * manifest decides for sessions bound to it: its own scope when memory is on, none when off. Other
+ * UI sessions use the default TrueForge scope. Shared by ingestion and, later, retrieval.
  */
 export function resolveMemoryScope(session: MemoryScopeSession): MemoryScopeResolution {
+  if (session.createAgentSession) {
+    return { eligible: false, reason: 'not_memory_session' };
+  }
   const base = {
     tenantId: session.tenantId,
     subjectId: session.createdBySubject.subject_id,

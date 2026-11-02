@@ -393,6 +393,7 @@ async function processCandidate({
     agentId: candidate.agent_id,
     agentMemoryEnabled: candidate.agent_memory_enabled,
     tfgSource: candidate.tfg_source,
+    createAgentSession: candidate.create_agent_session,
   });
   if (!resolution.eligible) {
     return skipped(resolution.reason === 'agent_disabled' ? 'agent_disabled' : 'not_eligible');

@@ -21,6 +21,7 @@ import type { Database } from '../types';
 // TODO(agent-memory-toggle): read through a typed MemoryConfig once RuntimeConfigSchema has one.
 const agentMemoryEnabled = sql<number>`json_type(a.manifest, ${sql.lit(`$.${AGENT_MEMORY_ENABLED_PATH.join('.')}`)}) IS 'true'`;
 const tfgSource = sql<string | null>`json_extract(s.metadata, '$."tfg.source"')`;
+const createAgentSession = sql<number>`json_extract(s.metadata, '$."is_create_agent"') IS 'true'`;
 /**
  * `turn.input` as JSON text with only text parts kept in array content: file parts carry inline
  * base64, and ingestion sends text only, so attachments never leave the database.
@@ -63,6 +64,7 @@ export class SqliteMemoryIngestStore implements IMemoryIngestStore {
         's.agent_id',
         's.agent_name',
         tfgSource.as('tfg_source'),
+        createAgentSession.as('create_agent_session'),
         agentMemoryEnabled.as('agent_memory_enabled'),
         't.turn_id as tip_turn_id',
         't.updated_at as tip_updated_at',
@@ -83,7 +85,8 @@ export class SqliteMemoryIngestStore implements IMemoryIngestStore {
           ]),
         ]),
       )
-      // Matches resolveMemoryScope: a bound agent's manifest decides; UI chats without one use the default scope.
+      // Matches resolveMemoryScope: never agent-builder chats; a bound agent's manifest decides; UI chats without one use the default scope.
+      .where(sql<boolean>`NOT (${createAgentSession})`)
       .where(eb =>
         eb.or([eb.and([eb('s.agent_id', 'is', null), eb(tfgSource, '=', 'ui')]), eb(agentMemoryEnabled, '=', 1)]),
       )
@@ -102,6 +105,7 @@ export class SqliteMemoryIngestStore implements IMemoryIngestStore {
       agent_id: row.agent_id,
       agent_name: row.agent_name,
       tfg_source: row.tfg_source,
+      create_agent_session: row.create_agent_session === 1,
       agent_memory_enabled: row.agent_memory_enabled === 1,
       tip_turn_id: row.tip_turn_id,
       tip_updated_at: row.tip_updated_at,

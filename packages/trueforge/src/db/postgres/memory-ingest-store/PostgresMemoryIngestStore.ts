@@ -15,6 +15,7 @@ import type { Database } from '../types';
 // TODO(agent-memory-toggle): read through a typed MemoryConfig once RuntimeConfigSchema has one.
 const agentMemoryEnabled = sql<string | null>`a.manifest #>> ${sql.lit(`{${AGENT_MEMORY_ENABLED_PATH.join(',')}}`)}`;
 const tfgSource = sql<string | null>`s.metadata->>'tfg.source'`;
+const createAgentSession = sql<boolean>`COALESCE(s.metadata->>'is_create_agent' = 'true', false)`;
 /**
  * `turn.input` with only text parts kept in array content: file parts carry inline base64, and
  * ingestion sends text only, so attachments never leave the database.
@@ -58,6 +59,7 @@ export class PostgresMemoryIngestStore implements IMemoryIngestStore {
         's.agent_id',
         's.agent_name',
         tfgSource.as('tfg_source'),
+        createAgentSession.as('create_agent_session'),
         sql<boolean>`COALESCE(${agentMemoryEnabled} = 'true', false)`.as('agent_memory_enabled'),
         't.turn_id as tip_turn_id',
         't.updated_at as tip_updated_at',
@@ -74,7 +76,8 @@ export class PostgresMemoryIngestStore implements IMemoryIngestStore {
           eb.and([eb('s.updated_at', '>=', input.paused_from), eb('s.updated_at', '<', input.paused_until), tipPaused]),
         ]),
       )
-      // Matches resolveMemoryScope: a bound agent's manifest decides; UI chats without one use the default scope.
+      // Matches resolveMemoryScope: never agent-builder chats; a bound agent's manifest decides; UI chats without one use the default scope.
+      .where(sql<boolean>`NOT (${createAgentSession})`)
       .where(eb =>
         eb.or([eb.and([eb('s.agent_id', 'is', null), eb(tfgSource, '=', 'ui')]), eb(agentMemoryEnabled, '=', 'true')]),
       )
@@ -93,6 +96,7 @@ export class PostgresMemoryIngestStore implements IMemoryIngestStore {
       agent_id: row.agent_id,
       agent_name: row.agent_name,
       tfg_source: row.tfg_source,
+      create_agent_session: row.create_agent_session,
       agent_memory_enabled: row.agent_memory_enabled,
       tip_turn_id: row.tip_turn_id,
       tip_updated_at: row.tip_updated_at.toISOString(),
