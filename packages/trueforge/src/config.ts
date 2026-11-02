@@ -19,7 +19,6 @@ import { fileURLToPath } from 'node:url';
 import envPaths from 'env-paths';
 import { z } from 'zod';
 
-import { ZEP_DEFAULT_BASE_URL } from './memory/zep/ZepMemoryProvider';
 import { parseRedisSentinelNodes, type RedisConnection } from './runtime/redis';
 
 export type { RedisConnection };
@@ -283,6 +282,17 @@ function parsePublicBaseUrl(raw: string | undefined): string {
   }
   const path = segments.length === 0 ? '' : `/${segments.join('/')}`;
   return `${parsed.origin}${path}`;
+}
+
+function parseTrueFoundryMemoryProvider(raw: string | undefined): 'zep' | undefined {
+  if (raw === undefined || raw.trim() === '') {
+    return undefined;
+  }
+  const value = raw.trim();
+  if (value === 'zep') {
+    return value;
+  }
+  throw new Error(`Environment variable TRUEFOUNDRY_MEMORY_PROVIDER must be "zep", got ${JSON.stringify(raw)}`);
 }
 
 function parseTrueFoundrySandboxProvider(raw: string | undefined): 'daytona' | 'truefoundry' | undefined {
@@ -1074,19 +1084,24 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
   TRUEFOUNDRY_AUTH_SERVER_URL: string | undefined;
   TRUEFOUNDRY_TENANT_NAME: string | undefined;
   /**
-   * Long-term memory (TrueFoundry mode only): the controller's memory-ingest loop sends chats to
-   * Zep. Env: `MEMORY_ENABLED`. Default false.
+   * When TrueFoundry mode is on, enable long-term memory: the controller's memory-ingest loop sends
+   * chats to the shared memory provider. Env: `TRUEFOUNDRY_MEMORY_ENABLED`. Default false.
    */
-  MEMORY_ENABLED: boolean;
-  /** Required when `MEMORY_ENABLED`. Env: `ZEP_API_KEY`. */
-  ZEP_API_KEY: string | undefined;
-  /** Env: `ZEP_BASE_URL`. Default Zep Cloud v4. */
-  ZEP_BASE_URL: string;
+  TRUEFOUNDRY_MEMORY_ENABLED: boolean;
   /**
-   * Tenants that get memory while `MEMORY_ENABLED`; every other tenant has none. JSON string array
-   * of tenant ids. Env: `MEMORY_TENANT_ALLOWLIST`. Default empty (no tenant).
+   * Shared memory backend when `TRUEFOUNDRY_MEMORY_ENABLED` is true.
+   * Env: `TRUEFOUNDRY_MEMORY_PROVIDER` (`zep`).
    */
-  MEMORY_TENANT_ALLOWLIST: string[];
+  TRUEFOUNDRY_MEMORY_PROVIDER: 'zep' | undefined;
+  /** Shared API key (required for zep). Env: `TRUEFOUNDRY_MEMORY_API_KEY`. */
+  TRUEFOUNDRY_MEMORY_API_KEY: string | undefined;
+  /** Memory provider API URL. Zep: default Zep Cloud v4. Env: `TRUEFOUNDRY_MEMORY_SERVER_URL`. */
+  TRUEFOUNDRY_MEMORY_SERVER_URL: string | undefined;
+  /**
+   * Tenants that get memory while `TRUEFOUNDRY_MEMORY_ENABLED`; every other tenant has none. JSON
+   * string array of tenant ids. Env: `TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST`. Default empty (no tenant).
+   */
+  TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST: string[];
   /** Env: `MEMORY_INGEST_INTERVAL_MS`. Default 5 minutes. */
   MEMORY_INGEST_INTERVAL_MS: number;
   /** Sessions processed per ingest run. Env: `MEMORY_INGEST_MAX_SESSIONS_PER_RUN`. Default 50. */
@@ -1424,16 +1439,19 @@ const configuration: ServerConfiguration = standalone
       ),
       TRUEFOUNDRY_AUTH_SERVER_URL: getEnv('TRUEFOUNDRY_AUTH_SERVER_URL', { required: false }),
       TRUEFOUNDRY_TENANT_NAME: getEnv('TRUEFOUNDRY_TENANT_NAME', { required: false }),
-      MEMORY_ENABLED: parseBoolean({
-        envKey: 'MEMORY_ENABLED',
-        raw: getEnv('MEMORY_ENABLED'),
+      TRUEFOUNDRY_MEMORY_ENABLED: parseBoolean({
+        envKey: 'TRUEFOUNDRY_MEMORY_ENABLED',
+        raw: getEnv('TRUEFOUNDRY_MEMORY_ENABLED'),
         defaultValue: false,
       }),
-      ZEP_API_KEY: optionalNonEmptyEnv('ZEP_API_KEY'),
-      ZEP_BASE_URL: optionalNonEmptyEnv('ZEP_BASE_URL') ?? ZEP_DEFAULT_BASE_URL,
-      MEMORY_TENANT_ALLOWLIST: parseJsonStringArrayEnv({
-        envKey: 'MEMORY_TENANT_ALLOWLIST',
-        raw: getEnv('MEMORY_TENANT_ALLOWLIST'),
+      TRUEFOUNDRY_MEMORY_PROVIDER: parseTrueFoundryMemoryProvider(
+        getEnv('TRUEFOUNDRY_MEMORY_PROVIDER', { required: false }),
+      ),
+      TRUEFOUNDRY_MEMORY_API_KEY: getEnv('TRUEFOUNDRY_MEMORY_API_KEY', { required: false }),
+      TRUEFOUNDRY_MEMORY_SERVER_URL: getEnv('TRUEFOUNDRY_MEMORY_SERVER_URL', { required: false }),
+      TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST: parseJsonStringArrayEnv({
+        envKey: 'TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST',
+        raw: getEnv('TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST'),
       }),
       MEMORY_INGEST_INTERVAL_MS: parsePositiveInt({
         envKey: 'MEMORY_INGEST_INTERVAL_MS',
@@ -1553,10 +1571,19 @@ if (isTrueFoundryModeEnabled(configuration)) {
     }
   }
 
-  if (configuration.MEMORY_ENABLED && configuration.ZEP_API_KEY === undefined) {
-    throw new Error(
-      'MEMORY_ENABLED is true but ZEP_API_KEY is not set. ' + 'Set ZEP_API_KEY, or set MEMORY_ENABLED=false.',
-    );
+  // Shared memory
+  if (configuration.TRUEFOUNDRY_MEMORY_ENABLED) {
+    if (configuration.TRUEFOUNDRY_MEMORY_PROVIDER === undefined) {
+      throw new Error(
+        'TRUEFOUNDRY_MEMORY_ENABLED is true but TRUEFOUNDRY_MEMORY_PROVIDER is not set. ' +
+          'Set TRUEFOUNDRY_MEMORY_PROVIDER to "zep", or set TRUEFOUNDRY_MEMORY_ENABLED=false.',
+      );
+    }
+    if (configuration.TRUEFOUNDRY_MEMORY_API_KEY === undefined) {
+      throw new Error(
+        'TRUEFOUNDRY_MEMORY_PROVIDER=zep requires TRUEFOUNDRY_MEMORY_API_KEY, or set TRUEFOUNDRY_MEMORY_ENABLED=false.',
+      );
+    }
   }
 }
 

@@ -148,7 +148,7 @@ function deps({
   provider: MemoryProvider;
   logger?: ReturnType<typeof fakeLogger>;
   config?: Partial<MemoryIngestConfig>;
-  /** Stands in for `MEMORY_TENANT_ALLOWLIST`. */
+  /** Stands in for `TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST`. */
   enabledTenants?: string[];
 }): MemoryIngestDeps {
   return {

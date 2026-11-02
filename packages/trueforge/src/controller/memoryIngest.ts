@@ -23,6 +23,7 @@ import {
 import { MemoryIngestError, type MemoryProvider } from '../memory/MemoryProvider';
 import { TenantAllowlistMemorySettings, type MemorySettings } from '../memory/MemorySettings';
 import { resolveMemoryScope, type MemoryScope } from '../memory/scope';
+import { resolveTrueFoundryMemoryProviderConfig } from '../truefoundry/resolveTrueFoundryMemoryProviderConfig';
 import type { ControlLoop } from './Controller';
 
 const MEMORY_INGEST_LOOP_NAME = 'memory-ingest';
@@ -397,10 +398,11 @@ export type MemoryIngestWiring = Omit<MemoryIngestDeps, 'logger' | 'now'>;
 
 type MemoryConfiguration = Pick<
   DistributedServerConfiguration,
-  | 'MEMORY_ENABLED'
-  | 'ZEP_API_KEY'
-  | 'ZEP_BASE_URL'
-  | 'MEMORY_TENANT_ALLOWLIST'
+  | 'TRUEFOUNDRY_MEMORY_ENABLED'
+  | 'TRUEFOUNDRY_MEMORY_PROVIDER'
+  | 'TRUEFOUNDRY_MEMORY_API_KEY'
+  | 'TRUEFOUNDRY_MEMORY_SERVER_URL'
+  | 'TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST'
   | 'MEMORY_INGEST_INTERVAL_MS'
   | 'MEMORY_INGEST_MAX_SESSIONS_PER_RUN'
   | 'MEMORY_INGEST_MAX_EXCHANGES_PER_SESSION'
@@ -411,7 +413,7 @@ type MemoryConfiguration = Pick<
 
 /**
  * Loop wiring from TrueFoundry-mode configuration (like the shared sandbox and web search);
- * undefined while `MEMORY_ENABLED` is off.
+ * undefined while `TRUEFOUNDRY_MEMORY_ENABLED` is off.
  */
 export function memoryIngestFromConfig({
   config,
@@ -422,22 +424,19 @@ export function memoryIngestFromConfig({
   store: IMemoryIngestStore;
   logger: Logger;
 }): MemoryIngestWiring | undefined {
-  if (!config.MEMORY_ENABLED) {
+  const providerConfig = resolveTrueFoundryMemoryProviderConfig(config);
+  if (providerConfig === undefined) {
     return undefined;
   }
-  if (config.ZEP_API_KEY === undefined) {
-    throw new Error('MEMORY_ENABLED=true requires ZEP_API_KEY');
-  }
-  if (config.MEMORY_TENANT_ALLOWLIST.length === 0) {
-    logger.warn('MEMORY_ENABLED is true but MEMORY_TENANT_ALLOWLIST is empty; no tenant has memory');
+  if (config.TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST.length === 0) {
+    logger.warn(
+      'TRUEFOUNDRY_MEMORY_ENABLED is true but TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST is empty; no tenant has memory',
+    );
   }
   return {
     store,
-    provider: createMemoryProvider({
-      zep: { apiKey: config.ZEP_API_KEY, baseUrl: config.ZEP_BASE_URL },
-      logger,
-    }),
-    settings: new TenantAllowlistMemorySettings({ tenantIds: config.MEMORY_TENANT_ALLOWLIST }),
+    provider: createMemoryProvider({ config: providerConfig, logger }),
+    settings: new TenantAllowlistMemorySettings({ tenantIds: config.TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST }),
     config: {
       intervalMs: config.MEMORY_INGEST_INTERVAL_MS,
       maxSessionsPerRun: config.MEMORY_INGEST_MAX_SESSIONS_PER_RUN,

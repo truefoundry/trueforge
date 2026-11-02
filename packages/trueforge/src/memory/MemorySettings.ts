@@ -3,7 +3,7 @@ export interface MemorySettings {
   listEnabledTenantIds(): Promise<readonly string[]>;
 }
 
-/** Memory for the tenants in `MEMORY_TENANT_ALLOWLIST` only. */
+/** Memory for the tenants in `TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST` only. */
 export class TenantAllowlistMemorySettings implements MemorySettings {
   readonly #tenantIds: readonly string[];
 
