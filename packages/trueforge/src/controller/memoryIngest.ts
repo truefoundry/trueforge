@@ -35,7 +35,6 @@ export interface MemoryIngestConfig {
   maxExchangesPerSession: number;
   lookbackMs: number;
   pauseTimeoutMs: number;
-  settleMs: number;
 }
 
 export interface MemoryIngestDeps {
@@ -117,7 +116,7 @@ function readyExchanges({
 }): { ready: TurnExchange[]; capped: boolean } {
   const ready: TurnExchange[] = [];
   for (const exchange of exchanges) {
-    if (!exchangeReadiness({ exchange, now, settleMs: config.settleMs, pauseTimeoutMs: config.pauseTimeoutMs }).ready) {
+    if (!exchangeReadiness({ exchange, now, pauseTimeoutMs: config.pauseTimeoutMs }).ready) {
       return { ready, capped: false };
     }
     if (ready.length === config.maxExchangesPerSession) {
@@ -408,7 +407,6 @@ type MemoryConfiguration = Pick<
   | 'MEMORY_INGEST_MAX_EXCHANGES_PER_SESSION'
   | 'MEMORY_INGEST_LOOKBACK_MS'
   | 'MEMORY_INGEST_PAUSE_TIMEOUT_MS'
-  | 'MEMORY_INGEST_SETTLE_MS'
 >;
 
 /**
@@ -443,7 +441,6 @@ export function memoryIngestFromConfig({
       maxExchangesPerSession: config.MEMORY_INGEST_MAX_EXCHANGES_PER_SESSION,
       lookbackMs: config.MEMORY_INGEST_LOOKBACK_MS,
       pauseTimeoutMs: config.MEMORY_INGEST_PAUSE_TIMEOUT_MS,
-      settleMs: config.MEMORY_INGEST_SETTLE_MS,
     },
   };
 }

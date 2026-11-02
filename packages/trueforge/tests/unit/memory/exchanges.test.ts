@@ -102,8 +102,8 @@ describe('buildExchanges', () => {
       [['u1'], 'closed', at(MINUTE)],
       [['u2'], 'closed', at(6 * MINUTE)],
     ]);
-    const settled = { now: new Date(T0 + 10 * MINUTE), settleMs: MINUTE, pauseTimeoutMs: 12 * HOUR };
-    expect(exchanges.map(exchange => exchangeReadiness({ exchange, ...settled }).ready)).toEqual([true, true]);
+    const later = { now: new Date(T0 + 10 * MINUTE), pauseTimeoutMs: 12 * HOUR };
+    expect(exchanges.map(exchange => exchangeReadiness({ exchange, ...later }).ready)).toEqual([true, true]);
   });
 
   it('ends a turn left running (e.g. a crashed executor) when the next user message arrives', () => {
@@ -217,14 +217,14 @@ describe('renderExchange', () => {
 });
 
 describe('exchangeReadiness', () => {
-  const options = { settleMs: MINUTE, pauseTimeoutMs: 12 * HOUR };
+  const options = { pauseTimeoutMs: 12 * HOUR };
 
-  it('waits for the settle window, then sends a closed exchange', () => {
+  it('sends a closed exchange as soon as it closes', () => {
     const exchange = only(buildExchanges(pausedThenAnsweredTurns()));
-    expect(exchangeReadiness({ exchange, now: new Date(T0 + 3 * MINUTE + 1_000), ...options })).toEqual({
-      ready: false,
-    });
-    expect(exchangeReadiness({ exchange, now: new Date(T0 + 5 * MINUTE), ...options })).toEqual({
+    if (exchange.completedAt === null) {
+      throw new Error('fixture');
+    }
+    expect(exchangeReadiness({ exchange, now: new Date(exchange.completedAt), ...options })).toEqual({
       ready: true,
       partial: false,
     });

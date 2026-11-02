@@ -139,29 +139,26 @@ function completedAt(state: TurnState): string | null {
 export type ExchangeReadiness = { ready: true; partial: boolean } | { ready: false };
 
 /**
- * Closed exchanges are sent once settled; exchanges paused on the user longer than the pause
- * timeout are sent as they stand (`partial`), and the later answer follows as a continuation.
+ * Closed exchanges are sent as soon as they close; exchanges paused on the user longer than the
+ * pause timeout are sent as they stand (`partial`), and the later answer follows as a continuation.
  */
 export function exchangeReadiness({
   exchange,
   now,
-  settleMs,
   pauseTimeoutMs,
 }: {
   exchange: TurnExchange;
   now: Date;
-  settleMs: number;
   pauseTimeoutMs: number;
 }): ExchangeReadiness {
   const finishedAt = exchange.completedAt;
   if (exchange.status === 'running' || finishedAt === null) {
     return { ready: false };
   }
-  const ageMs = now.getTime() - Date.parse(finishedAt);
   if (exchange.status === 'closed') {
-    return ageMs >= settleMs ? { ready: true, partial: false } : { ready: false };
+    return { ready: true, partial: false };
   }
-  return ageMs >= pauseTimeoutMs ? { ready: true, partial: true } : { ready: false };
+  return now.getTime() - Date.parse(finishedAt) >= pauseTimeoutMs ? { ready: true, partial: true } : { ready: false };
 }
 
 /** `ask_user_question` tool call id → question text, from main-thread model messages. */

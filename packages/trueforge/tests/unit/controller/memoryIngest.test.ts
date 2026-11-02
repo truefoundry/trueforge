@@ -37,7 +37,6 @@ const CONFIG: MemoryIngestConfig = {
   maxExchangesPerSession: 20,
   lookbackMs: 120 * MINUTE,
   pauseTimeoutMs: 720 * MINUTE,
-  settleMs: MINUTE,
 };
 
 interface FakeSession {
@@ -206,7 +205,7 @@ function closedTurn(id: string, previous: string | null, minute: number): Memory
 const signal = () => new AbortController().signal;
 
 describe('runMemoryIngestPass', () => {
-  it('sends settled exchanges in order, stops at the first unfinished one and checkpoints each send', async () => {
+  it('sends finished exchanges in order, stops at the first unfinished one and checkpoints each send', async () => {
     const store = new FakeStore();
     store.add(
       session({
@@ -275,7 +274,7 @@ describe('runMemoryIngestPass', () => {
     expect(calls.map(call => call.exchange.sessionId)).toEqual(['paused']);
   });
 
-  it('waits for the settle window before sending a just-finished exchange', async () => {
+  it('sends an exchange that finished just before the run', async () => {
     const store = new FakeStore();
     store.add(session({ id: 's1', turns: [closedTurn('t1', null, 59.5)] }));
     const { provider, calls } = fakeProvider();
@@ -286,9 +285,8 @@ describe('runMemoryIngestPass', () => {
       resumeAfter: undefined,
     });
 
-    expect(calls).toHaveLength(0);
-    expect(summary.sessions_by_outcome).toEqual({ not_ready: 1 });
-    expect(summary.oldest_pending_age_s).toBe(30);
+    expect(calls.map(call => call.exchange.firstTurnId)).toEqual(['t1']);
+    expect(summary.sessions_by_outcome).toEqual({ ingested: 1 });
   });
 
   it('reads only sessions of allowlisted tenants, so others never take a run slot', async () => {

@@ -1119,8 +1119,6 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    * Env: `MEMORY_INGEST_PAUSE_TIMEOUT_MS`. Default 12 hours.
    */
   MEMORY_INGEST_PAUSE_TIMEOUT_MS: number;
-  /** Minimum age of a finished exchange before it is sent. Env: `MEMORY_INGEST_SETTLE_MS`. Default 60 seconds. */
-  MEMORY_INGEST_SETTLE_MS: number;
 };
 
 export type ServerConfiguration = StandaloneServerConfiguration | DistributedServerConfiguration;
@@ -1477,11 +1475,6 @@ const configuration: ServerConfiguration = standalone
         envKey: 'MEMORY_INGEST_PAUSE_TIMEOUT_MS',
         raw: getEnv('MEMORY_INGEST_PAUSE_TIMEOUT_MS'),
         defaultValue: 12 * 60 * 60 * 1000,
-      }),
-      MEMORY_INGEST_SETTLE_MS: parseNonNegativeInt({
-        envKey: 'MEMORY_INGEST_SETTLE_MS',
-        raw: getEnv('MEMORY_INGEST_SETTLE_MS'),
-        defaultValue: 60 * 1000,
       }),
     };
 
