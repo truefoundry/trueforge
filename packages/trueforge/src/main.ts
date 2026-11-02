@@ -115,6 +115,7 @@ import { type DistributedServerConfiguration } from './config';
 import { createController } from './controller';
 import type { IAccessControlStore } from './db/accessControlStore';
 import type { AgentRecord, IAgentStore } from './db/agentStore';
+import type { IConfigurationStore } from './db/configurationStore';
 import type { IMcpServerStore, IMcpServerWithAuthStore } from './db/mcpServerStore';
 import { McpServerWithAuthStore } from './db/McpServerWithAuthStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
@@ -208,6 +209,8 @@ interface ServerPersistence<TTransaction> {
   resolveMcpServerStore: ResolveMcpServerStore<TTransaction>;
   resolveSandboxProviderStore: (rc: RequestContext) => ISandboxProviderStore<TTransaction>;
   resolveWebSearchProviderStore: (rc: RequestContext) => IWebSearchProviderStore<TTransaction>;
+  /** Tenant-wide feature switches; DB-backed in every mode. */
+  resolveConfigurationStore: (rc: RequestContext) => IConfigurationStore<TTransaction>;
   /** Per-request store: DB git skills, or TrueFoundry registry catalog (caller JWT). */
   resolveSkillStore: (rc: RequestContext) => ISkillStore<TTransaction>;
   resolveAgentStore: (rc: RequestContext) => IAgentStore<TTransaction>;
@@ -419,6 +422,7 @@ async function createStandalonePersistence(options: {
       import('./db/sqlite/skill-store/SqliteSkillStore'),
       import('./db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore'),
       import('./db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore'),
+      import('./db/sqlite/configuration-store/SqliteConfigurationStore'),
       import('./db/sqlite/agent-store/SqliteAgentStore'),
       import('./db/sqlite/schedule-store/SqliteScheduleStore'),
       import('./db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore'),
@@ -434,6 +438,7 @@ async function createStandalonePersistence(options: {
     { SqliteSkillStore },
     { SqliteSandboxProviderStore },
     { SqliteWebSearchProviderStore },
+    { SqliteConfigurationStore },
     { SqliteAgentStore },
     { SqliteScheduleStore },
     { SqliteSandboxEnvironmentStore },
@@ -456,6 +461,7 @@ async function createStandalonePersistence(options: {
   });
   const sandboxProviderStore = new SqliteSandboxProviderStore(db);
   const webSearchProviderStore = new SqliteWebSearchProviderStore(db);
+  const configurationStore = new SqliteConfigurationStore(db);
   const skillStore = new SqliteSkillStore(db);
   return {
     withTransaction: callback => db.transaction().execute(callback),
@@ -469,6 +475,7 @@ async function createStandalonePersistence(options: {
     resolveMcpServerStore: () => mcpServerStore,
     resolveSandboxProviderStore: () => sandboxProviderStore,
     resolveWebSearchProviderStore: () => webSearchProviderStore,
+    resolveConfigurationStore: () => configurationStore,
     resolveSkillStore: () => skillStore,
     resolveAgentStore: () => agentStore,
     agentStore,
@@ -522,6 +529,7 @@ async function createDistributedPersistence(options: {
       import('./db/postgres/skill-store/PostgresSkillStore'),
       import('./db/postgres/sandbox-provider-store/PostgresSandboxProviderStore'),
       import('./db/postgres/web-search-provider-store/PostgresWebSearchProviderStore'),
+      import('./db/postgres/configuration-store/PostgresConfigurationStore'),
       import('./db/postgres/agent-store/PostgresAgentStore'),
       import('./db/postgres/schedule-store/PostgresScheduleStore'),
       import('./db/postgres/sandbox-environment-store/PostgresSandboxEnvironmentStore'),
@@ -537,6 +545,7 @@ async function createDistributedPersistence(options: {
     { PostgresSkillStore },
     { PostgresSandboxProviderStore },
     { PostgresWebSearchProviderStore },
+    { PostgresConfigurationStore },
     { PostgresAgentStore },
     { PostgresScheduleStore },
     { PostgresSandboxEnvironmentStore },
@@ -570,6 +579,7 @@ async function createDistributedPersistence(options: {
   });
   const sandboxProviderStore = new PostgresSandboxProviderStore(db);
   const webSearchProviderStore = new PostgresWebSearchProviderStore(db);
+  const configurationStore = new PostgresConfigurationStore(db);
   const skillStore = new PostgresSkillStore(db);
   const agentStore = new PostgresAgentStore(db);
   const sandboxEnvironmentStore = wrapSandboxEnvironmentStore(new PostgresSandboxEnvironmentStore(db));
@@ -616,6 +626,7 @@ async function createDistributedPersistence(options: {
     resolveMcpServerStore,
     resolveSandboxProviderStore,
     resolveWebSearchProviderStore,
+    resolveConfigurationStore: () => configurationStore,
     resolveSkillStore,
     resolveAgentStore,
     agentStore,
@@ -757,6 +768,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
   const resolveSandboxProviderStore = (c: Context) => persistence.resolveSandboxProviderStore(resolveRequestContext(c));
   const resolveWebSearchProviderStore = (c: Context) =>
     persistence.resolveWebSearchProviderStore(resolveRequestContext(c));
+  const resolveConfigurationStore = (c: Context) => persistence.resolveConfigurationStore(resolveRequestContext(c));
   // Catalog and agent saves reject x-tfg-skills. Inline session create and spec replace opt in and get a
   // closed-set store for validation only; the header is not persisted.
   const resolveSkillStore = (input: ResolveSkillStoreInput) => {
@@ -808,6 +820,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     resolveAgentStore,
     resolveSandboxProviderStore,
     resolveWebSearchProviderStore,
+    resolveConfigurationStore,
     resolveSkillStore,
     resolveTurnSkillsStore: resolveTurnSkillsStoreForRequest,
     resolveCapabilitiesStore,

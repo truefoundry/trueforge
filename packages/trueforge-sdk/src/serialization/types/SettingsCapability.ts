@@ -3,16 +3,27 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
+import { SettingsCapabilitySection } from "./SettingsCapabilitySection.js";
 
 export const SettingsCapability: core.serialization.ObjectSchema<
     serializers.SettingsCapability.Raw,
     TrueForge.SettingsCapability
 > = core.serialization.object({
-    enabled: core.serialization.boolean(),
+    mcpServers: core.serialization.property("mcp_servers", SettingsCapabilitySection),
+    memory: SettingsCapabilitySection,
+    modelProviders: core.serialization.property("model_providers", SettingsCapabilitySection),
+    sandboxProviders: core.serialization.property("sandbox_providers", SettingsCapabilitySection),
+    skills: SettingsCapabilitySection,
+    webSearch: core.serialization.property("web_search", SettingsCapabilitySection),
 });
 
 export declare namespace SettingsCapability {
     export interface Raw {
-        enabled: boolean;
+        mcp_servers: SettingsCapabilitySection.Raw;
+        memory: SettingsCapabilitySection.Raw;
+        model_providers: SettingsCapabilitySection.Raw;
+        sandbox_providers: SettingsCapabilitySection.Raw;
+        skills: SettingsCapabilitySection.Raw;
+        web_search: SettingsCapabilitySection.Raw;
     }
 }

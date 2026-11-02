@@ -5,6 +5,7 @@ import type {
   CatalogServer,
   SandboxEnvironmentServer,
   ScheduleServer,
+  SettingsCapability,
 } from './types.js';
 
 /**
@@ -16,9 +17,40 @@ export function isSettingsChromeEnabled({
   capabilities,
 }: {
   catalog: CatalogServer | null | undefined;
-  capabilities: { settings?: { enabled?: boolean } } | null | undefined;
+  capabilities: { settings?: SettingsCapability } | null | undefined;
 }): boolean {
-  return catalog != null && capabilities?.settings?.enabled === true;
+  // Absent capabilities mean "still loading", so wait rather than flash Settings
+  // open and shut. Loaded capabilities that omit `settings` are an older host.
+  return catalog != null && capabilities != null && hasAnySettingsSectionEnabled(capabilities.settings);
+}
+
+const SETTINGS_SECTIONS = [
+  'modelProviders',
+  'mcpServers',
+  'skills',
+  'sandboxProviders',
+  'webSearch',
+  'memory',
+] as const satisfies readonly (keyof SettingsCapability)[];
+
+/**
+ * Settings chrome is worth showing until every section is closed. Counting the
+ * sections the host never reported keeps this agreeing with
+ * {@link isSettingsSectionEnabled}, which treats those as open.
+ */
+export function hasAnySettingsSectionEnabled(settings: SettingsCapability | undefined): boolean {
+  return SETTINGS_SECTIONS.some(section => isSettingsSectionEnabled({ settings, section }));
+}
+
+/** A section the host never reported stays open, so older hosts keep working. */
+export function isSettingsSectionEnabled({
+  settings,
+  section,
+}: {
+  settings: SettingsCapability | undefined;
+  section: keyof SettingsCapability;
+}): boolean {
+  return settings?.[section]?.enabled !== false;
 }
 
 /** Sessions browser + agent-detail surfaces (Overview / sessions / code). */
@@ -59,7 +91,7 @@ export function toEffectiveRoutes({
 }: {
   routes: ResolvedRoutes;
   catalog: CatalogServer | null | undefined;
-  capabilities: { settings?: { enabled?: boolean } } | null | undefined;
+  capabilities: { settings?: SettingsCapability } | null | undefined;
   sessions: AgentSessionsServer | null | undefined;
   schedules: ScheduleServer | null | undefined;
   sandboxEnvironments: SandboxEnvironmentServer | null | undefined;

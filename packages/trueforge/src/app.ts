@@ -14,6 +14,7 @@ import { createAgentsRouter } from './apis/agents';
 import { createAuthRouter } from './apis/auth';
 import { createCapabilitiesRouter } from './apis/capabilities';
 import { createCatalogRouter } from './apis/catalog';
+import { createConfigurationRouter } from './apis/configuration';
 import { createMcpOAuthRouter } from './apis/mcpOAuth';
 import { createMcpServersRouter } from './apis/mcpServers';
 import { createModelsRouter } from './apis/models';
@@ -29,9 +30,9 @@ import { createTurnsRouter } from './apis/turns';
 import { createUsersRouter } from './apis/users';
 import type { Authenticator } from './auth/authenticator';
 import type { Authorizer } from './auth/authorizer';
-import { resolveRequestContext } from './auth/identity';
+import { areCatalogSettingsAvailable, resolveRequestContext } from './auth/identity';
 import {
-  createAdminAuthMiddleware,
+  buildAdminAuthMiddleware,
   createApiKeyAuthMiddleware,
   createAuthMiddleware,
   tryAuthenticate,
@@ -44,6 +45,7 @@ import type { WebSearchCatalog } from './catalog/WebSearchCatalog';
 import configuration, { getPublicUiBasePath, getTrueForgeAuthMode, TrueForgeAuthMode } from './config';
 import type { IAccessControlStore } from './db/accessControlStore';
 import type { AgentRecord, IAgentStore } from './db/agentStore';
+import type { IConfigurationStore } from './db/configurationStore';
 import type { IMcpServerWithAuthStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from './db/sandboxEnvironmentStore';
@@ -299,6 +301,8 @@ export interface ServerDeps<TTransaction> {
    */
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore<TTransaction>;
+  /** Tenant-wide feature switches; DB-backed in every mode. */
+  resolveConfigurationStore: (c: Context) => IConfigurationStore<TTransaction>;
   /** Per-request store: DB git skills, or TrueFoundry registry catalog in TrueFoundry mode. */
   resolveSkillStore: (input: ResolveSkillStoreInput) => ISkillStore<TTransaction>;
   /**
@@ -347,7 +351,11 @@ export interface ServerDeps<TTransaction> {
 export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   const app = new OpenAPIHono({ defaultHook: zodValidationHook });
   const authMiddleware = createAuthMiddleware(deps.authenticator);
-  const adminAuthMiddleware = createAdminAuthMiddleware(deps.authenticator);
+  const catalogAdminAuthMiddleware = buildAdminAuthMiddleware({
+    authenticator: deps.authenticator,
+    accessible: areCatalogSettingsAvailable(),
+  });
+  const adminAuthMiddleware = buildAdminAuthMiddleware({ authenticator: deps.authenticator, accessible: true });
   const scheduleExecutionAuthMiddleware = createApiKeyAuthMiddleware(configuration.TRUEFORGE_API_KEY);
   const authEnabled = getTrueForgeAuthMode() !== TrueForgeAuthMode.Standalone;
   const scheduleTurnDeps = {
@@ -401,6 +409,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       createCapabilitiesRouter({
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
+        resolveConfigurationStore: deps.resolveConfigurationStore,
         userStore: deps.userStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
@@ -479,6 +488,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
+        resolveConfigurationStore: deps.resolveConfigurationStore,
         withTransaction: deps.withTransaction,
         resolveRequestContext,
         authorizer: deps.authorizer,
@@ -527,6 +537,18 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       authMiddleware,
     ),
   );
+  // Registered before /api/v1/settings: tenant-wide switches are admin-gated in every mode,
+  // while the catalog settings below stay closed in TrueFoundry mode.
+  app.route(
+    '/api/v1/settings/configuration',
+    withAuth(
+      createConfigurationRouter({
+        resolveConfigurationStore: deps.resolveConfigurationStore,
+        resolveRequestContext,
+      }),
+      adminAuthMiddleware,
+    ),
+  );
   app.route(
     '/api/v1/settings',
     withAdminAuth(
@@ -543,7 +565,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         logger: deps.logger,
         resolveRequestContext,
       }),
-      adminAuthMiddleware,
+      catalogAdminAuthMiddleware,
     ),
   );
   app.route(
@@ -559,6 +581,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
+        resolveConfigurationStore: deps.resolveConfigurationStore,
         resolveRequestContext,
         authorizer: deps.authorizer,
       }),
@@ -608,6 +631,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
+        resolveConfigurationStore: deps.resolveConfigurationStore,
         redis: deps.redis,
         requestReplyRouter: deps.requestReplyRouter,
         resolveRequestContext,

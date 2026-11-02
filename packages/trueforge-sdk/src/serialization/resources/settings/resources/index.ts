@@ -1,3 +1,5 @@
+export * from "./configuration/client/requests/index.js";
+export * as configuration from "./configuration/index.js";
 export * from "./mcpServers/client/requests/index.js";
 export * as mcpServers from "./mcpServers/index.js";
 export * from "./modelProviders/client/requests/index.js";
