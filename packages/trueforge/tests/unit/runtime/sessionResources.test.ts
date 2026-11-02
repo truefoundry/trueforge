@@ -72,7 +72,7 @@ describe('validateAgentSpec', () => {
       sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
       webSearchProviderStore: new SqliteWebSearchProviderStore(db),
       configurationStore: new SqliteConfigurationStore(db),
-      previous_spec: undefined,
+      previousSpec: undefined,
     };
   }
 
@@ -302,7 +302,7 @@ describe('validateAgentSpec', () => {
         tenant_id: 'default',
         created_by_subject_id: 'test-subject',
         ...stores,
-        previous_spec: AgentSpecSchema.parse({
+        previousSpec: AgentSpecSchema.parse({
           model: { name: 'test-provider/test-model' },
           instructions: 'test',
           config: { web_search: { enabled: true } },
@@ -323,7 +323,7 @@ describe('validateAgentSpec', () => {
         tenant_id: 'default',
         created_by_subject_id: 'test-subject',
         ...stores,
-        previous_spec: AgentSpecSchema.parse({
+        previousSpec: AgentSpecSchema.parse({
           model: { name: 'test-provider/test-model' },
           instructions: 'test',
           config: { web_search: { enabled: true } },
@@ -348,7 +348,7 @@ describe('validateAgentSpec', () => {
         tenant_id: 'default',
         created_by_subject_id: 'test-subject',
         ...stores,
-        previous_spec: AgentSpecSchema.parse({
+        previousSpec: AgentSpecSchema.parse({
           model: { name: 'test-provider/test-model' },
           instructions: 'test',
           config: { web_search: { enabled: true } },

@@ -3987,8 +3987,8 @@ await client.internal.agents.getCodeSnippets("agent_id");
 </dl>
 </details>
 
-## Settings Configurations
-<details><summary><code>client.settings.configurations.<a href="/src/api/resources/settings/resources/configurations/client/Client.ts">get</a>() -> TrueForge.GetConfigurationsResponse</code></summary>
+## Settings Configuration
+<details><summary><code>client.settings.configuration.<a href="/src/api/resources/settings/resources/configuration/client/Client.ts">get</a>() -> TrueForge.GetConfigurationResponse</code></summary>
 <dl>
 <dd>
 
@@ -4015,7 +4015,7 @@ Tenant-wide feature switches. Tenants with nothing saved yet get every switch en
 <dd>
 
 ```typescript
-await client.settings.configurations.get();
+await client.settings.configuration.get();
 
 ```
 </dd>
@@ -4031,7 +4031,7 @@ await client.settings.configurations.get();
 <dl>
 <dd>
 
-**requestOptions:** `ConfigurationsClient.RequestOptions` 
+**requestOptions:** `ConfigurationClient.RequestOptions` 
     
 </dd>
 </dl>
@@ -4043,7 +4043,7 @@ await client.settings.configurations.get();
 </dl>
 </details>
 
-<details><summary><code>client.settings.configurations.<a href="/src/api/resources/settings/resources/configurations/client/Client.ts">update</a>({ ...params }) -> TrueForge.GetConfigurationsResponse</code></summary>
+<details><summary><code>client.settings.configuration.<a href="/src/api/resources/settings/resources/configuration/client/Client.ts">update</a>({ ...params }) -> TrueForge.GetConfigurationResponse</code></summary>
 <dl>
 <dd>
 
@@ -4070,7 +4070,7 @@ Updates the switches present in the body and leaves the rest. Turning web search
 <dd>
 
 ```typescript
-await client.settings.configurations.update({
+await client.settings.configuration.update({
     manifest: {}
 });
 
@@ -4088,7 +4088,7 @@ await client.settings.configurations.update({
 <dl>
 <dd>
 
-**request:** `TrueForge.settings.UpdateConfigurationsRequest` 
+**request:** `TrueForge.settings.UpdateConfigurationRequest` 
     
 </dd>
 </dl>
@@ -4096,7 +4096,7 @@ await client.settings.configurations.update({
 <dl>
 <dd>
 
-**requestOptions:** `ConfigurationsClient.RequestOptions` 
+**requestOptions:** `ConfigurationClient.RequestOptions` 
     
 </dd>
 </dl>

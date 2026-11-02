@@ -286,16 +286,16 @@
             },
             "default": "./dist/esm/api/resources/settings/exports.mjs"
         },
-        "./settings/configurations": {
+        "./settings/configuration": {
             "import": {
-                "types": "./dist/esm/api/resources/settings/resources/configurations/exports.d.mts",
-                "default": "./dist/esm/api/resources/settings/resources/configurations/exports.mjs"
+                "types": "./dist/esm/api/resources/settings/resources/configuration/exports.d.mts",
+                "default": "./dist/esm/api/resources/settings/resources/configuration/exports.mjs"
             },
             "require": {
-                "types": "./dist/cjs/api/resources/settings/resources/configurations/exports.d.ts",
-                "default": "./dist/cjs/api/resources/settings/resources/configurations/exports.js"
+                "types": "./dist/cjs/api/resources/settings/resources/configuration/exports.d.ts",
+                "default": "./dist/cjs/api/resources/settings/resources/configuration/exports.js"
             },
-            "default": "./dist/esm/api/resources/settings/resources/configurations/exports.mjs"
+            "default": "./dist/esm/api/resources/settings/resources/configuration/exports.mjs"
         },
         "./settings/mcpServers": {
             "import": {

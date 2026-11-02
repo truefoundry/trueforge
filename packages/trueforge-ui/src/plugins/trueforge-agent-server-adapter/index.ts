@@ -13,7 +13,7 @@ import { createSkillCatalog } from './catalogs/skillCatalog.js';
 import { createWebSearchProviderCatalog } from './catalogs/webSearchProviderCatalog.js';
 import { createHarnessChatServer } from './chatServer.js';
 import { createTrueForgeClient, type CreateTrueForgeClientOptions } from './client.js';
-import { createConfigurationsServer } from './configurationsServer.js';
+import { createConfigurationServer } from './configurationServer.js';
 import { createHarnessPermissionsServer } from './permissionsServer.js';
 import { createSandboxEnvironmentServer } from './sandboxEnvironments/sandboxEnvironmentServer.js';
 import { createScheduleServer } from './schedules/scheduleServer.js';
@@ -75,7 +75,7 @@ export {
 } from './chatServer.js';
 export { createTrueForgeClient } from './client.js';
 export type { CreateTrueForgeClientOptions } from './client.js';
-export { createConfigurationsServer } from './configurationsServer.js';
+export { createConfigurationServer } from './configurationServer.js';
 export { getCapabilities, listConfiguredMcpServers, listModels, listSkills } from './lists.js';
 export { createHarnessPermissionsServer, type CreateHarnessPermissionsServerOptions } from './permissionsServer.js';
 export { createSandboxEnvironmentServer } from './sandboxEnvironments/sandboxEnvironmentServer.js';
@@ -113,7 +113,7 @@ export function createTrueForgeAgentUIServer(options: CreateTrueForgeAgentUIServ
     chatServer: createHarnessChatServer({ client }),
     ...createHarnessBuilderServer({ client }),
     catalog,
-    configurations: createConfigurationsServer(client),
+    configuration: createConfigurationServer(client),
     sessions: createHarnessAgentSessionsServer({ ...clientOptions, client }),
     metrics: createHarnessAgentMetricsServer({ ...clientOptions, client }),
     schedules: createScheduleServer({ client }),

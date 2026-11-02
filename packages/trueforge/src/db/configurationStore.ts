@@ -1,20 +1,20 @@
-import type { ConfigurationsManifest } from '../schemas/configurations';
+import { DEFAULT_CONFIGURATION_MANIFEST, type ConfigurationManifest } from '../schemas/configuration';
 
 export interface ConfigurationRecord {
   tenant_id: string;
-  manifest: ConfigurationsManifest;
+  manifest: ConfigurationManifest;
   updated_at: string;
 }
 
 export interface UpsertConfigurationInput {
   tenant_id: string;
-  manifest: ConfigurationsManifest;
+  manifest: ConfigurationManifest;
 }
 
 export interface GetOrCreateConfigurationInput {
   tenant_id: string;
   /** Stored only when the tenant has no row yet. */
-  default_manifest: ConfigurationsManifest;
+  default_manifest: ConfigurationManifest;
 }
 
 export interface IConfigurationStore<TTransaction = never> {
@@ -30,4 +30,17 @@ export interface IConfigurationStore<TTransaction = never> {
     input: GetOrCreateConfigurationInput,
     transaction?: TTransaction,
   ): Promise<ConfigurationRecord>;
+}
+
+/** Whether the tenant switch lets web search be turned on. Reads only; never writes the row. */
+export async function isWebSearchEnabledForTenant({
+  tenant_id,
+  store,
+}: {
+  tenant_id: string;
+  store: IConfigurationStore;
+}): Promise<boolean> {
+  const record = await store.getConfiguration(tenant_id);
+  const manifest = record?.manifest ?? DEFAULT_CONFIGURATION_MANIFEST;
+  return manifest.web_search.enabled;
 }

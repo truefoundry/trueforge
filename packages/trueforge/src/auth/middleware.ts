@@ -31,8 +31,8 @@ export function createAuthMiddleware(authenticator: Authenticator): MiddlewareHa
  * `accessible` says whether the group exists in the current deployment mode at all.
  * Catalog settings pass `areCatalogSettingsAvailable()`, which is false in TrueFoundry
  * because the platform owns those catalogs; a group that is merely admin-only passes `true`.
- * An inaccessible group answers 404 so callers cannot tell an unavailable feature
- * from one they lack the role for.
+ * An inaccessible group says so outright rather than hiding behind a 404: the same
+ * deployment fact is already public on `GET /api/v1/capabilities`.
  */
 export function buildAdminAuthMiddleware({
   authenticator,
@@ -48,7 +48,9 @@ export function buildAdminAuthMiddleware({
     }
     updateLogContext({ tenant_id: requestContext.tenant_id });
     if (!accessible) {
-      throw new HTTPException(404, { message: 'Not found' });
+      throw new HTTPException(422, {
+        message: `Route ${c.req.path} is not accessible under current configuration`,
+      });
     }
     if (!hasAdminRole(requestContext)) {
       throw new HTTPException(403, { message: 'Admin access required' });

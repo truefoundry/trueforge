@@ -962,14 +962,14 @@
         ],
         "type": "object"
       },
-      "Configurations": {
+      "Configuration": {
         "additionalProperties": false,
         "properties": {
           "manifest": {
-            "$ref": "#/components/schemas/ConfigurationsManifest"
+            "$ref": "#/components/schemas/ConfigurationManifest"
           },
           "updated_at": {
-            "description": "When the configurations were last saved.",
+            "description": "When the configuration was last saved.",
             "format": "date-time",
             "type": "string"
           }
@@ -980,7 +980,7 @@
         ],
         "type": "object"
       },
-      "ConfigurationsManifest": {
+      "ConfigurationManifest": {
         "additionalProperties": false,
         "properties": {
           "web_search": {
@@ -992,7 +992,7 @@
         ],
         "type": "object"
       },
-      "ConfigurationsManifestPatch": {
+      "ConfigurationManifestPatch": {
         "additionalProperties": false,
         "properties": {
           "web_search": {
@@ -1620,10 +1620,10 @@
         ],
         "type": "object"
       },
-      "GetConfigurationsResponse": {
+      "GetConfigurationResponse": {
         "properties": {
           "data": {
-            "$ref": "#/components/schemas/Configurations"
+            "$ref": "#/components/schemas/Configuration"
           }
         },
         "required": [
@@ -4761,22 +4761,22 @@
       "SettingsCapability": {
         "properties": {
           "mcp_servers": {
-            "$ref": "#/components/schemas/SettingsSectionCapability"
+            "$ref": "#/components/schemas/SettingsCapabilitySection"
           },
           "memory": {
-            "$ref": "#/components/schemas/SettingsSectionCapability"
+            "$ref": "#/components/schemas/SettingsCapabilitySection"
           },
           "model_providers": {
-            "$ref": "#/components/schemas/SettingsSectionCapability"
+            "$ref": "#/components/schemas/SettingsCapabilitySection"
           },
           "sandbox_providers": {
-            "$ref": "#/components/schemas/SettingsSectionCapability"
+            "$ref": "#/components/schemas/SettingsCapabilitySection"
           },
           "skills": {
-            "$ref": "#/components/schemas/SettingsSectionCapability"
+            "$ref": "#/components/schemas/SettingsCapabilitySection"
           },
           "web_search": {
-            "$ref": "#/components/schemas/SettingsSectionCapability"
+            "$ref": "#/components/schemas/SettingsCapabilitySection"
           }
         },
         "required": [
@@ -4789,7 +4789,7 @@
         ],
         "type": "object"
       },
-      "SettingsSectionCapability": {
+      "SettingsCapabilitySection": {
         "properties": {
           "enabled": {
             "description": "Whether this settings section is available to the caller.",
@@ -6136,11 +6136,11 @@
         ],
         "type": "object"
       },
-      "UpdateConfigurationsRequest": {
+      "UpdateConfigurationRequest": {
         "additionalProperties": false,
         "properties": {
           "manifest": {
-            "$ref": "#/components/schemas/ConfigurationsManifestPatch"
+            "$ref": "#/components/schemas/ConfigurationManifestPatch"
           }
         },
         "required": [
@@ -10849,7 +10849,7 @@
         }
       }
     },
-    "/api/v1/settings/configurations": {
+    "/api/v1/settings/configuration": {
       "get": {
         "description": "Tenant-wide feature switches. Tenants with nothing saved yet get every switch enabled.",
         "responses": {
@@ -10857,11 +10857,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetConfigurationsResponse"
+                  "$ref": "#/components/schemas/GetConfigurationResponse"
                 }
               }
             },
-            "description": "The tenant configurations."
+            "description": "The tenant configuration."
           },
           "401": {
             "content": {
@@ -10884,13 +10884,13 @@
             "description": "Authenticated but not an admin."
           }
         },
-        "summary": "Get the tenant configurations",
+        "summary": "Get the tenant configuration",
         "tags": [
-          "Configurations"
+          "Configuration"
         ],
         "x-fern-sdk-group-name": [
           "settings",
-          "configurations"
+          "configuration"
         ],
         "x-fern-sdk-method-name": "get"
       },
@@ -10900,7 +10900,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateConfigurationsRequest"
+                "$ref": "#/components/schemas/UpdateConfigurationRequest"
               }
             }
           },
@@ -10911,11 +10911,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetConfigurationsResponse"
+                  "$ref": "#/components/schemas/GetConfigurationResponse"
                 }
               }
             },
-            "description": "The saved tenant configurations."
+            "description": "The saved tenant configuration."
           },
           "400": {
             "content": {
@@ -10948,13 +10948,13 @@
             "description": "Authenticated but not an admin."
           }
         },
-        "summary": "Update the tenant configurations",
+        "summary": "Update the tenant configuration",
         "tags": [
-          "Configurations"
+          "Configuration"
         ],
         "x-fern-sdk-group-name": [
           "settings",
-          "configurations"
+          "configuration"
         ],
         "x-fern-sdk-method-name": "update"
       }
@@ -12140,7 +12140,7 @@
       "name": "Web Search Providers"
     },
     {
-      "name": "Configurations"
+      "name": "Configuration"
     },
     {
       "name": "Agents"

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import WebSearchSettings from '@/containers/SettingsBuilder/WebSearchSettings.js';
 import { ServerProvider } from '@/server/ServerContext.js';
-import type { ConfigurationsServer, WebSearchCatalogServer } from '@/server/types.js';
+import type { ConfigurationServer, WebSearchCatalogServer } from '@/server/types.js';
 import { createMockAgentUIServer, createMockCatalog } from '../../server/mockServer.js';
 import { allSettingsSections } from '../../server/settingsCapabilityFixture.js';
 
@@ -20,14 +20,14 @@ const webSearchCatalog: WebSearchCatalogServer = {
 };
 
 function renderSettings(
-  configurations: ConfigurationsServer | undefined,
+  configuration: ConfigurationServer | undefined,
   options: { manageProviders?: boolean; catalog?: WebSearchCatalogServer } = {},
 ) {
   const { manageProviders = true, catalog = webSearchCatalog } = options;
   const sections = allSettingsSections(true);
   const server = createMockAgentUIServer({
     catalog: createMockCatalog({ webSearchCatalog: catalog }),
-    ...(configurations ? { configurations } : {}),
+    ...(configuration ? { configuration } : {}),
     getCapabilities: async () => ({
       data: {
         sandbox: { enabled: true },
@@ -46,8 +46,8 @@ function renderSettings(
 describe('WebSearchSettings tenant switch', () => {
   it('shows the switch on and lists providers when the tenant allows web search', async () => {
     renderSettings({
-      getConfigurations: async () => ({ webSearch: { enabled: true } }),
-      updateConfigurations: unavailable,
+      getConfiguration: async () => ({ webSearch: { enabled: true } }),
+      updateConfiguration: unavailable,
     });
 
     const toggle = await screen.findByRole('switch', { name: 'Allow web search' });
@@ -57,8 +57,8 @@ describe('WebSearchSettings tenant switch', () => {
 
   it('hides the provider list while the tenant switch is off', async () => {
     renderSettings({
-      getConfigurations: async () => ({ webSearch: { enabled: false } }),
-      updateConfigurations: unavailable,
+      getConfiguration: async () => ({ webSearch: { enabled: false } }),
+      updateConfiguration: unavailable,
     });
 
     const toggle = await screen.findByRole('switch', { name: 'Allow web search' });
@@ -70,8 +70,8 @@ describe('WebSearchSettings tenant switch', () => {
 
   it('says the switch can be turned back on while it is off', async () => {
     renderSettings({
-      getConfigurations: async () => ({ webSearch: { enabled: false } }),
-      updateConfigurations: unavailable,
+      getConfiguration: async () => ({ webSearch: { enabled: false } }),
+      updateConfiguration: unavailable,
     });
 
     expect(await screen.findByText(/Turn this back on whenever you want/)).toHaveTextContent(
@@ -83,8 +83,8 @@ describe('WebSearchSettings tenant switch', () => {
   it('drops the provider sentence when the platform owns providers', async () => {
     renderSettings(
       {
-        getConfigurations: async () => ({ webSearch: { enabled: false } }),
-        updateConfigurations: unavailable,
+        getConfiguration: async () => ({ webSearch: { enabled: false } }),
+        updateConfiguration: unavailable,
       },
       { manageProviders: false },
     );
@@ -94,24 +94,24 @@ describe('WebSearchSettings tenant switch', () => {
   });
 
   it('saves the new value and re-renders from the response', async () => {
-    const updateConfigurations = vi.fn(async () => ({ webSearch: { enabled: false } }));
+    const updateConfiguration = vi.fn(async () => ({ webSearch: { enabled: false } }));
     renderSettings({
-      getConfigurations: async () => ({ webSearch: { enabled: true } }),
-      updateConfigurations,
+      getConfiguration: async () => ({ webSearch: { enabled: true } }),
+      updateConfiguration,
     });
 
     const toggle = await screen.findByRole('switch', { name: 'Allow web search' });
     toggle.click();
 
     await waitFor(() => {
-      expect(updateConfigurations).toHaveBeenCalledWith({ webSearch: { enabled: false } });
+      expect(updateConfiguration).toHaveBeenCalledWith({ webSearch: { enabled: false } });
     });
     await waitFor(() => {
       expect(screen.getByRole('switch', { name: 'Allow web search' })).toHaveAttribute('aria-checked', 'false');
     });
   });
 
-  it('omits the switch and keeps providers when the host has no configurations port', async () => {
+  it('omits the switch and keeps providers when the host has no configuration port', async () => {
     renderSettings(undefined);
 
     expect(await screen.findByText('Parallel')).toBeInTheDocument();
@@ -122,8 +122,8 @@ describe('WebSearchSettings tenant switch', () => {
     const listWebSearchProviders = vi.fn(async () => []);
     renderSettings(
       {
-        getConfigurations: async () => ({ webSearch: { enabled: true } }),
-        updateConfigurations: unavailable,
+        getConfiguration: async () => ({ webSearch: { enabled: true } }),
+        updateConfiguration: unavailable,
       },
       { manageProviders: false, catalog: { ...webSearchCatalog, listWebSearchProviders } },
     );
@@ -136,20 +136,20 @@ describe('WebSearchSettings tenant switch', () => {
   });
 
   it('waits for the switch before listing providers, so an off tenant never flashes them', async () => {
-    let resolveConfigurations: (value: { webSearch: { enabled: boolean } }) => void = () => undefined;
+    let resolveConfiguration: (value: { webSearch: { enabled: boolean } }) => void = () => undefined;
     renderSettings({
-      getConfigurations: () =>
+      getConfiguration: () =>
         new Promise(resolve => {
-          resolveConfigurations = resolve;
+          resolveConfiguration = resolve;
         }),
-      updateConfigurations: unavailable,
+      updateConfiguration: unavailable,
     });
 
     await waitFor(() => {
       expect(screen.queryByText('Parallel')).not.toBeInTheDocument();
     });
 
-    resolveConfigurations({ webSearch: { enabled: true } });
+    resolveConfiguration({ webSearch: { enabled: true } });
     expect(await screen.findByText('Parallel')).toBeInTheDocument();
   });
 });

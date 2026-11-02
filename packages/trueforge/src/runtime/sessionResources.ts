@@ -15,8 +15,7 @@ import { HTTPException } from 'hono/http-exception';
 import { join } from 'node:path';
 import type { Logger } from 'winston';
 import configuration from '../config';
-import { isWebSearchEnabledForTenant } from '../configurations/configurations';
-import type { IConfigurationStore } from '../db/configurationStore';
+import { isWebSearchEnabledForTenant, type IConfigurationStore } from '../db/configurationStore';
 import type { IMcpServerStore, IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
@@ -270,7 +269,7 @@ export async function validateAgentSpec({
   sandboxEnvironmentStore,
   webSearchProviderStore,
   configurationStore,
-  previous_spec,
+  previousSpec,
 }: {
   spec: AgentSpec;
   tenant_id: string;
@@ -283,7 +282,7 @@ export async function validateAgentSpec({
   webSearchProviderStore: IWebSearchProviderStore;
   configurationStore: IConfigurationStore;
   /** Spec already saved on this session or agent; undefined when creating. */
-  previous_spec: AgentSpec | undefined;
+  previousSpec: AgentSpec | undefined;
 }): Promise<void> {
   const resolved = await getModelDetails({
     tenant_id,
@@ -352,7 +351,7 @@ export async function validateAgentSpec({
 
   // Both checks gate turning web search on. A spec already saved with it on keeps it,
   // so later edits are not blocked by a switch or a provider that changed since.
-  if (spec.config.web_search.enabled && previous_spec?.config.web_search.enabled !== true) {
+  if (spec.config.web_search.enabled && previousSpec?.config.web_search.enabled !== true) {
     const tenantAllows = await isWebSearchEnabledForTenant({ tenant_id, store: configurationStore });
     if (!tenantAllows) {
       throw new HTTPException(422, {

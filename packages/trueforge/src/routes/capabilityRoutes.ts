@@ -17,23 +17,23 @@ const SkillCapabilitySchema = z
   })
   .openapi('SkillCapability');
 
-const SettingsSectionCapabilitySchema = z
+const SettingsCapabilitySectionSchema = z
   .object({
     enabled: z.boolean().describe('Whether this settings section is available to the caller.'),
     manage_providers: z
       .boolean()
       .describe('Whether the caller may add or edit providers in this section. False when the platform owns them.'),
   })
-  .openapi('SettingsSectionCapability');
+  .openapi('SettingsCapabilitySection');
 
 const SettingsCapabilitySchema = z
   .object({
-    model_providers: SettingsSectionCapabilitySchema,
-    mcp_servers: SettingsSectionCapabilitySchema,
-    skills: SettingsSectionCapabilitySchema,
-    sandbox_providers: SettingsSectionCapabilitySchema,
-    web_search: SettingsSectionCapabilitySchema,
-    memory: SettingsSectionCapabilitySchema,
+    model_providers: SettingsCapabilitySectionSchema,
+    mcp_servers: SettingsCapabilitySectionSchema,
+    skills: SettingsCapabilitySectionSchema,
+    sandbox_providers: SettingsCapabilitySectionSchema,
+    web_search: SettingsCapabilitySectionSchema,
+    memory: SettingsCapabilitySectionSchema,
   })
   .openapi('SettingsCapability');
 

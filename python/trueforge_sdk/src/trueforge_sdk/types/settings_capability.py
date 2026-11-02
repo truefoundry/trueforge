@@ -5,16 +5,16 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .settings_section_capability import SettingsSectionCapability
+from .settings_capability_section import SettingsCapabilitySection
 
 
 class SettingsCapability(UncheckedBaseModel):
-    mcp_servers: SettingsSectionCapability
-    memory: SettingsSectionCapability
-    model_providers: SettingsSectionCapability
-    sandbox_providers: SettingsSectionCapability
-    skills: SettingsSectionCapability
-    web_search: SettingsSectionCapability
+    mcp_servers: SettingsCapabilitySection
+    memory: SettingsCapabilitySection
+    model_providers: SettingsCapabilitySection
+    sandbox_providers: SettingsCapabilitySection
+    skills: SettingsCapabilitySection
+    web_search: SettingsCapabilitySection
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2

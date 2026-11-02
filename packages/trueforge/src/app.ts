@@ -14,7 +14,7 @@ import { createAgentsRouter } from './apis/agents';
 import { createAuthRouter } from './apis/auth';
 import { createCapabilitiesRouter } from './apis/capabilities';
 import { createCatalogRouter } from './apis/catalog';
-import { createConfigurationsRouter } from './apis/configurations';
+import { createConfigurationRouter } from './apis/configuration';
 import { createMcpOAuthRouter } from './apis/mcpOAuth';
 import { createMcpServersRouter } from './apis/mcpServers';
 import { createModelsRouter } from './apis/models';
@@ -540,9 +540,9 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   // Registered before /api/v1/settings: tenant-wide switches are admin-gated in every mode,
   // while the catalog settings below stay closed in TrueFoundry mode.
   app.route(
-    '/api/v1/settings/configurations',
+    '/api/v1/settings/configuration',
     withAuth(
-      createConfigurationsRouter({
+      createConfigurationRouter({
         resolveConfigurationStore: deps.resolveConfigurationStore,
         resolveRequestContext,
       }),

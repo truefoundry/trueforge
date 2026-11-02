@@ -3,10 +3,10 @@
 import type * as TrueForge from "../index.js";
 
 export interface SettingsCapability {
-    mcpServers: TrueForge.SettingsSectionCapability;
-    memory: TrueForge.SettingsSectionCapability;
-    modelProviders: TrueForge.SettingsSectionCapability;
-    sandboxProviders: TrueForge.SettingsSectionCapability;
-    skills: TrueForge.SettingsSectionCapability;
-    webSearch: TrueForge.SettingsSectionCapability;
+    mcpServers: TrueForge.SettingsCapabilitySection;
+    memory: TrueForge.SettingsCapabilitySection;
+    modelProviders: TrueForge.SettingsCapabilitySection;
+    sandboxProviders: TrueForge.SettingsCapabilitySection;
+    skills: TrueForge.SettingsCapabilitySection;
+    webSearch: TrueForge.SettingsCapabilitySection;
 }

@@ -1,5 +1,5 @@
 import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
-import type { ConfigurationsManifest } from '../../../schemas/configurations';
+import type { ConfigurationManifest } from '../../../schemas/configuration';
 import type {
   ConfigurationRecord,
   GetOrCreateConfigurationInput,
@@ -13,7 +13,7 @@ import type { Database } from '../types';
 function recordColumns(eb: ExpressionBuilder<Database, 'configuration'>) {
   return [
     'tenant_id' as const,
-    jsonText<ConfigurationsManifest>(eb.ref('manifest')).as('manifest'),
+    jsonText<ConfigurationManifest>(eb.ref('manifest')).as('manifest'),
     'updated_at' as const,
   ];
 }

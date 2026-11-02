@@ -7,8 +7,7 @@ import {
   type RequestContext,
   type ResolveRequestContext,
 } from '../auth/identity';
-import { isWebSearchEnabledForTenant } from '../configurations/configurations';
-import type { IConfigurationStore } from '../db/configurationStore';
+import { isWebSearchEnabledForTenant, type IConfigurationStore } from '../db/configurationStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { WithTransaction } from '../db/transaction';
 import type { IUserStore } from '../db/userStore';
@@ -39,15 +38,15 @@ function skillDisabledReason(status: SandboxEnvironmentVersionStatus | undefined
  */
 function settingsCapability(requestContext: Pick<RequestContext, 'roles'>) {
   const isAdmin = hasAdminRole(requestContext);
-  const catalogs = areCatalogSettingsAvailable() && isAdmin;
-  const catalogSection = { enabled: catalogs, manage_providers: catalogs };
+  const canManageProviders = areCatalogSettingsAvailable() && isAdmin;
+  const catalogSection = { enabled: canManageProviders, manage_providers: canManageProviders };
   return {
     model_providers: catalogSection,
     mcp_servers: catalogSection,
     skills: catalogSection,
     sandbox_providers: catalogSection,
-    web_search: { enabled: isAdmin, manage_providers: catalogs },
-    memory: { enabled: isAdmin, manage_providers: catalogs },
+    web_search: { enabled: isAdmin, manage_providers: canManageProviders },
+    memory: { enabled: isAdmin, manage_providers: canManageProviders },
   };
 }
 

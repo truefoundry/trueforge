@@ -4719,8 +4719,8 @@ client.internal.agents.get_code_snippets(
 </dl>
 </details>
 
-## Settings Configurations
-<details><summary><code>client.settings.configurations.<a href="src/trueforge_sdk/settings/configurations/client.py">get</a>() -> GetConfigurationsResponse</code></summary>
+## Settings Configuration
+<details><summary><code>client.settings.configuration.<a href="src/trueforge_sdk/settings/configuration/client.py">get</a>() -> GetConfigurationResponse</code></summary>
 <dl>
 <dd>
 
@@ -4754,7 +4754,7 @@ client = TrueForge(
     base_url="https://yourhost.com/path/to/api",
 )
 
-client.settings.configurations.get()
+client.settings.configuration.get()
 
 ```
 </dd>
@@ -4782,7 +4782,7 @@ client.settings.configurations.get()
 </dl>
 </details>
 
-<details><summary><code>client.settings.configurations.<a href="src/trueforge_sdk/settings/configurations/client.py">update</a>(...) -> GetConfigurationsResponse</code></summary>
+<details><summary><code>client.settings.configuration.<a href="src/trueforge_sdk/settings/configuration/client.py">update</a>(...) -> GetConfigurationResponse</code></summary>
 <dl>
 <dd>
 
@@ -4809,15 +4809,15 @@ Updates the switches present in the body and leaves the rest. Turning web search
 <dd>
 
 ```python
-from trueforge_sdk import TrueForge, ConfigurationsManifestPatch
+from trueforge_sdk import TrueForge, ConfigurationManifestPatch
 
 client = TrueForge(
     token="<token>",
     base_url="https://yourhost.com/path/to/api",
 )
 
-client.settings.configurations.update(
-    manifest=ConfigurationsManifestPatch(),
+client.settings.configuration.update(
+    manifest=ConfigurationManifestPatch(),
 )
 
 ```
@@ -4834,7 +4834,7 @@ client.settings.configurations.update(
 <dl>
 <dd>
 
-**manifest:** `ConfigurationsManifestPatch` 
+**manifest:** `ConfigurationManifestPatch` 
     
 </dd>
 </dl>

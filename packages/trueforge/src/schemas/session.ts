@@ -34,6 +34,10 @@ export function isSessionAgentNameRef(agent: CreateSessionAgent): agent is Sessi
   return SessionAgentNameRefSchema.safeParse(agent).success;
 }
 
+export function isSessionAgentSpecBody(agent: CreateSessionAgent): agent is SessionAgentSpecBody {
+  return SessionAgentSpecBodySchema.safeParse(agent).success;
+}
+
 export const CreateSessionRequestSchema = z
   .object({
     agent: CreateSessionAgentSchema,

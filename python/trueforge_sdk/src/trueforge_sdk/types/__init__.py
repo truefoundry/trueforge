@@ -49,9 +49,9 @@ if typing.TYPE_CHECKING:
     from .compaction_trigger import CompactionTrigger
     from .completion_usage import CompletionUsage
     from .components_schemas_tool_approval_policy_allow_session import ComponentsSchemasToolApprovalPolicyAllowSession
-    from .configurations import Configurations
-    from .configurations_manifest import ConfigurationsManifest
-    from .configurations_manifest_patch import ConfigurationsManifestPatch
+    from .configuration import Configuration
+    from .configuration_manifest import ConfigurationManifest
+    from .configuration_manifest_patch import ConfigurationManifestPatch
     from .configured_mcp_server import ConfiguredMcpServer
     from .configured_model import ConfiguredModel
     from .configured_model_provider import ConfiguredModelProvider
@@ -83,7 +83,7 @@ if typing.TYPE_CHECKING:
     from .get_agent_response import GetAgentResponse
     from .get_available_mcp_server_response import GetAvailableMcpServerResponse
     from .get_capabilities_response import GetCapabilitiesResponse
-    from .get_configurations_response import GetConfigurationsResponse
+    from .get_configuration_response import GetConfigurationResponse
     from .get_mcp_server_catalog_response import GetMcpServerCatalogResponse
     from .get_mcp_server_response import GetMcpServerResponse
     from .get_me_response import GetMeResponse
@@ -230,7 +230,7 @@ if typing.TYPE_CHECKING:
     from .session_source_schedule import SessionSourceSchedule
     from .session_source_type import SessionSourceType
     from .settings_capability import SettingsCapability
-    from .settings_section_capability import SettingsSectionCapability
+    from .settings_capability_section import SettingsCapabilitySection
     from .skill import Skill
     from .skill_capability import SkillCapability
     from .skill_manifest import SkillManifest
@@ -339,9 +339,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CompactionTrigger": ".compaction_trigger",
     "CompletionUsage": ".completion_usage",
     "ComponentsSchemasToolApprovalPolicyAllowSession": ".components_schemas_tool_approval_policy_allow_session",
-    "Configurations": ".configurations",
-    "ConfigurationsManifest": ".configurations_manifest",
-    "ConfigurationsManifestPatch": ".configurations_manifest_patch",
+    "Configuration": ".configuration",
+    "ConfigurationManifest": ".configuration_manifest",
+    "ConfigurationManifestPatch": ".configuration_manifest_patch",
     "ConfiguredMcpServer": ".configured_mcp_server",
     "ConfiguredModel": ".configured_model",
     "ConfiguredModelProvider": ".configured_model_provider",
@@ -373,7 +373,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "GetAgentResponse": ".get_agent_response",
     "GetAvailableMcpServerResponse": ".get_available_mcp_server_response",
     "GetCapabilitiesResponse": ".get_capabilities_response",
-    "GetConfigurationsResponse": ".get_configurations_response",
+    "GetConfigurationResponse": ".get_configuration_response",
     "GetMcpServerCatalogResponse": ".get_mcp_server_catalog_response",
     "GetMcpServerResponse": ".get_mcp_server_response",
     "GetMeResponse": ".get_me_response",
@@ -520,7 +520,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SessionSourceSchedule": ".session_source_schedule",
     "SessionSourceType": ".session_source_type",
     "SettingsCapability": ".settings_capability",
-    "SettingsSectionCapability": ".settings_section_capability",
+    "SettingsCapabilitySection": ".settings_capability_section",
     "Skill": ".skill",
     "SkillCapability": ".skill_capability",
     "SkillManifest": ".skill_manifest",
@@ -653,9 +653,9 @@ __all__ = [
     "CompactionTrigger",
     "CompletionUsage",
     "ComponentsSchemasToolApprovalPolicyAllowSession",
-    "Configurations",
-    "ConfigurationsManifest",
-    "ConfigurationsManifestPatch",
+    "Configuration",
+    "ConfigurationManifest",
+    "ConfigurationManifestPatch",
     "ConfiguredMcpServer",
     "ConfiguredModel",
     "ConfiguredModelProvider",
@@ -687,7 +687,7 @@ __all__ = [
     "GetAgentResponse",
     "GetAvailableMcpServerResponse",
     "GetCapabilitiesResponse",
-    "GetConfigurationsResponse",
+    "GetConfigurationResponse",
     "GetMcpServerCatalogResponse",
     "GetMcpServerResponse",
     "GetMeResponse",
@@ -834,7 +834,7 @@ __all__ = [
     "SessionSourceSchedule",
     "SessionSourceType",
     "SettingsCapability",
-    "SettingsSectionCapability",
+    "SettingsCapabilitySection",
     "Skill",
     "SkillCapability",
     "SkillManifest",

@@ -88,6 +88,18 @@ describe('createAuthMiddleware / buildAdminAuthMiddleware', () => {
     });
   });
 
+  it('names the route when the group is not accessible in this deployment', async () => {
+    const app = new OpenAPIHono();
+    const gated = new OpenAPIHono();
+    gated.use('*', buildAdminAuthMiddleware({ authenticator: new StandaloneAuthenticator(), accessible: false }));
+    gated.get('/', c => c.json({ ok: true }));
+    app.route('/api/v1/settings/models', gated);
+
+    const res = await app.request('/api/v1/settings/models');
+    expect(res.status).toBe(422);
+    expect(await res.text()).toContain('/api/v1/settings/models is not accessible');
+  });
+
   it('sets standalone request context when using StandaloneAuthenticator', async () => {
     const res = await createApp(new StandaloneAuthenticator()).request('/api/v1/models');
     expect(res.status).toBe(200);

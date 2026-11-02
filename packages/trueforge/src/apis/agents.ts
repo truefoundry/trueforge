@@ -70,7 +70,7 @@ async function validateManifest<TTransaction>({
   sandboxEnvironmentStore,
   webSearchProviderStore,
   configurationStore,
-  previous_spec,
+  previousSpec,
   tenant_id,
   created_by_subject_id,
 }: {
@@ -83,7 +83,7 @@ async function validateManifest<TTransaction>({
   webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
   configurationStore: IConfigurationStore<TTransaction>;
   /** Manifest already saved on this agent; undefined when creating. */
-  previous_spec: AgentSpec | undefined;
+  previousSpec: AgentSpec | undefined;
   tenant_id: string;
   created_by_subject_id: string;
 }): Promise<AgentSpec> {
@@ -98,7 +98,7 @@ async function validateManifest<TTransaction>({
     sandboxEnvironmentStore,
     webSearchProviderStore,
     configurationStore,
-    previous_spec,
+    previousSpec,
   });
   return spec;
 }
@@ -138,7 +138,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
       webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
       configurationStore: deps.resolveConfigurationStore(c),
-      previous_spec: undefined,
+      previousSpec: undefined,
       tenant_id: requestContext.tenant_id,
       created_by_subject_id: requestContext.subject.id,
     });
@@ -247,7 +247,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
       webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
       configurationStore: deps.resolveConfigurationStore(c),
-      previous_spec: existing.manifest,
+      previousSpec: existing.manifest,
       tenant_id: requestContext.tenant_id,
       created_by_subject_id: requestContext.subject.id,
     });

@@ -205,13 +205,13 @@ describe('TruefoundrySettingsBuilder', () => {
     expect(screen.queryByText('Model settings content')).not.toBeInTheDocument();
   });
 
-  it('mounts web search for a host that only exposes the tenant configurations', async () => {
+  it('mounts web search for a host that only exposes the tenant configuration', async () => {
     const sections = allSettingsSections(false);
     const server = createMockAgentUIServer({
       catalog: createMockCatalog({}),
-      configurations: {
-        getConfigurations: async () => ({ webSearch: { enabled: true } }),
-        updateConfigurations: unavailable,
+      configuration: {
+        getConfiguration: async () => ({ webSearch: { enabled: true } }),
+        updateConfiguration: unavailable,
       },
       getCapabilities: async () => ({
         data: {

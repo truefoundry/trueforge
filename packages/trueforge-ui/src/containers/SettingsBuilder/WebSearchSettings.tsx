@@ -9,7 +9,7 @@ import { Switch } from '../../atoms/primitives/Switch.js';
 import { Icon } from '../../icons/Icon.js';
 import {
   useOptionalCatalogServer,
-  useOptionalConfigurationsServer,
+  useOptionalConfigurationServer,
   useServerCapabilities,
   useServerCapabilitiesSettled,
 } from '../../server/ServerContext.js';
@@ -22,7 +22,7 @@ const WebSearchSettings = () => {
   const catalogServer = useOptionalCatalogServer();
   const settings = useServerCapabilities()?.settings;
   const capabilitiesSettled = useServerCapabilitiesSettled();
-  const configurations = useOptionalConfigurationsServer();
+  const configuration = useOptionalConfigurationServer();
   const toaster = useToasterOptional();
   const track = useTrackAnalytics();
 
@@ -76,10 +76,10 @@ const WebSearchSettings = () => {
   }, [refresh]);
 
   useEffect(() => {
-    if (!configurations) return;
+    if (!configuration) return;
     let cancelled = false;
-    void configurations
-      .getConfigurations()
+    void configuration
+      .getConfiguration()
       .then(loaded => {
         if (!cancelled) setTenantEnabled(loaded.webSearch.enabled);
       })
@@ -89,14 +89,14 @@ const WebSearchSettings = () => {
     return () => {
       cancelled = true;
     };
-  }, [configurations]);
+  }, [configuration]);
 
   const handleTenantToggle = async (next: boolean) => {
-    if (!configurations) return;
+    if (!configuration) return;
     setTenantBusy(true);
     setError(null);
     try {
-      const saved = await configurations.updateConfigurations({ webSearch: { enabled: next } });
+      const saved = await configuration.updateConfiguration({ webSearch: { enabled: next } });
       setTenantEnabled(saved.webSearch.enabled);
       toaster?.showSuccess({ title: saved.webSearch.enabled ? 'Web search turned on' : 'Web search turned off' });
       track(AnalyticsEvents.Settings.WEB_SEARCH_TENANT_TOGGLED, { enabled: saved.webSearch.enabled });
@@ -116,10 +116,10 @@ const WebSearchSettings = () => {
   }, [catalog, providers, hasConfiguredProvider]);
 
   // Hold the provider list back until the switch is known, so an off tenant never flashes it.
-  const tenantSettled = configurations == null || tenantEnabled !== null;
+  const tenantSettled = configuration == null || tenantEnabled !== null;
   const showProviders = webSearchCatalog != null && tenantSettled && tenantEnabled !== false;
 
-  if (webSearchCatalog == null && configurations == null) {
+  if (webSearchCatalog == null && configuration == null) {
     return <p className="text-sm text-text-secondary">Web search provider catalog is not available.</p>;
   }
 
