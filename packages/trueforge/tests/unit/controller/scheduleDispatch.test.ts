@@ -12,14 +12,13 @@ import {
 import type { ScheduleDispatchItem, ScheduleRunRecord } from '../../../src/db/scheduleStore';
 import { ScheduleManifestSchema } from '../../../src/schemas/schedule';
 
-function agentRecord({ webSearch = false }: { webSearch?: boolean } = {}) {
+function agentRecord() {
   return {
     id: 'agent-1',
     name: 'reporter',
     manifest: AgentSpecSchema.parse({
       model: { name: 'test-provider/test-model' },
       instructions: 'test',
-      config: { web_search: { enabled: webSearch } },
     }),
   };
 }
@@ -76,16 +75,8 @@ function fakeLogger() {
   return { error: jest.fn(), debug: jest.fn(), info: jest.fn(), warn: jest.fn() };
 }
 
-/** No session for this run yet unless `existing` is given. */
-function fakeSessions({
-  getOrCreateByExternalId,
-  existing,
-}: {
-  getOrCreateByExternalId?: jest.Mock;
-  existing?: { session_id: string; listTurns: jest.Mock };
-}) {
+function fakeSessions({ getOrCreateByExternalId }: { getOrCreateByExternalId?: jest.Mock }) {
   return {
-    getByExternalId: jest.fn().mockResolvedValue(existing),
     getOrCreateByExternalId: getOrCreateByExternalId ?? jest.fn(),
   };
 }
@@ -211,23 +202,6 @@ describe('startScheduleRun', () => {
     });
 
     expect(prepared).toBeUndefined();
-    expect(updateRun).toHaveBeenCalledWith({ tenant_id: 'default', id: 'run-1', session_id: 'session-1' });
-  });
-
-  it('stays idempotent on re-delivery of a run that already executed', async () => {
-    const existing = { session_id: 'session-1', listTurns: jest.fn().mockResolvedValue({ data: [{ id: 'turn-1' }] }) };
-    const getOrCreateByExternalId = jest.fn();
-    const updateRun = jest.fn();
-
-    await expect(
-      startScheduleRun({
-        item: item(),
-        sessions: fakeSessions({ getOrCreateByExternalId, existing }) as never,
-        agentStore: { getAgent: jest.fn().mockResolvedValue(agentRecord({ webSearch: true })) } as never,
-        scheduleStore: { updateRun },
-      }),
-    ).resolves.toBeUndefined();
-    expect(getOrCreateByExternalId).not.toHaveBeenCalled();
     expect(updateRun).toHaveBeenCalledWith({ tenant_id: 'default', id: 'run-1', session_id: 'session-1' });
   });
 

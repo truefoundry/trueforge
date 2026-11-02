@@ -103,22 +103,6 @@ export async function startScheduleRun<TTransaction>(params: {
     throw new ScheduleAgentNotFoundError(schedule.agent_name);
   }
 
-  // A re-delivery of a run that already executed stays successful, so the gate below
-  // only ever rejects a run that has not started. Relinking still happens here because
-  // the first attempt may have failed after its turn.
-  const started = await sessions.getByExternalId({ tenant_id: schedule.tenant_id, external_id: run.id });
-  if (started !== undefined) {
-    const { data: startedTurns } = await started.listTurns({ limit: 1 });
-    if (startedTurns.length > 0) {
-      await scheduleStore.updateRun({
-        tenant_id: schedule.tenant_id,
-        id: run.id,
-        session_id: started.session_id,
-      });
-      return undefined;
-    }
-  }
-
   const { session } = await sessions.getOrCreateByExternalId({
     tenant_id: schedule.tenant_id,
     external_id: run.id,
