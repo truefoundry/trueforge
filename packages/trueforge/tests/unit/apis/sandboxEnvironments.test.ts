@@ -4,7 +4,7 @@ import { createSandboxEnvironmentBuildRouter } from '../../../src/apis/sandboxEn
 import { createSandboxEnvironmentsRouter } from '../../../src/apis/sandboxEnvironments';
 import type { RequestContext } from '../../../src/auth/identity';
 import { STANDALONE_REQUEST_CONTEXT, TRUEFOUNDRY_TENANT_ADMIN_ROLE } from '../../../src/auth/identity';
-import { getTrueForgeAuthMode, TrueForgeAuthMode } from '../../../src/config';
+import { getTrueForgeAuthMode, isTrueFoundryModeEnabled, TrueForgeAuthMode } from '../../../src/config';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
@@ -17,6 +17,7 @@ jest.mock('../../../src/sandbox/providerUtils', () => {
   );
   return {
     ...actual,
+    toSandboxProviderFromRecord: jest.fn(),
     toDaytonaSandboxProvider: jest.fn(),
   };
 });
@@ -24,8 +25,10 @@ jest.mock('../../../src/sandbox/providerUtils', () => {
 jest.mock('../../../src/config', () => {
   const actual = jest.requireActual<typeof import('../../../src/config')>('../../../src/config');
   return {
+    __esModule: true,
     ...actual,
     getTrueForgeAuthMode: jest.fn(() => actual.TrueForgeAuthMode.Standalone),
+    isTrueFoundryModeEnabled: jest.fn(() => false),
   };
 });
 
@@ -44,6 +47,7 @@ describe('sandbox environments API → build controller path', () => {
   afterEach(() => {
     jest.restoreAllMocks();
     jest.mocked(getTrueForgeAuthMode).mockReturnValue(TrueForgeAuthMode.Standalone);
+    jest.mocked(isTrueFoundryModeEnabled).mockReturnValue(false);
   });
 
   async function setup() {
@@ -89,7 +93,24 @@ describe('sandbox environments API → build controller path', () => {
   it('PUT custom env lands pending; internal progress marks ready after build', async () => {
     const { publicRouter, buildRouter, sandboxEnvironmentStore } = await setup();
 
+    jest.mocked(providerUtils.toSandboxProviderFromRecord).mockReturnValue({
+      envSupported: true,
+      createSecret: jest.fn(),
+      updateSecret: jest.fn(),
+      deleteSecret: jest.fn(),
+      getBuildStatus: jest.fn().mockResolvedValue({
+        status: 'pending',
+        reason: DAYTONA_SNAPSHOT_NOT_STARTED_REASON,
+        metadata: null,
+      }),
+      build: jest.fn().mockResolvedValue({
+        status: 'ready',
+        reason: null,
+        metadata: null,
+      }),
+    } as never);
     jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReturnValue({
+      envSupported: true,
       createSecret: jest.fn(),
       updateSecret: jest.fn(),
       deleteSecret: jest.fn(),
@@ -190,7 +211,16 @@ describe('sandbox environments API → build controller path', () => {
 
   it('POST creates an environment and returns 409 on name clash', async () => {
     const { publicRouter, sandboxEnvironmentStore } = await setup();
+    jest.mocked(providerUtils.toSandboxProviderFromRecord).mockReturnValue({
+      envSupported: true,
+      createSecret: jest.fn(),
+      updateSecret: jest.fn(),
+      deleteSecret: jest.fn(),
+      getBuildStatus: jest.fn(),
+      build: jest.fn(),
+    } as never);
     jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReturnValue({
+      envSupported: true,
       createSecret: jest.fn(),
       updateSecret: jest.fn(),
       deleteSecret: jest.fn(),
@@ -268,7 +298,16 @@ describe('sandbox environments API → build controller path', () => {
 
   it('allows all users to read; create is admin-only; update/delete allow admin or creator', async () => {
     const { publicRouter, setSubject } = await setup();
+    jest.mocked(providerUtils.toSandboxProviderFromRecord).mockReturnValue({
+      envSupported: true,
+      createSecret: jest.fn(),
+      updateSecret: jest.fn(),
+      deleteSecret: jest.fn(),
+      getBuildStatus: jest.fn(),
+      build: jest.fn(),
+    } as never);
     jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReturnValue({
+      envSupported: true,
       createSecret: jest.fn(),
       updateSecret: jest.fn(),
       deleteSecret: jest.fn(),
@@ -368,7 +407,16 @@ describe('sandbox environments API → build controller path', () => {
   it('in TrueFoundry mode create is tenant-admin only; update/delete allow tenant-admin or creator', async () => {
     jest.mocked(getTrueForgeAuthMode).mockReturnValue(TrueForgeAuthMode.TrueFoundry);
     const { publicRouter, setSubject } = await setup();
+    jest.mocked(providerUtils.toSandboxProviderFromRecord).mockReturnValue({
+      envSupported: true,
+      createSecret: jest.fn(),
+      updateSecret: jest.fn(),
+      deleteSecret: jest.fn(),
+      getBuildStatus: jest.fn(),
+      build: jest.fn(),
+    } as never);
     jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReturnValue({
+      envSupported: true,
       createSecret: jest.fn(),
       updateSecret: jest.fn(),
       deleteSecret: jest.fn(),
@@ -454,5 +502,62 @@ describe('sandbox environments API → build controller path', () => {
 
     expect((await publicRouter.request('/tfy-env', { method: 'DELETE' })).status).toBe(200);
     expect((await publicRouter.request('/tfy-env')).status).toBe(404);
+  });
+  function mockSecretProvider() {
+    jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReturnValue({
+      createSecret: jest.fn(),
+      updateSecret: jest.fn(),
+      deleteSecret: jest.fn(),
+      getBuildStatus: jest.fn(),
+      build: jest.fn(),
+    } as never);
+  }
+
+  async function writeEnv(
+    publicRouter: Awaited<ReturnType<typeof setup>>['publicRouter'],
+    { method, build_script }: { method: 'POST' | 'PUT'; build_script: string },
+  ) {
+    return publicRouter.request('/', {
+      method,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        manifest: { name: 'identity-env', image: { type: 'build', build_script } },
+      }),
+    });
+  }
+
+  it('stores type equal to the provider outside TrueFoundry mode', async () => {
+    const { publicRouter, sandboxEnvironmentStore } = await setup();
+    mockSecretProvider();
+
+    expect((await writeEnv(publicRouter, { method: 'POST', build_script: 'pip install httpx' })).status).toBe(201);
+    const stored = await sandboxEnvironmentStore.getEnvironment({
+      tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
+      name: 'identity-env',
+    });
+    expect(stored?.version.manifest).toMatchObject({ type: 'daytona', sandbox_provider: 'daytona' });
+  });
+
+  it('in TrueFoundry mode POST and PUT store type truefoundry with the backing sandbox_provider', async () => {
+    jest.mocked(getTrueForgeAuthMode).mockReturnValue(TrueForgeAuthMode.TrueFoundry);
+    jest.mocked(isTrueFoundryModeEnabled).mockReturnValue(true);
+    const { publicRouter, sandboxEnvironmentStore, setSubject } = await setup();
+    mockSecretProvider();
+    setSubject('alice', [TRUEFOUNDRY_TENANT_ADMIN_ROLE]);
+    const load = () =>
+      sandboxEnvironmentStore.getEnvironment({
+        tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
+        name: 'identity-env',
+      });
+
+    const created = await writeEnv(publicRouter, { method: 'POST', build_script: 'pip install httpx' });
+    expect(created.status).toBe(201);
+    expect(JSON.stringify(await created.json())).not.toContain('sandbox_provider');
+    expect((await load())?.version.manifest).toMatchObject({ type: 'truefoundry', sandbox_provider: 'daytona' });
+
+    expect((await writeEnv(publicRouter, { method: 'PUT', build_script: 'pip install requests' })).status).toBe(200);
+    const updated = await load();
+    expect(updated?.version.version).toBe(2);
+    expect(updated?.version.manifest).toMatchObject({ type: 'truefoundry', sandbox_provider: 'daytona' });
   });
 });

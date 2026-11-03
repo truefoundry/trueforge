@@ -3630,10 +3630,14 @@
           "enabled": {
             "description": "Whether a sandbox provider is configured for this tenant.",
             "type": "boolean"
+          },
+          "environments": {
+            "$ref": "#/components/schemas/SandboxEnvironmentsCapability"
           }
         },
         "required": [
-          "enabled"
+          "enabled",
+          "environments"
         ],
         "type": "object"
       },
@@ -3950,6 +3954,18 @@
           "failed"
         ],
         "type": "string"
+      },
+      "SandboxEnvironmentsCapability": {
+        "properties": {
+          "enabled": {
+            "description": "Whether sandbox environments (snapshots / Environments UI) are available for this tenant.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "type": "object"
       },
       "SandboxProviderManifest": {
         "additionalProperties": false,

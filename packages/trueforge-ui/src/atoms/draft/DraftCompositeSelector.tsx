@@ -350,6 +350,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   const compactLayout = useCompactLayout();
   const skillsDisabled = capabilities?.skill.enabled !== true;
   const skillsDisabledReason = capabilities?.skill.reason;
+  const environmentsCapabilityEnabled = capabilities?.sandbox?.environments?.enabled === true;
   const webSearchDisabledReason = capabilities?.webSearch?.reason ?? WEB_SEARCH_UNAVAILABLE_HINT;
   const webSearchEnabled = agentSpec?.config?.webSearch?.enabled ?? capabilities?.webSearch?.enabled === true;
   // A chat that already searches the web keeps it until the user turns it off; only
@@ -367,6 +368,16 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
     isSettingsSectionEnabled({ settings, section: 'skills' }) && settingsCatalog?.skillCatalog != null;
   const canConfigureSandbox =
     isSettingsSectionEnabled({ settings, section: 'sandboxProviders' }) && settingsCatalog?.sandboxCatalog != null;
+  const attachTabs = useMemo(
+    () => TABS.filter(t => t.id !== 'environments' || environmentsCapabilityEnabled),
+    [environmentsCapabilityEnabled],
+  );
+
+  useEffect(() => {
+    if (!environmentsCapabilityEnabled && tab === 'environments') {
+      setTab('connectors');
+    }
+  }, [environmentsCapabilityEnabled, tab]);
 
   const specMcp = useMemo(() => draftMountsFromSpec(agentSpec?.mcpServers), [agentSpec?.mcpServers]);
   const specSkills = useMemo(() => draftMountsFromSpec(agentSpec?.skills), [agentSpec?.skills]);
@@ -651,7 +662,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   const content = (
     <>
       <div className="flex shrink-0 border-b border-border">
-        {TABS.map(t => {
+        {attachTabs.map(t => {
           const count = t.id === 'connectors' ? selectedMcp.length : t.id === 'skills' ? selectedSkills.length : null;
           const active = tab === t.id;
           return (

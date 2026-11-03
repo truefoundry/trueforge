@@ -3,8 +3,8 @@ import { HTTPException } from 'hono/http-exception';
 import type { RequestContext } from '../../../src/auth/identity';
 import type { AgentRecord } from '../../../src/db/agentStore';
 import {
-  ACTOR_AUTHORIZATION_HEADER,
   accessTokenForRequest,
+  ACTOR_AUTHORIZATION_HEADER,
   asTrueFoundryRequestContext,
   callerAccessToken,
   createTrueFoundryRequestContext,

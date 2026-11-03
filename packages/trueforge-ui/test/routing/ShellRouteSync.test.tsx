@@ -84,7 +84,7 @@ function SettingsCatalogProvider({
       if (capabilitiesFail) throw new Error('Unavailable');
       return {
         data: {
-          sandbox: { enabled: true },
+          sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
           settings: allSettingsSections(settingsEnabled),
         },
@@ -719,14 +719,40 @@ describe('ShellRouteSync', () => {
     expect(pathname).toBe('/');
   });
 
-  it('mirrors environments open through history when sandboxEnvironments port is present', () => {
+  it('opens environments on boot from a /environments deep link', async () => {
+    renderSync({
+      initialEntries: ['/environments'],
+      agentConfig: { mode: 'AgentLibraryWithComposer' },
+      includeEnvironments: true,
+    });
+    await waitFor(() => {
+      expect(shell.environmentsOpen).toBe(true);
+      expect(pathname).toBe('/environments');
+    });
+  });
+
+  it('returns to the chat place when a /environments deep link is closed', async () => {
+    renderSync({
+      initialEntries: ['/environments'],
+      agentConfig: { mode: 'AgentLibraryWithComposer' },
+      includeEnvironments: true,
+    });
+    await waitFor(() => expect(shell.environmentsOpen).toBe(true));
+    act(() => shell.setEnvironmentsOpen(false));
+    expect(pathname).toBe('/');
+  });
+
+  it('mirrors environments open through history when sandboxEnvironments port is present', async () => {
     renderSync({
       initialEntries: ['/'],
       agentConfig: { mode: 'AgentLibraryWithComposer' },
       includeEnvironments: true,
     });
-    act(() => shell.setEnvironmentsOpen(true));
-    expect(shell.environmentsOpen).toBe(true);
+    // Environments chrome waits on capabilities.sandbox.environments.enabled.
+    await waitFor(() => {
+      act(() => shell.setEnvironmentsOpen(true));
+      expect(shell.environmentsOpen).toBe(true);
+    });
     expect(pathname).toBe('/environments');
   });
 

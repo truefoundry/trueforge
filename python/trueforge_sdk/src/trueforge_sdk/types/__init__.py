@@ -195,6 +195,7 @@ if typing.TYPE_CHECKING:
     from .sandbox_environment_resources import SandboxEnvironmentResources
     from .sandbox_environment_secret import SandboxEnvironmentSecret
     from .sandbox_environment_version_status import SandboxEnvironmentVersionStatus
+    from .sandbox_environments_capability import SandboxEnvironmentsCapability
     from .sandbox_provider_manifest import SandboxProviderManifest
     from .schedule import Schedule
     from .schedule_manifest import ScheduleManifest
@@ -486,6 +487,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SandboxEnvironmentResources": ".sandbox_environment_resources",
     "SandboxEnvironmentSecret": ".sandbox_environment_secret",
     "SandboxEnvironmentVersionStatus": ".sandbox_environment_version_status",
+    "SandboxEnvironmentsCapability": ".sandbox_environments_capability",
     "SandboxProviderManifest": ".sandbox_provider_manifest",
     "Schedule": ".schedule",
     "ScheduleManifest": ".schedule_manifest",
@@ -801,6 +803,7 @@ __all__ = [
     "SandboxEnvironmentResources",
     "SandboxEnvironmentSecret",
     "SandboxEnvironmentVersionStatus",
+    "SandboxEnvironmentsCapability",
     "SandboxProviderManifest",
     "Schedule",
     "ScheduleManifest",
