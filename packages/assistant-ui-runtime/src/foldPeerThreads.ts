@@ -452,9 +452,14 @@ export function ingestStreamEvent(state: PeerThreadFoldState, message: TurnStrea
 
   if (!isEventDelta(message)) {
     if (state.ingestedEventIds.has(message.id)) {
-      return false;
+      // Inclusive resume replays the model.message shell so later deltas rebuild
+      // from a clean base instead of stacking on a partial in-memory fold.
+      if (message.type !== EVENT_TYPE.MODEL_MESSAGE) {
+        return false;
+      }
+    } else {
+      state.ingestedEventIds.add(message.id);
     }
-    state.ingestedEventIds.add(message.id);
   }
 
   if (isFoldNeutralInboundEvent(message)) {

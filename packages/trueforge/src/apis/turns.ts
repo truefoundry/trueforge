@@ -2047,6 +2047,18 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
     if (!turn) {
       return c.json({ error: { message: `Turn not found: ${turnId}` } }, 404);
     }
+    // Reject cursors that are not durable rows for this turn (wrong turn, forged ULID).
+    // Shared message/delta ids still resolve via the durable model.message row.
+    const resumeEventId = fromEventId ?? afterEventId;
+    if (resumeEventId !== undefined) {
+      const log = await deps.sessionStore.listTurnEventLog({
+        session_id: sessionId,
+        turn_id: turnId,
+      });
+      if (!log.some(row => row.event.id === resumeEventId)) {
+        throw new HTTPException(400, { message: 'Event id is not part of this turn.' });
+      }
+    }
 
     const turnEventStream = deps.eventSubscriptions.get(turnStreamId(requestContext.tenant_id, sessionId, turnId));
 

@@ -1,7 +1,6 @@
 /**
- * Single-process backend mirroring RedisEventSubscription semantics
- * (ULID-millisecond entry ids, whole-stream TTL, poll-forever generators).
- * Resume only works within one replica.
+ * Process-local EventSubscription backend for tests and single-replica runs.
+ * Entry ids are `{millisecond}-{n}`; streams expire after an optional TTL.
  */
 import { EventEmitter, once } from 'node:events';
 import {
@@ -29,17 +28,14 @@ interface StoredEvent<T extends { id: string }> {
 }
 
 interface InMemoryStream<T extends { id: string }> {
-  /** Appended in Redis stream-id order. */
+  /** Appended in entry-id order. */
   events: StoredEvent<T>[];
-  /** Undefined = no TTL set yet (mirrors a Redis key without EXPIRE). */
+  /** Undefined until the first put/repair sets a TTL. */
   expiresAtMs?: number | undefined;
   expiryTimer?: NodeJS.Timeout | undefined;
 }
 
-/**
- * Owns the stream logs and their TTLs; the expiry timer is the in-process
- * equivalent of Redis key eviction.
- */
+/** Owns per-stream logs, owners, and TTL timers for this process. */
 export class InMemoryEventStreamStore<T extends { id: string }> {
   private readonly streams = new Map<string, InMemoryStream<T>>();
   /** Survives stream eviction so a stale producer cannot recreate a missing log. */
@@ -104,7 +100,7 @@ export class InMemoryEventStreamStore<T extends { id: string }> {
     return this.getLiveStream(streamId)?.events[0]?.entryId;
   }
 
-  /** Drops the log and keeps the owner, matching Redis stream-key expiry. */
+  /** Drops the log and keeps the owner so a stale producer cannot recreate it. */
   evictStream(streamId: string): void {
     const stream = this.streams.get(streamId);
     if (stream === undefined) {
@@ -178,8 +174,8 @@ export class InMemoryEventStreamStore<T extends { id: string }> {
   }
 
   /**
-   * Redis `XADD <ms>-*` : counter 0 when the millisecond is newer than the last
-   * id, otherwise the last millisecond's counter plus one.
+   * Next `{ms}-{n}` id: counter resets when `milliseconds` moves forward,
+   * otherwise increments within the current millisecond.
    */
   private nextEntryId(stream: InMemoryStream<T>, milliseconds: number): string {
     const last = stream.events[stream.events.length - 1];
@@ -259,7 +255,7 @@ export class InMemoryEventSubscription<T extends { id: string }> implements Even
     if (!stream) {
       return Promise.reject(new StreamGoneError(this.streamId));
     }
-    // Expiring within the threshold is treated as already gone, mirroring the Redis backend.
+    // Same admission window as the shared subscribe threshold.
     if (stream.expiresAtMs !== undefined && stream.expiresAtMs - Date.now() < SUBSCRIBE_STREAM_THRESHOLD_MS) {
       return Promise.reject(new StreamGoneError(this.streamId));
     }

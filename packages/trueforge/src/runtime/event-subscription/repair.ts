@@ -87,11 +87,22 @@ function suffixAfterTail<T extends { id: string }>(
   if (tail === undefined) {
     return [...entries];
   }
+  // Prefer an exact payload match. The live tip may be a model.message.delta
+  // that was never durable; fall back to the last durable row with the same id
+  // (the message shell) so later durable events still append.
   let match = -1;
   for (let index = 0; index < entries.length; index += 1) {
     const entry = entries[index];
     if (entry?.id === tail.eventId && eventPayloadMatches(entry.event, tail.payload)) {
       match = index;
+    }
+  }
+  if (match === -1) {
+    for (let index = entries.length - 1; index >= 0; index -= 1) {
+      if (entries[index]?.id === tail.eventId) {
+        match = index;
+        break;
+      }
     }
   }
   if (match === -1) {

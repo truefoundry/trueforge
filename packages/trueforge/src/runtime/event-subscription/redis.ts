@@ -32,7 +32,17 @@ local startBound = '(' .. cursor
 local previous, lastMatch = nil, nil
 while true do
   local entries = redis.call('XRANGE', KEYS[1], startBound, '+', 'COUNT', batch)
-  if #entries == 0 then break end
+  if #entries == 0 then
+    -- Start was past the tip (e.g. a future ULID ms): park at the real tip so
+    -- XREAD still sees later live appends instead of waiting above them.
+    if previous == nil then
+      local tip = redis.call('XREVRANGE', KEYS[1], '+', '-', 'COUNT', 1)
+      if tip[1] ~= nil then
+        return tip[1][1]
+      end
+    end
+    break
+  end
   for i = 1, #entries do
     local entryId, fields = entries[i][1], entries[i][2]
     local data = nil

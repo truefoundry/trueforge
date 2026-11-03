@@ -1021,6 +1021,12 @@ describe('turns', () => {
       const invalid = await app.request(`/${sessionId}/turns/${pausedTurnId}/subscribe?from_event_id=not-a-ulid`);
       expect(invalid.status).toBe(400);
 
+      const { ulid } = await import('ulid');
+      const foreign = await app.request(
+        `/${sessionId}/turns/${pausedTurnId}/subscribe?from_event_id=${ulid().toLowerCase()}`,
+      );
+      expect(foreign.status).toBe(400);
+
       const sequenceOnEventIdStream = await app.request(
         `/${sessionId}/turns/${pausedTurnId}/subscribe?after_sequence_number=1`,
       );

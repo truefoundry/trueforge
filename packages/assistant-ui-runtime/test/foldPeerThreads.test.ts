@@ -55,6 +55,31 @@ describe('foldPeerThreads', () => {
     expect(buildRootAssistantContent(state)).toEqual([{ type: 'text', text: 'hello' }]);
   });
 
+  it('replaces an already-ingested model.message shell on inclusive replay', () => {
+    const state = new PeerThreadFoldState();
+    ingestStreamEvent(
+      state,
+      modelMessage({
+        id: 'm1',
+        threadId: ROOT_THREAD_ID,
+        content: 'partial',
+      }),
+    );
+    expect(buildRootAssistantContent(state)).toEqual([{ type: 'text', text: 'partial' }]);
+
+    expect(
+      ingestStreamEvent(
+        state,
+        modelMessage({
+          id: 'm1',
+          threadId: ROOT_THREAD_ID,
+          content: 'fresh',
+        }),
+      ),
+    ).toBe(true);
+    expect(buildRootAssistantContent(state)).toEqual([{ type: 'text', text: 'fresh' }]);
+  });
+
   it('captures sub-agent title from thread.created and tags nested messages', () => {
     const state = new PeerThreadFoldState();
 
