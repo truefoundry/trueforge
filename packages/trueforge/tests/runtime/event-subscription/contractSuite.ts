@@ -5,6 +5,7 @@ import {
   type EventSubscriptionRegistry,
   type SequencedEvent,
 } from '../../../src/runtime/event-subscription';
+import { eventLogPages } from '../../../src/runtime/event-subscription/repair';
 
 /** Payload shape used by the suite; distinct per event so round-trips are provable. */
 export interface TestEvent {
@@ -171,10 +172,10 @@ export function runEventSubscriptionContractSuite(
     };
     const third = makeEvent(2);
     await producer.repairLog({
-      entries: [
+      readPages: eventLogPages([
         { id: 'evt-0', event: fromDatabase },
         { id: 'evt-2', event: third },
-      ],
+      ]),
       streamTTLSeconds: STREAM_TTL_SECONDS,
     });
 
@@ -211,10 +212,10 @@ export function runEventSubscriptionContractSuite(
     await evictStream(streamId);
 
     await producer.repairLog({
-      entries: [
+      readPages: eventLogPages([
         { id: first.id, event: first },
         { id: second.id, event: second },
-      ],
+      ]),
       streamTTLSeconds: STREAM_TTL_SECONDS,
       executorId: 'owner',
     });
@@ -235,10 +236,10 @@ export function runEventSubscriptionContractSuite(
     await producer.put(second, { streamTTLSeconds: STREAM_TTL_SECONDS });
     const repair = () =>
       producer.repairLog({
-        entries: [
+        readPages: eventLogPages([
           { id: first.id, event: first },
           { id: second.id, event: second },
-        ],
+        ]),
         streamTTLSeconds: STREAM_TTL_SECONDS,
         executorId: 'owner',
       });
@@ -257,7 +258,7 @@ export function runEventSubscriptionContractSuite(
     const owner = registry.get(streamId);
     const event = makeEvent(1);
     await owner.repairLog({
-      entries: [{ id: event.id, event }],
+      readPages: eventLogPages([{ id: event.id, event }]),
       streamTTLSeconds: STREAM_TTL_SECONDS,
       executorId: 'owner',
     });

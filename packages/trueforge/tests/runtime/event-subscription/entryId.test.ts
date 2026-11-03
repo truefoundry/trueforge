@@ -1,5 +1,5 @@
 import { eventIdSeekCursor, eventIdTimestampMs } from '../../../src/runtime/event-subscription/entryId';
-import { eventPayloadMatches } from '../../../src/runtime/event-subscription/repair';
+import { eventLogPages, eventPayloadMatches } from '../../../src/runtime/event-subscription/repair';
 
 const EVENT_ID = '01arz3ndektsv4rrffq69g5fav';
 
@@ -52,10 +52,10 @@ describe('suffixAfterTail via repairLog', () => {
     await producer.put(shell, { streamTTLSeconds: 300 });
     await producer.put(deltaTip, { streamTTLSeconds: 300 });
     await producer.repairLog({
-      entries: [
+      readPages: eventLogPages([
         { id: 'evt-1', event: shell },
         { id: 'evt-2', event: next },
-      ],
+      ]),
       streamTTLSeconds: 300,
     });
     const abort = new AbortController();

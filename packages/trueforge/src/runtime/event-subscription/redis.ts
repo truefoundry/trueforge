@@ -10,7 +10,13 @@ import {
   type SequencedEvent,
 } from '.';
 import { entryIdMilliseconds, eventIdSeekCursor, eventIdTimestampMs, isLegacySequenceEntryId } from './entryId';
-import { applyEventLogRepair, eventIdFromStreamData, type RepairLogOptions, type StreamTail } from './repair';
+import {
+  applyEventLogRepair,
+  eventIdFromStreamData,
+  type AppendAfterTailResult,
+  type RepairLogOptions,
+  type StreamTail,
+} from './repair';
 
 const SUBSCRIBE_STREAM_POLL_ITEMS_COUNT = 100;
 /** Delay between XREAD polls while a stream has no new events (a blocking XREAD would monopolize the shared connection). */
@@ -113,8 +119,9 @@ return 'ok'
  * Repair backfill. KEYS[1]=stream  ARGV[1]=expected tail id ('' = empty) ARGV[2]=ttl
  * ARGV[3..]=ms, payload pairs.
  *
- * Appends only while the tail is still the one the suffix was computed from;
- * otherwise returns 'stale' and the caller recomputes.
+ * Appends only while the tail is still the one the suffix was computed from.
+ * Returns {'ok', lastEntryId} or 'stale'. The caller uses lastEntryId as the
+ * expected tail of the next page.
  */
 const APPEND_AFTER_TAIL = `
 local tail = redis.call('XREVRANGE', KEYS[1], '+', '-', 'COUNT', 1)
@@ -126,19 +133,23 @@ if tailId ~= ARGV[1] then
   return 'stale'
 end
 local tailMs = string.match(tailId, '^%d+') or '0'
+local lastAdded = nil
 for i = 3, #ARGV, 2 do
   local ms = ARGV[i]
   if tonumber(tailMs) > tonumber(ms) then
     ms = tailMs
   end
-  local added = redis.call('XADD', KEYS[1], ms .. '-*', 'data', ARGV[i + 1])
-  tailMs = string.match(added, '^%d+')
+  lastAdded = redis.call('XADD', KEYS[1], ms .. '-*', 'data', ARGV[i + 1])
+  tailMs = string.match(lastAdded, '^%d+')
 end
 local ttl = tonumber(ARGV[2])
 if ttl > 0 then
   redis.call('EXPIRE', KEYS[1], ttl)
 end
-return 'ok'
+if lastAdded == nil then
+  return 'stale'
+end
+return {'ok', lastAdded}
 `;
 
 function streamOwnerKey(streamId: string): string {
@@ -147,6 +158,20 @@ function streamOwnerKey(streamId: string): string {
 
 function ttlArgument(streamTTLSeconds: number | undefined): string {
   return String(streamTTLSeconds !== undefined && streamTTLSeconds > 0 ? streamTTLSeconds : 0);
+}
+
+function parseAppendReply(value: unknown, streamId: string): AppendAfterTailResult {
+  if (value === 'stale') {
+    return { status: 'stale' };
+  }
+  if (Array.isArray(value) && value.length === 2) {
+    const status: unknown = value[0];
+    const tailEntryId: unknown = value[1];
+    if (status === 'ok' && typeof tailEntryId === 'string') {
+      return { status: 'ok', tailEntryId };
+    }
+  }
+  throw new Error(`Unexpected stream repair reply on ${streamId}`);
 }
 
 function parseSeekReply(value: unknown): { cursor: string; found: boolean } {
@@ -173,7 +198,7 @@ export class RedisEventSubscription<T extends { id: string }> implements EventSu
   async repairLog(options: RepairLogOptions<T>): Promise<void> {
     const executorId = options.executorId;
     await applyEventLogRepair({
-      entries: options.entries,
+      readPages: options.readPages,
       claimOwner: executorId === undefined ? undefined : () => this.claimOwner(executorId, options.streamTTLSeconds),
       readTail: () => this.readTail(),
       appendAfterTail: batch => this.appendAfterTail({ ...batch, streamTTLSeconds: options.streamTTLSeconds }),
@@ -421,16 +446,13 @@ export class RedisEventSubscription<T extends { id: string }> implements EventSu
     tailEntryId: string | undefined;
     events: T[];
     streamTTLSeconds: number | undefined;
-  }): Promise<'ok' | 'stale'> {
+  }): Promise<AppendAfterTailResult> {
     const pairs = input.events.flatMap(event => [this.entryMillisecondFor(event), JSON.stringify(event)]);
     const reply: unknown = await this.redis.eval(APPEND_AFTER_TAIL, {
       keys: [this.streamId],
       arguments: [input.tailEntryId ?? '', ttlArgument(input.streamTTLSeconds), ...pairs],
     });
-    if (reply === 'ok' || reply === 'stale') {
-      return reply;
-    }
-    throw new Error(`Unexpected stream repair reply on ${this.streamId}`);
+    return parseAppendReply(reply, this.streamId);
   }
 
   private entryMillisecondFor(event: T): string {

@@ -88,7 +88,7 @@ export interface ScheduleTurnExecutionDeps<TTransaction> {
   scheduleStore: IScheduleStore<TTransaction>;
   sessions: Sessions<TTransaction>;
   /** Previous-turn cancel, and rebuilding a missing event stream. */
-  sessionStore: Pick<ISessionStore<TTransaction>, 'getTurn' | 'listTurnEventLog'>;
+  sessionStore: Pick<ISessionStore<TTransaction>, 'getTurn' | 'listTurnEvents'>;
   webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
 }
 

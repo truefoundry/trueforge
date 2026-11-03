@@ -99,7 +99,6 @@ export type {
   InsertTurnInboundEventsInput,
   ListSessionEventsInput,
   ListSessionsInput,
-  ListTurnEventLogInput,
   ListTurnEventsInput,
   ListTurnsInput,
   ListUnconsumedTurnInboundEventsInput,

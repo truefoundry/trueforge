@@ -11,7 +11,11 @@ export interface EventLogEntry<T extends { id: string }> {
 }
 
 export interface RepairLogOptions<T extends { id: string }> {
-  entries: readonly EventLogEntry<T>[];
+  /**
+   * Durable rows in persist order, one page at a time. Called again when a
+   * concurrent append moves the tail, so the walk restarts from the first page.
+   */
+  readPages: () => AsyncIterable<readonly EventLogEntry<T>[]>;
   streamTTLSeconds?: number | undefined;
   /**
    * Set by the database owner that is about to produce. Claims the stream-owner
@@ -25,6 +29,20 @@ export interface StreamTail {
   eventId: string;
   /** JSON written on the stream, used to tell shared-id rows apart. */
   payload: string;
+}
+
+/** `'stale'` means the tail moved and the caller must recompute. */
+export type AppendAfterTailResult = { status: 'ok'; tailEntryId: string } | { status: 'stale' };
+
+/** One page, for a caller that already holds the rows. Each call starts a new walk. */
+export function eventLogPages<T extends { id: string }>(
+  entries: readonly EventLogEntry<T>[],
+): () => AsyncIterable<readonly EventLogEntry<T>[]> {
+  return () =>
+    (async function* () {
+      await Promise.resolve();
+      yield entries;
+    })();
 }
 
 /** Backfill gives up after this many concurrent tail moves. */
@@ -117,14 +135,15 @@ function suffixAfterTail<T extends { id: string }>(
 
 /**
  * Appends the missing suffix only while the stream tail is still the one it was
- * computed from. A concurrent writer (live producer or another repair) moves the
- * tail; the suffix is then recomputed, so stale rows never land after newer ones.
+ * computed from. Pages stay in persist order: an empty stream is filled from
+ * the start, and an existing stream appends only after its tail. A concurrent
+ * writer moves the tail; the walk restarts, so stale rows never land after newer ones.
  */
 export async function applyEventLogRepair<T extends { id: string }>(input: {
-  entries: readonly EventLogEntry<T>[];
+  readPages: () => AsyncIterable<readonly EventLogEntry<T>[]>;
   claimOwner?: (() => Promise<void>) | undefined;
   readTail: () => Promise<StreamTail | undefined>;
-  appendAfterTail: (batch: { tailEntryId: string | undefined; events: T[] }) => Promise<'ok' | 'stale'>;
+  appendAfterTail: (batch: { tailEntryId: string | undefined; events: T[] }) => Promise<AppendAfterTailResult>;
   refreshTtl: () => Promise<void>;
   /** Producer resume refreshes TTL even when the existing stream is already complete. */
   refreshTtlOnUntouchedStream: boolean;
@@ -134,20 +153,61 @@ export async function applyEventLogRepair<T extends { id: string }>(input: {
   }
   for (let attempt = 0; attempt < REPAIR_MAX_ATTEMPTS; attempt += 1) {
     const tail = await input.readTail();
-    const suffix = suffixAfterTail(input.entries, tail);
-    if (suffix.length === 0) {
-      if (input.refreshTtlOnUntouchedStream) {
-        await input.refreshTtl();
-      }
-      return;
-    }
-    const outcome = await input.appendAfterTail({
-      tailEntryId: tail?.entryId,
-      events: suffix.map(entry => entry.event),
+    const outcome = await appendMissingPages({
+      readPages: input.readPages,
+      tail,
+      appendAfterTail: input.appendAfterTail,
     });
-    if (outcome === 'ok') {
-      return;
+    if (outcome === 'stale') {
+      continue;
     }
+    if (outcome === 'untouched' && input.refreshTtlOnUntouchedStream) {
+      await input.refreshTtl();
+    }
+    return;
   }
   throw new Error(`Stream repair gave up after ${String(REPAIR_MAX_ATTEMPTS)} concurrent tail changes`);
+}
+
+/**
+ * One page is in memory at a time. The next page's expected tail is the entry
+ * id the previous append wrote, so a producer cannot land between the two.
+ */
+async function appendMissingPages<T extends { id: string }>(input: {
+  readPages: () => AsyncIterable<readonly EventLogEntry<T>[]>;
+  tail: StreamTail | undefined;
+  appendAfterTail: (batch: { tailEntryId: string | undefined; events: T[] }) => Promise<AppendAfterTailResult>;
+}): Promise<'appended' | 'untouched' | 'stale'> {
+  let expectedTailId = input.tail?.entryId;
+  let passedTail = input.tail === undefined;
+  let appended = false;
+  for await (const page of input.readPages()) {
+    let rows: readonly EventLogEntry<T>[];
+    if (!passedTail) {
+      const tail = input.tail;
+      if (tail === undefined || !page.some(entry => entry.id === tail.eventId)) {
+        continue;
+      }
+      passedTail = true;
+      rows = suffixAfterTail(page, tail);
+    } else {
+      rows = page;
+    }
+    if (rows.length === 0) {
+      continue;
+    }
+    const outcome = await input.appendAfterTail({
+      tailEntryId: expectedTailId,
+      events: rows.map(entry => entry.event),
+    });
+    if (outcome.status === 'stale') {
+      return 'stale';
+    }
+    expectedTailId = outcome.tailEntryId;
+    appended = true;
+  }
+  if (!passedTail) {
+    return 'untouched';
+  }
+  return appended ? 'appended' : 'untouched';
 }

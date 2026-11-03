@@ -4595,28 +4595,6 @@ export function runStoreContractSuite<TTransaction>(
     });
   }
 
-  describe('listTurnEventLog', () => {
-    it('returns every event of the turn in event_id order and rejects a missing turn', async () => {
-      const store = createStore();
-      await seedSession(store);
-      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
-      const created = makeTurnCreatedEvent('turn-1');
-      const message = makeModelMessageEvent();
-      await store.appendToEvents({
-        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
-        session_id: sessionId,
-        turn_id: 'turn-1',
-        events: [created, message],
-      });
-
-      const log = await store.listTurnEventLog({ session_id: sessionId, turn_id: 'turn-1' });
-      expect(log).toEqual([created, message].sort((left, right) => (left.id < right.id ? -1 : 1)));
-      await expect(store.listTurnEventLog({ session_id: sessionId, turn_id: 'missing' })).rejects.toBeInstanceOf(
-        TurnNotFoundError,
-      );
-    });
-  });
-
   describe('no SSE surface', () => {
     it('ISessionStore has no subscribe* members', () => {
       const store = createStore();

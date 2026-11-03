@@ -20,7 +20,7 @@ import {
   isEntryAfterCursor,
   isLegacySequenceEntryId,
 } from './entryId';
-import { applyEventLogRepair, type RepairLogOptions, type StreamTail } from './repair';
+import { applyEventLogRepair, type AppendAfterTailResult, type RepairLogOptions, type StreamTail } from './repair';
 
 function ttlDeadline(streamTTLSeconds: number | undefined): number | undefined {
   return streamTTLSeconds !== undefined && streamTTLSeconds > 0 ? Date.now() + streamTTLSeconds * 1_000 : undefined;
@@ -90,10 +90,10 @@ export class InMemoryEventStreamStore<T extends { id: string }> {
     tailEntryId: string | undefined;
     events: T[];
     streamTTLSeconds: number | undefined;
-  }): 'ok' | 'stale' {
+  }): AppendAfterTailResult {
     const stream = this.getLiveStream(input.streamId) ?? { events: [] };
     if (stream.events[stream.events.length - 1]?.entryId !== input.tailEntryId) {
-      return 'stale';
+      return { status: 'stale' };
     }
     this.streams.set(input.streamId, stream);
     for (const event of input.events) {
@@ -101,7 +101,11 @@ export class InMemoryEventStreamStore<T extends { id: string }> {
     }
     this.refreshStreamTtl(input.streamId, input.streamTTLSeconds);
     this.changes.emit(input.streamId);
-    return 'ok';
+    const written = stream.events[stream.events.length - 1];
+    if (written === undefined) {
+      throw new Error('Stream repair append wrote no entry');
+    }
+    return { status: 'ok', tailEntryId: written.entryId };
   }
 
   readTail(streamId: string): StreamTail | undefined {
@@ -250,7 +254,7 @@ export class InMemoryEventSubscription<T extends { id: string }> implements Even
   repairLog(options: RepairLogOptions<T>): Promise<void> {
     const executorId = options.executorId;
     return applyEventLogRepair({
-      entries: options.entries,
+      readPages: options.readPages,
       claimOwner:
         executorId === undefined
           ? undefined

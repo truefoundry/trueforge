@@ -20,7 +20,6 @@ import type {
   ISessionStore,
   ListSessionEventsInput,
   ListSessionsInput,
-  ListTurnEventLogInput,
   ListTurnEventsInput,
   ListTurnsInput,
   ListUnconsumedTurnInboundEventsInput,
@@ -46,7 +45,6 @@ import { patchThreadCapabilityState as patchThreadCapabilityStateQuery } from '.
 import {
   appendToEvents as appendToEventsQuery,
   listSessionEvents as listSessionEventsQuery,
-  listTurnEventLog as listTurnEventLogQuery,
   listTurnEvents as listTurnEventsQuery,
 } from './queries/events';
 import {
@@ -220,10 +218,6 @@ export class SqliteSessionStore implements ISessionStore<Transaction<Database>, 
 
   appendToEvents(input: AppendToEventsInput, transaction?: Transaction<Database>): Promise<void> {
     return appendToEventsQuery(transaction ?? this.db, input);
-  }
-
-  listTurnEventLog(input: ListTurnEventLogInput): Promise<PersistedTurnEvent[]> {
-    return listTurnEventLogQuery(this.db, input);
   }
 
   insertTurnInboundEvents(input: InsertTurnInboundEventsInput): Promise<void> {

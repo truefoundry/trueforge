@@ -234,7 +234,7 @@ export type BeginTurnExecutionDeps<TTransaction> = Pick<
   webSearchProviderStore: IWebSearchProviderStore;
   skillStore: Pick<ISkillStore, 'resolveTurnSkills'>;
   /** Previous-turn cancel, and rebuilding a missing event stream. */
-  sessionStore: Pick<ISessionStore, 'getTurn' | 'listTurnEventLog'>;
+  sessionStore: Pick<ISessionStore, 'getTurn' | 'listTurnEvents'>;
   redis?: RedisClient | undefined;
 };
 

@@ -3,7 +3,6 @@ import type { TokenPagination } from '@truefoundry/trueforge-core/agent-session/
 import type {
   AppendToEventsInput,
   ListSessionEventsInput,
-  ListTurnEventLogInput,
   ListTurnEventsInput,
 } from '@truefoundry/trueforge-core/agent-session/store/ISessionStore';
 import {
@@ -69,31 +68,6 @@ export async function appendToEvents(
   if (inserted.length === 0) {
     await classifyTurnFenceWriteFailure(db, keys);
   }
-}
-
-export async function listTurnEventLog(
-  db: Kysely<Database>,
-  input: ListTurnEventLogInput,
-): Promise<PersistedTurnEvent[]> {
-  const turn = await db
-    .selectFrom('turn')
-    .select('turn_id')
-    .where('session_id', '=', input.session_id)
-    .where('turn_id', '=', input.turn_id)
-    .executeTakeFirst();
-  if (!turn) {
-    throw new TurnNotFoundError(input.turn_id);
-  }
-
-  const rows = await db
-    .selectFrom('session_event')
-    .select('event')
-    .where('session_id', '=', input.session_id)
-    .where('turn_id', '=', input.turn_id)
-    .orderBy('event_id', 'asc')
-    .execute();
-
-  return rows.map(row => row.event);
 }
 
 /**

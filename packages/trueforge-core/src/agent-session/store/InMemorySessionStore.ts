@@ -32,7 +32,6 @@ import type {
   ISessionStore,
   ListSessionEventsInput,
   ListSessionsInput,
-  ListTurnEventLogInput,
   ListTurnEventsInput,
   ListTurnsInput,
   ListUnconsumedTurnInboundEventsInput,
@@ -630,15 +629,6 @@ export class InMemorySessionStore<
     }
     list.push(...deepCopy(input.events));
     return;
-  }
-
-  async listTurnEventLog(input: ListTurnEventLogInput): Promise<PersistedTurnEvent[]> {
-    this.requireTurn(input.session_id, input.turn_id);
-    const list = this.events.get(turnKey(input));
-    if (!list) {
-      throw new TurnNotFoundError(input.turn_id);
-    }
-    return deepCopy([...list].sort((left, right) => (left.id < right.id ? -1 : left.id > right.id ? 1 : 0)));
   }
 
   async patchThreadsMCPAuth(input: PatchThreadsMCPAuthInput): Promise<void> {

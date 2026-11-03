@@ -193,11 +193,6 @@ export interface AppendToEventsInput extends TurnProgressKeys {
   events: PersistedTurnEvent[];
 }
 
-export interface ListTurnEventLogInput {
-  session_id: string;
-  turn_id: string;
-}
-
 export interface InsertTurnInboundEventsInput extends TurnProgressKeys {
   /** Empty array is a no-op. */
   events: TurnUserEvent[];
@@ -416,12 +411,6 @@ export interface ISessionStore<
    */
   /** Appends events while the caller owns a `running` or `paused` turn; terminal turns are immutable. */
   appendToEvents(input: AppendToEventsInput, transaction?: TTransaction): Promise<void>;
-
-  /**
-   * Full turn event log in persist order (`event_id` ascending). Missing turn
-   * throws TurnNotFoundError.
-   */
-  listTurnEventLog(input: ListTurnEventLogInput): Promise<PersistedTurnEvent[]>;
 
   /**
    * Durable inbound send-event inbox for a tip the caller still owns. Tip must be
