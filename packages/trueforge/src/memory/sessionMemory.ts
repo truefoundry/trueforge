@@ -9,11 +9,12 @@ import { CREATE_AGENT_SESSION_METADATA_KEY, resolveMemoryScope, type MemoryScope
 
 /** Session start waits at most this long for the user summary, then continues without it. */
 export const MEMORY_SUMMARY_TIMEOUT_MS = 2_000;
-/** The session-start summary is cut to whole sentences or lines within this budget. */
+/** The session-start summary is cut to fit this budget, at a sentence or line end where one fits. */
 export const MEMORY_SUMMARY_MAX_TOKENS = 1_000;
 
 const INTERNAL_TAG = /<\s*(\/?)\s*tfy-internal\s*>/gi;
-const SUMMARY_BOUNDARY = /[.!?](?=\s)|\n/g;
+/** Sentence or line ends, then word ends, then characters. */
+const SUMMARY_CUT_POINTS = [/[.!?](?=\s)|\n/g, /\S(?=\s)/g, /./gsu];
 
 /**
  * Memory for one turn of a session, or undefined when memory doesn't apply: off for the deployment
@@ -86,23 +87,33 @@ export async function resolveSessionMemory({
 
 /**
  * Makes provider text safe to load as an internal message: the internal-message tags are defused so
- * it can't close the wrapper, and it is cut to whole sentences or lines within
- * {@link MEMORY_SUMMARY_MAX_TOKENS} (empty when even the first one doesn't fit).
+ * it can't close the wrapper, and it is cut to fit {@link MEMORY_SUMMARY_MAX_TOKENS} at the last
+ * sentence or line end that fits, else the last word end, else the last character.
  */
 export function boundMemorySummary(raw: string): { summary: string; truncated: boolean } {
   const summary = raw.replace(INTERNAL_TAG, '[$1tfy-internal]').trim();
   if (estimateTokensForString(summary) <= MEMORY_SUMMARY_MAX_TOKENS) {
     return { summary, truncated: false };
   }
+  for (const cutPoint of SUMMARY_CUT_POINTS) {
+    const end = lastFittingCut(summary, cutPoint);
+    if (end > 0) {
+      return { summary: summary.slice(0, end).trim(), truncated: true };
+    }
+  }
+  return { summary: '', truncated: true };
+}
+
+function lastFittingCut(summary: string, cutPoint: RegExp): number {
   let end = 0;
-  for (const match of summary.matchAll(SUMMARY_BOUNDARY)) {
-    const boundary = match.index + match[0].length;
-    if (estimateTokensForString(summary.slice(0, boundary)) > MEMORY_SUMMARY_MAX_TOKENS) {
+  for (const match of summary.matchAll(cutPoint)) {
+    const cut = match.index + match[0].length;
+    if (estimateTokensForString(summary.slice(0, cut)) > MEMORY_SUMMARY_MAX_TOKENS) {
       break;
     }
-    end = boundary;
+    end = cut;
   }
-  return { summary: summary.slice(0, end).trim(), truncated: true };
+  return end;
 }
 
 /** Single bounded attempt; any failure means "no summary" so the turn starts on time. */

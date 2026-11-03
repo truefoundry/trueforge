@@ -308,7 +308,22 @@ describe('boundMemorySummary', () => {
     expect(summary.split('\n')).toHaveLength(Math.floor((maxChars + 1) / (line.length + 1)));
   });
 
-  it('drops a summary whose first sentence alone is over the cap', () => {
-    expect(boundMemorySummary(`${'a'.repeat(maxChars + 1)}. Short.`)).toEqual({ summary: '', truncated: true });
+  it('cuts at the last word that fits when the first sentence alone is over the cap', () => {
+    const word = 'abcdefghi';
+    const sentence = Array.from({ length: 500 }, () => word).join(' ');
+    const { summary, truncated } = boundMemorySummary(`${sentence}. Short.`);
+
+    expect(truncated).toBe(true);
+    expect(summary.length).toBeGreaterThan(0);
+    expect(summary.length).toBeLessThanOrEqual(maxChars);
+    expect(summary.split(' ').every(kept => kept === word)).toBe(true);
+    expect(summary.split(' ')).toHaveLength(Math.floor((maxChars + 1) / (word.length + 1)));
+  });
+
+  it('cuts within the cap when the summary has no word breaks at all', () => {
+    const { summary, truncated } = boundMemorySummary('a'.repeat(maxChars * 2));
+
+    expect(truncated).toBe(true);
+    expect(summary).toBe('a'.repeat(maxChars));
   });
 });
