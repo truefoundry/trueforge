@@ -147,7 +147,10 @@ describe('capabilities routers', () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       data: {
-        sandbox: { enabled: false },
+        sandbox: {
+          enabled: false,
+          environments: { enabled: false },
+        },
         skill: {
           enabled: false,
           reason: 'Skills run in a sandbox, which is not configured.',
@@ -230,7 +233,7 @@ describe('capabilities routers', () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       data: {
-        sandbox: { enabled: true },
+        sandbox: { enabled: true, environments: { enabled: true } },
         skill: { enabled: true },
         settings: ALL_SETTINGS_ON,
         web_search: { enabled: false, reason: NO_PROVIDER_REASON },
@@ -248,7 +251,7 @@ describe('capabilities routers', () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       data: {
-        sandbox: { enabled: true },
+        sandbox: { enabled: true, environments: { enabled: true } },
         skill: { enabled: true },
         settings: ALL_SETTINGS_ON,
         web_search: { enabled: false, reason: NO_PROVIDER_REASON },
@@ -400,7 +403,10 @@ describe('capabilities routers', () => {
       expect(adminRes.status).toBe(200);
       expect(await adminRes.json()).toEqual({
         data: {
-          sandbox: { enabled: false },
+          sandbox: {
+            enabled: false,
+            environments: { enabled: false },
+          },
           skill: {
             enabled: false,
             reason: 'Skills run in a sandbox, which is not configured.',
@@ -417,7 +423,10 @@ describe('capabilities routers', () => {
       expect(userRes.status).toBe(200);
       expect(await userRes.json()).toEqual({
         data: {
-          sandbox: { enabled: false },
+          sandbox: {
+            enabled: false,
+            environments: { enabled: false },
+          },
           skill: {
             enabled: false,
             reason: 'Skills run in a sandbox, which is not configured.',

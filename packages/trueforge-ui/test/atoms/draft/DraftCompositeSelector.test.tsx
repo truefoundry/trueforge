@@ -92,7 +92,7 @@ function renderSelector({
       getCapabilities ??
       (async () => ({
         data: {
-          sandbox: { enabled: true },
+          sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
         },
       })),
@@ -294,7 +294,7 @@ describe('DraftCompositeSelector', () => {
     renderSelector({
       getCapabilities: async () => ({
         data: {
-          sandbox: { enabled: false },
+          sandbox: { enabled: false, environments: { enabled: false } },
           skill: { enabled: false, reason: 'Skills run in a sandbox, which is not configured.' },
         },
       }),
@@ -314,7 +314,7 @@ describe('DraftCompositeSelector', () => {
     renderSelector({
       getCapabilities: async () => ({
         data: {
-          sandbox: { enabled: true },
+          sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: false, reason: 'Skills are not available.' },
         },
       }),
@@ -340,7 +340,7 @@ describe('DraftCompositeSelector', () => {
     renderSelector({
       getCapabilities: async () => ({
         data: {
-          sandbox: { enabled: true },
+          sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
           settings: allSettingsSections(false),
         },
@@ -366,7 +366,7 @@ describe('DraftCompositeSelector', () => {
     renderSelector({
       getCapabilities: async () => ({
         data: {
-          sandbox: { enabled: false },
+          sandbox: { enabled: false, environments: { enabled: false } },
           skill: { enabled: false, reason: 'Skills run in a sandbox, which is not configured.' },
         },
       }),
@@ -559,7 +559,7 @@ describe('DraftCompositeSelector', () => {
     renderSelector({
       getCapabilities: async () => ({
         data: {
-          sandbox: { enabled: true },
+          sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
           webSearch: { enabled: true },
         },
@@ -595,7 +595,7 @@ describe('DraftCompositeSelector', () => {
     renderSelector({
       getCapabilities: async () => ({
         data: {
-          sandbox: { enabled: true },
+          sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
           webSearch: { enabled: false },
         },

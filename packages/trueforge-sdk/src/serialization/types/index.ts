@@ -175,6 +175,7 @@ export * from "./ResponseFormatJsonSchemaJsonSchema.js";
 export * from "./ResponseFormatText.js";
 export * from "./RuntimeConfig.js";
 export * from "./SandboxCapability.js";
+export * from "./SandboxEnvironmentsCapability.js";
 export * from "./SandboxConfig.js";
 export * from "./SandboxCreatedEvent.js";
 export * from "./SandboxEnvironment.js";

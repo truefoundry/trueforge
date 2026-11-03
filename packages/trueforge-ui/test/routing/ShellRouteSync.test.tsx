@@ -84,7 +84,7 @@ function SettingsCatalogProvider({
       if (capabilitiesFail) throw new Error('Unavailable');
       return {
         data: {
-          sandbox: { enabled: true },
+          sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
           settings: allSettingsSections(settingsEnabled),
         },

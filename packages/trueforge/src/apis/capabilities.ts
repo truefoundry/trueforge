@@ -7,6 +7,7 @@ import {
   type RequestContext,
   type ResolveRequestContext,
 } from '../auth/identity';
+import configuration from '../config';
 import { isWebSearchEnabledForTenant, type IConfigurationStore } from '../db/configurationStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { WithTransaction } from '../db/transaction';
@@ -48,6 +49,17 @@ function settingsCapability(requestContext: Pick<RequestContext, 'roles'>) {
     web_search: { enabled: isAdmin, manage_providers: canManageProviders },
     memory: { enabled: isAdmin, manage_providers: canManageProviders },
   };
+}
+
+/**
+ * Environments UI/CRUD — off only for TFY on-prem (no snapshot/env concept).
+ * Independent of default-env readiness so users can create/repair environments while sandbox is still preparing.
+ */
+function sandboxEnvironmentsEnabled(): boolean {
+  return (
+    !('TRUEFOUNDRY_SANDBOX_PROVIDER' in configuration) ||
+    configuration.TRUEFOUNDRY_SANDBOX_PROVIDER !== 'truefoundry'
+  );
 }
 
 export function createCapabilitiesRouter<TTransaction>(deps: {
@@ -97,7 +109,10 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
     return c.json(
       {
         data: {
-          sandbox: { enabled: sandboxEnabled },
+          sandbox: {
+            enabled: sandboxEnabled,
+            environments: { enabled: sandboxEnvironmentsEnabled() },
+          },
           skill: sandboxEnabled ? { enabled: true } : { enabled: false, reason: skillDisabledReason(status) },
           settings: settingsCapability(requestContext),
           web_search: webSearchResponse,
