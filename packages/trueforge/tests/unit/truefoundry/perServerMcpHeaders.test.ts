@@ -99,6 +99,7 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
   it('sends only the gateway Bearer when a server has no override', async () => {
     await expect(invokeHeaders(storeWith({}), 'tfy-docs-mcp')).resolves.toEqual({
       Authorization: 'Bearer caller-token',
+      'user-agent': 'trueforge',
     });
   });
 
@@ -112,6 +113,7 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
 
     expect(headers).toEqual({
       Authorization: 'Bearer caller-token',
+      'user-agent': 'trueforge',
       'x-tfy-mcp-headers': '{"Authorization":"Bearer user"}',
     });
   });
@@ -124,7 +126,7 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
       'tfy-pylon-mcp',
     );
 
-    expect(headers).toEqual({ Authorization: 'Bearer caller-token' });
+    expect(headers).toEqual({ Authorization: 'Bearer caller-token', 'user-agent': 'trueforge' });
   });
 
   it.each(['Authorization', 'authorization', 'AUTHORIZATION', 'AuThOrIzAtIoN'])(
@@ -137,7 +139,7 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
         'tfy-platform-mcp',
       );
 
-      expect(Object.values(headers)).toEqual(['Bearer caller-token']);
+      expect(headers).toEqual({ Authorization: 'Bearer caller-token', 'user-agent': 'trueforge' });
     },
   );
 
@@ -149,6 +151,10 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
       'tfy-platform-mcp',
     );
 
-    expect(headers).toEqual({ Authorization: 'Bearer caller-token', 'x-tfy-mcp-headers': '{"a":"b"}' });
+    expect(headers).toEqual({
+      Authorization: 'Bearer caller-token',
+      'user-agent': 'trueforge',
+      'x-tfy-mcp-headers': '{"a":"b"}',
+    });
   });
 });

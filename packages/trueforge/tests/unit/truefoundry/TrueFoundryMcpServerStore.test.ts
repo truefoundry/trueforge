@@ -325,7 +325,7 @@ describe('TrueFoundryMcpServerStore', () => {
     it('returns gateway Bearer when authorize reports authenticated', async () => {
       const { store } = createStore();
       await expect(invoke(store)).resolves.toEqual({
-        headers: { Authorization: `Bearer ${ACCESS_TOKEN}` },
+        headers: { Authorization: `Bearer ${ACCESS_TOKEN}`, 'user-agent': 'trueforge' },
       });
     });
 
@@ -348,6 +348,7 @@ describe('TrueFoundryMcpServerStore', () => {
       expect(resolved).toEqual({
         headers: {
           Authorization: `Bearer ${ACCESS_TOKEN}`,
+          'user-agent': 'trueforge',
           [X_TFY_METADATA]: expect.any(String),
           [X_TFY_CONVERSATION_ID]: 'sess-1',
         },
@@ -373,6 +374,7 @@ describe('TrueFoundryMcpServerStore', () => {
       await expect(invoke(store)).resolves.toEqual({
         headers: {
           Authorization: `Bearer ${ACCESS_TOKEN}`,
+          'user-agent': 'trueforge',
           [ACTOR_AUTHORIZATION_HEADER]: `Bearer ${ACTOR_TOKEN}`,
         },
       });
@@ -385,7 +387,7 @@ describe('TrueFoundryMcpServerStore', () => {
     it('exchanges invoke: subject token bearer and no actor header', async () => {
       const { store, client } = createStore({ agent: AGENT, userCredential: null });
       await expect(invoke(store)).resolves.toEqual({
-        headers: { Authorization: `Bearer ${SUBJECT_TOKEN}` },
+        headers: { Authorization: `Bearer ${SUBJECT_TOKEN}`, 'user-agent': 'trueforge' },
       });
       expect(client.getMcpAuthorize).toHaveBeenCalledWith(expect.objectContaining({ accessToken: SUBJECT_TOKEN }));
       expect(client.getMcpServerByName).toHaveBeenCalledWith(expect.objectContaining({ accessToken: ACTOR_TOKEN }));

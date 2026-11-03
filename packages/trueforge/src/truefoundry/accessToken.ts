@@ -1,3 +1,4 @@
+import { TRUEFORGE_USER_AGENT } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
 import type { RequestContext } from '../auth/identity';
@@ -169,6 +170,7 @@ export function actorAuthorizationHeaders(authorization: GatewayAuthorization): 
 export function gatewayHeaders(authorization: GatewayAuthorization): Record<string, string> {
   return {
     Authorization: `Bearer ${authorization.subjectToken}`,
+    'user-agent': TRUEFORGE_USER_AGENT,
     ...actorAuthorizationHeaders(authorization),
   };
 }

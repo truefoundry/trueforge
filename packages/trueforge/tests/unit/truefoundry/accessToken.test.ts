@@ -50,10 +50,12 @@ describe('gatewayHeaders', () => {
   it('sends the actor header only when the credential has one', () => {
     expect(gatewayHeaders({ type: 'caller', subjectToken: 'caller-token' })).toEqual({
       Authorization: 'Bearer caller-token',
+      'user-agent': 'trueforge',
     });
     expect(gatewayHeaders({ type: 'delegated', subjectToken: 'caller-token', actorAgentToken: 'agent-token' })).toEqual(
       {
         Authorization: 'Bearer caller-token',
+        'user-agent': 'trueforge',
         [ACTOR_AUTHORIZATION_HEADER]: 'Bearer agent-token',
       },
     );
