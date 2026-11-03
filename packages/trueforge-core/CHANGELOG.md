@@ -1,5 +1,13 @@
 # @truefoundry/trueforge-core
 
+## 0.183.0
+
+### Patch Changes
+
+- e7c661a: Sandbox instructions now tell the model to save fetched remote content to a file before grepping or filtering.
+- 4d0c0f9: Session grants now give read access, and sharing with everyone in the tenant is a `tenant` grant. `Session.shared` reflects the tenant grant, and the deprecated `PATCH /sessions/{id} { shared }` now grants or revokes it. Adds the `session_sharing.enabled` capability.
+- a718e71: Accept `x-tfg-tools` as an array of MCP tool definitions (`inputSchema`, optional `outputSchema`) on a TrueFoundry-mode turn. The header is read by a per-request store and mounted on the main thread through `TurnResourceResolver`. Local tool lists keep `outputSchema` and `annotations`.
+
 ## 0.183.0-rc.1
 
 ### Patch Changes

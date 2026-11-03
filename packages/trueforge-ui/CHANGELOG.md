@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.183.0
+
+### Patch Changes
+
+- b51ed35: Show a back control before the agent name after Try so the header can return to the agents page.
+- 218c95e: Show a Configure model button that opens Settings when the model catalog is empty, instead of a Select model dropdown with a ? monogram.
+- e3fed89: Let users without manage access open an environment in a read-only drawer to view its configuration.
+- ecb51f7: Omit tenant session grants from the session access collaborator list; tenant-wide sharing stays on `session.shared`.
+- f2ead70: Link the Runtime Config header to the create-agent docs.
+- 5d9f7e1: Warn in agent runtime settings when the sandbox is turned off, since TrueForge will not work properly without it.
+- ecb51f7: Share sessions with specific users when capabilities report `session_sharing.users`: Harness implements the session access port (invite search, grants, revoke); tenant-wide access still uses the session `shared` flag.
+- 5d9f7e1: Clarify share dialog copy: private access is now "Restricted" and the invite field asks for a name or email. People picked for an invite now show as chips inside the search field (Backspace removes the last one). The session owner is listed first, marked "(you)" when they are the current user, with capitalized access roles and the shared avatar initials.
+- 0c8bd18: Mark the Skills version dropdown "latest" badge from the highest version returned by listVersions, so a stale catalog snapshot cannot label an older row.
+- 61872ac: Add a tenant-wide web search switch stored in the new `configuration` table, with `GET` and `PATCH /api/v1/settings/configuration` behind an admin gate. Capabilities and session or agent writes follow it, so web search cannot be turned on while the switch is off; a spec that already has it on keeps it, which also leaves existing agents and their schedules running. The `settings` capability now reports one entry per settings section with its own `enabled` and `manage_providers`. Catalog settings routes that the deployment does not own answer 422 naming the route, where they previously answered 403.
+- Updated dependencies [ecb51f7]
+- Updated dependencies [61872ac]
+  - @truefoundry/trueforge-assistant-ui-runtime@0.183.0
+  - @truefoundry/trueforge-sdk@0.183.0
+
 ## 0.183.0-rc.4
 
 ### Patch Changes

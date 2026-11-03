@@ -1,5 +1,22 @@
 # @truefoundry/trueforge
 
+## 0.183.0
+
+### Patch Changes
+
+- 65078a1: Add optional Sentry error reporting to the frontend, enabled by the VITE_SENTRY_DSN build arg. Trace user-triggered API calls (session create, turn streams) in Sentry.
+- 6a014b6: Mark sandbox env builds failed on Daytona 4xx (e.g. over provider resource caps), lower default env resource caps to 4 CPU / 8 GiB / 10 GiB, and name the Helm controller container trueforge-controller.
+- 5d9f7e1: Limit frontend Sentry tracing to session API calls, one trace per call, and record SSE first-chunk latency, stall count and stream errors as span attributes.
+- 4d0c0f9: Session grants now give read access, and sharing with everyone in the tenant is a `tenant` grant. `Session.shared` reflects the tenant grant, and the deprecated `PATCH /sessions/{id} { shared }` now grants or revokes it. Adds the `session_sharing.enabled` capability.
+- 61872ac: Add a tenant-wide web search switch stored in the new `configuration` table, with `GET` and `PATCH /api/v1/settings/configuration` behind an admin gate. Capabilities and session or agent writes follow it, so web search cannot be turned on while the switch is off; a spec that already has it on keeps it, which also leaves existing agents and their schedules running. The `settings` capability now reports one entry per settings section with its own `enabled` and `manage_providers`. Catalog settings routes that the deployment does not own answer 422 naming the route, where they previously answered 403.
+- a718e71: Accept `x-tfg-tools` as an array of MCP tool definitions (`inputSchema`, optional `outputSchema`) on a TrueFoundry-mode turn. The header is read by a per-request store and mounted on the main thread through `TurnResourceResolver`. Local tool lists keep `outputSchema` and `annotations`.
+- Updated dependencies [e7c661a]
+- Updated dependencies [4d0c0f9]
+- Updated dependencies [61872ac]
+- Updated dependencies [a718e71]
+  - @truefoundry/trueforge-core@0.183.0
+  - @truefoundry/trueforge-sdk@0.183.0
+
 ## 0.183.0-rc.3
 
 ### Patch Changes
