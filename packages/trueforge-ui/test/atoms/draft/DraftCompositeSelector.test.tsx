@@ -434,7 +434,7 @@ describe('DraftCompositeSelector', () => {
 
     renderSelector({ environmentServer });
     fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
-    fireEvent.click(screen.getByRole('button', { name: /Environment/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Environment/ }));
 
     expect(await screen.findByText('default')).toBeInTheDocument();
     expect(screen.getByText('Default environment')).toBeInTheDocument();
@@ -507,7 +507,7 @@ describe('DraftCompositeSelector', () => {
 
     renderSelector({ environmentServer });
     fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
-    fireEvent.click(screen.getByRole('button', { name: /Environment/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Environment/ }));
 
     expect(await screen.findByText("Can't change the environment after a chat has started")).toBeInTheDocument();
     fireEvent.click(screen.getByText('default'));
@@ -539,7 +539,7 @@ describe('DraftCompositeSelector', () => {
 
     renderSelector({ environmentServer });
     fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
-    fireEvent.click(screen.getByRole('button', { name: /Environment/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Environment/ }));
 
     expect(await screen.findByText('gone-env')).toBeInTheDocument();
     expect(screen.queryByText('This environment is no longer available')).not.toBeInTheDocument();
