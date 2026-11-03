@@ -1,4 +1,4 @@
-import { buildOutboundRequestHeaders, TRUEFORGE_USER_AGENT } from '../../../src/core/llm/VercelAILLM';
+import { buildOutboundRequestHeaders } from '../../../src/core/llm/VercelAILLM';
 
 describe('buildOutboundRequestHeaders', () => {
   it('merges client and per-call headers for non-TrueFoundry providers', () => {
@@ -25,7 +25,7 @@ describe('buildOutboundRequestHeaders', () => {
     ).toEqual({});
   });
 
-  it('stamps TrueFoundry user-agent, anthropic-beta and forward-pings', () => {
+  it('stamps TrueFoundry anthropic-beta and forward-pings', () => {
     expect(
       buildOutboundRequestHeaders({
         providerType: 'truefoundry',
@@ -34,19 +34,9 @@ describe('buildOutboundRequestHeaders', () => {
       }),
     ).toEqual({
       Authorization: 'Bearer a',
-      'user-agent': 'trueforge',
       'anthropic-beta': 'fine-grained-tool-streaming-2025-05-14',
       'x-tfy-forward-pings': 'true',
     });
-  });
-
-  it('overrides a caller-supplied user-agent on TrueFoundry calls', () => {
-    const headers = buildOutboundRequestHeaders({
-      providerType: 'truefoundry',
-      clientHeaders: { 'user-agent': 'custom-client' },
-      options: { headers: { 'user-agent': 'per-call' } },
-    });
-    expect(headers['user-agent']).toBe(TRUEFORGE_USER_AGENT);
   });
 
   it('folds per-call metadata into an existing x-tfy-metadata header', () => {

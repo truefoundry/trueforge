@@ -1,7 +1,7 @@
 import { HTTPException } from 'hono/http-exception';
 import { createLogger } from 'winston';
 import type { McpServerRecord } from '../../../src/db/mcpServerStore';
-import { createTrueFoundryRequestContext } from '../../../src/truefoundry/accessToken';
+import { createTrueFoundryRequestContext, TRUEFORGE_USER_AGENT } from '../../../src/truefoundry/accessToken';
 import { parsePerServerMcpHeaders } from '../../../src/truefoundry/perServerMcpHeaders';
 import {
   TrueFoundryMcpServerStore,
@@ -99,7 +99,7 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
   it('sends only the gateway Bearer when a server has no override', async () => {
     await expect(invokeHeaders(storeWith({}), 'tfy-docs-mcp')).resolves.toEqual({
       Authorization: 'Bearer caller-token',
-      'user-agent': 'trueforge',
+      'user-agent': TRUEFORGE_USER_AGENT,
     });
   });
 
@@ -113,7 +113,7 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
 
     expect(headers).toEqual({
       Authorization: 'Bearer caller-token',
-      'user-agent': 'trueforge',
+      'user-agent': TRUEFORGE_USER_AGENT,
       'x-tfy-mcp-headers': '{"Authorization":"Bearer user"}',
     });
   });
@@ -126,7 +126,7 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
       'tfy-pylon-mcp',
     );
 
-    expect(headers).toEqual({ Authorization: 'Bearer caller-token', 'user-agent': 'trueforge' });
+    expect(headers).toEqual({ Authorization: 'Bearer caller-token', 'user-agent': TRUEFORGE_USER_AGENT });
   });
 
   it.each(['Authorization', 'authorization', 'AUTHORIZATION', 'AuThOrIzAtIoN'])(
@@ -139,7 +139,7 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
         'tfy-platform-mcp',
       );
 
-      expect(headers).toEqual({ Authorization: 'Bearer caller-token', 'user-agent': 'trueforge' });
+      expect(headers).toEqual({ Authorization: 'Bearer caller-token', 'user-agent': TRUEFORGE_USER_AGENT });
     },
   );
 
@@ -153,7 +153,7 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
 
     expect(headers).toEqual({
       Authorization: 'Bearer caller-token',
-      'user-agent': 'trueforge',
+      'user-agent': TRUEFORGE_USER_AGENT,
       'x-tfy-mcp-headers': '{"a":"b"}',
     });
   });

@@ -152,12 +152,9 @@ function compatibleModel(config: VercelAIProviderConfig): LanguageModel {
 /** Gateway header carrying stringified JSON metadata (TrueFoundry AI Gateway). */
 const X_TFY_METADATA = 'x-tfy-metadata';
 
-/** Identifies TrueForge as the client on TrueFoundry gateway (model and MCP) calls. */
-export const TRUEFORGE_USER_AGENT = 'trueforge';
-
 /**
  * Merge client defaults with per-call headers/metadata.
- * TrueFoundry also stamps user-agent, anthropic-beta, forward-pings, and folds `metadata` into `x-tfy-metadata`.
+ * TrueFoundry also stamps anthropic-beta, forward-pings, and folds `metadata` into `x-tfy-metadata`.
  */
 export function buildOutboundRequestHeaders(input: {
   providerType: VercelAIProviderName;
@@ -177,7 +174,6 @@ export function buildOutboundRequestHeaders(input: {
   // TODO: fine-grained-tool-streaming-2025-05-14 is considered deprecated.
   headers = {
     ...headers,
-    'user-agent': TRUEFORGE_USER_AGENT,
     'anthropic-beta': 'fine-grained-tool-streaming-2025-05-14',
     'x-tfy-forward-pings': 'true',
   };
