@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Regenerates OpenAPI (.github/fern + docs/), packages/trueforge-sdk, and
 # python/trueforge_sdk (same steps as CI).
-# Requires Docker (Fern --local) and network access for the Fern CLI/image.
+# Requires FERN_TOKEN and network access. TypeScript (SDK Config, generator v4+) runs on
+# Fern's hosted generation because its image is not public; Python (legacy group) still
+# runs locally in Docker until it migrates to sdk-config.yml.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -27,7 +29,7 @@ pnpm --filter @truefoundry/trueforge-core build
 pnpm openapi:write
 fern check
 # --force skips the overwrite prompt when the SDK dirs already exist (needed non-interactively / in CI).
-fern generate --group ts-sdk --version "$ts_version" --local --generate-tests --force --log-level debug
+fern generate --target typescript --version "$ts_version" --generate-tests --force --log-level debug
 fern generate --group python-sdk --version "$py_version" --local --generate-tests --force --log-level debug
 test -f python/trueforge_sdk/src/trueforge_sdk/client.py
 
