@@ -10751,12 +10751,12 @@
             }
           },
           {
-            "description": "Legacy exclusive cursor. Replay events after this sequence. Omit when using an event id.",
+            "description": "Legacy exclusive cursor. On an event-id stream it is the last 0-based index an older client counted. Omit when using an event id.",
             "in": "query",
             "name": "after_sequence_number",
             "required": false,
             "schema": {
-              "description": "Legacy exclusive cursor. Replay events after this sequence. Omit when using an event id.",
+              "description": "Legacy exclusive cursor. On an event-id stream it is the last 0-based index an older client counted. Omit when using an event id.",
               "minimum": 0,
               "type": [
                 "integer",

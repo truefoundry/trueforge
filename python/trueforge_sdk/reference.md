@@ -3519,7 +3519,7 @@ client.sessions.subscribe_to_turn(
 <dl>
 <dd>
 
-**after_sequence_number:** `typing.Optional[int]` — Legacy exclusive cursor. Replay events after this sequence. Omit when using an event id.
+**after_sequence_number:** `typing.Optional[int]` — Legacy exclusive cursor. On an event-id stream it is the last 0-based index an older client counted. Omit when using an event id.
     
 </dd>
 </dl>

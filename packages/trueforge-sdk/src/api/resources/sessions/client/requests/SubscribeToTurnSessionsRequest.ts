@@ -5,7 +5,7 @@
  *     {}
  */
 export interface SubscribeToTurnSessionsRequest {
-    /** Legacy exclusive cursor. Replay events after this sequence. Omit when using an event id. */
+    /** Legacy exclusive cursor. On an event-id stream it is the last 0-based index an older client counted. Omit when using an event id. */
     afterSequenceNumber?: number | null;
     /** Inclusive cursor. Replay starts at the entry with this event id */
     fromEventId?: string;
