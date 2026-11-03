@@ -92,7 +92,7 @@ function renderSelector({
       getCapabilities ??
       (async () => ({
         data: {
-          sandbox: { enabled: true },
+          sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
         },
       })),
@@ -294,7 +294,7 @@ describe('DraftCompositeSelector', () => {
     renderSelector({
       getCapabilities: async () => ({
         data: {
-          sandbox: { enabled: false },
+          sandbox: { enabled: false, environments: { enabled: false } },
           skill: { enabled: false, reason: 'Skills run in a sandbox, which is not configured.' },
         },
       }),
@@ -314,7 +314,7 @@ describe('DraftCompositeSelector', () => {
     renderSelector({
       getCapabilities: async () => ({
         data: {
-          sandbox: { enabled: true },
+          sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: false, reason: 'Skills are not available.' },
         },
       }),
@@ -340,7 +340,7 @@ describe('DraftCompositeSelector', () => {
     renderSelector({
       getCapabilities: async () => ({
         data: {
-          sandbox: { enabled: true },
+          sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
           settings: allSettingsSections(false),
         },
@@ -366,7 +366,7 @@ describe('DraftCompositeSelector', () => {
     renderSelector({
       getCapabilities: async () => ({
         data: {
-          sandbox: { enabled: false },
+          sandbox: { enabled: false, environments: { enabled: false } },
           skill: { enabled: false, reason: 'Skills run in a sandbox, which is not configured.' },
         },
       }),
@@ -434,7 +434,7 @@ describe('DraftCompositeSelector', () => {
 
     renderSelector({ environmentServer });
     fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
-    fireEvent.click(screen.getByRole('button', { name: /Environment/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Environment/ }));
 
     expect(await screen.findByText('default')).toBeInTheDocument();
     expect(screen.getByText('Default environment')).toBeInTheDocument();
@@ -507,7 +507,7 @@ describe('DraftCompositeSelector', () => {
 
     renderSelector({ environmentServer });
     fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
-    fireEvent.click(screen.getByRole('button', { name: /Environment/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Environment/ }));
 
     expect(await screen.findByText("Can't change the environment after a chat has started")).toBeInTheDocument();
     fireEvent.click(screen.getByText('default'));
@@ -539,7 +539,7 @@ describe('DraftCompositeSelector', () => {
 
     renderSelector({ environmentServer });
     fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
-    fireEvent.click(screen.getByRole('button', { name: /Environment/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Environment/ }));
 
     expect(await screen.findByText('gone-env')).toBeInTheDocument();
     expect(screen.queryByText('This environment is no longer available')).not.toBeInTheDocument();
@@ -559,7 +559,7 @@ describe('DraftCompositeSelector', () => {
     renderSelector({
       getCapabilities: async () => ({
         data: {
-          sandbox: { enabled: true },
+          sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
           webSearch: { enabled: true },
         },
@@ -595,7 +595,7 @@ describe('DraftCompositeSelector', () => {
     renderSelector({
       getCapabilities: async () => ({
         data: {
-          sandbox: { enabled: true },
+          sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
           webSearch: { enabled: false },
         },

@@ -315,7 +315,14 @@ export function ShellRouteSync({
       search: location.search,
       routes,
     });
-    if (!capabilitiesSettled && configuredUrlPlace?.type === 'settings') return;
+    // Settings and environments both gate on capabilities; boot must wait so
+    // toEffectiveRoutes does not drop the deep link as root while still loading.
+    if (
+      !capabilitiesSettled &&
+      (configuredUrlPlace?.type === 'settings' || configuredUrlPlace?.type === 'environments')
+    ) {
+      return;
+    }
     bootedRef.current = true;
 
     const urlPlace = matchLocation({
@@ -368,7 +375,7 @@ export function ShellRouteSync({
       selfNavPathRef.current = desiredPath !== location.pathname ? desiredPath : null;
       navigate({ pathname: desiredPath, search: desiredSearch, hash: location.hash }, { replace: true });
     }
-    // Boot runs once after any capability-dependent Settings destination resolves.
+    // Boot runs once after any capability-dependent Settings/Environments destination resolves.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [capabilitiesSettled]);
 

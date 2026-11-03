@@ -32,6 +32,10 @@ export async function deleteSandboxEnvironmentSecrets({
   secrets: SandboxEnvironmentSecretRecord[];
   provider: SandboxProvider<unknown>;
 }): Promise<void> {
+  // Providers without environments have no org-secret surface.
+  if (!provider.envSupported) {
+    return;
+  }
   for (const secret of secrets) {
     try {
       await withSecretSyncError(
@@ -64,6 +68,10 @@ export async function syncSandboxEnvironmentSecrets({
   provider: SandboxProvider<unknown>;
   description: string;
 }): Promise<SyncedSandboxEnvironmentSecret[]> {
+  // Providers without environments have no org-secret surface (e.g. TFY on-prem).
+  if (!provider.envSupported) {
+    return [];
+  }
   const desiredNames = new Set(secrets.map(secret => secret.env));
   const previousByName = new Map(previous.map(secret => [secret.env, secret]));
   const byName = new Map(existing.map(row => [row.secret_name, row]));

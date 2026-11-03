@@ -66,10 +66,13 @@ export function isSchedulesChromeEnabled({ schedules }: { schedules: ScheduleSer
 /** Environments page (sandbox environments CRUD). */
 export function isEnvironmentsChromeEnabled({
   sandboxEnvironments,
+  capabilities,
 }: {
   sandboxEnvironments: SandboxEnvironmentServer | null | undefined;
+  capabilities: { sandbox?: { environments?: { enabled?: boolean } } } | null | undefined;
 }): boolean {
-  return sandboxEnvironments != null;
+  // Require an explicit capabilities.sandbox.environments.enabled=true (same pattern as settings).
+  return sandboxEnvironments != null && capabilities?.sandbox?.environments?.enabled === true;
 }
 
 /** Agent-details Metrics tab (no top-level path). */
@@ -91,7 +94,13 @@ export function toEffectiveRoutes({
 }: {
   routes: ResolvedRoutes;
   catalog: CatalogServer | null | undefined;
-  capabilities: { settings?: SettingsCapability } | null | undefined;
+  capabilities:
+    | {
+        settings?: SettingsCapability;
+        sandbox?: { environments?: { enabled?: boolean } };
+      }
+    | null
+    | undefined;
   sessions: AgentSessionsServer | null | undefined;
   schedules: ScheduleServer | null | undefined;
   sandboxEnvironments: SandboxEnvironmentServer | null | undefined;
@@ -104,6 +113,6 @@ export function toEffectiveRoutes({
     sharedSession: sessionsEnabled ? routes.sharedSession : null,
     libraryAgent: sessionsEnabled ? routes.libraryAgent : null,
     schedules: isSchedulesChromeEnabled({ schedules }) ? routes.schedules : null,
-    environments: isEnvironmentsChromeEnabled({ sandboxEnvironments }) ? routes.environments : null,
+    environments: isEnvironmentsChromeEnabled({ sandboxEnvironments, capabilities }) ? routes.environments : null,
   };
 }
