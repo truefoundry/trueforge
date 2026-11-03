@@ -22,8 +22,8 @@ export type MemoryProviderConfiguration = Pick<
 >;
 
 /**
- * The server's memory (summaries, `memory_search`, `memory_add`) from TrueFoundry-mode configuration,
- * like the shared sandbox and web search. Undefined while `TRUEFOUNDRY_MEMORY_ENABLED` is off.
+ * The server's memory (summaries, `memory_search`, `memory_add`), built from TrueFoundry-mode
+ * configuration. Undefined while `TRUEFOUNDRY_MEMORY_ENABLED` is off.
  */
 export function memoryFromConfig({
   config,

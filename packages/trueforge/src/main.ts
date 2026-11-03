@@ -822,7 +822,6 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     resolveSandboxProviderStore,
     resolveWebSearchProviderStore,
     resolveConfigurationStore,
-    // TrueFoundry mode only, like the shared sandbox and web search.
     memory: isTrueFoundryModeEnabled(configuration) ? memoryFromConfig({ config: configuration, logger }) : undefined,
     resolveSkillStore,
     resolveTurnSkillsStore: resolveTurnSkillsStoreForRequest,
