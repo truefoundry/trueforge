@@ -107,6 +107,7 @@ import { type DistributedServerConfiguration } from './config';
 import { createController } from './controller';
 import type { IAccessControlStore } from './db/accessControlStore';
 import type { IAgentStore } from './db/agentStore';
+import type { IConfigurationStore } from './db/configurationStore';
 import type { IMcpServerWithAuthStore } from './db/mcpServerStore';
 import { McpServerWithAuthStore } from './db/McpServerWithAuthStore';
 import type { Database as PostgresDatabase } from './db/postgres/types';
@@ -176,6 +177,8 @@ interface ServerPersistence<TTransaction> {
   sessionStore: ISessionStore<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
   webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
+  /** Tenant-wide feature switches; DB-backed in every mode. */
+  configurationStore: IConfigurationStore;
   withTransaction: WithTransaction<TTransaction>;
 }
 
@@ -260,6 +263,7 @@ async function createStandalonePersistence(options: {
       import('./db/sqlite/skill-store/SqliteSkillStore'),
       import('./db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore'),
       import('./db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore'),
+      import('./db/sqlite/configuration-store/SqliteConfigurationStore'),
       import('./db/sqlite/agent-store/SqliteAgentStore'),
       import('./db/sqlite/schedule-store/SqliteScheduleStore'),
       import('./db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore'),
@@ -275,6 +279,7 @@ async function createStandalonePersistence(options: {
     { SqliteSkillStore },
     { SqliteSandboxProviderStore },
     { SqliteWebSearchProviderStore },
+    { SqliteConfigurationStore },
     { SqliteAgentStore },
     { SqliteScheduleStore },
     { SqliteSandboxEnvironmentStore },
@@ -304,6 +309,7 @@ async function createStandalonePersistence(options: {
   const webSearchProviderStore = buildWebSearchProviderStore({
     persistenceStore: new SqliteWebSearchProviderStore(db),
   });
+  const configurationStore = new SqliteConfigurationStore(db);
   return {
     accessControlStore: new SqliteAccessControlStore(db),
     agentStore,
@@ -326,6 +332,7 @@ async function createStandalonePersistence(options: {
     sessionStore: new SqliteSessionStore(db),
     tokenStore,
     webSearchProviderStore,
+    configurationStore,
     withTransaction: callback => db.transaction().execute(callback),
   };
 }
@@ -368,6 +375,7 @@ async function createDistributedPersistence(options: {
       import('./db/postgres/skill-store/PostgresSkillStore'),
       import('./db/postgres/sandbox-provider-store/PostgresSandboxProviderStore'),
       import('./db/postgres/web-search-provider-store/PostgresWebSearchProviderStore'),
+      import('./db/postgres/configuration-store/PostgresConfigurationStore'),
       import('./db/postgres/agent-store/PostgresAgentStore'),
       import('./db/postgres/schedule-store/PostgresScheduleStore'),
       import('./db/postgres/sandbox-environment-store/PostgresSandboxEnvironmentStore'),
@@ -383,6 +391,7 @@ async function createDistributedPersistence(options: {
     { PostgresSkillStore },
     { PostgresSandboxProviderStore },
     { PostgresWebSearchProviderStore },
+    { PostgresConfigurationStore },
     { PostgresAgentStore },
     { PostgresScheduleStore },
     { PostgresSandboxEnvironmentStore },
@@ -425,6 +434,7 @@ async function createDistributedPersistence(options: {
   const webSearchProviderStore = buildWebSearchProviderStore({
     persistenceStore: new PostgresWebSearchProviderStore(db),
   });
+  const configurationStore = new PostgresConfigurationStore(db);
   const resolveModelProviderStore = buildResolveModelProviderStore({
     persistenceStore: modelProviderStore,
     client: serviceFoundryClient,
@@ -483,6 +493,7 @@ async function createDistributedPersistence(options: {
     sessionStore: new PostgresSessionStore(db),
     tokenStore,
     webSearchProviderStore,
+    configurationStore,
     withTransaction: callback => db.transaction().execute(callback),
   };
 }
@@ -503,6 +514,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     sessionStore,
     tokenStore,
     webSearchProviderStore,
+    configurationStore,
     withTransaction,
   } = persistence;
 
@@ -605,6 +617,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     userStore,
     webSearchCatalog: WebSearchCatalog.load(),
     webSearchProviderStore,
+    configurationStore,
     withTransaction,
     httpMetrics: serverHttpMetrics,
   });

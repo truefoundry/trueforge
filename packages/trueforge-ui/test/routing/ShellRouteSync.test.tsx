@@ -16,6 +16,7 @@ import {
   createMockSandboxEnvironmentServer,
   createMockScheduleServer,
 } from '../server/mockServer.js';
+import { allSettingsSections } from '../server/settingsCapabilityFixture.js';
 
 const routes = resolveRoutesConfig();
 
@@ -85,7 +86,7 @@ function SettingsCatalogProvider({
         data: {
           sandbox: { enabled: true },
           skill: { enabled: true },
-          settings: { enabled: settingsEnabled },
+          settings: allSettingsSections(settingsEnabled),
         },
       };
     },

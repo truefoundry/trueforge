@@ -21,6 +21,7 @@ import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAccessControlStore } from '../../../src/db/sqlite/access-control-store/SqliteAccessControlStore';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
+import { SqliteConfigurationStore } from '../../../src/db/sqlite/configuration-store/SqliteConfigurationStore';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
@@ -81,6 +82,8 @@ describe('sessions HTTP agent binding', () => {
   let agentStore: SqliteAgentStore;
   let sessionStore: SqliteSessionStore;
   let sessionMetricsStore: SqliteSessionMetricsStore;
+  let configurationStore: SqliteConfigurationStore;
+  let webSearchProviderStore: SqliteWebSearchProviderStore;
   let sessionDeps: SessionsRouterDeps<Transaction<Database>>;
   let resolveModelProviderStore: jest.Mock;
   let resolveMcpServerStore: jest.Mock;
@@ -97,7 +100,8 @@ describe('sessions HTTP agent binding', () => {
     const skillStore = new SqliteSkillStore(db);
     const sandboxProviderStore = new SqliteSandboxProviderStore(db);
     const sandboxEnvironmentStore = new SqliteSandboxEnvironmentStore(db);
-    const webSearchProviderStore = new SqliteWebSearchProviderStore(db);
+    webSearchProviderStore = new SqliteWebSearchProviderStore(db);
+    configurationStore = new SqliteConfigurationStore(db);
     agentStore = new SqliteAgentStore(db);
 
     await modelProviderStore.upsertProvider({
@@ -138,6 +142,7 @@ describe('sessions HTTP agent binding', () => {
       sessionStore,
       userStore: new EmptyUserStore(),
       webSearchProviderStore,
+      configurationStore,
       withTransaction: callback => db.transaction().execute(callback),
     };
     sessionDeps = deps;
@@ -916,6 +921,77 @@ describe('sessions HTTP agent binding', () => {
     expect(getOrCreate.status).toBe(404);
     expect(await getOrCreate.json()).toEqual({ error: { message: `Agent not found: ${agent.name}` } });
     expect(deniedCanAccessAgent.mock.calls.map(([input]) => input.action)).toEqual(['use', 'use']);
+  });
+
+  it('still runs a stored web-search agent after the tenant turns web search off', async () => {
+    const agent = await agentStore.createAgent({
+      tenant_id: 'default',
+      created_by_subject: {
+        subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+        subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+        subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+      },
+      name: 'web-search-agent',
+      description: 'Test agent.',
+      manifest: AgentSpecSchema.parse({
+        model: { name: 'anthropic/claude-sonnet-4-6' },
+        instructions: 'searches',
+        config: { web_search: { enabled: true } },
+      }),
+      external_id: null,
+    });
+    await webSearchProviderStore.upsertProvider({
+      tenant_id: 'default',
+      manifest: { type: 'parallel', auth: { api_key: 'parallel-key' } },
+    });
+
+    await configurationStore.upsertConfiguration({
+      tenant_id: 'default',
+      manifest: { web_search: { enabled: false } },
+    });
+    try {
+      // The agent was saved while web search was allowed, so its stored spec is grandfathered.
+      const grandfathered = await app.request('/', jsonInit('POST', { agent: { name: agent.name } }));
+      expect(grandfathered.status).toBe(201);
+
+      // Newly asking for web search in an inline spec is still refused.
+      const blocked = await app.request(
+        '/',
+        jsonInit('POST', {
+          agent: { spec: { ...inlineSpec, config: { ...inlineSpec.config, web_search: { enabled: true } } } },
+        }),
+      );
+      expect(blocked.status).toBe(422);
+    } finally {
+      await configurationStore.upsertConfiguration({
+        tenant_id: 'default',
+        manifest: { web_search: { enabled: true } },
+      });
+    }
+
+    const allowed = await app.request('/', jsonInit('POST', { agent: { name: agent.name } }));
+    expect(allowed.status).toBe(201);
+  });
+
+  it('validates a named agent spec the same way it validates an inline one', async () => {
+    const agent = await agentStore.createAgent({
+      tenant_id: 'default',
+      created_by_subject: {
+        subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+        subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+        subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+      },
+      name: 'stale-model-agent',
+      description: 'Test agent.',
+      manifest: AgentSpecSchema.parse({
+        model: { name: 'anthropic/model-that-was-removed' },
+        instructions: 'test',
+      }),
+      external_id: null,
+    });
+
+    const created = await app.request('/', jsonInit('POST', { agent: { name: agent.name } }));
+    expect(created.status).toBe(422);
   });
 
   it('rejects create bodies that mix name and AgentSpec fields', async () => {

@@ -950,6 +950,45 @@
         ],
         "type": "object"
       },
+      "Configuration": {
+        "additionalProperties": false,
+        "properties": {
+          "manifest": {
+            "$ref": "#/components/schemas/ConfigurationManifest"
+          },
+          "updated_at": {
+            "description": "When the configuration was last saved.",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "manifest",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "ConfigurationManifest": {
+        "additionalProperties": false,
+        "properties": {
+          "web_search": {
+            "$ref": "#/components/schemas/WebSearchConfiguration"
+          }
+        },
+        "required": [
+          "web_search"
+        ],
+        "type": "object"
+      },
+      "ConfigurationManifestPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "web_search": {
+            "$ref": "#/components/schemas/WebSearchConfiguration"
+          }
+        },
+        "type": "object"
+      },
       "ConfiguredMCPServer": {
         "additionalProperties": false,
         "properties": {
@@ -1540,6 +1579,17 @@
         "properties": {
           "data": {
             "$ref": "#/components/schemas/CapabilitiesData"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "GetConfigurationResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Configuration"
           }
         },
         "required": [
@@ -4697,13 +4747,49 @@
       },
       "SettingsCapability": {
         "properties": {
+          "mcp_servers": {
+            "$ref": "#/components/schemas/SettingsCapabilitySection"
+          },
+          "memory": {
+            "$ref": "#/components/schemas/SettingsCapabilitySection"
+          },
+          "model_providers": {
+            "$ref": "#/components/schemas/SettingsCapabilitySection"
+          },
+          "sandbox_providers": {
+            "$ref": "#/components/schemas/SettingsCapabilitySection"
+          },
+          "skills": {
+            "$ref": "#/components/schemas/SettingsCapabilitySection"
+          },
+          "web_search": {
+            "$ref": "#/components/schemas/SettingsCapabilitySection"
+          }
+        },
+        "required": [
+          "model_providers",
+          "mcp_servers",
+          "skills",
+          "sandbox_providers",
+          "web_search",
+          "memory"
+        ],
+        "type": "object"
+      },
+      "SettingsCapabilitySection": {
+        "properties": {
           "enabled": {
-            "description": "Whether the settings UI/API is enabled.",
+            "description": "Whether this settings section is available to the caller.",
+            "type": "boolean"
+          },
+          "manage_providers": {
+            "description": "Whether the caller may add or edit providers in this section. False when the platform owns them.",
             "type": "boolean"
           }
         },
         "required": [
-          "enabled"
+          "enabled",
+          "manage_providers"
         ],
         "type": "object"
       },
@@ -6022,6 +6108,18 @@
         ],
         "type": "object"
       },
+      "UpdateConfigurationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "manifest": {
+            "$ref": "#/components/schemas/ConfigurationManifestPatch"
+          }
+        },
+        "required": [
+          "manifest"
+        ],
+        "type": "object"
+      },
       "UpdateMCPServerRequest": {
         "additionalProperties": false,
         "properties": {
@@ -6475,8 +6573,12 @@
       "WebSearchCapability": {
         "properties": {
           "enabled": {
-            "description": "Whether a host web-search provider is configured.",
+            "description": "Whether new chats may use web search: the tenant allows it and a provider is configured.",
             "type": "boolean"
+          },
+          "reason": {
+            "description": "Present when web search is unavailable. Explains why.",
+            "type": "string"
           }
         },
         "required": [
@@ -6495,6 +6597,19 @@
             "type": "boolean"
           }
         },
+        "type": "object"
+      },
+      "WebSearchConfiguration": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "description": "Whether new chats may use web search. Chats that already use it keep their own setting.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
         "type": "object"
       },
       "WebSearchProviderManifest": {
@@ -10716,6 +10831,116 @@
         }
       }
     },
+    "/api/v1/settings/configuration": {
+      "get": {
+        "description": "Tenant-wide feature switches. Tenants with nothing saved yet get every switch enabled.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetConfigurationResponse"
+                }
+              }
+            },
+            "description": "The tenant configuration."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid Bearer token or auth cookie."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated but not an admin."
+          }
+        },
+        "summary": "Get the tenant configuration",
+        "tags": [
+          "Configuration"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "configuration"
+        ],
+        "x-fern-sdk-method-name": "get"
+      },
+      "patch": {
+        "description": "Updates the switches present in the body and leaves the rest. Turning web search off applies to new chats; chats already using it keep it.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateConfigurationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetConfigurationResponse"
+                }
+              }
+            },
+            "description": "The saved tenant configuration."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid Bearer token or auth cookie."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated but not an admin."
+          }
+        },
+        "summary": "Update the tenant configuration",
+        "tags": [
+          "Configuration"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "configuration"
+        ],
+        "x-fern-sdk-method-name": "update"
+      }
+    },
     "/api/v1/settings/mcp-servers": {
       "get": {
         "description": "Configured MCP servers with auth_status. Header secrets are redacted.",
@@ -11895,6 +12120,9 @@
     },
     {
       "name": "Web Search Providers"
+    },
+    {
+      "name": "Configuration"
     },
     {
       "name": "Agents"
