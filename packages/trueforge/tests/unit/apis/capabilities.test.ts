@@ -9,7 +9,7 @@ import { createAuthMiddleware } from '../../../src/auth/middleware';
 import { disableOidcAuth, enableOidcAuth, initOidc } from '../../../src/auth/oidc';
 import { OidcAuthenticator } from '../../../src/auth/oidcAuthenticator';
 import { StandaloneAuthenticator } from '../../../src/auth/standaloneAuthenticator';
-import type { OIDCConfig } from '../../../src/config';
+import configuration, { type OIDCConfig } from '../../../src/config';
 import type { IConfigurationStore } from '../../../src/db/configurationStore';
 import type { ISandboxEnvironmentStore, SandboxEnvironmentWithVersion } from '../../../src/db/sandboxEnvironmentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -149,7 +149,7 @@ describe('capabilities routers', () => {
       data: {
         sandbox: {
           enabled: false,
-          environments: { enabled: false },
+          environments: { enabled: true },
         },
         skill: {
           enabled: false,
@@ -286,7 +286,7 @@ describe('capabilities routers', () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
       data: {
-        sandbox: { enabled: false },
+        sandbox: { enabled: false, environments: { enabled: true } },
         skill: {
           enabled: false,
           reason: 'Skills run in a sandbox whose image is still being prepared — retry shortly.',
@@ -304,10 +304,33 @@ describe('capabilities routers', () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
       data: {
-        sandbox: { enabled: false },
+        sandbox: { enabled: false, environments: { enabled: true } },
         skill: { enabled: false, reason: 'Skills run in a sandbox, which is not configured.' },
       },
     });
+  });
+
+  it('disables environments when the TrueFoundry on-prem sandbox provider is selected', async () => {
+    disableOidcAuth();
+    mockActiveDefaultStatus = 'ready';
+    const previous = Reflect.get(configuration, 'TRUEFOUNDRY_SANDBOX_PROVIDER');
+    Reflect.set(configuration, 'TRUEFOUNDRY_SANDBOX_PROVIDER', 'truefoundry');
+    try {
+      const router = makeRouter();
+      const response = await router.request('/');
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({
+        data: {
+          sandbox: { enabled: true, environments: { enabled: false } },
+        },
+      });
+    } finally {
+      if (previous === undefined) {
+        Reflect.deleteProperty(configuration, 'TRUEFOUNDRY_SANDBOX_PROVIDER');
+      } else {
+        Reflect.set(configuration, 'TRUEFOUNDRY_SANDBOX_PROVIDER', previous);
+      }
+    }
   });
 
   describe('when auth is enabled', () => {
@@ -405,7 +428,7 @@ describe('capabilities routers', () => {
         data: {
           sandbox: {
             enabled: false,
-            environments: { enabled: false },
+            environments: { enabled: true },
           },
           skill: {
             enabled: false,
@@ -425,7 +448,7 @@ describe('capabilities routers', () => {
         data: {
           sandbox: {
             enabled: false,
-            environments: { enabled: false },
+            environments: { enabled: true },
           },
           skill: {
             enabled: false,

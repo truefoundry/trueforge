@@ -477,7 +477,7 @@ export interface AgentBuilderCapabilitiesResponse {
   data: {
     sandbox: {
       enabled: boolean;
-      /** Gates Environments chrome + environment pickers. Absent → treat as enabled. */
+      /** Gates Environments chrome + environment pickers. Absent → treat as disabled. */
       environments?: { enabled: boolean };
     };
     skill: { enabled: boolean; reason?: string };
