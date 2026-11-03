@@ -21,14 +21,14 @@ import {
   isEntryAfterCursor,
   isLegacySequenceEntryId,
 } from './entryId';
-import { applyEventLogRepair, eventIdOf, type RepairLogOptions } from './repair';
+import { applyEventLogRepair, type RepairLogOptions } from './repair';
 
-interface StoredEvent<T extends object> {
+interface StoredEvent<T extends { id: string }> {
   entryId: string;
   event: T;
 }
 
-interface InMemoryStream<T extends object> {
+interface InMemoryStream<T extends { id: string }> {
   /** Appended in Redis stream-id order. */
   events: StoredEvent<T>[];
   /** Undefined = no TTL set yet (mirrors a Redis key without EXPIRE). */
@@ -40,7 +40,7 @@ interface InMemoryStream<T extends object> {
  * Owns the stream logs and their TTLs; the expiry timer is the in-process
  * equivalent of Redis key eviction.
  */
-export class InMemoryEventStreamStore<T extends object> {
+export class InMemoryEventStreamStore<T extends { id: string }> {
   private readonly streams = new Map<string, InMemoryStream<T>>();
   /** Survives stream eviction so a stale producer cannot recreate a missing log. */
   private readonly owners = new Map<string, string>();
@@ -79,9 +79,10 @@ export class InMemoryEventStreamStore<T extends object> {
       return 'duplicate';
     }
     this.streams.set(input.streamId, stream);
-    const eventId = eventIdOf(event);
-    const timestamp = eventId === undefined ? undefined : eventIdTimestampMs(eventId);
-    stream.events.push({ entryId: this.nextEntryId(stream, timestamp ?? Date.now()), event });
+    stream.events.push({
+      entryId: this.nextEntryId(stream, eventIdTimestampMs(event.id) ?? Date.now()),
+      event,
+    });
     if (input.streamTTLSeconds !== undefined && input.streamTTLSeconds > 0) {
       stream.expiresAtMs = Date.now() + input.streamTTLSeconds * 1_000;
       this.scheduleExpiry(input.streamId, stream);
@@ -96,7 +97,7 @@ export class InMemoryEventStreamStore<T extends object> {
     if (last === undefined) {
       return undefined;
     }
-    return { eventId: eventIdOf(last.event) ?? '', payload: JSON.stringify(last.event) };
+    return { eventId: last.event.id, payload: JSON.stringify(last.event) };
   }
 
   firstEntryId(streamId: string): string | undefined {
@@ -196,7 +197,7 @@ export class InMemoryEventStreamStore<T extends object> {
 }
 
 /** Stream-scoped view over the shared store; implements the transport contract. */
-export class InMemoryEventSubscription<T extends object> implements EventSubscription<T> {
+export class InMemoryEventSubscription<T extends { id: string }> implements EventSubscription<T> {
   constructor(
     private readonly store: InMemoryEventStreamStore<T>,
     private readonly streamId: string,
@@ -265,12 +266,16 @@ export class InMemoryEventSubscription<T extends object> implements EventSubscri
     return Promise.resolve();
   }
 
-  async *poll(
-    afterSequenceNumber?: number,
-    options?: EventSubscriptionPollOptions,
-  ): AsyncGenerator<SequencedEvent<T>, void, unknown> {
-    if (options?.fromEventId !== undefined || options?.afterEventId !== undefined) {
-      yield* this.pollByEventId(options);
+  async *poll(options?: EventSubscriptionPollOptions): AsyncGenerator<SequencedEvent<T>, void, unknown> {
+    const afterSequenceNumber = options?.afterSequenceNumber;
+    const fromEventId = options?.fromEventId;
+    const afterEventId = options?.afterEventId;
+    const cursors = [afterSequenceNumber, fromEventId, afterEventId].filter(value => value !== undefined);
+    if (cursors.length > 1) {
+      throw new Error('Pass only one of afterSequenceNumber, fromEventId, or afterEventId');
+    }
+    if (fromEventId !== undefined || afterEventId !== undefined) {
+      yield* this.pollByEventId(options ?? {});
       return;
     }
     const signal = options?.signal;
@@ -317,14 +322,11 @@ export class InMemoryEventSubscription<T extends object> implements EventSubscri
     const fromEventId = options.fromEventId;
     const afterEventId = options.afterEventId;
     const eventId = fromEventId ?? afterEventId;
-    if (eventId === undefined || (fromEventId !== undefined && afterEventId !== undefined)) {
-      throw new Error('Pass only one of fromEventId or afterEventId');
+    if (eventId === undefined) {
+      throw new Error('Pass fromEventId or afterEventId');
     }
     const signal = options.signal;
-    const seek = new EventIdSeek<SequencedEvent<T> & { id: string }>(
-      fromEventId !== undefined ? 'from' : 'after',
-      eventId,
-    );
+    const seek = new EventIdSeek<SequencedEvent<T>>(fromEventId !== undefined ? 'from' : 'after', eventId);
     const readCursor = eventIdSeekCursor({ eventId, firstEntryId: this.store.firstEntryId(this.streamId) });
     let index = 0;
     let scanning = true;
@@ -366,11 +368,7 @@ export class InMemoryEventSubscription<T extends object> implements EventSubscri
         if (!isEntryAfterCursor(stored.entryId, readCursor)) {
           continue;
         }
-        const eventIdOnEntry = eventIdOf(stored.event);
-        if (eventIdOnEntry === undefined) {
-          throw new Error(`Corrupt stream ${this.streamId}: missing event id`);
-        }
-        for (const event of seek.push({ ...this.polled(stored), id: eventIdOnEntry })) {
+        for (const event of seek.push(this.polled(stored))) {
           yield event;
         }
       }

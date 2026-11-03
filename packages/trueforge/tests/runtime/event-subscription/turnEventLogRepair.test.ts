@@ -24,7 +24,7 @@ async function collect(
   count: number,
 ): Promise<SequencedEvent<TurnStreamingEvent>[]> {
   const abort = new AbortController();
-  const generator = registry.get(streamId).poll(undefined, { signal: abort.signal });
+  const generator = registry.get(streamId).poll({ signal: abort.signal });
   const received: SequencedEvent<TurnStreamingEvent>[] = [];
   try {
     for await (const event of generator) {

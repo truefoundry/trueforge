@@ -16,24 +16,42 @@ export interface EventSubscriptionPutOptions {
 }
 
 /** `sequence_number` is set only when replaying an old `{sequence}-1` entry. */
-export type SequencedEvent<T extends object> = T & { sequence_number?: number };
+export type SequencedEvent<T extends { id: string }> = T & { sequence_number?: number };
 
 export { isLegacySequenceEntryId, LEGACY_SEQUENCE_ID_MAX } from './entryId';
 
-export interface EventSubscriptionPollOptions {
+export type EventSubscriptionPollOptions = {
   /** Ends the generator promptly on abort, releasing any parked idle wait. */
   signal?: AbortSignal | undefined;
-  /** Inclusive payload cursor. Replay starts at this event id. */
-  fromEventId?: string | undefined;
-  /** Exclusive payload cursor. Replay starts after the last entry with this event id. */
-  afterEventId?: string | undefined;
-}
+} & (
+  | {
+      /**
+       * Legacy exclusive cursor. Replay events after this sequence (1-indexed).
+       * Omit or pass 0 to start from the first event.
+       */
+      afterSequenceNumber?: number | undefined;
+      fromEventId?: never;
+      afterEventId?: never;
+    }
+  | {
+      /** Inclusive payload cursor. Replay starts at this event id. */
+      fromEventId: string;
+      afterSequenceNumber?: never;
+      afterEventId?: never;
+    }
+  | {
+      /** Exclusive payload cursor. Replay starts after the last entry with this event id. */
+      afterEventId: string;
+      afterSequenceNumber?: never;
+      fromEventId?: never;
+    }
+);
 
 /**
  * One turn's resumable event stream, obtained from {@link EventSubscriptionRegistry.get}.
  * Per-stream state (e.g. the sequence counter) lives on the instance and is freed with it.
  */
-export interface EventSubscription<T extends object> {
+export interface EventSubscription<T extends { id: string }> {
   /**
    * Rebuilds a missing or behind stream from the durable log using event-id
    * stream ids. An existing stream whose tail is already the log tail is left
@@ -54,21 +72,15 @@ export interface EventSubscription<T extends object> {
    */
   assertSubscribable(): Promise<void>;
 
-  /**
-   * Yields events strictly after the supplied sequence number.
-   * Sequences are 1-indexed; omit or pass 0 to start from the first event.
-   */
-  poll(
-    afterSequenceNumber?: number,
-    options?: EventSubscriptionPollOptions,
-  ): AsyncGenerator<SequencedEvent<T>, void, unknown>;
+  /** Yields events from the chosen cursor, or from the start when none is set. */
+  poll(options?: EventSubscriptionPollOptions): AsyncGenerator<SequencedEvent<T>, void, unknown>;
 }
 
 /**
  * Hands out stream-scoped {@link EventSubscription}s: Redis-backed when a
  * client is supplied, otherwise views over one shared in-process store.
  */
-export class EventSubscriptionRegistry<T extends object> {
+export class EventSubscriptionRegistry<T extends { id: string }> {
   /** One store for the whole process so producers and subscribers share streams. */
   private readonly memoryStore = new InMemoryEventStreamStore<T>();
 

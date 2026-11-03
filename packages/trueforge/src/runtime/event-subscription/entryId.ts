@@ -4,7 +4,7 @@ import { decodeTime } from 'ulid';
  * Old streams used `{sequence}-1` with a small sequence. A unix-millisecond id
  * is far above this. The cutoff is a temporary compat check, not an event limit.
  */
-export const LEGACY_SEQUENCE_ID_MAX = 100_000;
+export const LEGACY_SEQUENCE_ID_MAX = 50_000;
 
 /** Redis stream sequence is an unsigned 64-bit integer. The id just before `{ms}-0` is `{ms-1}` plus this. */
 const REDIS_MAX_SEQUENCE = '18446744073709551615';

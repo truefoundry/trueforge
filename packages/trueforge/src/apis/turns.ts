@@ -2007,6 +2007,7 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
     const fromEventId = query.from_event_id;
     const afterEventId = query.after_event_id;
     const afterSequenceNumber = resolveAfterSequenceNumber(c, query.after_sequence_number);
+    // we recheck here outside of zod because we support Last-Event-ID header for legacy clients
     if (afterSequenceNumber !== undefined && (fromEventId !== undefined || afterEventId !== undefined)) {
       throw new HTTPException(400, {
         message: 'Pass only one of after_sequence_number, from_event_id, or after_event_id.',
@@ -2014,7 +2015,7 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
     }
     if (afterSequenceNumber !== undefined && afterSequenceNumber > LEGACY_SEQUENCE_ID_MAX) {
       throw new HTTPException(400, {
-        message: 'after_sequence_number is not supported above 100000.',
+        message: 'after_sequence_number is not supported above 50000.',
       });
     }
     if (fromEventId !== undefined && eventIdTimestampMs(fromEventId) === undefined) {
@@ -2070,6 +2071,7 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
       throw error;
     }
 
+    // legacy subscribe handling, we will stop sending sequence ids in the future
     let includeSequenceId = false;
     if (afterSequenceNumber !== undefined) {
       const firstEntryId = await turnEventStream.firstEntryId();
@@ -2080,13 +2082,6 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
       }
       includeSequenceId = true;
     }
-    const pollOptions: EventSubscriptionPollOptions = {};
-    if (fromEventId !== undefined) {
-      pollOptions.fromEventId = fromEventId;
-    } else if (afterEventId !== undefined) {
-      pollOptions.afterEventId = afterEventId;
-    }
-
     // One lifecycle controller: server-side timeout, client disconnect, and
     // normal teardown all abort it, which ends poll even while it is parked
     // waiting for events.
@@ -2101,16 +2096,22 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
       subscribeAbort.abort(new Error('subscribe-timeout'));
     }, timeoutMs);
 
+    let pollOptions: EventSubscriptionPollOptions = { signal: subscribeAbort.signal };
+    if (fromEventId !== undefined) {
+      pollOptions = { fromEventId, signal: subscribeAbort.signal };
+    } else if (afterEventId !== undefined) {
+      pollOptions = { afterEventId, signal: subscribeAbort.signal };
+    } else if (afterSequenceNumber !== undefined) {
+      pollOptions = { afterSequenceNumber, signal: subscribeAbort.signal };
+    }
+
     return streamSSE(c, async stream => {
       stream.onAbort(() => {
         getOperationMetrics()?.recordTurnSseDisconnect({ path: 'subscribe' });
         subscribeAbort.abort(new Error('client-disconnected'));
       });
 
-      const generator = turnEventStream.poll(
-        fromEventId !== undefined || afterEventId !== undefined ? undefined : afterSequenceNumber,
-        { ...pollOptions, signal: subscribeAbort.signal },
-      );
+      const generator = turnEventStream.poll(pollOptions);
       try {
         for await (const { sequence_number: sequenceNumber, ...event } of generator) {
           await stream.writeSSE(

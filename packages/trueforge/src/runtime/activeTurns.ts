@@ -108,7 +108,7 @@ export class ActiveTurnRegistry<TTransaction = never> {
       if (caught === E_TIMEOUT) {
         throw new TurnLockAcquireTimeoutError({
           timeoutMs: this.lockAcquireTimeoutMs,
-          cause: caught,
+          cause: E_TIMEOUT,
         });
       }
       throw caught;

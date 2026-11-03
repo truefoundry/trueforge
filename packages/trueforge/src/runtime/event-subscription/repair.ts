@@ -4,13 +4,13 @@
  * order is the order. No sequence number is assigned.
  */
 
-export interface EventLogEntry<T extends object> {
+export interface EventLogEntry<T extends { id: string }> {
   /** Payload id. The Redis stream id is not this value. */
   id: string;
   event: T;
 }
 
-export interface RepairLogOptions<T extends object> {
+export interface RepairLogOptions<T extends { id: string }> {
   entries: readonly EventLogEntry<T>[];
   streamTTLSeconds?: number | undefined;
   /**
@@ -24,14 +24,6 @@ interface StreamTail {
   eventId: string;
   /** JSON written on the stream, used to tell shared-id rows apart. */
   payload: string;
-}
-
-export function eventIdOf(event: object): string | undefined {
-  if (!('id' in event)) {
-    return undefined;
-  }
-  const id = event.id;
-  return typeof id === 'string' ? id : undefined;
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -69,6 +61,7 @@ export function eventPayloadMatches(event: object, payload: string): boolean {
   return JSON.stringify(canonicalize(event)) === JSON.stringify(canonicalize(parsed));
 }
 
+/** Payload id from a stream data field. Undefined when JSON is corrupt or id is missing. */
 export function eventIdFromStreamData(data: string): string | undefined {
   let parsed: unknown;
   try {
@@ -76,10 +69,10 @@ export function eventIdFromStreamData(data: string): string | undefined {
   } catch {
     return undefined;
   }
-  if (typeof parsed !== 'object' || parsed === null) {
+  if (typeof parsed !== 'object' || parsed === null || !('id' in parsed)) {
     return undefined;
   }
-  return eventIdOf(parsed);
+  return typeof parsed.id === 'string' ? parsed.id : undefined;
 }
 
 /**
@@ -87,7 +80,7 @@ export function eventIdFromStreamData(data: string): string | undefined {
  * are distinguished by the stored payload. A tail the log does not contain is
  * left alone.
  */
-function suffixAfterTail<T extends object>(
+function suffixAfterTail<T extends { id: string }>(
   entries: readonly EventLogEntry<T>[],
   tail: StreamTail | undefined,
 ): EventLogEntry<T>[] {
@@ -107,7 +100,7 @@ function suffixAfterTail<T extends object>(
   return entries.slice(match + 1);
 }
 
-export async function applyEventLogRepair<T extends object>(input: {
+export async function applyEventLogRepair<T extends { id: string }>(input: {
   entries: readonly EventLogEntry<T>[];
   claimOwner?: (() => Promise<void>) | undefined;
   readTail: () => Promise<StreamTail | undefined>;

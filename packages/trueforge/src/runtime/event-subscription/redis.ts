@@ -16,7 +16,7 @@ import {
   eventIdTimestampMs,
   isLegacySequenceEntryId,
 } from './entryId';
-import { applyEventLogRepair, eventIdFromStreamData, eventIdOf, type RepairLogOptions } from './repair';
+import { applyEventLogRepair, eventIdFromStreamData, type RepairLogOptions } from './repair';
 
 const SUBSCRIBE_STREAM_POLL_ITEMS_COUNT = 100;
 /** Delay between XREAD polls while a stream has no new events (a blocking XREAD would monopolize the shared connection). */
@@ -100,7 +100,7 @@ function parseAppendReply(value: unknown): { status: AppendStatus; detail: strin
  * One Redis Stream. Entry ids are `{ulidMillisecond}-{n}` from `XADD`. The owner
  * key is separate from the stream so a missing stream still rejects a stale producer.
  */
-export class RedisEventSubscription<T extends object> implements EventSubscription<T> {
+export class RedisEventSubscription<T extends { id: string }> implements EventSubscription<T> {
   constructor(
     private readonly redis: RedisClient,
     private readonly streamId: string,
@@ -153,12 +153,16 @@ export class RedisEventSubscription<T extends object> implements EventSubscripti
     }
   }
 
-  async *poll(
-    afterSequenceNumber?: number,
-    options?: EventSubscriptionPollOptions,
-  ): AsyncGenerator<SequencedEvent<T>, void, unknown> {
-    if (options?.fromEventId !== undefined || options?.afterEventId !== undefined) {
-      yield* this.pollByEventId(options);
+  async *poll(options?: EventSubscriptionPollOptions): AsyncGenerator<SequencedEvent<T>, void, unknown> {
+    const afterSequenceNumber = options?.afterSequenceNumber;
+    const fromEventId = options?.fromEventId;
+    const afterEventId = options?.afterEventId;
+    const cursors = [afterSequenceNumber, fromEventId, afterEventId].filter(value => value !== undefined);
+    if (cursors.length > 1) {
+      throw new Error('Pass only one of afterSequenceNumber, fromEventId, or afterEventId');
+    }
+    if (fromEventId !== undefined || afterEventId !== undefined) {
+      yield* this.pollByEventId(options ?? {});
       return;
     }
     const signal = options?.signal;
@@ -192,14 +196,11 @@ export class RedisEventSubscription<T extends object> implements EventSubscripti
     const fromEventId = options.fromEventId;
     const afterEventId = options.afterEventId;
     const eventId = fromEventId ?? afterEventId;
-    if (eventId === undefined || (fromEventId !== undefined && afterEventId !== undefined)) {
-      throw new Error('Pass only one of fromEventId or afterEventId');
+    if (eventId === undefined) {
+      throw new Error('Pass fromEventId or afterEventId');
     }
     const signal = options.signal;
-    const seek = new EventIdSeek<SequencedEvent<T> & { id: string }>(
-      fromEventId !== undefined ? 'from' : 'after',
-      eventId,
-    );
+    const seek = new EventIdSeek<SequencedEvent<T>>(fromEventId !== undefined ? 'from' : 'after', eventId);
     let cursor = eventIdSeekCursor({ eventId, firstEntryId: await this.firstEntryId() });
     let scanning = true;
     for (;;) {
@@ -221,8 +222,7 @@ export class RedisEventSubscription<T extends object> implements EventSubscripti
       }
       for (const { id, message } of messages) {
         cursor = id;
-        const event = this.eventWithId(this.readEvent(id, message), id);
-        for (const item of seek.push(event)) {
+        for (const item of seek.push(this.readEvent(id, message))) {
           yield item;
         }
       }
@@ -283,15 +283,13 @@ export class RedisEventSubscription<T extends object> implements EventSubscripti
   }
 
   private isStoredEvent(value: unknown): value is T {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
-  }
-
-  private eventWithId(event: SequencedEvent<T>, entryId: string): SequencedEvent<T> & { id: string } {
-    const eventId = eventIdOf(event);
-    if (eventId === undefined) {
-      throw new Error(`Corrupt stream entry ${entryId} on ${this.streamId}: missing event id`);
-    }
-    return { ...event, id: eventId };
+    return (
+      typeof value === 'object' &&
+      value !== null &&
+      !Array.isArray(value) &&
+      'id' in value &&
+      typeof value.id === 'string'
+    );
   }
 
   private async readTail(): Promise<{ eventId: string; payload: string } | undefined> {
@@ -304,10 +302,11 @@ export class RedisEventSubscription<T extends object> implements EventSubscripti
     if (data === undefined) {
       throw new Error(`Corrupt stream entry ${latest.id} on ${this.streamId}: missing data field`);
     }
-    return {
-      eventId: eventIdFromStreamData(data) ?? '',
-      payload: data,
-    };
+    const eventId = eventIdFromStreamData(data);
+    if (eventId === undefined) {
+      throw new Error(`Corrupt stream entry ${latest.id} on ${this.streamId}: missing event id`);
+    }
+    return { eventId, payload: data };
   }
 
   private async lastEntryId(): Promise<string | undefined> {
@@ -379,9 +378,7 @@ export class RedisEventSubscription<T extends object> implements EventSubscripti
   }
 
   private streamIdFor(event: T): string {
-    const eventId = eventIdOf(event);
-    const timestamp = eventId === undefined ? undefined : eventIdTimestampMs(eventId);
-    return `${String(timestamp ?? Date.now())}-*`;
+    return `${String(eventIdTimestampMs(event.id) ?? Date.now())}-*`;
   }
 
   private async appendEntry(input: {
