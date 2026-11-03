@@ -8,6 +8,7 @@ import type { WithTransaction } from '../db/transaction';
 import { getSandboxProviderRoute, putSandboxProviderRoute } from '../routes/sandboxProviderRoutes';
 import { ensureDefaultSandboxEnvironment } from '../sandbox/ensureDefaultSandboxEnvironment';
 import { isDaytonaAuthError, isDaytonaPermissionError, validateSandboxProviderAccess } from '../sandbox/providerUtils';
+import { resolveSandboxEnvironmentIdentity } from '../sandbox/sandboxEnvironmentVersion';
 import type { SandboxProviderManifest, UpdateSandboxProviderRequest } from '../schemas/sandboxProvider';
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 
@@ -95,7 +96,7 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
           store: deps.sandboxEnvironmentStore,
           tenant_id: requestContext.tenant_id,
           created_by_subject: createdBySubjectFromRequestContext(requestContext),
-          provider_type: lockedResolved.type,
+          identity: resolveSandboxEnvironmentIdentity(lockedResolved.type),
           resetPending: keyChanged,
           transaction,
         });

@@ -560,7 +560,11 @@ export interface SettingsCapability {
  */
 export interface AgentBuilderCapabilitiesResponse {
   data: {
-    sandbox: { enabled: boolean };
+    sandbox: {
+      enabled: boolean;
+      /** Gates Environments chrome + environment pickers. Absent → treat as disabled. */
+      environments?: { enabled: boolean };
+    };
     skill: { enabled: boolean; reason?: string };
     settings?: SettingsCapability;
     webSearch?: { enabled: boolean; reason?: string };

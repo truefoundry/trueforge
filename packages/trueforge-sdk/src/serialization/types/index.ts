@@ -184,6 +184,7 @@ export * from "./SandboxEnvironmentManifestRequest.js";
 export * from "./SandboxEnvironmentNetworking.js";
 export * from "./SandboxEnvironmentResources.js";
 export * from "./SandboxEnvironmentSecret.js";
+export * from "./SandboxEnvironmentsCapability.js";
 export * from "./SandboxEnvironmentVersionStatus.js";
 export * from "./SandboxProviderManifest.js";
 export * from "./Schedule.js";

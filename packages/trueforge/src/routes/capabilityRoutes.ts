@@ -2,9 +2,18 @@ import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import { OpenApiTag } from './openapiTags';
 
+const SandboxEnvironmentsCapabilitySchema = z
+  .object({
+    enabled: z
+      .boolean()
+      .describe('Whether sandbox environments (snapshots / Environments UI) are available for this tenant.'),
+  })
+  .openapi('SandboxEnvironmentsCapability');
+
 const SandboxCapabilitySchema = z
   .object({
     enabled: z.boolean().describe('Whether a sandbox provider is configured for this tenant.'),
+    environments: SandboxEnvironmentsCapabilitySchema,
   })
   .openapi('SandboxCapability');
 

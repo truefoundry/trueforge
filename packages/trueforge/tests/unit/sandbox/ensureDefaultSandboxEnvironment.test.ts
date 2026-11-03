@@ -23,7 +23,7 @@ describe('ensureDefaultSandboxEnvironment', () => {
       store: store as unknown as ISandboxEnvironmentStore,
       tenant_id: 'tenant-1',
       created_by_subject: SUBJECT,
-      provider_type: 'daytona',
+      identity: { type: 'daytona', sandbox_provider: 'daytona' },
       resetPending: false,
     });
 
@@ -45,7 +45,7 @@ describe('ensureDefaultSandboxEnvironment', () => {
       store: store as unknown as ISandboxEnvironmentStore,
       tenant_id: 'tenant-1',
       created_by_subject: SUBJECT,
-      provider_type: 'daytona',
+      identity: { type: 'daytona', sandbox_provider: 'daytona' },
       resetPending: false,
     });
 
@@ -85,7 +85,7 @@ describe('ensureDefaultSandboxEnvironment', () => {
       store: store as unknown as ISandboxEnvironmentStore,
       tenant_id: 'tenant-1',
       created_by_subject: SUBJECT,
-      provider_type: 'daytona',
+      identity: { type: 'daytona', sandbox_provider: 'daytona' },
       resetPending: true,
     });
 

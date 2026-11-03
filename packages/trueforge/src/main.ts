@@ -17,6 +17,7 @@ import {
 } from '@truefoundry/trueforge-core/core';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
+import { PACKAGE_VERSION, TRUEFORGE_USER_AGENT } from './packageVersion';
 import {
   ensureLocalSandboxRootParent,
   prepareCodeModeSocketParent,
@@ -63,6 +64,7 @@ try {
       bodyTimeoutMs: configuration.MODEL_HTTP_BODY_TIMEOUT_MS,
       maxRetries: configuration.MODEL_HTTP_MAX_RETRIES,
       idempotent: true,
+      userAgent: TRUEFORGE_USER_AGENT,
       metrics: { module: 'model' },
     },
     mcp: {
@@ -71,6 +73,7 @@ try {
       bodyTimeoutMs: configuration.MCP_HTTP_BODY_TIMEOUT_MS,
       maxRetries: configuration.MCP_HTTP_MAX_RETRIES,
       idempotent: false,
+      userAgent: TRUEFORGE_USER_AGENT,
       metrics: { module: 'mcp' },
     },
   });
@@ -128,7 +131,6 @@ import { createServerLogger, shouldColorize } from './logger';
 import type { IOAuthTokenStore } from './mcp/auth/types';
 import { createOperationMetrics } from './observability/agentMetrics';
 import { startSdkMetrics } from './observability/sdkMetrics';
-import { PACKAGE_VERSION } from './packageVersion';
 import {
   buildResolveAgentStore,
   buildResolveMcpServerStore,

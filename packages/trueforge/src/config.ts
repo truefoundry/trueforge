@@ -284,6 +284,17 @@ function parsePublicBaseUrl(raw: string | undefined): string {
   return `${parsed.origin}${path}`;
 }
 
+function parseTrueFoundryMemoryProvider(raw: string | undefined): 'zep' | undefined {
+  if (raw === undefined || raw.trim() === '') {
+    return undefined;
+  }
+  const value = raw.trim();
+  if (value === 'zep') {
+    return value;
+  }
+  throw new Error(`Environment variable TRUEFOUNDRY_MEMORY_PROVIDER must be "zep", got ${JSON.stringify(raw)}`);
+}
+
 function parseTrueFoundrySandboxProvider(raw: string | undefined): 'daytona' | 'truefoundry' | undefined {
   if (raw === undefined || raw.trim() === '') {
     return undefined;
@@ -1086,6 +1097,31 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
   TRUEFOUNDRY_WEB_SEARCH_PROVIDER: TrueFoundryWebSearchProviderEnv | undefined;
   TRUEFOUNDRY_AUTH_SERVER_URL: string | undefined;
   TRUEFOUNDRY_TENANT_NAME: string | undefined;
+  /**
+   * When TrueFoundry mode is on, enable long-term memory: the controller's memory-ingest loop sends
+   * chats to the shared memory provider. Env: `TRUEFOUNDRY_MEMORY_ENABLED`. Default false.
+   */
+  TRUEFOUNDRY_MEMORY_ENABLED: boolean;
+  /**
+   * Shared memory backend when `TRUEFOUNDRY_MEMORY_ENABLED` is true.
+   * Env: `TRUEFOUNDRY_MEMORY_PROVIDER` (`zep`).
+   */
+  TRUEFOUNDRY_MEMORY_PROVIDER: 'zep' | undefined;
+  /** Shared API key (required for zep). Env: `TRUEFOUNDRY_MEMORY_API_KEY`. */
+  TRUEFOUNDRY_MEMORY_API_KEY: string | undefined;
+  /** Memory provider API URL. Zep: default Zep Cloud v4. Env: `TRUEFOUNDRY_MEMORY_SERVER_URL`. */
+  TRUEFOUNDRY_MEMORY_SERVER_URL: string | undefined;
+  /**
+   * Tenants that get memory while `TRUEFOUNDRY_MEMORY_ENABLED`; every other tenant has none. JSON
+   * string array of tenant ids. Env: `TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST`. Default empty (no tenant).
+   */
+  TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST: string[];
+  /**
+   * Static JSON settings for the memory-ingest loop: `interval_ms`, `max_sessions_per_run`,
+   * `max_exchanges_per_session`, `lookback_ms`, `pause_timeout_ms` (each optional, with defaults).
+   * Env: `TRUEFOUNDRY_MEMORY_SETTINGS`.
+   */
+  TRUEFOUNDRY_MEMORY_SETTINGS: string | undefined;
 };
 
 export type ServerConfiguration = StandaloneServerConfiguration | DistributedServerConfiguration;
@@ -1414,6 +1450,21 @@ const configuration: ServerConfiguration = standalone
       ),
       TRUEFOUNDRY_AUTH_SERVER_URL: getEnv('TRUEFOUNDRY_AUTH_SERVER_URL', { required: false }),
       TRUEFOUNDRY_TENANT_NAME: getEnv('TRUEFOUNDRY_TENANT_NAME', { required: false }),
+      TRUEFOUNDRY_MEMORY_ENABLED: parseBoolean({
+        envKey: 'TRUEFOUNDRY_MEMORY_ENABLED',
+        raw: getEnv('TRUEFOUNDRY_MEMORY_ENABLED'),
+        defaultValue: false,
+      }),
+      TRUEFOUNDRY_MEMORY_PROVIDER: parseTrueFoundryMemoryProvider(
+        getEnv('TRUEFOUNDRY_MEMORY_PROVIDER', { required: false }),
+      ),
+      TRUEFOUNDRY_MEMORY_API_KEY: getEnv('TRUEFOUNDRY_MEMORY_API_KEY', { required: false }),
+      TRUEFOUNDRY_MEMORY_SERVER_URL: getEnv('TRUEFOUNDRY_MEMORY_SERVER_URL', { required: false }),
+      TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST: parseJsonStringArrayEnv({
+        envKey: 'TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST',
+        raw: getEnv('TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST'),
+      }),
+      TRUEFOUNDRY_MEMORY_SETTINGS: getEnv('TRUEFOUNDRY_MEMORY_SETTINGS', { required: false }),
     };
 
 export function isOidcConfigured(
@@ -1499,6 +1550,28 @@ if (isTrueFoundryModeEnabled(configuration)) {
       throw new Error(
         'TRUEFOUNDRY_SANDBOX_PROVIDER=truefoundry requires TRUEFOUNDRY_SANDBOX_SERVER_URL, or set TRUEFOUNDRY_SANDBOX_ENABLED=false.',
       );
+    }
+  }
+
+  // Shared memory
+  if (configuration.TRUEFOUNDRY_MEMORY_ENABLED) {
+    if (configuration.TRUEFOUNDRY_MEMORY_PROVIDER === undefined) {
+      throw new Error(
+        'TRUEFOUNDRY_MEMORY_ENABLED is true but TRUEFOUNDRY_MEMORY_PROVIDER is not set. ' +
+          'Set TRUEFOUNDRY_MEMORY_PROVIDER to "zep", or set TRUEFOUNDRY_MEMORY_ENABLED=false.',
+      );
+    }
+    if (configuration.TRUEFOUNDRY_MEMORY_API_KEY === undefined) {
+      throw new Error(
+        'TRUEFOUNDRY_MEMORY_PROVIDER=zep requires TRUEFOUNDRY_MEMORY_API_KEY, or set TRUEFOUNDRY_MEMORY_ENABLED=false.',
+      );
+    }
+    if (configuration.TRUEFOUNDRY_MEMORY_SETTINGS !== undefined) {
+      try {
+        JSON.parse(configuration.TRUEFOUNDRY_MEMORY_SETTINGS);
+      } catch (error) {
+        throw new Error('TRUEFOUNDRY_MEMORY_SETTINGS must be valid JSON', { cause: error });
+      }
     }
   }
 }
