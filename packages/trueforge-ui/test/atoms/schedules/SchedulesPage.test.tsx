@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SchedulesPage } from '@/atoms/schedules/SchedulesPage.js';
 import { ToasterProvider } from '@/containers/ToasterContainer.js';
+import { useServerQueryClient } from '@/server/queryClient.js';
+import { queryKeys } from '@/server/queryKeys.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import type {
   AgentUIServer,
@@ -555,6 +557,87 @@ describe('SchedulesPage', () => {
 
     await waitFor(() => {
       expect(scheduleServer.deleteSchedule).toHaveBeenCalledWith({ id: 's1' });
+    });
+  });
+
+  it('reuses the cached schedules list on remount within stale time', async () => {
+    const listSchedules = vi.fn(async () => ({ data: sampleSchedules }));
+    const scheduleServer: ScheduleServer = {
+      listSchedules,
+      getSchedule: vi.fn(),
+      createSchedule: vi.fn(),
+      updateSchedule: vi.fn(),
+      deleteSchedule: vi.fn(),
+      listScheduleRuns: vi.fn(async () => []),
+      createScheduleRun: vi.fn(),
+    };
+    const server = createMockAgentUIServer({
+      searchAgents: vi.fn(async () => ({ data: [] })),
+      schedules: scheduleServer,
+    });
+
+    function Harness({ showPage }: { showPage: boolean }) {
+      return (
+        <ServerProvider server={server}>
+          <ToasterProvider>{showPage ? <SchedulesPage /> : null}</ToasterProvider>
+        </ServerProvider>
+      );
+    }
+
+    const { rerender } = render(<Harness showPage />);
+    await waitFor(() => {
+      expect(screen.getByText('daily-digest')).toBeInTheDocument();
+    });
+    expect(listSchedules).toHaveBeenCalledTimes(1);
+
+    rerender(<Harness showPage={false} />);
+    expect(screen.queryByText('daily-digest')).not.toBeInTheDocument();
+
+    rerender(<Harness showPage />);
+    await waitFor(() => {
+      expect(screen.getByText('daily-digest')).toBeInTheDocument();
+    });
+    expect(listSchedules).toHaveBeenCalledTimes(1);
+  });
+
+  it('marks the library schedule summary stale after a schedule is deleted', async () => {
+    const scheduleServer: ScheduleServer = {
+      listSchedules: vi.fn(async () => ({ data: sampleSchedules })),
+      getSchedule: vi.fn(),
+      createSchedule: vi.fn(),
+      updateSchedule: vi.fn(),
+      deleteSchedule: vi.fn(),
+      listScheduleRuns: vi.fn(async () => []),
+      createScheduleRun: vi.fn(),
+    };
+    let queryClient: ReturnType<typeof useServerQueryClient> | undefined;
+    function Capture() {
+      queryClient = useServerQueryClient();
+      return <SchedulesPage />;
+    }
+    render(
+      <ServerProvider
+        server={createMockAgentUIServer({
+          searchAgents: vi.fn(async () => ({ data: [] })),
+          schedules: scheduleServer,
+        })}
+      >
+        <ToasterProvider>
+          <Capture />
+        </ToasterProvider>
+      </ServerProvider>,
+    );
+    if (queryClient == null) throw new Error('query client missing');
+    const client = queryClient;
+    const summaryKey = queryKeys.schedules.forAgents(['demo-agent']);
+    await client.fetchQuery({ queryKey: summaryKey, queryFn: async () => [] });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Actions for daily-digest' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => {
+      expect(client.getQueryState(summaryKey)?.isInvalidated).toBe(true);
     });
   });
 

@@ -1,5 +1,6 @@
 'use client';
 
+import { keepPreviousData, useQueries, useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 
 import { useTrackAnalytics } from '../../analytics/AnalyticsProvider.js';
@@ -7,6 +8,8 @@ import { AnalyticsEvents } from '../../analytics/events.js';
 import { useToasterOptional } from '../../containers/ToasterContainer.js';
 import { useResourcePermissions } from '../../hooks/useResourcePermissions.js';
 import { Icon } from '../../icons/Icon.js';
+import { useServerQueryClient } from '../../server/queryClient.js';
+import { queryKeys } from '../../server/queryKeys.js';
 import { isSessionsChromeEnabled } from '../../server/serverChrome.js';
 import { useOptionalAgentSessionsServer, useScheduleServer, useServer } from '../../server/ServerContext.js';
 import { libraryAgentId, useOptionalShellMode } from '../../server/ShellModeContext.js';
@@ -59,9 +62,15 @@ const STATUS_FILTER_OPTIONS: Array<{ value: 'all' | ScheduleStatus; label: strin
 
 /** API max page size for schedules list. */
 const SCHEDULES_PAGE_SIZE_OPTIONS = [10, 25] as const;
+const EMPTY_SCHEDULES: Schedule[] = [];
+const EMPTY_RUNS: ScheduleRun[] = [];
 
 function clampPageSize(size: number): number {
   return Math.min(Math.max(size, 1), 25);
+}
+
+function nonEmptyToken(token: string | undefined): string | undefined {
+  return token === undefined || token === '' ? undefined : token;
 }
 
 function filtersFromSearch(search: string): {
@@ -160,6 +169,10 @@ function ScheduleRowActions({
 
 export function SchedulesPage({ agentId }: SchedulesPageProps) {
   const scheduleServer = useScheduleServer();
+  const queryClient = useServerQueryClient();
+  const invalidateScheduleQueries = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.schedules.all() });
+  }, [queryClient]);
   const server = useServer();
   const toaster = useToasterOptional();
   const track = useTrackAnalytics();
@@ -167,18 +180,9 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
   const sessionsServer = useOptionalAgentSessionsServer();
   const canOpenRunSession = shell != null && isSessionsChromeEnabled({ sessions: sessionsServer });
 
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
-  const { allows } = useResourcePermissions({
-    resourceType: 'schedule',
-    resourceIds: schedules.map(schedule => schedule.id),
-  });
-  const [runsByScheduleId, setRunsByScheduleId] = useState<Record<string, ScheduleRun[]>>({});
-  const [runsLoading, setRunsLoading] = useState(false);
   const [runningScheduleIds, setRunningScheduleIds] = useState<ReadonlySet<string>>(() => new Set());
   /** Names learned from picker picks; no mount-time catalog drain. */
   const [agentLabelById, setAgentLabelById] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [nameQuery, setNameQuery] = useState(() => filtersFromSearch(window.location.search).nameQuery);
   const [statusFilter, setStatusFilter] = useState<'all' | ScheduleStatus>(
     () => filtersFromSearch(window.location.search).statusFilter,
@@ -200,111 +204,119 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
   const [drawer, setDrawer] = useState<DrawerState>(() => initialDrawerState(agentId));
   const [pendingDelete, setPendingDelete] = useState<Schedule | null>(null);
   const [pageSize, setPageSize] = useState(() => clampPageSize(DEFAULT_TABLE_PAGE_SIZE));
-  const [pageToken, setPageToken] = useState<string | undefined>(undefined);
-  const [nextPageToken, setNextPageToken] = useState<string | undefined>(undefined);
-  const [previousPageToken, setPreviousPageToken] = useState<string | undefined>(undefined);
+  const pageScope = JSON.stringify([pageSize, agentFilter]);
+  const [pageCursor, setPageCursor] = useState<{ scope: string; token: string | undefined }>(() => ({
+    scope: pageScope,
+    token: undefined,
+  }));
+  if (pageCursor.scope !== pageScope) {
+    setPageCursor({ scope: pageScope, token: undefined });
+  }
+  const pageToken = pageCursor.scope === pageScope ? pageCursor.token : undefined;
+  const didConsumeIsNewRef = useRef(false);
+
+  const listParams = useMemo(
+    () => ({
+      limit: pageSize,
+      ...(pageToken === undefined ? {} : { pageToken }),
+      ...(agentFilter === 'all' ? {} : { agentIds: [agentFilter] }),
+    }),
+    [agentFilter, pageSize, pageToken],
+  );
+  const pinned = scheduleId != null;
+
+  const detailQuery = useQuery(
+    {
+      queryKey: queryKeys.schedules.detail(scheduleId ?? ''),
+      queryFn: () => {
+        if (scheduleId == null) {
+          return Promise.reject(new Error('Pinned schedule id is required.'));
+        }
+        return scheduleServer.getSchedule({ id: scheduleId });
+      },
+      enabled: pinned,
+      placeholderData: keepPreviousData,
+    },
+    queryClient,
+  );
+  const listQuery = useQuery(
+    {
+      queryKey: queryKeys.schedules.list(listParams),
+      queryFn: () => scheduleServer.listSchedules(listParams),
+      enabled: !pinned,
+      placeholderData: keepPreviousData,
+    },
+    queryClient,
+  );
+
+  const schedules = useMemo(() => {
+    if (pinned) {
+      return detailQuery.data != null ? [detailQuery.data] : EMPTY_SCHEDULES;
+    }
+    return listQuery.data?.data ?? EMPTY_SCHEDULES;
+  }, [detailQuery.data, listQuery.data?.data, pinned]);
+  const nextPageToken = pinned ? undefined : nonEmptyToken(listQuery.data?.nextPageToken);
+  const previousPageToken = pinned ? undefined : nonEmptyToken(listQuery.data?.previousPageToken);
+  const activeQuery = pinned ? detailQuery : listQuery;
+  const loading = activeQuery.isPending || activeQuery.isPlaceholderData;
+  const error =
+    activeQuery.error != null && schedules.length === 0
+      ? getErrorMessage(activeQuery.error, 'Check your connection and try again.')
+      : null;
+  const showSkeleton = loading && schedules.length === 0;
+
+  const { allows } = useResourcePermissions({
+    resourceType: 'schedule',
+    resourceIds: schedules.map(schedule => schedule.id),
+  });
+
+  const scheduleIds = schedules.map(schedule => schedule.id);
+  const runsQueries = useQueries(
+    {
+      queries: scheduleIds.map(id => ({
+        queryKey: queryKeys.schedules.runs(id),
+        queryFn: async (): Promise<ScheduleRun[]> => {
+          try {
+            return await scheduleServer.listScheduleRuns({ scheduleId: id });
+          } catch {
+            return EMPTY_RUNS;
+          }
+        },
+        placeholderData: keepPreviousData,
+      })),
+    },
+    queryClient,
+  );
+  const runsByScheduleId = useMemo(() => {
+    const map = new Map<string, { runs: ScheduleRun[]; pending: boolean }>();
+    for (let index = 0; index < scheduleIds.length; index += 1) {
+      const id = scheduleIds[index];
+      if (id === undefined) continue;
+      const query = runsQueries[index];
+      map.set(id, {
+        runs: query?.data ?? EMPTY_RUNS,
+        pending: query?.isPending === true && query.data === undefined,
+      });
+    }
+    return map;
+  }, [runsQueries, scheduleIds]);
+
+  const resetToFirstPage = useCallback(() => {
+    setScheduleId(null);
+    setPageCursor({ scope: pageScope, token: undefined });
+  }, [pageScope]);
+
   const handleOpenRunSession = ({ run, schedule }: { run: ScheduleRun; schedule: Schedule }) => {
     if (!canOpenRunSession || shell == null || run.sessionId == null) return;
     track(AnalyticsEvents.Schedule.RUN_SESSION_OPENED, { schedule_id: schedule.id, agent_id: schedule.agentId });
-    const pinned = sessionTimeRangeFromCreatedAt(run.triggeredAt ?? run.scheduledFor);
+    const pinnedRange = sessionTimeRangeFromCreatedAt(run.triggeredAt ?? run.scheduledFor);
     replaceSessionShareSearch({
       sessionId: run.sessionId,
       view: 'sessions',
-      ...(pinned == null ? {} : { timeRange: pinned }),
+      ...(pinnedRange == null ? {} : { timeRange: pinnedRange }),
     });
     shell.setSessionsOpen(true);
   };
-  const loadGenRef = useRef(0);
-  const didConsumeIsNewRef = useRef(false);
-
-  const loadRunsForSchedules = useCallback(
-    async ({ rows, gen }: { rows: Schedule[]; gen: number }) => {
-      if (rows.length === 0) {
-        if (gen === loadGenRef.current) setRunsByScheduleId({});
-        return;
-      }
-      setRunsLoading(true);
-      try {
-        const results = await Promise.allSettled(
-          rows.map(schedule => scheduleServer.listScheduleRuns({ scheduleId: schedule.id })),
-        );
-        if (gen !== loadGenRef.current) return;
-        setRunsByScheduleId(
-          Object.fromEntries(
-            rows.map((schedule, index) => {
-              const result = results[index];
-              const runs = result?.status === 'fulfilled' ? result.value : [];
-              return [schedule.id, runs] as const;
-            }),
-          ),
-        );
-      } finally {
-        if (gen === loadGenRef.current) setRunsLoading(false);
-      }
-    },
-    [scheduleServer],
-  );
-
-  const loadSchedules = useCallback(
-    async ({
-      token,
-      size,
-      agentId,
-      pinnedScheduleId,
-    }: {
-      token: string | undefined;
-      size: number;
-      agentId: string;
-      pinnedScheduleId: string | null;
-    }) => {
-      const gen = ++loadGenRef.current;
-      setLoading(true);
-      setError(null);
-      try {
-        if (pinnedScheduleId != null) {
-          const schedule = await scheduleServer.getSchedule({ id: pinnedScheduleId });
-          if (gen !== loadGenRef.current) return;
-          setSchedules([schedule]);
-          setNextPageToken(undefined);
-          setPreviousPageToken(undefined);
-          void loadRunsForSchedules({ rows: [schedule], gen });
-          return;
-        }
-        const page = await scheduleServer.listSchedules({
-          limit: clampPageSize(size),
-          ...(token === undefined || token === '' ? {} : { pageToken: token }),
-          ...(agentId === 'all' ? {} : { agentIds: [agentId] }),
-        });
-        if (gen !== loadGenRef.current) return;
-        setSchedules(page.data);
-        setNextPageToken(page.nextPageToken);
-        setPreviousPageToken(page.previousPageToken);
-        void loadRunsForSchedules({ rows: page.data, gen });
-      } catch (caught) {
-        if (gen !== loadGenRef.current) return;
-        setError(getErrorMessage(caught, 'Check your connection and try again.'));
-        setSchedules([]);
-        setRunsByScheduleId({});
-        setNextPageToken(undefined);
-        setPreviousPageToken(undefined);
-      } finally {
-        if (gen === loadGenRef.current) setLoading(false);
-      }
-    },
-    [scheduleServer, loadRunsForSchedules],
-  );
-
-  const resetToFirstPage = useCallback(
-    (next?: { size?: number; agentId?: string }) => {
-      const size = next?.size ?? pageSize;
-      const agentId = next?.agentId ?? agentFilter;
-      setScheduleId(null);
-      setPageToken(undefined);
-      setPreviousPageToken(undefined);
-      void loadSchedules({ token: undefined, size, agentId, pinnedScheduleId: null });
-    },
-    [agentFilter, loadSchedules, pageSize],
-  );
 
   // Keep filters in the URL so deep links and Agents → Schedules work.
   useEffect(() => {
@@ -318,12 +330,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
 
   useEffect(() => {
     if (agentId === undefined) return;
-    setAgentFilter(current => {
-      if (current === agentId) return current;
-      setPageToken(undefined);
-      setPreviousPageToken(undefined);
-      return agentId;
-    });
+    setAgentFilter(current => (current === agentId ? current : agentId));
   }, [agentId]);
 
   // One-shot: the initial state opens create synchronously; then strip the URL flag.
@@ -340,18 +347,10 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
       const next = filtersFromSearch(window.location.search);
       setNameQuery(next.nameQuery);
       setStatusFilter(next.statusFilter);
-      setScheduleId(current => {
-        if (current === next.scheduleId) return current;
-        setPageToken(undefined);
-        setPreviousPageToken(undefined);
-        return next.scheduleId;
-      });
+      setScheduleId(current => (current === next.scheduleId ? current : next.scheduleId));
       setAgentFilter(current => {
         const nextAgentFilter = agentId ?? next.agentFilter;
-        if (current === nextAgentFilter) return current;
-        setPageToken(undefined);
-        setPreviousPageToken(undefined);
-        return nextAgentFilter;
+        return current === nextAgentFilter ? current : nextAgentFilter;
       });
     };
     window.addEventListener('popstate', syncFromUrl);
@@ -360,16 +359,12 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
     };
   }, [agentId]);
 
-  useEffect(() => {
-    void loadSchedules({ token: pageToken, size: pageSize, agentId: agentFilter, pinnedScheduleId: scheduleId });
-  }, [agentFilter, pageSize, pageToken, loadSchedules, scheduleId]);
-
   // A bare scheduleId link has no name in the URL. Fill the search once the row arrives.
   useEffect(() => {
     if (scheduleId == null || nameQuery.trim().length > 0) return;
-    const pinned = schedules.find(schedule => schedule.id === scheduleId);
-    if (pinned == null) return;
-    setNameQuery(pinned.name);
+    const pinnedSchedule = schedules.find(schedule => schedule.id === scheduleId);
+    if (pinnedSchedule == null) return;
+    setNameQuery(pinnedSchedule.name);
   }, [nameQuery, scheduleId, schedules]);
 
   // Name + status are client-side on the current server page only.
@@ -393,12 +388,12 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
     const nextStatus: ScheduleStatus = schedule.status === 'active' ? 'paused' : 'active';
     try {
       await scheduleServer.updateSchedule({ ...schedule, status: nextStatus });
+      invalidateScheduleQueries();
       track(AnalyticsEvents.Schedule.TOGGLED, {
         schedule_id: schedule.id,
         agent_id: schedule.agentId,
         next_status: nextStatus,
       });
-      await loadSchedules({ token: pageToken, size: pageSize, agentId: agentFilter, pinnedScheduleId: scheduleId });
     } catch (caught) {
       toaster?.showError(caught);
     }
@@ -411,16 +406,10 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
       await scheduleServer.createScheduleRun({ scheduleId: schedule.id });
       track(AnalyticsEvents.Schedule.RUN_NOW, { schedule_id: schedule.id, agent_id: schedule.agentId });
       toaster?.showSuccess({ title: 'Run started' });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.schedules.runs(schedule.id) });
       if (scheduleId != null) {
-        const fresh = await scheduleServer.getSchedule({ id: scheduleId });
-        setSchedules(current => {
-          const only = current.length === 1 ? current[0] : undefined;
-          if (only != null && only.id === fresh.id) return [fresh];
-          return current;
-        });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.schedules.detail(scheduleId) });
       }
-      const runs = await scheduleServer.listScheduleRuns({ scheduleId: schedule.id });
-      setRunsByScheduleId(prev => ({ ...prev, [schedule.id]: runs }));
     } catch (caught) {
       toaster?.showError(caught);
     } finally {
@@ -437,6 +426,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
     setPendingDelete(null);
     try {
       await scheduleServer.deleteSchedule({ id: schedule.id });
+      invalidateScheduleQueries();
       track(AnalyticsEvents.Schedule.DELETED, { schedule_id: schedule.id, agent_id: schedule.agentId });
       resetToFirstPage();
     } catch (caught) {
@@ -446,19 +436,18 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
 
   const goNext = () => {
     if (nextPageToken == null) return;
-    setPageToken(nextPageToken);
+    setPageCursor({ scope: pageScope, token: nextPageToken });
   };
 
   const goPrev = () => {
-    if (previousPageToken == null || previousPageToken === '') return;
-    setPageToken(previousPageToken);
+    if (previousPageToken == null) return;
+    setPageCursor({ scope: pageScope, token: previousPageToken });
   };
 
   const releaseSchedulePin = () => {
     if (scheduleId == null) return;
     setScheduleId(null);
-    setPageToken(undefined);
-    setPreviousPageToken(undefined);
+    setPageCursor({ scope: pageScope, token: undefined });
   };
 
   return (
@@ -493,8 +482,6 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
                 selectedLabel={agentFilter === 'all' ? 'All agents' : (agentLabelById[agentFilter] ?? agentFilter)}
                 onValueChange={value => {
                   setAgentFilter(value);
-                  setPageToken(undefined);
-                  setPreviousPageToken(undefined);
                   releaseSchedulePin();
                 }}
                 onAgentPicked={agent => {
@@ -528,7 +515,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
       />
 
       <div className={cn('min-h-0 flex-1 overflow-auto px-4 py-4', error != null ? 'flex flex-col' : undefined)}>
-        {loading ? (
+        {showSkeleton ? (
           <div className="flex flex-col gap-2" role="status" aria-label="Loading schedules">
             {Array.from({ length: 5 }, (_, i) => (
               <Skeleton key={i} className="h-12 w-full rounded-md" />
@@ -557,10 +544,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
                 onNext={goNext}
                 pageSizeOptions={SCHEDULES_PAGE_SIZE_OPTIONS}
                 onPageSizeChange={size => {
-                  const next = clampPageSize(size);
-                  setPageSize(next);
-                  setPageToken(undefined);
-                  setPreviousPageToken(undefined);
+                  setPageSize(clampPageSize(size));
                 }}
               />
             ) : null}
@@ -585,6 +569,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
                 {filtered.map(schedule => {
                   const cadence = formatCadenceSummary({ cron: schedule.cron, timezone: schedule.timezone });
                   const agentLabel = schedule.agentName ?? agentLabelById[schedule.agentId] ?? schedule.agentId;
+                  const runsState = runsByScheduleId.get(schedule.id);
                   return (
                     <TableRow key={schedule.id}>
                       <TableCell className="w-48 max-w-48">
@@ -613,11 +598,11 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
                         <ScheduleStatusBadge status={schedule.status} />
                       </TableCell>
                       <TableCell>
-                        {runsLoading ? (
+                        {runsState?.pending === true ? (
                           <span className="text-text-secondary text-sm">…</span>
                         ) : (
                           <ScheduleLastRunsCell
-                            runs={runsByScheduleId[schedule.id] ?? []}
+                            runs={runsState?.runs ?? EMPTY_RUNS}
                             {...(!canOpenRunSession
                               ? {}
                               : { onOpenSession: run => handleOpenRunSession({ run, schedule }) })}
@@ -655,10 +640,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
                 onNext={goNext}
                 pageSizeOptions={SCHEDULES_PAGE_SIZE_OPTIONS}
                 onPageSizeChange={size => {
-                  const next = clampPageSize(size);
-                  setPageSize(next);
-                  setPageToken(undefined);
-                  setPreviousPageToken(undefined);
+                  setPageSize(clampPageSize(size));
                 }}
               />
             )}
@@ -674,7 +656,10 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
           onOpenChange={open => {
             if (!open) setDrawer({ kind: 'closed' });
           }}
-          onSaved={() => resetToFirstPage()}
+          onSaved={() => {
+            invalidateScheduleQueries();
+            resetToFirstPage();
+          }}
         />
       ) : null}
       {drawer.kind === 'edit' ? (
@@ -685,9 +670,9 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
           onOpenChange={open => {
             if (!open) setDrawer({ kind: 'closed' });
           }}
-          onSaved={() =>
-            void loadSchedules({ token: pageToken, size: pageSize, agentId: agentFilter, pinnedScheduleId: scheduleId })
-          }
+          onSaved={() => {
+            invalidateScheduleQueries();
+          }}
         />
       ) : null}
       {pendingDelete != null ? (

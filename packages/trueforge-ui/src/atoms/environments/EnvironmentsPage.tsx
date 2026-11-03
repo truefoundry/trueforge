@@ -1,5 +1,6 @@
 'use client';
 
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 
 import { useTrackAnalytics } from '../../analytics/AnalyticsProvider.js';
@@ -8,9 +9,11 @@ import { useToasterOptional } from '../../containers/ToasterContainer.js';
 import { useCanCreateAgent } from '../../hooks/useCanCreateAgent.js';
 import { useResourcePermissions } from '../../hooks/useResourcePermissions.js';
 import { Icon } from '../../icons/Icon.js';
+import { useServerQueryClient } from '../../server/queryClient.js';
+import { queryKeys } from '../../server/queryKeys.js';
 import { useSandboxEnvironmentServer } from '../../server/ServerContext.js';
 import { useOptionalShellMode } from '../../server/ShellModeContext.js';
-import type { SandboxEnvironment } from '../../server/types.js';
+import type { ListResult, SandboxEnvironment } from '../../server/types.js';
 import {
   ENVIRONMENT_SHARE_CHANGE_EVENT,
   readEnvironmentShareSearch,
@@ -50,70 +53,80 @@ type DrawerState = { kind: 'closed' } | { kind: 'create' } | { kind: 'edit'; env
 
 const ENVIRONMENTS_PAGE_SIZE_OPTIONS = [10, 25] as const;
 export const PENDING_ENVIRONMENTS_POLL_INTERVAL_MS = 10_000;
+const EMPTY_ENVIRONMENTS: SandboxEnvironment[] = [];
 
 function clampPageSize(size: number): number {
   return Math.min(Math.max(size, 1), 25);
+}
+
+function nonEmptyToken(token: string | undefined): string | undefined {
+  return token === undefined || token === '' ? undefined : token;
 }
 
 export type EnvironmentsPageProps = Record<string, never>;
 
 export function EnvironmentsPage(_props: EnvironmentsPageProps) {
   const environmentServer = useSandboxEnvironmentServer();
+  const queryClient = useServerQueryClient();
   const shell = useOptionalShellMode();
   const toaster = useToasterOptional();
   const track = useTrackAnalytics();
   const { canCreateSandboxEnvironment, loading: createPermissionLoading } = useCanCreateAgent();
 
-  const [environments, setEnvironments] = useState<SandboxEnvironment[]>([]);
-  const { allows } = useResourcePermissions({
-    resourceType: 'sandbox_environment',
-    resourceIds: environments.map(environment => environment.id),
-  });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [nameQuery, setNameQuery] = useState(() => readEnvironmentShareSearch(window.location.search).q ?? '');
   // Stay closed until tenant CREATE is known — do not open from envIsNew on first paint.
   const [drawer, setDrawer] = useState<DrawerState>({ kind: 'closed' });
   const [pendingDelete, setPendingDelete] = useState<SandboxEnvironment | null>(null);
   const [pageSize, setPageSize] = useState(() => clampPageSize(DEFAULT_TABLE_PAGE_SIZE));
-  const [pageToken, setPageToken] = useState<string | undefined>(undefined);
-  const [nextPageToken, setNextPageToken] = useState<string | undefined>(undefined);
-  const [previousPageToken, setPreviousPageToken] = useState<string | undefined>(undefined);
-  const loadGenRef = useRef(0);
+  const pageScope = JSON.stringify([pageSize]);
+  const [pageCursor, setPageCursor] = useState<{ scope: string; token: string | undefined }>(() => ({
+    scope: pageScope,
+    token: undefined,
+  }));
+  if (pageCursor.scope !== pageScope) {
+    setPageCursor({ scope: pageScope, token: undefined });
+  }
+  const pageToken = pageCursor.scope === pageScope ? pageCursor.token : undefined;
   const didConsumeIsNewRef = useRef(false);
   const wasSettingsOpenRef = useRef(shell?.settingsOpen ?? false);
   const settingsOpen = shell?.settingsOpen ?? false;
 
-  const loadEnvironments = useCallback(
-    async ({ token, size, silent = false }: { token: string | undefined; size: number; silent?: boolean }) => {
-      const gen = ++loadGenRef.current;
-      if (!silent) {
-        setLoading(true);
-        setError(null);
-      }
-      try {
-        const page = await environmentServer.listEnvironments({
-          limit: clampPageSize(size),
-          ...(token === undefined || token === '' ? {} : { pageToken: token }),
-        });
-        if (gen !== loadGenRef.current) return;
-        setEnvironments(page.data);
-        setNextPageToken(page.nextPageToken);
-        setPreviousPageToken(page.previousPageToken);
-      } catch (caught) {
-        if (gen !== loadGenRef.current) return;
-        if (!silent) {
-          setError(getErrorMessage(caught, 'Check your connection and try again.'));
-          setEnvironments([]);
-          setNextPageToken(undefined);
-          setPreviousPageToken(undefined);
-        }
-      } finally {
-        if (gen === loadGenRef.current && !silent) setLoading(false);
-      }
-    },
-    [environmentServer],
+  const listParams = useMemo(
+    () => ({
+      limit: pageSize,
+      ...(pageToken === undefined ? {} : { pageToken }),
+    }),
+    [pageSize, pageToken],
   );
+  const listQueryKey = useMemo(() => queryKeys.environments.list(listParams), [listParams]);
+  const listQuery = useQuery(
+    {
+      queryKey: listQueryKey,
+      queryFn: () => environmentServer.listEnvironments(listParams),
+      placeholderData: keepPreviousData,
+    },
+    queryClient,
+  );
+
+  const environments = listQuery.data?.data ?? EMPTY_ENVIRONMENTS;
+  const nextPageToken = nonEmptyToken(listQuery.data?.nextPageToken);
+  const previousPageToken = nonEmptyToken(listQuery.data?.previousPageToken);
+  const loading = listQuery.isPending || listQuery.isPlaceholderData;
+  const error =
+    listQuery.error != null && environments.length === 0
+      ? getErrorMessage(listQuery.error, 'Check your connection and try again.')
+      : null;
+  const { refetch: refetchEnvironments } = listQuery;
+
+  const { allows } = useResourcePermissions({
+    resourceType: 'sandbox_environment',
+    resourceIds: environments.map(environment => environment.id),
+  });
+
+  const invalidateEnvironmentQueries = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.environments.all() });
+    shell?.invalidateEnvironmentsList();
+  }, [queryClient, shell]);
 
   useEffect(() => {
     replaceEnvironmentShareSearch({
@@ -122,15 +135,11 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
   }, [nameQuery]);
 
   useEffect(() => {
-    void loadEnvironments({ token: pageToken, size: pageSize });
-  }, [loadEnvironments, pageSize, pageToken]);
-
-  useEffect(() => {
     if (wasSettingsOpenRef.current && !settingsOpen) {
-      void loadEnvironments({ token: pageToken, size: pageSize });
+      void refetchEnvironments();
     }
     wasSettingsOpenRef.current = settingsOpen;
-  }, [settingsOpen, loadEnvironments, pageToken, pageSize]);
+  }, [settingsOpen, refetchEnvironments]);
 
   // Poll individual pending environments using single-environment get API
   useEffect(() => {
@@ -145,12 +154,16 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
         const resolved = updates.filter((u): u is SandboxEnvironment => u != null);
         if (resolved.length === 0) return;
 
-        setEnvironments(prev =>
-          prev.map(item => {
-            const updated = resolved.find(u => u.name === item.name);
-            return updated ?? item;
-          }),
-        );
+        queryClient.setQueryData(listQueryKey, (current: ListResult<SandboxEnvironment> | undefined) => {
+          if (current == null) return current;
+          return {
+            ...current,
+            data: current.data.map(item => {
+              const updated = resolved.find(u => u.name === item.name);
+              return updated ?? item;
+            }),
+          };
+        });
         // Pending envs becoming ready (or failed) must refresh still-mounted pickers.
         if (resolved.some(u => u.status !== 'pending')) {
           shell?.invalidateEnvironmentsList();
@@ -161,7 +174,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
     }, PENDING_ENVIRONMENTS_POLL_INTERVAL_MS);
 
     return () => window.clearInterval(intervalId);
-  }, [environments, environmentServer, shell]);
+  }, [environments, environmentServer, listQueryKey, queryClient, shell]);
 
   // Wait for tenant CREATE before honoring envIsNew; close create if CREATE is denied.
   useEffect(() => {
@@ -211,6 +224,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
     drawer.kind === 'edit' && isEnvironmentReadOnly(drawer.environment, allows(drawer.environment.id, 'MANAGE'));
 
   const hasPageNav = nextPageToken != null || previousPageToken != null || environments.length > 0;
+  const showSkeleton = loading && environments.length === 0;
 
   const openCreate = () => {
     if (!canCreateSandboxEnvironment) return;
@@ -228,9 +242,8 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
         environment_id: target.id,
       });
       toaster?.showSuccess({ title: 'Environment deleted' });
-      setPageToken(undefined);
-      shell?.invalidateEnvironmentsList();
-      void loadEnvironments({ token: undefined, size: pageSize });
+      setPageCursor({ scope: pageScope, token: undefined });
+      invalidateEnvironmentQueries();
     } catch (caught) {
       toaster?.showError(caught);
     }
@@ -262,7 +275,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
               className="h-auto min-h-0 flex-none py-0"
             />
           </div>
-        ) : loading ? (
+        ) : showSkeleton ? (
           <div className="flex flex-col gap-2" role="status" aria-label="Loading environments">
             {Array.from({ length: 5 }, (_, i) => (
               <Skeleton key={i} className="h-12 w-full rounded-md" />
@@ -360,13 +373,14 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
                 rowCount={filtered.length}
                 canPrev={previousPageToken != null}
                 canNext={nextPageToken != null}
-                onPrev={() => setPageToken(previousPageToken)}
-                onNext={() => setPageToken(nextPageToken)}
+                onPrev={() => setPageCursor({ scope: pageScope, token: previousPageToken })}
+                onNext={() => {
+                  if (nextPageToken == null) return;
+                  setPageCursor({ scope: pageScope, token: nextPageToken });
+                }}
                 pageSizeOptions={ENVIRONMENTS_PAGE_SIZE_OPTIONS}
                 onPageSizeChange={size => {
                   setPageSize(clampPageSize(size));
-                  setPageToken(undefined);
-                  setPreviousPageToken(undefined);
                 }}
               />
             ) : null}
@@ -382,9 +396,8 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
           if (!open) setDrawer({ kind: 'closed' });
         }}
         onSaved={() => {
-          setPageToken(undefined);
-          shell?.invalidateEnvironmentsList();
-          void loadEnvironments({ token: undefined, size: pageSize });
+          setPageCursor({ scope: pageScope, token: undefined });
+          invalidateEnvironmentQueries();
         }}
       />
 
