@@ -2140,7 +2140,7 @@ export class SessionsClient {
     }
 
     /**
-     * Subscribe to the live SSE stream. A paused turn with an expired stream is restored from stored events. Resume with from_event_id or after_event_id. after_sequence_number remains for older clients.
+     * Subscribe to the live SSE stream. A paused turn with an expired stream is restored from stored events. Resume with from_event_id or after_event_id
      */
     public subscribeToTurn(
         session_id: string,

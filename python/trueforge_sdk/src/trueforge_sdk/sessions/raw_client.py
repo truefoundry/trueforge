@@ -1752,7 +1752,7 @@ class RawSessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Iterator[HttpResponse[Stream[TurnStreamingEvent]]]:
         """
-        Subscribe to the live SSE stream. A paused turn with an expired stream is restored from stored events. Resume with from_event_id or after_event_id. after_sequence_number remains for older clients.
+        Subscribe to the live SSE stream. A paused turn with an expired stream is restored from stored events. Resume with from_event_id or after_event_id
 
         Parameters
         ----------
@@ -1766,7 +1766,7 @@ class RawSessionsClient:
             Legacy exclusive cursor. Replay events after this sequence. Omit when using an event id.
 
         from_event_id : typing.Optional[str]
-            Inclusive cursor. Replay starts at this event, including a model.message and its later deltas.
+            Inclusive cursor. Replay starts at the entry with this event id
 
         after_event_id : typing.Optional[str]
             Exclusive cursor. Replay starts after the last entry with this event id.
@@ -3595,7 +3595,7 @@ class AsyncRawSessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.AsyncIterator[AsyncHttpResponse[AsyncStream[TurnStreamingEvent]]]:
         """
-        Subscribe to the live SSE stream. A paused turn with an expired stream is restored from stored events. Resume with from_event_id or after_event_id. after_sequence_number remains for older clients.
+        Subscribe to the live SSE stream. A paused turn with an expired stream is restored from stored events. Resume with from_event_id or after_event_id
 
         Parameters
         ----------
@@ -3609,7 +3609,7 @@ class AsyncRawSessionsClient:
             Legacy exclusive cursor. Replay events after this sequence. Omit when using an event id.
 
         from_event_id : typing.Optional[str]
-            Inclusive cursor. Replay starts at this event, including a model.message and its later deltas.
+            Inclusive cursor. Replay starts at the entry with this event id
 
         after_event_id : typing.Optional[str]
             Exclusive cursor. Replay starts after the last entry with this event id.

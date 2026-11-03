@@ -7,8 +7,8 @@
 export interface SubscribeToTurnSessionsRequest {
     /** Legacy exclusive cursor. Replay events after this sequence. Omit when using an event id. */
     afterSequenceNumber?: number | null;
-    /** Inclusive cursor. Replay starts at this event, including a model.message and its later deltas. */
-    fromEventId?: string | null;
+    /** Inclusive cursor. Replay starts at the entry with this event id */
+    fromEventId?: string;
     /** Exclusive cursor. Replay starts after the last entry with this event id. */
-    afterEventId?: string | null;
+    afterEventId?: string;
 }

@@ -10725,7 +10725,7 @@
     },
     "/api/v1/sessions/{session_id}/turns/{turn_id}/subscribe": {
       "get": {
-        "description": "Subscribe to the live SSE stream. A paused turn with an expired stream is restored from stored events. Resume with from_event_id or after_event_id. after_sequence_number remains for older clients.",
+        "description": "Subscribe to the live SSE stream. A paused turn with an expired stream is restored from stored events. Resume with from_event_id or after_event_id",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -10765,17 +10765,14 @@
             }
           },
           {
-            "description": "Inclusive cursor. Replay starts at this event, including a model.message and its later deltas.",
+            "description": "Inclusive cursor. Replay starts at the entry with this event id",
             "in": "query",
             "name": "from_event_id",
             "required": false,
             "schema": {
-              "description": "Inclusive cursor. Replay starts at this event, including a model.message and its later deltas.",
+              "description": "Inclusive cursor. Replay starts at the entry with this event id",
               "minLength": 1,
-              "type": [
-                "string",
-                "null"
-              ]
+              "type": "string"
             }
           },
           {
@@ -10786,10 +10783,7 @@
             "schema": {
               "description": "Exclusive cursor. Replay starts after the last entry with this event id.",
               "minLength": 1,
-              "type": [
-                "string",
-                "null"
-              ]
+              "type": "string"
             }
           }
         ],
