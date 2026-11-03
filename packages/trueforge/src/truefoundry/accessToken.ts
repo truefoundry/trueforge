@@ -2,7 +2,6 @@ import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
 import type { RequestContext } from '../auth/identity';
 import type { AgentRecord } from '../db/agentStore';
-import { PACKAGE_VERSION } from '../packageVersion';
 import { requireTrueFoundryAgentExternalId } from './errors';
 import type { TrueFoundryServiceFoundryServerClient, VendedTokens } from './TrueFoundryServiceFoundryServerClient';
 
@@ -10,9 +9,6 @@ import type { TrueFoundryServiceFoundryServerClient, VendedTokens } from './True
 export type ResolveServiceFoundryAuthorization = () => Promise<string>;
 export type ResolveGatewayAuthorization = () => Promise<GatewayAuthorization>;
 export const ACTOR_AUTHORIZATION_HEADER = 'x-tfy-actor-authorization';
-
-/** Identifies TrueForge and its version on TrueFoundry gateway (model and MCP) calls. */
-export const TRUEFORGE_USER_AGENT = `trueforge/${PACKAGE_VERSION}`;
 
 /**
  * Model gateway and MCP gateway invoke authorization.
@@ -173,7 +169,6 @@ export function actorAuthorizationHeaders(authorization: GatewayAuthorization): 
 export function gatewayHeaders(authorization: GatewayAuthorization): Record<string, string> {
   return {
     Authorization: `Bearer ${authorization.subjectToken}`,
-    'user-agent': TRUEFORGE_USER_AGENT,
     ...actorAuthorizationHeaders(authorization),
   };
 }

@@ -2,7 +2,7 @@ import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 import { HTTPException } from 'hono/http-exception';
 import type { RequestContext } from '../../../src/auth/identity';
 import type { AgentRecord } from '../../../src/db/agentStore';
-import { PACKAGE_VERSION } from '../../../src/packageVersion';
+import { PACKAGE_VERSION, TRUEFORGE_USER_AGENT } from '../../../src/packageVersion';
 import {
   accessTokenForRequest,
   ACTOR_AUTHORIZATION_HEADER,
@@ -11,7 +11,6 @@ import {
   createTrueFoundryRequestContext,
   gatewayHeaders,
   savedAgentAccess,
-  TRUEFORGE_USER_AGENT,
 } from '../../../src/truefoundry/accessToken';
 
 const CONTEXT: RequestContext = {
@@ -48,20 +47,20 @@ describe('callerAccessToken', () => {
   });
 });
 
-describe('gatewayHeaders', () => {
+describe('TRUEFORGE_USER_AGENT', () => {
   it('identifies TrueForge with its package version', () => {
     expect(TRUEFORGE_USER_AGENT).toBe(`trueforge/${PACKAGE_VERSION}`);
   });
+});
 
+describe('gatewayHeaders', () => {
   it('sends the actor header only when the credential has one', () => {
     expect(gatewayHeaders({ type: 'caller', subjectToken: 'caller-token' })).toEqual({
       Authorization: 'Bearer caller-token',
-      'user-agent': TRUEFORGE_USER_AGENT,
     });
     expect(gatewayHeaders({ type: 'delegated', subjectToken: 'caller-token', actorAgentToken: 'agent-token' })).toEqual(
       {
         Authorization: 'Bearer caller-token',
-        'user-agent': TRUEFORGE_USER_AGENT,
         [ACTOR_AUTHORIZATION_HEADER]: 'Bearer agent-token',
       },
     );

@@ -18,7 +18,6 @@ import {
   accessTokenForRequest,
   actorAuthorizationHeaders,
   asTrueFoundryRequestContext,
-  TRUEFORGE_USER_AGENT,
   type ResolveGatewayAuthorization,
   type ResolveServiceFoundryAuthorization,
 } from './accessToken';
@@ -109,7 +108,6 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
     void input.record;
     const authorization = await this.#resolveGatewayAuthorization();
     return {
-      'user-agent': TRUEFORGE_USER_AGENT,
       ...actorAuthorizationHeaders(authorization),
       ...gatewayMetadataHeadersForTurn(input.turnMetadata),
     };

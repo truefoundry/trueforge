@@ -64,6 +64,7 @@ try {
       bodyTimeoutMs: configuration.MODEL_HTTP_BODY_TIMEOUT_MS,
       maxRetries: configuration.MODEL_HTTP_MAX_RETRIES,
       idempotent: true,
+      userAgent: TRUEFORGE_USER_AGENT,
       metrics: { module: 'model' },
     },
     mcp: {
@@ -72,6 +73,7 @@ try {
       bodyTimeoutMs: configuration.MCP_HTTP_BODY_TIMEOUT_MS,
       maxRetries: configuration.MCP_HTTP_MAX_RETRIES,
       idempotent: false,
+      userAgent: TRUEFORGE_USER_AGENT,
       metrics: { module: 'mcp' },
     },
   });
@@ -138,7 +140,7 @@ import { createServerLogger, shouldColorize } from './logger';
 import type { IOAuthTokenStore } from './mcp/auth/types';
 import { createOperationMetrics } from './observability/agentMetrics';
 import { startSdkMetrics } from './observability/sdkMetrics';
-import { PACKAGE_VERSION } from './packageVersion';
+import { PACKAGE_VERSION, TRUEFORGE_USER_AGENT } from './packageVersion';
 import { ActiveTurnRegistry } from './runtime/activeTurns';
 import { EventSubscriptionRegistry } from './runtime/event-subscription';
 import { enableRedisOpenTelemetry, type ConnectedRedis } from './runtime/redis';

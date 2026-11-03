@@ -1,5 +1,6 @@
 ---
 '@truefoundry/trueforge': patch
+'@truefoundry/trueforge-core': patch
 ---
 
-Send `user-agent: trueforge/<version>` on TrueFoundry AI Gateway model and MCP calls so the gateway can identify TrueForge traffic and its version.
+Prepend `user-agent: trueforge/<version>` on model and MCP outbound fetches (via `OutboundFetchOptions.userAgent`) and on ServiceFoundry server calls so TrueFoundry can identify TrueForge traffic and its version.

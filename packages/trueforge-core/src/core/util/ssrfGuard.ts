@@ -56,6 +56,11 @@ export interface OutboundFetchOptions {
    * timeouts and 409/520/524 are not retried.
    */
   idempotent: boolean;
+  /**
+   * Product token prepended to `User-Agent` (HTTP allows multiple agents). Absent leaves the
+   * caller's header unchanged; when set with an existing value, becomes `<userAgent> <existing>`.
+   */
+  userAgent?: string;
   /** When set, each fetch records one observation on the process recorder. Absent skips metrics. */
   metrics?: {
     module: OutboundHttpModule;
@@ -555,6 +560,20 @@ function responseOutboundHttpOutcome(status: number): OutboundHttpOutcome {
   return status >= 200 && status < 400 ? 'success' : 'error';
 }
 
+/**
+ * Prepend `userAgent` to any existing `User-Agent` (RFC 9110 product-list). Callers may already set
+ * an SDK/runtime agent; TrueForge identifies itself without dropping those tokens.
+ */
+function withPrependedUserAgent(init: RequestInit, userAgent: string | undefined): RequestInit {
+  if (userAgent === undefined) {
+    return init;
+  }
+  const headers = new Headers(init.headers);
+  const existing = headers.get('user-agent');
+  headers.set('user-agent', existing === null || existing.length === 0 ? userAgent : `${userAgent} ${existing}`);
+  return { ...init, headers };
+}
+
 /** Builds a pooled undici Agent + SSRF-guarded fetch with the given timeouts/retries. */
 export function createOutboundFetch(options: OutboundFetchOptions): OutboundFetch {
   const agent = new Agent({
@@ -566,12 +585,20 @@ export function createOutboundFetch(options: OutboundFetchOptions): OutboundFetc
   const maxRetries = options.maxRetries;
   const idempotent = options.idempotent;
   const metricsModule = options.metrics?.module;
+  const userAgent = options.userAgent;
   return {
     fetch: async (input, init) => {
       const startedMs = performance.now();
       const metrics = metricsModule === undefined ? undefined : { module: metricsModule };
+      // Flatten Request headers into init before prepending so an existing User-Agent is preserved.
+      const mergedInit = withPrependedUserAgent(mergeRequestInit(input, init ?? {}), userAgent);
+      const requestInput = input instanceof Request ? input.url : input;
       try {
-        const response = await withOutboundHttpRetries(input, init ?? {}, agent, { maxRetries, idempotent, metrics });
+        const response = await withOutboundHttpRetries(requestInput, mergedInit, agent, {
+          maxRetries,
+          idempotent,
+          metrics,
+        });
         if (metricsModule !== undefined) {
           getOperationMetrics()?.recordOutboundHttpRequest({
             module: metricsModule,
