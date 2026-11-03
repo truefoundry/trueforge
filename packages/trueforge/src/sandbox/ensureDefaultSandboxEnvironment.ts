@@ -8,7 +8,7 @@ import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment'
 import {
   buildNextVersion,
   defaultSandboxEnvironmentStoredManifest,
-  type SandboxEnvironmentProviderType,
+  type SandboxEnvironmentIdentity,
 } from './sandboxEnvironmentVersion';
 
 const DEFAULT_NAME = NameSchema.parse(DEFAULT_SANDBOX_ENVIRONMENT_NAME);
@@ -21,14 +21,14 @@ export async function ensureDefaultSandboxEnvironment<TTransaction>({
   store,
   tenant_id,
   created_by_subject,
-  provider_type,
+  identity,
   resetPending,
   transaction,
 }: {
   store: ISandboxEnvironmentStore<TTransaction>;
   tenant_id: string;
   created_by_subject: CreatedBySubject;
-  provider_type: SandboxEnvironmentProviderType;
+  identity: SandboxEnvironmentIdentity;
   resetPending: boolean;
   transaction?: TTransaction;
 }): Promise<SandboxEnvironmentWithVersion> {
@@ -49,8 +49,8 @@ export async function ensureDefaultSandboxEnvironment<TTransaction>({
             ...(existing_version !== undefined ? { existing_version } : {}),
             ...(existing_manifest ? { previous_manifest: existing_manifest } : {}),
             ...(existing_external_ref ? { previous_external_ref: existing_external_ref } : {}),
-            manifest: defaultSandboxEnvironmentStoredManifest(provider_type),
-            provider_type,
+            manifest: defaultSandboxEnvironmentStoredManifest(identity),
+            identity,
           }),
           created_by_subject,
         }),

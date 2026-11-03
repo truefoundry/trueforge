@@ -56,6 +56,7 @@ describe('TrueFoundrySandboxEnvironmentStore', () => {
     expect(loaded?.version.status).toBe('ready');
     expect(loaded?.version.external_ref).toBe('trueforge-default-default');
     expect(loaded?.environment.name).toBe(DEFAULT_SANDBOX_ENVIRONMENT_NAME);
+    expect(loaded?.version.manifest).toMatchObject({ type: 'truefoundry', sandbox_provider: 'daytona' });
   });
 
   it('lists synthesized default ahead of custom environments', async () => {
@@ -75,7 +76,7 @@ describe('TrueFoundrySandboxEnvironmentStore', () => {
         manifest: {
           name: 'pyjokes-env',
           resources: { cpu: 1, memory: 1, disk: 3 },
-          type: 'daytona',
+          type: 'truefoundry',
           sandbox_provider: 'daytona',
         },
         status: 'pending',
@@ -131,7 +132,7 @@ describe('TrueFoundrySandboxEnvironmentStore', () => {
         manifest: {
           name: 'pyjokes-env',
           resources: { cpu: 1, memory: 1, disk: 3 },
-          type: 'daytona',
+          type: 'truefoundry',
           sandbox_provider: 'daytona',
         },
         status: 'pending',

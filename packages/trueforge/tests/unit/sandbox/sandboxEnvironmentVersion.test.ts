@@ -1,6 +1,8 @@
+import { isTrueFoundryModeEnabled } from '../../../src/config';
 import {
   buildNextVersion,
   defaultSandboxEnvironmentStoredManifest,
+  resolveSandboxEnvironmentIdentity,
 } from '../../../src/sandbox/sandboxEnvironmentVersion';
 import {
   SandboxEnvironmentManifestSchema,
@@ -8,8 +10,33 @@ import {
   UpdateSandboxEnvironmentRequestSchema,
 } from '../../../src/schemas/sandboxEnvironment';
 
+jest.mock('../../../src/config', () => {
+  const actual = jest.requireActual<typeof import('../../../src/config')>('../../../src/config');
+  return {
+    ...actual,
+    isTrueFoundryModeEnabled: jest.fn(() => false),
+  };
+});
+
+const DAYTONA = { type: 'daytona', sandbox_provider: 'daytona' } as const;
+
+describe('resolveSandboxEnvironmentIdentity', () => {
+  afterEach(() => {
+    jest.mocked(isTrueFoundryModeEnabled).mockReturnValue(false);
+  });
+
+  it('mirrors the provider type outside TrueFoundry mode', () => {
+    expect(resolveSandboxEnvironmentIdentity('daytona')).toEqual(DAYTONA);
+  });
+
+  it('labels environments truefoundry in TrueFoundry mode while keeping the backing provider', () => {
+    jest.mocked(isTrueFoundryModeEnabled).mockReturnValue(true);
+    expect(resolveSandboxEnvironmentIdentity('daytona')).toEqual({ type: 'truefoundry', sandbox_provider: 'daytona' });
+  });
+});
+
 describe('buildNextVersion', () => {
-  const previous = defaultSandboxEnvironmentStoredManifest('daytona');
+  const previous = defaultSandboxEnvironmentStoredManifest(DAYTONA);
 
   it('allocates a new external_ref when resources change without a build image', () => {
     const next = buildNextVersion({
@@ -20,7 +47,7 @@ describe('buildNextVersion', () => {
         name: 'default',
         resources: { cpu: 2, memory: 4, disk: 8 },
       },
-      provider_type: 'daytona',
+      identity: DAYTONA,
     });
 
     expect(next.external_ref).not.toBe('trueforge-old');
@@ -39,7 +66,7 @@ describe('buildNextVersion', () => {
         resources: previous.resources,
         networking: { network_block_all: true },
       },
-      provider_type: 'daytona',
+      identity: DAYTONA,
     });
 
     expect(next.external_ref).toBe('trueforge-old');
@@ -59,7 +86,7 @@ describe('buildNextVersion', () => {
         resources: withBuild.resources,
         image: { type: 'build', build_script: 'pip install pyjokes' },
       },
-      provider_type: 'daytona',
+      identity: DAYTONA,
     });
 
     expect(next.external_ref).not.toBe('trueforge-old');
