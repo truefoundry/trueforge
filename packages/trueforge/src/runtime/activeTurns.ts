@@ -6,7 +6,7 @@
  */
 import { CancellationReason, TurnOffloadReason, type TurnHandle } from '@truefoundry/trueforge-core/agent-session';
 import { getOperationMetrics } from '@truefoundry/trueforge-core/core';
-import { E_TIMEOUT, Mutex, withTimeout } from 'async-mutex';
+import { E_TIMEOUT, Mutex, withTimeout, type MutexInterface } from 'async-mutex';
 import type { Logger } from 'winston';
 
 const DEFAULT_PAUSED_KEEPALIVE_MS = 300_000;
@@ -101,17 +101,19 @@ export class ActiveTurnRegistry<TTransaction = never> {
       this.turnLocks.set(key, mutex);
     }
     // 0 waits forever. withTimeout(0) would reject on the next timer turn.
-    const guarded = this.lockAcquireTimeoutMs > 0 ? withTimeout(mutex, this.lockAcquireTimeoutMs) : mutex;
-    try {
-      return await guarded.runExclusive(fn);
-    } catch (caught) {
-      if (caught === E_TIMEOUT) {
-        throw new TurnLockAcquireTimeoutError({
+    let guarded: MutexInterface = mutex;
+    if (this.lockAcquireTimeoutMs > 0) {
+      guarded = withTimeout(
+        mutex,
+        this.lockAcquireTimeoutMs,
+        new TurnLockAcquireTimeoutError({
           timeoutMs: this.lockAcquireTimeoutMs,
           cause: E_TIMEOUT,
-        });
-      }
-      throw caught;
+        }),
+      );
+    }
+    try {
+      return await guarded.runExclusive(fn);
     } finally {
       if (!mutex.isLocked()) {
         this.turnLocks.delete(key);
