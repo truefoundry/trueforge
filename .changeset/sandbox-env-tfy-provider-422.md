@@ -1,5 +1,7 @@
 ---
 '@truefoundry/trueforge': patch
+'@truefoundry/trueforge-ui': patch
+'@truefoundry/trueforge-assistant-ui-runtime': patch
 ---
 
-Reject sandbox environment create/upsert with 422 from the TrueFoundry env store when the shared provider has no env/snapshot support. Secret sync no-ops when `envSupported` is false so create reaches that store rejection instead of failing while building a Daytona client.
+Gate Environments chrome and CRUD on provider env support: hide UI and return 422 when the shared TrueFoundry sandbox has no snapshot/env concept. Capabilities expose `sandbox.environments.enabled` for that gate.

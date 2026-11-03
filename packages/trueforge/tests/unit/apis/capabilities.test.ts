@@ -313,7 +313,11 @@ describe('capabilities routers', () => {
   it('disables environments when the TrueFoundry on-prem sandbox provider is selected', async () => {
     disableOidcAuth();
     mockActiveDefaultStatus = 'ready';
-    const previous = Reflect.get(configuration, 'TRUEFOUNDRY_SANDBOX_PROVIDER');
+    const previousStandalone = Reflect.get(configuration, 'STANDALONE');
+    const previousSfyUrl = Reflect.get(configuration, 'TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL');
+    const previousProvider = Reflect.get(configuration, 'TRUEFOUNDRY_SANDBOX_PROVIDER');
+    Reflect.set(configuration, 'STANDALONE', false);
+    Reflect.set(configuration, 'TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', 'http://sfy.example');
     Reflect.set(configuration, 'TRUEFOUNDRY_SANDBOX_PROVIDER', 'truefoundry');
     try {
       const router = makeRouter();
@@ -325,10 +329,49 @@ describe('capabilities routers', () => {
         },
       });
     } finally {
-      if (previous === undefined) {
+      Reflect.set(configuration, 'STANDALONE', previousStandalone);
+      if (previousSfyUrl === undefined) {
+        Reflect.deleteProperty(configuration, 'TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL');
+      } else {
+        Reflect.set(configuration, 'TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', previousSfyUrl);
+      }
+      if (previousProvider === undefined) {
         Reflect.deleteProperty(configuration, 'TRUEFOUNDRY_SANDBOX_PROVIDER');
       } else {
-        Reflect.set(configuration, 'TRUEFOUNDRY_SANDBOX_PROVIDER', previous);
+        Reflect.set(configuration, 'TRUEFOUNDRY_SANDBOX_PROVIDER', previousProvider);
+      }
+    }
+  });
+
+  it('disables environments in TrueFoundry mode when the shared provider is unset', async () => {
+    disableOidcAuth();
+    mockActiveDefaultStatus = 'ready';
+    const previousStandalone = Reflect.get(configuration, 'STANDALONE');
+    const previousSfyUrl = Reflect.get(configuration, 'TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL');
+    const previousProvider = Reflect.get(configuration, 'TRUEFOUNDRY_SANDBOX_PROVIDER');
+    Reflect.set(configuration, 'STANDALONE', false);
+    Reflect.set(configuration, 'TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', 'http://sfy.example');
+    Reflect.deleteProperty(configuration, 'TRUEFOUNDRY_SANDBOX_PROVIDER');
+    try {
+      const router = makeRouter();
+      const response = await router.request('/');
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({
+        data: {
+          sandbox: { enabled: true, environments: { enabled: false } },
+        },
+      });
+    } finally {
+      Reflect.set(configuration, 'STANDALONE', previousStandalone);
+      if (previousSfyUrl === undefined) {
+        Reflect.deleteProperty(configuration, 'TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL');
+      } else {
+        Reflect.set(configuration, 'TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', previousSfyUrl);
+      }
+      if (previousProvider === undefined) {
+        Reflect.deleteProperty(configuration, 'TRUEFOUNDRY_SANDBOX_PROVIDER');
+      } else {
+        Reflect.set(configuration, 'TRUEFOUNDRY_SANDBOX_PROVIDER', previousProvider);
       }
     }
   });

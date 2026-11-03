@@ -7,7 +7,7 @@ import {
   type RequestContext,
   type ResolveRequestContext,
 } from '../auth/identity';
-import configuration from '../config';
+import configuration, { isTrueFoundryModeEnabled } from '../config';
 import { isWebSearchEnabledForTenant, type IConfigurationStore } from '../db/configurationStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { WithTransaction } from '../db/transaction';
@@ -52,14 +52,15 @@ function settingsCapability(requestContext: Pick<RequestContext, 'roles'>) {
 }
 
 /**
- * Environments UI/CRUD — off only for TFY on-prem (no snapshot/env concept).
- * Independent of default-env readiness so users can create/repair environments while sandbox is still preparing.
+ * Environments UI/CRUD — matches `envSupported` on the sandbox-environment store.
+ * Standalone/OIDC persistence always supports envs; TFY mode only when the shared
+ * provider is Daytona. Independent of default-env readiness.
  */
 function sandboxEnvironmentsEnabled(): boolean {
-  return (
-    !('TRUEFOUNDRY_SANDBOX_PROVIDER' in configuration) ||
-    configuration.TRUEFOUNDRY_SANDBOX_PROVIDER !== 'truefoundry'
-  );
+  if (!isTrueFoundryModeEnabled(configuration)) {
+    return true;
+  }
+  return configuration.TRUEFOUNDRY_SANDBOX_PROVIDER === 'daytona';
 }
 
 export function createCapabilitiesRouter<TTransaction>(deps: {
