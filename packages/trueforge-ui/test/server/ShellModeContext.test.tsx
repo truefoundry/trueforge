@@ -13,6 +13,7 @@ import { ServerProvider, useServerCapabilities, useServerCapabilitiesSettled } f
 import { ShellModeProvider, useOptionalShellMode, useShellMode, type AgentConfig } from '@/server/ShellModeContext.js';
 import type { AgentUIServer } from '@/server/types.js';
 import { createMockAgentSessionsServer, createMockAgentUIServer, createMockCatalog } from './mockServer.js';
+import { allSettingsSections } from './settingsCapabilityFixture.js';
 
 function wrap(agentConfig?: AgentConfig, initialSettingsOpen?: boolean) {
   const server = createMockAgentUIServer({
@@ -107,7 +108,7 @@ describe('ShellModeProvider', () => {
         data: {
           sandbox: { enabled: true },
           skill: { enabled: true },
-          settings: { enabled: false },
+          settings: allSettingsSections(false),
         },
       }),
     });
@@ -128,7 +129,7 @@ describe('ShellModeProvider', () => {
     );
 
     expect(result.current.shell.settingsOpen).toBe(false);
-    await waitFor(() => expect(result.current.capabilities?.settings?.enabled).toBe(false));
+    await waitFor(() => expect(result.current.capabilities?.settings?.modelProviders?.enabled).toBe(false));
     act(() => result.current.shell.setSettingsOpen(true));
     expect(result.current.shell.settingsOpen).toBe(false);
   });
@@ -593,7 +594,7 @@ describe('ShellModeProvider', () => {
       data: {
         sandbox: { enabled: true },
         skill: { enabled: true },
-        settings: { enabled: true },
+        settings: allSettingsSections(true),
         webSearch: { enabled: true },
       },
     }));
@@ -631,7 +632,7 @@ describe('ShellModeProvider', () => {
       data: {
         sandbox: { enabled: true },
         skill: { enabled: true },
-        settings: { enabled: true },
+        settings: allSettingsSections(true),
         webSearch: { enabled: false },
       },
     }));

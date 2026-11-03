@@ -4719,6 +4719,141 @@ client.internal.agents.get_code_snippets(
 </dl>
 </details>
 
+## Settings Configuration
+<details><summary><code>client.settings.configuration.<a href="src/trueforge_sdk/settings/configuration/client.py">get</a>() -> GetConfigurationResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Tenant-wide feature switches. Tenants with nothing saved yet get every switch enabled.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.settings.configuration.get()
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.settings.configuration.<a href="src/trueforge_sdk/settings/configuration/client.py">update</a>(...) -> GetConfigurationResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Updates the switches present in the body and leaves the rest. Turning web search off applies to new chats; chats already using it keep it.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge, ConfigurationManifestPatch
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.settings.configuration.update(
+    manifest=ConfigurationManifestPatch(),
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**manifest:** `ConfigurationManifestPatch` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 ## Settings McpServers
 <details><summary><code>client.settings.mcp_servers.<a href="src/trueforge_sdk/settings/mcp_servers/client.py">list</a>() -> ListMcpServersResponse</code></summary>
 <dl>

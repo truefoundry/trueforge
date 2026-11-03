@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import {
-  canAccessSettings,
+  areCatalogSettingsAvailable,
   canCreateOrEdit,
   canEditSchedule,
   hasAdminRole,
@@ -71,18 +71,16 @@ describe('hasAdminRole', () => {
   });
 });
 
-describe('canAccessSettings', () => {
+describe('areCatalogSettingsAvailable', () => {
   afterEach(() => {
     jest.mocked(getTrueForgeAuthMode).mockReturnValue(TrueForgeAuthMode.Standalone);
   });
 
-  it('follows hasAdminRole outside TrueFoundry and stays false in TrueFoundry', () => {
-    expect(canAccessSettings({ roles: ['admin'] })).toBe(true);
-    expect(canAccessSettings({ roles: ['everyone'] })).toBe(false);
+  it('is true outside TrueFoundry, where the platform owns the catalogs', () => {
+    expect(areCatalogSettingsAvailable()).toBe(true);
 
     jest.mocked(getTrueForgeAuthMode).mockReturnValue(TrueForgeAuthMode.TrueFoundry);
-    expect(canAccessSettings({ roles: [TRUEFOUNDRY_TENANT_ADMIN_ROLE] })).toBe(false);
-    expect(hasAdminRole({ roles: [TRUEFOUNDRY_TENANT_ADMIN_ROLE] })).toBe(true);
+    expect(areCatalogSettingsAvailable()).toBe(false);
   });
 });
 

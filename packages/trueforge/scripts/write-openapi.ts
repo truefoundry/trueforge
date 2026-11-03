@@ -26,6 +26,7 @@ import { McpServerWithAuthStore } from '../src/db/McpServerWithAuthStore';
 import { SqliteAccessControlStore } from '../src/db/sqlite/access-control-store/SqliteAccessControlStore';
 import { SqliteAgentStore } from '../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../src/db/sqlite/client';
+import { SqliteConfigurationStore } from '../src/db/sqlite/configuration-store/SqliteConfigurationStore';
 import { SqliteMcpServerStore } from '../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteModelProviderStore } from '../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { SqliteSandboxEnvironmentStore } from '../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
@@ -73,6 +74,7 @@ const sandboxEnvironmentStore = new SqliteSandboxEnvironmentStore(db);
 const skillStore = new SqliteSkillStore(db);
 const sandboxProviderStore = new SqliteSandboxProviderStore(db);
 const webSearchProviderStore = new SqliteWebSearchProviderStore(db);
+const configurationStore = new SqliteConfigurationStore(db);
 // HTTP middleware needs a registry. Document generation does not scrape it.
 const httpMetrics = createHttpMetrics();
 const app = createServerApp({
@@ -95,6 +97,7 @@ const app = createServerApp({
   sandboxEnvironmentStore,
   sandboxProviderStore,
   webSearchProviderStore,
+  configurationStore,
   withTransaction: callback => db.transaction().execute(callback),
   scheduleStore: new SqliteScheduleStore(db),
   tokenStore,

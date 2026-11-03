@@ -26,6 +26,7 @@ import type {
 } from '@truefoundry/trueforge-core/core';
 import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
+import type { ConfigurationManifest } from '../../schemas/configuration';
 import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { ModelProviderManifest } from '../../schemas/modelProvider';
 import type {
@@ -390,6 +391,16 @@ export interface WebSearchProviderTable {
 }
 
 /**
+ * Tenant-wide feature switches (canonical table).
+ * PRIMARY KEY (tenant_id)
+ */
+export interface ConfigurationTable {
+  tenant_id: string;
+  manifest: JSONColumnType<ConfigurationManifest, ConfigurationManifest, ConfigurationManifest>;
+  updated_at: Date;
+}
+
+/**
  * Configured skills — mirrors the Postgres `skill` table.
  * PRIMARY KEY (tenant_id, name)
  */
@@ -628,6 +639,7 @@ export interface Database {
   thread_capability_state: ThreadCapabilityStateTable;
   model_provider: ModelProviderTable;
   web_search_provider: WebSearchProviderTable;
+  configuration: ConfigurationTable;
   skill: SkillTable;
   sandbox_provider: SandboxProviderTable;
   agent: AgentTable;

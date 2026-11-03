@@ -535,6 +535,22 @@ export interface McpToolSelection {
   description?: string;
 }
 
+/** One settings section. `manageProviders` is false when the platform owns the providers. */
+export interface SettingsCapabilitySection {
+  enabled: boolean;
+  manageProviders: boolean;
+}
+
+/** Settings sections the caller may open. A host may report only the ones it has. */
+export interface SettingsCapability {
+  modelProviders?: SettingsCapabilitySection;
+  mcpServers?: SettingsCapabilitySection;
+  skills?: SettingsCapabilitySection;
+  sandboxProviders?: SettingsCapabilitySection;
+  webSearch?: SettingsCapabilitySection;
+  memory?: SettingsCapabilitySection;
+}
+
 /**
  * Builder feature flags — atoms gate sandbox / skill / settings surfaces on these.
  */
@@ -542,8 +558,8 @@ export interface AgentBuilderCapabilitiesResponse {
   data: {
     sandbox: { enabled: boolean };
     skill: { enabled: boolean; reason?: string };
-    settings?: { enabled: boolean };
-    webSearch?: { enabled: boolean };
+    settings?: SettingsCapability;
+    webSearch?: { enabled: boolean; reason?: string };
     /** Present when the host reports session sharing; `enabled` gates invite-by-user. */
     sessionSharing?: { enabled: boolean };
   };
@@ -974,6 +990,31 @@ export interface CatalogServer<
   webSearchCatalog?: TWebSearchCatalog;
 }
 
+/** One tenant-wide switch. */
+export interface TenantConfigurationSwitch {
+  enabled: boolean;
+}
+
+/** Tenant-wide feature switches an admin controls, independent of any provider catalog. */
+export interface TenantConfiguration {
+  webSearch: TenantConfigurationSwitch;
+}
+
+export interface UpdateTenantConfigurationRequest {
+  /** Omit a switch to leave it as stored. */
+  webSearch?: TenantConfigurationSwitch;
+}
+
+/**
+ * Read and change the tenant switches. Kept apart from the provider catalogs
+ * because a deployment may let an admin flip a switch while the platform owns
+ * the providers behind it.
+ */
+export interface ConfigurationServer<TConfiguration extends TenantConfiguration = TenantConfiguration> {
+  getConfiguration(): Promise<TConfiguration>;
+  updateConfiguration(req: UpdateTenantConfigurationRequest): Promise<TConfiguration>;
+}
+
 // ---------------------------------------------------------------------------
 // AgentSessions — optional agent-detail shell (Overview + sessions under agent)
 // ---------------------------------------------------------------------------
@@ -1384,9 +1425,12 @@ export type AgentUIServerPort<
   TMetrics extends AgentMetricsServer = AgentMetricsServer,
   TPermissions extends PermissionsServer = PermissionsServer,
   TSessionAccess extends SessionAccessServer = SessionAccessServer,
+  TConfiguration extends ConfigurationServer = ConfigurationServer,
 > = TChat &
   TBuilder & {
     catalog?: TCatalog;
+    /** Optional tenant-switch port; omit to hide the tenant controls in settings. */
+    configuration?: TConfiguration;
     sessions?: TSessions;
     schedules?: TSchedules;
     sandboxEnvironments?: TSandboxEnvironments;

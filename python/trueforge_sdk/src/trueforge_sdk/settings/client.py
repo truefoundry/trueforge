@@ -8,6 +8,7 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from .raw_client import AsyncRawSettingsClient, RawSettingsClient
 
 if typing.TYPE_CHECKING:
+    from .configuration.client import AsyncConfigurationClient, ConfigurationClient
     from .mcp_servers.client import AsyncMcpServersClient, McpServersClient
     from .model_providers.client import AsyncModelProvidersClient, ModelProvidersClient
     from .sandbox_providers.client import AsyncSandboxProvidersClient, SandboxProvidersClient
@@ -19,6 +20,7 @@ class SettingsClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._raw_client = RawSettingsClient(client_wrapper=client_wrapper)
         self._client_wrapper = client_wrapper
+        self._configuration: typing.Optional[ConfigurationClient] = None
         self._mcp_servers: typing.Optional[McpServersClient] = None
         self._model_providers: typing.Optional[ModelProvidersClient] = None
         self._sandbox_providers: typing.Optional[SandboxProvidersClient] = None
@@ -35,6 +37,14 @@ class SettingsClient:
         RawSettingsClient
         """
         return self._raw_client
+
+    @property
+    def configuration(self):
+        if self._configuration is None:
+            from .configuration.client import ConfigurationClient  # noqa: E402
+
+            self._configuration = ConfigurationClient(client_wrapper=self._client_wrapper)
+        return self._configuration
 
     @property
     def mcp_servers(self):
@@ -81,6 +91,7 @@ class AsyncSettingsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._raw_client = AsyncRawSettingsClient(client_wrapper=client_wrapper)
         self._client_wrapper = client_wrapper
+        self._configuration: typing.Optional[AsyncConfigurationClient] = None
         self._mcp_servers: typing.Optional[AsyncMcpServersClient] = None
         self._model_providers: typing.Optional[AsyncModelProvidersClient] = None
         self._sandbox_providers: typing.Optional[AsyncSandboxProvidersClient] = None
@@ -97,6 +108,14 @@ class AsyncSettingsClient:
         AsyncRawSettingsClient
         """
         return self._raw_client
+
+    @property
+    def configuration(self):
+        if self._configuration is None:
+            from .configuration.client import AsyncConfigurationClient  # noqa: E402
+
+            self._configuration = AsyncConfigurationClient(client_wrapper=self._client_wrapper)
+        return self._configuration
 
     @property
     def mcp_servers(self):

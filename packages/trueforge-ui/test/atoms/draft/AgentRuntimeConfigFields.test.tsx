@@ -17,12 +17,14 @@ function renderRuntimeFields({
   layout = 'detailed',
   sandboxAvailable = true,
   hasSkills = false,
+  webSearch,
   onChange = vi.fn(),
 }: {
   value?: AgentRuntimeConfig;
   layout?: 'compact' | 'detailed';
   sandboxAvailable?: boolean;
   hasSkills?: boolean;
+  webSearch?: { enabled: boolean; reason?: string };
   onChange?: (val: AgentRuntimeConfig) => void;
 } = {}) {
   const environmentServer = createMockSandboxEnvironmentServer({
@@ -67,6 +69,13 @@ function renderRuntimeFields({
 
   const server = createMockAgentUIServer({
     sandboxEnvironments: environmentServer,
+    getCapabilities: async () => ({
+      data: {
+        sandbox: { enabled: true },
+        skill: { enabled: true },
+        ...(webSearch === undefined ? {} : { webSearch }),
+      },
+    }),
   });
 
   return render(
@@ -102,6 +111,28 @@ describe('AgentRuntimeConfigFields', () => {
     expect(screen.queryByRole('button', { name: /Manage Environments/ })).not.toBeInTheDocument();
   });
 
+  it('shows a sandbox-off warning only when a provider exists and the switch is off', () => {
+    const warning = "Disabling sandbox will degrade trueforge's performance.";
+
+    const { unmount: unmountOff } = renderRuntimeFields({ value: { sandbox: { enabled: false } } });
+    expect(screen.getByRole('status')).toHaveTextContent(warning);
+    unmountOff();
+
+    const { unmount: unmountOn } = renderRuntimeFields();
+    expect(screen.queryByText(warning)).not.toBeInTheDocument();
+    unmountOn();
+
+    const { unmount: unmountUnavailable } = renderRuntimeFields({
+      value: { sandbox: { enabled: false } },
+      sandboxAvailable: false,
+    });
+    expect(screen.queryByText(warning)).not.toBeInTheDocument();
+    unmountUnavailable();
+
+    renderRuntimeFields({ hasSkills: true, value: { sandbox: { enabled: true } } });
+    expect(screen.queryByText(warning)).not.toBeInTheDocument();
+  });
+
   it('shows skills lock tooltip only when hovering the sandbox switch', () => {
     renderRuntimeFields({ hasSkills: true });
 
@@ -115,6 +146,44 @@ describe('AgentRuntimeConfigFields', () => {
     const tooltip = document.querySelector('[role="tooltip"]');
     expect(tooltip).not.toBeNull();
     expect(tooltip).toHaveTextContent('Always on while skills are attached — remove them to turn it off');
+  });
+
+  it('keeps the web search switch visible and locked with the host reason', async () => {
+    renderRuntimeFields({ webSearch: { enabled: false, reason: 'Web search is turned off for this tenant.' } });
+
+    // Re-query each poll: the row only locks once capabilities resolve, which re-renders it.
+    await waitFor(() => {
+      expect(screen.getByRole('switch', { name: 'Web search' })).toBeDisabled();
+    });
+    const webSearchSwitch = screen.getByRole('switch', { name: 'Web search' });
+    expect(webSearchSwitch).not.toBeChecked();
+
+    fireEvent.mouseEnter(webSearchSwitch.parentElement!);
+    expect(document.querySelector('[role="tooltip"]')).toHaveTextContent('Web search is turned off for this tenant.');
+  });
+
+  it('lets a spec that already searches the web turn it off while the host says no', async () => {
+    const onChange = vi.fn();
+    renderRuntimeFields({ value: { webSearch: { enabled: true } }, webSearch: { enabled: false }, onChange });
+
+    const webSearchSwitch = screen.getByRole('switch', { name: 'Web search' });
+    expect(webSearchSwitch).toBeEnabled();
+    expect(webSearchSwitch).toBeChecked();
+
+    // Turning it off is the last chance, so the row has to say so before the click.
+    expect(await screen.findByText(/Turning it off here is final/)).toBeInTheDocument();
+
+    fireEvent.click(webSearchSwitch);
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ webSearch: { enabled: false } }));
+  });
+
+  it('does not caution a spec the host still allows', async () => {
+    renderRuntimeFields({ value: { webSearch: { enabled: true } }, webSearch: { enabled: true } });
+
+    await waitFor(() => {
+      expect(screen.getByRole('switch', { name: 'Web search' })).toBeChecked();
+    });
+    expect(screen.queryByText(/Turning it off here is final/)).not.toBeInTheDocument();
   });
 
   it('populates environment dropdown with default and ready environments only', async () => {
