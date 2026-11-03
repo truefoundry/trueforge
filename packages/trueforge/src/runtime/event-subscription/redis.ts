@@ -9,18 +9,59 @@ import {
   type EventSubscriptionPutOptions,
   type SequencedEvent,
 } from '.';
-import {
-  entryIdMilliseconds,
-  EventIdSeek,
-  eventIdSeekCursor,
-  eventIdTimestampMs,
-  isLegacySequenceEntryId,
-} from './entryId';
+import { entryIdMilliseconds, eventIdSeekCursor, eventIdTimestampMs, isLegacySequenceEntryId } from './entryId';
 import { applyEventLogRepair, eventIdFromStreamData, type RepairLogOptions } from './repair';
 
 const SUBSCRIBE_STREAM_POLL_ITEMS_COUNT = 100;
 /** Delay between XREAD polls while a stream has no new events (a blocking XREAD would monopolize the shared connection). */
 const SUBSCRIBE_STREAM_POLL_SLEEP_INTERVAL_MS = 1_000;
+
+/**
+ * Jump from ARGV[3], walk forward, return an exclusive XREAD cursor.
+ * TS does the batch XREADs separately.
+ *
+ * KEYS[1]=stream  ARGV[1]=from|after  ARGV[2]=payload id  ARGV[3]=start  ARGV[4]=batch
+ *
+ * from → stop at the first match; return the prior entry (XREAD is exclusive).
+ * after → walk the contiguous shared-id group (message + deltas); return its last entry.
+ * missing → tip (live-only).
+ */
+const SEEK_EVENT_ID_CURSOR = `
+local mode, targetId, cursor, batch = ARGV[1], ARGV[2], ARGV[3], tonumber(ARGV[4])
+local startBound = '(' .. cursor
+local previous, lastMatch = nil, nil
+while true do
+  local entries = redis.call('XRANGE', KEYS[1], startBound, '+', 'COUNT', batch)
+  if #entries == 0 then break end
+  for i = 1, #entries do
+    local entryId, fields = entries[i][1], entries[i][2]
+    local data = nil
+    for j = 1, #fields, 2 do
+      if fields[j] == 'data' then data = fields[j + 1]; break end
+    end
+    local payloadId = nil
+    if data ~= nil then
+      local ok, obj = pcall(cjson.decode, data)
+      if ok and type(obj) == 'table' and type(obj['id']) == 'string' then
+        payloadId = obj['id']
+      end
+    end
+    if mode == 'from' then
+      if payloadId == targetId then
+        return previous or cursor
+      end
+    elseif payloadId == targetId then
+      lastMatch = entryId
+    elseif lastMatch ~= nil then
+      return lastMatch
+    end
+    previous = entryId
+  end
+  startBound = '(' .. entries[#entries][1]
+  if #entries < batch then break end
+end
+return lastMatch or previous or cursor
+`;
 
 /**
  * One script for put and for suffix backfill. Put checks the stream-owner key.
@@ -190,6 +231,10 @@ export class RedisEventSubscription<T extends { id: string }> implements EventSu
     }
   }
 
+  /**
+   * One Lua seek for the XREAD cursor, then the same forever-poll as sequence
+   * resume. Seek and batch reads are separate Redis round-trips on purpose.
+   */
   private async *pollByEventId(
     options: EventSubscriptionPollOptions,
   ): AsyncGenerator<SequencedEvent<T>, void, unknown> {
@@ -199,22 +244,15 @@ export class RedisEventSubscription<T extends { id: string }> implements EventSu
     if (eventId === undefined) {
       throw new Error('Pass fromEventId or afterEventId');
     }
+    const mode = fromEventId !== undefined ? 'from' : 'after';
     const signal = options.signal;
-    const seek = new EventIdSeek<SequencedEvent<T>>(fromEventId !== undefined ? 'from' : 'after', eventId);
-    let cursor = eventIdSeekCursor({ eventId, firstEntryId: await this.firstEntryId() });
-    let scanning = true;
+    let cursor = await this.seekEventIdCursor({ mode, eventId });
     for (;;) {
       const messages = await this.readAfter(cursor, signal);
       if (messages === undefined) {
         return;
       }
       if (messages.length === 0) {
-        if (scanning) {
-          scanning = false;
-          for (const event of seek.caughtUp()) {
-            yield event;
-          }
-        }
         if (!(await this.waitForEntries(signal))) {
           return;
         }
@@ -222,11 +260,33 @@ export class RedisEventSubscription<T extends { id: string }> implements EventSu
       }
       for (const { id, message } of messages) {
         cursor = id;
-        for (const item of seek.push(this.readEvent(id, message))) {
-          yield item;
+        const event = this.readEvent(id, message);
+        // after: drop live rows that reuse the seek id (another delta).
+        if (mode === 'after' && event.id === eventId) {
+          continue;
         }
+        yield event;
       }
     }
+  }
+
+  /**
+   * Jump near the ULID millisecond (or stream start), walk forward in Lua until
+   * the payload id, return exclusive XREAD cursor. See SEEK_EVENT_ID_CURSOR.
+   */
+  private async seekEventIdCursor(input: { mode: 'from' | 'after'; eventId: string }): Promise<string> {
+    const startCursor = eventIdSeekCursor({
+      eventId: input.eventId,
+      firstEntryId: await this.firstEntryId(),
+    });
+    const reply: unknown = await this.redis.eval(SEEK_EVENT_ID_CURSOR, {
+      keys: [this.streamId],
+      arguments: [input.mode, input.eventId, startCursor, String(SUBSCRIBE_STREAM_POLL_ITEMS_COUNT)],
+    });
+    if (typeof reply !== 'string') {
+      throw new Error('Unexpected event-id seek reply');
+    }
+    return reply;
   }
 
   private async readAfter(
