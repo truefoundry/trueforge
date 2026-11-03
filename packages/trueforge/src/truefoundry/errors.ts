@@ -4,9 +4,9 @@ import type { AgentRecord } from '../db/agentStore';
 export const AGENT_EXTERNAL_ID_REQUIRED = 'Agent is missing a TrueFoundry external id';
 export const TRUEFOUNDRY_MANAGED_STATUS = 424 as const;
 export const TRUEFOUNDRY_MANAGED_MESSAGE = 'This resource is managed by TrueFoundry';
-/** TFY on-prem sandbox has no env/snapshot concept. */
+/** Shared providers without env/snapshot support (e.g. TFY on-prem). */
 export const SANDBOX_ENVIRONMENTS_NOT_SUPPORTED_MESSAGE =
-  'Sandbox environments are not supported with the TrueFoundry sandbox provider';
+  'Sandbox environments are not supported with the current sandbox provider';
 
 /** Require the remote identity needed for TrueFoundry agent operations. */
 export function requireTrueFoundryAgentExternalId(
