@@ -10,6 +10,7 @@ import { disableOidcAuth, enableOidcAuth, initOidc } from '../../../src/auth/oid
 import { OidcAuthenticator } from '../../../src/auth/oidcAuthenticator';
 import { StandaloneAuthenticator } from '../../../src/auth/standaloneAuthenticator';
 import type { OIDCConfig } from '../../../src/config';
+import type { IConfigurationStore } from '../../../src/db/configurationStore';
 import type { ISandboxEnvironmentStore, SandboxEnvironmentWithVersion } from '../../../src/db/sandboxEnvironmentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { EmptyUserStore, type IUserStore } from '../../../src/db/userStore';
@@ -19,6 +20,27 @@ import type { SandboxEnvironmentVersionStatus } from '../../../src/schemas/sandb
 import { TrueFoundryUserStore } from '../../../src/truefoundry/TrueFoundryUserStore';
 
 const silentLogger = createLogger({ silent: true });
+
+const ALL_SETTINGS_ON = {
+  model_providers: { enabled: true, manage_providers: true },
+  mcp_servers: { enabled: true, manage_providers: true },
+  skills: { enabled: true, manage_providers: true },
+  sandbox_providers: { enabled: true, manage_providers: true },
+  web_search: { enabled: true, manage_providers: true },
+  memory: { enabled: true, manage_providers: true },
+};
+
+const ALL_SETTINGS_OFF = {
+  model_providers: { enabled: false, manage_providers: false },
+  mcp_servers: { enabled: false, manage_providers: false },
+  skills: { enabled: false, manage_providers: false },
+  sandbox_providers: { enabled: false, manage_providers: false },
+  web_search: { enabled: false, manage_providers: false },
+  memory: { enabled: false, manage_providers: false },
+};
+
+const NO_PROVIDER_REASON = 'Web search needs a provider, which is not configured.';
+const TENANT_OFF_REASON = 'Web search is turned off for this tenant - an admin can turn it back on in settings.';
 
 let mockActiveDefaultStatus: SandboxEnvironmentVersionStatus | undefined;
 let mockLatestDefaultStatus: SandboxEnvironmentVersionStatus | undefined;
@@ -75,10 +97,12 @@ describe('capabilities routers', () => {
   function makeRouter({
     authenticator = new StandaloneAuthenticator(),
     webSearchStore,
+    tenantWebSearchEnabled = true,
     userStore = new EmptyUserStore(),
   }: {
     authenticator?: Authenticator;
     webSearchStore?: IWebSearchProviderStore;
+    tenantWebSearchEnabled?: boolean;
     userStore?: IUserStore;
   } = {}): OpenAPIHono {
     const db = createSqliteDb(':memory:');
@@ -86,10 +110,21 @@ describe('capabilities routers', () => {
       getProvider: () => Promise.resolve(undefined),
       upsertProvider: () => Promise.reject(new Error('not used')),
     };
+    const configurationStore: IConfigurationStore = {
+      getConfiguration: () =>
+        Promise.resolve({
+          tenant_id: 'default',
+          manifest: { web_search: { enabled: tenantWebSearchEnabled } },
+          updated_at: '2026-01-01T00:00:00.000Z',
+        }),
+      upsertConfiguration: () => Promise.reject(new Error('not used')),
+      getOrCreateConfiguration: () => Promise.reject(new Error('not used')),
+    };
     return withAuth(
       createCapabilitiesRouter({
         sandboxEnvironmentStore: mockDefaultEnvStore(),
         webSearchProviderStore: webSearchStore ?? emptyWebSearchStore,
+        configurationStore,
         userStore,
         withTransaction: (() => {
           const run = <T>(callback: (trx: never) => Promise<T>): Promise<T> =>
@@ -117,8 +152,8 @@ describe('capabilities routers', () => {
           enabled: false,
           reason: 'Skills run in a sandbox, which is not configured.',
         },
-        settings: { enabled: true },
-        web_search: { enabled: false },
+        settings: ALL_SETTINGS_ON,
+        web_search: { enabled: false, reason: NO_PROVIDER_REASON },
         session_sharing: { enabled: false },
       },
     });
@@ -143,6 +178,28 @@ describe('capabilities routers', () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
       data: { web_search: { enabled: true } },
+    });
+  });
+
+  it('reports web_search disabled when the tenant turned it off, even with a provider', async () => {
+    disableOidcAuth();
+    mockActiveDefaultStatus = undefined;
+    const configuredStore: IWebSearchProviderStore = {
+      getProvider: () =>
+        Promise.resolve({
+          tenant_id: 'default',
+          manifest: { type: 'parallel', auth: { api_key: 'test-key' } },
+          created_at: '2026-01-01T00:00:00.000Z',
+          updated_at: '2026-01-01T00:00:00.000Z',
+        }),
+      upsertProvider: () => Promise.reject(new Error('not used')),
+    };
+    const router = makeRouter({ webSearchStore: configuredStore, tenantWebSearchEnabled: false });
+
+    const response = await router.request('/');
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: { web_search: { enabled: false, reason: TENANT_OFF_REASON } },
     });
   });
 
@@ -175,8 +232,8 @@ describe('capabilities routers', () => {
       data: {
         sandbox: { enabled: true },
         skill: { enabled: true },
-        settings: { enabled: true },
-        web_search: { enabled: false },
+        settings: ALL_SETTINGS_ON,
+        web_search: { enabled: false, reason: NO_PROVIDER_REASON },
         session_sharing: { enabled: false },
       },
     });
@@ -193,8 +250,8 @@ describe('capabilities routers', () => {
       data: {
         sandbox: { enabled: true },
         skill: { enabled: true },
-        settings: { enabled: true },
-        web_search: { enabled: false },
+        settings: ALL_SETTINGS_ON,
+        web_search: { enabled: false, reason: NO_PROVIDER_REASON },
         session_sharing: { enabled: false },
       },
     });
@@ -315,10 +372,16 @@ describe('capabilities routers', () => {
         getProvider: () => Promise.resolve(undefined),
         upsertProvider: () => Promise.reject(new Error('not used')),
       };
+      const allOnConfigurationStore: IConfigurationStore = {
+        getConfiguration: () => Promise.resolve(undefined),
+        upsertConfiguration: () => Promise.reject(new Error('not used')),
+        getOrCreateConfiguration: () => Promise.reject(new Error('not used')),
+      };
       const router = withAuth(
         createCapabilitiesRouter({
           sandboxEnvironmentStore: mockDefaultEnvStore(),
           webSearchProviderStore: emptyWebSearchStore,
+          configurationStore: allOnConfigurationStore,
           userStore: new EmptyUserStore(),
           withTransaction: (() => {
             const run = <T>(callback: (trx: never) => Promise<T>): Promise<T> =>
@@ -342,8 +405,8 @@ describe('capabilities routers', () => {
             enabled: false,
             reason: 'Skills run in a sandbox, which is not configured.',
           },
-          settings: { enabled: true },
-          web_search: { enabled: false },
+          settings: ALL_SETTINGS_ON,
+          web_search: { enabled: false, reason: NO_PROVIDER_REASON },
           session_sharing: { enabled: false },
         },
       });
@@ -359,8 +422,8 @@ describe('capabilities routers', () => {
             enabled: false,
             reason: 'Skills run in a sandbox, which is not configured.',
           },
-          settings: { enabled: false },
-          web_search: { enabled: false },
+          settings: ALL_SETTINGS_OFF,
+          web_search: { enabled: false, reason: NO_PROVIDER_REASON },
           session_sharing: { enabled: false },
         },
       });

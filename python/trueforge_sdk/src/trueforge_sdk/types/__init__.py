@@ -48,6 +48,9 @@ if typing.TYPE_CHECKING:
     from .compaction_trigger import CompactionTrigger
     from .completion_usage import CompletionUsage
     from .components_schemas_tool_approval_policy_allow_session import ComponentsSchemasToolApprovalPolicyAllowSession
+    from .configuration import Configuration
+    from .configuration_manifest import ConfigurationManifest
+    from .configuration_manifest_patch import ConfigurationManifestPatch
     from .configured_mcp_server import ConfiguredMcpServer
     from .configured_model import ConfiguredModel
     from .configured_model_provider import ConfiguredModelProvider
@@ -78,6 +81,7 @@ if typing.TYPE_CHECKING:
     from .get_agent_response import GetAgentResponse
     from .get_available_mcp_server_response import GetAvailableMcpServerResponse
     from .get_capabilities_response import GetCapabilitiesResponse
+    from .get_configuration_response import GetConfigurationResponse
     from .get_mcp_server_catalog_response import GetMcpServerCatalogResponse
     from .get_mcp_server_response import GetMcpServerResponse
     from .get_me_response import GetMeResponse
@@ -225,6 +229,7 @@ if typing.TYPE_CHECKING:
     from .session_source_schedule import SessionSourceSchedule
     from .session_source_type import SessionSourceType
     from .settings_capability import SettingsCapability
+    from .settings_capability_section import SettingsCapabilitySection
     from .skill import Skill
     from .skill_capability import SkillCapability
     from .skill_manifest import SkillManifest
@@ -284,6 +289,7 @@ if typing.TYPE_CHECKING:
     from .user_tool_response_input_event import UserToolResponseInputEvent
     from .web_search_capability import WebSearchCapability
     from .web_search_config import WebSearchConfig
+    from .web_search_configuration import WebSearchConfiguration
     from .web_search_provider_manifest import WebSearchProviderManifest
     from .zai_model_provider import ZaiModelProvider
 _dynamic_imports: typing.Dict[str, str] = {
@@ -329,6 +335,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CompactionTrigger": ".compaction_trigger",
     "CompletionUsage": ".completion_usage",
     "ComponentsSchemasToolApprovalPolicyAllowSession": ".components_schemas_tool_approval_policy_allow_session",
+    "Configuration": ".configuration",
+    "ConfigurationManifest": ".configuration_manifest",
+    "ConfigurationManifestPatch": ".configuration_manifest_patch",
     "ConfiguredMcpServer": ".configured_mcp_server",
     "ConfiguredModel": ".configured_model",
     "ConfiguredModelProvider": ".configured_model_provider",
@@ -359,6 +368,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "GetAgentResponse": ".get_agent_response",
     "GetAvailableMcpServerResponse": ".get_available_mcp_server_response",
     "GetCapabilitiesResponse": ".get_capabilities_response",
+    "GetConfigurationResponse": ".get_configuration_response",
     "GetMcpServerCatalogResponse": ".get_mcp_server_catalog_response",
     "GetMcpServerResponse": ".get_mcp_server_response",
     "GetMeResponse": ".get_me_response",
@@ -506,6 +516,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SessionSourceSchedule": ".session_source_schedule",
     "SessionSourceType": ".session_source_type",
     "SettingsCapability": ".settings_capability",
+    "SettingsCapabilitySection": ".settings_capability_section",
     "Skill": ".skill",
     "SkillCapability": ".skill_capability",
     "SkillManifest": ".skill_manifest",
@@ -565,6 +576,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "UserToolResponseInputEvent": ".user_tool_response_input_event",
     "WebSearchCapability": ".web_search_capability",
     "WebSearchConfig": ".web_search_config",
+    "WebSearchConfiguration": ".web_search_configuration",
     "WebSearchProviderManifest": ".web_search_provider_manifest",
     "ZaiModelProvider": ".zai_model_provider",
 }
@@ -634,6 +646,9 @@ __all__ = [
     "CompactionTrigger",
     "CompletionUsage",
     "ComponentsSchemasToolApprovalPolicyAllowSession",
+    "Configuration",
+    "ConfigurationManifest",
+    "ConfigurationManifestPatch",
     "ConfiguredMcpServer",
     "ConfiguredModel",
     "ConfiguredModelProvider",
@@ -664,6 +679,7 @@ __all__ = [
     "GetAgentResponse",
     "GetAvailableMcpServerResponse",
     "GetCapabilitiesResponse",
+    "GetConfigurationResponse",
     "GetMcpServerCatalogResponse",
     "GetMcpServerResponse",
     "GetMeResponse",
@@ -811,6 +827,7 @@ __all__ = [
     "SessionSourceSchedule",
     "SessionSourceType",
     "SettingsCapability",
+    "SettingsCapabilitySection",
     "Skill",
     "SkillCapability",
     "SkillManifest",
@@ -870,6 +887,7 @@ __all__ = [
     "UserToolResponseInputEvent",
     "WebSearchCapability",
     "WebSearchConfig",
+    "WebSearchConfiguration",
     "WebSearchProviderManifest",
     "ZaiModelProvider",
 ]

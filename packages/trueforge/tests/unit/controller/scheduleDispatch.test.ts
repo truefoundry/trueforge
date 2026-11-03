@@ -1,3 +1,4 @@
+import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 import configuration, { STANDALONE_TRUEFORGE_API_KEY } from '../../../src/config';
 import { internalTrueForgeClient } from '../../../src/controller/internalTrueForgeClient';
 import {
@@ -10,6 +11,17 @@ import {
 } from '../../../src/controller/scheduleDispatch';
 import type { ScheduleDispatchItem, ScheduleRunRecord } from '../../../src/db/scheduleStore';
 import { ScheduleManifestSchema } from '../../../src/schemas/schedule';
+
+function agentRecord() {
+  return {
+    id: 'agent-1',
+    name: 'reporter',
+    manifest: AgentSpecSchema.parse({
+      model: { name: 'test-provider/test-model' },
+      instructions: 'test',
+    }),
+  };
+}
 
 describe('scheduleRunFailureReason', () => {
   it('uses Error.message when non-empty', () => {
@@ -61,6 +73,12 @@ function item(): ScheduleDispatchItem {
 
 function fakeLogger() {
   return { error: jest.fn(), debug: jest.fn(), info: jest.fn(), warn: jest.fn() };
+}
+
+function fakeSessions({ getOrCreateByExternalId }: { getOrCreateByExternalId?: jest.Mock }) {
+  return {
+    getOrCreateByExternalId: getOrCreateByExternalId ?? jest.fn(),
+  };
 }
 
 function fakeStore(dispatchItem: ScheduleDispatchItem) {
@@ -139,12 +157,12 @@ describe('startScheduleRun', () => {
     const listTurns = jest.fn().mockResolvedValue({ data: [] });
     const session = { session_id: 'session-1', listTurns };
     const getOrCreateByExternalId = jest.fn().mockResolvedValue({ session, created: true });
-    const getAgent = jest.fn().mockResolvedValue({ id: 'agent-1', name: 'reporter' });
+    const getAgent = jest.fn().mockResolvedValue(agentRecord());
     const updateRun = jest.fn().mockResolvedValue(undefined);
 
     const prepared = await startScheduleRun({
       item: dispatchItem,
-      sessions: { getOrCreateByExternalId } as never,
+      sessions: fakeSessions({ getOrCreateByExternalId }) as never,
       agentStore: { getAgent } as never,
       scheduleStore: { updateRun },
     });
@@ -163,7 +181,7 @@ describe('startScheduleRun', () => {
       input: [{ type: 'user.message', content: 'Write the report' }],
       previous_turn_id: 'none',
       userRef: 'tester',
-      agent: { id: 'agent-1', name: 'reporter' },
+      agent: agentRecord(),
     });
   });
 
@@ -173,12 +191,12 @@ describe('startScheduleRun', () => {
       session: { session_id: 'session-1', listTurns },
       created: false,
     });
-    const getAgent = jest.fn().mockResolvedValue({ id: 'agent-1', name: 'reporter' });
+    const getAgent = jest.fn().mockResolvedValue(agentRecord());
     const updateRun = jest.fn().mockResolvedValue(undefined);
 
     const prepared = await startScheduleRun({
       item: item(),
-      sessions: { getOrCreateByExternalId } as never,
+      sessions: fakeSessions({ getOrCreateByExternalId }) as never,
       agentStore: { getAgent } as never,
       scheduleStore: { updateRun },
     });
@@ -192,7 +210,7 @@ describe('startScheduleRun', () => {
     await expect(
       startScheduleRun({
         item: item(),
-        sessions: { getOrCreateByExternalId: jest.fn() } as never,
+        sessions: fakeSessions({}) as never,
         agentStore: { getAgent: jest.fn().mockResolvedValue(undefined) } as never,
         scheduleStore: { updateRun },
       }),

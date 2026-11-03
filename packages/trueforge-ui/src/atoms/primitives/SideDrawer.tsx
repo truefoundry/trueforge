@@ -16,6 +16,8 @@ export type SideDrawerProps = {
   onOpenChange: (open: boolean) => void;
   title: string;
   description?: string;
+  /** Rendered inline, immediately after the title. */
+  titleAccessory?: ReactNode;
   headerIcon?: ReactNode;
   headerActions?: ReactNode;
   children: ReactNode;
@@ -44,6 +46,7 @@ export function SideDrawer({
   onOpenChange,
   title,
   description,
+  titleAccessory,
   headerIcon,
   headerActions,
   children,
@@ -108,12 +111,15 @@ export function SideDrawer({
         className,
       )}
     >
-      <header className="bg-topbar-bg flex shrink-0 items-center gap-3 border-b border-border px-5 py-4">
+      <header className="bg-topbar-bg flex shrink-0 items-start gap-3 border-b border-border px-5 py-4">
         {headerIcon}
         <div className="min-w-0 flex-1">
-          <h2 id={titleId} className="text-text-primary text-lg font-semibold tracking-tight">
-            {title}
-          </h2>
+          <div className="flex items-baseline gap-1.5">
+            <h2 id={titleId} className="text-text-primary text-lg font-semibold tracking-tight">
+              {title}
+            </h2>
+            {titleAccessory}
+          </div>
           {description ? (
             <p id={descriptionId} className="text-text-secondary mt-1 text-sm">
               {description}
