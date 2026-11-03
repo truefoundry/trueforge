@@ -9,7 +9,7 @@ export interface EventSubscriptionPutOptions {
   /** Sets the lifetime of the whole stream after this append. */
   streamTTLSeconds?: number | undefined;
   /**
-   * XADD runs only when the stream-owner key is unset or equals this id.
+   * The append runs only when the stream-owner key is unset or equals this id.
    * A missing stream still rejects a caller that does not own the key.
    */
   executorId?: string | undefined;
@@ -18,7 +18,7 @@ export interface EventSubscriptionPutOptions {
 /** `sequence_number` is set only when replaying an old `{sequence}-1` entry. */
 export type SequencedEvent<T extends { id: string }> = T & { sequence_number?: number };
 
-export { isLegacySequenceEntryId, LEGACY_SEQUENCE_ID_MAX } from './entryId';
+export { eventIdTimestampMs, isLegacySequenceEntryId, LEGACY_SEQUENCE_ID_MAX } from './entryId';
 
 export type EventSubscriptionPollOptions = {
   /** Ends the generator promptly on abort, releasing any parked idle wait. */
@@ -65,6 +65,9 @@ export interface EventSubscription<T extends { id: string }> {
   /** First entry id, or undefined when the stream has no entries yet. */
   firstEntryId(): Promise<string | undefined>;
 
+  /** Whether some entry on the live stream carries this payload id. */
+  hasEventId(eventId: string): Promise<boolean>;
+
   /**
    * Subscription admission check, run before SSE headers are sent: rejects with
    * {@link StreamGoneError} when the stream is missing or expires within
@@ -82,27 +85,20 @@ export interface EventSubscription<T extends { id: string }> {
  */
 export class EventSubscriptionRegistry<T extends { id: string }> {
   /** One store for the whole process so producers and subscribers share streams. */
-  private readonly memoryStore = new InMemoryEventStreamStore<T>();
+  private readonly memoryStore: InMemoryEventStreamStore<T>;
 
-  constructor(private readonly redis: RedisClient | undefined) {}
+  constructor(
+    private readonly redis: RedisClient | undefined,
+    memoryStore?: InMemoryEventStreamStore<T>,
+  ) {
+    this.memoryStore = memoryStore ?? new InMemoryEventStreamStore<T>();
+  }
 
   get(streamId: string): EventSubscription<T> {
     if (this.redis) {
       return new RedisEventSubscription<T>(this.redis, streamId);
     }
     return new InMemoryEventSubscription(this.memoryStore, streamId);
-  }
-
-  /**
-   * Drops the live log the way a TTL expiry does, and keeps the stream-owner key
-   * so a stale producer still cannot recreate it.
-   */
-  evictStream(streamId: string): Promise<void> {
-    if (this.redis) {
-      return this.redis.del(streamId).then(() => undefined);
-    }
-    this.memoryStore.evictStream(streamId);
-    return Promise.resolve();
   }
 }
 

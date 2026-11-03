@@ -1,5 +1,6 @@
 ---
 '@truefoundry/trueforge': patch
+'@truefoundry/trueforge-core': patch
 '@truefoundry/trueforge-assistant-ui-runtime': patch
 '@truefoundry/trueforge-ui': patch
 '@truefoundry/trueforge-sdk': patch

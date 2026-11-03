@@ -17,7 +17,9 @@ export const SubscribeTurnQuerySchema = z
         .int()
         .nonnegative()
         .optional()
-        .describe('Legacy exclusive cursor. Replay events after this sequence. Omit when using an event id.'),
+        .describe(
+          'Legacy exclusive cursor. On an event-id stream it is the last 0-based index an older client counted. Omit when using an event id.',
+        ),
     ),
     from_event_id: z
       .string()

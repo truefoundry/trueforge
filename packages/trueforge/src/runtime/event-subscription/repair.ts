@@ -20,11 +20,15 @@ export interface RepairLogOptions<T extends { id: string }> {
   executorId?: string | undefined;
 }
 
-interface StreamTail {
+export interface StreamTail {
+  entryId: string;
   eventId: string;
   /** JSON written on the stream, used to tell shared-id rows apart. */
   payload: string;
 }
+
+/** Backfill gives up after this many concurrent tail moves. */
+const REPAIR_MAX_ATTEMPTS = 5;
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -111,11 +115,16 @@ function suffixAfterTail<T extends { id: string }>(
   return entries.slice(match + 1);
 }
 
+/**
+ * Appends the missing suffix only while the stream tail is still the one it was
+ * computed from. A concurrent writer (live producer or another repair) moves the
+ * tail; the suffix is then recomputed, so stale rows never land after newer ones.
+ */
 export async function applyEventLogRepair<T extends { id: string }>(input: {
   entries: readonly EventLogEntry<T>[];
   claimOwner?: (() => Promise<void>) | undefined;
   readTail: () => Promise<StreamTail | undefined>;
-  append: (entry: EventLogEntry<T>) => Promise<'appended' | 'duplicate'>;
+  appendAfterTail: (batch: { tailEntryId: string | undefined; events: T[] }) => Promise<'ok' | 'stale'>;
   refreshTtl: () => Promise<void>;
   /** Producer resume refreshes TTL even when the existing stream is already complete. */
   refreshTtlOnUntouchedStream: boolean;
@@ -123,16 +132,22 @@ export async function applyEventLogRepair<T extends { id: string }>(input: {
   if (input.claimOwner !== undefined) {
     await input.claimOwner();
   }
-  const tail = await input.readTail();
-  const suffix = suffixAfterTail(input.entries, tail);
-  let appended = false;
-  for (const entry of suffix) {
-    const outcome = await input.append(entry);
-    if (outcome === 'appended') {
-      appended = true;
+  for (let attempt = 0; attempt < REPAIR_MAX_ATTEMPTS; attempt += 1) {
+    const tail = await input.readTail();
+    const suffix = suffixAfterTail(input.entries, tail);
+    if (suffix.length === 0) {
+      if (input.refreshTtlOnUntouchedStream) {
+        await input.refreshTtl();
+      }
+      return;
+    }
+    const outcome = await input.appendAfterTail({
+      tailEntryId: tail?.entryId,
+      events: suffix.map(entry => entry.event),
+    });
+    if (outcome === 'ok') {
+      return;
     }
   }
-  if (appended || input.refreshTtlOnUntouchedStream) {
-    await input.refreshTtl();
-  }
+  throw new Error(`Stream repair gave up after ${String(REPAIR_MAX_ATTEMPTS)} concurrent tail changes`);
 }

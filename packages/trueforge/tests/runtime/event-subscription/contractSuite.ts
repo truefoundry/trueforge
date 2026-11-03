@@ -51,9 +51,15 @@ async function collect(
 }
 
 /** EventSubscription contract suite — factory-injected so both backends run it. */
-export function runEventSubscriptionContractSuite(createRegistry: () => EventSubscriptionRegistry<TestEvent>) {
+export function runEventSubscriptionContractSuite(
+  setup: () => {
+    registry: EventSubscriptionRegistry<TestEvent>;
+    /** Drops the log and keeps the owner, the way a TTL expiry does. */
+    evictStream: (streamId: string) => Promise<void>;
+  },
+) {
   it('put appends events in order without a sequence number', async () => {
-    const registry = createRegistry();
+    const { registry } = setup();
     const streamId = nextStreamId();
     const producer = registry.get(streamId);
 
@@ -67,7 +73,7 @@ export function runEventSubscriptionContractSuite(createRegistry: () => EventSub
   });
 
   it('poll from the start yields every event sent, in order, with identical payloads', async () => {
-    const registry = createRegistry();
+    const { registry } = setup();
     const streamId = nextStreamId();
     const producer = registry.get(streamId);
 
@@ -81,7 +87,7 @@ export function runEventSubscriptionContractSuite(createRegistry: () => EventSub
   });
 
   it('poll with afterSequenceNumber 0 matches an omitted cursor (from the start)', async () => {
-    const registry = createRegistry();
+    const { registry } = setup();
     const streamId = nextStreamId();
     const producer = registry.get(streamId);
 
@@ -96,7 +102,7 @@ export function runEventSubscriptionContractSuite(createRegistry: () => EventSub
   });
 
   it('poll from a mid-stream cursor yields only events strictly after it', async () => {
-    const registry = createRegistry();
+    const { registry } = setup();
     const streamId = nextStreamId();
     const producer = registry.get(streamId);
 
@@ -110,7 +116,7 @@ export function runEventSubscriptionContractSuite(createRegistry: () => EventSub
   });
 
   it('keeps an event appended while an event-id replay is delivered', async () => {
-    const registry = createRegistry();
+    const { registry } = setup();
     const streamId = nextStreamId();
     const producer = registry.get(streamId);
     const sent = [0, 1, 2].map(index => makeEvent(index));
@@ -138,7 +144,7 @@ export function runEventSubscriptionContractSuite(createRegistry: () => EventSub
 
   it('appends a distinct shared-id payload when its timestamp is behind the tail', async () => {
     const { ulid } = await import('ulid');
-    const registry = createRegistry();
+    const { registry } = setup();
     const streamId = nextStreamId();
     const producer = registry.get(streamId);
     const later = makeEvent(0, ulid(2_000_000_000_000).toLowerCase());
@@ -153,7 +159,7 @@ export function runEventSubscriptionContractSuite(createRegistry: () => EventSub
   });
 
   it('repairs a suffix when the durable row key order differs from the stream payload', async () => {
-    const registry = createRegistry();
+    const { registry } = setup();
     const streamId = nextStreamId();
     const producer = registry.get(streamId);
     const stored = makeEvent(0);
@@ -177,7 +183,7 @@ export function runEventSubscriptionContractSuite(createRegistry: () => EventSub
   });
 
   it('poll parked at the tip receives events put after it subscribed', async () => {
-    const registry = createRegistry();
+    const { registry } = setup();
     const streamId = nextStreamId();
     const producer = registry.get(streamId);
 
@@ -195,14 +201,14 @@ export function runEventSubscriptionContractSuite(createRegistry: () => EventSub
   });
 
   it('rebuilds a missing stream from the event log and continues after the tail', async () => {
-    const registry = createRegistry();
+    const { registry, evictStream } = setup();
     const streamId = nextStreamId();
     const producer = registry.get(streamId);
     const first = makeEvent(1);
     const second = makeEvent(2);
     await producer.put(first, { streamTTLSeconds: STREAM_TTL_SECONDS, executorId: 'owner' });
     await producer.put(second, { streamTTLSeconds: STREAM_TTL_SECONDS, executorId: 'owner' });
-    await registry.evictStream(streamId);
+    await evictStream(streamId);
 
     await producer.repairLog({
       entries: [
@@ -220,7 +226,7 @@ export function runEventSubscriptionContractSuite(createRegistry: () => EventSub
   });
 
   it('leaves an existing stream untouched and a second repair does not append again', async () => {
-    const registry = createRegistry();
+    const { registry } = setup();
     const streamId = nextStreamId();
     const producer = registry.get(streamId);
     const first = makeEvent(1);
@@ -246,7 +252,7 @@ export function runEventSubscriptionContractSuite(createRegistry: () => EventSub
   });
 
   it('rejects a stale producer when the stream is missing', async () => {
-    const registry = createRegistry();
+    const { registry, evictStream } = setup();
     const streamId = nextStreamId();
     const owner = registry.get(streamId);
     const event = makeEvent(1);
@@ -255,7 +261,7 @@ export function runEventSubscriptionContractSuite(createRegistry: () => EventSub
       streamTTLSeconds: STREAM_TTL_SECONDS,
       executorId: 'owner',
     });
-    await registry.evictStream(streamId);
+    await evictStream(streamId);
 
     const stale = registry.get(streamId);
     await expect(
@@ -264,20 +270,26 @@ export function runEventSubscriptionContractSuite(createRegistry: () => EventSub
     await expect(stale.assertSubscribable()).rejects.toBeInstanceOf(StreamGoneError);
   });
 
-  it('treats an explicit-id conflict as a no-op when the event id is already the tail', async () => {
-    const registry = createRegistry();
+  it('keeps consecutive identical payloads, like two deltas with the same text', async () => {
+    const { registry } = setup();
     const streamId = nextStreamId();
-    const left = registry.get(streamId);
-    const right = registry.get(streamId);
-    const event = makeEvent(0, 'evt-same');
-    await Promise.all([
-      left.put(event, { streamTTLSeconds: STREAM_TTL_SECONDS }),
-      right.put(event, { streamTTLSeconds: STREAM_TTL_SECONDS }),
-    ]);
+    const producer = registry.get(streamId);
+    const delta = makeEvent(0, 'evt-message');
+    await producer.put(delta, { streamTTLSeconds: STREAM_TTL_SECONDS });
+    await producer.put(delta, { streamTTLSeconds: STREAM_TTL_SECONDS });
 
-    const follow = makeEvent(1, 'evt-next');
-    await left.put(follow, { streamTTLSeconds: STREAM_TTL_SECONDS });
     const received = await collect(registry, streamId, 2);
-    expect(received).toEqual([event, follow]);
+    expect(received).toEqual([delta, delta]);
+  });
+
+  it('reports whether an event id is on the live stream', async () => {
+    const { registry } = setup();
+    const streamId = nextStreamId();
+    const producer = registry.get(streamId);
+    await producer.put(makeEvent(0), { streamTTLSeconds: STREAM_TTL_SECONDS });
+    await producer.put(makeEvent(1), { streamTTLSeconds: STREAM_TTL_SECONDS });
+
+    await expect(producer.hasEventId('evt-1')).resolves.toBe(true);
+    await expect(producer.hasEventId('evt-missing')).resolves.toBe(false);
   });
 }

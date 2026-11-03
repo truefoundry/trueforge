@@ -14,6 +14,7 @@ import { createEmptyAgentThreadMetrics } from '../../../../trueforge-core/src/co
 import {
   makeCancelledTurnState,
   makeCreateTurnInput,
+  makeModelMessageEvent,
   makePausedTurnState,
   makeTurnCreatedEvent,
   makeTurnDoneEvent,
@@ -923,13 +924,14 @@ describe('turns', () => {
       });
       const activeTurns = new ActiveTurnRegistry({ logger: createLogger({ silent: true }) });
       const tokenStore = new SqliteOAuthTokenStore(db);
+      const eventSubscriptions = new EventSubscriptionRegistry<TurnStreamingEvent>(undefined);
       const app = new OpenAPIHono();
       app.route(
         '/',
         createTurnsRouter({
           activeTurns,
           authorizer: new TrueForgeAuthorizer(),
-          eventSubscriptions: new EventSubscriptionRegistry(undefined),
+          eventSubscriptions,
           logger: createLogger({ silent: true }),
           requestReplyRouter: new RequestReplyRouter(),
           resolveAgentStore: () => new SqliteAgentStore(db),
@@ -942,6 +944,52 @@ describe('turns', () => {
           accessControlStore: new SqliteAccessControlStore(db),
         }),
       );
+
+      // An in-progress model.message shell is stream-only; resuming from it must still work.
+      const streamingTurnId = 'streaming-turn';
+      await sessionStore.createTurn(makeCreateTurnInput({ sessionId, turnId: streamingTurnId }));
+      const shell = makeModelMessageEvent();
+      await eventSubscriptions
+        .get(turnStreamId('default', sessionId, streamingTurnId))
+        .put(shell, { streamTTLSeconds: 300 });
+      const midMessage = await app.request(
+        `/${sessionId}/turns/${streamingTurnId}/subscribe?from_event_id=${shell.id}`,
+      );
+      expect(midMessage.status).toBe(200);
+      await midMessage.body?.cancel();
+
+      // An older client counted id-less events from 0. after=1 has indexes 0 and 1.
+      const countedTurnId = 'counted-turn';
+      await sessionStore.createTurn(makeCreateTurnInput({ sessionId, turnId: countedTurnId }));
+      const firstCounted = makeModelMessageEvent();
+      const kept = makeModelMessageEvent();
+      const counted = [firstCounted, makeModelMessageEvent(), kept];
+      const countedStream = eventSubscriptions.get(turnStreamId('default', sessionId, countedTurnId));
+      for (const event of counted) {
+        await countedStream.put(event, { streamTTLSeconds: 300 });
+      }
+      const countedResume = await app.request(`/${sessionId}/turns/${countedTurnId}/subscribe?after_sequence_number=1`);
+      expect(countedResume.status).toBe(200);
+      const countedReader = countedResume.body?.getReader();
+      if (countedReader === undefined) {
+        throw new Error('subscribe response has no body');
+      }
+      const countedDecoder = new TextDecoder();
+      let countedBody = '';
+      try {
+        while (!countedBody.includes(kept.id)) {
+          const { value, done } = await countedReader.read();
+          if (done || value === undefined) {
+            break;
+          }
+          countedBody += countedDecoder.decode(value, { stream: true });
+        }
+      } finally {
+        await countedReader.cancel();
+      }
+      expect(countedBody).toContain(kept.id);
+      expect(countedBody).not.toContain(firstCounted.id);
+      expect(countedBody).toContain('id: 2');
 
       const runningTurnId = 'running-turn';
       await sessionStore.createTurn(makeCreateTurnInput({ sessionId, turnId: runningTurnId }));
@@ -1015,8 +1063,9 @@ describe('turns', () => {
       );
       expect(mixed.status).toBe(400);
 
-      const huge = await app.request(`/${sessionId}/turns/missing-turn/subscribe?after_sequence_number=100001`);
-      expect(huge.status).toBe(400);
+      const huge = await app.request(`/${sessionId}/turns/${pausedTurnId}/subscribe?after_sequence_number=100001`);
+      expect(huge.status).toBe(200);
+      await huge.body?.cancel();
 
       const invalid = await app.request(`/${sessionId}/turns/${pausedTurnId}/subscribe?from_event_id=not-a-ulid`);
       expect(invalid.status).toBe(400);
@@ -1026,11 +1075,6 @@ describe('turns', () => {
         `/${sessionId}/turns/${pausedTurnId}/subscribe?from_event_id=${ulid().toLowerCase()}`,
       );
       expect(foreign.status).toBe(400);
-
-      const sequenceOnEventIdStream = await app.request(
-        `/${sessionId}/turns/${pausedTurnId}/subscribe?after_sequence_number=1`,
-      );
-      expect(sequenceOnEventIdStream.status).toBe(400);
     });
   });
 });

@@ -84,6 +84,7 @@ import {
 } from '../routes/turnRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import {
+  eventIdTimestampMs,
   isLegacySequenceEntryId,
   LEGACY_SEQUENCE_ID_MAX,
   StreamGoneError,
@@ -92,7 +93,6 @@ import {
   type EventSubscriptionPollOptions,
   type EventSubscriptionRegistry,
 } from '../runtime/event-subscription';
-import { eventIdTimestampMs } from '../runtime/event-subscription/entryId';
 import { validateSandboxFilePath } from '../runtime/sandboxFilePath';
 import {
   buildTurnSandbox,
@@ -233,10 +233,8 @@ export type BeginTurnExecutionDeps<TTransaction> = Pick<
   sandboxProviderStore: ISandboxProviderStore;
   webSearchProviderStore: IWebSearchProviderStore;
   skillStore: Pick<ISkillStore, 'resolveTurnSkills'>;
-  /**
-   * Previous-turn cancel, durable sequence numbers, and rebuilding a missing event stream.
-   */
-  sessionStore: Pick<ISessionStore, 'getTurn' | 'listTurnEventLog' | 'assignTurnEventSequenceNumbers'>;
+  /** Previous-turn cancel, and rebuilding a missing event stream. */
+  sessionStore: Pick<ISessionStore, 'getTurn' | 'listTurnEventLog'>;
   redis?: RedisClient | undefined;
 };
 
@@ -2013,11 +2011,6 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
         message: 'Pass only one of after_sequence_number, from_event_id, or after_event_id.',
       });
     }
-    if (afterSequenceNumber !== undefined && afterSequenceNumber > LEGACY_SEQUENCE_ID_MAX) {
-      throw new HTTPException(400, {
-        message: 'after_sequence_number is not supported above 50000.',
-      });
-    }
     if (fromEventId !== undefined && eventIdTimestampMs(fromEventId) === undefined) {
       throw new HTTPException(400, { message: 'Invalid event id.' });
     }
@@ -2047,19 +2040,6 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
     if (!turn) {
       return c.json({ error: { message: `Turn not found: ${turnId}` } }, 404);
     }
-    // Reject cursors that are not durable rows for this turn (wrong turn, forged ULID).
-    // Shared message/delta ids still resolve via the durable model.message row.
-    const resumeEventId = fromEventId ?? afterEventId;
-    if (resumeEventId !== undefined) {
-      const log = await deps.sessionStore.listTurnEventLog({
-        session_id: sessionId,
-        turn_id: turnId,
-      });
-      if (!log.some(row => row.event.id === resumeEventId)) {
-        throw new HTTPException(400, { message: 'Event id is not part of this turn.' });
-      }
-    }
-
     const turnEventStream = deps.eventSubscriptions.get(turnStreamId(requestContext.tenant_id, sessionId, turnId));
 
     // A paused turn may have been offloaded after its Redis stream expired.
@@ -2083,16 +2063,28 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
       throw error;
     }
 
-    // legacy subscribe handling, we will stop sending sequence ids in the future
+    // Checked on the live stream, not the durable log: an in-progress
+    // model.message shell and its deltas are stream-only until the message completes.
+    const resumeEventId = fromEventId ?? afterEventId;
+    if (resumeEventId !== undefined && !(await turnEventStream.hasEventId(resumeEventId))) {
+      throw new HTTPException(400, { message: 'Event id is not part of this turn stream.' });
+    }
+
+    // Legacy `{sequence}-1` streams resume by that id. An event-id stream has no SSE
+    // id, so an older client counted events from 0; the number is the last index it applied.
     let includeSequenceId = false;
+    let skipEventCount = 0;
     if (afterSequenceNumber !== undefined) {
       const firstEntryId = await turnEventStream.firstEntryId();
       if (firstEntryId !== undefined && !isLegacySequenceEntryId(firstEntryId)) {
+        skipEventCount = afterSequenceNumber + 1;
+      } else if (afterSequenceNumber > LEGACY_SEQUENCE_ID_MAX) {
         throw new HTTPException(400, {
-          message: 'after_sequence_number is not supported for this stream.',
+          message: 'after_sequence_number is not supported above 50000.',
         });
+      } else {
+        includeSequenceId = true;
       }
-      includeSequenceId = true;
     }
     // One lifecycle controller: server-side timeout, client disconnect, and
     // normal teardown all abort it, which ends poll even while it is parked
@@ -2113,7 +2105,7 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
       pollOptions = { fromEventId, signal: subscribeAbort.signal };
     } else if (afterEventId !== undefined) {
       pollOptions = { afterEventId, signal: subscribeAbort.signal };
-    } else if (afterSequenceNumber !== undefined) {
+    } else if (includeSequenceId && afterSequenceNumber !== undefined) {
       pollOptions = { afterSequenceNumber, signal: subscribeAbort.signal };
     }
 
@@ -2125,11 +2117,24 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
 
       const generator = turnEventStream.poll(pollOptions);
       try {
+        let seen = 0;
         for await (const { sequence_number: sequenceNumber, ...event } of generator) {
+          if (seen < skipEventCount) {
+            seen += 1;
+            if (event.type === EventType.TURN_DONE) {
+              break;
+            }
+            continue;
+          }
+          // Keep the older client's count aligned: the id is this event's 0-based index.
+          const compatIndex = skipEventCount > 0 ? seen : undefined;
+          seen += 1;
           await stream.writeSSE(
             includeSequenceId && sequenceNumber !== undefined
               ? turnEventSsePayload(event, sequenceNumber)
-              : turnEventSsePayload(event),
+              : compatIndex !== undefined
+                ? turnEventSsePayload(event, compatIndex)
+                : turnEventSsePayload(event),
           );
           if (event.type === EventType.TURN_DONE) {
             break;

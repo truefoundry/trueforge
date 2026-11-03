@@ -22,5 +22,10 @@ describeRedis('RedisEventSubscription (EventSubscription contract)', () => {
     await client.close();
   });
 
-  runEventSubscriptionContractSuite(() => new EventSubscriptionRegistry<TestEvent>(client));
+  runEventSubscriptionContractSuite(() => ({
+    registry: new EventSubscriptionRegistry<TestEvent>(client),
+    evictStream: async streamId => {
+      await client.del(streamId);
+    },
+  }));
 });

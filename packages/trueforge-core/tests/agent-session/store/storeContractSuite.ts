@@ -4595,8 +4595,8 @@ export function runStoreContractSuite<TTransaction>(
     });
   }
 
-  describe('turn event sequence numbers', () => {
-    it('stores sequence_number beside the payload and rejects a stale owner', async () => {
+  describe('listTurnEventLog', () => {
+    it('returns every event of the turn in event_id order and rejects a missing turn', async () => {
       const store = createStore();
       await seedSession(store);
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
@@ -4609,59 +4609,11 @@ export function runStoreContractSuite<TTransaction>(
         events: [created, message],
       });
 
-      const unsequenced = await store.listTurnEventLog({ session_id: sessionId, turn_id: 'turn-1' });
-      expect(unsequenced.map(row => row.sequence_number)).toEqual([null, null]);
-
-      await expect(
-        store.assignTurnEventSequenceNumbers({
-          active_executor_id: 'other-executor',
-          session_id: sessionId,
-          turn_id: 'turn-1',
-          assignments: [{ event_id: created.id, sequence_number: 1 }],
-        }),
-      ).rejects.toBeInstanceOf(TurnOwnershipLostError);
-      expect(
-        (await store.listTurnEventLog({ session_id: sessionId, turn_id: 'turn-1' })).map(row => row.sequence_number),
-      ).toEqual([null, null]);
-
-      await store.assignTurnEventSequenceNumbers({
-        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
-        session_id: sessionId,
-        turn_id: 'turn-1',
-        assignments: [
-          { event_id: created.id, sequence_number: 1 },
-          { event_id: message.id, sequence_number: 2 },
-        ],
-      });
-      await store.assignTurnEventSequenceNumbers({
-        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
-        session_id: sessionId,
-        turn_id: 'turn-1',
-        assignments: [{ event_id: created.id, sequence_number: 1 }],
-      });
-
-      const sequenced = await store.listTurnEventLog({ session_id: sessionId, turn_id: 'turn-1' });
-      expect(sequenced.map(row => ({ id: row.event.id, sequence_number: row.sequence_number }))).toEqual([
-        { id: created.id, sequence_number: 1 },
-        { id: message.id, sequence_number: 2 },
-      ]);
-      const listed = await store.listTurnEvents({
-        session_id: sessionId,
-        turn_id: 'turn-1',
-        limit: 10,
-        page_token: undefined,
-        order: 'asc',
-      });
-      expect(listed.data[0]).not.toHaveProperty('sequence_number');
-
-      await expect(
-        store.assignTurnEventSequenceNumbers({
-          active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
-          session_id: sessionId,
-          turn_id: 'turn-1',
-          assignments: [{ event_id: created.id, sequence_number: 9 }],
-        }),
-      ).rejects.toBeInstanceOf(SessionStoreInvariantError);
+      const log = await store.listTurnEventLog({ session_id: sessionId, turn_id: 'turn-1' });
+      expect(log).toEqual([created, message].sort((left, right) => (left.id < right.id ? -1 : 1)));
+      await expect(store.listTurnEventLog({ session_id: sessionId, turn_id: 'missing' })).rejects.toBeInstanceOf(
+        TurnNotFoundError,
+      );
     });
   });
 

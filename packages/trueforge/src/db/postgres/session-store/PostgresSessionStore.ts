@@ -7,7 +7,6 @@ import type {
   AddThreadsInput,
   AppendToEventsInput,
   AppendToThreadContextInput,
-  AssignTurnEventSequenceNumbersInput,
   ClaimTurnExecutorInput,
   CreateSessionInput,
   CreateTurnInput,
@@ -32,7 +31,6 @@ import type {
   PatchThreadCapabilityStateInput,
   PatchThreadsMCPAuthInput,
   RemoveThreadsInput,
-  TurnEventLogEntry,
   TurnRecordWithoutSnapshot,
   UpdateSessionInput,
   UpdateTurnNonTerminalStateInput,
@@ -47,7 +45,6 @@ import type { Database } from '../types';
 import { patchThreadCapabilityState as patchThreadCapabilityStateQuery } from './queries/capabilities';
 import {
   appendToEvents as appendToEventsQuery,
-  assignTurnEventSequenceNumbers as assignTurnEventSequenceNumbersQuery,
   listSessionEvents as listSessionEventsQuery,
   listTurnEventLog as listTurnEventLogQuery,
   listTurnEvents as listTurnEventsQuery,
@@ -227,15 +224,8 @@ export class PostgresSessionStore implements ISessionStore<Transaction<Database>
     return appendToEventsQuery(transaction ?? this.db, input);
   }
 
-  listTurnEventLog(input: ListTurnEventLogInput): Promise<TurnEventLogEntry[]> {
+  listTurnEventLog(input: ListTurnEventLogInput): Promise<PersistedTurnEvent[]> {
     return listTurnEventLogQuery(this.db, input);
-  }
-
-  assignTurnEventSequenceNumbers(
-    input: AssignTurnEventSequenceNumbersInput,
-    transaction?: Transaction<Database>,
-  ): Promise<void> {
-    return assignTurnEventSequenceNumbersQuery(transaction ?? this.db, input);
   }
 
   insertTurnInboundEvents(input: InsertTurnInboundEventsInput): Promise<void> {

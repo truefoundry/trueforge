@@ -1,6 +1,5 @@
 import type { TurnStreamingEvent } from '@truefoundry/trueforge-core/agent-session/TurnHandle';
 import { InMemorySessionStore } from '@truefoundry/trueforge-core/agent-session/store/InMemorySessionStore';
-import { TurnOwnershipLostError } from '@truefoundry/trueforge-core/agent-session/store/SessionStoreErrors';
 import {
   makeAgentSpec,
   makeCreateTurnInput,
@@ -14,6 +13,7 @@ import {
   StreamOwnerMismatchError,
   type SequencedEvent,
 } from '../../../src/runtime/event-subscription';
+import { InMemoryEventStreamStore } from '../../../src/runtime/event-subscription/inMemory';
 import { repairTurnEventLog } from '../../../src/runtime/turnEventLogRepair';
 
 const STREAM_TTL_SECONDS = 300;
@@ -41,7 +41,7 @@ async function collect(
 }
 
 describe('repairTurnEventLog', () => {
-  it('rebuilds a missing stream from the durable log without assigning sequence numbers', async () => {
+  it('rebuilds a missing stream from the durable log', async () => {
     const store = new InMemorySessionStore();
     const sessionId = 's1';
     const turnId = 'turn-1';
@@ -65,7 +65,8 @@ describe('repairTurnEventLog', () => {
       events: [created, message],
     });
 
-    const registry = new EventSubscriptionRegistry<TurnStreamingEvent>(undefined);
+    const streams = new InMemoryEventStreamStore<TurnStreamingEvent>();
+    const registry = new EventSubscriptionRegistry<TurnStreamingEvent>(undefined, streams);
     const streamId = 'turn-stream';
     const subscription = registry.get(streamId);
     const repair = (producerExecutorId?: string) =>
@@ -78,22 +79,15 @@ describe('repairTurnEventLog', () => {
         ...(producerExecutorId === undefined ? {} : { producerExecutorId }),
       });
 
-    await expect(repair('other-executor')).rejects.toBeInstanceOf(TurnOwnershipLostError);
     await expect(subscription.assertSubscribable()).rejects.toBeInstanceOf(StreamGoneError);
 
     await repair();
-    expect(
-      (await store.listTurnEventLog({ session_id: sessionId, turn_id: turnId })).map(row => row.sequence_number),
-    ).toEqual([null, null]);
     expect((await collect(registry, streamId, 2)).map(event => event.id)).toEqual([created.id, message.id]);
 
     await repair();
     expect((await collect(registry, streamId, 2)).map(event => event.id)).toEqual([created.id, message.id]);
 
     await repair(TEST_ACTIVE_EXECUTOR_ID);
-    expect(
-      (await store.listTurnEventLog({ session_id: sessionId, turn_id: turnId })).map(row => row.sequence_number),
-    ).toEqual([null, null]);
 
     const later = makeModelMessageEvent();
     await store.appendToEvents({
@@ -104,11 +98,8 @@ describe('repairTurnEventLog', () => {
     });
     await repair(TEST_ACTIVE_EXECUTOR_ID);
     expect((await collect(registry, streamId, 3)).map(event => event.id)).toEqual([created.id, message.id, later.id]);
-    expect(
-      (await store.listTurnEventLog({ session_id: sessionId, turn_id: turnId })).map(row => row.sequence_number),
-    ).toEqual([null, null, null]);
 
-    await registry.evictStream(streamId);
+    streams.evictStream(streamId);
     const stale = registry.get(streamId);
     await expect(
       stale.put(makeModelMessageEvent(), { streamTTLSeconds: STREAM_TTL_SECONDS, executorId: 'other-executor' }),

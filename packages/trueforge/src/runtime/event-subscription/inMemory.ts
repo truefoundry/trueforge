@@ -20,7 +20,11 @@ import {
   isEntryAfterCursor,
   isLegacySequenceEntryId,
 } from './entryId';
-import { applyEventLogRepair, type RepairLogOptions } from './repair';
+import { applyEventLogRepair, type RepairLogOptions, type StreamTail } from './repair';
+
+function ttlDeadline(streamTTLSeconds: number | undefined): number | undefined {
+  return streamTTLSeconds !== undefined && streamTTLSeconds > 0 ? Date.now() + streamTTLSeconds * 1_000 : undefined;
+}
 
 interface StoredEvent<T extends { id: string }> {
   entryId: string;
@@ -38,8 +42,11 @@ interface InMemoryStream<T extends { id: string }> {
 /** Owns per-stream logs, owners, and TTL timers for this process. */
 export class InMemoryEventStreamStore<T extends { id: string }> {
   private readonly streams = new Map<string, InMemoryStream<T>>();
-  /** Survives stream eviction so a stale producer cannot recreate a missing log. */
-  private readonly owners = new Map<string, string>();
+  /**
+   * Survives an explicit eviction so a stale producer cannot recreate a missing
+   * log. Expires with the stream TTL so idle turns do not accumulate owners.
+   */
+  private readonly owners = new Map<string, { executorId: string; expiresAtMs: number | undefined }>();
   /** Rings per stream id on append and expiry so parked pollers wake instantly. */
   private readonly changes = new EventEmitter();
 
@@ -48,56 +55,70 @@ export class InMemoryEventStreamStore<T extends { id: string }> {
     this.changes.setMaxListeners(0);
   }
 
-  claimOwner(streamId: string, executorId: string): void {
-    this.owners.set(streamId, executorId);
+  claimOwner(input: { streamId: string; executorId: string; streamTTLSeconds: number | undefined }): void {
+    this.owners.set(input.streamId, {
+      executorId: input.executorId,
+      expiresAtMs: ttlDeadline(input.streamTTLSeconds),
+    });
   }
 
   /**
-   * Appends with a `{millisecond}-{n}` id. The same payload already at the tail
-   * is a duplicate. A millisecond older than the tail reuses the tail millisecond.
+   * Live put with a `{millisecond}-{n}` id. A millisecond older than the tail
+   * reuses the tail millisecond. Identical payloads are kept.
    */
   appendEvent(input: {
     streamId: string;
     event: T;
     executorId: string | undefined;
-    checkOwner: boolean;
     streamTTLSeconds: number | undefined;
-  }): 'ok' | 'duplicate' | 'owner_mismatch' {
-    const owner = this.owners.get(input.streamId);
-    if (input.checkOwner && owner !== undefined && owner !== input.executorId) {
+  }): 'ok' | 'owner_mismatch' {
+    const owner = this.liveOwner(input.streamId);
+    if (owner !== undefined && owner !== input.executorId) {
       return 'owner_mismatch';
     }
     const stream = this.getLiveStream(input.streamId) ?? { events: [] };
-    const event = structuredClone(input.event);
-    const payload = JSON.stringify(event);
-    const last = stream.events[stream.events.length - 1];
-    if (last !== undefined && JSON.stringify(last.event) === payload) {
-      return 'duplicate';
-    }
     this.streams.set(input.streamId, stream);
-    stream.events.push({
-      entryId: this.nextEntryId(stream, eventIdTimestampMs(event.id) ?? Date.now()),
-      event,
-    });
-    if (input.streamTTLSeconds !== undefined && input.streamTTLSeconds > 0) {
-      stream.expiresAtMs = Date.now() + input.streamTTLSeconds * 1_000;
-      this.scheduleExpiry(input.streamId, stream);
-    }
+    this.push(stream, input.event);
+    this.refreshStreamTtl(input.streamId, input.streamTTLSeconds);
     this.changes.emit(input.streamId);
     return 'ok';
   }
 
-  readTail(streamId: string): { eventId: string; payload: string } | undefined {
+  /** Repair backfill: appends only while the tail is still `tailEntryId`. */
+  appendAfterTail(input: {
+    streamId: string;
+    tailEntryId: string | undefined;
+    events: T[];
+    streamTTLSeconds: number | undefined;
+  }): 'ok' | 'stale' {
+    const stream = this.getLiveStream(input.streamId) ?? { events: [] };
+    if (stream.events[stream.events.length - 1]?.entryId !== input.tailEntryId) {
+      return 'stale';
+    }
+    this.streams.set(input.streamId, stream);
+    for (const event of input.events) {
+      this.push(stream, event);
+    }
+    this.refreshStreamTtl(input.streamId, input.streamTTLSeconds);
+    this.changes.emit(input.streamId);
+    return 'ok';
+  }
+
+  readTail(streamId: string): StreamTail | undefined {
     const stream = this.getLiveStream(streamId);
     const last = stream?.events[stream.events.length - 1];
     if (last === undefined) {
       return undefined;
     }
-    return { eventId: last.event.id, payload: JSON.stringify(last.event) };
+    return { entryId: last.entryId, eventId: last.event.id, payload: JSON.stringify(last.event) };
   }
 
   firstEntryId(streamId: string): string | undefined {
     return this.getLiveStream(streamId)?.events[0]?.entryId;
+  }
+
+  hasEventId(streamId: string, eventId: string): boolean {
+    return this.getLiveStream(streamId)?.events.some(stored => stored.event.id === eventId) ?? false;
   }
 
   /** Drops the log and keeps the owner so a stale producer cannot recreate it. */
@@ -109,13 +130,21 @@ export class InMemoryEventStreamStore<T extends { id: string }> {
     this.dropStream(streamId, stream);
   }
 
-  /** Refreshes TTL on a live stream. Sequence numbers already follow the log length. */
-  refreshStreamTtl(streamId: string, streamTTLSeconds?: number): void {
-    const stream = this.getLiveStream(streamId);
-    if (!stream || !streamTTLSeconds || streamTTLSeconds <= 0) {
+  /** Refreshes TTL on a live stream and its owner. */
+  refreshStreamTtl(streamId: string, streamTTLSeconds: number | undefined): void {
+    const deadline = ttlDeadline(streamTTLSeconds);
+    if (deadline === undefined) {
       return;
     }
-    stream.expiresAtMs = Date.now() + streamTTLSeconds * 1_000;
+    const owner = this.owners.get(streamId);
+    if (owner !== undefined) {
+      owner.expiresAtMs = deadline;
+    }
+    const stream = this.getLiveStream(streamId);
+    if (!stream) {
+      return;
+    }
+    stream.expiresAtMs = deadline;
     this.scheduleExpiry(streamId, stream);
   }
 
@@ -127,6 +156,7 @@ export class InMemoryEventStreamStore<T extends { id: string }> {
     }
     if (stream.expiresAtMs !== undefined && stream.expiresAtMs <= Date.now()) {
       this.dropStream(streamId, stream);
+      this.dropOwnerIfExpired(streamId);
       return undefined;
     }
     return stream;
@@ -167,10 +197,28 @@ export class InMemoryEventStreamStore<T extends { id: string }> {
     stream.expiryTimer = setTimeout(
       () => {
         this.dropStream(streamId, stream);
+        this.dropOwnerIfExpired(streamId);
       },
       Math.max(0, stream.expiresAtMs - Date.now()),
     );
     stream.expiryTimer.unref();
+  }
+
+  private liveOwner(streamId: string): string | undefined {
+    this.dropOwnerIfExpired(streamId);
+    return this.owners.get(streamId)?.executorId;
+  }
+
+  private dropOwnerIfExpired(streamId: string): void {
+    const expiresAtMs = this.owners.get(streamId)?.expiresAtMs;
+    if (expiresAtMs !== undefined && expiresAtMs <= Date.now()) {
+      this.owners.delete(streamId);
+    }
+  }
+
+  private push(stream: InMemoryStream<T>, event: T): void {
+    const copy = structuredClone(event);
+    stream.events.push({ entryId: this.nextEntryId(stream, eventIdTimestampMs(copy.id) ?? Date.now()), event: copy });
   }
 
   /**
@@ -207,23 +255,22 @@ export class InMemoryEventSubscription<T extends { id: string }> implements Even
         executorId === undefined
           ? undefined
           : () => {
-              this.store.claimOwner(this.streamId, executorId);
+              this.store.claimOwner({
+                streamId: this.streamId,
+                executorId,
+                streamTTLSeconds: options.streamTTLSeconds,
+              });
               return Promise.resolve();
             },
       readTail: () => Promise.resolve(this.store.readTail(this.streamId)),
-      append: entry => {
-        const outcome = this.store.appendEvent({
-          streamId: this.streamId,
-          event: entry.event,
-          executorId,
-          checkOwner: false,
-          streamTTLSeconds: options.streamTTLSeconds,
-        });
-        if (outcome === 'owner_mismatch') {
-          return Promise.reject(new StreamOwnerMismatchError(this.streamId));
-        }
-        return Promise.resolve(outcome === 'duplicate' ? 'duplicate' : 'appended');
-      },
+      appendAfterTail: batch =>
+        Promise.resolve(
+          this.store.appendAfterTail({
+            streamId: this.streamId,
+            ...batch,
+            streamTTLSeconds: options.streamTTLSeconds,
+          }),
+        ),
       refreshTtl: () => {
         this.store.refreshStreamTtl(this.streamId, options.streamTTLSeconds);
         return Promise.resolve();
@@ -237,13 +284,16 @@ export class InMemoryEventSubscription<T extends { id: string }> implements Even
       streamId: this.streamId,
       event,
       executorId: options?.executorId,
-      checkOwner: true,
       streamTTLSeconds: options?.streamTTLSeconds,
     });
     if (outcome === 'owner_mismatch') {
       return Promise.reject(new StreamOwnerMismatchError(this.streamId));
     }
     return Promise.resolve();
+  }
+
+  hasEventId(eventId: string): Promise<boolean> {
+    return Promise.resolve(this.store.hasEventId(this.streamId, eventId));
   }
 
   firstEntryId(): Promise<string | undefined> {

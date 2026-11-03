@@ -19,7 +19,6 @@ import type {
   AddThreadsInput,
   AppendToEventsInput,
   AppendToThreadContextInput,
-  AssignTurnEventSequenceNumbersInput,
   ClaimTurnExecutorInput,
   CreateSessionInput,
   CreateTurnInput,
@@ -46,7 +45,6 @@ import type {
   PatchThreadsMCPAuthInput,
   RemoveThreadsInput,
   TurnContextAppend,
-  TurnEventLogEntry,
   TurnRecordWithoutSnapshot,
   UpdateSessionInput,
   UpdateTurnNonTerminalStateInput,
@@ -71,8 +69,6 @@ import {
   TurnNotRunningError,
   TurnOwnershipLostError,
 } from './SessionStoreErrors';
-import { assertTurnEventSequenceNumber } from './turnEventSequence';
-
 /* eslint-disable @typescript-eslint/require-await -- in-memory store is synchronous; methods stay async so thrown SessionStore*Error reject as Promises for ISessionStore callers */
 
 type StoredEvent = PersistedTurnEvent;
@@ -208,8 +204,6 @@ export class InMemorySessionStore<
   private readonly sessions = new Map<string, StoredSession<TSessionCustom>>();
   private readonly turns = new Map<string, TurnRecord<TTurnCustom>>();
   private readonly events = new Map<string, StoredEvent[]>();
-  /** Stream sequence per event id, filled when the event is first streamed. */
-  private readonly eventSequences = new Map<string, Map<string, number>>();
   /** session_id:turn_id → inbound send-event inbox */
   private readonly inboundEvents = new Map<string, StoredInboundEvent[]>();
 
@@ -638,54 +632,13 @@ export class InMemorySessionStore<
     return;
   }
 
-  async listTurnEventLog(input: ListTurnEventLogInput): Promise<TurnEventLogEntry[]> {
+  async listTurnEventLog(input: ListTurnEventLogInput): Promise<PersistedTurnEvent[]> {
     this.requireTurn(input.session_id, input.turn_id);
-    const tKey = turnKey(input);
-    const list = this.events.get(tKey);
+    const list = this.events.get(turnKey(input));
     if (!list) {
       throw new TurnNotFoundError(input.turn_id);
     }
-    const sequences = this.eventSequences.get(tKey);
-    return [...list]
-      .sort((left, right) => left.id.localeCompare(right.id))
-      .map(event => ({
-        event: deepCopy(event),
-        sequence_number: sequences?.get(event.id) ?? null,
-      }));
-  }
-
-  async assignTurnEventSequenceNumbers(input: AssignTurnEventSequenceNumbersInput): Promise<void> {
-    this.requireOwnedTurn(input);
-    this.requireNonTerminalTurn(input);
-    if (input.assignments.length === 0) {
-      return;
-    }
-    const tKey = turnKey(input);
-    const list = this.events.get(tKey);
-    if (!list) {
-      throw new TurnNotFoundError(input.turn_id);
-    }
-    let sequences = this.eventSequences.get(tKey);
-    if (!sequences) {
-      sequences = new Map();
-      this.eventSequences.set(tKey, sequences);
-    }
-    for (const assignment of input.assignments) {
-      assertTurnEventSequenceNumber(assignment.sequence_number);
-      if (!list.some(event => event.id === assignment.event_id)) {
-        throw new SessionStoreInvariantError(
-          `event ${assignment.event_id} is not in the log for turn ${input.turn_id}`,
-        );
-      }
-      const current = sequences.get(assignment.event_id);
-      if (current === undefined) {
-        sequences.set(assignment.event_id, assignment.sequence_number);
-      } else if (current !== assignment.sequence_number) {
-        throw new SessionStoreInvariantError(
-          `event ${assignment.event_id} already has sequence_number ${String(current)}`,
-        );
-      }
-    }
+    return deepCopy([...list].sort((left, right) => (left.id < right.id ? -1 : left.id > right.id ? 1 : 0)));
   }
 
   async patchThreadsMCPAuth(input: PatchThreadsMCPAuthInput): Promise<void> {

@@ -10,7 +10,7 @@ import {
   type SequencedEvent,
 } from '.';
 import { entryIdMilliseconds, eventIdSeekCursor, eventIdTimestampMs, isLegacySequenceEntryId } from './entryId';
-import { applyEventLogRepair, eventIdFromStreamData, type RepairLogOptions } from './repair';
+import { applyEventLogRepair, eventIdFromStreamData, type RepairLogOptions, type StreamTail } from './repair';
 
 const SUBSCRIBE_STREAM_POLL_ITEMS_COUNT = 100;
 /** Delay between XREAD polls while a stream has no new events (a blocking XREAD would monopolize the shared connection). */
@@ -22,9 +22,10 @@ const SUBSCRIBE_STREAM_POLL_SLEEP_INTERVAL_MS = 1_000;
  *
  * KEYS[1]=stream  ARGV[1]=from|after  ARGV[2]=payload id  ARGV[3]=start  ARGV[4]=batch
  *
+ * Returns {cursor, found}.
  * from → stop at the first match; return the prior entry (XREAD is exclusive).
  * after → walk the contiguous shared-id group (message + deltas); return its last entry.
- * missing → tip (live-only).
+ * missing → tip (live-only), found = 0.
  */
 const SEEK_EVENT_ID_CURSOR = `
 local mode, targetId, cursor, batch = ARGV[1], ARGV[2], ARGV[3], tonumber(ARGV[4])
@@ -38,7 +39,7 @@ while true do
     if previous == nil then
       local tip = redis.call('XREVRANGE', KEYS[1], '+', '-', 'COUNT', 1)
       if tip[1] ~= nil then
-        return tip[1][1]
+        return {tip[1][1], 0}
       end
     end
     break
@@ -58,98 +59,110 @@ while true do
     end
     if mode == 'from' then
       if payloadId == targetId then
-        return previous or cursor
+        return {previous or cursor, 1}
       end
     elseif payloadId == targetId then
       lastMatch = entryId
     elseif lastMatch ~= nil then
-      return lastMatch
+      return {lastMatch, 1}
     end
     previous = entryId
   end
   startBound = '(' .. entries[#entries][1]
   if #entries < batch then break end
 end
-return lastMatch or previous or cursor
+if lastMatch ~= nil then
+  return {lastMatch, 1}
+end
+return {previous or cursor, 0}
 `;
 
 /**
- * One script for put and for suffix backfill. Put checks the stream-owner key.
- * Repair passes check-owner 0 so a subscribe can append without claiming.
- * The id is `{millisecond}-*`. Redis 7 assigns the counter. The same payload
- * already at the tail is a duplicate. A millisecond older than the tail is a
- * conflict; the caller retries with the tail millisecond.
+ * Live put. KEYS[1]=owner KEYS[2]=stream  ARGV[1]=executor ARGV[2]=ms ARGV[3]=payload ARGV[4]=ttl
+ *
+ * Rejects when another executor owns the stream. The entry id is `{ms}-*`, raised
+ * to the tail millisecond when the event id is older than the tail (a delta of a
+ * message whose id was minted before later events). Identical payloads are kept:
+ * two deltas of the same message can carry the same text.
  */
-const APPEND_STREAM_ENTRY = `
-local checkOwner = ARGV[1]
-if checkOwner == '1' then
-  local owner = redis.call('GET', KEYS[1])
-  if owner ~= false and owner ~= ARGV[2] then
-    return {'owner_mismatch', ''}
-  end
+const PUT_STREAM_ENTRY = `
+local owner = redis.call('GET', KEYS[1])
+if owner and owner ~= ARGV[1] then
+  return 'owner_mismatch'
 end
+local ms = ARGV[2]
 local tail = redis.call('XREVRANGE', KEYS[2], '+', '-', 'COUNT', 1)
 if tail[1] ~= nil then
-  local fields = tail[1][2]
-  for i = 1, #fields, 2 do
-    if fields[i] == 'data' and fields[i + 1] == ARGV[4] then
-      return {'duplicate', ''}
-    end
+  local tailMs = string.match(tail[1][1], '^%d+')
+  if tonumber(tailMs) > tonumber(ms) then
+    ms = tailMs
   end
 end
-local added = redis.pcall('XADD', KEYS[2], ARGV[3], 'data', ARGV[4])
-if type(added) == 'table' and added['err'] ~= nil then
-  local err = added['err']
-  if string.find(err, 'equal or smaller', 1, true) then
-    local tail = redis.call('XREVRANGE', KEYS[2], '+', '-', 'COUNT', 1)
-    local data = ''
-    if tail[1] ~= nil then
-      local fields = tail[1][2]
-      for i = 1, #fields, 2 do
-        if fields[i] == 'data' then
-          data = fields[i + 1]
-          break
-        end
-      end
-    end
-    return {'conflict', data}
-  end
-  return {'error', err}
-end
-local ttl = tonumber(ARGV[5])
-if ttl ~= nil and ttl > 0 then
+redis.call('XADD', KEYS[2], ms .. '-*', 'data', ARGV[3])
+local ttl = tonumber(ARGV[4])
+if ttl > 0 then
   redis.call('EXPIRE', KEYS[2], ttl)
+  if owner then
+    redis.call('EXPIRE', KEYS[1], ttl)
+  end
 end
-return {'ok', ''}
+return 'ok'
+`;
+
+/**
+ * Repair backfill. KEYS[1]=stream  ARGV[1]=expected tail id ('' = empty) ARGV[2]=ttl
+ * ARGV[3..]=ms, payload pairs.
+ *
+ * Appends only while the tail is still the one the suffix was computed from;
+ * otherwise returns 'stale' and the caller recomputes.
+ */
+const APPEND_AFTER_TAIL = `
+local tail = redis.call('XREVRANGE', KEYS[1], '+', '-', 'COUNT', 1)
+local tailId = ''
+if tail[1] ~= nil then
+  tailId = tail[1][1]
+end
+if tailId ~= ARGV[1] then
+  return 'stale'
+end
+local tailMs = string.match(tailId, '^%d+') or '0'
+for i = 3, #ARGV, 2 do
+  local ms = ARGV[i]
+  if tonumber(tailMs) > tonumber(ms) then
+    ms = tailMs
+  end
+  local added = redis.call('XADD', KEYS[1], ms .. '-*', 'data', ARGV[i + 1])
+  tailMs = string.match(added, '^%d+')
+end
+local ttl = tonumber(ARGV[2])
+if ttl > 0 then
+  redis.call('EXPIRE', KEYS[1], ttl)
+end
+return 'ok'
 `;
 
 function streamOwnerKey(streamId: string): string {
   return `${streamId}:owner`;
 }
 
-type AppendStatus = 'ok' | 'duplicate' | 'conflict' | 'owner_mismatch' | 'error';
-
-function isAppendStatus(value: unknown): value is AppendStatus {
-  return (
-    value === 'ok' || value === 'duplicate' || value === 'conflict' || value === 'owner_mismatch' || value === 'error'
-  );
+function ttlArgument(streamTTLSeconds: number | undefined): string {
+  return String(streamTTLSeconds !== undefined && streamTTLSeconds > 0 ? streamTTLSeconds : 0);
 }
 
-function parseAppendReply(value: unknown): { status: AppendStatus; detail: string } {
-  if (!Array.isArray(value) || value.length !== 2) {
-    throw new Error('Unexpected stream append reply');
+function parseSeekReply(value: unknown): { cursor: string; found: boolean } {
+  if (Array.isArray(value) && value.length === 2) {
+    const cursor: unknown = value[0];
+    const found: unknown = value[1];
+    if (typeof cursor === 'string' && (found === 0 || found === 1)) {
+      return { cursor, found: found === 1 };
+    }
   }
-  const status: unknown = Object.prototype.hasOwnProperty.call(value, 0) ? Reflect.get(value, 0) : undefined;
-  const detail: unknown = Object.prototype.hasOwnProperty.call(value, 1) ? Reflect.get(value, 1) : undefined;
-  if (isAppendStatus(status) && typeof detail === 'string') {
-    return { status, detail };
-  }
-  throw new Error('Unexpected stream append reply');
+  throw new Error('Unexpected event-id seek reply');
 }
 
 /**
  * One Redis Stream. Entry ids are `{ulidMillisecond}-{n}` from `XADD`. The owner
- * key is separate from the stream so a missing stream still rejects a stale producer.
+ * key is separate from the stream so a deleted stream still rejects a stale producer.
  */
 export class RedisEventSubscription<T extends { id: string }> implements EventSubscription<T> {
   constructor(
@@ -161,30 +174,35 @@ export class RedisEventSubscription<T extends { id: string }> implements EventSu
     const executorId = options.executorId;
     await applyEventLogRepair({
       entries: options.entries,
-      claimOwner:
-        executorId === undefined
-          ? undefined
-          : () => this.redis.set(streamOwnerKey(this.streamId), executorId).then(() => undefined),
+      claimOwner: executorId === undefined ? undefined : () => this.claimOwner(executorId, options.streamTTLSeconds),
       readTail: () => this.readTail(),
-      append: entry =>
-        this.appendEvent({
-          event: entry.event,
-          checkOwner: false,
-          executorId: '',
-          streamTTLSeconds: options.streamTTLSeconds,
-        }),
+      appendAfterTail: batch => this.appendAfterTail({ ...batch, streamTTLSeconds: options.streamTTLSeconds }),
       refreshTtl: () => this.refreshTtl(options.streamTTLSeconds),
       refreshTtlOnUntouchedStream: executorId !== undefined,
     });
   }
 
   async put(event: T, options?: EventSubscriptionPutOptions): Promise<void> {
-    await this.appendEvent({
-      event,
-      checkOwner: true,
-      executorId: options?.executorId ?? '',
-      streamTTLSeconds: options?.streamTTLSeconds,
+    const reply: unknown = await this.redis.eval(PUT_STREAM_ENTRY, {
+      keys: [streamOwnerKey(this.streamId), this.streamId],
+      arguments: [
+        options?.executorId ?? '',
+        this.entryMillisecondFor(event),
+        JSON.stringify(event),
+        ttlArgument(options?.streamTTLSeconds),
+      ],
     });
+    if (reply === 'owner_mismatch') {
+      throw new StreamOwnerMismatchError(this.streamId);
+    }
+    if (reply !== 'ok') {
+      throw new Error(`Unexpected stream put reply on ${this.streamId}`);
+    }
+  }
+
+  async hasEventId(eventId: string): Promise<boolean> {
+    const { found } = await this.seekEventIdCursor({ mode: 'from', eventId });
+    return found;
   }
 
   async firstEntryId(): Promise<string | undefined> {
@@ -256,7 +274,7 @@ export class RedisEventSubscription<T extends { id: string }> implements EventSu
     }
     const mode = fromEventId !== undefined ? 'from' : 'after';
     const signal = options.signal;
-    let cursor = await this.seekEventIdCursor({ mode, eventId });
+    let { cursor } = await this.seekEventIdCursor({ mode, eventId });
     for (;;) {
       const messages = await this.readAfter(cursor, signal);
       if (messages === undefined) {
@@ -284,7 +302,10 @@ export class RedisEventSubscription<T extends { id: string }> implements EventSu
    * Jump near the ULID millisecond (or stream start), walk forward in Lua until
    * the payload id, return exclusive XREAD cursor. See SEEK_EVENT_ID_CURSOR.
    */
-  private async seekEventIdCursor(input: { mode: 'from' | 'after'; eventId: string }): Promise<string> {
+  private async seekEventIdCursor(input: {
+    mode: 'from' | 'after';
+    eventId: string;
+  }): Promise<{ cursor: string; found: boolean }> {
     const startCursor = eventIdSeekCursor({
       eventId: input.eventId,
       firstEntryId: await this.firstEntryId(),
@@ -293,10 +314,7 @@ export class RedisEventSubscription<T extends { id: string }> implements EventSu
       keys: [this.streamId],
       arguments: [input.mode, input.eventId, startCursor, String(SUBSCRIBE_STREAM_POLL_ITEMS_COUNT)],
     });
-    if (typeof reply !== 'string') {
-      throw new Error('Unexpected event-id seek reply');
-    }
-    return reply;
+    return parseSeekReply(reply);
   }
 
   private async readAfter(
@@ -362,7 +380,7 @@ export class RedisEventSubscription<T extends { id: string }> implements EventSu
     );
   }
 
-  private async readTail(): Promise<{ eventId: string; payload: string } | undefined> {
+  private async readTail(): Promise<StreamTail | undefined> {
     const entries = await this.redis.xRevRange(this.streamId, '+', '-', { COUNT: 1 });
     const latest = entries[0];
     if (!latest) {
@@ -376,93 +394,46 @@ export class RedisEventSubscription<T extends { id: string }> implements EventSu
     if (eventId === undefined) {
       throw new Error(`Corrupt stream entry ${latest.id} on ${this.streamId}: missing event id`);
     }
-    return { eventId, payload: data };
+    return { entryId: latest.id, eventId, payload: data };
   }
 
-  private async lastEntryId(): Promise<string | undefined> {
-    const entries = await this.redis.xRevRange(this.streamId, '+', '-', { COUNT: 1 });
-    return entries[0]?.id;
+  private async claimOwner(executorId: string, streamTTLSeconds: number | undefined): Promise<void> {
+    const key = streamOwnerKey(this.streamId);
+    const multi = this.redis.multi().set(key, executorId);
+    if (streamTTLSeconds !== undefined && streamTTLSeconds > 0) {
+      multi.expire(key, streamTTLSeconds);
+    }
+    await multi.exec();
   }
 
+  /** The owner key shares the stream lifetime so it does not outlive an idle turn. */
   private async refreshTtl(streamTTLSeconds: number | undefined): Promise<void> {
     if (streamTTLSeconds !== undefined && streamTTLSeconds > 0) {
-      await this.redis.expire(this.streamId, streamTTLSeconds);
+      await this.redis
+        .multi()
+        .expire(this.streamId, streamTTLSeconds)
+        .expire(streamOwnerKey(this.streamId), streamTTLSeconds)
+        .exec();
     }
   }
 
-  private async appendEvent(input: {
-    event: T;
-    checkOwner: boolean;
-    executorId: string;
+  private async appendAfterTail(input: {
+    tailEntryId: string | undefined;
+    events: T[];
     streamTTLSeconds: number | undefined;
-  }): Promise<'appended' | 'duplicate'> {
-    const payload = JSON.stringify(input.event);
-    const reply = await this.appendEntry({
-      streamId: this.streamIdFor(input.event),
-      payload,
-      checkOwner: input.checkOwner,
-      executorId: input.executorId,
-      streamTTLSeconds: input.streamTTLSeconds,
+  }): Promise<'ok' | 'stale'> {
+    const pairs = input.events.flatMap(event => [this.entryMillisecondFor(event), JSON.stringify(event)]);
+    const reply: unknown = await this.redis.eval(APPEND_AFTER_TAIL, {
+      keys: [this.streamId],
+      arguments: [input.tailEntryId ?? '', ttlArgument(input.streamTTLSeconds), ...pairs],
     });
-    if (reply.status === 'ok') {
-      return 'appended';
+    if (reply === 'ok' || reply === 'stale') {
+      return reply;
     }
-    if (reply.status === 'duplicate') {
-      return 'duplicate';
-    }
-    if (reply.status === 'owner_mismatch') {
-      throw new StreamOwnerMismatchError(this.streamId);
-    }
-    if (reply.status === 'error') {
-      throw new Error(`Redis stream append failed on ${this.streamId}: ${reply.detail}`);
-    }
-    // The tail id can match a delta of the same message. Identical payloads
-    // already returned `duplicate` above; a distinct payload must be retried
-    // at the tail millisecond.
-    const lastId = await this.lastEntryId();
-    if (lastId === undefined) {
-      throw new Error(`Redis stream append conflicted on an empty stream ${this.streamId}`);
-    }
-    let retry: { status: AppendStatus; detail: string };
-    try {
-      retry = await this.appendEntry({
-        streamId: `${String(entryIdMilliseconds(lastId))}-*`,
-        payload,
-        checkOwner: input.checkOwner,
-        executorId: input.executorId,
-        streamTTLSeconds: input.streamTTLSeconds,
-      });
-    } catch (error) {
-      throw new Error(`Failed to append event on ${this.streamId}`, { cause: error });
-    }
-    if (retry.status === 'ok') {
-      return 'appended';
-    }
-    if (retry.status === 'duplicate') {
-      return 'duplicate';
-    }
-    if (retry.status === 'owner_mismatch') {
-      throw new StreamOwnerMismatchError(this.streamId);
-    }
-    throw new Error(`Redis stream append failed on ${this.streamId}: ${retry.detail}`, { cause: reply.detail });
+    throw new Error(`Unexpected stream repair reply on ${this.streamId}`);
   }
 
-  private streamIdFor(event: T): string {
-    return `${String(eventIdTimestampMs(event.id) ?? Date.now())}-*`;
-  }
-
-  private async appendEntry(input: {
-    streamId: string;
-    payload: string;
-    checkOwner: boolean;
-    executorId: string;
-    streamTTLSeconds: number | undefined;
-  }): Promise<{ status: AppendStatus; detail: string }> {
-    const ttl = input.streamTTLSeconds !== undefined && input.streamTTLSeconds > 0 ? input.streamTTLSeconds : 0;
-    const reply: unknown = await this.redis.eval(APPEND_STREAM_ENTRY, {
-      keys: [streamOwnerKey(this.streamId), this.streamId],
-      arguments: [input.checkOwner ? '1' : '0', input.executorId, input.streamId, input.payload, String(ttl)],
-    });
-    return parseAppendReply(reply);
+  private entryMillisecondFor(event: T): string {
+    return String(eventIdTimestampMs(event.id) ?? Date.now());
   }
 }

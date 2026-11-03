@@ -272,11 +272,6 @@ export interface SessionEventTable {
    *      Ordering still uses event_id.
    */
   created_at: Date;
-  /**
-   * Stream sequence assigned when the event is first appended to the live log.
-   * Null until then. The event jsonb stays the client payload.
-   */
-  sequence_number: ColumnType<number | null, number | undefined, number | undefined>;
 }
 
 /**

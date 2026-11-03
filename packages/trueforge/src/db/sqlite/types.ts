@@ -169,11 +169,6 @@ export interface SessionEventTable {
   event_id: string;
   event: JsonbColumn<PersistedTurnEvent>;
   created_at: string;
-  /**
-   * Stream sequence assigned when the event is first appended to the live log.
-   * Null until then. The event blob stays the client payload.
-   */
-  sequence_number: ColumnType<number | null, number | undefined, number | undefined>;
 }
 
 /**
