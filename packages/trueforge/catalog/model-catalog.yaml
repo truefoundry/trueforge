@@ -471,6 +471,17 @@ providers:
         name: gpt-oss-120b
         properties:
           context_length: 131072
+      - model_id: accounts/fireworks/models/inkling
+        name: inkling
+        properties:
+          context_length: 1048576
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
       - model_id: accounts/fireworks/models/kimi-k2p7-code
         name: kimi-k2p7-code
         properties:
@@ -504,6 +515,27 @@ providers:
             - high
             - xhigh
             - max
+      - model_id: accounts/fireworks/models/minimax-m3p1-flash
+        name: minimax-m3p1-flash
+        properties:
+          context_length: 1048576
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+            - max
+      - model_id: accounts/fireworks/models/muse-spark-open
+        name: muse-spark-open
+        properties:
+          context_length: 1048576
+      - model_id: accounts/fireworks/models/nemotron-3-ultra-nvfp4
+        name: nemotron-3-ultra-nvfp4
+        properties:
+          context_length: 262144
+      - model_id: accounts/fireworks/models/nemotron-lightning-3p5-30b-a3b
+        name: nemotron-lightning-3p5-30b-a3b
+        properties:
+          context_length: 262144
   - type: zai
     logo: https://assets.production.truefoundry.com/zai.svg
     models:
