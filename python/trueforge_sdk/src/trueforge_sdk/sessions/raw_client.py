@@ -1747,10 +1747,12 @@ class RawSessionsClient:
         session_id: str,
         turn_id: str,
         after_sequence_number: typing.Optional[int] = None,
+        from_event_id: typing.Optional[str] = None,
+        after_event_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Iterator[HttpResponse[Stream[TurnStreamingEvent]]]:
         """
-        Subscribe to the live SSE stream. A paused turn with an expired stream is restored from stored events. A running or finished turn is not restored. Pass `after_sequence_number` to resume after that sequence.
+        Subscribe to the live SSE stream. A paused turn with an expired stream is restored from stored events. Resume with from_event_id or after_event_id
 
         Parameters
         ----------
@@ -1761,7 +1763,13 @@ class RawSessionsClient:
             Turn identifier.
 
         after_sequence_number : typing.Optional[int]
-            Exclusive resume cursor: replay only events with a sequence number greater than this value. Omit to start from the beginning of the live buffer.
+            Legacy exclusive cursor. Replay events after this sequence. Omit when using an event id.
+
+        from_event_id : typing.Optional[str]
+            Inclusive cursor. Replay starts at the entry with this event id
+
+        after_event_id : typing.Optional[str]
+            Exclusive cursor. Replay starts after the last entry with this event id.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1776,6 +1784,8 @@ class RawSessionsClient:
             method="GET",
             params={
                 "after_sequence_number": after_sequence_number,
+                "from_event_id": from_event_id,
+                "after_event_id": after_event_id,
             },
             request_options=request_options,
         ) as _response:
@@ -3580,10 +3590,12 @@ class AsyncRawSessionsClient:
         session_id: str,
         turn_id: str,
         after_sequence_number: typing.Optional[int] = None,
+        from_event_id: typing.Optional[str] = None,
+        after_event_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.AsyncIterator[AsyncHttpResponse[AsyncStream[TurnStreamingEvent]]]:
         """
-        Subscribe to the live SSE stream. A paused turn with an expired stream is restored from stored events. A running or finished turn is not restored. Pass `after_sequence_number` to resume after that sequence.
+        Subscribe to the live SSE stream. A paused turn with an expired stream is restored from stored events. Resume with from_event_id or after_event_id
 
         Parameters
         ----------
@@ -3594,7 +3606,13 @@ class AsyncRawSessionsClient:
             Turn identifier.
 
         after_sequence_number : typing.Optional[int]
-            Exclusive resume cursor: replay only events with a sequence number greater than this value. Omit to start from the beginning of the live buffer.
+            Legacy exclusive cursor. Replay events after this sequence. Omit when using an event id.
+
+        from_event_id : typing.Optional[str]
+            Inclusive cursor. Replay starts at the entry with this event id
+
+        after_event_id : typing.Optional[str]
+            Exclusive cursor. Replay starts after the last entry with this event id.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -3609,6 +3627,8 @@ class AsyncRawSessionsClient:
             method="GET",
             params={
                 "after_sequence_number": after_sequence_number,
+                "from_event_id": from_event_id,
+                "after_event_id": after_event_id,
             },
             request_options=request_options,
         ) as _response:

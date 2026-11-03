@@ -24,7 +24,7 @@ async function collect(
   count: number,
 ): Promise<SequencedEvent<TurnStreamingEvent>[]> {
   const abort = new AbortController();
-  const generator = registry.get(streamId).poll(undefined, { signal: abort.signal });
+  const generator = registry.get(streamId).poll({ signal: abort.signal });
   const received: SequencedEvent<TurnStreamingEvent>[] = [];
   try {
     for await (const event of generator) {
@@ -41,7 +41,7 @@ async function collect(
 }
 
 describe('repairTurnEventLog', () => {
-  it('rebuilds a missing stream from the durable log and keeps the sequence', async () => {
+  it('rebuilds a missing stream from the durable log without assigning sequence numbers', async () => {
     const store = new InMemorySessionStore();
     const sessionId = 's1';
     const turnId = 'turn-1';
@@ -85,16 +85,15 @@ describe('repairTurnEventLog', () => {
     expect(
       (await store.listTurnEventLog({ session_id: sessionId, turn_id: turnId })).map(row => row.sequence_number),
     ).toEqual([null, null]);
-    expect((await collect(registry, streamId, 2)).map(event => event.sequence_number)).toEqual([1, 2]);
+    expect((await collect(registry, streamId, 2)).map(event => event.id)).toEqual([created.id, message.id]);
 
     await repair();
-    expect((await collect(registry, streamId, 2)).map(event => event.sequence_number)).toEqual([1, 2]);
+    expect((await collect(registry, streamId, 2)).map(event => event.id)).toEqual([created.id, message.id]);
 
     await repair(TEST_ACTIVE_EXECUTOR_ID);
     expect(
       (await store.listTurnEventLog({ session_id: sessionId, turn_id: turnId })).map(row => row.sequence_number),
-    ).toEqual([1, 2]);
-    expect((await collect(registry, streamId, 2)).map(event => event.sequence_number)).toEqual([1, 2]);
+    ).toEqual([null, null]);
 
     const later = makeModelMessageEvent();
     await store.appendToEvents({
@@ -104,10 +103,10 @@ describe('repairTurnEventLog', () => {
       events: [later],
     });
     await repair(TEST_ACTIVE_EXECUTOR_ID);
+    expect((await collect(registry, streamId, 3)).map(event => event.id)).toEqual([created.id, message.id, later.id]);
     expect(
       (await store.listTurnEventLog({ session_id: sessionId, turn_id: turnId })).map(row => row.sequence_number),
-    ).toEqual([1, 2, 3]);
-    expect((await collect(registry, streamId, 3)).map(event => event.sequence_number)).toEqual([1, 2, 3]);
+    ).toEqual([null, null, null]);
 
     await registry.evictStream(streamId);
     const stale = registry.get(streamId);
@@ -117,11 +116,16 @@ describe('repairTurnEventLog', () => {
     await expect(stale.assertSubscribable()).rejects.toBeInstanceOf(StreamGoneError);
 
     await repair(TEST_ACTIVE_EXECUTOR_ID);
-    const next = await subscription.put(makeModelMessageEvent(), {
+    const appended = makeModelMessageEvent();
+    await subscription.put(appended, {
       streamTTLSeconds: STREAM_TTL_SECONDS,
       executorId: TEST_ACTIVE_EXECUTOR_ID,
     });
-    expect(next).toBe(4);
-    expect((await collect(registry, streamId, 4)).map(event => event.sequence_number)).toEqual([1, 2, 3, 4]);
+    expect((await collect(registry, streamId, 4)).map(event => event.id)).toEqual([
+      created.id,
+      message.id,
+      later.id,
+      appended.id,
+    ]);
   });
 });

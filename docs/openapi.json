@@ -10725,7 +10725,7 @@
     },
     "/api/v1/sessions/{session_id}/turns/{turn_id}/subscribe": {
       "get": {
-        "description": "Subscribe to the live SSE stream. A paused turn with an expired stream is restored from stored events. A running or finished turn is not restored. Pass `after_sequence_number` to resume after that sequence.",
+        "description": "Subscribe to the live SSE stream. A paused turn with an expired stream is restored from stored events. Resume with from_event_id or after_event_id",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -10751,17 +10751,39 @@
             }
           },
           {
-            "description": "Exclusive resume cursor: replay only events with a sequence number greater than this value. Omit to start from the beginning of the live buffer.",
+            "description": "Legacy exclusive cursor. Replay events after this sequence. Omit when using an event id.",
             "in": "query",
             "name": "after_sequence_number",
             "required": false,
             "schema": {
-              "description": "Exclusive resume cursor: replay only events with a sequence number greater than this value. Omit to start from the beginning of the live buffer.",
+              "description": "Legacy exclusive cursor. Replay events after this sequence. Omit when using an event id.",
               "minimum": 0,
               "type": [
                 "integer",
                 "null"
               ]
+            }
+          },
+          {
+            "description": "Inclusive cursor. Replay starts at the entry with this event id",
+            "in": "query",
+            "name": "from_event_id",
+            "required": false,
+            "schema": {
+              "description": "Inclusive cursor. Replay starts at the entry with this event id",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Exclusive cursor. Replay starts after the last entry with this event id.",
+            "in": "query",
+            "name": "after_event_id",
+            "required": false,
+            "schema": {
+              "description": "Exclusive cursor. Replay starts after the last entry with this event id.",
+              "minLength": 1,
+              "type": "string"
             }
           }
         ],

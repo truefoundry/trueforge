@@ -3462,7 +3462,7 @@ client.sessions.create_turn_events(
 <dl>
 <dd>
 
-Subscribe to the live SSE stream. A paused turn with an expired stream is restored from stored events. A running or finished turn is not restored. Pass `after_sequence_number` to resume after that sequence.
+Subscribe to the live SSE stream. A paused turn with an expired stream is restored from stored events. Resume with from_event_id or after_event_id
 </dd>
 </dl>
 </dd>
@@ -3519,7 +3519,23 @@ client.sessions.subscribe_to_turn(
 <dl>
 <dd>
 
-**after_sequence_number:** `typing.Optional[int]` — Exclusive resume cursor: replay only events with a sequence number greater than this value. Omit to start from the beginning of the live buffer.
+**after_sequence_number:** `typing.Optional[int]` — Legacy exclusive cursor. Replay events after this sequence. Omit when using an event id.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**from_event_id:** `typing.Optional[str]` — Inclusive cursor. Replay starts at the entry with this event id
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**after_event_id:** `typing.Optional[str]` — Exclusive cursor. Replay starts after the last entry with this event id.
     
 </dd>
 </dl>

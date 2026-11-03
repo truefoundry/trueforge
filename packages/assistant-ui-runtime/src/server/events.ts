@@ -320,7 +320,8 @@ export type ActionRequiredEvent = ToolApprovalRequiredEvent | ToolResponseRequir
 export type PersistedTurnEvent = TurnCreatedEvent | TurnUpdateEvent | TurnDoneEvent | TurnEvent;
 
 export interface TurnStreamData<TStreamEvent extends TurnStreamingEvent = TurnStreamingEvent> {
-  sequenceNumber: number;
+  /** Present only when the server wrote an SSE id for an older integer stream. */
+  sequenceNumber?: number;
   event: TStreamEvent;
 }
 

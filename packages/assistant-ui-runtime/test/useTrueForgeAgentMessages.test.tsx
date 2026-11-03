@@ -498,6 +498,7 @@ describe('useTrueForgeAgentMessages', () => {
       expect.any(Array),
       expect.any(Function),
       expect.any(Function),
+      expect.any(Function),
     );
 
     await act(async () => {
@@ -512,6 +513,7 @@ describe('useTrueForgeAgentMessages', () => {
       { userMessage: 'second' },
       expect.any(AbortSignal),
       expect.any(Array),
+      expect.any(Function),
       expect.any(Function),
       expect.any(Function),
     );
@@ -1958,7 +1960,7 @@ describe('useTrueForgeAgentMessages', () => {
     });
   });
 
-  it('uses the last ingested sequence when subscribing before an action', async () => {
+  it('uses the stored event-id cursor when subscribing before an action', async () => {
     const base = snapshotWithAssistantMessage(assistantMessageWithPendingApproval());
     const active = base.activeStream;
     if (active == null) {
@@ -1966,7 +1968,7 @@ describe('useTrueForgeAgentMessages', () => {
     }
     vi.mocked(loadSessionSnapshot).mockResolvedValue(
       replaceSessionSnapshot(base, {
-        activeStream: { ...active, lastSequenceNumber: 7 },
+        activeStream: { ...active, subscribeCursor: { afterEventId: 'approval-required-1' } },
       }),
     );
 
@@ -1983,8 +1985,9 @@ describe('useTrueForgeAgentMessages', () => {
       'turn-1',
       expect.any(PeerThreadFoldState),
       expect.any(AbortSignal),
-      7,
+      { afterEventId: 'approval-required-1' },
       undefined,
+      expect.any(Function),
       expect.any(Function),
     );
   });
@@ -1992,9 +1995,20 @@ describe('useTrueForgeAgentMessages', () => {
   it('queues a subscription when an action arrives while the paused segment is finishing', async () => {
     let releasePausedSegment: (() => void) | undefined;
     vi.mocked(streamTurnContent).mockImplementation(
-      (_server, _sessionId, _fold, _options, _signal, _baseline, onTurnIdAvailable) =>
+      (
+        _server,
+        _sessionId,
+        _fold,
+        _options,
+        _signal,
+        _baseline,
+        onTurnIdAvailable,
+        _onSequenceNumber,
+        onSubscribeCursor,
+      ) =>
         (async function* () {
           onTurnIdAvailable?.('turn-paused');
+          onSubscribeCursor?.({ afterEventId: 'approval-required-1' });
           yield {
             content: [...assistantMessageWithPendingApproval().content],
             status: { type: 'requires-action', reason: 'tool-calls' },
@@ -2031,8 +2045,9 @@ describe('useTrueForgeAgentMessages', () => {
       'turn-paused',
       expect.any(PeerThreadFoldState),
       expect.any(AbortSignal),
-      4,
+      { afterEventId: 'approval-required-1' },
       expect.any(Array),
+      expect.any(Function),
       expect.any(Function),
     );
   });
@@ -2546,8 +2561,19 @@ describe('useTrueForgeAgentMessages', () => {
       const onError = vi.fn();
       const onPreTurnFailure = vi.fn();
       vi.mocked(streamTurnContent).mockImplementation(
-        async function* (_server, _sessionId, _fold, _options, _signal, _baseline, onTurnIdAvailable) {
+        async function* (
+          _server,
+          _sessionId,
+          _fold,
+          _options,
+          _signal,
+          _baseline,
+          onTurnIdAvailable,
+          _onSequenceNumber,
+          onSubscribeCursor,
+        ) {
           onTurnIdAvailable?.('gateway-turn-123');
+          onSubscribeCursor?.({ fromEventId: 'model-partial' });
           yield { content: [{ type: 'text' as const, text: 'partial' }], sequenceNumber: 4 };
           throw new Error('Mid-stream error');
         },
@@ -2585,8 +2611,9 @@ describe('useTrueForgeAgentMessages', () => {
         'gateway-turn-123',
         expect.anything(),
         expect.any(AbortSignal),
-        4,
+        { fromEventId: 'model-partial' },
         expect.anything(),
+        expect.any(Function),
         expect.any(Function),
       );
     });

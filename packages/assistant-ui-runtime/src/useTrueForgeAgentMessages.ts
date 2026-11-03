@@ -50,7 +50,7 @@ import { delayReconnect, isAbortError, STREAM_RECONNECT_MAX_ATTEMPTS } from './s
 import { resumeTurnStream, streamTurnContent } from './streamTurn.js';
 import { mapApprovalDecision, type RespondToToolApprovalOptions } from './toolApproval.js';
 import { type RespondToToolResponseOptions } from './toolResponse.js';
-import type { TurnStreamUpdate } from './turnStreamUpdate.js';
+import { subscribeCursorForEvent, type TurnStreamUpdate, type TurnSubscribeCursor } from './turnStreamUpdate.js';
 
 export interface UseTrueForgeAgentMessagesOptions {
   server: AgentChatServer;
@@ -101,6 +101,26 @@ interface QueuedSubscription {
 
 interface StreamSequenceTrack {
   onSequenceNumber: (sequenceNumber: number) => void;
+  onSubscribeCursor: (cursor: TurnSubscribeCursor) => void;
+}
+
+/** Live cursor wins. A refresh falls back to the last stored event for the turn. */
+function cursorForTurn(snapshot: SessionSnapshot, turnId: string): TurnSubscribeCursor | undefined {
+  const active = snapshot.activeStream;
+  if (active?.turnId === turnId && active.subscribeCursor !== undefined) {
+    return active.subscribeCursor;
+  }
+  const history = snapshot.historyEvents;
+  if (history === undefined) {
+    return undefined;
+  }
+  for (let index = history.length - 1; index >= 0; index -= 1) {
+    const item = history[index];
+    if (item?.turnId === turnId) {
+      return subscribeCursorForEvent(item.event);
+    }
+  }
+  return undefined;
 }
 
 interface RunStreamReconnect {
@@ -581,13 +601,31 @@ export function useTrueForgeAgentMessages({
         const activeAtStart = snapshotRef.current.activeStream;
         let lastSequenceNumber: number | undefined =
           activeAtStart?.turnId === turnIdRef.current ? activeAtStart.lastSequenceNumber : undefined;
+        let subscribeCursor = cursorForTurn(snapshotRef.current, turnIdRef.current);
         let useSubscribe = false;
         let consecutiveFailures = 0;
+        let eventsThisAttempt = 0;
+        let attemptCursor: TurnSubscribeCursor | undefined = subscribeCursor;
 
         const track: StreamSequenceTrack = {
           onSequenceNumber: sequenceNumber => {
             lastSequenceNumber = sequenceNumber;
             consecutiveFailures = 0;
+          },
+          onSubscribeCursor: cursor => {
+            eventsThisAttempt += 1;
+            // Inclusive replay delivers the shell we already have. That is not
+            // new progress, so a stream that dies on the shell still counts.
+            const replayedShell =
+              eventsThisAttempt === 1 &&
+              attemptCursor !== undefined &&
+              'fromEventId' in attemptCursor &&
+              'fromEventId' in cursor &&
+              attemptCursor.fromEventId === cursor.fromEventId;
+            subscribeCursor = cursor;
+            if (!replayedShell) {
+              consecutiveFailures = 0;
+            }
           },
         };
 
@@ -637,6 +675,7 @@ export function useTrueForgeAgentMessages({
                 update,
                 segmentStatus,
                 ...(updateSequenceNumber != null ? { lastSequenceNumber: updateSequenceNumber } : {}),
+                ...(subscribeCursor != null ? { subscribeCursor } : {}),
               },
               pendingMcpAuth,
               ...(runningTurn != null ? { runningTurn } : {}),
@@ -663,6 +702,8 @@ export function useTrueForgeAgentMessages({
         };
 
         const readStream = (signal: AbortSignal): AsyncGenerator<TurnStreamUpdate> => {
+          eventsThisAttempt = 0;
+          attemptCursor = subscribeCursor;
           if (!useSubscribe) {
             return createStream(signal, track);
           }
@@ -672,9 +713,10 @@ export function useTrueForgeAgentMessages({
             turnIdRef.current,
             snapshotRef.current.fold,
             signal,
-            lastSequenceNumber,
+            subscribeCursor,
             snapshotRef.current.groupRootBaseline,
             track.onSequenceNumber,
+            track.onSubscribeCursor,
           );
         };
 
@@ -756,6 +798,7 @@ export function useTrueForgeAgentMessages({
                       ...prev.activeStream,
                       segmentStatus,
                       ...(lastSequenceNumber != null ? { lastSequenceNumber } : {}),
+                      ...(subscribeCursor != null ? { subscribeCursor } : {}),
                     },
                   });
                   return commitActiveStream(marked);
@@ -881,9 +924,10 @@ export function useTrueForgeAgentMessages({
               turn.id,
               loadedSnapshot.fold,
               signal,
-              loadedSnapshot.activeStream?.lastSequenceNumber,
+              cursorForTurn(loadedSnapshot, turn.id),
               loadedSnapshot.groupRootBaseline,
               track.onSequenceNumber,
+              track.onSubscribeCursor,
             ),
           { current: turn.id },
           {
@@ -1083,6 +1127,7 @@ export function useTrueForgeAgentMessages({
               groupRootBaseline,
               handleGatewayTurnId,
               track.onSequenceNumber,
+              track.onSubscribeCursor,
             ),
           turnIdRef,
           {
@@ -1136,8 +1181,6 @@ export function useTrueForgeAgentMessages({
       }
 
       const startSubscription = () => {
-        const latest = snapshotRef.current.activeStream;
-        const afterSequenceNumber = latest?.turnId === turnId ? latest.lastSequenceNumber : undefined;
         // Subscribe first so either valid server ordering (subscribe-before-send
         // or a concurrently arriving POST) cannot leave a replay gap.
         void runStream(
@@ -1148,9 +1191,10 @@ export function useTrueForgeAgentMessages({
               turnId,
               snapshotRef.current.fold,
               signal,
-              afterSequenceNumber,
+              cursorForTurn(snapshotRef.current, turnId),
               snapshotRef.current.groupRootBaseline,
               track.onSequenceNumber,
+              track.onSubscribeCursor,
             ),
           { current: turnId },
           {
@@ -1429,7 +1473,6 @@ export function useTrueForgeAgentMessages({
     if (resumeSessionId == null) {
       return;
     }
-    const active = snapshotRef.current.activeStream;
     await runStream(
       (signal, track) =>
         resumeTurnStream(
@@ -1438,9 +1481,10 @@ export function useTrueForgeAgentMessages({
           turn.id,
           snapshotRef.current.fold,
           signal,
-          active?.turnId === turn.id ? active.lastSequenceNumber : undefined,
+          cursorForTurn(snapshotRef.current, turn.id),
           snapshotRef.current.groupRootBaseline,
           track.onSequenceNumber,
+          track.onSubscribeCursor,
         ),
       { current: turn.id },
       {

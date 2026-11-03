@@ -17,10 +17,29 @@ export const SubscribeTurnQuerySchema = z
         .int()
         .nonnegative()
         .optional()
-        .describe(
-          'Exclusive resume cursor: replay only events with a sequence number greater than this value. Omit to start from the beginning of the live buffer.',
-        ),
+        .describe('Legacy exclusive cursor. Replay events after this sequence. Omit when using an event id.'),
     ),
+    from_event_id: z
+      .string()
+      .min(1)
+      .optional()
+      .describe('Inclusive cursor. Replay starts at the entry with this event id'),
+    after_event_id: z
+      .string()
+      .min(1)
+      .optional()
+      .describe('Exclusive cursor. Replay starts after the last entry with this event id.'),
+  })
+  .superRefine((query, ctx) => {
+    const cursors = [query.after_sequence_number, query.from_event_id, query.after_event_id].filter(
+      value => value !== undefined,
+    );
+    if (cursors.length > 1) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Pass only one of after_sequence_number, from_event_id, or after_event_id.',
+      });
+    }
   })
   .openapi('SubscribeTurnQuery');
 

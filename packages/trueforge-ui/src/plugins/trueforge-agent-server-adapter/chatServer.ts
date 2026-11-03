@@ -157,10 +157,11 @@ export function toListResult<TSource, TResult>(
   };
 }
 
-function sequenceNumber(id: string | undefined, fallback: number): number {
-  if (id === undefined) return fallback;
+/** Integer SSE ids belong to older sequence streams. A missing id is not a cursor. */
+function sequenceNumberFromSseId(id: string | undefined): number | undefined {
+  if (id === undefined) return undefined;
   const parsed = Number(id);
-  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : fallback;
+  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : undefined;
 }
 
 function toHarnessContent(content: UserMessageContent): TrueForgeApi.UserMessageContent {
@@ -255,16 +256,13 @@ export function createHarnessChatServer(
         ...(input === undefined ? {} : { input: toHarnessInput(input) }),
         ...(previousTurnId === undefined ? {} : { previousTurnId }),
       });
-      let fallbackSequence = 0;
       for await (const item of stream.withMetadata()) {
         const event = toUiStreamingEvent(item.data);
-        if (event !== undefined) {
-          yield {
-            sequenceNumber: sequenceNumber(item.id, fallbackSequence),
-            event,
-          };
+        if (event === undefined) {
+          continue;
         }
-        fallbackSequence += 1;
+        const sequenceNumber = sequenceNumberFromSseId(item.id);
+        yield sequenceNumber === undefined ? { event } : { sequenceNumber, event };
       }
     },
 
@@ -275,29 +273,32 @@ export function createHarnessChatServer(
       return response.data.map(toUiInboundEvent);
     },
 
-    /** Resume a live turn; omitted/0 `afterSequenceNumber` replays from the start. */
+    /** Resume a live turn from an event id, or a legacy sequence on an older stream. */
     async *subscribeToTurn({
       sessionId,
       turnId,
       afterSequenceNumber,
+      fromEventId,
+      afterEventId,
     }: {
       sessionId: string;
       turnId: string;
       afterSequenceNumber?: number;
+      fromEventId?: string;
+      afterEventId?: string;
     }) {
       const stream = await client.sessions.subscribeToTurn(sessionId, turnId, {
         ...(afterSequenceNumber === undefined ? {} : { afterSequenceNumber }),
+        ...(fromEventId === undefined ? {} : { fromEventId }),
+        ...(afterEventId === undefined ? {} : { afterEventId }),
       });
-      let fallbackSequence = 0;
       for await (const item of stream.withMetadata()) {
         const event = toUiStreamingEvent(item.data);
-        if (event !== undefined) {
-          yield {
-            sequenceNumber: sequenceNumber(item.id, fallbackSequence),
-            event,
-          };
+        if (event === undefined) {
+          continue;
         }
-        fallbackSequence += 1;
+        const sequenceNumber = sequenceNumberFromSseId(item.id);
+        yield sequenceNumber === undefined ? { event } : { sequenceNumber, event };
       }
     },
 

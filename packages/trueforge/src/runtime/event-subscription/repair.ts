@@ -1,23 +1,16 @@
 /**
  * Rebuild a turn's live event stream from the durable log.
- * Sequence numbers already stored are written back as explicit stream ids.
- * An event with no number yet takes max(stored) + 1 in persist order.
+ * Append uses the same event-id stream ids as a live put. The durable row
+ * order is the order. No sequence number is assigned.
  */
 
-export interface EventLogEntry<T extends object> {
-  /** Payload id. Compared with the stream tail. Redis stream ids are sequence numbers, not this. */
+export interface EventLogEntry<T extends { id: string }> {
+  /** Payload id. The Redis stream id is not this value. */
   id: string;
   event: T;
-  sequence_number?: number | undefined;
 }
 
-interface SequencedLogEntry<T extends object> {
-  id: string;
-  event: T;
-  sequence_number: number;
-}
-
-export interface RepairLogOptions<T extends object> {
+export interface RepairLogOptions<T extends { id: string }> {
   entries: readonly EventLogEntry<T>[];
   streamTTLSeconds?: number | undefined;
   /**
@@ -25,26 +18,50 @@ export interface RepairLogOptions<T extends object> {
    * key. A subscribe repair omits this and does not claim.
    */
   executorId?: string | undefined;
-  /**
-   * Persist numbers assigned to events that did not have one. Called even when
-   * the list is empty so the owner fence runs before the stream is touched.
-   */
-  persistSequences?: (assignments: { event_id: string; sequence_number: number }[]) => Promise<void>;
 }
 
 interface StreamTail {
   eventId: string;
-  sequenceNumber: number;
+  /** JSON written on the stream, used to tell shared-id rows apart. */
+  payload: string;
 }
 
-export function eventIdOf(event: object): string | undefined {
-  if (!('id' in event)) {
-    return undefined;
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** Key order and a legacy `sequence_number` field are not part of event identity. */
+function canonicalize(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(item => canonicalize(item));
   }
-  const id = event.id;
-  return typeof id === 'string' ? id : undefined;
+  if (!isPlainObject(value)) {
+    return value;
+  }
+  const normalized: Record<string, unknown> = {};
+  for (const key of Object.keys(value).sort()) {
+    if (key === 'sequence_number') {
+      continue;
+    }
+    const child = value[key];
+    if (child !== undefined) {
+      normalized[key] = canonicalize(child);
+    }
+  }
+  return normalized;
 }
 
+export function eventPayloadMatches(event: object, payload: string): boolean {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(payload);
+  } catch {
+    return false;
+  }
+  return JSON.stringify(canonicalize(event)) === JSON.stringify(canonicalize(parsed));
+}
+
+/** Payload id from a stream data field. Undefined when JSON is corrupt or id is missing. */
 export function eventIdFromStreamData(data: string): string | undefined {
   let parsed: unknown;
   try {
@@ -52,93 +69,51 @@ export function eventIdFromStreamData(data: string): string | undefined {
   } catch {
     return undefined;
   }
-  if (typeof parsed !== 'object' || parsed === null) {
+  if (typeof parsed !== 'object' || parsed === null || !('id' in parsed)) {
     return undefined;
   }
-  return eventIdOf(parsed);
-}
-
-function planSequences<T extends object>(
-  entries: readonly EventLogEntry<T>[],
-): {
-  sequenced: SequencedLogEntry<T>[];
-  newlyAssigned: { event_id: string; sequence_number: number }[];
-} {
-  let maxStored = 0;
-  for (const entry of entries) {
-    const sequence = entry.sequence_number;
-    if (sequence !== undefined && sequence > maxStored) {
-      maxStored = sequence;
-    }
-  }
-  const sequenced: SequencedLogEntry<T>[] = [];
-  const newlyAssigned: { event_id: string; sequence_number: number }[] = [];
-  let next = maxStored;
-  for (const entry of entries) {
-    if (entry.sequence_number === undefined) {
-      next += 1;
-      sequenced.push({ id: entry.id, event: entry.event, sequence_number: next });
-      newlyAssigned.push({ event_id: entry.id, sequence_number: next });
-    } else {
-      sequenced.push({ id: entry.id, event: entry.event, sequence_number: entry.sequence_number });
-    }
-  }
-  return { sequenced, newlyAssigned };
+  return typeof parsed.id === 'string' ? parsed.id : undefined;
 }
 
 /**
- * Suffix the stream does not already have. Redis explicit ids must increase, so
- * the suffix is appended in sequence order. That matches persist order when
- * numbers were assigned as events were streamed.
+ * Rows after the stream tail. Rows that share an id (a message and its deltas)
+ * are distinguished by the stored payload. A tail the log does not contain is
+ * left alone.
  */
-function suffixAfterTail<T extends object>(
-  sequenced: readonly SequencedLogEntry<T>[],
+function suffixAfterTail<T extends { id: string }>(
+  entries: readonly EventLogEntry<T>[],
   tail: StreamTail | undefined,
-): SequencedLogEntry<T>[] {
+): EventLogEntry<T>[] {
   if (tail === undefined) {
-    return [...sequenced].sort((left, right) => left.sequence_number - right.sequence_number);
+    return [...entries];
   }
-  const last = sequenced[sequenced.length - 1];
-  if (last?.id === tail.eventId) {
-    return [];
-  }
-  const tailIndex = sequenced.findIndex(entry => entry.id === tail.eventId);
-  const after =
-    tailIndex >= 0
-      ? sequenced.slice(tailIndex + 1)
-      : sequenced.filter(entry => entry.sequence_number > tail.sequenceNumber);
-  return [...after].sort((left, right) => left.sequence_number - right.sequence_number);
-}
-
-function nextSequence(sequenced: readonly { sequence_number: number }[], tail: StreamTail | undefined): number {
-  let max = tail?.sequenceNumber ?? 0;
-  for (const entry of sequenced) {
-    if (entry.sequence_number > max) {
-      max = entry.sequence_number;
+  let match = -1;
+  for (let index = 0; index < entries.length; index += 1) {
+    const entry = entries[index];
+    if (entry?.id === tail.eventId && eventPayloadMatches(entry.event, tail.payload)) {
+      match = index;
     }
   }
-  return max + 1;
+  if (match === -1) {
+    return [];
+  }
+  return entries.slice(match + 1);
 }
 
-export async function applyEventLogRepair<T extends object>(input: {
+export async function applyEventLogRepair<T extends { id: string }>(input: {
   entries: readonly EventLogEntry<T>[];
-  persistSequences?: RepairLogOptions<T>['persistSequences'];
   claimOwner?: (() => Promise<void>) | undefined;
   readTail: () => Promise<StreamTail | undefined>;
-  append: (entry: SequencedLogEntry<T>) => Promise<'appended' | 'duplicate'>;
+  append: (entry: EventLogEntry<T>) => Promise<'appended' | 'duplicate'>;
   refreshTtl: () => Promise<void>;
   /** Producer resume refreshes TTL even when the existing stream is already complete. */
   refreshTtlOnUntouchedStream: boolean;
-}): Promise<number> {
-  const plan = planSequences(input.entries);
-  if (input.persistSequences !== undefined) {
-    await input.persistSequences(plan.newlyAssigned);
-  }
+}): Promise<void> {
   if (input.claimOwner !== undefined) {
     await input.claimOwner();
   }
   const tail = await input.readTail();
-  const suffix = suffixAfterTail(plan.sequenced, tail);
+  const suffix = suffixAfterTail(input.entries, tail);
   let appended = false;
   for (const entry of suffix) {
     const outcome = await input.append(entry);
@@ -149,5 +124,4 @@ export async function applyEventLogRepair<T extends object>(input: {
   if (appended || input.refreshTtlOnUntouchedStream) {
     await input.refreshTtl();
   }
-  return nextSequence(plan.sequenced, tail);
 }

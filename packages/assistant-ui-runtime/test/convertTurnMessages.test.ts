@@ -1879,6 +1879,53 @@ describe('convertTurnMessages', () => {
       expect(onSequenceNumber).toHaveBeenCalledTimes(3);
     });
 
+    it('resumes a model message from its id and every other event after its id', async () => {
+      const foldState = new PeerThreadFoldState();
+      const cursors: { fromEventId?: string; afterEventId?: string }[] = [];
+
+      await collectStream(
+        streamTurnEvents(
+          (async function* () {
+            yield {
+              event: {
+                type: 'model.message' as const,
+                createdAt,
+                id: 'm1',
+                threadId: ROOT_THREAD_ID,
+                content: 'hi',
+              },
+            };
+            yield {
+              event: {
+                type: 'mcp.auth_required' as const,
+                id: 'auth-1',
+                createdAt,
+                threadId: null,
+                mcpServers: [{ id: 'github', name: 'GitHub', authUrl: 'https://example.com/auth' }],
+              },
+            };
+            yield {
+              event: {
+                type: 'turn.done' as const,
+                id: 'turn-done',
+                createdAt,
+                state: { status: 'done' as const, completedAt: createdAt },
+              },
+            };
+          })(),
+          foldState,
+          undefined,
+          undefined,
+          undefined,
+          cursor => {
+            cursors.push(cursor);
+          },
+        ),
+      );
+
+      expect(cursors).toEqual([{ fromEventId: 'm1' }, { fromEventId: 'auth-1' }, { afterEventId: 'turn-done' }]);
+    });
+
     it('yields folded content after each ingested stream event', async () => {
       const foldState = new PeerThreadFoldState();
       const updates = await collectStream(
