@@ -137,8 +137,9 @@ export function memory(options: {
       if (!pendingPersist) {
         return;
       }
-      pendingPersist = false;
       yield { type: InternalEventType.CAPABILITY_STATE, key: MEMORY_STATE_KEY, state };
+      // Only once the event is consumed: an interrupted save is retried before the next model call.
+      pendingPersist = false;
     },
   };
 

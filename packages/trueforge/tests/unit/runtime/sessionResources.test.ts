@@ -417,7 +417,6 @@ describe('validateAgentSpec', () => {
     });
   });
 
-
   it('rejects skills when no sandbox provider is configured', async () => {
     const stores = await setup();
     await stores.skillStore.upsertSkill({
