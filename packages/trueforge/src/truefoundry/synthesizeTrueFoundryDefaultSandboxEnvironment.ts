@@ -45,7 +45,7 @@ export function synthesizeTrueFoundryDefaultSandboxEnvironment(tenant_id: string
       id: DEFAULT_VERSION_ID,
       environment_id: DEFAULT_ENVIRONMENT_ID,
       version: 1,
-      manifest: defaultSandboxEnvironmentStoredManifest('daytona'),
+      manifest: defaultSandboxEnvironmentStoredManifest({ type: 'truefoundry', sandbox_provider: provider.type }),
       status: 'ready',
       status_reason: null,
       external_ref: provider.settings.snapshotName,

@@ -4,6 +4,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
+import { getTrueForgeAuthMode, TrueForgeAuthMode } from '../config';
 import {
   DEFAULT_SANDBOX_ENVIRONMENT_NAME,
   DEFAULT_SANDBOX_ENVIRONMENT_RESOURCES,
@@ -14,7 +15,18 @@ import {
 } from '../schemas/sandboxEnvironment';
 import { resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 
-export type SandboxEnvironmentProviderType = StoredSandboxEnvironmentManifest['type'];
+/** Backend-only stored identity: `type` is the deployment mode label, `sandbox_provider` the backend. */
+export type SandboxEnvironmentIdentity = Pick<StoredSandboxEnvironmentManifest, 'type' | 'sandbox_provider'>;
+
+/** TrueFoundry mode always labels envs `truefoundry`; the actual backend stays in `sandbox_provider`. */
+export function resolveSandboxEnvironmentIdentity(
+  sandbox_provider: SandboxEnvironmentIdentity['sandbox_provider'],
+): SandboxEnvironmentIdentity {
+  return {
+    type: getTrueForgeAuthMode() === TrueForgeAuthMode.TrueFoundry ? 'truefoundry' : sandbox_provider,
+    sandbox_provider,
+  };
+}
 
 export interface ManifestDiff {
   build_changed: boolean;
@@ -32,13 +44,13 @@ export interface NextSandboxEnvironmentVersion {
 
 /** System default env stored jsonb (platform image; no networking/secrets). */
 export function defaultSandboxEnvironmentStoredManifest(
-  provider_type: SandboxEnvironmentProviderType,
+  identity: SandboxEnvironmentIdentity,
 ): StoredSandboxEnvironmentManifest {
   return StoredSandboxEnvironmentManifestSchema.parse({
     name: DEFAULT_SANDBOX_ENVIRONMENT_NAME,
     resources: DEFAULT_SANDBOX_ENVIRONMENT_RESOURCES,
-    type: provider_type,
-    sandbox_provider: provider_type,
+    type: identity.type,
+    sandbox_provider: identity.sandbox_provider,
   });
 }
 
@@ -91,15 +103,15 @@ export function redactManifestSecrets(manifest: SandboxEnvironmentManifest): San
 /** Fill backend-only type/sandbox_provider for jsonb storage. */
 export function toStoredManifest({
   manifest,
-  provider_type,
+  identity,
 }: {
   manifest: SandboxEnvironmentManifest;
-  provider_type: SandboxEnvironmentProviderType;
+  identity: SandboxEnvironmentIdentity;
 }): StoredSandboxEnvironmentManifest {
   return {
     ...manifest,
-    type: provider_type,
-    sandbox_provider: provider_type,
+    type: identity.type,
+    sandbox_provider: identity.sandbox_provider,
   };
 }
 
@@ -127,13 +139,13 @@ export function buildNextVersion({
   previous_manifest,
   previous_external_ref,
   manifest,
-  provider_type,
+  identity,
 }: {
   existing_version?: number;
   previous_manifest?: StoredSandboxEnvironmentManifest;
   previous_external_ref?: string;
   manifest: SandboxEnvironmentManifest;
-  provider_type: SandboxEnvironmentProviderType;
+  identity: SandboxEnvironmentIdentity;
 }): NextSandboxEnvironmentVersion {
   const diff = diffManifest({ previous: previous_manifest, next: manifest });
   // Daytona bakes cpu/memory/disk into the snapshot; resource or build changes need a new ref.
@@ -148,7 +160,7 @@ export function buildNextVersion({
   // Always `pending` until a future controller activates (or fails) the version.
   return {
     version: (existing_version ?? 0) + 1,
-    manifest: toStoredManifest({ manifest: resolved, provider_type }),
+    manifest: toStoredManifest({ manifest: resolved, identity }),
     status: 'pending',
     status_reason: null,
     external_ref: needs_snapshot ? newExternalRef() : previous_external_ref,

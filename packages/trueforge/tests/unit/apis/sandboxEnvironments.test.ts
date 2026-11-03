@@ -455,4 +455,46 @@ describe('sandbox environments API → build controller path', () => {
     expect((await publicRouter.request('/tfy-env', { method: 'DELETE' })).status).toBe(200);
     expect((await publicRouter.request('/tfy-env')).status).toBe(404);
   });
+  it.each([
+    { mode: TrueForgeAuthMode.Standalone, expectedType: 'daytona' },
+    { mode: TrueForgeAuthMode.TrueFoundry, expectedType: 'truefoundry' },
+  ])(
+    'POST/PUT store type $expectedType with sandbox_provider daytona in $mode mode',
+    async ({ mode, expectedType }) => {
+      jest.mocked(getTrueForgeAuthMode).mockReturnValue(mode);
+      const { publicRouter, sandboxEnvironmentStore, setSubject } = await setup();
+      setSubject('alice', [...STANDALONE_REQUEST_CONTEXT.roles, TRUEFOUNDRY_TENANT_ADMIN_ROLE]);
+      jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReturnValue({
+        createSecret: jest.fn(),
+        updateSecret: jest.fn(),
+        deleteSecret: jest.fn(),
+        getBuildStatus: jest.fn(),
+        build: jest.fn(),
+      } as never);
+
+      const write = (method: 'POST' | 'PUT', build_script: string) =>
+        publicRouter.request('/', {
+          method,
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ manifest: { name: 'identity-env', image: { type: 'build', build_script } } }),
+        });
+      const storedIdentity = async () => {
+        const stored = await sandboxEnvironmentStore.getEnvironment({
+          tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
+          name: 'identity-env',
+        });
+        return { type: stored?.version.manifest.type, sandbox_provider: stored?.version.manifest.sandbox_provider };
+      };
+
+      expect((await write('POST', 'pip install httpx')).status).toBe(201);
+      expect(await storedIdentity()).toEqual({ type: expectedType, sandbox_provider: 'daytona' });
+
+      expect((await write('PUT', 'pip install requests')).status).toBe(200);
+      expect(await storedIdentity()).toEqual({ type: expectedType, sandbox_provider: 'daytona' });
+
+      const body = (await (await publicRouter.request('/identity-env')).json()) as { data: { manifest: object } };
+      expect(body.data.manifest).not.toHaveProperty('type');
+      expect(body.data.manifest).not.toHaveProperty('sandbox_provider');
+    },
+  );
 });

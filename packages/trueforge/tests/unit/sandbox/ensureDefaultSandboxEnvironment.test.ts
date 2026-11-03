@@ -2,6 +2,8 @@ import type { ISandboxEnvironmentStore } from '../../../src/db/sandboxEnvironmen
 import { ensureDefaultSandboxEnvironment } from '../../../src/sandbox/ensureDefaultSandboxEnvironment';
 import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../../../src/schemas/sandboxEnvironment';
 
+const DAYTONA_IDENTITY = { type: 'daytona', sandbox_provider: 'daytona' } as const;
+
 const SUBJECT = {
   subject_id: 'user-1',
   subject_type: 'user' as const,
@@ -23,7 +25,7 @@ describe('ensureDefaultSandboxEnvironment', () => {
       store: store as unknown as ISandboxEnvironmentStore,
       tenant_id: 'tenant-1',
       created_by_subject: SUBJECT,
-      provider_type: 'daytona',
+      identity: DAYTONA_IDENTITY,
       resetPending: false,
     });
 
@@ -45,7 +47,7 @@ describe('ensureDefaultSandboxEnvironment', () => {
       store: store as unknown as ISandboxEnvironmentStore,
       tenant_id: 'tenant-1',
       created_by_subject: SUBJECT,
-      provider_type: 'daytona',
+      identity: DAYTONA_IDENTITY,
       resetPending: false,
     });
 
@@ -85,7 +87,7 @@ describe('ensureDefaultSandboxEnvironment', () => {
       store: store as unknown as ISandboxEnvironmentStore,
       tenant_id: 'tenant-1',
       created_by_subject: SUBJECT,
-      provider_type: 'daytona',
+      identity: DAYTONA_IDENTITY,
       resetPending: true,
     });
 

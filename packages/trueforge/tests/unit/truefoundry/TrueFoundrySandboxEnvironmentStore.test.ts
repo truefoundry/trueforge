@@ -75,7 +75,7 @@ describe('TrueFoundrySandboxEnvironmentStore', () => {
         manifest: {
           name: 'pyjokes-env',
           resources: { cpu: 1, memory: 1, disk: 3 },
-          type: 'daytona',
+          type: 'truefoundry',
           sandbox_provider: 'daytona',
         },
         status: 'pending',
@@ -131,7 +131,7 @@ describe('TrueFoundrySandboxEnvironmentStore', () => {
         manifest: {
           name: 'pyjokes-env',
           resources: { cpu: 1, memory: 1, disk: 3 },
-          type: 'daytona',
+          type: 'truefoundry',
           sandbox_provider: 'daytona',
         },
         status: 'pending',
