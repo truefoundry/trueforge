@@ -98,7 +98,7 @@ function renderDialog({
     sessionAccess: { listAccess, grantAccess, revokeAccess, searchUsers },
     getCapabilities: async () => ({
       data: {
-        sandbox: { enabled: true },
+        sandbox: { enabled: true, environments: { enabled: true } },
         skill: { enabled: true },
         settings: allSettingsSections(true),
         sessionSharing: { enabled: sessionSharingEnabled },

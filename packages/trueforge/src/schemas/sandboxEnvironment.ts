@@ -153,15 +153,25 @@ const SandboxEnvironmentManifestRequestSchema = SandboxEnvironmentManifestFields
 ).openapi('SandboxEnvironmentManifestRequest');
 
 /**
- * Persisted version jsonb — wire fields plus backend-resolved provider identity.
- * `truefoundry` = TrueFoundry platform mode label; runtime still uses Daytona for envs.
+ * Backend-resolved identity on the stored version jsonb. `type` is the platform mode
+ * (`truefoundry` in TrueFoundry mode, else the provider type); `sandbox_provider` is the
+ * runtime provider that backs the environment (e.g. TrueFoundry mode on Daytona).
+ */
+export const SandboxEnvironmentIdentitySchema = z
+  .object({
+    type: z.enum(['daytona', 'truefoundry']),
+    sandbox_provider: z.enum(['daytona', 'truefoundry']),
+  })
+  .strict();
+
+/**
+ * Persisted version jsonb — wire fields plus backend-resolved identity.
  * Not exposed on request/response wire types. Allows name `"default"`.
  */
 export const StoredSandboxEnvironmentManifestSchema = z
   .object({
     ...SandboxEnvironmentManifestFieldsSchema.shape,
-    type: z.enum(['daytona', 'truefoundry']),
-    sandbox_provider: z.enum(['daytona', 'truefoundry']),
+    ...SandboxEnvironmentIdentitySchema.shape,
   })
   .strict();
 
@@ -254,6 +264,7 @@ export type SandboxEnvironmentVersionStatus = z.infer<typeof SandboxEnvironmentV
 export type SandboxEnvironmentSecret = z.infer<typeof SandboxEnvironmentSecretSchema>;
 export type SandboxEnvironmentManifest = z.infer<typeof SandboxEnvironmentManifestSchema>;
 export type StoredSandboxEnvironmentManifest = z.infer<typeof StoredSandboxEnvironmentManifestSchema>;
+export type SandboxEnvironmentIdentity = z.infer<typeof SandboxEnvironmentIdentitySchema>;
 export type SandboxEnvironmentVersionInternalMetadata = z.infer<typeof SandboxEnvironmentVersionInternalMetadataSchema>;
 export type CreateSandboxEnvironmentRequest = z.infer<typeof CreateSandboxEnvironmentRequestSchema>;
 export type UpdateSandboxEnvironmentRequest = z.infer<typeof UpdateSandboxEnvironmentRequestSchema>;

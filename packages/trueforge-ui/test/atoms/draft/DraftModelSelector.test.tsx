@@ -284,7 +284,11 @@ describe('DraftModelSelector', () => {
         getModels: async () => [],
         catalog: createMockCatalog(),
         getCapabilities: async () => ({
-          data: { sandbox: { enabled: true }, skill: { enabled: true }, settings: allSettingsSections(false) },
+          data: {
+            sandbox: { enabled: true, environments: { enabled: true } },
+            skill: { enabled: true },
+            settings: allSettingsSections(false),
+          },
         }),
       },
     );
