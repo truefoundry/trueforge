@@ -415,6 +415,53 @@ describe('validateAgentSpec', () => {
         }),
       ).resolves.toBeUndefined();
     });
+
+    it('rejects turning memory on over a spec that had it off while the deployment has memory off', async () => {
+      const stores = await setup();
+      await expect(
+        validateAgentSpec({
+          spec: memorySpec(),
+          tenant_id: 'default',
+          created_by_subject_id: 'test-subject',
+          ...stores,
+          previousSpec: AgentSpecSchema.parse({
+            model: { name: 'test-provider/test-model' },
+            instructions: 'test',
+            config: { memory: { enabled: false } },
+          }),
+        }),
+      ).rejects.toMatchObject({
+        status: 422,
+        message: expect.stringContaining('not available on this deployment'),
+      } satisfies Partial<HTTPException>);
+    });
+
+    it('keeps memory on a spec that already had it while the deployment has memory off', async () => {
+      const stores = await setup();
+      await expect(
+        validateAgentSpec({
+          spec: memorySpec(),
+          tenant_id: 'default',
+          created_by_subject_id: 'test-subject',
+          ...stores,
+          previousSpec: memorySpec(),
+        }),
+      ).resolves.toBeUndefined();
+    });
+
+    it('keeps memory on a spec that already had it while the tenant has memory off', async () => {
+      const stores = await setup();
+      await expect(
+        validateAgentSpec({
+          spec: memorySpec(),
+          tenant_id: 'default',
+          created_by_subject_id: 'test-subject',
+          ...stores,
+          previousSpec: memorySpec(),
+          memory: configuredMemory(false),
+        }),
+      ).resolves.toBeUndefined();
+    });
   });
 
   it('rejects skills when no sandbox provider is configured', async () => {

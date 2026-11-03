@@ -372,7 +372,9 @@ export async function validateAgentSpec({
     }
   }
 
-  if (spec.config.memory.enabled) {
+  // Memory is gated the same way. A spec already saved with it on keeps it, and its
+  // turns run without memory while memory is off for the deployment or tenant.
+  if (spec.config.memory.enabled && previousSpec?.config.memory.enabled !== true) {
     if (memory === undefined) {
       throw new HTTPException(422, { message: 'memory is enabled but memory is not available on this deployment' });
     }

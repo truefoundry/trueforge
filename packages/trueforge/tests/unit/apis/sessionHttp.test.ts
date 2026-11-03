@@ -924,6 +924,38 @@ describe('sessions HTTP agent binding', () => {
     expect(allowed.status).toBe(201);
   });
 
+  it('still runs a stored memory agent while the deployment has memory off', async () => {
+    const agent = await agentStore.createAgent({
+      tenant_id: 'default',
+      created_by_subject: {
+        subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+        subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+        subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+      },
+      name: 'memory-agent',
+      description: 'Test agent.',
+      manifest: AgentSpecSchema.parse({
+        model: { name: 'anthropic/claude-sonnet-4-6' },
+        instructions: 'remembers',
+        config: { memory: { enabled: true } },
+      }),
+      external_id: null,
+    });
+
+    // The agent was saved while memory was available, so its stored spec is grandfathered.
+    const grandfathered = await app.request('/', jsonInit('POST', { agent: { name: agent.name } }));
+    expect(grandfathered.status).toBe(201);
+
+    // Newly asking for memory in an inline spec is still refused.
+    const blocked = await app.request(
+      '/',
+      jsonInit('POST', {
+        agent: { spec: { ...inlineSpec, config: { ...inlineSpec.config, memory: { enabled: true } } } },
+      }),
+    );
+    expect(blocked.status).toBe(422);
+  });
+
   it('validates a named agent spec the same way it validates an inline one', async () => {
     const agent = await agentStore.createAgent({
       tenant_id: 'default',
