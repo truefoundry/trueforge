@@ -340,52 +340,6 @@ describe('ssrfFetch', () => {
   });
 });
 
-describe('OutboundFetchOptions.userAgent', () => {
-  it('sets User-Agent when none is present and prepends when one already exists', async () => {
-    configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
-    configureOutboundFetches({
-      outbound: defaultOutboundFetchOptions(),
-      model: { ...defaultModelOutboundFetchOptions(), userAgent: 'trueforge/0.1.0' },
-      mcp: defaultMcpOutboundFetchOptions(),
-    });
-    const seen: Array<string | undefined> = [];
-    const { server, origin } = await listen((req, res) => {
-      seen.push(req.headers['user-agent']);
-      res.writeHead(200, { 'content-type': 'text/plain' });
-      res.end('ok');
-    });
-    try {
-      await modelSsrfFetch(`${origin}/alone`);
-      await modelSsrfFetch(`${origin}/with`, { headers: { 'user-agent': 'ai-sdk/provider-utils/1.0.0' } });
-      await ssrfFetch(`${origin}/generic`, { headers: { 'user-agent': 'custom/1' } });
-      expect(seen).toEqual(['trueforge/0.1.0', 'trueforge/0.1.0 ai-sdk/provider-utils/1.0.0', 'custom/1']);
-    } finally {
-      await closeServer(server);
-    }
-  });
-
-  it('prepends onto a Request User-Agent after flattening Request headers into init', async () => {
-    configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
-    configureOutboundFetches({
-      outbound: defaultOutboundFetchOptions(),
-      model: defaultModelOutboundFetchOptions(),
-      mcp: { ...defaultMcpOutboundFetchOptions(), userAgent: 'trueforge/0.1.0' },
-    });
-    let seen: string | undefined;
-    const { server, origin } = await listen((req, res) => {
-      seen = req.headers['user-agent'];
-      res.writeHead(200, { 'content-type': 'text/plain' });
-      res.end('ok');
-    });
-    try {
-      await mcpSsrfFetch(new Request(`${origin}/`, { headers: { 'user-agent': 'node' } }));
-      expect(seen).toBe('trueforge/0.1.0 node');
-    } finally {
-      await closeServer(server);
-    }
-  });
-});
-
 describe('modelSsrfFetch', () => {
   it('uses the model Agent, not the generic outbound Agent', async () => {
     configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });

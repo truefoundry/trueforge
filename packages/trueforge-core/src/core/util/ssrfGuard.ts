@@ -590,11 +590,11 @@ export function createOutboundFetch(options: OutboundFetchOptions): OutboundFetc
     fetch: async (input, init) => {
       const startedMs = performance.now();
       const metrics = metricsModule === undefined ? undefined : { module: metricsModule };
-      // Flatten Request headers into init before prepending so an existing User-Agent is preserved.
+      // Flatten Request into init first: prepend only sees init headers, and the later
+      // mergeRequestInit in guardedFetch replaces headers wholesale via `...init`.
       const mergedInit = withPrependedUserAgent(mergeRequestInit(input, init ?? {}), userAgent);
-      const requestInput = input instanceof Request ? input.url : input;
       try {
-        const response = await withOutboundHttpRetries(requestInput, mergedInit, agent, {
+        const response = await withOutboundHttpRetries(input, mergedInit, agent, {
           maxRetries,
           idempotent,
           metrics,

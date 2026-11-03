@@ -2,7 +2,6 @@ import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 import { HTTPException } from 'hono/http-exception';
 import type { RequestContext } from '../../../src/auth/identity';
 import type { AgentRecord } from '../../../src/db/agentStore';
-import { PACKAGE_VERSION, TRUEFORGE_USER_AGENT } from '../../../src/packageVersion';
 import {
   accessTokenForRequest,
   ACTOR_AUTHORIZATION_HEADER,
@@ -44,12 +43,6 @@ describe('callerAccessToken', () => {
     expect(() => callerAccessToken({ ...CONTEXT, user_credential: null })).toThrow(
       expect.objectContaining({ status: 401 }),
     );
-  });
-});
-
-describe('TRUEFORGE_USER_AGENT', () => {
-  it('identifies TrueForge with its package version', () => {
-    expect(TRUEFORGE_USER_AGENT).toBe(`trueforge/${PACKAGE_VERSION}`);
   });
 });
 

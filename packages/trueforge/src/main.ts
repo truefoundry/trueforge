@@ -18,6 +18,7 @@ import {
 import type { Context } from 'hono';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
+import { PACKAGE_VERSION, TRUEFORGE_USER_AGENT } from './packageVersion';
 import {
   ensureLocalSandboxRootParent,
   prepareCodeModeSocketParent,
@@ -140,7 +141,6 @@ import { createServerLogger, shouldColorize } from './logger';
 import type { IOAuthTokenStore } from './mcp/auth/types';
 import { createOperationMetrics } from './observability/agentMetrics';
 import { startSdkMetrics } from './observability/sdkMetrics';
-import { PACKAGE_VERSION, TRUEFORGE_USER_AGENT } from './packageVersion';
 import { ActiveTurnRegistry } from './runtime/activeTurns';
 import { EventSubscriptionRegistry } from './runtime/event-subscription';
 import { enableRedisOpenTelemetry, type ConnectedRedis } from './runtime/redis';
