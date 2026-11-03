@@ -1,4 +1,5 @@
 import type { Logger } from 'winston';
+import { abandonedTurnCloserLoop } from './controller/abandonedTurnCloser';
 import { Controller } from './controller/Controller';
 import { sandboxEnvBuildLoop } from './controller/sandboxEnvBuild';
 import { scheduleDispatchLoop } from './controller/scheduleDispatch';
@@ -9,7 +10,7 @@ import type { WithTransaction } from './db/transaction';
  * Controller whose schedule loop hands runs to the server over HTTP
  * (`SERVER_URL` + `TRUEFORGE_API_KEY` from process config). Standalone uses
  * loopback; distributed uses the dedicated controller against the server Service.
- * Sandbox-env build loop lists/progresses pending versions over the same HTTP path.
+ * Sandbox-env build and abandoned-turn closer loops use the same HTTP path.
  */
 export function createController<TTransaction>(params: {
   scheduleStore: IScheduleStore<TTransaction>;
@@ -24,6 +25,7 @@ export function createController<TTransaction>(params: {
         logger: params.logger,
       }),
       sandboxEnvBuildLoop({ logger: params.logger }),
+      abandonedTurnCloserLoop({ logger: params.logger }),
     ],
     logger: params.logger,
   });

@@ -28,6 +28,7 @@ import type {
   ISessionStore,
   ListSessionEventsInput,
   ListSessionsInput,
+  ListStaleRunningTurnsInput,
   ListTurnEventsInput,
   ListTurnsInput,
   NewThreadInit,
@@ -36,6 +37,7 @@ import type {
   PatchSandboxInfoInput,
   PatchThreadCapabilityStateInput,
   RemoveThreadsInput,
+  StaleRunningTurnRef,
   TurnContextAppend,
   TurnRecordWithoutSnapshot,
   UpdateSessionInput,
@@ -487,6 +489,47 @@ export class InMemorySessionStore<
       return row;
     });
     return paginate(records, input.limit, input.page_token);
+  }
+
+  async listStaleRunningTurns(input: ListStaleRunningTurnsInput): Promise<StaleRunningTurnRef[]> {
+    const cutoffMs = input.older_than.getTime();
+    const candidates: {
+      tenant_id: string;
+      session_id: string;
+      turn_id: string;
+      last_activity_ms: number;
+    }[] = [];
+    for (const turn of this.turns.values()) {
+      if (turn.state.status !== 'running') {
+        continue;
+      }
+      const session = this.sessions.get(sessionKey(turn.session_id));
+      if (!session) {
+        continue;
+      }
+      const list = this.events.get(turnKey({ session_id: turn.session_id, turn_id: turn.turn_id })) ?? [];
+      const lastActivityMs =
+        list.length === 0 ? turn.created_at.getTime() : Math.max(...list.map(event => Date.parse(event.created_at)));
+      if (lastActivityMs < cutoffMs) {
+        candidates.push({
+          tenant_id: session.record.tenant_id,
+          session_id: turn.session_id,
+          turn_id: turn.turn_id,
+          last_activity_ms: lastActivityMs,
+        });
+      }
+    }
+    candidates.sort((a, b) => {
+      if (a.last_activity_ms !== b.last_activity_ms) {
+        return a.last_activity_ms - b.last_activity_ms;
+      }
+      const bySession = compareSessionId(a.session_id, b.session_id);
+      if (bySession !== 0) {
+        return bySession;
+      }
+      return a.turn_id < b.turn_id ? -1 : a.turn_id > b.turn_id ? 1 : 0;
+    });
+    return candidates.map(({ tenant_id, session_id, turn_id }) => ({ tenant_id, session_id, turn_id }));
   }
 
   async updateTurnNonTerminalState(input: UpdateTurnNonTerminalStateInput): Promise<void> {

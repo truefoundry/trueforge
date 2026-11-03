@@ -3333,6 +3333,74 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       expect(page2.data.map(t => t.turn_id)).toEqual(['t3']);
     });
 
+    it('listStaleRunningTurns returns only running turns with stale last event', async () => {
+      const store = createStore();
+      await seedSession(store);
+      const olderThan = new Date('2020-01-02T00:00:00.000Z');
+      const staleEventAt = '2020-01-01T00:00:00.000Z';
+      const freshEventAt = '2020-01-03T00:00:00.000Z';
+
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'stale-running' }));
+      await store.appendToEvents({
+        session_id: sessionId,
+        turn_id: 'stale-running',
+        events: [{ ...makeTurnCreatedEvent('stale-running'), created_at: staleEventAt }],
+      });
+
+      await store.createTurn(
+        makeCreateTurnInput({
+          sessionId,
+          turnId: 'fresh-running',
+          previousTurnId: null,
+          firstTurnId: 'fresh-running',
+        }),
+      );
+      await store.appendToEvents({
+        session_id: sessionId,
+        turn_id: 'fresh-running',
+        events: [{ ...makeTurnCreatedEvent('fresh-running'), created_at: freshEventAt }],
+      });
+
+      await store.createTurn(
+        makeCreateTurnInput({
+          sessionId,
+          turnId: 'stale-paused',
+          previousTurnId: null,
+          firstTurnId: 'stale-paused',
+        }),
+      );
+      await store.appendToEvents({
+        session_id: sessionId,
+        turn_id: 'stale-paused',
+        events: [{ ...makeTurnCreatedEvent('stale-paused'), created_at: staleEventAt }],
+      });
+      const pausedState = makePausedTurnState();
+      await store.updateTurnNonTerminalState({
+        session_id: sessionId,
+        turn_id: 'stale-paused',
+        state: pausedState,
+        turn_update_event: makeTurnUpdateEvent(pausedState),
+      });
+
+      await store.createTurn(
+        makeCreateTurnInput({
+          sessionId,
+          turnId: 'stale-done',
+          previousTurnId: null,
+          firstTurnId: 'stale-done',
+        }),
+      );
+      await store.appendToEvents({
+        session_id: sessionId,
+        turn_id: 'stale-done',
+        events: [{ ...makeTurnCreatedEvent('stale-done'), created_at: staleEventAt }],
+      });
+      await finishTurn(store, 'stale-done');
+
+      const stale = await store.listStaleRunningTurns({ older_than: olderThan });
+      expect(stale).toEqual([{ tenant_id: tenant, session_id: sessionId, turn_id: 'stale-running' }]);
+    });
+
     it('listTurnEvents supports desc order', async () => {
       const store = createStore();
       await seedSession(store);

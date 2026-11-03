@@ -18,6 +18,7 @@ import type {
   ISessionStore,
   ListSessionEventsInput,
   ListSessionsInput,
+  ListStaleRunningTurnsInput,
   ListTurnEventsInput,
   ListTurnsInput,
   OverwriteThreadContextInput,
@@ -25,6 +26,7 @@ import type {
   PatchSandboxInfoInput,
   PatchThreadCapabilityStateInput,
   RemoveThreadsInput,
+  StaleRunningTurnRef,
   TurnRecordWithoutSnapshot,
   UpdateSessionInput,
   UpdateTurnNonTerminalStateInput,
@@ -65,6 +67,7 @@ import {
   createTurn as createTurnQuery,
   freezeAndGetTurn as freezeAndGetTurnQuery,
   getTurn as getTurnQuery,
+  listStaleRunningTurns as listStaleRunningTurnsQuery,
   listTurns as listTurnsQuery,
   updateTurnNonTerminalState as updateTurnNonTerminalStateQuery,
   updateTurnTerminalState as updateTurnTerminalStateQuery,
@@ -169,6 +172,10 @@ export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCu
 
   getTurn(input: GetTurnInput): Promise<TurnRecord<TurnCustom> | undefined> {
     return getTurnQuery(this.db, input);
+  }
+
+  listStaleRunningTurns(input: ListStaleRunningTurnsInput): Promise<StaleRunningTurnRef[]> {
+    return listStaleRunningTurnsQuery(this.db, input);
   }
 
   async listTurns(
