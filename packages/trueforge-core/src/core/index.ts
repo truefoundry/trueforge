@@ -52,7 +52,6 @@ export {
   MEMORY_INSTRUCTION_TAG,
   MEMORY_SEARCH_TOOL_NAME,
   MEMORY_SERVER_ID,
-  MEMORY_STATE_KEY,
   buildMemoryInstruction,
   memory,
 } from './capabilities/builtins/Memory';
