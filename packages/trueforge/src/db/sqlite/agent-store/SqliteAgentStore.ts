@@ -110,13 +110,16 @@ export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
     input: ListAgentsInput,
     transaction?: Transaction<Database>,
   ): Promise<{ data: AgentRecord[]; pagination: TokenPagination }> {
-    if (input.external_ids?.length === 0) {
+    if (input.external_ids?.length === 0 || input.names?.length === 0) {
       return { data: [], pagination: { limit: input.limit ?? 0 } };
     }
     const db = transaction ?? this.#db;
     let query = db.selectFrom('agent').select(recordColumns).where('tenant_id', '=', input.tenant_id);
     if (input.external_ids !== undefined) {
       query = query.where('external_id', 'in', [...input.external_ids]);
+    }
+    if (input.names !== undefined) {
+      query = query.where('name', 'in', [...input.names]);
     }
     if (input.agent_name !== undefined) {
       query = query.where(sql<boolean>`instr(lower(name), lower(${input.agent_name})) > 0`);

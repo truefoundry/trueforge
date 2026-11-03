@@ -85,6 +85,7 @@ const deniedCanAccessAgent = jest.fn((_input: Parameters<Authorizer['canAccessAg
 const denyAllAuthorizer: Authorizer = {
   listAgentAccess: deniedListAgentAccess,
   canAccessAgent: deniedCanAccessAgent,
+  canAuthorWork: () => Promise.resolve(true),
   getPermissions: async ({ resourceType, resourceIds }) => ({
     type: resourceType,
     permissions: Object.fromEntries(resourceIds.map(id => [id, []])),
@@ -129,6 +130,43 @@ describe('agents router', () => {
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
       authorizer: denyAllAuthorizer,
     });
+  });
+
+  it('restricted role lists only allowed agents and cannot create agents', async () => {
+    const db = createSqliteDb(':memory:');
+    await migrateSqliteToLatest(db);
+    const modelProviderStore = new SqliteModelProviderStore(db);
+    await modelProviderStore.upsertProvider({ tenant_id: 'default', name: 'anthropic', manifest: modelProvider });
+    const agentStore = new SqliteAgentStore(db);
+    const buildRouter = (roles: string[], authorizer: Authorizer) =>
+      createAgentsRouter({
+        resolveAgentStore: () => agentStore,
+        resolveModelProviderStore: () => modelProviderStore,
+        resolveMcpServerStore: () => new SqliteMcpServerStore(db),
+        resolveSkillStore: () => new SqliteSkillStore(db),
+        resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
+        sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
+        resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
+        resolveConfigurationStore: () => new SqliteConfigurationStore(db),
+        memory: undefined,
+        withTransaction: callback => db.transaction().execute(callback),
+        resolveRequestContext: () => ({ ...STANDALONE_REQUEST_CONTEXT, roles }),
+        authorizer,
+      });
+    const authorizer = new TrueForgeAuthorizer({
+      restrictedRoleValue: 'restricted',
+      restrictedAgentNames: ['allowed'],
+    });
+    const admin = buildRouter(['admin'], authorizer);
+    for (const name of ['allowed', 'hidden']) {
+      expect((await admin.request('/', jsonInit('POST', { ...writeBody, name }))).status).toBe(201);
+    }
+
+    const restricted = buildRouter(['restricted'], authorizer);
+    const listed = (await (await restricted.request('/')).json()) as { data: WireAgent[] };
+    expect(listed.data.map(agent => agent.name)).toEqual(['allowed']);
+    expect((await restricted.request('/', jsonInit('POST', { ...writeBody, name: 'mine' }))).status).toBe(403);
+    expect(((await (await admin.request('/')).json()) as { data: WireAgent[] }).data).toHaveLength(2);
   });
 
   it('POST returns a wrapped Agent; PUT by immutable id keeps the same id', async () => {

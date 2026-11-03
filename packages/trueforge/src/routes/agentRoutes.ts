@@ -88,6 +88,10 @@ export const createAgentRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid request body or unknown model/MCP/skill refs.',
     },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Caller role cannot create agents, schedules, or unsaved-agent sessions.',
+    },
     409: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'An agent with this name already exists.',

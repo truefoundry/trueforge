@@ -82,6 +82,10 @@ export class TrueFoundryAuthorizer implements Authorizer {
     return allowsAction(permissions[input.agent.external_id] ?? [], input.action);
   }
 
+  canAuthorWork(): Promise<boolean> {
+    return Promise.resolve(true);
+  }
+
   async getPermissions(input: GetPermissionsInput): Promise<ListPermissionsData> {
     const { requestContext, resourceIds } = input;
 

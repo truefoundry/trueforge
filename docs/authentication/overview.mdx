@@ -131,6 +131,9 @@ The default. Do **not** set any `OIDC_*` variables, run TrueForge as usual ([Qui
     | `OIDC_ADMIN_ROLE_VALUE` | No (default `admin`) | Exact string that grants `admin` (case-sensitive) |
     | `OIDC_SCOPES` | No (default `openid,profile,email`) | Scopes for the authorize request |
     | `OIDC_ALLOWED_EMAILS` | No | Comma-separated allowlist of exact emails and/or `*` globs (e.g. `alice@acme.com,*@partner.com`). When set, only ID tokens whose `email` claim matches an entry may sign in. Empty / unset = unrestricted. Matching is case-insensitive. |
+    | `OIDC_SERVICE_SUBJECTS` | No | Comma-separated values of the user reference claim (e.g. service-principal `oid`s) that skip the `OIDC_ALLOWED_EMAILS` check. For machine tokens (client credentials) that carry no `email`. They sign in as normal non-admin users. |
+    | `OIDC_RESTRICTED_ROLE_VALUE` | No | Role value that confines non-admin callers to the agents in `OIDC_RESTRICTED_AGENT_NAMES`. Such callers see and use only those saved agents and cannot create agents or schedules or run unsaved (inline) agents; admins are exempt. Unset = off. |
+    | `OIDC_RESTRICTED_AGENT_NAMES` | No | Comma-separated agent names available to the restricted role. |
 
     How you pass these depends on how you run TrueForge:
 
@@ -177,6 +180,9 @@ The default. Do **not** set any `OIDC_*` variables, run TrueForge as usual ([Qui
             scopes: "openid,profile,email,groups"
             # Optional: restrict who can sign in
             # allowedEmails: "alice@acme.com,*@partner.com"
+            # serviceSubjects: "<service-principal-object-id>"
+            # restrictedRoleValue: "<restricted-group-object-id>"
+            # restrictedAgentNames: "support-agent,faq-agent"
         extraObjects:
           - apiVersion: v1
             kind: Secret
@@ -211,6 +217,7 @@ Each signed-in person maps to exactly one role, decided by the role claim in the
 | --- | --- | --- | --- |
 | **admin** | Role claim contains `OIDC_ADMIN_ROLE_VALUE` | Yes | Yes — models, connectors, skills, sandbox |
 | **user** | Everyone else who can sign in | Yes | No — Settings hidden |
+| **restricted** (optional) | Role claim contains `OIDC_RESTRICTED_ROLE_VALUE` and not the admin value | Only the agents in `OIDC_RESTRICTED_AGENT_NAMES` | No — and cannot create agents or schedules |
 
 <Note>
   Two current limitations:

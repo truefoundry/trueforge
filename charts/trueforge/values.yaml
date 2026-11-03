@@ -196,6 +196,13 @@ configs:
     # Optional comma-separated exact emails and/or * globs (e.g. "*@company.com").
     # Empty = unrestricted. Matched against the ID token `email` claim.
     allowedEmails: ""
+    # Optional comma-separated user-reference claim values (e.g. service-principal oids) that
+    # skip the email allowlist, for machine tokens without an `email` claim.
+    serviceSubjects: ""
+    # Optional role value confining non-admin callers to `restrictedAgentNames` (comma-separated):
+    # they cannot create agents or schedules or run unsaved agents. Empty = off.
+    restrictedRoleValue: ""
+    restrictedAgentNames: ""
 # App-level outbound URL guard (MCP url / model-provider base_url). Not a K8s NetworkPolicy.
 # Full table: charts/trueforge/README.md (networkPolicy).
 #

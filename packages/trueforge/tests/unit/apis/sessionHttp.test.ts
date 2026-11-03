@@ -69,6 +69,7 @@ const deniedCanAccessAgent = jest.fn((_input: Parameters<Authorizer['canAccessAg
 const denyAllAuthorizer: Authorizer = {
   listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
   canAccessAgent: deniedCanAccessAgent,
+  canAuthorWork: () => Promise.resolve(true),
   getPermissions: async ({ resourceType, resourceIds }) => ({
     type: resourceType,
     permissions: Object.fromEntries(resourceIds.map(id => [id, []])),
@@ -330,6 +331,27 @@ describe('sessions HTTP agent binding', () => {
     expect(sessionsChart.data.graphs[0]?.graph_lines[0]?.values.reduce((sum, point) => sum + point.value, 0)).toBe(1);
   });
 
+  it('rejects inline-agent session creation and spec replacement when the caller cannot author work', async () => {
+    const restrictedAuthorizer: Authorizer = { ...denyAllAuthorizer, canAuthorWork: () => Promise.resolve(false) };
+    const restrictedApp = new OpenAPIHono();
+    restrictedApp.route(
+      '/',
+      createSessionsRouter({
+        ...sessionDeps,
+        requestReplyRouter: new RequestReplyRouter(),
+        authorizer: restrictedAuthorizer,
+      }),
+    );
+
+    const created = await restrictedApp.request('/', jsonInit('POST', { agent: { spec: inlineSpec } }));
+    expect(created.status).toBe(403);
+
+    const own = await app.request('/', jsonInit('POST', { agent: { spec: inlineSpec } }));
+    const ownId = ((await own.json()) as { data: { id: string } }).data.id;
+    const replaced = await restrictedApp.request(`/${ownId}`, jsonInit('PATCH', { agent: { spec: inlineSpec } }));
+    expect(replaced.status).toBe(403);
+  });
+
   it('lets an agent manager read named sessions, events, and metrics but not mutate them', async () => {
     const agent = await agentStore.createAgent({
       tenant_id: 'default',
@@ -357,6 +379,7 @@ describe('sessions HTTP agent binding', () => {
             : { kind: 'agent_external_ids', agent_external_ids: [] },
         ),
       canAccessAgent: () => Promise.resolve(false),
+      canAuthorWork: () => Promise.resolve(true),
       getPermissions: async ({ resourceType, resourceIds }) => ({
         type: resourceType,
         permissions: Object.fromEntries(resourceIds.map(id => [id, []])),

@@ -243,6 +243,7 @@ describe('turns', () => {
                   : { kind: 'agent_external_ids', agent_external_ids: [] },
               ),
             canAccessAgent: () => Promise.resolve(false),
+            canAuthorWork: () => Promise.resolve(true),
             getPermissions: async ({ resourceType, resourceIds }) => ({
               type: resourceType,
               permissions: Object.fromEntries(resourceIds.map(id => [id, []])),
@@ -807,6 +808,7 @@ describe('turns', () => {
     const denyAllAuthorizer: Authorizer = {
       listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
       canAccessAgent: deniedCanAccessAgent,
+      canAuthorWork: () => Promise.resolve(true),
       getPermissions: async ({ resourceType, resourceIds }) => ({
         type: resourceType,
         permissions: Object.fromEntries(resourceIds.map(id => [id, []])),
