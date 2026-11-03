@@ -1,6 +1,6 @@
 /**
  * Live app schema for the runtime Kysely client / Postgres-backed session store.
- * Migrations must not use this type — use `Kysely<unknown>` instead.
+ * Migrations must not use this type - use `Kysely<unknown>` instead.
  */
 import type {
   AgentSpec,
@@ -25,6 +25,7 @@ import type {
 } from '@truefoundry/trueforge-core/core';
 import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
+import type { ConfigurationManifest } from '../../schemas/configuration';
 import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { ModelProviderManifest } from '../../schemas/modelProvider';
 import type {
@@ -42,14 +43,14 @@ import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToke
 
 /**
  * Trace-level state for one thread at one turn (`turn_thread.checkpoint`).
- * Total types: `completion` is explicitly null until set — no optional keys.
+ * Total types: `completion` is explicitly null until set - no optional keys.
  */
 export interface TurnThreadCheckpoint {
   parent: AgentParent | null;
   completion: SubAgentCompletion | null;
 }
 
-/** Turn-level checkpoint — threads live in `turn_thread`; only owned top-level keys remain. */
+/** Turn-level checkpoint - threads live in `turn_thread`; only owned top-level keys remain. */
 export interface TurnCheckpoint {
   mcp_servers: Record<string, MCPServerInitInfo> | null;
   sandbox_info: SandboxInfo | null;
@@ -167,12 +168,12 @@ export interface TurnTable {
   // Insert arrays/objects via json() helper (bare JS arrays become PG arrays via node-pg).
   input: JSONColumnType<TurnInputItem[], TurnInputItem[] | string, TurnInputItem[] | string>;
   /**
-   * top: THE fence/freeze target — every gated write predicates on
+   * top: THE fence/freeze target - every gated write predicates on
    *      state->>'status'; exactly one terminal flip per turn
    */
   state: JSONColumnType<TurnState, TurnState, TurnState>;
   /**
-   * inlined: {mcp_servers, sandbox_info, ...future} — both small,
+   * inlined: {mcp_servers, sandbox_info, ...future} - both small,
    *      patched at most once or twice per turn (resource init);
    *      extensible without migration
    */
@@ -202,7 +203,7 @@ export interface TurnThreadTable {
   /** key */
   thread_id: string;
   /**
-   * inlined: {parent, completion, ...future} — parent: small,
+   * inlined: {parent, completion, ...future} - parent: small,
    *      immutable; completion: can be big but written ONCE at
    *      thread end (rare + terminal); the hot path below never
    *      touches this jsonb
@@ -211,7 +212,7 @@ export interface TurnThreadTable {
   /**
    * top: big + immutable thread IDENTITY. Real data: sub-agent
    *      instructions in one working session ran 2.4–8.8KB
-   *      (median 4.4KB) — always past the ~2KB TOAST threshold,
+   *      (median 4.4KB) - always past the ~2KB TOAST threshold,
    *      so a dedicated column lets every array rewrite carry the
    *      TOAST value by pointer instead of re-serializing it.
    *      Deliberately duplicates context[0] (the task is also the
@@ -223,7 +224,7 @@ export interface TurnThreadTable {
    */
   agent_info: JSONColumnType<AgentInfo, AgentInfo | null, AgentInfo | null> | null;
   /**
-   * top: hot — set by the SAME single-statement UPDATE as the
+   * top: hot - set by the SAME single-statement UPDATE as the
    *      array concat (zero extra row versions; ~300B inline;
    *      byte-neutral vs stamping log rows). Kept out of
    *      checkpoint so the jsonb never rewrites on the hot path.
@@ -233,14 +234,14 @@ export interface TurnThreadTable {
    */
   current_context_usage: JSONColumnType<CurrentContextUsage, CurrentContextUsage, CurrentContextUsage>;
   /**
-   * top: THE context — log append_ids in context order. Hot
+   * top: THE context - log append_ids in context order. Hot
    *      concat target (`||`), typed bigint[] operator; dominant
    *      TOAST value (~8KB at 1k live messages, entire value
-   *      rewritten per append batch — the accepted cost of the
+   *      rewritten per append batch - the accepted cost of the
    *      raw-array choice; range-encoding is the recorded shrink
    *      if measured).
    */
-  // Real Postgres bigint[] — bind JS number[] directly (NOT via json(); that is the jsonb trap).
+  // Real Postgres bigint[] - bind JS number[] directly (NOT via json(); that is the jsonb trap).
   // Select path: int8[] OID 1016 parser in client.ts yields number[].
   context_ids: number[];
   updated_at: Date;
@@ -307,7 +308,7 @@ export interface ThreadContextLogTable {
   /** key */
   thread_id: string;
   /**
-   * top: THE message id — store-assigned (the delta createTurn
+   * top: THE message id - store-assigned (the delta createTurn
    *      interface killed content addressing: the store is told
    *      what's new, so no hashing/dedupe); consumed by
    *      data-modifying CTE in the same statement (RETURNING
@@ -323,12 +324,12 @@ export interface ThreadContextLogTable {
    */
   append_id: Generated<number>;
   /**
-   * top: provenance — which turn wrote the row; debugging + the
+   * top: provenance - which turn wrote the row; debugging + the
    *      future writer-filter migration; tiny; NOT used for
    *      visibility (the array is the sole visibility authority)
    */
   turn_id: string;
-  /** top: the ContextMessage — written exactly once, never updated */
+  /** top: the ContextMessage - written exactly once, never updated */
   body: JSONColumnType<ContextMessage, ContextMessage, ContextMessage>;
   /**
    * top: future indexed time filters without a table rewrite
@@ -343,14 +344,14 @@ export interface ThreadContextLogTable {
  *
  * Capability history is per-turn on purpose: createTurn carries the previous
  * turn's rows forward (one INSERT..SELECT), so every turn owns its complete
- * map — fork fidelity and terminal immutability beat the tiny row duplication.
+ * map - fork fidelity and terminal immutability beat the tiny row duplication.
  * A cross-turn latest-wins PK was tried and REVERTED for the fork reason.
  */
 export interface ThreadCapabilityStateTable {
   /** key */
   session_id: string;
   /**
-   * key: capability history is PER TURN — fork/restore from any
+   * key: capability history is PER TURN - fork/restore from any
    *      turn must see the map AS OF that turn, and a frozen
    *      turn's map must never change under it. (A cross-turn
    *      latest-wins PK was tried and REVERTED for exactly the
@@ -362,7 +363,7 @@ export interface ThreadCapabilityStateTable {
   /** key: capability state key; `tfy.` prefix reserved */
   key: string;
   /**
-   * top: the value IS the row — JsonValue (undefined banned at
+   * top: the value IS the row - JsonValue (undefined banned at
    *      the harness boundary); NULL = explicitly cleared
    */
   // Insert via json() so scalars/arrays are not mis-encoded by node-pg.
@@ -372,7 +373,7 @@ export interface ThreadCapabilityStateTable {
 }
 
 /**
- * Configured model providers — manifest pattern: identity as columns,
+ * Configured model providers - manifest pattern: identity as columns,
  * everything else in one Zod-validated jsonb document.
  * PRIMARY KEY (tenant_id, name)
  */
@@ -388,7 +389,7 @@ export interface ModelProviderTable {
 }
 
 /**
- * Configured web-search provider — mirrors the Postgres `web_search_provider` table.
+ * Configured web-search provider - mirrors the Postgres `web_search_provider` table.
  * PRIMARY KEY (tenant_id)
  */
 export interface WebSearchProviderTable {
@@ -399,7 +400,17 @@ export interface WebSearchProviderTable {
 }
 
 /**
- * Configured skills — mirrors the Postgres `skill` table.
+ * Tenant-wide feature switches (canonical table).
+ * PRIMARY KEY (tenant_id)
+ */
+export interface ConfigurationTable {
+  tenant_id: string;
+  manifest: JSONColumnType<ConfigurationManifest, ConfigurationManifest, ConfigurationManifest>;
+  updated_at: Date;
+}
+
+/**
+ * Configured skills - mirrors the Postgres `skill` table.
  * PRIMARY KEY (tenant_id, name)
  */
 export interface SkillTable {
@@ -414,8 +425,8 @@ export interface SkillTable {
 }
 
 /**
- * Configured sandbox provider — mirrors the Postgres `sandbox_provider` table.
- * PRIMARY KEY (tenant_id) — at most one row per tenant.
+ * Configured sandbox provider - mirrors the Postgres `sandbox_provider` table.
+ * PRIMARY KEY (tenant_id) - at most one row per tenant.
  */
 export interface SandboxProviderTable {
   /** key */
@@ -427,7 +438,7 @@ export interface SandboxProviderTable {
 }
 
 /**
- * Configured agents — immutable ULID `id` PK; UNIQUE immutable (tenant_id, name).
+ * Configured agents - immutable ULID `id` PK; UNIQUE immutable (tenant_id, name).
  * PRIMARY KEY (id)
  */
 export interface AgentTable {
@@ -446,7 +457,7 @@ export interface AgentTable {
 }
 
 /**
- * Sandbox environments — immutable ULID `id` PK.
+ * Sandbox environments - immutable ULID `id` PK.
  * Partial unique (tenant_id, name) WHERE lifecycle_stage = 'active'.
  */
 export interface SandboxEnvironmentTable {
@@ -505,7 +516,7 @@ export interface SandboxEnvironmentSecretTable {
 }
 
 /**
- * Configured schedules — immutable ULID `id` PK.
+ * Configured schedules - immutable ULID `id` PK.
  * PRIMARY KEY (id)
  * CREATE INDEX schedule_agent_idx ON schedule (tenant_id, agent_name)
  * CREATE INDEX schedule_agent_id_idx ON schedule (tenant_id, agent_id)
@@ -543,7 +554,7 @@ export interface ScheduleRunTable {
   /** unique per trigger time: `sched-<unixSeconds>` for cron, `manual-<token>` for run-now */
   name: string;
   scheduled_for: Date;
-  /** `scheduled` | `triggered` | `failed` | `missed` — varchar(16) */
+  /** `scheduled` | `triggered` | `failed` | `missed` - varchar(16) */
   status: ScheduleRunStatus;
   created_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
   triggered_at: Date | null;
@@ -555,7 +566,7 @@ export interface ScheduleRunTable {
 
 /**
  * PRIMARY KEY (id)
- * UNIQUE (tenant_id, name) — the natural lookup key.
+ * UNIQUE (tenant_id, name) - the natural lookup key.
  */
 export interface McpServerTable {
   id: string;
@@ -563,11 +574,11 @@ export interface McpServerTable {
   /** the uniqueness target; also duplicated inside `manifest` */
   name: string;
   manifest: JSONColumnType<McpServerManifest, McpServerManifest, McpServerManifest>;
-  /** OAuthServer — { authorization_endpoint, token_endpoint, code_challenge_methods_supported }.
+  /** OAuthServer - { authorization_endpoint, token_endpoint, code_challenge_methods_supported }.
    * RFC 8414 authorization-server metadata, discovered once at registration time.
    */
   oauth_server: JSONColumnType<OAuthServer, OAuthServer, OAuthServer> | null;
-  /** OAuthClient — { client_id, client_secret }. RFC 7591 DCR response.
+  /** OAuthClient - { client_id, client_secret }. RFC 7591 DCR response.
    * Token auth is form-body (client_secret_post) when client_secret is set; presence of secret
    * alone decides the method (same as servicefoundry outbound DCR). Both oauth_server and
    * oauth_client are null until first successful DCR.
@@ -579,7 +590,7 @@ export interface McpServerTable {
 
 /**
  * PRIMARY KEY (oauth_server_id, user_id)
- * No `tenant_id` — already scoped to tenant via the FK. Tokens are per harness user
+ * No `tenant_id` - already scoped to tenant via the FK. Tokens are per harness user
  * (`user_id` = `RequestContext.subject.id`); any tenant-scoped read resolves `oauth_server_id`
  * through mcp_server (by tenant_id + name) first.
  */
@@ -618,7 +629,7 @@ export interface OAuthPendingAuthorizationTable {
  * big ones (`agent_info`, `checkpoint`); `session`, `turn`, and
  * `thread_capability_state` take small bounded HOT-friendly updates; the two logs
  * are pure insert. Nothing ever rewrites a large value except the array concat
- * itself — the documented, bounded cost of the raw-array model. `model_provider`,
+ * itself - the documented, bounded cost of the raw-array model. `model_provider`,
  * `skill`, `sandbox_provider`, `agent`, `mcp_server`, and the two `oauth_*` tables
  * are low-write, low-volume (one row per tenant/resource, or short-lived).
  * `schedule` is low-write; `schedule_run` takes a handful of bounded updates per
@@ -638,6 +649,7 @@ export interface Database {
   thread_capability_state: ThreadCapabilityStateTable;
   model_provider: ModelProviderTable;
   web_search_provider: WebSearchProviderTable;
+  configuration: ConfigurationTable;
   skill: SkillTable;
   sandbox_provider: SandboxProviderTable;
   agent: AgentTable;
