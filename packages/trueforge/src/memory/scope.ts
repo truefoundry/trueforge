@@ -19,7 +19,7 @@ export interface MemoryScope {
   subjectId: string;
   /** Registry agent id for agent scopes; null for the default scope. */
   agentId: string | null;
-  /** Provider-side identity of the scope (e.g. the Zep user id); see {@link memoryScopeKey}. */
+  /** Provider-side identity of the scope (e.g. the provider's user id); see {@link memoryScopeKey}. */
   key: string;
 }
 

@@ -6,6 +6,7 @@ import { defineTool, LocalToolMCP, type ToolDefinition } from '../../mcp/LocalTo
 import type { ScopedMemory } from '../../memory/ScopedMemory';
 import { InternalEventType } from '../../runtime/AgentThread.types';
 import type { AgentTracing } from '../../tracing/AgentTracing';
+import { NOOP_AGENT_TRACING } from '../../tracing/NoopAgentTracing';
 import type { AgentCapability, JsonValue } from '../AgentCapability';
 import type { AgentContextProcessorOutput, PreLLMAgentContextProcessor } from '../AgentContextProcessor';
 
@@ -109,7 +110,7 @@ class MemoryTools extends LocalToolMCP {
   private async runAdd(input: z.infer<typeof memoryAddInputSchema>): Promise<CallToolResponse> {
     await this.#memory.add({ content: input.content });
     return toolResultResponse({
-      text: 'Saved. It will be available in future sessions once memory has processed it.',
+      text: 'Saved. It will be available in future sessions processed.',
     });
   }
 }
@@ -125,7 +126,7 @@ class MemoryTools extends LocalToolMCP {
 export function memory(options: {
   memory: ScopedMemory;
   sessionStartSummary: { summary: string | null } | undefined;
-  tracing: AgentTracing;
+  tracing?: AgentTracing;
 }): AgentCapability {
   let state: MemoryState = { summary: options.sessionStartSummary?.summary ?? null };
   let pendingPersist = options.sessionStartSummary !== undefined;
@@ -142,7 +143,7 @@ export function memory(options: {
   };
 
   return {
-    systemToolSets: [new MemoryTools({ memory: options.memory, tracing: options.tracing })],
+    systemToolSets: [new MemoryTools({ memory: options.memory, tracing: options.tracing ?? NOOP_AGENT_TRACING })],
     instructionBuilders: [
       builder => {
         buildMemoryInstruction(builder, state.summary);

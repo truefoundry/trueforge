@@ -122,7 +122,7 @@ function fakeProvider(fail: (input: IngestExchangeInput) => boolean = () => fals
     async ingestExchange(input) {
       calls.push(input);
       if (fail(input)) {
-        throw new Error('zep unavailable');
+        throw new Error('memory provider unavailable');
       }
       return { externalThreadId: input.externalThreadId ?? `thread-${input.exchange.sessionId}` };
     },
@@ -358,11 +358,18 @@ describe('runMemoryIngestPass', () => {
     });
 
     expect(calls).toHaveLength(2);
-    expect(store.cursors.get('s1')).toMatchObject({ last_ingested_turn_id: 't1', last_error: 'zep unavailable' });
+    expect(store.cursors.get('s1')).toMatchObject({
+      last_ingested_turn_id: 't1',
+      last_error: 'memory provider unavailable',
+    });
     expect(summary).toMatchObject({ exchanges_sent: 1, exchanges_failed: 1, sessions_by_outcome: { failed: 1 } });
     expect(logger.error).toHaveBeenCalledWith(
       'Memory ingest failed for session',
-      expect.objectContaining({ session_id: 's1', last_error: 'zep unavailable', reportable_error: expect.anything() }),
+      expect.objectContaining({
+        session_id: 's1',
+        last_error: 'memory provider unavailable',
+        reportable_error: expect.anything(),
+      }),
     );
   });
 

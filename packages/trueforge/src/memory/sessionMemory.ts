@@ -1,5 +1,5 @@
 import type { SessionRecord } from '@truefoundry/trueforge-core/agent-session';
-import { memory, type AgentCapability, type AgentTracing, type ScopedMemory } from '@truefoundry/trueforge-core/core';
+import { memory, type AgentCapability, type ScopedMemory } from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
 import type { IAgentStore } from '../db/agentStore';
 import type { ConfiguredMemory } from './memoryFromConfig';
@@ -9,8 +9,6 @@ import { CREATE_AGENT_SESSION_METADATA_KEY, resolveMemoryScope, type MemoryScope
 /** Session start waits at most this long for the user summary, then continues without it. */
 export const MEMORY_SUMMARY_TIMEOUT_MS = 2_000;
 
-export type SessionMemoryCapability = (input: { tracing: AgentTracing }) => AgentCapability;
-
 /**
  * Memory for one turn of a session, or undefined when memory doesn't apply: off for the deployment
  * or tenant, a scheduled session, an agent whose spec has memory off, or a non-UI session without an
@@ -18,7 +16,7 @@ export type SessionMemoryCapability = (input: { tracing: AgentTracing }) => Agen
  * tools reach exactly the memory ingestion writes to.
  *
  * The summary is fetched only on the session's first turn; later turns render the copy persisted in
- * capability state, so Zep isn't called again for it.
+ * capability state, so the memory provider isn't called again for it.
  */
 export async function resolveSessionMemory({
   sessionId,
@@ -36,7 +34,7 @@ export async function resolveSessionMemory({
   agentStore: Pick<IAgentStore, 'getAgent'>;
   logger: Logger;
   summaryTimeoutMs?: number;
-}): Promise<SessionMemoryCapability | undefined> {
+}): Promise<AgentCapability | undefined> {
   if (configured === undefined || record.source !== null) {
     return undefined;
   }
@@ -77,7 +75,7 @@ export async function resolveSessionMemory({
     search: ({ query, limit }) => provider.search({ scope, query, limit }),
     add: ({ content }) => provider.addMemory({ scope, content, sessionId, createdAt: new Date().toISOString() }),
   };
-  return ({ tracing }) => memory({ memory: scoped, sessionStartSummary, tracing });
+  return memory({ memory: scoped, sessionStartSummary });
 }
 
 /** Single bounded attempt; any failure means "no summary" so the turn starts on time. */

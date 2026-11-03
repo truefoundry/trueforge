@@ -169,7 +169,6 @@ export type {
   AgentRemoteMcpToolTrace,
   AgentTracing,
 } from './tracing/AgentTracing';
-export { NOOP_AGENT_TRACING } from './tracing/NoopAgentTracing';
 
 export {
   configureOperationMetrics,

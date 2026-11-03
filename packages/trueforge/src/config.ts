@@ -1095,7 +1095,7 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
   TRUEFOUNDRY_MEMORY_PROVIDER: 'zep' | undefined;
   /** Shared API key (required for zep). Env: `TRUEFOUNDRY_MEMORY_API_KEY`. */
   TRUEFOUNDRY_MEMORY_API_KEY: string | undefined;
-  /** Memory provider API URL. Zep: default Zep Cloud v4. Env: `TRUEFOUNDRY_MEMORY_SERVER_URL`. */
+  /** Memory provider API URL; defaults to the provider's hosted API. Env: `TRUEFOUNDRY_MEMORY_SERVER_URL`. */
   TRUEFOUNDRY_MEMORY_SERVER_URL: string | undefined;
   /**
    * Tenants that get memory while `TRUEFOUNDRY_MEMORY_ENABLED`; every other tenant has none. JSON

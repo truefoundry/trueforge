@@ -3,7 +3,6 @@ import {
   InstructionBuilder,
   MEMORY_ADD_TOOL_NAME,
   MEMORY_SEARCH_TOOL_NAME,
-  NOOP_AGENT_TRACING,
   type AgentCapability,
 } from '@truefoundry/trueforge-core/core';
 import type { AgentRecord, IAgentStore } from '../../../src/db/agentStore';
@@ -98,10 +97,6 @@ function render(capability: AgentCapability): string {
   return builder.build();
 }
 
-function build(factory: NonNullable<Awaited<ReturnType<typeof resolve>>['capability']>): AgentCapability {
-  return factory({ tracing: NOOP_AGENT_TRACING });
-}
-
 describe('resolveSessionMemory', () => {
   it('gives a UI chat without an agent the default scope and loads the summary on its first turn', async () => {
     const provider = fakeMemoryProvider();
@@ -113,7 +108,7 @@ describe('resolveSessionMemory', () => {
     expect(provider.getUserSummary).toHaveBeenCalledWith(
       expect.objectContaining({ scope: expect.objectContaining({ type: 'default', key: defaultKey }) }),
     );
-    expect(capability !== undefined && render(build(capability))).toContain('Priya is vegetarian.');
+    expect(capability !== undefined && render(capability)).toContain('Priya is vegetarian.');
   });
 
   it('does not call the provider for the summary after the first turn', async () => {
@@ -155,7 +150,7 @@ describe('resolveSessionMemory', () => {
     if (capability === undefined) {
       throw new Error('expected memory');
     }
-    const tools = build(capability).systemToolSets?.[0];
+    const tools = capability.systemToolSets?.[0];
     await tools?.callTool({ name: MEMORY_SEARCH_TOOL_NAME, arguments: { query: 'diet' } });
     await tools?.callTool({ name: MEMORY_ADD_TOOL_NAME, arguments: { content: 'I am allergic to peanuts' } });
 
@@ -191,14 +186,14 @@ describe('resolveSessionMemory', () => {
 
   it('starts without a summary when loading it fails', async () => {
     const provider = fakeMemoryProvider();
-    provider.getUserSummary.mockRejectedValue(new Error('zep down'));
+    provider.getUserSummary.mockRejectedValue(new Error('memory provider down'));
     const { capability, log } = await resolve({ provider });
 
     expect(capability).toBeDefined();
-    expect(capability !== undefined && render(build(capability))).not.toContain('<summary>');
+    expect(capability !== undefined && render(capability)).not.toContain('<summary>');
     expect(log.warn).toHaveBeenCalledWith(
       'Memory summary unavailable; starting the session without it',
-      expect.objectContaining({ timed_out: false, error: 'zep down' }),
+      expect.objectContaining({ timed_out: false, error: 'memory provider down' }),
     );
   });
 

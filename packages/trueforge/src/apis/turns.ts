@@ -14,7 +14,7 @@ import {
   type TurnInputItem,
   type TurnRecordWithoutSnapshot,
 } from '@truefoundry/trueforge-core/agent-session';
-import type { IWebSearchProvider } from '@truefoundry/trueforge-core/core';
+import type { AgentCapability, IWebSearchProvider } from '@truefoundry/trueforge-core/core';
 import {
   AgentHarnessError,
   existingSandboxIdForProvider,
@@ -55,7 +55,7 @@ import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { currentLogContext, updateLogContext } from '../logger';
 import type { ConfiguredMemory } from '../memory/memoryFromConfig';
-import { resolveSessionMemory, type SessionMemoryCapability } from '../memory/sessionMemory';
+import { resolveSessionMemory } from '../memory/sessionMemory';
 import {
   createAndExecuteTurnRoute,
   createTurnEventRoute,
@@ -189,7 +189,7 @@ function createTurnResolver(deps: {
   modelProviderStore: IModelProviderStore;
   webSearchProvider: IWebSearchProvider | undefined;
   /** Root-thread memory for this turn; undefined when memory doesn't apply to the session. */
-  memoryCapability: SessionMemoryCapability | undefined;
+  memoryCapability: AgentCapability | undefined;
   logger: Logger;
   signal: AbortSignal;
   userRef: string;
@@ -313,9 +313,9 @@ function createTurnResolver(deps: {
     webSearchProvider,
     logger,
     // Root thread only: sub-agents get neither memory tools nor the summary.
-    rootCapabilities: ({ tracing }) => [
+    rootCapabilities: () => [
       ...capabilitiesStore.resolveCapabilities(),
-      ...(memoryCapability === undefined ? [] : [memoryCapability({ tracing })]),
+      ...(memoryCapability === undefined ? [] : [memoryCapability]),
     ],
   });
 }
