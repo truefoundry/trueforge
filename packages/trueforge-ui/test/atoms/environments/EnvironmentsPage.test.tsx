@@ -392,7 +392,7 @@ describe('EnvironmentsPage', () => {
 });
 
 describe('EnvironmentsButton', () => {
-  it('tracks page opened when opening environments', () => {
+  it('tracks page opened when opening environments', async () => {
     const track = vi.fn();
     const server = createMockAgentUIServer({
       catalog: createMockCatalog(),
@@ -409,7 +409,7 @@ describe('EnvironmentsButton', () => {
       </AnalyticsProvider>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Environments' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Environments' }));
     expect(track).toHaveBeenCalledWith(AnalyticsEvents.Environment.PAGE_OPENED, undefined);
     fireEvent.click(screen.getByRole('button', { name: 'Environments' }));
     expect(track).toHaveBeenCalledTimes(1);
