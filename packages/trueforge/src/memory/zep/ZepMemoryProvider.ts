@@ -302,7 +302,6 @@ export class ZepMemoryProvider implements MemoryProvider {
       path: `/graphs/${encodeURIComponent(userUuid)}/episodes`,
       body: {
         type: 'text',
-        // The user's id, as in `first_name`: no person's name reaches Zep.
         data: `${scope.subjectId} asked to remember: ${content}`,
         source_description: 'Saved at the user’s explicit request in a TrueForge chat',
         reference_time: createdAt,
