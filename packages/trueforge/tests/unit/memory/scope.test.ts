@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { TenantAllowlistMemorySettings, type MemorySettings } from '../../../src/memory/MemorySettings';
 import { memoryScopeKey, resolveMemoryScope, type MemoryScopeSession } from '../../../src/memory/scope';
 
-const SUBJECT = { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'Priya' } as const;
+const SUBJECT = { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'User One' } as const;
 
 function session(overrides: Partial<MemoryScopeSession>): MemoryScopeSession {
   return {

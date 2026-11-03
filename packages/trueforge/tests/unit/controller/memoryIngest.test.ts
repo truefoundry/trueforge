@@ -177,7 +177,7 @@ function session({
     candidate: {
       session_id: id,
       tenant_id: tenant,
-      created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'Priya' },
+      created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'User One' },
       agent_id: agentId,
       tfg_source: 'ui',
       create_agent_session: false,
@@ -210,7 +210,7 @@ describe('runMemoryIngestPass', () => {
     await runMemoryIngestPass({ deps: deps({ store, provider }), signal: signal() });
 
     expect(calls).toHaveLength(1);
-    expect(JSON.stringify(calls)).not.toContain('Priya');
+    expect(JSON.stringify(calls)).not.toContain('User One');
   });
 
   it('sends finished exchanges in order, stops at the first unfinished one and checkpoints each send', async () => {

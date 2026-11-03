@@ -110,7 +110,7 @@ class MemoryTools extends LocalToolMCP {
   private async runAdd(input: z.infer<typeof memoryAddInputSchema>): Promise<CallToolResponse> {
     await this.#memory.add({ content: input.content });
     return toolResultResponse({
-      text: 'Saved. It will be available in future sessions processed.',
+      text: 'Saved. It will be available in future sessions once processed.',
     });
   }
 }

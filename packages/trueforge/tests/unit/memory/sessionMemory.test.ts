@@ -14,7 +14,7 @@ import { fakeMemoryProvider } from './fakeMemoryProvider';
 type SessionMemoryRecord = Parameters<typeof resolveSessionMemory>[0]['record'];
 
 const SPEC = AgentSpecSchema.parse({ model: { name: 'p/m' }, instructions: 'x' });
-const SUBJECT = { subject_id: 'priya', subject_type: 'user', subject_display_name: 'Priya' } as const;
+const SUBJECT = { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'User One' } as const;
 
 function record(overrides: Partial<SessionMemoryRecord> = {}): SessionMemoryRecord {
   return {
@@ -100,15 +100,15 @@ function render(capability: AgentCapability): string {
 describe('resolveSessionMemory', () => {
   it('gives a UI chat without an agent the default scope and loads the summary on its first turn', async () => {
     const provider = fakeMemoryProvider();
-    provider.getUserSummary.mockResolvedValue('Priya is vegetarian.');
+    provider.getUserSummary.mockResolvedValue('user-1 is vegetarian.');
     const { capability } = await resolve({ provider });
 
     expect(capability).toBeDefined();
-    const defaultKey = memoryScopeKey({ tenantId: 'acme', agentKey: 'trueforge', subjectId: 'priya' });
+    const defaultKey = memoryScopeKey({ tenantId: 'acme', agentKey: 'trueforge', subjectId: 'user-1' });
     expect(provider.getUserSummary).toHaveBeenCalledWith(
       expect.objectContaining({ scope: expect.objectContaining({ type: 'default', key: defaultKey }) }),
     );
-    expect(capability !== undefined && render(capability)).toContain('Priya is vegetarian.');
+    expect(capability !== undefined && render(capability)).toContain('user-1 is vegetarian.');
   });
 
   it('does not call the provider for the summary after the first turn', async () => {
@@ -154,8 +154,8 @@ describe('resolveSessionMemory', () => {
     await tools?.callTool({ name: MEMORY_SEARCH_TOOL_NAME, arguments: { query: 'diet' } });
     await tools?.callTool({ name: MEMORY_ADD_TOOL_NAME, arguments: { content: 'I am allergic to peanuts' } });
 
-    const agentKey = memoryScopeKey({ tenantId: 'acme', agentKey: 'chef', subjectId: 'priya' });
-    const defaultKey = memoryScopeKey({ tenantId: 'acme', agentKey: 'trueforge', subjectId: 'priya' });
+    const agentKey = memoryScopeKey({ tenantId: 'acme', agentKey: 'chef', subjectId: 'user-1' });
+    const defaultKey = memoryScopeKey({ tenantId: 'acme', agentKey: 'trueforge', subjectId: 'user-1' });
     expect(agentKey).not.toBe(defaultKey);
     expect(provider.search).toHaveBeenCalledWith(
       expect.objectContaining({ scope: expect.objectContaining({ key: agentKey }) }),
@@ -175,7 +175,7 @@ describe('resolveSessionMemory', () => {
     await resolve({ provider: providerA });
     await resolve({
       provider: providerB,
-      record: record({ created_by_subject: { ...SUBJECT, subject_id: 'arjun', subject_display_name: 'Arjun' } }),
+      record: record({ created_by_subject: { ...SUBJECT, subject_id: 'user-2', subject_display_name: 'User Two' } }),
     });
 
     const keyA = providerA.getUserSummary.mock.calls[0]?.[0].scope.key;
