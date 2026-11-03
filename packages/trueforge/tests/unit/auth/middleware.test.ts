@@ -27,6 +27,9 @@ const OIDC_CONFIG: OIDCConfig = {
   OIDC_ADMIN_ROLE_VALUE: 'admin',
   OIDC_SCOPES: ['openid', 'profile', 'email', 'groups'],
   OIDC_ALLOWED_EMAILS: [],
+  OIDC_SERVICE_SUBJECTS: [],
+  OIDC_RESTRICTED_ROLE_VALUE: undefined,
+  OIDC_RESTRICTED_AGENT_NAMES: [],
 };
 
 function json(body: unknown, status = 200): Response {

@@ -41,10 +41,16 @@ export function emailMatchesAllowlist(email: string, patterns: string[]): boolea
 
 /**
  * When {@link OIDCConfig.OIDC_ALLOWED_EMAILS} is non-empty, requires a non-empty
- * ID-token `email` claim that matches at least one entry. No-op when unrestricted.
+ * ID-token `email` claim that matches at least one entry, unless the token's user reference is a
+ * configured service subject. No-op when unrestricted.
  */
 export function assertEmailAllowed(claims: Record<string, unknown>, config: OIDCConfig): void {
   if (config.OIDC_ALLOWED_EMAILS.length === 0) {
+    return;
+  }
+  // Machine tokens (client credentials) have no email; the configured subjects bypass the check.
+  const subject = claims[config.OIDC_USER_REFERENCE_CLAIM];
+  if (typeof subject === 'string' && config.OIDC_SERVICE_SUBJECTS.includes(subject)) {
     return;
   }
   const email = claims['email'];
