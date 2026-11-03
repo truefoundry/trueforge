@@ -13,8 +13,10 @@ export const MEMORY_SUMMARY_TIMEOUT_MS = 2_000;
 export const MEMORY_SUMMARY_MAX_TOKENS = 1_000;
 
 const INTERNAL_TAG = /<\s*(\/?)\s*tfy-internal\s*>/gi;
-/** Sentence or line ends, then word ends, then characters. */
-const SUMMARY_CUT_POINTS = [/[.!?](?=\s)|\n/g, /\S(?=\s)/g, /./gsu];
+const SENTENCE_ENDS = /[.!?](?=\s)|\n/g;
+const WORD_ENDS = /\S(?=\s)/g;
+/** Grapheme clusters, so a cut never splits an emoji (skin tones, flags, ZWJ sequences). */
+const graphemeSegmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 
 /**
  * Memory for one turn of a session, or undefined when memory doesn't apply: off for the deployment
@@ -48,7 +50,8 @@ export async function resolveSessionMemory({
   const { provider, settings } = configured;
   let scope: MemoryScope;
   try {
-    if (!(await isTenantMemoryEnabled(settings, tenantId))) {
+    const tenantAllows = await isTenantMemoryEnabled(settings, tenantId);
+    if (!tenantAllows) {
       return undefined;
     }
     const agentId = record.agent.type === 'reference' ? record.agent.id : null;
@@ -73,10 +76,17 @@ export async function resolveSessionMemory({
     return undefined;
   }
 
-  const sessionStartSummary =
-    record.last_turn_details === null
-      ? await loadSummary({ provider: configured.provider, scope, timeoutMs: summaryTimeoutMs, logger })
-      : undefined;
+  let sessionStartSummary: string | undefined;
+  if (record.last_turn_details === null) {
+    sessionStartSummary = await fetchSessionStartSummary({
+      provider: configured.provider,
+      scope,
+      timeoutMs: summaryTimeoutMs,
+      logger,
+    });
+  } else {
+    sessionStartSummary = undefined;
+  }
 
   const scoped: ScopedMemory = {
     search: ({ query, limit }) => provider.search({ scope, query, limit }),
@@ -88,15 +98,15 @@ export async function resolveSessionMemory({
 /**
  * Makes provider text safe to load as an internal message: the internal-message tags are defused so
  * it can't close the wrapper, and it is cut to fit {@link MEMORY_SUMMARY_MAX_TOKENS} at the last
- * sentence or line end that fits, else the last word end, else the last character.
+ * sentence or line end that fits, else the last word end, else the last grapheme cluster.
  */
-export function boundMemorySummary(raw: string): { summary: string; truncated: boolean } {
+export function prepareSessionStartSummary(raw: string): { summary: string; truncated: boolean } {
   const summary = raw.replace(INTERNAL_TAG, '[$1tfy-internal]').trim();
   if (estimateTokensForString(summary) <= MEMORY_SUMMARY_MAX_TOKENS) {
     return { summary, truncated: false };
   }
-  for (const cutPoint of SUMMARY_CUT_POINTS) {
-    const end = lastFittingCut(summary, cutPoint);
+  for (const cuts of [matchEnds(summary, SENTENCE_ENDS), matchEnds(summary, WORD_ENDS), graphemeEnds(summary)]) {
+    const end = lastCutWithinTokenBudget(summary, cuts);
     if (end > 0) {
       return { summary: summary.slice(0, end).trim(), truncated: true };
     }
@@ -104,10 +114,21 @@ export function boundMemorySummary(raw: string): { summary: string; truncated: b
   return { summary: '', truncated: true };
 }
 
-function lastFittingCut(summary: string, cutPoint: RegExp): number {
+function* matchEnds(summary: string, pattern: RegExp): Generator<number> {
+  for (const match of summary.matchAll(pattern)) {
+    yield match.index + match[0].length;
+  }
+}
+
+function* graphemeEnds(summary: string): Generator<number> {
+  for (const { index, segment } of graphemeSegmenter.segment(summary)) {
+    yield index + segment.length;
+  }
+}
+
+function lastCutWithinTokenBudget(summary: string, cuts: Iterable<number>): number {
   let end = 0;
-  for (const match of summary.matchAll(cutPoint)) {
-    const cut = match.index + match[0].length;
+  for (const cut of cuts) {
     if (estimateTokensForString(summary.slice(0, cut)) > MEMORY_SUMMARY_MAX_TOKENS) {
       break;
     }
@@ -117,7 +138,7 @@ function lastFittingCut(summary: string, cutPoint: RegExp): number {
 }
 
 /** Single bounded attempt; any failure means "no summary" so the turn starts on time. */
-async function loadSummary({
+async function fetchSessionStartSummary({
   provider,
   scope,
   timeoutMs,
@@ -145,7 +166,7 @@ async function loadSummary({
   } finally {
     clearTimeout(timer);
   }
-  const { summary, truncated } = boundMemorySummary(raw ?? '');
+  const { summary, truncated } = prepareSessionStartSummary(raw ?? '');
   logger.info('Memory summary loaded', {
     scope_type: scope.type,
     summary_tokens: Math.ceil(estimateTokensForString(summary)),

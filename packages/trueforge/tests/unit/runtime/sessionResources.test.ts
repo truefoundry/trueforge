@@ -383,7 +383,7 @@ describe('validateAgentSpec', () => {
         }),
       ).rejects.toMatchObject({
         status: 422,
-        message: expect.stringContaining('not available on this deployment'),
+        message: expect.stringContaining('no memory capability provider is configured'),
       } satisfies Partial<HTTPException>);
     });
 
@@ -432,7 +432,7 @@ describe('validateAgentSpec', () => {
         }),
       ).rejects.toMatchObject({
         status: 422,
-        message: expect.stringContaining('not available on this deployment'),
+        message: expect.stringContaining('no memory capability provider is configured'),
       } satisfies Partial<HTTPException>);
     });
 

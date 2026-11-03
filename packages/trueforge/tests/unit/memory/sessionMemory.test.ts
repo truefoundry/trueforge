@@ -9,7 +9,11 @@ import { getEmptyCurrentContextUsage } from '@truefoundry/trueforge-core/core/ru
 import type { AgentRecord, IAgentStore } from '../../../src/db/agentStore';
 import { TenantAllowlistMemorySettings } from '../../../src/memory/MemorySettings';
 import { memoryScopeKey } from '../../../src/memory/scope';
-import { MEMORY_SUMMARY_MAX_TOKENS, boundMemorySummary, resolveSessionMemory } from '../../../src/memory/sessionMemory';
+import {
+  MEMORY_SUMMARY_MAX_TOKENS,
+  prepareSessionStartSummary,
+  resolveSessionMemory,
+} from '../../../src/memory/sessionMemory';
 import { fakeMemoryProvider } from './fakeMemoryProvider';
 
 type SessionMemoryRecord = Parameters<typeof resolveSessionMemory>[0]['record'];
@@ -176,7 +180,7 @@ describe('resolveSessionMemory', () => {
     provider.getUserSummary.mockResolvedValue(raw);
     const { capability, log } = await resolve({ provider });
 
-    const kept = boundMemorySummary(raw).summary;
+    const kept = prepareSessionStartSummary(raw).summary;
     const summaryTokens = Math.ceil(kept.length / 4);
     expect(summaryTokens).toBeLessThanOrEqual(MEMORY_SUMMARY_MAX_TOKENS);
     const [message = ''] = await injected(capability);
@@ -287,11 +291,11 @@ describe('resolveSessionMemory', () => {
   });
 });
 
-describe('boundMemorySummary', () => {
+describe('prepareSessionStartSummary', () => {
   const maxChars = MEMORY_SUMMARY_MAX_TOKENS * 4;
 
   it('keeps a summary within the cap unchanged', () => {
-    expect(boundMemorySummary('  user-1 is vegetarian.\n')).toEqual({
+    expect(prepareSessionStartSummary('  user-1 is vegetarian.\n')).toEqual({
       summary: 'user-1 is vegetarian.',
       truncated: false,
     });
@@ -300,7 +304,7 @@ describe('boundMemorySummary', () => {
   it('cuts at the last line that fits', () => {
     const line = `- ${'a'.repeat(98)}`;
     const raw = Array.from({ length: 50 }, () => line).join('\n');
-    const { summary, truncated } = boundMemorySummary(raw);
+    const { summary, truncated } = prepareSessionStartSummary(raw);
 
     expect(truncated).toBe(true);
     expect(summary.length).toBeLessThanOrEqual(maxChars);
@@ -311,7 +315,7 @@ describe('boundMemorySummary', () => {
   it('cuts at the last word that fits when the first sentence alone is over the cap', () => {
     const word = 'abcdefghi';
     const sentence = Array.from({ length: 500 }, () => word).join(' ');
-    const { summary, truncated } = boundMemorySummary(`${sentence}. Short.`);
+    const { summary, truncated } = prepareSessionStartSummary(`${sentence}. Short.`);
 
     expect(truncated).toBe(true);
     expect(summary.length).toBeGreaterThan(0);
@@ -321,9 +325,18 @@ describe('boundMemorySummary', () => {
   });
 
   it('cuts within the cap when the summary has no word breaks at all', () => {
-    const { summary, truncated } = boundMemorySummary('a'.repeat(maxChars * 2));
+    const { summary, truncated } = prepareSessionStartSummary('a'.repeat(maxChars * 2));
 
     expect(truncated).toBe(true);
     expect(summary).toBe('a'.repeat(maxChars));
+  });
+
+  it('never splits an emoji when cutting without word breaks', () => {
+    // 8 UTF-16 units; after the leading "x" the cap falls inside the 500th one.
+    const family = '\u{1F468}\u200D\u{1F469}\u200D\u{1F467}';
+    const { summary, truncated } = prepareSessionStartSummary(`x${family.repeat(1_000)}`);
+
+    expect(truncated).toBe(true);
+    expect(summary).toBe(`x${family.repeat(Math.floor((maxChars - 1) / family.length))}`);
   });
 });

@@ -376,9 +376,10 @@ export async function validateAgentSpec({
   // it on keeps it, and its turns run without memory while memory is off for the deployment or tenant.
   if (spec.config.memory.enabled && previousSpec?.config.memory.enabled !== true) {
     if (memory === undefined) {
-      throw new HTTPException(422, { message: 'memory is enabled but memory is not available on this deployment' });
+      throw new HTTPException(422, { message: 'memory is enabled but no memory capability provider is configured' });
     }
-    if (!(await isTenantMemoryEnabled(memory.settings, tenant_id))) {
+    const tenantAllows = await isTenantMemoryEnabled(memory.settings, tenant_id);
+    if (!tenantAllows) {
       throw new HTTPException(422, { message: 'memory is enabled but memory is turned off for this tenant' });
     }
   }
