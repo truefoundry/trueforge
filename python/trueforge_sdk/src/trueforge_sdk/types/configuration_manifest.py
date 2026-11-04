@@ -5,10 +5,12 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
+from .memory_configuration import MemoryConfiguration
 from .web_search_configuration import WebSearchConfiguration
 
 
 class ConfigurationManifest(UncheckedBaseModel):
+    memory: MemoryConfiguration
     web_search: WebSearchConfiguration
 
     if IS_PYDANTIC_V2:
