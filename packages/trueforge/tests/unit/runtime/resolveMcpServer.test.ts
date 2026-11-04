@@ -219,6 +219,7 @@ describe('getMcpConnection', () => {
         requestHeaders: {
           'x-trueforge-client': 'browser',
           'X-TrueForge-Test': 'forwarded',
+          'x-trueforge-session-id': 'spoofed',
           'x-unrelated': 'not-forwarded',
         },
       },
@@ -226,12 +227,13 @@ describe('getMcpConnection', () => {
 
     expect(connection?.url).toMatch(/\/mcp$/);
     expect(connection?.server.description).toBe(
-      'Create, update, and read agents, schedules, and sandbox environments in this deployment. Read configured models, MCP servers, and skills. Does not run agents or turns.',
+      "Create, update, and read agents, schedules, and sandbox environments in this deployment. Read this chat's configuration and configured models, MCP servers, and skills. Does not run agents or turns.",
     );
     expect(connection?.headers).toEqual({
       Authorization: 'Bearer draft-token',
       'X-TrueForge-Test': 'forwarded',
       'x-trueforge-client': 'browser',
+      'x-trueforge-session-id': 'draft-session',
     });
     expect(connection?.networkPolicy).toEqual({
       type: 'trusted-internal',

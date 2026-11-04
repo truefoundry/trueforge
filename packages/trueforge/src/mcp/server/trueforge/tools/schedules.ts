@@ -19,11 +19,7 @@ export function registerScheduleTools(server: McpServer, client: TrueForge): voi
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
     },
     async ({ agent_name, name, manifest }) =>
-      runTool(() =>
-        client.schedules.create({ agentName: agent_name, name, manifest } as Parameters<
-          typeof client.schedules.create
-        >[0]),
-      ),
+      runTool(() => client.schedules.create({ agentName: agent_name, name, manifest })),
   );
 
   server.registerTool(
@@ -101,9 +97,6 @@ export function registerScheduleTools(server: McpServer, client: TrueForge): voi
       },
       annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
     },
-    async ({ schedule_id, name, manifest }) =>
-      runTool(() =>
-        client.schedules.update(schedule_id, { name, manifest } as Parameters<typeof client.schedules.update>[1]),
-      ),
+    async ({ schedule_id, name, manifest }) => runTool(() => client.schedules.update(schedule_id, { name, manifest })),
   );
 }

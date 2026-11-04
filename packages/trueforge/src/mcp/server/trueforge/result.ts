@@ -1,5 +1,9 @@
-/** Shared success/error shaping for TrueForge tool results. */
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+
+/** The active built-in TrueForge connector name. See docs-internal/trueforge-mcp-server.md §3.5/§3.8. */
+export const TRUEFORGE_CONNECTOR_NAME = 'trueforge';
+
+/** Shared success/error shaping for TrueForge tool results. */
 
 interface SafeToolError {
   status: number | null;

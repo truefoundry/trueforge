@@ -1,8 +1,21 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
+import { AgentSpecSchema, type AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import type { TrueForge } from '@truefoundry/trueforge-sdk';
 import { z } from 'zod';
-import { runTool } from '../result';
+import { runTool, TRUEFORGE_CONNECTOR_NAME } from '../result';
+
+/** Saved agents reject the draft-only connector, so drop it before create or update. */
+function manifestForSavedAgent(manifest: AgentSpec): AgentSpec {
+  const servers = manifest.mcp_servers;
+  if (servers === undefined) {
+    return manifest;
+  }
+  const mcp_servers = servers.filter(server => server.name !== TRUEFORGE_CONNECTOR_NAME);
+  if (mcp_servers.length === servers.length) {
+    return manifest;
+  }
+  return { ...manifest, mcp_servers };
+}
 
 export function registerAgentTools(server: McpServer, client: TrueForge): void {
   server.registerTool(
@@ -46,8 +59,7 @@ export function registerAgentTools(server: McpServer, client: TrueForge): void {
     {
       description:
         'Create a named agent from a complete manifest. The name is immutable and all referenced models, ' +
-        'MCP servers, skills, and sandbox environments must exist. Call get_agent on an existing agent to ' +
-        'obtain a complete, valid manifest to use as a template.',
+        'MCP servers, skills, and sandbox environments must exist.',
       inputSchema: {
         name: z.string(),
         description: z.string(),
@@ -57,7 +69,11 @@ export function registerAgentTools(server: McpServer, client: TrueForge): void {
     },
     async ({ name, description, manifest }) =>
       runTool(() =>
-        client.agents.create({ name, description, manifest } as unknown as Parameters<typeof client.agents.create>[0]),
+        client.agents.create({
+          name,
+          description,
+          manifest: manifestForSavedAgent(manifest),
+        } as unknown as Parameters<typeof client.agents.create>[0]),
       ),
   );
 
@@ -77,9 +93,10 @@ export function registerAgentTools(server: McpServer, client: TrueForge): void {
     },
     async ({ agent_id, description, manifest }) =>
       runTool(() =>
-        client.agents.update(agent_id, { description, manifest } as unknown as Parameters<
-          typeof client.agents.update
-        >[1]),
+        client.agents.update(agent_id, {
+          description,
+          manifest: manifestForSavedAgent(manifest),
+        } as unknown as Parameters<typeof client.agents.update>[1]),
       ),
   );
 }

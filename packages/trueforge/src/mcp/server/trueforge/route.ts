@@ -20,6 +20,7 @@ import type {
   ResolveMcpInvokeHeadersInput,
 } from '../../../runtime/McpServerResolver';
 import type { McpAuthStatus } from '../../../schemas/mcpServer';
+import { TRUEFORGE_SESSION_HEADER } from './headers';
 import { createTrueForgeMcpServer, TRUEFORGE_CONNECTOR_NAME } from './server';
 
 const baseUrl = normalizeTlsUrl({ url: configuration.SERVER_URL, enabled: configuration.MTLS_ENABLED });
@@ -77,7 +78,7 @@ export class TrueForgeMcpServerResolver implements IMcpServerResolver {
         name: TRUEFORGE_CONNECTOR_NAME,
         url: trueForgeMcpEndpoint.url,
         description:
-          'Create, update, and read agents, schedules, and sandbox environments in this deployment. Read configured models, MCP servers, and skills. Does not run agents or turns.',
+          "Create, update, and read agents, schedules, and sandbox environments in this deployment. Read this chat's configuration and the configured models, MCP servers, and skills. Does not run agents or turns.",
       },
       created_at: now,
       updated_at: now,
@@ -93,8 +94,10 @@ export class TrueForgeMcpServerResolver implements IMcpServerResolver {
         header.toLowerCase().startsWith('x-trueforge-'),
       ),
     );
+    const sessionId = input.turnMetadata?.sessionId;
     return {
       ...trueForgeHeaders,
+      ...(sessionId === undefined ? {} : { [TRUEFORGE_SESSION_HEADER]: sessionId }),
       ...(this.#requestContext.user_credential === null
         ? {}
         : { Authorization: `Bearer ${this.#requestContext.user_credential}` }),
