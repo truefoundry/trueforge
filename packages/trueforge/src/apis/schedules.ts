@@ -34,6 +34,7 @@ import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import {
   manualRunName,
+  ScheduleCronConflictError,
   ScheduleNameConflictError,
   ScheduleRunConflictError,
   type IScheduleStore,
@@ -418,7 +419,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
         return schedule;
       });
     } catch (error) {
-      if (error instanceof ScheduleNameConflictError) {
+      if (error instanceof ScheduleNameConflictError || error instanceof ScheduleCronConflictError) {
         return c.json({ error: { message: error.message } }, 409);
       }
       if (error instanceof ScheduleRunConflictError) {
@@ -463,7 +464,8 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
    *
    * Agent binding is immutable — a schedule that should point at a different agent is
    * a different schedule. `name` is editable but must stay unique within the agent;
-   * renaming onto a taken name is a 409.
+   * renaming onto a taken name, or moving onto a cron the creator already uses for this
+   * agent, is a 409.
    */
   const putHandler: RouteHandler<typeof putScheduleRoute> = async c => {
     const { schedule_id: scheduleId } = c.req.valid('param');
@@ -499,7 +501,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
         return result?.schedule;
       });
     } catch (error) {
-      if (error instanceof ScheduleNameConflictError) {
+      if (error instanceof ScheduleNameConflictError || error instanceof ScheduleCronConflictError) {
         return c.json({ error: { message: error.message } }, 409);
       }
       if (error instanceof ScheduleRunConflictError) {

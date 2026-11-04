@@ -355,6 +355,7 @@ export interface SandboxEnvironmentSecretTable {
  * Configured schedules.
  * PRIMARY KEY (id).
  * FK (agent_id) → agent(id) ON DELETE CASCADE.
+ * UNIQUE (tenant_id, agent_name, manifest.cron, created_by_subject.subject_id).
  */
 export interface ScheduleTable {
   /** application-generated (ulid); FK target for schedule_run */

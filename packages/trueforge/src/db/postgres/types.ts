@@ -520,6 +520,8 @@ export interface SandboxEnvironmentSecretTable {
  * PRIMARY KEY (id)
  * CREATE INDEX schedule_agent_idx ON schedule (tenant_id, agent_name)
  * CREATE INDEX schedule_agent_id_idx ON schedule (tenant_id, agent_id)
+ * CREATE UNIQUE INDEX schedule_agent_cron_creator_uq
+ *   ON schedule (tenant_id, agent_name, manifest->>'cron', created_by_subject->>'subject_id')
  * FK (agent_id) → agent(id) ON DELETE CASCADE
  */
 export interface ScheduleTable {

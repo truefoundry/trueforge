@@ -1,6 +1,11 @@
 import { AgentSpecSchema, type CreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
 import type { IAgentStore } from '../../src/db/agentStore';
-import { cronRunName, ScheduleNameConflictError, type IScheduleStore } from '../../src/db/scheduleStore';
+import {
+  cronRunName,
+  ScheduleCronConflictError,
+  ScheduleNameConflictError,
+  type IScheduleStore,
+} from '../../src/db/scheduleStore';
 import { nextTriggerAfter } from '../../src/runtime/cron';
 import { ScheduleManifestSchema, type ScheduleManifest } from '../../src/schemas/schedule';
 
@@ -193,19 +198,19 @@ export function runScheduleStoreContractSuite(deps: {
   it('rejects a second schedule with the same name under one agent', async () => {
     const store = deps.getScheduleStore();
     const agent = await seedAgent();
-    const create = (name: string) =>
+    const create = (cron: string) =>
       store.createScheduleAndRun({
         tenant_id: TENANT,
         agent_id: agent.id,
         agent_name: agent.name,
-        name,
-        manifest: manifest({ status: 'paused' }),
+        name: 'daily-report',
+        manifest: manifest({ status: 'paused', cron }),
         created_by_subject: USER_SUBJECT,
         runFrom: new Date(),
       });
 
-    await create('daily-report');
-    await expect(create('daily-report')).rejects.toBeInstanceOf(ScheduleNameConflictError);
+    await create('0 9 * * *');
+    await expect(create('0 10 * * *')).rejects.toBeInstanceOf(ScheduleNameConflictError);
   });
 
   it('allows the same schedule name under different agents', async () => {
@@ -234,7 +239,7 @@ export function runScheduleStoreContractSuite(deps: {
       agent_id: agent.id,
       agent_name: agent.name,
       name: 'taken',
-      manifest: manifest({ status: 'paused' }),
+      manifest: manifest({ status: 'paused', cron: '0 9 * * *' }),
       created_by_subject: USER_SUBJECT,
       runFrom: new Date(),
     });
@@ -243,7 +248,7 @@ export function runScheduleStoreContractSuite(deps: {
       agent_id: agent.id,
       agent_name: agent.name,
       name: 'free',
-      manifest: manifest({ status: 'paused' }),
+      manifest: manifest({ status: 'paused', cron: '0 10 * * *' }),
       created_by_subject: USER_SUBJECT,
       runFrom: new Date(),
     });
@@ -253,10 +258,85 @@ export function runScheduleStoreContractSuite(deps: {
         tenant_id: TENANT,
         id: other.id,
         name: 'taken',
-        manifest: manifest({ status: 'paused' }),
+        manifest: manifest({ status: 'paused', cron: '0 10 * * *' }),
         runFrom: new Date(),
       }),
     ).rejects.toBeInstanceOf(ScheduleNameConflictError);
+  });
+
+  it('rejects a second schedule with the same cron by the same creator under one agent', async () => {
+    const store = deps.getScheduleStore();
+    const agent = await seedAgent();
+    const create = (name: string) =>
+      store.createScheduleAndRun({
+        tenant_id: TENANT,
+        agent_id: agent.id,
+        agent_name: agent.name,
+        name,
+        manifest: manifest({ status: 'paused', cron: '0 9 * * *' }),
+        created_by_subject: USER_SUBJECT,
+        runFrom: new Date(),
+      });
+
+    await create('morning');
+    await expect(create('morning-again')).rejects.toBeInstanceOf(ScheduleCronConflictError);
+  });
+
+  it('allows the same cron under one agent for different creators, and across agents', async () => {
+    const store = deps.getScheduleStore();
+    const [first, second] = [await seedAgent(), await seedAgent()];
+    const otherSubject: CreatedBySubject = {
+      subject_id: 'other-user',
+      subject_type: 'user',
+      subject_display_name: 'Other',
+    };
+    const create = (input: { agent: { id: string; name: string }; name: string; subject: CreatedBySubject }) =>
+      store.createScheduleAndRun({
+        tenant_id: TENANT,
+        agent_id: input.agent.id,
+        agent_name: input.agent.name,
+        name: input.name,
+        manifest: manifest({ status: 'paused', cron: '0 9 * * *' }),
+        created_by_subject: input.subject,
+        runFrom: new Date(),
+      });
+
+    await create({ agent: first, name: 'mine', subject: USER_SUBJECT });
+    await expect(create({ agent: first, name: 'theirs', subject: otherSubject })).resolves.toBeDefined();
+    await expect(create({ agent: second, name: 'mine', subject: USER_SUBJECT })).resolves.toBeDefined();
+  });
+
+  it('rejects updating a schedule onto a cron the creator already uses for the agent', async () => {
+    const store = deps.getScheduleStore();
+    const agent = await seedAgent();
+    await store.createScheduleAndRun({
+      tenant_id: TENANT,
+      agent_id: agent.id,
+      agent_name: agent.name,
+      name: 'nine',
+      manifest: manifest({ status: 'paused', cron: '0 9 * * *' }),
+      created_by_subject: USER_SUBJECT,
+      runFrom: new Date(),
+    });
+    const { schedule: ten } = await store.createScheduleAndRun({
+      tenant_id: TENANT,
+      agent_id: agent.id,
+      agent_name: agent.name,
+      name: 'ten',
+      manifest: manifest({ status: 'paused', cron: '0 10 * * *' }),
+      created_by_subject: USER_SUBJECT,
+      runFrom: new Date(),
+    });
+
+    await expect(
+      store.updateScheduleAndRun({
+        tenant_id: TENANT,
+        id: ten.id,
+        name: 'ten',
+        manifest: manifest({ status: 'paused', cron: '0 9 * * *' }),
+        runFrom: new Date(),
+      }),
+    ).rejects.toBeInstanceOf(ScheduleCronConflictError);
   });
 
   it('updating cron while paused leaves no pending run', async () => {
@@ -289,22 +369,22 @@ export function runScheduleStoreContractSuite(deps: {
     const past = new Date(Date.now() - 60_000);
     const future = new Date(Date.now() + 3_600_000);
 
-    async function pausedSchedule(name: string) {
+    async function pausedSchedule(name: string, cron: string) {
       const { schedule } = await store.createScheduleAndRun({
         tenant_id: TENANT,
         agent_id: agent.id,
         agent_name: agent.name,
         name,
-        manifest: manifest({ status: 'paused' }),
+        manifest: manifest({ status: 'paused', cron }),
         created_by_subject: USER_SUBJECT,
         runFrom: new Date(),
       });
       return schedule;
     }
 
-    const readySchedule = await pausedSchedule('ready');
-    const triggeredSchedule = await pausedSchedule('already-triggered');
-    const futureSchedule = await pausedSchedule('future');
+    const readySchedule = await pausedSchedule('ready', '0 9 * * *');
+    const triggeredSchedule = await pausedSchedule('already-triggered', '0 10 * * *');
+    const futureSchedule = await pausedSchedule('future', '0 11 * * *');
 
     const readyRun = await store.createRun({
       tenant_id: TENANT,
@@ -514,7 +594,7 @@ export function runScheduleStoreContractSuite(deps: {
       agent_id: agentA.id,
       agent_name: agentA.name,
       name: 'list-older',
-      manifest: manifest({ status: 'paused' }),
+      manifest: manifest({ status: 'paused', cron: '0 9 * * *' }),
       created_by_subject: USER_SUBJECT,
       runFrom: new Date(),
     });
@@ -525,7 +605,7 @@ export function runScheduleStoreContractSuite(deps: {
       agent_id: agentA.id,
       agent_name: agentA.name,
       name: 'list-newer',
-      manifest: manifest({ status: 'paused' }),
+      manifest: manifest({ status: 'paused', cron: '0 10 * * *' }),
       created_by_subject: USER_SUBJECT,
       runFrom: new Date(),
     });
