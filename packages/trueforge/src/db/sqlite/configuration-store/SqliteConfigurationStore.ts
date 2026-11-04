@@ -94,7 +94,7 @@ export class SqliteConfigurationStore implements IConfigurationStore<Transaction
     const rows = await db
       .selectFrom('configuration')
       .select('tenant_id')
-      .where(sql<boolean>`json_type(manifest, ${`$.${feature}.enabled`}) IS 'true'`)
+      .where(sql<boolean>`json_type(manifest, ${sql.lit(`$.${feature}.enabled`)}) IS 'true'`)
       .execute();
     return rows.map(row => row.tenant_id);
   }

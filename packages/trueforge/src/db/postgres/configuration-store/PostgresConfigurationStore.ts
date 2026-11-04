@@ -91,7 +91,7 @@ export class PostgresConfigurationStore implements IConfigurationStore<Transacti
     const rows = await db
       .selectFrom('configuration')
       .select('tenant_id')
-      .where(sql<boolean>`manifest -> ${feature} ->> 'enabled' = 'true'`)
+      .where(sql<boolean>`manifest -> ${sql.lit(feature)} ->> 'enabled' = 'true'`)
       .execute();
     return rows.map(row => row.tenant_id);
   }
