@@ -297,7 +297,10 @@ export function ShellModeProvider({
   const sessionsEnabled = isSessionsChromeEnabled({ sessions: sessionsServer });
   const schedulesEnabled = isSchedulesChromeEnabled({ schedules: scheduleServer });
   const schedulesOpen = schedulesEnabled && schedulesOpenState;
-  const environmentsEnabled = isEnvironmentsChromeEnabled({ sandboxEnvironments: sandboxEnvironmentServer });
+  const environmentsEnabled = isEnvironmentsChromeEnabled({
+    sandboxEnvironments: sandboxEnvironmentServer,
+    capabilities,
+  });
   const environmentsOpen = environmentsEnabled && environmentsOpenState;
   const libraryOpen = isLibraryEnabled && libraryOpenState;
   const sessionsOpen = sessionsEnabled && sessionsOpenState;

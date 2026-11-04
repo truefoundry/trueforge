@@ -151,6 +151,7 @@ if typing.TYPE_CHECKING:
     from .mcp_tool_info import McpToolInfo
     from .me import Me
     from .me_session_type import MeSessionType
+    from .memory_config import MemoryConfig
     from .metrics_unit import MetricsUnit
     from .model import Model
     from .model_message_delta_event import ModelMessageDeltaEvent
@@ -194,6 +195,7 @@ if typing.TYPE_CHECKING:
     from .sandbox_environment_resources import SandboxEnvironmentResources
     from .sandbox_environment_secret import SandboxEnvironmentSecret
     from .sandbox_environment_version_status import SandboxEnvironmentVersionStatus
+    from .sandbox_environments_capability import SandboxEnvironmentsCapability
     from .sandbox_provider_manifest import SandboxProviderManifest
     from .schedule import Schedule
     from .schedule_manifest import ScheduleManifest
@@ -441,6 +443,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "McpToolInfo": ".mcp_tool_info",
     "Me": ".me",
     "MeSessionType": ".me_session_type",
+    "MemoryConfig": ".memory_config",
     "MetricsUnit": ".metrics_unit",
     "Model": ".model",
     "ModelMessageDeltaEvent": ".model_message_delta_event",
@@ -484,6 +487,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SandboxEnvironmentResources": ".sandbox_environment_resources",
     "SandboxEnvironmentSecret": ".sandbox_environment_secret",
     "SandboxEnvironmentVersionStatus": ".sandbox_environment_version_status",
+    "SandboxEnvironmentsCapability": ".sandbox_environments_capability",
     "SandboxProviderManifest": ".sandbox_provider_manifest",
     "Schedule": ".schedule",
     "ScheduleManifest": ".schedule_manifest",
@@ -755,6 +759,7 @@ __all__ = [
     "McpToolInfo",
     "Me",
     "MeSessionType",
+    "MemoryConfig",
     "MetricsUnit",
     "Model",
     "ModelMessageDeltaEvent",
@@ -798,6 +803,7 @@ __all__ = [
     "SandboxEnvironmentResources",
     "SandboxEnvironmentSecret",
     "SandboxEnvironmentVersionStatus",
+    "SandboxEnvironmentsCapability",
     "SandboxProviderManifest",
     "Schedule",
     "ScheduleManifest",

@@ -2813,6 +2813,19 @@
         ],
         "type": "string"
       },
+      "MemoryConfig": {
+        "default": {
+          "enabled": false
+        },
+        "properties": {
+          "enabled": {
+            "default": false,
+            "description": "Enable long-term memory for this agent. Default: false.",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
       "MetricsUnit": {
         "enum": [
           "count",
@@ -3569,6 +3582,9 @@
             "enabled": true
           },
           "iteration_limit": 512,
+          "memory": {
+            "enabled": false
+          },
           "sandbox": {
             "enabled": false,
             "file_downloads": true
@@ -3597,6 +3613,9 @@
             "maximum": 1024,
             "type": "integer"
           },
+          "memory": {
+            "$ref": "#/components/schemas/MemoryConfig"
+          },
           "sandbox": {
             "$ref": "#/components/schemas/SandboxConfig"
           },
@@ -3611,10 +3630,14 @@
           "enabled": {
             "description": "Whether a sandbox provider is configured for this tenant.",
             "type": "boolean"
+          },
+          "environments": {
+            "$ref": "#/components/schemas/SandboxEnvironmentsCapability"
           }
         },
         "required": [
-          "enabled"
+          "enabled",
+          "environments"
         ],
         "type": "object"
       },
@@ -3931,6 +3954,18 @@
           "failed"
         ],
         "type": "string"
+      },
+      "SandboxEnvironmentsCapability": {
+        "properties": {
+          "enabled": {
+            "description": "Whether sandbox environments (snapshots / Environments UI) are available for this tenant.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "type": "object"
       },
       "SandboxProviderManifest": {
         "additionalProperties": false,

@@ -259,7 +259,11 @@ describe('TruefoundrySettingsBuilder', () => {
     const getSkills = vi.fn(async () => []);
     const getMcp = vi.fn(async () => []);
     const getCapabilities = vi.fn(async () => ({
-      data: { sandbox: { enabled: true }, skill: { enabled: true }, settings: allSettingsSections(true) },
+      data: {
+        sandbox: { enabled: true, environments: { enabled: true } },
+        skill: { enabled: true },
+        settings: allSettingsSections(true),
+      },
     }));
     const server = createMockAgentUIServer({
       catalog: createMockCatalog(),

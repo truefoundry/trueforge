@@ -3,16 +3,19 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
+import { SandboxEnvironmentsCapability } from "./SandboxEnvironmentsCapability.js";
 
 export const SandboxCapability: core.serialization.ObjectSchema<
     serializers.SandboxCapability.Raw,
     TrueForge.SandboxCapability
 > = core.serialization.object({
     enabled: core.serialization.boolean(),
+    environments: SandboxEnvironmentsCapability,
 });
 
 export declare namespace SandboxCapability {
     export interface Raw {
         enabled: boolean;
+        environments: SandboxEnvironmentsCapability.Raw;
     }
 }
