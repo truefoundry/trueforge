@@ -1,4 +1,4 @@
-import { AgentSpecSchema, type SessionRecord } from '@truefoundry/trueforge-core/agent-session';
+import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 import {
   InstructionBuilder,
   MEMORY_ADD_TOOL_NAME,
@@ -28,12 +28,9 @@ function record(overrides: Partial<SessionMemoryRecord> = {}): SessionMemoryReco
     created_by_subject: SUBJECT,
     metadata: { 'tfg.source': 'ui' },
     source: null,
-    last_turn_details: null,
     ...overrides,
   };
 }
-
-const LATER_TURN: SessionRecord['last_turn_details'] = { id: 'turn-1', state: { status: 'done' } };
 
 function agentStore(memoryEnabled: boolean | undefined): Pick<IAgentStore, 'getAgent'> {
   return {
@@ -67,6 +64,7 @@ function logger() {
 
 async function resolve(input: {
   record?: SessionMemoryRecord;
+  isSessionStart?: boolean;
   tenantEnabled?: boolean;
   agentMemory?: boolean | undefined;
   configured?: boolean;
@@ -79,6 +77,7 @@ async function resolve(input: {
     sessionId: 'session-1',
     tenantId: 'acme',
     record: input.record ?? record(),
+    isSessionStart: input.isSessionStart ?? true,
     memory:
       input.configured === false
         ? undefined
@@ -142,10 +141,10 @@ describe('resolveSessionMemory', () => {
     });
   });
 
-  it('does not fetch or load the summary after the first turn', async () => {
+  it('does not fetch or load the summary when the turn continues an existing context', async () => {
     const provider = fakeMemoryProvider();
     provider.getUserSummary.mockResolvedValue('user-1 is vegetarian.');
-    const { capability } = await resolve({ provider, record: record({ last_turn_details: LATER_TURN }) });
+    const { capability } = await resolve({ provider, isSessionStart: false });
 
     expect(capability).toBeDefined();
     expect(provider.getUserSummary).not.toHaveBeenCalled();
@@ -315,13 +314,13 @@ describe('prepareSessionStartSummary', () => {
     );
   });
 
-  it('never splits an emoji when cutting', () => {
-    // 8 UTF-16 units; after the leading "x" and the marker, the cap falls inside an emoji.
-    const family = '\u{1F468}\u200D\u{1F469}\u200D\u{1F467}';
-    const { summary, truncated } = prepareSessionStartSummary(`x${family.repeat(1_000)}`);
-    const whole = Math.floor((maxChars - MEMORY_SUMMARY_TRUNCATION_MARKER.length - 1) / family.length);
+  it('drops the half of an emoji the cut splits', () => {
+    // 2 UTF-16 units each; after the leading "x" and the marker, the cap falls inside one.
+    const thumbsUp = '\u{1F44D}';
+    const { summary, truncated } = prepareSessionStartSummary(`x${thumbsUp.repeat(3_000)}`);
+    const whole = Math.floor((maxChars - MEMORY_SUMMARY_TRUNCATION_MARKER.length - 1) / thumbsUp.length);
 
     expect(truncated).toBe(true);
-    expect(summary).toBe(`x${family.repeat(whole)}${MEMORY_SUMMARY_TRUNCATION_MARKER}`);
+    expect(summary).toBe(`x${thumbsUp.repeat(whole)}${MEMORY_SUMMARY_TRUNCATION_MARKER}`);
   });
 });

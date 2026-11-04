@@ -6,6 +6,7 @@ import type { ISessionStore, Sessions, Turn, TurnStreamingEvent } from '@truefou
 import {
   CancellationReason,
   EventType,
+  resolvePreviousTurnId,
   SessionStoreConflictError,
   SessionStoreNotFoundError,
   TurnResourceResolver,
@@ -499,6 +500,7 @@ export async function beginTurnExecution(
       sessionId,
       tenantId,
       record: session.record,
+      isSessionStart: resolvePreviousTurnId(previousTurnId, session.record.last_turn_details?.id) === null,
       memory: deps.memory,
       agentStore: deps.agentStore,
       logger: deps.logger,
