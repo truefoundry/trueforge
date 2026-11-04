@@ -1752,7 +1752,7 @@ class RawSessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Iterator[HttpResponse[Stream[TurnStreamingEvent]]]:
         """
-        Subscribe to the live SSE stream. A paused turn with an expired stream is restored from stored events. Resume with from_event_id or after_event_id
+        Subscribe to the live SSE stream. Resume with from_event_id or after_event_id.
 
         Parameters
         ----------
@@ -1763,7 +1763,7 @@ class RawSessionsClient:
             Turn identifier.
 
         after_sequence_number : typing.Optional[int]
-            Legacy exclusive cursor for older integer streams only. Rejected on event-id streams; use from_event_id or after_event_id.
+            Deprecated. Rejected on new turns. Use from_event_id or after_event_id instead.
 
         from_event_id : typing.Optional[str]
             Inclusive cursor. Replay starts at the entry with this event id
@@ -3595,7 +3595,7 @@ class AsyncRawSessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.AsyncIterator[AsyncHttpResponse[AsyncStream[TurnStreamingEvent]]]:
         """
-        Subscribe to the live SSE stream. A paused turn with an expired stream is restored from stored events. Resume with from_event_id or after_event_id
+        Subscribe to the live SSE stream. Resume with from_event_id or after_event_id.
 
         Parameters
         ----------
@@ -3606,7 +3606,7 @@ class AsyncRawSessionsClient:
             Turn identifier.
 
         after_sequence_number : typing.Optional[int]
-            Legacy exclusive cursor for older integer streams only. Rejected on event-id streams; use from_event_id or after_event_id.
+            Deprecated. Rejected on new turns. Use from_event_id or after_event_id instead.
 
         from_event_id : typing.Optional[str]
             Inclusive cursor. Replay starts at the entry with this event id

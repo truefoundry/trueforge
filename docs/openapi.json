@@ -10741,7 +10741,7 @@
     },
     "/api/v1/sessions/{session_id}/turns/{turn_id}/subscribe": {
       "get": {
-        "description": "Subscribe to the live SSE stream. A paused turn with an expired stream is restored from stored events. Resume with from_event_id or after_event_id",
+        "description": "Subscribe to the live SSE stream. Resume with from_event_id or after_event_id.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -10767,12 +10767,12 @@
             }
           },
           {
-            "description": "Legacy exclusive cursor for older integer streams only. Rejected on event-id streams; use from_event_id or after_event_id.",
+            "description": "Deprecated. Rejected on new turns. Use from_event_id or after_event_id instead.",
             "in": "query",
             "name": "after_sequence_number",
             "required": false,
             "schema": {
-              "description": "Legacy exclusive cursor for older integer streams only. Rejected on event-id streams; use from_event_id or after_event_id.",
+              "description": "Deprecated. Rejected on new turns. Use from_event_id or after_event_id instead.",
               "minimum": 0,
               "type": [
                 "integer",
@@ -10852,7 +10852,7 @@
                 }
               }
             },
-            "description": "The live stream does not exist and this turn is not paused, so it was not restored."
+            "description": "The turn stream is no longer available or resumable."
           }
         },
         "summary": "Subscribe to a turn stream",

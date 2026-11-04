@@ -3462,7 +3462,7 @@ client.sessions.create_turn_events(
 <dl>
 <dd>
 
-Subscribe to the live SSE stream. A paused turn with an expired stream is restored from stored events. Resume with from_event_id or after_event_id
+Subscribe to the live SSE stream. Resume with from_event_id or after_event_id.
 </dd>
 </dl>
 </dd>
@@ -3519,7 +3519,7 @@ client.sessions.subscribe_to_turn(
 <dl>
 <dd>
 
-**after_sequence_number:** `typing.Optional[int]` — Legacy exclusive cursor for older integer streams only. Rejected on event-id streams; use from_event_id or after_event_id.
+**after_sequence_number:** `typing.Optional[int]` — Deprecated. Rejected on new turns. Use from_event_id or after_event_id instead.
     
 </dd>
 </dl>
