@@ -39,11 +39,14 @@ export const MCP_OAUTH_HTTP_TIMEOUT_MS = 15_000;
  * Abort hung authorization-server HTTP. Merges with any caller `signal` so both can cancel the request.
  * Used by discoverOAuthServerInfo / registerClient / refreshAuthorization / exchangeAuthorization
  * (startAuthorization is local PKCE + URL construction and never calls this).
+ *
+ * Never follow redirects: token/DCR POSTs carry refresh tokens, client secrets, and PKCE verifiers;
+ * a cross-origin 307/308 would replay that body to the Location host.
  */
 const mcpOAuthFetch: FetchLike = async (url, init) => {
   const timeoutSignal = AbortSignal.timeout(MCP_OAUTH_HTTP_TIMEOUT_MS);
   const signal = init?.signal != null ? AbortSignal.any([init.signal, timeoutSignal]) : timeoutSignal;
-  return ssrfFetch(url, { ...init, signal });
+  return ssrfFetch(url, { ...init, signal, redirect: 'error' });
 };
 
 function isTimeoutError(error: unknown): boolean {
