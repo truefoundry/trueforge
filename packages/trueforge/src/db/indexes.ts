@@ -45,3 +45,21 @@ export const SANDBOX_ENVIRONMENT_CREATED_BY_SUBJECT_ID_IDX = 'sandbox_environmen
 
 /** Unique `(environment_id, secret_name)` on sandbox_environment_secret. */
 export const SANDBOX_ENVIRONMENT_SECRET_ENV_NAME_UQ = 'sandbox_environment_secret_environment_id_secret_name_uq';
+
+/**
+ * Partial `(tenant_id, agent_id, updated_at, session_id) WHERE agent_id IS NOT NULL` on session —
+ * one agent's sessions in `listSessions` keyset order, so the page is read without a sort.
+ */
+export const SESSION_AGENT_LIST_IDX = 'session_agent_list_idx';
+
+/**
+ * Partial `(environment_id, version) WHERE status = 'pending'` on sandbox_environment_version —
+ * the build controller's pending-tip poll (`listLatestPendingVersions`) without a full scan.
+ */
+export const SANDBOX_ENVIRONMENT_VERSION_PENDING_IDX = 'sandbox_environment_version_pending_idx';
+
+/**
+ * `(oauth_server_id)` on oauth_pending_authorization — backs the `ON DELETE CASCADE` FK to
+ * mcp_server and `deletePendingAuthorizationsForServer`.
+ */
+export const OAUTH_PENDING_AUTHORIZATION_SERVER_ID_IDX = 'oauth_pending_authorization_oauth_server_id_idx';
