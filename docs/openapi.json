@@ -8982,7 +8982,7 @@
                 }
               }
             },
-            "description": "The name is already taken for this agent, or the schedule was modified concurrently (retry)."
+            "description": "The name is already taken for this agent, the creator already has a schedule with this cron for the agent, or the schedule was modified concurrently (retry)."
           }
         },
         "summary": "Create a schedule",
@@ -9270,7 +9270,7 @@
                 }
               }
             },
-            "description": "The name is already taken for this agent, or the schedule was modified concurrently (retry)."
+            "description": "The name is already taken for this agent, the creator already has a schedule with this cron for the agent, or the schedule was modified concurrently (retry)."
           }
         },
         "summary": "Update a schedule",
