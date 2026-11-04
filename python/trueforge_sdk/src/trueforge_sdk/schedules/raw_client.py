@@ -143,6 +143,7 @@ class RawSchedulesClient:
         agent_name: ResourceName,
         manifest: ScheduleManifest,
         name: ResourceName,
+        notes: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[GetScheduleResponse]:
         """
@@ -155,6 +156,9 @@ class RawSchedulesClient:
         manifest : ScheduleManifest
 
         name : ResourceName
+
+        notes : typing.Optional[str]
+            Optional notes about the schedule.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -173,6 +177,7 @@ class RawSchedulesClient:
                     object_=manifest, annotation=ScheduleManifest, direction="write"
                 ),
                 "name": name,
+                "notes": notes,
             },
             headers={
                 "content-type": "application/json",
@@ -408,10 +413,11 @@ class RawSchedulesClient:
         schedule_id: str,
         manifest: ScheduleManifest,
         name: ResourceName,
+        notes: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[GetScheduleResponse]:
         """
-        Replace name and manifest; replaces or drops the pending run when status/cron/timezone change.
+        Replace name, notes, and manifest; replaces or drops the pending run when status/cron/timezone change.
 
         Parameters
         ----------
@@ -421,6 +427,9 @@ class RawSchedulesClient:
         manifest : ScheduleManifest
 
         name : ResourceName
+
+        notes : typing.Optional[str]
+            Optional notes about the schedule.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -438,6 +447,7 @@ class RawSchedulesClient:
                     object_=manifest, annotation=ScheduleManifest, direction="write"
                 ),
                 "name": name,
+                "notes": notes,
             },
             headers={
                 "content-type": "application/json",
@@ -789,6 +799,7 @@ class AsyncRawSchedulesClient:
         agent_name: ResourceName,
         manifest: ScheduleManifest,
         name: ResourceName,
+        notes: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[GetScheduleResponse]:
         """
@@ -801,6 +812,9 @@ class AsyncRawSchedulesClient:
         manifest : ScheduleManifest
 
         name : ResourceName
+
+        notes : typing.Optional[str]
+            Optional notes about the schedule.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -819,6 +833,7 @@ class AsyncRawSchedulesClient:
                     object_=manifest, annotation=ScheduleManifest, direction="write"
                 ),
                 "name": name,
+                "notes": notes,
             },
             headers={
                 "content-type": "application/json",
@@ -1054,10 +1069,11 @@ class AsyncRawSchedulesClient:
         schedule_id: str,
         manifest: ScheduleManifest,
         name: ResourceName,
+        notes: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[GetScheduleResponse]:
         """
-        Replace name and manifest; replaces or drops the pending run when status/cron/timezone change.
+        Replace name, notes, and manifest; replaces or drops the pending run when status/cron/timezone change.
 
         Parameters
         ----------
@@ -1067,6 +1083,9 @@ class AsyncRawSchedulesClient:
         manifest : ScheduleManifest
 
         name : ResourceName
+
+        notes : typing.Optional[str]
+            Optional notes about the schedule.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1084,6 +1103,7 @@ class AsyncRawSchedulesClient:
                     object_=manifest, annotation=ScheduleManifest, direction="write"
                 ),
                 "name": name,
+                "notes": notes,
             },
             headers={
                 "content-type": "application/json",

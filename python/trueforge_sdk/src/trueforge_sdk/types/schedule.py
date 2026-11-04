@@ -18,6 +18,11 @@ class Schedule(UncheckedBaseModel):
     id: str
     manifest: ScheduleManifest
     name: ResourceName
+    notes: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Optional notes about the schedule.
+    """
+
     updated_at: dt.datetime
 
     if IS_PYDANTIC_V2:

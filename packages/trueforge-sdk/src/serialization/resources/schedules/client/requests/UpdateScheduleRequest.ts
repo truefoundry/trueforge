@@ -12,11 +12,13 @@ export const UpdateScheduleRequest: core.serialization.Schema<
 > = core.serialization.object({
     manifest: ScheduleManifest,
     name: ResourceName,
+    notes: core.serialization.string().optional(),
 });
 
 export declare namespace UpdateScheduleRequest {
     export interface Raw {
         manifest: ScheduleManifest.Raw;
         name: ResourceName.Raw;
+        notes?: string | null;
     }
 }

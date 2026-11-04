@@ -13,6 +13,7 @@ export const CreateScheduleRequest: core.serialization.Schema<
     agentName: core.serialization.property("agent_name", ResourceName),
     manifest: ScheduleManifest,
     name: ResourceName,
+    notes: core.serialization.string().optional(),
 });
 
 export declare namespace CreateScheduleRequest {
@@ -20,5 +21,6 @@ export declare namespace CreateScheduleRequest {
         agent_name: ResourceName.Raw;
         manifest: ScheduleManifest.Raw;
         name: ResourceName.Raw;
+        notes?: string | null;
     }
 }

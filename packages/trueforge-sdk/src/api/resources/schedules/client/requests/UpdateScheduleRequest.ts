@@ -15,4 +15,6 @@ import type * as TrueForge from "../../../../index.js";
 export interface UpdateScheduleRequest {
     manifest: TrueForge.ScheduleManifest;
     name: TrueForge.ResourceName;
+    /** Optional notes about the schedule. */
+    notes?: string;
 }

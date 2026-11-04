@@ -22,6 +22,7 @@ describe("SchedulesClient", () => {
                     id: "id",
                     manifest: { cron: "cron", task: "task" },
                     name: "name",
+                    notes: "notes",
                     updated_at: "2024-01-15T09:30:00Z",
                 },
             ],
@@ -52,6 +53,7 @@ describe("SchedulesClient", () => {
                         task: "task",
                     },
                     name: "name",
+                    notes: "notes",
                     updatedAt: new Date("2024-01-15T09:30:00.000Z"),
                 },
             ],
@@ -111,6 +113,7 @@ describe("SchedulesClient", () => {
                 id: "id",
                 manifest: { cron: "cron", status: "active", task: "task", timezone: "timezone" },
                 name: "name",
+                notes: "notes",
                 updated_at: "2024-01-15T09:30:00Z",
             },
         };
@@ -149,6 +152,7 @@ describe("SchedulesClient", () => {
                     timezone: "timezone",
                 },
                 name: "name",
+                notes: "notes",
                 updatedAt: new Date("2024-01-15T09:30:00.000Z"),
             },
         });
@@ -418,6 +422,7 @@ describe("SchedulesClient", () => {
                 id: "id",
                 manifest: { cron: "cron", status: "active", task: "task", timezone: "timezone" },
                 name: "name",
+                notes: "notes",
                 updated_at: "2024-01-15T09:30:00Z",
             },
         };
@@ -448,6 +453,7 @@ describe("SchedulesClient", () => {
                     timezone: "timezone",
                 },
                 name: "name",
+                notes: "notes",
                 updatedAt: new Date("2024-01-15T09:30:00.000Z"),
             },
         });
@@ -507,6 +513,7 @@ describe("SchedulesClient", () => {
                 id: "id",
                 manifest: { cron: "cron", status: "active", task: "task", timezone: "timezone" },
                 name: "name",
+                notes: "notes",
                 updated_at: "2024-01-15T09:30:00Z",
             },
         };
@@ -544,6 +551,7 @@ describe("SchedulesClient", () => {
                     timezone: "timezone",
                 },
                 name: "name",
+                notes: "notes",
                 updatedAt: new Date("2024-01-15T09:30:00.000Z"),
             },
         });

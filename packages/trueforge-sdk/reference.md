@@ -1508,7 +1508,7 @@ await client.schedules.get("schedule_id");
 <dl>
 <dd>
 
-Replace name and manifest; replaces or drops the pending run when status/cron/timezone change.
+Replace name, notes, and manifest; replaces or drops the pending run when status/cron/timezone change.
 </dd>
 </dl>
 </dd>

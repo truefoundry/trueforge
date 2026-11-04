@@ -15,6 +15,7 @@ export const Schedule: core.serialization.ObjectSchema<serializers.Schedule.Raw,
         id: core.serialization.string(),
         manifest: ScheduleManifest,
         name: ResourceName,
+        notes: core.serialization.string().optional(),
         updatedAt: core.serialization.property("updated_at", core.serialization.date()),
     });
 
@@ -26,6 +27,7 @@ export declare namespace Schedule {
         id: string;
         manifest: ScheduleManifest.Raw;
         name: ResourceName.Raw;
+        notes?: string | null;
         updated_at: string;
     }
 }

@@ -17,4 +17,6 @@ export interface CreateScheduleRequest {
     agentName: TrueForge.ResourceName;
     manifest: TrueForge.ScheduleManifest;
     name: TrueForge.ResourceName;
+    /** Optional notes about the schedule. */
+    notes?: string;
 }

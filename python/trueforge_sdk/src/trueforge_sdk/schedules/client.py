@@ -98,6 +98,7 @@ class SchedulesClient:
         agent_name: ResourceName,
         manifest: ScheduleManifest,
         name: ResourceName,
+        notes: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetScheduleResponse:
         """
@@ -110,6 +111,9 @@ class SchedulesClient:
         manifest : ScheduleManifest
 
         name : ResourceName
+
+        notes : typing.Optional[str]
+            Optional notes about the schedule.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -137,7 +141,7 @@ class SchedulesClient:
         )
         """
         _response = self._raw_client.create(
-            agent_name=agent_name, manifest=manifest, name=name, request_options=request_options
+            agent_name=agent_name, manifest=manifest, name=name, notes=notes, request_options=request_options
         )
         return _response.data
 
@@ -213,10 +217,11 @@ class SchedulesClient:
         schedule_id: str,
         manifest: ScheduleManifest,
         name: ResourceName,
+        notes: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetScheduleResponse:
         """
-        Replace name and manifest; replaces or drops the pending run when status/cron/timezone change.
+        Replace name, notes, and manifest; replaces or drops the pending run when status/cron/timezone change.
 
         Parameters
         ----------
@@ -226,6 +231,9 @@ class SchedulesClient:
         manifest : ScheduleManifest
 
         name : ResourceName
+
+        notes : typing.Optional[str]
+            Optional notes about the schedule.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -253,7 +261,7 @@ class SchedulesClient:
         )
         """
         _response = self._raw_client.update(
-            schedule_id=schedule_id, manifest=manifest, name=name, request_options=request_options
+            schedule_id=schedule_id, manifest=manifest, name=name, notes=notes, request_options=request_options
         )
         return _response.data
 
@@ -430,6 +438,7 @@ class AsyncSchedulesClient:
         agent_name: ResourceName,
         manifest: ScheduleManifest,
         name: ResourceName,
+        notes: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetScheduleResponse:
         """
@@ -442,6 +451,9 @@ class AsyncSchedulesClient:
         manifest : ScheduleManifest
 
         name : ResourceName
+
+        notes : typing.Optional[str]
+            Optional notes about the schedule.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -477,7 +489,7 @@ class AsyncSchedulesClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.create(
-            agent_name=agent_name, manifest=manifest, name=name, request_options=request_options
+            agent_name=agent_name, manifest=manifest, name=name, notes=notes, request_options=request_options
         )
         return _response.data
 
@@ -571,10 +583,11 @@ class AsyncSchedulesClient:
         schedule_id: str,
         manifest: ScheduleManifest,
         name: ResourceName,
+        notes: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetScheduleResponse:
         """
-        Replace name and manifest; replaces or drops the pending run when status/cron/timezone change.
+        Replace name, notes, and manifest; replaces or drops the pending run when status/cron/timezone change.
 
         Parameters
         ----------
@@ -584,6 +597,9 @@ class AsyncSchedulesClient:
         manifest : ScheduleManifest
 
         name : ResourceName
+
+        notes : typing.Optional[str]
+            Optional notes about the schedule.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -619,7 +635,7 @@ class AsyncSchedulesClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.update(
-            schedule_id=schedule_id, manifest=manifest, name=name, request_options=request_options
+            schedule_id=schedule_id, manifest=manifest, name=name, notes=notes, request_options=request_options
         )
         return _response.data
 

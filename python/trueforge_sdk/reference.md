@@ -1582,6 +1582,14 @@ client.schedules.create(
 <dl>
 <dd>
 
+**notes:** `typing.Optional[str]` — Optional notes about the schedule.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
     
 </dd>
@@ -1750,7 +1758,7 @@ client.schedules.get(
 <dl>
 <dd>
 
-Replace name and manifest; replaces or drops the pending run when status/cron/timezone change.
+Replace name, notes, and manifest; replaces or drops the pending run when status/cron/timezone change.
 </dd>
 </dl>
 </dd>
@@ -1812,6 +1820,14 @@ client.schedules.update(
 <dd>
 
 **name:** `ResourceName` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**notes:** `typing.Optional[str]` — Optional notes about the schedule.
     
 </dd>
 </dl>
