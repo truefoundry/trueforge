@@ -246,6 +246,34 @@ describe('schedule RBAC', () => {
   });
 });
 
+describe('schedule cron uniqueness', () => {
+  it('returns 409 when the creator reuses a cron for the same agent; other creators may', async () => {
+    const { asUser, postJson } = await setup();
+
+    asUser(ALICE);
+    expect((await postJson('/', 'POST', scheduleBody)).status).toBe(201);
+    const clash = await postJson('/', 'POST', { ...scheduleBody, name: 'daily-report-copy' });
+    expect(clash.status).toBe(409);
+    expect(((await clash.json()) as { error: { message: string } }).error.message).toBe(
+      'You already have a schedule for agent reporter with cron "0 13 * * *"',
+    );
+
+    const evening = await postJson('/', 'POST', {
+      ...scheduleBody,
+      name: 'evening-report',
+      manifest: { ...scheduleBody.manifest, cron: '0 17 * * *' },
+    });
+    expect(evening.status).toBe(201);
+    const { id: eveningId } = ((await evening.json()) as { data: { id: string } }).data;
+    expect(
+      (await postJson(`/${eveningId}`, 'PUT', { name: 'evening-report', manifest: scheduleBody.manifest })).status,
+    ).toBe(409);
+
+    asUser(BOB);
+    expect((await postJson('/', 'POST', { ...scheduleBody, name: 'bob-daily-report' })).status).toBe(201);
+  });
+});
+
 describe('schedule list agent_names filter', () => {
   it('filters by a single agent_names value and by comma-separated agent_names', async () => {
     const { app, asUser, agentStore, postJson } = await setup();

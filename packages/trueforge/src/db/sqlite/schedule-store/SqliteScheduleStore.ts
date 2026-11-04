@@ -14,6 +14,7 @@ import { newId } from '../../../utils/id';
 import {
   cronRunName,
   parseStoredScheduleManifest,
+  ScheduleCronConflictError,
   ScheduleNameConflictError,
   ScheduleRunConflictError,
   shouldSyncPendingRun,
@@ -172,10 +173,16 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
         .executeTakeFirstOrThrow();
     } catch (error) {
       if (isUniqueViolation(error)) {
-        throw new ScheduleNameConflictError(
-          { tenant_id: input.tenant_id, agent_name: input.agent_name, name: input.name },
-          { cause: error },
-        );
+        await this.#throwScheduleUnique({
+          error,
+          tenant_id: input.tenant_id,
+          agent_name: input.agent_name,
+          name: input.name,
+          cron: input.manifest.cron,
+          created_by_subject_id: input.created_by_subject.subject_id,
+          exclude_id: undefined,
+          transaction,
+        });
       }
       throw error;
     }
@@ -217,10 +224,16 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
         .executeTakeFirst();
     } catch (error) {
       if (isUniqueViolation(error)) {
-        throw new ScheduleNameConflictError(
-          { tenant_id: input.tenant_id, agent_name: previous.agent_name, name: input.name },
-          { cause: error },
-        );
+        await this.#throwScheduleUnique({
+          error,
+          tenant_id: input.tenant_id,
+          agent_name: previous.agent_name,
+          name: input.name,
+          cron: input.manifest.cron,
+          created_by_subject_id: previous.created_by_subject.subject_id,
+          exclude_id: previous.id,
+          transaction,
+        });
       }
       throw error;
     }
@@ -271,6 +284,46 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
       },
       transaction,
     );
+  }
+
+  /**
+   * Map a schedule unique violation to the cron vs name conflict. Which index fired is
+   * resolved by lookup, not by parsing the driver message (its wording varies by version).
+   */
+  async #throwScheduleUnique({
+    error,
+    tenant_id,
+    agent_name,
+    name,
+    cron,
+    created_by_subject_id,
+    exclude_id,
+    transaction,
+  }: {
+    error: unknown;
+    tenant_id: string;
+    agent_name: string;
+    name: string;
+    cron: string;
+    created_by_subject_id: string;
+    exclude_id: string | undefined;
+    transaction: Transaction<Database> | undefined;
+  }): Promise<never> {
+    const db = transaction ?? this.#db;
+    let query = db
+      .selectFrom('schedule')
+      .select('id')
+      .where('tenant_id', '=', tenant_id)
+      .where('agent_name', '=', agent_name)
+      .where(sql<string>`json_extract(manifest, '$.cron')`, '=', cron)
+      .where(sql<string>`json_extract(created_by_subject, '$.subject_id')`, '=', created_by_subject_id);
+    if (exclude_id !== undefined) {
+      query = query.where('id', '!=', exclude_id);
+    }
+    if ((await query.executeTakeFirst()) !== undefined) {
+      throw new ScheduleCronConflictError({ tenant_id, agent_name, cron }, { cause: error });
+    }
+    throw new ScheduleNameConflictError({ tenant_id, agent_name, name }, { cause: error });
   }
 
   async deleteSchedule(input: DeleteScheduleInput, transaction?: Transaction<Database>): Promise<void> {

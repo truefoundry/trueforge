@@ -28,6 +28,12 @@ export const AGENT_CREATED_BY_SUBJECT_ID_IDX = 'agent_created_by_subject_id_idx'
 /** `(tenant_id, created_by_subject.subject_id)` on schedule. */
 export const SCHEDULE_CREATED_BY_SUBJECT_ID_IDX = 'schedule_created_by_subject_id_idx';
 
+/**
+ * Unique `(tenant_id, agent_name, manifest.cron, created_by_subject.subject_id)` on schedule —
+ * one creator cannot put two schedules on the same cron for one agent.
+ */
+export const SCHEDULE_CRON_UQ = 'schedule_cron_uq';
+
 /** `(tenant_id, agent_id)` on schedule — list schedules for one agent by id. */
 export const SCHEDULE_AGENT_ID_IDX = 'schedule_agent_id_idx';
 
