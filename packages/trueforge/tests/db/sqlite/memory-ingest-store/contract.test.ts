@@ -30,7 +30,7 @@ describe('SqliteMemoryIngestStore (IMemoryIngestStore contract)', () => {
           manifest: jsonbBind({
             model: { name: 'test-provider/test-model' },
             instructions: 'test',
-            runtime: { memory: { enabled: memory_enabled } },
+            config: { memory: { enabled: memory_enabled } },
           }),
           external_id: null,
           created_by_subject: jsonbBind({ subject_id: 'owner', subject_type: 'user', subject_display_name: 'Owner' }),

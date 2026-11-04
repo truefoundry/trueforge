@@ -57,3 +57,93 @@ describe('turn model name', () => {
     assert.equal(turn?.modelName, undefined);
   });
 });
+
+describe('inputTokensBreakdown', () => {
+  const created: SessionEventItem = {
+    turnId: 't1',
+    event: {
+      type: 'turn.created',
+      id: 'c',
+      turnId: 't1',
+      createdAt: at(0),
+      input: [{ type: 'user.message', content: 'hi' }],
+    },
+  };
+
+  it('sums model.message breakdown across threads and band aggregates', () => {
+    const turns = buildSessionTurnViews([
+      created,
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'a',
+          threadId: 'main',
+          createdAt: at(1),
+          usage: {
+            inputTokens: 100,
+            outputTokens: 1,
+            inputTokensBreakdown: {
+              harness: 10,
+              skills: 5,
+              instructions: 20,
+              toolDefinitions: 15,
+              messages: 50,
+            },
+          },
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'b',
+          threadId: 'sub',
+          createdAt: at(2),
+          usage: {
+            inputTokens: 40,
+            outputTokens: 1,
+            inputTokensBreakdown: {
+              harness: 2,
+              skills: 0,
+              instructions: 0,
+              toolDefinitions: 8,
+              messages: 30,
+            },
+          },
+        },
+      },
+    ]);
+    assert.deepEqual(turns[0]?.inputTokensBreakdown, {
+      harness: 12,
+      skills: 5,
+      instructions: 20,
+      toolDefinitions: 23,
+      messages: 80,
+    });
+    assert.deepEqual(aggregateSessionTurnBand(turns, 1)?.inputTokensBreakdown, {
+      harness: 12,
+      skills: 5,
+      instructions: 20,
+      toolDefinitions: 23,
+      messages: 80,
+    });
+  });
+
+  it('leaves inputTokensBreakdown unset when usage has no breakdown', () => {
+    const [turn] = buildSessionTurnViews([
+      created,
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'a',
+          threadId: 'main',
+          createdAt: at(1),
+          usage: { inputTokens: 10, outputTokens: 1 },
+        },
+      },
+    ]);
+    assert.equal(turn?.inputTokensBreakdown, undefined);
+  });
+});

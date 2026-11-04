@@ -309,8 +309,7 @@ type MemoryConfiguration = Pick<
 >;
 
 /**
- * Loop wiring from TrueFoundry-mode configuration (like the shared sandbox and web search);
- * undefined while `TRUEFOUNDRY_MEMORY_ENABLED` is off.
+ * Loop wiring from TrueFoundry-mode configuration; undefined while `TRUEFOUNDRY_MEMORY_ENABLED` is off.
  */
 export function memoryIngestFromConfig({
   config,
