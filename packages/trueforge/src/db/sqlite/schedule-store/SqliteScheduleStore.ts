@@ -11,9 +11,11 @@ import { sql, type ExpressionBuilder, type Kysely, type Transaction, type Update
 import { nextTriggerAfter } from '../../../runtime/cron';
 import type { ScheduleManifest, ScheduleRunStatus, ScheduleStatus } from '../../../schemas/schedule';
 import { newId } from '../../../utils/id';
+import { SCHEDULE_CRON_AGENT_CREATOR_UQ } from '../../indexes';
 import {
   cronRunName,
   parseStoredScheduleManifest,
+  ScheduleCronConflictError,
   ScheduleNameConflictError,
   ScheduleRunConflictError,
   shouldSyncPendingRun,
@@ -36,7 +38,7 @@ import {
   type UpdateScheduleInput,
   type UpdateScheduleRunInput,
 } from '../../scheduleStore';
-import { isUniqueViolation } from '../client';
+import { isSqliteConstraint, isUniqueViolation } from '../client';
 import { jsonbBind, jsonText, nowIso, whereCreatedByOrAgentIds } from '../sqlExpressions';
 import type { Database } from '../types';
 
@@ -171,6 +173,12 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
         .returning(scheduleColumns)
         .executeTakeFirstOrThrow();
     } catch (error) {
+      if (isSqliteConstraint(error, SCHEDULE_CRON_AGENT_CREATOR_UQ)) {
+        throw new ScheduleCronConflictError(
+          { agent_name: input.agent_name, cron: input.manifest.cron },
+          { cause: error },
+        );
+      }
       if (isUniqueViolation(error)) {
         throw new ScheduleNameConflictError(
           { tenant_id: input.tenant_id, agent_name: input.agent_name, name: input.name },
@@ -216,6 +224,12 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
         .returning(scheduleColumns)
         .executeTakeFirst();
     } catch (error) {
+      if (isSqliteConstraint(error, SCHEDULE_CRON_AGENT_CREATOR_UQ)) {
+        throw new ScheduleCronConflictError(
+          { agent_name: previous.agent_name, cron: input.manifest.cron },
+          { cause: error },
+        );
+      }
       if (isUniqueViolation(error)) {
         throw new ScheduleNameConflictError(
           { tenant_id: input.tenant_id, agent_name: previous.agent_name, name: input.name },

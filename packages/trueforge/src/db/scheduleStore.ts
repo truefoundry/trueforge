@@ -224,6 +224,14 @@ export class ScheduleNameConflictError extends Error {
   }
 }
 
+/** A creator already uses this cron expression for the agent. */
+export class ScheduleCronConflictError extends Error {
+  constructor({ agent_name, cron }: { agent_name: string; cron: string }, options?: ErrorOptions) {
+    super(`Cron expression already exists for agent ${agent_name}: ${cron}`, options);
+    this.name = 'ScheduleCronConflictError';
+  }
+}
+
 /**
  * Pending run is replaced only when `status`, `cron`, or `timezone` change.
  * `name` and `task` edits leave the pending row alone.

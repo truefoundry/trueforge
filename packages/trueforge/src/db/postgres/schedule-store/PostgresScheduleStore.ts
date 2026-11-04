@@ -6,9 +6,11 @@ import {
 import { type Kysely, type Selectable, type Transaction, type UpdateObject } from 'kysely';
 import { nextTriggerAfter } from '../../../runtime/cron';
 import { newId } from '../../../utils/id';
+import { SCHEDULE_CRON_AGENT_CREATOR_UQ } from '../../indexes';
 import {
   cronRunName,
   parseStoredScheduleManifest,
+  ScheduleCronConflictError,
   ScheduleNameConflictError,
   ScheduleRunConflictError,
   shouldSyncPendingRun,
@@ -31,7 +33,7 @@ import {
   type UpdateScheduleInput,
   type UpdateScheduleRunInput,
 } from '../../scheduleStore';
-import { isUniqueViolation } from '../client';
+import { isPgConstraint, isUniqueViolation } from '../client';
 import { json, now, whereCreatedByOrAgentIds } from '../sqlExpressions';
 import type { Database, ScheduleRunTable, ScheduleTable } from '../types';
 
@@ -158,6 +160,12 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
         .returningAll()
         .executeTakeFirstOrThrow();
     } catch (error) {
+      if (isPgConstraint(error, SCHEDULE_CRON_AGENT_CREATOR_UQ)) {
+        throw new ScheduleCronConflictError(
+          { agent_name: input.agent_name, cron: input.manifest.cron },
+          { cause: error },
+        );
+      }
       if (isUniqueViolation(error)) {
         throw new ScheduleNameConflictError(
           { tenant_id: input.tenant_id, agent_name: input.agent_name, name: input.name },
@@ -196,6 +204,12 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
         .returningAll()
         .executeTakeFirst();
     } catch (error) {
+      if (isPgConstraint(error, SCHEDULE_CRON_AGENT_CREATOR_UQ)) {
+        throw new ScheduleCronConflictError(
+          { agent_name: previous.agent_name, cron: input.manifest.cron },
+          { cause: error },
+        );
+      }
       if (isUniqueViolation(error)) {
         throw new ScheduleNameConflictError(
           { tenant_id: input.tenant_id, agent_name: previous.agent_name, name: input.name },

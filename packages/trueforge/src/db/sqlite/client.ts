@@ -186,3 +186,11 @@ export function isUniqueViolation(err: unknown): boolean {
   const code = err.code;
   return code === 'SQLITE_CONSTRAINT_UNIQUE' || code === 'SQLITE_CONSTRAINT_PRIMARYKEY';
 }
+
+/** Match a SQLite constraint error to a named expression index. */
+export function isSqliteConstraint(err: unknown, name: string): boolean {
+  if (typeof err !== 'object' || err === null || !('message' in err) || typeof err.message !== 'string') {
+    return false;
+  }
+  return err.message.includes(`'${name}'`);
+}
