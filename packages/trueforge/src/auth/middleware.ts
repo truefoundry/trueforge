@@ -46,6 +46,8 @@ export function buildAdminAuthMiddleware({
     if (requestContext === undefined) {
       throw new HTTPException(401, { message: 'Authentication required' });
     }
+    // Set before the gates below so the access log names a rejected caller.
+    c.set('request_context', requestContext);
     updateLogContext({ tenant_id: requestContext.tenant_id });
     if (!accessible) {
       throw new HTTPException(422, {
@@ -55,7 +57,6 @@ export function buildAdminAuthMiddleware({
     if (!hasAdminRole(requestContext)) {
       throw new HTTPException(403, { message: 'Admin access required' });
     }
-    c.set('request_context', requestContext);
     return next();
   };
 }
