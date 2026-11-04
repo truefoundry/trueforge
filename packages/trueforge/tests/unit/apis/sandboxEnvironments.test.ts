@@ -296,6 +296,96 @@ describe('sandbox environments API → build controller path', () => {
     expect(Array.isArray(listBody.data)).toBe(true);
   });
 
+  it('persists caller-defined metadata across create, get, list, and update', async () => {
+    const { publicRouter, sandboxEnvironmentStore } = await setup();
+    mockSecretProvider();
+    const initialMetadata = {
+      owner: 'platform',
+      labels: ['python', 'batch'],
+      settings: { retries: 3, enabled: true },
+      nullable: null,
+    };
+
+    const created = await publicRouter.request('/', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        manifest: {
+          name: 'metadata-env',
+          image: { type: 'build', build_script: 'pip install httpx' },
+          metadata: initialMetadata,
+        },
+      }),
+    });
+    expect(created.status).toBe(201);
+    expect(
+      (
+        (await created.json()) as {
+          data: { manifest: { metadata?: Record<string, unknown> } };
+        }
+      ).data.manifest.metadata,
+    ).toEqual(initialMetadata);
+
+    const stored = await sandboxEnvironmentStore.getEnvironment({
+      tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
+      name: 'metadata-env',
+    });
+    expect(stored?.version.manifest.metadata).toEqual(initialMetadata);
+
+    const getBody = (await (await publicRouter.request('/metadata-env')).json()) as {
+      data: { manifest: { metadata?: Record<string, unknown> } };
+    };
+    expect(getBody.data.manifest.metadata).toEqual(initialMetadata);
+    const listBody = (await (await publicRouter.request('/')).json()) as {
+      data: { manifest: { metadata?: Record<string, unknown> } }[];
+    };
+    expect(listBody.data[0]?.manifest.metadata).toEqual(initialMetadata);
+
+    const updatedMetadata = { owner: 'runtime', revision: 2 };
+    const updated = await publicRouter.request('/', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        manifest: {
+          name: 'metadata-env',
+          image: { type: 'build', build_script: 'pip install httpx' },
+          metadata: updatedMetadata,
+        },
+      }),
+    });
+    expect(updated.status).toBe(200);
+    expect(
+      (
+        (await updated.json()) as {
+          data: { manifest: { metadata?: Record<string, unknown> } };
+        }
+      ).data.manifest.metadata,
+    ).toEqual(updatedMetadata);
+    expect(
+      (
+        await sandboxEnvironmentStore.getEnvironment({
+          tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
+          name: 'metadata-env',
+        })
+      )?.version.manifest.metadata,
+    ).toEqual(updatedMetadata);
+  });
+
+  it('rejects metadata values that are not JSON objects', async () => {
+    const { publicRouter } = await setup();
+    const response = await publicRouter.request('/', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        manifest: {
+          name: 'metadata-env',
+          metadata: ['not', 'an', 'object'],
+        },
+      }),
+    });
+    expect(response.status).toBe(400);
+  });
+
   it('allows all users to read; create is admin-only; update/delete allow admin or creator', async () => {
     const { publicRouter, setSubject } = await setup();
     jest.mocked(providerUtils.toSandboxProviderFromRecord).mockReturnValue({

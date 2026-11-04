@@ -125,6 +125,11 @@ export const SandboxEnvironmentNetworkingSchema = z
   })
   .openapi('SandboxEnvironmentNetworking');
 
+export const SandboxEnvironmentMetadataSchema = z
+  .record(z.string(), z.unknown())
+  .describe('Optional caller-defined JSON metadata.')
+  .openapi('SandboxEnvironmentMetadata');
+
 /**
  * Manifest fields shared by wire and storage. Responses may use name `"default"`;
  * create/update requests reject it (reserved system env).
@@ -139,6 +144,7 @@ const SandboxEnvironmentManifestFieldsSchema = z
       .record(SandboxEnvironmentVariableNameSchema, SandboxEnvironmentVariableValueSchema)
       .optional(),
     networking: SandboxEnvironmentNetworkingSchema.optional(),
+    metadata: SandboxEnvironmentMetadataSchema.optional(),
   })
   .strict();
 
