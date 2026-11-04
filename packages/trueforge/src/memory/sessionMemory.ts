@@ -9,12 +9,11 @@ import { CREATE_AGENT_SESSION_METADATA_KEY, resolveMemoryScope, type MemoryScope
 
 /** Session start waits at most this long for the user summary, then continues without it. */
 export const MEMORY_SUMMARY_TIMEOUT_MS = 2_000;
-/** The session-start summary is cut to fit this budget, at a sentence or line end where one fits. */
+/** The session-start summary is cut to fit this budget, marker included. */
 export const MEMORY_SUMMARY_MAX_TOKENS = 1_000;
+export const MEMORY_SUMMARY_TRUNCATION_MARKER = '…[truncated]';
 
-const INTERNAL_TAG = /<\s*(\/?)\s*tfy-internal\s*>/gi;
-const SENTENCE_ENDS = /[.!?](?=\s)|\n/g;
-const WORD_ENDS = /\S(?=\s)/g;
+const INTERNAL_TAG = /<\/?tfy-internal>/gi;
 /** Grapheme clusters, so a cut never splits an emoji (skin tones, flags, ZWJ sequences). */
 const graphemeSegmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 
@@ -76,65 +75,46 @@ export async function resolveSessionMemory({
     return undefined;
   }
 
-  let sessionStartSummary: string | undefined;
+  let sessionStartMemory: string | undefined;
   if (record.last_turn_details === null) {
-    sessionStartSummary = await fetchSessionStartSummary({
+    sessionStartMemory = await fetchSessionStartSummary({
       provider: configured.provider,
       scope,
       timeoutMs: summaryTimeoutMs,
       logger,
     });
   } else {
-    sessionStartSummary = undefined;
+    sessionStartMemory = undefined;
   }
 
-  const scoped: ScopedMemory = {
+  const scopedMemory: ScopedMemory = {
     search: ({ query, limit }) => provider.search({ scope, query, limit }),
     add: ({ content }) => provider.addMemory({ scope, content, sessionId, createdAt: new Date().toISOString() }),
   };
-  return memory({ memory: scoped, sessionStartSummary });
+  return memory({ scopedMemory, sessionStartMemory });
 }
 
 /**
- * Makes provider text safe to load as an internal message: the internal-message tags are defused so
- * it can't close the wrapper, and it is cut to fit {@link MEMORY_SUMMARY_MAX_TOKENS} at the last
- * sentence or line end that fits, else the last word end, else the last grapheme cluster.
+ * Makes provider text safe to load as an internal message: internal-message tags are stripped so it
+ * can't open or close the wrapper, and text over {@link MEMORY_SUMMARY_MAX_TOKENS} is cut at a
+ * grapheme boundary and marked with {@link MEMORY_SUMMARY_TRUNCATION_MARKER}.
  */
 export function prepareSessionStartSummary(raw: string): { summary: string; truncated: boolean } {
-  const summary = raw.replace(INTERNAL_TAG, '[$1tfy-internal]').trim();
+  const summary = raw.replace(INTERNAL_TAG, '').trim();
   if (estimateTokensForString(summary) <= MEMORY_SUMMARY_MAX_TOKENS) {
     return { summary, truncated: false };
   }
-  for (const cuts of [matchEnds(summary, SENTENCE_ENDS), matchEnds(summary, WORD_ENDS), graphemeEnds(summary)]) {
-    const end = lastCutWithinTokenBudget(summary, cuts);
-    if (end > 0) {
-      return { summary: summary.slice(0, end).trim(), truncated: true };
-    }
-  }
-  return { summary: '', truncated: true };
-}
-
-function* matchEnds(summary: string, pattern: RegExp): Generator<number> {
-  for (const match of summary.matchAll(pattern)) {
-    yield match.index + match[0].length;
-  }
-}
-
-function* graphemeEnds(summary: string): Generator<number> {
-  for (const { index, segment } of graphemeSegmenter.segment(summary)) {
-    yield index + segment.length;
-  }
-}
-
-function lastCutWithinTokenBudget(summary: string, cuts: Iterable<number>): number {
-  let end = 0;
-  for (const cut of cuts) {
-    if (estimateTokensForString(summary.slice(0, cut)) > MEMORY_SUMMARY_MAX_TOKENS) {
+  const budget = MEMORY_SUMMARY_MAX_TOKENS - estimateTokensForString(MEMORY_SUMMARY_TRUNCATION_MARKER);
+  let kept = '';
+  let used = 0;
+  for (const { segment } of graphemeSegmenter.segment(summary)) {
+    used += estimateTokensForString(segment);
+    if (used > budget) {
       break;
     }
-    end = cut;
+    kept += segment;
   }
-  return end;
+  return { summary: `${kept.trimEnd()}${MEMORY_SUMMARY_TRUNCATION_MARKER}`, truncated: true };
 }
 
 /** Single bounded attempt; any failure means "no summary" so the turn starts on time. */

@@ -19,7 +19,7 @@ import {
 const SUMMARY = 'user-1 is vegetarian.';
 const unusedMemory = { search: () => Promise.resolve([]), add: () => Promise.resolve() };
 
-function resolverWith(sessionStartSummary: string | undefined, requests: ChatCompletionMessageParam[][]) {
+function resolverWith(sessionStartMemory: string | undefined, requests: ChatCompletionMessageParam[][]) {
   const llm = makeMockILLM({
     create: jest.fn().mockImplementation((body: LLMCreateParamsStreaming) => {
       requests.push(body.messages);
@@ -32,7 +32,7 @@ function resolverWith(sessionStartSummary: string | undefined, requests: ChatCom
     mcpRequestTimeoutMs: 1_000,
     mcpConnectTimeoutMs: 1_000,
     logger: makeSilentLogger(),
-    rootCapabilities: () => [memory({ memory: unusedMemory, sessionStartSummary })],
+    rootCapabilities: () => [memory({ scopedMemory: unusedMemory, sessionStartMemory })],
   });
 }
 
@@ -47,14 +47,14 @@ describe('session-start memory', () => {
       external_id: null,
     });
     const requests: ChatCompletionMessageParam[][] = [];
-    const runTurn = async (content: string, sessionStartSummary: string | undefined) => {
+    const runTurn = async (content: string, sessionStartMemory: string | undefined) => {
       const turn = await session.createTurn({
         turn_id: mintTestTurnId(),
         active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
         input: [{ type: EventType.USER_MESSAGE, content }],
         previous_turn_id: 'auto',
         signal: new AbortController().signal,
-        resolver: resolverWith(sessionStartSummary, requests),
+        resolver: resolverWith(sessionStartMemory, requests),
       });
       for await (const event of turn.stream()) {
         void event;

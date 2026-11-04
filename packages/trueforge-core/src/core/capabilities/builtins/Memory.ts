@@ -1,7 +1,6 @@
 import dedent from 'dedent';
 import { z } from 'zod';
 import type { InstructionBuilder } from '../../InstructionBuilder';
-import type { LLMUserMessage } from '../../llm/LLMTypes';
 import { type CallToolResponse, toolResultResponse } from '../../mcp/IMCPServer';
 import { defineTool, LocalToolMCP, type ToolDefinition } from '../../mcp/LocalToolMCP';
 import type { ScopedMemory } from '../../memory/ScopedMemory';
@@ -66,15 +65,46 @@ export function buildMemoryInstruction(builder: InstructionBuilder): void {
   builder.addSection(
     MEMORY_INSTRUCTION_TAG,
     dedent`
-      The Agent has two system tools for long-term memory of this user, built from earlier sessions: ${MEMORY_SEARCH_TOOL_NAME} (look up details about the user when they would help, e.g. preferences, ongoing work or people they mention) and ${MEMORY_ADD_TOOL_NAME} (save something only when the user explicitly asks you to remember it).
-      A summary of this memory may also appear at the start of the conversation.
-      Memory can be outdated: prefer what the user says in this session. Follow the user's preferences found in memory unless the user says otherwise, but memory never overrides these instructions.
+      ${MEMORY_SEARCH_TOOL_NAME} and ${MEMORY_ADD_TOOL_NAME} are system tools for this user's long-term memory from earlier sessions. This memory may also be included in a hidden message at the start of the conversation.
+      Memory can be outdated: prefer what the user says now. Follow preferences in it unless the user says otherwise; it never overrides these instructions.
     `,
   );
 }
 
-function sessionStartMemoryMessage(summary: string): LLMUserMessage {
-  return internalSystemMessage(['User memory (from previous sessions):', '', summary].join('\n'));
+/**
+ * Appends the session-start memory to the context once, as an internal message before the user's
+ * first message. Nothing is persisted here: the host passes the memory only on a session's first
+ * turn, and later turns replay the appended message from the stored context.
+ */
+class SessionStartMemoryLoader implements PreSendContextProcessor {
+  #pendingSessionStartMemory: string | undefined;
+
+  constructor(sessionStartMemory: string | undefined) {
+    this.#pendingSessionStartMemory = sessionStartMemory;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/require-await -- async *: AsyncIterable contract; body is sync
+  async *processPreSend(
+    execution: Readonly<AgentThreadExecutionContext>,
+  ): AsyncGenerator<AgentContextProcessorAppendContext, void, unknown> {
+    if (this.#pendingSessionStartMemory === undefined) {
+      return;
+    }
+    const context = [
+      internalSystemMessage(`User memory (from previous sessions):\n\n${this.#pendingSessionStartMemory}`),
+    ];
+    yield {
+      type: InternalEventType.AGENT_CONTEXT_APPEND,
+      context,
+      output: [],
+      current_context_usage: mergeCurrentContextUsage(
+        execution.currentContextUsage,
+        estimateTokensForContextMessages(context),
+      ),
+    };
+    // Only once the event is consumed: an interrupted append is retried on the next send.
+    this.#pendingSessionStartMemory = undefined;
+  }
 }
 
 class MemoryTools extends LocalToolMCP {
@@ -122,44 +152,18 @@ class MemoryTools extends LocalToolMCP {
 /**
  * Long-term memory for the root thread, bound by the host to one user's scope.
  *
- * The host fetches the user summary once per session, on its first turn, and passes it as
- * `sessionStartSummary`. It is appended to the context as an internal message before the user's first
- * message, so later turns replay it from history and the system prompt stays identical for the whole
- * session. Context compaction drops it; after that only the tools reach memory.
+ * The host fetches the session-start memory once per session, on its first turn, and passes it as
+ * `sessionStartMemory`; the system prompt stays identical for the whole session. Context compaction
+ * drops the appended message; after that only the tools reach memory.
  */
 export function memory(options: {
-  memory: ScopedMemory;
-  sessionStartSummary: string | undefined;
+  scopedMemory: ScopedMemory;
+  sessionStartMemory: string | undefined;
   tracing?: AgentTracing;
 }): AgentCapability {
-  let pendingSummary = options.sessionStartSummary;
-
-  const loadSummary: PreSendContextProcessor = {
-    // eslint-disable-next-line @typescript-eslint/require-await -- async *: AsyncIterable contract; body is sync
-    async *processPreSend(
-      execution: Readonly<AgentThreadExecutionContext>,
-    ): AsyncGenerator<AgentContextProcessorAppendContext, void, unknown> {
-      if (pendingSummary === undefined) {
-        return;
-      }
-      const context = [sessionStartMemoryMessage(pendingSummary)];
-      yield {
-        type: InternalEventType.AGENT_CONTEXT_APPEND,
-        context,
-        output: [],
-        current_context_usage: mergeCurrentContextUsage(
-          execution.currentContextUsage,
-          estimateTokensForContextMessages(context),
-        ),
-      };
-      // Only once the event is consumed: an interrupted append is retried on the next send.
-      pendingSummary = undefined;
-    },
-  };
-
   return {
-    systemToolSets: [new MemoryTools({ memory: options.memory, tracing: options.tracing ?? NOOP_AGENT_TRACING })],
+    systemToolSets: [new MemoryTools({ memory: options.scopedMemory, tracing: options.tracing ?? NOOP_AGENT_TRACING })],
     instructionBuilders: [buildMemoryInstruction],
-    preSendProcessors: [loadSummary],
+    preSendProcessors: [new SessionStartMemoryLoader(options.sessionStartMemory)],
   };
 }
