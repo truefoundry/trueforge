@@ -13,6 +13,7 @@ import { NameSchema } from '../../../schemas/common';
 import {
   DEFAULT_SANDBOX_ENVIRONMENT_NAME,
   SandboxEnvironmentVersionInternalMetadataSchema,
+  type SandboxEnvironmentMetadata,
   type SandboxEnvironmentVersionInternalMetadata,
   type StoredSandboxEnvironmentManifest,
 } from '../../../schemas/sandboxEnvironment';
@@ -81,6 +82,7 @@ function activeVersionJoin(db: Kysely<Database> | Transaction<Database>) {
       'env.tenant_id',
       'env.name',
       'env.description',
+      jsonText<SandboxEnvironmentMetadata>(sql.ref('env.metadata')).as('metadata'),
       'env.active_version',
       'env.lifecycle_stage',
       jsonText<CreatedBySubject>(sql.ref('env.created_by_subject')).as('created_by_subject'),
@@ -109,6 +111,7 @@ function latestVersionJoin(db: Kysely<Database> | Transaction<Database>) {
       'env.tenant_id',
       'env.name',
       'env.description',
+      jsonText<SandboxEnvironmentMetadata>(sql.ref('env.metadata')).as('metadata'),
       'env.active_version',
       'env.lifecycle_stage',
       jsonText<CreatedBySubject>(sql.ref('env.created_by_subject')).as('created_by_subject'),
@@ -156,6 +159,7 @@ function toEnvironmentRecord(row: {
   tenant_id: string;
   name: string;
   description: string;
+  metadata: SandboxEnvironmentMetadata;
   active_version: number;
   lifecycle_stage: SandboxEnvironmentRecord['lifecycle_stage'];
   created_by_subject: CreatedBySubject;
@@ -167,6 +171,7 @@ function toEnvironmentRecord(row: {
     tenant_id: row.tenant_id,
     name: NameSchema.parse(row.name),
     description: row.description,
+    metadata: row.metadata,
     active_version: row.active_version,
     lifecycle_stage: row.lifecycle_stage,
     created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
@@ -208,6 +213,7 @@ function toWithVersion(row: {
   tenant_id: string;
   name: string;
   description: string;
+  metadata: SandboxEnvironmentMetadata;
   active_version: number;
   lifecycle_stage: SandboxEnvironmentRecord['lifecycle_stage'];
   created_by_subject: CreatedBySubject;
@@ -425,6 +431,7 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
         'tenant_id',
         'name',
         'description',
+        jsonText<SandboxEnvironmentMetadata>(sql.ref('metadata')).as('metadata'),
         'active_version',
         'lifecycle_stage',
         jsonText<CreatedBySubject>(sql.ref('created_by_subject')).as('created_by_subject'),
@@ -459,6 +466,7 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
             tenant_id: input.tenant_id,
             name: input.name,
             description: input.description,
+            metadata: jsonbBind(input.metadata),
             active_version: 1,
             lifecycle_stage: 'active',
             created_by_subject: jsonbBind(input.created_by_subject),
@@ -487,6 +495,7 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
           tenant_id: input.tenant_id,
           name: input.name,
           description: input.description,
+          metadata: input.metadata,
           active_version: versionWrite.version,
           lifecycle_stage: 'active',
           created_by_subject: input.created_by_subject,
@@ -519,6 +528,7 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
       .set({
         ...(versionWrite.status === 'ready' ? { active_version: versionWrite.version } : {}),
         description: input.description,
+        metadata: jsonbBind(input.metadata),
         updated_at,
       })
       .where('tenant_id', '=', input.tenant_id)
@@ -536,6 +546,7 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
       environment: toEnvironmentRecord({
         ...environmentRow,
         description: input.description,
+        metadata: input.metadata,
         active_version: nextActiveVersion,
         updated_at,
       }),

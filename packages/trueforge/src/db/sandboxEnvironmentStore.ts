@@ -7,6 +7,7 @@ import type { NextSandboxEnvironmentVersion } from '../sandbox/sandboxEnvironmen
 import type { ResourceName } from '../schemas/common';
 import type {
   SandboxEnvironmentLifecycleStage,
+  SandboxEnvironmentMetadata,
   SandboxEnvironmentVersionInternalMetadata,
   SandboxEnvironmentVersionStatus,
   StoredSandboxEnvironmentManifest,
@@ -18,6 +19,7 @@ export interface SandboxEnvironmentRecord {
   tenant_id: string;
   name: ResourceName;
   description: string;
+  metadata: SandboxEnvironmentMetadata;
   active_version: number;
   lifecycle_stage: SandboxEnvironmentLifecycleStage;
   created_by_subject: CreatedBySubject;
@@ -143,6 +145,7 @@ export interface CreateSandboxEnvironmentInput {
   tenant_id: string;
   name: ResourceName;
   description: string;
+  metadata: SandboxEnvironmentMetadata;
   created_by_subject: CreatedBySubject;
   /** Complete provider refs from a successful secret sync before write. */
   synced_secrets: SyncedSandboxEnvironmentSecret[];

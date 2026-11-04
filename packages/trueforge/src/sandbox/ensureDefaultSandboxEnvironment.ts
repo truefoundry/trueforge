@@ -37,6 +37,7 @@ export async function ensureDefaultSandboxEnvironment<TTransaction>({
       tenant_id,
       name: DEFAULT_NAME,
       description: '',
+      metadata: {},
       created_by_subject,
       synced_secrets: [],
       buildVersion: ({ existing_version, existing_manifest, existing_external_ref }) =>

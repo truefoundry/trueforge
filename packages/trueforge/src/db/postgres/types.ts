@@ -30,6 +30,7 @@ import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { ModelProviderManifest } from '../../schemas/modelProvider';
 import type {
   SandboxEnvironmentLifecycleStage,
+  SandboxEnvironmentMetadata,
   SandboxEnvironmentVersionInternalMetadata,
   SandboxEnvironmentVersionStatus,
   StoredSandboxEnvironmentManifest,
@@ -465,6 +466,7 @@ export interface SandboxEnvironmentTable {
   tenant_id: string;
   name: string;
   description: string;
+  metadata: JSONColumnType<SandboxEnvironmentMetadata, SandboxEnvironmentMetadata, SandboxEnvironmentMetadata>;
   active_version: number;
   lifecycle_stage: SandboxEnvironmentLifecycleStage;
   created_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;

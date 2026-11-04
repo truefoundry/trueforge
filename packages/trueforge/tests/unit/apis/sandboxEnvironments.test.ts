@@ -234,6 +234,7 @@ describe('sandbox environments API → build controller path', () => {
         description: 'first',
         image: { type: 'build', build_script: 'pip install httpx' },
       },
+      metadata: { owner: 'platform', nested: { priority: 2 }, labels: ['test'] },
     };
     const created = await publicRouter.request('/', {
       method: 'POST',
@@ -242,9 +243,10 @@ describe('sandbox environments API → build controller path', () => {
     });
     expect(created.status).toBe(201);
     const createdBody = (await created.json()) as {
-      data: { id: string; name: string; description: string };
+      data: { id: string; name: string; description: string; metadata: Record<string, unknown> };
     };
     expect(createdBody.data).toMatchObject({ name: 'create-only-env', description: 'first' });
+    expect(createdBody.data.metadata).toEqual(createBody.metadata);
     // jsonText projection so ParseJSONResultsPlugin parses created_by_subject (list-permissions path).
     await expect(
       sandboxEnvironmentStore.getEnvironmentsByIds({
@@ -282,10 +284,25 @@ describe('sandbox environments API → build controller path', () => {
     const getRes = await publicRouter.request('/create-only-env');
     expect(getRes.status).toBe(200);
     const getBody = (await getRes.json()) as {
-      data: { description: string; manifest: { image?: { build_script?: string } } };
+      data: { description: string; metadata: Record<string, unknown>; manifest: { image?: { build_script?: string } } };
     };
     expect(getBody.data.description).toBe('first');
+    expect(getBody.data.metadata).toEqual(createBody.metadata);
     expect(getBody.data.manifest.image?.build_script).toBe('pip install httpx');
+
+    const updated = await publicRouter.request('/', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        ...createBody,
+        metadata: { owner: 'runtime', enabled: true },
+      }),
+    });
+    expect(updated.status).toBe(200);
+    expect(((await updated.json()) as { data: { metadata: Record<string, unknown> } }).data.metadata).toEqual({
+      owner: 'runtime',
+      enabled: true,
+    });
   });
 
   it('lists environments for the caller without error when none exist yet', async () => {

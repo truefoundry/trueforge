@@ -31,6 +31,11 @@ export const SandboxEnvironmentDescriptionSchema = z
   .max(SANDBOX_ENVIRONMENT_DESCRIPTION_MAX_LENGTH)
   .describe('Optional human-readable description.');
 
+export const SandboxEnvironmentMetadataSchema = z
+  .record(z.string(), z.json())
+  .describe('Optional caller-owned JSON metadata.')
+  .openapi('SandboxEnvironmentMetadata');
+
 export const SandboxEnvironmentLifecycleStageSchema = z
   .enum(['active', 'deleted'])
   .describe('Soft-delete lifecycle stage.')
@@ -214,6 +219,7 @@ function refineSandboxEnvironmentResources(
 export const CreateSandboxEnvironmentRequestSchema = z
   .object({
     manifest: SandboxEnvironmentManifestRequestSchema,
+    metadata: SandboxEnvironmentMetadataSchema.optional(),
   })
   .strict()
   .superRefine(refineSandboxEnvironmentResources)
@@ -223,6 +229,7 @@ export const CreateSandboxEnvironmentRequestSchema = z
 export const UpdateSandboxEnvironmentRequestSchema = z
   .object({
     manifest: SandboxEnvironmentManifestRequestSchema,
+    metadata: SandboxEnvironmentMetadataSchema.optional(),
   })
   .strict()
   .superRefine(refineSandboxEnvironmentResources)
@@ -239,6 +246,7 @@ export const SandboxEnvironmentSchema = z
     status: SandboxEnvironmentVersionStatusSchema.describe('Readiness of the environment.'),
     status_reason: z.string().nullable().describe('Failure detail when status is failed; null otherwise.'),
     manifest: SandboxEnvironmentManifestSchema,
+    metadata: SandboxEnvironmentMetadataSchema,
     created_by_subject: CreatedBySubjectSchema,
     created_at: IsoTimestamp.describe('ISO-8601 create time.'),
     updated_at: IsoTimestamp.describe('ISO-8601 last update time.'),
@@ -263,6 +271,7 @@ export type SandboxEnvironmentLifecycleStage = z.infer<typeof SandboxEnvironment
 export type SandboxEnvironmentVersionStatus = z.infer<typeof SandboxEnvironmentVersionStatusSchema>;
 export type SandboxEnvironmentSecret = z.infer<typeof SandboxEnvironmentSecretSchema>;
 export type SandboxEnvironmentManifest = z.infer<typeof SandboxEnvironmentManifestSchema>;
+export type SandboxEnvironmentMetadata = z.infer<typeof SandboxEnvironmentMetadataSchema>;
 export type StoredSandboxEnvironmentManifest = z.infer<typeof StoredSandboxEnvironmentManifestSchema>;
 export type SandboxEnvironmentIdentity = z.infer<typeof SandboxEnvironmentIdentitySchema>;
 export type SandboxEnvironmentVersionInternalMetadata = z.infer<typeof SandboxEnvironmentVersionInternalMetadataSchema>;
