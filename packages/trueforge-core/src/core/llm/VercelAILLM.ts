@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { createAlibaba } from '@ai-sdk/alibaba';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogle } from '@ai-sdk/google';
@@ -152,9 +154,12 @@ function compatibleModel(config: VercelAIProviderConfig): LanguageModel {
 /** Gateway header carrying stringified JSON metadata (TrueFoundry AI Gateway). */
 const X_TFY_METADATA = 'x-tfy-metadata';
 
+/** Fresh random ID per model call; the gateway forwards it to the upstream provider. */
+const X_TFY_NEW_HEADER = 'x-tfy-new-header';
+
 /**
  * Merge client defaults with per-call headers/metadata.
- * TrueFoundry also stamps anthropic-beta, forward-pings, and folds `metadata` into `x-tfy-metadata`.
+ * TrueFoundry also stamps anthropic-beta, forward-pings, a per-call `x-tfy-new-header` ID, and folds `metadata` into `x-tfy-metadata`.
  */
 export function buildOutboundRequestHeaders(input: {
   providerType: VercelAIProviderName;
@@ -176,6 +181,7 @@ export function buildOutboundRequestHeaders(input: {
     ...headers,
     'anthropic-beta': 'fine-grained-tool-streaming-2025-05-14',
     'x-tfy-forward-pings': 'true',
+    [X_TFY_NEW_HEADER]: randomUUID(),
   };
 
   const metadata = input.options?.metadata;

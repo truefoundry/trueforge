@@ -1,5 +1,7 @@
 import { buildOutboundRequestHeaders } from '../../../src/core/llm/VercelAILLM';
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
 describe('buildOutboundRequestHeaders', () => {
   it('merges client and per-call headers for non-TrueFoundry providers', () => {
     expect(
@@ -36,7 +38,23 @@ describe('buildOutboundRequestHeaders', () => {
       Authorization: 'Bearer a',
       'anthropic-beta': 'fine-grained-tool-streaming-2025-05-14',
       'x-tfy-forward-pings': 'true',
+      'x-tfy-new-header': expect.stringMatching(UUID_PATTERN),
     });
+  });
+
+  it('stamps a fresh x-tfy-new-header ID on every TrueFoundry call', () => {
+    const build = () =>
+      buildOutboundRequestHeaders({ providerType: 'truefoundry', clientHeaders: {}, options: undefined });
+    const first = build()['x-tfy-new-header'];
+    const second = build()['x-tfy-new-header'];
+    expect(first).toMatch(UUID_PATTERN);
+    expect(second).toMatch(UUID_PATTERN);
+    expect(first).not.toBe(second);
+  });
+
+  it('does not stamp x-tfy-new-header for non-TrueFoundry providers', () => {
+    const headers = buildOutboundRequestHeaders({ providerType: 'openai', clientHeaders: {}, options: undefined });
+    expect(headers).not.toHaveProperty('x-tfy-new-header');
   });
 
   it('folds per-call metadata into an existing x-tfy-metadata header', () => {
