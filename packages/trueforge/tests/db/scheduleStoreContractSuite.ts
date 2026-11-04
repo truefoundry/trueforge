@@ -160,7 +160,48 @@ export function runScheduleStoreContractSuite(deps: {
     );
   });
 
-  it('updating name or task leaves the pending run unchanged', async () => {
+  it('persists notes and clears them when omitted from an update', async () => {
+    const store = deps.getScheduleStore();
+    const agent = await seedAgent();
+    const { schedule } = await store.createScheduleAndRun({
+      tenant_id: TENANT,
+      agent_id: agent.id,
+      agent_name: agent.name,
+      name: 'with-notes',
+      notes: 'Reviewed by the operations team.',
+      manifest: manifest({ status: 'paused' }),
+      created_by_subject: USER_SUBJECT,
+      runFrom: new Date(),
+    });
+
+    expect(schedule.notes).toBe('Reviewed by the operations team.');
+    expect((await store.getSchedule({ tenant_id: TENANT, id: schedule.id }))?.notes).toBe(
+      'Reviewed by the operations team.',
+    );
+
+    const listed = await store.listSchedules({
+      tenant_id: TENANT,
+      limit: 25,
+      page_token: undefined,
+      agent_names: [agent.name],
+      created_by_or_agent_ids: undefined,
+    });
+    expect(listed.data).toEqual([
+      expect.objectContaining({ id: schedule.id, notes: 'Reviewed by the operations team.' }),
+    ]);
+
+    const updated = await store.updateScheduleAndRun({
+      tenant_id: TENANT,
+      id: schedule.id,
+      name: schedule.name,
+      manifest: schedule.manifest,
+      runFrom: new Date(),
+    });
+    expect(updated?.schedule.notes).toBeNull();
+    expect((await store.getSchedule({ tenant_id: TENANT, id: schedule.id }))?.notes).toBeNull();
+  });
+
+  it('updating name, notes, or task leaves the pending run unchanged', async () => {
     const store = deps.getScheduleStore();
     const agent = await seedAgent();
     const runFrom = new Date('2026-08-27T08:00:00.000Z');
@@ -180,11 +221,13 @@ export function runScheduleStoreContractSuite(deps: {
       tenant_id: TENANT,
       id: schedule.id,
       name: 'renamed',
+      notes: 'Updated without rescheduling.',
       manifest: manifest({ cron: '0 9 * * *', timezone: 'UTC', task: 'new task' }),
       runFrom: new Date('2026-08-27T12:00:00.000Z'),
     });
 
     expect(updated?.schedule.name).toBe('renamed');
+    expect(updated?.schedule.notes).toBe('Updated without rescheduling.');
     expect(updated?.schedule.manifest.task).toBe('new task');
     expect(updated?.pendingRun).toEqual(first);
     expect(await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id })).toEqual(first);

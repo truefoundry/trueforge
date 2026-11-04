@@ -18,6 +18,7 @@ import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription';
 import {
   CreateScheduleRunResponseSchema,
+  GetScheduleResponseSchema,
   ListScheduleRunsResponseSchema,
   ListSchedulesResponseSchema,
 } from '../../../src/schemas/schedule';
@@ -56,6 +57,7 @@ const ADMIN: RequestContext = {
 const scheduleBody = {
   agent_name: 'reporter',
   name: 'daily-report',
+  notes: 'Send this report to the operations team.',
   manifest: { task: 'Say hi', cron: '0 13 * * *', timezone: 'UTC' },
 };
 
@@ -156,11 +158,24 @@ describe('schedule RBAC', () => {
 
     asUser(ALICE);
     const created = await postJson('/', 'POST', scheduleBody);
-    const { id } = ((await created.json()) as { data: { id: string } }).data;
+    const createdBody = GetScheduleResponseSchema.parse(await created.json()).data;
+    const { id } = createdBody;
+    expect(createdBody.notes).toBe(scheduleBody.notes);
 
-    expect((await app.request(`/${id}`)).status).toBe(200);
+    const getResponse = await app.request(`/${id}`);
+    expect(getResponse.status).toBe(200);
+    expect(GetScheduleResponseSchema.parse(await getResponse.json()).data.notes).toBe(scheduleBody.notes);
     const aliceList = await app.request('/');
-    expect(ListSchedulesResponseSchema.parse(await aliceList.json()).data).toHaveLength(1);
+    const aliceSchedules = ListSchedulesResponseSchema.parse(await aliceList.json()).data;
+    expect(aliceSchedules).toHaveLength(1);
+    expect(aliceSchedules[0]?.notes).toBe(scheduleBody.notes);
+    const updated = await postJson(`/${id}`, 'PUT', {
+      name: scheduleBody.name,
+      notes: 'Updated schedule notes.',
+      manifest: scheduleBody.manifest,
+    });
+    expect(updated.status).toBe(200);
+    expect(GetScheduleResponseSchema.parse(await updated.json()).data.notes).toBe('Updated schedule notes.');
     const aliceRuns = await app.request(`/${id}/runs`);
     expect(aliceRuns.status).toBe(200);
     const aliceRunsBody = ListScheduleRunsResponseSchema.parse(await aliceRuns.json());

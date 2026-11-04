@@ -1,5 +1,10 @@
 import { validateManifest } from '../../../src/apis/schedules';
-import { CronExpressionSchema, InvalidCronError, TimezoneSchema } from '../../../src/schemas/schedule';
+import {
+  CreateScheduleRequestSchema,
+  CronExpressionSchema,
+  InvalidCronError,
+  TimezoneSchema,
+} from '../../../src/schemas/schedule';
 
 const WEEKDAY_1PM = { cron: '0 13 * * 1-5', timezone: 'America/New_York' };
 
@@ -22,6 +27,25 @@ describe('TimezoneSchema', () => {
 
   it('accepts a valid IANA timezone', () => {
     expect(TimezoneSchema.safeParse('America/New_York').success).toBe(true);
+  });
+});
+
+describe('CreateScheduleRequestSchema', () => {
+  const request = {
+    agent_name: 'reporter',
+    name: 'daily-report',
+    manifest: { task: 'Say hi', cron: '0 13 * * *' },
+  };
+
+  it('accepts an omitted notes field', () => {
+    expect(CreateScheduleRequestSchema.safeParse(request).success).toBe(true);
+  });
+
+  it('trims notes and rejects empty notes', () => {
+    expect(CreateScheduleRequestSchema.parse({ ...request, notes: '  Operations report.  ' }).notes).toBe(
+      'Operations report.',
+    );
+    expect(CreateScheduleRequestSchema.safeParse({ ...request, notes: '  ' }).success).toBe(false);
   });
 });
 

@@ -366,6 +366,7 @@ export interface ScheduleTable {
   agent_name: string;
   /** Display label; not unique. */
   name: string;
+  notes: string | null;
   /** ScheduleManifest document ({ task, cron, timezone }); replaced whole on update */
   manifest: JsonbColumn<ScheduleManifest>;
   /** `paused` stops triggering and drops the pending run; in-flight runs continue */
