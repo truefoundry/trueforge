@@ -1,4 +1,4 @@
-import type { Kysely, Selectable, Transaction } from 'kysely';
+import { sql, type Kysely, type Selectable, type Transaction } from 'kysely';
 import type {
   ConfigurationRecord,
   GetOrCreateConfigurationInput,
@@ -80,5 +80,15 @@ export class PostgresConfigurationStore implements IConfigurationStore<Transacti
       .where('tenant_id', '=', input.tenant_id)
       .executeTakeFirstOrThrow();
     return toRecord(existing);
+  }
+
+  async listMemoryEnabledTenantIds(transaction?: Transaction<Database>): Promise<string[]> {
+    const db = transaction ?? this.#db;
+    const rows = await db
+      .selectFrom('configuration')
+      .select('tenant_id')
+      .where(sql<boolean>`manifest #>> '{memory,enabled}' = 'true'`)
+      .execute();
+    return rows.map(row => row.tenant_id);
   }
 }

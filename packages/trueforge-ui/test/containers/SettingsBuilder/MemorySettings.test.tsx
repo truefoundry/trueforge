@@ -1,0 +1,142 @@
+// @vitest-environment jsdom
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
+
+import MemorySettings from '@/containers/SettingsBuilder/MemorySettings.js';
+import { ServerProvider } from '@/server/ServerContext.js';
+import type { ConfigurationServer, MemoryCatalogServer } from '@/server/types.js';
+import { createMockAgentUIServer, createMockCatalog } from '../../server/mockServer.js';
+import { allSettingsSections } from '../../server/settingsCapabilityFixture.js';
+
+async function unavailable(): Promise<never> {
+  throw new Error('Unexpected memory settings call');
+}
+
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = function showModal() {
+    this.setAttribute('open', '');
+  };
+  HTMLDialogElement.prototype.close = function close() {
+    this.removeAttribute('open');
+    this.dispatchEvent(new Event('close'));
+  };
+});
+
+const memoryCatalog: MemoryCatalogServer = {
+  getMemoryProviderCatalog: async () => [{ id: 'zep', name: 'Zep', type: 'zep' }],
+  listMemoryProviders: async () => [],
+  createMemoryProvider: unavailable,
+  updateMemoryProvider: unavailable,
+};
+
+const memoryOn: ConfigurationServer = {
+  getConfiguration: async () => ({ webSearch: { enabled: true }, memory: { enabled: true } }),
+  updateConfiguration: unavailable,
+};
+
+function renderSettings(
+  configuration: ConfigurationServer | undefined,
+  options: { manageProviders?: boolean; catalog?: MemoryCatalogServer | null } = {},
+) {
+  const { manageProviders = true, catalog = memoryCatalog } = options;
+  const server = createMockAgentUIServer({
+    catalog: createMockCatalog(catalog === null ? {} : { memoryCatalog: catalog }),
+    ...(configuration ? { configuration } : {}),
+    getCapabilities: async () => ({
+      data: {
+        sandbox: { enabled: true },
+        skill: { enabled: true },
+        settings: { ...allSettingsSections(true), memoryProviders: { enabled: true, manageProviders } },
+      },
+    }),
+  });
+  return render(
+    <ServerProvider server={server}>
+      <MemorySettings />
+    </ServerProvider>,
+  );
+}
+
+describe('MemorySettings tenant switch', () => {
+  it('shows the stored value', async () => {
+    renderSettings({
+      getConfiguration: async () => ({ webSearch: { enabled: true }, memory: { enabled: false } }),
+      updateConfiguration: unavailable,
+    });
+
+    const toggle = await screen.findByRole('switch', { name: 'Allow memory' });
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByText('No agent remembers details from past chats.')).toBeInTheDocument();
+  });
+
+  it('saves only the memory switch and re-renders from the response', async () => {
+    const updateConfiguration = vi.fn(async () => ({ webSearch: { enabled: true }, memory: { enabled: false } }));
+    renderSettings({
+      getConfiguration: async () => ({ webSearch: { enabled: true }, memory: { enabled: true } }),
+      updateConfiguration,
+    });
+
+    const toggle = await screen.findByRole('switch', { name: 'Allow memory' });
+    toggle.click();
+
+    await waitFor(() => {
+      expect(updateConfiguration).toHaveBeenCalledWith({ memory: { enabled: false } });
+    });
+    await waitFor(() => {
+      expect(screen.getByRole('switch', { name: 'Allow memory' })).toHaveAttribute('aria-checked', 'false');
+    });
+  });
+
+  it('says the setting is unavailable when the host has neither port', () => {
+    renderSettings(undefined, { catalog: null });
+
+    expect(screen.getByText('Memory settings are not available.')).toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: 'Allow memory' })).not.toBeInTheDocument();
+  });
+});
+
+describe('MemorySettings providers', () => {
+  it('lists Zep from the catalog when the caller manages providers', async () => {
+    renderSettings(memoryOn);
+
+    expect(await screen.findByText('Zep')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Configure' })).toBeInTheDocument();
+  });
+
+  it('keeps only the switch when the platform owns providers', async () => {
+    const listMemoryProviders = vi.fn(async () => []);
+    renderSettings(memoryOn, { manageProviders: false, catalog: { ...memoryCatalog, listMemoryProviders } });
+
+    expect(await screen.findByRole('switch', { name: 'Allow memory' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText('Zep')).not.toBeInTheDocument();
+    });
+    expect(listMemoryProviders).not.toHaveBeenCalled();
+  });
+
+  it('saves the API key and server URL for a new provider', async () => {
+    const createMemoryProvider = vi.fn(async () => ({
+      id: 'zep',
+      name: 'Zep',
+      catalogId: 'zep',
+      isConnected: true,
+      serverUrl: 'https://zep.example.com',
+    }));
+    renderSettings(memoryOn, { catalog: { ...memoryCatalog, createMemoryProvider } });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Configure' }));
+    fireEvent.change(await screen.findByLabelText(/API key/), { target: { value: 'zep-secret' } });
+    fireEvent.change(screen.getByLabelText(/Server URL/), { target: { value: 'https://zep.example.com' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(createMemoryProvider).toHaveBeenCalledWith({
+        catalogId: 'zep',
+        name: 'Zep',
+        type: 'zep',
+        apiKey: 'zep-secret',
+        serverUrl: 'https://zep.example.com',
+      });
+    });
+  });
+});

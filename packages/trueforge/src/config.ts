@@ -738,6 +738,12 @@ export interface SharedServerConfiguration {
    */
   WEB_SEARCH_CATALOG_PATH: string | undefined;
   /**
+   * Optional override for the memory catalog YAML (discovery presets for
+   * GET /catalogs/memory-providers). When unset, the catalog inlined at build
+   * time is used. Env: `MEMORY_CATALOG_PATH`.
+   */
+  MEMORY_CATALOG_PATH: string | undefined;
+  /**
    * Frontend build served alongside the API; a missing directory leaves the server API-only.
    * Env: `FRONTEND_DIR`. Default: packaged `dist/_frontend` (npx tarball) or
    * monorepo `packages/frontend/dist` — always absolute, independent of CWD.
@@ -1099,7 +1105,7 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
   TRUEFOUNDRY_MEMORY_SERVER_URL: string | undefined;
   /**
    * Tenants that get memory while `TRUEFOUNDRY_MEMORY_ENABLED`; every other tenant has none. JSON
-   * string array of tenant ids. Env: `TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST`. Default empty (no tenant).
+   * string array of tenant ids. Env: `TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST`. Unset or empty: every tenant.
    */
   TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST: string[];
   /**
@@ -1153,6 +1159,7 @@ const shared: SharedServerConfiguration = {
   SKILL_CATALOG_PATH: resolveOptionalPathEnv('SKILL_CATALOG_PATH'),
   SANDBOX_CATALOG_PATH: resolveOptionalPathEnv('SANDBOX_CATALOG_PATH'),
   WEB_SEARCH_CATALOG_PATH: resolveOptionalPathEnv('WEB_SEARCH_CATALOG_PATH'),
+  MEMORY_CATALOG_PATH: resolveOptionalPathEnv('MEMORY_CATALOG_PATH'),
   FRONTEND_DIR: resolveFrontendDir(),
   MCP_TOOL_CALL_MAX_RESPONSE_BYTES: parsePositiveInt({
     envKey: 'MCP_TOOL_CALL_MAX_RESPONSE_BYTES',

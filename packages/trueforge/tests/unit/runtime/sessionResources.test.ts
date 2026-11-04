@@ -6,17 +6,16 @@ import type { ISkillStore } from '../../../src/db/skillStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteConfigurationStore } from '../../../src/db/sqlite/configuration-store/SqliteConfigurationStore';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
+import { SqliteMemoryProviderStore } from '../../../src/db/sqlite/memory-provider-store/SqliteMemoryProviderStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
-import { TenantAllowlistMemorySettings } from '../../../src/memory/MemorySettings';
 import { getModelDetails, localSandboxSessionSegment, validateAgentSpec } from '../../../src/runtime/sessionResources';
 import { setCachedLocalSandboxSupport } from '../../../src/sandbox/localRuntime';
 import type { ReasoningEffort } from '../../../src/schemas/modelProvider';
 import { hasConfiguredWebSearchProvider } from '../../../src/websearch/providers';
-import { fakeMemoryProvider } from '../memory/fakeMemoryProvider';
 
 jest.mock('../../../src/websearch/providers', () => ({
   hasConfiguredWebSearchProvider: jest.fn(() => Promise.resolve(false)),
@@ -73,9 +72,9 @@ describe('validateAgentSpec', () => {
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
       sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
       webSearchProviderStore: new SqliteWebSearchProviderStore(db),
+      memoryProviderStore: new SqliteMemoryProviderStore(db),
       configurationStore: new SqliteConfigurationStore(db),
       previousSpec: undefined,
-      memory: undefined,
     };
   }
 
@@ -269,7 +268,7 @@ describe('validateAgentSpec', () => {
     jest.mocked(hasConfiguredWebSearchProvider).mockResolvedValue(true);
     await stores.configurationStore.upsertConfiguration({
       tenant_id: 'default',
-      manifest: { web_search: { enabled: false } },
+      manifest: { web_search: { enabled: false }, memory: { enabled: true } },
     });
     await expect(
       validateAgentSpec({
@@ -293,7 +292,7 @@ describe('validateAgentSpec', () => {
     jest.mocked(hasConfiguredWebSearchProvider).mockResolvedValue(true);
     await stores.configurationStore.upsertConfiguration({
       tenant_id: 'default',
-      manifest: { web_search: { enabled: false } },
+      manifest: { web_search: { enabled: false }, memory: { enabled: true } },
     });
     await expect(
       validateAgentSpec({
@@ -339,7 +338,7 @@ describe('validateAgentSpec', () => {
     const stores = await setup();
     await stores.configurationStore.upsertConfiguration({
       tenant_id: 'default',
-      manifest: { web_search: { enabled: false } },
+      manifest: { web_search: { enabled: false }, memory: { enabled: true } },
     });
     await expect(
       validateAgentSpec({
@@ -360,108 +359,147 @@ describe('validateAgentSpec', () => {
     ).resolves.toBeUndefined();
   });
 
-  describe('config.memory', () => {
-    const memorySpec = () =>
-      AgentSpecSchema.parse({
-        model: { name: 'test-provider/test-model' },
-        instructions: 'test',
-        config: { memory: { enabled: true } },
-      });
-    const configuredMemory = (tenantEnabled: boolean) => ({
-      provider: fakeMemoryProvider(),
-      settings: new TenantAllowlistMemorySettings({ tenantIds: tenantEnabled ? [] : ['other-tenant'] }),
+  it('rejects turning memory on when the tenant disabled it', async () => {
+    const stores = await setup();
+    await stores.configurationStore.upsertConfiguration({
+      tenant_id: 'default',
+      manifest: { web_search: { enabled: true }, memory: { enabled: false } },
     });
-
-    it('rejects memory.enabled with 422 when the deployment has memory off', async () => {
-      const stores = await setup();
-      await expect(
-        validateAgentSpec({
-          spec: memorySpec(),
-          tenant_id: 'default',
-          created_by_subject_id: 'test-subject',
-          ...stores,
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          config: { memory: { enabled: true } },
         }),
-      ).rejects.toMatchObject({
-        status: 422,
-        message: expect.stringContaining('no memory capability provider is configured'),
-      } satisfies Partial<HTTPException>);
-    });
+        tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
+        ...stores,
+      }),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: expect.stringContaining('memory cannot be enabled because it is disabled for this tenant'),
+    } satisfies Partial<HTTPException>);
+  });
 
-    it('rejects memory.enabled with 422 when the tenant has memory off', async () => {
-      const stores = await setup();
-      await expect(
-        validateAgentSpec({
-          spec: memorySpec(),
-          tenant_id: 'default',
-          created_by_subject_id: 'test-subject',
-          ...stores,
-          memory: configuredMemory(false),
-        }),
-      ).rejects.toMatchObject({
-        status: 422,
-        message: expect.stringContaining('turned off for this tenant'),
-      } satisfies Partial<HTTPException>);
+  it('keeps memory on a spec that already had it while the tenant is disabled', async () => {
+    const stores = await setup();
+    await stores.configurationStore.upsertConfiguration({
+      tenant_id: 'default',
+      manifest: { web_search: { enabled: true }, memory: { enabled: false } },
     });
+    const memorySpec = AgentSpecSchema.parse({
+      model: { name: 'test-provider/test-model' },
+      instructions: 'test',
+      config: { memory: { enabled: true } },
+    });
+    await expect(
+      validateAgentSpec({
+        spec: memorySpec,
+        tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
+        ...stores,
+        previousSpec: memorySpec,
+      }),
+    ).resolves.toBeUndefined();
+  });
 
-    it('admits memory.enabled when memory is on for the tenant', async () => {
-      const stores = await setup();
-      await expect(
-        validateAgentSpec({
-          spec: memorySpec(),
-          tenant_id: 'default',
-          created_by_subject_id: 'test-subject',
-          ...stores,
-          memory: configuredMemory(true),
-        }),
-      ).resolves.toBeUndefined();
+  it('rejects turning memory on over a spec that had it off while the tenant disabled it', async () => {
+    const stores = await setup();
+    await stores.memoryProviderStore.upsertProvider({
+      tenant_id: 'default',
+      manifest: { type: 'zep', auth: { api_key: 'zep-test-key' } },
     });
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          config: { memory: { enabled: true } },
+        }),
+        tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
+        ...stores,
+        previousSpec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          config: { memory: { enabled: false } },
+        }),
+      }),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: expect.stringContaining('memory cannot be enabled because it is disabled for this tenant'),
+    } satisfies Partial<HTTPException>);
+  });
 
-    it('rejects turning memory on over a spec that had it off while the deployment has memory off', async () => {
-      const stores = await setup();
-      await expect(
-        validateAgentSpec({
-          spec: memorySpec(),
-          tenant_id: 'default',
-          created_by_subject_id: 'test-subject',
-          ...stores,
-          previousSpec: AgentSpecSchema.parse({
-            model: { name: 'test-provider/test-model' },
-            instructions: 'test',
-            config: { memory: { enabled: false } },
-          }),
-        }),
-      ).rejects.toMatchObject({
-        status: 422,
-        message: expect.stringContaining('no memory capability provider is configured'),
-      } satisfies Partial<HTTPException>);
+  it('rejects turning memory on when no memory provider is configured', async () => {
+    const stores = await setup();
+    await stores.configurationStore.upsertConfiguration({
+      tenant_id: 'default',
+      manifest: { web_search: { enabled: true }, memory: { enabled: true } },
     });
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          config: { memory: { enabled: true } },
+        }),
+        tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
+        ...stores,
+      }),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: expect.stringContaining('memory is enabled but no memory provider is configured'),
+    } satisfies Partial<HTTPException>);
+  });
 
-    it('keeps memory on a spec that already had it while the deployment has memory off', async () => {
-      const stores = await setup();
-      await expect(
-        validateAgentSpec({
-          spec: memorySpec(),
-          tenant_id: 'default',
-          created_by_subject_id: 'test-subject',
-          ...stores,
-          previousSpec: memorySpec(),
-        }),
-      ).resolves.toBeUndefined();
+  it('rejects turning memory on when the tenant has no stored configuration, since memory starts off', async () => {
+    const stores = await setup();
+    await stores.memoryProviderStore.upsertProvider({
+      tenant_id: 'default',
+      manifest: { type: 'zep', auth: { api_key: 'zep-test-key' } },
     });
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          config: { memory: { enabled: true } },
+        }),
+        tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
+        ...stores,
+      }),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: expect.stringContaining('memory cannot be enabled because it is disabled for this tenant'),
+    } satisfies Partial<HTTPException>);
+  });
 
-    it('keeps memory on a spec that already had it while the tenant has memory off', async () => {
-      const stores = await setup();
-      await expect(
-        validateAgentSpec({
-          spec: memorySpec(),
-          tenant_id: 'default',
-          created_by_subject_id: 'test-subject',
-          ...stores,
-          previousSpec: memorySpec(),
-          memory: configuredMemory(false),
-        }),
-      ).resolves.toBeUndefined();
+  it('admits memory on once the tenant allows it and a provider is configured', async () => {
+    const stores = await setup();
+    await stores.configurationStore.upsertConfiguration({
+      tenant_id: 'default',
+      manifest: { web_search: { enabled: true }, memory: { enabled: true } },
     });
+    await stores.memoryProviderStore.upsertProvider({
+      tenant_id: 'default',
+      manifest: { type: 'zep', auth: { api_key: 'zep-test-key' } },
+    });
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          config: { memory: { enabled: true } },
+        }),
+        tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
+        ...stores,
+      }),
+    ).resolves.toBeUndefined();
   });
 
   it('rejects skills when no sandbox provider is configured', async () => {

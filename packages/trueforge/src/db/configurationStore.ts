@@ -30,6 +30,8 @@ export interface IConfigurationStore<TTransaction = never> {
     input: GetOrCreateConfigurationInput,
     transaction?: TTransaction,
   ): Promise<ConfigurationRecord>;
+  /** Tenants whose stored switch has memory on; a tenant without a row has it off. */
+  listMemoryEnabledTenantIds(transaction?: TTransaction): Promise<string[]>;
 }
 
 /** Whether the tenant switch lets web search be turned on. Reads only; never writes the row. */
@@ -43,4 +45,17 @@ export async function isWebSearchEnabledForTenant({
   const record = await store.getConfiguration(tenant_id);
   const manifest = record?.manifest ?? DEFAULT_CONFIGURATION_MANIFEST;
   return manifest.web_search.enabled;
+}
+
+/** Whether agents in this tenant may use memory. Off stops memory for the whole tenant. Reads only. */
+export async function isMemoryEnabledForTenant({
+  tenant_id,
+  store,
+}: {
+  tenant_id: string;
+  store: IConfigurationStore;
+}): Promise<boolean> {
+  const record = await store.getConfiguration(tenant_id);
+  const manifest = record?.manifest ?? DEFAULT_CONFIGURATION_MANIFEST;
+  return manifest.memory.enabled;
 }

@@ -7,7 +7,9 @@ import {
 } from '@truefoundry/trueforge-core/core';
 import { getEmptyCurrentContextUsage } from '@truefoundry/trueforge-core/core/runtime/contextUsage';
 import type { AgentRecord, IAgentStore } from '../../../src/db/agentStore';
-import { TenantAllowlistMemorySettings } from '../../../src/memory/MemorySettings';
+import type { IConfigurationStore } from '../../../src/db/configurationStore';
+import type { IMemoryProviderStore } from '../../../src/db/memoryProviderStore';
+import type { TenantMemoryDeps } from '../../../src/memory/providers';
 import { memoryScopeKey } from '../../../src/memory/scope';
 import {
   MEMORY_SUMMARY_MAX_TOKENS,
@@ -58,6 +60,43 @@ function agentStore(memoryEnabled: boolean | undefined): Pick<IAgentStore, 'getA
   };
 }
 
+function tenantMemory({
+  provider,
+  hasProvider,
+  tenantEnabled,
+}: {
+  provider: ReturnType<typeof fakeMemoryProvider>;
+  hasProvider: boolean;
+  tenantEnabled: boolean;
+}): TenantMemoryDeps {
+  const memoryProviderStore: IMemoryProviderStore = {
+    getProvider: tenantId =>
+      Promise.resolve(
+        hasProvider
+          ? {
+              tenant_id: tenantId,
+              manifest: { type: 'zep', auth: { api_key: 'zep-test-key' } },
+              created_at: '2026-10-01T00:00:00.000Z',
+              updated_at: '2026-10-01T00:00:00.000Z',
+            }
+          : undefined,
+      ),
+    upsertProvider: () => Promise.reject(new Error('not used')),
+  };
+  const configurationStore: IConfigurationStore = {
+    getConfiguration: tenantId =>
+      Promise.resolve({
+        tenant_id: tenantId,
+        manifest: { web_search: { enabled: true }, memory: { enabled: tenantEnabled } },
+        updated_at: '2026-10-01T00:00:00.000Z',
+      }),
+    upsertConfiguration: () => Promise.reject(new Error('not used')),
+    getOrCreateConfiguration: () => Promise.reject(new Error('not used')),
+    listMemoryEnabledTenantIds: () => Promise.reject(new Error('not used')),
+  };
+  return { memoryProviderStore, configurationStore, providers: { get: () => provider } };
+}
+
 function logger() {
   return { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() };
 }
@@ -67,7 +106,7 @@ async function resolve(input: {
   isSessionStart?: boolean;
   tenantEnabled?: boolean;
   agentMemory?: boolean | undefined;
-  configured?: boolean;
+  hasProvider?: boolean;
   provider?: ReturnType<typeof fakeMemoryProvider>;
   summaryTimeoutMs?: number;
 }) {
@@ -78,15 +117,11 @@ async function resolve(input: {
     tenantId: 'acme',
     record: input.record ?? record(),
     isSessionStart: input.isSessionStart ?? true,
-    memory:
-      input.configured === false
-        ? undefined
-        : {
-            provider,
-            settings: new TenantAllowlistMemorySettings({
-              tenantIds: (input.tenantEnabled ?? true) ? [] : ['other-tenant'],
-            }),
-          },
+    memory: tenantMemory({
+      provider,
+      hasProvider: input.hasProvider ?? true,
+      tenantEnabled: input.tenantEnabled ?? true,
+    }),
     agentStore: agentStore(input.agentMemory),
     logger: log as never,
     ...(input.summaryTimeoutMs === undefined ? {} : { summaryTimeoutMs: input.summaryTimeoutMs }),
@@ -195,7 +230,7 @@ describe('resolveSessionMemory', () => {
   });
 
   it.each([
-    ['memory is off for the deployment', { configured: false }],
+    ['the tenant has no memory provider', { hasProvider: false }],
     ['memory is off for the tenant', { tenantEnabled: false }],
     ['the session is scheduled', { record: record({ source: { type: 'schedule', id: 's', run_id: 'r' } }) }],
     ['the session is not a UI chat and has no agent', { record: record({ metadata: {} }) }],
