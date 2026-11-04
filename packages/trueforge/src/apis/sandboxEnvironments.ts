@@ -26,8 +26,12 @@ import {
   listSandboxEnvironmentsRoute,
   putSandboxEnvironmentRoute,
 } from '../routes/sandboxEnvironmentRoutes';
-import { getDaytonaAuthorizationErrorMessage, toDaytonaSandboxProvider } from '../sandbox/providerUtils';
-import { buildNextVersion, redactManifestSecrets } from '../sandbox/sandboxEnvironmentVersion';
+import { getDaytonaAuthorizationErrorMessage, toSandboxProviderFromRecord } from '../sandbox/providerUtils';
+import {
+  buildNextVersion,
+  redactManifestSecrets,
+  resolveSandboxEnvironmentIdentity,
+} from '../sandbox/sandboxEnvironmentVersion';
 import {
   deleteSandboxEnvironmentSecrets,
   SandboxEnvironmentSecretSyncError,
@@ -161,12 +165,13 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
       const existingSecrets = existing
         ? await store.listSecretsByEnvironment({ environment_id: existing.environment.id })
         : [];
+      const identity = resolveSandboxEnvironmentIdentity(provider.manifest.type);
       const synced_secrets = await syncSandboxEnvironmentSecrets({
         secrets: manifest.networking?.secrets ?? [],
         previous: existing?.version.manifest.networking?.secrets ?? [],
         existing: existingSecrets,
-        provider: toDaytonaSandboxProvider({
-          manifest: provider.manifest,
+        provider: toSandboxProviderFromRecord({
+          record: provider,
           tenant_id: requestContext.tenant_id,
           logger,
         }),
@@ -190,7 +195,7 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
               ...(existing_manifest ? { previous_manifest: existing_manifest } : {}),
               ...(existing_external_ref ? { previous_external_ref: existing_external_ref } : {}),
               manifest,
-              provider_type: provider.manifest.type,
+              identity,
             }),
             created_by_subject,
           }),
@@ -292,7 +297,11 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
         }
         await deleteSandboxEnvironmentSecrets({
           secrets,
-          provider: toDaytonaSandboxProvider({ manifest: provider.manifest, tenant_id, logger }),
+          provider: toSandboxProviderFromRecord({
+            record: provider,
+            tenant_id,
+            logger,
+          }),
         });
       }
       await store.deleteEnvironment({

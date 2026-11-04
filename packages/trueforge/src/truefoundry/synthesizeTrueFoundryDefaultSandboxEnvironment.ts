@@ -3,7 +3,10 @@
  * Tip (snapshot name) comes from shared provider config — not from the env store.
  */
 import type { SandboxEnvironmentWithVersion } from '../db/sandboxEnvironmentStore';
-import { defaultSandboxEnvironmentStoredManifest } from '../sandbox/sandboxEnvironmentVersion';
+import {
+  defaultSandboxEnvironmentStoredManifest,
+  resolveSandboxEnvironmentIdentity,
+} from '../sandbox/sandboxEnvironmentVersion';
 import { NameSchema } from '../schemas/common';
 import {
   DEFAULT_SANDBOX_ENVIRONMENT_NAME,
@@ -45,7 +48,7 @@ export function synthesizeTrueFoundryDefaultSandboxEnvironment(tenant_id: string
       id: DEFAULT_VERSION_ID,
       environment_id: DEFAULT_ENVIRONMENT_ID,
       version: 1,
-      manifest: defaultSandboxEnvironmentStoredManifest('daytona'),
+      manifest: defaultSandboxEnvironmentStoredManifest(resolveSandboxEnvironmentIdentity(provider.type)),
       status: 'ready',
       status_reason: null,
       external_ref: provider.settings.snapshotName,

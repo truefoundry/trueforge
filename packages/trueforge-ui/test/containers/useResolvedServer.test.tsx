@@ -23,7 +23,7 @@ const mockCreateTrueForgeAgentUIServer = vi.fn((options?: { permissions?: Permis
     createMockAgentUIServer({
       getCapabilities: async () => ({
         data: {
-          sandbox: { enabled: true },
+          sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
           settings: allSettingsSections(true),
         },
@@ -100,7 +100,7 @@ describe('useResolvedServer', () => {
         catalog,
         getCapabilities: async () => ({
           data: {
-            sandbox: { enabled: true },
+            sandbox: { enabled: true, environments: { enabled: true } },
             skill: { enabled: true },
             settings: allSettingsSections(true),
           },
