@@ -4,6 +4,12 @@ export interface MemorySettings {
   listEnabledTenantIds(): Promise<readonly string[] | undefined>;
 }
 
+/** Whether `tenantId` has memory under these settings. */
+export async function isTenantMemoryEnabled(settings: MemorySettings, tenantId: string): Promise<boolean> {
+  const tenantIds = await settings.listEnabledTenantIds();
+  return tenantIds === undefined || tenantIds.includes(tenantId);
+}
+
 /** `TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST`: only the listed tenants, or every tenant when it is empty. */
 export class TenantAllowlistMemorySettings implements MemorySettings {
   readonly #tenantIds: readonly string[] | undefined;
