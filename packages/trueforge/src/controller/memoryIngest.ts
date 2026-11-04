@@ -36,7 +36,7 @@ export interface MemoryIngestConfig {
 export interface MemoryIngestDeps {
   store: IMemoryIngestStore;
   /** Tenants with memory on, each mapped to its provider; read once per pass. */
-  listTenantProviders: () => Promise<ReadonlyMap<string, MemoryProvider>>;
+  providersByTenant: () => Promise<ReadonlyMap<string, MemoryProvider>>;
   logger: Logger;
   config: MemoryIngestConfig;
   now: () => Date;
@@ -209,7 +209,7 @@ export async function runMemoryIngestPass({
   // Recent sessions within the lookback; paused ones only once their pause has timed out, for one
   // lookback-wide range. A paused session the user answers gets a new turn and so becomes recent.
   const startedMs = startedAt.getTime();
-  const providers = await deps.listTenantProviders();
+  const providers = await deps.providersByTenant();
   const listed =
     providers.size === 0
       ? []
@@ -328,7 +328,7 @@ export function memoryIngestFromConfig({
   }
   return {
     store,
-    listTenantProviders: () => listTenantMemoryProviders(tenantMemory),
+    providersByTenant: () => listTenantMemoryProviders(tenantMemory),
     config: {
       intervalMs: settings.interval_ms,
       maxSessionsPerRun: settings.max_sessions_per_run,

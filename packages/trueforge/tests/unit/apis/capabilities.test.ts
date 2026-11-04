@@ -139,7 +139,7 @@ describe('capabilities routers', () => {
         }),
       upsertConfiguration: () => Promise.reject(new Error('not used')),
       getOrCreateConfiguration: () => Promise.reject(new Error('not used')),
-      listMemoryEnabledTenantIds: () => Promise.reject(new Error('not used')),
+      listTenantIdsWithFeatureEnabled: () => Promise.reject(new Error('not used')),
     };
     return withAuth(
       createCapabilitiesRouter({
@@ -499,7 +499,7 @@ describe('capabilities routers', () => {
         getConfiguration: () => Promise.resolve(undefined),
         upsertConfiguration: () => Promise.reject(new Error('not used')),
         getOrCreateConfiguration: () => Promise.reject(new Error('not used')),
-        listMemoryEnabledTenantIds: () => Promise.reject(new Error('not used')),
+        listTenantIdsWithFeatureEnabled: () => Promise.reject(new Error('not used')),
       };
       const zepMemoryStore: IMemoryProviderStore = {
         getProvider: tenantId =>

@@ -64,7 +64,7 @@ export async function listTenantMemoryProviders({
   configurationStore,
   providers,
 }: TenantMemoryDeps): Promise<Map<string, MemoryProvider>> {
-  const tenantIds = await configurationStore.listMemoryEnabledTenantIds();
+  const tenantIds = await configurationStore.listTenantIdsWithFeatureEnabled('memory');
   const records = await Promise.all(tenantIds.map(tenantId => memoryProviderStore.getProvider(tenantId)));
   const byTenant = new Map<string, MemoryProvider>();
   for (const record of records) {

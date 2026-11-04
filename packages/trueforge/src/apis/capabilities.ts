@@ -127,6 +127,17 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
       webSearchResponse.enabled = false;
       webSearchResponse.reason = 'Web search needs a provider, which is not configured.';
     }
+
+    // Left out without a provider, so clients hide every memory setting.
+    let memoryResponse: { enabled: boolean; reason?: string } | undefined;
+    if (hasMemoryProvider && tenantAllowsMemory) {
+      memoryResponse = { enabled: true };
+    } else if (hasMemoryProvider) {
+      memoryResponse = {
+        enabled: false,
+        reason: 'Memory is turned off for this tenant - an admin can turn it back on in settings.',
+      };
+    }
     return c.json(
       {
         data: {
@@ -141,14 +152,7 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
             hasMemoryProvider,
           }),
           web_search: webSearchResponse,
-          ...(hasMemoryProvider && {
-            memory: tenantAllowsMemory
-              ? { enabled: true }
-              : {
-                  enabled: false,
-                  reason: 'Memory is turned off for this tenant - an admin can turn it back on in settings.',
-                },
-          }),
+          ...(memoryResponse && { memory: memoryResponse }),
           session_sharing: { enabled: deps.userStore.supportsUserLookup },
         },
       },

@@ -1,4 +1,8 @@
-import { DEFAULT_CONFIGURATION_MANIFEST, type ConfigurationManifest } from '../schemas/configuration';
+import {
+  DEFAULT_CONFIGURATION_MANIFEST,
+  type ConfigurationFeature,
+  type ConfigurationManifest,
+} from '../schemas/configuration';
 
 export interface ConfigurationRecord {
   tenant_id: string;
@@ -30,8 +34,8 @@ export interface IConfigurationStore<TTransaction = never> {
     input: GetOrCreateConfigurationInput,
     transaction?: TTransaction,
   ): Promise<ConfigurationRecord>;
-  /** Tenants whose stored switch has memory on; a tenant without a row has it off. */
-  listMemoryEnabledTenantIds(transaction?: TTransaction): Promise<string[]>;
+  /** Tenants whose stored row has `feature` on; tenants without a row are not listed. */
+  listTenantIdsWithFeatureEnabled(feature: ConfigurationFeature, transaction?: TTransaction): Promise<string[]>;
 }
 
 /** Whether the tenant switch lets web search be turned on. Reads only; never writes the row. */

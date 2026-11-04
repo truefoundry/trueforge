@@ -1,4 +1,5 @@
 import { sql, type Kysely, type Selectable, type Transaction } from 'kysely';
+import type { ConfigurationFeature } from '../../../schemas/configuration';
 import type {
   ConfigurationRecord,
   GetOrCreateConfigurationInput,
@@ -82,12 +83,15 @@ export class PostgresConfigurationStore implements IConfigurationStore<Transacti
     return toRecord(existing);
   }
 
-  async listMemoryEnabledTenantIds(transaction?: Transaction<Database>): Promise<string[]> {
+  async listTenantIdsWithFeatureEnabled(
+    feature: ConfigurationFeature,
+    transaction?: Transaction<Database>,
+  ): Promise<string[]> {
     const db = transaction ?? this.#db;
     const rows = await db
       .selectFrom('configuration')
       .select('tenant_id')
-      .where(sql<boolean>`manifest #>> '{memory,enabled}' = 'true'`)
+      .where(sql<boolean>`manifest -> ${feature} ->> 'enabled' = 'true'`)
       .execute();
     return rows.map(row => row.tenant_id);
   }

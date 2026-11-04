@@ -151,7 +151,7 @@ function deps({
 }): MemoryIngestDeps {
   return {
     store,
-    listTenantProviders: () => Promise.resolve(new Map(enabledTenants.map(tenantId => [tenantId, provider]))),
+    providersByTenant: () => Promise.resolve(new Map(enabledTenants.map(tenantId => [tenantId, provider]))),
     logger: logger as never,
     config: { ...CONFIG, ...config },
     now: () => NOW,
@@ -323,7 +323,7 @@ describe('runMemoryIngestPass', () => {
     const summary = await runMemoryIngestPass({
       deps: {
         ...deps({ store, provider: acme.provider }),
-        listTenantProviders: () =>
+        providersByTenant: () =>
           Promise.resolve(
             new Map([
               ['acme', acme.provider],
@@ -588,7 +588,7 @@ describe('runMemoryIngestPass', () => {
           getConfiguration: () => Promise.resolve(undefined),
           upsertConfiguration: () => Promise.reject(new Error('not used')),
           getOrCreateConfiguration: () => Promise.reject(new Error('not used')),
-          listMemoryEnabledTenantIds: () => Promise.resolve([]),
+          listTenantIdsWithFeatureEnabled: () => Promise.resolve([]),
         },
         providers: { get: () => fakeProvider().provider },
       },

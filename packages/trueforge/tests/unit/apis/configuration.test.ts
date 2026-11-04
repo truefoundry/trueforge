@@ -131,7 +131,7 @@ describe('settings configuration router', () => {
         });
         return await store.getOrCreateConfiguration(input);
       },
-      listMemoryEnabledTenantIds: () => store.listMemoryEnabledTenantIds(),
+      listTenantIdsWithFeatureEnabled: feature => store.listTenantIdsWithFeatureEnabled(feature),
     };
     const router = createConfigurationRouter({
       resolveConfigurationStore: () => racingStore,

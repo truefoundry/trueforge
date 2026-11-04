@@ -92,7 +92,7 @@ function tenantMemory({
       }),
     upsertConfiguration: () => Promise.reject(new Error('not used')),
     getOrCreateConfiguration: () => Promise.reject(new Error('not used')),
-    listMemoryEnabledTenantIds: () => Promise.reject(new Error('not used')),
+    listTenantIdsWithFeatureEnabled: () => Promise.reject(new Error('not used')),
   };
   return { memoryProviderStore, configurationStore, providers: { get: () => provider } };
 }

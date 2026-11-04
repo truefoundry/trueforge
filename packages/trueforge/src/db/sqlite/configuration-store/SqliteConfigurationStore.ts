@@ -1,5 +1,5 @@
 import { sql, type ExpressionBuilder, type Kysely, type Transaction } from 'kysely';
-import type { ConfigurationManifest } from '../../../schemas/configuration';
+import type { ConfigurationFeature, ConfigurationManifest } from '../../../schemas/configuration';
 import type {
   ConfigurationRecord,
   GetOrCreateConfigurationInput,
@@ -86,12 +86,15 @@ export class SqliteConfigurationStore implements IConfigurationStore<Transaction
       .executeTakeFirstOrThrow();
   }
 
-  async listMemoryEnabledTenantIds(transaction?: Transaction<Database>): Promise<string[]> {
+  async listTenantIdsWithFeatureEnabled(
+    feature: ConfigurationFeature,
+    transaction?: Transaction<Database>,
+  ): Promise<string[]> {
     const db = transaction ?? this.#db;
     const rows = await db
       .selectFrom('configuration')
       .select('tenant_id')
-      .where(sql<boolean>`json_type(manifest, '$.memory.enabled') IS 'true'`)
+      .where(sql<boolean>`json_type(manifest, ${`$.${feature}.enabled`}) IS 'true'`)
       .execute();
     return rows.map(row => row.tenant_id);
   }

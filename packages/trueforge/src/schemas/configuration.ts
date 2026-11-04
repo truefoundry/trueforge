@@ -52,6 +52,8 @@ export type ConfigurationManifest = z.infer<typeof ConfigurationManifestSchema>;
 export type ConfigurationManifestPatch = z.infer<typeof ConfigurationManifestPatchSchema>;
 export type Configuration = z.infer<typeof ConfigurationSchema>;
 export type UpdateConfigurationRequest = z.infer<typeof UpdateConfigurationRequestSchema>;
+/** A tenant switch in the manifest; each one is `{ enabled }`. */
+export type ConfigurationFeature = keyof ConfigurationManifest;
 
 /**
  * Written the first time a tenant is read or updated.

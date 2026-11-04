@@ -5,25 +5,26 @@
 import type { IConfigurationStore } from '../../src/db/configurationStore';
 import type { ConfigurationManifest } from '../../src/schemas/configuration';
 
-function manifest({ memory }: { memory: boolean }): ConfigurationManifest {
-  return { web_search: { enabled: true }, memory: { enabled: memory } };
+function manifest({ webSearch, memory }: { webSearch: boolean; memory: boolean }): ConfigurationManifest {
+  return { web_search: { enabled: webSearch }, memory: { enabled: memory } };
 }
 
 export function runConfigurationStoreContractSuite(getStore: () => IConfigurationStore): void {
-  it('lists only tenants whose stored switch has memory on', async () => {
+  it('lists only tenants whose stored row has the given feature on', async () => {
     const store = getStore();
-    await store.upsertConfiguration({ tenant_id: 'on-a', manifest: manifest({ memory: true }) });
-    await store.upsertConfiguration({ tenant_id: 'off', manifest: manifest({ memory: false }) });
-    await store.upsertConfiguration({ tenant_id: 'on-b', manifest: manifest({ memory: true }) });
+    await store.upsertConfiguration({ tenant_id: 'both', manifest: manifest({ webSearch: true, memory: true }) });
+    await store.upsertConfiguration({ tenant_id: 'search', manifest: manifest({ webSearch: true, memory: false }) });
+    await store.upsertConfiguration({ tenant_id: 'memory', manifest: manifest({ webSearch: false, memory: true }) });
 
-    expect((await store.listMemoryEnabledTenantIds()).sort()).toEqual(['on-a', 'on-b']);
+    expect((await store.listTenantIdsWithFeatureEnabled('memory')).sort()).toEqual(['both', 'memory']);
+    expect((await store.listTenantIdsWithFeatureEnabled('web_search')).sort()).toEqual(['both', 'search']);
   });
 
   it('drops a tenant once its switch is turned off', async () => {
     const store = getStore();
-    await store.upsertConfiguration({ tenant_id: 'acme', manifest: manifest({ memory: true }) });
-    await store.upsertConfiguration({ tenant_id: 'acme', manifest: manifest({ memory: false }) });
+    await store.upsertConfiguration({ tenant_id: 'acme', manifest: manifest({ webSearch: true, memory: true }) });
+    await store.upsertConfiguration({ tenant_id: 'acme', manifest: manifest({ webSearch: true, memory: false }) });
 
-    expect(await store.listMemoryEnabledTenantIds()).toEqual([]);
+    expect(await store.listTenantIdsWithFeatureEnabled('memory')).toEqual([]);
   });
 }
