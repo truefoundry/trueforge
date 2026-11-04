@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.184.0-rc.1
+
+### Patch Changes
+
+- e022b61: Show a back control before the agent name after Try so the header can return to the agents page.
+- 117b013: Hide cancelled-turn reason banners in live New Chat and Build chat; keep them on the Sessions page session detail.
+- f3998c9: Gate Environments chrome and CRUD on provider env support: hide UI and return 422 when the shared sandbox has no snapshot/env concept. Capabilities expose `sandbox.environments.enabled` for that gate.
+- b70c7ca: Warn in agent runtime settings when the sandbox is turned off, since TrueForge will not work properly without it.
+- 41cfa0e: Sessions token tooltips lead with total tokens, then input and output, using exact counts. The only bar is the input breakdown. Output, cache read, and cache write are separate rows.
+- 50ac5e4: Clarify share dialog copy: private access is now "Restricted" and the invite field asks for a name or email. People picked for an invite now show as chips inside the search field (Backspace removes the last one). The session owner is listed first, marked "(you)" when they are the current user, with capitalized access roles and the shared avatar initials.
+- 4f135d4: User search matches in the session share dialog open from the multi-select field as an overlay. A search with no matches shows "No matching users". The popup dismisses on Escape or outside click, and loading starts with the query so the empty state does not flash.
+- 1b30b71: Add a tenant-wide web search switch stored in the new `configuration` table, with `GET` and `PATCH /api/v1/settings/configuration` behind an admin gate. Capabilities and session or agent writes follow it, so web search cannot be turned on while the switch is off; a spec that already has it on keeps it, which also leaves existing agents and their schedules running. The `settings` capability now reports one entry per settings section with its own `enabled` and `manage_providers`. Catalog settings routes that the deployment does not own answer 422 naming the route, where they previously answered 403.
+- Updated dependencies [f3998c9]
+- Updated dependencies [1b30b71]
+  - @truefoundry/trueforge-assistant-ui-runtime@0.184.0-rc.1
+  - @truefoundry/trueforge-sdk@0.184.0-rc.1
+
 ## 0.183.0
 
 ### Patch Changes
