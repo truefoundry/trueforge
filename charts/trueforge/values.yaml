@@ -45,7 +45,7 @@ image:
   # Tag defaults to chart appVersion when empty. release-chart.yml sets this
   # to {appVersion}-{shortSha} for the from-source image already in the
   # registry.
-  tag: "0.3.0-ebbf6c0"
+  tag: "0.184.0-rc.1-1e3776d"
   pullPolicy: IfNotPresent
 imagePullSecrets: []
 # Default tfy.jfrog.io repos are anonymously pullable. A parent chart's
@@ -422,4 +422,3 @@ affinity: {}
 # Empty = server pods spread across nodes (maxSkew 1, ScheduleAnyway). Set to
 # override; entries apply verbatim to both server and controller pods.
 topologySpreadConstraints: []
- 
