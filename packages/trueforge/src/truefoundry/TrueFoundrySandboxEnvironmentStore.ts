@@ -27,7 +27,7 @@ import {
   type UpsertSandboxEnvironmentInput,
 } from '../db/sandboxEnvironmentStore';
 import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
-import { trueFoundryManaged } from './errors';
+import { sandboxEnvironmentsNotSupported, trueFoundryManaged } from './errors';
 import {
   DEFAULT_ENVIRONMENT_ID,
   synthesizeTrueFoundryDefaultSandboxEnvironment,
@@ -161,11 +161,11 @@ export class TrueFoundrySandboxEnvironmentStore<
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentWithVersion> {
     if (!this.#envSupported) {
-      logger.info('Skipping sandbox environment create (provider does not support environments)', {
+      logger.info('Rejecting sandbox environment create (provider does not support environments)', {
         name: input.name,
         tenant_id: input.tenant_id,
       });
-      return trueFoundryManaged();
+      return sandboxEnvironmentsNotSupported();
     }
     if (input.name === DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
       return Promise.reject(new SandboxEnvironmentNameConflictError({ tenant_id: input.tenant_id, name: input.name }));
@@ -178,11 +178,11 @@ export class TrueFoundrySandboxEnvironmentStore<
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentWithVersion> {
     if (!this.#envSupported) {
-      logger.info('Skipping sandbox environment upsert (provider does not support environments)', {
+      logger.info('Rejecting sandbox environment upsert (provider does not support environments)', {
         name: input.name,
         tenant_id: input.tenant_id,
       });
-      return trueFoundryManaged();
+      return sandboxEnvironmentsNotSupported();
     }
     if (input.name === DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
       return Promise.resolve(synthesizeTrueFoundryDefaultSandboxEnvironment(input.tenant_id));

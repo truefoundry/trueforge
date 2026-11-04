@@ -12,6 +12,7 @@ import { fetch as undiciFetch, type Dispatcher } from 'undici';
 import type { Logger } from 'winston';
 import { z } from 'zod';
 
+import { TRUEFORGE_USER_AGENT } from '../packageVersion';
 import type { McpAuthStatus } from '../schemas/mcpServer';
 import { createInternalTlsDispatcher, normalizeInternalTlsUrl, type InternalTlsOptions } from './internalTls';
 import { mapResolvedAgentSkillVersions, type ResolvedAgentSkillVersion } from './mapSfyAgentSkills';
@@ -812,6 +813,7 @@ export class TrueFoundryServiceFoundryServerClient {
     const headers: Record<string, string> = {
       accept: 'application/json',
       authorization: `Bearer ${input.accessToken}`,
+      'user-agent': TRUEFORGE_USER_AGENT,
     };
     let body: string | undefined;
     if (input.body !== undefined) {

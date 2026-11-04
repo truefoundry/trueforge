@@ -7,6 +7,7 @@ import {
   type RequestContext,
   type ResolveRequestContext,
 } from '../auth/identity';
+import configuration, { isTrueFoundryModeEnabled } from '../config';
 import { isWebSearchEnabledForTenant, type IConfigurationStore } from '../db/configurationStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { WithTransaction } from '../db/transaction';
@@ -48,6 +49,18 @@ function settingsCapability(requestContext: Pick<RequestContext, 'roles'>) {
     web_search: { enabled: isAdmin, manage_providers: canManageProviders },
     memory: { enabled: isAdmin, manage_providers: canManageProviders },
   };
+}
+
+/**
+ * Environments UI/CRUD — matches `envSupported` on the sandbox-environment store.
+ * Standalone/OIDC persistence always supports envs; TFY mode only when the shared
+ * provider is Daytona. Independent of default-env readiness.
+ */
+function sandboxEnvironmentsEnabled(): boolean {
+  if (!isTrueFoundryModeEnabled(configuration)) {
+    return true;
+  }
+  return configuration.TRUEFOUNDRY_SANDBOX_PROVIDER === 'daytona';
 }
 
 export function createCapabilitiesRouter<TTransaction>(deps: {
@@ -97,7 +110,10 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
     return c.json(
       {
         data: {
-          sandbox: { enabled: sandboxEnabled },
+          sandbox: {
+            enabled: sandboxEnabled,
+            environments: { enabled: sandboxEnvironmentsEnabled() },
+          },
           skill: sandboxEnabled ? { enabled: true } : { enabled: false, reason: skillDisabledReason(status) },
           settings: settingsCapability(requestContext),
           web_search: webSearchResponse,

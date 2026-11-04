@@ -1,3 +1,4 @@
+import { isTrueFoundryModeEnabled } from '../../../src/config';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
@@ -11,6 +12,15 @@ jest.mock('../../../src/truefoundry/resolveTrueFoundrySandboxProviderConfig', ()
   return {
     ...actual,
     resolveTrueFoundrySandboxProviderConfig: jest.fn(),
+  };
+});
+
+jest.mock('../../../src/config', () => {
+  const actual = jest.requireActual<typeof import('../../../src/config')>('../../../src/config');
+  return {
+    __esModule: true,
+    ...actual,
+    isTrueFoundryModeEnabled: jest.fn(() => true),
   };
 });
 
@@ -56,6 +66,8 @@ describe('TrueFoundrySandboxEnvironmentStore', () => {
     expect(loaded?.version.status).toBe('ready');
     expect(loaded?.version.external_ref).toBe('trueforge-default-default');
     expect(loaded?.environment.name).toBe(DEFAULT_SANDBOX_ENVIRONMENT_NAME);
+    expect(loaded?.version.manifest).toMatchObject({ type: 'truefoundry', sandbox_provider: 'daytona' });
+    expect(isTrueFoundryModeEnabled).toHaveBeenCalled();
   });
 
   it('lists synthesized default ahead of custom environments', async () => {
@@ -75,7 +87,7 @@ describe('TrueFoundrySandboxEnvironmentStore', () => {
         manifest: {
           name: 'pyjokes-env',
           resources: { cpu: 1, memory: 1, disk: 3 },
-          type: 'daytona',
+          type: 'truefoundry',
           sandbox_provider: 'daytona',
         },
         status: 'pending',
@@ -131,7 +143,7 @@ describe('TrueFoundrySandboxEnvironmentStore', () => {
         manifest: {
           name: 'pyjokes-env',
           resources: { cpu: 1, memory: 1, disk: 3 },
-          type: 'daytona',
+          type: 'truefoundry',
           sandbox_provider: 'daytona',
         },
         status: 'pending',
