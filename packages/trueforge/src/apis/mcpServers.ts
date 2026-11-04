@@ -4,6 +4,7 @@ import {
   extractErrorLogFields,
   isAuthRequired,
   McpConnectionError,
+  OUTBOUND_URL_BLOCKED,
   RemoteMCP,
 } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
@@ -210,7 +211,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
     try {
       await assertSafeOutboundUrl(incomingManifest.url);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Outbound URL blocked';
+      const message = error instanceof Error ? error.message : OUTBOUND_URL_BLOCKED;
       throw new HTTPException(400, { message: message, cause: error });
     }
 
@@ -290,7 +291,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
     try {
       await assertSafeOutboundUrl(incomingManifest.url);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Outbound URL blocked';
+      const message = error instanceof Error ? error.message : OUTBOUND_URL_BLOCKED;
       throw new HTTPException(400, { message: message, cause: error });
     }
 
@@ -460,7 +461,10 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
         }
         return c.json({ error: { message: error.message } }, 500);
       }
-      deps.logger.error(`MCP authorize unexpected failure for "${name}"`, extractErrorLogFields(error));
+      deps.logger.error(`MCP authorize unexpected failure for "${name}"`, {
+        ...extractErrorLogFields(error),
+        reportable_error: { error, extra: { mcp_server_name: name } },
+      });
       return c.json({ error: { message: 'Internal server error' } }, 500);
     }
   };
@@ -482,7 +486,6 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
     const remote = new RemoteMCP({
       id: name,
       name,
-      description: connection.description,
       endpoint: connection,
       requestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
       connectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,

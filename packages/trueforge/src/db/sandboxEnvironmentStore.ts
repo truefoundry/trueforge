@@ -91,6 +91,18 @@ export interface GetSandboxEnvironmentInput {
   created_by_subject_id?: string;
 }
 
+export interface GetSandboxEnvironmentsByIdsInput {
+  tenant_id: string;
+  ids: readonly string[];
+}
+
+/** Minimal parent fields for permission evaluation. */
+export interface SandboxEnvironmentOwnership {
+  id: string;
+  name: string;
+  created_by_subject: CreatedBySubject;
+}
+
 /** Version + parent fields needed to progress a build. */
 export interface SandboxEnvironmentVersionForProgress {
   id: string;
@@ -153,8 +165,6 @@ export interface MarkSandboxEnvironmentVersionFailedInput {
 export interface DeleteSandboxEnvironmentInput {
   tenant_id: string;
   name: string;
-  /** Soft-delete only if created by this subject. */
-  created_by_subject_id: string;
 }
 
 /** Partial unique `(tenant_id, name) WHERE lifecycle_stage = 'active'` violation. */
@@ -196,6 +206,14 @@ export interface ISandboxEnvironmentStore<TTransaction = never> {
     input: GetSandboxEnvironmentInput,
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentWithVersion | undefined>;
+  /**
+   * Active environments by id (ownership fields only). Empty `ids` → `[]`.
+   * Unknown / deleted ids are omitted.
+   */
+  getEnvironmentsByIds(
+    input: GetSandboxEnvironmentsByIdsInput,
+    transaction?: TTransaction,
+  ): Promise<SandboxEnvironmentOwnership[]>;
   /** Active environment by name, joined to the version currently used for sandbox creation. */
   getActiveEnvironment(
     input: GetSandboxEnvironmentInput,

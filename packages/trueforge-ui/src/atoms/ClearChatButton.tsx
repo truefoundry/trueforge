@@ -1,9 +1,11 @@
 'use client';
 
+import { useTrueForgeAgentSpec } from '@truefoundry/trueforge-assistant-ui-runtime';
+
 import { useChatChromeActionsVisible } from '../hooks/useChatChromeActionsVisible.js';
 import { useActiveSessionCanManage } from '../hooks/useResourcePermissions.js';
 import { Icon } from '../icons/Icon.js';
-import { useOptionalShellMode } from '../server/ShellModeContext.js';
+import { shellIsCreateAgent, useOptionalShellMode } from '../server/ShellModeContext.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 
@@ -11,6 +13,7 @@ import { auiButtonClass } from './lib/buttonClasses.js';
 // Hidden while idle and on a fresh chat.
 export function ClearChatButton() {
   const shell = useOptionalShellMode();
+  const { agentSpec } = useTrueForgeAgentSpec();
   const visible = useChatChromeActionsVisible();
   const canManageSession = useActiveSessionCanManage();
   const PermissionGuard = useSlot('PermissionGuard');
@@ -24,7 +27,8 @@ export function ClearChatButton() {
         title="New Chat"
         className={auiButtonClass({ variant: 'ghost', size: 'large' })}
         onClick={() => {
-          if (canManageSession) shell.clearChat();
+          if (!canManageSession) return;
+          shell.clearChat(shellIsCreateAgent(shell.mode) ? (agentSpec ?? undefined) : undefined);
         }}
       >
         <Icon name="square-pen" size="0.875rem" />

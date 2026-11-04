@@ -20,6 +20,8 @@ class RequestOptions(typing.TypedDict, total=False):
 
         - max_retries: int. The max number of retries to attempt if the API call fails.
 
+        - retry_remote_protocol_errors: bool. Retry server disconnects and incomplete responses. Defaults to False, since the server may already have applied the request. Enable only when replaying the request is safe; bounded by max_retries.
+
         - additional_headers: typing.Dict[str, typing.Any]. A dictionary containing additional parameters to spread into the request's header dict
 
         - additional_query_parameters: typing.Dict[str, typing.Any]. A dictionary containing additional parameters to spread into the request's query parameters dict
@@ -32,6 +34,7 @@ class RequestOptions(typing.TypedDict, total=False):
     timeout: NotRequired[float]
     timeout_in_seconds: NotRequired[int]
     max_retries: NotRequired[int]
+    retry_remote_protocol_errors: NotRequired[bool]
     additional_headers: NotRequired[typing.Dict[str, typing.Any]]
     additional_query_parameters: NotRequired[typing.Dict[str, typing.Any]]
     additional_body_parameters: NotRequired[typing.Dict[str, typing.Any]]

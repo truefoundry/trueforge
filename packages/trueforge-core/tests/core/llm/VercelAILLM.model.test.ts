@@ -5,12 +5,8 @@
  * exactOptionalPropertyTypes).
  */
 import type { VercelAIProviderConfig, VercelAIProviderName } from '../../../src/core/llm/VercelAILLM';
-import {
-  buildLanguageModel,
-  buildStreamTextArgs,
-  convertTools,
-  resolveMaxOutputTokens,
-} from '../../../src/core/llm/VercelAILLM';
+import { buildLanguageModel, buildStreamTextArgs, convertTools } from '../../../src/core/llm/VercelAILLM';
+import { resolveMaxOutputTokens } from '../../../src/core/llm/usage';
 
 function makeConfig(
   overrides: Omit<Partial<VercelAIProviderConfig>, 'provider' | 'model'> & {

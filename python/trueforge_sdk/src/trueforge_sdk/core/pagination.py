@@ -3,7 +3,20 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import AsyncIterator, Awaitable, Callable, Generic, Iterator, List, Optional, TypeVar
+from typing import (
+    Any,
+    AsyncIterator,
+    Awaitable,
+    Callable,
+    Generic,
+    Iterator,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    TypeVar,
+    get_args,
+)
 
 # Generic to represent the underlying type of the results within a page
 T = TypeVar("T")
@@ -80,3 +93,73 @@ class AsyncPager(Generic[T, R]):
 
     async def next_page(self) -> Optional[AsyncPager[T, R]]:
         return await self.get_next() if self.get_next is not None else None
+
+
+def get_nested_page_value(container: Any, path: Sequence[str], default: Any = None) -> Any:
+    """
+    Read a nested paging value (e.g. `options.offset`) from a request parameter that may be
+    a dict, a model, None, or omitted (`...`). Returns `default` when any segment is missing.
+    """
+    value = container
+    for key in path:
+        if value is None or value is ...:
+            return default
+        value = value.get(key) if isinstance(value, Mapping) else getattr(value, key, None)
+    return default if value is None or value is ... else value
+
+
+def with_nested_page_value(container: Any, path: Sequence[str], value: Any, container_type: Any = None) -> Any:
+    """
+    Return a copy of a request parameter with the nested paging value at `path` replaced,
+    creating omitted containers and keeping every other field. When `container_type` (or the
+    annotation of the parent model's field) is a model, created containers are built through that
+    model so field aliases (e.g. `page_offset` -> `pageOffset`) apply on the wire.
+    """
+    if len(path) == 0:
+        return value
+    key, rest = path[0], path[1:]
+    if container is None or container is ...:
+        return _build_container(container_type, {key: with_nested_page_value(None, rest, value)})
+    if isinstance(container, Mapping):
+        return {**container, key: with_nested_page_value(container.get(key), rest, value)}
+    updated = with_nested_page_value(
+        getattr(container, key, None), rest, value, _get_field_annotation(type(container), key)
+    )
+    if hasattr(container, "model_copy"):
+        return container.model_copy(update={key: updated})
+    return container.copy(update={key: updated})
+
+
+def _build_container(container_type: Any, data: Mapping[str, Any]) -> Any:
+    model = _find_model_class(container_type)
+    if model is None:
+        return data
+    try:
+        if hasattr(model, "model_validate"):
+            return model.model_validate(data)
+        return model.parse_obj(data)
+    except (TypeError, ValueError):
+        return data
+
+
+def _find_model_class(annotation: Any) -> Any:
+    models = []
+    pending = [annotation]
+    while pending:
+        candidate = pending.pop()
+        if isinstance(candidate, type):
+            if hasattr(candidate, "model_validate") or hasattr(candidate, "parse_obj"):
+                models.append(candidate)
+        else:
+            pending.extend(get_args(candidate))
+    return models[0] if len(models) == 1 else None
+
+
+def _get_field_annotation(model: Any, key: str) -> Any:
+    fields = getattr(model, "model_fields", None)
+    if isinstance(fields, Mapping):
+        return fields[key].annotation if key in fields else None
+    legacy_fields = getattr(model, "__fields__", None)
+    if isinstance(legacy_fields, Mapping) and key in legacy_fields:
+        return legacy_fields[key].outer_type_
+    return None

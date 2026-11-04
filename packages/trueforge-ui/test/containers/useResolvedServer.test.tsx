@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { useResolvedServer } from '@/containers/useResolvedServer.js';
 import type { ListPermissionsResponse, PermissionsServer } from '@/server/types.js';
 import { createMockAgentUIServer, createMockCatalog } from '../server/mockServer.js';
+import { allSettingsSections } from '../server/settingsCapabilityFixture.js';
 
 const permissions: PermissionsServer = {
   listPermissions: vi.fn(async (): Promise<ListPermissionsResponse> => ({
@@ -22,9 +23,9 @@ const mockCreateTrueForgeAgentUIServer = vi.fn((options?: { permissions?: Permis
     createMockAgentUIServer({
       getCapabilities: async () => ({
         data: {
-          sandbox: { enabled: true },
+          sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
-          settings: { enabled: true },
+          settings: allSettingsSections(true),
         },
       }),
       permissions: options?.permissions ?? defaultHarnessPermissions,
@@ -99,9 +100,9 @@ describe('useResolvedServer', () => {
         catalog,
         getCapabilities: async () => ({
           data: {
-            sandbox: { enabled: true },
+            sandbox: { enabled: true, environments: { enabled: true } },
             skill: { enabled: true },
-            settings: { enabled: true },
+            settings: allSettingsSections(true),
           },
         }),
       }),

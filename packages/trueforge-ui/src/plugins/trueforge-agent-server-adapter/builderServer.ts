@@ -50,6 +50,7 @@ export function toModelSelection({
       ...(maxOutputTokens === undefined ? {} : { maxOutputTokens }),
       ...(reasoningEfforts === undefined ? {} : { reasoningEfforts: [...reasoningEfforts] }),
     },
+    ...(model.warning === undefined ? {} : { warning: model.warning }),
   };
 }
 

@@ -34,7 +34,7 @@ export type {
 } from './capabilities/AgentContextProcessor';
 
 // Built-in factories
-export { askUserQuestion } from './capabilities/builtins/AskUserQuestion';
+export { ASK_USER_QUESTION_TOOL_NAME, askUserQuestion } from './capabilities/builtins/AskUserQuestion';
 export {
   DEFAULT_CONTEXT_COMPACTION_THRESHOLD_TOKENS,
   contextCompaction,
@@ -77,12 +77,7 @@ export type { ToolDefinition } from './mcp/LocalToolMCP';
 // policy wrapper (`ToolSet`). `RemoteMCP` connects itself from a `RemoteMcpEndpoint`; networking helpers
 // live in the harness-internal `remoteMcpClient` module.
 export { RemoteMCP } from './mcp/RemoteMCP';
-export type {
-  RemoteMcpEndpoint,
-  RemoteMcpHeaders,
-  ResolveHeadersResult,
-  ResolvedMcpServer,
-} from './mcp/RemoteMCP';
+export type { McpConnection, RemoteMcpEndpoint, RemoteMcpHeaders, ResolveHeadersResult } from './mcp/RemoteMCP';
 export { DEFAULT_MAX_MCP_RESPONSE_BYTES } from './mcp/remoteMcpClient';
 export type {
   RemoteMcpConnection,
@@ -102,7 +97,7 @@ export {
 export { ToolSet } from './mcp/ToolSet';
 
 // LLM contracts
-export type { AgentMetadata, ILLM, LLMCreateParams, LLMCreateParamsStreaming } from './llm/ILLM';
+export type { AgentMetadata, ILLM, LLMCreateParams, LLMCreateParamsStreaming, LLMRequestOptions } from './llm/ILLM';
 export { ResponseFormatSchema, toOpenAIResponseFormat } from './llm/responseFormat';
 export type { ResponseFormat } from './llm/responseFormat';
 export { SUPPORTED_REASONING_EFFORTS, VERCEL_AI_PROVIDER_NAMES, VercelAILLM } from './llm/VercelAILLM';
@@ -112,6 +107,7 @@ export type { VercelAILLMConfig, VercelAIProviderConfig, VercelAIProviderName } 
 export {
   ActionRequiredEventSchema,
   AgentInputUserMessageSchema,
+  CompactionTriggerSchema,
   EventIdSchema,
   EventType,
   MCPAuthRequiredEventSchema,
@@ -119,6 +115,8 @@ export {
   ModelMessageDeltaEventSchema,
   ModelMessageEventSchema,
   SandboxCreatedEventSchema,
+  ThreadContextCompactionFinishedEventSchema,
+  ThreadContextCompactionStartedEventSchema,
   ThreadCreatedEventSchema,
   ThreadDoneEventSchema,
   ThreadOverwriteContextEventSchema,
@@ -137,9 +135,12 @@ export {
 } from './events/schema';
 export type {
   AgentOutputEvent,
+  CompactionTrigger,
   MCPAuthRequiredEvent,
   MCPServerAuthInfo,
   MCPServerInitInfo,
+  ThreadContextCompactionFinishedEvent,
+  ThreadContextCompactionStartedEvent,
   ThreadDoneEvent,
   ThreadOverwriteContextEvent,
   ToolApprovalPolicyAction,
@@ -165,10 +166,48 @@ export type {
   AgentTracing,
 } from './tracing/AgentTracing';
 
+export {
+  configureOperationMetrics,
+  elapsedSeconds,
+  getOperationMetrics,
+  httpStatusClass,
+  observeMcpOperation,
+} from './observability/operationMetrics';
+export type {
+  HarnessLimit,
+  LlmFinishReason,
+  LlmProviderType,
+  LlmRequestOutcome,
+  LlmStreamErrorKind,
+  McpConnectOutcome,
+  McpDisconnectVia,
+  McpMethod,
+  McpOperationOutcome,
+  McpServerClass,
+  McpTransport,
+  OperationMetrics,
+  OutboundHttpModule,
+  OutboundHttpOutcome,
+  OutboundHttpRetryReason,
+  OutboundHttpRetryStatus,
+  OutboundHttpStatusClass,
+  ParallelWebOperation,
+  ParallelWebOutcome,
+  PostgresQueryOutcome,
+  ServiceFoundryOperation,
+  ServiceFoundryOutcome,
+  ToolCallOutcome,
+  ToolCallServerClass,
+  TurnPersistPhase,
+  TurnSsePath,
+  TurnTerminalStatus,
+  TurnTimeoutPhase,
+} from './observability/operationMetrics';
+
 // Errors / utils
 export { AgentHarnessError, McpConnectionError, McpDcrConfigurationError } from './errors';
 export { REDIS_KEY_NAMESPACE, redisKey } from './redisKeys';
-export { describeUnknownError, extractErrorLogFields } from './util/errorLogFields';
+export { describeUnknownError, extractErrorLogFields, isReportableError } from './util/errorLogFields';
 export {
   DEFAULT_MCP_HTTP_BODY_TIMEOUT_MS,
   DEFAULT_MCP_HTTP_CONNECT_TIMEOUT_MS,
@@ -191,7 +230,10 @@ export {
   ssrfFetch,
 } from './util/outboundFetch';
 export { PromiseTimeoutError, withTimeout } from './util/promiseUtils';
+export { type ReportableErrorLog } from './util/reportableErrorLog';
 export {
+  OUTBOUND_URL_BLOCKED,
+  OutboundUrlBlockedError,
   assertSafeOutboundUrl,
   configureOutboundUrlGuard,
   createOutboundFetch,

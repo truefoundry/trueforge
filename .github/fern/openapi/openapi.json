@@ -397,6 +397,11 @@
           },
           "provider": {
             "$ref": "#/components/schemas/AvailableModelProvider"
+          },
+          "warning": {
+            "description": "Set when reasoning effort or context length is not configured; may affect TrueForge performance.",
+            "minLength": 1,
+            "type": "string"
           }
         },
         "required": [
@@ -489,6 +494,9 @@
           "sandbox": {
             "$ref": "#/components/schemas/SandboxCapability"
           },
+          "session_sharing": {
+            "$ref": "#/components/schemas/SessionSharingCapability"
+          },
           "settings": {
             "$ref": "#/components/schemas/SettingsCapability"
           },
@@ -503,7 +511,8 @@
           "sandbox",
           "skill",
           "settings",
-          "web_search"
+          "web_search",
+          "session_sharing"
         ],
         "type": "object"
       },
@@ -875,6 +884,119 @@
           },
           "trigger": {
             "$ref": "#/components/schemas/InputTokensCompactionTrigger"
+          }
+        },
+        "type": "object"
+      },
+      "CompactionTrigger": {
+        "description": "Why compaction was triggered.",
+        "properties": {
+          "context_tokens": {
+            "description": "Estimated context tokens when compaction fired (prompt + completion).",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "threshold_tokens": {
+            "description": "Configured compaction threshold in tokens.",
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "type": {
+            "description": "Triggered because estimated context crossed the compaction threshold.",
+            "enum": [
+              "context_threshold_exceeded"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "context_tokens",
+          "threshold_tokens"
+        ],
+        "type": "object"
+      },
+      "CompletionUsage": {
+        "description": "Token usage for the compaction model call.",
+        "properties": {
+          "cache_read_tokens": {
+            "description": "Optional cache-read tokens.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "cache_write_tokens": {
+            "description": "Optional cache-write tokens.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "cost_in_usd": {
+            "description": "Optional estimated cost in USD.",
+            "minimum": 0,
+            "type": "number"
+          },
+          "input_tokens": {
+            "description": "Input tokens for this completion.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "output_tokens": {
+            "description": "Output tokens for this completion.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "reasoning_tokens": {
+            "description": "Optional reasoning tokens.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "total_tokens": {
+            "description": "Total tokens (input + output).",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "input_tokens",
+          "output_tokens",
+          "total_tokens"
+        ],
+        "type": "object"
+      },
+      "Configuration": {
+        "additionalProperties": false,
+        "properties": {
+          "manifest": {
+            "$ref": "#/components/schemas/ConfigurationManifest"
+          },
+          "updated_at": {
+            "description": "When the configuration was last saved.",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "manifest",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "ConfigurationManifest": {
+        "additionalProperties": false,
+        "properties": {
+          "web_search": {
+            "$ref": "#/components/schemas/WebSearchConfiguration"
+          }
+        },
+        "required": [
+          "web_search"
+        ],
+        "type": "object"
+      },
+      "ConfigurationManifestPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "web_search": {
+            "$ref": "#/components/schemas/WebSearchConfiguration"
           }
         },
         "type": "object"
@@ -1498,6 +1620,17 @@
         ],
         "type": "object"
       },
+      "GetConfigurationResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Configuration"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "GetMCPServerCatalogResponse": {
         "properties": {
           "data": {
@@ -2018,7 +2151,7 @@
               },
               "type": "array"
             },
-            "description": "For agent/schedule/session: keyed by resource id. For tenant: keyed by entity kind (e.g. `agent` → `CREATE`).",
+            "description": "Keyed by resource id for resource types, or by entity kind for `tenant` (e.g. `agent` → `CREATE`).",
             "type": "object"
           },
           "type": {
@@ -2135,6 +2268,20 @@
         ],
         "type": "object"
       },
+      "ListSessionGrantsResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/SessionGrant"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "ListSessionsOrder": {
         "default": "desc",
         "description": "Sort sessions by `updated_at`. Defaults to \"desc\".",
@@ -2222,6 +2369,24 @@
           "data": {
             "items": {
               "$ref": "#/components/schemas/Turn"
+            },
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/TokenPagination"
+          }
+        },
+        "required": [
+          "data",
+          "pagination"
+        ],
+        "type": "object"
+      },
+      "ListUsersResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/User"
             },
             "type": "array"
           },
@@ -3124,7 +3289,8 @@
           "agent",
           "schedule",
           "session",
-          "tenant"
+          "tenant",
+          "sandbox_environment"
         ],
         "type": "string"
       },
@@ -3445,10 +3611,14 @@
           "enabled": {
             "description": "Whether a sandbox provider is configured for this tenant.",
             "type": "boolean"
+          },
+          "environments": {
+            "$ref": "#/components/schemas/SandboxEnvironmentsCapability"
           }
         },
         "required": [
-          "enabled"
+          "enabled",
+          "environments"
         ],
         "type": "object"
       },
@@ -3766,6 +3936,18 @@
         ],
         "type": "string"
       },
+      "SandboxEnvironmentsCapability": {
+        "properties": {
+          "enabled": {
+            "description": "Whether sandbox environments (snapshots / Environments UI) are available for this tenant.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "type": "object"
+      },
       "SandboxProviderManifest": {
         "additionalProperties": false,
         "properties": {
@@ -3901,6 +4083,12 @@
             "format": "date-time",
             "type": "string"
           },
+          "session_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "status": {
             "$ref": "#/components/schemas/ScheduleRunStatus"
           },
@@ -3925,6 +4113,7 @@
           "created_by_subject",
           "triggered_at",
           "reason",
+          "session_id",
           "created_at",
           "updated_at"
         ],
@@ -3962,6 +4151,9 @@
             "description": "Unique session id.",
             "type": "string"
           },
+          "last_turn_details": {
+            "$ref": "#/components/schemas/SessionLastTurnDetails"
+          },
           "metadata": {
             "$ref": "#/components/schemas/SessionMetadata"
           },
@@ -3997,7 +4189,8 @@
           "updated_at",
           "metrics",
           "metadata",
-          "source"
+          "source",
+          "last_turn_details"
         ],
         "type": "object"
       },
@@ -4099,6 +4292,8 @@
             "mcp.initialize": "#/components/schemas/MCPInitializeEvent",
             "model.message": "#/components/schemas/ModelMessageEvent",
             "sandbox.created": "#/components/schemas/SandboxCreatedEvent",
+            "thread.context_compaction_finished": "#/components/schemas/ThreadContextCompactionFinishedEvent",
+            "thread.context_compaction_started": "#/components/schemas/ThreadContextCompactionStartedEvent",
             "thread.created": "#/components/schemas/ThreadCreatedEvent",
             "thread.done": "#/components/schemas/ThreadDoneEvent",
             "tool.approval_required": "#/components/schemas/ToolApprovalRequiredEvent",
@@ -4135,6 +4330,12 @@
           },
           {
             "$ref": "#/components/schemas/ThreadDoneEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ThreadContextCompactionStartedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ThreadContextCompactionFinishedEvent"
           },
           {
             "$ref": "#/components/schemas/MCPAuthRequiredEvent"
@@ -4178,6 +4379,88 @@
         "required": [
           "turn_id",
           "event"
+        ],
+        "type": "object"
+      },
+      "SessionGrant": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "description": "When the session was shared with the subject (ISO-8601 UTC).",
+            "type": "string"
+          },
+          "granted_by_subject": {
+            "$ref": "#/components/schemas/CreatedBySubject"
+          },
+          "subject": {
+            "$ref": "#/components/schemas/SessionGrantSubject"
+          }
+        },
+        "required": [
+          "subject",
+          "granted_by_subject",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "SessionGrantSubject": {
+        "additionalProperties": false,
+        "description": "Who the session is shared with.",
+        "properties": {
+          "subject_id": {
+            "description": "ID of the subject.",
+            "maxLength": 255,
+            "minLength": 1,
+            "type": "string"
+          },
+          "subject_type": {
+            "$ref": "#/components/schemas/SessionGrantSubjectType"
+          }
+        },
+        "required": [
+          "subject_type",
+          "subject_id"
+        ],
+        "type": "object"
+      },
+      "SessionGrantSubjectType": {
+        "description": "Kind of subject. A `tenant` subject shares the session with everyone in the tenant.",
+        "enum": [
+          "user",
+          "tenant"
+        ],
+        "type": "string"
+      },
+      "SessionLastTurnDetails": {
+        "additionalProperties": false,
+        "description": "The session's most recent turn; null until the first turn.",
+        "properties": {
+          "id": {
+            "description": "Id of the last turn.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/SessionLastTurnState"
+          }
+        },
+        "required": [
+          "id",
+          "state"
+        ],
+        "type": [
+          "object",
+          "null"
+        ]
+      },
+      "SessionLastTurnState": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/TurnStatus"
+          }
+        },
+        "required": [
+          "status"
         ],
         "type": "object"
       },
@@ -4412,6 +4695,18 @@
         ],
         "type": "object"
       },
+      "SessionSharingCapability": {
+        "properties": {
+          "enabled": {
+            "description": "Whether sessions can be shared with specific users. Sharing with the whole tenant is always available.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "type": "object"
+      },
       "SessionSource": {
         "additionalProperties": false,
         "description": "How this session was created (e.g. a schedule run). Null for interactive sessions.",
@@ -4481,13 +4776,49 @@
       },
       "SettingsCapability": {
         "properties": {
+          "mcp_servers": {
+            "$ref": "#/components/schemas/SettingsCapabilitySection"
+          },
+          "memory": {
+            "$ref": "#/components/schemas/SettingsCapabilitySection"
+          },
+          "model_providers": {
+            "$ref": "#/components/schemas/SettingsCapabilitySection"
+          },
+          "sandbox_providers": {
+            "$ref": "#/components/schemas/SettingsCapabilitySection"
+          },
+          "skills": {
+            "$ref": "#/components/schemas/SettingsCapabilitySection"
+          },
+          "web_search": {
+            "$ref": "#/components/schemas/SettingsCapabilitySection"
+          }
+        },
+        "required": [
+          "model_providers",
+          "mcp_servers",
+          "skills",
+          "sandbox_providers",
+          "web_search",
+          "memory"
+        ],
+        "type": "object"
+      },
+      "SettingsCapabilitySection": {
+        "properties": {
           "enabled": {
-            "description": "Whether the settings UI/API is enabled.",
+            "description": "Whether this settings section is available to the caller.",
+            "type": "boolean"
+          },
+          "manage_providers": {
+            "description": "Whether the caller may add or edit providers in this section. False when the platform owns them.",
             "type": "boolean"
           }
         },
         "required": [
-          "enabled"
+          "enabled",
+          "manage_providers"
         ],
         "type": "object"
       },
@@ -4590,6 +4921,84 @@
         "required": [
           "type",
           "text"
+        ],
+        "type": "object"
+      },
+      "ThreadContextCompactionFinishedEvent": {
+        "properties": {
+          "created_at": {
+            "description": "ISO 8601 event timestamp.",
+            "type": "string"
+          },
+          "duration_ms": {
+            "description": "Wall time of the compaction model call in milliseconds.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "id": {
+            "description": "Unique identifier for the event (monotonic ULID).",
+            "type": "string"
+          },
+          "thread_id": {
+            "description": "Thread whose context was compacted.",
+            "type": "string"
+          },
+          "trigger": {
+            "$ref": "#/components/schemas/CompactionTrigger"
+          },
+          "type": {
+            "description": "Thread context compaction finished; context overwrite follows.",
+            "enum": [
+              "thread.context_compaction_finished"
+            ],
+            "type": "string"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/CompletionUsage"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "created_at",
+          "thread_id",
+          "trigger",
+          "usage",
+          "duration_ms"
+        ],
+        "type": "object"
+      },
+      "ThreadContextCompactionStartedEvent": {
+        "properties": {
+          "created_at": {
+            "description": "ISO 8601 event timestamp.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Unique identifier for the event (monotonic ULID).",
+            "type": "string"
+          },
+          "thread_id": {
+            "description": "Thread whose context is being compacted.",
+            "type": "string"
+          },
+          "trigger": {
+            "$ref": "#/components/schemas/CompactionTrigger"
+          },
+          "type": {
+            "description": "Thread context compaction started; may take noticeable time.",
+            "enum": [
+              "thread.context_compaction_started"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "created_at",
+          "thread_id",
+          "trigger"
         ],
         "type": "object"
       },
@@ -5579,6 +5988,16 @@
         ],
         "type": "object"
       },
+      "TurnStatus": {
+        "enum": [
+          "running",
+          "paused",
+          "done",
+          "cancelled",
+          "error"
+        ],
+        "type": "string"
+      },
       "TurnStreamingEvent": {
         "discriminator": {
           "mapping": {
@@ -5587,6 +6006,8 @@
             "model.message": "#/components/schemas/ModelMessageEvent",
             "model.message.delta": "#/components/schemas/ModelMessageDeltaEvent",
             "sandbox.created": "#/components/schemas/SandboxCreatedEvent",
+            "thread.context_compaction_finished": "#/components/schemas/ThreadContextCompactionFinishedEvent",
+            "thread.context_compaction_started": "#/components/schemas/ThreadContextCompactionStartedEvent",
             "thread.created": "#/components/schemas/ThreadCreatedEvent",
             "thread.done": "#/components/schemas/ThreadDoneEvent",
             "tool.approval_required": "#/components/schemas/ToolApprovalRequiredEvent",
@@ -5617,6 +6038,12 @@
           },
           {
             "$ref": "#/components/schemas/ThreadDoneEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ThreadContextCompactionStartedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ThreadContextCompactionFinishedEvent"
           },
           {
             "$ref": "#/components/schemas/MCPAuthRequiredEvent"
@@ -5725,6 +6152,18 @@
         ],
         "type": "object"
       },
+      "UpdateConfigurationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "manifest": {
+            "$ref": "#/components/schemas/ConfigurationManifestPatch"
+          }
+        },
+        "required": [
+          "manifest"
+        ],
+        "type": "object"
+      },
       "UpdateMCPServerRequest": {
         "additionalProperties": false,
         "properties": {
@@ -5789,6 +6228,30 @@
         ],
         "type": "object"
       },
+      "UpdateSessionGrantsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "grant": {
+            "default": [],
+            "description": "Subjects to share the session with (up to 50).",
+            "items": {
+              "$ref": "#/components/schemas/SessionGrantSubject"
+            },
+            "maxItems": 50,
+            "type": "array"
+          },
+          "revoke": {
+            "default": [],
+            "description": "Subjects to remove access for (up to 50).",
+            "items": {
+              "$ref": "#/components/schemas/SessionGrantSubject"
+            },
+            "maxItems": 50,
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "UpdateSessionRequest": {
         "additionalProperties": false,
         "properties": {
@@ -5799,7 +6262,8 @@
             "$ref": "#/components/schemas/SessionMetadata"
           },
           "shared": {
-            "description": "When true, any subject in the tenant may read this session and its turns/events by id.",
+            "deprecated": true,
+            "description": "Deprecated; use `POST /sessions/{session_id}/grants` with a `tenant` subject.",
             "type": "boolean"
           },
           "title": {
@@ -5832,6 +6296,28 @@
         },
         "required": [
           "manifest"
+        ],
+        "type": "object"
+      },
+      "User": {
+        "properties": {
+          "display_name": {
+            "description": "Human-readable name for the user.",
+            "type": "string"
+          },
+          "email": {
+            "description": "Email of the user.",
+            "type": "string"
+          },
+          "id": {
+            "description": "User id, unique within the tenant.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "display_name",
+          "email"
         ],
         "type": "object"
       },
@@ -6131,8 +6617,12 @@
       "WebSearchCapability": {
         "properties": {
           "enabled": {
-            "description": "Whether a host web-search provider is configured.",
+            "description": "Whether new chats may use web search: the tenant allows it and a provider is configured.",
             "type": "boolean"
+          },
+          "reason": {
+            "description": "Present when web search is unavailable. Explains why.",
+            "type": "string"
           }
         },
         "required": [
@@ -6151,6 +6641,19 @@
             "type": "boolean"
           }
         },
+        "type": "object"
+      },
+      "WebSearchConfiguration": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "description": "Whether new chats may use web search. Chats that already use it keep their own setting.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
         "type": "object"
       },
       "WebSearchProviderManifest": {
@@ -8017,6 +8520,16 @@
             },
             "description": "Unauthenticated."
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "User does not have permission to edit Sandbox environment"
+          },
           "409": {
             "content": {
               "application/json": {
@@ -8099,6 +8612,16 @@
               }
             },
             "description": "Unauthenticated."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "User does not have permission to edit Sandbox environment"
           },
           "404": {
             "content": {
@@ -8192,6 +8715,16 @@
               }
             },
             "description": "Unauthenticated."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "User does not have permission to edit Sandbox environment"
           },
           "404": {
             "content": {
@@ -9431,6 +9964,152 @@
         "x-fern-sdk-method-name": "list_events"
       }
     },
+    "/api/v1/sessions/{session_id}/grants": {
+      "get": {
+        "description": "List the subjects this session is shared with.",
+        "parameters": [
+          {
+            "description": "Session identifier.",
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "description": "Session identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListSessionGrantsResponse"
+                }
+              }
+            },
+            "description": "Subjects the session is shared with."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "User does not have permission."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Session not found."
+          }
+        },
+        "summary": "List session grants",
+        "tags": [
+          "Agent Sessions"
+        ],
+        "x-fern-sdk-group-name": [
+          "sessions"
+        ],
+        "x-fern-sdk-method-name": "list_grants"
+      },
+      "post": {
+        "description": "Share this session with subjects and remove access for others in one atomic request. Subjects get read access to the session, its turns and its events. A `tenant` subject, whose `subject_id` must be your tenant ID, shares with everyone in the tenant. Granting an existing subject or revoking one without access is a no-op. Returns every subject the session is shared with.",
+        "parameters": [
+          {
+            "description": "Session identifier.",
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "description": "Session identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSessionGrantsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListSessionGrantsResponse"
+                }
+              }
+            },
+            "description": "Subjects the session is shared with after the change."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "User does not have permission."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Session not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "A subject to grant is unknown or is the session creator, or a subject is both granted and revoked."
+          }
+        },
+        "summary": "Update session grants",
+        "tags": [
+          "Agent Sessions"
+        ],
+        "x-fern-sdk-group-name": [
+          "sessions"
+        ],
+        "x-fern-sdk-method-name": "update_grants"
+      }
+    },
     "/api/v1/sessions/{session_id}/turns": {
       "get": {
         "description": "List turns for a session (newest first by default), token-paginated. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.",
@@ -10184,6 +10863,116 @@
           "format": "sse",
           "resumable": true
         }
+      }
+    },
+    "/api/v1/settings/configuration": {
+      "get": {
+        "description": "Tenant-wide feature switches. Tenants with nothing saved yet get every switch enabled.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetConfigurationResponse"
+                }
+              }
+            },
+            "description": "The tenant configuration."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid Bearer token or auth cookie."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated but not an admin."
+          }
+        },
+        "summary": "Get the tenant configuration",
+        "tags": [
+          "Configuration"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "configuration"
+        ],
+        "x-fern-sdk-method-name": "get"
+      },
+      "patch": {
+        "description": "Updates the switches present in the body and leaves the rest. Turning web search off applies to new chats; chats already using it keep it.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateConfigurationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetConfigurationResponse"
+                }
+              }
+            },
+            "description": "The saved tenant configuration."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid Bearer token or auth cookie."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated but not an admin."
+          }
+        },
+        "summary": "Update the tenant configuration",
+        "tags": [
+          "Configuration"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "configuration"
+        ],
+        "x-fern-sdk-method-name": "update"
       }
     },
     "/api/v1/settings/mcp-servers": {
@@ -11244,6 +12033,93 @@
         ],
         "x-fern-sdk-method-name": "list_versions"
       }
+    },
+    "/api/v1/users": {
+      "get": {
+        "description": "List users in the tenant that sessions can be shared with. Searches email and display name, or looks up specific users with `ids`.",
+        "parameters": [
+          {
+            "description": "Case-insensitive substring match on email or display name.",
+            "in": "query",
+            "name": "query",
+            "required": false,
+            "schema": {
+              "description": "Case-insensitive substring match on email or display name.",
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Page size. Defaults to 25, max 100.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "description": "Page size. Defaults to 25, max 100.",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque token from a previous response `next_page_token`.",
+            "in": "query",
+            "name": "page_token",
+            "required": false,
+            "schema": {
+              "description": "Opaque token from a previous response `next_page_token`.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Return only these users (comma-separated ids, up to 100). Users that are unknown or inactive are omitted. Cannot be combined with `query` or `page_token`.",
+            "in": "query",
+            "name": "ids",
+            "required": false,
+            "schema": {
+              "description": "Return only these users (comma-separated ids, up to 100). Users that are unknown or inactive are omitted. Cannot be combined with `query` or `page_token`.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListUsersResponse"
+                }
+              }
+            },
+            "description": "Paginated users."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid query parameters or page token."
+          }
+        },
+        "summary": "List users",
+        "tags": [
+          "Users"
+        ],
+        "x-fern-pagination": {
+          "cursor": "$request.page_token",
+          "next_cursor": "$response.pagination.next_page_token",
+          "results": "$response.data"
+        },
+        "x-fern-sdk-group-name": [
+          "users"
+        ],
+        "x-fern-sdk-method-name": "list"
+      }
     }
   },
   "security": [
@@ -11257,6 +12133,9 @@
     },
     {
       "name": "Auth"
+    },
+    {
+      "name": "Users"
     },
     {
       "name": "Capabilities"
@@ -11275,6 +12154,9 @@
     },
     {
       "name": "Web Search Providers"
+    },
+    {
+      "name": "Configuration"
     },
     {
       "name": "Agents"

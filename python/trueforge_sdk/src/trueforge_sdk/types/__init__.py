@@ -46,7 +46,12 @@ if typing.TYPE_CHECKING:
     from .chat_completion_message_tool_call import ChatCompletionMessageToolCall
     from .chat_completion_message_tool_call_function import ChatCompletionMessageToolCallFunction
     from .compaction_config import CompactionConfig
+    from .compaction_trigger import CompactionTrigger
+    from .completion_usage import CompletionUsage
     from .components_schemas_tool_approval_policy_allow_session import ComponentsSchemasToolApprovalPolicyAllowSession
+    from .configuration import Configuration
+    from .configuration_manifest import ConfigurationManifest
+    from .configuration_manifest_patch import ConfigurationManifestPatch
     from .configured_mcp_server import ConfiguredMcpServer
     from .configured_model import ConfiguredModel
     from .configured_model_provider import ConfiguredModelProvider
@@ -78,6 +83,7 @@ if typing.TYPE_CHECKING:
     from .get_agent_response import GetAgentResponse
     from .get_available_mcp_server_response import GetAvailableMcpServerResponse
     from .get_capabilities_response import GetCapabilitiesResponse
+    from .get_configuration_response import GetConfigurationResponse
     from .get_mcp_server_catalog_response import GetMcpServerCatalogResponse
     from .get_mcp_server_response import GetMcpServerResponse
     from .get_me_response import GetMeResponse
@@ -116,6 +122,7 @@ if typing.TYPE_CHECKING:
     from .list_schedule_runs_response import ListScheduleRunsResponse
     from .list_schedules_response import ListSchedulesResponse
     from .list_session_events_response import ListSessionEventsResponse
+    from .list_session_grants_response import ListSessionGrantsResponse
     from .list_sessions_order import ListSessionsOrder
     from .list_sessions_response import ListSessionsResponse
     from .list_skill_versions_response import ListSkillVersionsResponse
@@ -123,6 +130,7 @@ if typing.TYPE_CHECKING:
     from .list_turn_events_order import ListTurnEventsOrder
     from .list_turn_events_response import ListTurnEventsResponse
     from .list_turns_response import ListTurnsResponse
+    from .list_users_response import ListUsersResponse
     from .mcp_auth_required_event import McpAuthRequiredEvent
     from .mcp_auth_status import McpAuthStatus
     from .mcp_auth_status_status import McpAuthStatusStatus
@@ -186,6 +194,7 @@ if typing.TYPE_CHECKING:
     from .sandbox_environment_resources import SandboxEnvironmentResources
     from .sandbox_environment_secret import SandboxEnvironmentSecret
     from .sandbox_environment_version_status import SandboxEnvironmentVersionStatus
+    from .sandbox_environments_capability import SandboxEnvironmentsCapability
     from .sandbox_provider_manifest import SandboxProviderManifest
     from .schedule import Schedule
     from .schedule_manifest import ScheduleManifest
@@ -200,6 +209,11 @@ if typing.TYPE_CHECKING:
     from .session_agent_spec_body import SessionAgentSpecBody
     from .session_event import SessionEvent
     from .session_event_item import SessionEventItem
+    from .session_grant import SessionGrant
+    from .session_grant_subject import SessionGrantSubject
+    from .session_grant_subject_type import SessionGrantSubjectType
+    from .session_last_turn_details import SessionLastTurnDetails
+    from .session_last_turn_state import SessionLastTurnState
     from .session_metadata import SessionMetadata
     from .session_metrics import SessionMetrics
     from .session_metrics_chart import SessionMetricsChart
@@ -212,15 +226,19 @@ if typing.TYPE_CHECKING:
     from .session_metrics_meter_name import SessionMetricsMeterName
     from .session_metrics_meter_response import SessionMetricsMeterResponse
     from .session_metrics_point import SessionMetricsPoint
+    from .session_sharing_capability import SessionSharingCapability
     from .session_source import SessionSource
     from .session_source_schedule import SessionSourceSchedule
     from .session_source_type import SessionSourceType
     from .settings_capability import SettingsCapability
+    from .settings_capability_section import SettingsCapabilitySection
     from .skill import Skill
     from .skill_capability import SkillCapability
     from .skill_manifest import SkillManifest
     from .skill_version import SkillVersion
     from .text_content import TextContent
+    from .thread_context_compaction_finished_event import ThreadContextCompactionFinishedEvent
+    from .thread_context_compaction_started_event import ThreadContextCompactionStartedEvent
     from .thread_created_event import ThreadCreatedEvent
     from .thread_done_event import ThreadDoneEvent
     from .thread_state import ThreadState
@@ -257,9 +275,11 @@ if typing.TYPE_CHECKING:
     from .turn_state_error_metrics import TurnStateErrorMetrics
     from .turn_state_paused import TurnStatePaused
     from .turn_state_running import TurnStateRunning
+    from .turn_status import TurnStatus
     from .turn_streaming_event import TurnStreamingEvent
     from .turn_update_event import TurnUpdateEvent
     from .turn_update_event_state import TurnUpdateEventState
+    from .user import User
     from .user_mcp_auth_continue_event import UserMcpAuthContinueEvent
     from .user_mcp_auth_continue_input_event import UserMcpAuthContinueInputEvent
     from .user_message import UserMessage
@@ -273,6 +293,7 @@ if typing.TYPE_CHECKING:
     from .user_tool_response_input_event import UserToolResponseInputEvent
     from .web_search_capability import WebSearchCapability
     from .web_search_config import WebSearchConfig
+    from .web_search_configuration import WebSearchConfiguration
     from .web_search_provider_manifest import WebSearchProviderManifest
     from .zai_model_provider import ZaiModelProvider
 _dynamic_imports: typing.Dict[str, str] = {
@@ -316,7 +337,12 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ChatCompletionMessageToolCall": ".chat_completion_message_tool_call",
     "ChatCompletionMessageToolCallFunction": ".chat_completion_message_tool_call_function",
     "CompactionConfig": ".compaction_config",
+    "CompactionTrigger": ".compaction_trigger",
+    "CompletionUsage": ".completion_usage",
     "ComponentsSchemasToolApprovalPolicyAllowSession": ".components_schemas_tool_approval_policy_allow_session",
+    "Configuration": ".configuration",
+    "ConfigurationManifest": ".configuration_manifest",
+    "ConfigurationManifestPatch": ".configuration_manifest_patch",
     "ConfiguredMcpServer": ".configured_mcp_server",
     "ConfiguredModel": ".configured_model",
     "ConfiguredModelProvider": ".configured_model_provider",
@@ -348,6 +374,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "GetAgentResponse": ".get_agent_response",
     "GetAvailableMcpServerResponse": ".get_available_mcp_server_response",
     "GetCapabilitiesResponse": ".get_capabilities_response",
+    "GetConfigurationResponse": ".get_configuration_response",
     "GetMcpServerCatalogResponse": ".get_mcp_server_catalog_response",
     "GetMcpServerResponse": ".get_mcp_server_response",
     "GetMeResponse": ".get_me_response",
@@ -386,6 +413,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ListScheduleRunsResponse": ".list_schedule_runs_response",
     "ListSchedulesResponse": ".list_schedules_response",
     "ListSessionEventsResponse": ".list_session_events_response",
+    "ListSessionGrantsResponse": ".list_session_grants_response",
     "ListSessionsOrder": ".list_sessions_order",
     "ListSessionsResponse": ".list_sessions_response",
     "ListSkillVersionsResponse": ".list_skill_versions_response",
@@ -393,6 +421,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ListTurnEventsOrder": ".list_turn_events_order",
     "ListTurnEventsResponse": ".list_turn_events_response",
     "ListTurnsResponse": ".list_turns_response",
+    "ListUsersResponse": ".list_users_response",
     "McpAuthRequiredEvent": ".mcp_auth_required_event",
     "McpAuthStatus": ".mcp_auth_status",
     "McpAuthStatusStatus": ".mcp_auth_status_status",
@@ -456,6 +485,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SandboxEnvironmentResources": ".sandbox_environment_resources",
     "SandboxEnvironmentSecret": ".sandbox_environment_secret",
     "SandboxEnvironmentVersionStatus": ".sandbox_environment_version_status",
+    "SandboxEnvironmentsCapability": ".sandbox_environments_capability",
     "SandboxProviderManifest": ".sandbox_provider_manifest",
     "Schedule": ".schedule",
     "ScheduleManifest": ".schedule_manifest",
@@ -470,6 +500,11 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SessionAgentSpecBody": ".session_agent_spec_body",
     "SessionEvent": ".session_event",
     "SessionEventItem": ".session_event_item",
+    "SessionGrant": ".session_grant",
+    "SessionGrantSubject": ".session_grant_subject",
+    "SessionGrantSubjectType": ".session_grant_subject_type",
+    "SessionLastTurnDetails": ".session_last_turn_details",
+    "SessionLastTurnState": ".session_last_turn_state",
     "SessionMetadata": ".session_metadata",
     "SessionMetrics": ".session_metrics",
     "SessionMetricsChart": ".session_metrics_chart",
@@ -482,15 +517,19 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SessionMetricsMeterName": ".session_metrics_meter_name",
     "SessionMetricsMeterResponse": ".session_metrics_meter_response",
     "SessionMetricsPoint": ".session_metrics_point",
+    "SessionSharingCapability": ".session_sharing_capability",
     "SessionSource": ".session_source",
     "SessionSourceSchedule": ".session_source_schedule",
     "SessionSourceType": ".session_source_type",
     "SettingsCapability": ".settings_capability",
+    "SettingsCapabilitySection": ".settings_capability_section",
     "Skill": ".skill",
     "SkillCapability": ".skill_capability",
     "SkillManifest": ".skill_manifest",
     "SkillVersion": ".skill_version",
     "TextContent": ".text_content",
+    "ThreadContextCompactionFinishedEvent": ".thread_context_compaction_finished_event",
+    "ThreadContextCompactionStartedEvent": ".thread_context_compaction_started_event",
     "ThreadCreatedEvent": ".thread_created_event",
     "ThreadDoneEvent": ".thread_done_event",
     "ThreadState": ".thread_state",
@@ -527,9 +566,11 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TurnStateErrorMetrics": ".turn_state_error_metrics",
     "TurnStatePaused": ".turn_state_paused",
     "TurnStateRunning": ".turn_state_running",
+    "TurnStatus": ".turn_status",
     "TurnStreamingEvent": ".turn_streaming_event",
     "TurnUpdateEvent": ".turn_update_event",
     "TurnUpdateEventState": ".turn_update_event_state",
+    "User": ".user",
     "UserMcpAuthContinueEvent": ".user_mcp_auth_continue_event",
     "UserMcpAuthContinueInputEvent": ".user_mcp_auth_continue_input_event",
     "UserMessage": ".user_message",
@@ -543,6 +584,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "UserToolResponseInputEvent": ".user_tool_response_input_event",
     "WebSearchCapability": ".web_search_capability",
     "WebSearchConfig": ".web_search_config",
+    "WebSearchConfiguration": ".web_search_configuration",
     "WebSearchProviderManifest": ".web_search_provider_manifest",
     "ZaiModelProvider": ".zai_model_provider",
 }
@@ -610,7 +652,12 @@ __all__ = [
     "ChatCompletionMessageToolCall",
     "ChatCompletionMessageToolCallFunction",
     "CompactionConfig",
+    "CompactionTrigger",
+    "CompletionUsage",
     "ComponentsSchemasToolApprovalPolicyAllowSession",
+    "Configuration",
+    "ConfigurationManifest",
+    "ConfigurationManifestPatch",
     "ConfiguredMcpServer",
     "ConfiguredModel",
     "ConfiguredModelProvider",
@@ -642,6 +689,7 @@ __all__ = [
     "GetAgentResponse",
     "GetAvailableMcpServerResponse",
     "GetCapabilitiesResponse",
+    "GetConfigurationResponse",
     "GetMcpServerCatalogResponse",
     "GetMcpServerResponse",
     "GetMeResponse",
@@ -680,6 +728,7 @@ __all__ = [
     "ListScheduleRunsResponse",
     "ListSchedulesResponse",
     "ListSessionEventsResponse",
+    "ListSessionGrantsResponse",
     "ListSessionsOrder",
     "ListSessionsResponse",
     "ListSkillVersionsResponse",
@@ -687,6 +736,7 @@ __all__ = [
     "ListTurnEventsOrder",
     "ListTurnEventsResponse",
     "ListTurnsResponse",
+    "ListUsersResponse",
     "McpAuthRequiredEvent",
     "McpAuthStatus",
     "McpAuthStatusStatus",
@@ -750,6 +800,7 @@ __all__ = [
     "SandboxEnvironmentResources",
     "SandboxEnvironmentSecret",
     "SandboxEnvironmentVersionStatus",
+    "SandboxEnvironmentsCapability",
     "SandboxProviderManifest",
     "Schedule",
     "ScheduleManifest",
@@ -764,6 +815,11 @@ __all__ = [
     "SessionAgentSpecBody",
     "SessionEvent",
     "SessionEventItem",
+    "SessionGrant",
+    "SessionGrantSubject",
+    "SessionGrantSubjectType",
+    "SessionLastTurnDetails",
+    "SessionLastTurnState",
     "SessionMetadata",
     "SessionMetrics",
     "SessionMetricsChart",
@@ -776,15 +832,19 @@ __all__ = [
     "SessionMetricsMeterName",
     "SessionMetricsMeterResponse",
     "SessionMetricsPoint",
+    "SessionSharingCapability",
     "SessionSource",
     "SessionSourceSchedule",
     "SessionSourceType",
     "SettingsCapability",
+    "SettingsCapabilitySection",
     "Skill",
     "SkillCapability",
     "SkillManifest",
     "SkillVersion",
     "TextContent",
+    "ThreadContextCompactionFinishedEvent",
+    "ThreadContextCompactionStartedEvent",
     "ThreadCreatedEvent",
     "ThreadDoneEvent",
     "ThreadState",
@@ -821,9 +881,11 @@ __all__ = [
     "TurnStateErrorMetrics",
     "TurnStatePaused",
     "TurnStateRunning",
+    "TurnStatus",
     "TurnStreamingEvent",
     "TurnUpdateEvent",
     "TurnUpdateEventState",
+    "User",
     "UserMcpAuthContinueEvent",
     "UserMcpAuthContinueInputEvent",
     "UserMessage",
@@ -837,6 +899,7 @@ __all__ = [
     "UserToolResponseInputEvent",
     "WebSearchCapability",
     "WebSearchConfig",
+    "WebSearchConfiguration",
     "WebSearchProviderManifest",
     "ZaiModelProvider",
 ]

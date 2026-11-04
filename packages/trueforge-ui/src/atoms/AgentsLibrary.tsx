@@ -11,17 +11,23 @@ import { Icon } from '../icons/Icon.js';
 import { isSchedulesChromeEnabled, isSessionsChromeEnabled } from '../server/serverChrome.js';
 import { useOptionalAgentSessionsServer, useOptionalScheduleServer } from '../server/ServerContext.js';
 import { libraryAgentId, useShellMode } from '../server/ShellModeContext.js';
-import type { AgentLibraryEntry, AgentSpec, Schedule } from '../server/types.js';
+import type { AgentLibraryEntry, AgentSpec, CreatedBySubject, Schedule } from '../server/types.js';
 import { useSlot } from '../theme/SlotsProvider.js';
-import { hasCreatedBySubject } from '../utils/createdBySubject.js';
 import { readLibraryShareSearch, replaceLibraryShareSearch } from '../utils/libraryShareUrl.js';
 import { replaceScheduleShareSearch } from '../utils/scheduleShareUrl.js';
+import {
+  AgentLibrarySparklineCell,
+  AgentSessionsCell,
+  AgentSpendCell,
+  agentLibraryUsageLabels,
+} from './AgentLibraryUsage.js';
 import { AgentOverflowMenu } from './AgentOverflowMenu.js';
 import { CreatedByCell } from './CreatedByCell.js';
 import { EmptyScreen, EmptyScreenQueryHighlight } from './EmptyScreen.js';
 import { cn } from './lib/cn.js';
 import { isMobileNavDrawerOpen } from './lib/isMobileNavDrawerOpen.js';
 import { mountName } from './lib/mountName.js';
+import { useAgentLibraryUsageStats, type AgentLibraryUsageStats } from './lib/useAgentLibraryUsageStats.js';
 import { useIsMobile } from './lib/useIsMobile.js';
 import { useSearchAgentsList } from './lib/useSearchAgentsList.js';
 import { PageHeader } from './PageHeader.js';
@@ -63,8 +69,9 @@ export type AgentLibraryRowProps = {
   canManageAgent?: boolean;
   canDeleteAgent?: boolean;
   canManageSchedules: boolean;
-  showCreatedBy?: boolean;
   scheduleSummary?: AgentScheduleSummary | null;
+  usage?: AgentLibraryUsageStats;
+  showMetricsColumns?: boolean;
   onOpenSchedules?: () => void;
   onCreateSchedule?: () => void;
   onOpen?: () => void;
@@ -79,6 +86,22 @@ export type AgentLibraryRowProps = {
 function displayModelLabel(modelName: string): string {
   const slash = modelName.lastIndexOf('/');
   return slash >= 0 ? modelName.slice(slash + 1) : modelName;
+}
+
+/** Sectioned list tooltip for MCP / skill mounts (one name per line). */
+function mountNamesTooltip({ title, names }: { title: string; names: readonly string[] }) {
+  return (
+    <span className="flex max-w-xs flex-col gap-1.5 text-left">
+      <span className="text-[0.625rem] font-medium tracking-wide text-text-secondary uppercase">{title}</span>
+      <span className="flex flex-col gap-0.5">
+        {names.map(name => (
+          <span key={name} className="break-all">
+            {name}
+          </span>
+        ))}
+      </span>
+    </span>
+  );
 }
 
 function AgentSchedulesEmptyState({
@@ -118,17 +141,17 @@ function AgentSchedulesEmptyState({
 function AgentNameContent({
   name,
   description,
+  createdBySubject,
   onOpen,
-  descriptionMode = 'tooltip',
 }: {
   name: string;
   description: string | null;
+  createdBySubject?: CreatedBySubject;
   onOpen?: () => void;
-  descriptionMode?: 'tooltip' | 'clamp';
 }) {
   const nameNode =
     onOpen == null ? (
-      <span className="block truncate">{name}</span>
+      <span className="text-text-primary block truncate font-medium">{name}</span>
     ) : (
       <button
         type="button"
@@ -136,56 +159,48 @@ function AgentNameContent({
         aria-label={`Open ${name}`}
         onClick={onOpen}
       >
-        <span className="block truncate">{name}</span>
+        <span className="text-text-primary block truncate font-medium">{name}</span>
       </button>
     );
 
-  if (description == null) {
-    return <>{nameNode}</>;
-  }
-
-  if (descriptionMode === 'clamp') {
-    return (
-      <>
-        {nameNode}
-        <span className="text-text-secondary line-clamp-2 text-xs font-normal">{description}</span>
-      </>
-    );
-  }
-
-  return (
-    <>
-      {nameNode}
+  const titledName =
+    description == null ? (
+      nameNode
+    ) : (
       <Tooltip
         content={description}
         className="max-w-sm whitespace-normal text-left"
         triggerClassName="block min-w-0 w-full max-w-full"
       >
-        <span className="text-text-secondary block truncate text-xs font-normal">{description}</span>
+        {nameNode}
       </Tooltip>
-    </>
+    );
+
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      {titledName}
+      {createdBySubject != null ? <CreatedByCell subject={createdBySubject} /> : null}
+    </div>
   );
 }
 
-function AgentConfigurationChips({
+function AgentConfigurationSummary({
   agentName,
   modelLabel,
   modelTitle,
-  skillsCount,
-  skillsTitle,
-  mcpCount,
-  connectorsTitle,
+  skillNames,
+  mcpNames,
   className,
 }: {
   agentName: string;
   modelLabel: string | null;
   modelTitle: string;
-  skillsCount: number;
-  skillsTitle: string;
-  mcpCount: number;
-  connectorsTitle: string;
+  skillNames: readonly string[];
+  mcpNames: readonly string[];
   className?: string;
 }) {
+  const skillsCount = skillNames.length;
+  const mcpCount = mcpNames.length;
   const hasConfiguration = modelLabel != null || skillsCount > 0 || mcpCount > 0;
   if (!hasConfiguration) {
     return (
@@ -194,35 +209,48 @@ function AgentConfigurationChips({
       </span>
     );
   }
+
   return (
-    <div className={cn('text-text-secondary flex min-w-0 items-center gap-2', className)}>
+    <div className={cn('flex min-w-0 flex-col gap-0.5', className)}>
       {modelLabel != null ? (
         <Tooltip content={modelTitle}>
-          <span
-            className="bg-secondary-bg text-text-secondary inline-flex max-w-[10rem] items-center gap-1 truncate rounded-full px-2 py-0.5 text-xs font-medium"
-            aria-label={modelTitle}
-          >
-            <Icon name="cpu" className="size-3.5 shrink-0" />
-            <span className="truncate">{modelLabel}</span>
+          <span className="truncate text-sm font-medium text-text-primary" aria-label={modelTitle}>
+            {modelLabel}
           </span>
         </Tooltip>
-      ) : null}
-      {skillsCount > 0 ? (
-        <Tooltip content={skillsTitle}>
-          <span className="inline-flex items-center gap-1 text-xs" aria-label={`Skills: ${skillsTitle}`}>
-            <Icon name="lightbulb" className="size-3.5 shrink-0" />
-            {skillsCount}
-          </span>
-        </Tooltip>
-      ) : null}
-      {mcpCount > 0 ? (
-        <Tooltip content={connectorsTitle}>
-          <span className="inline-flex items-center gap-1 text-xs" aria-label={`Connectors: ${connectorsTitle}`}>
-            <Icon name="plug" className="size-3.5 shrink-0" />
-            {mcpCount}
-          </span>
-        </Tooltip>
-      ) : null}
+      ) : (
+        <span className="text-text-secondary text-sm">—</span>
+      )}
+      {mcpCount === 0 && skillsCount === 0 ? (
+        <span className="text-text-secondary text-xs">no tools</span>
+      ) : (
+        <span className="text-text-secondary inline-flex min-w-0 flex-wrap items-center gap-x-1 text-xs">
+          {mcpCount > 0 ? (
+            <Tooltip
+              content={mountNamesTooltip({ title: 'MCP', names: mcpNames })}
+              className="max-w-xs whitespace-normal"
+            >
+              <span className="cursor-default" aria-label={`MCP: ${mcpNames.join(', ')}`}>
+                {mcpCount} MCP
+              </span>
+            </Tooltip>
+          ) : null}
+          {mcpCount > 0 && skillsCount > 0 ? <span aria-hidden>•</span> : null}
+          {skillsCount > 0 ? (
+            <Tooltip
+              content={mountNamesTooltip({
+                title: skillsCount === 1 ? 'Skill' : 'Skills',
+                names: skillNames,
+              })}
+              className="max-w-xs whitespace-normal"
+            >
+              <span className="cursor-default" aria-label={`Skills: ${skillNames.join(', ')}`}>
+                {skillsCount} skill{skillsCount === 1 ? '' : 's'}
+              </span>
+            </Tooltip>
+          ) : null}
+        </span>
+      )}
     </div>
   );
 }
@@ -336,8 +364,9 @@ export function AgentLibraryRow({
   canManageAgent = true,
   canDeleteAgent = true,
   canManageSchedules,
-  showCreatedBy = false,
   scheduleSummary,
+  usage,
+  showMetricsColumns = false,
   onOpenSchedules,
   onCreateSchedule,
   onOpen,
@@ -347,22 +376,28 @@ export function AgentLibraryRow({
   variant = 'row',
 }: AgentLibraryRowProps) {
   const PermissionGuard = useSlot('PermissionGuard');
+  const SlottedUsageCells = useSlot('AgentLibraryUsageCells');
   const spec = agent.agentSpec;
   const modelName = spec?.model.name;
-  const skillsCount = spec?.skills?.length ?? 0;
-  const mcpCount = spec?.mcpServers?.length ?? 0;
   const skillNames = (spec?.skills ?? []).map(mountName).filter((name: string | null): name is string => name != null);
   const mcpNames = (spec?.mcpServers ?? [])
     .map(mountName)
     .filter((name: string | null): name is string => name != null);
   const modelLabel = modelName != null ? displayModelLabel(modelName) : null;
   const modelTitle = modelName ?? '';
-  const connectorsTitle = mcpNames.length ? mcpNames.join(', ') : `${mcpCount} connectors`;
-  const skillsTitle = skillNames.length ? skillNames.join(', ') : `${skillsCount} skills`;
   const hasNoSchedules = scheduleSummary != null && scheduleSummary.count === 0;
   const storedDescription = agent.description?.trim() || null;
   // Create falls back to name when description is missing; don't echo it under the title.
   const description = storedDescription != null && storedDescription !== agent.name ? storedDescription : null;
+  const usageLoading = showMetricsColumns && usage == null;
+  const usageCells = (
+    <SlottedUsageCells
+      loading={usageLoading}
+      agentName={agent.name}
+      showMetrics={showMetricsColumns}
+      {...(usage !== undefined ? { usage } : {})}
+    />
+  );
 
   const overflowMenu = (
     <AgentOverflowMenu
@@ -388,15 +423,22 @@ export function AgentLibraryRow({
     </PermissionGuard>
   );
 
-  const configurationChips = (
-    <AgentConfigurationChips
+  const configurationSummary = (
+    <AgentConfigurationSummary
       agentName={agent.name}
       modelLabel={modelLabel}
       modelTitle={modelTitle}
-      skillsCount={skillsCount}
-      skillsTitle={skillsTitle}
-      mcpCount={mcpCount}
-      connectorsTitle={connectorsTitle}
+      skillNames={skillNames}
+      mcpNames={mcpNames}
+    />
+  );
+
+  const nameContent = (
+    <AgentNameContent
+      name={agent.name}
+      description={description}
+      {...(agent.createdBySubject != null ? { createdBySubject: agent.createdBySubject } : {})}
+      {...(onOpen != null ? { onOpen } : {})}
     />
   );
 
@@ -404,27 +446,11 @@ export function AgentLibraryRow({
     return (
       <li className="flex flex-col gap-3 rounded-xl border border-border bg-card-bg p-3">
         <div className="flex items-start gap-2">
-          <div className="text-text-primary min-w-0 flex-1 font-medium">
-            <AgentNameContent
-              name={agent.name}
-              description={description}
-              {...(onOpen != null ? { onOpen } : {})}
-              descriptionMode="clamp"
-            />
-          </div>
+          <div className="min-w-0 flex-1">{nameContent}</div>
           {overflowMenu}
         </div>
-        <AgentConfigurationChips
-          agentName={agent.name}
-          modelLabel={modelLabel}
-          modelTitle={modelTitle}
-          skillsCount={skillsCount}
-          skillsTitle={skillsTitle}
-          mcpCount={mcpCount}
-          connectorsTitle={connectorsTitle}
-          className="flex-wrap"
-        />
-        {showCreatedBy ? <CreatedByCell subject={agent.createdBySubject} /> : null}
+        {configurationSummary}
+        {usageCells}
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
             <AgentSchedulesContent
@@ -445,15 +471,8 @@ export function AgentLibraryRow({
   return (
     <TableRow className={hasNoSchedules ? 'group' : undefined}>
       {/* Fixed width so truncate works; 24rem = 1.5× the prior min-w-64 name column. */}
-      <TableCell className="text-text-primary w-96 max-w-96 font-medium">
-        <AgentNameContent name={agent.name} description={description} {...(onOpen != null ? { onOpen } : {})} />
-      </TableCell>
-      <TableCell>{configurationChips}</TableCell>
-      {showCreatedBy ? (
-        <TableCell>
-          <CreatedByCell subject={agent.createdBySubject} />
-        </TableCell>
-      ) : null}
+      <TableCell className="w-72 max-w-72">{nameContent}</TableCell>
+      <TableCell>{configurationSummary}</TableCell>
       {scheduleSummary !== undefined ? (
         <TableCell>
           <AgentSchedulesContent
@@ -465,8 +484,21 @@ export function AgentLibraryRow({
           />
         </TableCell>
       ) : null}
+      {showMetricsColumns ? (
+        <>
+          <TableCell>
+            <AgentSessionsCell usage={usage} loading={usageLoading} agentName={agent.name} />
+          </TableCell>
+          <TableCell>
+            <AgentSpendCell usage={usage} loading={usageLoading} agentName={agent.name} />
+          </TableCell>
+          <TableCell className="w-28">
+            <AgentLibrarySparklineCell points={usage?.dailyPoints} loading={usageLoading} agentName={agent.name} />
+          </TableCell>
+        </>
+      ) : null}
       <TableCell className="w-px">
-        <div className="flex items-center justify-end gap-1.5">
+        <div className="flex items-center justify-end gap-3">
           {tryButton}
           {overflowMenu}
         </div>
@@ -585,11 +617,15 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
       limit: DEFAULT_TABLE_PAGE_SIZE,
     });
   const hasPageNav = canPrev || canNext;
-  const showCreatedByColumn = hasCreatedBySubject(agents);
   const permissionAgentIds = open ? agents.map(libraryAgentId) : [];
   const { allows } = useResourcePermissions({
     resourceType: 'agent',
     resourceIds: permissionAgentIds,
+  });
+
+  const { usageByAgentId, metricsEnabled: showMetricsColumns } = useAgentLibraryUsageStats({
+    agentIds: permissionAgentIds,
+    refreshKey: agentsListEpoch,
   });
 
   useEffect(() => {
@@ -619,6 +655,7 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
       status: null,
       q: null,
       isNew: isNew === true ? true : null,
+      scheduleId: null,
     });
     updateShareSearch({
       agentId,
@@ -664,6 +701,7 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
         scheduleByAgent?.get(agent.name) ??
         (scheduleByAgent == null ? null : { count: 0, pausedCount: 0, activeNames: [], pausedNames: [] }))
       : undefined;
+    const usage = usageByAgentId.get(id);
     return (
       <SlottedAgentLibraryRow
         key={id}
@@ -673,8 +711,9 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
         canManageAgent={allows(id, 'MANAGE')}
         canDeleteAgent={allows(id, 'DELETE')}
         canManageSchedules={canOpenAgentSchedules}
-        showCreatedBy={showCreatedByColumn}
+        showMetricsColumns={showMetricsColumns}
         variant={variant}
+        {...(usage !== undefined ? { usage } : {})}
         {...(summary !== undefined ? { scheduleSummary: summary } : {})}
         {...(canOpenAgentSchedules && agentId != null
           ? {
@@ -750,7 +789,7 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
           {isInitialLoading ? (
             <div className="flex flex-col gap-2 p-1" role="status" aria-label="Loading agents">
               {Array.from({ length: 6 }, (_, i) => (
-                <Skeleton key={i} className={cn('w-full rounded-md', isMobile ? 'h-32' : 'h-11')} />
+                <Skeleton key={i} className={cn('w-full rounded-md', isMobile ? 'h-32' : 'h-14')} />
               ))}
             </div>
           ) : error ? (
@@ -810,10 +849,16 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="w-96 min-w-96">Agent name</TableHead>
+                    <TableHead className="w-72 min-w-72">Agent</TableHead>
                     <TableHead>Configuration</TableHead>
-                    {showCreatedByColumn ? <TableHead>Created by</TableHead> : null}
                     {showSchedulesColumn ? <TableHead className="w-[14rem]">Schedules</TableHead> : null}
+                    {showMetricsColumns ? (
+                      <>
+                        <TableHead>{agentLibraryUsageLabels.sessions}</TableHead>
+                        <TableHead>{agentLibraryUsageLabels.spend}</TableHead>
+                        <TableHead className="w-28">{agentLibraryUsageLabels.daily}</TableHead>
+                      </>
+                    ) : null}
                     <TableHead className="w-px">
                       <span className="sr-only">Actions</span>
                     </TableHead>

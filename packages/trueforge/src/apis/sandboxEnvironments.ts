@@ -9,7 +9,7 @@ import { InvalidPageTokenError } from '@truefoundry/trueforge-core/agent-session
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
-import { createdBySubjectFromRequestContext, type ResolveRequestContext } from '../auth/identity';
+import { canCreateOrEdit, createdBySubjectFromRequestContext, type ResolveRequestContext } from '../auth/identity';
 import type { IAgentStore } from '../db/agentStore';
 import {
   SandboxEnvironmentNameConflictError,
@@ -26,8 +26,12 @@ import {
   listSandboxEnvironmentsRoute,
   putSandboxEnvironmentRoute,
 } from '../routes/sandboxEnvironmentRoutes';
-import { getDaytonaAuthorizationErrorMessage, toDaytonaSandboxProvider } from '../sandbox/providerUtils';
-import { buildNextVersion, redactManifestSecrets } from '../sandbox/sandboxEnvironmentVersion';
+import { getDaytonaAuthorizationErrorMessage, toSandboxProviderFromRecord } from '../sandbox/providerUtils';
+import {
+  buildNextVersion,
+  redactManifestSecrets,
+  resolveSandboxEnvironmentIdentity,
+} from '../sandbox/sandboxEnvironmentVersion';
 import {
   deleteSandboxEnvironmentSecrets,
   SandboxEnvironmentSecretSyncError,
@@ -40,6 +44,8 @@ import {
   type UpdateSandboxEnvironmentRequest,
 } from '../schemas/sandboxEnvironment';
 import { MissingStoredSecretError } from '../utils/secretRedaction';
+
+const FORBIDDEN_SANDBOX_ENVIRONMENT_WRITE = 'User does not have permission to edit Sandbox environment';
 
 export interface SandboxEnvironmentsRouterDeps<TTransaction> {
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
@@ -143,7 +149,10 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
   }): Promise<WriteSandboxEnvironmentOutcome> {
     const requestContext = resolveRequestContext(c);
     const { manifest } = body;
-    const created_by_subject = createdBySubjectFromRequestContext(requestContext);
+    // Persist under the existing owner so store owner filters still match when a
+    // TrueFoundry tenant-admin updates another subject's environment.
+    const created_by_subject =
+      existing?.environment.created_by_subject ?? createdBySubjectFromRequestContext(requestContext);
 
     try {
       const provider = await resolveSandboxProviderRecord(
@@ -156,12 +165,13 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
       const existingSecrets = existing
         ? await store.listSecretsByEnvironment({ environment_id: existing.environment.id })
         : [];
+      const identity = resolveSandboxEnvironmentIdentity(provider.manifest.type);
       const synced_secrets = await syncSandboxEnvironmentSecrets({
         secrets: manifest.networking?.secrets ?? [],
         previous: existing?.version.manifest.networking?.secrets ?? [],
         existing: existingSecrets,
-        provider: toDaytonaSandboxProvider({
-          manifest: provider.manifest,
+        provider: toSandboxProviderFromRecord({
+          record: provider,
           tenant_id: requestContext.tenant_id,
           logger,
         }),
@@ -185,7 +195,7 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
               ...(existing_manifest ? { previous_manifest: existing_manifest } : {}),
               ...(existing_external_ref ? { previous_external_ref: existing_external_ref } : {}),
               manifest,
-              provider_type: provider.manifest.type,
+              identity,
             }),
             created_by_subject,
           }),
@@ -213,9 +223,12 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
   }
 
   const createHandler: RouteHandler<typeof createSandboxEnvironmentRoute> = async c => {
+    const requestContext = resolveRequestContext(c);
+    if (!canCreateOrEdit(requestContext)) {
+      return c.json({ error: { message: FORBIDDEN_SANDBOX_ENVIRONMENT_WRITE } }, 403);
+    }
     const body = c.req.valid('json');
-    const { tenant_id } = resolveRequestContext(c);
-    const existing = await store.getEnvironment({ tenant_id, name: body.manifest.name });
+    const existing = await store.getEnvironment({ tenant_id: requestContext.tenant_id, name: body.manifest.name });
     if (existing) {
       return c.json({ error: { message: `Sandbox environment with name ${body.manifest.name} already exists` } }, 409);
     }
@@ -229,10 +242,13 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
   // Create-or-update keyed by manifest.name.
   const putHandler: RouteHandler<typeof putSandboxEnvironmentRoute> = async c => {
     const body = c.req.valid('json');
-    const { tenant_id, subject } = resolveRequestContext(c);
-    const existing = await store.getEnvironment({ tenant_id, name: body.manifest.name });
-    if (existing && existing.environment.created_by_subject.subject_id !== subject.id) {
-      return c.json({ error: { message: `Sandbox environment not found: ${body.manifest.name}` } }, 404);
+    const requestContext = resolveRequestContext(c);
+    const existing = await store.getEnvironment({
+      tenant_id: requestContext.tenant_id,
+      name: body.manifest.name,
+    });
+    if (!canCreateOrEdit(requestContext, existing?.environment.created_by_subject.subject_id)) {
+      return c.json({ error: { message: FORBIDDEN_SANDBOX_ENVIRONMENT_WRITE } }, 403);
     }
     const outcome = await writeSandboxEnvironment({ c, body, mode: 'upsert', existing });
     if (outcome.kind === 'error') {
@@ -242,7 +258,8 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
   };
 
   const deleteHandler: RouteHandler<typeof deleteSandboxEnvironmentRoute> = async c => {
-    const { tenant_id, subject } = resolveRequestContext(c);
+    const requestContext = resolveRequestContext(c);
+    const { tenant_id } = requestContext;
     const { name } = c.req.valid('param');
     if (name === DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
       return c.json({ error: { message: 'Sandbox environment "default" cannot be deleted' } }, 409);
@@ -254,8 +271,8 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
     if (!existing) {
       return c.json({ error: { message: `Sandbox environment not found: ${name}` } }, 404);
     }
-    if (existing.environment.created_by_subject.subject_id !== subject.id) {
-      return c.json({ error: { message: `Sandbox environment not found: ${name}` } }, 404);
+    if (!canCreateOrEdit(requestContext, existing.environment.created_by_subject.subject_id)) {
+      return c.json({ error: { message: FORBIDDEN_SANDBOX_ENVIRONMENT_WRITE } }, 403);
     }
     const agentNames = await resolveAgentStore(c).listAgentNamesUsingSandboxEnvironment({
       tenant_id,
@@ -280,13 +297,16 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
         }
         await deleteSandboxEnvironmentSecrets({
           secrets,
-          provider: toDaytonaSandboxProvider({ manifest: provider.manifest, tenant_id, logger }),
+          provider: toSandboxProviderFromRecord({
+            record: provider,
+            tenant_id,
+            logger,
+          }),
         });
       }
       await store.deleteEnvironment({
         tenant_id,
         name,
-        created_by_subject_id: subject.id,
       });
       return c.json({}, 200);
     } catch (error) {

@@ -37,48 +37,13 @@ groups:
   ts-sdk:
     generators:
       - name: fernapi/fern-typescript-node-sdk
-        version: 3.98.3
+        version: 3.107.6
         output:
           location: local-file-system
           path: ../../packages/trueforge-sdk
         config:
-          packageJson:
-            name: '@truefoundry/trueforge-sdk'
-            license: MIT
-            author: TrueForge
-            repository:
-              type: git
-              url: git+https://github.com/truefoundry/trueforge.git
-              directory: packages/trueforge-sdk
-            homepage: https://github.com/truefoundry/trueforge/tree/main/packages/trueforge-sdk#readme
-            bugs:
-              url: https://github.com/truefoundry/trueforge/issues
-            publishConfig:
-              access: public
-              provenance: true
-            engines:
-              node: '>=22'
-            # Merged onto Fern's dist import/require map. Workspace loaders opt in
-            # with --conditions=trueforge-dev / customConditions. Never name this
-            # "development" (Vite/webpack auto-activate it; src/ is not published).
-            #
-            # Runtime loads src/ (no build); types stay on the generated .d.ts.
-            # Generated source is not exactOptionalPropertyTypes-clean, and pointing
-            # `types` at src/ would pull it into every consumer's tsc program.
-            exports:
-              '.':
-                'trueforge-dev':
-                  types: './dist/cjs/index.d.ts'
-                  default: './src/index.ts'
-                import:
-                  types: './dist/esm/index.d.mts'
-                  default: './dist/esm/index.mjs'
-                require:
-                  types: './dist/cjs/index.d.ts'
-                  default: './dist/cjs/index.js'
-                default: './dist/cjs/index.js'
-          allowExtraFields: true
           allowCustomFetcher: true
+          allowExtraFields: true
           # Map query params (OpenAPI additionalProperties) as deepObject brackets, not JSON strings.
           deepObjectMapQueryParameters: true
           enableInlineTypes: false
@@ -89,11 +54,39 @@ groups:
           inlineFileProperties: true
           inlinePathParameters: true
           naming:
-            namespace: TrueForge
             client: TrueForge
+            namespace: TrueForge
           noSerdeLayer: false
           omitUndefined: true
           optional-auth: true
+          outputEsm: true
+          packageJson:
+            author: TrueForge
+            bugs:
+              url: https://github.com/truefoundry/trueforge/issues
+            engines:
+              node: '>=22'
+            # Opt-in via --conditions=trueforge-dev / customConditions. Never
+            # name this "development" (Vite/webpack auto-activate; src/ unpublished).
+            # Types stay on sdk:types .d.mts (src is not exactOptionalPropertyTypes-clean).
+            exports:
+              '.':
+                'trueforge-dev':
+                  # `types` must precede `default` (exports key order is match priority).
+                  types: './dist/esm/index.d.mts'
+                  default: './src/index.ts'
+            homepage: https://github.com/truefoundry/trueforge/tree/main/packages/trueforge-sdk#readme
+            license: MIT
+            name: '@truefoundry/trueforge-sdk'
+            publishConfig:
+              access: public
+              provenance: true
+            repository:
+              directory: packages/trueforge-sdk
+              type: git
+              url: git+https://github.com/truefoundry/trueforge.git
+          # Deep-merge so we only add trueforge-dev without replacing Fern's exports.
+          packageJsonMergeStrategy: deep
           requireBaseUrl: true
           retainOriginalCasing: false
           skipResponseValidation: true
@@ -104,25 +97,25 @@ groups:
   python-sdk:
     generators:
       - name: fernapi/fern-python-sdk
-        version: 5.34.2
+        version: 5.41.7
         output:
           location: local-file-system
           path: ../../python/trueforge_sdk
         config:
+          client:
+            class_name: BaseTrueForge
+            exported_class_name: TrueForge
+            exported_filename: client.py
+            filename: base_client.py
+          inline_path_params: true
+          optional_auth: true
           # Import + upload name. pip install trueforge-sdk resolves via PEP 503.
           package_name: trueforge_sdk
-          optional_auth: true
-          stream_abstraction: true
-          use_request_defaults: all
-          inline_path_params: true
           pydantic_config:
             enum_type: forward_compatible_python_enums
             frozen: false
             skip_validation: true
-          client:
-            class_name: BaseTrueForge
-            filename: base_client.py
-            exported_class_name: TrueForge
-            exported_filename: client.py
           pyproject_python_version: '>=3.10'
+          stream_abstraction: true
+          use_request_defaults: all
         smart-casing: true

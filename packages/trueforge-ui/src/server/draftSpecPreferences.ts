@@ -1,4 +1,4 @@
-import type { AgentSpec } from './types.js';
+import type { AgentRuntimeConfig, AgentSpec } from './types.js';
 
 /** @deprecated Migrated into chat/agent keys on first read. */
 export const DRAFT_SPEC_PREFERENCES_STORAGE_KEY = 'tfy-aui-draft-spec-preferences';
@@ -55,6 +55,56 @@ function readSandboxEnabled(spec: AgentSpec): boolean | undefined {
   return typeof enabled === 'boolean' ? enabled : undefined;
 }
 
+function readTrimmedString(value: object, key: string): string {
+  const raw = Reflect.get(value, key);
+  return typeof raw === 'string' ? raw.trim() : '';
+}
+
+type SandboxConfig = NonNullable<AgentRuntimeConfig['sandbox']>;
+
+/** Display name. A leftover wire `environment_name` counts when the client field is empty. */
+export function readSandboxEnvironmentName(sandbox: object | undefined): string {
+  if (!isObject(sandbox)) return 'default';
+  const camelName = readTrimmedString(sandbox, 'environmentName');
+  if (camelName.length > 0) return camelName;
+  const snakeName = readTrimmedString(sandbox, 'environment_name');
+  return snakeName.length > 0 ? snakeName : 'default';
+}
+
+/** Set the client field and drop a leftover wire key so passthrough serialization cannot send it. */
+export function sandboxWithEnvironmentName(
+  sandbox: SandboxConfig | undefined,
+  environmentName: string | undefined,
+): SandboxConfig {
+  const next: SandboxConfig = { ...sandbox, environmentName };
+  Reflect.deleteProperty(next, 'environment_name');
+  return next;
+}
+
+/**
+ * Client field wins. Copy a leftover wire `environment_name` only when the client
+ * field is empty, then drop the wire key.
+ */
+function normalizeSandboxEnvironmentName(spec: AgentSpec): AgentSpec {
+  const sandbox = spec.config?.sandbox;
+  if (sandbox === undefined || !Reflect.has(sandbox, 'environment_name')) return spec;
+
+  const camelName = readTrimmedString(sandbox, 'environmentName');
+  const snakeName = readTrimmedString(sandbox, 'environment_name');
+  const nextSandbox: SandboxConfig = { ...sandbox };
+  Reflect.deleteProperty(nextSandbox, 'environment_name');
+  if (camelName.length === 0 && snakeName.length > 0) {
+    nextSandbox.environmentName = snakeName;
+  }
+  return {
+    ...spec,
+    config: {
+      ...spec.config,
+      sandbox: nextSandbox,
+    },
+  };
+}
+
 function readWebSearchEnabled(spec: AgentSpec): boolean | undefined {
   if (spec.config?.webSearch === undefined) return undefined;
   const enabled = spec.config.webSearch.enabled;
@@ -77,9 +127,10 @@ export function selectChatDraftSpecPreferences(spec: AgentSpec): AgentSpec {
 
 /** New Agent: full composer seed including runtime config (sandbox, ask-user, …). */
 export function selectAgentDraftSpecPreferences(spec: AgentSpec): AgentSpec {
+  const normalized = normalizeSandboxEnvironmentName(spec);
   return {
-    ...selectChatDraftSpecPreferences(spec),
-    ...(spec.config !== undefined ? { config: spec.config } : {}),
+    ...selectChatDraftSpecPreferences(normalized),
+    ...(normalized.config !== undefined ? { config: normalized.config } : {}),
   };
 }
 
@@ -161,8 +212,13 @@ export function withoutWebSearchPreference(spec: AgentSpec): AgentSpec {
 }
 
 /**
- * When web-search flips unavailable → available, a live `enabled: false` may be leftover
- * force-off. Default-fill on only when that false is not an explicit user/saved choice.
+ * When web-search becomes available, a live `enabled: false` may be leftover force-off
+ * or a schema default from an inline session created before capabilities loaded.
+ * Default-fill on only when that false is not an explicit user/saved choice.
+ *
+ * New Chat (`kind: 'chat'`) also recovers when capability first becomes known
+ * (`null`/`undefined` → true), so a premature createSession does not stick off.
+ * Agent drafts keep an explicit off across first capability load.
  */
 export function recoverWebSearchAfterCapabilityAvailable({
   spec,
@@ -179,8 +235,13 @@ export function recoverWebSearchAfterCapabilityAvailable({
   kind?: DraftPreferenceKind;
 }): AgentSpec {
   if (explicitOff) return spec;
-  if (previousWebSearchEnabled !== false || webSearchEnabled !== true) return spec;
+  if (webSearchEnabled !== true) return spec;
   if (readWebSearchEnabled(spec) !== false) return spec;
+
+  const capabilityReturned = previousWebSearchEnabled === false;
+  const capabilityBecameKnown = previousWebSearchEnabled == null && kind === 'chat';
+  if (!capabilityReturned && !capabilityBecameKnown) return spec;
+
   return withCapabilitiesWebSearch({
     spec: withoutWebSearchPreference(spec),
     webSearchEnabled: true,
@@ -205,22 +266,25 @@ export function persistedWebSearchEnabled(kind: DraftPreferenceKind): boolean | 
 }
 
 /**
- * Remember a user web-search choice. Capability-forced off is omitted unless a choice
- * was already stored, and that stored off is not rewritten to on when search returns.
+ * Remember a user web-search choice. Capability-forced off, or any value seen before capabilities
+ * settle (a schema default, not a choice), is omitted unless a choice was already stored; a stored off
+ * is not rewritten to on when search returns.
  */
 export function webSearchPreferenceToStore({
   spec,
   webSearchEnabled,
   previousWebSearchEnabled,
+  capabilitiesPending = false,
   kind,
 }: {
   spec: AgentSpec;
   webSearchEnabled: boolean | null | undefined;
   previousWebSearchEnabled: boolean | null | undefined;
+  capabilitiesPending?: boolean;
   kind: DraftPreferenceKind;
 }): AgentSpec {
   const persistedEnabled = persistedWebSearchEnabled(kind);
-  if (webSearchEnabled === false) {
+  if (webSearchEnabled === false || capabilitiesPending) {
     const stripped = withoutWebSearchPreference(spec);
     return persistedEnabled === undefined ? stripped : withWebSearchEnabled(stripped, persistedEnabled);
   }
@@ -281,7 +345,7 @@ function migrateLegacyDraftPreferences(): void {
 export function readDraftSpecPreferences(kind: DraftPreferenceKind): AgentSpec | null {
   migrateLegacyDraftPreferences();
   const stored = readStoredSpec(storageKeyForKind(kind));
-  return stored == null ? null : selectDraftSpecPreferences(stored, kind);
+  return stored == null ? null : selectDraftSpecPreferences(normalizeSandboxEnvironmentName(stored), kind);
 }
 
 export function writeDraftSpecPreferences(kind: DraftPreferenceKind, spec: AgentSpec): void {

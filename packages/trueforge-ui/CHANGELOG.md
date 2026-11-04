@@ -1,5 +1,275 @@
 # Changelog
 
+## 0.183.0
+
+### Patch Changes
+
+- b51ed35: Show a back control before the agent name after Try so the header can return to the agents page.
+- 218c95e: Show a Configure model button that opens Settings when the model catalog is empty, instead of a Select model dropdown with a ? monogram.
+- e3fed89: Let users without manage access open an environment in a read-only drawer to view its configuration.
+- ecb51f7: Omit tenant session grants from the session access collaborator list; tenant-wide sharing stays on `session.shared`.
+- f2ead70: Link the Runtime Config header to the create-agent docs.
+- 5d9f7e1: Warn in agent runtime settings when the sandbox is turned off, since TrueForge will not work properly without it.
+- ecb51f7: Share sessions with specific users when capabilities report `session_sharing.users`: Harness implements the session access port (invite search, grants, revoke); tenant-wide access still uses the session `shared` flag.
+- 5d9f7e1: Clarify share dialog copy: private access is now "Restricted" and the invite field asks for a name or email. People picked for an invite now show as chips inside the search field (Backspace removes the last one). The session owner is listed first, marked "(you)" when they are the current user, with capitalized access roles and the shared avatar initials.
+- 0c8bd18: Mark the Skills version dropdown "latest" badge from the highest version returned by listVersions, so a stale catalog snapshot cannot label an older row.
+- 61872ac: Add a tenant-wide web search switch stored in the new `configuration` table, with `GET` and `PATCH /api/v1/settings/configuration` behind an admin gate. Capabilities and session or agent writes follow it, so web search cannot be turned on while the switch is off; a spec that already has it on keeps it, which also leaves existing agents and their schedules running. The `settings` capability now reports one entry per settings section with its own `enabled` and `manage_providers`. Catalog settings routes that the deployment does not own answer 422 naming the route, where they previously answered 403.
+- Updated dependencies [ecb51f7]
+- Updated dependencies [61872ac]
+  - @truefoundry/trueforge-assistant-ui-runtime@0.183.0
+  - @truefoundry/trueforge-sdk@0.183.0
+
+## 0.183.0-rc.4
+
+### Patch Changes
+
+- 61872ac: Add a tenant-wide web search switch stored in the new `configuration` table, with `GET` and `PATCH /api/v1/settings/configuration` behind an admin gate. Capabilities and session or agent writes follow it, so web search cannot be turned on while the switch is off; a spec that already has it on keeps it, which also leaves existing agents and their schedules running. The `settings` capability now reports one entry per settings section with its own `enabled` and `manage_providers`. Catalog settings routes that the deployment does not own answer 422 naming the route, where they previously answered 403.
+- Updated dependencies [61872ac]
+  - @truefoundry/trueforge-assistant-ui-runtime@0.183.0-rc.2
+  - @truefoundry/trueforge-sdk@0.183.0-rc.1
+
+## 0.183.0-rc.3
+
+### Patch Changes
+
+- b51ed35: Show a back control before the agent name after Try so the header can return to the agents page.
+
+## 0.183.0-rc.2
+
+### Patch Changes
+
+- 5d9f7e1: Warn in agent runtime settings when the sandbox is turned off, since TrueForge will not work properly without it.
+- 5d9f7e1: Clarify share dialog copy: private access is now "Restricted" and the invite field asks for a name or email. People picked for an invite now show as chips inside the search field (Backspace removes the last one). The session owner is listed first, marked "(you)" when they are the current user, with capitalized access roles and the shared avatar initials.
+
+## 0.183.0-rc.1
+
+### Patch Changes
+
+- 218c95e: Show a Configure model button that opens Settings when the model catalog is empty, instead of a Select model dropdown with a ? monogram.
+- e3fed89: Let users without manage access open an environment in a read-only drawer to view its configuration.
+- ecb51f7: Omit tenant session grants from the session access collaborator list; tenant-wide sharing stays on `session.shared`.
+- f2ead70: Link the Runtime Config header to the create-agent docs.
+- ecb51f7: Share sessions with specific users when capabilities report `session_sharing.users`: Harness implements the session access port (invite search, grants, revoke); tenant-wide access still uses the session `shared` flag.
+- 0c8bd18: Mark the Skills version dropdown "latest" badge from the highest version returned by listVersions, so a stale catalog snapshot cannot label an older row.
+- Updated dependencies [ecb51f7]
+  - @truefoundry/trueforge-assistant-ui-runtime@0.183.0-rc.1
+
+## 0.182.0
+
+### Patch Changes
+
+- 48efe38: Show context compaction in chat agent steps as Summarizing/Summarized context with expandable event JSON, and mark Summary on the session event timeline.
+- 00f5d15: Close the environment delete confirm dialog before the request so error toasts stay visible above the modal.
+- cc28923: Stamp `tfg.source: ui` metadata on UI-created sessions and filter Chat History on it so scheduled sessions are hidden by default.
+- 343d271: Show what the agent or sub-agent is currently doing in the loader instead of a static "Working...", including context summarization, and add "Taking longer than expected" when thinking, the model, a tool call, or summarization runs long. Show step count on sub-agent cards.
+- 834d1f6: Show the model catalog warning in the composer and agent-config model pickers when reasoning effort or context length is not configured.
+- ae7c705: Omit tenant session grants from the session access collaborator list; tenant-wide sharing stays on `session.shared`.
+- c743bff: Remove the Last run column from the agents library page.
+- 0c84db0: Link scheduled sessions to their schedule by id from the session list tooltip.
+- ae7c705: Share sessions with specific users when capabilities report `session_sharing.users`: Harness implements the session access port (invite search, grants, revoke); tenant-wide access still uses the session `shared` flag.
+- ac5c91f: Render in-progress tip turns in session detail from already-loaded events and show that the turn may still be incomplete.
+- ef6f332: Show "Taking longer than expected" only after a minute without new stream content, so live tool-argument and reasoning updates keep the working label.
+- Updated dependencies [48efe38]
+- Updated dependencies [cc28923]
+- Updated dependencies [834d1f6]
+- Updated dependencies [cf786ee]
+- Updated dependencies [ee31bcd]
+- Updated dependencies [ae7c705]
+- Updated dependencies [ac5c91f]
+  - @truefoundry/trueforge-assistant-ui-runtime@0.182.0
+  - @truefoundry/trueforge-sdk@0.182.0
+
+## 0.182.0-rc.2
+
+### Patch Changes
+
+- ae7c705: Omit tenant session grants from the session access collaborator list; tenant-wide sharing stays on `session.shared`.
+- ae7c705: Share sessions with specific users when capabilities report `session_sharing.users`: Harness implements the session access port (invite search, grants, revoke); tenant-wide access still uses the session `shared` flag.
+- Updated dependencies [ae7c705]
+  - @truefoundry/trueforge-assistant-ui-runtime@0.182.0-rc.2
+
+## 0.182.0-rc.1
+
+### Patch Changes
+
+- 48efe38: Show context compaction in chat agent steps as Summarizing/Summarized context with expandable event JSON, and mark Summary on the session event timeline.
+- 00f5d15: Close the environment delete confirm dialog before the request so error toasts stay visible above the modal.
+- cc28923: Stamp `tfg.source: ui` metadata on UI-created sessions and filter Chat History on it so scheduled sessions are hidden by default.
+- 343d271: Show what the agent or sub-agent is currently doing in the loader instead of a static "Working...", including context summarization, and add "Taking longer than expected" when thinking, the model, a tool call, or summarization runs long. Show step count on sub-agent cards.
+- 834d1f6: Show the model catalog warning in the composer and agent-config model pickers when reasoning effort or context length is not configured.
+- c743bff: Remove the Last run column from the agents library page.
+- 0c84db0: Link scheduled sessions to their schedule by id from the session list tooltip.
+- ac5c91f: Render in-progress tip turns in session detail from already-loaded events and show that the turn may still be incomplete.
+- ef6f332: Show "Taking longer than expected" only after a minute without new stream content, so live tool-argument and reasoning updates keep the working label.
+- Updated dependencies [48efe38]
+- Updated dependencies [cc28923]
+- Updated dependencies [834d1f6]
+- Updated dependencies [cf786ee]
+- Updated dependencies [ee31bcd]
+- Updated dependencies [ac5c91f]
+  - @truefoundry/trueforge-assistant-ui-runtime@0.182.0-rc.1
+  - @truefoundry/trueforge-sdk@0.182.0-rc.1
+
+## 0.181.0
+
+### Patch Changes
+
+- af832dc: Always show max tokens and reasoning effort in Agent Config, with playground fallbacks when the model does not advertise them.
+- 47b8bb3: Dense Agents library rows: nest creator under the name, two-line configuration, and per-page sessions/spend/14d sparkline/last-run when metrics are available.
+- e02faa5: Render ask-question prompt text as Markdown so bold and lists display correctly.
+- 8f1a03c: Fix sandbox artifact download when the path contains parentheses.
+- 258f528: Keep the Build Agent config when starting a new chat, confirm before Reset, and honor a stored sandbox environment name.
+- 9bed345: Emit `thread.context_compaction_started` / `thread.context_compaction_finished` around context compaction (trigger, usage, duration_ms).
+- 28f5105: Allow entering a custom cron expression when creating or editing a schedule.
+- 67fc305: Default the reasoning effort to `medium` when the selected model offers it, instead of defaulting to the lowest effort. TrueFoundry model listing now passes `mergeParams` to the provider-integrations API so provider-level parameter defaults are included in each model's advertised parameters.
+- c9702cb: Fix model and tools controls reappearing when reopening a new chat created with a saved agent.
+- 4dc8aeb: Route shared-session viewers to the read-only session view and hide in-flight turns.
+- f6aa5d3: Edit agent instructions in a Monaco markdown editor with line numbers, folding, and a full-screen mode.
+- e02faa5: Restore bullet and number markers for Markdown lists.
+- 7fbb394: Let context, cost-per-turn, and tool-call metric tooltips scroll when the list or a label is too long to fit.
+- e057a23: Keep web search enabled by default in New Chat when the web search capability is available.
+- 0c071f6: Default reasoning effort now follows `medium` → `high` → `low` in both the draft (New Chat) composer and the agent builder (Agent Config) when the selected model does not offer `medium`, instead of falling back to the lowest offered effort.
+- 90c7b1c: Unify admin checks with `hasAdminRole` (tenant-admin in TrueFoundry) and gate sandbox environment create to admins while allowing the creator or an admin to update or delete. Expose schedule and sandbox environment `MANAGE`/`DELETE` (and tenant `sandbox_environment` `CREATE`) via list-permissions so the UI matches the API; settings access remains disabled in TrueFoundry via `canAccessSettings`.
+- 1825269: Show check and triangle-alert icons on sandbox environment Ready and Failed status badges.
+- 36f95f5: Open the linked session in the Sessions page when clicking a schedule run on the Schedules page.
+- 5da7916: Show a token breakdown donut next to the session Tokens metric.
+- 457d16e: Show the model name in each turn header of the session view.
+- 3171ad8: Show sub-agent model time between tool-only replies on the session timeline.
+- 7fbb394: Let the session timeline chart scroll horizontally when a session has many turns.
+- 8f5b347: Show each turn's created and completed time in the session timeline hover.
+- Updated dependencies [5bb093e]
+- Updated dependencies [9bed345]
+- Updated dependencies [2b88c4b]
+- Updated dependencies [90c7b1c]
+- Updated dependencies [36f95f5]
+- Updated dependencies [457d16e]
+- Updated dependencies [28f5105]
+  - @truefoundry/trueforge-sdk@0.181.0
+  - @truefoundry/trueforge-assistant-ui-runtime@0.181.0
+
+## 0.181.0-rc.1
+
+### Patch Changes
+
+- af832dc: Always show max tokens and reasoning effort in Agent Config, with playground fallbacks when the model does not advertise them.
+- 47b8bb3: Dense Agents library rows: nest creator under the name, two-line configuration, and per-page sessions/spend/14d sparkline/last-run when metrics are available.
+- e02faa5: Render ask-question prompt text as Markdown so bold and lists display correctly.
+- 8f1a03c: Fix sandbox artifact download when the path contains parentheses.
+- 258f528: Keep the Build Agent config when starting a new chat, confirm before Reset, and honor a stored sandbox environment name.
+- 9bed345: Emit `thread.context_compaction_started` / `thread.context_compaction_finished` around context compaction (trigger, usage, duration_ms).
+- 28f5105: Allow entering a custom cron expression when creating or editing a schedule.
+- 67fc305: Default the reasoning effort to `medium` when the selected model offers it, instead of defaulting to the lowest effort. TrueFoundry model listing now passes `mergeParams` to the provider-integrations API so provider-level parameter defaults are included in each model's advertised parameters.
+- c9702cb: Fix model and tools controls reappearing when reopening a new chat created with a saved agent.
+- 4dc8aeb: Route shared-session viewers to the read-only session view and hide in-flight turns.
+- f6aa5d3: Edit agent instructions in a Monaco markdown editor with line numbers, folding, and a full-screen mode.
+- e02faa5: Restore bullet and number markers for Markdown lists.
+- 7fbb394: Let context, cost-per-turn, and tool-call metric tooltips scroll when the list or a label is too long to fit.
+- e057a23: Keep web search enabled by default in New Chat when the web search capability is available.
+- 0c071f6: Default reasoning effort now follows `medium` → `high` → `low` in both the draft (New Chat) composer and the agent builder (Agent Config) when the selected model does not offer `medium`, instead of falling back to the lowest offered effort.
+- 90c7b1c: Unify admin checks with `hasAdminRole` (tenant-admin in TrueFoundry) and gate sandbox environment create to admins while allowing the creator or an admin to update or delete. Expose schedule and sandbox environment `MANAGE`/`DELETE` (and tenant `sandbox_environment` `CREATE`) via list-permissions so the UI matches the API; settings access remains disabled in TrueFoundry via `canAccessSettings`.
+- 1825269: Show check and triangle-alert icons on sandbox environment Ready and Failed status badges.
+- 36f95f5: Open the linked session in the Sessions page when clicking a schedule run on the Schedules page.
+- 5da7916: Show a token breakdown donut next to the session Tokens metric.
+- 457d16e: Show the model name in each turn header of the session view.
+- 3171ad8: Show sub-agent model time between tool-only replies on the session timeline.
+- 7fbb394: Let the session timeline chart scroll horizontally when a session has many turns.
+- 8f5b347: Show each turn's created and completed time in the session timeline hover.
+- Updated dependencies [5bb093e]
+- Updated dependencies [9bed345]
+- Updated dependencies [2b88c4b]
+- Updated dependencies [90c7b1c]
+- Updated dependencies [36f95f5]
+- Updated dependencies [457d16e]
+- Updated dependencies [28f5105]
+  - @truefoundry/trueforge-sdk@0.181.0-rc.1
+  - @truefoundry/trueforge-assistant-ui-runtime@0.181.0-rc.1
+
+## 0.180.0
+
+### Patch Changes
+
+- ca29d8f: Render lightbulb icon on Skills section header in Agent Config panel.
+- 58d7159: Dense Agents library rows: nest creator under the name, two-line configuration, and per-page sessions/spend/14d sparkline/last-run when metrics are available.
+- 7f2be59: Prefix public `AnalyticsEvents` names with `trueforge.` so host sinks (e.g. PostHog) can namespace product events.
+- 58d7159: Keep the Build Agent config when starting a new chat, confirm before Reset, and honor a stored sandbox environment name.
+- 0a1606d: Default the reasoning effort to `medium` when the selected model offers it, instead of defaulting to the lowest effort. TrueFoundry model listing now passes `mergeParams` to the provider-integrations API so provider-level parameter defaults are included in each model's advertised parameters.
+- 2bbdf4e: Show the full model name in a tooltip when the new-chat model selector label is truncated.
+- 6bf93de: Keep Build Agent skills selected after a turn by matching session FQN mounts against catalog attach keys and display names during draft preference reconcile.
+- 99c39ee: Hide the session share URL when access is Only you.
+- 58d7159: Route shared-session viewers to the read-only session view and hide in-flight turns.
+- 942a0e5: Show the full MCP tool and skill description in a tooltip when the truncated label is hovered in the picker modals.
+- f10e3b8: Default reasoning effort now follows `medium` → `high` → `low` in both the draft (New Chat) composer and the agent builder (Agent Config) when the selected model does not offer `medium`, instead of falling back to the lowest offered effort.
+- aa58442: Reject folder drops in chat attachments so they cannot block message send.
+- aea048e: Clear instructions/MCP/skills when revisiting Build Agent after save, and add a Reset control on the chat header.
+- c6ef7d1: Adopt the loaded session agent spec when resuming chat history so New Chat draft edits no longer PATCH over the saved sandbox environment; lock composer environment selection after a session exists; read/write sandbox `environmentName` so resumed chats show the correct environment; and keep showing a deleted environment from the agent spec.
+- 58d7159: Show check and triangle-alert icons on sandbox environment Ready and Failed status badges.
+- 531350e: Emit `trueforge.sdk.http_timeout` with the request endpoint for every SDK HTTP timeout, and show a clear "Request timed out" toast instead of "Something went wrong" with a bare "timeout" detail.
+- 5c22006: Show the session creator avatar in the sessions list meta row, with the subject name on hover.
+- e4caefb: Surface cancelled turn reasons and failed sub-agents on the Agent Sessions timeline and metrics; project unfinished nested sub-agents as cancelled when the parent turn is already terminal, remap abort-shaped child thread.done errors (e.g. LLM stream aborted) to cancelled on cancelled turns, and close unfinished sub-agent chart bars at turn.done when thread.done is missing.
+- 9208cc8: Allow tenant members to use sandbox environments created by other members while keeping update and delete actions restricted to the creator.
+- 5da156a: Add a host-overridable Register Skills action next to the Skills modal title. The default slot waits for capabilities, routes to Settings → Skills or a platform URL, and hides when neither applies.
+- 8d4cc1c: Show a full-pane "Unable to load session" for inaccessible session deep links and sessions-browser details instead of toasting and redirecting away.
+- Updated dependencies [5d9b938]
+- Updated dependencies [aa58442]
+- Updated dependencies [c6ef7d1]
+- Updated dependencies [5c22006]
+- Updated dependencies [e4caefb]
+  - @truefoundry/trueforge-assistant-ui-runtime@0.180.0
+  - @truefoundry/trueforge-sdk@0.180.0
+
+## 0.180.0-rc.5
+
+### Patch Changes
+
+- f10e3b8: Default reasoning effort now follows `medium` → `high` → `low` in both the draft (New Chat) composer and the agent builder (Agent Config) when the selected model does not offer `medium`, instead of falling back to the lowest offered effort.
+
+## 0.180.0-rc.4
+
+### Patch Changes
+
+- 0a1606d: Default the reasoning effort to `medium` when the selected model offers it (falling back to the lowest real effort otherwise), instead of defaulting to the lowest effort. TrueFoundry model listing now passes `mergeParams` to the provider-integrations API so provider-level parameter defaults are included in each model's advertised parameters.
+
+## 0.180.0-rc.3
+
+### Patch Changes
+
+- 58d7159: Dense Agents library rows: nest creator under the name, two-line configuration, and per-page sessions/spend/14d sparkline/last-run when metrics are available.
+- 58d7159: Keep the Build Agent config when starting a new chat, confirm before Reset, and honor a stored sandbox environment name.
+- 58d7159: Route shared-session viewers to the read-only session view and hide in-flight turns.
+- 58d7159: Show check and triangle-alert icons on sandbox environment Ready and Failed status badges.
+
+## 0.180.0-rc.2
+
+### Patch Changes
+
+- Updated dependencies [5d9b938]
+  - @truefoundry/trueforge-assistant-ui-runtime@0.180.0-rc.2
+
+## 0.180.0-rc.1
+
+### Patch Changes
+
+- ca29d8f: Render lightbulb icon on Skills section header in Agent Config panel.
+- 7f2be59: Prefix public `AnalyticsEvents` names with `trueforge.` so host sinks (e.g. PostHog) can namespace product events.
+- 2bbdf4e: Show the full model name in a tooltip when the new-chat model selector label is truncated.
+- 6bf93de: Keep Build Agent skills selected after a turn by matching session FQN mounts against catalog attach keys and display names during draft preference reconcile.
+- 99c39ee: Hide the session share URL when access is Only you.
+- 942a0e5: Show the full MCP tool and skill description in a tooltip when the truncated label is hovered in the picker modals.
+- aa58442: Reject folder drops in chat attachments so they cannot block message send.
+- aea048e: Clear instructions/MCP/skills when revisiting Build Agent after save, and add a Reset control on the chat header.
+- c6ef7d1: Adopt the loaded session agent spec when resuming chat history so New Chat draft edits no longer PATCH over the saved sandbox environment; lock composer environment selection after a session exists; read/write sandbox `environmentName` so resumed chats show the correct environment; and keep showing a deleted environment from the agent spec.
+- 531350e: Emit `trueforge.sdk.http_timeout` with the request endpoint for every SDK HTTP timeout, and show a clear "Request timed out" toast instead of "Something went wrong" with a bare "timeout" detail.
+- 5c22006: Show the session creator avatar in the sessions list meta row, with the subject name on hover.
+- e4caefb: Surface cancelled turn reasons and failed sub-agents on the Agent Sessions timeline and metrics; project unfinished nested sub-agents as cancelled when the parent turn is already terminal, remap abort-shaped child thread.done errors (e.g. LLM stream aborted) to cancelled on cancelled turns, and close unfinished sub-agent chart bars at turn.done when thread.done is missing.
+- 9208cc8: Allow tenant members to use sandbox environments created by other members while keeping update and delete actions restricted to the creator.
+- 5da156a: Add a host-overridable Register Skills action next to the Skills modal title. The default slot waits for capabilities, routes to Settings → Skills or a platform URL, and hides when neither applies.
+- 8d4cc1c: Show a full-pane "Unable to load session" for inaccessible session deep links and sessions-browser details instead of toasting and redirecting away.
+- Updated dependencies [aa58442]
+- Updated dependencies [c6ef7d1]
+- Updated dependencies [5c22006]
+- Updated dependencies [e4caefb]
+  - @truefoundry/trueforge-assistant-ui-runtime@0.180.0-rc.1
+
 ## 0.179.0
 
 ### Patch Changes

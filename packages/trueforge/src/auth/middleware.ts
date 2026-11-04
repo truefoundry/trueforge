@@ -25,13 +25,33 @@ export function createAuthMiddleware(authenticator: Authenticator): MiddlewareHa
   };
 }
 
-export function createAdminAuthMiddleware(authenticator: Authenticator): MiddlewareHandler {
+/**
+ * Admin gate for a route group.
+ *
+ * `accessible` says whether the group exists in the current deployment mode at all.
+ * Catalog settings pass `areCatalogSettingsAvailable()`, which is false in TrueFoundry
+ * because the platform owns those catalogs; a group that is merely admin-only passes `true`.
+ * An inaccessible group says so outright rather than hiding behind a 404: the same
+ * deployment fact is already public on `GET /api/v1/capabilities`.
+ */
+export function buildAdminAuthMiddleware({
+  authenticator,
+  accessible,
+}: {
+  authenticator: Authenticator;
+  accessible: boolean;
+}): MiddlewareHandler {
   return async (c, next) => {
     const requestContext = await tryAuthenticate({ authenticator, context: c });
     if (requestContext === undefined) {
       throw new HTTPException(401, { message: 'Authentication required' });
     }
     updateLogContext({ tenant_id: requestContext.tenant_id });
+    if (!accessible) {
+      throw new HTTPException(422, {
+        message: `Route ${c.req.path} is not accessible under current configuration`,
+      });
+    }
     if (!hasAdminRole(requestContext)) {
       throw new HTTPException(403, { message: 'Admin access required' });
     }

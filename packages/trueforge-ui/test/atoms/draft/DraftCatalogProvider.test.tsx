@@ -174,6 +174,56 @@ describe('DraftCatalogProvider', () => {
     expect(update.skills).toEqual([]);
   });
 
+  it('restores the catalog display name for post-turn FQN skill mounts', () => {
+    const update = reconcileDraftSpecPreferences({
+      agentSpec: {
+        model: { name: 'live/model' },
+        skills: [{ name: 'agent-skill:acme/team/echo:3', preload: false }],
+      },
+      models: [{ id: 'live/model', name: 'live/model', provider: { name: 'Live' }, properties: {} }],
+      skills: [{ id: 'agent-skill:acme/team/echo:3', name: 'echo' }],
+      connectors: [],
+      skillsEnabled: true,
+    });
+
+    expect(update).toEqual({
+      skills: [{ id: 'agent-skill:acme/team/echo:3', name: 'echo', preload: false }],
+    });
+  });
+
+  it('keeps skill mounts when only the version suffix differs from the catalog', () => {
+    const skills = [{ name: 'agent-skill:acme/team/echo:2' }];
+    const update = reconcileDraftSpecPreferences({
+      agentSpec: {
+        model: { name: 'live/model' },
+        skills,
+      },
+      models: [{ id: 'live/model', name: 'live/model', provider: { name: 'Live' }, properties: {} }],
+      skills: [{ id: 'agent-skill:acme/team/echo:3', name: 'echo' }],
+      connectors: [],
+      skillsEnabled: true,
+    });
+
+    expect(update).toEqual({});
+  });
+
+  it('still prunes skill mounts missing from the catalog', () => {
+    const update = reconcileDraftSpecPreferences({
+      agentSpec: {
+        model: { name: 'live/model' },
+        skills: [{ name: 'agent-skill:acme/team/echo:3' }, { name: 'agent-skill:acme/team/gone:1' }],
+      },
+      models: [{ id: 'live/model', name: 'live/model', provider: { name: 'Live' }, properties: {} }],
+      skills: [{ id: 'agent-skill:acme/team/echo:3', name: 'echo' }],
+      connectors: [],
+      skillsEnabled: true,
+    });
+
+    expect(update).toEqual({
+      skills: [{ id: 'agent-skill:acme/team/echo:3', name: 'echo' }],
+    });
+  });
+
   it('does not re-clear an already empty skills list when skills are unavailable', () => {
     const emptySkills: object[] = [];
     const update = reconcileDraftSpecPreferences({

@@ -77,9 +77,8 @@ describe('AgentConfigEditors', () => {
     );
 
     expect(screen.getByRole('dialog', { name: 'Instructions' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Agent instructions')).toHaveClass('min-h-64');
 
-    fireEvent.change(screen.getByLabelText('Agent instructions'), {
+    fireEvent.change(screen.getByLabelText('JSON parameters editor'), {
       target: { value: 'Updated instructions' },
     });
     expect(onInstructionsSave).not.toHaveBeenCalled();
@@ -151,7 +150,7 @@ describe('AgentConfigEditors', () => {
       </SlotsProvider>,
     );
 
-    fireEvent.change(screen.getByLabelText('Agent instructions'), { target: { value: 'Discarded' } });
+    fireEvent.change(screen.getByLabelText('JSON parameters editor'), { target: { value: 'Discarded' } });
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
 
     expect(onInstructionsSave).not.toHaveBeenCalled();
@@ -261,6 +260,80 @@ describe('AgentConfigEditors', () => {
         params: { maxTokens: undefined, temperature: 0.4 },
       },
     });
+    expect(screen.getByRole('slider', { name: 'Maximum tokens slider' })).toHaveAttribute('max', '8192');
+    expect(screen.queryByText('May not be supported by this Model')).not.toBeInTheDocument();
+  });
+
+  it('shows playground fallbacks and a support warning when the model omits parameters', () => {
+    const spec: AgentSpec = {
+      model: { name: 'openai/gpt', params: { maxTokens: 25000, reasoningEffort: 'xhigh' } },
+    };
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="model-settings"
+          spec={{ model: { name: 'openai/gpt' } }}
+          models={[
+            {
+              id: 'openai/gpt',
+              name: 'openai/gpt',
+              provider: { name: 'OpenAI' },
+              properties: {},
+            },
+          ]}
+          connectors={[]}
+          skills={[]}
+          loading={false}
+          error={null}
+          onChange={onChange}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    expect(screen.getByRole('button', { name: 'Turn Maximum Tokens on' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Turn Reasoning Effort on' })).toBeInTheDocument();
+    expect(screen.queryByText('May not be supported by this Model')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Turn Maximum Tokens on' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Turn Reasoning Effort on' }));
+    expect(onChange).toHaveBeenNthCalledWith(1, {
+      model: { name: 'openai/gpt', params: { maxTokens: 25000 } },
+    });
+    expect(onChange).toHaveBeenNthCalledWith(2, {
+      model: { name: 'openai/gpt', params: { reasoningEffort: 'medium' } },
+    });
+
+    rerender(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="model-settings"
+          spec={spec}
+          models={[
+            {
+              id: 'openai/gpt',
+              name: 'openai/gpt',
+              provider: { name: 'OpenAI' },
+              properties: {},
+            },
+          ]}
+          connectors={[]}
+          skills={[]}
+          loading={false}
+          error={null}
+          onChange={onChange}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    expect(screen.getByRole('slider', { name: 'Maximum tokens slider' })).toHaveAttribute('min', '100');
+    expect(screen.getByRole('slider', { name: 'Maximum tokens slider' })).toHaveAttribute('max', '128000');
+    expect(screen.getByRole('slider', { name: 'Maximum tokens slider' })).toHaveAttribute('step', '100');
+    expect(screen.getByRole('option', { name: 'xhigh' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'minimal' })).toBeInTheDocument();
+    expect(screen.getAllByText('May not be supported by this Model')).toHaveLength(2);
   });
 
   it('edits the complete parameter object in JSON view and rejects invalid JSON', () => {
@@ -420,6 +493,9 @@ describe('AgentConfigEditors', () => {
 
     expect(screen.getByRole('dialog', { name: 'Runtime Config' })).toHaveClass('md:ml-auto', 'md:mr-0', 'md:h-dvh');
     expect(screen.getByRole('switch', { name: 'Context compaction' })).toBeInTheDocument();
+    const docs = screen.getByRole('link', { name: 'View docs' });
+    expect(docs).toHaveAttribute('href', 'https://trueforge.dev/create-agent/overview');
+    expect(docs).toHaveAttribute('target', '_blank');
   });
 
   it('changes runtime switches only when the switch is clicked', () => {
@@ -1502,6 +1578,66 @@ describe('AgentConfigEditors', () => {
       skills: [{ id: 'agent-skill:acme/team-a/echo:1', name: 'echo' }],
       config: { sandbox: { enabled: true } },
     });
+  });
+
+  it('marks latest on the highest loaded version when catalog is stale', async () => {
+    const onChange = vi.fn();
+    const loadVersions = vi.fn(async () => [
+      {
+        name: 'agent-skill:acme/team-a/echo:10',
+        displayName: 'echo',
+        description: 'v10',
+        version: 10,
+      },
+      {
+        name: 'agent-skill:acme/team-a/echo:11',
+        displayName: 'echo',
+        description: 'v11',
+        version: 11,
+      },
+    ]);
+    const skill: AgentSkill = Object.assign(
+      {
+        id: 'agent-skill:acme/team-a/echo:10',
+        name: 'echo',
+        description: 'Echo skill',
+      },
+      { version: 10, loadVersions },
+    );
+
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="skills"
+          spec={{ model: { name: 'openai/gpt' } }}
+          models={[]}
+          connectors={[]}
+          skills={[skill]}
+          loading={false}
+          error={null}
+          onChange={onChange}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    const trigger = screen.getByRole('button', { name: 'Select version for echo' });
+    fireEvent.click(trigger);
+    const v11 = await screen.findByRole('menuitem', { name: /v11/ });
+    const v10 = screen.getByRole('menuitem', { name: /^v10/ });
+    expect(v11).toHaveTextContent('latest');
+    expect(v10).not.toHaveTextContent('latest');
+    expect(v10).toHaveAttribute('aria-selected', 'true');
+    expect(v11).toHaveAttribute('aria-selected', 'false');
+    expect(trigger).toHaveTextContent('v10');
+    expect(trigger).not.toHaveTextContent('latest');
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select echo' }));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skills: [{ id: 'agent-skill:acme/team-a/echo:10', name: 'echo' }],
+      }),
+    );
   });
 
   it('shows a concise version error and copies its details', async () => {

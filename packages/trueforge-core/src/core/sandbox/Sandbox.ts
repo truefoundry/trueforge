@@ -238,7 +238,10 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
   ];
 
   constructor(options: SandboxOptions<TEnvironment>) {
-    super({ tracing: options.tracing });
+    super({
+      tracing: options.tracing,
+      serverClass: 'sandbox',
+    });
     this.provider = options.provider;
     this.environment = options.environment;
     this.existingSandboxId = options.existingSandboxId;
@@ -309,6 +312,9 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
     const sandboxInstructions = builder.beginSection('sandbox');
     sandboxInstructions.addContent('The Agent has access to a persistent sandbox environment for executing code.');
     sandboxInstructions.addContent('The Agent must NOT read or modify any git credential files.');
+    sandboxInstructions.addContent(
+      'When fetching remote content, the Agent MUST save it to a file first, then extract from the file. Do not pipe large fetches through grep or sed into the tool response.',
+    );
     sandboxInstructions.addContent(
       'Prefer OpenUI for inline charts when available; sandbox chart images only for downloads.',
     );
@@ -541,7 +547,10 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
     try {
       ({ sandboxInfo, sandboxCreated } = await this.ensureReadySandbox());
     } catch (e) {
-      this.logger.error('Sandbox initialization failed', extractErrorLogFields(e));
+      this.logger.error('Sandbox initialization failed', {
+        ...extractErrorLogFields(e),
+        reportable_error: { error: e },
+      });
       const message = e instanceof Error ? e.message : 'Sandbox initialization failed';
       const fallback = this.existingSandboxInfo;
       return toolResultResponse({
@@ -801,6 +810,7 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
       this.logger.error('Code Mode transport start failed', {
         ...extractErrorLogFields(e),
         sandboxId,
+        reportable_error: { error: e, extra: { sandboxId } },
       });
       return undefined;
     }

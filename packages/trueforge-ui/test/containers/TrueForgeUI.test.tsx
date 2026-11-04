@@ -45,9 +45,9 @@ vi.mock('@/plugins/trueforge-agent-server-adapter/index.js', () => ({
     createMockAgentUIServer({
       getCapabilities: async () => ({
         data: {
-          sandbox: { enabled: true },
+          sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
-          settings: { enabled: true },
+          settings: allSettingsSections(true),
         },
       }),
     }),
@@ -65,6 +65,7 @@ import { WidgetVisibilityProvider } from '@/layouts/WidgetVisibilityContext.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
+import { allSettingsSections } from '../server/settingsCapabilityFixture.js';
 import { RuntimeHarness } from './RuntimeHarness.js';
 
 function mockServer(catalog?: CatalogServer) {
@@ -231,10 +232,12 @@ describe('TrueForgeUI', () => {
   it('keeps composer catalogs cached when starting a new chat', async () => {
     const getCapabilities = vi
       .fn()
-      .mockResolvedValueOnce({ data: { sandbox: { enabled: true }, skill: { enabled: true } } })
+      .mockResolvedValueOnce({
+        data: { sandbox: { enabled: true, environments: { enabled: true } }, skill: { enabled: true } },
+      })
       .mockResolvedValueOnce({
         data: {
-          sandbox: { enabled: false },
+          sandbox: { enabled: false, environments: { enabled: false } },
           skill: { enabled: false, reason: 'Select Sandbox first' },
         },
       });
@@ -825,9 +828,9 @@ describe('SidebarLayout', () => {
             catalog: stubCatalog,
             getCapabilities: async () => ({
               data: {
-                sandbox: { enabled: true },
+                sandbox: { enabled: true, environments: { enabled: true } },
                 skill: { enabled: true },
-                settings: { enabled: false },
+                settings: allSettingsSections(false),
               },
             }),
           })}

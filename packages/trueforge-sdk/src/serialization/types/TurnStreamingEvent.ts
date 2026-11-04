@@ -8,6 +8,8 @@ import { McpInitializeEvent } from "./McpInitializeEvent.js";
 import { ModelMessageDeltaEvent } from "./ModelMessageDeltaEvent.js";
 import { ModelMessageEvent } from "./ModelMessageEvent.js";
 import { SandboxCreatedEvent } from "./SandboxCreatedEvent.js";
+import { ThreadContextCompactionFinishedEvent } from "./ThreadContextCompactionFinishedEvent.js";
+import { ThreadContextCompactionStartedEvent } from "./ThreadContextCompactionStartedEvent.js";
 import { ThreadCreatedEvent } from "./ThreadCreatedEvent.js";
 import { ThreadDoneEvent } from "./ThreadDoneEvent.js";
 import { ToolApprovalRequiredEvent } from "./ToolApprovalRequiredEvent.js";
@@ -30,6 +32,8 @@ export const TurnStreamingEvent: core.serialization.Schema<
     ModelMessageEvent,
     ModelMessageDeltaEvent,
     SandboxCreatedEvent,
+    ThreadContextCompactionFinishedEvent,
+    ThreadContextCompactionStartedEvent,
     ThreadCreatedEvent,
     ThreadDoneEvent,
     ToolApprovalRequiredEvent,
@@ -51,6 +55,8 @@ export declare namespace TurnStreamingEvent {
         | ModelMessageEvent.Raw
         | ModelMessageDeltaEvent.Raw
         | SandboxCreatedEvent.Raw
+        | ThreadContextCompactionFinishedEvent.Raw
+        | ThreadContextCompactionStartedEvent.Raw
         | ThreadCreatedEvent.Raw
         | ThreadDoneEvent.Raw
         | ToolApprovalRequiredEvent.Raw

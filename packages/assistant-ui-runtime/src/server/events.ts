@@ -64,6 +64,7 @@ export interface ModelMessageEvent {
   finishReason?: string | null;
   createdAt: string;
   usage?: unknown;
+  model?: { name: string };
 }
 
 export interface ModelMessageDeltaEvent {
@@ -174,6 +175,30 @@ export interface McpInitializeEvent {
   [key: string]: unknown;
 }
 
+export interface CompactionTrigger {
+  type: 'context_threshold_exceeded';
+  contextTokens: number;
+  thresholdTokens: number;
+}
+
+export interface ThreadContextCompactionStartedEvent {
+  type: 'thread.context_compaction_started';
+  id: string;
+  createdAt: string;
+  threadId: string;
+  trigger: CompactionTrigger;
+}
+
+export interface ThreadContextCompactionFinishedEvent {
+  type: 'thread.context_compaction_finished';
+  id: string;
+  createdAt: string;
+  threadId: string;
+  trigger: CompactionTrigger;
+  usage?: unknown;
+  durationMs: number;
+}
+
 // ---------------------------------------------------------------------------
 // Turn lifecycle events
 // ---------------------------------------------------------------------------
@@ -207,6 +232,8 @@ export type TurnEvent =
   | ToolResponseEvent
   | ThreadCreatedEvent
   | ThreadDoneEvent
+  | ThreadContextCompactionStartedEvent
+  | ThreadContextCompactionFinishedEvent
   | McpAuthRequiredEvent
   | McpInitializeEvent
   | SandboxCreatedEvent

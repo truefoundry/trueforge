@@ -50,7 +50,7 @@ spec:
         {{- . | nindent 8 }}
       {{- end }}
       containers:
-        - name: controller
+        - name: trueforge-controller
           image: {{ include "trueforge.image" . | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command:

@@ -1,8 +1,11 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useTrueForgeAgentSpec } from '@truefoundry/trueforge-assistant-ui-runtime';
+import { useMemo, type ReactNode } from 'react';
 
 import { Icon } from '../../icons/Icon.js';
+import { readSandboxEnvironmentName, sandboxWithEnvironmentName } from '../../server/draftSpecPreferences.js';
+import { useServerCapabilities } from '../../server/ServerContext.js';
 import { useOptionalShellMode } from '../../server/ShellModeContext.js';
 import type { AgentCompactionConfig, AgentRuntimeConfig } from '../../server/types.js';
 import { useReadySandboxEnvironments } from '../environments/useReadySandboxEnvironments.js';
@@ -11,11 +14,11 @@ import { auiInputClass } from '../lib/inputClasses.js';
 import { PopoverSelect } from '../primitives/PopoverSelect.js';
 import { Switch } from '../primitives/Switch.js';
 import { Tooltip } from '../primitives/Tooltip.js';
+import { WEB_SEARCH_ONE_WAY_OFF_HINT, WEB_SEARCH_UNAVAILABLE_HINT, webSearchGate } from './agentCapabilities.js';
 
 export type AgentRuntimeConfigFieldsProps = {
   value: AgentRuntimeConfig;
   sandboxAvailable: boolean;
-  webSearchAvailable?: boolean;
   hasSkills: boolean;
   disabled?: boolean;
   showCapabilities?: boolean;
@@ -35,6 +38,7 @@ function parsePositiveInteger(raw: string): number | null {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
+const ENVIRONMENT_LOCKED_HINT = "Can't change the environment after a chat has started";
 const NO_SANDBOX_PROVIDER_HINT = 'No sandbox provider yet, add one in Settings → Sandbox';
 const DEFAULT_COMPACTION_THRESHOLD_TOKENS = 50_000;
 
@@ -54,10 +58,22 @@ type RuntimeSwitchField = {
   update: (enabled: boolean) => AgentRuntimeConfig;
 };
 
+/** Consequence of the row above that the user should read before flipping it. */
+function RowWarning({ children }: { children: ReactNode }) {
+  return (
+    <p
+      role="status"
+      className="border-warning-bg bg-warning-bg/10 text-warning-bg mt-2 flex items-start gap-2 rounded-md border px-3 py-2 text-xs"
+    >
+      <Icon name="circle-exclamation" className="size-3.5 shrink-0" aria-hidden />
+      <span className="flex w-full items-center justify-between gap-1">{children}</span>
+    </p>
+  );
+}
+
 export function AgentRuntimeConfigFields({
   value,
   sandboxAvailable,
-  webSearchAvailable = false,
   hasSkills,
   disabled = false,
   showCapabilities = true,
@@ -65,8 +81,13 @@ export function AgentRuntimeConfigFields({
   onChange,
 }: AgentRuntimeConfigFieldsProps) {
   const shell = useOptionalShellMode();
+  const capabilities = useServerCapabilities();
+  const environmentsCapabilityEnabled = capabilities?.sandbox?.environments?.enabled === true;
   const { environments: readyEnvironments, refetch: refetchEnvironments } = useReadySandboxEnvironments();
-  const selectedEnvironmentName = value.sandbox?.environmentName?.trim() || 'default';
+  const { draftSessionId } = useTrueForgeAgentSpec();
+  // Turns reuse the session sandbox, so the environment is fixed once a chat has started.
+  const environmentLocked = draftSessionId != null;
+  const selectedEnvironmentName = readSandboxEnvironmentName(value.sandbox);
 
   const environmentOptions = useMemo(() => {
     const options: Array<{ value: string; label: string; disabled?: boolean }> = readyEnvironments.map(env => ({
@@ -115,17 +136,43 @@ export function AgentRuntimeConfigFields({
     },
   ];
   const sandboxEnabled = value.sandbox?.enabled ?? false;
+
+  const environmentSelect = (
+    <PopoverSelect
+      aria-label="Environment"
+      value={selectedEnvironmentName}
+      options={environmentOptions}
+      disabled={disabled || environmentLocked || !sandboxAvailable || !sandboxEnabled}
+      className="w-48"
+      onOpenChange={nextOpen => {
+        if (nextOpen) void refetchEnvironments();
+      }}
+      onValueChange={selected =>
+        onChange({
+          ...value,
+          sandbox: sandboxWithEnvironmentName(value.sandbox, selected === 'default' ? undefined : selected),
+        })
+      }
+    />
+  );
   const compactionEnabled = value.contextManagement?.compaction?.enabled ?? true;
   const thresholdMode: CompactionThresholdMode =
     value.contextManagement?.compaction?.trigger != null ? 'custom' : 'auto';
-  const webSearchField: RuntimeSwitchField | null = webSearchAvailable
-    ? {
-        label: 'Web search',
-        description: 'Allow the agent to search the web and fetch pages.',
-        checked: value.webSearch?.enabled ?? true,
-        update: enabled => ({ ...value, webSearch: { enabled } }),
-      }
-    : null;
+  const webSearchChecked = value.webSearch?.enabled ?? capabilities?.webSearch?.enabled === true;
+  // A spec that already searches the web can still be turned off; only turning it back on
+  // needs the capability, so the row stays visible either way and says why it is locked.
+  const { locked: webSearchLocked, offIsFinal: webSearchOffIsFinal } = webSearchGate({
+    capabilities,
+    enabled: webSearchChecked,
+  });
+  const webSearchField: RuntimeSwitchField = {
+    label: 'Web search',
+    description: 'Allow the agent to search the web and fetch pages.',
+    checked: webSearchChecked,
+    disabled: webSearchLocked,
+    ...(webSearchLocked ? { disabledTooltip: capabilities?.webSearch?.reason ?? WEB_SEARCH_UNAVAILABLE_HINT } : {}),
+    update: enabled => ({ ...value, webSearch: { enabled } }),
+  };
   const sandboxField: RuntimeSwitchField = {
     label: 'Sandbox',
     description: 'Provide an isolated environment for code, files, and skills.',
@@ -239,7 +286,7 @@ export function AgentRuntimeConfigFields({
             )}
           </div>
         ) : null}
-        <label className={cn('flex py-4', rowClassName)}>
+        <div className={cn('flex py-4', rowClassName)}>
           <span className="min-w-0">
             <span className="text-text-primary block text-sm font-medium">Iteration limit</span>
             <span className="text-text-secondary mt-0.5 block text-xs leading-snug">
@@ -251,6 +298,7 @@ export function AgentRuntimeConfigFields({
             min={1}
             max={1024}
             disabled={disabled}
+            aria-label="Iteration limit"
             value={value.iterationLimit ?? 512}
             className={auiInputClass('h-8 w-24 shrink-0 disabled:opacity-60')}
             onChange={event => {
@@ -258,50 +306,57 @@ export function AgentRuntimeConfigFields({
               if (iterationLimit !== null) onChange({ ...value, iterationLimit });
             }}
           />
-        </label>
-        {webSearchField != null ? switchField({ field: webSearchField, className: cn('py-4', rowClassName) }) : null}
+        </div>
+        <div className="py-4">
+          {switchField({ field: webSearchField, className: rowClassName })}
+          {webSearchOffIsFinal ? <RowWarning>{WEB_SEARCH_ONE_WAY_OFF_HINT}</RowWarning> : null}
+        </div>
         <section className="py-4">
           {switchField({ field: sandboxField, className: rowClassName })}
+          {sandboxAvailable && !sandboxEnabled ? (
+            <RowWarning>
+              <span>Disabling sandbox will degrade trueforge&apos;s performance.</span>
+              <a
+                className="flex cursor-pointer items-center gap-1 text-xs font-medium text-amber-500"
+                href="https://trueforge.dev/key-features/code-mode#what-is-code-mode"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <span>Learn more</span>
+                <Icon name="external-link" className="size-3" />
+              </a>
+            </RowWarning>
+          ) : null}
           <div className={`mt-3 border-l-2 border-primary-button-bg/50 pl-3 ${sandboxEnabled ? '' : 'opacity-50'}`}>
-            <div className={cn('flex py-4', rowClassName)}>
-              <span className="min-w-0 flex-1">
-                <span className="text-text-primary block text-sm font-medium">Environment</span>
-                <p className="text-text-secondary mt-0.5 text-xs leading-snug">
-                  Saved sandbox setup this agent uses when it runs.
-                </p>
-                {shell && sandboxEnabled ? (
-                  <button
-                    type="button"
-                    onClick={() => shell.setEnvironmentsOpen(true)}
-                    className="text-primary-button-bg mt-1.5 inline-flex items-center gap-1 text-xs hover:underline"
-                  >
-                    <span>Manage Environments</span>
-                    <Icon name="external-link" className="size-3" />
-                  </button>
-                ) : null}
-              </span>
-              <div className="flex shrink-0 items-center">
-                <PopoverSelect
-                  aria-label="Environment"
-                  value={value.sandbox?.environmentName?.trim() || 'default'}
-                  options={environmentOptions}
-                  disabled={disabled || !sandboxAvailable || !sandboxEnabled}
-                  className="w-48"
-                  onOpenChange={nextOpen => {
-                    if (nextOpen) void refetchEnvironments();
-                  }}
-                  onValueChange={selected =>
-                    onChange({
-                      ...value,
-                      sandbox: {
-                        ...value.sandbox,
-                        environmentName: selected === 'default' ? undefined : selected,
-                      },
-                    })
-                  }
-                />
+            {environmentsCapabilityEnabled ? (
+              <div className={cn('flex py-4', rowClassName)}>
+                <span className="min-w-0 flex-1">
+                  <span className="text-text-primary block text-sm font-medium">Environment</span>
+                  <p className="text-text-secondary mt-0.5 text-xs leading-snug">
+                    Saved sandbox setup this agent uses when it runs.
+                  </p>
+                  {shell && sandboxEnabled ? (
+                    <button
+                      type="button"
+                      onClick={() => shell.setEnvironmentsOpen(true)}
+                      className="text-primary-button-bg mt-1.5 inline-flex items-center gap-1 text-xs hover:underline"
+                    >
+                      <span>Manage Environments</span>
+                      <Icon name="external-link" className="size-3" />
+                    </button>
+                  ) : null}
+                </span>
+                <div className="flex shrink-0 items-center">
+                  {environmentLocked ? (
+                    <Tooltip content={ENVIRONMENT_LOCKED_HINT}>
+                      <span className="inline-flex">{environmentSelect}</span>
+                    </Tooltip>
+                  ) : (
+                    environmentSelect
+                  )}
+                </div>
               </div>
-            </div>
+            ) : null}
             {switchField({ field: fileDownloadsField, className: rowClassName })}
           </div>
         </section>
@@ -383,11 +438,9 @@ export function AgentRuntimeConfigFields({
           }}
         />
       </label>
-      {[
-        ...(webSearchField != null ? [webSearchField] : []),
-        ...runtimeFields,
-        ...(showCapabilities ? capabilityFields : []),
-      ].map(field => switchField({ field }))}
+      {[webSearchField, ...runtimeFields, ...(showCapabilities ? capabilityFields : [])].map(field =>
+        switchField({ field }),
+      )}
     </div>
   );
 }

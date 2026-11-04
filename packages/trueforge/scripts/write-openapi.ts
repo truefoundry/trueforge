@@ -22,8 +22,10 @@ import { SandboxCatalog } from '../src/catalog/SandboxCatalog';
 import { SkillCatalog } from '../src/catalog/SkillCatalog';
 import { WebSearchCatalog } from '../src/catalog/WebSearchCatalog';
 import configuration from '../src/config';
+import { SqliteAccessControlStore } from '../src/db/sqlite/access-control-store/SqliteAccessControlStore';
 import { SqliteAgentStore } from '../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../src/db/sqlite/client';
+import { SqliteConfigurationStore } from '../src/db/sqlite/configuration-store/SqliteConfigurationStore';
 import { SqliteMcpServerStore } from '../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteModelProviderStore } from '../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { SqliteSandboxEnvironmentStore } from '../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
@@ -33,6 +35,8 @@ import { SqliteSessionMetricsStore } from '../src/db/sqlite/session-metrics/Sqli
 import { SqliteSkillStore } from '../src/db/sqlite/skill-store/SqliteSkillStore';
 import { SqliteOAuthTokenStore } from '../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import { SqliteWebSearchProviderStore } from '../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
+import { EmptyUserStore } from '../src/db/userStore';
+import { createHttpMetrics } from '../src/http/prometheus';
 import { ActiveTurnRegistry } from '../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../src/runtime/event-subscription';
 import { McpServerResolver } from '../src/runtime/McpServerResolver';
@@ -75,6 +79,9 @@ const sandboxEnvironmentStore = new SqliteSandboxEnvironmentStore(db);
 const skillStore = new SqliteSkillStore(db);
 const sandboxProviderStore = new SqliteSandboxProviderStore(db);
 const webSearchProviderStore = new SqliteWebSearchProviderStore(db);
+const configurationStore = new SqliteConfigurationStore(db);
+// HTTP middleware needs a registry. Document generation does not scrape it.
+const httpMetrics = createHttpMetrics();
 const app = createServerApp({
   modelCatalog: ModelCatalog.load(),
   mcpCatalog: McpCatalog.load(),
@@ -88,8 +95,10 @@ const app = createServerApp({
   resolveMcpServerResolver: () => mcpServerResolver,
   resolveSkillStore: () => skillStore,
   resolveTurnSkillsStore: () => skillStore,
+  resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
   resolveSandboxProviderStore: () => sandboxProviderStore,
   resolveWebSearchProviderStore: () => webSearchProviderStore,
+  resolveConfigurationStore: () => configurationStore,
   resolveAgentStore: () => agentStore,
   agentStore,
   sandboxEnvironmentStore,
@@ -98,7 +107,9 @@ const app = createServerApp({
   scheduleStore: new SqliteScheduleStore(db),
   tokenStore,
   sessionStore,
+  accessControlStore: new SqliteAccessControlStore(db),
   sessionMetricsStore: new SqliteSessionMetricsStore(db),
+  userStore: new EmptyUserStore(),
   sessions: new Sessions({ sessionStore }),
   activeTurns: new ActiveTurnRegistry(),
   requestReplyRouter: new RequestReplyRouter(),
@@ -107,6 +118,7 @@ const app = createServerApp({
   oidcClient: undefined,
   authenticator: new StandaloneAuthenticator(),
   authorizer: new TrueForgeAuthorizer(),
+  httpMetrics,
 });
 
 // Runtime apps only advertise BearerAuth when OIDC is configured. The committed

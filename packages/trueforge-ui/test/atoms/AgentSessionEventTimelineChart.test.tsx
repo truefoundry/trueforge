@@ -6,7 +6,9 @@ import { AgentSessionEventTimelineChart } from '@/atoms/agent-details/AgentSessi
 import {
   SessionMarkerGroupTooltip,
   SessionSubAgentGroupTooltip,
+  SessionTurnTooltip,
 } from '@/atoms/agent-details/AgentSessionTimelineTooltip.js';
+import { formatAbsoluteDateTime } from '@/atoms/lib/dateFormat.js';
 import type { SessionEventTimelineSegment } from '@/utils/sessionEventTimeline.js';
 import type { SessionTurnView } from '@/utils/sessionTurnViews.js';
 
@@ -152,6 +154,148 @@ describe('AgentSessionEventTimelineChart', () => {
 
     fireEvent.mouseLeave(canvas);
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+  });
+
+  it('shows created time and omits completed time while the hovered turn is running', async () => {
+    const { container } = render(
+      <AgentSessionEventTimelineChart
+        turns={turns}
+        segments={[
+          ...segments,
+          {
+            id: 'turn-2-model',
+            type: 'model',
+            title: 'model.message',
+            description: 'later',
+            startMs: 2_000,
+            endMs: 3_000,
+            turnIndex: 1,
+            threadId: 'main',
+          },
+        ]}
+        hiddenTypes={new Set()}
+      />,
+    );
+    const wrapper = container.querySelector<HTMLElement>('[data-slot="agent-session-event-timeline-chart"]');
+    const canvas = screen.getByRole('img', { name: 'Timeline chart' });
+    if (wrapper == null) throw new Error('Expected timeline chart wrapper');
+    vi.spyOn(wrapper, 'getBoundingClientRect').mockImplementation(() => new DOMRect(0, 0, 600, 120));
+    const onHover = Reflect.get(capturedOptions ?? {}, 'onHover');
+    if (typeof onHover !== 'function') throw new Error('Expected Chart.js onHover callback');
+
+    const native = new MouseEvent('mousemove', { clientX: 320 });
+    Object.defineProperty(native, 'target', { value: canvas });
+    act(() => onHover({ native }, [{ datasetIndex: 0 }]));
+
+    const tooltip = await screen.findByRole('tooltip');
+    expect(tooltip).toHaveTextContent(
+      `Created At${formatAbsoluteDateTime(new Date('2026-01-01T00:00:00.000Z'), { seconds: true })}`,
+    );
+    expect(tooltip).not.toHaveTextContent('Completed At');
+  });
+
+  it('shows completed time from turn.done completedAt', () => {
+    const turn = turns[0];
+    if (turn == null) throw new Error('Expected turn');
+    const completedAt = '2026-01-01T00:00:30.700Z';
+    render(
+      <SessionTurnTooltip
+        turn={{
+          ...turn,
+          done: {
+            type: 'turn.done',
+            id: 'turn-1-done',
+            createdAt: completedAt,
+            state: { status: 'done', completedAt },
+          },
+        }}
+        turnNumber={1}
+        durationMs={30_700}
+        segments={segments}
+      />,
+    );
+
+    expect(screen.getByText(formatAbsoluteDateTime(new Date(completedAt), { seconds: true }))).toBeInTheDocument();
+  });
+
+  it('grows wider than the pane and scrolls when short turns would otherwise collapse', async () => {
+    const clientWidth = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(400);
+    const manyTurns: SessionEventTimelineSegment[] = [
+      ...Array.from({ length: 8 }, (_, turnIndex) => ({
+        id: `turn-${turnIndex}-model`,
+        type: 'model' as const,
+        title: 'model.message',
+        description: 'response',
+        startMs: turnIndex * 1_000,
+        endMs: turnIndex * 1_000 + 1_000,
+        turnIndex,
+        threadId: 'main',
+      })),
+      {
+        id: 'turn-long-model',
+        type: 'model',
+        title: 'model.message',
+        description: 'response',
+        startMs: 8_000,
+        endMs: 108_000,
+        turnIndex: 8,
+        threadId: 'main',
+      },
+    ];
+
+    try {
+      const { container } = render(
+        <AgentSessionEventTimelineChart turns={turns} segments={manyTurns} hiddenTypes={new Set()} />,
+      );
+      const wrapper = container.querySelector<HTMLElement>('[data-slot="agent-session-event-timeline-chart"]');
+      if (wrapper == null) throw new Error('Expected timeline chart wrapper');
+      expect(wrapper).toHaveClass('overflow-x-auto');
+      await waitFor(() => {
+        const width = wrapper.firstElementChild?.getAttribute('style') ?? '';
+        const pixels = Number(/width:\s*(\d+(?:\.\d+)?)px/.exec(width)?.[1]);
+        expect(pixels).toBeGreaterThan(400);
+      });
+    } finally {
+      clientWidth.mockRestore();
+    }
+  });
+
+  it('keeps every turn within the drawn axis even when the gap floor forces extra room', () => {
+    // 100px pane, 6 turns -> 5 gaps. Unclamped scale (100 - 5*12 - 12 = 28) is below the
+    // half-pane floor (50), so the floor itself demands 22px more than the pane has.
+    const clientWidth = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(100);
+    const sixTurns: SessionEventTimelineSegment[] = Array.from({ length: 6 }, (_, turnIndex) => ({
+      id: `turn-${turnIndex}-model`,
+      type: 'model' as const,
+      title: 'model.message',
+      description: 'response',
+      startMs: turnIndex * 1_000,
+      endMs: turnIndex * 1_000 + 1_000,
+      turnIndex,
+      threadId: 'main',
+    }));
+
+    try {
+      render(<AgentSessionEventTimelineChart turns={turns} segments={sixTurns} hiddenTypes={new Set()} />);
+      const datasets = Reflect.get(capturedData ?? {}, 'datasets');
+      if (!Array.isArray(datasets)) throw new Error('Expected chart datasets');
+      const turnEndsMs = datasets.flatMap(dataset => {
+        const label = Reflect.get(dataset, 'label');
+        if (typeof label !== 'string' || !label.startsWith('Turn ')) return [];
+        const data = Reflect.get(dataset, 'data');
+        const point = Array.isArray(data) ? data[0] : undefined;
+        const range = typeof point === 'object' && point != null ? Reflect.get(point, 'x') : undefined;
+        return Array.isArray(range) ? [Number(range[1])] : [];
+      });
+      expect(turnEndsMs).toHaveLength(6);
+
+      const scales = Reflect.get(capturedOptions ?? {}, 'scales');
+      const xScale = typeof scales === 'object' && scales != null ? Reflect.get(scales, 'x') : undefined;
+      const axisMaxMs = typeof xScale === 'object' && xScale != null ? Number(Reflect.get(xScale, 'max')) : NaN;
+      expect(axisMaxMs).toBeGreaterThanOrEqual(Math.max(...turnEndsMs));
+    } finally {
+      clientWidth.mockRestore();
+    }
   });
 
   it('groups overlapping tool calls within a sub-agent lane', async () => {

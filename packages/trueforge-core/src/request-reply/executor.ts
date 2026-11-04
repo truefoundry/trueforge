@@ -106,12 +106,20 @@ export class RequestReplyExecutor {
       this.logger.error('[RequestReplyExecutor] Subscriber error', {
         executorId: this.executorId,
         ...extractErrorLogFields(err),
+        reportable_error: {
+          error: err,
+          extra: { executorId: this.executorId },
+        },
       });
       this.onError?.(err, { executorId: this.executorId, channel: this.channel });
       // error is often transient; the client can reconnect and fire ready again. Do not stop the heartbeat.
     });
+    // Shutdown drains the executor, then closes the client. That close emits `end`.
+    // Only an end while the executor is still open is an unexpected drop.
     this.subscriberClient.on('end', () => {
-      this.logger.warn('[RequestReplyExecutor] Subscriber connection ended', { executorId: this.executorId });
+      this.logger.warn('[RequestReplyExecutor] Subscriber connection ended', {
+        executorId: this.executorId,
+      });
       this.stopHeartbeat();
     });
     // ready fires on the first connect and every reconnect; re-subscribing is
@@ -141,6 +149,10 @@ export class RequestReplyExecutor {
       this.logger.error('[RequestReplyExecutor] Error subscribing to request channel', {
         executorId: this.executorId,
         ...extractErrorLogFields(error),
+        reportable_error: {
+          error,
+          extra: { executorId: this.executorId },
+        },
       });
       this.onError?.(error, { executorId: this.executorId, channel: this.channel });
       this.stopHeartbeat();
@@ -155,6 +167,10 @@ export class RequestReplyExecutor {
       this.logger.error('[RequestReplyExecutor] Heartbeat error', {
         executorId: this.executorId,
         ...extractErrorLogFields(err),
+        reportable_error: {
+          error: err,
+          extra: { executorId: this.executorId },
+        },
       });
     }
   }
@@ -187,7 +203,13 @@ export class RequestReplyExecutor {
       raw = JSON.parse(message);
     } catch (err) {
       // Drop the request, this should never happen
-      this.logger.warn('[RequestReplyExecutor] Request message is not valid JSON', { executorId: this.executorId });
+      this.logger.warn('[RequestReplyExecutor] Request message is not valid JSON', {
+        executorId: this.executorId,
+        reportable_error: {
+          error: err,
+          extra: { executorId: this.executorId },
+        },
+      });
       this.onError?.(
         new Error(`Request message is not valid JSON for executorId: ${this.executorId}`, {
           cause: err,
@@ -207,6 +229,10 @@ export class RequestReplyExecutor {
       this.logger.warn('[RequestReplyExecutor] Invalid request message shape', {
         executorId: this.executorId,
         zod: zodError,
+        reportable_error: {
+          error: parsedRequest.error,
+          extra: { executorId: this.executorId },
+        },
       });
       this.onError?.(
         new Error(
@@ -239,6 +265,10 @@ export class RequestReplyExecutor {
         executorId: this.executorId,
         replyKey,
         ...extractErrorLogFields(err),
+        reportable_error: {
+          error: err,
+          extra: { executorId: this.executorId },
+        },
       });
     }
   }

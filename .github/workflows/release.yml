@@ -417,7 +417,9 @@ jobs:
     permissions:
       id-token: write
       contents: read
+      packages: write
     with:
+      artifactory_oidc_provider_name: github-jfrog-trueforge
       # The shared build.yml inherits THIS run's github.sha, which is the
       # pre-version dispatch commit. version-release has already pushed the
       # bumped tree, so name it explicitly or the image ships the old
@@ -432,9 +434,6 @@ jobs:
       platforms: linux/amd64
       enable_jfrog: true
       enable_public_ecr: false
-    secrets:
-      artifactory_username: ${{ secrets.TRUEFORGE_ARTIFACTORY_USERNAME }}
-      artifactory_password: ${{ secrets.TRUEFORGE_ARTIFACTORY_PASSWORD }}
 
   build-image-private:
     name: Build and push hardened server image
@@ -448,7 +447,9 @@ jobs:
     permissions:
       id-token: write
       contents: read
+      packages: write
     with:
+      artifactory_oidc_provider_name: github-jfrog-trueforge-private
       # Same reason as the public image: build the version commit, not the
       # dispatch commit.
       checkout_ref: ${{ needs.version-release.outputs.sha }}
@@ -470,13 +471,12 @@ jobs:
         RUNTIME_BASE_IMAGE=526077812922.dkr.ecr.us-east-1.amazonaws.com/tfy-internal/node:24
         VITE_POSTHOG_HOST=https://eu.i.posthog.com/
     secrets:
-      artifactory_username: ${{ secrets.TRUEFOUNDRY_ARTIFACTORY_PRIVATE_USERNAME }}
-      artifactory_password: ${{ secrets.TRUEFOUNDRY_ARTIFACTORY_PRIVATE_PASSWORD }}
       private_ecr_pull_role_arn: ${{ secrets.AWS_DEVTEST_ECR_IAM_ROLE_ARN }}
       # Caller with: has no secrets context; pass secret build-args here so the
       # shared workflow can append them to image_build_args.
       image_build_secrets: |
         VITE_POSTHOG_API_KEY=${{ secrets.TRUEFORGE_POSTHOG_API_KEY }}
+        VITE_SENTRY_DSN=${{ secrets.TRUEFORGE_SENTRY_DSN }}
 
   release-chart:
     name: Publish Helm chart

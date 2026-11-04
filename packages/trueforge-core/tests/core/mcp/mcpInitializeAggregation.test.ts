@@ -81,6 +81,7 @@ describe('convertMCPServersToTools initialization aggregation', () => {
     const oauthServer: IToolSet = {
       name: 'oauth-server',
       id: 'oauth-server',
+      serverClass: 'remote',
       preload: true,
       hasPreloadedTools: true,
       listTools: jest.fn(() =>

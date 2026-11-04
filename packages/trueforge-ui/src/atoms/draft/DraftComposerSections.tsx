@@ -7,6 +7,7 @@ import { Icon } from '../../icons/Icon.js';
 import { shellIsCreateAgent, useOptionalShellMode } from '../../server/ShellModeContext.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
 import type { ComposerLeftSectionProps, ComposerRightSectionProps } from '../ComposerSections.js';
+import { useFallbackMissingSandboxEnvironment } from '../environments/useFallbackMissingSandboxEnvironment.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { useCompactLayout } from '../lib/CompactLayoutContext.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
@@ -14,6 +15,7 @@ import { Tooltip } from '../primitives/Tooltip.js';
 import { DraftReasoningEffortSelector } from './DraftReasoningEffortSelector.js';
 
 export function DraftComposerLeftSection({ disabled, isRunning, onAttach }: ComposerLeftSectionProps) {
+  useFallbackMissingSandboxEnvironment();
   const shell = useOptionalShellMode();
   const track = useTrackAnalytics();
   const DraftCompositeSelector = useSlot('DraftCompositeSelector');

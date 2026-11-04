@@ -4,7 +4,7 @@
  * TrueFoundry (read-only ServiceFoundry server listing).
  */
 import type { ResourceName } from '../schemas/common';
-import type { AvailableModel, ModelProviderManifest } from '../schemas/modelProvider';
+import type { AvailableModel, ModelProperties, ModelProviderManifest } from '../schemas/modelProvider';
 import type { TurnMetadata } from './turnMetadata';
 
 export interface ModelProviderRecord {
@@ -87,14 +87,33 @@ export interface IModelProviderStore<TTransaction = never> {
   }): Promise<Record<string, string>>;
 }
 
+export function modelPropertiesWarning(input: { properties: ModelProperties }): string | undefined {
+  const missing: string[] = [];
+  if (input.properties.reasoning_efforts === undefined || input.properties.reasoning_efforts.length === 0) {
+    missing.push('reasoning effort');
+  }
+  if (input.properties.context_length === undefined) {
+    missing.push('context length');
+  }
+  if (missing.length === 0) {
+    return undefined;
+  }
+  const missingText = missing.join(' and ');
+  return `${missingText.charAt(0).toUpperCase()}${missingText.slice(1)} ${missing.length > 1 ? 'are' : 'is'} not configured for this model, which may affect TrueForge's performance.`;
+}
+
 /** Application-side flatten shared by both store implementations. */
 export function flattenProviderModels(records: ModelProviderRecord[]): AvailableModel[] {
   return records.flatMap(record =>
-    record.manifest.models.map(model => ({
-      name: `${record.name}/${model.name}`,
-      model_id: model.model_id,
-      provider: { name: record.name },
-      properties: model.properties,
-    })),
+    record.manifest.models.map(model => {
+      const warning = modelPropertiesWarning({ properties: model.properties });
+      return {
+        name: `${record.name}/${model.name}`,
+        model_id: model.model_id,
+        provider: { name: record.name },
+        properties: model.properties,
+        ...(warning === undefined ? {} : { warning }),
+      };
+    }),
   );
 }

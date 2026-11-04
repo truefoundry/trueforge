@@ -18,7 +18,7 @@ export type CreateHarnessAgentSessionsServerOptions = CreateTrueForgeClientOptio
 export type HarnessSessionListEntry = SessionListEntry<HarnessAgentSpec> & {
   isCreateAgent: boolean;
   isMutable: boolean;
-  sourceType?: 'schedule';
+  scheduleId?: string;
 };
 
 function toSessionListEntry(session: TrueForgeApi.Session): HarnessSessionListEntry {
@@ -37,7 +37,7 @@ function toSessionListEntry(session: TrueForgeApi.Session): HarnessSessionListEn
     ...(session.title === null ? {} : { title: session.title }),
     ...(session.agent.type === 'reference' && session.agent.name !== null ? { agentName: session.agent.name } : {}),
     ...(session.agent.type === 'inline' ? { agentSpec: toUiAgentSpec(session.agent.spec) } : {}),
-    ...(session.source?.type === 'schedule' ? { sourceType: session.source.type } : {}),
+    ...(session.source?.type === 'schedule' ? { scheduleId: session.source.id } : {}),
     ...(session.createdBySubject == null ? {} : { createdBySubject: session.createdBySubject }),
     ...(session.metadata != null && Object.keys(session.metadata).length > 0 ? { metadata: session.metadata } : {}),
   };

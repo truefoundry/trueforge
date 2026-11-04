@@ -43,6 +43,7 @@ export function makeMockIMCPServer(params: {
   return {
     name: params.name,
     id: params.name,
+    serverClass: 'local',
     preload: params.preload,
     hasPreloadedTools: params.hasPreloadedTools ?? params.preload,
     listTools: jest.fn((): Promise<ListToolsResponse> =>

@@ -8,6 +8,7 @@ import type {
   ToolApprovalPolicyAction,
 } from '../events/schema';
 import type { InternalToolCallInfo } from '../llm/LLMTypes';
+import type { McpServerClass } from '../observability/operationMetrics';
 import type { SandboxInfo } from '../sandbox/Sandbox';
 
 export interface MCPAuthRequired {
@@ -102,6 +103,7 @@ export function toolResultResponse(params: {
 export interface IToolSet {
   readonly name: string;
   readonly id: string;
+  readonly serverClass: McpServerClass;
   readonly description?: string | undefined;
 
   // True when every exposed tool is eager. DeferredTool uses the inverse.
@@ -131,6 +133,7 @@ export interface IToolSet {
 export interface ToolSource {
   readonly name: string;
   readonly id: string;
+  readonly serverClass: McpServerClass;
   readonly description?: string | undefined;
 
   listTools(): Promise<ListToolsResolvedResponse | AuthRequiredResponse>;

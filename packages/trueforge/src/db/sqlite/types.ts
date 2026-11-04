@@ -1,6 +1,6 @@
 /**
  * Live app schema for the SQLite-backed session store.
- * Migrations must not use this type — use `Kysely<unknown>` instead.
+ * Migrations must not use this type - use `Kysely<unknown>` instead.
  *
  * JSON payload columns are BLOB JSONB on disk. Reads must project `json(column)`;
  * `ParseJSONResultsPlugin` (configured in createSqliteDb) parses those top-level columns only.
@@ -9,6 +9,7 @@ import type {
   AgentSpec,
   CreatedBySubject,
   PersistedTurnEvent,
+  SessionLastTurnDetails,
   SessionMetadata,
   SessionMetrics,
   SessionSource,
@@ -27,6 +28,7 @@ import type {
 } from '@truefoundry/trueforge-core/core';
 import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
+import type { ConfigurationManifest } from '../../schemas/configuration';
 import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { ModelProviderManifest } from '../../schemas/modelProvider';
 import type {
@@ -37,20 +39,21 @@ import type {
 } from '../../schemas/sandboxEnvironment';
 import type { StoredSandboxProviderManifest } from '../../schemas/sandboxProvider';
 import type { ScheduleManifest, ScheduleRunStatus, ScheduleStatus } from '../../schemas/schedule';
+import type { SessionGrantSubjectType } from '../../schemas/sessionGrant';
 import type { SkillManifest } from '../../schemas/skill';
 import type { WebSearchProviderManifest } from '../../schemas/webSearchProvider';
 import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpServerStore';
 
 /**
  * Trace-level state for one thread at one turn (`turn_thread.checkpoint`).
- * Total types: `completion` is explicitly null until set — no optional keys.
+ * Total types: `completion` is explicitly null until set - no optional keys.
  */
 export interface TurnThreadCheckpoint {
   parent: AgentParent | null;
   completion: SubAgentCompletion | null;
 }
 
-/** Turn-level checkpoint — threads live in `turn_thread`; only owned top-level keys remain. */
+/** Turn-level checkpoint - threads live in `turn_thread`; only owned top-level keys remain. */
 export interface TurnCheckpoint {
   mcp_servers: Record<string, MCPServerInitInfo> | null;
   sandbox_info: SandboxInfo | null;
@@ -80,9 +83,8 @@ export interface SessionTable {
   /** Inline spec binding; XOR with `agent_id`. */
   agent_spec: JsonbColumn<AgentSpec> | null;
   title: string | null;
-  /** 0/1. When 1, any subject in the tenant may GET this session. */
-  shared: number;
-  last_turn_id: string | null;
+  /** Null until the first turn; always replaced as a whole document. */
+  last_turn_details: JsonbColumn<SessionLastTurnDetails> | null;
   /** Optional unique key within `tenant_id` when set. */
   external_id: string | null;
   custom: JsonbColumn<Record<string, unknown>> | null;
@@ -94,6 +96,32 @@ export interface SessionTable {
 }
 
 /**
+ * Explicit read grants on a session - mirrors the Postgres `access_control`.
+ * PRIMARY KEY (tenant_id, session_id, subject_type, subject_id)
+ * FK (session_id) → session(session_id) ON DELETE CASCADE
+ */
+export interface AccessControlTable {
+  tenant_id: string;
+  session_id: string;
+  subject_type: SessionGrantSubjectType;
+  subject_id: string;
+  granted_by_subject: JsonbColumn<CreatedBySubject>;
+  created_at: string;
+}
+
+/**
+ * Memory ingestion checkpoint per session — mirrors the Postgres `memory_ingest_cursor`.
+ * PRIMARY KEY (session_id); no FK, so the row outlives a deleted session for provider cleanup.
+ */
+export interface MemoryIngestCursorTable {
+  session_id: string;
+  last_ingested_turn_id: string | null;
+  external_thread_id: string | null;
+  last_error: string | null;
+  updated_at: string;
+}
+
+/**
  * PRIMARY KEY (session_id, turn_id)
  * CREATE INDEX turn_list_idx ON turn (session_id, created_at, turn_id)
  */
@@ -102,7 +130,7 @@ export interface TurnTable {
   turn_id: string;
   first_turn_id: string;
   previous_turn_id: string | null;
-  /** JSONB array of turn ids — topology only; not a SQL join key. */
+  /** JSONB array of turn ids - topology only; not a SQL join key. */
   ancestor_ids: JsonbColumn<string[]>;
   /** Replica currently owning the in-memory ActiveTurn. */
   active_executor_id: string;
@@ -195,7 +223,7 @@ export interface ThreadCapabilityStateTable {
 }
 
 /**
- * Configured model providers — mirrors the Postgres `model_provider` table.
+ * Configured model providers - mirrors the Postgres `model_provider` table.
  * PRIMARY KEY (tenant_id, name)
  */
 export interface ModelProviderTable {
@@ -208,7 +236,7 @@ export interface ModelProviderTable {
 }
 
 /**
- * Configured web-search provider — mirrors the Postgres `web_search_provider` table.
+ * Configured web-search provider - mirrors the Postgres `web_search_provider` table.
  * PRIMARY KEY (tenant_id)
  */
 export interface WebSearchProviderTable {
@@ -219,7 +247,17 @@ export interface WebSearchProviderTable {
 }
 
 /**
- * Configured skills — mirrors the Postgres `skill` table.
+ * Tenant-wide feature switches - mirrors the Postgres `configuration` table.
+ * PRIMARY KEY (tenant_id)
+ */
+export interface ConfigurationTable {
+  tenant_id: string;
+  manifest: JsonbColumn<ConfigurationManifest>;
+  updated_at: string;
+}
+
+/**
+ * Configured skills - mirrors the Postgres `skill` table.
  * PRIMARY KEY (tenant_id, name)
  */
 export interface SkillTable {
@@ -233,8 +271,8 @@ export interface SkillTable {
 }
 
 /**
- * Configured sandbox provider — mirrors the Postgres `sandbox_provider` table.
- * PRIMARY KEY (tenant_id) — at most one row per tenant.
+ * Configured sandbox provider - mirrors the Postgres `sandbox_provider` table.
+ * PRIMARY KEY (tenant_id) - at most one row per tenant.
  */
 export interface SandboxProviderTable {
   tenant_id: string;
@@ -245,7 +283,7 @@ export interface SandboxProviderTable {
 }
 
 /**
- * Configured agents — mirrors the Postgres `agent` table.
+ * Configured agents - mirrors the Postgres `agent` table.
  * PRIMARY KEY (id); UNIQUE (tenant_id, name).
  */
 export interface AgentTable {
@@ -264,7 +302,7 @@ export interface AgentTable {
 }
 
 /**
- * Sandbox environments — mirrors Postgres `sandbox_environment`.
+ * Sandbox environments - mirrors Postgres `sandbox_environment`.
  * Partial unique (tenant_id, name) WHERE lifecycle_stage = 'active'.
  */
 export interface SandboxEnvironmentTable {
@@ -280,7 +318,7 @@ export interface SandboxEnvironmentTable {
 }
 
 /**
- * Immutable sandbox environment versions — mirrors Postgres.
+ * Immutable sandbox environment versions - mirrors Postgres.
  * UNIQUE (environment_id, version); FK → sandbox_environment ON DELETE CASCADE.
  */
 export interface SandboxEnvironmentVersionTable {
@@ -298,7 +336,7 @@ export interface SandboxEnvironmentVersionTable {
 }
 
 /**
- * Per-environment Daytona org secret refs — mirrors Postgres (no plaintext value).
+ * Per-environment Daytona org secret refs - mirrors Postgres (no plaintext value).
  */
 export interface SandboxEnvironmentSecretTable {
   id: string;
@@ -338,7 +376,7 @@ export interface ScheduleTable {
 }
 
 /**
- * One row per schedule run, pending or historical — mirrors the Postgres `schedule_run`
+ * One row per schedule run, pending or historical - mirrors the Postgres `schedule_run`
  * PRIMARY KEY (id); UNIQUE (tenant_id, schedule_id, name).
  */
 export interface ScheduleRunTable {
@@ -350,18 +388,19 @@ export interface ScheduleRunTable {
   /** the run name: `sched-<unixSeconds>` for cron, `manual-<token>` for run-now */
   name: string;
   scheduled_for: string;
-  /** `scheduled` | `triggered` | `failed` | `missed` — length ≤ 16 */
+  /** `scheduled` | `triggered` | `failed` | `missed` - length ≤ 16 */
   status: ScheduleRunStatus;
   created_by_subject: JsonbColumn<CreatedBySubject>;
   triggered_at: string | null;
   reason: string | null;
+  session_id: string | null;
   created_at: string;
   updated_at: string;
 }
 
 /**
  * PRIMARY KEY (id)
- * UNIQUE (tenant_id, name) — the natural lookup key;
+ * UNIQUE (tenant_id, name) - the natural lookup key;
  */
 export interface McpServerTable {
   /** application-generated (ulid); FK target, never re-derived from tenant_id/name */
@@ -384,7 +423,7 @@ export interface McpServerTable {
 
 /**
  * PRIMARY KEY (oauth_server_id, user_id)
- * No `tenant_id` — already scoped to tenant via the FK. Tokens are per harness user
+ * No `tenant_id` - already scoped to tenant via the FK. Tokens are per harness user
  * (`user_id` = `RequestContext.subject.id`); any tenant-scoped read resolves `oauth_server_id`
  * through mcp_server (by tenant_id + name) first.
  */
@@ -404,13 +443,15 @@ export interface OAuthPendingAuthorizationTable {
   /** FK -> mcp_server.id, ON DELETE CASCADE */
   oauth_server_id: string;
   user_id: string;
-  /** { mcp_server_url, code_verifier, return_to } — same writer/lifecycle, so merged into one column */
+  /** { mcp_server_url, code_verifier, return_to } - same writer/lifecycle, so merged into one column */
   auth_data: JsonbColumn<OAuthPendingAuthorizationData>;
   created_at: string;
 }
 
 export interface Database {
   session: SessionTable;
+  access_control: AccessControlTable;
+  memory_ingest_cursor: MemoryIngestCursorTable;
   turn: TurnTable;
   turn_thread: TurnThreadTable;
   turn_thread_context: TurnThreadContextTable;
@@ -420,6 +461,7 @@ export interface Database {
   thread_capability_state: ThreadCapabilityStateTable;
   model_provider: ModelProviderTable;
   web_search_provider: WebSearchProviderTable;
+  configuration: ConfigurationTable;
   skill: SkillTable;
   sandbox_provider: SandboxProviderTable;
   agent: AgentTable;

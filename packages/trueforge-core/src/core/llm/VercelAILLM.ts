@@ -34,9 +34,11 @@ import type {
   ChatCompletionTool,
 } from 'openai/resources/chat';
 import type { Logger } from 'winston';
-import { describeUnknownError, extractErrorLogFields } from '../util/errorLogFields';
+import { ModelProviderError } from '../errors';
+import { getOperationMetrics, httpStatusClass, type OutboundHttpStatusClass } from '../observability/operationMetrics';
+import { describeUnknownError, extractErrorLogFields, isReportableError } from '../util/errorLogFields';
 import { modelSsrfFetch } from '../util/outboundFetch';
-import type { ILLM, LLMCreateParams, LLMCreateParamsStreaming } from './ILLM';
+import type { ILLM, LLMCreateParams, LLMCreateParamsStreaming, LLMRequestOptions } from './ILLM';
 import {
   type CompletionUsage,
   type ExtendedChatCompletionChunk,
@@ -45,6 +47,7 @@ import {
   type RawAssistantMessageWithUsage,
   type ThinkingBlock,
 } from './LLMTypes';
+import { resolveMaxOutputTokens } from './usage';
 
 // ---------------------------------------------------------------------------
 // Public config
@@ -132,12 +135,6 @@ function compatibleModel(config: VercelAIProviderConfig): LanguageModel {
   if (baseUrl === undefined) {
     throw new Error(`Provider "${provider.type}" requires a baseUrl`);
   }
-  // More straightforward than mutating tool definitions for fine-grained tool streaming.
-  // TODO: fine-grained-tool-streaming-2025-05-14 is considered deprecated.
-  const outboundHeaders =
-    provider.type === 'truefoundry'
-      ? { ...headers, 'anthropic-beta': 'fine-grained-tool-streaming-2025-05-14' }
-      : headers;
   const client = createOpenAICompatible({
     name: provider.type,
     baseURL: baseUrl,
@@ -147,9 +144,68 @@ function compatibleModel(config: VercelAIProviderConfig): LanguageModel {
     supportsStructuredOutputs: true,
     // These endpoints omit token counts from streamed responses unless asked.
     includeUsage: true,
-    ...(Object.keys(outboundHeaders).length > 0 ? { headers: outboundHeaders } : {}),
+    ...(Object.keys(headers).length > 0 ? { headers } : {}),
   });
   return client(model.id);
+}
+
+/** Gateway header carrying stringified JSON metadata (TrueFoundry AI Gateway). */
+const X_TFY_METADATA = 'x-tfy-metadata';
+
+/**
+ * Merge client defaults with per-call headers/metadata.
+ * TrueFoundry also stamps anthropic-beta, forward-pings, and folds `metadata` into `x-tfy-metadata`.
+ */
+export function buildOutboundRequestHeaders(input: {
+  providerType: VercelAIProviderName;
+  clientHeaders: Record<string, string>;
+  options: LLMRequestOptions | undefined;
+}): Record<string, string> {
+  let headers: Record<string, string> = {
+    ...input.clientHeaders,
+    ...input.options?.headers,
+  };
+
+  if (input.providerType !== 'truefoundry') {
+    return headers;
+  }
+
+  // More straightforward than mutating tool definitions for fine-grained tool streaming.
+  // TODO: fine-grained-tool-streaming-2025-05-14 is considered deprecated.
+  headers = {
+    ...headers,
+    'anthropic-beta': 'fine-grained-tool-streaming-2025-05-14',
+    'x-tfy-forward-pings': 'true',
+  };
+
+  const metadata = input.options?.metadata;
+  if (metadata === undefined || Object.keys(metadata).length === 0) {
+    return headers;
+  }
+
+  let existing: Record<string, string> = {};
+  const withoutMetadata: Record<string, string> = {};
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() === X_TFY_METADATA) {
+      try {
+        const parsed: unknown = JSON.parse(value);
+        if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          existing = Object.fromEntries(
+            Object.entries(parsed).filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
+          );
+        }
+      } catch {
+        existing = {};
+      }
+      continue;
+    }
+    withoutMetadata[key] = value;
+  }
+
+  return {
+    ...withoutMetadata,
+    [X_TFY_METADATA]: JSON.stringify({ ...existing, ...metadata }),
+  };
 }
 
 export function buildLanguageModel(config: VercelAIProviderConfig): LanguageModel {
@@ -577,14 +633,6 @@ export function buildProviderOptions({
 // ---------------------------------------------------------------------------
 // Request conversion (OpenAI → SDK)
 // ---------------------------------------------------------------------------
-
-/** Prefers `max_completion_tokens`, falling back to the deprecated `max_tokens`. */
-export function resolveMaxOutputTokens(
-  body: Pick<ChatCompletionCreateParamsStreaming, 'max_completion_tokens'>,
-): number | undefined {
-  const limit: unknown = body.max_completion_tokens ?? Reflect.get(body, 'max_tokens');
-  return typeof limit === 'number' ? limit : undefined;
-}
 
 /** Parses the MIME type from a data URI (`data:<mime>;base64,...`). */
 export function parseMimeFromDataUri(uri: string): string | undefined {
@@ -1015,10 +1063,48 @@ export function describeStreamError(raw: unknown): string {
 }
 
 export function toStreamError(raw: unknown): Error {
-  if (raw instanceof Error) {
+  if (raw instanceof ModelProviderError) {
     return raw;
   }
-  return new Error(describeStreamError(raw), { cause: raw });
+  return new ModelProviderError(describeStreamError(raw), { cause: raw });
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'AbortError';
+}
+
+/** HTTP class from an AI SDK call error. Stream parts wrap that error once as `cause`. */
+function llmStatusClass(error: unknown): OutboundHttpStatusClass {
+  if (APICallError.isInstance(error)) {
+    return httpStatusClass(error.statusCode);
+  }
+  if (error instanceof Error && APICallError.isInstance(error.cause)) {
+    return httpStatusClass(error.cause.statusCode);
+  }
+  return 'none';
+}
+
+/**
+ * Labels for a stream create or read failure. Abort wins over the phase.
+ * An unrecognized stream part is `unknown`; every other read failure is `stream_part`.
+ */
+export function llmStreamErrorObservation({
+  error,
+  phase,
+  aborted,
+}: {
+  error: unknown;
+  phase: 'api_call' | 'stream_part';
+  aborted: boolean;
+}): { errorKind: 'api_call' | 'stream_part' | 'abort' | 'unknown'; statusClass: OutboundHttpStatusClass } {
+  const statusClass = llmStatusClass(error);
+  if (aborted || isAbortError(error)) {
+    return { errorKind: 'abort', statusClass };
+  }
+  if (error instanceof Error && error.message.startsWith('Unknown stream part type')) {
+    return { errorKind: 'unknown', statusClass };
+  }
+  return { errorKind: phase, statusClass };
 }
 
 export function mapFinishReason(reason: FinishReason): RawAssistantMessageWithUsage['finish_reason'] {
@@ -1394,6 +1480,7 @@ export class VercelAILLM implements ILLM {
 
   async *create(
     body: LLMCreateParamsStreaming,
+    options?: LLMRequestOptions,
   ): AsyncGenerator<ExtendedChatCompletionChunk, RawAssistantMessageWithUsage, unknown> {
     const { providerConfig } = this.config;
     const languageModel = buildLanguageModel(providerConfig);
@@ -1442,19 +1529,31 @@ export class VercelAILLM implements ILLM {
       abortSignal: this.signal,
     });
 
+    const requestHeaders = buildOutboundRequestHeaders({
+      providerType: provider.type,
+      clientHeaders: providerConfig.headers,
+      options,
+    });
+
     let streamResult;
     try {
       streamResult = streamText({
         ...streamTextArgs,
         ...(output !== undefined ? { output } : {}),
+        ...(Object.keys(requestHeaders).length > 0 ? { headers: requestHeaders } : {}),
       });
     } catch (error) {
+      this.recordStreamError({ error, phase: 'api_call' });
+      const streamError = toStreamError(error);
       if (this.signal?.aborted) {
-        this.logger.debug('LLM call aborted', extractErrorLogFields(error));
+        this.logger.debug('LLM call aborted', extractErrorLogFields(streamError));
       } else {
-        this.logger.error('Error creating streaming chat completion', extractErrorLogFields(error));
+        this.logger.error('Error creating streaming chat completion', {
+          ...extractErrorLogFields(streamError),
+          ...(isReportableError(error) ? { reportable_error: { error: streamError } } : {}),
+        });
       }
-      throw toStreamError(error);
+      throw streamError;
     }
 
     // Detached: warnings resolve at stream start, and a pending or rejected promise must never
@@ -1487,18 +1586,41 @@ export class VercelAILLM implements ILLM {
       result.output.source = `${provider.type}/${provider.name}/${model.name}`;
       return result;
     } catch (error) {
+      this.recordStreamError({ error, phase: 'stream_part' });
+      const streamError = toStreamError(error);
       if (this.signal?.aborted) {
-        this.logger.debug('LLM stream aborted', extractErrorLogFields(error));
+        this.logger.debug('LLM stream aborted', extractErrorLogFields(streamError));
       } else {
-        this.logger.error('Error reading LLM stream', extractErrorLogFields(error));
+        this.logger.error('Error reading LLM stream', {
+          ...extractErrorLogFields(streamError),
+          ...(isReportableError(error) ? { reportable_error: { error: streamError } } : {}),
+        });
       }
-      throw toStreamError(error);
+      throw streamError;
     }
   }
 
-  async createNonStream(body: LLMCreateParams): Promise<RawAssistantMessageWithUsage> {
-    // Drain the streaming generator — reuses the same accumulation and error handling path.
-    const llmStream = this.create({ ...body, stream: true });
+  private recordStreamError({ error, phase }: { error: unknown; phase: 'api_call' | 'stream_part' }): void {
+    const metrics = getOperationMetrics();
+    if (metrics === undefined) {
+      return;
+    }
+    const observation = llmStreamErrorObservation({
+      error,
+      phase,
+      aborted: this.signal?.aborted === true,
+    });
+    metrics.recordLlmStreamError({
+      providerType: this.config.providerConfig.provider.type,
+      errorKind: observation.errorKind,
+      statusClass: observation.statusClass,
+    });
+  }
+
+  async createNonStream(body: LLMCreateParams, options?: LLMRequestOptions): Promise<RawAssistantMessageWithUsage> {
+    // Implemented by draining the streaming path. If this switches to a real non-stream API,
+    // header and body timeouts must be much higher than streaming (TTFT-oriented) timeouts.
+    const llmStream = this.create({ ...body, stream: true }, options);
     let result = await llmStream.next();
     while (!result.done) {
       result = await llmStream.next();

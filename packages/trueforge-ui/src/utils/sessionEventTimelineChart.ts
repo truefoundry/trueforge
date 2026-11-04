@@ -132,9 +132,84 @@ export function formatTimelineAxisDuration(durationMs: number): string {
   return `${Number((durationMs / unit.divisorMs).toFixed(2))}${unit.suffix}`;
 }
 
-function getCleanAxisStepMs(totalMs: number): number {
+const DEFAULT_AXIS_TICK_TARGET = 8;
+const AXIS_TICK_PX = 120;
+
+export type TimelineTurnStretch = {
+  /** Pixels added so the turn bar reaches the minimum. Indexed by ordinal. */
+  extraPx: number[];
+  /** Stretches offsets inside the turn. `1` when the bar is already wide enough. */
+  scale: number[];
+  /** Sum of `extraPx` before this ordinal. */
+  leadingExtraPx: number[];
+};
+
+/**
+ * Give every turn at least `minTurnBarPx` without changing how long turns share the pane.
+ * Short turns stretch internally; later turns shift right by that extra width.
+ */
+export function getTimelineTurnStretch({
+  durationsMs,
+  msPerPx,
+  minTurnBarPx,
+  markerPx,
+}: {
+  durationsMs: number[];
+  msPerPx: number;
+  minTurnBarPx: number;
+  markerPx: number;
+}): TimelineTurnStretch {
+  const extraPx: number[] = [];
+  const scale: number[] = [];
+  const leadingExtraPx: number[] = [];
+  let leading = 0;
+  for (const durationMs of durationsMs) {
+    leadingExtraPx.push(leading);
+    const durationPx = msPerPx > 0 ? Math.max(0, durationMs) / msPerPx : 0;
+    const extra = Math.max(0, minTurnBarPx - (durationPx + markerPx));
+    extraPx.push(extra);
+    scale.push(durationPx > 0 ? (durationPx + extra) / durationPx : 1);
+    leading += extra;
+  }
+  return { extraPx, scale, leadingExtraPx };
+}
+
+/** Map a real timestamp onto the chart axis, including turn gaps and short-turn stretch. */
+export function timelineChartMs({
+  realMs,
+  turnStartMs,
+  turnEndMs,
+  ordinal,
+  stretch,
+  msPerPx,
+  turnGapPx,
+}: {
+  realMs: number;
+  turnStartMs: number;
+  turnEndMs: number;
+  ordinal: number;
+  stretch: TimelineTurnStretch;
+  msPerPx: number;
+  turnGapPx: number;
+}): number {
+  const scaleFactor = stretch.scale[ordinal] ?? 1;
+  const shiftMs = (stretch.leadingExtraPx[ordinal] ?? 0) * msPerPx + ordinal * turnGapPx * msPerPx;
+  if (realMs < turnStartMs) return realMs + shiftMs;
+  if (realMs > turnEndMs) {
+    return turnStartMs + (turnEndMs - turnStartMs) * scaleFactor + shiftMs + (realMs - turnEndMs);
+  }
+  return turnStartMs + (realMs - turnStartMs) * scaleFactor + shiftMs;
+}
+
+/** About one label per 120px, and never fewer than the default eight. */
+export function getTimelineAxisTickTarget(chartWidthPx?: number): number {
+  if (chartWidthPx == null || chartWidthPx <= 0) return DEFAULT_AXIS_TICK_TARGET;
+  return Math.max(DEFAULT_AXIS_TICK_TARGET, Math.round(chartWidthPx / AXIS_TICK_PX));
+}
+
+function getCleanAxisStepMs({ totalMs, tickTarget }: { totalMs: number; tickTarget: number }): number {
   const { divisorMs } = timelineAxisUnit(totalMs);
-  const target = totalMs / divisorMs / 8;
+  const target = totalMs / divisorMs / tickTarget;
   if (divisorMs >= 60_000 && target < 1) return Math.max(0.25, Math.ceil(target * 4) / 4) * divisorMs;
   const integerTarget = Math.max(1, target);
   const magnitude = 10 ** Math.floor(Math.log10(integerTarget));
@@ -148,12 +223,14 @@ export function buildTimelineAxisTicks({
   activeTotalMs,
   turnStartsMs,
   turnGapMs,
+  chartWidthPx,
 }: {
   activeTotalMs: number;
   turnStartsMs: number[];
   turnGapMs: number;
+  chartWidthPx?: number;
 }): Array<{ value: number }> {
-  const stepMs = getCleanAxisStepMs(activeTotalMs);
+  const stepMs = getCleanAxisStepMs({ totalMs: activeTotalMs, tickTarget: getTimelineAxisTickTarget(chartWidthPx) });
   const activeTicks: number[] = [];
   for (let activeMs = 0; activeMs < activeTotalMs; activeMs += stepMs) activeTicks.push(activeMs);
   const lastRegularTick = activeTicks.at(-1);

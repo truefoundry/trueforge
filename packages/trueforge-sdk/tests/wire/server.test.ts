@@ -11,10 +11,18 @@ describe("ServerClient", () => {
 
         const rawResponseBody = {
             data: {
-                sandbox: { enabled: true },
-                settings: { enabled: true },
+                sandbox: { enabled: true, environments: { enabled: true } },
+                session_sharing: { enabled: true },
+                settings: {
+                    mcp_servers: { enabled: true, manage_providers: true },
+                    memory: { enabled: true, manage_providers: true },
+                    model_providers: { enabled: true, manage_providers: true },
+                    sandbox_providers: { enabled: true, manage_providers: true },
+                    skills: { enabled: true, manage_providers: true },
+                    web_search: { enabled: true, manage_providers: true },
+                },
                 skill: { enabled: true, reason: "reason" },
-                web_search: { enabled: true },
+                web_search: { enabled: true, reason: "reason" },
             },
         };
 
@@ -31,9 +39,38 @@ describe("ServerClient", () => {
             data: {
                 sandbox: {
                     enabled: true,
+                    environments: {
+                        enabled: true,
+                    },
+                },
+                sessionSharing: {
+                    enabled: true,
                 },
                 settings: {
-                    enabled: true,
+                    mcpServers: {
+                        enabled: true,
+                        manageProviders: true,
+                    },
+                    memory: {
+                        enabled: true,
+                        manageProviders: true,
+                    },
+                    modelProviders: {
+                        enabled: true,
+                        manageProviders: true,
+                    },
+                    sandboxProviders: {
+                        enabled: true,
+                        manageProviders: true,
+                    },
+                    skills: {
+                        enabled: true,
+                        manageProviders: true,
+                    },
+                    webSearch: {
+                        enabled: true,
+                        manageProviders: true,
+                    },
                 },
                 skill: {
                     enabled: true,
@@ -41,6 +78,7 @@ describe("ServerClient", () => {
                 },
                 webSearch: {
                     enabled: true,
+                    reason: "reason",
                 },
             },
         });

@@ -35,15 +35,14 @@ export type CreateHarnessChatServerOptions = CreateTrueForgeClientOptions & {
 /** UI session with create-agent intent for resume chrome. */
 export type HarnessUiSession = Session<HarnessAgentSpec> & { isCreateAgent: boolean };
 
-export type HarnessCreateSessionRequest = CreateSessionRequest<HarnessAgentSpec> & {
-  metadata?: Record<string, string>;
-};
+export type HarnessCreateSessionRequest = CreateSessionRequest<HarnessAgentSpec>;
 
 function toUiMcpServer(server: TrueForgeApi.McpServer): HarnessMcpServerMount {
   return server;
 }
 
 function toUiSkill(skill: TrueForgeApi.Skill): HarnessSkillMount {
+  // Wire Skill is name-only. Catalog reconcile restores picker id + display name.
   return { name: skill.name, preload: skill.preload === true };
 }
 
@@ -104,6 +103,7 @@ function toUiSession(session: TrueForgeApi.Session): HarnessUiSession {
     isMutable: session.agent.type === 'inline',
     isCreateAgent: readSessionIsCreateAgent(session.metadata),
     shared: session.shared,
+    createdBy: { id: session.createdBySubject.subjectId, displayName: session.createdBySubject.subjectDisplayName },
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
     metrics: {
@@ -237,6 +237,7 @@ export function createHarnessChatServer(
         ...(request.pageToken === undefined ? {} : { pageToken: request.pageToken }),
         ...(request.agentId === undefined || request.agentId.length === 0 ? {} : { agentId: request.agentId }),
         ...(request.createdByMe === undefined ? {} : { createdByMe: request.createdByMe }),
+        ...(request.metadata === undefined ? {} : { metadata: request.metadata }),
       });
       return toListResult(page, toUiSession);
     },

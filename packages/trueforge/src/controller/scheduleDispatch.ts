@@ -10,7 +10,6 @@ import {
 import type { WithTransaction } from '../db/transaction';
 import { nextTriggerAfter } from '../runtime/cron';
 import { InvalidCronError, type ScheduleRunStatus } from '../schemas/schedule';
-import { captureCriticalException } from '../sentry';
 import type { ControlLoop } from './Controller';
 import { internalTrueForgeClient } from './internalTrueForgeClient';
 
@@ -86,15 +85,17 @@ export interface PreparedScheduleTurn {
   agent: AgentRecord;
 }
 
-export async function startScheduleRun(params: {
+export async function startScheduleRun<TTransaction>(params: {
   item: ScheduleDispatchItem;
   sessions: Sessions;
   agentStore: IAgentStore;
+  scheduleStore: Pick<IScheduleStore<TTransaction>, 'updateRun'>;
 }): Promise<PreparedScheduleTurn | undefined> {
   const {
     item: { run, schedule },
     sessions,
     agentStore,
+    scheduleStore,
   } = params;
 
   const named = await agentStore.getAgent({ tenant_id: schedule.tenant_id, name: schedule.agent_name });
@@ -108,6 +109,14 @@ export async function startScheduleRun(params: {
     created_by_subject: schedule.created_by_subject,
     agent: { type: 'reference', id: named.id, name: named.name },
     source: { type: 'schedule', id: schedule.id, run_id: run.id },
+  });
+
+  // This is not atomic with session creation so a failure here leaves the run unlinked.
+  // Runs before the idempotency check so retries relink it, at the cost of redundant writes on re-delivery.
+  await scheduleStore.updateRun({
+    tenant_id: schedule.tenant_id,
+    id: run.id,
+    session_id: session.session_id,
   });
 
   // idempotency check
@@ -164,7 +173,7 @@ async function finishScheduledRun<TTransaction>(params: {
   await withTransaction(async txn => {
     const latest = await store.getScheduleForUpdate({ tenant_id: run.tenant_id, id: run.schedule_id }, txn);
 
-    const updated = await store.updateRunStatus(
+    const updated = await store.updateRun(
       { tenant_id: run.tenant_id, id: run.id, status, reason: reason ?? null },
       txn,
     );
@@ -285,13 +294,13 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
           schedule_id: schedule.id,
           run_id: run.id,
           error,
-        });
-        captureCriticalException(error, {
-          tags: { module: 'scheduleDispatch', operation: 'handoff' },
-          extra: {
-            tenant_id: run.tenant_id,
-            schedule_id: schedule.id,
-            run_id: run.id,
+          reportable_error: {
+            error,
+            extra: {
+              tenant_id: run.tenant_id,
+              schedule_id: schedule.id,
+              run_id: run.id,
+            },
           },
         });
         await finishScheduledRun({
@@ -319,13 +328,13 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
         schedule_id: run.schedule_id,
         run_id: run.id,
         error,
-      });
-      captureCriticalException(error, {
-        tags: { module: 'scheduleDispatch', operation: 'processRun' },
-        extra: {
-          tenant_id: run.tenant_id,
-          schedule_id: run.schedule_id,
-          run_id: run.id,
+        reportable_error: {
+          error,
+          extra: {
+            tenant_id: run.tenant_id,
+            schedule_id: run.schedule_id,
+            run_id: run.id,
+          },
         },
       });
     }

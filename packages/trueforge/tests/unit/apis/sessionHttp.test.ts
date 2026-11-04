@@ -1,6 +1,7 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { AgentSpecSchema, Sessions } from '@truefoundry/trueforge-core/agent-session';
 import { RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
+import type { Transaction } from 'kysely';
 import { createClient } from 'redis';
 import { createLogger } from 'winston';
 import { makeCreateTurnInput } from '../../../../trueforge-core/tests/agent-session/testHelpers';
@@ -14,8 +15,10 @@ import { createTurnsRouter } from '../../../src/apis/turns';
 import { TrueForgeAuthorizer, type Authorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
+import { SqliteAccessControlStore } from '../../../src/db/sqlite/access-control-store/SqliteAccessControlStore';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
+import { SqliteConfigurationStore } from '../../../src/db/sqlite/configuration-store/SqliteConfigurationStore';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
@@ -24,11 +27,13 @@ import { SqliteSessionMetricsStore } from '../../../src/db/sqlite/session-metric
 import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteSessionStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
+import type { Database } from '../../../src/db/sqlite/types';
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
+import { EmptyUserStore } from '../../../src/db/userStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
 import { McpServerResolver } from '../../../src/runtime/McpServerResolver';
-import { ListSessionsResponseSchema } from '../../../src/schemas/session';
+import { GetSessionResponseSchema, ListSessionsResponseSchema } from '../../../src/schemas/session';
 import {
   GetSessionMetricsChartDataResponseSchema,
   GetSessionMetricsChartResponseSchema,
@@ -73,9 +78,11 @@ const denyAllAuthorizer: Authorizer = {
 describe('sessions HTTP agent binding', () => {
   let app: OpenAPIHono;
   let agentStore: SqliteAgentStore;
+  let configurationStore: SqliteConfigurationStore;
+  let webSearchProviderStore: SqliteWebSearchProviderStore;
   let sessionStore: SqliteSessionStore;
   let sessionMetricsStore: SqliteSessionMetricsStore;
-  let sessionDeps: SessionsRouterDeps;
+  let sessionDeps: SessionsRouterDeps<Transaction<Database>>;
   let resolveModelProviderStore: jest.Mock;
   let resolveMcpServerStore: jest.Mock;
   let resolveSkillStore: jest.Mock;
@@ -91,7 +98,8 @@ describe('sessions HTTP agent binding', () => {
     const skillStore = new SqliteSkillStore(db);
     const sandboxProviderStore = new SqliteSandboxProviderStore(db);
     const sandboxEnvironmentStore = new SqliteSandboxEnvironmentStore(db);
-    const webSearchProviderStore = new SqliteWebSearchProviderStore(db);
+    webSearchProviderStore = new SqliteWebSearchProviderStore(db);
+    configurationStore = new SqliteConfigurationStore(db);
     agentStore = new SqliteAgentStore(db);
 
     await modelProviderStore.upsertProvider({
@@ -114,9 +122,12 @@ describe('sessions HTTP agent binding', () => {
     resolveModelProviderStore = jest.fn(() => modelProviderStore);
     resolveMcpServerStore = jest.fn(() => mcpServerStore);
     resolveSkillStore = jest.fn(() => skillStore);
-    const deps: SessionsRouterDeps = {
+    const deps: SessionsRouterDeps<Transaction<Database>> = {
       sessions,
       sessionStore,
+      accessControlStore: new SqliteAccessControlStore(db),
+      userStore: new EmptyUserStore(),
+      withTransaction: callback => db.transaction().execute(callback),
       activeTurns: new ActiveTurnRegistry(),
       resolveModelProviderStore,
       resolveMcpServerStore,
@@ -125,6 +136,7 @@ describe('sessions HTTP agent binding', () => {
       resolveSandboxProviderStore: () => sandboxProviderStore,
       sandboxEnvironmentStore,
       resolveWebSearchProviderStore: () => webSearchProviderStore,
+      resolveConfigurationStore: () => configurationStore,
       redis: createClient(),
       requestReplyRouter: new RequestReplyRouter(),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
@@ -140,6 +152,7 @@ describe('sessions HTTP agent binding', () => {
       createTurnsRouter({
         sessions,
         sessionStore,
+        accessControlStore: new SqliteAccessControlStore(db),
         activeTurns: deps.activeTurns,
         resolveModelProviderStore: () => modelProviderStore,
         resolveMcpServerResolver: () =>
@@ -149,6 +162,7 @@ describe('sessions HTTP agent binding', () => {
             clientName: 'test-client',
           }),
         resolveTurnSkillsStore: () => skillStore,
+        resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
         resolveAgentStore: () => agentStore,
         eventSubscriptions: new EventSubscriptionRegistry(undefined),
         resolveSandboxProviderStore: () => sandboxProviderStore,
@@ -194,6 +208,22 @@ describe('sessions HTTP agent binding', () => {
       subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
     });
     expect(json.data.metrics).toEqual({ total_duration_ms: 0, total_turns: 0 });
+  });
+
+  it('returns last_turn_details on get and list', async () => {
+    const created = await app.request('/', jsonInit('POST', { agent: { spec: inlineSpec } }));
+    expect(created.status).toBe(201);
+    const session = GetSessionResponseSchema.parse(await created.json()).data;
+    expect(session.last_turn_details).toBeNull();
+
+    await sessionStore.createTurn(makeCreateTurnInput({ sessionId: session.id, turnId: 'turn-1' }));
+    const expected = { id: 'turn-1', state: { status: 'running' } };
+
+    const fetched = await app.request(`/${session.id}`);
+    expect(GetSessionResponseSchema.parse(await fetched.json()).data.last_turn_details).toEqual(expected);
+
+    const listed = ListSessionsResponseSchema.parse(await (await app.request('/')).json()).data;
+    expect(listed.find(item => item.id === session.id)?.last_turn_details).toEqual(expected);
   });
 
   it('returns 404 when creating a session for an unknown agent name', async () => {
@@ -840,6 +870,77 @@ describe('sessions HTTP agent binding', () => {
     expect(getOrCreate.status).toBe(404);
     expect(await getOrCreate.json()).toEqual({ error: { message: `Agent not found: ${agent.name}` } });
     expect(deniedCanAccessAgent.mock.calls.map(([input]) => input.action)).toEqual(['use', 'use']);
+  });
+
+  it('still runs a stored web-search agent after the tenant turns web search off', async () => {
+    const agent = await agentStore.createAgent({
+      tenant_id: 'default',
+      created_by_subject: {
+        subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+        subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+        subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+      },
+      name: 'web-search-agent',
+      description: 'Test agent.',
+      manifest: AgentSpecSchema.parse({
+        model: { name: 'anthropic/claude-sonnet-4-6' },
+        instructions: 'searches',
+        config: { web_search: { enabled: true } },
+      }),
+      external_id: null,
+    });
+    await webSearchProviderStore.upsertProvider({
+      tenant_id: 'default',
+      manifest: { type: 'parallel', auth: { api_key: 'parallel-key' } },
+    });
+
+    await configurationStore.upsertConfiguration({
+      tenant_id: 'default',
+      manifest: { web_search: { enabled: false } },
+    });
+    try {
+      // The agent was saved while web search was allowed, so its stored spec is grandfathered.
+      const grandfathered = await app.request('/', jsonInit('POST', { agent: { name: agent.name } }));
+      expect(grandfathered.status).toBe(201);
+
+      // Newly asking for web search in an inline spec is still refused.
+      const blocked = await app.request(
+        '/',
+        jsonInit('POST', {
+          agent: { spec: { ...inlineSpec, config: { ...inlineSpec.config, web_search: { enabled: true } } } },
+        }),
+      );
+      expect(blocked.status).toBe(422);
+    } finally {
+      await configurationStore.upsertConfiguration({
+        tenant_id: 'default',
+        manifest: { web_search: { enabled: true } },
+      });
+    }
+
+    const allowed = await app.request('/', jsonInit('POST', { agent: { name: agent.name } }));
+    expect(allowed.status).toBe(201);
+  });
+
+  it('validates a named agent spec the same way it validates an inline one', async () => {
+    const agent = await agentStore.createAgent({
+      tenant_id: 'default',
+      created_by_subject: {
+        subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+        subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+        subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+      },
+      name: 'stale-model-agent',
+      description: 'Test agent.',
+      manifest: AgentSpecSchema.parse({
+        model: { name: 'anthropic/model-that-was-removed' },
+        instructions: 'test',
+      }),
+      external_id: null,
+    });
+
+    const created = await app.request('/', jsonInit('POST', { agent: { name: agent.name } }));
+    expect(created.status).toBe(422);
   });
 
   it('rejects create bodies that mix name and AgentSpec fields', async () => {

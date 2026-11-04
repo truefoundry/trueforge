@@ -20,7 +20,7 @@ describe('createTrueForgeServer', () => {
     });
 
     const capabilities = {
-      data: { sandbox: { enabled: true }, skill: { enabled: true } },
+      data: { sandbox: { enabled: true, environments: { enabled: true } }, skill: { enabled: true } },
     };
     const getCapabilities = vi.fn(async () => capabilities);
     const getModels = vi.fn(async () => [
@@ -186,7 +186,7 @@ describe('createTrueForgeServer', () => {
     const server = createTrueForgeServer({
       chatServer,
       getCapabilities: async () => ({
-        data: { sandbox: { enabled: false }, skill: { enabled: false } },
+        data: { sandbox: { enabled: false, environments: { enabled: false } }, skill: { enabled: false } },
       }),
       getModels: async () => [],
       getSkills: async () => [],

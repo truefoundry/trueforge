@@ -1,5 +1,6 @@
 import type { MappedMCPTool } from '../../../src/core/mcp/convertMCPServers';
 import { executeToolCalls } from '../../../src/core/mcp/executeToolCalls';
+import { toolResultResponse } from '../../../src/core/mcp/IMCPServer';
 import { makeMockIMCPServer } from '../harnessMocks';
 
 describe('executeToolCalls', () => {
@@ -34,5 +35,36 @@ describe('executeToolCalls', () => {
     expect(toolCallResults).toHaveLength(1);
     expect(toolCallResults[0]?.failure).toBe(true);
     expect(toolCallResults[0]?.message.content).toContain('Failed to parse tool call arguments as JSON');
+  });
+
+  it('keeps failure false when the tool result is an error', async () => {
+    const toolSet = makeMockIMCPServer({ name: 'srv', preload: true });
+    toolSet.callTool = jest.fn(() => Promise.resolve(toolResultResponse({ text: 'bad', isError: true })));
+    const toolMapping = new Map<string, MappedMCPTool>([['search', { toolSet, originalToolName: 'search' }]]);
+
+    const { toolCallResults } = await executeToolCalls({
+      assistantMessage: {
+        role: 'assistant',
+        content: null,
+        tool_calls: [
+          {
+            id: 'call_1',
+            type: 'function',
+            function: { name: 'search', arguments: '{}' },
+            tool_info: {
+              type: 'mcp',
+              mcp_server_id: 'srv',
+              mcp_server_name: 'srv',
+              original_tool_name: 'search',
+            },
+          },
+        ],
+      },
+      toolMapping,
+      threadId: 'thread-1',
+      approvalDecisions: new Map(),
+    });
+
+    expect(toolCallResults[0]?.failure).toBe(false);
   });
 });

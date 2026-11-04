@@ -3,7 +3,7 @@ import type { IMcpServerStore, McpServerRecord } from '../../../src/db/mcpServer
 import type { IModelProviderStore, ModelProviderRecord } from '../../../src/db/modelProviderStore';
 import type { IOAuthClientStore } from '../../../src/mcp/auth/types';
 import type { IMcpServerResolver } from '../../../src/runtime/McpServerResolver';
-import { TFG_METADATA_PREFIX, X_TFY_METADATA } from '../../../src/truefoundry/gatewayMetadata';
+import { TFG_METADATA_PREFIX, X_TFY_CONVERSATION_ID, X_TFY_METADATA } from '../../../src/truefoundry/gatewayMetadata';
 import { InlineMcpServerStore } from '../../../src/truefoundry/InlineMcpServerStore';
 import { InlineModelProviderStore } from '../../../src/truefoundry/InlineModelProviderStore';
 import {
@@ -213,7 +213,7 @@ describe('InlineModelProviderStore', () => {
     expect(models).toEqual([]);
   });
 
-  it('adds only x-tfy-metadata on inline invokes, since the manifest already carries the api_key', async () => {
+  it('adds gateway metadata headers on inline invokes, since the manifest already carries the api_key', async () => {
     const { store, inner } = modelProviderStoreWith({ 'tfy-gateway': GATEWAY_PROVIDER });
     const record = { ...registryProvider, name: 'tfy-gateway' };
 
@@ -227,7 +227,8 @@ describe('InlineModelProviderStore', () => {
       },
     });
 
-    expect(Object.keys(headers)).toEqual([X_TFY_METADATA]);
+    expect(Object.keys(headers).sort()).toEqual([X_TFY_CONVERSATION_ID, X_TFY_METADATA].sort());
+    expect(headers[X_TFY_CONVERSATION_ID]).toBe('sess-1');
     expect(JSON.parse(headers[X_TFY_METADATA] ?? '')).toMatchObject({
       env: 'prod',
       [`${TFG_METADATA_PREFIX}.session_id`]: 'sess-1',
@@ -276,6 +277,7 @@ describe('InlineMcpServerStore', () => {
     expect(headers).toEqual({
       Authorization: 'Bearer saas-token',
       [X_TFY_METADATA]: expect.any(String),
+      [X_TFY_CONVERSATION_ID]: 'sess-1',
     });
     expect(JSON.parse((headers as Record<string, string>)[X_TFY_METADATA] ?? '')).toMatchObject({
       env: 'prod',

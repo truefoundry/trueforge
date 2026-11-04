@@ -179,28 +179,33 @@ function ancestorChainFromTurns(turns: TurnFixture[], anchorTurnId: string): Tur
   return chain;
 }
 
+function turnCreatedItem(turn: TurnFixture): SessionEventItem {
+  return {
+    turnId: turn.id,
+    event: {
+      type: 'turn.created',
+      id: `created-${turn.id}`,
+      turnId: turn.id,
+      ...(turn.input === undefined ? {} : { input: turn.input }),
+      state: { status: 'running' },
+      createdAt: turn.createdAt,
+      ...(turn.previousTurnId === undefined ? {} : { previousTurnId: turn.previousTurnId }),
+    },
+  };
+}
+
 /**
  * Builds session-level event items from per-turn mocks — accepts ASC or DESC
- * listTurns order; running turns excluded (matches session.listEvents). An
- * anchor selects that turn's ancestor chain, not a chronological prefix.
+ * listTurns order. Finished turns include `turn.done`. A running tip is an open
+ * `turn.created` without its content events, which `listTurnEvents` supplies.
+ * An anchor selects that turn's ancestor chain, not a chronological prefix.
  */
 function sessionEventItemsFromTurns(turns: TurnFixture[], lastTurnId?: string): SessionEventItem[] {
   const chain = lastTurnId == null ? toOldestFirstTurns(turns) : ancestorChainFromTurns(turns, lastTurnId);
 
   const items: SessionEventItem[] = [];
   for (const turn of chain) {
-    items.push({
-      turnId: turn.id,
-      event: {
-        type: 'turn.created',
-        id: `created-${turn.id}`,
-        turnId: turn.id,
-        ...(turn.input === undefined ? {} : { input: turn.input }),
-        state: { status: 'running' },
-        createdAt: turn.createdAt,
-        ...(turn.previousTurnId === undefined ? {} : { previousTurnId: turn.previousTurnId }),
-      },
-    });
+    items.push(turnCreatedItem(turn));
     for (const event of turn.events) {
       items.push({ turnId: turn.id, event });
     }
@@ -213,6 +218,17 @@ function sessionEventItemsFromTurns(turns: TurnFixture[], lastTurnId?: string): 
         createdAt: turn.createdAt,
       },
     });
+  }
+
+  if (lastTurnId == null) {
+    for (const turn of turns) {
+      if (turn.state.status !== 'running' || chain.some(done => done.id === turn.id)) {
+        continue;
+      }
+      // Open tip only. Content stays on listTurnEvents so convertTurnsToThreadMessages
+      // attributes it once when it hydrates the running turn.
+      items.push(turnCreatedItem(turn));
+    }
   }
   return items;
 }
@@ -912,6 +928,51 @@ describe('convertTurnMessages', () => {
       expect(result.runningTurn).toBe(runningTurn);
       expect(result.unstable_resume).toBe(true);
       expect(result.messages.at(-1)?.role).toBe('assistant');
+    });
+
+    it('projects open-tip assistant content when listEvents already includes tip events', async () => {
+      const tipMessage = modelMessage({
+        id: 'm-tip',
+        threadId: ROOT_THREAD_ID,
+        content: 'partial in-flight reply',
+      });
+      const runningTurn = {
+        id: 'turn-running',
+        sessionId: SESSION_ID,
+        state: { status: 'running' as const },
+        createdAt,
+        input: [{ type: 'user.message' as const, content: 'in flight' }],
+      };
+      const items: SessionEventItem[] = [
+        {
+          turnId: 'turn-running',
+          event: {
+            type: 'turn.created',
+            id: 'evt-c-running',
+            turnId: 'turn-running',
+            input: [{ type: 'user.message', content: 'in flight' }],
+            state: { status: 'running' },
+            createdAt,
+          },
+        },
+        { turnId: 'turn-running', event: tipMessage },
+      ];
+      const server = {
+        listTurns: async () => ({ data: [runningTurn] }),
+        getTurn: async () => runningTurn,
+        listEvents: sessionEventsPage(items),
+        // Same tip events as listEvents — beforeCount slice would attribute nothing.
+        listTurnEvents: async () => ({ data: [tipMessage] }),
+      } as unknown as AgentChatServer;
+
+      const result = await convertTurnsToThreadMessages(server, SESSION_ID);
+
+      expect(result.runningTurn?.id).toBe('turn-running');
+      expect(result.messages).toHaveLength(2);
+      expect(result.messages[0]).toMatchObject({ role: 'user', id: 'turn-running-user' });
+      expect(result.messages[1]?.role).toBe('assistant');
+      const texts = (result.messages[1]?.content ?? []).filter(part => part.type === 'text').map(part => part.text);
+      expect(texts).toEqual(['partial in-flight reply']);
     });
 
     it('merges continuation turns without user input into the last assistant message', async () => {
@@ -2884,7 +2945,7 @@ describe('buildSnapshotFromSessionEvents', () => {
     expect(messages[1]?.createdAt).toEqual(new Date(turnCompletedAt));
   });
 
-  it('detects and attaches the running turn without events', async () => {
+  it('does not attach a running turn that listEvents omits', async () => {
     const runningTurn = {
       id: 't2',
       state: { status: 'running' },
@@ -2917,20 +2978,14 @@ describe('buildSnapshotFromSessionEvents', () => {
           createdAt,
         } as TurnDoneEvent,
       },
-      // t2 (running) has no events — it is excluded from session-level listEvents
     ];
 
     const snapshot = await buildSnapshotFromSessionEvents(mockServerWithEvents([runningTurn], items), SESSION_ID);
 
     expect(snapshot.turns).toHaveLength(1);
     expect(snapshot.turns[0]?.id).toBe('t1');
-    expect(snapshot.runningTurn).toBe(runningTurn);
-    expect(snapshot.unstable_resume).toBe(true);
-    expect(snapshot.groupRootBaseline).toEqual(['m1']);
-    expect(snapshot.pendingUser).toMatchObject({
-      turnId: 't2',
-      content: 'in progress',
-    });
+    expect(snapshot.runningTurn).toBeUndefined();
+    expect(snapshot.pendingUser).toBeUndefined();
   });
 
   it('baselines all prior root model messages when resuming a new user tip', async () => {
@@ -3163,10 +3218,10 @@ describe('buildSnapshotFromSessionEvents', () => {
       progressSnapshots.push(snap.turns.length),
     );
 
-    expect(progressSnapshots).toEqual([1, 2]);
+    expect(progressSnapshots).toEqual([1, 2, 2]);
   });
 
-  it('falls back to listTurns({ limit: 1 }) when listEvents omits the running tip', async () => {
+  it('does not call listTurns when listEvents has no open tip', async () => {
     const listTurns = vi.fn(async () => ({
       data: [
         {
@@ -3187,15 +3242,73 @@ describe('buildSnapshotFromSessionEvents', () => {
     } as unknown as AgentChatServer;
 
     const snapshot = await buildSnapshotFromSessionEvents(server, SESSION_ID);
-    expect(listTurns).toHaveBeenCalledWith({ sessionId: SESSION_ID, limit: 1 });
+    expect(listTurns).not.toHaveBeenCalled();
+    expect(snapshot.runningTurn).toBeUndefined();
+    expect(snapshot.pendingUser).toBeUndefined();
+  });
+
+  it('publishes the open tip before getTurn resolves', async () => {
+    const progress: SessionSnapshot[] = [];
+    let resolveGetTurn: (turn: Turn) => void = () => undefined;
+    const getTurn = vi.fn(
+      () =>
+        new Promise<Turn>(resolve => {
+          resolveGetTurn = resolve;
+        }),
+    );
+    const items: SessionEventItem[] = [
+      {
+        turnId: 't-running',
+        event: {
+          type: 'turn.created',
+          id: 'evt-c-running',
+          turnId: 't-running',
+          input: [{ type: 'user.message', content: 'now' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+    ];
+    const listTurns = vi.fn(async () => ({ data: [] }));
+    const server = {
+      listTurns,
+      getTurn,
+      listEvents: sessionEventsPage(items),
+      listTurnEvents: async () => ({ data: [] }),
+    } as unknown as AgentChatServer;
+
+    let notifyProgress: () => void = () => undefined;
+    const progressed = new Promise<void>(resolve => {
+      notifyProgress = resolve;
+    });
+    const pending = buildSnapshotFromSessionEvents(server, SESSION_ID, snap => {
+      progress.push(snap);
+      if (snap.pendingUser != null) {
+        notifyProgress();
+      }
+    });
+
+    await progressed;
+    expect(getTurn).toHaveBeenCalledWith({ sessionId: SESSION_ID, turnId: 't-running' });
+    expect(progress.at(-1)?.pendingUser?.content).toBe('now');
+    expect(progress.at(-1)?.runningTurn?.id).toBe('t-running');
+    expect(listTurns).not.toHaveBeenCalled();
+
+    resolveGetTurn({
+      id: 't-running',
+      sessionId: SESSION_ID,
+      state: { status: 'running' },
+      input: [{ type: 'user.message', content: 'now' }],
+      createdAt,
+    });
+    const snapshot = await pending;
     expect(snapshot.runningTurn?.id).toBe('t-running');
     expect(snapshot.pendingUser?.content).toBe('now');
   });
 
   it('attaches an open tip from events when listTurns is oldest-first and clears answered ask-user', async () => {
-    // Trueforge listTurns is ASC: limit:1 returns the oldest done turn even
-    // while a later tip is still running. Tip detection must use the open
-    // turn.created in listEvents (which includes running turns).
+    // listEvents includes the running turn. Tip detection uses the open
+    // turn.created, because listTurns is oldest-first.
     const oldestDoneTurn = {
       id: 't-pause',
       sessionId: SESSION_ID,
@@ -3474,6 +3587,81 @@ describe('buildSnapshotFromSessionEvents', () => {
     }
   });
 
+  it('keeps the painted user message when the open tip finished before getTurn', async () => {
+    const finishedTip = {
+      id: 't2',
+      sessionId: SESSION_ID,
+      state: { status: 'done', requiredActions: [], completedAt: createdAt },
+      input: [{ type: 'user.message', content: 'what is 2+2' }],
+      createdAt,
+    } as unknown as Turn;
+
+    const items: SessionEventItem[] = [
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.created',
+          id: 'evt-c1',
+          turnId: 't1',
+          input: [{ type: 'user.message', content: 'hello' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      {
+        turnId: 't1',
+        event: modelMessage({ id: 'm1', threadId: ROOT_THREAD_ID, content: 'hi' }),
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.done',
+          id: 'evt-d1',
+          state: { status: 'done', requiredActions: [], completedAt: createdAt },
+          createdAt,
+        } as TurnDoneEvent,
+      },
+      {
+        turnId: 't2',
+        event: {
+          type: 'turn.created',
+          id: 'evt-c2',
+          turnId: 't2',
+          previousTurnId: 't1',
+          input: [{ type: 'user.message', content: 'what is 2+2' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      {
+        turnId: 't2',
+        event: modelMessage({ id: 'm2', threadId: ROOT_THREAD_ID, content: '4' }),
+      },
+    ];
+
+    const progress: SessionSnapshot[] = [];
+    const server = {
+      listTurns: vi.fn(async () => ({ data: [] })),
+      getTurn: vi.fn(async () => finishedTip),
+      listEvents: sessionEventsPage(items),
+      listTurnEvents: async () => ({ data: [] }),
+    } as unknown as AgentChatServer;
+
+    const snapshot = await buildSnapshotFromSessionEvents(server, SESSION_ID, snap => {
+      progress.push(snap);
+    });
+
+    expect(progress.some(snap => snap.pendingUser?.content === 'what is 2+2')).toBe(true);
+    expect(snapshot.runningTurn).toBeUndefined();
+    expect(snapshot.pendingUser).toBeUndefined();
+    expect(snapshot.turns.map(turn => turn.id)).toEqual(['t1', 't2']);
+
+    const texts = projectSessionMessages(snapshot).flatMap(message =>
+      message.content.flatMap(part => (part.type === 'text' ? [part.text] : [])),
+    );
+    expect(texts).toEqual(['hello', 'hi', 'what is 2+2', '4']);
+  });
+
   it('loads only the newest event page and exposes an older-history cursor', async () => {
     const makeTurnItems = (id: string, text: string): SessionEventItem[] => [
       {
@@ -3532,6 +3720,176 @@ describe('buildSnapshotFromSessionEvents', () => {
     const withAll = await prependOlderSessionHistory(server, SESSION_ID, withOlder);
     expect(withAll.turns.map(t => t.id)).toEqual(['t1', 't2', 't3']);
     expect(withAll.historyPagination?.hasOlder).toBe(false);
+  });
+
+  it('renders a turn split by the event page boundary together with the older page', async () => {
+    const userTurn = (id: string, text: string, reply: string): SessionEventItem[] => [
+      {
+        turnId: id,
+        event: {
+          type: 'turn.created',
+          id: `evt-c-${id}`,
+          turnId: id,
+          input: [{ type: 'user.message', content: text }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      {
+        turnId: id,
+        event: modelMessage({ id: `m-${id}`, threadId: ROOT_THREAD_ID, content: reply }),
+      },
+      {
+        turnId: id,
+        event: {
+          type: 'turn.done',
+          id: `evt-d-${id}`,
+          state: { status: 'done', requiredActions: [], completedAt: createdAt },
+          createdAt,
+        } as TurnDoneEvent,
+      },
+    ];
+    // Newest page is t3 plus the tail of t2 (no turn.created). The next page holds
+    // t2's start. Stopping after the first page drops t2: its done is already
+    // consumed and its created never lands in a later window.
+    const splitTurn: SessionEventItem[] = [
+      {
+        turnId: 't2',
+        event: {
+          type: 'turn.created',
+          id: 'evt-c-t2',
+          turnId: 't2',
+          input: [{ type: 'user.message', content: 'split' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      {
+        turnId: 't2',
+        event: modelMessage({ id: 'm-t2-a', threadId: ROOT_THREAD_ID, content: 'split-a' }),
+      },
+      {
+        turnId: 't2',
+        event: modelMessage({ id: 'm-t2-b', threadId: ROOT_THREAD_ID, content: 'split-b' }),
+      },
+      {
+        turnId: 't2',
+        event: {
+          type: 'turn.done',
+          id: 'evt-d-t2',
+          state: { status: 'done', requiredActions: [], completedAt: createdAt },
+          createdAt,
+        } as TurnDoneEvent,
+      },
+    ];
+    const items = [
+      ...userTurn('t1', 'older', 'older reply'),
+      ...splitTurn,
+      ...userTurn('t3', 'newest', 'newest reply'),
+    ];
+    const listEvents = sessionEventsPage(items, { pageSize: 4 });
+    const listEventsSpy = vi.fn(listEvents);
+    const server = {
+      listTurns: async () => ({ data: [] }),
+      listEvents: listEventsSpy,
+      listTurnEvents: async () => ({ data: [] }),
+    } as unknown as AgentChatServer;
+
+    const textsOf = (snap: SessionSnapshot) =>
+      projectSessionMessages(snap).flatMap(message =>
+        message.content.flatMap(part => (part.type === 'text' ? [part.text] : [])),
+      );
+
+    // Initial load stays one page; t2's tail is held instead of dropped.
+    const snapshot = await buildSnapshotFromSessionEvents(server, SESSION_ID);
+    expect(listEventsSpy).toHaveBeenCalledTimes(1);
+    expect(snapshot.turns.map(turn => turn.id)).toEqual(['t3']);
+    expect(snapshot.historyPagination?.pendingItemsAsc?.map(item => item.event.id)).toEqual(['evt-d-t2']);
+
+    const withSplit = await prependOlderSessionHistory(server, SESSION_ID, snapshot);
+    expect(withSplit.turns.map(turn => turn.id)).toEqual(['t2', 't3']);
+    expect(textsOf(withSplit)).toEqual(['split', 'split-a', 'split-b', 'newest', 'newest reply']);
+
+    const withAll = await prependOlderSessionHistory(server, SESSION_ID, withSplit);
+    expect(withAll.turns.map(turn => turn.id)).toEqual(['t1', 't2', 't3']);
+    expect(withAll.historyPagination).toEqual({ hasOlder: false });
+    expect(textsOf(withAll)).toEqual(['older', 'older reply', 'split', 'split-a', 'split-b', 'newest', 'newest reply']);
+  });
+
+  it('keeps paging through a turn longer than the boundary page cap', async () => {
+    const longTurn: SessionEventItem[] = [
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.created',
+          id: 'evt-c-t1',
+          turnId: 't1',
+          input: [{ type: 'user.message', content: 'long' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      ...Array.from({ length: 11 }, (_, index) => ({
+        turnId: 't1',
+        event: modelMessage({
+          id: `m-t1-${String(index)}`,
+          threadId: ROOT_THREAD_ID,
+          content: `part ${String(index)}`,
+        }),
+      })),
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.done',
+          id: 'evt-d-t1',
+          state: { status: 'done', requiredActions: [], completedAt: createdAt },
+          createdAt,
+        } as TurnDoneEvent,
+      },
+    ];
+    const tip: SessionEventItem[] = [
+      {
+        turnId: 't2',
+        event: {
+          type: 'turn.created',
+          id: 'evt-c-t2',
+          turnId: 't2',
+          previousTurnId: 't1',
+          input: [{ type: 'user.message', content: 'next' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      {
+        turnId: 't2',
+        event: {
+          type: 'turn.done',
+          id: 'evt-d-t2',
+          state: { status: 'done', requiredActions: [], completedAt: createdAt },
+          createdAt,
+        } as TurnDoneEvent,
+      },
+    ];
+    const server = {
+      listTurns: async () => ({ data: [] }),
+      listEvents: sessionEventsPage([...longTurn, ...tip], { pageSize: 1 }),
+      listTurnEvents: async () => ({ data: [] }),
+    } as unknown as AgentChatServer;
+
+    const snapshot = await buildSnapshotFromSessionEvents(server, SESSION_ID);
+    expect(snapshot.turns.map(turn => turn.id)).toEqual(['t2']);
+
+    // Ten pages land inside t1: nothing renders yet, but nothing is lost.
+    const midTurn = await prependOlderSessionHistory(server, SESSION_ID, snapshot);
+    expect(midTurn.turns.map(turn => turn.id)).toEqual(['t2']);
+    expect(midTurn.historyPagination?.hasOlder).toBe(true);
+    expect(midTurn.historyPagination?.pendingItemsAsc).toHaveLength(10);
+
+    const complete = await prependOlderSessionHistory(server, SESSION_ID, midTurn);
+    expect(complete.turns.map(turn => turn.id)).toEqual(['t1', 't2']);
+    expect(complete.historyPagination).toEqual({ hasOlder: false });
+    const assistant = projectSessionMessages(complete)[1];
+    expect(assistant?.content.filter(part => part.type === 'text')).toHaveLength(11);
   });
 
   it('backfills sandboxId onto tip turns after older history reveals sandbox.created', async () => {

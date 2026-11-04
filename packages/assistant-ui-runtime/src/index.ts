@@ -3,6 +3,8 @@
 export { trueForgeAttachmentAdapter } from './attachmentAdapter.js';
 export type { PendingApproval, PendingToolResponse } from './collectPending.js';
 export { ROOT_THREAD_ID } from './constants.js';
+export { CONTEXT_COMPACTION_DATA_NAME, isContextCompactionPartData } from './contextCompaction.js';
+export type { ContextCompactionPartData } from './contextCompaction.js';
 export {
   buildEditedUserMessageContent,
   buildTurnAssistantContent,
@@ -106,6 +108,7 @@ export type {
   CatalogServer,
   CodeSnippet,
   CodeSnippetSampleCode,
+  ConfigurationServer,
   ConnectorAuth,
   ConnectorAuthApiKey,
   ConnectorAuthNone,
@@ -186,12 +189,16 @@ export type {
   SessionEventItem,
   SessionListEntry,
   SessionListMetrics,
+  SettingsCapability,
+  SettingsCapabilitySection,
   SkillBase,
   SkillCatalogEntry,
   SkillCatalogServer,
   SkillConfigBase,
   SkillMount,
   SkillSelectorEntry,
+  TenantConfiguration,
+  TenantConfigurationSwitch,
   ThreadCreatedEvent,
   ToolApprovalRequiredEvent,
   ToolBase,
@@ -211,6 +218,7 @@ export type {
   UpdateSandboxRequest,
   UpdateScheduleRequest,
   UpdateSessionRequest,
+  UpdateTenantConfigurationRequest,
   UpdateWebSearchProviderRequest,
   UpdateWebSearchRequest,
   UserMessage,

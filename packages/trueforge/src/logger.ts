@@ -131,11 +131,19 @@ function jsonFormat(): winston.Logform.Format {
   );
 }
 
+/** Logging metadata. Removed before print so a line never shows it when Sentry does not start. */
+function omitReportableErrorFormat(): winston.Logform.Format {
+  return winston.format(info => {
+    Reflect.deleteProperty(info, 'reportable_error');
+    return info;
+  })();
+}
+
 function serverLogFormat(options: { standalone: boolean }): winston.Logform.Format {
-  if (options.standalone) {
-    return standaloneFormat(shouldColorize());
-  }
-  return jsonFormat();
+  return winston.format.combine(
+    omitReportableErrorFormat(),
+    options.standalone ? standaloneFormat(shouldColorize()) : jsonFormat(),
+  );
 }
 
 function createLogger(options: { level: string; standalone: boolean; component: 'server' | 'controller' }): Logger {

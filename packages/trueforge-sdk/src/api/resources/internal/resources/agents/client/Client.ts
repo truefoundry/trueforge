@@ -63,7 +63,7 @@ export class AgentsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/agents/${core.url.encodePathParam(agent_id)}/code-snippets`,
+                `api/v1/agents/${core.url.encodePathParam(agent_id, errors.TrueForgeError)}/code-snippets`,
             ),
             method: "GET",
             headers: _headers,

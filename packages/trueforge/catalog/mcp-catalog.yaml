@@ -105,3 +105,14 @@ mcp_servers:
     name: you
     url: https://api.you.com/mcp?profile=free
     description: Search the web, fetch page content, and run multi-step research using You.com. Keyless free profile; pass a You.com API key at https://api.you.com/mcp for full-rate access.
+  - type: remote
+    logo: https://assets.production.truefoundry.com/keenable.svg
+    name: keenable
+    url: https://api.keenable.ai/mcp?keenable_title=trueforge
+    description: Search the web and fetch page content as markdown using Keenable. Keyless; add a Keenable API key as an X-API-Key header for higher rate limits.
+  - type: remote
+    name: evolink
+    url: https://mcp.evolink.ai/mcp
+    description: Generate images, video, music and speech with 150+ AI models. Sign in with your EvoLink account (OAuth); model search, prices and quotes are free, and generation is billed to your EvoLink balance.
+    auth:
+      type: dcr

@@ -1,3 +1,5 @@
+import { MCP_ERROR_PREFIX, MODEL_ERROR_PREFIX, stripErrorPrefix } from '../errors';
+
 export interface ErrorLogFields {
   error: string;
   stack?: string | undefined;
@@ -47,10 +49,25 @@ function describeErrorChain(error: unknown, seen: Set<unknown>): string {
   if (head.length === 0) {
     return tail;
   }
-  if (tail.length === 0 || head.includes(tail)) {
+  if (tail.length === 0 || causeMessageAlreadyIncluded({ head, tail })) {
     return head;
   }
   return `${head}: ${tail}`;
+}
+
+/**
+ * A wrapped MCP or model error keeps the upstream error as `cause`, but its message drops the
+ * source label before adding context. That label must not be joined back onto the outer text.
+ */
+function causeMessageAlreadyIncluded({ head, tail }: { head: string; tail: string }): boolean {
+  if (head.includes(tail)) {
+    return true;
+  }
+  const unlabeledTail = stripErrorPrefix({
+    prefix: [MCP_ERROR_PREFIX, MODEL_ERROR_PREFIX],
+    message: tail,
+  });
+  return unlabeledTail.length > 0 && head.includes(unlabeledTail);
 }
 
 /**
@@ -88,6 +105,40 @@ function stackWithCauses(error: Error): string | undefined {
     current = Reflect.get(current, 'cause');
   }
   return stacks.length > 0 ? stacks.join('\nCaused by: ') : undefined;
+}
+
+function readIntegerProperty(error: object, key: string): number | undefined {
+  if (!(key in error)) {
+    return undefined;
+  }
+  const value: unknown = Reflect.get(error, key);
+  return typeof value === 'number' && Number.isInteger(value) ? value : undefined;
+}
+
+/** `statusCode` (AI SDK, MCP) or `status` (OAuth, HTTPException). */
+function readHttpStatus(error: object): number | undefined {
+  return readIntegerProperty(error, 'statusCode') ?? readIntegerProperty(error, 'status');
+}
+
+function httpStatusInChain(error: unknown, seen: Set<unknown>): number | undefined {
+  if (typeof error !== 'object' || error === null || seen.has(error)) {
+    return undefined;
+  }
+  seen.add(error);
+  const status = readHttpStatus(error);
+  if (status !== undefined) {
+    return status;
+  }
+  if (!('cause' in error)) {
+    return undefined;
+  }
+  return httpStatusInChain(Reflect.get(error, 'cause'), seen);
+}
+
+/** Every failure is reported except an HTTP status from 200 through 499, including on `cause`. */
+export function isReportableError(error: unknown): boolean {
+  const status = httpStatusInChain(error, new Set());
+  return status === undefined || status > 499;
 }
 
 export function extractErrorLogFields(error: unknown): ErrorLogFields {

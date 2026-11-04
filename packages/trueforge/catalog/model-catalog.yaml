@@ -5,6 +5,23 @@ providers:
   - type: openai
     logo: https://assets.production.truefoundry.com/openai.svg
     models:
+      - model_id: chat-latest
+        name: chat-latest
+        properties:
+          context_length: 400000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - medium
+      - model_id: gpt-5.3-codex
+        name: gpt-5-3-codex
+        properties:
+          context_length: 400000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+            - xhigh
       - model_id: gpt-5.4
         name: gpt-5-4
         properties:
@@ -320,6 +337,29 @@ providers:
             - low
             - medium
             - high
+      - model_id: gemini-flash-latest
+        name: gemini-flash-latest
+        properties:
+          context_length: 1048576
+          max_output_tokens: 65536
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+      - model_id: gemini-flash-lite-latest
+        name: gemini-flash-lite-latest
+        properties:
+          context_length: 1048576
+          max_output_tokens: 65536
+      - model_id: gemma-4-26b-a4b-it
+        name: gemma-4-26b-a4b-it
+        properties:
+          context_length: 262144
+          max_output_tokens: 32768
+      - model_id: gemma-4-31b-it
+        name: gemma-4-31b-it
+        properties:
+          context_length: 256000
   - type: fireworks
     logo: https://assets.production.truefoundry.com/fireworks.svg
     models:
@@ -587,10 +627,18 @@ providers:
         name: deepseek-v4-1-flash
         properties:
           context_length: 1000000
+      - model_id: MiniMaxAI/MiniMax-M2.7
+        name: minimax-m2-7
+        properties:
+          context_length: 228700
       - model_id: MiniMaxAI/MiniMax-M3
         name: minimax-m3
         properties:
           context_length: 524288
+      - model_id: moonshotai/Kimi-K2.6
+        name: kimi-k2-6
+        properties:
+          context_length: 262144
       - model_id: moonshotai/Kimi-K2.7-Code
         name: kimi-k2-7-code
         properties:
@@ -605,6 +653,22 @@ providers:
             - medium
             - high
             - max
+      - model_id: nvidia/nemotron-3-ultra-550b-a55b
+        name: nemotron-3-ultra-550b-a55b
+        properties:
+          context_length: 1000000
+      - model_id: openai/gpt-oss-120b
+        name: gpt-oss-120b
+        properties:
+          context_length: 131072
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+      - model_id: Qwen/Qwen3.6-Plus
+        name: qwen3-6-plus
+        properties:
+          context_length: 1000000
       - model_id: Qwen/Qwen3.7-Max
         name: qwen3-7-max
         properties:
@@ -647,6 +711,20 @@ providers:
             - low
             - medium
             - xhigh
+      - model_id: thinkingmachines/Inkling
+        name: inkling
+        properties:
+          context_length: 524288
+      - model_id: thinkingmachines/Inkling-Small
+        name: inkling-small
+        properties:
+          context_length: 524288
+          reasoning_efforts:
+            - minimal
+            - low
+            - medium
+            - high
+            - xhigh
       - model_id: zai-org/GLM-5.2
         name: glm-5-2
         properties:
@@ -655,6 +733,11 @@ providers:
           reasoning_efforts:
             - high
             - max
+      - model_id: zai-org/GLM-5.2-FP8
+        name: glm-5-2-fp8
+        properties:
+          context_length: 1048576
+          max_output_tokens: 131072
       - model_id: zai-org/GLM-5.3
         name: glm-5-3
         properties:
@@ -669,6 +752,14 @@ providers:
         properties:
           context_length: 1048576
           max_output_tokens: 128000
+          reasoning_efforts:
+            - low
+            - high
+            - max
+      - model_id: zai-org/GLM-5.3-FP8
+        name: glm-5-3-fp8
+        properties:
+          context_length: 1048576
           reasoning_efforts:
             - low
             - high

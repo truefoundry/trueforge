@@ -6,6 +6,7 @@ import { createTurnsRouter, toContentDisposition } from '../../../src/apis/turns
 import { TrueForgeAuthorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
+import { SqliteAccessControlStore } from '../../../src/db/sqlite/access-control-store/SqliteAccessControlStore';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
@@ -41,6 +42,7 @@ async function buildApp() {
     createTurnsRouter({
       sessions,
       sessionStore,
+      accessControlStore: new SqliteAccessControlStore(db),
       activeTurns: new ActiveTurnRegistry(),
       resolveModelProviderStore: () => new SqliteModelProviderStore(db),
       resolveMcpServerResolver: () =>
@@ -50,6 +52,7 @@ async function buildApp() {
           clientName: 'test-client',
         }),
       resolveTurnSkillsStore: () => new SqliteSkillStore(db),
+      resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
       resolveAgentStore: () => new SqliteAgentStore(db),
       eventSubscriptions: new EventSubscriptionRegistry(undefined),
       resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),

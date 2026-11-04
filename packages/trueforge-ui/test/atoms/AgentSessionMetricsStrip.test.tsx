@@ -84,6 +84,39 @@ describe('AgentSessionMetricsStrip', () => {
     },
   );
 
+  it('scrolls long context and tool-call names inside the tooltip', () => {
+    render(
+      <AgentSessionMetricsStrip
+        metrics={{
+          ...metrics,
+          contextByTurn: [
+            { label: 'T1', value: 100_000, color: '#3b82f6' },
+            { label: 'turn-with-a-very-long-context-label', value: 200_000, color: '#3b82f6' },
+          ],
+          toolCallFrequency: [{ label: 'sandbox_exec_with_a_very_long_tool_name', value: 1, color: '#f59e0b' }],
+        }}
+      />,
+    );
+
+    const contextTile = document.querySelector('[data-slot="session-metric-context"]');
+    if (contextTile == null) throw new Error('Expected context metric tile');
+    fireEvent.mouseEnter(contextTile);
+    const contextLabel = screen.getByText('turn-with-a-very-long-context-label');
+    expect(contextLabel).not.toHaveClass('truncate');
+    expect(contextLabel.closest('.max-h-72')).toHaveClass('overflow-auto', 'pr-3');
+    fireEvent.mouseLeave(contextTile);
+
+    const toolTile = document.querySelector('[data-slot="session-metric-tool-calls"]');
+    if (toolTile == null) throw new Error('Expected tool-call metric tile');
+    fireEvent.mouseEnter(toolTile);
+    const toolLabel = screen.getByText('sandbox_exec_with_a_very_long_tool_name');
+    expect(toolLabel).toHaveClass('truncate');
+    expect(toolLabel).toHaveAttribute('title', 'sandbox_exec_with_a_very_long_tool_name');
+    const toolScroller = toolLabel.closest('.max-h-72');
+    expect(toolScroller).toHaveClass('overflow-y-auto', 'overflow-x-hidden', 'pr-3');
+    expect(toolScroller).not.toHaveClass('overflow-auto');
+  });
+
   it('shows lineage / session total with explanation when session total exceeds lineage', () => {
     render(<AgentSessionMetricsStrip metrics={{ ...metrics, totalTurns: 2, sessionTotalTurns: 4 }} />);
     const turnsTile = document.querySelector('[data-slot="session-metric-turns"]');
@@ -120,7 +153,8 @@ describe('CostBreakdownRows', () => {
       />,
     );
 
-    expect(screen.getByText('T1')).toBeInTheDocument();
+    expect(screen.getByText('T1')).toHaveAttribute('title', 'T1');
+    expect(screen.getByText('T1').closest('.max-h-72')).toHaveClass('overflow-y-auto', 'overflow-x-hidden', 'pr-3');
     expect(screen.getByText('T2')).toBeInTheDocument();
     expect(screen.getByText('$2.0000')).toBeInTheDocument();
     expect(screen.getByText('$0.6000')).toBeInTheDocument();
@@ -128,6 +162,6 @@ describe('CostBreakdownRows', () => {
 
   it('renders nothing for an empty dataset', () => {
     const { container } = render(<CostBreakdownRows data={[]} />);
-    expect(container.firstChild).toBeEmptyDOMElement();
+    expect(container.querySelector('.grid')).toBeEmptyDOMElement();
   });
 });

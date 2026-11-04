@@ -8,8 +8,10 @@ import { createTurnsRouter } from '../../../src/apis/turns';
 import { TrueForgeAuthorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
+import { SqliteAccessControlStore } from '../../../src/db/sqlite/access-control-store/SqliteAccessControlStore';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
+import { SqliteConfigurationStore } from '../../../src/db/sqlite/configuration-store/SqliteConfigurationStore';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
@@ -18,6 +20,7 @@ import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteS
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
+import { EmptyUserStore } from '../../../src/db/userStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
 import { McpServerResolver } from '../../../src/runtime/McpServerResolver';
@@ -43,6 +46,7 @@ describe('public CRUD after session deletion', () => {
     const sandboxProviderStore = new SqliteSandboxProviderStore(db);
     const sandboxEnvironmentStore = new SqliteSandboxEnvironmentStore(db);
     const webSearchProviderStore = new SqliteWebSearchProviderStore(db);
+    const configurationStore = new SqliteConfigurationStore(db);
     const app = new OpenAPIHono();
 
     app.route(
@@ -50,6 +54,9 @@ describe('public CRUD after session deletion', () => {
       createSessionsRouter({
         sessions,
         sessionStore,
+        accessControlStore: new SqliteAccessControlStore(db),
+        userStore: new EmptyUserStore(),
+        withTransaction: callback => db.transaction().execute(callback),
         activeTurns,
         resolveModelProviderStore: () => modelProviderStore,
         resolveMcpServerStore: () => mcpServerStore,
@@ -58,6 +65,7 @@ describe('public CRUD after session deletion', () => {
         resolveSandboxProviderStore: () => sandboxProviderStore,
         sandboxEnvironmentStore,
         resolveWebSearchProviderStore: () => webSearchProviderStore,
+        resolveConfigurationStore: () => configurationStore,
         redis: createClient(),
         requestReplyRouter: new RequestReplyRouter(),
         resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
@@ -70,10 +78,12 @@ describe('public CRUD after session deletion', () => {
       createTurnsRouter({
         sessions,
         sessionStore,
+        accessControlStore: new SqliteAccessControlStore(db),
         activeTurns,
         resolveModelProviderStore: () => modelProviderStore,
         resolveMcpServerResolver: () => mcpServerResolver,
         resolveTurnSkillsStore: () => skillStore,
+        resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
         resolveAgentStore: () => agentStore,
         eventSubscriptions: new EventSubscriptionRegistry(undefined),
         resolveSandboxProviderStore: () => sandboxProviderStore,

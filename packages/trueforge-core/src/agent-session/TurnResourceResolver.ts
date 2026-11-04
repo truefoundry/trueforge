@@ -1,8 +1,10 @@
 import type { Logger } from 'winston';
+import type { AgentCapability } from '../core/capabilities/AgentCapability';
 import type { ILLM } from '../core/llm/ILLM';
 import type { ModelParams } from '../core/llm/model';
+import type { VercelAIProviderName } from '../core/llm/VercelAILLM';
 import type { ToolSource } from '../core/mcp/IMCPServer';
-import { RemoteMCP, type ResolvedMcpServer } from '../core/mcp/RemoteMCP';
+import { RemoteMCP, type McpConnection } from '../core/mcp/RemoteMCP';
 import type { ToolSelectorConfig } from '../core/mcp/ToolSelectorPolicy';
 import { ToolSet } from '../core/mcp/ToolSet';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
@@ -32,6 +34,16 @@ function specWantsSandbox(spec: AgentSpec): boolean {
   return spec.config.sandbox.enabled;
 }
 
+function rootCapabilitiesOf(
+  rootCapabilities: (() => readonly AgentCapability[]) | undefined,
+): { extraCapabilities: AgentCapability[] } | Record<string, never> {
+  const capabilities = rootCapabilities?.() ?? [];
+  if (capabilities.length === 0) {
+    return {};
+  }
+  return { extraCapabilities: [...capabilities] };
+}
+
 function toSelectors(entry: {
   enable_tools: string[];
   disable_tools: string[];
@@ -55,6 +67,8 @@ interface ResolvedModel {
   modelClient: ILLM;
   defaultModelParams: ModelParams;
   modelProperties?: AgentDefinition['modelProperties'];
+  /** Explicit `undefined` when the host has no provider label for the model call series. */
+  providerType: VercelAIProviderName | undefined;
 }
 
 export class TurnResourceResolver<
@@ -72,7 +86,7 @@ export class TurnResourceResolver<
        * MCP server name → resolved server. The AgentSpec carries names only; the runtime supplies the catalog.
        * Called once per distinct server name per turn. Throw for unknown names.
        */
-      mcp: (name: string) => Promise<ResolvedMcpServer>;
+      mcp: (name: string) => Promise<McpConnection>;
       mcpRequestTimeoutMs: number;
       mcpConnectTimeoutMs: number;
       mcpMaxResponseBytes?: number | undefined;
@@ -85,6 +99,12 @@ export class TurnResourceResolver<
       agent?: ((agentId: string) => Promise<AgentSpec>) | undefined;
       /** Host web-search backend; omit when not configured. */
       webSearchProvider?: IWebSearchProvider | undefined;
+      /**
+       * Main-thread capabilities. Called once per root resolve, so each call gets fresh instances.
+       * A child thread passes `agent_info` and does not receive these. A subclass that replaces
+       * `resolveAgentDefinition` without calling `super` does not mount them.
+       */
+      rootCapabilities?: (() => readonly AgentCapability[]) | undefined;
       /** Forwarded to RemoteMCP / AgentThread (required by their constructors). */
       logger: Logger;
     },
@@ -164,7 +184,7 @@ export class TurnResourceResolver<
 
   /**
    * Default: maps the spec directly to a definition — spec.mcp_servers carry
-   * names only; deps.mcp resolves each name to a {@link ResolvedMcpServer}, and the result
+   * names only; deps.mcp resolves each name to a {@link McpConnection}, and the result
    * becomes a RemoteMCP source (deduped per turn via getOrCreateToolSource)
    * wrapped in a per-agent ToolSet view. Passes the previous turn's persisted
    * MCP session_id into RemoteMCP for cross-turn stateful resume.
@@ -182,12 +202,12 @@ export class TurnResourceResolver<
         const source = await this.getOrCreateToolSource({
           id: entry.name,
           create: async () => {
-            const resolved = await this.deps.mcp(entry.name);
+            const connection = await this.deps.mcp(entry.name);
             return new RemoteMCP({
               id: entry.name,
               name: entry.name,
-              description: resolved.description,
-              endpoint: resolved,
+              description: connection.server.description,
+              endpoint: connection,
               sessionId: previousTurn?.snapshot.mcp_servers?.[entry.name]?.session_id,
               requestTimeoutMs: this.deps.mcpRequestTimeoutMs,
               connectTimeoutMs: this.deps.mcpConnectTimeoutMs,
@@ -216,6 +236,7 @@ export class TurnResourceResolver<
       definition: {
         modelClient: resolvedModel.modelClient,
         modelName,
+        ...(resolvedModel.providerType !== undefined ? { providerType: resolvedModel.providerType } : {}),
         modelProperties: resolvedModel.modelProperties,
         // Sub-agents receive the delegated task as a user message; their system
         // prompt is SUB_AGENT_IDENTITY (added by AgentThread), not user instructions.
@@ -232,6 +253,7 @@ export class TurnResourceResolver<
         iterationLimit: spec.config.iteration_limit,
         toolSets,
       },
+      ...(agentInfo === undefined ? rootCapabilitiesOf(this.deps.rootCapabilities) : {}),
     };
   }
 

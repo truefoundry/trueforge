@@ -13,11 +13,13 @@ import {
   type CreateSandboxEnvironmentInput,
   type DeleteSandboxEnvironmentInput,
   type GetSandboxEnvironmentInput,
+  type GetSandboxEnvironmentsByIdsInput,
   type GetSandboxEnvironmentVersionInput,
   type ISandboxEnvironmentStore,
   type ListSandboxEnvironmentsInput,
   type MarkSandboxEnvironmentVersionFailedInput,
   type MarkSandboxEnvironmentVersionReadyInput,
+  type SandboxEnvironmentOwnership,
   type SandboxEnvironmentSecretRecord,
   type SandboxEnvironmentVersionForProgress,
   type SandboxEnvironmentVersionRecord,
@@ -25,8 +27,11 @@ import {
   type UpsertSandboxEnvironmentInput,
 } from '../db/sandboxEnvironmentStore';
 import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
-import { trueFoundryManaged } from './errors';
-import { synthesizeTrueFoundryDefaultSandboxEnvironment } from './synthesizeTrueFoundryDefaultSandboxEnvironment';
+import { sandboxEnvironmentsNotSupported, trueFoundryManaged } from './errors';
+import {
+  DEFAULT_ENVIRONMENT_ID,
+  synthesizeTrueFoundryDefaultSandboxEnvironment,
+} from './synthesizeTrueFoundryDefaultSandboxEnvironment';
 
 const logger = createLogger({ defaultMeta: { module: 'TrueFoundrySandboxEnvironmentStore' } });
 
@@ -107,6 +112,33 @@ export class TrueFoundrySandboxEnvironmentStore<
     return this.#persistence.getEnvironment(input, transaction);
   }
 
+  async getEnvironmentsByIds(
+    input: GetSandboxEnvironmentsByIdsInput,
+    transaction?: TTransaction,
+  ): Promise<SandboxEnvironmentOwnership[]> {
+    if (!this.#envSupported) {
+      return this.#persistence.getEnvironmentsByIds(input, transaction);
+    }
+    const includesDefault = input.ids.includes(DEFAULT_ENVIRONMENT_ID);
+    const persistenceIds = includesDefault ? input.ids.filter(id => id !== DEFAULT_ENVIRONMENT_ID) : input.ids;
+    let rows = await this.#persistence.getEnvironmentsByIds(
+      { tenant_id: input.tenant_id, ids: persistenceIds },
+      transaction,
+    );
+    if (includesDefault) {
+      const synthesized = synthesizeTrueFoundryDefaultSandboxEnvironment(input.tenant_id);
+      rows = [
+        {
+          id: synthesized.environment.id,
+          name: synthesized.environment.name,
+          created_by_subject: synthesized.environment.created_by_subject,
+        },
+        ...rows,
+      ];
+    }
+    return rows;
+  }
+
   getActiveEnvironment(
     input: GetSandboxEnvironmentInput,
     transaction?: TTransaction,
@@ -129,11 +161,11 @@ export class TrueFoundrySandboxEnvironmentStore<
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentWithVersion> {
     if (!this.#envSupported) {
-      logger.info('Skipping sandbox environment create (provider does not support environments)', {
+      logger.info('Rejecting sandbox environment create (provider does not support environments)', {
         name: input.name,
         tenant_id: input.tenant_id,
       });
-      return trueFoundryManaged();
+      return sandboxEnvironmentsNotSupported();
     }
     if (input.name === DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
       return Promise.reject(new SandboxEnvironmentNameConflictError({ tenant_id: input.tenant_id, name: input.name }));
@@ -146,11 +178,11 @@ export class TrueFoundrySandboxEnvironmentStore<
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentWithVersion> {
     if (!this.#envSupported) {
-      logger.info('Skipping sandbox environment upsert (provider does not support environments)', {
+      logger.info('Rejecting sandbox environment upsert (provider does not support environments)', {
         name: input.name,
         tenant_id: input.tenant_id,
       });
-      return trueFoundryManaged();
+      return sandboxEnvironmentsNotSupported();
     }
     if (input.name === DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
       return Promise.resolve(synthesizeTrueFoundryDefaultSandboxEnvironment(input.tenant_id));

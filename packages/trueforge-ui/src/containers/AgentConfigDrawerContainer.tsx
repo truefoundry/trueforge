@@ -170,7 +170,6 @@ export function AgentConfigDrawerContainer({ showClose = false }: { showClose?: 
         error={catalog.error}
         skillsDisabled={capabilities?.skill.enabled !== true}
         sandboxAvailable={capabilities?.sandbox.enabled === true}
-        webSearchAvailable={capabilities?.webSearch?.enabled === true}
         instructions={instructionDraft}
         onInstructionsSave={saveInstructions}
         {...(server?.getMcpConnector === undefined ? {} : { loadMcpConnector })}

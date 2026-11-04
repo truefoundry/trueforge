@@ -316,7 +316,7 @@ export class SessionsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/sessions/${core.url.encodePathParam(session_id)}`,
+                `api/v1/sessions/${core.url.encodePathParam(session_id, errors.TrueForgeError)}`,
             ),
             method: "GET",
             headers: _headers,
@@ -407,7 +407,7 @@ export class SessionsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/sessions/${core.url.encodePathParam(session_id)}`,
+                `api/v1/sessions/${core.url.encodePathParam(session_id, errors.TrueForgeError)}`,
             ),
             method: "DELETE",
             headers: _headers,
@@ -492,7 +492,7 @@ export class SessionsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/sessions/${core.url.encodePathParam(session_id)}`,
+                `api/v1/sessions/${core.url.encodePathParam(session_id, errors.TrueForgeError)}`,
             ),
             method: "PATCH",
             headers: _headers,
@@ -629,7 +629,7 @@ export class SessionsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/sessions/${core.url.encodePathParam(session_id)}/cancel`,
+                `api/v1/sessions/${core.url.encodePathParam(session_id, errors.TrueForgeError)}/cancel`,
             ),
             method: "POST",
             headers: _headers,
@@ -757,7 +757,7 @@ export class SessionsClient {
                     url: core.url.join(
                         (await core.Supplier.get(this._options.baseUrl)) ??
                             (await core.Supplier.get(this._options.environment)),
-                        `api/v1/sessions/${core.url.encodePathParam(session_id)}/events`,
+                        `api/v1/sessions/${core.url.encodePathParam(session_id, errors.TrueForgeError)}/events`,
                     ),
                     method: "GET",
                     headers: _headers,
@@ -850,6 +850,244 @@ export class SessionsClient {
     }
 
     /**
+     * List the subjects this session is shared with.
+     *
+     * @param {string} session_id - Session identifier.
+     * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
+     *
+     * @throws {@link TrueForge.ForbiddenError}
+     * @throws {@link TrueForge.NotFoundError}
+     * @throws {@link errors.TrueForgeError}
+     * @throws {@link errors.TrueForgeTimeoutError}
+     *
+     * @example
+     *     await client.sessions.listGrants("session_id")
+     */
+    public listGrants(
+        session_id: string,
+        requestOptions?: SessionsClient.RequestOptions,
+    ): core.HttpResponsePromise<TrueForge.ListSessionGrantsResponse> {
+        return core.HttpResponsePromise.fromPromise(this.__listGrants(session_id, requestOptions));
+    }
+
+    private async __listGrants(
+        session_id: string,
+        requestOptions?: SessionsClient.RequestOptions,
+    ): Promise<core.WithRawResponse<TrueForge.ListSessionGrantsResponse>> {
+        const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
+        const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
+            _authRequest.headers,
+            this._options?.headers,
+            requestOptions?.headers,
+        );
+        const _response = await (this._options.fetcher ?? core.fetcher)({
+            url: core.url.join(
+                (await core.Supplier.get(this._options.baseUrl)) ??
+                    (await core.Supplier.get(this._options.environment)),
+                `api/v1/sessions/${core.url.encodePathParam(session_id, errors.TrueForgeError)}/grants`,
+            ),
+            method: "GET",
+            headers: _headers,
+            queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
+            timeoutMs: (requestOptions?.timeoutInSeconds ?? this._options?.timeoutInSeconds ?? 60) * 1000,
+            maxRetries: requestOptions?.maxRetries ?? this._options?.maxRetries,
+            abortSignal: requestOptions?.abortSignal,
+            fetchFn: this._options?.fetch,
+            logging: this._options.logging,
+        });
+        if (_response.ok) {
+            return {
+                data: serializers.ListSessionGrantsResponse.parseOrThrow(_response.body, {
+                    unrecognizedObjectKeys: "passthrough",
+                    allowUnrecognizedUnionMembers: true,
+                    allowUnrecognizedEnumValues: true,
+                    skipValidation: true,
+                    breadcrumbsPrefix: ["response"],
+                }),
+                rawResponse: _response.rawResponse,
+            };
+        }
+
+        if (_response.error.reason === "status-code") {
+            switch (_response.error.statusCode) {
+                case 403:
+                    throw new TrueForge.ForbiddenError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 404:
+                    throw new TrueForge.NotFoundError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                default:
+                    throw new errors.TrueForgeError({
+                        statusCode: _response.error.statusCode,
+                        body: _response.error.body,
+                        rawResponse: _response.rawResponse,
+                    });
+            }
+        }
+
+        return handleNonStatusCodeError(
+            _response.error,
+            _response.rawResponse,
+            "GET",
+            "/api/v1/sessions/{session_id}/grants",
+        );
+    }
+
+    /**
+     * Share this session with subjects and remove access for others in one atomic request. Subjects get read access to the session, its turns and its events. A `tenant` subject, whose `subject_id` must be your tenant ID, shares with everyone in the tenant. Granting an existing subject or revoking one without access is a no-op. Returns every subject the session is shared with.
+     *
+     * @param {string} session_id - Session identifier.
+     * @param {TrueForge.UpdateSessionGrantsRequest} request
+     * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
+     *
+     * @throws {@link TrueForge.BadRequestError}
+     * @throws {@link TrueForge.ForbiddenError}
+     * @throws {@link TrueForge.NotFoundError}
+     * @throws {@link TrueForge.UnprocessableEntityError}
+     * @throws {@link errors.TrueForgeError}
+     * @throws {@link errors.TrueForgeTimeoutError}
+     *
+     * @example
+     *     await client.sessions.updateGrants("session_id")
+     */
+    public updateGrants(
+        session_id: string,
+        request: TrueForge.UpdateSessionGrantsRequest = {},
+        requestOptions?: SessionsClient.RequestOptions,
+    ): core.HttpResponsePromise<TrueForge.ListSessionGrantsResponse> {
+        return core.HttpResponsePromise.fromPromise(this.__updateGrants(session_id, request, requestOptions));
+    }
+
+    private async __updateGrants(
+        session_id: string,
+        request: TrueForge.UpdateSessionGrantsRequest = {},
+        requestOptions?: SessionsClient.RequestOptions,
+    ): Promise<core.WithRawResponse<TrueForge.ListSessionGrantsResponse>> {
+        const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
+        const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
+            _authRequest.headers,
+            this._options?.headers,
+            requestOptions?.headers,
+        );
+        const _response = await (this._options.fetcher ?? core.fetcher)({
+            url: core.url.join(
+                (await core.Supplier.get(this._options.baseUrl)) ??
+                    (await core.Supplier.get(this._options.environment)),
+                `api/v1/sessions/${core.url.encodePathParam(session_id, errors.TrueForgeError)}/grants`,
+            ),
+            method: "POST",
+            headers: _headers,
+            contentType: "application/json",
+            queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
+            requestType: "json",
+            body: mergeAdditionalBodyParameters(
+                serializers.UpdateSessionGrantsRequest.jsonOrThrow(request, {
+                    unrecognizedObjectKeys: "passthrough",
+                    allowUnrecognizedUnionMembers: true,
+                    allowUnrecognizedEnumValues: true,
+                    omitUndefined: true,
+                }),
+                requestOptions?.additionalBodyParameters,
+            ),
+            timeoutMs: (requestOptions?.timeoutInSeconds ?? this._options?.timeoutInSeconds ?? 60) * 1000,
+            maxRetries: requestOptions?.maxRetries ?? this._options?.maxRetries,
+            abortSignal: requestOptions?.abortSignal,
+            fetchFn: this._options?.fetch,
+            logging: this._options.logging,
+        });
+        if (_response.ok) {
+            return {
+                data: serializers.ListSessionGrantsResponse.parseOrThrow(_response.body, {
+                    unrecognizedObjectKeys: "passthrough",
+                    allowUnrecognizedUnionMembers: true,
+                    allowUnrecognizedEnumValues: true,
+                    skipValidation: true,
+                    breadcrumbsPrefix: ["response"],
+                }),
+                rawResponse: _response.rawResponse,
+            };
+        }
+
+        if (_response.error.reason === "status-code") {
+            switch (_response.error.statusCode) {
+                case 400:
+                    throw new TrueForge.BadRequestError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 403:
+                    throw new TrueForge.ForbiddenError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 404:
+                    throw new TrueForge.NotFoundError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 422:
+                    throw new TrueForge.UnprocessableEntityError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                default:
+                    throw new errors.TrueForgeError({
+                        statusCode: _response.error.statusCode,
+                        body: _response.error.body,
+                        rawResponse: _response.rawResponse,
+                    });
+            }
+        }
+
+        return handleNonStatusCodeError(
+            _response.error,
+            _response.rawResponse,
+            "POST",
+            "/api/v1/sessions/{session_id}/grants",
+        );
+    }
+
+    /**
      * List turns for a session (newest first by default), token-paginated. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
      *
      * @param {string} session_id - Session identifier.
@@ -889,7 +1127,7 @@ export class SessionsClient {
                     url: core.url.join(
                         (await core.Supplier.get(this._options.baseUrl)) ??
                             (await core.Supplier.get(this._options.environment)),
-                        `api/v1/sessions/${core.url.encodePathParam(session_id)}/turns`,
+                        `api/v1/sessions/${core.url.encodePathParam(session_id, errors.TrueForgeError)}/turns`,
                     ),
                     method: "GET",
                     headers: _headers,
@@ -1011,7 +1249,7 @@ export class SessionsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/sessions/${core.url.encodePathParam(session_id)}/turns`,
+                `api/v1/sessions/${core.url.encodePathParam(session_id, errors.TrueForgeError)}/turns`,
             ),
             method: "POST",
             headers: _headers,
@@ -1202,7 +1440,7 @@ export class SessionsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/sessions/${core.url.encodePathParam(session_id)}/turns`,
+                `api/v1/sessions/${core.url.encodePathParam(session_id, errors.TrueForgeError)}/turns`,
             ),
             method: "POST",
             headers: _headers,
@@ -1374,7 +1612,7 @@ export class SessionsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/sessions/${core.url.encodePathParam(session_id)}/turns/${core.url.encodePathParam(turn_id)}`,
+                `api/v1/sessions/${core.url.encodePathParam(session_id, errors.TrueForgeError)}/turns/${core.url.encodePathParam(turn_id, errors.TrueForgeError)}`,
             ),
             method: "GET",
             headers: _headers,
@@ -1483,7 +1721,7 @@ export class SessionsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/sessions/${core.url.encodePathParam(session_id)}/turns/${core.url.encodePathParam(turn_id)}/download-sandbox-file`,
+                `api/v1/sessions/${core.url.encodePathParam(session_id, errors.TrueForgeError)}/turns/${core.url.encodePathParam(turn_id, errors.TrueForgeError)}/download-sandbox-file`,
             ),
             method: "GET",
             headers: _headers,
@@ -1650,7 +1888,7 @@ export class SessionsClient {
                     url: core.url.join(
                         (await core.Supplier.get(this._options.baseUrl)) ??
                             (await core.Supplier.get(this._options.environment)),
-                        `api/v1/sessions/${core.url.encodePathParam(session_id)}/turns/${core.url.encodePathParam(turn_id)}/events`,
+                        `api/v1/sessions/${core.url.encodePathParam(session_id, errors.TrueForgeError)}/turns/${core.url.encodePathParam(turn_id, errors.TrueForgeError)}/events`,
                     ),
                     method: "GET",
                     headers: _headers,
@@ -1791,7 +2029,7 @@ export class SessionsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/sessions/${core.url.encodePathParam(session_id)}/turns/${core.url.encodePathParam(turn_id)}/events`,
+                `api/v1/sessions/${core.url.encodePathParam(session_id, errors.TrueForgeError)}/turns/${core.url.encodePathParam(turn_id, errors.TrueForgeError)}/events`,
             ),
             method: "POST",
             headers: _headers,
@@ -1923,7 +2161,7 @@ export class SessionsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/sessions/${core.url.encodePathParam(session_id)}/turns/${core.url.encodePathParam(turn_id)}/subscribe`,
+                `api/v1/sessions/${core.url.encodePathParam(session_id, errors.TrueForgeError)}/turns/${core.url.encodePathParam(turn_id, errors.TrueForgeError)}/subscribe`,
             ),
             method: "GET",
             headers: _headers,
@@ -1944,7 +2182,7 @@ export class SessionsClient {
                 url: core.url.join(
                     (await core.Supplier.get(this._options.baseUrl)) ??
                         (await core.Supplier.get(this._options.environment)),
-                    `api/v1/sessions/${core.url.encodePathParam(session_id)}/turns/${core.url.encodePathParam(turn_id)}/subscribe`,
+                    `api/v1/sessions/${core.url.encodePathParam(session_id, errors.TrueForgeError)}/turns/${core.url.encodePathParam(turn_id, errors.TrueForgeError)}/subscribe`,
                 ),
                 method: "GET",
                 headers: { ..._headers, "Last-Event-ID": lastEventId },

@@ -9,4 +9,5 @@ export type { ListSessionsRequest } from "./ListSessionsRequest.js";
 export type { ListTurnEventsSessionsRequest } from "./ListTurnEventsSessionsRequest.js";
 export type { ListTurnsSessionsRequest } from "./ListTurnsSessionsRequest.js";
 export type { SubscribeToTurnSessionsRequest } from "./SubscribeToTurnSessionsRequest.js";
+export type { UpdateSessionGrantsRequest } from "./UpdateSessionGrantsRequest.js";
 export type { UpdateSessionRequest } from "./UpdateSessionRequest.js";

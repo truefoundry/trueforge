@@ -1,7 +1,13 @@
 import type { RegisteredPassthroughEvent } from '../events/PassthroughEvents';
 import type { ApprovalDecision, MCPServerInitInfo } from '../events/schema';
 import type { InternalEnrichedAssistantMessage, InternalEnrichedToolCall, LLMToolMessage } from '../llm/LLMTypes';
-import type { MCPAuthRequired } from '../mcp/IMCPServer';
+import type { CallToolResponse, MCPAuthRequired } from '../mcp/IMCPServer';
+import {
+  elapsedSeconds,
+  getOperationMetrics,
+  type ToolCallOutcome,
+  type ToolCallServerClass,
+} from '../observability/operationMetrics';
 import type { AgentThreadCreateSubAgent } from '../runtime/AgentThread.types';
 import { InternalEventType } from '../runtime/AgentThread.types';
 import type { SandboxInfo } from '../sandbox/Sandbox';
@@ -10,6 +16,7 @@ import {
   isApprovalRequiredResponse,
   isAuthRequired,
   isCallToolResponseCreateSubAgent,
+  isCallToolResponseResult,
   isClientSideToolRequiredResponse,
   toolResultResponse,
 } from './IMCPServer';
@@ -67,6 +74,20 @@ function parseToolCallArguments(
   return { ok: true, args: parsed };
 }
 
+/** `isError` is a tool failure. Approval and client-side waits are pauses. A thrown call is `thrown`. */
+function toolCallOutcome(response: CallToolResponse): ToolCallOutcome {
+  if (isAuthRequired(response)) {
+    return 'auth_required';
+  }
+  if (isApprovalRequiredResponse(response) || isClientSideToolRequiredResponse(response)) {
+    return 'paused';
+  }
+  if (isCallToolResponseResult(response) && response.result.isError === true) {
+    return 'tool_error';
+  }
+  return 'success';
+}
+
 export async function executeToolCalls({
   assistantMessage,
   toolMapping,
@@ -101,8 +122,18 @@ export async function executeToolCalls({
   }
 
   const toolCallPromises = assistantMessage.tool_calls.map(async toolCall => {
+    const metrics = getOperationMetrics();
+    const startedMs = metrics === undefined ? undefined : performance.now();
+    const record = (outcome: ToolCallOutcome, serverClass: ToolCallServerClass): void => {
+      if (metrics === undefined || startedMs === undefined) {
+        return;
+      }
+      metrics.recordToolCall({ serverClass, outcome, durationSeconds: elapsedSeconds(startedMs) });
+    };
+
     const toolInfo = toolMapping.get(toolCall.function.name);
     if (!toolInfo) {
+      record('unknown_tool', 'unknown');
       return {
         toolCall,
         toolInfo,
@@ -112,8 +143,10 @@ export async function executeToolCalls({
       };
     }
 
+    const serverClass = toolInfo.toolSet.serverClass;
     const parsedArgs = parseToolCallArguments(toolCall.function.arguments);
     if (!parsedArgs.ok) {
+      record('tool_error', serverClass);
       return {
         toolCall,
         toolInfo,
@@ -137,8 +170,10 @@ export async function executeToolCalls({
         },
         approvalDecisions.get(toolCall.id),
       );
+      record(toolCallOutcome(response), serverClass);
       return { toolCall, toolInfo, response, failure: false, completedAt: new Date().toISOString() };
     } catch (error) {
+      record('thrown', serverClass);
       return {
         toolCall,
         toolInfo,

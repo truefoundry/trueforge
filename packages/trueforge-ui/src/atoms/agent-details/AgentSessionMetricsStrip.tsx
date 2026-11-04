@@ -10,6 +10,7 @@ import { LightTooltip } from '../primitives/Tooltip.js';
 import {
   CostBreakdownRows,
   HorizontalBarRows,
+  ProportionDonut,
   SessionMetricTooltipContent,
   StackedProportionBar,
 } from './AgentSessionMetricCharts.js';
@@ -138,7 +139,12 @@ export function AgentSessionMetricsStrip({ metrics }: AgentSessionMetricsStripPr
         <SessionMetricTile
           id="tokens"
           label="Tokens"
-          value={formatTokenCount(metrics.totalTokens)}
+          value={
+            <span className="inline-flex items-center gap-1.5">
+              {formatTokenCount(metrics.totalTokens)}
+              <ProportionDonut data={metrics.tokenBreakdown} />
+            </span>
+          }
           tooltip={
             metrics.totalTokens > 0 ? (
               <SessionMetricTooltipContent title="Tokens">
@@ -149,12 +155,12 @@ export function AgentSessionMetricsStrip({ metrics }: AgentSessionMetricsStripPr
         />
         <SessionMetricTile
           id="context"
-          label="Context"
+          label="Context Usage"
           value={formatTokenCount(metrics.contextTokens)}
           tooltip={
             metrics.contextByTurn.length > 1 && metrics.contextTokens > 0 ? (
-              <SessionMetricTooltipContent title="Context length at end of turn">
-                <HorizontalBarRows data={metrics.contextByTurn} formatValue={formatTokenCount} />
+              <SessionMetricTooltipContent title="Context Usage at end of turn">
+                <HorizontalBarRows scrollX data={metrics.contextByTurn} formatValue={formatTokenCount} />
               </SessionMetricTooltipContent>
             ) : null
           }

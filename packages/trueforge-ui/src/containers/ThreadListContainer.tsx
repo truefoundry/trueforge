@@ -8,7 +8,7 @@ import {
   useAui,
   useAuiState,
 } from '@assistant-ui/react';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type Ref, type RefObject } from 'react';
 
 import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '../analytics/events.js';
@@ -20,6 +20,7 @@ import { useCompactLayout } from '../atoms/lib/CompactLayoutContext.js';
 import {
   canReuseMutableShell,
   readThreadAgentName,
+  readThreadIsMutable,
   threadListIndicesByRecency,
   threadListItemIsMutable,
 } from '../atoms/lib/threadListMeta.js';
@@ -174,12 +175,14 @@ function ThreadListItemActionsMenu({
 }
 
 function ThreadListItemRow({
+  selectionRef,
   onThreadOpen,
   canRenameSession,
   canDeleteSession,
   canManageResource,
   canDeleteResource,
 }: {
+  selectionRef: RefObject<number>;
   onThreadOpen?: () => void;
   canRenameSession: boolean;
   canDeleteSession: boolean;
@@ -188,6 +191,9 @@ function ThreadListItemRow({
 }) {
   const aui = useAui();
   const shell = useOptionalShellMode();
+  const server = useOptionalServer();
+  const runtimeKeyRef = useRef(shell?.runtimeKey);
+  runtimeKeyRef.current = shell?.runtimeKey;
   const track = useTrackAnalytics();
   const toaster = useToasterOptional();
   const ThreadListRow = useSlot('ThreadListRow');
@@ -230,6 +236,40 @@ function ThreadListItemRow({
     }
   };
 
+  const openRow = ({ sessionMutable, rowAgentName }: { sessionMutable: boolean; rowAgentName: string | undefined }) => {
+    const sameImmutable =
+      !sessionMutable &&
+      shell?.mode.status === 'active' &&
+      !shell.mode.isMutable &&
+      (rowAgentName == null
+        ? shell.mode.agentName == null && shell.mode.agentId == null
+        : shell.mode.agentName === rowAgentName || shell.mode.agentId === rowAgentName);
+    const sameMutable = canReuseMutableShell({
+      sessionMutable,
+      shellMutable: shell?.mode.status === 'active' && shell.mode.isMutable,
+      ...(shell?.mode.status === 'active' && shell.mode.isMutable
+        ? { shellAgentName: shell.mode.agentName, shellAgentId: shell.mode.agentId }
+        : {}),
+      remoteId,
+      pendingSessionId: shell?.pendingSessionId,
+    });
+
+    // An access-error pane must go through openHistorySession so the error clears.
+    if ((sameImmutable || sameMutable) && remoteId != null && shell?.sessionAccessError == null) {
+      void Promise.resolve(aui.threads().switchToThread(id)).catch(() => undefined);
+      return;
+    }
+    if (remoteId != null) {
+      shell?.openHistorySession({
+        sessionId: remoteId,
+        isMutable: sessionMutable,
+        ...(rowAgentName != null ? { agentName: rowAgentName } : {}),
+      });
+      return;
+    }
+    void Promise.resolve(aui.threads().switchToThread(id)).catch(() => undefined);
+  };
+
   return (
     <ThreadListItemPrimitive.Root className="min-w-0">
       <ThreadListRow
@@ -242,6 +282,8 @@ function ThreadListItemRow({
             AnalyticsEvents.Session.SELECTED,
             withSessionProps({ is_mutable: threadListItemIsMutable(custom) }, { sessionId: remoteId, agentName }),
           );
+          const selection = ++selectionRef.current;
+          const clickedRuntimeKey = shell?.runtimeKey;
           onThreadOpen?.();
           shell?.setSettingsOpen(false);
           shell?.setLibraryOpen(false);
@@ -249,38 +291,24 @@ function ThreadListItemRow({
           shell?.setSchedulesOpen(false);
           shell?.setEnvironmentsOpen(false);
 
+          // A row created in this client has no custom yet; defaulting to mutable would
+          // reopen a saved-agent chat as a draft, so ask the server first.
+          if (remoteId != null && server != null && readThreadIsMutable(custom) === undefined && agentName == null) {
+            void server
+              .getSession({ sessionId: remoteId })
+              .then(
+                session => ({ sessionMutable: session.isMutable, rowAgentName: session.agentName ?? undefined }),
+                () => ({ sessionMutable: threadListItemIsMutable(custom), rowAgentName: agentName }),
+              )
+              .then(resolved => {
+                // A later row click supersedes this open; New Chat / agent switches remount the runtime.
+                if (selectionRef.current === selection && runtimeKeyRef.current === clickedRuntimeKey)
+                  openRow(resolved);
+              });
+            return;
+          }
           // Prefer custom.isMutable (session wire); agentName-only is a legacy fallback.
-          const sessionMutable = threadListItemIsMutable(custom);
-          const sameImmutable =
-            !sessionMutable &&
-            shell?.mode.status === 'active' &&
-            !shell.mode.isMutable &&
-            (agentName == null
-              ? shell.mode.agentName == null && shell.mode.agentId == null
-              : shell.mode.agentName === agentName || shell.mode.agentId === agentName);
-          const sameMutable = canReuseMutableShell({
-            sessionMutable,
-            shellMutable: shell?.mode.status === 'active' && shell.mode.isMutable,
-            ...(shell?.mode.status === 'active' && shell.mode.isMutable
-              ? { shellAgentName: shell.mode.agentName, shellAgentId: shell.mode.agentId }
-              : {}),
-            remoteId,
-            pendingSessionId: shell?.pendingSessionId,
-          });
-
-          if ((sameImmutable || sameMutable) && remoteId != null) {
-            void Promise.resolve(aui.threads().switchToThread(id)).catch(() => undefined);
-            return;
-          }
-          if (remoteId != null) {
-            shell?.openHistorySession({
-              sessionId: remoteId,
-              isMutable: sessionMutable,
-              ...(agentName != null ? { agentName } : {}),
-            });
-            return;
-          }
-          void Promise.resolve(aui.threads().switchToThread(id)).catch(() => undefined);
+          openRow({ sessionMutable: threadListItemIsMutable(custom), rowAgentName: agentName });
         }}
         actions={
           showActions ? (
@@ -338,6 +366,7 @@ function isPersistedHistoryVariant(variant: NonNullable<ThreadListContainerProps
 }
 
 function ThreadListItemsByRecency({
+  selectionRef,
   indices,
   onThreadOpen,
   canRenameSession,
@@ -345,6 +374,7 @@ function ThreadListItemsByRecency({
   canManageResource,
   canDeleteResource,
 }: {
+  selectionRef: RefObject<number>;
   indices: number[];
   onThreadOpen?: () => void;
   canRenameSession: boolean;
@@ -362,6 +392,7 @@ function ThreadListItemsByRecency({
         return (
           <ThreadListItemByIndexProvider key={key} index={index} archived={false}>
             <ThreadListItemRow
+              selectionRef={selectionRef}
               onThreadOpen={onThreadOpen}
               canRenameSession={canRenameSession}
               canDeleteSession={canDeleteSession}
@@ -443,6 +474,7 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
   const viewportRef = useRef<HTMLDivElement>(null);
   const hasMoreRef = useRef(hasMore);
   const auiRef = useRef(aui);
+  const selectionRef = useRef(0);
   hasMoreRef.current = hasMore;
   auiRef.current = aui;
 
@@ -533,6 +565,7 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
     listBody = (
       <ThreadListPrimitive.Root className="flex min-h-0 flex-col gap-0.5">
         <ThreadListItemsByRecency
+          selectionRef={selectionRef}
           indices={indices}
           onThreadOpen={onThreadOpen}
           canRenameSession={canRenameSession}

@@ -3,6 +3,7 @@ import { Accordion, AccordionDetails, AccordionSummary } from '../atoms/primitiv
 
 import { AgentStepsCard } from '../atoms/adapters/AgentStepsCardAdapter.js';
 import { AskUserPrompt } from '../atoms/adapters/AskUserPromptAdapter.js';
+import { ContextCompactionCard } from '../atoms/adapters/ContextCompactionCardAdapter.js';
 import { McpAuthPrompt } from '../atoms/adapters/McpAuthPromptAdapter.js';
 import { ReasoningCard } from '../atoms/adapters/ReasoningCardAdapter.js';
 import { ResumeUnavailable } from '../atoms/ResumeUnavailable.js';
@@ -30,6 +31,7 @@ import type {
   AgentSessionEventTimelineProps,
   AgentSessionsProps,
 } from '../atoms/agent-details/types.js';
+import { AgentLibraryUsageCells } from '../atoms/AgentLibraryUsage.js';
 import { AgentLibraryRow, AgentsLibrary } from '../atoms/AgentsLibrary.js';
 import { AgentsLibraryButton } from '../atoms/AgentsLibraryButton.js';
 import { ApprovalNavBanner } from '../atoms/ApprovalNavBanner.js';
@@ -63,6 +65,8 @@ import { DraftComposerActionsMenu } from '../atoms/draft/DraftComposerActionsMen
 import { DraftComposerLeftSection, DraftComposerRightSection } from '../atoms/draft/DraftComposerSections.js';
 import { CatalogRow, ConnectorConnectButton, DraftCompositeSelector } from '../atoms/draft/DraftCompositeSelector.js';
 import { DraftModelSelector } from '../atoms/draft/DraftModelSelector.js';
+import { InstructionsFullScreenEditor } from '../atoms/draft/InstructionsFullScreenEditor.js';
+import { InstructionsMarkdownEditor } from '../atoms/draft/InstructionsMarkdownEditor.js';
 import type { EnvironmentsPageProps } from '../atoms/environments/EnvironmentsPage.js';
 import { EnvironmentsButton } from '../atoms/EnvironmentsButton.js';
 import { FilePreviewPanel } from '../atoms/FilePreviewPanel.js';
@@ -171,6 +175,8 @@ export const defaultSlots = {
   AgentCustomParametersEditor,
   AgentConfigEditors,
   AgentInstructionsDrawer,
+  InstructionsFullScreenEditor,
+  InstructionsMarkdownEditor,
   AgentModelEditorContent,
   AgentModelSettingsContent,
   AgentMcpEditorContent,
@@ -214,6 +220,7 @@ export const defaultSlots = {
   SandboxToolCallCard,
   AgentStepsCard,
   ReasoningCard,
+  ContextCompactionCard,
   AskUserPrompt,
   McpAuthPrompt,
   ResumeUnavailable,
@@ -225,6 +232,7 @@ export const defaultSlots = {
   ThreadListNewButton,
   AgentsLibrary,
   AgentLibraryRow,
+  AgentLibraryUsageCells,
   AgentsLibraryButton,
   ApprovalNavBanner,
   SessionsBrowserButton,

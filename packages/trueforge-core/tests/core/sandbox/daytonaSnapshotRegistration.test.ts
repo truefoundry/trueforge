@@ -21,7 +21,7 @@ const DEFAULT_TEST_ENVIRONMENT = createDaytonaSandboxEnvironment({
  */
 function makeProvider(): DaytonaSandboxProvider {
   // useDeprecatedPolling keeps the constructor from opening the event-stream WebSocket.
-  const client = new Daytona({ apiKey: 'dtn-test', useDeprecatedPolling: true });
+  const client = new Daytona({ apiKey: 'dtn-test', useDeprecatedPolling: true, requestTimeoutMs: 1000 });
   jest.spyOn(client.snapshot, 'get').mockRejectedValue(new DaytonaError('not found', NOT_FOUND_STATUS));
 
   return new DaytonaSandboxProvider({
@@ -121,7 +121,7 @@ describe('DaytonaSandboxProvider register-only snapshot create', () => {
 
 describe('DaytonaSandboxProvider exec', () => {
   it('rethrows SandboxNotAvailableError when the sandbox is gone', async () => {
-    const client = new Daytona({ apiKey: 'dtn-test', useDeprecatedPolling: true });
+    const client = new Daytona({ apiKey: 'dtn-test', useDeprecatedPolling: true, requestTimeoutMs: 1000 });
     jest.spyOn(client, 'get').mockRejectedValue(new DaytonaError('not found', NOT_FOUND_STATUS));
     const provider = new DaytonaSandboxProvider({
       client,

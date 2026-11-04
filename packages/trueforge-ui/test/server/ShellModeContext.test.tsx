@@ -9,10 +9,11 @@ import {
   DRAFT_SPEC_PREFERENCES_STORAGE_KEY,
   readDraftSpecPreferences,
 } from '@/server/draftSpecPreferences.js';
-import { ServerProvider, useServerCapabilities } from '@/server/ServerContext.js';
+import { ServerProvider, useServerCapabilities, useServerCapabilitiesSettled } from '@/server/ServerContext.js';
 import { ShellModeProvider, useOptionalShellMode, useShellMode, type AgentConfig } from '@/server/ShellModeContext.js';
 import type { AgentUIServer } from '@/server/types.js';
 import { createMockAgentSessionsServer, createMockAgentUIServer, createMockCatalog } from './mockServer.js';
+import { allSettingsSections } from './settingsCapabilityFixture.js';
 
 function wrap(agentConfig?: AgentConfig, initialSettingsOpen?: boolean) {
   const server = createMockAgentUIServer({
@@ -105,9 +106,9 @@ describe('ShellModeProvider', () => {
       catalog: createMockCatalog(),
       getCapabilities: async () => ({
         data: {
-          sandbox: { enabled: true },
+          sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
-          settings: { enabled: false },
+          settings: allSettingsSections(false),
         },
       }),
     });
@@ -128,7 +129,7 @@ describe('ShellModeProvider', () => {
     );
 
     expect(result.current.shell.settingsOpen).toBe(false);
-    await waitFor(() => expect(result.current.capabilities?.settings?.enabled).toBe(false));
+    await waitFor(() => expect(result.current.capabilities?.settings?.modelProviders?.enabled).toBe(false));
     act(() => result.current.shell.setSettingsOpen(true));
     expect(result.current.shell.settingsOpen).toBe(false);
   });
@@ -543,8 +544,8 @@ describe('ShellModeProvider', () => {
     expect(result.current.runtimeKey).not.toBe(keyBefore);
   });
 
-  it('clearChat and openDraft keep a disabled chat web-search preference', () => {
-    const { result } = renderHook(() => useShellMode(), {
+  it('clearChat and openDraft keep a disabled chat web-search preference', async () => {
+    const { result } = renderHook(() => ({ shell: useShellMode(), settled: useServerCapabilitiesSettled() }), {
       wrapper: wrap({
         mode: 'AgentComposer',
         defaultAgentSpec: {
@@ -553,9 +554,10 @@ describe('ShellModeProvider', () => {
         },
       }),
     });
+    await waitFor(() => expect(result.current.settled).toBe(true));
 
     act(() =>
-      result.current.rememberDraftSpec(
+      result.current.shell.rememberDraftSpec(
         {
           model: { name: 'openai-main/gpt-4.1' },
           config: { webSearch: { enabled: false } },
@@ -564,8 +566,8 @@ describe('ShellModeProvider', () => {
       ),
     );
 
-    act(() => result.current.clearChat());
-    expect(result.current.mode).toMatchObject({
+    act(() => result.current.shell.clearChat());
+    expect(result.current.shell.mode).toMatchObject({
       status: 'active',
       isMutable: true,
       isCreateAgent: false,
@@ -573,7 +575,7 @@ describe('ShellModeProvider', () => {
     });
 
     act(() =>
-      result.current.rememberDraftSpec(
+      result.current.shell.rememberDraftSpec(
         {
           model: { name: 'openai-main/gpt-4.1' },
           config: { webSearch: { enabled: false } },
@@ -581,18 +583,56 @@ describe('ShellModeProvider', () => {
         'chat',
       ),
     );
-    act(() => result.current.openDraft());
-    expect(result.current.mode).toMatchObject({
+    act(() => result.current.shell.openDraft());
+    expect(result.current.shell.mode).toMatchObject({
       agentSpec: { config: { webSearch: { enabled: false } } },
+    });
+  });
+
+  it('openDraft and clearChat enable web search on New Chat when the capability is available', async () => {
+    const getCapabilities = vi.fn(async () => ({
+      data: {
+        sandbox: { enabled: true, environments: { enabled: true } },
+        skill: { enabled: true },
+        settings: allSettingsSections(true),
+        webSearch: { enabled: true },
+      },
+    }));
+    const server = createMockAgentUIServer({ catalog: createMockCatalog(), getCapabilities });
+    const { result } = renderHook(
+      () => ({
+        shell: useShellMode(),
+        capabilities: useServerCapabilities(),
+      }),
+      {
+        wrapper: wrapWithServer(server, {
+          mode: 'AgentComposer',
+          defaultAgentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+        }),
+      },
+    );
+    await waitFor(() => expect(result.current.capabilities?.webSearch?.enabled).toBe(true));
+
+    act(() => result.current.shell.openDraft());
+    expect(result.current.shell.mode).toMatchObject({
+      status: 'active',
+      isMutable: true,
+      isCreateAgent: false,
+      agentSpec: { config: { webSearch: { enabled: true } } },
+    });
+
+    act(() => result.current.shell.clearChat());
+    expect(result.current.shell.mode).toMatchObject({
+      agentSpec: { config: { webSearch: { enabled: true } } },
     });
   });
 
   it('does not persist capability-forced web-search off as a chat preference', async () => {
     const getCapabilities = vi.fn(async () => ({
       data: {
-        sandbox: { enabled: true },
+        sandbox: { enabled: true, environments: { enabled: true } },
         skill: { enabled: true },
-        settings: { enabled: true },
+        settings: allSettingsSections(true),
         webSearch: { enabled: false },
       },
     }));
@@ -724,6 +764,42 @@ describe('ShellModeProvider', () => {
       locked: false,
     });
     expect(result.current.runtimeKey).not.toBe(keyBefore);
+  });
+
+  it('clearChat on a builder keeps the live draft instead of the open snapshot', () => {
+    const { result } = renderHook(() => useShellMode(), {
+      wrapper: wrap({ mode: 'AgentLibraryWithComposer' }),
+    });
+    const opened = {
+      model: { name: 'opened/model' },
+      instructions: 'Opened instructions.',
+    };
+    const live = {
+      model: { name: 'live/model' },
+      instructions: 'Keep these instructions.',
+      mcpServers: [{ name: 'exa' }],
+      skills: [{ name: 'research' }],
+      config: { sandbox: { enabled: true } },
+    };
+
+    act(() =>
+      result.current.selectLibraryAgent({
+        isMutable: true,
+        isCreateAgent: true,
+        agentSpec: opened,
+      }),
+    );
+    const keyBefore = result.current.runtimeKey;
+
+    act(() => result.current.clearChat(live));
+
+    expect(result.current.runtimeKey).not.toBe(keyBefore);
+    expect(result.current.mode).toMatchObject({
+      status: 'active',
+      isMutable: true,
+      isCreateAgent: true,
+      agentSpec: live,
+    });
   });
 
   it('listSessionsAgentId follows history filter when library is enabled', () => {
@@ -1081,7 +1157,7 @@ describe('ShellModeProvider', () => {
   it('does not treat sandbox availability as the selected runtime value', async () => {
     const getCapabilities = vi.fn(async () => ({
       data: {
-        sandbox: { enabled: true },
+        sandbox: { enabled: true, environments: { enabled: true } },
         skill: { enabled: true },
       },
     }));
@@ -1105,7 +1181,7 @@ describe('ShellModeProvider', () => {
   it('overrides a host-seeded sandbox when loaded capabilities disable it', async () => {
     const getCapabilities = vi.fn(async () => ({
       data: {
-        sandbox: { enabled: false },
+        sandbox: { enabled: false, environments: { enabled: false } },
         skill: { enabled: false },
       },
     }));

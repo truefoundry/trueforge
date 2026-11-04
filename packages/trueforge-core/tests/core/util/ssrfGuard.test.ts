@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { fetch as undiciFetch, Response as UndiciResponse } from 'undici';
 import {
   configureOutboundFetches,
   defaultMcpOutboundFetchOptions,
@@ -10,6 +11,16 @@ import {
 } from '../../../src/core/util/outboundFetch';
 import { assertSafeOutboundUrl, configureOutboundUrlGuard } from '../../../src/core/util/ssrfGuard';
 
+jest.mock('undici', () => {
+  const actual = jest.requireActual<typeof import('undici')>('undici');
+  return {
+    ...actual,
+    fetch: jest.fn((...args: Parameters<typeof actual.fetch>) => actual.fetch(...args)),
+  };
+});
+
+const mockedUndiciFetch = jest.mocked(undiciFetch);
+
 function resetOutbound(): void {
   configureOutboundUrlGuard({ allowedHosts: [], blockedHosts: [] });
   configureOutboundFetches({
@@ -20,6 +31,10 @@ function resetOutbound(): void {
 }
 
 afterEach(() => {
+  mockedUndiciFetch.mockReset();
+  mockedUndiciFetch.mockImplementation((...args) =>
+    jest.requireActual<typeof import('undici')>('undici').fetch(...args),
+  );
   resetOutbound();
 });
 
@@ -106,6 +121,14 @@ describe('ssrfFetch', () => {
     } finally {
       await closeServer(server);
     }
+  });
+
+  it('does not follow an https-to-http redirect', async () => {
+    mockedUndiciFetch.mockResolvedValueOnce(
+      new UndiciResponse(null, { status: 302, headers: { location: 'http://93.184.216.34/' } }),
+    );
+    await expect(ssrfFetch('https://example.com/')).rejects.toThrow(/https to http redirect/);
+    expect(mockedUndiciFetch).toHaveBeenCalledTimes(1);
   });
 
   it('follows a same-origin redirect when the host is allowed', async () => {

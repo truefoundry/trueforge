@@ -13,6 +13,7 @@ from ..types.create_turn_event_response import CreateTurnEventResponse
 from ..types.get_session_response import GetSessionResponse
 from ..types.get_turn_response import GetTurnResponse
 from ..types.list_session_events_response import ListSessionEventsResponse
+from ..types.list_session_grants_response import ListSessionGrantsResponse
 from ..types.list_sessions_order import ListSessionsOrder
 from ..types.list_sessions_response import ListSessionsResponse
 from ..types.list_turn_events_order import ListTurnEventsOrder
@@ -23,6 +24,7 @@ from ..types.session import Session
 from ..types.session_agent_spec_body import SessionAgentSpecBody
 from ..types.session_event import SessionEvent
 from ..types.session_event_item import SessionEventItem
+from ..types.session_grant_subject import SessionGrantSubject
 from ..types.session_metadata import SessionMetadata
 from ..types.session_source_type import SessionSourceType
 from ..types.turn import Turn
@@ -264,7 +266,7 @@ class SessionsClient:
         metadata : typing.Optional[SessionMetadata]
 
         shared : typing.Optional[bool]
-            When true, any subject in the tenant may read this session and its turns/events by id.
+            Deprecated; use `POST /sessions/{session_id}/grants` with a `tenant` subject.
 
         title : typing.Optional[str]
             Human-readable session title.
@@ -391,6 +393,87 @@ class SessionsClient:
             limit=limit,
             request_options=request_options,
         )
+
+    def list_grants(
+        self, *, session_id: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> ListSessionGrantsResponse:
+        """
+        List the subjects this session is shared with.
+
+        Parameters
+        ----------
+        session_id : str
+            Session identifier.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ListSessionGrantsResponse
+            Subjects the session is shared with.
+
+        Examples
+        --------
+        from trueforge_sdk import TrueForge
+
+        client = TrueForge(
+            token="YOUR_TOKEN",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.sessions.list_grants(
+            session_id="session_id",
+        )
+        """
+        _response = self._raw_client.list_grants(session_id=session_id, request_options=request_options)
+        return _response.data
+
+    def update_grants(
+        self,
+        *,
+        session_id: str,
+        grant: typing.Optional[typing.Sequence[SessionGrantSubject]] = OMIT,
+        revoke: typing.Optional[typing.Sequence[SessionGrantSubject]] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ListSessionGrantsResponse:
+        """
+        Share this session with subjects and remove access for others in one atomic request. Subjects get read access to the session, its turns and its events. A `tenant` subject, whose `subject_id` must be your tenant ID, shares with everyone in the tenant. Granting an existing subject or revoking one without access is a no-op. Returns every subject the session is shared with.
+
+        Parameters
+        ----------
+        session_id : str
+            Session identifier.
+
+        grant : typing.Optional[typing.Sequence[SessionGrantSubject]]
+            Subjects to share the session with (up to 50).
+
+        revoke : typing.Optional[typing.Sequence[SessionGrantSubject]]
+            Subjects to remove access for (up to 50).
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ListSessionGrantsResponse
+            Subjects the session is shared with after the change.
+
+        Examples
+        --------
+        from trueforge_sdk import TrueForge
+
+        client = TrueForge(
+            token="YOUR_TOKEN",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.sessions.update_grants(
+            session_id="session_id",
+        )
+        """
+        _response = self._raw_client.update_grants(
+            session_id=session_id, grant=grant, revoke=revoke, request_options=request_options
+        )
+        return _response.data
 
     def list_turns(
         self,
@@ -1067,7 +1150,7 @@ class AsyncSessionsClient:
         metadata : typing.Optional[SessionMetadata]
 
         shared : typing.Optional[bool]
-            When true, any subject in the tenant may read this session and its turns/events by id.
+            Deprecated; use `POST /sessions/{session_id}/grants` with a `tenant` subject.
 
         title : typing.Optional[str]
             Human-readable session title.
@@ -1219,6 +1302,103 @@ class AsyncSessionsClient:
             limit=limit,
             request_options=request_options,
         )
+
+    async def list_grants(
+        self, *, session_id: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> ListSessionGrantsResponse:
+        """
+        List the subjects this session is shared with.
+
+        Parameters
+        ----------
+        session_id : str
+            Session identifier.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ListSessionGrantsResponse
+            Subjects the session is shared with.
+
+        Examples
+        --------
+        import asyncio
+
+        from trueforge_sdk import AsyncTrueForge
+
+        client = AsyncTrueForge(
+            token="YOUR_TOKEN",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.sessions.list_grants(
+                session_id="session_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.list_grants(session_id=session_id, request_options=request_options)
+        return _response.data
+
+    async def update_grants(
+        self,
+        *,
+        session_id: str,
+        grant: typing.Optional[typing.Sequence[SessionGrantSubject]] = OMIT,
+        revoke: typing.Optional[typing.Sequence[SessionGrantSubject]] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ListSessionGrantsResponse:
+        """
+        Share this session with subjects and remove access for others in one atomic request. Subjects get read access to the session, its turns and its events. A `tenant` subject, whose `subject_id` must be your tenant ID, shares with everyone in the tenant. Granting an existing subject or revoking one without access is a no-op. Returns every subject the session is shared with.
+
+        Parameters
+        ----------
+        session_id : str
+            Session identifier.
+
+        grant : typing.Optional[typing.Sequence[SessionGrantSubject]]
+            Subjects to share the session with (up to 50).
+
+        revoke : typing.Optional[typing.Sequence[SessionGrantSubject]]
+            Subjects to remove access for (up to 50).
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ListSessionGrantsResponse
+            Subjects the session is shared with after the change.
+
+        Examples
+        --------
+        import asyncio
+
+        from trueforge_sdk import AsyncTrueForge
+
+        client = AsyncTrueForge(
+            token="YOUR_TOKEN",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.sessions.update_grants(
+                session_id="session_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.update_grants(
+            session_id=session_id, grant=grant, revoke=revoke, request_options=request_options
+        )
+        return _response.data
 
     async def list_turns(
         self,

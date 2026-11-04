@@ -34,6 +34,7 @@ export type {
 } from './schemas/turn';
 
 export {
+  SessionLastTurnDetailsSchema,
   SessionMetadataSchema,
   SessionMetricsSchema,
   SessionSchema,
@@ -44,6 +45,7 @@ export {
 export type {
   Session,
   SessionAgent,
+  SessionLastTurnDetails,
   SessionMetadata,
   SessionMetrics,
   SessionSource,

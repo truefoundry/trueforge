@@ -15,6 +15,7 @@ import {
   ListSessionsResponseSchema,
   UpdateSessionRequestSchema,
 } from '../schemas/session';
+import { ListSessionGrantsResponseSchema, UpdateSessionGrantsRequestSchema } from '../schemas/sessionGrant';
 import { CancelSessionRequestSchema, CancelSessionResponseSchema } from '../schemas/turn';
 import { TOKEN_PAGINATION } from './fernExtensions';
 import { OpenApiTag } from './openapiTags';
@@ -289,6 +290,73 @@ export const listSessionEventsRoute = createRoute({
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Session not found.',
+    },
+  },
+});
+
+export const listSessionGrantsRoute = createRoute({
+  method: 'get',
+  path: '/{session_id}/grants',
+  tags: [OpenApiTag.AGENT_SESSIONS],
+  summary: 'List session grants',
+  description: 'List the subjects this session is shared with.',
+  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-method-name': 'list_grants',
+  request: {
+    params: SessionIdParamsSchema,
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: ListSessionGrantsResponseSchema } },
+      description: 'Subjects the session is shared with.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'User does not have permission.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Session not found.',
+    },
+  },
+});
+
+export const updateSessionGrantsRoute = createRoute({
+  method: 'post',
+  path: '/{session_id}/grants',
+  tags: [OpenApiTag.AGENT_SESSIONS],
+  summary: 'Update session grants',
+  description:
+    'Share this session with subjects and remove access for others in one atomic request. Subjects get read access to the session, its turns and its events. A `tenant` subject, whose `subject_id` must be your tenant ID, shares with everyone in the tenant. Granting an existing subject or revoking one without access is a no-op. Returns every subject the session is shared with.',
+  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-method-name': 'update_grants',
+  request: {
+    params: SessionIdParamsSchema,
+    body: {
+      content: { 'application/json': { schema: UpdateSessionGrantsRequestSchema } },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: ListSessionGrantsResponseSchema } },
+      description: 'Subjects the session is shared with after the change.',
+    },
+    400: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid request body.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'User does not have permission.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Session not found.',
+    },
+    422: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'A subject to grant is unknown or is the session creator, or a subject is both granted and revoked.',
     },
   },
 });

@@ -14,17 +14,21 @@ describe('runtimeConfigValueClassName', () => {
 });
 
 describe('runtimeConfigSummary', () => {
-  it('omits web search when the host capability is unavailable', () => {
-    expect(runtimeConfigSummary({ webSearch: { enabled: false } }).map(entry => entry.label)).not.toContain(
-      'web search',
-    );
+  it('lists web search even when the host capability is unavailable', () => {
+    expect(runtimeConfigSummary({ webSearch: { enabled: true } }).find(entry => entry.label === 'web search')).toEqual({
+      label: 'web search',
+      value: 'on',
+    });
   });
 
-  it('includes web search when the host capability is available', () => {
-    expect(
-      runtimeConfigSummary({ webSearch: { enabled: false } }, { webSearchAvailable: true }).find(
-        entry => entry.label === 'web search',
-      ),
-    ).toEqual({ label: 'web search', value: 'off' });
+  it('falls back to the host capability when the spec says nothing', () => {
+    expect(runtimeConfigSummary({}, { webSearchAvailable: true }).find(entry => entry.label === 'web search')).toEqual({
+      label: 'web search',
+      value: 'on',
+    });
+    expect(runtimeConfigSummary({}).find(entry => entry.label === 'web search')).toEqual({
+      label: 'web search',
+      value: 'off',
+    });
   });
 });

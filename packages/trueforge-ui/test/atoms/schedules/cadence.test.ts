@@ -5,6 +5,8 @@ import {
   defaultScheduleFormValues,
   formatCadenceSummary,
   getTimezoneOptions,
+  hasFiveCronFields,
+  valuesToCron,
 } from '@/atoms/schedules/cadence.js';
 
 afterEach(() => {
@@ -59,5 +61,19 @@ describe('formatCadenceSummary', () => {
         timezone: 'UTC',
       }).recurrence,
     ).toBe('custom');
+  });
+});
+
+describe('custom cron', () => {
+  it('round-trips an every-4-hours expression through the form values', () => {
+    const values = cronToFormValues({ name: 'n', task: 't', cron: '0 */4 * * *', timezone: 'UTC' });
+    expect(values.recurrence).toBe('custom');
+    expect(valuesToCron(values)).toBe('0 */4 * * *');
+  });
+
+  it('checks only the field count', () => {
+    expect(hasFiveCronFields(' 0 */4 * * * ')).toBe(true);
+    expect(hasFiveCronFields('0 */4 *')).toBe(false);
+    expect(hasFiveCronFields('')).toBe(false);
   });
 });

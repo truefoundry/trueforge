@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { useLayoutEffect, type ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -8,7 +8,7 @@ import { DraftComposerLeftSection, DraftComposerRightSection } from '@/atoms/dra
 import { CompactLayoutProvider } from '@/atoms/lib/CompactLayoutContext.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
-import type { AgentSpec } from '@/server/types.js';
+import type { AgentSpec, ModelSelection } from '@/server/types.js';
 import { createMockAgentUIServer } from '../../server/mockServer.js';
 
 let agentSpec: AgentSpec;
@@ -141,6 +141,44 @@ describe('draft composer sections', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Agent config' }));
     expect(screen.getByText('Config open')).toBeInTheDocument();
+  });
+
+  it('keeps an explicit reasoning effort when the model lists none', async () => {
+    agentSpec = { model: { name: 'openai/plain', params: { reasoningEffort: 'minimal' } } };
+    let resolveModels: (models: ModelSelection[]) => void = () => {};
+    const modelsReady = new Promise<ModelSelection[]>(resolve => {
+      resolveModels = resolve;
+    });
+    const server = createMockAgentUIServer({
+      getModels: () => modelsReady,
+    });
+
+    render(
+      <ShellModeProvider agentConfig={{ mode: 'AgentComposer' }}>
+        <BuilderMode>
+          <ServerProvider server={server}>
+            <DraftCatalogProvider>
+              <DraftComposerRightSection disabled={false} isRunning={false} />
+            </DraftCatalogProvider>
+          </ServerProvider>
+        </BuilderMode>
+      </ShellModeProvider>,
+    );
+
+    await act(async () => {
+      resolveModels([
+        {
+          id: 'plain',
+          name: 'openai/plain',
+          provider: { name: 'OpenAI' },
+          properties: {},
+        },
+      ]);
+      await modelsReady;
+    });
+
+    expect(updateAgentSpec).not.toHaveBeenCalled();
+    expect(screen.queryByTitle('Select reasoning effort')).not.toBeInTheDocument();
   });
 
   it('propagates disabled and running state to composed controls', async () => {

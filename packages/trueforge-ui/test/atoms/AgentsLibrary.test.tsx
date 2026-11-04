@@ -14,6 +14,7 @@ import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
 import type { AgentUIServer, ListPermissionsResponse } from '@/server/types.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 import {
+  createMockAgentMetricsServer,
   createMockAgentSessionsServer,
   createMockAgentUIServer,
   createMockScheduleServer,
@@ -207,7 +208,8 @@ describe('AgentsLibrary', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Try agent alpha-agent' })).toBeInTheDocument();
     });
-    expect(screen.getByText('Alpha handles triage.')).toHaveClass('truncate');
+    expect(screen.getByText('gpt-4.1')).toBeInTheDocument();
+    expect(screen.getByText('no tools')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Try agent beta-agent' }));
     expect(onSelectAgent).toHaveBeenCalledWith('beta-agent');
@@ -258,9 +260,12 @@ describe('AgentsLibrary', () => {
       expect(within(card).getByRole('button', { name: 'Open alpha-agent' })).toBeInTheDocument();
       expect(within(card).getByRole('button', { name: 'Try agent alpha-agent' })).toBeInTheDocument();
       expect(within(card).getByLabelText('openai/gpt-4.1')).toBeInTheDocument();
-      expect(within(card).getByLabelText(/Skills:/)).toBeInTheDocument();
-      expect(within(card).getByLabelText(/Connectors:/)).toBeInTheDocument();
-      expect(within(card).getByText('Alpha handles triage.')).toHaveClass('line-clamp-2');
+      expect(within(card).getByText('1 MCP')).toBeInTheDocument();
+      expect(within(card).getByText('1 skill')).toBeInTheDocument();
+      expect(within(card).getByLabelText('MCP: Connector')).toBeInTheDocument();
+      expect(within(card).getByLabelText('Skills: Skill')).toBeInTheDocument();
+      // Description is tooltip-only; creator nests under the name instead.
+      expect(within(card).queryByText('Alpha handles triage.')).not.toBeInTheDocument();
 
       const addSchedule = await within(card).findByRole('button', { name: 'Add schedule for alpha-agent' });
       expect(addSchedule).toBeVisible();
@@ -268,7 +273,7 @@ describe('AgentsLibrary', () => {
     });
   });
 
-  it('truncates long descriptions without hiding Try, and skips name-echo descriptions', async () => {
+  it('keeps Try visible and skips name-echo descriptions under the agent title', async () => {
     const longDescription = `${'Lorem ipsum dolor sit amet, '.repeat(20)}consectetur.`;
     const server = mockServer([
       {
@@ -291,8 +296,10 @@ describe('AgentsLibrary', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Try agent verbose-agent' })).toBeInTheDocument();
     });
+    expect(screen.getByRole('columnheader', { name: 'Agent' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Configuration' })).toBeInTheDocument();
-    expect(screen.getByText(longDescription)).toHaveClass('truncate');
+    // Description is tooltip-only on the name; name-echo descriptions stay hidden.
+    expect(screen.queryByText(longDescription)).not.toBeInTheDocument();
     expect(screen.queryByText('echo-agent', { selector: '.text-xs' })).not.toBeInTheDocument();
   });
 
@@ -494,7 +501,7 @@ describe('AgentsLibrary', () => {
     expect(screen.getByRole('heading', { name: 'Agents' })).toBeInTheDocument();
   });
 
-  it('shows model, skills, and connector under a Configuration column with tooltips', async () => {
+  it('shows model and tools summary under a Configuration column with tooltips', async () => {
     const server = mockServer([
       {
         name: 'algo-art',
@@ -504,6 +511,11 @@ describe('AgentsLibrary', () => {
           skills: [{ id: 's1', name: 'paint' }],
           mcpServers: [{ id: 'm1', name: 'github' }],
         },
+      },
+      {
+        name: 'model-only',
+        agentId: 'model-only',
+        agentSpec: { model: { name: 'openai/gpt-4.1' } },
       },
       { name: 'bare', agentId: 'bare' },
     ]);
@@ -520,8 +532,11 @@ describe('AgentsLibrary', () => {
     });
     expect(screen.getByLabelText('openai/gpt-5-5')).toBeInTheDocument();
     expect(screen.getByText('gpt-5-5')).toBeInTheDocument();
-    expect(screen.getByLabelText('Connectors: github')).toBeInTheDocument();
+    expect(screen.getByText('1 MCP')).toBeInTheDocument();
+    expect(screen.getByText('1 skill')).toBeInTheDocument();
+    expect(screen.getByLabelText('MCP: github')).toBeInTheDocument();
     expect(screen.getByLabelText('Skills: paint')).toBeInTheDocument();
+    expect(screen.getByText('no tools')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Try agent bare' })).toBeInTheDocument();
     expect(screen.getByLabelText('Configuration unavailable for bare')).toBeInTheDocument();
   });
@@ -906,7 +921,7 @@ describe('AgentsLibraryButton', () => {
     });
   });
 
-  it('shows Created by when agents include createdBySubject', async () => {
+  it('nests creator under the agent name when createdBySubject is present', async () => {
     const server = mockServer([
       {
         name: 'alpha-agent',
@@ -921,15 +936,93 @@ describe('AgentsLibraryButton', () => {
     renderLibrary(<LibraryHarness />, { server });
     fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
 
-    expect(await screen.findByRole('columnheader', { name: 'Created by' })).toBeInTheDocument();
+    expect(await screen.findByRole('columnheader', { name: 'Agent' })).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Created by' })).not.toBeInTheDocument();
     expect(screen.getByText('alice@example.com')).toBeInTheDocument();
     expect(document.querySelector('[data-slot="avatar-fallback"]')).toHaveTextContent(/^A$/);
   });
 
-  it('hides Created by when no agent has createdBySubject', async () => {
+  it('omits creator chrome when no agent has createdBySubject', async () => {
     renderLibrary(<LibraryHarness />, { server: mockServer() });
     fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
     await screen.findByRole('button', { name: 'Try agent alpha-agent' });
     expect(screen.queryByRole('columnheader', { name: 'Created by' })).not.toBeInTheDocument();
+    expect(document.querySelector('[data-slot="avatar-fallback"]')).not.toBeInTheDocument();
+  });
+
+  it('shows sessions, spend, sparkline, and last run when metrics and sessions are available', async () => {
+    const getMeters = vi.fn(async () => [
+      { name: 'total_sessions', aggregateValue: 12, description: 'Total sessions', unit: 'count' },
+      { name: 'total_cost_in_usd', aggregateValue: 4.5, description: 'Total cost', unit: '$' },
+      { name: 'cost_per_session_in_usd', aggregateValue: 0.375, description: 'Cost per session', unit: '$' },
+    ]);
+    const getChartData = vi.fn(async () => ({
+      step: '86400',
+      graphs: [
+        {
+          name: 'sessions_cost_over_time',
+          displayName: 'Cost',
+          description: 'Daily spend',
+          unit: '$',
+          chartType: 'line' as const,
+          graphLines: [
+            {
+              name: 'cost',
+              values: [
+                { timestamp: '2026-10-01T00:00:00.000Z', value: 0.1 },
+                { timestamp: '2026-10-02T00:00:00.000Z', value: 0.4 },
+                { timestamp: '2026-10-03T00:00:00.000Z', value: 0.2 },
+              ],
+            },
+          ],
+        },
+      ],
+    }));
+    const listSessions = vi.fn(async () => ({
+      data: [
+        {
+          id: 'sess-1',
+          createdAt: '2026-10-18T12:00:00.000Z',
+          updatedAt: '2026-10-18T12:30:00.000Z',
+          lastActivityAt: '2026-10-18T12:30:00.000Z',
+          metrics: { totalTurns: 1, totalDurationMs: 1000 },
+        },
+      ],
+    }));
+    const server = createMockAgentUIServer({
+      searchAgents: vi.fn(async () => ({
+        data: [{ name: 'metrics-agent', agentId: 'metrics-agent', agentSpec: { model: { name: 'openai/gpt-4.1' } } }],
+      })),
+      sessions: createMockAgentSessionsServer({ listSessions }),
+      metrics: createMockAgentMetricsServer({ getMeters, getChartData }),
+    });
+
+    renderLibrary(<LibraryHarness />, { server });
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
+
+    expect(await screen.findByRole('columnheader', { name: 'Sessions, 30d' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Spend, 30d' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Daily, 14d' })).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Last run' })).not.toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(getMeters).toHaveBeenCalled();
+      expect(getChartData).toHaveBeenCalled();
+    });
+
+    expect(await screen.findByLabelText('12 sessions')).toBeInTheDocument();
+    expect(screen.getByText('$4.50')).toBeInTheDocument();
+    expect(screen.getByText('$0.38 / session')).toBeInTheDocument();
+    const sparkline = screen.getByRole('img', { name: 'Daily spend over 14 days for metrics-agent' });
+    expect(sparkline).toHaveClass('text-success-bg');
+    fireEvent.mouseMove(sparkline, { clientX: 0, clientY: 8 });
+    const utcDay = new Intl.DateTimeFormat(undefined, {
+      month: 'short',
+      day: 'numeric',
+      timeZone: 'UTC',
+    }).format(new Date('2026-10-01T00:00:00.000Z'));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(utcDay);
+    expect(screen.getByRole('tooltip')).toHaveTextContent('$0.10');
+    expect(listSessions).not.toHaveBeenCalledWith(expect.objectContaining({ agentId: 'metrics-agent', limit: 1 }));
   });
 });

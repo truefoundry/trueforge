@@ -166,14 +166,18 @@ The chart's own value wins on conflict; `tolerations` append to
 
 ## Resource tiers
 
-`resourceTier` (`small` / `medium` / `large`) selects sizing presets for the
-server and the controller, and sets the server replica count (an explicit
-`server.replicaCount` overrides it, including `0` to scale the server down; the
-controller is always 1 replica). When
-set, it **replaces** the `resources` tables; an unknown tier fails the render.
-Empty (the default) keeps the explicit `resources` / `controller.resources`
-and 1 server replica. A parent chart may set `global.resourceTier` instead;
-the chart's own `resourceTier` wins.
+`global.resourceTier` defaults to `small`. `resourceTierOverride`
+(`small` / `medium` / `large`) replaces that tier for the server, the
+controller, and the server replica count. An explicit `server.replicaCount`
+still wins, including `0` to scale the server down. The controller is always
+1 replica. An unknown tier fails the render.
+
+`server.resources` and `controller.resources` are used as a whole table when
+set. The chart does not fill missing keys from the tier, so a table can omit
+CPU limits. An empty table uses the tier preset. `resourceTier` is still
+accepted as `resourceTierOverride` when that field is empty.
+
+Precedence: resources table, then `resourceTierOverride`, then `global.resourceTier`.
 
 | Preset | Server replicas | Server requests | Controller requests |
 | --- | --- | --- | --- |
@@ -380,8 +384,11 @@ extraObjects:
 
 | Value                 | Default                             | Description                           |
 | --------------------- | ----------------------------------- | ------------------------------------- |
-| `resourceTier`        | `""`                                | Optional `small` / `medium` / `large` preset for resources and server replicas; empty uses `resources`. |
-| `server.replicaCount` | `null`                              | Number of server replicas (`0` allowed to scale down). Empty/`null` derives from the resource tier (small=1, medium=2, large=3; 1 with no tier). |
+| `global.resourceTier` | `small`                             | Tier when `resourceTierOverride` is empty. `small` / `medium` / `large`. |
+| `resourceTierOverride`| `""`                                | Optional `small` / `medium` / `large` preset. Empty uses `global.resourceTier`. An explicit resources table wins over this. |
+| `server.replicaCount` | `null`                              | Number of server replicas (`0` allowed to scale down). Empty/`null` derives from the resource tier (small=1, medium=2, large=3). |
+| `server.resources`    | `{}`                                | Server CPU, memory, and ephemeral-storage. A set table replaces the tier preset. |
+| `controller.resources`| `{}`                                | Controller CPU, memory, and ephemeral-storage. A set table replaces the tier preset. |
 | `server.deploymentAnnotations` | `{}`                          | Annotations on the server Deployment, such as an Argo CD sync wave. |
 | `controller.deploymentAnnotations` | `{}`                      | Annotations on the controller Deployment, such as an Argo CD sync wave. |
 | `image.registry`      | `""`                                | Image registry. Empty uses `global.image.registry`, then `tfy.jfrog.io`. |
@@ -400,7 +407,6 @@ extraObjects:
 | `podDisruptionBudget.enabled` | `true`                        | Server PodDisruptionBudget (`minAvailable` defaults to `1`); rendered only when the server runs more than one replica. |
 | `podSecurityContext`  | non-root UID/GID `10001`            | Pod-level restricted security defaults. |
 | `securityContext`     | read-only root FS + drop all capabilities | Container-level restricted security defaults. |
-| `resources`           | 100m/256Mi requests, 200m/512Mi limits | Server CPU, memory, and ephemeral-storage. Replaced when a resourceTier is set. |
 | `mtls.enabled`        | `false`                             | HTTPS listener + controller→server mTLS (`MTLS_*`). When true, probes use `scheme: HTTPS`. |
 | `mtls.secretName`     | `""`                                | Secret with `tls.crt` / `tls.key` / `ca.crt` (required when `mtls.enabled`). |
 | `mtls.certsDir`       | `/etc/tls`                          | Mount path / `MTLS_CERTS_DIR`. |
@@ -432,4 +438,4 @@ also sets the `/tmp` `emptyDir.sizeLimit`.
 - If enabling `mtls`, set `mtls.secretName` and ensure any reverse proxy dials HTTPS with a trusted client cert (see Caddy `internal_mtls`).
 - Tune container `resources` (especially CPU requests) before enabling HPA.
 - Default `tfy.jfrog.io` images and the Helm chart are anonymously pullable — set `imagePullSecrets` only if you override to a private registry.
-- Run multiple replicas (`server.replicaCount` or a `resourceTier` of `medium`/`large`); the server PodDisruptionBudget (`{release}-trueforge-server`, `minAvailable: 1`) then applies automatically.
+- Run multiple replicas (`server.replicaCount` or a `resourceTierOverride` of `medium`/`large`); the server PodDisruptionBudget (`{release}-trueforge-server`, `minAvailable: 1`) then applies automatically.

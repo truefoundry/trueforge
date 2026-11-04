@@ -5,6 +5,8 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNod
 
 import { useMCPAuth } from '../../hooks/useMcpAuth.js';
 import { Icon } from '../../icons/Icon.js';
+import { readSandboxEnvironmentName, sandboxWithEnvironmentName } from '../../server/draftSpecPreferences.js';
+import { isSettingsSectionEnabled } from '../../server/serverChrome.js';
 import { useOptionalCatalogServer, useServerCapabilities } from '../../server/ServerContext.js';
 import { useOptionalShellMode, type SettingsSection } from '../../server/ShellModeContext.js';
 import type { AgentSkill, ConnectorState } from '../../server/types.js';
@@ -20,6 +22,7 @@ import { Button } from '../primitives/Button.js';
 import { CatalogLogo } from '../primitives/CatalogLogo.js';
 import { Checkbox } from '../primitives/Checkbox.js';
 import { Tooltip } from '../primitives/Tooltip.js';
+import { WEB_SEARCH_ONE_WAY_OFF_HINT, WEB_SEARCH_UNAVAILABLE_HINT, webSearchGate } from './agentCapabilities.js';
 import { DraftCatalogEmptyState } from './DraftCatalogEmptyState.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
 import { connectorsWithSelectedStubs } from './mcpConnectorStubs.js';
@@ -291,7 +294,6 @@ export type DraftCompositeSelectorProps = {
   onAttach?: () => void;
 };
 
-const NO_WEB_SEARCH_PROVIDER_HINT = 'Web search is not configured';
 const WEB_SEARCH_BUILTIN_TITLE = 'Web search';
 const WEB_SEARCH_BUILTIN_DESCRIPTION = 'Search the web for up-to-date answers';
 
@@ -299,6 +301,19 @@ function SectionHeading({ label, count }: { label: string; count?: number }) {
   return (
     <div className="text-text-secondary px-3 pt-2 pb-1 text-[0.6875rem] font-medium tracking-wide uppercase">
       {count == null ? label : `${label} (${count})`}
+    </div>
+  );
+}
+
+/** What a row in this panel cannot do, kept readable while the row itself is dimmed. */
+function RowNote({ children, icon = 'lock' }: { children: string; icon?: 'lock' | 'info' }) {
+  return (
+    <div
+      role="status"
+      className="border-primary-button-bg/30 bg-primary-button-bg/5 text-text-primary mx-3 mb-2 flex items-start gap-2 rounded-lg border p-3"
+    >
+      <Icon name={icon} className="text-primary-button-bg mt-px size-3 shrink-0" />
+      <span className="text-xs leading-snug">{children}</span>
     </div>
   );
 }
@@ -335,13 +350,34 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   const compactLayout = useCompactLayout();
   const skillsDisabled = capabilities?.skill.enabled !== true;
   const skillsDisabledReason = capabilities?.skill.reason;
-  const webSearchCapabilityEnabled = capabilities?.webSearch?.enabled === true;
-  const webSearchEnabled = agentSpec?.config?.webSearch?.enabled ?? webSearchCapabilityEnabled;
+  const environmentsCapabilityEnabled = capabilities?.sandbox?.environments?.enabled === true;
+  const webSearchDisabledReason = capabilities?.webSearch?.reason ?? WEB_SEARCH_UNAVAILABLE_HINT;
+  const webSearchEnabled = agentSpec?.config?.webSearch?.enabled ?? capabilities?.webSearch?.enabled === true;
+  // A chat that already searches the web keeps it until the user turns it off; only
+  // turning it back on needs the capability.
+  const { locked: webSearchLocked, offIsFinal: webSearchOffIsFinal } = webSearchGate({
+    capabilities,
+    enabled: webSearchEnabled,
+  });
+  const canToggleWebSearch = !webSearchLocked;
   const needsSandbox = capabilities?.sandbox.enabled === false;
-  const settingsEnabled = capabilities?.settings?.enabled !== false;
-  const canConfigureConnectors = settingsEnabled && settingsCatalog?.connectorCatalog != null;
-  const canConfigureSkills = settingsEnabled && settingsCatalog?.skillCatalog != null;
-  const canConfigureSandbox = settingsEnabled && settingsCatalog?.sandboxCatalog != null;
+  const settings = capabilities?.settings;
+  const canConfigureConnectors =
+    isSettingsSectionEnabled({ settings, section: 'mcpServers' }) && settingsCatalog?.connectorCatalog != null;
+  const canConfigureSkills =
+    isSettingsSectionEnabled({ settings, section: 'skills' }) && settingsCatalog?.skillCatalog != null;
+  const canConfigureSandbox =
+    isSettingsSectionEnabled({ settings, section: 'sandboxProviders' }) && settingsCatalog?.sandboxCatalog != null;
+  const attachTabs = useMemo(
+    () => TABS.filter(t => t.id !== 'environments' || environmentsCapabilityEnabled),
+    [environmentsCapabilityEnabled],
+  );
+
+  useEffect(() => {
+    if (!environmentsCapabilityEnabled && tab === 'environments') {
+      setTab('connectors');
+    }
+  }, [environmentsCapabilityEnabled, tab]);
 
   const specMcp = useMemo(() => draftMountsFromSpec(agentSpec?.mcpServers), [agentSpec?.mcpServers]);
   const specSkills = useMemo(() => draftMountsFromSpec(agentSpec?.skills), [agentSpec?.skills]);
@@ -488,7 +524,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   };
 
   const toggleWebSearch = () => {
-    if (!webSearchCapabilityEnabled || agentSpec == null) return;
+    if (!canToggleWebSearch || agentSpec == null) return;
     const nextEnabled = !webSearchEnabled;
     const nextSpec = {
       ...agentSpec,
@@ -585,7 +621,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
     shell?.setSettingsOpen(true, section);
   };
 
-  const currentEnvName = agentSpec?.config?.sandbox?.environmentName?.trim() || 'default';
+  const currentEnvName = readSandboxEnvironmentName(agentSpec?.config?.sandbox);
 
   const filteredEnvironments = useMemo(() => {
     const readyNames = new Set(readyEnvironments.map(e => e.name));
@@ -616,9 +652,8 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
       config: {
         ...agentSpec?.config,
         sandbox: {
-          ...agentSpec?.config?.sandbox,
+          ...sandboxWithEnvironmentName(agentSpec?.config?.sandbox, isDefault ? undefined : envName),
           enabled: isDefault ? agentSpec?.config?.sandbox?.enabled : true,
-          environmentName: isDefault ? undefined : envName,
         },
       },
     });
@@ -627,7 +662,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   const content = (
     <>
       <div className="flex shrink-0 border-b border-border">
-        {TABS.map(t => {
+        {attachTabs.map(t => {
           const count = t.id === 'connectors' ? selectedMcp.length : t.id === 'skills' ? selectedSkills.length : null;
           const active = tab === t.id;
           return (
@@ -668,15 +703,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                 : 'Search environment...'
           }
         />
-        {tab === 'skills' && skillsDisabled && skillsDisabledReason ? (
-          <div
-            role="status"
-            className="border-primary-button-bg/30 bg-primary-button-bg/5 text-text-primary mx-3 mb-2 flex items-center gap-2 rounded-lg border p-3"
-          >
-            <Icon name="lock" className="text-primary-button-bg size-3 shrink-0" />
-            <span className="text-xs leading-none">{skillsDisabledReason}</span>
-          </div>
-        ) : null}
+        {tab === 'skills' && skillsDisabled && skillsDisabledReason ? <RowNote>{skillsDisabledReason}</RowNote> : null}
         <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-2">
           {tab === 'connectors' ? (
             <>
@@ -688,10 +715,12 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                     description={WEB_SEARCH_BUILTIN_DESCRIPTION}
                     fallbackIcon="searchGlobe"
                     checked={webSearchEnabled}
-                    disabled={!webSearchCapabilityEnabled}
-                    disabledReason={NO_WEB_SEARCH_PROVIDER_HINT}
+                    disabled={!canToggleWebSearch}
+                    disabledReason={webSearchDisabledReason}
                     onToggle={toggleWebSearch}
                   />
+                  {canToggleWebSearch ? null : <RowNote>{webSearchDisabledReason}</RowNote>}
+                  {webSearchOffIsFinal ? <RowNote icon="info">{WEB_SEARCH_ONE_WAY_OFF_HINT}</RowNote> : null}
                 </>
               ) : null}
               {pinnedSelectedConnectors.length > 0 ? (
@@ -775,15 +804,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
             </>
           ) : (
             <>
-              {environmentLocked ? (
-                <div
-                  role="status"
-                  className="border-primary-button-bg/30 bg-primary-button-bg/5 text-text-primary mx-3 mb-2 flex items-center gap-2 rounded-lg border p-3"
-                >
-                  <Icon name="lock" className="text-primary-button-bg size-3 shrink-0" />
-                  <span className="text-xs leading-none">{ENVIRONMENT_LOCKED_HINT}</span>
-                </div>
-              ) : null}
+              {environmentLocked ? <RowNote>{ENVIRONMENT_LOCKED_HINT}</RowNote> : null}
               {filteredEnvironments.map(env => {
                 const isSelected = currentEnvName === env.name;
                 const rowDisabled = environmentLocked || env.unavailable;

@@ -172,7 +172,14 @@ function messageBelongsToTurn(message: ThreadMessageLike, turnId: string): boole
 
 function messagesForTurn(messages: ThreadMessageLike[], turn: SessionTurnView): ThreadMessageLike[] {
   const matched = messages.filter(message => messageBelongsToTurn(message, turn.turnId));
-  return applyMcpAuthState(matched, turn);
+  const withAuth = applyMcpAuthState(matched, turn);
+  // Session detail is a static snapshot — coerce running assistant status so
+  // markdown does not typewrite as if the live stream were still open.
+  if (turn.done != null) return withAuth;
+  return withAuth.map(message => {
+    if (message.role !== 'assistant' || message.status?.type !== 'running') return message;
+    return { ...message, status: { type: 'complete', reason: 'stop' } };
+  });
 }
 
 export type AgentSessionTimelineContainerProps = {
@@ -261,7 +268,8 @@ export function AgentSessionTimelineContainer({
     );
   }
 
-  if (messages.length === 0 && renderableTurnViews.length === 0) {
+  // No renderable turn.created inputs — nothing to section under.
+  if (renderableTurnViews.length === 0) {
     return (
       <div className="flex flex-1 items-center justify-center px-6 text-sm text-text-secondary">
         This session has no messages yet.
@@ -322,10 +330,12 @@ function SessionTurnSection({
     cachedTokens?: number;
     durationMs?: number;
     totalCostInUsd?: number;
+    modelName?: string;
   }>;
   onMount: (node: HTMLElement | null) => void;
 }) {
-  if (!turn.showHeader && messages.length === 0) {
+  const isRunning = turn.done == null;
+  if (!turn.showHeader && messages.length === 0 && !isRunning) {
     return null;
   }
 
@@ -340,6 +350,7 @@ function SessionTurnSection({
           cachedTokens={turn.cachedTokens}
           durationMs={turn.durationMs}
           totalCostInUsd={turn.totalCostInUsd}
+          modelName={turn.modelName}
         />
       ) : null}
       {messages.length > 0 ? (
@@ -352,6 +363,14 @@ function SessionTurnSection({
             </div>
           </ThreadPrimitive.Root>
         </ReadOnlySessionTurnRuntime>
+      ) : null}
+      {isRunning ? (
+        <div
+          role="status"
+          className="border-warning-bg bg-warning-bg/10 text-warning-bg inline-flex w-fit max-w-full items-center gap-3 rounded-xl border px-3 py-1.5 text-sm font-medium leading-[1.4]"
+        >
+          Turn is still in running, all events might not be visible
+        </div>
       ) : null}
     </section>
   );

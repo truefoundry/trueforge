@@ -158,6 +158,7 @@ export type {
   Question as AskUserQuestion,
   AskUserPromptProps as AskUserQuestionCardProps,
 } from './atoms/adapters/AskUserPromptAdapter.js';
+export type { ContextCompactionCardProps } from './atoms/adapters/ContextCompactionCardAdapter.js';
 export type {
   McpAuthPromptProps as McpAuthCardProps,
   McpAuthPromptProps,
@@ -554,6 +555,7 @@ export { DraftCompositeSelector } from './atoms/draft/DraftCompositeSelector.js'
 export type { DraftCompositeSelectorProps } from './atoms/draft/DraftCompositeSelector.js';
 export { DraftModelSelector } from './atoms/draft/DraftModelSelector.js';
 export type { DraftModelSelectorProps } from './atoms/draft/DraftModelSelector.js';
+export { resolveReasoningEffort } from './atoms/draft/reasoningEffort.js';
 export { SaveAgentButton } from './atoms/SaveAgentButton.js';
 export type { SaveAgentButtonProps } from './atoms/SaveAgentButton.js';
 export { SaveAgentForm } from './atoms/SaveAgentForm.js';
