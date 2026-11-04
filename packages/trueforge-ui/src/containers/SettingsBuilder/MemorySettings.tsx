@@ -110,6 +110,8 @@ const MemorySettings = () => {
     try {
       const saved = await configuration.updateConfiguration({ memory: { enabled: next } });
       setTenantEnabled(saved.memory.enabled);
+      // The agent Memory toggle locks and unlocks with this switch.
+      refreshCapabilities?.();
       toaster?.showSuccess({ title: saved.memory.enabled ? 'Memory turned on' : 'Memory turned off' });
       track(AnalyticsEvents.Settings.MEMORY_TENANT_TOGGLED, { enabled: saved.memory.enabled });
     } catch (err) {
@@ -165,7 +167,9 @@ const MemorySettings = () => {
     track(AnalyticsEvents.Settings.MEMORY_PROVIDER_SAVED, { provider_name: updateProvider.name, mode: 'update' });
   };
 
-  const showProviders = memoryCatalog != null && tenantEnabled !== false;
+  // Hold the provider list back until the switch is known, so an off tenant never flashes it.
+  const tenantSettled = configuration == null || tenantEnabled !== null;
+  const showProviders = memoryCatalog != null && tenantSettled && tenantEnabled !== false;
   const formOpen = createEntry != null || updateProvider != null;
   const isUpdate = updateProvider != null;
   const formTitle = updateProvider

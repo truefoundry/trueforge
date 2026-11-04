@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import MemorySettings from '@/containers/SettingsBuilder/MemorySettings.js';
@@ -39,22 +39,24 @@ function renderSettings(
   options: { manageProviders?: boolean; catalog?: MemoryCatalogServer | null } = {},
 ) {
   const { manageProviders = true, catalog = memoryCatalog } = options;
+  const getCapabilities = vi.fn(async () => ({
+    data: {
+      sandbox: { enabled: true },
+      skill: { enabled: true },
+      settings: { ...allSettingsSections(true), memoryProviders: { enabled: true, manageProviders } },
+    },
+  }));
   const server = createMockAgentUIServer({
     catalog: createMockCatalog(catalog === null ? {} : { memoryCatalog: catalog }),
     ...(configuration ? { configuration } : {}),
-    getCapabilities: async () => ({
-      data: {
-        sandbox: { enabled: true },
-        skill: { enabled: true },
-        settings: { ...allSettingsSections(true), memoryProviders: { enabled: true, manageProviders } },
-      },
-    }),
+    getCapabilities,
   });
-  return render(
+  render(
     <ServerProvider server={server}>
       <MemorySettings />
     </ServerProvider>,
   );
+  return { getCapabilities };
 }
 
 describe('MemorySettings tenant switch', () => {
@@ -84,6 +86,24 @@ describe('MemorySettings tenant switch', () => {
     });
     await waitFor(() => {
       expect(screen.getByRole('switch', { name: 'Allow memory' })).toHaveAttribute('aria-checked', 'false');
+    });
+  });
+
+  it('refreshes capabilities after saving, so the agent Memory toggle unlocks right away', async () => {
+    const { getCapabilities } = renderSettings({
+      getConfiguration: async () => ({ webSearch: { enabled: true }, memory: { enabled: false } }),
+      updateConfiguration: async () => ({ webSearch: { enabled: true }, memory: { enabled: true } }),
+    });
+
+    const toggle = await screen.findByRole('switch', { name: 'Allow memory' });
+    await waitFor(() => {
+      expect(getCapabilities).toHaveBeenCalled();
+    });
+    const callsBeforeSave = getCapabilities.mock.calls.length;
+    toggle.click();
+
+    await waitFor(() => {
+      expect(getCapabilities.mock.calls.length).toBeGreaterThan(callsBeforeSave);
     });
   });
 
@@ -138,5 +158,31 @@ describe('MemorySettings providers', () => {
         serverUrl: 'https://zep.example.com',
       });
     });
+  });
+
+  it('waits for the switch before listing providers, so an off tenant never flashes them', async () => {
+    let resolveConfiguration: (value: { webSearch: { enabled: boolean }; memory: { enabled: boolean } }) => void = () =>
+      undefined;
+    const getMemoryProviderCatalog = vi.fn(memoryCatalog.getMemoryProviderCatalog);
+    renderSettings(
+      {
+        getConfiguration: () =>
+          new Promise(resolve => {
+            resolveConfiguration = resolve;
+          }),
+        updateConfiguration: unavailable,
+      },
+      { catalog: { ...memoryCatalog, getMemoryProviderCatalog } },
+    );
+
+    await waitFor(() => {
+      expect(getMemoryProviderCatalog).toHaveBeenCalled();
+    });
+    // Let the catalog load land while the switch is still pending.
+    await act(() => new Promise(resolve => setTimeout(resolve, 20)));
+    expect(screen.queryByText('Zep')).not.toBeInTheDocument();
+
+    resolveConfiguration({ webSearch: { enabled: true }, memory: { enabled: true } });
+    expect(await screen.findByText('Zep')).toBeInTheDocument();
   });
 });
