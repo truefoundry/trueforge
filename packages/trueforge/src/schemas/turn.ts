@@ -17,9 +17,7 @@ export const SubscribeTurnQuerySchema = z
         .int()
         .nonnegative()
         .optional()
-        .describe(
-          'Legacy exclusive cursor for older integer streams only. Rejected on event-id streams; use from_event_id or after_event_id.',
-        ),
+        .describe('Deprecated. Rejected on new turns. Use from_event_id or after_event_id instead.'),
     ),
     from_event_id: z
       .string()
