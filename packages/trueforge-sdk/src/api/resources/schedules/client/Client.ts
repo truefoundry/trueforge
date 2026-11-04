@@ -508,7 +508,7 @@ export class SchedulesClient {
     }
 
     /**
-     * Replace name and manifest; replaces or drops the pending run when status/cron/timezone change.
+     * Replace name, notes, and manifest; sync the pending run when status, cron, or timezone changes.
      *
      * @param {string} schedule_id - Immutable schedule identifier.
      * @param {TrueForge.UpdateScheduleRequest} request

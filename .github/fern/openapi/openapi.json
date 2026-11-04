@@ -1192,6 +1192,10 @@
           },
           "name": {
             "$ref": "#/components/schemas/ResourceName"
+          },
+          "notes": {
+            "description": "Optional notes about the schedule.",
+            "type": "string"
           }
         },
         "required": [
@@ -4014,6 +4018,10 @@
           "name": {
             "$ref": "#/components/schemas/ResourceName"
           },
+          "notes": {
+            "description": "Optional notes about the schedule.",
+            "type": "string"
+          },
           "updated_at": {
             "format": "date-time",
             "type": "string"
@@ -6220,6 +6228,10 @@
           },
           "name": {
             "$ref": "#/components/schemas/ResourceName"
+          },
+          "notes": {
+            "description": "Optional notes about the schedule.",
+            "type": "string"
           }
         },
         "required": [
@@ -9196,7 +9208,7 @@
         "x-fern-sdk-method-name": "get"
       },
       "put": {
-        "description": "Replace name and manifest; replaces or drops the pending run when status/cron/timezone change.",
+        "description": "Replace name, notes, and manifest; sync the pending run when status, cron, or timezone changes.",
         "parameters": [
           {
             "description": "Immutable schedule identifier.",

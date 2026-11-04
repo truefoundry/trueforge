@@ -9,5 +9,7 @@ export interface Schedule {
     id: string;
     manifest: TrueForge.ScheduleManifest;
     name: TrueForge.ResourceName;
+    /** Optional notes about the schedule. */
+    notes?: string;
     updatedAt: Date;
 }
