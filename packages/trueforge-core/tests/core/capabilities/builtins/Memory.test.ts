@@ -53,8 +53,8 @@ describe('memory instruction', () => {
   });
 });
 
-describe('memory session-start summary', () => {
-  it('appends the summary once, as an internal message hidden from the event stream', async () => {
+describe('session-start memory', () => {
+  it('is appended once, as an internal message hidden from the event stream', async () => {
     const appends = await preSendAppends(capability('user-1 is vegetarian.'), 2);
 
     expect(appends).toHaveLength(1);
@@ -70,7 +70,7 @@ describe('memory session-start summary', () => {
     expect(append?.current_context_usage?.prompt_tokens).toBeGreaterThan(0);
   });
 
-  it('appends nothing without a summary', async () => {
-    expect(await preSendAppends(capability(undefined), 1)).toEqual([]);
+  it('registers no loader without session-start memory', () => {
+    expect(capability(undefined).preSendProcessors).toEqual([]);
   });
 });

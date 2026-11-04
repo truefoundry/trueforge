@@ -73,13 +73,14 @@ export function buildMemoryInstruction(builder: InstructionBuilder): void {
 
 /**
  * Appends the session-start memory to the context once, as an internal message before the user's
- * first message. Nothing is persisted here: the host passes the memory only on a session's first
- * turn, and later turns replay the appended message from the stored context.
+ * first message. Registered only on a session's first turn; later turns replay the appended message
+ * from the stored context.
  */
 class SessionStartMemoryLoader implements PreSendContextProcessor {
+  /** Cleared after the append: a turn can send more than once (e.g. resuming after an approval). */
   #pendingSessionStartMemory: string | undefined;
 
-  constructor(sessionStartMemory: string | undefined) {
+  constructor(sessionStartMemory: string) {
     this.#pendingSessionStartMemory = sessionStartMemory;
   }
 
@@ -164,6 +165,7 @@ export function memory(options: {
   return {
     systemToolSets: [new MemoryTools({ memory: options.scopedMemory, tracing: options.tracing ?? NOOP_AGENT_TRACING })],
     instructionBuilders: [buildMemoryInstruction],
-    preSendProcessors: [new SessionStartMemoryLoader(options.sessionStartMemory)],
+    preSendProcessors:
+      options.sessionStartMemory === undefined ? [] : [new SessionStartMemoryLoader(options.sessionStartMemory)],
   };
 }
