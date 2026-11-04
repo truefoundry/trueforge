@@ -1,6 +1,6 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { IsomorphicHeaders } from '@modelcontextprotocol/sdk/types.js';
-import type { TrueForge } from '@truefoundry/trueforge-sdk';
+import { serialization, type TrueForge, type TrueForgeApi } from '@truefoundry/trueforge-sdk';
 import { TRUEFORGE_SESSION_HEADER } from '../headers';
 import { ToolResultError, runTool } from '../result';
 
@@ -8,6 +8,16 @@ function headerValue(headers: IsomorphicHeaders | undefined, name: string): stri
   const raw = headers?.[name];
   const value = Array.isArray(raw) ? raw[0] : raw;
   return value === undefined || value.length === 0 ? undefined : value;
+}
+
+/** Keep the session spec in the snake_case wire shape accepted by agent mutation tools. */
+function sessionResponseForTool(response: TrueForgeApi.GetSessionResponse): serialization.GetSessionResponse.Raw {
+  return serialization.GetSessionResponse.jsonOrThrow(response, {
+    unrecognizedObjectKeys: 'passthrough',
+    allowUnrecognizedUnionMembers: true,
+    allowUnrecognizedEnumValues: true,
+    omitUndefined: true,
+  });
 }
 
 export function registerSessionTools(server: McpServer, client: TrueForge): void {
@@ -21,12 +31,12 @@ export function registerSessionTools(server: McpServer, client: TrueForge): void
       annotations: { readOnlyHint: true },
     },
     async (_args, extra) =>
-      runTool(() => {
+      runTool(async () => {
         const sessionId = headerValue(extra.requestInfo?.headers, TRUEFORGE_SESSION_HEADER);
         if (sessionId === undefined) {
           throw new ToolResultError(400, 'No current chat. This tool is only available during a draft session turn.');
         }
-        return client.sessions.get(sessionId);
+        return sessionResponseForTool(await client.sessions.get(sessionId));
       }),
   );
 }

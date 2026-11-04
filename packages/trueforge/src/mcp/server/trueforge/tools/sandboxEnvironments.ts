@@ -1,14 +1,41 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import type { TrueForge } from '@truefoundry/trueforge-sdk';
+import { serialization, type TrueForge, type TrueForgeApi } from '@truefoundry/trueforge-sdk';
 import { z } from 'zod';
 import { SandboxEnvironmentManifestRequestSchema } from '../../../../schemas/sandboxEnvironment';
 import { isSdkRequestError, runTool, ToolResultError } from '../result';
 
-/**
- * The HTTP API exposes a single create-or-update PUT. We split create and update over it and add a
- * preflight GET so intent is explicit (create fails if present; update fails if absent). Best-effort:
- * two concurrent creates can still race (no conditional-create at the API layer).
- */
+type SandboxEnvironmentManifestInput = z.infer<typeof SandboxEnvironmentManifestRequestSchema>;
+
+/** MCP tools use the HTTP wire shape; the generated SDK uses camelCase objects. */
+function manifestForSdk(manifest: SandboxEnvironmentManifestInput): TrueForgeApi.SandboxEnvironmentManifestRequest {
+  return serialization.SandboxEnvironmentManifestRequest.parseOrThrow(manifest, {
+    unrecognizedObjectKeys: 'fail',
+  });
+}
+
+/** Keep read and mutation results in the snake_case shape accepted by mutation tools. */
+function environmentResponseForTool(
+  response: TrueForgeApi.GetSandboxEnvironmentResponse,
+): serialization.GetSandboxEnvironmentResponse.Raw {
+  return serialization.GetSandboxEnvironmentResponse.jsonOrThrow(response, {
+    unrecognizedObjectKeys: 'passthrough',
+    allowUnrecognizedUnionMembers: true,
+    allowUnrecognizedEnumValues: true,
+    omitUndefined: true,
+  });
+}
+
+function environmentListResponseForTool(
+  response: TrueForgeApi.ListSandboxEnvironmentsResponse,
+): serialization.ListSandboxEnvironmentsResponse.Raw {
+  return serialization.ListSandboxEnvironmentsResponse.jsonOrThrow(response, {
+    unrecognizedObjectKeys: 'passthrough',
+    allowUnrecognizedUnionMembers: true,
+    allowUnrecognizedEnumValues: true,
+    omitUndefined: true,
+  });
+}
+
 async function environmentExists(client: TrueForge, name: string): Promise<boolean> {
   try {
     await client.sandboxEnvironments.get(name);
@@ -35,14 +62,9 @@ export function registerSandboxEnvironmentTools(server: McpServer, client: TrueF
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
     },
     async ({ manifest }) =>
-      runTool(async () => {
-        if (await environmentExists(client, manifest.name)) {
-          throw new ToolResultError(409, `Sandbox environment already exists: ${manifest.name}`);
-        }
-        return client.sandboxEnvironments.createOrUpdate({ manifest } as unknown as Parameters<
-          typeof client.sandboxEnvironments.createOrUpdate
-        >[0]);
-      }),
+      runTool(() =>
+        client.sandboxEnvironments.create({ manifest: manifestForSdk(manifest) }).then(environmentResponseForTool),
+      ),
   );
 
   server.registerTool(
@@ -64,7 +86,7 @@ export function registerSandboxEnvironmentTools(server: McpServer, client: TrueF
           limit: page_size,
           pageToken: page_token,
         } as Parameters<typeof client.sandboxEnvironments.list>[0]);
-        return page.response;
+        return environmentListResponseForTool(page.response);
       }),
   );
 
@@ -79,7 +101,7 @@ export function registerSandboxEnvironmentTools(server: McpServer, client: TrueF
       inputSchema: { name: z.string() },
       annotations: { readOnlyHint: true },
     },
-    async ({ name }) => runTool(() => client.sandboxEnvironments.get(name)),
+    async ({ name }) => runTool(async () => environmentResponseForTool(await client.sandboxEnvironments.get(name))),
   );
 
   server.registerTool(
@@ -104,9 +126,9 @@ export function registerSandboxEnvironmentTools(server: McpServer, client: TrueF
         if (!(await environmentExists(client, name))) {
           throw new ToolResultError(404, `Sandbox environment not found: ${name}`);
         }
-        return client.sandboxEnvironments.createOrUpdate({ manifest } as unknown as Parameters<
-          typeof client.sandboxEnvironments.createOrUpdate
-        >[0]);
+        return client.sandboxEnvironments
+          .createOrUpdate({ manifest: manifestForSdk(manifest) })
+          .then(environmentResponseForTool);
       }),
   );
 }
