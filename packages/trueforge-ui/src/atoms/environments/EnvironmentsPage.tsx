@@ -245,10 +245,20 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
             <div className="w-64">
               <SearchInput query={nameQuery} setQuery={setNameQuery} placeholder="Search environments by name" />
             </div>
-            <Button.Primary type="button" onClick={openCreate} disabled={!canCreateSandboxEnvironment}>
-              <Icon name="plus" className="size-3.5" />
-              New Environment
-            </Button.Primary>
+            <Tooltip
+              content={
+                canCreateSandboxEnvironment || createPermissionLoading
+                  ? undefined
+                  : 'Only admins can create sandbox environments'
+              }
+            >
+              <span className="inline-flex">
+                <Button.Primary type="button" onClick={openCreate} disabled={!canCreateSandboxEnvironment}>
+                  <Icon name="plus" className="size-3.5" />
+                  New Environment
+                </Button.Primary>
+              </span>
+            </Tooltip>
           </>
         }
       />

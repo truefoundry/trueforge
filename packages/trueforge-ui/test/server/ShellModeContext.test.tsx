@@ -106,7 +106,7 @@ describe('ShellModeProvider', () => {
       catalog: createMockCatalog(),
       getCapabilities: async () => ({
         data: {
-          sandbox: { enabled: true },
+          sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
           settings: allSettingsSections(false),
         },
@@ -592,7 +592,7 @@ describe('ShellModeProvider', () => {
   it('openDraft and clearChat enable web search on New Chat when the capability is available', async () => {
     const getCapabilities = vi.fn(async () => ({
       data: {
-        sandbox: { enabled: true },
+        sandbox: { enabled: true, environments: { enabled: true } },
         skill: { enabled: true },
         settings: allSettingsSections(true),
         webSearch: { enabled: true },
@@ -630,7 +630,7 @@ describe('ShellModeProvider', () => {
   it('does not persist capability-forced web-search off as a chat preference', async () => {
     const getCapabilities = vi.fn(async () => ({
       data: {
-        sandbox: { enabled: true },
+        sandbox: { enabled: true, environments: { enabled: true } },
         skill: { enabled: true },
         settings: allSettingsSections(true),
         webSearch: { enabled: false },
@@ -1157,7 +1157,7 @@ describe('ShellModeProvider', () => {
   it('does not treat sandbox availability as the selected runtime value', async () => {
     const getCapabilities = vi.fn(async () => ({
       data: {
-        sandbox: { enabled: true },
+        sandbox: { enabled: true, environments: { enabled: true } },
         skill: { enabled: true },
       },
     }));
@@ -1181,7 +1181,7 @@ describe('ShellModeProvider', () => {
   it('overrides a host-seeded sandbox when loaded capabilities disable it', async () => {
     const getCapabilities = vi.fn(async () => ({
       data: {
-        sandbox: { enabled: false },
+        sandbox: { enabled: false, environments: { enabled: false } },
         skill: { enabled: false },
       },
     }));

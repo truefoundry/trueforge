@@ -122,7 +122,10 @@ describe('ServerProvider', () => {
   });
 
   it('retains existing capabilities when a refresh fails', async () => {
-    const initialCapabilities = { sandbox: { enabled: true }, skill: { enabled: true } };
+    const initialCapabilities = {
+      sandbox: { enabled: true, environments: { enabled: true } },
+      skill: { enabled: true },
+    };
     const getCapabilities = vi
       .fn()
       .mockResolvedValueOnce({ data: initialCapabilities })

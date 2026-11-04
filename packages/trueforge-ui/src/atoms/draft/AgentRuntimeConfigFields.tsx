@@ -82,6 +82,7 @@ export function AgentRuntimeConfigFields({
 }: AgentRuntimeConfigFieldsProps) {
   const shell = useOptionalShellMode();
   const capabilities = useServerCapabilities();
+  const environmentsCapabilityEnabled = capabilities?.sandbox?.environments?.enabled === true;
   const { environments: readyEnvironments, refetch: refetchEnvironments } = useReadySandboxEnvironments();
   const { draftSessionId } = useTrueForgeAgentSpec();
   // Turns reuse the session sandbox, so the environment is fixed once a chat has started.
@@ -327,33 +328,35 @@ export function AgentRuntimeConfigFields({
             </RowWarning>
           ) : null}
           <div className={`mt-3 border-l-2 border-primary-button-bg/50 pl-3 ${sandboxEnabled ? '' : 'opacity-50'}`}>
-            <div className={cn('flex py-4', rowClassName)}>
-              <span className="min-w-0 flex-1">
-                <span className="text-text-primary block text-sm font-medium">Environment</span>
-                <p className="text-text-secondary mt-0.5 text-xs leading-snug">
-                  Saved sandbox setup this agent uses when it runs.
-                </p>
-                {shell && sandboxEnabled ? (
-                  <button
-                    type="button"
-                    onClick={() => shell.setEnvironmentsOpen(true)}
-                    className="text-primary-button-bg mt-1.5 inline-flex items-center gap-1 text-xs hover:underline"
-                  >
-                    <span>Manage Environments</span>
-                    <Icon name="external-link" className="size-3" />
-                  </button>
-                ) : null}
-              </span>
-              <div className="flex shrink-0 items-center">
-                {environmentLocked ? (
-                  <Tooltip content={ENVIRONMENT_LOCKED_HINT}>
-                    <span className="inline-flex">{environmentSelect}</span>
-                  </Tooltip>
-                ) : (
-                  environmentSelect
-                )}
+            {environmentsCapabilityEnabled ? (
+              <div className={cn('flex py-4', rowClassName)}>
+                <span className="min-w-0 flex-1">
+                  <span className="text-text-primary block text-sm font-medium">Environment</span>
+                  <p className="text-text-secondary mt-0.5 text-xs leading-snug">
+                    Saved sandbox setup this agent uses when it runs.
+                  </p>
+                  {shell && sandboxEnabled ? (
+                    <button
+                      type="button"
+                      onClick={() => shell.setEnvironmentsOpen(true)}
+                      className="text-primary-button-bg mt-1.5 inline-flex items-center gap-1 text-xs hover:underline"
+                    >
+                      <span>Manage Environments</span>
+                      <Icon name="external-link" className="size-3" />
+                    </button>
+                  ) : null}
+                </span>
+                <div className="flex shrink-0 items-center">
+                  {environmentLocked ? (
+                    <Tooltip content={ENVIRONMENT_LOCKED_HINT}>
+                      <span className="inline-flex">{environmentSelect}</span>
+                    </Tooltip>
+                  ) : (
+                    environmentSelect
+                  )}
+                </div>
               </div>
-            </div>
+            ) : null}
             {switchField({ field: fileDownloadsField, className: rowClassName })}
           </div>
         </section>

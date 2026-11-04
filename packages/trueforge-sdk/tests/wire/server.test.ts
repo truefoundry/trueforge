@@ -11,7 +11,7 @@ describe("ServerClient", () => {
 
         const rawResponseBody = {
             data: {
-                sandbox: { enabled: true },
+                sandbox: { enabled: true, environments: { enabled: true } },
                 session_sharing: { enabled: true },
                 settings: {
                     mcp_servers: { enabled: true, manage_providers: true },
@@ -39,6 +39,9 @@ describe("ServerClient", () => {
             data: {
                 sandbox: {
                     enabled: true,
+                    environments: {
+                        enabled: true,
+                    },
                 },
                 sessionSharing: {
                     enabled: true,

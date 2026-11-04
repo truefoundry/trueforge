@@ -45,7 +45,7 @@ vi.mock('@/plugins/trueforge-agent-server-adapter/index.js', () => ({
     createMockAgentUIServer({
       getCapabilities: async () => ({
         data: {
-          sandbox: { enabled: true },
+          sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
           settings: allSettingsSections(true),
         },
@@ -232,10 +232,12 @@ describe('TrueForgeUI', () => {
   it('keeps composer catalogs cached when starting a new chat', async () => {
     const getCapabilities = vi
       .fn()
-      .mockResolvedValueOnce({ data: { sandbox: { enabled: true }, skill: { enabled: true } } })
+      .mockResolvedValueOnce({
+        data: { sandbox: { enabled: true, environments: { enabled: true } }, skill: { enabled: true } },
+      })
       .mockResolvedValueOnce({
         data: {
-          sandbox: { enabled: false },
+          sandbox: { enabled: false, environments: { enabled: false } },
           skill: { enabled: false, reason: 'Select Sandbox first' },
         },
       });
@@ -826,7 +828,7 @@ describe('SidebarLayout', () => {
             catalog: stubCatalog,
             getCapabilities: async () => ({
               data: {
-                sandbox: { enabled: true },
+                sandbox: { enabled: true, environments: { enabled: true } },
                 skill: { enabled: true },
                 settings: allSettingsSections(false),
               },
