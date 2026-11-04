@@ -226,7 +226,7 @@ describe('getMcpConnection', () => {
 
     expect(connection?.url).toMatch(/\/mcp$/);
     expect(connection?.server.description).toBe(
-      "Create, update, and read agents, schedules, and sandbox environments in this deployment. Read this chat's configuration and configured models, MCP servers, and skills. Does not run agents or turns.",
+      "Create, update, and read agents, schedules, and sandbox environments in this deployment. Read this chat's configuration and the configured models, MCP servers, and skills. Does not run agents or turns.",
     );
     expect(connection?.headers).toEqual({
       Authorization: 'Bearer draft-token',
