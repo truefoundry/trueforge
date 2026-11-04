@@ -159,6 +159,44 @@ describe('MultiSelectInput', () => {
     expect(onQueryChange).toHaveBeenCalledWith('');
   });
 
+  it('lets Escape reach the parent after the query is cleared', () => {
+    const onQueryChange = vi.fn();
+    const onParentEscape = vi.fn();
+    const props = {
+      selected: [] as Item[],
+      options: items,
+      getKey: (item: Item) => item.id,
+      getLabel: (item: Item) => item.name,
+      onRemove: vi.fn(),
+      onQueryChange,
+      'aria-label': 'Search',
+      optionsLabel: 'Matching users',
+    };
+    const { rerender } = render(
+      <div
+        onKeyDown={event => {
+          if (event.key === 'Escape') onParentEscape();
+        }}
+      >
+        <MultiSelectInput {...props} query="a" />
+      </div>,
+    );
+    rerender(
+      <div
+        onKeyDown={event => {
+          if (event.key === 'Escape') onParentEscape();
+        }}
+      >
+        <MultiSelectInput {...props} query="" />
+      </div>,
+    );
+
+    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Search' }), { key: 'Escape' });
+
+    expect(onParentEscape).toHaveBeenCalledOnce();
+    expect(onQueryChange).not.toHaveBeenCalled();
+  });
+
   it('dismisses the popup and clears the query on outside mousedown', () => {
     const onQueryChange = vi.fn();
     render(

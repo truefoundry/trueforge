@@ -54,7 +54,9 @@ export function MultiSelectInput<T>({
   const last = selected.at(-1);
   const hasQuery = query.trim().length > 0;
   // Dismissible open flag — query alone must not pin the popup over rows below.
-  const [open, setOpen] = useState(() => query.trim().length > 0);
+  const [open, setOpen] = useState(hasQuery);
+  // A picked match clears `query` in the parent; drop open before paint so Escape reaches the share menu.
+  if (!hasQuery && open) setOpen(false);
   const showEmpty = hasQuery && options.length === 0 && menuFooter == null && noDataPlaceholder != null;
   const showOptions = open && hasQuery && (options.length > 0 || menuFooter != null || showEmpty);
 
@@ -112,7 +114,7 @@ export function MultiSelectInput<T>({
             if (hasQuery) setOpen(true);
           }}
           onKeyDown={event => {
-            if (event.key === 'Escape' && open) {
+            if (event.key === 'Escape' && showOptions) {
               // Keep the parent share menu open; only dismiss this list.
               event.preventDefault();
               event.stopPropagation();
