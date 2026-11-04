@@ -10767,12 +10767,12 @@
             }
           },
           {
-            "description": "Legacy exclusive cursor. On an event-id stream it is the last 0-based index an older client counted. Omit when using an event id.",
+            "description": "Legacy exclusive cursor for older integer streams only. Rejected on event-id streams; use from_event_id or after_event_id.",
             "in": "query",
             "name": "after_sequence_number",
             "required": false,
             "schema": {
-              "description": "Legacy exclusive cursor. On an event-id stream it is the last 0-based index an older client counted. Omit when using an event id.",
+              "description": "Legacy exclusive cursor for older integer streams only. Rejected on event-id streams; use from_event_id or after_event_id.",
               "minimum": 0,
               "type": [
                 "integer",
@@ -10865,7 +10865,7 @@
         "x-fern-sdk-method-name": "subscribe_to_turn",
         "x-fern-streaming": {
           "format": "sse",
-          "resumable": true
+          "resumable": false
         }
       }
     },
