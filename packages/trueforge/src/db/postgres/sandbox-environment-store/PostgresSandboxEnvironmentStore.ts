@@ -8,6 +8,7 @@ import { sql } from 'kysely';
 import { NameSchema } from '../../../schemas/common';
 import {
   DEFAULT_SANDBOX_ENVIRONMENT_NAME,
+  SandboxEnvironmentMetadataSchema,
   SandboxEnvironmentVersionInternalMetadataSchema,
 } from '../../../schemas/sandboxEnvironment';
 import { newId } from '../../../utils/id';
@@ -79,6 +80,7 @@ function toEnvironmentRecord(row: Selectable<SandboxEnvironmentTable>): SandboxE
     tenant_id: row.tenant_id,
     name: NameSchema.parse(row.name),
     description: row.description,
+    metadata: SandboxEnvironmentMetadataSchema.parse(row.metadata),
     active_version: row.active_version,
     lifecycle_stage: row.lifecycle_stage,
     created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
@@ -377,6 +379,7 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
             tenant_id: input.tenant_id,
             name: input.name,
             description: input.description,
+            metadata: json(input.metadata),
             active_version: 1,
             lifecycle_stage: 'active',
             created_by_subject: json(input.created_by_subject),
@@ -430,6 +433,7 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
       .set({
         ...(versionWrite.status === 'ready' ? { active_version: versionWrite.version } : {}),
         description: input.description,
+        metadata: json(input.metadata),
         updated_at: now(),
       })
       .where('tenant_id', '=', input.tenant_id)

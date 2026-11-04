@@ -76,6 +76,7 @@ describe('TrueFoundrySandboxEnvironmentStore', () => {
       tenant_id: TENANT,
       name: 'pyjokes-env',
       description: '',
+      metadata: {},
       created_by_subject: {
         subject_id: SUBJECT_ID,
         subject_type: 'user',
@@ -132,6 +133,7 @@ describe('TrueFoundrySandboxEnvironmentStore', () => {
       tenant_id: TENANT,
       name: 'pyjokes-env',
       description: '',
+      metadata: {},
       created_by_subject: {
         subject_id: SUBJECT_ID,
         subject_type: 'user',

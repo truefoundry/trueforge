@@ -67,6 +67,7 @@ function toSandboxEnvironment({ environment, version }: SandboxEnvironmentWithVe
     status: version.status,
     status_reason: version.status_reason,
     manifest: redactManifestSecrets(manifest),
+    metadata: environment.metadata,
     created_by_subject: environment.created_by_subject,
     created_at: environment.created_at,
     updated_at: environment.updated_at,
@@ -182,6 +183,7 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
         tenant_id: requestContext.tenant_id,
         name: manifest.name,
         description: manifest.description ?? '',
+        metadata: body.metadata ?? existing?.environment.metadata ?? {},
         created_by_subject,
         synced_secrets,
         buildVersion: ({

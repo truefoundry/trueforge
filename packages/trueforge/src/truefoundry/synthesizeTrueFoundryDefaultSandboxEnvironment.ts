@@ -38,6 +38,7 @@ export function synthesizeTrueFoundryDefaultSandboxEnvironment(tenant_id: string
       tenant_id,
       name: DEFAULT_NAME,
       description: '',
+      metadata: {},
       active_version: 1,
       lifecycle_stage: 'active',
       created_by_subject: SYSTEM_SUBJECT,

@@ -135,11 +135,24 @@ describe('sandbox environments API → build controller path', () => {
           description: 'has pyjokes',
           image: { type: 'build', build_script: 'pip install pyjokes' },
         },
+        metadata: {
+          owner: 'platform',
+          nested: { enabled: true },
+          labels: ['python', 3],
+        },
       }),
     });
     expect(putRes.status).toBe(200);
-    const putBody = (await putRes.json()) as { data: { status: string; name: string } };
-    expect(putBody.data).toMatchObject({ name: 'pyjokes-env', status: 'pending' });
+    const putBody = (await putRes.json()) as { data: { status: string; name: string; metadata: unknown } };
+    expect(putBody.data).toMatchObject({
+      name: 'pyjokes-env',
+      status: 'pending',
+      metadata: {
+        owner: 'platform',
+        nested: { enabled: true },
+        labels: ['python', 3],
+      },
+    });
 
     const pendingRes = await buildRouter.request('/pending');
     expect(pendingRes.status).toBe(200);
@@ -157,8 +170,13 @@ describe('sandbox environments API → build controller path', () => {
 
     const getRes = await publicRouter.request('/pyjokes-env');
     expect(getRes.status).toBe(200);
-    const getBody = (await getRes.json()) as { data: { status: string } };
+    const getBody = (await getRes.json()) as { data: { status: string; metadata: unknown } };
     expect(getBody.data.status).toBe('ready');
+    expect(getBody.data.metadata).toEqual({
+      owner: 'platform',
+      nested: { enabled: true },
+      labels: ['python', 3],
+    });
 
     const pendingAfter = await sandboxEnvironmentStore.listLatestPendingVersions();
     expect(pendingAfter).toEqual([]);
@@ -178,15 +196,25 @@ describe('sandbox environments API → build controller path', () => {
 
     const latestGetRes = await publicRouter.request('/pyjokes-env');
     const latestGetBody = (await latestGetRes.json()) as {
-      data: { status: string; manifest: { image?: { build_script?: string } } };
+      data: { status: string; metadata: unknown; manifest: { image?: { build_script?: string } } };
     };
     expect(latestGetBody.data.status).toBe('pending');
     expect(latestGetBody.data.manifest.image?.build_script).toBe('pip install requests');
+    expect(latestGetBody.data.metadata).toEqual({
+      owner: 'platform',
+      nested: { enabled: true },
+      labels: ['python', 3],
+    });
 
     const latestListBody = (await (await publicRouter.request('/')).json()) as {
-      data: { status: string }[];
+      data: { status: string; metadata: unknown }[];
     };
     expect(latestListBody.data[0]?.status).toBe('pending');
+    expect(latestListBody.data[0]?.metadata).toEqual({
+      owner: 'platform',
+      nested: { enabled: true },
+      labels: ['python', 3],
+    });
 
     const active = await sandboxEnvironmentStore.getActiveEnvironment({
       tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
@@ -242,9 +270,9 @@ describe('sandbox environments API → build controller path', () => {
     });
     expect(created.status).toBe(201);
     const createdBody = (await created.json()) as {
-      data: { id: string; name: string; description: string };
+      data: { id: string; name: string; description: string; metadata: unknown };
     };
-    expect(createdBody.data).toMatchObject({ name: 'create-only-env', description: 'first' });
+    expect(createdBody.data).toMatchObject({ name: 'create-only-env', description: 'first', metadata: {} });
     // jsonText projection so ParseJSONResultsPlugin parses created_by_subject (list-permissions path).
     await expect(
       sandboxEnvironmentStore.getEnvironmentsByIds({
