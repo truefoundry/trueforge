@@ -1190,6 +1190,14 @@ client.sandbox_environments.create(
 <dl>
 <dd>
 
+**metadata:** `typing.Optional[SandboxEnvironmentMetadata]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
     
 </dd>
@@ -1257,6 +1265,14 @@ client.sandbox_environments.create_or_update(
 <dd>
 
 **manifest:** `SandboxEnvironmentManifestRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**metadata:** `typing.Optional[SandboxEnvironmentMetadata]` 
     
 </dd>
 </dl>

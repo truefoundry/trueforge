@@ -12,6 +12,7 @@ export interface SandboxEnvironment {
     id: string;
     lifecycleStage: TrueForge.SandboxEnvironmentLifecycleStage;
     manifest: TrueForge.SandboxEnvironmentManifest;
+    metadata: TrueForge.SandboxEnvironmentMetadata;
     name: TrueForge.ResourceName;
     status: TrueForge.SandboxEnvironmentVersionStatus;
     /** Failure detail when status is failed; null otherwise. */

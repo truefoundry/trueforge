@@ -12,4 +12,5 @@ import type * as TrueForge from "../../../../index.js";
  */
 export interface CreateSandboxEnvironmentRequest {
     manifest: TrueForge.SandboxEnvironmentManifestRequest;
+    metadata?: TrueForge.SandboxEnvironmentMetadata;
 }

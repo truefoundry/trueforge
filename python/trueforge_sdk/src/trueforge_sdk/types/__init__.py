@@ -191,6 +191,7 @@ if typing.TYPE_CHECKING:
     from .sandbox_environment_lifecycle_stage import SandboxEnvironmentLifecycleStage
     from .sandbox_environment_manifest import SandboxEnvironmentManifest
     from .sandbox_environment_manifest_request import SandboxEnvironmentManifestRequest
+    from .sandbox_environment_metadata import SandboxEnvironmentMetadata
     from .sandbox_environment_networking import SandboxEnvironmentNetworking
     from .sandbox_environment_resources import SandboxEnvironmentResources
     from .sandbox_environment_secret import SandboxEnvironmentSecret
@@ -483,6 +484,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SandboxEnvironmentLifecycleStage": ".sandbox_environment_lifecycle_stage",
     "SandboxEnvironmentManifest": ".sandbox_environment_manifest",
     "SandboxEnvironmentManifestRequest": ".sandbox_environment_manifest_request",
+    "SandboxEnvironmentMetadata": ".sandbox_environment_metadata",
     "SandboxEnvironmentNetworking": ".sandbox_environment_networking",
     "SandboxEnvironmentResources": ".sandbox_environment_resources",
     "SandboxEnvironmentSecret": ".sandbox_environment_secret",
@@ -799,6 +801,7 @@ __all__ = [
     "SandboxEnvironmentLifecycleStage",
     "SandboxEnvironmentManifest",
     "SandboxEnvironmentManifestRequest",
+    "SandboxEnvironmentMetadata",
     "SandboxEnvironmentNetworking",
     "SandboxEnvironmentResources",
     "SandboxEnvironmentSecret",

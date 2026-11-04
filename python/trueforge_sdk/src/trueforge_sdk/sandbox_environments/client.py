@@ -10,6 +10,7 @@ from ..types.get_sandbox_environment_response import GetSandboxEnvironmentRespon
 from ..types.list_sandbox_environments_response import ListSandboxEnvironmentsResponse
 from ..types.sandbox_environment import SandboxEnvironment
 from ..types.sandbox_environment_manifest_request import SandboxEnvironmentManifestRequest
+from ..types.sandbox_environment_metadata import SandboxEnvironmentMetadata
 from .raw_client import AsyncRawSandboxEnvironmentsClient, RawSandboxEnvironmentsClient
 
 # this is used as the default value for optional parameters
@@ -75,7 +76,11 @@ class SandboxEnvironmentsClient:
         return self._raw_client.list(limit=limit, page_token=page_token, request_options=request_options)
 
     def create(
-        self, *, manifest: SandboxEnvironmentManifestRequest, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        manifest: SandboxEnvironmentManifestRequest,
+        metadata: typing.Optional[SandboxEnvironmentMetadata] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> GetSandboxEnvironmentResponse:
         """
         Creates by `manifest.name`. Fails if the name is already taken. Requires a configured sandbox provider.
@@ -83,6 +88,8 @@ class SandboxEnvironmentsClient:
         Parameters
         ----------
         manifest : SandboxEnvironmentManifestRequest
+
+        metadata : typing.Optional[SandboxEnvironmentMetadata]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -106,11 +113,15 @@ class SandboxEnvironmentsClient:
             ),
         )
         """
-        _response = self._raw_client.create(manifest=manifest, request_options=request_options)
+        _response = self._raw_client.create(manifest=manifest, metadata=metadata, request_options=request_options)
         return _response.data
 
     def create_or_update(
-        self, *, manifest: SandboxEnvironmentManifestRequest, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        manifest: SandboxEnvironmentManifestRequest,
+        metadata: typing.Optional[SandboxEnvironmentMetadata] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> GetSandboxEnvironmentResponse:
         """
         Create a new sandbox environment or update an existing one.
@@ -118,6 +129,8 @@ class SandboxEnvironmentsClient:
         Parameters
         ----------
         manifest : SandboxEnvironmentManifestRequest
+
+        metadata : typing.Optional[SandboxEnvironmentMetadata]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -141,7 +154,9 @@ class SandboxEnvironmentsClient:
             ),
         )
         """
-        _response = self._raw_client.create_or_update(manifest=manifest, request_options=request_options)
+        _response = self._raw_client.create_or_update(
+            manifest=manifest, metadata=metadata, request_options=request_options
+        )
         return _response.data
 
     def get(
@@ -279,7 +294,11 @@ class AsyncSandboxEnvironmentsClient:
         return await self._raw_client.list(limit=limit, page_token=page_token, request_options=request_options)
 
     async def create(
-        self, *, manifest: SandboxEnvironmentManifestRequest, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        manifest: SandboxEnvironmentManifestRequest,
+        metadata: typing.Optional[SandboxEnvironmentMetadata] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> GetSandboxEnvironmentResponse:
         """
         Creates by `manifest.name`. Fails if the name is already taken. Requires a configured sandbox provider.
@@ -287,6 +306,8 @@ class AsyncSandboxEnvironmentsClient:
         Parameters
         ----------
         manifest : SandboxEnvironmentManifestRequest
+
+        metadata : typing.Optional[SandboxEnvironmentMetadata]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -318,11 +339,15 @@ class AsyncSandboxEnvironmentsClient:
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.create(manifest=manifest, request_options=request_options)
+        _response = await self._raw_client.create(manifest=manifest, metadata=metadata, request_options=request_options)
         return _response.data
 
     async def create_or_update(
-        self, *, manifest: SandboxEnvironmentManifestRequest, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        manifest: SandboxEnvironmentManifestRequest,
+        metadata: typing.Optional[SandboxEnvironmentMetadata] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> GetSandboxEnvironmentResponse:
         """
         Create a new sandbox environment or update an existing one.
@@ -330,6 +355,8 @@ class AsyncSandboxEnvironmentsClient:
         Parameters
         ----------
         manifest : SandboxEnvironmentManifestRequest
+
+        metadata : typing.Optional[SandboxEnvironmentMetadata]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -361,7 +388,9 @@ class AsyncSandboxEnvironmentsClient:
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.create_or_update(manifest=manifest, request_options=request_options)
+        _response = await self._raw_client.create_or_update(
+            manifest=manifest, metadata=metadata, request_options=request_options
+        )
         return _response.data
 
     async def get(

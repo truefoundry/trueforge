@@ -10,6 +10,7 @@ from .created_by_subject import CreatedBySubject
 from .resource_name import ResourceName
 from .sandbox_environment_lifecycle_stage import SandboxEnvironmentLifecycleStage
 from .sandbox_environment_manifest import SandboxEnvironmentManifest
+from .sandbox_environment_metadata import SandboxEnvironmentMetadata
 from .sandbox_environment_version_status import SandboxEnvironmentVersionStatus
 
 
@@ -32,6 +33,7 @@ class SandboxEnvironment(UncheckedBaseModel):
 
     lifecycle_stage: SandboxEnvironmentLifecycleStage
     manifest: SandboxEnvironmentManifest
+    metadata: SandboxEnvironmentMetadata
     name: ResourceName
     status: SandboxEnvironmentVersionStatus
     status_reason: typing.Optional[str] = pydantic.Field(default=None)

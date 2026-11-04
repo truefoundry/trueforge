@@ -7,6 +7,7 @@ import { CreatedBySubject } from "./CreatedBySubject.js";
 import { ResourceName } from "./ResourceName.js";
 import { SandboxEnvironmentLifecycleStage } from "./SandboxEnvironmentLifecycleStage.js";
 import { SandboxEnvironmentManifest } from "./SandboxEnvironmentManifest.js";
+import { SandboxEnvironmentMetadata } from "./SandboxEnvironmentMetadata.js";
 import { SandboxEnvironmentVersionStatus } from "./SandboxEnvironmentVersionStatus.js";
 
 export const SandboxEnvironment: core.serialization.ObjectSchema<
@@ -19,6 +20,7 @@ export const SandboxEnvironment: core.serialization.ObjectSchema<
     id: core.serialization.string(),
     lifecycleStage: core.serialization.property("lifecycle_stage", SandboxEnvironmentLifecycleStage),
     manifest: SandboxEnvironmentManifest,
+    metadata: SandboxEnvironmentMetadata,
     name: ResourceName,
     status: SandboxEnvironmentVersionStatus,
     statusReason: core.serialization.property("status_reason", core.serialization.string().nullable()),
@@ -33,6 +35,7 @@ export declare namespace SandboxEnvironment {
         id: string;
         lifecycle_stage: SandboxEnvironmentLifecycleStage.Raw;
         manifest: SandboxEnvironmentManifest.Raw;
+        metadata: SandboxEnvironmentMetadata.Raw;
         name: ResourceName.Raw;
         status: SandboxEnvironmentVersionStatus.Raw;
         status_reason?: string | null;

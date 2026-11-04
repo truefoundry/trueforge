@@ -1174,6 +1174,9 @@
         "properties": {
           "manifest": {
             "$ref": "#/components/schemas/SandboxEnvironmentManifestRequest"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/SandboxEnvironmentMetadata"
           }
         },
         "required": [
@@ -3731,6 +3734,9 @@
           "manifest": {
             "$ref": "#/components/schemas/SandboxEnvironmentManifest"
           },
+          "metadata": {
+            "$ref": "#/components/schemas/SandboxEnvironmentMetadata"
+          },
           "name": {
             "$ref": "#/components/schemas/ResourceName"
           },
@@ -3758,6 +3764,7 @@
           "status",
           "status_reason",
           "manifest",
+          "metadata",
           "created_by_subject",
           "created_at",
           "updated_at"
@@ -3860,6 +3867,11 @@
         "required": [
           "name"
         ],
+        "type": "object"
+      },
+      "SandboxEnvironmentMetadata": {
+        "additionalProperties": {},
+        "description": "Caller-owned metadata associated with the environment.",
         "type": "object"
       },
       "SandboxEnvironmentNetworking": {
@@ -6212,6 +6224,9 @@
         "properties": {
           "manifest": {
             "$ref": "#/components/schemas/SandboxEnvironmentManifestRequest"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/SandboxEnvironmentMetadata"
           }
         },
         "required": [

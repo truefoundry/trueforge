@@ -25,6 +25,7 @@ from ..types.list_sandbox_environments_response import ListSandboxEnvironmentsRe
 from ..types.request_error_response import RequestErrorResponse
 from ..types.sandbox_environment import SandboxEnvironment
 from ..types.sandbox_environment_manifest_request import SandboxEnvironmentManifestRequest
+from ..types.sandbox_environment_metadata import SandboxEnvironmentMetadata
 from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
@@ -123,7 +124,11 @@ class RawSandboxEnvironmentsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def create(
-        self, *, manifest: SandboxEnvironmentManifestRequest, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        manifest: SandboxEnvironmentManifestRequest,
+        metadata: typing.Optional[SandboxEnvironmentMetadata] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[GetSandboxEnvironmentResponse]:
         """
         Creates by `manifest.name`. Fails if the name is already taken. Requires a configured sandbox provider.
@@ -131,6 +136,8 @@ class RawSandboxEnvironmentsClient:
         Parameters
         ----------
         manifest : SandboxEnvironmentManifestRequest
+
+        metadata : typing.Optional[SandboxEnvironmentMetadata]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -147,6 +154,7 @@ class RawSandboxEnvironmentsClient:
                 "manifest": convert_and_respect_annotation_metadata(
                     object_=manifest, annotation=SandboxEnvironmentManifestRequest, direction="write"
                 ),
+                "metadata": metadata,
             },
             headers={
                 "content-type": "application/json",
@@ -240,7 +248,11 @@ class RawSandboxEnvironmentsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def create_or_update(
-        self, *, manifest: SandboxEnvironmentManifestRequest, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        manifest: SandboxEnvironmentManifestRequest,
+        metadata: typing.Optional[SandboxEnvironmentMetadata] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[GetSandboxEnvironmentResponse]:
         """
         Create a new sandbox environment or update an existing one.
@@ -248,6 +260,8 @@ class RawSandboxEnvironmentsClient:
         Parameters
         ----------
         manifest : SandboxEnvironmentManifestRequest
+
+        metadata : typing.Optional[SandboxEnvironmentMetadata]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -264,6 +278,7 @@ class RawSandboxEnvironmentsClient:
                 "manifest": convert_and_respect_annotation_metadata(
                     object_=manifest, annotation=SandboxEnvironmentManifestRequest, direction="write"
                 ),
+                "metadata": metadata,
             },
             headers={
                 "content-type": "application/json",
@@ -635,7 +650,11 @@ class AsyncRawSandboxEnvironmentsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def create(
-        self, *, manifest: SandboxEnvironmentManifestRequest, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        manifest: SandboxEnvironmentManifestRequest,
+        metadata: typing.Optional[SandboxEnvironmentMetadata] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[GetSandboxEnvironmentResponse]:
         """
         Creates by `manifest.name`. Fails if the name is already taken. Requires a configured sandbox provider.
@@ -643,6 +662,8 @@ class AsyncRawSandboxEnvironmentsClient:
         Parameters
         ----------
         manifest : SandboxEnvironmentManifestRequest
+
+        metadata : typing.Optional[SandboxEnvironmentMetadata]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -659,6 +680,7 @@ class AsyncRawSandboxEnvironmentsClient:
                 "manifest": convert_and_respect_annotation_metadata(
                     object_=manifest, annotation=SandboxEnvironmentManifestRequest, direction="write"
                 ),
+                "metadata": metadata,
             },
             headers={
                 "content-type": "application/json",
@@ -752,7 +774,11 @@ class AsyncRawSandboxEnvironmentsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def create_or_update(
-        self, *, manifest: SandboxEnvironmentManifestRequest, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        manifest: SandboxEnvironmentManifestRequest,
+        metadata: typing.Optional[SandboxEnvironmentMetadata] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[GetSandboxEnvironmentResponse]:
         """
         Create a new sandbox environment or update an existing one.
@@ -760,6 +786,8 @@ class AsyncRawSandboxEnvironmentsClient:
         Parameters
         ----------
         manifest : SandboxEnvironmentManifestRequest
+
+        metadata : typing.Optional[SandboxEnvironmentMetadata]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -776,6 +804,7 @@ class AsyncRawSandboxEnvironmentsClient:
                 "manifest": convert_and_respect_annotation_metadata(
                     object_=manifest, annotation=SandboxEnvironmentManifestRequest, direction="write"
                 ),
+                "metadata": metadata,
             },
             headers={
                 "content-type": "application/json",
