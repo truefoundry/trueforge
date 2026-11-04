@@ -14,6 +14,7 @@ import { newId } from '../../../utils/id';
 import {
   cronRunName,
   parseStoredScheduleManifest,
+  ScheduleCronConflictError,
   ScheduleNameConflictError,
   ScheduleRunConflictError,
   shouldSyncPendingRun,
@@ -123,6 +124,43 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
     this.#db = db;
   }
 
+  /**
+   * Which unique index fired is resolved by lookup, not by parsing the driver message:
+   * SQLite names a column index by its columns but an expression index by its name.
+   */
+  async #uniqueConflict({
+    db,
+    error,
+    tenant_id,
+    agent_name,
+    name,
+    cron,
+    schedule_id,
+  }: {
+    db: Kysely<Database>;
+    error: unknown;
+    tenant_id: string;
+    agent_name: string;
+    name: string;
+    cron: string;
+    /** Row being updated; excluded from the name lookup. */
+    schedule_id: string | undefined;
+  }): Promise<Error> {
+    let nameOwner = db
+      .selectFrom('schedule')
+      .select('id')
+      .where('tenant_id', '=', tenant_id)
+      .where('agent_name', '=', agent_name)
+      .where('name', '=', name);
+    if (schedule_id !== undefined) {
+      nameOwner = nameOwner.where('id', '!=', schedule_id);
+    }
+    if ((await nameOwner.executeTakeFirst()) !== undefined) {
+      return new ScheduleNameConflictError({ tenant_id, agent_name, name }, { cause: error });
+    }
+    return new ScheduleCronConflictError({ tenant_id, agent_name, cron }, { cause: error });
+  }
+
   async getSchedule(input: GetScheduleInput, transaction?: Transaction<Database>): Promise<ScheduleRecord | undefined> {
     const db = transaction ?? this.#db;
     const row = await db
@@ -172,10 +210,15 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
         .executeTakeFirstOrThrow();
     } catch (error) {
       if (isUniqueViolation(error)) {
-        throw new ScheduleNameConflictError(
-          { tenant_id: input.tenant_id, agent_name: input.agent_name, name: input.name },
-          { cause: error },
-        );
+        throw await this.#uniqueConflict({
+          db,
+          error,
+          tenant_id: input.tenant_id,
+          agent_name: input.agent_name,
+          name: input.name,
+          cron: input.manifest.cron,
+          schedule_id: undefined,
+        });
       }
       throw error;
     }
@@ -217,10 +260,15 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
         .executeTakeFirst();
     } catch (error) {
       if (isUniqueViolation(error)) {
-        throw new ScheduleNameConflictError(
-          { tenant_id: input.tenant_id, agent_name: previous.agent_name, name: input.name },
-          { cause: error },
-        );
+        throw await this.#uniqueConflict({
+          db,
+          error,
+          tenant_id: input.tenant_id,
+          agent_name: previous.agent_name,
+          name: input.name,
+          cron: input.manifest.cron,
+          schedule_id: input.id,
+        });
       }
       throw error;
     }

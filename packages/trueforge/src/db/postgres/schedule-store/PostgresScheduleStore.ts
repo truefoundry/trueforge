@@ -6,9 +6,11 @@ import {
 import { type Kysely, type Selectable, type Transaction, type UpdateObject } from 'kysely';
 import { nextTriggerAfter } from '../../../runtime/cron';
 import { newId } from '../../../utils/id';
+import { SCHEDULE_AGENT_CRON_CREATOR_UQ } from '../../indexes';
 import {
   cronRunName,
   parseStoredScheduleManifest,
+  ScheduleCronConflictError,
   ScheduleNameConflictError,
   ScheduleRunConflictError,
   shouldSyncPendingRun,
@@ -31,9 +33,28 @@ import {
   type UpdateScheduleInput,
   type UpdateScheduleRunInput,
 } from '../../scheduleStore';
-import { isUniqueViolation } from '../client';
+import { isPgConstraint, isUniqueViolation } from '../client';
 import { json, now, whereCreatedByOrAgentIds } from '../sqlExpressions';
 import type { Database, ScheduleRunTable, ScheduleTable } from '../types';
+
+function scheduleUniqueConflict({
+  error,
+  tenant_id,
+  agent_name,
+  name,
+  cron,
+}: {
+  error: unknown;
+  tenant_id: string;
+  agent_name: string;
+  name: string;
+  cron: string;
+}): Error {
+  if (isPgConstraint(error, SCHEDULE_AGENT_CRON_CREATOR_UQ)) {
+    return new ScheduleCronConflictError({ tenant_id, agent_name, cron }, { cause: error });
+  }
+  return new ScheduleNameConflictError({ tenant_id, agent_name, name }, { cause: error });
+}
 
 function toScheduleRecord(row: Selectable<ScheduleTable>): ScheduleRecord {
   return {
@@ -159,10 +180,13 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
         .executeTakeFirstOrThrow();
     } catch (error) {
       if (isUniqueViolation(error)) {
-        throw new ScheduleNameConflictError(
-          { tenant_id: input.tenant_id, agent_name: input.agent_name, name: input.name },
-          { cause: error },
-        );
+        throw scheduleUniqueConflict({
+          error,
+          tenant_id: input.tenant_id,
+          agent_name: input.agent_name,
+          name: input.name,
+          cron: input.manifest.cron,
+        });
       }
       throw error;
     }
@@ -197,10 +221,13 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
         .executeTakeFirst();
     } catch (error) {
       if (isUniqueViolation(error)) {
-        throw new ScheduleNameConflictError(
-          { tenant_id: input.tenant_id, agent_name: previous.agent_name, name: input.name },
-          { cause: error },
-        );
+        throw scheduleUniqueConflict({
+          error,
+          tenant_id: input.tenant_id,
+          agent_name: previous.agent_name,
+          name: input.name,
+          cron: input.manifest.cron,
+        });
       }
       throw error;
     }

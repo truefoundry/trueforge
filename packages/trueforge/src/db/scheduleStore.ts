@@ -224,6 +224,24 @@ export class ScheduleNameConflictError extends Error {
   }
 }
 
+/** Creator already has a schedule with this cron for the agent — violates `schedule_agent_cron_creator_uq`. */
+export class ScheduleCronConflictError extends Error {
+  readonly tenant_id: string;
+  readonly agent_name: string;
+  readonly cron: string;
+
+  constructor(
+    { tenant_id, agent_name, cron }: { tenant_id: string; agent_name: string; cron: string },
+    options?: ErrorOptions,
+  ) {
+    super(`Schedule with cron "${cron}" already exists for agent ${agent_name} by the same creator`, options);
+    this.name = 'ScheduleCronConflictError';
+    this.tenant_id = tenant_id;
+    this.agent_name = agent_name;
+    this.cron = cron;
+  }
+}
+
 /**
  * Pending run is replaced only when `status`, `cron`, or `timezone` change.
  * `name` and `task` edits leave the pending row alone.
@@ -250,12 +268,13 @@ export interface IScheduleStore<TTransaction = never> {
   /**
    * Inserts a schedule (`status` mirrors `manifest.status`) and syncs the pending run
    * in the same call: active adds the next run from `runFrom`; paused adds nothing.
+   * Throws `ScheduleNameConflictError` or `ScheduleCronConflictError` on a unique clash.
    */
   createScheduleAndRun(input: CreateScheduleInput, transaction?: TTransaction): Promise<ScheduleWriteResult>;
   /**
    * Updates a schedule, then syncs the pending run only when `status`, `cron`, or
    * `timezone` change. `name` / `task` edits leave the pending row alone.
-   * Returns undefined if the schedule is gone.
+   * Returns undefined if the schedule is gone. Same unique-clash errors as create.
    */
   updateScheduleAndRun(
     input: UpdateScheduleInput,

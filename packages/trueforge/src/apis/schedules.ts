@@ -34,6 +34,7 @@ import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import {
   manualRunName,
+  ScheduleCronConflictError,
   ScheduleNameConflictError,
   ScheduleRunConflictError,
   type IScheduleStore,
@@ -418,7 +419,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
         return schedule;
       });
     } catch (error) {
-      if (error instanceof ScheduleNameConflictError) {
+      if (error instanceof ScheduleNameConflictError || error instanceof ScheduleCronConflictError) {
         return c.json({ error: { message: error.message } }, 409);
       }
       if (error instanceof ScheduleRunConflictError) {
@@ -499,7 +500,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
         return result?.schedule;
       });
     } catch (error) {
-      if (error instanceof ScheduleNameConflictError) {
+      if (error instanceof ScheduleNameConflictError || error instanceof ScheduleCronConflictError) {
         return c.json({ error: { message: error.message } }, 409);
       }
       if (error instanceof ScheduleRunConflictError) {

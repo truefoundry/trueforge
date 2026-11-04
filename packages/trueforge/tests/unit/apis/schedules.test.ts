@@ -303,6 +303,34 @@ describe('schedule list agent_names filter', () => {
   });
 });
 
+describe('schedule cron uniqueness', () => {
+  it('returns 409 when the creator reuses a cron for the agent on create or update', async () => {
+    const { asUser, postJson } = await setup();
+
+    asUser(ALICE);
+    expect((await postJson('/', 'POST', scheduleBody)).status).toBe(201);
+
+    const duplicate = await postJson('/', 'POST', { ...scheduleBody, name: 'daily-report-copy' });
+    expect(duplicate.status).toBe(409);
+    expect(await duplicate.json()).toEqual({
+      error: { message: 'Schedule with cron "0 13 * * *" already exists for agent reporter by the same creator' },
+    });
+
+    const evening = await postJson('/', 'POST', {
+      ...scheduleBody,
+      name: 'evening-report',
+      manifest: { ...scheduleBody.manifest, cron: '0 18 * * *' },
+    });
+    expect(evening.status).toBe(201);
+    const { id } = ((await evening.json()) as { data: { id: string } }).data;
+    const moved = await postJson(`/${id}`, 'PUT', { name: 'evening-report', manifest: scheduleBody.manifest });
+    expect(moved.status).toBe(409);
+
+    asUser(BOB);
+    expect((await postJson('/', 'POST', { ...scheduleBody, name: 'bob-report' })).status).toBe(201);
+  });
+});
+
 describe('create schedule run', () => {
   it('creates a triggered run with a manual-* name and leaves the cron pending run alone', async () => {
     const { asUser, postJson, scheduleStore } = await setup();

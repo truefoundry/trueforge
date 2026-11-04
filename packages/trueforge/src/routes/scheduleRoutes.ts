@@ -232,7 +232,8 @@ export const createScheduleRoute = createRoute({
     },
     409: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'The name is already taken for this agent, or the schedule was modified concurrently (retry).',
+      description:
+        'The name is already taken for this agent, the creator already has a schedule with this cron for the agent, or the schedule was modified concurrently (retry).',
     },
   },
 });
@@ -294,7 +295,8 @@ export const putScheduleRoute = createRoute({
     },
     409: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'The name is already taken for this agent, or the schedule was modified concurrently (retry).',
+      description:
+        'The name is already taken for this agent, the creator already has a schedule with this cron for the agent, or the schedule was modified concurrently (retry).',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
