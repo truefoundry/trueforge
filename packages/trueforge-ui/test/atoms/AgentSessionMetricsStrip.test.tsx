@@ -160,6 +160,29 @@ describe('CostBreakdownRows', () => {
     expect(screen.getByText('$0.6000')).toBeInTheDocument();
   });
 
+  it('shows skeletons only for the pending tiles and keeps labels visible', () => {
+    render(
+      <AgentSessionMetricsStrip
+        metrics={metrics}
+        pendingTiles={new Set(['turns', 'tokens', 'context', 'tool-calls', 'sub-agents', 'errors'])}
+      />,
+    );
+
+    for (const id of ['turns', 'tokens', 'context', 'tool-calls', 'sub-agents', 'errors']) {
+      const tile = document.querySelector(`[data-slot="session-metric-${id}"]`);
+      expect(tile?.querySelector('.animate-pulse')).toBeInTheDocument();
+    }
+    for (const id of ['wall-time', 'cost']) {
+      const tile = document.querySelector(`[data-slot="session-metric-${id}"]`);
+      expect(tile?.querySelector('.animate-pulse')).not.toBeInTheDocument();
+    }
+    expect(screen.getByText('Tokens')).toBeInTheDocument();
+    expect(screen.getByText('3m 8s')).toBeInTheDocument();
+    expect(screen.getByText('$2.6229')).toBeInTheDocument();
+    expect(screen.queryByText('7')).not.toBeInTheDocument();
+    expect(screen.queryByText('9')).not.toBeInTheDocument();
+  });
+
   it('renders nothing for an empty dataset', () => {
     const { container } = render(<CostBreakdownRows data={[]} />);
     expect(container.querySelector('.grid')).toBeEmptyDOMElement();

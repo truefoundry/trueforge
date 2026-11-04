@@ -69,6 +69,34 @@ describe('AgentSessionListRow', () => {
     expect(onSelect).not.toHaveBeenCalled();
   });
 
+  it('selects once when the title or the row padding is clicked, and shows a pointer cursor', () => {
+    const onSelect = vi.fn();
+    const { container } = render(<AgentSessionListRow {...baseProps} onSelect={onSelect} />);
+    const row = container.querySelector<HTMLElement>('[data-active], .group');
+
+    expect(row).toHaveClass('cursor-pointer');
+    if (row == null) throw new Error('row not found');
+
+    // Padding and gaps sit outside the inner buttons.
+    fireEvent.click(row);
+    expect(onSelect).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hello session' }));
+    expect(onSelect).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not select when the actions menu is used', async () => {
+    const onSelect = vi.fn();
+    const onRequestDelete = vi.fn();
+    render(<AgentSessionListRow {...baseProps} onSelect={onSelect} onRequestDelete={onRequestDelete} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for Hello session' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Delete' }));
+
+    expect(onRequestDelete).toHaveBeenCalledOnce();
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
   it('hides the schedule link when the name cannot be resolved', async () => {
     render(
       <AgentSessionListRow

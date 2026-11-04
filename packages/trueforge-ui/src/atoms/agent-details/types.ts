@@ -88,8 +88,13 @@ export type AgentSessionTurnHeaderProps = {
   modelName?: string;
 };
 
+export type SessionMetricTileId =
+  'turns' | 'wall-time' | 'cost' | 'tokens' | 'context' | 'tool-calls' | 'sub-agents' | 'errors';
+
 export type AgentSessionMetricsStripProps = {
   metrics: SessionMetrics;
+  /** Tiles whose value still depends on events that are loading; shown as skeletons. */
+  pendingTiles?: ReadonlySet<SessionMetricTileId>;
 };
 
 export type AgentSessionEventTimelineProps = {

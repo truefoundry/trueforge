@@ -800,3 +800,96 @@ describe('AgentSessionTimelineContainer', () => {
     expect(screen.getByText('Hello! How can I help you today?')).toBeInTheDocument();
   });
 });
+
+describe('AgentSessionTimelineContainer progressive history', () => {
+  const newestPage = groupingEvents.filter(item => item.turnId === 'turn-4');
+
+  function renderTimeline(props: Partial<Parameters<typeof AgentSessionTimelineContainer>[0]> = {}) {
+    const ui = (next: Partial<Parameters<typeof AgentSessionTimelineContainer>[0]>) => (
+      <SlotsProvider overrides={{ AgentSessionEventTimeline: () => null }}>
+        <ServerProvider server={createMockAgentUIServer()}>
+          <AgentSessionTimelineContainer sessionId="sess-1" events={newestPage} loadingOlder {...next} />
+        </ServerProvider>
+      </SlotsProvider>
+    );
+    const result = render(ui(props));
+    return { ...result, rerenderWith: (next: typeof props) => result.rerender(ui(next)) };
+  }
+
+  it('renders the newest page with a loading row, then prepends older turns without the skeleton', async () => {
+    const { container, rerenderWith } = renderTimeline();
+
+    expect(await screen.findByText('retry')).toBeInTheDocument();
+    expect(screen.getByText('Loading earlier messages…')).toHaveAttribute('role', 'status');
+    expect(screen.queryByText('initial request')).not.toBeInTheDocument();
+
+    rerenderWith({ events: groupingEvents, loadingOlder: false });
+
+    expect(container.querySelector('[data-slot="agent-session-scroll"]')).toBeInTheDocument();
+    expect(await screen.findByText('initial request')).toBeInTheDocument();
+    expect(screen.getByText('retry')).toBeInTheDocument();
+    expect(screen.queryByText('Loading earlier messages…')).not.toBeInTheDocument();
+  });
+
+  it('skeletons event-derived metric tiles while older pages load, and keeps getSession totals', async () => {
+    const { container, rerenderWith } = renderTimeline({
+      sessionMetrics: { totalTurns: 4, totalDurationMs: 9_000 },
+    });
+    await screen.findByText('retry');
+
+    const tile = (id: string) => container.querySelector(`[data-slot="session-metric-${id}"]`);
+    expect(tile('tokens')?.querySelector('.animate-pulse')).toBeInTheDocument();
+    expect(tile('turns')?.querySelector('.animate-pulse')).toBeInTheDocument();
+    expect(tile('wall-time')?.querySelector('.animate-pulse')).not.toBeInTheDocument();
+    expect(tile('wall-time')).toHaveTextContent('9s');
+
+    rerenderWith({
+      events: groupingEvents,
+      loadingOlder: false,
+      sessionMetrics: { totalTurns: 4, totalDurationMs: 9_000 },
+    });
+    await screen.findByText('initial request');
+    expect(container.querySelector('[data-slot="agent-session-metrics-strip"] .animate-pulse')).not.toBeInTheDocument();
+  });
+
+  it('skeletons duration too when getSession totals are unavailable', async () => {
+    const { container } = renderTimeline();
+    await screen.findByText('retry');
+    expect(container.querySelector('[data-slot="session-metric-wall-time"] .animate-pulse')).toBeInTheDocument();
+  });
+
+  it('offers a retry when an older page fails', async () => {
+    const onRetryOlder = vi.fn();
+    renderTimeline({ loadingOlder: false, olderFailed: true, onRetryOlder });
+
+    expect(await screen.findByText('Earlier messages could not be loaded.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(onRetryOlder).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens scrolled to the bottom and stays there as older pages arrive', async () => {
+    const scrollTops = new WeakMap<Element, number>();
+    const restore = [
+      vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(2000),
+      vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(400),
+      vi.spyOn(Element.prototype, 'scrollTop', 'get').mockImplementation(function (this: Element) {
+        return scrollTops.get(this) ?? 0;
+      }),
+      vi.spyOn(Element.prototype, 'scrollTop', 'set').mockImplementation(function (this: Element, value: number) {
+        scrollTops.set(this, value);
+      }),
+    ];
+    try {
+      const { container, rerenderWith } = renderTimeline();
+      await screen.findByText('retry');
+      const scroller = container.querySelector('[data-slot="agent-session-scroll"]');
+      expect(scroller == null ? undefined : scrollTops.get(scroller)).toBe(2000);
+
+      rerenderWith({ events: groupingEvents, loadingOlder: false });
+      await screen.findByText('initial request');
+      expect(scroller == null ? undefined : scrollTops.get(scroller)).toBe(2000);
+    } finally {
+      for (const spy of restore) spy.mockRestore();
+    }
+  });
+});
