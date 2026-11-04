@@ -71,7 +71,7 @@ function renderRuntimeFields({
     sandboxEnvironments: environmentServer,
     getCapabilities: async () => ({
       data: {
-        sandbox: { enabled: true },
+        sandbox: { enabled: true, environments: { enabled: true } },
         skill: { enabled: true },
         ...(webSearch === undefined ? {} : { webSearch }),
       },
@@ -95,7 +95,7 @@ describe('AgentRuntimeConfigFields', () => {
   it('renders environment row in detailed layout with Manage Environments link', async () => {
     renderRuntimeFields();
 
-    expect(screen.getByText('Environment')).toBeInTheDocument();
+    expect(await screen.findByText('Environment')).toBeInTheDocument();
     expect(screen.getByText('Saved sandbox setup this agent uses when it runs.')).toBeInTheDocument();
 
     const manageBtn = screen.getByRole('button', { name: /Manage Environments/ });
@@ -104,10 +104,10 @@ describe('AgentRuntimeConfigFields', () => {
     expect(setEnvironmentsOpen).toHaveBeenCalledWith(true);
   });
 
-  it('hides Manage Environments link when sandbox is off', () => {
+  it('hides Manage Environments link when sandbox is off', async () => {
     renderRuntimeFields({ value: { sandbox: { enabled: false } } });
 
-    expect(screen.getByText('Environment')).toBeInTheDocument();
+    expect(await screen.findByText('Environment')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Manage Environments/ })).not.toBeInTheDocument();
   });
 
@@ -190,7 +190,7 @@ describe('AgentRuntimeConfigFields', () => {
     const onChange = vi.fn();
     renderRuntimeFields({ onChange });
 
-    const trigger = screen.getByRole('button', { name: 'Environment' });
+    const trigger = await screen.findByRole('button', { name: 'Environment' });
     await waitFor(() => {
       expect(trigger).toHaveTextContent('default');
     });
@@ -216,7 +216,7 @@ describe('AgentRuntimeConfigFields', () => {
       value: { sandbox: { enabled: true, environmentName: 'gone-env' } },
     });
 
-    const trigger = screen.getByRole('button', { name: 'Environment' });
+    const trigger = await screen.findByRole('button', { name: 'Environment' });
     await waitFor(() => {
       expect(trigger).toHaveTextContent('gone-env');
     });
@@ -234,7 +234,7 @@ describe('AgentRuntimeConfigFields', () => {
     Reflect.set(sandbox, 'environment_name', 'test');
     renderRuntimeFields({ value: { sandbox }, onChange });
 
-    const trigger = screen.getByRole('button', { name: 'Environment' });
+    const trigger = await screen.findByRole('button', { name: 'Environment' });
     await waitFor(() => {
       expect(trigger).toHaveTextContent('test');
     });

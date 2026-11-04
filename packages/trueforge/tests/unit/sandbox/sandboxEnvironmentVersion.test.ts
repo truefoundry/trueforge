@@ -1,6 +1,8 @@
+import { isTrueFoundryModeEnabled } from '../../../src/config';
 import {
   buildNextVersion,
   defaultSandboxEnvironmentStoredManifest,
+  resolveSandboxEnvironmentIdentity,
 } from '../../../src/sandbox/sandboxEnvironmentVersion';
 import {
   SandboxEnvironmentManifestSchema,
@@ -8,8 +10,35 @@ import {
   UpdateSandboxEnvironmentRequestSchema,
 } from '../../../src/schemas/sandboxEnvironment';
 
+jest.mock('../../../src/config', () => {
+  const actual = jest.requireActual<typeof import('../../../src/config')>('../../../src/config');
+  return {
+    __esModule: true,
+    ...actual,
+    isTrueFoundryModeEnabled: jest.fn(() => false),
+  };
+});
+
+describe('resolveSandboxEnvironmentIdentity', () => {
+  afterEach(() => {
+    jest.mocked(isTrueFoundryModeEnabled).mockReturnValue(false);
+  });
+
+  it('uses the provider type as type outside TrueFoundry mode', () => {
+    expect(resolveSandboxEnvironmentIdentity('daytona')).toEqual({ type: 'daytona', sandbox_provider: 'daytona' });
+  });
+
+  it('records type truefoundry and keeps the backing provider in TrueFoundry mode', () => {
+    jest.mocked(isTrueFoundryModeEnabled).mockReturnValue(true);
+    expect(resolveSandboxEnvironmentIdentity('daytona')).toEqual({
+      type: 'truefoundry',
+      sandbox_provider: 'daytona',
+    });
+  });
+});
+
 describe('buildNextVersion', () => {
-  const previous = defaultSandboxEnvironmentStoredManifest('daytona');
+  const previous = defaultSandboxEnvironmentStoredManifest({ type: 'daytona', sandbox_provider: 'daytona' });
 
   it('allocates a new external_ref when resources change without a build image', () => {
     const next = buildNextVersion({
@@ -20,13 +49,22 @@ describe('buildNextVersion', () => {
         name: 'default',
         resources: { cpu: 2, memory: 4, disk: 8 },
       },
-      provider_type: 'daytona',
+      identity: { type: 'daytona', sandbox_provider: 'daytona' },
     });
 
     expect(next.external_ref).not.toBe('trueforge-old');
     expect(next.version).toBe(2);
     expect(next.status).toBe('pending');
     expect(next.manifest.resources).toEqual({ cpu: 2, memory: 4, disk: 8 });
+  });
+
+  it('stores the given identity on the manifest', () => {
+    const next = buildNextVersion({
+      manifest: { name: 'custom-env', resources: previous.resources },
+      identity: { type: 'truefoundry', sandbox_provider: 'daytona' },
+    });
+
+    expect(next.manifest).toMatchObject({ type: 'truefoundry', sandbox_provider: 'daytona' });
   });
 
   it('reuses previous_external_ref when only networking changes', () => {
@@ -39,7 +77,7 @@ describe('buildNextVersion', () => {
         resources: previous.resources,
         networking: { network_block_all: true },
       },
-      provider_type: 'daytona',
+      identity: { type: 'daytona', sandbox_provider: 'daytona' },
     });
 
     expect(next.external_ref).toBe('trueforge-old');
@@ -59,7 +97,7 @@ describe('buildNextVersion', () => {
         resources: withBuild.resources,
         image: { type: 'build', build_script: 'pip install pyjokes' },
       },
-      provider_type: 'daytona',
+      identity: { type: 'daytona', sandbox_provider: 'daytona' },
     });
 
     expect(next.external_ref).not.toBe('trueforge-old');
