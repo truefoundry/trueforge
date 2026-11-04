@@ -116,6 +116,13 @@ function renderDrawer({
 }
 
 describe('EnvironmentFormDrawer', () => {
+  it('does not display a build script character limit', () => {
+    renderDrawer();
+
+    expect(screen.getByRole('textbox', { name: 'Build Script' })).toBeInTheDocument();
+    expect(screen.queryByText(/\d+\/5120/)).not.toBeInTheDocument();
+  });
+
   it('saves UI form values', async () => {
     const track = vi.fn();
     const { createEnvironment, createOrUpdateEnvironment, onSaved } = renderDrawer({ track });

@@ -762,6 +762,8 @@ export interface SharedServerConfiguration {
   SANDBOX_ENVIRONMENT_MEMORY_GIB_MAX: number;
   /** Max disk GiB for a sandbox environment. Env: `SANDBOX_ENVIRONMENT_DISK_GIB_MAX`. Default 10. */
   SANDBOX_ENVIRONMENT_DISK_GIB_MAX: number;
+  /** Max characters in a sandbox environment build script. Env: `SANDBOX_ENVIRONMENT_BUILD_SCRIPT_MAX_LENGTH`. Default 20000. */
+  SANDBOX_ENVIRONMENT_BUILD_SCRIPT_MAX_LENGTH: number;
   /**
    * Max bytes for an HTTP request body. Env: `MAX_REQUEST_BODY_BYTES`. Default 30 MB.
    */
@@ -1180,6 +1182,11 @@ const shared: SharedServerConfiguration = {
     envKey: 'SANDBOX_ENVIRONMENT_DISK_GIB_MAX',
     raw: getEnv('SANDBOX_ENVIRONMENT_DISK_GIB_MAX'),
     defaultValue: 10,
+  }),
+  SANDBOX_ENVIRONMENT_BUILD_SCRIPT_MAX_LENGTH: parsePositiveInt({
+    envKey: 'SANDBOX_ENVIRONMENT_BUILD_SCRIPT_MAX_LENGTH',
+    raw: getEnv('SANDBOX_ENVIRONMENT_BUILD_SCRIPT_MAX_LENGTH'),
+    defaultValue: 20_000,
   }),
   MAX_REQUEST_BODY_BYTES: parsePositiveInt({
     envKey: 'MAX_REQUEST_BODY_BYTES',

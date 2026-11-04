@@ -151,6 +151,7 @@ const SandboxEnvironmentManifestRequestSchema = SandboxEnvironmentManifestFields
   manifest => manifest.name !== DEFAULT_SANDBOX_ENVIRONMENT_NAME,
   { message: 'name "default" is reserved', path: ['name'] },
 ).openapi('SandboxEnvironmentManifestRequest');
+type SandboxEnvironmentManifestRequest = z.infer<typeof SandboxEnvironmentManifestRequestSchema>;
 
 /**
  * Backend-resolved identity on the stored version jsonb. `type` is the platform mode
@@ -192,8 +193,8 @@ export const SandboxEnvironmentVersionInternalMetadataSchema = z
   })
   .strict();
 
-function refineSandboxEnvironmentResources(
-  body: { manifest: { resources: { cpu: number; memory: number; disk: number } } },
+function refineSandboxEnvironmentRequest(
+  body: { manifest: SandboxEnvironmentManifestRequest },
   ctx: z.RefinementCtx,
 ): void {
   const { cpu, memory, disk } = body.manifest.resources;
@@ -208,6 +209,13 @@ function refineSandboxEnvironmentResources(
       message: 'Sandbox environment resources exceed configured limits',
     });
   }
+  if ((body.manifest.image?.build_script?.length ?? 0) > configuration.SANDBOX_ENVIRONMENT_BUILD_SCRIPT_MAX_LENGTH) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['manifest', 'image', 'build_script'],
+      message: 'Sandbox environment build script exceeds the configured limit',
+    });
+  }
 }
 
 /** POST create body. */
@@ -216,7 +224,7 @@ export const CreateSandboxEnvironmentRequestSchema = z
     manifest: SandboxEnvironmentManifestRequestSchema,
   })
   .strict()
-  .superRefine(refineSandboxEnvironmentResources)
+  .superRefine(refineSandboxEnvironmentRequest)
   .openapi('CreateSandboxEnvironmentRequest');
 
 /** PUT create-or-update body. */
@@ -225,7 +233,7 @@ export const UpdateSandboxEnvironmentRequestSchema = z
     manifest: SandboxEnvironmentManifestRequestSchema,
   })
   .strict()
-  .superRefine(refineSandboxEnvironmentResources)
+  .superRefine(refineSandboxEnvironmentRequest)
   .openapi('UpdateSandboxEnvironmentRequest');
 
 const IsoTimestamp = z.iso.datetime().openapi({ type: 'string', format: 'date-time' });
