@@ -149,7 +149,7 @@ export const SandboxEnvironmentManifestSchema =
 /** PUT body manifest — rejects the reserved system `"default"` environment. */
 export const SandboxEnvironmentManifestRequestSchema = SandboxEnvironmentManifestFieldsSchema.refine(
   manifest => manifest.name !== DEFAULT_SANDBOX_ENVIRONMENT_NAME,
-  { message: 'name is reserved', path: ['name'] },
+  { message: 'name "default" is reserved', path: ['name'] },
 ).openapi('SandboxEnvironmentManifestRequest');
 
 /**
