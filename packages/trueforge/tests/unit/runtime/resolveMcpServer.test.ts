@@ -217,7 +217,6 @@ describe('getMcpConnection', () => {
         sessionId: 'draft-session',
         turnId: 'draft-turn',
         requestHeaders: {
-          'x-trueforge-client': 'browser',
           'X-TrueForge-Test': 'forwarded',
           'x-trueforge-session-id': 'spoofed',
           'x-unrelated': 'not-forwarded',
@@ -232,7 +231,6 @@ describe('getMcpConnection', () => {
     expect(connection?.headers).toEqual({
       Authorization: 'Bearer draft-token',
       'X-TrueForge-Test': 'forwarded',
-      'x-trueforge-client': 'browser',
       'x-trueforge-session-id': 'draft-session',
     });
     expect(connection?.networkPolicy).toEqual({
@@ -253,7 +251,7 @@ describe('getMcpConnection', () => {
     ).resolves.toBeUndefined();
   });
 
-  it('does not invent the browser marker when it was absent from the request', async () => {
+  it('does not invent inbound trueforge headers when they were absent from the request', async () => {
     const resolver = new TrueForgeMcpServerResolver({
       inner: mcpServerResolver,
       requestContext: STANDALONE_REQUEST_CONTEXT,

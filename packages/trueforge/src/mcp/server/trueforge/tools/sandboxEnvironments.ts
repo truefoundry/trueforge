@@ -89,9 +89,10 @@ export function registerSandboxEnvironmentTools(server: McpServer, client: TrueF
         'Change an existing sandbox environment — the resources, environment variables, networking, and build ' +
         'configuration agents run in — by replacing it with a complete manifest. The input name and manifest ' +
         'name must match, and this tool never creates a missing environment (use create_sandbox_environment for that). ' +
-        'Never ask the user for a secret value and never send networking.secrets; keep any redacted secret ' +
-        'placeholders returned by get_sandbox_environment. When the environment needs secrets, ask the user to ' +
-        'create them in the sandbox environment settings.',
+        'Never ask the user for a secret value. Call get_sandbox_environment first and send its networking.secrets ' +
+        'back unchanged, including the redacted placeholders. ' +
+        'Never replace a placeholder with a real secret value. When the environment needs new secrets, ask the user ' +
+        'to create them in the sandbox environment settings.',
       inputSchema: { name: z.string(), manifest: SandboxEnvironmentManifestRequestSchema },
       annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
     },

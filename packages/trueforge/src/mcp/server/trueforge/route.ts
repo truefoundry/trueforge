@@ -28,9 +28,6 @@ const internalFetch = internalTlsFetch(configuration);
 const trueForgeMcpUrl = new URL('/mcp', baseUrl).href;
 const MAX_MCP_REQUEST_BODY_BYTES = 1024 * 1024;
 
-export const TRUEFORGE_CLIENT_HEADER = 'x-trueforge-client';
-export const TRUEFORGE_BROWSER_CLIENT = 'browser';
-
 /**
  * Request-scoped SDK client carrying the draft caller's credential. The service API key is
  * intentionally never used here.
@@ -140,9 +137,6 @@ export interface TrueForgeMcpRouterDeps {
 export function createTrueForgeMcpRouter(deps: TrueForgeMcpRouterDeps): Hono {
   const router = new Hono();
   router.all('/', async c => {
-    if (c.req.header(TRUEFORGE_CLIENT_HEADER) !== TRUEFORGE_BROWSER_CLIENT) {
-      return c.json({ error: { message: 'TrueForge MCP is available only to browser draft sessions' } }, 403);
-    }
     // No standalone event stream. 405 tells the client this server has nothing to listen for.
     if (c.req.method === 'GET') {
       c.header('Allow', 'POST, DELETE');
