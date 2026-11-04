@@ -134,4 +134,53 @@ describe('MultiSelectInput', () => {
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
     expect(screen.queryByText('No matching users')).not.toBeInTheDocument();
   });
+
+  it('dismisses the popup and clears the query on Escape', () => {
+    const onQueryChange = vi.fn();
+    render(
+      <MultiSelectInput
+        selected={[]}
+        options={items}
+        getKey={item => item.id}
+        getLabel={item => item.name}
+        onRemove={vi.fn()}
+        query="a"
+        onQueryChange={onQueryChange}
+        aria-label="Search"
+        optionsLabel="Matching users"
+      />,
+    );
+    const input = screen.getByRole('combobox', { name: 'Search' });
+
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+    fireEvent.keyDown(input, { key: 'Escape' });
+
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(onQueryChange).toHaveBeenCalledWith('');
+  });
+
+  it('dismisses the popup and clears the query on outside mousedown', () => {
+    const onQueryChange = vi.fn();
+    render(
+      <div>
+        <MultiSelectInput
+          selected={[]}
+          options={items}
+          getKey={item => item.id}
+          getLabel={item => item.name}
+          onRemove={vi.fn()}
+          query="a"
+          onQueryChange={onQueryChange}
+          aria-label="Search"
+        />
+        <button type="button">Outside</button>
+      </div>,
+    );
+
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+    fireEvent.mouseDown(screen.getByRole('button', { name: 'Outside' }));
+
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(onQueryChange).toHaveBeenCalledWith('');
+  });
 });

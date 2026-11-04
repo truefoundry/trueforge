@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 
 import { Icon } from '../../icons/Icon.js';
 import { cn } from '../lib/cn.js';
@@ -50,13 +50,35 @@ export function MultiSelectInput<T>({
 }: MultiSelectInputProps<T>) {
   const inputId = useId();
   const listboxId = useId();
+  const rootRef = useRef<HTMLDivElement>(null);
   const last = selected.at(-1);
   const hasQuery = query.trim().length > 0;
+  // Dismissible open flag — query alone must not pin the popup over rows below.
+  const [open, setOpen] = useState(() => query.trim().length > 0);
   const showEmpty = hasQuery && options.length === 0 && menuFooter == null && noDataPlaceholder != null;
-  const showOptions = hasQuery && (options.length > 0 || menuFooter != null || showEmpty);
+  const showOptions = open && hasQuery && (options.length > 0 || menuFooter != null || showEmpty);
+
+  // Close list and clear search — same dismiss contract as shadcn Combobox.
+  const dismiss = () => {
+    setOpen(false);
+    if (hasQuery) onQueryChange('');
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!(event.target instanceof Node)) return;
+      if (rootRef.current?.contains(event.target)) return;
+      setOpen(false);
+      onQueryChange('');
+    };
+    // Capture: parent DropdownMenu stops mousedown bubbling on its surface.
+    document.addEventListener('mousedown', handlePointerDown, true);
+    return () => document.removeEventListener('mousedown', handlePointerDown, true);
+  }, [onQueryChange, open]);
 
   return (
-    <div className={cn('relative min-w-0', className)}>
+    <div ref={rootRef} className={cn('relative min-w-0', className)}>
       <label
         htmlFor={inputId}
         className={auiInputClass(
@@ -81,8 +103,22 @@ export function MultiSelectInput<T>({
         <input
           id={inputId}
           value={query}
-          onChange={event => onQueryChange(event.target.value)}
+          onChange={event => {
+            const next = event.target.value;
+            onQueryChange(next);
+            setOpen(next.trim().length > 0);
+          }}
+          onFocus={() => {
+            if (hasQuery) setOpen(true);
+          }}
           onKeyDown={event => {
+            if (event.key === 'Escape' && open) {
+              // Keep the parent share menu open; only dismiss this list.
+              event.preventDefault();
+              event.stopPropagation();
+              dismiss();
+              return;
+            }
             if (event.key === 'Backspace' && query.length === 0 && last !== undefined) onRemove(last);
           }}
           placeholder={selected.length === 0 ? placeholder : undefined}
