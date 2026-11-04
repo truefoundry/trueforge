@@ -2070,21 +2070,21 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
       throw new HTTPException(400, { message: 'Event id is not part of this turn stream.' });
     }
 
-    // Legacy `{sequence}-1` streams resume by that id. An event-id stream has no SSE
-    // id, so an older client counted events from 0; the number is the last index it applied.
+    // Only a leftover `{sequence}-1` stream resumes by sequence number.
     let includeSequenceId = false;
-    let skipEventCount = 0;
     if (afterSequenceNumber !== undefined) {
       const firstEntryId = await turnEventStream.firstEntryId();
       if (firstEntryId !== undefined && !isLegacySequenceEntryId(firstEntryId)) {
-        skipEventCount = afterSequenceNumber + 1;
-      } else if (afterSequenceNumber > LEGACY_SEQUENCE_ID_MAX) {
+        throw new HTTPException(400, {
+          message: 'after_sequence_number is not supported on this stream. Use from_event_id or after_event_id.',
+        });
+      }
+      if (afterSequenceNumber > LEGACY_SEQUENCE_ID_MAX) {
         throw new HTTPException(400, {
           message: 'after_sequence_number is not supported above 50000.',
         });
-      } else {
-        includeSequenceId = true;
       }
+      includeSequenceId = true;
     }
     // One lifecycle controller: server-side timeout, client disconnect, and
     // normal teardown all abort it, which ends poll even while it is parked
@@ -2117,25 +2117,8 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
 
       const generator = turnEventStream.poll(pollOptions);
       try {
-        let seen = 0;
         for await (const { sequence_number: sequenceNumber, ...event } of generator) {
-          if (seen < skipEventCount) {
-            seen += 1;
-            if (event.type === EventType.TURN_DONE) {
-              break;
-            }
-            continue;
-          }
-          // Keep the older client's count aligned: the id is this event's 0-based index.
-          const compatIndex = skipEventCount > 0 ? seen : undefined;
-          seen += 1;
-          await stream.writeSSE(
-            includeSequenceId && sequenceNumber !== undefined
-              ? turnEventSsePayload(event, sequenceNumber)
-              : compatIndex !== undefined
-                ? turnEventSsePayload(event, compatIndex)
-                : turnEventSsePayload(event),
-          );
+          await stream.writeSSE(turnEventSsePayload(event, includeSequenceId ? sequenceNumber : undefined));
           if (event.type === EventType.TURN_DONE) {
             break;
           }

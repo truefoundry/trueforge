@@ -958,38 +958,18 @@ describe('turns', () => {
       expect(midMessage.status).toBe(200);
       await midMessage.body?.cancel();
 
-      // An older client counted id-less events from 0. after=1 has indexes 0 and 1.
-      const countedTurnId = 'counted-turn';
-      await sessionStore.createTurn(makeCreateTurnInput({ sessionId, turnId: countedTurnId }));
-      const firstCounted = makeModelMessageEvent();
-      const kept = makeModelMessageEvent();
-      const counted = [firstCounted, makeModelMessageEvent(), kept];
-      const countedStream = eventSubscriptions.get(turnStreamId('default', sessionId, countedTurnId));
-      for (const event of counted) {
-        await countedStream.put(event, { streamTTLSeconds: 300 });
+      // after_sequence_number is only for leftover integer streams.
+      const eventIdTurnId = 'event-id-turn';
+      await sessionStore.createTurn(makeCreateTurnInput({ sessionId, turnId: eventIdTurnId }));
+      await eventSubscriptions
+        .get(turnStreamId('default', sessionId, eventIdTurnId))
+        .put(makeModelMessageEvent(), { streamTTLSeconds: 300 });
+      for (const cursor of [0, 1, 100001]) {
+        const rejected = await app.request(
+          `/${sessionId}/turns/${eventIdTurnId}/subscribe?after_sequence_number=${String(cursor)}`,
+        );
+        expect(rejected.status).toBe(400);
       }
-      const countedResume = await app.request(`/${sessionId}/turns/${countedTurnId}/subscribe?after_sequence_number=1`);
-      expect(countedResume.status).toBe(200);
-      const countedReader = countedResume.body?.getReader();
-      if (countedReader === undefined) {
-        throw new Error('subscribe response has no body');
-      }
-      const countedDecoder = new TextDecoder();
-      let countedBody = '';
-      try {
-        while (!countedBody.includes(kept.id)) {
-          const { value, done } = await countedReader.read();
-          if (done || value === undefined) {
-            break;
-          }
-          countedBody += countedDecoder.decode(value, { stream: true });
-        }
-      } finally {
-        await countedReader.cancel();
-      }
-      expect(countedBody).toContain(kept.id);
-      expect(countedBody).not.toContain(firstCounted.id);
-      expect(countedBody).toContain('id: 2');
 
       const runningTurnId = 'running-turn';
       await sessionStore.createTurn(makeCreateTurnInput({ sessionId, turnId: runningTurnId }));
@@ -1062,10 +1042,6 @@ describe('turns', () => {
         `/${sessionId}/turns/${pausedTurnId}/subscribe?after_sequence_number=1&from_event_id=${pausedEvent.id}`,
       );
       expect(mixed.status).toBe(400);
-
-      const huge = await app.request(`/${sessionId}/turns/${pausedTurnId}/subscribe?after_sequence_number=100001`);
-      expect(huge.status).toBe(200);
-      await huge.body?.cancel();
 
       const invalid = await app.request(`/${sessionId}/turns/${pausedTurnId}/subscribe?from_event_id=not-a-ulid`);
       expect(invalid.status).toBe(400);

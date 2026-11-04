@@ -299,7 +299,7 @@ export const subscribeTurnRoute = createRoute({
     'Subscribe to the live SSE stream. A paused turn with an expired stream is restored from stored events. Resume with from_event_id or after_event_id',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'subscribe_to_turn',
-  'x-fern-streaming': { format: 'sse', resumable: true },
+  'x-fern-streaming': { format: 'sse', resumable: false },
   request: {
     params: TurnIdParamsSchema,
     query: SubscribeTurnQuerySchema,
