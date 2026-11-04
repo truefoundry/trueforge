@@ -5,7 +5,7 @@ import type { IConfigurationStore } from '../../../src/db/configurationStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteConfigurationStore } from '../../../src/db/sqlite/configuration-store/SqliteConfigurationStore';
-import { up as backfillMemorySwitch } from '../../../src/db/sqlite/migrations/20261102_000001_configuration_memory_backfill';
+import { up as backfillMemorySwitch } from '../../../src/db/sqlite/migrations/20261104_000001_configuration_memory_backfill';
 
 function patchInit(manifest: unknown): RequestInit {
   return {

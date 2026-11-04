@@ -1,6 +1,6 @@
 import { sql, type Kysely } from 'kysely';
 
-/** Mirrors db/postgres/migrations/20261102_000001_configuration_memory_backfill.ts. */
+/** Mirrors db/postgres/migrations/20261104_000001_configuration_memory_backfill.ts. */
 export async function up<TDatabase>(db: Kysely<TDatabase>): Promise<void> {
   await db.transaction().execute(async trx => {
     await sql`
