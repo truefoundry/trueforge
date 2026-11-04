@@ -151,6 +151,7 @@ if typing.TYPE_CHECKING:
     from .mcp_tool_info import McpToolInfo
     from .me import Me
     from .me_session_type import MeSessionType
+    from .memory_config import MemoryConfig
     from .metrics_unit import MetricsUnit
     from .model import Model
     from .model_message_delta_event import ModelMessageDeltaEvent
@@ -442,6 +443,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "McpToolInfo": ".mcp_tool_info",
     "Me": ".me",
     "MeSessionType": ".me_session_type",
+    "MemoryConfig": ".memory_config",
     "MetricsUnit": ".metrics_unit",
     "Model": ".model",
     "ModelMessageDeltaEvent": ".model_message_delta_event",
@@ -757,6 +759,7 @@ __all__ = [
     "McpToolInfo",
     "Me",
     "MeSessionType",
+    "MemoryConfig",
     "MetricsUnit",
     "Model",
     "ModelMessageDeltaEvent",
