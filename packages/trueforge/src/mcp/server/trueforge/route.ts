@@ -26,6 +26,7 @@ import { createTrueForgeMcpServer, TRUEFORGE_CONNECTOR_NAME } from './server';
 const baseUrl = normalizeTlsUrl({ url: configuration.SERVER_URL, enabled: configuration.MTLS_ENABLED });
 const internalFetch = internalTlsFetch(configuration);
 const trueForgeMcpUrl = new URL('/mcp', baseUrl).href;
+const MAX_MCP_REQUEST_BODY_BYTES = 1024 * 1024;
 
 export const TRUEFORGE_CLIENT_HEADER = 'x-trueforge-client';
 export const TRUEFORGE_BROWSER_CLIENT = 'browser';
@@ -153,7 +154,10 @@ export function createTrueForgeMcpRouter(deps: TrueForgeMcpRouterDeps): Hono {
     // Streamable HTTP wants a fresh server+transport per request to isolate concurrent callers.
     const client = createTrueForgeSDKClient({ userCredential: requestContext.user_credential });
     const server = createTrueForgeMcpServer({ client, version: deps.version });
-    const transport = new WebStandardStreamableHTTPServerTransport({ enableJsonResponse: true });
+    const transport = new WebStandardStreamableHTTPServerTransport({
+      enableJsonResponse: true,
+      maxRequestBodySize: MAX_MCP_REQUEST_BODY_BYTES,
+    });
     await server.connect(transport);
     try {
       return await transport.handleRequest(c.req.raw);
