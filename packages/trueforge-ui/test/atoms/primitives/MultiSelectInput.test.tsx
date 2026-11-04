@@ -72,4 +72,66 @@ describe('MultiSelectInput', () => {
 
     expect(onRemove).not.toHaveBeenCalled();
   });
+
+  it('lists matches in a popup and reports the picked item', () => {
+    const onSelect = vi.fn();
+    render(
+      <MultiSelectInput
+        selected={[]}
+        options={items}
+        getKey={item => item.id}
+        getLabel={item => item.name}
+        onRemove={vi.fn()}
+        onSelect={onSelect}
+        query="a"
+        onQueryChange={vi.fn()}
+        placeholder="Add people"
+        aria-label="Search"
+        optionsLabel="Matching users"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('option', { name: 'Alice' }));
+
+    expect(screen.getByRole('listbox', { name: 'Matching users' })).toBeInTheDocument();
+    expect(onSelect).toHaveBeenCalledWith(items[0]);
+  });
+
+  it('shows noDataPlaceholder when the query has no matches', () => {
+    render(
+      <MultiSelectInput
+        selected={[]}
+        options={[]}
+        getKey={item => item.id}
+        getLabel={item => item.name}
+        onRemove={vi.fn()}
+        query="zzz"
+        onQueryChange={vi.fn()}
+        aria-label="Search"
+        noDataPlaceholder="No matching users"
+      />,
+    );
+
+    expect(screen.getByText('No matching users')).toBeInTheDocument();
+    expect(screen.queryByRole('option')).not.toBeInTheDocument();
+  });
+
+  it('keeps the popup closed while the query is empty', () => {
+    render(
+      <MultiSelectInput
+        selected={[]}
+        options={items}
+        getKey={item => item.id}
+        getLabel={item => item.name}
+        onRemove={vi.fn()}
+        query=""
+        onQueryChange={vi.fn()}
+        aria-label="Search"
+        noDataPlaceholder="No matching users"
+      />,
+    );
+
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(screen.queryByText('No matching users')).not.toBeInTheDocument();
+  });
 });
