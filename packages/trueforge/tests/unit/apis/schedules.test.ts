@@ -18,6 +18,7 @@ import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription';
 import {
   CreateScheduleRunResponseSchema,
+  GetScheduleResponseSchema,
   ListScheduleRunsResponseSchema,
   ListSchedulesResponseSchema,
 } from '../../../src/schemas/schedule';
@@ -167,6 +168,34 @@ describe('schedule RBAC', () => {
     expect(aliceRunsBody.data).toEqual([expect.objectContaining({ schedule_id: id })]);
     expect(aliceRunsBody.pagination.next_page_token).toBeUndefined();
     expect((await app.request(`/${id}`, { method: 'DELETE' })).status).toBe(200);
+  });
+
+  it('creates, reads, updates, and clears optional schedule notes', async () => {
+    const { app, asUser, postJson } = await setup();
+    asUser(ALICE);
+
+    const createdResponse = await postJson('/', 'POST', { ...scheduleBody, notes: 'Created for finance' });
+    expect(createdResponse.status).toBe(201);
+    const created = GetScheduleResponseSchema.parse(await createdResponse.json()).data;
+    expect(created.notes).toBe('Created for finance');
+
+    const fetched = GetScheduleResponseSchema.parse(await (await app.request(`/${created.id}`)).json()).data;
+    expect(fetched.notes).toBe('Created for finance');
+    const listed = ListSchedulesResponseSchema.parse(await (await app.request('/')).json()).data;
+    expect(listed.find(schedule => schedule.id === created.id)?.notes).toBe('Created for finance');
+
+    const updatedResponse = await postJson(`/${created.id}`, 'PUT', {
+      name: created.name,
+      notes: 'Updated for operations',
+      manifest: created.manifest,
+    });
+    expect(GetScheduleResponseSchema.parse(await updatedResponse.json()).data.notes).toBe('Updated for operations');
+
+    const clearedResponse = await postJson(`/${created.id}`, 'PUT', {
+      name: created.name,
+      manifest: created.manifest,
+    });
+    expect(GetScheduleResponseSchema.parse(await clearedResponse.json()).data.notes).toBeUndefined();
   });
 
   it('rejects an invalid page_token when listing runs', async () => {

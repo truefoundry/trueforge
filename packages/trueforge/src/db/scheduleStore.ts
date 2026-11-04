@@ -44,6 +44,7 @@ export interface ScheduleRecord {
   agent_name: string;
   /** Slug-shaped label, unique per agent (`schedule_name_uq`). */
   name: string;
+  notes: string | null;
   manifest: ScheduleManifest;
   status: ScheduleStatus;
   created_by_subject: CreatedBySubject;
@@ -134,6 +135,7 @@ export interface CreateScheduleInput {
   agent_id: string;
   agent_name: string;
   name: string;
+  notes?: string;
   manifest: ScheduleManifest;
   created_by_subject: CreatedBySubject;
   /** Instant used to compute the first pending run when status is active. */
@@ -145,6 +147,7 @@ export interface UpdateScheduleInput {
   tenant_id: string;
   id: string;
   name: string;
+  notes?: string;
   manifest: ScheduleManifest;
   /**
    * Instant used to compute the next pending run when a sync runs (status/cron/timezone
@@ -226,7 +229,7 @@ export class ScheduleNameConflictError extends Error {
 
 /**
  * Pending run is replaced only when `status`, `cron`, or `timezone` change.
- * `name` and `task` edits leave the pending row alone.
+ * `name`, `notes`, and `task` edits leave the pending row alone.
  */
 export function shouldSyncPendingRun(
   previous: Pick<ScheduleRecord, 'status' | 'manifest'>,
@@ -254,7 +257,7 @@ export interface IScheduleStore<TTransaction = never> {
   createScheduleAndRun(input: CreateScheduleInput, transaction?: TTransaction): Promise<ScheduleWriteResult>;
   /**
    * Updates a schedule, then syncs the pending run only when `status`, `cron`, or
-   * `timezone` change. `name` / `task` edits leave the pending row alone.
+   * `timezone` change. `name` / `notes` / `task` edits leave the pending row alone.
    * Returns undefined if the schedule is gone.
    */
   updateScheduleAndRun(

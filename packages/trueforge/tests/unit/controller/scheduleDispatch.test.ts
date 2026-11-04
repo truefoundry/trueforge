@@ -57,6 +57,7 @@ function item(): ScheduleDispatchItem {
       agent_id: 'agent-1',
       agent_name: 'reporter',
       name: 'daily',
+      notes: null,
       manifest: ScheduleManifestSchema.parse({
         task: 'Write the report',
         cron: '0 * * * *',

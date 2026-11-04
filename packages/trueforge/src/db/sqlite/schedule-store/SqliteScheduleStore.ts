@@ -48,6 +48,7 @@ function scheduleColumns(eb: ExpressionBuilder<Database, 'schedule'>) {
     'agent_id' as const,
     'agent_name' as const,
     'name' as const,
+    'notes' as const,
     jsonText<ScheduleManifest>(eb.ref('manifest')).as('manifest'),
     'status' as const,
     jsonText<CreatedBySubject>(eb.ref('created_by_subject')).as('created_by_subject'),
@@ -79,6 +80,7 @@ interface ScheduleRow {
   agent_id: string;
   agent_name: string;
   name: string;
+  notes: string | null;
   manifest: ScheduleManifest;
   status: ScheduleStatus;
   created_by_subject: CreatedBySubject;
@@ -161,6 +163,7 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
           agent_id: input.agent_id,
           agent_name: input.agent_name,
           name: input.name,
+          notes: input.notes ?? null,
           manifest: jsonbBind(input.manifest),
           // Column mirrors the manifest so the dispatch scan and API reads share one value.
           status: input.manifest.status,
@@ -207,6 +210,7 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
         .updateTable('schedule')
         .set({
           name: input.name,
+          notes: input.notes ?? null,
           manifest: jsonbBind(input.manifest),
           status: input.manifest.status,
           updated_at: nowIso(),

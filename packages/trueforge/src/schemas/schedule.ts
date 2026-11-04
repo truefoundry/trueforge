@@ -72,6 +72,8 @@ export const ScheduleTaskSchema = z
   .min(1)
   .describe('First user message sent to the agent on every run.');
 
+export const ScheduleNotesSchema = z.string().describe('Optional notes about the schedule.');
+
 export const ScheduleStatusSchema = z.enum(['active', 'paused']).openapi('ScheduleStatus');
 
 /**
@@ -94,6 +96,7 @@ export const ScheduleSchema = z
     id: z.string(),
     agent_name: NameSchema,
     name: NameSchema,
+    notes: ScheduleNotesSchema.optional(),
     manifest: ScheduleManifestSchema,
     created_by_subject: CreatedBySubjectSchema,
     created_at: IsoTimestamp,
@@ -106,6 +109,7 @@ export const CreateScheduleRequestSchema = z
   .object({
     agent_name: NameSchema,
     name: NameSchema,
+    notes: ScheduleNotesSchema.optional(),
     manifest: ScheduleManifestSchema,
   })
   .strict()
@@ -114,6 +118,7 @@ export const CreateScheduleRequestSchema = z
 export const UpdateScheduleRequestSchema = z
   .object({
     name: NameSchema,
+    notes: ScheduleNotesSchema.optional(),
     manifest: ScheduleManifestSchema,
   })
   .strict()

@@ -160,7 +160,7 @@ export function runScheduleStoreContractSuite(deps: {
     );
   });
 
-  it('updating name or task leaves the pending run unchanged', async () => {
+  it('persists optional notes without rescheduling the pending run', async () => {
     const store = deps.getScheduleStore();
     const agent = await seedAgent();
     const runFrom = new Date('2026-08-27T08:00:00.000Z');
@@ -169,25 +169,48 @@ export function runScheduleStoreContractSuite(deps: {
       agent_id: agent.id,
       agent_name: agent.name,
       name: 'label-only',
+      notes: 'Initial context',
       manifest: manifest({ cron: '0 9 * * *', timezone: 'UTC', task: 'old task' }),
       created_by_subject: USER_SUBJECT,
       runFrom,
     });
     expect(first).toBeDefined();
+    expect(schedule.notes).toBe('Initial context');
 
     // A later runFrom would move the next trigger time if sync ran; it must not.
     const updated = await store.updateScheduleAndRun({
       tenant_id: TENANT,
       id: schedule.id,
       name: 'renamed',
+      notes: 'Updated context',
       manifest: manifest({ cron: '0 9 * * *', timezone: 'UTC', task: 'new task' }),
       runFrom: new Date('2026-08-27T12:00:00.000Z'),
     });
 
     expect(updated?.schedule.name).toBe('renamed');
+    expect(updated?.schedule.notes).toBe('Updated context');
     expect(updated?.schedule.manifest.task).toBe('new task');
     expect(updated?.pendingRun).toEqual(first);
+    expect(await store.getSchedule({ tenant_id: TENANT, id: schedule.id })).toEqual(updated?.schedule);
+    const listed = await store.listSchedules({
+      tenant_id: TENANT,
+      limit: 25,
+      page_token: undefined,
+      agent_names: [agent.name],
+      created_by_or_agent_ids: undefined,
+    });
+    expect(listed.data.find(row => row.id === schedule.id)?.notes).toBe('Updated context');
     expect(await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id })).toEqual(first);
+
+    const cleared = await store.updateScheduleAndRun({
+      tenant_id: TENANT,
+      id: schedule.id,
+      name: 'renamed',
+      manifest: manifest({ cron: '0 9 * * *', timezone: 'UTC', task: 'new task' }),
+      runFrom: new Date('2026-08-27T12:00:00.000Z'),
+    });
+    expect(cleared?.schedule.notes).toBeNull();
+    expect(cleared?.pendingRun).toEqual(first);
   });
 
   it('rejects a second schedule with the same name under one agent', async () => {

@@ -141,6 +141,7 @@ function toWireSchedule(record: ScheduleRecord): Schedule {
     id: record.id,
     agent_name: record.agent_name,
     name: record.name,
+    ...(record.notes === null ? {} : { notes: record.notes }),
     manifest: record.manifest,
     created_by_subject: record.created_by_subject,
     created_at: record.created_at,
@@ -409,6 +410,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
             agent_id: agent.id,
             agent_name: agent.name,
             name: body.name,
+            ...(body.notes === undefined ? {} : { notes: body.notes }),
             manifest: body.manifest,
             created_by_subject: createdBySubjectFromRequestContext(requestContext),
             runFrom: new Date(),
@@ -456,10 +458,10 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
   };
 
   /**
-   * Replaces the whole document, like every other manifest PUT in this server: an
-   * omitted optional field is not "left alone", it returns to its default — omitting
-   * `status` re-activates a paused schedule, omitting `timezone` moves it to UTC.
-   * Read-modify-write if that is not what you want.
+   * Replaces name, notes, and the whole manifest. An omitted optional field is not
+   * "left alone": omitting notes clears them, omitting status re-activates a paused
+   * schedule, and omitting timezone moves it to UTC. Read-modify-write if that is not
+   * what you want.
    *
    * Agent binding is immutable — a schedule that should point at a different agent is
    * a different schedule. `name` is editable but must stay unique within the agent;
@@ -491,6 +493,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
             tenant_id: requestContext.tenant_id,
             id: scheduleId,
             name: body.name,
+            ...(body.notes === undefined ? {} : { notes: body.notes }),
             manifest: body.manifest,
             runFrom: new Date(),
           },

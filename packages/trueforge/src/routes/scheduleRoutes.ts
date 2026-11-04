@@ -269,7 +269,7 @@ export const putScheduleRoute = createRoute({
   path: '/{schedule_id}',
   tags: [OpenApiTag.SCHEDULES],
   summary: 'Update a schedule',
-  description: 'Replace name and manifest; replaces or drops the pending run when status/cron/timezone change.',
+  description: 'Replace name, notes, and manifest; sync the pending run when status, cron, or timezone changes.',
   'x-fern-sdk-group-name': ['schedules'],
   'x-fern-sdk-method-name': 'update',
   request: {
