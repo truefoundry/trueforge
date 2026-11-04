@@ -6,7 +6,7 @@ import {
 } from '../../indexes';
 
 /**
- * SQLite mirror of postgres/migrations/20261103_000001_query_path_indexes.ts.
+ * SQLite mirror of postgres/migrations/20261103_000002_query_path_indexes.ts.
  * A plain CREATE INDEX needs no table rebuild, so no `PRAGMA foreign_keys` toggle.
  * Kysely does not wrap SQLite migrations — keep the three indexes atomic.
  */
