@@ -107,14 +107,22 @@ class FakeStore implements IMemoryIngestStore {
   }
 }
 
+/** Ingestion never reads or writes memory directly. */
+const RETRIEVAL_UNUSED = {
+  getUserSummary: () => Promise.reject(new Error('not used by ingestion')),
+  search: () => Promise.reject(new Error('not used by ingestion')),
+  addMemory: () => Promise.reject(new Error('not used by ingestion')),
+};
+
 function fakeProvider(fail: (input: IngestExchangeInput) => boolean = () => false) {
   const calls: IngestExchangeInput[] = [];
   const provider: MemoryProvider = {
+    ...RETRIEVAL_UNUSED,
     name: 'zep',
     async ingestExchange(input) {
       calls.push(input);
       if (fail(input)) {
-        throw new Error('zep unavailable');
+        throw new Error('memory provider unavailable');
       }
       return { externalThreadId: input.externalThreadId ?? `thread-${input.exchange.sessionId}` };
     },
@@ -169,7 +177,7 @@ function session({
     candidate: {
       session_id: id,
       tenant_id: tenant,
-      created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'Priya' },
+      created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'User One' },
       agent_id: agentId,
       tfg_source: 'ui',
       create_agent_session: false,
@@ -202,7 +210,7 @@ describe('runMemoryIngestPass', () => {
     await runMemoryIngestPass({ deps: deps({ store, provider }), signal: signal() });
 
     expect(calls).toHaveLength(1);
-    expect(JSON.stringify(calls)).not.toContain('Priya');
+    expect(JSON.stringify(calls)).not.toContain('User One');
   });
 
   it('sends finished exchanges in order, stops at the first unfinished one and checkpoints each send', async () => {
@@ -350,11 +358,18 @@ describe('runMemoryIngestPass', () => {
     });
 
     expect(calls).toHaveLength(2);
-    expect(store.cursors.get('s1')).toMatchObject({ last_ingested_turn_id: 't1', last_error: 'zep unavailable' });
+    expect(store.cursors.get('s1')).toMatchObject({
+      last_ingested_turn_id: 't1',
+      last_error: 'memory provider unavailable',
+    });
     expect(summary).toMatchObject({ exchanges_sent: 1, exchanges_failed: 1, sessions_by_outcome: { failed: 1 } });
     expect(logger.error).toHaveBeenCalledWith(
       'Memory ingest failed for session',
-      expect.objectContaining({ session_id: 's1', last_error: 'zep unavailable', reportable_error: expect.anything() }),
+      expect.objectContaining({
+        session_id: 's1',
+        last_error: 'memory provider unavailable',
+        reportable_error: expect.anything(),
+      }),
     );
   });
 
@@ -387,6 +402,7 @@ describe('runMemoryIngestPass', () => {
     const store = new FakeStore();
     store.add(session({ id: 's1', turns: [closedTurn('t1', null, 10)] }));
     const provider: MemoryProvider = {
+      ...RETRIEVAL_UNUSED,
       name: 'zep',
       async ingestExchange() {
         throw new MemoryIngestError({ message: 'add failed', externalThreadId: 'created-thread', cause: null });

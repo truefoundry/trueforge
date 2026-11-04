@@ -9,6 +9,7 @@ export interface RuntimeConfig {
     generativeUi?: TrueForge.GenerativeUiConfig;
     /** Max agent-loop iterations per turn (1–1024). Default: 512. */
     iterationLimit?: number;
+    memory?: TrueForge.MemoryConfig;
     sandbox?: TrueForge.SandboxConfig;
     webSearch?: TrueForge.WebSearchConfig;
 }

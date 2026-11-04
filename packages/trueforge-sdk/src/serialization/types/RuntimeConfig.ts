@@ -7,6 +7,7 @@ import { AskUserQuestionsConfig } from "./AskUserQuestionsConfig.js";
 import { ContextManagementConfig } from "./ContextManagementConfig.js";
 import { DynamicSubAgentsConfig } from "./DynamicSubAgentsConfig.js";
 import { GenerativeUiConfig } from "./GenerativeUiConfig.js";
+import { MemoryConfig } from "./MemoryConfig.js";
 import { SandboxConfig } from "./SandboxConfig.js";
 import { WebSearchConfig } from "./WebSearchConfig.js";
 
@@ -17,6 +18,7 @@ export const RuntimeConfig: core.serialization.ObjectSchema<serializers.RuntimeC
         dynamicSubAgents: core.serialization.property("dynamic_sub_agents", DynamicSubAgentsConfig.optional()),
         generativeUi: core.serialization.property("generative_ui", GenerativeUiConfig.optional()),
         iterationLimit: core.serialization.property("iteration_limit", core.serialization.number().optional()),
+        memory: MemoryConfig.optional(),
         sandbox: SandboxConfig.optional(),
         webSearch: core.serialization.property("web_search", WebSearchConfig.optional()),
     });
@@ -28,6 +30,7 @@ export declare namespace RuntimeConfig {
         dynamic_sub_agents?: DynamicSubAgentsConfig.Raw | null;
         generative_ui?: GenerativeUiConfig.Raw | null;
         iteration_limit?: number | null;
+        memory?: MemoryConfig.Raw | null;
         sandbox?: SandboxConfig.Raw | null;
         web_search?: WebSearchConfig.Raw | null;
     }

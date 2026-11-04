@@ -3,7 +3,7 @@ import { ASK_USER_QUESTION_TOOL_NAME } from '@truefoundry/trueforge-core/core';
 import type { MemoryIngestTurn, StoredModelMessage } from '../db/memoryIngestStore';
 import type { MemoryMessage } from './MemoryProvider';
 
-/** Per-message cap; Zep rejects message content over 4,096 characters. */
+/** Per-message cap; stays under the memory provider's per-message limit (4,096 characters). */
 export const MAX_MEMORY_MESSAGE_CHARS = 4_000;
 const TRUNCATION_MARKER = ' [truncated]';
 

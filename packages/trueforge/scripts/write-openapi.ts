@@ -95,6 +95,7 @@ const app = createServerApp({
   resolveSandboxProviderStore: () => sandboxProviderStore,
   resolveWebSearchProviderStore: () => webSearchProviderStore,
   resolveConfigurationStore: () => configurationStore,
+  memory: undefined,
   resolveAgentStore: () => agentStore,
   agentStore,
   sandboxEnvironmentStore,
