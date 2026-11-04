@@ -31,6 +31,9 @@ export const SCHEDULE_CREATED_BY_SUBJECT_ID_IDX = 'schedule_created_by_subject_i
 /** `(tenant_id, agent_id)` on schedule — list schedules for one agent by id. */
 export const SCHEDULE_AGENT_ID_IDX = 'schedule_agent_id_idx';
 
+/** Unique `(tenant_id, agent_name, manifest.cron, created_by_subject.subject_id)` on schedule. */
+export const SCHEDULE_AGENT_CRON_CREATOR_UQ = 'schedule_agent_cron_creator_uq';
+
 /** `(tenant_id, created_by_subject.subject_id)` on schedule_run. */
 export const SCHEDULE_RUN_CREATED_BY_SUBJECT_ID_IDX = 'schedule_run_created_by_subject_id_idx';
 

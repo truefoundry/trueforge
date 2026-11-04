@@ -224,6 +224,24 @@ export class ScheduleNameConflictError extends Error {
   }
 }
 
+/** Same creator already schedules this agent on this cron — violates `schedule_agent_cron_creator_uq`. */
+export class ScheduleCronConflictError extends Error {
+  readonly tenant_id: string;
+  readonly agent_name: string;
+  readonly cron: string;
+
+  constructor(
+    { tenant_id, agent_name, cron }: { tenant_id: string; agent_name: string; cron: string },
+    options?: ErrorOptions,
+  ) {
+    super(`A schedule with cron "${cron}" already exists for agent ${agent_name}`, options);
+    this.name = 'ScheduleCronConflictError';
+    this.tenant_id = tenant_id;
+    this.agent_name = agent_name;
+    this.cron = cron;
+  }
+}
+
 /**
  * Pending run is replaced only when `status`, `cron`, or `timezone` change.
  * `name` and `task` edits leave the pending row alone.

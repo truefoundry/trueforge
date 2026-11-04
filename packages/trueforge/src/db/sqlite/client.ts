@@ -186,3 +186,14 @@ export function isUniqueViolation(err: unknown): boolean {
   const code = err.code;
   return code === 'SQLITE_CONSTRAINT_UNIQUE' || code === 'SQLITE_CONSTRAINT_PRIMARYKEY';
 }
+
+/**
+ * Match a unique violation on a named index. SQLite names the index only for
+ * expression indexes; column indexes report their columns instead.
+ */
+export function isSqliteUniqueIndexViolation(err: unknown, indexName: string): boolean {
+  if (!isUniqueViolation(err) || typeof err !== 'object' || err === null || !('message' in err)) {
+    return false;
+  }
+  return typeof err.message === 'string' && err.message.includes(`index '${indexName}'`);
+}
