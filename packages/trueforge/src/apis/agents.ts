@@ -23,6 +23,7 @@ import type { ISkillStore } from '../db/skillStore';
 import type { WithTransaction } from '../db/transaction';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { TRUEFORGE_CONNECTOR_NAME } from '../mcp/server/trueforge/server';
+import type { ConfiguredMemory } from '../memory/memoryFromConfig';
 import {
   createAgentRoute,
   deleteAgentRoute,
@@ -46,6 +47,8 @@ export interface AgentsRouterDeps<TTransaction> {
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore<TTransaction>;
   resolveConfigurationStore: (c: Context) => IConfigurationStore<TTransaction>;
+  /** Long-term memory; undefined when the deployment has it off. */
+  memory: ConfiguredMemory | undefined;
   withTransaction: WithTransaction<TTransaction>;
   resolveRequestContext: ResolveRequestContext;
   authorizer: Authorizer;
@@ -72,6 +75,7 @@ async function validateManifest<TTransaction>({
   webSearchProviderStore,
   configurationStore,
   previousSpec,
+  memory,
   tenant_id,
   created_by_subject_id,
 }: {
@@ -85,6 +89,7 @@ async function validateManifest<TTransaction>({
   configurationStore: IConfigurationStore<TTransaction>;
   /** Manifest already saved on this agent; undefined when creating. */
   previousSpec: AgentSpec | undefined;
+  memory: ConfiguredMemory | undefined;
   tenant_id: string;
   created_by_subject_id: string;
 }): Promise<AgentSpec> {
@@ -105,6 +110,7 @@ async function validateManifest<TTransaction>({
     webSearchProviderStore,
     configurationStore,
     previousSpec,
+    memory,
   });
   return spec;
 }
@@ -145,6 +151,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
       configurationStore: deps.resolveConfigurationStore(c),
       previousSpec: undefined,
+      memory: deps.memory,
       tenant_id: requestContext.tenant_id,
       created_by_subject_id: requestContext.subject.id,
     });
@@ -254,6 +261,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
       configurationStore: deps.resolveConfigurationStore(c),
       previousSpec: existing.manifest,
+      memory: deps.memory,
       tenant_id: requestContext.tenant_id,
       created_by_subject_id: requestContext.subject.id,
     });

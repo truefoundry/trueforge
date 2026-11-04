@@ -166,55 +166,31 @@ function InviteCollaborators({
   };
 
   return (
-    <div className="flex w-full flex-col gap-2">
-      <div className="flex w-full items-start gap-2">
-        <MultiSelectInput
-          selected={selected}
-          getKey={user => user.id}
-          getLabel={user => user.displayName}
-          onRemove={user => setSelected(current => current.filter(item => item.id !== user.id))}
-          query={query}
-          onQueryChange={setQuery}
-          placeholder="Add people by name or email"
-          aria-label="Search users"
-          className="flex-1"
-        />
-        <Button.Primary
-          type="button"
-          size="large"
-          className="h-8 shrink-0 rounded px-2.5 text-xs"
-          disabled={selected.length === 0 || inviting}
-          onClick={() => {
-            void submit();
-          }}
-        >
-          <Icon name="users" size="0.875rem" />
-          Add
-        </Button.Primary>
-      </div>
-      {query.trim().length > 0 && (candidates.length > 0 || hasMore) ? (
-        <div role="listbox" aria-label="Matching users" className="flex max-h-40 w-full flex-col overflow-y-auto">
-          {candidates.map(user => (
-            <button
-              key={user.id}
-              type="button"
-              role="option"
-              aria-selected={false}
-              className={auiSelectOptionClass()}
-              // Keep focus in the search field so the next name can be typed right away.
-              onMouseDown={event => event.preventDefault()}
-              onClick={() => {
-                setSelected(current => [...current, user]);
-                setQuery('');
-              }}
-            >
-              <span className="flex min-w-0 flex-1 items-baseline gap-2">
-                <span className="font-semibold">{user.displayName}</span>
-                {user.email == null ? null : <span className="text-text-secondary truncate">{user.email}</span>}
-              </span>
-            </button>
-          ))}
-          {hasMore ? (
+    <div className="flex w-full items-start gap-2">
+      <MultiSelectInput
+        selected={selected}
+        options={candidates}
+        getKey={user => user.id}
+        getLabel={user => user.displayName}
+        renderOption={user => (
+          <span className="flex min-w-0 flex-1 items-baseline gap-2">
+            <span className="font-semibold">{user.displayName}</span>
+            {user.email == null ? null : <span className="text-text-secondary truncate">{user.email}</span>}
+          </span>
+        )}
+        onRemove={user => setSelected(current => current.filter(item => item.id !== user.id))}
+        onSelect={user => {
+          setSelected(current => [...current, user]);
+          setQuery('');
+        }}
+        query={query}
+        onQueryChange={setQuery}
+        placeholder="Add people by name or email"
+        aria-label="Search users"
+        optionsLabel="Matching users"
+        noDataPlaceholder={loading ? undefined : 'No matching users'}
+        menuFooter={
+          hasMore ? (
             <button
               type="button"
               className="text-text-secondary hover:text-text-primary cursor-pointer px-2 py-1.5 text-left text-sm"
@@ -223,9 +199,22 @@ function InviteCollaborators({
             >
               {loading ? 'Loading…' : 'Load more'}
             </button>
-          ) : null}
-        </div>
-      ) : null}
+          ) : null
+        }
+        className="min-w-0 flex-1"
+      />
+      <Button.Primary
+        type="button"
+        size="large"
+        className="h-8 shrink-0 rounded px-2.5 text-xs"
+        disabled={selected.length === 0 || inviting}
+        onClick={() => {
+          void submit();
+        }}
+      >
+        <Icon name="users" size="0.875rem" />
+        Add
+      </Button.Primary>
     </div>
   );
 }

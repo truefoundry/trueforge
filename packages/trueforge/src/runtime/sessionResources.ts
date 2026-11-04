@@ -25,6 +25,8 @@ import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { trueForgeMcpEndpoint } from '../mcp/server/trueforge/route';
 import { TRUEFORGE_CONNECTOR_NAME } from '../mcp/server/trueforge/server';
+import type { ConfiguredMemory } from '../memory/memoryFromConfig';
+import { isTenantMemoryEnabled } from '../memory/MemorySettings';
 import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProvider';
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import {
@@ -284,6 +286,7 @@ export async function validateAgentSpec({
   webSearchProviderStore,
   configurationStore,
   previousSpec,
+  memory,
 }: {
   spec: AgentSpec;
   tenant_id: string;
@@ -297,6 +300,8 @@ export async function validateAgentSpec({
   configurationStore: IConfigurationStore;
   /** Spec already saved on this session or agent; undefined when creating. */
   previousSpec: AgentSpec | undefined;
+  /** Undefined when the deployment has memory off. */
+  memory: ConfiguredMemory | undefined;
 }): Promise<void> {
   const resolved = await getModelDetails({
     tenant_id,
@@ -373,6 +378,18 @@ export async function validateAgentSpec({
       throw new HTTPException(422, {
         message: 'web_search is enabled but no web-search provider is configured',
       });
+    }
+  }
+
+  // Memory can be turned on only while the deployment and tenant have it. A spec already saved with
+  // it on keeps it, and its turns run without memory while memory is off for the deployment or tenant.
+  if (spec.config.memory.enabled && previousSpec?.config.memory.enabled !== true) {
+    if (memory === undefined) {
+      throw new HTTPException(422, { message: 'memory is enabled but no memory capability provider is configured' });
+    }
+    const tenantAllows = await isTenantMemoryEnabled(memory.settings, tenant_id);
+    if (!tenantAllows) {
+      throw new HTTPException(422, { message: 'memory is enabled but memory is turned off for this tenant' });
     }
   }
 }

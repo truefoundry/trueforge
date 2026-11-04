@@ -886,7 +886,7 @@ export interface SharedServerConfiguration {
   MODEL_HTTP_CONNECT_TIMEOUT_MS: number;
   /**
    * undici headersTimeout for model-provider outbound fetch.
-   * Env: `MODEL_HTTP_HEADERS_TIMEOUT_MS`. Default 2 minutes.
+   * Env: `MODEL_HTTP_HEADERS_TIMEOUT_MS`. Default 20 seconds.
    */
   MODEL_HTTP_HEADERS_TIMEOUT_MS: number;
   /**
@@ -1095,7 +1095,7 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
   TRUEFOUNDRY_MEMORY_PROVIDER: 'zep' | undefined;
   /** Shared API key (required for zep). Env: `TRUEFOUNDRY_MEMORY_API_KEY`. */
   TRUEFOUNDRY_MEMORY_API_KEY: string | undefined;
-  /** Memory provider API URL. Zep: default Zep Cloud v4. Env: `TRUEFOUNDRY_MEMORY_SERVER_URL`. */
+  /** Memory provider API URL; defaults to the provider's hosted API. Env: `TRUEFOUNDRY_MEMORY_SERVER_URL`. */
   TRUEFOUNDRY_MEMORY_SERVER_URL: string | undefined;
   /**
    * Tenants that get memory while `TRUEFOUNDRY_MEMORY_ENABLED`; every other tenant has none. JSON
@@ -1285,7 +1285,7 @@ const shared: SharedServerConfiguration = {
   MODEL_HTTP_HEADERS_TIMEOUT_MS: parsePositiveInt({
     envKey: 'MODEL_HTTP_HEADERS_TIMEOUT_MS',
     raw: getEnv('MODEL_HTTP_HEADERS_TIMEOUT_MS'),
-    defaultValue: 2 * 60 * 1000,
+    defaultValue: 20_000,
   }),
   MODEL_HTTP_BODY_TIMEOUT_MS: parsePositiveInt({
     envKey: 'MODEL_HTTP_BODY_TIMEOUT_MS',

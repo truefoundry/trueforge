@@ -11,10 +11,12 @@ import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-en
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
+import { TenantAllowlistMemorySettings } from '../../../src/memory/MemorySettings';
 import { getModelDetails, localSandboxSessionSegment, validateAgentSpec } from '../../../src/runtime/sessionResources';
 import { setCachedLocalSandboxSupport } from '../../../src/sandbox/localRuntime';
 import type { ReasoningEffort } from '../../../src/schemas/modelProvider';
 import { hasConfiguredWebSearchProvider } from '../../../src/websearch/providers';
+import { fakeMemoryProvider } from '../memory/fakeMemoryProvider';
 
 jest.mock('../../../src/websearch/providers', () => ({
   hasConfiguredWebSearchProvider: jest.fn(() => Promise.resolve(false)),
@@ -73,6 +75,7 @@ describe('validateAgentSpec', () => {
       webSearchProviderStore: new SqliteWebSearchProviderStore(db),
       configurationStore: new SqliteConfigurationStore(db),
       previousSpec: undefined,
+      memory: undefined,
     };
   }
 
@@ -370,6 +373,110 @@ describe('validateAgentSpec', () => {
         }),
       }),
     ).resolves.toBeUndefined();
+  });
+
+  describe('config.memory', () => {
+    const memorySpec = () =>
+      AgentSpecSchema.parse({
+        model: { name: 'test-provider/test-model' },
+        instructions: 'test',
+        config: { memory: { enabled: true } },
+      });
+    const configuredMemory = (tenantEnabled: boolean) => ({
+      provider: fakeMemoryProvider(),
+      settings: new TenantAllowlistMemorySettings({ tenantIds: tenantEnabled ? [] : ['other-tenant'] }),
+    });
+
+    it('rejects memory.enabled with 422 when the deployment has memory off', async () => {
+      const stores = await setup();
+      await expect(
+        validateAgentSpec({
+          spec: memorySpec(),
+          tenant_id: 'default',
+          created_by_subject_id: 'test-subject',
+          ...stores,
+        }),
+      ).rejects.toMatchObject({
+        status: 422,
+        message: expect.stringContaining('no memory capability provider is configured'),
+      } satisfies Partial<HTTPException>);
+    });
+
+    it('rejects memory.enabled with 422 when the tenant has memory off', async () => {
+      const stores = await setup();
+      await expect(
+        validateAgentSpec({
+          spec: memorySpec(),
+          tenant_id: 'default',
+          created_by_subject_id: 'test-subject',
+          ...stores,
+          memory: configuredMemory(false),
+        }),
+      ).rejects.toMatchObject({
+        status: 422,
+        message: expect.stringContaining('turned off for this tenant'),
+      } satisfies Partial<HTTPException>);
+    });
+
+    it('admits memory.enabled when memory is on for the tenant', async () => {
+      const stores = await setup();
+      await expect(
+        validateAgentSpec({
+          spec: memorySpec(),
+          tenant_id: 'default',
+          created_by_subject_id: 'test-subject',
+          ...stores,
+          memory: configuredMemory(true),
+        }),
+      ).resolves.toBeUndefined();
+    });
+
+    it('rejects turning memory on over a spec that had it off while the deployment has memory off', async () => {
+      const stores = await setup();
+      await expect(
+        validateAgentSpec({
+          spec: memorySpec(),
+          tenant_id: 'default',
+          created_by_subject_id: 'test-subject',
+          ...stores,
+          previousSpec: AgentSpecSchema.parse({
+            model: { name: 'test-provider/test-model' },
+            instructions: 'test',
+            config: { memory: { enabled: false } },
+          }),
+        }),
+      ).rejects.toMatchObject({
+        status: 422,
+        message: expect.stringContaining('no memory capability provider is configured'),
+      } satisfies Partial<HTTPException>);
+    });
+
+    it('keeps memory on a spec that already had it while the deployment has memory off', async () => {
+      const stores = await setup();
+      await expect(
+        validateAgentSpec({
+          spec: memorySpec(),
+          tenant_id: 'default',
+          created_by_subject_id: 'test-subject',
+          ...stores,
+          previousSpec: memorySpec(),
+        }),
+      ).resolves.toBeUndefined();
+    });
+
+    it('keeps memory on a spec that already had it while the tenant has memory off', async () => {
+      const stores = await setup();
+      await expect(
+        validateAgentSpec({
+          spec: memorySpec(),
+          tenant_id: 'default',
+          created_by_subject_id: 'test-subject',
+          ...stores,
+          previousSpec: memorySpec(),
+          memory: configuredMemory(false),
+        }),
+      ).resolves.toBeUndefined();
+    });
   });
 
   it('rejects skills when no sandbox provider is configured', async () => {
