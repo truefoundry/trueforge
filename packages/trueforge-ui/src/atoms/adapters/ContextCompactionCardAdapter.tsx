@@ -13,15 +13,7 @@ export type ContextCompactionCardProps = {
 };
 
 function eventJson(data: ContextCompactionPartData): string {
-  const event = data.status === 'complete' ? data.finished : data.started;
-  return JSON.stringify(
-    {
-      ...event,
-      trigger: { ...event.trigger, contextTokens: Math.ceil(event.trigger.contextTokens) },
-    },
-    null,
-    2,
-  );
+  return JSON.stringify(data.status === 'complete' ? data.finished : data.started, null, 2);
 }
 
 function cardPresentation(data: ContextCompactionPartData): {
