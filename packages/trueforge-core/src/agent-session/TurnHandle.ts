@@ -34,7 +34,7 @@ import {
   type TurnState,
 } from './schemas/turn';
 import type { ISessionStore } from './store/ISessionStore';
-import { SessionStoreInvariantError, TurnNotRunningError } from './store/SessionStoreErrors';
+import { TurnNotRunningError } from './store/SessionStoreErrors';
 
 /** Streaming yield union — deltas pass through; never persisted. No sequence_number. */
 export type TurnStreamingEvent = PersistedTurnEvent | ModelMessageDeltaEvent;
@@ -471,6 +471,26 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       case InternalEventType.AGENT_CREATE_SUBAGENT:
         return null;
 
+      case InternalEventType.AGENT_SUBAGENT_QUEUED: {
+        await this.writeStore('append', () =>
+          this.store.addThreads({
+            ...scope,
+            threads: [
+              {
+                thread_id: event.thread_id,
+                parent: event.parent,
+                agent_info: event.agent_info,
+                context: [],
+                current_context_usage: getEmptyCurrentContextUsage(),
+                completion: null,
+                capability_state: null,
+              },
+            ],
+          }),
+        );
+        return null;
+      }
+
       case InternalEventType.CAPABILITY_STATE: {
         // Persist boundary: types exclude undefined; reject it at runtime so stores never see it.
         const state: unknown = event.state;
@@ -508,23 +528,15 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       }
 
       case InternalEventType.AGENT_CONTEXT_APPEND: {
-        try {
-          await this.writeStore('append', () =>
-            this.store.appendToThreadContext({
-              ...scope,
-              thread_id: event.thread_id,
-              context: event.context,
-              current_context_usage: event.current_context_usage ?? null,
-              completion: event.completion ?? null,
-            }),
-          );
-        } catch (error) {
-          // Queued child cancelled before thread.created: no store row yet.
-          if (event.completion?.type === 'cancelled' && error instanceof SessionStoreInvariantError) {
-            return null;
-          }
-          throw error;
-        }
+        await this.writeStore('append', () =>
+          this.store.appendToThreadContext({
+            ...scope,
+            thread_id: event.thread_id,
+            context: event.context,
+            current_context_usage: event.current_context_usage ?? null,
+            completion: event.completion ?? null,
+          }),
+        );
         if (event.output.length > 0) {
           await this.writeStore('append', () =>
             this.store.appendToEvents({
@@ -563,22 +575,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       }
 
       case HarnessEventType.THREAD_CREATED: {
-        await this.writeStore('append', () =>
-          this.store.addThreads({
-            ...scope,
-            threads: [
-              {
-                thread_id: event.thread_id,
-                parent: event.parent,
-                agent_info: event.agent_info,
-                context: [],
-                current_context_usage: getEmptyCurrentContextUsage(),
-                completion: null,
-                capability_state: null,
-              },
-            ],
-          }),
-        );
+        // Store row was added on AGENT_SUBAGENT_QUEUED; this is the public start signal only.
         await this.writeStore('append', () =>
           this.store.appendToEvents({
             ...scope,

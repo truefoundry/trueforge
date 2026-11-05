@@ -513,7 +513,13 @@ export class AgentThreadOrchestrator {
           signal,
         });
 
-        // Queued in memory only; public thread.created (+ store addThreads) waits until execute starts.
+        // Persist before mutating the live map (yield-before-execute). Public thread.created waits for batch start.
+        yield {
+          type: InternalEventType.AGENT_SUBAGENT_QUEUED,
+          thread_id: subAgentThreadId,
+          parent,
+          agent_info: chunk.agent_info,
+        };
         this.agentThreads.set(subAgentThreadId, subAgentThread);
         return { shouldStopExecution: false };
       }
@@ -544,10 +550,7 @@ export class AgentThreadOrchestrator {
     });
 
     const countedThreadIds = new Set<string>();
-    // Restored children already had thread.created; only emit for kids created in this execute().
-    const emittedThreadCreatedIds = new Set(
-      [...agentThreads.values()].filter(thread => thread.parent).map(thread => thread.threadId),
-    );
+    const emittedThreadCreatedIds = new Set<string>();
     try {
       while (agentThreads.size > 0) {
         if (shouldStopExecution) {
