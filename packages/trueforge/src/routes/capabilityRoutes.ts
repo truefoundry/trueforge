@@ -65,10 +65,10 @@ const MemoryCapabilitySchema = z
 
 const SessionSharingCapabilitySchema = z
   .object({
-    enabled: z
-      .boolean()
+    granularity: z
+      .enum(['tenant', 'subject'])
       .describe(
-        'Whether sessions can be shared with specific users. Sharing with the whole tenant is always available.',
+        'The finest supported sharing scope. Subject allows sharing with specific users; tenant-wide sharing is always available.',
       ),
   })
   .openapi('SessionSharingCapability');

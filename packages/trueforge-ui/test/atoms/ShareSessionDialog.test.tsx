@@ -8,7 +8,7 @@ import { CurrentUserProvider, type CurrentUser } from '@/contexts/CurrentUserCon
 import { resolveRoutesConfig } from '@/routing/paths.js';
 import { ResolvedRoutesProvider } from '@/routing/ResolvedRoutesContext.js';
 import { ServerProvider } from '@/server/ServerContext.js';
-import type { SessionAccessGrant, SessionAccessSubject } from '@/server/types.js';
+import type { AgentBuilderCapabilitiesResponse, SessionAccessGrant, SessionAccessSubject } from '@/server/types.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 import { createMockAgentUIServer } from '../server/mockServer.js';
 import { allSettingsSections } from '../server/settingsCapabilityFixture.js';
@@ -62,12 +62,12 @@ const aliceGrant: SessionAccessGrant = {
 function renderDialog({
   session = baseSession,
   grants = [],
-  sessionSharingEnabled = true,
+  sessionSharing = { granularity: 'subject' },
   currentUser,
 }: {
   session?: SessionStub;
   grants?: SessionAccessGrant[];
-  sessionSharingEnabled?: boolean;
+  sessionSharing?: NonNullable<AgentBuilderCapabilitiesResponse['data']['sessionSharing']>;
   currentUser?: CurrentUser;
 } = {}) {
   const listAccess = vi.fn(async () => grants);
@@ -101,7 +101,7 @@ function renderDialog({
         sandbox: { enabled: true, environments: { enabled: true } },
         skill: { enabled: true },
         settings: allSettingsSections(true),
-        sessionSharing: { enabled: sessionSharingEnabled },
+        sessionSharing,
       },
     }),
   });
@@ -276,8 +276,8 @@ describe('ShareSessionDialog', () => {
     expect(input).toHaveAttribute('placeholder', 'Add people by name or email');
   });
 
-  it('hides the invite search when session_sharing.enabled is false', async () => {
-    renderDialog({ sessionSharingEnabled: false, grants: [aliceGrant] });
+  it('hides the invite search with tenant granularity', async () => {
+    renderDialog({ sessionSharing: { granularity: 'tenant' }, grants: [aliceGrant] });
     await openSharePopover();
 
     expect(await screen.findByRole('button', { name: 'Session sharing' })).toBeInTheDocument();

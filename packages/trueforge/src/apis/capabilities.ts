@@ -153,7 +153,7 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
           }),
           web_search: webSearchResponse,
           ...(memoryResponse && { memory: memoryResponse }),
-          session_sharing: { enabled: deps.userStore.supportsUserLookup },
+          session_sharing: { granularity: deps.userStore.supportsUserLookup ? 'subject' : 'tenant' },
         },
       },
       200,

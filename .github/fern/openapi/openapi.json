@@ -4842,13 +4842,17 @@
       },
       "SessionSharingCapability": {
         "properties": {
-          "enabled": {
-            "description": "Whether sessions can be shared with specific users. Sharing with the whole tenant is always available.",
-            "type": "boolean"
+          "granularity": {
+            "description": "The finest supported sharing scope. Subject allows sharing with specific users; tenant-wide sharing is always available.",
+            "enum": [
+              "tenant",
+              "subject"
+            ],
+            "type": "string"
           }
         },
         "required": [
-          "enabled"
+          "granularity"
         ],
         "type": "object"
       },
