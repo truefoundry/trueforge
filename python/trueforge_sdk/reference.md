@@ -4713,9 +4713,7 @@ client.internal.sessions.get_or_create_by_external_id(
 <dl>
 <dd>
 
-Create a turn within a session and execute it (service API key).
-Same request shape as public create-turn, with `tenant_id` required.
-Only `stream: false` is supported; returns the running turn immediately.
+Create and execute a turn (service API key). Same body as public create-turn; only `stream: false` is supported.
 </dd>
 </dl>
 </dd>
@@ -4739,7 +4737,6 @@ client = TrueForge(
 
 client.internal.sessions.create_turn(
     session_id="session_id",
-    tenant_id="tenant_id",
 )
 
 ```
@@ -4757,14 +4754,6 @@ client.internal.sessions.create_turn(
 <dd>
 
 **session_id:** `str` — Session identifier.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**tenant_id:** `str` — Tenant that owns the session.
     
 </dd>
 </dl>

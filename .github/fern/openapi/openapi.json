@@ -2077,26 +2077,6 @@
         ],
         "type": "object"
       },
-      "InternalCreateSessionTurnRequest": {
-        "allOf": [
-          {
-            "properties": {
-              "tenant_id": {
-                "description": "Tenant that owns the session.",
-                "minLength": 1,
-                "type": "string"
-              }
-            },
-            "required": [
-              "tenant_id"
-            ],
-            "type": "object"
-          },
-          {
-            "$ref": "#/components/schemas/CreateTurnRequest"
-          }
-        ]
-      },
       "LargeToolResponseConfig": {
         "default": {
           "enabled": true
@@ -7397,7 +7377,7 @@
     },
     "/api/internal/sessions/{session_id}/turns": {
       "post": {
-        "description": "Create a turn within a session and execute it (service API key).\nSame request shape as public create-turn, with `tenant_id` required.\nOnly `stream: false` is supported; returns the running turn immediately.",
+        "description": "Create and execute a turn (service API key). Same body as public create-turn; only `stream: false` is supported.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -7416,7 +7396,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/InternalCreateSessionTurnRequest"
+                "$ref": "#/components/schemas/CreateTurnRequest"
               }
             }
           },

@@ -3983,9 +3983,7 @@ await client.internal.sessions.getOrCreateByExternalId({
 <dl>
 <dd>
 
-Create a turn within a session and execute it (service API key).
-Same request shape as public create-turn, with `tenant_id` required.
-Only `stream: false` is supported; returns the running turn immediately.
+Create and execute a turn (service API key). Same body as public create-turn; only `stream: false` is supported.
 </dd>
 </dl>
 </dd>
@@ -4000,9 +3998,7 @@ Only `stream: false` is supported; returns the running turn immediately.
 <dd>
 
 ```typescript
-await client.internal.sessions.createTurn("session_id", {
-    tenantId: "tenant_id"
-});
+await client.internal.sessions.createTurn("session_id");
 
 ```
 </dd>
@@ -4026,7 +4022,7 @@ await client.internal.sessions.createTurn("session_id", {
 <dl>
 <dd>
 
-**request:** `TrueForge.internal.InternalCreateSessionTurnRequest` 
+**request:** `TrueForge.internal.CreateTurnRequest` 
     
 </dd>
 </dl>

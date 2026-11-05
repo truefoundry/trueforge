@@ -164,12 +164,10 @@ export class SessionsClient {
     }
 
     /**
-     * Create a turn within a session and execute it (service API key).
-     * Same request shape as public create-turn, with `tenant_id` required.
-     * Only `stream: false` is supported; returns the running turn immediately.
+     * Create and execute a turn (service API key). Same body as public create-turn; only `stream: false` is supported.
      *
      * @param {string} session_id - Session identifier.
-     * @param {TrueForge.internal.InternalCreateSessionTurnRequest} request
+     * @param {TrueForge.internal.CreateTurnRequest} request
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.BadRequestError}
@@ -182,13 +180,11 @@ export class SessionsClient {
      * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
-     *     await client.internal.sessions.createTurn("session_id", {
-     *         tenantId: "tenant_id"
-     *     })
+     *     await client.internal.sessions.createTurn("session_id")
      */
     public createTurn(
         session_id: string,
-        request: TrueForge.internal.InternalCreateSessionTurnRequest,
+        request: TrueForge.internal.CreateTurnRequest = {},
         requestOptions?: SessionsClient.RequestOptions,
     ): core.HttpResponsePromise<TrueForge.GetTurnResponse> {
         return core.HttpResponsePromise.fromPromise(this.__createTurn(session_id, request, requestOptions));
@@ -196,7 +192,7 @@ export class SessionsClient {
 
     private async __createTurn(
         session_id: string,
-        request: TrueForge.internal.InternalCreateSessionTurnRequest,
+        request: TrueForge.internal.CreateTurnRequest = {},
         requestOptions?: SessionsClient.RequestOptions,
     ): Promise<core.WithRawResponse<TrueForge.GetTurnResponse>> {
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
@@ -217,7 +213,7 @@ export class SessionsClient {
             queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
             requestType: "json",
             body: mergeAdditionalBodyParameters(
-                serializers.internal.InternalCreateSessionTurnRequest.jsonOrThrow(request, {
+                serializers.internal.CreateTurnRequest.jsonOrThrow(request, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,

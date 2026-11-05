@@ -58,7 +58,6 @@ export * from "./CreateScheduleRunResponse.js";
 export * from "./CreateSessionAgent.js";
 export * from "./CreateTurnEventResponse.js";
 export * from "./CreateTurnEventResponseDataItem.js";
-export * from "./CreateTurnRequest.js";
 export * from "./CronExpression.js";
 export * from "./CustomModelProvider.js";
 export * from "./DaytonaSandboxProviderAuth.js";

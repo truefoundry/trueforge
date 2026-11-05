@@ -148,24 +148,18 @@ class RawSessionsClient:
         self,
         *,
         session_id: str,
-        tenant_id: str,
         input: typing.Optional[typing.Sequence[TurnInputItem]] = OMIT,
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         stream: typing.Optional[bool] = True,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[GetTurnResponse]:
         """
-        Create a turn within a session and execute it (service API key).
-        Same request shape as public create-turn, with `tenant_id` required.
-        Only `stream: false` is supported; returns the running turn immediately.
+        Create and execute a turn (service API key). Same body as public create-turn; only `stream: false` is supported.
 
         Parameters
         ----------
         session_id : str
             Session identifier.
-
-        tenant_id : str
-            Tenant that owns the session.
 
         input : typing.Optional[typing.Sequence[TurnInputItem]]
             Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.
@@ -187,7 +181,6 @@ class RawSessionsClient:
             f"api/internal/sessions/{encode_path_param(session_id)}/turns",
             method="POST",
             json={
-                "tenant_id": tenant_id,
                 "input": convert_and_respect_annotation_metadata(
                     object_=input, annotation=typing.Sequence[TurnInputItem], direction="write"
                 ),
@@ -405,24 +398,18 @@ class AsyncRawSessionsClient:
         self,
         *,
         session_id: str,
-        tenant_id: str,
         input: typing.Optional[typing.Sequence[TurnInputItem]] = OMIT,
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         stream: typing.Optional[bool] = True,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[GetTurnResponse]:
         """
-        Create a turn within a session and execute it (service API key).
-        Same request shape as public create-turn, with `tenant_id` required.
-        Only `stream: false` is supported; returns the running turn immediately.
+        Create and execute a turn (service API key). Same body as public create-turn; only `stream: false` is supported.
 
         Parameters
         ----------
         session_id : str
             Session identifier.
-
-        tenant_id : str
-            Tenant that owns the session.
 
         input : typing.Optional[typing.Sequence[TurnInputItem]]
             Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.
@@ -444,7 +431,6 @@ class AsyncRawSessionsClient:
             f"api/internal/sessions/{encode_path_param(session_id)}/turns",
             method="POST",
             json={
-                "tenant_id": tenant_id,
                 "input": convert_and_respect_annotation_metadata(
                     object_=input, annotation=typing.Sequence[TurnInputItem], direction="write"
                 ),

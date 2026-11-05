@@ -65,7 +65,6 @@ if typing.TYPE_CHECKING:
     from .create_session_agent import CreateSessionAgent
     from .create_turn_event_response import CreateTurnEventResponse
     from .create_turn_event_response_data_item import CreateTurnEventResponseDataItem
-    from .create_turn_request import CreateTurnRequest
     from .created_by_subject import CreatedBySubject
     from .cron_expression import CronExpression
     from .custom_model_provider import CustomModelProvider
@@ -366,7 +365,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CreateSessionAgent": ".create_session_agent",
     "CreateTurnEventResponse": ".create_turn_event_response",
     "CreateTurnEventResponseDataItem": ".create_turn_event_response_data_item",
-    "CreateTurnRequest": ".create_turn_request",
     "CreatedBySubject": ".created_by_subject",
     "CronExpression": ".cron_expression",
     "CustomModelProvider": ".custom_model_provider",
@@ -691,7 +689,6 @@ __all__ = [
     "CreateSessionAgent",
     "CreateTurnEventResponse",
     "CreateTurnEventResponseDataItem",
-    "CreateTurnRequest",
     "CreatedBySubject",
     "CronExpression",
     "CustomModelProvider",
