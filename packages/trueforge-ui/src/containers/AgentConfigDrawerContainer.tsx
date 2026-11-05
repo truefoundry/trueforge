@@ -152,6 +152,7 @@ export function AgentConfigDrawerContainer({ showClose = false }: { showClose?: 
         skills={catalog.skills}
         skillsAvailable={capabilities?.skill.enabled === true}
         webSearchAvailable={capabilities?.webSearch?.enabled === true}
+        memoryOffered={capabilities?.memory != null}
         instructions={instructionDraft}
         onOpenEditor={nextEditor => {
           if (canManageAgent) setEditor(nextEditor);

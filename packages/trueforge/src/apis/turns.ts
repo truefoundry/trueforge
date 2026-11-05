@@ -47,7 +47,9 @@ import type { ResolveRequestContext } from '../auth/identity';
 import configuration from '../config';
 import type { IAccessControlStore } from '../db/accessControlStore';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
+import type { IConfigurationStore } from '../db/configurationStore';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
+import type { IMemoryProviderStore } from '../db/memoryProviderStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
@@ -55,7 +57,7 @@ import type { ISkillStore } from '../db/skillStore';
 import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { currentLogContext, updateLogContext } from '../logger';
-import type { ConfiguredMemory } from '../memory/memoryFromConfig';
+import type { MemoryProviderCache, TenantMemoryDeps } from '../memory/providers';
 import { resolveSessionMemory } from '../memory/sessionMemory';
 import {
   createAndExecuteTurnRoute,
@@ -142,8 +144,9 @@ export interface TurnsRouterDeps {
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore;
   sandboxEnvironmentStore: ISandboxEnvironmentStore;
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore;
-  /** Long-term memory; undefined when the deployment has it off. */
-  memory: ConfiguredMemory | undefined;
+  resolveMemoryProviderStore: (c: Context) => IMemoryProviderStore;
+  resolveConfigurationStore: (c: Context) => IConfigurationStore;
+  memoryProviders: MemoryProviderCache;
   logger: Logger;
   resolveRequestContext: ResolveRequestContext;
   authorizer: Authorizer;
@@ -156,7 +159,7 @@ export interface TurnsRouterDeps {
  */
 export type BeginTurnExecutionDeps = Pick<
   TurnsRouterDeps,
-  'activeTurns' | 'eventSubscriptions' | 'logger' | 'sandboxEnvironmentStore' | 'memory'
+  'activeTurns' | 'eventSubscriptions' | 'logger' | 'sandboxEnvironmentStore'
 > & {
   agentStore: IAgentStore;
   modelProviderStore: IModelProviderStore;
@@ -165,6 +168,8 @@ export type BeginTurnExecutionDeps = Pick<
   webSearchProviderStore: IWebSearchProviderStore;
   skillStore: Pick<ISkillStore, 'resolveTurnSkills'>;
   capabilitiesStore: ICapabilitiesStore;
+  /** Undefined for sessions that never use memory (scheduled runs). */
+  memory: TenantMemoryDeps | undefined;
 };
 
 interface BeginTurnExecutionParams {
@@ -910,7 +915,11 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         sandboxProviderStore: deps.resolveSandboxProviderStore(c),
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
-        memory: deps.memory,
+        memory: {
+          memoryProviderStore: deps.resolveMemoryProviderStore(c),
+          configurationStore: deps.resolveConfigurationStore(c),
+          providers: deps.memoryProviders,
+        },
       },
     };
 

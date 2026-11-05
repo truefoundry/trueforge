@@ -21,6 +21,7 @@ import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgent
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteConfigurationStore } from '../../../src/db/sqlite/configuration-store/SqliteConfigurationStore';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
+import { SqliteMemoryProviderStore } from '../../../src/db/sqlite/memory-provider-store/SqliteMemoryProviderStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
@@ -31,6 +32,7 @@ import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/Sqlite
 import type { Database } from '../../../src/db/sqlite/types';
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
 import { EmptyUserStore } from '../../../src/db/userStore';
+import { MemoryProviderCache } from '../../../src/memory/providers';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
 import { GetSessionResponseSchema, ListSessionsResponseSchema } from '../../../src/schemas/session';
@@ -80,6 +82,7 @@ describe('sessions HTTP agent binding', () => {
   let agentStore: SqliteAgentStore;
   let configurationStore: SqliteConfigurationStore;
   let webSearchProviderStore: SqliteWebSearchProviderStore;
+  let memoryProviderStore: SqliteMemoryProviderStore;
   let sessionStore: SqliteSessionStore;
   let sessionMetricsStore: SqliteSessionMetricsStore;
   let sessionDeps: SessionsRouterDeps<Transaction<Database>>;
@@ -99,6 +102,7 @@ describe('sessions HTTP agent binding', () => {
     const sandboxProviderStore = new SqliteSandboxProviderStore(db);
     const sandboxEnvironmentStore = new SqliteSandboxEnvironmentStore(db);
     webSearchProviderStore = new SqliteWebSearchProviderStore(db);
+    memoryProviderStore = new SqliteMemoryProviderStore(db);
     configurationStore = new SqliteConfigurationStore(db);
     agentStore = new SqliteAgentStore(db);
 
@@ -136,8 +140,8 @@ describe('sessions HTTP agent binding', () => {
       resolveSandboxProviderStore: () => sandboxProviderStore,
       sandboxEnvironmentStore,
       resolveWebSearchProviderStore: () => webSearchProviderStore,
+      resolveMemoryProviderStore: () => memoryProviderStore,
       resolveConfigurationStore: () => configurationStore,
-      memory: undefined,
       redis: createClient(),
       requestReplyRouter: new RequestReplyRouter(),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
@@ -169,7 +173,9 @@ describe('sessions HTTP agent binding', () => {
         resolveSandboxProviderStore: () => sandboxProviderStore,
         sandboxEnvironmentStore,
         resolveWebSearchProviderStore: () => webSearchProviderStore,
-        memory: undefined,
+        resolveMemoryProviderStore: () => memoryProviderStore,
+        resolveConfigurationStore: () => configurationStore,
+        memoryProviders: new MemoryProviderCache({ logger: createLogger({ silent: true }) }),
         logger: deps.logger,
         resolveRequestContext: deps.resolveRequestContext,
         authorizer: deps.authorizer,
@@ -898,7 +904,7 @@ describe('sessions HTTP agent binding', () => {
 
     await configurationStore.upsertConfiguration({
       tenant_id: 'default',
-      manifest: { web_search: { enabled: false } },
+      manifest: { web_search: { enabled: false }, memory: { enabled: true } },
     });
     try {
       // The agent was saved while web search was allowed, so its stored spec is grandfathered.
@@ -916,7 +922,7 @@ describe('sessions HTTP agent binding', () => {
     } finally {
       await configurationStore.upsertConfiguration({
         tenant_id: 'default',
-        manifest: { web_search: { enabled: true } },
+        manifest: { web_search: { enabled: true }, memory: { enabled: true } },
       });
     }
 

@@ -20,12 +20,18 @@ export function useSessionUserSearch({ enabled }: { enabled: boolean }): {
 } {
   const sessionAccess = useOptionalServer()?.sessionAccess;
   const toaster = useToasterOptional();
-  const [query, setQuery] = useState('');
+  const [query, setQueryState] = useState('');
   const [users, setUsers] = useState<DirectoryUser[]>([]);
   const [nextPageToken, setNextPageToken] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
   // Guards against out-of-order responses when the query changes mid-flight.
   const requestIdRef = useRef(0);
+
+  // Flip loading in the same update as the query so the empty placeholder never paints first.
+  const setQuery = useCallback((next: string) => {
+    setQueryState(next);
+    setLoading(next.trim().length > 0);
+  }, []);
 
   const fetchPage = useCallback(
     async ({ term, pageToken }: { term: string; pageToken?: string }) => {

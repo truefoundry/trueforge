@@ -3,6 +3,7 @@ import { createCatalogRouter } from '../../../src/apis/catalog';
 import { createAvailableSkillsRouter, createSkillsRouter } from '../../../src/apis/skills';
 import { createdBySubjectFromRequestContext, STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { McpCatalog } from '../../../src/catalog/McpCatalog';
+import { MemoryCatalog } from '../../../src/catalog/MemoryCatalog';
 import { ModelCatalog } from '../../../src/catalog/ModelCatalog';
 import { SandboxCatalog } from '../../../src/catalog/SandboxCatalog';
 import { SkillCatalog } from '../../../src/catalog/SkillCatalog';
@@ -85,6 +86,7 @@ describe('skills routers', () => {
       skillCatalog: SkillCatalog.load(),
       sandboxCatalog: SandboxCatalog.load(),
       webSearchCatalog: WebSearchCatalog.load(),
+      memoryCatalog: MemoryCatalog.load(),
     });
     availableRouter = createAvailableSkillsRouter({
       resolveSkillStore: () => skillStore,
