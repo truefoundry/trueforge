@@ -768,6 +768,8 @@ export interface SharedServerConfiguration {
   SANDBOX_ENVIRONMENT_MEMORY_GIB_MAX: number;
   /** Max disk GiB for a sandbox environment. Env: `SANDBOX_ENVIRONMENT_DISK_GIB_MAX`. Default 10. */
   SANDBOX_ENVIRONMENT_DISK_GIB_MAX: number;
+  /** Max characters in a sandbox environment build script. Env: `SANDBOX_ENVIRONMENT_BUILD_SCRIPT_MAX_LENGTH`. Default 20,000. */
+  SANDBOX_ENVIRONMENT_BUILD_SCRIPT_MAX_LENGTH: number;
   /** Default and max `limit` for list session/turn events. Env: `LIST_EVENTS_PAGE_LIMIT_MAX`. Default 100. */
   LIST_EVENTS_PAGE_LIMIT_MAX: number;
   /**
@@ -1189,6 +1191,11 @@ const shared: SharedServerConfiguration = {
     envKey: 'SANDBOX_ENVIRONMENT_DISK_GIB_MAX',
     raw: getEnv('SANDBOX_ENVIRONMENT_DISK_GIB_MAX'),
     defaultValue: 10,
+  }),
+  SANDBOX_ENVIRONMENT_BUILD_SCRIPT_MAX_LENGTH: parsePositiveInt({
+    envKey: 'SANDBOX_ENVIRONMENT_BUILD_SCRIPT_MAX_LENGTH',
+    raw: getEnv('SANDBOX_ENVIRONMENT_BUILD_SCRIPT_MAX_LENGTH'),
+    defaultValue: 20_000,
   }),
   LIST_EVENTS_PAGE_LIMIT_MAX: parsePositiveInt({
     envKey: 'LIST_EVENTS_PAGE_LIMIT_MAX',

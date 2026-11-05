@@ -144,9 +144,7 @@ export function EnvironmentFormFields({
         <h3 className="text-sm font-medium text-text-primary">Image And Resources</h3>
 
         <label className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-text-secondary">
-            Build Script ({values.buildScript.length}/5120)
-          </span>
+          <span className="text-xs font-medium text-text-secondary">Build Script</span>
           <textarea
             className={cn(fieldClassName, 'min-h-24 resize-y font-mono text-xs')}
             value={values.buildScript}
