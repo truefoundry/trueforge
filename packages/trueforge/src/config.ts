@@ -769,6 +769,11 @@ export interface SharedServerConfiguration {
   /** Max disk GiB for a sandbox environment. Env: `SANDBOX_ENVIRONMENT_DISK_GIB_MAX`. Default 10. */
   SANDBOX_ENVIRONMENT_DISK_GIB_MAX: number;
   /**
+   * Default and max page size (`limit`) for list session events and list turn events.
+   * Env: `LIST_EVENTS_PAGE_LIMIT_MAX`. Default 100.
+   */
+  LIST_EVENTS_PAGE_LIMIT_MAX: number;
+  /**
    * Max bytes for an HTTP request body. Env: `MAX_REQUEST_BODY_BYTES`. Default 30 MB.
    */
   MAX_REQUEST_BODY_BYTES: number;
@@ -1187,6 +1192,11 @@ const shared: SharedServerConfiguration = {
     envKey: 'SANDBOX_ENVIRONMENT_DISK_GIB_MAX',
     raw: getEnv('SANDBOX_ENVIRONMENT_DISK_GIB_MAX'),
     defaultValue: 10,
+  }),
+  LIST_EVENTS_PAGE_LIMIT_MAX: parsePositiveInt({
+    envKey: 'LIST_EVENTS_PAGE_LIMIT_MAX',
+    raw: getEnv('LIST_EVENTS_PAGE_LIMIT_MAX'),
+    defaultValue: 100,
   }),
   MAX_REQUEST_BODY_BYTES: parsePositiveInt({
     envKey: 'MAX_REQUEST_BODY_BYTES',

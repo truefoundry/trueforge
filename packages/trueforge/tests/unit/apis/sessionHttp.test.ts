@@ -14,6 +14,7 @@ import {
 import { createTurnsRouter } from '../../../src/apis/turns';
 import { TrueForgeAuthorizer, type Authorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
+import configuration from '../../../src/config';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAccessControlStore } from '../../../src/db/sqlite/access-control-store/SqliteAccessControlStore';
@@ -35,12 +36,14 @@ import { EmptyUserStore } from '../../../src/db/userStore';
 import { MemoryProviderCache } from '../../../src/memory/providers';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
+import { ListSessionEventsResponseSchema } from '../../../src/schemas/events';
 import { GetSessionResponseSchema, ListSessionsResponseSchema } from '../../../src/schemas/session';
 import {
   GetSessionMetricsChartDataResponseSchema,
   GetSessionMetricsChartResponseSchema,
   GetSessionMetricsMeterResponseSchema,
 } from '../../../src/schemas/sessionMetrics';
+import { ListTurnEventsResponseSchema } from '../../../src/schemas/turn';
 
 const inlineSpec = AgentSpecSchema.parse({
   model: { name: 'anthropic/claude-sonnet-4-6' },
@@ -89,6 +92,10 @@ describe('sessions HTTP agent binding', () => {
   let resolveModelProviderStore: jest.Mock;
   let resolveMcpServerStore: jest.Mock;
   let resolveSkillStore: jest.Mock;
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
 
   beforeEach(async () => {
     const db = createSqliteDb(':memory:');
@@ -518,6 +525,29 @@ describe('sessions HTTP agent binding', () => {
     }
 
     expect((await app.request(`/${json.data.id}`)).status).toBe(200);
+  });
+
+  it('session and turn event lists default and cap limit at LIST_EVENTS_PAGE_LIMIT_MAX', async () => {
+    jest.replaceProperty(configuration, 'LIST_EVENTS_PAGE_LIMIT_MAX', 7);
+    const created = await app.request('/', jsonInit('POST', { agent: { spec: inlineSpec } }));
+    expect(created.status).toBe(201);
+    const { data: session } = GetSessionResponseSchema.parse(await created.json());
+    await sessionStore.createTurn(makeCreateTurnInput({ sessionId: session.id, turnId: 'tip-1' }));
+
+    const sessionEventsPath = `/${session.id}/events`;
+    const sessionEvents = await app.request(sessionEventsPath);
+    expect(sessionEvents.status).toBe(200);
+    expect(ListSessionEventsResponseSchema.parse(await sessionEvents.json()).pagination.limit).toBe(7);
+
+    const turnEventsPath = `/${session.id}/turns/tip-1/events`;
+    const turnEvents = await app.request(turnEventsPath);
+    expect(turnEvents.status).toBe(200);
+    expect(ListTurnEventsResponseSchema.parse(await turnEvents.json()).pagination.limit).toBe(7);
+
+    for (const path of [sessionEventsPath, turnEventsPath]) {
+      expect((await app.request(`${path}?limit=7`)).status).toBe(200);
+      expect((await app.request(`${path}?limit=8`)).status).toBe(400);
+    }
   });
 
   it('POST /sessions/{id}/turns/{turn_id}/events mints ids for events', async () => {
