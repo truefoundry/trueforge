@@ -402,6 +402,11 @@ providers:
         properties:
           context_length: 1048576
           max_output_tokens: 65536
+          reasoning_efforts:
+            - minimal
+            - low
+            - medium
+            - high
       - model_id: gemma-4-26b-a4b-it
         name: gemma-4-26b-a4b-it
         properties:
@@ -489,6 +494,10 @@ providers:
             - high
             - xhigh
             - max
+      - model_id: accounts/fireworks/models/kimi-k3p1-pro
+        name: kimi-k3p1-pro
+        properties:
+          context_length: 1048576
       - model_id: accounts/fireworks/models/minimax-m3
         name: minimax-m3
         properties:
@@ -761,6 +770,10 @@ providers:
             - medium
             - high
             - max
+      - model_id: moonshotai/Kimi-K3.1-Pro
+        name: kimi-k3-1-pro
+        properties:
+          context_length: 1048576
       - model_id: nvidia/nemotron-3-ultra-550b-a55b
         name: nemotron-3-ultra-550b-a55b
         properties:
