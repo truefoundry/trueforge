@@ -187,6 +187,8 @@ describe('EnvironmentFormDrawer', () => {
     expect(dialog).toHaveClass('max-h-none', 'max-w-none', 'h-[calc(100dvh-2rem)]', 'w-[calc(100vw-2rem)]');
     const editor = within(dialog).getByRole('textbox', { name: 'Build script editor' });
     expect(editor).toHaveValue('');
+    expect(screen.getAllByText('Build Script')).toHaveLength(2);
+    expect(screen.queryByText(/\/5120/)).not.toBeInTheDocument();
     expect(editor).toHaveAttribute('data-language', 'shell');
     expect(editor).toHaveAttribute('data-line-numbers', 'on');
     expect(editor).toHaveAttribute('data-render-final-newline', 'on');

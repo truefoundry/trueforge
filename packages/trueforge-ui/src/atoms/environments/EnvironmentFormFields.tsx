@@ -155,9 +155,7 @@ export function EnvironmentFormFields({
         <h3 className="text-sm font-medium text-text-primary">Image And Resources</h3>
 
         <div className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-text-secondary">
-            Build Script ({values.buildScript.length}/5120)
-          </span>
+          <span className="text-xs font-medium text-text-secondary">Build Script</span>
           <button
             type="button"
             aria-label="Edit build script full screen"
@@ -210,9 +208,7 @@ export function EnvironmentFormFields({
             {buildScriptOpen ? (
               <>
                 <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2">
-                  <h2 className="text-sm font-semibold text-text-primary">
-                    Build Script ({values.buildScript.length}/5120)
-                  </h2>
+                  <h2 className="text-sm font-semibold text-text-primary">Build Script</h2>
                   <Button.Secondary type="button" size="small" onClick={() => setBuildScriptOpen(false)}>
                     Done
                   </Button.Secondary>
