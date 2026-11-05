@@ -16,29 +16,28 @@ export type StepTreeItemProps = {
  * One row of a step tree. Use it directly when the caller renders rows itself (e.g. GroupedParts callbacks);
  * rows must be direct DOM siblings in a flex column so each one can see whether a later branch follows it.
  */
+// When a later sibling row has a visible branch, this row's line must run its full height. The selector checks
+// only this row (row > rail > line), so a nested tree's last step is not stretched by an outer row that still
+// has steps after it, and an empty (hidden) row does not count as a later branch.
+const FULL_STEM_WHEN_LATER_BRANCH =
+  '[[data-slot=step-tree-item]:has(~[data-branch=true]>[data-step-tree-content]:not(:empty))>*>&]:bottom-0 [[data-slot=step-tree-item]:has(~[data-branch=true]>[data-step-tree-content]:not(:empty))>*>&]:h-auto [[data-slot=step-tree-item]:has(~[data-branch=true]>[data-step-tree-content]:not(:empty))>*>&]:block';
+
 export function StepTreeItem({ children, branch = true, continuesBelow = false, className }: StepTreeItemProps) {
-  // The vertical line runs the full row only while a later branch follows; on the last branch it stops at the
-  // elbow, and plain content after the last branch draws no line. The elbow is pinned to the header row (py-1 +
-  // half of the 1.25rem row) so expanding a step grows it downward without moving its branch. When a part
-  // renders nothing (e.g. an unanswered ask-user prompt in live chat) we hide the row instead of an empty branch.
+  // On the last branch the line stops at the elbow, and plain content after the last branch draws no line. The
+  // elbow is pinned to the header row (py-1 + half of the 1.25rem row) so expanding a step grows it downward
+  // without moving its branch. When a part renders nothing (e.g. an unanswered ask-user prompt in live chat) we
+  // hide the row instead of drawing an empty branch.
   return (
     <div
       data-slot="step-tree-item"
       data-branch={branch ? 'true' : 'false'}
-      className={cn(
-        'group/step-tree-item relative flex min-w-0 has-[>[data-step-tree-content]:empty]:hidden',
-        className,
-      )}
+      className={cn('relative flex min-w-0 has-[>[data-step-tree-content]:empty]:hidden', className)}
     >
       <div className="relative w-5 shrink-0 self-stretch">
         <div
           className={cn(
             'absolute top-0 left-1/2 w-px -translate-x-1/2 bg-border',
-            continuesBelow
-              ? 'bottom-0'
-              : branch
-                ? 'h-[0.875rem] group-[:has(~[data-branch=true])]/step-tree-item:bottom-0 group-[:has(~[data-branch=true])]/step-tree-item:h-auto'
-                : 'hidden group-[:has(~[data-branch=true])]/step-tree-item:bottom-0 group-[:has(~[data-branch=true])]/step-tree-item:block',
+            continuesBelow ? 'bottom-0' : cn(branch ? 'h-[0.875rem]' : 'hidden', FULL_STEM_WHEN_LATER_BRANCH),
           )}
         />
         {branch && <div className="absolute top-[0.875rem] right-0 left-1/2 h-px bg-border" />}
