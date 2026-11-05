@@ -48,8 +48,13 @@ export function ToolGroupCard({
         showConnector={false}
         dataTestPrefix={dataTestPrefix}
       />
-      {/* The tree renders outside the row's indented body so its line sits under this row's chevron. */}
-      {expanded && <StepTree className="mt-1">{children}</StepTree>}
+      {/* The tree renders outside the row's indented body so its line sits under this row's chevron; its branches
+          reach under the wrench so each child's chevron lines up with the group icon. */}
+      {expanded && (
+        <StepTree className="mt-1" branchesReachParentIcon>
+          {children}
+        </StepTree>
+      )}
     </div>
   );
 }
