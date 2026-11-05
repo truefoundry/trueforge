@@ -1,5 +1,61 @@
 # @truefoundry/trueforge
 
+## 0.184.0
+
+### Patch Changes
+
+- e05589c: Add long-term memory to chat sessions.
+
+  - On a session's first turn, the user's memory summary is added once as a hidden message, capped at about 1,000 tokens.
+  - UI chats and sessions on agents with `config.memory.enabled` get `memory_search` and `memory_add` tools on the main agent only; `memory_add` runs only when the user asks to remember something.
+  - Memory works in TrueFoundry mode only, behind the `TRUEFOUNDRY_MEMORY_*` settings and the tenant allowlist.
+  - Saving an agent or inline spec that turns memory on while it is unavailable for the deployment or tenant returns 422.
+
+- 379d26a: Default the model HTTP header timeout to 20 seconds in the core client and server configuration. Keep the model body timeout at 120 seconds and preserve the environment override.
+- 7255130: Add indexes for agent-filtered session listing, the sandbox environment pending-build poll, and MCP OAuth pending authorizations by server.
+- f3998c9: Gate Environments chrome and CRUD on provider env support: hide UI and return 422 when the shared sandbox has no snapshot/env concept. Capabilities expose `sandbox.environments.enabled` for that gate.
+- a313ffd: Sandbox environments created or updated in TrueFoundry mode now store `type: truefoundry` while `sandbox_provider` keeps the backing provider (e.g. Daytona). A TrueFoundry-mode-only migration backfills `type` on existing environment versions.
+- 6e3a320: Limit frontend Sentry tracing to session API calls, one trace per call, and record SSE first-chunk latency, stall count and stream errors as span attributes.
+- 1b30b71: Add a tenant-wide web search switch stored in the new `configuration` table, with `GET` and `PATCH /api/v1/settings/configuration` behind an admin gate. Capabilities and session or agent writes follow it, so web search cannot be turned on while the switch is off; a spec that already has it on keeps it, which also leaves existing agents and their schedules running. The `settings` capability now reports one entry per settings section with its own `enabled` and `manage_providers`. Catalog settings routes that the deployment does not own answer 422 naming the route, where they previously answered 403.
+- 9c116a9: Prepend `user-agent: trueforge/<version>` on model and MCP outbound fetches (via `OutboundFetchOptions.userAgent`) and on ServiceFoundry server calls so TrueFoundry can identify TrueForge traffic and its version.
+- 033a3c1: Add long-term memory ingestion behind `TRUEFOUNDRY_MEMORY_ENABLED` (TrueFoundry mode only, off by default), configured like the shared sandbox with `TRUEFOUNDRY_MEMORY_PROVIDER` (`zep`), `TRUEFOUNDRY_MEMORY_API_KEY` an optional `TRUEFOUNDRY_MEMORY_SERVER_URL` and optional `TRUEFOUNDRY_MEMORY_SETTINGS` JSON for the loop, for the tenants in `TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST` (every tenant when it is empty). Only ids reach Zep, never a user's or agent's name: Zep users map back to TrueForge users through their metadata. A `memory-ingest` controller loop sends finished UI chats, and sessions on registry agents whose manifest enables memory, to Zep: user messages, `ask_user_question` answers and the final agent reply (context only). Progress is kept in a new `memory_ingest_cursor` table. Export `ASK_USER_QUESTION_TOOL_NAME` from core.
+- Updated dependencies [e05589c]
+- Updated dependencies [379d26a]
+- Updated dependencies [f3998c9]
+- Updated dependencies [1b30b71]
+- Updated dependencies [9c116a9]
+- Updated dependencies [033a3c1]
+  - @truefoundry/trueforge-core@0.184.0
+  - @truefoundry/trueforge-sdk@0.184.0
+
+## 0.184.0-rc.1
+
+### Patch Changes
+
+- e05589c: Add long-term memory to chat sessions.
+
+  - On a session's first turn, the user's memory summary is added once as a hidden message, capped at about 1,000 tokens.
+  - UI chats and sessions on agents with `config.memory.enabled` get `memory_search` and `memory_add` tools on the main agent only; `memory_add` runs only when the user asks to remember something.
+  - Memory works in TrueFoundry mode only, behind the `TRUEFOUNDRY_MEMORY_*` settings and the tenant allowlist.
+  - Saving an agent or inline spec that turns memory on while it is unavailable for the deployment or tenant returns 422.
+
+- 379d26a: Default the model HTTP header timeout to 20 seconds in the core client and server configuration. Keep the model body timeout at 120 seconds and preserve the environment override.
+- 7255130: Add indexes for agent-filtered session listing, the sandbox environment pending-build poll, and MCP OAuth pending authorizations by server.
+- f3998c9: Gate Environments chrome and CRUD on provider env support: hide UI and return 422 when the shared sandbox has no snapshot/env concept. Capabilities expose `sandbox.environments.enabled` for that gate.
+- a313ffd: Sandbox environments created or updated in TrueFoundry mode now store `type: truefoundry` while `sandbox_provider` keeps the backing provider (e.g. Daytona). A TrueFoundry-mode-only migration backfills `type` on existing environment versions.
+- 6e3a320: Limit frontend Sentry tracing to session API calls, one trace per call, and record SSE first-chunk latency, stall count and stream errors as span attributes.
+- 1b30b71: Add a tenant-wide web search switch stored in the new `configuration` table, with `GET` and `PATCH /api/v1/settings/configuration` behind an admin gate. Capabilities and session or agent writes follow it, so web search cannot be turned on while the switch is off; a spec that already has it on keeps it, which also leaves existing agents and their schedules running. The `settings` capability now reports one entry per settings section with its own `enabled` and `manage_providers`. Catalog settings routes that the deployment does not own answer 422 naming the route, where they previously answered 403.
+- 9c116a9: Prepend `user-agent: trueforge/<version>` on model and MCP outbound fetches (via `OutboundFetchOptions.userAgent`) and on ServiceFoundry server calls so TrueFoundry can identify TrueForge traffic and its version.
+- 033a3c1: Add long-term memory ingestion behind `TRUEFOUNDRY_MEMORY_ENABLED` (TrueFoundry mode only, off by default), configured like the shared sandbox with `TRUEFOUNDRY_MEMORY_PROVIDER` (`zep`), `TRUEFOUNDRY_MEMORY_API_KEY` an optional `TRUEFOUNDRY_MEMORY_SERVER_URL` and optional `TRUEFOUNDRY_MEMORY_SETTINGS` JSON for the loop, for the tenants in `TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST` (every tenant when it is empty). Only ids reach Zep, never a user's or agent's name: Zep users map back to TrueForge users through their metadata. A `memory-ingest` controller loop sends finished UI chats, and sessions on registry agents whose manifest enables memory, to Zep: user messages, `ask_user_question` answers and the final agent reply (context only). Progress is kept in a new `memory_ingest_cursor` table. Export `ASK_USER_QUESTION_TOOL_NAME` from core.
+- Updated dependencies [e05589c]
+- Updated dependencies [379d26a]
+- Updated dependencies [f3998c9]
+- Updated dependencies [1b30b71]
+- Updated dependencies [9c116a9]
+- Updated dependencies [033a3c1]
+  - @truefoundry/trueforge-core@0.184.0-rc.1
+  - @truefoundry/trueforge-sdk@0.184.0-rc.1
+
 ## 0.183.0
 
 ### Patch Changes
