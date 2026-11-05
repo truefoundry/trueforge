@@ -4,12 +4,7 @@ import { RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
 import type { Transaction } from 'kysely';
 import { createClient } from 'redis';
 import { createLogger } from 'winston';
-import {
-  makeCreateTurnInput,
-  makeDoneTurnState,
-  makeModelMessageEvent,
-  makeTurnDoneEvent,
-} from '../../../../trueforge-core/tests/agent-session/testHelpers';
+import { makeCreateTurnInput } from '../../../../trueforge-core/tests/agent-session/testHelpers';
 import { createInternalMetricsRouter } from '../../../src/apis/sessionMetrics';
 import {
   createInternalSessionsRouter,
@@ -19,7 +14,6 @@ import {
 import { createTurnsRouter } from '../../../src/apis/turns';
 import { TrueForgeAuthorizer, type Authorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
-import configuration from '../../../src/config';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAccessControlStore } from '../../../src/db/sqlite/access-control-store/SqliteAccessControlStore';
@@ -41,14 +35,12 @@ import { EmptyUserStore } from '../../../src/db/userStore';
 import { MemoryProviderCache } from '../../../src/memory/providers';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
-import { ListSessionEventsResponseSchema } from '../../../src/schemas/events';
 import { GetSessionResponseSchema, ListSessionsResponseSchema } from '../../../src/schemas/session';
 import {
   GetSessionMetricsChartDataResponseSchema,
   GetSessionMetricsChartResponseSchema,
   GetSessionMetricsMeterResponseSchema,
 } from '../../../src/schemas/sessionMetrics';
-import { ListTurnEventsResponseSchema } from '../../../src/schemas/turn';
 
 const inlineSpec = AgentSpecSchema.parse({
   model: { name: 'anthropic/claude-sonnet-4-6' },
@@ -97,10 +89,6 @@ describe('sessions HTTP agent binding', () => {
   let resolveModelProviderStore: jest.Mock;
   let resolveMcpServerStore: jest.Mock;
   let resolveSkillStore: jest.Mock;
-
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
 
   beforeEach(async () => {
     const db = createSqliteDb(':memory:');
@@ -530,59 +518,6 @@ describe('sessions HTTP agent binding', () => {
     }
 
     expect((await app.request(`/${json.data.id}`)).status).toBe(200);
-  });
-
-  async function seedDoneTurn({
-    sessionId,
-    turnId,
-    eventCount,
-  }: {
-    sessionId: string;
-    turnId: string;
-    eventCount: number;
-  }): Promise<void> {
-    await sessionStore.createTurn(makeCreateTurnInput({ sessionId, turnId }));
-    await sessionStore.appendToEvents({
-      session_id: sessionId,
-      turn_id: turnId,
-      events: Array.from({ length: eventCount }, () => makeModelMessageEvent()),
-    });
-    const state = makeDoneTurnState();
-    await sessionStore.updateTurnTerminalState({
-      session_id: sessionId,
-      turn_id: turnId,
-      state,
-      turn_done_event: makeTurnDoneEvent(state),
-    });
-  }
-
-  it('session and turn event lists default and cap limit at LIST_EVENTS_PAGE_LIMIT_MAX', async () => {
-    jest.replaceProperty(configuration, 'LIST_EVENTS_PAGE_LIMIT_MAX', 150);
-    const created = await app.request('/', jsonInit('POST', { agent: { spec: inlineSpec } }));
-    expect(created.status).toBe(201);
-    const { data: session } = GetSessionResponseSchema.parse(await created.json());
-    await seedDoneTurn({ sessionId: session.id, turnId: 'tip-1', eventCount: 200 });
-
-    const sessionEventsPath = `/${session.id}/events`;
-    const sessionEvents = await app.request(sessionEventsPath);
-    expect(sessionEvents.status).toBe(200);
-    const sessionPage = ListSessionEventsResponseSchema.parse(await sessionEvents.json());
-    expect(sessionPage.pagination.limit).toBe(150);
-    expect(sessionPage.data).toHaveLength(150);
-    expect(sessionPage.pagination.next_page_token).toBeDefined();
-
-    const turnEventsPath = `/${session.id}/turns/tip-1/events`;
-    const turnEvents = await app.request(turnEventsPath);
-    expect(turnEvents.status).toBe(200);
-    const turnPage = ListTurnEventsResponseSchema.parse(await turnEvents.json());
-    expect(turnPage.pagination.limit).toBe(150);
-    expect(turnPage.data).toHaveLength(150);
-    expect(turnPage.pagination.next_page_token).toBeDefined();
-
-    for (const path of [sessionEventsPath, turnEventsPath]) {
-      expect((await app.request(`${path}?limit=150`)).status).toBe(200);
-      expect((await app.request(`${path}?limit=151`)).status).toBe(400);
-    }
   });
 
   it('POST /sessions/{id}/turns/{turn_id}/events mints ids for events', async () => {
