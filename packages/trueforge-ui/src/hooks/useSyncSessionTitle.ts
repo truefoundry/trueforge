@@ -17,15 +17,18 @@ export function useSyncSessionTitle(): void {
   const title = useAuiState(s => s.threadListItem.title);
   const isRunning = useThreadIsRunning();
   const wasRunningRef = useRef(false);
+  const prevRemoteIdRef = useRef(remoteId);
   const attemptedRemoteIdRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
-    attemptedRemoteIdRef.current = undefined;
-  }, [remoteId]);
-
-  useEffect(() => {
-    const finishedTurn = wasRunningRef.current && !isRunning;
+    // Leaving a running thread for an idle one flips `isRunning` without that session finishing a turn.
+    const switchedSession = prevRemoteIdRef.current !== remoteId;
+    prevRemoteIdRef.current = remoteId;
+    const finishedTurn = !switchedSession && wasRunningRef.current && !isRunning;
     wasRunningRef.current = isRunning;
+    if (switchedSession) {
+      attemptedRemoteIdRef.current = undefined;
+    }
 
     // The server only derives a title on the first turn, so one attempt per session is enough.
     if (!finishedTurn || remoteId == null || attemptedRemoteIdRef.current === remoteId) {
@@ -37,10 +40,12 @@ export function useSyncSessionTitle(): void {
     }
     attemptedRemoteIdRef.current = remoteId;
 
+    // Bind now so the deferred call targets the row that just finished, not whichever is active later.
+    const item = aui.threadListItem();
     // The scope types `generateTitle` as void, but the runtime returns a promise;
     // chaining through `then` adopts it so a rejection is still swallowed.
     void Promise.resolve()
-      .then(() => aui.threadListItem().generateTitle())
+      .then(() => item.generateTitle())
       .catch(() => undefined);
   }, [aui, isRunning, remoteId, title]);
 }

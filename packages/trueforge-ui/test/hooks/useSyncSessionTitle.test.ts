@@ -85,6 +85,29 @@ describe('useSyncSessionTitle', () => {
     expect(generateTitle).toHaveBeenCalledTimes(2);
   });
 
+  it('does not treat leaving a running thread as the next session finishing a turn', async () => {
+    mockThreadListItem({ remoteId: 'sess-1', title: 'Running thread' });
+    useThreadIsRunning.mockReturnValue(true);
+    const { rerender } = renderHook(() => useSyncSessionTitle());
+
+    mockThreadListItem({ remoteId: 'sess-2', title: undefined });
+    useThreadIsRunning.mockReturnValue(false);
+    rerender();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(generateTitle).not.toHaveBeenCalled();
+
+    useThreadIsRunning.mockReturnValue(true);
+    rerender();
+    useThreadIsRunning.mockReturnValue(false);
+    rerender();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(generateTitle).toHaveBeenCalledTimes(1);
+  });
+
   it('skips rows that already have a title', async () => {
     mockThreadListItem({ remoteId: 'sess-1', title: 'Existing title' });
 
