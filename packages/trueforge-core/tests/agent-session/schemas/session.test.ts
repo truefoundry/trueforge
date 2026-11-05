@@ -1,4 +1,12 @@
-import { SessionMetadataSchema } from '../../../src/agent-session/schemas/session';
+import { SessionMetadataSchema, SessionSchema } from '../../../src/agent-session/schemas/session';
+import { SubjectSchema } from '../../../src/agent-session/schemas/subject';
+
+describe('SessionSchema', () => {
+  it('uses Subject for creators without the deprecated shared field', () => {
+    expect(SessionSchema.shape.created_by_subject).toBe(SubjectSchema);
+    expect(SessionSchema.shape).not.toHaveProperty('shared');
+  });
+});
 
 describe('SessionMetadataSchema keys', () => {
   it.each([['env'], ['Team'], ['a'], ['9start'], ['app.name'], ['tf:tenant'], ['foo_bar'], ['a-b'], ['k'.repeat(32)]])(

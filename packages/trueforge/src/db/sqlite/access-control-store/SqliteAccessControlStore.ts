@@ -1,4 +1,4 @@
-import type { CreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
+import type { Subject } from '@truefoundry/trueforge-core/agent-session';
 import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
 import type {
   AccessGrantRecord,
@@ -17,7 +17,7 @@ function recordColumns(eb: ExpressionBuilder<Database, 'access_control'>) {
     'session_id' as const,
     'subject_type' as const,
     'subject_id' as const,
-    jsonText<CreatedBySubject>(eb.ref('granted_by_subject')).as('granted_by_subject'),
+    jsonText<Subject>(eb.ref('granted_by_subject')).as('granted_by_subject'),
     'created_at' as const,
   ];
 }

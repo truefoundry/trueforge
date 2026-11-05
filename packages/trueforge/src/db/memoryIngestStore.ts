@@ -1,10 +1,5 @@
 /** Memory ingestion progress per session, plus the read paths the ingest loop needs. */
-import type {
-  CreatedBySubject,
-  PersistedTurnEvent,
-  TurnInputItem,
-  TurnState,
-} from '@truefoundry/trueforge-core/agent-session';
+import type { PersistedTurnEvent, Subject, TurnInputItem, TurnState } from '@truefoundry/trueforge-core/agent-session';
 
 export type StoredModelMessage = Extract<PersistedTurnEvent, { type: 'model.message' }>;
 
@@ -25,7 +20,7 @@ export interface MemoryIngestCursor {
 export interface MemoryIngestCandidate {
   session_id: string;
   tenant_id: string;
-  created_by_subject: CreatedBySubject;
+  created_by_subject: Subject;
   agent_id: string | null;
   /** `metadata['tfg.source']`, when present. */
   tfg_source: string | null;

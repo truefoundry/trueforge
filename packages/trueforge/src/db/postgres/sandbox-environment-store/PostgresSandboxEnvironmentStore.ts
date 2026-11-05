@@ -1,4 +1,4 @@
-import { CreatedBySubjectSchema, type TokenPagination } from '@truefoundry/trueforge-core/agent-session';
+import { SubjectSchema, type TokenPagination } from '@truefoundry/trueforge-core/agent-session';
 import {
   decodeOffsetPageToken,
   paginateOffsetRows,
@@ -81,7 +81,7 @@ function toEnvironmentRecord(row: Selectable<SandboxEnvironmentTable>): SandboxE
     description: row.description,
     active_version: row.active_version,
     lifecycle_stage: row.lifecycle_stage,
-    created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
+    created_by_subject: SubjectSchema.parse(row.created_by_subject),
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
   };
@@ -97,7 +97,7 @@ function toVersionRecord(row: Selectable<SandboxEnvironmentVersionTable>): Sandb
     status_reason: row.status_reason,
     external_ref: row.external_ref,
     internal_metadata: SandboxEnvironmentVersionInternalMetadataSchema.parse(row.internal_metadata),
-    created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
+    created_by_subject: SubjectSchema.parse(row.created_by_subject),
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
   };
@@ -237,7 +237,7 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
     return rows.map(row => ({
       id: row.id,
       name: row.name,
-      created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
+      created_by_subject: SubjectSchema.parse(row.created_by_subject),
     }));
   }
 

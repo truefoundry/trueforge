@@ -67,11 +67,6 @@ export const UpdateSessionRequestSchema = z
     agent: SessionAgentSpecBodySchema.optional(),
     title: SessionTitleSchema.optional(),
     metadata: SessionMetadataSchema.optional(),
-    shared: z
-      .boolean()
-      .optional()
-      .describe('Deprecated; use `POST /sessions/{session_id}/grants` with a `tenant` subject.')
-      .openapi({ deprecated: true }),
   })
   .strict()
   .openapi('UpdateSessionRequest');

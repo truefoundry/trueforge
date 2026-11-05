@@ -39,8 +39,8 @@ const CALLER_HEADER = 'x-test-caller';
 /** Callers named `sa:<id>` are service accounts rather than users. */
 const SERVICE_ACCOUNT_PREFIX = 'sa:';
 
-const SharedSessionBodySchema = z.object({ data: z.object({ shared: z.boolean() }) });
-const SharedSessionListSchema = z.object({ data: z.array(z.object({ shared: z.boolean() })) });
+const SharedSessionBodySchema = z.object({ data: z.record(z.string(), z.unknown()) });
+const SharedSessionListSchema = z.object({ data: z.array(z.record(z.string(), z.unknown())) });
 
 const USERS: User[] = [
   { id: 'alice', display_name: 'Alice', email: 'alice@example.com' },
@@ -390,11 +390,11 @@ describe('session grants API', () => {
   const CAN_READ = [200, 200, 200, 404, 404];
   const CANNOT_READ = [403, 403, 403, 403, 403];
 
-  /** `shared` as the owner sees it from get session and from list sessions. */
+  /** Neither session response exposes the removed sharing flag. */
   async function sharedFlag(): Promise<{ get: boolean; list: boolean[] }> {
     const got = SharedSessionBodySchema.parse(await (await app.request(`/${SESSION_ID}`, asCaller('owner'))).json());
     const listed = SharedSessionListSchema.parse(await (await app.request('/', asCaller('owner'))).json());
-    return { get: got.data.shared, list: listed.data.map(session => session.shared) };
+    return { get: 'shared' in got.data, list: listed.data.map(session => 'shared' in session) };
   }
 
   describe('read access', () => {
@@ -441,7 +441,7 @@ describe('session grants API', () => {
       ]);
       expect(await readStatuses('alice')).toEqual(CAN_READ);
       expect(await readStatuses(`${SERVICE_ACCOUNT_PREFIX}bot`)).toEqual(CAN_READ);
-      expect(await sharedFlag()).toEqual({ get: true, list: [true] });
+      expect(await sharedFlag()).toEqual({ get: false, list: [false] });
     });
 
     it('rejects a tenant other than the caller’s', async () => {
@@ -467,27 +467,12 @@ describe('session grants API', () => {
       expect(await sharedFlag()).toEqual({ get: false, list: [false] });
     });
 
-    it('the deprecated PATCH { shared } grants and revokes the tenant', async () => {
-      app = buildApp({ db, sessionStore, userStore: new EmptyUserStore() });
+    it('rejects the removed PATCH sharing field without changing grants', async () => {
+      const response = await app.request(`/${SESSION_ID}`, jsonInit('PATCH', { shared: true }));
 
-      const shared = await app.request(`/${SESSION_ID}`, jsonInit('PATCH', { shared: true }));
-
-      expect(shared.status).toBe(200);
-      expect(SharedSessionBodySchema.parse(await shared.json()).data.shared).toBe(true);
-      expect(await listSubjectIds()).toEqual([TENANT]);
-      expect(await readStatuses('alice')).toEqual(CAN_READ);
-
-      const unshared = await app.request(`/${SESSION_ID}`, jsonInit('PATCH', { shared: false }));
-
-      expect(unshared.status).toBe(200);
-      expect(SharedSessionBodySchema.parse(await unshared.json()).data.shared).toBe(false);
+      expect(response.status).toBe(400);
       expect(await listSubjectIds()).toEqual([]);
       expect(await readStatuses('alice')).toEqual(CANNOT_READ);
-    });
-
-    it('the deprecated PATCH { shared } stays creator-only', async () => {
-      expect((await app.request(`/${SESSION_ID}`, jsonInit('PATCH', { shared: true }, 'alice'))).status).toBe(403);
-      expect(await listSubjectIds()).toEqual([]);
     });
   });
 });
