@@ -1112,7 +1112,7 @@ export class SessionsClient {
             async (
                 request: TrueForge.ListTurnsSessionsRequest,
             ): Promise<core.WithRawResponse<TrueForge.ListTurnsResponse>> => {
-                const { limit, pageToken } = request;
+                const { limit = 25, pageToken } = request;
                 const _queryParams: Record<string, unknown> = {
                     limit,
                     page_token: pageToken,

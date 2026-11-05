@@ -479,7 +479,7 @@ class SessionsClient:
         self,
         *,
         session_id: str,
-        limit: typing.Optional[int] = None,
+        limit: typing.Optional[int] = 25,
         page_token: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[Turn, ListTurnsResponse]:
@@ -492,7 +492,7 @@ class SessionsClient:
             Session identifier.
 
         limit : typing.Optional[int]
-            Page size. Defaults to and is capped at the server-configured maximum.
+            Page size. Defaults to 25, max 25.
 
         page_token : typing.Optional[str]
             Opaque token from a previous response `next_page_token`.
@@ -1404,7 +1404,7 @@ class AsyncSessionsClient:
         self,
         *,
         session_id: str,
-        limit: typing.Optional[int] = None,
+        limit: typing.Optional[int] = 25,
         page_token: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[Turn, ListTurnsResponse]:
@@ -1417,7 +1417,7 @@ class AsyncSessionsClient:
             Session identifier.
 
         limit : typing.Optional[int]
-            Page size. Defaults to and is capped at the server-configured maximum.
+            Page size. Defaults to 25, max 25.
 
         page_token : typing.Optional[str]
             Opaque token from a previous response `next_page_token`.
