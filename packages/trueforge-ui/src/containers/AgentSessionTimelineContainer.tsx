@@ -2,8 +2,18 @@
 
 import { ThreadPrimitive, useAuiState, type ThreadMessageLike } from '@assistant-ui/react';
 import { convertTurnsToThreadMessages, isMcpServerAuthInfoList } from '@truefoundry/trueforge-assistant-ui-runtime';
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+} from 'react';
 
+import type { SessionMetricTileId } from '../atoms/agent-details/types.js';
 import { AssistantMessageBubble, type AssistantMessageBubbleProps } from '../atoms/AssistantMessageBubble.js';
 import { Markdown, type MarkdownProps } from '../atoms/Markdown.js';
 import { MessageActionBar } from '../atoms/MessageActionBar.js';
@@ -191,13 +201,89 @@ export type AgentSessionTimelineContainerProps = {
     totalCostInUsd?: number;
     totalDurationMs: number;
   };
+  /** Older events are still being fetched; `events` holds the newest part of history. */
+  loadingOlder?: boolean;
+  olderFailed?: boolean;
+  onRetryOlder?: () => void;
 };
+
+/** Within this distance of the bottom the view keeps following new content. */
+const STICK_TO_BOTTOM_THRESHOLD_PX = 32;
+
+type ScrollAnchor = { turnId: string; offsetTop: number };
+
+/**
+ * Pins the session scroll to the bottom until the user scrolls away; otherwise keeps
+ * the topmost visible turn in place while older turns are prepended above it.
+ */
+function useSessionScrollAnchoring(content: unknown) {
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const stickToBottomRef = useRef(true);
+  const anchorRef = useRef<ScrollAnchor | null>(null);
+
+  const recordPosition = useCallback(() => {
+    const el = scrollRef.current;
+    if (el == null) return;
+    stickToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight <= STICK_TO_BOTTOM_THRESHOLD_PX;
+    const containerTop = el.getBoundingClientRect().top;
+    anchorRef.current = null;
+    for (const section of el.querySelectorAll<HTMLElement>('[data-session-turn-id]')) {
+      const rect = section.getBoundingClientRect();
+      const turnId = section.dataset['sessionTurnId'];
+      if (rect.bottom > containerTop && turnId != null) {
+        anchorRef.current = { turnId, offsetTop: rect.top - containerTop };
+        break;
+      }
+    }
+  }, []);
+
+  const restorePosition = useCallback(() => {
+    const el = scrollRef.current;
+    if (el == null) return;
+    if (stickToBottomRef.current) {
+      el.scrollTop = el.scrollHeight;
+    } else {
+      const anchor = anchorRef.current;
+      const section =
+        anchor == null
+          ? null
+          : Array.from(el.querySelectorAll<HTMLElement>('[data-session-turn-id]')).find(
+              node => node.dataset['sessionTurnId'] === anchor.turnId,
+            );
+      if (anchor != null && section != null) {
+        el.scrollTop += section.getBoundingClientRect().top - el.getBoundingClientRect().top - anchor.offsetTop;
+      }
+    }
+    recordPosition();
+  }, [recordPosition]);
+
+  useLayoutEffect(() => {
+    restorePosition();
+  }, [content, restorePosition]);
+
+  // Markdown, code and images grow after mount; follow them while pinned.
+  useEffect(() => {
+    const el = scrollRef.current;
+    const body = el?.firstElementChild;
+    if (el == null || body == null || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => {
+      if (stickToBottomRef.current) el.scrollTop = el.scrollHeight;
+    });
+    observer.observe(body);
+    return () => observer.disconnect();
+  }, [content]);
+
+  return { scrollRef, onScroll: recordPosition };
+}
 
 export function AgentSessionTimelineContainer({
   sessionId,
   events,
   contentMaxWidth,
   sessionMetrics: sessionMetricsHint,
+  loadingOlder = false,
+  olderFailed = false,
+  onRetryOlder,
 }: AgentSessionTimelineContainerProps) {
   const server = useServer();
   const AgentSessionTurnHeader = useSlot('AgentSessionTurnHeader');
@@ -206,21 +292,41 @@ export function AgentSessionTimelineContainer({
   const MessageListSkeleton = useSlot('MessageListSkeleton');
   const ThreadViewportShell = useSlot('ThreadViewportShell');
 
-  const [messages, setMessages] = useState<ThreadMessageLike[]>();
+  // Chat and timeline render from the last converted snapshot so a newly loaded
+  // page swaps in atomically instead of flashing the skeleton.
+  const [rendered, setRendered] = useState<{ turnViews: SessionTurnView[]; messages: ThreadMessageLike[] }>();
   const [loadFailed, setLoadFailed] = useState(false);
   const sectionRefs = useRef(new Map<number, HTMLElement>());
 
-  const allTurnViews = useMemo(() => buildSessionTurnViews(events), [events]);
-  const renderableTurnViews = useMemo(() => allTurnViews.filter(turn => turn.renderable), [allTurnViews]);
+  const latestTurnViews = useMemo(() => buildSessionTurnViews(events), [events]);
   const projectionEvents = useMemo(
-    () => buildProjectionEvents(events, renderableTurnViews),
-    [events, renderableTurnViews],
+    () =>
+      buildProjectionEvents(
+        events,
+        latestTurnViews.filter(turn => turn.renderable),
+      ),
+    [events, latestTurnViews],
   );
+  const allTurnViews = useMemo(() => rendered?.turnViews ?? [], [rendered]);
+  const renderableTurnViews = useMemo(() => allTurnViews.filter(turn => turn.renderable), [allTurnViews]);
+  const messages = rendered?.messages;
+  const { scrollRef, onScroll } = useSessionScrollAnchoring(rendered);
   const timelineSegments = useMemo(() => buildSessionTimelineSegments(allTurnViews), [allTurnViews]);
   const sessionMetrics = useMemo(
     () => buildSessionMetrics({ turns: allTurnViews, segments: timelineSegments, sessionMetrics: sessionMetricsHint }),
     [sessionMetricsHint, timelineSegments, allTurnViews],
   );
+
+  // Duration and cost come from getSession when available, so only the event-derived tiles wait.
+  const pendingTiles = useMemo<ReadonlySet<SessionMetricTileId> | undefined>(() => {
+    if (!loadingOlder) return undefined;
+    const tiles = new Set<SessionMetricTileId>(['turns', 'tokens', 'context', 'tool-calls', 'sub-agents', 'errors']);
+    if (sessionMetricsHint == null) {
+      tiles.add('wall-time');
+      tiles.add('cost');
+    }
+    return tiles;
+  }, [loadingOlder, sessionMetricsHint]);
 
   const handleSelectTurn = useCallback((index: number) => {
     sectionRefs.current.get(index)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -228,8 +334,6 @@ export function AgentSessionTimelineContainer({
 
   useEffect(() => {
     let cancelled = false;
-    setMessages(undefined);
-    setLoadFailed(false);
 
     const bridge = createCachedListEventsBridge(projectionEvents, { allAtOnce: true });
     // Events already include every turn.created / turn.done, so skip listTurns.
@@ -241,7 +345,9 @@ export function AgentSessionTimelineContainer({
 
     void convertTurnsToThreadMessages(chatServer, sessionId)
       .then(result => {
-        if (!cancelled) setMessages(result.messages);
+        if (cancelled) return;
+        setRendered({ turnViews: latestTurnViews, messages: result.messages });
+        setLoadFailed(false);
       })
       .catch(() => {
         if (!cancelled) setLoadFailed(true);
@@ -250,7 +356,7 @@ export function AgentSessionTimelineContainer({
     return () => {
       cancelled = true;
     };
-  }, [projectionEvents, server, sessionId]);
+  }, [latestTurnViews, projectionEvents, server, sessionId]);
 
   if (loadFailed) {
     return (
@@ -269,7 +375,7 @@ export function AgentSessionTimelineContainer({
   }
 
   // No renderable turn.created inputs — nothing to section under.
-  if (renderableTurnViews.length === 0) {
+  if (renderableTurnViews.length === 0 && !loadingOlder && !olderFailed) {
     return (
       <div className="flex flex-1 items-center justify-center px-6 text-sm text-text-secondary">
         This session has no messages yet.
@@ -279,37 +385,59 @@ export function AgentSessionTimelineContainer({
 
   return (
     <div
+      ref={scrollRef}
+      onScroll={onScroll}
       className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
       data-slot="agent-session-scroll"
     >
-      <div className="sticky top-0 z-20 bg-primary-bg" data-slot="agent-session-metrics-sticky">
-        <AgentSessionMetricsStrip metrics={sessionMetrics} />
-      </div>
-      <div className="border-b border-border">
-        <Suspense fallback={null}>
-          <AgentSessionEventTimeline turns={allTurnViews} segments={timelineSegments} onSelectTurn={handleSelectTurn} />
-        </Suspense>
-      </div>
-      <ThreadViewportShell
-        scrollable={false}
-        className="pb-4"
-        {...(contentMaxWidth == null ? {} : { contentMaxWidth })}
-      >
-        <div className="flex flex-col gap-4">
-          {renderableTurnViews.map(turn => (
-            <SessionTurnSection
-              key={turn.turnId}
-              turn={aggregateSessionTurnBand(allTurnViews, turn.turnNumber) ?? turn}
-              messages={messagesForTurn(messages, turn)}
-              AgentSessionTurnHeader={AgentSessionTurnHeader}
-              onMount={node => {
-                if (node == null) sectionRefs.current.delete(turn.turnNumber - 1);
-                else sectionRefs.current.set(turn.turnNumber - 1, node);
-              }}
-            />
-          ))}
+      <div>
+        <div className="sticky top-0 z-20 bg-primary-bg" data-slot="agent-session-metrics-sticky">
+          <AgentSessionMetricsStrip metrics={sessionMetrics} {...(pendingTiles == null ? {} : { pendingTiles })} />
         </div>
-      </ThreadViewportShell>
+        <div className="border-b border-border">
+          <Suspense fallback={null}>
+            <AgentSessionEventTimeline
+              turns={allTurnViews}
+              segments={timelineSegments}
+              onSelectTurn={handleSelectTurn}
+            />
+          </Suspense>
+        </div>
+        <ThreadViewportShell
+          scrollable={false}
+          className="pb-4"
+          {...(contentMaxWidth == null ? {} : { contentMaxWidth })}
+        >
+          <div className="flex flex-col gap-4">
+            {loadingOlder ? (
+              <div role="status" className="pt-4 text-center text-xs text-text-secondary">
+                Loading earlier messages…
+              </div>
+            ) : olderFailed ? (
+              <div role="alert" className="flex items-center justify-center gap-2 pt-4 text-xs text-text-secondary">
+                Earlier messages could not be loaded.
+                {onRetryOlder == null ? null : (
+                  <button type="button" className="font-medium text-text-primary underline" onClick={onRetryOlder}>
+                    Retry
+                  </button>
+                )}
+              </div>
+            ) : null}
+            {renderableTurnViews.map(turn => (
+              <SessionTurnSection
+                key={turn.turnId}
+                turn={aggregateSessionTurnBand(allTurnViews, turn.turnNumber) ?? turn}
+                messages={messagesForTurn(messages, turn)}
+                AgentSessionTurnHeader={AgentSessionTurnHeader}
+                onMount={node => {
+                  if (node == null) sectionRefs.current.delete(turn.turnNumber - 1);
+                  else sectionRefs.current.set(turn.turnNumber - 1, node);
+                }}
+              />
+            ))}
+          </div>
+        </ThreadViewportShell>
+      </div>
     </div>
   );
 }
@@ -343,7 +471,12 @@ function SessionTurnSection({
   }
 
   return (
-    <section ref={onMount} id={`session-turn-${turn.turnNumber}`} className="flex flex-col gap-2">
+    <section
+      ref={onMount}
+      id={`session-turn-${turn.turnNumber}`}
+      data-session-turn-id={turn.turnId}
+      className="flex flex-col gap-2"
+    >
       {turn.showHeader ? (
         <AgentSessionTurnHeader
           turnNumber={turn.turnNumber}

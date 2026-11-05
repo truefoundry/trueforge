@@ -52,13 +52,14 @@ export function AgentSessionListRow({
   return (
     <div
       data-active={active || undefined}
+      onClick={onSelect}
       className={cn(
-        'group flex w-full flex-col border-b border-border transition-colors',
+        'group flex w-full cursor-pointer flex-col border-b border-border transition-colors',
         active ? 'bg-dropdown-selected-item-bg' : 'hover:bg-ghost-button-hover',
       )}
     >
       <div className="flex items-center gap-2 px-4 pt-3">
-        <button type="button" onClick={onSelect} className="flex min-w-0 flex-1 items-center gap-1 text-left">
+        <button type="button" className="flex min-w-0 flex-1 cursor-pointer items-center gap-1 text-left">
           <span className="truncate text-sm font-medium text-text-primary">{title}</span>
           {scheduleId != null ? (
             <Tooltip
@@ -148,8 +149,7 @@ export function AgentSessionListRow({
 
       <button
         type="button"
-        onClick={onSelect}
-        className="flex w-full items-end justify-between gap-2 px-4 pt-2 pb-3 text-left text-xs text-text-secondary"
+        className="flex w-full cursor-pointer items-end justify-between gap-2 px-4 pt-2 pb-3 text-left text-xs text-text-secondary"
       >
         <span className="flex min-w-0 items-center gap-1.5">
           {subjectLabel != null && subjectInitials != null ? (

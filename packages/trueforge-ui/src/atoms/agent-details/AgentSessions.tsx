@@ -8,15 +8,15 @@ import { AnalyticsEvents } from '../../analytics/events.js';
 import { withSessionProps } from '../../analytics/sessionProps.js';
 import { useToasterOptional } from '../../containers/ToasterContainer.js';
 import { useResourcePermissions } from '../../hooks/useResourcePermissions.js';
+import { useSessionEventPages } from '../../hooks/useSessionEventPages.js';
 import { useSessionShareSearch } from '../../hooks/useSessionShareSearch.js';
 import { Icon } from '../../icons/Icon.js';
 import { buildSessionResumeHref } from '../../routing/paths.js';
 import { useOptionalResolvedRoutes } from '../../routing/ResolvedRoutesContext.js';
 import { useAgentSessionsServer, useOptionalScheduleServer, useServer } from '../../server/ServerContext.js';
 import { useOptionalShellMode } from '../../server/ShellModeContext.js';
-import type { Session, SessionEventItem, SessionListEntry } from '../../server/types.js';
+import type { Session, SessionListEntry } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
-import { drainListPages } from '../../utils/drainListPages.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import { writeOpenScheduleByIdSearch } from '../../utils/scheduleShareUrl.js';
 import { sessionTimeRangeFromCreatedAt } from '../../utils/sessionShareUrl.js';
@@ -83,11 +83,13 @@ export function AgentSessions({
   const loadMoreInflightRef = useRef(false);
   const [listEl, setListEl] = useState<HTMLDivElement | null>(null);
   const [sentinelEl, setSentinelEl] = useState<HTMLDivElement | null>(null);
-  const [detailEvents, setDetailEvents] = useState<SessionEventItem[]>();
   const [detailSession, setDetailSession] = useState<Session>();
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailFailed, setDetailFailed] = useState(false);
-  const [detailErrorMessage, setDetailErrorMessage] = useState('This session could not be loaded.');
+  const [detailSessionLoading, setDetailSessionLoading] = useState(false);
+  const [detailSessionFailure, setDetailSessionFailure] = useState<{ error: unknown }>();
+  const { state: detailEvents, retryOlder: retryOlderDetailEvents } = useSessionEventPages({
+    sessionId: selectedSessionId,
+    refreshKey,
+  });
   const [pendingDelete, setPendingDelete] = useState<SessionListEntry | null>(null);
 
   const canDeleteSession = typeof chatServer.deleteSession === 'function';
@@ -191,51 +193,40 @@ export function AgentSessions({
   }, [entries.length, listEl, listLoading, loadMore, nextPageToken, sentinelEl]);
 
   useEffect(() => {
+    setDetailSession(undefined);
+    setDetailSessionFailure(undefined);
     if (selectedSessionId == null || selectedSessionId.length === 0) {
-      setDetailEvents(undefined);
-      setDetailSession(undefined);
-      setDetailFailed(false);
-      setDetailErrorMessage('This session could not be loaded.');
-      setDetailLoading(false);
+      setDetailSessionLoading(false);
       return;
     }
 
     let cancelled = false;
-    setDetailLoading(true);
-    setDetailFailed(false);
-    setDetailErrorMessage('This session could not be loaded.');
-    setDetailEvents(undefined);
-    setDetailSession(undefined);
-
-    void Promise.all([
-      drainListPages({
-        fetchPage: pageToken =>
-          sessionsServer.listSessionEvents({
-            sessionId: selectedSessionId,
-            limit: 100,
-            ...(pageToken == null ? {} : { pageToken }),
-          }),
-      }),
-      chatServer.getSession({ sessionId: selectedSessionId }),
-    ])
-      .then(([itemsNewestFirst, session]) => {
-        if (cancelled) return;
-        setDetailEvents([...itemsNewestFirst].reverse());
-        setDetailSession(session);
+    setDetailSessionLoading(true);
+    void chatServer
+      .getSession({ sessionId: selectedSessionId })
+      .then(session => {
+        if (!cancelled) setDetailSession(session);
       })
       .catch((error: unknown) => {
-        if (cancelled) return;
-        setDetailErrorMessage(getErrorMessage(error, 'This session could not be loaded.'));
-        setDetailFailed(true);
+        if (!cancelled) setDetailSessionFailure({ error });
       })
       .finally(() => {
-        if (!cancelled) setDetailLoading(false);
+        if (!cancelled) setDetailSessionLoading(false);
       });
 
     return () => {
       cancelled = true;
     };
-  }, [chatServer, refreshKey, selectedSessionId, sessionsServer]);
+  }, [chatServer, refreshKey, selectedSessionId]);
+
+  const detailLoading =
+    detailSessionLoading ||
+    detailEvents.status === 'loading' ||
+    (detailEvents.status === 'ready' && detailEvents.loadingOlder);
+  const detailFailure = detailEvents.status === 'error' ? detailEvents : detailSessionFailure;
+  const detailFailed = detailFailure != null;
+  const detailErrorMessage = getErrorMessage(detailFailure?.error, 'This session could not be loaded.');
+
   useEffect(() => {
     onLoadingChange?.(listLoading || detailLoading);
   }, [detailLoading, listLoading, onLoadingChange]);
@@ -356,14 +347,18 @@ export function AgentSessions({
             canShare={canResume}
             {...resumeProps}
           />
-          {detailLoading || detailEvents === undefined ? (
+          {detailEvents.status !== 'ready' ? (
             <div className="flex flex-1 flex-col p-4" role="status" aria-label="Loading session details">
               <Skeleton className="min-h-64 flex-1 rounded-lg" />
             </div>
           ) : (
             <AgentSessionTimelineContainer
+              key={selectedSessionId}
               sessionId={selectedSessionId}
-              events={detailEvents}
+              events={detailEvents.itemsAsc}
+              loadingOlder={detailEvents.loadingOlder}
+              olderFailed={detailEvents.olderFailed}
+              onRetryOlder={retryOlderDetailEvents}
               sessionMetrics={detailSession?.metrics}
               {...(detailOnly ? { contentMaxWidth: '60rem' } : {})}
             />

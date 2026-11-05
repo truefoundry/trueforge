@@ -6,6 +6,7 @@ import { Icon } from '../../icons/Icon.js';
 import { formatCostUsd, formatReadableDurationMs, formatTokenCount } from '../../utils/sessionDisplayFormat.js';
 import { formatTimelineDuration } from '../../utils/sessionEventTimeline.js';
 import { cn } from '../lib/cn.js';
+import { Skeleton } from '../primitives/Skeleton.js';
 import { LightTooltip } from '../primitives/Tooltip.js';
 import {
   CostBreakdownRows,
@@ -15,21 +16,27 @@ import {
   StackedProportionBar,
   TokenUsageTooltip,
 } from './AgentSessionMetricCharts.js';
-import type { AgentSessionMetricsStripProps } from './types.js';
+import type { AgentSessionMetricsStripProps, SessionMetricTileId } from './types.js';
 
 const SESSION_LINEAGE_TURNS_TOOLTIP =
   'Some turns in this session were edited or retried. Showing only the latest lineage of the session';
+
+function PendingValue() {
+  return <Skeleton className="h-4 w-12" aria-label="Loading" role="status" />;
+}
 
 function SessionMetricTile({
   id,
   label,
   value,
   tooltip,
+  pending = false,
 }: {
-  id: string;
+  id: SessionMetricTileId;
   label: string;
   value: ReactNode;
   tooltip?: ReactNode;
+  pending?: boolean;
 }) {
   const content = (
     <div
@@ -38,12 +45,14 @@ function SessionMetricTile({
     >
       <div className="mb-0.5 flex items-center gap-1 text-[0.625rem] font-medium uppercase tracking-wider text-text-secondary">
         {label}
-        {tooltip != null ? <Icon name="info" className="size-2.5 text-text-secondary" /> : null}
+        {tooltip != null && !pending ? <Icon name="info" className="size-2.5 text-text-secondary" /> : null}
       </div>
-      <div className="pt-1 text-base font-medium leading-none text-text-primary">{value}</div>
+      <div className="pt-1 text-base font-medium leading-none text-text-primary">
+        {pending ? <PendingValue /> : value}
+      </div>
     </div>
   );
-  if (tooltip == null) return content;
+  if (tooltip == null || pending) return content;
   return (
     <LightTooltip title={tooltip} side="bottom" triggerClassName="block w-full">
       {content}
@@ -54,14 +63,18 @@ function SessionMetricTile({
 function SessionTurnsMetricTile({
   lineageTurns,
   sessionTotalTurns,
+  pending,
 }: {
   lineageTurns: number;
   sessionTotalTurns?: number;
+  pending: boolean;
 }) {
-  const showLineageSplit = sessionTotalTurns != null && sessionTotalTurns > lineageTurns;
+  const showLineageSplit = !pending && sessionTotalTurns != null && sessionTotalTurns > lineageTurns;
   const label = lineageTurns > 1 || (sessionTotalTurns != null && sessionTotalTurns > 1) ? 'Turns' : 'Turn';
 
-  const value = showLineageSplit ? (
+  const value = pending ? (
+    <PendingValue />
+  ) : showLineageSplit ? (
     <span className="inline-flex h-4 items-center gap-2">
       <span className="leading-none">
         <span className="text-primary-button-bg">{lineageTurns} </span>
@@ -103,7 +116,8 @@ function SessionTurnsMetricTile({
   );
 }
 
-export function AgentSessionMetricsStrip({ metrics }: AgentSessionMetricsStripProps) {
+export function AgentSessionMetricsStrip({ metrics, pendingTiles }: AgentSessionMetricsStripProps) {
+  const isPending = (id: SessionMetricTileId) => pendingTiles?.has(id) === true;
   return (
     <div className="@container overflow-hidden border-b border-border" data-slot="agent-session-metrics-strip">
       <div
@@ -112,9 +126,14 @@ export function AgentSessionMetricsStrip({ metrics }: AgentSessionMetricsStripPr
           metrics.totalCostUsd == null ? '@min-[48rem]:grid-cols-7' : '@min-[48rem]:grid-cols-8',
         )}
       >
-        <SessionTurnsMetricTile lineageTurns={metrics.totalTurns} sessionTotalTurns={metrics.sessionTotalTurns} />
+        <SessionTurnsMetricTile
+          lineageTurns={metrics.totalTurns}
+          sessionTotalTurns={metrics.sessionTotalTurns}
+          pending={isPending('turns')}
+        />
         <SessionMetricTile
           id="wall-time"
+          pending={isPending('wall-time')}
           label="Duration"
           value={formatReadableDurationMs(metrics.wallTimeMs)}
           tooltip={
@@ -126,6 +145,7 @@ export function AgentSessionMetricsStrip({ metrics }: AgentSessionMetricsStripPr
         {metrics.totalCostUsd != null ? (
           <SessionMetricTile
             id="cost"
+            pending={isPending('cost')}
             label="Cost"
             value={formatCostUsd(metrics.totalCostUsd)}
             tooltip={
@@ -139,6 +159,7 @@ export function AgentSessionMetricsStrip({ metrics }: AgentSessionMetricsStripPr
         ) : null}
         <SessionMetricTile
           id="tokens"
+          pending={isPending('tokens')}
           label="Tokens"
           value={
             <span className="inline-flex items-center gap-1.5">
@@ -161,6 +182,7 @@ export function AgentSessionMetricsStrip({ metrics }: AgentSessionMetricsStripPr
         />
         <SessionMetricTile
           id="context"
+          pending={isPending('context')}
           label="Context Usage"
           value={formatTokenCount(metrics.contextTokens)}
           tooltip={
@@ -173,6 +195,7 @@ export function AgentSessionMetricsStrip({ metrics }: AgentSessionMetricsStripPr
         />
         <SessionMetricTile
           id="tool-calls"
+          pending={isPending('tool-calls')}
           label="Tool calls"
           value={metrics.toolCalls}
           tooltip={
@@ -183,8 +206,13 @@ export function AgentSessionMetricsStrip({ metrics }: AgentSessionMetricsStripPr
             ) : null
           }
         />
-        <SessionMetricTile id="sub-agents" label="Sub-agents" value={metrics.subAgents} />
-        <SessionMetricTile id="errors" label="Errors" value={metrics.errors} />
+        <SessionMetricTile
+          id="sub-agents"
+          pending={isPending('sub-agents')}
+          label="Sub-agents"
+          value={metrics.subAgents}
+        />
+        <SessionMetricTile id="errors" pending={isPending('errors')} label="Errors" value={metrics.errors} />
       </div>
     </div>
   );
