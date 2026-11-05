@@ -395,14 +395,12 @@ export interface AgentChatServer<
     sessionId: string;
     pageToken?: string;
     lastTurnId?: string;
-    limit?: number;
   }): Promise<ListResult<SessionEventItem>>;
 
   /** Optional per-turn event listing (hydrate in-flight turn content). */
   listTurnEvents?(req: {
     sessionId: string;
     turnId: string;
-    limit?: number;
     pageToken?: string;
     order?: ListSessionsOrder;
   }): Promise<ListResult<TurnEvent>>;
@@ -1066,7 +1064,7 @@ export interface SessionListEntry<TSpec extends AgentSpec = AgentSpec> {
 }
 
 /** Params for `AgentSessionsServer.listSessionEvents` (session event timeline). */
-export interface ListSessionEventsParams extends Pick<PageParams, 'limit' | 'pageToken'> {
+export interface ListSessionEventsParams extends Pick<PageParams, 'pageToken'> {
   sessionId: string;
 }
 
