@@ -133,6 +133,25 @@ function renderDrawer({
 }
 
 describe('EnvironmentFormDrawer', () => {
+  it('top-aligns the placeholder and highlights saved scripts as Bash', async () => {
+    renderDrawer();
+    const trigger = screen.getByRole('button', { name: 'Edit build script full screen' });
+    expect(trigger).toHaveClass('flex', 'items-start');
+    expect(trigger).toHaveTextContent('set -ex pip install httpx');
+    expect(within(trigger).queryByTestId('aui-syntax-highlighter')).not.toBeInTheDocument();
+
+    fireEvent.click(trigger);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Build script editor' }), {
+      target: { value: '#!/bin/bash\necho "$HOME"\n' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+
+    await waitFor(() => {
+      expect(within(trigger).getByTestId('aui-syntax-highlighter')).toHaveClass('language-bash');
+    });
+    expect(trigger).toHaveTextContent('echo "$HOME"');
+  });
+
   it('opens a full-screen shell editor and saves build script edits with the form', async () => {
     const { createEnvironment } = renderDrawer();
     const buildScript = 'set -ex\n  pip install httpx\n';

@@ -1,10 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import { Prism as PrismHighlighter } from 'react-syntax-highlighter';
+import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 import { Icon } from '../../icons/Icon.js';
 import type { SandboxEnvironmentManifest, SandboxEnvironmentSecret } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
+import { useOptionalThemeMode } from '../../theme/ThemeProvider.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { Button } from '../primitives/Button.js';
@@ -118,6 +121,7 @@ export function EnvironmentFormFields({
   readOnly?: boolean;
 }) {
   const MonacoEditorCore = useSlot('MonacoEditorCore');
+  const themeMode = useOptionalThemeMode();
   const [buildScriptOpen, setBuildScriptOpen] = useState(false);
   const update = (patch: Partial<EnvironmentFormValues>) => onChange({ ...values, ...patch });
 
@@ -158,14 +162,38 @@ export function EnvironmentFormFields({
             type="button"
             aria-label="Edit build script full screen"
             aria-haspopup="dialog"
-            className={cn(fieldClassName, 'relative min-h-24 cursor-pointer pr-9 text-left font-mono text-xs')}
+            className={cn(
+              fieldClassName,
+              'relative flex min-h-24 cursor-pointer items-start pr-9 text-left font-mono text-xs',
+            )}
             onClick={() => setBuildScriptOpen(true)}
           >
-            <span
-              className={cn('block whitespace-pre-wrap break-words', !values.buildScript && 'text-text-secondary/70')}
-            >
-              {values.buildScript || 'set -ex\npip install httpx\n'}
-            </span>
+            {values.buildScript ? (
+              <PrismHighlighter
+                language="bash"
+                style={themeMode === 'dark' ? oneDark : oneLight}
+                PreTag="span"
+                CodeTag="span"
+                customStyle={{
+                  margin: 0,
+                  padding: 0,
+                  background: 'transparent',
+                  fontFamily: 'inherit',
+                  fontSize: 'inherit',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  minWidth: 0,
+                }}
+                codeTagProps={{ style: { fontFamily: 'inherit', fontSize: 'inherit', whiteSpace: 'pre-wrap' } }}
+                wrapLongLines
+              >
+                {values.buildScript}
+              </PrismHighlighter>
+            ) : (
+              <span className="block whitespace-pre-wrap break-words text-text-secondary/70">
+                {'set -ex\npip install httpx\n'}
+              </span>
+            )}
             <Icon name="expand" className="absolute right-2.5 top-2 size-4 text-text-secondary" />
           </button>
           <Dialog
