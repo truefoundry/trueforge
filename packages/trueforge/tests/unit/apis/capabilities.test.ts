@@ -11,6 +11,7 @@ import { OidcAuthenticator } from '../../../src/auth/oidcAuthenticator';
 import { StandaloneAuthenticator } from '../../../src/auth/standaloneAuthenticator';
 import configuration, { type OIDCConfig } from '../../../src/config';
 import type { IConfigurationStore } from '../../../src/db/configurationStore';
+import type { IMemoryProviderStore } from '../../../src/db/memoryProviderStore';
 import type { ISandboxEnvironmentStore, SandboxEnvironmentWithVersion } from '../../../src/db/sandboxEnvironmentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { EmptyUserStore, type IUserStore } from '../../../src/db/userStore';
@@ -27,7 +28,7 @@ const ALL_SETTINGS_ON = {
   skills: { enabled: true, manage_providers: true },
   sandbox_providers: { enabled: true, manage_providers: true },
   web_search: { enabled: true, manage_providers: true },
-  memory: { enabled: true, manage_providers: true },
+  memory_providers: { enabled: true, manage_providers: true },
 };
 
 const ALL_SETTINGS_OFF = {
@@ -36,11 +37,12 @@ const ALL_SETTINGS_OFF = {
   skills: { enabled: false, manage_providers: false },
   sandbox_providers: { enabled: false, manage_providers: false },
   web_search: { enabled: false, manage_providers: false },
-  memory: { enabled: false, manage_providers: false },
+  memory_providers: { enabled: false, manage_providers: false },
 };
 
 const NO_PROVIDER_REASON = 'Web search needs a provider, which is not configured.';
 const TENANT_OFF_REASON = 'Web search is turned off for this tenant - an admin can turn it back on in settings.';
+const MEMORY_TENANT_OFF_REASON = 'Memory is turned off for this tenant - an admin can turn it back on in settings.';
 
 let mockActiveDefaultStatus: SandboxEnvironmentVersionStatus | undefined;
 let mockLatestDefaultStatus: SandboxEnvironmentVersionStatus | undefined;
@@ -98,11 +100,15 @@ describe('capabilities routers', () => {
     authenticator = new StandaloneAuthenticator(),
     webSearchStore,
     tenantWebSearchEnabled = true,
+    tenantMemoryEnabled = true,
+    hasMemoryProvider = true,
     userStore = new EmptyUserStore(),
   }: {
     authenticator?: Authenticator;
     webSearchStore?: IWebSearchProviderStore;
     tenantWebSearchEnabled?: boolean;
+    tenantMemoryEnabled?: boolean;
+    hasMemoryProvider?: boolean;
     userStore?: IUserStore;
   } = {}): OpenAPIHono {
     const db = createSqliteDb(':memory:');
@@ -110,21 +116,37 @@ describe('capabilities routers', () => {
       getProvider: () => Promise.resolve(undefined),
       upsertProvider: () => Promise.reject(new Error('not used')),
     };
+    const memoryStore: IMemoryProviderStore = {
+      getProvider: tenantId =>
+        Promise.resolve(
+          hasMemoryProvider
+            ? {
+                tenant_id: tenantId,
+                manifest: { type: 'zep', auth: { api_key: 'zep-test-key' } },
+                created_at: '2026-01-01T00:00:00.000Z',
+                updated_at: '2026-01-01T00:00:00.000Z',
+              }
+            : undefined,
+        ),
+      upsertProvider: () => Promise.reject(new Error('not used')),
+    };
     const configurationStore: IConfigurationStore = {
       getConfiguration: () =>
         Promise.resolve({
           tenant_id: 'default',
-          manifest: { web_search: { enabled: tenantWebSearchEnabled } },
+          manifest: { web_search: { enabled: tenantWebSearchEnabled }, memory: { enabled: tenantMemoryEnabled } },
           updated_at: '2026-01-01T00:00:00.000Z',
         }),
       upsertConfiguration: () => Promise.reject(new Error('not used')),
       getOrCreateConfiguration: () => Promise.reject(new Error('not used')),
+      listTenantIdsWithFeatureEnabled: () => Promise.reject(new Error('not used')),
     };
     return withAuth(
       createCapabilitiesRouter({
         sandboxEnvironmentStore: mockDefaultEnvStore(),
         resolveWebSearchProviderStore: () => webSearchStore ?? emptyWebSearchStore,
         resolveConfigurationStore: () => configurationStore,
+        resolveMemoryProviderStore: () => memoryStore,
         userStore,
         withTransaction: (() => {
           const run = <T>(callback: (trx: never) => Promise<T>): Promise<T> =>
@@ -157,6 +179,7 @@ describe('capabilities routers', () => {
         },
         settings: ALL_SETTINGS_ON,
         web_search: { enabled: false, reason: NO_PROVIDER_REASON },
+        memory: { enabled: true },
         session_sharing: { enabled: false },
       },
     });
@@ -206,6 +229,35 @@ describe('capabilities routers', () => {
     });
   });
 
+  it('reports memory disabled with a reason when the tenant turned it off', async () => {
+    disableOidcAuth();
+    const router = makeRouter({ tenantMemoryEnabled: false });
+
+    const response = await router.request('/');
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: {
+        memory: {
+          enabled: false,
+          reason: MEMORY_TENANT_OFF_REASON,
+        },
+      },
+    });
+  });
+
+  it('omits memory but keeps memory providers open in OSS until a provider is configured', async () => {
+    disableOidcAuth();
+    const router = makeRouter({ hasMemoryProvider: false });
+
+    const response = await router.request('/');
+    expect(response.status).toBe(200);
+    const body: unknown = await response.json();
+    expect(body).toMatchObject({
+      data: { settings: { memory_providers: { enabled: true, manage_providers: true } } },
+    });
+    expect(body).not.toHaveProperty('data.memory');
+  });
+
   it('reports sharing with users only when a user source is configured', async () => {
     disableOidcAuth();
     const peekUsers = () => Promise.reject(new Error('not used'));
@@ -237,6 +289,7 @@ describe('capabilities routers', () => {
         skill: { enabled: true },
         settings: ALL_SETTINGS_ON,
         web_search: { enabled: false, reason: NO_PROVIDER_REASON },
+        memory: { enabled: true },
         session_sharing: { enabled: false },
       },
     });
@@ -255,6 +308,7 @@ describe('capabilities routers', () => {
         skill: { enabled: true },
         settings: ALL_SETTINGS_ON,
         web_search: { enabled: false, reason: NO_PROVIDER_REASON },
+        memory: { enabled: true },
         session_sharing: { enabled: false },
       },
     });
@@ -445,12 +499,24 @@ describe('capabilities routers', () => {
         getConfiguration: () => Promise.resolve(undefined),
         upsertConfiguration: () => Promise.reject(new Error('not used')),
         getOrCreateConfiguration: () => Promise.reject(new Error('not used')),
+        listTenantIdsWithFeatureEnabled: () => Promise.reject(new Error('not used')),
+      };
+      const zepMemoryStore: IMemoryProviderStore = {
+        getProvider: tenantId =>
+          Promise.resolve({
+            tenant_id: tenantId,
+            manifest: { type: 'zep', auth: { api_key: 'zep-test-key' } },
+            created_at: '2026-01-01T00:00:00.000Z',
+            updated_at: '2026-01-01T00:00:00.000Z',
+          }),
+        upsertProvider: () => Promise.reject(new Error('not used')),
       };
       const router = withAuth(
         createCapabilitiesRouter({
           sandboxEnvironmentStore: mockDefaultEnvStore(),
           resolveWebSearchProviderStore: () => emptyWebSearchStore,
           resolveConfigurationStore: () => allOnConfigurationStore,
+          resolveMemoryProviderStore: () => zepMemoryStore,
           userStore: new EmptyUserStore(),
           withTransaction: (() => {
             const run = <T>(callback: (trx: never) => Promise<T>): Promise<T> =>
@@ -479,6 +545,7 @@ describe('capabilities routers', () => {
           },
           settings: ALL_SETTINGS_ON,
           web_search: { enabled: false, reason: NO_PROVIDER_REASON },
+          memory: { enabled: false, reason: MEMORY_TENANT_OFF_REASON },
           session_sharing: { enabled: false },
         },
       });
@@ -499,6 +566,7 @@ describe('capabilities routers', () => {
           },
           settings: ALL_SETTINGS_OFF,
           web_search: { enabled: false, reason: NO_PROVIDER_REASON },
+          memory: { enabled: false, reason: MEMORY_TENANT_OFF_REASON },
           session_sharing: { enabled: false },
         },
       });

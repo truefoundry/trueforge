@@ -10,7 +10,7 @@ from .settings_capability_section import SettingsCapabilitySection
 
 class SettingsCapability(UncheckedBaseModel):
     mcp_servers: SettingsCapabilitySection
-    memory: SettingsCapabilitySection
+    memory_providers: SettingsCapabilitySection
     model_providers: SettingsCapabilitySection
     sandbox_providers: SettingsCapabilitySection
     skills: SettingsCapabilitySection

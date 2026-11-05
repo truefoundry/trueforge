@@ -9,6 +9,6 @@ export function allSettingsSections(enabled: boolean): SettingsCapability {
     skills: section,
     sandboxProviders: section,
     webSearch: section,
-    memory: section,
+    memoryProviders: section,
   };
 }

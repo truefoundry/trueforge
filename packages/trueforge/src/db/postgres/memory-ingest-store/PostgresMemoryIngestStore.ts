@@ -75,8 +75,8 @@ export class PostgresMemoryIngestStore implements IMemoryIngestStore {
         eb.or([eb.and([eb('s.agent_id', 'is', null), eb(tfgSource, '=', 'ui')]), eb(agentMemoryEnabled, '=', 'true')]),
       )
       .where(sql<boolean>`c.last_ingested_turn_id IS DISTINCT FROM t.turn_id`);
-    const scoped = input.tenant_ids === undefined ? query : query.where('s.tenant_id', 'in', [...input.tenant_ids]);
-    const rows = await scoped
+    const rows = await query
+      .where('s.tenant_id', 'in', [...input.tenant_ids])
       .orderBy('s.updated_at', 'asc')
       .orderBy('s.session_id', 'asc')
       .limit(input.limit)
