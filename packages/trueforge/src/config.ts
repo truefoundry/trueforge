@@ -768,12 +768,9 @@ export interface SharedServerConfiguration {
   SANDBOX_ENVIRONMENT_MEMORY_GIB_MAX: number;
   /** Max disk GiB for a sandbox environment. Env: `SANDBOX_ENVIRONMENT_DISK_GIB_MAX`. Default 10. */
   SANDBOX_ENVIRONMENT_DISK_GIB_MAX: number;
-  /**
-   * Default and max page size (`limit`) for list session events and list turn events.
-   * Env: `LIST_EVENTS_PAGE_LIMIT_MAX`. Default 100.
-   */
+  /** Default and max `limit` for list session/turn events. Env: `LIST_EVENTS_PAGE_LIMIT_MAX`. Default 100. */
   LIST_EVENTS_PAGE_LIMIT_MAX: number;
-  /** Default and max page size (`limit`) for list turns. Env: `LIST_TURNS_PAGE_LIMIT_MAX`. Default 25. */
+  /** Default and max `limit` for list turns. Env: `LIST_TURNS_PAGE_LIMIT_MAX`. Default 25. */
   LIST_TURNS_PAGE_LIMIT_MAX: number;
   /**
    * Max bytes for an HTTP request body. Env: `MAX_REQUEST_BODY_BYTES`. Default 30 MB.

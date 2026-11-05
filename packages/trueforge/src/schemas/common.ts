@@ -28,7 +28,7 @@ export type ResourceName = z.infer<typeof NameSchema>;
 
 export const PAGE_LIMIT = 25;
 
-/** Page size whose default and max come from config; read per request, so the max is not baked into OpenAPI. */
+/** Default and max are read from config per request, so they are not baked into OpenAPI. */
 function configuredPageLimitQuerySchema(getMax: () => number) {
   return z.coerce
     .number()

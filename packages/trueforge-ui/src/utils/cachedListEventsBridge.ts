@@ -1,6 +1,6 @@
 import type { AgentChatServer, ListResult, SessionEventItem } from '../server/types.js';
 
-const PAGE_SIZE = 100;
+const DEFAULT_PAGE_SIZE = 100;
 
 /** Serve preloaded session events through `AgentChatServer.listEvents` pagination. */
 export function createCachedListEventsBridge(
@@ -15,7 +15,7 @@ export function createCachedListEventsBridge(
       const start = Number.isFinite(offset) ? offset : 0;
       // Agent Details already fetched the complete history; one page prevents
       // synthetic display boundaries from making the runtime stop before older turns.
-      const pageSize = options?.allAtOnce === true ? itemsNewestFirst.length : PAGE_SIZE;
+      const pageSize = options?.allAtOnce === true ? itemsNewestFirst.length : DEFAULT_PAGE_SIZE;
       const data = itemsNewestFirst.slice(start, start + pageSize);
       const nextOffset = start + pageSize;
       const nextPageToken = nextOffset < itemsNewestFirst.length ? String(nextOffset) : undefined;

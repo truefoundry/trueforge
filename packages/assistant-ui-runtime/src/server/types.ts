@@ -384,17 +384,15 @@ export interface AgentChatServer<
    */
   renameSession?(req: { sessionId: string; title: string }): Promise<void>;
 
-  /** Page size is server-configured. */
   listTurns(req: { sessionId: string; pageToken?: string; order?: ListSessionsOrder }): Promise<ListResult<TTurn>>;
   getTurn(req: { sessionId: string; turnId: string }): Promise<TTurn>;
-  /** Page size is server-configured. */
   listEvents(req: {
     sessionId: string;
     pageToken?: string;
     lastTurnId?: string;
   }): Promise<ListResult<SessionEventItem>>;
 
-  /** Optional per-turn event listing (hydrate in-flight turn content). Page size is server-configured. */
+  /** Optional per-turn event listing (hydrate in-flight turn content). */
   listTurnEvents?(req: {
     sessionId: string;
     turnId: string;
@@ -1060,7 +1058,7 @@ export interface SessionListEntry<TSpec extends AgentSpec = AgentSpec> {
   metadata?: Record<string, string>;
 }
 
-/** Params for `AgentSessionsServer.listSessionEvents` (session event timeline). Page size is server-configured. */
+/** Params for `AgentSessionsServer.listSessionEvents` (session event timeline). */
 export interface ListSessionEventsParams extends Pick<PageParams, 'pageToken'> {
   sessionId: string;
 }

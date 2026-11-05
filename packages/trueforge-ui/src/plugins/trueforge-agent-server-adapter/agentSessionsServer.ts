@@ -84,7 +84,9 @@ export function createHarnessAgentSessionsServer(
       return toListResult(page, toSessionListEntry);
     },
     async listSessionEvents({ sessionId, pageToken }) {
-      const page = await client.sessions.listEvents(sessionId, pageToken === undefined ? {} : { pageToken });
+      const page = await client.sessions.listEvents(sessionId, {
+        ...(pageToken === undefined ? {} : { pageToken }),
+      });
       return toListResult(page, toUiEventItem);
     },
   };
