@@ -1,5 +1,35 @@
 # @truefoundry/trueforge-core
 
+## 0.184.0
+
+### Patch Changes
+
+- e05589c: Add long-term memory to chat sessions.
+
+  - On a session's first turn, the user's memory summary is added once as a hidden message, capped at about 1,000 tokens.
+  - UI chats and sessions on agents with `config.memory.enabled` get `memory_search` and `memory_add` tools on the main agent only; `memory_add` runs only when the user asks to remember something.
+  - Memory works in TrueFoundry mode only, behind the `TRUEFOUNDRY_MEMORY_*` settings and the tenant allowlist.
+  - Saving an agent or inline spec that turns memory on while it is unavailable for the deployment or tenant returns 422.
+
+- 379d26a: Default the model HTTP header timeout to 20 seconds in the core client and server configuration. Keep the model body timeout at 120 seconds and preserve the environment override.
+- 9c116a9: Prepend `user-agent: trueforge/<version>` on model and MCP outbound fetches (via `OutboundFetchOptions.userAgent`) and on ServiceFoundry server calls so TrueFoundry can identify TrueForge traffic and its version.
+- 033a3c1: Add long-term memory ingestion behind `TRUEFOUNDRY_MEMORY_ENABLED` (TrueFoundry mode only, off by default), configured like the shared sandbox with `TRUEFOUNDRY_MEMORY_PROVIDER` (`zep`), `TRUEFOUNDRY_MEMORY_API_KEY` an optional `TRUEFOUNDRY_MEMORY_SERVER_URL` and optional `TRUEFOUNDRY_MEMORY_SETTINGS` JSON for the loop, for the tenants in `TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST` (every tenant when it is empty). Only ids reach Zep, never a user's or agent's name: Zep users map back to TrueForge users through their metadata. A `memory-ingest` controller loop sends finished UI chats, and sessions on registry agents whose manifest enables memory, to Zep: user messages, `ask_user_question` answers and the final agent reply (context only). Progress is kept in a new `memory_ingest_cursor` table. Export `ASK_USER_QUESTION_TOOL_NAME` from core.
+
+## 0.184.0-rc.1
+
+### Patch Changes
+
+- e05589c: Add long-term memory to chat sessions.
+
+  - On a session's first turn, the user's memory summary is added once as a hidden message, capped at about 1,000 tokens.
+  - UI chats and sessions on agents with `config.memory.enabled` get `memory_search` and `memory_add` tools on the main agent only; `memory_add` runs only when the user asks to remember something.
+  - Memory works in TrueFoundry mode only, behind the `TRUEFOUNDRY_MEMORY_*` settings and the tenant allowlist.
+  - Saving an agent or inline spec that turns memory on while it is unavailable for the deployment or tenant returns 422.
+
+- 379d26a: Default the model HTTP header timeout to 20 seconds in the core client and server configuration. Keep the model body timeout at 120 seconds and preserve the environment override.
+- 9c116a9: Prepend `user-agent: trueforge/<version>` on model and MCP outbound fetches (via `OutboundFetchOptions.userAgent`) and on ServiceFoundry server calls so TrueFoundry can identify TrueForge traffic and its version.
+- 033a3c1: Add long-term memory ingestion behind `TRUEFOUNDRY_MEMORY_ENABLED` (TrueFoundry mode only, off by default), configured like the shared sandbox with `TRUEFOUNDRY_MEMORY_PROVIDER` (`zep`), `TRUEFOUNDRY_MEMORY_API_KEY` an optional `TRUEFOUNDRY_MEMORY_SERVER_URL` and optional `TRUEFOUNDRY_MEMORY_SETTINGS` JSON for the loop, for the tenants in `TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST` (every tenant when it is empty). Only ids reach Zep, never a user's or agent's name: Zep users map back to TrueForge users through their metadata. A `memory-ingest` controller loop sends finished UI chats, and sessions on registry agents whose manifest enables memory, to Zep: user messages, `ask_user_question` answers and the final agent reply (context only). Progress is kept in a new `memory_ingest_cursor` table. Export `ASK_USER_QUESTION_TOOL_NAME` from core.
+
 ## 0.183.0
 
 ### Patch Changes
