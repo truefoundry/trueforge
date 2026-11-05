@@ -36,6 +36,10 @@ vi.mock('@/containers/SettingsBuilder/WebSearchSettings.js', () => ({
   default: () => <div>Web search settings content</div>,
 }));
 
+vi.mock('@/containers/SettingsBuilder/MemorySettings.js', () => ({
+  default: () => <div>Memory settings content</div>,
+}));
+
 async function unavailable(): Promise<never> {
   throw new Error('Unexpected settings section call');
 }
@@ -210,7 +214,7 @@ describe('TruefoundrySettingsBuilder', () => {
     const server = createMockAgentUIServer({
       catalog: createMockCatalog({}),
       configuration: {
-        getConfiguration: async () => ({ webSearch: { enabled: true } }),
+        getConfiguration: async () => ({ webSearch: { enabled: true }, memory: { enabled: true } }),
         updateConfiguration: unavailable,
       },
       getCapabilities: async () => ({
@@ -228,6 +232,47 @@ describe('TruefoundrySettingsBuilder', () => {
       expect(screen.getByRole('button', { name: 'Web search' })).toHaveAttribute('aria-current', 'page');
     });
     expect(await screen.findByText('Web search settings content')).toBeInTheDocument();
+  });
+
+  it('mounts memory only for a host with the tenant configuration port', async () => {
+    const { rerender } = render(<TestShell server={createServer()} />);
+    await openSettings();
+    expect(screen.queryByRole('button', { name: 'Memory' })).not.toBeInTheDocument();
+
+    const server = createMockAgentUIServer({
+      catalog: createMockCatalog({}),
+      configuration: {
+        getConfiguration: async () => ({ webSearch: { enabled: true }, memory: { enabled: true } }),
+        updateConfiguration: unavailable,
+      },
+    });
+    rerender(<TestShell server={server} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Memory' }));
+    expect(await screen.findByText('Memory settings content')).toBeInTheDocument();
+  });
+
+  it('hides memory when the host does not offer it to the tenant', async () => {
+    const sections = allSettingsSections(true);
+    const server = createMockAgentUIServer({
+      catalog: createMockCatalog({}),
+      configuration: {
+        getConfiguration: async () => ({ webSearch: { enabled: true }, memory: { enabled: true } }),
+        updateConfiguration: unavailable,
+      },
+      getCapabilities: async () => ({
+        data: {
+          sandbox: { enabled: true },
+          skill: { enabled: true },
+          settings: { ...sections, memoryProviders: { enabled: false, manageProviders: true } },
+        },
+      }),
+    });
+    render(<TestShell server={server} />);
+    await openSettings();
+
+    expect(await screen.findByRole('button', { name: 'Web search' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Memory' })).not.toBeInTheDocument();
   });
 
   it('closes on Escape without leaking the event to a parent handler', async () => {

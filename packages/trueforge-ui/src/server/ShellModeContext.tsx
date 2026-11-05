@@ -81,7 +81,7 @@ export type SelectLibraryAgentRequest = {
   agentSpec?: AgentSpec;
 };
 
-export type SettingsSection = 'models' | 'connectors' | 'skills' | 'sandbox' | 'web-search';
+export type SettingsSection = 'models' | 'connectors' | 'skills' | 'sandbox' | 'web-search' | 'memory';
 
 export type HistoryAgentFilter = {
   agentId?: string;
