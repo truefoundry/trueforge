@@ -30,7 +30,7 @@ const SETTINGS_SECTIONS = [
   'skills',
   'sandboxProviders',
   'webSearch',
-  'memory',
+  'memoryProviders',
 ] as const satisfies readonly (keyof SettingsCapability)[];
 
 /**
