@@ -10,3 +10,4 @@ Make the list turns, list session events, and list turn events page size configu
 - `LIST_TURNS_PAGE_LIMIT_MAX` (default 25) sets the default and max `limit` for `GET /sessions/{session_id}/turns`.
 - Larger values return 400.
 - The `listTurns`, `listEvents`, `listTurnEvents`, and `listSessionEvents` server ports no longer take `limit`; the server setting controls the page size.
+- Chat history loading keeps fetching event pages until it reaches a complete user turn, regardless of page size.

@@ -3816,7 +3816,7 @@ describe('buildSnapshotFromSessionEvents', () => {
     expect(textsOf(withAll)).toEqual(['older', 'older reply', 'split', 'split-a', 'split-b', 'newest', 'newest reply']);
   });
 
-  it('keeps paging through a turn longer than the boundary page cap', async () => {
+  it('keeps paging until a turn split across many pages is complete', async () => {
     const longTurn: SessionEventItem[] = [
       {
         turnId: 't1',
@@ -3879,13 +3879,7 @@ describe('buildSnapshotFromSessionEvents', () => {
     const snapshot = await buildSnapshotFromSessionEvents(server, SESSION_ID);
     expect(snapshot.turns.map(turn => turn.id)).toEqual(['t2']);
 
-    // Ten pages land inside t1: nothing renders yet, but nothing is lost.
-    const midTurn = await prependOlderSessionHistory(server, SESSION_ID, snapshot);
-    expect(midTurn.turns.map(turn => turn.id)).toEqual(['t2']);
-    expect(midTurn.historyPagination?.hasOlder).toBe(true);
-    expect(midTurn.historyPagination?.pendingItemsAsc).toHaveLength(10);
-
-    const complete = await prependOlderSessionHistory(server, SESSION_ID, midTurn);
+    const complete = await prependOlderSessionHistory(server, SESSION_ID, snapshot);
     expect(complete.turns.map(turn => turn.id)).toEqual(['t1', 't2']);
     expect(complete.historyPagination).toEqual({ hasOlder: false });
     const assistant = projectSessionMessages(complete)[1];

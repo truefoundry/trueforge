@@ -192,9 +192,6 @@ export { CANCELLATION_REASON_CUSTOM_KEY } from './messageCustomMetadata.js';
  *   live uses `groupRootBaseline`.
  */
 
-/** Cap how many event pages initial load / load-older may chain for a group boundary. */
-const MAX_HISTORY_BOUNDARY_PAGES = 10;
-
 interface FetchSessionEventsOptions {
   /**
    * Newest turn in the listing window (initial load only). Lists that turn and
@@ -311,21 +308,18 @@ async function fetchSessionEventsWindow(
 ): Promise<SessionEventsWindow> {
   let itemsNewestFirst: GatewaySessionEventItem[] = [...(options?.pendingItemsAsc ?? [])].reverse();
   let pageToken = options?.pageToken;
-  let window = toSessionEventsWindow(itemsNewestFirst, { hasOlder: false });
-
-  for (let pageCount = 0; pageCount < MAX_HISTORY_BOUNDARY_PAGES; pageCount++) {
+  for (;;) {
     const page = await fetchSessionEventsPage(server, sessionId, {
       ...(options?.lastTurnId != null ? { lastTurnId: options.lastTurnId } : {}),
       ...(pageToken != null ? { pageToken } : {}),
     });
     itemsNewestFirst = [...itemsNewestFirst, ...page.itemsNewestFirst];
-    window = toSessionEventsWindow(itemsNewestFirst, page);
+    const window = toSessionEventsWindow(itemsNewestFirst, page);
     if (oldestCompleteTurnGroupState(window.itemsAsc) === 'user-group' || !window.hasOlder) {
       return window;
     }
     pageToken = window.olderPageToken;
   }
-  return window;
 }
 
 /**
