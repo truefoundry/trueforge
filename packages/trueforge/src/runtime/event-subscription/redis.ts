@@ -1,4 +1,5 @@
 import type { RedisClient } from '@truefoundry/trueforge-core/request-reply';
+import { randomUUID } from 'node:crypto';
 import { setTimeout as sleep } from 'node:timers/promises';
 import {
   StreamGoneError,
@@ -9,72 +10,102 @@ import {
   type SequencedEvent,
 } from '.';
 import { entryIdMilliseconds, eventIdSeekCursor, eventIdTimestampMs, isLegacySequenceEntryId } from './entryId';
-import { applyEventLogRestore, type AppendAfterTailResult, type RestoreLogOptions } from './restore';
+import { applyEventLogRestore, type RestoreLogOptions } from './restore';
 
 const SUBSCRIBE_STREAM_POLL_ITEMS_COUNT = 100;
 /** Delay between XREAD polls while a stream has no new events (a blocking XREAD would monopolize the shared connection). */
 const SUBSCRIBE_STREAM_POLL_SLEEP_INTERVAL_MS = 1_000;
 
+/** Lua helper shared by the seek scripts. Old entries have no id field; decoding is limited to those. */
+const PAYLOAD_ID_LUA = `
+local function payloadId(fields)
+  local data = nil
+  for j = 1, #fields, 2 do
+    if fields[j] == 'id' then return fields[j + 1] end
+    if fields[j] == 'data' then data = fields[j + 1] end
+  end
+  if data == nil then return nil end
+  local ok, obj = pcall(cjson.decode, data)
+  if ok and type(obj) == 'table' and type(obj['id']) == 'string' then
+    return obj['id']
+  end
+  return nil
+end
+`;
+
 /**
- * One bounded step of an event-id seek. The TS side loops, so Redis serves
- * other clients between batches.
+ * One bounded forward step to the first entry with a payload id. The TS side
+ * loops, so Redis serves other clients between batches.
  *
- * KEYS[1]=stream  ARGV[1]=from|after  ARGV[2]=payload id  ARGV[3]=exclusive start
- * ARGV[4]=batch  ARGV[5]=last match so far ('' = none)  ARGV[6]='1' on the first step
+ * KEYS[1]=stream  ARGV[1]=payload id  ARGV[2]=exclusive start  ARGV[3]=batch
+ * ARGV[4]='1' on the first step
  *
- * Returns {state, cursor, lastMatch}. `cursor` is an exclusive XREAD cursor.
- * more → keep going from `cursor` carrying `lastMatch`.
- * found → from: the entry before the first match. after: the last entry with the id.
+ * Returns {state, cursor}. `cursor` is an exclusive XREAD cursor.
+ * more → continue from `cursor`. found → the entry before the first match.
  * missing → the last entry seen (live-only resume).
  */
-const SEEK_EVENT_ID_STEP = `
-local mode, targetId, cursor, batch = ARGV[1], ARGV[2], ARGV[3], tonumber(ARGV[4])
-local lastMatch = ARGV[5]
+const SEEK_FIRST_STEP = `${PAYLOAD_ID_LUA}
+local targetId, cursor, batch = ARGV[1], ARGV[2], tonumber(ARGV[3])
 local entries = redis.call('XRANGE', KEYS[1], '(' .. cursor, '+', 'COUNT', batch)
 if #entries == 0 then
-  if ARGV[6] == '1' then
+  if ARGV[4] == '1' then
     -- Start was past the tip (e.g. a future ULID ms): park at the real tip so
     -- XREAD still sees later live appends instead of waiting above them.
     local tip = redis.call('XREVRANGE', KEYS[1], '+', '-', 'COUNT', 1)
     if tip[1] ~= nil then
-      return {'missing', tip[1][1], ''}
+      return {'missing', tip[1][1]}
     end
   end
-  if lastMatch ~= '' then
-    return {'found', lastMatch, ''}
-  end
-  return {'missing', cursor, ''}
+  return {'missing', cursor}
 end
 local previous = cursor
 for i = 1, #entries do
-  local entryId, fields = entries[i][1], entries[i][2]
-  local payloadId, data = nil, nil
-  for j = 1, #fields, 2 do
-    if fields[j] == 'id' then payloadId = fields[j + 1]; break end
-    if fields[j] == 'data' then data = fields[j + 1] end
+  if payloadId(entries[i][2]) == targetId then
+    return {'found', previous}
   end
-  -- Old entries have no id field; decoding is limited to those.
-  if payloadId == nil and data ~= nil then
-    local ok, obj = pcall(cjson.decode, data)
-    if ok and type(obj) == 'table' and type(obj['id']) == 'string' then
-      payloadId = obj['id']
-    end
-  end
-  if payloadId == targetId then
-    if mode == 'from' then
-      return {'found', previous, ''}
-    end
-    lastMatch = entryId
-  end
-  previous = entryId
+  previous = entries[i][1]
 end
 if #entries < batch then
-  if lastMatch ~= '' then
-    return {'found', lastMatch, ''}
-  end
-  return {'missing', previous, ''}
+  return {'missing', previous}
 end
-return {'more', previous, lastMatch}
+return {'more', previous}
+`;
+
+/**
+ * One bounded backward step to the last entry with a payload id. Walking down
+ * from the tip, the first match is the last one, so a recent cursor settles in one step.
+ *
+ * KEYS[1]=stream  ARGV[1]=payload id  ARGV[2]=exclusive floor  ARGV[3]=batch
+ * ARGV[4]=exclusive upper bound ('' = the tip)  ARGV[5]=tip seen so far ('' = none)
+ *
+ * Returns {state, cursor, tip}. found → the last entry with the id (XREAD cursor).
+ * more → continue below `cursor`. missing → `cursor` is the tip (live-only resume).
+ */
+const SEEK_LAST_STEP = `${PAYLOAD_ID_LUA}
+local targetId, floor, batch, upper, tip = ARGV[1], ARGV[2], tonumber(ARGV[3]), ARGV[4], ARGV[5]
+local high = '+'
+if upper ~= '' then high = '(' .. upper end
+local entries = redis.call('XREVRANGE', KEYS[1], high, '(' .. floor, 'COUNT', batch)
+if tip == '' then
+  if upper == '' and entries[1] ~= nil then
+    tip = entries[1][1]
+  else
+    local last = redis.call('XREVRANGE', KEYS[1], '+', '-', 'COUNT', 1)
+    if last[1] ~= nil then tip = last[1][1] end
+  end
+end
+for i = 1, #entries do
+  if payloadId(entries[i][2]) == targetId then
+    return {'found', entries[i][1], tip}
+  end
+end
+if #entries < batch then
+  if tip == '' then
+    return {'missing', '0-0', tip}
+  end
+  return {'missing', tip, tip}
+end
+return {'more', entries[#entries][1], tip}
 `;
 
 /**
@@ -103,78 +134,28 @@ end
 return 'ok'
 `;
 
-/**
- * Restore append. KEYS[1]=stream  ARGV[1]=expected tail id ('' = empty) ARGV[2]=ttl
- * ARGV[3..]=ms, event id, payload triples.
- *
- * Appends only while the tail is still the expected one.
- * Returns {'ok', lastEntryId} or 'stale'. The caller uses lastEntryId as the
- * expected tail of the next page.
- */
-const APPEND_AFTER_TAIL = `
-local tail = redis.call('XREVRANGE', KEYS[1], '+', '-', 'COUNT', 1)
-local tailId = ''
-if tail[1] ~= nil then
-  tailId = tail[1][1]
-end
-if tailId ~= ARGV[1] then
-  return 'stale'
-end
-local tailMs = string.match(tailId, '^%d+') or '0'
-local lastAdded = nil
-for i = 3, #ARGV, 3 do
-  local ms = ARGV[i]
-  if tonumber(tailMs) > tonumber(ms) then
-    ms = tailMs
-  end
-  lastAdded = redis.call('XADD', KEYS[1], ms .. '-*', 'id', ARGV[i + 1], 'data', ARGV[i + 2])
-  tailMs = string.match(lastAdded, '^%d+')
-end
-local ttl = tonumber(ARGV[2])
-if ttl > 0 then
-  redis.call('EXPIRE', KEYS[1], ttl)
-end
-if lastAdded == nil then
-  return 'stale'
-end
-return {'ok', lastAdded}
-`;
-
 function ttlArgument(streamTTLSeconds: number | undefined): string {
   return String(streamTTLSeconds !== undefined && streamTTLSeconds > 0 ? streamTTLSeconds : 0);
-}
-
-function parseAppendReply(value: unknown, streamId: string): AppendAfterTailResult {
-  if (value === 'stale') {
-    return { status: 'stale' };
-  }
-  if (Array.isArray(value) && value.length === 2) {
-    const status: unknown = value[0];
-    const tailEntryId: unknown = value[1];
-    if (status === 'ok' && typeof tailEntryId === 'string') {
-      return { status: 'ok', tailEntryId };
-    }
-  }
-  throw new Error(`Unexpected stream restore reply on ${streamId}`);
 }
 
 interface SeekStep {
   state: 'more' | 'found' | 'missing';
   cursor: string;
-  lastMatch: string;
+  /** Only set by the backward step. */
+  tip: string;
 }
 
 function parseSeekReply(value: unknown): SeekStep {
-  if (Array.isArray(value) && value.length === 3) {
+  if (Array.isArray(value) && (value.length === 2 || value.length === 3)) {
     const state: unknown = value[0];
     const cursor: unknown = value[1];
-    const lastMatch: unknown = value[2];
+    const tip: unknown = value[2] ?? '';
     if (
       (state === 'more' || state === 'found' || state === 'missing') &&
       typeof cursor === 'string' &&
-      typeof lastMatch === 'string'
+      typeof tip === 'string'
     ) {
-      return { state, cursor, lastMatch };
+      return { state, cursor, tip };
     }
   }
   throw new Error('Unexpected event-id seek reply');
@@ -191,7 +172,7 @@ export class RedisEventSubscription<T extends { id: string }> implements EventSu
     await applyEventLogRestore({
       readPages: options.readPages,
       readTailEntryId: () => this.readTailEntryId(),
-      appendAfterTail: batch => this.appendAfterTail({ ...batch, streamTTLSeconds: options.streamTTLSeconds }),
+      installIfAbsent: pages => this.installIfAbsent(pages, options.streamTTLSeconds),
       refreshTtl: () => this.refreshTtl(options.streamTTLSeconds),
     });
   }
@@ -310,42 +291,44 @@ export class RedisEventSubscription<T extends { id: string }> implements EventSu
   }
 
   /**
-   * Jump near the ULID millisecond (or stream start), then walk forward one
-   * bounded Lua step at a time until the seek settles. Returns an exclusive
-   * XREAD cursor. See SEEK_EVENT_ID_STEP. An aborted signal ends the walk early.
+   * Bound the walk at the ULID millisecond (or stream start), then run bounded
+   * Lua steps until the seek settles. `from` walks up to the first match; `after`
+   * walks down from the tip to the last one. Returns an exclusive XREAD cursor.
+   * An aborted signal ends the walk early.
    */
   private async seekEventIdCursor(input: {
     mode: 'from' | 'after';
     eventId: string;
     signal?: AbortSignal | undefined;
   }): Promise<{ cursor: string; found: boolean }> {
-    let cursor = eventIdSeekCursor({
+    const floor = eventIdSeekCursor({
       eventId: input.eventId,
       firstEntryId: await this.firstEntryId(),
     });
-    let lastMatch = '';
+    const batch = String(SUBSCRIBE_STREAM_POLL_ITEMS_COUNT);
+    let cursor = input.mode === 'from' ? floor : '';
+    let tip = '';
     let first = true;
     while (input.signal?.aborted !== true) {
-      const reply: unknown = await this.redis.eval(SEEK_EVENT_ID_STEP, {
-        keys: [this.streamId],
-        arguments: [
-          input.mode,
-          input.eventId,
-          cursor,
-          String(SUBSCRIBE_STREAM_POLL_ITEMS_COUNT),
-          lastMatch,
-          first ? '1' : '0',
-        ],
-      });
+      const reply: unknown =
+        input.mode === 'from'
+          ? await this.redis.eval(SEEK_FIRST_STEP, {
+              keys: [this.streamId],
+              arguments: [input.eventId, cursor, batch, first ? '1' : '0'],
+            })
+          : await this.redis.eval(SEEK_LAST_STEP, {
+              keys: [this.streamId],
+              arguments: [input.eventId, floor, batch, cursor, tip],
+            });
       const step = parseSeekReply(reply);
       if (step.state !== 'more') {
         return { cursor: step.cursor, found: step.state === 'found' };
       }
       cursor = step.cursor;
-      lastMatch = step.lastMatch;
+      tip = step.tip;
       first = false;
     }
-    return { cursor, found: false };
+    return { cursor: cursor === '' ? floor : cursor, found: false };
   }
 
   private async readAfter(
@@ -422,17 +405,54 @@ export class RedisEventSubscription<T extends { id: string }> implements EventSu
     }
   }
 
-  private async appendAfterTail(input: {
-    tailEntryId: string | undefined;
-    events: T[];
-    streamTTLSeconds: number | undefined;
-  }): Promise<AppendAfterTailResult> {
-    const triples = input.events.flatMap(event => [this.entryMillisecondFor(event), event.id, JSON.stringify(event)]);
-    const reply: unknown = await this.redis.eval(APPEND_AFTER_TAIL, {
-      keys: [this.streamId],
-      arguments: [input.tailEntryId ?? '', ttlArgument(input.streamTTLSeconds), ...triples],
-    });
-    return parseAppendReply(reply, this.streamId);
+  /**
+   * Writes the log to a private key, then swaps it in only if the stream is still
+   * absent. A lost swap deletes the copy. The build is pipelined per page; the
+   * swap is the atomic step, so a reader never sees a prefix.
+   */
+  private async installIfAbsent(
+    pages: AsyncIterable<readonly T[]>,
+    streamTTLSeconds: number | undefined,
+  ): Promise<boolean> {
+    const tempKey = `${this.streamId}:restore:${randomUUID()}`;
+    let previousMs = 0;
+    let wrote = false;
+    try {
+      for await (const page of pages) {
+        const writes: Promise<string>[] = [];
+        for (const event of page) {
+          const ms = Math.max(Number(this.entryMillisecondFor(event)), previousMs);
+          previousMs = ms;
+          writes.push(this.redis.xAdd(tempKey, `${String(ms)}-*`, { id: event.id, data: JSON.stringify(event) }));
+        }
+        if (writes.length === 0) {
+          continue;
+        }
+        await Promise.all(writes);
+        wrote = true;
+        await this.expireKey(tempKey, streamTTLSeconds);
+      }
+      if (!wrote) {
+        return true;
+      }
+      // Restart the clock so a slow read does not expire the key at the moment of the swap.
+      await this.expireKey(tempKey, streamTTLSeconds);
+      const renamed = await this.redis.renameNX(tempKey, this.streamId);
+      if (renamed === 1) {
+        return true;
+      }
+      await this.redis.del(tempKey);
+      return false;
+    } catch (error) {
+      await this.redis.del(tempKey).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  private async expireKey(key: string, streamTTLSeconds: number | undefined): Promise<void> {
+    if (streamTTLSeconds !== undefined && streamTTLSeconds > 0) {
+      await this.redis.expire(key, streamTTLSeconds);
+    }
   }
 
   private entryMillisecondFor(event: T): string {

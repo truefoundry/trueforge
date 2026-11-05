@@ -58,6 +58,25 @@ describeRedis('RedisEventSubscription (EventSubscription contract)', () => {
 
       const entries = await client.xRange(streamId, '-', '+');
       expect(entries.map(entry => entry.message)).toEqual([{ id: 'evt-1', data: JSON.stringify(event) }]);
+      expect(await client.keys(`${streamId}:restore:*`)).toEqual([]);
+    });
+
+    it('does not replace a stream that appears before the swap', async () => {
+      const registry = new EventSubscriptionRegistry<TestEvent>(client);
+      const live: TestEvent = { id: 'evt-live', type: 'test.event', payload: { index: 0, text: 'live' } };
+      await registry.get(streamId).put(live, { streamTTLSeconds: 60 });
+
+      await registry.get(streamId).restoreLog({
+        readPages: async function* () {
+          await Promise.resolve();
+          yield [event];
+        },
+        streamTTLSeconds: 60,
+      });
+
+      const entries = await client.xRange(streamId, '-', '+');
+      expect(entries.map(entry => entry.message)).toEqual([{ id: 'evt-live', data: JSON.stringify(live) }]);
+      expect(await client.keys(`${streamId}:restore:*`)).toEqual([]);
     });
 
     it('still finds an id in an entry that has no id field', async () => {

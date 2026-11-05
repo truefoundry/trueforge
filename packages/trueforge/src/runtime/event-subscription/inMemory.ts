@@ -18,7 +18,7 @@ import {
   isEntryAfterCursor,
   isLegacySequenceEntryId,
 } from './entryId';
-import { applyEventLogRestore, type AppendAfterTailResult, type RestoreLogOptions } from './restore';
+import { applyEventLogRestore, type RestoreLogOptions } from './restore';
 
 function ttlDeadline(streamTTLSeconds: number | undefined): number | undefined {
   return streamTTLSeconds !== undefined && streamTTLSeconds > 0 ? Date.now() + streamTTLSeconds * 1_000 : undefined;
@@ -60,28 +60,25 @@ export class InMemoryEventStreamStore<T extends { id: string }> {
     this.changes.emit(input.streamId);
   }
 
-  /** Restore append: appends only while the tail is still `tailEntryId`. */
-  appendAfterTail(input: {
-    streamId: string;
-    tailEntryId: string | undefined;
-    events: T[];
-    streamTTLSeconds: number | undefined;
-  }): AppendAfterTailResult {
-    const stream = this.getLiveStream(input.streamId) ?? { events: [] };
-    if (stream.events[stream.events.length - 1]?.entryId !== input.tailEntryId) {
-      return { status: 'stale' };
+  /**
+   * Publishes a fully built log only while the stream is still absent.
+   * The check and the insert are synchronous, so a concurrent put cannot land in between.
+   */
+  installIfAbsent(input: { streamId: string; events: readonly T[]; streamTTLSeconds: number | undefined }): boolean {
+    if (input.events.length === 0) {
+      return true;
     }
-    this.streams.set(input.streamId, stream);
+    const stream: InMemoryStream<T> = { events: [] };
     for (const event of input.events) {
       this.push(stream, event);
     }
+    if (this.getLiveStream(input.streamId) !== undefined) {
+      return false;
+    }
+    this.streams.set(input.streamId, stream);
     this.refreshStreamTtl(input.streamId, input.streamTTLSeconds);
     this.changes.emit(input.streamId);
-    const written = stream.events[stream.events.length - 1];
-    if (written === undefined) {
-      throw new Error('Stream restore append wrote no entry');
-    }
-    return { status: 'ok', tailEntryId: written.entryId };
+    return true;
   }
 
   readTailEntryId(streamId: string): string | undefined {
@@ -208,14 +205,17 @@ export class InMemoryEventSubscription<T extends { id: string }> implements Even
     return applyEventLogRestore({
       readPages: options.readPages,
       readTailEntryId: () => Promise.resolve(this.store.readTailEntryId(this.streamId)),
-      appendAfterTail: batch =>
-        Promise.resolve(
-          this.store.appendAfterTail({
-            streamId: this.streamId,
-            ...batch,
-            streamTTLSeconds: options.streamTTLSeconds,
-          }),
-        ),
+      installIfAbsent: async pages => {
+        const events: T[] = [];
+        for await (const page of pages) {
+          events.push(...page);
+        }
+        return this.store.installIfAbsent({
+          streamId: this.streamId,
+          events,
+          streamTTLSeconds: options.streamTTLSeconds,
+        });
+      },
       refreshTtl: () => {
         this.store.refreshStreamTtl(this.streamId, options.streamTTLSeconds);
         return Promise.resolve();

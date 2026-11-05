@@ -18,18 +18,18 @@ async function* pagesOf(...pages: Row[][]): AsyncGenerator<Row[]> {
 }
 
 describe('applyEventLogRestore', () => {
-  it('appends every page of the log to an empty stream, chaining the expected tail', async () => {
-    const batches: { tailEntryId: string | undefined; events: Row[] }[] = [];
-    const writtenTailIds = ['2-0', '4-0'];
+  it('passes every page to the install when the stream is missing', async () => {
+    const pages: Row[][] = [];
     let refreshed = 0;
 
     await applyEventLogRestore({
       readPages: () => pagesOf([created, paused], [], [running, done]),
       readTailEntryId: () => Promise.resolve(undefined),
-      appendAfterTail: batch => {
-        batches.push(batch);
-        const tailEntryId = writtenTailIds.shift();
-        return Promise.resolve(tailEntryId === undefined ? { status: 'stale' } : { status: 'ok', tailEntryId });
+      installIfAbsent: async events => {
+        for await (const page of events) {
+          pages.push([...page]);
+        }
+        return true;
       },
       refreshTtl: () => {
         refreshed += 1;
@@ -37,23 +37,20 @@ describe('applyEventLogRestore', () => {
       },
     });
 
-    expect(batches).toEqual([
-      { tailEntryId: undefined, events: [created, paused] },
-      { tailEntryId: '2-0', events: [running, done] },
-    ]);
+    expect(pages).toEqual([[created, paused], [], [running, done]]);
     expect(refreshed).toBe(0);
   });
 
   it('leaves an existing stream alone and only refreshes its TTL', async () => {
-    let appended = 0;
+    let installed = 0;
     let refreshed = 0;
 
     await applyEventLogRestore({
       readPages: () => pagesOf([created, paused, running]),
       readTailEntryId: () => Promise.resolve('2-0'),
-      appendAfterTail: () => {
-        appended += 1;
-        return Promise.resolve({ status: 'stale' });
+      installIfAbsent: () => {
+        installed += 1;
+        return Promise.resolve(true);
       },
       refreshTtl: () => {
         refreshed += 1;
@@ -61,28 +58,23 @@ describe('applyEventLogRestore', () => {
       },
     });
 
-    expect(appended).toBe(0);
+    expect(installed).toBe(0);
     expect(refreshed).toBe(1);
   });
 
-  it('stops when a concurrent writer moves the tail and refreshes the TTL', async () => {
-    const batches: { tailEntryId: string | undefined; events: Row[] }[] = [];
+  it('refreshes the TTL when the install loses the race', async () => {
     let refreshed = 0;
 
     await applyEventLogRestore({
-      readPages: () => pagesOf([created], [paused]),
+      readPages: () => pagesOf([created]),
       readTailEntryId: () => Promise.resolve(undefined),
-      appendAfterTail: batch => {
-        batches.push(batch);
-        return Promise.resolve({ status: 'stale' });
-      },
+      installIfAbsent: () => Promise.resolve(false),
       refreshTtl: () => {
         refreshed += 1;
         return Promise.resolve();
       },
     });
 
-    expect(batches).toEqual([{ tailEntryId: undefined, events: [created] }]);
     expect(refreshed).toBe(1);
   });
 });

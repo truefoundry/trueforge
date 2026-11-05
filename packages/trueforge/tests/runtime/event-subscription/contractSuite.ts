@@ -206,6 +206,22 @@ export function runEventSubscriptionContractSuite(
     expect(await collect(registry, streamId, sent.length)).toEqual(sent);
   });
 
+  it('keeps a single copy when two restores run together', async () => {
+    const { registry } = setup();
+    const streamId = nextStreamId();
+    const sent = [makeEvent(0), makeEvent(1), makeEvent(2)];
+    const restore = () =>
+      registry.get(streamId).restoreLog({
+        readPages: () => durablePages(sent),
+        streamTTLSeconds: STREAM_TTL_SECONDS,
+      });
+    await Promise.all([restore(), restore()]);
+
+    const extra = makeEvent(3);
+    await registry.get(streamId).put(extra, { streamTTLSeconds: STREAM_TTL_SECONDS });
+    expect(await collect(registry, streamId, sent.length + 1)).toEqual([...sent, extra]);
+  });
+
   it('poll parked at the tip receives events put after it subscribed', async () => {
     const { registry } = setup();
     const streamId = nextStreamId();
@@ -290,6 +306,23 @@ export function runEventSubscriptionContractSuite(
 
     await expect(producer.hasEventId('evt-1')).resolves.toBe(true);
     await expect(producer.hasEventId('evt-missing')).resolves.toBe(false);
+  });
+
+  it('after finds the last copy of an id several batches below the tip', async () => {
+    const { registry } = setup();
+    const streamId = nextStreamId();
+    const producer = registry.get(streamId);
+    const shell = makeEvent(0, 'evt-message');
+    const delta = { ...shell, payload: { index: 1, text: 'delta' } };
+    const later = Array.from({ length: 250 }, (_, index) => makeEvent(index + 2));
+    await producer.put(shell, { streamTTLSeconds: STREAM_TTL_SECONDS });
+    await producer.put(delta, { streamTTLSeconds: STREAM_TTL_SECONDS });
+    for (const event of later) {
+      await producer.put(event, { streamTTLSeconds: STREAM_TTL_SECONDS });
+    }
+
+    const received = await collect(registry, streamId, later.length, { afterEventId: shell.id });
+    expect(received).toEqual(later);
   });
 
   it('seeks past large payloads', async () => {
