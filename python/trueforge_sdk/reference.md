@@ -2852,7 +2852,7 @@ client.sessions.list_turns(
 <dl>
 <dd>
 
-**limit:** `typing.Optional[int]` — Page size. Defaults to 25, max 25.
+**limit:** `typing.Optional[int]` — Page size. Defaults to and is capped at the server-configured maximum.
     
 </dd>
 </dl>

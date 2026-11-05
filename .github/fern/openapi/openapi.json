@@ -10333,14 +10333,12 @@
             }
           },
           {
-            "description": "Page size. Defaults to 25, max 25.",
+            "description": "Page size. Defaults to and is capped at the server-configured maximum.",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
-              "default": 25,
-              "description": "Page size. Defaults to 25, max 25.",
-              "maximum": 25,
+              "description": "Page size. Defaults to and is capped at the server-configured maximum.",
               "minimum": 1,
               "type": "integer"
             }
