@@ -17,6 +17,7 @@ import type { WebSearchProviderBase, WebSearchProviderCatalogEntry } from '../..
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import { useToasterOptional } from '../ToasterContainer.js';
 import ConfigureWebSearchForm, { type WebSearchConfigDraft } from './ConfigureWebSearchForm.js';
+import ConfirmDeleteDialog from './ConfirmDeleteDialog.js';
 
 const WebSearchSettings = () => {
   const catalogServer = useOptionalCatalogServer();
@@ -35,6 +36,7 @@ const WebSearchSettings = () => {
   // `null` until the tenant switch loads, so the control is not rendered half-known.
   const [tenantEnabled, setTenantEnabled] = useState<boolean | null>(null);
   const [tenantBusy, setTenantBusy] = useState(false);
+  const [confirmOff, setConfirmOff] = useState(false);
   const [providers, setProviders] = useState<WebSearchProviderBase[]>([]);
   const [catalog, setCatalog] = useState<WebSearchProviderCatalogEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -205,7 +207,12 @@ const WebSearchSettings = () => {
             disabled={tenantBusy}
             aria-label="Allow web search"
             onCheckedChange={next => {
-              void handleTenantToggle(next);
+              // Turning it back on is reversible and does not take access away.
+              if (next) {
+                void handleTenantToggle(true);
+                return;
+              }
+              setConfirmOff(true);
             }}
           />
         </div>
@@ -326,6 +333,23 @@ const WebSearchSettings = () => {
           </div>
         )}
       </div>
+
+      {confirmOff ? (
+        <ConfirmDeleteDialog
+          title="Turn off web search?"
+          description="Existing chats, agents, and schedules that already use web search keep access. New chats and agents created after this do not. You can turn this back on later."
+          confirmLabel="Turn off"
+          busy={tenantBusy}
+          onCancel={() => {
+            if (tenantBusy) return;
+            setConfirmOff(false);
+          }}
+          onConfirm={() => {
+            if (tenantBusy) return;
+            void handleTenantToggle(false).finally(() => setConfirmOff(false));
+          }}
+        />
+      ) : null}
 
       <ConfigureWebSearchForm
         open={formOpen}
