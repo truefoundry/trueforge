@@ -38,6 +38,7 @@ import {
   tryAuthenticate,
 } from './auth/middleware';
 import type { McpCatalog } from './catalog/McpCatalog';
+import type { MemoryCatalog } from './catalog/MemoryCatalog';
 import type { ModelCatalog } from './catalog/ModelCatalog';
 import type { SandboxCatalog } from './catalog/SandboxCatalog';
 import type { SkillCatalog } from './catalog/SkillCatalog';
@@ -47,6 +48,7 @@ import type { IAccessControlStore } from './db/accessControlStore';
 import type { AgentRecord, IAgentStore } from './db/agentStore';
 import type { IConfigurationStore } from './db/configurationStore';
 import type { IMcpServerWithAuthStore } from './db/mcpServerStore';
+import type { IMemoryProviderStore } from './db/memoryProviderStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from './db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from './db/sandboxProviderStore';
@@ -60,7 +62,7 @@ import type { HttpMetrics } from './http/prometheus';
 import { createClientCertificateMiddleware } from './http/tls';
 import { runWithLogContext, updateLogContext, type LogContext } from './logger';
 import type { IOAuthTokenStore } from './mcp/auth/types';
-import type { ConfiguredMemory } from './memory/memoryFromConfig';
+import type { MemoryProviderCache } from './memory/providers';
 import { PACKAGE_VERSION } from './packageVersion';
 import { OPENAPI_DOCUMENT_TAGS } from './routes/openapiTags';
 import type { ActiveTurnRegistry } from './runtime/activeTurns';
@@ -287,6 +289,7 @@ export interface ServerDeps<TTransaction> {
   skillCatalog: SkillCatalog;
   sandboxCatalog: SandboxCatalog;
   webSearchCatalog: WebSearchCatalog;
+  memoryCatalog: MemoryCatalog;
   /** Per-request store: DB singleton, or a token-bound TrueFoundry store in TrueFoundry mode. */
   resolveModelProviderStore: (input: ResolveModelProviderStoreInput) => IModelProviderStore<TTransaction>;
   /**
@@ -302,10 +305,12 @@ export interface ServerDeps<TTransaction> {
    */
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore<TTransaction>;
+  /** Per-request store: DB singleton, or the platform's env-backed provider in TrueFoundry mode. */
+  resolveMemoryProviderStore: (c: Context) => IMemoryProviderStore<TTransaction>;
   /** Tenant-wide feature switches; DB-backed in every mode. */
   resolveConfigurationStore: (c: Context) => IConfigurationStore<TTransaction>;
-  /** Long-term memory (TrueFoundry mode with `MEMORY_ENABLED`); undefined otherwise. */
-  memory: ConfiguredMemory | undefined;
+  /** Shared across turns so memory providers keep their caches. */
+  memoryProviders: MemoryProviderCache;
   /** Per-request store: DB git skills, or TrueFoundry registry catalog in TrueFoundry mode. */
   resolveSkillStore: (input: ResolveSkillStoreInput) => ISkillStore<TTransaction>;
   /**
@@ -412,6 +417,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       createCapabilitiesRouter({
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
+        resolveMemoryProviderStore: deps.resolveMemoryProviderStore,
         resolveConfigurationStore: deps.resolveConfigurationStore,
         userStore: deps.userStore,
         withTransaction: deps.withTransaction,
@@ -441,6 +447,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         skillCatalog: deps.skillCatalog,
         sandboxCatalog: deps.sandboxCatalog,
         webSearchCatalog: deps.webSearchCatalog,
+        memoryCatalog: deps.memoryCatalog,
       }),
       authMiddleware,
     ),
@@ -491,8 +498,8 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
+        resolveMemoryProviderStore: deps.resolveMemoryProviderStore,
         resolveConfigurationStore: deps.resolveConfigurationStore,
-        memory: deps.memory,
         withTransaction: deps.withTransaction,
         resolveRequestContext,
         authorizer: deps.authorizer,
@@ -564,6 +571,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
+        resolveMemoryProviderStore: deps.resolveMemoryProviderStore,
         resolveAgentStore: deps.resolveAgentStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
@@ -585,8 +593,8 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
+        resolveMemoryProviderStore: deps.resolveMemoryProviderStore,
         resolveConfigurationStore: deps.resolveConfigurationStore,
-        memory: deps.memory,
         resolveRequestContext,
         authorizer: deps.authorizer,
       }),
@@ -636,8 +644,8 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
+        resolveMemoryProviderStore: deps.resolveMemoryProviderStore,
         resolveConfigurationStore: deps.resolveConfigurationStore,
-        memory: deps.memory,
         redis: deps.redis,
         requestReplyRouter: deps.requestReplyRouter,
         resolveRequestContext,
@@ -664,7 +672,9 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
-        memory: deps.memory,
+        resolveMemoryProviderStore: deps.resolveMemoryProviderStore,
+        resolveConfigurationStore: deps.resolveConfigurationStore,
+        memoryProviders: deps.memoryProviders,
         logger: deps.logger,
         resolveRequestContext,
         authorizer: deps.authorizer,

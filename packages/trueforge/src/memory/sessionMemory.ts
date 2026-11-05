@@ -3,8 +3,8 @@ import { memory, type AgentCapability, type ScopedMemory } from '@truefoundry/tr
 import { estimateCharactersForTokens, estimateTokensForString } from '@truefoundry/trueforge-core/core/llm/usage';
 import type { Logger } from 'winston';
 import type { IAgentStore } from '../db/agentStore';
-import type { ConfiguredMemory } from './memoryFromConfig';
-import { isTenantMemoryEnabled } from './MemorySettings';
+import type { MemoryProvider } from './MemoryProvider';
+import { resolveTenantMemoryProvider, type TenantMemoryDeps } from './providers';
 import { CREATE_AGENT_SESSION_METADATA_KEY, resolveMemoryScope, type MemoryScope } from './scope';
 
 /** Session start waits at most this long for the user summary, then continues without it. */
@@ -16,10 +16,10 @@ export const MEMORY_SUMMARY_TRUNCATION_MARKER = '…[truncated]';
 const INTERNAL_TAG = /<\/?tfy-internal>/gi;
 
 /**
- * Memory for one turn of a session, or undefined when memory doesn't apply: off for the deployment
- * or tenant, a scheduled session, an agent whose spec has memory off, or a non-UI session without an
- * agent. The scope comes from the session (tenant, agent, creator), never from model input, so the
- * tools reach exactly the memory ingestion writes to.
+ * Memory for one turn of a session, or undefined when memory doesn't apply: the tenant has no
+ * provider or has its switch off, a scheduled session, an agent whose spec has memory off, or a
+ * non-UI session without an agent. The scope comes from the session (tenant, agent, creator), never
+ * from model input, so the tools reach exactly the memory ingestion writes to.
  *
  * The summary is fetched only when a turn starts from an empty context and is loaded into it; later
  * turns on that branch replay it from there, so the memory provider isn't called again for it.
@@ -29,7 +29,7 @@ export async function resolveSessionMemory({
   tenantId,
   record,
   isSessionStart,
-  memory: configured,
+  memory: tenantMemory,
   agentStore,
   logger,
   summaryTimeoutMs = MEMORY_SUMMARY_TIMEOUT_MS,
@@ -39,21 +39,23 @@ export async function resolveSessionMemory({
   record: Pick<SessionRecord, 'agent' | 'created_by_subject' | 'metadata' | 'source'>;
   /** The turn starts from an empty context: a session's first turn, or a new root turn. */
   isSessionStart: boolean;
-  memory: ConfiguredMemory | undefined;
+  /** Undefined for sessions that never use memory (scheduled runs). */
+  memory: TenantMemoryDeps | undefined;
   agentStore: Pick<IAgentStore, 'getAgent'>;
   logger: Logger;
   summaryTimeoutMs?: number;
 }): Promise<AgentCapability | undefined> {
-  if (configured === undefined || record.source !== null) {
+  if (tenantMemory === undefined || record.source !== null) {
     return undefined;
   }
-  const { provider, settings } = configured;
+  let provider: MemoryProvider;
   let scope: MemoryScope;
   try {
-    const tenantAllows = await isTenantMemoryEnabled(settings, tenantId);
-    if (!tenantAllows) {
+    const tenantProvider = await resolveTenantMemoryProvider({ tenant_id: tenantId, ...tenantMemory });
+    if (tenantProvider === undefined) {
       return undefined;
     }
+    provider = tenantProvider;
     const agentId = record.agent.type === 'reference' ? record.agent.id : null;
     const agentMemoryEnabled =
       agentId === null
@@ -78,12 +80,7 @@ export async function resolveSessionMemory({
 
   let sessionStartMemory: string | undefined;
   if (isSessionStart) {
-    sessionStartMemory = await fetchSessionStartSummary({
-      provider: configured.provider,
-      scope,
-      timeoutMs: summaryTimeoutMs,
-      logger,
-    });
+    sessionStartMemory = await fetchSessionStartSummary({ provider, scope, timeoutMs: summaryTimeoutMs, logger });
   } else {
     sessionStartMemory = undefined;
   }
@@ -121,7 +118,7 @@ async function fetchSessionStartSummary({
   timeoutMs,
   logger,
 }: {
-  provider: ConfiguredMemory['provider'];
+  provider: MemoryProvider;
   scope: MemoryScope;
   timeoutMs: number;
   logger: Logger;

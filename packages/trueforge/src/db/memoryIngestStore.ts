@@ -55,8 +55,8 @@ export interface MemoryIngestModelMessage {
  * bounds the latest turn's start; turns finish within the execution timeout.
  */
 export interface ListMemoryIngestCandidatesInput {
-  /** Only sessions of these tenants (non-empty), the ones with memory on; undefined means every tenant. */
-  tenant_ids: readonly string[] | undefined;
+  /** Only sessions of these tenants (non-empty), the ones with memory on. */
+  tenant_ids: readonly string[];
   /** Any session updated at or after this instant. */
   recent_since: Date;
   /**
