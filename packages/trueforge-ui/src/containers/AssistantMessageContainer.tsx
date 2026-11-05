@@ -140,7 +140,7 @@ export function AssistantMessageContainer() {
                 return <AssistantLeafPartContainer part={part} />;
               default:
                 if (isParallelToolGroupPart(part)) {
-                  return <ToolGroupContainer group={part as ThreadGroupPart}>{children}</ToolGroupContainer>;
+                  return <ToolGroupContainer group={part}>{children}</ToolGroupContainer>;
                 }
                 return null;
             }

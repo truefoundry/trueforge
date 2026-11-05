@@ -31,6 +31,26 @@ describe('parallelToolGroups', () => {
     expect(parallelGroupKeyForPart({ part: parts[3]!, parts, parallelToolGroups })).toBeNull();
   });
 
+  it('keeps ask-user calls out of parallel groups and their count', () => {
+    const parts = [
+      { type: 'tool-call', toolCallId: 'a', toolName: 'one' },
+      { type: 'tool-call', toolCallId: 'ask', toolName: 'ask_user_question' },
+      { type: 'tool-call', toolCallId: 'b', toolName: 'two' },
+      { type: 'tool-call', toolCallId: 'c', toolName: 'three' },
+      { type: 'tool-call', toolCallId: 'ask2', toolName: 'ask_user_question' },
+    ];
+    const parallelToolGroups = { a: 'm1', ask: 'm1', b: 'm1', c: 'm2', ask2: 'm2' };
+
+    // m2 has one real tool plus an ask-user prompt, so it stays ungrouped.
+    expect(parts.map(part => parallelGroupKeyForPart({ part, parts, parallelToolGroups }))).toEqual([
+      'group-parallel-m1',
+      null,
+      'group-parallel-m1',
+      null,
+      null,
+    ]);
+  });
+
   it('detects parallel group part types', () => {
     expect(isParallelToolGroupPart({ type: 'group-parallel-m1' })).toBe(true);
     expect(isParallelToolGroupPart({ type: 'tool-call' })).toBe(false);

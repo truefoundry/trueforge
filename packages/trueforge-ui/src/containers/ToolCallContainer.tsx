@@ -5,16 +5,12 @@ import {
   MessagePrimitive,
   useAuiState,
   useToolCallElapsed,
-  type EnrichedPartState,
   type PartState,
   type ToolApprovalResponse,
   type ToolCallMessagePartComponent,
   type ToolCallMessagePartProps,
 } from '@assistant-ui/react';
-import {
-  CONTEXT_COMPACTION_DATA_NAME,
-  useTrueForgeRespondToToolApproval,
-} from '@truefoundry/trueforge-assistant-ui-runtime';
+import { useTrueForgeRespondToToolApproval } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useCallback, useState } from 'react';
 
 import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
@@ -46,34 +42,13 @@ import {
   toStatus,
 } from '../utils/toolCallParsing.js';
 import { useRegisterApprovalExpand } from './approvalFocus.js';
-import { AssistantTextContainer } from './AssistantTextContainer.js';
-import { ContextCompactionContainer } from './ContextCompactionContainer.js';
-import { MessageImageContainer } from './MessageImageContainer.js';
+import { AssistantLeafPartContainer } from './AssistantLeafPartContainer.js';
 import { NestedApprovalBridgeContext, useNestedApprovalBridge } from './nestedApprovalBridge.js';
 import { SandboxToolCallContainer } from './SandboxToolCallContainer.js';
 import { useSessionReplay } from './sessionReplayContext.js';
 import { ToolApprovalContainer } from './ToolApprovalContainer.js';
 import { ToolCallContentBlockContainer } from './ToolCallContentBlockContainer.js';
-import { ToolGroupContainer, type ThreadGroupPart } from './ToolGroupContainer.js';
-
-function NestedLeafPart({ part }: { part: EnrichedPartState }) {
-  switch (part.type) {
-    case 'text':
-    case 'reasoning':
-      return <AssistantTextContainer />;
-    case 'image':
-      return <MessageImageContainer />;
-    case 'tool-call':
-      return <ToolCallContainer {...part} />;
-    case 'data':
-      if (part.name === CONTEXT_COMPACTION_DATA_NAME) {
-        return <ContextCompactionContainer />;
-      }
-      return null;
-    default:
-      return null;
-  }
-}
+import { ToolGroupContainer } from './ToolGroupContainer.js';
 
 function NestedSubAgentAssistantMessage() {
   const AssistantMessageBubble = useSlot('AssistantMessageBubble');
@@ -94,7 +69,7 @@ function NestedSubAgentAssistantMessage() {
           <MessagePrimitive.GroupedParts groupBy={groupBy} indicator="never">
             {({ part, children }) => {
               if (isParallelToolGroupPart(part)) {
-                return <ToolGroupContainer group={part as ThreadGroupPart}>{children}</ToolGroupContainer>;
+                return <ToolGroupContainer group={part}>{children}</ToolGroupContainer>;
               }
               if (
                 part.type === 'text' ||
@@ -103,7 +78,7 @@ function NestedSubAgentAssistantMessage() {
                 part.type === 'image' ||
                 part.type === 'data'
               ) {
-                return <NestedLeafPart part={part} />;
+                return <AssistantLeafPartContainer part={part} />;
               }
               return null;
             }}

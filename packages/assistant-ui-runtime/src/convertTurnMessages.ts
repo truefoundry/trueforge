@@ -1081,16 +1081,17 @@ function withParallelToolGroups(update: TurnStreamUpdate, parallelToolGroups: Pa
   };
 }
 
-// When a turn resumes after an approval or tool response, it starts from a baseline so only this group's model
-// messages are folded; otherwise we fold every root model message seen so far.
+// The fold holds the whole session, but a live bubble shows only the current turn group (user turn plus any
+// approval/response resumes). When a baseline is known we drop ids from earlier groups so old answers don't leak in;
+// without one we fold every root model message.
 function rootIdsForStream(foldState: PeerThreadFoldState, groupRootBaseline: readonly string[] | undefined): string[] {
   return groupRootBaseline != null
     ? rootModelMessageIdsSinceBaseline(foldState, groupRootBaseline)
     : [...(foldState.threads.get(ROOT_THREAD_ID)?.modelMessageIds ?? [])];
 }
 
-// Stream yields all need the same fold, so we build it once here to keep content and its parallel groups from
-// the same set of model message ids.
+// Every live yield (each delta, cancel, approval/response pause, sandbox tail) needs the current group's parts plus
+// their parallel groups; building both here from one id list keeps them in sync and keeps existing metadata intact.
 function buildRootContentUpdate(
   foldState: PeerThreadFoldState,
   groupRootBaseline: readonly string[] | undefined,

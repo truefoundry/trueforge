@@ -1,6 +1,10 @@
 import type { ParallelToolGroups } from '@truefoundry/trueforge-assistant-ui-runtime';
 
-import { SUB_AGENT_TOOL_NAME } from './toolCallParsing.js';
+import { ASK_USER_TOOL_NAME, SUB_AGENT_TOOL_NAME } from './toolCallParsing.js';
+
+// Sub-agents keep their own expandable card, and ask-user prompts render nothing in live chat until answered (the
+// composer owns them); grouping either would make the "N tool calls" count disagree with the rows shown.
+const UNGROUPED_TOOL_NAMES: ReadonlySet<string> = new Set([SUB_AGENT_TOOL_NAME, ASK_USER_TOOL_NAME]);
 
 type ToolishPart = {
   type: string;
@@ -32,8 +36,8 @@ export function readParallelToolGroups(custom: unknown): ParallelToolGroups | un
 
 /**
  * When the model requests two or more tools in one response, those calls share a key and render as one
- * "N tool calls in parallel" row; a lone call returns null and renders as a plain card. Sub-agents are
- * skipped because they keep their own expandable card.
+ * "N tool calls in parallel" row; a lone call returns null and renders as a plain card. Sub-agent and
+ * ask-user calls are never grouped or counted.
  */
 export function parallelGroupKeyForPart({
   part,
@@ -47,7 +51,7 @@ export function parallelGroupKeyForPart({
   if (part.type !== 'tool-call' || part.toolCallId == null || parallelToolGroups == null) {
     return null;
   }
-  if (part.toolName === SUB_AGENT_TOOL_NAME) {
+  if (part.toolName != null && UNGROUPED_TOOL_NAMES.has(part.toolName)) {
     return null;
   }
   const modelMessageId = parallelToolGroups[part.toolCallId];
@@ -60,7 +64,7 @@ export function parallelGroupKeyForPart({
     if (candidate.type !== 'tool-call' || candidate.toolCallId == null) {
       continue;
     }
-    if (candidate.toolName === SUB_AGENT_TOOL_NAME) {
+    if (candidate.toolName != null && UNGROUPED_TOOL_NAMES.has(candidate.toolName)) {
       continue;
     }
     if (parallelToolGroups[candidate.toolCallId] === modelMessageId) {
@@ -73,6 +77,10 @@ export function parallelGroupKeyForPart({
   return `group-parallel-${modelMessageId}`;
 }
 
-export function isParallelToolGroupPart(part: { type: string }): boolean {
+/** GroupedParts hands the render callback a union of groups, leaf parts and indicators; this narrows it to a
+ * parallel group so callers can pass it to ToolGroupContainer without a cast. */
+export function isParallelToolGroupPart<T extends { type: string }>(
+  part: T,
+): part is T & { type: `group-parallel-${string}` } {
   return part.type.startsWith('group-parallel-');
 }
