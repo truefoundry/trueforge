@@ -1,7 +1,8 @@
 /**
  * Turn route definitions.
- * DB-backed routes mount at /api/v1/sessions.
- * Handlers are registered in apis/turns.ts.
+ * Public DB-backed routes mount at /api/v1/sessions.
+ * Internal create-turn mounts at /api/internal/sessions (same `/{session_id}/turns` path).
+ * Handlers are registered in apis/turns.ts and apis/internalSessionTurns.ts.
  */
 import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
@@ -10,6 +11,10 @@ import {
   CreateTurnEventResponseSchema,
   TurnStreamingEventSchema,
 } from '../schemas/events';
+import {
+  InternalCreateSessionTurnRequestSchema,
+  InternalCreateSessionTurnResponseSchema,
+} from '../schemas/internalSessionTurn';
 import {
   CreateTurnRequestSchema,
   DownloadSandboxFileRequestQuerySchema,
@@ -262,6 +267,64 @@ Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto
     403: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Caller is not the session creator.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Session, prior turn, or referenced agent not found.',
+    },
+    412: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Requested action cannot be performed on the session because it is no longer usable.',
+    },
+    413: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Request body exceeds the configured maximum size (MAX_REQUEST_BODY_BYTES).',
+    },
+    422: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description:
+        'The request is well-formed but cannot be processed: a referenced resource is missing ' +
+        '(named agent, model, MCP server, skill, or sandbox provider), sandbox is required but ' +
+        'unavailable (e.g. file uploads), or the turn input conflicts with current state ' +
+        '(e.g. unresolved tool calls or approvals, tool name collision).',
+    },
+  },
+});
+
+/**
+ * Service-key create-turn (e.g. codeforge). Same path/body shape as createAndExecuteTurnRoute
+ * under `/api/internal/sessions`, plus `tenant_id`. Non-streaming only (`stream: false`).
+ */
+export const createInternalSessionTurnRoute = createRoute({
+  method: 'post',
+  path: '/{session_id}/turns',
+  tags: [OpenApiTag.INTERNAL],
+  summary: 'Create and execute a turn in a session (internal)',
+  description: `Create a turn within a session and execute it (service API key).
+Same request shape as public create-turn, with \`tenant_id\` required.
+Only \`stream: false\` is supported; returns the running turn immediately.`,
+  'x-fern-sdk-group-name': ['internal', 'sessions'],
+  'x-fern-sdk-method-name': 'create_turn',
+  'x-excluded': true,
+  request: {
+    params: SessionIdParamsSchema,
+    body: {
+      content: { 'application/json': { schema: InternalCreateSessionTurnRequestSchema } },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: InternalCreateSessionTurnResponseSchema } },
+      description: 'The running turn.',
+    },
+    400: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid request body.',
+    },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid service credential.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

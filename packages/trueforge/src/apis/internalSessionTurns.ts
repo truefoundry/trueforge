@@ -1,5 +1,5 @@
 /**
- * Internal create-turn API (mounted at /api/internal/session-turns).
+ * Internal create-turn API (mounted at /api/internal/sessions/{session_id}/turns).
  * Authenticated with TRUEFORGE_API_KEY; runs as the session creator with a saved agent token
  * (same pattern as schedule execution — no live user JWT).
  */
@@ -25,7 +25,7 @@ import type { ISkillStore } from '../db/skillStore';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { updateLogContext } from '../logger';
 import type { MemoryProviderCache } from '../memory/providers';
-import { createInternalSessionTurnRoute } from '../routes/sessionRoutes';
+import { createInternalSessionTurnRoute } from '../routes/turnRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import type { EventSubscriptionRegistry } from '../runtime/event-subscription';
 import type { ICapabilitiesStore } from '../truefoundry/inlineTools';
@@ -42,20 +42,22 @@ export interface InternalSessionTurnsDeps {
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore;
   sandboxEnvironmentStore: ISandboxEnvironmentStore;
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore;
-  resolveTurnSkillsStore: (input: ResolveTurnSkillsStoreInput) => ISkillStore;
+  resolveTurnSkillsStore: (input: ResolveTurnSkillsStoreInput) => Pick<ISkillStore, 'resolveTurnSkills'>;
   resolveCapabilitiesStore: (input: ResolveCapabilitiesStoreInput) => ICapabilitiesStore;
   resolveMemoryProviderStore: (c: Context) => IMemoryProviderStore;
   resolveConfigurationStore: (c: Context) => IConfigurationStore;
   memoryProviders: MemoryProviderCache;
 }
 
-/** Create a turn from a trusted service caller (codeforge webhooks, etc.). */
-export function createInternalSessionTurnsRouter(deps: InternalSessionTurnsDeps): OpenAPIHono {
-  const router = new OpenAPIHono();
-
+/** Register internal create-turn on a shared `/api/internal/sessions` router. */
+export function registerInternalSessionTurnRoutes(router: OpenAPIHono, deps: InternalSessionTurnsDeps): void {
   const handler: RouteHandler<typeof createInternalSessionTurnRoute> = async c => {
     const { session_id: sessionId } = c.req.valid('param');
     const body = c.req.valid('json');
+
+    if (body.stream) {
+      return c.json({ error: { message: 'Internal create-turn does not support stream: true' } }, 400);
+    }
 
     const session = await deps.sessions.get({
       tenant_id: body.tenant_id,
@@ -97,8 +99,8 @@ export function createInternalSessionTurnsRouter(deps: InternalSessionTurnsDeps)
     try {
       const turn = await startTurnInProcess({
         session,
-        input: [{ type: 'user.message', content: body.message }],
-        previous_turn_id: 'auto',
+        input: body.input,
+        previous_turn_id: body.previous_turn_id,
         userRef: session.record.created_by_subject.subject_id,
         deps: {
           activeTurns: deps.activeTurns,
@@ -131,5 +133,11 @@ export function createInternalSessionTurnsRouter(deps: InternalSessionTurnsDeps)
   };
 
   router.openapi(createInternalSessionTurnRoute, handler);
+}
+
+/** Create a turn from a trusted service caller (codeforge webhooks, etc.). */
+export function createInternalSessionTurnsRouter(deps: InternalSessionTurnsDeps): OpenAPIHono {
+  const router = new OpenAPIHono();
+  registerInternalSessionTurnRoutes(router, deps);
   return router;
 }

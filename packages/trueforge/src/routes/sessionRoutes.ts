@@ -1,15 +1,11 @@
 /**
  * Session route definitions.
  * Public DB-backed routes mount at /api/v1/sessions; internal get-or-create at
- * /api/internal/sessions; service-key create-turn at /api/internal/session-turns.
+ * /api/internal/sessions. Internal create-turn lives in turnRoutes.ts.
  */
 import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import { ListSessionEventsRequestQuerySchema, ListSessionEventsResponseSchema } from '../schemas/events';
-import {
-  InternalCreateSessionTurnRequestSchema,
-  InternalCreateSessionTurnResponseSchema,
-} from '../schemas/internalSessionTurn';
 import {
   CreateSessionRequestSchema,
   GetOrCreateSessionByExternalIdRequestSchema,
@@ -25,51 +21,6 @@ import { OpenApiTag } from './openapiTags';
 
 export const SessionIdParamsSchema = z.object({
   session_id: z.string().min(1).max(64).describe('Session identifier.'),
-});
-
-/**
- * Service-key create-turn for external automations (e.g. codeforge review webhooks).
- * Mounted at `/api/internal/session-turns` (not `/api/internal/sessions`) so it does not
- * share the user-auth middleware shell used by get-or-create-by-external-id.
- */
-export const createInternalSessionTurnRoute = createRoute({
-  method: 'post',
-  path: '/{session_id}',
-  tags: [OpenApiTag.INTERNAL],
-  summary: 'Create a turn in a session (internal)',
-  description: 'Starts a non-streaming turn with a user message. Authenticated with the server service API key.',
-  'x-fern-sdk-group-name': ['internal', 'session_turns'],
-  'x-fern-sdk-method-name': 'create',
-  'x-excluded': true,
-  request: {
-    params: SessionIdParamsSchema,
-    body: {
-      content: { 'application/json': { schema: InternalCreateSessionTurnRequestSchema } },
-      required: true,
-    },
-  },
-  responses: {
-    200: {
-      content: { 'application/json': { schema: InternalCreateSessionTurnResponseSchema } },
-      description: 'Turn started.',
-    },
-    400: {
-      content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Invalid request body.',
-    },
-    401: {
-      content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Invalid service credential.',
-    },
-    404: {
-      content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Session not found.',
-    },
-    422: {
-      content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Turn could not start (missing agent/resources or invalid state).',
-    },
-  },
 });
 
 export const createSessionRoute = createRoute({
