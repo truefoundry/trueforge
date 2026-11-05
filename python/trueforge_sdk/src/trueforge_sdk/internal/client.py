@@ -15,6 +15,7 @@ if typing.TYPE_CHECKING:
     from .metrics.client import AsyncMetricsClient, MetricsClient
     from .sandbox_environments.client import AsyncSandboxEnvironmentsClient, SandboxEnvironmentsClient
     from .schedules.client import AsyncSchedulesClient, SchedulesClient
+    from .session_turns.client import AsyncSessionTurnsClient, SessionTurnsClient
     from .sessions.client import AsyncSessionsClient, SessionsClient
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -27,6 +28,7 @@ class InternalClient:
         self._metrics: typing.Optional[MetricsClient] = None
         self._sandbox_environments: typing.Optional[SandboxEnvironmentsClient] = None
         self._schedules: typing.Optional[SchedulesClient] = None
+        self._session_turns: typing.Optional[SessionTurnsClient] = None
         self._sessions: typing.Optional[SessionsClient] = None
         self._agents: typing.Optional[AgentsClient] = None
 
@@ -109,6 +111,14 @@ class InternalClient:
         return self._schedules
 
     @property
+    def session_turns(self):
+        if self._session_turns is None:
+            from .session_turns.client import SessionTurnsClient  # noqa: E402
+
+            self._session_turns = SessionTurnsClient(client_wrapper=self._client_wrapper)
+        return self._session_turns
+
+    @property
     def sessions(self):
         if self._sessions is None:
             from .sessions.client import SessionsClient  # noqa: E402
@@ -132,6 +142,7 @@ class AsyncInternalClient:
         self._metrics: typing.Optional[AsyncMetricsClient] = None
         self._sandbox_environments: typing.Optional[AsyncSandboxEnvironmentsClient] = None
         self._schedules: typing.Optional[AsyncSchedulesClient] = None
+        self._session_turns: typing.Optional[AsyncSessionTurnsClient] = None
         self._sessions: typing.Optional[AsyncSessionsClient] = None
         self._agents: typing.Optional[AsyncAgentsClient] = None
 
@@ -220,6 +231,14 @@ class AsyncInternalClient:
 
             self._schedules = AsyncSchedulesClient(client_wrapper=self._client_wrapper)
         return self._schedules
+
+    @property
+    def session_turns(self):
+        if self._session_turns is None:
+            from .session_turns.client import AsyncSessionTurnsClient  # noqa: E402
+
+            self._session_turns = AsyncSessionTurnsClient(client_wrapper=self._client_wrapper)
+        return self._session_turns
 
     @property
     def sessions(self):

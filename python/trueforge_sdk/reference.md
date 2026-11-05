@@ -4609,6 +4609,97 @@ client.internal.schedules.execute_run(
 </dl>
 </details>
 
+## Internal SessionTurns
+<details><summary><code>client.internal.session_turns.<a href="src/trueforge_sdk/internal/session_turns/client.py">create</a>(...) -> GetTurnResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Starts a non-streaming turn with a user message. Authenticated with the server service API key.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.internal.session_turns.create(
+    session_id="session_id",
+    message="message",
+    tenant_id="tenant_id",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**session_id:** `str` — Session identifier.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**message:** `str` — User message body for the new turn.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**tenant_id:** `str` — Tenant that owns the session.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 ## Internal Sessions
 <details><summary><code>client.internal.sessions.<a href="src/trueforge_sdk/internal/sessions/client.py">get_or_create_by_external_id</a>(...) -> GetSessionResponse</code></summary>
 <dl>

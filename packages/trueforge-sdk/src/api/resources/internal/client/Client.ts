@@ -14,6 +14,7 @@ import { MetricsClient } from "../resources/metrics/client/Client.js";
 import { SandboxEnvironmentsClient } from "../resources/sandboxEnvironments/client/Client.js";
 import { SchedulesClient } from "../resources/schedules/client/Client.js";
 import { SessionsClient } from "../resources/sessions/client/Client.js";
+import { SessionTurnsClient } from "../resources/sessionTurns/client/Client.js";
 
 export declare namespace InternalClient {
     export type Options = BaseClientOptions;
@@ -26,6 +27,7 @@ export class InternalClient {
     protected _metrics: MetricsClient | undefined;
     protected _sandboxEnvironments: SandboxEnvironmentsClient | undefined;
     protected _schedules: SchedulesClient | undefined;
+    protected _sessionTurns: SessionTurnsClient | undefined;
     protected _sessions: SessionsClient | undefined;
     protected _agents: AgentsClient | undefined;
 
@@ -43,6 +45,10 @@ export class InternalClient {
 
     public get schedules(): SchedulesClient {
         return (this._schedules ??= new SchedulesClient(this._options));
+    }
+
+    public get sessionTurns(): SessionTurnsClient {
+        return (this._sessionTurns ??= new SessionTurnsClient(this._options));
     }
 
     public get sessions(): SessionsClient {
