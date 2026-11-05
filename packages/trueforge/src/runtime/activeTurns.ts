@@ -5,7 +5,7 @@
  * `track()` owns registration and cleanup around the stream lifecycle.
  */
 import { CancellationReason, TurnOffloadReason, type TurnHandle } from '@truefoundry/trueforge-core/agent-session';
-import { getOperationMetrics } from '@truefoundry/trueforge-core/core';
+import { extractErrorLogFields, getOperationMetrics } from '@truefoundry/trueforge-core/core';
 import { E_TIMEOUT, Mutex, withTimeout, type MutexInterface } from 'async-mutex';
 import type { Logger } from 'winston';
 
@@ -297,7 +297,7 @@ export class ActiveTurnRegistry<TTransaction = never> {
     }
     const key = activeTurnKey(input.sessionId, input.turnId);
     const timer = setTimeout(() => {
-      void this.withTurnLock(input, async () => {
+      this.withTurnLock(input, async () => {
         // A send may have cleared or replaced this timer while the callback waited for the lock.
         if (this.keepaliveTimers.get(key) !== timer) {
           return;
@@ -310,6 +310,15 @@ export class ActiveTurnRegistry<TTransaction = never> {
           return;
         }
         this.logger.info('Paused keepalive expired; turn is no longer paused');
+      }).catch((error: unknown) => {
+        // A busy turn lock is transient. Restart the window rather than keep a spent timer.
+        if (error instanceof TurnLockAcquireTimeoutError && this.keepaliveTimers.get(key) === timer) {
+          this.keepaliveTimers.delete(key);
+          this.logger.warn('Paused keepalive could not take the turn lock; restarting', extractErrorLogFields(error));
+          this.startPausedKeepalive(input);
+          return;
+        }
+        this.logger.error('Paused keepalive offload failed', extractErrorLogFields(error));
       });
     }, this.pausedKeepaliveMs);
     timer.unref();

@@ -1,18 +1,13 @@
 import type { RedisClient } from '@truefoundry/trueforge-core/request-reply';
 import { InMemoryEventStreamStore, InMemoryEventSubscription } from './inMemory';
 import { RedisEventSubscription } from './redis';
-import type { RepairLogOptions } from './repair';
+import type { RestoreLogOptions } from './restore';
 
-export type { EventLogEntry, RepairLogOptions } from './repair';
+export type { RestoreLogOptions } from './restore';
 
 export interface EventSubscriptionPutOptions {
   /** Sets the lifetime of the whole stream after this append. */
   streamTTLSeconds?: number | undefined;
-  /**
-   * The append runs only when the stream-owner key is unset or equals this id.
-   * A missing stream still rejects a caller that does not own the key.
-   */
-  executorId?: string | undefined;
 }
 
 /** `sequence_number` is set only when replaying an old `{sequence}-1` entry. */
@@ -53,11 +48,10 @@ export type EventSubscriptionPollOptions = {
  */
 export interface EventSubscription<T extends { id: string }> {
   /**
-   * Rebuilds a missing or behind stream from the durable log using event-id
-   * stream ids. An existing stream whose tail is already the log tail is left
-   * in place. Pass `executorId` only for the database owner that will put.
+   * Rebuilds a missing stream from the whole durable log using event-id stream
+   * ids. An existing stream is left in place and only gets its TTL refreshed.
    */
-  repairLog(options: RepairLogOptions<T>): Promise<void>;
+  restoreLog(options: RestoreLogOptions<T>): Promise<void>;
 
   /** Appends an event. The stream id is `{ulidMillisecond}-{n}` when the event id is a ULID. */
   put(event: T, options?: EventSubscriptionPutOptions): Promise<void>;
@@ -112,17 +106,6 @@ export class StreamGoneError extends Error {
   constructor(readonly streamId: string) {
     super(`Cannot read from stream, stream does not exist anymore: ${streamId}`);
     this.name = 'StreamGoneError';
-    Object.setPrototypeOf(this, new.target.prototype);
-  }
-}
-
-/** put refused because the stream-owner key belongs to another executor. */
-export class StreamOwnerMismatchError extends Error {
-  readonly code = 'STREAM_OWNER_MISMATCH' as const;
-
-  constructor(readonly streamId: string) {
-    super(`Cannot append to stream ${streamId}: caller is not the stream owner`);
-    this.name = 'StreamOwnerMismatchError';
     Object.setPrototypeOf(this, new.target.prototype);
   }
 }

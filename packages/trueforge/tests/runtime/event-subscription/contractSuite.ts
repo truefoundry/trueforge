@@ -1,12 +1,9 @@
 import {
   StreamGoneError,
-  StreamOwnerMismatchError,
   type EventSubscriptionPollOptions,
   type EventSubscriptionRegistry,
   type SequencedEvent,
 } from '../../../src/runtime/event-subscription';
-import { eventLogPages } from '../../../src/runtime/event-subscription/repair';
-
 /** Payload shape used by the suite; distinct per event so round-trips are provable. */
 export interface TestEvent {
   id: string;
@@ -25,6 +22,14 @@ function nextStreamId(): string {
 
 function makeEvent(index: number, id = `evt-${String(index)}`): TestEvent {
   return { id, type: 'test.event', payload: { index, text: `event-${String(index)}` } };
+}
+
+/** One durable page per array, in the order given. */
+async function* durablePages(...pages: TestEvent[][]): AsyncGenerator<TestEvent[]> {
+  await Promise.resolve();
+  for (const page of pages) {
+    yield page;
+  }
 }
 
 /** Drains `count` events from a fresh poll, then aborts it (poll loops forever by design). */
@@ -55,7 +60,7 @@ async function collect(
 export function runEventSubscriptionContractSuite(
   setup: () => {
     registry: EventSubscriptionRegistry<TestEvent>;
-    /** Drops the log and keeps the owner, the way a TTL expiry does. */
+    /** Drops the log the way a TTL expiry does. */
     evictStream: (streamId: string) => Promise<void>;
   },
 ) {
@@ -116,6 +121,35 @@ export function runEventSubscriptionContractSuite(
     expect(received.map(event => event.id)).toEqual(['evt-2', 'evt-3', 'evt-4']);
   });
 
+  it('after an event id resumes past the last entry that carries it, even when other events interleave', async () => {
+    const { registry } = setup();
+    const streamId = nextStreamId();
+    const producer = registry.get(streamId);
+    const sent = [makeEvent(0, 'evt-a'), makeEvent(1, 'evt-b'), makeEvent(2, 'evt-a'), makeEvent(3, 'evt-c')];
+    for (const event of sent) {
+      await producer.put(event, { streamTTLSeconds: STREAM_TTL_SECONDS });
+    }
+
+    const received = await collect(registry, streamId, 1, { afterEventId: 'evt-a' });
+    expect(received.map(event => event.id)).toEqual(['evt-c']);
+  });
+
+  it('seeks an event id that sits beyond the first scan batch', async () => {
+    const { registry } = setup();
+    const streamId = nextStreamId();
+    const producer = registry.get(streamId);
+    const sent = Array.from({ length: 250 }, (_, index) => makeEvent(index));
+    for (const event of sent) {
+      await producer.put(event, { streamTTLSeconds: STREAM_TTL_SECONDS });
+    }
+
+    await expect(producer.hasEventId('evt-230')).resolves.toBe(true);
+    const from = await collect(registry, streamId, 3, { fromEventId: 'evt-230' });
+    expect(from.map(event => event.id)).toEqual(['evt-230', 'evt-231', 'evt-232']);
+    const after = await collect(registry, streamId, 2, { afterEventId: 'evt-247' });
+    expect(after.map(event => event.id)).toEqual(['evt-248', 'evt-249']);
+  });
+
   it('keeps an event appended while an event-id replay is delivered', async () => {
     const { registry } = setup();
     const streamId = nextStreamId();
@@ -159,28 +193,17 @@ export function runEventSubscriptionContractSuite(
     expect(received).toEqual([later, shell, delta]);
   });
 
-  it('repairs a suffix when the durable row key order differs from the stream payload', async () => {
+  it('restores every page of a missing stream in order', async () => {
     const { registry } = setup();
     const streamId = nextStreamId();
-    const producer = registry.get(streamId);
-    const stored = makeEvent(0);
-    await producer.put(stored, { streamTTLSeconds: STREAM_TTL_SECONDS });
-    const fromDatabase = {
-      id: 'evt-0',
-      type: stored.type,
-      payload: { text: stored.payload.text, index: stored.payload.index },
-    };
-    const third = makeEvent(2);
-    await producer.repairLog({
-      readPages: eventLogPages([
-        { id: 'evt-0', event: fromDatabase },
-        { id: 'evt-2', event: third },
-      ]),
+    const sent = Array.from({ length: 5 }, (_, index) => makeEvent(index));
+
+    await registry.get(streamId).restoreLog({
+      readPages: () => durablePages(sent.slice(0, 2), [], sent.slice(2)),
       streamTTLSeconds: STREAM_TTL_SECONDS,
     });
 
-    const received = await collect(registry, streamId, 2);
-    expect(received.map(event => event.id)).toEqual(['evt-0', 'evt-2']);
+    expect(await collect(registry, streamId, sent.length)).toEqual(sent);
   });
 
   it('poll parked at the tip receives events put after it subscribed', async () => {
@@ -207,68 +230,43 @@ export function runEventSubscriptionContractSuite(
     const producer = registry.get(streamId);
     const first = makeEvent(1);
     const second = makeEvent(2);
-    await producer.put(first, { streamTTLSeconds: STREAM_TTL_SECONDS, executorId: 'owner' });
-    await producer.put(second, { streamTTLSeconds: STREAM_TTL_SECONDS, executorId: 'owner' });
+    await producer.put(first, { streamTTLSeconds: STREAM_TTL_SECONDS });
+    await producer.put(second, { streamTTLSeconds: STREAM_TTL_SECONDS });
     await evictStream(streamId);
+    await expect(producer.assertSubscribable()).rejects.toBeInstanceOf(StreamGoneError);
 
-    await producer.repairLog({
-      readPages: eventLogPages([
-        { id: first.id, event: first },
-        { id: second.id, event: second },
-      ]),
+    await producer.restoreLog({
+      readPages: () => durablePages([first, second]),
       streamTTLSeconds: STREAM_TTL_SECONDS,
-      executorId: 'owner',
     });
 
     const third = makeEvent(3);
-    await producer.put(third, { streamTTLSeconds: STREAM_TTL_SECONDS, executorId: 'owner' });
+    await producer.put(third, { streamTTLSeconds: STREAM_TTL_SECONDS });
     const received = await collect(registry, streamId, 3);
     expect(received).toEqual([first, second, third]);
   });
 
-  it('leaves an existing stream untouched and a second repair does not append again', async () => {
+  it('leaves an existing stream untouched, even when the log has more rows', async () => {
     const { registry } = setup();
     const streamId = nextStreamId();
     const producer = registry.get(streamId);
     const first = makeEvent(1);
     const second = makeEvent(2);
+    const durableOnly = makeEvent(3);
     await producer.put(first, { streamTTLSeconds: STREAM_TTL_SECONDS });
     await producer.put(second, { streamTTLSeconds: STREAM_TTL_SECONDS });
-    const repair = () =>
-      producer.repairLog({
-        readPages: eventLogPages([
-          { id: first.id, event: first },
-          { id: second.id, event: second },
-        ]),
+    const restore = () =>
+      producer.restoreLog({
+        readPages: () => durablePages([first, second, durableOnly]),
         streamTTLSeconds: STREAM_TTL_SECONDS,
-        executorId: 'owner',
       });
-    await repair();
-    await repair();
+    await restore();
+    await restore();
 
-    const third = makeEvent(3);
-    await producer.put(third, { streamTTLSeconds: STREAM_TTL_SECONDS, executorId: 'owner' });
+    const fourth = makeEvent(4);
+    await producer.put(fourth, { streamTTLSeconds: STREAM_TTL_SECONDS });
     const received = await collect(registry, streamId, 3);
-    expect(received).toEqual([first, second, third]);
-  });
-
-  it('rejects a stale producer when the stream is missing', async () => {
-    const { registry, evictStream } = setup();
-    const streamId = nextStreamId();
-    const owner = registry.get(streamId);
-    const event = makeEvent(1);
-    await owner.repairLog({
-      readPages: eventLogPages([{ id: event.id, event }]),
-      streamTTLSeconds: STREAM_TTL_SECONDS,
-      executorId: 'owner',
-    });
-    await evictStream(streamId);
-
-    const stale = registry.get(streamId);
-    await expect(
-      stale.put(makeEvent(9, 'evt-late'), { streamTTLSeconds: STREAM_TTL_SECONDS, executorId: 'stale' }),
-    ).rejects.toBeInstanceOf(StreamOwnerMismatchError);
-    await expect(stale.assertSubscribable()).rejects.toBeInstanceOf(StreamGoneError);
+    expect(received).toEqual([first, second, fourth]);
   });
 
   it('keeps consecutive identical payloads, like two deltas with the same text', async () => {
@@ -292,5 +290,19 @@ export function runEventSubscriptionContractSuite(
 
     await expect(producer.hasEventId('evt-1')).resolves.toBe(true);
     await expect(producer.hasEventId('evt-missing')).resolves.toBe(false);
+  });
+
+  it('seeks past large payloads', async () => {
+    const { registry } = setup();
+    const streamId = nextStreamId();
+    const producer = registry.get(streamId);
+    const large: TestEvent = { id: 'evt-large', type: 'test.event', payload: { index: 0, text: 'x'.repeat(512_000) } };
+    const target = makeEvent(1);
+    await producer.put(large, { streamTTLSeconds: STREAM_TTL_SECONDS });
+    await producer.put(target, { streamTTLSeconds: STREAM_TTL_SECONDS });
+
+    await expect(producer.hasEventId(target.id)).resolves.toBe(true);
+    const received = await collect(registry, streamId, 1, { afterEventId: large.id });
+    expect(received).toEqual([target]);
   });
 }

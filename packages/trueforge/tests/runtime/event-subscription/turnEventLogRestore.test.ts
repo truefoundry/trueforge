@@ -10,11 +10,10 @@ import {
 import {
   EventSubscriptionRegistry,
   StreamGoneError,
-  StreamOwnerMismatchError,
   type SequencedEvent,
 } from '../../../src/runtime/event-subscription';
 import { InMemoryEventStreamStore } from '../../../src/runtime/event-subscription/inMemory';
-import { repairTurnEventLog } from '../../../src/runtime/turnEventLogRepair';
+import { restoreTurnEventLog } from '../../../src/runtime/turnEventLogRestore';
 
 const STREAM_TTL_SECONDS = 300;
 
@@ -40,8 +39,8 @@ async function collect(
   return received;
 }
 
-describe('repairTurnEventLog', () => {
-  it('rebuilds a missing stream from the durable log', async () => {
+describe('restoreTurnEventLog', () => {
+  it('rebuilds a missing stream from the whole durable log and never patches an existing one', async () => {
     const store = new InMemorySessionStore();
     const sessionId = 's1';
     const turnId = 'turn-1';
@@ -69,26 +68,24 @@ describe('repairTurnEventLog', () => {
     const registry = new EventSubscriptionRegistry<TurnStreamingEvent>(undefined, streams);
     const streamId = 'turn-stream';
     const subscription = registry.get(streamId);
-    const repair = (producerExecutorId?: string) =>
-      repairTurnEventLog({
+    const restore = () =>
+      restoreTurnEventLog({
         sessionStore: store,
         subscription,
         sessionId,
         turnId,
         streamTTLSeconds: STREAM_TTL_SECONDS,
-        ...(producerExecutorId === undefined ? {} : { producerExecutorId }),
       });
 
     await expect(subscription.assertSubscribable()).rejects.toBeInstanceOf(StreamGoneError);
 
-    await repair();
+    await restore();
     expect((await collect(registry, streamId, 2)).map(event => event.id)).toEqual([created.id, message.id]);
 
-    await repair();
+    await restore();
     expect((await collect(registry, streamId, 2)).map(event => event.id)).toEqual([created.id, message.id]);
 
-    await repair(TEST_ACTIVE_EXECUTOR_ID);
-
+    // A durable row the stream lacks is not patched in: only a missing stream is restored.
     const later = makeModelMessageEvent();
     await store.appendToEvents({
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
@@ -96,22 +93,16 @@ describe('repairTurnEventLog', () => {
       turn_id: turnId,
       events: [later],
     });
-    await repair(TEST_ACTIVE_EXECUTOR_ID);
-    expect((await collect(registry, streamId, 3)).map(event => event.id)).toEqual([created.id, message.id, later.id]);
+    await restore();
+    await expect(subscription.hasEventId(later.id)).resolves.toBe(false);
 
+    // Once the stream is gone, the next restore rebuilds it from the whole log.
     streams.evictStream(streamId);
-    const stale = registry.get(streamId);
-    await expect(
-      stale.put(makeModelMessageEvent(), { streamTTLSeconds: STREAM_TTL_SECONDS, executorId: 'other-executor' }),
-    ).rejects.toBeInstanceOf(StreamOwnerMismatchError);
-    await expect(stale.assertSubscribable()).rejects.toBeInstanceOf(StreamGoneError);
+    await expect(subscription.assertSubscribable()).rejects.toBeInstanceOf(StreamGoneError);
 
-    await repair(TEST_ACTIVE_EXECUTOR_ID);
+    await restore();
     const appended = makeModelMessageEvent();
-    await subscription.put(appended, {
-      streamTTLSeconds: STREAM_TTL_SECONDS,
-      executorId: TEST_ACTIVE_EXECUTOR_ID,
-    });
+    await subscription.put(appended, { streamTTLSeconds: STREAM_TTL_SECONDS });
     expect((await collect(registry, streamId, 4)).map(event => event.id)).toEqual([
       created.id,
       message.id,

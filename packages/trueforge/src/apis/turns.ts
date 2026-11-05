@@ -88,7 +88,6 @@ import {
   isLegacySequenceEntryId,
   LEGACY_SEQUENCE_ID_MAX,
   StreamGoneError,
-  StreamOwnerMismatchError,
   type EventSubscription,
   type EventSubscriptionPollOptions,
   type EventSubscriptionRegistry,
@@ -101,7 +100,7 @@ import {
   resolveSandboxEnvironment,
   resolveSandboxProvider,
 } from '../runtime/sessionResources';
-import { repairTurnEventLog } from '../runtime/turnEventLogRepair';
+import { restoreTurnEventLog } from '../runtime/turnEventLogRestore';
 import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
 import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
 import { assertGatewayMetadataRequestHeaders } from '../truefoundry/gatewayMetadata';
@@ -550,18 +549,14 @@ export async function drainTurnEvents(input: {
   executionTimeout: TurnExecutionTimeout;
   logger: Logger;
   pausedKeepalive: TurnPausedKeepalive;
-  executorId: string;
   onEvent?: (event: TurnStreamingEvent) => Promise<void>;
 }): Promise<void> {
-  const { trackedStream, turnEventStream, executionTimeout, logger, pausedKeepalive, executorId, onEvent } = input;
+  const { trackedStream, turnEventStream, executionTimeout, logger, pausedKeepalive, onEvent } = input;
   try {
     for await (const event of trackedStream) {
       reportUnexpectedTurnDone({ event, logger });
       // Dual-write before any client sink so subscribers can resume after disconnect.
-      await turnEventStream.put(event, {
-        streamTTLSeconds: streamTTLSecondsFor(event),
-        executorId,
-      });
+      await turnEventStream.put(event, { streamTTLSeconds: streamTTLSecondsFor(event) });
       if (event.type === EventType.TURN_UPDATE) {
         if (event.state.status === 'paused') {
           pausedKeepalive.start();
@@ -574,11 +569,7 @@ export async function drainTurnEvents(input: {
       await onEvent?.(event);
     }
   } catch (error) {
-    if (
-      error instanceof SessionStoreNotFoundError ||
-      error instanceof TurnOwnershipLostError ||
-      error instanceof StreamOwnerMismatchError
-    ) {
+    if (error instanceof SessionStoreNotFoundError || error instanceof TurnOwnershipLostError) {
       logger.warn(
         'Turn stream ended after session/turn was removed or ownership was lost',
         extractErrorLogFields(error),
@@ -601,7 +592,6 @@ export interface TurnEventDrainInput {
   executionTimeout: TurnExecutionTimeout;
   logger: Logger;
   pausedKeepalive: TurnPausedKeepalive;
-  executorId: string;
 }
 
 /**
@@ -725,7 +715,7 @@ export async function beginTurnExecution<TTransaction>(
     turn,
   });
 
-  // Held for the whole turn. Repair appends any missing log suffix with event-id stream ids.
+  // Held for the whole turn. A missing stream is restored from the durable log on resume.
   const turnEventStream = deps.eventSubscriptions.get(turnStreamId(tenantId, sessionId, turn.id));
 
   return {
@@ -743,7 +733,6 @@ export async function beginTurnExecution<TTransaction>(
           deps.activeTurns.clearPausedKeepalive({ sessionId, turnId: turn.id });
         },
       },
-      executorId: configuration.EXECUTOR_ID,
     },
   };
 }
@@ -785,7 +774,7 @@ function cancellationReason(reason: unknown): CancellationReason {
 }
 
 /**
- * Rebuild a paused turn this replica owns, repair the event stream from the
+ * Rebuild a paused turn this replica owns, restore a missing event stream from the
  * durable log, and drain in the background. Inbox replay happens inside rebuild.
  */
 async function resumePausedTurn<TTransaction>(input: {
@@ -853,13 +842,12 @@ async function resumePausedTurn<TTransaction>(input: {
     turnStreamId(input.session.tenant_id, input.session.session_id, turn.id),
   );
   try {
-    await repairTurnEventLog({
+    await restoreTurnEventLog({
       sessionStore: input.deps.sessionStore,
       subscription: turnEventStream,
       sessionId: input.session.session_id,
       turnId: turn.id,
       streamTTLSeconds: configuration.TURN_STREAM_TTL_SECONDS,
-      producerExecutorId: configuration.EXECUTOR_ID,
     });
   } catch (error) {
     input.deps.logger.warn('Paused turn stream resume failed', extractErrorLogFields(error));
@@ -899,7 +887,6 @@ async function resumePausedTurn<TTransaction>(input: {
         turnEventStream,
         executionTimeout,
         logger: input.deps.logger,
-        executorId: configuration.EXECUTOR_ID,
         pausedKeepalive: {
           start: () => {
             input.deps.activeTurns.startPausedKeepalive({
@@ -2047,7 +2034,7 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
     // A running turn is expected to still have its stream. A finished turn is not restored.
     try {
       if (turn.state.status === 'paused') {
-        await repairTurnEventLog({
+        await restoreTurnEventLog({
           sessionStore: deps.sessionStore,
           subscription: turnEventStream,
           sessionId,

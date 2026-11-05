@@ -41,7 +41,7 @@ import {
   turnToSessionRecord,
 } from '../src/sessionSnapshot.js';
 import { applyUserToolResponsesToFold, toolResponseStatus } from '../src/toolResponse.js';
-import type { TurnStreamUpdate } from '../src/turnStreamUpdate.js';
+import type { TurnStreamUpdate, TurnSubscribeCursor } from '../src/turnStreamUpdate.js';
 
 const createdAt = new Date().toISOString();
 const SESSION_ID = 'session-1';
@@ -2334,6 +2334,33 @@ describe('convertTurnMessages', () => {
         type: 'text',
         text: expect.stringContaining('Connect'),
       });
+    });
+
+    it('keeps the resume cursor on mcp.auth_required until a running update answers it', async () => {
+      const cursors: TurnSubscribeCursor[] = [];
+      const mcpAuth = {
+        type: 'mcp.auth_required' as const,
+        id: 'mcp-auth',
+        createdAt,
+        mcpServers: [{ id: 'github-auth', name: 'github', authUrl: 'https://example.com/auth' }],
+      };
+      await collectStream(
+        streamTurnEvents(
+          streamFrom([
+            mcpAuth,
+            { type: 'turn.update', id: 'pause-mcp', createdAt, threadId: null, state: { status: 'paused' } },
+            { type: 'turn.update', id: 'run-mcp', createdAt, threadId: null, state: { status: 'running' } },
+            { type: 'turn.done', id: 'done-mcp', createdAt, state: { status: 'done', completedAt: createdAt } },
+          ]),
+          new PeerThreadFoldState(),
+          undefined,
+          undefined,
+          undefined,
+          cursor => cursors.push(cursor),
+        ),
+      );
+
+      expect(cursors).toEqual([{ fromEventId: 'mcp-auth' }, { afterEventId: 'run-mcp' }, { afterEventId: 'done-mcp' }]);
     });
 
     it('stamps sandboxId onto every content yield after sandbox.created is seen', async () => {

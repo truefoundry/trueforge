@@ -1938,7 +1938,15 @@ export async function* streamTurnEvents(
     }
     const event = data.event;
     if ('id' in event && typeof event.id === 'string') {
-      onSubscribeCursor?.(subscribeCursorForEvent(event));
+      const endsMcpAuthPrompt =
+        event.type === EVENT_TYPE.USER_MCP_AUTH_CONTINUE ||
+        event.type === EVENT_TYPE.TURN_DONE ||
+        (event.type === EVENT_TYPE.TURN_UPDATE && event.state.status === TURN_STATUS.RUNNING);
+      // Resume replays from mcp.auth_required until the prompt is answered. A later
+      // paused update must not move the cursor past it: a fresh fold would lose the prompt.
+      if (pendingMcpAuth == null || event.type === EVENT_TYPE.MCP_AUTH_REQUIRED || endsMcpAuthPrompt) {
+        onSubscribeCursor?.(subscribeCursorForEvent(event));
+      }
     }
 
     if (event.type === EVENT_TYPE.TURN_CREATED) {

@@ -282,6 +282,33 @@ describe('ActiveTurnRegistry', () => {
     await expect(waiter).resolves.toBe('acquired');
   });
 
+  it('restarts the paused keepalive when the turn lock is busy past the acquire timeout', async () => {
+    jest.useFakeTimers();
+    const warn = jest.spyOn(logger, 'warn');
+    const info = jest.spyOn(logger, 'info');
+    try {
+      const registry = new ActiveTurnRegistry({ logger, pausedKeepaliveMs: 100, lockAcquireTimeoutMs: 20 });
+      const key = { sessionId: 's1', turnId: 't1' };
+      const gate = Promise.withResolvers<undefined>();
+      const holder = registry.withTurnLock(key, () => gate.promise);
+
+      registry.startPausedKeepalive(key);
+      // The keepalive fires at 100ms, then gives up on the busy lock at 120ms.
+      await jest.advanceTimersByTimeAsync(120);
+      expect(warn).toHaveBeenCalledWith('Paused keepalive could not take the turn lock; restarting', expect.anything());
+
+      gate.resolve(undefined);
+      await holder;
+      // The restarted timer takes the free lock and runs its expiry path.
+      await jest.advanceTimersByTimeAsync(100);
+      expect(info).toHaveBeenCalledWith('Paused keepalive expired; turn is no longer paused');
+    } finally {
+      jest.useRealTimers();
+      warn.mockRestore();
+      info.mockRestore();
+    }
+  });
+
   it('waits without a timeout when lockAcquireTimeoutMs is 0', async () => {
     const registry = new ActiveTurnRegistry({ logger, lockAcquireTimeoutMs: 0 });
     const gate = Promise.withResolvers<undefined>();

@@ -5,7 +5,6 @@
 import { EventEmitter, once } from 'node:events';
 import {
   StreamGoneError,
-  StreamOwnerMismatchError,
   SUBSCRIBE_STREAM_THRESHOLD_MS,
   type EventSubscription,
   type EventSubscriptionPollOptions,
@@ -15,12 +14,11 @@ import {
 import {
   entryIdMilliseconds,
   EventIdSeek,
-  eventIdSeekCursor,
   eventIdTimestampMs,
   isEntryAfterCursor,
   isLegacySequenceEntryId,
 } from './entryId';
-import { applyEventLogRepair, type AppendAfterTailResult, type RepairLogOptions, type StreamTail } from './repair';
+import { applyEventLogRestore, type AppendAfterTailResult, type RestoreLogOptions } from './restore';
 
 function ttlDeadline(streamTTLSeconds: number | undefined): number | undefined {
   return streamTTLSeconds !== undefined && streamTTLSeconds > 0 ? Date.now() + streamTTLSeconds * 1_000 : undefined;
@@ -34,19 +32,14 @@ interface StoredEvent<T extends { id: string }> {
 interface InMemoryStream<T extends { id: string }> {
   /** Appended in entry-id order. */
   events: StoredEvent<T>[];
-  /** Undefined until the first put/repair sets a TTL. */
+  /** Undefined until the first put/restore sets a TTL. */
   expiresAtMs?: number | undefined;
   expiryTimer?: NodeJS.Timeout | undefined;
 }
 
-/** Owns per-stream logs, owners, and TTL timers for this process. */
+/** Owns per-stream logs and TTL timers for this process. */
 export class InMemoryEventStreamStore<T extends { id: string }> {
   private readonly streams = new Map<string, InMemoryStream<T>>();
-  /**
-   * Survives an explicit eviction so a stale producer cannot recreate a missing
-   * log. Expires with the stream TTL so idle turns do not accumulate owners.
-   */
-  private readonly owners = new Map<string, { executorId: string; expiresAtMs: number | undefined }>();
   /** Rings per stream id on append and expiry so parked pollers wake instantly. */
   private readonly changes = new EventEmitter();
 
@@ -55,36 +48,19 @@ export class InMemoryEventStreamStore<T extends { id: string }> {
     this.changes.setMaxListeners(0);
   }
 
-  claimOwner(input: { streamId: string; executorId: string; streamTTLSeconds: number | undefined }): void {
-    this.owners.set(input.streamId, {
-      executorId: input.executorId,
-      expiresAtMs: ttlDeadline(input.streamTTLSeconds),
-    });
-  }
-
   /**
    * Live put with a `{millisecond}-{n}` id. A millisecond older than the tail
    * reuses the tail millisecond. Identical payloads are kept.
    */
-  appendEvent(input: {
-    streamId: string;
-    event: T;
-    executorId: string | undefined;
-    streamTTLSeconds: number | undefined;
-  }): 'ok' | 'owner_mismatch' {
-    const owner = this.liveOwner(input.streamId);
-    if (owner !== undefined && owner !== input.executorId) {
-      return 'owner_mismatch';
-    }
+  appendEvent(input: { streamId: string; event: T; streamTTLSeconds: number | undefined }): void {
     const stream = this.getLiveStream(input.streamId) ?? { events: [] };
     this.streams.set(input.streamId, stream);
     this.push(stream, input.event);
     this.refreshStreamTtl(input.streamId, input.streamTTLSeconds);
     this.changes.emit(input.streamId);
-    return 'ok';
   }
 
-  /** Repair backfill: appends only while the tail is still `tailEntryId`. */
+  /** Restore append: appends only while the tail is still `tailEntryId`. */
   appendAfterTail(input: {
     streamId: string;
     tailEntryId: string | undefined;
@@ -103,29 +79,25 @@ export class InMemoryEventStreamStore<T extends { id: string }> {
     this.changes.emit(input.streamId);
     const written = stream.events[stream.events.length - 1];
     if (written === undefined) {
-      throw new Error('Stream repair append wrote no entry');
+      throw new Error('Stream restore append wrote no entry');
     }
     return { status: 'ok', tailEntryId: written.entryId };
   }
 
-  readTail(streamId: string): StreamTail | undefined {
+  readTailEntryId(streamId: string): string | undefined {
     const stream = this.getLiveStream(streamId);
-    const last = stream?.events[stream.events.length - 1];
-    if (last === undefined) {
-      return undefined;
-    }
-    return { entryId: last.entryId, eventId: last.event.id, payload: JSON.stringify(last.event) };
+    return stream?.events[stream.events.length - 1]?.entryId;
   }
 
   firstEntryId(streamId: string): string | undefined {
     return this.getLiveStream(streamId)?.events[0]?.entryId;
   }
 
-  hasEventId(streamId: string, eventId: string): boolean {
+  hasEventId({ streamId, eventId }: { streamId: string; eventId: string }): boolean {
     return this.getLiveStream(streamId)?.events.some(stored => stored.event.id === eventId) ?? false;
   }
 
-  /** Drops the log and keeps the owner so a stale producer cannot recreate it. */
+  /** Drops the log the way a TTL expiry does. */
   evictStream(streamId: string): void {
     const stream = this.streams.get(streamId);
     if (stream === undefined) {
@@ -134,15 +106,10 @@ export class InMemoryEventStreamStore<T extends { id: string }> {
     this.dropStream(streamId, stream);
   }
 
-  /** Refreshes TTL on a live stream and its owner. */
   refreshStreamTtl(streamId: string, streamTTLSeconds: number | undefined): void {
     const deadline = ttlDeadline(streamTTLSeconds);
     if (deadline === undefined) {
       return;
-    }
-    const owner = this.owners.get(streamId);
-    if (owner !== undefined) {
-      owner.expiresAtMs = deadline;
     }
     const stream = this.getLiveStream(streamId);
     if (!stream) {
@@ -160,7 +127,6 @@ export class InMemoryEventStreamStore<T extends { id: string }> {
     }
     if (stream.expiresAtMs !== undefined && stream.expiresAtMs <= Date.now()) {
       this.dropStream(streamId, stream);
-      this.dropOwnerIfExpired(streamId);
       return undefined;
     }
     return stream;
@@ -201,23 +167,10 @@ export class InMemoryEventStreamStore<T extends { id: string }> {
     stream.expiryTimer = setTimeout(
       () => {
         this.dropStream(streamId, stream);
-        this.dropOwnerIfExpired(streamId);
       },
       Math.max(0, stream.expiresAtMs - Date.now()),
     );
     stream.expiryTimer.unref();
-  }
-
-  private liveOwner(streamId: string): string | undefined {
-    this.dropOwnerIfExpired(streamId);
-    return this.owners.get(streamId)?.executorId;
-  }
-
-  private dropOwnerIfExpired(streamId: string): void {
-    const expiresAtMs = this.owners.get(streamId)?.expiresAtMs;
-    if (expiresAtMs !== undefined && expiresAtMs <= Date.now()) {
-      this.owners.delete(streamId);
-    }
   }
 
   private push(stream: InMemoryStream<T>, event: T): void {
@@ -251,22 +204,10 @@ export class InMemoryEventSubscription<T extends { id: string }> implements Even
     private readonly streamId: string,
   ) {}
 
-  repairLog(options: RepairLogOptions<T>): Promise<void> {
-    const executorId = options.executorId;
-    return applyEventLogRepair({
+  restoreLog(options: RestoreLogOptions<T>): Promise<void> {
+    return applyEventLogRestore({
       readPages: options.readPages,
-      claimOwner:
-        executorId === undefined
-          ? undefined
-          : () => {
-              this.store.claimOwner({
-                streamId: this.streamId,
-                executorId,
-                streamTTLSeconds: options.streamTTLSeconds,
-              });
-              return Promise.resolve();
-            },
-      readTail: () => Promise.resolve(this.store.readTail(this.streamId)),
+      readTailEntryId: () => Promise.resolve(this.store.readTailEntryId(this.streamId)),
       appendAfterTail: batch =>
         Promise.resolve(
           this.store.appendAfterTail({
@@ -279,25 +220,20 @@ export class InMemoryEventSubscription<T extends { id: string }> implements Even
         this.store.refreshStreamTtl(this.streamId, options.streamTTLSeconds);
         return Promise.resolve();
       },
-      refreshTtlOnUntouchedStream: executorId !== undefined,
     });
   }
 
   put(event: T, options?: EventSubscriptionPutOptions): Promise<void> {
-    const outcome = this.store.appendEvent({
+    this.store.appendEvent({
       streamId: this.streamId,
       event,
-      executorId: options?.executorId,
       streamTTLSeconds: options?.streamTTLSeconds,
     });
-    if (outcome === 'owner_mismatch') {
-      return Promise.reject(new StreamOwnerMismatchError(this.streamId));
-    }
     return Promise.resolve();
   }
 
   hasEventId(eventId: string): Promise<boolean> {
-    return Promise.resolve(this.store.hasEventId(this.streamId, eventId));
+    return Promise.resolve(this.store.hasEventId({ streamId: this.streamId, eventId }));
   }
 
   firstEntryId(): Promise<string | undefined> {
@@ -377,7 +313,6 @@ export class InMemoryEventSubscription<T extends { id: string }> implements Even
     }
     const signal = options.signal;
     const seek = new EventIdSeek<SequencedEvent<T>>(fromEventId !== undefined ? 'from' : 'after', eventId);
-    const readCursor = eventIdSeekCursor({ eventId, firstEntryId: this.store.firstEntryId(this.streamId) });
     let index = 0;
     let scanning = true;
     for (;;) {
@@ -414,9 +349,6 @@ export class InMemoryEventSubscription<T extends { id: string }> implements Even
         index += 1;
         if (stored === undefined) {
           throw new Error(`Corrupt stream ${this.streamId}: missing event at index ${String(index - 1)}`);
-        }
-        if (!isEntryAfterCursor(stored.entryId, readCursor)) {
-          continue;
         }
         for (const event of seek.push(this.polled(stored))) {
           yield event;
