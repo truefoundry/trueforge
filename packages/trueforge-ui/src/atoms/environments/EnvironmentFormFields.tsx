@@ -1,9 +1,14 @@
 'use client';
 
+import { useState } from 'react';
+
 import { Icon } from '../../icons/Icon.js';
 import type { SandboxEnvironmentManifest, SandboxEnvironmentSecret } from '../../server/types.js';
+import { useSlot } from '../../theme/SlotsProvider.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
+import { Button } from '../primitives/Button.js';
+import { Dialog } from '../primitives/Dialog.js';
 import { Switch } from '../primitives/Switch.js';
 import { isReservedEnvironmentName } from './environmentDisplay.js';
 
@@ -112,6 +117,8 @@ export function EnvironmentFormFields({
   nameDisabled?: boolean;
   readOnly?: boolean;
 }) {
+  const MonacoEditorCore = useSlot('MonacoEditorCore');
+  const [buildScriptOpen, setBuildScriptOpen] = useState(false);
   const update = (patch: Partial<EnvironmentFormValues>) => onChange({ ...values, ...patch });
 
   return (
@@ -143,17 +150,53 @@ export function EnvironmentFormFields({
       <div className={sectionCardClassName}>
         <h3 className="text-sm font-medium text-text-primary">Image And Resources</h3>
 
-        <label className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1.5">
           <span className="text-xs font-medium text-text-secondary">
             Build Script ({values.buildScript.length}/5120)
           </span>
-          <textarea
-            className={cn(fieldClassName, 'min-h-24 resize-y font-mono text-xs')}
-            value={values.buildScript}
-            placeholder={'set -ex\npip install httpx\n'}
-            onChange={event => update({ buildScript: event.target.value })}
-          />
-        </label>
+          <button
+            type="button"
+            aria-label="Edit build script full screen"
+            aria-haspopup="dialog"
+            className={cn(fieldClassName, 'relative min-h-24 cursor-pointer pr-9 text-left font-mono text-xs')}
+            onClick={() => setBuildScriptOpen(true)}
+          >
+            <span
+              className={cn('block whitespace-pre-wrap break-words', !values.buildScript && 'text-text-secondary/70')}
+            >
+              {values.buildScript || 'set -ex\npip install httpx\n'}
+            </span>
+            <Icon name="expand" className="absolute right-2.5 top-2 size-4 text-text-secondary" />
+          </button>
+          <Dialog
+            open={buildScriptOpen}
+            onOpenChange={setBuildScriptOpen}
+            aria-label="Edit build script full screen"
+            className="h-[calc(100dvh-2rem)] max-h-none w-[calc(100vw-2rem)] max-w-none"
+          >
+            {buildScriptOpen ? (
+              <>
+                <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2">
+                  <h2 className="text-sm font-semibold text-text-primary">
+                    Build Script ({values.buildScript.length}/5120)
+                  </h2>
+                  <Button.Secondary type="button" size="small" onClick={() => setBuildScriptOpen(false)}>
+                    Done
+                  </Button.Secondary>
+                </div>
+                <div className="min-h-0 flex-1">
+                  <MonacoEditorCore
+                    value={values.buildScript}
+                    language="shell"
+                    height="100%"
+                    options={{ readOnly }}
+                    onChange={buildScript => update({ buildScript })}
+                  />
+                </div>
+              </>
+            ) : null}
+          </Dialog>
+        </div>
 
         <div className="grid grid-cols-3 gap-3">
           <label className="flex flex-col gap-1">

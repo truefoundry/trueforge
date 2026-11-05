@@ -1,15 +1,29 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AnalyticsProvider } from '@/analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '@/analytics/events.js';
 import type { TrackAnalytics } from '@/analytics/types.js';
 import { EnvironmentFormDrawer } from '@/atoms/environments/EnvironmentFormDrawer.js';
+import type { MonacoEditorCoreProps } from '@/atoms/MonacoEditorCore.js';
 import { ToasterProvider } from '@/containers/ToasterContainer.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import type { SandboxEnvironment, SandboxEnvironmentServer } from '@/server/types.js';
 import { createMockAgentUIServer, createMockSandboxEnvironmentServer } from '../../server/mockServer.js';
+
+vi.mock('@/atoms/MonacoEditorCore.js', () => ({
+  MonacoEditorCore: ({ value, onChange, language, height, options }: MonacoEditorCoreProps) => (
+    <textarea
+      aria-label="Build script editor"
+      value={value}
+      data-language={language}
+      style={{ height }}
+      readOnly={options?.readOnly === true}
+      onChange={event => onChange?.(event.target.value)}
+    />
+  ),
+}));
 
 const originalShowModal = Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, 'showModal');
 const originalClose = Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, 'close');
@@ -65,12 +79,14 @@ function renderDrawer({
   environmentOverrides = {},
   onSaved = vi.fn(),
   track,
+  readOnly = false,
 }: {
   mode?: 'create' | 'edit';
   environment?: SandboxEnvironment;
   environmentOverrides?: Partial<SandboxEnvironmentServer>;
   onSaved?: () => void;
   track?: TrackAnalytics;
+  readOnly?: boolean;
 } = {}) {
   const savedEnvironment = async ({ manifest }: { manifest: SandboxEnvironment['manifest'] }) => ({
     id: 'e1',
@@ -104,6 +120,7 @@ function renderDrawer({
           open
           mode={mode}
           environment={environment}
+          readOnly={readOnly}
           onOpenChange={onOpenChange}
           onSaved={onSaved}
         />
@@ -116,6 +133,70 @@ function renderDrawer({
 }
 
 describe('EnvironmentFormDrawer', () => {
+  it('opens a full-screen shell editor and saves build script edits with the form', async () => {
+    const { createEnvironment } = renderDrawer();
+    const buildScript = 'set -ex\n  pip install httpx\n';
+    fireEvent.change(screen.getByPlaceholderText('my-environment'), { target: { value: 'node-web' } });
+    expect(screen.queryByRole('textbox', { name: 'Build script editor' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit build script full screen' }));
+    const dialog = screen.getByRole('dialog', { name: 'Edit build script full screen' });
+    expect(dialog).toHaveClass('max-h-none', 'max-w-none', 'h-[calc(100dvh-2rem)]', 'w-[calc(100vw-2rem)]');
+    const editor = within(dialog).getByRole('textbox', { name: 'Build script editor' });
+    expect(editor).toHaveValue('');
+    expect(editor).toHaveAttribute('data-language', 'shell');
+    expect(editor).toHaveStyle({ height: '100%' });
+    fireEvent.change(editor, { target: { value: buildScript } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Done' }));
+
+    expect(screen.queryByRole('dialog', { name: 'Edit build script full screen' })).not.toBeInTheDocument();
+    expect(createEnvironment).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Edit build script full screen' })).toHaveTextContent(
+      'pip install httpx',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Edit build script full screen' }));
+    expect(screen.getByRole('textbox', { name: 'Build script editor' })).toHaveValue(buildScript);
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    await waitFor(() => {
+      expect(createEnvironment).toHaveBeenCalledWith({
+        manifest: expect.objectContaining({ image: { type: 'build', buildScript } }),
+      });
+    });
+  });
+
+  it('loads an existing build script and retains edits when the editor is dismissed', async () => {
+    const { createOrUpdateEnvironment, onOpenChange } = renderDrawer({
+      mode: 'edit',
+      environment: {
+        ...editEnvironment,
+        manifest: { ...editEnvironment.manifest, image: { type: 'build', buildScript: 'echo original\n' } },
+      },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Edit build script full screen' }));
+    const editor = screen.getByRole('textbox', { name: 'Build script editor' });
+    expect(editor).toHaveValue('echo original\n');
+    fireEvent.change(editor, { target: { value: 'echo updated\n' } });
+    fireEvent(screen.getByRole('dialog', { name: 'Edit build script full screen' }), new Event('close'));
+
+    expect(screen.queryByRole('textbox', { name: 'Build script editor' })).not.toBeInTheDocument();
+    expect(onOpenChange).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => {
+      expect(createOrUpdateEnvironment).toHaveBeenCalledWith({
+        manifest: expect.objectContaining({ image: { type: 'build', buildScript: 'echo updated\n' } }),
+      });
+    });
+  });
+
+  it('disables build script editing in view-only mode', () => {
+    renderDrawer({ mode: 'edit', environment: editEnvironment, readOnly: true });
+
+    expect(screen.getByRole('button', { name: 'Edit build script full screen' })).toBeDisabled();
+    expect(screen.queryByRole('textbox', { name: 'Build script editor' })).not.toBeInTheDocument();
+  });
+
   it('saves UI form values', async () => {
     const track = vi.fn();
     const { createEnvironment, createOrUpdateEnvironment, onSaved } = renderDrawer({ track });
