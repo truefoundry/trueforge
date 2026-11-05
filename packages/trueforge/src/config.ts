@@ -773,6 +773,8 @@ export interface SharedServerConfiguration {
    * Env: `LIST_EVENTS_PAGE_LIMIT_MAX`. Default 100.
    */
   LIST_EVENTS_PAGE_LIMIT_MAX: number;
+  /** Default and max page size (`limit`) for list turns. Env: `LIST_TURNS_PAGE_LIMIT_MAX`. Default 25. */
+  LIST_TURNS_PAGE_LIMIT_MAX: number;
   /**
    * Max bytes for an HTTP request body. Env: `MAX_REQUEST_BODY_BYTES`. Default 30 MB.
    */
@@ -1197,6 +1199,11 @@ const shared: SharedServerConfiguration = {
     envKey: 'LIST_EVENTS_PAGE_LIMIT_MAX',
     raw: getEnv('LIST_EVENTS_PAGE_LIMIT_MAX'),
     defaultValue: 100,
+  }),
+  LIST_TURNS_PAGE_LIMIT_MAX: parsePositiveInt({
+    envKey: 'LIST_TURNS_PAGE_LIMIT_MAX',
+    raw: getEnv('LIST_TURNS_PAGE_LIMIT_MAX'),
+    defaultValue: 25,
   }),
   MAX_REQUEST_BODY_BYTES: parsePositiveInt({
     envKey: 'MAX_REQUEST_BODY_BYTES',

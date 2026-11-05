@@ -28,25 +28,31 @@ export type ResourceName = z.infer<typeof NameSchema>;
 
 export const PAGE_LIMIT = 25;
 
-function refineEventsPageLimit(limit: number, ctx: z.RefinementCtx): void {
-  const max = configuration.LIST_EVENTS_PAGE_LIMIT_MAX;
-  if (limit > max) {
-    ctx.addIssue({
-      code: 'custom',
-      message: `limit must be at most ${String(max)}`,
-    });
-  }
+/** Page size whose default and max come from config; read per request, so the max is not baked into OpenAPI. */
+function configuredPageLimitQuerySchema(getMax: () => number) {
+  return z.coerce
+    .number()
+    .int()
+    .min(1)
+    .superRefine((limit, ctx) => {
+      const max = getMax();
+      if (limit > max) {
+        ctx.addIssue({
+          code: 'custom',
+          message: `limit must be at most ${String(max)}`,
+        });
+      }
+    })
+    .optional()
+    .transform(limit => limit ?? getMax())
+    .describe('Page size. Defaults to and is capped at the server-configured maximum.');
 }
 
-/** Session/turn event list page size; the configured max is read per request, so it is not baked into OpenAPI. */
-export const EventsPageLimitQuerySchema = z.coerce
-  .number()
-  .int()
-  .min(1)
-  .superRefine(refineEventsPageLimit)
-  .optional()
-  .transform(limit => limit ?? configuration.LIST_EVENTS_PAGE_LIMIT_MAX)
-  .describe('Page size. Defaults to and is capped at the server-configured maximum.');
+export const EventsPageLimitQuerySchema = configuredPageLimitQuerySchema(
+  () => configuration.LIST_EVENTS_PAGE_LIMIT_MAX,
+);
+
+export const TurnsPageLimitQuerySchema = configuredPageLimitQuerySchema(() => configuration.LIST_TURNS_PAGE_LIMIT_MAX);
 
 /** List-agents page size. */
 export const AGENTS_PAGE_DEFAULT = 50;

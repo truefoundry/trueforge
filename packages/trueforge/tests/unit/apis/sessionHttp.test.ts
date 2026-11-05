@@ -43,7 +43,7 @@ import {
   GetSessionMetricsChartResponseSchema,
   GetSessionMetricsMeterResponseSchema,
 } from '../../../src/schemas/sessionMetrics';
-import { ListTurnEventsResponseSchema } from '../../../src/schemas/turn';
+import { ListTurnEventsResponseSchema, ListTurnsResponseSchema } from '../../../src/schemas/turn';
 
 const inlineSpec = AgentSpecSchema.parse({
   model: { name: 'anthropic/claude-sonnet-4-6' },
@@ -548,6 +548,20 @@ describe('sessions HTTP agent binding', () => {
       expect((await app.request(`${path}?limit=7`)).status).toBe(200);
       expect((await app.request(`${path}?limit=8`)).status).toBe(400);
     }
+  });
+
+  it('turn list defaults and caps limit at LIST_TURNS_PAGE_LIMIT_MAX', async () => {
+    jest.replaceProperty(configuration, 'LIST_TURNS_PAGE_LIMIT_MAX', 3);
+    const created = await app.request('/', jsonInit('POST', { agent: { spec: inlineSpec } }));
+    expect(created.status).toBe(201);
+    const { data: session } = GetSessionResponseSchema.parse(await created.json());
+
+    const turnsPath = `/${session.id}/turns`;
+    const turns = await app.request(turnsPath);
+    expect(turns.status).toBe(200);
+    expect(ListTurnsResponseSchema.parse(await turns.json()).pagination.limit).toBe(3);
+    expect((await app.request(`${turnsPath}?limit=3`)).status).toBe(200);
+    expect((await app.request(`${turnsPath}?limit=4`)).status).toBe(400);
   });
 
   it('POST /sessions/{id}/turns/{turn_id}/events mints ids for events', async () => {

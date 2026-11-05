@@ -307,11 +307,8 @@ export function createHarnessChatServer(
       await client.sessions.cancel(sessionId);
     },
 
-    async listTurns({ sessionId, limit, pageToken }) {
-      const page = await client.sessions.listTurns(sessionId, {
-        ...(limit === undefined ? {} : { limit }),
-        ...(pageToken === undefined ? {} : { pageToken }),
-      });
+    async listTurns({ sessionId, pageToken }) {
+      const page = await client.sessions.listTurns(sessionId, pageToken === undefined ? {} : { pageToken });
       return toListResult(page, toUiTurn);
     },
 
@@ -320,11 +317,10 @@ export function createHarnessChatServer(
       return toUiTurn(response.data);
     },
 
-    async listEvents({ sessionId, pageToken, lastTurnId, limit }) {
+    async listEvents({ sessionId, pageToken, lastTurnId }) {
       const page = await client.sessions.listEvents(sessionId, {
         ...(pageToken === undefined ? {} : { pageToken }),
         ...(lastTurnId === undefined ? {} : { lastTurnId }),
-        ...(limit === undefined ? {} : { limit }),
       });
       return toListResult(page, toUiEventItem);
     },
