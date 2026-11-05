@@ -15,6 +15,7 @@ import { createAuthRouter } from './apis/auth';
 import { createCapabilitiesRouter } from './apis/capabilities';
 import { createCatalogRouter } from './apis/catalog';
 import { createConfigurationRouter } from './apis/configuration';
+import { createInternalSessionTurnsRouter } from './apis/internalSessionTurns';
 import { createMcpOAuthRouter } from './apis/mcpOAuth';
 import { createMcpServersRouter } from './apis/mcpServers';
 import { createModelsRouter } from './apis/models';
@@ -599,6 +600,29 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         authorizer: deps.authorizer,
       }),
       authMiddleware,
+    ),
+  );
+  app.route(
+    '/api/internal/sessions',
+    withAuth(
+      createInternalSessionTurnsRouter({
+        sessions: deps.sessions,
+        agentStore: deps.agentStore,
+        activeTurns: deps.activeTurns,
+        eventSubscriptions: deps.eventSubscriptions,
+        logger: deps.logger,
+        resolveModelProviderStore: deps.resolveModelProviderStore,
+        resolveMcpServerStore: deps.resolveMcpServerStore,
+        resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
+        resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
+        resolveTurnSkillsStore: deps.resolveTurnSkillsStore,
+        resolveCapabilitiesStore: deps.resolveCapabilitiesStore,
+        resolveMemoryProviderStore: deps.resolveMemoryProviderStore,
+        resolveConfigurationStore: deps.resolveConfigurationStore,
+        memoryProviders: deps.memoryProviders,
+      }),
+      scheduleExecutionAuthMiddleware,
     ),
   );
   app.route(
