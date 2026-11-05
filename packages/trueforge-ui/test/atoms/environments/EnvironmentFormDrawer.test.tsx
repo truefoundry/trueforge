@@ -18,6 +18,8 @@ vi.mock('@/atoms/MonacoEditorCore.js', () => ({
       aria-label="Build script editor"
       value={value}
       data-language={language}
+      data-line-numbers={String(options?.lineNumbers)}
+      data-render-final-newline={String(options?.renderFinalNewline)}
       style={{ height }}
       readOnly={options?.readOnly === true}
       onChange={event => onChange?.(event.target.value)}
@@ -164,6 +166,8 @@ describe('EnvironmentFormDrawer', () => {
     const editor = within(dialog).getByRole('textbox', { name: 'Build script editor' });
     expect(editor).toHaveValue('');
     expect(editor).toHaveAttribute('data-language', 'shell');
+    expect(editor).toHaveAttribute('data-line-numbers', 'on');
+    expect(editor).toHaveAttribute('data-render-final-newline', 'on');
     expect(editor).toHaveStyle({ height: '100%' });
     fireEvent.change(editor, { target: { value: buildScript } });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Done' }));

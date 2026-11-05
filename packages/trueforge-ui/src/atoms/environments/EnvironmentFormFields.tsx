@@ -217,7 +217,7 @@ export function EnvironmentFormFields({
                     value={values.buildScript}
                     language="shell"
                     height="100%"
-                    options={{ readOnly }}
+                    options={{ readOnly, lineNumbers: 'on', renderFinalNewline: 'on' }}
                     onChange={buildScript => update({ buildScript })}
                   />
                 </div>
