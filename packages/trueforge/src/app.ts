@@ -602,8 +602,9 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       authMiddleware,
     ),
   );
+  // Own prefix: must not share `/api/internal/sessions` with user-auth get-or-create.
   app.route(
-    '/api/internal/sessions',
+    '/api/internal/session-turns',
     withAuth(
       createInternalSessionTurnsRouter({
         sessions: deps.sessions,

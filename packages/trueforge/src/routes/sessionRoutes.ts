@@ -1,8 +1,7 @@
 /**
  * Session route definitions.
- * Public DB-backed routes mount at /api/v1/sessions; internal operations mount
- * at /api/internal/sessions.
- * Handlers are registered in apis/sessions.ts.
+ * Public DB-backed routes mount at /api/v1/sessions; internal get-or-create at
+ * /api/internal/sessions; service-key create-turn at /api/internal/session-turns.
  */
 import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
@@ -28,15 +27,19 @@ export const SessionIdParamsSchema = z.object({
   session_id: z.string().min(1).max(64).describe('Session identifier.'),
 });
 
-/** Service-key create-turn for external automations (e.g. codeforge review webhooks). */
+/**
+ * Service-key create-turn for external automations (e.g. codeforge review webhooks).
+ * Mounted at `/api/internal/session-turns` (not `/api/internal/sessions`) so it does not
+ * share the user-auth middleware shell used by get-or-create-by-external-id.
+ */
 export const createInternalSessionTurnRoute = createRoute({
   method: 'post',
-  path: '/{session_id}/turns',
+  path: '/{session_id}',
   tags: [OpenApiTag.INTERNAL],
   summary: 'Create a turn in a session (internal)',
   description: 'Starts a non-streaming turn with a user message. Authenticated with the server service API key.',
-  'x-fern-sdk-group-name': ['internal', 'sessions'],
-  'x-fern-sdk-method-name': 'create_turn',
+  'x-fern-sdk-group-name': ['internal', 'session_turns'],
+  'x-fern-sdk-method-name': 'create',
   'x-excluded': true,
   request: {
     params: SessionIdParamsSchema,

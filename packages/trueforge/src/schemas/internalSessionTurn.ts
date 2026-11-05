@@ -1,5 +1,5 @@
 /**
- * Wire schemas for POST /api/internal/sessions/{session_id}/turns.
+ * Wire schemas for POST /api/internal/session-turns/{session_id}.
  */
 import { z } from '@hono/zod-openapi';
 import { GetTurnResponseSchema } from './turn';

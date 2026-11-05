@@ -1,6 +1,7 @@
 /**
- * Internal create-turn API (mounted at /api/internal/sessions).
- * Authenticated with TRUEFORGE_API_KEY; runs as the session creator.
+ * Internal create-turn API (mounted at /api/internal/session-turns).
+ * Authenticated with TRUEFORGE_API_KEY; runs as the session creator with a saved agent token
+ * (same pattern as schedule execution — no live user JWT).
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { Sessions, TurnStreamingEvent } from '@truefoundry/trueforge-core/agent-session';
@@ -13,7 +14,7 @@ import type {
   ResolveTurnSkillsStoreInput,
 } from '../app';
 import { requestContextFromCreatedBySubject } from '../auth/identity';
-import type { AgentRecord, IAgentStore } from '../db/agentStore';
+import type { IAgentStore } from '../db/agentStore';
 import type { IConfigurationStore } from '../db/configurationStore';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IMemoryProviderStore } from '../db/memoryProviderStore';
@@ -64,6 +65,26 @@ export function createInternalSessionTurnsRouter(deps: InternalSessionTurnsDeps)
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
 
+    // Saved-agent token exchange needs a named agent; inline sessions have no agent id to vend.
+    if (session.record.agent.type !== 'reference') {
+      return c.json(
+        {
+          error: {
+            message: 'Internal create-turn requires a session bound to a named agent (not an inline agent spec)',
+          },
+        },
+        422,
+      );
+    }
+
+    const agent = await deps.agentStore.getAgent({
+      tenant_id: body.tenant_id,
+      id: session.record.agent.id,
+    });
+    if (agent === undefined) {
+      return c.json({ error: { message: `Agent not found: ${session.record.agent.id}` } }, 422);
+    }
+
     c.set(
       'request_context',
       requestContextFromCreatedBySubject({
@@ -72,20 +93,6 @@ export function createInternalSessionTurnsRouter(deps: InternalSessionTurnsDeps)
       }),
     );
     updateLogContext({ tenant_id: body.tenant_id, session_id: sessionId });
-
-    let referencedAgent: AgentRecord | undefined;
-    if (session.record.agent.type === 'reference') {
-      const agent = await deps.agentStore.getAgent({
-        tenant_id: body.tenant_id,
-        id: session.record.agent.id,
-      });
-      if (agent === undefined) {
-        return c.json({ error: { message: `Agent not found: ${session.record.agent.id}` } }, 422);
-      }
-      referencedAgent = agent;
-    }
-
-    const allowInlineResources = session.record.agent.type === 'inline';
 
     try {
       const turn = await startTurnInProcess({
@@ -97,21 +104,14 @@ export function createInternalSessionTurnsRouter(deps: InternalSessionTurnsDeps)
           activeTurns: deps.activeTurns,
           eventSubscriptions: deps.eventSubscriptions,
           agentStore: deps.agentStore,
-          modelProviderStore: deps.resolveModelProviderStore({
-            c,
-            allowInlineResources,
-            ...(referencedAgent !== undefined ? { runAsAgent: referencedAgent } : {}),
-          }),
-          mcpServerStore: deps.resolveMcpServerStore({
-            c,
-            allowInlineResources,
-            ...(referencedAgent !== undefined ? { runAsAgent: referencedAgent } : {}),
-          }),
+          modelProviderStore: deps.resolveModelProviderStore({ c, runAsAgent: agent }),
+          mcpServerStore: deps.resolveMcpServerStore({ c, runAsAgent: agent }),
           sandboxProviderStore: deps.resolveSandboxProviderStore(c),
           sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
           webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
-          skillStore: deps.resolveTurnSkillsStore({ c, allowInlineResources }),
-          capabilitiesStore: deps.resolveCapabilitiesStore({ c }),
+          // Registry resolve uses the service API key (same as schedules); omit `c`.
+          skillStore: deps.resolveTurnSkillsStore({}),
+          capabilitiesStore: deps.resolveCapabilitiesStore({}),
           memory: {
             memoryProviderStore: deps.resolveMemoryProviderStore(c),
             configurationStore: deps.resolveConfigurationStore(c),
