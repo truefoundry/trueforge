@@ -36,6 +36,7 @@ import type { AccessGrantRecord, IAccessControlStore } from '../db/accessControl
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import type { IConfigurationStore } from '../db/configurationStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
+import type { IMemoryProviderStore } from '../db/memoryProviderStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
@@ -44,7 +45,6 @@ import type { WithTransaction } from '../db/transaction';
 import type { IUserStore } from '../db/userStore';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { updateLogContext } from '../logger';
-import type { ConfiguredMemory } from '../memory/memoryFromConfig';
 import {
   cancelSessionRoute,
   createSessionRoute,
@@ -113,9 +113,8 @@ export interface SessionsRouterDeps<TTransaction = never> {
   sandboxEnvironmentStore: ISandboxEnvironmentStore;
   redis?: RedisClient | undefined;
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore;
+  resolveMemoryProviderStore: (c: Context) => IMemoryProviderStore;
   resolveConfigurationStore: (c: Context) => IConfigurationStore;
-  /** Long-term memory; undefined when the deployment has it off. */
-  memory: ConfiguredMemory | undefined;
   requestReplyRouter: RequestReplyRouter;
   resolveRequestContext: ResolveRequestContext;
   logger: Logger;
@@ -362,8 +361,8 @@ type ValidateSessionSpecDeps = Pick<
   | 'resolveSandboxProviderStore'
   | 'sandboxEnvironmentStore'
   | 'resolveWebSearchProviderStore'
+  | 'resolveMemoryProviderStore'
   | 'resolveConfigurationStore'
-  | 'memory'
 >;
 
 /**
@@ -405,9 +404,9 @@ function validateSessionSpec({
     sandboxProviderStore: deps.resolveSandboxProviderStore(c),
     sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
     webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
+    memoryProviderStore: deps.resolveMemoryProviderStore(c),
     configurationStore: deps.resolveConfigurationStore(c),
     previousSpec,
-    memory: deps.memory,
   });
 }
 
@@ -479,8 +478,8 @@ type InternalSessionsRouterDeps = Pick<
   | 'resolveSandboxProviderStore'
   | 'sandboxEnvironmentStore'
   | 'resolveWebSearchProviderStore'
+  | 'resolveMemoryProviderStore'
   | 'resolveConfigurationStore'
-  | 'memory'
   | 'resolveRequestContext'
   | 'authorizer'
 >;

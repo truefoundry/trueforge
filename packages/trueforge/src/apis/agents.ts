@@ -16,13 +16,13 @@ import {
 } from '../db/agentStore';
 import type { IConfigurationStore } from '../db/configurationStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
+import type { IMemoryProviderStore } from '../db/memoryProviderStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import type { WithTransaction } from '../db/transaction';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
-import type { ConfiguredMemory } from '../memory/memoryFromConfig';
 import {
   createAgentRoute,
   deleteAgentRoute,
@@ -45,9 +45,8 @@ export interface AgentsRouterDeps<TTransaction> {
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore<TTransaction>;
+  resolveMemoryProviderStore: (c: Context) => IMemoryProviderStore<TTransaction>;
   resolveConfigurationStore: (c: Context) => IConfigurationStore<TTransaction>;
-  /** Long-term memory; undefined when the deployment has it off. */
-  memory: ConfiguredMemory | undefined;
   withTransaction: WithTransaction<TTransaction>;
   resolveRequestContext: ResolveRequestContext;
   authorizer: Authorizer;
@@ -72,9 +71,9 @@ async function validateManifest<TTransaction>({
   sandboxProviderStore,
   sandboxEnvironmentStore,
   webSearchProviderStore,
+  memoryProviderStore,
   configurationStore,
   previousSpec,
-  memory,
   tenant_id,
   created_by_subject_id,
 }: {
@@ -85,10 +84,10 @@ async function validateManifest<TTransaction>({
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
   webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
+  memoryProviderStore: IMemoryProviderStore<TTransaction>;
   configurationStore: IConfigurationStore<TTransaction>;
   /** Manifest already saved on this agent; undefined when creating. */
   previousSpec: AgentSpec | undefined;
-  memory: ConfiguredMemory | undefined;
   tenant_id: string;
   created_by_subject_id: string;
 }): Promise<AgentSpec> {
@@ -102,9 +101,9 @@ async function validateManifest<TTransaction>({
     sandboxProviderStore,
     sandboxEnvironmentStore,
     webSearchProviderStore,
+    memoryProviderStore,
     configurationStore,
     previousSpec,
-    memory,
   });
   return spec;
 }
@@ -143,9 +142,9 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       sandboxProviderStore: deps.resolveSandboxProviderStore(c),
       sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
       webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
+      memoryProviderStore: deps.resolveMemoryProviderStore(c),
       configurationStore: deps.resolveConfigurationStore(c),
       previousSpec: undefined,
-      memory: deps.memory,
       tenant_id: requestContext.tenant_id,
       created_by_subject_id: requestContext.subject.id,
     });
@@ -253,9 +252,9 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       sandboxProviderStore: deps.resolveSandboxProviderStore(c),
       sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
       webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
+      memoryProviderStore: deps.resolveMemoryProviderStore(c),
       configurationStore: deps.resolveConfigurationStore(c),
       previousSpec: existing.manifest,
-      memory: deps.memory,
       tenant_id: requestContext.tenant_id,
       created_by_subject_id: requestContext.subject.id,
     });
