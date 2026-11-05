@@ -1,7 +1,7 @@
 /** Server-only turn wire schemas (SSE resume / cancel / list). Core turn schemas live in agent-session. */
 import { z } from '@hono/zod-openapi';
 import { SessionEventSchema, TokenPaginationSchema, TurnSchema } from '@truefoundry/trueforge-core/agent-session';
-import { EventsPageLimitQuerySchema, TurnsPageLimitQuerySchema } from './common';
+import { EventsPageLimitQuerySchema, PAGE_LIMIT } from './common';
 
 export { CreateTurnRequestSchema, TurnSchema } from '@truefoundry/trueforge-core/agent-session';
 export type { Turn } from '@truefoundry/trueforge-core/agent-session';
@@ -37,7 +37,14 @@ export const CancelSessionResponseSchema = z
 
 export const ListTurnsRequestQuerySchema = z
   .object({
-    limit: TurnsPageLimitQuerySchema,
+    limit: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(PAGE_LIMIT)
+      .optional()
+      .default(PAGE_LIMIT)
+      .describe(`Page size. Defaults to ${String(PAGE_LIMIT)}, max ${String(PAGE_LIMIT)}.`),
     page_token: z.string().optional().describe('Opaque token from a previous response `next_page_token`.'),
   })
   .openapi('ListTurnsRequestQuery');

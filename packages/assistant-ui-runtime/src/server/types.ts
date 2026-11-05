@@ -384,7 +384,12 @@ export interface AgentChatServer<
    */
   renameSession?(req: { sessionId: string; title: string }): Promise<void>;
 
-  listTurns(req: { sessionId: string; pageToken?: string; order?: ListSessionsOrder }): Promise<ListResult<TTurn>>;
+  listTurns(req: {
+    sessionId: string;
+    limit?: number;
+    pageToken?: string;
+    order?: ListSessionsOrder;
+  }): Promise<ListResult<TTurn>>;
   getTurn(req: { sessionId: string; turnId: string }): Promise<TTurn>;
   listEvents(req: {
     sessionId: string;

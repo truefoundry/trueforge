@@ -48,7 +48,7 @@ import {
   GetSessionMetricsChartResponseSchema,
   GetSessionMetricsMeterResponseSchema,
 } from '../../../src/schemas/sessionMetrics';
-import { ListTurnEventsResponseSchema, ListTurnsResponseSchema } from '../../../src/schemas/turn';
+import { ListTurnEventsResponseSchema } from '../../../src/schemas/turn';
 
 const inlineSpec = AgentSpecSchema.parse({
   model: { name: 'anthropic/claude-sonnet-4-6' },
@@ -535,22 +535,18 @@ describe('sessions HTTP agent binding', () => {
   async function seedDoneTurn({
     sessionId,
     turnId,
-    previousTurnId = null,
-    eventCount = 0,
+    eventCount,
   }: {
     sessionId: string;
     turnId: string;
-    previousTurnId?: string | null;
-    eventCount?: number;
+    eventCount: number;
   }): Promise<void> {
-    await sessionStore.createTurn(makeCreateTurnInput({ sessionId, turnId, previousTurnId }));
-    if (eventCount > 0) {
-      await sessionStore.appendToEvents({
-        session_id: sessionId,
-        turn_id: turnId,
-        events: Array.from({ length: eventCount }, () => makeModelMessageEvent()),
-      });
-    }
+    await sessionStore.createTurn(makeCreateTurnInput({ sessionId, turnId }));
+    await sessionStore.appendToEvents({
+      session_id: sessionId,
+      turn_id: turnId,
+      events: Array.from({ length: eventCount }, () => makeModelMessageEvent()),
+    });
     const state = makeDoneTurnState();
     await sessionStore.updateTurnTerminalState({
       session_id: sessionId,
@@ -587,30 +583,6 @@ describe('sessions HTTP agent binding', () => {
       expect((await app.request(`${path}?limit=150`)).status).toBe(200);
       expect((await app.request(`${path}?limit=151`)).status).toBe(400);
     }
-  });
-
-  it('turn list defaults and caps limit at LIST_TURNS_PAGE_LIMIT_MAX', async () => {
-    jest.replaceProperty(configuration, 'LIST_TURNS_PAGE_LIMIT_MAX', 30);
-    const created = await app.request('/', jsonInit('POST', { agent: { spec: inlineSpec } }));
-    expect(created.status).toBe(201);
-    const { data: session } = GetSessionResponseSchema.parse(await created.json());
-    for (let index = 0; index < 35; index++) {
-      await seedDoneTurn({
-        sessionId: session.id,
-        turnId: `turn-${String(index)}`,
-        previousTurnId: index === 0 ? null : `turn-${String(index - 1)}`,
-      });
-    }
-
-    const turnsPath = `/${session.id}/turns`;
-    const turns = await app.request(turnsPath);
-    expect(turns.status).toBe(200);
-    const page = ListTurnsResponseSchema.parse(await turns.json());
-    expect(page.pagination.limit).toBe(30);
-    expect(page.data).toHaveLength(30);
-    expect(page.pagination.next_page_token).toBeDefined();
-    expect((await app.request(`${turnsPath}?limit=30`)).status).toBe(200);
-    expect((await app.request(`${turnsPath}?limit=31`)).status).toBe(400);
   });
 
   it('POST /sessions/{id}/turns/{turn_id}/events mints ids for events', async () => {

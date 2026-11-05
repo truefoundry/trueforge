@@ -307,8 +307,9 @@ export function createHarnessChatServer(
       await client.sessions.cancel(sessionId);
     },
 
-    async listTurns({ sessionId, pageToken }) {
+    async listTurns({ sessionId, limit, pageToken }) {
       const page = await client.sessions.listTurns(sessionId, {
+        ...(limit === undefined ? {} : { limit }),
         ...(pageToken === undefined ? {} : { pageToken }),
       });
       return toListResult(page, toUiTurn);
