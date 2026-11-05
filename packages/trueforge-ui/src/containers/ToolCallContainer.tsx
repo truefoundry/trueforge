@@ -52,6 +52,7 @@ import { ToolGroupContainer } from './ToolGroupContainer.js';
 
 function NestedSubAgentAssistantMessage() {
   const AssistantMessageBubble = useSlot('AssistantMessageBubble');
+  const StepTreeItem = useSlot('StepTreeItem');
   const parts = useAuiState(s => s.message.parts);
   const parallelToolGroups = useAuiState(s => readParallelToolGroups(s.message.metadata.custom));
 
@@ -66,23 +67,38 @@ function NestedSubAgentAssistantMessage() {
     <div className="mb-3 min-w-0">
       <MessagePrimitive.Root data-role="assistant">
         <AssistantMessageBubble>
-          <MessagePrimitive.GroupedParts groupBy={groupBy} indicator="never">
-            {({ part, children }) => {
-              if (isParallelToolGroupPart(part)) {
-                return <ToolGroupContainer group={part}>{children}</ToolGroupContainer>;
-              }
-              if (
-                part.type === 'text' ||
-                part.type === 'reasoning' ||
-                part.type === 'tool-call' ||
-                part.type === 'image' ||
-                part.type === 'data'
-              ) {
-                return <AssistantLeafPartContainer part={part} />;
-              }
-              return null;
-            }}
-          </MessagePrimitive.GroupedParts>
+          <div className="flex min-w-0 flex-col" data-slot="step-tree">
+            <MessagePrimitive.GroupedParts groupBy={groupBy} indicator="never">
+              {({ part, children }) => {
+                if (isParallelToolGroupPart(part)) {
+                  return (
+                    <StepTreeItem>
+                      <ToolGroupContainer group={part}>{children}</ToolGroupContainer>
+                    </StepTreeItem>
+                  );
+                }
+                if (
+                  part.type === 'text' ||
+                  part.type === 'reasoning' ||
+                  part.type === 'tool-call' ||
+                  part.type === 'image' ||
+                  part.type === 'data'
+                ) {
+                  const leaf = <AssistantLeafPartContainer part={part} />;
+                  // Calls inside a parallel group already get a branch from the group's own tree, so only
+                  // top-level steps are wrapped here; wrapping both would draw a double connector.
+                  if (parallelGroupKeyForPart({ part, parts, parallelToolGroups }) != null) {
+                    return leaf;
+                  }
+                  // Tool calls and compaction are steps and get a branch; text, reasoning prose and images are
+                  // plain content, so they only carry the line through when a later step follows.
+                  const isStep = part.type === 'tool-call' || part.type === 'data';
+                  return <StepTreeItem branch={isStep}>{leaf}</StepTreeItem>;
+                }
+                return null;
+              }}
+            </MessagePrimitive.GroupedParts>
+          </div>
         </AssistantMessageBubble>
       </MessagePrimitive.Root>
     </div>

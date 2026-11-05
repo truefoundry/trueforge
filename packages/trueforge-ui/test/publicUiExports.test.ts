@@ -136,6 +136,7 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'SideDrawer',
   'SlotsProvider',
   'StepTree',
+  'StepTreeItem',
   'SubAgentCard',
   'Switch',
   'SyntaxHighlighter',

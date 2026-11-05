@@ -8,7 +8,7 @@ import { McpAuthPrompt } from '../atoms/adapters/McpAuthPromptAdapter.js';
 import { ReasoningCard } from '../atoms/adapters/ReasoningCardAdapter.js';
 import { ResumeUnavailable } from '../atoms/ResumeUnavailable.js';
 
-import { StepTree } from '../atoms/agent-chat/StepTree.js';
+import { StepTree, StepTreeItem } from '../atoms/agent-chat/StepTree.js';
 import { AgentCodeBlock } from '../atoms/agent-details/AgentCodeBlock.js';
 import { AgentDetailsHeader } from '../atoms/agent-details/AgentDetailsHeader.js';
 import { AgentDetailsPage } from '../atoms/agent-details/AgentDetailsPage.js';
@@ -218,6 +218,7 @@ export const defaultSlots = {
   ToolApprovalBar,
   ToolGroupCard,
   StepTree,
+  StepTreeItem,
   SubAgentCard,
   SandboxToolCallCard,
   AgentStepsCard,

@@ -47,9 +47,9 @@ export function ToolGroupCard({
         status={resolvedStatus}
         showConnector={false}
         dataTestPrefix={dataTestPrefix}
-      >
-        <StepTree>{children}</StepTree>
-      </AgentStepRow>
+      />
+      {/* The tree renders outside the row's indented body so its line sits under this row's chevron. */}
+      {expanded && <StepTree className="mt-1">{children}</StepTree>}
     </div>
   );
 }
