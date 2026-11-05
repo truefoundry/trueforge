@@ -10,7 +10,7 @@ import {
   type SequencedEvent,
 } from '.';
 import { entryIdMilliseconds, eventIdSeekCursor, eventIdTimestampMs, isLegacySequenceEntryId } from './entryId';
-import { applyEventLogRestore, type RestoreLogOptions } from './restore';
+import { applyEventLogRestore, type RestoreLogOptions, type RestoreLogOutcome } from './restore';
 
 const SUBSCRIBE_STREAM_POLL_ITEMS_COUNT = 100;
 /** Delay between XREAD polls while a stream has no new events (a blocking XREAD would monopolize the shared connection). */
@@ -168,8 +168,8 @@ export class RedisEventSubscription<T extends { id: string }> implements EventSu
     private readonly streamId: string,
   ) {}
 
-  async restoreLog(options: RestoreLogOptions<T>): Promise<void> {
-    await applyEventLogRestore({
+  restoreLog(options: RestoreLogOptions<T>): Promise<RestoreLogOutcome> {
+    return applyEventLogRestore({
       readPages: options.readPages,
       readTailEntryId: () => this.readTailEntryId(),
       installIfAbsent: pages => this.installIfAbsent(pages, options.streamTTLSeconds),

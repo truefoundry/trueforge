@@ -845,6 +845,7 @@ async function resumePausedTurn<TTransaction>(input: {
     await restoreTurnEventLog({
       sessionStore: input.deps.sessionStore,
       subscription: turnEventStream,
+      logger: input.deps.logger,
       sessionId: input.session.session_id,
       turnId: turn.id,
       streamTTLSeconds: configuration.TURN_STREAM_TTL_SECONDS,
@@ -2037,6 +2038,7 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
         await restoreTurnEventLog({
           sessionStore: deps.sessionStore,
           subscription: turnEventStream,
+          logger: deps.logger,
           sessionId,
           turnId,
           streamTTLSeconds: configuration.TURN_STREAM_TTL_SECONDS,

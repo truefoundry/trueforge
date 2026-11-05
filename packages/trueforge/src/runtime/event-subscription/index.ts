@@ -1,9 +1,9 @@
 import type { RedisClient } from '@truefoundry/trueforge-core/request-reply';
 import { InMemoryEventStreamStore, InMemoryEventSubscription } from './inMemory';
 import { RedisEventSubscription } from './redis';
-import type { RestoreLogOptions } from './restore';
+import type { RestoreLogOptions, RestoreLogOutcome } from './restore';
 
-export type { RestoreLogOptions } from './restore';
+export type { RestoreLogOptions, RestoreLogOutcome } from './restore';
 
 export interface EventSubscriptionPutOptions {
   /** Sets the lifetime of the whole stream after this append. */
@@ -50,8 +50,9 @@ export interface EventSubscription<T extends { id: string }> {
   /**
    * Rebuilds a missing stream from the whole durable log using event-id stream
    * ids. An existing stream is left in place and only gets its TTL refreshed.
+   * Resolves with how the restore ended.
    */
-  restoreLog(options: RestoreLogOptions<T>): Promise<void>;
+  restoreLog(options: RestoreLogOptions<T>): Promise<RestoreLogOutcome>;
 
   /** Appends an event. The stream id is `{ulidMillisecond}-{n}` when the event id is a ULID. */
   put(event: T, options?: EventSubscriptionPutOptions): Promise<void>;

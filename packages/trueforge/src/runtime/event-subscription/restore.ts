@@ -11,7 +11,13 @@ export interface RestoreLogOptions<T> {
 }
 
 /**
- * Installs the whole log when the stream is still absent. Returns false when the
+ * `present`: the stream already existed. `installed`: the log was written.
+ * `lost_race`: another writer created the stream while the log was being read.
+ */
+export type RestoreLogOutcome = 'present' | 'installed' | 'lost_race';
+
+/**
+ * Installs the whole log when the stream is still absent. Reports `lost_race` when the
  * stream was created first: the caller refreshes its TTL and keeps it as is.
  */
 export async function applyEventLogRestore<T>(input: {
@@ -19,13 +25,15 @@ export async function applyEventLogRestore<T>(input: {
   readTailEntryId: () => Promise<string | undefined>;
   installIfAbsent: (pages: AsyncIterable<readonly T[]>) => Promise<boolean>;
   refreshTtl: () => Promise<void>;
-}): Promise<void> {
+}): Promise<RestoreLogOutcome> {
   if ((await input.readTailEntryId()) !== undefined) {
     await input.refreshTtl();
-    return;
+    return 'present';
   }
   const installed = await input.installIfAbsent(input.readPages());
-  if (!installed) {
-    await input.refreshTtl();
+  if (installed) {
+    return 'installed';
   }
+  await input.refreshTtl();
+  return 'lost_race';
 }

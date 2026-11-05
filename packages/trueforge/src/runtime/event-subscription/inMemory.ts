@@ -18,7 +18,7 @@ import {
   isEntryAfterCursor,
   isLegacySequenceEntryId,
 } from './entryId';
-import { applyEventLogRestore, type RestoreLogOptions } from './restore';
+import { applyEventLogRestore, type RestoreLogOptions, type RestoreLogOutcome } from './restore';
 
 function ttlDeadline(streamTTLSeconds: number | undefined): number | undefined {
   return streamTTLSeconds !== undefined && streamTTLSeconds > 0 ? Date.now() + streamTTLSeconds * 1_000 : undefined;
@@ -201,7 +201,7 @@ export class InMemoryEventSubscription<T extends { id: string }> implements Even
     private readonly streamId: string,
   ) {}
 
-  restoreLog(options: RestoreLogOptions<T>): Promise<void> {
+  restoreLog(options: RestoreLogOptions<T>): Promise<RestoreLogOutcome> {
     return applyEventLogRestore({
       readPages: options.readPages,
       readTailEntryId: () => Promise.resolve(this.store.readTailEntryId(this.streamId)),

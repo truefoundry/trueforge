@@ -22,7 +22,7 @@ describe('applyEventLogRestore', () => {
     const pages: Row[][] = [];
     let refreshed = 0;
 
-    await applyEventLogRestore({
+    const outcome = await applyEventLogRestore({
       readPages: () => pagesOf([created, paused], [], [running, done]),
       readTailEntryId: () => Promise.resolve(undefined),
       installIfAbsent: async events => {
@@ -39,13 +39,14 @@ describe('applyEventLogRestore', () => {
 
     expect(pages).toEqual([[created, paused], [], [running, done]]);
     expect(refreshed).toBe(0);
+    expect(outcome).toBe('installed');
   });
 
   it('leaves an existing stream alone and only refreshes its TTL', async () => {
     let installed = 0;
     let refreshed = 0;
 
-    await applyEventLogRestore({
+    const outcome = await applyEventLogRestore({
       readPages: () => pagesOf([created, paused, running]),
       readTailEntryId: () => Promise.resolve('2-0'),
       installIfAbsent: () => {
@@ -60,12 +61,13 @@ describe('applyEventLogRestore', () => {
 
     expect(installed).toBe(0);
     expect(refreshed).toBe(1);
+    expect(outcome).toBe('present');
   });
 
   it('refreshes the TTL when the install loses the race', async () => {
     let refreshed = 0;
 
-    await applyEventLogRestore({
+    const outcome = await applyEventLogRestore({
       readPages: () => pagesOf([created]),
       readTailEntryId: () => Promise.resolve(undefined),
       installIfAbsent: () => Promise.resolve(false),
@@ -76,5 +78,6 @@ describe('applyEventLogRestore', () => {
     });
 
     expect(refreshed).toBe(1);
+    expect(outcome).toBe('lost_race');
   });
 });
