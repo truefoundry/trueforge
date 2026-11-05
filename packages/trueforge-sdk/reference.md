@@ -3902,81 +3902,6 @@ await client.internal.schedules.executeRun({
 </dl>
 </details>
 
-## Internal SessionTurns
-<details><summary><code>client.internal.sessionTurns.<a href="/src/api/resources/internal/resources/sessionTurns/client/Client.ts">create</a>(session_id, { ...params }) -> TrueForge.GetTurnResponse</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Starts a non-streaming turn with a user message. Authenticated with the server service API key.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```typescript
-await client.internal.sessionTurns.create("session_id", {
-    message: "message",
-    tenantId: "tenant_id"
-});
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**session_id:** `string` — Session identifier.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**request:** `TrueForge.internal.InternalCreateSessionTurnRequest` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**requestOptions:** `SessionTurnsClient.RequestOptions` 
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
 ## Internal Sessions
 <details><summary><code>client.internal.sessions.<a href="/src/api/resources/internal/resources/sessions/client/Client.ts">getOrCreateByExternalId</a>({ ...params }) -> TrueForge.GetSessionResponse</code></summary>
 <dl>
@@ -4027,6 +3952,81 @@ await client.internal.sessions.getOrCreateByExternalId({
 <dd>
 
 **request:** `TrueForge.internal.GetOrCreateSessionByExternalIdRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `SessionsClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.internal.sessions.<a href="/src/api/resources/internal/resources/sessions/client/Client.ts">createTurn</a>(session_id, { ...params }) -> TrueForge.GetTurnResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Create a turn within a session and execute it (service API key).
+Same request shape as public create-turn, with `tenant_id` required.
+Only `stream: false` is supported; returns the running turn immediately.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.internal.sessions.createTurn("session_id", {
+    tenantId: "tenant_id"
+});
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**session_id:** `string` — Session identifier.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request:** `TrueForge.internal.InternalCreateSessionTurnRequest` 
     
 </dd>
 </dl>

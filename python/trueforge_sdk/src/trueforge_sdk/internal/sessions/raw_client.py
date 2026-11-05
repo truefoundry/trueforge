@@ -6,18 +6,25 @@ from json.decoder import JSONDecodeError
 from ...core.api_error import ApiError
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.http_response import AsyncHttpResponse, HttpResponse
+from ...core.jsonable_encoder import encode_path_param
 from ...core.parse_error import ParsingError
 from ...core.request_options import RequestOptions
 from ...core.serialization import convert_and_respect_annotation_metadata
 from ...core.unchecked_base_model import construct_type
 from ...errors.bad_request_error import BadRequestError
+from ...errors.content_too_large_error import ContentTooLargeError
 from ...errors.forbidden_error import ForbiddenError
 from ...errors.not_found_error import NotFoundError
+from ...errors.precondition_failed_error import PreconditionFailedError
+from ...errors.unauthorized_error import UnauthorizedError
 from ...errors.unprocessable_entity_error import UnprocessableEntityError
 from ...types.create_session_agent import CreateSessionAgent
 from ...types.get_session_response import GetSessionResponse
+from ...types.get_turn_response import GetTurnResponse
+from ...types.previous_turn_id_input import PreviousTurnIdInput
 from ...types.request_error_response import RequestErrorResponse
 from ...types.session_source_schedule import SessionSourceSchedule
+from ...types.turn_input_item import TurnInputItem
 from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
@@ -137,6 +144,149 @@ class RawSessionsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    def create_turn(
+        self,
+        *,
+        session_id: str,
+        tenant_id: str,
+        input: typing.Optional[typing.Sequence[TurnInputItem]] = OMIT,
+        previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
+        stream: typing.Optional[bool] = True,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[GetTurnResponse]:
+        """
+        Create a turn within a session and execute it (service API key).
+        Same request shape as public create-turn, with `tenant_id` required.
+        Only `stream: false` is supported; returns the running turn immediately.
+
+        Parameters
+        ----------
+        session_id : str
+            Session identifier.
+
+        tenant_id : str
+            Tenant that owns the session.
+
+        input : typing.Optional[typing.Sequence[TurnInputItem]]
+            Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.
+
+        previous_turn_id : typing.Optional[PreviousTurnIdInput]
+
+        stream : typing.Optional[bool]
+            When true (default), stream turn events as SSE. When false, return the running turn immediately.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[GetTurnResponse]
+            The running turn.
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/internal/sessions/{encode_path_param(session_id)}/turns",
+            method="POST",
+            json={
+                "tenant_id": tenant_id,
+                "input": convert_and_respect_annotation_metadata(
+                    object_=input, annotation=typing.Sequence[TurnInputItem], direction="write"
+                ),
+                "previous_turn_id": convert_and_respect_annotation_metadata(
+                    object_=previous_turn_id, annotation=PreviousTurnIdInput, direction="write"
+                ),
+                "stream": stream,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    GetTurnResponse,
+                    construct_type(
+                        type_=GetTurnResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 412:
+                raise PreconditionFailedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 413:
+                raise ContentTooLargeError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
 
 class AsyncRawSessionsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -222,6 +372,149 @@ class AsyncRawSessionsClient:
                 )
             if _response.status_code == 404:
                 raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def create_turn(
+        self,
+        *,
+        session_id: str,
+        tenant_id: str,
+        input: typing.Optional[typing.Sequence[TurnInputItem]] = OMIT,
+        previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
+        stream: typing.Optional[bool] = True,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[GetTurnResponse]:
+        """
+        Create a turn within a session and execute it (service API key).
+        Same request shape as public create-turn, with `tenant_id` required.
+        Only `stream: false` is supported; returns the running turn immediately.
+
+        Parameters
+        ----------
+        session_id : str
+            Session identifier.
+
+        tenant_id : str
+            Tenant that owns the session.
+
+        input : typing.Optional[typing.Sequence[TurnInputItem]]
+            Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.
+
+        previous_turn_id : typing.Optional[PreviousTurnIdInput]
+
+        stream : typing.Optional[bool]
+            When true (default), stream turn events as SSE. When false, return the running turn immediately.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[GetTurnResponse]
+            The running turn.
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/internal/sessions/{encode_path_param(session_id)}/turns",
+            method="POST",
+            json={
+                "tenant_id": tenant_id,
+                "input": convert_and_respect_annotation_metadata(
+                    object_=input, annotation=typing.Sequence[TurnInputItem], direction="write"
+                ),
+                "previous_turn_id": convert_and_respect_annotation_metadata(
+                    object_=previous_turn_id, annotation=PreviousTurnIdInput, direction="write"
+                ),
+                "stream": stream,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    GetTurnResponse,
+                    construct_type(
+                        type_=GetTurnResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 412:
+                raise PreconditionFailedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 413:
+                raise ContentTooLargeError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         RequestErrorResponse,

@@ -2078,24 +2078,24 @@
         "type": "object"
       },
       "InternalCreateSessionTurnRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "message": {
-            "description": "User message body for the new turn.",
-            "minLength": 1,
-            "type": "string"
+        "allOf": [
+          {
+            "properties": {
+              "tenant_id": {
+                "description": "Tenant that owns the session.",
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "tenant_id"
+            ],
+            "type": "object"
           },
-          "tenant_id": {
-            "description": "Tenant that owns the session.",
-            "minLength": 1,
-            "type": "string"
+          {
+            "$ref": "#/components/schemas/CreateTurnRequest"
           }
-        },
-        "required": [
-          "tenant_id",
-          "message"
-        ],
-        "type": "object"
+        ]
       },
       "LargeToolResponseConfig": {
         "default": {
@@ -7308,97 +7308,6 @@
         "x-fern-sdk-method-name": "execute_run"
       }
     },
-    "/api/internal/session-turns/{session_id}": {
-      "post": {
-        "description": "Starts a non-streaming turn with a user message. Authenticated with the server service API key.",
-        "parameters": [
-          {
-            "description": "Session identifier.",
-            "in": "path",
-            "name": "session_id",
-            "required": true,
-            "schema": {
-              "description": "Session identifier.",
-              "maxLength": 64,
-              "minLength": 1,
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/InternalCreateSessionTurnRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetTurnResponse"
-                }
-              }
-            },
-            "description": "Turn started."
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Invalid request body."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Invalid service credential."
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Session not found."
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Turn could not start (missing agent/resources or invalid state)."
-          }
-        },
-        "summary": "Create a turn in a session (internal)",
-        "tags": [
-          "Internal"
-        ],
-        "x-excluded": true,
-        "x-fern-sdk-group-name": [
-          "internal",
-          "session_turns"
-        ],
-        "x-fern-sdk-method-name": "create"
-      }
-    },
     "/api/internal/sessions/get-or-create-by-external-id": {
       "post": {
         "description": "Idempotent get-or-create: returns the existing session for this `external_id`, or creates one",
@@ -7484,6 +7393,117 @@
           "sessions"
         ],
         "x-fern-sdk-method-name": "get_or_create_by_external_id"
+      }
+    },
+    "/api/internal/sessions/{session_id}/turns": {
+      "post": {
+        "description": "Create a turn within a session and execute it (service API key).\nSame request shape as public create-turn, with `tenant_id` required.\nOnly `stream: false` is supported; returns the running turn immediately.",
+        "parameters": [
+          {
+            "description": "Session identifier.",
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "description": "Session identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InternalCreateSessionTurnRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetTurnResponse"
+                }
+              }
+            },
+            "description": "The running turn."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid service credential."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Session, prior turn, or referenced agent not found."
+          },
+          "412": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Requested action cannot be performed on the session because it is no longer usable."
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Request body exceeds the configured maximum size (MAX_REQUEST_BODY_BYTES)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The request is well-formed but cannot be processed: a referenced resource is missing (named agent, model, MCP server, skill, or sandbox provider), sandbox is required but unavailable (e.g. file uploads), or the turn input conflicts with current state (e.g. unresolved tool calls or approvals, tool name collision)."
+          }
+        },
+        "summary": "Create and execute a turn in a session (internal)",
+        "tags": [
+          "Internal"
+        ],
+        "x-excluded": true,
+        "x-fern-sdk-group-name": [
+          "internal",
+          "sessions"
+        ],
+        "x-fern-sdk-method-name": "create_turn"
       }
     },
     "/api/v1/agents": {

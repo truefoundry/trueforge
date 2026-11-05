@@ -3,18 +3,19 @@
 import type * as TrueForge from "../../../../../../../api/index.js";
 import * as core from "../../../../../../../core/index.js";
 import type * as serializers from "../../../../../../index.js";
+import { CreateTurnRequest } from "../../../../../../types/CreateTurnRequest.js";
 
 export const InternalCreateSessionTurnRequest: core.serialization.Schema<
     serializers.internal.InternalCreateSessionTurnRequest.Raw,
     TrueForge.internal.InternalCreateSessionTurnRequest
-> = core.serialization.object({
-    message: core.serialization.string(),
-    tenantId: core.serialization.property("tenant_id", core.serialization.string()),
-});
+> = core.serialization
+    .object({
+        tenantId: core.serialization.property("tenant_id", core.serialization.string()),
+    })
+    .extend(CreateTurnRequest);
 
 export declare namespace InternalCreateSessionTurnRequest {
-    export interface Raw {
-        message: string;
+    export interface Raw extends CreateTurnRequest.Raw {
         tenant_id: string;
     }
 }
