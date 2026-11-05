@@ -7,6 +7,15 @@ type TurnEvent = Exclude<SessionEventItem['event'], TurnCreatedEvent | TurnDoneE
 
 const MCP_AUTH_CONTINUE_INPUT = { type: 'user.mcp_auth_continue' } as const;
 
+/** Per-call input attribution summed across model.message events in a turn. */
+export type SessionInputTokensBreakdown = {
+  harness: number;
+  skills: number;
+  instructions: number;
+  toolDefinitions: number;
+  messages: number;
+};
+
 export type SessionTurnView = {
   turnId: string;
   /** Chronological index among every event turn (1..N). Unique; used for gap compression. */
@@ -20,9 +29,14 @@ export type SessionTurnView = {
   done?: TurnDoneEvent;
   events: TurnEvent[];
   totalTokens?: number;
+  /** Uncached input so Input + cache + Output does not double-count cache. */
   inputTokens?: number;
   outputTokens?: number;
   cachedTokens?: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
+  /** Sum of model.message usage.inputTokensBreakdown across all threads in the turn. */
+  inputTokensBreakdown?: SessionInputTokensBreakdown;
   totalCostInUsd?: number;
   durationMs?: number;
   /** Model FQN of the last root-thread model call in the turn. */
@@ -83,6 +97,8 @@ function metricsFromTerminalState(state: unknown): {
   inputTokens?: number;
   outputTokens?: number;
   cachedTokens?: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
   totalCostInUsd?: number;
 } {
   if (typeof state !== 'object' || state == null || !('status' in state)) {
@@ -116,6 +132,8 @@ function metricsFromTerminalState(state: unknown): {
     ...(inputTokens !== undefined ? { inputTokens } : {}),
     ...(outputTokens !== undefined ? { outputTokens } : {}),
     ...(cachedTokens !== undefined ? { cachedTokens } : {}),
+    ...(cacheRead !== undefined ? { cacheReadTokens: cacheRead } : {}),
+    ...(cacheWrite !== undefined ? { cacheWriteTokens: cacheWrite } : {}),
     ...(totalCostInUsd !== undefined ? { totalCostInUsd } : {}),
   };
 }
@@ -128,6 +146,63 @@ function rootModelName(events: readonly TurnEvent[]): string | undefined {
     }
   }
   return undefined;
+}
+
+function readNonNegativeInt(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined;
+}
+
+function readInputTokensBreakdown(usage: unknown): SessionInputTokensBreakdown | undefined {
+  if (typeof usage !== 'object' || usage == null) return undefined;
+  const raw = Reflect.get(usage, 'inputTokensBreakdown') ?? Reflect.get(usage, 'input_tokens_breakdown');
+  if (typeof raw !== 'object' || raw == null) return undefined;
+  const harness = readNonNegativeInt(Reflect.get(raw, 'harness'));
+  const skills = readNonNegativeInt(Reflect.get(raw, 'skills'));
+  const instructions = readNonNegativeInt(Reflect.get(raw, 'instructions'));
+  const toolDefinitions =
+    readNonNegativeInt(Reflect.get(raw, 'toolDefinitions')) ?? readNonNegativeInt(Reflect.get(raw, 'tool_definitions'));
+  const messages = readNonNegativeInt(Reflect.get(raw, 'messages'));
+  if (
+    harness === undefined &&
+    skills === undefined &&
+    instructions === undefined &&
+    toolDefinitions === undefined &&
+    messages === undefined
+  ) {
+    return undefined;
+  }
+  return {
+    harness: harness ?? 0,
+    skills: skills ?? 0,
+    instructions: instructions ?? 0,
+    toolDefinitions: toolDefinitions ?? 0,
+    messages: messages ?? 0,
+  };
+}
+
+export function sumSessionInputTokensBreakdown(
+  left: SessionInputTokensBreakdown | undefined,
+  right: SessionInputTokensBreakdown | undefined,
+): SessionInputTokensBreakdown | undefined {
+  if (left == null && right == null) return undefined;
+  return {
+    harness: (left?.harness ?? 0) + (right?.harness ?? 0),
+    skills: (left?.skills ?? 0) + (right?.skills ?? 0),
+    instructions: (left?.instructions ?? 0) + (right?.instructions ?? 0),
+    toolDefinitions: (left?.toolDefinitions ?? 0) + (right?.toolDefinitions ?? 0),
+    messages: (left?.messages ?? 0) + (right?.messages ?? 0),
+  };
+}
+
+/** Sum input attribution from every model.message in the turn (all threads). */
+function inputTokensBreakdownFromEvents(events: readonly TurnEvent[]): SessionInputTokensBreakdown | undefined {
+  let total: SessionInputTokensBreakdown | undefined;
+  for (const event of events) {
+    if (event.type !== 'model.message') continue;
+    const usage = Reflect.get(event, 'usage');
+    total = sumSessionInputTokensBreakdown(total, readInputTokensBreakdown(usage));
+  }
+  return total;
 }
 
 /**
@@ -168,6 +243,7 @@ export function buildSessionTurnViews(itemsAsc: SessionEventItem[]): SessionTurn
     if (renderable) renderableTurnNumber += 1;
     group.events.sort((left, right) => timestampMs(left.createdAt) - timestampMs(right.createdAt));
     const modelName = rootModelName(group.events);
+    const inputTokensBreakdown = inputTokensBreakdownFromEvents(group.events);
 
     return {
       turnId,
@@ -185,6 +261,7 @@ export function buildSessionTurnViews(itemsAsc: SessionEventItem[]): SessionTurn
           }),
       events: group.events,
       ...(modelName === undefined ? {} : { modelName }),
+      ...(inputTokensBreakdown === undefined ? {} : { inputTokensBreakdown }),
     };
   });
 }
@@ -202,15 +279,20 @@ export function aggregateSessionTurnBand(
   let inputTokens = 0;
   let outputTokens = 0;
   let cachedTokens = 0;
+  let cacheReadTokens = 0;
+  let cacheWriteTokens = 0;
   let totalCostInUsd = 0;
   let durationMs = 0;
   let hasTokens = false;
   let hasInput = false;
   let hasOutput = false;
   let hasCached = false;
+  let hasCacheRead = false;
+  let hasCacheWrite = false;
   let hasCost = false;
   let hasDuration = false;
   let modelName: string | undefined;
+  let inputTokensBreakdown: SessionInputTokensBreakdown | undefined;
 
   for (const turn of band) {
     if (turn.modelName != null) modelName = turn.modelName;
@@ -230,6 +312,14 @@ export function aggregateSessionTurnBand(
       cachedTokens += turn.cachedTokens;
       hasCached = true;
     }
+    if (turn.cacheReadTokens != null) {
+      cacheReadTokens += turn.cacheReadTokens;
+      hasCacheRead = true;
+    }
+    if (turn.cacheWriteTokens != null) {
+      cacheWriteTokens += turn.cacheWriteTokens;
+      hasCacheWrite = true;
+    }
     if (turn.totalCostInUsd != null) {
       totalCostInUsd += turn.totalCostInUsd;
       hasCost = true;
@@ -238,6 +328,7 @@ export function aggregateSessionTurnBand(
       durationMs += turn.durationMs;
       hasDuration = true;
     }
+    inputTokensBreakdown = sumSessionInputTokensBreakdown(inputTokensBreakdown, turn.inputTokensBreakdown);
   }
 
   return {
@@ -246,8 +337,11 @@ export function aggregateSessionTurnBand(
     ...(hasInput ? { inputTokens } : {}),
     ...(hasOutput ? { outputTokens } : {}),
     ...(hasCached ? { cachedTokens } : {}),
+    ...(hasCacheRead ? { cacheReadTokens } : {}),
+    ...(hasCacheWrite ? { cacheWriteTokens } : {}),
     ...(hasCost ? { totalCostInUsd } : {}),
     ...(hasDuration ? { durationMs } : {}),
     ...(modelName === undefined ? {} : { modelName }),
+    ...(inputTokensBreakdown === undefined ? {} : { inputTokensBreakdown }),
   };
 }

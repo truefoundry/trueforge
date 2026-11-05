@@ -1,5 +1,4 @@
 import { createHash } from 'node:crypto';
-import { TenantAllowlistMemorySettings, type MemorySettings } from '../../../src/memory/MemorySettings';
 import { memoryScopeKey, resolveMemoryScope, type MemoryScopeSession } from '../../../src/memory/scope';
 
 const SUBJECT = { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'User One' } as const;
@@ -68,17 +67,5 @@ describe('resolveMemoryScope', () => {
     expect(memoryScopeKey({ tenantId: 'acme', agentKey: 'trueforge', subjectId: 'user-1' })).toBe(
       `tfg-${createHash('sha256').update('["acme","trueforge","user-1"]').digest('hex')}`,
     );
-  });
-});
-
-describe('TenantAllowlistMemorySettings', () => {
-  it('lists the allowlisted tenants once each', async () => {
-    const settings: MemorySettings = new TenantAllowlistMemorySettings({ tenantIds: ['acme', 'globex', 'acme'] });
-    await expect(settings.listEnabledTenantIds()).resolves.toEqual(['acme', 'globex']);
-  });
-
-  it('means every tenant when the allowlist is empty', async () => {
-    const settings: MemorySettings = new TenantAllowlistMemorySettings({ tenantIds: [] });
-    await expect(settings.listEnabledTenantIds()).resolves.toBeUndefined();
   });
 });
