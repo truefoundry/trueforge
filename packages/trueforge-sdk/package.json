@@ -1,6 +1,6 @@
 {
     "name": "@truefoundry/trueforge-sdk",
-    "version": "0.184.0",
+    "version": "0.184.1",
     "private": false,
     "type": "module",
     "main": "./dist/esm/index.mjs",
