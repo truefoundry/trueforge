@@ -60,6 +60,7 @@ export default function AgentOverview({ detail }: AgentOverviewProps) {
     ['Generative UI', spec.config?.generativeUi?.enabled],
     ['Dynamic sub-agents', spec.config?.dynamicSubAgents?.enabled],
     ['Ask user questions', spec.config?.askUserQuestions?.enabled],
+    ...(capabilitiesAvailable?.memory != null ? ([['Memory', spec.config?.memory?.enabled]] as const) : []),
     ...(capabilitiesAvailable?.webSearch?.enabled === true
       ? ([['Web search', spec.config?.webSearch?.enabled]] as const)
       : []),

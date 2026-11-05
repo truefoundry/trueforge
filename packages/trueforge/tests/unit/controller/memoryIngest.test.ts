@@ -1,4 +1,6 @@
+import configuration from '../../../src/config';
 import {
+  memoryIngestFromConfig,
   memoryIngestLoop,
   runMemoryIngestPass,
   type MemoryIngestConfig,
@@ -14,7 +16,6 @@ import type {
   UpsertMemoryIngestCursorInput,
 } from '../../../src/db/memoryIngestStore';
 import { MemoryIngestError, type IngestExchangeInput, type MemoryProvider } from '../../../src/memory/MemoryProvider';
-import { TenantAllowlistMemorySettings } from '../../../src/memory/MemorySettings';
 import { memoryScopeKey } from '../../../src/memory/scope';
 import {
   answer,
@@ -59,7 +60,7 @@ class FakeStore implements IMemoryIngestStore {
   async listCandidateSessions(input: ListMemoryIngestCandidatesInput): Promise<MemoryIngestCandidate[]> {
     const candidates: { updatedAt: string; candidate: MemoryIngestCandidate }[] = [];
     for (const session of this.sessions.values()) {
-      if (input.tenant_ids !== undefined && !input.tenant_ids.includes(session.candidate.tenant_id)) {
+      if (!input.tenant_ids.includes(session.candidate.tenant_id)) {
         continue;
       }
       const tip = session.turns[session.turns.length - 1];
@@ -145,13 +146,12 @@ function deps({
   provider: MemoryProvider;
   logger?: ReturnType<typeof fakeLogger>;
   config?: Partial<MemoryIngestConfig>;
-  /** Stands in for `TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST`. */
+  /** Tenants with memory on; each gets `provider`. */
   enabledTenants?: string[];
 }): MemoryIngestDeps {
   return {
     store,
-    provider,
-    settings: { listEnabledTenantIds: async () => enabledTenants },
+    providersByTenant: () => Promise.resolve(new Map(enabledTenants.map(tenantId => [tenantId, provider]))),
     logger: logger as never,
     config: { ...CONFIG, ...config },
     now: () => NOW,
@@ -296,7 +296,7 @@ describe('runMemoryIngestPass', () => {
     expect(summary.sessions_by_outcome).toEqual({ ingested: 1 });
   });
 
-  it('reads only sessions of allowlisted tenants, so others never take a run slot', async () => {
+  it('reads only sessions of tenants with memory on, so others never take a run slot', async () => {
     const store = new FakeStore();
     store.add(session({ id: 's1', tenant: 'other', turns: [closedTurn('t1', null, 10)] }));
     store.add(session({ id: 's2', tenant: 'other', turns: [closedTurn('t1', null, 11)] }));
@@ -313,18 +313,29 @@ describe('runMemoryIngestPass', () => {
     expect(summary).toMatchObject({ sessions: 1, backlog: false, sessions_by_outcome: { ingested: 1 } });
   });
 
-  it("reads every tenant's sessions when the allowlist is empty", async () => {
+  it("sends each tenant's sessions to that tenant's provider", async () => {
     const store = new FakeStore();
     store.add(session({ id: 's1', turns: [closedTurn('t1', null, 10)] }));
     store.add(session({ id: 's2', tenant: 'other', turns: [closedTurn('t1', null, 11)] }));
-    const { provider, calls } = fakeProvider();
+    const acme = fakeProvider();
+    const other = fakeProvider();
 
     const summary = await runMemoryIngestPass({
-      deps: { ...deps({ store, provider }), settings: new TenantAllowlistMemorySettings({ tenantIds: [] }) },
+      deps: {
+        ...deps({ store, provider: acme.provider }),
+        providersByTenant: () =>
+          Promise.resolve(
+            new Map([
+              ['acme', acme.provider],
+              ['other', other.provider],
+            ]),
+          ),
+      },
       signal: signal(),
     });
 
-    expect(calls.map(call => call.exchange.sessionId)).toEqual(['s1', 's2']);
+    expect(acme.calls.map(call => call.exchange.sessionId)).toEqual(['s1']);
+    expect(other.calls.map(call => call.exchange.sessionId)).toEqual(['s2']);
     expect(summary).toMatchObject({ sessions: 2, sessions_by_outcome: { ingested: 2 } });
   });
 
@@ -562,5 +573,33 @@ describe('runMemoryIngestPass', () => {
     await memoryIngestLoop(deps({ store, provider })).tick(controller.signal);
 
     expect(calls).toHaveLength(0);
+  });
+
+  it('runs outside TrueFoundry mode with the default loop settings', () => {
+    const wiring = memoryIngestFromConfig({
+      config: configuration,
+      store: new FakeStore(),
+      tenantMemory: {
+        memoryProviderStore: {
+          getProvider: () => Promise.resolve(undefined),
+          upsertProvider: () => Promise.reject(new Error('not used')),
+        },
+        configurationStore: {
+          getConfiguration: () => Promise.resolve(undefined),
+          upsertConfiguration: () => Promise.reject(new Error('not used')),
+          getOrCreateConfiguration: () => Promise.reject(new Error('not used')),
+          listTenantIdsWithFeatureEnabled: () => Promise.resolve([]),
+        },
+        providers: { get: () => fakeProvider().provider },
+      },
+    });
+
+    expect(wiring?.config).toEqual({
+      intervalMs: 300_000,
+      maxSessionsPerRun: 50,
+      maxExchangesPerSession: 20,
+      lookbackMs: 7_200_000,
+      pauseTimeoutMs: 43_200_000,
+    });
   });
 });
