@@ -135,6 +135,28 @@ function renderDrawer({
 }
 
 describe('EnvironmentFormDrawer', () => {
+  it('keeps long build script previews compact and scrollable without truncating the script', async () => {
+    const buildScript = Array.from({ length: 80 }, (_, index) => `echo "line ${index + 1}"`).join('\n');
+    renderDrawer({
+      mode: 'edit',
+      environment: {
+        ...editEnvironment,
+        manifest: { ...editEnvironment.manifest, image: { type: 'build', buildScript } },
+      },
+    });
+
+    const trigger = screen.getByRole('button', { name: 'Edit build script full screen' });
+    const preview = within(trigger).getByTestId('build-script-preview');
+    expect(preview).toHaveClass('max-h-32', 'overflow-y-auto', 'overscroll-contain');
+    expect(preview.textContent).toBe(buildScript);
+
+    fireEvent.click(trigger);
+    expect(screen.getByRole('textbox', { name: 'Build script editor' })).toHaveValue(buildScript);
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    await waitFor(() => expect(preview).toBeVisible());
+    expect(preview).toHaveClass('max-h-32', 'overflow-y-auto');
+  });
+
   it('top-aligns the placeholder and highlights saved scripts as Bash', async () => {
     renderDrawer();
     const trigger = screen.getByRole('button', { name: 'Edit build script full screen' });
