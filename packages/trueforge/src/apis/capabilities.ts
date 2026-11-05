@@ -14,7 +14,7 @@ import type { WithTransaction } from '../db/transaction';
 import type { IUserStore } from '../db/userStore';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { hasConfiguredMemoryProvider } from '../memory/providers';
-import { getCapabilitiesRoute } from '../routes/capabilityRoutes';
+import { getCapabilitiesRoute, type SessionSharingCapability } from '../routes/capabilityRoutes';
 import { isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import { DEFAULT_SANDBOX_ENVIRONMENT_NAME, type SandboxEnvironmentVersionStatus } from '../schemas/sandboxEnvironment';
 import { hasTrueFoundrySandboxProviderConfig } from '../truefoundry/resolveTrueFoundrySandboxProviderConfig';
@@ -138,6 +138,9 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
         reason: 'Memory is turned off for this tenant - an admin can turn it back on in settings.',
       };
     }
+    const sessionSharing: SessionSharingCapability = {
+      granularity: deps.userStore.supportsUserLookup ? 'subject' : 'tenant',
+    };
     return c.json(
       {
         data: {
@@ -153,7 +156,7 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
           }),
           web_search: webSearchResponse,
           ...(memoryResponse && { memory: memoryResponse }),
-          session_sharing: { granularity: deps.userStore.supportsUserLookup ? 'subject' : 'tenant' },
+          session_sharing: sessionSharing,
         },
       },
       200,

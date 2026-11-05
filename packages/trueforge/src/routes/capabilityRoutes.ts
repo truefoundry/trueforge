@@ -73,6 +73,8 @@ const SessionSharingCapabilitySchema = z
   })
   .openapi('SessionSharingCapability');
 
+export type SessionSharingCapability = z.infer<typeof SessionSharingCapabilitySchema>;
+
 const CapabilitiesDataSchema = z
   .object({
     sandbox: SandboxCapabilitySchema,
