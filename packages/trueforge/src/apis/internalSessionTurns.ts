@@ -59,13 +59,13 @@ export function registerInternalSessionTurnRoutes(router: OpenAPIHono, deps: Int
       return c.json({ error: { message: 'Internal create-turn does not support stream: true' } }, 400);
     }
 
-    const session = await deps.sessions.get({
-      tenant_id: body.tenant_id,
-      session_id: sessionId,
-    });
+    // Same as schedule getRunById: session_id is the only trusted input.
+    const session = await deps.sessions.getById({ session_id: sessionId });
     if (session === undefined) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
+
+    const tenantId = session.record.tenant_id;
 
     // Saved-agent token exchange needs a named agent; inline sessions have no agent id to vend.
     if (session.record.agent.type !== 'reference') {
@@ -80,7 +80,7 @@ export function registerInternalSessionTurnRoutes(router: OpenAPIHono, deps: Int
     }
 
     const agent = await deps.agentStore.getAgent({
-      tenant_id: body.tenant_id,
+      tenant_id: tenantId,
       id: session.record.agent.id,
     });
     if (agent === undefined) {
@@ -90,11 +90,11 @@ export function registerInternalSessionTurnRoutes(router: OpenAPIHono, deps: Int
     c.set(
       'request_context',
       requestContextFromCreatedBySubject({
-        tenant_id: body.tenant_id,
+        tenant_id: tenantId,
         created_by_subject: session.record.created_by_subject,
       }),
     );
-    updateLogContext({ tenant_id: body.tenant_id, session_id: sessionId });
+    updateLogContext({ tenant_id: tenantId, session_id: sessionId });
 
     try {
       const turn = await startTurnInProcess({

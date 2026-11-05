@@ -291,18 +291,14 @@ Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto
   },
 });
 
-/**
- * Service-key create-turn (e.g. codeforge). Same path/body shape as createAndExecuteTurnRoute
- * under `/api/internal/sessions`, plus `tenant_id`. Non-streaming only (`stream: false`).
- */
+/** Service-key create-turn under `/api/internal/sessions`. Non-streaming only. */
 export const createInternalSessionTurnRoute = createRoute({
   method: 'post',
   path: '/{session_id}/turns',
   tags: [OpenApiTag.INTERNAL],
   summary: 'Create and execute a turn in a session (internal)',
-  description: `Create a turn within a session and execute it (service API key).
-Same request shape as public create-turn, with \`tenant_id\` required.
-Only \`stream: false\` is supported; returns the running turn immediately.`,
+  description:
+    'Create and execute a turn (service API key). Same body as public create-turn; only `stream: false` is supported.',
   'x-fern-sdk-group-name': ['internal', 'sessions'],
   'x-fern-sdk-method-name': 'create_turn',
   'x-excluded': true,

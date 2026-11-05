@@ -7,6 +7,7 @@ import { SessionHandle } from './SessionHandle';
 import type {
   CreateSessionInput,
   GetSessionByExternalIdInput,
+  GetSessionByIdInput,
   GetSessionInput,
   ISessionStore,
 } from './store/ISessionStore';
@@ -63,6 +64,21 @@ export class Sessions<
    */
   async get(input: GetSessionInput): Promise<SessionHandle<TSessionCustom, TTurnCustom> | undefined> {
     const record = await this.store.getSession(input);
+    if (!record) {
+      return undefined;
+    }
+    return new SessionHandle({
+      store: this.store,
+      session: record,
+    });
+  }
+
+  /**
+   * Returns the session by immutable id only (no tenant). For trusted internal
+   * callers — same pattern as schedule `getRunById`. Read-only.
+   */
+  async getById(input: GetSessionByIdInput): Promise<SessionHandle<TSessionCustom, TTurnCustom> | undefined> {
+    const record = await this.store.getSessionById(input);
     if (!record) {
       return undefined;
     }

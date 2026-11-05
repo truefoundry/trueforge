@@ -45,6 +45,12 @@ export interface GetSessionInput {
   session_id: string;
 }
 
+/** Internal lookup when the session id is the only trusted input. */
+export interface GetSessionByIdInput {
+  /** Globally unique immutable session id. */
+  session_id: string;
+}
+
 export interface GetOwnedIdsInput {
   tenant_id: string;
   ids: readonly string[];
@@ -286,6 +292,13 @@ export interface ISessionStore<
    * Does **not** bump `last_activity_timestamp_ms` (read path).
    */
   getSession(input: GetSessionInput): Promise<SessionRecord<TSessionCustom> | undefined>;
+
+  /**
+   * One session by immutable id (no tenant filter). For trusted internal callers
+   * that only have `session_id` (same pattern as schedule `getRunById`).
+   * Does **not** bump `last_activity_timestamp_ms` (read path).
+   */
+  getSessionById(input: GetSessionByIdInput): Promise<SessionRecord<TSessionCustom> | undefined>;
 
   /**
    * Session ids among `ids` owned by `subject_id`. Empty `ids` → `[]`.

@@ -91,6 +91,7 @@ export type {
   FreezeAndGetTurnInput,
   GetOwnedIdsInput,
   GetSessionByExternalIdInput,
+  GetSessionByIdInput,
   GetSessionInput,
   GetTurnInput,
   ISessionStore,
