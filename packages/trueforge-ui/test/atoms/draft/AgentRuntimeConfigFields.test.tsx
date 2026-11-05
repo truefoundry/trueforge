@@ -95,6 +95,18 @@ function renderRuntimeFields({
 }
 
 describe('AgentRuntimeConfigFields', () => {
+  it('defaults the iteration limit to 1024', () => {
+    renderRuntimeFields();
+
+    expect(screen.getByRole('spinbutton', { name: 'Iteration limit' })).toHaveValue(1024);
+  });
+
+  it('preserves an explicit iteration limit', () => {
+    renderRuntimeFields({ value: { iterationLimit: 512 } });
+
+    expect(screen.getByRole('spinbutton', { name: 'Iteration limit' })).toHaveValue(512);
+  });
+
   it('renders environment row in detailed layout with Manage Environments link', async () => {
     renderRuntimeFields();
 

@@ -14,6 +14,20 @@ describe('runtimeConfigValueClassName', () => {
 });
 
 describe('runtimeConfigSummary', () => {
+  it.each([undefined, {}])('defaults the iteration limit to 1024 with config %p', config => {
+    expect(runtimeConfigSummary(config).find(entry => entry.label === 'iteration limit')).toEqual({
+      label: 'iteration limit',
+      value: '1024',
+    });
+  });
+
+  it('preserves an explicit iteration limit', () => {
+    expect(runtimeConfigSummary({ iterationLimit: 512 }).find(entry => entry.label === 'iteration limit')).toEqual({
+      label: 'iteration limit',
+      value: '512',
+    });
+  });
+
   it('lists web search even when the host capability is unavailable', () => {
     expect(runtimeConfigSummary({ webSearch: { enabled: true } }).find(entry => entry.label === 'web search')).toEqual({
       label: 'web search',

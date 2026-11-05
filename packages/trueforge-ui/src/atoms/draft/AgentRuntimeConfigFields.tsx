@@ -325,7 +325,7 @@ export function AgentRuntimeConfigFields({
             max={1024}
             disabled={disabled}
             aria-label="Iteration limit"
-            value={value.iterationLimit ?? 512}
+            value={value.iterationLimit ?? 1024}
             className={auiInputClass('h-8 w-24 shrink-0 disabled:opacity-60')}
             onChange={event => {
               const iterationLimit = parseIterationLimit(event.target.value);

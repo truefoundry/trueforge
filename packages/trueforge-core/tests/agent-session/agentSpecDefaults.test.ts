@@ -1,6 +1,25 @@
 import { AgentSpecSchema, DEFAULT_AGENT_CONFIG_ITERATION_LIMIT } from '../../src/agent-session/schemas/agentSpec';
 
 describe('AgentSpec RuntimeConfig defaults', () => {
+  it.each([undefined, {}])('defaults the iteration limit to 1024 with config %p', config => {
+    const spec = AgentSpecSchema.parse({ model: { name: 'provider/model' }, config });
+    expect(spec.config.iteration_limit).toBe(1024);
+  });
+
+  it.each([1, 512, 1024])('preserves an explicit iteration limit of %i', iteration_limit => {
+    const spec = AgentSpecSchema.parse({
+      model: { name: 'provider/model' },
+      config: { iteration_limit },
+    });
+    expect(spec.config.iteration_limit).toBe(iteration_limit);
+  });
+
+  it('rejects iteration limits above 1024', () => {
+    expect(
+      AgentSpecSchema.safeParse({ model: { name: 'provider/model' }, config: { iteration_limit: 1025 } }).success,
+    ).toBe(false);
+  });
+
   it('materializes config when omitted', () => {
     const spec = AgentSpecSchema.parse({ model: { name: 'provider/model' } });
     expect(spec.config.iteration_limit).toBe(DEFAULT_AGENT_CONFIG_ITERATION_LIMIT);
