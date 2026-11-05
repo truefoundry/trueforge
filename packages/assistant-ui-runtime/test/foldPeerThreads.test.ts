@@ -6,6 +6,7 @@ import { CONTEXT_COMPACTION_DATA_NAME } from '../src/contextCompaction.js';
 import {
   buildRootAssistantContent,
   buildRootAssistantContentForIds,
+  buildRootAssistantFoldForIds,
   ingestStreamEvent,
   ingestTurnEvent,
   PeerThreadFoldState,
@@ -810,5 +811,156 @@ describe('foldPeerThreads', () => {
 
     state.settledTurnCompletedAtMs = Date.parse('2026-10-26T12:52:46.773Z');
     expect(buildRootAssistantContentForIds(state, [])).toEqual([]);
+  });
+
+  it('maps toolCallIds to the model.message that first emitted them', () => {
+    const state = new PeerThreadFoldState();
+    ingestTurnEvent(
+      state,
+      modelMessage({
+        id: 'm-batch',
+        threadId: ROOT_THREAD_ID,
+        toolCalls: [
+          {
+            id: 't1',
+            type: 'function',
+            function: { name: 'list_teams_for_user', arguments: '{}' },
+          },
+          {
+            id: 't2',
+            type: 'function',
+            function: { name: 'get_manifest_json_schema', arguments: '{}' },
+          },
+          {
+            id: 't3',
+            type: 'function',
+            function: { name: 'check_user_registration', arguments: '{}' },
+          },
+          {
+            id: 'spawn-1',
+            type: 'function',
+            function: { name: 'create_sub_agent', arguments: '{}' },
+            toolInfo: { type: 'trueforge-system', name: 'create_sub_agent' },
+          },
+        ],
+      }),
+    );
+    ingestTurnEvent(
+      state,
+      modelMessage({
+        id: 'm-later',
+        threadId: ROOT_THREAD_ID,
+        toolCalls: [
+          {
+            id: 't4',
+            type: 'function',
+            function: { name: 'validate_manifest', arguments: '{}' },
+          },
+        ],
+      }),
+    );
+
+    const { parallelToolGroups } = buildRootAssistantFoldForIds(state, ['m-batch', 'm-later']);
+    expect(parallelToolGroups).toEqual({
+      t1: 'm-batch',
+      t2: 'm-batch',
+      t3: 'm-batch',
+      'spawn-1': 'm-batch',
+      t4: 'm-later',
+    });
+  });
+
+  it('keeps the first model.message id when a toolCallId is re-emitted later', () => {
+    const state = new PeerThreadFoldState();
+    ingestTurnEvent(
+      state,
+      modelMessage({
+        id: 'm-first',
+        threadId: ROOT_THREAD_ID,
+        toolCalls: [
+          {
+            id: 'tool-1',
+            type: 'function',
+            function: { name: 'search_docs', arguments: '{}' },
+          },
+        ],
+      }),
+    );
+    ingestTurnEvent(
+      state,
+      modelMessage({
+        id: 'm-resume',
+        threadId: ROOT_THREAD_ID,
+        toolCalls: [
+          {
+            id: 'tool-1',
+            type: 'function',
+            function: { name: 'search_docs', arguments: '{"q":"x"}' },
+          },
+        ],
+      }),
+    );
+
+    const { parallelToolGroups, parts } = buildRootAssistantFoldForIds(state, ['m-first', 'm-resume']);
+    expect(parallelToolGroups).toEqual({ 'tool-1': 'm-first' });
+    expect(parts.filter(part => part.type === 'tool-call')).toHaveLength(1);
+  });
+
+  it('stamps parallelToolGroups onto nested sub-agent messages', () => {
+    const state = new PeerThreadFoldState();
+    ingestTurnEvent(
+      state,
+      modelMessage({
+        id: 'root-msg',
+        threadId: ROOT_THREAD_ID,
+        toolCalls: [
+          {
+            id: 'spawn-1',
+            type: 'function',
+            function: { name: 'create_sub_agent', arguments: '{}' },
+            toolInfo: { type: 'trueforge-system', name: 'create_sub_agent' },
+          },
+        ],
+      }),
+    );
+    ingestTurnEvent(
+      state,
+      threadCreated({
+        id: 't-created',
+        threadId: 'child-1',
+        title: 'Worker',
+        agentInfo: { type: 'dynamic', name: 'worker', input: 'go' },
+        parent: { threadId: ROOT_THREAD_ID, toolCallId: 'spawn-1' },
+      }),
+    );
+    ingestTurnEvent(
+      state,
+      modelMessage({
+        id: 'child-batch',
+        threadId: 'child-1',
+        toolCalls: [
+          {
+            id: 'c1',
+            type: 'function',
+            function: { name: 'get_session_context', arguments: '{}' },
+          },
+          {
+            id: 'c2',
+            type: 'function',
+            function: { name: 'get_manifest_json_schema', arguments: '{}' },
+          },
+        ],
+      }),
+    );
+
+    const spawn = buildRootAssistantContent(state).find(part => part.type === 'tool-call');
+    if (spawn?.type !== 'tool-call') {
+      throw new Error('expected create_sub_agent tool-call');
+    }
+    const nested = spawn.messages?.[0];
+    expect(nested?.metadata.custom['parallelToolGroups']).toEqual({
+      c1: 'child-batch',
+      c2: 'child-batch',
+    });
   });
 });

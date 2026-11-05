@@ -3,7 +3,10 @@
 import {
   MessagePartPrimitive,
   MessagePrimitive,
+  useAuiState,
   useToolCallElapsed,
+  type EnrichedPartState,
+  type PartState,
   type ToolApprovalResponse,
   type ToolCallMessagePartComponent,
   type ToolCallMessagePartProps,
@@ -17,6 +20,11 @@ import { useCallback, useState } from 'react';
 import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '../analytics/events.js';
 import { useSlot } from '../theme/SlotsProvider.js';
+import {
+  isParallelToolGroupPart,
+  parallelGroupKeyForPart,
+  readParallelToolGroups,
+} from '../utils/parallelToolGroups.js';
 import { resolveActivityLabel } from '../utils/resolveActivityLabel.js';
 import {
   ASK_USER_TOOL_NAME,
@@ -40,31 +48,66 @@ import {
 import { useRegisterApprovalExpand } from './approvalFocus.js';
 import { AssistantTextContainer } from './AssistantTextContainer.js';
 import { ContextCompactionContainer } from './ContextCompactionContainer.js';
+import { MessageImageContainer } from './MessageImageContainer.js';
 import { NestedApprovalBridgeContext, useNestedApprovalBridge } from './nestedApprovalBridge.js';
 import { SandboxToolCallContainer } from './SandboxToolCallContainer.js';
 import { useSessionReplay } from './sessionReplayContext.js';
 import { ToolApprovalContainer } from './ToolApprovalContainer.js';
 import { ToolCallContentBlockContainer } from './ToolCallContentBlockContainer.js';
+import { ToolGroupContainer, type ThreadGroupPart } from './ToolGroupContainer.js';
+
+function NestedLeafPart({ part }: { part: EnrichedPartState }) {
+  switch (part.type) {
+    case 'text':
+    case 'reasoning':
+      return <AssistantTextContainer />;
+    case 'image':
+      return <MessageImageContainer />;
+    case 'tool-call':
+      return <ToolCallContainer {...part} />;
+    case 'data':
+      if (part.name === CONTEXT_COMPACTION_DATA_NAME) {
+        return <ContextCompactionContainer />;
+      }
+      return null;
+    default:
+      return null;
+  }
+}
 
 function NestedSubAgentAssistantMessage() {
   const AssistantMessageBubble = useSlot('AssistantMessageBubble');
+  const parts = useAuiState(s => s.message.parts);
+  const parallelToolGroups = useAuiState(s => readParallelToolGroups(s.message.metadata.custom));
+
+  // Sub-agent messages have no outer "agent steps" group, so only parallel tool calls are grouped here; every
+  // other part renders on its own.
+  const groupBy = (part: PartState): readonly `group-${string}`[] | null => {
+    const parallelKey = parallelGroupKeyForPart({ part, parts, parallelToolGroups });
+    return parallelKey != null ? [parallelKey] : null;
+  };
 
   return (
     <div className="mb-3 min-w-0">
       <MessagePrimitive.Root data-role="assistant">
         <AssistantMessageBubble>
-          <MessagePrimitive.Parts
-            components={{
-              Text: AssistantTextContainer,
-              Reasoning: AssistantTextContainer,
-              tools: { Fallback: ToolCallContainer },
-              data: {
-                by_name: {
-                  [CONTEXT_COMPACTION_DATA_NAME]: ContextCompactionContainer,
-                },
-              },
+          <MessagePrimitive.GroupedParts groupBy={groupBy} indicator="never">
+            {({ part, children }) => {
+              if (isParallelToolGroupPart(part)) {
+                return <ToolGroupContainer group={part as ThreadGroupPart}>{children}</ToolGroupContainer>;
+              }
+              if (
+                part.type === 'text' ||
+                part.type === 'reasoning' ||
+                part.type === 'tool-call' ||
+                part.type === 'image' ||
+                part.type === 'data'
+              ) {
+                return <NestedLeafPart part={part} />;
+              }
+              return null;
             }}
-          />
+          </MessagePrimitive.GroupedParts>
         </AssistantMessageBubble>
       </MessagePrimitive.Root>
     </div>

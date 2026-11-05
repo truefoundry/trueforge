@@ -37,6 +37,7 @@ export function SubAgentCard({
   className,
 }: SubAgentCardProps) {
   const Markdown = useSlot('Markdown');
+  const StepTree = useSlot('StepTree');
 
   const agentStatus: AgentStepStatus = status === 'running' ? 'running' : status === 'success' ? 'success' : 'error';
 
@@ -84,13 +85,16 @@ export function SubAgentCard({
           </div>
         )}
 
+        {/* Sub-agent content is one block (text, groups, nested tools), so it gets a plain rail, not per-child branches. */}
         {children != null && (
-          <div
-            className="flex min-w-0 flex-col gap-3"
-            data-testid={dataTestPrefix ? `${dataTestPrefix}-nested-content` : undefined}
-          >
-            {children}
-          </div>
+          <StepTree variant="rail" dataTestPrefix={dataTestPrefix ? `${dataTestPrefix}-nested` : undefined}>
+            <div
+              className="flex min-w-0 flex-col gap-3"
+              data-testid={dataTestPrefix ? `${dataTestPrefix}-nested-content` : undefined}
+            >
+              {children}
+            </div>
+          </StepTree>
         )}
       </AgentStepRow>
     </div>
