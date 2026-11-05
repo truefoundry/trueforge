@@ -19,9 +19,9 @@ class RuntimeConfig(UncheckedBaseModel):
     context_management: typing.Optional[ContextManagementConfig] = None
     dynamic_sub_agents: typing.Optional[DynamicSubAgentsConfig] = None
     generative_ui: typing.Optional[GenerativeUiConfig] = None
-    iteration_limit: typing.Optional[int] = pydantic.Field(default=512)
+    iteration_limit: typing.Optional[int] = pydantic.Field(default=1024)
     """
-    Max agent-loop iterations per turn (1–1024). Default: 512.
+    Max agent-loop iterations per turn (1–1024). Default: 1024.
     """
 
     memory: typing.Optional[MemoryConfig] = None
