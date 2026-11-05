@@ -56,9 +56,18 @@ export type UpdateConfigurationRequest = z.infer<typeof UpdateConfigurationReque
 export type ConfigurationFeature = keyof ConfigurationManifest;
 
 /**
- * Written the first time a tenant is read or updated.
+ * Written the first time a tenant is read or updated; a stored row missing a switch gets that
+ * switch's default on its next read.
  */
 export const DEFAULT_CONFIGURATION_MANIFEST: ConfigurationManifest = {
   web_search: { enabled: true },
   memory: { enabled: false },
 };
+
+/**
+ * Whether a stored row has every switch. Rows saved before a switch existed lack it, and a server
+ * still on an older version can rewrite a row without it during a deploy.
+ */
+export function hasEveryConfigurationSwitch(manifest: ConfigurationManifest): boolean {
+  return Object.keys(DEFAULT_CONFIGURATION_MANIFEST).every(key => key in manifest);
+}

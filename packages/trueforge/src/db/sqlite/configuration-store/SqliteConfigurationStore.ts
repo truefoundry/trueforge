@@ -1,5 +1,10 @@
 import { sql, type ExpressionBuilder, type Kysely, type Transaction } from 'kysely';
-import type { ConfigurationFeature, ConfigurationManifest } from '../../../schemas/configuration';
+import {
+  DEFAULT_CONFIGURATION_MANIFEST,
+  hasEveryConfigurationSwitch,
+  type ConfigurationFeature,
+  type ConfigurationManifest,
+} from '../../../schemas/configuration';
 import type {
   ConfigurationRecord,
   GetOrCreateConfigurationInput,
@@ -18,6 +23,25 @@ function recordColumns(eb: ExpressionBuilder<Database, 'configuration'>) {
   ];
 }
 
+/** Adds only the switches a row lacks, in one statement, so a concurrent save is never overwritten. */
+async function seedMissingSwitches({
+  db,
+  record,
+}: {
+  db: Kysely<Database>;
+  record: ConfigurationRecord;
+}): Promise<ConfigurationRecord> {
+  if (hasEveryConfigurationSwitch(record.manifest)) {
+    return record;
+  }
+  return await db
+    .updateTable('configuration')
+    .set({ manifest: sql<string>`jsonb_patch(${jsonbBind(DEFAULT_CONFIGURATION_MANIFEST)}, manifest)` })
+    .where('tenant_id', '=', record.tenant_id)
+    .returning(recordColumns)
+    .executeTakeFirstOrThrow();
+}
+
 export class SqliteConfigurationStore implements IConfigurationStore<Transaction<Database>> {
   readonly #db: Kysely<Database>;
 
@@ -30,11 +54,12 @@ export class SqliteConfigurationStore implements IConfigurationStore<Transaction
     transaction?: Transaction<Database>,
   ): Promise<ConfigurationRecord | undefined> {
     const db = transaction ?? this.#db;
-    return await db
+    const record = await db
       .selectFrom('configuration')
       .select(recordColumns)
       .where('tenant_id', '=', tenantId)
       .executeTakeFirst();
+    return record === undefined ? undefined : await seedMissingSwitches({ db, record });
   }
 
   async upsertConfiguration(
@@ -79,11 +104,12 @@ export class SqliteConfigurationStore implements IConfigurationStore<Transaction
       return inserted;
     }
     // Lost the insert race: the row another writer stored wins.
-    return await db
+    const existing = await db
       .selectFrom('configuration')
       .select(recordColumns)
       .where('tenant_id', '=', input.tenant_id)
       .executeTakeFirstOrThrow();
+    return await seedMissingSwitches({ db, record: existing });
   }
 
   async listTenantIdsWithFeatureEnabled(

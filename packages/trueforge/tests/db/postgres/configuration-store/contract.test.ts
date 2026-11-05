@@ -30,6 +30,18 @@ describePg('PostgresConfigurationStore (IConfigurationStore contract)', () => {
     if (env === undefined) {
       throw new Error('Postgres test environment not initialized');
     }
-    return new PostgresConfigurationStore(env.db);
+    const db = env.db;
+    return {
+      store: new PostgresConfigurationStore(db),
+      insertRawManifest: async ({ tenant_id, manifest_json }) => {
+        await sql`INSERT INTO configuration (tenant_id, manifest, updated_at)
+          VALUES (${tenant_id}, ${manifest_json}::jsonb, now())`.execute(db);
+      },
+      readRawManifest: async tenant_id => {
+        const result = await sql<{ raw: string }>`SELECT manifest::text AS raw FROM configuration
+          WHERE tenant_id = ${tenant_id}`.execute(db);
+        return JSON.parse(result.rows[0]?.raw ?? 'null');
+      },
+    };
   });
 });

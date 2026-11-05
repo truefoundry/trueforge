@@ -5,7 +5,6 @@ import type { IConfigurationStore } from '../../../src/db/configurationStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteConfigurationStore } from '../../../src/db/sqlite/configuration-store/SqliteConfigurationStore';
-import { up as backfillMemorySwitch } from '../../../src/db/sqlite/migrations/20261104_000001_configuration_memory_backfill';
 
 function patchInit(manifest: unknown): RequestInit {
   return {
@@ -80,20 +79,6 @@ describe('settings configuration router', () => {
     });
   });
 
-  it('backfills memory off on rows saved before the switch existed, keeping their other switches', async () => {
-    const { store, db } = await createRouter();
-    await sql`
-      INSERT INTO configuration (tenant_id, manifest, updated_at)
-      VALUES (${STANDALONE_REQUEST_CONTEXT.tenant_id}, jsonb(${JSON.stringify({ web_search: { enabled: false } })}), ${new Date().toISOString()})
-    `.execute(db);
-
-    await backfillMemorySwitch(db);
-
-    await expect(store.getConfiguration(STANDALONE_REQUEST_CONTEXT.tenant_id)).resolves.toMatchObject({
-      manifest: { web_search: { enabled: false }, memory: { enabled: false } },
-    });
-  });
-
   it('PATCH turns memory on without touching web search', async () => {
     const { router, store } = await createRouter();
 
@@ -145,6 +130,28 @@ describe('settings configuration router', () => {
     });
     await expect(store.getConfiguration(tenant_id)).resolves.toMatchObject({
       manifest: { web_search: { enabled: false }, memory: { enabled: false } },
+    });
+  });
+
+  it('seeds memory off into a row saved without it, keeping the switches it has', async () => {
+    const { router, db } = await createRouter();
+    const tenant_id = STANDALONE_REQUEST_CONTEXT.tenant_id;
+    await sql`INSERT INTO configuration (tenant_id, manifest, updated_at)
+      VALUES (${tenant_id}, jsonb('{"web_search":{"enabled":false}}'), ${new Date().toISOString()})`.execute(db);
+
+    const read = await router.request('/');
+    expect(read.status).toBe(200);
+    expect(await read.json()).toMatchObject({
+      data: { manifest: { web_search: { enabled: false }, memory: { enabled: false } } },
+    });
+
+    // Aliased away from `manifest` so the raw stored document is read.
+    const stored = await sql<{
+      raw: string;
+    }>`SELECT json(manifest) AS raw FROM configuration WHERE tenant_id = ${tenant_id}`.execute(db);
+    expect(JSON.parse(stored.rows[0]?.raw ?? 'null')).toEqual({
+      web_search: { enabled: false },
+      memory: { enabled: false },
     });
   });
 
