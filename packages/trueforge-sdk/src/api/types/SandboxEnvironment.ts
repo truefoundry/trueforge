@@ -8,8 +8,12 @@ export interface SandboxEnvironment {
     createdBySubject: TrueForge.CreatedBySubject;
     /** Human-readable description; empty when unset. */
     description: string;
+    /** Whether new chats and agents may select this environment. */
+    enabled: boolean;
     /** Immutable server-generated environment identifier. */
     id: string;
+    /** If true, environment is selected by default in new chats and agents. */
+    isDefault: boolean;
     lifecycleStage: TrueForge.SandboxEnvironmentLifecycleStage;
     manifest: TrueForge.SandboxEnvironmentManifest;
     name: TrueForge.ResourceName;
