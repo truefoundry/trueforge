@@ -3,7 +3,7 @@ import {
   buildNextVersion,
   reservedSandboxEnvironmentStoredManifest,
   resolveSandboxEnvironmentIdentity,
-} from '../../../../src/sandbox/environment/sandboxEnvironmentVersion';
+} from '../../../../src/sandbox/environment/version';
 import {
   SandboxEnvironmentManifestSchema,
   SandboxEnvironmentSchema,

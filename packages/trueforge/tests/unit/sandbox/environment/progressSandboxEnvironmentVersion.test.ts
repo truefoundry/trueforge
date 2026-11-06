@@ -3,7 +3,7 @@ import { HTTPException } from 'hono/http-exception';
 import { createLogger } from 'winston';
 import type { ISandboxEnvironmentStore } from '../../../../src/db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../../../../src/db/sandboxProviderStore';
-import { progressSandboxEnvironmentVersion } from '../../../../src/sandbox/environment/progressSandboxEnvironmentVersion';
+import { progressSandboxEnvironmentVersion } from '../../../../src/sandbox/environment/progressVersion';
 import * as providerUtils from '../../../../src/sandbox/providerUtils';
 
 jest.mock('../../../../src/sandbox/providerUtils', () => {
