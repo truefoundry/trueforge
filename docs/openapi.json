@@ -9137,7 +9137,7 @@
                 }
               }
             },
-            "description": "User cannot edit this environment, or is not an admin when changing is_default."
+            "description": "User cannot edit this environment."
           },
           "404": {
             "content": {
