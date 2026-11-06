@@ -662,20 +662,27 @@ describe('sandbox environments API → build controller path', () => {
     expect((await allowed.json()) as { data: { is_default: boolean } }).toMatchObject({ data: { is_default: true } });
   });
 
-  it('disabling the default releases the slot and leaves the tenant without one', async () => {
+  it('refuses to disable the environment holding the default slot', async () => {
     const { publicRouter } = await setup();
     mockSecretProvider();
     await createEnv(publicRouter, 'flag-env');
     expect((await patchFlags(publicRouter, 'flag-env', { is_default: true })).status).toBe(200);
 
     const disabled = await patchFlags(publicRouter, 'flag-env', { enabled: false });
-    expect(disabled.status).toBe(200);
-    expect((await disabled.json()) as { data: { enabled: boolean; is_default: boolean } }).toMatchObject({
-      data: { enabled: false, is_default: false },
+    expect(disabled.status).toBe(409);
+    expect(await disabled.json()).toEqual({
+      error: {
+        message:
+          'Sandbox environment "flag-env" is the default and cannot be disabled. Make another one the default first.',
+      },
     });
-
-    const listed = (await (await publicRouter.request('/')).json()) as { data: { is_default: boolean }[] };
-    expect(listed.data.filter(env => env.is_default)).toEqual([]);
+    const listed = (await (await publicRouter.request('/')).json()) as {
+      data: { name: string; is_default: boolean; enabled: boolean }[];
+    };
+    expect(listed.data.find(env => env.name === 'flag-env')).toMatchObject({
+      is_default: true,
+      enabled: true,
+    });
   });
 
   it('answers 409 when a set-default lands between the delete pre-check and the store write', async () => {

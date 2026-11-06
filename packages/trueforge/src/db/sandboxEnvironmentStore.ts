@@ -322,7 +322,11 @@ export interface ISandboxEnvironmentStore<TTransaction = never> {
     input: MarkSandboxEnvironmentVersionFailedInput,
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentVersionRecord | undefined>;
-  deleteEnvironment(input: DeleteSandboxEnvironmentInput): Promise<void>;
+  /**
+   * Soft-delete an active environment and return its id. Returns undefined when no active
+   * environment matched, and refuses to delete the tenant's default environment.
+   */
+  deleteEnvironment(input: DeleteSandboxEnvironmentInput): Promise<string | undefined>;
   listSecretsByEnvironment(
     input: { environment_id: string },
     transaction?: TTransaction,

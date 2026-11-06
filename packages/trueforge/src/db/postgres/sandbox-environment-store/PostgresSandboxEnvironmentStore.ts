@@ -304,20 +304,44 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
     input: SetSandboxEnvironmentEnabledInput,
     transaction?: Transaction<Database>,
   ): Promise<SandboxEnvironmentWithVersion | undefined> {
-    const db = transaction ?? this.#db;
-    const updated = await db
-      .updateTable('sandbox_environment')
-      // Disabling releases the default slot: a disabled environment must never stay default.
-      // `updated_at` tracks edits to the environment definition, which a flag change is not.
-      .set({ enabled: input.enabled, ...(input.enabled ? {} : { is_default: false }) })
-      .where('tenant_id', '=', input.tenant_id)
-      .where('name', '=', input.name)
-      .where('lifecycle_stage', '=', 'active')
-      .executeTakeFirst();
-    if (updated.numUpdatedRows === 0n) {
-      return undefined;
+    if (input.enabled) {
+      const db = transaction ?? this.#db;
+      const updated = await db
+        .updateTable('sandbox_environment')
+        // `updated_at` tracks edits to the environment definition, which a flag change is not.
+        .set({ enabled: true })
+        .where('tenant_id', '=', input.tenant_id)
+        .where('name', '=', input.name)
+        .where('lifecycle_stage', '=', 'active')
+        .executeTakeFirst();
+      if (updated.numUpdatedRows === 0n) {
+        return undefined;
+      }
+      return this.getEnvironment({ tenant_id: input.tenant_id, name: input.name }, transaction);
     }
-    return this.getEnvironment({ tenant_id: input.tenant_id, name: input.name }, transaction);
+
+    const disable = async (db: Transaction<Database>) => {
+      const current = await db
+        .selectFrom('sandbox_environment')
+        .select(['id', 'is_default'])
+        .where('tenant_id', '=', input.tenant_id)
+        .where('name', '=', input.name)
+        .where('lifecycle_stage', '=', 'active')
+        .executeTakeFirst();
+      if (current === undefined) {
+        return undefined;
+      }
+      if (current.is_default) {
+        throw new SandboxEnvironmentDefaultConflictError({ tenant_id: input.tenant_id });
+      }
+      await db.updateTable('sandbox_environment').set({ enabled: false }).where('id', '=', current.id).execute();
+      return this.getEnvironment({ tenant_id: input.tenant_id, name: input.name }, db);
+    };
+
+    if (transaction) {
+      return disable(transaction);
+    }
+    return this.#db.transaction().execute(db => disable(db));
   }
 
   async setDefaultEnvironment(
@@ -661,7 +685,7 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
     return row ? toVersionRecord(row) : undefined;
   }
 
-  async deleteEnvironment(input: DeleteSandboxEnvironmentInput): Promise<void> {
+  async deleteEnvironment(input: DeleteSandboxEnvironmentInput): Promise<string | undefined> {
     return this.#db.transaction().execute(async db => {
       const environment = await db
         .selectFrom('sandbox_environment')
@@ -677,15 +701,17 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
       if (environment.is_default) {
         throw new SandboxEnvironmentDefaultConflictError({ tenant_id: input.tenant_id });
       }
-      await db
+      const deleted = await db
         .updateTable('sandbox_environment')
         .set({
           lifecycle_stage: 'deleted',
           updated_at: now(),
         })
         .where('id', '=', environment.id)
-        .execute();
-      await db.deleteFrom('sandbox_environment_secret').where('environment_id', '=', environment.id).execute();
+        .where('lifecycle_stage', '=', 'active')
+        .returning('id')
+        .executeTakeFirst();
+      return deleted?.id;
     });
   }
 

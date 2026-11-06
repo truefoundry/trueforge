@@ -249,7 +249,7 @@ export const deleteSandboxEnvironmentRoute = createRoute({
   responses: {
     200: {
       content: { 'application/json': { schema: DeleteSandboxEnvironmentResponseSchema } },
-      description: 'Sandbox environment deleted.',
+      description: 'Sandbox environment deleted, or already absent.',
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -258,10 +258,6 @@ export const deleteSandboxEnvironmentRoute = createRoute({
     403: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'User does not have permission to edit Sandbox environment',
-    },
-    404: {
-      content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Sandbox environment not found or not owned by the caller.',
     },
     409: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

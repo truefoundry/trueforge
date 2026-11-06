@@ -414,7 +414,7 @@ describe('EnvironmentsPage', () => {
     await waitFor(() => expect(setEnvironmentEnabled).toHaveBeenCalledWith({ name: 'python-data', enabled: false }));
   });
 
-  it('badges the default environment and greys out Set as default and Delete', async () => {
+  it('badges the default environment and greys out Disable, Set as default, and Delete', async () => {
     renderPage({
       environments: [{ ...sampleEnvironments[0]!, isDefault: true }],
     });
@@ -427,7 +427,12 @@ describe('EnvironmentsPage', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Actions for python-data' }));
     expect(screen.getByRole('menuitem', { name: 'Edit' })).toBeEnabled();
-    expect(screen.getByRole('menuitem', { name: 'Disable' })).toBeEnabled();
+
+    const disable = screen.getByRole('menuitem', { name: 'Disable' });
+    expect(disable).toBeDisabled();
+    fireEvent.mouseEnter(disable.parentElement ?? disable);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('The default environment cannot be disabled');
+    fireEvent.mouseLeave(disable.parentElement ?? disable);
 
     const setDefault = screen.getByRole('menuitem', { name: 'Set as default' });
     expect(setDefault).toBeDisabled();
@@ -441,7 +446,7 @@ describe('EnvironmentsPage', () => {
     expect(await screen.findByRole('tooltip')).toHaveTextContent('The default environment cannot be deleted');
   });
 
-  it('confirms before disabling the default, which leaves the tenant without one', async () => {
+  it('greys out Disable on the default environment', async () => {
     const setEnvironmentEnabled = vi.fn(async () => sampleEnvironments[0]!);
     renderPage({
       environments: [{ ...sampleEnvironments[0]!, isDefault: true }],
@@ -449,14 +454,13 @@ describe('EnvironmentsPage', () => {
     });
 
     fireEvent.click(await screen.findByRole('button', { name: 'Actions for python-data' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Disable' }));
-
-    const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText(/new chats and agents will start with no environment/i)).toBeInTheDocument();
+    const disable = screen.getByRole('menuitem', { name: 'Disable' });
+    expect(disable).toBeDisabled();
+    fireEvent.mouseEnter(disable.parentElement ?? disable);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(
+      'The default environment cannot be disabled. Make another one the default first.',
+    );
     expect(setEnvironmentEnabled).not.toHaveBeenCalled();
-
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Disable' }));
-    await waitFor(() => expect(setEnvironmentEnabled).toHaveBeenCalledWith({ name: 'python-data', enabled: false }));
   });
 
   it('opens the edit drawer from the actions menu', async () => {

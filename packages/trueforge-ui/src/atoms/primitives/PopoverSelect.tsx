@@ -90,8 +90,11 @@ export type PopoverSelectProps<T extends string> = CommonPopoverSelectProps<T> &
 export function PopoverSelect<T extends string>(props: PopoverSelectProps<T>) {
   const [open, setOpenState] = useState(false);
   // Held in a ref so `setOpen` keeps a stable identity for the document-listener effects.
+  // Updated in layout effect so an interrupted render cannot expose an uncommitted callback.
   const onOpenChangeRef = useRef(props.onOpenChange);
-  onOpenChangeRef.current = props.onOpenChange;
+  useLayoutEffect(() => {
+    onOpenChangeRef.current = props.onOpenChange;
+  }, [props.onOpenChange]);
   const setOpen = useCallback((next: boolean) => {
     setOpenState(next);
     onOpenChangeRef.current?.(next);

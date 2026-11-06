@@ -378,20 +378,47 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
     input: SetSandboxEnvironmentEnabledInput,
     transaction?: Transaction<Database>,
   ): Promise<SandboxEnvironmentWithVersion | undefined> {
-    const db = transaction ?? this.#db;
-    const updated = await db
-      .updateTable('sandbox_environment')
-      // Disabling releases the default slot: a disabled environment must never stay default.
-      // `updated_at` tracks edits to the environment definition, which a flag change is not.
-      .set({ enabled: input.enabled ? 1 : 0, ...(input.enabled ? {} : { is_default: 0 }) })
-      .where('tenant_id', '=', input.tenant_id)
-      .where('name', '=', input.name)
-      .where('lifecycle_stage', '=', 'active')
-      .executeTakeFirst();
-    if (updated.numUpdatedRows === 0n) {
-      return undefined;
+    if (input.enabled) {
+      const db = transaction ?? this.#db;
+      const updated = await db
+        .updateTable('sandbox_environment')
+        // `updated_at` tracks edits to the environment definition, which a flag change is not.
+        .set({ enabled: 1 })
+        .where('tenant_id', '=', input.tenant_id)
+        .where('name', '=', input.name)
+        .where('lifecycle_stage', '=', 'active')
+        .executeTakeFirst();
+      if (updated.numUpdatedRows === 0n) {
+        return undefined;
+      }
+      return this.getEnvironment({ tenant_id: input.tenant_id, name: input.name }, transaction);
     }
-    return this.getEnvironment({ tenant_id: input.tenant_id, name: input.name }, transaction);
+
+    const disable = async (db: Transaction<Database>) => {
+      const current = await db
+        .selectFrom('sandbox_environment')
+        .select(['id', 'is_default'])
+        .where('tenant_id', '=', input.tenant_id)
+        .where('name', '=', input.name)
+        .where('lifecycle_stage', '=', 'active')
+        .executeTakeFirst();
+      if (current === undefined) {
+        return undefined;
+      }
+      if (current.is_default === 1) {
+        throw new SandboxEnvironmentDefaultConflictError({ tenant_id: input.tenant_id });
+      }
+      await db.updateTable('sandbox_environment').set({ enabled: 0 }).where('id', '=', current.id).execute();
+      return this.getEnvironment({ tenant_id: input.tenant_id, name: input.name }, db);
+    };
+
+    if (transaction) {
+      return disable(transaction);
+    }
+    return this.#db
+      .transaction()
+      .setAccessMode('read write')
+      .execute(db => disable(db));
   }
 
   async setDefaultEnvironment(
@@ -782,7 +809,7 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
     return row ? toVersionRecord(row) : undefined;
   }
 
-  async deleteEnvironment(input: DeleteSandboxEnvironmentInput): Promise<void> {
+  async deleteEnvironment(input: DeleteSandboxEnvironmentInput): Promise<string | undefined> {
     return this.#db
       .transaction()
       .setAccessMode('read write')
@@ -800,15 +827,16 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
         if (environment.is_default === 1) {
           throw new SandboxEnvironmentDefaultConflictError({ tenant_id: input.tenant_id });
         }
-        await db
+        const result = await db
           .updateTable('sandbox_environment')
           .set({
             lifecycle_stage: 'deleted',
             updated_at: nowIso(),
           })
           .where('id', '=', environment.id)
-          .execute();
-        await db.deleteFrom('sandbox_environment_secret').where('environment_id', '=', environment.id).execute();
+          .where('lifecycle_stage', '=', 'active')
+          .executeTakeFirst();
+        return Number(result.numUpdatedRows) > 0 ? environment.id : undefined;
       });
   }
 

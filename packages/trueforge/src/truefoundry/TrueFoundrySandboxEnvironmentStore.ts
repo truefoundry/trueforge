@@ -293,13 +293,13 @@ export class TrueFoundrySandboxEnvironmentStore<
     return this.#persistence.markVersionFailed(input, transaction);
   }
 
-  deleteEnvironment(input: DeleteSandboxEnvironmentInput): Promise<void> {
+  deleteEnvironment(input: DeleteSandboxEnvironmentInput): Promise<string | undefined> {
     if (!this.#envSupported) {
       logger.info('Skipping sandbox environment delete (provider does not support environments)', {
         name: input.name,
         tenant_id: input.tenant_id,
       });
-      return Promise.resolve();
+      return Promise.resolve(undefined);
     }
     if (input.name === RESERVED_SANDBOX_ENVIRONMENT_NAME) {
       return trueFoundryManaged();

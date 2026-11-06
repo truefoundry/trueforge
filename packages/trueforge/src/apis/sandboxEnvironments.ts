@@ -60,6 +60,11 @@ function defaultEnvironmentDeleteRejection(name: string): string {
   return `Sandbox environment "${name}" is the default and cannot be deleted`;
 }
 
+/** Shared by the disable pre-check and the store's race-safe backstop. */
+function defaultEnvironmentDisableRejection(name: string): string {
+  return `Sandbox environment "${name}" is the default and cannot be disabled. Make another one the default first.`;
+}
+
 function reservedEnvironmentDeleteRejection(): string {
   return `Sandbox environment "${RESERVED_SANDBOX_ENVIRONMENT_NAME}" cannot be deleted`;
 }
@@ -288,16 +293,6 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
     if (!canManageOrDeleteEnvironment(requestContext, { action: 'delete', name })) {
       return c.json({ error: { message: FORBIDDEN_SANDBOX_ENVIRONMENT_WRITE } }, 403);
     }
-    const existing = await store.getEnvironment({
-      tenant_id,
-      name,
-    });
-    if (!existing) {
-      return c.json({ error: { message: `Sandbox environment not found: ${name}` } }, 404);
-    }
-    if (existing.environment.is_default) {
-      return c.json({ error: { message: defaultEnvironmentDeleteRejection(name) } }, 409);
-    }
     const agentNames = await resolveAgentStore(c).listAgentNamesUsingSandboxEnvironment({
       tenant_id,
       environment_name: name,
@@ -313,7 +308,15 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
       );
     }
     try {
-      const secrets = await store.listSecretsByEnvironment({ environment_id: existing.environment.id });
+      const deletedEnvironmentId = await store.deleteEnvironment({
+        tenant_id,
+        name,
+      });
+      if (deletedEnvironmentId === undefined) {
+        return c.json({}, 200);
+      }
+
+      const secrets = await store.listSecretsByEnvironment({ environment_id: deletedEnvironmentId });
       const provider =
         secrets.length > 0
           ? await resolveSandboxProviderRecord(deps.resolveSandboxProviderStore(c), tenant_id)
@@ -321,10 +324,6 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
       if (secrets.length > 0 && provider === undefined) {
         return c.json({ error: { message: 'No sandbox provider configured' } }, 422);
       }
-      await store.deleteEnvironment({
-        tenant_id,
-        name,
-      });
       if (secrets.length > 0 && provider !== undefined) {
         await deleteSandboxEnvironmentSecrets({
           secrets,
@@ -362,6 +361,9 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
     if (!existing) {
       return c.json({ error: { message: `Sandbox environment not found: ${name}` } }, 404);
     }
+    if (body.enabled === false && existing.environment.is_default) {
+      return c.json({ error: { message: defaultEnvironmentDisableRejection(name) } }, 409);
+    }
 
     let updated: SandboxEnvironmentWithVersion | undefined = existing;
     try {
@@ -379,6 +381,10 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
         return c.json({ error: { message: `Sandbox environment "${name}" is disabled; enable it first` } }, 409);
       }
       if (error instanceof SandboxEnvironmentDefaultConflictError) {
+        // Disable raced with set-default, or a concurrent default move during set-default.
+        if (body.enabled === false) {
+          return c.json({ error: { message: defaultEnvironmentDisableRejection(name) } }, 409);
+        }
         return c.json({ error: { message: 'Default sandbox environment was changed concurrently; retry' } }, 409);
       }
       throw error;

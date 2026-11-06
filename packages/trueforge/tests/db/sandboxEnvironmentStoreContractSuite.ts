@@ -69,14 +69,16 @@ export function runSandboxEnvironmentStoreContractSuite<TTransaction>(
     await expect(store.setDefaultEnvironment({ tenant_id: TENANT, name: 'missing-env' })).resolves.toBeUndefined();
   });
 
-  it('disabling the default releases the slot', async () => {
+  it('refuses to disable the environment holding the default slot', async () => {
     const store = getStore();
     await createEnvironment(store, 'first-env');
     await store.setDefaultEnvironment({ tenant_id: TENANT, name: 'first-env' });
 
-    const disabled = await store.setEnvironmentEnabled({ tenant_id: TENANT, name: 'first-env', enabled: false });
-    expect(disabled?.environment).toMatchObject({ enabled: false, is_default: false });
-    await expect(store.getDefaultEnvironment({ tenant_id: TENANT })).resolves.toBeUndefined();
+    await expect(
+      store.setEnvironmentEnabled({ tenant_id: TENANT, name: 'first-env', enabled: false }),
+    ).rejects.toBeInstanceOf(SandboxEnvironmentDefaultConflictError);
+    expect((await store.getDefaultEnvironment({ tenant_id: TENANT }))?.environment.name).toBe('first-env');
+    expect((await store.getEnvironment({ tenant_id: TENANT, name: 'first-env' }))?.environment.enabled).toBe(true);
   });
 
   it('setDefaultEnvironment rejects a disabled target and keeps the previous default', async () => {
@@ -116,7 +118,11 @@ export function runSandboxEnvironmentStoreContractSuite<TTransaction>(
     await createEnvironment(store, 'second-env');
     await store.setDefaultEnvironment({ tenant_id: TENANT, name: 'first-env' });
 
-    await store.deleteEnvironment({ tenant_id: TENANT, name: 'second-env' });
+    const second = await store.getEnvironment({ tenant_id: TENANT, name: 'second-env' });
+    await expect(store.deleteEnvironment({ tenant_id: TENANT, name: 'second-env' })).resolves.toBe(
+      second?.environment.id,
+    );
+    await expect(store.deleteEnvironment({ tenant_id: TENANT, name: 'second-env' })).resolves.toBeUndefined();
 
     await expect(store.getEnvironment({ tenant_id: TENANT, name: 'second-env' })).resolves.toBeUndefined();
     expect((await store.getDefaultEnvironment({ tenant_id: TENANT }))?.environment.name).toBe('first-env');

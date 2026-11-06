@@ -34,13 +34,15 @@ export function useSandboxEnvironments(): UseSandboxEnvironmentsResult {
   const environmentsListEpoch = shell?.environmentsListEpoch ?? 0;
   const environmentsOpen = shell?.environmentsOpen ?? false;
   const [environments, setEnvironments] = useState<SandboxEnvironment[]>([]);
-  const [loading, setLoading] = useState(false);
+  // True when a server is present so the mount effect does not need a sync setLoading(true).
+  const [loading, setLoading] = useState(() => environmentServer != null);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const requestGenRef = useRef(0);
   const wasEnvironmentsOpenRef = useRef(environmentsOpen);
 
-  const fetchEnvironments = useCallback(async () => {
+  /** List request only — callers that need a loading flash set that before invoking. */
+  const loadEnvironments = useCallback(async () => {
     if (!environmentServer) {
       setEnvironments([]);
       setLoaded(false);
@@ -50,8 +52,6 @@ export function useSandboxEnvironments(): UseSandboxEnvironmentsResult {
     }
 
     const gen = ++requestGenRef.current;
-    setLoading(true);
-    setError(null);
 
     try {
       const all = await drainListPages({
@@ -71,16 +71,27 @@ export function useSandboxEnvironments(): UseSandboxEnvironmentsResult {
     }
   }, [environmentServer]);
 
+  /** Event-driven refresh: mark loading, then load. */
+  const refetch = useCallback(async () => {
+    if (environmentServer) {
+      setLoading(true);
+      setError(null);
+    }
+    await loadEnvironments();
+  }, [environmentServer, loadEnvironments]);
+
+  // Mount + catalog epoch: loading is already true on first paint when a server exists; epoch
+  // bumps refresh quietly so pickers keep current rows without an extra effect setState.
   useEffect(() => {
-    void fetchEnvironments();
-  }, [fetchEnvironments, environmentsListEpoch]);
+    void loadEnvironments();
+  }, [loadEnvironments, environmentsListEpoch]);
 
   useEffect(() => {
     if (wasEnvironmentsOpenRef.current && !environmentsOpen) {
-      void fetchEnvironments();
+      void refetch();
     }
     wasEnvironmentsOpenRef.current = environmentsOpen;
-  }, [environmentsOpen, fetchEnvironments]);
+  }, [environmentsOpen, refetch]);
 
   return {
     environments,
@@ -88,6 +99,6 @@ export function useSandboxEnvironments(): UseSandboxEnvironmentsResult {
     loading,
     loaded,
     error,
-    refetch: fetchEnvironments,
+    refetch,
   };
 }

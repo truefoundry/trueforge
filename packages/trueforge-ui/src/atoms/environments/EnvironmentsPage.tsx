@@ -91,7 +91,11 @@ function environmentRowActionReasons({
             : environment.status !== 'ready'
               ? 'Only a ready environment can be the default.'
               : undefined),
-    toggleEnabled: noManage,
+    toggleEnabled:
+      noManage ??
+      (environment.isDefault && environment.enabled
+        ? 'The default environment cannot be disabled. Make another one the default first.'
+        : undefined),
     delete: reserved
       ? 'This environment is provided by the platform and cannot be deleted.'
       : environment.isDefault
@@ -153,7 +157,6 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
   // Stay closed until tenant CREATE is known — do not open from envIsNew on first paint.
   const [drawer, setDrawer] = useState<DrawerState>({ kind: 'closed' });
   const [pendingDelete, setPendingDelete] = useState<SandboxEnvironment | null>(null);
-  const [pendingDisableDefault, setPendingDisableDefault] = useState<SandboxEnvironment | null>(null);
   const [pageSize, setPageSize] = useState(() => clampPageSize(DEFAULT_TABLE_PAGE_SIZE));
   const [pageToken, setPageToken] = useState<string | undefined>(undefined);
   const [nextPageToken, setNextPageToken] = useState<string | undefined>(undefined);
@@ -494,11 +497,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
                             label={env.enabled ? 'Disable' : 'Enable'}
                             icon={env.enabled ? 'circle-xmark' : 'circle-check'}
                             reason={actions.toggleEnabled}
-                            onClick={() => {
-                              if (env.isDefault) {
-                                setPendingDisableDefault(env);
-                                return;
-                              }
+                            onClick={() =>
                               void applyFlagChange({
                                 change: () =>
                                   environmentServer.setEnvironmentEnabled({
@@ -506,8 +505,8 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
                                     enabled: !env.enabled,
                                   }),
                                 title: env.enabled ? 'Environment disabled' : 'Environment enabled',
-                              });
-                            }}
+                              })
+                            }
                           />
                           <EnvironmentActionItem
                             label="Delete"
@@ -556,38 +555,6 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
           void loadEnvironments({ token: undefined, size: pageSize });
         }}
       />
-
-      <Dialog open={pendingDisableDefault != null} onOpenChange={open => !open && setPendingDisableDefault(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Disable the default environment</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-text-secondary">
-            <span className="font-medium text-text-primary">{pendingDisableDefault?.name}</span> is the default.
-            Disabling it leaves the tenant without one, so new chats and agents will start with no environment until you
-            set another default.
-          </p>
-          <DialogFooter>
-            <Button.Secondary type="button" onClick={() => setPendingDisableDefault(null)}>
-              Cancel
-            </Button.Secondary>
-            <Button.Primary
-              type="button"
-              onClick={() => {
-                const target = pendingDisableDefault;
-                setPendingDisableDefault(null);
-                if (target == null) return;
-                void applyFlagChange({
-                  change: () => environmentServer.setEnvironmentEnabled({ name: target.name, enabled: false }),
-                  title: 'Environment disabled, tenant has no default',
-                });
-              }}
-            >
-              Disable
-            </Button.Primary>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={pendingDelete != null} onOpenChange={open => !open && setPendingDelete(null)}>
         <DialogContent>
