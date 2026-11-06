@@ -244,7 +244,7 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
   const createHandler: RouteHandler<typeof createSandboxEnvironmentRoute> = async c => {
     const requestContext = resolveRequestContext(c);
     const body = c.req.valid('json');
-    if (!canManageOrDeleteEnvironment(requestContext, body.manifest.name)) {
+    if (!canManageOrDeleteEnvironment(requestContext, { action: 'create', name: body.manifest.name })) {
       return c.json({ error: { message: FORBIDDEN_SANDBOX_ENVIRONMENT_WRITE } }, 403);
     }
     const existing = await store.getEnvironment({ tenant_id: requestContext.tenant_id, name: body.manifest.name });
@@ -259,11 +259,12 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
   };
 
   // Create-or-update keyed by manifest.name. Reserved `"default"` is rejected by the
-  // request schema (400); delete uses {@link reservedEnvironmentDeleteRejection}.
+  // request schema (400) and {@link canManageOrDeleteEnvironment}; delete uses
+  // {@link reservedEnvironmentDeleteRejection}.
   const putHandler: RouteHandler<typeof putSandboxEnvironmentRoute> = async c => {
     const body = c.req.valid('json');
     const requestContext = resolveRequestContext(c);
-    if (!canManageOrDeleteEnvironment(requestContext, body.manifest.name)) {
+    if (!canManageOrDeleteEnvironment(requestContext, { action: 'edit', name: body.manifest.name })) {
       return c.json({ error: { message: FORBIDDEN_SANDBOX_ENVIRONMENT_WRITE } }, 403);
     }
     const existing = await store.getEnvironment({
@@ -284,7 +285,7 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
     if (name === RESERVED_SANDBOX_ENVIRONMENT_NAME) {
       return c.json({ error: { message: reservedEnvironmentDeleteRejection() } }, 409);
     }
-    if (!canManageOrDeleteEnvironment(requestContext, name)) {
+    if (!canManageOrDeleteEnvironment(requestContext, { action: 'delete', name })) {
       return c.json({ error: { message: FORBIDDEN_SANDBOX_ENVIRONMENT_WRITE } }, 403);
     }
     const existing = await store.getEnvironment({
@@ -353,7 +354,7 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
     const { name } = c.req.valid('param');
     const body: PatchSandboxEnvironmentRequest = c.req.valid('json');
 
-    if (!canManageOrDeleteEnvironment(requestContext, name)) {
+    if (!canManageOrDeleteEnvironment(requestContext, { action: 'patch', name })) {
       return c.json({ error: { message: FORBIDDEN_SANDBOX_ENVIRONMENT_WRITE } }, 403);
     }
 

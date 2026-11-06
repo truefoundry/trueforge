@@ -206,8 +206,8 @@ describe('TrueForgeAuthorizer.getPermissions', () => {
     });
   });
 
-  // Reserved `"default"` never gets MANAGE/DELETE; `is_default` stays a route/UI carve-out.
-  it('grants no permissions on the platform-provisioned environment', async () => {
+  // Reserved: patch (MANAGE) yes, delete no — enable / set-default stay available to admins.
+  it('grants MANAGE but not DELETE on the platform-provisioned environment for admins', async () => {
     const sandboxEnvironmentStore = {
       getEnvironmentsByIds: jest.fn(async () => [
         { id: 'env-managed', name: 'default', created_by_subject: { subject_id: 'alice' } },
@@ -224,7 +224,7 @@ describe('TrueForgeAuthorizer.getPermissions', () => {
       }),
     ).toEqual({
       type: 'sandbox_environment',
-      permissions: { 'env-managed': [] },
+      permissions: { 'env-managed': ['MANAGE'] },
     });
   });
 });

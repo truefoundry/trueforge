@@ -86,19 +86,19 @@ export function areCatalogSettingsAvailable(): boolean {
   return getTrueForgeAuthMode() !== TrueForgeAuthMode.TrueFoundry;
 }
 
-/**
- * Create / update / delete / enable / disable / set-default sandbox environments
- * (list/get stay open to all callers). Admin only. Pass `sandboxEnvironmentName` for
- * row mutations; omit it for tenant-level create. Always false for reserved `"default"`.
- */
+export type SandboxEnvironmentMutation = 'create' | 'edit' | 'delete' | 'patch';
+
 export function canManageOrDeleteEnvironment(
   requestContext: Pick<RequestContext, 'roles'>,
-  sandboxEnvironmentName?: string,
+  options: { action: SandboxEnvironmentMutation; name?: string },
 ): boolean {
-  if (sandboxEnvironmentName === RESERVED_SANDBOX_ENVIRONMENT_NAME) {
+  if (!hasAdminRole(requestContext)) {
     return false;
   }
-  return hasAdminRole(requestContext);
+  if (options.name === RESERVED_SANDBOX_ENVIRONMENT_NAME) {
+    return options.action === 'patch';
+  }
+  return true;
 }
 
 /** Update / delete / run-now a schedule (and admin/creator schedule reads). */

@@ -84,15 +84,20 @@ describe('areCatalogSettingsAvailable', () => {
 });
 
 describe('canManageOrDeleteEnvironment', () => {
-  it('allows create/mutations for admins only, and never on the reserved default', () => {
+  it('allows admins only; reserved default is patch-only', () => {
     const alice = { roles: ['everyone'] };
     const admin = { roles: ['admin'] };
-    expect(canManageOrDeleteEnvironment(admin)).toBe(true);
-    expect(canManageOrDeleteEnvironment(alice)).toBe(false);
-    expect(canManageOrDeleteEnvironment(admin, 'shared-env')).toBe(true);
-    expect(canManageOrDeleteEnvironment(alice, 'shared-env')).toBe(false);
-    expect(canManageOrDeleteEnvironment(admin, 'default')).toBe(false);
-    expect(canManageOrDeleteEnvironment(alice, 'default')).toBe(false);
+    expect(canManageOrDeleteEnvironment(admin, { action: 'create' })).toBe(true);
+    expect(canManageOrDeleteEnvironment(alice, { action: 'create' })).toBe(false);
+    expect(canManageOrDeleteEnvironment(admin, { action: 'edit', name: 'shared-env' })).toBe(true);
+    expect(canManageOrDeleteEnvironment(admin, { action: 'delete', name: 'shared-env' })).toBe(true);
+    expect(canManageOrDeleteEnvironment(admin, { action: 'patch', name: 'shared-env' })).toBe(true);
+
+    expect(canManageOrDeleteEnvironment(admin, { action: 'patch', name: 'default' })).toBe(true);
+    expect(canManageOrDeleteEnvironment(admin, { action: 'create', name: 'default' })).toBe(false);
+    expect(canManageOrDeleteEnvironment(admin, { action: 'edit', name: 'default' })).toBe(false);
+    expect(canManageOrDeleteEnvironment(admin, { action: 'delete', name: 'default' })).toBe(false);
+    expect(canManageOrDeleteEnvironment(alice, { action: 'patch', name: 'default' })).toBe(false);
   });
 });
 

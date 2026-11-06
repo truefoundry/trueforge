@@ -90,7 +90,7 @@ export class TrueFoundryAuthorizer implements Authorizer {
         accessToken: requireUserCredential(requestContext),
       });
       const agent = tenantPermissions.includes('CREATE_AGENT') ? [...TENANT_CREATE_AGENT_PERMISSIONS] : [];
-      const sandbox_environment = canManageOrDeleteEnvironment(requestContext)
+      const sandbox_environment = canManageOrDeleteEnvironment(requestContext, { action: 'create' })
         ? [...TENANT_CREATE_SANDBOX_ENVIRONMENT_PERMISSIONS]
         : [];
       return listPermissionsData('tenant', { agent, sandbox_environment });

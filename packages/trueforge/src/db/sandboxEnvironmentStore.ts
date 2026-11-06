@@ -20,9 +20,7 @@ export interface SandboxEnvironmentRecord {
   description: string;
   active_version: number;
   lifecycle_stage: SandboxEnvironmentLifecycleStage;
-  /** Selection-time switch. Disabled envs stay listed but cannot be newly selected. */
   enabled: boolean;
-  /** True on the one env a spec gets when it names none. At most one per tenant. */
   is_default: boolean;
   created_by_subject: CreatedBySubject;
   /** ISO-8601 UTC instant. */
