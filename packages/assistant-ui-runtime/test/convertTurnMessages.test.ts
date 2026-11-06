@@ -1926,6 +1926,55 @@ describe('convertTurnMessages', () => {
       expect(cursors).toEqual([{ fromEventId: 'm1' }, { fromEventId: 'auth-1' }, { afterEventId: 'turn-done' }]);
     });
 
+    it('keeps the resume cursor on the earliest open model message while a later one is streaming', async () => {
+      const cursors: { fromEventId?: string; afterEventId?: string }[] = [];
+      await collectStream(
+        streamTurnEvents(
+          streamFrom([
+            modelMessage({ id: 'm-a', threadId: ROOT_THREAD_ID, content: '' }),
+            modelMessage({ id: 'm-b', threadId: ROOT_THREAD_ID, content: '' }),
+            {
+              type: 'model.message.delta',
+              id: 'm-b',
+              createdAt,
+              threadId: ROOT_THREAD_ID,
+              content: 'later',
+            },
+            modelMessage({ id: 'm-a', threadId: ROOT_THREAD_ID, content: 'earlier', finishReason: 'stop' }),
+            {
+              type: 'model.message.delta',
+              id: 'm-b',
+              createdAt,
+              threadId: ROOT_THREAD_ID,
+              content: ' still open',
+            },
+            {
+              type: 'turn.done',
+              id: 'done-open',
+              createdAt,
+              state: { status: 'done', completedAt: createdAt },
+            },
+          ]),
+          new PeerThreadFoldState(),
+          undefined,
+          undefined,
+          undefined,
+          cursor => {
+            cursors.push(cursor);
+          },
+        ),
+      );
+
+      expect(cursors).toEqual([
+        { fromEventId: 'm-a' },
+        { fromEventId: 'm-a' },
+        { fromEventId: 'm-a' },
+        { fromEventId: 'm-a' },
+        { fromEventId: 'm-b' },
+        { afterEventId: 'done-open' },
+      ]);
+    });
+
     it('yields folded content after each ingested stream event', async () => {
       const foldState = new PeerThreadFoldState();
       const updates = await collectStream(

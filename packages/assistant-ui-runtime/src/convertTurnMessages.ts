@@ -33,6 +33,7 @@ import { extractTurnUserText } from './extractTurnUserText.js';
 import {
   buildRootAssistantContent,
   buildRootAssistantContentForIds,
+  earliestOpenModelMessageId,
   findFirstPendingApprovalThreadId,
   findFirstPendingResponseThreadId,
   ingestStreamEvent,
@@ -1940,7 +1941,7 @@ export async function* streamTurnEvents(
       // Resume replays from mcp.auth_required until the prompt is answered. A later
       // paused update must not move the cursor past it: a fresh fold would lose the prompt.
       if (pendingMcpAuth == null || event.type === EVENT_TYPE.MCP_AUTH_REQUIRED || endsMcpAuthPrompt) {
-        onSubscribeCursor?.(subscribeCursorForEvent(event));
+        onSubscribeCursor?.(subscribeCursorForEvent(event, earliestOpenModelMessageId(foldState)));
       }
     }
 

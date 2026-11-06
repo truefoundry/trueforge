@@ -445,6 +445,23 @@ function compactionPartFromStarted({
   };
 }
 
+/** Shell id of the oldest model message that has not finished. ULIDs sort by time. */
+export function earliestOpenModelMessageId(state: PeerThreadFoldState): string | undefined {
+  let earliest: string | undefined;
+  for (const bucket of state.threads.values()) {
+    for (const id of bucket.modelMessageIds) {
+      const event = bucket.events.get(id);
+      if (event?.type !== EVENT_TYPE.MODEL_MESSAGE || event.finishReason != null) {
+        continue;
+      }
+      if (earliest === undefined || id < earliest) {
+        earliest = id;
+      }
+    }
+  }
+  return earliest;
+}
+
 export function ingestStreamEvent(state: PeerThreadFoldState, message: TurnStreamingEvent): boolean {
   if (message.type === EVENT_TYPE.MCP_AUTH_REQUIRED || isTurnScopedEvent(message)) {
     return false;

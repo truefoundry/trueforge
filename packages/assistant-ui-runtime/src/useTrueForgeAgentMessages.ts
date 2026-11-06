@@ -50,7 +50,12 @@ import { delayReconnect, isAbortError, STREAM_RECONNECT_MAX_ATTEMPTS } from './s
 import { resumeTurnStream, streamTurnContent } from './streamTurn.js';
 import { mapApprovalDecision, type RespondToToolApprovalOptions } from './toolApproval.js';
 import { type RespondToToolResponseOptions } from './toolResponse.js';
-import { subscribeCursorForEvent, type TurnStreamUpdate, type TurnSubscribeCursor } from './turnStreamUpdate.js';
+import {
+  createSubscribeReplayProgress,
+  subscribeCursorForEvent,
+  type TurnStreamUpdate,
+  type TurnSubscribeCursor,
+} from './turnStreamUpdate.js';
 
 export interface UseTrueForgeAgentMessagesOptions {
   server: AgentChatServer;
@@ -605,11 +610,10 @@ export function useTrueForgeAgentMessages({
         let useSubscribe = false;
         let consecutiveFailures = 0;
         // Inclusive resume replays the message shell and every delta already seen.
-        // Only events past the most this cursor ever delivered count as progress,
-        // so a stream that keeps dying mid-replay still exhausts the retry budget.
-        let progressCursorKey: string | undefined;
-        let mostDeliveredAtCursor = 0;
-        let deliveredAtCursorThisAttempt = 0;
+        // Only a cursor delivered more times than on any earlier attempt counts as
+        // progress, including when two message ids alternate. A stream that keeps
+        // dying at the same replay position still exhausts the retry budget.
+        const replayProgress = createSubscribeReplayProgress();
 
         const track: StreamSequenceTrack = {
           onSequenceNumber: sequenceNumber => {
@@ -618,15 +622,7 @@ export function useTrueForgeAgentMessages({
           },
           onSubscribeCursor: cursor => {
             subscribeCursor = cursor;
-            const key = 'fromEventId' in cursor ? `from:${cursor.fromEventId}` : `after:${cursor.afterEventId}`;
-            if (key !== progressCursorKey) {
-              progressCursorKey = key;
-              mostDeliveredAtCursor = 0;
-              deliveredAtCursorThisAttempt = 0;
-            }
-            deliveredAtCursorThisAttempt += 1;
-            if (deliveredAtCursorThisAttempt > mostDeliveredAtCursor) {
-              mostDeliveredAtCursor = deliveredAtCursorThisAttempt;
+            if (replayProgress.observe(cursor)) {
               consecutiveFailures = 0;
             }
           },
@@ -705,7 +701,7 @@ export function useTrueForgeAgentMessages({
         };
 
         const readStream = (signal: AbortSignal): AsyncGenerator<TurnStreamUpdate> => {
-          deliveredAtCursorThisAttempt = 0;
+          replayProgress.beginAttempt();
           if (!useSubscribe) {
             return createStream(signal, track);
           }

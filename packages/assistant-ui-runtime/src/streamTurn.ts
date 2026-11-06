@@ -3,8 +3,12 @@ import { EVENT_TYPE } from './server/events.js';
 import type { AgentChatServer, PreviousTurnIdInput, UserMessageContent } from './server/types.js';
 
 import { streamTurnEvents } from './convertTurnMessages.js';
-import { PeerThreadFoldState } from './foldPeerThreads.js';
-import type { TurnStreamUpdate, TurnSubscribeCursor } from './turnStreamUpdate.js';
+import { earliestOpenModelMessageId, PeerThreadFoldState } from './foldPeerThreads.js';
+import {
+  resumeCursorCoveringOpenModelMessages,
+  type TurnStreamUpdate,
+  type TurnSubscribeCursor,
+} from './turnStreamUpdate.js';
 
 export interface StreamTurnOptions {
   userMessage?: UserMessageContent;
@@ -92,7 +96,7 @@ export async function* resumeTurnStream(
       server.subscribeToTurn({
         sessionId,
         turnId,
-        ...(subscribeCursor ?? {}),
+        ...(resumeCursorCoveringOpenModelMessages(subscribeCursor, earliestOpenModelMessageId(foldState)) ?? {}),
         abortSignal,
       }),
       foldState,
