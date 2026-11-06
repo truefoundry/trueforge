@@ -5,3 +5,9 @@
 - Named and draft agent modes share the same runtime; draft spec updates remain synchronized through the server port.
 - Canonical server ports, DTOs, and events live in `src/server/types.ts` and `src/server/events.ts`.
 - Public runtime names use `TrueForge`, never the removed `TrueFoundry` backend name.
+
+## Code comments
+
+- Comments MUST be scenario-based: state the situation that triggers the code and why it is handled this way, e.g. "This happens when …, we do this because …" or "When …, we … so that …".
+- A comment MUST NOT only restate what the code does (e.g. "Maps toolCallId to model.message id"); name the case it covers instead.
+- Comments stay brief (one to three lines) and follow the root `AGENTS.md` comment rules.

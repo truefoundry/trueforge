@@ -3,20 +3,24 @@
 import {
   MessagePartPrimitive,
   MessagePrimitive,
+  useAuiState,
   useToolCallElapsed,
+  type PartState,
   type ToolApprovalResponse,
   type ToolCallMessagePartComponent,
   type ToolCallMessagePartProps,
 } from '@assistant-ui/react';
-import {
-  CONTEXT_COMPACTION_DATA_NAME,
-  useTrueForgeRespondToToolApproval,
-} from '@truefoundry/trueforge-assistant-ui-runtime';
+import { useTrueForgeRespondToToolApproval } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useCallback, useState } from 'react';
 
 import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '../analytics/events.js';
 import { useSlot } from '../theme/SlotsProvider.js';
+import {
+  isParallelToolGroupPart,
+  parallelGroupKeyForPart,
+  readParallelToolGroups,
+} from '../utils/parallelToolGroups.js';
 import { resolveActivityLabel } from '../utils/resolveActivityLabel.js';
 import {
   ASK_USER_TOOL_NAME,
@@ -38,33 +42,63 @@ import {
   toStatus,
 } from '../utils/toolCallParsing.js';
 import { useRegisterApprovalExpand } from './approvalFocus.js';
-import { AssistantTextContainer } from './AssistantTextContainer.js';
-import { ContextCompactionContainer } from './ContextCompactionContainer.js';
+import { AssistantLeafPartContainer } from './AssistantLeafPartContainer.js';
 import { NestedApprovalBridgeContext, useNestedApprovalBridge } from './nestedApprovalBridge.js';
 import { SandboxToolCallContainer } from './SandboxToolCallContainer.js';
 import { useSessionReplay } from './sessionReplayContext.js';
 import { ToolApprovalContainer } from './ToolApprovalContainer.js';
 import { ToolCallContentBlockContainer } from './ToolCallContentBlockContainer.js';
+import { ToolGroupContainer } from './ToolGroupContainer.js';
 
 function NestedSubAgentAssistantMessage() {
   const AssistantMessageBubble = useSlot('AssistantMessageBubble');
+  const StepTreeItem = useSlot('StepTreeItem');
+  const parts = useAuiState(s => s.message.parts);
+  const parallelToolGroups = useAuiState(s => readParallelToolGroups(s.message.metadata.custom));
+
+  // Sub-agent messages have no outer "agent steps" group, so only parallel tool calls are grouped here; every
+  // other part renders on its own.
+  const groupBy = (part: PartState): readonly `group-${string}`[] | null => {
+    const parallelKey = parallelGroupKeyForPart({ part, parts, parallelToolGroups });
+    return parallelKey != null ? [parallelKey] : null;
+  };
 
   return (
     <div className="mb-3 min-w-0">
       <MessagePrimitive.Root data-role="assistant">
         <AssistantMessageBubble>
-          <MessagePrimitive.Parts
-            components={{
-              Text: AssistantTextContainer,
-              Reasoning: AssistantTextContainer,
-              tools: { Fallback: ToolCallContainer },
-              data: {
-                by_name: {
-                  [CONTEXT_COMPACTION_DATA_NAME]: ContextCompactionContainer,
-                },
-              },
-            }}
-          />
+          <div className="flex min-w-0 flex-col" data-slot="step-tree">
+            <MessagePrimitive.GroupedParts groupBy={groupBy} indicator="never">
+              {({ part, children }) => {
+                if (isParallelToolGroupPart(part)) {
+                  return (
+                    <StepTreeItem>
+                      <ToolGroupContainer group={part}>{children}</ToolGroupContainer>
+                    </StepTreeItem>
+                  );
+                }
+                if (
+                  part.type === 'text' ||
+                  part.type === 'reasoning' ||
+                  part.type === 'tool-call' ||
+                  part.type === 'image' ||
+                  part.type === 'data'
+                ) {
+                  const leaf = <AssistantLeafPartContainer part={part} />;
+                  // Calls inside a parallel group already get a branch from the group's own tree, so only
+                  // top-level steps are wrapped here; wrapping both would draw a double connector.
+                  if (parallelGroupKeyForPart({ part, parts, parallelToolGroups }) != null) {
+                    return leaf;
+                  }
+                  // Tool calls and compaction are steps and get a branch; text, reasoning prose and images are
+                  // plain content, so they only carry the line through when a later step follows.
+                  const isStep = part.type === 'tool-call' || part.type === 'data';
+                  return <StepTreeItem branch={isStep}>{leaf}</StepTreeItem>;
+                }
+                return null;
+              }}
+            </MessagePrimitive.GroupedParts>
+          </div>
         </AssistantMessageBubble>
       </MessagePrimitive.Root>
     </div>
