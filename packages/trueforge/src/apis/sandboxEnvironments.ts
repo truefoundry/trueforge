@@ -307,6 +307,10 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
         409,
       );
     }
+    const provider = await resolveSandboxProviderRecord(deps.resolveSandboxProviderStore(c), tenant_id);
+    if (provider === undefined) {
+      return c.json({ error: { message: 'No sandbox provider configured' } }, 422);
+    }
     try {
       const deletedEnvironmentId = await store.deleteEnvironment({
         tenant_id,
@@ -317,13 +321,6 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
       }
 
       const secrets = await store.listSecretsByEnvironment({ environment_id: deletedEnvironmentId });
-      const provider =
-        secrets.length > 0
-          ? await resolveSandboxProviderRecord(deps.resolveSandboxProviderStore(c), tenant_id)
-          : undefined;
-      if (secrets.length > 0 && provider === undefined) {
-        return c.json({ error: { message: 'No sandbox provider configured' } }, 422);
-      }
       if (secrets.length > 0 && provider !== undefined) {
         await deleteSandboxEnvironmentSecrets({
           secrets,
