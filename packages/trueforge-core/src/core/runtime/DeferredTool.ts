@@ -10,6 +10,7 @@ import {
   type CallToolResponse,
   isApprovalRequiredResponse,
   isAuthRequired,
+  isCallToolResponseCreateSubAgent,
   isCallToolResponseResult,
   type IToolSet,
   type ListToolsResolvedResponse,
@@ -188,9 +189,9 @@ export class DeferredTool extends LocalToolMCP {
           if (!isResolvedServerTools(resolved)) {
             return resolved;
           }
-          const { server, tools, metadata } = resolved;
+          const { tools, metadata } = resolved;
           return toolResultResponse({
-            text: `${server.name}:\n  ${tools.map(t => t.name).join(', ')}`,
+            text: `${input.mcp_server}:\n  ${tools.map(t => t.name).join(', ')}`,
             overrides: metadata,
           });
         } catch (error) {
@@ -336,8 +337,13 @@ export class DeferredTool extends LocalToolMCP {
             return response;
           }
 
+          // executeToolCalls turns this into the sub-agent; a tool result would swallow it.
+          if (isCallToolResponseCreateSubAgent(response)) {
+            return response;
+          }
+
           if (!isCallToolResponseResult(response)) {
-            throw new Error('Tool call returned an unexpected sub-agent response');
+            throw new Error('Tool call returned an unexpected response');
           }
 
           return response;

@@ -5,7 +5,6 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { DraftCatalogProvider } from '@/atoms/draft/DraftCatalogProvider.js';
 import { DraftCompositeSelector } from '@/atoms/draft/DraftCompositeSelector.js';
 import { CompactLayoutProvider } from '@/atoms/lib/CompactLayoutContext.js';
-import { CHAT_TRUEFORGE_ENABLED_STORAGE_KEY } from '@/server/draftSpecPreferences.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import type {
   AgentBuilderCapabilitiesResponse,
@@ -127,7 +126,6 @@ describe('DraftCompositeSelector', () => {
       mcpServers: [{ id: 'slack', name: 'Slack' }],
       skills: [{ id: 'research', name: 'Research' }],
     };
-    window.localStorage.removeItem(CHAT_TRUEFORGE_ENABLED_STORAGE_KEY);
     updateAgentSpec.mockReset();
     setSettingsOpen.mockReset();
     setEnvironmentsOpen.mockReset();
@@ -635,10 +633,16 @@ describe('DraftCompositeSelector', () => {
     expect(row).toHaveAttribute('aria-checked', 'true');
 
     fireEvent.click(row);
-    expect(row).toHaveAttribute('aria-checked', 'false');
-    expect(window.localStorage.getItem(CHAT_TRUEFORGE_ENABLED_STORAGE_KEY)).toBe('false');
-    expect(updateAgentSpec).not.toHaveBeenCalled();
-    expect(rememberDraftSpec).not.toHaveBeenCalled();
+    expect(updateAgentSpec).toHaveBeenCalledWith({
+      config: { trueforge: { enabled: false } },
+    });
+    expect(rememberDraftSpec).toHaveBeenCalledWith(
+      {
+        ...agentSpec,
+        config: { trueforge: { enabled: false } },
+      },
+      'chat',
+    );
   });
 
   it('keeps Web search disabled with a tooltip when the capability is off', async () => {

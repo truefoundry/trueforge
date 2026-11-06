@@ -65,7 +65,12 @@ export function createTrueForgeMcpRouter(deps: TrueForgeMcpRouterDeps): Hono {
     try {
       return await transport.handleRequest(c.req.raw);
     } finally {
-      void server.close();
+      // Finish teardown before the handler returns. A rejected close must not escape, and must not overlap the response.
+      try {
+        await server.close();
+      } catch {
+        // The MCP response is already decided.
+      }
     }
   });
   return router;

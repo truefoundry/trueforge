@@ -5,12 +5,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNod
 
 import { useMCPAuth } from '../../hooks/useMcpAuth.js';
 import { Icon } from '../../icons/Icon.js';
-import {
-  readChatTrueforgeEnabled,
-  readSandboxEnvironmentName,
-  sandboxWithEnvironmentName,
-  writeChatTrueforgeEnabled,
-} from '../../server/draftSpecPreferences.js';
+import { readSandboxEnvironmentName, sandboxWithEnvironmentName } from '../../server/draftSpecPreferences.js';
 import { isSettingsSectionEnabled } from '../../server/serverChrome.js';
 import { useOptionalCatalogServer, useServerCapabilities } from '../../server/ServerContext.js';
 import { useOptionalShellMode, type SettingsSection } from '../../server/ShellModeContext.js';
@@ -368,7 +363,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
     enabled: webSearchEnabled,
   });
   const canToggleWebSearch = !webSearchLocked;
-  const [trueforgeEnabled, setTrueforgeEnabled] = useState(readChatTrueforgeEnabled);
+  const trueforgeEnabled = agentSpec?.config?.trueforge?.enabled !== false;
   const needsSandbox = capabilities?.sandbox.enabled === false;
   const settings = capabilities?.settings;
   const canConfigureConnectors =
@@ -553,9 +548,14 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   };
 
   const toggleTrueforge = () => {
-    const nextEnabled = !trueforgeEnabled;
-    setTrueforgeEnabled(nextEnabled);
-    writeChatTrueforgeEnabled(nextEnabled);
+    if (agentSpec == null) return;
+    const nextSpec = {
+      ...agentSpec,
+      config: { ...agentSpec.config, trueforge: { enabled: !trueforgeEnabled } },
+    };
+    updateAgentSpec?.({ config: nextSpec.config });
+    // Flush seed immediately — New Chat can run before the preference bridge effect.
+    shell?.rememberDraftSpec(nextSpec, 'chat');
   };
 
   const matchesBuiltinQuery = (title: string, description: string) => {

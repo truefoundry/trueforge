@@ -3,8 +3,6 @@ import type { AgentRuntimeConfig, AgentSpec } from './types.js';
 /** @deprecated Migrated into chat/agent keys on first read. */
 export const DRAFT_SPEC_PREFERENCES_STORAGE_KEY = 'tfy-aui-draft-spec-preferences';
 export const CHAT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY = 'tfy-aui-chat-draft-spec-preferences';
-/** Built-in TrueForge tools switch for new chat. Absent means enabled. */
-export const CHAT_TRUEFORGE_ENABLED_STORAGE_KEY = 'tfy-aui-chat-trueforge-enabled';
 export const AGENT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY = 'tfy-aui-agent-draft-spec-preferences';
 
 export type DraftPreferenceKind = 'chat' | 'agent';
@@ -113,17 +111,28 @@ function readWebSearchEnabled(spec: AgentSpec): boolean | undefined {
   return typeof enabled === 'boolean' ? enabled : undefined;
 }
 
+function readTrueforgeEnabled(spec: AgentSpec): boolean | undefined {
+  if (spec.config?.trueforge === undefined) return undefined;
+  const enabled = spec.config.trueforge.enabled;
+  return typeof enabled === 'boolean' ? enabled : undefined;
+}
+
 /**
- * New Chat: model (+ reasoning params), skills, MCP, and the web-search toggle.
+ * New Chat: model (+ reasoning params), skills, MCP, and the web-search / TrueForge toggles.
  * Other runtime config (sandbox, ask-user, …) is not persisted for chat.
  */
 export function selectChatDraftSpecPreferences(spec: AgentSpec): AgentSpec {
   const webSearchEnabled = readWebSearchEnabled(spec);
+  const trueforgeEnabled = readTrueforgeEnabled(spec);
+  const config = {
+    ...(webSearchEnabled !== undefined ? { webSearch: { enabled: webSearchEnabled } } : {}),
+    ...(trueforgeEnabled !== undefined ? { trueforge: { enabled: trueforgeEnabled } } : {}),
+  };
   return {
     model: spec.model,
     ...(spec.skills !== undefined ? { skills: spec.skills } : {}),
     ...(spec.mcpServers !== undefined ? { mcpServers: spec.mcpServers } : {}),
-    ...(webSearchEnabled !== undefined ? { config: { webSearch: { enabled: webSearchEnabled } } } : {}),
+    ...(Object.keys(config).length > 0 ? { config } : {}),
   };
 }
 
@@ -350,26 +359,6 @@ function migrateLegacyDraftPreferences(): void {
     window.localStorage.removeItem(DRAFT_SPEC_PREFERENCES_STORAGE_KEY);
   } catch {
     // Ignore quota / private-mode failures; next read still prefers kind keys.
-  }
-}
-
-/** New-chat Built-in switch. Missing or unreadable storage stays enabled. */
-export function readChatTrueforgeEnabled(): boolean {
-  if (typeof window === 'undefined') return true;
-  try {
-    const stored = window.localStorage.getItem(CHAT_TRUEFORGE_ENABLED_STORAGE_KEY);
-    return stored == null ? true : stored === 'true';
-  } catch {
-    return true;
-  }
-}
-
-export function writeChatTrueforgeEnabled(enabled: boolean): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(CHAT_TRUEFORGE_ENABLED_STORAGE_KEY, enabled ? 'true' : 'false');
-  } catch {
-    // Storage can be unavailable; the open composer still keeps the choice in memory.
   }
 }
 

@@ -13,7 +13,6 @@ import { sessionIsCreateAgent } from '../atoms/lib/sessionCreateAgent.js';
 import { UI_SESSION_SOURCE_METADATA } from '../atoms/lib/sessionSource.js';
 import { notifyComposerBusyFailure } from '../hooks/useComposerBusyState.js';
 import { ActiveSessionPermissionsProvider } from '../hooks/useResourcePermissions.js';
-import { readChatTrueforgeEnabled } from '../server/draftSpecPreferences.js';
 import type { AgentUIServer } from '../server/types.js';
 import { ToasterProvider, useToaster } from './ToasterContainer.js';
 
@@ -124,7 +123,6 @@ function ChatRuntimeScope({
     agentName,
     listSessionsAgentId,
     listSessionsCreatedByMe: true,
-    trueforgeMcpEnabled: readChatTrueforgeEnabled,
     initialSessionId,
     onError: resolvedOnError,
     adapters: {

@@ -2,7 +2,11 @@ import type { AgentCapability } from '../../../src/core/capabilities/AgentCapabi
 import { currentDateTime } from '../../../src/core/capabilities/builtins/CurrentDateTime';
 import { InstructionBuilder } from '../../../src/core/InstructionBuilder';
 import type { ILLM } from '../../../src/core/llm/ILLM';
-import type { IToolSet } from '../../../src/core/mcp/IMCPServer';
+import {
+  isCallToolResponseCreateSubAgent,
+  isCallToolResponseResult,
+  type IToolSet,
+} from '../../../src/core/mcp/IMCPServer';
 import { AgentThread } from '../../../src/core/runtime/AgentThread';
 import {
   CALL_TOOL_NAME,
@@ -13,7 +17,7 @@ import {
 } from '../../../src/core/runtime/DeferredTool';
 import { NOOP_AGENT_TRACING } from '../../../src/core/tracing/NoopAgentTracing';
 import '../harnessMocks';
-import { makeMockIMCPServer, makeSilentLogger, TEST_MODEL_NAME } from '../harnessMocks';
+import { makeMockIMCPServer, makeSilentLogger, OBJECT_INPUT_SCHEMA, TEST_MODEL_NAME } from '../harnessMocks';
 
 const DEFERRED_TOOLS_INSTRUCTION = 'deferred-tools-instructions';
 
@@ -71,6 +75,54 @@ describe('DeferredTool deferred loading behavior', () => {
 
     expect(text).toContain('- shared-name: "system capability"');
     expect(text).toContain('- shared-name (2): "configured server"');
+  });
+
+  it('list_tools labels a suffixed server with its alias', async () => {
+    const deferred = new DeferredTool(
+      [
+        makeMockIMCPServer({
+          name: 'trueforge-mcp',
+          preload: false,
+          tools: [{ name: 'system_tool', description: 'System', inputSchema: OBJECT_INPUT_SCHEMA, preload: false }],
+        }),
+        makeMockIMCPServer({
+          name: 'trueforge-mcp',
+          preload: false,
+          tools: [{ name: 'user_tool', description: 'User', inputSchema: OBJECT_INPUT_SCHEMA, preload: false }],
+        }),
+      ],
+      { tracing: NOOP_AGENT_TRACING, logger: silentLogger },
+    );
+
+    const response = await deferred.callTool({
+      name: LIST_TOOLS_NAME,
+      arguments: { mcp_server: 'trueforge-mcp (2)' },
+    });
+
+    expect(isCallToolResponseResult(response)).toBe(true);
+    if (!isCallToolResponseResult(response)) {
+      return;
+    }
+    const block = response.result.content[0];
+    expect(block).toEqual({ type: 'text', text: 'trueforge-mcp (2):\n  user_tool' });
+  });
+
+  it('call_tool passes a createSubAgent response through for sub-agent creation', async () => {
+    const createSubAgent = { type: 'dynamic', name: 'helper', input: 'do it' };
+    const subAgentServer = makeMockIMCPServer({ name: 'sub-agents', preload: false });
+    (subAgentServer.callTool as jest.Mock).mockResolvedValue({ createSubAgent });
+    const deferred = new DeferredTool([subAgentServer], { tracing: NOOP_AGENT_TRACING, logger: silentLogger });
+
+    const response = await deferred.callTool({
+      name: CALL_TOOL_NAME,
+      arguments: { mcp_server: 'sub-agents', tool_name: 'create_sub_agent', input: {} },
+    });
+
+    expect(isCallToolResponseCreateSubAgent(response)).toBe(true);
+    if (!isCallToolResponseCreateSubAgent(response)) {
+      return;
+    }
+    expect(response.createSubAgent).toEqual(createSubAgent);
   });
 });
 

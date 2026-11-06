@@ -35,11 +35,6 @@ type TrueForgeAgentRuntimeBaseOptions = ExternalStoreSharedOptions & {
   listSessionsAgentId?: string | undefined;
   /** Restrict thread history to sessions created by the authenticated subject. */
   listSessionsCreatedByMe?: boolean | undefined;
-  /**
-   * Draft turns send the TrueForge tools header while this returns true.
-   * Defaults to enabled.
-   */
-  trueforgeMcpEnabled?: (() => boolean) | undefined;
   adapters?:
     | {
         attachments?: AttachmentAdapter | undefined;
