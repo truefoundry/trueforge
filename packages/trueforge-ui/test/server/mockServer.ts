@@ -67,6 +67,8 @@ export function createMockSandboxEnvironmentServer(
     getEnvironment: unavailable,
     createEnvironment: unavailable,
     createOrUpdateEnvironment: unavailable,
+    setEnvironmentEnabled: unavailable,
+    setDefaultEnvironment: unavailable,
     deleteEnvironment: unavailable,
     ...overrides,
   };

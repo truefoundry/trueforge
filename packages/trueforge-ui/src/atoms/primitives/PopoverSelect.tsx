@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 import { Icon } from '../../icons/Icon.js';
@@ -12,6 +12,7 @@ import {
   auiSelectTriggerClass,
 } from '../lib/selectClasses.js';
 import { themePortalRoot } from '../lib/themePortalRoot.js';
+import { Tooltip } from './Tooltip.js';
 
 const MENU_GAP_PX = 4;
 /** Matches `max-h-64` on the shared select menu chrome. */
@@ -51,6 +52,8 @@ export type PopoverSelectOption<T extends string> = {
   value: T;
   label: string;
   disabled?: boolean;
+  /** Shown on hover when `disabled`, so the menu explains itself instead of just greying out. */
+  disabledReason?: string;
 };
 
 type CommonPopoverSelectProps<T extends string> = {
@@ -86,10 +89,13 @@ export type PopoverSelectProps<T extends string> = CommonPopoverSelectProps<T> &
 
 export function PopoverSelect<T extends string>(props: PopoverSelectProps<T>) {
   const [open, setOpenState] = useState(false);
-  const setOpen = (next: boolean) => {
+  // Held in a ref so `setOpen` keeps a stable identity for the document-listener effects.
+  const onOpenChangeRef = useRef(props.onOpenChange);
+  onOpenChangeRef.current = props.onOpenChange;
+  const setOpen = useCallback((next: boolean) => {
     setOpenState(next);
-    props.onOpenChange?.(next);
-  };
+    onOpenChangeRef.current?.(next);
+  }, []);
   const [pos, setPos] = useState<{ top: number; left: number; width: number; placement: MenuPlacement } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -153,7 +159,7 @@ export function PopoverSelect<T extends string>(props: PopoverSelectProps<T>) {
     };
     document.addEventListener('mousedown', handlePointerDown);
     return () => document.removeEventListener('mousedown', handlePointerDown);
-  }, [open]);
+  }, [open, setOpen]);
 
   useEffect(() => {
     if (!open) {
@@ -198,7 +204,7 @@ export function PopoverSelect<T extends string>(props: PopoverSelectProps<T>) {
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [open]);
+  }, [open, setOpen]);
 
   const isSelected = (value: T) => (props.multiple ? props.value.includes(value) : props.value === value);
 
@@ -250,9 +256,8 @@ export function PopoverSelect<T extends string>(props: PopoverSelectProps<T>) {
                 ? props.emptyContent
                 : props.options.map(option => {
                     const selected = isSelected(option.value);
-                    return (
+                    const row = (
                       <button
-                        key={option.value}
                         type="button"
                         role="option"
                         aria-selected={selected}
@@ -267,6 +272,22 @@ export function PopoverSelect<T extends string>(props: PopoverSelectProps<T>) {
                           className={cn('ml-auto size-4 shrink-0', selected ? 'opacity-100' : 'opacity-0')}
                         />
                       </button>
+                    );
+                    // The tooltip hangs off a wrapping span, not the button: a disabled
+                    // button receives no mouse events of its own.
+                    return option.disabled === true && option.disabledReason !== undefined ? (
+                      <Tooltip
+                        key={option.value}
+                        content={option.disabledReason}
+                        side="right"
+                        className="max-w-xs whitespace-normal text-left"
+                        triggerClassName="block w-full"
+                        interactive={false}
+                      >
+                        <span className="block w-full">{row}</span>
+                      </Tooltip>
+                    ) : (
+                      <Fragment key={option.value}>{row}</Fragment>
                     );
                   })}
             </div>

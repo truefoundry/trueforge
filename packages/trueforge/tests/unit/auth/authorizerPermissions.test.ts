@@ -205,4 +205,27 @@ describe('TrueForgeAuthorizer.getPermissions', () => {
       },
     });
   });
+
+  // The platform-provisioned and default carve-outs live on the row, not here: a permission list
+  // is cached per resource id, so folding in a flag that moves would go stale.
+  it('grants the same permissions on the platform-provisioned environment', async () => {
+    const sandboxEnvironmentStore = {
+      getEnvironmentsByIds: jest.fn(async () => [
+        { id: 'env-managed', name: 'default', created_by_subject: { subject_id: 'alice' } },
+      ]),
+    };
+
+    const admin: RequestContext = { ...BOB, roles: ['admin'] };
+    expect(
+      await authorizer.getPermissions({
+        resourceType: 'sandbox_environment',
+        requestContext: admin,
+        resourceIds: ['env-managed'],
+        store: sandboxEnvironmentStore as never,
+      }),
+    ).toEqual({
+      type: 'sandbox_environment',
+      permissions: { 'env-managed': ['MANAGE', 'DELETE'] },
+    });
+  });
 });

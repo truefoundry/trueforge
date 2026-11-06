@@ -180,7 +180,7 @@ class SandboxEnvironmentsClient:
         self, *, name: str, request_options: typing.Optional[RequestOptions] = None
     ) -> DeleteSandboxEnvironmentResponse:
         """
-        Delete a sandbox environment, fails if any agent still references it.
+        Delete a sandbox environment. Fails if any agent still references it, if it is the tenant default, or if it is the reserved "default" environment.
 
         Parameters
         ----------
@@ -208,6 +208,53 @@ class SandboxEnvironmentsClient:
         )
         """
         _response = self._raw_client.delete(name=name, request_options=request_options)
+        return _response.data
+
+    def update(
+        self,
+        *,
+        name: str,
+        enabled: typing.Optional[bool] = OMIT,
+        is_default: typing.Optional[bool] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> GetSandboxEnvironmentResponse:
+        """
+        Updates `enabled` and/or `is_default` on the environment. Does not change the definition or create a version. Setting `is_default` is admin-only. Disabling the default releases the default slot.
+
+        Parameters
+        ----------
+        name : str
+            Sandbox environment name.
+
+        enabled : typing.Optional[bool]
+            Whether new chats and agents may select this environment.
+
+        is_default : typing.Optional[bool]
+            If true, make this the tenant default (admin only). If false, clear the default slot when this environment holds it (admin only).
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        GetSandboxEnvironmentResponse
+            The updated sandbox environment.
+
+        Examples
+        --------
+        from trueforge_sdk import TrueForge
+
+        client = TrueForge(
+            token="YOUR_TOKEN",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.sandbox_environments.update(
+            name="name",
+        )
+        """
+        _response = self._raw_client.update(
+            name=name, enabled=enabled, is_default=is_default, request_options=request_options
+        )
         return _response.data
 
 
@@ -408,7 +455,7 @@ class AsyncSandboxEnvironmentsClient:
         self, *, name: str, request_options: typing.Optional[RequestOptions] = None
     ) -> DeleteSandboxEnvironmentResponse:
         """
-        Delete a sandbox environment, fails if any agent still references it.
+        Delete a sandbox environment. Fails if any agent still references it, if it is the tenant default, or if it is the reserved "default" environment.
 
         Parameters
         ----------
@@ -444,4 +491,59 @@ class AsyncSandboxEnvironmentsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.delete(name=name, request_options=request_options)
+        return _response.data
+
+    async def update(
+        self,
+        *,
+        name: str,
+        enabled: typing.Optional[bool] = OMIT,
+        is_default: typing.Optional[bool] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> GetSandboxEnvironmentResponse:
+        """
+        Updates `enabled` and/or `is_default` on the environment. Does not change the definition or create a version. Setting `is_default` is admin-only. Disabling the default releases the default slot.
+
+        Parameters
+        ----------
+        name : str
+            Sandbox environment name.
+
+        enabled : typing.Optional[bool]
+            Whether new chats and agents may select this environment.
+
+        is_default : typing.Optional[bool]
+            If true, make this the tenant default (admin only). If false, clear the default slot when this environment holds it (admin only).
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        GetSandboxEnvironmentResponse
+            The updated sandbox environment.
+
+        Examples
+        --------
+        import asyncio
+
+        from trueforge_sdk import AsyncTrueForge
+
+        client = AsyncTrueForge(
+            token="YOUR_TOKEN",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.sandbox_environments.update(
+                name="name",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.update(
+            name=name, enabled=enabled, is_default=is_default, request_options=request_options
+        )
         return _response.data

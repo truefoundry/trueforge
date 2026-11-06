@@ -4,17 +4,17 @@
  */
 import { randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
-import { isTrueFoundryModeEnabled } from '../config';
+import { isTrueFoundryModeEnabled } from '../../config';
 import {
-  DEFAULT_SANDBOX_ENVIRONMENT_NAME,
-  DEFAULT_SANDBOX_ENVIRONMENT_RESOURCES,
+  RESERVED_SANDBOX_ENVIRONMENT_NAME,
+  RESERVED_SANDBOX_ENVIRONMENT_RESOURCES,
   StoredSandboxEnvironmentManifestSchema,
   type SandboxEnvironmentIdentity,
   type SandboxEnvironmentManifest,
   type SandboxEnvironmentVersionStatus,
   type StoredSandboxEnvironmentManifest,
-} from '../schemas/sandboxEnvironment';
-import { resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
+} from '../../schemas/sandboxEnvironment';
+import { resolveStoredSecretValue, toRedactedSecretValue } from '../../utils/secretRedaction';
 
 /**
  * Stored identity for a tenant's sandbox provider. TrueFoundry mode always records
@@ -43,13 +43,13 @@ export interface NextSandboxEnvironmentVersion {
   external_ref: string;
 }
 
-/** System default env stored jsonb (platform image; no networking/secrets). */
-export function defaultSandboxEnvironmentStoredManifest(
+/** Reserved platform env stored jsonb (platform image; no networking/secrets). */
+export function reservedSandboxEnvironmentStoredManifest(
   identity: SandboxEnvironmentIdentity,
 ): StoredSandboxEnvironmentManifest {
   return StoredSandboxEnvironmentManifestSchema.parse({
-    name: DEFAULT_SANDBOX_ENVIRONMENT_NAME,
-    resources: DEFAULT_SANDBOX_ENVIRONMENT_RESOURCES,
+    name: RESERVED_SANDBOX_ENVIRONMENT_NAME,
+    resources: RESERVED_SANDBOX_ENVIRONMENT_RESOURCES,
     ...identity,
   });
 }

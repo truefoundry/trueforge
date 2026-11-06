@@ -14,7 +14,6 @@ import {
   TENANT_CREATE_SANDBOX_ENVIRONMENT_PERMISSIONS,
   type ListPermissionsData,
 } from '../schemas/permissions';
-import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
 import { canCreateOrEdit, canEditSchedule, type RequestContext } from './identity';
 
 export type AgentAction = 'read' | 'use' | 'manage' | 'delete';
@@ -60,8 +59,10 @@ export async function resolveSchedulePermissions(input: {
 }
 
 /**
- * Sandbox environment MANAGE/DELETE via {@link canCreateOrEdit} (admin or creator).
- * Reserved `"default"` never gets write grants — platform-managed only.
+ * Sandbox environment MANAGE/DELETE via {@link canCreateOrEdit} (admin or creator). These answer
+ * who the caller is, not what the row allows: the reserved default name and the current default
+ * flag are carve-outs the routes enforce. Keeping those out of here also keeps a cached
+ * permission list correct when the default moves.
  */
 export async function resolveSandboxEnvironmentPermissions(input: {
   requestContext: RequestContext;
@@ -74,9 +75,6 @@ export async function resolveSandboxEnvironmentPermissions(input: {
     ids: [...new Set(input.resourceIds)],
   });
   for (const environment of environments) {
-    if (environment.name === DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
-      continue;
-    }
     if (canCreateOrEdit(input.requestContext, environment.created_by_subject.subject_id)) {
       data[environment.id] = [...SANDBOX_ENVIRONMENT_OWNER_PERMISSIONS];
     }

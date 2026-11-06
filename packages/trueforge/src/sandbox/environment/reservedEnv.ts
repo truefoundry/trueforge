@@ -1,19 +1,21 @@
 /**
- * Ensure the tenant `"default"` sandbox environment exists for a configured provider.
+ * First-creation promotion of the reserved environment onto the tenant `is_default` slot.
+ * Callers must invoke this only on the boot that creates the row: an admin who later clears the
+ * slot by disabling it would otherwise see it silently reclaimed on the next restart.
  */
 import type { CreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
-import type { ISandboxEnvironmentStore, SandboxEnvironmentWithVersion } from '../db/sandboxEnvironmentStore';
-import { NameSchema } from '../schemas/common';
-import { DEFAULT_SANDBOX_ENVIRONMENT_NAME, type SandboxEnvironmentIdentity } from '../schemas/sandboxEnvironment';
-import { buildNextVersion, defaultSandboxEnvironmentStoredManifest } from './sandboxEnvironmentVersion';
+import { type ISandboxEnvironmentStore, type SandboxEnvironmentWithVersion } from '../../db/sandboxEnvironmentStore';
+import { NameSchema } from '../../schemas/common';
+import { RESERVED_SANDBOX_ENVIRONMENT_NAME, type SandboxEnvironmentIdentity } from '../../schemas/sandboxEnvironment';
+import { buildNextVersion, reservedSandboxEnvironmentStoredManifest } from './version';
 
-const DEFAULT_NAME = NameSchema.parse(DEFAULT_SANDBOX_ENVIRONMENT_NAME);
+const RESERVED_NAME = NameSchema.parse(RESERVED_SANDBOX_ENVIRONMENT_NAME);
 
 /**
- * Returns the existing default env, or creates it / appends a new pending version.
+ * Returns the existing reserved env, or creates it / appends a new pending version.
  * Pass `resetPending` when the provider API key rotated.
  */
-export async function ensureDefaultSandboxEnvironment<TTransaction>({
+export async function ensureReservedSandboxEnvironment<TTransaction>({
   store,
   tenant_id,
   created_by_subject,
@@ -28,14 +30,14 @@ export async function ensureDefaultSandboxEnvironment<TTransaction>({
   resetPending: boolean;
   transaction?: TTransaction;
 }): Promise<SandboxEnvironmentWithVersion> {
-  const existing = await store.getEnvironment({ tenant_id, name: DEFAULT_SANDBOX_ENVIRONMENT_NAME }, transaction);
+  const existing = await store.getEnvironment({ tenant_id, name: RESERVED_SANDBOX_ENVIRONMENT_NAME }, transaction);
   if (existing !== undefined && !resetPending) {
     return existing;
   }
   return store.upsertEnvironment(
     {
       tenant_id,
-      name: DEFAULT_NAME,
+      name: RESERVED_NAME,
       description: '',
       created_by_subject,
       synced_secrets: [],
@@ -45,7 +47,7 @@ export async function ensureDefaultSandboxEnvironment<TTransaction>({
             ...(existing_version !== undefined ? { existing_version } : {}),
             ...(existing_manifest ? { previous_manifest: existing_manifest } : {}),
             ...(existing_external_ref ? { previous_external_ref: existing_external_ref } : {}),
-            manifest: defaultSandboxEnvironmentStoredManifest(identity),
+            manifest: reservedSandboxEnvironmentStoredManifest(identity),
             identity,
           }),
           created_by_subject,

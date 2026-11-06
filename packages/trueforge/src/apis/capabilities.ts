@@ -16,7 +16,7 @@ import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { hasConfiguredMemoryProvider } from '../memory/providers';
 import { getCapabilitiesRoute } from '../routes/capabilityRoutes';
 import { isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
-import { DEFAULT_SANDBOX_ENVIRONMENT_NAME, type SandboxEnvironmentVersionStatus } from '../schemas/sandboxEnvironment';
+import type { SandboxEnvironmentVersionStatus } from '../schemas/sandboxEnvironment';
 import { hasTrueFoundrySandboxProviderConfig } from '../truefoundry/resolveTrueFoundrySandboxProviderConfig';
 import { hasConfiguredWebSearchProvider } from '../websearch/providers';
 
@@ -87,17 +87,20 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
   const router = new OpenAPIHono();
   router.openapi(getCapabilitiesRoute, async c => {
     const requestContext = deps.resolveRequestContext(c);
-    const defaultEnv = await deps.sandboxEnvironmentStore.getActiveEnvironment({
-      tenant_id: requestContext.tenant_id,
-      name: DEFAULT_SANDBOX_ENVIRONMENT_NAME,
-    });
-    const status = defaultEnv?.version.status;
-    // Shared TFY provider (incl. on-prem with no env tip), ready default env, or local fallback.
+    // Shared TFY provider (incl. on-prem with no env tip), any enabled ready env, or local fallback.
     // hasTrueFoundrySandboxProviderConfig never throws — incomplete TFY settings stay "disabled".
     const sandboxEnabled =
       hasTrueFoundrySandboxProviderConfig() ||
-      status === 'ready' ||
-      (defaultEnv === undefined && isLocalSandboxFallbackEnabled());
+      isLocalSandboxFallbackEnabled() ||
+      (await deps.sandboxEnvironmentStore.hasUsableEnvironment({ tenant_id: requestContext.tenant_id }));
+    // Only read the default row on the disabled path, where its status turns "not configured"
+    // into the more useful "still being prepared".
+    const skillDisabled = sandboxEnabled
+      ? undefined
+      : skillDisabledReason(
+          (await deps.sandboxEnvironmentStore.getDefaultEnvironment({ tenant_id: requestContext.tenant_id }))?.version
+            .status,
+        );
     const [hasProvider, tenantAllowsWebSearch, tenantAllowsMemory, hasMemoryProvider] = await Promise.all([
       hasConfiguredWebSearchProvider({
         tenant_id: requestContext.tenant_id,
@@ -145,7 +148,7 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
             enabled: sandboxEnabled,
             environments: { enabled: sandboxEnvironmentsEnabled() },
           },
-          skill: sandboxEnabled ? { enabled: true } : { enabled: false, reason: skillDisabledReason(status) },
+          skill: skillDisabled === undefined ? { enabled: true } : { enabled: false, reason: skillDisabled },
           settings: settingsCapability({
             isAdmin: hasAdminRole(requestContext),
             ownsCatalogs: areCatalogSettingsAvailable(),

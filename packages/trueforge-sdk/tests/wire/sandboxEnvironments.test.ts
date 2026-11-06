@@ -19,7 +19,9 @@ describe("SandboxEnvironmentsClient", () => {
                         subject_type: "subject_type",
                     },
                     description: "description",
+                    enabled: true,
                     id: "id",
+                    is_default: true,
                     lifecycle_stage: "active",
                     manifest: { image: { build_script: "set -ex\npip install httpx\n", type: "build" }, name: "name" },
                     name: "name",
@@ -49,7 +51,9 @@ describe("SandboxEnvironmentsClient", () => {
                         subjectType: "subject_type",
                     },
                     description: "description",
+                    enabled: true,
                     id: "id",
+                    isDefault: true,
                     lifecycleStage: "active",
                     manifest: {
                         image: {
@@ -129,7 +133,9 @@ describe("SandboxEnvironmentsClient", () => {
                     subject_type: "subject_type",
                 },
                 description: "description",
+                enabled: true,
                 id: "id",
+                is_default: true,
                 lifecycle_stage: "active",
                 manifest: {
                     description: "description",
@@ -167,7 +173,9 @@ describe("SandboxEnvironmentsClient", () => {
                     subjectType: "subject_type",
                 },
                 description: "description",
+                enabled: true,
                 id: "id",
+                isDefault: true,
                 lifecycleStage: "active",
                 manifest: {
                     description: "description",
@@ -345,7 +353,9 @@ describe("SandboxEnvironmentsClient", () => {
                     subject_type: "subject_type",
                 },
                 description: "description",
+                enabled: true,
                 id: "id",
+                is_default: true,
                 lifecycle_stage: "active",
                 manifest: {
                     description: "description",
@@ -383,7 +393,9 @@ describe("SandboxEnvironmentsClient", () => {
                     subjectType: "subject_type",
                 },
                 description: "description",
+                enabled: true,
                 id: "id",
+                isDefault: true,
                 lifecycleStage: "active",
                 manifest: {
                     description: "description",
@@ -585,7 +597,9 @@ describe("SandboxEnvironmentsClient", () => {
                     subject_type: "subject_type",
                 },
                 description: "description",
+                enabled: true,
                 id: "id",
+                is_default: true,
                 lifecycle_stage: "active",
                 manifest: {
                     description: "description",
@@ -618,7 +632,9 @@ describe("SandboxEnvironmentsClient", () => {
                     subjectType: "subject_type",
                 },
                 description: "description",
+                enabled: true,
                 id: "id",
+                isDefault: true,
                 lifecycleStage: "active",
                 manifest: {
                     description: "description",
@@ -807,5 +823,197 @@ describe("SandboxEnvironmentsClient", () => {
         await expect(async () => {
             return await client.sandboxEnvironments.delete("name");
         }).rejects.toThrow(TrueForgeTypes.BadGatewayError);
+    });
+
+    test("update (1)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = {};
+        const rawResponseBody = {
+            data: {
+                created_at: "2024-01-15T09:30:00Z",
+                created_by_subject: {
+                    subject_display_name: "subject_display_name",
+                    subject_id: "subject_id",
+                    subject_type: "subject_type",
+                },
+                description: "description",
+                enabled: true,
+                id: "id",
+                is_default: true,
+                lifecycle_stage: "active",
+                manifest: {
+                    description: "description",
+                    environment_variables: { key: "value" },
+                    image: { build_script: "set -ex\npip install httpx\n", type: "build" },
+                    name: "name",
+                },
+                name: "name",
+                status: "pending",
+                status_reason: "status_reason",
+                updated_at: "2024-01-15T09:30:00Z",
+            },
+        };
+
+        server
+            .mockEndpoint()
+            .patch("/api/v1/sandbox-environments/name")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(200)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        const response = await client.sandboxEnvironments.update("name");
+        expect(response).toEqual({
+            data: {
+                createdAt: new Date("2024-01-15T09:30:00.000Z"),
+                createdBySubject: {
+                    subjectDisplayName: "subject_display_name",
+                    subjectId: "subject_id",
+                    subjectType: "subject_type",
+                },
+                description: "description",
+                enabled: true,
+                id: "id",
+                isDefault: true,
+                lifecycleStage: "active",
+                manifest: {
+                    description: "description",
+                    environmentVariables: {
+                        key: "value",
+                    },
+                    image: {
+                        buildScript: "set -ex\npip install httpx\n",
+                        type: "build",
+                    },
+                    name: "name",
+                },
+                name: "name",
+                status: "pending",
+                statusReason: "status_reason",
+                updatedAt: new Date("2024-01-15T09:30:00.000Z"),
+            },
+        });
+    });
+
+    test("update (2)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = {};
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .patch("/api/v1/sandbox-environments/name")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(400)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sandboxEnvironments.update("name");
+        }).rejects.toThrow(TrueForgeTypes.BadRequestError);
+    });
+
+    test("update (3)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = {};
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .patch("/api/v1/sandbox-environments/name")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(401)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sandboxEnvironments.update("name");
+        }).rejects.toThrow(TrueForgeTypes.UnauthorizedError);
+    });
+
+    test("update (4)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = {};
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .patch("/api/v1/sandbox-environments/name")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(403)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sandboxEnvironments.update("name");
+        }).rejects.toThrow(TrueForgeTypes.ForbiddenError);
+    });
+
+    test("update (5)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = {};
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .patch("/api/v1/sandbox-environments/name")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(404)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sandboxEnvironments.update("name");
+        }).rejects.toThrow(TrueForgeTypes.NotFoundError);
+    });
+
+    test("update (6)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = {};
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .patch("/api/v1/sandbox-environments/name")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(409)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sandboxEnvironments.update("name");
+        }).rejects.toThrow(TrueForgeTypes.ConflictError);
+    });
+
+    test("update (7)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = {};
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .patch("/api/v1/sandbox-environments/name")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(422)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sandboxEnvironments.update("name");
+        }).rejects.toThrow(TrueForgeTypes.UnprocessableEntityError);
     });
 });

@@ -1,14 +1,14 @@
 import { DAYTONA_SNAPSHOT_NOT_STARTED_REASON } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import { createLogger } from 'winston';
-import type { ISandboxEnvironmentStore } from '../../../src/db/sandboxEnvironmentStore';
-import type { ISandboxProviderStore } from '../../../src/db/sandboxProviderStore';
-import { progressSandboxEnvironmentVersion } from '../../../src/sandbox/progressSandboxEnvironmentVersion';
-import * as providerUtils from '../../../src/sandbox/providerUtils';
+import type { ISandboxEnvironmentStore } from '../../../../src/db/sandboxEnvironmentStore';
+import type { ISandboxProviderStore } from '../../../../src/db/sandboxProviderStore';
+import { progressSandboxEnvironmentVersion } from '../../../../src/sandbox/environment/progressSandboxEnvironmentVersion';
+import * as providerUtils from '../../../../src/sandbox/providerUtils';
 
-jest.mock('../../../src/sandbox/providerUtils', () => {
-  const actual = jest.requireActual<typeof import('../../../src/sandbox/providerUtils')>(
-    '../../../src/sandbox/providerUtils',
+jest.mock('../../../../src/sandbox/providerUtils', () => {
+  const actual = jest.requireActual<typeof import('../../../../src/sandbox/providerUtils')>(
+    '../../../../src/sandbox/providerUtils',
   );
   return { ...actual, toDaytonaSandboxProvider: jest.fn() };
 });
