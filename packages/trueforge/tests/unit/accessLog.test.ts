@@ -3,6 +3,7 @@ import { Writable } from 'node:stream';
 import winston from 'winston';
 import { createAccessLogMiddleware } from '../../src/app';
 import { STANDALONE_REQUEST_CONTEXT, type RequestContext } from '../../src/auth/identity';
+import { buildAdminAuthMiddleware } from '../../src/auth/middleware';
 
 type LogEntry = Record<string, unknown>;
 
@@ -58,6 +59,36 @@ describe('createAccessLogMiddleware', () => {
       method: 'GET',
       path: '/authed',
       status: 200,
+      subject_type: 'user',
+      subject_id: 'user-123',
+    });
+    expect(entries[0]).not.toHaveProperty('subject_display_name');
+  });
+
+  it.each([
+    { accessible: true, status: 403 },
+    { accessible: false, status: 422 },
+  ])('logs subject fields for authenticated $status responses', async ({ accessible, status }) => {
+    const { app, entries } = createApp();
+    app.use(
+      '/admin',
+      buildAdminAuthMiddleware({
+        authenticator: {
+          authenticate: () => Promise.resolve({ ...REQUEST_CONTEXT, roles: [] }),
+        },
+        accessible,
+      }),
+    );
+    app.get('/admin', c => c.json({ ok: true }));
+
+    const response = await app.request('/admin');
+
+    expect(response.status).toBe(status);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({
+      message: 'request',
+      path: '/admin',
+      status,
       subject_type: 'user',
       subject_id: 'user-123',
     });
