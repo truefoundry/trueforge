@@ -32,6 +32,30 @@ export function subscribeCursorForEvent(
 }
 
 /**
+ * Newest event first. A pending `mcp.auth_required` stays the cursor even when a
+ * later paused `turn.update` is the last stored row: the prompt is only on that event.
+ */
+export function cursorFromTurnEvents(
+  eventsNewestFirst: readonly { type: string; id: string; state?: { status?: string } }[],
+): TurnSubscribeCursor | undefined {
+  let newest: TurnSubscribeCursor | undefined;
+  for (const event of eventsNewestFirst) {
+    newest ??= subscribeCursorForEvent(event);
+    if (event.type === EVENT_TYPE.MCP_AUTH_REQUIRED) {
+      return { fromEventId: event.id };
+    }
+    const promptEnded =
+      event.type === EVENT_TYPE.USER_MCP_AUTH_CONTINUE ||
+      event.type === EVENT_TYPE.TURN_DONE ||
+      (event.type === EVENT_TYPE.TURN_UPDATE && event.state?.status === 'running');
+    if (promptEnded) {
+      return newest;
+    }
+  }
+  return newest;
+}
+
+/**
  * Resume of one model message replays every event after its shell. If an older
  * message is still open, start at that shell instead so its later deltas rebuild
  * the message rather than appending to the copy already in the fold.

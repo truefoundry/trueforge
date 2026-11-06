@@ -417,6 +417,12 @@ export function prependFoldState(older: PeerThreadFoldState, newer: PeerThreadFo
   for (const [threadId, link] of newer.threadParents) {
     result.threadParents.set(threadId, link);
   }
+  for (const [eventId, messageTurnId] of older.modelMessageTurnIds) {
+    result.modelMessageTurnIds.set(eventId, messageTurnId);
+  }
+  for (const [eventId, messageTurnId] of newer.modelMessageTurnIds) {
+    result.modelMessageTurnIds.set(eventId, messageTurnId);
+  }
   return result;
 }
 
@@ -495,7 +501,7 @@ function ingestSessionEventsIntoSnapshot(
         } else if (event.type === EVENT_TYPE.USER_MCP_AUTH_CONTINUE) {
           snapshot.pendingMcpAuth = undefined;
         }
-        ingestTurnEvent(snapshot.fold, event);
+        ingestTurnEvent(snapshot.fold, event, currentTurnId);
         currentContentEvents.push(event);
       }
     }
@@ -1025,7 +1031,7 @@ async function ingestTurnEventsIntoFold(
       ...(pageToken != null ? { pageToken } : {}),
     }),
   );
-  ingestCollectedEventsIntoFold(foldState, events);
+  ingestCollectedEventsIntoFold(foldState, events, turnId);
 }
 
 async function fetchTurnEvents(
@@ -1048,7 +1054,11 @@ async function fetchTurnEvents(
   return events;
 }
 
-function ingestCollectedEventsIntoFold(foldState: PeerThreadFoldState, events: PersistedTurnEvent[]): void {
+function ingestCollectedEventsIntoFold(
+  foldState: PeerThreadFoldState,
+  events: PersistedTurnEvent[],
+  turnId: string,
+): void {
   for (const event of events) {
     if (
       event.type === EVENT_TYPE.TURN_CREATED ||
@@ -1057,7 +1067,7 @@ function ingestCollectedEventsIntoFold(foldState: PeerThreadFoldState, events: P
     ) {
       continue;
     }
-    ingestTurnEvent(foldState, event);
+    ingestTurnEvent(foldState, event, turnId);
   }
 }
 
@@ -1572,7 +1582,7 @@ export async function buildSnapshotFromSession(
 
   const eventArrays = await fetchAllTurnEventsWithConcurrency(server, sessionId, [turn], concurrency);
   const tipEvents = eventArrays[0] ?? [];
-  ingestCollectedEventsIntoFold(snapshot.fold, tipEvents);
+  ingestCollectedEventsIntoFold(snapshot.fold, tipEvents, turn.id);
   applyUserToolResponsesToFold(snapshot.fold, turn.input ?? []);
 
   const sandboxEvent = tipEvents.find(
@@ -1854,8 +1864,10 @@ export async function* streamTurnEvents(
   onTurnIdAvailable?: (turnId: string) => void,
   onSequenceNumber?: (sequenceNumber: number) => void,
   onSubscribeCursor?: (cursor: TurnSubscribeCursor) => void,
+  turnId?: string,
 ): AsyncGenerator<TurnStreamUpdate> {
   let pendingMcpAuth: McpAuthRequiredEvent | undefined;
+  let activeTurnId = turnId;
   let sandboxId: string | undefined;
   let sandboxIdYielded = false;
 
@@ -1933,6 +1945,9 @@ export async function* streamTurnEvents(
       onSequenceNumber?.(data.sequenceNumber);
     }
     const event = data.event;
+    if (event.type === EVENT_TYPE.TURN_CREATED) {
+      activeTurnId = event.turnId;
+    }
     if ('id' in event && typeof event.id === 'string') {
       const endsMcpAuthPrompt =
         event.type === EVENT_TYPE.USER_MCP_AUTH_CONTINUE ||
@@ -1941,7 +1956,7 @@ export async function* streamTurnEvents(
       // Resume replays from mcp.auth_required until the prompt is answered. A later
       // paused update must not move the cursor past it: a fresh fold would lose the prompt.
       if (pendingMcpAuth == null || event.type === EVENT_TYPE.MCP_AUTH_REQUIRED || endsMcpAuthPrompt) {
-        onSubscribeCursor?.(subscribeCursorForEvent(event, earliestOpenModelMessageId(foldState)));
+        onSubscribeCursor?.(subscribeCursorForEvent(event, earliestOpenModelMessageId(foldState, activeTurnId)));
       }
     }
 
@@ -1962,7 +1977,7 @@ export async function* streamTurnEvents(
 
     if (event.type === EVENT_TYPE.USER_MCP_AUTH_CONTINUE) {
       pendingMcpAuth = undefined;
-      ingestStreamEvent(foldState, event);
+      ingestStreamEvent(foldState, event, activeTurnId);
       continue;
     }
 
@@ -2040,7 +2055,7 @@ export async function* streamTurnEvents(
       return;
     }
 
-    if (!ingestStreamEvent(foldState, event)) {
+    if (!ingestStreamEvent(foldState, event, activeTurnId)) {
       continue;
     }
 

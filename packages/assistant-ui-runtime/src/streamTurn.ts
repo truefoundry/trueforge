@@ -96,7 +96,8 @@ export async function* resumeTurnStream(
       server.subscribeToTurn({
         sessionId,
         turnId,
-        ...(resumeCursorCoveringOpenModelMessages(subscribeCursor, earliestOpenModelMessageId(foldState)) ?? {}),
+        ...(resumeCursorCoveringOpenModelMessages(subscribeCursor, earliestOpenModelMessageId(foldState, turnId)) ??
+          {}),
         abortSignal,
       }),
       foldState,
@@ -104,6 +105,7 @@ export async function* resumeTurnStream(
       undefined,
       onSequenceNumber,
       onSubscribeCursor,
+      turnId,
     );
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {

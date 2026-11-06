@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   createSubscribeReplayProgress,
+  cursorFromTurnEvents,
   resumeCursorCoveringOpenModelMessages,
   subscribeCursorForEvent,
 } from '../src/turnStreamUpdate.js';
@@ -24,6 +25,27 @@ describe('resumeCursorCoveringOpenModelMessages', () => {
       afterEventId: 'pause',
     });
     expect(resumeCursorCoveringOpenModelMessages(undefined, 'm-a')).toBeUndefined();
+  });
+});
+
+describe('cursorFromTurnEvents', () => {
+  it('keeps a pending mcp auth event when a later pause is the newest row', () => {
+    expect(
+      cursorFromTurnEvents([
+        { type: 'turn.update', id: 'pause', state: { status: 'paused' } },
+        { type: 'mcp.auth_required', id: 'auth' },
+      ]),
+    ).toEqual({ fromEventId: 'auth' });
+  });
+
+  it('uses the newest event once the auth prompt has been answered', () => {
+    expect(
+      cursorFromTurnEvents([
+        { type: 'turn.done', id: 'done', state: { status: 'done' } },
+        { type: 'turn.update', id: 'running', state: { status: 'running' } },
+        { type: 'mcp.auth_required', id: 'auth' },
+      ]),
+    ).toEqual({ afterEventId: 'done' });
   });
 });
 

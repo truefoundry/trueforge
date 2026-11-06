@@ -52,7 +52,7 @@ import { mapApprovalDecision, type RespondToToolApprovalOptions } from './toolAp
 import { type RespondToToolResponseOptions } from './toolResponse.js';
 import {
   createSubscribeReplayProgress,
-  subscribeCursorForEvent,
+  cursorFromTurnEvents,
   type TurnStreamUpdate,
   type TurnSubscribeCursor,
 } from './turnStreamUpdate.js';
@@ -119,13 +119,14 @@ function cursorForTurn(snapshot: SessionSnapshot, turnId: string): TurnSubscribe
   if (history === undefined) {
     return undefined;
   }
+  const events = [];
   for (let index = history.length - 1; index >= 0; index -= 1) {
     const item = history[index];
-    if (item?.turnId === turnId) {
-      return subscribeCursorForEvent(item.event);
+    if (item?.turnId === turnId && 'id' in item.event && typeof item.event.id === 'string') {
+      events.push(item.event);
     }
   }
-  return undefined;
+  return cursorFromTurnEvents(events);
 }
 
 interface RunStreamReconnect {
@@ -268,14 +269,18 @@ function materializeAbandonedStreamRootIds(options: {
       },
     }));
   const modelId = `client-abandoned-${options.turnId}`;
-  ingestTurnEvent(options.fold, {
-    type: EVENT_TYPE.MODEL_MESSAGE,
-    id: modelId,
-    threadId: ROOT_THREAD_ID,
-    createdAt: new Date().toISOString(),
-    content: text.length > 0 ? text : null,
-    ...(toolCalls.length > 0 ? { toolCalls } : {}),
-  });
+  ingestTurnEvent(
+    options.fold,
+    {
+      type: EVENT_TYPE.MODEL_MESSAGE,
+      id: modelId,
+      threadId: ROOT_THREAD_ID,
+      createdAt: new Date().toISOString(),
+      content: text.length > 0 ? text : null,
+      ...(toolCalls.length > 0 ? { toolCalls } : {}),
+    },
+    options.turnId,
+  );
   return [modelId];
 }
 
@@ -1325,7 +1330,7 @@ export function useTrueForgeAgentMessages({
         });
         updateSnapshot(previous => {
           for (const persisted of created) {
-            ingestTurnEvent(previous.fold, persisted);
+            ingestTurnEvent(previous.fold, persisted, turnId);
           }
           // Keep the optimistic overlay through partial pauses. Some custom
           // hosts return persisted user events before replaying the source
