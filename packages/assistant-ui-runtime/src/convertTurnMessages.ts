@@ -752,6 +752,7 @@ export async function buildSnapshotFromSessionEvents(
             event: open.event,
             ...(open.update != null ? { update: open.update } : {}),
           }),
+          open.sandboxId,
         );
   if (open != null) {
     applyUserToolResponsesToFold(paintable.fold, open.event.input ?? []);

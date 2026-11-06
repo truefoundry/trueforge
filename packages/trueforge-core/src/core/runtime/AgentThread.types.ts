@@ -222,6 +222,8 @@ export interface AgentThreadConstructorInput {
   context?: ContextMessage[] | undefined;
   currentContextUsage?: CurrentContextUsage | undefined;
   preComputedCompletion?: SubAgentCompletion | undefined;
+  /** Restores a wait on `user.mcp_auth_continue` when the thread is rebuilt from a snapshot. */
+  pendingMCPAuth?: boolean | undefined;
   sandbox?: HarnessSandbox | undefined;
   capabilities?: readonly AgentCapability[] | undefined;
   /**

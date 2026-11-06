@@ -20,8 +20,9 @@ function pausedThenAnsweredTurns() {
       id: 'u1',
       previous: null,
       input: [userMessage('Dinner ideas? I am vegetarian.')],
-      state: pausedState({ completedAt: at(MINUTE), toolCallId: 'call-1' }),
+      state: pausedState(),
       createdAt: at(0),
+      updatedAt: at(MINUTE),
     }),
     turn({
       id: 'a2',
@@ -167,7 +168,8 @@ describe('renderExchange', () => {
               ],
             },
           ],
-          state: pausedState({ completedAt: at(MINUTE), toolCallId: 'other-tool' }),
+          state: pausedState(),
+          updatedAt: at(MINUTE),
         }),
         turn({
           id: 'a2',
@@ -194,7 +196,8 @@ describe('renderExchange', () => {
           id: 'u1',
           previous: null,
           input: [userMessage('x'.repeat(MAX_MEMORY_MESSAGE_CHARS + 500))],
-          state: pausedState({ completedAt: at(MINUTE), toolCallId: 'call-1' }),
+          state: pausedState(),
+          updatedAt: at(MINUTE),
         }),
       ]),
     );

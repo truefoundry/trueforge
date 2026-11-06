@@ -35,8 +35,8 @@ const textOnlyInput = sql<LegacyTurnInputItem[]>`(
     ORDER BY i.key)
   FROM json_each(input) AS i
 )`;
-/** The tip turn finished waiting on the user (a question, approval or auth). */
-const tipPaused = sql<boolean>`(json_extract(t.state, '$.status') = 'done' AND json_array_length(t.state, '$.required_actions') > 0)`;
+/** The tip turn is paused waiting on the user (a question, approval or auth). */
+const tipPaused = sql<boolean>`json_extract(t.state, '$.status') = 'paused'`;
 /** Mirrors PostgresMemoryIngestStore; timestamps are ISO-8601 TEXT. */
 export class SqliteMemoryIngestStore implements IMemoryIngestStore {
   readonly #db: Kysely<Database>;
@@ -124,6 +124,7 @@ export class SqliteMemoryIngestStore implements IMemoryIngestStore {
         textOnlyInput.as('input'),
         jsonText<TurnState>(sql.ref('state')).as('state'),
         'created_at',
+        'updated_at',
       ])
       .where('session_id', '=', input.session_id)
       .orderBy('created_at', 'asc')

@@ -31,12 +31,16 @@ export function subscribeCursorForEvent(
   return { afterEventId: event.id };
 }
 
+function isRunningState(state: unknown): boolean {
+  return typeof state === 'object' && state !== null && 'status' in state && state.status === 'running';
+}
+
 /**
  * Newest event first. A pending `mcp.auth_required` stays the cursor even when a
  * later paused `turn.update` is the last stored row: the prompt is only on that event.
  */
 export function cursorFromTurnEvents(
-  eventsNewestFirst: readonly { type: string; id: string; state?: { status?: string } }[],
+  eventsNewestFirst: readonly { type: string; id: string; state?: unknown }[],
 ): TurnSubscribeCursor | undefined {
   let newest: TurnSubscribeCursor | undefined;
   for (const event of eventsNewestFirst) {
@@ -47,7 +51,7 @@ export function cursorFromTurnEvents(
     const promptEnded =
       event.type === EVENT_TYPE.USER_MCP_AUTH_CONTINUE ||
       event.type === EVENT_TYPE.TURN_DONE ||
-      (event.type === EVENT_TYPE.TURN_UPDATE && event.state?.status === 'running');
+      (event.type === EVENT_TYPE.TURN_UPDATE && isRunningState(event.state));
     if (promptEnded) {
       return newest;
     }

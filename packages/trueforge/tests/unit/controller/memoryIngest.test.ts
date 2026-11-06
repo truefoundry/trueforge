@@ -71,7 +71,7 @@ class FakeStore implements IMemoryIngestStore {
       // session.updated_at moves when a turn is created.
       const sessionUpdatedAt = tip.created_at;
       const updatedMs = Date.parse(sessionUpdatedAt);
-      const tipPaused = tip.state.status === 'done' && tip.state.required_actions.length > 0;
+      const tipPaused = tip.state.status === 'paused';
       const inRange =
         updatedMs >= input.recent_since.getTime() ||
         (tipPaused && updatedMs >= input.paused_from.getTime() && updatedMs < input.paused_until.getTime());
@@ -262,8 +262,9 @@ describe('runMemoryIngestPass', () => {
             id: 'u1',
             previous: null,
             input: [userMessage('Plan dinner')],
-            state: pausedState({ completedAt: at(-12 * 60 * MINUTE + MINUTE), toolCallId: 'call-1' }),
+            state: pausedState(),
             createdAt: at(-12 * 60 * MINUTE),
+            updatedAt: at(-12 * 60 * MINUTE + MINUTE),
           }),
         ],
       }),
@@ -491,8 +492,9 @@ describe('runMemoryIngestPass', () => {
       id: 'u1',
       previous: null,
       input: [userMessage('Plan dinner')],
-      state: pausedState({ completedAt: at(-12.5 * 60 * MINUTE), toolCallId: 'call-1' }),
+      state: pausedState(),
       createdAt: at(-12.5 * 60 * MINUTE - MINUTE),
+      updatedAt: at(-12.5 * 60 * MINUTE),
     });
     const fakeSession = session({
       id: 's1',

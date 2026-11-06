@@ -9,7 +9,7 @@ const TRUNCATION_MARKER = ' [truncated]';
 
 /**
  * - `closed`: the last turn is terminal with nothing pending, or a later user message superseded it.
- * - `paused`: the last turn finished waiting on the user (a question, approval or auth).
+ * - `paused`: the last turn is paused waiting on the user (a question, approval or auth).
  * - `running`: the last turn has not finished.
  */
 export type ExchangeStatus = 'closed' | 'paused' | 'running';
@@ -31,10 +31,10 @@ function hasUserMessage(turn: MemoryIngestTurn): boolean {
 function statusAfter(state: TurnState): ExchangeStatus {
   switch (state.status) {
     case 'running':
-    case 'paused':
       return 'running';
+    case 'paused':
+      return 'paused';
     case 'done':
-      return state.required_actions.length === 0 ? 'closed' : 'paused';
     case 'error':
     case 'cancelled':
       return 'closed';
@@ -78,14 +78,14 @@ export function buildExchanges(turns: readonly MemoryIngestTurn[]): TurnExchange
       current = {
         turns: [turn],
         status: statusAfter(turn.state),
-        completedAt: completedAt(turn.state),
+        completedAt: completedAt(turn),
         continuation: !hasUserMessage(turn),
       };
       exchanges.push(current);
     } else {
       current.turns.push(turn);
       current.status = statusAfter(turn.state);
-      current.completedAt = completedAt(turn.state);
+      current.completedAt = completedAt(turn);
     }
     if (current.status === 'closed') {
       current = undefined;
@@ -130,10 +130,19 @@ export function resumePoint({
   return { startIndex: forkIndex === undefined ? 0 : forkIndex + 1, forked: true };
 }
 
-function completedAt(state: TurnState): string | null {
-  return state.status === 'done' || state.status === 'error' || state.status === 'cancelled'
-    ? state.completed_at
-    : null;
+/** A paused turn's `updated_at` is when it paused: nothing else writes it while it waits. */
+function completedAt(turn: MemoryIngestTurn): string | null {
+  const { state } = turn;
+  switch (state.status) {
+    case 'running':
+      return null;
+    case 'paused':
+      return turn.updated_at;
+    case 'done':
+    case 'error':
+    case 'cancelled':
+      return state.completed_at;
+  }
 }
 
 export type ExchangeReadiness = { ready: true; partial: boolean } | { ready: false };

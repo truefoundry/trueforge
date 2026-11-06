@@ -4045,6 +4045,62 @@ describe('buildSnapshotFromSessionEvents', () => {
     expect(snapshot.pendingUser?.content).toBe('now');
   });
 
+  it('carries the open tip sandbox id on the pre-getTurn paint', async () => {
+    const progress: SessionSnapshot[] = [];
+    let resolveGetTurn: (turn: Turn) => void = () => undefined;
+    const getTurn = vi.fn(
+      () =>
+        new Promise<Turn>(resolve => {
+          resolveGetTurn = resolve;
+        }),
+    );
+    const items: SessionEventItem[] = [
+      {
+        turnId: 't-running',
+        event: {
+          type: 'turn.created',
+          id: 'evt-c-running',
+          turnId: 't-running',
+          input: [{ type: 'user.message', content: 'now' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      { turnId: 't-running', event: sandboxCreated({ id: 'sandbox-evt', sandboxId: 'sbx-123' }) },
+      { turnId: 't-running', event: modelMessage({ id: 'm1', threadId: ROOT_THREAD_ID, content: 'working' }) },
+    ];
+    const server = {
+      listTurns: vi.fn(async () => ({ data: [] })),
+      getTurn,
+      listEvents: sessionEventsPage(items),
+      listTurnEvents: async () => ({ data: [] }),
+    } as unknown as AgentChatServer;
+
+    let notifyProgress: () => void = () => undefined;
+    const progressed = new Promise<void>(resolve => {
+      notifyProgress = resolve;
+    });
+    const pending = buildSnapshotFromSessionEvents(server, SESSION_ID, snap => {
+      progress.push(snap);
+      if (snap.pendingUser != null) {
+        notifyProgress();
+      }
+    });
+
+    await progressed;
+    expect(progress.at(-1)?.activeStream?.update.metadata?.custom?.['sandboxId']).toBe('sbx-123');
+
+    resolveGetTurn({
+      id: 't-running',
+      sessionId: SESSION_ID,
+      state: { status: 'running' },
+      input: [{ type: 'user.message', content: 'now' }],
+      createdAt,
+    });
+    const snapshot = await pending;
+    expect(snapshot.activeStream?.update.metadata?.custom?.['sandboxId']).toBe('sbx-123');
+  });
+
   it('publishes a paused tip with requires-action before getTurn resolves', async () => {
     const progress: SessionSnapshot[] = [];
     let resolveGetTurn: (turn: Turn) => void = () => undefined;

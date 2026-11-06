@@ -46,21 +46,8 @@ export function doneState({
   return { status: 'done', output, required_actions: [], completed_at: completedAt };
 }
 
-export function pausedState({ completedAt, toolCallId }: { completedAt: string; toolCallId: string }): TurnState {
-  return {
-    status: 'done',
-    output: null,
-    completed_at: completedAt,
-    required_actions: [
-      {
-        type: 'tool.response_required',
-        id: `req-${toolCallId}`,
-        created_at: completedAt,
-        thread_id: MAIN_THREAD_ID,
-        tool_calls: [{ id: toolCallId, source_event_id: `ask-${toolCallId}` }],
-      },
-    ],
-  };
+export function pausedState(): TurnState {
+  return { status: 'paused' };
 }
 
 export const RUNNING: TurnState = { status: 'running' };
@@ -71,14 +58,17 @@ export function turn({
   input,
   state,
   createdAt = at(0),
+  updatedAt = createdAt,
 }: {
   id: string;
   previous: string | null;
   input: LegacyTurnInputItem[];
   state: TurnState;
   createdAt?: string;
+  /** For a paused turn, when it paused. */
+  updatedAt?: string;
 }): MemoryIngestTurn {
-  return { turn_id: id, previous_turn_id: previous, input, state, created_at: createdAt };
+  return { turn_id: id, previous_turn_id: previous, input, state, created_at: createdAt, updated_at: updatedAt };
 }
 
 export function userMessage(text: string): LegacyTurnInputItem {

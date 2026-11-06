@@ -43,6 +43,8 @@ export interface MemoryIngestTurn {
   state: TurnState;
   /** ISO-8601 UTC instant. */
   created_at: string;
+  /** ISO-8601 UTC instant; for a paused turn, when it paused. */
+  updated_at: string;
 }
 
 export interface MemoryIngestModelMessage {
