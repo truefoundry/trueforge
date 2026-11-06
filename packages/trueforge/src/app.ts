@@ -15,6 +15,7 @@ import { createAuthRouter } from './apis/auth';
 import { createCapabilitiesRouter } from './apis/capabilities';
 import { createCatalogRouter } from './apis/catalog';
 import { createConfigurationRouter } from './apis/configuration';
+import { registerInternalSessionTurnRoutes } from './apis/internalSessionTurns';
 import { createMcpOAuthRouter } from './apis/mcpOAuth';
 import { createMcpServersRouter } from './apis/mcpServers';
 import { createModelsRouter } from './apis/models';
@@ -23,7 +24,7 @@ import { createSandboxEnvironmentBuildRouter } from './apis/sandboxEnvironmentBu
 import { createSandboxEnvironmentsRouter } from './apis/sandboxEnvironments';
 import { createScheduleExecutionRouter, createSchedulesRouter } from './apis/schedules';
 import { createInternalMetricsRouter } from './apis/sessionMetrics';
-import { createInternalSessionsRouter, createSessionsRouter } from './apis/sessions';
+import { createSessionsRouter, registerInternalSessionsRoutes } from './apis/sessions';
 import { createSettingsRouter } from './apis/settings';
 import { createAvailableSkillsRouter } from './apis/skills';
 import { createTurnsRouter } from './apis/turns';
@@ -580,27 +581,43 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       catalogAdminAuthMiddleware,
     ),
   );
-  app.route(
-    '/api/internal/sessions',
-    withAuth(
-      createInternalSessionsRouter({
-        sessions: deps.sessions,
-        accessControlStore: deps.accessControlStore,
-        resolveModelProviderStore: deps.resolveModelProviderStore,
-        resolveMcpServerStore: deps.resolveMcpServerStore,
-        resolveSkillStore: deps.resolveSkillStore,
-        resolveAgentStore: deps.resolveAgentStore,
-        resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
-        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-        resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
-        resolveMemoryProviderStore: deps.resolveMemoryProviderStore,
-        resolveConfigurationStore: deps.resolveConfigurationStore,
-        resolveRequestContext,
-        authorizer: deps.authorizer,
-      }),
-      authMiddleware,
-    ),
-  );
+  // Same prefix as public sessions; path-scoped auth (JWT vs service key) — do not wrap with withAuth('*').
+  const internalSessionsRouter = new OpenAPIHono();
+  internalSessionsRouter.use('/get-or-create-by-external-id', authMiddleware);
+  internalSessionsRouter.use('/:session_id/turns', scheduleExecutionAuthMiddleware);
+  registerInternalSessionsRoutes(internalSessionsRouter, {
+    sessions: deps.sessions,
+    accessControlStore: deps.accessControlStore,
+    resolveModelProviderStore: deps.resolveModelProviderStore,
+    resolveMcpServerStore: deps.resolveMcpServerStore,
+    resolveSkillStore: deps.resolveSkillStore,
+    resolveAgentStore: deps.resolveAgentStore,
+    resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+    sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
+    resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
+    resolveMemoryProviderStore: deps.resolveMemoryProviderStore,
+    resolveConfigurationStore: deps.resolveConfigurationStore,
+    resolveRequestContext,
+    authorizer: deps.authorizer,
+  });
+  registerInternalSessionTurnRoutes(internalSessionsRouter, {
+    sessions: deps.sessions,
+    agentStore: deps.agentStore,
+    activeTurns: deps.activeTurns,
+    eventSubscriptions: deps.eventSubscriptions,
+    logger: deps.logger,
+    resolveModelProviderStore: deps.resolveModelProviderStore,
+    resolveMcpServerStore: deps.resolveMcpServerStore,
+    resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+    sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
+    resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
+    resolveTurnSkillsStore: deps.resolveTurnSkillsStore,
+    resolveCapabilitiesStore: deps.resolveCapabilitiesStore,
+    resolveMemoryProviderStore: deps.resolveMemoryProviderStore,
+    resolveConfigurationStore: deps.resolveConfigurationStore,
+    memoryProviders: deps.memoryProviders,
+  });
+  app.route('/api/internal/sessions', internalSessionsRouter);
   app.route(
     '/api/internal/metrics',
     withAuth(

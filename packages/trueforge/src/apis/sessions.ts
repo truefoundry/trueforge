@@ -546,10 +546,15 @@ function createGetOrCreateSessionByExternalIdHandler(
   };
 }
 
+/** Register internal session routes on a shared `/api/internal/sessions` router. */
+export function registerInternalSessionsRoutes(router: OpenAPIHono, deps: InternalSessionsRouterDeps): void {
+  router.openapi(getOrCreateSessionByExternalIdRoute, createGetOrCreateSessionByExternalIdHandler(deps));
+}
+
 /** Internal session operations (mounted at /api/internal/sessions). */
 export function createInternalSessionsRouter(deps: InternalSessionsRouterDeps) {
   const router = new OpenAPIHono();
-  router.openapi(getOrCreateSessionByExternalIdRoute, createGetOrCreateSessionByExternalIdHandler(deps));
+  registerInternalSessionsRoutes(router, deps);
   return router;
 }
 

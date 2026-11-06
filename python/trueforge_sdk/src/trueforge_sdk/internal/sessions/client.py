@@ -6,7 +6,10 @@ from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.request_options import RequestOptions
 from ...types.create_session_agent import CreateSessionAgent
 from ...types.get_session_response import GetSessionResponse
+from ...types.get_turn_response import GetTurnResponse
+from ...types.previous_turn_id_input import PreviousTurnIdInput
 from ...types.session_source_schedule import SessionSourceSchedule
+from ...types.turn_input_item import TurnInputItem
 from .raw_client import AsyncRawSessionsClient, RawSessionsClient
 
 # this is used as the default value for optional parameters
@@ -73,6 +76,60 @@ class SessionsClient:
         """
         _response = self._raw_client.get_or_create_by_external_id(
             agent=agent, external_id=external_id, source=source, request_options=request_options
+        )
+        return _response.data
+
+    def create_turn(
+        self,
+        *,
+        session_id: str,
+        input: typing.Optional[typing.Sequence[TurnInputItem]] = OMIT,
+        previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
+        stream: typing.Optional[bool] = True,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> GetTurnResponse:
+        """
+        Create and execute a turn (service API key). Same body as public create-turn; only `stream: false` is supported.
+
+        Parameters
+        ----------
+        session_id : str
+            Session identifier.
+
+        input : typing.Optional[typing.Sequence[TurnInputItem]]
+            Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.
+
+        previous_turn_id : typing.Optional[PreviousTurnIdInput]
+
+        stream : typing.Optional[bool]
+            When true (default), stream turn events as SSE. When false, return the running turn immediately.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        GetTurnResponse
+            The running turn.
+
+        Examples
+        --------
+        from trueforge_sdk import TrueForge
+
+        client = TrueForge(
+            token="YOUR_TOKEN",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.internal.sessions.create_turn(
+            session_id="session_id",
+        )
+        """
+        _response = self._raw_client.create_turn(
+            session_id=session_id,
+            input=input,
+            previous_turn_id=previous_turn_id,
+            stream=stream,
+            request_options=request_options,
         )
         return _response.data
 
@@ -145,5 +202,67 @@ class AsyncSessionsClient:
         """
         _response = await self._raw_client.get_or_create_by_external_id(
             agent=agent, external_id=external_id, source=source, request_options=request_options
+        )
+        return _response.data
+
+    async def create_turn(
+        self,
+        *,
+        session_id: str,
+        input: typing.Optional[typing.Sequence[TurnInputItem]] = OMIT,
+        previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
+        stream: typing.Optional[bool] = True,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> GetTurnResponse:
+        """
+        Create and execute a turn (service API key). Same body as public create-turn; only `stream: false` is supported.
+
+        Parameters
+        ----------
+        session_id : str
+            Session identifier.
+
+        input : typing.Optional[typing.Sequence[TurnInputItem]]
+            Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.
+
+        previous_turn_id : typing.Optional[PreviousTurnIdInput]
+
+        stream : typing.Optional[bool]
+            When true (default), stream turn events as SSE. When false, return the running turn immediately.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        GetTurnResponse
+            The running turn.
+
+        Examples
+        --------
+        import asyncio
+
+        from trueforge_sdk import AsyncTrueForge
+
+        client = AsyncTrueForge(
+            token="YOUR_TOKEN",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.internal.sessions.create_turn(
+                session_id="session_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.create_turn(
+            session_id=session_id,
+            input=input,
+            previous_turn_id=previous_turn_id,
+            stream=stream,
+            request_options=request_options,
         )
         return _response.data

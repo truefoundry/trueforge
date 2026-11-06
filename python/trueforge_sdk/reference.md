@@ -4701,6 +4701,102 @@ client.internal.sessions.get_or_create_by_external_id(
 </dl>
 </details>
 
+<details><summary><code>client.internal.sessions.<a href="src/trueforge_sdk/internal/sessions/client.py">create_turn</a>(...) -> GetTurnResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Create and execute a turn (service API key). Same body as public create-turn; only `stream: false` is supported.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.internal.sessions.create_turn(
+    session_id="session_id",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**session_id:** `str` — Session identifier.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**input:** `typing.Optional[typing.List[TurnInputItem]]` — Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**previous_turn_id:** `typing.Optional[PreviousTurnIdInput]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**stream:** `typing.Optional[bool]` — When true (default), stream turn events as SSE. When false, return the running turn immediately.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 ## Internal Agents
 <details><summary><code>client.internal.agents.<a href="src/trueforge_sdk/internal/agents/client.py">get_code_snippets</a>(...) -> GetAgentCodeSnippetsResponse</code></summary>
 <dl>
