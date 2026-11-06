@@ -1418,7 +1418,7 @@ client.sandbox_environments.delete(
 <dl>
 <dd>
 
-Updates `enabled` and/or `is_default` on the environment. Does not change the definition or create a version. Setting `is_default` is admin-only. Disabling the default releases the default slot.
+Update sandbox environment metadata.
 </dd>
 </dl>
 </dd>
@@ -1474,7 +1474,7 @@ client.sandbox_environments.update(
 <dl>
 <dd>
 
-**is_default:** `typing.Optional[bool]` — If true, make this the tenant default (admin only). If false, clear the default slot when this environment holds it (admin only).
+**is_default:** `typing.Optional[bool]` — If true, make this environment the default in new chats and agents.
     
 </dd>
 </dl>

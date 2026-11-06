@@ -193,7 +193,7 @@ class SandboxEnvironmentsClient:
         Returns
         -------
         DeleteSandboxEnvironmentResponse
-            Sandbox environment deleted.
+            Sandbox environment deleted, or already absent.
 
         Examples
         --------
@@ -219,7 +219,7 @@ class SandboxEnvironmentsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetSandboxEnvironmentResponse:
         """
-        Updates `enabled` and/or `is_default` on the environment. Does not change the definition or create a version. Setting `is_default` is admin-only. Disabling the default releases the default slot.
+        Update sandbox environment metadata.
 
         Parameters
         ----------
@@ -230,7 +230,7 @@ class SandboxEnvironmentsClient:
             Whether new chats and agents may select this environment.
 
         is_default : typing.Optional[bool]
-            If true, make this the tenant default (admin only). If false, clear the default slot when this environment holds it (admin only).
+            If true, make this environment the default in new chats and agents.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -468,7 +468,7 @@ class AsyncSandboxEnvironmentsClient:
         Returns
         -------
         DeleteSandboxEnvironmentResponse
-            Sandbox environment deleted.
+            Sandbox environment deleted, or already absent.
 
         Examples
         --------
@@ -502,7 +502,7 @@ class AsyncSandboxEnvironmentsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetSandboxEnvironmentResponse:
         """
-        Updates `enabled` and/or `is_default` on the environment. Does not change the definition or create a version. Setting `is_default` is admin-only. Disabling the default releases the default slot.
+        Update sandbox environment metadata.
 
         Parameters
         ----------
@@ -513,7 +513,7 @@ class AsyncSandboxEnvironmentsClient:
             Whether new chats and agents may select this environment.
 
         is_default : typing.Optional[bool]
-            If true, make this the tenant default (admin only). If false, clear the default slot when this environment holds it (admin only).
+            If true, make this environment the default in new chats and agents.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.

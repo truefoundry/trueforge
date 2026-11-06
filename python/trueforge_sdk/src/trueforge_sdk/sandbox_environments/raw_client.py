@@ -447,7 +447,7 @@ class RawSandboxEnvironmentsClient:
         Returns
         -------
         HttpResponse[DeleteSandboxEnvironmentResponse]
-            Sandbox environment deleted.
+            Sandbox environment deleted, or already absent.
         """
         _response = self._client_wrapper.httpx_client.request(
             f"api/v1/sandbox-environments/{encode_path_param(name)}",
@@ -477,17 +477,6 @@ class RawSandboxEnvironmentsClient:
                 )
             if _response.status_code == 403:
                 raise ForbiddenError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        RequestErrorResponse,
-                        construct_type(
-                            type_=RequestErrorResponse,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         RequestErrorResponse,
@@ -548,7 +537,7 @@ class RawSandboxEnvironmentsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[GetSandboxEnvironmentResponse]:
         """
-        Updates `enabled` and/or `is_default` on the environment. Does not change the definition or create a version. Setting `is_default` is admin-only. Disabling the default releases the default slot.
+        Update sandbox environment metadata.
 
         Parameters
         ----------
@@ -559,7 +548,7 @@ class RawSandboxEnvironmentsClient:
             Whether new chats and agents may select this environment.
 
         is_default : typing.Optional[bool]
-            If true, make this the tenant default (admin only). If false, clear the default slot when this environment holds it (admin only).
+            If true, make this environment the default in new chats and agents.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1087,7 +1076,7 @@ class AsyncRawSandboxEnvironmentsClient:
         Returns
         -------
         AsyncHttpResponse[DeleteSandboxEnvironmentResponse]
-            Sandbox environment deleted.
+            Sandbox environment deleted, or already absent.
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"api/v1/sandbox-environments/{encode_path_param(name)}",
@@ -1117,17 +1106,6 @@ class AsyncRawSandboxEnvironmentsClient:
                 )
             if _response.status_code == 403:
                 raise ForbiddenError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        RequestErrorResponse,
-                        construct_type(
-                            type_=RequestErrorResponse,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         RequestErrorResponse,
@@ -1188,7 +1166,7 @@ class AsyncRawSandboxEnvironmentsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[GetSandboxEnvironmentResponse]:
         """
-        Updates `enabled` and/or `is_default` on the environment. Does not change the definition or create a version. Setting `is_default` is admin-only. Disabling the default releases the default slot.
+        Update sandbox environment metadata.
 
         Parameters
         ----------
@@ -1199,7 +1177,7 @@ class AsyncRawSandboxEnvironmentsClient:
             Whether new chats and agents may select this environment.
 
         is_default : typing.Optional[bool]
-            If true, make this the tenant default (admin only). If false, clear the default slot when this environment holds it (admin only).
+            If true, make this environment the default in new chats and agents.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.

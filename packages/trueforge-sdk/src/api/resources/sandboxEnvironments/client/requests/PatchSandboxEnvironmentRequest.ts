@@ -7,6 +7,6 @@
 export interface PatchSandboxEnvironmentRequest {
     /** Whether new chats and agents may select this environment. */
     enabled?: boolean;
-    /** If true, make this the tenant default (admin only). If false, clear the default slot when this environment holds it (admin only). */
+    /** If true, make this environment the default in new chats and agents. */
     isDefault?: boolean;
 }
