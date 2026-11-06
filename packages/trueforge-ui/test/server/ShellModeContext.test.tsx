@@ -12,7 +12,12 @@ import {
 import { ServerProvider, useServerCapabilities, useServerCapabilitiesSettled } from '@/server/ServerContext.js';
 import { ShellModeProvider, useOptionalShellMode, useShellMode, type AgentConfig } from '@/server/ShellModeContext.js';
 import type { AgentUIServer } from '@/server/types.js';
-import { createMockAgentSessionsServer, createMockAgentUIServer, createMockCatalog } from './mockServer.js';
+import {
+  createMockAgentSessionsServer,
+  createMockAgentUIServer,
+  createMockCatalog,
+  tenantSessionSharing,
+} from './mockServer.js';
 import { allSettingsSections } from './settingsCapabilityFixture.js';
 
 function wrap(agentConfig?: AgentConfig, initialSettingsOpen?: boolean) {
@@ -108,6 +113,7 @@ describe('ShellModeProvider', () => {
         data: {
           sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
+          sessionSharing: tenantSessionSharing,
           settings: allSettingsSections(false),
         },
       }),
@@ -594,6 +600,7 @@ describe('ShellModeProvider', () => {
       data: {
         sandbox: { enabled: true, environments: { enabled: true } },
         skill: { enabled: true },
+        sessionSharing: tenantSessionSharing,
         settings: allSettingsSections(true),
         webSearch: { enabled: true },
       },
@@ -632,6 +639,7 @@ describe('ShellModeProvider', () => {
       data: {
         sandbox: { enabled: true, environments: { enabled: true } },
         skill: { enabled: true },
+        sessionSharing: tenantSessionSharing,
         settings: allSettingsSections(true),
         webSearch: { enabled: false },
       },
@@ -1159,6 +1167,7 @@ describe('ShellModeProvider', () => {
       data: {
         sandbox: { enabled: true, environments: { enabled: true } },
         skill: { enabled: true },
+        sessionSharing: tenantSessionSharing,
       },
     }));
     const server = createMockAgentUIServer({ getCapabilities });
@@ -1183,6 +1192,7 @@ describe('ShellModeProvider', () => {
       data: {
         sandbox: { enabled: false, environments: { enabled: false } },
         skill: { enabled: false },
+        sessionSharing: tenantSessionSharing,
       },
     }));
     const server = createMockAgentUIServer({ getCapabilities });

@@ -1,7 +1,7 @@
 import { sql } from 'kysely';
 
 import { createSqliteDb } from '../../../../../src/db/sqlite/client';
-import { up } from '../../../../../src/db/sqlite/migrations/20261104_000004_turn_done_approval_to_paused';
+import { up } from '../../../../../src/db/sqlite/migrations/20261105_000003_turn_done_approval_to_paused';
 
 const approvalRequired = {
   type: 'tool.approval_required',

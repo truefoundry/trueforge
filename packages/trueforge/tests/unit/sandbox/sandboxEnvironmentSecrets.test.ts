@@ -276,7 +276,7 @@ describe('sandbox environment secrets', () => {
     ).toBeUndefined();
   });
 
-  it('keeps the environment when Daytona secret deletion fails', async () => {
+  it('keeps secret refs for cleanup when Daytona deletion fails after the environment is deleted', async () => {
     const { publicRouter, sandboxEnvironmentStore, putEnvironment } = await setup();
     jest.mocked(providerUtils.toSandboxProviderFromRecord).mockReturnValue({
       envSupported: true,
@@ -291,12 +291,13 @@ describe('sandbox environment secrets', () => {
       deleteSecret: jest.fn().mockRejectedValue(new Error('Daytona secret delete failed')),
     } as never);
 
-    await putEnvironment({
+    const createResponse = await putEnvironment({
       name: 'secret-env',
       networking: {
         secrets: [{ env: 'GITHUB_TOKEN', value: 'ghp_plain', hosts: ['github.com'] }],
       },
     });
+    const created = (await createResponse.json()) as { data: { id: string } };
 
     const deleteResponse = await publicRouter.request('/secret-env', { method: 'DELETE' });
 
@@ -310,7 +311,8 @@ describe('sandbox environment secrets', () => {
         name: 'secret-env',
         created_by_subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
       }),
-    ).toBeDefined();
+    ).toBeUndefined();
+    expect(await sandboxEnvironmentStore.listSecretsByEnvironment({ environment_id: created.data.id })).toHaveLength(1);
   });
 
   it('returns 502 when Daytona secret sync fails on PUT', async () => {

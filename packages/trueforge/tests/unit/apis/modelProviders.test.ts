@@ -6,6 +6,7 @@ import { createModelsRouter } from '../../../src/apis/models';
 import { createSettingsRouter } from '../../../src/apis/settings';
 import { createdBySubjectFromRequestContext, STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { McpCatalog } from '../../../src/catalog/McpCatalog';
+import { MemoryCatalog } from '../../../src/catalog/MemoryCatalog';
 import { ModelCatalog } from '../../../src/catalog/ModelCatalog';
 import { SandboxCatalog } from '../../../src/catalog/SandboxCatalog';
 import { SkillCatalog } from '../../../src/catalog/SkillCatalog';
@@ -155,6 +156,7 @@ async function createRouters(): Promise<{
       skillCatalog: SkillCatalog.load(),
       sandboxCatalog: SandboxCatalog.load(),
       webSearchCatalog: WebSearchCatalog.load(),
+      memoryCatalog: MemoryCatalog.load(),
     }),
     modelsRouter: createModelsRouter({
       resolveModelProviderStore: () => modelProviderStore,

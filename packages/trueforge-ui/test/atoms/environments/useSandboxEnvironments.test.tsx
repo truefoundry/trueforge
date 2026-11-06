@@ -3,7 +3,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { useReadySandboxEnvironments } from '@/atoms/environments/useReadySandboxEnvironments.js';
+import { useSandboxEnvironments } from '@/atoms/environments/useSandboxEnvironments.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
 import type { SandboxEnvironment } from '@/server/types.js';
@@ -14,6 +14,8 @@ const readyEnv: SandboxEnvironment = {
   name: 'python-data',
   description: 'Python',
   status: 'ready',
+  enabled: true,
+  isDefault: false,
   statusReason: null,
   manifest: { name: 'python-data', description: 'Python' },
   createdBySubject: {
@@ -33,8 +35,8 @@ const pendingEnv: SandboxEnvironment = {
   manifest: { name: 'pending-env', description: 'Building' },
 };
 
-describe('useReadySandboxEnvironments', () => {
-  it('filters to ready environments and refetches when the catalog epoch bumps', async () => {
+describe('useSandboxEnvironments', () => {
+  it('keeps every environment and refetches when the catalog epoch bumps', async () => {
     const listEnvironments = vi
       .fn()
       .mockResolvedValueOnce({ data: [readyEnv, pendingEnv] })
@@ -65,7 +67,7 @@ describe('useReadySandboxEnvironments', () => {
 
     const { result } = renderHook(
       () => ({
-        ready: useReadySandboxEnvironments(),
+        ready: useSandboxEnvironments(),
         shell: useShellMode(),
       }),
       { wrapper },
@@ -74,7 +76,8 @@ describe('useReadySandboxEnvironments', () => {
     await waitFor(() => {
       expect(result.current.ready.loading).toBe(false);
     });
-    expect(result.current.ready.environments.map(e => e.name)).toEqual(['python-data']);
+    // Building and disabled environments stay in the list so pickers can grey them out.
+    expect(result.current.ready.environments.map(e => e.name).sort()).toEqual(['pending-env', 'python-data']);
     expect(listEnvironments).toHaveBeenCalledTimes(1);
 
     act(() => result.current.shell.invalidateEnvironmentsList());
@@ -110,7 +113,7 @@ describe('useReadySandboxEnvironments', () => {
       );
     }
 
-    const { result } = renderHook(() => useReadySandboxEnvironments(), { wrapper });
+    const { result } = renderHook(() => useSandboxEnvironments(), { wrapper });
 
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
@@ -120,5 +123,43 @@ describe('useReadySandboxEnvironments', () => {
     expect(listEnvironments).toHaveBeenNthCalledWith(1, { limit: 1000, pageToken: undefined });
     expect(listEnvironments).toHaveBeenNthCalledWith(2, { limit: 1000, pageToken: 'token-page-2' });
     expect(result.current.environments.map(e => e.name)).toEqual(['env-page-1', 'env-page-2']);
+  });
+
+  it('clears a stale error when a catalog refresh succeeds', async () => {
+    const listEnvironments = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('catalog unavailable'))
+      .mockResolvedValueOnce({ data: [readyEnv] });
+    const server = createMockAgentUIServer({
+      sandboxEnvironments: createMockSandboxEnvironmentServer({ listEnvironments }),
+    });
+
+    function wrapper({ children }: { children: ReactNode }) {
+      return (
+        <ServerProvider server={server}>
+          <ShellModeProvider>{children}</ShellModeProvider>
+        </ServerProvider>
+      );
+    }
+
+    const { result } = renderHook(
+      () => ({
+        environments: useSandboxEnvironments(),
+        shell: useShellMode(),
+      }),
+      { wrapper },
+    );
+
+    await waitFor(() => {
+      expect(result.current.environments.error).toBe('catalog unavailable');
+    });
+
+    act(() => result.current.shell.invalidateEnvironmentsList());
+
+    await waitFor(() => {
+      expect(result.current.environments.loaded).toBe(true);
+      expect(result.current.environments.environments).toEqual([readyEnv]);
+      expect(result.current.environments.error).toBeNull();
+    });
   });
 });
