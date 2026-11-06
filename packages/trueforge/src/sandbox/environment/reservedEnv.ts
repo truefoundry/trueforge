@@ -1,8 +1,3 @@
-/**
- * First-creation promotion of the reserved environment onto the tenant `is_default` slot.
- * Callers must invoke this only on the boot that creates the row: an admin who later clears the
- * slot by disabling it would otherwise see it silently reclaimed on the next restart.
- */
 import type { CreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
 import { type ISandboxEnvironmentStore, type SandboxEnvironmentWithVersion } from '../../db/sandboxEnvironmentStore';
 import { NameSchema } from '../../schemas/common';

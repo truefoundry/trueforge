@@ -368,8 +368,6 @@ export async function validateAgentSpec({
         message: `Unknown sandbox environment "${environmentName}" — not configured`,
       });
     }
-    // A spec that already names a disabled environment keeps it; only newly selecting one is
-    // blocked. Saving an agent is the exception: that write must leave it on a usable one.
     const keptFromPreviousSpec =
       !requireEnabledEnvironment && previousSpec?.config.sandbox.environment_name === environmentName;
     if (!environment.environment.enabled && !keptFromPreviousSpec) {

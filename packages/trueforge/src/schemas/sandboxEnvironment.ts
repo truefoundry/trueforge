@@ -254,19 +254,10 @@ export const UpdateSandboxEnvironmentRequestSchema = z
   .superRefine(refineSandboxEnvironmentRequest)
   .openapi('UpdateSandboxEnvironmentRequest');
 
-/**
- * PATCH body for parent-row flags only. Does not touch the manifest or create a version.
- * At least one field is required; `enabled: false` with `is_default: true` is rejected.
- */
 export const PatchSandboxEnvironmentRequestSchema = z
   .object({
     enabled: z.boolean().optional().describe('Whether new chats and agents may select this environment.'),
-    is_default: z
-      .boolean()
-      .optional()
-      .describe(
-        'If true, make this the tenant default (admin only). If false, clear the default slot when this environment holds it (admin only).',
-      ),
+    is_default: z.boolean().optional().describe('If true, make this environment the default in new chats and agents.'),
   })
   .strict()
   .superRefine((body, ctx) => {

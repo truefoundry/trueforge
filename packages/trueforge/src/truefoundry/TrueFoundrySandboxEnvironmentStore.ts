@@ -1,13 +1,3 @@
-/**
- * TrueFoundry-mode sandbox environment store. This is the TFY facade over persistence, not a
- * Daytona client: when `envSupported` is true (TFY_SANDBOX_PROVIDER=daytona) it lazily
- * materialises the reserved platform row; when false (TFY on-prem sandbox) env CRUD/ensure
- * no-op and list only returns persistence leftovers.
- *
- * The reserved row is still named `"default"` until a later migration renames it. Its tip
- * (snapshot name) comes from shared provider config; the row is real so it can carry
- * `enabled` / `is_default`.
- */
 import type { CreatedBySubject, TokenPagination } from '@truefoundry/trueforge-core/agent-session';
 import { createLogger } from 'winston';
 import {
@@ -57,11 +47,6 @@ export interface TrueFoundrySandboxEnvironmentStoreOptions {
   envSupported: boolean;
 }
 
-/**
- * Wraps persistence for custom envs. Under Daytona (`envSupported`), the reserved row is
- * materialised on the read paths that need it (list / get-by-reserved-name / getDefault /
- * hasUsable) and its snapshot tip is kept in step with provider config.
- */
 export class TrueFoundrySandboxEnvironmentStore<
   TTransaction = never,
 > implements ISandboxEnvironmentStore<TTransaction> {
@@ -73,12 +58,11 @@ export class TrueFoundrySandboxEnvironmentStore<
     this.#envSupported = options.envSupported;
   }
 
-  /**
-   * Daytona-only: create/refresh the reserved row (always-ready tip from shared config).
-   * Callers must already have checked envSupported. First insert sets `is_default` in the store,
-   * which leaves an existing tenant default alone.
-   */
+  /* Ensure the reserved environment is present. */
   async #ensureReserved(tenant_id: string, transaction?: TTransaction): Promise<void> {
+    if (!this.#envSupported) {
+      return;
+    }
     const provider = resolveTrueFoundrySandboxProviderConfig();
     if (provider?.type !== 'daytona') {
       throw new Error('TrueFoundry Daytona sandbox provider is not configured');
@@ -115,16 +99,12 @@ export class TrueFoundrySandboxEnvironmentStore<
         transaction,
       );
     } catch (error) {
-      const lostRace =
-        error instanceof SandboxEnvironmentNameConflictError || error instanceof SandboxEnvironmentVersionConflictError;
-      if (!lostRace) {
+      // Peer upsert won the race; callers re-read after ensure.
+      if (
+        !(error instanceof SandboxEnvironmentNameConflictError) &&
+        !(error instanceof SandboxEnvironmentVersionConflictError)
+      ) {
         throw error;
-      }
-      const reread = await store.getEnvironment({ tenant_id, name: RESERVED_SANDBOX_ENVIRONMENT_NAME }, transaction);
-      if (reread === undefined) {
-        throw new Error(`TrueFoundry reserved sandbox environment missing after a concurrent write (${tenant_id})`, {
-          cause: error,
-        });
       }
     }
   }
