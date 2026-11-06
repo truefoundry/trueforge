@@ -471,6 +471,26 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       case InternalEventType.AGENT_CREATE_SUBAGENT:
         return null;
 
+      case InternalEventType.AGENT_SUBAGENT_QUEUED: {
+        await this.writeStore('append', () =>
+          this.store.addThreads({
+            ...scope,
+            threads: [
+              {
+                thread_id: event.thread_id,
+                parent: event.parent,
+                agent_info: event.agent_info,
+                context: [],
+                current_context_usage: getEmptyCurrentContextUsage(),
+                completion: null,
+                capability_state: null,
+              },
+            ],
+          }),
+        );
+        return null;
+      }
+
       case InternalEventType.CAPABILITY_STATE: {
         // Persist boundary: types exclude undefined; reject it at runtime so stores never see it.
         const state: unknown = event.state;
@@ -555,22 +575,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       }
 
       case HarnessEventType.THREAD_CREATED: {
-        await this.writeStore('append', () =>
-          this.store.addThreads({
-            ...scope,
-            threads: [
-              {
-                thread_id: event.thread_id,
-                parent: event.parent,
-                agent_info: event.agent_info,
-                context: [],
-                current_context_usage: getEmptyCurrentContextUsage(),
-                completion: null,
-                capability_state: null,
-              },
-            ],
-          }),
-        );
+        // Store row was added on AGENT_SUBAGENT_QUEUED; this is the public start signal only.
         await this.writeStore('append', () =>
           this.store.appendToEvents({
             ...scope,

@@ -42,8 +42,12 @@ const EXPECTED_EVENTS = [
       },
     ],
   },
-  // create_sub_agent tool path yields an empty append before THREAD_CREATED.
+  // create_sub_agent: empty append, durable queue registration, then THREAD_CREATED at execute start.
   { type: InternalEventType.AGENT_CONTEXT_APPEND, thread_id: ROOT_ID, context: [] },
+  {
+    type: InternalEventType.AGENT_SUBAGENT_QUEUED,
+    parent: { thread_id: ROOT_ID, tool_call_id: TOOL_CALL_ID },
+  },
   {
     type: EventType.THREAD_CREATED,
     title: 'worker',
