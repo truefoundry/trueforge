@@ -43,5 +43,80 @@ Together they make it easy to pinpoint where a run failed, whether a turn was ca
 Each session carries a copyable **session ID**, and the detail header has a button to **resume** it, which reopens the conversation so you can continue it.
 
 <Note>
-  In hosted mode with [login](/authentication/overview) enabled, session history is owner-scoped: each user sees only their own sessions. In local mode there is a single shared identity, so all sessions belong to that one user.
+  In hosted mode with [login](/authentication/overview) enabled, session history is owner-scoped: each user's list shows only their own sessions. Sessions others [share](#sharing-a-session) with you open from their share link. In local mode there is a single shared identity, so all sessions belong to that one user.
 </Note>
+
+## Sharing a session
+
+The creator of a session can share it, read-only, with specific people or with everyone in their tenant.
+
+### Share from the UI
+
+Open the session and click **Share**.
+
+- **Add people:** search by name or email under **Add people by name or email**, then invite them. Each person you add is listed with a remove action.
+- **General access:** choose **Restricted** (only people you added) or **Everyone within** your tenant.
+- **Share URL:** copy the link and send it to the people you shared with.
+
+### What people you share with can do
+
+Opening the share link shows a read-only view of the session: its summary metrics, event timeline, and transcript.
+
+They can't send messages, resume the run, edit or delete the session, download sandbox files, or change who it's shared with. Shared sessions don't appear in their sessions list, so they open them from the link. Removing a person or switching back to **Restricted** takes their access away immediately.
+
+<Note>
+  Sharing with specific people needs a user directory, which TrueForge has when it runs on the TrueFoundry platform. In local mode and with OIDC login, you can share with everyone in the tenant only, and the people search is hidden.
+</Note>
+
+### Share from the SDK
+
+Grants are managed with [Update session grants](/api-reference/agent-sessions/update-session-grants), which adds and removes access in one request, and listed with [List session grants](/api-reference/agent-sessions/list-session-grants). Look up the people to share with through [List users](/api-reference/users/list-users).
+
+<CodeGroup>
+```typescript TypeScript wrap
+import { TrueForge } from '@truefoundry/trueforge-sdk';
+
+const client = new TrueForge({ baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790' });
+
+const { data: alice } = await client.users.list({ query: 'alice@example.com' });
+const { data: me } = await client.auth.me();
+
+// Share with Alice and with everyone in the tenant in one request.
+const { data: grants } = await client.sessions.updateGrants(sessionId, {
+  grant: [
+    { subjectType: 'user', subjectId: alice[0].id },
+    { subjectType: 'tenant', subjectId: me.tenantId },
+  ],
+});
+
+// Later, stop sharing with Alice.
+await client.sessions.updateGrants(sessionId, { revoke: [{ subjectType: 'user', subjectId: alice[0].id }] });
+```
+
+```python Python wrap
+import os
+from trueforge_sdk import SessionGrantSubject, TrueForge
+
+client = TrueForge(base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"))
+
+alice = next(iter(client.users.list(query="alice@example.com")))
+me = client.auth.me().data
+
+# Share with Alice and with everyone in the tenant in one request.
+grants = client.sessions.update_grants(
+    session_id=session_id,
+    grant=[
+        SessionGrantSubject(subject_type="user", subject_id=alice.id),
+        SessionGrantSubject(subject_type="tenant", subject_id=me.tenant_id),
+    ],
+).data
+
+# Later, stop sharing with Alice.
+client.sessions.update_grants(
+    session_id=session_id,
+    revoke=[SessionGrantSubject(subject_type="user", subject_id=alice.id)],
+)
+```
+</CodeGroup>
+
+Only the session creator can change or list grants. `GET /api/v1/capabilities` reports `session_sharing.granularity`: `subject` when sharing with specific people is available, `tenant` when only tenant-wide sharing is.
