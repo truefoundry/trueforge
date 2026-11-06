@@ -10,9 +10,8 @@ import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
 import {
-  canCreateOrEdit,
+  canManageOrDeleteEnvironment,
   createdBySubjectFromRequestContext,
-  hasAdminRole,
   type ResolveRequestContext,
 } from '../auth/identity';
 import type { IAgentStore } from '../db/agentStore';
@@ -56,12 +55,13 @@ import { MissingStoredSecretError } from '../utils/secretRedaction';
 
 const FORBIDDEN_SANDBOX_ENVIRONMENT_WRITE = 'User does not have permission to edit Sandbox environment';
 
-const FORBIDDEN_SANDBOX_ENVIRONMENT_SET_DEFAULT =
-  'User does not have permission to set the default Sandbox environment';
-
 /** Shared by the delete pre-check and the store's race-safe backstop, so both answer alike. */
 function defaultEnvironmentDeleteRejection(name: string): string {
   return `Sandbox environment "${name}" is the default and cannot be deleted`;
+}
+
+function reservedEnvironmentDeleteRejection(): string {
+  return `Sandbox environment "${RESERVED_SANDBOX_ENVIRONMENT_NAME}" cannot be deleted`;
 }
 
 export interface SandboxEnvironmentsRouterDeps<TTransaction> {
@@ -243,10 +243,10 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
 
   const createHandler: RouteHandler<typeof createSandboxEnvironmentRoute> = async c => {
     const requestContext = resolveRequestContext(c);
-    if (!canCreateOrEdit(requestContext)) {
+    const body = c.req.valid('json');
+    if (!canManageOrDeleteEnvironment(requestContext, body.manifest.name)) {
       return c.json({ error: { message: FORBIDDEN_SANDBOX_ENVIRONMENT_WRITE } }, 403);
     }
-    const body = c.req.valid('json');
     const existing = await store.getEnvironment({ tenant_id: requestContext.tenant_id, name: body.manifest.name });
     if (existing) {
       return c.json({ error: { message: `Sandbox environment with name ${body.manifest.name} already exists` } }, 409);
@@ -258,17 +258,18 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
     return c.json({ data: outcome.environment }, 201);
   };
 
-  // Create-or-update keyed by manifest.name.
+  // Create-or-update keyed by manifest.name. Reserved `"default"` is rejected by the
+  // request schema (400); delete uses {@link reservedEnvironmentDeleteRejection}.
   const putHandler: RouteHandler<typeof putSandboxEnvironmentRoute> = async c => {
     const body = c.req.valid('json');
     const requestContext = resolveRequestContext(c);
+    if (!canManageOrDeleteEnvironment(requestContext, body.manifest.name)) {
+      return c.json({ error: { message: FORBIDDEN_SANDBOX_ENVIRONMENT_WRITE } }, 403);
+    }
     const existing = await store.getEnvironment({
       tenant_id: requestContext.tenant_id,
       name: body.manifest.name,
     });
-    if (!canCreateOrEdit(requestContext, existing?.environment.created_by_subject.subject_id)) {
-      return c.json({ error: { message: FORBIDDEN_SANDBOX_ENVIRONMENT_WRITE } }, 403);
-    }
     const outcome = await writeSandboxEnvironment({ c, body, mode: 'upsert', existing });
     if (outcome.kind === 'error') {
       return c.json({ error: { message: outcome.message } }, outcome.status);
@@ -281,7 +282,10 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
     const { tenant_id } = requestContext;
     const { name } = c.req.valid('param');
     if (name === RESERVED_SANDBOX_ENVIRONMENT_NAME) {
-      return c.json({ error: { message: 'Sandbox environment "default" cannot be deleted' } }, 409);
+      return c.json({ error: { message: reservedEnvironmentDeleteRejection() } }, 409);
+    }
+    if (!canManageOrDeleteEnvironment(requestContext, name)) {
+      return c.json({ error: { message: FORBIDDEN_SANDBOX_ENVIRONMENT_WRITE } }, 403);
     }
     const existing = await store.getEnvironment({
       tenant_id,
@@ -292,9 +296,6 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
     }
     if (existing.environment.is_default) {
       return c.json({ error: { message: defaultEnvironmentDeleteRejection(name) } }, 409);
-    }
-    if (!canCreateOrEdit(requestContext, existing.environment.created_by_subject.subject_id)) {
-      return c.json({ error: { message: FORBIDDEN_SANDBOX_ENVIRONMENT_WRITE } }, 403);
     }
     const agentNames = await resolveAgentStore(c).listAgentNamesUsingSandboxEnvironment({
       tenant_id,
@@ -312,11 +313,18 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
     }
     try {
       const secrets = await store.listSecretsByEnvironment({ environment_id: existing.environment.id });
-      if (secrets.length > 0) {
-        const provider = await resolveSandboxProviderRecord(deps.resolveSandboxProviderStore(c), tenant_id);
-        if (provider === undefined) {
-          return c.json({ error: { message: 'No sandbox provider configured' } }, 422);
-        }
+      const provider =
+        secrets.length > 0
+          ? await resolveSandboxProviderRecord(deps.resolveSandboxProviderStore(c), tenant_id)
+          : undefined;
+      if (secrets.length > 0 && provider === undefined) {
+        return c.json({ error: { message: 'No sandbox provider configured' } }, 422);
+      }
+      await store.deleteEnvironment({
+        tenant_id,
+        name,
+      });
+      if (secrets.length > 0 && provider !== undefined) {
         await deleteSandboxEnvironmentSecrets({
           secrets,
           provider: toSandboxProviderFromRecord({
@@ -326,10 +334,6 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
           }),
         });
       }
-      await store.deleteEnvironment({
-        tenant_id,
-        name,
-      });
       return c.json({}, 200);
     } catch (error) {
       if (error instanceof SandboxEnvironmentDefaultConflictError) {
@@ -349,16 +353,13 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
     const { name } = c.req.valid('param');
     const body: PatchSandboxEnvironmentRequest = c.req.valid('json');
 
+    if (!canManageOrDeleteEnvironment(requestContext, name)) {
+      return c.json({ error: { message: FORBIDDEN_SANDBOX_ENVIRONMENT_WRITE } }, 403);
+    }
+
     const existing = await store.getEnvironment({ tenant_id, name });
     if (!existing) {
       return c.json({ error: { message: `Sandbox environment not found: ${name}` } }, 404);
-    }
-    if (!canCreateOrEdit(requestContext, existing.environment.created_by_subject.subject_id)) {
-      return c.json({ error: { message: FORBIDDEN_SANDBOX_ENVIRONMENT_WRITE } }, 403);
-    }
-    // Every chat or agent that names no environment follows is_default, so it is admin-only.
-    if (body.is_default !== undefined && !hasAdminRole(requestContext)) {
-      return c.json({ error: { message: FORBIDDEN_SANDBOX_ENVIRONMENT_SET_DEFAULT } }, 403);
     }
 
     let updated: SandboxEnvironmentWithVersion | undefined = existing;

@@ -8,7 +8,7 @@ import {
   resolveSandboxEnvironmentPermissions,
   resolveSchedulePermissions,
 } from '../auth/authorizer';
-import { canCreateOrEdit, type RequestContext } from '../auth/identity';
+import { canManageOrDeleteEnvironment, type RequestContext } from '../auth/identity';
 import type { AgentRecord } from '../db/agentStore';
 import type { ListPermissionsData, ResourcePermission } from '../schemas/permissions';
 import {
@@ -90,7 +90,7 @@ export class TrueFoundryAuthorizer implements Authorizer {
         accessToken: requireUserCredential(requestContext),
       });
       const agent = tenantPermissions.includes('CREATE_AGENT') ? [...TENANT_CREATE_AGENT_PERMISSIONS] : [];
-      const sandbox_environment = canCreateOrEdit(requestContext)
+      const sandbox_environment = canManageOrDeleteEnvironment(requestContext)
         ? [...TENANT_CREATE_SANDBOX_ENVIRONMENT_PERMISSIONS]
         : [];
       return listPermissionsData('tenant', { agent, sandbox_environment });

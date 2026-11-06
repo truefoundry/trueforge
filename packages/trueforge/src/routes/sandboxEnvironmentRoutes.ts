@@ -192,8 +192,7 @@ export const patchSandboxEnvironmentRoute = createRoute({
   path: '/{name}',
   tags: [OpenApiTag.SANDBOXES],
   summary: 'Update sandbox environment flags',
-  description:
-    'Updates `enabled` and/or `is_default` on the environment. Does not change the definition or create a version. Setting `is_default` is admin-only. Disabling the default releases the default slot.',
+  description: 'Update sandbox environment metadata.',
   'x-fern-sdk-group-name': ['sandboxEnvironments'],
   'x-fern-sdk-method-name': 'update',
   request: {

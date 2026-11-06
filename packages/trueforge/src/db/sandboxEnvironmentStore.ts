@@ -339,13 +339,7 @@ export interface ISandboxEnvironmentStore<TTransaction = never> {
     input: MarkSandboxEnvironmentVersionFailedInput,
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentVersionRecord | undefined>;
-  /**
-   * Soft-delete: set lifecycle_stage = deleted. Idempotent if missing or already deleted. The
-   * `is_default` flag is read under the lock that guards the write, so a concurrent set-default
-   * can never have its slot deleted away; that case throws
-   * `SandboxEnvironmentDefaultConflictError` and leaves the environment active.
-   */
-  deleteEnvironment(input: DeleteSandboxEnvironmentInput, transaction?: TTransaction): Promise<void>;
+  deleteEnvironment(input: DeleteSandboxEnvironmentInput): Promise<void>;
   listSecretsByEnvironment(
     input: { environment_id: string },
     transaction?: TTransaction,

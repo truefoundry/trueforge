@@ -661,37 +661,32 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
     return row ? toVersionRecord(row) : undefined;
   }
 
-  async deleteEnvironment(input: DeleteSandboxEnvironmentInput, transaction?: Transaction<Database>): Promise<void> {
-    if (transaction) {
-      return this.#deleteEnvironment(input, transaction);
-    }
-    return this.#db.transaction().execute(db => this.#deleteEnvironment(input, db));
-  }
-
-  async #deleteEnvironment(input: DeleteSandboxEnvironmentInput, db: Transaction<Database>): Promise<void> {
-    const environment = await db
-      .selectFrom('sandbox_environment')
-      .select(['id', 'is_default'])
-      .where('tenant_id', '=', input.tenant_id)
-      .where('name', '=', input.name)
-      .where('lifecycle_stage', '=', 'active')
-      .forUpdate()
-      .executeTakeFirst();
-    if (environment === undefined) {
-      return;
-    }
-    if (environment.is_default) {
-      throw new SandboxEnvironmentDefaultConflictError({ tenant_id: input.tenant_id });
-    }
-    await db.deleteFrom('sandbox_environment_secret').where('environment_id', '=', environment.id).execute();
-    await db
-      .updateTable('sandbox_environment')
-      .set({
-        lifecycle_stage: 'deleted',
-        updated_at: now(),
-      })
-      .where('id', '=', environment.id)
-      .execute();
+  async deleteEnvironment(input: DeleteSandboxEnvironmentInput): Promise<void> {
+    return this.#db.transaction().execute(async db => {
+      const environment = await db
+        .selectFrom('sandbox_environment')
+        .select(['id', 'is_default'])
+        .where('tenant_id', '=', input.tenant_id)
+        .where('name', '=', input.name)
+        .where('lifecycle_stage', '=', 'active')
+        .forUpdate()
+        .executeTakeFirst();
+      if (environment === undefined) {
+        return;
+      }
+      if (environment.is_default) {
+        throw new SandboxEnvironmentDefaultConflictError({ tenant_id: input.tenant_id });
+      }
+      await db
+        .updateTable('sandbox_environment')
+        .set({
+          lifecycle_stage: 'deleted',
+          updated_at: now(),
+        })
+        .where('id', '=', environment.id)
+        .execute();
+      await db.deleteFrom('sandbox_environment_secret').where('environment_id', '=', environment.id).execute();
+    });
   }
 
   async #insertVersionRow(

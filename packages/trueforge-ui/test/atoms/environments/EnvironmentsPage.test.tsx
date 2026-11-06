@@ -265,13 +265,34 @@ describe('EnvironmentsPage', () => {
     expect(screen.queryByText('Save')).not.toBeInTheDocument();
   });
 
-  it('disables New Environment without tenant sandbox_environment CREATE', async () => {
+  it('greys out Set as default when tenant CREATE is denied even if MANAGE is granted', async () => {
     renderPage({
       permissions: {
         listPermissions: vi.fn(async ({ resourceType }): Promise<ListPermissionsResponse> =>
           resourceType === 'tenant'
             ? { data: { type: 'tenant', permissions: { agent: ['CREATE'], sandbox_environment: [] } } }
             : { data: { type: 'sandbox_environment', permissions: { e1: ['MANAGE', 'DELETE'] } } },
+        ),
+      },
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Actions for python-data' }));
+    expect(screen.getByRole('menuitem', { name: 'Disable' })).toBeEnabled();
+    expect(screen.getByRole('menuitem', { name: 'Edit' })).toBeEnabled();
+
+    const setDefault = screen.getByRole('menuitem', { name: 'Set as default' });
+    expect(setDefault).toBeDisabled();
+    fireEvent.mouseEnter(setDefault.parentElement ?? setDefault);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Only admins can choose the default environment');
+  });
+
+  it('disables New Environment without tenant sandbox_environment CREATE', async () => {
+    renderPage({
+      permissions: {
+        listPermissions: vi.fn(async ({ resourceType }): Promise<ListPermissionsResponse> =>
+          resourceType === 'tenant'
+            ? { data: { type: 'tenant', permissions: { agent: ['CREATE'], sandbox_environment: [] } } }
+            : { data: { type: 'sandbox_environment', permissions: { e1: [] } } },
         ),
       },
     });

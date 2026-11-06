@@ -313,7 +313,7 @@ export class TrueFoundrySandboxEnvironmentStore<
     return this.#persistence.markVersionFailed(input, transaction);
   }
 
-  deleteEnvironment(input: DeleteSandboxEnvironmentInput, transaction?: TTransaction): Promise<void> {
+  deleteEnvironment(input: DeleteSandboxEnvironmentInput): Promise<void> {
     if (!this.#envSupported) {
       logger.info('Skipping sandbox environment delete (provider does not support environments)', {
         name: input.name,
@@ -324,7 +324,7 @@ export class TrueFoundrySandboxEnvironmentStore<
     if (input.name === RESERVED_SANDBOX_ENVIRONMENT_NAME) {
       return trueFoundryManaged();
     }
-    return this.#persistence.deleteEnvironment(input, transaction);
+    return this.#persistence.deleteEnvironment(input);
   }
 
   listSecretsByEnvironment(

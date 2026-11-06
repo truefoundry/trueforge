@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
 import {
   areCatalogSettingsAvailable,
-  canCreateOrEdit,
   canEditSchedule,
+  canManageOrDeleteEnvironment,
   hasAdminRole,
   requestContextFromCreatedBySubject,
   resolveRequestContext,
@@ -83,16 +83,16 @@ describe('areCatalogSettingsAvailable', () => {
   });
 });
 
-describe('canCreateOrEdit', () => {
-  it('allows create for admins only, and update/delete for admin or creator', () => {
-    const alice = { roles: ['everyone'], subject: { id: 'alice', type: 'user', display_name: 'alice' } };
-    const bob = { roles: ['everyone'], subject: { id: 'bob', type: 'user', display_name: 'bob' } };
-    const admin = { roles: ['admin'], subject: { id: 'root', type: 'user', display_name: 'root' } };
-    expect(canCreateOrEdit(admin)).toBe(true);
-    expect(canCreateOrEdit(alice)).toBe(false);
-    expect(canCreateOrEdit(alice, 'alice')).toBe(true);
-    expect(canCreateOrEdit(bob, 'alice')).toBe(false);
-    expect(canCreateOrEdit(admin, 'alice')).toBe(true);
+describe('canManageOrDeleteEnvironment', () => {
+  it('allows create/mutations for admins only, and never on the reserved default', () => {
+    const alice = { roles: ['everyone'] };
+    const admin = { roles: ['admin'] };
+    expect(canManageOrDeleteEnvironment(admin)).toBe(true);
+    expect(canManageOrDeleteEnvironment(alice)).toBe(false);
+    expect(canManageOrDeleteEnvironment(admin, 'shared-env')).toBe(true);
+    expect(canManageOrDeleteEnvironment(alice, 'shared-env')).toBe(false);
+    expect(canManageOrDeleteEnvironment(admin, 'default')).toBe(false);
+    expect(canManageOrDeleteEnvironment(alice, 'default')).toBe(false);
   });
 });
 

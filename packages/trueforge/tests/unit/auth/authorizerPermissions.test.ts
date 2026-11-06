@@ -141,7 +141,7 @@ describe('TrueForgeAuthorizer.getPermissions', () => {
     expect(scheduleStore.getSchedule).not.toHaveBeenCalled();
   });
 
-  it('always grants tenant agent CREATE in standalone mode; sandbox env CREATE follows canCreateOrEdit', async () => {
+  it('always grants tenant agent CREATE in standalone mode; sandbox env CREATE follows canManageOrDeleteEnvironment', async () => {
     expect(
       await authorizer.getPermissions({
         resourceType: 'tenant',
@@ -166,7 +166,7 @@ describe('TrueForgeAuthorizer.getPermissions', () => {
     });
   });
 
-  it('grants MANAGE/DELETE via canCreateOrEdit (owner or admin)', async () => {
+  it('grants MANAGE/DELETE via canManageOrDeleteEnvironment (admin only)', async () => {
     const sandboxEnvironmentStore = {
       getEnvironmentsByIds: jest.fn(async () => [
         { id: 'env-1', name: 'alice-env', created_by_subject: { subject_id: 'alice' } },
@@ -184,7 +184,7 @@ describe('TrueForgeAuthorizer.getPermissions', () => {
     ).toEqual({
       type: 'sandbox_environment',
       permissions: {
-        'env-1': ['MANAGE', 'DELETE'],
+        'env-1': [],
         'env-2': [],
       },
     });
@@ -206,9 +206,8 @@ describe('TrueForgeAuthorizer.getPermissions', () => {
     });
   });
 
-  // The platform-provisioned and default carve-outs live on the row, not here: a permission list
-  // is cached per resource id, so folding in a flag that moves would go stale.
-  it('grants the same permissions on the platform-provisioned environment', async () => {
+  // Reserved `"default"` never gets MANAGE/DELETE; `is_default` stays a route/UI carve-out.
+  it('grants no permissions on the platform-provisioned environment', async () => {
     const sandboxEnvironmentStore = {
       getEnvironmentsByIds: jest.fn(async () => [
         { id: 'env-managed', name: 'default', created_by_subject: { subject_id: 'alice' } },
@@ -225,7 +224,7 @@ describe('TrueForgeAuthorizer.getPermissions', () => {
       }),
     ).toEqual({
       type: 'sandbox_environment',
-      permissions: { 'env-managed': ['MANAGE', 'DELETE'] },
+      permissions: { 'env-managed': [] },
     });
   });
 });

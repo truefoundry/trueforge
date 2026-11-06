@@ -305,7 +305,7 @@ describe('sandbox environments API → build controller path', () => {
     expect(Array.isArray(listBody.data)).toBe(true);
   });
 
-  it('allows all users to read; create is admin-only; update/delete allow admin or creator', async () => {
+  it('allows all users to read; create/update/delete are admin-only', async () => {
     const { publicRouter, setSubject } = await setup();
     jest.mocked(providerUtils.toSandboxProviderFromRecord).mockReturnValue({
       envSupported: true,
@@ -342,7 +342,7 @@ describe('sandbox environments API → build controller path', () => {
       ).status,
     ).toBe(201);
 
-    // Creator retains edit access even without admin role.
+    // Creator loses write access without the admin role.
     setSubject('alice', ['everyone']);
     const creatorUpdate = await publicRouter.request('/', {
       method: 'PUT',
@@ -355,10 +355,7 @@ describe('sandbox environments API → build controller path', () => {
         },
       }),
     });
-    expect(creatorUpdate.status).toBe(200);
-    expect(((await creatorUpdate.json()) as { data: { description: string } }).data.description).toBe(
-      'updated by creator',
-    );
+    expect(creatorUpdate.status).toBe(403);
 
     setSubject('bob', ['everyone']);
     const listed = (await (await publicRouter.request('/')).json()) as { data: { name: string }[] };
@@ -413,7 +410,7 @@ describe('sandbox environments API → build controller path', () => {
     expect((await publicRouter.request('/shared-env', { method: 'DELETE' })).status).toBe(200);
   });
 
-  it('in TrueFoundry mode create is tenant-admin only; update/delete allow tenant-admin or creator', async () => {
+  it('in TrueFoundry mode create/update/delete are tenant-admin only', async () => {
     jest.mocked(getTrueForgeAuthMode).mockReturnValue(TrueForgeAuthMode.TrueFoundry);
     const { publicRouter, setSubject } = await setup();
     jest.mocked(providerUtils.toSandboxProviderFromRecord).mockReturnValue({
@@ -480,7 +477,7 @@ describe('sandbox environments API → build controller path', () => {
         },
       }),
     });
-    expect(creatorUpdate.status).toBe(200);
+    expect(creatorUpdate.status).toBe(403);
 
     setSubject('bob', ['everyone']);
     expect((await publicRouter.request('/tfy-env')).status).toBe(200);
@@ -643,26 +640,23 @@ describe('sandbox environments API → build controller path', () => {
     expect(listed.data.filter(env => env.is_default).map(env => env.name)).toEqual(['other-env']);
   });
 
-  it('is_default needs the admin role; enabled stays with the creator', async () => {
+  it('is_default and enabled both need the admin role', async () => {
     const { publicRouter, setSubject } = await setup();
     mockSecretProvider();
     setSubject('alice', ['admin']);
     await createEnv(publicRouter, 'flag-env');
 
-    // Alice still owns the row, but the default is tenant-wide.
     setSubject('alice', ['everyone']);
-    const refused = await patchFlags(publicRouter, 'flag-env', { is_default: true });
-    expect(refused.status).toBe(403);
-    expect(await refused.json()).toEqual({
-      error: { message: 'User does not have permission to set the default Sandbox environment' },
+    const refusedDefault = await patchFlags(publicRouter, 'flag-env', { is_default: true });
+    expect(refusedDefault.status).toBe(403);
+    expect(await refusedDefault.json()).toEqual({
+      error: { message: 'User does not have permission to edit Sandbox environment' },
     });
-
-    expect((await patchFlags(publicRouter, 'flag-env', { enabled: false })).status).toBe(200);
-    expect((await patchFlags(publicRouter, 'flag-env', { enabled: true })).status).toBe(200);
-    const listed = (await (await publicRouter.request('/')).json()) as { data: { is_default: boolean }[] };
-    expect(listed.data.filter(env => env.is_default)).toEqual([]);
+    expect((await patchFlags(publicRouter, 'flag-env', { enabled: false })).status).toBe(403);
 
     setSubject('carol', ['admin']);
+    expect((await patchFlags(publicRouter, 'flag-env', { enabled: false })).status).toBe(200);
+    expect((await patchFlags(publicRouter, 'flag-env', { enabled: true })).status).toBe(200);
     const allowed = await patchFlags(publicRouter, 'flag-env', { is_default: true });
     expect(allowed.status).toBe(200);
     expect((await allowed.json()) as { data: { is_default: boolean } }).toMatchObject({ data: { is_default: true } });
@@ -686,8 +680,29 @@ describe('sandbox environments API → build controller path', () => {
 
   it('answers 409 when a set-default lands between the delete pre-check and the store write', async () => {
     const { db, publicRouter, sandboxEnvironmentStore, setDuringDeletePreChecks } = await setup();
-    mockSecretProvider();
-    await createEnv(publicRouter, 'flag-env');
+    const deleteSecret = jest.fn();
+    const provider = {
+      envSupported: true,
+      createSecret: jest.fn().mockResolvedValue({ id: 'daytona-sec-1' }),
+      updateSecret: jest.fn(),
+      deleteSecret,
+      getBuildStatus: jest.fn(),
+      build: jest.fn(),
+    } as never;
+    jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReturnValue(provider);
+    jest.mocked(providerUtils.toSandboxProviderFromRecord).mockReturnValue(provider);
+    const created = await publicRouter.request('/', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        manifest: {
+          name: 'flag-env',
+          image: { type: 'build', build_script: 'pip install httpx' },
+          networking: { secrets: [{ env: 'API_TOKEN', value: 'secret-value', hosts: ['api.example.com'] }] },
+        },
+      }),
+    });
+    expect(created.status).toBe(201);
     await createEnv(publicRouter, 'other-env');
     expect((await patchFlags(publicRouter, 'other-env', { is_default: true })).status).toBe(200);
 
@@ -704,15 +719,22 @@ describe('sandbox environments API → build controller path', () => {
     expect(await removed.json()).toEqual({
       error: { message: 'Sandbox environment "flag-env" is the default and cannot be deleted' },
     });
+    expect(deleteSecret).not.toHaveBeenCalled();
 
-    // The tenant keeps its default instead of losing it to the delete.
+    // The tenant keeps its default, and the provider secret, instead of losing both to the delete.
     const kept = await db
       .selectFrom('sandbox_environment')
-      .select(['lifecycle_stage', 'is_default'])
+      .select(['id', 'lifecycle_stage', 'is_default'])
       .where('tenant_id', '=', STANDALONE_REQUEST_CONTEXT.tenant_id)
       .where('name', '=', 'flag-env')
       .executeTakeFirstOrThrow();
-    expect(kept).toEqual({ lifecycle_stage: 'active', is_default: 1 });
+    expect(kept).toMatchObject({ lifecycle_stage: 'active', is_default: 1 });
+    const secretRows = await db
+      .selectFrom('sandbox_environment_secret')
+      .select(['external_secret_id'])
+      .where('environment_id', '=', kept.id)
+      .execute();
+    expect(secretRows).toEqual([{ external_secret_id: 'daytona-sec-1' }]);
   });
 
   it('refuses to edit or delete the reserved "default" environment', async () => {

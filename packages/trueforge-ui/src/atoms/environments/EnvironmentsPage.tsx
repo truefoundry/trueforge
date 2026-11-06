@@ -56,17 +56,20 @@ function clampPageSize(size: number): number {
  * Why each row action is unavailable, or undefined when it can be used. Every action stays in the
  * menu so the set on offer does not shift between rows; the reason is what explains the greying.
  *
- * MANAGE and DELETE say who the caller is; the reserved name and `isDefault` say what the row
- * allows. Both carve-outs are enforced by the API too, so this only decides what the menu shows.
+ * MANAGE and DELETE are admin-only (same gate as tenant CREATE). The reserved name and
+ * `isDefault` say what the row allows; those carve-outs are enforced by the API too.
  */
 function environmentRowActionReasons({
   environment,
   canManage,
   canDelete,
+  canSetDefault,
 }: {
   environment: SandboxEnvironment;
   canManage: boolean;
   canDelete: boolean;
+  /** Admin: tenant `sandbox_environment` CREATE (same role as New Environment). */
+  canSetDefault: boolean;
 }): {
   edit: string | undefined;
   setDefault: string | undefined;
@@ -79,13 +82,15 @@ function environmentRowActionReasons({
     edit: reserved ? 'This environment is provided by the platform and cannot be edited.' : noManage,
     setDefault:
       noManage ??
-      (environment.isDefault
-        ? 'Already the default.'
-        : !environment.enabled
-          ? 'Enable the environment before making it the default.'
-          : environment.status !== 'ready'
-            ? 'Only a ready environment can be the default.'
-            : undefined),
+      (!canSetDefault
+        ? 'Only admins can choose the default environment.'
+        : environment.isDefault
+          ? 'Already the default.'
+          : !environment.enabled
+            ? 'Enable the environment before making it the default.'
+            : environment.status !== 'ready'
+              ? 'Only a ready environment can be the default.'
+              : undefined),
     toggleEnabled: noManage,
     delete: reserved
       ? 'This environment is provided by the platform and cannot be deleted.'
@@ -400,6 +405,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
                     environment: env,
                     canManage: allows(env.id, 'MANAGE'),
                     canDelete: allows(env.id, 'DELETE'),
+                    canSetDefault: canCreateSandboxEnvironment,
                   });
                   return (
                     <TableRow

@@ -401,7 +401,11 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
     if (transaction) {
       return this.#setDefaultEnvironment(input, transaction);
     }
-    return this.#db.transaction().execute(db => this.#setDefaultEnvironment(input, db));
+    // BEGIN IMMEDIATE before the read, matching deleteEnvironment, so the two cannot interleave.
+    return this.#db
+      .transaction()
+      .setAccessMode('read write')
+      .execute(db => this.#setDefaultEnvironment(input, db));
   }
 
   async #setDefaultEnvironment(
@@ -778,38 +782,34 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
     return row ? toVersionRecord(row) : undefined;
   }
 
-  async deleteEnvironment(input: DeleteSandboxEnvironmentInput, transaction?: Transaction<Database>): Promise<void> {
-    if (transaction) {
-      return this.#deleteEnvironment(input, transaction);
-    }
-    return this.#db.transaction().execute(db => this.#deleteEnvironment(input, db));
-  }
-
-  async #deleteEnvironment(input: DeleteSandboxEnvironmentInput, db: Transaction<Database>): Promise<void> {
-    // `is_default` is read inside the transaction that performs the writes: a set-default committed
-    // between the caller's check and this statement must not have its slot deleted away.
-    const environment = await db
-      .selectFrom('sandbox_environment')
-      .select(['id', 'is_default'])
-      .where('tenant_id', '=', input.tenant_id)
-      .where('name', '=', input.name)
-      .where('lifecycle_stage', '=', 'active')
-      .executeTakeFirst();
-    if (environment === undefined) {
-      return;
-    }
-    if (environment.is_default === 1) {
-      throw new SandboxEnvironmentDefaultConflictError({ tenant_id: input.tenant_id });
-    }
-    await db.deleteFrom('sandbox_environment_secret').where('environment_id', '=', environment.id).execute();
-    await db
-      .updateTable('sandbox_environment')
-      .set({
-        lifecycle_stage: 'deleted',
-        updated_at: nowIso(),
-      })
-      .where('id', '=', environment.id)
-      .execute();
+  async deleteEnvironment(input: DeleteSandboxEnvironmentInput): Promise<void> {
+    return this.#db
+      .transaction()
+      .setAccessMode('read write')
+      .execute(async db => {
+        const environment = await db
+          .selectFrom('sandbox_environment')
+          .select(['id', 'is_default'])
+          .where('tenant_id', '=', input.tenant_id)
+          .where('name', '=', input.name)
+          .where('lifecycle_stage', '=', 'active')
+          .executeTakeFirst();
+        if (environment === undefined) {
+          return;
+        }
+        if (environment.is_default === 1) {
+          throw new SandboxEnvironmentDefaultConflictError({ tenant_id: input.tenant_id });
+        }
+        await db
+          .updateTable('sandbox_environment')
+          .set({
+            lifecycle_stage: 'deleted',
+            updated_at: nowIso(),
+          })
+          .where('id', '=', environment.id)
+          .execute();
+        await db.deleteFrom('sandbox_environment_secret').where('environment_id', '=', environment.id).execute();
+      });
   }
 
   async #buildVersion({
