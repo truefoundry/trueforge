@@ -489,7 +489,7 @@ string becomes a secretKeyRef.
 {{/*
 Env list shared by the server and controller containers (YAML). Validates
 required string|valueFrom fields, wires bundled Postgres/Redis, optional OIDC,
-the env map, and mTLS. Each deployment appends its own extraEnv after it.
+the env map, and mTLS.
 */}}
 {{- define "trueforge.env" -}}
 {{- $env := list -}}

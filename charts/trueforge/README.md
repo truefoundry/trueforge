@@ -135,8 +135,7 @@ accepted by every field listed under [Using Secrets](#using-secrets).
 When the platform also needs files (an outbound mTLS client certificate, say),
 mount them with `extraVolumes` / `extraVolumeMounts`, which apply to both
 deployments. `server.extraEnv` and `controller.extraEnv` remain available for
-per-deployment entries; each applies only to its own deployment, so put
-anything both need in `env`.
+per-deployment entries.
 
 ## Custom CA
 

@@ -123,10 +123,8 @@ server:
   # Seconds the server is given to drain turns on SIGTERM (GRACEFUL_TIMEOUT_SECONDS).
   gracefulTimeoutSeconds: 30
   # The server always runs peered (STANDALONE=false) against Postgres + Redis.
-  # Extra env for the server only (the controller does not receive it). Escape
-  # hatch for knobs not covered by configs.*. Each entry is a full env item:
-  # {name, value} or {name, valueFrom: {secretKeyRef|configMapKeyRef: ...}}.
-  # Use the top-level env map for entries both deployments need.
+  # Escape hatch for knobs not covered by configs.*. Each entry is a full env
+  # item: {name, value} or {name, valueFrom: {secretKeyRef|configMapKeyRef: ...}}.
   extraEnv: []
   # Requests and limits. A set table is used as-is, so CPU limits can be omitted.
   # Empty uses resourceTierOverride, then global.resourceTier.
@@ -147,8 +145,7 @@ controller:
   # Base URL the controller uses to reach the server (SERVER_URL).
   # Empty → the in-cluster server Service (http(s)://<fullname>:<service.port>).
   serverUrl: ""
-  # Extra env for the controller only (the server does not receive it); same
-  # item shape as server.extraEnv.
+  # Extra env for the controller only; same item shape as server.extraEnv.
   extraEnv: []
   # Requests and limits. A set table is used as-is, so CPU limits can be omitted.
   # Empty uses resourceTierOverride, then global.resourceTier.
