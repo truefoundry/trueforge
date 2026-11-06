@@ -5,7 +5,7 @@ import type * as TrueForge from "../index.js";
 export interface SandboxEnvironment {
     /** ISO-8601 create time. */
     createdAt: Date;
-    createdBySubject: TrueForge.Subject;
+    createdBySubject: TrueForge.CreatedBySubject;
     /** Human-readable description; empty when unset. */
     description: string;
     /** Immutable server-generated environment identifier. */

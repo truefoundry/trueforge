@@ -6,13 +6,13 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
+from .created_by_subject import CreatedBySubject
 from .schedule_run_status import ScheduleRunStatus
-from .subject import Subject
 
 
 class ScheduleRun(UncheckedBaseModel):
     created_at: dt.datetime
-    created_by_subject: Subject
+    created_by_subject: CreatedBySubject
     id: str
     name: str
     reason: typing.Optional[str] = None

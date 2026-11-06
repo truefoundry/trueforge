@@ -65,6 +65,7 @@ if typing.TYPE_CHECKING:
     from .create_session_agent import CreateSessionAgent
     from .create_turn_event_response import CreateTurnEventResponse
     from .create_turn_event_response_data_item import CreateTurnEventResponseDataItem
+    from .created_by_subject import CreatedBySubject
     from .cron_expression import CronExpression
     from .custom_model_provider import CustomModelProvider
     from .daytona_sandbox_provider_auth import DaytonaSandboxProviderAuth
@@ -243,7 +244,6 @@ if typing.TYPE_CHECKING:
     from .skill_capability import SkillCapability
     from .skill_manifest import SkillManifest
     from .skill_version import SkillVersion
-    from .subject import Subject
     from .text_content import TextContent
     from .thread_context_compaction_finished_event import ThreadContextCompactionFinishedEvent
     from .thread_context_compaction_started_event import ThreadContextCompactionStartedEvent
@@ -365,6 +365,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CreateSessionAgent": ".create_session_agent",
     "CreateTurnEventResponse": ".create_turn_event_response",
     "CreateTurnEventResponseDataItem": ".create_turn_event_response_data_item",
+    "CreatedBySubject": ".created_by_subject",
     "CronExpression": ".cron_expression",
     "CustomModelProvider": ".custom_model_provider",
     "DaytonaSandboxProviderAuth": ".daytona_sandbox_provider_auth",
@@ -543,7 +544,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SkillCapability": ".skill_capability",
     "SkillManifest": ".skill_manifest",
     "SkillVersion": ".skill_version",
-    "Subject": ".subject",
     "TextContent": ".text_content",
     "ThreadContextCompactionFinishedEvent": ".thread_context_compaction_finished_event",
     "ThreadContextCompactionStartedEvent": ".thread_context_compaction_started_event",
@@ -689,6 +689,7 @@ __all__ = [
     "CreateSessionAgent",
     "CreateTurnEventResponse",
     "CreateTurnEventResponseDataItem",
+    "CreatedBySubject",
     "CronExpression",
     "CustomModelProvider",
     "DaytonaSandboxProviderAuth",
@@ -867,7 +868,6 @@ __all__ = [
     "SkillCapability",
     "SkillManifest",
     "SkillVersion",
-    "Subject",
     "TextContent",
     "ThreadContextCompactionFinishedEvent",
     "ThreadContextCompactionStartedEvent",

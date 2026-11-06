@@ -6,11 +6,11 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
+from .created_by_subject import CreatedBySubject
 from .resource_name import ResourceName
 from .sandbox_environment_lifecycle_stage import SandboxEnvironmentLifecycleStage
 from .sandbox_environment_manifest import SandboxEnvironmentManifest
 from .sandbox_environment_version_status import SandboxEnvironmentVersionStatus
-from .subject import Subject
 
 
 class SandboxEnvironment(UncheckedBaseModel):
@@ -19,7 +19,7 @@ class SandboxEnvironment(UncheckedBaseModel):
     ISO-8601 create time.
     """
 
-    created_by_subject: Subject
+    created_by_subject: CreatedBySubject
     description: str = pydantic.Field()
     """
     Human-readable description; empty when unset.

@@ -6,15 +6,15 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
+from .created_by_subject import CreatedBySubject
 from .resource_name import ResourceName
 from .schedule_manifest import ScheduleManifest
-from .subject import Subject
 
 
 class Schedule(UncheckedBaseModel):
     agent_name: ResourceName
     created_at: dt.datetime
-    created_by_subject: Subject
+    created_by_subject: CreatedBySubject
     id: str
     manifest: ScheduleManifest
     name: ResourceName
