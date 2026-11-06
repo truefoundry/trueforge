@@ -64,6 +64,7 @@
                 ]
               },
               "authentication/overview",
+              "metrics",
               "benchmarking"
             ]
           },
