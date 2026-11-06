@@ -3,7 +3,7 @@
 import type * as TrueForge from "../index.js";
 
 export interface Agent {
-    createdBySubject: TrueForge.CreatedBySubject;
+    createdBySubject: TrueForge.Subject;
     description: string;
     /** Immutable server-generated agent identifier. */
     id: string;
