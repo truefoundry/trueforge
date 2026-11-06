@@ -67,7 +67,7 @@ function renderDialog({
 }: {
   session?: SessionStub;
   grants?: SessionAccessGrant[];
-  sessionSharing?: NonNullable<AgentBuilderCapabilitiesResponse['data']['sessionSharing']>;
+  sessionSharing?: AgentBuilderCapabilitiesResponse['data']['sessionSharing'];
   currentUser?: CurrentUser;
 } = {}) {
   const listAccess = vi.fn(async () => grants);

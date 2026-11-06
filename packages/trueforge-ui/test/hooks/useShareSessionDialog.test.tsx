@@ -126,8 +126,8 @@ describe('useShareSessionDialog', () => {
     expect(result.current.canChangePermission).toBe(true);
   });
 
-  it('hides invite when session_sharing is missing from capabilities', async () => {
-    useServerCapabilities.mockReturnValue({});
+  it('hides invite while capabilities are loading', async () => {
+    useServerCapabilities.mockReturnValue(null);
     const { result } = renderHook(() => useShareSessionDialog('s1'));
     await act(() => result.current.load());
 

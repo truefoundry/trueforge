@@ -486,7 +486,7 @@ export interface AgentBuilderCapabilitiesResponse {
     /** Absent when the host does not offer memory, which hides memory settings; `reason` explains a locked toggle. */
     memory?: { enabled: boolean; reason?: string };
     /** Finest supported sharing scope; `subject` allows invite-by-user as well as tenant-wide sharing. */
-    sessionSharing?: { granularity: 'tenant' | 'subject' };
+    sessionSharing: { granularity: 'tenant' | 'subject' };
   };
 }
 
