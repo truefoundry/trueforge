@@ -4,8 +4,8 @@ import type { AgentThreadSnapshot, ContextMessage, SubAgentCompletion } from '..
 import type { CurrentContextUsage } from '../../core/runtime/contextUsage';
 import type { SandboxInfo } from '../../core/sandbox/Sandbox';
 import type { SessionRecord } from '../models/SessionRecord';
-import type { TurnRecord } from '../models/TurnRecord';
-import type { PersistedTurnEvent, SessionEventItem, TurnUpdateEvent } from '../schemas/events';
+import type { TurnRecord, TurnSnapshot } from '../models/TurnRecord';
+import type { PersistedTurnEvent, SessionEventItem, TurnDoneEvent, TurnUpdateEvent } from '../schemas/events';
 import type { TokenPagination } from '../schemas/pagination';
 import type { SessionMetadata } from '../schemas/session';
 import type {
@@ -119,6 +119,10 @@ export interface TurnContextAppend {
 
 export interface CreateTurnInput<TTurnCustom extends object = Record<string, never>> {
   turn: TurnRecordWithoutSnapshot<TTurnCustom>;
+  /** Snapshot read before preparation; the store rejects a stale snapshot without cancelling its turn. */
+  expected_previous_snapshot: TurnSnapshot | undefined;
+  /** Persisted atomically if the previous turn is still non-terminal when this turn commits. */
+  previous_turn_done_event: TurnDoneEvent | undefined;
   /** Threads absent on the previous turn (turn 1: the root thread; else empty). */
   new_threads: NewThreadInit[];
   /**
@@ -343,8 +347,9 @@ export interface ISessionStore<
    * - string — fork/chain from that turn when it exists. Tip-equality is NOT
    *   required; concurrent forks from the same tip both succeed. Unknown id is
    *   allowed (relaxed) and treated as no inheritance. If that turn exists and
-   *   is still `running` or `paused`, reject with {@link PreviousTurnRunningError} —
-   *   callers must {@link freezeAndGetTurn} first.
+   *   is still `running` or `paused`, callers with an expected snapshot
+   *   atomically freeze it and commit the new turn. Without an expected
+   *   snapshot, the store rejects it with {@link PreviousTurnRunningError}.
    * `last_turn_details` always advances to the new turn in the same atomic unit.
    *
    * `update_session_title_if_not_exist`: when set AND `session.title` is
