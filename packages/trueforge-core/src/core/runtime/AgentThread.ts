@@ -255,6 +255,7 @@ function buildModelMessageEvent({
   usage,
   id,
   model,
+  completedAt,
 }: {
   assistantMessage: InternalEnrichedAssistantMessage;
   threadId: string;
@@ -262,6 +263,7 @@ function buildModelMessageEvent({
   usage: ModelMessageUsage | undefined;
   id: string;
   model: Model;
+  completedAt: string;
 }): ModelMessageEvent {
   // `thinking_blocks` / `source` stay on the context message for replay; strip them from the client event.
   // `reasoning_content` stays on the event for UI replay (exact streamed concat).
@@ -279,6 +281,7 @@ function buildModelMessageEvent({
     type: EventType.MODEL_MESSAGE,
     id,
     created_at: new Date().toISOString(),
+    completed_at: completedAt,
     thread_id: threadId,
     finish_reason: finishReason,
     ...(usage && { usage }),
@@ -1225,6 +1228,9 @@ export class AgentThread {
       return { outcome: 'exit', modelMessageEventId };
     }
 
+    // Before tool-metadata resolution, so this stays the stream-end instant.
+    const completedAt = new Date().toISOString();
+
     this.recordLlmCall({
       startedMs: requestStartedMs,
       outcome: 'success',
@@ -1258,6 +1264,7 @@ export class AgentThread {
       usage: modelMessageUsage,
       id: modelMessageEventId,
       model: modelFromDefinition(this.definition),
+      completedAt,
     });
 
     const finishError = finishReasonErrorMessage({

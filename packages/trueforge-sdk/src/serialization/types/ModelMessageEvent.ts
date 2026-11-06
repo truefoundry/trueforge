@@ -13,6 +13,7 @@ export const ModelMessageEvent: core.serialization.ObjectSchema<
     serializers.ModelMessageEvent.Raw,
     TrueForge.ModelMessageEvent
 > = core.serialization.object({
+    completedAt: core.serialization.property("completed_at", core.serialization.string().optional()),
     content: ModelMessageEventContent.optionalNullable(),
     createdAt: core.serialization.property("created_at", core.serialization.string()),
     finishReason: core.serialization.property("finish_reason", FinishReason.optionalNullable()),
@@ -29,6 +30,7 @@ export const ModelMessageEvent: core.serialization.ObjectSchema<
 
 export declare namespace ModelMessageEvent {
     export interface Raw {
+        completed_at?: string | null;
         content?: (ModelMessageEventContent.Raw | null | undefined) | null;
         created_at: string;
         finish_reason?: (FinishReason.Raw | null | undefined) | null;
