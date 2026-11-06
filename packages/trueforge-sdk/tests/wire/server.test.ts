@@ -11,11 +11,12 @@ describe("ServerClient", () => {
 
         const rawResponseBody = {
             data: {
+                memory: { enabled: true, reason: "reason" },
                 sandbox: { enabled: true, environments: { enabled: true } },
                 session_sharing: { enabled: true },
                 settings: {
                     mcp_servers: { enabled: true, manage_providers: true },
-                    memory: { enabled: true, manage_providers: true },
+                    memory_providers: { enabled: true, manage_providers: true },
                     model_providers: { enabled: true, manage_providers: true },
                     sandbox_providers: { enabled: true, manage_providers: true },
                     skills: { enabled: true, manage_providers: true },
@@ -37,6 +38,10 @@ describe("ServerClient", () => {
         const response = await client.server.getCapabilities();
         expect(response).toEqual({
             data: {
+                memory: {
+                    enabled: true,
+                    reason: "reason",
+                },
                 sandbox: {
                     enabled: true,
                     environments: {
@@ -51,7 +56,7 @@ describe("ServerClient", () => {
                         enabled: true,
                         manageProviders: true,
                     },
-                    memory: {
+                    memoryProviders: {
                         enabled: true,
                         manageProviders: true,
                     },

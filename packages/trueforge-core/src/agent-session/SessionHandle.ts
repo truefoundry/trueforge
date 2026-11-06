@@ -35,7 +35,8 @@ import { TurnHandle } from './TurnHandle';
 /** How many recent ancestors SessionHandle persists on each turn. Store-local. */
 const MAX_TURN_ANCESTORS = 20;
 
-function resolvePreviousTurnId(requested: string | undefined, lastTurnId: string | undefined): string | null {
+/** A turn's parent: `'auto'`/omitted → session tip; `'none'` → new root; id → that turn. Null means a fresh context. */
+export function resolvePreviousTurnId(requested: string | undefined, lastTurnId: string | undefined): string | null {
   if (requested === 'none') {
     return null;
   }

@@ -7,6 +7,9 @@ export const DEFAULT_MEMORY_AGENT_KEY = 'trueforge';
 /** UI "new chat" sessions carry `metadata['tfg.source'] = 'ui'`. */
 export const UI_SESSION_SOURCE = 'ui';
 
+/** Agent-builder chats carry `metadata['is_create_agent'] = 'true'`. */
+export const CREATE_AGENT_SESSION_METADATA_KEY = 'is_create_agent';
+
 export type MemoryScopeType = 'default' | 'agent';
 
 /** Identifies whose memory: ids only, never a person's or agent's name. */
@@ -16,7 +19,7 @@ export interface MemoryScope {
   subjectId: string;
   /** Registry agent id for agent scopes; null for the default scope. */
   agentId: string | null;
-  /** Provider-side identity of the scope (e.g. the Zep user id); see {@link memoryScopeKey}. */
+  /** Provider-side identity of the scope (e.g. the provider's user id); see {@link memoryScopeKey}. */
   key: string;
 }
 

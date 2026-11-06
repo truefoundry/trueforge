@@ -17,6 +17,7 @@ import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgent
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteConfigurationStore } from '../../../src/db/sqlite/configuration-store/SqliteConfigurationStore';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
+import { SqliteMemoryProviderStore } from '../../../src/db/sqlite/memory-provider-store/SqliteMemoryProviderStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
@@ -26,6 +27,7 @@ import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/Sqlite
 import type { Database } from '../../../src/db/sqlite/types';
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
 import { EmptyUserStore, type IUserStore } from '../../../src/db/userStore';
+import { MemoryProviderCache } from '../../../src/memory/providers';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription';
 import { ListSessionGrantsResponseSchema } from '../../../src/schemas/sessionGrant';
@@ -118,6 +120,9 @@ function buildApp(input: { db: Kysely<Database>; sessionStore: SqliteSessionStor
       resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
       sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
       resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
+      resolveMemoryProviderStore: () => new SqliteMemoryProviderStore(db),
+      resolveConfigurationStore: () => new SqliteConfigurationStore(db),
+      memoryProviders: new MemoryProviderCache({ logger: createLogger({ silent: true }) }),
       logger,
       resolveRequestContext,
       authorizer: new TrueForgeAuthorizer(),
@@ -139,6 +144,7 @@ function buildApp(input: { db: Kysely<Database>; sessionStore: SqliteSessionStor
       resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
       sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
       resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
+      resolveMemoryProviderStore: () => new SqliteMemoryProviderStore(db),
       resolveConfigurationStore: () => new SqliteConfigurationStore(db),
       redis: createClient(),
       requestReplyRouter: new RequestReplyRouter(),

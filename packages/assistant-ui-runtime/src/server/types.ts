@@ -151,6 +151,8 @@ export interface AgentRuntimeConfig {
   dynamicSubAgents?: AgentCapabilityConfig;
   askUserQuestions?: AgentCapabilityConfig;
   webSearch?: AgentCapabilityConfig;
+  /** Long-term memory for this agent. */
+  memory?: AgentCapabilityConfig;
 }
 
 /**
@@ -393,14 +395,12 @@ export interface AgentChatServer<
     sessionId: string;
     pageToken?: string;
     lastTurnId?: string;
-    limit?: number;
   }): Promise<ListResult<SessionEventItem>>;
 
   /** Optional per-turn event listing (hydrate in-flight turn content). */
   listTurnEvents?(req: {
     sessionId: string;
     turnId: string;
-    limit?: number;
     pageToken?: string;
     order?: ListSessionsOrder;
   }): Promise<ListResult<TurnEvent>>;
@@ -467,7 +467,7 @@ export interface SettingsCapability {
   skills?: SettingsCapabilitySection;
   sandboxProviders?: SettingsCapabilitySection;
   webSearch?: SettingsCapabilitySection;
-  memory?: SettingsCapabilitySection;
+  memoryProviders?: SettingsCapabilitySection;
 }
 
 /**
@@ -483,6 +483,8 @@ export interface AgentBuilderCapabilitiesResponse {
     skill: { enabled: boolean; reason?: string };
     settings?: SettingsCapability;
     webSearch?: { enabled: boolean; reason?: string };
+    /** Absent when the host does not offer memory, which hides memory settings; `reason` explains a locked toggle. */
+    memory?: { enabled: boolean; reason?: string };
     /** Present when the host reports session sharing; `enabled` gates invite-by-user. */
     sessionSharing?: { enabled: boolean };
   };
@@ -884,6 +886,55 @@ export interface WebSearchCatalogServer<
   updateWebSearchProvider(req: TUpdate): Promise<TProvider>;
 }
 
+// ---------------------------------------------------------------------------
+// Memory providers catalog — public rows omit credentials; writes accept them
+// ---------------------------------------------------------------------------
+
+export interface MemoryProviderCatalogEntry {
+  id: string;
+  name: string;
+  type: string;
+}
+
+/** Connected memory provider row (settings/memory). No raw `apiKey`. */
+export interface MemoryProviderBase {
+  id: string;
+  name: string;
+  catalogId: string;
+  isConnected: boolean;
+  serverUrl?: string;
+}
+
+export interface CreateMemoryProviderRequest {
+  /** `MemoryProviderCatalogEntry.id` used to create this memory provider. */
+  catalogId: string;
+  name: string;
+  type: string;
+  apiKey: string;
+  /** Omit for the provider's hosted default. */
+  serverUrl?: string;
+}
+
+export interface UpdateMemoryProviderRequest {
+  id: string;
+  /** Omit to keep the existing key; send a value to set/rotate. */
+  apiKey?: string;
+  /** Omit for the provider's hosted default. */
+  serverUrl?: string;
+}
+
+export interface MemoryCatalogServer<
+  TProvider extends MemoryProviderBase = MemoryProviderBase,
+  TCatalogEntry extends MemoryProviderCatalogEntry = MemoryProviderCatalogEntry,
+  TCreate extends CreateMemoryProviderRequest = CreateMemoryProviderRequest,
+  TUpdate extends UpdateMemoryProviderRequest = UpdateMemoryProviderRequest,
+> {
+  getMemoryProviderCatalog(): Promise<TCatalogEntry[]>;
+  listMemoryProviders(): Promise<TProvider[]>;
+  createMemoryProvider(req: TCreate): Promise<TProvider>;
+  updateMemoryProvider(req: TUpdate): Promise<TProvider>;
+}
+
 /** Host-facing selector / compose aliases (trueforge-ui public names). */
 export type ModelSelection = ModelSelectorEntry;
 export type AgentSkill = SkillSelectorEntry;
@@ -902,6 +953,7 @@ export interface CatalogServer<
   TSkillCatalog extends SkillCatalogServer = SkillCatalogServer,
   TSandboxCatalog extends SandboxCatalogServer = SandboxCatalogServer,
   TWebSearchCatalog extends WebSearchCatalogServer = WebSearchCatalogServer,
+  TMemoryCatalog extends MemoryCatalogServer = MemoryCatalogServer,
 > {
   modelCatalog: TModelCatalog;
   connectorCatalog: TConnectorCatalog;
@@ -911,6 +963,8 @@ export interface CatalogServer<
   sandboxCatalog?: TSandboxCatalog;
   /** Optional — omit when the host has no web-search settings surface. */
   webSearchCatalog?: TWebSearchCatalog;
+  /** Optional — omit when the host has no memory provider settings surface. */
+  memoryCatalog?: TMemoryCatalog;
 }
 
 /** One tenant-wide switch. */
@@ -921,11 +975,13 @@ export interface TenantConfigurationSwitch {
 /** Tenant-wide feature switches an admin controls, independent of any provider catalog. */
 export interface TenantConfiguration {
   webSearch: TenantConfigurationSwitch;
+  memory: TenantConfigurationSwitch;
 }
 
 export interface UpdateTenantConfigurationRequest {
   /** Omit a switch to leave it as stored. */
   webSearch?: TenantConfigurationSwitch;
+  memory?: TenantConfigurationSwitch;
 }
 
 /**
@@ -1008,7 +1064,7 @@ export interface SessionListEntry<TSpec extends AgentSpec = AgentSpec> {
 }
 
 /** Params for `AgentSessionsServer.listSessionEvents` (session event timeline). */
-export interface ListSessionEventsParams extends Pick<PageParams, 'limit' | 'pageToken'> {
+export interface ListSessionEventsParams extends Pick<PageParams, 'pageToken'> {
   sessionId: string;
 }
 

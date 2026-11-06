@@ -6,6 +6,7 @@ import type { ISessionStore, Sessions, Turn, TurnStreamingEvent } from '@truefou
 import {
   CancellationReason,
   EventType,
+  resolvePreviousTurnId,
   SessionStoreConflictError,
   SessionStoreNotFoundError,
   TurnResourceResolver,
@@ -14,7 +15,7 @@ import {
   type TurnInputItem,
   type TurnRecordWithoutSnapshot,
 } from '@truefoundry/trueforge-core/agent-session';
-import type { IWebSearchProvider } from '@truefoundry/trueforge-core/core';
+import type { AgentCapability, IWebSearchProvider } from '@truefoundry/trueforge-core/core';
 import {
   AgentHarnessError,
   existingSandboxIdForProvider,
@@ -46,7 +47,9 @@ import type { ResolveRequestContext } from '../auth/identity';
 import configuration from '../config';
 import type { IAccessControlStore } from '../db/accessControlStore';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
+import type { IConfigurationStore } from '../db/configurationStore';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
+import type { IMemoryProviderStore } from '../db/memoryProviderStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
@@ -54,6 +57,8 @@ import type { ISkillStore } from '../db/skillStore';
 import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { currentLogContext, updateLogContext } from '../logger';
+import type { MemoryProviderCache, TenantMemoryDeps } from '../memory/providers';
+import { resolveSessionMemory } from '../memory/sessionMemory';
 import {
   createAndExecuteTurnRoute,
   createTurnEventRoute,
@@ -139,6 +144,9 @@ export interface TurnsRouterDeps {
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore;
   sandboxEnvironmentStore: ISandboxEnvironmentStore;
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore;
+  resolveMemoryProviderStore: (c: Context) => IMemoryProviderStore;
+  resolveConfigurationStore: (c: Context) => IConfigurationStore;
+  memoryProviders: MemoryProviderCache;
   logger: Logger;
   resolveRequestContext: ResolveRequestContext;
   authorizer: Authorizer;
@@ -160,6 +168,8 @@ export type BeginTurnExecutionDeps = Pick<
   webSearchProviderStore: IWebSearchProviderStore;
   skillStore: Pick<ISkillStore, 'resolveTurnSkills'>;
   capabilitiesStore: ICapabilitiesStore;
+  /** Undefined for sessions that never use memory (scheduled runs). */
+  memory: TenantMemoryDeps | undefined;
 };
 
 interface BeginTurnExecutionParams {
@@ -184,6 +194,8 @@ function createTurnResolver(deps: {
   agentStore: IAgentStore;
   modelProviderStore: IModelProviderStore;
   webSearchProvider: IWebSearchProvider | undefined;
+  /** Root-thread memory for this turn; undefined when memory doesn't apply to the session. */
+  memoryCapability: AgentCapability | undefined;
   logger: Logger;
   signal: AbortSignal;
   userRef: string;
@@ -199,6 +211,7 @@ function createTurnResolver(deps: {
     agentStore,
     modelProviderStore,
     webSearchProvider,
+    memoryCapability,
     logger,
     signal,
     userRef,
@@ -305,7 +318,11 @@ function createTurnResolver(deps: {
     },
     webSearchProvider,
     logger,
-    rootCapabilities: () => capabilitiesStore.resolveCapabilities(),
+    // Root thread only: sub-agents get neither memory tools nor the summary.
+    rootCapabilities: () => [
+      ...capabilitiesStore.resolveCapabilities(),
+      ...(memoryCapability === undefined ? [] : [memoryCapability]),
+    ],
   });
 }
 
@@ -482,10 +499,18 @@ export async function beginTurnExecution(
   const sessionAgent = session.record.agent;
 
   const abortController = new AbortController();
-  const webSearchProvider = await resolveWebSearchProvider({
-    tenant_id: tenantId,
-    store: deps.webSearchProviderStore,
-  });
+  const [webSearchProvider, memoryCapability] = await Promise.all([
+    resolveWebSearchProvider({ tenant_id: tenantId, store: deps.webSearchProviderStore }),
+    resolveSessionMemory({
+      sessionId,
+      tenantId,
+      record: session.record,
+      isSessionStart: resolvePreviousTurnId(previousTurnId, session.record.last_turn_details?.id) === null,
+      memory: deps.memory,
+      agentStore: deps.agentStore,
+      logger: deps.logger,
+    }),
+  ]);
   const resolver = createTurnResolver({
     mcpServerStore: deps.mcpServerStore,
     skillStore: deps.skillStore,
@@ -494,6 +519,7 @@ export async function beginTurnExecution(
     agentStore: deps.agentStore,
     modelProviderStore: deps.modelProviderStore,
     webSearchProvider,
+    memoryCapability,
     logger: deps.logger,
     signal: abortController.signal,
     userRef,
@@ -889,6 +915,11 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         sandboxProviderStore: deps.resolveSandboxProviderStore(c),
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
+        memory: {
+          memoryProviderStore: deps.resolveMemoryProviderStore(c),
+          configurationStore: deps.resolveConfigurationStore(c),
+          providers: deps.memoryProviders,
+        },
       },
     };
 

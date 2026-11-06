@@ -4,7 +4,7 @@ import type * as TrueForge from "../index.js";
 
 export interface SettingsCapability {
     mcpServers: TrueForge.SettingsCapabilitySection;
-    memory: TrueForge.SettingsCapabilitySection;
+    memoryProviders: TrueForge.SettingsCapabilitySection;
     modelProviders: TrueForge.SettingsCapabilitySection;
     sandboxProviders: TrueForge.SettingsCapabilitySection;
     skills: TrueForge.SettingsCapabilitySection;

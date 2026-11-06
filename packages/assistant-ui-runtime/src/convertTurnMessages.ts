@@ -192,8 +192,6 @@ export { CANCELLATION_REASON_CUSTOM_KEY } from './messageCustomMetadata.js';
  *   live uses `groupRootBaseline`.
  */
 
-const TURN_EVENTS_PAGE_SIZE = 25;
-const SESSION_EVENTS_PAGE_SIZE = 100;
 /** Cap how many event pages initial load / load-older may chain for a group boundary. */
 const MAX_HISTORY_BOUNDARY_PAGES = 10;
 
@@ -254,7 +252,6 @@ async function fetchSessionEventsPage(
 ): Promise<SessionEventsPageResult> {
   const page = await server.listEvents({
     sessionId,
-    limit: SESSION_EVENTS_PAGE_SIZE,
     ...(options?.lastTurnId != null ? { lastTurnId: options.lastTurnId } : {}),
     ...(options?.pageToken != null ? { pageToken: options.pageToken } : {}),
   });
@@ -346,7 +343,6 @@ async function fetchAllSessionEvents(
   const items = await drainListPages(pageToken =>
     server.listEvents({
       sessionId,
-      limit: SESSION_EVENTS_PAGE_SIZE,
       ...(options?.lastTurnId != null ? { lastTurnId: options.lastTurnId } : {}),
       ...(pageToken != null ? { pageToken } : {}),
     }),
@@ -783,10 +779,10 @@ function assistantStatusFromTurnState(state: Turn['state']): MessageStatus {
 }
 
 /**
- * Cancelled-turn UI flow (chat + session detail share this projection):
+ * Cancelled-turn projection (session detail shows the reason banner; live chat does not):
  *
  * Example: turn.done { status: "cancelled", reason: "abandoned" } with no model
- * text. Without special handling the chat would show only the user bubble.
+ * text. Without special handling the transcript would show only the user bubble.
  *
  * 1. Live SSE — streamTurnEvents yields status cancelled +
  *    metadata.cancellationReason = "abandoned" (no synthetic text part).
@@ -794,7 +790,8 @@ function assistantStatusFromTurnState(state: Turn['state']): MessageStatus {
  *    the turn record (not a fake "done"), then clears activeStream.
  * 3. History / reload — projectHistoryTurns sees state.cancelled, puts the wire
  *    reason on metadata.custom, and always emits an assistant row even when the
- *    fold has no model.message parts. trueforge-ui renders the orange banner.
+ *    fold has no model.message parts. trueforge-ui shows the orange banner only
+ *    in session-detail replay (`SessionReplayContext`).
  *
  * assistant-ui MessageStatus only knows reason: "cancelled" (no wire reason),
  * so the human-readable reason lives on metadata.custom.cancellationReason.
@@ -941,7 +938,6 @@ async function ingestTurnEventsIntoFold(
       sessionId,
       turnId,
       order: 'asc',
-      limit: TURN_EVENTS_PAGE_SIZE,
       ...(pageToken != null ? { pageToken } : {}),
     }),
   );
@@ -960,7 +956,6 @@ async function fetchTurnEvents(server: AgentChatServer, sessionId: string, turnI
       sessionId,
       turnId,
       order: 'asc',
-      limit: TURN_EVENTS_PAGE_SIZE,
       ...(pageToken != null ? { pageToken } : {}),
     }),
   );

@@ -42,7 +42,7 @@ const SettingsCapabilitySchema = z
     skills: SettingsCapabilitySectionSchema,
     sandbox_providers: SettingsCapabilitySectionSchema,
     web_search: SettingsCapabilitySectionSchema,
-    memory: SettingsCapabilitySectionSchema,
+    memory_providers: SettingsCapabilitySectionSchema,
   })
   .openapi('SettingsCapability');
 
@@ -54,6 +54,14 @@ const WebSearchCapabilitySchema = z
     reason: z.string().optional().describe('Present when web search is unavailable. Explains why.'),
   })
   .openapi('WebSearchCapability');
+
+const MemoryCapabilitySchema = z
+  .object({
+    enabled: z.boolean().describe('Whether agents may turn memory on: the tenant allows it.'),
+    reason: z.string().optional().describe('Present when memory is unavailable. Explains why.'),
+  })
+  .describe('Present only when the tenant has a memory provider; absent means memory settings are hidden.')
+  .openapi('MemoryCapability');
 
 const SessionSharingCapabilitySchema = z
   .object({
@@ -71,6 +79,7 @@ const CapabilitiesDataSchema = z
     skill: SkillCapabilitySchema,
     settings: SettingsCapabilitySchema,
     web_search: WebSearchCapabilitySchema,
+    memory: MemoryCapabilitySchema.optional(),
     session_sharing: SessionSharingCapabilitySchema,
   })
   .openapi('CapabilitiesData');

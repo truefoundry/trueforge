@@ -35,6 +35,8 @@ export type AgentConfigPanelProps = {
   skills?: AgentSkill[];
   skillsAvailable: boolean;
   webSearchAvailable?: boolean;
+  /** False hides memory from the runtime summary. */
+  memoryOffered?: boolean;
   instructions: string;
   onOpenEditor: (editor: AgentConfigEditor) => void;
   onChange?: (spec: AgentSpec) => void;
@@ -285,6 +287,7 @@ export function AgentConfigPanel({
   skills: catalogSkills = [],
   skillsAvailable,
   webSearchAvailable = false,
+  memoryOffered = false,
   instructions,
   onOpenEditor,
   onChange,
@@ -300,7 +303,7 @@ export function AgentConfigPanel({
   const mcp = editableMountsFromSpec(spec.mcpServers);
   const skillMounts = editableMountsFromSpec(spec.skills);
   const modelParams = modelParamSummary(spec.model.params);
-  const runtimeConfig = runtimeConfigSummary(spec.config, { webSearchAvailable });
+  const runtimeConfig = runtimeConfigSummary(spec.config, { webSearchAvailable, memoryOffered });
   const instructionPreview = instructions.trim();
   const userMessageCount = initialUserMessagesFromSpec(spec).length;
   const modelInfo = [
