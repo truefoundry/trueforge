@@ -224,6 +224,7 @@ describe('harnessBuilderServer', () => {
           data: {
             sandbox: { enabled: false, environments: { enabled: false } },
             skill: { enabled: false, reason: 'Configure a sandbox provider' },
+            session_sharing: { granularity: 'tenant' },
             settings: allSettingsSections(true),
           },
         });
@@ -237,6 +238,7 @@ describe('harnessBuilderServer', () => {
       data: {
         sandbox: { enabled: false, environments: { enabled: false } },
         skill: { enabled: false, reason: 'Configure a sandbox provider' },
+        sessionSharing: { granularity: 'tenant' },
         settings: allSettingsSections(true),
       },
     });
