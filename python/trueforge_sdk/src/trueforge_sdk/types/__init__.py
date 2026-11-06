@@ -30,6 +30,7 @@ if typing.TYPE_CHECKING:
     from .catalog_custom_model_provider import CatalogCustomModelProvider
     from .catalog_mcp_server import CatalogMcpServer
     from .catalog_mcp_server_type import CatalogMcpServerType
+    from .catalog_memory_provider import CatalogMemoryProvider
     from .catalog_model import CatalogModel
     from .catalog_model_provider import CatalogModelProvider
     from .catalog_sandbox_provider import CatalogSandboxProvider
@@ -52,6 +53,7 @@ if typing.TYPE_CHECKING:
     from .configuration_manifest import ConfigurationManifest
     from .configuration_manifest_patch import ConfigurationManifestPatch
     from .configured_mcp_server import ConfiguredMcpServer
+    from .configured_memory_provider import ConfiguredMemoryProvider
     from .configured_model import ConfiguredModel
     from .configured_model_provider import ConfiguredModelProvider
     from .configured_sandbox_provider import ConfiguredSandboxProvider
@@ -86,6 +88,8 @@ if typing.TYPE_CHECKING:
     from .get_mcp_server_response import GetMcpServerResponse
     from .get_me_response import GetMeResponse
     from .get_me_subject import GetMeSubject
+    from .get_memory_provider_catalog_response import GetMemoryProviderCatalogResponse
+    from .get_memory_provider_response import GetMemoryProviderResponse
     from .get_model_provider_catalog_response import GetModelProviderCatalogResponse
     from .get_model_provider_response import GetModelProviderResponse
     from .get_sandbox_environment_response import GetSandboxEnvironmentResponse
@@ -150,6 +154,10 @@ if typing.TYPE_CHECKING:
     from .mcp_tool_info import McpToolInfo
     from .me import Me
     from .me_session_type import MeSessionType
+    from .memory_capability import MemoryCapability
+    from .memory_config import MemoryConfig
+    from .memory_configuration import MemoryConfiguration
+    from .memory_provider_manifest import MemoryProviderManifest
     from .metrics_unit import MetricsUnit
     from .model import Model
     from .model_message_delta_event import ModelMessageDeltaEvent
@@ -293,6 +301,7 @@ if typing.TYPE_CHECKING:
     from .web_search_configuration import WebSearchConfiguration
     from .web_search_provider_manifest import WebSearchProviderManifest
     from .zai_model_provider import ZaiModelProvider
+    from .zep_memory_provider_auth import ZepMemoryProviderAuth
 _dynamic_imports: typing.Dict[str, str] = {
     "ActionRequiredEvent": ".action_required_event",
     "Agent": ".agent",
@@ -318,6 +327,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CatalogCustomModelProvider": ".catalog_custom_model_provider",
     "CatalogMcpServer": ".catalog_mcp_server",
     "CatalogMcpServerType": ".catalog_mcp_server_type",
+    "CatalogMemoryProvider": ".catalog_memory_provider",
     "CatalogModel": ".catalog_model",
     "CatalogModelProvider": ".catalog_model_provider",
     "CatalogSandboxProvider": ".catalog_sandbox_provider",
@@ -340,6 +350,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ConfigurationManifest": ".configuration_manifest",
     "ConfigurationManifestPatch": ".configuration_manifest_patch",
     "ConfiguredMcpServer": ".configured_mcp_server",
+    "ConfiguredMemoryProvider": ".configured_memory_provider",
     "ConfiguredModel": ".configured_model",
     "ConfiguredModelProvider": ".configured_model_provider",
     "ConfiguredSandboxProvider": ".configured_sandbox_provider",
@@ -374,6 +385,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "GetMcpServerResponse": ".get_mcp_server_response",
     "GetMeResponse": ".get_me_response",
     "GetMeSubject": ".get_me_subject",
+    "GetMemoryProviderCatalogResponse": ".get_memory_provider_catalog_response",
+    "GetMemoryProviderResponse": ".get_memory_provider_response",
     "GetModelProviderCatalogResponse": ".get_model_provider_catalog_response",
     "GetModelProviderResponse": ".get_model_provider_response",
     "GetSandboxEnvironmentResponse": ".get_sandbox_environment_response",
@@ -438,6 +451,10 @@ _dynamic_imports: typing.Dict[str, str] = {
     "McpToolInfo": ".mcp_tool_info",
     "Me": ".me",
     "MeSessionType": ".me_session_type",
+    "MemoryCapability": ".memory_capability",
+    "MemoryConfig": ".memory_config",
+    "MemoryConfiguration": ".memory_configuration",
+    "MemoryProviderManifest": ".memory_provider_manifest",
     "MetricsUnit": ".metrics_unit",
     "Model": ".model",
     "ModelMessageDeltaEvent": ".model_message_delta_event",
@@ -581,6 +598,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "WebSearchConfiguration": ".web_search_configuration",
     "WebSearchProviderManifest": ".web_search_provider_manifest",
     "ZaiModelProvider": ".zai_model_provider",
+    "ZepMemoryProviderAuth": ".zep_memory_provider_auth",
 }
 
 
@@ -630,6 +648,7 @@ __all__ = [
     "CatalogCustomModelProvider",
     "CatalogMcpServer",
     "CatalogMcpServerType",
+    "CatalogMemoryProvider",
     "CatalogModel",
     "CatalogModelProvider",
     "CatalogSandboxProvider",
@@ -652,6 +671,7 @@ __all__ = [
     "ConfigurationManifest",
     "ConfigurationManifestPatch",
     "ConfiguredMcpServer",
+    "ConfiguredMemoryProvider",
     "ConfiguredModel",
     "ConfiguredModelProvider",
     "ConfiguredSandboxProvider",
@@ -686,6 +706,8 @@ __all__ = [
     "GetMcpServerResponse",
     "GetMeResponse",
     "GetMeSubject",
+    "GetMemoryProviderCatalogResponse",
+    "GetMemoryProviderResponse",
     "GetModelProviderCatalogResponse",
     "GetModelProviderResponse",
     "GetSandboxEnvironmentResponse",
@@ -750,6 +772,10 @@ __all__ = [
     "McpToolInfo",
     "Me",
     "MeSessionType",
+    "MemoryCapability",
+    "MemoryConfig",
+    "MemoryConfiguration",
+    "MemoryProviderManifest",
     "MetricsUnit",
     "Model",
     "ModelMessageDeltaEvent",
@@ -893,4 +919,5 @@ __all__ = [
     "WebSearchConfiguration",
     "WebSearchProviderManifest",
     "ZaiModelProvider",
+    "ZepMemoryProviderAuth",
 ]

@@ -1,17 +1,18 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import type { Logger } from 'winston';
-import {
-  areCatalogSettingsAvailable,
-  hasAdminRole,
-  type RequestContext,
-  type ResolveRequestContext,
-} from '../auth/identity';
+import { areCatalogSettingsAvailable, hasAdminRole, type ResolveRequestContext } from '../auth/identity';
 import configuration, { isTrueFoundryModeEnabled } from '../config';
-import { isWebSearchEnabledForTenant, type IConfigurationStore } from '../db/configurationStore';
+import {
+  isMemoryEnabledForTenant,
+  isWebSearchEnabledForTenant,
+  type IConfigurationStore,
+} from '../db/configurationStore';
+import type { IMemoryProviderStore } from '../db/memoryProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { WithTransaction } from '../db/transaction';
 import type { IUserStore } from '../db/userStore';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
+import { hasConfiguredMemoryProvider } from '../memory/providers';
 import { getCapabilitiesRoute } from '../routes/capabilityRoutes';
 import { isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import { DEFAULT_SANDBOX_ENVIRONMENT_NAME, type SandboxEnvironmentVersionStatus } from '../schemas/sandboxEnvironment';
@@ -34,11 +35,21 @@ function skillDisabledReason(status: SandboxEnvironmentVersionStatus | undefined
  *
  * Catalog sections need a deployment that owns its own catalogs; the tenant switches
  * (web search, memory) only need the admin role, so a TrueFoundry tenant admin reaches
- * them while provider editing stays with the platform.
+ * them while provider editing stays with the platform. In TrueFoundry mode the memory
+ * section also needs the platform's provider, which the env offers per tenant.
  */
-function settingsCapability(requestContext: Pick<RequestContext, 'roles'>) {
-  const isAdmin = hasAdminRole(requestContext);
-  const canManageProviders = areCatalogSettingsAvailable() && isAdmin;
+function settingsCapability({
+  isAdmin,
+  ownsCatalogs,
+  hasMemoryProvider,
+}: {
+  isAdmin: boolean;
+  /** False in TrueFoundry mode, where the platform owns the provider catalogs. */
+  ownsCatalogs: boolean;
+  /** In TrueFoundry mode, true when the platform's env offers memory to the tenant. */
+  hasMemoryProvider: boolean;
+}) {
+  const canManageProviders = ownsCatalogs && isAdmin;
   const catalogSection = { enabled: canManageProviders, manage_providers: canManageProviders };
   return {
     model_providers: catalogSection,
@@ -46,7 +57,7 @@ function settingsCapability(requestContext: Pick<RequestContext, 'roles'>) {
     skills: catalogSection,
     sandbox_providers: catalogSection,
     web_search: { enabled: isAdmin, manage_providers: canManageProviders },
-    memory: { enabled: isAdmin, manage_providers: canManageProviders },
+    memory_providers: { enabled: isAdmin && (ownsCatalogs || hasMemoryProvider), manage_providers: canManageProviders },
   };
 }
 
@@ -66,6 +77,7 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
   webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
   configurationStore: IConfigurationStore;
+  memoryProviderStore: IMemoryProviderStore<TTransaction>;
   userStore: IUserStore;
   withTransaction: WithTransaction<TTransaction>;
   logger: Logger;
@@ -85,7 +97,7 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
       hasTrueFoundrySandboxProviderConfig() ||
       status === 'ready' ||
       (defaultEnv === undefined && isLocalSandboxFallbackEnabled());
-    const [hasProvider, tenantAllowsWebSearch] = await Promise.all([
+    const [hasProvider, tenantAllowsWebSearch, tenantAllowsMemory, hasMemoryProvider] = await Promise.all([
       hasConfiguredWebSearchProvider({
         tenant_id: requestContext.tenant_id,
         store: deps.webSearchProviderStore,
@@ -93,6 +105,14 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
       isWebSearchEnabledForTenant({
         tenant_id: requestContext.tenant_id,
         store: deps.configurationStore,
+      }),
+      isMemoryEnabledForTenant({
+        tenant_id: requestContext.tenant_id,
+        store: deps.configurationStore,
+      }),
+      hasConfiguredMemoryProvider({
+        tenant_id: requestContext.tenant_id,
+        store: deps.memoryProviderStore,
       }),
     ]);
 
@@ -106,6 +126,17 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
       webSearchResponse.enabled = false;
       webSearchResponse.reason = 'Web search needs a provider, which is not configured.';
     }
+
+    // Left out without a provider, so clients hide every memory setting.
+    let memoryResponse: { enabled: boolean; reason?: string } | undefined;
+    if (hasMemoryProvider && tenantAllowsMemory) {
+      memoryResponse = { enabled: true };
+    } else if (hasMemoryProvider) {
+      memoryResponse = {
+        enabled: false,
+        reason: 'Memory is turned off for this tenant - an admin can turn it back on in settings.',
+      };
+    }
     return c.json(
       {
         data: {
@@ -114,8 +145,13 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
             environments: { enabled: sandboxEnvironmentsEnabled() },
           },
           skill: sandboxEnabled ? { enabled: true } : { enabled: false, reason: skillDisabledReason(status) },
-          settings: settingsCapability(requestContext),
+          settings: settingsCapability({
+            isAdmin: hasAdminRole(requestContext),
+            ownsCatalogs: areCatalogSettingsAvailable(),
+            hasMemoryProvider,
+          }),
           web_search: webSearchResponse,
+          ...(memoryResponse && { memory: memoryResponse }),
           session_sharing: { enabled: deps.userStore.supportsUserLookup },
         },
       },

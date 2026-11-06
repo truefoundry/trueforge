@@ -102,17 +102,21 @@ import { createAuthenticator } from './auth/createAuthenticator';
 import type { RequestContext } from './auth/identity';
 import { initOidc } from './auth/oidc';
 import { McpCatalog } from './catalog/McpCatalog';
+import { MemoryCatalog } from './catalog/MemoryCatalog';
 import { ModelCatalog } from './catalog/ModelCatalog';
 import { SandboxCatalog } from './catalog/SandboxCatalog';
 import { SkillCatalog } from './catalog/SkillCatalog';
 import { WebSearchCatalog } from './catalog/WebSearchCatalog';
 import { type DistributedServerConfiguration } from './config';
 import { createController } from './controller';
+import { memoryIngestFromConfig } from './controller/memoryIngest';
 import type { IAccessControlStore } from './db/accessControlStore';
 import type { IAgentStore } from './db/agentStore';
 import type { IConfigurationStore } from './db/configurationStore';
 import type { IMcpServerWithAuthStore } from './db/mcpServerStore';
 import { McpServerWithAuthStore } from './db/McpServerWithAuthStore';
+import type { IMemoryIngestStore } from './db/memoryIngestStore';
+import type { IMemoryProviderStore } from './db/memoryProviderStore';
 import type { Database as PostgresDatabase } from './db/postgres/types';
 import type { ISandboxEnvironmentStore } from './db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from './db/sandboxProviderStore';
@@ -129,6 +133,7 @@ import { createHttpMetrics, setMetricsScrapeAppendix } from './http/prometheus';
 import { serverTlsServeOptions } from './http/tls';
 import { createServerLogger, shouldColorize } from './logger';
 import type { IOAuthTokenStore } from './mcp/auth/types';
+import { MemoryProviderCache, type TenantMemoryDeps } from './memory/providers';
 import { createOperationMetrics } from './observability/agentMetrics';
 import { startSdkMetrics } from './observability/sdkMetrics';
 import {
@@ -148,6 +153,7 @@ import { enableRedisOpenTelemetry, type ConnectedRedis } from './runtime/redis';
 import { initSentry } from './sentry';
 import { printStandaloneStartupBanner } from './startupBanner';
 import { TrueFoundryAuthorizer } from './truefoundry/TrueFoundryAuthorizer';
+import { TrueFoundryMemoryProviderStore } from './truefoundry/TrueFoundryMemoryProviderStore';
 import { TrueFoundrySandboxEnvironmentStore } from './truefoundry/TrueFoundrySandboxEnvironmentStore';
 import { TrueFoundrySandboxProviderStore } from './truefoundry/TrueFoundrySandboxProviderStore';
 import { TrueFoundryServiceFoundryServerClient } from './truefoundry/TrueFoundryServiceFoundryServerClient';
@@ -179,6 +185,9 @@ interface ServerPersistence<TTransaction> {
   sessionStore: ISessionStore<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
   webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
+  memoryProviderStore: IMemoryProviderStore<TTransaction>;
+  /** Stores the in-process memory-ingest loop reads; undefined where the dedicated controller owns it. */
+  memoryIngest: (Omit<TenantMemoryDeps, 'providers'> & { store: IMemoryIngestStore }) | undefined;
   /** Tenant-wide feature switches; DB-backed in every mode. */
   configurationStore: IConfigurationStore;
   withTransaction: WithTransaction<TTransaction>;
@@ -246,6 +255,16 @@ function buildWebSearchProviderStore(options: { persistenceStore: IWebSearchProv
   return persistenceStore;
 }
 
+function buildMemoryProviderStore<TTransaction>(options: {
+  persistenceStore: IMemoryProviderStore<TTransaction>;
+}): IMemoryProviderStore<TTransaction> {
+  const { persistenceStore } = options;
+  if (isTrueFoundryModeEnabled(configuration)) {
+    return new TrueFoundryMemoryProviderStore<TTransaction>();
+  }
+  return persistenceStore;
+}
+
 /** SQLite stores; Redis unused (executor peering disabled). */
 async function createStandalonePersistence(options: {
   sqlitePath: string;
@@ -265,6 +284,8 @@ async function createStandalonePersistence(options: {
       import('./db/sqlite/skill-store/SqliteSkillStore'),
       import('./db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore'),
       import('./db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore'),
+      import('./db/sqlite/memory-provider-store/SqliteMemoryProviderStore'),
+      import('./db/sqlite/memory-ingest-store/SqliteMemoryIngestStore'),
       import('./db/sqlite/configuration-store/SqliteConfigurationStore'),
       import('./db/sqlite/agent-store/SqliteAgentStore'),
       import('./db/sqlite/schedule-store/SqliteScheduleStore'),
@@ -281,6 +302,8 @@ async function createStandalonePersistence(options: {
     { SqliteSkillStore },
     { SqliteSandboxProviderStore },
     { SqliteWebSearchProviderStore },
+    { SqliteMemoryProviderStore },
+    { SqliteMemoryIngestStore },
     { SqliteConfigurationStore },
     { SqliteAgentStore },
     { SqliteScheduleStore },
@@ -311,6 +334,9 @@ async function createStandalonePersistence(options: {
   const webSearchProviderStore = buildWebSearchProviderStore({
     persistenceStore: new SqliteWebSearchProviderStore(db),
   });
+  const memoryProviderStore = buildMemoryProviderStore({
+    persistenceStore: new SqliteMemoryProviderStore(db),
+  });
   const configurationStore = new SqliteConfigurationStore(db);
   return {
     accessControlStore: new SqliteAccessControlStore(db),
@@ -334,6 +360,8 @@ async function createStandalonePersistence(options: {
     sessionStore: new SqliteSessionStore(db),
     tokenStore,
     webSearchProviderStore,
+    memoryProviderStore,
+    memoryIngest: { store: new SqliteMemoryIngestStore(db), memoryProviderStore, configurationStore },
     configurationStore,
     withTransaction: callback => db.transaction().execute(callback),
   };
@@ -377,6 +405,7 @@ async function createDistributedPersistence(options: {
       import('./db/postgres/skill-store/PostgresSkillStore'),
       import('./db/postgres/sandbox-provider-store/PostgresSandboxProviderStore'),
       import('./db/postgres/web-search-provider-store/PostgresWebSearchProviderStore'),
+      import('./db/postgres/memory-provider-store/PostgresMemoryProviderStore'),
       import('./db/postgres/configuration-store/PostgresConfigurationStore'),
       import('./db/postgres/agent-store/PostgresAgentStore'),
       import('./db/postgres/schedule-store/PostgresScheduleStore'),
@@ -393,6 +422,7 @@ async function createDistributedPersistence(options: {
     { PostgresSkillStore },
     { PostgresSandboxProviderStore },
     { PostgresWebSearchProviderStore },
+    { PostgresMemoryProviderStore },
     { PostgresConfigurationStore },
     { PostgresAgentStore },
     { PostgresScheduleStore },
@@ -435,6 +465,9 @@ async function createDistributedPersistence(options: {
   });
   const webSearchProviderStore = buildWebSearchProviderStore({
     persistenceStore: new PostgresWebSearchProviderStore(db),
+  });
+  const memoryProviderStore = buildMemoryProviderStore({
+    persistenceStore: new PostgresMemoryProviderStore(db),
   });
   const configurationStore = new PostgresConfigurationStore(db);
   const resolveModelProviderStore = buildResolveModelProviderStore({
@@ -495,6 +528,9 @@ async function createDistributedPersistence(options: {
     sessionStore: new PostgresSessionStore(db),
     tokenStore,
     webSearchProviderStore,
+    memoryProviderStore,
+    // Dedicated controller owns ingest when not standalone.
+    memoryIngest: undefined,
     configurationStore,
     withTransaction: callback => db.transaction().execute(callback),
   };
@@ -516,9 +552,13 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     sessionStore,
     tokenStore,
     webSearchProviderStore,
+    memoryProviderStore,
+    memoryIngest,
     configurationStore,
     withTransaction,
   } = persistence;
+
+  const memoryProviders = new MemoryProviderCache({ logger });
 
   const activeTurns = new ActiveTurnRegistry<TTransaction>({
     pausedKeepaliveMs: configuration.TURN_PAUSED_KEEPALIVE_SECONDS * 1000,
@@ -568,6 +608,14 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
         scheduleStore,
         withTransaction,
         logger,
+        memory:
+          memoryIngest === undefined
+            ? undefined
+            : memoryIngestFromConfig({
+                config: configuration,
+                store: memoryIngest.store,
+                tenantMemory: { ...memoryIngest, providers: memoryProviders },
+              }),
       })
     : undefined;
 
@@ -587,6 +635,9 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     resolveTurnSkillsStore: persistence.resolveTurnSkillsStore,
     sandboxProviderStore,
     webSearchProviderStore,
+    memoryProviderStore,
+    configurationStore,
+    memoryProviders,
   });
   const app = createServerApp({
     accessControlStore,
@@ -619,6 +670,9 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     userStore,
     webSearchCatalog: WebSearchCatalog.load(),
     webSearchProviderStore,
+    memoryCatalog: MemoryCatalog.load(),
+    memoryProviderStore,
+    memoryProviders,
     configurationStore,
     withTransaction,
     httpMetrics: serverHttpMetrics,

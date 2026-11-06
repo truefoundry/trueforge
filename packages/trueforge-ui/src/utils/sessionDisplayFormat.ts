@@ -9,6 +9,14 @@ export function formatTokenCount(tokens: number): string {
   return String(tokens);
 }
 
+/** Exact token count for tooltip rows (e.g. 8,566). */
+export function formatExactTokenCount(tokens: number): string {
+  const whole = Math.trunc(tokens);
+  const sign = whole < 0 ? '-' : '';
+  const digits = String(Math.abs(whole));
+  return `${sign}${digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+}
+
 /** USD cost with four decimal places (e.g. $0.1615). */
 export function formatCostUsd(costInUsd: number): string {
   return `$${costInUsd.toFixed(4)}`;

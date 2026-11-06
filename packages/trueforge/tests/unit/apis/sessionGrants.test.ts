@@ -18,6 +18,7 @@ import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgent
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteConfigurationStore } from '../../../src/db/sqlite/configuration-store/SqliteConfigurationStore';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
+import { SqliteMemoryProviderStore } from '../../../src/db/sqlite/memory-provider-store/SqliteMemoryProviderStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
@@ -122,6 +123,7 @@ function buildApp(input: { db: Kysely<Database>; sessionStore: SqliteSessionStor
           skillStore: new SqliteSkillStore(db),
           sandboxProviderStore: new SqliteSandboxProviderStore(db),
           webSearchProviderStore: new SqliteWebSearchProviderStore(db),
+          memory: undefined,
         }),
       sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
@@ -149,6 +151,7 @@ function buildApp(input: { db: Kysely<Database>; sessionStore: SqliteSessionStor
       sessionStore,
       userStore,
       webSearchProviderStore: new SqliteWebSearchProviderStore(db),
+      memoryProviderStore: new SqliteMemoryProviderStore(db),
       configurationStore: new SqliteConfigurationStore(db),
       withTransaction: callback => db.transaction().execute(callback),
     }),

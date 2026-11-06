@@ -28,7 +28,10 @@ function applyPatch({
   current: ConfigurationManifest;
   patch: ConfigurationManifestPatch;
 }): ConfigurationManifest {
-  return { web_search: patch.web_search ?? current.web_search };
+  return {
+    web_search: patch.web_search ?? current.web_search,
+    memory: patch.memory ?? current.memory,
+  };
 }
 
 export function createConfigurationRouter(deps: ConfigurationRouterDeps) {

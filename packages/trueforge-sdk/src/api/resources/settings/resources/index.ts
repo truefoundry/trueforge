@@ -2,6 +2,8 @@ export * from "./configuration/client/requests/index.js";
 export * as configuration from "./configuration/index.js";
 export * from "./mcpServers/client/requests/index.js";
 export * as mcpServers from "./mcpServers/index.js";
+export * from "./memoryProviders/client/requests/index.js";
+export * as memoryProviders from "./memoryProviders/index.js";
 export * from "./modelProviders/client/requests/index.js";
 export * as modelProviders from "./modelProviders/index.js";
 export * from "./sandboxProviders/client/requests/index.js";

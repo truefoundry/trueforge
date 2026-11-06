@@ -10,7 +10,10 @@ describe("ConfigurationClient", () => {
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
         const rawResponseBody = {
-            data: { manifest: { web_search: { enabled: true } }, updated_at: "2024-01-15T09:30:00Z" },
+            data: {
+                manifest: { memory: { enabled: true }, web_search: { enabled: true } },
+                updated_at: "2024-01-15T09:30:00Z",
+            },
         };
 
         server
@@ -25,6 +28,9 @@ describe("ConfigurationClient", () => {
         expect(response).toEqual({
             data: {
                 manifest: {
+                    memory: {
+                        enabled: true,
+                    },
                     webSearch: {
                         enabled: true,
                     },
@@ -77,7 +83,10 @@ describe("ConfigurationClient", () => {
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = { manifest: {} };
         const rawResponseBody = {
-            data: { manifest: { web_search: { enabled: true } }, updated_at: "2024-01-15T09:30:00Z" },
+            data: {
+                manifest: { memory: { enabled: true }, web_search: { enabled: true } },
+                updated_at: "2024-01-15T09:30:00Z",
+            },
         };
 
         server
@@ -95,6 +104,9 @@ describe("ConfigurationClient", () => {
         expect(response).toEqual({
             data: {
                 manifest: {
+                    memory: {
+                        enabled: true,
+                    },
                     webSearch: {
                         enabled: true,
                     },

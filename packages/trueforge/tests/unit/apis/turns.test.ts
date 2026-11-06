@@ -60,6 +60,7 @@ function turnExecutionStores(db: Kysely<Database>, tokenStore: SqliteOAuthTokenS
     skillStore: new SqliteSkillStore(db),
     sandboxProviderStore: new SqliteSandboxProviderStore(db),
     webSearchProviderStore: new SqliteWebSearchProviderStore(db),
+    memory: undefined,
   };
 }
 

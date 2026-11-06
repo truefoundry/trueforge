@@ -91,6 +91,7 @@ async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response
           skillStore: new SqliteSkillStore(db),
           sandboxProviderStore: new SqliteSandboxProviderStore(db),
           webSearchProviderStore: new SqliteWebSearchProviderStore(db),
+          memory: undefined,
         }),
       sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),

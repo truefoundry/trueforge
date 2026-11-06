@@ -135,6 +135,8 @@ export async function startScheduleRunOnRequest<TTransaction>(params: {
       skillStore: deps.resolveTurnSkillsStore({}),
       // Schedules have no caller `x-tfg-tools`.
       capabilitiesStore: new EmptyCapabilitiesStore(),
+      // Scheduled sessions never read or write memory.
+      memory: undefined,
       logger: deps.logger,
       sessionStore: deps.sessionStore,
     },
