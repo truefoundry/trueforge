@@ -195,8 +195,6 @@ export { CANCELLATION_REASON_CUSTOM_KEY } from './messageCustomMetadata.js';
  *   live uses `groupRootBaseline`.
  */
 
-const TURN_EVENTS_PAGE_SIZE = 25;
-const SESSION_EVENTS_PAGE_SIZE = 100;
 /** Cap how many event pages initial load / load-older may chain for a group boundary. */
 const MAX_HISTORY_BOUNDARY_PAGES = 10;
 
@@ -257,7 +255,6 @@ async function fetchSessionEventsPage(
 ): Promise<SessionEventsPageResult> {
   const page = await server.listEvents({
     sessionId,
-    limit: SESSION_EVENTS_PAGE_SIZE,
     ...(options?.lastTurnId != null ? { lastTurnId: options.lastTurnId } : {}),
     ...(options?.pageToken != null ? { pageToken: options.pageToken } : {}),
   });
@@ -349,7 +346,6 @@ async function fetchAllSessionEvents(
   const items = await drainListPages(pageToken =>
     server.listEvents({
       sessionId,
-      limit: SESSION_EVENTS_PAGE_SIZE,
       ...(options?.lastTurnId != null ? { lastTurnId: options.lastTurnId } : {}),
       ...(pageToken != null ? { pageToken } : {}),
     }),
@@ -945,7 +941,6 @@ async function ingestTurnEventsIntoFold(
       sessionId,
       turnId,
       order: 'asc',
-      limit: TURN_EVENTS_PAGE_SIZE,
       ...(pageToken != null ? { pageToken } : {}),
     }),
   );
@@ -964,7 +959,6 @@ async function fetchTurnEvents(server: AgentChatServer, sessionId: string, turnI
       sessionId,
       turnId,
       order: 'asc',
-      limit: TURN_EVENTS_PAGE_SIZE,
       ...(pageToken != null ? { pageToken } : {}),
     }),
   );

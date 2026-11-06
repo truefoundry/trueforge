@@ -212,7 +212,6 @@ export function AgentSessions({
         fetchPage: pageToken =>
           sessionsServer.listSessionEvents({
             sessionId: selectedSessionId,
-            limit: 100,
             ...(pageToken == null ? {} : { pageToken }),
           }),
       }),
