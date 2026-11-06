@@ -537,9 +537,8 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
     if (!environmentRow) {
       const environment_id = newId();
       // Parent first so secret FKs can resolve in this transaction.
-      // Reserved claims the default slot on insert; if another row already holds it (TFY can
-      // materialise reserved after an admin-chosen default), fall back to is_default false.
-      const insertParent = async (asDefault: boolean) =>
+      // The reserved environment claims the default slot on insert.
+      const insertParent = () =>
         db
           .insertInto('sandbox_environment')
           .values({
@@ -550,7 +549,7 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
             active_version: 1,
             lifecycle_stage: 'active',
             enabled: true,
-            is_default: asDefault,
+            is_default: isReserved,
             created_by_subject: json(input.created_by_subject),
             created_at: now(),
             updated_at: now(),
@@ -558,16 +557,7 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
           .returningAll()
           .executeTakeFirstOrThrow();
       try {
-        let created;
-        try {
-          created = await insertParent(isReserved);
-        } catch (error) {
-          if (isReserved && isUniqueViolation(error) && isPgConstraint(error, SANDBOX_ENVIRONMENT_TENANT_DEFAULT_UQ)) {
-            created = await insertParent(false);
-          } else {
-            throw error;
-          }
-        }
+        const created = await insertParent();
         const versionWrite = await this.#buildVersion({
           input,
           environment_id,

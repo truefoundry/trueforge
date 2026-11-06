@@ -626,15 +626,7 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
       const environment_id = newId();
       const created_at = nowIso();
       // Parent first so secret FKs can resolve in this transaction.
-      // Reserved claims the default slot on insert; if another row already holds it (TFY can
-      // materialise reserved after an admin-chosen default), fall back to is_default false.
-      // The default unique index is on tenant_id alone; the name unique index includes name.
-      const isDefaultSlotBusy = (error: unknown) =>
-        isUniqueViolation(error) &&
-        error instanceof Error &&
-        error.message.includes('sandbox_environment.tenant_id') &&
-        !error.message.includes('name');
-      const insertParent = async (asDefault: boolean) => {
+      const insertParent = async () => {
         await db
           .insertInto('sandbox_environment')
           .values({
@@ -645,25 +637,15 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
             active_version: 1,
             lifecycle_stage: 'active',
             enabled: 1,
-            is_default: asDefault ? 1 : 0,
+            is_default: isReserved ? 1 : 0,
             created_by_subject: jsonbBind(input.created_by_subject),
             created_at,
             updated_at: created_at,
           })
           .execute();
       };
-      let claimedDefault = isReserved;
       try {
-        try {
-          await insertParent(isReserved);
-        } catch (error) {
-          if (isReserved && isDefaultSlotBusy(error)) {
-            claimedDefault = false;
-            await insertParent(false);
-          } else {
-            throw error;
-          }
-        }
+        await insertParent();
       } catch (error) {
         if (isUniqueViolation(error)) {
           throw new SandboxEnvironmentNameConflictError(
@@ -688,7 +670,7 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
           active_version: versionWrite.version,
           lifecycle_stage: 'active',
           enabled: true,
-          is_default: claimedDefault,
+          is_default: isReserved,
           created_by_subject: input.created_by_subject,
           created_at,
           updated_at: created_at,

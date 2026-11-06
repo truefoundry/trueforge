@@ -198,6 +198,7 @@ export class TrueFoundrySandboxEnvironmentStore<
     if (!this.#envSupported) {
       return sandboxEnvironmentsNotSupported();
     }
+    await this.#ensureReserved(input.tenant_id, transaction);
     return this.#persistence.setDefaultEnvironment(input, transaction);
   }
 
