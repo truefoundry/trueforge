@@ -36,7 +36,6 @@ afterEach(() => {
 type SessionStub = {
   id: string;
   isMutable: boolean;
-  shared?: boolean;
   createdBy?: { id: string; displayName: string };
   createdAt: string;
   updatedAt: string;
@@ -45,7 +44,6 @@ type SessionStub = {
 const baseSession: SessionStub = {
   id: 'session-1',
   isMutable: true,
-  shared: false,
   createdBy: { id: 'owner', displayName: 'Sajal Preet Singh' },
   createdAt: '2026-01-01T00:00:00Z',
   updatedAt: '2026-01-01T00:00:00Z',
@@ -81,10 +79,7 @@ function renderDialog({
     })),
   ]);
   const revokeAccess = vi.fn(async () => undefined);
-  const updateSession = vi.fn(async (req: { sessionId: string; shared?: boolean }) => ({
-    ...session,
-    shared: req.shared === true,
-  }));
+  const updateSession = vi.fn(async () => session);
   const searchUsers = vi.fn(async () => ({
     data: [
       { id: 'u1', displayName: 'Alice', email: 'alice@example.com' },
@@ -139,7 +134,7 @@ describe('ShareSessionDialog', () => {
 
   it('loads tenant sharing and copies the share URL', async () => {
     renderDialog({
-      session: { ...baseSession, shared: true },
+      grants: [{ ...aliceGrant, subjectType: 'tenant', subjectId: 'acme' }],
     });
     await openSharePopover();
 
@@ -155,15 +150,18 @@ describe('ShareSessionDialog', () => {
     expect(await screen.findByText('Link copied to your clipboard')).toBeInTheDocument();
   });
 
-  it('updates session.shared when switching access', async () => {
-    const { updateSession } = renderDialog();
+  it('updates access grants when switching access', async () => {
+    const { grantAccess, revokeAccess } = renderDialog();
     await openSharePopover();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Session sharing' }));
     fireEvent.click(await screen.findByRole('option', { name: 'Everyone within acme' }));
 
     await waitFor(() => {
-      expect(updateSession).toHaveBeenCalledWith({ sessionId: 'session-1', shared: true });
+      expect(grantAccess).toHaveBeenCalledWith({
+        sessionId: 'session-1',
+        subjects: [{ subjectType: 'tenant', subjectId: 'acme' }],
+      });
     });
     expect(screen.getByLabelText('Share URL')).toBeInTheDocument();
 
@@ -171,7 +169,7 @@ describe('ShareSessionDialog', () => {
     fireEvent.click(await screen.findByRole('option', { name: 'Restricted' }));
 
     await waitFor(() => {
-      expect(updateSession).toHaveBeenCalledWith({ sessionId: 'session-1', shared: false });
+      expect(revokeAccess).toHaveBeenCalledWith({ sessionId: 'session-1', subjectType: 'tenant', subjectId: 'acme' });
     });
     expect(screen.queryByLabelText('Share URL')).not.toBeInTheDocument();
   });

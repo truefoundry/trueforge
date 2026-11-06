@@ -1,8 +1,4 @@
-import {
-  CreatedBySubjectSchema,
-  type CreatedBySubject,
-  type TokenPagination,
-} from '@truefoundry/trueforge-core/agent-session';
+import { SubjectSchema, type Subject, type TokenPagination } from '@truefoundry/trueforge-core/agent-session';
 import {
   decodeOffsetPageToken,
   paginateOffsetRows,
@@ -83,7 +79,7 @@ function activeVersionJoin(db: Kysely<Database> | Transaction<Database>) {
       'env.description',
       'env.active_version',
       'env.lifecycle_stage',
-      jsonText<CreatedBySubject>(sql.ref('env.created_by_subject')).as('created_by_subject'),
+      jsonText<Subject>(sql.ref('env.created_by_subject')).as('created_by_subject'),
       'env.created_at',
       'env.updated_at',
       'ver.id as ver_id',
@@ -94,7 +90,7 @@ function activeVersionJoin(db: Kysely<Database> | Transaction<Database>) {
       'ver.status_reason as ver_status_reason',
       'ver.external_ref as ver_external_ref',
       jsonText<SandboxEnvironmentVersionInternalMetadata>(sql.ref('ver.internal_metadata')).as('ver_internal_metadata'),
-      jsonText<CreatedBySubject>(sql.ref('ver.created_by_subject')).as('ver_created_by_subject'),
+      jsonText<Subject>(sql.ref('ver.created_by_subject')).as('ver_created_by_subject'),
       'ver.created_at as ver_created_at',
       'ver.updated_at as ver_updated_at',
     ]);
@@ -111,7 +107,7 @@ function latestVersionJoin(db: Kysely<Database> | Transaction<Database>) {
       'env.description',
       'env.active_version',
       'env.lifecycle_stage',
-      jsonText<CreatedBySubject>(sql.ref('env.created_by_subject')).as('created_by_subject'),
+      jsonText<Subject>(sql.ref('env.created_by_subject')).as('created_by_subject'),
       'env.created_at',
       'env.updated_at',
       'ver.id as ver_id',
@@ -122,7 +118,7 @@ function latestVersionJoin(db: Kysely<Database> | Transaction<Database>) {
       'ver.status_reason as ver_status_reason',
       'ver.external_ref as ver_external_ref',
       jsonText<SandboxEnvironmentVersionInternalMetadata>(sql.ref('ver.internal_metadata')).as('ver_internal_metadata'),
-      jsonText<CreatedBySubject>(sql.ref('ver.created_by_subject')).as('ver_created_by_subject'),
+      jsonText<Subject>(sql.ref('ver.created_by_subject')).as('ver_created_by_subject'),
       'ver.created_at as ver_created_at',
       'ver.updated_at as ver_updated_at',
     ])
@@ -145,7 +141,7 @@ function versionSelect() {
     'status_reason' as const,
     'external_ref' as const,
     jsonText<SandboxEnvironmentVersionInternalMetadata>(sql.ref('internal_metadata')).as('internal_metadata'),
-    jsonText<CreatedBySubject>(sql.ref('created_by_subject')).as('created_by_subject'),
+    jsonText<Subject>(sql.ref('created_by_subject')).as('created_by_subject'),
     'created_at' as const,
     'updated_at' as const,
   ];
@@ -158,7 +154,7 @@ function toEnvironmentRecord(row: {
   description: string;
   active_version: number;
   lifecycle_stage: SandboxEnvironmentRecord['lifecycle_stage'];
-  created_by_subject: CreatedBySubject;
+  created_by_subject: Subject;
   created_at: string;
   updated_at: string;
 }): SandboxEnvironmentRecord {
@@ -169,7 +165,7 @@ function toEnvironmentRecord(row: {
     description: row.description,
     active_version: row.active_version,
     lifecycle_stage: row.lifecycle_stage,
-    created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
+    created_by_subject: SubjectSchema.parse(row.created_by_subject),
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
@@ -184,7 +180,7 @@ function toVersionRecord(row: {
   status_reason: string | null;
   external_ref: string;
   internal_metadata: SandboxEnvironmentVersionInternalMetadata;
-  created_by_subject: CreatedBySubject;
+  created_by_subject: Subject;
   created_at: string;
   updated_at: string;
 }): SandboxEnvironmentVersionRecord {
@@ -197,7 +193,7 @@ function toVersionRecord(row: {
     status_reason: row.status_reason,
     external_ref: row.external_ref,
     internal_metadata: SandboxEnvironmentVersionInternalMetadataSchema.parse(row.internal_metadata),
-    created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
+    created_by_subject: SubjectSchema.parse(row.created_by_subject),
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
@@ -210,7 +206,7 @@ function toWithVersion(row: {
   description: string;
   active_version: number;
   lifecycle_stage: SandboxEnvironmentRecord['lifecycle_stage'];
-  created_by_subject: CreatedBySubject;
+  created_by_subject: Subject;
   created_at: string;
   updated_at: string;
   ver_id: string;
@@ -221,7 +217,7 @@ function toWithVersion(row: {
   ver_status_reason: string | null;
   ver_external_ref: string;
   ver_internal_metadata: SandboxEnvironmentVersionInternalMetadata;
-  ver_created_by_subject: CreatedBySubject;
+  ver_created_by_subject: Subject;
   ver_created_at: string;
   ver_updated_at: string;
 }): SandboxEnvironmentWithVersion {
@@ -301,7 +297,7 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
     const db = transaction ?? this.#db;
     const rows = await db
       .selectFrom('sandbox_environment')
-      .select(['id', 'name', jsonText<CreatedBySubject>(sql.ref('created_by_subject')).as('created_by_subject')])
+      .select(['id', 'name', jsonText<Subject>(sql.ref('created_by_subject')).as('created_by_subject')])
       .where('tenant_id', '=', input.tenant_id)
       .where('id', 'in', [...input.ids])
       .where('lifecycle_stage', '=', 'active')
@@ -309,7 +305,7 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
     return rows.map(row => ({
       id: row.id,
       name: row.name,
-      created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
+      created_by_subject: SubjectSchema.parse(row.created_by_subject),
     }));
   }
 
@@ -427,7 +423,7 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
         'description',
         'active_version',
         'lifecycle_stage',
-        jsonText<CreatedBySubject>(sql.ref('created_by_subject')).as('created_by_subject'),
+        jsonText<Subject>(sql.ref('created_by_subject')).as('created_by_subject'),
         'created_at',
         'updated_at',
       ])

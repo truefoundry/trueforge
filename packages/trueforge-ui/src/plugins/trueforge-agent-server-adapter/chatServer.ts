@@ -87,7 +87,6 @@ function toUiSession(session: TrueForgeApi.Session): HarnessUiSession {
     id: session.id,
     isMutable: session.agent.type === 'inline',
     isCreateAgent: readSessionIsCreateAgent(session.metadata),
-    shared: session.shared,
     createdBy: { id: session.createdBySubject.subjectId, displayName: session.createdBySubject.subjectDisplayName },
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
@@ -240,12 +239,11 @@ export function createHarnessChatServer(
       await client.sessions.update(sessionId, { title });
     },
 
-    async updateSession({ sessionId, agentSpec, title, shared }) {
+    async updateSession({ sessionId, agentSpec, title }) {
       // Named (reference) sessions reject agent updates server-side.
       const body: TrueForgeApi.UpdateSessionRequest = {
         ...(agentSpec === undefined ? {} : { agent: { spec: toHarnessAgentSpec(agentSpec) } }),
         ...(title === undefined ? {} : { title }),
-        ...(shared === undefined ? {} : { shared }),
       };
       const response = await client.sessions.update(sessionId, body);
       return toUiSession(response.data);

@@ -81,13 +81,11 @@ const CancelPeerBodySchema = z.object({
 });
 type CancelPeerBody = z.infer<typeof CancelPeerBodySchema>;
 
-/** `shared` is whether the session holds a `tenant` grant. */
-export function toWireSession(record: SessionRecord, shared: boolean): Session {
+export function toWireSession(record: SessionRecord): Session {
   return {
     id: record.session_id,
     agent: record.agent,
     title: record.title,
-    shared,
     created_by_subject: record.created_by_subject,
     created_at: record.created_at.toISOString(),
     updated_at: record.updated_at.toISOString(),
@@ -302,49 +300,6 @@ function uniqueSubjects(subjects: readonly SessionGrantSubject[]): SessionGrantS
   return [...byKey.values()];
 }
 
-/** The ids among `session_ids` shared with everyone in the tenant, i.e. holding its `tenant` grant. */
-async function tenantSharedSessionIds<TTransaction>(
-  accessControlStore: IAccessControlStore<TTransaction>,
-  input: { tenant_id: string; session_ids: readonly string[] },
-): Promise<Set<string>> {
-  const grants = await accessControlStore.listAccessGrants({
-    tenant_id: input.tenant_id,
-    session_ids: input.session_ids,
-    subjects: [{ subject_type: 'tenant', subject_id: input.tenant_id }],
-  });
-  return new Set(grants.map(grant => grant.session_id));
-}
-
-async function isSharedWithTenant<TTransaction>(
-  accessControlStore: IAccessControlStore<TTransaction>,
-  input: { tenant_id: string; session_id: string },
-): Promise<boolean> {
-  const sharedIds = await tenantSharedSessionIds(accessControlStore, {
-    tenant_id: input.tenant_id,
-    session_ids: [input.session_id],
-  });
-  return sharedIds.has(input.session_id);
-}
-
-/** Deprecated `PATCH { shared }`: sharing with everyone is the `tenant` grant. */
-async function setSharedWithTenant<TTransaction>(
-  accessControlStore: IAccessControlStore<TTransaction>,
-  input: { requestContext: RequestContext; session_id: string; shared: boolean },
-): Promise<void> {
-  const { requestContext, session_id } = input;
-  const subjects: SessionGrantSubject[] = [{ subject_type: 'tenant', subject_id: requestContext.tenant_id }];
-  if (input.shared) {
-    await accessControlStore.createAccessGrants({
-      tenant_id: requestContext.tenant_id,
-      session_id,
-      subjects,
-      granted_by_subject: createdBySubjectFromRequestContext(requestContext),
-    });
-    return;
-  }
-  await accessControlStore.deleteAccessGrants({ tenant_id: requestContext.tenant_id, session_id, subjects });
-}
-
 function toWireSessionGrant(record: AccessGrantRecord): SessionGrant {
   return {
     subject: { subject_type: record.subject_type, subject_id: record.subject_id },
@@ -506,11 +461,7 @@ function createGetOrCreateSessionByExternalIdHandler(
       if (!allowed) {
         return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
       }
-      const shared = await isSharedWithTenant(deps.accessControlStore, {
-        tenant_id: requestContext.tenant_id,
-        session_id: existing.record.session_id,
-      });
-      return c.json({ data: toWireSession(existing.record, shared) }, 200);
+      return c.json({ data: toWireSession(existing.record) }, 200);
     }
 
     const resolved = await resolveNewSessionAgent({ deps, c, agent: body.agent, requestContext });
@@ -526,7 +477,7 @@ function createGetOrCreateSessionByExternalIdHandler(
       source: body.source ?? null,
     });
     if (created) {
-      return c.json({ data: toWireSession(session.record, false) }, 201);
+      return c.json({ data: toWireSession(session.record) }, 201);
     }
     const allowed = await canReadAgentBoundResource({
       store: deps.resolveAgentStore(c),
@@ -538,11 +489,7 @@ function createGetOrCreateSessionByExternalIdHandler(
     if (!allowed) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
-    const shared = await isSharedWithTenant(deps.accessControlStore, {
-      tenant_id: requestContext.tenant_id,
-      session_id: session.record.session_id,
-    });
-    return c.json({ data: toWireSession(session.record, shared) }, 200);
+    return c.json({ data: toWireSession(session.record) }, 200);
   };
 }
 
@@ -573,7 +520,7 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
       metadata: body.metadata,
       external_id: null,
     });
-    return c.json({ data: toWireSession(session.record, false) }, 201);
+    return c.json({ data: toWireSession(session.record) }, 201);
   };
 
   const getSessionHandler: RouteHandler<typeof getSessionRoute> = async c => {
@@ -598,11 +545,7 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
     if (!allowed) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
-    const shared = await isSharedWithTenant(deps.accessControlStore, {
-      tenant_id: requestContext.tenant_id,
-      session_id: sessionId,
-    });
-    return c.json({ data: toWireSession(record, shared) }, 200);
+    return c.json({ data: toWireSession(record) }, 200);
   };
 
   const deleteSessionHandler: RouteHandler<typeof deleteSessionRoute> = async c => {
@@ -679,13 +622,6 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
       }
       throw error;
     }
-    if (body.shared !== undefined) {
-      await setSharedWithTenant(deps.accessControlStore, {
-        requestContext,
-        session_id: sessionId,
-        shared: body.shared,
-      });
-    }
     const record = await deps.sessionStore.getSession({
       tenant_id: requestContext.tenant_id,
       session_id: sessionId,
@@ -693,11 +629,7 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
     if (!record) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    const shared = await isSharedWithTenant(deps.accessControlStore, {
-      tenant_id: requestContext.tenant_id,
-      session_id: sessionId,
-    });
-    return c.json({ data: toWireSession(record, shared) }, 200);
+    return c.json({ data: toWireSession(record) }, 200);
   };
 
   const listSessionsHandler: RouteHandler<typeof listSessionsRoute> = async c => {
@@ -727,14 +659,7 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
         source_type: query.source_type,
         source_id: query.source_id,
       });
-      const sharedIds = await tenantSharedSessionIds(deps.accessControlStore, {
-        tenant_id: requestContext.tenant_id,
-        session_ids: data.map(record => record.session_id),
-      });
-      return c.json(
-        { data: data.map(record => toWireSession(record, sharedIds.has(record.session_id))), pagination },
-        200,
-      );
+      return c.json({ data: data.map(toWireSession), pagination }, 200);
     } catch (error) {
       if (error instanceof SessionStoreConflictError) {
         throw new HTTPException(400, { message: error.message, cause: error });

@@ -5,10 +5,10 @@
 import {
   AgentSpecSchema,
   MAIN_THREAD_ID,
-  type CreatedBySubject,
   type ISessionStore,
   type PersistedTurnEvent,
   type SessionMetadata,
+  type Subject,
   type TerminalTurnState,
   type TurnInputItem,
 } from '@truefoundry/trueforge-core/agent-session';
@@ -21,7 +21,7 @@ import type { IMemoryIngestStore } from '../../src/db/memoryIngestStore';
 import { reply } from '../unit/memory/turnFixtures';
 
 const TENANT = 'default';
-const OWNER: CreatedBySubject = { subject_id: 'owner', subject_type: 'user', subject_display_name: 'Owner' };
+const OWNER: Subject = { subject_id: 'owner', subject_type: 'user', subject_display_name: 'Owner' };
 const UI: SessionMetadata = { 'tfg.source': 'ui' };
 const SPEC = AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' }, instructions: 'test' });
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;

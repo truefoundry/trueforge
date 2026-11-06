@@ -1,7 +1,7 @@
 import {
   MAIN_THREAD_ID,
-  type CreatedBySubject,
   type PersistedTurnEvent,
+  type Subject,
   type TurnInputItem,
   type TurnState,
 } from '@truefoundry/trueforge-core/agent-session';
@@ -58,7 +58,7 @@ export class SqliteMemoryIngestStore implements IMemoryIngestStore {
       .select([
         's.session_id',
         's.tenant_id',
-        jsonText<CreatedBySubject>(sql.ref('s.created_by_subject')).as('created_by_subject'),
+        jsonText<Subject>(sql.ref('s.created_by_subject')).as('created_by_subject'),
         's.agent_id',
         tfgSource.as('tfg_source'),
         createAgentSession.as('create_agent_session'),

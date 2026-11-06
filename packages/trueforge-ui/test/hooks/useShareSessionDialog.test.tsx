@@ -12,7 +12,6 @@ import type {
 type ServerHookValue = {
   getSession: (req: { sessionId: string }) => Promise<Session>;
   getMe: () => Promise<{ tenantId: string }>;
-  updateSession: (req: { sessionId: string; shared?: boolean }) => Promise<Session>;
   sessionAccess?: Pick<SessionAccessServer, 'listAccess' | 'grantAccess' | 'revokeAccess'>;
 };
 
@@ -41,7 +40,6 @@ import { useShareSessionDialog } from '@/hooks/useShareSessionDialog.js';
 const session: Session = {
   id: 's1',
   isMutable: false,
-  shared: false,
   createdBy: { id: 'owner', displayName: 'Owner' },
   createdAt: '2026-10-22T00:00:00Z',
   updatedAt: '2026-10-22T00:00:00Z',
@@ -62,7 +60,6 @@ describe('useShareSessionDialog', () => {
   const listAccess = vi.fn<SessionAccessServer['listAccess']>();
   const grantAccess = vi.fn<SessionAccessServer['grantAccess']>();
   const revokeAccess = vi.fn<SessionAccessServer['revokeAccess']>();
-  const updateSession = vi.fn<(req: { sessionId: string; shared?: boolean }) => Promise<Session>>();
   const getSession = vi.fn<(req: { sessionId: string }) => Promise<Session>>();
 
   beforeEach(() => {
@@ -74,19 +71,17 @@ describe('useShareSessionDialog', () => {
     listAccess.mockResolvedValue([grant({})]);
     grantAccess.mockResolvedValue([grant({}), grant({ subjectId: 'u2', displayName: 'Bob' })]);
     revokeAccess.mockResolvedValue(undefined);
-    updateSession.mockImplementation(async req => ({ ...session, shared: req.shared === true }));
     useOptionalServer.mockReturnValue({
       getSession,
       getMe: () => Promise.resolve({ tenantId: 't1' }),
-      updateSession,
       sessionAccess: { listAccess, grantAccess, revokeAccess },
     });
   });
 
   afterEach(cleanup);
 
-  it('loads owner, user collaborators and permission from session.shared', async () => {
-    getSession.mockResolvedValue({ ...session, shared: true });
+  it('loads owner, user collaborators and permission from access grants', async () => {
+    listAccess.mockResolvedValue([grant({}), grant({ subjectType: 'tenant', subjectId: 't1' })]);
     const { result } = renderHook(() => useShareSessionDialog('s1'));
     await act(() => result.current.load());
 
@@ -121,7 +116,7 @@ describe('useShareSessionDialog', () => {
     const { result } = renderHook(() => useShareSessionDialog('s1'));
     await act(() => result.current.load());
 
-    expect(listAccess).not.toHaveBeenCalled();
+    expect(listAccess).toHaveBeenCalledWith({ sessionId: 's1' });
     expect(result.current.canShare).toBe(false);
     expect(result.current.canChangePermission).toBe(true);
   });
@@ -131,29 +126,32 @@ describe('useShareSessionDialog', () => {
     const { result } = renderHook(() => useShareSessionDialog('s1'));
     await act(() => result.current.load());
 
-    expect(listAccess).not.toHaveBeenCalled();
+    expect(listAccess).toHaveBeenCalledWith({ sessionId: 's1' });
     expect(result.current.canShare).toBe(false);
     expect(result.current.canChangePermission).toBe(true);
   });
 
-  it('shares with the tenant via updateSession shared and unshares the same way', async () => {
+  it('shares with the tenant via grants and revokes the same subject', async () => {
     listAccess.mockResolvedValue([]);
     const { result } = renderHook(() => useShareSessionDialog('s1'));
     await act(() => result.current.load());
 
     await act(() => result.current.changePermission('tenant'));
-    expect(updateSession).toHaveBeenCalledWith({ sessionId: 's1', shared: true });
+    expect(grantAccess).toHaveBeenCalledWith({
+      sessionId: 's1',
+      subjects: [{ subjectType: 'tenant', subjectId: 't1' }],
+    });
     expect(result.current.permission).toBe('tenant');
 
     await act(() => result.current.changePermission('private'));
-    expect(updateSession).toHaveBeenCalledWith({ sessionId: 's1', shared: false });
+    expect(revokeAccess).toHaveBeenCalledWith({ sessionId: 's1', subjectType: 'tenant', subjectId: 't1' });
     expect(result.current.permission).toBe('private');
   });
 
-  it('rolls back the permission and reports the error when updateSession fails', async () => {
+  it('rolls back the permission and reports the error when granting access fails', async () => {
     listAccess.mockResolvedValue([]);
     const failure = new Error('forbidden');
-    updateSession.mockRejectedValue(failure);
+    grantAccess.mockRejectedValue(failure);
     const { result } = renderHook(() => useShareSessionDialog('s1'));
     await act(() => result.current.load());
 
@@ -288,7 +286,7 @@ describe('useShareSessionDialog', () => {
   });
 
   it('toasts the audience after copying the link, and nothing when the copy fails', async () => {
-    getSession.mockResolvedValue({ ...session, shared: true });
+    listAccess.mockResolvedValue([grant({}), grant({ subjectType: 'tenant', subjectId: 't1' })]);
     const { result } = renderHook(() => useShareSessionDialog('s1'));
     await act(() => result.current.load());
 

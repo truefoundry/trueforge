@@ -54,11 +54,7 @@ const fetchMock: typeof fetch = async (input, init) => {
       body !== null && typeof body === 'object' && 'title' in body && typeof body.title === 'string'
         ? body.title
         : session.title;
-    const shared =
-      body !== null && typeof body === 'object' && 'shared' in body && typeof body.shared === 'boolean'
-        ? body.shared
-        : false;
-    return Response.json({ data: { ...session, title, shared } });
+    return Response.json({ data: { ...session, title } });
   }
   if (url.endsWith('/api/v1/sessions/ses_1') && method === 'DELETE') {
     deletedSessions.push('ses_1');
@@ -299,14 +295,6 @@ describe('createHarnessChatServer', () => {
     const updated = await server.updateSession({ sessionId: 'ses_1', title: 'Acme onboarding' });
     assert.deepEqual(sessionRequests.at(-1), { title: 'Acme onboarding' });
     assert.equal(updated.title, 'Acme onboarding');
-  });
-
-  it('PATCHes session shared when updateSession receives shared', async () => {
-    sessionRequests.length = 0;
-    const server = createHarnessChatServer({ fetch: fetchMock });
-    const updated = await server.updateSession({ sessionId: 'ses_1', shared: true });
-    assert.deepEqual(sessionRequests.at(-1), { shared: true });
-    assert.equal(updated.shared, true);
   });
 
   it('listSessions forwards an unknown agentId to the API (empty page from the server)', async () => {
