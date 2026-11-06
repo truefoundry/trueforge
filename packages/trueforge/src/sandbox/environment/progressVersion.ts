@@ -2,15 +2,15 @@
 import { DAYTONA_SNAPSHOT_NOT_STARTED_REASON, withTimeout } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
-import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
-import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
+import type { ISandboxEnvironmentStore } from '../../db/sandboxEnvironmentStore';
+import type { ISandboxProviderStore } from '../../db/sandboxProviderStore';
 import {
   DAYTONA_RPC_TIMEOUT_MS,
   getDaytonaBuildFailureMessage,
   toDaytonaSandboxProvider,
   toSandboxEnvironment,
   toSandboxStatus,
-} from '../sandbox/providerUtils';
+} from '../providerUtils';
 
 export async function progressSandboxEnvironmentVersion({
   sandboxEnvironmentStore,
