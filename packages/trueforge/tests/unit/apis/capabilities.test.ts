@@ -53,6 +53,8 @@ function mockDefaultEnvStore(): ISandboxEnvironmentStore {
   return {
     getEnvironment: () => Promise.resolve(withStatus(mockLatestDefaultStatus)),
     getActiveEnvironment: () => Promise.resolve(withStatus(mockActiveDefaultStatus)),
+    getDefaultEnvironment: () => Promise.resolve(withStatus(mockActiveDefaultStatus)),
+    hasUsableEnvironment: () => Promise.resolve(mockActiveDefaultStatus === 'ready'),
   } as unknown as ISandboxEnvironmentStore;
 }
 

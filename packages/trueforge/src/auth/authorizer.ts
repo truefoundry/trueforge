@@ -7,15 +7,14 @@ import {
   AGENT_USE_PERMISSIONS,
   emptyPermissionsByResourceId,
   listPermissionsData,
-  SANDBOX_ENVIRONMENT_OWNER_PERMISSIONS,
   SCHEDULE_OWNER_PERMISSIONS,
   SESSION_OWNER_PERMISSIONS,
   TENANT_CREATE_AGENT_PERMISSIONS,
   TENANT_CREATE_SANDBOX_ENVIRONMENT_PERMISSIONS,
   type ListPermissionsData,
+  type ResourcePermission,
 } from '../schemas/permissions';
-import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
-import { canCreateOrEdit, canEditSchedule, type RequestContext } from './identity';
+import { canEditSchedule, canManageOrDeleteEnvironment, type RequestContext } from './identity';
 
 export type AgentAction = 'read' | 'use' | 'manage' | 'delete';
 
@@ -59,10 +58,6 @@ export async function resolveSchedulePermissions(input: {
   return listPermissionsData('schedule', data);
 }
 
-/**
- * Sandbox environment MANAGE/DELETE via {@link canCreateOrEdit} (admin or creator).
- * Reserved `"default"` never gets write grants — platform-managed only.
- */
 export async function resolveSandboxEnvironmentPermissions(input: {
   requestContext: RequestContext;
   resourceIds: readonly string[];
@@ -74,12 +69,17 @@ export async function resolveSandboxEnvironmentPermissions(input: {
     ids: [...new Set(input.resourceIds)],
   });
   for (const environment of environments) {
-    if (environment.name === DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
-      continue;
+    const granted: ResourcePermission[] = [];
+    if (
+      canManageOrDeleteEnvironment(input.requestContext, { action: 'edit', name: environment.name }) ||
+      canManageOrDeleteEnvironment(input.requestContext, { action: 'patch', name: environment.name })
+    ) {
+      granted.push('MANAGE');
     }
-    if (canCreateOrEdit(input.requestContext, environment.created_by_subject.subject_id)) {
-      data[environment.id] = [...SANDBOX_ENVIRONMENT_OWNER_PERMISSIONS];
+    if (canManageOrDeleteEnvironment(input.requestContext, { action: 'delete', name: environment.name })) {
+      granted.push('DELETE');
     }
+    data[environment.id] = granted;
   }
   return listPermissionsData('sandbox_environment', data);
 }
@@ -87,7 +87,9 @@ export async function resolveSandboxEnvironmentPermissions(input: {
 function tenantCreatePermissions(requestContext: RequestContext): ListPermissionsData {
   return listPermissionsData('tenant', {
     agent: [...TENANT_CREATE_AGENT_PERMISSIONS],
-    sandbox_environment: canCreateOrEdit(requestContext) ? [...TENANT_CREATE_SANDBOX_ENVIRONMENT_PERMISSIONS] : [],
+    sandbox_environment: canManageOrDeleteEnvironment(requestContext, { action: 'create' })
+      ? [...TENANT_CREATE_SANDBOX_ENVIRONMENT_PERMISSIONS]
+      : [],
   });
 }
 
