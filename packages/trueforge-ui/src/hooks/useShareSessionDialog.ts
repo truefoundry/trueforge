@@ -20,7 +20,7 @@ export function useShareSessionDialog(sessionId: string | null | undefined): {
   canManage: boolean;
   /** Tenant-wide sharing is a session `shared` write; needs MANAGE only. */
   canChangePermission: boolean;
-  canInvite: boolean;
+  canShare: boolean;
   loading: boolean;
   shareUrl: string;
   copied: boolean;
@@ -57,8 +57,8 @@ export function useShareSessionDialog(sessionId: string | null | undefined): {
   const shareUrl = hasSession ? buildSharedSessionHref({ sessionId, routes }) : '';
   const canChangePermission = canManage;
   // Absent until capabilities settle; hide invite so the field does not flash in.
-  const canInviteUsers = capabilities?.sessionSharing.granularity === 'subject';
-  const canInvite = canManage && sessionAccess != null && canInviteUsers;
+  const canShareWithUsers = capabilities?.sessionSharing.granularity === 'subject';
+  const canShare = canManage && sessionAccess != null && canShareWithUsers;
 
   const refreshCollaborators = useCallback(async () => {
     if (!hasSession || sessionAccess == null || collaboratorMutationsRef.current > 0) return;
@@ -70,7 +70,7 @@ export function useShareSessionDialog(sessionId: string | null | undefined): {
 
   // Runs when invite-by-user becomes available (capabilities settle after open).
   useEffect(() => {
-    if (!canInvite || !hasSession || sessionAccess == null) {
+    if (!canShare || !hasSession || sessionAccess == null) {
       collaboratorListEpochRef.current++;
       setCollaborators(current => (current.length === 0 ? current : []));
       return undefined;
@@ -84,7 +84,7 @@ export function useShareSessionDialog(sessionId: string | null | undefined): {
     };
     // toaster is read for errors only; its identity must not retrigger the list.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- toaster
-  }, [canInvite, hasSession, refreshCollaborators, sessionAccess, sessionId]);
+  }, [canShare, hasSession, refreshCollaborators, sessionAccess, sessionId]);
 
   const load = useCallback(async () => {
     if (!hasSession || server == null) return;
@@ -102,13 +102,13 @@ export function useShareSessionDialog(sessionId: string | null | undefined): {
         }
       }
       // Re-fetch on every open so external grant/revoke changes are visible.
-      if (canInvite && sessionAccess != null) await refreshCollaborators();
+      if (canShare && sessionAccess != null) await refreshCollaborators();
     } catch (caught) {
       toaster?.showError(caught);
     } finally {
       setLoading(false);
     }
-  }, [canInvite, hasSession, refreshCollaborators, server, sessionAccess, sessionId, toaster]);
+  }, [canShare, hasSession, refreshCollaborators, server, sessionAccess, sessionId, toaster]);
 
   const changePermission = useCallback(
     async (next: SessionSharePermission) => {
@@ -129,7 +129,7 @@ export function useShareSessionDialog(sessionId: string | null | undefined): {
 
   const invite = useCallback(
     async (users: DirectoryUser[]) => {
-      if (!canInvite || !hasSession || sessionAccess == null || users.length === 0) return false;
+      if (!canShare || !hasSession || sessionAccess == null || users.length === 0) return false;
       collaboratorMutationsRef.current++;
       collaboratorListEpochRef.current++;
       try {
@@ -147,12 +147,12 @@ export function useShareSessionDialog(sessionId: string | null | undefined): {
         collaboratorListEpochRef.current++;
       }
     },
-    [canInvite, hasSession, sessionAccess, sessionId, toaster],
+    [canShare, hasSession, sessionAccess, sessionId, toaster],
   );
 
   const removeCollaborator = useCallback(
     async (subjectId: string) => {
-      if (!canInvite || !hasSession || sessionAccess == null) return;
+      if (!canShare || !hasSession || sessionAccess == null) return;
       collaboratorMutationsRef.current++;
       collaboratorListEpochRef.current++;
       // Only this grant — a failed revoke must not resurrect peers removed concurrently.
@@ -172,7 +172,7 @@ export function useShareSessionDialog(sessionId: string | null | undefined): {
         collaboratorListEpochRef.current++;
       }
     },
-    [canInvite, hasSession, sessionAccess, sessionId, toaster],
+    [canShare, hasSession, sessionAccess, sessionId, toaster],
   );
 
   const copySharedSessionLink = useCallback(async () => {
@@ -190,7 +190,7 @@ export function useShareSessionDialog(sessionId: string | null | undefined): {
     permission,
     canManage,
     canChangePermission,
-    canInvite,
+    canShare,
     loading,
     shareUrl,
     copied,

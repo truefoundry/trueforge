@@ -112,7 +112,7 @@ describe('useShareSessionDialog', () => {
     await act(() => result.current.load());
 
     expect(listAccess).not.toHaveBeenCalled();
-    expect(result.current.canInvite).toBe(false);
+    expect(result.current.canShare).toBe(false);
     expect(result.current.canChangePermission).toBe(false);
   });
 
@@ -122,7 +122,7 @@ describe('useShareSessionDialog', () => {
     await act(() => result.current.load());
 
     expect(listAccess).not.toHaveBeenCalled();
-    expect(result.current.canInvite).toBe(false);
+    expect(result.current.canShare).toBe(false);
     expect(result.current.canChangePermission).toBe(true);
   });
 
@@ -132,7 +132,7 @@ describe('useShareSessionDialog', () => {
     await act(() => result.current.load());
 
     expect(listAccess).not.toHaveBeenCalled();
-    expect(result.current.canInvite).toBe(false);
+    expect(result.current.canShare).toBe(false);
     expect(result.current.canChangePermission).toBe(true);
   });
 
