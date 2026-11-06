@@ -23,7 +23,7 @@ import {
 import type { IMcpServerStore, IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IMemoryProviderStore } from '../db/memoryProviderStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
-import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
+import type { ISandboxEnvironmentStore, SandboxEnvironmentWithVersion } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import type { TurnMetadata } from '../db/turnMetadata';
@@ -37,7 +37,6 @@ import {
   type ResolvedSandboxProvider,
 } from '../sandbox/providerUtils';
 import type { ReasoningEffort } from '../schemas/modelProvider';
-import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
 import { hasConfiguredWebSearchProvider } from '../websearch/providers';
 
 /** Split `provider/model` FQN. Returns undefined when the shape is not exactly one slash. */
@@ -192,33 +191,8 @@ export async function resolveSandboxProvider({
   });
 }
 
-/**
- * Load a ready sandbox environment for create. Throws 422 when missing or not ready.
- * When `optional` is true, a missing environment returns undefined instead of 422.
- */
-export async function resolveSandboxEnvironment({
-  tenant_id,
-  name,
-  sandboxEnvironmentStore,
-  optional = false,
-}: {
-  tenant_id: string;
-  name: string;
-  sandboxEnvironmentStore: ISandboxEnvironmentStore;
-  optional?: boolean;
-}): Promise<DaytonaSandboxEnvironment | undefined> {
-  const loaded = await sandboxEnvironmentStore.getActiveEnvironment({
-    tenant_id,
-    name,
-  });
-  if (loaded === undefined) {
-    if (optional) {
-      return undefined;
-    }
-    throw new HTTPException(422, {
-      message: `Unknown sandbox environment "${name}" — not configured`,
-    });
-  }
+function toReadySandboxEnvironment(loaded: SandboxEnvironmentWithVersion): DaytonaSandboxEnvironment {
+  const name = loaded.environment.name;
   if (loaded.version.status !== 'ready') {
     throw new HTTPException(422, {
       message:
@@ -227,12 +201,44 @@ export async function resolveSandboxEnvironment({
           : `Sandbox environment "${name}" is not ready (status: ${loaded.version.status}) — retry shortly`,
     });
   }
-
   return toSandboxEnvironment({
     external_ref: loaded.version.external_ref,
     manifest: loaded.version.manifest,
     ...(loaded.mounted_secrets ? { mounted_secrets: loaded.mounted_secrets } : {}),
   });
+}
+
+/**
+ * Load a ready sandbox environment for create. Throws 422 when a named environment is missing
+ * or not ready. With no name, falls back to the tenant default and returns undefined when the
+ * tenant has none or it is disabled.
+ */
+export async function resolveSandboxEnvironment({
+  tenant_id,
+  name,
+  sandboxEnvironmentStore,
+}: {
+  tenant_id: string;
+  name: string | undefined;
+  sandboxEnvironmentStore: ISandboxEnvironmentStore;
+}): Promise<DaytonaSandboxEnvironment | undefined> {
+  if (name === undefined) {
+    const fallback = await sandboxEnvironmentStore.getDefaultEnvironment({ tenant_id });
+    if (fallback?.environment.enabled !== true) {
+      return undefined;
+    }
+    return toReadySandboxEnvironment(fallback);
+  }
+  const loaded = await sandboxEnvironmentStore.getActiveEnvironment({
+    tenant_id,
+    name,
+  });
+  if (loaded === undefined) {
+    throw new HTTPException(422, {
+      message: `Unknown sandbox environment "${name}" — not configured`,
+    });
+  }
+  return toReadySandboxEnvironment(loaded);
 }
 
 /**
@@ -347,7 +353,7 @@ export async function validateAgentSpec({
   }
 
   const environmentName = spec.config.sandbox.environment_name;
-  if (environmentName && environmentName !== DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
+  if (environmentName !== undefined) {
     const environment = await sandboxEnvironmentStore.getEnvironment({
       tenant_id,
       name: environmentName,
@@ -355,6 +361,11 @@ export async function validateAgentSpec({
     if (environment === undefined) {
       throw new HTTPException(422, {
         message: `Unknown sandbox environment "${environmentName}" — not configured`,
+      });
+    }
+    if (!environment.environment.enabled && previousSpec?.config.sandbox.environment_name !== environmentName) {
+      throw new HTTPException(422, {
+        message: `Sandbox environment "${environmentName}" is disabled and cannot be selected`,
       });
     }
   }

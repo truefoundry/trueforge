@@ -3,6 +3,8 @@ import type { AgentRuntimeConfig, AgentSpec } from './types.js';
 /** @deprecated Migrated into chat/agent keys on first read. */
 export const DRAFT_SPEC_PREFERENCES_STORAGE_KEY = 'tfy-aui-draft-spec-preferences';
 export const CHAT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY = 'tfy-aui-chat-draft-spec-preferences';
+/** Built-in TrueForge tools switch for new chat. Absent means enabled. */
+export const CHAT_TRUEFORGE_ENABLED_STORAGE_KEY = 'tfy-aui-chat-trueforge-enabled';
 export const AGENT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY = 'tfy-aui-agent-draft-spec-preferences';
 
 export type DraftPreferenceKind = 'chat' | 'agent';
@@ -62,13 +64,13 @@ function readTrimmedString(value: object, key: string): string {
 
 type SandboxConfig = NonNullable<AgentRuntimeConfig['sandbox']>;
 
-/** Display name. A leftover wire `environment_name` counts when the client field is empty. */
-export function readSandboxEnvironmentName(sandbox: object | undefined): string {
-  if (!isObject(sandbox)) return 'default';
+/** The environment the spec names, or undefined when it names none. */
+export function readSandboxEnvironmentName(sandbox: object | undefined): string | undefined {
+  if (!isObject(sandbox)) return undefined;
   const camelName = readTrimmedString(sandbox, 'environmentName');
   if (camelName.length > 0) return camelName;
   const snakeName = readTrimmedString(sandbox, 'environment_name');
-  return snakeName.length > 0 ? snakeName : 'default';
+  return snakeName.length > 0 ? snakeName : undefined;
 }
 
 /** Set the client field and drop a leftover wire key so passthrough serialization cannot send it. */
@@ -348,6 +350,26 @@ function migrateLegacyDraftPreferences(): void {
     window.localStorage.removeItem(DRAFT_SPEC_PREFERENCES_STORAGE_KEY);
   } catch {
     // Ignore quota / private-mode failures; next read still prefers kind keys.
+  }
+}
+
+/** New-chat Built-in switch. Missing or unreadable storage stays enabled. */
+export function readChatTrueforgeEnabled(): boolean {
+  if (typeof window === 'undefined') return true;
+  try {
+    const stored = window.localStorage.getItem(CHAT_TRUEFORGE_ENABLED_STORAGE_KEY);
+    return stored == null ? true : stored === 'true';
+  } catch {
+    return true;
+  }
+}
+
+export function writeChatTrueforgeEnabled(enabled: boolean): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(CHAT_TRUEFORGE_ENABLED_STORAGE_KEY, enabled ? 'true' : 'false');
+  } catch {
+    // Storage can be unavailable; the open composer still keeps the choice in memory.
   }
 }
 

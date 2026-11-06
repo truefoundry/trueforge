@@ -316,6 +316,8 @@ export interface AgentTable {
 /**
  * Sandbox environments - mirrors Postgres `sandbox_environment`.
  * Partial unique (tenant_id, name) WHERE lifecycle_stage = 'active'.
+ * Partial unique (tenant_id) WHERE is_default = 1.
+ * `enabled` / `is_default` are INTEGER 0/1 (STRICT has no boolean).
  */
 export interface SandboxEnvironmentTable {
   id: string;
@@ -324,6 +326,8 @@ export interface SandboxEnvironmentTable {
   description: string;
   active_version: number;
   lifecycle_stage: SandboxEnvironmentLifecycleStage;
+  enabled: number;
+  is_default: number;
   created_by_subject: JsonbColumn<CreatedBySubject>;
   created_at: string;
   updated_at: string;

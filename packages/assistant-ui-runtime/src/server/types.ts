@@ -151,7 +151,6 @@ export interface AgentRuntimeConfig {
   dynamicSubAgents?: AgentCapabilityConfig;
   askUserQuestions?: AgentCapabilityConfig;
   webSearch?: AgentCapabilityConfig;
-  /** Long-term memory for this agent. */
   memory?: AgentCapabilityConfig;
 }
 
@@ -395,14 +394,12 @@ export interface AgentChatServer<
     sessionId: string;
     pageToken?: string;
     lastTurnId?: string;
-    limit?: number;
   }): Promise<ListResult<SessionEventItem>>;
 
   /** Optional per-turn event listing (hydrate in-flight turn content). */
   listTurnEvents?(req: {
     sessionId: string;
     turnId: string;
-    limit?: number;
     pageToken?: string;
     order?: ListSessionsOrder;
   }): Promise<ListResult<TurnEvent>>;
@@ -487,8 +484,8 @@ export interface AgentBuilderCapabilitiesResponse {
     webSearch?: { enabled: boolean; reason?: string };
     /** Absent when the host does not offer memory, which hides memory settings; `reason` explains a locked toggle. */
     memory?: { enabled: boolean; reason?: string };
-    /** Present when the host reports session sharing; `enabled` gates invite-by-user. */
-    sessionSharing?: { enabled: boolean };
+    /** Finest supported sharing scope; `subject` allows invite-by-user as well as tenant-wide sharing. */
+    sessionSharing: { granularity: 'tenant' | 'subject' };
   };
 }
 
@@ -1066,7 +1063,7 @@ export interface SessionListEntry<TSpec extends AgentSpec = AgentSpec> {
 }
 
 /** Params for `AgentSessionsServer.listSessionEvents` (session event timeline). */
-export interface ListSessionEventsParams extends Pick<PageParams, 'limit' | 'pageToken'> {
+export interface ListSessionEventsParams extends Pick<PageParams, 'pageToken'> {
   sessionId: string;
 }
 
@@ -1227,6 +1224,10 @@ export interface SandboxEnvironment {
   id: string;
   name: string;
   description: string;
+  /** Whether new chats and agents may select this environment. */
+  enabled: boolean;
+  /** Whether chats and agents that name no environment get this one. */
+  isDefault: boolean;
   status: SandboxEnvironmentStatus;
   statusReason: string | null;
   manifest: SandboxEnvironmentManifest;
@@ -1243,6 +1244,8 @@ export interface SandboxEnvironmentServer<TEnvironment extends SandboxEnvironmen
   /** Create only — fails if `manifest.name` is already taken. */
   createEnvironment(req: { manifest: SandboxEnvironmentManifest }): Promise<TEnvironment>;
   createOrUpdateEnvironment(req: { manifest: SandboxEnvironmentManifest }): Promise<TEnvironment>;
+  setEnvironmentEnabled(req: { name: string; enabled: boolean }): Promise<TEnvironment>;
+  setDefaultEnvironment(req: { name: string }): Promise<TEnvironment>;
   deleteEnvironment(req: { name: string }): Promise<void>;
 }
 

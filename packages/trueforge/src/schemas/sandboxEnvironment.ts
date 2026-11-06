@@ -18,10 +18,10 @@ export const SANDBOX_ENVIRONMENT_VARIABLE_VALUE_MAX_LENGTH = 4096;
 export const SANDBOX_ENVIRONMENT_DOMAIN_ALLOW_LIST_MAX_LENGTH = 1024;
 export const SANDBOX_ENVIRONMENT_SECRETS_MAX_LENGTH = 1024;
 
-/** Reserved system environment name (tenant default; not creatable via public CRUD). */
-export const DEFAULT_SANDBOX_ENVIRONMENT_NAME = 'default';
+/** Reserved platform-provisioned environment name (not creatable via public CRUD). */
+export const RESERVED_SANDBOX_ENVIRONMENT_NAME = 'default';
 
-export const DEFAULT_SANDBOX_ENVIRONMENT_RESOURCES = { cpu: 1, memory: 1, disk: 3 } as const;
+export const RESERVED_SANDBOX_ENVIRONMENT_RESOURCES = { cpu: 1, memory: 1, disk: 3 } as const;
 
 const BUILD_SCRIPT_EXAMPLE = 'set -ex\npip install httpx\n';
 
@@ -55,13 +55,17 @@ export const SandboxEnvironmentImageSchema = z
 
 export const SandboxEnvironmentResourcesSchema = z
   .object({
-    cpu: z.number().positive().default(DEFAULT_SANDBOX_ENVIRONMENT_RESOURCES.cpu).describe('CPU allocation in cores.'),
+    cpu: z.number().positive().default(RESERVED_SANDBOX_ENVIRONMENT_RESOURCES.cpu).describe('CPU allocation in cores.'),
     memory: z
       .number()
       .positive()
-      .default(DEFAULT_SANDBOX_ENVIRONMENT_RESOURCES.memory)
+      .default(RESERVED_SANDBOX_ENVIRONMENT_RESOURCES.memory)
       .describe('Memory allocation in GiB.'),
-    disk: z.number().positive().default(DEFAULT_SANDBOX_ENVIRONMENT_RESOURCES.disk).describe('Disk allocation in GiB.'),
+    disk: z
+      .number()
+      .positive()
+      .default(RESERVED_SANDBOX_ENVIRONMENT_RESOURCES.disk)
+      .describe('Disk allocation in GiB.'),
   })
   .strict()
   .openapi('SandboxEnvironmentResources');
@@ -134,7 +138,7 @@ const SandboxEnvironmentManifestFieldsSchema = z
     name: NameSchema,
     description: SandboxEnvironmentDescriptionSchema.optional(),
     image: SandboxEnvironmentImageSchema.optional(),
-    resources: SandboxEnvironmentResourcesSchema.default(DEFAULT_SANDBOX_ENVIRONMENT_RESOURCES),
+    resources: SandboxEnvironmentResourcesSchema.default(RESERVED_SANDBOX_ENVIRONMENT_RESOURCES),
     environment_variables: z
       .record(SandboxEnvironmentVariableNameSchema, SandboxEnvironmentVariableValueSchema)
       .optional(),
@@ -148,7 +152,7 @@ export const SandboxEnvironmentManifestSchema =
 
 /** PUT body manifest — rejects reserved name `"default"`. */
 export const SandboxEnvironmentManifestRequestSchema = SandboxEnvironmentManifestFieldsSchema.refine(
-  manifest => manifest.name !== DEFAULT_SANDBOX_ENVIRONMENT_NAME,
+  manifest => manifest.name !== RESERVED_SANDBOX_ENVIRONMENT_NAME,
   { message: 'name "default" is reserved', path: ['name'] },
 ).openapi('SandboxEnvironmentManifestRequest');
 
@@ -210,13 +214,35 @@ function refineSandboxEnvironmentResources(
   }
 }
 
+function refineSandboxEnvironmentBuildScript(
+  body: { manifest: z.infer<typeof SandboxEnvironmentManifestRequestSchema> },
+  ctx: z.RefinementCtx,
+): void {
+  const buildScript = body.manifest.image?.build_script;
+  if (buildScript !== undefined && buildScript.length > configuration.SANDBOX_ENVIRONMENT_BUILD_SCRIPT_MAX_LENGTH) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['manifest', 'image', 'build_script'],
+      message: 'Sandbox environment build script exceeds configured limit',
+    });
+  }
+}
+
+function refineSandboxEnvironmentRequest(
+  body: { manifest: z.infer<typeof SandboxEnvironmentManifestRequestSchema> },
+  ctx: z.RefinementCtx,
+): void {
+  refineSandboxEnvironmentResources(body, ctx);
+  refineSandboxEnvironmentBuildScript(body, ctx);
+}
+
 /** POST create body. */
 export const CreateSandboxEnvironmentRequestSchema = z
   .object({
     manifest: SandboxEnvironmentManifestRequestSchema,
   })
   .strict()
-  .superRefine(refineSandboxEnvironmentResources)
+  .superRefine(refineSandboxEnvironmentRequest)
   .openapi('CreateSandboxEnvironmentRequest');
 
 /** PUT create-or-update body. */
@@ -225,8 +251,30 @@ export const UpdateSandboxEnvironmentRequestSchema = z
     manifest: SandboxEnvironmentManifestRequestSchema,
   })
   .strict()
-  .superRefine(refineSandboxEnvironmentResources)
+  .superRefine(refineSandboxEnvironmentRequest)
   .openapi('UpdateSandboxEnvironmentRequest');
+
+export const PatchSandboxEnvironmentRequestSchema = z
+  .object({
+    enabled: z.boolean().optional().describe('Whether new chats and agents may select this environment.'),
+    is_default: z.boolean().optional().describe('If true, make this environment the default in new chats and agents.'),
+  })
+  .strict()
+  .superRefine((body, ctx) => {
+    if (body.enabled === undefined && body.is_default === undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'At least one of enabled or is_default is required',
+      });
+    }
+    if (body.enabled === false && body.is_default === true) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Cannot set a disabled environment as default',
+      });
+    }
+  })
+  .openapi('PatchSandboxEnvironmentRequest');
 
 const IsoTimestamp = z.iso.datetime().openapi({ type: 'string', format: 'date-time' });
 
@@ -236,6 +284,8 @@ export const SandboxEnvironmentSchema = z
     name: NameSchema,
     description: z.string().describe('Human-readable description; empty when unset.'),
     lifecycle_stage: SandboxEnvironmentLifecycleStageSchema,
+    enabled: z.boolean().describe('Whether new chats and agents may select this environment.'),
+    is_default: z.boolean().describe('If true, environment is selected by default in new chats and agents.'),
     status: SandboxEnvironmentVersionStatusSchema.describe('Readiness of the environment.'),
     status_reason: z.string().nullable().describe('Failure detail when status is failed; null otherwise.'),
     manifest: SandboxEnvironmentManifestSchema,
@@ -268,4 +318,5 @@ export type SandboxEnvironmentIdentity = z.infer<typeof SandboxEnvironmentIdenti
 export type SandboxEnvironmentVersionInternalMetadata = z.infer<typeof SandboxEnvironmentVersionInternalMetadataSchema>;
 export type CreateSandboxEnvironmentRequest = z.infer<typeof CreateSandboxEnvironmentRequestSchema>;
 export type UpdateSandboxEnvironmentRequest = z.infer<typeof UpdateSandboxEnvironmentRequestSchema>;
+export type PatchSandboxEnvironmentRequest = z.infer<typeof PatchSandboxEnvironmentRequestSchema>;
 export type SandboxEnvironment = z.infer<typeof SandboxEnvironmentSchema>;

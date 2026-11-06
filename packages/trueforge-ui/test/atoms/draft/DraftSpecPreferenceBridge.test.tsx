@@ -6,7 +6,7 @@ import { DraftCatalogProvider } from '@/atoms/draft/DraftCatalogProvider.js';
 import { DraftSpecPreferenceBridge } from '@/atoms/draft/DraftSpecPreferenceBridge.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import type { AgentSpec } from '@/server/types.js';
-import { createMockAgentUIServer } from '../../server/mockServer.js';
+import { createMockAgentUIServer, tenantSessionSharing } from '../../server/mockServer.js';
 
 let agentSpec: AgentSpec;
 let draftSessionId: string | undefined;
@@ -37,6 +37,7 @@ function renderBridge() {
       data: {
         sandbox: { enabled: true },
         skill: { enabled: true },
+        sessionSharing: tenantSessionSharing,
         webSearch: { enabled: false },
       },
     }),

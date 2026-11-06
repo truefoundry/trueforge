@@ -7,6 +7,7 @@ import configuration, {
   isTrueFoundryModeEnabled,
   TrueForgeAuthMode,
 } from '../config';
+import { RESERVED_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
 import { createTrueFoundryRequestContext } from '../truefoundry/accessToken';
 
 /** Standalone / default TrueForge admin role string. */
@@ -85,19 +86,19 @@ export function areCatalogSettingsAvailable(): boolean {
   return getTrueForgeAuthMode() !== TrueForgeAuthMode.TrueFoundry;
 }
 
-/**
- * Create / update / delete sandbox environments (list/get stay open to all callers).
- * - Create (no `created_by_subject_id`): admin only
- * - Update / delete: admin or the environment creator
- */
-export function canCreateOrEdit(
-  requestContext: Pick<RequestContext, 'subject' | 'roles'>,
-  created_by_subject_id?: string,
+export type SandboxEnvironmentMutation = 'create' | 'edit' | 'delete' | 'patch';
+
+export function canManageOrDeleteEnvironment(
+  requestContext: Pick<RequestContext, 'roles'>,
+  options: { action: SandboxEnvironmentMutation; name?: string },
 ): boolean {
-  return (
-    hasAdminRole(requestContext) ||
-    (created_by_subject_id !== undefined && requestContext.subject.id === created_by_subject_id)
-  );
+  if (!hasAdminRole(requestContext)) {
+    return false;
+  }
+  if (options.name === RESERVED_SANDBOX_ENVIRONMENT_NAME) {
+    return options.action === 'patch';
+  }
+  return true;
 }
 
 /** Update / delete / run-now a schedule (and admin/creator schedule reads). */

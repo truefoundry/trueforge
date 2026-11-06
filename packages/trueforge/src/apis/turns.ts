@@ -81,7 +81,6 @@ import {
   resolveSandboxEnvironment,
   resolveSandboxProvider,
 } from '../runtime/sessionResources';
-import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
 import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
 import { assertGatewayMetadataRequestHeaders } from '../truefoundry/gatewayMetadata';
 import type { ICapabilitiesStore } from '../truefoundry/inlineTools';
@@ -303,9 +302,8 @@ function createTurnResolver(deps: {
       if (provider.envSupported) {
         const environment = await resolveSandboxEnvironment({
           tenant_id,
-          name: spec.config.sandbox.environment_name ?? DEFAULT_SANDBOX_ENVIRONMENT_NAME,
+          name: spec.config.sandbox.environment_name,
           sandboxEnvironmentStore,
-          optional: spec.config.sandbox.environment_name === undefined,
         });
         return buildTurnSandbox({
           provider,
@@ -487,6 +485,16 @@ export interface TurnEventDrainInput {
 }
 
 /**
+ * Process-lifetime mTLS fetch for the built-in TrueForge MCP. `createTlsFetch` allocates an undici
+ * Agent when mTLS is on, and RemoteMCP never closes that dispatcher, so a per-turn fetch would leak
+ * a connection pool on every opted-in chat.
+ */
+const trueforgeMcpFetch = createTlsFetch({
+  enabled: configuration.MTLS_ENABLED,
+  dir: configuration.MTLS_CERTS_DIR,
+});
+
+/**
  * Shared create-turn engine: persist the turn, start execution, and return the
  * drain inputs. Does not wait for events and does not write HTTP/SSE.
  */
@@ -521,10 +529,10 @@ export async function beginTurnExecution(
     }),
   ]);
 
-  // TrueForge MCP is enabled when the agent is inline, a request context exists, and the header is present.
+  // TrueForge MCP is a draft-chat tool. The UI sends the header while the Built-in switch is on.
   const requestContext = deps.requestContext;
   const enableTrueForgeMcp =
-    session.record.agent.type === 'inline' &&
+    sessionAgent.type === 'inline' &&
     requestContext !== undefined &&
     Object.keys(requestHeaders ?? {}).some(header => header.toLowerCase() === X_TFG_TRUEFORGE_MCP);
   const trueforgeMcp = enableTrueForgeMcp
@@ -541,10 +549,7 @@ export async function beginTurnExecution(
             ? {}
             : { Authorization: `Bearer ${requestContext.user_credential}` }),
         },
-        fetchFn: createTlsFetch({
-          enabled: configuration.MTLS_ENABLED,
-          dir: configuration.MTLS_CERTS_DIR,
-        }),
+        fetchFn: trueforgeMcpFetch,
       }
     : undefined;
   const resolver = createTurnResolver({

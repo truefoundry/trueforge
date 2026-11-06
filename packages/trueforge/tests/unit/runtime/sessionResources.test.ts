@@ -574,7 +574,9 @@ describe('validateAgentSpec', () => {
         auto_delete_interval_in_minutes: 7200,
       },
     });
-    const getEnvironment = jest.spyOn(stores.sandboxEnvironmentStore, 'getEnvironment').mockResolvedValue({} as never);
+    const getEnvironment = jest
+      .spyOn(stores.sandboxEnvironmentStore, 'getEnvironment')
+      .mockResolvedValue({ environment: { enabled: true } } as never);
 
     await expect(
       validateAgentSpec({
@@ -591,6 +593,59 @@ describe('validateAgentSpec', () => {
     expect(getEnvironment).toHaveBeenCalledWith({
       tenant_id: 'default',
       name: 'shared-env',
+    });
+  });
+
+  describe('a sandbox environment that has since been disabled', () => {
+    async function setupWithDisabledEnvironment() {
+      const stores = await setup();
+      await stores.sandboxProviderStore.upsertSandboxProvider({
+        tenant_id: 'default',
+        manifest: {
+          type: 'daytona',
+          auth: { api_key: 'dtn-test' },
+          exec_timeout_ms: 60_000,
+          auto_stop_interval_in_minutes: 5,
+          auto_archive_interval_in_minutes: 60,
+          auto_delete_interval_in_minutes: 7200,
+        },
+      });
+      jest
+        .spyOn(stores.sandboxEnvironmentStore, 'getEnvironment')
+        .mockResolvedValue({ environment: { enabled: false } } as never);
+      const spec = AgentSpecSchema.parse({
+        model: { name: 'test-provider/test-model' },
+        instructions: 'test',
+        config: { sandbox: { enabled: true, environment_name: 'retired-env' } },
+      });
+      return { stores, spec };
+    }
+
+    it('still keeps a spec that already named it', async () => {
+      const { stores, spec } = await setupWithDisabledEnvironment();
+
+      await expect(
+        validateAgentSpec({
+          spec,
+          tenant_id: 'default',
+          created_by_subject_id: 'agent-author',
+          ...stores,
+          previousSpec: spec,
+        }),
+      ).resolves.toBeUndefined();
+    });
+
+    it('cannot be newly selected', async () => {
+      const { stores, spec } = await setupWithDisabledEnvironment();
+
+      await expect(
+        validateAgentSpec({
+          spec,
+          tenant_id: 'default',
+          created_by_subject_id: 'agent-author',
+          ...stores,
+        }),
+      ).rejects.toMatchObject({ status: 422 });
     });
   });
 

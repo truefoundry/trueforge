@@ -61,7 +61,7 @@ function useTrueForgeAgentRuntimeImpl(
   options: ReturnType<typeof resolveTrueForgeAgentRuntimeOptions>,
   pendingAgentSpecRef: RefObject<AgentSpec | undefined>,
 ) {
-  const { server, agent, adapters, onError, ...sharedOptions } = options;
+  const { server, agent, adapters, onError, trueforgeMcpEnabled, ...sharedOptions } = options;
 
   const draftBridgeRef = useRef(agent.mode === 'draft' ? createDraftSessionBridge(server) : null);
   if (agent.mode === 'draft' && draftBridgeRef.current == null) {
@@ -101,14 +101,17 @@ function useTrueForgeAgentRuntimeImpl(
 
   const takeTurnHeaderTimestampRef = useRef(draftSpec.takeTurnHeaderTimestamp);
   takeTurnHeaderTimestampRef.current = draftSpec.takeTurnHeaderTimestamp;
+  const trueforgeMcpEnabledRef = useRef(trueforgeMcpEnabled);
+  trueforgeMcpEnabledRef.current = trueforgeMcpEnabled;
 
   const getTurnHeaders = useCallback(async () => {
     if (agent.mode !== 'draft') {
       return undefined;
     }
     const updatedAt = await takeTurnHeaderTimestampRef.current();
+    const trueforgeEnabled = trueforgeMcpEnabledRef.current?.() ?? true;
     return {
-      [TRUEFORGE_MCP_REQUEST_HEADER]: 'true',
+      ...(trueforgeEnabled ? { [TRUEFORGE_MCP_REQUEST_HEADER]: 'true' } : {}),
       ...(updatedAt == null ? {} : { [DRAFT_SESSION_LAST_UPDATED_AT_HEADER]: updatedAt }),
     };
   }, [agent.mode]);

@@ -24,7 +24,7 @@ const DEFERRED_TOOLS_INSTRUCTION = 'deferred-tools-instructions';
 export const LIST_TOOLS_NAME = 'list_tools';
 export const GET_TOOL_INFO_NAME = 'get_tool_info';
 export const GET_TOOL_OUTPUT_SCHEMA_NAME = 'get_tool_output_schema';
-const CALL_TOOL_NAME = 'call_tool';
+export const CALL_TOOL_NAME = 'call_tool';
 const MAX_DESCRIPTION_LENGTH = 200;
 
 const listToolsSchema = z.object({

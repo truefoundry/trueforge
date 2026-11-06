@@ -3,8 +3,12 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { AgentRuntimeConfigFields } from '@/atoms/draft/AgentRuntimeConfigFields.js';
 import { ServerProvider } from '@/server/ServerContext.js';
-import type { AgentRuntimeConfig } from '@/server/types.js';
-import { createMockAgentUIServer, createMockSandboxEnvironmentServer } from '../../server/mockServer.js';
+import type { AgentRuntimeConfig, SandboxEnvironment } from '@/server/types.js';
+import {
+  createMockAgentUIServer,
+  createMockSandboxEnvironmentServer,
+  tenantSessionSharing,
+} from '../../server/mockServer.js';
 
 const setEnvironmentsOpen = vi.fn();
 
@@ -12,12 +16,68 @@ vi.mock('@/server/ShellModeContext.js', () => ({
   useOptionalShellMode: () => ({ setEnvironmentsOpen }),
 }));
 
+const sampleEnvironments: SandboxEnvironment[] = [
+  {
+    id: 'env-default',
+    name: 'default',
+    description: 'Default environment',
+    status: 'ready',
+    enabled: true,
+    isDefault: true,
+    statusReason: null,
+    manifest: { name: 'default', description: 'Default environment' },
+    createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
+    createdAt: '2026-09-01T10:00:00Z',
+    updatedAt: '2026-09-01T10:00:00Z',
+  },
+  {
+    id: 'env-1',
+    name: 'python-dev',
+    description: 'Python 3.11 environment',
+    status: 'ready',
+    enabled: true,
+    isDefault: false,
+    statusReason: null,
+    manifest: { name: 'python-dev', description: 'Python 3.11 environment' },
+    createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
+    createdAt: '2026-09-01T10:00:00Z',
+    updatedAt: '2026-09-01T10:00:00Z',
+  },
+  {
+    id: 'env-2',
+    name: 'pending-env',
+    description: '',
+    status: 'pending',
+    enabled: true,
+    isDefault: false,
+    statusReason: null,
+    manifest: { name: 'pending-env' },
+    createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
+    createdAt: '2026-09-01T10:00:00Z',
+    updatedAt: '2026-09-01T10:00:00Z',
+  },
+  {
+    id: 'env-3',
+    name: 'retired-env',
+    description: '',
+    status: 'ready',
+    enabled: false,
+    isDefault: false,
+    statusReason: null,
+    manifest: { name: 'retired-env' },
+    createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
+    createdAt: '2026-09-01T10:00:00Z',
+    updatedAt: '2026-09-01T10:00:00Z',
+  },
+];
+
 function renderRuntimeFields({
   value = { sandbox: { enabled: true } },
   layout = 'detailed',
   sandboxAvailable = true,
   hasSkills = false,
   webSearch,
+  environments = sampleEnvironments,
   memory,
   onChange = vi.fn(),
 }: {
@@ -26,47 +86,12 @@ function renderRuntimeFields({
   sandboxAvailable?: boolean;
   hasSkills?: boolean;
   webSearch?: { enabled: boolean; reason?: string };
+  environments?: SandboxEnvironment[];
   memory?: { enabled: boolean; reason?: string };
   onChange?: (val: AgentRuntimeConfig) => void;
 } = {}) {
   const environmentServer = createMockSandboxEnvironmentServer({
-    listEnvironments: async () => ({
-      data: [
-        {
-          id: 'env-default',
-          name: 'default',
-          description: 'Default environment',
-          status: 'ready',
-          statusReason: null,
-          manifest: { name: 'default', description: 'Default environment' },
-          createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
-          createdAt: '2026-09-01T10:00:00Z',
-          updatedAt: '2026-09-01T10:00:00Z',
-        },
-        {
-          id: 'env-1',
-          name: 'python-dev',
-          description: 'Python 3.11 environment',
-          status: 'ready',
-          statusReason: null,
-          manifest: { name: 'python-dev', description: 'Python 3.11 environment' },
-          createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
-          createdAt: '2026-09-01T10:00:00Z',
-          updatedAt: '2026-09-01T10:00:00Z',
-        },
-        {
-          id: 'env-2',
-          name: 'pending-env',
-          description: '',
-          status: 'pending',
-          statusReason: null,
-          manifest: { name: 'pending-env' },
-          createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
-          createdAt: '2026-09-01T10:00:00Z',
-          updatedAt: '2026-09-01T10:00:00Z',
-        },
-      ],
-    }),
+    listEnvironments: async () => ({ data: environments }),
   });
 
   const server = createMockAgentUIServer({
@@ -75,6 +100,7 @@ function renderRuntimeFields({
       data: {
         sandbox: { enabled: true, environments: { enabled: true } },
         skill: { enabled: true },
+        sessionSharing: tenantSessionSharing,
         ...(webSearch === undefined ? {} : { webSearch }),
         ...(memory === undefined ? {} : { memory }),
       },
@@ -189,20 +215,26 @@ describe('AgentRuntimeConfigFields', () => {
     expect(screen.queryByText(/Turning it off here is final/)).not.toBeInTheDocument();
   });
 
-  it('populates environment dropdown with default and ready environments only', async () => {
+  it('lists every environment, greying out the ones that cannot be picked', async () => {
     const onChange = vi.fn();
     renderRuntimeFields({ onChange });
 
-    const trigger = await screen.findByRole('button', { name: 'Environment' });
-    await waitFor(() => {
-      expect(trigger).toHaveTextContent('default');
-    });
-
-    fireEvent.click(trigger);
+    fireEvent.click(await screen.findByRole('button', { name: 'Environment' }));
 
     expect(await screen.findByRole('option', { name: 'python-dev' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'default' })).toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: 'pending-env' })).not.toBeInTheDocument();
+
+    const building = screen.getByRole('option', { name: 'pending-env' });
+    expect(building).toBeDisabled();
+    fireEvent.mouseEnter(building.parentElement ?? building);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Still building');
+    fireEvent.mouseLeave(building.parentElement ?? building);
+
+    const retired = screen.getByRole('option', { name: 'retired-env' });
+    expect(retired).toBeDisabled();
+    fireEvent.mouseEnter(retired.parentElement ?? retired);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Disabled by an admin');
+    fireEvent.mouseLeave(retired.parentElement ?? retired);
 
     fireEvent.click(screen.getByRole('option', { name: 'python-dev' }));
     expect(onChange).toHaveBeenCalledWith(
@@ -212,6 +244,69 @@ describe('AgentRuntimeConfigFields', () => {
         }),
       }),
     );
+  });
+
+  it('pins the tenant default when the config names no environment', async () => {
+    const onChange = vi.fn();
+    renderRuntimeFields({ onChange });
+
+    await waitFor(() => {
+      expect(onChange).toHaveBeenCalledWith(
+        expect.objectContaining({ sandbox: expect.objectContaining({ environmentName: 'default' }) }),
+      );
+    });
+  });
+
+  it('leaves an already named environment alone', async () => {
+    const onChange = vi.fn();
+    renderRuntimeFields({ value: { sandbox: { enabled: true, environmentName: 'python-dev' } }, onChange });
+
+    const trigger = await screen.findByRole('button', { name: 'Environment' });
+    await waitFor(() => {
+      expect(trigger).toHaveTextContent('python-dev');
+    });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('shows and pins a default that is still building', async () => {
+    const onChange = vi.fn();
+    const buildingDefault = sampleEnvironments.map(env =>
+      env.name === 'default' ? { ...env, status: 'pending' as const } : env,
+    );
+    renderRuntimeFields({ environments: buildingDefault, onChange });
+
+    const trigger = await screen.findByRole('button', { name: 'Environment' });
+    await waitFor(() => {
+      expect(trigger).toHaveTextContent('default');
+    });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ sandbox: expect.objectContaining({ environmentName: 'default' }) }),
+    );
+  });
+
+  it('names nothing when the tenant has no default', async () => {
+    const onChange = vi.fn();
+    const withoutDefault = sampleEnvironments.map(env => ({ ...env, isDefault: false }));
+    renderRuntimeFields({ environments: withoutDefault, onChange });
+
+    const trigger = await screen.findByRole('button', { name: 'Environment' });
+    await waitFor(() => {
+      expect(trigger).toHaveTextContent('Select environment');
+    });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('says no environments exist instead of offering Default when none are ready', async () => {
+    renderRuntimeFields({ environments: [] });
+
+    const trigger = await screen.findByRole('button', { name: 'Environment' });
+    await waitFor(() => {
+      expect(trigger).toHaveTextContent('No environments');
+    });
+
+    fireEvent.click(trigger);
+    expect(await screen.findByText('No environments yet')).toBeInTheDocument();
+    expect(screen.queryByRole('option')).not.toBeInTheDocument();
   });
 
   it('shows a missing agent-spec environment as the selected option', async () => {
@@ -277,7 +372,7 @@ describe('AgentRuntimeConfigFields', () => {
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ memory: { enabled: false } }));
   });
 
-  it('shows a wire-only sandbox environment name and clears it when default is chosen', async () => {
+  it('shows a wire-only sandbox environment name and drops the wire key on select', async () => {
     const onChange = vi.fn();
     const sandbox: NonNullable<AgentRuntimeConfig['sandbox']> = { enabled: true };
     Reflect.set(sandbox, 'environment_name', 'test');
@@ -289,11 +384,11 @@ describe('AgentRuntimeConfigFields', () => {
     });
 
     fireEvent.click(trigger);
-    fireEvent.click(await screen.findByRole('option', { name: 'default' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'python-dev' }));
 
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({
-        sandbox: expect.objectContaining({ enabled: true, environmentName: undefined }),
+        sandbox: expect.objectContaining({ enabled: true, environmentName: 'python-dev' }),
       }),
     );
     const update: unknown = onChange.mock.calls[0]?.[0];

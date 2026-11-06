@@ -326,11 +326,10 @@ export function createHarnessChatServer(
       return toUiTurn(response.data);
     },
 
-    async listEvents({ sessionId, pageToken, lastTurnId, limit }) {
+    async listEvents({ sessionId, pageToken, lastTurnId }) {
       const page = await client.sessions.listEvents(sessionId, {
         ...(pageToken === undefined ? {} : { pageToken }),
         ...(lastTurnId === undefined ? {} : { lastTurnId }),
-        ...(limit === undefined ? {} : { limit }),
       });
       return toListResult(page, toUiEventItem);
     },

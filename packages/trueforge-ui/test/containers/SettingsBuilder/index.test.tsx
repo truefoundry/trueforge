@@ -13,7 +13,7 @@ import type {
   SkillCatalogServer,
   WebSearchCatalogServer,
 } from '@/server/types.js';
-import { createMockAgentUIServer, createMockCatalog } from '../../server/mockServer.js';
+import { createMockAgentUIServer, createMockCatalog, tenantSessionSharing } from '../../server/mockServer.js';
 import { allSettingsSections } from '../../server/settingsCapabilityFixture.js';
 
 vi.mock('@/containers/SettingsBuilder/ModelSettings.js', () => ({
@@ -193,6 +193,7 @@ describe('TruefoundrySettingsBuilder', () => {
         data: {
           sandbox: { enabled: true },
           skill: { enabled: true },
+          sessionSharing: tenantSessionSharing,
           settings: { ...sections, webSearch: { enabled: true, manageProviders: false } },
         },
       }),
@@ -221,6 +222,7 @@ describe('TruefoundrySettingsBuilder', () => {
         data: {
           sandbox: { enabled: true },
           skill: { enabled: true },
+          sessionSharing: tenantSessionSharing,
           settings: { ...sections, webSearch: { enabled: true, manageProviders: false } },
         },
       }),
@@ -264,6 +266,7 @@ describe('TruefoundrySettingsBuilder', () => {
         data: {
           sandbox: { enabled: true },
           skill: { enabled: true },
+          sessionSharing: tenantSessionSharing,
           settings: { ...sections, memoryProviders: { enabled: false, manageProviders: true } },
         },
       }),
@@ -307,6 +310,7 @@ describe('TruefoundrySettingsBuilder', () => {
       data: {
         sandbox: { enabled: true, environments: { enabled: true } },
         skill: { enabled: true },
+        sessionSharing: tenantSessionSharing,
         settings: allSettingsSections(true),
       },
     }));
