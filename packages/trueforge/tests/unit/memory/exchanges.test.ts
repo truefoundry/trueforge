@@ -2,16 +2,14 @@ import {
   activePath,
   askUserQuestionsByToolCallId,
   buildExchanges,
-  exchangeReadiness,
   MAX_MEMORY_MESSAGE_CHARS,
   renderExchange,
   resumePoint,
   type TurnExchange,
 } from '../../../src/memory/exchanges';
-import { answer, askCall, at, doneState, pausedState, reply, RUNNING, T0, turn, userMessage } from './turnFixtures';
+import { answer, askCall, at, doneState, pausedState, reply, RUNNING, turn, userMessage } from './turnFixtures';
 
 const MINUTE = 60_000;
-const HOUR = 60 * MINUTE;
 
 /** u1 asks dinner ideas → agent asks a question (paused) → a2 answers → agent replies. */
 function pausedThenAnsweredTurns() {
@@ -22,7 +20,6 @@ function pausedThenAnsweredTurns() {
       input: [userMessage('Dinner ideas? I am vegetarian.')],
       state: pausedState(),
       createdAt: at(0),
-      updatedAt: at(MINUTE),
     }),
     turn({
       id: 'a2',
@@ -99,12 +96,10 @@ describe('buildExchanges', () => {
       createdAt: at(5 * MINUTE),
     });
     const exchanges = buildExchanges([u1, next]);
-    expect(exchanges.map(e => [e.turns.map(t => t.turn_id), e.status, e.completedAt])).toEqual([
-      [['u1'], 'closed', at(MINUTE)],
-      [['u2'], 'closed', at(6 * MINUTE)],
+    expect(exchanges.map(e => [e.turns.map(t => t.turn_id), e.status])).toEqual([
+      [['u1'], 'closed'],
+      [['u2'], 'closed'],
     ]);
-    const later = { now: new Date(T0 + 10 * MINUTE), pauseTimeoutMs: 12 * HOUR };
-    expect(exchanges.map(exchange => exchangeReadiness({ exchange, ...later }).ready)).toEqual([true, true]);
   });
 
   it('ends a turn left running (e.g. a crashed executor) when the next user message arrives', () => {
@@ -117,7 +112,7 @@ describe('buildExchanges', () => {
       createdAt: at(2 * MINUTE),
     });
     const [first] = buildExchanges([stale, next]);
-    expect(first).toMatchObject({ status: 'closed', completedAt: at(2 * MINUTE) });
+    expect(first).toMatchObject({ status: 'closed' });
   });
 
   it('marks an exchange that starts with a resume turn as a continuation', () => {
@@ -169,7 +164,6 @@ describe('renderExchange', () => {
             },
           ],
           state: pausedState(),
-          updatedAt: at(MINUTE),
         }),
         turn({
           id: 'a2',
@@ -197,7 +191,6 @@ describe('renderExchange', () => {
           previous: null,
           input: [userMessage('x'.repeat(MAX_MEMORY_MESSAGE_CHARS + 500))],
           state: pausedState(),
-          updatedAt: at(MINUTE),
         }),
       ]),
     );
@@ -208,41 +201,6 @@ describe('renderExchange', () => {
     expect(messages).toHaveLength(1);
     expect(messages[0]?.content.length).toBe(MAX_MEMORY_MESSAGE_CHARS);
     expect(messages[0]?.content.endsWith('[truncated]')).toBe(true);
-  });
-});
-
-describe('exchangeReadiness', () => {
-  const options = { pauseTimeoutMs: 12 * HOUR };
-
-  it('sends a closed exchange as soon as it closes', () => {
-    const exchange = only(buildExchanges(pausedThenAnsweredTurns()));
-    if (exchange.completedAt === null) {
-      throw new Error('fixture');
-    }
-    expect(exchangeReadiness({ exchange, now: new Date(exchange.completedAt), ...options })).toEqual({
-      ready: true,
-      partial: false,
-    });
-  });
-
-  it('sends a paused exchange as partial only after the pause timeout', () => {
-    const [u1] = pausedThenAnsweredTurns();
-    if (u1 === undefined) {
-      throw new Error('fixture');
-    }
-    const exchange = only(buildExchanges([u1]));
-    expect(exchangeReadiness({ exchange, now: new Date(T0 + 11 * HOUR), ...options })).toEqual({ ready: false });
-    expect(exchangeReadiness({ exchange, now: new Date(T0 + 13 * HOUR), ...options })).toEqual({
-      ready: true,
-      partial: true,
-    });
-  });
-
-  it('never sends a running exchange', () => {
-    const exchange = only(
-      buildExchanges([turn({ id: 'r', previous: null, input: [userMessage('hi')], state: RUNNING })]),
-    );
-    expect(exchangeReadiness({ exchange, now: new Date(T0 + 24 * HOUR), ...options })).toEqual({ ready: false });
   });
 });
 

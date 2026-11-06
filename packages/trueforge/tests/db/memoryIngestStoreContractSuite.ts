@@ -30,11 +30,10 @@ const UI: SessionMetadata = { 'tfg.source': 'ui' };
 const SPEC = AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' }, instructions: 'test' });
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const HOUR_AGO = () => new Date(Date.now() - 60 * 60 * 1000);
-const IN_A_MINUTE = () => new Date(Date.now() + 60 * 1000);
 
-/** Every session updated since `since`; an empty paused range. */
+/** Every session updated since `since`. */
 function recent(since: Date) {
-  return { tenant_ids: [TENANT], recent_since: since, paused_from: since, paused_until: since };
+  return { tenant_ids: [TENANT], recent_since: since };
 }
 
 export interface MemoryIngestStoreContractEnv<TTransaction> {
@@ -185,30 +184,12 @@ export function runMemoryIngestStoreContractSuite<TTransaction>(
     expect(await candidateIds()).toEqual(['ui']);
   });
 
-  it('lists only sessions paused on the user from the paused range', async () => {
-    await createSession({ session_id: 'paused' });
-    await addPausedTurn({ session_id: 'paused', turn_id: 't1' });
-    await createSession({ session_id: 'closed' });
-    await addTurn({ session_id: 'closed', turn_id: 't1' });
-
-    // Nothing is recent; both sessions fall inside the paused range.
-    const candidates = await getEnv().store.listCandidateSessions({
-      tenant_ids: [TENANT],
-      recent_since: IN_A_MINUTE(),
-      paused_from: HOUR_AGO(),
-      paused_until: IN_A_MINUTE(),
-      limit: 10,
-    });
-    expect(candidates.map(c => c.session_id)).toEqual(['paused']);
-  });
-
-  it('reports a paused turn with the time it paused', async () => {
+  it('reports a paused turn as paused', async () => {
     await createSession({ session_id: 'paused' });
     await addPausedTurn({ session_id: 'paused', turn_id: 't1' });
 
     const [turn] = await getEnv().store.listSessionTurns({ session_id: 'paused' });
     expect(turn?.state).toEqual({ status: 'paused' });
-    expect(turn?.updated_at).toMatch(ISO_UTC);
   });
 
   it('includes sessions on a registry agent only when its memory is enabled, even from the UI', async () => {

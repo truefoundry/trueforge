@@ -38,7 +38,6 @@ const CONFIG: MemoryIngestConfig = {
   maxSessionsPerRun: 50,
   maxExchangesPerSession: 20,
   lookbackMs: 120 * MINUTE,
-  pauseTimeoutMs: 720 * MINUTE,
 };
 
 interface FakeSession {
@@ -71,11 +70,7 @@ class FakeStore implements IMemoryIngestStore {
       // session.updated_at moves when a turn is created.
       const sessionUpdatedAt = tip.created_at;
       const updatedMs = Date.parse(sessionUpdatedAt);
-      const tipPaused = tip.state.status === 'paused';
-      const inRange =
-        updatedMs >= input.recent_since.getTime() ||
-        (tipPaused && updatedMs >= input.paused_from.getTime() && updatedMs < input.paused_until.getTime());
-      if (cursor?.last_ingested_turn_id === tip.turn_id || !inRange) {
+      if (cursor?.last_ingested_turn_id === tip.turn_id || updatedMs < input.recent_since.getTime()) {
         continue;
       }
       candidates.push({
@@ -248,39 +243,20 @@ describe('runMemoryIngestPass', () => {
     expect(store.cursors.get('s1')).toMatchObject({ external_thread_id: 'thread-s1', last_error: null });
   });
 
-  it('looks back 2 hours for all sessions and 12-14 hours only for paused ones', async () => {
+  it('looks back 2 hours for sessions', async () => {
     const store = new FakeStore();
     const list = jest.spyOn(store, 'listCandidateSessions');
-    // Last turn started 3 hours ago and finished: out of the recent range.
+    // Last turn started 3 hours ago and finished: out of the lookback.
     store.add(session({ id: 'stale', turns: [closedTurn('t1', null, -119)] }));
-    // Paused on a question 13 hours ago: in the paused range, and past the pause timeout.
-    store.add(
-      session({
-        id: 'paused',
-        turns: [
-          turn({
-            id: 'u1',
-            previous: null,
-            input: [userMessage('Plan dinner')],
-            state: pausedState(),
-            createdAt: at(-12 * 60 * MINUTE),
-            updatedAt: at(-12 * 60 * MINUTE + MINUTE),
-          }),
-        ],
-      }),
-    );
+    store.add(session({ id: 'recent', turns: [closedTurn('t1', null, 10)] }));
     const { provider, calls } = fakeProvider();
 
     await runMemoryIngestPass({ deps: deps({ store, provider }), signal: signal() });
 
     expect(list).toHaveBeenCalledWith(
-      expect.objectContaining({
-        recent_since: new Date(NOW.getTime() - 120 * MINUTE),
-        paused_from: new Date(NOW.getTime() - 14 * 60 * MINUTE),
-        paused_until: new Date(NOW.getTime() - 12 * 60 * MINUTE),
-      }),
+      expect.objectContaining({ recent_since: new Date(NOW.getTime() - 120 * MINUTE) }),
     );
-    expect(calls.map(call => call.exchange.sessionId)).toEqual(['paused']);
+    expect(calls.map(call => call.exchange.sessionId)).toEqual(['recent']);
   });
 
   it('sends an exchange that finished just before the run', async () => {
@@ -486,44 +462,48 @@ describe('runMemoryIngestPass', () => {
     );
   });
 
-  it('sends a timed-out question as partial, then the answer with its question as a continuation', async () => {
+  it('does not ingest a paused turn; sends the whole exchange once the answer finishes it', async () => {
     const store = new FakeStore();
-    const paused = turn({
-      id: 'u1',
-      previous: null,
-      input: [userMessage('Plan dinner')],
-      state: pausedState(),
-      createdAt: at(-12.5 * 60 * MINUTE - MINUTE),
-      updatedAt: at(-12.5 * 60 * MINUTE),
-    });
     const fakeSession = session({
       id: 's1',
-      turns: [paused],
+      turns: [
+        turn({
+          id: 'u1',
+          previous: null,
+          input: [userMessage('Plan dinner')],
+          state: pausedState(),
+          createdAt: at(10 * MINUTE),
+        }),
+      ],
       messages: [{ turn_id: 'u1', message: askCall({ toolCallId: 'call-1', question: 'Which cuisine?' }) }],
     });
     store.add(fakeSession);
     const { provider, calls } = fakeProvider();
-    const run = () => runMemoryIngestPass({ deps: deps({ store, provider }), signal: signal() });
+    const logger = fakeLogger();
+    const run = () => runMemoryIngestPass({ deps: deps({ store, provider, logger }), signal: signal() });
 
-    await run();
-    expect(calls[0]?.exchange.messages.map(m => m.content)).toEqual(['Plan dinner']);
-    expect(store.cursors.get('s1')?.last_ingested_turn_id).toBe('u1');
+    const paused = await run();
+    expect(calls).toHaveLength(0);
+    expect(store.upserts).toHaveLength(0);
+    expect(paused.sessions_by_outcome).toEqual({ not_ready: 1 });
 
     fakeSession.turns.push(
       turn({
         id: 'a2',
         previous: 'u1',
         input: [answer({ toolCallId: 'call-1', content: 'Thai' })],
-        state: doneState({ completedAt: at(30 * MINUTE), output: reply('Green curry it is') }),
-        createdAt: at(29 * MINUTE),
+        state: doneState({ completedAt: at(21 * MINUTE), output: reply('Green curry it is') }),
+        createdAt: at(20 * MINUTE),
       }),
     );
     await run();
-    expect(calls[1]?.exchange.messages.map(m => m.content)).toEqual([
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.exchange.lastTurnId).toBe('a2');
+    expect(calls[0]?.exchange.messages.map(m => m.content)).toEqual([
+      'Plan dinner',
       '(Answering "Which cuisine?") Thai',
       'Green curry it is',
     ]);
-    expect(calls[1]?.externalThreadId).toBe('thread-s1');
   });
 
   it('caps exchanges per session and sessions per run; each run starts from the oldest unfinished session', async () => {
@@ -601,7 +581,6 @@ describe('runMemoryIngestPass', () => {
       maxSessionsPerRun: 50,
       maxExchangesPerSession: 20,
       lookbackMs: 7_200_000,
-      pauseTimeoutMs: 43_200_000,
     });
   });
 });

@@ -58,17 +58,14 @@ export function turn({
   input,
   state,
   createdAt = at(0),
-  updatedAt = createdAt,
 }: {
   id: string;
   previous: string | null;
   input: LegacyTurnInputItem[];
   state: TurnState;
   createdAt?: string;
-  /** For a paused turn, when it paused. */
-  updatedAt?: string;
 }): MemoryIngestTurn {
-  return { turn_id: id, previous_turn_id: previous, input, state, created_at: createdAt, updated_at: updatedAt };
+  return { turn_id: id, previous_turn_id: previous, input, state, created_at: createdAt };
 }
 
 export function userMessage(text: string): LegacyTurnInputItem {

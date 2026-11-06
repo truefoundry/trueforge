@@ -1128,7 +1128,7 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
   TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST: string[];
   /**
    * Static JSON settings for the memory-ingest loop: `interval_ms`, `max_sessions_per_run`,
-   * `max_exchanges_per_session`, `lookback_ms`, `pause_timeout_ms` (each optional, with defaults).
+   * `max_exchanges_per_session`, `lookback_ms` (each optional, with defaults).
    * Env: `TRUEFOUNDRY_MEMORY_SETTINGS`.
    */
   TRUEFOUNDRY_MEMORY_SETTINGS: string | undefined;

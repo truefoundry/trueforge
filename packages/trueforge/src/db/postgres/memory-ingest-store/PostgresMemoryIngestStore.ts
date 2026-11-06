@@ -30,8 +30,6 @@ const textOnlyInput = sql<LegacyTurnInputItem[]>`(
     ORDER BY item_index), '[]'::jsonb)
   FROM jsonb_array_elements(input) WITH ORDINALITY AS i(item, item_index)
 )`;
-/** The tip turn is paused waiting on the user (a question, approval or auth). */
-const tipPaused = sql<boolean>`t.state->>'status' = 'paused'`;
 
 export class PostgresMemoryIngestStore implements IMemoryIngestStore {
   readonly #db: Kysely<Database>;
@@ -63,12 +61,7 @@ export class PostgresMemoryIngestStore implements IMemoryIngestStore {
         'c.updated_at as cursor_updated_at',
       ])
       .where('s.source', 'is', null)
-      .where(eb =>
-        eb.or([
-          eb('s.updated_at', '>=', input.recent_since),
-          eb.and([eb('s.updated_at', '>=', input.paused_from), eb('s.updated_at', '<', input.paused_until), tipPaused]),
-        ]),
-      )
+      .where('s.updated_at', '>=', input.recent_since)
       // Matches resolveMemoryScope: never agent-builder chats; a bound agent's manifest decides; UI chats without one use the default scope.
       .where(sql<boolean>`NOT (${createAgentSession})`)
       .where(eb =>
@@ -107,16 +100,12 @@ export class PostgresMemoryIngestStore implements IMemoryIngestStore {
   async listSessionTurns(input: { session_id: string }): Promise<MemoryIngestTurn[]> {
     const rows = await this.#db
       .selectFrom('turn')
-      .select(['turn_id', 'previous_turn_id', textOnlyInput.as('input'), 'state', 'created_at', 'updated_at'])
+      .select(['turn_id', 'previous_turn_id', textOnlyInput.as('input'), 'state', 'created_at'])
       .where('session_id', '=', input.session_id)
       .orderBy('created_at', 'asc')
       .orderBy('turn_id', 'asc')
       .execute();
-    return rows.map(row => ({
-      ...row,
-      created_at: row.created_at.toISOString(),
-      updated_at: row.updated_at.toISOString(),
-    }));
+    return rows.map(row => ({ ...row, created_at: row.created_at.toISOString() }));
   }
 
   async listMainThreadModelMessages(input: {

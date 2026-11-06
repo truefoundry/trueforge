@@ -43,8 +43,6 @@ export interface MemoryIngestTurn {
   state: TurnState;
   /** ISO-8601 UTC instant. */
   created_at: string;
-  /** ISO-8601 UTC instant; for a paused turn, when it paused. */
-  updated_at: string;
 }
 
 export interface MemoryIngestModelMessage {
@@ -61,12 +59,6 @@ export interface ListMemoryIngestCandidatesInput {
   tenant_ids: readonly string[];
   /** Any session updated at or after this instant. */
   recent_since: Date;
-  /**
-   * Plus sessions whose tip turn is paused on the user (a question, approval or auth), updated in
-   * [`paused_from`, `paused_until`): their pause has timed out, so what exists is sent.
-   */
-  paused_from: Date;
-  paused_until: Date;
   limit: number;
 }
 
@@ -75,7 +67,7 @@ export type UpsertMemoryIngestCursorInput = Omit<MemoryIngestCursor, 'updated_at
 export interface IMemoryIngestStore {
   /**
    * Non-scheduled sessions that are UI chats without an agent or bound to an agent with memory
-   * enabled, in the recent or paused range, whose tip turn is not yet ingested. Ordered by
+   * enabled, updated since `recent_since`, whose tip turn is not yet ingested. Ordered by
    * (session.updated_at, session_id), oldest first. Not index-backed yet: the scan crosses tenants,
    * so add a `session (updated_at, session_id)` index if traffic grows.
    */
