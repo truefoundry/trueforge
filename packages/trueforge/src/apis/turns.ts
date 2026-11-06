@@ -14,6 +14,7 @@ import {
   EventType,
   isNonTerminalTurnState,
   isTurnOffloadReason,
+  resolvePreviousTurnId,
   SessionStoreConflictError,
   SessionStoreNotFoundError,
   TurnEventAlreadyExistsError,
@@ -28,7 +29,7 @@ import {
   type TurnUserEvent,
   type UserMessage,
 } from '@truefoundry/trueforge-core/agent-session';
-import type { IWebSearchProvider } from '@truefoundry/trueforge-core/core';
+import type { AgentCapability, IWebSearchProvider } from '@truefoundry/trueforge-core/core';
 import {
   AgentHarnessError,
   existingSandboxIdForProvider,
@@ -73,6 +74,8 @@ import type { ISkillStore } from '../db/skillStore';
 import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { currentLogContext, runWithLogContext, updateLogContext } from '../logger';
+import type { TenantMemoryDeps } from '../memory/providers';
+import { resolveSessionMemory } from '../memory/sessionMemory';
 import {
   createAndExecuteTurnRoute,
   downloadSandboxFileRoute,
@@ -166,6 +169,8 @@ export interface TurnExecutionStores<TTransaction = never> {
   skillStore: Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'>;
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
+  /** Undefined for sessions that never use memory (scheduled runs). */
+  memory: TenantMemoryDeps | undefined;
 }
 
 export interface TurnsRouterDeps<TTransaction = never> {
@@ -223,6 +228,8 @@ export type BeginTurnExecutionDeps<TTransaction> = Pick<
   sandboxProviderStore: ISandboxProviderStore;
   webSearchProviderStore: IWebSearchProviderStore;
   skillStore: Pick<ISkillStore, 'resolveTurnSkills'>;
+  /** Undefined for sessions that never use memory (scheduled runs). */
+  memory: TenantMemoryDeps | undefined;
   /** Loads the previous turn when create must cancel a run that is not in this process. */
   sessionStore: Pick<ISessionStore, 'getTurn'>;
   redis?: RedisClient | undefined;
@@ -282,6 +289,8 @@ function createTurnResolver(deps: {
   agentStore: IAgentStore;
   modelProviderStore: IModelProviderStore;
   webSearchProvider: IWebSearchProvider | undefined;
+  /** Root-thread memory for this turn; undefined when memory doesn't apply to the session. */
+  memoryCapability: AgentCapability | undefined;
   logger: Logger;
   signal: AbortSignal;
   userRef: string;
@@ -297,6 +306,7 @@ function createTurnResolver(deps: {
     agentStore,
     modelProviderStore,
     webSearchProvider,
+    memoryCapability,
     logger,
     signal,
     userRef,
@@ -403,7 +413,11 @@ function createTurnResolver(deps: {
     },
     webSearchProvider,
     logger,
-    rootCapabilities: () => capabilitiesStore.list(),
+    // Root thread only: sub-agents get neither memory tools nor the summary.
+    rootCapabilities: () => [
+      ...capabilitiesStore.list(),
+      ...(memoryCapability === undefined ? [] : [memoryCapability]),
+    ],
   });
 }
 
@@ -593,6 +607,8 @@ async function prepareTurnExecution<TTransaction>(input: {
   turnId: string;
   userRef: string;
   requestHeaders: Record<string, string> | undefined;
+  /** True when the turn starts from an empty context (first turn or new root). */
+  isSessionStart: boolean;
   deps: BeginTurnExecutionDeps<TTransaction>;
 }): Promise<{
   abortController: AbortController;
@@ -601,10 +617,21 @@ async function prepareTurnExecution<TTransaction>(input: {
 }> {
   assertGatewayMetadataRequestHeaders(input.requestHeaders);
   const abortController = new AbortController();
-  const webSearchProvider = await resolveWebSearchProvider({
-    tenant_id: input.session.tenant_id,
-    store: input.deps.webSearchProviderStore,
-  });
+  const [webSearchProvider, memoryCapability] = await Promise.all([
+    resolveWebSearchProvider({
+      tenant_id: input.session.tenant_id,
+      store: input.deps.webSearchProviderStore,
+    }),
+    resolveSessionMemory({
+      sessionId: input.session.session_id,
+      tenantId: input.session.tenant_id,
+      record: input.session.record,
+      isSessionStart: input.isSessionStart,
+      memory: input.deps.memory,
+      agentStore: input.deps.agentStore,
+      logger: input.deps.logger,
+    }),
+  ]);
   const sessionAgent = input.session.record.agent;
   const resolver = createTurnResolver({
     mcpServerStore: input.deps.mcpServerStore,
@@ -614,6 +641,7 @@ async function prepareTurnExecution<TTransaction>(input: {
     agentStore: input.deps.agentStore,
     modelProviderStore: input.deps.modelProviderStore,
     webSearchProvider,
+    memoryCapability,
     logger: input.deps.logger,
     signal: abortController.signal,
     userRef: input.userRef,
@@ -678,6 +706,7 @@ export async function beginTurnExecution<TTransaction>(
     turnId,
     userRef,
     requestHeaders,
+    isSessionStart: resolvePreviousTurnId(previousTurnId, session.record.last_turn_details?.id) === null,
     deps,
   });
 
@@ -785,6 +814,7 @@ async function resumePausedTurn<TTransaction>(input: {
     turnId: input.turnId,
     userRef: input.requestContext.subject.id,
     requestHeaders: input.requestHeaders,
+    isSessionStart: false,
     deps: input.deps,
   });
   const sessionId = input.session.session_id;

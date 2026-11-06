@@ -31,6 +31,7 @@ import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runti
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
 import type { ConfigurationManifest } from '../../schemas/configuration';
 import type { McpServerManifest } from '../../schemas/mcpServer';
+import type { MemoryProviderManifest } from '../../schemas/memoryProvider';
 import type { ModelProviderManifest } from '../../schemas/modelProvider';
 import type {
   SandboxEnvironmentLifecycleStage,
@@ -244,6 +245,17 @@ export interface ModelProviderTable {
 export interface WebSearchProviderTable {
   tenant_id: string;
   manifest: JsonbColumn<WebSearchProviderManifest>;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Configured memory provider - mirrors the Postgres `memory_provider` table.
+ * PRIMARY KEY (tenant_id)
+ */
+export interface MemoryProviderTable {
+  tenant_id: string;
+  manifest: JsonbColumn<MemoryProviderManifest>;
   created_at: string;
   updated_at: string;
 }
@@ -463,6 +475,7 @@ export interface Database {
   thread_capability_state: ThreadCapabilityStateTable;
   model_provider: ModelProviderTable;
   web_search_provider: WebSearchProviderTable;
+  memory_provider: MemoryProviderTable;
   configuration: ConfigurationTable;
   skill: SkillTable;
   sandbox_provider: SandboxProviderTable;

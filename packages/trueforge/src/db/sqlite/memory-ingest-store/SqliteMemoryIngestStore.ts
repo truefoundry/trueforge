@@ -18,7 +18,6 @@ import {
 import { jsonText, nowIso } from '../sqlExpressions';
 import type { Database } from '../types';
 
-// TODO(agent-memory-toggle): read through a typed MemoryConfig once RuntimeConfigSchema has one.
 const agentMemoryEnabled = sql<number>`json_type(a.manifest, ${sql.lit(`$.${AGENT_MEMORY_ENABLED_PATH.join('.')}`)}) IS 'true'`;
 const tfgSource = sql<string | null>`json_extract(s.metadata, '$."tfg.source"')`;
 const createAgentSession = sql<number>`json_extract(s.metadata, '$."is_create_agent"') IS 'true'`;
@@ -87,8 +86,8 @@ export class SqliteMemoryIngestStore implements IMemoryIngestStore {
         eb.or([eb.and([eb('s.agent_id', 'is', null), eb(tfgSource, '=', 'ui')]), eb(agentMemoryEnabled, '=', 1)]),
       )
       .where(sql<boolean>`c.last_ingested_turn_id IS NOT t.turn_id`);
-    const scoped = input.tenant_ids === undefined ? query : query.where('s.tenant_id', 'in', [...input.tenant_ids]);
-    const rows = await scoped
+    const rows = await query
+      .where('s.tenant_id', 'in', [...input.tenant_ids])
       .orderBy('s.updated_at', 'asc')
       .orderBy('s.session_id', 'asc')
       .limit(input.limit)

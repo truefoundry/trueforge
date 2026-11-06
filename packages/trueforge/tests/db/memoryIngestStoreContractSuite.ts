@@ -141,19 +141,19 @@ export function runMemoryIngestStoreContractSuite<TTransaction>(
     expect(await candidateIds(new Date(Date.now() + 60_000))).toEqual([]);
   });
 
-  it('lists only sessions of the given tenants, or of every tenant when none are given', async () => {
+  it('lists only sessions of the given tenants', async () => {
     await createSession({ session_id: 'other', tenant_id: 'other-tenant' });
     await addTurn({ session_id: 'other', turn_id: 't1' });
     await createSession({ session_id: 'ui' });
     await addTurn({ session_id: 'ui', turn_id: 't1' });
 
     expect(await candidateIds()).toEqual(['ui']);
-    const everyTenant = await getEnv().store.listCandidateSessions({
+    const bothTenants = await getEnv().store.listCandidateSessions({
       ...recent(HOUR_AGO()),
-      tenant_ids: undefined,
+      tenant_ids: [TENANT, 'other-tenant'],
       limit: 10,
     });
-    expect(everyTenant.map(c => c.session_id).sort()).toEqual(['other', 'ui']);
+    expect(bothTenants.map(c => c.session_id).sort()).toEqual(['other', 'ui']);
   });
 
   it('never lists agent-builder chats, even from the UI', async () => {

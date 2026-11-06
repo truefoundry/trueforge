@@ -62,6 +62,7 @@ async function buildApp() {
           skillStore: new SqliteSkillStore(db),
           sandboxProviderStore: new SqliteSandboxProviderStore(db),
           webSearchProviderStore: new SqliteWebSearchProviderStore(db),
+          memory: undefined,
         }),
       sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),

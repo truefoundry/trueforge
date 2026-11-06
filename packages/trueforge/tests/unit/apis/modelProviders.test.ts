@@ -17,6 +17,7 @@ import type { IModelProviderStore } from '../../../src/db/modelProviderStore';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
+import { SqliteMemoryProviderStore } from '../../../src/db/sqlite/memory-provider-store/SqliteMemoryProviderStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
@@ -141,6 +142,7 @@ async function createRouters(): Promise<{
         sandboxProviderStore: new SqliteSandboxProviderStore(db),
         sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
         webSearchProviderStore: new SqliteWebSearchProviderStore(db),
+        memoryProviderStore: new SqliteMemoryProviderStore(db),
         resolveAgentStore: () => agentStore,
         withTransaction: callback => db.transaction().execute(callback),
         logger: winston.createLogger({ silent: true }),

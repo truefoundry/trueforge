@@ -341,7 +341,7 @@ class SessionsClient:
         session_id: str,
         page_token: typing.Optional[str] = None,
         last_turn_id: typing.Optional[str] = None,
-        limit: typing.Optional[int] = 100,
+        limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[SessionEventItem, ListSessionEventsResponse]:
         """
@@ -359,7 +359,7 @@ class SessionsClient:
             Newest turn in the listing window (initial load only; ignored when `page_token` is set). Lists that turn and its ancestors, newest events first. Omit to use the session last turn.
 
         limit : typing.Optional[int]
-            Page size. Defaults to 100, max 100.
+            Page size. Defaults to and is capped at the server-configured maximum.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -719,7 +719,7 @@ class SessionsClient:
         *,
         session_id: str,
         turn_id: str,
-        limit: typing.Optional[int] = 100,
+        limit: typing.Optional[int] = None,
         page_token: typing.Optional[str] = None,
         order: typing.Optional[ListTurnEventsOrder] = None,
         request_options: typing.Optional[RequestOptions] = None,
@@ -736,7 +736,7 @@ class SessionsClient:
             Turn identifier.
 
         limit : typing.Optional[int]
-            Page size. Defaults to 100, max 100.
+            Page size. Defaults to and is capped at the server-configured maximum.
 
         page_token : typing.Optional[str]
             Opaque token from a previous response `next_page_token`.
@@ -1241,7 +1241,7 @@ class AsyncSessionsClient:
         session_id: str,
         page_token: typing.Optional[str] = None,
         last_turn_id: typing.Optional[str] = None,
-        limit: typing.Optional[int] = 100,
+        limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[SessionEventItem, ListSessionEventsResponse]:
         """
@@ -1259,7 +1259,7 @@ class AsyncSessionsClient:
             Newest turn in the listing window (initial load only; ignored when `page_token` is set). Lists that turn and its ancestors, newest events first. Omit to use the session last turn.
 
         limit : typing.Optional[int]
-            Page size. Defaults to 100, max 100.
+            Page size. Defaults to and is capped at the server-configured maximum.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1689,7 +1689,7 @@ class AsyncSessionsClient:
         *,
         session_id: str,
         turn_id: str,
-        limit: typing.Optional[int] = 100,
+        limit: typing.Optional[int] = None,
         page_token: typing.Optional[str] = None,
         order: typing.Optional[ListTurnEventsOrder] = None,
         request_options: typing.Optional[RequestOptions] = None,
@@ -1706,7 +1706,7 @@ class AsyncSessionsClient:
             Turn identifier.
 
         limit : typing.Optional[int]
-            Page size. Defaults to 100, max 100.
+            Page size. Defaults to and is capped at the server-configured maximum.
 
         page_token : typing.Optional[str]
             Opaque token from a previous response `next_page_token`.

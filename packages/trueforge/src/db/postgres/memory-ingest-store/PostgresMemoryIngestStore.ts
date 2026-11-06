@@ -12,7 +12,6 @@ import {
 import { now } from '../sqlExpressions';
 import type { Database } from '../types';
 
-// TODO(agent-memory-toggle): read through a typed MemoryConfig once RuntimeConfigSchema has one.
 const agentMemoryEnabled = sql<string | null>`a.manifest #>> ${sql.lit(`{${AGENT_MEMORY_ENABLED_PATH.join(',')}}`)}`;
 const tfgSource = sql<string | null>`s.metadata->>'tfg.source'`;
 const createAgentSession = sql<boolean>`COALESCE(s.metadata->>'is_create_agent' = 'true', false)`;
@@ -76,8 +75,8 @@ export class PostgresMemoryIngestStore implements IMemoryIngestStore {
         eb.or([eb.and([eb('s.agent_id', 'is', null), eb(tfgSource, '=', 'ui')]), eb(agentMemoryEnabled, '=', 'true')]),
       )
       .where(sql<boolean>`c.last_ingested_turn_id IS DISTINCT FROM t.turn_id`);
-    const scoped = input.tenant_ids === undefined ? query : query.where('s.tenant_id', 'in', [...input.tenant_ids]);
-    const rows = await scoped
+    const rows = await query
+      .where('s.tenant_id', 'in', [...input.tenant_ids])
       .orderBy('s.updated_at', 'asc')
       .orderBy('s.session_id', 'asc')
       .limit(input.limit)

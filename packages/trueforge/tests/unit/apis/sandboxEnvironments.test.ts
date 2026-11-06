@@ -526,6 +526,16 @@ describe('sandbox environments API → build controller path', () => {
     });
   }
 
+  it.each(['POST', 'PUT'] as const)('%s rejects build scripts above the configured limit', async method => {
+    const { publicRouter } = await setup();
+
+    const response = await writeEnv(publicRouter, { method, build_script: 'x'.repeat(20_001) });
+
+    expect(response.status).toBe(400);
+    const body = (await response.json()) as { error: { message: string } };
+    expect(body.error.message).toContain('Sandbox environment build script exceeds configured limit');
+  });
+
   it('stores type equal to the provider outside TrueFoundry mode', async () => {
     const { publicRouter, sandboxEnvironmentStore } = await setup();
     mockSecretProvider();

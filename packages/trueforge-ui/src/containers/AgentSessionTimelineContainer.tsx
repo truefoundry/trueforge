@@ -384,6 +384,9 @@ function SessionTurnSection({
     inputTokens?: number;
     outputTokens?: number;
     cachedTokens?: number;
+    cacheReadTokens?: number;
+    cacheWriteTokens?: number;
+    inputTokensBreakdown?: SessionTurnView['inputTokensBreakdown'];
     durationMs?: number;
     totalCostInUsd?: number;
     modelName?: string;
@@ -404,6 +407,9 @@ function SessionTurnSection({
           inputTokens={turn.inputTokens}
           outputTokens={turn.outputTokens}
           cachedTokens={turn.cachedTokens}
+          cacheReadTokens={turn.cacheReadTokens}
+          cacheWriteTokens={turn.cacheWriteTokens}
+          inputTokensBreakdown={turn.inputTokensBreakdown}
           durationMs={turn.durationMs}
           totalCostInUsd={turn.totalCostInUsd}
           modelName={turn.modelName}

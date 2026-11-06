@@ -38,6 +38,7 @@ import {
   tryAuthenticate,
 } from './auth/middleware';
 import type { McpCatalog } from './catalog/McpCatalog';
+import type { MemoryCatalog } from './catalog/MemoryCatalog';
 import type { ModelCatalog } from './catalog/ModelCatalog';
 import type { SandboxCatalog } from './catalog/SandboxCatalog';
 import type { SkillCatalog } from './catalog/SkillCatalog';
@@ -47,6 +48,7 @@ import type { IAccessControlStore } from './db/accessControlStore';
 import type { AgentRecord, IAgentStore } from './db/agentStore';
 import type { IConfigurationStore } from './db/configurationStore';
 import type { IMcpServerWithAuthStore } from './db/mcpServerStore';
+import type { IMemoryProviderStore } from './db/memoryProviderStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from './db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from './db/sandboxProviderStore';
@@ -60,6 +62,7 @@ import type { HttpMetrics } from './http/prometheus';
 import { createClientCertificateMiddleware } from './http/tls';
 import { runWithLogContext, updateLogContext, type LogContext } from './logger';
 import type { IOAuthTokenStore } from './mcp/auth/types';
+import type { MemoryProviderCache } from './memory/providers';
 import { PACKAGE_VERSION } from './packageVersion';
 import { OPENAPI_DOCUMENT_TAGS } from './routes/openapiTags';
 import type { ActiveTurnRegistry } from './runtime/activeTurns';
@@ -333,6 +336,11 @@ export interface ServerDeps<TTransaction> {
   webSearchCatalog: WebSearchCatalog;
   /** DB singleton, or the env-backed shared store in TrueFoundry mode. */
   webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
+  memoryCatalog: MemoryCatalog;
+  /** DB singleton, or the platform's env-backed provider in TrueFoundry mode. */
+  memoryProviderStore: IMemoryProviderStore<TTransaction>;
+  /** Shared across turns so memory providers keep their caches. */
+  memoryProviders: MemoryProviderCache;
   /** Tenant-wide feature switches; DB-backed in every mode. */
   configurationStore: IConfigurationStore;
   withTransaction: WithTransaction<TTransaction>;
@@ -385,6 +393,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         webSearchProviderStore: deps.webSearchProviderStore,
         configurationStore: deps.configurationStore,
+        memoryProviderStore: deps.memoryProviderStore,
         userStore: deps.userStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
@@ -413,6 +422,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         skillCatalog: deps.skillCatalog,
         sandboxCatalog: deps.sandboxCatalog,
         webSearchCatalog: deps.webSearchCatalog,
+        memoryCatalog: deps.memoryCatalog,
       }),
       authMiddleware,
     ),
@@ -463,6 +473,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         sandboxProviderStore: deps.sandboxProviderStore,
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         webSearchProviderStore: deps.webSearchProviderStore,
+        memoryProviderStore: deps.memoryProviderStore,
         configurationStore: deps.configurationStore,
         withTransaction: deps.withTransaction,
         resolveRequestContext,
@@ -550,6 +561,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         sandboxProviderStore: deps.sandboxProviderStore,
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         webSearchProviderStore: deps.webSearchProviderStore,
+        memoryProviderStore: deps.memoryProviderStore,
         resolveAgentStore: resolveHttpAgentStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
@@ -573,6 +585,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         sandboxProviderStore: deps.sandboxProviderStore,
         sessions: deps.sessions,
         webSearchProviderStore: deps.webSearchProviderStore,
+        memoryProviderStore: deps.memoryProviderStore,
         configurationStore: deps.configurationStore,
       }),
       authMiddleware,
@@ -625,6 +638,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         sessionStore: deps.sessionStore,
         userStore: deps.userStore,
         webSearchProviderStore: deps.webSearchProviderStore,
+        memoryProviderStore: deps.memoryProviderStore,
         configurationStore: deps.configurationStore,
         withTransaction: deps.withTransaction,
       }),

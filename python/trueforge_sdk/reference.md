@@ -2612,7 +2612,7 @@ client.sessions.list_events(
 <dl>
 <dd>
 
-**limit:** `typing.Optional[int]` — Page size. Defaults to 100, max 100.
+**limit:** `typing.Optional[int]` — Page size. Defaults to and is capped at the server-configured maximum.
     
 </dd>
 </dl>
@@ -3320,7 +3320,7 @@ client.sessions.list_turn_events(
 <dl>
 <dd>
 
-**limit:** `typing.Optional[int]` — Page size. Defaults to 100, max 100.
+**limit:** `typing.Optional[int]` — Page size. Defaults to and is capped at the server-configured maximum.
     
 </dd>
 </dl>
@@ -3805,6 +3805,69 @@ client = TrueForge(
 )
 
 client.catalogs.mcp_servers.list()
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+## Catalogs MemoryProviders
+<details><summary><code>client.catalogs.memory_providers.<a href="src/trueforge_sdk/catalogs/memory_providers/client.py">list</a>() -> GetMemoryProviderCatalogResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Shipped memory provider presets.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.catalogs.memory_providers.list()
 
 ```
 </dd>
@@ -5196,6 +5259,146 @@ client.settings.mcp_servers.delete(
 <dd>
 
 **name:** `str` — MCP server name.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+## Settings MemoryProviders
+<details><summary><code>client.settings.memory_providers.<a href="src/trueforge_sdk/settings/memory_providers/client.py">get</a>() -> GetMemoryProviderResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+The configured provider for this tenant. `auth.api_key` is redacted when present.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.settings.memory_providers.get()
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.settings.memory_providers.<a href="src/trueforge_sdk/settings/memory_providers/client.py">create_or_update</a>(...) -> GetMemoryProviderResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Upserts the single memory provider for this tenant. `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge, MemoryProviderManifest, ZepMemoryProviderAuth
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.settings.memory_providers.create_or_update(
+    manifest=MemoryProviderManifest(
+        auth=ZepMemoryProviderAuth(
+            api_key="api_key",
+        ),
+        type="zep",
+    ),
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**manifest:** `MemoryProviderManifest` 
     
 </dd>
 </dl>

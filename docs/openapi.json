@@ -479,6 +479,9 @@
       },
       "CapabilitiesData": {
         "properties": {
+          "memory": {
+            "$ref": "#/components/schemas/MemoryCapability"
+          },
           "sandbox": {
             "$ref": "#/components/schemas/SandboxCapability"
           },
@@ -568,6 +571,22 @@
           "remote"
         ],
         "type": "string"
+      },
+      "CatalogMemoryProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "description": "Zep memory provider.",
+            "enum": [
+              "zep"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
       },
       "CatalogModel": {
         "additionalProperties": false,
@@ -971,18 +990,25 @@
       "ConfigurationManifest": {
         "additionalProperties": false,
         "properties": {
+          "memory": {
+            "$ref": "#/components/schemas/MemoryConfiguration"
+          },
           "web_search": {
             "$ref": "#/components/schemas/WebSearchConfiguration"
           }
         },
         "required": [
-          "web_search"
+          "web_search",
+          "memory"
         ],
         "type": "object"
       },
       "ConfigurationManifestPatch": {
         "additionalProperties": false,
         "properties": {
+          "memory": {
+            "$ref": "#/components/schemas/MemoryConfiguration"
+          },
           "web_search": {
             "$ref": "#/components/schemas/WebSearchConfiguration"
           }
@@ -1006,6 +1032,22 @@
           "name",
           "manifest",
           "auth_status"
+        ],
+        "type": "object"
+      },
+      "ConfiguredMemoryProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "manifest": {
+            "$ref": "#/components/schemas/MemoryProviderManifest"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          }
+        },
+        "required": [
+          "name",
+          "manifest"
         ],
         "type": "object"
       },
@@ -1652,6 +1694,31 @@
           "id",
           "type",
           "display_name"
+        ],
+        "type": "object"
+      },
+      "GetMemoryProviderCatalogResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogMemoryProvider"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "GetMemoryProviderResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ConfiguredMemoryProvider"
+          }
+        },
+        "required": [
+          "data"
         ],
         "type": "object"
       },
@@ -2800,6 +2867,78 @@
         ],
         "type": "string"
       },
+      "MemoryCapability": {
+        "description": "Present only when the tenant has a memory provider; absent means memory settings are hidden.",
+        "properties": {
+          "enabled": {
+            "description": "Whether agents may turn memory on: the tenant allows it.",
+            "type": "boolean"
+          },
+          "reason": {
+            "description": "Present when memory is unavailable. Explains why.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "type": "object"
+      },
+      "MemoryConfig": {
+        "default": {
+          "enabled": false
+        },
+        "properties": {
+          "enabled": {
+            "default": false,
+            "description": "Enable long-term memory for this agent. Default: false.",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "MemoryConfiguration": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "description": "Whether agents in this tenant may remember details from past chats.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "type": "object"
+      },
+      "MemoryProviderManifest": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "auth": {
+                "$ref": "#/components/schemas/ZepMemoryProviderAuth"
+              },
+              "server_url": {
+                "description": "Zep API URL. Defaults to Zep Cloud.",
+                "format": "uri",
+                "type": "string"
+              },
+              "type": {
+                "description": "Zep memory provider.",
+                "enum": [
+                  "zep"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "auth"
+            ],
+            "type": "object"
+          }
+        ]
+      },
       "MetricsUnit": {
         "enum": [
           "count",
@@ -3556,6 +3695,9 @@
             "enabled": true
           },
           "iteration_limit": 512,
+          "memory": {
+            "enabled": false
+          },
           "sandbox": {
             "enabled": false,
             "file_downloads": true
@@ -3583,6 +3725,9 @@
             "exclusiveMinimum": 0,
             "maximum": 1024,
             "type": "integer"
+          },
+          "memory": {
+            "$ref": "#/components/schemas/MemoryConfig"
           },
           "sandbox": {
             "$ref": "#/components/schemas/SandboxConfig"
@@ -4766,7 +4911,7 @@
           "mcp_servers": {
             "$ref": "#/components/schemas/SettingsCapabilitySection"
           },
-          "memory": {
+          "memory_providers": {
             "$ref": "#/components/schemas/SettingsCapabilitySection"
           },
           "model_providers": {
@@ -4788,7 +4933,7 @@
           "skills",
           "sandbox_providers",
           "web_search",
-          "memory"
+          "memory_providers"
         ],
         "type": "object"
       },
@@ -6148,6 +6293,18 @@
         ],
         "type": "object"
       },
+      "UpdateMemoryProviderRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "manifest": {
+            "$ref": "#/components/schemas/MemoryProviderManifest"
+          }
+        },
+        "required": [
+          "manifest"
+        ],
+        "type": "object"
+      },
       "UpdateModelProviderRequest": {
         "additionalProperties": false,
         "properties": {
@@ -6683,6 +6840,21 @@
           "auth",
           "models",
           "type"
+        ],
+        "type": "object"
+      },
+      "ZepMemoryProviderAuth": {
+        "additionalProperties": false,
+        "description": "Zep authentication credentials.",
+        "properties": {
+          "api_key": {
+            "description": "Zep API key. Responses are redacted; on PUT, a real value sets/rotates and a redacted value keeps the stored key.",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "api_key"
         ],
         "type": "object"
       }
@@ -7775,6 +7947,42 @@
         "x-fern-sdk-group-name": [
           "catalogs",
           "mcpServers"
+        ],
+        "x-fern-sdk-method-name": "list"
+      }
+    },
+    "/api/v1/catalogs/memory-providers": {
+      "get": {
+        "description": "Shipped memory provider presets.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetMemoryProviderCatalogResponse"
+                }
+              }
+            },
+            "description": "Shipped memory provider presets."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Not authenticated."
+          }
+        },
+        "summary": "List memory providers",
+        "tags": [
+          "Memory Providers"
+        ],
+        "x-fern-sdk-group-name": [
+          "catalogs",
+          "memoryProviders"
         ],
         "x-fern-sdk-method-name": "list"
       }
@@ -9866,14 +10074,12 @@
             }
           },
           {
-            "description": "Page size. Defaults to 100, max 100.",
+            "description": "Page size. Defaults to and is capped at the server-configured maximum.",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
-              "default": 100,
-              "description": "Page size. Defaults to 100, max 100.",
-              "maximum": 100,
+              "description": "Page size. Defaults to and is capped at the server-configured maximum.",
               "minimum": 1,
               "type": "integer"
             }
@@ -10542,14 +10748,12 @@
             }
           },
           {
-            "description": "Page size. Defaults to 100, max 100.",
+            "description": "Page size. Defaults to and is capped at the server-configured maximum.",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
-              "default": 100,
-              "description": "Page size. Defaults to 100, max 100.",
-              "maximum": 100,
+              "description": "Page size. Defaults to and is capped at the server-configured maximum.",
               "minimum": 1,
               "type": "integer"
             }
@@ -11255,6 +11459,116 @@
           "mcpServers"
         ],
         "x-fern-sdk-method-name": "get"
+      }
+    },
+    "/api/v1/settings/memory-providers": {
+      "get": {
+        "description": "The configured provider for this tenant. `auth.api_key` is redacted when present.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetMemoryProviderResponse"
+                }
+              }
+            },
+            "description": "The configured memory provider."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid Bearer token or auth cookie."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated but not an admin."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "No memory provider configured."
+          }
+        },
+        "summary": "Get the memory provider",
+        "tags": [
+          "Memory Providers"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "memoryProviders"
+        ],
+        "x-fern-sdk-method-name": "get"
+      },
+      "put": {
+        "description": "Upserts the single memory provider for this tenant. `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMemoryProviderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetMemoryProviderResponse"
+                }
+              }
+            },
+            "description": "The saved provider."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body, or redacted API key with no stored secret to keep."
+          },
+          "424": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unsupported operation because memory providers are managed by an external system"
+          }
+        },
+        "summary": "Create or replace the memory provider",
+        "tags": [
+          "Memory Providers"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "memoryProviders"
+        ],
+        "x-fern-sdk-method-name": "create_or_update"
       }
     },
     "/api/v1/settings/model-providers": {
@@ -12136,6 +12450,9 @@
     },
     {
       "name": "Web Search Providers"
+    },
+    {
+      "name": "Memory Providers"
     },
     {
       "name": "Configuration"

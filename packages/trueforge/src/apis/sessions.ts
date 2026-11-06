@@ -36,6 +36,7 @@ import type { AccessGrantRecord, IAccessControlStore } from '../db/accessControl
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import type { IConfigurationStore } from '../db/configurationStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
+import type { IMemoryProviderStore } from '../db/memoryProviderStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
@@ -133,6 +134,7 @@ export interface SessionsRouterDeps<TTransaction = never> {
   sessionStore: ISessionStore<TTransaction>;
   userStore: IUserStore;
   webSearchProviderStore: IWebSearchProviderStore;
+  memoryProviderStore: IMemoryProviderStore;
   configurationStore: IConfigurationStore;
   withTransaction: WithTransaction<TTransaction>;
 }
@@ -376,6 +378,7 @@ type ValidateSessionSpecDeps<TTransaction = never> = Pick<
   | 'sandboxProviderStore'
   | 'sandboxEnvironmentStore'
   | 'webSearchProviderStore'
+  | 'memoryProviderStore'
   | 'configurationStore'
 >;
 
@@ -418,6 +421,7 @@ function validateSessionSpec<TTransaction>({
     sandboxProviderStore: deps.sandboxProviderStore,
     sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
     webSearchProviderStore: deps.webSearchProviderStore,
+    memoryProviderStore: deps.memoryProviderStore,
     configurationStore: deps.configurationStore,
     previousSpec,
   });
@@ -494,6 +498,7 @@ type InternalSessionsRouterDeps<TTransaction> = Pick<
   | 'sandboxProviderStore'
   | 'sandboxEnvironmentStore'
   | 'webSearchProviderStore'
+  | 'memoryProviderStore'
   | 'configurationStore'
   | 'resolveRequestContext'
   | 'authorizer'

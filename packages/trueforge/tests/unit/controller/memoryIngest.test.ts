@@ -1,4 +1,6 @@
+import configuration from '../../../src/config';
 import {
+  memoryIngestFromConfig,
   memoryIngestLoop,
   runMemoryIngestPass,
   type MemoryIngestConfig,
@@ -14,7 +16,6 @@ import type {
   UpsertMemoryIngestCursorInput,
 } from '../../../src/db/memoryIngestStore';
 import { MemoryIngestError, type IngestExchangeInput, type MemoryProvider } from '../../../src/memory/MemoryProvider';
-import { TenantAllowlistMemorySettings } from '../../../src/memory/MemorySettings';
 import { memoryScopeKey } from '../../../src/memory/scope';
 import {
   answer,
@@ -59,7 +60,7 @@ class FakeStore implements IMemoryIngestStore {
   async listCandidateSessions(input: ListMemoryIngestCandidatesInput): Promise<MemoryIngestCandidate[]> {
     const candidates: { updatedAt: string; candidate: MemoryIngestCandidate }[] = [];
     for (const session of this.sessions.values()) {
-      if (input.tenant_ids !== undefined && !input.tenant_ids.includes(session.candidate.tenant_id)) {
+      if (!input.tenant_ids.includes(session.candidate.tenant_id)) {
         continue;
       }
       const tip = session.turns[session.turns.length - 1];
@@ -107,14 +108,22 @@ class FakeStore implements IMemoryIngestStore {
   }
 }
 
+/** Ingestion never reads or writes memory directly. */
+const RETRIEVAL_UNUSED = {
+  getUserSummary: () => Promise.reject(new Error('not used by ingestion')),
+  search: () => Promise.reject(new Error('not used by ingestion')),
+  addMemory: () => Promise.reject(new Error('not used by ingestion')),
+};
+
 function fakeProvider(fail: (input: IngestExchangeInput) => boolean = () => false) {
   const calls: IngestExchangeInput[] = [];
   const provider: MemoryProvider = {
+    ...RETRIEVAL_UNUSED,
     name: 'zep',
     async ingestExchange(input) {
       calls.push(input);
       if (fail(input)) {
-        throw new Error('zep unavailable');
+        throw new Error('memory provider unavailable');
       }
       return { externalThreadId: input.externalThreadId ?? `thread-${input.exchange.sessionId}` };
     },
@@ -137,13 +146,12 @@ function deps({
   provider: MemoryProvider;
   logger?: ReturnType<typeof fakeLogger>;
   config?: Partial<MemoryIngestConfig>;
-  /** Stands in for `TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST`. */
+  /** Tenants with memory on; each gets `provider`. */
   enabledTenants?: string[];
 }): MemoryIngestDeps {
   return {
     store,
-    provider,
-    settings: { listEnabledTenantIds: async () => enabledTenants },
+    providersByTenant: () => Promise.resolve(new Map(enabledTenants.map(tenantId => [tenantId, provider]))),
     logger: logger as never,
     config: { ...CONFIG, ...config },
     now: () => NOW,
@@ -169,7 +177,7 @@ function session({
     candidate: {
       session_id: id,
       tenant_id: tenant,
-      created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'Priya' },
+      created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'User One' },
       agent_id: agentId,
       tfg_source: 'ui',
       create_agent_session: false,
@@ -202,7 +210,7 @@ describe('runMemoryIngestPass', () => {
     await runMemoryIngestPass({ deps: deps({ store, provider }), signal: signal() });
 
     expect(calls).toHaveLength(1);
-    expect(JSON.stringify(calls)).not.toContain('Priya');
+    expect(JSON.stringify(calls)).not.toContain('User One');
   });
 
   it('sends finished exchanges in order, stops at the first unfinished one and checkpoints each send', async () => {
@@ -288,7 +296,7 @@ describe('runMemoryIngestPass', () => {
     expect(summary.sessions_by_outcome).toEqual({ ingested: 1 });
   });
 
-  it('reads only sessions of allowlisted tenants, so others never take a run slot', async () => {
+  it('reads only sessions of tenants with memory on, so others never take a run slot', async () => {
     const store = new FakeStore();
     store.add(session({ id: 's1', tenant: 'other', turns: [closedTurn('t1', null, 10)] }));
     store.add(session({ id: 's2', tenant: 'other', turns: [closedTurn('t1', null, 11)] }));
@@ -305,18 +313,29 @@ describe('runMemoryIngestPass', () => {
     expect(summary).toMatchObject({ sessions: 1, backlog: false, sessions_by_outcome: { ingested: 1 } });
   });
 
-  it("reads every tenant's sessions when the allowlist is empty", async () => {
+  it("sends each tenant's sessions to that tenant's provider", async () => {
     const store = new FakeStore();
     store.add(session({ id: 's1', turns: [closedTurn('t1', null, 10)] }));
     store.add(session({ id: 's2', tenant: 'other', turns: [closedTurn('t1', null, 11)] }));
-    const { provider, calls } = fakeProvider();
+    const acme = fakeProvider();
+    const other = fakeProvider();
 
     const summary = await runMemoryIngestPass({
-      deps: { ...deps({ store, provider }), settings: new TenantAllowlistMemorySettings({ tenantIds: [] }) },
+      deps: {
+        ...deps({ store, provider: acme.provider }),
+        providersByTenant: () =>
+          Promise.resolve(
+            new Map([
+              ['acme', acme.provider],
+              ['other', other.provider],
+            ]),
+          ),
+      },
       signal: signal(),
     });
 
-    expect(calls.map(call => call.exchange.sessionId)).toEqual(['s1', 's2']);
+    expect(acme.calls.map(call => call.exchange.sessionId)).toEqual(['s1']);
+    expect(other.calls.map(call => call.exchange.sessionId)).toEqual(['s2']);
     expect(summary).toMatchObject({ sessions: 2, sessions_by_outcome: { ingested: 2 } });
   });
 
@@ -350,11 +369,18 @@ describe('runMemoryIngestPass', () => {
     });
 
     expect(calls).toHaveLength(2);
-    expect(store.cursors.get('s1')).toMatchObject({ last_ingested_turn_id: 't1', last_error: 'zep unavailable' });
+    expect(store.cursors.get('s1')).toMatchObject({
+      last_ingested_turn_id: 't1',
+      last_error: 'memory provider unavailable',
+    });
     expect(summary).toMatchObject({ exchanges_sent: 1, exchanges_failed: 1, sessions_by_outcome: { failed: 1 } });
     expect(logger.error).toHaveBeenCalledWith(
       'Memory ingest failed for session',
-      expect.objectContaining({ session_id: 's1', last_error: 'zep unavailable', reportable_error: expect.anything() }),
+      expect.objectContaining({
+        session_id: 's1',
+        last_error: 'memory provider unavailable',
+        reportable_error: expect.anything(),
+      }),
     );
   });
 
@@ -387,6 +413,7 @@ describe('runMemoryIngestPass', () => {
     const store = new FakeStore();
     store.add(session({ id: 's1', turns: [closedTurn('t1', null, 10)] }));
     const provider: MemoryProvider = {
+      ...RETRIEVAL_UNUSED,
       name: 'zep',
       async ingestExchange() {
         throw new MemoryIngestError({ message: 'add failed', externalThreadId: 'created-thread', cause: null });
@@ -546,5 +573,33 @@ describe('runMemoryIngestPass', () => {
     await memoryIngestLoop(deps({ store, provider })).tick(controller.signal);
 
     expect(calls).toHaveLength(0);
+  });
+
+  it('runs outside TrueFoundry mode with the default loop settings', () => {
+    const wiring = memoryIngestFromConfig({
+      config: configuration,
+      store: new FakeStore(),
+      tenantMemory: {
+        memoryProviderStore: {
+          getProvider: () => Promise.resolve(undefined),
+          upsertProvider: () => Promise.reject(new Error('not used')),
+        },
+        configurationStore: {
+          getConfiguration: () => Promise.resolve(undefined),
+          upsertConfiguration: () => Promise.reject(new Error('not used')),
+          getOrCreateConfiguration: () => Promise.reject(new Error('not used')),
+          listTenantIdsWithFeatureEnabled: () => Promise.resolve([]),
+        },
+        providers: { get: () => fakeProvider().provider },
+      },
+    });
+
+    expect(wiring?.config).toEqual({
+      intervalMs: 300_000,
+      maxSessionsPerRun: 50,
+      maxExchangesPerSession: 20,
+      lookbackMs: 7_200_000,
+      pauseTimeoutMs: 43_200_000,
+    });
   });
 });

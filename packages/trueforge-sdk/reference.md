@@ -3244,6 +3244,62 @@ await client.catalogs.mcpServers.list();
 </dl>
 </details>
 
+## Catalogs MemoryProviders
+<details><summary><code>client.catalogs.memoryProviders.<a href="/src/api/resources/catalogs/resources/memoryProviders/client/Client.ts">list</a>() -> TrueForge.GetMemoryProviderCatalogResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Shipped memory provider presets.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.catalogs.memoryProviders.list();
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**requestOptions:** `MemoryProvidersClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 ## Catalogs ModelProviders
 <details><summary><code>client.catalogs.modelProviders.<a href="/src/api/resources/catalogs/resources/modelProviders/client/Client.ts">list</a>() -> TrueForge.GetModelProviderCatalogResponse</code></summary>
 <dl>
@@ -4419,6 +4475,132 @@ await client.settings.mcpServers.delete("name");
 <dd>
 
 **requestOptions:** `McpServersClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+## Settings MemoryProviders
+<details><summary><code>client.settings.memoryProviders.<a href="/src/api/resources/settings/resources/memoryProviders/client/Client.ts">get</a>() -> TrueForge.GetMemoryProviderResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+The configured provider for this tenant. `auth.api_key` is redacted when present.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.settings.memoryProviders.get();
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**requestOptions:** `MemoryProvidersClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.settings.memoryProviders.<a href="/src/api/resources/settings/resources/memoryProviders/client/Client.ts">createOrUpdate</a>({ ...params }) -> TrueForge.GetMemoryProviderResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Upserts the single memory provider for this tenant. `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.settings.memoryProviders.createOrUpdate({
+    manifest: {
+        auth: {
+            apiKey: "api_key"
+        },
+        type: "zep"
+    }
+});
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**request:** `TrueForge.settings.UpdateMemoryProviderRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `MemoryProvidersClient.RequestOptions` 
     
 </dd>
 </dl>

@@ -4,7 +4,11 @@ import {
   mergedPauseWallMs,
   type SessionEventTimelineSegment,
 } from './sessionEventTimeline.js';
-import type { SessionTurnView } from './sessionTurnViews.js';
+import {
+  sumSessionInputTokensBreakdown,
+  type SessionInputTokensBreakdown,
+  type SessionTurnView,
+} from './sessionTurnViews.js';
 
 export type SessionMetricBarDatum = {
   label: string;
@@ -30,9 +34,37 @@ export type SessionMetrics = {
   timeBreakdown: SessionMetricBarDatum[];
   costPerTurn: SessionMetricBarDatum[];
   tokenBreakdown: SessionMetricBarDatum[];
+  /** Raw input tokens, including cache read and cache write. */
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  /** Input attribution from model.message usage; empty when no breakdown was recorded. */
+  inputBreakdown: SessionMetricBarDatum[];
   contextByTurn: SessionMetricBarDatum[];
   toolCallFrequency: SessionMetricBarDatum[];
 };
+
+/** Fixed palette for the five input-attribution parts (order matches the tooltip). */
+const INPUT_BREAKDOWN_PARTS = [
+  { key: 'harness', label: 'Harness', color: '#f59e0b' },
+  { key: 'skills', label: 'Skills', color: '#6366f1' },
+  { key: 'instructions', label: 'Instructions', color: '#22d3ee' },
+  { key: 'toolDefinitions', label: 'Tool definitions', color: '#3b82f6' },
+  { key: 'messages', label: 'Messages', color: '#ec4899' },
+] as const satisfies ReadonlyArray<{
+  key: keyof SessionInputTokensBreakdown;
+  label: string;
+  color: string;
+}>;
+
+export function toInputBreakdownBarData(parts: SessionInputTokensBreakdown): SessionMetricBarDatum[] {
+  return INPUT_BREAKDOWN_PARTS.map(part => ({
+    label: part.label,
+    value: parts[part.key],
+    color: part.color,
+  }));
+}
 
 /** Optional getSession overrides — lineage turn count always comes from events. */
 export type SessionMetricsHint = {
@@ -69,8 +101,12 @@ export function buildSessionMetrics({
   let hasDerivedCost = false;
   let totalTokens = 0;
   let totalUncachedInputTokens = 0;
+  let totalRawInputTokens = 0;
   let totalOutputTokens = 0;
   let totalCachedTokens = 0;
+  let totalCacheReadTokens = 0;
+  let totalCacheWriteTokens = 0;
+  let inputTokensBreakdown: SessionInputTokensBreakdown | undefined;
   // Aggregate by display band so MCP-auth resumes don't emit duplicate T1 chart keys.
   const bandCostUsd = new Map<number, number>();
   const bandTokens = new Map<number, number>();
@@ -83,10 +119,18 @@ export function buildSessionMetrics({
       continue;
     }
 
+    // Same turns as the token totals. A cancelled turn can still carry model.message
+    // breakdowns that were never folded into terminal metrics.
+    inputTokensBreakdown = sumSessionInputTokensBreakdown(inputTokensBreakdown, turn.inputTokensBreakdown);
+
     // Prefer canonical turn fields from sessionTurnViews (uncached input already).
     const uncachedInputTokens = turn.inputTokens ?? 0;
     const outputTokens = turn.outputTokens ?? 0;
     const cachedTokens = turn.cachedTokens ?? 0;
+    const hasCacheSplit = turn.cacheReadTokens != null || turn.cacheWriteTokens != null;
+    const cacheReadTokens = turn.cacheReadTokens ?? 0;
+    const cacheWriteTokens = turn.cacheWriteTokens ?? 0;
+    const cacheInInput = hasCacheSplit ? cacheReadTokens + cacheWriteTokens : cachedTokens;
     const turnTotalTokens = turn.totalTokens ?? uncachedInputTokens + cachedTokens + outputTokens;
     const turnCostUsd = turn.totalCostInUsd;
 
@@ -96,8 +140,11 @@ export function buildSessionMetrics({
     }
     totalTokens += turnTotalTokens;
     totalUncachedInputTokens += uncachedInputTokens;
+    totalRawInputTokens += uncachedInputTokens + cacheInInput;
     totalOutputTokens += outputTokens;
     totalCachedTokens += cachedTokens;
+    totalCacheReadTokens += cacheReadTokens;
+    totalCacheWriteTokens += cacheWriteTokens;
     bandCostUsd.set(turn.turnNumber, (bandCostUsd.get(turn.turnNumber) ?? 0) + (turnCostUsd ?? 0));
     bandTokens.set(turn.turnNumber, (bandTokens.get(turn.turnNumber) ?? 0) + turnTotalTokens);
   }
@@ -172,6 +219,11 @@ export function buildSessionMetrics({
       { label: 'output', value: totalOutputTokens, color: getSessionEventColor('user') },
       { label: 'cached', value: totalCachedTokens, color: getSessionEventColor('sub_agent') },
     ],
+    inputTokens: totalRawInputTokens,
+    outputTokens: totalOutputTokens,
+    cacheReadTokens: totalCacheReadTokens,
+    cacheWriteTokens: totalCacheWriteTokens,
+    inputBreakdown: inputTokensBreakdown == null ? [] : toInputBreakdownBarData(inputTokensBreakdown),
     contextByTurn,
     toolCallFrequency,
   };

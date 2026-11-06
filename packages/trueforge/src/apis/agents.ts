@@ -16,6 +16,7 @@ import {
 } from '../db/agentStore';
 import type { IConfigurationStore } from '../db/configurationStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
+import type { IMemoryProviderStore } from '../db/memoryProviderStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
@@ -44,6 +45,7 @@ export interface AgentsRouterDeps<TTransaction> {
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
   webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
+  memoryProviderStore: IMemoryProviderStore<TTransaction>;
   configurationStore: IConfigurationStore;
   withTransaction: WithTransaction<TTransaction>;
   resolveRequestContext: ResolveRequestContext;
@@ -69,6 +71,7 @@ async function validateManifest<TTransaction>({
   sandboxProviderStore,
   sandboxEnvironmentStore,
   webSearchProviderStore,
+  memoryProviderStore,
   configurationStore,
   previousSpec,
   tenant_id,
@@ -81,6 +84,7 @@ async function validateManifest<TTransaction>({
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
   webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
+  memoryProviderStore: IMemoryProviderStore<TTransaction>;
   configurationStore: IConfigurationStore;
   /** Manifest already saved on this agent; undefined when creating. */
   previousSpec: AgentSpec | undefined;
@@ -97,6 +101,7 @@ async function validateManifest<TTransaction>({
     sandboxProviderStore,
     sandboxEnvironmentStore,
     webSearchProviderStore,
+    memoryProviderStore,
     configurationStore,
     previousSpec,
   });
@@ -137,6 +142,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       sandboxProviderStore: deps.sandboxProviderStore,
       sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
       webSearchProviderStore: deps.webSearchProviderStore,
+      memoryProviderStore: deps.memoryProviderStore,
       configurationStore: deps.configurationStore,
       previousSpec: undefined,
       tenant_id: requestContext.tenant_id,
@@ -246,6 +252,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       sandboxProviderStore: deps.sandboxProviderStore,
       sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
       webSearchProviderStore: deps.webSearchProviderStore,
+      memoryProviderStore: deps.memoryProviderStore,
       configurationStore: deps.configurationStore,
       previousSpec: existing.manifest,
       tenant_id: requestContext.tenant_id,

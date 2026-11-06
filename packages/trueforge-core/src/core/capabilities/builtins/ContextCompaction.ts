@@ -200,7 +200,7 @@ export class ContextCompaction implements PreLLMAgentContextProcessor {
 
     const trigger: CompactionTrigger = {
       type: 'context_threshold_exceeded',
-      context_tokens: contextTokens,
+      context_tokens: Math.ceil(contextTokens),
       threshold_tokens: this.compactionThresholdTokens,
     };
 

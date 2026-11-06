@@ -11,8 +11,10 @@ import { resolveRequestContext, type RequestContext } from './auth/identity';
 import configuration from './config';
 import type { AgentRecord, IAgentStore } from './db/agentStore';
 import { EmptyCapabilitiesStore } from './db/capabilitiesStore';
+import type { IConfigurationStore } from './db/configurationStore';
 import type { IMcpServerStore, IMcpServerWithAuthStore } from './db/mcpServerStore';
 import { McpServerWithAuthStore } from './db/McpServerWithAuthStore';
+import type { IMemoryProviderStore } from './db/memoryProviderStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
 import type { PostgresAgentStore } from './db/postgres/agent-store/PostgresAgentStore';
 import type { Database as PostgresDatabase } from './db/postgres/types';
@@ -20,6 +22,7 @@ import type { ISandboxProviderStore } from './db/sandboxProviderStore';
 import type { ISkillStore } from './db/skillStore';
 import type { IWebSearchProviderStore } from './db/webSearchProviderStore';
 import type { IOAuthTokenStore } from './mcp/auth/types';
+import type { MemoryProviderCache, TenantMemoryDeps } from './memory/providers';
 import { headerValue } from './truefoundry/gatewayMetadata';
 import { InlineMcpServerStore } from './truefoundry/InlineMcpServerStore';
 import { InlineModelProviderStore } from './truefoundry/InlineModelProviderStore';
@@ -230,6 +233,9 @@ export function createRequestStoreResolvers<TTransaction>(input: {
   resolveTurnSkillsStore: ResolveTurnSkillsStore<TTransaction>;
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
+  memoryProviderStore: IMemoryProviderStore<TTransaction>;
+  configurationStore: IConfigurationStore<TTransaction>;
+  memoryProviders: MemoryProviderCache;
 }): {
   resolveMcpServerStore: (mcpInput: ResolveMcpServerStoreInput) => IMcpServerWithAuthStore<TTransaction>;
   resolveModelProviderStore: (modelInput: ResolveModelProviderStoreInput) => IModelProviderStore<TTransaction>;
@@ -241,7 +247,16 @@ export function createRequestStoreResolvers<TTransaction>(input: {
     skillsInput: ResolveTurnSkillsStoreInput,
   ) => Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'>;
 } {
-  const { isTrueFoundryMode, mcpOAuthStore, sandboxProviderStore, webSearchProviderStore } = input;
+  const {
+    isTrueFoundryMode,
+    mcpOAuthStore,
+    sandboxProviderStore,
+    webSearchProviderStore,
+    memoryProviderStore,
+    configurationStore,
+    memoryProviders,
+  } = input;
+  const memory: TenantMemoryDeps = { memoryProviderStore, configurationStore, providers: memoryProviders };
 
   // x-tfg-skills / x-tfg-mcp / x-tfg-models are rejected unless allowInlineResources
   // (inline session create or spec replace, or a turn for an inline session).
@@ -405,6 +420,7 @@ export function createRequestStoreResolvers<TTransaction>(input: {
       skillStore: turnSkillStoreFor({ headers: turnInput.requestHeaders, allowInlineResources }),
       sandboxProviderStore,
       webSearchProviderStore,
+      memory,
     });
   };
 
