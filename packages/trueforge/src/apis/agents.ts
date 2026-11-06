@@ -104,7 +104,6 @@ async function validateManifest<TTransaction>({
     memoryProviderStore,
     configurationStore,
     previousSpec,
-    requireEnabledEnvironment: true,
   });
   return spec;
 }

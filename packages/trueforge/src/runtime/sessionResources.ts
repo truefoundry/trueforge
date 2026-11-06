@@ -283,7 +283,6 @@ export async function validateAgentSpec({
   memoryProviderStore,
   configurationStore,
   previousSpec,
-  requireEnabledEnvironment = false,
 }: {
   spec: AgentSpec;
   tenant_id: string;
@@ -298,12 +297,6 @@ export async function validateAgentSpec({
   configurationStore: IConfigurationStore;
   /** Spec already saved on this session or agent; undefined when creating. */
   previousSpec: AgentSpec | undefined;
-  /**
-   * Reject a disabled environment even when `previousSpec` already named it. Set when saving an
-   * agent, so a stored one cannot be edited while pointing at an environment nobody may select.
-   * Left off where a stored spec is only being run, which keeps existing work going.
-   */
-  requireEnabledEnvironment?: boolean;
 }): Promise<void> {
   const resolved = await getModelDetails({
     tenant_id,
@@ -368,9 +361,7 @@ export async function validateAgentSpec({
         message: `Unknown sandbox environment "${environmentName}" — not configured`,
       });
     }
-    const keptFromPreviousSpec =
-      !requireEnabledEnvironment && previousSpec?.config.sandbox.environment_name === environmentName;
-    if (!environment.environment.enabled && !keptFromPreviousSpec) {
+    if (!environment.environment.enabled && previousSpec?.config.sandbox.environment_name !== environmentName) {
       throw new HTTPException(422, {
         message: `Sandbox environment "${environmentName}" is disabled and cannot be selected`,
       });

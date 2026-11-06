@@ -418,7 +418,7 @@ describe('agents router', () => {
     ]);
   });
 
-  it('PUT fails once the agent sandbox environment has been disabled', async () => {
+  it('PUT keeps an agent that already named a now-disabled sandbox environment', async () => {
     await sandboxProviderStore.upsertSandboxProvider({
       tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
       manifest: {
@@ -472,7 +472,6 @@ describe('agents router', () => {
       `/${agent.id}`,
       jsonInit('PUT', { description: 'Updated.', manifest: pinnedManifest }),
     );
-    expect(res.status).toBe(422);
-    expect(await res.text()).toContain('"retiring-env" is disabled and cannot be selected');
+    expect(res.status).toBe(200);
   });
 });

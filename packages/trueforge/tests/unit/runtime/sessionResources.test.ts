@@ -621,25 +621,7 @@ describe('validateAgentSpec', () => {
       return { stores, spec };
     }
 
-    it('cannot be saved on an agent that already named it', async () => {
-      const { stores, spec } = await setupWithDisabledEnvironment();
-
-      await expect(
-        validateAgentSpec({
-          spec,
-          tenant_id: 'default',
-          created_by_subject_id: 'agent-author',
-          ...stores,
-          previousSpec: spec,
-          requireEnabledEnvironment: true,
-        }),
-      ).rejects.toMatchObject({
-        status: 422,
-        message: expect.stringContaining('"retired-env" is disabled and cannot be selected'),
-      });
-    });
-
-    it('still runs for a spec that already named it', async () => {
+    it('still keeps a spec that already named it', async () => {
       const { stores, spec } = await setupWithDisabledEnvironment();
 
       await expect(
