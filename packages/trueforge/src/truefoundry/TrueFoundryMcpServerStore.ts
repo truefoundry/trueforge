@@ -253,7 +253,7 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
     }
     const returnTo = input.returnTo;
     const redirectURL =
-      returnTo === undefined || returnTo === ''
+      returnTo === undefined
         ? undefined
         : resolveAuthorizeRedirectURL({
             returnTo: returnTo,

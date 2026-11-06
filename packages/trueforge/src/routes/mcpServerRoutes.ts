@@ -268,6 +268,7 @@ export const listMcpServerToolsRoute = createRoute({
 const McpAuthorizeQuerySchema = z.object({
   return_to: z
     .string()
+    .min(1)
     .optional()
     .describe(
       'Same-origin path to land in the browser after consent. When omitted, no post-consent redirect is requested.',

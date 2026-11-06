@@ -185,15 +185,6 @@ describe('TrueFoundryMcpServerStore', () => {
       });
     });
 
-    it('omits upstream redirectURL when return_to is empty', async () => {
-      const { store, client } = createStore();
-      await store.authorize({ tenant_id: TENANT, name: 'github', userRef: 'user-1', returnTo: '' });
-      expect(client.getMcpAuthorize).toHaveBeenCalledWith({
-        accessToken: ACCESS_TOKEN,
-        mcpServerId: 'mcp-id-1',
-      });
-    });
-
     it('throws when tenant control-plane URL is invalid', async () => {
       const { store } = createStore({ controlPlaneUrl: '' });
       await expect(
