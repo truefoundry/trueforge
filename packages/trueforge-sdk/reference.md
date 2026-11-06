@@ -1234,7 +1234,7 @@ await client.sandboxEnvironments.delete("name");
 <dl>
 <dd>
 
-Updates `enabled` and/or `is_default` on the environment. Does not change the definition or create a version. Setting `is_default` is admin-only. Disabling the default releases the default slot.
+Update sandbox environment metadata.
 </dd>
 </dl>
 </dd>

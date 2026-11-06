@@ -759,25 +759,6 @@ describe("SandboxEnvironmentsClient", () => {
             .mockEndpoint()
             .delete("/api/v1/sandbox-environments/name")
             .respondWith()
-            .statusCode(404)
-            .jsonBody(rawResponseBody)
-            .build();
-
-        await expect(async () => {
-            return await client.sandboxEnvironments.delete("name");
-        }).rejects.toThrow(TrueForgeTypes.NotFoundError);
-    });
-
-    test("delete (5)", async () => {
-        const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-
-        const rawResponseBody = { error: { message: "message" } };
-
-        server
-            .mockEndpoint()
-            .delete("/api/v1/sandbox-environments/name")
-            .respondWith()
             .statusCode(409)
             .jsonBody(rawResponseBody)
             .build();
@@ -787,7 +768,7 @@ describe("SandboxEnvironmentsClient", () => {
         }).rejects.toThrow(TrueForgeTypes.ConflictError);
     });
 
-    test("delete (6)", async () => {
+    test("delete (5)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
@@ -806,7 +787,7 @@ describe("SandboxEnvironmentsClient", () => {
         }).rejects.toThrow(TrueForgeTypes.UnprocessableEntityError);
     });
 
-    test("delete (7)", async () => {
+    test("delete (6)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 

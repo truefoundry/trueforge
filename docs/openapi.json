@@ -3416,7 +3416,7 @@
             "type": "boolean"
           },
           "is_default": {
-            "description": "If true, make this the tenant default (admin only). If false, clear the default slot when this environment holds it (admin only).",
+            "description": "If true, make this environment the default in new chats and agents.",
             "type": "boolean"
           }
         },
@@ -8940,7 +8940,7 @@
                 }
               }
             },
-            "description": "Sandbox environment deleted."
+            "description": "Sandbox environment deleted, or already absent."
           },
           "401": {
             "content": {
@@ -8961,16 +8961,6 @@
               }
             },
             "description": "User does not have permission to edit Sandbox environment"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Sandbox environment not found or not owned by the caller."
           },
           "409": {
             "content": {
@@ -9073,7 +9063,7 @@
         "x-fern-sdk-method-name": "get"
       },
       "patch": {
-        "description": "Updates `enabled` and/or `is_default` on the environment. Does not change the definition or create a version. Setting `is_default` is admin-only. Disabling the default releases the default slot.",
+        "description": "Update sandbox environment metadata.",
         "parameters": [
           {
             "description": "Sandbox environment name.",

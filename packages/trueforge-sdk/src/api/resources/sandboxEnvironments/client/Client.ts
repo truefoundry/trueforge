@@ -575,7 +575,6 @@ export class SandboxEnvironmentsClient {
      *
      * @throws {@link TrueForge.UnauthorizedError}
      * @throws {@link TrueForge.ForbiddenError}
-     * @throws {@link TrueForge.NotFoundError}
      * @throws {@link TrueForge.ConflictError}
      * @throws {@link TrueForge.UnprocessableEntityError}
      * @throws {@link TrueForge.BadGatewayError}
@@ -654,17 +653,6 @@ export class SandboxEnvironmentsClient {
                         }),
                         _response.rawResponse,
                     );
-                case 404:
-                    throw new TrueForge.NotFoundError(
-                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
-                            unrecognizedObjectKeys: "passthrough",
-                            allowUnrecognizedUnionMembers: true,
-                            allowUnrecognizedEnumValues: true,
-                            skipValidation: true,
-                            breadcrumbsPrefix: ["response"],
-                        }),
-                        _response.rawResponse,
-                    );
                 case 409:
                     throw new TrueForge.ConflictError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
@@ -716,7 +704,7 @@ export class SandboxEnvironmentsClient {
     }
 
     /**
-     * Updates `enabled` and/or `is_default` on the environment. Does not change the definition or create a version. Setting `is_default` is admin-only. Disabling the default releases the default slot.
+     * Update sandbox environment metadata.
      *
      * @param {string} name - Sandbox environment name.
      * @param {TrueForge.PatchSandboxEnvironmentRequest} request
