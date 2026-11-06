@@ -21,6 +21,12 @@ const DEFAULT_TIMEOUT_SECONDS = 30;
 /** Retries after the first attempt, for 408, 429 and 5xx; the SDK backs off and honours `Retry-After`. */
 const DEFAULT_MAX_RETRIES = 3;
 
+/** Per-request options for user lookups; the session-start summary uses them for one bounded attempt. */
+interface LookupOptions {
+  maxRetries?: number;
+  abortSignal?: AbortSignal;
+}
+
 type ZepOperation =
   | 'lookup_user'
   | 'create_user'
@@ -212,7 +218,7 @@ export class ZepMemoryProvider implements MemoryProvider {
     signal: AbortSignal | undefined;
   }): Promise<string | null> {
     const singleAttempt = { maxRetries: 0, ...(signal === undefined ? {} : { abortSignal: signal }) };
-    const userUuid = await this.#existingUserUuid(scope, singleAttempt);
+    const userUuid = await this.#userUuid(scope, { create: false, lookup: singleAttempt });
     if (userUuid === undefined) {
       return null;
     }
@@ -224,7 +230,7 @@ export class ZepMemoryProvider implements MemoryProvider {
   }
 
   async search({ scope, query, limit }: { scope: MemoryScope; query: string; limit: number }): Promise<MemoryFact[]> {
-    const userUuid = await this.#existingUserUuid(scope, {});
+    const userUuid = await this.#userUuid(scope, { create: false });
     if (userUuid === undefined) {
       return [];
     }
@@ -250,7 +256,7 @@ export class ZepMemoryProvider implements MemoryProvider {
     sessionId: string;
     createdAt: string;
   }): Promise<void> {
-    const userUuid = await this.#userUuid(scope);
+    const userUuid = await this.#userUuid(scope, { create: true });
     await this.#call('add_episode', () =>
       this.#client.graph.episode.add(userUuid, {
         type: 'text',
@@ -262,42 +268,31 @@ export class ZepMemoryProvider implements MemoryProvider {
     );
   }
 
-  /** The scope's Zep user uuid without creating the user; reads use it so they don't create users. */
-  async #existingUserUuid(
+  async #createThread(scope: MemoryScope): Promise<string> {
+    const userUuid = await this.#userUuid(scope, { create: true });
+    const thread = await this.#call('create_thread', () => this.#client.thread.create({ userUuid }));
+    return requireUuid('create_thread', thread.uuid);
+  }
+
+  /** The scope's Zep user uuid. Only writes pass `create`, so reads never create users. */
+  async #userUuid(scope: MemoryScope, options: { create: true }): Promise<string>;
+  async #userUuid(scope: MemoryScope, options: { create: false; lookup?: LookupOptions }): Promise<string | undefined>;
+  async #userUuid(
     scope: MemoryScope,
-    requestOptions: { maxRetries?: number; abortSignal?: AbortSignal },
+    { create, lookup = {} }: { create: boolean; lookup?: LookupOptions },
   ): Promise<string | undefined> {
     const cached = this.#userUuids.get(scope.key);
     if (cached !== undefined) {
       return cached;
     }
-    const uuid = await this.#lookupUser(scope, requestOptions);
+    const uuid = (await this.#lookupUser(scope, lookup)) ?? (create ? await this.#createUser(scope) : undefined);
     if (uuid !== undefined) {
       this.#userUuids.set(scope.key, uuid);
     }
     return uuid;
   }
 
-  async #createThread(scope: MemoryScope): Promise<string> {
-    const userUuid = await this.#userUuid(scope);
-    const thread = await this.#call('create_thread', () => this.#client.thread.create({ userUuid }));
-    return requireUuid('create_thread', thread.uuid);
-  }
-
-  async #userUuid(scope: MemoryScope): Promise<string> {
-    const cached = this.#userUuids.get(scope.key);
-    if (cached !== undefined) {
-      return cached;
-    }
-    const uuid = (await this.#lookupUser(scope, {})) ?? (await this.#createUser(scope));
-    this.#userUuids.set(scope.key, uuid);
-    return uuid;
-  }
-
-  async #lookupUser(
-    scope: MemoryScope,
-    requestOptions: { maxRetries?: number; abortSignal?: AbortSignal },
-  ): Promise<string | undefined> {
+  async #lookupUser(scope: MemoryScope, requestOptions: LookupOptions): Promise<string | undefined> {
     const user = await this.#call(
       'lookup_user',
       () => this.#client.user.lookup({ userId: scope.key }, requestOptions),
