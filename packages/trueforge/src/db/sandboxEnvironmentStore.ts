@@ -271,32 +271,17 @@ export interface ISandboxEnvironmentStore<TTransaction = never> {
   ): Promise<SandboxEnvironmentWithVersion | undefined>;
   /** At least one active environment is enabled and its active version is `ready`. */
   hasUsableEnvironment(input: { tenant_id: string }, transaction?: TTransaction): Promise<boolean>;
-  /**
-   * Flip the parent `enabled` column. Disabling also clears `is_default`, leaving the tenant
-   * without a default until one is chosen. No version row, no `active_version` change, no
-   * `external_ref`. Undefined when no active environment uses that name.
-   */
+
   setEnvironmentEnabled(
     input: SetSandboxEnvironmentEnabledInput,
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentWithVersion | undefined>;
-  /**
-   * Move `is_default` to this environment, clearing it from the previous holder in the same
-   * transaction. The target's `enabled` flag is read under the lock that guards the write, so a
-   * concurrent disable can never leave a disabled environment holding the slot. Undefined when no
-   * active environment uses that name. Throws `SandboxEnvironmentDisabledError` when the target is
-   * disabled and `SandboxEnvironmentDefaultConflictError` when a concurrent call won the slot;
-   * neither leaves the previous default cleared.
-   */
+
   setDefaultEnvironment(
     input: SetDefaultSandboxEnvironmentInput,
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentWithVersion | undefined>;
-  /**
-   * Clear `is_default` when this environment holds the tenant slot. No-op (still returns the
-   * environment) when it does not. Undefined when no active environment uses that name. No
-   * version row and no `updated_at` change.
-   */
+
   clearDefaultEnvironment(
     input: SetDefaultSandboxEnvironmentInput,
     transaction?: TTransaction,
