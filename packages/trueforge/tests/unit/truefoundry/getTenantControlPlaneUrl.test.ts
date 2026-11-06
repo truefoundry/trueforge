@@ -35,6 +35,7 @@ describe('TrueFoundryServiceFoundryServerClient.getTenantControlPlaneUrl', () =>
       tls: { enabled: false, dir: '' },
       httpTimeoutMs: 5_000,
       httpAgentTimeoutMs: 5_000,
+      maxRetries: 0,
       apiKey: 'service-key',
     });
 
@@ -58,6 +59,7 @@ describe('TrueFoundryServiceFoundryServerClient.getTenantControlPlaneUrl', () =>
       tls: { enabled: false, dir: '' },
       httpTimeoutMs: 5_000,
       httpAgentTimeoutMs: 5_000,
+      maxRetries: 0,
       apiKey: 'service-key',
     });
 
