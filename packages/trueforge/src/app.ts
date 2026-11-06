@@ -144,7 +144,8 @@ export function createAccessLogMiddleware(logger: Logger): MiddlewareHandler {
       path,
       status: c.res.status,
       duration_ms: Math.round(performance.now() - started),
-      ...(subject === undefined ? {} : { subject_type: subject.type, subject_id: subject.id }),
+      subject_type: subject?.type,
+      subject_id: subject?.id,
     });
   };
 }
