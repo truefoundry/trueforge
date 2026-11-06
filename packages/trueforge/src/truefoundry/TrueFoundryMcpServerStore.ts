@@ -256,7 +256,7 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
       returnTo === undefined || returnTo === ''
         ? undefined
         : resolveAuthorizeRedirectURL({
-            returnTo,
+            returnTo: returnTo,
             publicBaseUrl: await this.#client.getTenantControlPlaneUrl({ tenantName: input.tenant_id }),
           });
     const gatewayAuthorization = await this.#resolveGatewayAuthorization();
