@@ -210,13 +210,35 @@ function refineSandboxEnvironmentResources(
   }
 }
 
+function refineSandboxEnvironmentBuildScript(
+  body: { manifest: z.infer<typeof SandboxEnvironmentManifestRequestSchema> },
+  ctx: z.RefinementCtx,
+): void {
+  const buildScript = body.manifest.image?.build_script;
+  if (buildScript !== undefined && buildScript.length > configuration.SANDBOX_ENVIRONMENT_BUILD_SCRIPT_MAX_LENGTH) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['manifest', 'image', 'build_script'],
+      message: 'Sandbox environment build script exceeds configured limit',
+    });
+  }
+}
+
+function refineSandboxEnvironmentRequest(
+  body: { manifest: z.infer<typeof SandboxEnvironmentManifestRequestSchema> },
+  ctx: z.RefinementCtx,
+): void {
+  refineSandboxEnvironmentResources(body, ctx);
+  refineSandboxEnvironmentBuildScript(body, ctx);
+}
+
 /** POST create body. */
 export const CreateSandboxEnvironmentRequestSchema = z
   .object({
     manifest: SandboxEnvironmentManifestRequestSchema,
   })
   .strict()
-  .superRefine(refineSandboxEnvironmentResources)
+  .superRefine(refineSandboxEnvironmentRequest)
   .openapi('CreateSandboxEnvironmentRequest');
 
 /** PUT create-or-update body. */
@@ -225,7 +247,7 @@ export const UpdateSandboxEnvironmentRequestSchema = z
     manifest: SandboxEnvironmentManifestRequestSchema,
   })
   .strict()
-  .superRefine(refineSandboxEnvironmentResources)
+  .superRefine(refineSandboxEnvironmentRequest)
   .openapi('UpdateSandboxEnvironmentRequest');
 
 const IsoTimestamp = z.iso.datetime().openapi({ type: 'string', format: 'date-time' });

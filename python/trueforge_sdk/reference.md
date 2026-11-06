@@ -2612,7 +2612,7 @@ client.sessions.list_events(
 <dl>
 <dd>
 
-**limit:** `typing.Optional[int]` — Page size. Defaults to 100, max 100.
+**limit:** `typing.Optional[int]` — Page size. Defaults to and is capped at the server-configured maximum.
     
 </dd>
 </dl>
@@ -3320,7 +3320,7 @@ client.sessions.list_turn_events(
 <dl>
 <dd>
 
-**limit:** `typing.Optional[int]` — Page size. Defaults to 100, max 100.
+**limit:** `typing.Optional[int]` — Page size. Defaults to and is capped at the server-configured maximum.
     
 </dd>
 </dl>
