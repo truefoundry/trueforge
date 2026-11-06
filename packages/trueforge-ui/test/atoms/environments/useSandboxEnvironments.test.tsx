@@ -124,4 +124,42 @@ describe('useSandboxEnvironments', () => {
     expect(listEnvironments).toHaveBeenNthCalledWith(2, { limit: 1000, pageToken: 'token-page-2' });
     expect(result.current.environments.map(e => e.name)).toEqual(['env-page-1', 'env-page-2']);
   });
+
+  it('clears a stale error when a catalog refresh succeeds', async () => {
+    const listEnvironments = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('catalog unavailable'))
+      .mockResolvedValueOnce({ data: [readyEnv] });
+    const server = createMockAgentUIServer({
+      sandboxEnvironments: createMockSandboxEnvironmentServer({ listEnvironments }),
+    });
+
+    function wrapper({ children }: { children: ReactNode }) {
+      return (
+        <ServerProvider server={server}>
+          <ShellModeProvider>{children}</ShellModeProvider>
+        </ServerProvider>
+      );
+    }
+
+    const { result } = renderHook(
+      () => ({
+        environments: useSandboxEnvironments(),
+        shell: useShellMode(),
+      }),
+      { wrapper },
+    );
+
+    await waitFor(() => {
+      expect(result.current.environments.error).toBe('catalog unavailable');
+    });
+
+    act(() => result.current.shell.invalidateEnvironmentsList());
+
+    await waitFor(() => {
+      expect(result.current.environments.loaded).toBe(true);
+      expect(result.current.environments.environments).toEqual([readyEnv]);
+      expect(result.current.environments.error).toBeNull();
+    });
+  });
 });

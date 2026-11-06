@@ -60,6 +60,7 @@ export function useSandboxEnvironments(): UseSandboxEnvironmentsResult {
       if (gen !== requestGenRef.current) return;
       setEnvironments(all);
       setLoaded(true);
+      setError(null);
     } catch (caught) {
       if (gen !== requestGenRef.current) return;
       setError(getErrorMessage(caught, 'Failed to load sandbox environments.'));
