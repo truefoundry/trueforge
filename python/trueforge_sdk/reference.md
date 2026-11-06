@@ -822,7 +822,7 @@ client.mcp_servers.authorize(
 <dl>
 <dd>
 
-**return_to:** `typing.Optional[str]` — Same-origin path to land in the browser after consent.
+**return_to:** `typing.Optional[str]` — Same-origin path to land in the browser after consent. When omitted, no post-consent redirect is requested.
     
 </dd>
 </dl>

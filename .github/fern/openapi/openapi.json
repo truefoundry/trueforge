@@ -8416,12 +8416,12 @@
             }
           },
           {
-            "description": "Same-origin path to land in the browser after consent.",
+            "description": "Same-origin path to land in the browser after consent. When omitted, no post-consent redirect is requested.",
             "in": "query",
             "name": "return_to",
             "required": false,
             "schema": {
-              "description": "Same-origin path to land in the browser after consent.",
+              "description": "Same-origin path to land in the browser after consent. When omitted, no post-consent redirect is requested.",
               "type": "string"
             }
           }
