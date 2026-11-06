@@ -2,10 +2,10 @@ import type { SandboxProvider } from '@truefoundry/trueforge-core/core';
 import { withTimeout } from '@truefoundry/trueforge-core/core';
 import { randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
-import type { SandboxEnvironmentSecretRecord, SyncedSandboxEnvironmentSecret } from '../db/sandboxEnvironmentStore';
-import type { SandboxEnvironmentSecret } from '../schemas/sandboxEnvironment';
-import { isRedactedSecretValue, MissingStoredSecretError } from '../utils/secretRedaction';
-import { DAYTONA_RPC_TIMEOUT_MS, isDaytonaNotFoundError } from './providerUtils';
+import type { SandboxEnvironmentSecretRecord, SyncedSandboxEnvironmentSecret } from '../../db/sandboxEnvironmentStore';
+import type { SandboxEnvironmentSecret } from '../../schemas/sandboxEnvironment';
+import { isRedactedSecretValue, MissingStoredSecretError } from '../../utils/secretRedaction';
+import { DAYTONA_RPC_TIMEOUT_MS, isDaytonaNotFoundError } from '../providerUtils';
 
 export class SandboxEnvironmentSecretSyncError extends Error {
   constructor(message: string, options: ErrorOptions) {

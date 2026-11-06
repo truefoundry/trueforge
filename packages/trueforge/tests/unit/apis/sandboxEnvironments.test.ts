@@ -61,11 +61,16 @@ describe('sandbox environments API → build controller path', () => {
       manifest: daytonaManifest,
     });
 
+    // Runs between the delete handler's own checks and its store call — the race window.
+    let duringDeletePreChecks: () => Promise<void> = () => Promise.resolve();
     const publicRouter = createSandboxEnvironmentsRouter({
       sandboxEnvironmentStore,
       resolveAgentStore: () =>
         ({
-          listAgentNamesUsingSandboxEnvironment: jest.fn().mockResolvedValue([]),
+          listAgentNamesUsingSandboxEnvironment: jest.fn(async () => {
+            await duringDeletePreChecks();
+            return [];
+          }),
         }) as never,
       sandboxProviderStore,
       resolveRequestContext: () => requestContext,
@@ -77,9 +82,13 @@ describe('sandbox environments API → build controller path', () => {
       logger,
     });
     return {
+      db,
       publicRouter,
       buildRouter,
       sandboxEnvironmentStore,
+      setDuringDeletePreChecks(hook: () => Promise<void>) {
+        duringDeletePreChecks = hook;
+      },
       setSubject(subjectId: string, roles: string[] = STANDALONE_REQUEST_CONTEXT.roles) {
         requestContext = {
           ...STANDALONE_REQUEST_CONTEXT,
@@ -296,7 +305,7 @@ describe('sandbox environments API → build controller path', () => {
     expect(Array.isArray(listBody.data)).toBe(true);
   });
 
-  it('allows all users to read; create is admin-only; update/delete allow admin or creator', async () => {
+  it('allows all users to read; create/update/delete are admin-only', async () => {
     const { publicRouter, setSubject } = await setup();
     jest.mocked(providerUtils.toSandboxProviderFromRecord).mockReturnValue({
       envSupported: true,
@@ -333,7 +342,7 @@ describe('sandbox environments API → build controller path', () => {
       ).status,
     ).toBe(201);
 
-    // Creator retains edit access even without admin role.
+    // Creator loses write access without the admin role.
     setSubject('alice', ['everyone']);
     const creatorUpdate = await publicRouter.request('/', {
       method: 'PUT',
@@ -346,10 +355,7 @@ describe('sandbox environments API → build controller path', () => {
         },
       }),
     });
-    expect(creatorUpdate.status).toBe(200);
-    expect(((await creatorUpdate.json()) as { data: { description: string } }).data.description).toBe(
-      'updated by creator',
-    );
+    expect(creatorUpdate.status).toBe(403);
 
     setSubject('bob', ['everyone']);
     const listed = (await (await publicRouter.request('/')).json()) as { data: { name: string }[] };
@@ -404,7 +410,7 @@ describe('sandbox environments API → build controller path', () => {
     expect((await publicRouter.request('/shared-env', { method: 'DELETE' })).status).toBe(200);
   });
 
-  it('in TrueFoundry mode create is tenant-admin only; update/delete allow tenant-admin or creator', async () => {
+  it('in TrueFoundry mode create/update/delete are tenant-admin only', async () => {
     jest.mocked(getTrueForgeAuthMode).mockReturnValue(TrueForgeAuthMode.TrueFoundry);
     const { publicRouter, setSubject } = await setup();
     jest.mocked(providerUtils.toSandboxProviderFromRecord).mockReturnValue({
@@ -471,7 +477,7 @@ describe('sandbox environments API → build controller path', () => {
         },
       }),
     });
-    expect(creatorUpdate.status).toBe(200);
+    expect(creatorUpdate.status).toBe(403);
 
     setSubject('bob', ['everyone']);
     expect((await publicRouter.request('/tfy-env')).status).toBe(200);
@@ -504,13 +510,16 @@ describe('sandbox environments API → build controller path', () => {
     expect((await publicRouter.request('/tfy-env')).status).toBe(404);
   });
   function mockSecretProvider() {
-    jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReturnValue({
+    // Both resolvers, so these tests do not depend on a mock another test left behind.
+    const provider = {
       createSecret: jest.fn(),
       updateSecret: jest.fn(),
       deleteSecret: jest.fn(),
       getBuildStatus: jest.fn(),
       build: jest.fn(),
-    } as never);
+    } as never;
+    jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReturnValue(provider);
+    jest.mocked(providerUtils.toSandboxProviderFromRecord).mockReturnValue(provider);
   }
 
   async function writeEnv(
@@ -569,5 +578,194 @@ describe('sandbox environments API → build controller path', () => {
     const updated = await load();
     expect(updated?.version.version).toBe(2);
     expect(updated?.version.manifest).toMatchObject({ type: 'truefoundry', sandbox_provider: 'daytona' });
+  });
+
+  async function createEnv(publicRouter: Awaited<ReturnType<typeof setup>>['publicRouter'], name: string) {
+    const res = await publicRouter.request('/', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ manifest: { name, image: { type: 'build', build_script: 'pip install httpx' } } }),
+    });
+    expect(res.status).toBe(201);
+    return res;
+  }
+
+  async function patchFlags(
+    publicRouter: Awaited<ReturnType<typeof setup>>['publicRouter'],
+    name: string,
+    body: { enabled?: boolean; is_default?: boolean },
+  ) {
+    return publicRouter.request(`/${name}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  }
+
+  it('PATCH moves only the flags', async () => {
+    const { publicRouter } = await setup();
+    mockSecretProvider();
+    await createEnv(publicRouter, 'flag-env');
+
+    const setDefault = await patchFlags(publicRouter, 'flag-env', { is_default: true });
+    expect(setDefault.status).toBe(200);
+    const defaulted = (await setDefault.json()) as { data: { is_default: boolean; enabled: boolean; status: string } };
+    expect(defaulted.data).toMatchObject({ is_default: true, enabled: true, status: 'pending' });
+
+    // The default cannot be deleted while it holds the flag.
+    expect((await publicRouter.request('/flag-env', { method: 'DELETE' })).status).toBe(409);
+
+    await createEnv(publicRouter, 'other-env');
+    expect((await patchFlags(publicRouter, 'other-env', { is_default: true })).status).toBe(200);
+
+    const disabled = await patchFlags(publicRouter, 'flag-env', { enabled: false });
+    expect(disabled.status).toBe(200);
+    expect((await disabled.json()) as { data: { enabled: boolean } }).toMatchObject({ data: { enabled: false } });
+
+    // A disabled environment cannot take the default slot; the store refuses under its own lock.
+    const disabledDefault = await patchFlags(publicRouter, 'flag-env', { is_default: true });
+    expect(disabledDefault.status).toBe(409);
+    expect(await disabledDefault.json()).toEqual({
+      error: { message: 'Sandbox environment "flag-env" is disabled; enable it first' },
+    });
+
+    const enabled = await patchFlags(publicRouter, 'flag-env', { enabled: true });
+    expect(enabled.status).toBe(200);
+    expect((await enabled.json()) as { data: { enabled: boolean } }).toMatchObject({ data: { enabled: true } });
+
+    // Only one environment holds the flag.
+    const listed = (await (await publicRouter.request('/')).json()) as {
+      data: { name: string; is_default: boolean }[];
+    };
+    expect(listed.data.filter(env => env.is_default).map(env => env.name)).toEqual(['other-env']);
+  });
+
+  it('is_default and enabled both need the admin role', async () => {
+    const { publicRouter, setSubject } = await setup();
+    mockSecretProvider();
+    setSubject('alice', ['admin']);
+    await createEnv(publicRouter, 'flag-env');
+
+    setSubject('alice', ['everyone']);
+    const refusedDefault = await patchFlags(publicRouter, 'flag-env', { is_default: true });
+    expect(refusedDefault.status).toBe(403);
+    expect(await refusedDefault.json()).toEqual({
+      error: { message: 'User does not have permission to edit Sandbox environment' },
+    });
+    expect((await patchFlags(publicRouter, 'flag-env', { enabled: false })).status).toBe(403);
+
+    setSubject('carol', ['admin']);
+    expect((await patchFlags(publicRouter, 'flag-env', { enabled: false })).status).toBe(200);
+    expect((await patchFlags(publicRouter, 'flag-env', { enabled: true })).status).toBe(200);
+    const allowed = await patchFlags(publicRouter, 'flag-env', { is_default: true });
+    expect(allowed.status).toBe(200);
+    expect((await allowed.json()) as { data: { is_default: boolean } }).toMatchObject({ data: { is_default: true } });
+  });
+
+  it('refuses to disable the environment holding the default slot', async () => {
+    const { publicRouter } = await setup();
+    mockSecretProvider();
+    await createEnv(publicRouter, 'flag-env');
+    expect((await patchFlags(publicRouter, 'flag-env', { is_default: true })).status).toBe(200);
+
+    const disabled = await patchFlags(publicRouter, 'flag-env', { enabled: false });
+    expect(disabled.status).toBe(409);
+    expect(await disabled.json()).toEqual({
+      error: {
+        message:
+          'Sandbox environment "flag-env" is the default and cannot be disabled. Make another one the default first.',
+      },
+    });
+    const listed = (await (await publicRouter.request('/')).json()) as {
+      data: { name: string; is_default: boolean; enabled: boolean }[];
+    };
+    expect(listed.data.find(env => env.name === 'flag-env')).toMatchObject({
+      is_default: true,
+      enabled: true,
+    });
+  });
+
+  it('answers 409 when a set-default lands between the delete pre-check and the store write', async () => {
+    const { db, publicRouter, sandboxEnvironmentStore, setDuringDeletePreChecks } = await setup();
+    const deleteSecret = jest.fn();
+    const provider = {
+      envSupported: true,
+      createSecret: jest.fn().mockResolvedValue({ id: 'daytona-sec-1' }),
+      updateSecret: jest.fn(),
+      deleteSecret,
+      getBuildStatus: jest.fn(),
+      build: jest.fn(),
+    } as never;
+    jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReturnValue(provider);
+    jest.mocked(providerUtils.toSandboxProviderFromRecord).mockReturnValue(provider);
+    const created = await publicRouter.request('/', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        manifest: {
+          name: 'flag-env',
+          image: { type: 'build', build_script: 'pip install httpx' },
+          networking: { secrets: [{ env: 'API_TOKEN', value: 'secret-value', hosts: ['api.example.com'] }] },
+        },
+      }),
+    });
+    expect(created.status).toBe(201);
+    await createEnv(publicRouter, 'other-env');
+    expect((await patchFlags(publicRouter, 'other-env', { is_default: true })).status).toBe(200);
+
+    // The delete pre-check has already seen flag-env as non-default when this commits.
+    setDuringDeletePreChecks(async () => {
+      await sandboxEnvironmentStore.setDefaultEnvironment({
+        tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
+        name: 'flag-env',
+      });
+    });
+
+    const removed = await publicRouter.request('/flag-env', { method: 'DELETE' });
+    expect(removed.status).toBe(409);
+    expect(await removed.json()).toEqual({
+      error: { message: 'Sandbox environment "flag-env" is the default and cannot be deleted' },
+    });
+    expect(deleteSecret).not.toHaveBeenCalled();
+
+    // The tenant keeps its default, and the provider secret, instead of losing both to the delete.
+    const kept = await db
+      .selectFrom('sandbox_environment')
+      .select(['id', 'lifecycle_stage', 'is_default'])
+      .where('tenant_id', '=', STANDALONE_REQUEST_CONTEXT.tenant_id)
+      .where('name', '=', 'flag-env')
+      .executeTakeFirstOrThrow();
+    expect(kept).toMatchObject({ lifecycle_stage: 'active', is_default: 1 });
+    const secretRows = await db
+      .selectFrom('sandbox_environment_secret')
+      .select(['external_secret_id'])
+      .where('environment_id', '=', kept.id)
+      .execute();
+    expect(secretRows).toEqual([{ external_secret_id: 'daytona-sec-1' }]);
+  });
+
+  it('refuses to edit or delete the reserved "default" environment', async () => {
+    const { publicRouter } = await setup();
+
+    const deleted = await publicRouter.request('/default', { method: 'DELETE' });
+    expect(deleted.status).toBe(409);
+    expect((await deleted.json()) as { error: { message: string } }).toMatchObject({
+      error: { message: 'Sandbox environment "default" cannot be deleted' },
+    });
+
+    const edited = await publicRouter.request('/', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ manifest: { name: 'default', description: 'changed' } }),
+    });
+    expect(edited.status).toBe(400);
+  });
+
+  it('answers 404 for flag changes on an unknown environment', async () => {
+    const { publicRouter } = await setup();
+
+    expect((await patchFlags(publicRouter, 'missing-env', { enabled: true })).status).toBe(404);
+    expect((await patchFlags(publicRouter, 'missing-env', { enabled: false })).status).toBe(404);
+    expect((await patchFlags(publicRouter, 'missing-env', { is_default: true })).status).toBe(404);
   });
 });

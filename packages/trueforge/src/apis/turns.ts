@@ -104,7 +104,6 @@ import {
   resolveSandboxProvider,
 } from '../runtime/sessionResources';
 import { restoreTurnEventLog } from '../runtime/turnEventLogRestore';
-import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
 import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
 import { assertGatewayMetadataRequestHeaders } from '../truefoundry/gatewayMetadata';
 import { newId } from '../utils/id';
@@ -398,9 +397,8 @@ function createTurnResolver(deps: {
       if (provider.envSupported) {
         const environment = await resolveSandboxEnvironment({
           tenant_id,
-          name: spec.config.sandbox.environment_name ?? DEFAULT_SANDBOX_ENVIRONMENT_NAME,
+          name: spec.config.sandbox.environment_name,
           sandboxEnvironmentStore,
-          optional: spec.config.sandbox.environment_name === undefined,
         });
         return buildTurnSandbox({
           provider,

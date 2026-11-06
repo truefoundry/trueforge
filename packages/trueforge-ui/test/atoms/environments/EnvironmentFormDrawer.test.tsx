@@ -48,6 +48,8 @@ const editEnvironment: SandboxEnvironment = {
   name: 'node-web',
   description: '',
   status: 'ready',
+  enabled: true,
+  isDefault: false,
   statusReason: null,
   manifest: { name: 'node-web', description: '' },
   createdBySubject: {
@@ -77,6 +79,8 @@ function renderDrawer({
     name: manifest.name,
     description: manifest.description ?? '',
     status: 'pending' as const,
+    enabled: true,
+    isDefault: false,
     statusReason: null,
     manifest,
     createdBySubject: {

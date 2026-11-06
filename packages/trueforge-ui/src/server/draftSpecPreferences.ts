@@ -62,13 +62,13 @@ function readTrimmedString(value: object, key: string): string {
 
 type SandboxConfig = NonNullable<AgentRuntimeConfig['sandbox']>;
 
-/** Display name. A leftover wire `environment_name` counts when the client field is empty. */
-export function readSandboxEnvironmentName(sandbox: object | undefined): string {
-  if (!isObject(sandbox)) return 'default';
+/** The environment the spec names, or undefined when it names none. */
+export function readSandboxEnvironmentName(sandbox: object | undefined): string | undefined {
+  if (!isObject(sandbox)) return undefined;
   const camelName = readTrimmedString(sandbox, 'environmentName');
   if (camelName.length > 0) return camelName;
   const snakeName = readTrimmedString(sandbox, 'environment_name');
-  return snakeName.length > 0 ? snakeName : 'default';
+  return snakeName.length > 0 ? snakeName : undefined;
 }
 
 /** Set the client field and drop a leftover wire key so passthrough serialization cannot send it. */

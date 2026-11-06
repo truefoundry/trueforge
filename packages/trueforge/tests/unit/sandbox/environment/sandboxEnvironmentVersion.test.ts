@@ -1,17 +1,17 @@
-import { isTrueFoundryModeEnabled } from '../../../src/config';
+import { isTrueFoundryModeEnabled } from '../../../../src/config';
 import {
   buildNextVersion,
-  defaultSandboxEnvironmentStoredManifest,
+  reservedSandboxEnvironmentStoredManifest,
   resolveSandboxEnvironmentIdentity,
-} from '../../../src/sandbox/sandboxEnvironmentVersion';
+} from '../../../../src/sandbox/environment/version';
 import {
   SandboxEnvironmentManifestSchema,
   SandboxEnvironmentSchema,
   UpdateSandboxEnvironmentRequestSchema,
-} from '../../../src/schemas/sandboxEnvironment';
+} from '../../../../src/schemas/sandboxEnvironment';
 
-jest.mock('../../../src/config', () => {
-  const actual = jest.requireActual<typeof import('../../../src/config')>('../../../src/config');
+jest.mock('../../../../src/config', () => {
+  const actual = jest.requireActual<typeof import('../../../../src/config')>('../../../../src/config');
   return {
     __esModule: true,
     ...actual,
@@ -38,7 +38,7 @@ describe('resolveSandboxEnvironmentIdentity', () => {
 });
 
 describe('buildNextVersion', () => {
-  const previous = defaultSandboxEnvironmentStoredManifest({ type: 'daytona', sandbox_provider: 'daytona' });
+  const previous = reservedSandboxEnvironmentStoredManifest({ type: 'daytona', sandbox_provider: 'daytona' });
 
   it('allocates a new external_ref when resources change without a build image', () => {
     const next = buildNextVersion({
@@ -110,6 +110,8 @@ describe('sandbox environment wire schemas', () => {
     name: 'default',
     description: '',
     lifecycle_stage: 'active' as const,
+    enabled: true,
+    is_default: true,
     status: 'ready' as const,
     status_reason: null,
     manifest: {

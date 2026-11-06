@@ -474,6 +474,7 @@ export interface AgentTable {
 /**
  * Sandbox environments — immutable ULID `id` PK.
  * Partial unique (tenant_id, name) WHERE lifecycle_stage = 'active'.
+ * Partial unique (tenant_id) WHERE is_default.
  */
 export interface SandboxEnvironmentTable {
   id: string;
@@ -482,6 +483,8 @@ export interface SandboxEnvironmentTable {
   description: string;
   active_version: number;
   lifecycle_stage: SandboxEnvironmentLifecycleStage;
+  enabled: boolean;
+  is_default: boolean;
   created_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
   created_at: Date;
   updated_at: Date;

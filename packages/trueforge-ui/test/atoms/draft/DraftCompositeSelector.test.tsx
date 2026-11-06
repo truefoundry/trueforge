@@ -19,6 +19,7 @@ import {
   createMockAgentUIServer,
   createMockCatalog,
   createMockSandboxEnvironmentServer,
+  tenantSessionSharing,
 } from '../../server/mockServer.js';
 import { allSettingsSections } from '../../server/settingsCapabilityFixture.js';
 
@@ -94,6 +95,7 @@ function renderSelector({
         data: {
           sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
+          sessionSharing: tenantSessionSharing,
         },
       })),
     getModels: async () => [],
@@ -296,6 +298,7 @@ describe('DraftCompositeSelector', () => {
         data: {
           sandbox: { enabled: false, environments: { enabled: false } },
           skill: { enabled: false, reason: 'Skills run in a sandbox, which is not configured.' },
+          sessionSharing: tenantSessionSharing,
         },
       }),
       getSkills: async () => [],
@@ -316,6 +319,7 @@ describe('DraftCompositeSelector', () => {
         data: {
           sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: false, reason: 'Skills are not available.' },
+          sessionSharing: tenantSessionSharing,
         },
       }),
       getSkills: async () => [],
@@ -342,6 +346,7 @@ describe('DraftCompositeSelector', () => {
         data: {
           sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
+          sessionSharing: tenantSessionSharing,
           settings: allSettingsSections(false),
         },
       }),
@@ -368,6 +373,7 @@ describe('DraftCompositeSelector', () => {
         data: {
           sandbox: { enabled: false, environments: { enabled: false } },
           skill: { enabled: false, reason: 'Skills run in a sandbox, which is not configured.' },
+          sessionSharing: tenantSessionSharing,
         },
       }),
       getSkills: async () => [],
@@ -380,7 +386,7 @@ describe('DraftCompositeSelector', () => {
     expect(screen.queryByRole('button', { name: /Please configure a Sandbox/ })).not.toBeInTheDocument();
   });
 
-  it('renders environment tab with default and ready environments only, excluding pending/failed and status badges', async () => {
+  it('renders every environment, greying out pending/failed ones, with no status badges', async () => {
     const environmentServer = createMockSandboxEnvironmentServer({
       listEnvironments: async () => ({
         data: [
@@ -389,6 +395,8 @@ describe('DraftCompositeSelector', () => {
             name: 'default',
             description: 'Default environment',
             status: 'ready',
+            enabled: true,
+            isDefault: true,
             statusReason: null,
             manifest: { name: 'default', description: 'Default environment' },
             createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
@@ -400,6 +408,8 @@ describe('DraftCompositeSelector', () => {
             name: 'python-dev',
             description: 'Python 3.11 environment with poetry',
             status: 'ready',
+            enabled: true,
+            isDefault: false,
             statusReason: null,
             manifest: { name: 'python-dev', description: 'Python 3.11 environment with poetry' },
             createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
@@ -411,6 +421,8 @@ describe('DraftCompositeSelector', () => {
             name: 'building-env',
             description: '',
             status: 'pending',
+            enabled: true,
+            isDefault: false,
             statusReason: null,
             manifest: { name: 'building-env' },
             createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
@@ -422,6 +434,8 @@ describe('DraftCompositeSelector', () => {
             name: 'broken-env',
             description: '',
             status: 'failed',
+            enabled: true,
+            isDefault: false,
             statusReason: 'Build failed',
             manifest: { name: 'broken-env' },
             createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
@@ -441,9 +455,13 @@ describe('DraftCompositeSelector', () => {
     expect(await screen.findByText('python-dev')).toBeInTheDocument();
     expect(screen.getByText('Python 3.11 environment with poetry')).toBeInTheDocument();
 
-    // pending and failed environments must NOT be displayed
-    expect(screen.queryByText('building-env')).not.toBeInTheDocument();
-    expect(screen.queryByText('broken-env')).not.toBeInTheDocument();
+    // Pending and failed environments are listed, but cannot be picked
+    const building = screen.getByRole('radio', { name: 'Select building-env' });
+    expect(building).toBeDisabled();
+    fireEvent.mouseEnter(building.parentElement ?? building);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Still building');
+    fireEvent.mouseLeave(building.parentElement ?? building);
+    expect(screen.getByRole('radio', { name: 'Select broken-env' })).toBeDisabled();
 
     // No "Ready" status badge should be rendered
     expect(screen.queryByText('Ready')).not.toBeInTheDocument();
@@ -459,12 +477,12 @@ describe('DraftCompositeSelector', () => {
       }),
     });
 
-    // Select default environment clears environmentName
+    // The tenant default is listed under its own name and pins like any other
     fireEvent.click(screen.getByText('default'));
     expect(updateAgentSpec).toHaveBeenCalledWith({
       config: expect.objectContaining({
         sandbox: expect.objectContaining({
-          environmentName: undefined,
+          environmentName: 'default',
         }),
       }),
     });
@@ -484,6 +502,8 @@ describe('DraftCompositeSelector', () => {
             name: 'default',
             description: 'Default environment',
             status: 'ready',
+            enabled: true,
+            isDefault: true,
             statusReason: null,
             manifest: { name: 'default', description: 'Default environment' },
             createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
@@ -495,6 +515,8 @@ describe('DraftCompositeSelector', () => {
             name: 'python-dev',
             description: 'Python 3.11 environment',
             status: 'ready',
+            enabled: true,
+            isDefault: false,
             statusReason: null,
             manifest: { name: 'python-dev', description: 'Python 3.11 environment' },
             createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
@@ -514,6 +536,19 @@ describe('DraftCompositeSelector', () => {
     expect(updateAgentSpec).not.toHaveBeenCalled();
   });
 
+  it('says no environments exist instead of offering Default when none are ready', async () => {
+    const environmentServer = createMockSandboxEnvironmentServer({
+      listEnvironments: async () => ({ data: [] }),
+    });
+
+    renderSelector({ environmentServer });
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
+    fireEvent.click(await screen.findByRole('button', { name: /Environment/ }));
+
+    expect(await screen.findByRole('button', { name: /Please configure Environments/ })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitemradio')).not.toBeInTheDocument();
+  });
+
   it('shows a deleted environment from the agent spec and does not change it', async () => {
     agentSpec = {
       ...agentSpec,
@@ -527,6 +562,8 @@ describe('DraftCompositeSelector', () => {
             name: 'default',
             description: 'Default environment',
             status: 'ready',
+            enabled: true,
+            isDefault: true,
             statusReason: null,
             manifest: { name: 'default', description: 'Default environment' },
             createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
@@ -561,6 +598,7 @@ describe('DraftCompositeSelector', () => {
         data: {
           sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
+          sessionSharing: tenantSessionSharing,
           webSearch: { enabled: true },
         },
       }),
@@ -597,6 +635,7 @@ describe('DraftCompositeSelector', () => {
         data: {
           sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
+          sessionSharing: tenantSessionSharing,
           webSearch: { enabled: false },
         },
       }),
@@ -637,6 +676,7 @@ describe('DraftCompositeSelector', () => {
         data: {
           sandbox: { enabled: true },
           skill: { enabled: true },
+          sessionSharing: tenantSessionSharing,
           webSearch: { enabled: false, reason: 'Web search is turned off for this tenant.' },
         },
       }),
@@ -658,6 +698,7 @@ describe('DraftCompositeSelector', () => {
         data: {
           sandbox: { enabled: true },
           skill: { enabled: true },
+          sessionSharing: tenantSessionSharing,
           webSearch: { enabled: false },
         },
       }),
@@ -687,6 +728,7 @@ describe('DraftCompositeSelector', () => {
         data: {
           sandbox: { enabled: true },
           skill: { enabled: true },
+          sessionSharing: tenantSessionSharing,
           webSearch: { enabled: true },
         },
       }),
