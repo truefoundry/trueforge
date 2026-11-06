@@ -487,10 +487,11 @@ string becomes a secretKeyRef.
 {{- end }}
 
 {{/*
-Full server container env list (YAML). Validates required string|valueFrom
-fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
+Env list shared by the server and controller containers (YAML). Validates
+required string|valueFrom fields, wires bundled Postgres/Redis, optional OIDC,
+the env map, and mTLS. Each deployment appends its own extraEnv after it.
 */}}
-{{- define "trueforge.server.env" -}}
+{{- define "trueforge.env" -}}
 {{- $env := list -}}
 {{- $env = append $env (dict "name" "NODE_ENV" "value" "production") -}}
 {{- $env = append $env (dict "name" "PORT" "value" (.Values.server.port | toString)) -}}
@@ -690,10 +691,6 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- end -}}
 {{- end -}}
 {{- $env = $out -}}
-{{- end -}}
-
-{{- range .Values.server.extraEnv -}}
-{{- $env = append $env . -}}
 {{- end -}}
 
 {{- if .Values.mtls.enabled -}}
