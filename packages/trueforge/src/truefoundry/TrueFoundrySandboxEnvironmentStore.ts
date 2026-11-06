@@ -313,4 +313,8 @@ export class TrueFoundrySandboxEnvironmentStore<
   ): Promise<SandboxEnvironmentSecretRecord[]> {
     return this.#persistence.listSecretsByEnvironment(input, transaction);
   }
+
+  deleteSecretsByEnvironment(input: { environment_id: string }, transaction?: TTransaction): Promise<void> {
+    return this.#persistence.deleteSecretsByEnvironment(input, transaction);
+  }
 }

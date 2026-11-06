@@ -331,6 +331,7 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
           }),
         });
       }
+      await store.deleteSecretsByEnvironment({ environment_id: deletedEnvironmentId });
       return c.json({}, 200);
     } catch (error) {
       if (error instanceof SandboxEnvironmentDefaultConflictError) {

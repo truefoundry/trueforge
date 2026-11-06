@@ -864,6 +864,14 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
     return rows.map(toSecretRecord);
   }
 
+  async deleteSecretsByEnvironment(
+    input: { environment_id: string },
+    transaction?: Transaction<Database>,
+  ): Promise<void> {
+    const db = transaction ?? this.#db;
+    await db.deleteFrom('sandbox_environment_secret').where('environment_id', '=', input.environment_id).execute();
+  }
+
   async #withMountedSecrets(
     loaded: SandboxEnvironmentWithVersion,
     db: Kysely<Database> | Transaction<Database>,

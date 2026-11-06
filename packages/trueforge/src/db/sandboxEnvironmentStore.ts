@@ -331,4 +331,5 @@ export interface ISandboxEnvironmentStore<TTransaction = never> {
     input: { environment_id: string },
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentSecretRecord[]>;
+  deleteSecretsByEnvironment(input: { environment_id: string }, transaction?: TTransaction): Promise<void>;
 }
