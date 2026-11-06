@@ -11075,7 +11075,7 @@
     },
     "/api/v1/sessions/{session_id}/turns/{turn_id}/subscribe": {
       "get": {
-        "description": "Subscribe to the live SSE stream for a turn. Only the session creator may subscribe. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).",
+        "description": "Subscribe to the live SSE stream. Resume with from_event_id or after_event_id.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -11101,17 +11101,39 @@
             }
           },
           {
-            "description": "Exclusive resume cursor: replay only events with a sequence number greater than this value. Omit to start from the beginning of the live buffer.",
+            "description": "Deprecated. Rejected on new turns. Use from_event_id or after_event_id instead.",
             "in": "query",
             "name": "after_sequence_number",
             "required": false,
             "schema": {
-              "description": "Exclusive resume cursor: replay only events with a sequence number greater than this value. Omit to start from the beginning of the live buffer.",
+              "description": "Deprecated. Rejected on new turns. Use from_event_id or after_event_id instead.",
               "minimum": 0,
               "type": [
                 "integer",
                 "null"
               ]
+            }
+          },
+          {
+            "description": "Inclusive cursor. Replay starts at the entry with this event id",
+            "in": "query",
+            "name": "from_event_id",
+            "required": false,
+            "schema": {
+              "description": "Inclusive cursor. Replay starts at the entry with this event id",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Exclusive cursor. Replay starts after the last entry with this event id.",
+            "in": "query",
+            "name": "after_event_id",
+            "required": false,
+            "schema": {
+              "description": "Exclusive cursor. Replay starts after the last entry with this event id.",
+              "minLength": 1,
+              "type": "string"
             }
           }
         ],
@@ -11164,10 +11186,10 @@
                 }
               }
             },
-            "description": "Cannot subscribe — the live stream no longer exists."
+            "description": "The turn stream is no longer available or resumable."
           }
         },
-        "summary": "Subscribe to a running turn",
+        "summary": "Subscribe to a turn stream",
         "tags": [
           "Agent Sessions"
         ],
@@ -11177,7 +11199,7 @@
         "x-fern-sdk-method-name": "subscribe_to_turn",
         "x-fern-streaming": {
           "format": "sse",
-          "resumable": true
+          "resumable": false
         }
       }
     },

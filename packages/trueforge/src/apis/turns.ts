@@ -86,7 +86,15 @@ import {
   subscribeTurnRoute,
 } from '../routes/turnRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
-import { StreamGoneError, type EventSubscription, type EventSubscriptionRegistry } from '../runtime/event-subscription';
+import {
+  eventIdTimestampMs,
+  isLegacySequenceEntryId,
+  LEGACY_SEQUENCE_ID_MAX,
+  StreamGoneError,
+  type EventSubscription,
+  type EventSubscriptionPollOptions,
+  type EventSubscriptionRegistry,
+} from '../runtime/event-subscription';
 import { validateSandboxFilePath } from '../runtime/sandboxFilePath';
 import {
   buildTurnSandbox,
@@ -95,6 +103,7 @@ import {
   resolveSandboxEnvironment,
   resolveSandboxProvider,
 } from '../runtime/sessionResources';
+import { restoreTurnEventLog } from '../runtime/turnEventLogRestore';
 import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
 import { assertGatewayMetadataRequestHeaders } from '../truefoundry/gatewayMetadata';
 import { newId } from '../utils/id';
@@ -229,8 +238,8 @@ export type BeginTurnExecutionDeps<TTransaction> = Pick<
   skillStore: Pick<ISkillStore, 'resolveTurnSkills'>;
   /** Undefined for sessions that never use memory (scheduled runs). */
   memory: TenantMemoryDeps | undefined;
-  /** Loads the previous turn when create must cancel a run that is not in this process. */
-  sessionStore: Pick<ISessionStore, 'getTurn'>;
+  /** Previous-turn cancel, and rebuilding a missing event stream. */
+  sessionStore: Pick<ISessionStore, 'getTurn' | 'listTurnEvents'>;
   redis?: RedisClient | undefined;
 };
 
@@ -477,9 +486,9 @@ export function deriveSessionTitle(input: UserMessage[] | undefined): string | u
  * sequence number; the event body itself is not numbered (yield order is
  * persist order, so the transport boundary stamps).
  */
-export function turnEventSsePayload(event: TurnStreamingEvent, sequenceNumber: number): { id: string; data: string } {
+export function turnEventSsePayload(event: TurnStreamingEvent, sequenceNumber?: number): { id?: string; data: string } {
   return {
-    id: String(sequenceNumber),
+    ...(sequenceNumber === undefined ? {} : { id: String(sequenceNumber) }),
     data: JSON.stringify(event),
   };
 }
@@ -552,16 +561,14 @@ export async function drainTurnEvents(input: {
   executionTimeout: TurnExecutionTimeout;
   logger: Logger;
   pausedKeepalive: TurnPausedKeepalive;
-  onEvent?: (event: TurnStreamingEvent, sequenceNumber: number) => Promise<void>;
+  onEvent?: (event: TurnStreamingEvent) => Promise<void>;
 }): Promise<void> {
   const { trackedStream, turnEventStream, executionTimeout, logger, pausedKeepalive, onEvent } = input;
   try {
     for await (const event of trackedStream) {
       reportUnexpectedTurnDone({ event, logger });
       // Dual-write before any client sink so subscribers can resume after disconnect.
-      const sequenceNumber = await turnEventStream.put(event, {
-        streamTTLSeconds: streamTTLSecondsFor(event),
-      });
+      await turnEventStream.put(event, { streamTTLSeconds: streamTTLSecondsFor(event) });
       if (event.type === EventType.TURN_UPDATE) {
         if (event.state.status === 'paused') {
           pausedKeepalive.start();
@@ -571,11 +578,14 @@ export async function drainTurnEvents(input: {
           executionTimeout.start();
         }
       }
-      await onEvent?.(event, sequenceNumber);
+      await onEvent?.(event);
     }
   } catch (error) {
-    if (error instanceof SessionStoreNotFoundError) {
-      logger.warn('Turn stream ended after session/turn was removed', extractErrorLogFields(error));
+    if (error instanceof SessionStoreNotFoundError || error instanceof TurnOwnershipLostError) {
+      logger.warn(
+        'Turn stream ended after session/turn was removed or ownership was lost',
+        extractErrorLogFields(error),
+      );
     } else {
       logger.error('Unexpected error in turn event drain', {
         ...extractErrorLogFields(error),
@@ -732,7 +742,7 @@ export async function beginTurnExecution<TTransaction>(
     turn,
   });
 
-  // Held for the whole turn; the stream's sequence counter dies with it.
+  // Held for the whole turn. A missing stream is restored from the durable log on resume.
   const turnEventStream = deps.eventSubscriptions.get(turnStreamId(tenantId, sessionId, turn.id));
 
   return {
@@ -791,8 +801,8 @@ function cancellationReason(reason: unknown): CancellationReason {
 }
 
 /**
- * Rebuild a paused turn this replica owns, reseed the event-stream counter from
- * the existing tail, and drain in the background. Inbox replay happens inside rebuild.
+ * Rebuild a paused turn this replica owns, restore a missing event stream from the
+ * durable log, and drain in the background. Inbox replay happens inside rebuild.
  */
 async function resumePausedTurn<TTransaction>(input: {
   session: SessionHandle<TTransaction>;
@@ -860,8 +870,14 @@ async function resumePausedTurn<TTransaction>(input: {
     turnStreamId(input.session.tenant_id, input.session.session_id, turn.id),
   );
   try {
-    // Counter only. A missing stream stays at 1; log repair from the TurnRecord is later.
-    await turnEventStream.resumeProducer({ streamTTLSeconds: configuration.TURN_STREAM_TTL_SECONDS });
+    await restoreTurnEventLog({
+      sessionStore: input.deps.sessionStore,
+      subscription: turnEventStream,
+      logger: input.deps.logger,
+      sessionId: input.session.session_id,
+      turnId: turn.id,
+      streamTTLSeconds: configuration.TURN_STREAM_TTL_SECONDS,
+    });
   } catch (error) {
     input.deps.logger.warn('Paused turn stream resume failed', extractErrorLogFields(error));
     executionTimeout.clear();
@@ -1895,11 +1911,11 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
         });
         await drainTurnEvents({
           ...drainInput,
-          onEvent: async (event, sequenceNumber) => {
+          onEvent: async event => {
             if (!stream.closed && !stream.aborted && shouldWriteToSSEStream) {
               try {
                 await withTimeout(
-                  stream.writeSSE(turnEventSsePayload(event, sequenceNumber)),
+                  stream.writeSSE(turnEventSsePayload(event)),
                   configuration.TURN_SSE_STREAM_WRITE_TIMEOUT_MS,
                 );
               } catch (error) {
@@ -2002,7 +2018,21 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
   const subscribeTurnHandler: RouteHandler<typeof subscribeTurnRoute> = async c => {
     const { session_id: sessionId, turn_id: turnId } = c.req.valid('param');
     const query = c.req.valid('query');
+    const fromEventId = query.from_event_id;
+    const afterEventId = query.after_event_id;
     const afterSequenceNumber = resolveAfterSequenceNumber(c, query.after_sequence_number);
+    // we recheck here outside of zod because we support Last-Event-ID header for legacy clients
+    if (afterSequenceNumber !== undefined && (fromEventId !== undefined || afterEventId !== undefined)) {
+      throw new HTTPException(400, {
+        message: 'Pass only one of after_sequence_number, from_event_id, or after_event_id.',
+      });
+    }
+    if (fromEventId !== undefined && eventIdTimestampMs(fromEventId) === undefined) {
+      throw new HTTPException(400, { message: 'Invalid event id.' });
+    }
+    if (afterEventId !== undefined && eventIdTimestampMs(afterEventId) === undefined) {
+      throw new HTTPException(400, { message: 'Invalid event id.' });
+    }
     const requestContext = deps.resolveRequestContext(c);
 
     const session = await deps.sessions.get({
@@ -2026,11 +2056,22 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
     if (!turn) {
       return c.json({ error: { message: `Turn not found: ${turnId}` } }, 404);
     }
-
     const turnEventStream = deps.eventSubscriptions.get(turnStreamId(requestContext.tenant_id, sessionId, turnId));
 
-    // Admission check before SSE headers are sent, so it can still map to HTTP 412.
+    // A paused turn may have been offloaded after its Redis stream expired.
+    // Restore that stream only. Do not rebuild the turn; a later send does that.
+    // A running turn is expected to still have its stream. A finished turn is not restored.
     try {
+      if (turn.state.status === 'paused') {
+        await restoreTurnEventLog({
+          sessionStore: deps.sessionStore,
+          subscription: turnEventStream,
+          logger: deps.logger,
+          sessionId,
+          turnId,
+          streamTTLSeconds: configuration.TURN_STREAM_TTL_SECONDS,
+        });
+      }
       await turnEventStream.assertSubscribable();
     } catch (error) {
       if (error instanceof StreamGoneError) {
@@ -2039,6 +2080,29 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
       throw error;
     }
 
+    // Checked on the live stream, not the durable log: an in-progress
+    // model.message shell and its deltas are stream-only until the message completes.
+    const resumeEventId = fromEventId ?? afterEventId;
+    if (resumeEventId !== undefined && !(await turnEventStream.hasEventId(resumeEventId))) {
+      throw new HTTPException(400, { message: 'Event id is not part of this turn stream.' });
+    }
+
+    // Only a leftover `{sequence}-1` stream resumes by sequence number.
+    let includeSequenceId = false;
+    if (afterSequenceNumber !== undefined) {
+      const firstEntryId = await turnEventStream.firstEntryId();
+      if (firstEntryId !== undefined && !isLegacySequenceEntryId(firstEntryId)) {
+        throw new HTTPException(400, {
+          message: 'after_sequence_number is not supported on this stream. Use from_event_id or after_event_id.',
+        });
+      }
+      if (afterSequenceNumber > LEGACY_SEQUENCE_ID_MAX) {
+        throw new HTTPException(400, {
+          message: 'after_sequence_number is not supported above 50000.',
+        });
+      }
+      includeSequenceId = true;
+    }
     // One lifecycle controller: server-side timeout, client disconnect, and
     // normal teardown all abort it, which ends poll even while it is parked
     // waiting for events.
@@ -2053,16 +2117,25 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
       subscribeAbort.abort(new Error('subscribe-timeout'));
     }, timeoutMs);
 
+    let pollOptions: EventSubscriptionPollOptions = { signal: subscribeAbort.signal };
+    if (fromEventId !== undefined) {
+      pollOptions = { fromEventId, signal: subscribeAbort.signal };
+    } else if (afterEventId !== undefined) {
+      pollOptions = { afterEventId, signal: subscribeAbort.signal };
+    } else if (includeSequenceId && afterSequenceNumber !== undefined) {
+      pollOptions = { afterSequenceNumber, signal: subscribeAbort.signal };
+    }
+
     return streamSSE(c, async stream => {
       stream.onAbort(() => {
         getOperationMetrics()?.recordTurnSseDisconnect({ path: 'subscribe' });
         subscribeAbort.abort(new Error('client-disconnected'));
       });
 
-      const generator = turnEventStream.poll(afterSequenceNumber, { signal: subscribeAbort.signal });
+      const generator = turnEventStream.poll(pollOptions);
       try {
         for await (const { sequence_number: sequenceNumber, ...event } of generator) {
-          await stream.writeSSE(turnEventSsePayload(event, sequenceNumber));
+          await stream.writeSSE(turnEventSsePayload(event, includeSequenceId ? sequenceNumber : undefined));
           if (event.type === EventType.TURN_DONE) {
             break;
           }

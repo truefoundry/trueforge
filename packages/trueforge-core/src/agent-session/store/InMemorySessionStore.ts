@@ -68,7 +68,6 @@ import {
   TurnNotRunningError,
   TurnOwnershipLostError,
 } from './SessionStoreErrors';
-
 /* eslint-disable @typescript-eslint/require-await -- in-memory store is synchronous; methods stay async so thrown SessionStore*Error reject as Promises for ISessionStore callers */
 
 type StoredEvent = PersistedTurnEvent;

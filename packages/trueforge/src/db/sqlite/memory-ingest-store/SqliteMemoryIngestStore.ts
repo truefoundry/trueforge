@@ -35,8 +35,6 @@ const textOnlyInput = sql<LegacyTurnInputItem[]>`(
     ORDER BY i.key)
   FROM json_each(input) AS i
 )`;
-/** The tip turn finished waiting on the user (a question, approval or auth). */
-const tipPaused = sql<boolean>`(json_extract(t.state, '$.status') = 'done' AND json_array_length(t.state, '$.required_actions') > 0)`;
 /** Mirrors PostgresMemoryIngestStore; timestamps are ISO-8601 TEXT. */
 export class SqliteMemoryIngestStore implements IMemoryIngestStore {
   readonly #db: Kysely<Database>;
@@ -70,16 +68,7 @@ export class SqliteMemoryIngestStore implements IMemoryIngestStore {
         'c.updated_at as cursor_updated_at',
       ])
       .where('s.source', 'is', null)
-      .where(eb =>
-        eb.or([
-          eb('s.updated_at', '>=', input.recent_since.toISOString()),
-          eb.and([
-            eb('s.updated_at', '>=', input.paused_from.toISOString()),
-            eb('s.updated_at', '<', input.paused_until.toISOString()),
-            tipPaused,
-          ]),
-        ]),
-      )
+      .where('s.updated_at', '>=', input.recent_since.toISOString())
       // Matches resolveMemoryScope: never agent-builder chats; a bound agent's manifest decides; UI chats without one use the default scope.
       .where(sql<boolean>`NOT (${createAgentSession})`)
       .where(eb =>

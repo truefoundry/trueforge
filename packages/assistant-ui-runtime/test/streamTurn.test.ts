@@ -300,7 +300,7 @@ describe('streamTurn', () => {
   });
 
   describe('resumeTurnStream', () => {
-    it('reconnects with afterSequenceNumber and yields updates', async () => {
+    it('reconnects with an event-id cursor and yields updates', async () => {
       const foldState = new PeerThreadFoldState();
       const subscribeToTurn = vi.fn(async function* () {
         yield streamData(2, {
@@ -323,12 +323,14 @@ describe('streamTurn', () => {
       });
 
       const updates = await collectUpdates(
-        resumeTurnStream(server, SESSION_ID, 'turn-1', foldState, new AbortController().signal, 1),
+        resumeTurnStream(server, SESSION_ID, 'turn-1', foldState, new AbortController().signal, {
+          fromEventId: 'm1',
+        }),
       );
       expect(subscribeToTurn).toHaveBeenCalledWith({
         sessionId: SESSION_ID,
         turnId: 'turn-1',
-        afterSequenceNumber: 1,
+        fromEventId: 'm1',
         abortSignal: expect.any(AbortSignal),
       });
       expect(updates[0]).toEqual({ content: [{ type: 'text', text: 'resumed' }], sequenceNumber: 2 });
@@ -384,7 +386,9 @@ describe('streamTurn', () => {
       const server = mockServer({ subscribeToTurn });
 
       const updates = await collectUpdates(
-        resumeTurnStream(server, SESSION_ID, 'turn-1', new PeerThreadFoldState(), new AbortController().signal, 1),
+        resumeTurnStream(server, SESSION_ID, 'turn-1', new PeerThreadFoldState(), new AbortController().signal, {
+          afterEventId: 'prior',
+        }),
       );
 
       expect(updates).toMatchObject([

@@ -116,6 +116,8 @@ function assertRootThreadEvent(threadId: string, eventType: string): void {
 export class PeerThreadFoldState {
   readonly threads = new Map<string, ThreadBucket>();
   readonly threadParents = new Map<string, ThreadParentLink>();
+  /** Which turn produced a model message, so a later turn does not resume from an older shell. */
+  readonly modelMessageTurnIds = new Map<string, string>();
   /**
    * POST responses, live replay, and history can expose the same durable event.
    * Delta events deliberately bypass this set because many chunks share an id.
@@ -445,16 +447,62 @@ function compactionPartFromStarted({
   };
 }
 
-export function ingestStreamEvent(state: PeerThreadFoldState, message: TurnStreamingEvent): boolean {
+/** Shell id of the oldest unfinished model message. Pass `turnId` to ignore other turns. */
+export function earliestOpenModelMessageId(state: PeerThreadFoldState, turnId?: string): string | undefined {
+  let earliest: string | undefined;
+  for (const bucket of state.threads.values()) {
+    for (const id of bucket.modelMessageIds) {
+      if (turnId !== undefined && state.modelMessageTurnIds.get(id) !== turnId) {
+        continue;
+      }
+      const event = bucket.events.get(id);
+      if (event?.type !== EVENT_TYPE.MODEL_MESSAGE || event.finishReason != null) {
+        continue;
+      }
+      if (earliest === undefined || id < earliest) {
+        earliest = id;
+      }
+    }
+  }
+  return earliest;
+}
+
+function rememberModelMessageTurn(
+  state: PeerThreadFoldState,
+  event: { type: string; id: string },
+  turnId: string | undefined,
+): void {
+  if (turnId === undefined || event.type !== EVENT_TYPE.MODEL_MESSAGE) {
+    return;
+  }
+  state.modelMessageTurnIds.set(event.id, turnId);
+}
+
+/** A finished message already holds its full arguments. Replaying its shell would truncate them. */
+function isFinishedModelMessage(state: PeerThreadFoldState, message: TurnStreamingEvent): boolean {
+  if (message.type !== EVENT_TYPE.MODEL_MESSAGE) {
+    return false;
+  }
+  const existing = state.threads.get(message.threadId)?.events.get(message.id);
+  return existing?.type === EVENT_TYPE.MODEL_MESSAGE && existing.finishReason != null;
+}
+
+export function ingestStreamEvent(state: PeerThreadFoldState, message: TurnStreamingEvent, turnId?: string): boolean {
+  rememberModelMessageTurn(state, message, turnId);
   if (message.type === EVENT_TYPE.MCP_AUTH_REQUIRED || isTurnScopedEvent(message)) {
     return false;
   }
 
   if (!isEventDelta(message)) {
     if (state.ingestedEventIds.has(message.id)) {
-      return false;
+      // Inclusive resume replays an unfinished shell so later deltas rebuild it.
+      // A finished message already has its full tool arguments; keep those.
+      if (message.type !== EVENT_TYPE.MODEL_MESSAGE || isFinishedModelMessage(state, message)) {
+        return false;
+      }
+    } else {
+      state.ingestedEventIds.add(message.id);
     }
-    state.ingestedEventIds.add(message.id);
   }
 
   if (isFoldNeutralInboundEvent(message)) {
@@ -490,7 +538,8 @@ export function ingestStreamEvent(state: PeerThreadFoldState, message: TurnStrea
   return isContentAffectingEvent(message);
 }
 
-export function ingestTurnEvent(state: PeerThreadFoldState, event: TurnEvent): void {
+export function ingestTurnEvent(state: PeerThreadFoldState, event: TurnEvent, turnId?: string): void {
+  rememberModelMessageTurn(state, event, turnId);
   if (state.ingestedEventIds.has(event.id)) {
     return;
   }

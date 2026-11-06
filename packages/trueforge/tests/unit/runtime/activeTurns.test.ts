@@ -1,6 +1,7 @@
 import { CancellationReason, TurnOffloadReason, type TurnHandle } from '@truefoundry/trueforge-core/agent-session';
+import { E_TIMEOUT } from 'async-mutex';
 import { createLogger } from 'winston';
-import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
+import { ActiveTurnRegistry, TurnLockAcquireTimeoutError } from '../../../src/runtime/activeTurns';
 
 const logger = createLogger({ silent: true });
 
@@ -31,6 +32,13 @@ async function* gateOnAbort(signal: AbortSignal): AsyncGenerator<string> {
   await new Promise<void>(resolve => {
     signal.addEventListener('abort', () => resolve(), { once: true });
   });
+}
+
+function requireTurnLockAcquireTimeout(caught: unknown): TurnLockAcquireTimeoutError {
+  if (!(caught instanceof TurnLockAcquireTimeoutError)) {
+    throw new Error('expected TurnLockAcquireTimeoutError', { cause: caught });
+  }
+  return caught;
 }
 
 describe('ActiveTurnRegistry', () => {
@@ -231,5 +239,92 @@ describe('ActiveTurnRegistry', () => {
     for await (const value of tracked) {
       void value;
     }
+  });
+
+  it('throws TurnLockAcquireTimeoutError when the lock is not acquired in time', async () => {
+    const timeoutMs = 40;
+    const registry = new ActiveTurnRegistry({ logger, lockAcquireTimeoutMs: timeoutMs });
+    const gate = Promise.withResolvers<undefined>();
+    const holder = registry.withTurnLock({ sessionId: 's1', turnId: 't1' }, () => gate.promise);
+    const waiter = registry.withTurnLock({ sessionId: 's1', turnId: 't1' }, async () => 'acquired');
+
+    let caught: unknown;
+    try {
+      await waiter;
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(TurnLockAcquireTimeoutError);
+    const error = requireTurnLockAcquireTimeout(caught);
+    expect(error.timeoutMs).toBe(timeoutMs);
+    expect(error.cause).toBe(E_TIMEOUT);
+
+    gate.resolve(undefined);
+    await holder;
+  });
+
+  it('does not throw when the holder releases the lock before the acquire timeout', async () => {
+    const registry = new ActiveTurnRegistry({ logger, lockAcquireTimeoutMs: 300 });
+    const gate = Promise.withResolvers<undefined>();
+    const holder = registry.withTurnLock({ sessionId: 's1', turnId: 't1' }, () => gate.promise);
+    let entered = false;
+    const waiter = registry.withTurnLock({ sessionId: 's1', turnId: 't1' }, async () => {
+      entered = true;
+      return 'acquired';
+    });
+
+    await new Promise<void>(resolve => {
+      setTimeout(resolve, 30);
+    });
+    expect(entered).toBe(false);
+    gate.resolve(undefined);
+    await holder;
+    await expect(waiter).resolves.toBe('acquired');
+  });
+
+  it('restarts the paused keepalive when the turn lock is busy past the acquire timeout', async () => {
+    jest.useFakeTimers();
+    const warn = jest.spyOn(logger, 'warn');
+    const info = jest.spyOn(logger, 'info');
+    try {
+      const registry = new ActiveTurnRegistry({ logger, pausedKeepaliveMs: 100, lockAcquireTimeoutMs: 20 });
+      const key = { sessionId: 's1', turnId: 't1' };
+      const gate = Promise.withResolvers<undefined>();
+      const holder = registry.withTurnLock(key, () => gate.promise);
+
+      registry.startPausedKeepalive(key);
+      // The keepalive fires at 100ms, then gives up on the busy lock at 120ms.
+      await jest.advanceTimersByTimeAsync(120);
+      expect(warn).toHaveBeenCalledWith('Paused keepalive could not take the turn lock; restarting', expect.anything());
+
+      gate.resolve(undefined);
+      await holder;
+      // The restarted timer takes the free lock and runs its expiry path.
+      await jest.advanceTimersByTimeAsync(100);
+      expect(info).toHaveBeenCalledWith('Paused keepalive expired; turn is no longer paused');
+    } finally {
+      jest.useRealTimers();
+      warn.mockRestore();
+      info.mockRestore();
+    }
+  });
+
+  it('waits without a timeout when lockAcquireTimeoutMs is 0', async () => {
+    const registry = new ActiveTurnRegistry({ logger, lockAcquireTimeoutMs: 0 });
+    const gate = Promise.withResolvers<undefined>();
+    const holder = registry.withTurnLock({ sessionId: 's1', turnId: 't1' }, () => gate.promise);
+    let entered = false;
+    const waiter = registry.withTurnLock({ sessionId: 's1', turnId: 't1' }, async () => {
+      entered = true;
+      return 'acquired';
+    });
+
+    await new Promise<void>(resolve => {
+      setTimeout(resolve, 80);
+    });
+    expect(entered).toBe(false);
+    gate.resolve(undefined);
+    await holder;
+    await expect(waiter).resolves.toBe('acquired');
   });
 });

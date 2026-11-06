@@ -516,6 +516,7 @@ export class AgentThread {
     this.currentContextUsage = input.currentContextUsage ?? getEmptyCurrentContextUsage();
     this.agentInfo = input.agentInfo;
     this.preComputedCompletion = input.preComputedCompletion;
+    this.pendingMCPAuth = input.pendingMCPAuth ?? false;
     this.sandbox = input.sandbox;
 
     const capabilities = input.capabilities ?? [];

@@ -8,6 +8,7 @@ import {
   applyApprovalPoliciesToFold,
   buildRootAssistantContent,
   buildRootAssistantContentForIds,
+  earliestOpenModelMessageId,
   ingestStreamEvent,
   ingestTurnEvent,
   PeerThreadFoldState,
@@ -27,6 +28,38 @@ function threadCreated(event: Omit<ThreadCreatedEvent, 'type' | 'createdAt'>): T
 }
 
 describe('foldPeerThreads', () => {
+  it('ignores an unfinished shell from another turn when choosing the resume cursor', () => {
+    const state = new PeerThreadFoldState();
+    ingestTurnEvent(state, modelMessage({ id: 'm-old', threadId: ROOT_THREAD_ID, content: 'stuck' }), 'turn-old');
+    ingestTurnEvent(state, modelMessage({ id: 'm-new', threadId: ROOT_THREAD_ID, content: '' }), 'turn-new');
+
+    expect(earliestOpenModelMessageId(state, 'turn-new')).toBe('m-new');
+  });
+
+  it('keeps a finished model message when its shell is replayed', () => {
+    const state = new PeerThreadFoldState();
+    const finished = modelMessage({
+      id: 'm-done',
+      threadId: ROOT_THREAD_ID,
+      content: '',
+      finishReason: 'tool_calls',
+      toolCalls: [
+        {
+          id: 'call-1',
+          type: 'function',
+          function: { name: 'save', arguments: '{"title":"full"}' },
+        },
+      ],
+    });
+    ingestStreamEvent(state, finished, 'turn-1');
+    ingestStreamEvent(state, modelMessage({ id: 'm-done', threadId: ROOT_THREAD_ID, content: '' }), 'turn-1');
+
+    const stored = state.threads.get(ROOT_THREAD_ID)?.events.get('m-done');
+    expect(stored?.type === 'model.message' ? stored.toolCalls?.[0]?.function.arguments : undefined).toBe(
+      '{"title":"full"}',
+    );
+  });
+
   it('ignores sandbox.created (no threadId, not foldable) without crashing', () => {
     const state = new PeerThreadFoldState();
     const sandboxEvent = {
@@ -53,6 +86,31 @@ describe('foldPeerThreads', () => {
     ingestTurnEvent(state, rootMessage);
 
     expect(buildRootAssistantContent(state)).toEqual([{ type: 'text', text: 'hello' }]);
+  });
+
+  it('replaces an already-ingested model.message shell on inclusive replay', () => {
+    const state = new PeerThreadFoldState();
+    ingestStreamEvent(
+      state,
+      modelMessage({
+        id: 'm1',
+        threadId: ROOT_THREAD_ID,
+        content: 'partial',
+      }),
+    );
+    expect(buildRootAssistantContent(state)).toEqual([{ type: 'text', text: 'partial' }]);
+
+    expect(
+      ingestStreamEvent(
+        state,
+        modelMessage({
+          id: 'm1',
+          threadId: ROOT_THREAD_ID,
+          content: 'fresh',
+        }),
+      ),
+    ).toBe(true);
+    expect(buildRootAssistantContent(state)).toEqual([{ type: 'text', text: 'fresh' }]);
   });
 
   it('captures sub-agent title from thread.created and tags nested messages', () => {

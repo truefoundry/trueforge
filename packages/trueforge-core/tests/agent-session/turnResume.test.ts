@@ -508,6 +508,80 @@ describe('TurnHandle.send() MCP-auth continuation', () => {
     expect(turn.state.status).toBe('done');
   });
 
+  it('keeps waiting for continue when another executor rebuilds the paused turn', async () => {
+    const store = new InMemorySessionStore();
+    const sessions = new Sessions({ sessionStore: store });
+    const session = await sessions.create({
+      tenant_id: 'tenant-1',
+      session_id: 's1',
+      created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
+      agent: { type: 'inline', spec: makeAgentSpec() },
+      external_id: null,
+    });
+    const { capability, authorize, listTools } = makeAuthCapability();
+    const resolverFor = () =>
+      makeTestResolver({
+        extraCapabilities: [capability],
+        llmCreate: jest.fn(() => textReplyStream('authorized')),
+      });
+    const original = new AbortController();
+    const turn = await session.createTurn({
+      turn_id: mintTestTurnId(),
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+      input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
+      previous_turn_id: 'none',
+      abortController: original,
+      resolver: resolverFor(),
+    });
+
+    const originalIterator = turn.stream();
+    let step = await withTimeout(originalIterator.next(), 1_000, 'initial auth event');
+    while (!step.done && !(step.value.type === EventType.TURN_UPDATE && step.value.state.status === 'paused')) {
+      step = await withTimeout(originalIterator.next(), 1_000, 'auth pause');
+    }
+    expect(step.done).toBe(false);
+    const listToolsCallsAtPause = listTools.mock.calls.length;
+
+    const won = await store.claimTurnExecutor({
+      session_id: 's1',
+      turn_id: turn.id,
+      expected_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+      new_executor_id: 'executor-b',
+    });
+    expect(won).toBe(true);
+    const parkedOriginal = originalIterator.next();
+    parkedOriginal.catch(() => undefined);
+    original.abort(CancellationReason.Abandoned);
+
+    const rebuilt = await session.rebuildTurn({
+      turn_id: turn.id,
+      active_executor_id: 'executor-b',
+      resolver: resolverFor(),
+      abortController: new AbortController(),
+    });
+    // A rebuilt paused turn parks until a send arrives; it must not retry initialization on its own.
+    const iterator = rebuilt.stream();
+    const firstEvent = iterator.next();
+    await new Promise(resolve => setTimeout(resolve, 50));
+    expect(listTools).toHaveBeenCalledTimes(listToolsCallsAtPause);
+
+    authorize();
+    await sendWithInbox(rebuilt, store, [
+      { type: EventType.USER_MCP_AUTH_CONTINUE, id: newEventId(), created_at: new Date().toISOString() },
+    ]);
+
+    const eventTypes: string[] = [];
+    let next = await withTimeout(firstEvent, 1_000, 'rebuilt stream start');
+    while (!next.done) {
+      eventTypes.push(next.value.type);
+      next = await withTimeout(iterator.next(), 1_000, 'rebuilt stream');
+    }
+
+    expect(eventTypes.filter(type => type === EventType.MCP_AUTH_REQUIRED)).toHaveLength(0);
+    expect(eventTypes.filter(type => type === EventType.USER_MCP_AUTH_CONTINUE)).toHaveLength(1);
+    expect(rebuilt.state.status).toBe('done');
+  });
+
   it('continues after tool-execution auth without reinitializing tools', async () => {
     const store = new InMemorySessionStore();
     const sessions = new Sessions({ sessionStore: store });

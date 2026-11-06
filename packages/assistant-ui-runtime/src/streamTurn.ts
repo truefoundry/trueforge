@@ -3,8 +3,12 @@ import { EVENT_TYPE } from './server/events.js';
 import type { AgentChatServer, PreviousTurnIdInput, UserMessageContent } from './server/types.js';
 
 import { streamTurnEvents } from './convertTurnMessages.js';
-import { PeerThreadFoldState } from './foldPeerThreads.js';
-import type { TurnStreamUpdate } from './turnStreamUpdate.js';
+import { earliestOpenModelMessageId, PeerThreadFoldState } from './foldPeerThreads.js';
+import {
+  resumeCursorCoveringOpenModelMessages,
+  type TurnStreamUpdate,
+  type TurnSubscribeCursor,
+} from './turnStreamUpdate.js';
 
 export interface StreamTurnOptions {
   userMessage?: UserMessageContent;
@@ -31,6 +35,7 @@ export async function* streamTurnContent(
    */
   onTurnIdAvailable?: (turnId: string) => void,
   onSequenceNumber?: (sequenceNumber: number) => void,
+  onSubscribeCursor?: (cursor: TurnSubscribeCursor) => void,
 ): AsyncGenerator<TurnStreamUpdate> {
   // Aborting only detaches this client from the run; the turn keeps running on
   // the backend so switching sessions (or remounting) can reattach via
@@ -56,7 +61,7 @@ export async function* streamTurnContent(
   });
 
   try {
-    yield* streamTurnEvents(stream, foldState, groupRootBaseline, notifyTurnId, onSequenceNumber);
+    yield* streamTurnEvents(stream, foldState, groupRootBaseline, notifyTurnId, onSequenceNumber, onSubscribeCursor);
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       return;
@@ -71,9 +76,10 @@ export async function* resumeTurnStream(
   turnId: string,
   foldState: PeerThreadFoldState,
   abortSignal: AbortSignal,
-  afterSequenceNumber?: number,
+  subscribeCursor?: TurnSubscribeCursor,
   groupRootBaseline?: readonly string[],
   onSequenceNumber?: (sequenceNumber: number) => void,
+  onSubscribeCursor?: (cursor: TurnSubscribeCursor) => void,
 ): AsyncGenerator<TurnStreamUpdate> {
   // Optional on custom backends. Callers detect the gap and report it, so an
   // empty stream here is safer than throwing mid-render.
@@ -90,13 +96,16 @@ export async function* resumeTurnStream(
       server.subscribeToTurn({
         sessionId,
         turnId,
-        ...(afterSequenceNumber != null ? { afterSequenceNumber } : {}),
+        ...(resumeCursorCoveringOpenModelMessages(subscribeCursor, earliestOpenModelMessageId(foldState, turnId)) ??
+          {}),
         abortSignal,
       }),
       foldState,
       groupRootBaseline,
       undefined,
       onSequenceNumber,
+      onSubscribeCursor,
+      turnId,
     );
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {

@@ -41,7 +41,7 @@ import {
   turnToSessionRecord,
 } from '../src/sessionSnapshot.js';
 import { applyUserToolResponsesToFold, toolResponseStatus } from '../src/toolResponse.js';
-import type { TurnStreamUpdate } from '../src/turnStreamUpdate.js';
+import type { TurnStreamUpdate, TurnSubscribeCursor } from '../src/turnStreamUpdate.js';
 
 const createdAt = new Date().toISOString();
 const SESSION_ID = 'session-1';
@@ -1879,6 +1879,102 @@ describe('convertTurnMessages', () => {
       expect(onSequenceNumber).toHaveBeenCalledTimes(3);
     });
 
+    it('resumes a model message from its id and every other event after its id', async () => {
+      const foldState = new PeerThreadFoldState();
+      const cursors: { fromEventId?: string; afterEventId?: string }[] = [];
+
+      await collectStream(
+        streamTurnEvents(
+          (async function* () {
+            yield {
+              event: {
+                type: 'model.message' as const,
+                createdAt,
+                id: 'm1',
+                threadId: ROOT_THREAD_ID,
+                content: 'hi',
+              },
+            };
+            yield {
+              event: {
+                type: 'mcp.auth_required' as const,
+                id: 'auth-1',
+                createdAt,
+                threadId: null,
+                mcpServers: [{ id: 'github', name: 'GitHub', authUrl: 'https://example.com/auth' }],
+              },
+            };
+            yield {
+              event: {
+                type: 'turn.done' as const,
+                id: 'turn-done',
+                createdAt,
+                state: { status: 'done' as const, completedAt: createdAt },
+              },
+            };
+          })(),
+          foldState,
+          undefined,
+          undefined,
+          undefined,
+          cursor => {
+            cursors.push(cursor);
+          },
+        ),
+      );
+
+      expect(cursors).toEqual([{ fromEventId: 'm1' }, { fromEventId: 'auth-1' }, { afterEventId: 'turn-done' }]);
+    });
+
+    it('keeps the resume cursor on the earliest open model message while a later one is streaming', async () => {
+      const cursors: { fromEventId?: string; afterEventId?: string }[] = [];
+      await collectStream(
+        streamTurnEvents(
+          streamFrom([
+            modelMessage({ id: 'm-a', threadId: ROOT_THREAD_ID, content: '' }),
+            modelMessage({ id: 'm-b', threadId: ROOT_THREAD_ID, content: '' }),
+            {
+              type: 'model.message.delta',
+              id: 'm-b',
+              createdAt,
+              threadId: ROOT_THREAD_ID,
+              content: 'later',
+            },
+            modelMessage({ id: 'm-a', threadId: ROOT_THREAD_ID, content: 'earlier', finishReason: 'stop' }),
+            {
+              type: 'model.message.delta',
+              id: 'm-b',
+              createdAt,
+              threadId: ROOT_THREAD_ID,
+              content: ' still open',
+            },
+            {
+              type: 'turn.done',
+              id: 'done-open',
+              createdAt,
+              state: { status: 'done', completedAt: createdAt },
+            },
+          ]),
+          new PeerThreadFoldState(),
+          undefined,
+          undefined,
+          undefined,
+          cursor => {
+            cursors.push(cursor);
+          },
+        ),
+      );
+
+      expect(cursors).toEqual([
+        { fromEventId: 'm-a' },
+        { fromEventId: 'm-a' },
+        { fromEventId: 'm-a' },
+        { fromEventId: 'm-a' },
+        { fromEventId: 'm-b' },
+        { afterEventId: 'done-open' },
+      ]);
+    });
+
     it('yields folded content after each ingested stream event', async () => {
       const foldState = new PeerThreadFoldState();
       const updates = await collectStream(
@@ -2287,6 +2383,33 @@ describe('convertTurnMessages', () => {
         type: 'text',
         text: expect.stringContaining('Connect'),
       });
+    });
+
+    it('keeps the resume cursor on mcp.auth_required until a running update answers it', async () => {
+      const cursors: TurnSubscribeCursor[] = [];
+      const mcpAuth = {
+        type: 'mcp.auth_required' as const,
+        id: 'mcp-auth',
+        createdAt,
+        mcpServers: [{ id: 'github-auth', name: 'github', authUrl: 'https://example.com/auth' }],
+      };
+      await collectStream(
+        streamTurnEvents(
+          streamFrom([
+            mcpAuth,
+            { type: 'turn.update', id: 'pause-mcp', createdAt, threadId: null, state: { status: 'paused' } },
+            { type: 'turn.update', id: 'run-mcp', createdAt, threadId: null, state: { status: 'running' } },
+            { type: 'turn.done', id: 'done-mcp', createdAt, state: { status: 'done', completedAt: createdAt } },
+          ]),
+          new PeerThreadFoldState(),
+          undefined,
+          undefined,
+          undefined,
+          cursor => cursors.push(cursor),
+        ),
+      );
+
+      expect(cursors).toEqual([{ fromEventId: 'mcp-auth' }, { afterEventId: 'run-mcp' }, { afterEventId: 'done-mcp' }]);
     });
 
     it('stamps sandboxId onto every content yield after sandbox.created is seen', async () => {
@@ -3920,6 +4043,62 @@ describe('buildSnapshotFromSessionEvents', () => {
     const snapshot = await pending;
     expect(snapshot.runningTurn?.id).toBe('t-running');
     expect(snapshot.pendingUser?.content).toBe('now');
+  });
+
+  it('carries the open tip sandbox id on the pre-getTurn paint', async () => {
+    const progress: SessionSnapshot[] = [];
+    let resolveGetTurn: (turn: Turn) => void = () => undefined;
+    const getTurn = vi.fn(
+      () =>
+        new Promise<Turn>(resolve => {
+          resolveGetTurn = resolve;
+        }),
+    );
+    const items: SessionEventItem[] = [
+      {
+        turnId: 't-running',
+        event: {
+          type: 'turn.created',
+          id: 'evt-c-running',
+          turnId: 't-running',
+          input: [{ type: 'user.message', content: 'now' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      { turnId: 't-running', event: sandboxCreated({ id: 'sandbox-evt', sandboxId: 'sbx-123' }) },
+      { turnId: 't-running', event: modelMessage({ id: 'm1', threadId: ROOT_THREAD_ID, content: 'working' }) },
+    ];
+    const server = {
+      listTurns: vi.fn(async () => ({ data: [] })),
+      getTurn,
+      listEvents: sessionEventsPage(items),
+      listTurnEvents: async () => ({ data: [] }),
+    } as unknown as AgentChatServer;
+
+    let notifyProgress: () => void = () => undefined;
+    const progressed = new Promise<void>(resolve => {
+      notifyProgress = resolve;
+    });
+    const pending = buildSnapshotFromSessionEvents(server, SESSION_ID, snap => {
+      progress.push(snap);
+      if (snap.pendingUser != null) {
+        notifyProgress();
+      }
+    });
+
+    await progressed;
+    expect(progress.at(-1)?.activeStream?.update.metadata?.custom?.['sandboxId']).toBe('sbx-123');
+
+    resolveGetTurn({
+      id: 't-running',
+      sessionId: SESSION_ID,
+      state: { status: 'running' },
+      input: [{ type: 'user.message', content: 'now' }],
+      createdAt,
+    });
+    const snapshot = await pending;
+    expect(snapshot.activeStream?.update.metadata?.custom?.['sandboxId']).toBe('sbx-123');
   });
 
   it('publishes a paused tip with requires-action before getTurn resolves', async () => {

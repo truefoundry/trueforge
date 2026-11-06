@@ -2992,7 +2992,7 @@ await client.sessions.createTurnEvents("session_id", "turn_id", {
 <dl>
 <dd>
 
-Subscribe to the live SSE stream for a turn. Only the session creator may subscribe. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).
+Subscribe to the live SSE stream. Resume with from_event_id or after_event_id.
 </dd>
 </dl>
 </dd>

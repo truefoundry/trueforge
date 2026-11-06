@@ -5,6 +5,7 @@ import { EventType } from '../../../src/agent-session/schemas/events';
 import {
   CancellationReason,
   type NonTerminalTurnState,
+  type TerminalTurnState,
   type TurnNonTerminalMetrics,
 } from '../../../src/agent-session/schemas/turn';
 import type { ISessionStore } from '../../../src/agent-session/store/ISessionStore';
@@ -1418,6 +1419,17 @@ export function runStoreContractSuite<TTransaction>(
       });
     }
 
+    function terminalState(status: 'done' | 'cancelled' | 'error'): TerminalTurnState {
+      switch (status) {
+        case 'done':
+          return makeDoneTurnState();
+        case 'cancelled':
+          return makeCancelledTurnState(CancellationReason.ClientCancelled);
+        case 'error':
+          return { status: 'error', message: 'failed', completed_at: new Date().toISOString() };
+      }
+    }
+
     async function freezeTurn(store: Store, turnId: string) {
       await store.freezeAndGetTurn({
         session_id: sessionId,
@@ -1483,6 +1495,99 @@ export function runStoreContractSuite<TTransaction>(
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-3' }));
       await freezeTurn(store, 'turn-2');
       expect(await lastTurnDetails(store)).toEqual({ id: 'turn-3', state: { status: 'running' } });
+    });
+
+    it.each(['done', 'cancelled', 'error'] as const)(
+      'a late non-terminal update does not overwrite terminal %s',
+      async status => {
+        const store = createStore();
+        await seedSession(store);
+        await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+        const terminal = terminalState(status);
+        await store.updateTurnTerminalState({
+          active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          state: terminal,
+          turn_done_event: makeTurnDoneEvent(terminal),
+          metrics: createEmptyAgentThreadMetrics(),
+        });
+        const expected = { id: 'turn-1', state: { status } };
+
+        await expect(setNonTerminalState(store, 'turn-1', makePausedTurnState())).rejects.toBeInstanceOf(
+          TurnNotRunningError,
+        );
+        await expect(setNonTerminalState(store, 'turn-1', { status: 'running' })).rejects.toBeInstanceOf(
+          TurnNotRunningError,
+        );
+        expect(await lastTurnDetails(store)).toEqual(expected);
+      },
+    );
+
+    it('a stale executor does not update last_turn_details, and the new owner can resume it', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      await setNonTerminalState(store, 'turn-1', makePausedTurnState());
+      const won = await store.claimTurnExecutor({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        expected_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+        new_executor_id: 'executor-b',
+      });
+      expect(won).toBe(true);
+      const paused = { id: 'turn-1', state: { status: 'paused' as const } };
+      expect(await lastTurnDetails(store)).toEqual(paused);
+
+      const runningState = { status: 'running' as const };
+      await expect(
+        store.updateTurnNonTerminalState({
+          active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          state: runningState,
+          turn_update_event: makeTurnUpdateEvent(runningState),
+          turn_metrics: turnMetricsFor(runningState),
+        }),
+      ).rejects.toBeInstanceOf(TurnOwnershipLostError);
+      const doneState = makeDoneTurnState();
+      await expect(
+        store.updateTurnTerminalState({
+          active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          state: doneState,
+          turn_done_event: makeTurnDoneEvent(doneState),
+          metrics: createEmptyAgentThreadMetrics(),
+        }),
+      ).rejects.toBeInstanceOf(TurnOwnershipLostError);
+      expect(await lastTurnDetails(store)).toEqual(paused);
+
+      await store.updateTurnNonTerminalState({
+        active_executor_id: 'executor-b',
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        state: runningState,
+        turn_update_event: makeTurnUpdateEvent(runningState),
+        turn_metrics: turnMetricsFor(runningState),
+      });
+      expect(await lastTurnDetails(store)).toEqual({ id: 'turn-1', state: { status: 'running' } });
+    });
+
+    it('points at the new tip after a paused predecessor is frozen', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      await setNonTerminalState(store, 'turn-1', makePausedTurnState());
+      expect(await lastTurnDetails(store)).toEqual({ id: 'turn-1', state: { status: 'paused' } });
+
+      await freezeTurn(store, 'turn-1');
+      expect(await lastTurnDetails(store)).toEqual({ id: 'turn-1', state: { status: 'cancelled' } });
+
+      await store.createTurn(
+        makeCreateTurnInput({ sessionId, turnId: 'turn-2', previousTurnId: 'turn-1', firstTurnId: 'turn-1' }),
+      );
+      expect(await lastTurnDetails(store)).toEqual({ id: 'turn-2', state: { status: 'running' } });
     });
 
     it('a superseded turn finishing still adds its cost and duration to session metrics', async () => {

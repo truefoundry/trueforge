@@ -13,7 +13,7 @@ import { extractTurnUserText } from './extractTurnUserText.js';
 import { PeerThreadFoldState } from './foldPeerThreads.js';
 import type { StoredApprovalDecision } from './toolApproval.js';
 import type { StoredToolResponse } from './toolResponse.js';
-import type { TurnStreamUpdate } from './turnStreamUpdate.js';
+import type { TurnStreamUpdate, TurnSubscribeCursor } from './turnStreamUpdate.js';
 
 export const STREAM_SEGMENT_STATUS = {
   DISCONNECTED: 'disconnected',
@@ -79,6 +79,8 @@ export interface ActiveStreamState {
    */
   segmentStatus: StreamSegmentStatus;
   lastSequenceNumber?: number | undefined;
+  /** Event-id resume cursor. New streams do not use `lastSequenceNumber`. */
+  subscribeCursor?: TurnSubscribeCursor | undefined;
 }
 
 export interface PendingUserMessage {

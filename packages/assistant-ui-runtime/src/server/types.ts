@@ -424,6 +424,10 @@ export interface SubscribeToTurnRequest {
   sessionId: string;
   turnId: string;
   afterSequenceNumber?: number;
+  /** Inclusive cursor. Replay starts at this event. */
+  fromEventId?: string;
+  /** Exclusive cursor. Replay starts after the last entry with this event id. */
+  afterEventId?: string;
   abortSignal?: AbortSignal;
 }
 

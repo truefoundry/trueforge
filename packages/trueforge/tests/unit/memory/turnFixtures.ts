@@ -46,21 +46,8 @@ export function doneState({
   return { status: 'done', output, required_actions: [], completed_at: completedAt };
 }
 
-export function pausedState({ completedAt, toolCallId }: { completedAt: string; toolCallId: string }): TurnState {
-  return {
-    status: 'done',
-    output: null,
-    completed_at: completedAt,
-    required_actions: [
-      {
-        type: 'tool.response_required',
-        id: `req-${toolCallId}`,
-        created_at: completedAt,
-        thread_id: MAIN_THREAD_ID,
-        tool_calls: [{ id: toolCallId, source_event_id: `ask-${toolCallId}` }],
-      },
-    ],
-  };
+export function pausedState(): TurnState {
+  return { status: 'paused' };
 }
 
 export const RUNNING: TurnState = { status: 'running' };

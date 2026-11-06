@@ -582,6 +582,7 @@ export class SessionHandle<
       parent: input.previousThreadSnapshot?.parent ?? undefined,
       agentInfo: input.previousThreadSnapshot?.agent_info ?? undefined,
       preComputedCompletion: input.previousThreadSnapshot?.completion ?? undefined,
+      pendingMCPAuth: input.previousThreadSnapshot?.pending_mcp_auth,
       capabilities,
       capabilityState: input.previousThreadSnapshot?.capability_state ?? undefined,
       tracing: input.tracing,

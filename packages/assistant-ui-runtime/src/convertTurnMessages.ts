@@ -33,6 +33,7 @@ import { extractTurnUserText } from './extractTurnUserText.js';
 import {
   buildRootAssistantContent,
   buildRootAssistantContentForIds,
+  earliestOpenModelMessageId,
   findFirstPendingApprovalThreadId,
   findFirstPendingResponseThreadId,
   ingestStreamEvent,
@@ -77,7 +78,7 @@ import {
   toolResponseStatus,
 } from './toolResponse.js';
 import { appendMcpAuthToTurnContent, appendToolApprovalToTurnContent } from './turnEventHelpers.js';
-import type { TurnStreamUpdate } from './turnStreamUpdate.js';
+import { subscribeCursorForEvent, type TurnStreamUpdate, type TurnSubscribeCursor } from './turnStreamUpdate.js';
 
 const MESSAGE_ID_SUFFIX = {
   ASSISTANT: '-assistant',
@@ -416,6 +417,12 @@ export function prependFoldState(older: PeerThreadFoldState, newer: PeerThreadFo
   for (const [threadId, link] of newer.threadParents) {
     result.threadParents.set(threadId, link);
   }
+  for (const [eventId, messageTurnId] of older.modelMessageTurnIds) {
+    result.modelMessageTurnIds.set(eventId, messageTurnId);
+  }
+  for (const [eventId, messageTurnId] of newer.modelMessageTurnIds) {
+    result.modelMessageTurnIds.set(eventId, messageTurnId);
+  }
   return result;
 }
 
@@ -494,7 +501,7 @@ function ingestSessionEventsIntoSnapshot(
         } else if (event.type === EVENT_TYPE.USER_MCP_AUTH_CONTINUE) {
           snapshot.pendingMcpAuth = undefined;
         }
-        ingestTurnEvent(snapshot.fold, event);
+        ingestTurnEvent(snapshot.fold, event, currentTurnId);
         currentContentEvents.push(event);
       }
     }
@@ -745,6 +752,7 @@ export async function buildSnapshotFromSessionEvents(
             event: open.event,
             ...(open.update != null ? { update: open.update } : {}),
           }),
+          open.sandboxId,
         );
   if (open != null) {
     applyUserToolResponsesToFold(paintable.fold, open.event.input ?? []);
@@ -1024,7 +1032,7 @@ async function ingestTurnEventsIntoFold(
       ...(pageToken != null ? { pageToken } : {}),
     }),
   );
-  ingestCollectedEventsIntoFold(foldState, events);
+  ingestCollectedEventsIntoFold(foldState, events, turnId);
 }
 
 async function fetchTurnEvents(
@@ -1047,7 +1055,11 @@ async function fetchTurnEvents(
   return events;
 }
 
-function ingestCollectedEventsIntoFold(foldState: PeerThreadFoldState, events: PersistedTurnEvent[]): void {
+function ingestCollectedEventsIntoFold(
+  foldState: PeerThreadFoldState,
+  events: PersistedTurnEvent[],
+  turnId: string,
+): void {
   for (const event of events) {
     if (
       event.type === EVENT_TYPE.TURN_CREATED ||
@@ -1056,7 +1068,7 @@ function ingestCollectedEventsIntoFold(foldState: PeerThreadFoldState, events: P
     ) {
       continue;
     }
-    ingestTurnEvent(foldState, event);
+    ingestTurnEvent(foldState, event, turnId);
   }
 }
 
@@ -1571,7 +1583,7 @@ export async function buildSnapshotFromSession(
 
   const eventArrays = await fetchAllTurnEventsWithConcurrency(server, sessionId, [turn], concurrency);
   const tipEvents = eventArrays[0] ?? [];
-  ingestCollectedEventsIntoFold(snapshot.fold, tipEvents);
+  ingestCollectedEventsIntoFold(snapshot.fold, tipEvents, turn.id);
   applyUserToolResponsesToFold(snapshot.fold, turn.input ?? []);
 
   const sandboxEvent = tipEvents.find(
@@ -1852,8 +1864,11 @@ export async function* streamTurnEvents(
   groupRootBaseline?: readonly string[],
   onTurnIdAvailable?: (turnId: string) => void,
   onSequenceNumber?: (sequenceNumber: number) => void,
+  onSubscribeCursor?: (cursor: TurnSubscribeCursor) => void,
+  turnId?: string,
 ): AsyncGenerator<TurnStreamUpdate> {
   let pendingMcpAuth: McpAuthRequiredEvent | undefined;
+  let activeTurnId = turnId;
   let sandboxId: string | undefined;
   let sandboxIdYielded = false;
 
@@ -1906,24 +1921,45 @@ export async function* streamTurnEvents(
     findFirstPendingApprovalThreadId(foldState) != null ||
     findFirstPendingResponseThreadId(foldState) != null;
 
-  const yieldContentOrRequiredAction = (sequenceNumber: number): TurnStreamUpdate => {
+  const withSequence = (update: TurnStreamUpdate, sequenceNumber: number | undefined): TurnStreamUpdate =>
+    sequenceNumber === undefined ? update : { ...update, sequenceNumber };
+
+  const yieldContentOrRequiredAction = (sequenceNumber: number | undefined): TurnStreamUpdate => {
     if (foldStillNeedsUserInput()) {
-      return {
-        ...buildRequiredActionUpdate(),
+      return withSequence(
+        {
+          ...buildRequiredActionUpdate(),
+          turnState: { status: TURN_STATUS.PAUSED },
+        },
         sequenceNumber,
-        turnState: { status: TURN_STATUS.PAUSED },
-      };
+      );
     }
-    return { content: yieldContent() ?? [], sequenceNumber };
+    return withSequence({ content: yieldContent() ?? [] }, sequenceNumber);
   };
 
   let yieldedPaused = false;
   let lastSequenceNumber: number | undefined;
 
   for await (const data of stream) {
-    lastSequenceNumber = data.sequenceNumber;
-    onSequenceNumber?.(data.sequenceNumber);
+    if (data.sequenceNumber !== undefined) {
+      lastSequenceNumber = data.sequenceNumber;
+      onSequenceNumber?.(data.sequenceNumber);
+    }
     const event = data.event;
+    if (event.type === EVENT_TYPE.TURN_CREATED) {
+      activeTurnId = event.turnId;
+    }
+    if ('id' in event && typeof event.id === 'string') {
+      const endsMcpAuthPrompt =
+        event.type === EVENT_TYPE.USER_MCP_AUTH_CONTINUE ||
+        event.type === EVENT_TYPE.TURN_DONE ||
+        (event.type === EVENT_TYPE.TURN_UPDATE && event.state.status === TURN_STATUS.RUNNING);
+      // Resume replays from mcp.auth_required until the prompt is answered. A later
+      // paused update must not move the cursor past it: a fresh fold would lose the prompt.
+      if (pendingMcpAuth == null || event.type === EVENT_TYPE.MCP_AUTH_REQUIRED || endsMcpAuthPrompt) {
+        onSubscribeCursor?.(subscribeCursorForEvent(event, earliestOpenModelMessageId(foldState, activeTurnId)));
+      }
+    }
 
     if (event.type === EVENT_TYPE.TURN_CREATED) {
       onTurnIdAvailable?.(event.turnId);
@@ -1942,29 +1978,37 @@ export async function* streamTurnEvents(
 
     if (event.type === EVENT_TYPE.USER_MCP_AUTH_CONTINUE) {
       pendingMcpAuth = undefined;
-      ingestStreamEvent(foldState, event);
+      ingestStreamEvent(foldState, event, activeTurnId);
       continue;
     }
 
     if (event.type === EVENT_TYPE.TURN_UPDATE) {
       if (event.state.status === TURN_STATUS.RUNNING) {
         pendingMcpAuth = undefined;
-        yield withSandbox({
-          content: yieldContent() ?? [],
-          status: runningAssistantStatus(),
-          sequenceNumber: data.sequenceNumber,
-          turnState: { status: TURN_STATUS.RUNNING },
-        });
+        yield withSandbox(
+          withSequence(
+            {
+              content: yieldContent() ?? [],
+              status: runningAssistantStatus(),
+              turnState: { status: TURN_STATUS.RUNNING },
+            },
+            data.sequenceNumber,
+          ),
+        );
         continue;
       }
 
       // Pause is in-stream: the same SSE continues through apply-only echoes,
       // turn.update running, and turn.done. Do not detach the consumer.
-      yield withSandbox({
-        ...buildRequiredActionUpdate(),
-        sequenceNumber: data.sequenceNumber,
-        turnState: { status: TURN_STATUS.PAUSED },
-      });
+      yield withSandbox(
+        withSequence(
+          {
+            ...buildRequiredActionUpdate(),
+            turnState: { status: TURN_STATUS.PAUSED },
+          },
+          data.sequenceNumber,
+        ),
+      );
       yieldedPaused = true;
       continue;
     }
@@ -1979,13 +2023,17 @@ export async function* streamTurnEvents(
         const previousParentTerminal = foldState.parentTerminalStatus;
         foldState.parentTerminalStatus = 'cancelled';
         try {
-          yield withSandbox({
-            content: buildRootAssistantContentForIds(foldState, ids),
-            status: assistantStatusFromTurnState(event.state),
-            metadata: { custom: { [CANCELLATION_REASON_CUSTOM_KEY]: event.state.reason } },
-            sequenceNumber: data.sequenceNumber,
-            turnState: event.state,
-          });
+          yield withSandbox(
+            withSequence(
+              {
+                content: buildRootAssistantContentForIds(foldState, ids),
+                status: assistantStatusFromTurnState(event.state),
+                metadata: { custom: { [CANCELLATION_REASON_CUSTOM_KEY]: event.state.reason } },
+                turnState: event.state,
+              },
+              data.sequenceNumber,
+            ),
+          );
         } finally {
           foldState.parentTerminalStatus = previousParentTerminal;
         }
@@ -1995,16 +2043,20 @@ export async function* streamTurnEvents(
       // the transport body to close because resumable subscriptions may linger.
       // Yield error/complete state (HITL) rather than throwing — reconnect must
       // not subscribe-retry a terminal turn; callers read `turnState` / status.
-      yield withSandbox({
-        content: yieldContent() ?? [],
-        status: assistantStatusFromTurnState(event.state),
-        sequenceNumber: data.sequenceNumber,
-        turnState: event.state,
-      });
+      yield withSandbox(
+        withSequence(
+          {
+            content: yieldContent() ?? [],
+            status: assistantStatusFromTurnState(event.state),
+            turnState: event.state,
+          },
+          data.sequenceNumber,
+        ),
+      );
       return;
     }
 
-    if (!ingestStreamEvent(foldState, event)) {
+    if (!ingestStreamEvent(foldState, event, activeTurnId)) {
       continue;
     }
 
