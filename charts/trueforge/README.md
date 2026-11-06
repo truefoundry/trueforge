@@ -298,6 +298,11 @@ configs:
     # scopes: "openid,profile,email,groups"
     # Optional email allowlist (exact + * globs). Empty = unrestricted.
     # allowedEmails: "alice@acme.com,*@partner.com"
+    # Service-principal ids (user reference claim values) that skip the email allowlist.
+    # serviceSubjects: "<service-principal-object-id>"
+    # Confine a role to named agents (no agent/schedule creation, no unsaved agents). Admins are exempt.
+    # restrictedRoleValue: "<restricted-group-object-id>"
+    # restrictedAgentNames: "support-agent,faq-agent"
 networkPolicy:
   # enabled: true
   outbound:

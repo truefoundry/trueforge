@@ -12,6 +12,9 @@ function config(overrides: Partial<OIDCConfig> = {}): OIDCConfig {
     OIDC_ADMIN_ROLE_VALUE: 'admin',
     OIDC_SCOPES: ['openid', 'profile', 'email'],
     OIDC_ALLOWED_EMAILS: [],
+    OIDC_SERVICE_SUBJECTS: [],
+    OIDC_RESTRICTED_ROLE_VALUE: undefined,
+    OIDC_RESTRICTED_AGENT_NAMES: [],
     ...overrides,
   };
 }
@@ -67,5 +70,23 @@ describe('assertEmailAllowed', () => {
     expect(() =>
       assertEmailAllowed({ email: 'alice@company.com' }, config({ OIDC_ALLOWED_EMAILS: ['*@company.com'] })),
     ).not.toThrow();
+  });
+});
+
+describe('assertEmailAllowed service subjects', () => {
+  const restricted = config({ OIDC_ALLOWED_EMAILS: ['*@company.com'], OIDC_SERVICE_SUBJECTS: ['sp-oid-1'] });
+
+  it('lets a configured service subject without an email claim through', () => {
+    expect(() => assertEmailAllowed({ sub: 'sp-oid-1' }, restricted)).not.toThrow();
+  });
+
+  it('matches against the configured user reference claim', () => {
+    const byOid = { ...restricted, OIDC_USER_REFERENCE_CLAIM: 'oid' };
+    expect(() => assertEmailAllowed({ oid: 'sp-oid-1', sub: 'other' }, byOid)).not.toThrow();
+    expect(() => assertEmailAllowed({ oid: 'sp-oid-2', sub: 'sp-oid-1' }, byOid)).toThrow(EmailNotAllowedError);
+  });
+
+  it('still rejects subjects that are not listed', () => {
+    expect(() => assertEmailAllowed({ sub: 'sp-oid-2' }, restricted)).toThrow(EmailNotAllowedError);
   });
 });

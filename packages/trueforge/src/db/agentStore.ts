@@ -41,6 +41,8 @@ export interface ListAgentsInput {
   tenant_id: string;
   /** When set, only agents whose `external_id` is in this list. */
   external_ids?: readonly string[];
+  /** When set, only agents whose `name` is in this list (exact match). */
+  names?: readonly string[];
   /** Case-insensitive substring match on `name`. */
   agent_name: string | undefined;
   /** When undefined, return the full matching set (no SQL LIMIT). */

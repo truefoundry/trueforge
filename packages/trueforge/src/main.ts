@@ -738,7 +738,10 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     userStore = new TrueFoundryUserStore(serviceFoundryClient);
   } else if (mode === TrueForgeAuthMode.Oidc) {
     authenticator = createAuthenticator({ mode: TrueForgeAuthMode.Oidc });
-    authorizer = new TrueForgeAuthorizer();
+    authorizer = new TrueForgeAuthorizer({
+      restrictedRoleValue: oidc?.OIDC_RESTRICTED_ROLE_VALUE,
+      restrictedAgentNames: oidc?.OIDC_RESTRICTED_AGENT_NAMES,
+    });
     userStore = new EmptyUserStore();
   } else {
     authenticator = createAuthenticator({ mode: TrueForgeAuthMode.Standalone });

@@ -66,7 +66,12 @@ import {
   type ScheduleRun,
 } from '../schemas/schedule';
 import type { ICapabilitiesStore } from '../truefoundry/inlineTools';
-import { agentIfAccessible, canReadAgentBoundResource, resolveManagedAgentIds } from './agentAccess';
+import {
+  agentIfAccessible,
+  canReadAgentBoundResource,
+  FORBIDDEN_AUTHOR_WORK,
+  resolveManagedAgentIds,
+} from './agentAccess';
 import { getTurnExecutionError, startTurnInProcess } from './turns';
 
 /** Runtime + Context store resolvers needed to start a schedule turn. */
@@ -389,6 +394,9 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
   const createHandler: RouteHandler<typeof createScheduleRoute> = async c => {
     const body = c.req.valid('json');
     const requestContext = deps.resolveRequestContext(c);
+    if (!(await deps.authorizer.canAuthorWork({ context: requestContext }))) {
+      return c.json({ error: { message: FORBIDDEN_AUTHOR_WORK } }, 403);
+    }
 
     validateManifest(body.manifest);
 
@@ -471,6 +479,9 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
     const { schedule_id: scheduleId } = c.req.valid('param');
     const body = c.req.valid('json');
     const requestContext = deps.resolveRequestContext(c);
+    if (!(await deps.authorizer.canAuthorWork({ context: requestContext }))) {
+      return c.json({ error: { message: FORBIDDEN_AUTHOR_WORK } }, 403);
+    }
 
     validateManifest(body.manifest);
 

@@ -235,6 +235,29 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
     ).toEqual({ data: [], pagination: { limit: 0 } });
   });
 
+  it('listAgents can filter by exact names', async () => {
+    const store = getStore();
+    const agents = [];
+    for (const name of ['alpha', 'beta', 'alpha-extra']) {
+      agents.push(
+        await store.createAgent({
+          tenant_id: TENANT,
+          created_by_subject: CREATED_BY_SUBJECT,
+          name,
+          description: 'Test agent.',
+          manifest: manifest(),
+          external_id: null,
+        }),
+      );
+    }
+    const list = (names: readonly string[]) =>
+      store.listAgents({ tenant_id: TENANT, names, agent_name: undefined, limit: undefined, page_token: undefined });
+
+    expect((await list(['alpha', 'beta', 'missing'])).data.map(agent => agent.name)).toEqual(['alpha', 'beta']);
+    expect(await list(['missing'])).toEqual({ data: [], pagination: { limit: 0 } });
+    expect(await list([])).toEqual({ data: [], pagination: { limit: 0 } });
+  });
+
   it('listAgents filters by agent_name substring case-insensitively', async () => {
     const store = getStore();
     await store.createAgent({

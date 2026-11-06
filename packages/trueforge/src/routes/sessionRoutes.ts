@@ -48,6 +48,10 @@ export const createSessionRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid request body.',
     },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Caller role cannot create agents, schedules, or unsaved-agent sessions.',
+    },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Named agent not found.',

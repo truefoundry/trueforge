@@ -84,7 +84,7 @@ import { assertGatewayMetadataRequestHeaders } from '../truefoundry/gatewayMetad
 import type { ICapabilitiesStore } from '../truefoundry/inlineTools';
 import { newId } from '../utils/id';
 import { resolveWebSearchProvider } from '../websearch/providers';
-import { canReadAgentBoundResource, canReadSession } from './agentAccess';
+import { canReadAgentBoundResource, canReadSession, FORBIDDEN_AUTHOR_WORK } from './agentAccess';
 
 export function toWireTurn(record: TurnRecordWithoutSnapshot): Turn {
   return {
@@ -886,6 +886,8 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         return c.json({ error: { message: `Agent not found: ${agentId}` } }, 404);
       }
       referencedAgent = agent;
+    } else if (!(await deps.authorizer.canAuthorWork({ context: requestContext }))) {
+      return c.json({ error: { message: FORBIDDEN_AUTHOR_WORK } }, 403);
     }
 
     // x-tfg-skills / x-tfg-mcp / x-tfg-models on turns only when the session agent is inline.

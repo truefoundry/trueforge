@@ -15,11 +15,14 @@ import {
   type ListPermissionsData,
 } from '../schemas/permissions';
 import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
-import { canCreateOrEdit, canEditSchedule, type RequestContext } from './identity';
+import { canCreateOrEdit, canEditSchedule, hasAdminRole, type RequestContext } from './identity';
 
 export type AgentAction = 'read' | 'use' | 'manage' | 'delete';
 
-export type AgentListAccess = { kind: 'all' } | { kind: 'agent_external_ids'; agent_external_ids: readonly string[] };
+export type AgentListAccess =
+  | { kind: 'all' }
+  | { kind: 'agent_external_ids'; agent_external_ids: readonly string[] }
+  | { kind: 'agent_names'; agent_names: readonly string[] };
 
 interface GetPermissionsBase {
   requestContext: RequestContext;
@@ -37,6 +40,8 @@ export interface Authorizer {
   listAgentAccess(input: { context: RequestContext; action: AgentAction }): Promise<AgentListAccess>;
   canAccessAgent(input: { context: RequestContext; action: AgentAction; agent: AgentRecord }): Promise<boolean>;
   getPermissions(input: GetPermissionsInput): Promise<ListPermissionsData>;
+  /** Whether the caller may create agents and schedules or run unsaved (inline) agents. */
+  canAuthorWork(input: { context: RequestContext }): Promise<boolean>;
 }
 
 /** Schedule MANAGE/DELETE via {@link canEditSchedule} (admin or creator). */
@@ -84,28 +89,74 @@ export async function resolveSandboxEnvironmentPermissions(input: {
   return listPermissionsData('sandbox_environment', data);
 }
 
-function tenantCreatePermissions(requestContext: RequestContext): ListPermissionsData {
+function tenantCreatePermissions({
+  requestContext,
+  restricted,
+}: {
+  requestContext: RequestContext;
+  restricted: boolean;
+}): ListPermissionsData {
   return listPermissionsData('tenant', {
-    agent: [...TENANT_CREATE_AGENT_PERMISSIONS],
-    sandbox_environment: canCreateOrEdit(requestContext) ? [...TENANT_CREATE_SANDBOX_ENVIRONMENT_PERMISSIONS] : [],
+    agent: restricted ? [] : [...TENANT_CREATE_AGENT_PERMISSIONS],
+    sandbox_environment:
+      !restricted && canCreateOrEdit(requestContext) ? [...TENANT_CREATE_SANDBOX_ENVIRONMENT_PERMISSIONS] : [],
   });
 }
 
+export interface TrueForgeAuthorizerOptions {
+  /** Role value that confines non-admin callers to `restrictedAgentNames`; undefined disables the feature. */
+  restrictedRoleValue?: string | undefined;
+  restrictedAgentNames?: readonly string[] | undefined;
+}
+
 export class TrueForgeAuthorizer implements Authorizer {
-  listAgentAccess(): Promise<AgentListAccess> {
-    return Promise.resolve({ kind: 'all' });
+  readonly #restrictedRoleValue: string | undefined;
+  readonly #restrictedAgentNames: readonly string[];
+
+  constructor(options: TrueForgeAuthorizerOptions = {}) {
+    this.#restrictedRoleValue = options.restrictedRoleValue === '' ? undefined : options.restrictedRoleValue;
+    this.#restrictedAgentNames = options.restrictedAgentNames ?? [];
+  }
+
+  /** Admin always wins over the restricted role. */
+  #isRestricted(context: RequestContext): boolean {
+    return (
+      this.#restrictedRoleValue !== undefined &&
+      context.roles.includes(this.#restrictedRoleValue) &&
+      !hasAdminRole(context)
+    );
+  }
+
+  listAgentAccess(input: { context: RequestContext; action: AgentAction }): Promise<AgentListAccess> {
+    if (!this.#isRestricted(input.context)) {
+      return Promise.resolve({ kind: 'all' });
+    }
+    if (input.action === 'read' || input.action === 'use') {
+      return Promise.resolve({ kind: 'agent_names', agent_names: this.#restrictedAgentNames });
+    }
+    // Restricted callers never gain manage rights through the allowlist.
+    return Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] });
   }
 
   canAccessAgent(input: { context: RequestContext; action: AgentAction; agent: AgentRecord }): Promise<boolean> {
     if (input.action === 'read' || input.action === 'use') {
-      return Promise.resolve(true);
+      return Promise.resolve(
+        !this.#isRestricted(input.context) || this.#restrictedAgentNames.includes(input.agent.name),
+      );
     }
     return Promise.resolve(input.agent.created_by_subject.subject_id === input.context.subject.id);
   }
 
+  canAuthorWork(input: { context: RequestContext }): Promise<boolean> {
+    return Promise.resolve(!this.#isRestricted(input.context));
+  }
+
   async getPermissions(input: GetPermissionsInput): Promise<ListPermissionsData> {
     if (input.resourceType === 'tenant') {
-      return tenantCreatePermissions(input.requestContext);
+      return tenantCreatePermissions({
+        requestContext: input.requestContext,
+        restricted: this.#isRestricted(input.requestContext),
+      });
     }
 
     const data = emptyPermissionsByResourceId(input.resourceIds);

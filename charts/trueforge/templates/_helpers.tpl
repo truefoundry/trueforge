@@ -630,6 +630,13 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- if .Values.configs.oidc.allowedEmails -}}
 {{- $env = append $env (dict "name" "OIDC_ALLOWED_EMAILS" "value" .Values.configs.oidc.allowedEmails) -}}
 {{- end -}}
+{{- if .Values.configs.oidc.serviceSubjects -}}
+{{- $env = append $env (dict "name" "OIDC_SERVICE_SUBJECTS" "value" .Values.configs.oidc.serviceSubjects) -}}
+{{- end -}}
+{{- if .Values.configs.oidc.restrictedRoleValue -}}
+{{- $env = append $env (dict "name" "OIDC_RESTRICTED_ROLE_VALUE" "value" .Values.configs.oidc.restrictedRoleValue) -}}
+{{- $env = append $env (dict "name" "OIDC_RESTRICTED_AGENT_NAMES" "value" .Values.configs.oidc.restrictedAgentNames) -}}
+{{- end -}}
 {{- end -}}
 
 {{- $env = append $env (dict "name" "NETWORK_POLICY_ENABLED" "value" (.Values.networkPolicy.enabled | toString)) -}}

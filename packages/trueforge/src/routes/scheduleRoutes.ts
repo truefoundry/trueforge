@@ -226,6 +226,10 @@ export const createScheduleRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid cron or timezone.',
     },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Caller role cannot create agents, schedules, or unsaved-agent sessions.',
+    },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Named agent not found.',

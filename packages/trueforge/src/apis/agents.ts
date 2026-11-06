@@ -33,7 +33,7 @@ import {
 } from '../routes/agentRoutes';
 import { validateAgentSpec } from '../runtime/sessionResources';
 import { type Agent, type CreateAgentRequest } from '../schemas/agent';
-import { agentIfAccessible, listAccessibleAgents } from './agentAccess';
+import { agentIfAccessible, FORBIDDEN_AUTHOR_WORK, listAccessibleAgents } from './agentAccess';
 import { buildAgentCodeSnippets } from './agentCodeSnippets';
 import type { ResolveSkillStore } from './skills';
 
@@ -134,6 +134,9 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
   const createHandler: RouteHandler<typeof createAgentRoute> = async c => {
     const body: CreateAgentRequest = c.req.valid('json');
     const requestContext = deps.resolveRequestContext(c);
+    if (!(await deps.authorizer.canAuthorWork({ context: requestContext }))) {
+      return c.json({ error: { message: FORBIDDEN_AUTHOR_WORK } }, 403);
+    }
     const manifest = await validateManifest({
       spec: body.manifest,
       modelProviderStore: deps.resolveModelProviderStore(c),

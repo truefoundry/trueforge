@@ -22,6 +22,9 @@ jest.mock('../../../src/config', () => {
     OIDC_ADMIN_ROLE_VALUE: 'admin',
     OIDC_SCOPES: ['openid', 'profile', 'email', 'groups'],
     OIDC_ALLOWED_EMAILS: [] as string[],
+    OIDC_SERVICE_SUBJECTS: [],
+    OIDC_RESTRICTED_ROLE_VALUE: undefined,
+    OIDC_RESTRICTED_AGENT_NAMES: [],
   };
   const config = {
     STANDALONE: false as const,

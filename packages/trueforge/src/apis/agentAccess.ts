@@ -10,6 +10,8 @@ import type { IAccessControlStore } from '../db/accessControlStore';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import type { SessionGrantSubject } from '../schemas/sessionGrant';
 
+export const FORBIDDEN_AUTHOR_WORK = 'Your role cannot create agents, schedules, or unsaved-agent sessions';
+
 /** The agent only when the caller may act on it, so callers answer 404 for missing and forbidden alike. */
 export async function agentIfAccessible(input: {
   authorizer: Authorizer;
@@ -47,6 +49,15 @@ export async function listAccessibleAgents<TTransaction>(input: {
       page_token: input.page_token,
     });
   }
+  if (access.kind === 'agent_names') {
+    return input.store.listAgents({
+      tenant_id: input.context.tenant_id,
+      names: access.agent_names,
+      agent_name: input.agent_name,
+      limit: input.limit,
+      page_token: input.page_token,
+    });
+  }
   return input.store.listAgents({
     tenant_id: input.context.tenant_id,
     external_ids: access.agent_external_ids,
@@ -68,6 +79,9 @@ export async function resolveManagedAgentIds<TTransaction>(input: {
   const { store, context, authorizer } = input;
   const access = await authorizer.listAgentAccess({ context, action: 'manage' });
   if (access.kind === 'all') {
+    return [];
+  }
+  if (access.kind === 'agent_names') {
     return [];
   }
   const { data } = await store.listAgents({

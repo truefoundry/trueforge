@@ -632,6 +632,7 @@ function resolveOIDCConfig(): OIDCConfig | undefined {
         '(unset = fixed local admin identity, no IdP).',
     );
   }
+  const restrictedRoleValue = getEnv('OIDC_RESTRICTED_ROLE_VALUE')?.trim();
   return {
     OIDC_ISSUER_URL: issuerUrl,
     OIDC_CLIENT_ID: clientId,
@@ -648,6 +649,9 @@ function resolveOIDCConfig(): OIDCConfig | undefined {
       getEnv('OIDC_ADMIN_ROLE_VALUE', { defaultValue: DEFAULT_OIDC_ADMIN_ROLE_VALUE }) ?? DEFAULT_OIDC_ADMIN_ROLE_VALUE,
     OIDC_SCOPES: parseOidcScopes(getEnv('OIDC_SCOPES', { defaultValue: DEFAULT_OIDC_SCOPES }) ?? DEFAULT_OIDC_SCOPES),
     OIDC_ALLOWED_EMAILS: parseOidcAllowedEmails(getEnv('OIDC_ALLOWED_EMAILS')),
+    OIDC_SERVICE_SUBJECTS: parseCommaSeparatedEnvList(getEnv('OIDC_SERVICE_SUBJECTS')),
+    OIDC_RESTRICTED_ROLE_VALUE: restrictedRoleValue === '' ? undefined : restrictedRoleValue,
+    OIDC_RESTRICTED_AGENT_NAMES: parseCommaSeparatedEnvList(getEnv('OIDC_RESTRICTED_AGENT_NAMES')),
   };
 }
 
@@ -690,6 +694,18 @@ export interface OIDCConfig {
    * Matching is case-insensitive against the ID token `email` claim. Empty = unrestricted.
    */
   OIDC_ALLOWED_EMAILS: string[];
+  /**
+   * Values of the user reference claim (e.g. service-principal `oid`s) exempt from the email
+   * allowlist, for machine tokens that carry no `email`. Env: `OIDC_SERVICE_SUBJECTS` (comma-separated).
+   */
+  OIDC_SERVICE_SUBJECTS: string[];
+  /**
+   * Role value that confines non-admin callers to `OIDC_RESTRICTED_AGENT_NAMES`: they cannot create
+   * agents, schedules, or run unsaved agents. Env: `OIDC_RESTRICTED_ROLE_VALUE`. Unset = feature off.
+   */
+  OIDC_RESTRICTED_ROLE_VALUE: string | undefined;
+  /** Agent names restricted callers may see and use. Env: `OIDC_RESTRICTED_AGENT_NAMES` (comma-separated). */
+  OIDC_RESTRICTED_AGENT_NAMES: string[];
 }
 
 export interface SharedServerConfiguration {

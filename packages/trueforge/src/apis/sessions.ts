@@ -68,7 +68,13 @@ import {
 } from '../schemas/session';
 import type { SessionGrant, SessionGrantSubject } from '../schemas/sessionGrant';
 import { newId } from '../utils/id';
-import { agentIfAccessible, canReadAgentBoundResource, canReadSession, resolveManagedAgentIds } from './agentAccess';
+import {
+  agentIfAccessible,
+  canReadAgentBoundResource,
+  canReadSession,
+  FORBIDDEN_AUTHOR_WORK,
+  resolveManagedAgentIds,
+} from './agentAccess';
 
 /** Request-reply path a replica serves to cancel a turn it owns. */
 export const SESSIONS_CANCEL_PATH = 'sessions/cancel';
@@ -513,6 +519,9 @@ function createGetOrCreateSessionByExternalIdHandler(
       return c.json({ data: toWireSession(existing.record, shared) }, 200);
     }
 
+    if (isSessionAgentSpecBody(body.agent) && !(await deps.authorizer.canAuthorWork({ context: requestContext }))) {
+      return c.json({ error: { message: FORBIDDEN_AUTHOR_WORK } }, 403);
+    }
     const resolved = await resolveNewSessionAgent({ deps, c, agent: body.agent, requestContext });
     if (!resolved.found) {
       return c.json({ error: { message: resolved.message } }, 404);
@@ -564,6 +573,9 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
     const resolved = await resolveNewSessionAgent({ deps, c, agent: body.agent, requestContext });
     if (!resolved.found) {
       return c.json({ error: { message: resolved.message } }, 404);
+    }
+    if (isSessionAgentSpecBody(body.agent) && !(await deps.authorizer.canAuthorWork({ context: requestContext }))) {
+      return c.json({ error: { message: FORBIDDEN_AUTHOR_WORK } }, 403);
     }
     const session = await deps.sessions.create({
       tenant_id: requestContext.tenant_id,
@@ -653,6 +665,9 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
     // Inline sessions may replace their agent; named (reference) sessions
     // cannot — the store rejects that with SessionStoreInvariantError → 422 below.
     if (body.agent !== undefined) {
+      if (!(await deps.authorizer.canAuthorWork({ context: requestContext }))) {
+        return c.json({ error: { message: FORBIDDEN_AUTHOR_WORK } }, 403);
+      }
       await validateSessionSpec({
         deps,
         c,

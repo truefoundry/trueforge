@@ -19,6 +19,9 @@ function config(overrides: Partial<OIDCConfig> = {}): OIDCConfig {
     OIDC_ADMIN_ROLE_VALUE: 'harness-admins',
     OIDC_SCOPES: ['openid', 'profile', 'email', 'groups'],
     OIDC_ALLOWED_EMAILS: [],
+    OIDC_SERVICE_SUBJECTS: [],
+    OIDC_RESTRICTED_ROLE_VALUE: undefined,
+    OIDC_RESTRICTED_AGENT_NAMES: [],
     ...overrides,
   };
 }
@@ -222,5 +225,21 @@ describe('buildAuthorizationRequestParams', () => {
         email: { essential: true },
       },
     });
+  });
+});
+
+describe('toRequestContext service subjects', () => {
+  it('builds a normal non-admin context for a service subject with no email', () => {
+    const context = toRequestContext({
+      claims: { oid: 'sp-oid-1' },
+      config: config({
+        OIDC_USER_REFERENCE_CLAIM: 'oid',
+        OIDC_ALLOWED_EMAILS: ['*@company.com'],
+        OIDC_SERVICE_SUBJECTS: ['sp-oid-1'],
+      }),
+      user_credential: TEST_TOKEN,
+    });
+    expect(context.subject.id).toBe('sp-oid-1');
+    expect(context.roles).toEqual([]);
   });
 });
