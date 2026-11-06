@@ -612,13 +612,19 @@ export class LocalSandboxProvider implements SandboxProvider {
   async exec(params: SandboxExecParams): Promise<ExecResult> {
     this.ensureSandboxRoot(params.sandboxId);
     try {
-      await this.ensureSrt();
-      await this.ensureVenv(params.sandboxId);
       const sandboxRootPath = params.sandboxId;
       const cwd =
         params.cwd === undefined || params.cwd === ''
           ? sandboxRootPath
           : this.resolveInSandboxRoot(sandboxRootPath, params.cwd);
+      if (!existsSync(cwd)) {
+        throw new SandboxFileNotFoundError(params.cwd ?? cwd);
+      }
+      if (!statSync(cwd).isDirectory()) {
+        throw new Error(`Working directory is not a directory: ${params.cwd ?? cwd}`);
+      }
+      await this.ensureSrt();
+      await this.ensureVenv(sandboxRootPath);
       const timeoutSeconds = params.timeoutSeconds ?? this.defaultExecTimeoutSeconds;
       const env =
         params.env === undefined ? undefined : absolutizeRelativeExecEnv({ root: sandboxRootPath, env: params.env });
