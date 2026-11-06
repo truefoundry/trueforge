@@ -1,9 +1,17 @@
 'use client';
 
+import { useState } from 'react';
+import { Prism as PrismHighlighter } from 'react-syntax-highlighter';
+import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
+
 import { Icon } from '../../icons/Icon.js';
 import type { SandboxEnvironmentManifest, SandboxEnvironmentSecret } from '../../server/types.js';
+import { useSlot } from '../../theme/SlotsProvider.js';
+import { useOptionalThemeMode } from '../../theme/ThemeProvider.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
+import { Button } from '../primitives/Button.js';
+import { Dialog } from '../primitives/Dialog.js';
 import { Switch } from '../primitives/Switch.js';
 import { isReservedEnvironmentName } from './environmentDisplay.js';
 
@@ -112,6 +120,9 @@ export function EnvironmentFormFields({
   nameDisabled?: boolean;
   readOnly?: boolean;
 }) {
+  const MonacoEditorCore = useSlot('MonacoEditorCore');
+  const themeMode = useOptionalThemeMode();
+  const [buildScriptOpen, setBuildScriptOpen] = useState(false);
   const update = (patch: Partial<EnvironmentFormValues>) => onChange({ ...values, ...patch });
 
   return (
@@ -143,15 +154,78 @@ export function EnvironmentFormFields({
       <div className={sectionCardClassName}>
         <h3 className="text-sm font-medium text-text-primary">Image And Resources</h3>
 
-        <label className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1.5">
           <span className="text-xs font-medium text-text-secondary">Build Script</span>
-          <textarea
-            className={cn(fieldClassName, 'min-h-24 resize-y font-mono text-xs')}
-            value={values.buildScript}
-            placeholder={'set -ex\npip install httpx\n'}
-            onChange={event => update({ buildScript: event.target.value })}
-          />
-        </label>
+          <button
+            type="button"
+            aria-label="Edit build script full screen"
+            aria-haspopup="dialog"
+            className={cn(
+              fieldClassName,
+              'relative flex min-h-24 cursor-pointer items-start overflow-hidden pr-9 text-left font-mono text-xs',
+            )}
+            onClick={() => setBuildScriptOpen(true)}
+          >
+            <span
+              data-testid="build-script-preview"
+              className="block max-h-32 min-w-0 flex-1 overflow-y-auto overscroll-contain"
+            >
+              {values.buildScript ? (
+                <PrismHighlighter
+                  language="bash"
+                  style={themeMode === 'dark' ? oneDark : oneLight}
+                  PreTag="span"
+                  CodeTag="span"
+                  customStyle={{
+                    margin: 0,
+                    padding: 0,
+                    background: 'transparent',
+                    fontFamily: 'inherit',
+                    fontSize: 'inherit',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    minWidth: 0,
+                  }}
+                  codeTagProps={{ style: { fontFamily: 'inherit', fontSize: 'inherit', whiteSpace: 'pre-wrap' } }}
+                  wrapLongLines
+                >
+                  {values.buildScript}
+                </PrismHighlighter>
+              ) : (
+                <span className="block whitespace-pre-wrap break-words text-text-secondary/70">
+                  {'set -ex\npip install httpx\n'}
+                </span>
+              )}
+            </span>
+            <Icon name="expand" className="absolute right-2.5 top-2 size-4 text-text-secondary" />
+          </button>
+          <Dialog
+            open={buildScriptOpen}
+            onOpenChange={setBuildScriptOpen}
+            aria-label="Edit build script full screen"
+            className="h-[calc(100dvh-2rem)] max-h-none w-[calc(100vw-2rem)] max-w-none"
+          >
+            {buildScriptOpen ? (
+              <>
+                <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2">
+                  <h2 className="text-sm font-semibold text-text-primary">Build Script</h2>
+                  <Button.Secondary type="button" size="small" onClick={() => setBuildScriptOpen(false)}>
+                    Done
+                  </Button.Secondary>
+                </div>
+                <div className="min-h-0 flex-1">
+                  <MonacoEditorCore
+                    value={values.buildScript}
+                    language="shell"
+                    height="100%"
+                    options={{ readOnly, lineNumbers: 'on', renderFinalNewline: 'on' }}
+                    onChange={buildScript => update({ buildScript })}
+                  />
+                </div>
+              </>
+            ) : null}
+          </Dialog>
+        </div>
 
         <div className="grid grid-cols-3 gap-3">
           <label className="flex flex-col gap-1">
