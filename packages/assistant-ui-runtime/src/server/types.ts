@@ -151,7 +151,7 @@ export interface AgentRuntimeConfig {
   dynamicSubAgents?: AgentCapabilityConfig;
   askUserQuestions?: AgentCapabilityConfig;
   webSearch?: AgentCapabilityConfig;
-  /** Long-term memory for this agent. */
+  trueforge?: AgentCapabilityConfig;
   memory?: AgentCapabilityConfig;
 }
 

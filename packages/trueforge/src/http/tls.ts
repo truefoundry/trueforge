@@ -88,17 +88,18 @@ function requestUrlFromFetchInput(input: Parameters<typeof fetch>[0]): string {
   return input.url;
 }
 
-/** `fetch` for the schedule controller SDK client. Undefined when mTLS is off. */
-export function createTlsFetch(options: TlsOptions): typeof fetch | undefined {
+/** Undici fetch for internal TrueForge SDK and MCP calls, with an mTLS dispatcher when enabled. */
+export function createTlsFetch(options: TlsOptions): typeof fetch {
   const dispatcher = createTlsDispatcher({
     ...options,
     enabledEnvKey: 'MTLS_ENABLED',
   });
-  if (dispatcher === undefined) {
-    return undefined;
-  }
   // Casts bridge undici ↔ DOM fetch types (Fern only needs string URL + init + dispatcher).
-  return (input, init) => undiciFetch(requestUrlFromFetchInput(input), { ...(init as object), dispatcher });
+  return (input, init) =>
+    undiciFetch(requestUrlFromFetchInput(input), {
+      ...(init as object),
+      ...(dispatcher === undefined ? {} : { dispatcher }),
+    });
 }
 
 /** HTTPS `serve` options when mTLS is on; undefined → plain HTTP. */

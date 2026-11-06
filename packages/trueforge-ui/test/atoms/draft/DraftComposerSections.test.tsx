@@ -79,7 +79,7 @@ describe('draft composer sections', () => {
     const onAttach = vi.fn();
     render(<DraftSections onAttach={onAttach} />);
 
-    expect(screen.getByRole('button', { name: 'Tools (3)' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Tools (4)' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Attach a file' }));
 
     expect(onAttach).toHaveBeenCalledTimes(1);
@@ -184,12 +184,12 @@ describe('draft composer sections', () => {
   it('propagates disabled and running state to composed controls', async () => {
     const { rerender } = render(<DraftSections disabled />);
 
-    expect(screen.getByRole('button', { name: 'Tools (3)' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Tools (4)' })).toBeDisabled();
     expect(await screen.findByRole('button', { name: 'Select model' })).toBeDisabled();
     expect(await screen.findByTitle('Select reasoning effort')).toBeDisabled();
 
     rerender(<DraftSections isRunning />);
-    expect(screen.getByRole('button', { name: 'Tools (3)' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Tools (4)' })).toBeDisabled();
     expect(await screen.findByRole('button', { name: 'Select model' })).toBeDisabled();
     expect(await screen.findByTitle('Select reasoning effort')).toBeDisabled();
   });

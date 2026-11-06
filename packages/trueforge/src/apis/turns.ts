@@ -9,13 +9,14 @@ import {
   resolvePreviousTurnId,
   SessionStoreConflictError,
   SessionStoreNotFoundError,
+  TRUEFORGE_MCP_ID,
   TurnResourceResolver,
   type SessionHandle,
   type TurnHandle,
   type TurnInputItem,
   type TurnRecordWithoutSnapshot,
 } from '@truefoundry/trueforge-core/agent-session';
-import type { AgentCapability, IWebSearchProvider } from '@truefoundry/trueforge-core/core';
+import type { AgentCapability, IWebSearchProvider, McpConnection } from '@truefoundry/trueforge-core/core';
 import {
   AgentHarnessError,
   existingSandboxIdForProvider,
@@ -43,7 +44,7 @@ import type {
   ResolveTurnSkillsStoreInput,
 } from '../app';
 import type { Authorizer } from '../auth/authorizer';
-import type { ResolveRequestContext } from '../auth/identity';
+import type { RequestContext, ResolveRequestContext } from '../auth/identity';
 import configuration from '../config';
 import type { IAccessControlStore } from '../db/accessControlStore';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
@@ -56,7 +57,9 @@ import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
+import { createTlsFetch, normalizeTlsUrl } from '../http/tls';
 import { currentLogContext, updateLogContext } from '../logger';
+import { TRUEFORGE_SESSION_HEADER, X_TFG_TRUEFORGE_MCP } from '../mcp/server/trueforge/headers';
 import type { MemoryProviderCache, TenantMemoryDeps } from '../memory/providers';
 import { resolveSessionMemory } from '../memory/sessionMemory';
 import {
@@ -163,6 +166,7 @@ export type BeginTurnExecutionDeps = Pick<
   agentStore: IAgentStore;
   modelProviderStore: IModelProviderStore;
   mcpServerStore: IMcpServerWithAuthStore;
+  requestContext?: RequestContext | undefined;
   sandboxProviderStore: ISandboxProviderStore;
   webSearchProviderStore: IWebSearchProviderStore;
   skillStore: Pick<ISkillStore, 'resolveTurnSkills'>;
@@ -201,6 +205,7 @@ function createTurnResolver(deps: {
   session: SessionHandle;
   turnMetadata: TurnMetadata;
   capabilitiesStore: ICapabilitiesStore;
+  trueforgeMcp: McpConnection | undefined;
 }): TurnResourceResolver {
   const {
     mcpServerStore,
@@ -217,6 +222,7 @@ function createTurnResolver(deps: {
     session,
     turnMetadata,
     capabilitiesStore,
+    trueforgeMcp,
   } = deps;
   const tenant_id = session.tenant_id;
   const sessionId = session.session_id;
@@ -240,17 +246,20 @@ function createTurnResolver(deps: {
         providerType: resolved.providerConfig.provider.type,
       };
     },
-    mcp: async name => {
+    mcp: async id => {
+      if (id === TRUEFORGE_MCP_ID) {
+        return trueforgeMcp;
+      }
       const connection = await getMcpConnection({
         tenant_id,
-        name,
+        name: id,
         store: mcpServerStore,
         userRef,
         turnMetadata,
       });
       if (connection === undefined) {
         throw new HTTPException(422, {
-          message: `Unknown MCP server "${name}" — not configured`,
+          message: `Unknown MCP server "${id}" — not configured`,
         });
       }
       return connection;
@@ -316,7 +325,7 @@ function createTurnResolver(deps: {
     },
     webSearchProvider,
     logger,
-    // Root thread only: sub-agents get neither memory tools nor the summary.
+    // Client-side tools and memory belong only to the root thread.
     rootCapabilities: () => [
       ...capabilitiesStore.resolveCapabilities(),
       ...(memoryCapability === undefined ? [] : [memoryCapability]),
@@ -476,6 +485,16 @@ export interface TurnEventDrainInput {
 }
 
 /**
+ * Process-lifetime mTLS fetch for the built-in TrueForge MCP. `createTlsFetch` allocates an undici
+ * Agent when mTLS is on, and RemoteMCP never closes that dispatcher, so a per-turn fetch would leak
+ * a connection pool on every opted-in chat.
+ */
+const trueforgeMcpFetch = createTlsFetch({
+  enabled: configuration.MTLS_ENABLED,
+  dir: configuration.MTLS_CERTS_DIR,
+});
+
+/**
  * Shared create-turn engine: persist the turn, start execution, and return the
  * drain inputs. Does not wait for events and does not write HTTP/SSE.
  */
@@ -509,6 +528,30 @@ export async function beginTurnExecution(
       logger: deps.logger,
     }),
   ]);
+
+  // TrueForge MCP is a draft-chat tool. The UI sends the header while the Built-in switch is on.
+  const requestContext = deps.requestContext;
+  const enableTrueForgeMcp =
+    sessionAgent.type === 'inline' &&
+    requestContext !== undefined &&
+    Object.keys(requestHeaders ?? {}).some(header => header.toLowerCase() === X_TFG_TRUEFORGE_MCP);
+  const trueforgeMcp = enableTrueForgeMcp
+    ? {
+        name: 'trueforge-mcp',
+        description:
+          "Create, update, and read agents, schedules, and sandbox environments in this deployment. Read this chat's " +
+          'configuration and the configured models, MCP servers, and skills. Does not run agents or turns.',
+        url: new URL('/mcp', normalizeTlsUrl({ url: configuration.SERVER_URL, enabled: configuration.MTLS_ENABLED }))
+          .href,
+        headers: {
+          [TRUEFORGE_SESSION_HEADER]: sessionId,
+          ...(requestContext.user_credential === null
+            ? {}
+            : { Authorization: `Bearer ${requestContext.user_credential}` }),
+        },
+        fetchFn: trueforgeMcpFetch,
+      }
+    : undefined;
   const resolver = createTurnResolver({
     mcpServerStore: deps.mcpServerStore,
     skillStore: deps.skillStore,
@@ -529,6 +572,7 @@ export async function beginTurnExecution(
       ...(requestHeaders === undefined ? {} : { requestHeaders }),
     },
     capabilitiesStore: deps.capabilitiesStore,
+    trueforgeMcp,
   });
 
   // First turn only: derive the title from the first user message. The store
@@ -907,6 +951,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
           ...(referencedAgent !== undefined ? { runAsAgent: referencedAgent } : {}),
         }),
         skillStore: deps.resolveTurnSkillsStore({ c, allowInlineResources }),
+        requestContext,
         // Parsed here, before a turn id is minted.
         capabilitiesStore: deps.resolveCapabilitiesStore({ c }),
         agentStore: deps.resolveAgentStore(c),

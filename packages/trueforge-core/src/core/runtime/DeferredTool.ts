@@ -10,6 +10,7 @@ import {
   type CallToolResponse,
   isApprovalRequiredResponse,
   isAuthRequired,
+  isCallToolResponseCreateSubAgent,
   isCallToolResponseResult,
   type IToolSet,
   type ListToolsResolvedResponse,
@@ -24,7 +25,7 @@ const DEFERRED_TOOLS_INSTRUCTION = 'deferred-tools-instructions';
 export const LIST_TOOLS_NAME = 'list_tools';
 export const GET_TOOL_INFO_NAME = 'get_tool_info';
 export const GET_TOOL_OUTPUT_SCHEMA_NAME = 'get_tool_output_schema';
-const CALL_TOOL_NAME = 'call_tool';
+export const CALL_TOOL_NAME = 'call_tool';
 const MAX_DESCRIPTION_LENGTH = 200;
 
 const listToolsSchema = z.object({
@@ -60,7 +61,7 @@ function isResolvedServerTools(result: CallToolResponse | ResolvedServerTools): 
 export class DeferredTool extends LocalToolMCP {
   readonly name = DEFERRED_TOOLS_SERVER_ID;
   readonly displayName = 'DeferredTools';
-  override readonly description = 'Deferred tool loading for user MCP servers';
+  override readonly description = 'Deferred tool loading for MCP servers';
 
   private readonly serverMap: Map<string, IToolSet>;
   private readonly tools: ToolDefinition[];
@@ -75,23 +76,30 @@ export class DeferredTool extends LocalToolMCP {
   ) {
     super({ tracing: options.tracing });
     this.logger = options.logger.child({ module: 'DeferredTool' });
-    this.serverMap = new Map(servers.map(s => [s.name, s]));
+    this.serverMap = new Map();
+    for (const server of servers) {
+      let key = server.name;
+      for (let suffix = 2; this.serverMap.has(key); suffix += 1) {
+        key = `${server.name} (${String(suffix)})`;
+      }
+      this.serverMap.set(key, server);
+    }
     this.tools = this.buildTools();
   }
 
   buildInstruction(builder: InstructionBuilder): void {
-    const servers = [...this.serverMap.values()];
-
     // Membership follows `preload` only (origin/main). Selective `preload_tools` /
     // `hasPreloadedTools` must not hide a server from deferred discovery instructions.
-    const deferredServers = servers.filter(s => !s.preload);
+    const deferredServers = [...this.serverMap.entries()].filter(([, server]) => !server.preload);
 
     if (deferredServers.length === 0) {
       return;
     }
 
     const deferredList = deferredServers
-      .map(s => (s.description ? `- ${s.name}: "${s.description.slice(0, MAX_DESCRIPTION_LENGTH)}"` : `- ${s.name}`))
+      .map(([name, server]) =>
+        server.description ? `- ${name}: "${server.description.slice(0, MAX_DESCRIPTION_LENGTH)}"` : `- ${name}`,
+      )
       .join('\n');
 
     builder.addSection(
@@ -181,9 +189,9 @@ export class DeferredTool extends LocalToolMCP {
           if (!isResolvedServerTools(resolved)) {
             return resolved;
           }
-          const { server, tools, metadata } = resolved;
+          const { tools, metadata } = resolved;
           return toolResultResponse({
-            text: `${server.name}:\n  ${tools.map(t => t.name).join(', ')}`,
+            text: `${input.mcp_server}:\n  ${tools.map(t => t.name).join(', ')}`,
             overrides: metadata,
           });
         } catch (error) {
@@ -329,8 +337,13 @@ export class DeferredTool extends LocalToolMCP {
             return response;
           }
 
+          // executeToolCalls turns this into the sub-agent; a tool result would swallow it.
+          if (isCallToolResponseCreateSubAgent(response)) {
+            return response;
+          }
+
           if (!isCallToolResponseResult(response)) {
-            throw new Error('Tool call returned an unexpected sub-agent response');
+            throw new Error('Tool call returned an unexpected response');
           }
 
           return response;

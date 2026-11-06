@@ -113,7 +113,8 @@ export async function getModelDetails({
 }
 
 /**
- * Load MCP url + headers for a configured server. Returns undefined when unregistered.
+ * Load a configured MCP server for a turn, including the description deferred tools show.
+ * Returns undefined when unregistered.
  *
  * TODO: OAuth header resolvers re-run on every RemoteMCP listTools/callTool; cache or gate later.
  */
@@ -126,7 +127,7 @@ export async function getMcpConnection({
 }: {
   tenant_id: string;
   name: string;
-  store: IMcpServerWithAuthStore;
+  store: Pick<IMcpServerWithAuthStore, 'getServer' | 'resolveInvokeHeaders'>;
   userRef: string;
   turnMetadata?: TurnMetadata;
 }): Promise<McpConnection | undefined> {
@@ -135,8 +136,9 @@ export async function getMcpConnection({
     return undefined;
   }
   return {
+    name: record.name,
+    description: record.manifest.description,
     url: record.manifest.url,
-    server: { name: record.name, description: record.manifest.description },
     headers: store.resolveInvokeHeaders({
       record,
       userRef,

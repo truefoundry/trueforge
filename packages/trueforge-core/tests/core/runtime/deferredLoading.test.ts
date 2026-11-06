@@ -1,9 +1,23 @@
+import type { AgentCapability } from '../../../src/core/capabilities/AgentCapability';
+import { currentDateTime } from '../../../src/core/capabilities/builtins/CurrentDateTime';
 import { InstructionBuilder } from '../../../src/core/InstructionBuilder';
-import type { IToolSet } from '../../../src/core/mcp/IMCPServer';
-import { DeferredTool } from '../../../src/core/runtime/DeferredTool';
+import type { ILLM } from '../../../src/core/llm/ILLM';
+import {
+  isCallToolResponseCreateSubAgent,
+  isCallToolResponseResult,
+  type IToolSet,
+} from '../../../src/core/mcp/IMCPServer';
+import { AgentThread } from '../../../src/core/runtime/AgentThread';
+import {
+  CALL_TOOL_NAME,
+  DeferredTool,
+  GET_TOOL_INFO_NAME,
+  GET_TOOL_OUTPUT_SCHEMA_NAME,
+  LIST_TOOLS_NAME,
+} from '../../../src/core/runtime/DeferredTool';
 import { NOOP_AGENT_TRACING } from '../../../src/core/tracing/NoopAgentTracing';
 import '../harnessMocks';
-import { makeMockIMCPServer, makeSilentLogger } from '../harnessMocks';
+import { makeMockIMCPServer, makeSilentLogger, OBJECT_INPUT_SCHEMA, TEST_MODEL_NAME } from '../harnessMocks';
 
 const DEFERRED_TOOLS_INSTRUCTION = 'deferred-tools-instructions';
 
@@ -51,5 +65,119 @@ describe('DeferredTool deferred loading behavior', () => {
     ]);
     expect(text).toContain('lazy-empty');
     expect(text).not.toContain('eager');
+  });
+
+  it('keeps same-named deferred servers independently addressable', () => {
+    const text = deferredInstructionText([
+      makeMockIMCPServer({ name: 'shared-name', description: 'system capability', preload: false }),
+      makeMockIMCPServer({ name: 'shared-name', description: 'configured server', preload: false }),
+    ]);
+
+    expect(text).toContain('- shared-name: "system capability"');
+    expect(text).toContain('- shared-name (2): "configured server"');
+  });
+
+  it('list_tools labels a suffixed server with its alias', async () => {
+    const deferred = new DeferredTool(
+      [
+        makeMockIMCPServer({
+          name: 'trueforge-mcp',
+          preload: false,
+          tools: [{ name: 'system_tool', description: 'System', inputSchema: OBJECT_INPUT_SCHEMA, preload: false }],
+        }),
+        makeMockIMCPServer({
+          name: 'trueforge-mcp',
+          preload: false,
+          tools: [{ name: 'user_tool', description: 'User', inputSchema: OBJECT_INPUT_SCHEMA, preload: false }],
+        }),
+      ],
+      { tracing: NOOP_AGENT_TRACING, logger: silentLogger },
+    );
+
+    const response = await deferred.callTool({
+      name: LIST_TOOLS_NAME,
+      arguments: { mcp_server: 'trueforge-mcp (2)' },
+    });
+
+    expect(isCallToolResponseResult(response)).toBe(true);
+    if (!isCallToolResponseResult(response)) {
+      return;
+    }
+    const block = response.result.content[0];
+    expect(block).toEqual({ type: 'text', text: 'trueforge-mcp (2):\n  user_tool' });
+  });
+
+  it('call_tool passes a createSubAgent response through for sub-agent creation', async () => {
+    const createSubAgent = { type: 'dynamic', name: 'helper', input: 'do it' };
+    const subAgentServer = makeMockIMCPServer({ name: 'sub-agents', preload: false });
+    (subAgentServer.callTool as jest.Mock).mockResolvedValue({ createSubAgent });
+    const deferred = new DeferredTool([subAgentServer], { tracing: NOOP_AGENT_TRACING, logger: silentLogger });
+
+    const response = await deferred.callTool({
+      name: CALL_TOOL_NAME,
+      arguments: { mcp_server: 'sub-agents', tool_name: 'create_sub_agent', input: {} },
+    });
+
+    expect(isCallToolResponseCreateSubAgent(response)).toBe(true);
+    if (!isCallToolResponseCreateSubAgent(response)) {
+      return;
+    }
+    expect(response.createSubAgent).toEqual(createSubAgent);
+  });
+});
+
+const DEFERRED_DISCOVERY_TOOLS = [LIST_TOOLS_NAME, GET_TOOL_INFO_NAME, GET_TOOL_OUTPUT_SCHEMA_NAME, CALL_TOOL_NAME];
+
+async function registeredToolNames(input: {
+  capabilities?: readonly AgentCapability[];
+  toolSets?: IToolSet[];
+}): Promise<string[]> {
+  const create = jest.fn<ILLM['create']>().mockImplementation(async function* () {
+    return {
+      output: { role: 'assistant', content: 'ok' },
+      usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 },
+      finish_reason: 'stop',
+    };
+  });
+  const thread = new AgentThread({
+    threadId: 'main',
+    title: 'Main',
+    tracing: NOOP_AGENT_TRACING,
+    logger: silentLogger,
+    capabilities: input.capabilities,
+    definition: {
+      modelClient: { create, createNonStream: jest.fn() },
+      modelName: TEST_MODEL_NAME,
+      toolSets: input.toolSets ?? [],
+    },
+    context: [{ role: 'user', content: 'hi' }],
+  });
+  for await (const event of thread.execute({ signal: new AbortController().signal })) {
+    void event;
+  }
+  const body = create.mock.calls[0]?.[0];
+  return (body?.tools ?? []).flatMap(tool => (tool.type === 'function' ? [tool.function.name] : []));
+}
+
+describe('AgentThread deferred discovery registration', () => {
+  it('does not register discovery tools when every server is preloaded', async () => {
+    const names = await registeredToolNames({
+      capabilities: [currentDateTime({ tracing: NOOP_AGENT_TRACING })],
+    });
+
+    expect(names).toContain('get_current_datetime');
+    expect(names).not.toEqual(expect.arrayContaining(DEFERRED_DISCOVERY_TOOLS));
+  });
+
+  it('registers discovery tools when a system toolset is not preloaded', async () => {
+    const names = await registeredToolNames({
+      capabilities: [
+        currentDateTime({ tracing: NOOP_AGENT_TRACING }),
+        { systemToolSets: [makeMockIMCPServer({ name: 'trueforge-mcp', preload: false })] },
+      ],
+    });
+
+    expect(names).toEqual(expect.arrayContaining(DEFERRED_DISCOVERY_TOOLS));
+    expect(names).toContain('get_current_datetime');
   });
 });

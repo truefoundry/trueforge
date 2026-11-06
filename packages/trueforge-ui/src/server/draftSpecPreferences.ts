@@ -111,17 +111,28 @@ function readWebSearchEnabled(spec: AgentSpec): boolean | undefined {
   return typeof enabled === 'boolean' ? enabled : undefined;
 }
 
+function readTrueforgeEnabled(spec: AgentSpec): boolean | undefined {
+  if (spec.config?.trueforge === undefined) return undefined;
+  const enabled = spec.config.trueforge.enabled;
+  return typeof enabled === 'boolean' ? enabled : undefined;
+}
+
 /**
- * New Chat: model (+ reasoning params), skills, MCP, and the web-search toggle.
+ * New Chat: model (+ reasoning params), skills, MCP, and the web-search / TrueForge toggles.
  * Other runtime config (sandbox, ask-user, …) is not persisted for chat.
  */
 export function selectChatDraftSpecPreferences(spec: AgentSpec): AgentSpec {
   const webSearchEnabled = readWebSearchEnabled(spec);
+  const trueforgeEnabled = readTrueforgeEnabled(spec);
+  const config = {
+    ...(webSearchEnabled !== undefined ? { webSearch: { enabled: webSearchEnabled } } : {}),
+    ...(trueforgeEnabled !== undefined ? { trueforge: { enabled: trueforgeEnabled } } : {}),
+  };
   return {
     model: spec.model,
     ...(spec.skills !== undefined ? { skills: spec.skills } : {}),
     ...(spec.mcpServers !== undefined ? { mcpServers: spec.mcpServers } : {}),
-    ...(webSearchEnabled !== undefined ? { config: { webSearch: { enabled: webSearchEnabled } } } : {}),
+    ...(Object.keys(config).length > 0 ? { config } : {}),
   };
 }
 
