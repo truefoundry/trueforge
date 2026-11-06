@@ -3,13 +3,13 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { TurnStateErrorMetrics } from "./TurnStateErrorMetrics.js";
+import { TurnMetrics } from "./TurnMetrics.js";
 
 export const TurnStateError: core.serialization.ObjectSchema<serializers.TurnStateError.Raw, TrueForge.TurnStateError> =
     core.serialization.object({
         completedAt: core.serialization.property("completed_at", core.serialization.string()),
         message: core.serialization.string(),
-        metrics: TurnStateErrorMetrics.optional(),
+        metrics: TurnMetrics.optional(),
         status: core.serialization.stringLiteral("error"),
     });
 
@@ -17,7 +17,7 @@ export declare namespace TurnStateError {
     export interface Raw {
         completed_at: string;
         message: string;
-        metrics?: TurnStateErrorMetrics.Raw | null;
+        metrics?: TurnMetrics.Raw | null;
         status: "error";
     }
 }

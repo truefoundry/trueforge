@@ -121,6 +121,8 @@ export type { MonacoEditorCoreProps } from './atoms/MonacoEditorCore.js';
 export { preloadMonaco } from './atoms/monacoPreload.js';
 export { OpenUiFenceBlock } from './atoms/OpenUiFenceBlock.js';
 export type { OpenUiFenceBlockProps } from './atoms/OpenUiFenceBlock.js';
+export { ResumeUnavailable } from './atoms/ResumeUnavailable.js';
+export type { ResumeUnavailableProps } from './atoms/ResumeUnavailable.js';
 export { SandboxArtifactDownload } from './atoms/SandboxArtifactDownload.js';
 export type { SandboxArtifactDownloadProps } from './atoms/SandboxArtifactDownload.js';
 export { ScrollToBottomButton } from './atoms/ScrollToBottomButton.js';
@@ -179,8 +181,6 @@ export type {
 } from './atoms/ComposerSections.js';
 export { ComposerShell } from './atoms/ComposerShell.js';
 export type { ComposerShellProps } from './atoms/ComposerShell.js';
-export { ResumeUnavailable } from './atoms/ResumeUnavailable.js';
-export type { ResumeUnavailableProps } from './atoms/ResumeUnavailable.js';
 export { SandboxToolCallCard } from './atoms/SandboxToolCallCard.js';
 export type { SandboxToolCallCardProps } from './atoms/SandboxToolCallCard.js';
 export { SubAgentCard } from './atoms/SubAgentCard.js';
@@ -281,6 +281,7 @@ export {
   useTrueForgeAgentSpec,
   useTrueForgeApprovals,
   useTrueForgeCancel,
+  useTrueForgeContinueMcpAuth,
   useTrueForgeDownloadSandboxFile,
   useTrueForgeHistoryPagination,
   useTrueForgeMcpAuth,

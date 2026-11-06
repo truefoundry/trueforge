@@ -8,9 +8,9 @@ import { UserToolApprovalInputEvent } from "./UserToolApprovalInputEvent.js";
 import { UserToolApprovalPolicyMessage } from "./UserToolApprovalPolicyMessage.js";
 import { UserToolResponseInputEvent } from "./UserToolResponseInputEvent.js";
 
-export const TurnInboundEventItem: core.serialization.Schema<
-    serializers.TurnInboundEventItem.Raw,
-    TrueForge.TurnInboundEventItem
+export const TurnUserEventMessage: core.serialization.Schema<
+    serializers.TurnUserEventMessage.Raw,
+    TrueForge.TurnUserEventMessage
 > = core.serialization.undiscriminatedUnion([
     UserMcpAuthContinueInputEvent,
     UserToolApprovalInputEvent,
@@ -18,7 +18,7 @@ export const TurnInboundEventItem: core.serialization.Schema<
     UserToolResponseInputEvent,
 ]);
 
-export declare namespace TurnInboundEventItem {
+export declare namespace TurnUserEventMessage {
     export type Raw =
         | UserMcpAuthContinueInputEvent.Raw
         | UserToolApprovalInputEvent.Raw

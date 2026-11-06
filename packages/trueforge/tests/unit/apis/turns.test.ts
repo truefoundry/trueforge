@@ -1,24 +1,36 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import {
   AgentSpecSchema,
+  CancellationReason,
   Sessions,
   TurnNotFoundError,
-  type TurnInputItem,
   type TurnStreamingEvent,
+  type UserMessage,
 } from '@truefoundry/trueforge-core/agent-session';
+import { RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
 import type { Kysely } from 'kysely';
 import { createLogger } from 'winston';
+import { createEmptyAgentThreadMetrics } from '../../../../trueforge-core/src/core/runtime/metrics';
+import {
+  makeCancelledTurnState,
+  makeCreateTurnInput,
+  makeModelMessageEvent,
+  makePausedTurnState,
+  makeTurnCreatedEvent,
+  makeTurnDoneEvent,
+  makeTurnUpdateEvent,
+  TEST_ACTIVE_EXECUTOR_ID,
+} from '../../../../trueforge-core/tests/agent-session/testHelpers';
 import { createTurnsRouter, deriveSessionTitle, turnStreamId } from '../../../src/apis/turns';
 import { TrueForgeAuthorizer, type Authorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
+import { EmptyCapabilitiesStore } from '../../../src/db/capabilitiesStore';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAccessControlStore } from '../../../src/db/sqlite/access-control-store/SqliteAccessControlStore';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
-import { SqliteConfigurationStore } from '../../../src/db/sqlite/configuration-store/SqliteConfigurationStore';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
-import { SqliteMemoryProviderStore } from '../../../src/db/sqlite/memory-provider-store/SqliteMemoryProviderStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
@@ -28,7 +40,6 @@ import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/Sqlite
 import type { Database } from '../../../src/db/sqlite/types';
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
 import { runWithLogContext } from '../../../src/logger';
-import { MemoryProviderCache } from '../../../src/memory/providers';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
 
@@ -40,13 +51,26 @@ function mcpServerStoreWithAuth(db: Kysely<Database>, tokenStore: SqliteOAuthTok
   });
 }
 
+function turnExecutionStores(db: Kysely<Database>, tokenStore: SqliteOAuthTokenStore) {
+  return {
+    agentStore: new SqliteAgentStore(db),
+    capabilitiesStore: new EmptyCapabilitiesStore(),
+    modelProviderStore: new SqliteModelProviderStore(db),
+    mcpServerStore: mcpServerStoreWithAuth(db, tokenStore),
+    skillStore: new SqliteSkillStore(db),
+    sandboxProviderStore: new SqliteSandboxProviderStore(db),
+    webSearchProviderStore: new SqliteWebSearchProviderStore(db),
+    memory: undefined,
+  };
+}
+
 describe('turns', () => {
   it('namespaces turn stream ids under tfg', () => {
     expect(turnStreamId('ten', 'sess', 'turn1')).toBe('tfg:agent:turn:ten:sess:turn1:stream');
   });
 
   describe('deriveSessionTitle', () => {
-    function userMessage(content: string): TurnInputItem[] {
+    function userMessage(content: string): UserMessage[] {
       return [{ type: 'user.message', content }];
     }
 
@@ -123,25 +147,19 @@ describe('turns', () => {
       app.route(
         '/',
         createTurnsRouter({
+          activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
+          authorizer: new TrueForgeAuthorizer(),
+          eventSubscriptions: new EventSubscriptionRegistry(undefined),
+          logger: createLogger({ silent: true }),
+          requestReplyRouter: new RequestReplyRouter(),
+          resolveAgentStore: () => new SqliteAgentStore(db),
+          resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+          resolveTurnExecutionStores: () => Promise.resolve(turnExecutionStores(db, tokenStore)),
+          sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
+          sandboxProviderStore: new SqliteSandboxProviderStore(db),
           sessions,
           sessionStore,
           accessControlStore: new SqliteAccessControlStore(db),
-          activeTurns: new ActiveTurnRegistry(),
-          resolveModelProviderStore: () => new SqliteModelProviderStore(db),
-          resolveMcpServerStore: () => mcpServerStoreWithAuth(db, tokenStore),
-          resolveTurnSkillsStore: () => new SqliteSkillStore(db),
-          resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
-          resolveAgentStore: () => new SqliteAgentStore(db),
-          eventSubscriptions: new EventSubscriptionRegistry(undefined),
-          resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
-          sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
-          resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
-          resolveMemoryProviderStore: () => new SqliteMemoryProviderStore(db),
-          resolveConfigurationStore: () => new SqliteConfigurationStore(db),
-          memoryProviders: new MemoryProviderCache({ logger: createLogger({ silent: true }) }),
-          logger: createLogger({ silent: true }),
-          resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
-          authorizer: new TrueForgeAuthorizer(),
         }),
       );
 
@@ -224,24 +242,8 @@ describe('turns', () => {
       app.route(
         '/',
         createTurnsRouter({
-          sessions: new Sessions({ sessionStore }),
-          sessionStore,
           accessControlStore: new SqliteAccessControlStore(db),
-          activeTurns: new ActiveTurnRegistry(),
-          resolveModelProviderStore: () => new SqliteModelProviderStore(db),
-          resolveMcpServerStore: () => mcpServerStoreWithAuth(db, new SqliteOAuthTokenStore(db)),
-          resolveTurnSkillsStore: () => new SqliteSkillStore(db),
-          resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
-          resolveAgentStore: () => agentStore,
-          eventSubscriptions: new EventSubscriptionRegistry(undefined),
-          resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
-          sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
-          resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
-          resolveMemoryProviderStore: () => new SqliteMemoryProviderStore(db),
-          resolveConfigurationStore: () => new SqliteConfigurationStore(db),
-          memoryProviders: new MemoryProviderCache({ logger: createLogger({ silent: true }) }),
-          logger: createLogger({ silent: true }),
-          resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+          activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
           authorizer: {
             listAgentAccess: input =>
               Promise.resolve(
@@ -255,6 +257,16 @@ describe('turns', () => {
               permissions: Object.fromEntries(resourceIds.map(id => [id, []])),
             }),
           },
+          eventSubscriptions: new EventSubscriptionRegistry(undefined),
+          logger: createLogger({ silent: true }),
+          requestReplyRouter: new RequestReplyRouter(),
+          resolveAgentStore: () => agentStore,
+          resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+          resolveTurnExecutionStores: () => Promise.resolve(turnExecutionStores(db, new SqliteOAuthTokenStore(db))),
+          sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
+          sandboxProviderStore: new SqliteSandboxProviderStore(db),
+          sessions: new Sessions({ sessionStore }),
+          sessionStore,
         }),
       );
 
@@ -329,25 +341,19 @@ describe('turns', () => {
       app.route(
         '/',
         createTurnsRouter({
+          activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
+          authorizer: new TrueForgeAuthorizer(),
+          eventSubscriptions: new EventSubscriptionRegistry(undefined),
+          logger: createLogger({ silent: true }),
+          requestReplyRouter: new RequestReplyRouter(),
+          resolveAgentStore: () => new SqliteAgentStore(db),
+          resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+          resolveTurnExecutionStores: () => Promise.resolve(turnExecutionStores(db, new SqliteOAuthTokenStore(db))),
+          sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
+          sandboxProviderStore: new SqliteSandboxProviderStore(db),
           sessions: new Sessions({ sessionStore }),
           sessionStore,
           accessControlStore: new SqliteAccessControlStore(db),
-          activeTurns: new ActiveTurnRegistry(),
-          resolveModelProviderStore: () => new SqliteModelProviderStore(db),
-          resolveMcpServerStore: () => mcpServerStoreWithAuth(db, new SqliteOAuthTokenStore(db)),
-          resolveTurnSkillsStore: () => new SqliteSkillStore(db),
-          resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
-          resolveAgentStore: () => new SqliteAgentStore(db),
-          eventSubscriptions: new EventSubscriptionRegistry(undefined),
-          resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
-          sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
-          resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
-          resolveMemoryProviderStore: () => new SqliteMemoryProviderStore(db),
-          resolveConfigurationStore: () => new SqliteConfigurationStore(db),
-          memoryProviders: new MemoryProviderCache({ logger: createLogger({ silent: true }) }),
-          logger: createLogger({ silent: true }),
-          resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
-          authorizer: new TrueForgeAuthorizer(),
         }),
       );
 
@@ -405,25 +411,19 @@ describe('turns', () => {
       app.route(
         '/',
         createTurnsRouter({
+          activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
+          authorizer: new TrueForgeAuthorizer(),
+          eventSubscriptions: new EventSubscriptionRegistry(undefined),
+          logger: createLogger({ silent: true }),
+          requestReplyRouter: new RequestReplyRouter(),
+          resolveAgentStore: () => new SqliteAgentStore(db),
+          resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+          resolveTurnExecutionStores: () => Promise.resolve(turnExecutionStores(db, new SqliteOAuthTokenStore(db))),
+          sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
+          sandboxProviderStore: new SqliteSandboxProviderStore(db),
           sessions,
           sessionStore,
           accessControlStore: new SqliteAccessControlStore(db),
-          activeTurns: new ActiveTurnRegistry(),
-          resolveModelProviderStore: () => new SqliteModelProviderStore(db),
-          resolveMcpServerStore: () => mcpServerStoreWithAuth(db, new SqliteOAuthTokenStore(db)),
-          resolveTurnSkillsStore: () => new SqliteSkillStore(db),
-          resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
-          resolveAgentStore: () => new SqliteAgentStore(db),
-          eventSubscriptions: new EventSubscriptionRegistry(undefined),
-          resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
-          sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
-          resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
-          resolveMemoryProviderStore: () => new SqliteMemoryProviderStore(db),
-          resolveConfigurationStore: () => new SqliteConfigurationStore(db),
-          memoryProviders: new MemoryProviderCache({ logger: createLogger({ silent: true }) }),
-          logger: createLogger({ silent: true }),
-          resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
-          authorizer: new TrueForgeAuthorizer(),
         }),
       );
 
@@ -518,25 +518,19 @@ describe('turns', () => {
       app.route(
         '/',
         createTurnsRouter({
+          activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
+          authorizer: new TrueForgeAuthorizer(),
+          eventSubscriptions,
+          logger,
+          requestReplyRouter: new RequestReplyRouter(),
+          resolveAgentStore: () => new SqliteAgentStore(db),
+          resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+          resolveTurnExecutionStores: () => Promise.resolve(turnExecutionStores(db, tokenStore)),
+          sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
+          sandboxProviderStore: new SqliteSandboxProviderStore(db),
           sessions,
           sessionStore: new SqliteSessionStore(db),
           accessControlStore: new SqliteAccessControlStore(db),
-          activeTurns: new ActiveTurnRegistry(),
-          resolveModelProviderStore: () => modelProviderStore,
-          resolveMcpServerStore: () => mcpServerStoreWithAuth(db, tokenStore),
-          resolveAgentStore: () => new SqliteAgentStore(db),
-          resolveTurnSkillsStore: () => new SqliteSkillStore(db),
-          resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
-          eventSubscriptions,
-          resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
-          sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
-          resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
-          resolveMemoryProviderStore: () => new SqliteMemoryProviderStore(db),
-          resolveConfigurationStore: () => new SqliteConfigurationStore(db),
-          memoryProviders: new MemoryProviderCache({ logger: createLogger({ silent: true }) }),
-          logger,
-          resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
-          authorizer: new TrueForgeAuthorizer(),
         }),
       );
 
@@ -654,25 +648,19 @@ describe('turns', () => {
       app.route(
         '/',
         createTurnsRouter({
+          activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
+          authorizer: new TrueForgeAuthorizer(),
+          eventSubscriptions: new EventSubscriptionRegistry<TurnStreamingEvent>(undefined),
+          logger,
+          requestReplyRouter: new RequestReplyRouter(),
+          resolveAgentStore: () => new SqliteAgentStore(db),
+          resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+          resolveTurnExecutionStores: () => Promise.resolve(turnExecutionStores(db, tokenStore)),
+          sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
+          sandboxProviderStore: new SqliteSandboxProviderStore(db),
           sessions,
           sessionStore: new SqliteSessionStore(db),
           accessControlStore: new SqliteAccessControlStore(db),
-          activeTurns: new ActiveTurnRegistry(),
-          resolveModelProviderStore: () => modelProviderStore,
-          resolveMcpServerStore: () => mcpServerStoreWithAuth(db, tokenStore),
-          resolveAgentStore: () => new SqliteAgentStore(db),
-          resolveTurnSkillsStore: () => new SqliteSkillStore(db),
-          resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
-          eventSubscriptions: new EventSubscriptionRegistry<TurnStreamingEvent>(undefined),
-          resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
-          sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
-          resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
-          resolveMemoryProviderStore: () => new SqliteMemoryProviderStore(db),
-          resolveConfigurationStore: () => new SqliteConfigurationStore(db),
-          memoryProviders: new MemoryProviderCache({ logger: createLogger({ silent: true }) }),
-          logger,
-          resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
-          authorizer: new TrueForgeAuthorizer(),
         }),
       );
 
@@ -778,25 +766,19 @@ describe('turns', () => {
       app.route(
         '/',
         createTurnsRouter({
+          activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
+          authorizer: new TrueForgeAuthorizer(),
+          eventSubscriptions: new EventSubscriptionRegistry(undefined),
+          logger,
+          requestReplyRouter: new RequestReplyRouter(),
+          resolveAgentStore: () => new SqliteAgentStore(db),
+          resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+          resolveTurnExecutionStores: () => Promise.resolve(turnExecutionStores(db, tokenStore)),
+          sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
+          sandboxProviderStore: new SqliteSandboxProviderStore(db),
           sessions,
           sessionStore: new SqliteSessionStore(db),
           accessControlStore: new SqliteAccessControlStore(db),
-          activeTurns: new ActiveTurnRegistry(),
-          resolveModelProviderStore: () => modelProviderStore,
-          resolveMcpServerStore: () => mcpServerStoreWithAuth(db, tokenStore),
-          resolveTurnSkillsStore: () => new SqliteSkillStore(db),
-          resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
-          resolveAgentStore: () => new SqliteAgentStore(db),
-          eventSubscriptions: new EventSubscriptionRegistry(undefined),
-          resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
-          sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
-          resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
-          resolveMemoryProviderStore: () => new SqliteMemoryProviderStore(db),
-          resolveConfigurationStore: () => new SqliteConfigurationStore(db),
-          memoryProviders: new MemoryProviderCache({ logger: createLogger({ silent: true }) }),
-          logger,
-          resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
-          authorizer: new TrueForgeAuthorizer(),
         }),
       );
 
@@ -870,25 +852,19 @@ describe('turns', () => {
       app.route(
         '/',
         createTurnsRouter({
+          activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
+          authorizer,
+          eventSubscriptions: new EventSubscriptionRegistry(undefined),
+          logger: createLogger({ silent: true }),
+          requestReplyRouter: new RequestReplyRouter(),
+          resolveAgentStore: () => agentStore,
+          resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+          resolveTurnExecutionStores: () => Promise.resolve(turnExecutionStores(db, tokenStore)),
+          sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
+          sandboxProviderStore: new SqliteSandboxProviderStore(db),
           sessions,
           sessionStore,
           accessControlStore: new SqliteAccessControlStore(db),
-          activeTurns: new ActiveTurnRegistry(),
-          resolveModelProviderStore: () => new SqliteModelProviderStore(db),
-          resolveMcpServerStore: () => mcpServerStoreWithAuth(db, tokenStore),
-          resolveTurnSkillsStore: () => new SqliteSkillStore(db),
-          resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
-          resolveAgentStore: () => agentStore,
-          eventSubscriptions: new EventSubscriptionRegistry(undefined),
-          resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
-          sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
-          resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
-          resolveMemoryProviderStore: () => new SqliteMemoryProviderStore(db),
-          resolveConfigurationStore: () => new SqliteConfigurationStore(db),
-          memoryProviders: new MemoryProviderCache({ logger: createLogger({ silent: true }) }),
-          logger: createLogger({ silent: true }),
-          resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
-          authorizer,
         }),
       );
       return { app, agent, agentStore };
@@ -917,6 +893,165 @@ describe('turns', () => {
       expect(response.status).toBe(404);
       expect(await response.json()).toEqual({ error: { message: `Agent not found: ${agent.id}` } });
       expect(deniedCanAccessAgent.mock.calls.map(([input]) => input.action)).toEqual(['use']);
+    });
+  });
+
+  describe('subscribe stream restore', () => {
+    it('restores an expired stream only while the turn is paused', async () => {
+      const db = createSqliteDb(':memory:');
+      await migrateSqliteToLatest(db);
+      const sessionStore = new SqliteSessionStore(db);
+      const sessions = new Sessions({ sessionStore });
+      const sessionId = 's1';
+      await sessionStore.createSession({
+        tenant_id: 'default',
+        session_id: sessionId,
+        created_by_subject: {
+          subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+          subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+          subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+        },
+        agent: {
+          type: 'inline',
+          spec: AgentSpecSchema.parse({
+            model: { name: 'test-provider/test-model' },
+            instructions: 'test',
+          }),
+        },
+        custom: null,
+        metadata: {},
+        external_id: null,
+        source: null,
+      });
+      const activeTurns = new ActiveTurnRegistry({ logger: createLogger({ silent: true }) });
+      const tokenStore = new SqliteOAuthTokenStore(db);
+      const eventSubscriptions = new EventSubscriptionRegistry<TurnStreamingEvent>(undefined);
+      const app = new OpenAPIHono();
+      app.route(
+        '/',
+        createTurnsRouter({
+          activeTurns,
+          authorizer: new TrueForgeAuthorizer(),
+          eventSubscriptions,
+          logger: createLogger({ silent: true }),
+          requestReplyRouter: new RequestReplyRouter(),
+          resolveAgentStore: () => new SqliteAgentStore(db),
+          resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+          resolveTurnExecutionStores: () => Promise.resolve(turnExecutionStores(db, tokenStore)),
+          sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
+          sandboxProviderStore: new SqliteSandboxProviderStore(db),
+          sessions,
+          sessionStore,
+          accessControlStore: new SqliteAccessControlStore(db),
+        }),
+      );
+
+      // An in-progress model.message shell is stream-only; resuming from it must still work.
+      const streamingTurnId = 'streaming-turn';
+      await sessionStore.createTurn(makeCreateTurnInput({ sessionId, turnId: streamingTurnId }));
+      const shell = makeModelMessageEvent();
+      await eventSubscriptions
+        .get(turnStreamId('default', sessionId, streamingTurnId))
+        .put(shell, { streamTTLSeconds: 300 });
+      const midMessage = await app.request(
+        `/${sessionId}/turns/${streamingTurnId}/subscribe?from_event_id=${shell.id}`,
+      );
+      expect(midMessage.status).toBe(200);
+      await midMessage.body?.cancel();
+
+      // after_sequence_number is only for leftover integer streams.
+      const eventIdTurnId = 'event-id-turn';
+      await sessionStore.createTurn(makeCreateTurnInput({ sessionId, turnId: eventIdTurnId }));
+      await eventSubscriptions
+        .get(turnStreamId('default', sessionId, eventIdTurnId))
+        .put(makeModelMessageEvent(), { streamTTLSeconds: 300 });
+      for (const cursor of [0, 1, 100001]) {
+        const rejected = await app.request(
+          `/${sessionId}/turns/${eventIdTurnId}/subscribe?after_sequence_number=${String(cursor)}`,
+        );
+        expect(rejected.status).toBe(400);
+      }
+
+      const runningTurnId = 'running-turn';
+      await sessionStore.createTurn(makeCreateTurnInput({ sessionId, turnId: runningTurnId }));
+      const runningEvent = makeTurnCreatedEvent(runningTurnId);
+      await sessionStore.appendToEvents({
+        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+        session_id: sessionId,
+        turn_id: runningTurnId,
+        events: [runningEvent],
+      });
+      const runningSubscribe = await app.request(`/${sessionId}/turns/${runningTurnId}/subscribe`);
+      expect(runningSubscribe.status).toBe(412);
+
+      const cancelled = makeCancelledTurnState(CancellationReason.ClientCancelled);
+      await sessionStore.freezeAndGetTurn({
+        session_id: sessionId,
+        turn_id: runningTurnId,
+        reason: CancellationReason.ClientCancelled,
+        turn_done_event: makeTurnDoneEvent(cancelled),
+      });
+      const finishedSubscribe = await app.request(`/${sessionId}/turns/${runningTurnId}/subscribe`);
+      expect(finishedSubscribe.status).toBe(412);
+
+      const pausedTurnId = 'paused-turn';
+      await sessionStore.createTurn(makeCreateTurnInput({ sessionId, turnId: pausedTurnId }));
+      const paused = makePausedTurnState();
+      await sessionStore.updateTurnNonTerminalState({
+        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+        session_id: sessionId,
+        turn_id: pausedTurnId,
+        state: paused,
+        turn_update_event: makeTurnUpdateEvent(paused),
+        turn_metrics: {
+          status: 'paused',
+          observed_at: new Date().toISOString(),
+          metrics: createEmptyAgentThreadMetrics(),
+        },
+      });
+      const pausedEvent = makeTurnCreatedEvent(pausedTurnId);
+      await sessionStore.appendToEvents({
+        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+        session_id: sessionId,
+        turn_id: pausedTurnId,
+        events: [pausedEvent],
+      });
+      const pausedSubscribe = await app.request(`/${sessionId}/turns/${pausedTurnId}/subscribe`);
+      expect(pausedSubscribe.status).toBe(200);
+      const reader = pausedSubscribe.body?.getReader();
+      if (reader === undefined) {
+        throw new Error('subscribe response has no body');
+      }
+      const decoder = new TextDecoder();
+      let replayed = '';
+      try {
+        while (!replayed.includes(pausedEvent.id)) {
+          const { value, done } = await reader.read();
+          if (done || value === undefined) {
+            break;
+          }
+          replayed += decoder.decode(value, { stream: true });
+        }
+      } finally {
+        await reader.cancel();
+      }
+      expect(replayed).toContain(pausedEvent.id);
+      expect(replayed.split('\n').some(line => line.startsWith('id:'))).toBe(false);
+      expect(activeTurns.getTurnHandle({ sessionId, turnId: pausedTurnId })).toBeUndefined();
+
+      const mixed = await app.request(
+        `/${sessionId}/turns/${pausedTurnId}/subscribe?after_sequence_number=1&from_event_id=${pausedEvent.id}`,
+      );
+      expect(mixed.status).toBe(400);
+
+      const invalid = await app.request(`/${sessionId}/turns/${pausedTurnId}/subscribe?from_event_id=not-a-ulid`);
+      expect(invalid.status).toBe(400);
+
+      const { ulid } = await import('ulid');
+      const foreign = await app.request(
+        `/${sessionId}/turns/${pausedTurnId}/subscribe?from_event_id=${ulid().toLowerCase()}`,
+      );
+      expect(foreign.status).toBe(400);
     });
   });
 });

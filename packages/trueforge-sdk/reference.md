@@ -2897,7 +2897,7 @@ const response = page.response;
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">createTurnEvent</a>(session_id, turn_id, { ...params }) -> TrueForge.CreateTurnEventResponse</code></summary>
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">createTurnEvents</a>(session_id, turn_id, { ...params }) -> TrueForge.CreateTurnEventResponse</code></summary>
 <dl>
 <dd>
 
@@ -2924,7 +2924,7 @@ Create events for a turn. Only the session creator may create them.
 <dd>
 
 ```typescript
-await client.sessions.createTurnEvent("session_id", "turn_id", {
+await client.sessions.createTurnEvents("session_id", "turn_id", {
     events: [{
             type: "user.mcp_auth_continue"
         }]
@@ -2992,7 +2992,7 @@ await client.sessions.createTurnEvent("session_id", "turn_id", {
 <dl>
 <dd>
 
-Subscribe to the live SSE stream for a turn. Only the session creator may subscribe. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).
+Subscribe to the live SSE stream. Resume with from_event_id or after_event_id.
 </dd>
 </dl>
 </dd>

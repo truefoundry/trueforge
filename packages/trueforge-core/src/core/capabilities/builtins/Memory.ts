@@ -98,6 +98,7 @@ class SessionStartMemoryLoader implements PreSendContextProcessor {
       type: InternalEventType.AGENT_CONTEXT_APPEND,
       context,
       output: [],
+      applied_user_events: [],
       current_context_usage: mergeCurrentContextUsage(
         execution.currentContextUsage,
         estimateTokensForContextMessages(context),

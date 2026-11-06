@@ -3,7 +3,6 @@
 import type * as TrueForge from "../index.js";
 
 export interface TurnStatePaused {
-    /** Events that still need a user or client action. */
-    actionRequiredOnEvents: TrueForge.ActionRequired[];
+    metrics?: TrueForge.TurnMetrics;
     status: "paused";
 }
