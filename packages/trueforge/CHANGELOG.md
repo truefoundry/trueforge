@@ -1,5 +1,11 @@
 # @truefoundry/trueforge
 
+## 0.184.2
+
+### Patch Changes
+
+- 235518c: Include the tenant id in the metadata of chat messages ingested into memory.
+
 ## 0.184.1
 
 ### Patch Changes
