@@ -321,7 +321,7 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
       }
 
       const secrets = await store.listSecretsByEnvironment({ environment_id: deletedEnvironmentId });
-      if (secrets.length > 0 && provider !== undefined) {
+      if (secrets.length > 0) {
         await deleteSandboxEnvironmentSecrets({
           secrets,
           provider: toSandboxProviderFromRecord({
