@@ -175,9 +175,30 @@ describe('TrueFoundryMcpServerStore', () => {
       });
     });
 
+    it('omits upstream redirectURL when return_to is not given', async () => {
+      const { store, client } = createStore();
+      await store.authorize({ tenant_id: TENANT, name: 'github', userRef: 'user-1' });
+      expect(client.getTenantControlPlaneUrl).not.toHaveBeenCalled();
+      expect(client.getMcpAuthorize).toHaveBeenCalledWith({
+        accessToken: ACCESS_TOKEN,
+        mcpServerId: 'mcp-id-1',
+      });
+    });
+
+    it('omits upstream redirectURL when return_to is empty', async () => {
+      const { store, client } = createStore();
+      await store.authorize({ tenant_id: TENANT, name: 'github', userRef: 'user-1', returnTo: '' });
+      expect(client.getMcpAuthorize).toHaveBeenCalledWith({
+        accessToken: ACCESS_TOKEN,
+        mcpServerId: 'mcp-id-1',
+      });
+    });
+
     it('throws when tenant control-plane URL is invalid', async () => {
       const { store } = createStore({ controlPlaneUrl: '' });
-      await expect(store.authorize({ tenant_id: TENANT, name: 'github', userRef: 'user-1' })).rejects.toMatchObject({
+      await expect(
+        store.authorize({ tenant_id: TENANT, name: 'github', userRef: 'user-1', returnTo: '/trueforge/' }),
+      ).rejects.toMatchObject({
         message: '[MCP Error] Tenant control-plane URL is required for TrueFoundry MCP OAuth',
         statusCode: 500,
       });
