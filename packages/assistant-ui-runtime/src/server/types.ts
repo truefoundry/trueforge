@@ -485,8 +485,8 @@ export interface AgentBuilderCapabilitiesResponse {
     webSearch?: { enabled: boolean; reason?: string };
     /** Absent when the host does not offer memory, which hides memory settings; `reason` explains a locked toggle. */
     memory?: { enabled: boolean; reason?: string };
-    /** Present when the host reports session sharing; `enabled` gates invite-by-user. */
-    sessionSharing?: { enabled: boolean };
+    /** Finest supported sharing scope; `subject` allows invite-by-user as well as tenant-wide sharing. */
+    sessionSharing: { granularity: 'tenant' | 'subject' };
   };
 }
 

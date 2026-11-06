@@ -4,7 +4,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { AgentRuntimeConfigFields } from '@/atoms/draft/AgentRuntimeConfigFields.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import type { AgentRuntimeConfig, SandboxEnvironment } from '@/server/types.js';
-import { createMockAgentUIServer, createMockSandboxEnvironmentServer } from '../../server/mockServer.js';
+import {
+  createMockAgentUIServer,
+  createMockSandboxEnvironmentServer,
+  tenantSessionSharing,
+} from '../../server/mockServer.js';
 
 const setEnvironmentsOpen = vi.fn();
 
@@ -96,6 +100,7 @@ function renderRuntimeFields({
       data: {
         sandbox: { enabled: true, environments: { enabled: true } },
         skill: { enabled: true },
+        sessionSharing: tenantSessionSharing,
         ...(webSearch === undefined ? {} : { webSearch }),
         ...(memory === undefined ? {} : { memory }),
       },

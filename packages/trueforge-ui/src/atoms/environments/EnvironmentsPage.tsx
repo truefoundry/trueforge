@@ -394,6 +394,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="w-96 max-w-96">Name</TableHead>
+                  <TableHead>Availability</TableHead>
                   <TableHead>Build Status</TableHead>
                   <TableHead>Resources</TableHead>
                   <TableHead>Networking</TableHead>
@@ -431,11 +432,6 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
                                 </Badge>
                               </Tooltip>
                             ) : null}
-                            {env.enabled ? null : (
-                              <Badge variant="outline" shape="pill">
-                                Disabled
-                              </Badge>
-                            )}
                           </span>
                           {env.description.length > 0 ? (
                             <Tooltip
@@ -447,6 +443,11 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
                             </Tooltip>
                           ) : null}
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={env.enabled ? 'success' : 'outline'} shape="pill" dot>
+                          {env.enabled ? 'Enabled' : 'Disabled'}
+                        </Badge>
                       </TableCell>
                       <TableCell>
                         <EnvironmentStatusBadge status={env.status} statusReason={env.statusReason} />

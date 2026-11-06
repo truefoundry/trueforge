@@ -408,7 +408,15 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
       if (current.is_default === 1) {
         throw new SandboxEnvironmentDefaultConflictError({ tenant_id: input.tenant_id });
       }
-      await db.updateTable('sandbox_environment').set({ enabled: 0 }).where('id', '=', current.id).execute();
+      const updated = await db
+        .updateTable('sandbox_environment')
+        .set({ enabled: 0 })
+        .where('id', '=', current.id)
+        .where('is_default', '=', 0)
+        .executeTakeFirst();
+      if (updated.numUpdatedRows === 0n) {
+        throw new SandboxEnvironmentDefaultConflictError({ tenant_id: input.tenant_id });
+      }
       return this.getEnvironment({ tenant_id: input.tenant_id, name: input.name }, db);
     };
 

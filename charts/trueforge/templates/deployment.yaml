@@ -69,7 +69,10 @@ spec:
               containerPort: {{ .Values.server.port }}
               protocol: TCP
           env:
-            {{- include "trueforge.server.env" . | nindent 12 }}
+            {{- include "trueforge.env" . | nindent 12 }}
+            {{- with .Values.server.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           {{- with .Values.startupProbe }}
           startupProbe:
             {{- include "trueforge.httpProbe" (dict "probe" . "root" $) | nindent 12 }}

@@ -327,6 +327,7 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
         .where('tenant_id', '=', input.tenant_id)
         .where('name', '=', input.name)
         .where('lifecycle_stage', '=', 'active')
+        .forUpdate()
         .executeTakeFirst();
       if (current === undefined) {
         return undefined;
@@ -334,7 +335,15 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
       if (current.is_default) {
         throw new SandboxEnvironmentDefaultConflictError({ tenant_id: input.tenant_id });
       }
-      await db.updateTable('sandbox_environment').set({ enabled: false }).where('id', '=', current.id).execute();
+      const updated = await db
+        .updateTable('sandbox_environment')
+        .set({ enabled: false })
+        .where('id', '=', current.id)
+        .where('is_default', '=', false)
+        .executeTakeFirst();
+      if (updated.numUpdatedRows === 0n) {
+        throw new SandboxEnvironmentDefaultConflictError({ tenant_id: input.tenant_id });
+      }
       return this.getEnvironment({ tenant_id: input.tenant_id, name: input.name }, db);
     };
 

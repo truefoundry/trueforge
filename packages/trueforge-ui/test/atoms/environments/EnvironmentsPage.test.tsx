@@ -152,6 +152,7 @@ describe('EnvironmentsPage', () => {
       expect(screen.getByText('python-data')).toBeInTheDocument();
     });
     expect(screen.getByText('Python with httpx')).toBeInTheDocument();
+    expect(screen.getByText('Enabled')).toBeInTheDocument();
     expect(screen.getByText('2 vCPU · 4 GB RAM · 10 GB disk')).toBeInTheDocument();
     expect(screen.getByText('1 allowed domain')).toBeInTheDocument();
   });
