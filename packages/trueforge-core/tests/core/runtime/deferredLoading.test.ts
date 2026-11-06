@@ -52,4 +52,14 @@ describe('DeferredTool deferred loading behavior', () => {
     expect(text).toContain('lazy-empty');
     expect(text).not.toContain('eager');
   });
+
+  it('keeps same-named deferred servers independently addressable', () => {
+    const text = deferredInstructionText([
+      makeMockIMCPServer({ name: 'shared-name', description: 'system capability', preload: false }),
+      makeMockIMCPServer({ name: 'shared-name', description: 'configured server', preload: false }),
+    ]);
+
+    expect(text).toContain('- shared-name: "system capability"');
+    expect(text).toContain('- shared-name (2): "configured server"');
+  });
 });

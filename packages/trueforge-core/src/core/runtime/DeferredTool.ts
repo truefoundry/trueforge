@@ -60,7 +60,7 @@ function isResolvedServerTools(result: CallToolResponse | ResolvedServerTools): 
 export class DeferredTool extends LocalToolMCP {
   readonly name = DEFERRED_TOOLS_SERVER_ID;
   readonly displayName = 'DeferredTools';
-  override readonly description = 'Deferred tool loading for user MCP servers';
+  override readonly description = 'Deferred tool loading for MCP servers';
 
   private readonly serverMap: Map<string, IToolSet>;
   private readonly tools: ToolDefinition[];
@@ -75,23 +75,30 @@ export class DeferredTool extends LocalToolMCP {
   ) {
     super({ tracing: options.tracing });
     this.logger = options.logger.child({ module: 'DeferredTool' });
-    this.serverMap = new Map(servers.map(s => [s.name, s]));
+    this.serverMap = new Map();
+    for (const server of servers) {
+      let key = server.name;
+      for (let suffix = 2; this.serverMap.has(key); suffix += 1) {
+        key = `${server.name} (${String(suffix)})`;
+      }
+      this.serverMap.set(key, server);
+    }
     this.tools = this.buildTools();
   }
 
   buildInstruction(builder: InstructionBuilder): void {
-    const servers = [...this.serverMap.values()];
-
     // Membership follows `preload` only (origin/main). Selective `preload_tools` /
     // `hasPreloadedTools` must not hide a server from deferred discovery instructions.
-    const deferredServers = servers.filter(s => !s.preload);
+    const deferredServers = [...this.serverMap.entries()].filter(([, server]) => !server.preload);
 
     if (deferredServers.length === 0) {
       return;
     }
 
     const deferredList = deferredServers
-      .map(s => (s.description ? `- ${s.name}: "${s.description.slice(0, MAX_DESCRIPTION_LENGTH)}"` : `- ${s.name}`))
+      .map(([name, server]) =>
+        server.description ? `- ${name}: "${server.description.slice(0, MAX_DESCRIPTION_LENGTH)}"` : `- ${name}`,
+      )
       .join('\n');
 
     builder.addSection(

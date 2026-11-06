@@ -535,7 +535,7 @@ export class AgentThread {
   private readonly logger: Logger;
 
   private metrics: AgentThreadMetrics = createEmptyAgentThreadMetrics();
-  private tfyManagedServerNames = new Set<string>();
+  private tfyManagedToolSets = new Set<IToolSet>();
 
   private contextBusy = false;
   private preSendRanThisTurn = false;
@@ -585,8 +585,9 @@ export class AgentThread {
       }
     }
 
-    if (this.definition.toolSets?.length) {
-      this.deferredTool = new DeferredTool(this.definition.toolSets, {
+    const deferredToolSets = [...this.systemToolSets, ...(this.definition.toolSets ?? [])];
+    if (deferredToolSets.length > 0) {
+      this.deferredTool = new DeferredTool(deferredToolSets, {
         tracing: this.tracing,
         logger: input.logger,
       });
@@ -942,7 +943,7 @@ export class AgentThread {
       for (const tool of requestBody.tools) {
         const toolTokens = Math.round(estimateTokensForString(JSON.stringify(tool)));
         const info = 'function' in tool ? toolMapping.get(tool.function.name) : undefined;
-        if (info && this.tfyManagedServerNames.has(info.toolSet.name)) {
+        if (info && this.tfyManagedToolSets.has(info.toolSet)) {
           tfyManagedToolTokens += toolTokens;
         } else {
           userToolTokens += toolTokens;
@@ -1097,7 +1098,7 @@ export class AgentThread {
       userServers,
     });
     this.convertedTools = convertedTools;
-    this.tfyManagedServerNames = new Set(tfyManagedServers.map(s => s.name));
+    this.tfyManagedToolSets = new Set(tfyManagedServers);
     return { initializationInfo, authRequirementInfo };
   }
 

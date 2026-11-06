@@ -35,6 +35,7 @@ import type { UseTrueForgeAgentRuntimeOptions } from './types.js';
 import { resolveTrueForgeAgentRuntimeOptions } from './types.js';
 import { useTrueForgeAgentMessages } from './useTrueForgeAgentMessages.js';
 
+const TRUEFORGE_MCP_REQUEST_HEADER = 'x-tfg-trueforge-mcp';
 const EMPTY_NAMED_DEFAULT_SPEC: AgentSpec = { model: { name: '' } };
 
 /**
@@ -106,10 +107,10 @@ function useTrueForgeAgentRuntimeImpl(
       return undefined;
     }
     const updatedAt = await takeTurnHeaderTimestampRef.current();
-    if (updatedAt == null) {
-      return undefined;
-    }
-    return { [DRAFT_SESSION_LAST_UPDATED_AT_HEADER]: updatedAt };
+    return {
+      [TRUEFORGE_MCP_REQUEST_HEADER]: 'true',
+      ...(updatedAt == null ? {} : { [DRAFT_SESSION_LAST_UPDATED_AT_HEADER]: updatedAt }),
+    };
   }, [agent.mode]);
 
   const aui = useAui();

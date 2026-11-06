@@ -2,7 +2,7 @@ import { EventType } from '../../src/agent-session/schemas/events';
 import { CancellationReason } from '../../src/agent-session/schemas/turn';
 import { Sessions } from '../../src/agent-session/Sessions';
 import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
-import { TurnResourceResolver } from '../../src/agent-session/TurnResourceResolver';
+import { TRUEFORGE_MCP_ID, TurnResourceResolver } from '../../src/agent-session/TurnResourceResolver';
 import { RemoteMCP } from '../../src/core/mcp/RemoteMCP';
 import { makeStubPublicSandbox } from '../core/harnessMocks';
 import {
@@ -411,11 +411,16 @@ describe('TurnHandle.stream()', () => {
           defaultModelParams: {},
           providerType: undefined,
         }),
-      mcp: () =>
-        Promise.resolve({
-          url: 'http://localhost',
-          server: { name: 'local', description: 'Local MCP server.' },
-        }),
+      mcp: id =>
+        Promise.resolve(
+          id === TRUEFORGE_MCP_ID
+            ? undefined
+            : {
+                url: 'http://localhost',
+                name: 'local',
+                description: 'Local MCP server.',
+              },
+        ),
       mcpRequestTimeoutMs: 60_000,
       mcpConnectTimeoutMs: 5_000,
       sandboxProvider: () => Promise.resolve(sandbox),
@@ -452,10 +457,12 @@ describe('TurnResourceResolver caches', () => {
           await new Promise(r => setTimeout(r, 10));
           return new RemoteMCP({
             id: 'svc',
-            name: 'svc',
-            description: 'Example MCP server.',
-            url: 'http://example.invalid',
-            headers: {},
+            connection: {
+              url: 'http://example.invalid',
+              headers: {},
+              name: 'svc',
+              description: 'Example MCP server.',
+            },
             logger,
             tracing: this.createTracing(),
             requestTimeoutMs: 60_000,
@@ -479,7 +486,8 @@ describe('TurnResourceResolver caches', () => {
       mcp: () =>
         Promise.resolve({
           url: 'http://example.invalid',
-          server: { name: 'example', description: 'Example MCP server.' },
+          name: 'example',
+          description: 'Example MCP server.',
         }),
       mcpRequestTimeoutMs: 60_000,
       mcpConnectTimeoutMs: 5_000,
@@ -529,11 +537,16 @@ describe('TurnResourceResolver caches', () => {
           defaultModelParams: {},
           providerType: undefined,
         }),
-      mcp: () =>
-        Promise.resolve({
-          url: 'http://localhost',
-          server: { name: 'local', description: 'Local MCP server.' },
-        }),
+      mcp: id =>
+        Promise.resolve(
+          id === TRUEFORGE_MCP_ID
+            ? undefined
+            : {
+                url: 'http://localhost',
+                name: 'local',
+                description: 'Local MCP server.',
+              },
+        ),
       mcpRequestTimeoutMs: 60_000,
       mcpConnectTimeoutMs: 5_000,
       sandboxProvider: () => {
