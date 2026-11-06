@@ -16,7 +16,7 @@ import {
   useServerCapabilitiesSettled,
 } from '@/server/ServerContext.js';
 import type { AgentUIServer, CatalogServer } from '@/server/types.js';
-import { createMockAgentUIServer } from './mockServer.js';
+import { createMockAgentUIServer, tenantSessionSharing } from './mockServer.js';
 
 const catalog: CatalogServer = {
   modelCatalog: {
@@ -125,6 +125,7 @@ describe('ServerProvider', () => {
     const initialCapabilities = {
       sandbox: { enabled: true, environments: { enabled: true } },
       skill: { enabled: true },
+      sessionSharing: tenantSessionSharing,
     };
     const getCapabilities = vi
       .fn()
