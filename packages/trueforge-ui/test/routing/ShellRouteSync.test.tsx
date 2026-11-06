@@ -15,6 +15,7 @@ import {
   createMockCatalog,
   createMockSandboxEnvironmentServer,
   createMockScheduleServer,
+  tenantSessionSharing,
 } from '../server/mockServer.js';
 import { allSettingsSections } from '../server/settingsCapabilityFixture.js';
 
@@ -86,6 +87,7 @@ function SettingsCatalogProvider({
         data: {
           sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
+          sessionSharing: tenantSessionSharing,
           settings: allSettingsSections(settingsEnabled),
         },
       };
