@@ -52,11 +52,22 @@ describe('ShareChatButton', () => {
 
   it('opens the share popover and copies the routed shared-session URL', async () => {
     activeThread.remoteId = 'session-1';
+    const server = createMockAgentUIServer({
+      getSession: vi.fn(async () => ({
+        id: 'session-1',
+        isMutable: true,
+        shared: true,
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+      })),
+    });
     render(
       <SlotsProvider>
-        <ResolvedRoutesProvider routes={resolveRoutesConfig()}>
-          <ShareChatButton />
-        </ResolvedRoutesProvider>
+        <ServerProvider server={server}>
+          <ResolvedRoutesProvider routes={resolveRoutesConfig()}>
+            <ShareChatButton />
+          </ResolvedRoutesProvider>
+        </ServerProvider>
       </SlotsProvider>,
     );
 
@@ -64,7 +75,7 @@ describe('ShareChatButton', () => {
     expect(await screen.findByText('Change permissions')).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Copy' }));
     await waitFor(() => {
       expect(writeText).toHaveBeenCalledOnce();
     });

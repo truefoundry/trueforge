@@ -3,7 +3,7 @@ import type { CatalogServer } from '@/server/types.js';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createTrueForgeServer } from '@/server/createTrueForgeServer.js';
-import { createMockAgentUIServer } from './mockServer.js';
+import { createMockAgentUIServer, tenantSessionSharing } from './mockServer.js';
 
 describe('createTrueForgeServer', () => {
   it('composes chat server with builder callbacks', async () => {
@@ -20,7 +20,11 @@ describe('createTrueForgeServer', () => {
     });
 
     const capabilities = {
-      data: { sandbox: { enabled: true }, skill: { enabled: true } },
+      data: {
+        sandbox: { enabled: true, environments: { enabled: true } },
+        skill: { enabled: true },
+        sessionSharing: tenantSessionSharing,
+      },
     };
     const getCapabilities = vi.fn(async () => capabilities);
     const getModels = vi.fn(async () => [
@@ -186,7 +190,11 @@ describe('createTrueForgeServer', () => {
     const server = createTrueForgeServer({
       chatServer,
       getCapabilities: async () => ({
-        data: { sandbox: { enabled: false }, skill: { enabled: false } },
+        data: {
+          sandbox: { enabled: false, environments: { enabled: false } },
+          skill: { enabled: false },
+          sessionSharing: tenantSessionSharing,
+        },
       }),
       getModels: async () => [],
       getSkills: async () => [],

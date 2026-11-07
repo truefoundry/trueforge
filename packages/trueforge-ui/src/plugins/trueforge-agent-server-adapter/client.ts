@@ -4,6 +4,8 @@
  */
 import { TrueForge } from '@truefoundry/trueforge-sdk';
 
+import { withSdkHttpTimeoutTracking } from '../../analytics/trackSdkHttpTimeout.js';
+
 export interface CreateTrueForgeClientOptions {
   baseUrl?: string;
   /** SDK Bearer token (`Authorization: Bearer …`). */
@@ -28,10 +30,11 @@ export function resolveTrueForgeBaseUrl(baseUrl: string): string {
 }
 
 export function createTrueForgeClient(options: CreateTrueForgeClientOptions = {}): TrueForge {
+  const fetchFn = withSdkHttpTimeoutTracking(options.fetch ?? globalThis.fetch.bind(globalThis));
   return new TrueForge({
     baseUrl: resolveTrueForgeBaseUrl(options.baseUrl ?? DEFAULT_BASE_URL),
+    fetch: fetchFn,
     ...(options.token === undefined ? {} : { token: options.token }),
-    ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
   });
 }
 

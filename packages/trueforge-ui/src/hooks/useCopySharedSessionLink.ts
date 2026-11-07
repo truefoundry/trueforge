@@ -7,7 +7,8 @@ import { useOptionalResolvedRoutes } from '../routing/ResolvedRoutesContext.js';
 
 export function useCopySharedSessionLink(sessionId: string | null | undefined): {
   copied: boolean;
-  copySharedSessionLink: () => Promise<void>;
+  /** Resolves true when the link reached the clipboard. */
+  copySharedSessionLink: () => Promise<boolean>;
 } {
   const routes = useOptionalResolvedRoutes();
   const [copied, setCopied] = useState(false);
@@ -19,12 +20,14 @@ export function useCopySharedSessionLink(sessionId: string | null | undefined): 
   }, [copied]);
 
   const copySharedSessionLink = useCallback(async () => {
-    if (sessionId == null) return;
+    if (sessionId == null) return false;
     try {
       await navigator.clipboard.writeText(buildSharedSessionHref({ sessionId, routes }));
       setCopied(true);
+      return true;
     } catch {
       // Clipboard access depends on the host browser and document permissions.
+      return false;
     }
   }, [routes, sessionId]);
 

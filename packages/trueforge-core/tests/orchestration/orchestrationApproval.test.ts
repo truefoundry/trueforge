@@ -24,6 +24,7 @@ function makeWriteNoteSource(callTool: ToolSource['callTool']): ToolSource {
   return {
     name: 'notes',
     id: 'notes',
+    serverClass: 'remote',
     listTools: () =>
       Promise.resolve({
         result: {

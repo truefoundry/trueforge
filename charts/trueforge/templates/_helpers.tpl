@@ -87,6 +87,25 @@ Pod labels / annotations, global merged under the chart's own.
 {{- end }}
 
 {{/*
+ServiceMonitor labels. Chart labels first, then serviceMonitor.labels, so a
+parent can add the label its Prometheus selects on.
+*/}}
+{{- define "trueforge.serviceMonitor.labels" -}}
+{{- $merged := mergeOverwrite (include "trueforge.labels" . | fromYaml) (deepCopy (.Values.serviceMonitor.labels | default dict)) -}}
+{{- toYaml $merged -}}
+{{- end }}
+
+{{/*
+ServiceMonitor annotations. Common annotations first, then serviceMonitor.annotations.
+*/}}
+{{- define "trueforge.serviceMonitor.annotations" -}}
+{{- $merged := mergeOverwrite (include "trueforge.annotations" . | fromYaml) (deepCopy (.Values.serviceMonitor.annotations | default dict)) -}}
+{{- with $merged }}
+{{- toYaml . }}
+{{- end }}
+{{- end }}
+
+{{/*
 Selector labels.
 */}}
 {{- define "trueforge.selectorLabels" -}}
@@ -234,12 +253,13 @@ redis.nameOverride / redis.fullnameOverride.
 {{- end }}
 
 {{/*
-Resource tier (small | medium | large). Empty when unset so the explicit
-`resources` / `controller.resources` apply. resourceTier wins over a parent
-chart's global.resourceTier.
+Tier name (small | medium | large), or empty.
+resourceTierOverride wins over global.resourceTier.
+resourceTier is the same override when resourceTierOverride is empty.
+An explicit resources table is applied later and replaces this preset.
 */}}
 {{- define "trueforge.resourceTier" -}}
-{{- $override := .Values.resourceTier | default "" | toString | trim -}}
+{{- $override := .Values.resourceTierOverride | default .Values.resourceTier | default "" | toString | trim -}}
 {{- $fromGlobal := "" -}}
 {{- with .Values.global -}}
 {{- $fromGlobal = .resourceTier | default "" | toString | trim -}}
@@ -342,45 +362,40 @@ limits:
 {{- end }}
 
 {{/*
-Server requests/limits. Default is `.Values.resources`. A resourceTier preset
-replaces that table (chart resource defaults must not overlay it).
+Requests/limits for one workload. A set resources table is used as-is.
+Otherwise the tier preset is used whole. Empty tier falls back to small.
+Expects: root, prefix, tier, explicit.
 */}}
-{{- define "trueforge.resources" -}}
-{{- $tier := include "trueforge.resourceTier" . | trim -}}
-{{- if $tier -}}
-{{- $defaultsYaml := "" -}}
-{{- if eq $tier "small" -}}
-  {{- $defaultsYaml = include "trueforge.defaultResources.small" . -}}
-{{- else if eq $tier "medium" -}}
-  {{- $defaultsYaml = include "trueforge.defaultResources.medium" . -}}
-{{- else if eq $tier "large" -}}
-  {{- $defaultsYaml = include "trueforge.defaultResources.large" . -}}
-{{- end -}}
-{{- $defaultsYaml -}}
+{{- define "trueforge.explicitOrTierResources" -}}
+{{- if .explicit -}}
+{{- toYaml .explicit -}}
 {{- else -}}
-{{- toYaml (.Values.resources | default dict) -}}
+{{- $tier := .tier | default "small" -}}
+{{- if eq $tier "small" -}}
+{{- include (printf "%s.small" .prefix) .root -}}
+{{- else if eq $tier "medium" -}}
+{{- include (printf "%s.medium" .prefix) .root -}}
+{{- else if eq $tier "large" -}}
+{{- include (printf "%s.large" .prefix) .root -}}
+{{- else -}}
+{{- fail (printf "resourceTier must be small, medium, or large (got %q)" $tier) -}}
+{{- end -}}
 {{- end -}}
 {{- end }}
 
 {{/*
-Controller requests/limits. Default is `.Values.controller.resources`.
-Replica count is always 1, even when a resourceTier is set.
+Server requests/limits. server.resources replaces the tier preset.
+*/}}
+{{- define "trueforge.resources" -}}
+{{- include "trueforge.explicitOrTierResources" (dict "root" . "prefix" "trueforge.defaultResources" "tier" (include "trueforge.resourceTier" . | trim) "explicit" .Values.server.resources) -}}
+{{- end }}
+
+{{/*
+Controller requests/limits. controller.resources replaces the tier preset.
+Replica count is always 1, even when a tier is set.
 */}}
 {{- define "trueforge.controller.resources" -}}
-{{- $tier := include "trueforge.resourceTier" . | trim -}}
-{{- if $tier -}}
-{{- $defaultsYaml := "" -}}
-{{- if eq $tier "small" -}}
-  {{- $defaultsYaml = include "trueforge.controller.defaultResources.small" . -}}
-{{- else if eq $tier "medium" -}}
-  {{- $defaultsYaml = include "trueforge.controller.defaultResources.medium" . -}}
-{{- else if eq $tier "large" -}}
-  {{- $defaultsYaml = include "trueforge.controller.defaultResources.large" . -}}
-{{- end -}}
-{{- $defaultsYaml -}}
-{{- else -}}
-{{- toYaml (.Values.controller.resources | default dict) -}}
-{{- end -}}
+{{- include "trueforge.explicitOrTierResources" (dict "root" . "prefix" "trueforge.controller.defaultResources" "tier" (include "trueforge.resourceTier" . | trim) "explicit" .Values.controller.resources) -}}
 {{- end }}
 
 {{- define "trueforge.tmpEmptyDirSizeLimit" -}}
@@ -472,10 +487,11 @@ string becomes a secretKeyRef.
 {{- end }}
 
 {{/*
-Full server container env list (YAML). Validates required string|valueFrom
-fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
+Env list shared by the server and controller containers (YAML). Validates
+required string|valueFrom fields, wires bundled Postgres/Redis, optional OIDC,
+the env map, and mTLS.
 */}}
-{{- define "trueforge.server.env" -}}
+{{- define "trueforge.env" -}}
 {{- $env := list -}}
 {{- $env = append $env (dict "name" "NODE_ENV" "value" "production") -}}
 {{- $env = append $env (dict "name" "PORT" "value" (.Values.server.port | toString)) -}}
@@ -675,10 +691,6 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- end -}}
 {{- end -}}
 {{- $env = $out -}}
-{{- end -}}
-
-{{- range .Values.server.extraEnv -}}
-{{- $env = append $env . -}}
 {{- end -}}
 
 {{- if .Values.mtls.enabled -}}

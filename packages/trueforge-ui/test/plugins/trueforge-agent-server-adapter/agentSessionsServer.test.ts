@@ -120,7 +120,7 @@ describe('createHarnessAgentSessionsServer', () => {
           isMutable: false,
           metrics: { totalTurns: 3, totalCostInUsd: 0.25, totalDurationMs: 29_711 },
           agentName: 'writer',
-          sourceType: 'schedule',
+          scheduleId: 'schedule-1',
           createdBySubject: {
             subjectId: 'user-1',
             subjectType: 'user',
@@ -130,7 +130,7 @@ describe('createHarnessAgentSessionsServer', () => {
       ],
       nextPageToken: 'next-1',
     });
-    assert.deepEqual(await server.listSessionEvents({ sessionId: 'sess-1', limit: 25 }), {
+    assert.deepEqual(await server.listSessionEvents({ sessionId: 'sess-1' }), {
       data: [{ turnId: 'turn-1', event: { type: 'turn.created', id: 'evt-1', turnId: 'turn-1' } }],
     });
     await assert.rejects(

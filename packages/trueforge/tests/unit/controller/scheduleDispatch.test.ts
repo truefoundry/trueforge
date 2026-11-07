@@ -1,3 +1,4 @@
+import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 import configuration, { STANDALONE_TRUEFORGE_API_KEY } from '../../../src/config';
 import { internalTrueForgeClient } from '../../../src/controller/internalTrueForgeClient';
 import {
@@ -10,6 +11,17 @@ import {
 } from '../../../src/controller/scheduleDispatch';
 import type { ScheduleDispatchItem, ScheduleRunRecord } from '../../../src/db/scheduleStore';
 import { ScheduleManifestSchema } from '../../../src/schemas/schedule';
+
+function agentRecord() {
+  return {
+    id: 'agent-1',
+    name: 'reporter',
+    manifest: AgentSpecSchema.parse({
+      model: { name: 'test-provider/test-model' },
+      instructions: 'test',
+    }),
+  };
+}
 
 describe('scheduleRunFailureReason', () => {
   it('uses Error.message when non-empty', () => {
@@ -35,6 +47,7 @@ function item(): ScheduleDispatchItem {
       created_by_subject: { subject_id: 'tester', subject_type: 'user', subject_display_name: 'tester' },
       triggered_at: null,
       reason: null,
+      session_id: null,
       created_at: '2026-08-31T00:00:00.000Z',
       updated_at: '2026-08-31T00:00:00.000Z',
     },
@@ -62,12 +75,18 @@ function fakeLogger() {
   return { error: jest.fn(), debug: jest.fn(), info: jest.fn(), warn: jest.fn() };
 }
 
+function fakeSessions({ getOrCreateByExternalId }: { getOrCreateByExternalId?: jest.Mock }) {
+  return {
+    getOrCreateByExternalId: getOrCreateByExternalId ?? jest.fn(),
+  };
+}
+
 function fakeStore(dispatchItem: ScheduleDispatchItem) {
   return {
     listScheduledRuns: jest.fn().mockResolvedValue([dispatchItem.run]),
     getSchedule: jest.fn().mockResolvedValue(dispatchItem.schedule),
     getScheduleForUpdate: jest.fn().mockResolvedValue(dispatchItem.schedule),
-    updateRunStatus: jest.fn().mockResolvedValue(dispatchItem.run satisfies ScheduleRunRecord),
+    updateRun: jest.fn().mockResolvedValue(dispatchItem.run satisfies ScheduleRunRecord),
     createRun: jest.fn().mockResolvedValue(undefined),
   };
 }
@@ -136,17 +155,20 @@ describe('startScheduleRun', () => {
   it('get-or-creates a session and returns a prepared turn with the schedule task', async () => {
     const dispatchItem = item();
     const listTurns = jest.fn().mockResolvedValue({ data: [] });
-    const session = { listTurns };
+    const session = { session_id: 'session-1', listTurns };
     const getOrCreateByExternalId = jest.fn().mockResolvedValue({ session, created: true });
-    const getAgent = jest.fn().mockResolvedValue({ id: 'agent-1', name: 'reporter' });
+    const getAgent = jest.fn().mockResolvedValue(agentRecord());
+    const updateRun = jest.fn().mockResolvedValue(undefined);
 
     const prepared = await startScheduleRun({
       item: dispatchItem,
-      sessions: { getOrCreateByExternalId } as never,
+      sessions: fakeSessions({ getOrCreateByExternalId }) as never,
       agentStore: { getAgent } as never,
+      scheduleStore: { updateRun },
     });
 
     expect(getAgent).toHaveBeenCalledWith({ tenant_id: 'default', name: 'reporter' });
+    expect(updateRun).toHaveBeenCalledWith({ tenant_id: 'default', id: 'run-1', session_id: 'session-1' });
     expect(getOrCreateByExternalId).toHaveBeenCalledWith({
       tenant_id: 'default',
       external_id: 'run-1',
@@ -159,35 +181,41 @@ describe('startScheduleRun', () => {
       input: [{ type: 'user.message', content: 'Write the report' }],
       previous_turn_id: 'none',
       userRef: 'tester',
-      agent: { id: 'agent-1', name: 'reporter' },
+      agent: agentRecord(),
     });
   });
 
-  it('returns undefined when the session already has a turn', async () => {
+  it('links the session and returns undefined when the session already has a turn', async () => {
     const listTurns = jest.fn().mockResolvedValue({ data: [{ turn_id: 'turn-1' }] });
     const getOrCreateByExternalId = jest.fn().mockResolvedValue({
-      session: { listTurns },
+      session: { session_id: 'session-1', listTurns },
       created: false,
     });
-    const getAgent = jest.fn().mockResolvedValue({ id: 'agent-1', name: 'reporter' });
+    const getAgent = jest.fn().mockResolvedValue(agentRecord());
+    const updateRun = jest.fn().mockResolvedValue(undefined);
 
     const prepared = await startScheduleRun({
       item: item(),
-      sessions: { getOrCreateByExternalId } as never,
+      sessions: fakeSessions({ getOrCreateByExternalId }) as never,
       agentStore: { getAgent } as never,
+      scheduleStore: { updateRun },
     });
 
     expect(prepared).toBeUndefined();
+    expect(updateRun).toHaveBeenCalledWith({ tenant_id: 'default', id: 'run-1', session_id: 'session-1' });
   });
 
-  it('throws when the schedule agent is missing', async () => {
+  it('throws without linking when the schedule agent is missing', async () => {
+    const updateRun = jest.fn();
     await expect(
       startScheduleRun({
         item: item(),
-        sessions: { getOrCreateByExternalId: jest.fn() } as never,
+        sessions: fakeSessions({}) as never,
         agentStore: { getAgent: jest.fn().mockResolvedValue(undefined) } as never,
+        scheduleStore: { updateRun },
       }),
     ).rejects.toBeInstanceOf(ScheduleAgentNotFoundError);
+    expect(updateRun).not.toHaveBeenCalled();
   });
 });
 

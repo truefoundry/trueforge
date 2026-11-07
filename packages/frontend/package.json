@@ -26,6 +26,7 @@
     "@assistant-ui/core": "0.2.22",
     "@assistant-ui/react": "0.14.27",
     "@assistant-ui/store": "0.2.21",
+    "@sentry/react": "^10.78.0",
     "@truefoundry/trueforge-assistant-ui-runtime": "workspace:*",
     "@truefoundry/trueforge-sdk": "workspace:*",
     "@truefoundry/trueforge-ui": "workspace:*",
@@ -44,7 +45,7 @@
     "tailwindcss": "4.3.3",
     "tsx": "^4.16.2",
     "typescript": "^5.9.3",
-    "vite": "^6.3.5",
+    "vite": "^6.4.4",
     "vite-plugin-compression2": "^2.5.3",
     "vite-plugin-monaco-editor-esm": "^2.0.2"
   }

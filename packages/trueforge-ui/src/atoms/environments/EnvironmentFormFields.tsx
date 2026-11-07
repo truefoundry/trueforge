@@ -105,15 +105,17 @@ export function EnvironmentFormFields({
   values,
   onChange,
   nameDisabled,
+  readOnly = false,
 }: {
   values: EnvironmentFormValues;
   onChange: (next: EnvironmentFormValues) => void;
   nameDisabled?: boolean;
+  readOnly?: boolean;
 }) {
   const update = (patch: Partial<EnvironmentFormValues>) => onChange({ ...values, ...patch });
 
   return (
-    <div className="flex flex-col gap-4 pb-8">
+    <fieldset disabled={readOnly} className="m-0 flex min-w-0 flex-col gap-4 border-0 p-0 pb-8">
       {/* Name */}
       <label className="flex flex-col gap-1.5">
         <span className={labelClassName}>Name</span>
@@ -142,9 +144,7 @@ export function EnvironmentFormFields({
         <h3 className="text-sm font-medium text-text-primary">Image And Resources</h3>
 
         <label className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-text-secondary">
-            Build Script ({values.buildScript.length}/5120)
-          </span>
+          <span className="text-xs font-medium text-text-secondary">Build Script</span>
           <textarea
             className={cn(fieldClassName, 'min-h-24 resize-y font-mono text-xs')}
             value={values.buildScript}
@@ -352,6 +352,6 @@ export function EnvironmentFormFields({
           ))}
         </div>
       ) : null}
-    </div>
+    </fieldset>
   );
 }

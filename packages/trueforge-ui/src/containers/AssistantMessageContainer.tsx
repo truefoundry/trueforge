@@ -4,25 +4,30 @@ import { useActionBarCopy, useMessageError, useThreadIsRunning, type PartState }
 import { MessagePrimitive, useAuiState, type EnrichedPartState, type GroupByContext } from '@assistant-ui/react';
 import {
   CANCELLATION_REASON_CUSTOM_KEY,
+  CONTEXT_COMPACTION_DATA_NAME,
   useTrueForgeResumeUnavailable,
 } from '@truefoundry/trueforge-assistant-ui-runtime';
 
 import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '../analytics/events.js';
 import { withSessionProps } from '../analytics/sessionProps.js';
+import { useSlowActivityLabel } from '../hooks/useSlowActivityLabel.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { computeAgentStepsSplit } from '../utils/computeAgentStepsSplit.js';
+import { loaderActivityKey, loaderActivityProgress, resolveLoaderLabel } from '../utils/resolveActivityLabel.js';
 import { AgentStepsContainer } from './AgentStepsContainer.js';
 import { AssistantTextContainer } from './AssistantTextContainer.js';
+import { ContextCompactionContainer } from './ContextCompactionContainer.js';
 import { MessageImageContainer } from './MessageImageContainer.js';
 import { ReasoningContainer } from './ReasoningContainer.js';
+import { useSessionReplay } from './sessionReplayContext.js';
 import { ToolCallContainer } from './ToolCallContainer.js';
 import type { ThreadGroupPart } from './ToolGroupContainer.js';
 
 /**
- * Dispatches a leaf message part to its renderer. "data" parts (generative
- * UI) are out of scope for this SDK entirely.
+ * Dispatches a leaf message part to its renderer. Known `data` parts (context
+ * compaction) render here; other data / generative UI parts stay out of scope.
  */
 function AssistantLeafPartContainer({ part }: { part: EnrichedPartState }) {
   switch (part.type) {
@@ -33,6 +38,11 @@ function AssistantLeafPartContainer({ part }: { part: EnrichedPartState }) {
       return <MessageImageContainer />;
     case 'tool-call':
       return <ToolCallContainer {...part} />;
+    case 'data':
+      if (part.name === CONTEXT_COMPACTION_DATA_NAME) {
+        return <ContextCompactionContainer />;
+      }
+      return null;
     default:
       return null;
   }
@@ -55,6 +65,7 @@ export function AssistantMessageContainer() {
     const value = s.message.metadata?.custom?.[CANCELLATION_REASON_CUSTOM_KEY];
     return typeof value === 'string' ? value : undefined;
   });
+  const isSessionReplay = useSessionReplay();
   const track = useTrackAnalytics();
   const shell = useOptionalShellMode();
   const shellAgent =
@@ -68,12 +79,19 @@ export function AssistantMessageContainer() {
   };
 
   const parts = useAuiState(s => s.message.parts);
-  const cancelledBanner =
-    messageStatus?.type === 'incomplete' && messageStatus.reason === 'cancelled'
-      ? (cancellationReason ?? 'cancelled')
-      : undefined;
+  const isCancelled = messageStatus?.type === 'incomplete' && messageStatus.reason === 'cancelled';
+  // Cancel reason chrome is session-detail only; live New Chat / Build chat omit it.
+  const cancelledBanner = isCancelled && isSessionReplay ? (cancellationReason ?? 'cancelled') : undefined;
 
   const { cutIndex, hasFinal, toolCount, thinkingCount } = computeAgentStepsSplit(parts, isMessageRunning);
+
+  // Built-in indicator modes hide the loader while reasoning streams; we want it there too.
+  const showIndicator = isMessageRunning && !resumeUnavailable && parts[parts.length - 1]?.type !== 'text';
+  const loaderLabel = useSlowActivityLabel({
+    label: resolveLoaderLabel(parts),
+    activityKey: showIndicator ? loaderActivityKey(parts) : null,
+    progressKey: showIndicator ? loaderActivityProgress(parts) : null,
+  });
 
   const groupBy = (part: PartState, _context: GroupByContext): readonly `group-${string}`[] | null => {
     const index = parts.findIndex(p => p === part);
@@ -93,6 +111,10 @@ export function AssistantMessageContainer() {
     return null;
   };
 
+  if (isCancelled && !isSessionReplay && parts.length === 0 && error === undefined) {
+    return null;
+  }
+
   return (
     <MessagePrimitive.Root data-role="assistant">
       <AssistantMessageBubble
@@ -102,7 +124,7 @@ export function AssistantMessageContainer() {
           !isThreadRunning ? <MessageActionBar isCopied={isCopied} onCopy={onCopy} createdAt={createdAt} /> : undefined
         }
       >
-        <MessagePrimitive.GroupedParts groupBy={groupBy}>
+        <MessagePrimitive.GroupedParts groupBy={groupBy} indicator="never">
           {({ part, children }) => {
             switch (part.type) {
               case 'group-agentSteps':
@@ -130,13 +152,12 @@ export function AssistantMessageContainer() {
               case 'image':
               case 'data':
                 return <AssistantLeafPartContainer part={part} />;
-              case 'indicator':
-                return resumeUnavailable ? null : <MessageIndicator />;
               default:
                 return null;
             }
           }}
         </MessagePrimitive.GroupedParts>
+        {showIndicator ? <MessageIndicator label={loaderLabel} /> : null}
       </AssistantMessageBubble>
     </MessagePrimitive.Root>
   );

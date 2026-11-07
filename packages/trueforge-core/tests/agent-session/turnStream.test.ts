@@ -409,8 +409,13 @@ describe('TurnHandle.stream()', () => {
         Promise.resolve({
           modelClient: makeMockILLM({ create: jest.fn().mockImplementation(() => emptyLlmStream()) }),
           defaultModelParams: {},
+          providerType: undefined,
         }),
-      mcp: () => Promise.resolve({ url: 'http://localhost' }),
+      mcp: () =>
+        Promise.resolve({
+          url: 'http://localhost',
+          server: { name: 'local', description: 'Local MCP server.' },
+        }),
       mcpRequestTimeoutMs: 60_000,
       mcpConnectTimeoutMs: 5_000,
       sandboxProvider: () => Promise.resolve(sandbox),
@@ -448,6 +453,7 @@ describe('TurnResourceResolver caches', () => {
           return new RemoteMCP({
             id: 'svc',
             name: 'svc',
+            description: 'Example MCP server.',
             url: 'http://example.invalid',
             headers: {},
             logger,
@@ -464,8 +470,17 @@ describe('TurnResourceResolver caches', () => {
         expect(a).toBe(b);
       }
     })({
-      llm: () => Promise.resolve({ modelClient: makeMockILLM(), defaultModelParams: {} }),
-      mcp: () => Promise.resolve({ url: 'http://example.invalid' }),
+      llm: () =>
+        Promise.resolve({
+          modelClient: makeMockILLM(),
+          defaultModelParams: {},
+          providerType: undefined,
+        }),
+      mcp: () =>
+        Promise.resolve({
+          url: 'http://example.invalid',
+          server: { name: 'example', description: 'Example MCP server.' },
+        }),
       mcpRequestTimeoutMs: 60_000,
       mcpConnectTimeoutMs: 5_000,
       logger,
@@ -487,7 +502,11 @@ describe('TurnResourceResolver caches', () => {
       llm: async () => {
         llmCalls += 1;
         await new Promise(r => setTimeout(r, 10));
-        return { modelClient, defaultModelParams: {} };
+        return {
+          modelClient,
+          defaultModelParams: {},
+          providerType: undefined,
+        };
       },
       mcp: () => Promise.reject(new Error('unused')),
       mcpRequestTimeoutMs: 1_000,
@@ -508,8 +527,13 @@ describe('TurnResourceResolver caches', () => {
         Promise.resolve({
           modelClient: makeMockILLM({ create: jest.fn().mockImplementation(() => emptyLlmStream()) }),
           defaultModelParams: {},
+          providerType: undefined,
         }),
-      mcp: () => Promise.resolve({ url: 'http://localhost' }),
+      mcp: () =>
+        Promise.resolve({
+          url: 'http://localhost',
+          server: { name: 'local', description: 'Local MCP server.' },
+        }),
       mcpRequestTimeoutMs: 60_000,
       mcpConnectTimeoutMs: 5_000,
       sandboxProvider: () => {

@@ -14,8 +14,15 @@ import { useIsMobile } from '@/atoms/lib/useIsMobile.js';
 import { PageHeader } from '@/atoms/PageHeader.js';
 import { Spinner } from '@/atoms/primitives/Spinner.js';
 import { Icon } from '@/icons/Icon.js';
-import { useOptionalCatalogServer, useOptionalRefreshServerCapabilities } from '@/server/ServerContext.js';
+import { isSettingsSectionEnabled } from '@/server/serverChrome.js';
+import {
+  useOptionalCatalogServer,
+  useOptionalConfigurationServer,
+  useOptionalRefreshServerCapabilities,
+  useServerCapabilities,
+} from '@/server/ServerContext.js';
 import { useShellMode, type SettingsSection } from '@/server/ShellModeContext.js';
+import type { SettingsCapability } from '@/server/types.js';
 
 // Section modules (and their list/catalog APIs) load only when that tab mounts.
 const ModelSettings = lazy(() => import('./ModelSettings.js'));
@@ -23,6 +30,14 @@ const ConnectorSettings = lazy(() => import('./ConnectorSettings.js'));
 const SkillSettings = lazy(() => import('./SkillSettings.js'));
 const SandboxSettings = lazy(() => import('./SandboxSettings.js'));
 const WebSearchSettings = lazy(() => import('./WebSearchSettings.js'));
+const MemorySettings = lazy(() => import('./MemorySettings.js'));
+
+type SettingsSectionItem = {
+  id: SettingsSection;
+  label: string;
+  icon: 'cpu' | 'plug' | 'lightbulb' | 'cube' | 'search' | 'brain';
+  capability: keyof SettingsCapability;
+};
 
 function SettingsSectionFallback() {
   return (
@@ -36,6 +51,8 @@ function SettingsSectionFallback() {
 const TruefoundrySettingsBuilder = ({ headerStart }: { headerStart?: ReactNode } = {}) => {
   const { settingsOpen, settingsSection: section, setSettingsOpen } = useShellMode();
   const catalog = useOptionalCatalogServer();
+  const configuration = useOptionalConfigurationServer();
+  const settings = useServerCapabilities()?.settings;
   const refreshServerCapabilities = useOptionalRefreshServerCapabilities();
   const track = useTrackAnalytics();
   const { refresh: refreshDraftCatalog } = useDraftCatalog();
@@ -46,7 +63,10 @@ const TruefoundrySettingsBuilder = ({ headerStart }: { headerStart?: ReactNode }
   const compact = compactLayout || isMobile;
   const hasSkills = catalog?.skillCatalog != null;
   const hasSandbox = catalog?.sandboxCatalog != null;
-  const hasWebSearch = catalog?.webSearchCatalog != null;
+  // The tab also hosts the tenant switch, so a catalog with no web-search provider
+  // list still shows it whenever the host wires the configuration port.
+  const hasWebSearch = catalog?.webSearchCatalog != null || configuration != null;
+  const hasMemory = catalog?.memoryCatalog != null || configuration != null;
 
   const closeSettings = useCallback(() => {
     track(AnalyticsEvents.Settings.CLOSED, { section });
@@ -63,18 +83,6 @@ const TruefoundrySettingsBuilder = ({ headerStart }: { headerStart?: ReactNode }
   }, [settingsOpen, refreshDraftCatalog, refreshServerCapabilities]);
 
   useEffect(() => {
-    if (!hasSkills && section === 'skills') {
-      setSettingsOpen(settingsOpen, 'models');
-    }
-    if (!hasSandbox && section === 'sandbox') {
-      setSettingsOpen(settingsOpen, 'models');
-    }
-    if (!hasWebSearch && section === 'web-search') {
-      setSettingsOpen(settingsOpen, 'models');
-    }
-  }, [hasSkills, hasSandbox, hasWebSearch, section, settingsOpen, setSettingsOpen]);
-
-  useEffect(() => {
     if (!settingsOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
@@ -88,32 +96,33 @@ const TruefoundrySettingsBuilder = ({ headerStart }: { headerStart?: ReactNode }
     return () => window.removeEventListener('keydown', onKeyDown, true);
   }, [closeSettings, settingsOpen]);
 
-  const sections = useMemo<
-    Array<{
-      id: SettingsSection;
-      label: string;
-      icon: 'cpu' | 'plug' | 'lightbulb' | 'cube' | 'search';
-    }>
-  >(() => {
-    const baseSections: Array<{
-      id: SettingsSection;
-      label: string;
-      icon: 'cpu' | 'plug' | 'lightbulb' | 'cube' | 'search';
-    }> = [
-      { id: 'models', label: 'Models', icon: 'cpu' },
-      { id: 'connectors', label: 'Connectors', icon: 'plug' },
+  const sections = useMemo<SettingsSectionItem[]>(() => {
+    const mounted: SettingsSectionItem[] = [
+      { id: 'models', label: 'Models', icon: 'cpu', capability: 'modelProviders' },
+      { id: 'connectors', label: 'Connectors', icon: 'plug', capability: 'mcpServers' },
     ];
     if (hasSkills) {
-      baseSections.push({ id: 'skills', label: 'Skills', icon: 'lightbulb' });
+      mounted.push({ id: 'skills', label: 'Skills', icon: 'lightbulb', capability: 'skills' });
     }
     if (hasSandbox) {
-      baseSections.push({ id: 'sandbox', label: 'Sandbox providers', icon: 'cube' });
+      mounted.push({ id: 'sandbox', label: 'Sandbox providers', icon: 'cube', capability: 'sandboxProviders' });
     }
     if (hasWebSearch) {
-      baseSections.push({ id: 'web-search', label: 'Web search', icon: 'search' });
+      mounted.push({ id: 'web-search', label: 'Web search', icon: 'search', capability: 'webSearch' });
     }
-    return baseSections;
-  }, [hasSkills, hasSandbox, hasWebSearch]);
+    if (hasMemory) {
+      mounted.push({ id: 'memory', label: 'Memory', icon: 'brain', capability: 'memoryProviders' });
+    }
+    return mounted.filter(item => isSettingsSectionEnabled({ settings, section: item.capability }));
+  }, [hasSkills, hasSandbox, hasWebSearch, hasMemory, settings]);
+
+  // A section the caller may not open (or the host never mounted) hands over to the first it may.
+  const activeSection = sections.find(item => item.id === section);
+  useEffect(() => {
+    const fallback = sections[0];
+    if (activeSection !== undefined || fallback === undefined) return;
+    setSettingsOpen(settingsOpen, fallback.id);
+  }, [activeSection, sections, settingsOpen, setSettingsOpen]);
 
   if (!settingsOpen || !catalog) return null;
 
@@ -175,11 +184,12 @@ const TruefoundrySettingsBuilder = ({ headerStart }: { headerStart?: ReactNode }
         <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-hidden px-4 py-4 sm:px-6">
           <div className="mx-auto flex h-full min-h-0 w-full min-w-0 max-w-210 flex-col">
             <Suspense fallback={<SettingsSectionFallback />}>
-              {section === 'models' ? <ModelSettings /> : null}
-              {section === 'connectors' ? <ConnectorSettings /> : null}
-              {section === 'skills' && hasSkills ? <SkillSettings /> : null}
-              {section === 'sandbox' && hasSandbox ? <SandboxSettings /> : null}
-              {section === 'web-search' && hasWebSearch ? <WebSearchSettings /> : null}
+              {activeSection?.id === 'models' ? <ModelSettings /> : null}
+              {activeSection?.id === 'connectors' ? <ConnectorSettings /> : null}
+              {activeSection?.id === 'skills' ? <SkillSettings /> : null}
+              {activeSection?.id === 'sandbox' ? <SandboxSettings /> : null}
+              {activeSection?.id === 'web-search' ? <WebSearchSettings /> : null}
+              {activeSection?.id === 'memory' ? <MemorySettings /> : null}
             </Suspense>
           </div>
         </section>

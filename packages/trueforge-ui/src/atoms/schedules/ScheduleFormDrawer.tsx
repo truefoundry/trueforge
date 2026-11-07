@@ -19,6 +19,7 @@ import {
   cronToFormValues,
   defaultScheduleFormValues,
   formatCadenceSummary,
+  hasFiveCronFields,
   valuesToCron,
   type ScheduleFormValues,
 } from './cadence.js';
@@ -133,7 +134,7 @@ function ScheduleFormDrawerBody({
     return (
       form.name.trim().length > 0 &&
       form.task.trim().length > 0 &&
-      cron.length > 0 &&
+      hasFiveCronFields(cron) &&
       agentId.length > 0 &&
       (!isInitialCreate || allowsAgent(agentId, 'USE'))
     );

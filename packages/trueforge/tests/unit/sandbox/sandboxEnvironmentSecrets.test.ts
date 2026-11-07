@@ -16,7 +16,7 @@ jest.mock('../../../src/sandbox/providerUtils', () => {
   const actual = jest.requireActual<typeof import('../../../src/sandbox/providerUtils')>(
     '../../../src/sandbox/providerUtils',
   );
-  return { ...actual, toDaytonaSandboxProvider: jest.fn() };
+  return { ...actual, toSandboxProviderFromRecord: jest.fn(), toDaytonaSandboxProvider: jest.fn() };
 });
 
 const logger = createLogger({ silent: true });
@@ -73,7 +73,16 @@ describe('sandbox environment secrets', () => {
     const createSecret = jest
       .fn()
       .mockImplementation(({ name }: { name: string }) => Promise.resolve({ id: 'daytona-sec-1', name }));
+    jest.mocked(providerUtils.toSandboxProviderFromRecord).mockReturnValue({
+      envSupported: true,
+      getBuildStatus: jest.fn().mockResolvedValue({ status: 'ready', reason: null, metadata: null }),
+      build: jest.fn(),
+      createSecret,
+      updateSecret: jest.fn(),
+      deleteSecret: jest.fn(),
+    } as never);
     jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReturnValue({
+      envSupported: true,
       getBuildStatus: jest.fn().mockResolvedValue({ status: 'ready', reason: null, metadata: null }),
       build: jest.fn(),
       createSecret,
@@ -169,7 +178,14 @@ describe('sandbox environment secrets', () => {
       .mockImplementation(({ name }: { name: string }) => Promise.resolve({ id: 'daytona-sec-1', name }));
     const updateSecret = jest.fn().mockResolvedValue(undefined);
     const deleteSecret = jest.fn().mockResolvedValue(undefined);
+    jest.mocked(providerUtils.toSandboxProviderFromRecord).mockReturnValue({
+      envSupported: true,
+      createSecret,
+      updateSecret,
+      deleteSecret,
+    } as never);
     jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReturnValue({
+      envSupported: true,
       createSecret,
       updateSecret,
       deleteSecret,
@@ -225,7 +241,14 @@ describe('sandbox environment secrets', () => {
   it('deletes Daytona secrets and secret rows when deleting an environment', async () => {
     const { publicRouter, sandboxEnvironmentStore, putEnvironment } = await setup();
     const deleteSecret = jest.fn().mockResolvedValue(undefined);
+    jest.mocked(providerUtils.toSandboxProviderFromRecord).mockReturnValue({
+      envSupported: true,
+      createSecret: jest.fn().mockResolvedValue({ id: 'daytona-sec-1', name: 'trueforge-secret-1' }),
+      updateSecret: jest.fn(),
+      deleteSecret,
+    } as never);
     jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReturnValue({
+      envSupported: true,
       createSecret: jest.fn().mockResolvedValue({ id: 'daytona-sec-1', name: 'trueforge-secret-1' }),
       updateSecret: jest.fn(),
       deleteSecret,
@@ -253,20 +276,28 @@ describe('sandbox environment secrets', () => {
     ).toBeUndefined();
   });
 
-  it('keeps the environment when Daytona secret deletion fails', async () => {
+  it('keeps secret refs for cleanup when Daytona deletion fails after the environment is deleted', async () => {
     const { publicRouter, sandboxEnvironmentStore, putEnvironment } = await setup();
+    jest.mocked(providerUtils.toSandboxProviderFromRecord).mockReturnValue({
+      envSupported: true,
+      createSecret: jest.fn().mockResolvedValue({ id: 'daytona-sec-1', name: 'trueforge-secret-1' }),
+      updateSecret: jest.fn(),
+      deleteSecret: jest.fn().mockRejectedValue(new Error('Daytona secret delete failed')),
+    } as never);
     jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReturnValue({
+      envSupported: true,
       createSecret: jest.fn().mockResolvedValue({ id: 'daytona-sec-1', name: 'trueforge-secret-1' }),
       updateSecret: jest.fn(),
       deleteSecret: jest.fn().mockRejectedValue(new Error('Daytona secret delete failed')),
     } as never);
 
-    await putEnvironment({
+    const createResponse = await putEnvironment({
       name: 'secret-env',
       networking: {
         secrets: [{ env: 'GITHUB_TOKEN', value: 'ghp_plain', hosts: ['github.com'] }],
       },
     });
+    const created = (await createResponse.json()) as { data: { id: string } };
 
     const deleteResponse = await publicRouter.request('/secret-env', { method: 'DELETE' });
 
@@ -280,13 +311,21 @@ describe('sandbox environment secrets', () => {
         name: 'secret-env',
         created_by_subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
       }),
-    ).toBeDefined();
+    ).toBeUndefined();
+    expect(await sandboxEnvironmentStore.listSecretsByEnvironment({ environment_id: created.data.id })).toHaveLength(1);
   });
 
   it('returns 502 when Daytona secret sync fails on PUT', async () => {
     const { sandboxEnvironmentStore, putEnvironment } = await setup();
 
+    jest.mocked(providerUtils.toSandboxProviderFromRecord).mockReturnValue({
+      envSupported: true,
+      createSecret: jest.fn().mockRejectedValue(new Error('Daytona secret create failed')),
+      updateSecret: jest.fn(),
+      deleteSecret: jest.fn(),
+    } as never);
     jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReturnValue({
+      envSupported: true,
       createSecret: jest.fn().mockRejectedValue(new Error('Daytona secret create failed')),
       updateSecret: jest.fn(),
       deleteSecret: jest.fn(),
@@ -314,7 +353,14 @@ describe('sandbox environment secrets', () => {
   it('returns 422 when Daytona rejects the provider credentials', async () => {
     const { putEnvironment } = await setup();
 
+    jest.mocked(providerUtils.toSandboxProviderFromRecord).mockReturnValue({
+      envSupported: true,
+      createSecret: jest.fn().mockRejectedValue(new DaytonaError('Unauthorized', 401)),
+      updateSecret: jest.fn(),
+      deleteSecret: jest.fn(),
+    } as never);
     jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReturnValue({
+      envSupported: true,
       createSecret: jest.fn().mockRejectedValue(new DaytonaError('Unauthorized', 401)),
       updateSecret: jest.fn(),
       deleteSecret: jest.fn(),

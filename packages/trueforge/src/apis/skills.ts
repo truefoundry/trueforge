@@ -16,6 +16,7 @@ import { findCatalogUsageConflict } from '../runtime/catalogUsage';
 import type { AvailableSkill, ConfiguredSkill, CreateSkillRequest, UpdateSkillRequest } from '../schemas/skill';
 import { parseTrueFoundryRegistrySkill } from '../schemas/skill';
 
+/** Catalog and agent saves: Context only (HTTP layer rejects `x-tfg-skills` unless sessions opt in). */
 export type ResolveSkillStore<TTransaction = never> = (c: Context) => ISkillStore<TTransaction>;
 
 export interface SkillsRouterDeps<TTransaction> {

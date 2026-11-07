@@ -1,4 +1,5 @@
 import type {
+  AgentBuilderCapabilitiesResponse,
   AgentMetricsServer,
   AgentSessionsServer,
   AgentUIServer,
@@ -6,6 +7,11 @@ import type {
   SandboxEnvironmentServer,
   ScheduleServer,
 } from '@/server/types.js';
+import { allSettingsSections } from './settingsCapabilityFixture.js';
+
+export const tenantSessionSharing: AgentBuilderCapabilitiesResponse['data']['sessionSharing'] = {
+  granularity: 'tenant',
+};
 
 async function unavailable(): Promise<never> {
   throw new Error('Unexpected mock server call');
@@ -66,6 +72,8 @@ export function createMockSandboxEnvironmentServer(
     getEnvironment: unavailable,
     createEnvironment: unavailable,
     createOrUpdateEnvironment: unavailable,
+    setEnvironmentEnabled: unavailable,
+    setDefaultEnvironment: unavailable,
     deleteEnvironment: unavailable,
     ...overrides,
   };
@@ -92,7 +100,12 @@ export function createMockAgentUIServer(overrides: Partial<AgentUIServer> = {}):
     getTurn: unavailable,
     listEvents: unavailable,
     getCapabilities: async () => ({
-      data: { sandbox: { enabled: true }, skill: { enabled: true }, settings: { enabled: true } },
+      data: {
+        sandbox: { enabled: true, environments: { enabled: true } },
+        skill: { enabled: true },
+        settings: allSettingsSections(true),
+        sessionSharing: tenantSessionSharing,
+      },
     }),
     getModels: async () => [],
     getSkills: async () => [],

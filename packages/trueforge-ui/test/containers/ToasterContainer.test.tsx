@@ -1,6 +1,8 @@
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { AnalyticsProvider } from '@/analytics/AnalyticsProvider.js';
 import { Toast } from '@/atoms/Toast.js';
 import { ToasterProvider, useToaster, useToasterOptional } from '@/containers/ToasterContainer.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
@@ -16,6 +18,16 @@ function Trigger({ errors }: { errors: unknown[] }) {
     >
       boom
     </button>
+  );
+}
+
+function renderToaster(ui: ReactNode) {
+  return render(
+    <SlotsProvider>
+      <AnalyticsProvider>
+        <ToasterProvider>{ui}</ToasterProvider>
+      </AnalyticsProvider>
+    </SlotsProvider>,
   );
 }
 
@@ -36,13 +48,7 @@ describe('ToasterProvider', () => {
   });
 
   it('stacks multiple error toasts', async () => {
-    render(
-      <SlotsProvider>
-        <ToasterProvider>
-          <Trigger errors={[new Error('first'), new Error('second')]} />
-        </ToasterProvider>
-      </SlotsProvider>,
-    );
+    renderToaster(<Trigger errors={[new Error('first'), new Error('second')]} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'boom' }));
 
@@ -52,13 +58,7 @@ describe('ToasterProvider', () => {
   });
 
   it('dismisses one toast without removing the other', async () => {
-    render(
-      <SlotsProvider>
-        <ToasterProvider>
-          <Trigger errors={[new Error('keep-me'), new Error('drop-me')]} />
-        </ToasterProvider>
-      </SlotsProvider>,
-    );
+    renderToaster(<Trigger errors={[new Error('keep-me'), new Error('drop-me')]} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'boom' }));
     expect(await screen.findByText('drop-me')).toBeTruthy();
@@ -83,13 +83,7 @@ describe('ToasterProvider', () => {
       body: { detail: 'invalid agent' },
     });
 
-    render(
-      <SlotsProvider>
-        <ToasterProvider>
-          <Trigger errors={[httpError]} />
-        </ToasterProvider>
-      </SlotsProvider>,
-    );
+    renderToaster(<Trigger errors={[httpError]} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'boom' }));
 
@@ -103,13 +97,7 @@ describe('ToasterProvider', () => {
       body: { error: { message: 'Name taken' } },
     });
 
-    render(
-      <SlotsProvider>
-        <ToasterProvider>
-          <Trigger errors={[httpError]} />
-        </ToasterProvider>
-      </SlotsProvider>,
-    );
+    renderToaster(<Trigger errors={[httpError]} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'boom' }));
 
@@ -120,19 +108,50 @@ describe('ToasterProvider', () => {
   it('keeps only the five most recent errors visible', async () => {
     const errors = Array.from({ length: 6 }, (_, index) => new Error(`error-${index + 1}`));
 
-    render(
-      <SlotsProvider>
-        <ToasterProvider>
-          <Trigger errors={errors} />
-        </ToasterProvider>
-      </SlotsProvider>,
-    );
+    renderToaster(<Trigger errors={errors} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'boom' }));
 
     expect(await screen.findAllByRole('alert')).toHaveLength(5);
     expect(screen.queryByText('error-1')).not.toBeInTheDocument();
     expect(screen.getByText('error-6')).toBeInTheDocument();
+  });
+
+  it('shows a clear toast for SDK HTTP timeouts and leaves ordinary errors generic', async () => {
+    const timeoutError = Object.assign(new Error('Timeout exceeded when calling POST /v1/sessions.'), {
+      name: 'TrueForgeTimeoutError',
+    });
+
+    renderToaster(<Trigger errors={[new Error('ordinary'), timeoutError]} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'boom' }));
+    expect(await screen.findByText('Something went wrong')).toBeInTheDocument();
+    expect(screen.getByText('ordinary')).toBeInTheDocument();
+    expect(screen.getByText('Request timed out')).toBeInTheDocument();
+    expect(screen.getByText('The request took too long and was cancelled. Try again.')).toBeInTheDocument();
+  });
+
+  it('replaces a JSON-quoted timeout from TrueForgeError', async () => {
+    const error = Object.assign(new Error('"timeout"'), { name: 'TrueForgeError' });
+
+    renderToaster(<Trigger errors={[error]} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'boom' }));
+
+    expect(await screen.findByText('Request timed out')).toBeInTheDocument();
+    expect(screen.getByText('The request took too long and was cancelled. Try again.')).toBeInTheDocument();
+    expect(screen.queryByText('"timeout"')).not.toBeInTheDocument();
+  });
+
+  it('replaces a bare timeout message with clear toast copy', async () => {
+    renderToaster(<Trigger errors={[new Error('timeout'), 'timeout']} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'boom' }));
+
+    expect(await screen.findAllByText('Request timed out')).toHaveLength(2);
+    expect(screen.getAllByText('The request took too long and was cancelled. Try again.')).toHaveLength(2);
+    expect(screen.queryByText('timeout')).not.toBeInTheDocument();
+    expect(screen.queryByText('Something went wrong')).not.toBeInTheDocument();
   });
 });
 

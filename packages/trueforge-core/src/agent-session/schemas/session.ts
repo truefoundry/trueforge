@@ -5,6 +5,7 @@
 import { z } from '@hono/zod-openapi';
 import { AgentSpecSchema } from './agentSpec';
 import { CreatedBySubjectSchema } from './subject';
+import { TurnStatusSchema } from './turn';
 
 const SESSION_METADATA_MAX_KEY_LENGTH = 32;
 /**
@@ -47,6 +48,21 @@ export const SessionMetricsSchema = z
   .strict()
   .describe('Rolled-up cost, duration, and turn counters for a session.')
   .openapi('SessionMetrics');
+
+/** Not strict: parsing a full turn state keeps only the fields listed here. */
+export const SessionLastTurnStateSchema = z.object({ status: TurnStatusSchema }).openapi('SessionLastTurnState');
+
+/** The session's last turn, always written as one document. */
+export const SessionLastTurnDetailsSchema = z
+  .object({
+    id: z.string().min(1).describe('Id of the last turn.'),
+    state: SessionLastTurnStateSchema,
+  })
+  .strict()
+  .describe("The session's most recent turn; null until the first turn.")
+  .openapi('SessionLastTurnDetails');
+
+export type SessionLastTurnDetails = z.infer<typeof SessionLastTurnDetailsSchema>;
 
 export const SessionAgentReferenceSchema = z
   .object({
@@ -114,6 +130,7 @@ export const SessionSchema = z
     metrics: SessionMetricsSchema,
     metadata: SessionMetadataSchema,
     source: SessionSourceSchema.nullable(),
+    last_turn_details: SessionLastTurnDetailsSchema.nullable(),
   })
   .openapi('Session');
 

@@ -241,6 +241,7 @@ export function SidebarLayout({ className }: { className?: string }) {
   const AgentsLibrary = useSlot('AgentsLibrary');
   const SessionsPage = useSlot('SessionsPage');
   const ShareChatButton = useSlot('ShareChatButton');
+  const ResetAgentBuilderButton = useSlot('ResetAgentBuilderButton');
   const ClearChatButton = useSlot('ClearChatButton');
   const SaveAgentButton = useSlot('SaveAgentButton');
   const SelectAgentEmptyState = useSlot('SelectAgentEmptyState');
@@ -339,6 +340,7 @@ export function SidebarLayout({ className }: { className?: string }) {
             end={
               !overlayOpen && !showDesktopOnlyNotice ? (
                 <>
+                  <ResetAgentBuilderButton />
                   <ShareChatButton />
                   <ClearChatButton />
                   <SaveAgentButton />

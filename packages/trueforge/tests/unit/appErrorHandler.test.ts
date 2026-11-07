@@ -41,6 +41,9 @@ describe('createAppErrorHandler', () => {
       status: 500,
       error: thrown.message,
       stack: thrown.stack,
+      reportable_error: expect.objectContaining({
+        error: thrown,
+      }),
     });
   });
 
@@ -60,6 +63,30 @@ describe('createAppErrorHandler', () => {
       status,
       error: thrown.message,
       stack: thrown.stack,
+      reportable_error: expect.objectContaining({
+        error: thrown,
+      }),
+    });
+  });
+
+  it('marks a 500 that wraps an earlier error', async () => {
+    const logger = winston.createLogger({ silent: true });
+    const errorLog = jest.spyOn(logger, 'error');
+    const cause = new Error('socket hang up');
+    const thrown = new HTTPException(500, { message: 'Service unavailable', cause });
+
+    const response = await appThrowing(logger, thrown).request('/test');
+
+    expect(response.status).toBe(500);
+    expect(errorLog).toHaveBeenCalledWith('Server API error', {
+      method: 'GET',
+      path: '/test',
+      status: 500,
+      error: `${thrown.message}: ${cause.message}`,
+      stack: `${thrown.stack ?? ''}\nCaused by: ${cause.stack ?? ''}`,
+      reportable_error: expect.objectContaining({
+        error: thrown,
+      }),
     });
   });
 

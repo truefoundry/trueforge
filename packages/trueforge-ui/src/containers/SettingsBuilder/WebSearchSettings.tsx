@@ -5,18 +5,36 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTrackAnalytics } from '@/analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '@/analytics/events.js';
 import { Button } from '../../atoms/primitives/Button.js';
+import { Switch } from '../../atoms/primitives/Switch.js';
 import { Icon } from '../../icons/Icon.js';
-import { useCatalogServer } from '../../server/ServerContext.js';
+import {
+  useOptionalCatalogServer,
+  useOptionalConfigurationServer,
+  useServerCapabilities,
+  useServerCapabilitiesSettled,
+} from '../../server/ServerContext.js';
 import type { WebSearchProviderBase, WebSearchProviderCatalogEntry } from '../../server/types.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import { useToasterOptional } from '../ToasterContainer.js';
 import ConfigureWebSearchForm, { type WebSearchConfigDraft } from './ConfigureWebSearchForm.js';
 
 const WebSearchSettings = () => {
-  const { webSearchCatalog } = useCatalogServer();
+  const catalogServer = useOptionalCatalogServer();
+  const settings = useServerCapabilities()?.settings;
+  const capabilitiesSettled = useServerCapabilitiesSettled();
+  const configuration = useOptionalConfigurationServer();
   const toaster = useToasterOptional();
   const track = useTrackAnalytics();
 
+  // Providers belong to the platform when `manageProviders` is false, so only the tenant
+  // switch is the caller's to change. Unsettled capabilities withhold the provider calls
+  // rather than guess; an older host that reports nothing keeps both.
+  const canManageProviders = capabilitiesSettled && settings?.webSearch?.manageProviders !== false;
+  const webSearchCatalog = canManageProviders ? catalogServer?.webSearchCatalog : undefined;
+
+  // `null` until the tenant switch loads, so the control is not rendered half-known.
+  const [tenantEnabled, setTenantEnabled] = useState<boolean | null>(null);
+  const [tenantBusy, setTenantBusy] = useState(false);
   const [providers, setProviders] = useState<WebSearchProviderBase[]>([]);
   const [catalog, setCatalog] = useState<WebSearchProviderCatalogEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,7 +47,12 @@ const WebSearchSettings = () => {
 
   const refresh = useCallback(
     async ({ quiet = false }: { quiet?: boolean } = {}) => {
-      if (!webSearchCatalog) return;
+      if (!webSearchCatalog) {
+        setProviders([]);
+        setCatalog([]);
+        setLoading(false);
+        return;
+      }
       if (!quiet) setLoading(true);
       setError(null);
       try {
@@ -52,6 +75,38 @@ const WebSearchSettings = () => {
     void refresh();
   }, [refresh]);
 
+  useEffect(() => {
+    if (!configuration) return;
+    let cancelled = false;
+    void configuration
+      .getConfiguration()
+      .then(loaded => {
+        if (!cancelled) setTenantEnabled(loaded.webSearch.enabled);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(getErrorMessage(err, 'Failed to load the web search setting'));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [configuration]);
+
+  const handleTenantToggle = async (next: boolean) => {
+    if (!configuration) return;
+    setTenantBusy(true);
+    setError(null);
+    try {
+      const saved = await configuration.updateConfiguration({ webSearch: { enabled: next } });
+      setTenantEnabled(saved.webSearch.enabled);
+      toaster?.showSuccess({ title: saved.webSearch.enabled ? 'Web search turned on' : 'Web search turned off' });
+      track(AnalyticsEvents.Settings.WEB_SEARCH_TENANT_TOGGLED, { enabled: saved.webSearch.enabled });
+    } catch (err) {
+      setError(getErrorMessage(err, 'Failed to save the web search setting'));
+    } finally {
+      setTenantBusy(false);
+    }
+  };
+
   // Tenant/UI-wide: only one web-search provider may be configured at a time.
   const hasConfiguredProvider = providers.length > 0;
   const availableEntries = useMemo(() => {
@@ -60,7 +115,11 @@ const WebSearchSettings = () => {
     return catalog.filter(entry => !connectedCatalogIds.has(entry.id));
   }, [catalog, providers, hasConfiguredProvider]);
 
-  if (!webSearchCatalog) {
+  // Hold the provider list back until the switch is known, so an off tenant never flashes it.
+  const tenantSettled = configuration == null || tenantEnabled !== null;
+  const showProviders = webSearchCatalog != null && tenantSettled && tenantEnabled !== false;
+
+  if (webSearchCatalog == null && configuration == null) {
     return <p className="text-sm text-text-secondary">Web search provider catalog is not available.</p>;
   }
 
@@ -79,7 +138,7 @@ const WebSearchSettings = () => {
   };
 
   const handleCreate = async (draft: WebSearchConfigDraft) => {
-    if (!createEntry) return;
+    if (!createEntry || !webSearchCatalog) return;
     setFormError(null);
     await runMutation(async () => {
       await webSearchCatalog.createWebSearchProvider({
@@ -97,7 +156,7 @@ const WebSearchSettings = () => {
   };
 
   const handleUpdate = async (draft: WebSearchConfigDraft) => {
-    if (!updateProvider) return;
+    if (!updateProvider || !webSearchCatalog) return;
     setFormError(null);
     await runMutation(async () => {
       await webSearchCatalog.updateWebSearchProvider({
@@ -123,9 +182,7 @@ const WebSearchSettings = () => {
   return (
     <>
       <h3 className="text-xl font-semibold tracking-tight text-text-primary">Web search</h3>
-      <p className="mt-1 text-sm text-text-secondary">
-        Configure a provider so agents can search the web. Only one can be active at a time.
-      </p>
+      <p className="mt-1 text-sm text-text-secondary">Choose whether agents in this tenant may search the web.</p>
 
       {error ? (
         <p className="mt-3 rounded-md border border-failure-bg/30 bg-failure-bg/10 px-3 py-2 text-sm text-failure-bg">
@@ -133,11 +190,43 @@ const WebSearchSettings = () => {
         </p>
       ) : null}
 
+      {tenantEnabled !== null ? (
+        <div className="mt-4 flex items-center justify-between gap-4 rounded-xl border border-border bg-card-bg p-3">
+          <div className="min-w-0">
+            <h4 className="text-sm font-medium text-text-primary">Allow web search</h4>
+            <p className="mt-0.5 text-xs text-text-secondary">
+              {tenantEnabled
+                ? 'New chats may use web search. Chats already using it keep it.'
+                : 'New chats cannot use web search. Chats already using it keep it.'}
+            </p>
+          </div>
+          <Switch
+            checked={tenantEnabled}
+            disabled={tenantBusy}
+            aria-label="Allow web search"
+            onCheckedChange={next => {
+              void handleTenantToggle(next);
+            }}
+          />
+        </div>
+      ) : null}
+
+      {tenantEnabled === false ? (
+        <p className="mt-3 text-sm text-text-secondary">
+          Turn this back on whenever you want. Nothing is deleted while web search is off
+          {webSearchCatalog == null ? '.' : ', and provider setup comes back with it.'}
+        </p>
+      ) : null}
+
       <div className="mt-4 flex-1 overflow-y-auto">
-        {loading ? (
+        {!showProviders ? null : loading ? (
           <p className="text-sm text-text-secondary">Loading web search providers…</p>
         ) : (
           <div className="space-y-6">
+            <p className="text-sm text-text-secondary">
+              Configure a provider so agents can search the web. Only one can be active at a time.
+            </p>
+
             {providers.length > 0 ? (
               <section>
                 <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-secondary">

@@ -1,10 +1,23 @@
 import { Hono } from 'hono';
 import {
+  areCatalogSettingsAvailable,
+  canEditSchedule,
+  canManageOrDeleteEnvironment,
   hasAdminRole,
   requestContextFromCreatedBySubject,
   resolveRequestContext,
   STANDALONE_REQUEST_CONTEXT,
+  TRUEFOUNDRY_TENANT_ADMIN_ROLE,
 } from '../../../src/auth/identity';
+import { getTrueForgeAuthMode, TrueForgeAuthMode } from '../../../src/config';
+
+jest.mock('../../../src/config', () => {
+  const actual = jest.requireActual<typeof import('../../../src/config')>('../../../src/config');
+  return {
+    ...actual,
+    getTrueForgeAuthMode: jest.fn(() => actual.TrueForgeAuthMode.Standalone),
+  };
+});
 
 describe('STANDALONE_REQUEST_CONTEXT', () => {
   it('has the fixed standalone identity shape', () => {
@@ -39,11 +52,63 @@ describe('requestContextFromCreatedBySubject', () => {
 });
 
 describe('hasAdminRole', () => {
+  afterEach(() => {
+    jest.mocked(getTrueForgeAuthMode).mockReturnValue(TrueForgeAuthMode.Standalone);
+  });
+
   // Unit tests run under STANDALONE=true (.env.test) → mode Standalone.
   it('treats admin as admin and other roles as non-admin in standalone', () => {
     expect(hasAdminRole({ roles: ['admin'] })).toBe(true);
     expect(hasAdminRole({ roles: ['everyone'] })).toBe(false);
     expect(hasAdminRole(STANDALONE_REQUEST_CONTEXT)).toBe(true);
+  });
+
+  it('treats tenant-admin as admin in TrueFoundry mode', () => {
+    jest.mocked(getTrueForgeAuthMode).mockReturnValue(TrueForgeAuthMode.TrueFoundry);
+    expect(hasAdminRole({ roles: [TRUEFOUNDRY_TENANT_ADMIN_ROLE] })).toBe(true);
+    expect(hasAdminRole({ roles: ['everyone'] })).toBe(false);
+  });
+});
+
+describe('areCatalogSettingsAvailable', () => {
+  afterEach(() => {
+    jest.mocked(getTrueForgeAuthMode).mockReturnValue(TrueForgeAuthMode.Standalone);
+  });
+
+  it('is true outside TrueFoundry, where the platform owns the catalogs', () => {
+    expect(areCatalogSettingsAvailable()).toBe(true);
+
+    jest.mocked(getTrueForgeAuthMode).mockReturnValue(TrueForgeAuthMode.TrueFoundry);
+    expect(areCatalogSettingsAvailable()).toBe(false);
+  });
+});
+
+describe('canManageOrDeleteEnvironment', () => {
+  it('allows admins only; reserved default is patch-only', () => {
+    const alice = { roles: ['everyone'] };
+    const admin = { roles: ['admin'] };
+    expect(canManageOrDeleteEnvironment(admin, { action: 'create' })).toBe(true);
+    expect(canManageOrDeleteEnvironment(alice, { action: 'create' })).toBe(false);
+    expect(canManageOrDeleteEnvironment(admin, { action: 'edit', name: 'shared-env' })).toBe(true);
+    expect(canManageOrDeleteEnvironment(admin, { action: 'delete', name: 'shared-env' })).toBe(true);
+    expect(canManageOrDeleteEnvironment(admin, { action: 'patch', name: 'shared-env' })).toBe(true);
+
+    expect(canManageOrDeleteEnvironment(admin, { action: 'patch', name: 'default' })).toBe(true);
+    expect(canManageOrDeleteEnvironment(admin, { action: 'create', name: 'default' })).toBe(false);
+    expect(canManageOrDeleteEnvironment(admin, { action: 'edit', name: 'default' })).toBe(false);
+    expect(canManageOrDeleteEnvironment(admin, { action: 'delete', name: 'default' })).toBe(false);
+    expect(canManageOrDeleteEnvironment(alice, { action: 'patch', name: 'default' })).toBe(false);
+  });
+});
+
+describe('canEditSchedule', () => {
+  it('allows the creator or an admin', () => {
+    const alice = { roles: ['everyone'], subject: { id: 'alice', type: 'user', display_name: 'alice' } };
+    const bob = { roles: ['everyone'], subject: { id: 'bob', type: 'user', display_name: 'bob' } };
+    const admin = { roles: ['admin'], subject: { id: 'root', type: 'user', display_name: 'root' } };
+    expect(canEditSchedule(alice, 'alice')).toBe(true);
+    expect(canEditSchedule(bob, 'alice')).toBe(false);
+    expect(canEditSchedule(admin, 'alice')).toBe(true);
   });
 });
 

@@ -11,7 +11,7 @@ import type { Kysely, Transaction } from 'kysely';
 import { sql } from 'kysely';
 import { NameSchema } from '../../../schemas/common';
 import {
-  DEFAULT_SANDBOX_ENVIRONMENT_NAME,
+  RESERVED_SANDBOX_ENVIRONMENT_NAME,
   SandboxEnvironmentVersionInternalMetadataSchema,
   type SandboxEnvironmentVersionInternalMetadata,
   type StoredSandboxEnvironmentManifest,
@@ -20,21 +20,27 @@ import { newId } from '../../../utils/id';
 import { hashSandboxEnvironmentSecret, isRedactedSecretValue, SECRET_REDACTION } from '../../../utils/secretRedaction';
 import {
   parseStoredSandboxEnvironmentManifest,
+  SandboxEnvironmentDefaultConflictError,
+  SandboxEnvironmentDisabledError,
   SandboxEnvironmentNameConflictError,
   SandboxEnvironmentVersionConflictError,
   type CreateSandboxEnvironmentInput,
   type DeleteSandboxEnvironmentInput,
   type GetSandboxEnvironmentInput,
+  type GetSandboxEnvironmentsByIdsInput,
   type GetSandboxEnvironmentVersionInput,
   type ISandboxEnvironmentStore,
   type ListSandboxEnvironmentsInput,
   type MarkSandboxEnvironmentVersionFailedInput,
   type MarkSandboxEnvironmentVersionReadyInput,
+  type SandboxEnvironmentOwnership,
   type SandboxEnvironmentRecord,
   type SandboxEnvironmentSecretRecord,
   type SandboxEnvironmentVersionForProgress,
   type SandboxEnvironmentVersionRecord,
   type SandboxEnvironmentWithVersion,
+  type SetDefaultSandboxEnvironmentInput,
+  type SetSandboxEnvironmentEnabledInput,
   type UpsertSandboxEnvironmentInput,
   type UpsertSandboxEnvironmentVersionWrite,
 } from '../../sandboxEnvironmentStore';
@@ -81,6 +87,8 @@ function activeVersionJoin(db: Kysely<Database> | Transaction<Database>) {
       'env.description',
       'env.active_version',
       'env.lifecycle_stage',
+      'env.enabled',
+      'env.is_default',
       jsonText<CreatedBySubject>(sql.ref('env.created_by_subject')).as('created_by_subject'),
       'env.created_at',
       'env.updated_at',
@@ -109,6 +117,8 @@ function latestVersionJoin(db: Kysely<Database> | Transaction<Database>) {
       'env.description',
       'env.active_version',
       'env.lifecycle_stage',
+      'env.enabled',
+      'env.is_default',
       jsonText<CreatedBySubject>(sql.ref('env.created_by_subject')).as('created_by_subject'),
       'env.created_at',
       'env.updated_at',
@@ -156,6 +166,8 @@ function toEnvironmentRecord(row: {
   description: string;
   active_version: number;
   lifecycle_stage: SandboxEnvironmentRecord['lifecycle_stage'];
+  enabled: number;
+  is_default: number;
   created_by_subject: CreatedBySubject;
   created_at: string;
   updated_at: string;
@@ -167,6 +179,8 @@ function toEnvironmentRecord(row: {
     description: row.description,
     active_version: row.active_version,
     lifecycle_stage: row.lifecycle_stage,
+    enabled: row.enabled === 1,
+    is_default: row.is_default === 1,
     created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
     created_at: row.created_at,
     updated_at: row.updated_at,
@@ -208,6 +222,8 @@ function toWithVersion(row: {
   description: string;
   active_version: number;
   lifecycle_stage: SandboxEnvironmentRecord['lifecycle_stage'];
+  enabled: number;
+  is_default: number;
   created_by_subject: CreatedBySubject;
   created_at: string;
   updated_at: string;
@@ -279,7 +295,7 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
       .where('env.tenant_id', '=', input.tenant_id)
       .where('env.name', '=', input.name)
       .where('env.lifecycle_stage', '=', 'active');
-    if (input.created_by_subject_id && input.name !== DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
+    if (input.created_by_subject_id && input.name !== RESERVED_SANDBOX_ENVIRONMENT_NAME) {
       query = query.where(sql`json_extract(env.created_by_subject, '$.subject_id')`, '=', input.created_by_subject_id);
     }
     const row = await query.executeTakeFirst();
@@ -287,6 +303,28 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
       return undefined;
     }
     return this.#withMountedSecrets(toWithVersion(row), db);
+  }
+
+  async getEnvironmentsByIds(
+    input: GetSandboxEnvironmentsByIdsInput,
+    transaction?: Transaction<Database>,
+  ): Promise<SandboxEnvironmentOwnership[]> {
+    if (input.ids.length === 0) {
+      return [];
+    }
+    const db = transaction ?? this.#db;
+    const rows = await db
+      .selectFrom('sandbox_environment')
+      .select(['id', 'name', jsonText<CreatedBySubject>(sql.ref('created_by_subject')).as('created_by_subject')])
+      .where('tenant_id', '=', input.tenant_id)
+      .where('id', 'in', [...input.ids])
+      .where('lifecycle_stage', '=', 'active')
+      .execute();
+    return rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
+    }));
   }
 
   async getActiveEnvironment(
@@ -298,7 +336,7 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
       .where('env.tenant_id', '=', input.tenant_id)
       .where('env.name', '=', input.name)
       .where('env.lifecycle_stage', '=', 'active');
-    if (input.created_by_subject_id && input.name !== DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
+    if (input.created_by_subject_id && input.name !== RESERVED_SANDBOX_ENVIRONMENT_NAME) {
       query = query.where(sql`json_extract(env.created_by_subject, '$.subject_id')`, '=', input.created_by_subject_id);
     }
     const row = await query.executeTakeFirst();
@@ -306,6 +344,167 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
       return undefined;
     }
     return this.#withMountedSecrets(toWithVersion(row), db);
+  }
+
+  async getDefaultEnvironment(
+    input: { tenant_id: string },
+    transaction?: Transaction<Database>,
+  ): Promise<SandboxEnvironmentWithVersion | undefined> {
+    const db = transaction ?? this.#db;
+    const row = await activeVersionJoin(db)
+      .where('env.tenant_id', '=', input.tenant_id)
+      .where('env.is_default', '=', 1)
+      .where('env.lifecycle_stage', '=', 'active')
+      .executeTakeFirst();
+    if (!row) {
+      return undefined;
+    }
+    return this.#withMountedSecrets(toWithVersion(row), db);
+  }
+
+  async hasUsableEnvironment(input: { tenant_id: string }, transaction?: Transaction<Database>): Promise<boolean> {
+    const db = transaction ?? this.#db;
+    const row = await activeVersionJoin(db)
+      .where('env.tenant_id', '=', input.tenant_id)
+      .where('env.lifecycle_stage', '=', 'active')
+      .where('env.enabled', '=', 1)
+      .where('ver.status', '=', 'ready')
+      .limit(1)
+      .executeTakeFirst();
+    return row !== undefined;
+  }
+
+  async setEnvironmentEnabled(
+    input: SetSandboxEnvironmentEnabledInput,
+    transaction?: Transaction<Database>,
+  ): Promise<SandboxEnvironmentWithVersion | undefined> {
+    if (input.enabled) {
+      const db = transaction ?? this.#db;
+      const updated = await db
+        .updateTable('sandbox_environment')
+        // `updated_at` tracks edits to the environment definition, which a flag change is not.
+        .set({ enabled: 1 })
+        .where('tenant_id', '=', input.tenant_id)
+        .where('name', '=', input.name)
+        .where('lifecycle_stage', '=', 'active')
+        .executeTakeFirst();
+      if (updated.numUpdatedRows === 0n) {
+        return undefined;
+      }
+      return this.getEnvironment({ tenant_id: input.tenant_id, name: input.name }, transaction);
+    }
+
+    const disable = async (db: Transaction<Database>) => {
+      const current = await db
+        .selectFrom('sandbox_environment')
+        .select(['id', 'is_default'])
+        .where('tenant_id', '=', input.tenant_id)
+        .where('name', '=', input.name)
+        .where('lifecycle_stage', '=', 'active')
+        .executeTakeFirst();
+      if (current === undefined) {
+        return undefined;
+      }
+      if (current.is_default === 1) {
+        throw new SandboxEnvironmentDefaultConflictError({ tenant_id: input.tenant_id });
+      }
+      const updated = await db
+        .updateTable('sandbox_environment')
+        .set({ enabled: 0 })
+        .where('id', '=', current.id)
+        .where('is_default', '=', 0)
+        .executeTakeFirst();
+      if (updated.numUpdatedRows === 0n) {
+        throw new SandboxEnvironmentDefaultConflictError({ tenant_id: input.tenant_id });
+      }
+      return this.getEnvironment({ tenant_id: input.tenant_id, name: input.name }, db);
+    };
+
+    if (transaction) {
+      return disable(transaction);
+    }
+    return this.#db
+      .transaction()
+      .setAccessMode('read write')
+      .execute(db => disable(db));
+  }
+
+  async setDefaultEnvironment(
+    input: SetDefaultSandboxEnvironmentInput,
+    transaction?: Transaction<Database>,
+  ): Promise<SandboxEnvironmentWithVersion | undefined> {
+    if (transaction) {
+      return this.#setDefaultEnvironment(input, transaction);
+    }
+    // BEGIN IMMEDIATE before the read, matching deleteEnvironment, so the two cannot interleave.
+    return this.#db
+      .transaction()
+      .setAccessMode('read write')
+      .execute(db => this.#setDefaultEnvironment(input, db));
+  }
+
+  async #setDefaultEnvironment(
+    input: SetDefaultSandboxEnvironmentInput,
+    db: Transaction<Database>,
+  ): Promise<SandboxEnvironmentWithVersion | undefined> {
+    // `enabled` is read inside the transaction that performs the writes: a disable committed
+    // between a caller's check and this statement must not hand the slot to a disabled environment.
+    const target = await db
+      .selectFrom('sandbox_environment')
+      .select(['id', 'enabled'])
+      .where('tenant_id', '=', input.tenant_id)
+      .where('name', '=', input.name)
+      .where('lifecycle_stage', '=', 'active')
+      .executeTakeFirst();
+    if (target === undefined) {
+      return undefined;
+    }
+    if (target.enabled !== 1) {
+      throw new SandboxEnvironmentDisabledError({ tenant_id: input.tenant_id, name: input.name });
+    }
+    try {
+      await db
+        .updateTable('sandbox_environment')
+        .set({ is_default: 0 })
+        .where('tenant_id', '=', input.tenant_id)
+        .where('is_default', '=', 1)
+        .where('id', '!=', target.id)
+        .execute();
+      await db.updateTable('sandbox_environment').set({ is_default: 1 }).where('id', '=', target.id).execute();
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new SandboxEnvironmentDefaultConflictError({ tenant_id: input.tenant_id }, { cause: error });
+      }
+      throw error;
+    }
+    return this.getEnvironment({ tenant_id: input.tenant_id, name: input.name }, db);
+  }
+
+  async clearDefaultEnvironment(
+    input: SetDefaultSandboxEnvironmentInput,
+    transaction?: Transaction<Database>,
+  ): Promise<SandboxEnvironmentWithVersion | undefined> {
+    const write = async (db: Transaction<Database>) => {
+      const target = await db
+        .selectFrom('sandbox_environment')
+        .select(['id'])
+        .where('tenant_id', '=', input.tenant_id)
+        .where('name', '=', input.name)
+        .where('lifecycle_stage', '=', 'active')
+        .executeTakeFirst();
+      if (target === undefined) {
+        return undefined;
+      }
+      // `updated_at` tracks edits to the environment definition, which a flag change is not.
+      await db
+        .updateTable('sandbox_environment')
+        .set({ is_default: 0 })
+        .where('id', '=', target.id)
+        .where('is_default', '=', 1)
+        .execute();
+      return this.getEnvironment({ tenant_id: input.tenant_id, name: input.name }, db);
+    };
+    return transaction ? write(transaction) : this.#db.transaction().execute(write);
   }
 
   async listLatestPendingVersions(transaction?: Transaction<Database>): Promise<string[]> {
@@ -391,9 +590,7 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
     db: Transaction<Database>,
     options: { mode: 'create' | 'upsert' },
   ): Promise<SandboxEnvironmentWithVersion> {
-    // `"default"` is tenant-wide (no owner filter); public CRUD rejects that name in the request schema.
-    // Store still allows it so ensureDefaultSandboxEnvironment can upsert the system tip.
-    const isDefault = input.name === DEFAULT_SANDBOX_ENVIRONMENT_NAME;
+    const isReserved = input.name === RESERVED_SANDBOX_ENVIRONMENT_NAME;
     let environmentQuery = db
       .selectFrom('sandbox_environment')
       .select([
@@ -403,6 +600,8 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
         'description',
         'active_version',
         'lifecycle_stage',
+        'enabled',
+        'is_default',
         jsonText<CreatedBySubject>(sql.ref('created_by_subject')).as('created_by_subject'),
         'created_at',
         'updated_at',
@@ -410,7 +609,7 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
       .where('tenant_id', '=', input.tenant_id)
       .where('name', '=', input.name)
       .where('lifecycle_stage', '=', 'active');
-    if (!isDefault) {
+    if (!isReserved) {
       environmentQuery = environmentQuery.where(
         sql`json_extract(created_by_subject, '$.subject_id')`,
         '=',
@@ -427,7 +626,7 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
       const environment_id = newId();
       const created_at = nowIso();
       // Parent first so secret FKs can resolve in this transaction.
-      try {
+      const insertParent = async () => {
         await db
           .insertInto('sandbox_environment')
           .values({
@@ -437,11 +636,16 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
             description: input.description,
             active_version: 1,
             lifecycle_stage: 'active',
+            enabled: 1,
+            is_default: isReserved ? 1 : 0,
             created_by_subject: jsonbBind(input.created_by_subject),
             created_at,
             updated_at: created_at,
           })
           .execute();
+      };
+      try {
+        await insertParent();
       } catch (error) {
         if (isUniqueViolation(error)) {
           throw new SandboxEnvironmentNameConflictError(
@@ -465,6 +669,8 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
           description: input.description,
           active_version: versionWrite.version,
           lifecycle_stage: 'active',
+          enabled: true,
+          is_default: isReserved,
           created_by_subject: input.created_by_subject,
           created_at,
           updated_at: created_at,
@@ -593,34 +799,35 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
     return row ? toVersionRecord(row) : undefined;
   }
 
-  async deleteEnvironment(input: DeleteSandboxEnvironmentInput, transaction?: Transaction<Database>): Promise<void> {
-    if (transaction) {
-      return this.#deleteEnvironment(input, transaction);
-    }
-    return this.#db.transaction().execute(db => this.#deleteEnvironment(input, db));
-  }
-
-  async #deleteEnvironment(input: DeleteSandboxEnvironmentInput, db: Transaction<Database>): Promise<void> {
-    const environment = await db
-      .selectFrom('sandbox_environment')
-      .select('id')
-      .where('tenant_id', '=', input.tenant_id)
-      .where('name', '=', input.name)
-      .where('lifecycle_stage', '=', 'active')
-      .where(sql`json_extract(created_by_subject, '$.subject_id')`, '=', input.created_by_subject_id)
-      .executeTakeFirst();
-    if (environment === undefined) {
-      return;
-    }
-    await db.deleteFrom('sandbox_environment_secret').where('environment_id', '=', environment.id).execute();
-    await db
-      .updateTable('sandbox_environment')
-      .set({
-        lifecycle_stage: 'deleted',
-        updated_at: nowIso(),
-      })
-      .where('id', '=', environment.id)
-      .execute();
+  async deleteEnvironment(input: DeleteSandboxEnvironmentInput): Promise<string | undefined> {
+    return this.#db
+      .transaction()
+      .setAccessMode('read write')
+      .execute(async db => {
+        const environment = await db
+          .selectFrom('sandbox_environment')
+          .select(['id', 'is_default'])
+          .where('tenant_id', '=', input.tenant_id)
+          .where('name', '=', input.name)
+          .where('lifecycle_stage', '=', 'active')
+          .executeTakeFirst();
+        if (environment === undefined) {
+          return;
+        }
+        if (environment.is_default === 1) {
+          throw new SandboxEnvironmentDefaultConflictError({ tenant_id: input.tenant_id });
+        }
+        const result = await db
+          .updateTable('sandbox_environment')
+          .set({
+            lifecycle_stage: 'deleted',
+            updated_at: nowIso(),
+          })
+          .where('id', '=', environment.id)
+          .where('lifecycle_stage', '=', 'active')
+          .executeTakeFirst();
+        return Number(result.numUpdatedRows) > 0 ? environment.id : undefined;
+      });
   }
 
   async #buildVersion({
@@ -726,6 +933,14 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
       .where('environment_id', '=', input.environment_id)
       .execute();
     return rows.map(toSecretRecord);
+  }
+
+  async deleteSecretsByEnvironment(
+    input: { environment_id: string },
+    transaction?: Transaction<Database>,
+  ): Promise<void> {
+    const db = transaction ?? this.#db;
+    await db.deleteFrom('sandbox_environment_secret').where('environment_id', '=', input.environment_id).execute();
   }
 
   async #withMountedSecrets(

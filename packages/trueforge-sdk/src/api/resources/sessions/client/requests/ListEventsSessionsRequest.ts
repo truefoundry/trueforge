@@ -9,6 +9,6 @@ export interface ListEventsSessionsRequest {
     pageToken?: string;
     /** Newest turn in the listing window (initial load only; ignored when `page_token` is set). Lists that turn and its ancestors, newest events first. Omit to use the session last turn. */
     lastTurnId?: string;
-    /** Page size. Defaults to 100, max 100. */
+    /** Page size. Defaults to and is capped at the server-configured maximum. */
     limit?: number;
 }

@@ -236,6 +236,7 @@ function makeDemoToolSet(params: { onRequest?: () => void }): IToolSet {
   return {
     name: 'demo',
     id: 'demo',
+    serverClass: 'local',
     preload: true,
     hasPreloadedTools: true,
     listTools: () => {

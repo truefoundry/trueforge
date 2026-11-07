@@ -82,6 +82,18 @@ describe('derivePlace', () => {
     });
   });
 
+  it('access-error panes keep the pending deep-link id over a stale activeRemoteId', () => {
+    expect(
+      derivePlace(
+        snap({
+          pendingSessionId: 'forbidden',
+          activeRemoteId: 'prior-thread',
+          sessionAccessError: 'Only the session creator can access this session',
+        }),
+      ),
+    ).toEqual({ type: 'session', sessionId: 'forbidden' });
+  });
+
   it('agent builder moves to the session place after its session persists', () => {
     expect(
       deriveChatPlace(

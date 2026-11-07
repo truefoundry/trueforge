@@ -17,15 +17,19 @@ import { buildOpenApiDocument, createServerApp } from '../src/app';
 import { TrueForgeAuthorizer } from '../src/auth/authorizer';
 import { StandaloneAuthenticator } from '../src/auth/standaloneAuthenticator';
 import { McpCatalog } from '../src/catalog/McpCatalog';
+import { MemoryCatalog } from '../src/catalog/MemoryCatalog';
 import { ModelCatalog } from '../src/catalog/ModelCatalog';
 import { SandboxCatalog } from '../src/catalog/SandboxCatalog';
 import { SkillCatalog } from '../src/catalog/SkillCatalog';
 import { WebSearchCatalog } from '../src/catalog/WebSearchCatalog';
 import configuration from '../src/config';
 import { McpServerWithAuthStore } from '../src/db/McpServerWithAuthStore';
+import { SqliteAccessControlStore } from '../src/db/sqlite/access-control-store/SqliteAccessControlStore';
 import { SqliteAgentStore } from '../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../src/db/sqlite/client';
+import { SqliteConfigurationStore } from '../src/db/sqlite/configuration-store/SqliteConfigurationStore';
 import { SqliteMcpServerStore } from '../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
+import { SqliteMemoryProviderStore } from '../src/db/sqlite/memory-provider-store/SqliteMemoryProviderStore';
 import { SqliteModelProviderStore } from '../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { SqliteSandboxEnvironmentStore } from '../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
 import { SqliteSandboxProviderStore } from '../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
@@ -34,6 +38,9 @@ import { SqliteSessionMetricsStore } from '../src/db/sqlite/session-metrics/Sqli
 import { SqliteSkillStore } from '../src/db/sqlite/skill-store/SqliteSkillStore';
 import { SqliteOAuthTokenStore } from '../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import { SqliteWebSearchProviderStore } from '../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
+import { EmptyUserStore } from '../src/db/userStore';
+import { createHttpMetrics } from '../src/http/prometheus';
+import { MemoryProviderCache } from '../src/memory/providers';
 import { ActiveTurnRegistry } from '../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../src/runtime/event-subscription';
 
@@ -69,12 +76,17 @@ const sandboxEnvironmentStore = new SqliteSandboxEnvironmentStore(db);
 const skillStore = new SqliteSkillStore(db);
 const sandboxProviderStore = new SqliteSandboxProviderStore(db);
 const webSearchProviderStore = new SqliteWebSearchProviderStore(db);
+const memoryProviderStore = new SqliteMemoryProviderStore(db);
+const configurationStore = new SqliteConfigurationStore(db);
+// HTTP middleware needs a registry. Document generation does not scrape it.
+const httpMetrics = createHttpMetrics();
 const app = createServerApp({
   modelCatalog: ModelCatalog.load(),
   mcpCatalog: McpCatalog.load(),
   skillCatalog: SkillCatalog.load(),
   sandboxCatalog: SandboxCatalog.load(),
   webSearchCatalog: WebSearchCatalog.load(),
+  memoryCatalog: MemoryCatalog.load(),
   resolveModelProviderStore: () => new SqliteModelProviderStore(db),
   resolveMcpServerStore: () =>
     new McpServerWithAuthStore({
@@ -83,18 +95,24 @@ const app = createServerApp({
       clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
     }),
   resolveSkillStore: () => skillStore,
+  resolveTurnSkillsStore: () => skillStore,
+  resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
   resolveSandboxProviderStore: () => sandboxProviderStore,
   resolveWebSearchProviderStore: () => webSearchProviderStore,
+  resolveMemoryProviderStore: () => memoryProviderStore,
+  resolveConfigurationStore: () => configurationStore,
+  memoryProviders: new MemoryProviderCache({ logger: winston.createLogger({ silent: true }) }),
   resolveAgentStore: () => agentStore,
   agentStore,
   sandboxEnvironmentStore,
   sandboxProviderStore,
-  turnSkillsResolverStore: skillStore,
   withTransaction: callback => db.transaction().execute(callback),
   scheduleStore: new SqliteScheduleStore(db),
   tokenStore,
   sessionStore,
+  accessControlStore: new SqliteAccessControlStore(db),
   sessionMetricsStore: new SqliteSessionMetricsStore(db),
+  userStore: new EmptyUserStore(),
   sessions: new Sessions({ sessionStore }),
   activeTurns: new ActiveTurnRegistry(),
   requestReplyRouter: new RequestReplyRouter(),
@@ -103,6 +121,7 @@ const app = createServerApp({
   oidcClient: undefined,
   authenticator: new StandaloneAuthenticator(),
   authorizer: new TrueForgeAuthorizer(),
+  httpMetrics,
 });
 
 // Runtime apps only advertise BearerAuth when OIDC is configured. The committed

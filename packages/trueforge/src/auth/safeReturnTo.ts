@@ -5,11 +5,13 @@ import { getPublicUiBasePath } from '../config';
  * - starts with `/`
  * - not `//…` (open redirect)
  * - not `/api` or `/api/…`
+ * - no `\`, tab, CR, or LF (browsers normalize these into host-switching redirects)
  */
 const SAFE_RETURN_TO = /^\/(?!\/|api(?:\/|$)).*/;
+const UNSAFE_RETURN_TO_CHARS = /[\\\t\r\n]/;
 
 function isSafeReturnTo(value: string): boolean {
-  return SAFE_RETURN_TO.test(value);
+  return !UNSAFE_RETURN_TO_CHARS.test(value) && SAFE_RETURN_TO.test(value);
 }
 
 /** Same-origin path, or the public UI home when missing or unsafe. */

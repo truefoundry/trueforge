@@ -7,7 +7,7 @@ import {
   decodeOffsetPageToken,
   paginateOffsetRows,
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
-import { sql, type ExpressionBuilder, type Kysely, type Transaction } from 'kysely';
+import { sql, type ExpressionBuilder, type Kysely, type Transaction, type UpdateObject } from 'kysely';
 import { nextTriggerAfter } from '../../../runtime/cron';
 import type { ScheduleManifest, ScheduleRunStatus, ScheduleStatus } from '../../../schemas/schedule';
 import { newId } from '../../../utils/id';
@@ -20,20 +20,21 @@ import {
   type CreateScheduleInput,
   type CreateScheduleRunInput,
   type DeleteScheduleInput,
-  type GetOwnedIdsInput,
   type GetRunByIdInput,
   type GetRunInput,
   type GetScheduledRunForInput,
   type GetScheduleInput,
+  type GetSchedulesByIdsInput,
   type IScheduleStore,
   type ListRunsInput,
   type ListScheduledRunsInput,
   type ListSchedulesInput,
+  type ScheduleOwnership,
   type ScheduleRecord,
   type ScheduleRunRecord,
   type ScheduleWriteResult,
   type UpdateScheduleInput,
-  type UpdateScheduleRunStatusInput,
+  type UpdateScheduleRunInput,
 } from '../../scheduleStore';
 import { isUniqueViolation } from '../client';
 import { jsonbBind, jsonText, nowIso, whereCreatedByOrAgentIds } from '../sqlExpressions';
@@ -66,6 +67,7 @@ function runColumns(eb: ExpressionBuilder<Database, 'schedule_run'>) {
     jsonText<CreatedBySubject>(eb.ref('created_by_subject')).as('created_by_subject'),
     'triggered_at' as const,
     'reason' as const,
+    'session_id' as const,
     'created_at' as const,
     'updated_at' as const,
   ];
@@ -94,6 +96,7 @@ interface RunRow {
   created_by_subject: CreatedBySubject;
   triggered_at: string | null;
   reason: string | null;
+  session_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -296,19 +299,24 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
     return { data: data.map(toScheduleRecord), pagination };
   }
 
-  async getOwnedIds(input: GetOwnedIdsInput, transaction?: Transaction<Database>): Promise<readonly string[]> {
+  async getSchedulesByIds(
+    input: GetSchedulesByIdsInput,
+    transaction?: Transaction<Database>,
+  ): Promise<ScheduleOwnership[]> {
     if (input.ids.length === 0) {
       return [];
     }
     const db = transaction ?? this.#db;
     const rows = await db
       .selectFrom('schedule')
-      .select('id')
+      .select(['id', jsonText<CreatedBySubject>(sql.ref('created_by_subject')).as('created_by_subject')])
       .where('tenant_id', '=', input.tenant_id)
       .where('id', 'in', [...input.ids])
-      .where(sql`json_extract(created_by_subject, '$.subject_id')`, '=', input.subject_id)
       .execute();
-    return rows.map(row => row.id);
+    return rows.map(row => ({
+      id: row.id,
+      created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
+    }));
   }
 
   async listRuns(
@@ -382,6 +390,7 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
           created_by_subject: jsonbBind(input.created_by_subject),
           triggered_at: input.triggered_at?.toISOString() ?? null,
           reason: input.reason ?? null,
+          session_id: null,
           created_at: timestamp,
           updated_at: timestamp,
         })
@@ -396,17 +405,23 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
     }
   }
 
-  async updateRunStatus(
-    input: UpdateScheduleRunStatusInput,
+  async updateRun(
+    input: UpdateScheduleRunInput,
     transaction?: Transaction<Database>,
   ): Promise<ScheduleRunRecord | undefined> {
     const db = transaction ?? this.#db;
     const timestamp = nowIso();
-    const reason = input.status === 'failed' ? (input.reason ?? null) : null;
-    const patch =
-      input.status === 'triggered'
-        ? { status: input.status, triggered_at: timestamp, reason, updated_at: timestamp }
-        : { status: input.status, reason, updated_at: timestamp };
+    const patch: UpdateObject<Database, 'schedule_run'> = { updated_at: timestamp };
+    if (input.status !== undefined) {
+      patch.status = input.status;
+      patch.reason = input.status === 'failed' ? (input.reason ?? null) : null;
+      if (input.status === 'triggered') {
+        patch.triggered_at = timestamp;
+      }
+    }
+    if (input.session_id !== undefined) {
+      patch.session_id = input.session_id;
+    }
     const row = await db
       .updateTable('schedule_run')
       .set(patch)

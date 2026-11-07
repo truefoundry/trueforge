@@ -5,8 +5,8 @@ import {
   type AgentDefinition,
   type AgentTracing,
   type DaytonaSandboxEnvironment,
+  type McpConnection,
   type ModelParams,
-  type RemoteMcpHeaders,
   type SandboxProvider,
   type Skill,
   type VercelAIProviderConfig,
@@ -15,13 +15,20 @@ import { HTTPException } from 'hono/http-exception';
 import { join } from 'node:path';
 import type { Logger } from 'winston';
 import configuration from '../config';
+import {
+  isMemoryEnabledForTenant,
+  isWebSearchEnabledForTenant,
+  type IConfigurationStore,
+} from '../db/configurationStore';
 import type { IMcpServerStore, IMcpServerWithAuthStore } from '../db/mcpServerStore';
+import type { IMemoryProviderStore } from '../db/memoryProviderStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
-import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
+import type { ISandboxEnvironmentStore, SandboxEnvironmentWithVersion } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
+import { hasConfiguredMemoryProvider } from '../memory/providers';
 import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProvider';
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import {
@@ -30,13 +37,7 @@ import {
   type ResolvedSandboxProvider,
 } from '../sandbox/providerUtils';
 import type { ReasoningEffort } from '../schemas/modelProvider';
-import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
 import { hasConfiguredWebSearchProvider } from '../websearch/providers';
-
-export interface McpConnection {
-  url: string;
-  headers: RemoteMcpHeaders;
-}
 
 /** Split `provider/model` FQN. Returns undefined when the shape is not exactly one slash. */
 export function parseModelFqn(name: string): { providerName: string; modelName: string } | undefined {
@@ -135,6 +136,7 @@ export async function getMcpConnection({
   }
   return {
     url: record.manifest.url,
+    server: { name: record.name, description: record.manifest.description },
     headers: store.resolveInvokeHeaders({
       record,
       userRef,
@@ -187,33 +189,8 @@ export async function resolveSandboxProvider({
   });
 }
 
-/**
- * Load a ready sandbox environment for create. Throws 422 when missing or not ready.
- * When `optional` is true, a missing environment returns undefined instead of 422.
- */
-export async function resolveSandboxEnvironment({
-  tenant_id,
-  name,
-  sandboxEnvironmentStore,
-  optional = false,
-}: {
-  tenant_id: string;
-  name: string;
-  sandboxEnvironmentStore: ISandboxEnvironmentStore;
-  optional?: boolean;
-}): Promise<DaytonaSandboxEnvironment | undefined> {
-  const loaded = await sandboxEnvironmentStore.getActiveEnvironment({
-    tenant_id,
-    name,
-  });
-  if (loaded === undefined) {
-    if (optional) {
-      return undefined;
-    }
-    throw new HTTPException(422, {
-      message: `Unknown sandbox environment "${name}" — not configured`,
-    });
-  }
+function toReadySandboxEnvironment(loaded: SandboxEnvironmentWithVersion): DaytonaSandboxEnvironment {
+  const name = loaded.environment.name;
   if (loaded.version.status !== 'ready') {
     throw new HTTPException(422, {
       message:
@@ -222,12 +199,44 @@ export async function resolveSandboxEnvironment({
           : `Sandbox environment "${name}" is not ready (status: ${loaded.version.status}) — retry shortly`,
     });
   }
-
   return toSandboxEnvironment({
     external_ref: loaded.version.external_ref,
     manifest: loaded.version.manifest,
     ...(loaded.mounted_secrets ? { mounted_secrets: loaded.mounted_secrets } : {}),
   });
+}
+
+/**
+ * Load a ready sandbox environment for create. Throws 422 when a named environment is missing
+ * or not ready. With no name, falls back to the tenant default and returns undefined when the
+ * tenant has none or it is disabled.
+ */
+export async function resolveSandboxEnvironment({
+  tenant_id,
+  name,
+  sandboxEnvironmentStore,
+}: {
+  tenant_id: string;
+  name: string | undefined;
+  sandboxEnvironmentStore: ISandboxEnvironmentStore;
+}): Promise<DaytonaSandboxEnvironment | undefined> {
+  if (name === undefined) {
+    const fallback = await sandboxEnvironmentStore.getDefaultEnvironment({ tenant_id });
+    if (fallback?.environment.enabled !== true) {
+      return undefined;
+    }
+    return toReadySandboxEnvironment(fallback);
+  }
+  const loaded = await sandboxEnvironmentStore.getActiveEnvironment({
+    tenant_id,
+    name,
+  });
+  if (loaded === undefined) {
+    throw new HTTPException(422, {
+      message: `Unknown sandbox environment "${name}" — not configured`,
+    });
+  }
+  return toReadySandboxEnvironment(loaded);
 }
 
 /**
@@ -271,6 +280,9 @@ export async function validateAgentSpec({
   sandboxProviderStore,
   sandboxEnvironmentStore,
   webSearchProviderStore,
+  memoryProviderStore,
+  configurationStore,
+  previousSpec,
 }: {
   spec: AgentSpec;
   tenant_id: string;
@@ -281,6 +293,10 @@ export async function validateAgentSpec({
   sandboxProviderStore: ISandboxProviderStore;
   sandboxEnvironmentStore: ISandboxEnvironmentStore;
   webSearchProviderStore: IWebSearchProviderStore;
+  memoryProviderStore: IMemoryProviderStore;
+  configurationStore: IConfigurationStore;
+  /** Spec already saved on this session or agent; undefined when creating. */
+  previousSpec: AgentSpec | undefined;
 }): Promise<void> {
   const resolved = await getModelDetails({
     tenant_id,
@@ -290,11 +306,9 @@ export async function validateAgentSpec({
   const reasoningEffort = spec.model.params?.reasoning_effort;
   if (reasoningEffort !== undefined) {
     const efforts = resolved.reasoningEfforts;
-    if (!efforts?.some(effort => effort === reasoningEffort)) {
+    if (efforts && efforts.length > 0 && !efforts.some(effort => effort === reasoningEffort)) {
       throw new HTTPException(422, {
-        message: efforts
-          ? `Reasoning effort "${reasoningEffort}" is not supported by model "${spec.model.name}"`
-          : `Model "${spec.model.name}" does not support configurable reasoning effort`,
+        message: `Reasoning effort "${reasoningEffort}" is not supported by model "${spec.model.name}"`,
       });
     }
   }
@@ -337,7 +351,7 @@ export async function validateAgentSpec({
   }
 
   const environmentName = spec.config.sandbox.environment_name;
-  if (environmentName && environmentName !== DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
+  if (environmentName !== undefined) {
     const environment = await sandboxEnvironmentStore.getEnvironment({
       tenant_id,
       name: environmentName,
@@ -347,14 +361,44 @@ export async function validateAgentSpec({
         message: `Unknown sandbox environment "${environmentName}" — not configured`,
       });
     }
+    if (!environment.environment.enabled && previousSpec?.config.sandbox.environment_name !== environmentName) {
+      throw new HTTPException(422, {
+        message: `Sandbox environment "${environmentName}" is disabled and cannot be selected`,
+      });
+    }
   }
 
-  if (spec.config.web_search.enabled) {
+  // Both checks gate turning web search on. A spec already saved with it on keeps it,
+  // so later edits are not blocked by a switch or a provider that changed since.
+  if (spec.config.web_search.enabled && previousSpec?.config.web_search.enabled !== true) {
+    const tenantAllows = await isWebSearchEnabledForTenant({ tenant_id, store: configurationStore });
+    if (!tenantAllows) {
+      throw new HTTPException(422, {
+        message:
+          'web_search cannot be enabled because it is disabled for this tenant - an admin can re-enable it in settings',
+      });
+    }
     const hasProvider = await hasConfiguredWebSearchProvider({ tenant_id, store: webSearchProviderStore });
     if (!hasProvider) {
       throw new HTTPException(422, {
         message: 'web_search is enabled but no web-search provider is configured',
       });
+    }
+  }
+
+  // Memory can be turned on only while the tenant has its switch on and a provider. A spec already
+  // saved with it on keeps it, and its turns run without memory until both hold again.
+  if (spec.config.memory.enabled && previousSpec?.config.memory.enabled !== true) {
+    const tenantAllows = await isMemoryEnabledForTenant({ tenant_id, store: configurationStore });
+    if (!tenantAllows) {
+      throw new HTTPException(422, {
+        message:
+          'memory cannot be enabled because it is disabled for this tenant - an admin can re-enable it in settings',
+      });
+    }
+    const hasProvider = await hasConfiguredMemoryProvider({ tenant_id, store: memoryProviderStore });
+    if (!hasProvider) {
+      throw new HTTPException(422, { message: 'memory is enabled but no memory provider is configured' });
     }
   }
 }

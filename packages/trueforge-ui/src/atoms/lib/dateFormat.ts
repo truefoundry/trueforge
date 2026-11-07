@@ -1,13 +1,15 @@
 /** Absolute local date+time for tooltips (e.g. "Apr 5, 2026, 2:03 PM"). */
-export function formatAbsoluteDateTime(date: Date): string {
-  return new Intl.DateTimeFormat(undefined, {
+export function formatAbsoluteDateTime(date: Date, { seconds = false }: { seconds?: boolean } = {}): string {
+  const options: Intl.DateTimeFormatOptions = {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
-  }).format(date);
+  };
+  if (seconds) options.second = '2-digit';
+  return new Intl.DateTimeFormat(undefined, options).format(date);
 }
 
 /** Human-readable relative time (e.g. "just now", "5 min ago", "2 hours ago"). */

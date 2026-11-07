@@ -19,6 +19,9 @@ export const AnalyticsEvents = {
     RENAMED: 'trueforge.agent.session_renamed',
     SHARE_OPENED: 'trueforge.agent.session_share_opened',
     SHARE_LINK_COPIED: 'trueforge.agent.session_share_link_copied',
+    SHARE_PERMISSION_CHANGED: 'trueforge.agent.session_share_permission_changed',
+    SHARE_COLLABORATORS_INVITED: 'trueforge.agent.session_share_collaborators_invited',
+    SHARE_COLLABORATOR_REMOVED: 'trueforge.agent.session_share_collaborator_removed',
   },
   Tool: {
     APPROVAL_RESOLVED: 'trueforge.agent.tool_approval_resolved',
@@ -28,6 +31,7 @@ export const AnalyticsEvents = {
   },
   Config: {
     OPENED: 'trueforge.agent.config_opened',
+    RESET: 'trueforge.agent.config_reset',
   },
   Settings: {
     OPENED: 'trueforge.agent.settings_opened',
@@ -43,6 +47,9 @@ export const AnalyticsEvents = {
     SANDBOX_PROVIDER_SAVED: 'trueforge.settings.sandbox_provider_saved',
     SANDBOX_PROVIDER_DELETED: 'trueforge.settings.sandbox_provider_deleted',
     WEB_SEARCH_PROVIDER_SAVED: 'trueforge.settings.web_search_provider_saved',
+    WEB_SEARCH_TENANT_TOGGLED: 'trueforge.settings.web_search_tenant_toggled',
+    MEMORY_TENANT_TOGGLED: 'trueforge.settings.memory_tenant_toggled',
+    MEMORY_PROVIDER_SAVED: 'trueforge.settings.memory_provider_saved',
   },
   Library: {
     OPENED: 'trueforge.library.opened',
@@ -66,11 +73,16 @@ export const AnalyticsEvents = {
     DELETED: 'trueforge.schedule.deleted',
     TOGGLED: 'trueforge.schedule.toggled',
     RUN_NOW: 'trueforge.schedule.run_now',
+    OPENED_FROM_SESSION: 'trueforge.schedule.opened_from_session',
+    RUN_SESSION_OPENED: 'trueforge.schedule.run_session_opened',
   },
   Environment: {
     PAGE_OPENED: 'trueforge.environment.page_opened',
     CREATED: 'trueforge.environment.created',
     EDITED: 'trueforge.environment.edited',
     DELETED: 'trueforge.environment.deleted',
+  },
+  Sdk: {
+    HTTP_TIMEOUT: 'trueforge.sdk.http_timeout',
   },
 } as const;

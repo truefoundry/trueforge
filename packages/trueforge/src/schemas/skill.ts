@@ -56,7 +56,7 @@ export const SkillDescriptionSchema = z
   .min(1)
   .describe('Concise guidance for when the agent should use the skill.');
 
-const GitSkillSchema = z
+export const GitSkillSchema = z
   .object({
     type: z.literal(SkillTypeSchema.enum.git),
     name: NameSchema,

@@ -220,7 +220,7 @@ describe('withRouter end to end', () => {
     expect(listSessions).toHaveBeenCalled();
   });
 
-  it('toasts and redirects to the sessions list when a shared session is forbidden', async () => {
+  it('keeps the shared session URL and shows Unable to load session when forbidden', async () => {
     window.history.replaceState(null, '', '/sessions/share/session-forbidden');
     const forbidden = Object.assign(new Error('Only the session creator can access this session'), {
       statusCode: 403,
@@ -245,12 +245,10 @@ describe('withRouter end to end', () => {
       />,
     );
 
-    expect(await screen.findByText('Only the session creator can access this session')).toBeInTheDocument();
-    await waitFor(() => {
-      expect(window.location.pathname).toBe('/sessions');
-    });
-    expect(await screen.findByRole('button', { name: 'Last 30 days' })).toBeInTheDocument();
-    expect(screen.queryByText('Session details could not be loaded.')).not.toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Unable to load session' })).toBeInTheDocument();
+    expect(screen.getByText('Only the session creator can access this session')).toBeInTheDocument();
+    expect(window.location.pathname).toBe('/sessions/share/session-forbidden');
+    expect(screen.queryByRole('button', { name: 'Last 30 days' })).not.toBeInTheDocument();
   });
 
   it('applies a /sessions/:id deep link on boot', async () => {

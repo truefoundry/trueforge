@@ -1,7 +1,10 @@
+import { timingSafeEqual } from 'node:crypto';
+
 import type { Context, MiddlewareHandler } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { jwtVerify } from 'jose';
 
+import { updateLogContext } from '../logger';
 import type { Authenticator } from './authenticator';
 import { toRequestContext, type IdTokenClaims } from './claims';
 import { hasAdminRole, type RequestContext } from './identity';
@@ -17,15 +20,37 @@ export function createAuthMiddleware(authenticator: Authenticator): MiddlewareHa
       throw new HTTPException(401, { message: 'Authentication required' });
     }
     c.set('request_context', requestContext);
+    updateLogContext({ tenant_id: requestContext.tenant_id });
     return next();
   };
 }
 
-export function createAdminAuthMiddleware(authenticator: Authenticator): MiddlewareHandler {
+/**
+ * Admin gate for a route group.
+ *
+ * `accessible` says whether the group exists in the current deployment mode at all.
+ * Catalog settings pass `areCatalogSettingsAvailable()`, which is false in TrueFoundry
+ * because the platform owns those catalogs; a group that is merely admin-only passes `true`.
+ * An inaccessible group says so outright rather than hiding behind a 404: the same
+ * deployment fact is already public on `GET /api/v1/capabilities`.
+ */
+export function buildAdminAuthMiddleware({
+  authenticator,
+  accessible,
+}: {
+  authenticator: Authenticator;
+  accessible: boolean;
+}): MiddlewareHandler {
   return async (c, next) => {
     const requestContext = await tryAuthenticate({ authenticator, context: c });
     if (requestContext === undefined) {
       throw new HTTPException(401, { message: 'Authentication required' });
+    }
+    updateLogContext({ tenant_id: requestContext.tenant_id });
+    if (!accessible) {
+      throw new HTTPException(422, {
+        message: `Route ${c.req.path} is not accessible under current configuration`,
+      });
     }
     if (!hasAdminRole(requestContext)) {
       throw new HTTPException(403, { message: 'Admin access required' });
@@ -35,11 +60,21 @@ export function createAdminAuthMiddleware(authenticator: Authenticator): Middlew
   };
 }
 
+/** Constant-time compare so a rejection does not leak how much of the key matched. */
+function matchesServiceKey({ provided, expected }: { provided: string; expected: string }): boolean {
+  const providedBytes = Buffer.from(provided, 'utf8');
+  const expectedBytes = Buffer.from(expected, 'utf8');
+  if (providedBytes.length !== expectedBytes.length) {
+    return false;
+  }
+  return timingSafeEqual(providedBytes, expectedBytes);
+}
+
 /** Bearer API-key gate for service-only routes. */
 export function createApiKeyAuthMiddleware(apiKey: string): MiddlewareHandler {
   return async (c, next) => {
     const token = readBearerToken(c);
-    if (token === undefined || token !== apiKey) {
+    if (token === undefined || !matchesServiceKey({ provided: token, expected: apiKey })) {
       throw new HTTPException(401, { message: 'Invalid service credential' });
     }
     return next();

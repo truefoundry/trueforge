@@ -10,6 +10,7 @@ export interface ScheduleRun {
     reason: string | null;
     scheduleId: string;
     scheduledFor: Date;
+    sessionId: string | null;
     status: TrueForge.ScheduleRunStatus;
     triggeredAt: Date | null;
     updatedAt: Date;

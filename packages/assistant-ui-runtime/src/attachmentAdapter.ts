@@ -1,6 +1,21 @@
 import type { AttachmentAdapter, PendingAttachment } from '@assistant-ui/core';
 
+const FOLDER_ATTACHMENT_ERROR = 'Folders cannot be attached. Attach individual files instead.';
+
 const bytesToBase64 = (bytes: Uint8Array): string => globalThis.Buffer.from(bytes).toString('base64');
+
+/**
+ * Drag-dropped folders surface as `File` objects that fail on read (NotFoundError).
+ * Real files (including empty ones) are readable via slice; directories are not.
+ */
+export async function isDirectoryFile(file: File): Promise<boolean> {
+  try {
+    await file.slice(0, 1).arrayBuffer();
+    return false;
+  } catch {
+    return true;
+  }
+}
 
 const getFileDataURL = async (file: File): Promise<string> => {
   if (typeof FileReader === 'undefined') {
@@ -29,8 +44,11 @@ const getFileDataURL = async (file: File): Promise<string> => {
  */
 export const trueForgeAttachmentAdapter: AttachmentAdapter = {
   accept: '*',
-  add({ file }) {
-    return Promise.resolve({
+  async add({ file }) {
+    if (await isDirectoryFile(file)) {
+      throw new Error(FOLDER_ATTACHMENT_ERROR);
+    }
+    return {
       id: globalThis.crypto.randomUUID(),
       type: 'file',
       name: file.name,
@@ -41,7 +59,7 @@ export const trueForgeAttachmentAdapter: AttachmentAdapter = {
         type: 'requires-action',
         reason: 'composer-send',
       },
-    });
+    };
   },
   async send(attachment: PendingAttachment) {
     return {

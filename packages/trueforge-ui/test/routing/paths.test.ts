@@ -134,9 +134,10 @@ describe('sanitizeSearchForPlace', () => {
   });
 
   it('keeps schedules filters on the schedules place and clears them elsewhere', () => {
-    const scheduleSearch = '?theme=dark&agent=alpha&status=paused&q=digest&sessionId=sess-1&agentId=agent-1';
+    const scheduleSearch =
+      '?theme=dark&agent=alpha&status=paused&q=digest&scheduleId=s1&sessionId=sess-1&agentId=agent-1';
     expect(sanitizeSearchForPlace({ type: 'schedules' }, scheduleSearch)).toBe(
-      '?theme=dark&agent=alpha&status=paused&q=digest',
+      '?theme=dark&agent=alpha&status=paused&q=digest&scheduleId=s1',
     );
     expect(sanitizeSearchForPlace({ type: 'library' }, scheduleSearch)).toBe('?theme=dark');
   });
@@ -152,7 +153,8 @@ describe('sanitizeSearchForPlace', () => {
   });
 
   it('keeps embedded schedule state on an agent Schedules tab', () => {
-    const search = '?theme=dark&agentId=agent-1&tab=schedules&agent=stale&status=paused&q=digest&isNew=true';
+    const search =
+      '?theme=dark&agentId=agent-1&tab=schedules&agent=stale&status=paused&q=digest&isNew=true&scheduleId=s1';
     expect(sanitizeSearchForPlace({ type: 'libraryAgent', agentId: 'agent-1' }, search)).toBe(
       '?theme=dark&agentId=agent-1&tab=schedules&status=paused&q=digest&isNew=true',
     );

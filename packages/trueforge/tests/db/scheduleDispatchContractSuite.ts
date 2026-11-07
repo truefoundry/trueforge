@@ -120,7 +120,7 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
     });
     // Mark the auto-added pending run failed so the exact run can be added.
     if (pendingRun !== undefined) {
-      await store.updateRunStatus({ tenant_id: TENANT, id: pendingRun.id, status: 'failed' });
+      await store.updateRun({ tenant_id: TENANT, id: pendingRun.id, status: 'failed' });
     }
     const run = await store.createRun({
       tenant_id: TENANT,

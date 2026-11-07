@@ -11,6 +11,7 @@ import type {
   ToolSet,
 } from 'ai';
 import { APICallError } from 'ai';
+import { ModelProviderError } from '../../../src/core/errors';
 import type { ExtendedChatCompletionChunk, RawAssistantMessageWithUsage } from '../../../src/core/llm/LLMTypes';
 import {
   describeStreamError,
@@ -19,6 +20,7 @@ import {
   normalizeUsage,
   toStreamError,
 } from '../../../src/core/llm/VercelAILLM';
+import { isReportableError } from '../../../src/core/util/errorLogFields';
 
 // ─────────── Helpers ───────────
 
@@ -216,16 +218,20 @@ describe('describeStreamError', () => {
 });
 
 describe('toStreamError', () => {
-  it('returns Error instances unchanged', () => {
-    const err = new Error('keep me');
+  it('wraps Error instances with one model prefix and keeps the cause', () => {
+    const err = new Error('provider unavailable');
     err.name = 'AbortError';
-    expect(toStreamError(err)).toBe(err);
+    const wrapped = toStreamError(err);
+    expect(wrapped).toBeInstanceOf(ModelProviderError);
+    expect(wrapped).not.toBe(err);
+    expect(wrapped.message).toBe('[Model Error] provider unavailable');
+    expect(wrapped.cause).toBe(err);
   });
 
   it('wraps plain objects using describeStreamError', () => {
     const wrapped = toStreamError({ message: 'The requested model does not exist.' });
-    expect(wrapped).toBeInstanceOf(Error);
-    expect(wrapped.message).toBe('The requested model does not exist.');
+    expect(wrapped).toBeInstanceOf(ModelProviderError);
+    expect(wrapped.message).toBe('[Model Error] The requested model does not exist.');
     expect(wrapped.cause).toEqual({ message: 'The requested model does not exist.' });
   });
 });
@@ -678,5 +684,55 @@ describe('mapStreamToChunks', () => {
     // Only the finish-step chunk is emitted (no text-delta chunks for structural parts).
     const nonFinishChunks = chunks.filter(c => c.choices[0]?.finish_reason === null);
     expect(nonFinishChunks).toHaveLength(0);
+  });
+});
+
+describe('isReportableError', () => {
+  it('reports timeouts, dropped connections, and provider 5xx', () => {
+    const timedOut = new Error('timed out');
+    timedOut.name = 'TimeoutError';
+    const refused = new TypeError('fetch failed', {
+      cause: Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' }),
+    });
+    const providerNetwork = new APICallError({
+      message: 'fetch failed',
+      url: 'https://example.com',
+      requestBodyValues: {},
+      cause: Object.assign(new Error('socket hang up'), { code: 'ECONNRESET' }),
+    });
+    const providerOutage = new APICallError({
+      message: 'provider unavailable',
+      url: 'https://example.com',
+      requestBodyValues: {},
+      statusCode: 503,
+    });
+
+    expect(isReportableError(timedOut)).toBe(true);
+    expect(isReportableError(refused)).toBe(true);
+    expect(isReportableError(providerNetwork)).toBe(true);
+    expect(isReportableError(providerOutage)).toBe(true);
+    expect(isReportableError(new Error('model produced an invalid tool call'))).toBe(true);
+  });
+
+  it('skips a stream error part that wraps a provider 4xx with a socket cause', async () => {
+    const cause = new APICallError({
+      message: 'rate limit',
+      url: 'https://example.com',
+      requestBodyValues: {},
+      statusCode: 429,
+      cause: Object.assign(new Error('socket hang up'), { code: 'ECONNRESET' }),
+    });
+    let thrown: unknown;
+    try {
+      await drainStream(
+        mapStreamToChunks({
+          stream: makeStream([{ type: 'error', error: cause }]),
+          chunkMeta: CHUNK_META,
+        }),
+      );
+    } catch (error) {
+      thrown = error;
+    }
+    expect(isReportableError(thrown)).toBe(false);
   });
 });

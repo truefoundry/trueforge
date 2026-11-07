@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to report a bug! Please do not report security vulnerabilities here — see [SECURITY.md](../../SECURITY.md).
+        Thanks for taking the time to report a bug! Please do not report security vulnerabilities here — submit them at [vdp.truefoundry.com](https://vdp.truefoundry.com) (see [SECURITY.md](https://github.com/truefoundry/trueforge/blob/main/SECURITY.md)).
   - type: textarea
     id: what-happened
     attributes:

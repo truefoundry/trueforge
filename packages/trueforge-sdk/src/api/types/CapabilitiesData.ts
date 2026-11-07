@@ -3,7 +3,9 @@
 import type * as TrueForge from "../index.js";
 
 export interface CapabilitiesData {
+    memory?: TrueForge.MemoryCapability;
     sandbox: TrueForge.SandboxCapability;
+    sessionSharing: TrueForge.SessionSharingCapability;
     settings: TrueForge.SettingsCapability;
     skill: TrueForge.SkillCapability;
     webSearch: TrueForge.WebSearchCapability;

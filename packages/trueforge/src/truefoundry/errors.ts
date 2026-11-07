@@ -1,26 +1,19 @@
 import { HTTPException } from 'hono/http-exception';
 import type { AgentRecord } from '../db/agentStore';
-import { captureCriticalException } from '../sentry';
 
 export const AGENT_EXTERNAL_ID_REQUIRED = 'Agent is missing a TrueFoundry external id';
 export const TRUEFOUNDRY_MANAGED_STATUS = 424 as const;
 export const TRUEFOUNDRY_MANAGED_MESSAGE = 'This resource is managed by TrueFoundry';
+/** Shared providers without env/snapshot support (e.g. TFY on-prem). */
+export const SANDBOX_ENVIRONMENTS_NOT_SUPPORTED_MESSAGE =
+  'Sandbox environments are not supported with the current sandbox provider';
 
 /** Require the remote identity needed for TrueFoundry agent operations. */
 export function requireTrueFoundryAgentExternalId(
   agent: Pick<AgentRecord, 'id' | 'tenant_id' | 'name' | 'external_id'>,
 ): string {
   if (agent.external_id === null) {
-    const error = new HTTPException(500, { message: AGENT_EXTERNAL_ID_REQUIRED });
-    captureCriticalException(error, {
-      tags: { module: 'truefoundry', operation: 'requireExternalId' },
-      extra: {
-        agent_id: agent.id,
-        tenant_id: agent.tenant_id,
-        agent_name: agent.name,
-      },
-    });
-    throw error;
+    throw new HTTPException(500, { message: AGENT_EXTERNAL_ID_REQUIRED });
   }
   return agent.external_id;
 }
@@ -28,4 +21,9 @@ export function requireTrueFoundryAgentExternalId(
 /** Reject writes to resources whose lifecycle is owned by TrueFoundry. */
 export function trueFoundryManaged(): never {
   throw new HTTPException(TRUEFOUNDRY_MANAGED_STATUS, { message: TRUEFOUNDRY_MANAGED_MESSAGE });
+}
+
+/** Reject sandbox-environment writes when the shared provider has no env/snapshot support. */
+export function sandboxEnvironmentsNotSupported(): Promise<never> {
+  return Promise.reject(new HTTPException(422, { message: SANDBOX_ENVIRONMENTS_NOT_SUPPORTED_MESSAGE }));
 }

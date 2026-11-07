@@ -6,6 +6,7 @@ import {
   modelProviderLogosByName,
   toModelSelection,
 } from '@/plugins/trueforge-agent-server-adapter/builderServer.js';
+import { allSettingsSections } from '../../server/settingsCapabilityFixture.js';
 
 function isAgentsCollectionUrl(url: string): boolean {
   return new URL(url).pathname.endsWith('/api/v1/agents');
@@ -42,6 +43,7 @@ describe('harnessBuilderServer', () => {
             maxOutputTokens: 100_000,
             reasoningEfforts: ['low', 'medium', 'high'],
           },
+          warning: "Reasoning effort is not configured for this model, which may affect TrueForge's performance.",
         },
         logo: 'https://assets.example/openai.svg',
       }),
@@ -54,6 +56,7 @@ describe('harnessBuilderServer', () => {
           maxOutputTokens: 100_000,
           reasoningEfforts: ['low', 'medium', 'high'],
         },
+        warning: "Reasoning effort is not configured for this model, which may affect TrueForge's performance.",
       },
     );
     assert.deepEqual(
@@ -219,9 +222,10 @@ describe('harnessBuilderServer', () => {
       if (url.endsWith('/api/v1/capabilities')) {
         return Response.json({
           data: {
-            sandbox: { enabled: false },
+            sandbox: { enabled: false, environments: { enabled: false } },
             skill: { enabled: false, reason: 'Configure a sandbox provider' },
-            settings: { enabled: true },
+            session_sharing: { granularity: 'tenant' },
+            settings: allSettingsSections(true),
           },
         });
       }
@@ -232,9 +236,10 @@ describe('harnessBuilderServer', () => {
 
     assert.deepEqual(await builder.getCapabilities(), {
       data: {
-        sandbox: { enabled: false },
+        sandbox: { enabled: false, environments: { enabled: false } },
         skill: { enabled: false, reason: 'Configure a sandbox provider' },
-        settings: { enabled: true },
+        sessionSharing: { granularity: 'tenant' },
+        settings: allSettingsSections(true),
       },
     });
   });

@@ -11,7 +11,13 @@ import { ToasterProvider } from '@/containers/ToasterContainer.js';
 import { CurrentUserProvider, type CurrentUser } from '@/contexts/CurrentUserContext.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider } from '@/server/ShellModeContext.js';
-import type { SandboxEnvironment, SandboxEnvironmentServer } from '@/server/types.js';
+import type {
+  ListPermissionsRequest,
+  ListPermissionsResponse,
+  PermissionsServer,
+  SandboxEnvironment,
+  SandboxEnvironmentServer,
+} from '@/server/types.js';
 import {
   createMockAgentUIServer,
   createMockCatalog,
@@ -24,6 +30,8 @@ const sampleEnvironments: SandboxEnvironment[] = [
     name: 'python-data',
     description: 'Python with httpx',
     status: 'ready',
+    enabled: true,
+    isDefault: false,
     statusReason: null,
     manifest: {
       name: 'python-data',
@@ -69,15 +77,48 @@ afterEach(() => {
   }
 });
 
+function defaultPermissions(environments: SandboxEnvironment[]): PermissionsServer {
+  const ownerGrants = Object.fromEntries(
+    environments
+      .filter(environment => environment.createdBySubject.subjectId === 'user-1')
+      .map(environment => [environment.id, ['MANAGE', 'DELETE'] as const]),
+  );
+  return {
+    listPermissions: vi.fn(
+      async ({ resourceType, resourceIds }: ListPermissionsRequest): Promise<ListPermissionsResponse> => {
+        if (resourceType === 'tenant') {
+          return {
+            data: {
+              type: 'tenant',
+              permissions: { agent: ['CREATE'], sandbox_environment: ['CREATE'] },
+            },
+          };
+        }
+        if (resourceType === 'sandbox_environment') {
+          return {
+            data: {
+              type: 'sandbox_environment',
+              permissions: Object.fromEntries(resourceIds.map(id => [id, [...(ownerGrants[id] ?? [])]])),
+            },
+          };
+        }
+        return { data: { type: resourceType, permissions: {} } };
+      },
+    ),
+  };
+}
+
 function renderPage({
   environments = sampleEnvironments,
   environmentOverrides = {},
   currentUser = { subjectId: 'user-1', displayName: 'alice' },
+  permissions,
   track,
 }: {
   environments?: SandboxEnvironment[];
   environmentOverrides?: Partial<SandboxEnvironmentServer>;
   currentUser?: CurrentUser;
+  permissions?: PermissionsServer;
   track?: TrackAnalytics;
 } = {}) {
   const environmentServer = createMockSandboxEnvironmentServer({
@@ -87,6 +128,7 @@ function renderPage({
   const server = createMockAgentUIServer({
     catalog: createMockCatalog(),
     sandboxEnvironments: environmentServer,
+    permissions: permissions ?? defaultPermissions(environments),
   });
 
   const tree = (
@@ -110,6 +152,7 @@ describe('EnvironmentsPage', () => {
       expect(screen.getByText('python-data')).toBeInTheDocument();
     });
     expect(screen.getByText('Python with httpx')).toBeInTheDocument();
+    expect(screen.getByText('Enabled')).toBeInTheDocument();
     expect(screen.getByText('2 vCPU · 4 GB RAM · 10 GB disk')).toBeInTheDocument();
     expect(screen.getByText('1 allowed domain')).toBeInTheDocument();
   });
@@ -141,7 +184,49 @@ describe('EnvironmentsPage', () => {
     });
   });
 
-  it('does not offer edit or delete actions for another subject’s environment', async () => {
+  it('opens create drawer from envIsNew only after CREATE is granted', async () => {
+    window.history.replaceState(null, '', '/environments?envIsNew=true');
+    renderPage();
+    expect(await screen.findByRole('heading', { name: 'New environment' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(new URL(window.location.href).searchParams.get('envIsNew')).toBeNull();
+    });
+  });
+
+  it('does not open create drawer from envIsNew when CREATE is denied', async () => {
+    window.history.replaceState(null, '', '/environments?envIsNew=true');
+    let resolveTenant: ((value: ListPermissionsResponse) => void) | undefined;
+    renderPage({
+      permissions: {
+        listPermissions: vi.fn(async ({ resourceType }): Promise<ListPermissionsResponse> => {
+          if (resourceType !== 'tenant') {
+            return { data: { type: resourceType, permissions: {} } };
+          }
+          return new Promise(resolve => {
+            resolveTenant = resolve;
+          });
+        }),
+      },
+    });
+
+    expect(screen.queryByRole('heading', { name: 'New environment' })).not.toBeInTheDocument();
+
+    await act(async () => {
+      resolveTenant?.({
+        data: { type: 'tenant', permissions: { agent: ['CREATE'], sandbox_environment: [] } },
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /New Environment/i })).toBeDisabled();
+    });
+    expect(screen.queryByRole('heading', { name: 'New environment' })).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(new URL(window.location.href).searchParams.get('envIsNew')).toBeNull();
+    });
+  });
+
+  it('greys out every action when list-permissions grants none, explaining why on hover', async () => {
     renderPage({
       environments: [
         {
@@ -153,21 +238,67 @@ describe('EnvironmentsPage', () => {
           },
         },
       ],
+      permissions: {
+        listPermissions: vi.fn(async ({ resourceType }): Promise<ListPermissionsResponse> =>
+          resourceType === 'tenant'
+            ? {
+                data: {
+                  type: 'tenant',
+                  permissions: { agent: ['CREATE'], sandbox_environment: ['CREATE'] },
+                },
+              }
+            : { data: { type: 'sandbox_environment', permissions: { e1: [] } } },
+        ),
+      },
     });
 
     const name = await screen.findByText('python-data');
-    expect(screen.queryByRole('button', { name: 'Delete python-data' })).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: 'Actions for python-data' }));
+    for (const label of ['Edit', 'Set as default', 'Disable', 'Delete']) {
+      expect(screen.getByRole('menuitem', { name: label })).toBeDisabled();
+    }
+
+    const edit = screen.getByRole('menuitem', { name: 'Edit' });
+    fireEvent.mouseEnter(edit.parentElement ?? edit);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('You do not have permission to manage');
+
     fireEvent.click(name);
     expect(screen.queryByText('Save')).not.toBeInTheDocument();
   });
 
-  it('does not offer owner actions when the current subject id is unavailable', async () => {
-    renderPage({ currentUser: { displayName: 'alice' } });
+  it('greys out Set as default when tenant CREATE is denied even if MANAGE is granted', async () => {
+    renderPage({
+      permissions: {
+        listPermissions: vi.fn(async ({ resourceType }): Promise<ListPermissionsResponse> =>
+          resourceType === 'tenant'
+            ? { data: { type: 'tenant', permissions: { agent: ['CREATE'], sandbox_environment: [] } } }
+            : { data: { type: 'sandbox_environment', permissions: { e1: ['MANAGE', 'DELETE'] } } },
+        ),
+      },
+    });
 
-    const name = await screen.findByText('python-data');
-    expect(screen.queryByRole('button', { name: 'Delete python-data' })).not.toBeInTheDocument();
-    fireEvent.click(name);
-    expect(screen.queryByText('Save')).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: 'Actions for python-data' }));
+    expect(screen.getByRole('menuitem', { name: 'Disable' })).toBeEnabled();
+    expect(screen.getByRole('menuitem', { name: 'Edit' })).toBeEnabled();
+
+    const setDefault = screen.getByRole('menuitem', { name: 'Set as default' });
+    expect(setDefault).toBeDisabled();
+    fireEvent.mouseEnter(setDefault.parentElement ?? setDefault);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Only admins can choose the default environment');
+  });
+
+  it('disables New Environment without tenant sandbox_environment CREATE', async () => {
+    renderPage({
+      permissions: {
+        listPermissions: vi.fn(async ({ resourceType }): Promise<ListPermissionsResponse> =>
+          resourceType === 'tenant'
+            ? { data: { type: 'tenant', permissions: { agent: ['CREATE'], sandbox_environment: [] } } }
+            : { data: { type: 'sandbox_environment', permissions: { e1: [] } } },
+        ),
+      },
+    });
+
+    expect(await screen.findByRole('button', { name: /New Environment/i })).toBeDisabled();
   });
 
   it('polls pending environments using getEnvironment in the background', async () => {
@@ -177,6 +308,8 @@ describe('EnvironmentsPage', () => {
       name: 'building-env',
       description: '',
       status: 'pending' as const,
+      enabled: true,
+      isDefault: false,
       statusReason: null,
       manifest: { name: 'building-env' },
       createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
@@ -200,7 +333,7 @@ describe('EnvironmentsPage', () => {
       expect(getEnvironment).not.toHaveBeenCalled();
 
       await act(async () => {
-        vi.advanceTimersByTime(PENDING_ENVIRONMENTS_POLL_INTERVAL_MS + 100);
+        await vi.advanceTimersByTimeAsync(PENDING_ENVIRONMENTS_POLL_INTERVAL_MS);
       });
 
       expect(getEnvironment).toHaveBeenCalledWith({ name: 'building-env' });
@@ -249,11 +382,8 @@ describe('EnvironmentsPage', () => {
     const deleteEnvironment = vi.fn(async () => {});
     const track = vi.fn();
     renderPage({ environmentOverrides: { deleteEnvironment }, track });
-    await waitFor(() => {
-      expect(screen.getByText('python-data')).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Delete python-data' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Actions for python-data' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
     const dialog = screen.getByRole('dialog');
     Object.defineProperty(dialog, 'close', {
       configurable: true,
@@ -270,10 +400,137 @@ describe('EnvironmentsPage', () => {
       environment_id: 'e1',
     });
   });
+
+  it('disables an environment and marks another as the default', async () => {
+    const setEnvironmentEnabled = vi.fn(async () => sampleEnvironments[0]!);
+    const setDefaultEnvironment = vi.fn(async () => sampleEnvironments[0]!);
+    renderPage({ environmentOverrides: { setEnvironmentEnabled, setDefaultEnvironment } });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Actions for python-data' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Set as default' }));
+    await waitFor(() => expect(setDefaultEnvironment).toHaveBeenCalledWith({ name: 'python-data' }));
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Actions for python-data' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Disable' }));
+    await waitFor(() => expect(setEnvironmentEnabled).toHaveBeenCalledWith({ name: 'python-data', enabled: false }));
+  });
+
+  it('badges the default environment and greys out Disable, Set as default, and Delete', async () => {
+    renderPage({
+      environments: [{ ...sampleEnvironments[0]!, isDefault: true }],
+    });
+
+    const badge = await screen.findByText('Default');
+    expect(badge).toBeInTheDocument();
+    fireEvent.mouseEnter(badge);
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Agents that do not pick an environment run in this one.');
+    fireEvent.mouseLeave(badge);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Actions for python-data' }));
+    expect(screen.getByRole('menuitem', { name: 'Edit' })).toBeEnabled();
+
+    const disable = screen.getByRole('menuitem', { name: 'Disable' });
+    expect(disable).toBeDisabled();
+    fireEvent.mouseEnter(disable.parentElement ?? disable);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('The default environment cannot be disabled');
+    fireEvent.mouseLeave(disable.parentElement ?? disable);
+
+    const setDefault = screen.getByRole('menuitem', { name: 'Set as default' });
+    expect(setDefault).toBeDisabled();
+    fireEvent.mouseEnter(setDefault.parentElement ?? setDefault);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Already the default');
+    fireEvent.mouseLeave(setDefault.parentElement ?? setDefault);
+
+    const remove = screen.getByRole('menuitem', { name: 'Delete' });
+    expect(remove).toBeDisabled();
+    fireEvent.mouseEnter(remove.parentElement ?? remove);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('The default environment cannot be deleted');
+  });
+
+  it('greys out Disable on the default environment', async () => {
+    const setEnvironmentEnabled = vi.fn(async () => sampleEnvironments[0]!);
+    renderPage({
+      environments: [{ ...sampleEnvironments[0]!, isDefault: true }],
+      environmentOverrides: { setEnvironmentEnabled },
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Actions for python-data' }));
+    const disable = screen.getByRole('menuitem', { name: 'Disable' });
+    expect(disable).toBeDisabled();
+    fireEvent.mouseEnter(disable.parentElement ?? disable);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(
+      'The default environment cannot be disabled. Make another one the default first.',
+    );
+    expect(setEnvironmentEnabled).not.toHaveBeenCalled();
+  });
+
+  it('opens the edit drawer from the actions menu', async () => {
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Actions for python-data' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Edit' }));
+
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(await screen.findByText('Save')).toBeInTheDocument();
+  });
+
+  it('greys out Edit and Delete on a platform-provisioned environment', async () => {
+    renderPage({ environments: [{ ...sampleEnvironments[0]!, name: 'default' }] });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Actions for default' }));
+    expect(screen.getByRole('menuitem', { name: 'Disable' })).toBeEnabled();
+
+    const edit = screen.getByRole('menuitem', { name: 'Edit' });
+    expect(edit).toBeDisabled();
+    fireEvent.mouseEnter(edit.parentElement ?? edit);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('cannot be edited');
+    fireEvent.mouseLeave(edit.parentElement ?? edit);
+
+    const remove = screen.getByRole('menuitem', { name: 'Delete' });
+    expect(remove).toBeDisabled();
+    fireEvent.mouseEnter(remove.parentElement ?? remove);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('cannot be deleted');
+  });
+
+  it('badges a disabled environment and greys out Set as default until it is enabled', async () => {
+    renderPage({
+      environments: [{ ...sampleEnvironments[0]!, enabled: false }],
+    });
+
+    expect(await screen.findByText('Disabled')).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: 'Actions for python-data' }));
+    expect(screen.getByRole('menuitem', { name: 'Enable' })).toBeEnabled();
+
+    const setDefault = screen.getByRole('menuitem', { name: 'Set as default' });
+    expect(setDefault).toBeDisabled();
+    fireEvent.mouseEnter(setDefault.parentElement ?? setDefault);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Enable the environment before making it the default');
+  });
+
+  it('shows an error toast when delete fails after closing the confirm dialog', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const httpError = Object.assign(new Error('Status code: 409'), {
+      statusCode: 409,
+      body: { error: { message: 'Environment is still referenced by an agent' } },
+    });
+    const deleteEnvironment = vi.fn(async () => {
+      throw httpError;
+    });
+    renderPage({ environmentOverrides: { deleteEnvironment } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Actions for python-data' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
+    const dialog = screen.getByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => expect(deleteEnvironment).toHaveBeenCalledWith({ name: 'python-data' }));
+    expect(await screen.findByText('Request failed (409)')).toBeInTheDocument();
+    expect(screen.getByText('Environment is still referenced by an agent')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
 });
 
 describe('EnvironmentsButton', () => {
-  it('tracks page opened when opening environments', () => {
+  it('tracks page opened when opening environments', async () => {
     const track = vi.fn();
     const server = createMockAgentUIServer({
       catalog: createMockCatalog(),
@@ -290,7 +547,7 @@ describe('EnvironmentsButton', () => {
       </AnalyticsProvider>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Environments' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Environments' }));
     expect(track).toHaveBeenCalledWith(AnalyticsEvents.Environment.PAGE_OPENED, undefined);
     fireEvent.click(screen.getByRole('button', { name: 'Environments' }));
     expect(track).toHaveBeenCalledTimes(1);

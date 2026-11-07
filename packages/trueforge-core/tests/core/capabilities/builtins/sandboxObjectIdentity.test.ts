@@ -48,8 +48,10 @@ describe('LargeToolResponse sandbox object identity (ISSUE-035)', () => {
       context: [],
     });
 
-    expect(sandboxResult.message.content).toContain('write to a file');
-    expect(mcpResult.message.content).not.toContain('write to a file');
-    expect(mcpResult.message.content).toContain('Content too big');
+    expect(sandboxResult.message.content).toContain('It MUST write the full output to a file');
+    expect(sandboxResult.message.content).toContain('character tool call response limit');
+    expect(sandboxResult.message.content).toMatch(/Content too big \([^;]+;/);
+    expect(mcpResult.message.content).not.toContain('It MUST write the full output to a file');
+    expect(mcpResult.message.content).toMatch(/Content too big \([^;]+;/);
   });
 });

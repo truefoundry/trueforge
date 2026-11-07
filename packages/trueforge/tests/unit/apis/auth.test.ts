@@ -441,6 +441,7 @@ describe('auth router (auth enabled)', () => {
     // openid-client throws with the token-endpoint response embedded in the message, which
     // carries the issuer host and upstream error body. None of that may reach the browser's
     // address bar, where it lands in history, screenshots and support tickets.
+    const errorLog = jest.spyOn(logger, 'error');
     const router = createTestAuthRouter({ oidcClient });
     const loginRes = await router.request('/login?return_to=/', { redirect: 'manual' });
     const stateCookieRaw = cookieValue(setCookies(loginRes), STATE_COOKIE) ?? '';
@@ -469,6 +470,11 @@ describe('auth router (auth enabled)', () => {
     expect(location).toBe('/?error=login_failed');
     expect(location).not.toContain(new URL(ISSUER).host);
     expect(location).not.toContain('invalid_grant');
+    expect(errorLog).toHaveBeenCalledWith(
+      'Failed to exchange authorization code',
+      expect.not.objectContaining({ reportable_error: expect.anything() }),
+    );
+    errorLog.mockRestore();
   });
 
   it('GET /callback keeps login_failed when exchange fails and the leftover cookie is blocked', async () => {

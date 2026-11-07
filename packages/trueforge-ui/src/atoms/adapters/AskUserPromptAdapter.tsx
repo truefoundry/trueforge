@@ -1,5 +1,6 @@
 import type { KeyboardEvent } from 'react';
 import { Icon } from '../../icons/Icon.js';
+import { useSlot } from '../../theme/SlotsProvider.js';
 import { cn } from '../lib/cn.js';
 import { Button } from '../primitives/Button.js';
 import { IconButton } from '../primitives/IconButton.js';
@@ -89,6 +90,7 @@ export function AskUserPrompt({
   dataTestPrefix,
   className,
 }: AskUserPromptProps) {
+  const Markdown = useSlot('Markdown');
   const isMultiQuestion = isMultiQuestionProp ?? totalQuestions > 1;
   const isLastQuestion = isLastQuestionProp ?? currentQuestionIndex === totalQuestions - 1;
 
@@ -99,7 +101,9 @@ export function AskUserPrompt({
         {answeredQuestions.map(q => (
           <div key={q.id} data-testid={dataTestPrefix ? `${dataTestPrefix}-answered-${q.id}` : undefined}>
             <div className="flex items-center justify-between rounded-t-lg border border-primary-button-bg/30 bg-primary-button-bg/10 px-4 py-2">
-              <div className="font-sans text-xs font-medium text-primary-button-bg">{q.question}</div>
+              <div className="min-w-0 font-sans text-xs font-medium text-primary-button-bg [&_.markdown-body]:text-inherit!">
+                <Markdown content={q.question} />
+              </div>
               <div className="flex h-fit shrink-0 items-center gap-1 rounded border border-primary-button-bg/40 bg-primary-bg px-2 py-0.5 text-[0.6875rem] font-medium text-text-secondary">
                 <span className="leading-tight">Answered</span>
               </div>
@@ -175,9 +179,13 @@ export function AskUserPrompt({
       data-testid={dataTestPrefix ? `${dataTestPrefix}-question-card` : undefined}
     >
       <div className="flex items-center justify-between border rounded-t-lg border-primary-button-bg/30 bg-primary-button-bg/10 px-4 py-2.5">
-        <div className="min-w-0 font-sans text-sm font-medium text-primary-button-bg">
-          {totalQuestions > 1 ? 'Questions' : currentQuestion.question}
-        </div>
+        {totalQuestions > 1 ? (
+          <div className="min-w-0 font-sans text-sm font-medium text-primary-button-bg">Questions</div>
+        ) : (
+          <div className="min-w-0 font-sans text-sm font-medium text-primary-button-bg [&_.markdown-body]:text-inherit!">
+            <Markdown content={currentQuestion.question} />
+          </div>
+        )}
         {readOnly ? (
           <div className="flex h-fit shrink-0 items-center gap-1 rounded border border-primary-button-bg/40 bg-primary-bg px-2 py-0.5 text-[0.6875rem] font-medium text-text-secondary">
             <span className="leading-tight">Unanswered</span>
@@ -214,7 +222,7 @@ export function AskUserPrompt({
         <div className="flex min-w-0 flex-col gap-3">
           {isMultiQuestion && (
             <div className="font-sans text-xs font-medium text-text-primary">
-              {currentQuestion.question || 'What would you like to do?'}
+              <Markdown content={currentQuestion.question || 'What would you like to do?'} />
             </div>
           )}
           <div

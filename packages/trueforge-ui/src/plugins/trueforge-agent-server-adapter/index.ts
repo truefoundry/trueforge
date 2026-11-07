@@ -7,15 +7,18 @@ import { createHarnessAgentMetricsServer } from './agentMetricsServer.js';
 import { createHarnessAgentSessionsServer } from './agentSessionsServer.js';
 import { createHarnessBuilderServer } from './builderServer.js';
 import { createConnectorCatalog } from './catalogs/connectorCatalog.js';
+import { createMemoryProviderCatalog } from './catalogs/memoryProviderCatalog.js';
 import { createModelProviderCatalog } from './catalogs/modelProviderCatalog.js';
 import { createSandboxProviderCatalog } from './catalogs/sandboxProviderCatalog.js';
 import { createSkillCatalog } from './catalogs/skillCatalog.js';
 import { createWebSearchProviderCatalog } from './catalogs/webSearchProviderCatalog.js';
 import { createHarnessChatServer } from './chatServer.js';
 import { createTrueForgeClient, type CreateTrueForgeClientOptions } from './client.js';
+import { createConfigurationServer } from './configurationServer.js';
 import { createHarnessPermissionsServer } from './permissionsServer.js';
 import { createSandboxEnvironmentServer } from './sandboxEnvironments/sandboxEnvironmentServer.js';
 import { createScheduleServer } from './schedules/scheduleServer.js';
+import { createHarnessSessionAccessServer } from './sessionAccessServer.js';
 import type { HarnessAgentSpec } from './types.js';
 
 export { createHarnessAgentMetricsServer, type CreateHarnessAgentMetricsServerOptions } from './agentMetricsServer.js';
@@ -36,6 +39,12 @@ export {
   toUiConnector,
   toUiConnectorFromReadEntry,
 } from './catalogs/connectorCatalog.js';
+export {
+  createMemoryProviderCatalog,
+  toHarnessMemoryManifest,
+  toUiMemoryCatalogEntry,
+  toUiMemoryProvider,
+} from './catalogs/memoryProviderCatalog.js';
 export {
   createModelProviderCatalog,
   toHarnessModelProvider,
@@ -73,10 +82,15 @@ export {
 } from './chatServer.js';
 export { createTrueForgeClient } from './client.js';
 export type { CreateTrueForgeClientOptions } from './client.js';
+export { createConfigurationServer } from './configurationServer.js';
 export { getCapabilities, listConfiguredMcpServers, listModels, listSkills } from './lists.js';
 export { createHarnessPermissionsServer, type CreateHarnessPermissionsServerOptions } from './permissionsServer.js';
 export { createSandboxEnvironmentServer } from './sandboxEnvironments/sandboxEnvironmentServer.js';
 export { createScheduleServer } from './schedules/scheduleServer.js';
+export {
+  createHarnessSessionAccessServer,
+  type CreateHarnessSessionAccessServerOptions,
+} from './sessionAccessServer.js';
 export type { HarnessAgentSpec, HarnessMcpServerMount, HarnessSkillMount } from './types.js';
 
 export type CreateTrueForgeAgentUIServerOptions = CreateTrueForgeClientOptions & {
@@ -100,17 +114,20 @@ export function createTrueForgeAgentUIServer(options: CreateTrueForgeAgentUIServ
       skillCatalog: createSkillCatalog(client),
       sandboxCatalog: createSandboxProviderCatalog(client),
       webSearchCatalog: createWebSearchProviderCatalog(client),
+      memoryCatalog: createMemoryProviderCatalog(client),
     } satisfies CatalogServer);
 
   return createTrueForgeServer<HarnessAgentSpec>({
     chatServer: createHarnessChatServer({ client }),
     ...createHarnessBuilderServer({ client }),
     catalog,
+    configuration: createConfigurationServer(client),
     sessions: createHarnessAgentSessionsServer({ ...clientOptions, client }),
     metrics: createHarnessAgentMetricsServer({ ...clientOptions, client }),
     schedules: createScheduleServer({ client }),
     sandboxEnvironments: createSandboxEnvironmentServer({ client }),
     permissions: permissions ?? createHarnessPermissionsServer({ client }),
+    sessionAccess: createHarnessSessionAccessServer({ client }),
     getMe: async () => {
       const { data } = await client.auth.me();
       return { tenantId: data.tenantId };

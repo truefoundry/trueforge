@@ -4,7 +4,9 @@ import { validateGitAgentSkills } from '../../../src/db/gitSkillMounts';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import type { ISkillStore } from '../../../src/db/skillStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
+import { SqliteConfigurationStore } from '../../../src/db/sqlite/configuration-store/SqliteConfigurationStore';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
+import { SqliteMemoryProviderStore } from '../../../src/db/sqlite/memory-provider-store/SqliteMemoryProviderStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
@@ -70,6 +72,9 @@ describe('validateAgentSpec', () => {
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
       sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
       webSearchProviderStore: new SqliteWebSearchProviderStore(db),
+      memoryProviderStore: new SqliteMemoryProviderStore(db),
+      configurationStore: new SqliteConfigurationStore(db),
+      previousSpec: undefined,
     };
   }
 
@@ -258,6 +263,245 @@ describe('validateAgentSpec', () => {
     ).resolves.toBeUndefined();
   });
 
+  it('rejects turning web_search on when the tenant disabled it', async () => {
+    const stores = await setup();
+    jest.mocked(hasConfiguredWebSearchProvider).mockResolvedValue(true);
+    await stores.configurationStore.upsertConfiguration({
+      tenant_id: 'default',
+      manifest: { web_search: { enabled: false }, memory: { enabled: true } },
+    });
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          config: { web_search: { enabled: true } },
+        }),
+        tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
+        ...stores,
+      }),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: expect.stringContaining('web_search cannot be enabled because it is disabled for this tenant'),
+    } satisfies Partial<HTTPException>);
+  });
+
+  it('keeps web_search on a spec that already had it while the tenant is disabled', async () => {
+    const stores = await setup();
+    jest.mocked(hasConfiguredWebSearchProvider).mockResolvedValue(true);
+    await stores.configurationStore.upsertConfiguration({
+      tenant_id: 'default',
+      manifest: { web_search: { enabled: false }, memory: { enabled: true } },
+    });
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          config: { web_search: { enabled: true } },
+        }),
+        tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
+        ...stores,
+        previousSpec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          config: { web_search: { enabled: true } },
+        }),
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('keeps web_search on a spec that already had it after the provider went away', async () => {
+    const stores = await setup();
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          config: { web_search: { enabled: true } },
+        }),
+        tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
+        ...stores,
+        previousSpec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          config: { web_search: { enabled: true } },
+        }),
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('admits turning web_search off while the tenant is disabled', async () => {
+    const stores = await setup();
+    await stores.configurationStore.upsertConfiguration({
+      tenant_id: 'default',
+      manifest: { web_search: { enabled: false }, memory: { enabled: true } },
+    });
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          config: { web_search: { enabled: false } },
+        }),
+        tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
+        ...stores,
+        previousSpec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          config: { web_search: { enabled: true } },
+        }),
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('rejects turning memory on when the tenant disabled it', async () => {
+    const stores = await setup();
+    await stores.configurationStore.upsertConfiguration({
+      tenant_id: 'default',
+      manifest: { web_search: { enabled: true }, memory: { enabled: false } },
+    });
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          config: { memory: { enabled: true } },
+        }),
+        tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
+        ...stores,
+      }),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: expect.stringContaining('memory cannot be enabled because it is disabled for this tenant'),
+    } satisfies Partial<HTTPException>);
+  });
+
+  it('keeps memory on a spec that already had it while the tenant is disabled', async () => {
+    const stores = await setup();
+    await stores.configurationStore.upsertConfiguration({
+      tenant_id: 'default',
+      manifest: { web_search: { enabled: true }, memory: { enabled: false } },
+    });
+    const memorySpec = AgentSpecSchema.parse({
+      model: { name: 'test-provider/test-model' },
+      instructions: 'test',
+      config: { memory: { enabled: true } },
+    });
+    await expect(
+      validateAgentSpec({
+        spec: memorySpec,
+        tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
+        ...stores,
+        previousSpec: memorySpec,
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('rejects turning memory on over a spec that had it off while the tenant disabled it', async () => {
+    const stores = await setup();
+    await stores.memoryProviderStore.upsertProvider({
+      tenant_id: 'default',
+      manifest: { type: 'zep', auth: { api_key: 'zep-test-key' } },
+    });
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          config: { memory: { enabled: true } },
+        }),
+        tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
+        ...stores,
+        previousSpec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          config: { memory: { enabled: false } },
+        }),
+      }),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: expect.stringContaining('memory cannot be enabled because it is disabled for this tenant'),
+    } satisfies Partial<HTTPException>);
+  });
+
+  it('rejects turning memory on when no memory provider is configured', async () => {
+    const stores = await setup();
+    await stores.configurationStore.upsertConfiguration({
+      tenant_id: 'default',
+      manifest: { web_search: { enabled: true }, memory: { enabled: true } },
+    });
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          config: { memory: { enabled: true } },
+        }),
+        tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
+        ...stores,
+      }),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: expect.stringContaining('memory is enabled but no memory provider is configured'),
+    } satisfies Partial<HTTPException>);
+  });
+
+  it('rejects turning memory on when the tenant has no stored configuration, since memory starts off', async () => {
+    const stores = await setup();
+    await stores.memoryProviderStore.upsertProvider({
+      tenant_id: 'default',
+      manifest: { type: 'zep', auth: { api_key: 'zep-test-key' } },
+    });
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          config: { memory: { enabled: true } },
+        }),
+        tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
+        ...stores,
+      }),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: expect.stringContaining('memory cannot be enabled because it is disabled for this tenant'),
+    } satisfies Partial<HTTPException>);
+  });
+
+  it('admits memory on once the tenant allows it and a provider is configured', async () => {
+    const stores = await setup();
+    await stores.configurationStore.upsertConfiguration({
+      tenant_id: 'default',
+      manifest: { web_search: { enabled: true }, memory: { enabled: true } },
+    });
+    await stores.memoryProviderStore.upsertProvider({
+      tenant_id: 'default',
+      manifest: { type: 'zep', auth: { api_key: 'zep-test-key' } },
+    });
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          config: { memory: { enabled: true } },
+        }),
+        tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
+        ...stores,
+      }),
+    ).resolves.toBeUndefined();
+  });
+
   it('rejects skills when no sandbox provider is configured', async () => {
     const stores = await setup();
     await stores.skillStore.upsertSkill({
@@ -330,7 +574,9 @@ describe('validateAgentSpec', () => {
         auto_delete_interval_in_minutes: 7200,
       },
     });
-    const getEnvironment = jest.spyOn(stores.sandboxEnvironmentStore, 'getEnvironment').mockResolvedValue({} as never);
+    const getEnvironment = jest
+      .spyOn(stores.sandboxEnvironmentStore, 'getEnvironment')
+      .mockResolvedValue({ environment: { enabled: true } } as never);
 
     await expect(
       validateAgentSpec({
@@ -347,6 +593,59 @@ describe('validateAgentSpec', () => {
     expect(getEnvironment).toHaveBeenCalledWith({
       tenant_id: 'default',
       name: 'shared-env',
+    });
+  });
+
+  describe('a sandbox environment that has since been disabled', () => {
+    async function setupWithDisabledEnvironment() {
+      const stores = await setup();
+      await stores.sandboxProviderStore.upsertSandboxProvider({
+        tenant_id: 'default',
+        manifest: {
+          type: 'daytona',
+          auth: { api_key: 'dtn-test' },
+          exec_timeout_ms: 60_000,
+          auto_stop_interval_in_minutes: 5,
+          auto_archive_interval_in_minutes: 60,
+          auto_delete_interval_in_minutes: 7200,
+        },
+      });
+      jest
+        .spyOn(stores.sandboxEnvironmentStore, 'getEnvironment')
+        .mockResolvedValue({ environment: { enabled: false } } as never);
+      const spec = AgentSpecSchema.parse({
+        model: { name: 'test-provider/test-model' },
+        instructions: 'test',
+        config: { sandbox: { enabled: true, environment_name: 'retired-env' } },
+      });
+      return { stores, spec };
+    }
+
+    it('still keeps a spec that already named it', async () => {
+      const { stores, spec } = await setupWithDisabledEnvironment();
+
+      await expect(
+        validateAgentSpec({
+          spec,
+          tenant_id: 'default',
+          created_by_subject_id: 'agent-author',
+          ...stores,
+          previousSpec: spec,
+        }),
+      ).resolves.toBeUndefined();
+    });
+
+    it('cannot be newly selected', async () => {
+      const { stores, spec } = await setupWithDisabledEnvironment();
+
+      await expect(
+        validateAgentSpec({
+          spec,
+          tenant_id: 'default',
+          created_by_subject_id: 'agent-author',
+          ...stores,
+        }),
+      ).rejects.toMatchObject({ status: 422 });
     });
   });
 

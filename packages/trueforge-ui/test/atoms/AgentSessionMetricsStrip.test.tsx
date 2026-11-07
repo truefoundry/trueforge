@@ -30,6 +30,17 @@ const metrics: SessionMetrics = {
     { label: 'output', value: 80_000, color: '#34d399' },
     { label: 'cached', value: 0, color: '#c084fc' },
   ],
+  inputTokens: 200_000,
+  outputTokens: 80_000,
+  cacheReadTokens: 12_000,
+  cacheWriteTokens: 2_000,
+  inputBreakdown: [
+    { label: 'Harness', value: 10_000, color: '#f59e0b' },
+    { label: 'Skills', value: 5_000, color: '#6366f1' },
+    { label: 'Instructions', value: 20_000, color: '#22d3ee' },
+    { label: 'Tool definitions', value: 15_000, color: '#3b82f6' },
+    { label: 'Messages', value: 150_000, color: '#ec4899' },
+  ],
   contextByTurn: [
     { label: 'T1', value: 200_000, color: '#3b82f6' },
     { label: 'T2', value: 280_000, color: '#3b82f6' },
@@ -84,6 +95,81 @@ describe('AgentSessionMetricsStrip', () => {
     },
   );
 
+  it('shows total, input and output, then one input breakdown bar, then cache read and write', () => {
+    render(<AgentSessionMetricsStrip metrics={metrics} />);
+    const tile = document.querySelector('[data-slot="session-metric-tokens"]');
+    expect(tile).not.toBeNull();
+    fireEvent.mouseEnter(tile!);
+    const tooltip = document.querySelector('[role="tooltip"]');
+    expect(tooltip).not.toBeNull();
+    const text = tooltip!.textContent ?? '';
+    expect(text).toContain('280,000 total tokens');
+    expect(text).toContain('200,000 input · 80,000 output');
+    expect(text).toContain('Input breakdown');
+    expect(text).toContain('Harness');
+    expect(text).toContain('10,000');
+    expect(text).toContain('Tool definitions');
+    expect(text).toContain('Messages');
+    expect(text).toContain('Output tokens');
+    expect(text).toContain('Cache read');
+    expect(text).toContain('12,000');
+    expect(text).toContain('Cache write');
+    expect(text).toContain('2,000');
+    expect(text).not.toContain('Cached');
+    expect(text.indexOf('total tokens')).toBeLessThan(text.indexOf('input ·'));
+    expect(text.indexOf('input ·')).toBeLessThan(text.indexOf('Input breakdown'));
+    expect(text.indexOf('Input breakdown')).toBeLessThan(text.indexOf('Output tokens'));
+    expect(text.indexOf('Output tokens')).toBeLessThan(text.indexOf('Cache read'));
+    expect(text.indexOf('Cache read')).toBeLessThan(text.indexOf('Cache write'));
+  });
+
+  it('omits the input breakdown bar when attribution is empty', () => {
+    render(<AgentSessionMetricsStrip metrics={{ ...metrics, inputBreakdown: [] }} />);
+    const tile = document.querySelector('[data-slot="session-metric-tokens"]');
+    expect(tile).not.toBeNull();
+    fireEvent.mouseEnter(tile!);
+    const tooltip = document.querySelector('[role="tooltip"]');
+    expect(tooltip).not.toBeNull();
+    expect(tooltip).not.toHaveTextContent('Input breakdown');
+    expect(tooltip).not.toHaveTextContent('Harness');
+    expect(tooltip).toHaveTextContent('280,000 total tokens');
+    expect(tooltip).toHaveTextContent('Cache read');
+    expect(tooltip).toHaveTextContent('Cache write');
+  });
+
+  it('scrolls long context and tool-call names inside the tooltip', () => {
+    render(
+      <AgentSessionMetricsStrip
+        metrics={{
+          ...metrics,
+          contextByTurn: [
+            { label: 'T1', value: 100_000, color: '#3b82f6' },
+            { label: 'turn-with-a-very-long-context-label', value: 200_000, color: '#3b82f6' },
+          ],
+          toolCallFrequency: [{ label: 'sandbox_exec_with_a_very_long_tool_name', value: 1, color: '#f59e0b' }],
+        }}
+      />,
+    );
+
+    const contextTile = document.querySelector('[data-slot="session-metric-context"]');
+    if (contextTile == null) throw new Error('Expected context metric tile');
+    fireEvent.mouseEnter(contextTile);
+    const contextLabel = screen.getByText('turn-with-a-very-long-context-label');
+    expect(contextLabel).not.toHaveClass('truncate');
+    expect(contextLabel.closest('.max-h-72')).toHaveClass('overflow-auto', 'pr-3');
+    fireEvent.mouseLeave(contextTile);
+
+    const toolTile = document.querySelector('[data-slot="session-metric-tool-calls"]');
+    if (toolTile == null) throw new Error('Expected tool-call metric tile');
+    fireEvent.mouseEnter(toolTile);
+    const toolLabel = screen.getByText('sandbox_exec_with_a_very_long_tool_name');
+    expect(toolLabel).toHaveClass('truncate');
+    expect(toolLabel).toHaveAttribute('title', 'sandbox_exec_with_a_very_long_tool_name');
+    const toolScroller = toolLabel.closest('.max-h-72');
+    expect(toolScroller).toHaveClass('overflow-y-auto', 'overflow-x-hidden', 'pr-3');
+    expect(toolScroller).not.toHaveClass('overflow-auto');
+  });
+
   it('shows lineage / session total with explanation when session total exceeds lineage', () => {
     render(<AgentSessionMetricsStrip metrics={{ ...metrics, totalTurns: 2, sessionTotalTurns: 4 }} />);
     const turnsTile = document.querySelector('[data-slot="session-metric-turns"]');
@@ -120,7 +206,8 @@ describe('CostBreakdownRows', () => {
       />,
     );
 
-    expect(screen.getByText('T1')).toBeInTheDocument();
+    expect(screen.getByText('T1')).toHaveAttribute('title', 'T1');
+    expect(screen.getByText('T1').closest('.max-h-72')).toHaveClass('overflow-y-auto', 'overflow-x-hidden', 'pr-3');
     expect(screen.getByText('T2')).toBeInTheDocument();
     expect(screen.getByText('$2.0000')).toBeInTheDocument();
     expect(screen.getByText('$0.6000')).toBeInTheDocument();
@@ -128,6 +215,6 @@ describe('CostBreakdownRows', () => {
 
   it('renders nothing for an empty dataset', () => {
     const { container } = render(<CostBreakdownRows data={[]} />);
-    expect(container.firstChild).toBeEmptyDOMElement();
+    expect(container.querySelector('.grid')).toBeEmptyDOMElement();
   });
 });

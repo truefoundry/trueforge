@@ -5,7 +5,7 @@ import type { Configuration } from 'openid-client';
 import type { Authenticator } from '../../../src/auth/authenticator';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import {
-  createAdminAuthMiddleware,
+  buildAdminAuthMiddleware,
   createApiKeyAuthMiddleware,
   createAuthMiddleware,
 } from '../../../src/auth/middleware';
@@ -58,14 +58,14 @@ function createApp(authenticator: Authenticator) {
   app.route('/api/v1/models', models);
 
   const settings = new OpenAPIHono();
-  settings.use('*', createAdminAuthMiddleware(authenticator));
+  settings.use('*', buildAdminAuthMiddleware({ authenticator, accessible: true }));
   settings.get('/', c => c.json({ ok: true, user: c.get('request_context') }));
   app.route('/api/v1/settings', settings);
 
   return app;
 }
 
-describe('createAuthMiddleware / createAdminAuthMiddleware', () => {
+describe('createAuthMiddleware / buildAdminAuthMiddleware', () => {
   it('propagates non-401 authenticate failures instead of turning them into 401', async () => {
     const authenticator: Authenticator = {
       authenticate: async () => {
@@ -86,6 +86,18 @@ describe('createAuthMiddleware / createAdminAuthMiddleware', () => {
       ok: true,
       user: STANDALONE_REQUEST_CONTEXT,
     });
+  });
+
+  it('names the route when the group is not accessible in this deployment', async () => {
+    const app = new OpenAPIHono();
+    const gated = new OpenAPIHono();
+    gated.use('*', buildAdminAuthMiddleware({ authenticator: new StandaloneAuthenticator(), accessible: false }));
+    gated.get('/', c => c.json({ ok: true }));
+    app.route('/api/v1/settings/models', gated);
+
+    const res = await app.request('/api/v1/settings/models');
+    expect(res.status).toBe(422);
+    expect(await res.text()).toContain('/api/v1/settings/models is not accessible');
   });
 
   it('sets standalone request context when using StandaloneAuthenticator', async () => {
@@ -422,6 +434,7 @@ describe('createApiKeyAuthMiddleware', () => {
   it.each([
     ['missing header', undefined],
     ['wrong key', 'Bearer wrong-key'],
+    ['wrong key of the same length', 'Bearer service-kez'],
   ])('rejects %s', async (_name, authorization) => {
     const response = await createServiceApp('service-key').request('/', {
       method: 'POST',

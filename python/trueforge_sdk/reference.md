@@ -822,7 +822,7 @@ client.mcp_servers.authorize(
 <dl>
 <dd>
 
-**return_to:** `typing.Optional[str]` — Same-origin path to land in the browser after consent.
+**return_to:** `typing.Optional[str]` — Same-origin path to land in the browser after consent. When omitted, no post-consent redirect is requested.
     
 </dd>
 </dl>
@@ -1346,7 +1346,7 @@ client.sandbox_environments.get(
 <dl>
 <dd>
 
-Delete a sandbox environment, fails if any agent still references it.
+Delete a sandbox environment. Fails if any agent still references it, if it is the tenant default, or if it is the reserved "default" environment.
 </dd>
 </dl>
 </dd>
@@ -1387,6 +1387,94 @@ client.sandbox_environments.delete(
 <dd>
 
 **name:** `str` — Sandbox environment name.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.sandbox_environments.<a href="src/trueforge_sdk/sandbox_environments/client.py">update</a>(...) -> GetSandboxEnvironmentResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Update sandbox environment metadata.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.sandbox_environments.update(
+    name="name",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**name:** `str` — Sandbox environment name.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**enabled:** `typing.Optional[bool]` — Whether new chats and agents may select this environment.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**is_default:** `typing.Optional[bool]` — If true, make this environment the default in new chats and agents.
     
 </dd>
 </dl>
@@ -2436,7 +2524,7 @@ client.sessions.update(
 <dl>
 <dd>
 
-**shared:** `typing.Optional[bool]` — When true, any subject in the tenant may read this session and its turns/events by id.
+**shared:** `typing.Optional[bool]` — Deprecated; use `POST /sessions/{session_id}/grants` with a `tenant` subject.
     
 </dd>
 </dl>
@@ -2612,7 +2700,167 @@ client.sessions.list_events(
 <dl>
 <dd>
 
-**limit:** `typing.Optional[int]` — Page size. Defaults to 100, max 100.
+**limit:** `typing.Optional[int]` — Page size. Defaults to and is capped at the server-configured maximum.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py">list_grants</a>(...) -> ListSessionGrantsResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+List the subjects this session is shared with.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.sessions.list_grants(
+    session_id="session_id",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**session_id:** `str` — Session identifier.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py">update_grants</a>(...) -> ListSessionGrantsResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Share this session with subjects and remove access for others in one atomic request. Subjects get read access to the session, its turns and its events. A `tenant` subject, whose `subject_id` must be your tenant ID, shares with everyone in the tenant. Granting an existing subject or revoking one without access is a no-op. Returns every subject the session is shared with.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.sessions.update_grants(
+    session_id="session_id",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**session_id:** `str` — Session identifier.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**grant:** `typing.Optional[typing.List[SessionGrantSubject]]` — Subjects to share the session with (up to 50).
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**revoke:** `typing.Optional[typing.List[SessionGrantSubject]]` — Subjects to remove access for (up to 50).
     
 </dd>
 </dl>
@@ -3160,7 +3408,7 @@ client.sessions.list_turn_events(
 <dl>
 <dd>
 
-**limit:** `typing.Optional[int]` — Page size. Defaults to 100, max 100.
+**limit:** `typing.Optional[int]` — Page size. Defaults to and is capped at the server-configured maximum.
     
 </dd>
 </dl>
@@ -3514,6 +3762,101 @@ client.skills.list_versions(
 </dl>
 </details>
 
+## Users
+<details><summary><code>client.users.<a href="src/trueforge_sdk/users/client.py">list</a>(...) -> ListUsersResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+List users in the tenant that sessions can be shared with. Searches email and display name, or looks up specific users with `ids`.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.users.list()
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**query:** `typing.Optional[str]` — Case-insensitive substring match on email or display name.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**limit:** `typing.Optional[int]` — Page size. Defaults to 25, max 100.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**page_token:** `typing.Optional[str]` — Opaque token from a previous response `next_page_token`.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**ids:** `typing.Optional[str]` — Return only these users (comma-separated ids, up to 100). Users that are unknown or inactive are omitted. Cannot be combined with `query` or `page_token`.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 ## Catalogs McpServers
 <details><summary><code>client.catalogs.mcp_servers.<a href="src/trueforge_sdk/catalogs/mcp_servers/client.py">list</a>() -> GetMcpServerCatalogResponse</code></summary>
 <dl>
@@ -3550,6 +3893,69 @@ client = TrueForge(
 )
 
 client.catalogs.mcp_servers.list()
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+## Catalogs MemoryProviders
+<details><summary><code>client.catalogs.memory_providers.<a href="src/trueforge_sdk/catalogs/memory_providers/client.py">list</a>() -> GetMemoryProviderCatalogResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Shipped memory provider presets.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.catalogs.memory_providers.list()
 
 ```
 </dd>
@@ -4464,6 +4870,141 @@ client.internal.agents.get_code_snippets(
 </dl>
 </details>
 
+## Settings Configuration
+<details><summary><code>client.settings.configuration.<a href="src/trueforge_sdk/settings/configuration/client.py">get</a>() -> GetConfigurationResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Tenant-wide feature switches. Tenants with nothing saved yet get every switch enabled.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.settings.configuration.get()
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.settings.configuration.<a href="src/trueforge_sdk/settings/configuration/client.py">update</a>(...) -> GetConfigurationResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Updates the switches present in the body and leaves the rest. Turning web search off applies to new chats; chats already using it keep it.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge, ConfigurationManifestPatch
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.settings.configuration.update(
+    manifest=ConfigurationManifestPatch(),
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**manifest:** `ConfigurationManifestPatch` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 ## Settings McpServers
 <details><summary><code>client.settings.mcp_servers.<a href="src/trueforge_sdk/settings/mcp_servers/client.py">list</a>() -> ListMcpServersResponse</code></summary>
 <dl>
@@ -4806,6 +5347,146 @@ client.settings.mcp_servers.delete(
 <dd>
 
 **name:** `str` — MCP server name.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+## Settings MemoryProviders
+<details><summary><code>client.settings.memory_providers.<a href="src/trueforge_sdk/settings/memory_providers/client.py">get</a>() -> GetMemoryProviderResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+The configured provider for this tenant. `auth.api_key` is redacted when present.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.settings.memory_providers.get()
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.settings.memory_providers.<a href="src/trueforge_sdk/settings/memory_providers/client.py">create_or_update</a>(...) -> GetMemoryProviderResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Upserts the single memory provider for this tenant. `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge, MemoryProviderManifest, ZepMemoryProviderAuth
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.settings.memory_providers.create_or_update(
+    manifest=MemoryProviderManifest(
+        auth=ZepMemoryProviderAuth(
+            api_key="api_key",
+        ),
+        type="zep",
+    ),
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**manifest:** `MemoryProviderManifest` 
     
 </dd>
 </dl>

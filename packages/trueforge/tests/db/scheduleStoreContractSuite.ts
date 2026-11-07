@@ -323,7 +323,7 @@ export function runScheduleStoreContractSuite(deps: {
       status: 'scheduled',
       created_by_subject: USER_SUBJECT,
     });
-    await store.updateRunStatus({
+    await store.updateRun({
       tenant_id: TENANT,
       id: triggeredSeed.id,
       status: 'triggered',
@@ -370,7 +370,7 @@ export function runScheduleStoreContractSuite(deps: {
       status: 'scheduled',
       created_by_subject: USER_SUBJECT,
     });
-    await store.updateRunStatus({
+    await store.updateRun({
       tenant_id: TENANT,
       id: historical.id,
       status: 'triggered',
@@ -454,7 +454,7 @@ export function runScheduleStoreContractSuite(deps: {
       status: 'scheduled',
       created_by_subject: USER_SUBJECT,
     });
-    await store.updateRunStatus({ tenant_id: TENANT, id: first.id, status: 'triggered' });
+    await store.updateRun({ tenant_id: TENANT, id: first.id, status: 'triggered' });
 
     await expect(
       store.createRun({
@@ -785,7 +785,7 @@ export function runScheduleStoreContractSuite(deps: {
     expect(page2.pagination.next_page_token).toBeUndefined();
   });
 
-  it('updateRunStatus stamps triggered_at only for triggered; returns undefined when gone', async () => {
+  it('updateRun stamps triggered_at only for triggered; returns undefined when gone', async () => {
     const store = deps.getScheduleStore();
     const agent = await seedAgent();
     const { schedule } = await store.createScheduleAndRun({
@@ -812,7 +812,7 @@ export function runScheduleStoreContractSuite(deps: {
     const toTrigger = await seedScheduled(new Date('2026-08-27T10:00:00.000Z'));
     expect(toTrigger.triggered_at).toBeNull();
     expect(toTrigger.reason).toBeNull();
-    const triggered = await store.updateRunStatus({
+    const triggered = await store.updateRun({
       tenant_id: TENANT,
       id: toTrigger.id,
       status: 'triggered',
@@ -832,7 +832,7 @@ export function runScheduleStoreContractSuite(deps: {
 
     // Pending unique allows only one scheduled row — finish triggered before seeding failed.
     const toFail = await seedScheduled(new Date('2026-08-27T12:00:00.000Z'));
-    const failed = await store.updateRunStatus({
+    const failed = await store.updateRun({
       tenant_id: TENANT,
       id: toFail.id,
       status: 'failed',
@@ -855,7 +855,7 @@ export function runScheduleStoreContractSuite(deps: {
       status: 'scheduled',
       created_by_subject: USER_SUBJECT,
     });
-    const failedWithoutReason = await store.updateRunStatus({
+    const failedWithoutReason = await store.updateRun({
       tenant_id: TENANT,
       id: toFailWithoutReason.id,
       status: 'failed',
@@ -878,7 +878,7 @@ export function runScheduleStoreContractSuite(deps: {
       reason: 'stale failure',
     });
     expect(toClearReason.reason).toBe('stale failure');
-    const cleared = await store.updateRunStatus({
+    const cleared = await store.updateRun({
       tenant_id: TENANT,
       id: toClearReason.id,
       status: 'triggered',
@@ -893,11 +893,57 @@ export function runScheduleStoreContractSuite(deps: {
 
     await store.deleteSchedule({ tenant_id: TENANT, id: schedule.id });
     expect(
-      await store.updateRunStatus({
+      await store.updateRun({
         tenant_id: TENANT,
         id: triggered.id,
         status: 'failed',
       }),
     ).toBeUndefined();
+  });
+
+  it('updateRun with only session_id links the run without touching status fields', async () => {
+    const store = deps.getScheduleStore();
+    const agent = await seedAgent();
+    const { schedule } = await store.createScheduleAndRun({
+      tenant_id: TENANT,
+      agent_id: agent.id,
+      agent_name: agent.name,
+      name: 'run-session',
+      manifest: manifest({ status: 'paused' }),
+      created_by_subject: USER_SUBJECT,
+      runFrom: new Date(),
+    });
+    const triggeredAt = new Date('2026-08-27T10:00:00.000Z');
+    const run = await store.createRun({
+      tenant_id: TENANT,
+      schedule_id: schedule.id,
+      name: cronRunName(triggeredAt),
+      scheduled_for: triggeredAt,
+      status: 'failed',
+      created_by_subject: USER_SUBJECT,
+      triggered_at: triggeredAt,
+      reason: 'turn failed',
+    });
+    expect(run.session_id).toBeNull();
+
+    const linked = await store.updateRun({ tenant_id: TENANT, id: run.id, session_id: 'session-1' });
+    expect(linked).toEqual(
+      expect.objectContaining({
+        id: run.id,
+        session_id: 'session-1',
+        status: 'failed',
+        reason: 'turn failed',
+        triggered_at: run.triggered_at,
+      }),
+    );
+    expect(await store.getRun({ tenant_id: TENANT, id: run.id })).toEqual(linked);
+
+    const retriggered = await store.updateRun({ tenant_id: TENANT, id: run.id, status: 'triggered' });
+    expect(retriggered).toEqual(
+      expect.objectContaining({ status: 'triggered', reason: null, session_id: 'session-1' }),
+    );
+
+    await store.deleteSchedule({ tenant_id: TENANT, id: schedule.id });
+    expect(await store.updateRun({ tenant_id: TENANT, id: run.id, session_id: 'session-2' })).toBeUndefined();
   });
 }

@@ -47,7 +47,7 @@
             "pages": [
               {
                 "group": "Initial Setup",
-                "pages": ["harness/initial-setup", "models", "mcp-servers", "skills", "sandbox"]
+                "pages": ["harness/initial-setup", "models", "mcp-servers", "web-search", "skills", "sandbox"]
               },
               "create-agent/overview",
               "agent-library",

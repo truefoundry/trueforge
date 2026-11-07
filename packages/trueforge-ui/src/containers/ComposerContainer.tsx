@@ -13,11 +13,13 @@ import { useComposerPauseView } from '../hooks/useComposerPauseView.js';
 import { useActiveSessionCanManage } from '../hooks/useResourcePermissions.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { SlotsProvider, useSlot, useSlotIsDefault } from '../theme/SlotsProvider.js';
+import { partitionDroppedFiles } from '../utils/partitionDroppedFiles.js';
 import { ApprovalNavContainer } from './ApprovalNavContainer.js';
 import { AskUserContainer } from './AskUserContainer.js';
 import { ComposerAttachmentsContainer } from './AttachmentsContainer.js';
 import { CustomActionContainer } from './CustomActionContainer.js';
 import { McpAuthContainer } from './McpAuthContainer.js';
+import { useToasterOptional } from './ToasterContainer.js';
 
 export type ComposerContainerProps = {
   placeholder?: string;
@@ -63,6 +65,7 @@ function ComposerBody({
   const { isBusy, send, resetBusy } = useComposerBusyState();
   const canManageSession = useActiveSessionCanManage();
   const cancel = useTrueForgeCancel();
+  const toaster = useToasterOptional();
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Running/pause no longer lock the input — only session permissions do.
   const disabled = !canManageSession;
@@ -112,7 +115,12 @@ function ComposerBody({
               withSessionProps({ file_count: files.length }, { sessionId, ...shellAgent }),
             );
             for (const file of files) {
-              void aui.composer().addAttachment(file);
+              void aui
+                .composer()
+                .addAttachment(file)
+                .catch((error: unknown) => {
+                  toaster?.showError(error);
+                });
             }
           }
           event.target.value = '';
@@ -124,8 +132,15 @@ function ComposerBody({
         className="w-full rounded-[0.75rem] transition-[box-shadow] data-[dragging=true]:ring-focus-ring/20 data-[dragging=true]:ring-3"
         onDropCapture={event => {
           if (disabled) return;
-          const files = event.dataTransfer?.files;
-          if (files == null || files.length === 0) return;
+          const dataTransfer = event.dataTransfer;
+          if (dataTransfer == null) return;
+          const { files, rejectedDirectoryCount } = partitionDroppedFiles(dataTransfer);
+          if (rejectedDirectoryCount > 0) {
+            toaster?.showError(new Error('Folders cannot be attached. Attach individual files instead.'));
+          }
+          // Do not preventDefault: the primitive clears drag state and adds files;
+          // trueForgeAttachmentAdapter rejects directory File objects.
+          if (files.length === 0) return;
           track(
             AnalyticsEvents.Attachment.PICKED,
             withSessionProps({ file_count: files.length }, { sessionId, ...shellAgent }),

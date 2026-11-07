@@ -1,7 +1,18 @@
+import type { LLMCreateParamsStreaming } from './ILLM';
 import type { CompletionUsage } from './LLMTypes';
 
 export function estimateTokensForString(s: string): number {
   return s.length / 4;
+}
+
+/** Inverse of {@link estimateTokensForString}: about how many characters fit in `tokens`. */
+export function estimateCharactersForTokens(tokens: number): number {
+  return tokens * 4;
+}
+
+/** Size label for prompts replacing full content, so the model can size reads without guessing. */
+export function describeContentSize(content: string): string {
+  return `${String(content.length)} characters`;
 }
 
 function sumOptional(a: number | undefined, b: number | undefined): number | undefined {
@@ -21,4 +32,12 @@ export function mergeUsage(a: CompletionUsage, b: CompletionUsage): CompletionUs
     reasoning_tokens: sumOptional(a.reasoning_tokens, b.reasoning_tokens),
     cost_in_usd: sumOptional(a.cost_in_usd, b.cost_in_usd),
   };
+}
+
+/** Prefers `max_completion_tokens`, falling back to the deprecated `max_tokens`. */
+export function resolveMaxOutputTokens(
+  body: Pick<LLMCreateParamsStreaming, 'max_completion_tokens'>,
+): number | undefined {
+  const limit: unknown = body.max_completion_tokens ?? Reflect.get(body, 'max_tokens');
+  return typeof limit === 'number' ? limit : undefined;
 }

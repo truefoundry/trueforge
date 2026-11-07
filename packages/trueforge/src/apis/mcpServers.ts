@@ -4,6 +4,7 @@ import {
   extractErrorLogFields,
   isAuthRequired,
   McpConnectionError,
+  OUTBOUND_URL_BLOCKED,
   RemoteMCP,
 } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
@@ -207,7 +208,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
     try {
       await assertSafeOutboundUrl(incomingManifest.url);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Outbound URL blocked';
+      const message = error instanceof Error ? error.message : OUTBOUND_URL_BLOCKED;
       throw new HTTPException(400, { message: message, cause: error });
     }
 
@@ -287,7 +288,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
     try {
       await assertSafeOutboundUrl(incomingManifest.url);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Outbound URL blocked';
+      const message = error instanceof Error ? error.message : OUTBOUND_URL_BLOCKED;
       throw new HTTPException(400, { message: message, cause: error });
     }
 
@@ -425,7 +426,7 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
     const requestContext = deps.resolveRequestContext(c);
     const userRef = requestContext.subject.id;
 
-    if (returnTo && safeReturnTo(returnTo) !== returnTo) {
+    if (returnTo !== undefined && safeReturnTo(returnTo) !== returnTo) {
       return c.json({ error: { message: 'Invalid return_to: must be a same-origin relative path' } }, 400);
     }
 
@@ -457,7 +458,10 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
         }
         return c.json({ error: { message: error.message } }, 500);
       }
-      deps.logger.error(`MCP authorize unexpected failure for "${name}"`, extractErrorLogFields(error));
+      deps.logger.error(`MCP authorize unexpected failure for "${name}"`, {
+        ...extractErrorLogFields(error),
+        reportable_error: { error, extra: { mcp_server_name: name } },
+      });
       return c.json({ error: { message: 'Internal server error' } }, 500);
     }
   };
@@ -480,7 +484,7 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
       id: name,
       name,
       url: connection.url,
-      headers: connection.headers,
+      headers: connection.headers ?? {},
       requestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
       connectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
       maxResponseBytes: configuration.MCP_TOOL_CALL_MAX_RESPONSE_BYTES,

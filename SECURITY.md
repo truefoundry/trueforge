@@ -6,6 +6,7 @@ Please do **not** report security vulnerabilities through public GitHub issues, 
 
 Instead, report them privately through one of these channels:
 
+- **Vulnerability Disclosure Program (preferred): [vdp.truefoundry.com](https://vdp.truefoundry.com)** — this repository is in scope. The VDP page covers program scope, safe harbor, and disclosure expectations.
 - Email: **[security@truefoundry.com](mailto:security@truefoundry.com)**
 
 Please include as much of the following as you can:

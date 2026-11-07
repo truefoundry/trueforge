@@ -1,11 +1,13 @@
 import { createAgentsRouter } from '../../../src/apis/agents';
 import { TrueForgeAuthorizer, type AgentListAccess, type Authorizer } from '../../../src/auth/authorizer';
-import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
+import { createdBySubjectFromRequestContext, STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import configuration from '../../../src/config';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
+import { SqliteConfigurationStore } from '../../../src/db/sqlite/configuration-store/SqliteConfigurationStore';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
+import { SqliteMemoryProviderStore } from '../../../src/db/sqlite/memory-provider-store/SqliteMemoryProviderStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
@@ -93,21 +95,35 @@ const denyAllAuthorizer: Authorizer = {
 describe('agents router', () => {
   let router: ReturnType<typeof createAgentsRouter>;
   let deniedRouter: ReturnType<typeof createAgentsRouter>;
+  let sandboxEnvironmentStore: SqliteSandboxEnvironmentStore;
+  let sandboxProviderStore: SqliteSandboxProviderStore;
 
   beforeAll(async () => {
     const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
+    sandboxEnvironmentStore = new SqliteSandboxEnvironmentStore(db);
+    sandboxProviderStore = new SqliteSandboxProviderStore(db);
     const modelProviderStore = new SqliteModelProviderStore(db);
     await modelProviderStore.upsertProvider({ tenant_id: 'default', name: 'anthropic', manifest: modelProvider });
+    await new SqliteMemoryProviderStore(db).upsertProvider({
+      tenant_id: 'default',
+      manifest: { type: 'zep', auth: { api_key: 'zep-test-key' } },
+    });
+    await new SqliteConfigurationStore(db).upsertConfiguration({
+      tenant_id: 'default',
+      manifest: { web_search: { enabled: true }, memory: { enabled: true } },
+    });
     const agentStore = new SqliteAgentStore(db);
     router = createAgentsRouter({
       resolveAgentStore: () => agentStore,
       resolveModelProviderStore: () => modelProviderStore,
       resolveMcpServerStore: () => new SqliteMcpServerStore(db),
       resolveSkillStore: () => new SqliteSkillStore(db),
-      resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
-      sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
+      resolveSandboxProviderStore: () => sandboxProviderStore,
+      sandboxEnvironmentStore,
       resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
+      resolveMemoryProviderStore: () => new SqliteMemoryProviderStore(db),
+      resolveConfigurationStore: () => new SqliteConfigurationStore(db),
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
       authorizer: new TrueForgeAuthorizer(),
@@ -117,9 +133,11 @@ describe('agents router', () => {
       resolveModelProviderStore: () => modelProviderStore,
       resolveMcpServerStore: () => new SqliteMcpServerStore(db),
       resolveSkillStore: () => new SqliteSkillStore(db),
-      resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
-      sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
+      resolveSandboxProviderStore: () => sandboxProviderStore,
+      sandboxEnvironmentStore,
       resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
+      resolveMemoryProviderStore: () => new SqliteMemoryProviderStore(db),
+      resolveConfigurationStore: () => new SqliteConfigurationStore(db),
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
       authorizer: denyAllAuthorizer,
@@ -172,6 +190,40 @@ describe('agents router', () => {
     const updatedJson = (await updated.json()) as { data: WireAgent };
     expect(updatedJson.data.description).toBe('Keep me.');
     expect(updatedJson.data.manifest.instructions).toBe('Updated instructions.');
+  });
+
+  it('PUT can flip memory on an existing agent', async () => {
+    const created = await router.request(
+      '/',
+      jsonInit('POST', {
+        ...writeBody,
+        name: 'memory-toggle',
+        manifest: {
+          ...manifest,
+          config: { ...manifest.config, memory: { enabled: true } },
+        },
+      }),
+    );
+    expect(created.status).toBe(201);
+    const createdJson = (await created.json()) as {
+      data: { id: string; manifest: { config?: { memory?: { enabled: boolean } } } };
+    };
+    expect(createdJson.data.manifest.config?.memory).toEqual({ enabled: true });
+
+    const updated = await router.request(
+      `/${createdJson.data.id}`,
+      jsonInit('PUT', {
+        manifest: {
+          ...updateBody.manifest,
+          config: { memory: { enabled: false } },
+        },
+      }),
+    );
+    expect(updated.status).toBe(200);
+    const updatedJson = (await updated.json()) as {
+      data: { manifest: { config?: { memory?: { enabled: boolean } } } };
+    };
+    expect(updatedJson.data.manifest.config?.memory).toEqual({ enabled: false });
   });
 
   it('PUT rejects metadata in the request body', async () => {
@@ -364,5 +416,62 @@ describe('agents router', () => {
       'zzz-filter-bravo-bot',
       'zzz-filter-unrelated',
     ]);
+  });
+
+  it('PUT keeps an agent that already named a now-disabled sandbox environment', async () => {
+    await sandboxProviderStore.upsertSandboxProvider({
+      tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
+      manifest: {
+        type: 'daytona',
+        auth: { api_key: 'dtn-test' },
+        exec_timeout_ms: 60_000,
+        auto_stop_interval_in_minutes: 5,
+        auto_archive_interval_in_minutes: 60,
+        auto_delete_interval_in_minutes: 7200,
+      },
+    });
+    await sandboxEnvironmentStore.upsertEnvironment({
+      tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
+      name: 'retiring-env',
+      description: '',
+      created_by_subject: createdBySubjectFromRequestContext(STANDALONE_REQUEST_CONTEXT),
+      synced_secrets: [],
+      buildVersion: () =>
+        Promise.resolve({
+          version: 1,
+          manifest: {
+            name: 'retiring-env',
+            resources: { cpu: 1, memory: 1, disk: 3 },
+            type: 'daytona' as const,
+            sandbox_provider: 'daytona' as const,
+          },
+          status: 'ready' as const,
+          status_reason: null,
+          external_ref: 'snapshot-1',
+          created_by_subject: createdBySubjectFromRequestContext(STANDALONE_REQUEST_CONTEXT),
+        }),
+    });
+    const pinnedManifest = {
+      ...manifest,
+      config: { sandbox: { enabled: true, environment_name: 'retiring-env' } },
+    };
+    const created = await router.request(
+      '/',
+      jsonInit('POST', { ...writeBody, name: 'pinned-env-agent', manifest: pinnedManifest }),
+    );
+    expect(created.status).toBe(201);
+    const { data: agent } = (await created.json()) as { data: { id: string } };
+
+    await sandboxEnvironmentStore.setEnvironmentEnabled({
+      tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
+      name: 'retiring-env',
+      enabled: false,
+    });
+
+    const res = await router.request(
+      `/${agent.id}`,
+      jsonInit('PUT', { description: 'Updated.', manifest: pinnedManifest }),
+    );
+    expect(res.status).toBe(200);
   });
 });

@@ -119,7 +119,11 @@ export class Controller {
         if (signal.aborted) {
           return;
         }
-        this.#logger.error('Control loop pass failed', { loop: loop.name, error });
+        this.#logger.error('Control loop pass failed', {
+          loop: loop.name,
+          error,
+          reportable_error: { error, extra: { loop: loop.name } },
+        });
       }
     })();
 

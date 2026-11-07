@@ -426,7 +426,7 @@ export class ModelProvidersClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/settings/model-providers/${core.url.encodePathParam(name)}`,
+                `api/v1/settings/model-providers/${core.url.encodePathParam(name, errors.TrueForgeError)}`,
             ),
             method: "DELETE",
             headers: _headers,

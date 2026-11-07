@@ -1,5 +1,5 @@
 /**
- * Package version for logs, the OpenAPI document, and the CLI.
+ * Package version for the OpenAPI document and the CLI.
  *
  * Read from `package.json` next to this module's package root — the same
  * `src/` vs `dist/` layout as `config.ts` (`import.meta` → parent).
@@ -24,3 +24,6 @@ function readPackageVersion(): string {
 }
 
 export const PACKAGE_VERSION = readPackageVersion();
+
+/** Identifies TrueForge and its version on outbound HTTP (model, MCP, ServiceFoundry). */
+export const TRUEFORGE_USER_AGENT = `trueforge/${PACKAGE_VERSION}`;

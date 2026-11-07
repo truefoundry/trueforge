@@ -1,3 +1,25 @@
+## [0.184.0] - 2026-11-05
+
+## [0.184.0-rc.1] - 2026-11-04
+
+## [0.183.0] - 2026-11-03
+
+## [0.183.0-rc.1] - 2026-11-02
+
+## [0.183.0-rc.0] - 2026-11-02
+
+## [0.182.0] - 2026-10-30
+
+## [0.182.0-rc.1] - 2026-10-29
+
+## [0.181.0] - 2026-10-28
+
+## [0.181.0-rc.1] - 2026-10-26
+
+## [0.180.0] - 2026-10-23
+
+## [0.180.0-rc.0] - 2026-10-21
+
 ## [0.179.0] - 2026-10-14
 
 ## [0.179.0-rc.1] - 2026-10-13
@@ -17,6 +39,62 @@
 ## [0.2.1] - 2026-09-29
 
 ## [0.2.1-rc.0] - 2026-09-22
+
+## 0.184.0
+
+### Patch Changes
+
+- f3998c9: Gate Environments chrome and CRUD on provider env support: hide UI and return 422 when the shared sandbox has no snapshot/env concept. Capabilities expose `sandbox.environments.enabled` for that gate.
+- 1b30b71: Add a tenant-wide web search switch stored in the new `configuration` table, with `GET` and `PATCH /api/v1/settings/configuration` behind an admin gate. Capabilities and session or agent writes follow it, so web search cannot be turned on while the switch is off; a spec that already has it on keeps it, which also leaves existing agents and their schedules running. The `settings` capability now reports one entry per settings section with its own `enabled` and `manage_providers`. Catalog settings routes that the deployment does not own answer 422 naming the route, where they previously answered 403.
+
+## 0.184.0-rc.1
+
+### Patch Changes
+
+- f3998c9: Gate Environments chrome and CRUD on provider env support: hide UI and return 422 when the shared sandbox has no snapshot/env concept. Capabilities expose `sandbox.environments.enabled` for that gate.
+- 1b30b71: Add a tenant-wide web search switch stored in the new `configuration` table, with `GET` and `PATCH /api/v1/settings/configuration` behind an admin gate. Capabilities and session or agent writes follow it, so web search cannot be turned on while the switch is off; a spec that already has it on keeps it, which also leaves existing agents and their schedules running. The `settings` capability now reports one entry per settings section with its own `enabled` and `manage_providers`. Catalog settings routes that the deployment does not own answer 422 naming the route, where they previously answered 403.
+
+## 0.183.0
+
+### Patch Changes
+
+- 61872ac: Add a tenant-wide web search switch stored in the new `configuration` table, with `GET` and `PATCH /api/v1/settings/configuration` behind an admin gate. Capabilities and session or agent writes follow it, so web search cannot be turned on while the switch is off; a spec that already has it on keeps it, which also leaves existing agents and their schedules running. The `settings` capability now reports one entry per settings section with its own `enabled` and `manage_providers`. Catalog settings routes that the deployment does not own answer 422 naming the route, where they previously answered 403.
+
+## 0.183.0-rc.1
+
+### Patch Changes
+
+- 61872ac: Add a tenant-wide web search switch stored in the new `configuration` table, with `GET` and `PATCH /api/v1/settings/configuration` behind an admin gate. Capabilities and session or agent writes follow it, so web search cannot be turned on while the switch is off; a spec that already has it on keeps it, which also leaves existing agents and their schedules running. The `settings` capability now reports one entry per settings section with its own `enabled` and `manage_providers`. Catalog settings routes that the deployment does not own answer 422 naming the route, where they previously answered 403.
+
+## 0.182.0
+
+### Patch Changes
+
+- cf786ee: Enable Fern `outputEsm` so the SDK package is `"type": "module"` and `trueforge-dev` star re-exports resolve for workspace ESM importers.
+
+## 0.182.0-rc.1
+
+### Patch Changes
+
+- cf786ee: Enable Fern `outputEsm` so the SDK package is `"type": "module"` and `trueforge-dev` star re-exports resolve for workspace ESM importers.
+
+## 0.181.0
+
+### Patch Changes
+
+- 5bb093e: Regenerate SDK from updated OpenAPI spec.
+- 90c7b1c: Unify admin checks with `hasAdminRole` (tenant-admin in TrueFoundry) and gate sandbox environment create to admins while allowing the creator or an admin to update or delete. Expose schedule and sandbox environment `MANAGE`/`DELETE` (and tenant `sandbox_environment` `CREATE`) via list-permissions so the UI matches the API; settings access remains disabled in TrueFoundry via `canAccessSettings`.
+
+## 0.181.0-rc.1
+
+### Patch Changes
+
+- 5bb093e: Regenerate SDK from updated OpenAPI spec.
+- 90c7b1c: Unify admin checks with `hasAdminRole` (tenant-admin in TrueFoundry) and gate sandbox environment create to admins while allowing the creator or an admin to update or delete. Expose schedule and sandbox environment `MANAGE`/`DELETE` (and tenant `sandbox_environment` `CREATE`) via list-permissions so the UI matches the API; settings access remains disabled in TrueFoundry via `canAccessSettings`.
+
+## 0.180.0
+
+No changes in this release.
 
 ## 0.179.0
 

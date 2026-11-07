@@ -6,6 +6,7 @@ import { makeRequest } from "./makeRequest.js";
 import { redactUrl } from "./redactUrl.js";
 import { requestWithRetries } from "./requestWithRetries.js";
 import { Supplier } from "./Supplier.js";
+import { TIMEOUT } from "./signals.js";
 
 export declare namespace PassthroughRequest {
     /**
@@ -163,22 +164,32 @@ export async function makePassthroughRequest(
         });
     }
 
-    const response = await requestWithRetries(
-        async () =>
-            makeRequest(
-                fetchFn,
-                fullUrl,
-                method,
-                mergedHeaders,
-                body ?? undefined,
-                timeoutMs,
-                abortSignal,
-                effectiveInit?.credentials === "include",
-                undefined, // duplex
-                false, // disableCache
-            ),
-        maxRetries,
-    );
+    let response: Response;
+    try {
+        response = await requestWithRetries(
+            async () =>
+                makeRequest(
+                    fetchFn,
+                    fullUrl,
+                    method,
+                    mergedHeaders,
+                    body ?? undefined,
+                    timeoutMs,
+                    abortSignal,
+                    effectiveInit?.credentials === "include",
+                    undefined, // duplex
+                    false, // disableCache
+                ),
+            maxRetries,
+            abortSignal,
+        );
+    } catch (error) {
+        // Match `fetch`: a timeout rejects with an Error named "TimeoutError", not the bare abort reason.
+        if (error === TIMEOUT) {
+            throw createTimeoutError();
+        }
+        throw error;
+    }
 
     if (logger.isDebug()) {
         logger.debug("Passthrough HTTP request completed", {
@@ -189,6 +200,12 @@ export async function makePassthroughRequest(
     }
 
     return response;
+}
+
+function createTimeoutError(): Error {
+    const error = new Error("The request timed out.");
+    error.name = "TimeoutError";
+    return error;
 }
 
 /**

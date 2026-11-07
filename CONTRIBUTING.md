@@ -14,7 +14,7 @@ By participating you agree to follow our [Code of Conduct](CODE_OF_CONDUCT.md). 
 - **Improve docs** - typo fixes and clarifications are always welcome.
 - **Fix bugs / build features** - for anything non-trivial, please open an issue first so we can discuss the approach before you invest time
 
-For security vulnerabilities, do **not** open a public issue - see [SECURITY.md](SECURITY.md).
+For security vulnerabilities, do **not** open a public issue - submit them at [vdp.truefoundry.com](https://vdp.truefoundry.com), see [SECURITY.md](SECURITY.md).
 
 ### Why we require approvals for community code contributions
 

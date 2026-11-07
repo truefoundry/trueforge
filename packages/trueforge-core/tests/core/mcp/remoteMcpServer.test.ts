@@ -131,6 +131,7 @@ function makeServer(params: {
   const remote = new RemoteMCP({
     name: 'my-inline',
     id: 'inline-id-123',
+    description: 'my-inline MCP server',
     url: 'https://mcp.example.com/mcp',
     headers: params.headers ?? {},
     logger: noopLogger,

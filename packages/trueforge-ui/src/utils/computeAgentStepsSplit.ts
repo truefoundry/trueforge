@@ -1,9 +1,19 @@
 import type { PartState } from '@assistant-ui/core/react';
+import { CONTEXT_COMPACTION_DATA_NAME } from '@truefoundry/trueforge-assistant-ui-runtime';
 
 export type AgentStepPart = {
   type: PartState['type'];
   text?: string;
+  name?: string;
 };
+
+function isAgentStepPart(part: AgentStepPart): boolean {
+  return (
+    part.type === 'tool-call' ||
+    part.type === 'reasoning' ||
+    (part.type === 'data' && part.name === CONTEXT_COMPACTION_DATA_NAME)
+  );
+}
 
 export interface AgentStepsSplitResult {
   cutIndex: number;
@@ -37,10 +47,11 @@ export function computeAgentStepsSplit(parts: readonly AgentStepPart[], isRunnin
 
   const trailingChars = finalTexts.reduce((sum, t) => sum + t.content.length, 0);
 
-  // Only apply the 500-char holdback when there are actual agent steps (tool calls or
-  // reasoning) before the text. For pure-text responses the text is always the final
-  // answer and must stream directly, not be hidden inside the "Agent steps" accordion.
-  const hasAgentStepsBeforeCut = parts.slice(0, cutIdx).some(p => p.type === 'tool-call' || p.type === 'reasoning');
+  // Only apply the 500-char holdback when there are actual agent steps (tool calls,
+  // reasoning, or context compaction) before the text. For pure-text responses the
+  // text is always the final answer and must stream directly, not be hidden inside
+  // the "Agent steps" accordion.
+  const hasAgentStepsBeforeCut = parts.slice(0, cutIdx).some(isAgentStepPart);
 
   const finalConfirmed = finalTexts.length > 0 && (!isRunning || trailingChars >= 500 || !hasAgentStepsBeforeCut);
 

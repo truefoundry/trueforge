@@ -6,6 +6,7 @@ import type { ISessionStore, Sessions, Turn, TurnStreamingEvent } from '@truefou
 import {
   CancellationReason,
   EventType,
+  resolvePreviousTurnId,
   SessionStoreConflictError,
   SessionStoreNotFoundError,
   TurnResourceResolver,
@@ -14,11 +15,12 @@ import {
   type TurnInputItem,
   type TurnRecordWithoutSnapshot,
 } from '@truefoundry/trueforge-core/agent-session';
-import type { IWebSearchProvider } from '@truefoundry/trueforge-core/core';
+import type { AgentCapability, IWebSearchProvider } from '@truefoundry/trueforge-core/core';
 import {
   AgentHarnessError,
   existingSandboxIdForProvider,
   extractErrorLogFields,
+  getOperationMetrics,
   isAgentInputUserMessage,
   isFileContentPart,
   McpConnectionError,
@@ -34,17 +36,29 @@ import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { streamSSE } from 'hono/streaming';
 import type { Logger } from 'winston';
+import type {
+  ResolveCapabilitiesStoreInput,
+  ResolveMcpServerStoreInput,
+  ResolveModelProviderStoreInput,
+  ResolveTurnSkillsStoreInput,
+} from '../app';
 import type { Authorizer } from '../auth/authorizer';
 import type { ResolveRequestContext } from '../auth/identity';
 import configuration from '../config';
+import type { IAccessControlStore } from '../db/accessControlStore';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
+import type { IConfigurationStore } from '../db/configurationStore';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
+import type { IMemoryProviderStore } from '../db/memoryProviderStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
+import { currentLogContext, updateLogContext } from '../logger';
+import type { MemoryProviderCache, TenantMemoryDeps } from '../memory/providers';
+import { resolveSessionMemory } from '../memory/sessionMemory';
 import {
   createAndExecuteTurnRoute,
   createTurnEventRoute,
@@ -64,9 +78,9 @@ import {
   resolveSandboxEnvironment,
   resolveSandboxProvider,
 } from '../runtime/sessionResources';
-import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
 import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
 import { assertGatewayMetadataRequestHeaders } from '../truefoundry/gatewayMetadata';
+import type { ICapabilitiesStore } from '../truefoundry/inlineTools';
 import { newId } from '../utils/id';
 import { resolveWebSearchProvider } from '../websearch/providers';
 import { canReadAgentBoundResource, canReadSession } from './agentAccess';
@@ -116,16 +130,22 @@ export function toContentDisposition(path: string): string {
 export interface TurnsRouterDeps {
   sessions: Sessions;
   sessionStore: ISessionStore;
+  accessControlStore: IAccessControlStore;
   activeTurns: ActiveTurnRegistry;
-  resolveModelProviderStore: (c: Context, runAsAgent?: AgentRecord) => IModelProviderStore;
-  resolveMcpServerStore: (c: Context, runAsAgent?: AgentRecord) => IMcpServerWithAuthStore;
-  resolveSkillStore: (c: Context) => ISkillStore;
+  resolveModelProviderStore: (input: ResolveModelProviderStoreInput) => IModelProviderStore;
+  resolveMcpServerStore: (input: ResolveMcpServerStoreInput) => IMcpServerWithAuthStore;
+  resolveTurnSkillsStore: (input: ResolveTurnSkillsStoreInput) => Pick<ISkillStore, 'resolveTurnSkills'>;
+  /** `x-tfg-tools` for this turn. Schedules omit `c` and mount nothing. */
+  resolveCapabilitiesStore: (input: ResolveCapabilitiesStoreInput) => ICapabilitiesStore;
   resolveAgentStore: (c: Context) => IAgentStore;
   /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore;
   sandboxEnvironmentStore: ISandboxEnvironmentStore;
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore;
+  resolveMemoryProviderStore: (c: Context) => IMemoryProviderStore;
+  resolveConfigurationStore: (c: Context) => IConfigurationStore;
+  memoryProviders: MemoryProviderCache;
   logger: Logger;
   resolveRequestContext: ResolveRequestContext;
   authorizer: Authorizer;
@@ -146,6 +166,9 @@ export type BeginTurnExecutionDeps = Pick<
   sandboxProviderStore: ISandboxProviderStore;
   webSearchProviderStore: IWebSearchProviderStore;
   skillStore: Pick<ISkillStore, 'resolveTurnSkills'>;
+  capabilitiesStore: ICapabilitiesStore;
+  /** Undefined for sessions that never use memory (scheduled runs). */
+  memory: TenantMemoryDeps | undefined;
 };
 
 interface BeginTurnExecutionParams {
@@ -170,11 +193,14 @@ function createTurnResolver(deps: {
   agentStore: IAgentStore;
   modelProviderStore: IModelProviderStore;
   webSearchProvider: IWebSearchProvider | undefined;
+  /** Root-thread memory for this turn; undefined when memory doesn't apply to the session. */
+  memoryCapability: AgentCapability | undefined;
   logger: Logger;
   signal: AbortSignal;
   userRef: string;
   session: SessionHandle;
   turnMetadata: TurnMetadata;
+  capabilitiesStore: ICapabilitiesStore;
 }): TurnResourceResolver {
   const {
     mcpServerStore,
@@ -184,11 +210,13 @@ function createTurnResolver(deps: {
     agentStore,
     modelProviderStore,
     webSearchProvider,
+    memoryCapability,
     logger,
     signal,
     userRef,
     session,
     turnMetadata,
+    capabilitiesStore,
   } = deps;
   const tenant_id = session.tenant_id;
   const sessionId = session.session_id;
@@ -209,6 +237,7 @@ function createTurnResolver(deps: {
         }),
         defaultModelParams: resolved.defaultModelParams,
         modelProperties: resolved.modelProperties,
+        providerType: resolved.providerConfig.provider.type,
       };
     },
     mcp: async name => {
@@ -224,10 +253,7 @@ function createTurnResolver(deps: {
           message: `Unknown MCP server "${name}" — not configured`,
         });
       }
-      return {
-        url: connection.url,
-        headers: connection.headers,
-      };
+      return connection;
     },
     mcpRequestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
     mcpConnectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
@@ -267,9 +293,8 @@ function createTurnResolver(deps: {
       if (provider.envSupported) {
         const environment = await resolveSandboxEnvironment({
           tenant_id,
-          name: spec.config.sandbox.environment_name ?? DEFAULT_SANDBOX_ENVIRONMENT_NAME,
+          name: spec.config.sandbox.environment_name,
           sandboxEnvironmentStore,
-          optional: spec.config.sandbox.environment_name === undefined,
         });
         return buildTurnSandbox({
           provider,
@@ -291,6 +316,11 @@ function createTurnResolver(deps: {
     },
     webSearchProvider,
     logger,
+    // Root thread only: sub-agents get neither memory tools nor the summary.
+    rootCapabilities: () => [
+      ...capabilitiesStore.resolveCapabilities(),
+      ...(memoryCapability === undefined ? [] : [memoryCapability]),
+    ],
   });
 }
 
@@ -378,6 +408,29 @@ export function turnStreamId(tenantId: string, sessionId: string, turnId: string
   return redisKey('agent', 'turn', tenantId, sessionId, turnId, 'stream');
 }
 
+/** Client cancel and a turn replaced by the next one are expected endings. */
+function reportUnexpectedTurnDone({ event, logger }: { event: TurnStreamingEvent; logger: Logger }): void {
+  if (event.type !== EventType.TURN_DONE) {
+    return;
+  }
+  const { state } = event;
+  if (state.status === 'error') {
+    // Only the message remains here. The thrown error was already classified, including provider 4xx.
+    logger.error('turn.done error', extractErrorLogFields(new Error(state.message)));
+    return;
+  }
+  if (
+    state.status === 'cancelled' &&
+    (state.reason === CancellationReason.Abandoned || state.reason === CancellationReason.ServerExecutionTimeout)
+  ) {
+    const error = new Error(state.reason);
+    logger.error('turn.done cancelled', {
+      ...extractErrorLogFields(error),
+      reportable_error: { error, extra: { reason: state.reason } },
+    });
+  }
+}
+
 /**
  * Dual-write turn events to the resumable subscription registry, then optionally
  * forward each sequenced event (SSE path). Shared by streaming and non-streaming
@@ -386,15 +439,14 @@ export function turnStreamId(tenantId: string, sessionId: string, turnId: string
 export async function drainTurnEvents(input: {
   trackedStream: AsyncIterable<TurnStreamingEvent>;
   turnEventStream: EventSubscription<TurnStreamingEvent>;
-  sessionId: string;
-  turnId: string;
   maxExecutionTimer: NodeJS.Timeout;
   logger: Logger;
   onEvent?: (event: TurnStreamingEvent, sequenceNumber: number) => Promise<void>;
 }): Promise<void> {
-  const { trackedStream, turnEventStream, sessionId, turnId, maxExecutionTimer, logger, onEvent } = input;
+  const { trackedStream, turnEventStream, maxExecutionTimer, logger, onEvent } = input;
   try {
     for await (const event of trackedStream) {
+      reportUnexpectedTurnDone({ event, logger });
       // Dual-write before any client sink so subscribers can resume after disconnect.
       const sequenceNumber = await turnEventStream.put(event, {
         streamTTLSeconds: streamTTLSecondsFor(event),
@@ -403,16 +455,11 @@ export async function drainTurnEvents(input: {
     }
   } catch (error) {
     if (error instanceof SessionStoreNotFoundError) {
-      logger.warn('Turn stream ended after session/turn was removed', {
-        sessionId,
-        turnId,
-        ...extractErrorLogFields(error),
-      });
+      logger.warn('Turn stream ended after session/turn was removed', extractErrorLogFields(error));
     } else {
       logger.error('Unexpected error in turn event drain', {
-        sessionId,
-        turnId,
         ...extractErrorLogFields(error),
+        reportable_error: { error },
       });
     }
   } finally {
@@ -424,8 +471,6 @@ export async function drainTurnEvents(input: {
 export interface TurnEventDrainInput {
   trackedStream: AsyncIterable<TurnStreamingEvent>;
   turnEventStream: EventSubscription<TurnStreamingEvent>;
-  sessionId: string;
-  turnId: string;
   maxExecutionTimer: NodeJS.Timeout;
   logger: Logger;
 }
@@ -442,14 +487,28 @@ export async function beginTurnExecution(
   assertGatewayMetadataRequestHeaders(requestHeaders);
   const sessionId = session.session_id;
   const turnId = newId();
+  const tenantId = session.tenant_id;
+  // Before the resolver, so model, MCP, and sandbox lines on this chain carry the ids.
+  updateLogContext({
+    tenant_id: tenantId,
+    session_id: sessionId,
+    turn_id: turnId,
+  });
   const sessionAgent = session.record.agent;
 
   const abortController = new AbortController();
-  const tenant_id = session.tenant_id;
-  const webSearchProvider = await resolveWebSearchProvider({
-    tenant_id,
-    store: deps.webSearchProviderStore,
-  });
+  const [webSearchProvider, memoryCapability] = await Promise.all([
+    resolveWebSearchProvider({ tenant_id: tenantId, store: deps.webSearchProviderStore }),
+    resolveSessionMemory({
+      sessionId,
+      tenantId,
+      record: session.record,
+      isSessionStart: resolvePreviousTurnId(previousTurnId, session.record.last_turn_details?.id) === null,
+      memory: deps.memory,
+      agentStore: deps.agentStore,
+      logger: deps.logger,
+    }),
+  ]);
   const resolver = createTurnResolver({
     mcpServerStore: deps.mcpServerStore,
     skillStore: deps.skillStore,
@@ -458,6 +517,7 @@ export async function beginTurnExecution(
     agentStore: deps.agentStore,
     modelProviderStore: deps.modelProviderStore,
     webSearchProvider,
+    memoryCapability,
     logger: deps.logger,
     signal: abortController.signal,
     userRef,
@@ -468,11 +528,12 @@ export async function beginTurnExecution(
       ...(sessionAgent.type === 'reference' ? { agent: { id: sessionAgent.id, name: sessionAgent.name } } : {}),
       ...(requestHeaders === undefined ? {} : { requestHeaders }),
     },
+    capabilitiesStore: deps.capabilitiesStore,
   });
 
   // First turn only: derive the title from the first user message. The store
   // never overwrites an existing title.
-  const title = session.record.last_turn_id ? undefined : deriveSessionTitle(input);
+  const title = session.record.last_turn_details ? undefined : deriveSessionTitle(input);
 
   const turn = await session.createTurn({
     turn_id: turnId,
@@ -486,6 +547,7 @@ export async function beginTurnExecution(
 
   const maxExecutionTimer = setTimeout(() => {
     if (!abortController.signal.aborted) {
+      getOperationMetrics()?.recordTurnTimeout({ phase: 'execution' });
       abortController.abort(CancellationReason.ServerExecutionTimeout);
     }
   }, configuration.SERVER_EXECUTION_TIMEOUT_SECONDS * 1000);
@@ -499,15 +561,13 @@ export async function beginTurnExecution(
   });
 
   // Held for the whole turn; the stream's sequence counter dies with it.
-  const turnEventStream = deps.eventSubscriptions.get(turnStreamId(tenant_id, sessionId, turn.id));
+  const turnEventStream = deps.eventSubscriptions.get(turnStreamId(tenantId, sessionId, turn.id));
 
   return {
     turn,
     drainInput: {
       trackedStream,
       turnEventStream,
-      sessionId,
-      turnId: turn.id,
       maxExecutionTimer,
       logger: deps.logger,
     },
@@ -618,7 +678,8 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
     const allowed = await canReadSession({
-      shared: session.record.shared,
+      session_id: session.record.session_id,
+      accessControlStore: deps.accessControlStore,
       store: deps.resolveAgentStore(c),
       context: requestContext,
       authorizer: deps.authorizer,
@@ -653,7 +714,8 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
     const allowed = await canReadSession({
-      shared: session.record.shared,
+      session_id: session.record.session_id,
+      accessControlStore: deps.accessControlStore,
       store: deps.resolveAgentStore(c),
       context: requestContext,
       authorizer: deps.authorizer,
@@ -732,10 +794,9 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       }
       deps.logger.error('Sandbox file download failed', {
         ...extractErrorLogFields(error),
-        sessionId,
-        turnId,
         sandboxId,
         path,
+        reportable_error: { error, extra: { sandboxId, path } },
       });
       return c.json({ error: { message: 'Failed to download file from sandbox' } }, 424);
     }
@@ -753,7 +814,8 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
     const allowed = await canReadSession({
-      shared: session.record.shared,
+      session_id: session.record.session_id,
+      accessControlStore: deps.accessControlStore,
       store: deps.resolveAgentStore(c),
       context: requestContext,
       authorizer: deps.authorizer,
@@ -824,6 +886,8 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       referencedAgent = agent;
     }
 
+    // x-tfg-skills / x-tfg-mcp / x-tfg-models on turns only when the session agent is inline.
+    const allowInlineResources = session.record.agent.type === 'inline';
     const turnParams: BeginTurnExecutionParams = {
       session,
       input: body.input,
@@ -832,13 +896,28 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       requestHeaders: c.req.header(),
       deps: {
         ...deps,
-        modelProviderStore: deps.resolveModelProviderStore(c, referencedAgent),
-        mcpServerStore: deps.resolveMcpServerStore(c, referencedAgent),
-        skillStore: deps.resolveSkillStore(c),
+        modelProviderStore: deps.resolveModelProviderStore({
+          c,
+          allowInlineResources,
+          ...(referencedAgent !== undefined ? { runAsAgent: referencedAgent } : {}),
+        }),
+        mcpServerStore: deps.resolveMcpServerStore({
+          c,
+          allowInlineResources,
+          ...(referencedAgent !== undefined ? { runAsAgent: referencedAgent } : {}),
+        }),
+        skillStore: deps.resolveTurnSkillsStore({ c, allowInlineResources }),
+        // Parsed here, before a turn id is minted.
+        capabilitiesStore: deps.resolveCapabilitiesStore({ c }),
         agentStore: deps.resolveAgentStore(c),
         sandboxProviderStore: deps.resolveSandboxProviderStore(c),
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
+        memory: {
+          memoryProviderStore: deps.resolveMemoryProviderStore(c),
+          configurationStore: deps.resolveConfigurationStore(c),
+          providers: deps.memoryProviders,
+        },
       },
     };
 
@@ -850,15 +929,27 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       }
 
       // Stream: same engine; a hung SSE write is timed out so drain/dual-write continue.
-      const { drainInput } = await beginTurnExecution(turnParams);
+      const { drainInput, turn } = await beginTurnExecution(turnParams);
+      // Hono maps client disconnect to stream.abort() (body cancel / AbortSignal)
+      // outside request ALS, so capture ids here and pass them on the disconnect line.
+      const disconnectLogContext = {
+        ...currentLogContext(),
+        session_id: sessionId,
+        turn_id: turn.id,
+      };
       let shouldWriteToSSEStream = true;
+      let closedByServer = false;
       return streamSSE(c, async stream => {
         stream.onAbort(() => {
+          if (closedByServer) {
+            return;
+          }
+          getOperationMetrics()?.recordTurnSseDisconnect({ path: 'create' });
           shouldWriteToSSEStream = false;
-          deps.logger.info('Create-turn SSE client disconnected, continuing drain without writing', {
-            sessionId,
-            turnId: drainInput.turnId,
-          });
+          deps.logger.info(
+            'Create-turn SSE client disconnected, continuing drain without writing',
+            disconnectLogContext,
+          );
         });
         await drainTurnEvents({
           ...drainInput,
@@ -871,6 +962,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
                 );
               } catch (error) {
                 if (error instanceof PromiseTimeoutError) {
+                  getOperationMetrics()?.recordTurnTimeout({ phase: 'sse_write' });
                   deps.logger.error('SSE stream write timed out', extractErrorLogFields(error));
                 } else {
                   deps.logger.error('SSE stream write error', extractErrorLogFields(error));
@@ -881,6 +973,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
           },
         });
         if (!shouldWriteToSSEStream && !stream.closed) {
+          closedByServer = true;
           stream.abort();
         }
         await stream.close();
@@ -940,9 +1033,8 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     const subscribeAbort = new AbortController();
     const timeoutMs = configuration.TURN_SUBSCRIBE_TIMEOUT_MS;
     const timeoutHandler = setTimeout(() => {
+      getOperationMetrics()?.recordTurnTimeout({ phase: 'subscribe' });
       deps.logger.info('Subscribe turn stream server-side timeout reached, closing stream', {
-        sessionId,
-        turnId,
         afterSequenceNumber,
         timeoutMs,
       });
@@ -951,6 +1043,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
 
     return streamSSE(c, async stream => {
       stream.onAbort(() => {
+        getOperationMetrics()?.recordTurnSseDisconnect({ path: 'subscribe' });
         subscribeAbort.abort(new Error('client-disconnected'));
       });
 
@@ -964,7 +1057,10 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         }
       } catch (error) {
         if (!subscribeAbort.signal.aborted) {
-          deps.logger.error('Unexpected error in turn subscribe SSE loop', extractErrorLogFields(error));
+          deps.logger.error('Unexpected error in turn subscribe SSE loop', {
+            ...extractErrorLogFields(error),
+            reportable_error: { error },
+          });
         }
       } finally {
         clearTimeout(timeoutHandler);

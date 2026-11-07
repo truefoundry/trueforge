@@ -10,15 +10,12 @@ export function isReservedEnvironmentName(name: string): boolean {
   return name.trim() === RESERVED_ENVIRONMENT_NAME;
 }
 
-export function isEnvironmentReadOnly(
-  env: Pick<SandboxEnvironment, 'name' | 'createdBySubject'>,
-  currentSubjectId?: string,
-): boolean {
-  return (
-    isReservedEnvironmentName(env.name) ||
-    currentSubjectId === undefined ||
-    env.createdBySubject.subjectId !== currentSubjectId
-  );
+/** Why an environment cannot be picked for a new chat or agent, or undefined when it can. */
+export function environmentUnavailableReason(env: Pick<SandboxEnvironment, 'status' | 'enabled'>): string | undefined {
+  if (!env.enabled) return 'Disabled by an admin. Existing chats and agents keep using it.';
+  if (env.status === 'pending') return 'Still building. Available once the build finishes.';
+  if (env.status === 'failed') return 'The last build failed. Fix it under Manage Environments.';
+  return undefined;
 }
 
 export function formatResourcesSummary(resources: SandboxEnvironmentManifest['resources']): string {

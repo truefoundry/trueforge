@@ -18,6 +18,8 @@ import {
   ModelMessageDeltaEventSchema,
   ModelMessageEventSchema,
   SandboxCreatedEventSchema,
+  ThreadContextCompactionFinishedEventSchema,
+  ThreadContextCompactionStartedEventSchema,
   ThreadCreatedEventSchema,
   ThreadDoneEventSchema,
   ToolApprovalRequiredEventSchema,
@@ -28,7 +30,7 @@ import {
   UserToolApprovalPolicyEventSchema,
   UserToolResponseEventSchema,
 } from '@truefoundry/trueforge-core/core';
-import { EVENTS_PAGE_LIMIT } from './common';
+import { EventsPageLimitQuerySchema } from './common';
 
 export type { TurnCreatedEvent } from '@truefoundry/trueforge-core/agent-session';
 export { EventType };
@@ -62,6 +64,8 @@ export const TurnStreamingEventSchema = z
     ToolResponseEventSchema,
     ThreadCreatedEventSchema,
     ThreadDoneEventSchema,
+    ThreadContextCompactionStartedEventSchema,
+    ThreadContextCompactionFinishedEventSchema,
     MCPAuthRequiredEventSchema,
     MCPInitializeEventSchema,
     SandboxCreatedEventSchema,
@@ -91,14 +95,7 @@ export const ListSessionEventsRequestQuerySchema = z
       .describe(
         'Newest turn in the listing window (initial load only; ignored when `page_token` is set). Lists that turn and its ancestors, newest events first. Omit to use the session last turn.',
       ),
-    limit: z.coerce
-      .number()
-      .int()
-      .min(1)
-      .max(EVENTS_PAGE_LIMIT)
-      .optional()
-      .default(EVENTS_PAGE_LIMIT)
-      .describe(`Page size. Defaults to ${String(EVENTS_PAGE_LIMIT)}, max ${String(EVENTS_PAGE_LIMIT)}.`),
+    limit: EventsPageLimitQuerySchema,
   })
   .openapi('ListSessionEventsRequestQuery');
 

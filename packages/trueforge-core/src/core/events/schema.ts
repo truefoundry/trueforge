@@ -29,6 +29,8 @@ export function newEventId(): string {
 /** Canonical string constants for harness wire-level and user-input event `type` fields. */
 export const EventType = {
   AGENT_CONTEXT_OVERWRITE: 'agent.context.overwrite',
+  THREAD_CONTEXT_COMPACTION_STARTED: 'thread.context_compaction_started',
+  THREAD_CONTEXT_COMPACTION_FINISHED: 'thread.context_compaction_finished',
   MCP_AUTH_REQUIRED: 'mcp.auth_required',
   MCP_INITIALIZE: 'mcp.initialize',
   MODEL_MESSAGE: 'model.message',
@@ -322,11 +324,8 @@ const ContextMessageSchema = z.union([
   AgentApprovalDecisionMessageSchema,
 ]);
 
+/** Compacted thread context after summarization. Not streamed; mutates durable thread state. */
 export const ThreadOverwriteContextEventSchema = z.object({
-  // TODO(agent): This will be used by summarization.
-
-  // TODO(agent): For summarization, we will add a AgentExecutionContextSummarizationStart and AgentExecutionContextSummarizationEnd
-  // event. Summarization can take some time, this will ensure that the customer is aware of what is happening.
   type: z.literal(EventType.AGENT_CONTEXT_OVERWRITE),
   id: EventIdSchema,
   created_at: z.string(),
@@ -338,6 +337,47 @@ export const ThreadOverwriteContextEventSchema = z.object({
   current_context_usage: CurrentContextUsageSchema,
   usage: CompletionUsageSchema,
 });
+
+/** Why compaction ran. Promote to a discriminated union when another trigger lands. */
+export const CompactionTriggerSchema = z
+  .object({
+    type: z
+      .literal('context_threshold_exceeded')
+      .describe('Triggered because estimated context crossed the compaction threshold.'),
+    context_tokens: z
+      .number()
+      .int()
+      .nonnegative()
+      .describe('Estimated context tokens when compaction fired (prompt + completion).'),
+    threshold_tokens: z.number().int().positive().describe('Configured compaction threshold in tokens.'),
+  })
+  .openapi('CompactionTrigger');
+
+export const ThreadContextCompactionStartedEventSchema = z
+  .object({
+    type: z
+      .literal(EventType.THREAD_CONTEXT_COMPACTION_STARTED)
+      .describe('Thread context compaction started; may take noticeable time.'),
+    id: EventIdSchema,
+    created_at: z.string().describe('ISO 8601 event timestamp.'),
+    thread_id: z.string().describe('Thread whose context is being compacted.'),
+    trigger: CompactionTriggerSchema.describe('Why compaction was triggered.'),
+  })
+  .openapi('ThreadContextCompactionStartedEvent');
+
+export const ThreadContextCompactionFinishedEventSchema = z
+  .object({
+    type: z
+      .literal(EventType.THREAD_CONTEXT_COMPACTION_FINISHED)
+      .describe('Thread context compaction finished; context overwrite follows.'),
+    id: EventIdSchema,
+    created_at: z.string().describe('ISO 8601 event timestamp.'),
+    thread_id: z.string().describe('Thread whose context was compacted.'),
+    trigger: CompactionTriggerSchema.describe('Why compaction was triggered.'),
+    usage: CompletionUsageSchema.describe('Token usage for the compaction model call.'),
+    duration_ms: z.number().int().nonnegative().describe('Wall time of the compaction model call in milliseconds.'),
+  })
+  .openapi('ThreadContextCompactionFinishedEvent');
 
 export const MCPServerAuthInfoSchema = z
   .object({
@@ -442,6 +482,8 @@ export const AgentOutputEventSchema = z.discriminatedUnion('type', [
   ToolResponseEventSchema,
   ThreadCreatedEventSchema,
   ThreadDoneEventSchema,
+  ThreadContextCompactionStartedEventSchema,
+  ThreadContextCompactionFinishedEventSchema,
   MCPAuthRequiredEventSchema,
   MCPInitializeEventSchema,
   SandboxCreatedEventSchema,
@@ -473,6 +515,9 @@ export type ThreadStateError = z.infer<typeof ThreadStateErrorSchema>;
 export type ThreadState = z.infer<typeof ThreadStateSchema>;
 export type ThreadDoneEvent = z.infer<typeof ThreadDoneEventSchema>;
 export type ThreadOverwriteContextEvent = z.infer<typeof ThreadOverwriteContextEventSchema>;
+export type CompactionTrigger = z.infer<typeof CompactionTriggerSchema>;
+export type ThreadContextCompactionStartedEvent = z.infer<typeof ThreadContextCompactionStartedEventSchema>;
+export type ThreadContextCompactionFinishedEvent = z.infer<typeof ThreadContextCompactionFinishedEventSchema>;
 export type BaseMCPAuthRequiredEvent = z.infer<typeof BaseMCPAuthRequiredEventSchema>;
 export type MCPServerAuthInfo = z.infer<typeof MCPServerAuthInfoSchema>;
 export type MCPAuthRequiredEvent = z.infer<typeof MCPAuthRequiredEventSchema>;

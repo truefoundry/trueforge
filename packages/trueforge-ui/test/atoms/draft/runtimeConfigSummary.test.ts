@@ -14,17 +14,37 @@ describe('runtimeConfigValueClassName', () => {
 });
 
 describe('runtimeConfigSummary', () => {
-  it('omits web search when the host capability is unavailable', () => {
-    expect(runtimeConfigSummary({ webSearch: { enabled: false } }).map(entry => entry.label)).not.toContain(
-      'web search',
-    );
+  it('lists web search even when the host capability is unavailable', () => {
+    expect(runtimeConfigSummary({ webSearch: { enabled: true } }).find(entry => entry.label === 'web search')).toEqual({
+      label: 'web search',
+      value: 'on',
+    });
   });
 
-  it('includes web search when the host capability is available', () => {
+  it('falls back to the host capability when the spec says nothing', () => {
+    expect(runtimeConfigSummary({}, { webSearchAvailable: true }).find(entry => entry.label === 'web search')).toEqual({
+      label: 'web search',
+      value: 'on',
+    });
+    expect(runtimeConfigSummary({}).find(entry => entry.label === 'web search')).toEqual({
+      label: 'web search',
+      value: 'off',
+    });
+  });
+
+  it('includes memory defaulting to off when the host offers it', () => {
+    expect(runtimeConfigSummary({}, { memoryOffered: true }).find(entry => entry.label === 'memory')).toEqual({
+      label: 'memory',
+      value: 'off',
+    });
     expect(
-      runtimeConfigSummary({ webSearch: { enabled: false } }, { webSearchAvailable: true }).find(
-        entry => entry.label === 'web search',
+      runtimeConfigSummary({ memory: { enabled: true } }, { memoryOffered: true }).find(
+        entry => entry.label === 'memory',
       ),
-    ).toEqual({ label: 'web search', value: 'off' });
+    ).toEqual({ label: 'memory', value: 'on' });
+  });
+
+  it('omits memory when the host does not offer it', () => {
+    expect(runtimeConfigSummary({ memory: { enabled: true } }).map(entry => entry.label)).not.toContain('memory');
   });
 });

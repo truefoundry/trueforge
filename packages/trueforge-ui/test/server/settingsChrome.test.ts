@@ -1,30 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { isSettingsChromeEnabled } from '@/server/settingsChrome.js';
-import { createMockCatalog } from './mockServer.js';
+import * as serverChrome from '@/server/serverChrome.js';
+import * as settingsChrome from '@/server/settingsChrome.js';
 
-/** Re-export path still works for Settings chrome. */
-describe('isSettingsChromeEnabled', () => {
-  const catalog = createMockCatalog();
-
-  it('requires a catalog and explicit settings capability', () => {
-    expect(isSettingsChromeEnabled({ catalog: null, capabilities: null })).toBe(false);
-    expect(isSettingsChromeEnabled({ catalog, capabilities: null })).toBe(false);
-    expect(isSettingsChromeEnabled({ catalog, capabilities: {} })).toBe(false);
-    expect(
-      isSettingsChromeEnabled({
-        catalog,
-        capabilities: { settings: { enabled: true } },
-      }),
-    ).toBe(true);
-  });
-
-  it('is false when settings capability is disabled', () => {
-    expect(
-      isSettingsChromeEnabled({
-        catalog,
-        capabilities: { settings: { enabled: false } },
-      }),
-    ).toBe(false);
+/** The deprecated path stays a pass-through, so gate behaviour is asserted once in serverChrome. */
+describe('settingsChrome', () => {
+  it('forwards every chrome gate to serverChrome', () => {
+    expect(settingsChrome.isSettingsChromeEnabled).toBe(serverChrome.isSettingsChromeEnabled);
+    expect(settingsChrome.isSessionsChromeEnabled).toBe(serverChrome.isSessionsChromeEnabled);
+    expect(settingsChrome.isSchedulesChromeEnabled).toBe(serverChrome.isSchedulesChromeEnabled);
+    expect(settingsChrome.isMetricsChromeEnabled).toBe(serverChrome.isMetricsChromeEnabled);
+    expect(settingsChrome.toEffectiveRoutes).toBe(serverChrome.toEffectiveRoutes);
   });
 });

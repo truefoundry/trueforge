@@ -8,7 +8,9 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from .raw_client import AsyncRawSettingsClient, RawSettingsClient
 
 if typing.TYPE_CHECKING:
+    from .configuration.client import AsyncConfigurationClient, ConfigurationClient
     from .mcp_servers.client import AsyncMcpServersClient, McpServersClient
+    from .memory_providers.client import AsyncMemoryProvidersClient, MemoryProvidersClient
     from .model_providers.client import AsyncModelProvidersClient, ModelProvidersClient
     from .sandbox_providers.client import AsyncSandboxProvidersClient, SandboxProvidersClient
     from .skills.client import AsyncSkillsClient, SkillsClient
@@ -19,7 +21,9 @@ class SettingsClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._raw_client = RawSettingsClient(client_wrapper=client_wrapper)
         self._client_wrapper = client_wrapper
+        self._configuration: typing.Optional[ConfigurationClient] = None
         self._mcp_servers: typing.Optional[McpServersClient] = None
+        self._memory_providers: typing.Optional[MemoryProvidersClient] = None
         self._model_providers: typing.Optional[ModelProvidersClient] = None
         self._sandbox_providers: typing.Optional[SandboxProvidersClient] = None
         self._skills: typing.Optional[SkillsClient] = None
@@ -37,12 +41,28 @@ class SettingsClient:
         return self._raw_client
 
     @property
+    def configuration(self):
+        if self._configuration is None:
+            from .configuration.client import ConfigurationClient  # noqa: E402
+
+            self._configuration = ConfigurationClient(client_wrapper=self._client_wrapper)
+        return self._configuration
+
+    @property
     def mcp_servers(self):
         if self._mcp_servers is None:
             from .mcp_servers.client import McpServersClient  # noqa: E402
 
             self._mcp_servers = McpServersClient(client_wrapper=self._client_wrapper)
         return self._mcp_servers
+
+    @property
+    def memory_providers(self):
+        if self._memory_providers is None:
+            from .memory_providers.client import MemoryProvidersClient  # noqa: E402
+
+            self._memory_providers = MemoryProvidersClient(client_wrapper=self._client_wrapper)
+        return self._memory_providers
 
     @property
     def model_providers(self):
@@ -81,7 +101,9 @@ class AsyncSettingsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._raw_client = AsyncRawSettingsClient(client_wrapper=client_wrapper)
         self._client_wrapper = client_wrapper
+        self._configuration: typing.Optional[AsyncConfigurationClient] = None
         self._mcp_servers: typing.Optional[AsyncMcpServersClient] = None
+        self._memory_providers: typing.Optional[AsyncMemoryProvidersClient] = None
         self._model_providers: typing.Optional[AsyncModelProvidersClient] = None
         self._sandbox_providers: typing.Optional[AsyncSandboxProvidersClient] = None
         self._skills: typing.Optional[AsyncSkillsClient] = None
@@ -99,12 +121,28 @@ class AsyncSettingsClient:
         return self._raw_client
 
     @property
+    def configuration(self):
+        if self._configuration is None:
+            from .configuration.client import AsyncConfigurationClient  # noqa: E402
+
+            self._configuration = AsyncConfigurationClient(client_wrapper=self._client_wrapper)
+        return self._configuration
+
+    @property
     def mcp_servers(self):
         if self._mcp_servers is None:
             from .mcp_servers.client import AsyncMcpServersClient  # noqa: E402
 
             self._mcp_servers = AsyncMcpServersClient(client_wrapper=self._client_wrapper)
         return self._mcp_servers
+
+    @property
+    def memory_providers(self):
+        if self._memory_providers is None:
+            from .memory_providers.client import AsyncMemoryProvidersClient  # noqa: E402
+
+            self._memory_providers = AsyncMemoryProvidersClient(client_wrapper=self._client_wrapper)
+        return self._memory_providers
 
     @property
     def model_providers(self):

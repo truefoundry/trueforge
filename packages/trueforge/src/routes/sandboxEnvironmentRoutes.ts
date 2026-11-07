@@ -10,6 +10,7 @@ import {
   DeleteSandboxEnvironmentResponseSchema,
   GetSandboxEnvironmentResponseSchema,
   ListSandboxEnvironmentsResponseSchema,
+  PatchSandboxEnvironmentRequestSchema,
   UpdateSandboxEnvironmentRequestSchema,
 } from '../schemas/sandboxEnvironment';
 import { TOKEN_PAGINATION } from './fernExtensions';
@@ -117,6 +118,10 @@ export const createSandboxEnvironmentRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Unauthenticated.',
     },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'User does not have permission to edit Sandbox environment',
+    },
     409: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'A sandbox environment with this name already exists.',
@@ -159,6 +164,10 @@ export const putSandboxEnvironmentRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Unauthenticated.',
     },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'User does not have permission to edit Sandbox environment',
+    },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Sandbox environment not found.',
@@ -178,12 +187,60 @@ export const putSandboxEnvironmentRoute = createRoute({
   },
 });
 
+export const patchSandboxEnvironmentRoute = createRoute({
+  method: 'patch',
+  path: '/{name}',
+  tags: [OpenApiTag.SANDBOXES],
+  summary: 'Update sandbox environment flags',
+  description: 'Update sandbox environment metadata.',
+  'x-fern-sdk-group-name': ['sandboxEnvironments'],
+  'x-fern-sdk-method-name': 'update',
+  request: {
+    params: SandboxEnvironmentNameParamsSchema,
+    body: {
+      content: { 'application/json': { schema: PatchSandboxEnvironmentRequestSchema } },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: GetSandboxEnvironmentResponseSchema } },
+      description: 'The updated sandbox environment.',
+    },
+    400: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid request body.',
+    },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Unauthenticated.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'User cannot edit this environment.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Sandbox environment not found.',
+    },
+    409: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Environment is disabled when setting default, or the default changed concurrently.',
+    },
+    422: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Sandbox provider is missing or does not support environments.',
+    },
+  },
+});
+
 export const deleteSandboxEnvironmentRoute = createRoute({
   method: 'delete',
   path: '/{name}',
   tags: [OpenApiTag.SANDBOXES],
   summary: 'Delete a sandbox environment',
-  description: 'Delete a sandbox environment, fails if any agent still references it.',
+  description:
+    'Delete a sandbox environment. Fails if any agent still references it, if it is the tenant default, or if it is the reserved "default" environment.',
   'x-fern-sdk-group-name': ['sandboxEnvironments'],
   'x-fern-sdk-method-name': 'delete',
   request: {
@@ -192,19 +249,19 @@ export const deleteSandboxEnvironmentRoute = createRoute({
   responses: {
     200: {
       content: { 'application/json': { schema: DeleteSandboxEnvironmentResponseSchema } },
-      description: 'Sandbox environment deleted.',
+      description: 'Sandbox environment deleted, or already absent.',
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Unauthenticated.',
     },
-    404: {
+    403: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Sandbox environment not found or not owned by the caller.',
+      description: 'User does not have permission to edit Sandbox environment',
     },
     409: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Environment is referenced by one or more agents.',
+      description: 'Environment is referenced by an agent, is the tenant default, or is the reserved "default".',
     },
     422: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

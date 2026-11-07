@@ -7,6 +7,8 @@ export type SessionEvent =
     | TrueForge.McpInitializeEvent
     | TrueForge.ModelMessageEvent
     | TrueForge.SandboxCreatedEvent
+    | TrueForge.ThreadContextCompactionFinishedEvent
+    | TrueForge.ThreadContextCompactionStartedEvent
     | TrueForge.ThreadCreatedEvent
     | TrueForge.ThreadDoneEvent
     | TrueForge.ToolApprovalRequiredEvent
