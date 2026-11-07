@@ -434,7 +434,7 @@ class RawSandboxEnvironmentsClient:
         self, *, name: str, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[DeleteSandboxEnvironmentResponse]:
         """
-        Delete a sandbox environment, fails if any agent still references it.
+        Delete a sandbox environment. Fails if any agent still references it, if it is the tenant default, or if it is the reserved "default" environment.
 
         Parameters
         ----------
@@ -447,7 +447,7 @@ class RawSandboxEnvironmentsClient:
         Returns
         -------
         HttpResponse[DeleteSandboxEnvironmentResponse]
-            Sandbox environment deleted.
+            Sandbox environment deleted, or already absent.
         """
         _response = self._client_wrapper.httpx_client.request(
             f"api/v1/sandbox-environments/{encode_path_param(name)}",
@@ -464,6 +464,134 @@ class RawSandboxEnvironmentsClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 502:
+                raise BadGatewayError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def update(
+        self,
+        *,
+        name: str,
+        enabled: typing.Optional[bool] = OMIT,
+        is_default: typing.Optional[bool] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[GetSandboxEnvironmentResponse]:
+        """
+        Update sandbox environment metadata.
+
+        Parameters
+        ----------
+        name : str
+            Sandbox environment name.
+
+        enabled : typing.Optional[bool]
+            Whether new chats and agents may select this environment.
+
+        is_default : typing.Optional[bool]
+            If true, make this environment the default in new chats and agents.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[GetSandboxEnvironmentResponse]
+            The updated sandbox environment.
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v1/sandbox-environments/{encode_path_param(name)}",
+            method="PATCH",
+            json={
+                "enabled": enabled,
+                "is_default": is_default,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    GetSandboxEnvironmentResponse,
+                    construct_type(
+                        type_=GetSandboxEnvironmentResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 401:
                 raise UnauthorizedError(
                     headers=dict(_response.headers),
@@ -510,17 +638,6 @@ class RawSandboxEnvironmentsClient:
                 )
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        RequestErrorResponse,
-                        construct_type(
-                            type_=RequestErrorResponse,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 502:
-                raise BadGatewayError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         RequestErrorResponse,
@@ -946,7 +1063,7 @@ class AsyncRawSandboxEnvironmentsClient:
         self, *, name: str, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[DeleteSandboxEnvironmentResponse]:
         """
-        Delete a sandbox environment, fails if any agent still references it.
+        Delete a sandbox environment. Fails if any agent still references it, if it is the tenant default, or if it is the reserved "default" environment.
 
         Parameters
         ----------
@@ -959,7 +1076,7 @@ class AsyncRawSandboxEnvironmentsClient:
         Returns
         -------
         AsyncHttpResponse[DeleteSandboxEnvironmentResponse]
-            Sandbox environment deleted.
+            Sandbox environment deleted, or already absent.
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"api/v1/sandbox-environments/{encode_path_param(name)}",
@@ -976,6 +1093,134 @@ class AsyncRawSandboxEnvironmentsClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 502:
+                raise BadGatewayError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def update(
+        self,
+        *,
+        name: str,
+        enabled: typing.Optional[bool] = OMIT,
+        is_default: typing.Optional[bool] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[GetSandboxEnvironmentResponse]:
+        """
+        Update sandbox environment metadata.
+
+        Parameters
+        ----------
+        name : str
+            Sandbox environment name.
+
+        enabled : typing.Optional[bool]
+            Whether new chats and agents may select this environment.
+
+        is_default : typing.Optional[bool]
+            If true, make this environment the default in new chats and agents.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[GetSandboxEnvironmentResponse]
+            The updated sandbox environment.
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v1/sandbox-environments/{encode_path_param(name)}",
+            method="PATCH",
+            json={
+                "enabled": enabled,
+                "is_default": is_default,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    GetSandboxEnvironmentResponse,
+                    construct_type(
+                        type_=GetSandboxEnvironmentResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 401:
                 raise UnauthorizedError(
                     headers=dict(_response.headers),
@@ -1022,17 +1267,6 @@ class AsyncRawSandboxEnvironmentsClient:
                 )
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        RequestErrorResponse,
-                        construct_type(
-                            type_=RequestErrorResponse,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 502:
-                raise BadGatewayError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         RequestErrorResponse,

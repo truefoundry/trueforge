@@ -10,7 +10,7 @@ import {
   listPendingSandboxEnvironmentVersionsRoute,
   progressSandboxEnvironmentVersionRoute,
 } from '../routes/sandboxEnvironmentBuildRoutes';
-import { progressSandboxEnvironmentVersion } from '../sandbox/progressSandboxEnvironmentVersion';
+import { progressSandboxEnvironmentVersion } from '../sandbox/environment/progressVersion';
 
 export interface SandboxEnvironmentBuildRouterDeps {
   sandboxEnvironmentStore: ISandboxEnvironmentStore;

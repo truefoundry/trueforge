@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import WebSearchSettings from '@/containers/SettingsBuilder/WebSearchSettings.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import type { ConfigurationServer, WebSearchCatalogServer } from '@/server/types.js';
-import { createMockAgentUIServer, createMockCatalog } from '../../server/mockServer.js';
+import { createMockAgentUIServer, createMockCatalog, tenantSessionSharing } from '../../server/mockServer.js';
 import { allSettingsSections } from '../../server/settingsCapabilityFixture.js';
 
 async function unavailable(): Promise<never> {
@@ -32,6 +32,7 @@ function renderSettings(
       data: {
         sandbox: { enabled: true },
         skill: { enabled: true },
+        sessionSharing: tenantSessionSharing,
         settings: { ...sections, webSearch: { enabled: true, manageProviders } },
       },
     }),

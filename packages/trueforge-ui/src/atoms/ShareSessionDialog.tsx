@@ -223,7 +223,7 @@ export function ShareSessionDialog({ sessionId, trigger }: ShareSessionDialogPro
   const {
     permission,
     canChangePermission,
-    canInvite,
+    canShare,
     loading,
     shareUrl,
     copied,
@@ -266,7 +266,7 @@ export function ShareSessionDialog({ sessionId, trigger }: ShareSessionDialogPro
           void changePermission(next);
         }}
       />
-      {canInvite ? (
+      {canShare ? (
         <InviteCollaborators
           excludedIds={new Set([...collaborators.map(grant => grant.subjectId), ...(owner == null ? [] : [owner.id])])}
           onInvite={async users => {
@@ -292,7 +292,7 @@ export function ShareSessionDialog({ sessionId, trigger }: ShareSessionDialogPro
                 key={grant.subjectId}
                 label={label}
                 role="Can access"
-                {...(canInvite
+                {...(canShare
                   ? {
                       action: {
                         label: `Remove ${label}`,

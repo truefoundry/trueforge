@@ -822,7 +822,7 @@ client.mcp_servers.authorize(
 <dl>
 <dd>
 
-**return_to:** `typing.Optional[str]` — Same-origin path to land in the browser after consent.
+**return_to:** `typing.Optional[str]` — Same-origin path to land in the browser after consent. When omitted, no post-consent redirect is requested.
     
 </dd>
 </dl>
@@ -1346,7 +1346,7 @@ client.sandbox_environments.get(
 <dl>
 <dd>
 
-Delete a sandbox environment, fails if any agent still references it.
+Delete a sandbox environment. Fails if any agent still references it, if it is the tenant default, or if it is the reserved "default" environment.
 </dd>
 </dl>
 </dd>
@@ -1387,6 +1387,94 @@ client.sandbox_environments.delete(
 <dd>
 
 **name:** `str` — Sandbox environment name.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.sandbox_environments.<a href="src/trueforge_sdk/sandbox_environments/client.py">update</a>(...) -> GetSandboxEnvironmentResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Update sandbox environment metadata.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.sandbox_environments.update(
+    name="name",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**name:** `str` — Sandbox environment name.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**enabled:** `typing.Optional[bool]` — Whether new chats and agents may select this environment.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**is_default:** `typing.Optional[bool]` — If true, make this environment the default in new chats and agents.
     
 </dd>
 </dl>

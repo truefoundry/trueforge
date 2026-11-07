@@ -3408,6 +3408,20 @@
         ],
         "type": "object"
       },
+      "PatchSandboxEnvironmentRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "description": "Whether new chats and agents may select this environment.",
+            "type": "boolean"
+          },
+          "is_default": {
+            "description": "If true, make this environment the default in new chats and agents.",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
       "PendingSandboxEnvironmentVersion": {
         "additionalProperties": false,
         "properties": {
@@ -3846,10 +3860,18 @@
             "description": "Human-readable description; empty when unset.",
             "type": "string"
           },
+          "enabled": {
+            "description": "Whether new chats and agents may select this environment.",
+            "type": "boolean"
+          },
           "id": {
             "description": "Immutable server-generated environment identifier.",
             "minLength": 1,
             "type": "string"
+          },
+          "is_default": {
+            "description": "If true, environment is selected by default in new chats and agents.",
+            "type": "boolean"
           },
           "lifecycle_stage": {
             "$ref": "#/components/schemas/SandboxEnvironmentLifecycleStage"
@@ -3881,6 +3903,8 @@
           "name",
           "description",
           "lifecycle_stage",
+          "enabled",
+          "is_default",
           "status",
           "status_reason",
           "manifest",
@@ -4842,13 +4866,17 @@
       },
       "SessionSharingCapability": {
         "properties": {
-          "enabled": {
-            "description": "Whether sessions can be shared with specific users. Sharing with the whole tenant is always available.",
-            "type": "boolean"
+          "granularity": {
+            "description": "The finest supported sharing scope. Subject allows sharing with specific users; tenant-wide sharing is always available.",
+            "enum": [
+              "tenant",
+              "subject"
+            ],
+            "type": "string"
           }
         },
         "required": [
-          "enabled"
+          "granularity"
         ],
         "type": "object"
       },
@@ -8416,12 +8444,13 @@
             }
           },
           {
-            "description": "Same-origin path to land in the browser after consent.",
+            "description": "Same-origin path to land in the browser after consent. When omitted, no post-consent redirect is requested.",
             "in": "query",
             "name": "return_to",
             "required": false,
             "schema": {
-              "description": "Same-origin path to land in the browser after consent.",
+              "description": "Same-origin path to land in the browser after consent. When omitted, no post-consent redirect is requested.",
+              "minLength": 1,
               "type": "string"
             }
           }
@@ -8884,7 +8913,7 @@
     },
     "/api/v1/sandbox-environments/{name}": {
       "delete": {
-        "description": "Delete a sandbox environment, fails if any agent still references it.",
+        "description": "Delete a sandbox environment. Fails if any agent still references it, if it is the tenant default, or if it is the reserved \"default\" environment.",
         "parameters": [
           {
             "description": "Sandbox environment name.",
@@ -8912,7 +8941,7 @@
                 }
               }
             },
-            "description": "Sandbox environment deleted."
+            "description": "Sandbox environment deleted, or already absent."
           },
           "401": {
             "content": {
@@ -8934,16 +8963,6 @@
             },
             "description": "User does not have permission to edit Sandbox environment"
           },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Sandbox environment not found or not owned by the caller."
-          },
           "409": {
             "content": {
               "application/json": {
@@ -8952,7 +8971,7 @@
                 }
               }
             },
-            "description": "Environment is referenced by one or more agents."
+            "description": "Environment is referenced by an agent, is the tenant default, or is the reserved \"default\"."
           },
           "422": {
             "content": {
@@ -9043,6 +9062,117 @@
           "sandboxEnvironments"
         ],
         "x-fern-sdk-method-name": "get"
+      },
+      "patch": {
+        "description": "Update sandbox environment metadata.",
+        "parameters": [
+          {
+            "description": "Sandbox environment name.",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ResourceName"
+                },
+                {
+                  "description": "Sandbox environment name."
+                }
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchSandboxEnvironmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSandboxEnvironmentResponse"
+                }
+              }
+            },
+            "description": "The updated sandbox environment."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthenticated."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "User cannot edit this environment."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Sandbox environment not found."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Environment is disabled when setting default, or the default changed concurrently."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Sandbox provider is missing or does not support environments."
+          }
+        },
+        "summary": "Update sandbox environment flags",
+        "tags": [
+          "Sandboxes"
+        ],
+        "x-fern-sdk-group-name": [
+          "sandboxEnvironments"
+        ],
+        "x-fern-sdk-method-name": "update"
       }
     },
     "/api/v1/schedules": {

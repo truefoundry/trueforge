@@ -8,8 +8,11 @@ import type { SandboxEnvironment } from '../../server/types.js';
 import { drainListPages } from '../../utils/drainListPages.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 
-export type UseReadySandboxEnvironmentsResult = {
+export type UseSandboxEnvironmentsResult = {
+  /** Every environment, including ones that cannot be picked yet; see `environmentUnavailableReason`. */
   environments: SandboxEnvironment[];
+  /** The environment carrying the tenant default flag, whatever its build status. */
+  defaultEnvironment: SandboxEnvironment | undefined;
   loading: boolean;
   /** True once a list request has finished successfully, so an empty list is authoritative. */
   loaded: boolean;
@@ -18,26 +21,28 @@ export type UseReadySandboxEnvironmentsResult = {
 };
 
 /**
- * Loads sandbox environments and filters strictly to ready (`status === 'ready'`) records.
- * Environments still building (`pending`) or failed (`failed`) are excluded.
+ * Loads the tenant's sandbox environments for the pickers. Building, failed, and disabled ones
+ * are kept in the list so they can be shown greyed out with a reason rather than vanishing.
  *
  * Re-fetches when the shell environments catalog epoch bumps (after manage CRUD /
  * activation) and when the Manage Environments overlay closes, so still-mounted
  * agent pickers stay in sync without remounting.
  */
-export function useReadySandboxEnvironments(): UseReadySandboxEnvironmentsResult {
+export function useSandboxEnvironments(): UseSandboxEnvironmentsResult {
   const environmentServer = useOptionalSandboxEnvironmentServer();
   const shell = useOptionalShellMode();
   const environmentsListEpoch = shell?.environmentsListEpoch ?? 0;
   const environmentsOpen = shell?.environmentsOpen ?? false;
   const [environments, setEnvironments] = useState<SandboxEnvironment[]>([]);
-  const [loading, setLoading] = useState(false);
+  // True when a server is present so the mount effect does not need a sync setLoading(true).
+  const [loading, setLoading] = useState(() => environmentServer != null);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const requestGenRef = useRef(0);
   const wasEnvironmentsOpenRef = useRef(environmentsOpen);
 
-  const fetchReadyEnvironments = useCallback(async () => {
+  /** List request only — callers that need a loading flash set that before invoking. */
+  const loadEnvironments = useCallback(async () => {
     if (!environmentServer) {
       setEnvironments([]);
       setLoaded(false);
@@ -47,17 +52,15 @@ export function useReadySandboxEnvironments(): UseReadySandboxEnvironmentsResult
     }
 
     const gen = ++requestGenRef.current;
-    setLoading(true);
-    setError(null);
 
     try {
       const all = await drainListPages({
         fetchPage: pageToken => environmentServer.listEnvironments({ limit: 1000, pageToken }),
       });
       if (gen !== requestGenRef.current) return;
-      const readyOnly = all.filter(env => env.status === 'ready');
-      setEnvironments(readyOnly);
+      setEnvironments(all);
       setLoaded(true);
+      setError(null);
     } catch (caught) {
       if (gen !== requestGenRef.current) return;
       setError(getErrorMessage(caught, 'Failed to load sandbox environments.'));
@@ -69,22 +72,34 @@ export function useReadySandboxEnvironments(): UseReadySandboxEnvironmentsResult
     }
   }, [environmentServer]);
 
+  /** Event-driven refresh: mark loading, then load. */
+  const refetch = useCallback(async () => {
+    if (environmentServer) {
+      setLoading(true);
+      setError(null);
+    }
+    await loadEnvironments();
+  }, [environmentServer, loadEnvironments]);
+
+  // Mount + catalog epoch: loading is already true on first paint when a server exists; epoch
+  // bumps refresh quietly so pickers keep current rows without an extra effect setState.
   useEffect(() => {
-    void fetchReadyEnvironments();
-  }, [fetchReadyEnvironments, environmentsListEpoch]);
+    void loadEnvironments();
+  }, [loadEnvironments, environmentsListEpoch]);
 
   useEffect(() => {
     if (wasEnvironmentsOpenRef.current && !environmentsOpen) {
-      void fetchReadyEnvironments();
+      void refetch();
     }
     wasEnvironmentsOpenRef.current = environmentsOpen;
-  }, [environmentsOpen, fetchReadyEnvironments]);
+  }, [environmentsOpen, refetch]);
 
   return {
     environments,
+    defaultEnvironment: environments.find(env => env.isDefault),
     loading,
     loaded,
     error,
-    refetch: fetchReadyEnvironments,
+    refetch,
   };
 }
