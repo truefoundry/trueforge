@@ -2476,7 +2476,7 @@ describe('convertTurnMessages', () => {
         streamFrom([sandboxCreated({ id: 'sandbox-evt', sandboxId: 'sbx-123' })]),
         new PeerThreadFoldState(),
       );
-      const updates = [];
+      const updates: TurnStreamUpdate[] = [];
       await expect(
         (async () => {
           for await (const update of generator) {

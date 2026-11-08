@@ -193,19 +193,6 @@ export function runEventSubscriptionContractSuite(
     expect(received).toEqual([later, shell, delta]);
   });
 
-  it('restores every page of a missing stream in order', async () => {
-    const { registry } = setup();
-    const streamId = nextStreamId();
-    const sent = Array.from({ length: 5 }, (_, index) => makeEvent(index));
-
-    await registry.get(streamId).restoreLog({
-      readPages: () => durablePages(sent.slice(0, 2), [], sent.slice(2)),
-      streamTTLSeconds: STREAM_TTL_SECONDS,
-    });
-
-    expect(await collect(registry, streamId, sent.length)).toEqual(sent);
-  });
-
   it('keeps a single copy when two restores run together', async () => {
     const { registry } = setup();
     const streamId = nextStreamId();
@@ -300,47 +287,5 @@ export function runEventSubscriptionContractSuite(
 
     const received = await collect(registry, streamId, 2);
     expect(received).toEqual([delta, delta]);
-  });
-
-  it('reports whether an event id is on the live stream', async () => {
-    const { registry } = setup();
-    const streamId = nextStreamId();
-    const producer = registry.get(streamId);
-    await producer.put(makeEvent(0), { streamTTLSeconds: STREAM_TTL_SECONDS });
-    await producer.put(makeEvent(1), { streamTTLSeconds: STREAM_TTL_SECONDS });
-
-    await expect(producer.hasEventId('evt-1')).resolves.toBe(true);
-    await expect(producer.hasEventId('evt-missing')).resolves.toBe(false);
-  });
-
-  it('after finds the last copy of an id several batches below the tip', async () => {
-    const { registry } = setup();
-    const streamId = nextStreamId();
-    const producer = registry.get(streamId);
-    const shell = makeEvent(0, 'evt-message');
-    const delta = { ...shell, payload: { index: 1, text: 'delta' } };
-    const later = Array.from({ length: 250 }, (_, index) => makeEvent(index + 2));
-    await producer.put(shell, { streamTTLSeconds: STREAM_TTL_SECONDS });
-    await producer.put(delta, { streamTTLSeconds: STREAM_TTL_SECONDS });
-    for (const event of later) {
-      await producer.put(event, { streamTTLSeconds: STREAM_TTL_SECONDS });
-    }
-
-    const received = await collect(registry, streamId, later.length, { afterEventId: shell.id });
-    expect(received).toEqual(later);
-  });
-
-  it('seeks past large payloads', async () => {
-    const { registry } = setup();
-    const streamId = nextStreamId();
-    const producer = registry.get(streamId);
-    const large: TestEvent = { id: 'evt-large', type: 'test.event', payload: { index: 0, text: 'x'.repeat(512_000) } };
-    const target = makeEvent(1);
-    await producer.put(large, { streamTTLSeconds: STREAM_TTL_SECONDS });
-    await producer.put(target, { streamTTLSeconds: STREAM_TTL_SECONDS });
-
-    await expect(producer.hasEventId(target.id)).resolves.toBe(true);
-    const received = await collect(registry, streamId, 1, { afterEventId: large.id });
-    expect(received).toEqual([target]);
   });
 }

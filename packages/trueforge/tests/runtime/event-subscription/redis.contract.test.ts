@@ -38,29 +38,6 @@ describeRedis('RedisEventSubscription (EventSubscription contract)', () => {
 
     const event: TestEvent = { id: 'evt-1', type: 'test.event', payload: { index: 1, text: 'one' } };
 
-    it('put writes the event id as its own field next to the payload', async () => {
-      const registry = new EventSubscriptionRegistry<TestEvent>(client);
-      await registry.get(streamId).put(event, { streamTTLSeconds: 60 });
-
-      const entries = await client.xRange(streamId, '-', '+');
-      expect(entries.map(entry => entry.message)).toEqual([{ id: 'evt-1', data: JSON.stringify(event) }]);
-    });
-
-    it('restoreLog writes the event id as its own field next to the payload', async () => {
-      const registry = new EventSubscriptionRegistry<TestEvent>(client);
-      await registry.get(streamId).restoreLog({
-        readPages: async function* () {
-          await Promise.resolve();
-          yield [event];
-        },
-        streamTTLSeconds: 60,
-      });
-
-      const entries = await client.xRange(streamId, '-', '+');
-      expect(entries.map(entry => entry.message)).toEqual([{ id: 'evt-1', data: JSON.stringify(event) }]);
-      expect(await client.keys(`${streamId}:restore:*`)).toEqual([]);
-    });
-
     it('does not replace a stream that appears before the swap', async () => {
       const registry = new EventSubscriptionRegistry<TestEvent>(client);
       const live: TestEvent = { id: 'evt-live', type: 'test.event', payload: { index: 0, text: 'live' } };

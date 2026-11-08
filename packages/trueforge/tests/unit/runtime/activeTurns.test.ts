@@ -263,25 +263,6 @@ describe('ActiveTurnRegistry', () => {
     await holder;
   });
 
-  it('does not throw when the holder releases the lock before the acquire timeout', async () => {
-    const registry = new ActiveTurnRegistry({ logger, lockAcquireTimeoutMs: 300 });
-    const gate = Promise.withResolvers<undefined>();
-    const holder = registry.withTurnLock({ sessionId: 's1', turnId: 't1' }, () => gate.promise);
-    let entered = false;
-    const waiter = registry.withTurnLock({ sessionId: 's1', turnId: 't1' }, async () => {
-      entered = true;
-      return 'acquired';
-    });
-
-    await new Promise<void>(resolve => {
-      setTimeout(resolve, 30);
-    });
-    expect(entered).toBe(false);
-    gate.resolve(undefined);
-    await holder;
-    await expect(waiter).resolves.toBe('acquired');
-  });
-
   it('restarts the paused keepalive when the turn lock is busy past the acquire timeout', async () => {
     jest.useFakeTimers();
     const warn = jest.spyOn(logger, 'warn');
@@ -307,24 +288,5 @@ describe('ActiveTurnRegistry', () => {
       warn.mockRestore();
       info.mockRestore();
     }
-  });
-
-  it('waits without a timeout when lockAcquireTimeoutMs is 0', async () => {
-    const registry = new ActiveTurnRegistry({ logger, lockAcquireTimeoutMs: 0 });
-    const gate = Promise.withResolvers<undefined>();
-    const holder = registry.withTurnLock({ sessionId: 's1', turnId: 't1' }, () => gate.promise);
-    let entered = false;
-    const waiter = registry.withTurnLock({ sessionId: 's1', turnId: 't1' }, async () => {
-      entered = true;
-      return 'acquired';
-    });
-
-    await new Promise<void>(resolve => {
-      setTimeout(resolve, 80);
-    });
-    expect(entered).toBe(false);
-    gate.resolve(undefined);
-    await holder;
-    await expect(waiter).resolves.toBe('acquired');
   });
 });

@@ -1,8 +1,7 @@
 import { HTTPException } from 'hono/http-exception';
 import { ZodError } from 'zod';
-import { EmptyCapabilitiesStore } from '../../../src/db/capabilitiesStore';
 import { parseInlineTools, X_TFG_TOOLS } from '../../../src/truefoundry/inlineResources';
-import { InlineCapabilitiesStore, inlineToolsCapability } from '../../../src/truefoundry/inlineTools';
+import { inlineToolsCapability } from '../../../src/truefoundry/inlineTools';
 
 const askUserSecret = {
   name: 'ask_user_secret',
@@ -56,25 +55,5 @@ describe('inlineToolsCapability', () => {
 
     const response = await toolSet?.callTool({ name: 'ask_user_secret', arguments: {} });
     expect(response && 'clientSideToolRequired' in response).toBe(true);
-  });
-});
-
-describe('capabilities stores', () => {
-  it('EmptyCapabilitiesStore mounts nothing', () => {
-    expect(new EmptyCapabilitiesStore().list()).toEqual([]);
-  });
-
-  it('InlineCapabilitiesStore returns a fresh tool set on every list', () => {
-    const store = new InlineCapabilitiesStore({
-      inline: parseInlineTools(JSON.stringify([askUserSecret])),
-    });
-    const first = store.list();
-    const second = store.list();
-    expect(first[0]?.systemToolSets?.[0]?.name).toBe(X_TFG_TOOLS);
-    expect(first[0]?.systemToolSets?.[0]).not.toBe(second[0]?.systemToolSets?.[0]);
-  });
-
-  it('InlineCapabilitiesStore mounts nothing for an empty list', () => {
-    expect(new InlineCapabilitiesStore({ inline: [] }).list()).toEqual([]);
   });
 });

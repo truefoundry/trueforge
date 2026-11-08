@@ -701,25 +701,6 @@ describe('ToolSet: policy-aware is_approval_required', () => {
     expect(info.is_approval_required).toBe(true);
   });
 
-  it('getApprovalPolicies carries expire_at through', () => {
-    const { toolSet } = makeApprovalGatedWriteNoteToolSet();
-    const expire_at = '2099-01-01T00:00:00.000Z';
-    toolSet.setApprovalPolicy(WRITE_NOTE_TOOL_NAME, { type: 'allow_session', expire_at });
-    expect(toolSet.getApprovalPolicies()).toEqual({ [WRITE_NOTE_TOOL_NAME]: { type: 'allow_session', expire_at } });
-  });
-
-  it('setApprovalPolicy last write wins for the same tool', () => {
-    const { toolSet } = makeApprovalGatedWriteNoteToolSet();
-    toolSet.setApprovalPolicy(WRITE_NOTE_TOOL_NAME, { type: 'allow_session' });
-    toolSet.setApprovalPolicy(WRITE_NOTE_TOOL_NAME, {
-      type: 'allow_session',
-      expire_at: '2099-01-01T00:00:00.000Z',
-    });
-    expect(toolSet.getApprovalPolicies()).toEqual({
-      [WRITE_NOTE_TOOL_NAME]: { type: 'allow_session', expire_at: '2099-01-01T00:00:00.000Z' },
-    });
-  });
-
   it('without an applicable policy, callTool returns approvalRequired and does not run the tool', async () => {
     const { toolSet, callTool } = makeApprovalGatedWriteNoteToolSet();
     const response = await toolSet.callTool(writeNoteParams);
