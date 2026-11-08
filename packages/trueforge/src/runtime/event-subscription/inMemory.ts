@@ -19,6 +19,7 @@ import {
   isLegacySequenceEntryId,
 } from './entryId';
 import { applyEventLogRestore, type RestoreLogOptions, type RestoreLogOutcome } from './restore';
+import { shareRestore, withLocalRestoreBudget } from './restoreFlight';
 
 function ttlDeadline(streamTTLSeconds: number | undefined): number | undefined {
   return streamTTLSeconds !== undefined && streamTTLSeconds > 0 ? Date.now() + streamTTLSeconds * 1_000 : undefined;
@@ -202,24 +203,33 @@ export class InMemoryEventSubscription<T extends { id: string }> implements Even
   ) {}
 
   restoreLog(options: RestoreLogOptions<T>): Promise<RestoreLogOutcome> {
-    return applyEventLogRestore({
-      readPages: options.readPages,
-      readTailEntryId: () => Promise.resolve(this.store.readTailEntryId(this.streamId)),
-      installIfAbsent: async pages => {
-        const events: T[] = [];
-        for await (const page of pages) {
-          events.push(...page);
-        }
-        return this.store.installIfAbsent({
-          streamId: this.streamId,
-          events,
-          streamTTLSeconds: options.streamTTLSeconds,
-        });
-      },
-      refreshTtl: () => {
-        this.store.refreshStreamTtl(this.streamId, options.streamTTLSeconds);
-        return Promise.resolve();
-      },
+    const restore = () =>
+      applyEventLogRestore({
+        readPages: options.readPages,
+        readTailEntryId: () => Promise.resolve(this.store.readTailEntryId(this.streamId)),
+        installIfAbsent: async pages => {
+          const events: T[] = [];
+          for await (const page of pages) {
+            events.push(...page);
+          }
+          return this.store.installIfAbsent({
+            streamId: this.streamId,
+            events,
+            streamTTLSeconds: options.streamTTLSeconds,
+          });
+        },
+        refreshTtl: () => {
+          this.store.refreshStreamTtl(this.streamId, options.streamTTLSeconds);
+          return Promise.resolve();
+        },
+      });
+    // A live stream only refreshes its TTL. A missing one waits for a local slot,
+    // and callers of this stream share that single rebuild.
+    return shareRestore(`memory:${this.streamId}`, async () => {
+      if (this.store.readTailEntryId(this.streamId) !== undefined) {
+        return restore();
+      }
+      return withLocalRestoreBudget(restore);
     });
   }
 

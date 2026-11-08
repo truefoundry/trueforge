@@ -210,12 +210,17 @@ export function runEventSubscriptionContractSuite(
     const { registry } = setup();
     const streamId = nextStreamId();
     const sent = [makeEvent(0), makeEvent(1), makeEvent(2)];
+    let reads = 0;
     const restore = () =>
       registry.get(streamId).restoreLog({
-        readPages: () => durablePages(sent),
+        readPages: () => {
+          reads += 1;
+          return durablePages(sent);
+        },
         streamTTLSeconds: STREAM_TTL_SECONDS,
       });
     await Promise.all([restore(), restore()]);
+    expect(reads).toBe(1);
 
     const extra = makeEvent(3);
     await registry.get(streamId).put(extra, { streamTTLSeconds: STREAM_TTL_SECONDS });

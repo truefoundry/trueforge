@@ -21,7 +21,12 @@ import {
   makeTurnUpdateEvent,
   TEST_ACTIVE_EXECUTOR_ID,
 } from '../../../../trueforge-core/tests/agent-session/testHelpers';
-import { createTurnsRouter, deriveSessionTitle, turnStreamId } from '../../../src/apis/turns';
+import {
+  createTurnsRouter,
+  deriveSessionTitle,
+  headersForwardedWithTurnEvents,
+  turnStreamId,
+} from '../../../src/apis/turns';
 import { TrueForgeAuthorizer, type Authorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { EmptyCapabilitiesStore } from '../../../src/db/capabilitiesStore';
@@ -65,6 +70,23 @@ function turnExecutionStores(db: Kysely<Database>, tokenStore: SqliteOAuthTokenS
 }
 
 describe('turns', () => {
+  it('forwards only turn-resource headers to the owning replica', () => {
+    expect(
+      headersForwardedWithTurnEvents({
+        Authorization: 'Bearer secret',
+        Cookie: 'session=1',
+        'X-Tfg-Tools': '[]',
+        'x-tfy-metadata': '{"a":"b"}',
+        'x-request-id': 'req',
+      }),
+    ).toEqual({
+      'X-Tfg-Tools': '[]',
+      'x-tfy-metadata': '{"a":"b"}',
+    });
+    expect(headersForwardedWithTurnEvents({ Authorization: 'Bearer secret' })).toBeUndefined();
+    expect(headersForwardedWithTurnEvents(undefined)).toBeUndefined();
+  });
+
   it('namespaces turn stream ids under tfg', () => {
     expect(turnStreamId('ten', 'sess', 'turn1')).toBe('tfg:agent:turn:ten:sess:turn1:stream');
   });
@@ -848,6 +870,21 @@ describe('turns', () => {
         source: null,
       });
       const tokenStore = new SqliteOAuthTokenStore(db);
+      const turnId = 'paused-turn';
+      await sessionStore.createTurn(makeCreateTurnInput({ sessionId: 's1', turnId }));
+      const paused = makePausedTurnState();
+      await sessionStore.updateTurnNonTerminalState({
+        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+        session_id: 's1',
+        turn_id: turnId,
+        state: paused,
+        turn_update_event: makeTurnUpdateEvent(paused),
+        turn_metrics: {
+          status: 'paused',
+          observed_at: new Date().toISOString(),
+          metrics: createEmptyAgentThreadMetrics(),
+        },
+      });
       const app = new OpenAPIHono();
       app.route(
         '/',
@@ -867,7 +904,29 @@ describe('turns', () => {
           accessControlStore: new SqliteAccessControlStore(db),
         }),
       );
-      return { app, agent, agentStore };
+      return { app, agent, agentStore, turnId };
+    }
+
+    function approvalEventRequest(): RequestInit {
+      return {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: 'Bearer secret',
+          cookie: 'session=1',
+          'x-tfg-tools': '[]',
+        },
+        body: JSON.stringify({
+          events: [
+            {
+              type: 'user.tool_approval',
+              thread_id: 'main',
+              tool_call_id: 'call-1',
+              approval: { status: 'allow' },
+            },
+          ],
+        }),
+      };
     }
 
     it('returns 422 when the referenced agent no longer exists', async () => {
@@ -890,6 +949,23 @@ describe('turns', () => {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ stream: false }),
       });
+      expect(response.status).toBe(404);
+      expect(await response.json()).toEqual({ error: { message: `Agent not found: ${agent.id}` } });
+      expect(deniedCanAccessAgent.mock.calls.map(([input]) => input.action)).toEqual(['use']);
+    });
+
+    it('returns 422 when posting events and the referenced agent no longer exists', async () => {
+      const { app, agent, agentStore, turnId } = await referencedAgentHarness(new TrueForgeAuthorizer());
+      await agentStore.deleteAgent({ tenant_id: 'default', id: agent.id });
+      const response = await app.request(`/s1/turns/${turnId}/events`, approvalEventRequest());
+      expect(response.status).toBe(422);
+      expect(await response.json()).toEqual({ error: { message: `Agent not found: ${agent.id}` } });
+    });
+
+    it('returns 404 when posting events and the caller cannot use the referenced agent', async () => {
+      deniedCanAccessAgent.mockClear();
+      const { app, agent, turnId } = await referencedAgentHarness(denyAllAuthorizer);
+      const response = await app.request(`/s1/turns/${turnId}/events`, approvalEventRequest());
       expect(response.status).toBe(404);
       expect(await response.json()).toEqual({ error: { message: `Agent not found: ${agent.id}` } });
       expect(deniedCanAccessAgent.mock.calls.map(([input]) => input.action)).toEqual(['use']);

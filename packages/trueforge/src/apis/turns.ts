@@ -105,7 +105,9 @@ import {
 } from '../runtime/sessionResources';
 import { restoreTurnEventLog } from '../runtime/turnEventLogRestore';
 import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
-import { assertGatewayMetadataRequestHeaders } from '../truefoundry/gatewayMetadata';
+import { assertGatewayMetadataRequestHeaders, X_TFY_METADATA } from '../truefoundry/gatewayMetadata';
+import { X_TFG_MCP, X_TFG_MODELS, X_TFG_SKILLS, X_TFG_TOOLS } from '../truefoundry/inlineResources';
+import { X_TFG_MCP_HEADERS } from '../truefoundry/perServerMcpHeaders';
 import { newId } from '../utils/id';
 import { resolveWebSearchProvider } from '../websearch/providers';
 import { canReadAgentBoundResource, canReadSession } from './agentAccess';
@@ -254,6 +256,63 @@ async function referencedRunAsAgent<TTransaction>(input: {
     tenant_id: input.session.tenant_id,
     id: input.session.record.agent.id,
   });
+}
+
+type ReferencedAgentUse =
+  { type: 'allowed'; agent: AgentRecord | undefined } | { type: 'rejected'; status: 404 | 422; message: string };
+
+/**
+ * Same gate as create-turn: a named agent must still exist and the caller must
+ * still be allowed to use it before a paused turn is rebuilt with that agent's stores.
+ */
+async function referencedAgentForUse<TTransaction>(input: {
+  session: SessionHandle<TTransaction>;
+  requestContext: RequestContext;
+  agentStore: IAgentStore;
+  authorizer: Authorizer;
+}): Promise<ReferencedAgentUse> {
+  if (input.session.record.agent.type !== 'reference') {
+    return { type: 'allowed', agent: undefined };
+  }
+  const agentId = input.session.record.agent.id;
+  const agent = await input.agentStore.getAgent({
+    tenant_id: input.requestContext.tenant_id,
+    id: agentId,
+  });
+  if (agent === undefined) {
+    return { type: 'rejected', status: 422, message: `Agent not found: ${agentId}` };
+  }
+  const canUseAgent = await input.authorizer.canAccessAgent({
+    context: input.requestContext,
+    action: 'use',
+    agent,
+  });
+  if (!canUseAgent) {
+    return { type: 'rejected', status: 404, message: `Agent not found: ${agentId}` };
+  }
+  return { type: 'allowed', agent };
+}
+
+/** Headers a peered resume reads. Authorization, cookies, and anything else stay on this replica. */
+const TURN_EVENT_PEER_HEADER_NAMES = new Set(
+  [X_TFG_MCP, X_TFG_SKILLS, X_TFG_MODELS, X_TFG_TOOLS, X_TFG_MCP_HEADERS, X_TFY_METADATA].map(name =>
+    name.toLowerCase(),
+  ),
+);
+
+export function headersForwardedWithTurnEvents(
+  headers: Record<string, string> | undefined,
+): Record<string, string> | undefined {
+  if (headers === undefined) {
+    return undefined;
+  }
+  const forwarded: Record<string, string> = {};
+  for (const [name, value] of Object.entries(headers)) {
+    if (TURN_EVENT_PEER_HEADER_NAMES.has(name.toLowerCase())) {
+      forwarded[name] = value;
+    }
+  }
+  return Object.keys(forwarded).length === 0 ? undefined : forwarded;
 }
 
 async function executionDepsForCaller<TTransaction>(input: {
@@ -1257,6 +1316,7 @@ async function forwardTurnEvents(input: {
     return { type: 'failed', message: 'Unable to reach the turn executor' };
   }
   const { requestContext } = input;
+  const requestHeaders = headersForwardedWithTurnEvents(input.requestHeaders);
   const body = SendEventsPeerBodySchema.parse({
     tenant_id: requestContext.tenant_id,
     session_id: input.sessionId,
@@ -1268,7 +1328,7 @@ async function forwardTurnEvents(input: {
       roles: requestContext.roles,
       user_credential: requestContext.user_credential,
     },
-    ...(input.requestHeaders === undefined ? {} : { request_headers: input.requestHeaders }),
+    ...(requestHeaders === undefined ? {} : { request_headers: requestHeaders }),
   });
   try {
     const reply = await redisRequest({
@@ -1842,26 +1902,16 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
       return c.json({ error: { message: FORBIDDEN_CREATE_TURN } }, 403);
     }
 
-    let referencedAgent: AgentRecord | undefined;
-    if (session.record.agent.type === 'reference') {
-      const agentId = session.record.agent.id;
-      const agent = await deps.resolveAgentStore(requestContext).getAgent({
-        tenant_id: requestContext.tenant_id,
-        id: agentId,
-      });
-      if (agent === undefined) {
-        return c.json({ error: { message: `Agent not found: ${agentId}` } }, 422);
-      }
-      const canUseAgent = await deps.authorizer.canAccessAgent({
-        context: requestContext,
-        action: 'use',
-        agent,
-      });
-      if (!canUseAgent) {
-        return c.json({ error: { message: `Agent not found: ${agentId}` } }, 404);
-      }
-      referencedAgent = agent;
+    const agentUse = await referencedAgentForUse({
+      session,
+      requestContext,
+      agentStore: deps.resolveAgentStore(requestContext),
+      authorizer: deps.authorizer,
+    });
+    if (agentUse.type === 'rejected') {
+      return c.json({ error: { message: agentUse.message } }, agentUse.status);
     }
+    const referencedAgent = agentUse.agent;
 
     // x-tfg-skills / x-tfg-mcp / x-tfg-models on turns only when the session agent is inline.
     const turnParams: BeginTurnExecutionParams<TTransaction> = {
@@ -1969,6 +2019,16 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
       return c.json({ error: { message: `Turn not found: ${turnId}` } }, 404);
     }
 
+    const agentUse = await referencedAgentForUse({
+      session,
+      requestContext,
+      agentStore: deps.resolveAgentStore(requestContext),
+      authorizer: deps.authorizer,
+    });
+    if (agentUse.type === 'rejected') {
+      return c.json({ error: { message: agentUse.message } }, agentUse.status);
+    }
+
     const createdAt = new Date().toISOString();
     const events: TurnUserEvent[] = body.events.map(payload => ({
       ...payload,
@@ -1978,16 +2038,12 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
     const requestHeaders = c.req.header();
 
     return deps.activeTurns.withTurnLock({ sessionId, turnId }, async () => {
-      const runAsAgent = await referencedRunAsAgent({
-        session,
-        agentStore: deps.resolveAgentStore(requestContext),
-      });
       const executionDeps = await executionDepsForCaller({
         deps,
         session,
         requestContext,
         requestHeaders,
-        ...(runAsAgent !== undefined ? { runAsAgent } : {}),
+        ...(agentUse.agent !== undefined ? { runAsAgent: agentUse.agent } : {}),
       });
       const result = await sendTurnEventsWithRetries({
         session,

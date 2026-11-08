@@ -11,6 +11,7 @@ import {
 } from '.';
 import { entryIdMilliseconds, eventIdSeekCursor, eventIdTimestampMs, isLegacySequenceEntryId } from './entryId';
 import { applyEventLogRestore, type RestoreLogOptions, type RestoreLogOutcome } from './restore';
+import { pagesExtendingLease, shareRestore, withRedisRestoreTurn, type RestoreLeaseClient } from './restoreFlight';
 
 const SUBSCRIBE_STREAM_POLL_ITEMS_COUNT = 100;
 /** Delay between XREAD polls while a stream has no new events (a blocking XREAD would monopolize the shared connection). */
@@ -169,12 +170,28 @@ export class RedisEventSubscription<T extends { id: string }> implements EventSu
   ) {}
 
   restoreLog(options: RestoreLogOptions<T>): Promise<RestoreLogOutcome> {
-    return applyEventLogRestore({
-      readPages: options.readPages,
-      readTailEntryId: () => this.readTailEntryId(),
-      installIfAbsent: pages => this.installIfAbsent(pages, options.streamTTLSeconds),
-      refreshTtl: () => this.refreshTtl(options.streamTTLSeconds),
-    });
+    const redis = this.redis;
+    const lease: RestoreLeaseClient = {
+      set: (key, value, setOptions) => redis.set(key, value, setOptions),
+      eval: (script, evalOptions) => redis.eval(script, evalOptions),
+    };
+    const restore = (extendLease: () => Promise<void>) =>
+      applyEventLogRestore({
+        readPages: () => pagesExtendingLease(options.readPages(), extendLease),
+        readTailEntryId: () => this.readTailEntryId(),
+        installIfAbsent: pages => this.installIfAbsent(pages, options.streamTTLSeconds),
+        refreshTtl: () => this.refreshTtl(options.streamTTLSeconds),
+      });
+    // One replica reads the log. Others wait, then keep the stream that won.
+    return shareRestore(`redis:${this.streamId}`, () =>
+      withRedisRestoreTurn({
+        redis: lease,
+        streamId: this.streamId,
+        readTailEntryId: () => this.readTailEntryId(),
+        refreshTtl: () => this.refreshTtl(options.streamTTLSeconds),
+        run: restore,
+      }),
+    );
   }
 
   async put(event: T, options?: EventSubscriptionPutOptions): Promise<void> {

@@ -2082,16 +2082,16 @@ export async function* streamTurnEvents(
   }
 
   if (sandboxId != null && !sandboxIdYielded) {
+    // The sandbox id has not ridden on a content yield yet. Surface it, then
+    // still treat the closed body as a disconnect so subscribe-retry continues.
     const ids =
       groupRootBaseline != null
         ? rootModelMessageIdsSinceBaseline(foldState, groupRootBaseline)
         : (foldState.threads.get(ROOT_THREAD_ID)?.modelMessageIds ?? []);
     yield withSandbox({ content: buildRootAssistantContentForIds(foldState, ids) });
-    return;
   }
 
-  // Reached only when the SSE ended without turn.done / pause / sandbox-only
-  // terminal paths above — treat as a transport drop for subscribe-retry.
+  // SSE ended without turn.done or a pause. A sandbox-only prefix is not terminal.
   throw new TurnStreamDisconnectedError();
 }
 

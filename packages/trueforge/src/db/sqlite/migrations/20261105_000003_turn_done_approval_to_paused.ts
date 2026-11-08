@@ -90,6 +90,7 @@ export async function up<DB>(db: Kysely<DB>): Promise<void> {
     `.execute(trx);
 
     // Do this last: the preceding queries identify affected leaves from the legacy done state.
+    // running_since is jsonb('null'): SQL NULL would delete the key instead of storing JSON null.
     await sql`
       UPDATE turn
       SET
@@ -157,7 +158,7 @@ export async function up<DB>(db: Kysely<DB>): Promise<void> {
             )
           ),
           '$.running_since',
-          NULL
+          jsonb('null')
         ),
         updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
       WHERE json_extract(state, '$.status') = 'done'

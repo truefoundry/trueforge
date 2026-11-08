@@ -203,11 +203,15 @@ export const postTurnEventsRoute = createRoute({
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Session or turn not found.',
+      description: 'Session, turn, or referenced agent not found.',
     },
     409: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Turn is terminal, running and not accepting events, or an event id already exists.',
+    },
+    422: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'The referenced agent for this session no longer exists.',
     },
     500: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

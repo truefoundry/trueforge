@@ -29,6 +29,7 @@ import {
   repositoryItemsFromMessages,
   resolveGatewayBranchPreviousTurnIdForTurn,
   streamTurnEvents,
+  TurnStreamDisconnectedError,
   turnStreamUpdateToAssistantMessage,
 } from '../src/convertTurnMessages.js';
 import { buildRootAssistantContent, ingestTurnEvent, PeerThreadFoldState } from '../src/foldPeerThreads.js';
@@ -2468,6 +2469,23 @@ describe('convertTurnMessages', () => {
 
       const final = updates.at(-1);
       expect(final?.metadata?.custom?.['sandboxId']).toBe('sbx-123');
+    });
+
+    it('yields sandbox metadata and then disconnects when the stream ends on sandbox.created', async () => {
+      const generator = streamTurnEvents(
+        streamFrom([sandboxCreated({ id: 'sandbox-evt', sandboxId: 'sbx-123' })]),
+        new PeerThreadFoldState(),
+      );
+      const updates = [];
+      await expect(
+        (async () => {
+          for await (const update of generator) {
+            updates.push(update);
+          }
+        })(),
+      ).rejects.toBeInstanceOf(TurnStreamDisconnectedError);
+      expect(updates).toHaveLength(1);
+      expect(updates[0]?.metadata?.custom?.['sandboxId']).toBe('sbx-123');
     });
 
     it('keeps sandboxId on the final mcp auth yield when both occur in the same stream', async () => {
