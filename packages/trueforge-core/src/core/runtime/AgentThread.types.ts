@@ -37,6 +37,8 @@ export type { AgentInfo, AgentParent };
 /** Canonical string constants for internal (non-wire) orchestration event `type` fields. */
 export const InternalEventType = {
   AGENT_CREATE_SUBAGENT: 'internal.agent.create_subagent',
+  /** Durable store registration while the child may still be queued behind the parallel cap. */
+  AGENT_SUBAGENT_QUEUED: 'internal.agent.subagent_queued',
   AGENT_CONTEXT_APPEND: 'internal.agent.context.append',
   AGENT_DONE: 'internal.agent.done',
   // TODO(agent): revisit broader internal.* naming scheme for harness-only event types.
@@ -114,6 +116,14 @@ export interface AgentThreadCreateSubAgent {
   agent_info: AgentInfo;
 }
 
+/** Orchestrator → store: register a child before it starts executing (may still be queued). */
+export interface InternalSubAgentQueuedEvent {
+  type: typeof InternalEventType.AGENT_SUBAGENT_QUEUED;
+  thread_id: string;
+  parent: AgentParent;
+  agent_info: AgentInfo;
+}
+
 export interface AgentThreadAppendContext {
   type: typeof InternalEventType.AGENT_CONTEXT_APPEND;
   thread_id: string;
@@ -151,7 +161,7 @@ export type AgentThreadEvent =
   | InternalPassthroughEvent;
 
 export type AgentThreadExecutionEvent = WithRegisteredPassthrough<
-  ThreadCreatedEvent | Exclude<AgentThreadEvent, InternalPassthroughEvent>
+  ThreadCreatedEvent | InternalSubAgentQueuedEvent | Exclude<AgentThreadEvent, InternalPassthroughEvent>
 >;
 
 export interface AgentThreadExecutionResult {
