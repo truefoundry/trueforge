@@ -10,7 +10,7 @@ import type {
 import type { SessionMetrics } from '../../utils/buildSessionMetrics.js';
 import type { SessionEventTimelineSegment, SessionEventType } from '../../utils/sessionEventTimeline.js';
 import type { LibraryAgentTab, SessionTimeRange } from '../../utils/sessionShareUrl.js';
-import type { SessionTurnView } from '../../utils/sessionTurnViews.js';
+import type { SessionInputTokensBreakdown, SessionTurnView } from '../../utils/sessionTurnViews.js';
 
 export type AgentSessionsProps = {
   /** Library tab locks the list to this agent. Omit on the all-user Sessions page. */
@@ -83,6 +83,9 @@ export type AgentSessionTurnHeaderProps = {
   inputTokens?: number;
   outputTokens?: number;
   cachedTokens?: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
+  inputTokensBreakdown?: SessionInputTokensBreakdown;
   durationMs?: number;
   totalCostInUsd?: number;
   modelName?: string;

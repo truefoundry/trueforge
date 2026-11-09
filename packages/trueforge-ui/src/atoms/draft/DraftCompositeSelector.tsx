@@ -11,7 +11,8 @@ import { useOptionalCatalogServer, useServerCapabilities } from '../../server/Se
 import { useOptionalShellMode, type SettingsSection } from '../../server/ShellModeContext.js';
 import type { AgentSkill, ConnectorState } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
-import { useReadySandboxEnvironments } from '../environments/useReadySandboxEnvironments.js';
+import { environmentUnavailableReason } from '../environments/environmentDisplay.js';
+import { useSandboxEnvironments } from '../environments/useSandboxEnvironments.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { useCompactLayout } from '../lib/CompactLayoutContext.js';
@@ -350,6 +351,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   const compactLayout = useCompactLayout();
   const skillsDisabled = capabilities?.skill.enabled !== true;
   const skillsDisabledReason = capabilities?.skill.reason;
+  const environmentsCapabilityEnabled = capabilities?.sandbox?.environments?.enabled === true;
   const webSearchDisabledReason = capabilities?.webSearch?.reason ?? WEB_SEARCH_UNAVAILABLE_HINT;
   const webSearchEnabled = agentSpec?.config?.webSearch?.enabled ?? capabilities?.webSearch?.enabled === true;
   // A chat that already searches the web keeps it until the user turns it off; only
@@ -367,6 +369,16 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
     isSettingsSectionEnabled({ settings, section: 'skills' }) && settingsCatalog?.skillCatalog != null;
   const canConfigureSandbox =
     isSettingsSectionEnabled({ settings, section: 'sandboxProviders' }) && settingsCatalog?.sandboxCatalog != null;
+  const attachTabs = useMemo(
+    () => TABS.filter(t => t.id !== 'environments' || environmentsCapabilityEnabled),
+    [environmentsCapabilityEnabled],
+  );
+
+  useEffect(() => {
+    if (!environmentsCapabilityEnabled && tab === 'environments') {
+      setTab('connectors');
+    }
+  }, [environmentsCapabilityEnabled, tab]);
 
   const specMcp = useMemo(() => draftMountsFromSpec(agentSpec?.mcpServers), [agentSpec?.mcpServers]);
   const specSkills = useMemo(() => draftMountsFromSpec(agentSpec?.skills), [agentSpec?.skills]);
@@ -579,10 +591,11 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   };
 
   const {
-    environments: readyEnvironments,
+    environments,
+    defaultEnvironment,
     loading: environmentsLoading,
     refetch: refetchEnvironments,
-  } = useReadySandboxEnvironments();
+  } = useSandboxEnvironments();
 
   const openPicker = (nextTab?: AttachTab) => {
     if (nextTab != null) {
@@ -610,39 +623,45 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
     shell?.setSettingsOpen(true, section);
   };
 
-  const currentEnvName = readSandboxEnvironmentName(agentSpec?.config?.sandbox);
+  // Naming none means the tenant default applies, so show it rather than nothing selected.
+  const currentEnvName = readSandboxEnvironmentName(agentSpec?.config?.sandbox) ?? defaultEnvironment?.name;
 
   const filteredEnvironments = useMemo(() => {
-    const readyNames = new Set(readyEnvironments.map(e => e.name));
-    const all = readyEnvironments.map(e => ({
-      name: e.name,
-      description: e.manifest.description,
-      unavailable: false,
-    }));
+    // Everything is listed; what cannot be picked is greyed out and says why on hover.
+    const all: Array<{ value: string; title: string; description: string | undefined; unavailable?: string }> =
+      environments.map(e => {
+        const reason = environmentUnavailableReason(e);
+        return {
+          value: e.name,
+          title: e.name,
+          description: e.manifest.description,
+          ...(reason === undefined ? {} : { unavailable: reason }),
+        };
+      });
     // Keep the session's recorded environment visible (and selected) if it left the catalog.
-    if (currentEnvName !== 'default' && !readyNames.has(currentEnvName)) {
+    if (currentEnvName !== undefined && !all.some(item => item.value === currentEnvName)) {
       all.unshift({
-        name: currentEnvName,
+        value: currentEnvName,
+        title: currentEnvName,
         description: undefined,
-        unavailable: true,
+        unavailable: 'No longer available.',
       });
     }
     const needle = query.trim().toLowerCase();
     if (!needle) return all;
     return all.filter(
-      item => item.name.toLowerCase().includes(needle) || (item.description?.toLowerCase().includes(needle) ?? false),
+      item => item.title.toLowerCase().includes(needle) || (item.description?.toLowerCase().includes(needle) ?? false),
     );
-  }, [readyEnvironments, query, currentEnvName]);
+  }, [environments, query, currentEnvName]);
 
-  const selectEnvironment = (envName: string) => {
+  const selectEnvironment = (value: string) => {
     if (environmentLocked) return;
-    const isDefault = envName === 'default';
     updateAgentSpec?.({
       config: {
         ...agentSpec?.config,
         sandbox: {
-          ...sandboxWithEnvironmentName(agentSpec?.config?.sandbox, isDefault ? undefined : envName),
-          enabled: isDefault ? agentSpec?.config?.sandbox?.enabled : true,
+          ...sandboxWithEnvironmentName(agentSpec?.config?.sandbox, value),
+          enabled: true,
         },
       },
     });
@@ -651,7 +670,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   const content = (
     <>
       <div className="flex shrink-0 border-b border-border">
-        {TABS.map(t => {
+        {attachTabs.map(t => {
           const count = t.id === 'connectors' ? selectedMcp.length : t.id === 'skills' ? selectedSkills.length : null;
           const active = tab === t.id;
           return (
@@ -795,19 +814,19 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
             <>
               {environmentLocked ? <RowNote>{ENVIRONMENT_LOCKED_HINT}</RowNote> : null}
               {filteredEnvironments.map(env => {
-                const isSelected = currentEnvName === env.name;
-                const rowDisabled = environmentLocked || env.unavailable;
+                const isSelected = currentEnvName === env.value;
+                const reason = environmentLocked ? ENVIRONMENT_LOCKED_HINT : env.unavailable;
                 return (
                   <CatalogRow
-                    key={env.name}
-                    title={env.name}
+                    key={env.value}
+                    title={env.title}
                     description={env.description}
                     fallbackIcon="monitor"
                     selectionControl="radio"
                     checked={isSelected}
-                    disabled={rowDisabled}
-                    disabledReason={environmentLocked ? ENVIRONMENT_LOCKED_HINT : undefined}
-                    onToggle={() => selectEnvironment(env.name)}
+                    disabled={reason !== undefined}
+                    {...(reason === undefined ? {} : { disabledReason: reason })}
+                    onToggle={() => selectEnvironment(env.value)}
                   />
                 );
               })}

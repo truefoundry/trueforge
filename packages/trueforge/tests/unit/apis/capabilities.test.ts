@@ -9,8 +9,9 @@ import { createAuthMiddleware } from '../../../src/auth/middleware';
 import { disableOidcAuth, enableOidcAuth, initOidc } from '../../../src/auth/oidc';
 import { OidcAuthenticator } from '../../../src/auth/oidcAuthenticator';
 import { StandaloneAuthenticator } from '../../../src/auth/standaloneAuthenticator';
-import type { OIDCConfig } from '../../../src/config';
+import configuration, { type OIDCConfig } from '../../../src/config';
 import type { IConfigurationStore } from '../../../src/db/configurationStore';
+import type { IMemoryProviderStore } from '../../../src/db/memoryProviderStore';
 import type { ISandboxEnvironmentStore, SandboxEnvironmentWithVersion } from '../../../src/db/sandboxEnvironmentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { EmptyUserStore, type IUserStore } from '../../../src/db/userStore';
@@ -27,7 +28,7 @@ const ALL_SETTINGS_ON = {
   skills: { enabled: true, manage_providers: true },
   sandbox_providers: { enabled: true, manage_providers: true },
   web_search: { enabled: true, manage_providers: true },
-  memory: { enabled: true, manage_providers: true },
+  memory_providers: { enabled: true, manage_providers: true },
 };
 
 const ALL_SETTINGS_OFF = {
@@ -36,11 +37,12 @@ const ALL_SETTINGS_OFF = {
   skills: { enabled: false, manage_providers: false },
   sandbox_providers: { enabled: false, manage_providers: false },
   web_search: { enabled: false, manage_providers: false },
-  memory: { enabled: false, manage_providers: false },
+  memory_providers: { enabled: false, manage_providers: false },
 };
 
 const NO_PROVIDER_REASON = 'Web search needs a provider, which is not configured.';
 const TENANT_OFF_REASON = 'Web search is turned off for this tenant - an admin can turn it back on in settings.';
+const MEMORY_TENANT_OFF_REASON = 'Memory is turned off for this tenant - an admin can turn it back on in settings.';
 
 let mockActiveDefaultStatus: SandboxEnvironmentVersionStatus | undefined;
 let mockLatestDefaultStatus: SandboxEnvironmentVersionStatus | undefined;
@@ -51,6 +53,8 @@ function mockDefaultEnvStore(): ISandboxEnvironmentStore {
   return {
     getEnvironment: () => Promise.resolve(withStatus(mockLatestDefaultStatus)),
     getActiveEnvironment: () => Promise.resolve(withStatus(mockActiveDefaultStatus)),
+    getDefaultEnvironment: () => Promise.resolve(withStatus(mockActiveDefaultStatus)),
+    hasUsableEnvironment: () => Promise.resolve(mockActiveDefaultStatus === 'ready'),
   } as unknown as ISandboxEnvironmentStore;
 }
 
@@ -98,11 +102,15 @@ describe('capabilities routers', () => {
     authenticator = new StandaloneAuthenticator(),
     webSearchStore,
     tenantWebSearchEnabled = true,
+    tenantMemoryEnabled = true,
+    hasMemoryProvider = true,
     userStore = new EmptyUserStore(),
   }: {
     authenticator?: Authenticator;
     webSearchStore?: IWebSearchProviderStore;
     tenantWebSearchEnabled?: boolean;
+    tenantMemoryEnabled?: boolean;
+    hasMemoryProvider?: boolean;
     userStore?: IUserStore;
   } = {}): OpenAPIHono {
     const db = createSqliteDb(':memory:');
@@ -110,21 +118,37 @@ describe('capabilities routers', () => {
       getProvider: () => Promise.resolve(undefined),
       upsertProvider: () => Promise.reject(new Error('not used')),
     };
+    const memoryStore: IMemoryProviderStore = {
+      getProvider: tenantId =>
+        Promise.resolve(
+          hasMemoryProvider
+            ? {
+                tenant_id: tenantId,
+                manifest: { type: 'zep', auth: { api_key: 'zep-test-key' } },
+                created_at: '2026-01-01T00:00:00.000Z',
+                updated_at: '2026-01-01T00:00:00.000Z',
+              }
+            : undefined,
+        ),
+      upsertProvider: () => Promise.reject(new Error('not used')),
+    };
     const configurationStore: IConfigurationStore = {
       getConfiguration: () =>
         Promise.resolve({
           tenant_id: 'default',
-          manifest: { web_search: { enabled: tenantWebSearchEnabled } },
+          manifest: { web_search: { enabled: tenantWebSearchEnabled }, memory: { enabled: tenantMemoryEnabled } },
           updated_at: '2026-01-01T00:00:00.000Z',
         }),
       upsertConfiguration: () => Promise.reject(new Error('not used')),
       getOrCreateConfiguration: () => Promise.reject(new Error('not used')),
+      listTenantIdsWithFeatureEnabled: () => Promise.reject(new Error('not used')),
     };
     return withAuth(
       createCapabilitiesRouter({
         sandboxEnvironmentStore: mockDefaultEnvStore(),
-        resolveWebSearchProviderStore: () => webSearchStore ?? emptyWebSearchStore,
-        resolveConfigurationStore: () => configurationStore,
+        webSearchProviderStore: webSearchStore ?? emptyWebSearchStore,
+        configurationStore,
+        memoryProviderStore: memoryStore,
         userStore,
         withTransaction: (() => {
           const run = <T>(callback: (trx: never) => Promise<T>): Promise<T> =>
@@ -147,14 +171,18 @@ describe('capabilities routers', () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       data: {
-        sandbox: { enabled: false },
+        sandbox: {
+          enabled: false,
+          environments: { enabled: true },
+        },
         skill: {
           enabled: false,
           reason: 'Skills run in a sandbox, which is not configured.',
         },
         settings: ALL_SETTINGS_ON,
         web_search: { enabled: false, reason: NO_PROVIDER_REASON },
-        session_sharing: { enabled: false },
+        memory: { enabled: true },
+        session_sharing: { granularity: 'tenant' },
       },
     });
   });
@@ -203,16 +231,49 @@ describe('capabilities routers', () => {
     });
   });
 
-  it('reports sharing with users only when a user source is configured', async () => {
+  it('reports memory disabled with a reason when the tenant turned it off', async () => {
     disableOidcAuth();
-    const peekUsers = () => Promise.reject(new Error('not used'));
-    const router = makeRouter({ userStore: new TrueFoundryUserStore({ peekUsers }) });
+    const router = makeRouter({ tenantMemoryEnabled: false });
 
     const response = await router.request('/');
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
-      data: { session_sharing: { enabled: true } },
+      data: {
+        memory: {
+          enabled: false,
+          reason: MEMORY_TENANT_OFF_REASON,
+        },
+      },
     });
+  });
+
+  it('omits memory but keeps memory providers open in OSS until a provider is configured', async () => {
+    disableOidcAuth();
+    const router = makeRouter({ hasMemoryProvider: false });
+
+    const response = await router.request('/');
+    expect(response.status).toBe(200);
+    const body: unknown = await response.json();
+    expect(body).toMatchObject({
+      data: { settings: { memory_providers: { enabled: true, manage_providers: true } } },
+    });
+    expect(body).not.toHaveProperty('data.memory');
+  });
+
+  it.each([
+    { granularity: 'tenant', userStore: new EmptyUserStore() },
+    {
+      granularity: 'subject',
+      userStore: new TrueFoundryUserStore({ peekUsers: () => Promise.reject(new Error('not used')) }),
+    },
+  ])('reports $granularity sharing granularity based on user lookup support', async ({ granularity, userStore }) => {
+    disableOidcAuth();
+    const router = makeRouter({ userStore });
+
+    const response = await router.request('/');
+    expect(response.status).toBe(200);
+    const body: unknown = await response.json();
+    expect(body).toHaveProperty('data.session_sharing', { granularity });
   });
 
   it('reports sandbox + skill enabled when local fallback is cached and no image status exists', async () => {
@@ -230,11 +291,12 @@ describe('capabilities routers', () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       data: {
-        sandbox: { enabled: true },
+        sandbox: { enabled: true, environments: { enabled: true } },
         skill: { enabled: true },
         settings: ALL_SETTINGS_ON,
         web_search: { enabled: false, reason: NO_PROVIDER_REASON },
-        session_sharing: { enabled: false },
+        memory: { enabled: true },
+        session_sharing: { granularity: 'tenant' },
       },
     });
   });
@@ -248,11 +310,12 @@ describe('capabilities routers', () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       data: {
-        sandbox: { enabled: true },
+        sandbox: { enabled: true, environments: { enabled: true } },
         skill: { enabled: true },
         settings: ALL_SETTINGS_ON,
         web_search: { enabled: false, reason: NO_PROVIDER_REASON },
-        session_sharing: { enabled: false },
+        memory: { enabled: true },
+        session_sharing: { granularity: 'tenant' },
       },
     });
   });
@@ -283,7 +346,7 @@ describe('capabilities routers', () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
       data: {
-        sandbox: { enabled: false },
+        sandbox: { enabled: false, environments: { enabled: true } },
         skill: {
           enabled: false,
           reason: 'Skills run in a sandbox whose image is still being prepared — retry shortly.',
@@ -301,10 +364,76 @@ describe('capabilities routers', () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
       data: {
-        sandbox: { enabled: false },
+        sandbox: { enabled: false, environments: { enabled: true } },
         skill: { enabled: false, reason: 'Skills run in a sandbox, which is not configured.' },
       },
     });
+  });
+
+  it('disables environments when the TrueFoundry on-prem sandbox provider is selected', async () => {
+    disableOidcAuth();
+    mockActiveDefaultStatus = 'ready';
+    const previousStandalone = Reflect.get(configuration, 'STANDALONE');
+    const previousSfyUrl = Reflect.get(configuration, 'TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL');
+    const previousProvider = Reflect.get(configuration, 'TRUEFOUNDRY_SANDBOX_PROVIDER');
+    Reflect.set(configuration, 'STANDALONE', false);
+    Reflect.set(configuration, 'TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', 'http://sfy.example');
+    Reflect.set(configuration, 'TRUEFOUNDRY_SANDBOX_PROVIDER', 'truefoundry');
+    try {
+      const router = makeRouter();
+      const response = await router.request('/');
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({
+        data: {
+          sandbox: { enabled: true, environments: { enabled: false } },
+        },
+      });
+    } finally {
+      Reflect.set(configuration, 'STANDALONE', previousStandalone);
+      if (previousSfyUrl === undefined) {
+        Reflect.deleteProperty(configuration, 'TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL');
+      } else {
+        Reflect.set(configuration, 'TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', previousSfyUrl);
+      }
+      if (previousProvider === undefined) {
+        Reflect.deleteProperty(configuration, 'TRUEFOUNDRY_SANDBOX_PROVIDER');
+      } else {
+        Reflect.set(configuration, 'TRUEFOUNDRY_SANDBOX_PROVIDER', previousProvider);
+      }
+    }
+  });
+
+  it('disables environments in TrueFoundry mode when the shared provider is unset', async () => {
+    disableOidcAuth();
+    mockActiveDefaultStatus = 'ready';
+    const previousStandalone = Reflect.get(configuration, 'STANDALONE');
+    const previousSfyUrl = Reflect.get(configuration, 'TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL');
+    const previousProvider = Reflect.get(configuration, 'TRUEFOUNDRY_SANDBOX_PROVIDER');
+    Reflect.set(configuration, 'STANDALONE', false);
+    Reflect.set(configuration, 'TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', 'http://sfy.example');
+    Reflect.deleteProperty(configuration, 'TRUEFOUNDRY_SANDBOX_PROVIDER');
+    try {
+      const router = makeRouter();
+      const response = await router.request('/');
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({
+        data: {
+          sandbox: { enabled: true, environments: { enabled: false } },
+        },
+      });
+    } finally {
+      Reflect.set(configuration, 'STANDALONE', previousStandalone);
+      if (previousSfyUrl === undefined) {
+        Reflect.deleteProperty(configuration, 'TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL');
+      } else {
+        Reflect.set(configuration, 'TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', previousSfyUrl);
+      }
+      if (previousProvider === undefined) {
+        Reflect.deleteProperty(configuration, 'TRUEFOUNDRY_SANDBOX_PROVIDER');
+      } else {
+        Reflect.set(configuration, 'TRUEFOUNDRY_SANDBOX_PROVIDER', previousProvider);
+      }
+    }
   });
 
   describe('when auth is enabled', () => {
@@ -376,12 +505,24 @@ describe('capabilities routers', () => {
         getConfiguration: () => Promise.resolve(undefined),
         upsertConfiguration: () => Promise.reject(new Error('not used')),
         getOrCreateConfiguration: () => Promise.reject(new Error('not used')),
+        listTenantIdsWithFeatureEnabled: () => Promise.reject(new Error('not used')),
+      };
+      const zepMemoryStore: IMemoryProviderStore = {
+        getProvider: tenantId =>
+          Promise.resolve({
+            tenant_id: tenantId,
+            manifest: { type: 'zep', auth: { api_key: 'zep-test-key' } },
+            created_at: '2026-01-01T00:00:00.000Z',
+            updated_at: '2026-01-01T00:00:00.000Z',
+          }),
+        upsertProvider: () => Promise.reject(new Error('not used')),
       };
       const router = withAuth(
         createCapabilitiesRouter({
           sandboxEnvironmentStore: mockDefaultEnvStore(),
-          resolveWebSearchProviderStore: () => emptyWebSearchStore,
-          resolveConfigurationStore: () => allOnConfigurationStore,
+          webSearchProviderStore: emptyWebSearchStore,
+          configurationStore: allOnConfigurationStore,
+          memoryProviderStore: zepMemoryStore,
           userStore: new EmptyUserStore(),
           withTransaction: (() => {
             const run = <T>(callback: (trx: never) => Promise<T>): Promise<T> =>
@@ -400,14 +541,18 @@ describe('capabilities routers', () => {
       expect(adminRes.status).toBe(200);
       expect(await adminRes.json()).toEqual({
         data: {
-          sandbox: { enabled: false },
+          sandbox: {
+            enabled: false,
+            environments: { enabled: true },
+          },
           skill: {
             enabled: false,
             reason: 'Skills run in a sandbox, which is not configured.',
           },
           settings: ALL_SETTINGS_ON,
           web_search: { enabled: false, reason: NO_PROVIDER_REASON },
-          session_sharing: { enabled: false },
+          memory: { enabled: false, reason: MEMORY_TENANT_OFF_REASON },
+          session_sharing: { granularity: 'tenant' },
         },
       });
 
@@ -417,14 +562,18 @@ describe('capabilities routers', () => {
       expect(userRes.status).toBe(200);
       expect(await userRes.json()).toEqual({
         data: {
-          sandbox: { enabled: false },
+          sandbox: {
+            enabled: false,
+            environments: { enabled: true },
+          },
           skill: {
             enabled: false,
             reason: 'Skills run in a sandbox, which is not configured.',
           },
           settings: ALL_SETTINGS_OFF,
           web_search: { enabled: false, reason: NO_PROVIDER_REASON },
-          session_sharing: { enabled: false },
+          memory: { enabled: false, reason: MEMORY_TENANT_OFF_REASON },
+          session_sharing: { granularity: 'tenant' },
         },
       });
     });

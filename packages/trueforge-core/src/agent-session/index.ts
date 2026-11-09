@@ -6,12 +6,14 @@
 export { AgentSpecSchema, DEFAULT_AGENT_CONFIG_ITERATION_LIMIT, RuntimeConfigSchema } from './schemas/agentSpec';
 export type { AgentSpec, Skill } from './schemas/agentSpec';
 
+export { TurnUserEventMessageSchema, TurnUserEventSchema } from '../core/events/schema';
+export type { TurnUserEvent, TurnUserEventMessage } from '../core/events/schema';
+export type { UserMessage } from '../core/runtime/UserInputMessage';
+
 export {
-  ActionRequiredSchema,
   CancellationReason,
   CreateTurnRequestSchema,
-  TurnInboundEventItemSchema,
-  TurnInputItemSchema,
+  LegacyTurnInputItemSchema,
   TurnMetricsSchema,
   TurnSchema,
   TurnStateCancelledReasonSchema,
@@ -24,11 +26,10 @@ export {
   isNonTerminalTurnState,
 } from './schemas/turn';
 export type {
+  LegacyTurnInputItem,
   NonTerminalTurnState,
   TerminalTurnState,
   Turn,
-  TurnInboundEventItem,
-  TurnInputItem,
   TurnMetrics,
   TurnState,
 } from './schemas/turn';
@@ -85,6 +86,7 @@ export type {
   AddThreadsInput,
   AppendToEventsInput,
   AppendToThreadContextInput,
+  ClaimTurnExecutorInput,
   CreateSessionInput,
   CreateTurnInput,
   DeleteSessionInput,
@@ -99,6 +101,8 @@ export type {
   ListSessionsInput,
   ListTurnEventsInput,
   ListTurnsInput,
+  ListUnconsumedTurnInboundEventsInput,
+  MarkTurnInboundEventsConsumedInput,
   NewThreadInit,
   OverwriteThreadContextInput,
   PatchMCPServersInput,
@@ -124,13 +128,14 @@ export {
   TurnEventAlreadyExistsError,
   TurnNotFoundError,
   TurnNotRunningError,
+  TurnOwnershipLostError,
 } from './store/SessionStoreErrors';
 
 export type { ITurnResourceResolver } from './ITurnResourceResolver';
 export { TurnResourceResolver } from './TurnResourceResolver';
 export type { TurnSandboxFactory } from './TurnResourceResolver';
 
-export { SessionHandle } from './SessionHandle';
+export { SessionHandle, resolvePreviousTurnId } from './SessionHandle';
 export { Sessions } from './Sessions';
-export { TurnHandle } from './TurnHandle';
+export { TurnHandle, TurnOffloadReason, isTurnOffloadReason } from './TurnHandle';
 export type { TurnStreamingEvent } from './TurnHandle';

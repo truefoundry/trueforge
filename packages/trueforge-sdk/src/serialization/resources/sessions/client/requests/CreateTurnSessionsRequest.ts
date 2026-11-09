@@ -4,19 +4,19 @@ import type * as TrueForge from "../../../../../api/index.js";
 import * as core from "../../../../../core/index.js";
 import type * as serializers from "../../../../index.js";
 import { PreviousTurnIdInput } from "../../../../types/PreviousTurnIdInput.js";
-import { TurnInputItem } from "../../../../types/TurnInputItem.js";
+import { UserMessage } from "../../../../types/UserMessage.js";
 
 export const CreateTurnSessionsRequest: core.serialization.Schema<
     serializers.CreateTurnSessionsRequest.Raw,
     TrueForge.CreateTurnSessionsRequest
 > = core.serialization.object({
-    input: core.serialization.list(TurnInputItem).optional(),
+    input: core.serialization.list(UserMessage).optional(),
     previousTurnId: core.serialization.property("previous_turn_id", PreviousTurnIdInput.optional()),
 });
 
 export declare namespace CreateTurnSessionsRequest {
     export interface Raw {
-        input?: TurnInputItem.Raw[] | null;
+        input?: UserMessage.Raw[] | null;
         previous_turn_id?: PreviousTurnIdInput.Raw | null;
     }
 }

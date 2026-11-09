@@ -10,6 +10,7 @@ import { createTurnsRouter } from '../../../src/apis/turns';
 import { createAppErrorHandler } from '../../../src/app';
 import { TrueForgeAuthorizer } from '../../../src/auth/authorizer';
 import type { RequestContext } from '../../../src/auth/identity';
+import { EmptyCapabilitiesStore } from '../../../src/db/capabilitiesStore';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAccessControlStore } from '../../../src/db/sqlite/access-control-store/SqliteAccessControlStore';
@@ -17,6 +18,7 @@ import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgent
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteConfigurationStore } from '../../../src/db/sqlite/configuration-store/SqliteConfigurationStore';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
+import { SqliteMemoryProviderStore } from '../../../src/db/sqlite/memory-provider-store/SqliteMemoryProviderStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
@@ -100,51 +102,58 @@ function buildApp(input: { db: Kysely<Database>; sessionStore: SqliteSessionStor
   app.route(
     '/',
     createTurnsRouter({
+      accessControlStore,
+      activeTurns: new ActiveTurnRegistry({ logger }),
+      authorizer: new TrueForgeAuthorizer(),
+      eventSubscriptions: new EventSubscriptionRegistry(undefined),
+      logger,
+      requestReplyRouter: new RequestReplyRouter(),
+      resolveAgentStore: () => agentStore,
+      resolveRequestContext,
+      resolveTurnExecutionStores: () =>
+        Promise.resolve({
+          agentStore,
+          capabilitiesStore: new EmptyCapabilitiesStore(),
+          modelProviderStore: new SqliteModelProviderStore(db),
+          mcpServerStore: new McpServerWithAuthStore({
+            store: new SqliteMcpServerStore(db),
+            tokenStore: new SqliteOAuthTokenStore(db),
+            clientName: 'test-client',
+          }),
+          skillStore: new SqliteSkillStore(db),
+          sandboxProviderStore: new SqliteSandboxProviderStore(db),
+          webSearchProviderStore: new SqliteWebSearchProviderStore(db),
+          memory: undefined,
+        }),
+      sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
+      sandboxProviderStore: new SqliteSandboxProviderStore(db),
       sessions,
       sessionStore,
-      accessControlStore,
-      activeTurns: new ActiveTurnRegistry(),
-      resolveModelProviderStore: () => new SqliteModelProviderStore(db),
-      resolveMcpServerStore: () =>
-        new McpServerWithAuthStore({
-          store: new SqliteMcpServerStore(db),
-          tokenStore: new SqliteOAuthTokenStore(db),
-          clientName: 'test-client',
-        }),
-      resolveTurnSkillsStore: () => new SqliteSkillStore(db),
-      resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
-      resolveAgentStore: () => agentStore,
-      eventSubscriptions: new EventSubscriptionRegistry(undefined),
-      resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
-      sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
-      resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
-      logger,
-      resolveRequestContext,
-      authorizer: new TrueForgeAuthorizer(),
     }),
   );
   app.route(
     '/',
     createSessionsRouter({
-      sessions,
-      sessionStore,
       accessControlStore,
-      userStore,
-      withTransaction: callback => db.transaction().execute(callback),
-      activeTurns: new ActiveTurnRegistry(),
-      resolveModelProviderStore: () => new SqliteModelProviderStore(db),
-      resolveMcpServerStore: () => new SqliteMcpServerStore(db),
-      resolveSkillStore: () => new SqliteSkillStore(db),
-      resolveAgentStore: () => agentStore,
-      resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
-      sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
-      resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
-      resolveConfigurationStore: () => new SqliteConfigurationStore(db),
+      activeTurns: new ActiveTurnRegistry({ logger }),
+      authorizer: new TrueForgeAuthorizer(),
+      logger,
       redis: createClient(),
       requestReplyRouter: new RequestReplyRouter(),
+      resolveAgentStore: () => agentStore,
+      resolveMcpServerStore: () => new SqliteMcpServerStore(db),
+      resolveModelProviderStore: () => new SqliteModelProviderStore(db),
       resolveRequestContext,
-      logger,
-      authorizer: new TrueForgeAuthorizer(),
+      resolveSkillStore: () => new SqliteSkillStore(db),
+      sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
+      sandboxProviderStore: new SqliteSandboxProviderStore(db),
+      sessions,
+      sessionStore,
+      userStore,
+      webSearchProviderStore: new SqliteWebSearchProviderStore(db),
+      memoryProviderStore: new SqliteMemoryProviderStore(db),
+      configurationStore: new SqliteConfigurationStore(db),
+      withTransaction: callback => db.transaction().execute(callback),
     }),
   );
   app.onError(createAppErrorHandler({ logger }));

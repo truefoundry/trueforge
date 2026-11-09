@@ -6,6 +6,7 @@ import { createModelsRouter } from '../../../src/apis/models';
 import { createSettingsRouter } from '../../../src/apis/settings';
 import { createdBySubjectFromRequestContext, STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { McpCatalog } from '../../../src/catalog/McpCatalog';
+import { MemoryCatalog } from '../../../src/catalog/MemoryCatalog';
 import { ModelCatalog } from '../../../src/catalog/ModelCatalog';
 import { SandboxCatalog } from '../../../src/catalog/SandboxCatalog';
 import { SkillCatalog } from '../../../src/catalog/SkillCatalog';
@@ -17,6 +18,7 @@ import type { IModelProviderStore } from '../../../src/db/modelProviderStore';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
+import { SqliteMemoryProviderStore } from '../../../src/db/sqlite/memory-provider-store/SqliteMemoryProviderStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
@@ -138,9 +140,10 @@ async function createRouters(): Promise<{
           }),
         tokenStore,
         resolveSkillStore: () => new SqliteSkillStore(db),
-        resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
+        sandboxProviderStore: new SqliteSandboxProviderStore(db),
         sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
-        resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
+        webSearchProviderStore: new SqliteWebSearchProviderStore(db),
+        memoryProviderStore: new SqliteMemoryProviderStore(db),
         resolveAgentStore: () => agentStore,
         withTransaction: callback => db.transaction().execute(callback),
         logger: winston.createLogger({ silent: true }),
@@ -153,6 +156,7 @@ async function createRouters(): Promise<{
       skillCatalog: SkillCatalog.load(),
       sandboxCatalog: SandboxCatalog.load(),
       webSearchCatalog: WebSearchCatalog.load(),
+      memoryCatalog: MemoryCatalog.load(),
     }),
     modelsRouter: createModelsRouter({
       resolveModelProviderStore: () => modelProviderStore,

@@ -1,11 +1,10 @@
 import type { MessageStatus } from '@assistant-ui/core';
 import type { McpAuthRequiredEvent, TurnStateDone } from './server/index.js';
+import { EVENT_TYPE } from './server/index.js';
 
-import type { McpAuthMessageCustomMetadata } from './messageCustomMetadata.js';
+import { interruptRequiredAssistantStatus } from './assistantMessageStatus.js';
+import { MESSAGE_CUSTOM_KEY, type McpAuthMessageCustomMetadata } from './messageCustomMetadata.js';
 import type { AssistantContentPart } from './modelMessageContent.js';
-
-/** `runConfig.custom` flag: resume after MCP OAuth with an empty SDK turn input. */
-export const MCP_AUTH_RESUME_RUN_CUSTOM_KEY = 'resumeMcpAuth';
 
 type McpServerAuthInfo = McpAuthRequiredEvent['mcpServers'][number];
 
@@ -22,14 +21,18 @@ export function buildMcpAuthTextParts(servers?: readonly McpServerAuthInfo[]): A
 export function findMcpAuthRequired(
   requiredActions: TurnStateDone['requiredActions'] | undefined,
 ): McpAuthRequiredEvent | undefined {
-  const found = requiredActions?.find(action => action.type === 'mcp.auth_required');
-  return found?.type === 'mcp.auth_required' ? found : undefined;
+  // Kept for history written before paused turns became non-terminal.
+  const found = requiredActions?.find(action => action.type === EVENT_TYPE.MCP_AUTH_REQUIRED);
+  return found?.type === EVENT_TYPE.MCP_AUTH_REQUIRED ? found : undefined;
 }
 
 export function mcpAuthAssistantStatus(): MessageStatus {
-  return { type: 'requires-action', reason: 'interrupt' };
+  return interruptRequiredAssistantStatus();
 }
 
 export function mcpAuthMessageCustom(servers: readonly McpServerAuthInfo[]): McpAuthMessageCustomMetadata {
-  return { pendingMcpAuth: true, mcpServers: [...servers] };
+  return {
+    [MESSAGE_CUSTOM_KEY.PENDING_MCP_AUTH]: true,
+    [MESSAGE_CUSTOM_KEY.MCP_SERVERS]: [...servers],
+  };
 }

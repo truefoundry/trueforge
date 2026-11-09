@@ -3,11 +3,16 @@ import { describe, it } from 'vitest';
 
 import type { SessionEventItem } from '@/server/types.js';
 import { buildSessionMetrics } from '@/utils/buildSessionMetrics.js';
-import { buildSessionTimelineSegments } from '@/utils/buildSessionTimelineSegments.js';
-import { getSessionEventColor, type SessionEventTimelineSegment } from '@/utils/sessionEventTimeline.js';
+import { buildSessionTimelineSegments, sessionHasOpenPause } from '@/utils/buildSessionTimelineSegments.js';
+import {
+  formatTimelineDuration,
+  getSessionEventColor,
+  type SessionEventTimelineSegment,
+} from '@/utils/sessionEventTimeline.js';
 import {
   buildTimelineAxisTicks,
   compressInterTurnGaps,
+  compressIntraTurnPauses,
   formatTimelineAxisDuration,
   getActiveTimelineMs,
   getSubAgentHoverGroups,
@@ -766,9 +771,530 @@ describe('sessionEventTimelineChart helpers', () => {
     ]);
     assert.equal(compressed.find(segment => segment.id === 'u2')?.startMs, 50);
   });
+
+  it('collapses pause wall time and preserves wallDurationMs', () => {
+    const compressed = compressIntraTurnPauses([
+      {
+        id: 'pause',
+        type: 'waiting_on_human',
+        title: 'turn.paused',
+        description: 'Paused',
+        startMs: 10_000,
+        endMs: 10_000 + 2 * 86_400_000,
+        turnIndex: 0,
+        threadId: 'main',
+        isPauseChip: true,
+        wallDurationMs: 2 * 86_400_000,
+      },
+      {
+        id: 'approval',
+        type: 'approval',
+        title: 'tool.approval_required',
+        description: 'Approval required',
+        startMs: 10_000,
+        endMs: 10_000,
+        turnIndex: 0,
+        threadId: 'main',
+        isMarker: true,
+      },
+      {
+        id: 'later',
+        type: 'model',
+        title: 'model.message',
+        description: 'done',
+        startMs: 10_000 + 2 * 86_400_000 + 5_000,
+        endMs: 10_000 + 2 * 86_400_000 + 8_000,
+        turnIndex: 0,
+        threadId: 'main',
+      },
+    ]);
+    const pause = compressed.find(segment => segment.id === 'pause');
+    assert.equal(pause?.startMs, 10_000);
+    assert.equal(pause?.endMs, 10_000);
+    assert.equal(pause?.wallDurationMs, 2 * 86_400_000);
+    assert.equal(compressed.find(segment => segment.id === 'approval')?.startMs, 10_000);
+    assert.equal(compressed.find(segment => segment.id === 'later')?.startMs, 15_000);
+    assert.equal(compressed.find(segment => segment.id === 'later')?.endMs, 18_000);
+  });
+});
+
+describe('pause chips in buildSessionTimelineSegments', () => {
+  it('emits a collapsed pause chip with approval and policy markers', () => {
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm1',
+          content: 'calling',
+          toolCalls: [
+            {
+              id: 'call-1',
+              type: 'function',
+              function: {
+                name: 'call_tool',
+                arguments: JSON.stringify({ mcp_server: 'linear', tool_name: 'save_comment', input: {} }),
+              },
+            },
+          ],
+          createdAt: '2026-01-01T00:00:05.000Z',
+          threadId: 'main',
+          finishReason: 'tool_calls',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.approval_required',
+          id: 'ar1',
+          createdAt: '2026-01-01T00:00:06.000Z',
+          threadId: 'main',
+          toolCalls: [{ id: 'call-1', sourceEventId: 'm1' }],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-paused',
+          state: { status: 'paused' },
+          createdAt: '2026-01-01T00:00:06.000Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'user.tool_approval',
+          id: 'ua1',
+          threadId: 'main',
+          toolCallId: 'call-1',
+          approval: { status: 'allow' },
+          createdAt: '2026-01-01T00:02:06.000Z',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'user.tool_approval_policy',
+          id: 'up1',
+          policies: [
+            {
+              serverName: 'linear',
+              name: 'save_comment',
+              policy: { type: 'allow_session', expireAt: '2026-01-01T00:12:06.000Z' },
+            },
+          ],
+          createdAt: '2026-01-01T00:02:06.000Z',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-running',
+          state: { status: 'running' },
+          createdAt: '2026-01-01T00:02:06.100Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.response',
+          id: 'tr1',
+          toolCallId: 'call-1',
+          content: '{"ok":true}',
+          createdAt: '2026-01-01T00:02:07.000Z',
+          threadId: 'main',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm2',
+          content: 'Added comment',
+          createdAt: '2026-01-01T00:02:08.000Z',
+          threadId: 'main',
+          finishReason: 'stop',
+        },
+      },
+      done({ turnId: 't1', createdAt: '2026-01-01T00:02:09.000Z' }),
+    ]);
+
+    const segments = buildSessionTimelineSegments(turns);
+    const pause = segments.find(segment => segment.isPauseChip);
+    assert.ok(pause);
+    assert.equal(pause?.startMs, pause?.endMs);
+    assert.equal(pause?.wallDurationMs, 120_100);
+    assert.equal(formatTimelineDuration(pause?.wallDurationMs ?? 0), '2m');
+
+    const approval = segments.find(segment => segment.title === 'tool.approval_required');
+    const userApproval = segments.find(segment => segment.title === 'user.tool_approval');
+    const policy = segments.find(segment => segment.title === 'user.tool_approval_policy');
+    assert.equal(approval?.type, 'approval');
+    assert.equal(userApproval?.type, 'approval');
+    assert.equal(approval?.startMs, pause?.startMs);
+    assert.equal(userApproval?.startMs, pause?.startMs);
+    assert.equal(approval?.pauseOffsetMs, 0);
+    assert.equal(userApproval?.pauseOffsetMs, 120_000);
+    assert.equal(policy?.pauseOffsetMs, 120_000);
+    assert.equal(userApproval?.description, 'linear/save_comment · approved');
+    assert.equal(policy?.startMs, pause?.startMs);
+    assert.equal(policy?.description, 'linear/save_comment · allow_session · 10m');
+    assert.equal(approval?.description, 'linear/save_comment');
+
+    const postApprovalTool = segments.find(segment => segment.type === 'tool_call' && segment.id.includes('call-1'));
+    assert.ok(postApprovalTool);
+    assert.equal(postApprovalTool?.startMs, pause?.startMs);
+    assert.ok((postApprovalTool?.endMs ?? 0) > (postApprovalTool?.startMs ?? 0));
+
+    const laterModel = segments.find(segment => segment.id === 'm2');
+    assert.ok((laterModel?.startMs ?? 0) < 10_000);
+
+    const metrics = buildSessionMetrics({ turns, segments });
+    const waiting = metrics.timeBreakdown.find(entry => entry.label === 'waiting on human');
+    assert.equal(waiting?.value, 120_100);
+  });
+
+  it('skips a sub-second pause chip when there is no human action', () => {
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-paused',
+          state: { status: 'paused' },
+          createdAt: '2026-01-01T00:00:01.000Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-running',
+          state: { status: 'running' },
+          createdAt: '2026-01-01T00:00:01.400Z',
+          threadId: null,
+        },
+      },
+      done({ turnId: 't1', createdAt: '2026-01-01T00:00:02.000Z' }),
+    ]);
+    const segments = buildSessionTimelineSegments(turns);
+    assert.equal(segments.filter(segment => segment.isPauseChip).length, 0);
+  });
+
+  it('attributes a pause chip to the sub-agent thread that required approval', () => {
+    const subThread = 'sub-thread-1';
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm-main',
+          content: '',
+          toolCalls: [
+            {
+              id: 'call-sub',
+              type: 'function',
+              function: { name: 'create_sub_agent', arguments: '{"name":"worker"}' },
+            },
+          ],
+          createdAt: '2026-01-01T00:00:01.000Z',
+          threadId: 'main',
+          finishReason: 'tool_calls',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.created',
+          id: 'tc1',
+          title: 'worker',
+          createdAt: '2026-01-01T00:00:02.000Z',
+          threadId: subThread,
+          agentInfo: { type: 'dynamic', name: 'worker', input: 'worker' },
+          parent: { threadId: 'main', toolCallId: 'call-sub' },
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm-sub',
+          content: '',
+          toolCalls: [
+            {
+              id: 'call-1',
+              type: 'function',
+              function: {
+                name: 'call_tool',
+                arguments: JSON.stringify({ mcp_server: 'linear', tool_name: 'delete_comment', input: {} }),
+              },
+            },
+          ],
+          createdAt: '2026-01-01T00:00:03.000Z',
+          threadId: subThread,
+          finishReason: 'tool_calls',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.approval_required',
+          id: 'ar1',
+          createdAt: '2026-01-01T00:00:03.001Z',
+          threadId: subThread,
+          toolCalls: [{ id: 'call-1', sourceEventId: 'm-sub' }],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-paused',
+          state: { status: 'paused' },
+          createdAt: '2026-01-01T00:00:03.002Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'user.tool_approval',
+          id: 'ua1',
+          toolCallId: 'call-1',
+          approval: { status: 'allow' },
+          createdAt: '2026-01-01T00:00:10.000Z',
+          threadId: subThread,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-running',
+          state: { status: 'running' },
+          createdAt: '2026-01-01T00:00:10.100Z',
+          threadId: null,
+        },
+      },
+    ]);
+    const segments = buildSessionTimelineSegments(turns);
+    const pause = segments.find(segment => segment.isPauseChip);
+    assert.equal(pause?.threadId, subThread);
+    const approval = segments.find(segment => segment.id === 'ar1');
+    assert.equal(approval?.threadId, subThread);
+  });
+
+  it('hides pause hatch when sub-agent completes during the pause (no resume work)', () => {
+    const subA = 'sub-done-during-pause';
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm-main',
+          content: '',
+          toolCalls: [
+            {
+              id: 'call-a',
+              type: 'function',
+              function: { name: 'create_sub_agent', arguments: '{"name":"a"}' },
+            },
+          ],
+          createdAt: '2026-01-01T00:00:01.000Z',
+          threadId: 'main',
+          finishReason: 'tool_calls',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.created',
+          id: 'tc-a',
+          title: 'a',
+          createdAt: '2026-01-01T00:00:02.000Z',
+          threadId: subA,
+          agentInfo: { type: 'dynamic', name: 'a', input: 'a' },
+          parent: { threadId: 'main', toolCallId: 'call-a' },
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.approval_required',
+          id: 'ar-a',
+          createdAt: '2026-01-01T00:00:03.000Z',
+          threadId: subA,
+          toolCalls: [{ id: 'call-tool-a', sourceEventId: 'm-a' }],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-paused',
+          state: { status: 'paused' },
+          createdAt: '2026-01-01T00:00:03.002Z',
+          threadId: null,
+        },
+      },
+      // Completes while turn is still paused (cancelled / abandoned wait).
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.done',
+          id: 'td-a',
+          title: 'a',
+          createdAt: '2026-01-01T00:00:05.000Z',
+          threadId: subA,
+          state: { status: 'completed' },
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.done',
+          id: 'td-turn',
+          state: {
+            status: 'cancelled',
+            reason: 'cancelled-for-next-turn',
+            completedAt: '2026-01-01T00:00:20.000Z',
+          },
+          createdAt: '2026-01-01T00:00:20.000Z',
+          threadId: null,
+        },
+      },
+    ]);
+    const pause = buildSessionTimelineSegments(turns).find(segment => segment.isPauseChip && segment.threadId === subA);
+    assert.ok(pause != null);
+    assert.equal(pause.isCompressionOnly, true);
+  });
+
+  it('closes an open pause with injected nowMs', () => {
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.approval_required',
+          id: 'ar1',
+          createdAt: '2026-01-01T00:00:01.000Z',
+          threadId: 'main',
+          toolCalls: [{ id: 'call-1', sourceEventId: 'm1' }],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-paused',
+          state: { status: 'paused' },
+          createdAt: '2026-01-01T00:00:01.000Z',
+          threadId: null,
+        },
+      },
+    ]);
+    assert.equal(sessionHasOpenPause(turns), true);
+    const nowMs = Date.parse('2026-01-03T00:00:01.000Z');
+    const segments = buildSessionTimelineSegments(turns, { nowMs });
+    const pause = segments.find(segment => segment.isPauseChip);
+    assert.equal(pause?.description, 'Paused');
+    assert.equal(pause?.wallDurationMs, 2 * 86_400_000);
+    assert.equal(formatTimelineDuration(pause?.wallDurationMs ?? 0), '2d');
+    const later = buildSessionTimelineSegments(turns, { nowMs: nowMs + 60_000 });
+    assert.equal(later.find(segment => segment.isPauseChip)?.wallDurationMs, 2 * 86_400_000 + 60_000);
+  });
+
+  it('sessionHasOpenPause is false after resume or turn.done', () => {
+    const paused = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-paused',
+          state: { status: 'paused' },
+          createdAt: '2026-01-01T00:00:01.000Z',
+          threadId: null,
+        },
+      },
+    ]);
+    assert.equal(sessionHasOpenPause(paused), true);
+    const resumed = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-paused',
+          state: { status: 'paused' },
+          createdAt: '2026-01-01T00:00:01.000Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-running',
+          state: { status: 'running' },
+          createdAt: '2026-01-01T00:00:02.000Z',
+          threadId: null,
+        },
+      },
+    ]);
+    assert.equal(sessionHasOpenPause(resumed), false);
+  });
 });
 
 describe('buildSessionMetrics', () => {
+  it('counts a shared sub-agent pause once', () => {
+    const turns = buildSessionTurnViews([created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' })]);
+    const chip = {
+      id: 'pause',
+      type: 'waiting_on_human' as const,
+      title: 'turn.paused',
+      description: 'Paused',
+      startMs: 1_000,
+      endMs: 1_000,
+      turnIndex: 0,
+      threadId: 'sub-a',
+      isPauseChip: true,
+      wallDurationMs: 10_000,
+    };
+    const segments = [
+      chip,
+      { ...chip, id: 'pause-b', threadId: 'sub-b' },
+      {
+        ...chip,
+        id: 'span-a',
+        threadId: 'sub-a',
+        isPauseChip: undefined,
+        isPauseSpan: true,
+        wallDurationMs: 10_000,
+      },
+      {
+        ...chip,
+        id: 'span-b',
+        threadId: 'sub-b',
+        isPauseChip: undefined,
+        isPauseSpan: true,
+        wallDurationMs: 10_000,
+      },
+    ];
+    const metrics = buildSessionMetrics({ turns, segments });
+    const waiting = metrics.timeBreakdown.find(item => item.label === 'waiting on human');
+    assert.equal(waiting?.value, 10_000);
+  });
+
   it('derives tiles from terminal turn metrics and timeline segments', () => {
     const turns = buildSessionTurnViews([
       created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
@@ -806,7 +1332,162 @@ describe('buildSessionMetrics', () => {
     assert.equal(metrics.totalCostUsd, 0.5);
     assert.equal(metrics.totalTokens, 80);
     assert.equal(metrics.tokenBreakdown.find(item => item.label === 'input')?.value, 50);
+    assert.equal(metrics.inputTokens, 50);
+    assert.equal(metrics.outputTokens, 30);
+    assert.equal(metrics.cacheReadTokens, 0);
+    assert.equal(metrics.cacheWriteTokens, 0);
+    assert.equal(metrics.inputBreakdown.length, 0);
     assert.equal(metrics.errors, 0);
+  });
+
+  it('sums model.message inputTokensBreakdown into session inputBreakdown', () => {
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'model-1',
+          threadId: 'main',
+          content: 'hi',
+          createdAt: '2026-01-01T00:00:01.000Z',
+          usage: {
+            inputTokens: 100,
+            outputTokens: 10,
+            inputTokensBreakdown: {
+              harness: 10,
+              skills: 5,
+              instructions: 20,
+              toolDefinitions: 15,
+              messages: 50,
+            },
+          },
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'model-2',
+          threadId: 'sub',
+          content: 'sub',
+          createdAt: '2026-01-01T00:00:01.500Z',
+          usage: {
+            inputTokens: 40,
+            outputTokens: 5,
+            inputTokensBreakdown: {
+              harness: 2,
+              skills: 0,
+              instructions: 0,
+              toolDefinitions: 8,
+              messages: 30,
+            },
+          },
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.done',
+          id: 't1-done',
+          state: {
+            status: 'done',
+            completedAt: '2026-01-01T00:00:02.000Z',
+            output: null,
+            requiredActions: [],
+            metrics: {
+              totalTokens: 155,
+              totalInputTokens: 140,
+              totalOutputTokens: 15,
+              totalCacheReadTokens: 0,
+              totalCacheWriteTokens: 0,
+              totalReasoningTokens: 0,
+            },
+          },
+          createdAt: '2026-01-01T00:00:02.000Z',
+          threadId: null,
+        },
+      },
+    ]);
+    const segments = buildSessionTimelineSegments(turns);
+    const metrics = buildSessionMetrics({ turns, segments });
+    assert.deepEqual(Object.fromEntries(metrics.inputBreakdown.map(item => [item.label, item.value])), {
+      Harness: 12,
+      Skills: 5,
+      Instructions: 20,
+      'Tool definitions': 23,
+      Messages: 80,
+    });
+  });
+
+  it('omits input breakdown from turns that have no terminal token metrics', () => {
+    const breakdown = {
+      harness: 4283,
+      skills: 0,
+      instructions: 0,
+      toolDefinitions: 0,
+      messages: 1441,
+    };
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'model-cancelled',
+          threadId: 'main',
+          content: 'partial',
+          createdAt: '2026-01-01T00:00:01.000Z',
+          usage: { inputTokens: 3489, outputTokens: 53, inputTokensBreakdown: breakdown },
+        },
+      },
+      done({
+        turnId: 't1',
+        createdAt: '2026-01-01T00:00:02.000Z',
+        status: 'cancelled',
+        reason: 'cancelled-for-next-turn',
+      }),
+      created({ turnId: 't2', createdAt: '2026-01-01T00:00:03.000Z', content: 'next' }),
+      {
+        turnId: 't2',
+        event: {
+          type: 'model.message',
+          id: 'model-done',
+          threadId: 'main',
+          content: 'done',
+          createdAt: '2026-01-01T00:00:04.000Z',
+          usage: { inputTokens: 5724, outputTokens: 107, inputTokensBreakdown: breakdown },
+        },
+      },
+      {
+        turnId: 't2',
+        event: {
+          type: 'turn.done',
+          id: 't2-done',
+          state: {
+            status: 'done',
+            completedAt: '2026-01-01T00:00:05.000Z',
+            output: null,
+            requiredActions: [],
+            metrics: {
+              totalTokens: 5831,
+              totalInputTokens: 5724,
+              totalOutputTokens: 107,
+              totalCacheReadTokens: 0,
+              totalCacheWriteTokens: 0,
+              totalReasoningTokens: 0,
+            },
+          },
+          createdAt: '2026-01-01T00:00:05.000Z',
+          threadId: null,
+        },
+      },
+    ]);
+    const metrics = buildSessionMetrics({ turns, segments: buildSessionTimelineSegments(turns) });
+    assert.equal(metrics.inputTokens, 5724);
+    assert.equal(metrics.inputBreakdown.find(item => item.label === 'Harness')?.value, 4283);
+    assert.equal(metrics.inputBreakdown.find(item => item.label === 'Messages')?.value, 1441);
+    assert.equal(turns[0]?.inputTokensBreakdown?.harness, 4283);
   });
 
   it('emits a cancelled marker with reason and does not count it as an error', () => {

@@ -81,7 +81,7 @@ export type SelectLibraryAgentRequest = {
   agentSpec?: AgentSpec;
 };
 
-export type SettingsSection = 'models' | 'connectors' | 'skills' | 'sandbox' | 'web-search';
+export type SettingsSection = 'models' | 'connectors' | 'skills' | 'sandbox' | 'web-search' | 'memory';
 
 export type HistoryAgentFilter = {
   agentId?: string;
@@ -297,7 +297,10 @@ export function ShellModeProvider({
   const sessionsEnabled = isSessionsChromeEnabled({ sessions: sessionsServer });
   const schedulesEnabled = isSchedulesChromeEnabled({ schedules: scheduleServer });
   const schedulesOpen = schedulesEnabled && schedulesOpenState;
-  const environmentsEnabled = isEnvironmentsChromeEnabled({ sandboxEnvironments: sandboxEnvironmentServer });
+  const environmentsEnabled = isEnvironmentsChromeEnabled({
+    sandboxEnvironments: sandboxEnvironmentServer,
+    capabilities,
+  });
   const environmentsOpen = environmentsEnabled && environmentsOpenState;
   const libraryOpen = isLibraryEnabled && libraryOpenState;
   const sessionsOpen = sessionsEnabled && sessionsOpenState;

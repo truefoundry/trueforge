@@ -62,13 +62,13 @@ function readTrimmedString(value: object, key: string): string {
 
 type SandboxConfig = NonNullable<AgentRuntimeConfig['sandbox']>;
 
-/** Display name. A leftover wire `environment_name` counts when the client field is empty. */
-export function readSandboxEnvironmentName(sandbox: object | undefined): string {
-  if (!isObject(sandbox)) return 'default';
+/** The environment the spec names, or undefined when it names none. */
+export function readSandboxEnvironmentName(sandbox: object | undefined): string | undefined {
+  if (!isObject(sandbox)) return undefined;
   const camelName = readTrimmedString(sandbox, 'environmentName');
   if (camelName.length > 0) return camelName;
   const snakeName = readTrimmedString(sandbox, 'environment_name');
-  return snakeName.length > 0 ? snakeName : 'default';
+  return snakeName.length > 0 ? snakeName : undefined;
 }
 
 /** Set the client field and drop a leftover wire key so passthrough serialization cannot send it. */
@@ -125,12 +125,20 @@ export function selectChatDraftSpecPreferences(spec: AgentSpec): AgentSpec {
   };
 }
 
+/** Memory is opted into per agent, so a new draft never inherits it from the last one. */
+function withoutMemory(config: AgentRuntimeConfig | undefined): AgentRuntimeConfig | undefined {
+  if (config?.memory === undefined) return config;
+  const { memory: _memory, ...rest } = config;
+  return rest;
+}
+
 /** New Agent: full composer seed including runtime config (sandbox, ask-user, …). */
 export function selectAgentDraftSpecPreferences(spec: AgentSpec): AgentSpec {
   const normalized = normalizeSandboxEnvironmentName(spec);
+  const config = withoutMemory(normalized.config);
   return {
     ...selectChatDraftSpecPreferences(normalized),
-    ...(normalized.config !== undefined ? { config: normalized.config } : {}),
+    ...(config !== undefined ? { config } : {}),
   };
 }
 
@@ -139,9 +147,10 @@ export function selectAgentDraftSpecPreferences(spec: AgentSpec): AgentSpec {
  * instructions / initial messages / MCP / skills from the previous build.
  */
 export function freshAgentBuilderSeed(spec: AgentSpec): AgentSpec {
+  const config = withoutMemory(spec.config);
   return {
     model: spec.model,
-    ...(spec.config !== undefined ? { config: spec.config } : {}),
+    ...(config !== undefined ? { config } : {}),
   };
 }
 

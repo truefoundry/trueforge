@@ -6,7 +6,6 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
-    from .action_required import ActionRequired
     from .action_required_event import ActionRequiredEvent
     from .agent import Agent
     from .agent_code_snippet import AgentCodeSnippet
@@ -31,6 +30,7 @@ if typing.TYPE_CHECKING:
     from .catalog_custom_model_provider import CatalogCustomModelProvider
     from .catalog_mcp_server import CatalogMcpServer
     from .catalog_mcp_server_type import CatalogMcpServerType
+    from .catalog_memory_provider import CatalogMemoryProvider
     from .catalog_model import CatalogModel
     from .catalog_model_provider import CatalogModelProvider
     from .catalog_sandbox_provider import CatalogSandboxProvider
@@ -53,6 +53,7 @@ if typing.TYPE_CHECKING:
     from .configuration_manifest import ConfigurationManifest
     from .configuration_manifest_patch import ConfigurationManifestPatch
     from .configured_mcp_server import ConfiguredMcpServer
+    from .configured_memory_provider import ConfiguredMemoryProvider
     from .configured_model import ConfiguredModel
     from .configured_model_provider import ConfiguredModelProvider
     from .configured_sandbox_provider import ConfiguredSandboxProvider
@@ -62,7 +63,6 @@ if typing.TYPE_CHECKING:
     from .create_schedule_run_response import CreateScheduleRunResponse
     from .create_session_agent import CreateSessionAgent
     from .create_turn_event_response import CreateTurnEventResponse
-    from .create_turn_event_response_data_item import CreateTurnEventResponseDataItem
     from .created_by_subject import CreatedBySubject
     from .cron_expression import CronExpression
     from .custom_model_provider import CustomModelProvider
@@ -88,6 +88,8 @@ if typing.TYPE_CHECKING:
     from .get_mcp_server_response import GetMcpServerResponse
     from .get_me_response import GetMeResponse
     from .get_me_subject import GetMeSubject
+    from .get_memory_provider_catalog_response import GetMemoryProviderCatalogResponse
+    from .get_memory_provider_response import GetMemoryProviderResponse
     from .get_model_provider_catalog_response import GetModelProviderCatalogResponse
     from .get_model_provider_response import GetModelProviderResponse
     from .get_sandbox_environment_response import GetSandboxEnvironmentResponse
@@ -108,6 +110,7 @@ if typing.TYPE_CHECKING:
     from .initial_user_message import InitialUserMessage
     from .input_tokens_compaction_trigger import InputTokensCompactionTrigger
     from .large_tool_response_config import LargeToolResponseConfig
+    from .legacy_turn_input_item import LegacyTurnInputItem
     from .list_agents_response import ListAgentsResponse
     from .list_available_mcp_servers_response import ListAvailableMcpServersResponse
     from .list_available_models_response import ListAvailableModelsResponse
@@ -151,6 +154,10 @@ if typing.TYPE_CHECKING:
     from .mcp_tool_info import McpToolInfo
     from .me import Me
     from .me_session_type import MeSessionType
+    from .memory_capability import MemoryCapability
+    from .memory_config import MemoryConfig
+    from .memory_configuration import MemoryConfiguration
+    from .memory_provider_manifest import MemoryProviderManifest
     from .metrics_unit import MetricsUnit
     from .model import Model
     from .model_message_delta_event import ModelMessageDeltaEvent
@@ -194,6 +201,7 @@ if typing.TYPE_CHECKING:
     from .sandbox_environment_resources import SandboxEnvironmentResources
     from .sandbox_environment_secret import SandboxEnvironmentSecret
     from .sandbox_environment_version_status import SandboxEnvironmentVersionStatus
+    from .sandbox_environments_capability import SandboxEnvironmentsCapability
     from .sandbox_provider_manifest import SandboxProviderManifest
     from .schedule import Schedule
     from .schedule_manifest import ScheduleManifest
@@ -226,6 +234,7 @@ if typing.TYPE_CHECKING:
     from .session_metrics_meter_response import SessionMetricsMeterResponse
     from .session_metrics_point import SessionMetricsPoint
     from .session_sharing_capability import SessionSharingCapability
+    from .session_sharing_capability_granularity import SessionSharingCapabilityGranularity
     from .session_source import SessionSource
     from .session_source_schedule import SessionSourceSchedule
     from .session_source_type import SessionSourceType
@@ -262,22 +271,20 @@ if typing.TYPE_CHECKING:
     from .turn_created_event import TurnCreatedEvent
     from .turn_done_event import TurnDoneEvent
     from .turn_done_event_state import TurnDoneEventState
-    from .turn_inbound_event_item import TurnInboundEventItem
-    from .turn_input_item import TurnInputItem
     from .turn_metrics import TurnMetrics
     from .turn_state import TurnState
     from .turn_state_cancelled import TurnStateCancelled
-    from .turn_state_cancelled_metrics import TurnStateCancelledMetrics
     from .turn_state_cancelled_reason import TurnStateCancelledReason
     from .turn_state_done import TurnStateDone
     from .turn_state_error import TurnStateError
-    from .turn_state_error_metrics import TurnStateErrorMetrics
     from .turn_state_paused import TurnStatePaused
     from .turn_state_running import TurnStateRunning
     from .turn_status import TurnStatus
     from .turn_streaming_event import TurnStreamingEvent
     from .turn_update_event import TurnUpdateEvent
     from .turn_update_event_state import TurnUpdateEventState
+    from .turn_user_event import TurnUserEvent
+    from .turn_user_event_message import TurnUserEventMessage
     from .user import User
     from .user_mcp_auth_continue_event import UserMcpAuthContinueEvent
     from .user_mcp_auth_continue_input_event import UserMcpAuthContinueInputEvent
@@ -295,8 +302,8 @@ if typing.TYPE_CHECKING:
     from .web_search_configuration import WebSearchConfiguration
     from .web_search_provider_manifest import WebSearchProviderManifest
     from .zai_model_provider import ZaiModelProvider
+    from .zep_memory_provider_auth import ZepMemoryProviderAuth
 _dynamic_imports: typing.Dict[str, str] = {
-    "ActionRequired": ".action_required",
     "ActionRequiredEvent": ".action_required_event",
     "Agent": ".agent",
     "AgentCodeSnippet": ".agent_code_snippet",
@@ -321,6 +328,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CatalogCustomModelProvider": ".catalog_custom_model_provider",
     "CatalogMcpServer": ".catalog_mcp_server",
     "CatalogMcpServerType": ".catalog_mcp_server_type",
+    "CatalogMemoryProvider": ".catalog_memory_provider",
     "CatalogModel": ".catalog_model",
     "CatalogModelProvider": ".catalog_model_provider",
     "CatalogSandboxProvider": ".catalog_sandbox_provider",
@@ -343,6 +351,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ConfigurationManifest": ".configuration_manifest",
     "ConfigurationManifestPatch": ".configuration_manifest_patch",
     "ConfiguredMcpServer": ".configured_mcp_server",
+    "ConfiguredMemoryProvider": ".configured_memory_provider",
     "ConfiguredModel": ".configured_model",
     "ConfiguredModelProvider": ".configured_model_provider",
     "ConfiguredSandboxProvider": ".configured_sandbox_provider",
@@ -352,7 +361,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CreateScheduleRunResponse": ".create_schedule_run_response",
     "CreateSessionAgent": ".create_session_agent",
     "CreateTurnEventResponse": ".create_turn_event_response",
-    "CreateTurnEventResponseDataItem": ".create_turn_event_response_data_item",
     "CreatedBySubject": ".created_by_subject",
     "CronExpression": ".cron_expression",
     "CustomModelProvider": ".custom_model_provider",
@@ -378,6 +386,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "GetMcpServerResponse": ".get_mcp_server_response",
     "GetMeResponse": ".get_me_response",
     "GetMeSubject": ".get_me_subject",
+    "GetMemoryProviderCatalogResponse": ".get_memory_provider_catalog_response",
+    "GetMemoryProviderResponse": ".get_memory_provider_response",
     "GetModelProviderCatalogResponse": ".get_model_provider_catalog_response",
     "GetModelProviderResponse": ".get_model_provider_response",
     "GetSandboxEnvironmentResponse": ".get_sandbox_environment_response",
@@ -398,6 +408,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "InitialUserMessage": ".initial_user_message",
     "InputTokensCompactionTrigger": ".input_tokens_compaction_trigger",
     "LargeToolResponseConfig": ".large_tool_response_config",
+    "LegacyTurnInputItem": ".legacy_turn_input_item",
     "ListAgentsResponse": ".list_agents_response",
     "ListAvailableMcpServersResponse": ".list_available_mcp_servers_response",
     "ListAvailableModelsResponse": ".list_available_models_response",
@@ -441,6 +452,10 @@ _dynamic_imports: typing.Dict[str, str] = {
     "McpToolInfo": ".mcp_tool_info",
     "Me": ".me",
     "MeSessionType": ".me_session_type",
+    "MemoryCapability": ".memory_capability",
+    "MemoryConfig": ".memory_config",
+    "MemoryConfiguration": ".memory_configuration",
+    "MemoryProviderManifest": ".memory_provider_manifest",
     "MetricsUnit": ".metrics_unit",
     "Model": ".model",
     "ModelMessageDeltaEvent": ".model_message_delta_event",
@@ -484,6 +499,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SandboxEnvironmentResources": ".sandbox_environment_resources",
     "SandboxEnvironmentSecret": ".sandbox_environment_secret",
     "SandboxEnvironmentVersionStatus": ".sandbox_environment_version_status",
+    "SandboxEnvironmentsCapability": ".sandbox_environments_capability",
     "SandboxProviderManifest": ".sandbox_provider_manifest",
     "Schedule": ".schedule",
     "ScheduleManifest": ".schedule_manifest",
@@ -516,6 +532,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SessionMetricsMeterResponse": ".session_metrics_meter_response",
     "SessionMetricsPoint": ".session_metrics_point",
     "SessionSharingCapability": ".session_sharing_capability",
+    "SessionSharingCapabilityGranularity": ".session_sharing_capability_granularity",
     "SessionSource": ".session_source",
     "SessionSourceSchedule": ".session_source_schedule",
     "SessionSourceType": ".session_source_type",
@@ -552,22 +569,20 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TurnCreatedEvent": ".turn_created_event",
     "TurnDoneEvent": ".turn_done_event",
     "TurnDoneEventState": ".turn_done_event_state",
-    "TurnInboundEventItem": ".turn_inbound_event_item",
-    "TurnInputItem": ".turn_input_item",
     "TurnMetrics": ".turn_metrics",
     "TurnState": ".turn_state",
     "TurnStateCancelled": ".turn_state_cancelled",
-    "TurnStateCancelledMetrics": ".turn_state_cancelled_metrics",
     "TurnStateCancelledReason": ".turn_state_cancelled_reason",
     "TurnStateDone": ".turn_state_done",
     "TurnStateError": ".turn_state_error",
-    "TurnStateErrorMetrics": ".turn_state_error_metrics",
     "TurnStatePaused": ".turn_state_paused",
     "TurnStateRunning": ".turn_state_running",
     "TurnStatus": ".turn_status",
     "TurnStreamingEvent": ".turn_streaming_event",
     "TurnUpdateEvent": ".turn_update_event",
     "TurnUpdateEventState": ".turn_update_event_state",
+    "TurnUserEvent": ".turn_user_event",
+    "TurnUserEventMessage": ".turn_user_event_message",
     "User": ".user",
     "UserMcpAuthContinueEvent": ".user_mcp_auth_continue_event",
     "UserMcpAuthContinueInputEvent": ".user_mcp_auth_continue_input_event",
@@ -585,6 +600,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "WebSearchConfiguration": ".web_search_configuration",
     "WebSearchProviderManifest": ".web_search_provider_manifest",
     "ZaiModelProvider": ".zai_model_provider",
+    "ZepMemoryProviderAuth": ".zep_memory_provider_auth",
 }
 
 
@@ -610,7 +626,6 @@ def __dir__():
 
 
 __all__ = [
-    "ActionRequired",
     "ActionRequiredEvent",
     "Agent",
     "AgentCodeSnippet",
@@ -635,6 +650,7 @@ __all__ = [
     "CatalogCustomModelProvider",
     "CatalogMcpServer",
     "CatalogMcpServerType",
+    "CatalogMemoryProvider",
     "CatalogModel",
     "CatalogModelProvider",
     "CatalogSandboxProvider",
@@ -657,6 +673,7 @@ __all__ = [
     "ConfigurationManifest",
     "ConfigurationManifestPatch",
     "ConfiguredMcpServer",
+    "ConfiguredMemoryProvider",
     "ConfiguredModel",
     "ConfiguredModelProvider",
     "ConfiguredSandboxProvider",
@@ -666,7 +683,6 @@ __all__ = [
     "CreateScheduleRunResponse",
     "CreateSessionAgent",
     "CreateTurnEventResponse",
-    "CreateTurnEventResponseDataItem",
     "CreatedBySubject",
     "CronExpression",
     "CustomModelProvider",
@@ -692,6 +708,8 @@ __all__ = [
     "GetMcpServerResponse",
     "GetMeResponse",
     "GetMeSubject",
+    "GetMemoryProviderCatalogResponse",
+    "GetMemoryProviderResponse",
     "GetModelProviderCatalogResponse",
     "GetModelProviderResponse",
     "GetSandboxEnvironmentResponse",
@@ -712,6 +730,7 @@ __all__ = [
     "InitialUserMessage",
     "InputTokensCompactionTrigger",
     "LargeToolResponseConfig",
+    "LegacyTurnInputItem",
     "ListAgentsResponse",
     "ListAvailableMcpServersResponse",
     "ListAvailableModelsResponse",
@@ -755,6 +774,10 @@ __all__ = [
     "McpToolInfo",
     "Me",
     "MeSessionType",
+    "MemoryCapability",
+    "MemoryConfig",
+    "MemoryConfiguration",
+    "MemoryProviderManifest",
     "MetricsUnit",
     "Model",
     "ModelMessageDeltaEvent",
@@ -798,6 +821,7 @@ __all__ = [
     "SandboxEnvironmentResources",
     "SandboxEnvironmentSecret",
     "SandboxEnvironmentVersionStatus",
+    "SandboxEnvironmentsCapability",
     "SandboxProviderManifest",
     "Schedule",
     "ScheduleManifest",
@@ -830,6 +854,7 @@ __all__ = [
     "SessionMetricsMeterResponse",
     "SessionMetricsPoint",
     "SessionSharingCapability",
+    "SessionSharingCapabilityGranularity",
     "SessionSource",
     "SessionSourceSchedule",
     "SessionSourceType",
@@ -866,22 +891,20 @@ __all__ = [
     "TurnCreatedEvent",
     "TurnDoneEvent",
     "TurnDoneEventState",
-    "TurnInboundEventItem",
-    "TurnInputItem",
     "TurnMetrics",
     "TurnState",
     "TurnStateCancelled",
-    "TurnStateCancelledMetrics",
     "TurnStateCancelledReason",
     "TurnStateDone",
     "TurnStateError",
-    "TurnStateErrorMetrics",
     "TurnStatePaused",
     "TurnStateRunning",
     "TurnStatus",
     "TurnStreamingEvent",
     "TurnUpdateEvent",
     "TurnUpdateEventState",
+    "TurnUserEvent",
+    "TurnUserEventMessage",
     "User",
     "UserMcpAuthContinueEvent",
     "UserMcpAuthContinueInputEvent",
@@ -899,4 +922,5 @@ __all__ = [
     "WebSearchConfiguration",
     "WebSearchProviderManifest",
     "ZaiModelProvider",
+    "ZepMemoryProviderAuth",
 ]

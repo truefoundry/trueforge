@@ -130,7 +130,7 @@ describe('createHarnessAgentSessionsServer', () => {
       ],
       nextPageToken: 'next-1',
     });
-    assert.deepEqual(await server.listSessionEvents({ sessionId: 'sess-1', limit: 25 }), {
+    assert.deepEqual(await server.listSessionEvents({ sessionId: 'sess-1' }), {
       data: [{ turnId: 'turn-1', event: { type: 'turn.created', id: 'evt-1', turnId: 'turn-1' } }],
     });
     await assert.rejects(

@@ -37,6 +37,12 @@ export const SCHEDULE_RUN_CREATED_BY_SUBJECT_ID_IDX = 'schedule_run_created_by_s
 /** Partial unique `(tenant_id, name) WHERE lifecycle_stage = 'active'` on sandbox_environment. */
 export const SANDBOX_ENVIRONMENT_TENANT_NAME_ACTIVE_UQ = 'sandbox_environment_tenant_name_active_uq';
 
+/**
+ * Partial unique `(tenant_id) WHERE is_default` on sandbox_environment — one default per
+ * tenant. Also serialises concurrent set-default calls.
+ */
+export const SANDBOX_ENVIRONMENT_TENANT_DEFAULT_UQ = 'sandbox_environment_tenant_default_uq';
+
 /** Unique `(environment_id, version)` on sandbox_environment_version. */
 export const SANDBOX_ENVIRONMENT_VERSION_UQ = 'sandbox_environment_version_uq';
 
@@ -45,3 +51,21 @@ export const SANDBOX_ENVIRONMENT_CREATED_BY_SUBJECT_ID_IDX = 'sandbox_environmen
 
 /** Unique `(environment_id, secret_name)` on sandbox_environment_secret. */
 export const SANDBOX_ENVIRONMENT_SECRET_ENV_NAME_UQ = 'sandbox_environment_secret_environment_id_secret_name_uq';
+
+/**
+ * Partial `(tenant_id, agent_id, updated_at, session_id) WHERE agent_id IS NOT NULL` on session —
+ * one agent's sessions in `listSessions` keyset order, so the page is read without a sort.
+ */
+export const SESSION_AGENT_LIST_IDX = 'session_agent_list_idx';
+
+/**
+ * Partial `(environment_id, version) WHERE status = 'pending'` on sandbox_environment_version —
+ * the build controller's pending-tip poll (`listLatestPendingVersions`) without a full scan.
+ */
+export const SANDBOX_ENVIRONMENT_VERSION_PENDING_IDX = 'sandbox_environment_version_pending_idx';
+
+/**
+ * `(oauth_server_id)` on oauth_pending_authorization — backs the `ON DELETE CASCADE` FK to
+ * mcp_server and `deletePendingAuthorizationsForServer`.
+ */
+export const OAUTH_PENDING_AUTHORIZATION_SERVER_ID_IDX = 'oauth_pending_authorization_oauth_server_id_idx';

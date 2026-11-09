@@ -1,5 +1,5 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
-import { AgentSpecSchema, Sessions } from '@truefoundry/trueforge-core/agent-session';
+import { AgentSpecSchema, Sessions, type TurnHandle } from '@truefoundry/trueforge-core/agent-session';
 import { RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
 import type { Transaction } from 'kysely';
 import { createClient } from 'redis';
@@ -14,6 +14,8 @@ import {
 import { createTurnsRouter } from '../../../src/apis/turns';
 import { TrueForgeAuthorizer, type Authorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
+import configuration from '../../../src/config';
+import { EmptyCapabilitiesStore } from '../../../src/db/capabilitiesStore';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAccessControlStore } from '../../../src/db/sqlite/access-control-store/SqliteAccessControlStore';
@@ -21,6 +23,7 @@ import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgent
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteConfigurationStore } from '../../../src/db/sqlite/configuration-store/SqliteConfigurationStore';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
+import { SqliteMemoryProviderStore } from '../../../src/db/sqlite/memory-provider-store/SqliteMemoryProviderStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
@@ -78,10 +81,11 @@ const denyAllAuthorizer: Authorizer = {
 describe('sessions HTTP agent binding', () => {
   let app: OpenAPIHono;
   let agentStore: SqliteAgentStore;
-  let configurationStore: SqliteConfigurationStore;
-  let webSearchProviderStore: SqliteWebSearchProviderStore;
   let sessionStore: SqliteSessionStore;
   let sessionMetricsStore: SqliteSessionMetricsStore;
+  let configurationStore: SqliteConfigurationStore;
+  let webSearchProviderStore: SqliteWebSearchProviderStore;
+  let memoryProviderStore: SqliteMemoryProviderStore;
   let sessionDeps: SessionsRouterDeps<Transaction<Database>>;
   let resolveModelProviderStore: jest.Mock;
   let resolveMcpServerStore: jest.Mock;
@@ -99,6 +103,7 @@ describe('sessions HTTP agent binding', () => {
     const sandboxProviderStore = new SqliteSandboxProviderStore(db);
     const sandboxEnvironmentStore = new SqliteSandboxEnvironmentStore(db);
     webSearchProviderStore = new SqliteWebSearchProviderStore(db);
+    memoryProviderStore = new SqliteMemoryProviderStore(db);
     configurationStore = new SqliteConfigurationStore(db);
     agentStore = new SqliteAgentStore(db);
 
@@ -123,25 +128,26 @@ describe('sessions HTTP agent binding', () => {
     resolveMcpServerStore = jest.fn(() => mcpServerStore);
     resolveSkillStore = jest.fn(() => skillStore);
     const deps: SessionsRouterDeps<Transaction<Database>> = {
-      sessions,
-      sessionStore,
       accessControlStore: new SqliteAccessControlStore(db),
-      userStore: new EmptyUserStore(),
-      withTransaction: callback => db.transaction().execute(callback),
-      activeTurns: new ActiveTurnRegistry(),
-      resolveModelProviderStore,
-      resolveMcpServerStore,
-      resolveSkillStore,
-      resolveAgentStore: () => agentStore,
-      resolveSandboxProviderStore: () => sandboxProviderStore,
-      sandboxEnvironmentStore,
-      resolveWebSearchProviderStore: () => webSearchProviderStore,
-      resolveConfigurationStore: () => configurationStore,
+      activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
+      authorizer: new TrueForgeAuthorizer(),
+      logger: createLogger({ silent: true }),
       redis: createClient(),
       requestReplyRouter: new RequestReplyRouter(),
+      resolveAgentStore: () => agentStore,
+      resolveMcpServerStore,
+      resolveModelProviderStore,
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
-      logger: createLogger({ silent: true }),
-      authorizer: new TrueForgeAuthorizer(),
+      resolveSkillStore,
+      sandboxEnvironmentStore,
+      sandboxProviderStore,
+      sessions,
+      sessionStore,
+      userStore: new EmptyUserStore(),
+      webSearchProviderStore,
+      memoryProviderStore,
+      configurationStore,
+      withTransaction: callback => db.transaction().execute(callback),
     };
     sessionDeps = deps;
     app = new OpenAPIHono();
@@ -150,27 +156,33 @@ describe('sessions HTTP agent binding', () => {
     app.route(
       '/',
       createTurnsRouter({
+        activeTurns: deps.activeTurns,
+        authorizer: deps.authorizer,
+        eventSubscriptions: new EventSubscriptionRegistry(undefined),
+        logger: deps.logger,
+        requestReplyRouter: deps.requestReplyRouter,
+        resolveAgentStore: () => agentStore,
+        resolveRequestContext: deps.resolveRequestContext,
+        resolveTurnExecutionStores: () =>
+          Promise.resolve({
+            agentStore,
+            capabilitiesStore: new EmptyCapabilitiesStore(),
+            modelProviderStore,
+            mcpServerStore: new McpServerWithAuthStore({
+              store: mcpServerStore,
+              tokenStore,
+              clientName: 'test-client',
+            }),
+            skillStore,
+            sandboxProviderStore,
+            webSearchProviderStore,
+            memory: undefined,
+          }),
+        sandboxEnvironmentStore,
+        sandboxProviderStore,
         sessions,
         sessionStore,
         accessControlStore: new SqliteAccessControlStore(db),
-        activeTurns: deps.activeTurns,
-        resolveModelProviderStore: () => modelProviderStore,
-        resolveMcpServerStore: () =>
-          new McpServerWithAuthStore({
-            store: mcpServerStore,
-            tokenStore,
-            clientName: 'test-client',
-          }),
-        resolveTurnSkillsStore: () => skillStore,
-        resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
-        resolveAgentStore: () => agentStore,
-        eventSubscriptions: new EventSubscriptionRegistry(undefined),
-        resolveSandboxProviderStore: () => sandboxProviderStore,
-        sandboxEnvironmentStore,
-        resolveWebSearchProviderStore: () => webSearchProviderStore,
-        logger: deps.logger,
-        resolveRequestContext: deps.resolveRequestContext,
-        authorizer: deps.authorizer,
       }),
     );
     app.route('/api/internal/sessions', createInternalSessionsRouter(deps));
@@ -258,7 +270,7 @@ describe('sessions HTTP agent binding', () => {
     const listed = await app.request(`/?agent_id=${encodeURIComponent(agent.id)}`);
     expect(listed.status).toBe(200);
     const listJson = (await listed.json()) as {
-      data: Array<{ id: string; agent: { type: 'reference'; id: string; name: string | null } }>;
+      data: { id: string; agent: { type: 'reference'; id: string; name: string | null } }[];
     };
     expect(listJson.data.every(row => row.agent.id === agent.id)).toBe(true);
     expect(listJson.data.some(row => row.id === json.data.id)).toBe(true);
@@ -472,10 +484,10 @@ describe('sessions HTTP agent binding', () => {
     const listed = await app.request('/');
     expect(listed.status).toBe(200);
     const listedJson = (await listed.json()) as {
-      data: Array<{
+      data: {
         id: string;
         created_by_subject: { subject_id: string };
-      }>;
+      }[];
     };
     expect(listedJson.data.map(row => row.id)).toEqual([json.data.id]);
     expect(
@@ -516,7 +528,17 @@ describe('sessions HTTP agent binding', () => {
     const created = await app.request('/', jsonInit('POST', { agent: { spec: inlineSpec } }));
     expect(created.status).toBe(201);
     const { data: session } = (await created.json()) as { data: { id: string } };
-    await sessionStore.createTurn(makeCreateTurnInput({ sessionId: session.id, turnId: 'tip-1' }));
+    await sessionStore.createTurn(
+      makeCreateTurnInput({ sessionId: session.id, turnId: 'tip-1', activeExecutorId: configuration.EXECUTOR_ID }),
+    );
+    const send = jest.fn().mockImplementation(async function* (events: Parameters<TurnHandle['send']>[0]) {
+      yield events;
+    });
+    jest.spyOn(sessionDeps.activeTurns, 'getTurnHandle').mockReturnValue({
+      send,
+      state: { status: 'running' },
+      record: { active_executor_id: configuration.EXECUTOR_ID },
+    } as unknown as TurnHandle);
 
     const res = await app.request(
       `/${session.id}/turns/tip-1/events`,
@@ -534,7 +556,7 @@ describe('sessions HTTP agent binding', () => {
               {
                 server_name: 'github',
                 name: 'create_issue',
-                action: { type: 'allow_session' },
+                policy: { type: 'allow_session' },
               },
             ],
           },
@@ -546,7 +568,7 @@ describe('sessions HTTP agent binding', () => {
     );
     expect(res.status).toBe(201);
     const body = (await res.json()) as {
-      data: Array<{
+      data: {
         id: string;
         created_at: string;
         type: string;
@@ -554,7 +576,7 @@ describe('sessions HTTP agent binding', () => {
         tool_call_id?: string;
         approval?: { status: string };
         policies?: unknown[];
-      }>;
+      }[];
     };
     expect(body.data).toHaveLength(3);
     expect(body.data[0]).toMatchObject({
@@ -571,13 +593,47 @@ describe('sessions HTTP agent binding', () => {
         {
           server_name: 'github',
           name: 'create_issue',
-          action: { type: 'allow_session' },
+          policy: { type: 'allow_session' },
         },
       ],
     });
     expect(body.data[2]).toMatchObject({ type: 'user.mcp_auth_continue' });
     expect(body.data[2]?.id).toEqual(expect.any(String));
     expect(body.data[2]?.created_at).toEqual(expect.any(String));
+    expect(send).toHaveBeenCalledWith(body.data);
+  });
+
+  it('POST /sessions/{id}/turns/{turn_id}/events looks up the turn handle only after taking the turn lock', async () => {
+    const created = await app.request('/', jsonInit('POST', { agent: { spec: inlineSpec } }));
+    expect(created.status).toBe(201);
+    const { data: session } = (await created.json()) as { data: { id: string } };
+    await sessionStore.createTurn(
+      makeCreateTurnInput({ sessionId: session.id, turnId: 'tip-1', activeExecutorId: configuration.EXECUTOR_ID }),
+    );
+
+    const registry = sessionDeps.activeTurns;
+    const gate = Promise.withResolvers<undefined>();
+    const holder = registry.withTurnLock({ sessionId: session.id, turnId: 'tip-1' }, () => gate.promise);
+
+    const lockRequested = Promise.withResolvers<undefined>();
+    const withTurnLock = registry.withTurnLock.bind(registry);
+    jest.spyOn(registry, 'withTurnLock').mockImplementation((input, fn) => {
+      lockRequested.resolve(undefined);
+      return withTurnLock(input, fn);
+    });
+    const getTurnHandle = jest.spyOn(registry, 'getTurnHandle').mockReturnValue(undefined);
+
+    const res = app.request(
+      `/${session.id}/turns/tip-1/events`,
+      jsonInit('POST', { events: [{ type: 'user.mcp_auth_continue' }] }),
+    );
+    await lockRequested.promise;
+    expect(getTurnHandle).not.toHaveBeenCalled();
+
+    gate.resolve(undefined);
+    await holder;
+    expect((await res).status).toBe(409);
+    expect(getTurnHandle).toHaveBeenCalledTimes(1);
   });
 
   it('rejects PATCH agent on a named session', async () => {
@@ -896,7 +952,7 @@ describe('sessions HTTP agent binding', () => {
 
     await configurationStore.upsertConfiguration({
       tenant_id: 'default',
-      manifest: { web_search: { enabled: false } },
+      manifest: { web_search: { enabled: false }, memory: { enabled: false } },
     });
     try {
       // The agent was saved while web search was allowed, so its stored spec is grandfathered.
@@ -914,7 +970,7 @@ describe('sessions HTTP agent binding', () => {
     } finally {
       await configurationStore.upsertConfiguration({
         tenant_id: 'default',
-        manifest: { web_search: { enabled: true } },
+        manifest: { web_search: { enabled: true }, memory: { enabled: false } },
       });
     }
 

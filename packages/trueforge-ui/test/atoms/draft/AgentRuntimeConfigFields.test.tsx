@@ -3,8 +3,12 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { AgentRuntimeConfigFields } from '@/atoms/draft/AgentRuntimeConfigFields.js';
 import { ServerProvider } from '@/server/ServerContext.js';
-import type { AgentRuntimeConfig } from '@/server/types.js';
-import { createMockAgentUIServer, createMockSandboxEnvironmentServer } from '../../server/mockServer.js';
+import type { AgentRuntimeConfig, SandboxEnvironment } from '@/server/types.js';
+import {
+  createMockAgentUIServer,
+  createMockSandboxEnvironmentServer,
+  tenantSessionSharing,
+} from '../../server/mockServer.js';
 
 const setEnvironmentsOpen = vi.fn();
 
@@ -12,12 +16,69 @@ vi.mock('@/server/ShellModeContext.js', () => ({
   useOptionalShellMode: () => ({ setEnvironmentsOpen }),
 }));
 
+const sampleEnvironments: SandboxEnvironment[] = [
+  {
+    id: 'env-default',
+    name: 'default',
+    description: 'Default environment',
+    status: 'ready',
+    enabled: true,
+    isDefault: true,
+    statusReason: null,
+    manifest: { name: 'default', description: 'Default environment' },
+    createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
+    createdAt: '2026-09-01T10:00:00Z',
+    updatedAt: '2026-09-01T10:00:00Z',
+  },
+  {
+    id: 'env-1',
+    name: 'python-dev',
+    description: 'Python 3.11 environment',
+    status: 'ready',
+    enabled: true,
+    isDefault: false,
+    statusReason: null,
+    manifest: { name: 'python-dev', description: 'Python 3.11 environment' },
+    createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
+    createdAt: '2026-09-01T10:00:00Z',
+    updatedAt: '2026-09-01T10:00:00Z',
+  },
+  {
+    id: 'env-2',
+    name: 'pending-env',
+    description: '',
+    status: 'pending',
+    enabled: true,
+    isDefault: false,
+    statusReason: null,
+    manifest: { name: 'pending-env' },
+    createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
+    createdAt: '2026-09-01T10:00:00Z',
+    updatedAt: '2026-09-01T10:00:00Z',
+  },
+  {
+    id: 'env-3',
+    name: 'retired-env',
+    description: '',
+    status: 'ready',
+    enabled: false,
+    isDefault: false,
+    statusReason: null,
+    manifest: { name: 'retired-env' },
+    createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
+    createdAt: '2026-09-01T10:00:00Z',
+    updatedAt: '2026-09-01T10:00:00Z',
+  },
+];
+
 function renderRuntimeFields({
   value = { sandbox: { enabled: true } },
   layout = 'detailed',
   sandboxAvailable = true,
   hasSkills = false,
   webSearch,
+  environments = sampleEnvironments,
+  memory,
   onChange = vi.fn(),
 }: {
   value?: AgentRuntimeConfig;
@@ -25,55 +86,23 @@ function renderRuntimeFields({
   sandboxAvailable?: boolean;
   hasSkills?: boolean;
   webSearch?: { enabled: boolean; reason?: string };
+  environments?: SandboxEnvironment[];
+  memory?: { enabled: boolean; reason?: string };
   onChange?: (val: AgentRuntimeConfig) => void;
 } = {}) {
   const environmentServer = createMockSandboxEnvironmentServer({
-    listEnvironments: async () => ({
-      data: [
-        {
-          id: 'env-default',
-          name: 'default',
-          description: 'Default environment',
-          status: 'ready',
-          statusReason: null,
-          manifest: { name: 'default', description: 'Default environment' },
-          createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
-          createdAt: '2026-09-01T10:00:00Z',
-          updatedAt: '2026-09-01T10:00:00Z',
-        },
-        {
-          id: 'env-1',
-          name: 'python-dev',
-          description: 'Python 3.11 environment',
-          status: 'ready',
-          statusReason: null,
-          manifest: { name: 'python-dev', description: 'Python 3.11 environment' },
-          createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
-          createdAt: '2026-09-01T10:00:00Z',
-          updatedAt: '2026-09-01T10:00:00Z',
-        },
-        {
-          id: 'env-2',
-          name: 'pending-env',
-          description: '',
-          status: 'pending',
-          statusReason: null,
-          manifest: { name: 'pending-env' },
-          createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
-          createdAt: '2026-09-01T10:00:00Z',
-          updatedAt: '2026-09-01T10:00:00Z',
-        },
-      ],
-    }),
+    listEnvironments: async () => ({ data: environments }),
   });
 
   const server = createMockAgentUIServer({
     sandboxEnvironments: environmentServer,
     getCapabilities: async () => ({
       data: {
-        sandbox: { enabled: true },
+        sandbox: { enabled: true, environments: { enabled: true } },
         skill: { enabled: true },
+        sessionSharing: tenantSessionSharing,
         ...(webSearch === undefined ? {} : { webSearch }),
+        ...(memory === undefined ? {} : { memory }),
       },
     }),
   });
@@ -95,7 +124,7 @@ describe('AgentRuntimeConfigFields', () => {
   it('renders environment row in detailed layout with Manage Environments link', async () => {
     renderRuntimeFields();
 
-    expect(screen.getByText('Environment')).toBeInTheDocument();
+    expect(await screen.findByText('Environment')).toBeInTheDocument();
     expect(screen.getByText('Saved sandbox setup this agent uses when it runs.')).toBeInTheDocument();
 
     const manageBtn = screen.getByRole('button', { name: /Manage Environments/ });
@@ -104,10 +133,10 @@ describe('AgentRuntimeConfigFields', () => {
     expect(setEnvironmentsOpen).toHaveBeenCalledWith(true);
   });
 
-  it('hides Manage Environments link when sandbox is off', () => {
+  it('hides Manage Environments link when sandbox is off', async () => {
     renderRuntimeFields({ value: { sandbox: { enabled: false } } });
 
-    expect(screen.getByText('Environment')).toBeInTheDocument();
+    expect(await screen.findByText('Environment')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Manage Environments/ })).not.toBeInTheDocument();
   });
 
@@ -186,20 +215,26 @@ describe('AgentRuntimeConfigFields', () => {
     expect(screen.queryByText(/Turning it off here is final/)).not.toBeInTheDocument();
   });
 
-  it('populates environment dropdown with default and ready environments only', async () => {
+  it('lists every environment, greying out the ones that cannot be picked', async () => {
     const onChange = vi.fn();
     renderRuntimeFields({ onChange });
 
-    const trigger = screen.getByRole('button', { name: 'Environment' });
-    await waitFor(() => {
-      expect(trigger).toHaveTextContent('default');
-    });
-
-    fireEvent.click(trigger);
+    fireEvent.click(await screen.findByRole('button', { name: 'Environment' }));
 
     expect(await screen.findByRole('option', { name: 'python-dev' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'default' })).toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: 'pending-env' })).not.toBeInTheDocument();
+
+    const building = screen.getByRole('option', { name: 'pending-env' });
+    expect(building).toBeDisabled();
+    fireEvent.mouseEnter(building.parentElement ?? building);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Still building');
+    fireEvent.mouseLeave(building.parentElement ?? building);
+
+    const retired = screen.getByRole('option', { name: 'retired-env' });
+    expect(retired).toBeDisabled();
+    fireEvent.mouseEnter(retired.parentElement ?? retired);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Disabled by an admin');
+    fireEvent.mouseLeave(retired.parentElement ?? retired);
 
     fireEvent.click(screen.getByRole('option', { name: 'python-dev' }));
     expect(onChange).toHaveBeenCalledWith(
@@ -211,12 +246,75 @@ describe('AgentRuntimeConfigFields', () => {
     );
   });
 
+  it('pins the tenant default when the config names no environment', async () => {
+    const onChange = vi.fn();
+    renderRuntimeFields({ onChange });
+
+    await waitFor(() => {
+      expect(onChange).toHaveBeenCalledWith(
+        expect.objectContaining({ sandbox: expect.objectContaining({ environmentName: 'default' }) }),
+      );
+    });
+  });
+
+  it('leaves an already named environment alone', async () => {
+    const onChange = vi.fn();
+    renderRuntimeFields({ value: { sandbox: { enabled: true, environmentName: 'python-dev' } }, onChange });
+
+    const trigger = await screen.findByRole('button', { name: 'Environment' });
+    await waitFor(() => {
+      expect(trigger).toHaveTextContent('python-dev');
+    });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('shows and pins a default that is still building', async () => {
+    const onChange = vi.fn();
+    const buildingDefault = sampleEnvironments.map(env =>
+      env.name === 'default' ? { ...env, status: 'pending' as const } : env,
+    );
+    renderRuntimeFields({ environments: buildingDefault, onChange });
+
+    const trigger = await screen.findByRole('button', { name: 'Environment' });
+    await waitFor(() => {
+      expect(trigger).toHaveTextContent('default');
+    });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ sandbox: expect.objectContaining({ environmentName: 'default' }) }),
+    );
+  });
+
+  it('names nothing when the tenant has no default', async () => {
+    const onChange = vi.fn();
+    const withoutDefault = sampleEnvironments.map(env => ({ ...env, isDefault: false }));
+    renderRuntimeFields({ environments: withoutDefault, onChange });
+
+    const trigger = await screen.findByRole('button', { name: 'Environment' });
+    await waitFor(() => {
+      expect(trigger).toHaveTextContent('Select environment');
+    });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('says no environments exist instead of offering Default when none are ready', async () => {
+    renderRuntimeFields({ environments: [] });
+
+    const trigger = await screen.findByRole('button', { name: 'Environment' });
+    await waitFor(() => {
+      expect(trigger).toHaveTextContent('No environments');
+    });
+
+    fireEvent.click(trigger);
+    expect(await screen.findByText('No environments yet')).toBeInTheDocument();
+    expect(screen.queryByRole('option')).not.toBeInTheDocument();
+  });
+
   it('shows a missing agent-spec environment as the selected option', async () => {
     renderRuntimeFields({
       value: { sandbox: { enabled: true, environmentName: 'gone-env' } },
     });
 
-    const trigger = screen.getByRole('button', { name: 'Environment' });
+    const trigger = await screen.findByRole('button', { name: 'Environment' });
     await waitFor(() => {
       expect(trigger).toHaveTextContent('gone-env');
     });
@@ -228,23 +326,69 @@ describe('AgentRuntimeConfigFields', () => {
     expect(missing).toHaveAttribute('aria-selected', 'true');
   });
 
-  it('shows a wire-only sandbox environment name and clears it when default is chosen', async () => {
+  it('hides memory when the host does not offer it', async () => {
+    renderRuntimeFields({ webSearch: { enabled: true } });
+
+    expect(await screen.findByRole('switch', { name: 'Web search' })).toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: 'Memory' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Memory')).not.toBeInTheDocument();
+  });
+
+  it('toggles memory when the host offers it', async () => {
+    const onChange = vi.fn();
+    renderRuntimeFields({ memory: { enabled: true }, onChange });
+
+    const memorySwitch = await screen.findByRole('switch', { name: 'Memory' });
+    expect(memorySwitch).not.toBeDisabled();
+    expect(memorySwitch).toHaveAttribute('aria-checked', 'false');
+
+    fireEvent.click(memorySwitch);
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ memory: { enabled: true } }));
+  });
+
+  it('locks memory off with the host reason when the tenant turned it off', async () => {
+    renderRuntimeFields({ memory: { enabled: false, reason: 'Memory is turned off for this tenant.' } });
+
+    await waitFor(() => {
+      expect(screen.getByRole('switch', { name: 'Memory' })).toBeDisabled();
+    });
+    const memorySwitch = screen.getByRole('switch', { name: 'Memory' });
+    expect(memorySwitch).not.toBeChecked();
+
+    fireEvent.mouseEnter(memorySwitch.parentElement ?? memorySwitch);
+    expect(document.querySelector('[role="tooltip"]')).toHaveTextContent('Memory is turned off for this tenant.');
+  });
+
+  it('lets a spec with memory on turn it off while the tenant is off, and warns it is final', async () => {
+    const onChange = vi.fn();
+    renderRuntimeFields({ value: { memory: { enabled: true } }, memory: { enabled: false }, onChange });
+
+    const memorySwitch = await screen.findByRole('switch', { name: 'Memory' });
+    expect(memorySwitch).toBeEnabled();
+    expect(memorySwitch).toBeChecked();
+    expect(await screen.findByText(/Memory is off for this tenant/)).toBeInTheDocument();
+
+    fireEvent.click(memorySwitch);
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ memory: { enabled: false } }));
+  });
+
+  it('shows a wire-only sandbox environment name and drops the wire key on select', async () => {
     const onChange = vi.fn();
     const sandbox: NonNullable<AgentRuntimeConfig['sandbox']> = { enabled: true };
     Reflect.set(sandbox, 'environment_name', 'test');
     renderRuntimeFields({ value: { sandbox }, onChange });
 
-    const trigger = screen.getByRole('button', { name: 'Environment' });
+    const trigger = await screen.findByRole('button', { name: 'Environment' });
     await waitFor(() => {
       expect(trigger).toHaveTextContent('test');
     });
 
     fireEvent.click(trigger);
-    fireEvent.click(await screen.findByRole('option', { name: 'default' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'python-dev' }));
 
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({
-        sandbox: expect.objectContaining({ enabled: true, environmentName: undefined }),
+        sandbox: expect.objectContaining({ enabled: true, environmentName: 'python-dev' }),
       }),
     );
     const update: unknown = onChange.mock.calls[0]?.[0];

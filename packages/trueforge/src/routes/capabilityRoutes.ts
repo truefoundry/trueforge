@@ -2,9 +2,18 @@ import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import { OpenApiTag } from './openapiTags';
 
+const SandboxEnvironmentsCapabilitySchema = z
+  .object({
+    enabled: z
+      .boolean()
+      .describe('Whether sandbox environments (snapshots / Environments UI) are available for this tenant.'),
+  })
+  .openapi('SandboxEnvironmentsCapability');
+
 const SandboxCapabilitySchema = z
   .object({
     enabled: z.boolean().describe('Whether a sandbox provider is configured for this tenant.'),
+    environments: SandboxEnvironmentsCapabilitySchema,
   })
   .openapi('SandboxCapability');
 
@@ -33,7 +42,7 @@ const SettingsCapabilitySchema = z
     skills: SettingsCapabilitySectionSchema,
     sandbox_providers: SettingsCapabilitySectionSchema,
     web_search: SettingsCapabilitySectionSchema,
-    memory: SettingsCapabilitySectionSchema,
+    memory_providers: SettingsCapabilitySectionSchema,
   })
   .openapi('SettingsCapability');
 
@@ -46,15 +55,25 @@ const WebSearchCapabilitySchema = z
   })
   .openapi('WebSearchCapability');
 
+const MemoryCapabilitySchema = z
+  .object({
+    enabled: z.boolean().describe('Whether agents may turn memory on: the tenant allows it.'),
+    reason: z.string().optional().describe('Present when memory is unavailable. Explains why.'),
+  })
+  .describe('Present only when the tenant has a memory provider; absent means memory settings are hidden.')
+  .openapi('MemoryCapability');
+
 const SessionSharingCapabilitySchema = z
   .object({
-    enabled: z
-      .boolean()
+    granularity: z
+      .enum(['tenant', 'subject'])
       .describe(
-        'Whether sessions can be shared with specific users. Sharing with the whole tenant is always available.',
+        'The finest supported sharing scope. Subject allows sharing with specific users; tenant-wide sharing is always available.',
       ),
   })
   .openapi('SessionSharingCapability');
+
+export type SessionSharingCapability = z.infer<typeof SessionSharingCapabilitySchema>;
 
 const CapabilitiesDataSchema = z
   .object({
@@ -62,6 +81,7 @@ const CapabilitiesDataSchema = z
     skill: SkillCapabilitySchema,
     settings: SettingsCapabilitySchema,
     web_search: WebSearchCapabilitySchema,
+    memory: MemoryCapabilitySchema.optional(),
     session_sharing: SessionSharingCapabilitySchema,
   })
   .openapi('CapabilitiesData');

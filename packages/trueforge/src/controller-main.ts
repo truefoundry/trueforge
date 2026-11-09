@@ -16,10 +16,14 @@ import configuration, { isTrueFoundryModeEnabled } from './config';
 import { runController } from './controller';
 import { memoryIngestFromConfig } from './controller/memoryIngest';
 import { createDb } from './db/postgres/client';
+import { PostgresConfigurationStore } from './db/postgres/configuration-store/PostgresConfigurationStore';
 import { PostgresMemoryIngestStore } from './db/postgres/memory-ingest-store/PostgresMemoryIngestStore';
+import { PostgresMemoryProviderStore } from './db/postgres/memory-provider-store/PostgresMemoryProviderStore';
 import { PostgresScheduleStore } from './db/postgres/schedule-store/PostgresScheduleStore';
 import { createControllerLogger } from './logger';
+import { MemoryProviderCache } from './memory/providers';
 import { initSentry } from './sentry';
+import { TrueFoundryMemoryProviderStore } from './truefoundry/TrueFoundryMemoryProviderStore';
 
 try {
   const logger = createControllerLogger({
@@ -51,12 +55,19 @@ try {
     mTlsEnabled: configuration.MTLS_ENABLED,
   });
 
-  const memory = isTrueFoundryModeEnabled(configuration)
-    ? memoryIngestFromConfig({ config: configuration, store: new PostgresMemoryIngestStore(db), logger })
-    : undefined;
+  const memory = memoryIngestFromConfig({
+    config: configuration,
+    store: new PostgresMemoryIngestStore(db),
+    tenantMemory: {
+      memoryProviderStore: isTrueFoundryModeEnabled(configuration)
+        ? new TrueFoundryMemoryProviderStore()
+        : new PostgresMemoryProviderStore(db),
+      configurationStore: new PostgresConfigurationStore(db),
+      providers: new MemoryProviderCache({ logger }),
+    },
+  });
   if (memory !== undefined) {
     logger.info('Memory ingestion enabled', {
-      provider: memory.provider.name,
       interval_ms: memory.config.intervalMs,
       max_sessions_per_run: memory.config.maxSessionsPerRun,
     });

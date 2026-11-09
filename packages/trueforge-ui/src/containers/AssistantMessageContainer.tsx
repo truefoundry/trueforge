@@ -21,6 +21,7 @@ import { AssistantTextContainer } from './AssistantTextContainer.js';
 import { ContextCompactionContainer } from './ContextCompactionContainer.js';
 import { MessageImageContainer } from './MessageImageContainer.js';
 import { ReasoningContainer } from './ReasoningContainer.js';
+import { useSessionReplay } from './sessionReplayContext.js';
 import { ToolCallContainer } from './ToolCallContainer.js';
 import type { ThreadGroupPart } from './ToolGroupContainer.js';
 
@@ -64,6 +65,7 @@ export function AssistantMessageContainer() {
     const value = s.message.metadata?.custom?.[CANCELLATION_REASON_CUSTOM_KEY];
     return typeof value === 'string' ? value : undefined;
   });
+  const isSessionReplay = useSessionReplay();
   const track = useTrackAnalytics();
   const shell = useOptionalShellMode();
   const shellAgent =
@@ -77,15 +79,17 @@ export function AssistantMessageContainer() {
   };
 
   const parts = useAuiState(s => s.message.parts);
-  const cancelledBanner =
-    messageStatus?.type === 'incomplete' && messageStatus.reason === 'cancelled'
-      ? (cancellationReason ?? 'cancelled')
-      : undefined;
+  const isCancelled = messageStatus?.type === 'incomplete' && messageStatus.reason === 'cancelled';
+  // Cancel reason chrome is session-detail only; live New Chat / Build chat omit it.
+  const cancelledBanner = isCancelled && isSessionReplay ? (cancellationReason ?? 'cancelled') : undefined;
 
   const { cutIndex, hasFinal, toolCount, thinkingCount } = computeAgentStepsSplit(parts, isMessageRunning);
 
   // Built-in indicator modes hide the loader while reasoning streams; we want it there too.
-  const showIndicator = isMessageRunning && !resumeUnavailable && parts[parts.length - 1]?.type !== 'text';
+  // Hide when resume is unavailable (message stays "running" but no events arrive) or the
+  // thread is idle — a stale running status after cancel must not revive the spinner.
+  const showIndicator =
+    isMessageRunning && isThreadRunning && !resumeUnavailable && parts[parts.length - 1]?.type !== 'text';
   const loaderLabel = useSlowActivityLabel({
     label: resolveLoaderLabel(parts),
     activityKey: showIndicator ? loaderActivityKey(parts) : null,
@@ -109,6 +113,10 @@ export function AssistantMessageContainer() {
 
     return null;
   };
+
+  if (isCancelled && !isSessionReplay && parts.length === 0 && error === undefined) {
+    return null;
+  }
 
   return (
     <MessagePrimitive.Root data-role="assistant">

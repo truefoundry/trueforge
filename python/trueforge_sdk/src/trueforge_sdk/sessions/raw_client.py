@@ -25,6 +25,7 @@ from ..errors.content_too_large_error import ContentTooLargeError
 from ..errors.failed_dependency_error import FailedDependencyError
 from ..errors.forbidden_error import ForbiddenError
 from ..errors.gone_error import GoneError
+from ..errors.internal_server_error import InternalServerError
 from ..errors.not_found_error import NotFoundError
 from ..errors.precondition_failed_error import PreconditionFailedError
 from ..errors.unauthorized_error import UnauthorizedError
@@ -51,9 +52,9 @@ from ..types.session_grant_subject import SessionGrantSubject
 from ..types.session_metadata import SessionMetadata
 from ..types.session_source_type import SessionSourceType
 from ..types.turn import Turn
-from ..types.turn_inbound_event_item import TurnInboundEventItem
-from ..types.turn_input_item import TurnInputItem
 from ..types.turn_streaming_event import TurnStreamingEvent
+from ..types.turn_user_event_message import TurnUserEventMessage
+from ..types.user_message import UserMessage
 from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
@@ -591,7 +592,7 @@ class RawSessionsClient:
         session_id: str,
         page_token: typing.Optional[str] = None,
         last_turn_id: typing.Optional[str] = None,
-        limit: typing.Optional[int] = 100,
+        limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[SessionEventItem, ListSessionEventsResponse]:
         """
@@ -609,7 +610,7 @@ class RawSessionsClient:
             Newest turn in the listing window (initial load only; ignored when `page_token` is set). Lists that turn and its ancestors, newest events first. Omit to use the session last turn.
 
         limit : typing.Optional[int]
-            Page size. Defaults to 100, max 100.
+            Page size. Defaults to and is capped at the server-configured maximum.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -977,7 +978,7 @@ class RawSessionsClient:
         self,
         *,
         session_id: str,
-        input: typing.Optional[typing.Sequence[TurnInputItem]] = OMIT,
+        input: typing.Optional[typing.Sequence[UserMessage]] = OMIT,
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Iterator[HttpResponse[Stream[TurnStreamingEvent]]]:
@@ -993,8 +994,8 @@ class RawSessionsClient:
         session_id : str
             Session identifier.
 
-        input : typing.Optional[typing.Sequence[TurnInputItem]]
-            Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.
+        input : typing.Optional[typing.Sequence[UserMessage]]
+            User messages supplied when the turn is created.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -1011,7 +1012,7 @@ class RawSessionsClient:
             method="POST",
             json={
                 "input": convert_and_respect_annotation_metadata(
-                    object_=input, annotation=typing.Sequence[TurnInputItem], direction="write"
+                    object_=input, annotation=typing.Sequence[UserMessage], direction="write"
                 ),
                 "previous_turn_id": convert_and_respect_annotation_metadata(
                     object_=previous_turn_id, annotation=PreviousTurnIdInput, direction="write"
@@ -1160,7 +1161,7 @@ class RawSessionsClient:
         self,
         *,
         session_id: str,
-        input: typing.Optional[typing.Sequence[TurnInputItem]] = OMIT,
+        input: typing.Optional[typing.Sequence[UserMessage]] = OMIT,
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[GetTurnResponse]:
@@ -1176,8 +1177,8 @@ class RawSessionsClient:
         session_id : str
             Session identifier.
 
-        input : typing.Optional[typing.Sequence[TurnInputItem]]
-            Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.
+        input : typing.Optional[typing.Sequence[UserMessage]]
+            User messages supplied when the turn is created.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -1194,7 +1195,7 @@ class RawSessionsClient:
             method="POST",
             json={
                 "input": convert_and_respect_annotation_metadata(
-                    object_=input, annotation=typing.Sequence[TurnInputItem], direction="write"
+                    object_=input, annotation=typing.Sequence[UserMessage], direction="write"
                 ),
                 "previous_turn_id": convert_and_respect_annotation_metadata(
                     object_=previous_turn_id, annotation=PreviousTurnIdInput, direction="write"
@@ -1512,7 +1513,7 @@ class RawSessionsClient:
         *,
         session_id: str,
         turn_id: str,
-        limit: typing.Optional[int] = 100,
+        limit: typing.Optional[int] = None,
         page_token: typing.Optional[str] = None,
         order: typing.Optional[ListTurnEventsOrder] = None,
         request_options: typing.Optional[RequestOptions] = None,
@@ -1529,7 +1530,7 @@ class RawSessionsClient:
             Turn identifier.
 
         limit : typing.Optional[int]
-            Page size. Defaults to 100, max 100.
+            Page size. Defaults to and is capped at the server-configured maximum.
 
         page_token : typing.Optional[str]
             Opaque token from a previous response `next_page_token`.
@@ -1621,12 +1622,12 @@ class RawSessionsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-    def create_turn_event(
+    def create_turn_events(
         self,
         *,
         session_id: str,
         turn_id: str,
-        events: typing.Sequence[TurnInboundEventItem],
+        events: typing.Sequence[TurnUserEventMessage],
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[CreateTurnEventResponse]:
         """
@@ -1640,7 +1641,7 @@ class RawSessionsClient:
         turn_id : str
             Turn identifier.
 
-        events : typing.Sequence[TurnInboundEventItem]
+        events : typing.Sequence[TurnUserEventMessage]
             One or more user events.
 
         request_options : typing.Optional[RequestOptions]
@@ -1656,7 +1657,7 @@ class RawSessionsClient:
             method="POST",
             json={
                 "events": convert_and_respect_annotation_metadata(
-                    object_=events, annotation=typing.Sequence[TurnInboundEventItem], direction="write"
+                    object_=events, annotation=typing.Sequence[TurnUserEventMessage], direction="write"
                 ),
             },
             headers={
@@ -1719,6 +1720,28 @@ class RawSessionsClient:
                         ),
                     ),
                 )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -1735,10 +1758,12 @@ class RawSessionsClient:
         session_id: str,
         turn_id: str,
         after_sequence_number: typing.Optional[int] = None,
+        from_event_id: typing.Optional[str] = None,
+        after_event_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Iterator[HttpResponse[Stream[TurnStreamingEvent]]]:
         """
-        Subscribe to the live SSE stream for a turn. Only the session creator may subscribe. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).
+        Subscribe to the live SSE stream. Resume with from_event_id or after_event_id.
 
         Parameters
         ----------
@@ -1749,7 +1774,13 @@ class RawSessionsClient:
             Turn identifier.
 
         after_sequence_number : typing.Optional[int]
-            Exclusive resume cursor: replay only events with a sequence number greater than this value. Omit to start from the beginning of the live buffer.
+            Deprecated. Rejected on new turns. Use from_event_id or after_event_id instead.
+
+        from_event_id : typing.Optional[str]
+            Inclusive cursor. Replay starts at the entry with this event id
+
+        after_event_id : typing.Optional[str]
+            Exclusive cursor. Replay starts after the last entry with this event id.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1764,6 +1795,8 @@ class RawSessionsClient:
             method="GET",
             params={
                 "after_sequence_number": after_sequence_number,
+                "from_event_id": from_event_id,
+                "after_event_id": after_event_id,
             },
             request_options=request_options,
         ) as _response:
@@ -2403,7 +2436,7 @@ class AsyncRawSessionsClient:
         session_id: str,
         page_token: typing.Optional[str] = None,
         last_turn_id: typing.Optional[str] = None,
-        limit: typing.Optional[int] = 100,
+        limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[SessionEventItem, ListSessionEventsResponse]:
         """
@@ -2421,7 +2454,7 @@ class AsyncRawSessionsClient:
             Newest turn in the listing window (initial load only; ignored when `page_token` is set). Lists that turn and its ancestors, newest events first. Omit to use the session last turn.
 
         limit : typing.Optional[int]
-            Page size. Defaults to 100, max 100.
+            Page size. Defaults to and is capped at the server-configured maximum.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -2795,7 +2828,7 @@ class AsyncRawSessionsClient:
         self,
         *,
         session_id: str,
-        input: typing.Optional[typing.Sequence[TurnInputItem]] = OMIT,
+        input: typing.Optional[typing.Sequence[UserMessage]] = OMIT,
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.AsyncIterator[AsyncHttpResponse[AsyncStream[TurnStreamingEvent]]]:
@@ -2811,8 +2844,8 @@ class AsyncRawSessionsClient:
         session_id : str
             Session identifier.
 
-        input : typing.Optional[typing.Sequence[TurnInputItem]]
-            Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.
+        input : typing.Optional[typing.Sequence[UserMessage]]
+            User messages supplied when the turn is created.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -2829,7 +2862,7 @@ class AsyncRawSessionsClient:
             method="POST",
             json={
                 "input": convert_and_respect_annotation_metadata(
-                    object_=input, annotation=typing.Sequence[TurnInputItem], direction="write"
+                    object_=input, annotation=typing.Sequence[UserMessage], direction="write"
                 ),
                 "previous_turn_id": convert_and_respect_annotation_metadata(
                     object_=previous_turn_id, annotation=PreviousTurnIdInput, direction="write"
@@ -2978,7 +3011,7 @@ class AsyncRawSessionsClient:
         self,
         *,
         session_id: str,
-        input: typing.Optional[typing.Sequence[TurnInputItem]] = OMIT,
+        input: typing.Optional[typing.Sequence[UserMessage]] = OMIT,
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[GetTurnResponse]:
@@ -2994,8 +3027,8 @@ class AsyncRawSessionsClient:
         session_id : str
             Session identifier.
 
-        input : typing.Optional[typing.Sequence[TurnInputItem]]
-            Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.
+        input : typing.Optional[typing.Sequence[UserMessage]]
+            User messages supplied when the turn is created.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -3012,7 +3045,7 @@ class AsyncRawSessionsClient:
             method="POST",
             json={
                 "input": convert_and_respect_annotation_metadata(
-                    object_=input, annotation=typing.Sequence[TurnInputItem], direction="write"
+                    object_=input, annotation=typing.Sequence[UserMessage], direction="write"
                 ),
                 "previous_turn_id": convert_and_respect_annotation_metadata(
                     object_=previous_turn_id, annotation=PreviousTurnIdInput, direction="write"
@@ -3331,7 +3364,7 @@ class AsyncRawSessionsClient:
         *,
         session_id: str,
         turn_id: str,
-        limit: typing.Optional[int] = 100,
+        limit: typing.Optional[int] = None,
         page_token: typing.Optional[str] = None,
         order: typing.Optional[ListTurnEventsOrder] = None,
         request_options: typing.Optional[RequestOptions] = None,
@@ -3348,7 +3381,7 @@ class AsyncRawSessionsClient:
             Turn identifier.
 
         limit : typing.Optional[int]
-            Page size. Defaults to 100, max 100.
+            Page size. Defaults to and is capped at the server-configured maximum.
 
         page_token : typing.Optional[str]
             Opaque token from a previous response `next_page_token`.
@@ -3443,12 +3476,12 @@ class AsyncRawSessionsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-    async def create_turn_event(
+    async def create_turn_events(
         self,
         *,
         session_id: str,
         turn_id: str,
-        events: typing.Sequence[TurnInboundEventItem],
+        events: typing.Sequence[TurnUserEventMessage],
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[CreateTurnEventResponse]:
         """
@@ -3462,7 +3495,7 @@ class AsyncRawSessionsClient:
         turn_id : str
             Turn identifier.
 
-        events : typing.Sequence[TurnInboundEventItem]
+        events : typing.Sequence[TurnUserEventMessage]
             One or more user events.
 
         request_options : typing.Optional[RequestOptions]
@@ -3478,7 +3511,7 @@ class AsyncRawSessionsClient:
             method="POST",
             json={
                 "events": convert_and_respect_annotation_metadata(
-                    object_=events, annotation=typing.Sequence[TurnInboundEventItem], direction="write"
+                    object_=events, annotation=typing.Sequence[TurnUserEventMessage], direction="write"
                 ),
             },
             headers={
@@ -3541,6 +3574,28 @@ class AsyncRawSessionsClient:
                         ),
                     ),
                 )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -3557,10 +3612,12 @@ class AsyncRawSessionsClient:
         session_id: str,
         turn_id: str,
         after_sequence_number: typing.Optional[int] = None,
+        from_event_id: typing.Optional[str] = None,
+        after_event_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.AsyncIterator[AsyncHttpResponse[AsyncStream[TurnStreamingEvent]]]:
         """
-        Subscribe to the live SSE stream for a turn. Only the session creator may subscribe. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).
+        Subscribe to the live SSE stream. Resume with from_event_id or after_event_id.
 
         Parameters
         ----------
@@ -3571,7 +3628,13 @@ class AsyncRawSessionsClient:
             Turn identifier.
 
         after_sequence_number : typing.Optional[int]
-            Exclusive resume cursor: replay only events with a sequence number greater than this value. Omit to start from the beginning of the live buffer.
+            Deprecated. Rejected on new turns. Use from_event_id or after_event_id instead.
+
+        from_event_id : typing.Optional[str]
+            Inclusive cursor. Replay starts at the entry with this event id
+
+        after_event_id : typing.Optional[str]
+            Exclusive cursor. Replay starts after the last entry with this event id.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -3586,6 +3649,8 @@ class AsyncRawSessionsClient:
             method="GET",
             params={
                 "after_sequence_number": after_sequence_number,
+                "from_event_id": from_event_id,
+                "after_event_id": after_event_id,
             },
             request_options=request_options,
         ) as _response:

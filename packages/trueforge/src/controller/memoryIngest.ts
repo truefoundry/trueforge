@@ -3,22 +3,23 @@
  * per-session checkpoint. Runs in the controller; provider calls are made outside any transaction.
  */
 import type { Logger } from 'winston';
-import type { DistributedServerConfiguration } from '../config';
+import { isTrueFoundryModeEnabled, type ServerConfiguration } from '../config';
 import type { IMemoryIngestStore, MemoryIngestCandidate, MemoryIngestTurn } from '../db/memoryIngestStore';
-import { createMemoryProvider } from '../memory/createMemoryProvider';
 import {
   activePath,
   askUserQuestionsByToolCallId,
   buildExchanges,
-  exchangeReadiness,
   renderExchange,
   resumePoint,
   type TurnExchange,
 } from '../memory/exchanges';
 import { MemoryIngestError, type MemoryProvider } from '../memory/MemoryProvider';
-import { TenantAllowlistMemorySettings, type MemorySettings } from '../memory/MemorySettings';
+import { listTenantMemoryProviders, type TenantMemoryDeps } from '../memory/providers';
 import { resolveMemoryScope, type MemoryScope } from '../memory/scope';
-import { resolveTrueFoundryMemoryProviderConfig } from '../truefoundry/resolveTrueFoundryMemoryProviderConfig';
+import {
+  resolveTrueFoundryMemoryProviderConfig,
+  TrueFoundryMemorySettingsSchema,
+} from '../truefoundry/resolveTrueFoundryMemoryProviderConfig';
 import type { ControlLoop } from './Controller';
 
 const MEMORY_INGEST_LOOP_NAME = 'memory-ingest';
@@ -28,13 +29,12 @@ export interface MemoryIngestConfig {
   maxSessionsPerRun: number;
   maxExchangesPerSession: number;
   lookbackMs: number;
-  pauseTimeoutMs: number;
 }
 
 export interface MemoryIngestDeps {
   store: IMemoryIngestStore;
-  provider: MemoryProvider;
-  settings: MemorySettings;
+  /** Tenants with memory on, each mapped to its provider; read once per pass. */
+  providersByTenant: () => Promise<ReadonlyMap<string, MemoryProvider>>;
   logger: Logger;
   config: MemoryIngestConfig;
   now: () => Date;
@@ -61,22 +61,17 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/** Exchanges that may be sent now, in order, stopping at the first one that is not ready. */
+/** Closed exchanges, in order, stopping at the first open one (running or paused on the user). */
 function readyExchanges({
   exchanges,
-  now,
   config,
 }: {
   exchanges: readonly TurnExchange[];
-  now: Date;
   config: MemoryIngestConfig;
 }): TurnExchange[] {
   const ready: TurnExchange[] = [];
   for (const exchange of exchanges) {
-    if (
-      ready.length === config.maxExchangesPerSession ||
-      !exchangeReadiness({ exchange, now, pauseTimeoutMs: config.pauseTimeoutMs }).ready
-    ) {
+    if (ready.length === config.maxExchangesPerSession || exchange.status !== 'closed') {
       break;
     }
     ready.push(exchange);
@@ -87,15 +82,17 @@ function readyExchanges({
 async function ingestSession({
   candidate,
   scope,
+  provider,
   deps,
   signal,
 }: {
   candidate: MemoryIngestCandidate;
   scope: MemoryScope;
+  provider: MemoryProvider;
   deps: MemoryIngestDeps;
   signal: AbortSignal;
 }): Promise<SessionResult> {
-  const { store, provider, logger, config, now } = deps;
+  const { store, logger, config } = deps;
   const { cursor } = candidate;
   const logFields = {
     session_id: candidate.session_id,
@@ -117,7 +114,7 @@ async function ingestSession({
     });
   }
 
-  const ready = readyExchanges({ exchanges: buildExchanges(path.slice(startIndex)), now: now(), config });
+  const ready = readyExchanges({ exchanges: buildExchanges(path.slice(startIndex)), config });
   if (ready.length === 0) {
     return { outcome: 'not_ready', exchangesSent: 0, exchangesFailed: 0 };
   }
@@ -199,21 +196,19 @@ export async function runMemoryIngestPass({
   deps: MemoryIngestDeps;
   signal: AbortSignal;
 }): Promise<MemoryIngestRunSummary> {
-  const { store, settings, logger, config, now } = deps;
+  const { store, logger, config, now } = deps;
   const startedAt = now();
 
-  // Recent sessions within the lookback; paused ones only once their pause has timed out, for one
-  // lookback-wide range. A paused session the user answers gets a new turn and so becomes recent.
+  // Sessions whose latest turn started within the lookback. A paused turn is not ingested until the
+  // user's answer or next message closes its exchange, which creates a new turn.
   const startedMs = startedAt.getTime();
-  const tenantIds = await settings.listEnabledTenantIds();
+  const providers = await deps.providersByTenant();
   const listed =
-    tenantIds?.length === 0
+    providers.size === 0
       ? []
       : await store.listCandidateSessions({
-          tenant_ids: tenantIds,
+          tenant_ids: [...providers.keys()],
           recent_since: new Date(startedMs - config.lookbackMs),
-          paused_from: new Date(startedMs - config.pauseTimeoutMs - config.lookbackMs),
-          paused_until: new Date(startedMs - config.pauseTimeoutMs),
           limit: config.maxSessionsPerRun + 1,
         });
   const backlog = listed.length > config.maxSessionsPerRun;
@@ -229,7 +224,7 @@ export async function runMemoryIngestPass({
       break;
     }
     sessionsProcessed += 1;
-    const result = await processCandidate({ candidate, deps, signal });
+    const result = await processCandidate({ candidate, provider: providers.get(candidate.tenant_id), deps, signal });
     outcomes[result.outcome] = (outcomes[result.outcome] ?? 0) + 1;
     exchangesSent += result.exchangesSent;
     exchangesFailed += result.exchangesFailed;
@@ -253,10 +248,12 @@ export async function runMemoryIngestPass({
 
 async function processCandidate({
   candidate,
+  provider,
   deps,
   signal,
 }: {
   candidate: MemoryIngestCandidate;
+  provider: MemoryProvider | undefined;
   deps: MemoryIngestDeps;
   signal: AbortSignal;
 }): Promise<SessionResult> {
@@ -275,12 +272,12 @@ async function processCandidate({
     tfgSource: candidate.tfg_source,
     createAgentSession: candidate.create_agent_session,
   });
-  if (scope === undefined) {
+  if (scope === undefined || provider === undefined) {
     return skipped('memory_disabled');
   }
 
   try {
-    return await ingestSession({ candidate, scope, deps, signal });
+    return await ingestSession({ candidate, scope, provider, deps, signal });
   } catch (error) {
     // Store failures (loading turns, writing the checkpoint); the session is retried next run.
     logger.error('Memory ingest failed for session', {
@@ -298,44 +295,36 @@ async function processCandidate({
 /** What the controller needs to register the loop; the controller supplies the logger. */
 export type MemoryIngestWiring = Omit<MemoryIngestDeps, 'logger' | 'now'>;
 
-type MemoryConfiguration = Pick<
-  DistributedServerConfiguration,
-  | 'TRUEFOUNDRY_MEMORY_ENABLED'
-  | 'TRUEFOUNDRY_MEMORY_PROVIDER'
-  | 'TRUEFOUNDRY_MEMORY_API_KEY'
-  | 'TRUEFOUNDRY_MEMORY_SERVER_URL'
-  | 'TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST'
-  | 'TRUEFOUNDRY_MEMORY_SETTINGS'
->;
-
 /**
- * Loop wiring from TrueFoundry-mode configuration (like the shared sandbox and web search);
- * undefined while `TRUEFOUNDRY_MEMORY_ENABLED` is off.
+ * Loop wiring for this deployment. Each tenant uses its own provider: the platform's in TrueFoundry
+ * mode, the one saved in settings otherwise. Undefined in TrueFoundry mode while
+ * `TRUEFOUNDRY_MEMORY_ENABLED` is off.
  */
 export function memoryIngestFromConfig({
   config,
   store,
-  logger,
+  tenantMemory,
 }: {
-  config: MemoryConfiguration;
+  config: ServerConfiguration;
   store: IMemoryIngestStore;
-  logger: Logger;
+  tenantMemory: TenantMemoryDeps;
 }): MemoryIngestWiring | undefined {
-  const providerConfig = resolveTrueFoundryMemoryProviderConfig(config);
-  if (providerConfig === undefined) {
-    return undefined;
+  let settings = TrueFoundryMemorySettingsSchema.parse({});
+  if (isTrueFoundryModeEnabled(config)) {
+    const providerConfig = resolveTrueFoundryMemoryProviderConfig(config);
+    if (providerConfig === undefined) {
+      return undefined;
+    }
+    settings = providerConfig.settings;
   }
-  const { settings } = providerConfig;
   return {
     store,
-    provider: createMemoryProvider({ config: providerConfig, logger }),
-    settings: new TenantAllowlistMemorySettings({ tenantIds: config.TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST }),
+    providersByTenant: () => listTenantMemoryProviders(tenantMemory),
     config: {
       intervalMs: settings.interval_ms,
       maxSessionsPerRun: settings.max_sessions_per_run,
       maxExchangesPerSession: settings.max_exchanges_per_session,
       lookbackMs: settings.lookback_ms,
-      pauseTimeoutMs: settings.pause_timeout_ms,
     },
   };
 }

@@ -17,12 +17,12 @@ const PENDING = { mcpServers: SERVERS };
 
 function McpAuthHarness({
   pendingMcpAuth,
-  resumeMcpAuth,
+  continueMcpAuth,
   isRunning = false,
   server,
 }: {
   pendingMcpAuth: TrueForgeRuntimeExtras['pendingMcpAuth'];
-  resumeMcpAuth: TrueForgeRuntimeExtras['resumeMcpAuth'];
+  continueMcpAuth: TrueForgeRuntimeExtras['continueMcpAuth'];
   isRunning?: boolean;
   server?: AgentUIServer;
 }) {
@@ -38,9 +38,9 @@ function McpAuthHarness({
       pendingMcpAuth,
       resumeUnavailable: false,
       sandboxId: undefined,
-      respondToToolApproval: () => {},
-      respondToToolResponse: () => {},
-      resumeMcpAuth,
+      respondToToolApproval: async () => {},
+      respondToToolResponse: async () => {},
+      continueMcpAuth,
       downloadSandboxFile: async () => new Blob(),
       cancel: async () => {},
       resetFromTurn: async () => {},
@@ -69,13 +69,13 @@ function McpAuthHarness({
 
 describe('McpAuthContainer', () => {
   it('renders nothing when there is no pending MCP auth', () => {
-    render(<McpAuthHarness pendingMcpAuth={null} resumeMcpAuth={vi.fn()} />);
+    render(<McpAuthHarness pendingMcpAuth={null} continueMcpAuth={vi.fn()} />);
     expect(screen.queryByRole('button', { name: /continue/i })).not.toBeInTheDocument();
   });
 
   it('renders a Connect button per server that opens auth in a new tab', () => {
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
-    render(<McpAuthHarness pendingMcpAuth={PENDING} resumeMcpAuth={vi.fn().mockResolvedValue(undefined)} />);
+    render(<McpAuthHarness pendingMcpAuth={PENDING} continueMcpAuth={vi.fn().mockResolvedValue(undefined)} />);
     expect(screen.getByText('github')).toBeInTheDocument();
     expect(screen.getByText('slack')).toBeInTheDocument();
 
@@ -95,20 +95,26 @@ describe('McpAuthContainer', () => {
   });
 
   it('calls resume when Continue is clicked', () => {
-    const resumeMcpAuth = vi.fn().mockResolvedValue(undefined);
-    render(<McpAuthHarness pendingMcpAuth={PENDING} resumeMcpAuth={resumeMcpAuth} isRunning={false} />);
+    const continueMcpAuth = vi.fn().mockResolvedValue(undefined);
+    render(<McpAuthHarness pendingMcpAuth={PENDING} continueMcpAuth={continueMcpAuth} isRunning={false} />);
 
     fireEvent.click(screen.getByRole('button', { name: /continue/i }));
-    expect(resumeMcpAuth).toHaveBeenCalledTimes(1);
+    expect(continueMcpAuth).toHaveBeenCalledTimes(1);
   });
 
   it('disables Continue while the thread is running', () => {
-    render(<McpAuthHarness pendingMcpAuth={PENDING} resumeMcpAuth={vi.fn()} isRunning={true} />);
+    render(<McpAuthHarness pendingMcpAuth={PENDING} continueMcpAuth={vi.fn()} isRunning={true} />);
     expect(screen.getByRole('button', { name: /continue/i })).toBeDisabled();
   });
 
   it('shows each successful catalog connection and resumes once all servers are connected', async () => {
-    const resumeMcpAuth = vi.fn().mockResolvedValue(undefined);
+    let resolveResume: (() => void) | undefined;
+    const continueMcpAuth = vi.fn(
+      () =>
+        new Promise<void>(resolve => {
+          resolveResume = resolve;
+        }),
+    );
     const authenticateConnector = vi.fn().mockResolvedValue({ status: 'AUTHENTICATED' });
     const getConnector = vi.fn(async ({ id }: { id: string }) => ({
       id,
@@ -128,7 +134,7 @@ describe('McpAuthContainer', () => {
     });
     const server = createMockAgentUIServer({ catalog });
 
-    render(<McpAuthHarness pendingMcpAuth={PENDING} resumeMcpAuth={resumeMcpAuth} server={server} />);
+    render(<McpAuthHarness pendingMcpAuth={PENDING} continueMcpAuth={continueMcpAuth} server={server} />);
 
     const firstConnect = screen.getAllByRole('button', { name: 'Connect' })[0];
     if (!firstConnect) throw new Error('Expected the first MCP Connect button');
@@ -136,17 +142,23 @@ describe('McpAuthContainer', () => {
 
     await waitFor(() => expect(screen.getByText('Connected')).toBeInTheDocument());
     expect(getConnector).toHaveBeenCalled();
-    expect(resumeMcpAuth).not.toHaveBeenCalled();
+    expect(continueMcpAuth).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Connect' }));
 
     await waitFor(() => expect(screen.getAllByText('Connected')).toHaveLength(2));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled());
-    expect(resumeMcpAuth).toHaveBeenCalledTimes(1);
+    expect(continueMcpAuth).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveResume?.();
+    });
+    // Ack without clearing pending MCP auth must allow another Continue click.
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled());
   });
 
   it('keeps a failed catalog connection available without resuming', async () => {
-    const resumeMcpAuth = vi.fn().mockResolvedValue(undefined);
+    const continueMcpAuth = vi.fn().mockResolvedValue(undefined);
     const authenticateConnector = vi.fn().mockRejectedValue(new Error('Authorization failed'));
     const catalog = createMockCatalog({
       connectorCatalog: {
@@ -156,7 +168,7 @@ describe('McpAuthContainer', () => {
     });
     const server = createMockAgentUIServer({ catalog });
 
-    render(<McpAuthHarness pendingMcpAuth={PENDING} resumeMcpAuth={resumeMcpAuth} server={server} />);
+    render(<McpAuthHarness pendingMcpAuth={PENDING} continueMcpAuth={continueMcpAuth} server={server} />);
 
     const firstConnect = screen.getAllByRole('button', { name: 'Connect' })[0];
     if (!firstConnect) throw new Error('Expected the first MCP Connect button');
@@ -164,11 +176,11 @@ describe('McpAuthContainer', () => {
 
     await waitFor(() => expect(authenticateConnector).toHaveBeenCalledTimes(1));
     expect(screen.getAllByRole('button', { name: 'Connect' })).toHaveLength(2);
-    expect(resumeMcpAuth).not.toHaveBeenCalled();
+    expect(continueMcpAuth).not.toHaveBeenCalled();
   });
 
   it('does not mark a server connected when AUTHENTICATED is not confirmed', async () => {
-    const resumeMcpAuth = vi.fn().mockResolvedValue(undefined);
+    const continueMcpAuth = vi.fn().mockResolvedValue(undefined);
     const authenticateConnector = vi.fn().mockResolvedValue({ status: 'AUTHENTICATED' });
     const getConnector = vi.fn(async ({ id }: { id: string }) => ({
       id,
@@ -189,7 +201,11 @@ describe('McpAuthContainer', () => {
     const server = createMockAgentUIServer({ catalog });
 
     render(
-      <McpAuthHarness pendingMcpAuth={{ mcpServers: [GITHUB_SERVER] }} resumeMcpAuth={resumeMcpAuth} server={server} />,
+      <McpAuthHarness
+        pendingMcpAuth={{ mcpServers: [GITHUB_SERVER] }}
+        continueMcpAuth={continueMcpAuth}
+        server={server}
+      />,
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Connect' }));
@@ -197,11 +213,11 @@ describe('McpAuthContainer', () => {
     await waitFor(() => expect(getConnector).toHaveBeenCalledWith({ id: GITHUB_SERVER.id }));
     expect(screen.getByRole('button', { name: 'Connect' })).toBeInTheDocument();
     expect(screen.queryByText('Connected')).not.toBeInTheDocument();
-    expect(resumeMcpAuth).not.toHaveBeenCalled();
+    expect(continueMcpAuth).not.toHaveBeenCalled();
   });
 
   it('allows retrying Continue when resume fails', async () => {
-    const resumeMcpAuth = vi.fn().mockRejectedValue(new Error('Resume failed'));
+    const continueMcpAuth = vi.fn().mockRejectedValue(new Error('Resume failed'));
     const authenticateConnector = vi.fn().mockResolvedValue({ status: 'AUTHENTICATED' });
     const getConnector = vi.fn(async ({ id }: { id: string }) => ({
       id,
@@ -222,20 +238,24 @@ describe('McpAuthContainer', () => {
     const server = createMockAgentUIServer({ catalog });
 
     render(
-      <McpAuthHarness pendingMcpAuth={{ mcpServers: [GITHUB_SERVER] }} resumeMcpAuth={resumeMcpAuth} server={server} />,
+      <McpAuthHarness
+        pendingMcpAuth={{ mcpServers: [GITHUB_SERVER] }}
+        continueMcpAuth={continueMcpAuth}
+        server={server}
+      />,
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Connect' }));
 
-    await waitFor(() => expect(resumeMcpAuth).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(continueMcpAuth).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled());
 
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
-    await waitFor(() => expect(resumeMcpAuth).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(continueMcpAuth).toHaveBeenCalledTimes(2));
   });
 
   it('confirms chat MCP auth through getMcpConnector when settings getConnector is forbidden', async () => {
-    const resumeMcpAuth = vi.fn().mockResolvedValue(undefined);
+    const continueMcpAuth = vi.fn().mockResolvedValue(undefined);
     const authenticateConnector = vi.fn().mockResolvedValue({ status: 'AUTHENTICATED' });
     const getConnector = vi.fn(async () => {
       throw new Error('Forbidden');
@@ -255,7 +275,11 @@ describe('McpAuthContainer', () => {
     const server = createMockAgentUIServer({ catalog, getMcpConnector });
 
     render(
-      <McpAuthHarness pendingMcpAuth={{ mcpServers: [GITHUB_SERVER] }} resumeMcpAuth={resumeMcpAuth} server={server} />,
+      <McpAuthHarness
+        pendingMcpAuth={{ mcpServers: [GITHUB_SERVER] }}
+        continueMcpAuth={continueMcpAuth}
+        server={server}
+      />,
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Connect' }));
@@ -263,11 +287,11 @@ describe('McpAuthContainer', () => {
     await waitFor(() => expect(getMcpConnector).toHaveBeenCalledWith({ connectorId: GITHUB_SERVER.id }));
     await waitFor(() => expect(screen.getByText('Connected')).toBeInTheDocument());
     expect(getConnector).not.toHaveBeenCalled();
-    expect(resumeMcpAuth).toHaveBeenCalledTimes(1);
+    expect(continueMcpAuth).toHaveBeenCalledTimes(1);
   });
 
   it('does not resume a paused turn after the prompt unmounts mid-authorize', async () => {
-    const resumeMcpAuth = vi.fn().mockResolvedValue(undefined);
+    const continueMcpAuth = vi.fn().mockResolvedValue(undefined);
     let resolveAuth: ((value: { status: string }) => void) | undefined;
     const authenticateConnector = vi.fn(
       () =>
@@ -294,7 +318,11 @@ describe('McpAuthContainer', () => {
     const server = createMockAgentUIServer({ catalog });
 
     const { unmount } = render(
-      <McpAuthHarness pendingMcpAuth={{ mcpServers: [GITHUB_SERVER] }} resumeMcpAuth={resumeMcpAuth} server={server} />,
+      <McpAuthHarness
+        pendingMcpAuth={{ mcpServers: [GITHUB_SERVER] }}
+        continueMcpAuth={continueMcpAuth}
+        server={server}
+      />,
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Connect' }));
@@ -305,6 +333,6 @@ describe('McpAuthContainer', () => {
       resolveAuth?.({ status: 'AUTHENTICATED' });
     });
 
-    expect(resumeMcpAuth).not.toHaveBeenCalled();
+    expect(continueMcpAuth).not.toHaveBeenCalled();
   });
 });

@@ -21,8 +21,8 @@ export type {
 } from './runtime/AgentThread.types';
 export { AgentThreadOrchestrator } from './runtime/AgentThreadOrchestrator';
 export type { CreateDynamicSubAgentThread } from './runtime/CreateDynamicSubAgentThread';
-export { isAgentInputUserMessage, isEmptyMessageContent, isFileContentPart } from './runtime/UserInputMessage';
-export type { AgentInputUserMessage } from './runtime/UserInputMessage';
+export { isAgentUserMessage, isEmptyMessageContent, isFileContentPart } from './runtime/UserInputMessage';
+export type { UserMessage } from './runtime/UserInputMessage';
 
 // Capability contracts
 export type { AgentCapability, CapabilityState, JsonValue } from './capabilities/AgentCapability';
@@ -47,6 +47,14 @@ export {
   DEFAULT_TOTAL_TOOL_TOKEN_THRESHOLD,
   largeToolResponse,
 } from './capabilities/builtins/LargeToolResponse';
+export {
+  MEMORY_ADD_TOOL_NAME,
+  MEMORY_INSTRUCTION_TAG,
+  MEMORY_SEARCH_TOOL_NAME,
+  MEMORY_SERVER_ID,
+  buildMemoryInstruction,
+  memory,
+} from './capabilities/builtins/Memory';
 export { openUI } from './capabilities/builtins/OpenUI';
 export {
   WEB_FETCH_TOOL_NAME,
@@ -101,7 +109,6 @@ export type { VercelAILLMConfig, VercelAIProviderConfig, VercelAIProviderName } 
 // Event contracts
 export {
   ActionRequiredEventSchema,
-  AgentInputUserMessageSchema,
   CompactionTriggerSchema,
   EventIdSchema,
   EventType,
@@ -114,18 +121,13 @@ export {
   ThreadContextCompactionStartedEventSchema,
   ThreadCreatedEventSchema,
   ThreadDoneEventSchema,
-  ThreadOverwriteContextEventSchema,
   ToolApprovalRequiredEventSchema,
   ToolResponseEventSchema,
   ToolResponseRequiredEventSchema,
   UserMCPAuthContinueEventSchema,
-  UserMCPAuthContinueMessageSchema,
   UserToolApprovalEventSchema,
-  UserToolApprovalMessageSchema,
   UserToolApprovalPolicyEventSchema,
-  UserToolApprovalPolicyMessageSchema,
   UserToolResponseEventSchema,
-  UserToolResponseMessageSchema,
   newEventId,
 } from './events/schema';
 export type {
@@ -138,18 +140,12 @@ export type {
   ThreadContextCompactionStartedEvent,
   ThreadDoneEvent,
   ThreadOverwriteContextEvent,
-  ToolApprovalPolicyAction,
-  UserMCPAuthContinueEvent,
-  UserMCPAuthContinueMessage,
-  UserToolApprovalEvent,
-  UserToolApprovalPolicyEvent,
-  UserToolApprovalPolicyMessage,
-  UserToolResponseEvent,
+  ToolApprovalPolicy,
 } from './events/schema';
 export { CompletionUsageSchema } from './llm/LLMTypes';
 export type { CompletionUsage } from './llm/LLMTypes';
 export { InternalEventType } from './runtime/AgentThread.types';
-export type { AgentThreadSendBatch, ContextMessage } from './runtime/AgentThread.types';
+export type { ContextMessage } from './runtime/AgentThread.types';
 export { AgentThreadMetricsSchema } from './runtime/metrics';
 export type { AgentThreadMetrics } from './runtime/metrics';
 
@@ -295,6 +291,9 @@ export type {
   WebSearchHit,
   WebSearchHits,
 } from './web-search/WebSearchProvider';
+
+// Memory
+export type { MemoryFact, ScopedMemory } from './memory/ScopedMemory';
 
 // Skills: the ISkillMounter seam lets hosts plug in their own skill sources
 export { InstructionBuilder } from './InstructionBuilder';

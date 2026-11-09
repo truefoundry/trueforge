@@ -19,11 +19,13 @@ import type {
   ListResult,
   Session,
   Turn,
+  TurnInboundEventItem,
   TurnInputItem,
+  UserMessage,
   UserMessageContent,
 } from '../../server/types.js';
 import { createTrueForgeClient, type CreateTrueForgeClientOptions } from './client.js';
-import { toUiEventItem, toUiStreamingEvent, toUiTurnState } from './toUiTurnState.js';
+import { toUiEventItem, toUiInboundEvent, toUiStreamingEvent, toUiTurnState } from './toUiTurnState.js';
 import type { HarnessAgentSpec, HarnessMcpServerMount, HarnessSkillMount } from './types.js';
 
 export type { HarnessAgentSpec, HarnessMcpServerMount, HarnessSkillMount } from './types.js';
@@ -32,7 +34,7 @@ export type CreateHarnessChatServerOptions = CreateTrueForgeClientOptions & {
   client?: TrueForge;
 };
 
-/** UI session with create-agent intent for resume chrome. */
+/** UI session with create-agent intent for New Agent builder chrome. */
 export type HarnessUiSession = Session<HarnessAgentSpec> & { isCreateAgent: boolean };
 
 export type HarnessCreateSessionRequest = CreateSessionRequest<HarnessAgentSpec>;
@@ -115,7 +117,10 @@ function toUiContent(content: TrueForgeApi.UserMessageContent): UserMessageConte
   return typeof content === 'string' ? content : content.map(part => ({ ...part }));
 }
 
-function toUiInput(input: TrueForgeApi.TurnInputItem[]): TurnInputItem[] {
+type HarnessTurnInput = NonNullable<TrueForgeApi.Turn['input']>;
+type HarnessCreateTurnInput = NonNullable<TrueForgeApi.CreateTurnSessionsStreamRequest['input']>;
+
+function toUiInput(input: HarnessTurnInput): TurnInputItem[] {
   return input.map(item => (item.type === 'user.message' ? { ...item, content: toUiContent(item.content) } : item));
 }
 
@@ -152,10 +157,11 @@ export function toListResult<TSource, TResult>(
   };
 }
 
-function sequenceNumber(id: string | undefined, fallback: number): number {
-  if (id === undefined) return fallback;
+/** Integer SSE ids belong to older sequence streams. A missing id is not a cursor. */
+function sequenceNumberFromSseId(id: string | undefined): number | undefined {
+  if (id === undefined) return undefined;
   const parsed = Number(id);
-  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : fallback;
+  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : undefined;
 }
 
 function toHarnessContent(content: UserMessageContent): TrueForgeApi.UserMessageContent {
@@ -170,18 +176,12 @@ function toHarnessContent(content: UserMessageContent): TrueForgeApi.UserMessage
   });
 }
 
-function toHarnessInput(input: TurnInputItem[]): TrueForgeApi.TurnInputItem[] {
-  const out: TrueForgeApi.TurnInputItem[] = [];
-  for (const item of input) {
-    // SDK TurnInputItem omits continue; OAuth resume is posted as a create-event.
-    if (item.type === 'user.mcp_auth_continue') continue;
-    if (item.type === 'user.message') {
-      out.push({ ...item, content: toHarnessContent(item.content) });
-      continue;
-    }
-    out.push(item);
-  }
-  return out;
+function toHarnessInput(input: UserMessage[]): HarnessCreateTurnInput {
+  return input.map(item => ({ ...item, content: toHarnessContent(item.content) }));
+}
+
+function toHarnessInboundEvents(events: TurnInboundEventItem[]): TrueForgeApi.TurnUserEventMessage[] {
+  return events.map(event => ({ ...event }));
 }
 
 export function createHarnessChatServer(
@@ -251,55 +251,54 @@ export function createHarnessChatServer(
       return toUiSession(response.data);
     },
 
-    async *createTurn({
-      sessionId,
-      input,
-      previousTurnId,
-    }: {
-      sessionId: string;
-      input?: TurnInputItem[];
-      previousTurnId?: string;
-    }) {
+    async *createTurn({ sessionId, input, previousTurnId }) {
       const stream = await client.sessions.createTurnStream(sessionId, {
         ...(input === undefined ? {} : { input: toHarnessInput(input) }),
         ...(previousTurnId === undefined ? {} : { previousTurnId }),
       });
-      let fallbackSequence = 0;
       for await (const item of stream.withMetadata()) {
         const event = toUiStreamingEvent(item.data);
-        if (event !== undefined) {
-          yield {
-            sequenceNumber: sequenceNumber(item.id, fallbackSequence),
-            event,
-          };
+        if (event === undefined) {
+          continue;
         }
-        fallbackSequence += 1;
+        const sequenceNumber = sequenceNumberFromSseId(item.id);
+        yield sequenceNumber === undefined ? { event } : { sequenceNumber, event };
       }
     },
 
-    /** Resume a live turn; omitted/0 `afterSequenceNumber` replays from the start. */
+    async sendTurnEvents({ sessionId, turnId, events }) {
+      const response = await client.sessions.createTurnEvents(sessionId, turnId, {
+        events: toHarnessInboundEvents(events),
+      });
+      return response.data.map(toUiInboundEvent);
+    },
+
+    /** Resume a live turn from an event id, or a legacy sequence on an older stream. */
     async *subscribeToTurn({
       sessionId,
       turnId,
       afterSequenceNumber,
+      fromEventId,
+      afterEventId,
     }: {
       sessionId: string;
       turnId: string;
       afterSequenceNumber?: number;
+      fromEventId?: string;
+      afterEventId?: string;
     }) {
       const stream = await client.sessions.subscribeToTurn(sessionId, turnId, {
         ...(afterSequenceNumber === undefined ? {} : { afterSequenceNumber }),
+        ...(fromEventId === undefined ? {} : { fromEventId }),
+        ...(afterEventId === undefined ? {} : { afterEventId }),
       });
-      let fallbackSequence = 0;
       for await (const item of stream.withMetadata()) {
         const event = toUiStreamingEvent(item.data);
-        if (event !== undefined) {
-          yield {
-            sequenceNumber: sequenceNumber(item.id, fallbackSequence),
-            event,
-          };
+        if (event === undefined) {
+          continue;
         }
-        fallbackSequence += 1;
+        const sequenceNumber = sequenceNumberFromSseId(item.id);
+        yield sequenceNumber === undefined ? { event } : { sequenceNumber, event };
       }
     },
 
@@ -320,11 +319,10 @@ export function createHarnessChatServer(
       return toUiTurn(response.data);
     },
 
-    async listEvents({ sessionId, pageToken, lastTurnId, limit }) {
+    async listEvents({ sessionId, pageToken, lastTurnId }) {
       const page = await client.sessions.listEvents(sessionId, {
         ...(pageToken === undefined ? {} : { pageToken }),
         ...(lastTurnId === undefined ? {} : { lastTurnId }),
-        ...(limit === undefined ? {} : { limit }),
       });
       return toListResult(page, toUiEventItem);
     },

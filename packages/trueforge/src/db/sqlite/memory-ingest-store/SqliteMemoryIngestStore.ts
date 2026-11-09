@@ -1,8 +1,8 @@
 import {
   MAIN_THREAD_ID,
   type CreatedBySubject,
+  type LegacyTurnInputItem,
   type PersistedTurnEvent,
-  type TurnInputItem,
   type TurnState,
 } from '@truefoundry/trueforge-core/agent-session';
 import { sql, type Kysely } from 'kysely';
@@ -18,7 +18,6 @@ import {
 import { jsonText, nowIso } from '../sqlExpressions';
 import type { Database } from '../types';
 
-// TODO(agent-memory-toggle): read through a typed MemoryConfig once RuntimeConfigSchema has one.
 const agentMemoryEnabled = sql<number>`json_type(a.manifest, ${sql.lit(`$.${AGENT_MEMORY_ENABLED_PATH.join('.')}`)}) IS 'true'`;
 const tfgSource = sql<string | null>`json_extract(s.metadata, '$."tfg.source"')`;
 const createAgentSession = sql<number>`json_extract(s.metadata, '$."is_create_agent"') IS 'true'`;
@@ -26,7 +25,7 @@ const createAgentSession = sql<number>`json_extract(s.metadata, '$."is_create_ag
  * `turn.input` as JSON text with only text parts kept in array content: file parts carry inline
  * base64, and ingestion sends text only, so attachments never leave the database.
  */
-const textOnlyInput = sql<TurnInputItem[]>`(
+const textOnlyInput = sql<LegacyTurnInputItem[]>`(
   SELECT json_group_array(
     CASE WHEN json_type(i.value, '$.content') = 'array' THEN json_set(i.value, '$.content', json(
       (SELECT json_group_array(json(p.value) ORDER BY p.key)
@@ -36,8 +35,6 @@ const textOnlyInput = sql<TurnInputItem[]>`(
     ORDER BY i.key)
   FROM json_each(input) AS i
 )`;
-/** The tip turn finished waiting on the user (a question, approval or auth). */
-const tipPaused = sql<boolean>`(json_extract(t.state, '$.status') = 'done' AND json_array_length(t.state, '$.required_actions') > 0)`;
 /** Mirrors PostgresMemoryIngestStore; timestamps are ISO-8601 TEXT. */
 export class SqliteMemoryIngestStore implements IMemoryIngestStore {
   readonly #db: Kysely<Database>;
@@ -71,24 +68,15 @@ export class SqliteMemoryIngestStore implements IMemoryIngestStore {
         'c.updated_at as cursor_updated_at',
       ])
       .where('s.source', 'is', null)
-      .where(eb =>
-        eb.or([
-          eb('s.updated_at', '>=', input.recent_since.toISOString()),
-          eb.and([
-            eb('s.updated_at', '>=', input.paused_from.toISOString()),
-            eb('s.updated_at', '<', input.paused_until.toISOString()),
-            tipPaused,
-          ]),
-        ]),
-      )
+      .where('s.updated_at', '>=', input.recent_since.toISOString())
       // Matches resolveMemoryScope: never agent-builder chats; a bound agent's manifest decides; UI chats without one use the default scope.
       .where(sql<boolean>`NOT (${createAgentSession})`)
       .where(eb =>
         eb.or([eb.and([eb('s.agent_id', 'is', null), eb(tfgSource, '=', 'ui')]), eb(agentMemoryEnabled, '=', 1)]),
       )
       .where(sql<boolean>`c.last_ingested_turn_id IS NOT t.turn_id`);
-    const scoped = input.tenant_ids === undefined ? query : query.where('s.tenant_id', 'in', [...input.tenant_ids]);
-    const rows = await scoped
+    const rows = await query
+      .where('s.tenant_id', 'in', [...input.tenant_ids])
       .orderBy('s.updated_at', 'asc')
       .orderBy('s.session_id', 'asc')
       .limit(input.limit)

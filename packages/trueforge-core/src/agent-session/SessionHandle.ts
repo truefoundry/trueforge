@@ -1,20 +1,11 @@
 /**
  * Bound session handle: starts turns via {@link SessionHandle.createTurn}.
  */
-import { newEventId } from '../core/events/schema';
+import { newEventId, type TurnUserEvent, type UserMessage } from '../core/events/schema';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import { AgentThread } from '../core/runtime/AgentThread';
-import type {
-  AgentThreadAppendContext,
-  AgentThreadSendBatch,
-  AgentThreadSnapshot,
-} from '../core/runtime/AgentThread.types';
+import type { AgentThreadAppendContext, AgentThreadSnapshot } from '../core/runtime/AgentThread.types';
 import { AgentThreadOrchestrator } from '../core/runtime/AgentThreadOrchestrator';
-import {
-  isApprovalDecisionMessage,
-  isClientSideToolResponseMessage,
-  isInputUserMessage,
-} from '../core/runtime/contextUtils';
 import type { CreateDynamicSubAgentThread } from '../core/runtime/CreateDynamicSubAgentThread';
 import type { HarnessSandbox } from '../core/sandbox/Sandbox';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
@@ -23,19 +14,24 @@ import type { ITurnResourceResolver, ResolvedAgentDefinition } from './ITurnReso
 import type { SessionRecord } from './models/SessionRecord';
 import { MAIN_THREAD_ID, type TurnRecord, type TurnSnapshot } from './models/TurnRecord';
 import type { AgentSpec } from './schemas/agentSpec';
-import type { SessionEventItem } from './schemas/events';
+import type { PersistedTurnEvent, SessionEventItem } from './schemas/events';
 import { EventType, type TurnDoneEvent } from './schemas/events';
 import type { TokenPagination } from './schemas/pagination';
 import type { SessionAgent } from './schemas/session';
-import type { TurnInputItem } from './schemas/turn';
 import { CancellationReason } from './schemas/turn';
 import type { ISessionStore, NewThreadInit, TurnContextAppend, TurnRecordWithoutSnapshot } from './store/ISessionStore';
+import { TurnNotFoundError, TurnNotRunningError, TurnOwnershipLostError } from './store/SessionStoreErrors';
 import { TurnHandle } from './TurnHandle';
+import { createInitialTurnMetricsCheckpoint } from './turnMetrics';
 
 /** How many recent ancestors SessionHandle persists on each turn. Store-local. */
 const MAX_TURN_ANCESTORS = 20;
 
-function resolvePreviousTurnId(requested: string | undefined, lastTurnId: string | undefined): string | null {
+/** A turn's parent: `'auto'`/omitted → session tip; `'none'` → new root; id → that turn. Null means a fresh context. */
+export function resolvePreviousTurnId(
+  requested: string | undefined,
+  lastTurnId: string | null | undefined,
+): string | null {
   if (requested === 'none') {
     return null;
   }
@@ -43,19 +39,6 @@ function resolvePreviousTurnId(requested: string | undefined, lastTurnId: string
     return lastTurnId ?? null;
   }
   return requested;
-}
-
-function toSendBatch(input: TurnInputItem[] | undefined): AgentThreadSendBatch {
-  if (!input || input.length === 0) {
-    return [];
-  }
-  if (input.every(msg => isApprovalDecisionMessage(msg) || isClientSideToolResponseMessage(msg))) {
-    return input;
-  }
-  if (input.every(isInputUserMessage)) {
-    return input;
-  }
-  throw new Error('input must be homogeneous: all user messages, or all approval/tool-response messages');
 }
 
 function toNewThreadInit(snapshot: AgentThreadSnapshot): NewThreadInit {
@@ -76,7 +59,7 @@ function collectContextAppends(
       const existing = appendMap.get(event.thread_id);
       if (existing) {
         existing.context.push(...event.context);
-        if (event.current_context_usage !== undefined) {
+        if (event.current_context_usage !== null) {
           existing.current_context_usage = event.current_context_usage;
         }
         if (event.completion !== undefined) {
@@ -86,7 +69,7 @@ function collectContextAppends(
         appendMap.set(event.thread_id, {
           thread_id: event.thread_id,
           context: [...event.context],
-          current_context_usage: event.current_context_usage ?? null,
+          current_context_usage: event.current_context_usage,
           completion: event.completion ?? null,
         });
       }
@@ -124,13 +107,17 @@ function threadIdsForCurrentTurn(snapshot: TurnSnapshot | undefined): string[] {
 }
 
 export class SessionHandle<
+  TTransaction = never,
   TSessionCustom extends object = Record<string, never>,
   TTurnCustom extends object = Record<string, never>,
 > {
-  private readonly store: ISessionStore<TSessionCustom, TTurnCustom>;
+  private readonly store: ISessionStore<TTransaction, TSessionCustom, TTurnCustom>;
   private session: SessionRecord<TSessionCustom>;
 
-  constructor(options: { store: ISessionStore<TSessionCustom, TTurnCustom>; session: SessionRecord<TSessionCustom> }) {
+  constructor(options: {
+    store: ISessionStore<TTransaction, TSessionCustom, TTurnCustom>;
+    session: SessionRecord<TSessionCustom>;
+  }) {
     this.store = options.store;
     this.session = options.session;
   }
@@ -179,20 +166,20 @@ export class SessionHandle<
   async createTurn(input: {
     turn_id: string;
     active_executor_id: string;
-    input?: TurnInputItem[] | undefined;
+    resolver: ITurnResourceResolver<TTurnCustom>;
+    abortController: AbortController;
     /** 'auto'/omitted → session.last_turn_details.id; 'none' → new root; id → fork from that turn. */
     previous_turn_id?: string | undefined;
-    signal: AbortSignal;
-    resolver: ITurnResourceResolver<TTurnCustom>;
-    /** Value = stored as-is. Fn = merge over previous turn's custom. Omitted = undefined. */
-    custom?: TTurnCustom | ((previous?: TTurnCustom) => TTurnCustom) | undefined;
+    input?: UserMessage[] | undefined;
     /**
      * Forwarded to store.createTurn: sets session.title in the same atomic
      * unit IF the session has none; never overwrites. The caller derives the
      * value (e.g. from the first user message) — the library does not.
      */
     update_session_title_if_not_exist?: string | undefined;
-  }): Promise<TurnHandle<TTurnCustom>> {
+    /** Value = stored as-is. Fn = merge over previous turn's custom. Omitted = undefined. */
+    custom?: TTurnCustom | ((previous?: TTurnCustom) => TTurnCustom) | undefined;
+  }): Promise<TurnHandle<TTransaction, TTurnCustom>> {
     const previousTurnId = resolvePreviousTurnId(input.previous_turn_id, this.session.last_turn_details?.id);
     const previous = previousTurnId
       ? await this.freezeTurn({
@@ -210,61 +197,14 @@ export class SessionHandle<
     // and rethrow — same pattern as the gateway's sessionTurnHandler, which
     // wraps getAgent/handler.init and calls gatewayStore.dispose() on failure.
     try {
-      const tracing = input.resolver.createTracing();
-      const agent = this.session.agent;
-      const spec = agent.type === 'inline' ? agent.spec : await input.resolver.resolveAgentSpec({ agent_id: agent.id });
-      const sandbox = await input.resolver.resolveSandbox({
-        spec,
-        existing: previous?.snapshot.sandbox_info ?? undefined,
-        previousTurn: previous,
-        signal: input.signal,
-        tracing,
-      });
-
-      const definitionsByThreadId = await this.resolveAgentDefinitions({
+      const { orchestrator, agentThreads } = await this.assembleTurn({
         previous,
         resolver: input.resolver,
-        spec,
-        tracing,
-        signal: input.signal,
+        abortController: input.abortController,
+        pendingTurnEvents: [],
       });
 
-      // Wire Code Mode once from main toolSets before threads share the sandbox.
-      const mainDefinition = definitionsByThreadId.get(MAIN_THREAD_ID);
-      if (!mainDefinition) {
-        throw new Error('Unreachable: missing resolved agent definition for main thread');
-      }
-      if (sandbox) {
-        sandbox.configureCodeMode(mainDefinition.definition.toolSets ?? []);
-      }
-
-      const agentThreads = this.buildThreads({
-        previous,
-        resolver: input.resolver,
-        spec,
-        sandbox,
-        tracing,
-        definitionsByThreadId,
-      });
-
-      const createDynamicSubAgentThread = this.makeCreateDynamicSubAgentThread({
-        resolver: input.resolver,
-        previous,
-        spec,
-        sandbox,
-        tracing,
-      });
-
-      const orchestrator = new AgentThreadOrchestrator({
-        agentThreads,
-        createDynamicSubAgentThread,
-        tracing,
-        logger: input.resolver.logger,
-      });
-
-      // SEND BEFORE COMMIT — validate + append; throw ⇒ nothing persisted.
-      const sendBatch = toSendBatch(input.input);
-      const new_context_appends = await collectContextAppends(orchestrator.send(sendBatch));
+      const new_context_appends = await collectContextAppends(orchestrator.send(input.input ?? []));
 
       const turnId = input.turn_id;
       const now = new Date();
@@ -303,6 +243,7 @@ export class SessionHandle<
           threads: threadsRecordFromMap(agentThreads),
           mcp_servers: previous?.snapshot.mcp_servers ?? null,
           sandbox_info: previous?.snapshot.sandbox_info ?? null,
+          ...createInitialTurnMetricsCheckpoint(now.toISOString()),
         },
       };
 
@@ -330,7 +271,7 @@ export class SessionHandle<
         turn: turnRecord,
         orchestrator,
         resolver: input.resolver,
-        signal: input.signal,
+        abortController: input.abortController,
       });
     } catch (error) {
       await input.resolver.close().catch((closeError: unknown) => {
@@ -344,11 +285,76 @@ export class SessionHandle<
   }
 
   /**
-   * Conditionally cancel a running turn in this session and return the
+   * Rebuild a paused turn from its own snapshot. Does not create a row, freeze a
+   * predecessor, or re-send the original input. The caller must already own
+   * `active_executor_id`. Unconsumed inbox rows are placed on the orchestrator
+   * before the handle is returned, so a later send() lands after them.
+   */
+  async rebuildTurn(input: {
+    turn_id: string;
+    active_executor_id: string;
+    resolver: ITurnResourceResolver<TTurnCustom>;
+    abortController: AbortController;
+  }): Promise<TurnHandle<TTransaction, TTurnCustom>> {
+    try {
+      const turn = await this.store.getTurn({
+        session_id: this.session.session_id,
+        turn_id: input.turn_id,
+      });
+      if (!turn) {
+        throw new TurnNotFoundError(input.turn_id);
+      }
+      if (turn.active_executor_id !== input.active_executor_id) {
+        throw new TurnOwnershipLostError({
+          turn_id: input.turn_id,
+          active_executor_id: input.active_executor_id,
+        });
+      }
+      if (turn.state.status === 'running') {
+        throw new Error(`Turn ${input.turn_id} must be paused to rebuild`);
+      }
+      if (turn.state.status !== 'paused') {
+        throw new TurnNotRunningError(input.turn_id, turn.state);
+      }
+
+      const pendingTurnEvents = await this.store.listUnconsumedTurnInboundEvents({
+        session_id: this.session.session_id,
+        turn_id: input.turn_id,
+      });
+      input.resolver.logger.info('Rebuilding paused turn', {
+        pendingEventCount: pendingTurnEvents.length,
+      });
+      const { orchestrator } = await this.assembleTurn({
+        previous: turn,
+        resolver: input.resolver,
+        abortController: input.abortController,
+        pendingTurnEvents,
+      });
+
+      return new TurnHandle({
+        store: this.store,
+        turn,
+        orchestrator,
+        resolver: input.resolver,
+        abortController: input.abortController,
+      });
+    } catch (error) {
+      await input.resolver.close().catch((closeError: unknown) => {
+        input.resolver.logger.warn('TurnResourceResolver.close() failed after rebuildTurn() error', {
+          err: closeError,
+        });
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Conditionally cancel a running or paused turn in this session and return the
    * now-immutable record. Already-terminal turns are returned unchanged.
    * Missing turn → {@link TurnNotFoundError}.
    */
   async freezeTurn(input: { turn_id: string; reason: CancellationReason }): Promise<TurnRecord<TTurnCustom>> {
+    // TODO: freeze omits token usage and cost accumulated since the last resume.
     return this.store.freezeAndGetTurn({
       session_id: this.session.session_id,
       turn_id: input.turn_id,
@@ -357,12 +363,30 @@ export class SessionHandle<
     });
   }
 
-  /** Returns the turn handle (store-backed; not executable), or undefined if not found. */
-  async getTurn(turn_id: string): Promise<TurnHandle<TTurnCustom> | undefined> {
-    return TurnHandle.get({
-      store: this.store,
+  /** The stored turn, including its snapshot. Undefined when this session has no such turn. */
+  async getTurn(turn_id: string): Promise<TurnRecord<TTurnCustom> | undefined> {
+    return this.store.getTurn({
       session_id: this.session.session_id,
       turn_id,
+    });
+  }
+
+  /** Paginated events for one turn in this session. */
+  async listTurnEvents(input: {
+    turn_id: string;
+    limit: number;
+    page_token?: string | undefined;
+    order?: 'asc' | 'desc' | undefined;
+  }): Promise<{
+    data: PersistedTurnEvent[];
+    pagination: TokenPagination;
+  }> {
+    return this.store.listTurnEvents({
+      session_id: this.session.session_id,
+      turn_id: input.turn_id,
+      limit: input.limit,
+      page_token: input.page_token,
+      order: input.order,
     });
   }
 
@@ -397,6 +421,75 @@ export class SessionHandle<
       page_token: input.page_token,
       last_turn_id: input.last_turn_id,
     });
+  }
+
+  /**
+   * Threads and orchestrator for one turn. `previous` is the frozen predecessor,
+   * absent for a new root, or the paused turn itself when rebuilding.
+   */
+  private async assembleTurn(input: {
+    previous: TurnRecord<TTurnCustom> | undefined;
+    resolver: ITurnResourceResolver<TTurnCustom>;
+    abortController: AbortController;
+    pendingTurnEvents: TurnUserEvent[];
+  }): Promise<{ orchestrator: AgentThreadOrchestrator; agentThreads: Map<string, AgentThread> }> {
+    const tracing = input.resolver.createTracing();
+    const agent = this.session.agent;
+    const spec = agent.type === 'inline' ? agent.spec : await input.resolver.resolveAgentSpec({ agent_id: agent.id });
+    const sandbox = await input.resolver.resolveSandbox({
+      spec,
+      existing: input.previous?.snapshot.sandbox_info ?? undefined,
+      previousTurn: input.previous,
+      signal: input.abortController.signal,
+      tracing,
+    });
+
+    const definitionsByThreadId = await this.resolveAgentDefinitions({
+      previous: input.previous,
+      resolver: input.resolver,
+      spec,
+      tracing,
+      signal: input.abortController.signal,
+    });
+
+    // Wire Code Mode once from main toolSets before threads share the sandbox.
+    const mainDefinition = definitionsByThreadId.get(MAIN_THREAD_ID);
+    if (!mainDefinition) {
+      throw new Error('Unreachable: missing resolved agent definition for main thread');
+    }
+    if (sandbox) {
+      sandbox.configureCodeMode(mainDefinition.definition.toolSets ?? []);
+    }
+
+    const agentThreads = this.buildThreads({
+      previous: input.previous,
+      resolver: input.resolver,
+      spec,
+      sandbox,
+      tracing,
+      definitionsByThreadId,
+    });
+
+    const createDynamicSubAgentThread = this.makeCreateDynamicSubAgentThread({
+      resolver: input.resolver,
+      previous: input.previous,
+      spec,
+      sandbox,
+      tracing,
+    });
+
+    const previousMcpServers = input.previous?.snapshot.mcp_servers;
+    const orchestrator = new AgentThreadOrchestrator({
+      agentThreads,
+      createDynamicSubAgentThread,
+      tracing,
+      logger: input.resolver.logger,
+      pendingTurnEvents: input.pendingTurnEvents,
+      mcpServers:
+        previousMcpServers !== null && previousMcpServers !== undefined ? Object.values(previousMcpServers) : [],
+    });
+
+    return { orchestrator, agentThreads };
   }
 
   private async resolveAgentDefinitions(input: {
@@ -489,6 +582,7 @@ export class SessionHandle<
       parent: input.previousThreadSnapshot?.parent ?? undefined,
       agentInfo: input.previousThreadSnapshot?.agent_info ?? undefined,
       preComputedCompletion: input.previousThreadSnapshot?.completion ?? undefined,
+      pendingMCPAuth: input.previousThreadSnapshot?.pending_mcp_auth,
       capabilities,
       capabilityState: input.previousThreadSnapshot?.capability_state ?? undefined,
       tracing: input.tracing,

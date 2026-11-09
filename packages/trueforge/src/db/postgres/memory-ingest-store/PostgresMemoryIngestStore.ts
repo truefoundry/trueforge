@@ -1,4 +1,4 @@
-import { MAIN_THREAD_ID, type TurnInputItem } from '@truefoundry/trueforge-core/agent-session';
+import { MAIN_THREAD_ID, type LegacyTurnInputItem } from '@truefoundry/trueforge-core/agent-session';
 import { sql, type Kysely } from 'kysely';
 import {
   AGENT_MEMORY_ENABLED_PATH,
@@ -12,7 +12,6 @@ import {
 import { now } from '../sqlExpressions';
 import type { Database } from '../types';
 
-// TODO(agent-memory-toggle): read through a typed MemoryConfig once RuntimeConfigSchema has one.
 const agentMemoryEnabled = sql<string | null>`a.manifest #>> ${sql.lit(`{${AGENT_MEMORY_ENABLED_PATH.join(',')}}`)}`;
 const tfgSource = sql<string | null>`s.metadata->>'tfg.source'`;
 const createAgentSession = sql<boolean>`COALESCE(s.metadata->>'is_create_agent' = 'true', false)`;
@@ -20,7 +19,7 @@ const createAgentSession = sql<boolean>`COALESCE(s.metadata->>'is_create_agent' 
  * `turn.input` with only text parts kept in array content: file parts carry inline base64, and
  * ingestion sends text only, so attachments never leave the database.
  */
-const textOnlyInput = sql<TurnInputItem[]>`(
+const textOnlyInput = sql<LegacyTurnInputItem[]>`(
   SELECT COALESCE(jsonb_agg(
     CASE WHEN jsonb_typeof(item->'content') = 'array' THEN jsonb_set(item, '{content}', COALESCE(
       (SELECT jsonb_agg(part ORDER BY part_index)
@@ -31,8 +30,6 @@ const textOnlyInput = sql<TurnInputItem[]>`(
     ORDER BY item_index), '[]'::jsonb)
   FROM jsonb_array_elements(input) WITH ORDINALITY AS i(item, item_index)
 )`;
-/** The tip turn finished waiting on the user (a question, approval or auth). */
-const tipPaused = sql<boolean>`(t.state->>'status' = 'done' AND jsonb_array_length(COALESCE(t.state->'required_actions', '[]'::jsonb)) > 0)`;
 
 export class PostgresMemoryIngestStore implements IMemoryIngestStore {
   readonly #db: Kysely<Database>;
@@ -64,20 +61,15 @@ export class PostgresMemoryIngestStore implements IMemoryIngestStore {
         'c.updated_at as cursor_updated_at',
       ])
       .where('s.source', 'is', null)
-      .where(eb =>
-        eb.or([
-          eb('s.updated_at', '>=', input.recent_since),
-          eb.and([eb('s.updated_at', '>=', input.paused_from), eb('s.updated_at', '<', input.paused_until), tipPaused]),
-        ]),
-      )
+      .where('s.updated_at', '>=', input.recent_since)
       // Matches resolveMemoryScope: never agent-builder chats; a bound agent's manifest decides; UI chats without one use the default scope.
       .where(sql<boolean>`NOT (${createAgentSession})`)
       .where(eb =>
         eb.or([eb.and([eb('s.agent_id', 'is', null), eb(tfgSource, '=', 'ui')]), eb(agentMemoryEnabled, '=', 'true')]),
       )
       .where(sql<boolean>`c.last_ingested_turn_id IS DISTINCT FROM t.turn_id`);
-    const scoped = input.tenant_ids === undefined ? query : query.where('s.tenant_id', 'in', [...input.tenant_ids]);
-    const rows = await scoped
+    const rows = await query
+      .where('s.tenant_id', 'in', [...input.tenant_ids])
       .orderBy('s.updated_at', 'asc')
       .orderBy('s.session_id', 'asc')
       .limit(input.limit)
