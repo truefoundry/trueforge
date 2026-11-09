@@ -267,6 +267,10 @@ Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Session, prior turn, or referenced agent not found.',
     },
+    409: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'A turn changed while the request was being prepared; retry the request.',
+    },
     412: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Requested action cannot be performed on the session because it is no longer usable.',

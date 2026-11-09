@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util';
 import type { AgentThreadSnapshot } from '../../core/runtime/AgentThread.types';
 import { getEmptyCurrentContextUsage } from '../../core/runtime/contextUsage';
 import type { SessionRecord } from '../models/SessionRecord';
@@ -6,6 +7,7 @@ import type { PersistedTurnEvent, SessionEventItem } from '../schemas/events';
 import type { TokenPagination } from '../schemas/pagination';
 import { SessionLastTurnDetailsSchema } from '../schemas/session';
 import {
+  CancellationReason,
   isNonTerminalTurnState,
   type TerminalTurnState,
   type TurnInboundEventItem,
@@ -59,6 +61,7 @@ import {
   TurnEventAlreadyExistsError,
   TurnNotFoundError,
   TurnNotRunningError,
+  TurnSnapshotChangedError,
 } from './SessionStoreErrors';
 
 /* eslint-disable @typescript-eslint/require-await -- in-memory store is synchronous; methods stay async so thrown SessionStore*Error reject as Promises for ISessionStore callers */
@@ -393,16 +396,37 @@ export class InMemorySessionStore<
 
     const previousTurnId = input.turn.previous_turn_id;
     let previousSnapshot: TurnSnapshot | undefined;
+    let previousTurn: TurnRecord<TTurnCustom> | undefined;
+    let previousEvents: StoredEvent[] | undefined;
     if (previousTurnId !== null) {
       const prevKey = turnKey({ session_id: input.turn.session_id, turn_id: previousTurnId });
       const prev = this.turns.get(prevKey);
       // Unknown previous_turn_id is allowed (relaxed): treat as no inheritance.
-      // A still-live previous (running or paused) must be frozen first.
+      // SessionHandle passes the expected snapshot so freezing can commit atomically.
       if (prev !== undefined) {
-        if (isNonTerminalTurnState(prev.state)) {
+        previousTurn = prev;
+        if (
+          input.expected_previous_snapshot !== undefined &&
+          !isDeepStrictEqual(deepCopy(prev.snapshot), deepCopy(input.expected_previous_snapshot))
+        ) {
+          throw new TurnSnapshotChangedError(previousTurnId);
+        }
+        if (isNonTerminalTurnState(prev.state) && input.expected_previous_snapshot === undefined) {
           throw new PreviousTurnRunningError(previousTurnId);
         }
+        if (isNonTerminalTurnState(prev.state)) {
+          const event = input.previous_turn_done_event;
+          if (event?.state.status !== 'cancelled' || event.state.reason !== CancellationReason.CancelledForNextTurn) {
+            throw new PreviousTurnRunningError(previousTurnId);
+          }
+          previousEvents = this.events.get(prevKey);
+          if (previousEvents === undefined) {
+            throw new TurnNotFoundError(previousTurnId);
+          }
+        }
         previousSnapshot = prev.snapshot;
+      } else if (input.expected_previous_snapshot !== undefined) {
+        throw new TurnNotFoundError(previousTurnId);
       }
     }
 
@@ -422,6 +446,23 @@ export class InMemorySessionStore<
       ...deepCopy(input.turn),
       snapshot,
     };
+
+    if (previousTurn !== undefined && isNonTerminalTurnState(previousTurn.state)) {
+      const event = input.previous_turn_done_event;
+      const previousEventList = previousEvents;
+      if (event === undefined || previousEventList === undefined) {
+        throw new SessionStoreInvariantError(`Missing cancellation event for previous turn ${previousTurn.turn_id}`);
+      }
+      previousTurn.state = deepCopy(event.state);
+      previousTurn.updated_at = new Date();
+      previousEventList.push(deepCopy(event));
+      this.applyTurnStateToSession({
+        id: input.turn.session_id,
+        turn_id: previousTurn.turn_id,
+        turn_created_at: previousTurn.created_at,
+        turn_state: previousTurn.state,
+      });
+    }
 
     this.turns.set(tKey, turnRecord);
     this.events.set(tKey, []);

@@ -1,6 +1,8 @@
 import { SessionLastTurnDetailsSchema, type SessionMetrics } from '@truefoundry/trueforge-core/agent-session';
 import type { TurnRecord, TurnSnapshot } from '@truefoundry/trueforge-core/agent-session/models/TurnRecord';
+import type { TurnDoneEvent } from '@truefoundry/trueforge-core/agent-session/schemas/events';
 import {
+  CancellationReason,
   isNonTerminalTurnState,
   type TerminalTurnState,
   type TurnInputItem,
@@ -22,6 +24,7 @@ import {
   TurnAlreadyExistsError,
   TurnNotFoundError,
   TurnNotRunningError,
+  TurnSnapshotChangedError,
 } from '@truefoundry/trueforge-core/agent-session/store/SessionStoreErrors';
 import type { CapabilityState, JsonValue } from '@truefoundry/trueforge-core/core/capabilities/AgentCapability';
 import type { AgentInfo, AgentParent, MCPServerInitInfo } from '@truefoundry/trueforge-core/core/events/schema';
@@ -34,6 +37,7 @@ import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runti
 import { getEmptyCurrentContextUsage } from '@truefoundry/trueforge-core/core/runtime/contextUsage';
 import type { SandboxInfo } from '@truefoundry/trueforge-core/core/sandbox/Sandbox';
 import { sql, type Kysely, type RawBuilder, type Transaction } from 'kysely';
+import { isDeepStrictEqual } from 'node:util';
 import { isUniqueViolation } from '../../client';
 import { jsonbBind, jsonText, nowIso } from '../../sqlExpressions';
 import type { Database, TurnCheckpoint, TurnThreadCheckpoint } from '../../types';
@@ -87,6 +91,8 @@ export interface CreateTurnTurnFields {
 
 export interface CreateTurnInput {
   session_id: string;
+  expected_previous_snapshot: TurnSnapshot | undefined;
+  previous_turn_done_event: TurnDoneEvent | undefined;
   turn: CreateTurnTurnFields;
   new_threads: NewThreadRegistration[];
   new_context_appends: NewContextAppend[];
@@ -379,6 +385,48 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
         throw new SessionNotFoundError(input.session_id);
       }
 
+      const prevTurnId = input.turn.previous_turn_id;
+      if (prevTurnId !== null && input.expected_previous_snapshot !== undefined) {
+        const previous = await assembleTurnRecord(trx, { session_id: input.session_id, turn_id: prevTurnId });
+        if (previous === undefined) {
+          throw new TurnNotFoundError(prevTurnId);
+        }
+        if (!isDeepStrictEqual(previous.snapshot, input.expected_previous_snapshot)) {
+          throw new TurnSnapshotChangedError(prevTurnId);
+        }
+        if (isNonTerminalTurnState(previous.state)) {
+          const doneEvent = input.previous_turn_done_event;
+          if (
+            doneEvent?.state.status !== 'cancelled' ||
+            doneEvent.state.reason !== CancellationReason.CancelledForNextTurn
+          ) {
+            throw new PreviousTurnRunningError(prevTurnId);
+          }
+          await trx
+            .updateTable('turn')
+            .set({ state: jsonbBind(doneEvent.state), updated_at: nowIso() })
+            .where('session_id', '=', input.session_id)
+            .where('turn_id', '=', prevTurnId)
+            .execute();
+          await trx
+            .insertInto('session_event')
+            .values({
+              session_id: input.session_id,
+              turn_id: prevTurnId,
+              event_id: doneEvent.id,
+              event: jsonbBind(doneEvent),
+              created_at: doneEvent.created_at,
+            })
+            .execute();
+          await applyTurnStateToSession(trx, {
+            id: input.session_id,
+            turn_id: prevTurnId,
+            turn_created_at: previous.created_at,
+            turn_state: doneEvent.state,
+          });
+        }
+      }
+
       // Step 2: bump session tip + optional title coalesce.
       let sessionUpdate = trx
         .updateTable('session')
@@ -399,8 +447,6 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
       }
 
       await sessionUpdate.execute();
-
-      const prevTurnId = input.turn.previous_turn_id;
 
       let prevCheckpoint: TurnCheckpoint | null = null;
       const prevThreadRows: {

@@ -85,9 +85,9 @@ type TurnCustom = Record<string, never>;
  * late appends touch only its OWN rows — structural leaks are impossible.
  *
  * Hard invariants:
- * 1. A turn cannot be used as `previous_turn_id` while it is still non-terminal
- *    (`running` or `paused`) — `createTurn` rejects that; callers must
- *    `freezeAndGetTurn` first.
+ * 1. A non-terminal predecessor is cancelled atomically with a successor
+ *    createTurn when the caller provides its expected snapshot and done event.
+ *    A stale snapshot is rejected so concurrent predecessor writes are not lost.
  *    Tip-equality is NOT required: new roots and concurrent forks from a
  *    finished tip can leave more than one turn `running` at once.
  * 2. Every turn-scoped write is fenced on `state->>'status' = 'running'`.
@@ -137,6 +137,8 @@ export class SqliteSessionStore implements ISessionStore<SessionCustom, TurnCust
   async createTurn(input: CreateTurnInput<TurnCustom>): Promise<void> {
     await createTurnQuery(this.db, {
       session_id: input.turn.session_id,
+      expected_previous_snapshot: input.expected_previous_snapshot,
+      previous_turn_done_event: input.previous_turn_done_event,
       turn: {
         turn_id: input.turn.turn_id,
         first_turn_id: input.turn.first_turn_id,

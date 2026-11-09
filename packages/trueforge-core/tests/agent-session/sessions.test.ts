@@ -333,6 +333,64 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     expect(sessionRecord?.last_turn_details).toBeNull();
   });
 
+  it('keeps the previous turn running when successor validation fails, then freezes it on commit', async () => {
+    const store = new InMemorySessionStore();
+    const sessions = new Sessions({ sessionStore: store });
+    const session = await sessions.create({
+      tenant_id: tenant,
+      session_id: 's1',
+      created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
+      agent: { type: 'inline', spec: makeAgentSpec() },
+      external_id: null,
+    });
+    const previous = await session.createTurn({
+      turn_id: mintTestTurnId(),
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+      input: [{ type: EventType.USER_MESSAGE, content: 'first turn' }],
+      previous_turn_id: 'none',
+      signal: new AbortController().signal,
+      resolver: makeTestResolver(),
+    });
+
+    await expect(
+      session.createTurn({
+        turn_id: mintTestTurnId(),
+        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+        input: [
+          { type: EventType.USER_MESSAGE, content: 'invalid mixed batch' },
+          {
+            type: EventType.USER_TOOL_APPROVAL,
+            thread_id: 'main',
+            tool_call_id: 'tc1',
+            approval: { status: 'allow' },
+          },
+        ],
+        previous_turn_id: 'auto',
+        signal: new AbortController().signal,
+        resolver: makeTestResolver(),
+      }),
+    ).rejects.toThrow(/homogeneous/);
+
+    const previousAfterFailure = await store.getTurn({ session_id: 's1', turn_id: previous.id });
+    expect(previousAfterFailure?.state.status).toBe('running');
+
+    const successor = await session.createTurn({
+      turn_id: mintTestTurnId(),
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+      input: [{ type: EventType.USER_MESSAGE, content: 'valid successor' }],
+      previous_turn_id: 'auto',
+      signal: new AbortController().signal,
+      resolver: makeTestResolver(),
+    });
+
+    const previousAfterCommit = await store.getTurn({ session_id: 's1', turn_id: previous.id });
+    expect(previousAfterCommit?.state).toMatchObject({
+      status: 'cancelled',
+      reason: CancellationReason.CancelledForNextTurn,
+    });
+    expect(successor.previous_turn_id).toBe(previous.id);
+  });
+
   it('run() failure closes the resolver; success defers close() to stream()', async () => {
     const store = new InMemorySessionStore();
     const sessions = new Sessions({ sessionStore: store });
