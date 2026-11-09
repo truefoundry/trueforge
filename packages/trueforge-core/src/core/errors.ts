@@ -90,19 +90,27 @@ export class ToolNameCollisionError extends AgentHarnessError {
   }
 }
 
+export type McpConnectionErrorOptions = ErrorOptions & {
+  /** Gateway outbound-OAuth consent URLs from a 401 `McpAuthRequiredError` body. */
+  authorizationUrls?: Record<string, string>;
+};
+
 /**
  * A remote MCP connection or tool call failed. Harness code can't throw the gateway's HTTPException,
  * so it throws this instead and carries `statusCode` (401 auth, 403 tool, 400 malformed value,
  * 422 well-formed but unprocessable, 502 transport) that the boundary turns back into an HTTP status.
  */
 export class McpConnectionError extends AgentHarnessError {
+  readonly authorizationUrls: Record<string, string> | undefined;
+
   constructor(
     message: string,
     readonly statusCode: number,
-    options?: ErrorOptions,
+    options?: McpConnectionErrorOptions,
   ) {
     super('mcp_connection_failed', applyErrorPrefix({ prefix: MCP_ERROR_PREFIX, message }), options);
     this.name = 'McpConnectionError';
+    this.authorizationUrls = options?.authorizationUrls;
   }
 }
 

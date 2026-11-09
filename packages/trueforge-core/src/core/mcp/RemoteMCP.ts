@@ -20,6 +20,7 @@ import {
   type MCPAuthRequired,
   type ToolSource,
 } from './IMCPServer';
+import { authorizationUrlsFromUnknownError, mcpAuthRequiredForServer } from './mcpAuthRequired';
 import { paginateWithCursorGuard } from './pagination';
 import {
   connectRemoteMcp,
@@ -190,6 +191,22 @@ export class RemoteMCP implements ToolSource {
     return this.connectAndRun(headersResult.headers, operation, true);
   }
 
+  private authRequiredFromError(error: unknown): AuthRequiredResponse | undefined {
+    const urls =
+      error instanceof McpConnectionError
+        ? (error.authorizationUrls ?? authorizationUrlsFromUnknownError(error))
+        : authorizationUrlsFromUnknownError(error);
+    if (urls === undefined) {
+      return undefined;
+    }
+    const authRequired = mcpAuthRequiredForServer({
+      authorizationUrls: urls,
+      serverId: this.id,
+      serverName: this.name,
+    });
+    return authRequired === undefined ? undefined : { authRequired };
+  }
+
   private async connectAndRun<T>(
     headers: Record<string, string>,
     operation: (connection: RemoteMcpConnection) => Promise<T>,
@@ -206,6 +223,10 @@ export class RemoteMCP implements ToolSource {
       this.inflight += 1;
       return { result: await operation(connection), wasInitialized: initInfo };
     } catch (error) {
+      const authRequired = this.authRequiredFromError(error);
+      if (authRequired !== undefined) {
+        return authRequired;
+      }
       if (!(canRetry && isSessionExpiredError(error))) {
         throw error;
       }
@@ -392,8 +413,11 @@ export class RemoteMCP implements ToolSource {
     const statusCode = error instanceof McpConnectionError ? error.statusCode : 502;
     const rawMessage = error instanceof Error ? error.message : String(error);
     const message = stripErrorPrefix({ prefix: MCP_ERROR_PREFIX, message: rawMessage });
+    const authorizationUrls =
+      error instanceof McpConnectionError ? error.authorizationUrls : authorizationUrlsFromUnknownError(error);
     return new McpConnectionError(`Failed to connect to remote MCP server '${this.name}': ${message}`, statusCode, {
       cause: error,
+      ...(authorizationUrls !== undefined ? { authorizationUrls } : {}),
     });
   }
 }

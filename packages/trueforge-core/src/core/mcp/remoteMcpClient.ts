@@ -11,6 +11,7 @@ import { elapsedSeconds, getOperationMetrics, type McpConnectOutcome } from '../
 import { mcpSsrfFetch } from '../util/outboundFetch';
 import { PromiseTimeoutError, withTimeout } from '../util/promiseUtils';
 import type { ToolSchema } from './IMCPServer';
+import { authorizationUrlsFromBody, authorizationUrlsFromErrorMessage } from './mcpAuthRequired';
 
 /** Networking for remote (url-based) MCP servers, kept separate so it can be mocked in tests. */
 
@@ -142,17 +143,57 @@ function getTransportSessionId(transport: McpTransport): string | null {
   return transport instanceof StreamableHTTPClientTransport ? (transport.sessionId ?? null) : null;
 }
 
-function toConnectError(error: unknown): McpConnectionError {
+function toConnectError(error: unknown, authorizationUrls?: Record<string, string>): McpConnectionError {
   if (error instanceof McpConnectionError) {
-    return error;
+    if (error.authorizationUrls !== undefined || authorizationUrls === undefined) {
+      return error;
+    }
+    return new McpConnectionError(error.message, error.statusCode, {
+      cause: error,
+      authorizationUrls,
+    });
   }
   if (isAuthError(error)) {
+    const fromMessage =
+      authorizationUrls ?? (error instanceof Error ? authorizationUrlsFromErrorMessage(error.message) : undefined);
     return new McpConnectionError('upstream returned 401 Unauthorized', 401, {
       cause: error,
+      ...(fromMessage !== undefined ? { authorizationUrls: fromMessage } : {}),
     });
   }
   const message = error instanceof Error ? error.message : String(error);
   return new McpConnectionError(message, 502, { cause: error });
+}
+
+/** Capture 401 JSON bodies so connect can surface gateway `authorization_urls` without relying on SDK message text. */
+function withAuthorizationUrlCapture(fetchFn: FetchLike): {
+  fetch: FetchLike;
+  takeAuthorizationUrls: () => Record<string, string> | undefined;
+} {
+  let lastUrls: Record<string, string> | undefined;
+  const fetch: FetchLike = async (url, init) => {
+    const response = await fetchFn(url, init);
+    if (response.status === 401) {
+      try {
+        const body: unknown = await response.clone().json();
+        const urls = authorizationUrlsFromBody(body);
+        if (urls !== undefined) {
+          lastUrls = urls;
+        }
+      } catch {
+        // Body may be empty or non-JSON; SDK still consumes the original response.
+      }
+    }
+    return response;
+  };
+  return {
+    fetch,
+    takeAuthorizationUrls: () => {
+      const urls = lastUrls;
+      lastUrls = undefined;
+      return urls;
+    },
+  };
 }
 
 function buildConnection(
@@ -207,7 +248,10 @@ export async function connectRemoteMcp(params: {
 }): Promise<RemoteMcpConnection> {
   const url = new URL(params.url);
   const requestOptions = { signal: params.signal };
-  const fetchFn = withMaxResponseBytes(mcpSsrfFetch, params.maxResponseBytes ?? DEFAULT_MAX_MCP_RESPONSE_BYTES);
+  const authCapture = withAuthorizationUrlCapture(
+    withMaxResponseBytes(mcpSsrfFetch, params.maxResponseBytes ?? DEFAULT_MAX_MCP_RESPONSE_BYTES),
+  );
+  const fetchFn = authCapture.fetch;
   const candidates = params.knownTransportType
     ? [params.knownTransportType, ...TRANSPORT_PROBE_ORDER.filter(t => t !== params.knownTransportType)]
     : TRANSPORT_PROBE_ORDER;
@@ -244,7 +288,7 @@ export async function connectRemoteMcp(params: {
         /* no-op */
       });
       if (isAuthError(error)) {
-        throw toConnectError(error);
+        throw toConnectError(error, authCapture.takeAuthorizationUrls());
       }
       // A session-expired error means the transport is right but the session is stale: surface it so
       // the caller reconnects fresh instead of falling through to a different transport.

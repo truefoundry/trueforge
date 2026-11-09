@@ -84,6 +84,11 @@ export type { ToolDefinition } from './mcp/LocalToolMCP';
 // Remote MCP server, split into a shared, policy-free connection (`RemoteMCP`) and a per-agent policy
 // wrapper (`ToolSet`). `RemoteMCP` connects itself from a `url` + `headers`; the networking helpers
 // live in the harness-internal `remoteMcpClient` module.
+export {
+  authorizationUrlsFromBody,
+  authorizationUrlsFromUnknownError,
+  mcpAuthRequiredForServer,
+} from './mcp/mcpAuthRequired';
 export { RemoteMCP } from './mcp/RemoteMCP';
 export type { McpConnection, RemoteMcpHeaders, ResolveHeadersResult } from './mcp/RemoteMCP';
 export { DEFAULT_MAX_MCP_RESPONSE_BYTES } from './mcp/remoteMcpClient';

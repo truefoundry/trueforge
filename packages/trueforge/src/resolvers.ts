@@ -118,11 +118,6 @@ export function buildResolveMcpServerStore<TTransaction>(options: {
   client: TrueFoundryServiceFoundryServerClient | undefined;
   logger: Logger;
 }): ResolveMcpServerStore<TTransaction> {
-  const withAuthMcpPersistenceStore = new McpServerWithAuthStore<TTransaction>({
-    store: options.persistenceStore,
-    tokenStore: options.tokenStore,
-    clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
-  });
   return input => {
     const { client } = options;
     if (client) {
@@ -138,7 +133,12 @@ export function buildResolveMcpServerStore<TTransaction>(options: {
       }
       return store;
     }
-    return withAuthMcpPersistenceStore;
+    return new McpServerWithAuthStore<TTransaction>({
+      store: options.persistenceStore,
+      tokenStore: options.tokenStore,
+      clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
+      ...(input.perServerHeaders === undefined ? {} : { perServerHeaders: input.perServerHeaders }),
+    });
   };
 }
 

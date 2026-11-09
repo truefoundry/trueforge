@@ -2,6 +2,7 @@ import type { RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
 import { isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
 import type { IOAuthTokenStore, OAuthClientRecord } from '../mcp/auth/types';
 import { resolveConfiguredMcpRequestHeaders, resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
+import type { PerServerMcpHeaders } from '../truefoundry/perServerMcpHeaders';
 import {
   McpServerNotFoundError,
   type AuthorizeMcpServerInput,
@@ -22,15 +23,18 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
   readonly #store: IMcpServerStore<TTransaction>;
   readonly #tokenStore: IOAuthTokenStore<TTransaction>;
   readonly #clientName: string;
+  readonly #perServerHeaders: PerServerMcpHeaders;
 
   constructor(input: {
     store: IMcpServerStore<TTransaction>;
     tokenStore: IOAuthTokenStore<TTransaction>;
     clientName: string;
+    perServerHeaders?: PerServerMcpHeaders;
   }) {
     this.#store = input.store;
     this.#tokenStore = input.tokenStore;
     this.#clientName = input.clientName;
+    this.#perServerHeaders = input.perServerHeaders ?? {};
   }
 
   listServers(input: ListMcpServersInput, transaction?: TTransaction): Promise<McpServerRecord[]> {
@@ -63,6 +67,7 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
     turnMetadata?: TurnMetadata;
   }): RemoteMcpHeaders {
     const { record, userRef } = input;
+    const override = this.#perServerHeaders[record.name] ?? {};
     if (record.manifest.auth?.type === 'dcr') {
       return async () => {
         const result = await resolveMcpAuth({
@@ -82,10 +87,10 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
             },
           };
         }
-        return { headers: result.headers };
+        return { headers: { ...result.headers, ...override } };
       };
     }
-    return resolveConfiguredMcpRequestHeaders(record.manifest);
+    return { ...resolveConfiguredMcpRequestHeaders(record.manifest), ...override };
   }
 
   saveClient(params: { id: string; record: OAuthClientRecord }, transaction?: TTransaction): Promise<void> {

@@ -1,5 +1,4 @@
 import { McpConnectionError, type RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
-import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
 import type { RequestContext, RequestSubject } from '../auth/identity';
 import { safeReturnTo } from '../auth/safeReturnTo';
@@ -37,7 +36,7 @@ import {
   toTrueFoundryMcpManifest,
   type SfyMcpServerSummary,
 } from './mapSfyMcpServers';
-import type { PerServerMcpHeaders } from './perServerMcpHeaders';
+import { trueFoundryOutboundMcpHeaders, type PerServerMcpHeaders } from './perServerMcpHeaders';
 import type { TrueFoundryServiceFoundryServerClient } from './TrueFoundryServiceFoundryServerClient';
 
 export type TrueFoundryMcpApiClient = Pick<
@@ -51,13 +50,6 @@ export type TrueFoundryMcpApiClient = Pick<
   | 'vendToken'
   | 'getTenantControlPlaneUrl'
 >;
-
-function withoutAuthorization(headers: Record<string, string> | undefined): Record<string, string> {
-  if (headers === undefined) {
-    return {};
-  }
-  return Object.fromEntries(Object.entries(headers).filter(([name]) => name.toLowerCase() !== 'authorization'));
-}
 
 /**
  * Absolute FE landing for the upstream authorize `redirectURL`.
@@ -109,35 +101,21 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
     this.#perServerHeaders = input.perServerHeaders ?? {};
   }
 
-  /** Gateway Bearer (+ optional per-server overrides); SFY authorize first, else authRequired. */
+  /**
+   * Gateway Bearer + metadata (+ optional `x-tfg-mcp-headers` wrapped as `x-tfy-mcp-headers`).
+   * Outbound OAuth consent is detected on connect/tool 401 (`McpAuthRequiredError`), not via SFY authorize.
+   */
   resolveInvokeHeaders(input: {
     record: McpServerRecord;
     userRef: string;
     turnMetadata?: TurnMetadata;
   }): RemoteMcpHeaders {
-    const { record, userRef, turnMetadata } = input;
+    const { record, turnMetadata } = input;
+    void input.userRef;
     return async () => {
-      const status = await this.authorize({
-        tenant_id: record.tenant_id,
-        name: record.name,
-        userRef,
-      });
-      if (status.status === 'auth_required') {
-        const authUrl = status.authorization_url;
-        if (authUrl === undefined || authUrl.length === 0) {
-          throw new HTTPException(422, {
-            message: `MCP server "${record.name}" requires authentication but returned no authorization URL`,
-          });
-        }
-        return {
-          authRequired: {
-            servers: [{ id: record.name, name: record.name, auth_url: authUrl }],
-          },
-        };
-      }
       const authorization = await this.#resolveGatewayAuthorization();
       const invokeHeaders = {
-        ...withoutAuthorization(this.#perServerHeaders[record.name]),
+        ...trueFoundryOutboundMcpHeaders(this.#perServerHeaders[record.name]),
         ...gatewayHeaders(authorization),
         ...gatewayMetadataHeadersForTurn(turnMetadata),
       };
