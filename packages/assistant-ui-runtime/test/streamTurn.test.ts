@@ -3,7 +3,6 @@ import type { AgentChatServer, TurnStreamData } from '../src/server/index.js';
 
 import { ROOT_THREAD_ID } from '../src/constants.js';
 import { PeerThreadFoldState } from '../src/foldPeerThreads.js';
-import { createAbortError } from '../src/streamReconnect.js';
 import { resumeTurnStream, streamTurnContent } from '../src/streamTurn.js';
 
 const createdAt = new Date().toISOString();
@@ -11,15 +10,6 @@ const SESSION_ID = 'session-1';
 
 function streamData(sequenceNumber: number, event: TurnStreamData['event'] | Record<string, unknown>): TurnStreamData {
   return { sequenceNumber, event: event as TurnStreamData['event'] };
-}
-
-function turnDoneEvent(): TurnStreamData['event'] {
-  return {
-    type: 'turn.done',
-    createdAt,
-    id: 'done-1',
-    state: { status: 'done', requiredActions: [], completedAt: createdAt },
-  };
 }
 
 function mockServer(partial: Record<string, unknown>): AgentChatServer {
@@ -34,6 +24,15 @@ async function collectUpdates(generator: AsyncGenerator<{ content: unknown[] }>)
   return updates;
 }
 
+async function* emptyCompletedTurnStream(): AsyncGenerator<TurnStreamData> {
+  yield streamData(1, {
+    type: 'turn.done',
+    createdAt,
+    id: 'done-empty',
+    state: { status: 'done', completedAt: createdAt },
+  });
+}
+
 describe('streamTurn', () => {
   describe('streamTurnContent', () => {
     it('prepares a user turn and yields folded stream updates', async () => {
@@ -46,7 +45,12 @@ describe('streamTurn', () => {
           threadId: ROOT_THREAD_ID,
           content: 'hello from stream',
         });
-        yield streamData(2, turnDoneEvent());
+        yield streamData(2, {
+          type: 'turn.done',
+          createdAt,
+          id: 'done-auto',
+          state: { status: 'done', completedAt: createdAt },
+        });
       });
       const server = mockServer({
         createTurn,
@@ -63,75 +67,12 @@ describe('streamTurn', () => {
         previousTurnId: 'auto',
         abortSignal: expect.any(AbortSignal),
       });
-      expect(updates).toEqual([{ content: [{ type: 'text', text: 'hello from stream' }], sequenceNumber: 1 }]);
-    });
-
-    it('passes required-action inputs through createTurn', async () => {
-      const inputs = [
-        {
-          type: 'user.tool_approval' as const,
-          threadId: ROOT_THREAD_ID,
-          toolCallId: 'approval-1',
-          approval: { status: 'allow' as const },
-        },
-        {
-          type: 'user.tool_response' as const,
-          threadId: ROOT_THREAD_ID,
-          toolCallId: 'question-1',
-          content: 'A',
-        },
-      ];
-      const createTurn = vi.fn(async function* () {
-        yield streamData(1, turnDoneEvent());
-      });
-      const server = mockServer({
-        createTurn,
-        cancelSession: vi.fn().mockResolvedValue(undefined),
-      });
-
-      await collectUpdates(
-        streamTurnContent(server, SESSION_ID, new PeerThreadFoldState(), { inputs }, new AbortController().signal),
-      );
-
-      expect(createTurn).toHaveBeenCalledWith({
-        sessionId: SESSION_ID,
-        input: inputs,
-        previousTurnId: 'auto',
-        abortSignal: expect.any(AbortSignal),
-      });
-    });
-
-    it('uses empty input when resuming after MCP auth', async () => {
-      const createTurn = vi.fn(async function* () {
-        yield streamData(1, turnDoneEvent());
-      });
-      const server = mockServer({
-        createTurn,
-        cancelSession: vi.fn().mockResolvedValue(undefined),
-      });
-
-      await collectUpdates(
-        streamTurnContent(
-          server,
-          SESSION_ID,
-          new PeerThreadFoldState(),
-          { resumeMcpAuth: true },
-          new AbortController().signal,
-        ),
-      );
-
-      expect(createTurn).toHaveBeenCalledWith({
-        sessionId: SESSION_ID,
-        input: [],
-        previousTurnId: 'auto',
-        abortSignal: expect.any(AbortSignal),
-      });
+      expect(updates[0]).toEqual({ content: [{ type: 'text', text: 'hello from stream' }], sequenceNumber: 1 });
+      expect(updates.at(-1)).toMatchObject({ turnState: { status: 'done' } });
     });
 
     it('forwards an explicit previousTurnId when branching', async () => {
-      const createTurn = vi.fn(async function* () {
-        yield streamData(1, turnDoneEvent());
-      });
+      const createTurn = vi.fn(emptyCompletedTurnStream);
       const server = mockServer({
         createTurn,
         cancelSession: vi.fn().mockResolvedValue(undefined),
@@ -156,9 +97,7 @@ describe('streamTurn', () => {
     });
 
     it('forwards previousTurnId "none" when branching from root', async () => {
-      const createTurn = vi.fn(async function* () {
-        yield streamData(1, turnDoneEvent());
-      });
+      const createTurn = vi.fn(emptyCompletedTurnStream);
       const server = mockServer({
         createTurn,
         cancelSession: vi.fn().mockResolvedValue(undefined),
@@ -182,27 +121,26 @@ describe('streamTurn', () => {
       });
     });
 
-    it('throws when already aborted before streaming starts', async () => {
+    it('returns early without cancelling the backend run when already aborted', async () => {
       const createTurn = vi.fn(async function* () {});
       const cancelSession = vi.fn().mockResolvedValue(undefined);
       const server = mockServer({ createTurn, cancelSession });
       const abortController = new AbortController();
       abortController.abort();
 
-      await expect(
-        collectUpdates(
-          streamTurnContent(
-            server,
-            SESSION_ID,
-            new PeerThreadFoldState(),
-            { userMessage: 'hello' },
-            abortController.signal,
-          ),
+      const updates = await collectUpdates(
+        streamTurnContent(
+          server,
+          SESSION_ID,
+          new PeerThreadFoldState(),
+          { userMessage: 'hello' },
+          abortController.signal,
         ),
-      ).rejects.toMatchObject({ name: 'AbortError' });
+      );
 
       expect(cancelSession).not.toHaveBeenCalled();
       expect(createTurn).not.toHaveBeenCalled();
+      expect(updates).toEqual([]);
     });
 
     it('does not cancel the backend run when the stream is aborted mid-flight', async () => {
@@ -216,30 +154,31 @@ describe('streamTurn', () => {
           content: 'partial',
         });
         abortController.abort();
-        throw createAbortError();
+        yield streamData(2, {
+          type: 'turn.done',
+          createdAt,
+          id: 'done-auto',
+          state: { status: 'done', completedAt: createdAt },
+        });
       });
       const cancelSession = vi.fn().mockResolvedValue(undefined);
       const server = mockServer({ createTurn, cancelSession });
 
-      await expect(
-        collectUpdates(
-          streamTurnContent(
-            server,
-            SESSION_ID,
-            new PeerThreadFoldState(),
-            { userMessage: 'hello' },
-            abortController.signal,
-          ),
+      await collectUpdates(
+        streamTurnContent(
+          server,
+          SESSION_ID,
+          new PeerThreadFoldState(),
+          { userMessage: 'hello' },
+          abortController.signal,
         ),
-      ).rejects.toMatchObject({ name: 'AbortError' });
+      );
 
       expect(cancelSession).not.toHaveBeenCalled();
     });
 
     it('forwards headers to createTurn', async () => {
-      const createTurn = vi.fn(async function* () {
-        yield streamData(1, turnDoneEvent());
-      });
+      const createTurn = vi.fn(emptyCompletedTurnStream);
       const server = mockServer({
         createTurn,
         cancelSession: vi.fn().mockResolvedValue(undefined),
@@ -299,22 +238,27 @@ describe('streamTurn', () => {
       });
       const onTurnIdAvailable = vi.fn();
 
-      await expect(
-        collectUpdates(
-          streamTurnContent(
-            server,
-            SESSION_ID,
-            new PeerThreadFoldState(),
-            { userMessage: 'hello' },
-            new AbortController().signal,
-            undefined,
-            onTurnIdAvailable,
-          ),
+      const updates = await collectUpdates(
+        streamTurnContent(
+          server,
+          SESSION_ID,
+          new PeerThreadFoldState(),
+          { userMessage: 'hello' },
+          new AbortController().signal,
+          undefined,
+          onTurnIdAvailable,
         ),
-      ).rejects.toThrow('Publisher Model is not servable in region us-central1.');
+      );
 
       expect(onTurnIdAvailable).toHaveBeenCalledTimes(1);
       expect(onTurnIdAvailable).toHaveBeenCalledWith(gatewayTurnId);
+      expect(updates.at(-1)).toMatchObject({
+        status: {
+          type: 'incomplete',
+          reason: 'error',
+          error: 'Publisher Model is not servable in region us-central1.',
+        },
+      });
     });
 
     it('does not notify when an error stream never emits turn.created', async () => {
@@ -336,26 +280,27 @@ describe('streamTurn', () => {
       });
       const onTurnIdAvailable = vi.fn();
 
-      await expect(
-        collectUpdates(
-          streamTurnContent(
-            server,
-            SESSION_ID,
-            new PeerThreadFoldState(),
-            { userMessage: 'hello' },
-            new AbortController().signal,
-            undefined,
-            onTurnIdAvailable,
-          ),
+      const updates = await collectUpdates(
+        streamTurnContent(
+          server,
+          SESSION_ID,
+          new PeerThreadFoldState(),
+          { userMessage: 'hello' },
+          new AbortController().signal,
+          undefined,
+          onTurnIdAvailable,
         ),
-      ).rejects.toThrow('boom');
+      );
 
       expect(onTurnIdAvailable).not.toHaveBeenCalled();
+      expect(updates.at(-1)).toMatchObject({
+        status: { type: 'incomplete', reason: 'error', error: 'boom' },
+      });
     });
   });
 
   describe('resumeTurnStream', () => {
-    it('reconnects with afterSequenceNumber and yields updates', async () => {
+    it('reconnects with an event-id cursor and yields updates', async () => {
       const foldState = new PeerThreadFoldState();
       const subscribeToTurn = vi.fn(async function* () {
         yield streamData(2, {
@@ -365,7 +310,12 @@ describe('streamTurn', () => {
           threadId: ROOT_THREAD_ID,
           content: 'resumed',
         });
-        yield streamData(3, turnDoneEvent());
+        yield streamData(3, {
+          type: 'turn.done',
+          createdAt,
+          id: 'done-auto',
+          state: { status: 'done', completedAt: createdAt },
+        });
       });
       const server = mockServer({
         subscribeToTurn,
@@ -373,44 +323,118 @@ describe('streamTurn', () => {
       });
 
       const updates = await collectUpdates(
-        resumeTurnStream(server, SESSION_ID, 'turn-1', foldState, new AbortController().signal, 1),
+        resumeTurnStream(server, SESSION_ID, 'turn-1', foldState, new AbortController().signal, {
+          fromEventId: 'm1',
+        }),
       );
       expect(subscribeToTurn).toHaveBeenCalledWith({
         sessionId: SESSION_ID,
         turnId: 'turn-1',
-        afterSequenceNumber: 1,
+        fromEventId: 'm1',
         abortSignal: expect.any(AbortSignal),
       });
-      expect(updates).toEqual([{ content: [{ type: 'text', text: 'resumed' }], sequenceNumber: 2 }]);
+      expect(updates[0]).toEqual({ content: [{ type: 'text', text: 'resumed' }], sequenceNumber: 2 });
+      expect(updates.at(-1)).toMatchObject({ turnState: { status: 'done' } });
     });
 
-    it('yields nothing when the server omits subscribeToTurn', async () => {
-      const cancelSession = vi.fn().mockResolvedValue(undefined);
-      const server = mockServer({ cancelSession });
+    it('keeps draining after paused until turn.done', async () => {
+      const subscribeToTurn = vi.fn(async function* () {
+        yield streamData(2, {
+          type: 'model.message',
+          createdAt,
+          id: 'm2',
+          threadId: ROOT_THREAD_ID,
+          toolCalls: [
+            {
+              id: 'approval-1',
+              type: 'function',
+              function: { name: 'bash', arguments: '{}' },
+            },
+          ],
+        });
+        yield streamData(3, {
+          type: 'tool.approval_required',
+          id: 'approval-required-1',
+          createdAt,
+          threadId: ROOT_THREAD_ID,
+          toolCalls: [{ id: 'approval-1', sourceEventId: 'm2' }],
+        });
+        yield streamData(4, {
+          type: 'turn.update',
+          id: 'pause-1',
+          createdAt,
+          threadId: null,
+          state: {
+            status: 'paused',
+          },
+        });
+        yield streamData(5, {
+          type: 'turn.update',
+          id: 'run-1',
+          createdAt,
+          threadId: null,
+          state: { status: 'running' },
+        });
+        yield streamData(6, {
+          type: 'turn.done',
+          id: 'done-1',
+          createdAt,
+          threadId: null,
+          state: { status: 'done', requiredActions: [], completedAt: createdAt },
+        });
+      });
+      const server = mockServer({ subscribeToTurn });
 
       const updates = await collectUpdates(
-        resumeTurnStream(server, SESSION_ID, 'turn-1', new PeerThreadFoldState(), new AbortController().signal),
+        resumeTurnStream(server, SESSION_ID, 'turn-1', new PeerThreadFoldState(), new AbortController().signal, {
+          afterEventId: 'prior',
+        }),
       );
 
-      expect(updates).toEqual([]);
-      expect(cancelSession).not.toHaveBeenCalled();
+      expect(updates).toMatchObject([
+        { sequenceNumber: 2 },
+        { sequenceNumber: 3 },
+        {
+          sequenceNumber: 4,
+          status: { type: 'requires-action', reason: 'tool-calls' },
+          turnState: {
+            status: 'paused',
+          },
+        },
+        {
+          sequenceNumber: 5,
+          status: { type: 'running' },
+          turnState: { status: 'running' },
+        },
+        {
+          sequenceNumber: 6,
+          turnState: { status: 'done' },
+        },
+      ]);
     });
 
-    it('throws when aborted before streaming starts', async () => {
+    it('returns early when aborted before streaming starts', async () => {
       const subscribeToTurn = vi.fn(async function* () {});
       const cancelSession = vi.fn().mockResolvedValue(undefined);
       const server = mockServer({ subscribeToTurn, cancelSession });
       const abortController = new AbortController();
       abortController.abort();
 
-      await expect(
-        collectUpdates(
-          resumeTurnStream(server, SESSION_ID, 'turn-1', new PeerThreadFoldState(), abortController.signal),
-        ),
-      ).rejects.toMatchObject({ name: 'AbortError' });
+      const updates = await collectUpdates(
+        resumeTurnStream(server, SESSION_ID, 'turn-1', new PeerThreadFoldState(), abortController.signal),
+      );
 
       expect(cancelSession).not.toHaveBeenCalled();
       expect(subscribeToTurn).not.toHaveBeenCalled();
+      expect(updates).toEqual([]);
+    });
+
+    it('yields nothing when subscribeToTurn is missing so callers can detect the gap', async () => {
+      const server = mockServer({});
+      const updates = await collectUpdates(
+        resumeTurnStream(server, SESSION_ID, 'turn-1', new PeerThreadFoldState(), new AbortController().signal),
+      );
+      expect(updates).toEqual([]);
     });
   });
 });

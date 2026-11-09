@@ -4,7 +4,48 @@
  * Hosts must emit events matching these shapes.
  */
 
-import type { TurnInputItem, TurnState } from './types.js';
+import type {
+  NonTerminalTurnState,
+  TerminalTurnState,
+  TurnInputItem,
+  TurnStatePaused,
+  TurnStateRunning,
+  UserMcpAuthContinueInputEvent,
+  UserToolApprovalInputEvent,
+  UserToolApprovalPolicyInputEvent,
+  UserToolResponseInputEvent,
+} from './types.js';
+
+export const EVENT_TYPE = {
+  MCP_AUTH_REQUIRED: 'mcp.auth_required',
+  MCP_INITIALIZE: 'mcp.initialize',
+  MODEL_MESSAGE: 'model.message',
+  MODEL_MESSAGE_DELTA: 'model.message.delta',
+  SANDBOX_CREATED: 'sandbox.created',
+  THREAD_CREATED: 'thread.created',
+  THREAD_DONE: 'thread.done',
+  TOOL_APPROVAL_REQUIRED: 'tool.approval_required',
+  TOOL_RESPONSE: 'tool.response',
+  TOOL_RESPONSE_REQUIRED: 'tool.response_required',
+  TURN_CREATED: 'turn.created',
+  TURN_DONE: 'turn.done',
+  TURN_UPDATE: 'turn.update',
+  USER_MESSAGE: 'user.message',
+  USER_MCP_AUTH_CONTINUE: 'user.mcp_auth_continue',
+  USER_TOOL_APPROVAL: 'user.tool_approval',
+  USER_TOOL_APPROVAL_POLICY: 'user.tool_approval_policy',
+  USER_TOOL_RESPONSE: 'user.tool_response',
+} as const;
+
+export const TOOL_INFO_TYPE = {
+  MCP: 'mcp',
+  TRUEFORGE_SYSTEM: 'trueforge-system',
+} as const;
+
+export const SYSTEM_TOOL_NAME = {
+  ASK_USER_QUESTION: 'ask_user_question',
+  CREATE_SUB_AGENT: 'create_sub_agent',
+} as const;
 
 // ---------------------------------------------------------------------------
 // Tool call shapes
@@ -16,8 +57,8 @@ export interface ToolCallFunction {
 }
 
 export type ToolInfo =
-  | { type: 'trueforge-system'; name: string }
-  | { type: 'mcp'; serverId: string; serverName: string; name: string }
+  | { type: typeof TOOL_INFO_TYPE.TRUEFORGE_SYSTEM; name: string }
+  | { type: typeof TOOL_INFO_TYPE.MCP; serverId: string; serverName: string; name: string }
   | { type: string; name?: string };
 
 export interface ToolCall {
@@ -53,7 +94,7 @@ export type ModelMessageContentPart =
   | { type: 'image_url'; image_url: { url: string } };
 
 export interface ModelMessageEvent {
-  type: 'model.message';
+  type: typeof EVENT_TYPE.MODEL_MESSAGE;
   id: string;
   threadId: string;
   content?: string | ModelMessageContentPart[] | null;
@@ -68,7 +109,7 @@ export interface ModelMessageEvent {
 }
 
 export interface ModelMessageDeltaEvent {
-  type: 'model.message.delta';
+  type: typeof EVENT_TYPE.MODEL_MESSAGE_DELTA;
   id: string;
   threadId: string;
   content?: string | null;
@@ -90,7 +131,7 @@ export interface ModelMessageDeltaEvent {
 }
 
 export interface ToolResponseEvent {
-  type: 'tool.response';
+  type: typeof EVENT_TYPE.TOOL_RESPONSE;
   id: string;
   threadId: string;
   toolCallId: string;
@@ -99,7 +140,7 @@ export interface ToolResponseEvent {
 }
 
 export interface ToolApprovalRequiredEvent {
-  type: 'tool.approval_required';
+  type: typeof EVENT_TYPE.TOOL_APPROVAL_REQUIRED;
   id: string;
   createdAt: string;
   threadId: string;
@@ -107,7 +148,7 @@ export interface ToolApprovalRequiredEvent {
 }
 
 export interface ToolResponseRequiredEvent {
-  type: 'tool.response_required';
+  type: typeof EVENT_TYPE.TOOL_RESPONSE_REQUIRED;
   id: string;
   createdAt: string;
   threadId: string;
@@ -127,7 +168,7 @@ export interface AgentParent {
 }
 
 export interface ThreadCreatedEvent {
-  type: 'thread.created';
+  type: typeof EVENT_TYPE.THREAD_CREATED;
   id: string;
   threadId: string;
   title: string;
@@ -137,7 +178,7 @@ export interface ThreadCreatedEvent {
 }
 
 export interface ThreadDoneEvent {
-  type: 'thread.done';
+  type: typeof EVENT_TYPE.THREAD_DONE;
   id: string;
   threadId: string;
   title?: string;
@@ -152,7 +193,7 @@ export interface McpServerAuthInfo {
 }
 
 export interface McpAuthRequiredEvent {
-  type: 'mcp.auth_required';
+  type: typeof EVENT_TYPE.MCP_AUTH_REQUIRED;
   id: string;
   createdAt: string;
   threadId?: string | null;
@@ -160,7 +201,7 @@ export interface McpAuthRequiredEvent {
 }
 
 export interface SandboxCreatedEvent {
-  type: 'sandbox.created';
+  type: typeof EVENT_TYPE.SANDBOX_CREATED;
   id: string;
   createdAt: string;
   sandboxId: string;
@@ -168,7 +209,7 @@ export interface SandboxCreatedEvent {
 }
 
 export interface McpInitializeEvent {
-  type: 'mcp.initialize';
+  type: typeof EVENT_TYPE.MCP_INITIALIZE;
   id: string;
   createdAt: string;
   threadId: string | null;
@@ -204,23 +245,51 @@ export interface ThreadContextCompactionFinishedEvent {
 // ---------------------------------------------------------------------------
 
 export interface TurnCreatedEvent {
-  type: 'turn.created';
+  type: typeof EVENT_TYPE.TURN_CREATED;
   id: string;
   turnId: string;
   previousTurnId?: string | null;
   input?: TurnInputItem[];
-  state?: { status: 'running' };
+  state?: TurnStateRunning;
   createdAt: string;
   threadId?: string | null;
 }
 
 export interface TurnDoneEvent {
-  type: 'turn.done';
+  type: typeof EVENT_TYPE.TURN_DONE;
   id: string;
-  state: Exclude<TurnState, { status: 'running' }>;
+  state: TerminalTurnState;
   createdAt: string;
   threadId?: string | null;
 }
+
+export type TurnUpdateStatePaused = TurnStatePaused;
+export type TurnUpdateStateRunning = TurnStateRunning;
+export type TurnUpdateState = NonTerminalTurnState;
+
+export interface TurnUpdateEvent {
+  type: typeof EVENT_TYPE.TURN_UPDATE;
+  id: string;
+  state: TurnUpdateState;
+  createdAt: string;
+  threadId: string | null;
+}
+
+interface PersistedInboundEvent {
+  id: string;
+  createdAt: string;
+}
+
+export interface UserToolApprovalEvent extends UserToolApprovalInputEvent, PersistedInboundEvent {}
+
+export interface UserToolApprovalPolicyEvent extends UserToolApprovalPolicyInputEvent, PersistedInboundEvent {}
+
+export interface UserToolResponseEvent extends UserToolResponseInputEvent, PersistedInboundEvent {}
+
+export interface UserMcpAuthContinueEvent extends UserMcpAuthContinueInputEvent, PersistedInboundEvent {}
+
+export type TurnInboundEvent =
+  UserToolApprovalEvent | UserToolApprovalPolicyEvent | UserToolResponseEvent | UserMcpAuthContinueEvent;
 
 // ---------------------------------------------------------------------------
 // Unions
@@ -238,22 +307,28 @@ export type TurnEvent =
   | McpInitializeEvent
   | SandboxCreatedEvent
   | ToolApprovalRequiredEvent
-  | ToolResponseRequiredEvent;
+  | ToolResponseRequiredEvent
+  | TurnInboundEvent;
 
 /** Full streaming event union (includes deltas + turn lifecycle). */
-export type TurnStreamingEvent = TurnEvent | ModelMessageDeltaEvent | TurnCreatedEvent | TurnDoneEvent;
+export type TurnStreamingEvent =
+  TurnEvent | ModelMessageDeltaEvent | TurnCreatedEvent | TurnUpdateEvent | TurnDoneEvent;
 
 export type ActionRequiredEvent = ToolApprovalRequiredEvent | ToolResponseRequiredEvent | McpAuthRequiredEvent;
 
+/** Durable turn event union; streaming deltas are intentionally excluded. */
+export type PersistedTurnEvent = TurnCreatedEvent | TurnUpdateEvent | TurnDoneEvent | TurnEvent;
+
 export interface TurnStreamData<TStreamEvent extends TurnStreamingEvent = TurnStreamingEvent> {
-  sequenceNumber: number;
+  /** Present only when the server wrote an SSE id for an older integer stream. */
+  sequenceNumber?: number;
   event: TStreamEvent;
 }
 
 /** Session-level event item from `listEvents`. */
 export interface SessionEventItem {
   turnId: string;
-  event: TurnCreatedEvent | TurnDoneEvent | TurnEvent;
+  event: PersistedTurnEvent;
 }
 
 export type DeltaEvents = ModelMessageDeltaEvent;

@@ -8,17 +8,15 @@ import { UserToolApprovalEvent } from "./UserToolApprovalEvent.js";
 import { UserToolApprovalPolicyEvent } from "./UserToolApprovalPolicyEvent.js";
 import { UserToolResponseEvent } from "./UserToolResponseEvent.js";
 
-export const CreateTurnEventResponseDataItem: core.serialization.Schema<
-    serializers.CreateTurnEventResponseDataItem.Raw,
-    TrueForge.CreateTurnEventResponseDataItem
-> = core.serialization.undiscriminatedUnion([
-    UserMcpAuthContinueEvent,
-    UserToolApprovalEvent,
-    UserToolApprovalPolicyEvent,
-    UserToolResponseEvent,
-]);
+export const TurnUserEvent: core.serialization.Schema<serializers.TurnUserEvent.Raw, TrueForge.TurnUserEvent> =
+    core.serialization.undiscriminatedUnion([
+        UserMcpAuthContinueEvent,
+        UserToolApprovalEvent,
+        UserToolApprovalPolicyEvent,
+        UserToolResponseEvent,
+    ]);
 
-export declare namespace CreateTurnEventResponseDataItem {
+export declare namespace TurnUserEvent {
     export type Raw =
         | UserMcpAuthContinueEvent.Raw
         | UserToolApprovalEvent.Raw

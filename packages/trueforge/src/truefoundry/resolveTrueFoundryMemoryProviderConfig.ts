@@ -21,15 +21,6 @@ export const TrueFoundryMemorySettingsSchema = z
       .int()
       .positive()
       .default(2 * 60 * 60 * 1000),
-    /**
-     * An exchange paused on the user (a question, approval or auth) is sent as-is after this long.
-     * Paused sessions are looked up again in a lookback-wide range this far back.
-     */
-    pause_timeout_ms: z
-      .number()
-      .int()
-      .positive()
-      .default(12 * 60 * 60 * 1000),
   })
   .strict();
 

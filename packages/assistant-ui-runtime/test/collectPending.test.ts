@@ -8,7 +8,7 @@ import {
   deriveSandboxId,
 } from '../src/collectPending.js';
 import { ROOT_THREAD_ID } from '../src/constants.js';
-import { TOOL_RESPONSE_THREAD_ID_CUSTOM_KEY } from '../src/toolResponse.js';
+import { MESSAGE_CUSTOM_KEY } from '../src/messageCustomMetadata.js';
 
 function assistantMessage(
   id: string,
@@ -82,7 +82,7 @@ describe('deriveSandboxId', () => {
 describe('current pause collection', () => {
   const pausedAskUser = assistantMessage('paused', {
     status: { type: 'requires-action', reason: 'tool-calls' },
-    custom: { [TOOL_RESPONSE_THREAD_ID_CUSTOM_KEY]: ROOT_THREAD_ID },
+    custom: { [MESSAGE_CUSTOM_KEY.TOOL_RESPONSE_THREAD_ID]: ROOT_THREAD_ID },
     content: [
       {
         type: 'tool-call',

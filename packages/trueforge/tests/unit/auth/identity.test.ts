@@ -43,6 +43,7 @@ describe('requestContextFromCreatedBySubject', () => {
         subject_type: 'user',
         subject_display_name: 'Alice',
       },
+      user_credential: null,
     });
     expect(rc.tenant_id).toBe('acme');
     expect(rc.subject).toEqual({ id: 'alice', type: 'user', display_name: 'Alice' });
