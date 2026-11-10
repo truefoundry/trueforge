@@ -11,6 +11,7 @@ import type { ResolveRequestContext } from '../../../auth/identity';
 import configuration from '../../../config';
 import { createTlsFetch, normalizeTlsUrl } from '../../../http/tls';
 import type { McpToolDescriptor } from './openApiTools';
+import { createTrueForgeMcpServer } from './server';
 import { createWireApiClient } from './wireApiClient';
 
 const baseUrl = normalizeTlsUrl({ url: configuration.SERVER_URL, enabled: configuration.MTLS_ENABLED });
@@ -52,7 +53,6 @@ export function createTrueForgeMcpRouter(deps: TrueForgeMcpRouterDeps): Hono {
       fetch: internalFetch,
     });
     const client = createWireApiClient(apiClient);
-    const { createTrueForgeMcpServer } = await import('./server');
     const server = createTrueForgeMcpServer({ client, version: deps.version, tools: deps.resolveTools() });
     const transport = new WebStandardStreamableHTTPServerTransport({
       enableJsonResponse: true,

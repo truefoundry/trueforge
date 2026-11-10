@@ -1,7 +1,7 @@
 import type { AgentCapability } from '../../../src/core/capabilities/AgentCapability';
 import { currentDateTime } from '../../../src/core/capabilities/builtins/CurrentDateTime';
 import { InstructionBuilder } from '../../../src/core/InstructionBuilder';
-import type { ILLM } from '../../../src/core/llm/ILLM';
+import type { LLMCreateParamsStreaming } from '../../../src/core/llm/ILLM';
 import {
   isCallToolResponseCreateSubAgent,
   isCallToolResponseResult,
@@ -16,6 +16,7 @@ import {
   LIST_TOOLS_NAME,
 } from '../../../src/core/runtime/DeferredTool';
 import { NOOP_AGENT_TRACING } from '../../../src/core/tracing/NoopAgentTracing';
+import { textReplyStream } from '../../orchestration/helpers/helpers';
 import '../harnessMocks';
 import { makeMockIMCPServer, makeSilentLogger, OBJECT_INPUT_SCHEMA, TEST_MODEL_NAME } from '../harnessMocks';
 
@@ -132,13 +133,7 @@ async function registeredToolNames(input: {
   capabilities?: readonly AgentCapability[];
   toolSets?: IToolSet[];
 }): Promise<string[]> {
-  const create = jest.fn<ILLM['create']>().mockImplementation(async function* () {
-    return {
-      output: { role: 'assistant', content: 'ok' },
-      usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 },
-      finish_reason: 'stop',
-    };
-  });
+  const create = jest.fn().mockImplementation(() => textReplyStream('ok'));
   const thread = new AgentThread({
     threadId: 'main',
     title: 'Main',
@@ -155,7 +150,7 @@ async function registeredToolNames(input: {
   for await (const event of thread.execute({ signal: new AbortController().signal })) {
     void event;
   }
-  const body = create.mock.calls[0]?.[0];
+  const body = create.mock.calls[0]?.[0] as LLMCreateParamsStreaming | undefined;
   return (body?.tools ?? []).flatMap(tool => (tool.type === 'function' ? [tool.function.name] : []));
 }
 
