@@ -3,6 +3,7 @@
 import { useAui, useAuiState } from '@assistant-ui/store';
 import { useMemo } from 'react';
 
+import { MESSAGE_CUSTOM_KEY } from './messageCustomMetadata.js';
 import type { RespondToToolApprovalOptions } from './toolApproval.js';
 import type { RespondToToolResponseOptions } from './toolResponse.js';
 import {
@@ -46,14 +47,14 @@ export const useTrueForgeToolResponses = () => {
   );
 };
 
-/** Pending MCP OAuth plus a resume action. */
+/** Pending MCP OAuth plus a continue action. */
 export const useTrueForgeMcpAuth = () => {
   const extras = useTrueForgeRuntimeExtras();
 
   return useMemo(
     () => ({
       pending: extras?.pendingMcpAuth ?? null,
-      resume: extras?.resumeMcpAuth ?? (() => Promise.reject(new Error('TrueForge runtime is not ready yet'))),
+      continue: extras?.continueMcpAuth ?? (() => Promise.reject(new Error('TrueForge runtime is not ready yet'))),
     }),
     [extras],
   );
@@ -62,23 +63,19 @@ export const useTrueForgeMcpAuth = () => {
 /** Returns a function to respond to a tool approval from any render context. */
 export const useTrueForgeRespondToToolApproval = () => {
   const aui = useAui();
-  return (response: RespondToToolApprovalOptions) => {
-    getTrueForgeExtras(aui).respondToToolApproval(response);
-  };
+  return (response: RespondToToolApprovalOptions) => getTrueForgeExtras(aui).respondToToolApproval(response);
 };
 
 /** Returns a function to respond to a pending tool response from any render context. */
 export const useTrueForgeRespondToToolResponse = () => {
   const aui = useAui();
-  return (response: RespondToToolResponseOptions) => {
-    getTrueForgeExtras(aui).respondToToolResponse(response);
-  };
+  return (response: RespondToToolResponseOptions) => getTrueForgeExtras(aui).respondToToolResponse(response);
 };
 
-/** Returns a function to resume after MCP OAuth from any render context. */
-export const useTrueForgeResumeMcpAuth = () => {
+/** Returns a function to continue after MCP OAuth from any render context. */
+export const useTrueForgeContinueMcpAuth = () => {
   const aui = useAui();
-  return () => getTrueForgeExtras(aui).resumeMcpAuth();
+  return () => getTrueForgeExtras(aui).continueMcpAuth();
 };
 
 /** Current sandboxId for this session, if a sandbox has been created. */
@@ -87,7 +84,7 @@ export const useTrueForgeSandboxId = (): string | undefined => useTrueForgeRunti
 /** Turn that produced the message being rendered. Only defined inside a message scope. */
 export const useTrueForgeTurnId = (): string | undefined =>
   useAuiState(state => {
-    const turnId = state.message.metadata.custom['turnId'];
+    const turnId = state.message.metadata.custom[MESSAGE_CUSTOM_KEY.TURN_ID];
     return typeof turnId === 'string' ? turnId : undefined;
   });
 

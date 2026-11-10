@@ -5,6 +5,6 @@
  *     {}
  */
 export interface AuthorizeMcpServersRequest {
-    /** Same-origin path to land in the browser after consent. */
+    /** Same-origin path to land in the browser after consent. When omitted, no post-consent redirect is requested. */
     returnTo?: string;
 }

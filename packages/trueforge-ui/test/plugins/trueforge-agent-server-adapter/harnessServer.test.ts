@@ -32,6 +32,7 @@ const session = {
 const turnRequests: unknown[] = [];
 const turnRequestHeaders: Headers[] = [];
 const sessionRequests: unknown[] = [];
+const turnEventRequests: unknown[] = [];
 const deletedSessions: string[] = [];
 const subscribeRequests: (string | null)[] = [];
 
@@ -42,6 +43,37 @@ const fetchMock: typeof fetch = async (input, init) => {
     const body: unknown = JSON.parse(init.body);
     turnRequests.push(body);
     turnRequestHeaders.push(new Headers(init.headers));
+  }
+  if (url.endsWith('/api/v1/sessions/ses_1/turns/trn_1/events') && method === 'POST') {
+    const body: unknown = typeof init?.body === 'string' ? JSON.parse(init.body) : undefined;
+    turnEventRequests.push(body);
+    return Response.json(
+      {
+        data: [
+          {
+            type: 'user.tool_approval',
+            thread_id: 'main',
+            tool_call_id: 'tool-1',
+            approval: { status: 'allow' },
+            id: 'approval-event-1',
+            created_at: '2026-09-24T12:00:00.000Z',
+          },
+          {
+            type: 'user.tool_approval_policy',
+            policies: [
+              {
+                server_name: 'github',
+                name: 'create_issue',
+                policy: { type: 'allow_session' },
+              },
+            ],
+            id: 'policy-event-1',
+            created_at: '2026-09-24T12:00:00.000Z',
+          },
+        ],
+      },
+      { status: 201 },
+    );
   }
   if (url.endsWith('/api/v1/sessions') && method === 'POST') {
     if (typeof init?.body === 'string') {
@@ -389,6 +421,39 @@ describe('createHarnessChatServer', () => {
     assert.deepEqual(deletedSessions, ['ses_1']);
   });
 
+  it('omits sequenceNumber when the SSE id is absent and forwards fromEventId', async () => {
+    const queries: string[] = [];
+    const eventId = '01arz3ndektsv4rrffq69g5fav';
+    const fetchCursor: typeof fetch = async input => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.includes('/api/v1/sessions/ses_1/turns/trn_1/subscribe')) {
+        queries.push(new URL(url, 'http://test.local').search);
+        return new Response(
+          `data: {"type":"model.message.delta","id":"${eventId}","thread_id":"main","content":"world"}\n\n`,
+          { headers: { 'content-type': 'text/event-stream' } },
+        );
+      }
+      return new Response(`Unexpected request: ${url}`, { status: 500 });
+    };
+    const server = createHarnessChatServer({ fetch: fetchCursor });
+    if (server.subscribeToTurn === undefined) {
+      throw new Error('Expected subscribeToTurn');
+    }
+
+    const events = [];
+    for await (const event of server.subscribeToTurn({
+      sessionId: 'ses_1',
+      turnId: 'trn_1',
+      fromEventId: eventId,
+    })) {
+      events.push(event);
+    }
+
+    assert.match(queries.at(-1) ?? '', /from_event_id=01arz3ndektsv4rrffq69g5fav/);
+    assert.equal(events[0]?.sequenceNumber, undefined);
+    assert.equal(events[0]?.event.id, eventId);
+  });
+
   it('subscribes to a turn and forwards afterSequenceNumber', async () => {
     const server = createHarnessChatServer({ fetch: fetchMock });
     assert.ok(server.subscribeToTurn);
@@ -412,6 +477,59 @@ describe('createHarnessChatServer', () => {
           threadId: 'main',
           content: 'world',
         },
+      },
+    ]);
+  });
+
+  it('posts same-turn approval and policy events', async () => {
+    turnEventRequests.length = 0;
+    const server = createHarnessChatServer({ fetch: fetchMock });
+
+    const created = await server.sendTurnEvents({
+      sessionId: 'ses_1',
+      turnId: 'trn_1',
+      events: [
+        {
+          type: 'user.tool_approval',
+          threadId: 'main',
+          toolCallId: 'tool-1',
+          approval: { status: 'allow' },
+        },
+        {
+          type: 'user.tool_approval_policy',
+          policies: [{ serverName: 'github', name: 'create_issue', policy: { type: 'allow_session' } }],
+        },
+      ],
+    });
+
+    assert.deepEqual(turnEventRequests.at(-1), {
+      events: [
+        {
+          type: 'user.tool_approval',
+          thread_id: 'main',
+          tool_call_id: 'tool-1',
+          approval: { status: 'allow' },
+        },
+        {
+          type: 'user.tool_approval_policy',
+          policies: [{ server_name: 'github', name: 'create_issue', policy: { type: 'allow_session' } }],
+        },
+      ],
+    });
+    assert.deepEqual(created, [
+      {
+        type: 'user.tool_approval',
+        threadId: 'main',
+        toolCallId: 'tool-1',
+        approval: { status: 'allow' },
+        id: 'approval-event-1',
+        createdAt: '2026-09-24T12:00:00.000Z',
+      },
+      {
+        type: 'user.tool_approval_policy',
+        policies: [{ serverName: 'github', name: 'create_issue', policy: { type: 'allow_session' } }],
+        id: 'policy-event-1',
+        createdAt: '2026-09-24T12:00:00.000Z',
       },
     ]);
   });

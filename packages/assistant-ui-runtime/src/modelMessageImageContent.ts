@@ -1,7 +1,9 @@
 import type { CompleteAttachment } from '@assistant-ui/core';
 import {
+  EVENT_TYPE,
   isEventDelta,
   mergeEventDelta,
+  type ModelMessageContentPart,
   type ModelMessageDeltaEvent,
   type ModelMessageEvent,
   type TurnEvent,
@@ -10,13 +12,7 @@ import {
 
 import type { AssistantContentPart } from './modelMessageContent.js';
 
-export interface ImageUrlContentPart {
-  type: 'image_url';
-  image_url: { url: string };
-}
-
-type ModelMessageContentPart =
-  { type: 'text'; text: string } | { type: 'refusal'; refusal: string } | ImageUrlContentPart;
+export type ImageUrlContentPart = Extract<ModelMessageContentPart, { type: 'image_url' }>;
 
 type ContentBlockDelta = NonNullable<ModelMessageDeltaEvent['contentBlocks']>[number];
 
@@ -91,10 +87,13 @@ export function mergeStreamEventDelta(base: TurnEvent, delta: TurnStreamingEvent
   if (!isEventDelta(delta)) {
     return;
   }
+  if (base.type === EVENT_TYPE.MODEL_MESSAGE && base.finishReason != null) {
+    return;
+  }
 
   mergeEventDelta(base, delta);
 
-  if (base.type !== 'model.message') {
+  if (base.type !== EVENT_TYPE.MODEL_MESSAGE) {
     return;
   }
 

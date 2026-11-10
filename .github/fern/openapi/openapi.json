@@ -2,18 +2,6 @@
   "components": {
     "parameters": {},
     "schemas": {
-      "ActionRequired": {
-        "properties": {
-          "id": {
-            "description": "Unique identifier for the event (monotonic ULID).",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id"
-        ],
-        "type": "object"
-      },
       "ActionRequiredEvent": {
         "discriminator": {
           "mapping": {
@@ -1312,7 +1300,7 @@
           "events": {
             "description": "One or more user events.",
             "items": {
-              "$ref": "#/components/schemas/TurnInboundEventItem"
+              "$ref": "#/components/schemas/TurnUserEventMessage"
             },
             "minItems": 1,
             "type": "array"
@@ -1328,29 +1316,7 @@
           "data": {
             "description": "Events with server-minted `id` and `created_at`, in request order.",
             "items": {
-              "discriminator": {
-                "mapping": {
-                  "user.mcp_auth_continue": "#/components/schemas/UserMCPAuthContinueEvent",
-                  "user.tool_approval": "#/components/schemas/UserToolApprovalEvent",
-                  "user.tool_approval_policy": "#/components/schemas/UserToolApprovalPolicyEvent",
-                  "user.tool_response": "#/components/schemas/UserToolResponseEvent"
-                },
-                "propertyName": "type"
-              },
-              "oneOf": [
-                {
-                  "$ref": "#/components/schemas/UserToolApprovalEvent"
-                },
-                {
-                  "$ref": "#/components/schemas/UserToolResponseEvent"
-                },
-                {
-                  "$ref": "#/components/schemas/UserToolApprovalPolicyEvent"
-                },
-                {
-                  "$ref": "#/components/schemas/UserMCPAuthContinueEvent"
-                }
-              ]
+              "$ref": "#/components/schemas/TurnUserEvent"
             },
             "type": "array"
           }
@@ -1363,9 +1329,9 @@
       "CreateTurnRequest": {
         "properties": {
           "input": {
-            "description": "Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.",
+            "description": "User messages supplied when the turn is created.",
             "items": {
-              "$ref": "#/components/schemas/TurnInputItem"
+              "$ref": "#/components/schemas/UserMessage"
             },
             "type": "array"
           },
@@ -2090,6 +2056,27 @@
         },
         "type": "object"
       },
+      "LegacyTurnInputItem": {
+        "discriminator": {
+          "mapping": {
+            "user.message": "#/components/schemas/UserMessage",
+            "user.tool_approval": "#/components/schemas/UserToolApprovalInputEvent",
+            "user.tool_response": "#/components/schemas/UserToolResponseInputEvent"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/UserMessage"
+          },
+          {
+            "$ref": "#/components/schemas/UserToolApprovalInputEvent"
+          },
+          {
+            "$ref": "#/components/schemas/UserToolResponseInputEvent"
+          }
+        ]
+      },
       "ListAgentsResponse": {
         "properties": {
           "data": {
@@ -2732,7 +2719,7 @@
         "properties": {
           "approval_policies": {
             "additionalProperties": {
-              "$ref": "#/components/schemas/ToolApprovalPolicyAction"
+              "$ref": "#/components/schemas/ToolApprovalPolicy"
             },
             "description": "Sticky per-tool approval policies (keyed by tool name) that auto-allow future calls.",
             "type": "object"
@@ -5380,7 +5367,7 @@
         ],
         "type": "object"
       },
-      "ToolApprovalPolicyAction": {
+      "ToolApprovalPolicy": {
         "discriminator": {
           "mapping": {
             "allow_session": "#/components/schemas/ToolApprovalPolicyAllowSession"
@@ -5414,13 +5401,13 @@
       },
       "ToolApprovalPolicyItem": {
         "properties": {
-          "action": {
-            "$ref": "#/components/schemas/ToolApprovalPolicyAction"
-          },
           "name": {
             "description": "Tool name on that server.",
             "minLength": 1,
             "type": "string"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/ToolApprovalPolicy"
           },
           "server_name": {
             "description": "MCP server name.",
@@ -5431,7 +5418,7 @@
         "required": [
           "server_name",
           "name",
-          "action"
+          "policy"
         ],
         "type": "object"
       },
@@ -5742,9 +5729,9 @@
             "type": "string"
           },
           "input": {
-            "description": "Input items supplied when the turn was created.",
+            "description": "Inputs stored when the turn was created, including legacy continuation inputs.",
             "items": {
-              "$ref": "#/components/schemas/TurnInputItem"
+              "$ref": "#/components/schemas/LegacyTurnInputItem"
             },
             "type": "array"
           },
@@ -5783,9 +5770,9 @@
             "type": "string"
           },
           "input": {
-            "description": "Input items supplied when the turn was created.",
+            "description": "Inputs stored when the turn was created, including legacy continuation inputs.",
             "items": {
-              "$ref": "#/components/schemas/TurnInputItem"
+              "$ref": "#/components/schemas/LegacyTurnInputItem"
             },
             "type": "array"
           },
@@ -5885,54 +5872,8 @@
         ],
         "type": "object"
       },
-      "TurnInboundEventItem": {
-        "discriminator": {
-          "mapping": {
-            "user.mcp_auth_continue": "#/components/schemas/UserMCPAuthContinueInputEvent",
-            "user.tool_approval": "#/components/schemas/UserToolApprovalInputEvent",
-            "user.tool_approval_policy": "#/components/schemas/UserToolApprovalPolicyMessage",
-            "user.tool_response": "#/components/schemas/UserToolResponseInputEvent"
-          },
-          "propertyName": "type"
-        },
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/UserToolApprovalInputEvent"
-          },
-          {
-            "$ref": "#/components/schemas/UserToolResponseInputEvent"
-          },
-          {
-            "$ref": "#/components/schemas/UserToolApprovalPolicyMessage"
-          },
-          {
-            "$ref": "#/components/schemas/UserMCPAuthContinueInputEvent"
-          }
-        ]
-      },
-      "TurnInputItem": {
-        "discriminator": {
-          "mapping": {
-            "user.message": "#/components/schemas/UserMessage",
-            "user.tool_approval": "#/components/schemas/UserToolApprovalInputEvent",
-            "user.tool_response": "#/components/schemas/UserToolResponseInputEvent"
-          },
-          "propertyName": "type"
-        },
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/UserMessage"
-          },
-          {
-            "$ref": "#/components/schemas/UserToolApprovalInputEvent"
-          },
-          {
-            "$ref": "#/components/schemas/UserToolResponseInputEvent"
-          }
-        ]
-      },
       "TurnMetrics": {
-        "description": "Optional billable aggregate for the whole turn.",
+        "description": "Billable aggregate for this turn so far.",
         "properties": {
           "total_cache_read_tokens": {
             "description": "Total cache-read tokens across model calls in this turn.",
@@ -6008,14 +5949,7 @@
             "type": "string"
           },
           "metrics": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/TurnMetrics"
-              },
-              {
-                "description": "Optional billable aggregate for work done before cancel."
-              }
-            ]
+            "$ref": "#/components/schemas/TurnMetrics"
           },
           "reason": {
             "$ref": "#/components/schemas/TurnStateCancelledReason"
@@ -6099,14 +6033,7 @@
             "type": "string"
           },
           "metrics": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/TurnMetrics"
-              },
-              {
-                "description": "Optional billable aggregate for work done before the error."
-              }
-            ]
+            "$ref": "#/components/schemas/TurnMetrics"
           },
           "status": {
             "description": "Turn ended with an error.",
@@ -6125,15 +6052,11 @@
       },
       "TurnStatePaused": {
         "properties": {
-          "action_required_on_events": {
-            "description": "Events that still need a user or client action.",
-            "items": {
-              "$ref": "#/components/schemas/ActionRequired"
-            },
-            "type": "array"
+          "metrics": {
+            "$ref": "#/components/schemas/TurnMetrics"
           },
           "status": {
-            "description": "Turn is paused waiting for required actions.",
+            "description": "Turn is paused waiting for user actions.",
             "enum": [
               "paused"
             ],
@@ -6141,8 +6064,7 @@
           }
         },
         "required": [
-          "status",
-          "action_required_on_events"
+          "status"
         ],
         "type": "object"
       },
@@ -6307,6 +6229,56 @@
           "thread_id"
         ],
         "type": "object"
+      },
+      "TurnUserEvent": {
+        "discriminator": {
+          "mapping": {
+            "user.mcp_auth_continue": "#/components/schemas/UserMCPAuthContinueEvent",
+            "user.tool_approval": "#/components/schemas/UserToolApprovalEvent",
+            "user.tool_approval_policy": "#/components/schemas/UserToolApprovalPolicyEvent",
+            "user.tool_response": "#/components/schemas/UserToolResponseEvent"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/UserToolApprovalEvent"
+          },
+          {
+            "$ref": "#/components/schemas/UserToolResponseEvent"
+          },
+          {
+            "$ref": "#/components/schemas/UserToolApprovalPolicyEvent"
+          },
+          {
+            "$ref": "#/components/schemas/UserMCPAuthContinueEvent"
+          }
+        ]
+      },
+      "TurnUserEventMessage": {
+        "discriminator": {
+          "mapping": {
+            "user.mcp_auth_continue": "#/components/schemas/UserMCPAuthContinueInputEvent",
+            "user.tool_approval": "#/components/schemas/UserToolApprovalInputEvent",
+            "user.tool_approval_policy": "#/components/schemas/UserToolApprovalPolicyMessage",
+            "user.tool_response": "#/components/schemas/UserToolResponseInputEvent"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/UserToolApprovalInputEvent"
+          },
+          {
+            "$ref": "#/components/schemas/UserToolResponseInputEvent"
+          },
+          {
+            "$ref": "#/components/schemas/UserToolApprovalPolicyMessage"
+          },
+          {
+            "$ref": "#/components/schemas/UserMCPAuthContinueInputEvent"
+          }
+        ]
       },
       "UpdateAgentRequest": {
         "additionalProperties": false,
@@ -8490,12 +8462,13 @@
             }
           },
           {
-            "description": "Same-origin path to land in the browser after consent.",
+            "description": "Same-origin path to land in the browser after consent. When omitted, no post-consent redirect is requested.",
             "in": "query",
             "name": "return_to",
             "required": false,
             "schema": {
-              "description": "Same-origin path to land in the browser after consent.",
+              "description": "Same-origin path to land in the browser after consent. When omitted, no post-consent redirect is requested.",
+              "minLength": 1,
               "type": "string"
             }
           }
@@ -11182,7 +11155,7 @@
                 }
               }
             },
-            "description": "Session or turn not found."
+            "description": "Session, turn, or referenced agent not found."
           },
           "409": {
             "content": {
@@ -11192,7 +11165,27 @@
                 }
               }
             },
-            "description": "Turn is terminal, or an event id already exists."
+            "description": "Turn is terminal, running and not accepting events, or an event id already exists."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The referenced agent for this session no longer exists."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The executor ran the request and failed while applying the events."
           }
         },
         "summary": "Create turn events",
@@ -11202,12 +11195,12 @@
         "x-fern-sdk-group-name": [
           "sessions"
         ],
-        "x-fern-sdk-method-name": "create_turn_event"
+        "x-fern-sdk-method-name": "create_turn_events"
       }
     },
     "/api/v1/sessions/{session_id}/turns/{turn_id}/subscribe": {
       "get": {
-        "description": "Subscribe to the live SSE stream for a turn. Only the session creator may subscribe. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).",
+        "description": "Subscribe to the live SSE stream. Resume with from_event_id or after_event_id.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -11233,17 +11226,39 @@
             }
           },
           {
-            "description": "Exclusive resume cursor: replay only events with a sequence number greater than this value. Omit to start from the beginning of the live buffer.",
+            "description": "Deprecated. Rejected on new turns. Use from_event_id or after_event_id instead.",
             "in": "query",
             "name": "after_sequence_number",
             "required": false,
             "schema": {
-              "description": "Exclusive resume cursor: replay only events with a sequence number greater than this value. Omit to start from the beginning of the live buffer.",
+              "description": "Deprecated. Rejected on new turns. Use from_event_id or after_event_id instead.",
               "minimum": 0,
               "type": [
                 "integer",
                 "null"
               ]
+            }
+          },
+          {
+            "description": "Inclusive cursor. Replay starts at the entry with this event id",
+            "in": "query",
+            "name": "from_event_id",
+            "required": false,
+            "schema": {
+              "description": "Inclusive cursor. Replay starts at the entry with this event id",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Exclusive cursor. Replay starts after the last entry with this event id.",
+            "in": "query",
+            "name": "after_event_id",
+            "required": false,
+            "schema": {
+              "description": "Exclusive cursor. Replay starts after the last entry with this event id.",
+              "minLength": 1,
+              "type": "string"
             }
           }
         ],
@@ -11296,10 +11311,10 @@
                 }
               }
             },
-            "description": "Cannot subscribe — the live stream no longer exists."
+            "description": "The turn stream is no longer available or resumable."
           }
         },
-        "summary": "Subscribe to a running turn",
+        "summary": "Subscribe to a turn stream",
         "tags": [
           "Agent Sessions"
         ],
@@ -11309,7 +11324,7 @@
         "x-fern-sdk-method-name": "subscribe_to_turn",
         "x-fern-streaming": {
           "format": "sse",
-          "resumable": true
+          "resumable": false
         }
       }
     },

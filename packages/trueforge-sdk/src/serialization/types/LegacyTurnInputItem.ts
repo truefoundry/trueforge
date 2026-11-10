@@ -7,9 +7,11 @@ import { UserMessage } from "./UserMessage.js";
 import { UserToolApprovalInputEvent } from "./UserToolApprovalInputEvent.js";
 import { UserToolResponseInputEvent } from "./UserToolResponseInputEvent.js";
 
-export const TurnInputItem: core.serialization.Schema<serializers.TurnInputItem.Raw, TrueForge.TurnInputItem> =
-    core.serialization.undiscriminatedUnion([UserMessage, UserToolApprovalInputEvent, UserToolResponseInputEvent]);
+export const LegacyTurnInputItem: core.serialization.Schema<
+    serializers.LegacyTurnInputItem.Raw,
+    TrueForge.LegacyTurnInputItem
+> = core.serialization.undiscriminatedUnion([UserMessage, UserToolApprovalInputEvent, UserToolResponseInputEvent]);
 
-export declare namespace TurnInputItem {
+export declare namespace LegacyTurnInputItem {
     export type Raw = UserMessage.Raw | UserToolApprovalInputEvent.Raw | UserToolResponseInputEvent.Raw;
 }

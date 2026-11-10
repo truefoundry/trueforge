@@ -1,3 +1,4 @@
+import type { TurnUserEvent } from '@truefoundry/trueforge-core/agent-session';
 import type { SessionRecord } from '@truefoundry/trueforge-core/agent-session/models/SessionRecord';
 import type { TurnRecord } from '@truefoundry/trueforge-core/agent-session/models/TurnRecord';
 import type { PersistedTurnEvent, SessionEventItem } from '@truefoundry/trueforge-core/agent-session/schemas/events';
@@ -6,6 +7,7 @@ import type {
   AddThreadsInput,
   AppendToEventsInput,
   AppendToThreadContextInput,
+  ClaimTurnExecutorInput,
   CreateSessionInput,
   CreateTurnInput,
   DeleteSessionInput,
@@ -20,10 +22,13 @@ import type {
   ListSessionsInput,
   ListTurnEventsInput,
   ListTurnsInput,
+  ListUnconsumedTurnInboundEventsInput,
+  MarkTurnInboundEventsConsumedInput,
   OverwriteThreadContextInput,
   PatchMCPServersInput,
   PatchSandboxInfoInput,
   PatchThreadCapabilityStateInput,
+  PatchThreadsMCPAuthInput,
   RemoveThreadsInput,
   TurnRecordWithoutSnapshot,
   UpdateSessionInput,
@@ -34,7 +39,7 @@ import {
   decodeOffsetPageToken,
   encodeOffsetPageToken,
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
-import type { Kysely } from 'kysely';
+import type { Kysely, Transaction } from 'kysely';
 import type { Database } from '../types';
 import { patchThreadCapabilityState as patchThreadCapabilityStateQuery } from './queries/capabilities';
 import {
@@ -42,7 +47,12 @@ import {
   listSessionEvents as listSessionEventsQuery,
   listTurnEvents as listTurnEventsQuery,
 } from './queries/events';
-import { insertTurnInboundEvents as insertTurnInboundEventsQuery } from './queries/inboundEvents';
+import {
+  insertTurnInboundEvents as insertTurnInboundEventsQuery,
+  listUnconsumedTurnInboundEvents as listUnconsumedTurnInboundEventsQuery,
+  markTurnInboundEventsConsumed as markTurnInboundEventsConsumedQuery,
+} from './queries/inboundEvents';
+import { patchThreadsMCPAuth as patchThreadsMCPAuthQuery } from './queries/mcpAuth';
 import {
   createSession as createSessionQuery,
   deleteSession as deleteSessionQuery,
@@ -62,6 +72,7 @@ import {
 } from './queries/threads';
 import type { NewThreadRegistration } from './queries/turns';
 import {
+  claimTurnExecutor as claimTurnExecutorQuery,
   createTurn as createTurnQuery,
   freezeAndGetTurn as freezeAndGetTurnQuery,
   getTurn as getTurnQuery,
@@ -90,11 +101,12 @@ type TurnCustom = Record<string, never>;
  *    `freezeAndGetTurn` first.
  *    Tip-equality is NOT required: new roots and concurrent forks from a
  *    finished tip can leave more than one turn `running` at once.
- * 2. Every turn-scoped write is fenced on `state->>'status' = 'running'`.
+ * 2. Turn-scoped writes are fenced against terminal turns; execution-only writes
+ *    may additionally require `state->>'status' = 'running'`.
  * 3. Terminal turns are IMMUTABLE — a terminal read is a final read.
  * 4. BEGIN IMMEDIATE provides write locking (no FOR SHARE / FOR UPDATE).
  */
-export class SqliteSessionStore implements ISessionStore<SessionCustom, TurnCustom> {
+export class SqliteSessionStore implements ISessionStore<Transaction<Database>, SessionCustom, TurnCustom> {
   constructor(private readonly db: Kysely<Database>) {}
 
   createSession(input: CreateSessionInput<SessionCustom>): Promise<void> {
@@ -165,6 +177,10 @@ export class SqliteSessionStore implements ISessionStore<SessionCustom, TurnCust
     return freezeAndGetTurnQuery(this.db, input);
   }
 
+  claimTurnExecutor(input: ClaimTurnExecutorInput): Promise<boolean> {
+    return claimTurnExecutorQuery(this.db, input);
+  }
+
   getTurn(input: GetTurnInput): Promise<TurnRecord<TurnCustom> | undefined> {
     return getTurnQuery(this.db, input);
   }
@@ -196,40 +212,59 @@ export class SqliteSessionStore implements ISessionStore<SessionCustom, TurnCust
     return updateTurnTerminalStateQuery(this.db, input);
   }
 
-  appendToEvents(input: AppendToEventsInput): Promise<void> {
-    return appendToEventsQuery(this.db, input);
+  withTransaction<T>(callback: (transaction: Transaction<Database>) => Promise<T>): Promise<T> {
+    return this.db.transaction().execute(callback);
+  }
+
+  appendToEvents(input: AppendToEventsInput, transaction?: Transaction<Database>): Promise<void> {
+    return appendToEventsQuery(transaction ?? this.db, input);
   }
 
   insertTurnInboundEvents(input: InsertTurnInboundEventsInput): Promise<void> {
     return insertTurnInboundEventsQuery(this.db, input);
   }
 
-  addThreads(input: AddThreadsInput): Promise<void> {
-    return addThreadsQuery(this.db, input);
+  listUnconsumedTurnInboundEvents(input: ListUnconsumedTurnInboundEventsInput): Promise<TurnUserEvent[]> {
+    return listUnconsumedTurnInboundEventsQuery(this.db, input);
   }
 
-  removeThreads(input: RemoveThreadsInput): Promise<void> {
-    return removeThreadsQuery(this.db, input);
+  markTurnInboundEventsConsumed(
+    input: MarkTurnInboundEventsConsumedInput,
+    transaction?: Transaction<Database>,
+  ): Promise<void> {
+    return markTurnInboundEventsConsumedQuery(transaction ?? this.db, input);
   }
 
-  appendToThreadContext(input: AppendToThreadContextInput): Promise<void> {
-    return appendToThreadContextQuery(this.db, input);
+  addThreads(input: AddThreadsInput, transaction?: Transaction<Database>): Promise<void> {
+    return addThreadsQuery(transaction ?? this.db, input);
+  }
+
+  removeThreads(input: RemoveThreadsInput, transaction?: Transaction<Database>): Promise<void> {
+    return removeThreadsQuery(transaction ?? this.db, input);
+  }
+
+  appendToThreadContext(input: AppendToThreadContextInput, transaction?: Transaction<Database>): Promise<void> {
+    return appendToThreadContextQuery(transaction ?? this.db, input);
   }
 
   overwriteThreadContext(input: OverwriteThreadContextInput): Promise<void> {
     return overwriteThreadContextQuery(this.db, input);
   }
 
-  patchMCPServers(input: PatchMCPServersInput): Promise<void> {
-    return patchMCPServersQuery(this.db, input);
+  patchMCPServers(input: PatchMCPServersInput, transaction?: Transaction<Database>): Promise<void> {
+    return patchMCPServersQuery(transaction ?? this.db, input);
   }
 
-  patchSandboxInfo(input: PatchSandboxInfoInput): Promise<void> {
-    return patchSandboxInfoQuery(this.db, input);
+  patchSandboxInfo(input: PatchSandboxInfoInput, transaction?: Transaction<Database>): Promise<void> {
+    return patchSandboxInfoQuery(transaction ?? this.db, input);
   }
 
   patchThreadCapabilityState(input: PatchThreadCapabilityStateInput): Promise<void> {
     return patchThreadCapabilityStateQuery(this.db, input);
+  }
+
+  patchThreadsMCPAuth(input: PatchThreadsMCPAuthInput, transaction?: Transaction<Database>): Promise<void> {
+    return patchThreadsMCPAuthQuery(transaction ?? this.db, input);
   }
 
   listTurnEvents(input: ListTurnEventsInput): Promise<{ data: PersistedTurnEvent[]; pagination: TokenPagination }> {

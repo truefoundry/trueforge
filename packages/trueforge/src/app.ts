@@ -26,11 +26,11 @@ import { createInternalMetricsRouter } from './apis/sessionMetrics';
 import { createInternalSessionsRouter, createSessionsRouter } from './apis/sessions';
 import { createSettingsRouter } from './apis/settings';
 import { createAvailableSkillsRouter } from './apis/skills';
-import { createTurnsRouter } from './apis/turns';
+import { createTurnsRouter, type ResolveTurnExecutionStoresInput, type TurnExecutionStores } from './apis/turns';
 import { createUsersRouter } from './apis/users';
 import type { Authenticator } from './auth/authenticator';
 import type { Authorizer } from './auth/authorizer';
-import { areCatalogSettingsAvailable, resolveRequestContext } from './auth/identity';
+import { areCatalogSettingsAvailable, resolveRequestContext, type RequestContext } from './auth/identity';
 import {
   buildAdminAuthMiddleware,
   createApiKeyAuthMiddleware,
@@ -70,7 +70,6 @@ import { OPENAPI_DOCUMENT_TAGS } from './routes/openapiTags';
 import type { ActiveTurnRegistry } from './runtime/activeTurns';
 import type { EventSubscriptionRegistry } from './runtime/event-subscription';
 import { InvalidCronError } from './schemas/schedule';
-import type { ICapabilitiesStore } from './truefoundry/inlineTools';
 import { zodErrorResponse, zodValidationHook } from './zodErrorResponse';
 
 const BEARER_AUTH_SCHEME = 'BearerAuth';
@@ -274,11 +273,6 @@ export interface ResolveTurnSkillsStoreInput {
   allowInlineResources?: boolean;
 }
 
-/** Turn capability resolve. Omit `c` for schedules, which have no `x-tfg-tools`. */
-export interface ResolveCapabilitiesStoreInput {
-  c?: Context;
-}
-
 /** HTTP skill-store resolve. `allowInlineResources` for inline session create and spec replace. */
 export interface ResolveSkillStoreInput {
   c: Context;
@@ -286,74 +280,72 @@ export interface ResolveSkillStoreInput {
 }
 
 export interface ServerDeps<TTransaction> {
-  modelCatalog: ModelCatalog;
+  accessControlStore: IAccessControlStore<TTransaction>;
+  activeTurns: ActiveTurnRegistry<TTransaction>;
+  /** Persistence agent store (schedule runs resolve the bound agent without an HTTP caller). */
+  agentStore: IAgentStore<TTransaction>;
+  /** Startup-selected authenticator; middleware is built from this once per app. */
+  authenticator: Authenticator;
+  /** Startup-selected agent authorization policy. */
+  authorizer: Authorizer;
+  /** Hands out each turn's resumable event stream to the create and subscribe handlers. */
+  eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
+  logger: Logger;
   mcpCatalog: McpCatalog;
-  skillCatalog: SkillCatalog;
-  sandboxCatalog: SandboxCatalog;
-  webSearchCatalog: WebSearchCatalog;
-  memoryCatalog: MemoryCatalog;
-  /** Per-request store: DB singleton, or a token-bound TrueFoundry store in TrueFoundry mode. */
-  resolveModelProviderStore: (input: ResolveModelProviderStoreInput) => IModelProviderStore<TTransaction>;
+  modelCatalog: ModelCatalog;
+  /** Discovered openid-client configuration; undefined when browser login is disabled. */
+  oidcClient: Configuration | undefined;
+  /** Redis client used for redis request-reply */
+  redis?: RedisClient | undefined;
+  /** Redis request-reply router for registering peer handlers. */
+  requestReplyRouter: RequestReplyRouter;
+  /** Per-request store: DB singleton, or a token-bound TrueFoundry decorator in TrueFoundry mode. */
+  resolveAgentStore: (requestContext: RequestContext) => IAgentStore<TTransaction>;
   /**
    * Per-request store: DB singleton, or a token-bound TrueFoundry store in TrueFoundry mode.
    * The unauthenticated OAuth callback omits `c` and gets the DB persistence store.
    */
   resolveMcpServerStore: (input: ResolveMcpServerStoreInput) => IMcpServerWithAuthStore<TTransaction>;
-  /** Per-request store: DB singleton, or a token-bound TrueFoundry decorator in TrueFoundry mode. */
-  resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
-  /**
-   * Per-request store: DB singleton, or the env-backed shared store in TrueFoundry mode
-   * (`TRUEFOUNDRY_SANDBOX_*` + static SETTINGS JSON).
-   */
-  resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
-  resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore<TTransaction>;
-  /** Per-request store: DB singleton, or the platform's env-backed provider in TrueFoundry mode. */
-  resolveMemoryProviderStore: (c: Context) => IMemoryProviderStore<TTransaction>;
-  /** Tenant-wide feature switches; DB-backed in every mode. */
-  resolveConfigurationStore: (c: Context) => IConfigurationStore<TTransaction>;
-  /** Shared across turns so memory providers keep their caches. */
-  memoryProviders: MemoryProviderCache;
+  /** Per-request store: DB singleton, or a token-bound TrueFoundry store in TrueFoundry mode. */
+  resolveModelProviderStore: (input: ResolveModelProviderStoreInput) => IModelProviderStore<TTransaction>;
   /** Per-request store: DB git skills, or TrueFoundry registry catalog in TrueFoundry mode. */
   resolveSkillStore: (input: ResolveSkillStoreInput) => ISkillStore<TTransaction>;
+  /**
+   * Stores for running a turn. HTTP create and POST /events pass the request.
+   * A peered `turns/send-events` passes the forwarded context and headers.
+   */
+  resolveTurnExecutionStores: (
+    input: ResolveTurnExecutionStoresInput<TTransaction>,
+  ) => Promise<TurnExecutionStores<TTransaction>>;
   /**
    * Turn skill mounts. HTTP turns may apply `x-tfg-skills` when allowInlineResources is set;
    * schedules call with `{}` (registry/DB only).
    */
   resolveTurnSkillsStore: (input: ResolveTurnSkillsStoreInput) => Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'>;
-  /** `x-tfg-tools` for this turn. Schedules call with `{}` and mount nothing. */
-  resolveCapabilitiesStore: (input: ResolveCapabilitiesStoreInput) => ICapabilitiesStore;
-  withTransaction: WithTransaction<TTransaction>;
-  tokenStore: IOAuthTokenStore<TTransaction>;
+  sandboxCatalog: SandboxCatalog;
+  /** Sandbox environment parent + version persistence, or the shared TrueFoundry store. */
+  sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
+  /** DB singleton, or the env-backed shared store in TrueFoundry mode. */
+  sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   scheduleStore: IScheduleStore<TTransaction>;
-  sessionStore: ISessionStore;
-  accessControlStore: IAccessControlStore<TTransaction>;
   sessionMetricsStore: ISessionMetricsStore;
+  sessions: Sessions<TTransaction>;
+  sessionStore: ISessionStore<TTransaction>;
+  skillCatalog: SkillCatalog;
+  tokenStore: IOAuthTokenStore<TTransaction>;
   /** Tenant users that sessions can be shared with. */
   userStore: IUserStore;
-  /** Persistence agent store (schedule runs resolve the bound agent without an HTTP caller). */
-  agentStore: IAgentStore<TTransaction>;
-  /** Sandbox environment parent + version persistence (no TrueFoundry dual-write). */
-  sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
-  /**
-   * Context-free sandbox provider store for internal build progress (persistence or TFY).
-   * Same backing store as resolveSandboxProviderStore, without request context.
-   */
-  sandboxProviderStore: ISandboxProviderStore<TTransaction>;
-  sessions: Sessions;
-  activeTurns: ActiveTurnRegistry;
-  /** Primary Redis client (server-owned); undefined in standalone mode. */
-  redis?: RedisClient | undefined;
-  /** Request-reply dispatch table served by this replica's executor. */
-  requestReplyRouter: RequestReplyRouter;
-  /** Hands out each turn's resumable event stream to the create and subscribe handlers. */
-  eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
-  logger: Logger;
-  /** Discovered openid-client configuration; undefined when browser login is disabled. */
-  oidcClient: Configuration | undefined;
-  /** Startup-selected authenticator; middleware is built from this once per app. */
-  authenticator: Authenticator;
-  /** Startup-selected agent authorization policy. */
-  authorizer: Authorizer;
+  webSearchCatalog: WebSearchCatalog;
+  /** DB singleton, or the env-backed shared store in TrueFoundry mode. */
+  webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
+  memoryCatalog: MemoryCatalog;
+  /** DB singleton, or the platform's env-backed provider in TrueFoundry mode. */
+  memoryProviderStore: IMemoryProviderStore<TTransaction>;
+  /** Shared across turns so memory providers keep their caches. */
+  memoryProviders: MemoryProviderCache;
+  /** Tenant-wide feature switches; DB-backed in every mode. */
+  configurationStore: IConfigurationStore;
+  withTransaction: WithTransaction<TTransaction>;
   /** Shared scrape target. HTTP middleware and `GET /metrics` use this registry. */
   httpMetrics: HttpMetrics;
 }
@@ -370,22 +362,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   const adminAuthMiddleware = buildAdminAuthMiddleware({ authenticator: deps.authenticator, accessible: true });
   const scheduleExecutionAuthMiddleware = createApiKeyAuthMiddleware(configuration.TRUEFORGE_API_KEY);
   const authEnabled = getTrueForgeAuthMode() !== TrueForgeAuthMode.Standalone;
-  const scheduleTurnDeps = {
-    scheduleStore: deps.scheduleStore,
-    sessions: deps.sessions,
-    agentStore: deps.agentStore,
-    eventSubscriptions: deps.eventSubscriptions,
-    logger: deps.logger,
-    resolveModelProviderStore: deps.resolveModelProviderStore,
-    resolveMcpServerStore: deps.resolveMcpServerStore,
-    resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
-    sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-    resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
-    activeTurns: deps.activeTurns,
-    resolveTurnSkillsStore: deps.resolveTurnSkillsStore,
-    resolveCapabilitiesStore: deps.resolveCapabilitiesStore,
-  };
-
+  const resolveHttpAgentStore = (c: Context) => deps.resolveAgentStore(resolveRequestContext(c));
   const httpMetrics = deps.httpMetrics;
   app.use('*', createRequestLogContextMiddleware());
   app.use('/api/v1/sessions/:session_id/*', createSessionPathLogContextMiddleware());
@@ -399,10 +376,8 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     app.use('*', createClientCertificateMiddleware(deps.logger));
   }
   app.use('*', createRequestBodyLimitMiddleware(configuration.MAX_REQUEST_BODY_BYTES));
-
   app.get('/healthz', c => c.json({ status: 'ok', version: PACKAGE_VERSION }));
   app.get('/metrics', httpMetrics.handler);
-
   app.route(
     '/api/v1/auth',
     createAuthRouter({
@@ -420,9 +395,9 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     withAuth(
       createCapabilitiesRouter({
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-        resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
-        resolveMemoryProviderStore: deps.resolveMemoryProviderStore,
-        resolveConfigurationStore: deps.resolveConfigurationStore,
+        webSearchProviderStore: deps.webSearchProviderStore,
+        configurationStore: deps.configurationStore,
+        memoryProviderStore: deps.memoryProviderStore,
         userStore: deps.userStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
@@ -495,15 +470,15 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     '/api/v1/agents',
     withAuth(
       createAgentsRouter({
-        resolveAgentStore: deps.resolveAgentStore,
+        resolveAgentStore: resolveHttpAgentStore,
         resolveModelProviderStore: c => deps.resolveModelProviderStore({ c }),
         resolveMcpServerStore: c => deps.resolveMcpServerStore({ c }),
         resolveSkillStore: c => deps.resolveSkillStore({ c }),
-        resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+        sandboxProviderStore: deps.sandboxProviderStore,
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-        resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
-        resolveMemoryProviderStore: deps.resolveMemoryProviderStore,
-        resolveConfigurationStore: deps.resolveConfigurationStore,
+        webSearchProviderStore: deps.webSearchProviderStore,
+        memoryProviderStore: deps.memoryProviderStore,
+        configurationStore: deps.configurationStore,
         withTransaction: deps.withTransaction,
         resolveRequestContext,
         authorizer: deps.authorizer,
@@ -516,17 +491,32 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     withAuth(
       createSandboxEnvironmentsRouter({
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-        resolveAgentStore: deps.resolveAgentStore,
-        resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+        resolveAgentStore: resolveHttpAgentStore,
+        sandboxProviderStore: deps.sandboxProviderStore,
         resolveRequestContext,
         logger: deps.logger,
       }),
       authMiddleware,
     ),
   );
+  const scheduleTurnExecutionRouterDeps = {
+    activeTurns: deps.activeTurns,
+    agentStore: deps.agentStore,
+    eventSubscriptions: deps.eventSubscriptions,
+    logger: deps.logger,
+    resolveMcpServerStore: deps.resolveMcpServerStore,
+    resolveModelProviderStore: deps.resolveModelProviderStore,
+    resolveTurnSkillsStore: deps.resolveTurnSkillsStore,
+    sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
+    sandboxProviderStore: deps.sandboxProviderStore,
+    scheduleStore: deps.scheduleStore,
+    sessions: deps.sessions,
+    sessionStore: deps.sessionStore,
+    webSearchProviderStore: deps.webSearchProviderStore,
+  };
   app.route(
     '/api/internal/schedules',
-    withAuth(createScheduleExecutionRouter(scheduleTurnDeps), scheduleExecutionAuthMiddleware),
+    withAuth(createScheduleExecutionRouter(scheduleTurnExecutionRouterDeps), scheduleExecutionAuthMiddleware),
   );
   app.route(
     '/api/internal/sandbox-environments',
@@ -543,11 +533,11 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     '/api/v1/schedules',
     withAuth(
       createSchedulesRouter({
-        ...scheduleTurnDeps,
-        resolveAgentStore: deps.resolveAgentStore,
-        withTransaction: deps.withTransaction,
-        resolveRequestContext,
+        ...scheduleTurnExecutionRouterDeps,
         authorizer: deps.authorizer,
+        resolveAgentStore: resolveHttpAgentStore,
+        resolveRequestContext,
+        withTransaction: deps.withTransaction,
       }),
       authMiddleware,
     ),
@@ -558,7 +548,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     '/api/v1/settings/configuration',
     withAuth(
       createConfigurationRouter({
-        resolveConfigurationStore: deps.resolveConfigurationStore,
+        resolveConfigurationStore: () => deps.configurationStore,
         resolveRequestContext,
       }),
       adminAuthMiddleware,
@@ -572,11 +562,11 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveMcpServerStore: deps.resolveMcpServerStore,
         tokenStore: deps.tokenStore,
         resolveSkillStore: c => deps.resolveSkillStore({ c }),
-        resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+        sandboxProviderStore: deps.sandboxProviderStore,
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-        resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
-        resolveMemoryProviderStore: deps.resolveMemoryProviderStore,
-        resolveAgentStore: deps.resolveAgentStore,
+        webSearchProviderStore: deps.webSearchProviderStore,
+        memoryProviderStore: deps.memoryProviderStore,
+        resolveAgentStore: resolveHttpAgentStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
         resolveRequestContext,
@@ -588,19 +578,19 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     '/api/internal/sessions',
     withAuth(
       createInternalSessionsRouter({
-        sessions: deps.sessions,
         accessControlStore: deps.accessControlStore,
-        resolveModelProviderStore: deps.resolveModelProviderStore,
-        resolveMcpServerStore: deps.resolveMcpServerStore,
-        resolveSkillStore: deps.resolveSkillStore,
-        resolveAgentStore: deps.resolveAgentStore,
-        resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
-        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-        resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
-        resolveMemoryProviderStore: deps.resolveMemoryProviderStore,
-        resolveConfigurationStore: deps.resolveConfigurationStore,
-        resolveRequestContext,
         authorizer: deps.authorizer,
+        resolveAgentStore: resolveHttpAgentStore,
+        resolveMcpServerStore: deps.resolveMcpServerStore,
+        resolveModelProviderStore: deps.resolveModelProviderStore,
+        resolveRequestContext,
+        resolveSkillStore: deps.resolveSkillStore,
+        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
+        sandboxProviderStore: deps.sandboxProviderStore,
+        sessions: deps.sessions,
+        webSearchProviderStore: deps.webSearchProviderStore,
+        memoryProviderStore: deps.memoryProviderStore,
+        configurationStore: deps.configurationStore,
       }),
       authMiddleware,
     ),
@@ -611,7 +601,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       createInternalMetricsRouter({
         sessionMetricsStore: deps.sessionMetricsStore,
         resolveRequestContext,
-        resolveAgentStore: deps.resolveAgentStore,
+        resolveAgentStore: resolveHttpAgentStore,
         authorizer: deps.authorizer,
       }),
       authMiddleware,
@@ -622,7 +612,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     withAuth(
       createPermissionsRouter({
         authorizer: deps.authorizer,
-        resolveAgentStore: deps.resolveAgentStore,
+        resolveAgentStore: resolveHttpAgentStore,
         scheduleStore: deps.scheduleStore,
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         sessionStore: deps.sessionStore,
@@ -635,26 +625,26 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     '/api/v1/sessions',
     withAuth(
       createSessionsRouter({
-        sessions: deps.sessions,
-        sessionStore: deps.sessionStore,
         accessControlStore: deps.accessControlStore,
-        userStore: deps.userStore,
-        withTransaction: deps.withTransaction,
         activeTurns: deps.activeTurns,
-        resolveModelProviderStore: deps.resolveModelProviderStore,
-        resolveMcpServerStore: deps.resolveMcpServerStore,
-        resolveSkillStore: deps.resolveSkillStore,
-        resolveAgentStore: deps.resolveAgentStore,
-        resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
-        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-        resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
-        resolveMemoryProviderStore: deps.resolveMemoryProviderStore,
-        resolveConfigurationStore: deps.resolveConfigurationStore,
+        authorizer: deps.authorizer,
+        logger: deps.logger,
         redis: deps.redis,
         requestReplyRouter: deps.requestReplyRouter,
+        resolveAgentStore: resolveHttpAgentStore,
+        resolveMcpServerStore: deps.resolveMcpServerStore,
+        resolveModelProviderStore: deps.resolveModelProviderStore,
         resolveRequestContext,
-        logger: deps.logger,
-        authorizer: deps.authorizer,
+        resolveSkillStore: deps.resolveSkillStore,
+        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
+        sandboxProviderStore: deps.sandboxProviderStore,
+        sessions: deps.sessions,
+        sessionStore: deps.sessionStore,
+        userStore: deps.userStore,
+        webSearchProviderStore: deps.webSearchProviderStore,
+        memoryProviderStore: deps.memoryProviderStore,
+        configurationStore: deps.configurationStore,
+        withTransaction: deps.withTransaction,
       }),
       authMiddleware,
     ),
@@ -663,25 +653,20 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     '/api/v1/sessions',
     withAuth(
       createTurnsRouter({
-        sessions: deps.sessions,
-        sessionStore: deps.sessionStore,
         accessControlStore: deps.accessControlStore,
         activeTurns: deps.activeTurns,
-        resolveModelProviderStore: deps.resolveModelProviderStore,
-        resolveMcpServerStore: deps.resolveMcpServerStore,
-        resolveTurnSkillsStore: deps.resolveTurnSkillsStore,
-        resolveCapabilitiesStore: deps.resolveCapabilitiesStore,
-        resolveAgentStore: deps.resolveAgentStore,
-        eventSubscriptions: deps.eventSubscriptions,
-        resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
-        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-        resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
-        resolveMemoryProviderStore: deps.resolveMemoryProviderStore,
-        resolveConfigurationStore: deps.resolveConfigurationStore,
-        memoryProviders: deps.memoryProviders,
-        logger: deps.logger,
-        resolveRequestContext,
         authorizer: deps.authorizer,
+        eventSubscriptions: deps.eventSubscriptions,
+        logger: deps.logger,
+        redis: deps.redis,
+        requestReplyRouter: deps.requestReplyRouter,
+        resolveAgentStore: deps.resolveAgentStore,
+        resolveRequestContext,
+        resolveTurnExecutionStores: deps.resolveTurnExecutionStores,
+        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
+        sandboxProviderStore: deps.sandboxProviderStore,
+        sessions: deps.sessions,
+        sessionStore: deps.sessionStore,
       }),
       authMiddleware,
     ),

@@ -2,8 +2,7 @@
 
 import type * as TrueForge from "../index.js";
 
-export type TurnInboundEventItem =
-    | TrueForge.UserMcpAuthContinueInputEvent
+export type LegacyTurnInputItem =
+    | TrueForge.UserMessage
     | TrueForge.UserToolApprovalInputEvent
-    | TrueForge.UserToolApprovalPolicyMessage
     | TrueForge.UserToolResponseInputEvent;

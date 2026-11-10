@@ -72,7 +72,7 @@ function reservedEnvironmentDeleteRejection(): string {
 export interface SandboxEnvironmentsRouterDeps<TTransaction> {
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
-  resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
+  sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   resolveRequestContext: ResolveRequestContext;
   logger: Logger;
 }
@@ -179,10 +179,7 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
       existing?.environment.created_by_subject ?? createdBySubjectFromRequestContext(requestContext);
 
     try {
-      const provider = await resolveSandboxProviderRecord(
-        deps.resolveSandboxProviderStore(c),
-        requestContext.tenant_id,
-      );
+      const provider = await resolveSandboxProviderRecord(deps.sandboxProviderStore, requestContext.tenant_id);
       if (provider === undefined) {
         return { kind: 'error', status: 422, message: 'No sandbox provider configured' };
       }
@@ -307,7 +304,7 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
         409,
       );
     }
-    const provider = await resolveSandboxProviderRecord(deps.resolveSandboxProviderStore(c), tenant_id);
+    const provider = await resolveSandboxProviderRecord(deps.sandboxProviderStore, tenant_id);
     if (provider === undefined) {
       return c.json({ error: { message: 'No sandbox provider configured' } }, 422);
     }

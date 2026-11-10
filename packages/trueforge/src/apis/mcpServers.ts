@@ -426,7 +426,7 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
     const requestContext = deps.resolveRequestContext(c);
     const userRef = requestContext.subject.id;
 
-    if (returnTo && safeReturnTo(returnTo) !== returnTo) {
+    if (returnTo !== undefined && safeReturnTo(returnTo) !== returnTo) {
       return c.json({ error: { message: 'Invalid return_to: must be a same-origin relative path' } }, 400);
     }
 
