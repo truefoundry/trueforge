@@ -1295,6 +1295,27 @@ describe('buildSessionMetrics', () => {
     assert.equal(waiting?.value, 10_000);
   });
 
+  it('adds pause time to the working-only server duration', () => {
+    const turns = buildSessionTurnViews([created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' })]);
+    const segments = [
+      {
+        id: 'pause',
+        type: 'waiting_on_human' as const,
+        title: 'turn.paused',
+        description: 'Paused',
+        startMs: 1_000,
+        endMs: 1_000,
+        turnIndex: 0,
+        threadId: 'sub-a',
+        isPauseChip: true,
+        wallDurationMs: 3_600_000,
+      },
+    ];
+    const metrics = buildSessionMetrics({ turns, segments, sessionMetrics: { totalDurationMs: 5_000 } });
+    assert.equal(metrics.wallTimeMs, 3_605_000);
+    assert.equal(metrics.timeBreakdown.find(item => item.label === 'overhead')?.value, 5_000);
+  });
+
   it('derives tiles from terminal turn metrics and timeline segments', () => {
     const turns = buildSessionTurnViews([
       created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),

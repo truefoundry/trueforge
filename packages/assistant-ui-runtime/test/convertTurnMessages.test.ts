@@ -24,6 +24,7 @@ import {
   buildUserMessageFromTurnInput,
   convertTurnsToThreadMessages,
   getTurnMessageContent,
+  prependFoldState,
   prependOlderSessionHistory,
   projectSessionMessages,
   repositoryItemsFromMessages,
@@ -3614,6 +3615,89 @@ describe('buildSnapshotFromSessionEvents', () => {
     expect(updates).toHaveLength(1);
     expect(updates[0]?.content.length).toBeGreaterThan(0);
     expect(updates[0]?.status).toMatchObject({ type: 'requires-action', reason: 'tool-calls' });
+  });
+
+  it('keeps already-ingested event ids when older history is prepended', () => {
+    const older = new PeerThreadFoldState();
+    const request = approvalRequired({
+      id: 'approval-required-old',
+      threadId: ROOT_THREAD_ID,
+      toolCalls: [{ id: 'approval-1', sourceEventId: 'model-old' }],
+    });
+    ingestTurnEvent(older, request);
+    ingestTurnEvent(older, {
+      type: 'user.tool_approval',
+      id: 'user-approval-old',
+      createdAt,
+      threadId: ROOT_THREAD_ID,
+      toolCallId: 'approval-1',
+      approval: { status: 'allow' },
+    });
+
+    const merged = prependFoldState(older, new PeerThreadFoldState());
+    ingestTurnEvent(merged, request);
+
+    expect(merged.threads.get(ROOT_THREAD_ID)?.pendingApprovals.size).toBe(0);
+  });
+
+  it('shows a paused tip as running once every prompt is answered', async () => {
+    const pausedTurn: Turn = {
+      id: 't-answered',
+      sessionId: SESSION_ID,
+      state: { status: 'paused' },
+      input: [{ type: 'user.message', content: 'run it' }],
+      createdAt,
+    };
+    const items: SessionEventItem[] = [
+      {
+        turnId: pausedTurn.id,
+        event: {
+          type: 'turn.created',
+          id: 'created-answered',
+          turnId: pausedTurn.id,
+          input: [{ type: 'user.message', content: 'run it' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      {
+        turnId: pausedTurn.id,
+        event: modelMessage({
+          id: 'model-answered',
+          threadId: ROOT_THREAD_ID,
+          toolCalls: [{ id: 'approval-1', type: 'function', function: { name: 'bash', arguments: '{}' } }],
+        }),
+      },
+      {
+        turnId: pausedTurn.id,
+        event: approvalRequired({
+          id: 'approval-required-answered',
+          threadId: ROOT_THREAD_ID,
+          toolCalls: [{ id: 'approval-1', sourceEventId: 'model-answered' }],
+        }),
+      },
+      {
+        turnId: pausedTurn.id,
+        event: { type: 'turn.update', id: 'paused-answered', createdAt, threadId: null, state: { status: 'paused' } },
+      },
+      {
+        turnId: pausedTurn.id,
+        event: {
+          type: 'user.tool_approval',
+          id: 'user-approval-answered',
+          createdAt,
+          threadId: ROOT_THREAD_ID,
+          toolCallId: 'approval-1',
+          approval: { status: 'allow' },
+        },
+      },
+    ];
+
+    const snapshot = await buildSnapshotFromSessionEvents(mockServerWithEvents([pausedTurn], items), SESSION_ID);
+    const messages = projectSessionMessages(snapshot);
+
+    expect(messages.at(-1)).toMatchObject({ role: 'assistant', status: { type: 'running' } });
+    expect(collectPendingApprovals(messages)).toEqual([]);
   });
 
   it('does not baseline tip model messages that are already folded on refresh', async () => {

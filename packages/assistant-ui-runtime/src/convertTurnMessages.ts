@@ -423,6 +423,9 @@ export function prependFoldState(older: PeerThreadFoldState, newer: PeerThreadFo
   for (const [eventId, messageTurnId] of newer.modelMessageTurnIds) {
     result.modelMessageTurnIds.set(eventId, messageTurnId);
   }
+  for (const eventId of [...older.ingestedEventIds, ...newer.ingestedEventIds]) {
+    result.ingestedEventIds.add(eventId);
+  }
   return result;
 }
 
@@ -1163,6 +1166,10 @@ function buildTurnUpdateFromFold(
     if (turn.state.status === TURN_STATUS.PAUSED && update.status == null) {
       const approvalThreadId = findFirstPendingApprovalThreadId(foldState);
       const responseThreadId = findFirstPendingResponseThreadId(foldState);
+      // Answered but not yet resumed: leave status unset so it does not look blocked.
+      if (approvalThreadId == null && responseThreadId == null) {
+        return update;
+      }
       const custom = {
         ...(approvalThreadId != null ? toolApprovalMessageCustom(approvalThreadId) : {}),
         ...(responseThreadId != null ? toolResponseMessageCustom(responseThreadId) : {}),
@@ -1211,7 +1218,10 @@ function resolveProjectedRequiredActionState(
     status.reason === ASSISTANT_MESSAGE_STATUS_REASON.TOOL_CALLS &&
     !contentHasPendingRequiredActions(content)
   ) {
-    status = assistantStatusFromTurnState(record.state);
+    status =
+      record.state.status === TURN_STATUS.PAUSED
+        ? runningAssistantStatus()
+        : assistantStatusFromTurnState(record.state);
     custom = Object.fromEntries(
       Object.entries(custom).filter(
         ([key]) =>

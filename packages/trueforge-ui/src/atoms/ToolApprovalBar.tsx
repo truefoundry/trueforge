@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect, useId, useRef } from 'react';
+
 import { Icon } from '../icons/Icon.js';
 import { StepIconBox } from './agent-chat/StepIconBox.js';
 import { cn } from './lib/cn.js';
@@ -76,6 +78,13 @@ export function ToolApprovalBar({
   const isDenied = status?.type === 'denied';
   const interactionsLocked = disabled && !isDecided;
   const defaultApproval = approveOptions[0];
+  const reasonErrorId = useId();
+  const reasonInputRef = useRef<HTMLInputElement>(null);
+  const selectedDenyOptionId = selectedDenyOption?.id;
+
+  useEffect(() => {
+    if (selectedDenyOptionId != null) reasonInputRef.current?.focus();
+  }, [selectedDenyOptionId]);
 
   const headingText = isApproved ? 'Tool Approved' : isDenied ? 'Tool Approval Denied' : 'Tool Approval Required for';
 
@@ -131,7 +140,6 @@ export function ToolApprovalBar({
               {approveOptions.map((option, index) => (
                 <DropdownMenuItem
                   key={option.id}
-                  aria-selected={index === 0}
                   disabled={interactionsLocked}
                   onClick={() => onSelect(option.id)}
                   className="whitespace-nowrap"
@@ -187,13 +195,20 @@ export function ToolApprovalBar({
           )}
           <div className="flex items-center gap-2">
             <input
+              ref={reasonInputRef}
               placeholder="Enter reason for denial"
               aria-label="Reason for denial"
               aria-invalid={showReasonError || undefined}
-              aria-describedby={showReasonError ? 'aui-denial-reason-error' : undefined}
+              aria-describedby={showReasonError ? reasonErrorId : undefined}
               value={denialReason}
               disabled={interactionsLocked}
               onChange={e => onDenialReasonChange?.(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                  e.preventDefault();
+                  onReasonSubmit?.();
+                }
+              }}
               className={cn(
                 'h-8 flex-1 rounded border border-input-border bg-primary-bg px-2 text-xs text-text-primary',
                 'focus:outline-none focus:ring-1 focus:ring-focus-ring',
@@ -204,7 +219,7 @@ export function ToolApprovalBar({
             </Button.Primary>
           </div>
           {showReasonError && (
-            <span id="aui-denial-reason-error" className="text-xs text-failure-bg" role="alert">
+            <span id={reasonErrorId} className="text-xs text-failure-bg" role="alert">
               Reason is required
             </span>
           )}
