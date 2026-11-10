@@ -12,3 +12,4 @@ Turns now pause, instead of finishing, while waiting for user input such as tool
 - Conversations that were already waiting on the user stay waiting after upgrade, with the same cost, time, and status.
 - The chat shows a waiting notice instead of a running indicator while a turn is paused or cannot continue.
 - A conversation is saved to memory only after it finishes, not while it is waiting on the user.
+- Creating a turn rejects an empty user message.
