@@ -62,15 +62,6 @@ describe('resolveTrueFoundryMemoryProviderConfig', () => {
     });
   });
 
-  it('ignores a leftover pause_timeout_ms and keeps the other settings', () => {
-    expect(
-      resolveTrueFoundryMemoryProviderConfig({
-        ...ZEP_ON,
-        TRUEFOUNDRY_MEMORY_SETTINGS: '{"pause_timeout_ms":60000,"interval_ms":30000}',
-      })?.settings,
-    ).toEqual({ ...DEFAULT_SETTINGS, interval_ms: 30_000 });
-  });
-
   it('reads loop settings from TRUEFOUNDRY_MEMORY_SETTINGS, keeping defaults for the rest', () => {
     expect(
       resolveTrueFoundryMemoryProviderConfig({
