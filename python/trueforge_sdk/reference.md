@@ -2999,7 +2999,8 @@ Use `previous_turn_id` to chain to the session's last turn (defaults to `auto`);
 <dd>
 
 ```python
-from trueforge_sdk import TrueForge, UserMessage
+from trueforge_sdk import TrueForge
+from trueforge_sdk.sessions import CreateTurnSessionsStreamRequestInputItem
 
 client = TrueForge(
     token="<token>",
@@ -3009,7 +3010,7 @@ client = TrueForge(
 client.sessions.create_turn_stream(
     session_id="session_id",
     input=[
-        UserMessage(
+        CreateTurnSessionsStreamRequestInputItem(
             content="content",
             type="user.message",
         )
@@ -3038,7 +3039,7 @@ client.sessions.create_turn_stream(
 <dl>
 <dd>
 
-**input:** `typing.List[UserMessage]` — User messages for this turn. At least one is required.
+**input:** `typing.List[CreateTurnSessionsStreamRequestInputItem]` — User messages for this turn. At least one is required.
     
 </dd>
 </dl>
@@ -3105,7 +3106,8 @@ Use `previous_turn_id` to chain to the session's last turn (defaults to `auto`);
 <dd>
 
 ```python
-from trueforge_sdk import TrueForge, UserMessage
+from trueforge_sdk import TrueForge
+from trueforge_sdk.sessions import CreateTurnSessionsStreamRequestInputItem
 
 client = TrueForge(
     token="<token>",
@@ -3115,7 +3117,7 @@ client = TrueForge(
 client.sessions.create_turn_stream(
     session_id="session_id",
     input=[
-        UserMessage(
+        CreateTurnSessionsStreamRequestInputItem(
             content="content",
             type="user.message",
         )
@@ -3144,7 +3146,7 @@ client.sessions.create_turn_stream(
 <dl>
 <dd>
 
-**input:** `typing.List[UserMessage]` — User messages for this turn. At least one is required.
+**input:** `typing.List[CreateTurnSessionsRequestInputItem]` — User messages for this turn. At least one is required.
     
 </dd>
 </dl>

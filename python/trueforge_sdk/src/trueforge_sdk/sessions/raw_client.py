@@ -54,7 +54,8 @@ from ..types.session_source_type import SessionSourceType
 from ..types.turn import Turn
 from ..types.turn_streaming_event import TurnStreamingEvent
 from ..types.turn_user_event_message import TurnUserEventMessage
-from ..types.user_message import UserMessage
+from .types.create_turn_sessions_request_input_item import CreateTurnSessionsRequestInputItem
+from .types.create_turn_sessions_stream_request_input_item import CreateTurnSessionsStreamRequestInputItem
 from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
@@ -978,7 +979,7 @@ class RawSessionsClient:
         self,
         *,
         session_id: str,
-        input: typing.Sequence[UserMessage],
+        input: typing.Sequence[CreateTurnSessionsStreamRequestInputItem],
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Iterator[HttpResponse[Stream[TurnStreamingEvent]]]:
@@ -994,7 +995,7 @@ class RawSessionsClient:
         session_id : str
             Session identifier.
 
-        input : typing.Sequence[UserMessage]
+        input : typing.Sequence[CreateTurnSessionsStreamRequestInputItem]
             User messages for this turn. At least one is required.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
@@ -1012,7 +1013,9 @@ class RawSessionsClient:
             method="POST",
             json={
                 "input": convert_and_respect_annotation_metadata(
-                    object_=input, annotation=typing.Sequence[UserMessage], direction="write"
+                    object_=input,
+                    annotation=typing.Sequence[CreateTurnSessionsStreamRequestInputItem],
+                    direction="write",
                 ),
                 "previous_turn_id": convert_and_respect_annotation_metadata(
                     object_=previous_turn_id, annotation=PreviousTurnIdInput, direction="write"
@@ -1161,7 +1164,7 @@ class RawSessionsClient:
         self,
         *,
         session_id: str,
-        input: typing.Sequence[UserMessage],
+        input: typing.Sequence[CreateTurnSessionsRequestInputItem],
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[GetTurnResponse]:
@@ -1177,7 +1180,7 @@ class RawSessionsClient:
         session_id : str
             Session identifier.
 
-        input : typing.Sequence[UserMessage]
+        input : typing.Sequence[CreateTurnSessionsRequestInputItem]
             User messages for this turn. At least one is required.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
@@ -1195,7 +1198,7 @@ class RawSessionsClient:
             method="POST",
             json={
                 "input": convert_and_respect_annotation_metadata(
-                    object_=input, annotation=typing.Sequence[UserMessage], direction="write"
+                    object_=input, annotation=typing.Sequence[CreateTurnSessionsRequestInputItem], direction="write"
                 ),
                 "previous_turn_id": convert_and_respect_annotation_metadata(
                     object_=previous_turn_id, annotation=PreviousTurnIdInput, direction="write"
@@ -2828,7 +2831,7 @@ class AsyncRawSessionsClient:
         self,
         *,
         session_id: str,
-        input: typing.Sequence[UserMessage],
+        input: typing.Sequence[CreateTurnSessionsStreamRequestInputItem],
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.AsyncIterator[AsyncHttpResponse[AsyncStream[TurnStreamingEvent]]]:
@@ -2844,7 +2847,7 @@ class AsyncRawSessionsClient:
         session_id : str
             Session identifier.
 
-        input : typing.Sequence[UserMessage]
+        input : typing.Sequence[CreateTurnSessionsStreamRequestInputItem]
             User messages for this turn. At least one is required.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
@@ -2862,7 +2865,9 @@ class AsyncRawSessionsClient:
             method="POST",
             json={
                 "input": convert_and_respect_annotation_metadata(
-                    object_=input, annotation=typing.Sequence[UserMessage], direction="write"
+                    object_=input,
+                    annotation=typing.Sequence[CreateTurnSessionsStreamRequestInputItem],
+                    direction="write",
                 ),
                 "previous_turn_id": convert_and_respect_annotation_metadata(
                     object_=previous_turn_id, annotation=PreviousTurnIdInput, direction="write"
@@ -3011,7 +3016,7 @@ class AsyncRawSessionsClient:
         self,
         *,
         session_id: str,
-        input: typing.Sequence[UserMessage],
+        input: typing.Sequence[CreateTurnSessionsRequestInputItem],
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[GetTurnResponse]:
@@ -3027,7 +3032,7 @@ class AsyncRawSessionsClient:
         session_id : str
             Session identifier.
 
-        input : typing.Sequence[UserMessage]
+        input : typing.Sequence[CreateTurnSessionsRequestInputItem]
             User messages for this turn. At least one is required.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
@@ -3045,7 +3050,7 @@ class AsyncRawSessionsClient:
             method="POST",
             json={
                 "input": convert_and_respect_annotation_metadata(
-                    object_=input, annotation=typing.Sequence[UserMessage], direction="write"
+                    object_=input, annotation=typing.Sequence[CreateTurnSessionsRequestInputItem], direction="write"
                 ),
                 "previous_turn_id": convert_and_respect_annotation_metadata(
                     object_=previous_turn_id, annotation=PreviousTurnIdInput, direction="write"

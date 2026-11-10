@@ -13,6 +13,6 @@ import type * as TrueForge from "../../../../index.js";
  */
 export interface CreateTurnSessionsStreamRequest {
     /** User messages for this turn. At least one is required. */
-    input: TrueForge.UserMessage[];
+    input: TrueForge.CreateTurnSessionsStreamRequestInputItem[];
     previousTurnId?: TrueForge.PreviousTurnIdInput;
 }
