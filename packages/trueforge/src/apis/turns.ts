@@ -74,6 +74,7 @@ import type { ISkillStore } from '../db/skillStore';
 import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { currentLogContext, runWithLogContext, updateLogContext } from '../logger';
+import { X_TFG_MCP_HEADERS } from '../mcp/perServerMcpHeaders';
 import type { TenantMemoryDeps } from '../memory/providers';
 import { resolveSessionMemory } from '../memory/sessionMemory';
 import {
@@ -107,7 +108,6 @@ import { restoreTurnEventLog } from '../runtime/turnEventLogRestore';
 import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
 import { assertGatewayMetadataRequestHeaders, X_TFY_METADATA } from '../truefoundry/gatewayMetadata';
 import { X_TFG_MCP, X_TFG_MODELS, X_TFG_SKILLS, X_TFG_TOOLS } from '../truefoundry/inlineResources';
-import { X_TFG_MCP_HEADERS } from '../truefoundry/perServerMcpHeaders';
 import { newId } from '../utils/id';
 import { resolveWebSearchProvider } from '../websearch/providers';
 import { canReadAgentBoundResource, canReadSession } from './agentAccess';

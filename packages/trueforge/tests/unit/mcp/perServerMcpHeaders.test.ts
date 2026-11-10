@@ -1,12 +1,16 @@
 import { HTTPException } from 'hono/http-exception';
 import { createLogger } from 'winston';
+import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import type { McpServerRecord } from '../../../src/db/mcpServerStore';
-import { createTrueFoundryRequestContext } from '../../../src/truefoundry/accessToken';
-import { parsePerServerMcpHeaders } from '../../../src/truefoundry/perServerMcpHeaders';
+import { createSqliteDb } from '../../../src/db/sqlite/client';
+import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
+import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
+import { parsePerServerMcpHeaders } from '../../../src/mcp/perServerMcpHeaders';
 import {
   TrueFoundryMcpServerStore,
   type TrueFoundryMcpApiClient,
 } from '../../../src/truefoundry/TrueFoundryMcpServerStore';
+import { createTrueFoundryRequestContext } from '../../../src/truefoundry/accessToken';
 
 function unusedClient(): TrueFoundryMcpApiClient {
   const unused = (): Promise<never> => Promise.reject(new Error('unused'));
@@ -127,28 +131,86 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
     expect(headers).toEqual({ Authorization: 'Bearer caller-token' });
   });
 
-  it.each(['Authorization', 'authorization', 'AUTHORIZATION', 'AuThOrIzAtIoN'])(
-    'drops an override under %s, which object keys would otherwise keep beside the Bearer',
+  it.each(['Authorization', 'authorization', 'AUTHORIZATION'])(
+    'sends an override under %s to the upstream via x-tfy-mcp-headers, never as the gateway Bearer',
     async name => {
       const headers = await invokeHeaders(
-        storeWith({
-          'tfy-platform-mcp': { [name]: 'Bearer smuggled' },
-        }),
+        storeWith({ 'tfy-platform-mcp': { [name]: 'Bearer user' } }),
         'tfy-platform-mcp',
       );
 
-      expect(Object.values(headers)).toEqual(['Bearer caller-token']);
+      expect(headers).toEqual({
+        Authorization: 'Bearer caller-token',
+        'x-tfy-mcp-headers': JSON.stringify({ [name]: 'Bearer user' }),
+      });
     },
   );
 
-  it('keeps the rest of an override that also carried an authorization key', async () => {
-    const headers = await invokeHeaders(
-      storeWith({
-        'tfy-platform-mcp': { authorization: 'Bearer smuggled', 'x-tfy-mcp-headers': '{"a":"b"}' },
+  it('skips authorize for a caller Authorization, and runs it only when the upstream rejects it', async () => {
+    const getMcpAuthorize = jest.fn(async () => ({
+      status: 'auth_required' as const,
+      authorization_url: 'https://auth.example/consent',
+    }));
+    const store = new TrueFoundryMcpServerStore({
+      client: { ...unusedClient(), getMcpAuthorize },
+      requestContext: createTrueFoundryRequestContext({
+        tenant_id: 'default',
+        subject: { id: 'user-1', type: 'user', display_name: 'user-1' },
+        roles: [],
+        user_credential: 'caller-token',
       }),
-      'tfy-platform-mcp',
-    );
+      agent: undefined,
+      logger: createLogger({ silent: true }),
+      perServerHeaders: { 'tfy-platform-mcp': { Authorization: 'Bearer user' } },
+    });
+    const resolve = store.resolveInvokeHeaders({ record: record('tfy-platform-mcp'), userRef: 'user-1' });
+    if (typeof resolve !== 'function') {
+      throw new Error('expected a headers resolver');
+    }
 
-    expect(headers).toEqual({ Authorization: 'Bearer caller-token', 'x-tfy-mcp-headers': '{"a":"b"}' });
+    const resolved = await resolve();
+    expect(getMcpAuthorize).not.toHaveBeenCalled();
+    if (!('onUnauthorized' in resolved) || resolved.onUnauthorized === undefined) {
+      throw new Error('expected a fallback to the consent flow');
+    }
+    await expect(resolved.onUnauthorized()).resolves.toEqual({
+      authRequired: {
+        servers: [{ id: 'tfy-platform-mcp', name: 'tfy-platform-mcp', auth_url: 'https://auth.example/consent' }],
+      },
+    });
+  });
+});
+
+describe('McpServerWithAuthStore.resolveInvokeHeaders', () => {
+  const ossRecord: McpServerRecord = {
+    id: 'oauth-mcp',
+    tenant_id: 'default',
+    name: 'oauth-mcp',
+    manifest: {
+      type: 'remote',
+      name: 'oauth-mcp',
+      url: 'https://mcp.example/mcp',
+      description: '',
+      auth: { type: 'dcr' },
+    },
+    created_at: '2026-01-15T12:00:00.000Z',
+    updated_at: '2026-01-16T12:00:00.000Z',
+  };
+
+  it('forwards a caller Authorization directly instead of starting the DCR consent flow', async () => {
+    const db = createSqliteDb(':memory:');
+    const store = new McpServerWithAuthStore({
+      store: new SqliteMcpServerStore(db),
+      tokenStore: new SqliteOAuthTokenStore(db),
+      clientName: 'test-client',
+      perServerHeaders: { 'oauth-mcp': { Authorization: 'Bearer user', 'x-extra': '1' } },
+    });
+
+    const resolve = store.resolveInvokeHeaders({ record: ossRecord, userRef: 'user-1' });
+    if (typeof resolve !== 'function') {
+      throw new Error('expected a headers resolver');
+    }
+    await expect(resolve()).resolves.toMatchObject({ headers: { Authorization: 'Bearer user', 'x-extra': '1' } });
+    await db.destroy();
   });
 });
