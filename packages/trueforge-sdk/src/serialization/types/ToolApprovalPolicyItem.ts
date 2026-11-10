@@ -9,15 +9,15 @@ export const ToolApprovalPolicyItem: core.serialization.ObjectSchema<
     serializers.ToolApprovalPolicyItem.Raw,
     TrueForge.ToolApprovalPolicyItem
 > = core.serialization.object({
-    action: ComponentsSchemasToolApprovalPolicyAllowSession,
     name: core.serialization.string(),
+    policy: ComponentsSchemasToolApprovalPolicyAllowSession,
     serverName: core.serialization.property("server_name", core.serialization.string()),
 });
 
 export declare namespace ToolApprovalPolicyItem {
     export interface Raw {
-        action: ComponentsSchemasToolApprovalPolicyAllowSession.Raw;
         name: string;
+        policy: ComponentsSchemasToolApprovalPolicyAllowSession.Raw;
         server_name: string;
     }
 }

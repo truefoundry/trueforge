@@ -29,6 +29,7 @@ const DEFAULT_CAPABILITIES = {
       memoryProviders: { enabled: true, manageProviders: true },
     },
     webSearch: { enabled: false },
+    sessionSharing: { granularity: 'tenant' },
   },
 } satisfies AgentBuilderCapabilitiesResponse;
 

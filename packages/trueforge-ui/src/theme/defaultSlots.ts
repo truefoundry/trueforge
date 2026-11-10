@@ -6,7 +6,6 @@ import { AskUserPrompt } from '../atoms/adapters/AskUserPromptAdapter.js';
 import { ContextCompactionCard } from '../atoms/adapters/ContextCompactionCardAdapter.js';
 import { McpAuthPrompt } from '../atoms/adapters/McpAuthPromptAdapter.js';
 import { ReasoningCard } from '../atoms/adapters/ReasoningCardAdapter.js';
-import { ResumeUnavailable } from '../atoms/ResumeUnavailable.js';
 
 import { StepTree, StepTreeItem } from '../atoms/agent-chat/StepTree.js';
 import { AgentCodeBlock } from '../atoms/agent-details/AgentCodeBlock.js';
@@ -82,6 +81,7 @@ import { MonacoEditorCore } from '../atoms/MonacoEditorCore.js';
 import { OpenUiFenceBlock } from '../atoms/OpenUiFenceBlock.js';
 import { PermissionGuard } from '../atoms/PermissionGuard.js';
 import { ResetAgentBuilderButton } from '../atoms/ResetAgentBuilderButton.js';
+import { ResumeUnavailable } from '../atoms/ResumeUnavailable.js';
 import { SandboxArtifactDownload } from '../atoms/SandboxArtifactDownload.js';
 import { SandboxToolCallCard } from '../atoms/SandboxToolCallCard.js';
 import { SaveAgentButton } from '../atoms/SaveAgentButton.js';
@@ -203,6 +203,7 @@ export const defaultSlots = {
   MessageCancelledBanner,
   MessageErrorBanner,
   MessageIndicator,
+  ResumeUnavailable,
   MessageTimestamp,
   Markdown,
   SyntaxHighlighter,
@@ -226,7 +227,6 @@ export const defaultSlots = {
   ContextCompactionCard,
   AskUserPrompt,
   McpAuthPrompt,
-  ResumeUnavailable,
   AttachmentCard,
   AttachmentPreviewDialog,
   AttachmentPickerButton,

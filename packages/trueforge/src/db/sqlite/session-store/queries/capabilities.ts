@@ -20,6 +20,7 @@ export async function patchThreadCapabilityState(
       .select(sql`1`.as('one'))
       .where('session_id', '=', input.session_id)
       .where('turn_id', '=', input.turn_id)
+      .where('active_executor_id', '=', input.active_executor_id)
       .where(sql<boolean>`state->>'status' = 'running'`)
       .executeTakeFirst();
 

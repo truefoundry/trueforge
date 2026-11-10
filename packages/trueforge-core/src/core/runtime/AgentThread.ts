@@ -3,7 +3,6 @@ import type { Logger } from 'winston';
 import type { AgentCapability, CapabilityState } from '../capabilities/AgentCapability';
 import type {
   AgentContextProcessorOutput,
-  AgentContextProcessorOverwriteContext,
   AgentThreadExecutionContext,
   PostToolCallAgentContextProcessor,
   PreLLMAgentContextProcessor,
@@ -17,7 +16,6 @@ import type { RegisteredPassthroughEvent } from '../events/PassthroughEvents';
 import {
   EventType,
   newEventId,
-  type AgentApprovalDecisionMessage,
   type AgentInfo,
   type AgentOutputEvent,
   type AgentParent,
@@ -30,10 +28,14 @@ import {
   type ThreadContextCompactionFinishedEvent,
   type ThreadContextCompactionStartedEvent,
   type ThreadOverwriteContextEvent,
+  type ToolApprovalPolicy,
   type ToolApprovalRequiredEvent,
   type ToolResponseEvent,
   type ToolResponseRequiredEvent,
+  type UserMCPAuthContinueEvent,
+  type UserToolApprovalEvent,
   type UserToolApprovalMessage,
+  type UserToolResponseEvent,
   type UserToolResponseMessage,
 } from '../events/schema';
 import { InstructionBuilder, ROOT_AGENT_IDENTITY } from '../InstructionBuilder';
@@ -55,6 +57,7 @@ import { estimateTokensForString, resolveMaxOutputTokens } from '../llm/usage';
 import { convertMCPServersToTools, type ConvertToolsResult, type MappedMCPTool } from '../mcp/convertMCPServers';
 import { executeToolCalls } from '../mcp/executeToolCalls';
 import type { IToolSet, MCPAuthRequired } from '../mcp/IMCPServer';
+import { ToolSet } from '../mcp/ToolSet';
 import { elapsedSeconds, getOperationMetrics, type LlmRequestOutcome } from '../observability/operationMetrics';
 import type { HarnessSandbox, SandboxInfo } from '../sandbox/Sandbox';
 import type { AgentTracing } from '../tracing/AgentTracing';
@@ -63,19 +66,20 @@ import type { AgentDefinition } from './AgentDefinition';
 import type {
   AgentThreadConstructorInput,
   AgentThreadRuntimeSendBatch,
-  AgentThreadRuntimeSendInput,
   AgentThreadSnapshot,
 } from './AgentThread.types';
 import {
   InternalEventType,
   type AgentThreadAppendContext,
   type AgentThreadEvent,
+  type ApplyUserEventsOutput,
   type ContextMessage,
   type InternalCapabilityStateEvent,
   type InternalChildThreadDoneEvent,
   type InternalMCPAuthRequiredEvent,
   type InternalThreadDoneEvent,
   type SubAgentCompletion,
+  type ThreadContextAppend,
 } from './AgentThread.types';
 import {
   currentContextUsageFromCompletion,
@@ -87,11 +91,12 @@ import {
   assistantMessageContentToStringForSubAgent,
   estimateTokensForContextMessages,
   INTERNAL_SYSTEM_PROMPT,
-  isApprovalDecisionMessage,
-  isClientSideToolResponseMessage,
-  isInputUserMessage,
+  isApprovalDecisionEvent,
+  isClientSideToolResponseEvent,
   isLLMContextMessage,
   isLLMToolMessage,
+  isMCPAuthContinueEvent,
+  isUserMessage,
   makeUnknownToolInfo,
   scanApprovalDecisions,
   toEnrichedToolCall,
@@ -101,7 +106,7 @@ import { DeferredTool } from './DeferredTool';
 import { finishReasonErrorMessage } from './finishReasonError';
 import { createEmptyAgentThreadMetrics, updateMetricsFromUsage, type AgentThreadMetrics } from './metrics';
 import { getClosableOpenToolCallIds, OpenToolCallCloser } from './OpenToolCallCloser';
-import { isEmptyMessageContent, processAgentUserInput, type AgentInputUserMessage } from './UserInputMessage';
+import { isEmptyMessageContent, processAgentUserInput, type UserMessage } from './UserInputMessage';
 
 const DEFAULT_ITERATION_LIMIT = 25;
 
@@ -126,14 +131,14 @@ function assertValidTransition(from: AgentThreadState, to: AgentThreadState): vo
 
 function deriveAgentThreadState(context: ContextMessage[]): AgentThreadState {
   const openToolCallIds = getOpenToolCallIds(context);
+  const approvalDecisions = scanApprovalDecisions(context);
   if (openToolCallIds.size === 0) {
     return 'llm-call-required';
   }
 
   const assistant = lastAssistantInContext(context);
-  const decisions = scanApprovalDecisions(context);
   const hasPendingApproval = assistant?.tool_calls?.some(
-    tc => openToolCallIds.has(tc.id) && tc.tool_info.is_approval_required === true && !decisions.has(tc.id),
+    tc => openToolCallIds.has(tc.id) && tc.tool_info.is_approval_required === true && !approvalDecisions.has(tc.id),
   );
   const hasPendingClientSideTool = assistant?.tool_calls?.some(
     tc => openToolCallIds.has(tc.id) && tc.tool_info.is_client_side === true,
@@ -214,10 +219,8 @@ function buildMCPAuthRequiredEvent(
     type: InternalEventType.MCP_AUTH_REQUIRED,
     id: newEventId(),
     created_at: new Date().toISOString(),
-    mcp_servers: authRequirementInfo.flatMap(or => or.servers.map(s => ({ ...s, thread_ids: [threadId] }))),
-    // threadId identifies which thread triggered auth for each server so AgentThreadOrchestrator can merge
-    // auth events across parallel sub-agents by server.
-    thread_id: null,
+    mcp_servers: authRequirementInfo.flatMap(or => or.servers),
+    thread_id: threadId,
   };
 }
 
@@ -288,7 +291,7 @@ function buildModelMessageEvent({
 }
 
 function validateUserMessage(
-  message: { content: AgentInputUserMessage['content'] },
+  message: { content: UserMessage['content'] },
   blockingOpenToolCallIds: Set<string>,
   index: number,
 ): void {
@@ -326,10 +329,10 @@ function validateApprovalMessage(
 
 function getPendingApprovalToolCalls(context: ContextMessage[]): InternalEnrichedToolCall[] {
   const openToolCallIds = getOpenToolCallIds(context);
-  const decisions = scanApprovalDecisions(context);
+  const approvalDecisions = scanApprovalDecisions(context);
   const assistant = lastAssistantInContext(context);
   return (assistant?.tool_calls ?? []).filter(
-    tc => openToolCallIds.has(tc.id) && tc.tool_info.is_approval_required === true && !decisions.has(tc.id),
+    tc => openToolCallIds.has(tc.id) && tc.tool_info.is_approval_required === true && !approvalDecisions.has(tc.id),
   );
 }
 
@@ -337,51 +340,6 @@ function getPendingClientSideToolCalls(context: ContextMessage[]): InternalEnric
   const openToolCallIds = getOpenToolCallIds(context);
   const assistant = lastAssistantInContext(context);
   return (assistant?.tool_calls ?? []).filter(tc => openToolCallIds.has(tc.id) && tc.tool_info.is_client_side === true);
-}
-
-function validateInputMessageTypesGivenContext(
-  context: ContextMessage[],
-  messages: AgentThreadRuntimeSendInput[],
-): void {
-  // Full open set: validates incoming tool responses and dedupes within the batch.
-  const openToolCallIds = getOpenToolCallIds(context);
-  // Subset that blocks a fresh user message: excludes calls OpenToolCallCloser will auto-close
-  // during preSend, so a dangling regular tool call doesn't reject a user message it will repair.
-  const blockingOpenToolCallIds = getUnclosableOpenToolCallIds(context, openToolCallIds);
-  const pendingApprovalIds = new Set(getPendingApprovalToolCalls(context).map(tc => tc.id));
-  const pendingClientSideIds = new Set(getPendingClientSideToolCalls(context).map(tc => tc.id));
-
-  for (let i = 0; i < messages.length; i++) {
-    const m = messages[i];
-    if (m === undefined) {
-      continue;
-    }
-    if (isApprovalDecisionMessage(m)) {
-      validateApprovalMessage(m, pendingApprovalIds, i);
-      pendingApprovalIds.delete(m.tool_call_id);
-    } else if (isInputUserMessage(m)) {
-      validateUserMessage(m, blockingOpenToolCallIds, i);
-    } else if (isClientSideToolResponseMessage(m) || isLLMToolMessage(m)) {
-      validateToolMessage(m, openToolCallIds, i);
-      openToolCallIds.delete(m.tool_call_id);
-      blockingOpenToolCallIds.delete(m.tool_call_id);
-      pendingClientSideIds.delete(m.tool_call_id);
-    } else {
-      const _exhaustive: never = m;
-      throw new InvalidAgentSendInputError(
-        `messages[${String(i)}] has unsupported type: ${JSON.stringify(_exhaustive)}`,
-      );
-    }
-  }
-
-  // A send for a thread awaiting user input must resolve every pending approval and client-side
-  // tool call in the same batch; any left unresolved (including an empty batch) is a blocker.
-  if (pendingApprovalIds.size > 0 || pendingClientSideIds.size > 0) {
-    const missing = [...pendingApprovalIds, ...pendingClientSideIds];
-    throw new InvalidAgentSendInputError(
-      `Send batch must resolve all pending tool calls awaiting user input. Missing: ${missing.join(', ')}`,
-    );
-  }
 }
 
 async function buildModelMessageDeltaEvent({
@@ -535,12 +493,14 @@ export class AgentThread {
   private readonly logger: Logger;
 
   private metrics: AgentThreadMetrics = createEmptyAgentThreadMetrics();
+  /** Loop limit since the last resume. Reset when the turn pauses. */
+  private iterations = 0;
   private tfyManagedServerNames = new Set<string>();
 
   private contextBusy = false;
-  private preSendRanThisTurn = false;
   private currentState: AgentThreadState | null = null;
   private preComputedCompletion?: SubAgentCompletion | undefined;
+  private pendingMCPAuth = false;
   /** Mirrored capability KV — source for toSnapshot().capability_state. */
   private capabilityState: CapabilityState = {};
   private readonly capabilityStateKeys: ReadonlySet<string>;
@@ -556,6 +516,7 @@ export class AgentThread {
     this.currentContextUsage = input.currentContextUsage ?? getEmptyCurrentContextUsage();
     this.agentInfo = input.agentInfo;
     this.preComputedCompletion = input.preComputedCompletion;
+    this.pendingMCPAuth = input.pendingMCPAuth ?? false;
     this.sandbox = input.sandbox;
 
     const capabilities = input.capabilities ?? [];
@@ -616,84 +577,135 @@ export class AgentThread {
     return builder.build();
   }
 
-  public async *send(messages: AgentThreadRuntimeSendBatch): AsyncGenerator<AgentThreadAppendContext, void, unknown> {
-    // An empty batch is a no-op only when the thread is not awaiting user input.
-    // While awaiting input, fall through so the validator rejects the empty/incomplete batch.
-    // Already-complete threads (e.g. cancelled children left in a tip before AGENT_DONE
-    // removed them) must also no-op on [] so orchestrator fan-out resume/approval sends
-    // do not fail createTurn.
-    if (messages.length === 0 && !this.isAwaitingUserInput()) {
-      return;
-    }
-    this.throwIfAlreadyComplete();
-    this.throwIfContextBusy();
-
-    this.contextBusy = true;
-    try {
-      for await (const event of this.executeContextProcessors('preSend')) {
-        yield event;
-      }
-      this.preSendRanThisTurn = true;
-
-      validateInputMessageTypesGivenContext(this.context, messages);
-
-      const approvals: UserToolApprovalMessage[] = [];
-      const clientSideToolResponses: UserToolResponseMessage[] = [];
-      const contextMessages: (LLMUserMessage | LLMToolMessage)[] = [];
-
-      for (const m of messages) {
-        if (isApprovalDecisionMessage(m)) {
-          approvals.push(m);
-        } else if (isClientSideToolResponseMessage(m)) {
-          clientSideToolResponses.push(m);
-        } else if (isInputUserMessage(m)) {
-          const result = await processAgentUserInput(m, this.sandbox);
-          contextMessages.push(result.message);
-          if (result.sandboxCreated) {
-            this.pendingSandboxCreatedEvents.push(buildSandboxCreatedEvent(result.sandboxCreated));
-          }
-        } else if (isLLMToolMessage(m)) {
-          contextMessages.push(m);
-        } else {
-          const _exhaustive: never = m;
-          throw new InvalidAgentSendInputError(`Unsupported send input: ${JSON.stringify(_exhaustive)}`);
-        }
-      }
-
-      if (approvals.length > 0 || clientSideToolResponses.length > 0) {
-        const approvalContext: AgentApprovalDecisionMessage[] = approvals.map(a => ({
-          type: EventType.USER_TOOL_APPROVAL,
-          tool_call_id: a.tool_call_id,
-          approval: a.approval,
-        }));
-        const toolResponseContext: LLMToolMessage[] = clientSideToolResponses.map(m => ({
-          role: 'tool',
-          tool_call_id: m.tool_call_id,
-          content: m.content,
-        }));
-        yield* this.appendToContext({
-          context: [...approvalContext, ...toolResponseContext],
-          output: [],
-          currentContextUsage: undefined,
-          usage: undefined,
-        });
-      }
-      if (contextMessages.length > 0) {
-        yield* this.appendToContext({
-          context: contextMessages,
-          output: [],
-          currentContextUsage: undefined,
-          usage: undefined,
-        });
-      }
-    } finally {
-      this.contextBusy = false;
-    }
-  }
-
   private throwIfContextBusy(): void {
     if (this.contextBusy) {
       throw new Error(`context is busy for thread ${this.threadId}`);
+    }
+  }
+
+  async *sendUserMessages(messages: UserMessage[]): AsyncGenerator<AgentThreadAppendContext, void, unknown> {
+    if (messages.length === 0) {
+      return;
+    }
+
+    yield* this.executeContextProcessors('preSend');
+
+    const contextMessages: LLMUserMessage[] = [];
+    const sandboxCreatedEvents: SandboxCreatedEvent[] = [];
+    for (const message of messages) {
+      const result = await processAgentUserInput(message, this.sandbox);
+      contextMessages.push(result.message);
+      if (result.sandboxCreated) {
+        sandboxCreatedEvents.push(buildSandboxCreatedEvent(result.sandboxCreated));
+      }
+    }
+
+    const append = this.toThreadContextAppend(contextMessages);
+    if (append) {
+      yield* this.appendToContext({ ...append, output: [], applied_user_events: [] });
+    }
+    this.pendingSandboxCreatedEvents.push(...sandboxCreatedEvents);
+  }
+
+  *send(
+    events: (UserToolApprovalEvent | UserToolResponseEvent | UserMCPAuthContinueEvent | LLMToolMessage)[],
+  ): Generator<ApplyUserEventsOutput, void, unknown> {
+    if (events.length === 0) {
+      return;
+    }
+
+    const approvals: UserToolApprovalEvent[] = [];
+    const clientSideToolResponses: UserToolResponseEvent[] = [];
+    const toolMessages: LLMToolMessage[] = [];
+
+    for (const m of events) {
+      if (isMCPAuthContinueEvent(m)) {
+        this.pendingMCPAuth = false;
+      } else if (isApprovalDecisionEvent(m)) {
+        approvals.push(m);
+      } else if (isClientSideToolResponseEvent(m)) {
+        clientSideToolResponses.push(m);
+      } else if (isLLMToolMessage(m)) {
+        toolMessages.push(m);
+      } else {
+        const _exhaustive: never = m;
+        throw new InvalidAgentSendInputError(`Unsupported send input: ${JSON.stringify(_exhaustive)}`);
+      }
+    }
+
+    if (clientSideToolResponses.length > 0) {
+      const append = this.toThreadContextAppend(
+        clientSideToolResponses.map(m => ({
+          role: 'tool' as const,
+          tool_call_id: m.tool_call_id,
+          content: m.content,
+        })),
+      );
+      if (append) {
+        yield* this.appendToContext({
+          ...append,
+          output: [],
+          applied_user_events: clientSideToolResponses,
+        });
+      }
+    }
+
+    if (toolMessages.length > 0) {
+      const append = this.toThreadContextAppend(toolMessages);
+      if (append) {
+        yield* this.appendToContext({ ...append, output: [], applied_user_events: [] });
+      }
+    }
+
+    if (approvals.length > 0) {
+      const append = this.toThreadContextAppend(
+        approvals.map(a => ({
+          type: EventType.USER_TOOL_APPROVAL,
+          tool_call_id: a.tool_call_id,
+          approval: a.approval,
+        })),
+      );
+      if (append) {
+        yield* this.appendToContext({
+          ...append,
+          output: [],
+          applied_user_events: approvals,
+        });
+      }
+    }
+  }
+
+  /**
+   * Resolve any still-pending approvals covered by policies.
+   */
+  toPolicyDecisionAppend(
+    policiesByServer: ReadonlyMap<string, Record<string, ToolApprovalPolicy>>,
+    asOf: Date,
+  ): ThreadContextAppend | undefined {
+    return this.toThreadContextAppend(
+      getPendingApprovalToolCalls(this.context)
+        .filter(toolCall => {
+          const policies = policiesByServer.get(toolCall.tool_info.mcp_server_name);
+          const toolName = toolCall.tool_info.original_tool_name;
+          // Own-property only — Record bracket access inherits Object.prototype (e.g. `constructor`).
+          if (policies === undefined || !Object.hasOwn(policies, toolName)) {
+            return false;
+          }
+          const policy = policies[toolName];
+          return policy !== undefined && ToolSet.isPolicyApplicable(policy, asOf);
+        })
+        .map(toolCall => ({
+          type: EventType.USER_TOOL_APPROVAL,
+          tool_call_id: toolCall.id,
+          approval: { status: 'allow' as const },
+        })),
+    );
+  }
+
+  applyContextAppend(append: Pick<ThreadContextAppend, 'context' | 'current_context_usage'>): void {
+    this.context = this.context.concat(append.context);
+    if (append.current_context_usage !== null) {
+      this.currentContextUsage = append.current_context_usage;
     }
   }
 
@@ -706,53 +718,72 @@ export class AgentThread {
     return next;
   }
 
-  private *appendToContext(opts: {
-    context: ContextMessage[];
-    output: AgentOutputEvent[];
-    currentContextUsage: CurrentContextUsage | undefined;
-    usage: CompletionUsage | undefined;
-    completion?: SubAgentCompletion | undefined;
-  }): Generator<AgentThreadAppendContext, void, unknown> {
-    const { context, output, currentContextUsage, usage, completion } = opts;
-
-    const newCurrentContextUsage =
-      currentContextUsage ??
-      mergeCurrentContextUsage(this.currentContextUsage, estimateTokensForContextMessages(context));
-
-    const event: AgentThreadAppendContext = {
-      type: InternalEventType.AGENT_CONTEXT_APPEND,
+  private toThreadContextAppend(context: ContextMessage[]): ThreadContextAppend | undefined {
+    if (context.length === 0) {
+      return undefined;
+    }
+    return {
       thread_id: this.threadId,
       context,
-      output,
-      current_context_usage: newCurrentContextUsage,
-      ...(completion && { completion }),
+      current_context_usage: mergeCurrentContextUsage(
+        this.currentContextUsage,
+        estimateTokensForContextMessages(context),
+      ),
     };
-
-    // Update metrics before yield so we still count it if the stream stops here.
-    if (usage) {
-      updateMetricsFromUsage(this.metrics, usage);
-    }
-
-    yield event;
-
-    this.context = this.context.concat(context);
-    this.currentContextUsage = newCurrentContextUsage;
   }
 
-  private *overwriteContext(
-    payload: AgentContextProcessorOverwriteContext,
-  ): Generator<ThreadOverwriteContextEvent, void, unknown> {
-    const event: ThreadOverwriteContextEvent = {
-      thread_id: this.threadId,
-      ...payload,
+  private *appendToContext(input: {
+    thread_id: string;
+    context: ContextMessage[];
+    current_context_usage: CurrentContextUsage | null;
+    output: AgentOutputEvent[];
+    applied_user_events: (UserToolApprovalEvent | UserToolResponseEvent)[];
+    usage?: CompletionUsage | undefined;
+    completion?: SubAgentCompletion | undefined;
+  }): Generator<AgentThreadAppendContext, void, unknown> {
+    const event: AgentThreadAppendContext = {
+      type: InternalEventType.AGENT_CONTEXT_APPEND,
+      thread_id: input.thread_id,
+      context: input.context,
+      output: input.output,
+      applied_user_events: input.applied_user_events,
+      current_context_usage: input.current_context_usage,
+      ...(input.completion && { completion: input.completion }),
     };
-    // Update metrics before yield so we still count it if the stream stops here.
-    updateMetricsFromUsage(this.metrics, payload.usage);
+    yield event;
+    this.applyContextAppend(event);
+    if (input.usage) {
+      updateMetricsFromUsage(this.metrics, input.usage);
+    }
+  }
+
+  *overwriteContext(input: {
+    reason: 'compaction';
+    context?: ContextMessage[] | undefined;
+    current_context_usage?: CurrentContextUsage | undefined;
+    usage?: CompletionUsage | undefined;
+    id?: string | undefined;
+    created_at?: string | undefined;
+  }): Generator<ThreadOverwriteContextEvent, void, unknown> {
+    const context = input.context ?? this.context;
+    const currentContextUsage = input.current_context_usage ?? this.currentContextUsage;
+    const event: ThreadOverwriteContextEvent = {
+      type: EventType.AGENT_CONTEXT_OVERWRITE,
+      id: input.id ?? newEventId(),
+      created_at: input.created_at ?? new Date().toISOString(),
+      thread_id: this.threadId,
+      reason: input.reason,
+      context,
+      current_context_usage: currentContextUsage,
+      ...(input.usage !== undefined ? { usage: input.usage } : {}),
+    };
 
     yield event;
-    this.context = payload.context;
-    this.currentContextUsage = payload.current_context_usage;
-    this.metrics.total_summarizations++;
+    this.context = context;
+    this.currentContextUsage = currentContextUsage;
+    if (input.usage) {
+      updateMetricsFromUsage(this.metrics, input.usage);
+    }
   }
 
   private generateErrorEvent(message: string, output?: ModelMessageEvent): InternalThreadDoneEvent {
@@ -800,6 +831,8 @@ export class AgentThread {
       thread_id: this.threadId,
       context: [],
       output: [],
+      applied_user_events: [],
+      current_context_usage: null,
       completion,
     };
     this.preComputedCompletion ??= completion;
@@ -820,44 +853,69 @@ export class AgentThread {
     if (closed.length === 0) {
       return;
     }
-    yield* this.appendToContext({
-      context: closed,
-      output: [],
-      currentContextUsage: undefined,
-      usage: undefined,
-    });
+    const append = this.toThreadContextAppend(closed);
+    if (append) {
+      yield* this.appendToContext({ ...append, output: [], applied_user_events: [] });
+    }
   }
 
   hasOpenToolCallId(toolCallId: string): boolean {
     return getOpenToolCallIds(this.context).has(toolCallId);
   }
 
-  // User-configured MCP tool sets (spec.mcp_servers) for this thread. Excludes
-  // system tool sets (sandbox / deferred / capabilities).
   getUserToolSets(): readonly IToolSet[] {
     return this.definition.toolSets ?? [];
   }
 
-  // True when this thread is paused waiting on the user to resolve a pending tool
-  // approval or a client-side tool response.
-  private isAwaitingUserInput(): boolean {
+  isRunnable(): boolean {
     return (
-      getPendingApprovalToolCalls(this.context).length > 0 || getPendingClientSideToolCalls(this.context).length > 0
+      !this.pendingMCPAuth &&
+      getPendingApprovalToolCalls(this.context).length === 0 &&
+      getPendingClientSideToolCalls(this.context).length === 0
     );
   }
 
-  // Pure validation of an input batch against this thread's current context; throws
-  // on an invalid/incomplete batch without mutating the context.
+  isPendingMCPAuth(): boolean {
+    return this.pendingMCPAuth;
+  }
+
   validateSendInput(messages: AgentThreadRuntimeSendBatch): void {
-    // Match send(): empty + not awaiting is a no-op, including already-complete threads.
-    if (messages.length === 0 && !this.isAwaitingUserInput()) {
+    if (messages.length === 0) {
       return;
     }
     this.throwIfAlreadyComplete();
-    validateInputMessageTypesGivenContext(this.context, messages);
+
+    // Full open set: validates incoming tool responses and dedupes within the batch.
+    const openToolCallIds = getOpenToolCallIds(this.context);
+    // Subset that blocks a fresh user message: excludes calls OpenToolCallCloser will auto-close
+    // during preSend, so a dangling regular tool call doesn't reject a user message it will repair.
+    const blockingOpenToolCallIds = getUnclosableOpenToolCallIds(this.context, openToolCallIds);
+    const pendingApprovalIds = new Set(getPendingApprovalToolCalls(this.context).map(tc => tc.id));
+
+    for (let i = 0; i < messages.length; i++) {
+      const m = messages[i];
+      if (m === undefined) {
+        continue;
+      }
+      if (isApprovalDecisionEvent(m)) {
+        validateApprovalMessage(m, pendingApprovalIds, i);
+        pendingApprovalIds.delete(m.tool_call_id);
+      } else if (isUserMessage(m)) {
+        validateUserMessage(m, blockingOpenToolCallIds, i);
+      } else if (isClientSideToolResponseEvent(m) || isLLMToolMessage(m)) {
+        validateToolMessage(m, openToolCallIds, i);
+        openToolCallIds.delete(m.tool_call_id);
+        blockingOpenToolCallIds.delete(m.tool_call_id);
+      } else {
+        const _exhaustive: never = m;
+        throw new InvalidAgentSendInputError(
+          `messages[${String(i)}] has unsupported type: ${JSON.stringify(_exhaustive)}`,
+        );
+      }
+    }
   }
 
-  public toSnapshot(): AgentThreadSnapshot {
+  toSnapshot(): AgentThreadSnapshot {
     const capability_state = Object.keys(this.capabilityState).length > 0 ? { ...this.capabilityState } : null;
     return {
       thread_id: this.threadId,
@@ -866,12 +924,19 @@ export class AgentThread {
       parent: this.parent ?? null,
       agent_info: this.agentInfo ?? null,
       completion: this.preComputedCompletion ?? null,
+      pending_mcp_auth: this.pendingMCPAuth,
       capability_state,
     };
   }
 
   getAgentThreadMetrics(): AgentThreadMetrics {
     return { ...this.metrics };
+  }
+
+  /** Drop this running phase's totals. The next one starts from zero. */
+  resetRunningPhaseMetrics(): void {
+    this.metrics = createEmptyAgentThreadMetrics();
+    this.iterations = 0;
   }
 
   private transformToLLMRequest(tools: ChatCompletionTool[]): LLMCreateParamsStreaming {
@@ -1024,14 +1089,20 @@ export class AgentThread {
     for (const processor of processors) {
       for await (const response of processor(execution)) {
         switch (response.type) {
-          case InternalEventType.AGENT_CONTEXT_APPEND:
-            yield* this.appendToContext({
-              context: response.context,
-              output: response.output,
-              currentContextUsage: response.current_context_usage ?? this.currentContextUsage,
-              usage: undefined,
-            });
+          case InternalEventType.AGENT_CONTEXT_APPEND: {
+            const append = this.toThreadContextAppend(response.context);
+            if (append) {
+              yield* this.appendToContext({
+                ...append,
+                output: response.output,
+                applied_user_events: response.applied_user_events,
+                ...(response.current_context_usage !== null
+                  ? { current_context_usage: response.current_context_usage }
+                  : {}),
+              });
+            }
             break;
+          }
           case EventType.AGENT_CONTEXT_OVERWRITE:
             yield* this.overwriteContext(response);
             break;
@@ -1069,19 +1140,11 @@ export class AgentThread {
     }
   }
 
-  private async init(): Promise<{
-    initializationInfo: MCPServerInitInfo[];
-    authRequirementInfo: MCPAuthRequired[];
-  }> {
-    if (this.convertedTools) {
-      return { initializationInfo: [], authRequirementInfo: [] };
-    }
-    return this.initTools();
-  }
-
   private async initTools(): Promise<{
     initializationInfo: MCPServerInitInfo[];
     authRequirementInfo: MCPAuthRequired[];
+    convertedTools: ConvertToolsResult;
+    tfyManagedServerNames: Set<string>;
   }> {
     const tfyManagedServers: IToolSet[] = [...this.systemToolSets];
     if (this.sandbox) {
@@ -1096,9 +1159,12 @@ export class AgentThread {
       tfyManagedServers,
       userServers,
     });
-    this.convertedTools = convertedTools;
-    this.tfyManagedServerNames = new Set(tfyManagedServers.map(s => s.name));
-    return { initializationInfo, authRequirementInfo };
+    return {
+      initializationInfo,
+      authRequirementInfo,
+      convertedTools,
+      tfyManagedServerNames: new Set(tfyManagedServers.map(s => s.name)),
+    };
   }
 
   private getConvertedTools(): ConvertToolsResult {
@@ -1286,13 +1352,18 @@ export class AgentThread {
       }
     }
 
-    yield* this.appendToContext({
-      context: [contextAssistantMessage],
-      output: [agentAssistantMessage],
-      currentContextUsage: currentContextUsageFromCompletion(result.value.usage),
-      usage: result.value.usage,
-      completion,
-    });
+    const append = this.toThreadContextAppend([contextAssistantMessage]);
+    if (append) {
+      yield* this.appendToContext({
+        ...append,
+        output: [agentAssistantMessage],
+        applied_user_events: [],
+        current_context_usage: currentContextUsageFromCompletion(result.value.usage),
+        usage: result.value.usage,
+        completion,
+      });
+    }
+    this.iterations++;
 
     if (finishError !== undefined) {
       const errorContent = completion?.type === 'error' ? completion.error_message : finishError;
@@ -1358,8 +1429,6 @@ export class AgentThread {
     if (approvalRequiredToolCalls.length > 0) {
       throw new Error('Unreachable');
     }
-    this.metrics.total_tool_calls += toolCallResults.length;
-    this.metrics.total_sub_agents += createThreadEvents.length;
 
     if (initializationInfo.length > 0) {
       yield buildMCPInitializeEvent(initializationInfo, this.threadId);
@@ -1413,15 +1482,13 @@ export class AgentThread {
       yield msg;
     }
     // tool.response is persisted by the session/response layer when yielded; only mutate context here.
-    yield* this.appendToContext({
-      context: toolCallResults.map(t => t.message),
-      output: [],
-      currentContextUsage: undefined,
-      usage: undefined,
-    });
-
+    const append = this.toThreadContextAppend(toolCallResults.map(t => t.message));
+    if (append) {
+      yield* this.appendToContext({ ...append, output: [], applied_user_events: [] });
+    }
     if (authRequirementInfo.length > 0) {
       yield buildMCPAuthRequiredEvent(authRequirementInfo, this.threadId);
+      this.pendingMCPAuth = true;
       return 'exit';
     }
 
@@ -1491,12 +1558,13 @@ export class AgentThread {
     }
   }
 
-  public async *execute(options?: {
-    signal?: AbortSignal | undefined;
-  }): AsyncGenerator<AgentThreadEvent, void, unknown> {
+  async *execute(options?: { signal?: AbortSignal | undefined }): AsyncGenerator<AgentThreadEvent, void, unknown> {
     const signal = options?.signal;
 
     this.throwIfContextBusy();
+    if (!this.isRunnable()) {
+      throw new Error(`thread ${this.threadId} is not runnable`);
+    }
     this.contextBusy = true;
     this.currentState = null;
 
@@ -1507,21 +1575,23 @@ export class AgentThread {
         return;
       }
 
-      if (!this.preSendRanThisTurn) {
-        for await (const event of this.executeContextProcessors('preSend')) {
-          yield event;
+      if (!this.convertedTools) {
+        const { initializationInfo, authRequirementInfo, convertedTools, tfyManagedServerNames } =
+          await this.tracing.withInitSpan(() => this.initTools());
+
+        if (initializationInfo.length > 0) {
+          yield buildMCPInitializeEvent(initializationInfo, this.threadId);
         }
-      }
-      this.preSendRanThisTurn = false;
-      const { initializationInfo, authRequirementInfo } = await this.tracing.withInitSpan(() => this.init());
 
-      if (initializationInfo.length > 0) {
-        yield buildMCPInitializeEvent(initializationInfo, this.threadId);
-      }
-
-      if (authRequirementInfo.length > 0) {
-        yield buildMCPAuthRequiredEvent(authRequirementInfo, this.threadId);
-        return;
+        if (authRequirementInfo.length > 0) {
+          yield buildMCPAuthRequiredEvent(authRequirementInfo, this.threadId);
+          this.pendingMCPAuth = true;
+          return;
+        }
+        // After MCP_INITIALIZE yield, and only if auth did not block:
+        // This is so that we re-run initTools after mcp auth continue.
+        this.convertedTools = convertedTools;
+        this.tfyManagedServerNames = tfyManagedServerNames;
       }
 
       const { tools, toolMapping } = this.getConvertedTools();
@@ -1551,14 +1621,13 @@ export class AgentThread {
             if (signal?.aborted) {
               return;
             }
-            if (this.metrics.iterations >= iterationLimit) {
+            if (this.iterations >= iterationLimit) {
               getOperationMetrics()?.recordHarnessLimit({ limit: 'iteration_limit' });
               yield this.generateErrorEvent(
                 `You have reached iteration limit of ${String(iterationLimit)}, please request again`,
               );
               return;
             }
-            this.metrics.iterations++;
 
             const llmResult = yield* this.stepLLMCall(tools, toolMapping, signal);
             outcome = llmResult.outcome;

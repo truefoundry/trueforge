@@ -120,6 +120,7 @@ describe('ZepMemoryProvider', () => {
         content: message.content,
         reference_time: message.createdAt,
         metadata: {
+          tenant_id: 'acme',
           session_id: 'session-1',
           last_turn_id: 't2',
           scope: 'default',

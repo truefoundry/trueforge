@@ -53,6 +53,8 @@ function mockDefaultEnvStore(): ISandboxEnvironmentStore {
   return {
     getEnvironment: () => Promise.resolve(withStatus(mockLatestDefaultStatus)),
     getActiveEnvironment: () => Promise.resolve(withStatus(mockActiveDefaultStatus)),
+    getDefaultEnvironment: () => Promise.resolve(withStatus(mockActiveDefaultStatus)),
+    hasUsableEnvironment: () => Promise.resolve(mockActiveDefaultStatus === 'ready'),
   } as unknown as ISandboxEnvironmentStore;
 }
 
@@ -144,9 +146,9 @@ describe('capabilities routers', () => {
     return withAuth(
       createCapabilitiesRouter({
         sandboxEnvironmentStore: mockDefaultEnvStore(),
-        resolveWebSearchProviderStore: () => webSearchStore ?? emptyWebSearchStore,
-        resolveConfigurationStore: () => configurationStore,
-        resolveMemoryProviderStore: () => memoryStore,
+        webSearchProviderStore: webSearchStore ?? emptyWebSearchStore,
+        configurationStore,
+        memoryProviderStore: memoryStore,
         userStore,
         withTransaction: (() => {
           const run = <T>(callback: (trx: never) => Promise<T>): Promise<T> =>
@@ -180,7 +182,7 @@ describe('capabilities routers', () => {
         settings: ALL_SETTINGS_ON,
         web_search: { enabled: false, reason: NO_PROVIDER_REASON },
         memory: { enabled: true },
-        session_sharing: { enabled: false },
+        session_sharing: { granularity: 'tenant' },
       },
     });
   });
@@ -258,16 +260,20 @@ describe('capabilities routers', () => {
     expect(body).not.toHaveProperty('data.memory');
   });
 
-  it('reports sharing with users only when a user source is configured', async () => {
+  it.each([
+    { granularity: 'tenant', userStore: new EmptyUserStore() },
+    {
+      granularity: 'subject',
+      userStore: new TrueFoundryUserStore({ peekUsers: () => Promise.reject(new Error('not used')) }),
+    },
+  ])('reports $granularity sharing granularity based on user lookup support', async ({ granularity, userStore }) => {
     disableOidcAuth();
-    const peekUsers = () => Promise.reject(new Error('not used'));
-    const router = makeRouter({ userStore: new TrueFoundryUserStore({ peekUsers }) });
+    const router = makeRouter({ userStore });
 
     const response = await router.request('/');
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({
-      data: { session_sharing: { enabled: true } },
-    });
+    const body: unknown = await response.json();
+    expect(body).toHaveProperty('data.session_sharing', { granularity });
   });
 
   it('reports sandbox + skill enabled when local fallback is cached and no image status exists', async () => {
@@ -290,7 +296,7 @@ describe('capabilities routers', () => {
         settings: ALL_SETTINGS_ON,
         web_search: { enabled: false, reason: NO_PROVIDER_REASON },
         memory: { enabled: true },
-        session_sharing: { enabled: false },
+        session_sharing: { granularity: 'tenant' },
       },
     });
   });
@@ -309,7 +315,7 @@ describe('capabilities routers', () => {
         settings: ALL_SETTINGS_ON,
         web_search: { enabled: false, reason: NO_PROVIDER_REASON },
         memory: { enabled: true },
-        session_sharing: { enabled: false },
+        session_sharing: { granularity: 'tenant' },
       },
     });
   });
@@ -514,9 +520,9 @@ describe('capabilities routers', () => {
       const router = withAuth(
         createCapabilitiesRouter({
           sandboxEnvironmentStore: mockDefaultEnvStore(),
-          resolveWebSearchProviderStore: () => emptyWebSearchStore,
-          resolveConfigurationStore: () => allOnConfigurationStore,
-          resolveMemoryProviderStore: () => zepMemoryStore,
+          webSearchProviderStore: emptyWebSearchStore,
+          configurationStore: allOnConfigurationStore,
+          memoryProviderStore: zepMemoryStore,
           userStore: new EmptyUserStore(),
           withTransaction: (() => {
             const run = <T>(callback: (trx: never) => Promise<T>): Promise<T> =>
@@ -546,7 +552,7 @@ describe('capabilities routers', () => {
           settings: ALL_SETTINGS_ON,
           web_search: { enabled: false, reason: NO_PROVIDER_REASON },
           memory: { enabled: false, reason: MEMORY_TENANT_OFF_REASON },
-          session_sharing: { enabled: false },
+          session_sharing: { granularity: 'tenant' },
         },
       });
 
@@ -567,7 +573,7 @@ describe('capabilities routers', () => {
           settings: ALL_SETTINGS_OFF,
           web_search: { enabled: false, reason: NO_PROVIDER_REASON },
           memory: { enabled: false, reason: MEMORY_TENANT_OFF_REASON },
-          session_sharing: { enabled: false },
+          session_sharing: { granularity: 'tenant' },
         },
       });
     });

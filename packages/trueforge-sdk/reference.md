@@ -1171,7 +1171,7 @@ await client.sandboxEnvironments.get("name");
 <dl>
 <dd>
 
-Delete a sandbox environment, fails if any agent still references it.
+Delete a sandbox environment. Fails if any agent still references it, if it is the tenant default, or if it is the reserved "default" environment.
 </dd>
 </dl>
 </dd>
@@ -1203,6 +1203,77 @@ await client.sandboxEnvironments.delete("name");
 <dd>
 
 **name:** `string` — Sandbox environment name.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `SandboxEnvironmentsClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.sandboxEnvironments.<a href="/src/api/resources/sandboxEnvironments/client/Client.ts">update</a>(name, { ...params }) -> TrueForge.GetSandboxEnvironmentResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Update sandbox environment metadata.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.sandboxEnvironments.update("name");
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**name:** `string` — Sandbox environment name.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request:** `TrueForge.PatchSandboxEnvironmentRequest` 
     
 </dd>
 </dl>
@@ -2826,7 +2897,7 @@ const response = page.response;
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">createTurnEvent</a>(session_id, turn_id, { ...params }) -> TrueForge.CreateTurnEventResponse</code></summary>
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">createTurnEvents</a>(session_id, turn_id, { ...params }) -> TrueForge.CreateTurnEventResponse</code></summary>
 <dl>
 <dd>
 
@@ -2853,7 +2924,7 @@ Create events for a turn. Only the session creator may create them.
 <dd>
 
 ```typescript
-await client.sessions.createTurnEvent("session_id", "turn_id", {
+await client.sessions.createTurnEvents("session_id", "turn_id", {
     events: [{
             type: "user.mcp_auth_continue"
         }]
@@ -2921,7 +2992,7 @@ await client.sessions.createTurnEvent("session_id", "turn_id", {
 <dl>
 <dd>
 
-Subscribe to the live SSE stream for a turn. Only the session creator may subscribe. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).
+Subscribe to the live SSE stream. Resume with from_event_id or after_event_id.
 </dd>
 </dl>
 </dd>

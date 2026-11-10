@@ -157,6 +157,7 @@ export class ZepMemoryProvider implements MemoryProvider {
         content: message.content,
         reference_time: message.createdAt,
         metadata: {
+          tenant_id: scope.tenantId,
           session_id: exchange.sessionId,
           last_turn_id: exchange.lastTurnId,
           scope: scope.type,

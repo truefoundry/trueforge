@@ -1,4 +1,4 @@
-import { MAIN_THREAD_ID, type TurnInputItem, type TurnState } from '@truefoundry/trueforge-core/agent-session';
+import { MAIN_THREAD_ID, type LegacyTurnInputItem, type TurnState } from '@truefoundry/trueforge-core/agent-session';
 import { ASK_USER_QUESTION_TOOL_NAME, ModelMessageEventSchema } from '@truefoundry/trueforge-core/core';
 import type { MemoryIngestTurn, StoredModelMessage } from '../../../src/db/memoryIngestStore';
 
@@ -46,21 +46,8 @@ export function doneState({
   return { status: 'done', output, required_actions: [], completed_at: completedAt };
 }
 
-export function pausedState({ completedAt, toolCallId }: { completedAt: string; toolCallId: string }): TurnState {
-  return {
-    status: 'done',
-    output: null,
-    completed_at: completedAt,
-    required_actions: [
-      {
-        type: 'tool.response_required',
-        id: `req-${toolCallId}`,
-        created_at: completedAt,
-        thread_id: MAIN_THREAD_ID,
-        tool_calls: [{ id: toolCallId, source_event_id: `ask-${toolCallId}` }],
-      },
-    ],
-  };
+export function pausedState(): TurnState {
+  return { status: 'paused' };
 }
 
 export const RUNNING: TurnState = { status: 'running' };
@@ -74,17 +61,17 @@ export function turn({
 }: {
   id: string;
   previous: string | null;
-  input: TurnInputItem[];
+  input: LegacyTurnInputItem[];
   state: TurnState;
   createdAt?: string;
 }): MemoryIngestTurn {
   return { turn_id: id, previous_turn_id: previous, input, state, created_at: createdAt };
 }
 
-export function userMessage(text: string): TurnInputItem {
+export function userMessage(text: string): LegacyTurnInputItem {
   return { type: 'user.message', content: text };
 }
 
-export function answer({ toolCallId, content }: { toolCallId: string; content: string }): TurnInputItem {
+export function answer({ toolCallId, content }: { toolCallId: string; content: string }): LegacyTurnInputItem {
   return { type: 'user.tool_response', thread_id: MAIN_THREAD_ID, tool_call_id: toolCallId, content };
 }

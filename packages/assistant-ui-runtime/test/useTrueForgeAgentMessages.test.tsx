@@ -3,26 +3,19 @@ import type { ThreadMessage } from '@assistant-ui/core';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AgentChatServer, Turn } from '../src/server/index.js';
+import { TOOL_APPROVAL_POLICY_ACTION_TYPE } from '../src/server/index.js';
 
-import { collectPendingToolResponses } from '../src/collectPending.js';
+import { collectPendingApprovals, collectPendingToolResponses } from '../src/collectPending.js';
 import { ROOT_THREAD_ID } from '../src/constants.js';
-import {
-  prependOlderSessionHistory,
-  TurnFailedError,
-  TurnStreamDisconnectedError,
-} from '../src/convertTurnMessages.js';
+import { prependOlderSessionHistory } from '../src/convertTurnMessages.js';
 import { buildRootAssistantContent, ingestTurnEvent, PeerThreadFoldState } from '../src/foldPeerThreads.js';
 import { loadSessionSnapshot } from '../src/loadSessionSnapshot.js';
+import { MESSAGE_CUSTOM_KEY } from '../src/messageCustomMetadata.js';
 import { createEmptySessionSnapshot, replaceSessionSnapshot, type SessionSnapshot } from '../src/sessionSnapshot.js';
 import { delayReconnect } from '../src/streamReconnect.js';
 import { resumeTurnStream, streamTurnContent } from '../src/streamTurn.js';
-import { messageHasPendingApprovals, TOOL_APPROVAL_THREAD_ID_CUSTOM_KEY } from '../src/toolApproval.js';
-import {
-  messageHasPendingResponses,
-  TOOL_RESPONSE_THREAD_ID_CUSTOM_KEY,
-  toolResponseMessageCustom,
-  toolResponseStatus,
-} from '../src/toolResponse.js';
+import { messageHasPendingApprovals } from '../src/toolApproval.js';
+import { messageHasPendingResponses, toolResponseMessageCustom, toolResponseStatus } from '../src/toolResponse.js';
 import { useTrueForgeAgentMessages } from '../src/useTrueForgeAgentMessages.js';
 
 vi.mock('../src/loadSessionSnapshot.js', () => ({
@@ -59,6 +52,7 @@ vi.mock('../src/convertTurnMessages.js', async importOriginal => {
 
 const mockServer = {
   cancelSession: vi.fn().mockResolvedValue(undefined),
+  sendTurnEvents: vi.fn().mockResolvedValue([]),
   listTurns: vi.fn(),
   getTurn: vi.fn(),
   // Present so resume-capable paths are exercised; resumeTurnStream is mocked.
@@ -73,7 +67,7 @@ function snapshotWithAssistantMessage(
   return replaceSessionSnapshot(createEmptySessionSnapshot(), {
     activeStream: {
       turnId,
-      isContinuation: false,
+      segmentStatus: 'paused',
       update: {
         content: [...message.content],
         status: message.status,
@@ -147,8 +141,7 @@ function snapshotWithAskUserPendingInFold(): SessionSnapshot {
     },
     activeStream: {
       turnId,
-      isContinuation: false,
-      streamComplete: true,
+      segmentStatus: 'paused',
       update: {
         content,
         status: toolResponseStatus(),
@@ -156,6 +149,51 @@ function snapshotWithAskUserPendingInFold(): SessionSnapshot {
       },
     },
   });
+}
+
+function snapshotWithMcpApprovals(toolCallIds: readonly string[]): SessionSnapshot {
+  const fold = new PeerThreadFoldState();
+  ingestTurnEvent(fold, {
+    type: 'model.message',
+    id: 'model-approval',
+    createdAt: new Date().toISOString(),
+    threadId: ROOT_THREAD_ID,
+    toolCalls: toolCallIds.map(id => ({
+      id,
+      type: 'function' as const,
+      function: { name: 'create_issue', arguments: '{}' },
+      toolInfo: {
+        type: 'mcp' as const,
+        name: 'create_issue',
+        serverId: 'github-id',
+        serverName: 'github',
+      },
+    })),
+  });
+  ingestTurnEvent(fold, {
+    type: 'tool.approval_required',
+    id: 'approval-required-1',
+    createdAt: new Date().toISOString(),
+    threadId: ROOT_THREAD_ID,
+    toolCalls: toolCallIds.map(id => ({ id, sourceEventId: 'model-approval' })),
+  });
+  const content = buildRootAssistantContent(fold);
+  return replaceSessionSnapshot(createEmptySessionSnapshot(), {
+    fold,
+    activeStream: {
+      turnId: 'turn-1',
+      segmentStatus: 'paused',
+      update: {
+        content,
+        status: { type: 'requires-action', reason: 'tool-calls' },
+        metadata: { custom: { [MESSAGE_CUSTOM_KEY.TOOL_APPROVAL_THREAD_ID]: ROOT_THREAD_ID } },
+      },
+    },
+  });
+}
+
+function snapshotWithMcpApproval(): SessionSnapshot {
+  return snapshotWithMcpApprovals(['approval-1']);
 }
 
 function assistantMessageWithPendingApproval() {
@@ -179,7 +217,7 @@ function assistantMessageWithPendingApproval() {
       unstable_annotations: [],
       unstable_data: [],
       steps: [],
-      custom: { [TOOL_APPROVAL_THREAD_ID_CUSTOM_KEY]: ROOT_THREAD_ID },
+      custom: { [MESSAGE_CUSTOM_KEY.TOOL_APPROVAL_THREAD_ID]: ROOT_THREAD_ID },
     },
   };
 }
@@ -217,8 +255,8 @@ function assistantMessageWithPendingApprovalAndResponse() {
       unstable_data: [],
       steps: [],
       custom: {
-        [TOOL_APPROVAL_THREAD_ID_CUSTOM_KEY]: ROOT_THREAD_ID,
-        [TOOL_RESPONSE_THREAD_ID_CUSTOM_KEY]: ROOT_THREAD_ID,
+        [MESSAGE_CUSTOM_KEY.TOOL_APPROVAL_THREAD_ID]: ROOT_THREAD_ID,
+        [MESSAGE_CUSTOM_KEY.TOOL_RESPONSE_THREAD_ID]: ROOT_THREAD_ID,
       },
     },
   };
@@ -262,7 +300,7 @@ function assistantMessageWithMultiThreadPendingActions() {
               unstable_annotations: [],
               unstable_data: [],
               steps: [],
-              custom: { [TOOL_RESPONSE_THREAD_ID_CUSTOM_KEY]: 'child-1' },
+              custom: { [MESSAGE_CUSTOM_KEY.TOOL_RESPONSE_THREAD_ID]: 'child-1' },
             },
           },
         ],
@@ -283,7 +321,7 @@ function assistantMessageWithMultiThreadPendingActions() {
       unstable_annotations: [],
       unstable_data: [],
       steps: [],
-      custom: { [TOOL_APPROVAL_THREAD_ID_CUSTOM_KEY]: ROOT_THREAD_ID },
+      custom: { [MESSAGE_CUSTOM_KEY.TOOL_APPROVAL_THREAD_ID]: ROOT_THREAD_ID },
     },
   };
 }
@@ -295,11 +333,6 @@ async function* singleUpdateStream() {
 describe('useTrueForgeAgentMessages', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(mockServer.cancelSession).mockResolvedValue(undefined);
-    vi.mocked(mockServer.listTurns).mockResolvedValue({ data: [] });
-    vi.mocked(loadSessionSnapshot).mockResolvedValue(createEmptySessionSnapshot());
-    vi.mocked(streamTurnContent).mockReturnValue(singleUpdateStream());
-    vi.mocked(resumeTurnStream).mockReturnValue(singleUpdateStream());
     vi.mocked(delayReconnect).mockImplementation(async (signal: AbortSignal) => {
       if (signal.aborted) {
         const error = new Error('Aborted');
@@ -307,6 +340,18 @@ describe('useTrueForgeAgentMessages', () => {
         throw error;
       }
     });
+    vi.mocked(mockServer.cancelSession).mockResolvedValue(undefined);
+    vi.mocked(mockServer.sendTurnEvents).mockImplementation(async ({ events }) =>
+      events.map(event => ({
+        ...event,
+        id: 'toolCallId' in event ? `inbound-${event.toolCallId}` : 'inbound-mcp',
+        createdAt: new Date().toISOString(),
+      })),
+    );
+    vi.mocked(mockServer.listTurns).mockResolvedValue({ data: [] });
+    vi.mocked(loadSessionSnapshot).mockResolvedValue(createEmptySessionSnapshot());
+    vi.mocked(streamTurnContent).mockReturnValue(singleUpdateStream());
+    vi.mocked(resumeTurnStream).mockReturnValue((async function* () {})());
   });
 
   afterEach(() => {
@@ -453,6 +498,7 @@ describe('useTrueForgeAgentMessages', () => {
       expect.any(Array),
       expect.any(Function),
       expect.any(Function),
+      expect.any(Function),
     );
 
     await act(async () => {
@@ -467,6 +513,7 @@ describe('useTrueForgeAgentMessages', () => {
       { userMessage: 'second' },
       expect.any(AbortSignal),
       expect.any(Array),
+      expect.any(Function),
       expect.any(Function),
       expect.any(Function),
     );
@@ -625,6 +672,7 @@ describe('useTrueForgeAgentMessages', () => {
   });
 
   it('resumes a running turn after load', async () => {
+    vi.mocked(resumeTurnStream).mockReturnValue(singleUpdateStream());
     const fold = new PeerThreadFoldState();
     ingestTurnEvent(fold, {
       type: 'model.message',
@@ -652,7 +700,7 @@ describe('useTrueForgeAgentMessages', () => {
             input: [{ type: 'user.message', content: 'continue' }],
           },
         ],
-        runningTurn,
+        runningTurn: runningTurn,
         groupRootBaseline: [],
         unstable_resume: true,
       }),
@@ -666,7 +714,7 @@ describe('useTrueForgeAgentMessages', () => {
       expect(result.current.messages.at(-1)).toMatchObject({
         role: 'assistant',
         content: [{ type: 'text', text: 'streamed reply' }],
-        status: { type: 'complete', reason: 'stop' },
+        status: { type: 'running' },
       }),
     );
   });
@@ -729,6 +777,20 @@ describe('useTrueForgeAgentMessages', () => {
       replaceSessionSnapshot(createEmptySessionSnapshot(), {
         runningTurn,
         unstable_resume: true,
+        pendingUser: {
+          turnId: runningTurn.id,
+          content: 'keep going',
+          createdAt: new Date(runningTurn.createdAt),
+        },
+        activeStream: {
+          turnId: runningTurn.id,
+          segmentStatus: 'disconnected',
+          update: {
+            content: [{ type: 'text', text: 'partial reply' }],
+            status: { type: 'running' },
+            turnState: { status: 'running' },
+          },
+        },
       }),
     );
     const serverWithoutSubscribe = {
@@ -745,6 +807,7 @@ describe('useTrueForgeAgentMessages', () => {
     );
 
     await waitFor(() => expect(result.current.isRunning).toBe(true));
+    await waitFor(() => expect(result.current.messages.some(message => message.status?.type === 'running')).toBe(true));
 
     await act(async () => {
       await result.current.cancel();
@@ -756,6 +819,13 @@ describe('useTrueForgeAgentMessages', () => {
     // No stream was attached, so nothing else would release the composer.
     expect(result.current.isRunning).toBe(false);
     expect(result.current.resumeUnavailable).toBe(false);
+    // Snapshot must not keep a running tip — otherwise clearing resumeUnavailable
+    // would bring the activity loader back on the last assistant message.
+    expect(result.current.messages.some(message => message.status?.type === 'running')).toBe(false);
+    expect(result.current.messages.at(-1)).toMatchObject({
+      role: 'assistant',
+      status: { type: 'incomplete', reason: 'cancelled' },
+    });
   });
 
   it('stays in the waiting state instead of resuming when resumeRun has no subscribeToTurn', async () => {
@@ -791,6 +861,88 @@ describe('useTrueForgeAgentMessages', () => {
     expect(onError).not.toHaveBeenCalled();
   });
 
+  it('keeps running with resumeUnavailable when create-turn reconnect has no subscribeToTurn', async () => {
+    const onError = vi.fn();
+    const serverWithoutSubscribe = {
+      cancelSession: vi.fn().mockResolvedValue(undefined),
+      listTurns: vi.fn().mockResolvedValue({ data: [] }),
+      sendTurnEvents: vi.fn().mockResolvedValue([]),
+    } as unknown as AgentChatServer;
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      vi.fn((callback: FrameRequestCallback) => {
+        callback(performance.now());
+        return 1;
+      }),
+    );
+    vi.stubGlobal('cancelAnimationFrame', vi.fn());
+    vi.mocked(streamTurnContent).mockImplementation(
+      (_server, _sessionId, _fold, _options, _signal, _baseline, onTurnIdAvailable) =>
+        (async function* () {
+          onTurnIdAvailable?.('turn-1');
+          yield {
+            content: [{ type: 'text' as const, text: 'partial' }],
+            turnState: { status: 'running' as const },
+          };
+          throw new Error('SSE dropped');
+        })(),
+    );
+
+    const { result } = renderHook(() =>
+      useTrueForgeAgentMessages({
+        server: serverWithoutSubscribe,
+        sessionId: 'session-1',
+        onError,
+      }),
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.sendTurn({ userMessage: 'hello' });
+    });
+
+    await waitFor(() => expect(result.current.resumeUnavailable).toBe(true));
+    expect(result.current.isRunning).toBe(true);
+    expect(resumeTurnStream).not.toHaveBeenCalled();
+    // Waiting state, not a hard stream failure: the turn still runs server-side.
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('does not empty-complete when ensureTurnSubscription has no subscribeToTurn', async () => {
+    const pausedSnapshot = snapshotWithAssistantMessage(assistantMessageWithPendingApproval(), {
+      runningTurn: {
+        id: 'turn-1',
+        sessionId: 'session-1',
+        input: [{ type: 'user.message', content: 'run it' }],
+        state: { status: 'paused' },
+        createdAt: new Date().toISOString(),
+      },
+    });
+    vi.mocked(loadSessionSnapshot).mockResolvedValue(pausedSnapshot);
+    const serverWithoutSubscribe = {
+      cancelSession: vi.fn().mockResolvedValue(undefined),
+      sendTurnEvents: vi.fn().mockResolvedValue([]),
+      listTurns: vi.fn().mockResolvedValue({ data: [] }),
+    } as unknown as AgentChatServer;
+
+    const { result } = renderHook(() =>
+      useTrueForgeAgentMessages({
+        server: serverWithoutSubscribe,
+        sessionId: 'session-1',
+      }),
+    );
+    await waitFor(() => expect(result.current.resumeUnavailable).toBe(true));
+    expect(result.current.isRunning).toBe(true);
+
+    await act(async () => {
+      await result.current.respondToToolApproval({ approvalId: 'approval-1', approved: true });
+    });
+
+    expect(resumeTurnStream).not.toHaveBeenCalled();
+    expect(result.current.resumeUnavailable).toBe(true);
+    expect(result.current.isRunning).toBe(true);
+  });
+
   it('clears isLoading while a resumed turn is still streaming', async () => {
     let releaseStream: (() => void) | undefined;
     vi.mocked(resumeTurnStream).mockReturnValue(
@@ -804,12 +956,14 @@ describe('useTrueForgeAgentMessages', () => {
 
     const runningTurn = {
       id: 'turn-running',
+      sessionId: 'session-1',
       input: [{ type: 'user.message', content: 'keep going' }],
+      state: { status: 'running' },
       createdAt: new Date().toISOString(),
-    } as Turn;
+    } satisfies Turn;
     vi.mocked(loadSessionSnapshot).mockResolvedValue(
       replaceSessionSnapshot(createEmptySessionSnapshot(), {
-        runningTurn,
+        runningTurn: runningTurn,
         unstable_resume: true,
         pendingUser: {
           turnId: runningTurn.id,
@@ -852,7 +1006,7 @@ describe('useTrueForgeAgentMessages', () => {
     expect(result.current.messages[1]).toMatchObject({
       role: 'assistant',
       content: [{ type: 'text', text: 'streamed reply' }],
-      status: { type: 'complete', reason: 'stop' },
+      status: { type: 'running' },
     });
   });
 
@@ -1371,114 +1525,6 @@ describe('useTrueForgeAgentMessages', () => {
     });
   });
 
-  it('sendTurn with approvals streams a continuation without adding a user message', async () => {
-    vi.mocked(loadSessionSnapshot).mockResolvedValue(
-      snapshotWithAssistantMessage(assistantMessageWithPendingApproval()),
-    );
-
-    const { result } = renderHook(() => useTrueForgeAgentMessages({ server: mockServer, sessionId: 'session-1' }));
-    await waitFor(() => expect(result.current.messages).toHaveLength(1));
-
-    await act(async () => {
-      await result.current.sendTurn({
-        inputs: [
-          {
-            type: 'user.tool_approval',
-            threadId: ROOT_THREAD_ID,
-            toolCallId: 'approval-1',
-            approval: { status: 'allow' },
-          },
-        ],
-      });
-    });
-
-    expect(streamTurnContent).toHaveBeenCalledWith(
-      mockServer,
-      'session-1',
-      expect.any(PeerThreadFoldState),
-      {
-        inputs: [
-          {
-            type: 'user.tool_approval',
-            threadId: ROOT_THREAD_ID,
-            toolCallId: 'approval-1',
-            approval: { status: 'allow' },
-          },
-        ],
-      },
-      expect.any(AbortSignal),
-      expect.any(Array),
-      expect.any(Function),
-      expect.any(Function),
-    );
-    expect(result.current.messages).toHaveLength(1);
-    expect(result.current.messages[0]?.role).toBe('assistant');
-  });
-
-  it('commits a continuation under the gateway turn id when no active stream exists', async () => {
-    // Reproduces the "Turn not found: <7-char id>" failure: the paused
-    // stream was already committed (activeStream cleared), so the resume
-    // turn used to run under a local generateId() that leaked into
-    // custom.turnId and the committed record.
-    const fold = new PeerThreadFoldState();
-    ingestTurnEvent(fold, {
-      type: 'model.message',
-      id: 'model-1',
-      createdAt: new Date().toISOString(),
-      threadId: ROOT_THREAD_ID,
-      content: 'committed reply',
-    });
-    const createdAt = new Date().toISOString();
-    vi.mocked(loadSessionSnapshot).mockResolvedValue(
-      replaceSessionSnapshot(createEmptySessionSnapshot(), {
-        fold,
-        turns: [
-          {
-            id: 'turn-1',
-            userText: 'hi',
-            createdAt,
-            state: {
-              status: 'done',
-              requiredActions: [],
-              completedAt: createdAt,
-            },
-            input: [{ type: 'user.message', content: 'hi' }],
-            rootModelMessageIds: ['model-1'],
-          },
-        ],
-      }),
-    );
-    vi.mocked(streamTurnContent).mockImplementation(
-      (_server, _sessionId, _fold, _options, _signal, _baseline, onTurnIdAvailable) =>
-        (async function* () {
-          onTurnIdAvailable?.('gw-turn-2');
-          yield {
-            content: [{ type: 'text' as const, text: 'resumed' }],
-          };
-        })(),
-    );
-
-    const { result } = renderHook(() => useTrueForgeAgentMessages({ server: mockServer, sessionId: 'session-1' }));
-    await waitFor(() => expect(result.current.messages).toHaveLength(2));
-
-    await act(async () => {
-      await result.current.sendTurn({
-        inputs: [
-          {
-            type: 'user.tool_approval',
-            threadId: ROOT_THREAD_ID,
-            toolCallId: 'approval-1',
-            approval: { status: 'allow' },
-          },
-        ],
-      });
-    });
-
-    const assistant = result.current.messages[1];
-    expect(assistant?.role).toBe('assistant');
-    expect(assistant?.metadata.custom).toMatchObject({ turnId: 'gw-turn-2' });
-  });
-
   it('resolveSandboxIdForTurn returns the sandbox current as of that turn', async () => {
     const createdAt = new Date().toISOString();
     const doneState = {
@@ -1629,7 +1675,7 @@ describe('useTrueForgeAgentMessages', () => {
     await waitFor(() => expect(result.current.messages).toHaveLength(1));
 
     await act(async () => {
-      result.current.respondToToolApproval({
+      await result.current.respondToToolApproval({
         approvalId: 'approval-1',
         approved: true,
       });
@@ -1649,10 +1695,93 @@ describe('useTrueForgeAgentMessages', () => {
       expect(toolCall.approval?.approved).toBe(true);
     });
 
-    expect(streamTurnContent).toHaveBeenCalled();
+    expect(mockServer.sendTurnEvents).toHaveBeenCalledWith({
+      sessionId: 'session-1',
+      turnId: 'turn-1',
+      events: [
+        {
+          type: 'user.tool_approval',
+          threadId: ROOT_THREAD_ID,
+          toolCallId: 'approval-1',
+          approval: { status: 'allow' },
+        },
+      ],
+    });
+    expect(streamTurnContent).not.toHaveBeenCalled();
+    expect(resumeTurnStream).toHaveBeenCalled();
   });
 
-  it('respondToToolApproval sends combined inputs only after responses are answered', async () => {
+  it('sends only MCP session policy when a policy target resolves', async () => {
+    vi.mocked(loadSessionSnapshot).mockResolvedValue(snapshotWithMcpApproval());
+    const { result } = renderHook(() => useTrueForgeAgentMessages({ server: mockServer, sessionId: 'session-1' }));
+    await waitFor(() => expect(result.current.messages).toHaveLength(1));
+
+    await act(async () => {
+      await result.current.respondToToolApproval({
+        approvalId: 'approval-1',
+        approved: true,
+        policy: {
+          type: TOOL_APPROVAL_POLICY_ACTION_TYPE.ALLOW_SESSION,
+          expireAt: '2026-09-24T12:10:00.000Z',
+        },
+      });
+    });
+
+    expect(mockServer.sendTurnEvents).toHaveBeenCalledWith({
+      sessionId: 'session-1',
+      turnId: 'turn-1',
+      events: [
+        {
+          type: 'user.tool_approval_policy',
+          policies: [
+            {
+              serverName: 'github',
+              name: 'create_issue',
+              policy: {
+                type: TOOL_APPROVAL_POLICY_ACTION_TYPE.ALLOW_SESSION,
+                expireAt: '2026-09-24T12:10:00.000Z',
+              },
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('sends allow-once when a policy is requested without an MCP target', async () => {
+    vi.mocked(loadSessionSnapshot).mockResolvedValue(
+      snapshotWithAssistantMessage(assistantMessageWithPendingApproval()),
+    );
+    const onError = vi.fn();
+    const { result } = renderHook(() =>
+      useTrueForgeAgentMessages({ server: mockServer, sessionId: 'session-1', onError }),
+    );
+    await waitFor(() => expect(result.current.messages).toHaveLength(1));
+
+    await act(async () => {
+      await result.current.respondToToolApproval({
+        approvalId: 'approval-1',
+        approved: true,
+        policy: { type: TOOL_APPROVAL_POLICY_ACTION_TYPE.ALLOW_SESSION },
+      });
+    });
+
+    expect(mockServer.sendTurnEvents).toHaveBeenCalledWith({
+      sessionId: 'session-1',
+      turnId: 'turn-1',
+      events: [
+        {
+          type: 'user.tool_approval',
+          threadId: ROOT_THREAD_ID,
+          toolCallId: 'approval-1',
+          approval: { status: 'allow' },
+        },
+      ],
+    });
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('submits each required action immediately on the same turn', async () => {
     vi.mocked(loadSessionSnapshot).mockResolvedValue(
       snapshotWithAssistantMessage(assistantMessageWithPendingApprovalAndResponse()),
     );
@@ -1661,47 +1790,34 @@ describe('useTrueForgeAgentMessages', () => {
     await waitFor(() => expect(result.current.messages).toHaveLength(1));
 
     await act(async () => {
-      result.current.respondToToolApproval({
+      await result.current.respondToToolApproval({
         approvalId: 'approval-1',
         approved: true,
       });
     });
 
-    expect(streamTurnContent).not.toHaveBeenCalled();
+    expect(mockServer.sendTurnEvents).toHaveBeenCalledTimes(1);
 
     await act(async () => {
-      result.current.respondToToolResponse({
+      await result.current.respondToToolResponse({
         toolCallId: 'question-1',
         content: 'A',
       });
     });
 
-    await waitFor(() => expect(streamTurnContent).toHaveBeenCalled());
-    expect(streamTurnContent).toHaveBeenCalledWith(
-      mockServer,
-      'session-1',
-      expect.any(PeerThreadFoldState),
-      {
-        inputs: [
-          {
-            type: 'user.tool_approval',
-            threadId: ROOT_THREAD_ID,
-            toolCallId: 'approval-1',
-            approval: { status: 'allow' },
-          },
-          {
-            type: 'user.tool_response',
-            threadId: ROOT_THREAD_ID,
-            toolCallId: 'question-1',
-            content: 'A',
-          },
-        ],
-      },
-      expect.any(AbortSignal),
-      expect.any(Array),
-      expect.any(Function),
-      expect.any(Function),
-    );
+    expect(mockServer.sendTurnEvents).toHaveBeenNthCalledWith(2, {
+      sessionId: 'session-1',
+      turnId: 'turn-1',
+      events: [
+        {
+          type: 'user.tool_response',
+          threadId: ROOT_THREAD_ID,
+          toolCallId: 'question-1',
+          content: 'A',
+        },
+      ],
+    });
+    expect(streamTurnContent).not.toHaveBeenCalled();
 
     const assistant = result.current.messages[0];
     expect(assistant?.role).toBe('assistant');
@@ -1720,13 +1836,13 @@ describe('useTrueForgeAgentMessages', () => {
     expect(collectPendingToolResponses(result.current.messages)).toHaveLength(1);
 
     await act(async () => {
-      result.current.respondToToolResponse({
+      await result.current.respondToToolResponse({
         toolCallId: 'question-1',
         content: 'A',
       });
     });
 
-    await waitFor(() => expect(streamTurnContent).toHaveBeenCalled());
+    await waitFor(() => expect(mockServer.sendTurnEvents).toHaveBeenCalled());
     await waitFor(() => expect(result.current.isRunning).toBe(false));
 
     expect(collectPendingToolResponses(result.current.messages)).toHaveLength(0);
@@ -1735,8 +1851,8 @@ describe('useTrueForgeAgentMessages', () => {
     expect(messageHasPendingResponses(assistant)).toBe(false);
   });
 
-  describe('batched resume invariant', () => {
-    it('issues exactly one createTurn input batch across root and sub-agent threads', async () => {
+  describe('same-turn action submissions', () => {
+    it('preserves root and sub-agent thread ids in independent events', async () => {
       vi.mocked(loadSessionSnapshot).mockResolvedValue(
         snapshotWithAssistantMessage(assistantMessageWithMultiThreadPendingActions()),
       );
@@ -1745,49 +1861,46 @@ describe('useTrueForgeAgentMessages', () => {
       await waitFor(() => expect(result.current.messages).toHaveLength(1));
 
       await act(async () => {
-        result.current.respondToToolResponse({
+        await result.current.respondToToolResponse({
           toolCallId: 'question-sub',
           content: 'sub-answer',
         });
       });
-      expect(streamTurnContent).not.toHaveBeenCalled();
 
       await act(async () => {
-        result.current.respondToToolApproval({
+        await result.current.respondToToolApproval({
           approvalId: 'approval-root',
           approved: true,
         });
       });
 
-      await waitFor(() => expect(streamTurnContent).toHaveBeenCalledTimes(1));
-      expect(streamTurnContent).toHaveBeenCalledWith(
-        mockServer,
-        'session-1',
-        expect.any(PeerThreadFoldState),
-        {
-          inputs: [
-            {
-              type: 'user.tool_approval',
-              threadId: ROOT_THREAD_ID,
-              toolCallId: 'approval-root',
-              approval: { status: 'allow' },
-            },
-            {
-              type: 'user.tool_response',
-              threadId: 'child-1',
-              toolCallId: 'question-sub',
-              content: 'sub-answer',
-            },
-          ],
-        },
-        expect.any(AbortSignal),
-        expect.any(Array),
-        expect.any(Function),
-        expect.any(Function),
-      );
+      expect(mockServer.sendTurnEvents).toHaveBeenNthCalledWith(1, {
+        sessionId: 'session-1',
+        turnId: 'turn-1',
+        events: [
+          {
+            type: 'user.tool_response',
+            threadId: 'child-1',
+            toolCallId: 'question-sub',
+            content: 'sub-answer',
+          },
+        ],
+      });
+      expect(mockServer.sendTurnEvents).toHaveBeenNthCalledWith(2, {
+        sessionId: 'session-1',
+        turnId: 'turn-1',
+        events: [
+          {
+            type: 'user.tool_approval',
+            threadId: ROOT_THREAD_ID,
+            toolCallId: 'approval-root',
+            approval: { status: 'allow' },
+          },
+        ],
+      });
     });
 
-    it('does not resume after the first resolved action when another is still pending', async () => {
+    it('keeps other actions pending after a partial submission', async () => {
       vi.mocked(loadSessionSnapshot).mockResolvedValue(
         snapshotWithAssistantMessage(assistantMessageWithPendingApprovalAndResponse()),
       );
@@ -1796,15 +1909,201 @@ describe('useTrueForgeAgentMessages', () => {
       await waitFor(() => expect(result.current.messages).toHaveLength(1));
 
       await act(async () => {
-        result.current.respondToToolResponse({
+        await result.current.respondToToolResponse({
           toolCallId: 'question-1',
           content: 'A',
         });
       });
 
       expect(streamTurnContent).not.toHaveBeenCalled();
-      expect(messageHasPendingApprovals(result.current.messages[0]!)).toBe(true);
-      expect(messageHasPendingResponses(result.current.messages[0]!)).toBe(false);
+      expect(mockServer.sendTurnEvents).toHaveBeenCalledTimes(1);
+      const message = result.current.messages[0];
+      expect(message).toBeDefined();
+      expect(messageHasPendingApprovals(message)).toBe(true);
+      expect(messageHasPendingResponses(message)).toBe(false);
+    });
+  });
+
+  it('submits MCP auth continuation on the paused turn', async () => {
+    vi.mocked(loadSessionSnapshot).mockResolvedValue(
+      snapshotWithAssistantMessage({
+        id: 'turn-1-assistant',
+        role: 'assistant',
+        content: [{ type: 'text', text: 'Connect the required service.' }],
+        status: { type: 'requires-action', reason: 'interrupt' },
+        createdAt: new Date(),
+        metadata: {
+          unstable_state: null,
+          unstable_annotations: [],
+          unstable_data: [],
+          steps: [],
+          custom: {
+            turnId: 'turn-1',
+            pendingMcpAuth: true,
+            mcpServers: [{ id: 'github', name: 'GitHub', authUrl: 'https://example.com/auth' }],
+          },
+        },
+      }),
+    );
+
+    const { result } = renderHook(() => useTrueForgeAgentMessages({ server: mockServer, sessionId: 'session-1' }));
+    await waitFor(() => expect(result.current.messages).toHaveLength(1));
+
+    await act(async () => {
+      await result.current.continueMcpAuth();
+    });
+
+    expect(mockServer.sendTurnEvents).toHaveBeenCalledWith({
+      sessionId: 'session-1',
+      turnId: 'turn-1',
+      events: [{ type: 'user.mcp_auth_continue' }],
+    });
+  });
+
+  it('uses the stored event-id cursor when subscribing before an action', async () => {
+    const base = snapshotWithAssistantMessage(assistantMessageWithPendingApproval());
+    const active = base.activeStream;
+    if (active == null) {
+      throw new Error('Expected active stream fixture');
+    }
+    vi.mocked(loadSessionSnapshot).mockResolvedValue(
+      replaceSessionSnapshot(base, {
+        activeStream: { ...active, subscribeCursor: { afterEventId: 'approval-required-1' } },
+      }),
+    );
+
+    const { result } = renderHook(() => useTrueForgeAgentMessages({ server: mockServer, sessionId: 'session-1' }));
+    await waitFor(() => expect(result.current.messages).toHaveLength(1));
+
+    await act(async () => {
+      await result.current.respondToToolApproval({ approvalId: 'approval-1', approved: true });
+    });
+
+    expect(resumeTurnStream).toHaveBeenCalledWith(
+      mockServer,
+      'session-1',
+      'turn-1',
+      expect.any(PeerThreadFoldState),
+      expect.any(AbortSignal),
+      { afterEventId: 'approval-required-1' },
+      undefined,
+      expect.any(Function),
+      expect.any(Function),
+    );
+  });
+
+  it('queues a subscription when an action arrives while the paused segment is finishing', async () => {
+    let releasePausedSegment: (() => void) | undefined;
+    vi.mocked(streamTurnContent).mockImplementation(
+      (
+        _server,
+        _sessionId,
+        _fold,
+        _options,
+        _signal,
+        _baseline,
+        onTurnIdAvailable,
+        _onSequenceNumber,
+        onSubscribeCursor,
+      ) =>
+        (async function* () {
+          onTurnIdAvailable?.('turn-paused');
+          onSubscribeCursor?.({ afterEventId: 'approval-required-1' });
+          yield {
+            content: [...assistantMessageWithPendingApproval().content],
+            status: { type: 'requires-action', reason: 'tool-calls' },
+            sequenceNumber: 4,
+            turnState: {
+              status: 'paused',
+            },
+          };
+          await new Promise<void>(resolve => {
+            releasePausedSegment = resolve;
+          });
+        })(),
+    );
+
+    const { result } = renderHook(() => useTrueForgeAgentMessages({ server: mockServer, sessionId: 'session-1' }));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let sendPromise: Promise<void> | undefined;
+    await act(async () => {
+      sendPromise = result.current.sendTurn({ userMessage: 'run it' });
+    });
+    await waitFor(() => expect(collectPendingApprovals(result.current.messages)).toHaveLength(1));
+
+    await act(async () => {
+      await result.current.respondToToolApproval({ approvalId: 'approval-1', approved: true });
+      releasePausedSegment?.();
+      await sendPromise;
+    });
+
+    await waitFor(() => expect(resumeTurnStream).toHaveBeenCalledTimes(1));
+    expect(resumeTurnStream).toHaveBeenCalledWith(
+      mockServer,
+      'session-1',
+      'turn-paused',
+      expect.any(PeerThreadFoldState),
+      expect.any(AbortSignal),
+      { afterEventId: 'approval-required-1' },
+      expect.any(Array),
+      expect.any(Function),
+      expect.any(Function),
+    );
+  });
+
+  it('restores a pending action when event submission fails', async () => {
+    vi.mocked(loadSessionSnapshot).mockResolvedValue(
+      snapshotWithAssistantMessage(assistantMessageWithPendingApproval()),
+    );
+    vi.mocked(mockServer.sendTurnEvents).mockRejectedValueOnce(new Error('event rejected'));
+    const onError = vi.fn();
+    const { result } = renderHook(() =>
+      useTrueForgeAgentMessages({ server: mockServer, sessionId: 'session-1', onError }),
+    );
+    await waitFor(() => expect(result.current.messages).toHaveLength(1));
+
+    await act(async () => {
+      await expect(result.current.respondToToolApproval({ approvalId: 'approval-1', approved: true })).rejects.toThrow(
+        'event rejected',
+      );
+    });
+
+    expect(messageHasPendingApprovals(result.current.messages[0])).toBe(true);
+    expect(onError).toHaveBeenCalledWith(expect.any(Error));
+  });
+
+  it('reports a terminal turn error once while preserving its message projection', async () => {
+    const onError = vi.fn();
+    vi.mocked(streamTurnContent).mockImplementation(
+      (_server, _sessionId, _fold, _options, _signal, _baseline, onTurnIdAvailable) =>
+        (async function* () {
+          onTurnIdAvailable?.('turn-error');
+          yield {
+            content: [{ type: 'text', text: 'partial output' }],
+            status: { type: 'incomplete', reason: 'error', error: 'model failed' },
+            turnState: {
+              status: 'error',
+              message: 'model failed',
+              completedAt: new Date().toISOString(),
+            },
+          };
+        })(),
+    );
+    const { result } = renderHook(() =>
+      useTrueForgeAgentMessages({ server: mockServer, sessionId: 'session-1', onError }),
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.sendTurn({ userMessage: 'fail' });
+    });
+
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError.mock.calls[0]?.[0]).toMatchObject({ message: 'model failed' });
+    expect(result.current.messages.at(-1)).toMatchObject({
+      role: 'assistant',
+      status: { type: 'incomplete', reason: 'error', error: 'model failed' },
     });
   });
 
@@ -1843,6 +2142,54 @@ describe('useTrueForgeAgentMessages', () => {
     // No reconcile is triggered by cancel; the session was only loaded once
     // on mount and reconciles against the event log on the next page load.
     expect(loadSessionSnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it('subscribes before cancelling a paused turn and applies the terminal event', async () => {
+    const pausedSnapshot = snapshotWithAssistantMessage(assistantMessageWithPendingApproval(), {
+      runningTurn: {
+        id: 'turn-1',
+        sessionId: 'session-1',
+        input: [{ type: 'user.message', content: 'run it' }],
+        state: {
+          status: 'paused',
+        },
+        createdAt: new Date().toISOString(),
+      },
+    });
+    vi.mocked(loadSessionSnapshot).mockResolvedValue(pausedSnapshot);
+    let releaseCancellation: (() => void) | undefined;
+    vi.mocked(resumeTurnStream).mockReturnValue(
+      (async function* () {
+        await new Promise<void>(resolve => {
+          releaseCancellation = resolve;
+        });
+        yield {
+          content: [...assistantMessageWithPendingApproval().content],
+          status: { type: 'incomplete', reason: 'cancelled' },
+          turnState: {
+            status: 'cancelled',
+            reason: 'client-cancelled',
+            completedAt: new Date().toISOString(),
+          },
+        };
+      })(),
+    );
+    vi.mocked(mockServer.cancelSession).mockImplementation(async () => {
+      releaseCancellation?.();
+    });
+
+    const { result } = renderHook(() => useTrueForgeAgentMessages({ server: mockServer, sessionId: 'session-1' }));
+    await waitFor(() => expect(resumeTurnStream).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      await result.current.cancel();
+    });
+
+    expect(mockServer.cancelSession).toHaveBeenCalledWith({ sessionId: 'session-1' });
+    expect(result.current.messages.at(-1)).toMatchObject({
+      role: 'assistant',
+      status: { type: 'incomplete', reason: 'cancelled' },
+    });
   });
 
   it('clears isRunning when a supersede send fails before runStream starts', async () => {
@@ -1912,10 +2259,114 @@ describe('useTrueForgeAgentMessages', () => {
           .join(''),
       );
     expect(userTexts).toEqual(['turn 1']);
+    // Failed send never installed a message, so the open tip stays painted.
     expect(result.current.messages.find(message => message.role === 'assistant')).toMatchObject({
       role: 'assistant',
-      status: { type: 'incomplete', reason: 'cancelled' },
+      content: [{ type: 'text', text: 'partial' }],
     });
+    expect(
+      result.current.messages.some(
+        message =>
+          message.role === 'assistant' && message.status.type === 'incomplete' && message.status.reason === 'cancelled',
+      ),
+    ).toBe(false);
+  });
+
+  it('restores a paused tip when createTurn fails before turn.created', async () => {
+    const onPreTurnFailure = vi.fn();
+    const pausedSnapshot = snapshotWithAssistantMessage(assistantMessageWithPendingApproval(), {
+      pendingUser: {
+        turnId: 'turn-1',
+        content: 'run it',
+        createdAt: new Date(),
+      },
+      runningTurn: {
+        id: 'turn-1',
+        sessionId: 'session-1',
+        input: [{ type: 'user.message', content: 'run it' }],
+        state: { status: 'paused' },
+        createdAt: new Date().toISOString(),
+      },
+    });
+    vi.mocked(loadSessionSnapshot).mockResolvedValue(pausedSnapshot);
+    vi.mocked(resumeTurnStream).mockReturnValue(
+      (async function* () {
+        // Keep the load-time subscribe open until send aborts it.
+        await new Promise<void>(() => undefined);
+      })(),
+    );
+    vi.mocked(streamTurnContent).mockImplementation(async function* () {
+      throw new Error('Turn preparation failed');
+    });
+
+    const { result } = renderHook(() =>
+      useTrueForgeAgentMessages({
+        server: mockServer,
+        sessionId: 'session-1',
+      }),
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await waitFor(() => expect(collectPendingApprovals(result.current.messages).length).toBe(1));
+
+    await act(async () => {
+      await expect(
+        result.current.sendTurn({
+          userMessage: 'never mind',
+          onPreTurnFailure,
+        }),
+      ).rejects.toThrow('Turn preparation failed');
+    });
+
+    expect(onPreTurnFailure).toHaveBeenCalledOnce();
+    expect(
+      result.current.messages.some(
+        message =>
+          message.role === 'user' && message.content.some(part => part.type === 'text' && part.text === 'never mind'),
+      ),
+    ).toBe(false);
+    expect(collectPendingApprovals(result.current.messages)).toMatchObject([{ approvalId: 'approval-1' }]);
+    expect(result.current.messages.find(message => message.role === 'assistant')).toMatchObject({
+      status: { type: 'requires-action', reason: 'tool-calls' },
+    });
+    expect(result.current.isRunning).toBe(false);
+  });
+
+  it('keeps paused state when the backend rejects cancellation', async () => {
+    vi.mocked(loadSessionSnapshot).mockResolvedValue(
+      snapshotWithAssistantMessage(assistantMessageWithPendingApproval(), {
+        runningTurn: {
+          id: 'turn-1',
+          sessionId: 'session-1',
+          input: [{ type: 'user.message', content: 'run it' }],
+          state: {
+            status: 'paused',
+          },
+          createdAt: new Date().toISOString(),
+        },
+      }),
+    );
+    vi.mocked(resumeTurnStream).mockReturnValue(
+      (async function* () {
+        await new Promise<void>(() => undefined);
+      })(),
+    );
+    vi.mocked(mockServer.cancelSession).mockRejectedValueOnce(new Error('paused cancellation unavailable'));
+    const onError = vi.fn();
+    const { result, unmount } = renderHook(() =>
+      useTrueForgeAgentMessages({ server: mockServer, sessionId: 'session-1', onError }),
+    );
+    await waitFor(() => expect(resumeTurnStream).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      await expect(result.current.cancel()).rejects.toThrow('paused cancellation unavailable');
+    });
+
+    expect(onError).toHaveBeenCalledWith(expect.any(Error));
+    expect(result.current.messages.at(-1)).toMatchObject({
+      role: 'assistant',
+      status: { type: 'requires-action', reason: 'tool-calls' },
+    });
+    unmount();
   });
 
   it('cancel clears isRunning even after a failed supersede', async () => {
@@ -2034,8 +2485,19 @@ describe('useTrueForgeAgentMessages', () => {
       const onError = vi.fn();
       const onPreTurnFailure = vi.fn();
       vi.mocked(streamTurnContent).mockImplementation(
-        async function* (_server, _sessionId, _fold, _options, _signal, _baseline, onTurnIdAvailable) {
+        async function* (
+          _server,
+          _sessionId,
+          _fold,
+          _options,
+          _signal,
+          _baseline,
+          onTurnIdAvailable,
+          _onSequenceNumber,
+          onSubscribeCursor,
+        ) {
           onTurnIdAvailable?.('gateway-turn-123');
+          onSubscribeCursor?.({ fromEventId: 'model-partial' });
           yield { content: [{ type: 'text' as const, text: 'partial' }], sequenceNumber: 4 };
           throw new Error('Mid-stream error');
         },
@@ -2065,6 +2527,7 @@ describe('useTrueForgeAgentMessages', () => {
         text: 'test message',
       });
       expect(onPreTurnFailure).not.toHaveBeenCalled();
+      // Reconnect via subscribe recovers; create-stream error is not surfaced.
       expect(onError).not.toHaveBeenCalled();
       expect(resumeTurnStream).toHaveBeenCalledWith(
         mockServer,
@@ -2072,336 +2535,11 @@ describe('useTrueForgeAgentMessages', () => {
         'gateway-turn-123',
         expect.anything(),
         expect.any(AbortSignal),
-        4,
+        { fromEventId: 'model-partial' },
         expect.anything(),
         expect.any(Function),
+        expect.any(Function),
       );
-    });
-  });
-
-  it('does not subscribe-retry when the create stream fails before turn.created', async () => {
-    const onError = vi.fn();
-    vi.mocked(streamTurnContent).mockImplementation(async function* () {
-      throw new Error('network error');
-    });
-
-    const { result } = renderHook(() =>
-      useTrueForgeAgentMessages({
-        server: mockServer,
-        sessionId: 'session-1',
-        onError,
-      }),
-    );
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    await act(async () => {
-      await expect(result.current.sendTurn({ userMessage: 'hello' })).rejects.toThrow('network error');
-    });
-
-    expect(resumeTurnStream).not.toHaveBeenCalled();
-    expect(onError).toHaveBeenCalledWith(expect.any(Error));
-    expect(result.current.isRunning).toBe(false);
-  });
-
-  it('keeps isRunning until subscribe retry finishes after a live SSE drop', async () => {
-    const onError = vi.fn();
-    let releaseSubscribe: (() => void) | undefined;
-    vi.mocked(streamTurnContent).mockImplementation(
-      async function* (_server, _sessionId, _fold, _options, _signal, _baseline, onTurnIdAvailable) {
-        onTurnIdAvailable?.('gateway-turn-live');
-        yield { content: [{ type: 'text' as const, text: 'partial' }], sequenceNumber: 2 };
-        throw new Error('network error');
-      },
-    );
-    vi.mocked(resumeTurnStream).mockReturnValue(
-      (async function* () {
-        await new Promise<void>(resolve => {
-          releaseSubscribe = resolve;
-        });
-        yield { content: [{ type: 'text' as const, text: 'resumed' }], sequenceNumber: 3 };
-      })(),
-    );
-
-    const { result } = renderHook(() =>
-      useTrueForgeAgentMessages({
-        server: mockServer,
-        sessionId: 'session-1',
-        onError,
-      }),
-    );
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    let sendPromise: Promise<void> | undefined;
-    await act(async () => {
-      sendPromise = result.current.sendTurn({ userMessage: 'hello' });
-    });
-
-    await waitFor(() => expect(resumeTurnStream).toHaveBeenCalled());
-    expect(onError).not.toHaveBeenCalled();
-    expect(result.current.isRunning).toBe(true);
-
-    await act(async () => {
-      releaseSubscribe?.();
-      await sendPromise;
-    });
-
-    await waitFor(() => expect(result.current.isRunning).toBe(false));
-    expect(onError).not.toHaveBeenCalled();
-  });
-
-  it('does not subscribe when cancel aborts a reconnect delay', async () => {
-    const onError = vi.fn();
-    let delayStarted: (() => void) | undefined;
-    const delayReady = new Promise<void>(resolve => {
-      delayStarted = resolve;
-    });
-    vi.mocked(delayReconnect).mockImplementation(async (signal: AbortSignal) => {
-      delayStarted?.();
-      await new Promise<void>((_resolve, reject) => {
-        const fail = (): void => {
-          const error = new Error('Aborted');
-          error.name = 'AbortError';
-          reject(error);
-        };
-        if (signal.aborted) {
-          fail();
-          return;
-        }
-        signal.addEventListener('abort', fail, { once: true });
-      });
-    });
-    vi.mocked(streamTurnContent).mockImplementation(
-      async function* (_server, _sessionId, _fold, _options, _signal, _baseline, onTurnIdAvailable) {
-        onTurnIdAvailable?.('gateway-turn-cancel-reconnect');
-        yield { content: [{ type: 'text' as const, text: 'partial' }], sequenceNumber: 1 };
-        throw new Error('network error');
-      },
-    );
-
-    const { result } = renderHook(() =>
-      useTrueForgeAgentMessages({
-        server: mockServer,
-        sessionId: 'session-1',
-        onError,
-      }),
-    );
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    let sendPromise: Promise<void> | undefined;
-    await act(async () => {
-      sendPromise = result.current.sendTurn({ userMessage: 'hello' });
-    });
-    await delayReady;
-
-    await act(async () => {
-      await result.current.cancel();
-      await sendPromise;
-    });
-
-    expect(resumeTurnStream).not.toHaveBeenCalled();
-    expect(mockServer.cancelSession).toHaveBeenCalledWith({ sessionId: 'session-1' });
-    expect(result.current.isRunning).toBe(false);
-    expect(onError).not.toHaveBeenCalled();
-  });
-
-  it('does not subscribe-retry when a cancelled live stream drops without turn.done', async () => {
-    const onError = vi.fn();
-    let dropStream: (() => void) | undefined;
-    vi.mocked(streamTurnContent).mockImplementation(
-      async function* (_server, _sessionId, _fold, _options, _signal, _baseline, onTurnIdAvailable) {
-        onTurnIdAvailable?.('gateway-turn-cancel-drop');
-        yield { content: [{ type: 'text' as const, text: 'partial' }], sequenceNumber: 1 };
-        await new Promise<void>((_resolve, reject) => {
-          dropStream = () => {
-            reject(new TurnStreamDisconnectedError());
-          };
-        });
-      },
-    );
-    vi.mocked(mockServer.cancelSession).mockImplementation(async () => {
-      dropStream?.();
-    });
-
-    const { result } = renderHook(() =>
-      useTrueForgeAgentMessages({
-        server: mockServer,
-        sessionId: 'session-1',
-        onError,
-      }),
-    );
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    let sendPromise: Promise<void> | undefined;
-    await act(async () => {
-      sendPromise = result.current.sendTurn({ userMessage: 'hello' });
-    });
-    await waitFor(() => expect(result.current.isRunning).toBe(true));
-
-    await act(async () => {
-      await result.current.cancel();
-      await sendPromise;
-    });
-
-    expect(resumeTurnStream).not.toHaveBeenCalled();
-    expect(mockServer.cancelSession).toHaveBeenCalledWith({ sessionId: 'session-1' });
-    expect(result.current.isRunning).toBe(false);
-    expect(onError).not.toHaveBeenCalled();
-  });
-
-  it('does not subscribe-retry when the in-flight stream is aborted', async () => {
-    const onError = vi.fn();
-    let releaseFirst: (() => void) | undefined;
-    let streamTurnCalls = 0;
-    vi.mocked(streamTurnContent).mockImplementation(
-      async function* (_server, _sessionId, _fold, _options, _signal, _baseline, onTurnIdAvailable) {
-        streamTurnCalls += 1;
-        if (streamTurnCalls === 1) {
-          onTurnIdAvailable?.('gateway-turn-abort');
-          yield { content: [{ type: 'text' as const, text: 'partial' }], sequenceNumber: 1 };
-          await new Promise<void>(resolve => {
-            releaseFirst = resolve;
-          });
-          return;
-        }
-        onTurnIdAvailable?.('gateway-turn-two');
-        yield { content: [{ type: 'text' as const, text: 'second' }], sequenceNumber: 1 };
-      },
-    );
-
-    const { result } = renderHook(() =>
-      useTrueForgeAgentMessages({
-        server: mockServer,
-        sessionId: 'session-1',
-        onError,
-      }),
-    );
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    let firstSend: Promise<void> | undefined;
-    await act(async () => {
-      firstSend = result.current.sendTurn({ userMessage: 'one' });
-    });
-    await waitFor(() => expect(result.current.isRunning).toBe(true));
-    vi.mocked(resumeTurnStream).mockClear();
-
-    await act(async () => {
-      await result.current.sendTurn({ userMessage: 'two' });
-    });
-    await act(async () => {
-      releaseFirst?.();
-      await firstSend?.catch(() => undefined);
-    });
-
-    expect(resumeTurnStream).not.toHaveBeenCalled();
-    expect(onError).not.toHaveBeenCalled();
-  });
-
-  it('does not subscribe-retry a terminal turn.done error', async () => {
-    const onError = vi.fn();
-    vi.mocked(streamTurnContent).mockImplementation(
-      async function* (_server, _sessionId, _fold, _options, _signal, _baseline, onTurnIdAvailable) {
-        onTurnIdAvailable?.('gateway-turn-failed');
-        yield { content: [{ type: 'text' as const, text: 'partial' }], sequenceNumber: 1 };
-        throw new TurnFailedError('Publisher Model is not servable');
-      },
-    );
-
-    const { result } = renderHook(() =>
-      useTrueForgeAgentMessages({
-        server: mockServer,
-        sessionId: 'session-1',
-        onError,
-      }),
-    );
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    await act(async () => {
-      await expect(result.current.sendTurn({ userMessage: 'hello' })).rejects.toThrow(
-        'Publisher Model is not servable',
-      );
-    });
-
-    expect(resumeTurnStream).not.toHaveBeenCalled();
-    expect(onError).toHaveBeenCalledWith(expect.any(Error));
-  });
-
-  it('reports onError after exhausting subscribe retries', async () => {
-    const onError = vi.fn();
-    vi.mocked(streamTurnContent).mockImplementation(
-      async function* (_server, _sessionId, _fold, _options, _signal, _baseline, onTurnIdAvailable) {
-        onTurnIdAvailable?.('gateway-turn-retry');
-        yield { content: [{ type: 'text' as const, text: 'partial' }], sequenceNumber: 1 };
-        throw new Error('network error');
-      },
-    );
-    vi.mocked(resumeTurnStream).mockImplementation(async function* () {
-      throw new Error('subscribe failed');
-    });
-
-    const { result } = renderHook(() =>
-      useTrueForgeAgentMessages({
-        server: mockServer,
-        sessionId: 'session-1',
-        onError,
-      }),
-    );
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    await act(async () => {
-      await expect(result.current.sendTurn({ userMessage: 'hello' })).rejects.toThrow('subscribe failed');
-    });
-
-    expect(resumeTurnStream).toHaveBeenCalledTimes(3);
-    expect(onError).toHaveBeenCalledWith(expect.any(Error));
-    expect(result.current.isRunning).toBe(false);
-  });
-
-  it('resubscribes after a loaded running-turn subscribe drop', async () => {
-    const onError = vi.fn();
-    const runningTurn = {
-      id: 'turn-running',
-      sessionId: 'session-1',
-      input: [{ type: 'user.message' as const, content: 'continue' }],
-      state: { status: 'running' as const },
-      createdAt: new Date().toISOString(),
-    };
-    vi.mocked(loadSessionSnapshot).mockResolvedValue(
-      replaceSessionSnapshot(createEmptySessionSnapshot(), {
-        runningTurn,
-        unstable_resume: true,
-        pendingUser: {
-          turnId: runningTurn.id,
-          content: 'continue',
-          createdAt: new Date(runningTurn.createdAt),
-        },
-      }),
-    );
-    let subscribeCalls = 0;
-    vi.mocked(resumeTurnStream).mockImplementation(async function* (_server, _sid, _tid, _fold, _signal, afterSeq) {
-      subscribeCalls += 1;
-      if (subscribeCalls === 1) {
-        yield { content: [{ type: 'text' as const, text: 'partial' }], sequenceNumber: 8 };
-        throw new Error('network error');
-      }
-      expect(afterSeq).toBe(8);
-      yield { content: [{ type: 'text' as const, text: 'resumed' }], sequenceNumber: 9 };
-    });
-
-    const { result } = renderHook(() =>
-      useTrueForgeAgentMessages({
-        server: mockServer,
-        sessionId: 'session-1',
-        onError,
-      }),
-    );
-
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-    await waitFor(() => expect(subscribeCalls).toBe(2));
-    await waitFor(() => expect(result.current.isRunning).toBe(false));
-    expect(onError).not.toHaveBeenCalled();
-    expect(result.current.messages.at(-1)).toMatchObject({
-      role: 'assistant',
-      content: [{ type: 'text', text: 'resumed' }],
     });
   });
 

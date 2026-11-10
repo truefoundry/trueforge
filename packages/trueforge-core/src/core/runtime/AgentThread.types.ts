@@ -3,15 +3,14 @@ import { z } from 'zod';
 import type { AgentCapability, CapabilityState, JsonValue } from '../capabilities/AgentCapability';
 import type { RegisteredPassthroughEvent, WithRegisteredPassthrough } from '../events/PassthroughEvents';
 import type {
-  ActionRequiredEvent,
-  AgentApprovalDecisionMessage,
   AgentInfo,
-  AgentInputUserMessage,
   AgentOutputEvent,
   AgentParent,
+  ApprovalDecisionMessage,
   BaseMCPAuthRequiredEvent,
   MCPInitializeEvent,
   MCPServerAuthInfo,
+  MCPServerInitInfo,
   ModelMessageDeltaEvent,
   ModelMessageEvent,
   SandboxCreatedEvent,
@@ -23,8 +22,11 @@ import type {
   ToolApprovalRequiredEvent,
   ToolResponseEvent,
   ToolResponseRequiredEvent,
-  UserToolApprovalMessage,
-  UserToolResponseMessage,
+  UserMCPAuthContinueEvent,
+  UserMessage,
+  UserToolApprovalEvent,
+  UserToolApprovalPolicyEvent,
+  UserToolResponseEvent,
 } from '../events/schema';
 import type { InternalEnrichedAssistantMessage, LLMToolMessage, LLMUserMessage } from '../llm/LLMTypes';
 import type { HarnessSandbox } from '../sandbox/Sandbox';
@@ -42,7 +44,11 @@ export const InternalEventType = {
   // TODO(agent): revisit broader internal.* naming scheme for harness-only event types.
   PASSTHROUGH: 'agent.passthrough',
   MCP_AUTH_REQUIRED: 'internal.mcp.auth_required',
+  MCP_AUTH_CONTINUE: 'internal.mcp.auth_continue',
+  APPROVAL_POLICY_APPLY: 'internal.approval_policy.apply',
   CAPABILITY_STATE: 'internal.capability.state',
+  // Turn lifecycle transition (paused ↔ running).
+  TURN_STATE: 'internal.turn.state',
 } as const;
 
 /**
@@ -66,14 +72,25 @@ export const InternalPassthroughEventSchema: z.ZodType<InternalPassthroughEvent>
   event: z.custom<RegisteredPassthroughEvent>(),
 });
 
-export type InternalMCPServerAuthInfo = MCPServerAuthInfo & {
-  thread_ids: string[];
+export type InternalMCPAuthRequiredEvent = Omit<BaseMCPAuthRequiredEvent, 'thread_id'> & {
+  type: typeof InternalEventType.MCP_AUTH_REQUIRED;
+  thread_id: string;
+  mcp_servers: MCPServerAuthInfo[];
 };
 
-export type InternalMCPAuthRequiredEvent = BaseMCPAuthRequiredEvent & {
-  type: typeof InternalEventType.MCP_AUTH_REQUIRED;
-  mcp_servers: InternalMCPServerAuthInfo[];
-};
+export interface InternalMCPAuthContinueEvent {
+  type: typeof InternalEventType.MCP_AUTH_CONTINUE;
+  event: UserMCPAuthContinueEvent;
+  thread_ids: string[];
+}
+
+export interface InternalApprovalPolicyApplyEvent {
+  type: typeof InternalEventType.APPROVAL_POLICY_APPLY;
+  event: UserToolApprovalPolicyEvent;
+  /** Nested context mutations — not yielded AGENT_CONTEXT_APPEND events. */
+  context_appends: ThreadContextAppend[];
+  mcp_servers_patches: MCPServerInitInfo[];
+}
 
 export type SubAgentCompletion =
   | { type: 'done'; output: ModelMessageEvent; send_to_parent: LLMToolMessage }
@@ -105,7 +122,13 @@ export type InternalThreadDoneEvent = InternalMainThreadDoneEvent | InternalChil
 
 export type LLMContextMessage = LLMUserMessage | InternalEnrichedAssistantMessage | LLMToolMessage;
 
-export type ContextMessage = LLMContextMessage | AgentApprovalDecisionMessage;
+export type ContextMessage = LLMContextMessage | ApprovalDecisionMessage;
+
+export interface ThreadContextAppend {
+  thread_id: string;
+  context: ContextMessage[];
+  current_context_usage: CurrentContextUsage | null;
+}
 
 export interface AgentThreadCreateSubAgent {
   type: typeof InternalEventType.AGENT_CREATE_SUBAGENT;
@@ -114,23 +137,25 @@ export interface AgentThreadCreateSubAgent {
   agent_info: AgentInfo;
 }
 
-export interface AgentThreadAppendContext {
+export interface AgentThreadAppendContext extends ThreadContextAppend {
   type: typeof InternalEventType.AGENT_CONTEXT_APPEND;
-  thread_id: string;
-  context: ContextMessage[];
+  /** Agent outputs published with this append (model.message, tool.response, …). */
   output: AgentOutputEvent[];
-  current_context_usage?: CurrentContextUsage | undefined;
+  /** Inbound user events applied with this append (approval / client tool-responses) */
+  applied_user_events: (UserToolApprovalEvent | UserToolResponseEvent)[];
   completion?: SubAgentCompletion | undefined;
 }
 
-/** Single public send item (no internal LLM tool messages). */
-export type AgentSendInput = UserToolApprovalMessage | UserToolResponseMessage | AgentInputUserMessage;
+/**
+ * Single runtime send item (no internal LLM tool messages).
+ */
+export type AgentSendInput = UserToolApprovalEvent | UserToolResponseEvent | UserMessage;
 
 /**
- * Homogeneous public send batch: all user messages, or all approval/tool-response
- * messages. Mixed batches are rejected at the HTTP/orchestrator boundary.
+ * Homogeneous send batch: all user messages, or all approval/tool-response events (id-seeded).
+ * Mixed batches are rejected at the HTTP/orchestrator boundary.
  */
-export type AgentThreadSendBatch = AgentInputUserMessage[] | (UserToolApprovalMessage | UserToolResponseMessage)[];
+export type AgentThreadSendBatch = UserMessage[] | (UserToolApprovalEvent | UserToolResponseEvent)[];
 
 export type AgentThreadEvent =
   | ModelMessageEvent
@@ -143,20 +168,30 @@ export type AgentThreadEvent =
   | ThreadContextCompactionFinishedEvent
   | InternalThreadDoneEvent
   | InternalMCPAuthRequiredEvent
+  | InternalMCPAuthContinueEvent
   | InternalCapabilityStateEvent
   | MCPInitializeEvent
   | SandboxCreatedEvent
   | ToolApprovalRequiredEvent
   | ToolResponseRequiredEvent
+  | InternalApprovalPolicyApplyEvent
   | InternalPassthroughEvent;
 
-export type AgentThreadExecutionEvent = WithRegisteredPassthrough<
-  ThreadCreatedEvent | Exclude<AgentThreadEvent, InternalPassthroughEvent>
->;
+export type ApplyUserEventsOutput = AgentThreadAppendContext;
+
+/** A turn-level non-terminal transition emitted by the executor loop when it parks/resumes. */
+export interface InternalTurnStateEvent {
+  type: typeof InternalEventType.TURN_STATE;
+  transition: { status: 'paused' } | { status: 'running' };
+}
+
+export type AgentThreadExecutionEvent =
+  | WithRegisteredPassthrough<ThreadCreatedEvent | Exclude<AgentThreadEvent, InternalPassthroughEvent>>
+  | InternalTurnStateEvent;
 
 export interface AgentThreadExecutionResult {
+  status: 'done';
   output: ModelMessageEvent | null;
-  required_actions: ActionRequiredEvent[];
   root_agent_error?: Pick<ThreadStateError, 'error' | 'output'> | undefined;
 }
 
@@ -173,6 +208,7 @@ export interface AgentThreadSnapshot {
   parent: AgentParent | null;
   agent_info: AgentInfo | null;
   completion: SubAgentCompletion | null;
+  pending_mcp_auth: boolean;
   /** Cross-turn capability KV. Keys: capability.state.key; `tfy.` reserved for builtins. */
   capability_state: CapabilityState | null;
 }
@@ -186,6 +222,8 @@ export interface AgentThreadConstructorInput {
   context?: ContextMessage[] | undefined;
   currentContextUsage?: CurrentContextUsage | undefined;
   preComputedCompletion?: SubAgentCompletion | undefined;
+  /** Restores a wait on `user.mcp_auth_continue` when the thread is rebuilt from a snapshot. */
+  pendingMCPAuth?: boolean | undefined;
   sandbox?: HarnessSandbox | undefined;
   capabilities?: readonly AgentCapability[] | undefined;
   /**

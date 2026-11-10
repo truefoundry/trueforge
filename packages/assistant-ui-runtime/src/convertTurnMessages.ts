@@ -6,20 +6,33 @@ import type {
   ThreadMessage,
   ThreadUserMessagePart,
 } from '@assistant-ui/core';
+import {
+  ASSISTANT_MESSAGE_STATUS_REASON,
+  ASSISTANT_MESSAGE_STATUS_TYPE,
+  completeAssistantStatus,
+  runningAssistantStatus,
+  toolCallsRequiredAssistantStatus,
+} from './assistantMessageStatus.js';
 import type {
   McpAuthRequiredEvent,
+  PersistedTurnEvent,
+  SessionEventItem,
   Turn,
   TurnCreatedEvent,
   TurnEvent,
   TurnInputItem,
   TurnStreamData,
+  TurnUpdateEvent,
+  UserMessageContent,
 } from './server/index.js';
+import { EVENT_TYPE, TURN_STATUS } from './server/index.js';
 import type { AgentChatServer } from './server/types.js';
 
 import { ROOT_THREAD_ID } from './constants.js';
 import { extractTurnUserText } from './extractTurnUserText.js';
 import {
   buildRootAssistantFoldForIds,
+  earliestOpenModelMessageId,
   findFirstPendingApprovalThreadId,
   findFirstPendingResponseThreadId,
   ingestStreamEvent,
@@ -31,6 +44,7 @@ import { drainListPages } from './listPages.js';
 import { buildMcpAuthTextParts, mcpAuthAssistantStatus, mcpAuthMessageCustom } from './mcpAuth.js';
 import {
   CANCELLATION_REASON_CUSTOM_KEY,
+  MESSAGE_CUSTOM_KEY,
   parallelToolGroupsCustom,
   type ParallelToolGroups,
 } from './messageCustomMetadata.js';
@@ -40,8 +54,8 @@ import {
   createEmptySessionSnapshot,
   replaceSessionSnapshot,
   sessionEventsToSessionRecord,
+  STREAM_SEGMENT_STATUS,
   turnToSessionRecord,
-  type GatewaySessionEventItem,
   type ProjectSessionMessagesOptions,
   type RequiredActionsOverlay,
   type SessionHistoryPagination,
@@ -54,7 +68,6 @@ import {
   collectSubsequentApprovalDecisions,
   hasPendingToolApproval,
   messageHasPendingApprovals,
-  TOOL_APPROVAL_THREAD_ID_CUSTOM_KEY,
   toolApprovalMessageCustom,
   toolApprovalStatus,
 } from './toolApproval.js';
@@ -65,12 +78,16 @@ import {
   collectToolResponsesFromTurnInput,
   hasPendingToolResponse,
   messageHasPendingResponses,
-  TOOL_RESPONSE_THREAD_ID_CUSTOM_KEY,
   toolResponseMessageCustom,
   toolResponseStatus,
 } from './toolResponse.js';
 import { appendMcpAuthToTurnContent, appendToolApprovalToTurnContent } from './turnEventHelpers.js';
-import type { TurnStreamUpdate } from './turnStreamUpdate.js';
+import { subscribeCursorForEvent, type TurnStreamUpdate, type TurnSubscribeCursor } from './turnStreamUpdate.js';
+
+const MESSAGE_ID_SUFFIX = {
+  ASSISTANT: '-assistant',
+  USER: '-user',
+} as const;
 
 export { CANCELLATION_REASON_CUSTOM_KEY } from './messageCustomMetadata.js';
 
@@ -98,17 +115,17 @@ export { CANCELLATION_REASON_CUSTOM_KEY } from './messageCustomMetadata.js';
  * - `pendingUser` / `activeStream` — optimistic UI while a turn is in flight.
  * - `groupRootBaseline` — root `model.message` ids that existed before the active
  *   turn group started; used to scope live streaming to the current group only.
- * - `requiredActions` — locally staged approval/response decisions before resume.
+ * - `requiredActions` — optimistic approval/response decisions awaiting server acknowledgement.
  *
  * Output:
  * - Alternating **user** / **assistant** `ThreadMessage` pairs.
- * - One assistant message per **turn group** (user turn + its continuation turns).
+ * - One assistant message per logical user turn, across all of its stream segments.
  *
  * ## Turn groups
  *
- * A **turn group** starts at a turn whose input contains `user.message`. Later
- * turns with only continuation inputs (tool response, tool approval, MCP resume)
- * belong to the same group and are folded into the same assistant message.
+ * New sessions keep required actions on the original turn. The grouping logic
+ * remains only to render historical sessions that stored approvals and tool
+ * responses as separate continuation turns.
  *
  * Root content for a group is the union of `rootModelMessageIds` on every turn
  * in that group. Prior groups must not leak in: scope with
@@ -127,8 +144,7 @@ export { CANCELLATION_REASON_CUSTOM_KEY } from './messageCustomMetadata.js';
  *
  * 3. **History projection** — `projectHistoryTurns` walks committed `turns`:
  *    - User turn → push user message; push assistant if the group has content.
- *    - Continuation turn → merge assistant content into the last assistant message
- *      in the group (same `*-assistant` id as the user turn that opened the group).
+ *    - Legacy continuation turn → merge assistant content into the prior message.
  *    - Apply answers from later continuation turns onto earlier tool-calls via
  *      `collectSubsequentApprovalDecisions` / `collectSubsequentToolResponses`.
  *    - A paused group's assistant message keeps `requires-action` until a later
@@ -137,14 +153,15 @@ export { CANCELLATION_REASON_CUSTOM_KEY } from './messageCustomMetadata.js';
  *
  * 4. **Live projection** — `projectSessionMessages` = history + `pendingUser` +
  *    `activeStream`. While streaming, `streamTurnEvents` yields content scoped to
- *    `groupRootBaseline`. When `streamComplete`, `projectActiveStreamUpdate`
- *    rebuilds from the fold (same baseline scoping as streaming).
+ *    `groupRootBaseline`. When a segment pauses or disconnects,
+ *    `projectActiveStreamUpdate` rebuilds from the fold without completing the
+ *    logical turn.
  *
- * 5. **Staged overlay** — Before the SDK resume turn is sent, user decisions sit
- *    in `requiredActions` and are merged onto messages by
+ * 5. **Staged overlay** — While an inbound event is being acknowledged, user
+ *    decisions sit in `requiredActions` and are merged onto messages by
  *    `applyRequiredActionsOverlayToMessages` so the UI shows interrupt + result
- *    together. Resume is batched: all pending approvals and ask-user answers in
- *    a paused message must be resolved before `sendTurn({ inputs })`.
+ *    together. Each action is sent immediately; only `turn.update: running`
+ *    confirms that every required action has been resolved.
  *
  * ## Required actions (assistant-ui mapping)
  *
@@ -159,35 +176,27 @@ export { CANCELLATION_REASON_CUSTOM_KEY } from './messageCustomMetadata.js';
  * | `user.tool_response`        | closes `tool.response_required`: sets `result` on      |
  * |                             | tool-call and clears the pending `interrupt`           |
  * | `mcp.auth_required`         | Appended auth link text parts; status `interrupt`     |
+ * | `user.mcp_auth_continue`    | Confirms browser auth; server decides when to run     |
  *
  * Sub-agent threads can have their own pending approval/response; metadata
  * `toolApprovalThreadId` / `toolResponseThreadId` on nested assistant messages
- * scopes resume inputs to the correct thread.
+ * scopes inbound events to the correct thread.
  *
  * A sub-agent stays attached under the `create_sub_agent` tool-call that spawned
- * it, which lives in the root `model.message` of the turn that opened the group.
- * The child thread keeps producing events across several turns (spawn turn, then
- * continuation turns that answer its required actions), and all of them render
- * under that single tool-call in the group's one assistant message.
+ * it. Paused and resumed stream segments keep appending to that same turn and
+ * render under the same tool-call.
  *
  * INVARIANT — while a sub-agent is active the parent agent is paused awaiting a
- * required action, so every following turn until it finishes is a continuation
- * (`user.tool_response` / `user.tool_approval` / MCP resume), NOT a `user.message`.
- * If a sub-agent is spawned/active in turn 1, turn 2 cannot carry `user.message`
- * input. A `user.message` there would open a new turn group (`userText` boundary)
- * and split the still-running sub-agent's events away from its tool-call. The
- * gateway enforces this; the projection relies on it for correct nesting.
+ * required action. Responses are events on that turn, not a new `user.message`
+ * turn; otherwise the active child would be split away from its tool-call.
  *
  * ## Assumptions
  *
  * - Root-thread model messages use `threadId === ROOT_THREAD_ID`.
  * - Turn order in `snapshot.turns` matches gateway chronological order.
- * - `rootModelMessageIds` on committed turns is accurate (set in
- *   `commitActiveStream` when a stream completes).
- * - Continuation turns never carry `user.message`; that boundary defines groups.
- *   In particular, while a sub-agent (or any tool) is mid-flight awaiting a
- *   required action, the next turn is always a continuation, never a new
- *   `user.message`.
+ * - `rootModelMessageIds` on committed turns is accurate (set only after `turn.done`).
+ * - Legacy continuation turns never carry `user.message`; that boundary exists
+ *   only for backward-compatible history projection.
  * - Tool-call identity is stable via `toolCallId` across events, fold state, and
  *   assistant-ui parts.
  * - Reload (`buildSnapshotFromSessionEvents`) and live paths must produce the same
@@ -209,7 +218,7 @@ interface FetchSessionEventsOptions {
 
 interface SessionEventsPageResult {
   /** Newest-first items from this request. */
-  itemsNewestFirst: GatewaySessionEventItem[];
+  itemsNewestFirst: SessionEventItem[];
   olderPageToken?: string;
   hasOlder: boolean;
 }
@@ -218,8 +227,8 @@ interface SessionEventsPageResult {
  * Drops a leading incomplete turn (events before the first `turn.created`) that
  * appears when a page boundary splits a turn.
  */
-function trimIncompleteLeadingEvents(itemsAsc: GatewaySessionEventItem[]): GatewaySessionEventItem[] {
-  const start = itemsAsc.findIndex(item => item.event.type === 'turn.created');
+function trimIncompleteLeadingEvents(itemsAsc: SessionEventItem[]): SessionEventItem[] {
+  const start = itemsAsc.findIndex(item => item.event.type === EVENT_TYPE.TURN_CREATED);
   if (start === -1) {
     return [];
   }
@@ -230,18 +239,16 @@ function trimIncompleteLeadingEvents(itemsAsc: GatewaySessionEventItem[]): Gatew
  * Whether the oldest complete turn in a chronological window opens a user group.
  * `incomplete` means we still lack a finished oldest turn (need an older page).
  */
-function oldestCompleteTurnGroupState(
-  itemsAsc: GatewaySessionEventItem[],
-): 'user-group' | 'continuation' | 'incomplete' {
+function oldestCompleteTurnGroupState(itemsAsc: SessionEventItem[]): 'user-group' | 'continuation' | 'incomplete' {
   const trimmed = trimIncompleteLeadingEvents(itemsAsc);
   if (trimmed.length === 0) {
     return 'incomplete';
   }
   const created = trimmed[0];
-  if (created?.event.type !== 'turn.created') {
+  if (created?.event.type !== EVENT_TYPE.TURN_CREATED) {
     return 'incomplete';
   }
-  const hasDone = trimmed.some(item => item.turnId === created.turnId && item.event.type === 'turn.done');
+  const hasDone = trimmed.some(item => item.turnId === created.turnId && item.event.type === EVENT_TYPE.TURN_DONE);
   if (!hasDone) {
     return 'incomplete';
   }
@@ -268,15 +275,15 @@ async function fetchSessionEventsPage(
 }
 
 interface SessionEventsWindow {
-  itemsAsc: GatewaySessionEventItem[];
+  itemsAsc: SessionEventItem[];
   olderPageToken?: string;
   hasOlder: boolean;
   /** Leading events cut from `itemsAsc` whose `turn.created` is still on an older page. */
-  pendingItemsAsc: GatewaySessionEventItem[];
+  pendingItemsAsc: SessionEventItem[];
 }
 
 function toSessionEventsWindow(
-  itemsNewestFirst: readonly GatewaySessionEventItem[],
+  itemsNewestFirst: readonly SessionEventItem[],
   page: { olderPageToken?: string; hasOlder: boolean },
 ): SessionEventsWindow {
   const chronological = [...itemsNewestFirst].reverse();
@@ -309,10 +316,10 @@ async function fetchSessionEventsWindow(
   sessionId: string,
   options?: FetchSessionEventsOptions & {
     pageToken?: string;
-    pendingItemsAsc?: readonly GatewaySessionEventItem[];
+    pendingItemsAsc?: readonly SessionEventItem[];
   },
 ): Promise<SessionEventsWindow> {
-  let itemsNewestFirst: GatewaySessionEventItem[] = [...(options?.pendingItemsAsc ?? [])].reverse();
+  let itemsNewestFirst: SessionEventItem[] = [...(options?.pendingItemsAsc ?? [])].reverse();
   let pageToken = options?.pageToken;
   let window = toSessionEventsWindow(itemsNewestFirst, { hasOlder: false });
 
@@ -342,7 +349,7 @@ async function fetchAllSessionEvents(
   server: AgentChatServer,
   sessionId: string,
   options?: FetchSessionEventsOptions,
-): Promise<GatewaySessionEventItem[]> {
+): Promise<SessionEventItem[]> {
   const items = await drainListPages(pageToken =>
     server.listEvents({
       sessionId,
@@ -414,6 +421,12 @@ export function prependFoldState(older: PeerThreadFoldState, newer: PeerThreadFo
   for (const [threadId, link] of newer.threadParents) {
     result.threadParents.set(threadId, link);
   }
+  for (const [eventId, messageTurnId] of older.modelMessageTurnIds) {
+    result.modelMessageTurnIds.set(eventId, messageTurnId);
+  }
+  for (const [eventId, messageTurnId] of newer.modelMessageTurnIds) {
+    result.modelMessageTurnIds.set(eventId, messageTurnId);
+  }
   return result;
 }
 
@@ -429,7 +442,7 @@ export function prependFoldState(older: PeerThreadFoldState, newer: PeerThreadFo
  */
 function ingestSessionEventsIntoSnapshot(
   snapshot: SessionSnapshot,
-  items: GatewaySessionEventItem[],
+  items: SessionEventItem[],
   onTurnComplete?: (snap: SessionSnapshot) => void,
 ): void {
   let currentTurnId: string | null = null;
@@ -443,12 +456,12 @@ function ingestSessionEventsIntoSnapshot(
   for (const item of items) {
     const { turnId, event } = item;
 
-    if (event.type === 'turn.created') {
+    if (event.type === EVENT_TYPE.TURN_CREATED) {
       currentTurnId = turnId;
       currentCreatedEvent = event;
       currentContentEvents = [];
       beforeCount = snapshot.fold.threads.get(ROOT_THREAD_ID)?.modelMessageIds.length ?? 0;
-    } else if (event.type === 'turn.done') {
+    } else if (event.type === EVENT_TYPE.TURN_DONE) {
       if (currentTurnId == null || currentCreatedEvent == null) {
         continue;
       }
@@ -457,7 +470,8 @@ function ingestSessionEventsIntoSnapshot(
       const rootModelMessageIds = (afterBucket?.modelMessageIds ?? []).slice(beforeCount);
 
       const sandboxEvent = currentContentEvents.find(
-        (ev): ev is Extract<TurnEvent, { type: 'sandbox.created' }> => ev.type === 'sandbox.created',
+        (ev): ev is Extract<TurnEvent, { type: typeof EVENT_TYPE.SANDBOX_CREATED }> =>
+          ev.type === EVENT_TYPE.SANDBOX_CREATED,
       );
       sessionSandboxId = sandboxEvent?.sandboxId ?? sessionSandboxId;
 
@@ -465,6 +479,7 @@ function ingestSessionEventsIntoSnapshot(
       snapshot.turns.push(
         sessionEventsToSessionRecord(currentTurnId, currentCreatedEvent, event, rootModelMessageIds, sessionSandboxId),
       );
+      snapshot.pendingMcpAuth = undefined;
 
       // Pass a new object reference so React's Object.is check in
       // useState sees a changed value and schedules a re-render.
@@ -476,9 +491,21 @@ function ingestSessionEventsIntoSnapshot(
       currentTurnId = null;
       currentCreatedEvent = null;
       currentContentEvents = [];
+    } else if (event.type === EVENT_TYPE.TURN_UPDATE) {
+      // Lifecycle updates describe the open turn but do not belong in a thread
+      // bucket. resolveSessionTip reads the latest update below.
+      if (event.state.status === TURN_STATUS.RUNNING) {
+        snapshot.pendingMcpAuth = undefined;
+      }
+      continue;
     } else {
       if (currentTurnId != null) {
-        ingestTurnEvent(snapshot.fold, event);
+        if (event.type === EVENT_TYPE.MCP_AUTH_REQUIRED) {
+          snapshot.pendingMcpAuth = event;
+        } else if (event.type === EVENT_TYPE.USER_MCP_AUTH_CONTINUE) {
+          snapshot.pendingMcpAuth = undefined;
+        }
+        ingestTurnEvent(snapshot.fold, event, currentTurnId);
         currentContentEvents.push(event);
       }
     }
@@ -507,24 +534,63 @@ function commitFinishedOpenTip(snapshot: SessionSnapshot, turn: Turn): SessionSn
   });
 }
 
-function attachRunningTurn(snapshot: SessionSnapshot, runningTurn: Turn | undefined): SessionSnapshot {
+function attachRunningTurn(
+  snapshot: SessionSnapshot,
+  runningTurn: Turn | undefined,
+  sandboxId?: string,
+): SessionSnapshot {
   if (runningTurn == null) {
     return snapshot;
   }
   const pendingUserText = extractTurnUserText(runningTurn.input);
-  // Tip is not in `turns`. Baseline committed groups only — fold already
-  // includes the open tip's messages, which must stay in live resume.
-  //2 scenario for Page Refresh:
-  //    1. only baseline the committed groups(there is only user msg no assistant msg)
-  //    2. the open tip's messages must stay in live resume (there is some assistant msg response in the fold)
+  // Tip is not in `turns` yet. Baseline every completed turn's root
+  // model.message (same as live send) so computeGroupRootBaseline cannot
+  // treat the last completed user turn as the active group. Do NOT use the
+  // fold's modelMessageIds here — tip events are already folded from /events,
+  // and including them would make subscribe rebuilds baseline the tip away.
+  const priorRootModelMessageIds = snapshot.turns.flatMap(turn => turn.rootModelMessageIds ?? []);
   const groupRootBaseline =
-    pendingUserText !== undefined
-      ? snapshot.turns.flatMap(turn => turn.rootModelMessageIds ?? [])
-      : computeGroupRootBaseline(snapshot.turns);
+    pendingUserText !== undefined ? priorRootModelMessageIds : computeGroupRootBaseline(snapshot.turns);
+  const rootModelMessageIds = rootModelMessageIdsSinceBaseline(snapshot.fold, priorRootModelMessageIds);
+  const activeUpdate = buildTurnUpdateFromFold(
+    snapshot.fold,
+    {
+      state: runningTurn.state,
+      pendingMcpAuth: snapshot.pendingMcpAuth,
+    },
+    rootModelMessageIds,
+  );
+  const shouldProjectActiveStream = runningTurn.state.status === TURN_STATUS.PAUSED || activeUpdate.content.length > 0;
   return replaceSessionSnapshot(snapshot, {
     runningTurn,
     unstable_resume: true,
     groupRootBaseline,
+    ...(shouldProjectActiveStream
+      ? {
+          activeStream: {
+            turnId: runningTurn.id,
+            update: {
+              ...activeUpdate,
+              turnState: runningTurn.state,
+              ...(sandboxId != null
+                ? {
+                    metadata: {
+                      ...activeUpdate.metadata,
+                      custom: {
+                        ...activeUpdate.metadata?.custom,
+                        [MESSAGE_CUSTOM_KEY.SANDBOX_ID]: sandboxId,
+                      },
+                    },
+                  }
+                : {}),
+            },
+            segmentStatus:
+              runningTurn.state.status === TURN_STATUS.PAUSED
+                ? STREAM_SEGMENT_STATUS.PAUSED
+                : STREAM_SEGMENT_STATUS.DISCONNECTED,
+          },
+        }
+      : {}),
     ...(pendingUserText !== undefined
       ? {
           pendingUser: {
@@ -542,25 +608,35 @@ function attachRunningTurn(snapshot: SessionSnapshot, runningTurn: Turn | undefi
  * open tip of the active branch in this window.
  */
 function findOpenTurnCreated(
-  itemsAsc: readonly GatewaySessionEventItem[],
-): { turnId: string; event: TurnCreatedEvent } | undefined {
-  let open: { turnId: string; event: TurnCreatedEvent } | undefined;
+  itemsAsc: readonly SessionEventItem[],
+): { turnId: string; event: TurnCreatedEvent; update?: TurnUpdateEvent; sandboxId?: string } | undefined {
+  let open: { turnId: string; event: TurnCreatedEvent; update?: TurnUpdateEvent; sandboxId?: string } | undefined;
   for (const item of itemsAsc) {
-    if (item.event.type === 'turn.created') {
+    if (item.event.type === EVENT_TYPE.TURN_CREATED) {
       open = { turnId: item.turnId, event: item.event };
-    } else if (item.event.type === 'turn.done') {
+    } else if (item.event.type === EVENT_TYPE.TURN_UPDATE && open?.turnId === item.turnId) {
+      open = { ...open, update: item.event };
+    } else if (item.event.type === EVENT_TYPE.SANDBOX_CREATED && open?.turnId === item.turnId) {
+      open = { ...open, sandboxId: item.event.sandboxId };
+    } else if (item.event.type === EVENT_TYPE.TURN_DONE) {
       open = undefined;
     }
   }
   return open;
 }
 
-function turnFromCreatedEvent(options: { sessionId: string; turnId: string; event: TurnCreatedEvent }): Turn {
-  const { sessionId, turnId, event } = options;
+function turnFromCreatedEvent(options: {
+  sessionId: string;
+  turnId: string;
+  event: TurnCreatedEvent;
+  update?: TurnUpdateEvent;
+}): Turn {
+  const { sessionId, turnId, event, update } = options;
   return {
     id: turnId,
     sessionId,
-    state: { status: 'running' },
+    state:
+      update?.state.status === TURN_STATUS.PAUSED ? { status: TURN_STATUS.PAUSED } : { status: TURN_STATUS.RUNNING },
     createdAt: event.createdAt,
     ...(event.input != null ? { input: event.input } : {}),
     ...(event.previousTurnId === undefined ? {} : { previousTurnId: event.previousTurnId }),
@@ -568,8 +644,9 @@ function turnFromCreatedEvent(options: { sessionId: string; turnId: string; even
 }
 
 interface SessionTip {
-  /** Turn to resume and subscribe to; absent once the tip has finished. */
+  /** Non-terminal turn to subscribe to; absent once the tip has finished. */
   runningTurn?: Turn;
+  sandboxId?: string;
   /**
    * Open tip that finished between `listEvents` and `getTurn`. It was not in
    * the events page as `turn.done`, so the caller must commit it or the user
@@ -594,7 +671,7 @@ interface SessionTip {
 async function resolveSessionTip(options: {
   server: AgentChatServer;
   sessionId: string;
-  itemsAsc: readonly GatewaySessionEventItem[];
+  itemsAsc: readonly SessionEventItem[];
 }): Promise<SessionTip> {
   const open = findOpenTurnCreated(options.itemsAsc);
   if (open == null) {
@@ -609,9 +686,12 @@ async function resolveSessionTip(options: {
         sessionId,
         turnId: open.turnId,
       });
-      if (turn.state.status === 'running') {
+      if (turn.state.status === TURN_STATUS.RUNNING || turn.state.status === TURN_STATUS.PAUSED) {
+        // getTurn is after listEvents — prefer it over a stale events-page pause
+        // so a tip that resumed between the two calls keeps requires-action off.
         return {
           runningTurn: turn,
+          ...(open.sandboxId != null ? { sandboxId: open.sandboxId } : {}),
           continuationInput: turn.input ?? continuationInput,
         };
       }
@@ -628,7 +708,9 @@ async function resolveSessionTip(options: {
       sessionId,
       turnId: open.turnId,
       event: open.event,
+      ...(open.update != null ? { update: open.update } : {}),
     }),
+    ...(open.sandboxId != null ? { sandboxId: open.sandboxId } : {}),
     continuationInput,
   };
 }
@@ -661,7 +743,8 @@ export async function buildSnapshotFromSessionEvents(
 
   const open = findOpenTurnCreated(window.itemsAsc);
   // The open tip is not in `turns` until `turn.done`. Attach it from the
-  // event so the first paint includes its user message.
+  // event so the first paint includes its user message. Include the latest
+  // turn.update so a paused tip is not painted as running before getTurn.
   const paintable =
     open == null
       ? withHistory
@@ -671,7 +754,9 @@ export async function buildSnapshotFromSessionEvents(
             sessionId,
             turnId: open.turnId,
             event: open.event,
+            ...(open.update != null ? { update: open.update } : {}),
           }),
+          open.sandboxId,
         );
   if (open != null) {
     applyUserToolResponsesToFold(paintable.fold, open.event.input ?? []);
@@ -696,7 +781,7 @@ export async function buildSnapshotFromSessionEvents(
   if (tip.finishedTurn != null) {
     return commitFinishedOpenTip(withHistory, tip.finishedTurn);
   }
-  return attachRunningTurn(withHistory, tip.runningTurn);
+  return attachRunningTurn(withHistory, tip.runningTurn, tip.sandboxId);
 }
 
 /**
@@ -768,16 +853,23 @@ export interface ConvertTurnsResult {
 
 function assistantStatusFromTurnState(state: Turn['state']): MessageStatus {
   switch (state.status) {
-    case 'done':
-      return { type: 'complete', reason: 'stop' };
-    case 'error':
-      return { type: 'incomplete', reason: 'error', error: state.message };
-    case 'cancelled':
-      return { type: 'incomplete', reason: 'cancelled' };
-    case 'running':
-      return { type: 'running' };
-    default:
-      return { type: 'complete', reason: 'unknown' };
+    case TURN_STATUS.DONE:
+      return completeAssistantStatus();
+    case TURN_STATUS.ERROR:
+      return {
+        type: ASSISTANT_MESSAGE_STATUS_TYPE.INCOMPLETE,
+        reason: ASSISTANT_MESSAGE_STATUS_REASON.ERROR,
+        error: state.message,
+      };
+    case TURN_STATUS.CANCELLED:
+      return {
+        type: ASSISTANT_MESSAGE_STATUS_TYPE.INCOMPLETE,
+        reason: ASSISTANT_MESSAGE_STATUS_REASON.CANCELLED,
+      };
+    case TURN_STATUS.RUNNING:
+      return runningAssistantStatus();
+    case TURN_STATUS.PAUSED:
+      return toolCallsRequiredAssistantStatus();
   }
 }
 
@@ -805,7 +897,7 @@ function assistantStatusFromTurnState(state: Turn['state']): MessageStatus {
  * Cancelled/error turns still need a bubble so the banner/error chrome can show.
  */
 function shouldEmitTerminalAssistant(state: Turn['state'], content: readonly AssistantContentPart[]): boolean {
-  return content.length > 0 || state.status === 'cancelled' || state.status === 'error';
+  return content.length > 0 || state.status === TURN_STATUS.CANCELLED || state.status === TURN_STATUS.ERROR;
 }
 
 function resolveCreatedAt(
@@ -862,12 +954,12 @@ export function buildUserMessageFromTurnInput(
   options?: ProjectSessionMessagesOptions,
 ): ThreadMessage {
   const fallback = createdAt instanceof Date ? createdAt : new Date(createdAt);
-  const id = `${turnId}-user`;
+  const id = `${turnId}${MESSAGE_ID_SUFFIX.USER}`;
   const content: ThreadUserMessagePart[] = [];
   const attachments: CompleteAttachment[] = [];
 
   for (const item of input ?? []) {
-    if (item.type !== 'user.message') {
+    if (item.type !== EVENT_TYPE.USER_MESSAGE) {
       continue;
     }
     const messageContent = item.content;
@@ -909,7 +1001,7 @@ function buildAssistantMessage(
   replaceCreatedAt = false,
 ): ThreadMessage {
   const fallback = createdAt instanceof Date ? createdAt : new Date(createdAt);
-  const id = `${turnId}-assistant`;
+  const id = `${turnId}${MESSAGE_ID_SUFFIX.ASSISTANT}`;
   return {
     id,
     role: 'assistant',
@@ -944,12 +1036,14 @@ async function ingestTurnEventsIntoFold(
       ...(pageToken != null ? { pageToken } : {}),
     }),
   );
-  for (const event of events) {
-    ingestTurnEvent(foldState, event);
-  }
+  ingestCollectedEventsIntoFold(foldState, events, turnId);
 }
 
-async function fetchTurnEvents(server: AgentChatServer, sessionId: string, turnId: string): Promise<TurnEvent[]> {
+async function fetchTurnEvents(
+  server: AgentChatServer,
+  sessionId: string,
+  turnId: string,
+): Promise<PersistedTurnEvent[]> {
   if (server.listTurnEvents == null) {
     return [];
   }
@@ -965,9 +1059,20 @@ async function fetchTurnEvents(server: AgentChatServer, sessionId: string, turnI
   return events;
 }
 
-function ingestCollectedEventsIntoFold(foldState: PeerThreadFoldState, events: TurnEvent[]): void {
+function ingestCollectedEventsIntoFold(
+  foldState: PeerThreadFoldState,
+  events: PersistedTurnEvent[],
+  turnId: string,
+): void {
   for (const event of events) {
-    ingestTurnEvent(foldState, event);
+    if (
+      event.type === EVENT_TYPE.TURN_CREATED ||
+      event.type === EVENT_TYPE.TURN_UPDATE ||
+      event.type === EVENT_TYPE.TURN_DONE
+    ) {
+      continue;
+    }
+    ingestTurnEvent(foldState, event, turnId);
   }
 }
 
@@ -976,8 +1081,8 @@ async function fetchAllTurnEventsWithConcurrency(
   sessionId: string,
   turns: Turn[],
   concurrency: number,
-): Promise<TurnEvent[][]> {
-  const results = Array.from({ length: turns.length }, (): TurnEvent[] => []);
+): Promise<PersistedTurnEvent[][]> {
+  const results = Array.from({ length: turns.length }, (): PersistedTurnEvent[] => []);
   const pool = new Set<Promise<void>>();
   for (let i = 0; i < turns.length; i++) {
     const idx = i;
@@ -1027,7 +1132,7 @@ export function computeGroupRootBaseline(turns: SessionTurnRecord[]): string[] {
 
 function buildTurnUpdateFromFold(
   foldState: PeerThreadFoldState,
-  turn: Pick<Turn, 'state'>,
+  turn: Pick<Turn, 'state'> & { pendingMcpAuth?: McpAuthRequiredEvent | undefined },
   rootModelMessageIds: readonly string[],
 ): TurnStreamUpdate {
   // While we build this turn's messages, tell nested sub-agents that the parent
@@ -1035,19 +1140,46 @@ function buildTurnUpdateFromFold(
   // Restore afterward so the flag does not leak into the next turn.
   const previousParentTerminal = foldState.parentTerminalStatus;
   const previousSettledCompletedAt = foldState.settledTurnCompletedAtMs;
-  foldState.settledTurnCompletedAtMs = turn.state.status === 'running' ? undefined : Date.parse(turn.state.completedAt);
-  if (turn.state.status === 'cancelled') {
+  // Paused turns are still active, so they do not settle a completion time.
+  foldState.settledTurnCompletedAtMs =
+    turn.state.status === TURN_STATUS.RUNNING || turn.state.status === TURN_STATUS.PAUSED
+      ? undefined
+      : Date.parse(turn.state.completedAt);
+  if (turn.state.status === TURN_STATUS.CANCELLED) {
     foldState.parentTerminalStatus = 'cancelled';
-  } else if (turn.state.status === 'error') {
+  } else if (turn.state.status === TURN_STATUS.ERROR) {
     foldState.parentTerminalStatus = 'error';
   } else {
     foldState.parentTerminalStatus = undefined;
   }
   try {
     const { parts: content, parallelToolGroups } = buildRootAssistantFoldForIds(foldState, rootModelMessageIds);
+    if (turn.pendingMcpAuth != null) {
+      return withParallelToolGroups(
+        {
+          content: [...content, ...buildMcpAuthTextParts(turn.pendingMcpAuth.mcpServers)],
+          status: mcpAuthAssistantStatus(),
+          metadata: { custom: mcpAuthMessageCustom(turn.pendingMcpAuth.mcpServers) },
+        },
+        parallelToolGroups,
+      );
+    }
     let update: TurnStreamUpdate = { content };
     update = appendMcpAuthToTurnContent(update.content, turn);
     update = appendToolApprovalToTurnContent(update, turn);
+    if (turn.state.status === TURN_STATUS.PAUSED && update.status == null) {
+      const approvalThreadId = findFirstPendingApprovalThreadId(foldState);
+      const responseThreadId = findFirstPendingResponseThreadId(foldState);
+      const custom = {
+        ...(approvalThreadId != null ? toolApprovalMessageCustom(approvalThreadId) : {}),
+        ...(responseThreadId != null ? toolResponseMessageCustom(responseThreadId) : {}),
+      };
+      update = {
+        content,
+        status: approvalThreadId != null ? toolApprovalStatus() : toolResponseStatus(),
+        metadata: { custom },
+      };
+    }
     return withParallelToolGroups(update, parallelToolGroups);
   } finally {
     foldState.parentTerminalStatus = previousParentTerminal;
@@ -1101,7 +1233,7 @@ function contentHasPendingRequiredActions(content: readonly AssistantContentPart
     id: 'pending-check',
     role: 'assistant',
     content,
-    status: { type: 'complete', reason: 'stop' },
+    status: completeAssistantStatus(),
     createdAt: new Date(),
     metadata: {
       unstable_state: null,
@@ -1123,14 +1255,15 @@ function resolveProjectedRequiredActionState(
   let custom = { ...(turnUpdate.metadata?.custom ?? {}) };
 
   if (
-    status.type === 'requires-action' &&
-    status.reason === 'tool-calls' &&
+    status.type === ASSISTANT_MESSAGE_STATUS_TYPE.REQUIRES_ACTION &&
+    status.reason === ASSISTANT_MESSAGE_STATUS_REASON.TOOL_CALLS &&
     !contentHasPendingRequiredActions(content)
   ) {
     status = assistantStatusFromTurnState(record.state);
     custom = Object.fromEntries(
       Object.entries(custom).filter(
-        ([key]) => key !== TOOL_APPROVAL_THREAD_ID_CUSTOM_KEY && key !== TOOL_RESPONSE_THREAD_ID_CUSTOM_KEY,
+        ([key]) =>
+          key !== MESSAGE_CUSTOM_KEY.TOOL_APPROVAL_THREAD_ID && key !== MESSAGE_CUSTOM_KEY.TOOL_RESPONSE_THREAD_ID,
       ),
     );
   }
@@ -1144,12 +1277,17 @@ function projectActiveStreamUpdate(snapshot: SessionSnapshot): TurnStreamUpdate 
     throw new Error('projectActiveStreamUpdate requires an active stream');
   }
 
-  const hasStagedOverlay =
-    snapshot.requiredActions.approvals.size > 0 || snapshot.requiredActions.toolResponses.size > 0;
-
-  // While the user has staged a response locally, keep the paused stream update
-  // so required-action collection can pair interrupt + result before resume.
-  if (hasStagedOverlay) {
+  // MCP auth lives on the stream update / snapshot, not in the fold.
+  // If the live update still shows Connect/Continue but the snapshot lost
+  // that state, keep the live update so the prompt does not disappear.
+  // Always rebuild for tool-approval pauses so other pending approvals stay
+  // visible after the user allows one of them.
+  // Once the live update has moved past MCP auth (e.g. tool approval), do not
+  // reuse an old pendingMcpAuth from the snapshot — that would show the auth
+  // prompt again on top of the new pause.
+  const liveCustom = activeStream.update.metadata?.custom;
+  const liveAffirmsMcpAuth = liveCustom?.[MESSAGE_CUSTOM_KEY.PENDING_MCP_AUTH] === true;
+  if (liveAffirmsMcpAuth && snapshot.pendingMcpAuth == null) {
     return activeStream.update;
   }
 
@@ -1160,7 +1298,16 @@ function projectActiveStreamUpdate(snapshot: SessionSnapshot): TurnStreamUpdate 
   const content = foldContent.length > 0 ? foldContent : activeStream.update.content;
 
   const turnRecord = snapshot.turns.find(turn => turn.id === activeStream.turnId);
-  const turnLike = turnRecord ?? snapshot.runningTurn;
+  const pendingMcpAuth = liveAffirmsMcpAuth ? (turnRecord?.pendingMcpAuth ?? snapshot.pendingMcpAuth) : undefined;
+  const turnLike =
+    turnRecord != null
+      ? { state: turnRecord.state, pendingMcpAuth }
+      : snapshot.runningTurn == null
+        ? undefined
+        : {
+            state: snapshot.runningTurn.state,
+            pendingMcpAuth,
+          };
 
   const rebuilt =
     turnLike != null
@@ -1254,10 +1401,10 @@ function stripInteractivePendingFromAssistant(
   const custom = Object.fromEntries(
     Object.entries(message.metadata.custom).filter(
       ([key]) =>
-        key !== 'pendingMcpAuth' &&
-        key !== 'mcpServers' &&
-        key !== TOOL_APPROVAL_THREAD_ID_CUSTOM_KEY &&
-        key !== TOOL_RESPONSE_THREAD_ID_CUSTOM_KEY,
+        key !== MESSAGE_CUSTOM_KEY.PENDING_MCP_AUTH &&
+        key !== MESSAGE_CUSTOM_KEY.MCP_SERVERS &&
+        key !== MESSAGE_CUSTOM_KEY.TOOL_APPROVAL_THREAD_ID &&
+        key !== MESSAGE_CUSTOM_KEY.TOOL_RESPONSE_THREAD_ID,
     ),
   );
   return {
@@ -1344,17 +1491,24 @@ function projectHistoryTurns(snapshot: SessionSnapshot, options?: ProjectSession
     // sandbox wrote the newest artifacts.
     const custom = {
       ...baseCustom,
-      turnId: record.id,
-      ...(sandboxId != null ? { sandboxId } : {}),
-      ...(record.state.status === 'cancelled' ? { [CANCELLATION_REASON_CUSTOM_KEY]: record.state.reason } : {}),
+      [MESSAGE_CUSTOM_KEY.TURN_ID]: record.id,
+      ...(sandboxId != null ? { [MESSAGE_CUSTOM_KEY.SANDBOX_ID]: sandboxId } : {}),
+      ...(record.state.status === TURN_STATUS.CANCELLED
+        ? { [CANCELLATION_REASON_CUSTOM_KEY]: record.state.reason }
+        : {}),
     };
-    const assistantCreatedAt = record.state.status === 'running' ? record.createdAt : record.state.completedAt;
-    const replaceAssistantCreatedAt = record.state.status !== 'running';
+    const assistantCreatedAt =
+      record.state.status === TURN_STATUS.RUNNING
+        ? record.createdAt
+        : record.state.status === TURN_STATUS.PAUSED
+          ? record.createdAt
+          : record.state.completedAt;
+    const replaceAssistantCreatedAt = record.state.status !== TURN_STATUS.RUNNING;
 
     if (record.userText !== undefined) {
       messages.push(buildUserMessageFromTurnInput(record.id, record.input, record.createdAt, options));
 
-      if (record.state.status === 'running') {
+      if (record.state.status === TURN_STATUS.RUNNING) {
         if (content.length > 0) {
           messages.push(
             buildAssistantMessage(
@@ -1391,7 +1545,7 @@ function projectHistoryTurns(snapshot: SessionSnapshot, options?: ProjectSession
         lastAssistantIndex = undefined;
       }
     } else if (shouldEmitTerminalAssistant(record.state, content) && lastAssistantIndex != null) {
-      if (record.state.status === 'running') {
+      if (record.state.status === TURN_STATUS.RUNNING) {
         break;
       }
       const existing = messages[lastAssistantIndex];
@@ -1408,7 +1562,7 @@ function projectHistoryTurns(snapshot: SessionSnapshot, options?: ProjectSession
           custom,
         },
       };
-    } else if (record.state.status === 'running') {
+    } else if (record.state.status === TURN_STATUS.RUNNING) {
       break;
     }
   }
@@ -1426,7 +1580,7 @@ export function projectSessionMessages(
     messages.push(
       buildUserMessageFromTurnInput(
         snapshot.pendingUser.turnId,
-        [{ type: 'user.message', content: snapshot.pendingUser.content }],
+        [{ type: EVENT_TYPE.USER_MESSAGE, content: snapshot.pendingUser.content }],
         snapshot.pendingUser.createdAt,
         options,
       ),
@@ -1434,29 +1588,18 @@ export function projectSessionMessages(
   }
 
   if (snapshot.activeStream != null) {
-    const { turnId, update, isContinuation, streamComplete } = snapshot.activeStream;
-    const resolvedUpdate = streamComplete === true ? projectActiveStreamUpdate(snapshot) : update;
-
+    const { turnId, update, segmentStatus } = snapshot.activeStream;
+    // Content-only subscribe yields after a partial approval look "open" but the
+    // tip is still paused — rebuild so remaining approvals keep requires-action.
+    const tipStillPaused = snapshot.runningTurn?.state.status === TURN_STATUS.PAUSED;
+    const resolvedUpdate =
+      segmentStatus === STREAM_SEGMENT_STATUS.OPEN && !tipStillPaused ? update : projectActiveStreamUpdate(snapshot);
     const last = messages.at(-1);
-    const existingAssistant = isContinuation && last?.role === 'assistant' ? last : undefined;
-    let assistantMessage = turnStreamUpdateToAssistantMessage(turnId, resolvedUpdate, existingAssistant, options);
-    if (streamComplete === true && resolvedUpdate.status == null) {
-      assistantMessage = {
-        ...assistantMessage,
-        status: { type: 'complete', reason: 'stop' },
-      };
-    }
-
-    // Update existing assistant message in-place if already present (for
-    // continuation turns where assistantMessage reuses last.id, or when a turn
-    // with zero root model messages was already projected by projectHistoryTurns).
-    // Otherwise, append assistantMessage to the thread.
-    const existingIndex = messages.findIndex(m => m.id === assistantMessage.id);
-    if (existingIndex !== -1) {
-      messages = [...messages.slice(0, existingIndex), assistantMessage, ...messages.slice(existingIndex + 1)];
-    } else {
-      messages = [...messages, assistantMessage];
-    }
+    const existingAssistant =
+      last?.role === 'assistant' && last.metadata.custom[MESSAGE_CUSTOM_KEY.TURN_ID] === turnId ? last : undefined;
+    const assistantMessage = turnStreamUpdateToAssistantMessage(turnId, resolvedUpdate, existingAssistant, options);
+    messages =
+      existingAssistant != null ? [...messages.slice(0, -1), assistantMessage] : [...messages, assistantMessage];
   }
 
   return abandonSupersededPausedMessages(applyRequiredActionsOverlayToMessages(messages, snapshot.requiredActions));
@@ -1490,7 +1633,7 @@ export async function buildSnapshotFromSession(
 
   const eventArrays = await fetchAllTurnEventsWithConcurrency(server, sessionId, [turn], concurrency);
   const tipEvents = eventArrays[0] ?? [];
-  ingestCollectedEventsIntoFold(snapshot.fold, tipEvents);
+  ingestCollectedEventsIntoFold(snapshot.fold, tipEvents, turn.id);
   applyUserToolResponsesToFold(snapshot.fold, turn.input ?? []);
 
   const sandboxEvent = tipEvents.find(
@@ -1598,12 +1741,6 @@ export function getTurnMessageContent(message: AppendMessage): string {
   return text;
 }
 
-/**
- * Gateway `user.message` content (string for text-only, or text/file parts).
- * Derived from SDK `TurnInputItem` so it tracks API changes.
- */
-export type UserMessageContent = Extract<TurnInputItem, { type: 'user.message' }>['content'];
-
 type UserMessageContentItem = Exclude<UserMessageContent, string>[number];
 type FileContent = Extract<UserMessageContentItem, { type: 'file' }>;
 type TextContent = Extract<UserMessageContentItem, { type: 'text' }>;
@@ -1684,7 +1821,7 @@ export function userMessageContentToText(content: UserMessageContent): string {
 
 /** Strips the `-user` suffix from a projected user message id to recover the turn id. */
 export function parseTurnIdFromMessageId(messageId: string): string {
-  return messageId.replace(/-user$/, '');
+  return messageId.endsWith(MESSAGE_ID_SUFFIX.USER) ? messageId.slice(0, -MESSAGE_ID_SUFFIX.USER.length) : messageId;
 }
 
 /** Parent turn id for branching before `turnId`; `null` when editing the first turn. */
@@ -1704,7 +1841,7 @@ export function extractEditedText(message: AppendMessage): string {
 /** Original gateway user-message content from a turn record (for reset). */
 export function extractTurnUserMessageContent(input: TurnInputItem[] | undefined): UserMessageContent {
   for (const item of input ?? []) {
-    if (item.type === 'user.message') {
+    if (item.type === EVENT_TYPE.USER_MESSAGE) {
       return item.content;
     }
   }
@@ -1721,7 +1858,7 @@ export function buildEditedUserMessageContent(
 ): UserMessageContent {
   const fileParts: FileContent[] = [];
   for (const item of originalInput ?? []) {
-    if (item.type !== 'user.message') {
+    if (item.type !== EVENT_TYPE.USER_MESSAGE) {
       continue;
     }
     const content = item.content;
@@ -1764,14 +1901,6 @@ function buildMcpAuthUpdate(
   );
 }
 
-/** Terminal `turn.done` with `status: error`. Not a transport drop — do not subscribe-retry. */
-export class TurnFailedError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'TurnFailedError';
-  }
-}
-
 /** SSE body ended without `turn.done` or a pause — subscribe-retry. */
 export class TurnStreamDisconnectedError extends Error {
   constructor(message = 'Turn stream closed before turn.done') {
@@ -1786,126 +1915,213 @@ export async function* streamTurnEvents(
   groupRootBaseline?: readonly string[],
   onTurnIdAvailable?: (turnId: string) => void,
   onSequenceNumber?: (sequenceNumber: number) => void,
+  onSubscribeCursor?: (cursor: TurnSubscribeCursor) => void,
+  turnId?: string,
 ): AsyncGenerator<TurnStreamUpdate> {
   let pendingMcpAuth: McpAuthRequiredEvent | undefined;
+  let activeTurnId = turnId;
   let sandboxId: string | undefined;
   let sandboxIdYielded = false;
-  let lastSequenceNumber: number | undefined;
-  let sawTurnDone = false;
 
-  const withCursor = (update: TurnStreamUpdate): TurnStreamUpdate => {
-    const withSeq = lastSequenceNumber == null ? update : { ...update, sequenceNumber: lastSequenceNumber };
+  const withSandbox = (update: TurnStreamUpdate): TurnStreamUpdate => {
     if (sandboxId == null) {
-      return withSeq;
+      return update;
     }
     return {
-      ...withSeq,
-      metadata: { ...withSeq.metadata, custom: { ...withSeq.metadata?.custom, sandboxId } },
+      ...update,
+      metadata: {
+        ...update.metadata,
+        custom: { ...update.metadata?.custom, [MESSAGE_CUSTOM_KEY.SANDBOX_ID]: sandboxId },
+      },
     };
   };
 
-  for await (const data of stream) {
-    lastSequenceNumber = data.sequenceNumber;
-    onSequenceNumber?.(data.sequenceNumber);
-    const event = data.event;
+  const buildRequiredActionUpdate = (): TurnStreamUpdate => {
+    if (pendingMcpAuth != null) {
+      return buildMcpAuthUpdate(pendingMcpAuth, foldState, groupRootBaseline);
+    }
 
-    if (event.type === 'turn.created') {
+    const approvalThreadId = findFirstPendingApprovalThreadId(foldState);
+    const responseThreadId = findFirstPendingResponseThreadId(foldState);
+    const custom: Record<string, unknown> = {};
+    if (approvalThreadId != null) {
+      Object.assign(custom, toolApprovalMessageCustom(approvalThreadId));
+    }
+    if (responseThreadId != null) {
+      Object.assign(custom, toolResponseMessageCustom(responseThreadId));
+    }
+    return buildRootContentUpdate(foldState, groupRootBaseline, {
+      status: approvalThreadId != null ? toolApprovalStatus() : toolResponseStatus(),
+      metadata: { custom },
+    });
+  };
+
+  /** Partial approvals: BE may echo user.tool_approval without another turn.update. */
+  const foldStillNeedsUserInput = (): boolean =>
+    pendingMcpAuth != null ||
+    findFirstPendingApprovalThreadId(foldState) != null ||
+    findFirstPendingResponseThreadId(foldState) != null;
+
+  const withSequence = (update: TurnStreamUpdate, sequenceNumber: number | undefined): TurnStreamUpdate =>
+    sequenceNumber === undefined ? update : { ...update, sequenceNumber };
+
+  const yieldContentOrRequiredAction = (sequenceNumber: number | undefined): TurnStreamUpdate => {
+    if (foldStillNeedsUserInput()) {
+      return withSequence(
+        {
+          ...buildRequiredActionUpdate(),
+          turnState: { status: TURN_STATUS.PAUSED },
+        },
+        sequenceNumber,
+      );
+    }
+    return withSequence(buildRootContentUpdate(foldState, groupRootBaseline), sequenceNumber);
+  };
+
+  let yieldedPaused = false;
+  let lastSequenceNumber: number | undefined;
+
+  for await (const data of stream) {
+    if (data.sequenceNumber !== undefined) {
+      lastSequenceNumber = data.sequenceNumber;
+      onSequenceNumber?.(data.sequenceNumber);
+    }
+    const event = data.event;
+    if (event.type === EVENT_TYPE.TURN_CREATED) {
+      activeTurnId = event.turnId;
+    }
+    if ('id' in event && typeof event.id === 'string') {
+      const endsMcpAuthPrompt =
+        event.type === EVENT_TYPE.USER_MCP_AUTH_CONTINUE ||
+        event.type === EVENT_TYPE.TURN_DONE ||
+        (event.type === EVENT_TYPE.TURN_UPDATE && event.state.status === TURN_STATUS.RUNNING);
+      // Resume replays from mcp.auth_required until the prompt is answered. A later
+      // paused update must not move the cursor past it: a fresh fold would lose the prompt.
+      if (pendingMcpAuth == null || event.type === EVENT_TYPE.MCP_AUTH_REQUIRED || endsMcpAuthPrompt) {
+        onSubscribeCursor?.(subscribeCursorForEvent(event, earliestOpenModelMessageId(foldState, activeTurnId)));
+      }
+    }
+
+    if (event.type === EVENT_TYPE.TURN_CREATED) {
       onTurnIdAvailable?.(event.turnId);
       continue;
     }
 
-    if (event.type === 'sandbox.created') {
+    if (event.type === EVENT_TYPE.SANDBOX_CREATED) {
       sandboxId = event.sandboxId;
       continue;
     }
 
-    if (event.type === 'mcp.auth_required') {
+    if (event.type === EVENT_TYPE.MCP_AUTH_REQUIRED) {
       pendingMcpAuth = event;
       continue;
     }
 
-    if (event.type === 'turn.done') {
-      if (event.state.status === 'error') {
-        throw new TurnFailedError(event.state.message);
+    if (event.type === EVENT_TYPE.USER_MCP_AUTH_CONTINUE) {
+      pendingMcpAuth = undefined;
+      ingestStreamEvent(foldState, event, activeTurnId);
+      continue;
+    }
+
+    if (event.type === EVENT_TYPE.TURN_UPDATE) {
+      if (event.state.status === TURN_STATUS.RUNNING) {
+        pendingMcpAuth = undefined;
+        yield withSandbox(
+          withSequence(
+            buildRootContentUpdate(foldState, groupRootBaseline, {
+              status: runningAssistantStatus(),
+              turnState: { status: TURN_STATUS.RUNNING },
+            }),
+            data.sequenceNumber,
+          ),
+        );
+        continue;
       }
-      // Live cancel: stash wire reason for commit + UI banner. Return so
-      // sandbox/MCP/approval post-loop yields cannot overwrite this update.
-      if (event.state.status === 'cancelled') {
-        // Same as history: mark parent cancelled so open sub-agents render cancelled too.
+
+      // Pause is in-stream: the same SSE continues through apply-only echoes,
+      // turn.update running, and turn.done. Do not detach the consumer.
+      yield withSandbox(
+        withSequence(
+          {
+            ...buildRequiredActionUpdate(),
+            turnState: { status: TURN_STATUS.PAUSED },
+          },
+          data.sequenceNumber,
+        ),
+      );
+      yieldedPaused = true;
+      continue;
+    }
+
+    if (event.type === EVENT_TYPE.TURN_DONE) {
+      // Live cancel: stash wire reason for UI banner and mark open sub-agents cancelled.
+      if (event.state.status === TURN_STATUS.CANCELLED) {
         const previousParentTerminal = foldState.parentTerminalStatus;
         foldState.parentTerminalStatus = 'cancelled';
         try {
-          yield withCursor(
-            buildRootContentUpdate(foldState, groupRootBaseline, {
-              status: { type: 'incomplete', reason: 'cancelled' },
-              metadata: { custom: { [CANCELLATION_REASON_CUSTOM_KEY]: event.state.reason } },
-            }),
+          yield withSandbox(
+            withSequence(
+              buildRootContentUpdate(foldState, groupRootBaseline, {
+                status: assistantStatusFromTurnState(event.state),
+                metadata: { custom: { [CANCELLATION_REASON_CUSTOM_KEY]: event.state.reason } },
+                turnState: event.state,
+              }),
+              data.sequenceNumber,
+            ),
           );
         } finally {
           foldState.parentTerminalStatus = previousParentTerminal;
         }
         return;
       }
-      // The turn is logically complete once `turn.done` is observed. The
-      // resumed-turn transport (`subscribeToTurn`) is a reconnectable live
-      // tail and is not guaranteed to close its SSE body right after this
-      // event, so we must stop consuming explicitly rather than waiting
-      // for the underlying stream to end — otherwise `isRunning` never
-      // clears and the composer's cancel/spinner button gets stuck.
-      sawTurnDone = true;
-      break;
+      // turn.done is the only successful terminal boundary. Do not wait for
+      // the transport body to close because resumable subscriptions may linger.
+      // Yield error/complete state (HITL) rather than throwing — reconnect must
+      // not subscribe-retry a terminal turn; callers read `turnState` / status.
+      yield withSandbox(
+        withSequence(
+          buildRootContentUpdate(foldState, groupRootBaseline, {
+            status: assistantStatusFromTurnState(event.state),
+            turnState: event.state,
+          }),
+          data.sequenceNumber,
+        ),
+      );
+      return;
     }
 
-    if (!ingestStreamEvent(foldState, event)) {
+    if (!ingestStreamEvent(foldState, event, activeTurnId)) {
       continue;
     }
 
-    const update = buildRootContentUpdate(foldState, groupRootBaseline);
-    if (update.content.length > 0) {
+    if (buildRootContentUpdate(foldState, groupRootBaseline).content.length > 0) {
       if (sandboxId != null) {
         sandboxIdYielded = true;
       }
-      yield withCursor(update);
+      yield withSandbox(yieldContentOrRequiredAction(data.sequenceNumber));
     }
   }
 
-  if (pendingMcpAuth != null) {
-    yield withCursor(buildMcpAuthUpdate(pendingMcpAuth, foldState, groupRootBaseline));
-    return;
-  }
-
-  const approvalThreadId = findFirstPendingApprovalThreadId(foldState);
-  const responseThreadId = findFirstPendingResponseThreadId(foldState);
-  if (approvalThreadId != null || responseThreadId != null) {
-    const custom: Record<string, unknown> = {};
-    if (approvalThreadId != null) {
-      Object.assign(
-        custom,
-        toolApprovalMessageCustom(approvalThreadId === ROOT_THREAD_ID ? ROOT_THREAD_ID : approvalThreadId),
-      );
+  if (foldStillNeedsUserInput()) {
+    // Subscribe can end after a partial user.tool_approval with no turn.update.
+    if (!yieldedPaused) {
+      yield withSandbox({
+        ...buildRequiredActionUpdate(),
+        ...(lastSequenceNumber != null ? { sequenceNumber: lastSequenceNumber } : {}),
+        turnState: { status: TURN_STATUS.PAUSED },
+      });
     }
-    if (responseThreadId != null) {
-      Object.assign(
-        custom,
-        toolResponseMessageCustom(responseThreadId === ROOT_THREAD_ID ? ROOT_THREAD_ID : responseThreadId),
-      );
-    }
-    yield withCursor(
-      buildRootContentUpdate(foldState, groupRootBaseline, {
-        status: approvalThreadId != null ? toolApprovalStatus() : toolResponseStatus(),
-        metadata: { custom },
-      }),
-    );
     return;
   }
 
   if (sandboxId != null && !sandboxIdYielded) {
-    yield withCursor(buildRootContentUpdate(foldState, groupRootBaseline));
+    // The sandbox id has not ridden on a content yield yet. Surface it, then
+    // still treat the closed body as a disconnect so subscribe-retry continues.
+    yield withSandbox(buildRootContentUpdate(foldState, groupRootBaseline));
   }
 
-  if (!sawTurnDone) {
-    throw new TurnStreamDisconnectedError();
-  }
+  // SSE ended without turn.done or a pause. A sandbox-only prefix is not terminal.
+  throw new TurnStreamDisconnectedError();
 }
 
 export function turnStreamUpdateToAssistantMessage(
@@ -1914,13 +2130,13 @@ export function turnStreamUpdateToAssistantMessage(
   existing?: ThreadMessage,
   options?: ProjectSessionMessagesOptions,
 ): ThreadMessage {
-  const id = existing?.role === 'assistant' ? existing.id : `${turnId}-assistant`;
+  const id = existing?.role === 'assistant' ? existing.id : `${turnId}${MESSAGE_ID_SUFFIX.ASSISTANT}`;
   const fallbackCreatedAt = existing?.createdAt ?? new Date();
   return {
     id,
     role: 'assistant',
     content: update.content,
-    status: update.status ?? { type: 'running' },
+    status: update.status ?? runningAssistantStatus(),
     createdAt: resolveCreatedAt(id, fallbackCreatedAt, options),
     metadata: {
       unstable_state: null,
@@ -1930,7 +2146,7 @@ export function turnStreamUpdateToAssistantMessage(
       custom: {
         ...(existing?.role === 'assistant' ? existing.metadata.custom : {}),
         ...update.metadata?.custom,
-        turnId,
+        [MESSAGE_CUSTOM_KEY.TURN_ID]: turnId,
       },
     },
   };
