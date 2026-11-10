@@ -45,23 +45,6 @@ function parseSettingsJson(raw: string | undefined): unknown {
   }
 }
 
-/** Removed key. Accepted and ignored so an upgrade does not fail startup. */
-const RETIRED_MEMORY_SETTING_KEYS = new Set<string>(['pause_timeout_ms']);
-
-function withoutRetiredSettings(value: unknown): unknown {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    return value;
-  }
-  const settings: Record<string, unknown> = {};
-  for (const [key, entry] of Object.entries(value)) {
-    if (RETIRED_MEMORY_SETTING_KEYS.has(key)) {
-      continue;
-    }
-    settings[key] = entry;
-  }
-  return settings;
-}
-
 /** Returns the configured shared memory provider when enabled, or undefined when disabled. */
 export function resolveTrueFoundryMemoryProviderConfig(
   config: Pick<
@@ -76,9 +59,7 @@ export function resolveTrueFoundryMemoryProviderConfig(
   if (!config.TRUEFOUNDRY_MEMORY_ENABLED) {
     return undefined;
   }
-  const settings = TrueFoundryMemorySettingsSchema.parse(
-    withoutRetiredSettings(parseSettingsJson(config.TRUEFOUNDRY_MEMORY_SETTINGS)),
-  );
+  const settings = TrueFoundryMemorySettingsSchema.parse(parseSettingsJson(config.TRUEFOUNDRY_MEMORY_SETTINGS));
   switch (config.TRUEFOUNDRY_MEMORY_PROVIDER) {
     case 'zep': {
       if (config.TRUEFOUNDRY_MEMORY_API_KEY === undefined) {
