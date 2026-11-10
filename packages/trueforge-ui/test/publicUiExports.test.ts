@@ -135,6 +135,8 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'ShellModeProvider',
   'SideDrawer',
   'SlotsProvider',
+  'StepTree',
+  'StepTreeItem',
   'SubAgentCard',
   'Switch',
   'SyntaxHighlighter',
