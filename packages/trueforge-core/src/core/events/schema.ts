@@ -220,7 +220,7 @@ export const UserMessageSchema = z
   .object({
     type: z.literal(EventType.USER_MESSAGE).describe('User message input item.'),
     content: z
-      .union([z.string().min(1), z.array(UserContentPartSchema)])
+      .union([z.string(), z.array(UserContentPartSchema)])
       .describe('Plain string or structured text/file content parts.'),
   })
   .openapi('UserMessage');
