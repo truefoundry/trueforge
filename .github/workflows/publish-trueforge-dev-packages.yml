@@ -87,7 +87,31 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Set canary versions (ephemeral, not committed)
+      # Build while package.json still has workspace:* so the lockfile stays valid.
+      - name: Build publishable packages
+        run: |
+          set -euo pipefail
+          pnpm --filter @truefoundry/trueforge-sdk build
+          pnpm --filter @truefoundry/trueforge-assistant-ui-runtime build
+          pnpm --filter @truefoundry/trueforge-ui build
+
+      - name: Setup JFrog CLI (OIDC)
+        uses: jfrog/setup-jfrog-cli@v4
+        env:
+          JF_URL: ${{ env.JF_URL }}
+        with:
+          oidc-provider-name: github-jfrog-trueforge
+          oidc-audience: jfrog-github
+
+      - name: Configure npm deploy repo
+        run: |
+          set -euo pipefail
+          jf npm-config \
+            --repo-resolve="${JF_NPM_REPO}" \
+            --repo-deploy="${JF_NPM_REPO}"
+
+      # Rewrite only for the published tarball — after build, before publish.
+      - name: Set canary versions for publish (ephemeral, not committed)
         env:
           VERSION: ${{ steps.ref.outputs.version }}
           JF_NPM_REGISTRY: ${{ env.JF_NPM_REGISTRY }}
@@ -146,34 +170,13 @@ jobs:
           }
           NODE
 
-      - name: Build publishable packages
-        run: |
-          set -euo pipefail
-          pnpm --filter @truefoundry/trueforge-sdk build
-          pnpm --filter @truefoundry/trueforge-assistant-ui-runtime build
-          pnpm --filter @truefoundry/trueforge-ui build
-
-      - name: Setup JFrog CLI (OIDC)
-        uses: jfrog/setup-jfrog-cli@v4
-        env:
-          JF_URL: ${{ env.JF_URL }}
-        with:
-          oidc-provider-name: github-jfrog-trueforge
-          oidc-audience: jfrog-github
-
-      - name: Configure npm deploy repo
-        run: |
-          set -euo pipefail
-          jf npm-config \
-            --repo-resolve="${JF_NPM_REPO}" \
-            --repo-deploy="${JF_NPM_REPO}"
-
       - name: Publish to JFrog npm
         env:
           NPM_CONFIG_PROVENANCE: 'false'
         run: |
           set -euo pipefail
           # jf npm publish uses the OIDC-configured Artifactory npm auth.
+          # No further pnpm install here — package.json was rewritten after build.
           for dir in \
             packages/trueforge-sdk \
             packages/assistant-ui-runtime \
