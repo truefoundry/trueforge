@@ -23,7 +23,12 @@ import { parseAskUserQuestionArgs } from './askUserQuestion.js';
 import { ROOT_THREAD_ID } from './constants.js';
 import { CONTEXT_COMPACTION_DATA_NAME, type ContextCompactionPartData } from './contextCompaction.js';
 import { isCreateSubAgentToolCall } from './createSubAgent.js';
-import { MESSAGE_CUSTOM_KEY, type SubAgentMessageCustomMetadata } from './messageCustomMetadata.js';
+import {
+  MESSAGE_CUSTOM_KEY,
+  parallelToolGroupsCustom,
+  type ParallelToolGroups,
+  type SubAgentMessageCustomMetadata,
+} from './messageCustomMetadata.js';
 import { buildAssistantContent, type AssistantContentPart, type SdkToolCall } from './modelMessageContent.js';
 import { mergeStreamEventDelta } from './modelMessageImageContent.js';
 import { toolApprovalMessageCustom, toolApprovalStatus } from './toolApproval.js';
@@ -830,14 +835,14 @@ function attachSubAgentMessages(
   });
 }
 
-function buildThreadAssistantParts(
+function buildThreadAssistantFold(
   state: PeerThreadFoldState,
   threadId: string,
   modelMessageIds?: readonly string[],
-): AssistantContentPart[] {
+): { parts: AssistantContentPart[]; parallelToolGroups: ParallelToolGroups } {
   const bucket = state.threads.get(threadId);
   if (bucket == null) {
-    return [];
+    return { parts: [], parallelToolGroups: {} };
   }
 
   const scopedModelIds = threadId === ROOT_THREAD_ID && modelMessageIds != null ? new Set(modelMessageIds) : null;
@@ -846,6 +851,7 @@ function buildThreadAssistantParts(
   );
 
   const parts: AssistantContentPart[] = [];
+  const parallelToolGroups: ParallelToolGroups = {};
   // A single tool call can appear in more than one `model.message` event (e.g.
   // once in the paused turn and again in the resumed turn after a tool
   // approval). assistant-ui keys tool parts by `toolCallId` within a message,
@@ -887,12 +893,18 @@ function buildThreadAssistantParts(
           continue;
         }
         toolCallIndexById.set(part.toolCallId, parts.length);
+        // Only the first occurrence is recorded: when a call is replayed in a later model message, it stays in
+        // the group of the response that originally requested it.
+        parallelToolGroups[part.toolCallId] = id;
       }
       parts.push(part);
     }
   }
 
-  return attachSubAgentMessages(state, threadId, parts);
+  return {
+    parts: attachSubAgentMessages(state, threadId, parts),
+    parallelToolGroups,
+  };
 }
 
 function buildSubThreadMessages(state: PeerThreadFoldState, threadId: string): ThreadMessage[] {
@@ -901,13 +913,15 @@ function buildSubThreadMessages(state: PeerThreadFoldState, threadId: string): T
     return [];
   }
 
-  const content = buildThreadAssistantParts(state, threadId);
+  const { parts: content, parallelToolGroups } = buildThreadAssistantFold(state, threadId);
   if (content.length === 0) {
     return [];
   }
 
   const custom = {
     ...buildSubAgentCustomMetadata(threadId, bucket),
+    // Sub-agent threads render their own message, so they carry their own groups for parallel calls inside them.
+    ...parallelToolGroupsCustom(parallelToolGroups),
     ...(bucket.pendingApprovals.size > 0 ? toolApprovalMessageCustom(threadId) : {}),
     ...(bucketHasUnresolvedPendingResponses(bucket) ? toolResponseMessageCustom(threadId) : {}),
   };
@@ -931,14 +945,22 @@ function buildSubThreadMessages(state: PeerThreadFoldState, threadId: string): T
 }
 
 export function buildRootAssistantContent(state: PeerThreadFoldState): AssistantContentPart[] {
-  return buildThreadAssistantParts(state, ROOT_THREAD_ID);
+  return buildThreadAssistantFold(state, ROOT_THREAD_ID).parts;
 }
 
 export function buildRootAssistantContentForIds(
   state: PeerThreadFoldState,
   modelMessageIds: readonly string[],
 ): AssistantContentPart[] {
-  return buildThreadAssistantParts(state, ROOT_THREAD_ID, modelMessageIds);
+  return buildThreadAssistantFold(state, ROOT_THREAD_ID, modelMessageIds).parts;
+}
+
+/** When callers need parallel tool grouping alongside the content, use this instead of `buildRootAssistantContentForIds`, so both come from the same fold. */
+export function buildRootAssistantFoldForIds(
+  state: PeerThreadFoldState,
+  modelMessageIds: readonly string[],
+): { parts: AssistantContentPart[]; parallelToolGroups: ParallelToolGroups } {
+  return buildThreadAssistantFold(state, ROOT_THREAD_ID, modelMessageIds);
 }
 
 export function findFirstPendingApprovalThreadId(state: PeerThreadFoldState): string | undefined {
