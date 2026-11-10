@@ -3,7 +3,7 @@ name: Sync commit to trueforge-devtest-deployment
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, ha/emit-pause]
 
 concurrency:
   group: deploy-devtest

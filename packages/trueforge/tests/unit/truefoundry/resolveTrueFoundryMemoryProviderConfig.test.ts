@@ -14,7 +14,6 @@ const DEFAULT_SETTINGS = {
   max_sessions_per_run: 50,
   max_exchanges_per_session: 20,
   lookback_ms: 7_200_000,
-  pause_timeout_ms: 43_200_000,
 };
 
 const ZEP_ON = {

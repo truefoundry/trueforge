@@ -2,7 +2,7 @@
 
 import type * as TrueForge from "../index.js";
 
-export type CreateTurnEventResponseDataItem =
+export type TurnUserEvent =
     | TrueForge.UserMcpAuthContinueEvent
     | TrueForge.UserToolApprovalEvent
     | TrueForge.UserToolApprovalPolicyEvent

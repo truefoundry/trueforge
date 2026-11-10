@@ -142,7 +142,12 @@ describe('AgentSessionEventTimelineChart', () => {
 
     const native = new MouseEvent('mousemove', { clientX: 320 });
     Object.defineProperty(native, 'target', { value: canvas });
-    act(() => onHover({ native }, [{ datasetIndex: 0 }]));
+    const chartStub = {
+      canvas,
+      getDatasetMeta: () => ({ data: [{ y: 10 }] }),
+      data: { datasets: [{ order: 1 }] },
+    };
+    act(() => onHover({ native }, [{ datasetIndex: 0 }], chartStub));
 
     expect(await screen.findByRole('tooltip')).toHaveStyle({ left: '320px', top: '126px' });
 
@@ -343,7 +348,12 @@ describe('AgentSessionEventTimelineChart', () => {
 
     const onHover = Reflect.get(capturedOptions ?? {}, 'onHover');
     if (typeof onHover !== 'function') throw new Error('Expected Chart.js onHover callback');
-    act(() => onHover({ native: null }, [{ datasetIndex: groupedDatasetIndex }]));
+    const chartStub = {
+      canvas: document.createElement('canvas'),
+      getDatasetMeta: () => ({ data: [{ y: 40 }] }),
+      data: { datasets: Array.from({ length: groupedDatasetIndex + 1 }, () => ({ order: 1 })) },
+    };
+    act(() => onHover({ native: null }, [{ datasetIndex: groupedDatasetIndex }], chartStub));
 
     expect(await screen.findByText('Sub-Agent: Researcher')).toBeInTheDocument();
     expect(await screen.findByText('Tool calls')).toBeInTheDocument();
@@ -486,5 +496,136 @@ describe('AgentSessionEventTimelineChart', () => {
     expect(screen.getByText('Events')).toBeInTheDocument();
     expect(screen.getByText('Approval required')).toBeInTheDocument();
     expect(screen.getByText('MCP initialized')).toBeInTheDocument();
+  });
+});
+
+describe('AgentSessionEventTimelineChart pause chips', () => {
+  beforeEach(() => {
+    capturedData = undefined;
+    capturedOptions = undefined;
+  });
+
+  it('hides sub-agent markers and pause chips when Sub-agent is toggled off', () => {
+    const subThread = 'sub-agent-thread';
+    const withSub: SessionEventTimelineSegment[] = [
+      ...segments,
+      {
+        id: 'sub-agent',
+        type: 'sub_agent',
+        title: 'thread.created',
+        description: 'Worker',
+        startMs: 100,
+        endMs: 900,
+        turnIndex: 0,
+        threadId: subThread,
+      },
+      {
+        id: 'sub-approval',
+        type: 'approval',
+        title: 'tool.approval_required',
+        description: 'Approval required',
+        startMs: 400,
+        endMs: 400,
+        turnIndex: 0,
+        threadId: subThread,
+        isMarker: true,
+      },
+      {
+        id: 'sub-pause',
+        type: 'waiting_on_human',
+        title: 'turn.paused',
+        description: 'Paused',
+        startMs: 400,
+        endMs: 400,
+        turnIndex: 0,
+        threadId: subThread,
+        isPauseChip: true,
+        wallDurationMs: 5_000,
+      },
+    ];
+
+    const { rerender } = render(
+      <AgentSessionEventTimelineChart turns={turns} segments={withSub} hiddenTypes={new Set()} />,
+    );
+    let datasets = Reflect.get(capturedData ?? {}, 'datasets');
+    if (!Array.isArray(datasets)) throw new Error('Expected chart datasets');
+    const labelsOn = datasets.map(dataset => Reflect.get(dataset, 'label'));
+    expect(labelsOn).toContain('Paused');
+    expect(labelsOn).toContain('Sub-agent: thread.created');
+    expect(labelsOn.some(label => typeof label === 'string' && label.includes('Approval'))).toBe(true);
+
+    rerender(<AgentSessionEventTimelineChart turns={turns} segments={withSub} hiddenTypes={new Set(['sub_agent'])} />);
+    datasets = Reflect.get(capturedData ?? {}, 'datasets');
+    if (!Array.isArray(datasets)) throw new Error('Expected chart datasets');
+    expect(datasets.some(dataset => Reflect.get(dataset, 'label') === 'Paused')).toBe(false);
+    expect(datasets.some(dataset => Reflect.get(dataset, 'label') === 'Sub-agent: thread.created')).toBe(false);
+    expect(datasets.some(dataset => Reflect.get(dataset, 'label') === 'Approval / HITL')).toBe(false);
+  });
+
+  it('counts one shared pause in the sub-agent group duration', async () => {
+    const subAgentSegments: SessionEventTimelineSegment[] = [
+      ...segments,
+      {
+        id: 'sub-a',
+        type: 'sub_agent',
+        title: 'thread.created',
+        description: 'Agent A',
+        startMs: 100,
+        endMs: 900,
+        turnIndex: 0,
+        threadId: 'thread-a',
+      },
+      {
+        id: 'sub-b',
+        type: 'sub_agent',
+        title: 'thread.created',
+        description: 'Agent B',
+        startMs: 100,
+        endMs: 900,
+        turnIndex: 0,
+        threadId: 'thread-b',
+      },
+      {
+        id: 'pause-a',
+        type: 'waiting_on_human',
+        title: 'turn.paused',
+        description: 'Paused',
+        startMs: 500,
+        endMs: 500,
+        turnIndex: 0,
+        threadId: 'thread-a',
+        isPauseChip: true,
+        wallDurationMs: 5_000,
+      },
+      {
+        id: 'pause-b',
+        type: 'waiting_on_human',
+        title: 'turn.paused',
+        description: 'Paused',
+        startMs: 500,
+        endMs: 500,
+        turnIndex: 0,
+        threadId: 'thread-b',
+        isPauseChip: true,
+        wallDurationMs: 5_000,
+      },
+    ];
+    render(<AgentSessionEventTimelineChart turns={turns} segments={subAgentSegments} hiddenTypes={new Set()} />);
+    const datasets = Reflect.get(capturedData ?? {}, 'datasets');
+    if (!Array.isArray(datasets)) throw new Error('Expected chart datasets');
+    const subIndex = datasets.findIndex(dataset => Reflect.get(dataset, 'label') === 'Sub-agent: thread.created');
+    expect(subIndex).toBeGreaterThanOrEqual(0);
+    const onHover = Reflect.get(capturedOptions ?? {}, 'onHover');
+    if (typeof onHover !== 'function') throw new Error('Expected Chart.js onHover callback');
+    const chartStub = {
+      canvas: document.createElement('canvas'),
+      getDatasetMeta: () => ({ data: [{ y: 20 }] }),
+      data: { datasets: Array.from({ length: subIndex + 1 }, () => ({ order: 1 })) },
+    };
+    act(() => onHover({ native: null }, [{ datasetIndex: subIndex }], chartStub));
+    expect(await screen.findByText('Sub-agents')).toBeInTheDocument();
+    // 800ms of track plus one 5s pause, not 5s per lane.
+    expect(screen.getByText('5.8s')).toBeInTheDocument();
+    expect(screen.queryByText('10.8s')).not.toBeInTheDocument();
   });
 });

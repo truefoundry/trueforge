@@ -788,6 +788,13 @@ describe('mcp-servers routers', () => {
     }
   });
 
+  it('GET /{name}/authorize rejects an empty return_to with 400', async () => {
+    await seedDcrServerWithClient();
+
+    const response = await mcpServersRouter.request(`/${putBodyWithDcr.name}/authorize?return_to=`);
+    expect(response.status).toBe(400);
+  });
+
   it('GET /{name}/authorize returns 424 when upstream DCR registration fails', async () => {
     const asOrigin = 'https://auth-failure.example.com';
     const mcpUrl = 'https://mcp-failure.example.com/sse';

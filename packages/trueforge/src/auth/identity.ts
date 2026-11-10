@@ -44,6 +44,7 @@ export type ResolveRequestContext = (c: Context) => RequestContext;
 
 declare module 'hono' {
   interface ContextVariableMap {
+    subject?: RequestSubject;
     request_context?: RequestContext;
   }
 }
@@ -125,14 +126,23 @@ export function requestSubjectFromCreatedBySubject(subject: CreatedBySubject): R
 export function requestContextFromCreatedBySubject(params: {
   tenant_id: string;
   created_by_subject: CreatedBySubject;
+  user_credential: string | null;
 }): RequestContext {
   const base: RequestContext = {
     tenant_id: params.tenant_id,
     subject: requestSubjectFromCreatedBySubject(params.created_by_subject),
     roles: [],
-    user_credential: null,
+    user_credential: params.user_credential,
   };
   return isTrueFoundryModeEnabled(configuration) ? createTrueFoundryRequestContext(base) : base;
+}
+
+/**
+ * A context that arrived as JSON has no TrueFoundry token cache. Wrap a fresh one
+ * so model and MCP stores can vend on this replica.
+ */
+export function requestContextFromWire(context: RequestContext): RequestContext {
+  return isTrueFoundryModeEnabled(configuration) ? createTrueFoundryRequestContext(context) : context;
 }
 
 /** Persistable creator snapshot derived from the authenticated request. */

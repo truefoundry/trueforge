@@ -105,25 +105,17 @@ describe('agents router', () => {
     sandboxProviderStore = new SqliteSandboxProviderStore(db);
     const modelProviderStore = new SqliteModelProviderStore(db);
     await modelProviderStore.upsertProvider({ tenant_id: 'default', name: 'anthropic', manifest: modelProvider });
-    await new SqliteMemoryProviderStore(db).upsertProvider({
-      tenant_id: 'default',
-      manifest: { type: 'zep', auth: { api_key: 'zep-test-key' } },
-    });
-    await new SqliteConfigurationStore(db).upsertConfiguration({
-      tenant_id: 'default',
-      manifest: { web_search: { enabled: true }, memory: { enabled: true } },
-    });
     const agentStore = new SqliteAgentStore(db);
     router = createAgentsRouter({
       resolveAgentStore: () => agentStore,
       resolveModelProviderStore: () => modelProviderStore,
       resolveMcpServerStore: () => new SqliteMcpServerStore(db),
       resolveSkillStore: () => new SqliteSkillStore(db),
-      resolveSandboxProviderStore: () => sandboxProviderStore,
-      sandboxEnvironmentStore,
-      resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
-      resolveMemoryProviderStore: () => new SqliteMemoryProviderStore(db),
-      resolveConfigurationStore: () => new SqliteConfigurationStore(db),
+      sandboxProviderStore: new SqliteSandboxProviderStore(db),
+      sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
+      webSearchProviderStore: new SqliteWebSearchProviderStore(db),
+      memoryProviderStore: new SqliteMemoryProviderStore(db),
+      configurationStore: new SqliteConfigurationStore(db),
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
       authorizer: new TrueForgeAuthorizer(),
@@ -133,11 +125,11 @@ describe('agents router', () => {
       resolveModelProviderStore: () => modelProviderStore,
       resolveMcpServerStore: () => new SqliteMcpServerStore(db),
       resolveSkillStore: () => new SqliteSkillStore(db),
-      resolveSandboxProviderStore: () => sandboxProviderStore,
-      sandboxEnvironmentStore,
-      resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
-      resolveMemoryProviderStore: () => new SqliteMemoryProviderStore(db),
-      resolveConfigurationStore: () => new SqliteConfigurationStore(db),
+      sandboxProviderStore: new SqliteSandboxProviderStore(db),
+      sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
+      webSearchProviderStore: new SqliteWebSearchProviderStore(db),
+      memoryProviderStore: new SqliteMemoryProviderStore(db),
+      configurationStore: new SqliteConfigurationStore(db),
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
       authorizer: denyAllAuthorizer,
@@ -190,40 +182,6 @@ describe('agents router', () => {
     const updatedJson = (await updated.json()) as { data: WireAgent };
     expect(updatedJson.data.description).toBe('Keep me.');
     expect(updatedJson.data.manifest.instructions).toBe('Updated instructions.');
-  });
-
-  it('PUT can flip memory on an existing agent', async () => {
-    const created = await router.request(
-      '/',
-      jsonInit('POST', {
-        ...writeBody,
-        name: 'memory-toggle',
-        manifest: {
-          ...manifest,
-          config: { ...manifest.config, memory: { enabled: true } },
-        },
-      }),
-    );
-    expect(created.status).toBe(201);
-    const createdJson = (await created.json()) as {
-      data: { id: string; manifest: { config?: { memory?: { enabled: boolean } } } };
-    };
-    expect(createdJson.data.manifest.config?.memory).toEqual({ enabled: true });
-
-    const updated = await router.request(
-      `/${createdJson.data.id}`,
-      jsonInit('PUT', {
-        manifest: {
-          ...updateBody.manifest,
-          config: { memory: { enabled: false } },
-        },
-      }),
-    );
-    expect(updated.status).toBe(200);
-    const updatedJson = (await updated.json()) as {
-      data: { manifest: { config?: { memory?: { enabled: boolean } } } };
-    };
-    expect(updatedJson.data.manifest.config?.memory).toEqual({ enabled: false });
   });
 
   it('PUT rejects metadata in the request body', async () => {

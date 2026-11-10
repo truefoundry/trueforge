@@ -53,7 +53,7 @@ describe('session-start memory', () => {
         active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
         input: [{ type: EventType.USER_MESSAGE, content }],
         previous_turn_id: 'auto',
-        signal: new AbortController().signal,
+        abortController: new AbortController(),
         resolver: resolverWith(sessionStartMemory, requests),
       });
       for await (const event of turn.stream()) {

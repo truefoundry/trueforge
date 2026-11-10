@@ -8,8 +8,10 @@ export const MAX_MEMORY_MESSAGE_CHARS = 4_000;
 const TRUNCATION_MARKER = ' [truncated]';
 
 /**
- * - `closed`: the last turn is terminal with nothing pending, or a later user message superseded it.
- * - `paused`: the last turn finished waiting on the user (a question, approval or auth).
+ * - `closed`: the last turn is terminal, or a later user message superseded it. Only closed
+ *   exchanges are ingested.
+ * - `paused`: the last turn is paused waiting on the user (a question, approval or auth). The
+ *   exchange stays open: the answer is a resume turn that continues it.
  * - `running`: the last turn has not finished.
  */
 export type ExchangeStatus = 'closed' | 'paused' | 'running';
@@ -18,9 +20,7 @@ export type ExchangeStatus = 'closed' | 'paused' | 'running';
 export interface TurnExchange {
   turns: [MemoryIngestTurn, ...MemoryIngestTurn[]];
   status: ExchangeStatus;
-  /** When the exchange ended; null while it is running. */
-  completedAt: string | null;
-  /** Starts with a resume turn (e.g. an answer) whose exchange was partly ingested earlier. */
+  /** Starts with a resume turn (e.g. an answer) because the checkpoint forked inside its exchange. */
   continuation: boolean;
 }
 
@@ -31,10 +31,10 @@ function hasUserMessage(turn: MemoryIngestTurn): boolean {
 function statusAfter(state: TurnState): ExchangeStatus {
   switch (state.status) {
     case 'running':
-    case 'paused':
       return 'running';
+    case 'paused':
+      return 'paused';
     case 'done':
-      return state.required_actions.length === 0 ? 'closed' : 'paused';
     case 'error':
     case 'cancelled':
       return 'closed';
@@ -71,21 +71,18 @@ export function buildExchanges(turns: readonly MemoryIngestTurn[]): TurnExchange
   for (const turn of turns) {
     if (current !== undefined && hasUserMessage(turn)) {
       current.status = 'closed';
-      current.completedAt ??= turn.created_at;
       current = undefined;
     }
     if (current === undefined) {
       current = {
         turns: [turn],
         status: statusAfter(turn.state),
-        completedAt: completedAt(turn.state),
         continuation: !hasUserMessage(turn),
       };
       exchanges.push(current);
     } else {
       current.turns.push(turn);
       current.status = statusAfter(turn.state);
-      current.completedAt = completedAt(turn.state);
     }
     if (current.status === 'closed') {
       current = undefined;
@@ -128,37 +125,6 @@ export function resumePoint({
     forkIndex = current === undefined ? undefined : pathIndex.get(current.turn_id);
   }
   return { startIndex: forkIndex === undefined ? 0 : forkIndex + 1, forked: true };
-}
-
-function completedAt(state: TurnState): string | null {
-  return state.status === 'done' || state.status === 'error' || state.status === 'cancelled'
-    ? state.completed_at
-    : null;
-}
-
-export type ExchangeReadiness = { ready: true; partial: boolean } | { ready: false };
-
-/**
- * Closed exchanges are sent as soon as they close; exchanges paused on the user longer than the
- * pause timeout are sent as they stand (`partial`), and the later answer follows as a continuation.
- */
-export function exchangeReadiness({
-  exchange,
-  now,
-  pauseTimeoutMs,
-}: {
-  exchange: TurnExchange;
-  now: Date;
-  pauseTimeoutMs: number;
-}): ExchangeReadiness {
-  const finishedAt = exchange.completedAt;
-  if (exchange.status === 'running' || finishedAt === null) {
-    return { ready: false };
-  }
-  if (exchange.status === 'closed') {
-    return { ready: true, partial: false };
-  }
-  return now.getTime() - Date.parse(finishedAt) >= pauseTimeoutMs ? { ready: true, partial: true } : { ready: false };
 }
 
 /** `ask_user_question` tool call id → question text, from main-thread model messages. */
