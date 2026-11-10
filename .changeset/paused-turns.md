@@ -13,6 +13,9 @@ Turns now pause, instead of finishing, while waiting for user input such as tool
 - The chat shows a waiting notice instead of a running indicator while a turn is paused or cannot continue.
 - A conversation is saved to memory only after it finishes, not while it is waiting on the user.
 - Creating a turn rejects an empty user message.
+- Sending a new message while a sub-agent is waiting runs that message, instead of leaving the turn stuck.
+- A conversation paused longer than the memory window is still saved once it finishes.
+- An old `pause_timeout_ms` memory setting is ignored, instead of stopping startup.
 
 Breaking changes for package consumers:
 

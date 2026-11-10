@@ -185,7 +185,7 @@ export interface UpdateTurnNonTerminalStateInput extends TurnProgressKeys {
   state: NonTerminalTurnState;
   /** Caller-built turn.update; written atomically with the non-terminal state transition. */
   turn_update_event: TurnUpdateEvent;
-  /** Pause carries the cumulative. Resume only opens `running_since`. */
+  /** Pause sends metrics since the last resume; the store adds them on. Resume only opens `running_since`. */
   turn_metrics: TurnNonTerminalMetrics;
 }
 
