@@ -1,7 +1,6 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import type { Logger } from 'winston';
 import { areCatalogSettingsAvailable, hasAdminRole, type ResolveRequestContext } from '../auth/identity';
-import configuration, { isTrueFoundryModeEnabled } from '../config';
 import {
   isMemoryEnabledForTenant,
   isWebSearchEnabledForTenant,
@@ -14,6 +13,7 @@ import type { IUserStore } from '../db/userStore';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { hasConfiguredMemoryProvider } from '../memory/providers';
 import { getCapabilitiesRoute, type SessionSharingCapability } from '../routes/capabilityRoutes';
+import { sandboxEnvironmentsEnabled } from '../sandbox/environment/support';
 import { isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import type { SandboxEnvironmentVersionStatus } from '../schemas/sandboxEnvironment';
 import { hasTrueFoundrySandboxProviderConfig } from '../truefoundry/resolveTrueFoundrySandboxProviderConfig';
@@ -59,18 +59,6 @@ function settingsCapability({
     web_search: { enabled: isAdmin, manage_providers: canManageProviders },
     memory_providers: { enabled: isAdmin && (ownsCatalogs || hasMemoryProvider), manage_providers: canManageProviders },
   };
-}
-
-/**
- * Environments UI/CRUD — matches `envSupported` on the sandbox-environment store.
- * Standalone/OIDC persistence always supports envs; TFY mode only when the shared
- * provider is Daytona. Independent of default-env readiness.
- */
-function sandboxEnvironmentsEnabled(): boolean {
-  if (!isTrueFoundryModeEnabled(configuration)) {
-    return true;
-  }
-  return configuration.TRUEFOUNDRY_SANDBOX_PROVIDER === 'daytona';
 }
 
 export function createCapabilitiesRouter<TTransaction>(deps: {

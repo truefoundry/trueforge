@@ -46,7 +46,7 @@ describe('buildNextVersion', () => {
       previous_manifest: previous,
       previous_external_ref: 'trueforge-old',
       manifest: {
-        name: 'default',
+        name: 'trueforge-sandbox',
         resources: { cpu: 2, memory: 4, disk: 8 },
       },
       identity: { type: 'daytona', sandbox_provider: 'daytona' },
@@ -73,7 +73,7 @@ describe('buildNextVersion', () => {
       previous_manifest: previous,
       previous_external_ref: 'trueforge-old',
       manifest: {
-        name: 'default',
+        name: 'trueforge-sandbox',
         resources: previous.resources,
         networking: { network_block_all: true },
       },
@@ -107,7 +107,7 @@ describe('buildNextVersion', () => {
 describe('sandbox environment wire schemas', () => {
   const baseEnv = {
     id: 'env-1',
-    name: 'default',
+    name: 'trueforge-sandbox',
     description: '',
     lifecycle_stage: 'active' as const,
     enabled: true,
@@ -115,7 +115,7 @@ describe('sandbox environment wire schemas', () => {
     status: 'ready' as const,
     status_reason: null,
     manifest: {
-      name: 'default',
+      name: 'trueforge-sandbox',
       resources: { cpu: 1, memory: 1, disk: 3 },
     },
     created_by_subject: {
@@ -127,16 +127,16 @@ describe('sandbox environment wire schemas', () => {
     updated_at: '2026-01-01T00:00:00.000Z',
   };
 
-  it('allows name "default" on SandboxEnvironment responses', () => {
-    expect(SandboxEnvironmentSchema.parse(baseEnv).manifest.name).toBe('default');
-    expect(SandboxEnvironmentManifestSchema.parse(baseEnv.manifest).name).toBe('default');
+  it('allows the reserved name on SandboxEnvironment responses', () => {
+    expect(SandboxEnvironmentSchema.parse(baseEnv).manifest.name).toBe('trueforge-sandbox');
+    expect(SandboxEnvironmentManifestSchema.parse(baseEnv.manifest).name).toBe('trueforge-sandbox');
   });
 
-  it('rejects name "default" on update requests', () => {
+  it('rejects the reserved name on update requests', () => {
     expect(() =>
       UpdateSandboxEnvironmentRequestSchema.parse({
-        manifest: { name: 'default' },
+        manifest: { name: 'trueforge-sandbox' },
       }),
-    ).toThrow(/default/);
+    ).toThrow(/trueforge-sandbox/);
   });
 });

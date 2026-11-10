@@ -180,7 +180,7 @@ class SandboxEnvironmentsClient:
         self, *, name: str, request_options: typing.Optional[RequestOptions] = None
     ) -> DeleteSandboxEnvironmentResponse:
         """
-        Delete a sandbox environment. Fails if any agent still references it, if it is the tenant default, or if it is the reserved "default" environment.
+        Delete a sandbox environment. Fails if any agent still references it, if it is the tenant default, or if it is the reserved platform environment.
 
         Parameters
         ----------
@@ -455,7 +455,7 @@ class AsyncSandboxEnvironmentsClient:
         self, *, name: str, request_options: typing.Optional[RequestOptions] = None
     ) -> DeleteSandboxEnvironmentResponse:
         """
-        Delete a sandbox environment. Fails if any agent still references it, if it is the tenant default, or if it is the reserved "default" environment.
+        Delete a sandbox environment. Fails if any agent still references it, if it is the tenant default, or if it is the reserved platform environment.
 
         Parameters
         ----------

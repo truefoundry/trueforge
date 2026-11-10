@@ -29,6 +29,7 @@ import type { ISkillStore } from '../db/skillStore';
 import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { hasConfiguredMemoryProvider } from '../memory/providers';
+import { sandboxEnvironmentsEnabled } from '../sandbox/environment/support';
 import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProvider';
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import {
@@ -270,6 +271,8 @@ export function buildTurnSandbox<TEnvironment = undefined>(input: {
  * Cross-checks an AgentSpec against configured models / MCP / skills and
  * sandbox capability. Throws HTTPException(422) for semantic failures.
  * Skills must exist in the skill store (git name) or pass SFY resolve (registry FQN).
+ * When sandbox is enabled and the configured provider supports environments,
+ * `config.sandbox.environment_name` is required.
  */
 export async function validateAgentSpec({
   spec,
@@ -339,9 +342,9 @@ export async function validateAgentSpec({
 
   const wantsSandbox = spec.config.sandbox.enabled;
   const hasSkills = requestedSkills.length > 0;
+  const sandboxProvider = await sandboxProviderStore.getSandboxProvider(tenant_id);
   if (wantsSandbox || hasSkills) {
-    const record = await sandboxProviderStore.getSandboxProvider(tenant_id);
-    if (record === undefined && !isLocalSandboxFallbackEnabled()) {
+    if (sandboxProvider === undefined && !isLocalSandboxFallbackEnabled()) {
       throw new HTTPException(422, {
         message: hasSkills
           ? 'skills require a sandbox provider — configure via PUT /settings/sandbox-providers'
@@ -351,6 +354,14 @@ export async function validateAgentSpec({
   }
 
   const environmentName = spec.config.sandbox.environment_name;
+  // Daytona is the only env-capable provider; local fallback and TFY on-prem skip this.
+  const environmentsRequired =
+    wantsSandbox && sandboxEnvironmentsEnabled() && sandboxProvider?.manifest.type === 'daytona';
+  if (environmentsRequired && environmentName === undefined) {
+    throw new HTTPException(422, {
+      message: 'sandbox.environment_name is required when sandbox is enabled',
+    });
+  }
   if (environmentName !== undefined) {
     const environment = await sandboxEnvironmentStore.getEnvironment({
       tenant_id,

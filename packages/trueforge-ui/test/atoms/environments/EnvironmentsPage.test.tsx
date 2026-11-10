@@ -475,9 +475,9 @@ describe('EnvironmentsPage', () => {
   });
 
   it('greys out Edit and Delete on a platform-provisioned environment', async () => {
-    renderPage({ environments: [{ ...sampleEnvironments[0]!, name: 'default' }] });
+    renderPage({ environments: [{ ...sampleEnvironments[0]!, name: 'trueforge-sandbox' }] });
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Actions for default' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Actions for trueforge-sandbox' }));
     expect(screen.getByRole('menuitem', { name: 'Disable' })).toBeEnabled();
 
     const edit = screen.getByRole('menuitem', { name: 'Edit' });

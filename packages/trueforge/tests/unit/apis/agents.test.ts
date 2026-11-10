@@ -376,6 +376,33 @@ describe('agents router', () => {
     ]);
   });
 
+  it('POST rejects sandbox.enabled without environment_name when Daytona is configured', async () => {
+    await sandboxProviderStore.upsertSandboxProvider({
+      tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
+      manifest: {
+        type: 'daytona',
+        auth: { api_key: 'dtn-test' },
+        exec_timeout_ms: 60_000,
+        auto_stop_interval_in_minutes: 5,
+        auto_archive_interval_in_minutes: 60,
+        auto_delete_interval_in_minutes: 7200,
+      },
+    });
+    const res = await router.request(
+      '/',
+      jsonInit('POST', {
+        ...writeBody,
+        name: 'missing-env-agent',
+        manifest: {
+          ...manifest,
+          config: { sandbox: { enabled: true } },
+        },
+      }),
+    );
+    expect(res.status).toBe(422);
+    expect(await res.text()).toContain('sandbox.environment_name is required when sandbox is enabled');
+  });
+
   it('PUT keeps an agent that already named a now-disabled sandbox environment', async () => {
     await sandboxProviderStore.upsertSandboxProvider({
       tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,

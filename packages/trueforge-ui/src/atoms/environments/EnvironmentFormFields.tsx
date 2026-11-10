@@ -5,7 +5,7 @@ import type { SandboxEnvironmentManifest, SandboxEnvironmentSecret } from '../..
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { Switch } from '../primitives/Switch.js';
-import { isReservedEnvironmentName } from './environmentDisplay.js';
+import { isReservedEnvironmentName, RESERVED_ENVIRONMENT_NAME } from './environmentDisplay.js';
 
 export type EnvironmentFormValues = {
   name: string;
@@ -80,7 +80,7 @@ export function formValuesToManifest(values: EnvironmentFormValues): SandboxEnvi
 export function validateEnvironmentForm(values: EnvironmentFormValues): string | null {
   const name = values.name.trim();
   if (name.length === 0) return 'Name is required';
-  if (isReservedEnvironmentName(name)) return 'Name "default" is reserved';
+  if (isReservedEnvironmentName(name)) return `Name "${RESERVED_ENVIRONMENT_NAME}" is reserved`;
   const cpu = Number(values.cpu);
   const memory = Number(values.memory);
   const disk = Number(values.disk);

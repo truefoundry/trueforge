@@ -1171,7 +1171,7 @@ await client.sandboxEnvironments.get("name");
 <dl>
 <dd>
 
-Delete a sandbox environment. Fails if any agent still references it, if it is the tenant default, or if it is the reserved "default" environment.
+Delete a sandbox environment. Fails if any agent still references it, if it is the tenant default, or if it is the reserved platform environment.
 </dd>
 </dl>
 </dd>
