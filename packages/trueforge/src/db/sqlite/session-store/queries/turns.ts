@@ -148,7 +148,10 @@ function lastTurnDetails(input: { turn_id: string; turn_state: TurnState }): Raw
   return jsonbBind(SessionLastTurnDetailsSchema.parse({ id: input.turn_id, state: input.turn_state }));
 }
 
-/** Folds the closed interval and cost delta. last_turn_details moves only for the session's last turn. */
+/**
+ * Folds the closed interval and cost delta. last_turn_details moves only for the session's last turn.
+ * A finished turn bumps `updated_at` so memory ingest still sees a pause longer than its lookback.
+ */
 async function applyTurnStateToSession(
   db: Transaction<Database>,
   input: {
@@ -182,6 +185,7 @@ async function applyTurnStateToSession(
         ELSE last_turn_details
       END`,
       ...(metrics === undefined ? {} : { metrics }),
+      ...(isNonTerminalTurnState(input.turn_state) ? {} : { updated_at: nowIso() }),
     })
     .where('session_id', '=', input.id)
     .execute();

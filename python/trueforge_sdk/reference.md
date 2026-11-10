@@ -3000,6 +3000,7 @@ Use `previous_turn_id` to chain to the session's last turn (defaults to `auto`);
 
 ```python
 from trueforge_sdk import TrueForge
+from trueforge_sdk.sessions import CreateTurnSessionsStreamRequestInputItem
 
 client = TrueForge(
     token="<token>",
@@ -3008,6 +3009,12 @@ client = TrueForge(
 
 client.sessions.create_turn_stream(
     session_id="session_id",
+    input=[
+        CreateTurnSessionsStreamRequestInputItem(
+            content="content",
+            type="user.message",
+        )
+    ],
 )
 
 ```
@@ -3032,7 +3039,7 @@ client.sessions.create_turn_stream(
 <dl>
 <dd>
 
-**stream:** `typing.Literal` — When true (default), stream turn events as SSE. When false, return the running turn immediately.
+**input:** `typing.List[CreateTurnSessionsStreamRequestInputItem]` — User messages for this turn. At least one is required.
     
 </dd>
 </dl>
@@ -3040,7 +3047,7 @@ client.sessions.create_turn_stream(
 <dl>
 <dd>
 
-**input:** `typing.Optional[typing.List[UserMessage]]` — User messages supplied when the turn is created.
+**stream:** `typing.Literal` — When true (default), stream turn events as SSE. When false, return the running turn immediately.
     
 </dd>
 </dl>
@@ -3100,6 +3107,7 @@ Use `previous_turn_id` to chain to the session's last turn (defaults to `auto`);
 
 ```python
 from trueforge_sdk import TrueForge
+from trueforge_sdk.sessions import CreateTurnSessionsStreamRequestInputItem
 
 client = TrueForge(
     token="<token>",
@@ -3108,6 +3116,12 @@ client = TrueForge(
 
 client.sessions.create_turn_stream(
     session_id="session_id",
+    input=[
+        CreateTurnSessionsStreamRequestInputItem(
+            content="content",
+            type="user.message",
+        )
+    ],
 )
 
 ```
@@ -3132,7 +3146,7 @@ client.sessions.create_turn_stream(
 <dl>
 <dd>
 
-**stream:** `typing.Literal` — When true (default), stream turn events as SSE. When false, return the running turn immediately.
+**input:** `typing.List[CreateTurnSessionsRequestInputItem]` — User messages for this turn. At least one is required.
     
 </dd>
 </dl>
@@ -3140,7 +3154,7 @@ client.sessions.create_turn_stream(
 <dl>
 <dd>
 
-**input:** `typing.Optional[typing.List[UserMessage]]` — User messages supplied when the turn is created.
+**stream:** `typing.Literal` — When true (default), stream turn events as SSE. When false, return the running turn immediately.
     
 </dd>
 </dl>

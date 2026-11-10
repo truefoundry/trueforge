@@ -1087,7 +1087,7 @@ describe("SessionsClient", () => {
     test("create_turn_stream (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { stream: true };
+        const rawRequestBody = { input: [{ content: "content", type: "user.message" }], stream: true };
         const rawResponseBody =
             'event: \ndata: {"created_at":"created_at","id":"id","thread_id":"thread_id","mcp_servers":[{"auth_url":"auth_url","id":"id","name":"name"}],"type":"mcp.auth_required"}\n\n';
 
@@ -1100,7 +1100,14 @@ describe("SessionsClient", () => {
             .sseBody(rawResponseBody)
             .build();
 
-        const response = await client.sessions.createTurnStream("session_id", {});
+        const response = await client.sessions.createTurnStream("session_id", {
+            input: [
+                {
+                    content: "content",
+                    type: "user.message",
+                },
+            ],
+        });
         const events: unknown[] = [];
         for await (const event of response) {
             events.push(event);
@@ -1125,7 +1132,13 @@ describe("SessionsClient", () => {
     test("create_turn_stream (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { stream: true };
+        const rawRequestBody = {
+            input: [
+                { content: "content", type: "user.message" },
+                { content: "content", type: "user.message" },
+            ],
+            stream: true,
+        };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -1138,14 +1151,31 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.createTurnStream("session_id", {});
+            return await client.sessions.createTurnStream("session_id", {
+                input: [
+                    {
+                        content: "content",
+                        type: "user.message",
+                    },
+                    {
+                        content: "content",
+                        type: "user.message",
+                    },
+                ],
+            });
         }).rejects.toThrow(TrueForgeTypes.BadRequestError);
     });
 
     test("create_turn_stream (3)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { stream: true };
+        const rawRequestBody = {
+            input: [
+                { content: "content", type: "user.message" },
+                { content: "content", type: "user.message" },
+            ],
+            stream: true,
+        };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -1158,14 +1188,31 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.createTurnStream("session_id", {});
+            return await client.sessions.createTurnStream("session_id", {
+                input: [
+                    {
+                        content: "content",
+                        type: "user.message",
+                    },
+                    {
+                        content: "content",
+                        type: "user.message",
+                    },
+                ],
+            });
         }).rejects.toThrow(TrueForgeTypes.UnauthorizedError);
     });
 
     test("create_turn_stream (4)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { stream: true };
+        const rawRequestBody = {
+            input: [
+                { content: "content", type: "user.message" },
+                { content: "content", type: "user.message" },
+            ],
+            stream: true,
+        };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -1178,14 +1225,31 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.createTurnStream("session_id", {});
+            return await client.sessions.createTurnStream("session_id", {
+                input: [
+                    {
+                        content: "content",
+                        type: "user.message",
+                    },
+                    {
+                        content: "content",
+                        type: "user.message",
+                    },
+                ],
+            });
         }).rejects.toThrow(TrueForgeTypes.ForbiddenError);
     });
 
     test("create_turn_stream (5)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { stream: true };
+        const rawRequestBody = {
+            input: [
+                { content: "content", type: "user.message" },
+                { content: "content", type: "user.message" },
+            ],
+            stream: true,
+        };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -1198,14 +1262,31 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.createTurnStream("session_id", {});
+            return await client.sessions.createTurnStream("session_id", {
+                input: [
+                    {
+                        content: "content",
+                        type: "user.message",
+                    },
+                    {
+                        content: "content",
+                        type: "user.message",
+                    },
+                ],
+            });
         }).rejects.toThrow(TrueForgeTypes.NotFoundError);
     });
 
     test("create_turn_stream (6)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { stream: true };
+        const rawRequestBody = {
+            input: [
+                { content: "content", type: "user.message" },
+                { content: "content", type: "user.message" },
+            ],
+            stream: true,
+        };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -1218,14 +1299,31 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.createTurnStream("session_id", {});
+            return await client.sessions.createTurnStream("session_id", {
+                input: [
+                    {
+                        content: "content",
+                        type: "user.message",
+                    },
+                    {
+                        content: "content",
+                        type: "user.message",
+                    },
+                ],
+            });
         }).rejects.toThrow(TrueForgeTypes.PreconditionFailedError);
     });
 
     test("create_turn_stream (7)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { stream: true };
+        const rawRequestBody = {
+            input: [
+                { content: "content", type: "user.message" },
+                { content: "content", type: "user.message" },
+            ],
+            stream: true,
+        };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -1238,14 +1336,31 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.createTurnStream("session_id", {});
+            return await client.sessions.createTurnStream("session_id", {
+                input: [
+                    {
+                        content: "content",
+                        type: "user.message",
+                    },
+                    {
+                        content: "content",
+                        type: "user.message",
+                    },
+                ],
+            });
         }).rejects.toThrow(TrueForgeTypes.ContentTooLargeError);
     });
 
     test("create_turn_stream (8)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { stream: true };
+        const rawRequestBody = {
+            input: [
+                { content: "content", type: "user.message" },
+                { content: "content", type: "user.message" },
+            ],
+            stream: true,
+        };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -1258,14 +1373,25 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.createTurnStream("session_id", {});
+            return await client.sessions.createTurnStream("session_id", {
+                input: [
+                    {
+                        content: "content",
+                        type: "user.message",
+                    },
+                    {
+                        content: "content",
+                        type: "user.message",
+                    },
+                ],
+            });
         }).rejects.toThrow(TrueForgeTypes.UnprocessableEntityError);
     });
 
     test("create_turn (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { stream: false };
+        const rawRequestBody = { input: [{ content: "content", type: "user.message" }], stream: false };
         const rawResponseBody = {
             data: {
                 created_at: "created_at",
@@ -1286,7 +1412,14 @@ describe("SessionsClient", () => {
             .jsonBody(rawResponseBody)
             .build();
 
-        const response = await client.sessions.createTurn("session_id", {});
+        const response = await client.sessions.createTurn("session_id", {
+            input: [
+                {
+                    content: "content",
+                    type: "user.message",
+                },
+            ],
+        });
         expect(response).toEqual({
             data: {
                 createdAt: "created_at",
@@ -1311,7 +1444,13 @@ describe("SessionsClient", () => {
     test("create_turn (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { stream: false };
+        const rawRequestBody = {
+            input: [
+                { content: "content", type: "user.message" },
+                { content: "content", type: "user.message" },
+            ],
+            stream: false,
+        };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -1324,14 +1463,31 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.createTurn("session_id", {});
+            return await client.sessions.createTurn("session_id", {
+                input: [
+                    {
+                        content: "content",
+                        type: "user.message",
+                    },
+                    {
+                        content: "content",
+                        type: "user.message",
+                    },
+                ],
+            });
         }).rejects.toThrow(TrueForgeTypes.BadRequestError);
     });
 
     test("create_turn (3)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { stream: false };
+        const rawRequestBody = {
+            input: [
+                { content: "content", type: "user.message" },
+                { content: "content", type: "user.message" },
+            ],
+            stream: false,
+        };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -1344,14 +1500,31 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.createTurn("session_id", {});
+            return await client.sessions.createTurn("session_id", {
+                input: [
+                    {
+                        content: "content",
+                        type: "user.message",
+                    },
+                    {
+                        content: "content",
+                        type: "user.message",
+                    },
+                ],
+            });
         }).rejects.toThrow(TrueForgeTypes.UnauthorizedError);
     });
 
     test("create_turn (4)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { stream: false };
+        const rawRequestBody = {
+            input: [
+                { content: "content", type: "user.message" },
+                { content: "content", type: "user.message" },
+            ],
+            stream: false,
+        };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -1364,14 +1537,31 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.createTurn("session_id", {});
+            return await client.sessions.createTurn("session_id", {
+                input: [
+                    {
+                        content: "content",
+                        type: "user.message",
+                    },
+                    {
+                        content: "content",
+                        type: "user.message",
+                    },
+                ],
+            });
         }).rejects.toThrow(TrueForgeTypes.ForbiddenError);
     });
 
     test("create_turn (5)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { stream: false };
+        const rawRequestBody = {
+            input: [
+                { content: "content", type: "user.message" },
+                { content: "content", type: "user.message" },
+            ],
+            stream: false,
+        };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -1384,14 +1574,31 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.createTurn("session_id", {});
+            return await client.sessions.createTurn("session_id", {
+                input: [
+                    {
+                        content: "content",
+                        type: "user.message",
+                    },
+                    {
+                        content: "content",
+                        type: "user.message",
+                    },
+                ],
+            });
         }).rejects.toThrow(TrueForgeTypes.NotFoundError);
     });
 
     test("create_turn (6)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { stream: false };
+        const rawRequestBody = {
+            input: [
+                { content: "content", type: "user.message" },
+                { content: "content", type: "user.message" },
+            ],
+            stream: false,
+        };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -1404,14 +1611,31 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.createTurn("session_id", {});
+            return await client.sessions.createTurn("session_id", {
+                input: [
+                    {
+                        content: "content",
+                        type: "user.message",
+                    },
+                    {
+                        content: "content",
+                        type: "user.message",
+                    },
+                ],
+            });
         }).rejects.toThrow(TrueForgeTypes.PreconditionFailedError);
     });
 
     test("create_turn (7)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { stream: false };
+        const rawRequestBody = {
+            input: [
+                { content: "content", type: "user.message" },
+                { content: "content", type: "user.message" },
+            ],
+            stream: false,
+        };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -1424,14 +1648,31 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.createTurn("session_id", {});
+            return await client.sessions.createTurn("session_id", {
+                input: [
+                    {
+                        content: "content",
+                        type: "user.message",
+                    },
+                    {
+                        content: "content",
+                        type: "user.message",
+                    },
+                ],
+            });
         }).rejects.toThrow(TrueForgeTypes.ContentTooLargeError);
     });
 
     test("create_turn (8)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { stream: false };
+        const rawRequestBody = {
+            input: [
+                { content: "content", type: "user.message" },
+                { content: "content", type: "user.message" },
+            ],
+            stream: false,
+        };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -1444,7 +1685,18 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.createTurn("session_id", {});
+            return await client.sessions.createTurn("session_id", {
+                input: [
+                    {
+                        content: "content",
+                        type: "user.message",
+                    },
+                    {
+                        content: "content",
+                        type: "user.message",
+                    },
+                ],
+            });
         }).rejects.toThrow(TrueForgeTypes.UnprocessableEntityError);
     });
 

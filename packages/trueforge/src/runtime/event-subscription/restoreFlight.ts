@@ -87,6 +87,13 @@ end
 return 1
 `;
 
+const EXTEND_BUDGET = `
+if redis.call('EXISTS', KEYS[1]) == 0 then
+  return 0
+end
+return redis.call('EXPIRE', KEYS[1], ARGV[1])
+`;
+
 const RELEASE_OR_EXTEND_LEASE = `
 if redis.call('GET', KEYS[1]) ~= ARGV[1] then
   return 0
@@ -117,6 +124,11 @@ async function releaseRedisBudget(redis: RestoreLeaseClient): Promise<void> {
   await redis.eval(RELEASE_BUDGET, { keys: [RESTORE_BUDGET_KEY], arguments: [] });
 }
 
+/** Keeps the shared counter alive so a long rebuild does not lose its slot mid-read. */
+async function extendRedisBudget(redis: RestoreLeaseClient): Promise<void> {
+  await redis.eval(EXTEND_BUDGET, { keys: [RESTORE_BUDGET_KEY], arguments: [String(RESTORE_LEASE_SECONDS)] });
+}
+
 function leaseKey(streamId: string): string {
   return `${streamId}:restore-lock`;
 }
@@ -136,7 +148,7 @@ async function releaseOrExtendLease(input: {
 /**
  * Run `run` only when this caller holds the stream lease and a shared restore slot.
  * A stream that appears while waiting is left in place. `extendLease` keeps the
- * lease alive across durable-log pages.
+ * lease and the shared slot counter alive across durable-log pages.
  */
 export async function withRedisRestoreTurn(input: {
   redis: RestoreLeaseClient;
@@ -178,7 +190,10 @@ export async function withRedisRestoreTurn(input: {
       await input.refreshTtl();
       return 'present';
     }
-    return await input.run(() => releaseOrExtendLease({ redis: input.redis, key, token, action: 'expire' }));
+    return await input.run(async () => {
+      await releaseOrExtendLease({ redis: input.redis, key, token, action: 'expire' });
+      await extendRedisBudget(input.redis);
+    });
   } finally {
     if (budgetHeld) {
       await releaseRedisBudget(input.redis);
