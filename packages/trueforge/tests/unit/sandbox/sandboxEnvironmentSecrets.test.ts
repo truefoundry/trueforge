@@ -48,7 +48,7 @@ describe('sandbox environment secrets', () => {
       createSandboxEnvironmentsRouter({
         sandboxEnvironmentStore,
         resolveAgentStore: () => ({ listAgentNamesUsingSandboxEnvironment: jest.fn().mockResolvedValue([]) }) as never,
-        resolveSandboxProviderStore: () => sandboxProviderStore,
+        sandboxProviderStore,
         resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
         logger,
       }),

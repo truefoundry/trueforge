@@ -26,6 +26,46 @@ export function withTimeout<T>(p: Promise<T>, ms: number, label?: string): Promi
   });
 }
 
+/**
+ * A latching, single-slot wake signal for a park/resume loop (one waiter at a time).
+ *
+ * `notify()` wakes a parked `wait()`, or — if no one is parked — latches so the *next*
+ * `wait()` returns immediately. This avoids the lost-wakeup race where a `notify()` that
+ * lands between "nothing to do" and `await wait()` would otherwise be dropped and the
+ * loop would park forever. The latch is consumed by the `wait()` it releases.
+ */
+export interface Signalable {
+  /** Wake the current waiter, or latch for the next wait() if none is parked. */
+  notify(): void;
+  /** Park until the next notify(); returns immediately if a notify() is already latched. */
+  wait(): Promise<void>;
+}
+
+export function signalable(): Signalable {
+  let latched = false;
+  let resolveParked: (() => void) | undefined;
+  return {
+    notify(): void {
+      if (resolveParked) {
+        const resolve = resolveParked;
+        resolveParked = undefined;
+        resolve();
+        return;
+      }
+      latched = true;
+    },
+    wait(): Promise<void> {
+      if (latched) {
+        latched = false;
+        return Promise.resolve();
+      }
+      return new Promise<void>(resolve => {
+        resolveParked = resolve;
+      });
+    },
+  };
+}
+
 export async function* mergeAsyncGenerators<T>(
   generators: AsyncGenerator<T>[],
   logger: Logger,

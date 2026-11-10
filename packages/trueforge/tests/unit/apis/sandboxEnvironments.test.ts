@@ -72,7 +72,7 @@ describe('sandbox environments API → build controller path', () => {
             return [];
           }),
         }) as never,
-      resolveSandboxProviderStore: () => sandboxProviderStore,
+      sandboxProviderStore,
       resolveRequestContext: () => requestContext,
       logger,
     });

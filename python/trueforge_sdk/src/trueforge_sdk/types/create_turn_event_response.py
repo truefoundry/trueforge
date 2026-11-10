@@ -5,11 +5,11 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .create_turn_event_response_data_item import CreateTurnEventResponseDataItem
+from .turn_user_event import TurnUserEvent
 
 
 class CreateTurnEventResponse(UncheckedBaseModel):
-    data: typing.List[CreateTurnEventResponseDataItem] = pydantic.Field()
+    data: typing.List[TurnUserEvent] = pydantic.Field()
     """
     Events with server-minted `id` and `created_at`, in request order.
     """

@@ -1,5 +1,4 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
-import type { Context } from 'hono';
 import type { Logger } from 'winston';
 import { areCatalogSettingsAvailable, hasAdminRole, type ResolveRequestContext } from '../auth/identity';
 import configuration, { isTrueFoundryModeEnabled } from '../config';
@@ -76,9 +75,9 @@ function sandboxEnvironmentsEnabled(): boolean {
 
 export function createCapabilitiesRouter<TTransaction>(deps: {
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
-  resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore<TTransaction>;
-  resolveConfigurationStore: (c: Context) => IConfigurationStore<TTransaction>;
-  resolveMemoryProviderStore: (c: Context) => IMemoryProviderStore<TTransaction>;
+  webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
+  configurationStore: IConfigurationStore;
+  memoryProviderStore: IMemoryProviderStore<TTransaction>;
   userStore: IUserStore;
   withTransaction: WithTransaction<TTransaction>;
   logger: Logger;
@@ -104,19 +103,19 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
     const [hasProvider, tenantAllowsWebSearch, tenantAllowsMemory, hasMemoryProvider] = await Promise.all([
       hasConfiguredWebSearchProvider({
         tenant_id: requestContext.tenant_id,
-        store: deps.resolveWebSearchProviderStore(c),
+        store: deps.webSearchProviderStore,
       }),
       isWebSearchEnabledForTenant({
         tenant_id: requestContext.tenant_id,
-        store: deps.resolveConfigurationStore(c),
+        store: deps.configurationStore,
       }),
       isMemoryEnabledForTenant({
         tenant_id: requestContext.tenant_id,
-        store: deps.resolveConfigurationStore(c),
+        store: deps.configurationStore,
       }),
       hasConfiguredMemoryProvider({
         tenant_id: requestContext.tenant_id,
-        store: deps.resolveMemoryProviderStore(c),
+        store: deps.memoryProviderStore,
       }),
     ]);
 

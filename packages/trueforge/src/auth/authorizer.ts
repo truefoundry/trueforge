@@ -29,7 +29,7 @@ export type GetPermissionsInput =
   | (GetPermissionsBase & { resourceType: 'agent'; store: IAgentStore })
   | (GetPermissionsBase & { resourceType: 'schedule'; store: IScheduleStore })
   | (GetPermissionsBase & { resourceType: 'sandbox_environment'; store: ISandboxEnvironmentStore })
-  | (GetPermissionsBase & { resourceType: 'session'; store: ISessionStore })
+  | (GetPermissionsBase & { resourceType: 'session'; store: Pick<ISessionStore, 'getOwnedIds'> })
   | (GetPermissionsBase & { resourceType: 'tenant' });
 
 export interface Authorizer {

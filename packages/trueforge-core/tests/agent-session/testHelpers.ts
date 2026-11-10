@@ -10,9 +10,11 @@ import {
   type TurnState,
 } from '../../src/agent-session/schemas/turn';
 import type { CreateTurnInput, NewThreadInit, TurnContextAppend } from '../../src/agent-session/store/ISessionStore';
+import { createInitialTurnMetricsCheckpoint } from '../../src/agent-session/turnMetrics';
 import { TurnResourceResolver } from '../../src/agent-session/TurnResourceResolver';
 import type { AgentCapability } from '../../src/core/capabilities/AgentCapability';
 import { newEventId } from '../../src/core/events/schema';
+import type { ILLM } from '../../src/core/llm/ILLM';
 import type {
   CompletionUsage,
   ExtendedChatCompletionChunk,
@@ -96,9 +98,13 @@ export function makeTestResolver<TTurnCustom extends object = Record<string, nev
   usage?: CompletionUsage;
   /** Named-agent lookup for sessions bound by agent_id. */
   agent?: ((agentId: string) => Promise<AgentSpec>) | undefined;
+  /** Override the mock LLM `create` (e.g. to emit a tool call then a text reply). */
+  llmCreate?: ILLM['create'];
+  /** When set, resolveSandbox rejects with this error — simulates a createTurn resolution failure. */
+  failResolveWith?: Error;
 }): ITurnResourceResolver<TTurnCustom> {
   const llm = makeMockILLM({
-    create: jest.fn().mockImplementation(() => emptyLlmStream(options?.usage)),
+    create: options?.llmCreate ?? jest.fn().mockImplementation(() => emptyLlmStream(options?.usage)),
   });
   const base = new TurnResourceResolver<TTurnCustom>({
     llm: () =>
@@ -126,7 +132,7 @@ export function makeTestResolver<TTurnCustom extends object = Record<string, nev
       : {}),
   });
 
-  if (!options?.extraCapabilities && !options?.close && !options?.sandbox) {
+  if (!options?.extraCapabilities && !options?.close && !options?.sandbox && !options?.failResolveWith) {
     return base;
   }
 
@@ -136,7 +142,12 @@ export function makeTestResolver<TTurnCustom extends object = Record<string, nev
     },
     createTracing: () => base.createTracing(),
     resolveAgentSpec: input => base.resolveAgentSpec(input),
-    resolveSandbox: input => base.resolveSandbox(input),
+    resolveSandbox: input => {
+      if (options.failResolveWith) {
+        return Promise.reject(options.failResolveWith);
+      }
+      return base.resolveSandbox(input);
+    },
     resolveAgentDefinition: async input => {
       const resolved = await base.resolveAgentDefinition(input);
       return {
@@ -164,11 +175,8 @@ export function makeTurnDoneEvent(state: TerminalTurnState) {
   };
 }
 
-export function makePausedTurnState(actionIds: string[] = [newEventId()]): Extract<TurnState, { status: 'paused' }> {
-  return {
-    status: 'paused',
-    action_required_on_events: actionIds.map(id => ({ id })),
-  };
+export function makePausedTurnState(): Extract<TurnState, { status: 'paused' }> {
+  return { status: 'paused' };
 }
 
 export function makeTurnUpdateEvent(state: NonTerminalTurnState): TurnUpdateEvent {
@@ -269,11 +277,13 @@ export function makeRunningTurnRecord(input: {
           parent: null,
           agent_info: null,
           completion: null,
+          pending_mcp_auth: false,
           capability_state: null,
         },
       },
       mcp_servers: null,
       sandbox_info: null,
+      ...createInitialTurnMetricsCheckpoint(now.toISOString()),
     },
     created_at: now,
     updated_at: now,
