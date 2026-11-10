@@ -6,7 +6,14 @@
  * No dependency on trueforge-gateway-sdk.
  */
 
-import type { ActionRequiredEvent, SessionEventItem, TurnEvent, TurnStreamData } from './events.js';
+import type {
+  ActionRequiredEvent,
+  EVENT_TYPE,
+  PersistedTurnEvent,
+  SessionEventItem,
+  TurnInboundEvent,
+  TurnStreamData,
+} from './events.js';
 
 // ---------------------------------------------------------------------------
 // Catalog — selector rows (SDK-minimal; host extends via generics)
@@ -254,6 +261,23 @@ export interface ListSessionsParams extends PageParams {
 
 export type PreviousTurnIdInput = string;
 
+export const TURN_STATUS = {
+  CANCELLED: 'cancelled',
+  DONE: 'done',
+  ERROR: 'error',
+  PAUSED: 'paused',
+  RUNNING: 'running',
+} as const;
+
+export const APPROVAL_DECISION_STATUS = {
+  ALLOW: 'allow',
+  DENY: 'deny',
+} as const;
+
+export const TOOL_APPROVAL_POLICY_ACTION_TYPE = {
+  ALLOW_SESSION: 'allow_session',
+} as const;
+
 // ---------------------------------------------------------------------------
 // Turn input / state — what runtime sends and reads
 // ---------------------------------------------------------------------------
@@ -262,35 +286,68 @@ export type UserMessageContent =
   string | ({ type: 'text'; text: string } | { type: 'file'; name: string; data: string })[];
 
 export interface UserMessage {
-  type: 'user.message';
+  type: typeof EVENT_TYPE.USER_MESSAGE;
   content: UserMessageContent;
 }
 
-export type ApprovalDecision = { status: 'allow' } | { status: 'deny'; reason?: string };
+export type ApprovalDecision =
+  { status: typeof APPROVAL_DECISION_STATUS.ALLOW } | { status: typeof APPROVAL_DECISION_STATUS.DENY; reason?: string };
 
-export interface UserToolApprovalEvent {
-  type: 'user.tool_approval';
+export interface UserToolApprovalInputEvent {
+  type: typeof EVENT_TYPE.USER_TOOL_APPROVAL;
   threadId: string;
   toolCallId: string;
   approval: ApprovalDecision;
 }
 
-export interface UserToolResponseEvent {
-  type: 'user.tool_response';
+export interface UserToolResponseInputEvent {
+  type: typeof EVENT_TYPE.USER_TOOL_RESPONSE;
   threadId: string;
   toolCallId: string;
   content: string;
 }
 
-/** Client resume after mcp.auth_required (OAuth completed). */
-export interface UserMcpAuthContinueEvent {
-  type: 'user.mcp_auth_continue';
+export interface ToolApprovalPolicyAllowSession {
+  type: typeof TOOL_APPROVAL_POLICY_ACTION_TYPE.ALLOW_SESSION;
+  expireAt?: string;
 }
 
-export type TurnInputItem = UserMessage | UserToolApprovalEvent | UserToolResponseEvent | UserMcpAuthContinueEvent;
+export interface ToolApprovalPolicyItem {
+  serverName: string;
+  name: string;
+  policy: ToolApprovalPolicyAllowSession;
+}
+
+export interface UserToolApprovalPolicyInputEvent {
+  type: typeof EVENT_TYPE.USER_TOOL_APPROVAL_POLICY;
+  policies: ToolApprovalPolicyItem[];
+}
+
+/**
+ * Reports that the browser-side MCP authorization flow completed. The server
+ * remains authoritative: execution continues only after it emits `turn.update`
+ * with `status: "running"`.
+ */
+export interface UserMcpAuthContinueInputEvent {
+  type: typeof EVENT_TYPE.USER_MCP_AUTH_CONTINUE;
+}
+
+export type TurnInboundEventItem =
+  | UserToolApprovalInputEvent
+  | UserToolApprovalPolicyInputEvent
+  | UserToolResponseInputEvent
+  | UserMcpAuthContinueInputEvent;
+
+/** Includes legacy continuation inputs so previously persisted turns remain readable. */
+export type TurnInputItem =
+  UserMessage | UserToolApprovalInputEvent | UserToolResponseInputEvent | UserMcpAuthContinueInputEvent;
 
 export interface TurnStateRunning {
-  status: 'running';
+  status: typeof TURN_STATUS.RUNNING;
+}
+
+export interface TurnStatePaused {
+  status: typeof TURN_STATUS.PAUSED;
 }
 
 /**
@@ -309,7 +366,7 @@ export interface TurnDoneMetrics {
 }
 
 export interface TurnStateDone {
-  status: 'done';
+  status: typeof TURN_STATUS.DONE;
   output?: unknown;
   requiredActions?: ActionRequiredEvent[];
   completedAt: string;
@@ -318,7 +375,7 @@ export interface TurnStateDone {
 }
 
 export interface TurnStateCancelled {
-  status: 'cancelled';
+  status: typeof TURN_STATUS.CANCELLED;
   reason: string;
   completedAt: string;
   /** Present when the host reports per-turn token totals before cancel. */
@@ -326,14 +383,17 @@ export interface TurnStateCancelled {
 }
 
 export interface TurnStateError {
-  status: 'error';
+  status: typeof TURN_STATUS.ERROR;
   message: string;
   completedAt: string;
   /** Present when the host reports per-turn token totals before error. */
   metrics?: TurnDoneMetrics;
 }
 
-export type TurnState = TurnStateRunning | TurnStateDone | TurnStateCancelled | TurnStateError;
+export type TurnState = TurnStateRunning | TurnStatePaused | TurnStateDone | TurnStateCancelled | TurnStateError;
+/** A turn that is still active: running, or paused until the user responds. */
+export type NonTerminalTurnState = TurnStateRunning | TurnStatePaused;
+export type TerminalTurnState = TurnStateDone | TurnStateCancelled | TurnStateError;
 
 /** Plain turn DTO — no methods. */
 export interface Turn {
@@ -345,6 +405,32 @@ export interface Turn {
   createdAt: string;
 }
 
+export interface CreateTurnRequest {
+  sessionId: string;
+  input: UserMessage[];
+  previousTurnId?: PreviousTurnIdInput;
+  abortSignal?: AbortSignal;
+  headers?: Record<string, string>;
+}
+
+export interface SendTurnEventsRequest {
+  sessionId: string;
+  turnId: string;
+  events: TurnInboundEventItem[];
+  abortSignal?: AbortSignal;
+}
+
+export interface SubscribeToTurnRequest {
+  sessionId: string;
+  turnId: string;
+  afterSequenceNumber?: number;
+  /** Inclusive cursor. Replay starts at this event. */
+  fromEventId?: string;
+  /** Exclusive cursor. Replay starts after the last entry with this event id. */
+  afterEventId?: string;
+  abortSignal?: AbortSignal;
+}
+
 // ---------------------------------------------------------------------------
 // Server ports — flat methods, no session-with-methods objects
 // ---------------------------------------------------------------------------
@@ -354,6 +440,10 @@ export interface Turn {
  *
  * All session ops are flat (sessionId param). No gateway client dependency.
  * `createTrueForgeServer` is one possible implementation (TFY adapter).
+ *
+ * A logical turn may span multiple SSE segments. Sending an inbound event does
+ * not resume it directly; the server decides when all required actions are
+ * satisfied and announces the transition through `turn.update`.
  */
 export interface AgentChatServer<
   TSpec extends AgentSpec = AgentSpec,
@@ -368,13 +458,9 @@ export interface AgentChatServer<
   getSession(req: { sessionId: string }): Promise<TSession>;
   updateSession(req: TUpdate): Promise<TSession>;
 
-  createTurn(req: {
-    sessionId: string;
-    input?: TurnInputItem[];
-    previousTurnId?: PreviousTurnIdInput;
-    abortSignal?: AbortSignal;
-    headers?: Record<string, string>;
-  }): AsyncIterable<TurnStreamData>;
+  createTurn(req: CreateTurnRequest): AsyncIterable<TurnStreamData>;
+
+  sendTurnEvents(req: SendTurnEventsRequest): Promise<TurnInboundEvent[]>;
 
   cancelSession(req: { sessionId: string }): Promise<void>;
   deleteSession?(req: { sessionId: string }): Promise<void>;
@@ -403,14 +489,13 @@ export interface AgentChatServer<
     turnId: string;
     pageToken?: string;
     order?: ListSessionsOrder;
-  }): Promise<ListResult<TurnEvent>>;
+  }): Promise<ListResult<PersistedTurnEvent>>;
 
-  subscribeToTurn?(req: {
-    sessionId: string;
-    turnId: string;
-    afterSequenceNumber?: number;
-    abortSignal?: AbortSignal;
-  }): AsyncIterable<TurnStreamData>;
+  /**
+   * Optional reconnect path. When omitted, a running turn still loads as
+   * history but this client cannot stream live updates (`resumeUnavailable`).
+   */
+  subscribeToTurn?(req: SubscribeToTurnRequest): AsyncIterable<TurnStreamData>;
 
   /**
    * Reads a file the agent wrote inside its sandbox. Hosts whose download route is scoped to a
@@ -485,8 +570,8 @@ export interface AgentBuilderCapabilitiesResponse {
     webSearch?: { enabled: boolean; reason?: string };
     /** Absent when the host does not offer memory, which hides memory settings; `reason` explains a locked toggle. */
     memory?: { enabled: boolean; reason?: string };
-    /** Present when the host reports session sharing; `enabled` gates invite-by-user. */
-    sessionSharing?: { enabled: boolean };
+    /** Finest supported sharing scope; `subject` allows invite-by-user as well as tenant-wide sharing. */
+    sessionSharing: { granularity: 'tenant' | 'subject' };
   };
 }
 
@@ -1225,6 +1310,10 @@ export interface SandboxEnvironment {
   id: string;
   name: string;
   description: string;
+  /** Whether new chats and agents may select this environment. */
+  enabled: boolean;
+  /** Whether chats and agents that name no environment get this one. */
+  isDefault: boolean;
   status: SandboxEnvironmentStatus;
   statusReason: string | null;
   manifest: SandboxEnvironmentManifest;
@@ -1241,6 +1330,8 @@ export interface SandboxEnvironmentServer<TEnvironment extends SandboxEnvironmen
   /** Create only — fails if `manifest.name` is already taken. */
   createEnvironment(req: { manifest: SandboxEnvironmentManifest }): Promise<TEnvironment>;
   createOrUpdateEnvironment(req: { manifest: SandboxEnvironmentManifest }): Promise<TEnvironment>;
+  setEnvironmentEnabled(req: { name: string; enabled: boolean }): Promise<TEnvironment>;
+  setDefaultEnvironment(req: { name: string }): Promise<TEnvironment>;
   deleteEnvironment(req: { name: string }): Promise<void>;
 }
 

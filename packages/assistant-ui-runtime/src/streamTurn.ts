@@ -1,16 +1,17 @@
 import type { TurnStreamData } from './server/events.js';
-import type { AgentChatServer, PreviousTurnIdInput, TurnInputItem } from './server/types.js';
+import { EVENT_TYPE } from './server/events.js';
+import type { AgentChatServer, PreviousTurnIdInput, UserMessageContent } from './server/types.js';
 
-import { streamTurnEvents, type UserMessageContent } from './convertTurnMessages.js';
-import { PeerThreadFoldState } from './foldPeerThreads.js';
-import type { RequiredActionInput } from './requiredActionInputs.js';
-import { throwIfAborted } from './streamReconnect.js';
-import type { TurnStreamUpdate } from './turnStreamUpdate.js';
+import { streamTurnEvents } from './convertTurnMessages.js';
+import { earliestOpenModelMessageId, PeerThreadFoldState } from './foldPeerThreads.js';
+import {
+  resumeCursorCoveringOpenModelMessages,
+  type TurnStreamUpdate,
+  type TurnSubscribeCursor,
+} from './turnStreamUpdate.js';
 
 export interface StreamTurnOptions {
   userMessage?: UserMessageContent;
-  resumeMcpAuth?: boolean;
-  inputs?: RequiredActionInput[];
   /**
    * Branch anchor for createTurn. Omit for `"auto"`. Pass `"none"` for a fresh
    * root turn.
@@ -18,16 +19,6 @@ export interface StreamTurnOptions {
   previousTurnId?: PreviousTurnIdInput;
   /** Extra headers for the turn request. */
   headers?: Record<string, string>;
-}
-
-function buildTurnInput(options: StreamTurnOptions): TurnInputItem[] {
-  if (options.inputs != null) {
-    return options.inputs;
-  }
-  if (options.resumeMcpAuth === true) {
-    return [];
-  }
-  return [{ type: 'user.message', content: options.userMessage ?? '' }];
 }
 
 export async function* streamTurnContent(
@@ -44,11 +35,14 @@ export async function* streamTurnContent(
    */
   onTurnIdAvailable?: (turnId: string) => void,
   onSequenceNumber?: (sequenceNumber: number) => void,
+  onSubscribeCursor?: (cursor: TurnSubscribeCursor) => void,
 ): AsyncGenerator<TurnStreamUpdate> {
   // Aborting only detaches this client from the run; the turn keeps running on
   // the backend so switching sessions (or remounting) can reattach via
   // `subscribeToTurn`. Stopping the run is an explicit `cancelSession` call.
-  throwIfAborted(abortSignal);
+  if (abortSignal.aborted) {
+    return;
+  }
 
   let turnIdNotified = false;
   const notifyTurnId = (turnId: string) => {
@@ -60,13 +54,20 @@ export async function* streamTurnContent(
 
   const stream: AsyncIterable<TurnStreamData> = server.createTurn({
     sessionId,
-    input: buildTurnInput(options),
+    input: [{ type: EVENT_TYPE.USER_MESSAGE, content: options.userMessage ?? '' }],
     previousTurnId: options.previousTurnId ?? 'auto',
     abortSignal,
     ...(options.headers != null ? { headers: options.headers } : {}),
   });
 
-  yield* streamTurnEvents(stream, foldState, groupRootBaseline, notifyTurnId, onSequenceNumber);
+  try {
+    yield* streamTurnEvents(stream, foldState, groupRootBaseline, notifyTurnId, onSequenceNumber, onSubscribeCursor);
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      return;
+    }
+    throw error;
+  }
 }
 
 export async function* resumeTurnStream(
@@ -75,9 +76,10 @@ export async function* resumeTurnStream(
   turnId: string,
   foldState: PeerThreadFoldState,
   abortSignal: AbortSignal,
-  afterSequenceNumber?: number,
+  subscribeCursor?: TurnSubscribeCursor,
   groupRootBaseline?: readonly string[],
   onSequenceNumber?: (sequenceNumber: number) => void,
+  onSubscribeCursor?: (cursor: TurnSubscribeCursor) => void,
 ): AsyncGenerator<TurnStreamUpdate> {
   // Optional on custom backends. Callers detect the gap and report it, so an
   // empty stream here is safer than throwing mid-render.
@@ -85,18 +87,30 @@ export async function* resumeTurnStream(
     return;
   }
 
-  throwIfAborted(abortSignal);
+  if (abortSignal.aborted) {
+    return;
+  }
 
-  yield* streamTurnEvents(
-    server.subscribeToTurn({
-      sessionId,
+  try {
+    yield* streamTurnEvents(
+      server.subscribeToTurn({
+        sessionId,
+        turnId,
+        ...(resumeCursorCoveringOpenModelMessages(subscribeCursor, earliestOpenModelMessageId(foldState, turnId)) ??
+          {}),
+        abortSignal,
+      }),
+      foldState,
+      groupRootBaseline,
+      undefined,
+      onSequenceNumber,
+      onSubscribeCursor,
       turnId,
-      ...(afterSequenceNumber != null ? { afterSequenceNumber } : {}),
-      abortSignal,
-    }),
-    foldState,
-    groupRootBaseline,
-    undefined,
-    onSequenceNumber,
-  );
+    );
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      return;
+    }
+    throw error;
+  }
 }

@@ -2,7 +2,12 @@
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { Session, SessionAccessGrant, SessionAccessServer } from '@/server/types.js';
+import type {
+  AgentBuilderCapabilitiesResponse,
+  Session,
+  SessionAccessGrant,
+  SessionAccessServer,
+} from '@/server/types.js';
 
 type ServerHookValue = {
   getSession: (req: { sessionId: string }) => Promise<Session>;
@@ -12,7 +17,9 @@ type ServerHookValue = {
 };
 
 const useOptionalServer = vi.hoisted(() => vi.fn<() => ServerHookValue | null>());
-const useServerCapabilities = vi.hoisted(() => vi.fn<() => { sessionSharing?: { enabled: boolean } } | null>());
+const useServerCapabilities = vi.hoisted(() =>
+  vi.fn<() => Pick<AgentBuilderCapabilitiesResponse['data'], 'sessionSharing'> | null>(),
+);
 const allows = vi.hoisted(() => vi.fn<() => boolean>());
 const showError = vi.hoisted(() => vi.fn());
 const showSuccess = vi.hoisted(() => vi.fn());
@@ -61,7 +68,7 @@ describe('useShareSessionDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     allows.mockReturnValue(true);
-    useServerCapabilities.mockReturnValue({ sessionSharing: { enabled: true } });
+    useServerCapabilities.mockReturnValue({ sessionSharing: { granularity: 'subject' } });
     copyLink.mockResolvedValue(true);
     getSession.mockResolvedValue(session);
     listAccess.mockResolvedValue([grant({})]);
@@ -105,27 +112,27 @@ describe('useShareSessionDialog', () => {
     await act(() => result.current.load());
 
     expect(listAccess).not.toHaveBeenCalled();
-    expect(result.current.canInvite).toBe(false);
+    expect(result.current.canShare).toBe(false);
     expect(result.current.canChangePermission).toBe(false);
   });
 
-  it('hides invite when session_sharing.enabled is false and still allows tenant permission changes', async () => {
-    useServerCapabilities.mockReturnValue({ sessionSharing: { enabled: false } });
+  it('hides invite with tenant granularity and still allows tenant permission changes', async () => {
+    useServerCapabilities.mockReturnValue({ sessionSharing: { granularity: 'tenant' } });
     const { result } = renderHook(() => useShareSessionDialog('s1'));
     await act(() => result.current.load());
 
     expect(listAccess).not.toHaveBeenCalled();
-    expect(result.current.canInvite).toBe(false);
+    expect(result.current.canShare).toBe(false);
     expect(result.current.canChangePermission).toBe(true);
   });
 
-  it('hides invite when session_sharing is missing from capabilities', async () => {
-    useServerCapabilities.mockReturnValue({});
+  it('hides invite while capabilities are loading', async () => {
+    useServerCapabilities.mockReturnValue(null);
     const { result } = renderHook(() => useShareSessionDialog('s1'));
     await act(() => result.current.load());
 
     expect(listAccess).not.toHaveBeenCalled();
-    expect(result.current.canInvite).toBe(false);
+    expect(result.current.canShare).toBe(false);
     expect(result.current.canChangePermission).toBe(true);
   });
 

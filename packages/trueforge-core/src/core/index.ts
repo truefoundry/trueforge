@@ -21,8 +21,8 @@ export type {
 } from './runtime/AgentThread.types';
 export { AgentThreadOrchestrator } from './runtime/AgentThreadOrchestrator';
 export type { CreateDynamicSubAgentThread } from './runtime/CreateDynamicSubAgentThread';
-export { isAgentInputUserMessage, isEmptyMessageContent, isFileContentPart } from './runtime/UserInputMessage';
-export type { AgentInputUserMessage } from './runtime/UserInputMessage';
+export { isAgentUserMessage, isEmptyMessageContent, isFileContentPart } from './runtime/UserInputMessage';
+export type { UserMessage } from './runtime/UserInputMessage';
 
 // Capability contracts
 export type { AgentCapability, CapabilityState, JsonValue } from './capabilities/AgentCapability';
@@ -109,7 +109,6 @@ export type { VercelAILLMConfig, VercelAIProviderConfig, VercelAIProviderName } 
 // Event contracts
 export {
   ActionRequiredEventSchema,
-  AgentInputUserMessageSchema,
   CompactionTriggerSchema,
   EventIdSchema,
   EventType,
@@ -122,18 +121,13 @@ export {
   ThreadContextCompactionStartedEventSchema,
   ThreadCreatedEventSchema,
   ThreadDoneEventSchema,
-  ThreadOverwriteContextEventSchema,
   ToolApprovalRequiredEventSchema,
   ToolResponseEventSchema,
   ToolResponseRequiredEventSchema,
   UserMCPAuthContinueEventSchema,
-  UserMCPAuthContinueMessageSchema,
   UserToolApprovalEventSchema,
-  UserToolApprovalMessageSchema,
   UserToolApprovalPolicyEventSchema,
-  UserToolApprovalPolicyMessageSchema,
   UserToolResponseEventSchema,
-  UserToolResponseMessageSchema,
   newEventId,
 } from './events/schema';
 export type {
@@ -146,18 +140,12 @@ export type {
   ThreadContextCompactionStartedEvent,
   ThreadDoneEvent,
   ThreadOverwriteContextEvent,
-  ToolApprovalPolicyAction,
-  UserMCPAuthContinueEvent,
-  UserMCPAuthContinueMessage,
-  UserToolApprovalEvent,
-  UserToolApprovalPolicyEvent,
-  UserToolApprovalPolicyMessage,
-  UserToolResponseEvent,
+  ToolApprovalPolicy,
 } from './events/schema';
 export { CompletionUsageSchema } from './llm/LLMTypes';
 export type { CompletionUsage } from './llm/LLMTypes';
 export { InternalEventType } from './runtime/AgentThread.types';
-export type { AgentThreadSendBatch, ContextMessage } from './runtime/AgentThread.types';
+export type { ContextMessage } from './runtime/AgentThread.types';
 export { AgentThreadMetricsSchema } from './runtime/metrics';
 export type { AgentThreadMetrics } from './runtime/metrics';
 
