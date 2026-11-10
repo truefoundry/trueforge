@@ -13,7 +13,7 @@ describe("ServerClient", () => {
             data: {
                 memory: { enabled: true, reason: "reason" },
                 sandbox: { enabled: true, environments: { enabled: true } },
-                session_sharing: { enabled: true },
+                session_sharing: { granularity: "tenant" },
                 settings: {
                     mcp_servers: { enabled: true, manage_providers: true },
                     memory_providers: { enabled: true, manage_providers: true },
@@ -49,7 +49,7 @@ describe("ServerClient", () => {
                     },
                 },
                 sessionSharing: {
-                    enabled: true,
+                    granularity: "tenant",
                 },
                 settings: {
                     mcpServers: {

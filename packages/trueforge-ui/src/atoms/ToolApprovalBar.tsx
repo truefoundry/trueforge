@@ -1,9 +1,12 @@
 'use client';
 
+import { useEffect, useId, useRef } from 'react';
+
 import { Icon } from '../icons/Icon.js';
 import { StepIconBox } from './agent-chat/StepIconBox.js';
 import { cn } from './lib/cn.js';
 import { Button } from './primitives/Button.js';
+import { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator } from './primitives/DropdownMenu.js';
 
 export type ApprovalOption = {
   id: string;
@@ -40,7 +43,7 @@ export type ToolApprovalBarProps = {
   className?: string;
 };
 
-const DEFAULT_APPROVE_OPTIONS: ApprovalOption[] = [{ id: 'approve', label: 'Approve', variant: 'primary' }];
+const DEFAULT_APPROVE_OPTIONS: ApprovalOption[] = [{ id: 'approve', label: 'Approve once', variant: 'primary' }];
 
 const DEFAULT_DENY_OPTIONS: ApprovalOption[] = [
   { id: 'deny', label: 'Deny', variant: 'secondary', requiresReason: true },
@@ -74,6 +77,14 @@ export function ToolApprovalBar({
   const isApproved = status?.type === 'approved';
   const isDenied = status?.type === 'denied';
   const interactionsLocked = disabled && !isDecided;
+  const defaultApproval = approveOptions[0];
+  const reasonErrorId = useId();
+  const reasonInputRef = useRef<HTMLInputElement>(null);
+  const selectedDenyOptionId = selectedDenyOption?.id;
+
+  useEffect(() => {
+    if (selectedDenyOptionId != null) reasonInputRef.current?.focus();
+  }, [selectedDenyOptionId]);
 
   const headingText = isApproved ? 'Tool Approved' : isDenied ? 'Tool Approval Denied' : 'Tool Approval Required for';
 
@@ -111,24 +122,36 @@ export function ToolApprovalBar({
             )}
           </div>
           {!isDecided && !readOnly && !selectedDenyOption && (
-            <div className="flex gap-2">
-              {approveOptions.map(option => (
+            <DropdownMenu
+              align="end"
+              trigger={
                 <Button
-                  key={option.id}
                   size="small"
-                  variant={optionVariant(option)}
+                  variant={defaultApproval == null ? 'secondary' : optionVariant(defaultApproval)}
+                  disabled={interactionsLocked || defaultApproval == null}
+                >
+                  <Icon name="check" size="0.75rem" />
+                  {defaultApproval?.label ?? 'Approve'}
+                  <Icon name="chevron-down" className="size-3" />
+                </Button>
+              }
+              className="w-max min-w-[16.25rem]"
+            >
+              {approveOptions.map((option, index) => (
+                <DropdownMenuItem
+                  key={option.id}
                   disabled={interactionsLocked}
                   onClick={() => onSelect(option.id)}
+                  className="whitespace-nowrap"
                 >
-                  {option.variant === 'primary' && <Icon name="check" size="0.75rem" />}
+                  <span className="w-3 shrink-0">{index === 0 ? <Icon name="check" size="0.75rem" /> : null}</span>
                   {option.label}
-                </Button>
+                </DropdownMenuItem>
               ))}
+              {approveOptions.length > 0 && denyOptions.length > 0 ? <DropdownMenuSeparator /> : null}
               {denyOptions.map(option => (
-                <Button
+                <DropdownMenuItem
                   key={option.id}
-                  size="small"
-                  variant={optionVariant(option)}
                   disabled={interactionsLocked}
                   onClick={() => {
                     if (option.requiresReason) {
@@ -137,11 +160,13 @@ export function ToolApprovalBar({
                       onSelect(option.id);
                     }
                   }}
+                  className="whitespace-nowrap"
                 >
+                  <span className="w-3 shrink-0" />
                   {option.label}
-                </Button>
+                </DropdownMenuItem>
               ))}
-            </div>
+            </DropdownMenu>
           )}
         </div>
       </div>
@@ -170,13 +195,20 @@ export function ToolApprovalBar({
           )}
           <div className="flex items-center gap-2">
             <input
+              ref={reasonInputRef}
               placeholder="Enter reason for denial"
               aria-label="Reason for denial"
               aria-invalid={showReasonError || undefined}
-              aria-describedby={showReasonError ? 'aui-denial-reason-error' : undefined}
+              aria-describedby={showReasonError ? reasonErrorId : undefined}
               value={denialReason}
               disabled={interactionsLocked}
               onChange={e => onDenialReasonChange?.(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.repeat && !e.nativeEvent.isComposing) {
+                  e.preventDefault();
+                  onReasonSubmit?.();
+                }
+              }}
               className={cn(
                 'h-8 flex-1 rounded border border-input-border bg-primary-bg px-2 text-xs text-text-primary',
                 'focus:outline-none focus:ring-1 focus:ring-focus-ring',
@@ -187,7 +219,7 @@ export function ToolApprovalBar({
             </Button.Primary>
           </div>
           {showReasonError && (
-            <span id="aui-denial-reason-error" className="text-xs text-failure-bg" role="alert">
+            <span id={reasonErrorId} className="text-xs text-failure-bg" role="alert">
               Reason is required
             </span>
           )}

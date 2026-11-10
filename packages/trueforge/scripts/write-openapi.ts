@@ -8,7 +8,7 @@
  * `.env.test` supplies dummy connection strings.
  */
 import type { TurnStreamingEvent } from '@truefoundry/trueforge-core/agent-session';
-import { InMemorySessionStore, Sessions } from '@truefoundry/trueforge-core/agent-session';
+import { Sessions } from '@truefoundry/trueforge-core/agent-session';
 import { RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -35,6 +35,7 @@ import { SqliteSandboxEnvironmentStore } from '../src/db/sqlite/sandbox-environm
 import { SqliteSandboxProviderStore } from '../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteScheduleStore } from '../src/db/sqlite/schedule-store/SqliteScheduleStore';
 import { SqliteSessionMetricsStore } from '../src/db/sqlite/session-metrics/SqliteSessionMetricsStore';
+import { SqliteSessionStore } from '../src/db/sqlite/session-store/SqliteSessionStore';
 import { SqliteSkillStore } from '../src/db/sqlite/skill-store/SqliteSkillStore';
 import { SqliteOAuthTokenStore } from '../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import { SqliteWebSearchProviderStore } from '../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
@@ -68,8 +69,8 @@ function canonicalise(value: unknown): unknown {
 }
 
 // Unconnected stand-ins suffice: route registration never reads a dependency.
-const sessionStore = new InMemorySessionStore();
 const db = createSqliteDb(':memory:');
+const sessionStore = new SqliteSessionStore(db);
 const tokenStore = new SqliteOAuthTokenStore(db);
 const agentStore = new SqliteAgentStore(db);
 const sandboxEnvironmentStore = new SqliteSandboxEnvironmentStore(db);
@@ -96,16 +97,14 @@ const app = createServerApp({
     }),
   resolveSkillStore: () => skillStore,
   resolveTurnSkillsStore: () => skillStore,
-  resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
-  resolveSandboxProviderStore: () => sandboxProviderStore,
-  resolveWebSearchProviderStore: () => webSearchProviderStore,
-  resolveMemoryProviderStore: () => memoryProviderStore,
-  resolveConfigurationStore: () => configurationStore,
-  memoryProviders: new MemoryProviderCache({ logger: winston.createLogger({ silent: true }) }),
   resolveAgentStore: () => agentStore,
   agentStore,
   sandboxEnvironmentStore,
   sandboxProviderStore,
+  webSearchProviderStore,
+  memoryProviderStore,
+  memoryProviders: new MemoryProviderCache({ logger: winston.createLogger({ silent: true }) }),
+  configurationStore,
   withTransaction: callback => db.transaction().execute(callback),
   scheduleStore: new SqliteScheduleStore(db),
   tokenStore,
@@ -114,8 +113,9 @@ const app = createServerApp({
   sessionMetricsStore: new SqliteSessionMetricsStore(db),
   userStore: new EmptyUserStore(),
   sessions: new Sessions({ sessionStore }),
-  activeTurns: new ActiveTurnRegistry(),
+  activeTurns: new ActiveTurnRegistry({ logger: winston.createLogger({ silent: true }) }),
   requestReplyRouter: new RequestReplyRouter(),
+  resolveTurnExecutionStores: () => Promise.reject(new Error('turn stores are not used while writing OpenAPI')),
   eventSubscriptions: new EventSubscriptionRegistry<TurnStreamingEvent>(undefined),
   logger: winston.createLogger({ silent: true }),
   oidcClient: undefined,

@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
 import {
   areCatalogSettingsAvailable,
-  canCreateOrEdit,
   canEditSchedule,
+  canManageOrDeleteEnvironment,
   hasAdminRole,
   requestContextFromCreatedBySubject,
   resolveRequestContext,
@@ -43,6 +43,7 @@ describe('requestContextFromCreatedBySubject', () => {
         subject_type: 'user',
         subject_display_name: 'Alice',
       },
+      user_credential: null,
     });
     expect(rc.tenant_id).toBe('acme');
     expect(rc.subject).toEqual({ id: 'alice', type: 'user', display_name: 'Alice' });
@@ -83,16 +84,21 @@ describe('areCatalogSettingsAvailable', () => {
   });
 });
 
-describe('canCreateOrEdit', () => {
-  it('allows create for admins only, and update/delete for admin or creator', () => {
-    const alice = { roles: ['everyone'], subject: { id: 'alice', type: 'user', display_name: 'alice' } };
-    const bob = { roles: ['everyone'], subject: { id: 'bob', type: 'user', display_name: 'bob' } };
-    const admin = { roles: ['admin'], subject: { id: 'root', type: 'user', display_name: 'root' } };
-    expect(canCreateOrEdit(admin)).toBe(true);
-    expect(canCreateOrEdit(alice)).toBe(false);
-    expect(canCreateOrEdit(alice, 'alice')).toBe(true);
-    expect(canCreateOrEdit(bob, 'alice')).toBe(false);
-    expect(canCreateOrEdit(admin, 'alice')).toBe(true);
+describe('canManageOrDeleteEnvironment', () => {
+  it('allows admins only; reserved default is patch-only', () => {
+    const alice = { roles: ['everyone'] };
+    const admin = { roles: ['admin'] };
+    expect(canManageOrDeleteEnvironment(admin, { action: 'create' })).toBe(true);
+    expect(canManageOrDeleteEnvironment(alice, { action: 'create' })).toBe(false);
+    expect(canManageOrDeleteEnvironment(admin, { action: 'edit', name: 'shared-env' })).toBe(true);
+    expect(canManageOrDeleteEnvironment(admin, { action: 'delete', name: 'shared-env' })).toBe(true);
+    expect(canManageOrDeleteEnvironment(admin, { action: 'patch', name: 'shared-env' })).toBe(true);
+
+    expect(canManageOrDeleteEnvironment(admin, { action: 'patch', name: 'default' })).toBe(true);
+    expect(canManageOrDeleteEnvironment(admin, { action: 'create', name: 'default' })).toBe(false);
+    expect(canManageOrDeleteEnvironment(admin, { action: 'edit', name: 'default' })).toBe(false);
+    expect(canManageOrDeleteEnvironment(admin, { action: 'delete', name: 'default' })).toBe(false);
+    expect(canManageOrDeleteEnvironment(alice, { action: 'patch', name: 'default' })).toBe(false);
   });
 });
 

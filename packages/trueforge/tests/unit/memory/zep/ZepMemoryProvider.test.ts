@@ -40,7 +40,6 @@ interface Call {
   method: string;
   body: unknown;
   authorization: string | null;
-  idempotencyKey: string | null;
 }
 
 /** Replays `responses` in order and records each request. */
@@ -53,7 +52,6 @@ function fakeFetch(responses: (Response | Error)[]) {
       method: init?.method ?? 'GET',
       body: typeof init?.body === 'string' ? JSON.parse(init.body) : null,
       authorization: headers.get('authorization'),
-      idempotencyKey: headers.get('idempotency-key'),
     });
     const next = responses.shift();
     if (next === undefined) {
@@ -72,15 +70,32 @@ function jsonResponse(status: number, body: unknown = {}, headers: Record<string
 }
 
 function provider(fetchImpl: typeof fetch, logger = fakeLogger()) {
-  const sleep = jest.fn(async (_ms: number) => {});
   const zep = new ZepMemoryProvider({
     apiKey: 'test-key',
     baseUrl: `${BASE_URL}/`,
     logger: logger as never,
     fetch: fetchImpl,
-    sleep,
   });
-  return { zep, sleep, logger };
+  return { zep, logger };
+}
+
+/** Runs `run` with the SDK's retry backoff fast-forwarded, so retry tests don't wait it out. */
+async function withoutBackoff<T>(run: () => Promise<T>): Promise<T> {
+  jest.useFakeTimers();
+  try {
+    const settled = run().then(
+      value => ({ ok: true as const, value }),
+      (error: unknown) => ({ ok: false as const, error }),
+    );
+    await jest.runAllTimersAsync();
+    const outcome = await settled;
+    if (!outcome.ok) {
+      throw outcome.error;
+    }
+    return outcome.value;
+  } finally {
+    jest.useRealTimers();
+  }
 }
 
 describe('ZepMemoryProvider', () => {
@@ -120,6 +135,7 @@ describe('ZepMemoryProvider', () => {
         content: message.content,
         reference_time: message.createdAt,
         metadata: {
+          tenant_id: 'acme',
           session_id: 'session-1',
           last_turn_id: 't2',
           scope: 'default',
@@ -230,32 +246,8 @@ describe('ZepMemoryProvider', () => {
     ]);
   });
 
-  it('retries a 429 on adding messages, honouring Retry-After, and logs each attempt', async () => {
-    const { fetchImpl } = fakeFetch([jsonResponse(429, {}, { 'retry-after': '2' }), jsonResponse(202)]);
-    const { zep, sleep, logger } = provider(fetchImpl);
-
-    await zep.ingestExchange({
-      scope: SCOPE,
-      exchange: EXCHANGE,
-      externalThreadId: 'thread-1',
-      mayAlreadyBeStored: false,
-    });
-
-    expect(sleep.mock.calls.map(([ms]) => ms)).toEqual([2_000]);
-    expect(logger.warn).toHaveBeenCalledWith(
-      'Memory provider request failed; retrying',
-      expect.objectContaining({ provider: 'zep', operation: 'add_messages', status: 429, attempt: 1 }),
-    );
-    expect(logger.debug).toHaveBeenCalledWith(
-      'Memory provider request',
-      expect.objectContaining({ provider: 'zep', operation: 'add_messages', status: 202, attempt: 2 }),
-    );
-    const [, fields] = logger.debug.mock.calls[0] ?? [];
-    expect(fields).toHaveProperty('duration_ms');
-  });
-
-  it('does not retry adding messages after a timeout or 5xx, since Zep may have stored them', async () => {
-    for (const failure of [new TypeError('fetch failed'), jsonResponse(503)]) {
+  it('does not retry adding messages after a timeout, 5xx or 429, since Zep may have stored them', async () => {
+    for (const failure of [new TypeError('fetch failed'), jsonResponse(503), jsonResponse(429)]) {
       const { calls, fetchImpl } = fakeFetch([failure]);
       const { zep } = provider(fetchImpl);
 
@@ -271,26 +263,6 @@ describe('ZepMemoryProvider', () => {
     }
   });
 
-  it('still retries idempotent calls (user lookup) after a network error', async () => {
-    const { calls, fetchImpl } = fakeFetch([
-      new TypeError('fetch failed'),
-      jsonResponse(200, { uuid: 'user-uuid' }),
-      jsonResponse(201, { uuid: 'thread-1' }),
-      jsonResponse(202),
-    ]);
-    const { zep, sleep } = provider(fetchImpl);
-
-    await zep.ingestExchange({ scope: SCOPE, exchange: EXCHANGE, externalThreadId: null, mayAlreadyBeStored: false });
-
-    expect(calls.map(call => call.path)).toEqual([
-      '/users/lookup',
-      '/users/lookup',
-      '/threads',
-      '/threads/thread-1/messages',
-    ]);
-    expect(sleep.mock.calls.map(([ms]) => ms)).toEqual([500]);
-  });
-
   it('skips resending an exchange an earlier attempt already stored', async () => {
     const stored = { session_id: 'session-1', last_turn_id: 't2', scope: 'default' };
     const { calls, fetchImpl } = fakeFetch([jsonResponse(200, { items: [{ metadata: stored }], total_size: 1 })]);
@@ -300,7 +272,7 @@ describe('ZepMemoryProvider', () => {
       zep.ingestExchange({ scope: SCOPE, exchange: EXCHANGE, externalThreadId: 'thread-1', mayAlreadyBeStored: true }),
     ).resolves.toEqual({ externalThreadId: 'thread-1' });
     expect(calls.map(call => [call.path, call.body])).toEqual([
-      ['/threads/thread-1/messages?order_by=created_at&order=desc&page_size=2', null],
+      ['/threads/thread-1/messages?page_size=2&order_by=created_at&order=desc', null],
     ]);
   });
 
@@ -320,7 +292,7 @@ describe('ZepMemoryProvider', () => {
     });
 
     expect(calls.map(call => call.path)).toEqual([
-      '/threads/thread-1/messages?order_by=created_at&order=desc&page_size=2',
+      '/threads/thread-1/messages?page_size=2&order_by=created_at&order=desc',
       '/threads/thread-1/messages',
     ]);
   });
@@ -343,46 +315,8 @@ describe('ZepMemoryProvider', () => {
     expect(calls).toHaveLength(1);
     expect(logger.error).toHaveBeenCalledWith(
       'Memory provider request failed',
-      expect.objectContaining({ operation: 'add_messages', status: 400, attempt: 1 }),
+      expect.objectContaining({ operation: 'add_messages', status: 400 }),
     );
-  });
-
-  it('does not wait out a Retry-After longer than the backoff cap; the next run retries', async () => {
-    const { calls, fetchImpl } = fakeFetch([jsonResponse(429, {}, { 'retry-after': '120' })]);
-    const { zep, sleep } = provider(fetchImpl);
-
-    await expect(
-      zep.ingestExchange({ scope: SCOPE, exchange: EXCHANGE, externalThreadId: 'thread-1', mayAlreadyBeStored: false }),
-    ).rejects.toMatchObject({ cause: expect.objectContaining({ status: 429 }) });
-    expect(calls).toHaveLength(1);
-    expect(sleep).not.toHaveBeenCalled();
-  });
-
-  it('treats a body that fails mid-read as a network error, retried for idempotent calls', async () => {
-    const brokenBody = new Response(
-      new ReadableStream({
-        start(controller) {
-          controller.error(new TypeError('terminated'));
-        },
-      }),
-      { status: 200 },
-    );
-    const { calls, fetchImpl } = fakeFetch([
-      brokenBody,
-      jsonResponse(200, { uuid: 'user-uuid' }),
-      jsonResponse(201, { uuid: 'thread-1' }),
-      jsonResponse(202),
-    ]);
-    const { zep } = provider(fetchImpl);
-
-    await zep.ingestExchange({ scope: SCOPE, exchange: EXCHANGE, externalThreadId: null, mayAlreadyBeStored: false });
-
-    expect(calls.map(call => call.path)).toEqual([
-      '/users/lookup',
-      '/users/lookup',
-      '/threads',
-      '/threads/thread-1/messages',
-    ]);
   });
 
   it('keeps the underlying network error as the cause', async () => {
@@ -407,9 +341,11 @@ describe('ZepMemoryProvider', () => {
     const { zep } = provider(fetchImpl);
 
     await expect(
-      zep.ingestExchange({ scope: SCOPE, exchange: EXCHANGE, externalThreadId: 'thread-1', mayAlreadyBeStored: false }),
-    ).rejects.toMatchObject({ cause: expect.any(ZepRequestError) });
-    expect(calls).toHaveLength(4);
+      withoutBackoff(() =>
+        zep.ingestExchange({ scope: SCOPE, exchange: EXCHANGE, externalThreadId: null, mayAlreadyBeStored: false }),
+      ),
+    ).rejects.toMatchObject({ cause: expect.objectContaining({ operation: 'lookup_user', status: 429 }) });
+    expect(calls.map(call => call.path)).toEqual(Array.from({ length: 4 }, () => '/users/lookup'));
   });
 
   it('reports a thread it created when adding messages then fails, so it is not lost', async () => {
@@ -519,21 +455,5 @@ describe('ZepMemoryProvider retrieval and writes', () => {
       reference_time: '2026-10-30T10:00:00.000Z',
       metadata: { session_id: 'session-1', source: 'memory_add', scope: 'default' },
     });
-    expect(calls[2]?.idempotencyKey).toMatch(/^[0-9a-f-]{36}$/);
-  });
-
-  it('retries a lost episode write with the same idempotency key, so Zep stores it once', async () => {
-    const { calls, fetchImpl } = fakeFetch([
-      jsonResponse(200, { uuid: 'user-uuid' }),
-      new TypeError('fetch failed'),
-      jsonResponse(202, { task_id: 'task-1' }),
-    ]);
-    const { zep } = provider(fetchImpl);
-
-    await zep.addMemory({ scope: SCOPE, content: 'note', sessionId: 's', createdAt: '2026-10-30T10:00:00.000Z' });
-
-    const writes = calls.filter(call => call.path === '/graphs/user-uuid/episodes');
-    expect(writes).toHaveLength(2);
-    expect(writes[0]?.idempotencyKey).toBe(writes[1]?.idempotencyKey);
   });
 });

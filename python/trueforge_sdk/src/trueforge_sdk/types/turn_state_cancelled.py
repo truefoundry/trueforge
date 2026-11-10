@@ -5,7 +5,7 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .turn_state_cancelled_metrics import TurnStateCancelledMetrics
+from .turn_metrics import TurnMetrics
 from .turn_state_cancelled_reason import TurnStateCancelledReason
 
 
@@ -15,11 +15,7 @@ class TurnStateCancelled(UncheckedBaseModel):
     ISO 8601 time when cancellation completed.
     """
 
-    metrics: typing.Optional[TurnStateCancelledMetrics] = pydantic.Field(default=None)
-    """
-    Optional billable aggregate for work done before cancel.
-    """
-
+    metrics: typing.Optional[TurnMetrics] = None
     reason: TurnStateCancelledReason
     status: typing.Literal["cancelled"] = "cancelled"
 
