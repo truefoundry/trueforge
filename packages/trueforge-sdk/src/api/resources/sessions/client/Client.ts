@@ -1415,7 +1415,12 @@ export class SessionsClient {
      * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
-     *     await client.sessions.createTurn("session_id", {})
+     *     await client.sessions.createTurn("session_id", {
+     *         input: [{
+     *                 content: "content",
+     *                 type: "user.message"
+     *             }]
+     *     })
      */
     public createTurn(
         session_id: string,

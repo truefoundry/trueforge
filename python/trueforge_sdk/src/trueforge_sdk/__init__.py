@@ -336,6 +336,7 @@ if typing.TYPE_CHECKING:
     )
     from ._default_clients import DefaultAioHttpClient, DefaultAsyncHttpxClient
     from .client import AsyncTrueForge, TrueForge
+    from .sessions import CreateTurnSessionsRequestInputItem, CreateTurnSessionsStreamRequestInputItem
     from .version import __version__
 _dynamic_imports: typing.Dict[str, str] = {
     "ActionRequiredEvent": ".types",
@@ -400,6 +401,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CreateScheduleRunResponse": ".types",
     "CreateSessionAgent": ".types",
     "CreateTurnEventResponse": ".types",
+    "CreateTurnSessionsRequestInputItem": ".sessions",
+    "CreateTurnSessionsStreamRequestInputItem": ".sessions",
     "CreatedBySubject": ".types",
     "CronExpression": ".types",
     "CustomModelProvider": ".types",
@@ -752,6 +755,8 @@ __all__ = [
     "CreateScheduleRunResponse",
     "CreateSessionAgent",
     "CreateTurnEventResponse",
+    "CreateTurnSessionsRequestInputItem",
+    "CreateTurnSessionsStreamRequestInputItem",
     "CreatedBySubject",
     "CronExpression",
     "CustomModelProvider",
