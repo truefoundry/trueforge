@@ -204,7 +204,7 @@ export function ToolApprovalBar({
               disabled={interactionsLocked}
               onChange={e => onDenialReasonChange?.(e.target.value)}
               onKeyDown={e => {
-                if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                if (e.key === 'Enter' && !e.repeat && !e.nativeEvent.isComposing) {
                   e.preventDefault();
                   onReasonSubmit?.();
                 }

@@ -79,6 +79,8 @@ describe('ToolApprovalBar', () => {
 
     fireEvent.change(reasonInput, { target: { value: 'new reason' } });
     expect(onDenialReasonChange).toHaveBeenCalledWith('new reason');
+    fireEvent.keyDown(reasonInput, { key: 'Enter', repeat: true });
+    expect(onReasonSubmit).not.toHaveBeenCalled();
     fireEvent.keyDown(reasonInput, { key: 'Enter' });
     expect(onReasonSubmit).toHaveBeenCalledOnce();
     fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
