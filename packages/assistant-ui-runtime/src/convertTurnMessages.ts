@@ -10,6 +10,7 @@ import {
   ASSISTANT_MESSAGE_STATUS_REASON,
   ASSISTANT_MESSAGE_STATUS_TYPE,
   completeAssistantStatus,
+  isRequiresActionToolCalls,
   runningAssistantStatus,
   toolCallsRequiredAssistantStatus,
 } from './assistantMessageStatus.js';
@@ -1222,12 +1223,7 @@ function resolveProjectedRequiredActionState(
       record.state.status === TURN_STATUS.PAUSED
         ? runningAssistantStatus()
         : assistantStatusFromTurnState(record.state);
-    custom = Object.fromEntries(
-      Object.entries(custom).filter(
-        ([key]) =>
-          key !== MESSAGE_CUSTOM_KEY.TOOL_APPROVAL_THREAD_ID && key !== MESSAGE_CUSTOM_KEY.TOOL_RESPONSE_THREAD_ID,
-      ),
-    );
+    custom = omitWaitingThreadIds(custom);
   }
 
   return { status, custom };
@@ -1274,14 +1270,31 @@ function projectActiveStreamUpdate(snapshot: SessionSnapshot): TurnStreamUpdate 
   const rebuilt =
     turnLike != null ? buildTurnUpdateFromFold(snapshot.fold, turnLike, rootModelMessageIds) : { content };
 
-  const metadata = rebuilt.metadata ?? activeStream.update.metadata;
-  const status = rebuilt.status ?? activeStream.update.status;
+  // The fold leaves status unset once every prompt is answered. Drop the
+  // waiting status carried by the live update from before that answer.
+  let metadata = rebuilt.metadata ?? activeStream.update.metadata;
+  let status = rebuilt.status ?? activeStream.update.status;
+  if (turnLike?.state.status === TURN_STATUS.PAUSED && rebuilt.status == null && isRequiresActionToolCalls(status)) {
+    status = runningAssistantStatus();
+    if (metadata?.custom != null) {
+      metadata = { ...metadata, custom: omitWaitingThreadIds(metadata.custom) };
+    }
+  }
   return {
     ...activeStream.update,
     content,
     ...(metadata == null ? {} : { metadata }),
     ...(status == null ? {} : { status }),
   };
+}
+
+function omitWaitingThreadIds(custom: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(custom).filter(
+      ([key]) =>
+        key !== MESSAGE_CUSTOM_KEY.TOOL_APPROVAL_THREAD_ID && key !== MESSAGE_CUSTOM_KEY.TOOL_RESPONSE_THREAD_ID,
+    ),
+  );
 }
 
 function applyRequiredActionsOverlayToMessages(

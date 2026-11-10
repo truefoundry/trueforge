@@ -3700,6 +3700,75 @@ describe('buildSnapshotFromSessionEvents', () => {
     expect(collectPendingApprovals(messages)).toEqual([]);
   });
 
+  it('clears a live paused stream once every prompt is answered', async () => {
+    const pausedTurn: Turn = {
+      id: 't-live-answered',
+      sessionId: SESSION_ID,
+      state: { status: 'paused' },
+      input: [{ type: 'user.message', content: 'run it' }],
+      createdAt,
+    };
+    const items: SessionEventItem[] = [
+      {
+        turnId: pausedTurn.id,
+        event: {
+          type: 'turn.created',
+          id: 'created-live-answered',
+          turnId: pausedTurn.id,
+          input: [{ type: 'user.message', content: 'run it' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      {
+        turnId: pausedTurn.id,
+        event: modelMessage({
+          id: 'model-live-answered',
+          threadId: ROOT_THREAD_ID,
+          toolCalls: [{ id: 'approval-1', type: 'function', function: { name: 'bash', arguments: '{}' } }],
+        }),
+      },
+      {
+        turnId: pausedTurn.id,
+        event: approvalRequired({
+          id: 'approval-required-live-answered',
+          threadId: ROOT_THREAD_ID,
+          toolCalls: [{ id: 'approval-1', sourceEventId: 'model-live-answered' }],
+        }),
+      },
+      {
+        turnId: pausedTurn.id,
+        event: {
+          type: 'turn.update',
+          id: 'paused-live-answered',
+          createdAt,
+          threadId: null,
+          state: { status: 'paused' },
+        },
+      },
+    ];
+
+    const snapshot = await buildSnapshotFromSessionEvents(mockServerWithEvents([pausedTurn], items), SESSION_ID);
+    expect(projectSessionMessages(snapshot).at(-1)).toMatchObject({
+      role: 'assistant',
+      status: { type: 'requires-action', reason: 'tool-calls' },
+      metadata: { custom: { [MESSAGE_CUSTOM_KEY.TOOL_APPROVAL_THREAD_ID]: ROOT_THREAD_ID } },
+    });
+
+    ingestTurnEvent(snapshot.fold, {
+      type: 'user.tool_approval',
+      id: 'user-approval-live-answered',
+      createdAt,
+      threadId: ROOT_THREAD_ID,
+      toolCallId: 'approval-1',
+      approval: { status: 'allow' },
+    });
+
+    const assistant = projectSessionMessages(snapshot).at(-1);
+    expect(assistant).toMatchObject({ role: 'assistant', status: { type: 'running' } });
+    expect(assistant?.metadata.custom[MESSAGE_CUSTOM_KEY.TOOL_APPROVAL_THREAD_ID]).toBeUndefined();
+  });
+
   it('does not baseline tip model messages that are already folded on refresh', async () => {
     const priorDone: Turn = {
       id: 't-prior',
