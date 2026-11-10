@@ -66,6 +66,38 @@ function createApp(authenticator: Authenticator) {
 }
 
 describe('createAuthMiddleware / buildAdminAuthMiddleware', () => {
+  it.each([
+    { accessible: true, roles: ['admin'], status: 200 },
+    { accessible: true, roles: [], status: 403 },
+    { accessible: false, roles: ['admin'], status: 422 },
+    { accessible: true, roles: ['admin'], status: 401 },
+  ])('only exposes full admin request context after authorization ($status)', async ({ accessible, roles, status }) => {
+    const requestContext = { ...STANDALONE_REQUEST_CONTEXT, roles, user_credential: 'test-credential' };
+    const app = new OpenAPIHono();
+    app.use('*', async (c, next) => {
+      await next();
+      expect(c.get('subject')).toEqual(status === 401 ? undefined : requestContext.subject);
+      expect(c.get('request_context')).toEqual(status === 200 ? requestContext : undefined);
+    });
+    app.use(
+      '*',
+      buildAdminAuthMiddleware({
+        authenticator: {
+          authenticate: () =>
+            status === 401 ? Promise.reject(new HTTPException(401)) : Promise.resolve(requestContext),
+        },
+        accessible,
+      }),
+    );
+    const handler = jest.fn(() => new Response('ok'));
+    app.get('/', handler);
+
+    const response = await app.request('/');
+
+    expect(response.status).toBe(status);
+    expect(handler).toHaveBeenCalledTimes(status === 200 ? 1 : 0);
+  });
+
   it('propagates non-401 authenticate failures instead of turning them into 401', async () => {
     const authenticator: Authenticator = {
       authenticate: async () => {

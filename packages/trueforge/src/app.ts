@@ -140,7 +140,7 @@ export function createAccessLogMiddleware(logger: Logger): MiddlewareHandler {
     if (path === '/healthz' || path.startsWith('/assets/')) {
       return;
     }
-    const subject = c.get('request_context')?.subject;
+    const subject = c.get('subject');
     logger.info('request', {
       method: c.req.method,
       path,

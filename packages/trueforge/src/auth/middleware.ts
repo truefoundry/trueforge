@@ -19,6 +19,7 @@ export function createAuthMiddleware(authenticator: Authenticator): MiddlewareHa
     if (requestContext === undefined) {
       throw new HTTPException(401, { message: 'Authentication required' });
     }
+    c.set('subject', requestContext.subject);
     c.set('request_context', requestContext);
     updateLogContext({ tenant_id: requestContext.tenant_id });
     return next();
@@ -46,7 +47,7 @@ export function buildAdminAuthMiddleware({
     if (requestContext === undefined) {
       throw new HTTPException(401, { message: 'Authentication required' });
     }
-    c.set('request_context', requestContext);
+    c.set('subject', requestContext.subject);
     updateLogContext({ tenant_id: requestContext.tenant_id });
     if (!accessible) {
       throw new HTTPException(422, {
@@ -56,6 +57,7 @@ export function buildAdminAuthMiddleware({
     if (!hasAdminRole(requestContext)) {
       throw new HTTPException(403, { message: 'Admin access required' });
     }
+    c.set('request_context', requestContext);
     return next();
   };
 }
