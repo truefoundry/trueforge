@@ -3,7 +3,7 @@
 import type * as TrueForge from "../../../../../../../api/index.js";
 import * as core from "../../../../../../../core/index.js";
 import type * as serializers from "../../../../../../index.js";
-import { InternalPreviousTurnIdInput } from "../../../../../../types/InternalPreviousTurnIdInput.js";
+import { PreviousTurnIdInput } from "../../../../../../types/PreviousTurnIdInput.js";
 import { TurnInputItem } from "../../../../../../types/TurnInputItem.js";
 
 export const InternalCreateSessionTurnRequest: core.serialization.Schema<
@@ -11,14 +11,14 @@ export const InternalCreateSessionTurnRequest: core.serialization.Schema<
     TrueForge.internal.InternalCreateSessionTurnRequest
 > = core.serialization.object({
     input: core.serialization.list(TurnInputItem).optional(),
-    previousTurnId: core.serialization.property("previous_turn_id", InternalPreviousTurnIdInput.optional()),
+    previousTurnId: core.serialization.property("previous_turn_id", PreviousTurnIdInput.optional()),
     stream: core.serialization.booleanLiteral(false).optional(),
 });
 
 export declare namespace InternalCreateSessionTurnRequest {
     export interface Raw {
         input?: TurnInputItem.Raw[] | null;
-        previous_turn_id?: InternalPreviousTurnIdInput.Raw | null;
+        previous_turn_id?: PreviousTurnIdInput.Raw | null;
         stream?: false | null;
     }
 }

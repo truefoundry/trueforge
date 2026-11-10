@@ -90,7 +90,7 @@ export const SessionAgentSchema = z
   .discriminatedUnion('type', [SessionAgentReferenceSchema, SessionAgentInlineSchema])
   .openapi('SessionAgent');
 
-export const SessionSourceTypeSchema = z.enum(['schedule']).openapi('SessionSourceType');
+export const SessionSourceTypeSchema = z.enum(['schedule', 'integration']).openapi('SessionSourceType');
 
 export type SessionSourceType = z.infer<typeof SessionSourceTypeSchema>;
 
@@ -104,13 +104,23 @@ function sessionSourceScheduleObject() {
     .strict();
 }
 
+function sessionSourceIntegrationObject() {
+  return z
+    .object({
+      type: z
+        .literal(SessionSourceTypeSchema.enum.integration)
+        .describe('Session was created for an external integration (service create-turn).'),
+    })
+    .strict();
+}
+
 export const SessionSourceScheduleSchema = sessionSourceScheduleObject().openapi('SessionSourceSchedule');
 
-/**
- * How a session was created. Same shape as {@link SessionSourceScheduleSchema} today;
- * switch to `discriminatedUnion('type', …)` when a second source arm lands.
- */
-export const SessionSourceSchema = sessionSourceScheduleObject()
+export const SessionSourceIntegrationSchema = sessionSourceIntegrationObject().openapi('SessionSourceIntegration');
+
+/** How a session was created. Null for interactive sessions. Non-null sources skip memory ingest. */
+export const SessionSourceSchema = z
+  .discriminatedUnion('type', [sessionSourceScheduleObject(), sessionSourceIntegrationObject()])
   .describe('How this session was created (e.g. a schedule run). Null for interactive sessions.')
   .openapi('SessionSource');
 

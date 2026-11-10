@@ -164,7 +164,7 @@ export class SessionsClient {
     }
 
     /**
-     * Service API key. Non-streaming; session must have external_id (integration sessions only).
+     * Service API key. Non-streaming; requires external_id and a non-null source.
      *
      * @param {string} session_id - Session identifier.
      * @param {TrueForge.internal.InternalCreateSessionTurnRequest} request

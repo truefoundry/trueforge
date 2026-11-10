@@ -2,7 +2,7 @@
  * Turn route definitions.
  * Public DB-backed routes mount at /api/v1/sessions.
  * Internal create-turn mounts at /api/internal/sessions (same `/{session_id}/turns` path).
- * Handlers are registered in apis/turns.ts and apis/internalSessionTurns.ts.
+ * Handlers are registered in apis/turns.ts.
  */
 import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
@@ -288,13 +288,13 @@ Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto
   },
 });
 
-/** Service-key create-turn under `/api/internal/sessions`. Non-streaming only. */
+/** Service-key create-turn under `/api/internal/sessions`. */
 export const createInternalSessionTurnRoute = createRoute({
   method: 'post',
   path: '/{session_id}/turns',
   tags: [OpenApiTag.INTERNAL],
   summary: 'Create and execute a turn in a session (internal)',
-  description: 'Service API key. Non-streaming; session must have external_id (integration sessions only).',
+  description: 'Service API key. Non-streaming; requires external_id and a non-null source.',
   'x-fern-sdk-group-name': ['internal', 'sessions'],
   'x-fern-sdk-method-name': 'create_turn',
   'x-excluded': true,
@@ -320,7 +320,7 @@ export const createInternalSessionTurnRoute = createRoute({
     },
     403: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Session has no external_id and is not eligible for internal turn create.',
+      description: 'Session lacks external_id or source and is not eligible.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -336,11 +336,7 @@ export const createInternalSessionTurnRoute = createRoute({
     },
     422: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description:
-        'The request is well-formed but cannot be processed: a referenced resource is missing ' +
-        '(named agent, model, MCP server, skill, or sandbox provider), sandbox is required but ' +
-        'unavailable (e.g. file uploads), or the turn input conflicts with current state ' +
-        '(e.g. unresolved tool calls or approvals, tool name collision).',
+      description: 'Missing agent/resource, sandbox unavailable, or turn input conflicts with session state.',
     },
   },
 });

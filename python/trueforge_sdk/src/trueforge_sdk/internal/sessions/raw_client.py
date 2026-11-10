@@ -21,7 +21,7 @@ from ...errors.unprocessable_entity_error import UnprocessableEntityError
 from ...types.create_session_agent import CreateSessionAgent
 from ...types.get_session_response import GetSessionResponse
 from ...types.get_turn_response import GetTurnResponse
-from ...types.internal_previous_turn_id_input import InternalPreviousTurnIdInput
+from ...types.previous_turn_id_input import PreviousTurnIdInput
 from ...types.request_error_response import RequestErrorResponse
 from ...types.session_source_schedule import SessionSourceSchedule
 from ...types.turn_input_item import TurnInputItem
@@ -149,12 +149,12 @@ class RawSessionsClient:
         *,
         session_id: str,
         input: typing.Optional[typing.Sequence[TurnInputItem]] = OMIT,
-        previous_turn_id: typing.Optional[InternalPreviousTurnIdInput] = OMIT,
+        previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         stream: typing.Optional[typing.Literal[False]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[GetTurnResponse]:
         """
-        Service API key. Non-streaming; session must have external_id (integration sessions only).
+        Service API key. Non-streaming; requires external_id and a non-null source.
 
         Parameters
         ----------
@@ -164,7 +164,7 @@ class RawSessionsClient:
         input : typing.Optional[typing.Sequence[TurnInputItem]]
             Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.
 
-        previous_turn_id : typing.Optional[InternalPreviousTurnIdInput]
+        previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
         stream : typing.Optional[typing.Literal[False]]
             Must be false; streaming is not supported on this endpoint.
@@ -185,7 +185,7 @@ class RawSessionsClient:
                     object_=input, annotation=typing.Sequence[TurnInputItem], direction="write"
                 ),
                 "previous_turn_id": convert_and_respect_annotation_metadata(
-                    object_=previous_turn_id, annotation=InternalPreviousTurnIdInput, direction="write"
+                    object_=previous_turn_id, annotation=PreviousTurnIdInput, direction="write"
                 ),
                 "stream": stream,
             },
@@ -410,12 +410,12 @@ class AsyncRawSessionsClient:
         *,
         session_id: str,
         input: typing.Optional[typing.Sequence[TurnInputItem]] = OMIT,
-        previous_turn_id: typing.Optional[InternalPreviousTurnIdInput] = OMIT,
+        previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         stream: typing.Optional[typing.Literal[False]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[GetTurnResponse]:
         """
-        Service API key. Non-streaming; session must have external_id (integration sessions only).
+        Service API key. Non-streaming; requires external_id and a non-null source.
 
         Parameters
         ----------
@@ -425,7 +425,7 @@ class AsyncRawSessionsClient:
         input : typing.Optional[typing.Sequence[TurnInputItem]]
             Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.
 
-        previous_turn_id : typing.Optional[InternalPreviousTurnIdInput]
+        previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
         stream : typing.Optional[typing.Literal[False]]
             Must be false; streaming is not supported on this endpoint.
@@ -446,7 +446,7 @@ class AsyncRawSessionsClient:
                     object_=input, annotation=typing.Sequence[TurnInputItem], direction="write"
                 ),
                 "previous_turn_id": convert_and_respect_annotation_metadata(
-                    object_=previous_turn_id, annotation=InternalPreviousTurnIdInput, direction="write"
+                    object_=previous_turn_id, annotation=PreviousTurnIdInput, direction="write"
                 ),
                 "stream": stream,
             },

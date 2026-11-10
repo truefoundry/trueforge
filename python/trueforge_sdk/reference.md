@@ -4713,7 +4713,7 @@ client.internal.sessions.get_or_create_by_external_id(
 <dl>
 <dd>
 
-Service API key. Non-streaming; session must have external_id (integration sessions only).
+Service API key. Non-streaming; requires external_id and a non-null source.
 </dd>
 </dl>
 </dd>
@@ -4769,7 +4769,7 @@ client.internal.sessions.create_turn(
 <dl>
 <dd>
 
-**previous_turn_id:** `typing.Optional[InternalPreviousTurnIdInput]` 
+**previous_turn_id:** `typing.Optional[PreviousTurnIdInput]` 
     
 </dd>
 </dl>

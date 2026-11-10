@@ -38,6 +38,7 @@ export {
   SessionMetadataSchema,
   SessionMetricsSchema,
   SessionSchema,
+  SessionSourceIntegrationSchema,
   SessionSourceScheduleSchema,
   SessionSourceSchema,
   SessionSourceTypeSchema,

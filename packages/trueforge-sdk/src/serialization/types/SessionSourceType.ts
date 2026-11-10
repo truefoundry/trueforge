@@ -7,8 +7,8 @@ import type * as serializers from "../index.js";
 export const SessionSourceType: core.serialization.Schema<
     serializers.SessionSourceType.Raw,
     TrueForge.SessionSourceType
-> = core.serialization.stringLiteral("schedule");
+> = core.serialization.enum_(["schedule", "integration"]);
 
 export declare namespace SessionSourceType {
-    export type Raw = "schedule";
+    export type Raw = "schedule" | "integration";
 }

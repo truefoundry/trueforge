@@ -11,7 +11,7 @@ import { EVENTS_PAGE_LIMIT, PAGE_LIMIT } from './common';
 export { CreateTurnRequestSchema, TurnSchema } from '@truefoundry/trueforge-core/agent-session';
 export type { Turn } from '@truefoundry/trueforge-core/agent-session';
 
-/** Internal create-turn body: same input rules as CreateTurnRequest, but non-streaming only. */
+/** Internal create-turn body: CreateTurnRequest fields with stream fixed to false. */
 export const InternalCreateSessionTurnRequestSchema = z
   .object({
     input: z
@@ -25,7 +25,7 @@ export const InternalCreateSessionTurnRequestSchema = z
       .optional()
       .default('auto')
       .describe(`Defaults to 'auto' (chain to session last turn). Use 'none' for a new root turn.`)
-      .openapi('InternalPreviousTurnIdInput'),
+      .openapi('PreviousTurnIdInput'),
     stream: z
       .literal(false)
       .optional()

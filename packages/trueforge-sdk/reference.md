@@ -3983,7 +3983,7 @@ await client.internal.sessions.getOrCreateByExternalId({
 <dl>
 <dd>
 
-Service API key. Non-streaming; session must have external_id (integration sessions only).
+Service API key. Non-streaming; requires external_id and a non-null source.
 </dd>
 </dl>
 </dd>

@@ -2087,7 +2087,7 @@
             "type": "array"
           },
           "previous_turn_id": {
-            "$ref": "#/components/schemas/InternalPreviousTurnIdInput"
+            "$ref": "#/components/schemas/PreviousTurnIdInput"
           },
           "stream": {
             "default": false,
@@ -2099,28 +2099,6 @@
           }
         },
         "type": "object"
-      },
-      "InternalPreviousTurnIdInput": {
-        "anyOf": [
-          {
-            "enum": [
-              "auto"
-            ],
-            "type": "string"
-          },
-          {
-            "enum": [
-              "none"
-            ],
-            "type": "string"
-          },
-          {
-            "minLength": 1,
-            "type": "string"
-          }
-        ],
-        "default": "auto",
-        "description": "Defaults to 'auto' (chain to session last turn). Use 'none' for a new root turn."
       },
       "LargeToolResponseConfig": {
         "default": {
@@ -4898,35 +4876,55 @@
         "type": "object"
       },
       "SessionSource": {
-        "additionalProperties": false,
         "description": "How this session was created (e.g. a schedule run). Null for interactive sessions.",
-        "properties": {
-          "id": {
-            "description": "Schedule id.",
-            "minLength": 1,
-            "type": "string"
-          },
-          "run_id": {
-            "description": "Schedule run id.",
-            "minLength": 1,
-            "type": "string"
-          },
-          "type": {
-            "description": "Session was created by a schedule run.",
-            "enum": [
-              "schedule"
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "description": "Schedule id.",
+                "minLength": 1,
+                "type": "string"
+              },
+              "run_id": {
+                "description": "Schedule run id.",
+                "minLength": 1,
+                "type": "string"
+              },
+              "type": {
+                "description": "Session was created by a schedule run.",
+                "enum": [
+                  "schedule"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "id",
+              "run_id"
             ],
-            "type": "string"
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "description": "Session was created for an external integration (service create-turn).",
+                "enum": [
+                  "integration"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "type": "null"
           }
-        },
-        "required": [
-          "type",
-          "id",
-          "run_id"
-        ],
-        "type": [
-          "object",
-          "null"
         ]
       },
       "SessionSourceSchedule": {
@@ -4960,7 +4958,8 @@
       "SessionSourceType": {
         "description": "When set, returns only sessions created by this source type.",
         "enum": [
-          "schedule"
+          "schedule",
+          "integration"
         ],
         "type": "string"
       },
@@ -7422,7 +7421,7 @@
     },
     "/api/internal/sessions/{session_id}/turns": {
       "post": {
-        "description": "Service API key. Non-streaming; session must have external_id (integration sessions only).",
+        "description": "Service API key. Non-streaming; requires external_id and a non-null source.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -7486,7 +7485,7 @@
                 }
               }
             },
-            "description": "Session has no external_id and is not eligible for internal turn create."
+            "description": "Session lacks external_id or source and is not eligible."
           },
           "404": {
             "content": {
@@ -7526,7 +7525,7 @@
                 }
               }
             },
-            "description": "The request is well-formed but cannot be processed: a referenced resource is missing (named agent, model, MCP server, skill, or sandbox provider), sandbox is required but unavailable (e.g. file uploads), or the turn input conflicts with current state (e.g. unresolved tool calls or approvals, tool name collision)."
+            "description": "Missing agent/resource, sandbox unavailable, or turn input conflicts with session state."
           }
         },
         "summary": "Create and execute a turn in a session (internal)",
