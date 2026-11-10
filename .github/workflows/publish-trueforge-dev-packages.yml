@@ -13,7 +13,7 @@ name: Publish trueforge dev packages
 
 on:
   push:
-    branches: [main, cj-publish-trueforge-dev-packages]
+    branches: [main]
     paths:
       - 'packages/trueforge-ui/**'
       - 'packages/assistant-ui-runtime/**'
