@@ -4799,7 +4799,110 @@ client.internal.sessions.get_or_create_by_external_id(
 <dl>
 <dd>
 
-**source:** `typing.Optional[SessionSourceSchedule]` 
+**source:** `typing.Optional[SessionSource]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.internal.sessions.<a href="src/trueforge_sdk/internal/sessions/client.py">create_turn</a>(...) -> GetTurnResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Service API key. Non-streaming; requires external_id and a non-null source.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge
+from trueforge_sdk.internal.sessions import InternalCreateSessionTurnRequestInputItem
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.internal.sessions.create_turn(
+    session_id="session_id",
+    input=[
+        InternalCreateSessionTurnRequestInputItem(
+            content="content",
+            type="user.message",
+        )
+    ],
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**session_id:** `str` — Session identifier.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**input:** `typing.List[InternalCreateSessionTurnRequestInputItem]` — User messages for this turn. At least one is required.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**previous_turn_id:** `typing.Optional[PreviousTurnIdInput]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**stream:** `typing.Optional[typing.Literal]` — Must be false; streaming is not supported on this endpoint.
     
 </dd>
 </dl>
