@@ -23,8 +23,8 @@ from ...types.get_session_response import GetSessionResponse
 from ...types.get_turn_response import GetTurnResponse
 from ...types.previous_turn_id_input import PreviousTurnIdInput
 from ...types.request_error_response import RequestErrorResponse
-from ...types.session_source_schedule import SessionSourceSchedule
-from ...types.turn_input_item import TurnInputItem
+from ...types.session_source import SessionSource
+from .types.internal_create_session_turn_request_input_item import InternalCreateSessionTurnRequestInputItem
 from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
@@ -40,7 +40,7 @@ class RawSessionsClient:
         *,
         agent: CreateSessionAgent,
         external_id: str,
-        source: typing.Optional[SessionSourceSchedule] = OMIT,
+        source: typing.Optional[SessionSource] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[GetSessionResponse]:
         """
@@ -53,7 +53,7 @@ class RawSessionsClient:
         external_id : str
             Caller-supplied id unique within the tenant.
 
-        source : typing.Optional[SessionSourceSchedule]
+        source : typing.Optional[SessionSource]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -72,7 +72,7 @@ class RawSessionsClient:
                 ),
                 "external_id": external_id,
                 "source": convert_and_respect_annotation_metadata(
-                    object_=source, annotation=SessionSourceSchedule, direction="write"
+                    object_=source, annotation=typing.Optional[SessionSource], direction="write"
                 ),
             },
             headers={
@@ -148,7 +148,7 @@ class RawSessionsClient:
         self,
         *,
         session_id: str,
-        input: typing.Optional[typing.Sequence[TurnInputItem]] = OMIT,
+        input: typing.Sequence[InternalCreateSessionTurnRequestInputItem],
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         stream: typing.Optional[typing.Literal[False]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -161,8 +161,8 @@ class RawSessionsClient:
         session_id : str
             Session identifier.
 
-        input : typing.Optional[typing.Sequence[TurnInputItem]]
-            Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.
+        input : typing.Sequence[InternalCreateSessionTurnRequestInputItem]
+            User messages for this turn. At least one is required.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -182,7 +182,9 @@ class RawSessionsClient:
             method="POST",
             json={
                 "input": convert_and_respect_annotation_metadata(
-                    object_=input, annotation=typing.Sequence[TurnInputItem], direction="write"
+                    object_=input,
+                    annotation=typing.Sequence[InternalCreateSessionTurnRequestInputItem],
+                    direction="write",
                 ),
                 "previous_turn_id": convert_and_respect_annotation_metadata(
                     object_=previous_turn_id, annotation=PreviousTurnIdInput, direction="write"
@@ -301,7 +303,7 @@ class AsyncRawSessionsClient:
         *,
         agent: CreateSessionAgent,
         external_id: str,
-        source: typing.Optional[SessionSourceSchedule] = OMIT,
+        source: typing.Optional[SessionSource] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[GetSessionResponse]:
         """
@@ -314,7 +316,7 @@ class AsyncRawSessionsClient:
         external_id : str
             Caller-supplied id unique within the tenant.
 
-        source : typing.Optional[SessionSourceSchedule]
+        source : typing.Optional[SessionSource]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -333,7 +335,7 @@ class AsyncRawSessionsClient:
                 ),
                 "external_id": external_id,
                 "source": convert_and_respect_annotation_metadata(
-                    object_=source, annotation=SessionSourceSchedule, direction="write"
+                    object_=source, annotation=typing.Optional[SessionSource], direction="write"
                 ),
             },
             headers={
@@ -409,7 +411,7 @@ class AsyncRawSessionsClient:
         self,
         *,
         session_id: str,
-        input: typing.Optional[typing.Sequence[TurnInputItem]] = OMIT,
+        input: typing.Sequence[InternalCreateSessionTurnRequestInputItem],
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         stream: typing.Optional[typing.Literal[False]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -422,8 +424,8 @@ class AsyncRawSessionsClient:
         session_id : str
             Session identifier.
 
-        input : typing.Optional[typing.Sequence[TurnInputItem]]
-            Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.
+        input : typing.Sequence[InternalCreateSessionTurnRequestInputItem]
+            User messages for this turn. At least one is required.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -443,7 +445,9 @@ class AsyncRawSessionsClient:
             method="POST",
             json={
                 "input": convert_and_respect_annotation_metadata(
-                    object_=input, annotation=typing.Sequence[TurnInputItem], direction="write"
+                    object_=input,
+                    annotation=typing.Sequence[InternalCreateSessionTurnRequestInputItem],
+                    direction="write",
                 ),
                 "previous_turn_id": convert_and_respect_annotation_metadata(
                     object_=previous_turn_id, annotation=PreviousTurnIdInput, direction="write"

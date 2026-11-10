@@ -181,11 +181,16 @@ export class SessionsClient {
      * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
-     *     await client.internal.sessions.createTurn("session_id")
+     *     await client.internal.sessions.createTurn("session_id", {
+     *         input: [{
+     *                 content: "content",
+     *                 type: "user.message"
+     *             }]
+     *     })
      */
     public createTurn(
         session_id: string,
-        request: TrueForge.internal.InternalCreateSessionTurnRequest = {},
+        request: TrueForge.internal.InternalCreateSessionTurnRequest,
         requestOptions?: SessionsClient.RequestOptions,
     ): core.HttpResponsePromise<TrueForge.GetTurnResponse> {
         return core.HttpResponsePromise.fromPromise(this.__createTurn(session_id, request, requestOptions));
@@ -193,7 +198,7 @@ export class SessionsClient {
 
     private async __createTurn(
         session_id: string,
-        request: TrueForge.internal.InternalCreateSessionTurnRequest = {},
+        request: TrueForge.internal.InternalCreateSessionTurnRequest,
         requestOptions?: SessionsClient.RequestOptions,
     ): Promise<core.WithRawResponse<TrueForge.GetTurnResponse>> {
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();

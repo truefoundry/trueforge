@@ -7,20 +7,10 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
 
 
-class SessionSourceId(UncheckedBaseModel):
-    id: str = pydantic.Field()
+class SessionSourceIntegration(UncheckedBaseModel):
+    type: typing.Literal["integration"] = pydantic.Field(default="integration")
     """
-    Schedule id.
-    """
-
-    run_id: str = pydantic.Field()
-    """
-    Schedule run id.
-    """
-
-    type: typing.Literal["schedule"] = pydantic.Field(default="schedule")
-    """
-    Session was created by a schedule run.
+    Session was created for an external integration (service create-turn).
     """
 
     if IS_PYDANTIC_V2:

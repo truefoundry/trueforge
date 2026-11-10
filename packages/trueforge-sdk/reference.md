@@ -4079,7 +4079,12 @@ Service API key. Non-streaming; requires external_id and a non-null source.
 <dd>
 
 ```typescript
-await client.internal.sessions.createTurn("session_id");
+await client.internal.sessions.createTurn("session_id", {
+    input: [{
+            content: "content",
+            type: "user.message"
+        }]
+});
 
 ```
 </dd>

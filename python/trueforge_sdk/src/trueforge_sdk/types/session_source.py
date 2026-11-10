@@ -2,7 +2,7 @@
 
 import typing
 
-from .session_source_id import SessionSourceId
-from .session_source_one import SessionSourceOne
+from .session_source_integration import SessionSourceIntegration
+from .session_source_schedule import SessionSourceSchedule
 
-SessionSource = typing.Union[SessionSourceId, SessionSourceOne]
+SessionSource = typing.Union[SessionSourceSchedule, SessionSourceIntegration]

@@ -1787,7 +1787,7 @@
             "type": "string"
           },
           "source": {
-            "$ref": "#/components/schemas/SessionSourceSchedule"
+            "$ref": "#/components/schemas/SessionSource"
           }
         },
         "required": [
@@ -2073,10 +2073,34 @@
       "InternalCreateSessionTurnRequest": {
         "properties": {
           "input": {
-            "description": "Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.",
+            "description": "User messages for this turn. At least one is required.",
             "items": {
-              "$ref": "#/components/schemas/TurnInputItem"
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/UserMessage"
+                },
+                {
+                  "properties": {
+                    "content": {
+                      "anyOf": [
+                        {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        {
+                          "items": {
+                            "$ref": "#/components/schemas/UserMessageContentItem"
+                          },
+                          "type": "array"
+                        }
+                      ]
+                    }
+                  },
+                  "type": "object"
+                }
+              ]
             },
+            "minItems": 1,
             "type": "array"
           },
           "previous_turn_id": {
@@ -2091,6 +2115,9 @@
             "type": "boolean"
           }
         },
+        "required": [
+          "input"
+        ],
         "type": "object"
       },
       "LargeToolResponseConfig": {
@@ -4921,53 +4948,31 @@
         "description": "How this session was created (e.g. a schedule run). Null for interactive sessions.",
         "oneOf": [
           {
-            "additionalProperties": false,
-            "properties": {
-              "id": {
-                "description": "Schedule id.",
-                "minLength": 1,
-                "type": "string"
-              },
-              "run_id": {
-                "description": "Schedule run id.",
-                "minLength": 1,
-                "type": "string"
-              },
-              "type": {
-                "description": "Session was created by a schedule run.",
-                "enum": [
-                  "schedule"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "type",
-              "id",
-              "run_id"
-            ],
-            "type": "object"
+            "$ref": "#/components/schemas/SessionSourceSchedule"
           },
           {
-            "additionalProperties": false,
-            "properties": {
-              "type": {
-                "description": "Session was created for an external integration (service create-turn).",
-                "enum": [
-                  "integration"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "type"
-            ],
-            "type": "object"
+            "$ref": "#/components/schemas/SessionSourceIntegration"
           },
           {
             "type": "null"
           }
         ]
+      },
+      "SessionSourceIntegration": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "description": "Session was created for an external integration (service create-turn).",
+            "enum": [
+              "integration"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
       },
       "SessionSourceSchedule": {
         "additionalProperties": false,

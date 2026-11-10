@@ -4,14 +4,14 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 
-export const SessionSourceOne: core.serialization.ObjectSchema<
-    serializers.SessionSourceOne.Raw,
-    TrueForge.SessionSourceOne
+export const SessionSourceIntegration: core.serialization.ObjectSchema<
+    serializers.SessionSourceIntegration.Raw,
+    TrueForge.SessionSourceIntegration
 > = core.serialization.object({
     type: core.serialization.stringLiteral("integration"),
 });
 
-export declare namespace SessionSourceOne {
+export declare namespace SessionSourceIntegration {
     export interface Raw {
         type: "integration";
     }

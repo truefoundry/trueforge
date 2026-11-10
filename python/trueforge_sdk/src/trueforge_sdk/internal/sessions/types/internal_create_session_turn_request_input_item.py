@@ -3,16 +3,11 @@
 import typing
 
 import pydantic
-from ..core.pydantic_utilities import IS_PYDANTIC_V2
-from ..core.unchecked_base_model import UncheckedBaseModel
+from ....core.pydantic_utilities import IS_PYDANTIC_V2
+from ....types.user_message import UserMessage
 
 
-class SessionSourceOne(UncheckedBaseModel):
-    type: typing.Literal["integration"] = pydantic.Field(default="integration")
-    """
-    Session was created for an external integration (service create-turn).
-    """
-
+class InternalCreateSessionTurnRequestInputItem(UserMessage):
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2
     else:

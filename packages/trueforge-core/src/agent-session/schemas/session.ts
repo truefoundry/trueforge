@@ -120,7 +120,7 @@ export const SessionSourceIntegrationSchema = sessionSourceIntegrationObject().o
 
 /** How a session was created. Null for interactive sessions. Non-null sources skip memory ingest. */
 export const SessionSourceSchema = z
-  .discriminatedUnion('type', [sessionSourceScheduleObject(), sessionSourceIntegrationObject()])
+  .discriminatedUnion('type', [SessionSourceScheduleSchema, SessionSourceIntegrationSchema])
   .describe('How this session was created (e.g. a schedule run). Null for interactive sessions.')
   .openapi('SessionSource');
 

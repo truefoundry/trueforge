@@ -4,11 +4,16 @@ import type * as TrueForge from "../../../../../../index.js";
 
 /**
  * @example
- *     {}
+ *     {
+ *         input: [{
+ *                 content: "content",
+ *                 type: "user.message"
+ *             }]
+ *     }
  */
 export interface InternalCreateSessionTurnRequest {
-    /** Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items. */
-    input?: TrueForge.TurnInputItem[];
+    /** User messages for this turn. At least one is required. */
+    input: TrueForge.internal.InternalCreateSessionTurnRequestInputItem[];
     previousTurnId?: TrueForge.PreviousTurnIdInput;
     /** Must be false; streaming is not supported on this endpoint. */
     stream?: false;

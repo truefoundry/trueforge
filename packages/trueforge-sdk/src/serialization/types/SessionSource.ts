@@ -3,12 +3,12 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { SessionSourceId } from "./SessionSourceId.js";
-import { SessionSourceOne } from "./SessionSourceOne.js";
+import { SessionSourceIntegration } from "./SessionSourceIntegration.js";
+import { SessionSourceSchedule } from "./SessionSourceSchedule.js";
 
 export const SessionSource: core.serialization.Schema<serializers.SessionSource.Raw, TrueForge.SessionSource> =
-    core.serialization.undiscriminatedUnion([SessionSourceId, SessionSourceOne]);
+    core.serialization.undiscriminatedUnion([SessionSourceSchedule, SessionSourceIntegration]);
 
 export declare namespace SessionSource {
-    export type Raw = SessionSourceId.Raw | SessionSourceOne.Raw;
+    export type Raw = SessionSourceSchedule.Raw | SessionSourceIntegration.Raw;
 }

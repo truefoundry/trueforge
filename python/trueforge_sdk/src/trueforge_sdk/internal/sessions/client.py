@@ -8,9 +8,9 @@ from ...types.create_session_agent import CreateSessionAgent
 from ...types.get_session_response import GetSessionResponse
 from ...types.get_turn_response import GetTurnResponse
 from ...types.previous_turn_id_input import PreviousTurnIdInput
-from ...types.session_source_schedule import SessionSourceSchedule
-from ...types.turn_input_item import TurnInputItem
+from ...types.session_source import SessionSource
 from .raw_client import AsyncRawSessionsClient, RawSessionsClient
+from .types.internal_create_session_turn_request_input_item import InternalCreateSessionTurnRequestInputItem
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -36,7 +36,7 @@ class SessionsClient:
         *,
         agent: CreateSessionAgent,
         external_id: str,
-        source: typing.Optional[SessionSourceSchedule] = OMIT,
+        source: typing.Optional[SessionSource] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetSessionResponse:
         """
@@ -49,7 +49,7 @@ class SessionsClient:
         external_id : str
             Caller-supplied id unique within the tenant.
 
-        source : typing.Optional[SessionSourceSchedule]
+        source : typing.Optional[SessionSource]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -83,7 +83,7 @@ class SessionsClient:
         self,
         *,
         session_id: str,
-        input: typing.Optional[typing.Sequence[TurnInputItem]] = OMIT,
+        input: typing.Sequence[InternalCreateSessionTurnRequestInputItem],
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         stream: typing.Optional[typing.Literal[False]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -96,8 +96,8 @@ class SessionsClient:
         session_id : str
             Session identifier.
 
-        input : typing.Optional[typing.Sequence[TurnInputItem]]
-            Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.
+        input : typing.Sequence[InternalCreateSessionTurnRequestInputItem]
+            User messages for this turn. At least one is required.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -115,6 +115,9 @@ class SessionsClient:
         Examples
         --------
         from trueforge_sdk import TrueForge
+        from trueforge_sdk.internal.sessions import (
+            InternalCreateSessionTurnRequestInputItem,
+        )
 
         client = TrueForge(
             token="YOUR_TOKEN",
@@ -122,6 +125,11 @@ class SessionsClient:
         )
         client.internal.sessions.create_turn(
             session_id="session_id",
+            input=[
+                InternalCreateSessionTurnRequestInputItem(
+                    content="content",
+                )
+            ],
         )
         """
         _response = self._raw_client.create_turn(
@@ -154,7 +162,7 @@ class AsyncSessionsClient:
         *,
         agent: CreateSessionAgent,
         external_id: str,
-        source: typing.Optional[SessionSourceSchedule] = OMIT,
+        source: typing.Optional[SessionSource] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetSessionResponse:
         """
@@ -167,7 +175,7 @@ class AsyncSessionsClient:
         external_id : str
             Caller-supplied id unique within the tenant.
 
-        source : typing.Optional[SessionSourceSchedule]
+        source : typing.Optional[SessionSource]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -209,7 +217,7 @@ class AsyncSessionsClient:
         self,
         *,
         session_id: str,
-        input: typing.Optional[typing.Sequence[TurnInputItem]] = OMIT,
+        input: typing.Sequence[InternalCreateSessionTurnRequestInputItem],
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         stream: typing.Optional[typing.Literal[False]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -222,8 +230,8 @@ class AsyncSessionsClient:
         session_id : str
             Session identifier.
 
-        input : typing.Optional[typing.Sequence[TurnInputItem]]
-            Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.
+        input : typing.Sequence[InternalCreateSessionTurnRequestInputItem]
+            User messages for this turn. At least one is required.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -243,6 +251,9 @@ class AsyncSessionsClient:
         import asyncio
 
         from trueforge_sdk import AsyncTrueForge
+        from trueforge_sdk.internal.sessions import (
+            InternalCreateSessionTurnRequestInputItem,
+        )
 
         client = AsyncTrueForge(
             token="YOUR_TOKEN",
@@ -253,6 +264,11 @@ class AsyncSessionsClient:
         async def main() -> None:
             await client.internal.sessions.create_turn(
                 session_id="session_id",
+                input=[
+                    InternalCreateSessionTurnRequestInputItem(
+                        content="content",
+                    )
+                ],
             )
 
 
