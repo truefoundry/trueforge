@@ -50,6 +50,10 @@ Each session carries a copyable **session ID**, and the detail header has a butt
 
 The creator of a session can share it, read-only, with specific people or with everyone in their tenant.
 
+<Note>
+  Sharing with specific people needs a user directory, which TrueForge has when it runs on the TrueFoundry platform. In local mode and with OIDC login, you can share with everyone in the tenant only, and the people search is hidden.
+</Note>
+
 ### Share from the UI
 
 Open the session and click **Share**.
@@ -63,10 +67,6 @@ Open the session and click **Share**.
 Opening the share link shows a read-only view of the session: its summary metrics, event timeline, and transcript.
 
 They can't send messages, resume the run, edit or delete the session, download sandbox files, or change who it's shared with. Shared sessions don't appear in their sessions list, so they open them from the link. Removing a person or switching back to **Restricted** takes their access away immediately.
-
-<Note>
-  Sharing with specific people needs a user directory, which TrueForge has when it runs on the TrueFoundry platform. In local mode and with OIDC login, you can share with everyone in the tenant only, and the people search is hidden.
-</Note>
 
 ### Share from the SDK
 
