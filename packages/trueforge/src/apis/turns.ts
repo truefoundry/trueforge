@@ -413,7 +413,7 @@ function createTurnResolver(deps: {
     },
     mcp: async id => {
       if (id === TRUEFORGE_MCP_ID) {
-        return trueforgeMcp;
+        return trueforgeMcp === undefined ? undefined : withTurnSessionHeader(trueforgeMcp, sessionId);
       }
       const connection = await getMcpConnection({
         tenant_id,
@@ -427,7 +427,7 @@ function createTurnResolver(deps: {
           message: `Unknown MCP server "${id}" — not configured`,
         });
       }
-      return connection;
+      return withTurnSessionHeader(connection, sessionId);
     },
     mcpRequestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
     mcpConnectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
@@ -727,12 +727,10 @@ async function prepareTurnExecution<TTransaction>(input: {
             'configuration and the configured models, MCP servers, and skills. Does not run agents or turns.',
           url: new URL('/mcp', normalizeTlsUrl({ url: configuration.SERVER_URL, enabled: configuration.MTLS_ENABLED }))
             .href,
-          headers: {
-            [TRUEFORGE_SESSION_HEADER]: input.session.session_id,
-            ...(requestContext.user_credential === null
+          headers:
+            requestContext.user_credential === null
               ? {}
-              : { Authorization: `Bearer ${requestContext.user_credential}` }),
-          },
+              : { Authorization: `Bearer ${requestContext.user_credential}` },
           fetchFn: trueforgeMcpFetch,
         }
       : undefined;
@@ -797,6 +795,26 @@ const trueforgeMcpFetch = createTlsFetch({
   enabled: configuration.MTLS_ENABLED,
   dir: configuration.MTLS_CERTS_DIR,
 });
+
+/**
+ * Stamps the chat session id onto an MCP connection so every server (built-in and user-configured)
+ * can correlate calls back to this session. Host-controlled, so it is applied last and wins over any
+ * configured header. Handles both static headers and the connect-time resolver form.
+ */
+function withTurnSessionHeader(connection: McpConnection, sessionId: string): McpConnection {
+  const sessionHeader = { [TRUEFORGE_SESSION_HEADER]: sessionId };
+  const headers = connection.headers;
+  if (typeof headers === 'function') {
+    return {
+      ...connection,
+      headers: async () => {
+        const resolved = await headers();
+        return 'authRequired' in resolved ? resolved : { headers: { ...resolved.headers, ...sessionHeader } };
+      },
+    };
+  }
+  return { ...connection, headers: { ...(headers ?? {}), ...sessionHeader } };
+}
 
 /**
  * Shared create-turn engine: persist the turn, start execution, and return the
