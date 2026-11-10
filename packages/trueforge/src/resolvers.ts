@@ -22,6 +22,7 @@ import type { ISandboxProviderStore } from './db/sandboxProviderStore';
 import type { ISkillStore } from './db/skillStore';
 import type { IWebSearchProviderStore } from './db/webSearchProviderStore';
 import type { IOAuthTokenStore } from './mcp/auth/types';
+import { parsePerServerMcpHeaders, X_TFG_MCP_HEADERS, type PerServerMcpHeaders } from './mcp/perServerMcpHeaders';
 import type { MemoryProviderCache, TenantMemoryDeps } from './memory/providers';
 import { headerValue } from './truefoundry/gatewayMetadata';
 import { InlineMcpServerStore } from './truefoundry/InlineMcpServerStore';
@@ -42,11 +43,6 @@ import {
 } from './truefoundry/inlineResources';
 import { InlineSkillStore } from './truefoundry/InlineSkillStore';
 import { InlineCapabilitiesStore } from './truefoundry/inlineTools';
-import {
-  parsePerServerMcpHeaders,
-  X_TFG_MCP_HEADERS,
-  type PerServerMcpHeaders,
-} from './truefoundry/perServerMcpHeaders';
 import { TrueFoundryAgentStore } from './truefoundry/TrueFoundryAgentStore';
 import { TrueFoundryMcpServerStore } from './truefoundry/TrueFoundryMcpServerStore';
 import { TrueFoundryModelProviderStore } from './truefoundry/TrueFoundryModelProviderStore';
@@ -110,7 +106,8 @@ export function buildResolveModelProviderStore<TTransaction>(options: {
 }
 
 /**
- * Per-request MCP store over ServiceFoundry. `runAsAgent` selects a saved agent's token for turns.
+ * Per-request MCP store over ServiceFoundry, else the DB store with any `x-tfg-mcp-headers`.
+ * `runAsAgent` selects a saved agent's token for turns.
  */
 export function buildResolveMcpServerStore<TTransaction>(options: {
   persistenceStore: IMcpServerStore<TTransaction>;
@@ -137,6 +134,14 @@ export function buildResolveMcpServerStore<TTransaction>(options: {
         return new InlineMcpServerStore({ inner: store, inline: input.inlineMcpServers });
       }
       return store;
+    }
+    if (input.perServerHeaders !== undefined) {
+      return new McpServerWithAuthStore<TTransaction>({
+        store: options.persistenceStore,
+        tokenStore: options.tokenStore,
+        clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
+        perServerHeaders: input.perServerHeaders,
+      });
     }
     return withAuthMcpPersistenceStore;
   };

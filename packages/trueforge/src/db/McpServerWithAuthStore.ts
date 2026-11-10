@@ -1,6 +1,7 @@
 import type { RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
 import { isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
 import type { IOAuthTokenStore, OAuthClientRecord } from '../mcp/auth/types';
+import { hasAuthorizationHeader, overrideHeaders, type PerServerMcpHeaders } from '../mcp/perServerMcpHeaders';
 import { resolveConfiguredMcpRequestHeaders, resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
 import {
   McpServerNotFoundError,
@@ -22,15 +23,18 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
   readonly #store: IMcpServerStore<TTransaction>;
   readonly #tokenStore: IOAuthTokenStore<TTransaction>;
   readonly #clientName: string;
+  readonly #perServerHeaders: PerServerMcpHeaders;
 
   constructor(input: {
     store: IMcpServerStore<TTransaction>;
     tokenStore: IOAuthTokenStore<TTransaction>;
     clientName: string;
+    perServerHeaders?: PerServerMcpHeaders;
   }) {
     this.#store = input.store;
     this.#tokenStore = input.tokenStore;
     this.#clientName = input.clientName;
+    this.#perServerHeaders = input.perServerHeaders ?? {};
   }
 
   listServers(input: ListMcpServersInput, transaction?: TTransaction): Promise<McpServerRecord[]> {
@@ -57,11 +61,36 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
     return this.#store.deleteServer(input, transaction);
   }
 
+  /** Caller headers for the server go straight to it; one with Authorization skips its consent flow. */
   resolveInvokeHeaders(input: {
     record: McpServerRecord;
     userRef: string;
     turnMetadata?: TurnMetadata;
   }): RemoteMcpHeaders {
+    const registered = this.#resolveRegisteredHeaders(input);
+    const callerHeaders = this.#perServerHeaders[input.record.name];
+    if (callerHeaders === undefined) {
+      return registered;
+    }
+    if (hasAuthorizationHeader(callerHeaders)) {
+      return overrideHeaders({
+        base: resolveConfiguredMcpRequestHeaders(input.record.manifest),
+        override: callerHeaders,
+      });
+    }
+    if (typeof registered !== 'function') {
+      return overrideHeaders({ base: registered, override: callerHeaders });
+    }
+    return async () => {
+      const result = await registered();
+      if ('authRequired' in result) {
+        return result;
+      }
+      return { headers: overrideHeaders({ base: result.headers, override: callerHeaders }) };
+    };
+  }
+
+  #resolveRegisteredHeaders(input: { record: McpServerRecord; userRef: string }): RemoteMcpHeaders {
     const { record, userRef } = input;
     if (record.manifest.auth?.type === 'dcr') {
       return async () => {
