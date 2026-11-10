@@ -81,6 +81,15 @@ function ignoredRoles(messages: readonly MemoryMessage[]): MemoryMessage['role']
   return [...roles].filter(role => messages.every(message => message.role !== role || !message.extract));
 }
 
+/** `signal`, also aborted once a request attempt, body included, runs past the timeout. */
+function withDeadline(signal: AbortSignal | null | undefined): AbortSignal {
+  const deadline = new AbortController();
+  setTimeout(() => {
+    deadline.abort(new DOMException('Zep request timed out', 'TimeoutError'));
+  }, DEFAULT_TIMEOUT_SECONDS * 1_000).unref();
+  return signal === undefined || signal === null ? deadline.signal : AbortSignal.any([signal, deadline.signal]);
+}
+
 function requireUuid(operation: ZepOperation, uuid: string | undefined): string {
   if (uuid === undefined || uuid === '') {
     throw new ZepRequestError({ operation, status: null, message: `Zep ${operation} returned no uuid` });
@@ -97,12 +106,14 @@ export class ZepMemoryProvider implements MemoryProvider {
 
   constructor(options: ZepMemoryProviderOptions) {
     this.#logger = options.logger;
+    const baseFetch = options.fetch ?? fetch;
     this.#client = new ZepClient({
       apiKey: options.apiKey,
       baseUrl: options.baseUrl.replace(/\/+$/, ''),
       timeoutInSeconds: DEFAULT_TIMEOUT_SECONDS,
       maxRetries: DEFAULT_MAX_RETRIES,
-      ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
+      // The SDK's timeout stops once headers arrive; this deadline also bounds reading the body.
+      fetch: (input, init) => baseFetch(input, { ...init, signal: withDeadline(init?.signal) }),
     });
   }
 
