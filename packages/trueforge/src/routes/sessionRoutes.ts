@@ -1,8 +1,7 @@
 /**
  * Session route definitions.
- * Public DB-backed routes mount at /api/v1/sessions; internal operations mount
- * at /api/internal/sessions.
- * Handlers are registered in apis/sessions.ts.
+ * Public DB-backed routes mount at /api/v1/sessions; internal get-or-create at
+ * /api/internal/sessions.
  */
 import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';

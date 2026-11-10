@@ -46,9 +46,11 @@ export {
   CANCELLATION_REASON_CUSTOM_KEY,
   MESSAGE_CUSTOM_KEY,
   isMcpServerAuthInfoList,
+  parallelToolGroupsCustom,
 } from './messageCustomMetadata.js';
 export type {
   McpAuthMessageCustomMetadata,
+  ParallelToolGroups,
   SandboxMessageCustomMetadata,
   SubAgentMessageCustomMetadata,
   ToolApprovalMessageCustomMetadata,

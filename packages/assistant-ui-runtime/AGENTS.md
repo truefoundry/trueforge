@@ -9,3 +9,9 @@
 - Canonical server ports, DTOs, and events live in `src/server/types.ts` and `src/server/events.ts`.
 - Wire event/status constants live beside those canonical contracts; runtime code MUST reuse them instead of repeating protocol strings.
 - Public runtime names use `TrueForge`, never the removed `TrueFoundry` backend name.
+
+## Code comments
+
+- Comments MUST be scenario-based: state the situation that triggers the code and why it is handled this way, e.g. "This happens when …, we do this because …" or "When …, we … so that …".
+- A comment MUST NOT only restate what the code does (e.g. "Maps toolCallId to model.message id"); name the case it covers instead.
+- Comments stay brief (one to three lines) and follow the root `AGENTS.md` comment rules.
