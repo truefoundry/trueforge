@@ -10,6 +10,7 @@ import { createTurnsRouter } from '../../../src/apis/turns';
 import { createAppErrorHandler } from '../../../src/app';
 import { TrueForgeAuthorizer } from '../../../src/auth/authorizer';
 import type { RequestContext } from '../../../src/auth/identity';
+import { EmptyCapabilitiesStore } from '../../../src/db/capabilitiesStore';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAccessControlStore } from '../../../src/db/sqlite/access-control-store/SqliteAccessControlStore';
@@ -27,7 +28,6 @@ import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/Sqlite
 import type { Database } from '../../../src/db/sqlite/types';
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
 import { EmptyUserStore, type IUserStore } from '../../../src/db/userStore';
-import { MemoryProviderCache } from '../../../src/memory/providers';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription';
 import { ListSessionGrantsResponseSchema } from '../../../src/schemas/sessionGrant';
@@ -102,55 +102,58 @@ function buildApp(input: { db: Kysely<Database>; sessionStore: SqliteSessionStor
   app.route(
     '/',
     createTurnsRouter({
+      accessControlStore,
+      activeTurns: new ActiveTurnRegistry({ logger }),
+      authorizer: new TrueForgeAuthorizer(),
+      eventSubscriptions: new EventSubscriptionRegistry(undefined),
+      logger,
+      requestReplyRouter: new RequestReplyRouter(),
+      resolveAgentStore: () => agentStore,
+      resolveRequestContext,
+      resolveTurnExecutionStores: () =>
+        Promise.resolve({
+          agentStore,
+          capabilitiesStore: new EmptyCapabilitiesStore(),
+          modelProviderStore: new SqliteModelProviderStore(db),
+          mcpServerStore: new McpServerWithAuthStore({
+            store: new SqliteMcpServerStore(db),
+            tokenStore: new SqliteOAuthTokenStore(db),
+            clientName: 'test-client',
+          }),
+          skillStore: new SqliteSkillStore(db),
+          sandboxProviderStore: new SqliteSandboxProviderStore(db),
+          webSearchProviderStore: new SqliteWebSearchProviderStore(db),
+          memory: undefined,
+        }),
+      sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
+      sandboxProviderStore: new SqliteSandboxProviderStore(db),
       sessions,
       sessionStore,
-      accessControlStore,
-      activeTurns: new ActiveTurnRegistry(),
-      resolveModelProviderStore: () => new SqliteModelProviderStore(db),
-      resolveMcpServerStore: () =>
-        new McpServerWithAuthStore({
-          store: new SqliteMcpServerStore(db),
-          tokenStore: new SqliteOAuthTokenStore(db),
-          clientName: 'test-client',
-        }),
-      resolveTurnSkillsStore: () => new SqliteSkillStore(db),
-      resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
-      resolveAgentStore: () => agentStore,
-      eventSubscriptions: new EventSubscriptionRegistry(undefined),
-      resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
-      sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
-      resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
-      resolveMemoryProviderStore: () => new SqliteMemoryProviderStore(db),
-      resolveConfigurationStore: () => new SqliteConfigurationStore(db),
-      memoryProviders: new MemoryProviderCache({ logger: createLogger({ silent: true }) }),
-      logger,
-      resolveRequestContext,
-      authorizer: new TrueForgeAuthorizer(),
     }),
   );
   app.route(
     '/',
     createSessionsRouter({
-      sessions,
-      sessionStore,
       accessControlStore,
-      userStore,
-      withTransaction: callback => db.transaction().execute(callback),
-      activeTurns: new ActiveTurnRegistry(),
-      resolveModelProviderStore: () => new SqliteModelProviderStore(db),
-      resolveMcpServerStore: () => new SqliteMcpServerStore(db),
-      resolveSkillStore: () => new SqliteSkillStore(db),
-      resolveAgentStore: () => agentStore,
-      resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
-      sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
-      resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
-      resolveMemoryProviderStore: () => new SqliteMemoryProviderStore(db),
-      resolveConfigurationStore: () => new SqliteConfigurationStore(db),
+      activeTurns: new ActiveTurnRegistry({ logger }),
+      authorizer: new TrueForgeAuthorizer(),
+      logger,
       redis: createClient(),
       requestReplyRouter: new RequestReplyRouter(),
+      resolveAgentStore: () => agentStore,
+      resolveMcpServerStore: () => new SqliteMcpServerStore(db),
+      resolveModelProviderStore: () => new SqliteModelProviderStore(db),
       resolveRequestContext,
-      logger,
-      authorizer: new TrueForgeAuthorizer(),
+      resolveSkillStore: () => new SqliteSkillStore(db),
+      sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
+      sandboxProviderStore: new SqliteSandboxProviderStore(db),
+      sessions,
+      sessionStore,
+      userStore,
+      webSearchProviderStore: new SqliteWebSearchProviderStore(db),
+      memoryProviderStore: new SqliteMemoryProviderStore(db),
+      configurationStore: new SqliteConfigurationStore(db),
+      withTransaction: callback => db.transaction().execute(callback),
     }),
   );
   app.onError(createAppErrorHandler({ logger }));
@@ -408,9 +411,14 @@ describe('session grants API', () => {
       expect((await app.request(`/${SESSION_ID}`, jsonInit('PATCH', { title: 'x' }, 'alice'))).status).toBe(403);
       expect((await app.request(`/${SESSION_ID}`, asCaller('alice', 'DELETE'))).status).toBe(403);
       expect((await app.request(`/${SESSION_ID}/cancel`, asCaller('alice', 'POST'))).status).toBe(403);
-      expect((await app.request(`/${SESSION_ID}/turns`, jsonInit('POST', { stream: false }, 'alice'))).status).toBe(
-        403,
-      );
+      expect(
+        (
+          await app.request(
+            `/${SESSION_ID}/turns`,
+            jsonInit('POST', { input: [{ type: 'user.message', content: 'hello' }], stream: false }, 'alice'),
+          )
+        ).status,
+      ).toBe(403);
       expect((await app.request(`/${SESSION_ID}/turns/missing/subscribe`, asCaller('alice'))).status).toBe(403);
       expect((await app.request(download, asCaller('alice'))).status).toBe(403);
       expect((await app.request(`/${SESSION_ID}/grants`, asCaller('alice'))).status).toBe(403);

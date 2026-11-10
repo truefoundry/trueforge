@@ -1,6 +1,7 @@
 import { sql } from 'kysely';
 
 import { down, up } from '../../../../src/db/postgres/migrations/20260821_000001_agent_compaction';
+import type { Database } from '../../../../src/db/postgres/types';
 import { createPostgresTestDatabase, type PostgresTestDatabase } from '../testDatabase';
 
 const describePg = process.env['PG_STORE_TESTS_ENABLED'] === '1' ? describe : describe.skip;
@@ -72,7 +73,7 @@ describePg('Postgres agent compaction migration', () => {
     `.execute(env.db);
 
     await env.db.transaction().execute(async transaction => {
-      await up(transaction);
+      await up<Database>(transaction);
     });
 
     const migratedAgent = await sql<{ manifest: unknown }>`
@@ -96,7 +97,7 @@ describePg('Postgres agent compaction migration', () => {
     expect(migratedSession.rows[0]?.agent_spec).toEqual(expectedMigratedSpec);
 
     await env.db.transaction().execute(async transaction => {
-      await down(transaction);
+      await down<Database>(transaction);
     });
 
     const rolledBackAgent = await sql<{ manifest: unknown }>`

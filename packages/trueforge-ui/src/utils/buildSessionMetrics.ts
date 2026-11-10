@@ -1,4 +1,9 @@
-import { MAIN_THREAD_ID, getSessionEventColor, type SessionEventTimelineSegment } from './sessionEventTimeline.js';
+import {
+  MAIN_THREAD_ID,
+  getSessionEventColor,
+  mergedPauseWallMs,
+  type SessionEventTimelineSegment,
+} from './sessionEventTimeline.js';
 import {
   sumSessionInputTokensBreakdown,
   type SessionInputTokensBreakdown,
@@ -164,11 +169,12 @@ export function buildSessionMetrics({
   const toolTimeMs = segments
     .filter(segment => segment.type === 'tool_call')
     .reduce((sum, segment) => sum + segmentDurationMs(segment), 0);
-  const waitingTimeMs = segments
-    .filter(segment => segment.type === 'waiting_on_human' || segment.type === 'approval')
-    .reduce((sum, segment) => sum + segmentDurationMs(segment), 0);
+  // Merge chip and span intervals. A sibling span can keep growing after the
+  // turn is running, and that tail is waiting time, not overhead.
+  const waitingTimeMs = mergedPauseWallMs(segments);
   // Detail session metrics may override wall time and cost; lineage turn count is always from events.
-  const wallTimeMs = sessionMetrics != null ? sessionMetrics.totalDurationMs : derivedWallTimeMs;
+  // Server duration excludes pauses while turn spans include them, so add waiting back to match.
+  const wallTimeMs = sessionMetrics != null ? sessionMetrics.totalDurationMs + waitingTimeMs : derivedWallTimeMs;
   const overheadTimeMs = Math.max(0, wallTimeMs - modelTimeMs - toolTimeMs - waitingTimeMs);
 
   const toolCallCounts = new Map<string, number>();

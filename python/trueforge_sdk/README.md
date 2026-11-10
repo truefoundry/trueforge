@@ -45,6 +45,7 @@ Instantiate and use the client with the following:
 
 ```python
 from trueforge_sdk import TrueForge
+from trueforge_sdk.sessions import CreateTurnSessionsStreamRequestInputItem
 
 client = TrueForge(
     token="<token>",
@@ -53,6 +54,12 @@ client = TrueForge(
 
 client.sessions.create_turn_stream(
     session_id="session_id",
+    input=[
+        CreateTurnSessionsStreamRequestInputItem(
+            content="content",
+            type="user.message",
+        )
+    ],
 )
 ```
 
@@ -62,6 +69,7 @@ The SDK also exports an `async` client so that you can make non-blocking calls t
 
 ```python
 import asyncio
+from trueforge_sdk.sessions import CreateTurnSessionsStreamRequestInputItem
 
 from trueforge_sdk import AsyncTrueForge
 
@@ -100,6 +108,7 @@ The SDK supports streaming responses, as well, the response will be a generator 
 
 ```python
 from trueforge_sdk import TrueForge
+from trueforge_sdk.sessions import CreateTurnSessionsStreamRequestInputItem
 
 client = TrueForge(
     token="<token>",
@@ -108,6 +117,12 @@ client = TrueForge(
 
 client.sessions.create_turn_stream(
     session_id="session_id",
+    input=[
+        CreateTurnSessionsStreamRequestInputItem(
+            content="content",
+            type="user.message",
+        )
+    ],
 )
 ```
 

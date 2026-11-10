@@ -5,6 +5,10 @@
  *     {}
  */
 export interface SubscribeToTurnSessionsRequest {
-    /** Exclusive resume cursor: replay only events with a sequence number greater than this value. Omit to start from the beginning of the live buffer. */
+    /** Deprecated. Rejected on new turns. Use from_event_id or after_event_id instead. */
     afterSequenceNumber?: number | null;
+    /** Inclusive cursor. Replay starts at the entry with this event id */
+    fromEventId?: string;
+    /** Exclusive cursor. Replay starts after the last entry with this event id. */
+    afterEventId?: string;
 }

@@ -275,14 +275,18 @@ export class RequestReplyExecutor {
 
   /** One raw pub/sub payload. Never throws. */
   private onMessage(message: string): void {
-    this.logger.debug('[RequestReplyExecutor] Received message', { executorId: this.executorId, message });
+    // The payload can carry a caller credential and request headers. Log the size only.
+    this.logger.debug('[RequestReplyExecutor] Received message', {
+      executorId: this.executorId,
+      bytes: message.length,
+    });
     if (!message) {
       return;
     }
     if (this.closed) {
       this.logger.warn('[RequestReplyExecutor] Received message after executor is closed', {
         executorId: this.executorId,
-        message,
+        bytes: message.length,
       });
       return;
     }
