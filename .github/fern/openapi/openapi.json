@@ -1329,10 +1329,34 @@
       "CreateTurnRequest": {
         "properties": {
           "input": {
-            "description": "User messages supplied when the turn is created.",
+            "description": "User messages for this turn. At least one is required.",
             "items": {
-              "$ref": "#/components/schemas/UserMessage"
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/UserMessage"
+                },
+                {
+                  "properties": {
+                    "content": {
+                      "anyOf": [
+                        {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        {
+                          "items": {
+                            "$ref": "#/components/schemas/UserMessageContentItem"
+                          },
+                          "type": "array"
+                        }
+                      ]
+                    }
+                  },
+                  "type": "object"
+                }
+              ]
             },
+            "minItems": 1,
             "type": "array"
           },
           "previous_turn_id": {
@@ -1344,6 +1368,9 @@
             "type": "boolean"
           }
         },
+        "required": [
+          "input"
+        ],
         "type": "object"
       },
       "CreatedBySubject": {

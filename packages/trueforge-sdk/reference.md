@@ -2532,7 +2532,12 @@ Use `previous_turn_id` to chain to the session's last turn (defaults to `auto`);
 <dd>
 
 ```typescript
-const response = await client.sessions.createTurnStream("session_id", {});
+const response = await client.sessions.createTurnStream("session_id", {
+    input: [{
+            content: "content",
+            type: "user.message"
+        }]
+});
 for await (const item of response) {
     console.log(item);
 }
@@ -2610,7 +2615,12 @@ Use `previous_turn_id` to chain to the session's last turn (defaults to `auto`);
 <dd>
 
 ```typescript
-await client.sessions.createTurn("session_id", {});
+await client.sessions.createTurn("session_id", {
+    input: [{
+            content: "content",
+            type: "user.message"
+        }]
+});
 
 ```
 </dd>

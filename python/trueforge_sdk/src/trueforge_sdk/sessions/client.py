@@ -30,8 +30,9 @@ from ..types.session_source_type import SessionSourceType
 from ..types.turn import Turn
 from ..types.turn_streaming_event import TurnStreamingEvent
 from ..types.turn_user_event_message import TurnUserEventMessage
-from ..types.user_message import UserMessage
 from .raw_client import AsyncRawSessionsClient, RawSessionsClient
+from .types.create_turn_sessions_request_input_item import CreateTurnSessionsRequestInputItem
+from .types.create_turn_sessions_stream_request_input_item import CreateTurnSessionsStreamRequestInputItem
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -530,7 +531,7 @@ class SessionsClient:
         self,
         *,
         session_id: str,
-        input: typing.Optional[typing.Sequence[UserMessage]] = OMIT,
+        input: typing.Sequence[CreateTurnSessionsStreamRequestInputItem],
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Stream[TurnStreamingEvent]:
@@ -546,8 +547,8 @@ class SessionsClient:
         session_id : str
             Session identifier.
 
-        input : typing.Optional[typing.Sequence[UserMessage]]
-            User messages supplied when the turn is created.
+        input : typing.Sequence[CreateTurnSessionsStreamRequestInputItem]
+            User messages for this turn. At least one is required.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -562,6 +563,7 @@ class SessionsClient:
         Examples
         --------
         from trueforge_sdk import TrueForge
+        from trueforge_sdk.sessions import CreateTurnSessionsStreamRequestInputItem
 
         client = TrueForge(
             token="YOUR_TOKEN",
@@ -569,6 +571,11 @@ class SessionsClient:
         )
         response = client.sessions.create_turn_stream(
             session_id="session_id",
+            input=[
+                CreateTurnSessionsStreamRequestInputItem(
+                    content="content",
+                )
+            ],
         )
         for chunk in response:
             yield chunk
@@ -586,7 +593,7 @@ class SessionsClient:
         self,
         *,
         session_id: str,
-        input: typing.Optional[typing.Sequence[UserMessage]] = OMIT,
+        input: typing.Sequence[CreateTurnSessionsRequestInputItem],
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetTurnResponse:
@@ -602,8 +609,8 @@ class SessionsClient:
         session_id : str
             Session identifier.
 
-        input : typing.Optional[typing.Sequence[UserMessage]]
-            User messages supplied when the turn is created.
+        input : typing.Sequence[CreateTurnSessionsRequestInputItem]
+            User messages for this turn. At least one is required.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -618,6 +625,7 @@ class SessionsClient:
         Examples
         --------
         from trueforge_sdk import TrueForge
+        from trueforge_sdk.sessions import CreateTurnSessionsRequestInputItem
 
         client = TrueForge(
             token="YOUR_TOKEN",
@@ -625,6 +633,11 @@ class SessionsClient:
         )
         client.sessions.create_turn(
             session_id="session_id",
+            input=[
+                CreateTurnSessionsRequestInputItem(
+                    content="content",
+                )
+            ],
         )
         """
         _response = self._raw_client.create_turn(
@@ -1474,7 +1487,7 @@ class AsyncSessionsClient:
         self,
         *,
         session_id: str,
-        input: typing.Optional[typing.Sequence[UserMessage]] = OMIT,
+        input: typing.Sequence[CreateTurnSessionsStreamRequestInputItem],
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncStream[TurnStreamingEvent]:
@@ -1490,8 +1503,8 @@ class AsyncSessionsClient:
         session_id : str
             Session identifier.
 
-        input : typing.Optional[typing.Sequence[UserMessage]]
-            User messages supplied when the turn is created.
+        input : typing.Sequence[CreateTurnSessionsStreamRequestInputItem]
+            User messages for this turn. At least one is required.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -1508,6 +1521,7 @@ class AsyncSessionsClient:
         import asyncio
 
         from trueforge_sdk import AsyncTrueForge
+        from trueforge_sdk.sessions import CreateTurnSessionsStreamRequestInputItem
 
         client = AsyncTrueForge(
             token="YOUR_TOKEN",
@@ -1518,6 +1532,11 @@ class AsyncSessionsClient:
         async def main() -> None:
             response = await client.sessions.create_turn_stream(
                 session_id="session_id",
+                input=[
+                    CreateTurnSessionsStreamRequestInputItem(
+                        content="content",
+                    )
+                ],
             )
             async for chunk in response:
                 yield chunk
@@ -1539,7 +1558,7 @@ class AsyncSessionsClient:
         self,
         *,
         session_id: str,
-        input: typing.Optional[typing.Sequence[UserMessage]] = OMIT,
+        input: typing.Sequence[CreateTurnSessionsRequestInputItem],
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetTurnResponse:
@@ -1555,8 +1574,8 @@ class AsyncSessionsClient:
         session_id : str
             Session identifier.
 
-        input : typing.Optional[typing.Sequence[UserMessage]]
-            User messages supplied when the turn is created.
+        input : typing.Sequence[CreateTurnSessionsRequestInputItem]
+            User messages for this turn. At least one is required.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -1573,6 +1592,7 @@ class AsyncSessionsClient:
         import asyncio
 
         from trueforge_sdk import AsyncTrueForge
+        from trueforge_sdk.sessions import CreateTurnSessionsRequestInputItem
 
         client = AsyncTrueForge(
             token="YOUR_TOKEN",
@@ -1583,6 +1603,11 @@ class AsyncSessionsClient:
         async def main() -> None:
             await client.sessions.create_turn(
                 session_id="session_id",
+                input=[
+                    CreateTurnSessionsRequestInputItem(
+                        content="content",
+                    )
+                ],
             )
 
 

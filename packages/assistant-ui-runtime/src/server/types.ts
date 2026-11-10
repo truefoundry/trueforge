@@ -407,7 +407,7 @@ export interface Turn {
 
 export interface CreateTurnRequest {
   sessionId: string;
-  input?: UserMessage[];
+  input: UserMessage[];
   previousTurnId?: PreviousTurnIdInput;
   abortSignal?: AbortSignal;
   headers?: Record<string, string>;

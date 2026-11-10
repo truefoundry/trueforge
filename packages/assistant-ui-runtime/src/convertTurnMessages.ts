@@ -10,6 +10,7 @@ import {
   ASSISTANT_MESSAGE_STATUS_REASON,
   ASSISTANT_MESSAGE_STATUS_TYPE,
   completeAssistantStatus,
+  isRequiresActionToolCalls,
   runningAssistantStatus,
   toolCallsRequiredAssistantStatus,
 } from './assistantMessageStatus.js';
@@ -422,6 +423,9 @@ export function prependFoldState(older: PeerThreadFoldState, newer: PeerThreadFo
   }
   for (const [eventId, messageTurnId] of newer.modelMessageTurnIds) {
     result.modelMessageTurnIds.set(eventId, messageTurnId);
+  }
+  for (const eventId of [...older.ingestedEventIds, ...newer.ingestedEventIds]) {
+    result.ingestedEventIds.add(eventId);
   }
   return result;
 }
@@ -1163,6 +1167,10 @@ function buildTurnUpdateFromFold(
     if (turn.state.status === TURN_STATUS.PAUSED && update.status == null) {
       const approvalThreadId = findFirstPendingApprovalThreadId(foldState);
       const responseThreadId = findFirstPendingResponseThreadId(foldState);
+      // Answered but not yet resumed: leave status unset so it does not look blocked.
+      if (approvalThreadId == null && responseThreadId == null) {
+        return update;
+      }
       const custom = {
         ...(approvalThreadId != null ? toolApprovalMessageCustom(approvalThreadId) : {}),
         ...(responseThreadId != null ? toolResponseMessageCustom(responseThreadId) : {}),
@@ -1211,13 +1219,11 @@ function resolveProjectedRequiredActionState(
     status.reason === ASSISTANT_MESSAGE_STATUS_REASON.TOOL_CALLS &&
     !contentHasPendingRequiredActions(content)
   ) {
-    status = assistantStatusFromTurnState(record.state);
-    custom = Object.fromEntries(
-      Object.entries(custom).filter(
-        ([key]) =>
-          key !== MESSAGE_CUSTOM_KEY.TOOL_APPROVAL_THREAD_ID && key !== MESSAGE_CUSTOM_KEY.TOOL_RESPONSE_THREAD_ID,
-      ),
-    );
+    status =
+      record.state.status === TURN_STATUS.PAUSED
+        ? runningAssistantStatus()
+        : assistantStatusFromTurnState(record.state);
+    custom = omitWaitingThreadIds(custom);
   }
 
   return { status, custom };
@@ -1264,14 +1270,37 @@ function projectActiveStreamUpdate(snapshot: SessionSnapshot): TurnStreamUpdate 
   const rebuilt =
     turnLike != null ? buildTurnUpdateFromFold(snapshot.fold, turnLike, rootModelMessageIds) : { content };
 
-  const metadata = rebuilt.metadata ?? activeStream.update.metadata;
-  const status = rebuilt.status ?? activeStream.update.status;
+  // The fold leaves status unset once every prompt is answered. Drop the
+  // waiting status carried by the live update from before that answer. The
+  // content check matters: a live update can carry prompts the fold has not seen.
+  let metadata = rebuilt.metadata ?? activeStream.update.metadata;
+  let status = rebuilt.status ?? activeStream.update.status;
+  if (
+    turnLike?.state.status === TURN_STATUS.PAUSED &&
+    rebuilt.status == null &&
+    isRequiresActionToolCalls(status) &&
+    !contentHasPendingRequiredActions(content)
+  ) {
+    status = runningAssistantStatus();
+    if (metadata?.custom != null) {
+      metadata = { ...metadata, custom: omitWaitingThreadIds(metadata.custom) };
+    }
+  }
   return {
     ...activeStream.update,
     content,
     ...(metadata == null ? {} : { metadata }),
     ...(status == null ? {} : { status }),
   };
+}
+
+function omitWaitingThreadIds(custom: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(custom).filter(
+      ([key]) =>
+        key !== MESSAGE_CUSTOM_KEY.TOOL_APPROVAL_THREAD_ID && key !== MESSAGE_CUSTOM_KEY.TOOL_RESPONSE_THREAD_ID,
+    ),
+  );
 }
 
 function applyRequiredActionsOverlayToMessages(

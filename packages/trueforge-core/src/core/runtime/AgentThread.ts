@@ -836,6 +836,7 @@ export class AgentThread {
       completion,
     };
     this.preComputedCompletion ??= completion;
+    this.pendingMCPAuth = false;
   }
 
   *closeAllOpenToolCalls({
@@ -868,6 +869,11 @@ export class AgentThread {
   }
 
   isRunnable(): boolean {
+    // Cancel leaves the approval or sign-in in context. The child still has to run once
+    // so the parent receives the completion and the thread is dropped.
+    if (this.preComputedCompletion !== undefined) {
+      return true;
+    }
     return (
       !this.pendingMCPAuth &&
       getPendingApprovalToolCalls(this.context).length === 0 &&
