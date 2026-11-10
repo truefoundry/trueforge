@@ -69,6 +69,17 @@ function turnExecutionStores(db: Kysely<Database>, tokenStore: SqliteOAuthTokenS
   };
 }
 
+/** Valid create-turn body; `input` is required. */
+function createTurnBody(overrides: { stream?: boolean } = {}): {
+  input: UserMessage[];
+  stream?: boolean;
+} {
+  return {
+    input: [{ type: 'user.message', content: 'hello' }],
+    ...overrides,
+  };
+}
+
 describe('turns', () => {
   it('forwards only turn-resource headers to the owning replica', () => {
     expect(
@@ -190,7 +201,7 @@ describe('turns', () => {
       const createResponse = await app.request('/s1/turns', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ stream: false }),
+        body: JSON.stringify(createTurnBody({ stream: false })),
       });
       expect(createResponse.status).toBe(403);
       expect(await createResponse.json()).toEqual({
@@ -308,7 +319,7 @@ describe('turns', () => {
           await app.request('/managed-session/turns', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ stream: false }),
+            body: JSON.stringify(createTurnBody({ stream: false })),
           })
         ).status,
       ).toBe(403);
@@ -395,7 +406,7 @@ describe('turns', () => {
           await app.request('/shared-session/turns', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ stream: false }),
+            body: JSON.stringify(createTurnBody({ stream: false })),
           })
         ).status,
       ).toBe(403);
@@ -452,7 +463,7 @@ describe('turns', () => {
       const response = await app.request('/s1/turns', {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-tfy-metadata': 'not-json' },
-        body: JSON.stringify({ stream: false }),
+        body: JSON.stringify(createTurnBody({ stream: false })),
       });
       expect(response.status).toBe(400);
       expect(await response.text()).toContain('x-tfy-metadata must be a JSON object');
@@ -559,7 +570,7 @@ describe('turns', () => {
       const response = await app.request('/s1/turns', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ stream: false }),
+        body: JSON.stringify(createTurnBody({ stream: false })),
       });
 
       expect(response.status).toBe(200);
@@ -690,7 +701,7 @@ describe('turns', () => {
         app.request('/s1/turns', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ stream: true }),
+          body: JSON.stringify(createTurnBody({ stream: true })),
         }),
       );
       expect(response.status).toBe(200);
@@ -807,7 +818,7 @@ describe('turns', () => {
       const response = await app.request('/s1/turns', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: '{}',
+        body: JSON.stringify(createTurnBody()),
       });
       expect(response.status).toBe(200);
       await response.text();
@@ -935,7 +946,7 @@ describe('turns', () => {
       const response = await app.request('/s1/turns', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ stream: false }),
+        body: JSON.stringify(createTurnBody({ stream: false })),
       });
       expect(response.status).toBe(422);
       expect(await response.json()).toEqual({ error: { message: `Agent not found: ${agent.id}` } });
@@ -947,7 +958,7 @@ describe('turns', () => {
       const response = await app.request('/s1/turns', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ stream: false }),
+        body: JSON.stringify(createTurnBody({ stream: false })),
       });
       expect(response.status).toBe(404);
       expect(await response.json()).toEqual({ error: { message: `Agent not found: ${agent.id}` } });

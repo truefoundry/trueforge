@@ -105,6 +105,8 @@ describe('orchestration: user-message reset', () => {
         title: 'worker',
         parent: { thread_id: MAIN_ID, tool_call_id: TOOL_CALL_ID },
         agentInfo: { type: 'dynamic', name: 'worker', input: 'task' },
+        pendingMCPAuth: true,
+        context: [assistantWithCalls([approvalToolCall('call-child-hitl')])],
         definition: {
           modelClient: {
             create: jest.fn().mockImplementation(() => {
@@ -140,8 +142,9 @@ describe('orchestration: user-message reset', () => {
       sendEvents.push(event);
     }
 
-    const { events, result } = await runExecute({ orchestrator });
+    const { events, result } = await runExecute({ orchestrator, signal: AbortSignal.timeout(5_000) });
 
+    expect(child.toSnapshot().pending_mcp_auth).toBe(false);
     expect(child.toSnapshot().completion).toEqual(expect.objectContaining({ type: 'cancelled', reason: CANCELED }));
     expect(sendEvents).toEqual(
       expect.arrayContaining([

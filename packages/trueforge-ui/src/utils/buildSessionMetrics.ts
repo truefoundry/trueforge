@@ -173,7 +173,8 @@ export function buildSessionMetrics({
   // turn is running, and that tail is waiting time, not overhead.
   const waitingTimeMs = mergedPauseWallMs(segments);
   // Detail session metrics may override wall time and cost; lineage turn count is always from events.
-  const wallTimeMs = sessionMetrics != null ? sessionMetrics.totalDurationMs : derivedWallTimeMs;
+  // Server duration excludes pauses while turn spans include them, so add waiting back to match.
+  const wallTimeMs = sessionMetrics != null ? sessionMetrics.totalDurationMs + waitingTimeMs : derivedWallTimeMs;
   const overheadTimeMs = Math.max(0, wallTimeMs - modelTimeMs - toolTimeMs - waitingTimeMs);
 
   const toolCallCounts = new Map<string, number>();

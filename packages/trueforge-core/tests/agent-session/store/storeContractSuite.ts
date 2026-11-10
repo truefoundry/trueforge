@@ -1614,6 +1614,21 @@ export function runStoreContractSuite<TTransaction>(
       expect(session.last_turn_details).toEqual({ id: 'turn-2', state: { status: 'running' } });
       expect(session.metrics).toEqual({ total_cost_in_usd: 1.25, total_duration_ms: 1500, total_turns: 2 });
     });
+
+    it('bumps session.updated_at when a turn finishes and not when it pauses', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      const created = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
+      await new Promise(resolve => setTimeout(resolve, 5));
+      await setNonTerminalState(store, 'turn-1', makePausedTurnState());
+      const paused = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
+      expect(paused.updated_at.getTime()).toBe(created.updated_at.getTime());
+      await new Promise(resolve => setTimeout(resolve, 5));
+      await finishTurn(store, 'turn-1');
+      const finished = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
+      expect(finished.updated_at.getTime()).toBeGreaterThan(paused.updated_at.getTime());
+    });
   });
 
   describe('createTurn', () => {

@@ -4,10 +4,15 @@ import type * as TrueForge from "../../../../index.js";
 
 /**
  * @example
- *     {}
+ *     {
+ *         input: [{
+ *                 content: "content",
+ *                 type: "user.message"
+ *             }]
+ *     }
  */
 export interface CreateTurnSessionsStreamRequest {
-    /** User messages supplied when the turn is created. */
-    input?: TrueForge.UserMessage[];
+    /** User messages for this turn. At least one is required. */
+    input: TrueForge.CreateTurnSessionsStreamRequestInputItem[];
     previousTurnId?: TrueForge.PreviousTurnIdInput;
 }
