@@ -66,7 +66,9 @@ Open the session and click **Share**.
 
 Opening the share link shows a read-only view of the session: its summary metrics, event timeline, and transcript.
 
-They can't send messages, resume the run, edit or delete the session, download sandbox files, or change who it's shared with. Shared sessions don't appear in their sessions list, so they open them from the link. Removing a person or switching back to **Restricted** takes their access away immediately.
+They can't send messages, resume the run, edit or delete the session, download sandbox files, or change who it's shared with. Shared sessions don't appear in their sessions list, so they open them from the link.
+
+Changes to access take effect immediately. While general access is **Everyone within** your tenant, everyone in the tenant can still open the session, including people you removed. Switch to **Restricted** to limit it to the people you added.
 
 ### Share from the SDK
 
@@ -78,19 +80,18 @@ import { TrueForge } from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({ baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790' });
 
-const { data: alice } = await client.users.list({ query: 'alice@example.com' });
+const { data: users } = await client.users.list({ query: 'alice@example.com' });
+const alice = { subjectType: 'user' as const, subjectId: users[0].id };
+
+// Share with Alice, then stop sharing with her.
+await client.sessions.updateGrants(sessionId, { grant: [alice] });
+await client.sessions.updateGrants(sessionId, { revoke: [alice] });
+
+// Share with everyone in the tenant, then make the session restricted again.
 const { data: me } = await client.auth.me();
-
-// Share with Alice and with everyone in the tenant in one request.
-const { data: grants } = await client.sessions.updateGrants(sessionId, {
-  grant: [
-    { subjectType: 'user', subjectId: alice[0].id },
-    { subjectType: 'tenant', subjectId: me.tenantId },
-  ],
-});
-
-// Later, stop sharing with Alice.
-await client.sessions.updateGrants(sessionId, { revoke: [{ subjectType: 'user', subjectId: alice[0].id }] });
+const everyone = { subjectType: 'tenant' as const, subjectId: me.tenantId };
+await client.sessions.updateGrants(sessionId, { grant: [everyone] });
+await client.sessions.updateGrants(sessionId, { revoke: [everyone] });
 ```
 
 ```python Python wrap
@@ -99,24 +100,19 @@ from trueforge_sdk import SessionGrantSubject, TrueForge
 
 client = TrueForge(base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"))
 
-alice = next(iter(client.users.list(query="alice@example.com")))
+user = next(iter(client.users.list(query="alice@example.com")))
+alice = SessionGrantSubject(subject_type="user", subject_id=user.id)
+
+# Share with Alice, then stop sharing with her.
+client.sessions.update_grants(session_id=session_id, grant=[alice])
+client.sessions.update_grants(session_id=session_id, revoke=[alice])
+
+# Share with everyone in the tenant, then make the session restricted again.
 me = client.auth.me().data
-
-# Share with Alice and with everyone in the tenant in one request.
-grants = client.sessions.update_grants(
-    session_id=session_id,
-    grant=[
-        SessionGrantSubject(subject_type="user", subject_id=alice.id),
-        SessionGrantSubject(subject_type="tenant", subject_id=me.tenant_id),
-    ],
-).data
-
-# Later, stop sharing with Alice.
-client.sessions.update_grants(
-    session_id=session_id,
-    revoke=[SessionGrantSubject(subject_type="user", subject_id=alice.id)],
-)
+everyone = SessionGrantSubject(subject_type="tenant", subject_id=me.tenant_id)
+client.sessions.update_grants(session_id=session_id, grant=[everyone])
+client.sessions.update_grants(session_id=session_id, revoke=[everyone])
 ```
 </CodeGroup>
 
-Only the session creator can change or list grants. `GET /api/v1/capabilities` reports `session_sharing.granularity`: `subject` when sharing with specific people is available, `tenant` when only tenant-wide sharing is.
+Revoking a person doesn't remove access they have through a tenant grant, so revoke the tenant too when you want only specific people to have access. Only the session creator can change or list grants. `GET /api/v1/capabilities` reports `session_sharing.granularity`: `subject` when sharing with specific people is available, `tenant` when only tenant-wide sharing is.
