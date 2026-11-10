@@ -24,6 +24,7 @@ import { paginateWithCursorGuard } from './pagination';
 import {
   connectRemoteMcp,
   DEFAULT_MAX_MCP_RESPONSE_BYTES,
+  isAuthError,
   isSessionExpiredError,
   type RemoteMcpConnection,
   type RemoteMcpTransportType,
@@ -39,8 +40,13 @@ function redactUrlForTrace(url: string): string {
   }
 }
 
-/** What a headers resolver returns: the headers to send, or a signal that auth is required. */
-export type ResolveHeadersResult = { headers: Record<string, string> } | { authRequired: MCPAuthRequired };
+/**
+ * What a headers resolver returns: the headers to send, or a signal that auth is required.
+ * `onUnauthorized` is consulted once if the upstream rejects `headers` with a 401.
+ */
+export type ResolveHeadersResult =
+  | { headers: Record<string, string>; onUnauthorized?: () => Promise<ResolveHeadersResult> }
+  | { authRequired: MCPAuthRequired };
 
 /** Static headers, or a resolver (invoked at connect) returning headers or signalling auth-required. */
 export type RemoteMcpHeaders = Record<string, string> | (() => Promise<ResolveHeadersResult>);
@@ -187,7 +193,34 @@ export class RemoteMCP implements ToolSource {
     if ('authRequired' in headersResult) {
       return { authRequired: headersResult.authRequired };
     }
-    return this.connectAndRun(headersResult.headers, operation, true);
+    const { onUnauthorized } = headersResult;
+    if (onUnauthorized === undefined) {
+      return this.connectAndRun(headersResult.headers, operation, true);
+    }
+    let rejected: RemoteMcpConnection | undefined;
+    const tracked = (connection: RemoteMcpConnection): Promise<T> => {
+      rejected = connection;
+      return operation(connection);
+    };
+    try {
+      return await this.connectAndRun(headersResult.headers, tracked, true);
+    } catch (error) {
+      if (!isAuthError(error)) {
+        throw error;
+      }
+      this.logger.info(`Remote MCP ${this.name} rejected supplied credentials, falling back to its auth flow`);
+      // Reset only the rejected connection so a sibling's newer one survives; a failed connect keeps its stale session.
+      if (rejected !== undefined) {
+        await this.resetConnection(rejected);
+      } else if (!this.isConnected) {
+        this.sessionId = undefined;
+      }
+      const fallback = await onUnauthorized();
+      if ('authRequired' in fallback) {
+        return { authRequired: fallback.authRequired };
+      }
+      return this.connectAndRun(fallback.headers, operation, true);
+    }
   }
 
   private async connectAndRun<T>(

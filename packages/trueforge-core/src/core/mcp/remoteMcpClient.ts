@@ -123,9 +123,13 @@ function mcpConnectOutcome(error: unknown): McpConnectOutcome {
   return 'other';
 }
 
-function isAuthError(error: unknown): boolean {
+/** Upstream rejected the credentials, whether at connect or on a later request. */
+export function isAuthError(error: unknown): boolean {
   if (!(error instanceof Error)) {
     return false;
+  }
+  if (error instanceof McpConnectionError) {
+    return error.statusCode === 401;
   }
   if ('code' in error && error.code === 401) {
     return true;

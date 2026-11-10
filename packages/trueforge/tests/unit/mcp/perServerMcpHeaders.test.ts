@@ -146,7 +146,7 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
     },
   );
 
-  it('skips authorize for a caller Authorization', async () => {
+  it('skips authorize for a caller Authorization, and runs it only when the upstream rejects it', async () => {
     const getMcpAuthorize = jest.fn(async () => ({
       status: 'auth_required' as const,
       authorization_url: 'https://auth.example/consent',
@@ -168,8 +168,16 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
       throw new Error('expected a headers resolver');
     }
 
-    await expect(resolve()).resolves.toHaveProperty('headers');
+    const resolved = await resolve();
     expect(getMcpAuthorize).not.toHaveBeenCalled();
+    if (!('onUnauthorized' in resolved) || resolved.onUnauthorized === undefined) {
+      throw new Error('expected a fallback to the consent flow');
+    }
+    await expect(resolved.onUnauthorized()).resolves.toEqual({
+      authRequired: {
+        servers: [{ id: 'tfy-platform-mcp', name: 'tfy-platform-mcp', auth_url: 'https://auth.example/consent' }],
+      },
+    });
   });
 });
 
@@ -198,10 +206,11 @@ describe('McpServerWithAuthStore.resolveInvokeHeaders', () => {
       perServerHeaders: { 'oauth-mcp': { Authorization: 'Bearer user', 'x-extra': '1' } },
     });
 
-    expect(store.resolveInvokeHeaders({ record: ossRecord, userRef: 'user-1' })).toEqual({
-      Authorization: 'Bearer user',
-      'x-extra': '1',
-    });
+    const resolve = store.resolveInvokeHeaders({ record: ossRecord, userRef: 'user-1' });
+    if (typeof resolve !== 'function') {
+      throw new Error('expected a headers resolver');
+    }
+    await expect(resolve()).resolves.toMatchObject({ headers: { Authorization: 'Bearer user', 'x-extra': '1' } });
     await db.destroy();
   });
 });

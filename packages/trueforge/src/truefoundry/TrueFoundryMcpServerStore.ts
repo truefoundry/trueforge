@@ -20,7 +20,7 @@ import {
 } from '../db/mcpServerStore';
 import type { TurnMetadata } from '../db/turnMetadata';
 import type { OAuthClientRecord } from '../mcp/auth/types';
-import { hasAuthorizationHeader, type PerServerMcpHeaders } from '../mcp/perServerMcpHeaders';
+import { hasAuthorizationHeader, withoutAuthorization, type PerServerMcpHeaders } from '../mcp/perServerMcpHeaders';
 import { resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
 import {
   accessTokenForRequest,
@@ -54,13 +54,6 @@ export type TrueFoundryMcpApiClient = Pick<
 
 /** Per-server upstream headers the TrueFoundry gateway applies after its own caller auth. */
 const X_TFY_MCP_HEADERS = 'x-tfy-mcp-headers';
-
-function withoutAuthorization(headers: Record<string, string> | undefined): Record<string, string> {
-  if (headers === undefined) {
-    return {};
-  }
-  return Object.fromEntries(Object.entries(headers).filter(([name]) => name.toLowerCase() !== 'authorization'));
-}
 
 /**
  * Absolute FE landing for the upstream authorize `redirectURL`.
@@ -114,7 +107,7 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
 
   /**
    * Gateway Bearer (+ optional per-server overrides); SFY authorize first, else authRequired.
-   * A caller entry with Authorization skips authorize and is sent as `x-tfy-mcp-headers`.
+   * A caller entry with Authorization is sent as `x-tfy-mcp-headers`; authorize runs only on a 401.
    */
   resolveInvokeHeaders(input: {
     record: McpServerRecord;
@@ -160,6 +153,7 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
         ...gatewayMetadataHeadersForTurn(turnMetadata),
         [X_TFY_MCP_HEADERS]: JSON.stringify(callerHeaders),
       },
+      onUnauthorized: viaAuthorize,
     });
   }
 

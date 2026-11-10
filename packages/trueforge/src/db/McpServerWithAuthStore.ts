@@ -1,7 +1,12 @@
-import type { RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
+import type { RemoteMcpHeaders, ResolveHeadersResult } from '@truefoundry/trueforge-core/core';
 import { isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
 import type { IOAuthTokenStore, OAuthClientRecord } from '../mcp/auth/types';
-import { hasAuthorizationHeader, overrideHeaders, type PerServerMcpHeaders } from '../mcp/perServerMcpHeaders';
+import {
+  hasAuthorizationHeader,
+  overrideHeaders,
+  withoutAuthorization,
+  type PerServerMcpHeaders,
+} from '../mcp/perServerMcpHeaders';
 import { resolveConfiguredMcpRequestHeaders, resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
 import {
   McpServerNotFoundError,
@@ -18,6 +23,17 @@ import {
   type UpsertMcpServerInput,
 } from './mcpServerStore';
 import type { TurnMetadata } from './turnMetadata';
+
+async function resolveWithOverride(input: {
+  headers: RemoteMcpHeaders;
+  override: Record<string, string>;
+}): Promise<ResolveHeadersResult> {
+  const result = typeof input.headers === 'function' ? await input.headers() : { headers: input.headers };
+  if ('authRequired' in result) {
+    return result;
+  }
+  return { headers: overrideHeaders({ base: result.headers, override: input.override }) };
+}
 
 export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerWithAuthStore<TTransaction> {
   readonly #store: IMcpServerStore<TTransaction>;
@@ -73,10 +89,13 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
       return registered;
     }
     if (hasAuthorizationHeader(callerHeaders)) {
-      return overrideHeaders({
+      const headers = overrideHeaders({
         base: resolveConfiguredMcpRequestHeaders(input.record.manifest),
         override: callerHeaders,
       });
+      const override = withoutAuthorization(callerHeaders);
+      return () =>
+        Promise.resolve({ headers, onUnauthorized: () => resolveWithOverride({ headers: registered, override }) });
     }
     if (typeof registered !== 'function') {
       return overrideHeaders({ base: registered, override: callerHeaders });

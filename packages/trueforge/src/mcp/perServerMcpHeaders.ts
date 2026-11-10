@@ -7,7 +7,7 @@ import { z } from 'zod';
  * TrueForge authenticates the whole turn as one caller, so every MCP connection would otherwise
  * present that same identity. This carries the identity each individual server should see —
  * typically the end user behind the caller, for a server that resolves its own permissions.
- * An entry carrying Authorization is used instead of that server's consent flow.
+ * An entry carrying Authorization is used instead of that server's consent flow unless rejected.
  */
 export const X_TFG_MCP_HEADERS = 'x-tfg-mcp-headers';
 
@@ -39,6 +39,13 @@ export function parsePerServerMcpHeaders(raw: string): PerServerMcpHeaders {
 
 export function hasAuthorizationHeader(headers: Record<string, string> | undefined): headers is Record<string, string> {
   return headers !== undefined && Object.keys(headers).some(name => name.toLowerCase() === 'authorization');
+}
+
+export function withoutAuthorization(headers: Record<string, string> | undefined): Record<string, string> {
+  if (headers === undefined) {
+    return {};
+  }
+  return Object.fromEntries(Object.entries(headers).filter(([name]) => name.toLowerCase() !== 'authorization'));
 }
 
 /** Header names are case-insensitive, so an override must replace a base entry under any casing. */
