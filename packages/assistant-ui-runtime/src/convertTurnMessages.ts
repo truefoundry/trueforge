@@ -1271,10 +1271,16 @@ function projectActiveStreamUpdate(snapshot: SessionSnapshot): TurnStreamUpdate 
     turnLike != null ? buildTurnUpdateFromFold(snapshot.fold, turnLike, rootModelMessageIds) : { content };
 
   // The fold leaves status unset once every prompt is answered. Drop the
-  // waiting status carried by the live update from before that answer.
+  // waiting status carried by the live update from before that answer. The
+  // content check matters: a live update can carry prompts the fold has not seen.
   let metadata = rebuilt.metadata ?? activeStream.update.metadata;
   let status = rebuilt.status ?? activeStream.update.status;
-  if (turnLike?.state.status === TURN_STATUS.PAUSED && rebuilt.status == null && isRequiresActionToolCalls(status)) {
+  if (
+    turnLike?.state.status === TURN_STATUS.PAUSED &&
+    rebuilt.status == null &&
+    isRequiresActionToolCalls(status) &&
+    !contentHasPendingRequiredActions(content)
+  ) {
     status = runningAssistantStatus();
     if (metadata?.custom != null) {
       metadata = { ...metadata, custom: omitWaitingThreadIds(metadata.custom) };
