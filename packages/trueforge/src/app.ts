@@ -613,9 +613,6 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
     resolveTurnSkillsStore: deps.resolveTurnSkillsStore,
     resolveCapabilitiesStore: deps.resolveCapabilitiesStore,
-    resolveMemoryProviderStore: deps.resolveMemoryProviderStore,
-    resolveConfigurationStore: deps.resolveConfigurationStore,
-    memoryProviders: deps.memoryProviders,
   });
   app.route('/api/internal/sessions', internalSessionsRouter);
   app.route(

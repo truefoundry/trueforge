@@ -164,14 +164,15 @@ export class SessionsClient {
     }
 
     /**
-     * Create and execute a turn (service API key). Same body as public create-turn; only `stream: false` is supported.
+     * Service API key. Non-streaming; session must have external_id (integration sessions only).
      *
      * @param {string} session_id - Session identifier.
-     * @param {TrueForge.internal.CreateTurnRequest} request
+     * @param {TrueForge.internal.InternalCreateSessionTurnRequest} request
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.BadRequestError}
      * @throws {@link TrueForge.UnauthorizedError}
+     * @throws {@link TrueForge.ForbiddenError}
      * @throws {@link TrueForge.NotFoundError}
      * @throws {@link TrueForge.PreconditionFailedError}
      * @throws {@link TrueForge.ContentTooLargeError}
@@ -184,7 +185,7 @@ export class SessionsClient {
      */
     public createTurn(
         session_id: string,
-        request: TrueForge.internal.CreateTurnRequest = {},
+        request: TrueForge.internal.InternalCreateSessionTurnRequest = {},
         requestOptions?: SessionsClient.RequestOptions,
     ): core.HttpResponsePromise<TrueForge.GetTurnResponse> {
         return core.HttpResponsePromise.fromPromise(this.__createTurn(session_id, request, requestOptions));
@@ -192,7 +193,7 @@ export class SessionsClient {
 
     private async __createTurn(
         session_id: string,
-        request: TrueForge.internal.CreateTurnRequest = {},
+        request: TrueForge.internal.InternalCreateSessionTurnRequest = {},
         requestOptions?: SessionsClient.RequestOptions,
     ): Promise<core.WithRawResponse<TrueForge.GetTurnResponse>> {
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
@@ -213,7 +214,7 @@ export class SessionsClient {
             queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
             requestType: "json",
             body: mergeAdditionalBodyParameters(
-                serializers.internal.CreateTurnRequest.jsonOrThrow(request, {
+                serializers.internal.InternalCreateSessionTurnRequest.jsonOrThrow(request, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,
@@ -255,6 +256,17 @@ export class SessionsClient {
                     );
                 case 401:
                     throw new TrueForge.UnauthorizedError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 403:
+                    throw new TrueForge.ForbiddenError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,

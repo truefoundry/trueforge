@@ -15,16 +15,13 @@ import type {
 } from '../app';
 import { requestContextFromCreatedBySubject } from '../auth/identity';
 import type { IAgentStore } from '../db/agentStore';
-import type { IConfigurationStore } from '../db/configurationStore';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
-import type { IMemoryProviderStore } from '../db/memoryProviderStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { updateLogContext } from '../logger';
-import type { MemoryProviderCache } from '../memory/providers';
 import { createInternalSessionTurnRoute } from '../routes/turnRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import type { EventSubscriptionRegistry } from '../runtime/event-subscription';
@@ -44,9 +41,6 @@ export interface InternalSessionTurnsDeps {
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore;
   resolveTurnSkillsStore: (input: ResolveTurnSkillsStoreInput) => Pick<ISkillStore, 'resolveTurnSkills'>;
   resolveCapabilitiesStore: (input: ResolveCapabilitiesStoreInput) => ICapabilitiesStore;
-  resolveMemoryProviderStore: (c: Context) => IMemoryProviderStore;
-  resolveConfigurationStore: (c: Context) => IConfigurationStore;
-  memoryProviders: MemoryProviderCache;
 }
 
 /** Register internal create-turn on a shared `/api/internal/sessions` router. */
@@ -55,14 +49,15 @@ export function registerInternalSessionTurnRoutes(router: OpenAPIHono, deps: Int
     const { session_id: sessionId } = c.req.valid('param');
     const body = c.req.valid('json');
 
-    if (body.stream) {
-      return c.json({ error: { message: 'Internal create-turn does not support stream: true' } }, 400);
-    }
-
     // Same as schedule getRunById: session_id is the only trusted input.
     const session = await deps.sessions.getById({ session_id: sessionId });
     if (session === undefined) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+    }
+
+    // Service key must not create turns on arbitrary interactive sessions.
+    if (session.record.external_id === null) {
+      return c.json({ error: { message: `Session is not eligible for internal turn create: ${sessionId}` } }, 403);
     }
 
     const tenantId = session.record.tenant_id;
@@ -114,11 +109,8 @@ export function registerInternalSessionTurnRoutes(router: OpenAPIHono, deps: Int
           // Registry resolve uses the service API key (same as schedules); omit `c`.
           skillStore: deps.resolveTurnSkillsStore({}),
           capabilitiesStore: deps.resolveCapabilitiesStore({}),
-          memory: {
-            memoryProviderStore: deps.resolveMemoryProviderStore(c),
-            configurationStore: deps.resolveConfigurationStore(c),
-            providers: deps.memoryProviders,
-          },
+          // Internal service turns never read or write memory (same as schedules).
+          memory: undefined,
           logger: deps.logger,
         },
       });
@@ -133,11 +125,4 @@ export function registerInternalSessionTurnRoutes(router: OpenAPIHono, deps: Int
   };
 
   router.openapi(createInternalSessionTurnRoute, handler);
-}
-
-/** Create a turn from a trusted service caller (codeforge webhooks, etc.). */
-export function createInternalSessionTurnsRouter(deps: InternalSessionTurnsDeps): OpenAPIHono {
-  const router = new OpenAPIHono();
-  registerInternalSessionTurnRoutes(router, deps);
-  return router;
 }

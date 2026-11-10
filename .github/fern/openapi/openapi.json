@@ -2077,6 +2077,51 @@
         ],
         "type": "object"
       },
+      "InternalCreateSessionTurnRequest": {
+        "properties": {
+          "input": {
+            "description": "Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.",
+            "items": {
+              "$ref": "#/components/schemas/TurnInputItem"
+            },
+            "type": "array"
+          },
+          "previous_turn_id": {
+            "$ref": "#/components/schemas/InternalPreviousTurnIdInput"
+          },
+          "stream": {
+            "default": false,
+            "description": "Must be false; streaming is not supported on this endpoint.",
+            "enum": [
+              false
+            ],
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "InternalPreviousTurnIdInput": {
+        "anyOf": [
+          {
+            "enum": [
+              "auto"
+            ],
+            "type": "string"
+          },
+          {
+            "enum": [
+              "none"
+            ],
+            "type": "string"
+          },
+          {
+            "minLength": 1,
+            "type": "string"
+          }
+        ],
+        "default": "auto",
+        "description": "Defaults to 'auto' (chain to session last turn). Use 'none' for a new root turn."
+      },
       "LargeToolResponseConfig": {
         "default": {
           "enabled": true
@@ -7377,7 +7422,7 @@
     },
     "/api/internal/sessions/{session_id}/turns": {
       "post": {
-        "description": "Create and execute a turn (service API key). Same body as public create-turn; only `stream: false` is supported.",
+        "description": "Service API key. Non-streaming; session must have external_id (integration sessions only).",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -7396,7 +7441,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateTurnRequest"
+                "$ref": "#/components/schemas/InternalCreateSessionTurnRequest"
               }
             }
           },
@@ -7432,6 +7477,16 @@
               }
             },
             "description": "Invalid service credential."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Session has no external_id and is not eligible for internal turn create."
           },
           "404": {
             "content": {

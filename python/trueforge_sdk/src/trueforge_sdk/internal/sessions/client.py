@@ -7,7 +7,7 @@ from ...core.request_options import RequestOptions
 from ...types.create_session_agent import CreateSessionAgent
 from ...types.get_session_response import GetSessionResponse
 from ...types.get_turn_response import GetTurnResponse
-from ...types.previous_turn_id_input import PreviousTurnIdInput
+from ...types.internal_previous_turn_id_input import InternalPreviousTurnIdInput
 from ...types.session_source_schedule import SessionSourceSchedule
 from ...types.turn_input_item import TurnInputItem
 from .raw_client import AsyncRawSessionsClient, RawSessionsClient
@@ -84,12 +84,12 @@ class SessionsClient:
         *,
         session_id: str,
         input: typing.Optional[typing.Sequence[TurnInputItem]] = OMIT,
-        previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
-        stream: typing.Optional[bool] = True,
+        previous_turn_id: typing.Optional[InternalPreviousTurnIdInput] = OMIT,
+        stream: typing.Optional[typing.Literal[False]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetTurnResponse:
         """
-        Create and execute a turn (service API key). Same body as public create-turn; only `stream: false` is supported.
+        Service API key. Non-streaming; session must have external_id (integration sessions only).
 
         Parameters
         ----------
@@ -99,10 +99,10 @@ class SessionsClient:
         input : typing.Optional[typing.Sequence[TurnInputItem]]
             Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.
 
-        previous_turn_id : typing.Optional[PreviousTurnIdInput]
+        previous_turn_id : typing.Optional[InternalPreviousTurnIdInput]
 
-        stream : typing.Optional[bool]
-            When true (default), stream turn events as SSE. When false, return the running turn immediately.
+        stream : typing.Optional[typing.Literal[False]]
+            Must be false; streaming is not supported on this endpoint.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -210,12 +210,12 @@ class AsyncSessionsClient:
         *,
         session_id: str,
         input: typing.Optional[typing.Sequence[TurnInputItem]] = OMIT,
-        previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
-        stream: typing.Optional[bool] = True,
+        previous_turn_id: typing.Optional[InternalPreviousTurnIdInput] = OMIT,
+        stream: typing.Optional[typing.Literal[False]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetTurnResponse:
         """
-        Create and execute a turn (service API key). Same body as public create-turn; only `stream: false` is supported.
+        Service API key. Non-streaming; session must have external_id (integration sessions only).
 
         Parameters
         ----------
@@ -225,10 +225,10 @@ class AsyncSessionsClient:
         input : typing.Optional[typing.Sequence[TurnInputItem]]
             Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.
 
-        previous_turn_id : typing.Optional[PreviousTurnIdInput]
+        previous_turn_id : typing.Optional[InternalPreviousTurnIdInput]
 
-        stream : typing.Optional[bool]
-            When true (default), stream turn events as SSE. When false, return the running turn immediately.
+        stream : typing.Optional[typing.Literal[False]]
+            Must be false; streaming is not supported on this endpoint.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.

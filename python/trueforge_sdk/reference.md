@@ -4713,7 +4713,7 @@ client.internal.sessions.get_or_create_by_external_id(
 <dl>
 <dd>
 
-Create and execute a turn (service API key). Same body as public create-turn; only `stream: false` is supported.
+Service API key. Non-streaming; session must have external_id (integration sessions only).
 </dd>
 </dl>
 </dd>
@@ -4769,7 +4769,7 @@ client.internal.sessions.create_turn(
 <dl>
 <dd>
 
-**previous_turn_id:** `typing.Optional[PreviousTurnIdInput]` 
+**previous_turn_id:** `typing.Optional[InternalPreviousTurnIdInput]` 
     
 </dd>
 </dl>
@@ -4777,7 +4777,7 @@ client.internal.sessions.create_turn(
 <dl>
 <dd>
 
-**stream:** `typing.Optional[bool]` — When true (default), stream turn events as SSE. When false, return the running turn immediately.
+**stream:** `typing.Optional[typing.Literal]` — Must be false; streaming is not supported on this endpoint.
     
 </dd>
 </dl>

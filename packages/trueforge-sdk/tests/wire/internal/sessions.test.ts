@@ -284,6 +284,26 @@ describe("SessionsClient", () => {
             .post("/api/internal/sessions/session_id/turns")
             .jsonBody(rawRequestBody)
             .respondWith()
+            .statusCode(403)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.internal.sessions.createTurn("session_id");
+        }).rejects.toThrow(TrueForgeTypes.ForbiddenError);
+    });
+
+    test("create_turn (5)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = {};
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/internal/sessions/session_id/turns")
+            .jsonBody(rawRequestBody)
+            .respondWith()
             .statusCode(404)
             .jsonBody(rawResponseBody)
             .build();
@@ -293,7 +313,7 @@ describe("SessionsClient", () => {
         }).rejects.toThrow(TrueForgeTypes.NotFoundError);
     });
 
-    test("create_turn (5)", async () => {
+    test("create_turn (6)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = {};
@@ -313,7 +333,7 @@ describe("SessionsClient", () => {
         }).rejects.toThrow(TrueForgeTypes.PreconditionFailedError);
     });
 
-    test("create_turn (6)", async () => {
+    test("create_turn (7)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = {};
@@ -333,7 +353,7 @@ describe("SessionsClient", () => {
         }).rejects.toThrow(TrueForgeTypes.ContentTooLargeError);
     });
 
-    test("create_turn (7)", async () => {
+    test("create_turn (8)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = {};

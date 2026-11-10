@@ -111,6 +111,7 @@ if typing.TYPE_CHECKING:
     from .google_gemini_model_provider import GoogleGeminiModelProvider
     from .initial_user_message import InitialUserMessage
     from .input_tokens_compaction_trigger import InputTokensCompactionTrigger
+    from .internal_previous_turn_id_input import InternalPreviousTurnIdInput
     from .large_tool_response_config import LargeToolResponseConfig
     from .list_agents_response import ListAgentsResponse
     from .list_available_mcp_servers_response import ListAvailableMcpServersResponse
@@ -411,6 +412,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "GoogleGeminiModelProvider": ".google_gemini_model_provider",
     "InitialUserMessage": ".initial_user_message",
     "InputTokensCompactionTrigger": ".input_tokens_compaction_trigger",
+    "InternalPreviousTurnIdInput": ".internal_previous_turn_id_input",
     "LargeToolResponseConfig": ".large_tool_response_config",
     "ListAgentsResponse": ".list_agents_response",
     "ListAvailableMcpServersResponse": ".list_available_mcp_servers_response",
@@ -735,6 +737,7 @@ __all__ = [
     "GoogleGeminiModelProvider",
     "InitialUserMessage",
     "InputTokensCompactionTrigger",
+    "InternalPreviousTurnIdInput",
     "LargeToolResponseConfig",
     "ListAgentsResponse",
     "ListAvailableMcpServersResponse",

@@ -6,10 +6,10 @@ import type * as TrueForge from "../../../../../../index.js";
  * @example
  *     {}
  */
-export interface CreateTurnRequest {
+export interface InternalCreateSessionTurnRequest {
     /** Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items. */
     input?: TrueForge.TurnInputItem[];
-    previousTurnId?: TrueForge.PreviousTurnIdInput;
-    /** When true (default), stream turn events as SSE. When false, return the running turn immediately. */
-    stream?: boolean;
+    previousTurnId?: TrueForge.InternalPreviousTurnIdInput;
+    /** Must be false; streaming is not supported on this endpoint. */
+    stream?: false;
 }

@@ -3983,7 +3983,7 @@ await client.internal.sessions.getOrCreateByExternalId({
 <dl>
 <dd>
 
-Create and execute a turn (service API key). Same body as public create-turn; only `stream: false` is supported.
+Service API key. Non-streaming; session must have external_id (integration sessions only).
 </dd>
 </dl>
 </dd>
@@ -4022,7 +4022,7 @@ await client.internal.sessions.createTurn("session_id");
 <dl>
 <dd>
 
-**request:** `TrueForge.internal.CreateTurnRequest` 
+**request:** `TrueForge.internal.InternalCreateSessionTurnRequest` 
     
 </dd>
 </dl>

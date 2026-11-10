@@ -103,6 +103,7 @@ export * from "./GitSkill.js";
 export * from "./GoogleGeminiModelProvider.js";
 export * from "./InitialUserMessage.js";
 export * from "./InputTokensCompactionTrigger.js";
+export * from "./InternalPreviousTurnIdInput.js";
 export * from "./LargeToolResponseConfig.js";
 export * from "./ListAgentsResponse.js";
 export * from "./ListAvailableMcpServersResponse.js";

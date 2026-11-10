@@ -21,7 +21,7 @@ from ...errors.unprocessable_entity_error import UnprocessableEntityError
 from ...types.create_session_agent import CreateSessionAgent
 from ...types.get_session_response import GetSessionResponse
 from ...types.get_turn_response import GetTurnResponse
-from ...types.previous_turn_id_input import PreviousTurnIdInput
+from ...types.internal_previous_turn_id_input import InternalPreviousTurnIdInput
 from ...types.request_error_response import RequestErrorResponse
 from ...types.session_source_schedule import SessionSourceSchedule
 from ...types.turn_input_item import TurnInputItem
@@ -149,12 +149,12 @@ class RawSessionsClient:
         *,
         session_id: str,
         input: typing.Optional[typing.Sequence[TurnInputItem]] = OMIT,
-        previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
-        stream: typing.Optional[bool] = True,
+        previous_turn_id: typing.Optional[InternalPreviousTurnIdInput] = OMIT,
+        stream: typing.Optional[typing.Literal[False]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[GetTurnResponse]:
         """
-        Create and execute a turn (service API key). Same body as public create-turn; only `stream: false` is supported.
+        Service API key. Non-streaming; session must have external_id (integration sessions only).
 
         Parameters
         ----------
@@ -164,10 +164,10 @@ class RawSessionsClient:
         input : typing.Optional[typing.Sequence[TurnInputItem]]
             Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.
 
-        previous_turn_id : typing.Optional[PreviousTurnIdInput]
+        previous_turn_id : typing.Optional[InternalPreviousTurnIdInput]
 
-        stream : typing.Optional[bool]
-            When true (default), stream turn events as SSE. When false, return the running turn immediately.
+        stream : typing.Optional[typing.Literal[False]]
+            Must be false; streaming is not supported on this endpoint.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -185,7 +185,7 @@ class RawSessionsClient:
                     object_=input, annotation=typing.Sequence[TurnInputItem], direction="write"
                 ),
                 "previous_turn_id": convert_and_respect_annotation_metadata(
-                    object_=previous_turn_id, annotation=PreviousTurnIdInput, direction="write"
+                    object_=previous_turn_id, annotation=InternalPreviousTurnIdInput, direction="write"
                 ),
                 "stream": stream,
             },
@@ -218,6 +218,17 @@ class RawSessionsClient:
                 )
             if _response.status_code == 401:
                 raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         RequestErrorResponse,
@@ -399,12 +410,12 @@ class AsyncRawSessionsClient:
         *,
         session_id: str,
         input: typing.Optional[typing.Sequence[TurnInputItem]] = OMIT,
-        previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
-        stream: typing.Optional[bool] = True,
+        previous_turn_id: typing.Optional[InternalPreviousTurnIdInput] = OMIT,
+        stream: typing.Optional[typing.Literal[False]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[GetTurnResponse]:
         """
-        Create and execute a turn (service API key). Same body as public create-turn; only `stream: false` is supported.
+        Service API key. Non-streaming; session must have external_id (integration sessions only).
 
         Parameters
         ----------
@@ -414,10 +425,10 @@ class AsyncRawSessionsClient:
         input : typing.Optional[typing.Sequence[TurnInputItem]]
             Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.
 
-        previous_turn_id : typing.Optional[PreviousTurnIdInput]
+        previous_turn_id : typing.Optional[InternalPreviousTurnIdInput]
 
-        stream : typing.Optional[bool]
-            When true (default), stream turn events as SSE. When false, return the running turn immediately.
+        stream : typing.Optional[typing.Literal[False]]
+            Must be false; streaming is not supported on this endpoint.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -435,7 +446,7 @@ class AsyncRawSessionsClient:
                     object_=input, annotation=typing.Sequence[TurnInputItem], direction="write"
                 ),
                 "previous_turn_id": convert_and_respect_annotation_metadata(
-                    object_=previous_turn_id, annotation=PreviousTurnIdInput, direction="write"
+                    object_=previous_turn_id, annotation=InternalPreviousTurnIdInput, direction="write"
                 ),
                 "stream": stream,
             },
@@ -468,6 +479,17 @@ class AsyncRawSessionsClient:
                 )
             if _response.status_code == 401:
                 raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         RequestErrorResponse,

@@ -12,13 +12,10 @@ import {
   TurnStreamingEventSchema,
 } from '../schemas/events';
 import {
-  InternalCreateSessionTurnRequestSchema,
-  InternalCreateSessionTurnResponseSchema,
-} from '../schemas/internalSessionTurn';
-import {
   CreateTurnRequestSchema,
   DownloadSandboxFileRequestQuerySchema,
   GetTurnResponseSchema,
+  InternalCreateSessionTurnRequestSchema,
   ListTurnEventsRequestQuerySchema,
   ListTurnEventsResponseSchema,
   ListTurnsRequestQuerySchema,
@@ -297,8 +294,7 @@ export const createInternalSessionTurnRoute = createRoute({
   path: '/{session_id}/turns',
   tags: [OpenApiTag.INTERNAL],
   summary: 'Create and execute a turn in a session (internal)',
-  description:
-    'Create and execute a turn (service API key). Same body as public create-turn; only `stream: false` is supported.',
+  description: 'Service API key. Non-streaming; session must have external_id (integration sessions only).',
   'x-fern-sdk-group-name': ['internal', 'sessions'],
   'x-fern-sdk-method-name': 'create_turn',
   'x-excluded': true,
@@ -311,7 +307,7 @@ export const createInternalSessionTurnRoute = createRoute({
   },
   responses: {
     200: {
-      content: { 'application/json': { schema: InternalCreateSessionTurnResponseSchema } },
+      content: { 'application/json': { schema: GetTurnResponseSchema } },
       description: 'The running turn.',
     },
     400: {
@@ -321,6 +317,10 @@ export const createInternalSessionTurnRoute = createRoute({
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid service credential.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Session has no external_id and is not eligible for internal turn create.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

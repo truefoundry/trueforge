@@ -1,10 +1,55 @@
 /** Server-only turn wire schemas (SSE resume / cancel / list). Core turn schemas live in agent-session. */
 import { z } from '@hono/zod-openapi';
-import { SessionEventSchema, TokenPaginationSchema, TurnSchema } from '@truefoundry/trueforge-core/agent-session';
+import {
+  SessionEventSchema,
+  TokenPaginationSchema,
+  TurnInputItemSchema,
+  TurnSchema,
+} from '@truefoundry/trueforge-core/agent-session';
 import { EVENTS_PAGE_LIMIT, PAGE_LIMIT } from './common';
 
 export { CreateTurnRequestSchema, TurnSchema } from '@truefoundry/trueforge-core/agent-session';
 export type { Turn } from '@truefoundry/trueforge-core/agent-session';
+
+/** Internal create-turn body: same input rules as CreateTurnRequest, but non-streaming only. */
+export const InternalCreateSessionTurnRequestSchema = z
+  .object({
+    input: z
+      .array(TurnInputItemSchema)
+      .optional()
+      .describe(
+        'Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.',
+      ),
+    previous_turn_id: z
+      .union([z.literal('auto'), z.literal('none'), z.string().min(1)])
+      .optional()
+      .default('auto')
+      .describe(`Defaults to 'auto' (chain to session last turn). Use 'none' for a new root turn.`)
+      .openapi('InternalPreviousTurnIdInput'),
+    stream: z
+      .literal(false)
+      .optional()
+      .default(false)
+      .describe('Must be false; streaming is not supported on this endpoint.'),
+  })
+  .superRefine((data, ctx) => {
+    if (!data.input) {
+      return;
+    }
+    const hasUser = data.input.some(msg => 'type' in msg && msg.type === 'user.message');
+    const hasApprovalOrToolResponse = data.input.some(
+      msg => 'type' in msg && (msg.type === 'user.tool_approval' || msg.type === 'user.tool_response'),
+    );
+    if (hasUser && hasApprovalOrToolResponse) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'input must not mix user messages with approval decisions or client-side tool responses',
+      });
+    }
+  })
+  .openapi('InternalCreateSessionTurnRequest');
+
+export type InternalCreateSessionTurnRequest = z.infer<typeof InternalCreateSessionTurnRequestSchema>;
 
 export const SubscribeTurnQuerySchema = z
   .object({
