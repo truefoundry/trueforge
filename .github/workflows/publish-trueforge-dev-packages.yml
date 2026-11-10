@@ -1,0 +1,209 @@
+# Publishes canary builds of the UI package graph to JFrog npm
+# (`tfy-npm-registry`) on merge to main and on manual dispatch.
+#
+# Versions are ephemeral in CI: 0.0.0-<12-char-sha>
+# Packages published (deps first, same version):
+#   @truefoundry/trueforge-sdk
+#   @truefoundry/trueforge-assistant-ui-runtime
+#   @truefoundry/trueforge-ui
+#
+# Formal semver releases still go to npmjs via release.yml.
+# This workflow does not commit version bumps (main stays 0.0.0).
+name: Publish trueforge dev packages
+
+on:
+  push:
+    branches: [main, cj-publish-trueforge-dev-packages]
+    paths:
+      - 'packages/trueforge-ui/**'
+      - 'packages/assistant-ui-runtime/**'
+      - 'packages/trueforge-sdk/**'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'package.json'
+      - 'tsconfig.base.json'
+      - '.github/workflows/publish-trueforge-dev-packages.yml'
+  workflow_dispatch:
+    inputs:
+      commit_id:
+        description: Optional commit SHA to publish (defaults to the dispatch ref)
+        required: false
+        type: string
+
+concurrency:
+  group: publish-trueforge-dev-packages
+  cancel-in-progress: false
+
+env:
+  JF_URL: https://tfy.jfrog.io
+  JF_NPM_REPO: tfy-npm-registry
+  JF_NPM_REGISTRY: https://tfy.jfrog.io/artifactory/api/npm/tfy-npm-registry/
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Resolve ref
+        id: ref
+        env:
+          COMMIT_ID: ${{ inputs.commit_id }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -n "${COMMIT_ID:-}" ]]; then
+            if [[ ! "$COMMIT_ID" =~ ^[0-9a-fA-F]{7,40}$ ]]; then
+              echo "::error::commit_id must be a git SHA (got: $COMMIT_ID)"
+              exit 1
+            fi
+            FULL_SHA="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${COMMIT_ID}" --jq .sha)"
+          else
+            FULL_SHA="${GITHUB_SHA}"
+          fi
+          SHORT_SHA="${FULL_SHA:0:12}"
+          VERSION="0.0.0-${SHORT_SHA}"
+          echo "full_sha=${FULL_SHA}" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Publishing version ${VERSION} from ${FULL_SHA}"
+
+      - name: Check out repo
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.ref.outputs.full_sha }}
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Set canary versions (ephemeral, not committed)
+        env:
+          VERSION: ${{ steps.ref.outputs.version }}
+          JF_NPM_REGISTRY: ${{ env.JF_NPM_REGISTRY }}
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const version = process.env.VERSION;
+          const registry = process.env.JF_NPM_REGISTRY;
+          // Keep the UI graph in lockstep: rewrite workspace:* to this exact version.
+          const linked = new Set([
+            '@truefoundry/trueforge-sdk',
+            '@truefoundry/trueforge-assistant-ui-runtime',
+            '@truefoundry/trueforge-ui',
+          ]);
+          const paths = [
+            'packages/trueforge-sdk/package.json',
+            'packages/assistant-ui-runtime/package.json',
+            'packages/trueforge-ui/package.json',
+          ];
+
+          function pinWorkspaceDeps(deps) {
+            if (!deps) return;
+            for (const [name, range] of Object.entries(deps)) {
+              if (linked.has(name) && String(range).startsWith('workspace:')) {
+                deps[name] = version;
+              }
+            }
+          }
+
+          for (const filePath of paths) {
+            const pkg = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+            pkg.version = version;
+            pinWorkspaceDeps(pkg.dependencies);
+            pinWorkspaceDeps(pkg.optionalDependencies);
+            pinWorkspaceDeps(pkg.peerDependencies);
+            pinWorkspaceDeps(pkg.devDependencies);
+            // Do not send npm provenance attestations to Artifactory.
+            if (pkg.publishConfig && 'provenance' in pkg.publishConfig) {
+              delete pkg.publishConfig.provenance;
+            }
+            pkg.publishConfig = {
+              ...(pkg.publishConfig || {}),
+              access: 'public',
+              registry,
+            };
+            fs.writeFileSync(filePath, `${JSON.stringify(pkg, null, 2)}\n`);
+            console.log(`${pkg.name} -> ${pkg.version}`);
+            if (pkg.dependencies) {
+              for (const name of linked) {
+                if (pkg.dependencies[name]) {
+                  console.log(`  dep ${name}@${pkg.dependencies[name]}`);
+                }
+              }
+            }
+          }
+          NODE
+
+      - name: Build publishable packages
+        run: |
+          set -euo pipefail
+          pnpm --filter @truefoundry/trueforge-sdk build
+          pnpm --filter @truefoundry/trueforge-assistant-ui-runtime build
+          pnpm --filter @truefoundry/trueforge-ui build
+
+      - name: Setup JFrog CLI (OIDC)
+        uses: jfrog/setup-jfrog-cli@v4
+        env:
+          JF_URL: ${{ env.JF_URL }}
+        with:
+          oidc-provider-name: github-jfrog-trueforge
+          oidc-audience: jfrog-github
+
+      - name: Configure npm deploy repo
+        run: |
+          set -euo pipefail
+          jf npm-config \
+            --repo-resolve="${JF_NPM_REPO}" \
+            --repo-deploy="${JF_NPM_REPO}"
+
+      - name: Publish to JFrog npm
+        env:
+          NPM_CONFIG_PROVENANCE: 'false'
+        run: |
+          set -euo pipefail
+          # jf npm publish uses the OIDC-configured Artifactory npm auth.
+          for dir in \
+            packages/trueforge-sdk \
+            packages/assistant-ui-runtime \
+            packages/trueforge-ui
+          do
+            echo "Publishing ${dir}..."
+            (cd "${dir}" && jf npm publish)
+          done
+
+      - name: Summary
+        env:
+          VERSION: ${{ steps.ref.outputs.version }}
+          FULL_SHA: ${{ steps.ref.outputs.full_sha }}
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ## Published to JFrog (\`${JF_NPM_REPO}\`)
+          - Version: \`${VERSION}\`
+          - Commit: [\`${FULL_SHA}\`](https://github.com/${GITHUB_REPOSITORY}/commit/${FULL_SHA})
+          - Registry: \`${JF_NPM_REGISTRY}\`
+          - Packages:
+            - \`@truefoundry/trueforge-sdk@${VERSION}\`
+            - \`@truefoundry/trueforge-assistant-ui-runtime@${VERSION}\`
+            - \`@truefoundry/trueforge-ui@${VERSION}\`
+
+          Install (same canary for all three):
+
+          \`\`\`bash
+          yarn add \\
+            @truefoundry/trueforge-sdk@${VERSION} \\
+            @truefoundry/trueforge-assistant-ui-runtime@${VERSION} \\
+            @truefoundry/trueforge-ui@${VERSION}
+          \`\`\`
+          EOF
