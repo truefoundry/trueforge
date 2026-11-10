@@ -203,6 +203,17 @@ providers:
             - high
             - xhigh
             - max
+      - model_id: claude-fable-5-2
+        name: claude-fable-5-2
+        properties:
+          context_length: 1000000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
       - model_id: claude-haiku-4-5
         name: claude-haiku-4-5
         properties:
