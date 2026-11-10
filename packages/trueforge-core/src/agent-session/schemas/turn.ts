@@ -164,8 +164,8 @@ export const CreateTurnRequestSchema = z
           content: z.union([z.string().min(1), z.array(UserContentPartSchema)]),
         }),
       )
-      .optional()
-      .describe('User messages supplied when the turn is created.'),
+      .min(1)
+      .describe('User messages for this turn. At least one is required.'),
     previous_turn_id: z
       .union([z.literal('auto'), z.literal('none'), z.string().min(1)])
       .optional()

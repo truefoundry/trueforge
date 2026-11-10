@@ -12,7 +12,7 @@ Turns now pause, instead of finishing, while waiting for user input such as tool
 - Conversations that were already waiting on the user stay waiting after upgrade, with the same cost, time, and status.
 - The chat shows a waiting notice instead of a running indicator while a turn is paused or cannot continue.
 - A conversation is saved to memory only after it finishes, not while it is waiting on the user.
-- Creating a turn rejects an empty user message.
+- Creating a turn requires a user message. Omitting `input` or sending an empty message is rejected.
 - Sending a new message while a sub-agent is waiting runs that message, instead of leaving the turn stuck.
 - A conversation paused longer than the memory window is still saved once it finishes.
 - An old `pause_timeout_ms` memory setting is ignored, instead of stopping startup.
@@ -20,5 +20,5 @@ Turns now pause, instead of finishing, while waiting for user input such as tool
 Breaking changes for package consumers:
 
 - `@truefoundry/trueforge-assistant-ui-runtime`: `useTrueForgeResumeMcpAuth` is renamed to `useTrueForgeContinueMcpAuth`, and `findCurrentPausedAssistantMessage` to `findPausedAssistantMessage`. `collectRequiredActionInputs`, `collectApprovalInputs`, `toTrueForgeApprovalInputs`, `collectResponseInputs`, and `TOOL_RESPONSE_THREAD_ID_CUSTOM_KEY` are removed; answer approvals and questions with `useTrueForgeRespondToToolApproval` and `useTrueForgeRespondToToolResponse` instead.
-- Custom chat servers must implement `sendTurnEvents` to deliver answers to a paused turn.
+- Custom chat servers must implement `sendTurnEvents` to deliver answers to a paused turn. `CreateTurnRequest.input` is required.
 - `@truefoundry/trueforge-ui`: `ToolApprovalContainer` takes `approvalId` and `onRespond` instead of `options` and `onSelectOption`.
