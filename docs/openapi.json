@@ -4951,28 +4951,12 @@
             "$ref": "#/components/schemas/SessionSourceSchedule"
           },
           {
-            "$ref": "#/components/schemas/SessionSourceIntegration"
+            "$ref": "#/components/schemas/SessionSourceService"
           },
           {
             "type": "null"
           }
         ]
-      },
-      "SessionSourceIntegration": {
-        "additionalProperties": false,
-        "properties": {
-          "type": {
-            "description": "Session was created for an external integration (service create-turn).",
-            "enum": [
-              "integration"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "type"
-        ],
-        "type": "object"
       },
       "SessionSourceSchedule": {
         "additionalProperties": false,
@@ -5002,11 +4986,27 @@
         ],
         "type": "object"
       },
+      "SessionSourceService": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "description": "Session was created by a service caller (service API key create-turn).",
+            "enum": [
+              "service"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
       "SessionSourceType": {
         "description": "When set, returns only sessions created by this source type.",
         "enum": [
           "schedule",
-          "integration"
+          "service"
         ],
         "type": "string"
       },

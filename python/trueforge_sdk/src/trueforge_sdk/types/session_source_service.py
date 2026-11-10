@@ -7,10 +7,10 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
 
 
-class SessionSourceIntegration(UncheckedBaseModel):
-    type: typing.Literal["integration"] = pydantic.Field(default="integration")
+class SessionSourceService(UncheckedBaseModel):
+    type: typing.Literal["service"] = pydantic.Field(default="service")
     """
-    Session was created for an external integration (service create-turn).
+    Session was created by a service caller (service API key create-turn).
     """
 
     if IS_PYDANTIC_V2:

@@ -90,7 +90,7 @@ export const SessionAgentSchema = z
   .discriminatedUnion('type', [SessionAgentReferenceSchema, SessionAgentInlineSchema])
   .openapi('SessionAgent');
 
-export const SessionSourceTypeSchema = z.enum(['schedule', 'integration']).openapi('SessionSourceType');
+export const SessionSourceTypeSchema = z.enum(['schedule', 'service']).openapi('SessionSourceType');
 
 export type SessionSourceType = z.infer<typeof SessionSourceTypeSchema>;
 
@@ -104,23 +104,23 @@ function sessionSourceScheduleObject() {
     .strict();
 }
 
-function sessionSourceIntegrationObject() {
+function sessionSourceServiceObject() {
   return z
     .object({
       type: z
-        .literal(SessionSourceTypeSchema.enum.integration)
-        .describe('Session was created for an external integration (service create-turn).'),
+        .literal(SessionSourceTypeSchema.enum.service)
+        .describe('Session was created by a service caller (service API key create-turn).'),
     })
     .strict();
 }
 
 export const SessionSourceScheduleSchema = sessionSourceScheduleObject().openapi('SessionSourceSchedule');
 
-export const SessionSourceIntegrationSchema = sessionSourceIntegrationObject().openapi('SessionSourceIntegration');
+export const SessionSourceServiceSchema = sessionSourceServiceObject().openapi('SessionSourceService');
 
 /** How a session was created. Null for interactive sessions. Non-null sources skip memory ingest. */
 export const SessionSourceSchema = z
-  .discriminatedUnion('type', [SessionSourceScheduleSchema, SessionSourceIntegrationSchema])
+  .discriminatedUnion('type', [SessionSourceScheduleSchema, SessionSourceServiceSchema])
   .describe('How this session was created (e.g. a schedule run). Null for interactive sessions.')
   .openapi('SessionSource');
 

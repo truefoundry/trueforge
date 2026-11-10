@@ -3,6 +3,6 @@
 /** When set, returns only sessions created by this source type. */
 export const SessionSourceType = {
     Schedule: "schedule",
-    Integration: "integration",
+    Service: "service",
 } as const;
 export type SessionSourceType = (typeof SessionSourceType)[keyof typeof SessionSourceType];

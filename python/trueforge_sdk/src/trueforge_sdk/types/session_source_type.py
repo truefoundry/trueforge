@@ -13,7 +13,7 @@ class SessionSourceType(enum.StrEnum):
     """
 
     SCHEDULE = "schedule"
-    INTEGRATION = "integration"
+    SERVICE = "service"
     _UNKNOWN = "__SESSIONSOURCETYPE_UNKNOWN__"
     """
     This member is used for forward compatibility. If the value is not recognized by the enum, it will be stored here, and the raw value is accessible through `.value`.
@@ -28,11 +28,11 @@ class SessionSourceType(enum.StrEnum):
     def visit(
         self,
         schedule: typing.Callable[[], T_Result],
-        integration: typing.Callable[[], T_Result],
+        service: typing.Callable[[], T_Result],
         _unknown_member: typing.Callable[[str], T_Result],
     ) -> T_Result:
         if self is SessionSourceType.SCHEDULE:
             return schedule()
-        if self is SessionSourceType.INTEGRATION:
-            return integration()
+        if self is SessionSourceType.SERVICE:
+            return service()
         return _unknown_member(self._value_)

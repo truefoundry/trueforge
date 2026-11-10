@@ -2267,7 +2267,7 @@ export function registerInternalSessionTurnRoutes<TTransaction>(
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
 
-    // external_id + non-null source: integration sessions already excluded from memory ingest.
+    // external_id + non-null source: service sessions already excluded from memory ingest.
     if (session.record.external_id === null || session.record.source === null) {
       return c.json({ error: { message: `Session is not eligible for internal turn create: ${sessionId}` } }, 403);
     }

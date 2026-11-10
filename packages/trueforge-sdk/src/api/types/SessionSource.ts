@@ -5,4 +5,4 @@ import type * as TrueForge from "../index.js";
 /**
  * How this session was created (e.g. a schedule run). Null for interactive sessions.
  */
-export type SessionSource = TrueForge.SessionSourceSchedule | TrueForge.SessionSourceIntegration;
+export type SessionSource = TrueForge.SessionSourceSchedule | TrueForge.SessionSourceService;
