@@ -69,7 +69,7 @@ describe('MemorySettings tenant switch', () => {
 
     const toggle = await screen.findByRole('switch', { name: 'Allow memory' });
     expect(toggle).toHaveAttribute('aria-checked', 'false');
-    expect(screen.getByText('No agent remembers details from past chats.')).toBeInTheDocument();
+    expect(screen.getByText('Agents cannot use memory, including in chats that already had it.')).toBeInTheDocument();
   });
 
   it('saves only the memory switch and re-renders from the response', async () => {
