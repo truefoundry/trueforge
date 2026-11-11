@@ -20,5 +20,5 @@ export async function up<TDatabase>(db: Kysely<TDatabase>): Promise<void> {
 
 /** Irreversible: the switch values before `up` are not recoverable. */
 export function down(): Promise<void> {
-  return Promise.reject(new Error('20261111_000003_configuration_memory_enabled is not reversible'));
+  return Promise.reject(new Error('20261111_000004_configuration_memory_enabled is not reversible'));
 }

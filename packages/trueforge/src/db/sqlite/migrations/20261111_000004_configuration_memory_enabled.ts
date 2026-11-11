@@ -3,7 +3,7 @@ import { type Kysely, sql } from 'kysely';
 /**
  * Turn memory on for every tenant. Existing rows get the switch on; tenants that already have
  * sessions but no row get the default row, since memory ingestion lists tenants from stored rows.
- * Mirrors db/postgres/migrations/20261111_000003_configuration_memory_enabled.ts.
+ * Mirrors db/postgres/migrations/20261111_000004_configuration_memory_enabled.ts.
  * Kysely does not wrap SQLite migrations — keep both statements in one transaction.
  */
 export async function up<TDatabase>(db: Kysely<TDatabase>): Promise<void> {
@@ -23,5 +23,5 @@ export async function up<TDatabase>(db: Kysely<TDatabase>): Promise<void> {
 
 /** Irreversible: the switch values before `up` are not recoverable. */
 export function down(): Promise<void> {
-  return Promise.reject(new Error('20261111_000003_configuration_memory_enabled is not reversible'));
+  return Promise.reject(new Error('20261111_000004_configuration_memory_enabled is not reversible'));
 }
