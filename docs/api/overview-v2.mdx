@@ -57,7 +57,11 @@ Jane's follow-ups about the refund stay in `sess-7f2a9c1b`. Bob's question runs 
   "id": "sess-7f2a9c1b",
   "agent": { "type": "reference", "id": "agt_01jc...", "name": "support-bot" },
   "title": "Refund for ORD-2031",
-  "created_by": "trueforge-default",
+  "created_by_subject": {
+    "subject_type": "user",
+    "subject_id": "trueforge-default",
+    "subject_display_name": "trueforge-default"
+  },
   "created_at": "2026-06-24T10:00:00Z",
   "updated_at": "2026-06-24T10:00:00Z"
 }
@@ -143,7 +147,7 @@ Sample payload:
 | 8     | `model.message` + deltas | The confirmation reply                                        |
 | 9     | `turn.done`              | Turn finished; confirmation in `state.output`                 |
 
-Every event carries an `id` and a `thread_id` (`"main"` for the root agent, a generated id for [subagents](/key-features/subagents), or `null` for run-level events). The `id` is also how you [resume after a disconnect](/api/use-agent-v2#resume-a-stream): reconnect from the last event you saw. The stream always opens with `turn.created` and closes with `turn.done`, and stays open while the turn is paused. Field-level schemas for every event type are in the [turn events reference](/api/use-agent-v2#turn-events-reference).
+Every event carries an `id`. Most also carry a `thread_id` (`"main"` for the root agent, a generated id for [subagents](/key-features/subagents), or `null` for run-level events). `user.tool_approval_policy` and `user.mcp_auth_continue` omit `thread_id`. The `id` is also how you [resume after a disconnect](/api/use-agent-v2#resume-a-stream): reconnect from the last event you saw. A new turn's stream opens with `turn.created` and closes with `turn.done`, and stays open while the turn is paused. Field-level schemas for every event type are in the [turn events reference](/api/use-agent-v2#turn-events-reference).
 
 ### Delta
 
