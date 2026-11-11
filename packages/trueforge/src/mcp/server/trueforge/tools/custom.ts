@@ -74,8 +74,7 @@ function registerCurrentSessionTool(server: McpServer, client: WireApiClient): v
 function registerUpdateCurrentSessionTool(server: McpServer, client: WireApiClient): void {
   const descriptor: McpToolDescriptor = {
     name: 'update_current_session',
-    description:
-      "Update this session's spec. Send the full spec back with edits; omitted fields are removed.",
+    description: "Update this session's spec. Send the full spec back with edits; omitted fields are removed.",
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
     method: 'PATCH',
     path: '/api/v1/sessions/{session_id}',
