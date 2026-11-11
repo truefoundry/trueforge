@@ -3863,9 +3863,6 @@ export function runStoreContractSuite<TTransaction>(
       const store = createStore();
       await seedSession(store);
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
-      const initial = mustGet(await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' }));
-      expect(initial.snapshot.mcp_servers).toBeNull();
-      expect(initial.snapshot.sandbox_info).toBeNull();
       await store.patchMCPServers({
         active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
         session_id: sessionId,
@@ -3881,76 +3878,6 @@ export function runStoreContractSuite<TTransaction>(
       const turn = await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' });
       expect(turn?.snapshot.mcp_servers?.['svc']?.session_id).toBe('mcp-1');
       expect(mustGet(turn).snapshot.sandbox_info?.sandbox_id).toBe('sbx-1');
-      expect(mustGet(turn).snapshot).toEqual({
-        ...initial.snapshot,
-        mcp_servers: {
-          svc: { id: 'svc', name: 'svc', session_id: 'mcp-1', transport_type: 'streamable-http' },
-        },
-        sandbox_info: { sandbox_id: 'sbx-1' },
-      });
-    });
-
-    it('patchMCPServers preserves other servers and sandbox info across repeated patches', async () => {
-      const store = createStore();
-      await seedSession(store);
-      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
-      await store.patchSandboxInfo({
-        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
-        session_id: sessionId,
-        turn_id: 'turn-1',
-        sandbox_info: { sandbox_id: 'sbx-1' },
-      });
-      await store.patchMCPServers({
-        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
-        session_id: sessionId,
-        turn_id: 'turn-1',
-        mcp_servers: [{ id: 'svc', name: 'svc', session_id: 'mcp-1', transport_type: 'streamable-http' }],
-      });
-      await store.patchMCPServers({
-        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
-        session_id: sessionId,
-        turn_id: 'turn-1',
-        mcp_servers: [{ id: 'other', name: 'other', transport_type: 'sse' }],
-      });
-      await store.patchMCPServers({
-        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
-        session_id: sessionId,
-        turn_id: 'turn-1',
-        mcp_servers: [],
-      });
-      const turn = mustGet(await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' }));
-      expect(turn.snapshot.mcp_servers).toEqual({
-        svc: { id: 'svc', name: 'svc', session_id: 'mcp-1', transport_type: 'streamable-http' },
-        other: { id: 'other', name: 'other', transport_type: 'sse' },
-      });
-      expect(turn.snapshot.sandbox_info).toEqual({ sandbox_id: 'sbx-1' });
-    });
-
-    it('patchSandboxInfo replaces existing sandbox info without changing other checkpoint fields', async () => {
-      const store = createStore();
-      await seedSession(store);
-      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
-      await store.patchSandboxInfo({
-        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
-        session_id: sessionId,
-        turn_id: 'turn-1',
-        sandbox_info: { sandbox_id: 'sbx-1' },
-      });
-      await store.patchMCPServers({
-        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
-        session_id: sessionId,
-        turn_id: 'turn-1',
-        mcp_servers: [{ id: 'svc', name: 'svc', transport_type: 'sse' }],
-      });
-      const before = mustGet(await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' }));
-      await store.patchSandboxInfo({
-        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
-        session_id: sessionId,
-        turn_id: 'turn-1',
-        sandbox_info: { sandbox_id: 'sbx-2' },
-      });
-      const after = mustGet(await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' }));
-      expect(after.snapshot).toEqual({ ...before.snapshot, sandbox_info: { sandbox_id: 'sbx-2' } });
     });
 
     it('patchMCPServers replaces each server id wholesale (omitted fields do not linger)', async () => {

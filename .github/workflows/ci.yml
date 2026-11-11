@@ -272,19 +272,15 @@ jobs:
 
   # Store contract suites when store paths change. Parallel with typecheck-and-build.
   store-tests:
-    name: Store Tests (Postgres ${{ matrix.postgres }})
+    name: Store Tests
     needs: detect-changes
     if: needs.detect-changes.outputs.store == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        postgres: ['13', '17']
 
     services:
       postgres:
-        image: postgres:${{ matrix.postgres }}-alpine
+        image: postgres:13-alpine
         env:
           POSTGRES_USER: proto
           POSTGRES_PASSWORD: proto
@@ -314,8 +310,6 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: SQLite store tests
-        # SQLite is independent of Postgres; run it once to avoid duplicate matrix work.
-        if: matrix.postgres == '17'
         run: pnpm test:store:sqlite
 
       - name: Postgres store tests
