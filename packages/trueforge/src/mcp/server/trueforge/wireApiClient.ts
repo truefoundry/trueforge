@@ -42,23 +42,6 @@ export interface WireApiClient {
   execute(descriptor: McpToolDescriptor, args: Record<string, unknown>, signal?: AbortSignal): Promise<unknown>;
 }
 
-/**
- * The SDK passthrough fetch appends a relative path onto the base URL's pathname, which
- * percent-encodes `?`. Split the query off so it stays a query string.
- */
-function resolveWireUrl({ baseUrl, pathAndQuery }: { baseUrl: string; pathAndQuery: string }): string {
-  const queryIndex = pathAndQuery.indexOf('?');
-  const path = queryIndex === -1 ? pathAndQuery : pathAndQuery.slice(0, queryIndex);
-  const search = queryIndex === -1 ? '' : pathAndQuery.slice(queryIndex + 1);
-  const url = new URL(baseUrl);
-  const basePath = url.pathname.endsWith('/') ? url.pathname.slice(0, -1) : url.pathname;
-  const relative = path.startsWith('/') ? path : `/${path}`;
-  url.pathname = `${basePath === '/' ? '' : basePath}${relative}`;
-  url.search = search;
-  url.hash = '';
-  return url.toString();
-}
-
 /** Map generated tool arguments onto raw SDK passthrough requests. */
 export function createWireApiClient(client: Pick<TrueForge, 'fetch'>, baseUrl: string): WireApiClient {
   return {
@@ -97,12 +80,12 @@ export function createWireApiClient(client: Pick<TrueForge, 'fetch'>, baseUrl: s
         headers.set('content-type', 'application/json');
       }
 
-      const queryString = query.toString();
+      // Resolve an absolute URL here. The SDK passthrough fetch appends a relative path onto the
+      // base pathname, which percent-encodes `?` and turns the query string into part of the route.
+      const url = new URL(pathname, baseUrl);
+      url.search = query.toString();
       const response = await client.fetch(
-        resolveWireUrl({
-          baseUrl,
-          pathAndQuery: queryString.length === 0 ? pathname : `${pathname}?${queryString}`,
-        }),
+        url,
         {
           method: descriptor.method,
           headers,
