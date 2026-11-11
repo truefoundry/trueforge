@@ -7,7 +7,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
   await sql`
     CREATE INDEX IF NOT EXISTS ${sql.raw(SESSION_EVENT_FEATURE_TYPE_IDX)}
       ON session_event (session_id)
-      WHERE event->>'type' IN ('sandbox.created', 'model.message', 'thread.created')
+      WHERE event->>'type' IN ('sandbox.created', 'thread.created')
   `.execute(db);
 }
 
