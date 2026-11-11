@@ -70,5 +70,5 @@ export const SANDBOX_ENVIRONMENT_VERSION_PENDING_IDX = 'sandbox_environment_vers
  */
 export const OAUTH_PENDING_AUTHORIZATION_SERVER_ID_IDX = 'oauth_pending_authorization_oauth_server_id_idx';
 
-/** Partial `(session_id)` on session_event for the sandbox.created and thread.created event types. */
-export const SESSION_EVENT_FEATURE_TYPE_IDX = 'session_event_feature_type_idx';
+/** `(event.type)` on session_event — filter events by type without parsing every payload. */
+export const SESSION_EVENT_TYPE_IDX = 'session_event_type_idx';
