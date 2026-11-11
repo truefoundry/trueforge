@@ -16,3 +16,9 @@
 - Fire from containers wrapping atom callbacks (or documented atom chrome: settings, config trigger, share). Do not duplicate sinks.
 - `useTrackAnalytics()` MUST no-op when no host `track` is provided (never throw).
 - New clickable product actions MUST add a catalog entry and a fire site in the same change.
+
+## Code comments
+
+- Comments MUST be scenario-based: state the situation that triggers the code and why it is handled this way, e.g. "This happens when …, we do this because …" or "When …, we … so that …".
+- A comment MUST NOT only restate what the code does (e.g. "Maps toolCallId to model.message id"); name the case it covers instead.
+- Comments stay brief (one to three lines) and follow the root `AGENTS.md` comment rules.

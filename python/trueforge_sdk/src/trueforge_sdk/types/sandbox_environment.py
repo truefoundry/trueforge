@@ -25,9 +25,19 @@ class SandboxEnvironment(UncheckedBaseModel):
     Human-readable description; empty when unset.
     """
 
+    enabled: bool = pydantic.Field()
+    """
+    Whether new chats and agents may select this environment.
+    """
+
     id: str = pydantic.Field()
     """
     Immutable server-generated environment identifier.
+    """
+
+    is_default: bool = pydantic.Field()
+    """
+    If true, environment is selected by default in new chats and agents.
     """
 
     lifecycle_stage: SandboxEnvironmentLifecycleStage

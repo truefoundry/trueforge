@@ -5,15 +5,11 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .action_required import ActionRequired
+from .turn_metrics import TurnMetrics
 
 
 class TurnStatePaused(UncheckedBaseModel):
-    action_required_on_events: typing.List[ActionRequired] = pydantic.Field()
-    """
-    Events that still need a user or client action.
-    """
-
+    metrics: typing.Optional[TurnMetrics] = None
     status: typing.Literal["paused"] = "paused"
 
     if IS_PYDANTIC_V2:

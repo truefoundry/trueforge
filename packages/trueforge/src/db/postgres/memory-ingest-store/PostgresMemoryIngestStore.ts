@@ -1,4 +1,4 @@
-import { MAIN_THREAD_ID, type TurnInputItem } from '@truefoundry/trueforge-core/agent-session';
+import { MAIN_THREAD_ID, type LegacyTurnInputItem } from '@truefoundry/trueforge-core/agent-session';
 import { sql, type Kysely } from 'kysely';
 import {
   AGENT_MEMORY_ENABLED_PATH,
@@ -19,7 +19,7 @@ const createAgentSession = sql<boolean>`COALESCE(s.metadata->>'is_create_agent' 
  * `turn.input` with only text parts kept in array content: file parts carry inline base64, and
  * ingestion sends text only, so attachments never leave the database.
  */
-const textOnlyInput = sql<TurnInputItem[]>`(
+const textOnlyInput = sql<LegacyTurnInputItem[]>`(
   SELECT COALESCE(jsonb_agg(
     CASE WHEN jsonb_typeof(item->'content') = 'array' THEN jsonb_set(item, '{content}', COALESCE(
       (SELECT jsonb_agg(part ORDER BY part_index)
@@ -30,8 +30,6 @@ const textOnlyInput = sql<TurnInputItem[]>`(
     ORDER BY item_index), '[]'::jsonb)
   FROM jsonb_array_elements(input) WITH ORDINALITY AS i(item, item_index)
 )`;
-/** The tip turn finished waiting on the user (a question, approval or auth). */
-const tipPaused = sql<boolean>`(t.state->>'status' = 'done' AND jsonb_array_length(COALESCE(t.state->'required_actions', '[]'::jsonb)) > 0)`;
 
 export class PostgresMemoryIngestStore implements IMemoryIngestStore {
   readonly #db: Kysely<Database>;
@@ -63,12 +61,7 @@ export class PostgresMemoryIngestStore implements IMemoryIngestStore {
         'c.updated_at as cursor_updated_at',
       ])
       .where('s.source', 'is', null)
-      .where(eb =>
-        eb.or([
-          eb('s.updated_at', '>=', input.recent_since),
-          eb.and([eb('s.updated_at', '>=', input.paused_from), eb('s.updated_at', '<', input.paused_until), tipPaused]),
-        ]),
-      )
+      .where('s.updated_at', '>=', input.recent_since)
       // Matches resolveMemoryScope: never agent-builder chats; a bound agent's manifest decides; UI chats without one use the default scope.
       .where(sql<boolean>`NOT (${createAgentSession})`)
       .where(eb =>

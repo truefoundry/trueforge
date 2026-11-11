@@ -1,15 +1,13 @@
-/** Turn product schemas: turn state, input items, and create-turn request. */
 import { z } from '@hono/zod-openapi';
 import {
   ActionRequiredEventSchema,
-  AgentInputUserMessageSchema,
-  EventIdSchema,
   ModelMessageEventSchema,
-  UserMCPAuthContinueMessageSchema,
+  UserContentPartSchema,
+  UserMessageSchema,
   UserToolApprovalMessageSchema,
-  UserToolApprovalPolicyMessageSchema,
   UserToolResponseMessageSchema,
 } from '../../core/events/schema';
+import { AgentThreadMetricsSchema } from '../../core/runtime/metrics';
 
 export enum CancellationReason {
   // AbortController.abort() reason for the max-execution timer.
@@ -24,32 +22,6 @@ export enum CancellationReason {
 
 /** Every `TurnState` arm takes its `status` literal from here. */
 export const TurnStatusSchema = z.enum(['running', 'paused', 'done', 'cancelled', 'error']).openapi('TurnStatus');
-
-export const TurnStateRunningSchema = z
-  .object({
-    status: z.literal(TurnStatusSchema.enum.running).describe('Turn is still executing.'),
-  })
-  .openapi('TurnStateRunning');
-
-export const ActionRequiredSchema = z
-  .object({
-    id: EventIdSchema,
-  })
-  .openapi('ActionRequired');
-
-export const TurnStatePausedSchema = z
-  .object({
-    status: z.literal(TurnStatusSchema.enum.paused).describe('Turn is paused waiting for required actions.'),
-    action_required_on_events: z
-      .array(ActionRequiredSchema)
-      .describe('Events that still need a user or client action.'),
-  })
-  .openapi('TurnStatePaused');
-
-export const TurnStateCancelledReasonSchema = z
-  .enum(CancellationReason)
-  .describe('Reason for the cancellation.')
-  .openapi('TurnStateCancelledReason');
 
 /** Billable aggregate for one turn. */
 export const TurnMetricsSchema = z
@@ -92,14 +64,33 @@ export const TurnMetricsSchema = z
       .describe('Total reasoning tokens across model calls in this turn.'),
     total_cost_in_usd: z.number().nonnegative().optional().describe('Estimated total cost in USD for this turn.'),
   })
+  .describe('Billable aggregate for this turn so far.')
   .openapi('TurnMetrics');
+
+export const TurnStateRunningSchema = z
+  .object({
+    status: z.literal(TurnStatusSchema.enum.running).describe('Turn is still executing.'),
+  })
+  .openapi('TurnStateRunning');
+
+export const TurnStatePausedSchema = z
+  .object({
+    status: z.literal(TurnStatusSchema.enum.paused).describe('Turn is paused waiting for user actions.'),
+    metrics: TurnMetricsSchema.optional(),
+  })
+  .openapi('TurnStatePaused');
+
+export const TurnStateCancelledReasonSchema = z
+  .enum(CancellationReason)
+  .describe('Reason for the cancellation.')
+  .openapi('TurnStateCancelledReason');
 
 export const TurnStateCancelledSchema = z
   .object({
     status: z.literal(TurnStatusSchema.enum.cancelled).describe('Turn was cancelled before completion.'),
     reason: TurnStateCancelledReasonSchema,
     completed_at: z.string().describe('ISO 8601 time when cancellation completed.'),
-    metrics: TurnMetricsSchema.optional().describe('Optional billable aggregate for work done before cancel.'),
+    metrics: TurnMetricsSchema.optional(),
   })
   .openapi('TurnStateCancelled');
 
@@ -108,7 +99,7 @@ export const TurnStateErrorSchema = z
     status: z.literal(TurnStatusSchema.enum.error).describe('Turn ended with an error.'),
     message: z.string().describe('Human-readable error message.'),
     completed_at: z.string().describe('ISO 8601 time when the error state was recorded.'),
-    metrics: TurnMetricsSchema.optional().describe('Optional billable aggregate for work done before the error.'),
+    metrics: TurnMetricsSchema.optional(),
   })
   .openapi('TurnStateError');
 
@@ -124,7 +115,7 @@ export const TurnStateDoneSchema = z
         'Pending actions (`tool.approval_required`, `tool.response_required`, `mcp.auth_required`); empty when none.',
       ),
     completed_at: z.string().describe('ISO 8601 time when the turn reached a terminal state.'),
-    metrics: TurnMetricsSchema.optional().describe('Optional billable aggregate for the whole turn.'),
+    metrics: TurnMetricsSchema.optional(),
   })
   .openapi('TurnStateDone');
 
@@ -138,20 +129,24 @@ export const TurnStateSchema = z
   ])
   .openapi('TurnState');
 
-export const TurnInputItemSchema = z
-  .discriminatedUnion('type', [
-    AgentInputUserMessageSchema,
-    UserToolApprovalMessageSchema,
-    UserToolResponseMessageSchema,
-  ])
-  .openapi('TurnInputItem');
+/**
+ * Historical turn rows may contain approval decisions and client-side tool responses
+ * because those inputs created continuation turns before the turn-events endpoint existed.
+ * New turns accept only UserMessageSchema through CreateTurnRequestSchema.
+ */
+export const LegacyTurnInputItemSchema = z
+  .discriminatedUnion('type', [UserMessageSchema, UserToolApprovalMessageSchema, UserToolResponseMessageSchema])
+  .openapi('LegacyTurnInputItem');
 
 export const TurnSchema = z
   .object({
     id: z.string().describe('Unique turn id.'),
     session_id: z.string().describe('Session that owns this turn.'),
     previous_turn_id: z.string().nullable().describe('Prior turn this turn chains from; null for a root turn.'),
-    input: z.array(TurnInputItemSchema).optional().describe('Input items supplied when the turn was created.'),
+    input: z
+      .array(LegacyTurnInputItemSchema)
+      .optional()
+      .describe('Inputs stored when the turn was created, including legacy continuation inputs.'),
     state: TurnStateSchema,
     created_at: z.string().describe('ISO 8601 creation timestamp.'),
   })
@@ -163,12 +158,16 @@ export const TurnSchema = z
  */
 export const CreateTurnRequestSchema = z
   .object({
+    // Create-time only: persisted UserMessageSchema must keep accepting empty
+    // string content for historical Turn.input / turn.created rows.
     input: z
-      .array(TurnInputItemSchema)
-      .optional()
-      .describe(
-        'Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.',
-      ),
+      .array(
+        UserMessageSchema.extend({
+          content: z.union([z.string().min(1), z.array(UserContentPartSchema)]),
+        }),
+      )
+      .min(1)
+      .describe('User messages for this turn. At least one is required.'),
     previous_turn_id: z
       .union([z.literal('auto'), z.literal('none'), z.string().min(1)])
       .optional()
@@ -181,39 +180,39 @@ export const CreateTurnRequestSchema = z
       .default(true)
       .describe('When true (default), stream turn events as SSE. When false, return the running turn immediately.'),
   })
-  .superRefine((data, ctx) => {
-    if (!data.input) {
-      return;
-    }
-    const hasUser = data.input.some(msg => 'type' in msg && msg.type === 'user.message');
-    const hasApprovalOrToolResponse = data.input.some(
-      msg => 'type' in msg && (msg.type === 'user.tool_approval' || msg.type === 'user.tool_response'),
-    );
-    if (hasUser && hasApprovalOrToolResponse) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'input must not mix user messages with approval decisions or client-side tool responses',
-      });
-    }
-  })
   .openapi('CreateTurnRequest');
 
-export const TurnInboundEventItemSchema = z
-  .discriminatedUnion('type', [
-    UserToolApprovalMessageSchema,
-    UserToolResponseMessageSchema,
-    UserToolApprovalPolicyMessageSchema,
-    UserMCPAuthContinueMessageSchema,
-  ])
-  .openapi('TurnInboundEventItem');
+/**
+ * Accumulated billable totals, closed active duration, and the open running interval.
+ * `running_since` is null while paused.
+ */
+export const TurnMetricsCheckpointSchema = z.object({
+  metrics: AgentThreadMetricsSchema,
+  active_duration_ms: z.number().int().nonnegative(),
+  running_since: z.string().nullable(),
+});
+
+/** Pause sends the metrics since the last resume. Resume only opens the next interval. */
+export const TurnNonTerminalMetricsSchema = z.discriminatedUnion('status', [
+  z.object({
+    status: z.literal('paused'),
+    observed_at: z.string(),
+    metrics: AgentThreadMetricsSchema,
+  }),
+  z.object({
+    status: z.literal('running'),
+    observed_at: z.string(),
+  }),
+]);
 
 export type Turn = z.infer<typeof TurnSchema>;
-export type TurnInputItem = z.infer<typeof TurnInputItemSchema>;
+export type LegacyTurnInputItem = z.infer<typeof LegacyTurnInputItemSchema>;
 export type TurnState = z.infer<typeof TurnStateSchema>;
 export type NonTerminalTurnState = Extract<TurnState, { status: 'running' | 'paused' }>;
 export type TerminalTurnState = Exclude<TurnState, NonTerminalTurnState>;
 export type TurnMetrics = z.infer<typeof TurnMetricsSchema>;
-export type TurnInboundEventItem = z.infer<typeof TurnInboundEventItemSchema>;
+export type TurnMetricsCheckpoint = z.infer<typeof TurnMetricsCheckpointSchema>;
+export type TurnNonTerminalMetrics = z.infer<typeof TurnNonTerminalMetricsSchema>;
 
 export function isNonTerminalTurnState(state: TurnState): state is NonTerminalTurnState {
   return state.status === 'running' || state.status === 'paused';

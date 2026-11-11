@@ -1,0 +1,76 @@
+---
+title: 'Setup Memory'
+sidebarTitle: 'Memory'
+description: 'Connect a memory provider so agents remember details about each user across chats.'
+---
+
+TrueForge can give agents long-term memory of each user: preferences, ongoing work, and facts they share. Chats are sent to a memory provider in the background, and agents read that memory at the start of a chat and through two built-in tools, `memory_search` and `memory_add`. Memory stays off until a provider is configured under **Settings → Memory**, an admin turns memory on for the tenant, and an agent enables it.
+
+## Supported providers
+
+| Provider type | Notes                                                                                      |
+| ------------- | ------------------------------------------------------------------------------------------ |
+| `zep`         | [Zep](https://www.getzep.com). Requires an API key. Uses Zep Cloud unless a server URL is set. |
+
+The list comes from the shipped [`memory-catalog.yaml`](https://github.com/truefoundry/trueforge/blob/main/packages/trueforge/catalog/memory-catalog.yaml). Self-hosted deployments can [override the catalog](/harness/initial-setup#changing-what-the-ui-offers).
+
+## Configure a provider
+
+1. Open **Settings → Memory** and choose the Zep preset.
+2. Paste your Zep API key. Leave **Server URL** blank for Zep Cloud, or enter the URL of a self-hosted Zep.
+3. Save.
+
+One provider is active at a time. API and UI reads redact the key, so when you update the provider later, leave the API key blank to keep the stored value, or enter a new key to rotate it.
+
+## Turn memory on for the tenant
+
+**Settings → Memory → Allow memory** is the tenant-wide switch, and it is off by default. Agents keep their own memory setting while it is off, so turning the switch back on restores memory for them without editing each agent. See [Turning memory off](#turning-memory-off) for what changes while it is off.
+
+## Enable memory on an agent
+
+| Where | How                                         |
+| ----- | ------------------------------------------- |
+| UI    | **Build Agent → Runtime Config → Memory**   |
+| API   | `config.memory.enabled`                     |
+
+Memory is opted into per agent: the schema default is `{ "enabled": false }`, and new agents in the UI start with it off. Chats started from **New Chat**, without a saved agent, use the user's general memory whenever the tenant allows memory.
+
+<Note>The **Memory** toggle is hidden until a provider is configured, and can't be turned on while **Allow memory** is off; through the API, both cases return a `422`. An agent that already has memory on keeps working if memory later becomes unavailable, just without memory; see [Turning memory off](#turning-memory-off).</Note>
+
+## What the agent gets
+
+- **Memory at the start of a chat.** When a chat starts, the agent gets a short summary of what it remembers about the user. If memory is slow to load, the chat starts without it.
+- `memory_search` looks up details about the user in natural language, such as preferences, ongoing work, or people they mention, and returns the matching facts.
+- `memory_add` saves something the user asks the agent to remember. The agent doesn't save on its own initiative.
+
+The harness adds guidance to the system prompt about when to use each tool and how to weigh memory: it may be outdated, and what the user says in the chat wins. Only the main agent gets memory; [subagents](/key-features/subagents) don't. Both tools run on the server through the configured provider; agent definitions never contain the API key.
+
+## How memory works
+
+When memory is enabled, chats are processed in the background, and relevant details become available in later chats. This happens asynchronously and can take some time, so something mentioned in a chat may not be remembered right away.
+
+To make sure something is remembered, ask the agent to remember it in the chat, for example:
+
+> Remember that I prefer answers in metric units.
+
+The agent saves it with `memory_add`, and it is used in future chats once saved. Agents only save when asked.
+
+Memory is per user. A user's **New Chat** memory and their memory on each agent are kept separate, and one user never reads another's. Agent-builder chats and scheduled runs aren't remembered.
+
+## Turning memory off
+
+Memory can be turned off for the whole tenant with **Allow memory**, or for one agent with its **Memory** toggle. Unlike [web search](/web-search) and the [sandbox](/sandbox), where chats that already use a capability keep it, turning memory off takes effect in existing chats too:
+
+- The agent stops reading memory from previous chats, including in chats started while memory was on.
+- The agent can no longer save anything new to memory.
+- Chats are no longer processed for memory.
+
+Memory that was already saved is kept, so turning memory back on restores it.
+
+## Manage memory through the API
+
+- `GET /api/v1/settings/memory-providers` reads the provider, with the key redacted.
+- `PUT /api/v1/settings/memory-providers` creates, replaces, or rotates the key.
+- `GET /api/v1/catalogs/memory-providers` lists the presets.
+- `PATCH /api/v1/settings/configuration` with `{ "manifest": { "memory": { "enabled": true } } }` turns memory on for the tenant.
+- `GET /api/v1/capabilities` reports whether memory is available.

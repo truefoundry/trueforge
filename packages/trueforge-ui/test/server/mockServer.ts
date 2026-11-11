@@ -72,6 +72,8 @@ export function createMockSandboxEnvironmentServer(
     getEnvironment: unavailable,
     createEnvironment: unavailable,
     createOrUpdateEnvironment: unavailable,
+    setEnvironmentEnabled: unavailable,
+    setDefaultEnvironment: unavailable,
     deleteEnvironment: unavailable,
     ...overrides,
   };
@@ -93,6 +95,8 @@ export function createMockAgentUIServer(overrides: Partial<AgentUIServer> = {}):
     getSession: unavailable,
     updateSession: unavailable,
     createTurn: emptyTurnStream,
+    sendTurnEvents: unavailable,
+    subscribeToTurn: emptyTurnStream,
     cancelSession: unavailable,
     listTurns: unavailable,
     getTurn: unavailable,

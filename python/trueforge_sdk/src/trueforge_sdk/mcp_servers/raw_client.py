@@ -162,7 +162,7 @@ class RawMcpServersClient:
             MCP server name.
 
         return_to : typing.Optional[str]
-            Same-origin path to land in the browser after consent.
+            Same-origin path to land in the browser after consent. When omitted, no post-consent redirect is requested.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -532,7 +532,7 @@ class AsyncRawMcpServersClient:
             MCP server name.
 
         return_to : typing.Optional[str]
-            Same-origin path to land in the browser after consent.
+            Same-origin path to land in the browser after consent. When omitted, no post-consent redirect is requested.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.

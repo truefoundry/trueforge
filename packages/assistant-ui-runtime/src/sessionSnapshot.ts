@@ -1,22 +1,43 @@
 import type {
+  EVENT_TYPE,
   McpAuthRequiredEvent,
+  SessionEventItem,
   Turn,
   TurnCreatedEvent,
   TurnDoneEvent,
-  TurnEvent,
   TurnInputItem,
 } from './server/index.js';
+import { TURN_STATUS } from './server/index.js';
 
 import { extractTurnUserText } from './extractTurnUserText.js';
 import { PeerThreadFoldState } from './foldPeerThreads.js';
 import type { StoredApprovalDecision } from './toolApproval.js';
 import type { StoredToolResponse } from './toolResponse.js';
-import type { TurnStreamUpdate } from './turnStreamUpdate.js';
+import type { TurnStreamUpdate, TurnSubscribeCursor } from './turnStreamUpdate.js';
 
-/** Session-level event item from `AgentSession.listEvents`. */
-export interface GatewaySessionEventItem {
-  turnId: string;
-  event: TurnCreatedEvent | TurnDoneEvent | TurnEvent;
+export const STREAM_SEGMENT_STATUS = {
+  DISCONNECTED: 'disconnected',
+  OPEN: 'open',
+  PAUSED: 'paused',
+  TERMINAL: 'terminal',
+} as const;
+
+export type StreamSegmentStatus = (typeof STREAM_SEGMENT_STATUS)[keyof typeof STREAM_SEGMENT_STATUS];
+
+export function streamSegmentStatus({
+  turnState,
+  segmentEnded = false,
+}: {
+  turnState: Turn['state'] | undefined;
+  segmentEnded?: boolean;
+}): StreamSegmentStatus {
+  if (turnState?.status === TURN_STATUS.PAUSED) {
+    return STREAM_SEGMENT_STATUS.PAUSED;
+  }
+  if (turnState != null && turnState.status !== TURN_STATUS.RUNNING) {
+    return STREAM_SEGMENT_STATUS.TERMINAL;
+  }
+  return segmentEnded ? STREAM_SEGMENT_STATUS.DISCONNECTED : STREAM_SEGMENT_STATUS.OPEN;
 }
 
 /** Cursor for fetching older `listEvents` pages (scroll-up history). */
@@ -29,7 +50,7 @@ export interface SessionHistoryPagination {
    * older page. Event pages split turns, so these are held and re-joined with
    * the next older page instead of being discarded.
    */
-  pendingItemsAsc?: readonly GatewaySessionEventItem[] | undefined;
+  pendingItemsAsc?: readonly SessionEventItem[] | undefined;
 }
 
 /** Turn metadata retained for cross-turn projection and subsequent required-action replay. */
@@ -40,6 +61,8 @@ export type SessionTurnRecord = Pick<Turn, 'id' | 'createdAt' | 'state' | 'input
   rootModelMessageIds?: readonly string[] | undefined;
   /** sandboxId observed via `sandbox.created` on this or an earlier turn (session-scoped). */
   sandboxId?: string | undefined;
+  /** MCP authorization requirement still open on this turn. */
+  pendingMcpAuth?: McpAuthRequiredEvent | undefined;
 };
 
 export interface RequiredActionsOverlay {
@@ -50,16 +73,20 @@ export interface RequiredActionsOverlay {
 export interface ActiveStreamState {
   turnId: string;
   update: TurnStreamUpdate;
-  isContinuation: boolean;
-  streamComplete?: boolean | undefined;
-  /** Exclusive subscribe cursor; events after this sequence are replayed on reconnect. */
+  /**
+   * Transport state, not turn state. A paused or disconnected segment can end
+   * while `runningTurn` remains non-terminal and subscribable.
+   */
+  segmentStatus: StreamSegmentStatus;
   lastSequenceNumber?: number | undefined;
+  /** Event-id resume cursor. New streams do not use `lastSequenceNumber`. */
+  subscribeCursor?: TurnSubscribeCursor | undefined;
 }
 
 export interface PendingUserMessage {
   turnId: string;
   /** Gateway user.message content (text-only string or text/file parts). */
-  content: Extract<TurnInputItem, { type: 'user.message' }>['content'];
+  content: Extract<TurnInputItem, { type: typeof EVENT_TYPE.USER_MESSAGE }>['content'];
   createdAt: Date;
 }
 
@@ -72,13 +99,14 @@ export interface SessionSnapshot {
   /** Root `model.message` ids present before the active turn group started (streaming scope). */
   groupRootBaseline?: readonly string[] | undefined;
   requiredActions: RequiredActionsOverlay;
+  /** Current non-terminal turn; its state may be running or paused. */
   runningTurn?: Turn | undefined;
   unstable_resume?: boolean | undefined;
   /**
    * Chronological `listEvents` items loaded so far (for prepend-on-scroll rebuild).
    * Live stream commits are not appended here — they live in `turns` / `fold`.
    */
-  historyEvents?: readonly GatewaySessionEventItem[] | undefined;
+  historyEvents?: readonly SessionEventItem[] | undefined;
   historyPagination?: SessionHistoryPagination | undefined;
 }
 

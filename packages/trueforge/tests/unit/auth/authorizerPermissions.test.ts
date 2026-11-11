@@ -141,7 +141,7 @@ describe('TrueForgeAuthorizer.getPermissions', () => {
     expect(scheduleStore.getSchedule).not.toHaveBeenCalled();
   });
 
-  it('always grants tenant agent CREATE in standalone mode; sandbox env CREATE follows canCreateOrEdit', async () => {
+  it('always grants tenant agent CREATE in standalone mode; sandbox env CREATE follows canManageOrDeleteEnvironment', async () => {
     expect(
       await authorizer.getPermissions({
         resourceType: 'tenant',
@@ -166,7 +166,7 @@ describe('TrueForgeAuthorizer.getPermissions', () => {
     });
   });
 
-  it('grants MANAGE/DELETE via canCreateOrEdit (owner or admin)', async () => {
+  it('grants MANAGE/DELETE via canManageOrDeleteEnvironment (admin only)', async () => {
     const sandboxEnvironmentStore = {
       getEnvironmentsByIds: jest.fn(async () => [
         { id: 'env-1', name: 'alice-env', created_by_subject: { subject_id: 'alice' } },
@@ -184,7 +184,7 @@ describe('TrueForgeAuthorizer.getPermissions', () => {
     ).toEqual({
       type: 'sandbox_environment',
       permissions: {
-        'env-1': ['MANAGE', 'DELETE'],
+        'env-1': [],
         'env-2': [],
       },
     });
@@ -203,6 +203,28 @@ describe('TrueForgeAuthorizer.getPermissions', () => {
         'env-1': ['MANAGE', 'DELETE'],
         'env-2': ['MANAGE', 'DELETE'],
       },
+    });
+  });
+
+  // Reserved: patch (MANAGE) yes, delete no — enable / set-default stay available to admins.
+  it('grants MANAGE but not DELETE on the platform-provisioned environment for admins', async () => {
+    const sandboxEnvironmentStore = {
+      getEnvironmentsByIds: jest.fn(async () => [
+        { id: 'env-managed', name: 'default', created_by_subject: { subject_id: 'alice' } },
+      ]),
+    };
+
+    const admin: RequestContext = { ...BOB, roles: ['admin'] };
+    expect(
+      await authorizer.getPermissions({
+        resourceType: 'sandbox_environment',
+        requestContext: admin,
+        resourceIds: ['env-managed'],
+        store: sandboxEnvironmentStore as never,
+      }),
+    ).toEqual({
+      type: 'sandbox_environment',
+      permissions: { 'env-managed': ['MANAGE'] },
     });
   });
 });

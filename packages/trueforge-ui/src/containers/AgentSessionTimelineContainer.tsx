@@ -15,7 +15,7 @@ import type { AgentChatServer, SessionEventItem } from '../server/types.js';
 import type { SlotOverrides } from '../theme/SlotsProvider.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { buildSessionMetrics } from '../utils/buildSessionMetrics.js';
-import { buildSessionTimelineSegments } from '../utils/buildSessionTimelineSegments.js';
+import { buildSessionTimelineSegments, sessionHasOpenPause } from '../utils/buildSessionTimelineSegments.js';
 import { createCachedListEventsBridge } from '../utils/cachedListEventsBridge.js';
 import { getTurnInputSummary } from '../utils/sessionTimelineEvents.js';
 import { aggregateSessionTurnBand, buildSessionTurnViews, type SessionTurnView } from '../utils/sessionTurnViews.js';
@@ -109,16 +109,66 @@ function buildProjectionEvents(items: SessionEventItem[], turns: SessionTurnView
   });
 }
 
-/** Retrieves MCP servers requiring OAuth in this turn from done actions or turn events. */
-function findTurnMcpServers(turn: SessionTurnView) {
-  const actions = turn.done?.state.status === 'done' ? turn.done.state.requiredActions : undefined;
-  if (Array.isArray(actions)) {
+function appendTerminalText(content: ThreadMessageLike['content'], text: string): ThreadMessageLike['content'] {
+  const terminalPart: { type: 'text'; text: string } = { type: 'text', text };
+  return typeof content === 'string' ? [{ type: 'text', text: content }, terminalPart] : [...content, terminalPart];
+}
+
+function applyTerminalState(messages: ThreadMessageLike[], turn: SessionTurnView): ThreadMessageLike[] {
+  const state = turn.done?.state;
+  if (state?.status !== 'error' && state?.status !== 'cancelled') return messages;
+
+  // failures need an assistant row so the terminal state is visible.
+  const assistantIndex = messages.findIndex(message => message.role === 'assistant');
+  const assistant = assistantIndex < 0 ? undefined : messages[assistantIndex];
+  const createdAt = new Date(state.completedAt ?? turn.done?.createdAt ?? turn.created.createdAt);
+  const terminal: ThreadMessageLike =
+    state.status === 'error'
+      ? {
+          ...(assistant ?? {
+            id: `${turn.turnId}-assistant`,
+            role: 'assistant',
+            content: [],
+            createdAt,
+            metadata: { custom: { turnId: turn.turnId } },
+          }),
+          status: { type: 'incomplete', reason: 'error', error: state.message },
+        }
+      : {
+          ...(assistant ?? {
+            id: `${turn.turnId}-assistant`,
+            role: 'assistant',
+            content: [],
+            createdAt,
+            metadata: { custom: { turnId: turn.turnId } },
+          }),
+          content: appendTerminalText(assistant?.content ?? [], `Cancelled: ${state.reason}`),
+          status: { type: 'incomplete', reason: 'cancelled' },
+        };
+
+  if (assistantIndex < 0) return [...messages, terminal];
+  return messages.map((message, index) => (index === assistantIndex ? terminal : message));
+}
+
+/**
+ * Returns MCP servers that still need login for this turn.
+ * If the turn finished, only show Connect when required_actions(now connected) still asks for auth.
+ * Do not show Connect just because an older mcp.auth_required event is in history.
+ */
+function findUnresolvedTurnMcpServers(turn: SessionTurnView) {
+  const done = turn.done;
+  if (done?.state.status === 'done') {
+    const actions = done.state.requiredActions;
+    if (!Array.isArray(actions)) return undefined;
     for (const action of actions) {
       if (action.type === 'mcp.auth_required' && isMcpServerAuthInfoList(action.mcpServers)) {
         return action.mcpServers;
       }
     }
+    return undefined;
   }
+  if (done != null) return undefined;
+
   for (const event of turn.events) {
     if (event.type === 'mcp.auth_required' && isMcpServerAuthInfoList(event.mcpServers)) {
       return event.mcpServers;
@@ -127,13 +177,9 @@ function findTurnMcpServers(turn: SessionTurnView) {
   return undefined;
 }
 
-/**
- * Re-attaches MCP auth metadata to the assistant message in session replay.
- * History projection drops pendingMcpAuth when synthetic continuation user messages
- * follow; restoring it here ensures ReadOnlyAssistantMessageBubble renders the auth widget.
- */
+/** Adds the Connect card in session detail only when auth is still open. */
 function applyMcpAuthState(messages: ThreadMessageLike[], turn: SessionTurnView): ThreadMessageLike[] {
-  const mcpServers = findTurnMcpServers(turn);
+  const mcpServers = findUnresolvedTurnMcpServers(turn);
   if (mcpServers == null || mcpServers.length === 0) return messages;
 
   const assistantIndex = messages.findIndex(message => message.role === 'assistant');
@@ -172,11 +218,12 @@ function messageBelongsToTurn(message: ThreadMessageLike, turnId: string): boole
 
 function messagesForTurn(messages: ThreadMessageLike[], turn: SessionTurnView): ThreadMessageLike[] {
   const matched = messages.filter(message => messageBelongsToTurn(message, turn.turnId));
-  const withAuth = applyMcpAuthState(matched, turn);
+  const withMcpAuth = applyMcpAuthState(matched, turn);
+  const withTerminal = applyTerminalState(withMcpAuth, turn);
   // Session detail is a static snapshot — coerce running assistant status so
   // markdown does not typewrite as if the live stream were still open.
-  if (turn.done != null) return withAuth;
-  return withAuth.map(message => {
+  if (turn.done != null) return withTerminal;
+  return withTerminal.map(message => {
     if (message.role !== 'assistant' || message.status?.type !== 'running') return message;
     return { ...message, status: { type: 'complete', reason: 'stop' } };
   });
@@ -216,7 +263,16 @@ export function AgentSessionTimelineContainer({
     () => buildProjectionEvents(events, renderableTurnViews),
     [events, renderableTurnViews],
   );
-  const timelineSegments = useMemo(() => buildSessionTimelineSegments(allTurnViews), [allTurnViews]);
+  // While a turn stays paused with no new events, refresh nowMs so pause wall time grows.
+  const hasOpenPause = useMemo(() => sessionHasOpenPause(allTurnViews), [allTurnViews]);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    if (!hasOpenPause) return undefined;
+    setNowMs(Date.now());
+    const timer = window.setInterval(() => setNowMs(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, [hasOpenPause, allTurnViews]);
+  const timelineSegments = useMemo(() => buildSessionTimelineSegments(allTurnViews, { nowMs }), [allTurnViews, nowMs]);
   const sessionMetrics = useMemo(
     () => buildSessionMetrics({ turns: allTurnViews, segments: timelineSegments, sessionMetrics: sessionMetricsHint }),
     [sessionMetricsHint, timelineSegments, allTurnViews],

@@ -20,8 +20,8 @@ export interface AccessControlStoreContractEnv {
 }
 
 /** Session seeding through the backend's real session store. */
-export function sessionSeeding(
-  sessionStore: ISessionStore,
+export function sessionSeeding<TTransaction>(
+  sessionStore: ISessionStore<TTransaction>,
 ): Pick<AccessControlStoreContractEnv, 'seedSession' | 'deleteSession'> {
   return {
     async seedSession({ tenant_id, session_id }) {

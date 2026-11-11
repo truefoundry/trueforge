@@ -91,6 +91,7 @@ export class OpenToolCallCloser implements PreSendContextProcessor {
       type: InternalEventType.AGENT_CONTEXT_APPEND,
       context: dummyToolMessages,
       output: [],
+      applied_user_events: [],
       current_context_usage: currentContextUsage,
     };
   }

@@ -9,7 +9,6 @@ import {
   activePath,
   askUserQuestionsByToolCallId,
   buildExchanges,
-  exchangeReadiness,
   renderExchange,
   resumePoint,
   type TurnExchange,
@@ -30,7 +29,6 @@ export interface MemoryIngestConfig {
   maxSessionsPerRun: number;
   maxExchangesPerSession: number;
   lookbackMs: number;
-  pauseTimeoutMs: number;
 }
 
 export interface MemoryIngestDeps {
@@ -63,22 +61,17 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/** Exchanges that may be sent now, in order, stopping at the first one that is not ready. */
+/** Closed exchanges, in order, stopping at the first open one (running or paused on the user). */
 function readyExchanges({
   exchanges,
-  now,
   config,
 }: {
   exchanges: readonly TurnExchange[];
-  now: Date;
   config: MemoryIngestConfig;
 }): TurnExchange[] {
   const ready: TurnExchange[] = [];
   for (const exchange of exchanges) {
-    if (
-      ready.length === config.maxExchangesPerSession ||
-      !exchangeReadiness({ exchange, now, pauseTimeoutMs: config.pauseTimeoutMs }).ready
-    ) {
+    if (ready.length === config.maxExchangesPerSession || exchange.status !== 'closed') {
       break;
     }
     ready.push(exchange);
@@ -99,7 +92,7 @@ async function ingestSession({
   deps: MemoryIngestDeps;
   signal: AbortSignal;
 }): Promise<SessionResult> {
-  const { store, logger, config, now } = deps;
+  const { store, logger, config } = deps;
   const { cursor } = candidate;
   const logFields = {
     session_id: candidate.session_id,
@@ -121,7 +114,7 @@ async function ingestSession({
     });
   }
 
-  const ready = readyExchanges({ exchanges: buildExchanges(path.slice(startIndex)), now: now(), config });
+  const ready = readyExchanges({ exchanges: buildExchanges(path.slice(startIndex)), config });
   if (ready.length === 0) {
     return { outcome: 'not_ready', exchangesSent: 0, exchangesFailed: 0 };
   }
@@ -206,8 +199,8 @@ export async function runMemoryIngestPass({
   const { store, logger, config, now } = deps;
   const startedAt = now();
 
-  // Recent sessions within the lookback; paused ones only once their pause has timed out, for one
-  // lookback-wide range. A paused session the user answers gets a new turn and so becomes recent.
+  // Sessions touched within the lookback. Pausing and finishing a turn bump session.updated_at,
+  // so a turn paused longer than the window is picked up once it closes. A still-paused tip is not ingested.
   const startedMs = startedAt.getTime();
   const providers = await deps.providersByTenant();
   const listed =
@@ -216,8 +209,6 @@ export async function runMemoryIngestPass({
       : await store.listCandidateSessions({
           tenant_ids: [...providers.keys()],
           recent_since: new Date(startedMs - config.lookbackMs),
-          paused_from: new Date(startedMs - config.pauseTimeoutMs - config.lookbackMs),
-          paused_until: new Date(startedMs - config.pauseTimeoutMs),
           limit: config.maxSessionsPerRun + 1,
         });
   const backlog = listed.length > config.maxSessionsPerRun;
@@ -334,7 +325,6 @@ export function memoryIngestFromConfig({
       maxSessionsPerRun: settings.max_sessions_per_run,
       maxExchangesPerSession: settings.max_exchanges_per_session,
       lookbackMs: settings.lookback_ms,
-      pauseTimeoutMs: settings.pause_timeout_ms,
     },
   };
 }

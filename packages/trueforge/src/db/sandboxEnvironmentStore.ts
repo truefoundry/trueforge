@@ -3,7 +3,7 @@
  * Implementations: PostgresSandboxEnvironmentStore and SqliteSandboxEnvironmentStore.
  */
 import type { Subject, TokenPagination } from '@truefoundry/trueforge-core/agent-session';
-import type { NextSandboxEnvironmentVersion } from '../sandbox/sandboxEnvironmentVersion';
+import type { NextSandboxEnvironmentVersion } from '../sandbox/environment/version';
 import type { ResourceName } from '../schemas/common';
 import type {
   SandboxEnvironmentLifecycleStage,
@@ -20,6 +20,8 @@ export interface SandboxEnvironmentRecord {
   description: string;
   active_version: number;
   lifecycle_stage: SandboxEnvironmentLifecycleStage;
+  enabled: boolean;
+  is_default: boolean;
   created_by_subject: Subject;
   /** ISO-8601 UTC instant. */
   created_at: string;
@@ -167,6 +169,44 @@ export interface DeleteSandboxEnvironmentInput {
   name: string;
 }
 
+export interface SetSandboxEnvironmentEnabledInput {
+  tenant_id: string;
+  name: string;
+  enabled: boolean;
+}
+
+export interface SetDefaultSandboxEnvironmentInput {
+  tenant_id: string;
+  name: string;
+}
+
+/**
+ * Raised when a concurrent set-default claimed the tenant's default slot, or moved it onto a row
+ * the caller is deleting.
+ */
+export class SandboxEnvironmentDefaultConflictError extends Error {
+  readonly tenant_id: string;
+
+  constructor({ tenant_id }: { tenant_id: string }, options?: ErrorOptions) {
+    super(`Sandbox environment default changed concurrently for tenant ${tenant_id}`, options);
+    this.name = 'SandboxEnvironmentDefaultConflictError';
+    this.tenant_id = tenant_id;
+  }
+}
+
+/** Raised when set-default targets an environment that is disabled. */
+export class SandboxEnvironmentDisabledError extends Error {
+  readonly tenant_id: string;
+  readonly environment_name: string;
+
+  constructor({ tenant_id, name }: { tenant_id: string; name: string }, options?: ErrorOptions) {
+    super(`Sandbox environment ${name} is disabled`, options);
+    this.name = 'SandboxEnvironmentDisabledError';
+    this.tenant_id = tenant_id;
+    this.environment_name = name;
+  }
+}
+
 /** Partial unique `(tenant_id, name) WHERE lifecycle_stage = 'active'` violation. */
 export class SandboxEnvironmentNameConflictError extends Error {
   readonly tenant_id: string;
@@ -220,6 +260,31 @@ export interface ISandboxEnvironmentStore<TTransaction = never> {
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentWithVersion | undefined>;
   /**
+   * The tenant's default environment by `is_default`, not by name. Undefined when no active
+   * row holds the flag.
+   */
+  getDefaultEnvironment(
+    input: { tenant_id: string },
+    transaction?: TTransaction,
+  ): Promise<SandboxEnvironmentWithVersion | undefined>;
+  /** At least one active environment is enabled and its active version is `ready`. */
+  hasUsableEnvironment(input: { tenant_id: string }, transaction?: TTransaction): Promise<boolean>;
+
+  setEnvironmentEnabled(
+    input: SetSandboxEnvironmentEnabledInput,
+    transaction?: TTransaction,
+  ): Promise<SandboxEnvironmentWithVersion | undefined>;
+
+  setDefaultEnvironment(
+    input: SetDefaultSandboxEnvironmentInput,
+    transaction?: TTransaction,
+  ): Promise<SandboxEnvironmentWithVersion | undefined>;
+
+  clearDefaultEnvironment(
+    input: SetDefaultSandboxEnvironmentInput,
+    transaction?: TTransaction,
+  ): Promise<SandboxEnvironmentWithVersion | undefined>;
+  /**
    * Create by `(tenant_id, name)` — parent + version row.
    * Throws {@link SandboxEnvironmentNameConflictError} if an active environment already
    * uses the name. Uses `transaction` when passed; otherwise opens its own.
@@ -257,10 +322,14 @@ export interface ISandboxEnvironmentStore<TTransaction = never> {
     input: MarkSandboxEnvironmentVersionFailedInput,
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentVersionRecord | undefined>;
-  /** Soft-delete: set lifecycle_stage = deleted. Idempotent if missing or already deleted. */
-  deleteEnvironment(input: DeleteSandboxEnvironmentInput, transaction?: TTransaction): Promise<void>;
+  /**
+   * Soft-delete an active environment and return its id. Returns undefined when no active
+   * environment matched, and refuses to delete the tenant's default environment.
+   */
+  deleteEnvironment(input: DeleteSandboxEnvironmentInput): Promise<string | undefined>;
   listSecretsByEnvironment(
     input: { environment_id: string },
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentSecretRecord[]>;
+  deleteSecretsByEnvironment(input: { environment_id: string }, transaction?: TTransaction): Promise<void>;
 }

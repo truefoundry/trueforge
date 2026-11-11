@@ -53,6 +53,8 @@ function mockDefaultEnvStore(): ISandboxEnvironmentStore {
   return {
     getEnvironment: () => Promise.resolve(withStatus(mockLatestDefaultStatus)),
     getActiveEnvironment: () => Promise.resolve(withStatus(mockActiveDefaultStatus)),
+    getDefaultEnvironment: () => Promise.resolve(withStatus(mockActiveDefaultStatus)),
+    hasUsableEnvironment: () => Promise.resolve(mockActiveDefaultStatus === 'ready'),
   } as unknown as ISandboxEnvironmentStore;
 }
 
@@ -144,9 +146,9 @@ describe('capabilities routers', () => {
     return withAuth(
       createCapabilitiesRouter({
         sandboxEnvironmentStore: mockDefaultEnvStore(),
-        resolveWebSearchProviderStore: () => webSearchStore ?? emptyWebSearchStore,
-        resolveConfigurationStore: () => configurationStore,
-        resolveMemoryProviderStore: () => memoryStore,
+        webSearchProviderStore: webSearchStore ?? emptyWebSearchStore,
+        configurationStore,
+        memoryProviderStore: memoryStore,
         userStore,
         withTransaction: (() => {
           const run = <T>(callback: (trx: never) => Promise<T>): Promise<T> =>
@@ -518,9 +520,9 @@ describe('capabilities routers', () => {
       const router = withAuth(
         createCapabilitiesRouter({
           sandboxEnvironmentStore: mockDefaultEnvStore(),
-          resolveWebSearchProviderStore: () => emptyWebSearchStore,
-          resolveConfigurationStore: () => allOnConfigurationStore,
-          resolveMemoryProviderStore: () => zepMemoryStore,
+          webSearchProviderStore: emptyWebSearchStore,
+          configurationStore: allOnConfigurationStore,
+          memoryProviderStore: zepMemoryStore,
           userStore: new EmptyUserStore(),
           withTransaction: (() => {
             const run = <T>(callback: (trx: never) => Promise<T>): Promise<T> =>

@@ -1,5 +1,6 @@
 /// <reference types="@assistant-ui/core/react" />
 
+export { ASSISTANT_MESSAGE_STATUS_REASON, ASSISTANT_MESSAGE_STATUS_TYPE } from './assistantMessageStatus.js';
 export { trueForgeAttachmentAdapter } from './attachmentAdapter.js';
 export type { PendingApproval, PendingToolResponse } from './collectPending.js';
 export { ROOT_THREAD_ID } from './constants.js';
@@ -14,7 +15,7 @@ export {
   parseTurnIdFromMessageId,
   repositoryItemsFromMessages,
 } from './convertTurnMessages.js';
-export type { ConvertTurnsResult, UserMessageContent } from './convertTurnMessages.js';
+export type { ConvertTurnsResult } from './convertTurnMessages.js';
 export { draftSessionTitle, mergeAgentSpec } from './draft/agentSpec.js';
 export type { AgentSpecUpdate, DraftSession } from './draft/agentSpec.js';
 export { createDraftSessionBridge } from './draft/draftSessionBridge.js';
@@ -26,6 +27,7 @@ export {
   useTrueForgeAgentSpec,
   useTrueForgeApprovals,
   useTrueForgeCancel,
+  useTrueForgeContinueMcpAuth,
   useTrueForgeDownloadSandboxFile,
   useTrueForgeFlushAgentSpec,
   useTrueForgeHistoryPagination,
@@ -34,34 +36,32 @@ export {
   useTrueForgeResetFromTurn,
   useTrueForgeRespondToToolApproval,
   useTrueForgeRespondToToolResponse,
-  useTrueForgeResumeMcpAuth,
   useTrueForgeResumeUnavailable,
   useTrueForgeSandboxId,
   useTrueForgeToolResponses,
   useTrueForgeTurnId,
   useTrueForgeUpdateAgentSpec,
 } from './hooks.js';
-export { CANCELLATION_REASON_CUSTOM_KEY, isMcpServerAuthInfoList } from './messageCustomMetadata.js';
+export {
+  CANCELLATION_REASON_CUSTOM_KEY,
+  MESSAGE_CUSTOM_KEY,
+  isMcpServerAuthInfoList,
+  parallelToolGroupsCustom,
+} from './messageCustomMetadata.js';
 export type {
   McpAuthMessageCustomMetadata,
+  ParallelToolGroups,
   SandboxMessageCustomMetadata,
   SubAgentMessageCustomMetadata,
   ToolApprovalMessageCustomMetadata,
   ToolResponseMessageCustomMetadata,
   TrueForgeMessageCustomMetadata,
 } from './messageCustomMetadata.js';
-export {
-  collectRequiredActionInputs,
-  findCurrentPausedAssistantMessage,
-  messageHasPendingRequiredActions,
-} from './requiredActionInputs.js';
+export { findPausedAssistantMessage, messageHasPendingRequiredActions } from './requiredActionInputs.js';
 export { getSession } from './sessions.js';
-export { collectApprovalInputs, messageHasPendingApprovals, toTrueForgeApprovalInputs } from './toolApproval.js';
-export {
-  TOOL_RESPONSE_THREAD_ID_CUSTOM_KEY,
-  collectResponseInputs,
-  messageHasPendingResponses,
-} from './toolResponse.js';
+export { messageHasPendingApprovals } from './toolApproval.js';
+export type { RespondToToolApprovalOptions } from './toolApproval.js';
+export { messageHasPendingResponses } from './toolResponse.js';
 export { getTrueForgeExtras, trueForgeExtras, tryGetTrueForgeExtras } from './trueforgeExtras.js';
 export type { TrueForgeDraftRuntimeExtras, TrueForgeRuntimeExtras } from './trueforgeExtras.js';
 export { createTrueForgeOwnedSessionsThreadListAdapter } from './trueforgeOwnedSessionsThreadListAdapter.js';
@@ -74,7 +74,16 @@ export type {
 } from './types.js';
 export { useTrueForgeAgentRuntime } from './useTrueForgeAgentRuntime.js';
 
-export { isEventDelta, mergeEventDelta } from './server/index.js';
+export {
+  APPROVAL_DECISION_STATUS,
+  EVENT_TYPE,
+  SYSTEM_TOOL_NAME,
+  TOOL_APPROVAL_POLICY_ACTION_TYPE,
+  TOOL_INFO_TYPE,
+  TURN_STATUS,
+  isEventDelta,
+  mergeEventDelta,
+} from './server/index.js';
 export type {
   AgentBuilderCapabilitiesResponse,
   AgentBuilderServer,
@@ -135,6 +144,7 @@ export type {
   CreateSessionRequest,
   CreateSkillRequest,
   CreateSkillRequestBase,
+  CreateTurnRequest,
   CreateWebSearchProviderRequest,
   CreateWebSearchRequest,
   DefinedSkill,
@@ -164,9 +174,11 @@ export type {
   ModelProviderConfigBase,
   ModelSelection,
   ModelSelectorEntry,
+  NonTerminalTurnState,
   PageParams,
   PermissionResourceType,
   PermissionsServer,
+  PersistedTurnEvent,
   PreviousTurnIdInput,
   ProviderEntry,
   ProviderType,
@@ -188,6 +200,7 @@ export type {
   SearchAgentSelectorParams,
   SearchAgentsParams,
   SelectRegistrySkillRequest,
+  SendTurnEventsRequest,
   Session,
   SessionEventItem,
   SessionListEntry,
@@ -201,9 +214,13 @@ export type {
   SkillMount,
   SkillSelectorEntry,
   Subject,
+  SubscribeToTurnRequest,
   TenantConfiguration,
   TenantConfigurationSwitch,
+  TerminalTurnState,
   ThreadCreatedEvent,
+  ToolApprovalPolicyAllowSession,
+  ToolApprovalPolicyItem,
   ToolApprovalRequiredEvent,
   ToolBase,
   ToolCall,
@@ -211,11 +228,18 @@ export type {
   Turn,
   TurnDoneMetrics,
   TurnEvent,
+  TurnInboundEvent,
+  TurnInboundEventItem,
   TurnInputItem,
   TurnState,
   TurnStateDone,
+  TurnStatePaused,
   TurnStreamData,
   TurnStreamingEvent,
+  TurnUpdateEvent,
+  TurnUpdateState,
+  TurnUpdateStatePaused,
+  TurnUpdateStateRunning,
   UpdateConnectorRequest,
   UpdateMemoryProviderRequest,
   UpdateModelProviderRequest,
@@ -226,9 +250,16 @@ export type {
   UpdateTenantConfigurationRequest,
   UpdateWebSearchProviderRequest,
   UpdateWebSearchRequest,
+  UserMcpAuthContinueEvent,
+  UserMcpAuthContinueInputEvent,
   UserMessage,
+  UserMessageContent,
   UserToolApprovalEvent,
+  UserToolApprovalInputEvent,
+  UserToolApprovalPolicyEvent,
+  UserToolApprovalPolicyInputEvent,
   UserToolResponseEvent,
+  UserToolResponseInputEvent,
   WebSearchBase,
   WebSearchCatalogEntry,
   WebSearchCatalogServer,
