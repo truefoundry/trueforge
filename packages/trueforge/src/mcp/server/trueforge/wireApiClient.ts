@@ -46,7 +46,7 @@ export interface WireApiClient {
  * The SDK passthrough fetch appends a relative path onto the base URL's pathname, which
  * percent-encodes `?`. Split the query off so it stays a query string.
  */
-function resolveWireUrl(baseUrl: string, pathAndQuery: string): string {
+function resolveWireUrl({ baseUrl, pathAndQuery }: { baseUrl: string; pathAndQuery: string }): string {
   const queryIndex = pathAndQuery.indexOf('?');
   const path = queryIndex === -1 ? pathAndQuery : pathAndQuery.slice(0, queryIndex);
   const search = queryIndex === -1 ? '' : pathAndQuery.slice(queryIndex + 1);
@@ -99,7 +99,10 @@ export function createWireApiClient(client: Pick<TrueForge, 'fetch'>, baseUrl: s
 
       const queryString = query.toString();
       const response = await client.fetch(
-        resolveWireUrl(baseUrl, queryString.length === 0 ? pathname : `${pathname}?${queryString}`),
+        resolveWireUrl({
+          baseUrl,
+          pathAndQuery: queryString.length === 0 ? pathname : `${pathname}?${queryString}`,
+        }),
         {
           method: descriptor.method,
           headers,
