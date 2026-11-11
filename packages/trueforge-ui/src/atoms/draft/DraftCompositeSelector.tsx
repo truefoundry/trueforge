@@ -1,10 +1,7 @@
 'use client';
 
-import {
-  readDraftTrueforgeEnabled,
-  useTrueForgeAgentSpec,
-  useTrueForgeUpdateAgentSpec,
-} from '@truefoundry/trueforge-assistant-ui-runtime';
+import { useTrueForgeAgentSpec, useTrueForgeUpdateAgentSpec } from '@truefoundry/trueforge-assistant-ui-runtime';
+import { readDraftTrueforgeEnabled } from '@truefoundry/trueforge-assistant-ui-runtime/server';
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { useMCPAuth } from '../../hooks/useMcpAuth.js';
