@@ -24,7 +24,6 @@ import { AgentStepsContainer } from './AgentStepsContainer.js';
 import { AssistantLeafPartContainer } from './AssistantLeafPartContainer.js';
 import { AssistantTextContainer } from './AssistantTextContainer.js';
 import { ReasoningContainer } from './ReasoningContainer.js';
-import { useSessionReplay } from './sessionReplayContext.js';
 import { ToolGroupContainer, type ThreadGroupPart } from './ToolGroupContainer.js';
 
 export function AssistantMessageContainer() {
@@ -44,7 +43,6 @@ export function AssistantMessageContainer() {
     const value = s.message.metadata?.custom?.[CANCELLATION_REASON_CUSTOM_KEY];
     return typeof value === 'string' ? value : undefined;
   });
-  const isSessionReplay = useSessionReplay();
   const track = useTrackAnalytics();
   const shell = useOptionalShellMode();
   const shellAgent =
@@ -59,9 +57,10 @@ export function AssistantMessageContainer() {
 
   const parts = useAuiState(s => s.message.parts);
   const parallelToolGroups = useAuiState(s => readParallelToolGroups(s.message.metadata.custom));
-  const isCancelled = messageStatus?.type === 'incomplete' && messageStatus.reason === 'cancelled';
-  // Cancel reason chrome is session-detail only; live New Chat / Build chat omit it.
-  const cancelledBanner = isCancelled && isSessionReplay ? (cancellationReason ?? 'cancelled') : undefined;
+  const cancelledBanner =
+    messageStatus?.type === 'incomplete' && messageStatus.reason === 'cancelled'
+      ? (cancellationReason ?? 'cancelled')
+      : undefined;
 
   const { cutIndex, hasFinal, toolCount, thinkingCount } = computeAgentStepsSplit(parts, isMessageRunning);
 
@@ -99,10 +98,6 @@ export function AssistantMessageContainer() {
 
     return null;
   };
-
-  if (isCancelled && !isSessionReplay && parts.length === 0 && error === undefined) {
-    return null;
-  }
 
   return (
     <MessagePrimitive.Root data-role="assistant">
