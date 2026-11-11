@@ -374,7 +374,6 @@ export async function validateAgentSpec({
         message: `Unknown sandbox environment "${environmentName}" — not configured`,
       });
     }
-    // Sessions may keep naming a disabled environment; agent save always rejects (previousSpec undefined).
     if (!environment.environment.enabled && previousSpec?.config.sandbox.environment_name !== environmentName) {
       throw new HTTPException(422, {
         message: `Sandbox environment "${environmentName}" is disabled and cannot be selected`,
@@ -382,7 +381,6 @@ export async function validateAgentSpec({
     }
   }
 
-  // Sessions may keep web search on a stored spec; agent save always re-checks (previousSpec undefined).
   if (spec.config.web_search.enabled && previousSpec?.config.web_search.enabled !== true) {
     const tenantAllows = await isWebSearchEnabledForTenant({ tenant_id, store: configurationStore });
     if (!tenantAllows) {
