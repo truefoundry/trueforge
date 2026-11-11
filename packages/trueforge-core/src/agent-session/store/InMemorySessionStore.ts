@@ -727,7 +727,7 @@ export class InMemorySessionStore<
 
   /**
    * Folds the closed interval and cost delta. last_turn_details moves only for the session's last turn.
-   * A finished turn bumps `updated_at` so memory ingest still sees a pause longer than its lookback.
+   * Pause and a finished turn bump `updated_at`.
    */
   private applyTurnStateToSession(input: {
     id: string;
@@ -749,7 +749,7 @@ export class InMemorySessionStore<
         state: input.turn_state,
       });
     }
-    if (!isNonTerminalTurnState(input.turn_state)) {
+    if (input.turn_state.status !== 'running') {
       stored.record.updated_at = new Date();
     }
   }
