@@ -175,7 +175,7 @@ export function reconcileDraftWebSearch({
   return nextSpec === agentSpec ? {} : { config: nextSpec.config };
 }
 
-/** Available → default on when absent; unavailable → force off. Explicit toggles are preserved. */
+/** A new agent starts with memory on once the tenant allows it; an explicit toggle is kept. */
 export function reconcileDraftMemory({
   agentSpec,
   memoryEnabled,
@@ -183,14 +183,8 @@ export function reconcileDraftMemory({
   agentSpec: AgentSpec;
   memoryEnabled: boolean | null | undefined;
 }): Partial<AgentSpec> {
-  const current = agentSpec.config?.memory?.enabled;
-  if (memoryEnabled === true && current === undefined) {
-    return { config: { ...agentSpec.config, memory: { enabled: true } } };
-  }
-  if (memoryEnabled === false && current === true) {
-    return { config: { ...agentSpec.config, memory: { enabled: false } } };
-  }
-  return {};
+  if (memoryEnabled !== true || agentSpec.config?.memory !== undefined) return {};
+  return { config: { ...agentSpec.config, memory: { enabled: true } } };
 }
 
 /**
@@ -206,8 +200,7 @@ export function DraftSpecPreferenceBridge() {
   const capabilities = useServerCapabilities();
   const sandboxEnabled = capabilities?.sandbox.enabled;
   const webSearchEnabled = capabilities?.webSearch?.enabled;
-  // Capabilities omit memory when no provider is configured, which means unavailable.
-  const memoryEnabled = capabilities == null ? undefined : (capabilities.memory?.enabled ?? false);
+  const memoryEnabled = capabilities?.memory?.enabled;
   const prevWebSearchEnabledRef = useRef(webSearchEnabled);
   const { models, skills, connectors, loaded, error, ensureLoaded } = useDraftCatalog();
   const isMutableDraft = mode.status === 'active' && mode.isMutable && pendingSessionId == null;
@@ -240,6 +233,7 @@ export function DraftSpecPreferenceBridge() {
   }, [agentSpec, canReconcileLiveSpec, isPlainDraft, preferenceKind, sandboxEnabled, updateAgentSpec]);
 
   useEffect(() => {
+    // New Agent drafts only: New Chat does not use the agent memory setting.
     if (
       !isMutableDraft ||
       preferenceKind !== 'agent' ||
