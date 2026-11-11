@@ -1,5 +1,78 @@
 # @truefoundry/trueforge
 
+## 0.185.0-rc.1
+
+### Patch Changes
+
+- 05a89e0: Access logs now include `subject_type` and `subject_id` for authenticated requests.
+- 5714397: Add a Memory toggle to the agent builder, shown once the tenant has a memory provider. In OSS, admins configure Zep in Settings → Memory (`/api/v1/settings/memory-providers`); in TrueFoundry mode it comes from `TRUEFOUNDRY_MEMORY_*` env. A tenant-wide memory switch, off by default, gates memory in chats, ingestion, and agent specs.
+- 660f649: Remove the deprecated session `shared` field and PATCH sharing flow in favor of access grants, and drop the unused `session.shared` database column. Rename the exported `CreatedBySubject` schema/type to `Subject` without changing creator fields. These API and type removals are breaking changes for consumers.
+- 57ef77a: Make the list session events and list turn events page size configurable.
+
+  - `LIST_EVENTS_PAGE_LIMIT_MAX` (default 100) sets the default and max `limit` for `GET /sessions/{session_id}/events` and `GET /sessions/{session_id}/turns/{turn_id}/events`. Larger values return 400.
+  - The `listEvents`, `listTurnEvents`, and `listSessionEvents` server ports no longer take `limit`; the server setting controls the page size.
+
+- 965c0e7: Fix PostgreSQL 13 compatibility when persisting MCP server selections and sandbox info by using jsonb_set instead of JSONB subscript assignment.
+- 475c0c2: Add POST `/api/internal/sessions/{session_id}/turns` (service API key): non-streaming body, getSessionById, requires external_id + non-null source (skips memory ingest), SessionSource `service` arm.
+- fd63a9b: Include the tenant id in the metadata of chat messages ingested into memory.
+- c291315: Sync model catalog from truefoundry/models: add 24 models (OpenAI, Anthropic, Gemini, Fireworks, Together), add reasoning efforts to Gemini gemini-3.5-flash and gemini-flash-lite-latest, add the `none` reasoning effort to Gemini gemini-3.1-flash-lite, gemini-3.5-flash, gemini-3.5-flash-lite and gemini-3.6-flash, and update Fireworks deepseek-v4p1-flash context length.
+- 60a1083: Sync model catalog from truefoundry/models: add Anthropic claude-fable-5-2.
+- e4fbd21: Sync model catalog from truefoundry/models: add Google Gemini gemini-4-carbon and set Together zai-org/GLM-5.3-Flash context length to 1048575.
+- cadd0d1: Add the built-in TrueForge MCP server for managing agents and supporting resources from draft sessions.
+- 584a376: `GET /api/v1/mcp-servers/{name}/authorize` no longer sends a `redirectURL` to the TrueFoundry MCP gateway when `return_to` is omitted, so the gateway shows its own post-authentication page instead of redirecting to the TrueForge home. An empty `return_to` is now rejected with 400.
+- 1998de5: Turns now pause, instead of finishing, while waiting for user input such as tool approvals, questions, or MCP authentication. The same turn resumes once every required interaction is answered. Clients send those answers as events on the paused turn and can reconnect to its event stream at any point.
+
+  - While a turn is paused, its cost and time so far stay visible. Time spent waiting on the user does not count. Cancelling a paused turn still shows its final cost and time.
+  - Conversations that were already waiting on the user stay waiting after upgrade, with the same cost, time, and status.
+  - The chat shows a waiting notice instead of a running indicator while a turn is paused or cannot continue.
+  - A conversation is saved to memory only after it finishes, not while it is waiting on the user.
+  - Creating a turn requires a user message. Omitting `input` or sending an empty message is rejected.
+  - Sending a new message while a sub-agent is waiting runs that message, instead of leaving the turn stuck.
+  - A conversation paused longer than the memory window is still saved once it finishes.
+  - An old `pause_timeout_ms` memory setting is ignored, instead of stopping startup.
+
+  Breaking changes for package consumers:
+
+  - `@truefoundry/trueforge-assistant-ui-runtime`: `useTrueForgeResumeMcpAuth` is renamed to `useTrueForgeContinueMcpAuth`, and `findCurrentPausedAssistantMessage` to `findPausedAssistantMessage`. `collectRequiredActionInputs`, `collectApprovalInputs`, `toTrueForgeApprovalInputs`, `collectResponseInputs`, and `TOOL_RESPONSE_THREAD_ID_CUSTOM_KEY` are removed; answer approvals and questions with `useTrueForgeRespondToToolApproval` and `useTrueForgeRespondToToolResponse` instead.
+  - Custom chat servers must implement `sendTurnEvents` to deliver answers to a paused turn. `CreateTurnRequest.input` is required.
+  - `@truefoundry/trueforge-ui`: `ToolApprovalContainer` takes `approvalId` and `onRespond` instead of `options` and `onSelectOption`.
+
+- 9900d65: Enforce the environment-configured sandbox build-script limit in API requests and hide the limit counter in the environment form.
+- 5e1e78f: Let admins turn sandbox environments off and choose which one is the default.
+
+  - Sandbox environments carry `enabled` and `is_default`, changed through `PATCH /api/v1/sandbox-environments/{name}` with those fields. PUT still only updates the definition and creates a version.
+  - A disabled environment stays listed and keeps working for chats and agents that already name it, but cannot be newly selected. It also cannot be made the default.
+  - Saving an agent is the exception: create and update return 422 while the named environment is disabled, even if the agent already named it, so an edit cannot leave an agent pointing at an environment nobody may select. Running an agent that already names one is unaffected.
+  - Setting `is_default` reads the target's `enabled` flag under the same lock that guards the write, so a disable committed just beforehand can no longer hand the default slot to a disabled environment and drop the previous default.
+  - A draft keeps an environment that is still building or whose last build failed, instead of being moved to the tenant default. Only an environment that has left the catalog or been disabled is replaced, since those are the ones no chat may run on.
+  - Choosing the default is admin-only, since every chat or agent that names no environment follows it. Enabling and disabling a single environment stays open to its creator.
+  - Disabling the default releases the default slot, leaving the tenant without one until another is chosen. Bootstrap only claims the slot when it first creates the environment, so a cleared default is not restored on restart.
+  - New chats and agents start with the environment flagged as default already selected by name, so a later change of default does not move work that was already started. With no default, they start with no environment.
+  - API callers that omit the environment still resolve the flagged default at request time, rather than the environment named `trueforge-sandbox-env`.
+  - The default environment cannot be deleted; delete returns 409 on the flagged row.
+  - The reserved platform-provisioned environment (named `trueforge-sandbox-env`) can only be turned on or off: delete returns 409 on it and create/update reject the reserved name.
+  - The environment pickers list every environment. Ones that cannot be picked - disabled, still building, or failed - are greyed out and say why on hover. A remembered environment that has left the catalog is repointed at the default.
+  - `capabilities.sandbox.enabled` now reflects any enabled, ready environment instead of only the one named `trueforge-sandbox-env`.
+  - Enabling, disabling, or changing the default no longer moves an environment's `updated_at`, which tracks edits to its definition.
+  - Hovering the `Default` badge on the Envs page explains that agents without an environment run in that one.
+  - The row actions menu on the Envs page always lists Edit, Set as default, Enable/Disable, and Delete. Ones that do not apply to that row are greyed out and say why on hover, instead of disappearing.
+  - With no selectable environment, the new-chat and agent-builder pickers say none exist instead of offering a `Default` entry that resolves to nothing.
+
+- 17eb4d7: Add a Serply remote MCP server preset to the shipped MCP catalog for Google web, News, and Scholar search with a Serply API key.
+- 8ef66cc: Replace the session sharing capability's enabled flag with required tenant or subject granularity across the API and UI contracts, and use subject granularity to enable user invitations.
+- 63ab385: A session's `updated_at` now moves when its turn pauses, so a conversation waiting on the user rises in the session list. It still moves again when the turn finishes.
+- d099d38: Call Zep through its official SDK for memory ingestion, summaries, search and saved notes, instead of hand-written HTTP requests.
+- Updated dependencies [5714397]
+- Updated dependencies [a966ce0]
+- Updated dependencies [660f649]
+- Updated dependencies [475c0c2]
+- Updated dependencies [cadd0d1]
+- Updated dependencies [1998de5]
+- Updated dependencies [8ef66cc]
+- Updated dependencies [63ab385]
+  - @truefoundry/trueforge-sdk@0.185.0-rc.1
+  - @truefoundry/trueforge-core@0.185.0-rc.1
+
 ## 0.184.0
 
 ### Patch Changes
