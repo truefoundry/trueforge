@@ -135,8 +135,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Refresh main branch reference
-        run: git fetch --no-tags origin main
+      - name: Refresh base branch reference
+        env:
+          BASE_REF: ${{ github.base_ref || github.event.merge_group.base_ref }}
+        run: |
+          base_branch="${BASE_REF#refs/heads/}"
+          git fetch --no-tags origin "+refs/heads/${base_branch}:refs/remotes/origin/${base_branch}"
+          echo "MIGRATION_BASE_REF=origin/${base_branch}" >> "$GITHUB_ENV"
 
       - name: Check migration ordering
         run: bash scripts/check-migration-order.sh
