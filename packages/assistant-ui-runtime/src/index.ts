@@ -58,6 +58,7 @@ export type {
   TrueForgeMessageCustomMetadata,
 } from './messageCustomMetadata.js';
 export { findPausedAssistantMessage, messageHasPendingRequiredActions } from './requiredActionInputs.js';
+export { sessionListStartTimestamp } from './sessionListStartTimestamp.js';
 export { getSession } from './sessions.js';
 export { messageHasPendingApprovals } from './toolApproval.js';
 export type { RespondToToolApprovalOptions } from './toolApproval.js';

@@ -17,10 +17,13 @@ import { AgentHistoryFilterButton } from '../atoms/AgentHistoryFilterButton.js';
 import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
 import { useCompactLayout } from '../atoms/lib/CompactLayoutContext.js';
+import { SESSION_LIST_FIRST_PAGE_LIMIT, sessionListPollIntervalMs } from '../atoms/lib/sessionListPoll.js';
 import {
   canReuseMutableShell,
   readThreadAgentName,
   readThreadIsMutable,
+  readThreadLastTurnStatus,
+  threadCustomWithLastTurnStatus,
   threadListIndicesByRecency,
   threadListItemIsMutable,
 } from '../atoms/lib/threadListMeta.js';
@@ -29,9 +32,11 @@ import { BottomSheet } from '../atoms/primitives/BottomSheet.js';
 import ConfirmDeleteDialog from '../atoms/primitives/ConfirmDeleteDialog.js';
 import { RenameSessionModal } from '../atoms/RenameSessionModal.js';
 import { useResourcePermissions } from '../hooks/useResourcePermissions.js';
+import { useSessionListStatusPoll } from '../hooks/useSessionListStatusPoll.js';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalServer } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
+import { sessionListStartTimestamp } from '../server/types.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { useToasterOptional } from './ToasterContainer.js';
 
@@ -207,6 +212,7 @@ function ThreadListItemRow({
   const custom = useAuiState(s => s.threadListItem.custom);
   const mainThreadId = useAuiState(s => s.threads.mainThreadId);
   const agentName = readThreadAgentName(custom);
+  const lastTurnStatus = readThreadLastTurnStatus(custom);
   const showRename = canRenameSession && remoteId != null;
   const showDelete = canDeleteSession && remoteId != null;
   const showActions = showRename || showDelete;
@@ -280,6 +286,7 @@ function ThreadListItemRow({
         title={displayTitle}
         active={id === mainThreadId && !sidebarNavOpen}
         agentName={agentName}
+        {...(lastTurnStatus == null ? {} : { lastTurnStatus })}
         lastMessageAt={lastMessageAt}
         onSelect={() => {
           track(
@@ -510,6 +517,49 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
     [threadItems],
   );
   const { allows } = useResourcePermissions({ resourceType: 'session', resourceIds: remoteSessionIds });
+
+  // ponytail: first-page-only poll — rows past page 1 (or stuck server turns) never refresh;
+  // upgrade via per-session status endpoint or server push.
+  const lastTurnStatusPollIntervalMs = useMemo(() => {
+    if (isIdle || isLoading || server == null) return null;
+    return sessionListPollIntervalMs(threadItems.map(item => readThreadLastTurnStatus(item.custom)));
+  }, [isIdle, isLoading, server, threadItems]);
+
+  const listSessionsAgentId = shell?.listSessionsAgentId;
+  useSessionListStatusPoll({
+    intervalMs: lastTurnStatusPollIntervalMs,
+    poll: useCallback(async () => {
+      if (server == null) return;
+      try {
+        const page = await server.listSessions({
+          createdByMe: true,
+          limit: SESSION_LIST_FIRST_PAGE_LIMIT,
+          startTimestamp: sessionListStartTimestamp(),
+          ...(listSessionsAgentId == null || listSessionsAgentId.length === 0 ? {} : { agentId: listSessionsAgentId }),
+        });
+
+        const statusByRemoteId = new Map(
+          page.data.map(session => [session.id, session.lastTurnDetails?.state.status] as const),
+        );
+        const threadsState = auiRef.current.threads().getState();
+        const mainThreadId = threadsState.mainThreadId;
+        for (const item of threadsState.threadItems) {
+          // Live main thread owns its own lastTurnStatus via useSyncThreadListLastTurnStatus.
+          if (item.id === mainThreadId) continue;
+          if (item.remoteId == null || !statusByRemoteId.has(item.remoteId)) continue;
+          const nextStatus = statusByRemoteId.get(item.remoteId);
+          const prevStatus = readThreadLastTurnStatus(item.custom);
+          if (nextStatus === prevStatus) continue;
+          void auiRef.current
+            .threads()
+            .item({ id: item.id })
+            .updateCustom(threadCustomWithLastTurnStatus(item.custom, nextStatus ?? null));
+        }
+      } catch {
+        // Keep showing the last known status on transient poll failures.
+      }
+    }, [listSessionsAgentId, server]),
+  });
 
   // Fill an underflowing viewport; once it scrolls, paginate only near the bottom.
   // Re-measure after commit (threadIds / hasMore) instead of rAF-chaining, which
