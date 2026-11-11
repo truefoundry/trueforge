@@ -61,7 +61,7 @@ export interface ConnectorSelectorEntry {
 }
 
 /** Who created a resource. Optional on list DTOs when the host does not track creators. */
-export interface CreatedBySubject {
+export interface Subject {
   subjectId: string;
   subjectType: string;
   subjectDisplayName: string;
@@ -77,7 +77,7 @@ export interface AgentSelectorEntry {
   /** Published agent spec — required for Edit; optional for Try-only hosts. */
   agentSpec?: AgentSpec;
   /** Creator when the host persists one; omit to hide Created-by UI. */
-  createdBySubject?: CreatedBySubject;
+  createdBySubject?: Subject;
 }
 
 export interface SearchAgentSelectorParams {
@@ -208,8 +208,6 @@ export interface Session<TSpec extends AgentSpec = AgentSpec> {
   agentSpec?: TSpec;
   /** true → mutable builder + updateSession(spec) allowed. */
   isMutable: boolean;
-  /** When true, any subject in the tenant may read this session and its turns/events by id. */
-  shared?: boolean;
   /** Creator of the session; the only subject allowed to manage its sharing. */
   createdBy?: SessionSubject;
   /** Rolled-up turns/duration/cost from the session detail API when the host provides it. */
@@ -232,8 +230,6 @@ export interface UpdateSessionRequest<TSpec extends AgentSpec = AgentSpec> {
   sessionId: string;
   agentSpec?: TSpec;
   title?: string;
-  /** When true, any subject in the tenant may read this session and its turns/events by id. */
-  shared?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -1154,7 +1150,7 @@ export interface SessionListEntry<TSpec extends AgentSpec = AgentSpec> {
   /** Present when bound to a mutable / draft agent spec. */
   agentSpec?: TSpec;
   /** Session creator; omitted when the host does not track creators. */
-  createdBySubject?: CreatedBySubject;
+  createdBySubject?: Subject;
   /** Arbitrary caller key-value metadata strings. */
   metadata?: Record<string, string>;
 }
@@ -1217,7 +1213,7 @@ export interface Schedule {
   status: ScheduleStatus;
   lastRunAt: string | null;
   /** Creator when the host persists one; omit to hide Created-by UI. */
-  createdBySubject?: CreatedBySubject;
+  createdBySubject?: Subject;
 }
 
 /** Flat schedule-run DTO (ISO-8601 timestamps; host maps from wire Dates). */
@@ -1328,7 +1324,7 @@ export interface SandboxEnvironment {
   status: SandboxEnvironmentStatus;
   statusReason: string | null;
   manifest: SandboxEnvironmentManifest;
-  createdBySubject: CreatedBySubject;
+  createdBySubject: Subject;
   createdAt: string;
   updatedAt: string;
 }
@@ -1374,10 +1370,10 @@ export interface PermissionsServer<
 }
 
 // ---------------------------------------------------------------------------
-// Session access — share a session with specific users
+// Session access — share a session with subjects
 // ---------------------------------------------------------------------------
 
-export type SessionAccessSubjectType = 'user';
+export type SessionAccessSubjectType = 'user' | 'tenant';
 
 export interface SessionAccessSubject {
   subjectType: SessionAccessSubjectType;
@@ -1385,7 +1381,7 @@ export interface SessionAccessSubject {
 }
 
 export interface SessionAccessGrant extends SessionAccessSubject {
-  /** Null when the directory can no longer resolve the user. */
+  /** Null for tenant grants or when the directory cannot resolve the user. */
   displayName: string | null;
   email: string | null;
   createdAt: string;

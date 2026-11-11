@@ -1,4 +1,4 @@
-import type { CreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
+import type { Subject } from '@truefoundry/trueforge-core/agent-session';
 import { type ISandboxEnvironmentStore, type SandboxEnvironmentWithVersion } from '../../db/sandboxEnvironmentStore';
 import { NameSchema } from '../../schemas/common';
 import { RESERVED_SANDBOX_ENVIRONMENT_NAME, type SandboxEnvironmentIdentity } from '../../schemas/sandboxEnvironment';
@@ -20,7 +20,7 @@ export async function ensureReservedSandboxEnvironment<TTransaction>({
 }: {
   store: ISandboxEnvironmentStore<TTransaction>;
   tenant_id: string;
-  created_by_subject: CreatedBySubject;
+  created_by_subject: Subject;
   identity: SandboxEnvironmentIdentity;
   resetPending: boolean;
   transaction?: TTransaction;

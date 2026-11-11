@@ -41,7 +41,7 @@ describe('createHarnessSessionAccessServer', () => {
     ]);
   });
 
-  it('omits tenant grants from the collaborator list', async () => {
+  it('preserves tenant grants without looking them up in the user directory', async () => {
     const fetchMock: typeof fetch = vi.fn(async input => {
       const url = new URL(String(input));
       if (url.pathname.endsWith('/grants')) {
@@ -75,6 +75,13 @@ describe('createHarnessSessionAccessServer', () => {
         subjectId: 'user-1',
         displayName: 'Ada',
         email: 'ada@example.com',
+        createdAt: '2026-10-28T00:00:00.000Z',
+      },
+      {
+        subjectType: 'tenant',
+        subjectId: 'tenant-1',
+        displayName: null,
+        email: null,
         createdAt: '2026-10-28T00:00:00.000Z',
       },
     ]);

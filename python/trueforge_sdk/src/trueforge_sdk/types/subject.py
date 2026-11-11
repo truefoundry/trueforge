@@ -7,9 +7,9 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
 
 
-class CreatedBySubject(UncheckedBaseModel):
+class Subject(UncheckedBaseModel):
     """
-    Who created this resource.
+    Identity of a subject.
     """
 
     subject_display_name: str = pydantic.Field()

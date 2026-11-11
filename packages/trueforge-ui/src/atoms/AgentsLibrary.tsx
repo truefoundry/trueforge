@@ -11,7 +11,7 @@ import { Icon } from '../icons/Icon.js';
 import { isSchedulesChromeEnabled, isSessionsChromeEnabled } from '../server/serverChrome.js';
 import { useOptionalAgentSessionsServer, useOptionalScheduleServer } from '../server/ServerContext.js';
 import { libraryAgentId, useShellMode } from '../server/ShellModeContext.js';
-import type { AgentLibraryEntry, AgentSpec, CreatedBySubject, Schedule } from '../server/types.js';
+import type { AgentLibraryEntry, AgentSpec, Schedule, Subject } from '../server/types.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { readLibraryShareSearch, replaceLibraryShareSearch } from '../utils/libraryShareUrl.js';
 import { replaceScheduleShareSearch } from '../utils/scheduleShareUrl.js';
@@ -146,7 +146,7 @@ function AgentNameContent({
 }: {
   name: string;
   description: string | null;
-  createdBySubject?: CreatedBySubject;
+  createdBySubject?: Subject;
   onOpen?: () => void;
 }) {
   const nameNode =

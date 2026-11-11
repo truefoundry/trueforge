@@ -1,4 +1,4 @@
-import { AgentSpecSchema, type CreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
+import { AgentSpecSchema, type Subject } from '@truefoundry/trueforge-core/agent-session';
 import type { Kysely, Transaction } from 'kysely';
 import { createLogger } from 'winston';
 
@@ -17,7 +17,7 @@ import {
 const TENANT = 'default';
 const TOKEN = 'test-token';
 const LOGGER = createLogger({ silent: true });
-const CREATED_BY_SUBJECT: CreatedBySubject = {
+const CREATED_BY_SUBJECT: Subject = {
   subject_id: 'tester',
   subject_type: 'user',
   subject_display_name: 'tester',

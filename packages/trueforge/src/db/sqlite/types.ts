@@ -7,13 +7,13 @@
  */
 import type {
   AgentSpec,
-  CreatedBySubject,
   LegacyTurnInputItem,
   PersistedTurnEvent,
   SessionLastTurnDetails,
   SessionMetadata,
   SessionMetrics,
   SessionSource,
+  Subject,
   TurnState,
   TurnUserEventMessage,
 } from '@truefoundry/trueforge-core/agent-session';
@@ -73,7 +73,7 @@ export interface SessionTable {
   tenant_id: string;
   session_id: string;
   /** Caller identity that created the session (immutable after create). */
-  created_by_subject: JsonbColumn<CreatedBySubject>;
+  created_by_subject: JsonbColumn<Subject>;
   /** Optional provenance (e.g. schedule). Null for interactive sessions. */
   source: JsonbColumn<SessionSource> | null;
   /** Named registry binding; XOR with `agent_spec`. */
@@ -108,7 +108,7 @@ export interface AccessControlTable {
   session_id: string;
   subject_type: SessionGrantSubjectType;
   subject_id: string;
-  granted_by_subject: JsonbColumn<CreatedBySubject>;
+  granted_by_subject: JsonbColumn<Subject>;
   created_at: string;
 }
 
@@ -310,7 +310,7 @@ export interface AgentTable {
   /** AgentSpec document; replaced whole on every upsert */
   manifest: JsonbColumn<AgentSpec>;
   external_id: string | null;
-  created_by_subject: JsonbColumn<CreatedBySubject>;
+  created_by_subject: JsonbColumn<Subject>;
   created_at: string;
   updated_at: string;
 }
@@ -330,7 +330,7 @@ export interface SandboxEnvironmentTable {
   lifecycle_stage: SandboxEnvironmentLifecycleStage;
   enabled: number;
   is_default: number;
-  created_by_subject: JsonbColumn<CreatedBySubject>;
+  created_by_subject: JsonbColumn<Subject>;
   created_at: string;
   updated_at: string;
 }
@@ -348,7 +348,7 @@ export interface SandboxEnvironmentVersionTable {
   status_reason: string | null;
   external_ref: string;
   internal_metadata: JsonbColumn<SandboxEnvironmentVersionInternalMetadata>;
-  created_by_subject: JsonbColumn<CreatedBySubject>;
+  created_by_subject: JsonbColumn<Subject>;
   created_at: string;
   updated_at: string;
 }
@@ -388,7 +388,7 @@ export interface ScheduleTable {
   manifest: JsonbColumn<ScheduleManifest>;
   /** `paused` stops triggering and drops the pending run; in-flight runs continue */
   status: ScheduleStatus;
-  created_by_subject: JsonbColumn<CreatedBySubject>;
+  created_by_subject: JsonbColumn<Subject>;
   created_at: string;
   updated_at: string;
 }
@@ -408,7 +408,7 @@ export interface ScheduleRunTable {
   scheduled_for: string;
   /** `scheduled` | `triggered` | `failed` | `missed` — length ≤ 16 */
   status: ScheduleRunStatus;
-  created_by_subject: JsonbColumn<CreatedBySubject>;
+  created_by_subject: JsonbColumn<Subject>;
   triggered_at: string | null;
   reason: string | null;
   session_id: string | null;

@@ -1,4 +1,4 @@
-import type { CreatedBySubject, TokenPagination } from '@truefoundry/trueforge-core/agent-session';
+import type { Subject, TokenPagination } from '@truefoundry/trueforge-core/agent-session';
 import { createLogger } from 'winston';
 import {
   SandboxEnvironmentNameConflictError,
@@ -33,7 +33,7 @@ import { resolveTrueFoundrySandboxProviderConfig } from './resolveTrueFoundrySan
 const logger = createLogger({ defaultMeta: { module: 'TrueFoundrySandboxEnvironmentStore' } });
 
 const RESERVED_NAME = NameSchema.parse(RESERVED_SANDBOX_ENVIRONMENT_NAME);
-const SYSTEM_SUBJECT: CreatedBySubject = {
+const SYSTEM_SUBJECT: Subject = {
   subject_id: 'truefoundry',
   subject_type: 'user',
   subject_display_name: 'TrueFoundry',
