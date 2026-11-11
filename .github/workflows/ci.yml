@@ -314,6 +314,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: SQLite store tests
+        # SQLite is independent of Postgres; run it once to avoid duplicate matrix work.
         if: matrix.postgres == '17'
         run: pnpm test:store:sqlite
 
