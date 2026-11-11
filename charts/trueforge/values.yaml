@@ -142,10 +142,8 @@ controller:
   command:
     - node
     - dist/controller-main.js
-  # In-cluster server API URL (SERVER_URL) for both controller→server calls and
-  # the server's MCP Host allowlist. Empty → the in-cluster server Service
-  # (http(s)://<fullname>:<service.port>). Override via env.SERVER_URL when the
-  # Service is reached by a different host (e.g. FQDN).
+  # Base URL for in-cluster calls to the server API (SERVER_URL).
+  # Empty → the in-cluster server Service (http(s)://<fullname>:<service.port>).
   serverUrl: ""
   # Extra env for the controller only; same item shape as server.extraEnv.
   extraEnv: []

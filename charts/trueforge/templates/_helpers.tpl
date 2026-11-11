@@ -136,10 +136,8 @@ Controller labels.
 {{- end }}
 
 {{/*
-In-cluster server API URL (SERVER_URL). Used by the controller to call the
-server, and by the server for MCP Host allowlisting / loopback MCP calls.
-Defaults to the in-cluster server Service when controller.serverUrl is empty
-(https when mtls is enabled).
+In-cluster server API URL (SERVER_URL). Defaults to the in-cluster server
+Service when controller.serverUrl is empty (https when mtls is enabled).
 */}}
 {{- define "trueforge.serverUrl" -}}
 {{- if .Values.controller.serverUrl -}}
