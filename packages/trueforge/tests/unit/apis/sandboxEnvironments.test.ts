@@ -212,7 +212,7 @@ describe('sandbox environments API → build controller path', () => {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        manifest: { name: 'trueforge-sandbox' },
+        manifest: { name: 'trueforge-sandbox-env' },
       }),
     });
     expect(putRes.status).toBe(400);
@@ -747,16 +747,16 @@ describe('sandbox environments API → build controller path', () => {
   it('refuses to edit or delete the reserved platform environment', async () => {
     const { publicRouter } = await setup();
 
-    const deleted = await publicRouter.request('/trueforge-sandbox', { method: 'DELETE' });
+    const deleted = await publicRouter.request('/trueforge-sandbox-env', { method: 'DELETE' });
     expect(deleted.status).toBe(409);
     expect((await deleted.json()) as { error: { message: string } }).toMatchObject({
-      error: { message: 'Sandbox environment "trueforge-sandbox" cannot be deleted' },
+      error: { message: 'Sandbox environment "trueforge-sandbox-env" cannot be deleted' },
     });
 
     const edited = await publicRouter.request('/', {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ manifest: { name: 'trueforge-sandbox', description: 'changed' } }),
+      body: JSON.stringify({ manifest: { name: 'trueforge-sandbox-env', description: 'changed' } }),
     });
     expect(edited.status).toBe(400);
   });

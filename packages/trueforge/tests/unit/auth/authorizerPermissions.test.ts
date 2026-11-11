@@ -210,7 +210,7 @@ describe('TrueForgeAuthorizer.getPermissions', () => {
   it('grants MANAGE but not DELETE on the platform-provisioned environment for admins', async () => {
     const sandboxEnvironmentStore = {
       getEnvironmentsByIds: jest.fn(async () => [
-        { id: 'env-managed', name: 'trueforge-sandbox', created_by_subject: { subject_id: 'alice' } },
+        { id: 'env-managed', name: 'trueforge-sandbox-env', created_by_subject: { subject_id: 'alice' } },
       ]),
     };
 

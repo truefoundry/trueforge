@@ -24,7 +24,7 @@ import type { IMcpServerStore, IMcpServerWithAuthStore } from '../db/mcpServerSt
 import type { IMemoryProviderStore } from '../db/memoryProviderStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore, SandboxEnvironmentWithVersion } from '../db/sandboxEnvironmentStore';
-import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
+import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
@@ -342,8 +342,9 @@ export async function validateAgentSpec({
 
   const wantsSandbox = spec.config.sandbox.enabled;
   const hasSkills = requestedSkills.length > 0;
-  const sandboxProvider = await sandboxProviderStore.getSandboxProvider(tenant_id);
+  let sandboxProvider: SandboxProviderRecord | undefined;
   if (wantsSandbox || hasSkills) {
+    sandboxProvider = await sandboxProviderStore.getSandboxProvider(tenant_id);
     if (sandboxProvider === undefined && !isLocalSandboxFallbackEnabled()) {
       throw new HTTPException(422, {
         message: hasSkills

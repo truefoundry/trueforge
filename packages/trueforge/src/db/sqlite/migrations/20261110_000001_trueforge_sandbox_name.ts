@@ -1,7 +1,7 @@
 import { sql, type Kysely } from 'kysely';
 
 const OLD_NAME = 'default';
-const NEW_NAME = 'trueforge-sandbox';
+const NEW_NAME = 'trueforge-sandbox-env';
 
 /**
  * SQLite mirror of postgres/20261110_000001_trueforge_sandbox_name.ts.

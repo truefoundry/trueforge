@@ -46,7 +46,7 @@ describe('buildNextVersion', () => {
       previous_manifest: previous,
       previous_external_ref: 'trueforge-old',
       manifest: {
-        name: 'trueforge-sandbox',
+        name: 'trueforge-sandbox-env',
         resources: { cpu: 2, memory: 4, disk: 8 },
       },
       identity: { type: 'daytona', sandbox_provider: 'daytona' },
@@ -73,7 +73,7 @@ describe('buildNextVersion', () => {
       previous_manifest: previous,
       previous_external_ref: 'trueforge-old',
       manifest: {
-        name: 'trueforge-sandbox',
+        name: 'trueforge-sandbox-env',
         resources: previous.resources,
         networking: { network_block_all: true },
       },
@@ -107,7 +107,7 @@ describe('buildNextVersion', () => {
 describe('sandbox environment wire schemas', () => {
   const baseEnv = {
     id: 'env-1',
-    name: 'trueforge-sandbox',
+    name: 'trueforge-sandbox-env',
     description: '',
     lifecycle_stage: 'active' as const,
     enabled: true,
@@ -115,7 +115,7 @@ describe('sandbox environment wire schemas', () => {
     status: 'ready' as const,
     status_reason: null,
     manifest: {
-      name: 'trueforge-sandbox',
+      name: 'trueforge-sandbox-env',
       resources: { cpu: 1, memory: 1, disk: 3 },
     },
     created_by_subject: {
@@ -128,15 +128,15 @@ describe('sandbox environment wire schemas', () => {
   };
 
   it('allows the reserved name on SandboxEnvironment responses', () => {
-    expect(SandboxEnvironmentSchema.parse(baseEnv).manifest.name).toBe('trueforge-sandbox');
-    expect(SandboxEnvironmentManifestSchema.parse(baseEnv.manifest).name).toBe('trueforge-sandbox');
+    expect(SandboxEnvironmentSchema.parse(baseEnv).manifest.name).toBe('trueforge-sandbox-env');
+    expect(SandboxEnvironmentManifestSchema.parse(baseEnv.manifest).name).toBe('trueforge-sandbox-env');
   });
 
   it('rejects the reserved name on update requests', () => {
     expect(() =>
       UpdateSandboxEnvironmentRequestSchema.parse({
-        manifest: { name: 'trueforge-sandbox' },
+        manifest: { name: 'trueforge-sandbox-env' },
       }),
-    ).toThrow(/trueforge-sandbox/);
+    ).toThrow(/trueforge-sandbox-env/);
   });
 });

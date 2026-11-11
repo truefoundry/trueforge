@@ -1,7 +1,7 @@
 import { sql, type Kysely } from 'kysely';
 
 const OLD_NAME = 'default';
-const NEW_NAME = 'trueforge-sandbox';
+const NEW_NAME = 'trueforge-sandbox-env';
 
 /**
  * Rename the reserved platform sandbox environment and every persisted name reference.

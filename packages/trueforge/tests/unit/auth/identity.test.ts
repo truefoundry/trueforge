@@ -94,11 +94,11 @@ describe('canManageOrDeleteEnvironment', () => {
     expect(canManageOrDeleteEnvironment(admin, { action: 'delete', name: 'shared-env' })).toBe(true);
     expect(canManageOrDeleteEnvironment(admin, { action: 'patch', name: 'shared-env' })).toBe(true);
 
-    expect(canManageOrDeleteEnvironment(admin, { action: 'patch', name: 'trueforge-sandbox' })).toBe(true);
-    expect(canManageOrDeleteEnvironment(admin, { action: 'create', name: 'trueforge-sandbox' })).toBe(false);
-    expect(canManageOrDeleteEnvironment(admin, { action: 'edit', name: 'trueforge-sandbox' })).toBe(false);
-    expect(canManageOrDeleteEnvironment(admin, { action: 'delete', name: 'trueforge-sandbox' })).toBe(false);
-    expect(canManageOrDeleteEnvironment(alice, { action: 'patch', name: 'trueforge-sandbox' })).toBe(false);
+    expect(canManageOrDeleteEnvironment(admin, { action: 'patch', name: 'trueforge-sandbox-env' })).toBe(true);
+    expect(canManageOrDeleteEnvironment(admin, { action: 'create', name: 'trueforge-sandbox-env' })).toBe(false);
+    expect(canManageOrDeleteEnvironment(admin, { action: 'edit', name: 'trueforge-sandbox-env' })).toBe(false);
+    expect(canManageOrDeleteEnvironment(admin, { action: 'delete', name: 'trueforge-sandbox-env' })).toBe(false);
+    expect(canManageOrDeleteEnvironment(alice, { action: 'patch', name: 'trueforge-sandbox-env' })).toBe(false);
   });
 });
 

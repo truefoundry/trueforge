@@ -14,11 +14,11 @@ Let admins turn sandbox environments off and choose which one is the default.
 - Choosing the default is admin-only, since every chat or agent that names no environment follows it. Enabling and disabling a single environment stays open to its creator.
 - Disabling the default releases the default slot, leaving the tenant without one until another is chosen. Bootstrap only claims the slot when it first creates the environment, so a cleared default is not restored on restart.
 - New chats and agents start with the environment flagged as default already selected by name, so a later change of default does not move work that was already started. With no default, they start with no environment.
-- API callers that omit the environment still resolve the flagged default at request time, rather than the environment named `trueforge-sandbox`.
+- API callers that omit the environment still resolve the flagged default at request time, rather than the environment named `trueforge-sandbox-env`.
 - The default environment cannot be deleted; delete returns 409 on the flagged row.
-- The reserved platform-provisioned environment (named `trueforge-sandbox`) can only be turned on or off: delete returns 409 on it and create/update reject the reserved name.
+- The reserved platform-provisioned environment (named `trueforge-sandbox-env`) can only be turned on or off: delete returns 409 on it and create/update reject the reserved name.
 - The environment pickers list every environment. Ones that cannot be picked - disabled, still building, or failed - are greyed out and say why on hover. A remembered environment that has left the catalog is repointed at the default.
-- `capabilities.sandbox.enabled` now reflects any enabled, ready environment instead of only the one named `trueforge-sandbox`.
+- `capabilities.sandbox.enabled` now reflects any enabled, ready environment instead of only the one named `trueforge-sandbox-env`.
 - Enabling, disabling, or changing the default no longer moves an environment's `updated_at`, which tracks edits to its definition.
 - Hovering the `Default` badge on the Envs page explains that agents without an environment run in that one.
 - The row actions menu on the Envs page always lists Edit, Set as default, Enable/Disable, and Delete. Ones that do not apply to that row are greyed out and say why on hover, instead of disappearing.

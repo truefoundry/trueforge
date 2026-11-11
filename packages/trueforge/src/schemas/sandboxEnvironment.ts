@@ -19,7 +19,7 @@ export const SANDBOX_ENVIRONMENT_DOMAIN_ALLOW_LIST_MAX_LENGTH = 1024;
 export const SANDBOX_ENVIRONMENT_SECRETS_MAX_LENGTH = 1024;
 
 /** Reserved platform-provisioned environment name (not creatable via public CRUD). */
-export const RESERVED_SANDBOX_ENVIRONMENT_NAME = 'trueforge-sandbox';
+export const RESERVED_SANDBOX_ENVIRONMENT_NAME = 'trueforge-sandbox-env';
 
 export const RESERVED_SANDBOX_ENVIRONMENT_RESOURCES = { cpu: 1, memory: 1, disk: 3 } as const;
 

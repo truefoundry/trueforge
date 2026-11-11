@@ -129,6 +129,27 @@ describe('validateAgentSpec', () => {
     });
   });
 
+  it('does not resolve the sandbox provider when the spec uses neither sandbox nor skills', async () => {
+    const stores = await setup();
+    const getSandboxProvider = jest
+      .spyOn(stores.sandboxProviderStore, 'getSandboxProvider')
+      .mockRejectedValue(new Error('invalid sandbox provider configuration'));
+
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          config: { sandbox: { enabled: false } },
+        }),
+        tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
+        ...stores,
+      }),
+    ).resolves.toBeUndefined();
+    expect(getSandboxProvider).not.toHaveBeenCalled();
+  });
+
   it('rejects malformed model FQN with 422', async () => {
     const stores = await setup();
     await expect(

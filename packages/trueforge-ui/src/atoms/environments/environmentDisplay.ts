@@ -4,7 +4,7 @@ import type {
   SandboxEnvironmentNetworking,
 } from '../../server/types.js';
 
-export const RESERVED_ENVIRONMENT_NAME = 'trueforge-sandbox';
+export const RESERVED_ENVIRONMENT_NAME = 'trueforge-sandbox-env';
 
 export function isReservedEnvironmentName(name: string): boolean {
   return name.trim() === RESERVED_ENVIRONMENT_NAME;
