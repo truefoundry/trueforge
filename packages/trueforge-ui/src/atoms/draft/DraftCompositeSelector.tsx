@@ -1,6 +1,10 @@
 'use client';
 
-import { useTrueForgeAgentSpec, useTrueForgeUpdateAgentSpec } from '@truefoundry/trueforge-assistant-ui-runtime';
+import {
+  readDraftTrueforgeEnabled,
+  useTrueForgeAgentSpec,
+  useTrueForgeUpdateAgentSpec,
+} from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { useMCPAuth } from '../../hooks/useMcpAuth.js';
@@ -363,8 +367,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
     enabled: webSearchEnabled,
   });
   const canToggleWebSearch = !webSearchLocked;
-  const trueforgeConfig = agentSpec?.config as { trueforge?: { enabled?: boolean } } | undefined;
-  const trueforgeEnabled = trueforgeConfig?.trueforge?.enabled !== false;
+  const trueforgeEnabled = readDraftTrueforgeEnabled(agentSpec?.config) !== false;
   const needsSandbox = capabilities?.sandbox.enabled === false;
   const settings = capabilities?.settings;
   const canConfigureConnectors =

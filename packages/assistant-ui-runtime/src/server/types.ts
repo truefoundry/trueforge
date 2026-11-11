@@ -161,6 +161,14 @@ export interface AgentRuntimeConfig {
   memory?: AgentCapabilityConfig;
 }
 
+export function readDraftTrueforgeEnabled(config: AgentRuntimeConfig | undefined): boolean | undefined {
+  if (config === undefined || config === null) return undefined;
+  const trueforge = Reflect.get(config, 'trueforge');
+  if (typeof trueforge !== 'object' || trueforge === null) return undefined;
+  const enabled = Reflect.get(trueforge, 'enabled');
+  return typeof enabled === 'boolean' ? enabled : undefined;
+}
+
 /**
  * SDK-owned agent definition — fields the FE reads/writes.
  * Host widens `model` / `skills` / `mcpServers` / `config` via type params,

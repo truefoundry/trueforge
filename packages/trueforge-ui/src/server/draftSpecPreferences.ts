@@ -1,3 +1,4 @@
+import { readDraftTrueforgeEnabled } from '@truefoundry/trueforge-assistant-ui-runtime/server';
 import type { AgentRuntimeConfig, AgentSpec } from './types.js';
 
 /** @deprecated Migrated into chat/agent keys on first read. */
@@ -111,22 +112,13 @@ function readWebSearchEnabled(spec: AgentSpec): boolean | undefined {
   return typeof enabled === 'boolean' ? enabled : undefined;
 }
 
-function readTrueforgeEnabled(spec: AgentSpec): boolean | undefined {
-  if (spec.config === undefined) return undefined;
-  // `trueforge` is a draft-only toggle persisted on config; it is not part of AgentRuntimeConfig.
-  const trueforge = Reflect.get(spec.config, 'trueforge');
-  if (!isObject(trueforge)) return undefined;
-  const enabled = Reflect.get(trueforge, 'enabled');
-  return typeof enabled === 'boolean' ? enabled : undefined;
-}
-
 /**
  * New Chat: model (+ reasoning params), skills, MCP, and the web-search / TrueForge toggles.
  * Other runtime config (sandbox, ask-user, …) is not persisted for chat.
  */
 export function selectChatDraftSpecPreferences(spec: AgentSpec): AgentSpec {
   const webSearchEnabled = readWebSearchEnabled(spec);
-  const trueforgeEnabled = readTrueforgeEnabled(spec);
+  const trueforgeEnabled = readDraftTrueforgeEnabled(spec.config);
   const config = {
     ...(webSearchEnabled !== undefined ? { webSearch: { enabled: webSearchEnabled } } : {}),
     ...(trueforgeEnabled !== undefined ? { trueforge: { enabled: trueforgeEnabled } } : {}),

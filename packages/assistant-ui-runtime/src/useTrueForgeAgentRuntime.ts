@@ -27,7 +27,7 @@ import { createDraftSessionBridge, DRAFT_SESSION_LAST_UPDATED_AT_HEADER } from '
 import { createTrueForgeDraftThreadListAdapter } from './draft/trueforgeDraftThreadListAdapter.js';
 import { useDraftAgentSpec } from './draft/useDraftAgentSpec.js';
 import { buildSandboxDownloadRequest } from './sandboxDownload.js';
-import type { AgentSpec } from './server/types.js';
+import { readDraftTrueforgeEnabled, type AgentSpec } from './server/types.js';
 import { trueForgeExtras } from './trueforgeExtras.js';
 import { createTrueForgeThreadListAdapter } from './trueforgeThreadListAdapter.js';
 import type { UseTrueForgeAgentRuntimeOptions } from './types.js';
@@ -101,8 +101,7 @@ function useTrueForgeAgentRuntimeImpl(
   const takeTurnHeaderTimestampRef = useRef(draftSpec.takeTurnHeaderTimestamp);
   takeTurnHeaderTimestampRef.current = draftSpec.takeTurnHeaderTimestamp;
   const trueforgeEnabledRef = useRef(true);
-  const trueforgeConfig = draftSpec.agentSpec?.config as { trueforge?: { enabled?: boolean } } | undefined;
-  trueforgeEnabledRef.current = trueforgeConfig?.trueforge?.enabled !== false;
+  trueforgeEnabledRef.current = readDraftTrueforgeEnabled(draftSpec.agentSpec?.config) !== false;
 
   const getTurnHeaders = useCallback(async () => {
     if (agent.mode !== 'draft') {

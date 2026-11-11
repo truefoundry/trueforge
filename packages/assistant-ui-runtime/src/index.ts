@@ -83,6 +83,7 @@ export {
   TURN_STATUS,
   isEventDelta,
   mergeEventDelta,
+  readDraftTrueforgeEnabled,
 } from './server/index.js';
 export type {
   AgentBuilderCapabilitiesResponse,
