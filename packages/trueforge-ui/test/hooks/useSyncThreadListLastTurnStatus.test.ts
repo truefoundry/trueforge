@@ -114,4 +114,27 @@ describe('useSyncThreadListLastTurnStatus', () => {
     });
     expect(updateCustom).not.toHaveBeenCalledWith(expect.objectContaining({ lastTurnStatus: 'running' }));
   });
+
+  it('does not treat leaving a running thread as the next session finishing a turn', async () => {
+    getState.mockReturnValue({ custom: { isMutable: true, lastTurnStatus: 'running' } });
+    useThreadIsRunning.mockReturnValue(true);
+    const { rerender } = renderHook(() => useSyncThreadListLastTurnStatus());
+    updateCustom.mockClear();
+    getSession.mockClear();
+
+    useAuiState.mockImplementation((selector: (state: unknown) => unknown) =>
+      selector({
+        threadListItem: { remoteId: 'sess-2' },
+      }),
+    );
+    useThreadIsRunning.mockReturnValue(false);
+    rerender();
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(updateCustom).not.toHaveBeenCalled();
+    expect(getSession).not.toHaveBeenCalled();
+  });
 });

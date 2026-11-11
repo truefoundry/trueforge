@@ -534,6 +534,9 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
     intervalMs: lastTurnStatusPollIntervalMs,
     poll: useCallback(async () => {
       if (server == null) return;
+      // Capture at request time: an in-flight listSessions started while the live turn
+      // was running must not write stale `running` back after sync clears the main row.
+      const startedWhileMainRunning = mainThreadIsRunningRef.current;
       try {
         const page = await server.listSessions({
           createdByMe: true,
@@ -548,9 +551,11 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
         const threadsState = auiRef.current.threads().getState();
         const mainThreadId = threadsState.mainThreadId;
         for (const item of threadsState.threadItems) {
-          // While the live turn is generating, sync owns the main row (avoids stale done→running races).
-          // After it finishes, poll may refresh main again if getSession fails.
-          if (item.id === mainThreadId && mainThreadIsRunningRef.current) continue;
+          // Sync owns the main row for the live turn (and for any poll that began during it).
+          // Polls that start after the turn ends may refresh main if getSession fails.
+          if (item.id === mainThreadId && (startedWhileMainRunning || mainThreadIsRunningRef.current)) {
+            continue;
+          }
           if (item.remoteId == null || !statusByRemoteId.has(item.remoteId)) continue;
           const nextStatus = statusByRemoteId.get(item.remoteId);
           const prevStatus = readThreadLastTurnStatus(item.custom);
