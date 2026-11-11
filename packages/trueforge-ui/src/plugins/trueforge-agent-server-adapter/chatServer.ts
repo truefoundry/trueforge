@@ -258,14 +258,14 @@ export function createHarnessChatServer(
       headers,
     }: {
       sessionId: string;
-      input?: UserMessage[];
+      input: UserMessage[];
       previousTurnId?: string;
       headers?: Record<string, string>;
     }) {
       const stream = await client.sessions.createTurnStream(
         sessionId,
         {
-          ...(input === undefined ? {} : { input: toHarnessInput(input) }),
+          input: toHarnessInput(input),
           ...(previousTurnId === undefined ? {} : { previousTurnId }),
         },
         headers === undefined ? undefined : { headers },
