@@ -5,7 +5,7 @@ const NEW_NAME = 'trueforge-sandbox-env';
 const RANDOM_SUFFIX_ATTEMPTS = 100;
 
 /**
- * SQLite mirror of postgres/20261105_000004_trueforge_sandbox_name.ts.
+ * SQLite mirror of postgres/20261111_000002_trueforge_sandbox_name.ts.
  * Daytona snapshot refs remain unchanged because they are opaque external identities.
  * Destination-name collisions are preserved under `<name>-NNNNNN`.
  */
