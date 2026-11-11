@@ -78,6 +78,7 @@ export function makeStubPublicSandbox(): Sandbox {
     deleteSecret: unsupportedOrgSecret,
     exec: jest.fn(),
     getAdditionalInstructions: () => undefined,
+    getDefaultExecTimeoutSeconds: () => 60,
     getToolResultDumpDir: () => '/tmp/tool-results',
     getGitCredentialsPath: () => '/tmp/.git-credentials',
     getFileUploadsDir: () => '/tmp/uploads',
