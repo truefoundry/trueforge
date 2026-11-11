@@ -280,7 +280,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:17-alpine
+        image: postgres:13-alpine
         env:
           POSTGRES_USER: proto
           POSTGRES_PASSWORD: proto
