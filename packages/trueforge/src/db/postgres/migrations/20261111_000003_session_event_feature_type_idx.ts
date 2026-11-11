@@ -1,7 +1,7 @@
 import { sql, type Kysely } from 'kysely';
 import { SESSION_EVENT_FEATURE_TYPE_IDX } from '../../indexes';
 
-// IF NOT EXISTS lets large deployments pre-create the index CONCURRENTLY; this build blocks inserts.
+// IF NOT EXISTS lets large deployments pre-create the index CONCURRENTLY.
 export async function up(db: Kysely<unknown>): Promise<void> {
   await sql`SET LOCAL lock_timeout = '5s'`.execute(db);
   await sql`
