@@ -4,6 +4,7 @@ import { useActionBarCopy, useMessageError, useThreadIsRunning, type PartState }
 import { MessagePrimitive, useAuiState, type GroupByContext } from '@assistant-ui/react';
 import {
   CANCELLATION_REASON_CUSTOM_KEY,
+  TURN_CANCELLATION_REASON,
   useTrueForgeResumeUnavailable,
 } from '@truefoundry/trueforge-assistant-ui-runtime';
 
@@ -24,7 +25,25 @@ import { AgentStepsContainer } from './AgentStepsContainer.js';
 import { AssistantLeafPartContainer } from './AssistantLeafPartContainer.js';
 import { AssistantTextContainer } from './AssistantTextContainer.js';
 import { ReasoningContainer } from './ReasoningContainer.js';
+import { useSessionReplay } from './sessionReplayContext.js';
 import { ToolGroupContainer, type ThreadGroupPart } from './ToolGroupContainer.js';
+
+function cancellationLabel(reason: string | undefined): string {
+  switch (reason) {
+    case undefined:
+      return 'Response stopped';
+    case TURN_CANCELLATION_REASON.CLIENT_CANCELLED:
+      return 'You stopped this response';
+    case TURN_CANCELLATION_REASON.SERVER_EXECUTION_TIMEOUT:
+      return 'Response timed out';
+    case TURN_CANCELLATION_REASON.ABANDONED:
+      return 'Response was interrupted';
+    case TURN_CANCELLATION_REASON.CANCELLED_FOR_NEXT_TURN:
+      return 'Stopped for a newer message';
+    default:
+      return reason;
+  }
+}
 
 export function AssistantMessageContainer() {
   const AssistantMessageBubble = useSlot('AssistantMessageBubble');
@@ -43,6 +62,7 @@ export function AssistantMessageContainer() {
     const value = s.message.metadata?.custom?.[CANCELLATION_REASON_CUSTOM_KEY];
     return typeof value === 'string' ? value : undefined;
   });
+  const isSessionReplay = useSessionReplay();
   const track = useTrackAnalytics();
   const shell = useOptionalShellMode();
   const shellAgent =
@@ -57,10 +77,11 @@ export function AssistantMessageContainer() {
 
   const parts = useAuiState(s => s.message.parts);
   const parallelToolGroups = useAuiState(s => readParallelToolGroups(s.message.metadata.custom));
-  const cancelledBanner =
-    messageStatus?.type === 'incomplete' && messageStatus.reason === 'cancelled'
-      ? (cancellationReason ?? 'cancelled')
-      : undefined;
+  const isCancelled = messageStatus?.type === 'incomplete' && messageStatus.reason === 'cancelled';
+  // The newer user message already explains why; session replay keeps it for debugging.
+  const hideCancelled =
+    isCancelled && !isSessionReplay && cancellationReason === TURN_CANCELLATION_REASON.CANCELLED_FOR_NEXT_TURN;
+  const cancelledBanner = isCancelled && !hideCancelled ? cancellationLabel(cancellationReason) : undefined;
 
   const { cutIndex, hasFinal, toolCount, thinkingCount } = computeAgentStepsSplit(parts, isMessageRunning);
 
@@ -98,6 +119,10 @@ export function AssistantMessageContainer() {
 
     return null;
   };
+
+  if (hideCancelled && parts.length === 0 && error === undefined) {
+    return null;
+  }
 
   return (
     <MessagePrimitive.Root data-role="assistant">

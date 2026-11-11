@@ -13,7 +13,7 @@ import type {
   UserToolApprovalPolicyInputEvent,
   UserToolResponseInputEvent,
 } from './server/index.js';
-import { EVENT_TYPE, TURN_STATUS } from './server/index.js';
+import { EVENT_TYPE, TURN_CANCELLATION_REASON, TURN_STATUS } from './server/index.js';
 import type { AgentChatServer } from './server/types.js';
 
 import { collectPendingApprovals, collectPendingToolResponses } from './collectPending.js';
@@ -210,7 +210,7 @@ function commitActiveStream(snapshot: SessionSnapshot): SessionSnapshot {
 
 function buildCancelledTurnState({
   completedAt,
-  reason = 'Superseded by a later message',
+  reason = TURN_CANCELLATION_REASON.CANCELLED_FOR_NEXT_TURN,
 }: {
   completedAt: string;
   reason?: string;
@@ -291,7 +291,7 @@ function materializeAbandonedStreamRootIds(options: {
  */
 function abandonInFlightClientTurn(
   snapshot: SessionSnapshot,
-  reason = 'Superseded by a later message',
+  reason: string = TURN_CANCELLATION_REASON.CANCELLED_FOR_NEXT_TURN,
 ): SessionSnapshot {
   const active = snapshot.activeStream;
   const hasIncompleteStream = isIncompleteActiveStream(snapshot);
@@ -404,7 +404,7 @@ function finalizeLocallyCancelledTurn(snapshot: SessionSnapshot): SessionSnapsho
   const completedAt = new Date().toISOString();
   const cancelledState = buildCancelledTurnState({
     completedAt,
-    reason: 'client-cancelled',
+    reason: TURN_CANCELLATION_REASON.CLIENT_CANCELLED,
   });
   const tipIndex = abandoned.turns.findIndex(turn => turn.id === openTurn.id);
   if (tipIndex >= 0) {
