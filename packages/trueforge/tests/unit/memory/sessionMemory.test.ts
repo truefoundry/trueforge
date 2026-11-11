@@ -301,9 +301,13 @@ describe('resolveSessionMemory', () => {
 
     expect(capability).toBeDefined();
     expect(await injected(capability)).toEqual([]);
-    expect(log.warn).toHaveBeenCalledWith(
+    expect(log.error).toHaveBeenCalledWith(
       'Memory summary unavailable; starting the session without it',
-      expect.objectContaining({ timed_out: false, error: 'memory provider down' }),
+      expect.objectContaining({
+        timed_out: false,
+        error: 'memory provider down',
+        reportable_error: expect.objectContaining({ error: expect.any(Error) }),
+      }),
     );
   });
 
