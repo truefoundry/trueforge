@@ -2532,7 +2532,12 @@ Use `previous_turn_id` to chain to the session's last turn (defaults to `auto`);
 <dd>
 
 ```typescript
-const response = await client.sessions.createTurnStream("session_id", {});
+const response = await client.sessions.createTurnStream("session_id", {
+    input: [{
+            content: "content",
+            type: "user.message"
+        }]
+});
 for await (const item of response) {
     console.log(item);
 }
@@ -2610,7 +2615,12 @@ Use `previous_turn_id` to chain to the session's last turn (defaults to `auto`);
 <dd>
 
 ```typescript
-await client.sessions.createTurn("session_id", {});
+await client.sessions.createTurn("session_id", {
+    input: [{
+            content: "content",
+            type: "user.message"
+        }]
+});
 
 ```
 </dd>
@@ -4023,6 +4033,82 @@ await client.internal.sessions.getOrCreateByExternalId({
 <dd>
 
 **request:** `TrueForge.internal.GetOrCreateSessionByExternalIdRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `SessionsClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.internal.sessions.<a href="/src/api/resources/internal/resources/sessions/client/Client.ts">createTurn</a>(session_id, { ...params }) -> TrueForge.GetTurnResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Service API key. Non-streaming; requires external_id and a non-null source.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.internal.sessions.createTurn("session_id", {
+    input: [{
+            content: "content",
+            type: "user.message"
+        }]
+});
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**session_id:** `string` — Session identifier.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request:** `TrueForge.internal.InternalCreateSessionTurnRequest` 
     
 </dd>
 </dl>

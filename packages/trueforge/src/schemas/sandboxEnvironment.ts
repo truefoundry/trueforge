@@ -150,9 +150,9 @@ const SandboxEnvironmentManifestFieldsSchema = z
 export const SandboxEnvironmentManifestSchema =
   SandboxEnvironmentManifestFieldsSchema.openapi('SandboxEnvironmentManifest');
 
-/** PUT body manifest — rejects the reserved platform name. */
-const SandboxEnvironmentManifestRequestSchema = SandboxEnvironmentManifestFieldsSchema.refine(
-  manifest => manifest.name !== RESERVED_SANDBOX_ENVIRONMENT_NAME,
+export const SandboxEnvironmentManifestRequestSchema = SandboxEnvironmentManifestFieldsSchema.refine(
+  (manifest: z.infer<typeof SandboxEnvironmentManifestFieldsSchema>) =>
+    manifest.name !== RESERVED_SANDBOX_ENVIRONMENT_NAME,
   { message: `name "${RESERVED_SANDBOX_ENVIRONMENT_NAME}" is reserved`, path: ['name'] },
 ).openapi('SandboxEnvironmentManifestRequest');
 

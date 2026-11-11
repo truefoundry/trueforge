@@ -1,6 +1,7 @@
 'use client';
 
 import { useTrueForgeAgentSpec, useTrueForgeUpdateAgentSpec } from '@truefoundry/trueforge-assistant-ui-runtime';
+import { readDraftTrueforgeEnabled } from '@truefoundry/trueforge-assistant-ui-runtime/server';
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { useMCPAuth } from '../../hooks/useMcpAuth.js';
@@ -297,6 +298,8 @@ export type DraftCompositeSelectorProps = {
 
 const WEB_SEARCH_BUILTIN_TITLE = 'Web search';
 const WEB_SEARCH_BUILTIN_DESCRIPTION = 'Search the web for up-to-date answers';
+const TRUEFORGE_BUILTIN_TITLE = 'TrueForge';
+const TRUEFORGE_BUILTIN_DESCRIPTION = 'Create and update agents, schedules, and sandbox environments';
 
 function SectionHeading({ label, count }: { label: string; count?: number }) {
   return (
@@ -361,6 +364,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
     enabled: webSearchEnabled,
   });
   const canToggleWebSearch = !webSearchLocked;
+  const trueforgeEnabled = readDraftTrueforgeEnabled(agentSpec?.config) !== false;
   const needsSandbox = capabilities?.sandbox.enabled === false;
   const settings = capabilities?.settings;
   const canConfigureConnectors =
@@ -387,7 +391,8 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   const selectedSkills = open ? localSkills : specSkills;
   const selectedMcpIds = useMemo(() => new Set(selectedMcp.map(m => m.id)), [selectedMcp]);
   const hasValidModel = Boolean(agentSpec?.model?.name.trim());
-  const toolsCount = selectedMcp.length + selectedSkills.length + (webSearchEnabled ? 1 : 0);
+  const toolsCount =
+    selectedMcp.length + selectedSkills.length + (webSearchEnabled ? 1 : 0) + (trueforgeEnabled ? 1 : 0);
   const toolsTooltip = useMemo(() => {
     const formatNames = (items: Array<{ name: string }>) => {
       const names = items.map(item => item.name);
@@ -395,8 +400,12 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
       return `${names.slice(0, 4).join(', ')} +${names.length - 4}`;
     };
     const lines: string[] = [];
-    if (webSearchEnabled) {
-      lines.push(`Built-in: ${WEB_SEARCH_BUILTIN_TITLE}`);
+    const builtins = [
+      ...(trueforgeEnabled ? [TRUEFORGE_BUILTIN_TITLE] : []),
+      ...(webSearchEnabled ? [WEB_SEARCH_BUILTIN_TITLE] : []),
+    ];
+    if (builtins.length > 0) {
+      lines.push(`Built-in: ${builtins.join(', ')}`);
     }
     if (selectedMcp.length > 0) {
       lines.push(`Connectors: ${formatNames(selectedMcp)}`);
@@ -405,7 +414,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
       lines.push(`Skills: ${formatNames(selectedSkills)}`);
     }
     return lines.length > 0 ? lines.join('\n') : 'No connectors or skills selected';
-  }, [selectedMcp, selectedSkills, webSearchEnabled]);
+  }, [selectedMcp, selectedSkills, trueforgeEnabled, webSearchEnabled]);
 
   const clearFlushTimer = useCallback(() => {
     if (flushTimerRef.current != null) {
@@ -539,14 +548,24 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
     shell?.rememberDraftSpec(nextSpec, 'chat');
   };
 
-  const showWebSearchBuiltin = useMemo(() => {
+  const toggleTrueforge = () => {
+    if (agentSpec == null) return;
+    const nextSpec = {
+      ...agentSpec,
+      config: { ...agentSpec.config, trueforge: { enabled: !trueforgeEnabled } },
+    };
+    updateAgentSpec?.({ config: nextSpec.config });
+    // Flush seed immediately — New Chat can run before the preference bridge effect.
+    shell?.rememberDraftSpec(nextSpec, 'chat');
+  };
+
+  const matchesBuiltinQuery = (title: string, description: string) => {
     const needle = query.trim().toLowerCase();
     if (!needle) return true;
-    return (
-      WEB_SEARCH_BUILTIN_TITLE.toLowerCase().includes(needle) ||
-      WEB_SEARCH_BUILTIN_DESCRIPTION.toLowerCase().includes(needle)
-    );
-  }, [query]);
+    return title.toLowerCase().includes(needle) || description.toLowerCase().includes(needle);
+  };
+  const showWebSearchBuiltin = matchesBuiltinQuery(WEB_SEARCH_BUILTIN_TITLE, WEB_SEARCH_BUILTIN_DESCRIPTION);
+  const showTrueforgeBuiltin = matchesBuiltinQuery(TRUEFORGE_BUILTIN_TITLE, TRUEFORGE_BUILTIN_DESCRIPTION);
 
   const toggleSkill = (skill: AgentSkill) => {
     const family = skillFamilyId(skill.id);
@@ -715,20 +734,33 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
         <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-2">
           {tab === 'connectors' ? (
             <>
-              {showWebSearchBuiltin ? (
+              {showTrueforgeBuiltin || showWebSearchBuiltin ? (
                 <>
                   <SectionHeading label="Built-in" />
-                  <CatalogRow
-                    title={WEB_SEARCH_BUILTIN_TITLE}
-                    description={WEB_SEARCH_BUILTIN_DESCRIPTION}
-                    fallbackIcon="searchGlobe"
-                    checked={webSearchEnabled}
-                    disabled={!canToggleWebSearch}
-                    disabledReason={webSearchDisabledReason}
-                    onToggle={toggleWebSearch}
-                  />
-                  {canToggleWebSearch ? null : <RowNote>{webSearchDisabledReason}</RowNote>}
-                  {webSearchOffIsFinal ? <RowNote icon="info">{WEB_SEARCH_ONE_WAY_OFF_HINT}</RowNote> : null}
+                  {showTrueforgeBuiltin ? (
+                    <CatalogRow
+                      title={TRUEFORGE_BUILTIN_TITLE}
+                      description={TRUEFORGE_BUILTIN_DESCRIPTION}
+                      fallbackIcon="bot"
+                      checked={trueforgeEnabled}
+                      onToggle={toggleTrueforge}
+                    />
+                  ) : null}
+                  {showWebSearchBuiltin ? (
+                    <>
+                      <CatalogRow
+                        title={WEB_SEARCH_BUILTIN_TITLE}
+                        description={WEB_SEARCH_BUILTIN_DESCRIPTION}
+                        fallbackIcon="searchGlobe"
+                        checked={webSearchEnabled}
+                        disabled={!canToggleWebSearch}
+                        disabledReason={webSearchDisabledReason}
+                        onToggle={toggleWebSearch}
+                      />
+                      {canToggleWebSearch ? null : <RowNote>{webSearchDisabledReason}</RowNote>}
+                      {webSearchOffIsFinal ? <RowNote icon="info">{WEB_SEARCH_ONE_WAY_OFF_HINT}</RowNote> : null}
+                    </>
+                  ) : null}
                 </>
               ) : null}
               {pinnedSelectedConnectors.length > 0 ? (

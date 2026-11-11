@@ -41,6 +41,7 @@ export {
   SessionSchema,
   SessionSourceScheduleSchema,
   SessionSourceSchema,
+  SessionSourceServiceSchema,
   SessionSourceTypeSchema,
 } from './schemas/session';
 export type {
@@ -93,6 +94,7 @@ export type {
   FreezeAndGetTurnInput,
   GetOwnedIdsInput,
   GetSessionByExternalIdInput,
+  GetSessionByIdInput,
   GetSessionInput,
   GetTurnInput,
   ISessionStore,
@@ -132,7 +134,7 @@ export {
 } from './store/SessionStoreErrors';
 
 export type { ITurnResourceResolver } from './ITurnResourceResolver';
-export { TurnResourceResolver } from './TurnResourceResolver';
+export { TRUEFORGE_MCP_ID, TurnResourceResolver } from './TurnResourceResolver';
 export type { TurnSandboxFactory } from './TurnResourceResolver';
 
 export { SessionHandle, resolvePreviousTurnId } from './SessionHandle';

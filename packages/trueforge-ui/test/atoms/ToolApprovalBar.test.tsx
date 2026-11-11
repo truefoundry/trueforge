@@ -28,6 +28,7 @@ describe('ToolApprovalBar', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Allow once' }));
+    expect(screen.getByRole('menuitem', { name: 'Allow once' })).not.toHaveAttribute('aria-selected');
     fireEvent.click(screen.getByRole('menuitem', { name: 'Allow once' }));
     fireEvent.click(screen.getByRole('button', { name: 'Allow once' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Reject' }));
@@ -70,14 +71,20 @@ describe('ToolApprovalBar', () => {
     expect(screen.getByText('filesystem:read')).toBeInTheDocument();
     expect(screen.getByRole('alert')).toHaveTextContent('Reason is required');
     const reasonInput = screen.getByRole('textbox', { name: 'Reason for denial' });
+    expect(reasonInput).toHaveFocus();
     expect(reasonInput).toHaveAttribute('aria-invalid', 'true');
+    expect(reasonInput).toHaveAttribute('aria-describedby', screen.getByRole('alert').id);
     expect(reasonInput).toHaveClass('h-8');
     expect(screen.getByRole('button', { name: 'Submit' })).toHaveClass('h-6');
 
     fireEvent.change(reasonInput, { target: { value: 'new reason' } });
     expect(onDenialReasonChange).toHaveBeenCalledWith('new reason');
-    fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+    fireEvent.keyDown(reasonInput, { key: 'Enter', repeat: true });
+    expect(onReasonSubmit).not.toHaveBeenCalled();
+    fireEvent.keyDown(reasonInput, { key: 'Enter' });
     expect(onReasonSubmit).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+    expect(onReasonSubmit).toHaveBeenCalledTimes(2);
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
     expect(onDenyOptionChange).toHaveBeenLastCalledWith(null);
   });

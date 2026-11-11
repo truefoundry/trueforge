@@ -3,7 +3,7 @@ import {
   GET_OPENUI_INSTRUCTIONS_TOOL_NAME,
   OPENUI_MARKDOWN_FENCING_TAG,
   OPENUI_SECTION_TAG,
-  OPENUI_SERVER_ID,
+  OPENUI_SERVER_NAME,
   buildOpenUIInstruction,
   openUI,
   renderOpenUIPrompt,
@@ -29,7 +29,7 @@ describe('openUI', () => {
     expect(capability.instructionBuilders).toHaveLength(1);
 
     const toolSet = capability.systemToolSets?.[0];
-    expect(toolSet?.name).toBe(OPENUI_SERVER_ID);
+    expect(toolSet?.name).toBe(OPENUI_SERVER_NAME);
     const listed = await toolSet?.listTools();
     if (!listed || 'authRequired' in listed) {
       throw new Error('expected listTools result');

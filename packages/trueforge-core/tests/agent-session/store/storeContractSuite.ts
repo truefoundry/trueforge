@@ -500,6 +500,15 @@ export function runStoreContractSuite<TTransaction>(
       expect(await store.getSessionByExternalId({ tenant_id: 'other', external_id: 'run-1' })).toBeUndefined();
     });
 
+    it('getSessionById finds by session_id alone', async () => {
+      const store = createStore();
+      await seedSession(store);
+      const byId = await store.getSessionById({ session_id: sessionId });
+      expect(mustGet(byId).session_id).toBe(sessionId);
+      expect(mustGet(byId).tenant_id).toBe(tenant);
+      expect(await store.getSessionById({ session_id: 'missing' })).toBeUndefined();
+    });
+
     it('createSession unique external_id within a tenant; nulls and other tenants do not collide', async () => {
       const store = createStore();
       await store.createSession({
@@ -1613,6 +1622,21 @@ export function runStoreContractSuite<TTransaction>(
       const session = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
       expect(session.last_turn_details).toEqual({ id: 'turn-2', state: { status: 'running' } });
       expect(session.metrics).toEqual({ total_cost_in_usd: 1.25, total_duration_ms: 1500, total_turns: 2 });
+    });
+
+    it('bumps session.updated_at when a turn pauses and when it finishes', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      const created = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
+      await new Promise(resolve => setTimeout(resolve, 5));
+      await setNonTerminalState(store, 'turn-1', makePausedTurnState());
+      const paused = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
+      expect(paused.updated_at.getTime()).toBeGreaterThan(created.updated_at.getTime());
+      await new Promise(resolve => setTimeout(resolve, 5));
+      await finishTurn(store, 'turn-1');
+      const finished = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
+      expect(finished.updated_at.getTime()).toBeGreaterThan(paused.updated_at.getTime());
     });
   });
 

@@ -45,6 +45,14 @@ export const listSandboxEnvironmentsRoute = createRoute({
   'x-fern-sdk-group-name': ['sandboxEnvironments'],
   'x-fern-sdk-method-name': 'list',
   'x-fern-pagination': TOKEN_PAGINATION,
+  'x-tfg-mcp': {
+    name: 'list_sandbox_environments',
+    description:
+      'Discover existing sandbox environments you can reference from an agent, or find one to update. ' +
+      'Returns one paginated page. Secret values are redacted; never ask the user for them. When an ' +
+      'environment needs secrets, ask the user to create them in the sandbox environment settings.',
+    annotations: { readOnlyHint: true },
+  },
   request: {
     query: ListSandboxEnvironmentsQuerySchema,
   },
@@ -71,6 +79,15 @@ export const getSandboxEnvironmentRoute = createRoute({
   summary: 'Get a sandbox environment',
   'x-fern-sdk-group-name': ['sandboxEnvironments'],
   'x-fern-sdk-method-name': 'get',
+  'x-tfg-mcp': {
+    name: 'get_sandbox_environment',
+    description:
+      'Fetch one sandbox environment by name — its manifest, build status, resources, environment ' +
+      'variables, and networking configuration. Use it to review an environment or get a template before updating it. ' +
+      'Secret values are redacted; never ask the user for them. When the environment needs secrets, ask the user ' +
+      'to create them in the sandbox environment settings.',
+    annotations: { readOnlyHint: true },
+  },
   request: {
     params: SandboxEnvironmentNameParamsSchema,
   },
@@ -99,6 +116,16 @@ export const createSandboxEnvironmentRoute = createRoute({
     'Creates by `manifest.name`. Fails if the name is already taken. Requires a configured sandbox provider.',
   'x-fern-sdk-group-name': ['sandboxEnvironments'],
   'x-fern-sdk-method-name': 'create',
+  'x-tfg-mcp': {
+    name: 'create_sandbox_environment',
+    description:
+      'Create a reusable sandbox environment that agents run in — defining its resources, environment ' +
+      'variables, networking, and build configuration — from a complete manifest. Fails if an environment ' +
+      'with the same name already exists; the reserved `default` environment cannot be created. ' +
+      'Never ask the user for a secret value and never send networking.secrets. When the environment needs ' +
+      'secrets, ask the user to create them in the sandbox environment settings.',
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+  },
   request: {
     body: {
       content: { 'application/json': { schema: CreateSandboxEnvironmentRequestSchema } },

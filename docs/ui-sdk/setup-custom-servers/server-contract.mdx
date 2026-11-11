@@ -237,9 +237,12 @@ interface AgentBuilderServer {
 ```ts
 interface AgentBuilderCapabilitiesResponse {
   data: {
-    sandbox: { enabled: boolean };
+    sandbox: { enabled: boolean; environments?: { enabled: boolean } };
     skill: { enabled: boolean; reason?: string };
     settings?: SettingsCapability;
+    webSearch?: { enabled: boolean; reason?: string };
+    memory?: { enabled: boolean; reason?: string };
+    sessionSharing: { granularity: 'tenant' | 'subject' };
   };
 }
 
@@ -258,7 +261,7 @@ interface SettingsCapabilitySection {
 }
 ```
 
-It is fetched once when the server resolves. `skill.reason` is shown to the user when skills are disabled, so use it to explain why - for example that no skill registry is configured.
+It is fetched once when the server resolves. `skill.reason` is shown to the user when skills are disabled, so use it to explain why - for example that no skill registry is configured. Omit `memory` when your backend has no memory provider; the UI then hides every memory setting. With `enabled: false`, the agent builder's Memory toggle is locked and shows `reason`.
 
 `settings` reports one entry per settings section rather than a single switch, so you can open the sections a caller may use and close the rest. A section you omit stays **visible**, which is what keeps servers written before this existed working. Set `enabled: false` on a section to hide it; the settings control itself disappears once every section is closed. Use `manageProviders: false` for a section whose providers your platform owns centrally - the section still opens, but the controls that add or edit providers do not render.
 

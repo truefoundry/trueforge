@@ -10,6 +10,7 @@ import {
   ASSISTANT_MESSAGE_STATUS_REASON,
   ASSISTANT_MESSAGE_STATUS_TYPE,
   completeAssistantStatus,
+  isRequiresActionToolCalls,
   runningAssistantStatus,
   toolCallsRequiredAssistantStatus,
 } from './assistantMessageStatus.js';
@@ -31,8 +32,7 @@ import type { AgentChatServer } from './server/types.js';
 import { ROOT_THREAD_ID } from './constants.js';
 import { extractTurnUserText } from './extractTurnUserText.js';
 import {
-  buildRootAssistantContent,
-  buildRootAssistantContentForIds,
+  buildRootAssistantFoldForIds,
   earliestOpenModelMessageId,
   findFirstPendingApprovalThreadId,
   findFirstPendingResponseThreadId,
@@ -43,7 +43,12 @@ import {
 } from './foldPeerThreads.js';
 import { drainListPages } from './listPages.js';
 import { buildMcpAuthTextParts, mcpAuthAssistantStatus, mcpAuthMessageCustom } from './mcpAuth.js';
-import { CANCELLATION_REASON_CUSTOM_KEY, MESSAGE_CUSTOM_KEY } from './messageCustomMetadata.js';
+import {
+  CANCELLATION_REASON_CUSTOM_KEY,
+  MESSAGE_CUSTOM_KEY,
+  parallelToolGroupsCustom,
+  type ParallelToolGroups,
+} from './messageCustomMetadata.js';
 import type { AssistantContentPart } from './modelMessageContent.js';
 import { extractImageUrlFromUserContentItem, imageUrlToAttachment } from './modelMessageImageContent.js';
 import {
@@ -422,6 +427,9 @@ export function prependFoldState(older: PeerThreadFoldState, newer: PeerThreadFo
   }
   for (const [eventId, messageTurnId] of newer.modelMessageTurnIds) {
     result.modelMessageTurnIds.set(eventId, messageTurnId);
+  }
+  for (const eventId of [...older.ingestedEventIds, ...newer.ingestedEventIds]) {
+    result.ingestedEventIds.add(eventId);
   }
   return result;
 }
@@ -1149,13 +1157,16 @@ function buildTurnUpdateFromFold(
     foldState.parentTerminalStatus = undefined;
   }
   try {
-    const content = buildRootAssistantContentForIds(foldState, rootModelMessageIds);
+    const { parts: content, parallelToolGroups } = buildRootAssistantFoldForIds(foldState, rootModelMessageIds);
     if (turn.pendingMcpAuth != null) {
-      return {
-        content: [...content, ...buildMcpAuthTextParts(turn.pendingMcpAuth.mcpServers)],
-        status: mcpAuthAssistantStatus(),
-        metadata: { custom: mcpAuthMessageCustom(turn.pendingMcpAuth.mcpServers) },
-      };
+      return withParallelToolGroups(
+        {
+          content: [...content, ...buildMcpAuthTextParts(turn.pendingMcpAuth.mcpServers)],
+          status: mcpAuthAssistantStatus(),
+          metadata: { custom: mcpAuthMessageCustom(turn.pendingMcpAuth.mcpServers) },
+        },
+        parallelToolGroups,
+      );
     }
     let update: TurnStreamUpdate = { content };
     update = appendMcpAuthToTurnContent(update.content, turn);
@@ -1163,6 +1174,10 @@ function buildTurnUpdateFromFold(
     if (turn.state.status === TURN_STATUS.PAUSED && update.status == null) {
       const approvalThreadId = findFirstPendingApprovalThreadId(foldState);
       const responseThreadId = findFirstPendingResponseThreadId(foldState);
+      // Answered but not yet resumed: leave status unset so it does not look blocked.
+      if (approvalThreadId == null && responseThreadId == null) {
+        return update;
+      }
       const custom = {
         ...(approvalThreadId != null ? toolApprovalMessageCustom(approvalThreadId) : {}),
         ...(responseThreadId != null ? toolResponseMessageCustom(responseThreadId) : {}),
@@ -1173,11 +1188,52 @@ function buildTurnUpdateFromFold(
         metadata: { custom },
       };
     }
-    return update;
+    return withParallelToolGroups(update, parallelToolGroups);
   } finally {
     foldState.parentTerminalStatus = previousParentTerminal;
     foldState.settledTurnCompletedAtMs = previousSettledCompletedAt;
   }
+}
+
+// Every root update path (live stream, cancel, approval pause, MCP auth, history replay) goes through here, so
+// the UI always gets the tool-call grouping. When no response had tool calls, we return the update unchanged so
+// messages without tools don't get an empty `parallelToolGroups` key.
+function withParallelToolGroups(update: TurnStreamUpdate, parallelToolGroups: ParallelToolGroups): TurnStreamUpdate {
+  const groups = parallelToolGroupsCustom(parallelToolGroups);
+  if (groups.parallelToolGroups == null) {
+    return update;
+  }
+  return {
+    ...update,
+    metadata: {
+      ...update.metadata,
+      custom: {
+        ...update.metadata?.custom,
+        ...groups,
+      },
+    },
+  };
+}
+
+// The fold holds the whole session, but a live bubble shows only the current turn group (user turn plus any
+// approval/response resumes). When a baseline is known we drop ids from earlier groups so old answers don't leak in;
+// without one we fold every root model message.
+function rootIdsForStream(foldState: PeerThreadFoldState, groupRootBaseline: readonly string[] | undefined): string[] {
+  return groupRootBaseline != null
+    ? rootModelMessageIdsSinceBaseline(foldState, groupRootBaseline)
+    : [...(foldState.threads.get(ROOT_THREAD_ID)?.modelMessageIds ?? [])];
+}
+
+// Every live yield (each delta, cancel, approval/response pause, sandbox tail) needs the current group's parts plus
+// their parallel groups; building both here from one id list keeps them in sync and keeps existing metadata intact.
+function buildRootContentUpdate(
+  foldState: PeerThreadFoldState,
+  groupRootBaseline: readonly string[] | undefined,
+  extra?: Omit<TurnStreamUpdate, 'content'>,
+): TurnStreamUpdate {
+  const ids = rootIdsForStream(foldState, groupRootBaseline);
+  const { parts: content, parallelToolGroups } = buildRootAssistantFoldForIds(foldState, ids);
+  return withParallelToolGroups({ content, ...extra }, parallelToolGroups);
 }
 
 function contentHasPendingRequiredActions(content: readonly AssistantContentPart[]): boolean {
@@ -1211,13 +1267,11 @@ function resolveProjectedRequiredActionState(
     status.reason === ASSISTANT_MESSAGE_STATUS_REASON.TOOL_CALLS &&
     !contentHasPendingRequiredActions(content)
   ) {
-    status = assistantStatusFromTurnState(record.state);
-    custom = Object.fromEntries(
-      Object.entries(custom).filter(
-        ([key]) =>
-          key !== MESSAGE_CUSTOM_KEY.TOOL_APPROVAL_THREAD_ID && key !== MESSAGE_CUSTOM_KEY.TOOL_RESPONSE_THREAD_ID,
-      ),
-    );
+    status =
+      record.state.status === TURN_STATUS.PAUSED
+        ? runningAssistantStatus()
+        : assistantStatusFromTurnState(record.state);
+    custom = omitWaitingThreadIds(custom);
   }
 
   return { status, custom };
@@ -1246,7 +1300,7 @@ function projectActiveStreamUpdate(snapshot: SessionSnapshot): TurnStreamUpdate 
   const baseline = snapshot.groupRootBaseline ?? computeGroupRootBaseline(snapshot.turns);
   const rootModelMessageIds = rootModelMessageIdsSinceBaseline(snapshot.fold, baseline);
 
-  const foldContent = buildRootAssistantContentForIds(snapshot.fold, rootModelMessageIds);
+  const { parts: foldContent, parallelToolGroups } = buildRootAssistantFoldForIds(snapshot.fold, rootModelMessageIds);
   const content = foldContent.length > 0 ? foldContent : activeStream.update.content;
 
   const turnRecord = snapshot.turns.find(turn => turn.id === activeStream.turnId);
@@ -1262,16 +1316,41 @@ function projectActiveStreamUpdate(snapshot: SessionSnapshot): TurnStreamUpdate 
           };
 
   const rebuilt =
-    turnLike != null ? buildTurnUpdateFromFold(snapshot.fold, turnLike, rootModelMessageIds) : { content };
+    turnLike != null
+      ? buildTurnUpdateFromFold(snapshot.fold, turnLike, rootModelMessageIds)
+      : withParallelToolGroups({ content }, parallelToolGroups);
 
-  const metadata = rebuilt.metadata ?? activeStream.update.metadata;
-  const status = rebuilt.status ?? activeStream.update.status;
+  // The fold leaves status unset once every prompt is answered. Drop the
+  // waiting status carried by the live update from before that answer. The
+  // content check matters: a live update can carry prompts the fold has not seen.
+  let metadata = rebuilt.metadata ?? activeStream.update.metadata;
+  let status = rebuilt.status ?? activeStream.update.status;
+  if (
+    turnLike?.state.status === TURN_STATUS.PAUSED &&
+    rebuilt.status == null &&
+    isRequiresActionToolCalls(status) &&
+    !contentHasPendingRequiredActions(content)
+  ) {
+    status = runningAssistantStatus();
+    if (metadata?.custom != null) {
+      metadata = { ...metadata, custom: omitWaitingThreadIds(metadata.custom) };
+    }
+  }
   return {
     ...activeStream.update,
     content,
     ...(metadata == null ? {} : { metadata }),
     ...(status == null ? {} : { status }),
   };
+}
+
+function omitWaitingThreadIds(custom: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(custom).filter(
+      ([key]) =>
+        key !== MESSAGE_CUSTOM_KEY.TOOL_APPROVAL_THREAD_ID && key !== MESSAGE_CUSTOM_KEY.TOOL_RESPONSE_THREAD_ID,
+    ),
+  );
 }
 
 function applyRequiredActionsOverlayToMessages(
@@ -1839,15 +1918,16 @@ function buildMcpAuthUpdate(
   foldState: PeerThreadFoldState,
   groupRootBaseline?: readonly string[],
 ): TurnStreamUpdate {
-  const base =
-    groupRootBaseline != null
-      ? buildRootAssistantContentForIds(foldState, rootModelMessageIdsSinceBaseline(foldState, groupRootBaseline))
-      : buildRootAssistantContent(foldState);
-  return {
-    content: [...base, ...buildMcpAuthTextParts()],
-    status: mcpAuthAssistantStatus(),
-    metadata: { custom: mcpAuthMessageCustom(pendingMcpAuth.mcpServers) },
-  };
+  const ids = rootIdsForStream(foldState, groupRootBaseline);
+  const { parts: base, parallelToolGroups } = buildRootAssistantFoldForIds(foldState, ids);
+  return withParallelToolGroups(
+    {
+      content: [...base, ...buildMcpAuthTextParts()],
+      status: mcpAuthAssistantStatus(),
+      metadata: { custom: mcpAuthMessageCustom(pendingMcpAuth.mcpServers) },
+    },
+    parallelToolGroups,
+  );
 }
 
 /** SSE body ended without `turn.done` or a pause — subscribe-retry. */
@@ -1885,15 +1965,6 @@ export async function* streamTurnEvents(
     };
   };
 
-  const yieldContent = (): AssistantContentPart[] | undefined => {
-    const ids =
-      groupRootBaseline != null
-        ? rootModelMessageIdsSinceBaseline(foldState, groupRootBaseline)
-        : (foldState.threads.get(ROOT_THREAD_ID)?.modelMessageIds ?? []);
-    const content = buildRootAssistantContentForIds(foldState, ids);
-    return content.length > 0 ? content : undefined;
-  };
-
   const buildRequiredActionUpdate = (): TurnStreamUpdate => {
     if (pendingMcpAuth != null) {
       return buildMcpAuthUpdate(pendingMcpAuth, foldState, groupRootBaseline);
@@ -1908,11 +1979,10 @@ export async function* streamTurnEvents(
     if (responseThreadId != null) {
       Object.assign(custom, toolResponseMessageCustom(responseThreadId));
     }
-    return {
-      content: yieldContent() ?? [],
+    return buildRootContentUpdate(foldState, groupRootBaseline, {
       status: approvalThreadId != null ? toolApprovalStatus() : toolResponseStatus(),
       metadata: { custom },
-    };
+    });
   };
 
   /** Partial approvals: BE may echo user.tool_approval without another turn.update. */
@@ -1934,7 +2004,7 @@ export async function* streamTurnEvents(
         sequenceNumber,
       );
     }
-    return withSequence({ content: yieldContent() ?? [] }, sequenceNumber);
+    return withSequence(buildRootContentUpdate(foldState, groupRootBaseline), sequenceNumber);
   };
 
   let yieldedPaused = false;
@@ -1987,11 +2057,10 @@ export async function* streamTurnEvents(
         pendingMcpAuth = undefined;
         yield withSandbox(
           withSequence(
-            {
-              content: yieldContent() ?? [],
+            buildRootContentUpdate(foldState, groupRootBaseline, {
               status: runningAssistantStatus(),
               turnState: { status: TURN_STATUS.RUNNING },
-            },
+            }),
             data.sequenceNumber,
           ),
         );
@@ -2016,21 +2085,16 @@ export async function* streamTurnEvents(
     if (event.type === EVENT_TYPE.TURN_DONE) {
       // Live cancel: stash wire reason for UI banner and mark open sub-agents cancelled.
       if (event.state.status === TURN_STATUS.CANCELLED) {
-        const ids =
-          groupRootBaseline != null
-            ? rootModelMessageIdsSinceBaseline(foldState, groupRootBaseline)
-            : (foldState.threads.get(ROOT_THREAD_ID)?.modelMessageIds ?? []);
         const previousParentTerminal = foldState.parentTerminalStatus;
         foldState.parentTerminalStatus = 'cancelled';
         try {
           yield withSandbox(
             withSequence(
-              {
-                content: buildRootAssistantContentForIds(foldState, ids),
+              buildRootContentUpdate(foldState, groupRootBaseline, {
                 status: assistantStatusFromTurnState(event.state),
                 metadata: { custom: { [CANCELLATION_REASON_CUSTOM_KEY]: event.state.reason } },
                 turnState: event.state,
-              },
+              }),
               data.sequenceNumber,
             ),
           );
@@ -2045,11 +2109,10 @@ export async function* streamTurnEvents(
       // not subscribe-retry a terminal turn; callers read `turnState` / status.
       yield withSandbox(
         withSequence(
-          {
-            content: yieldContent() ?? [],
+          buildRootContentUpdate(foldState, groupRootBaseline, {
             status: assistantStatusFromTurnState(event.state),
             turnState: event.state,
-          },
+          }),
           data.sequenceNumber,
         ),
       );
@@ -2060,8 +2123,7 @@ export async function* streamTurnEvents(
       continue;
     }
 
-    const content = yieldContent();
-    if (content != null) {
+    if (buildRootContentUpdate(foldState, groupRootBaseline).content.length > 0) {
       if (sandboxId != null) {
         sandboxIdYielded = true;
       }
@@ -2084,11 +2146,7 @@ export async function* streamTurnEvents(
   if (sandboxId != null && !sandboxIdYielded) {
     // The sandbox id has not ridden on a content yield yet. Surface it, then
     // still treat the closed body as a disconnect so subscribe-retry continues.
-    const ids =
-      groupRootBaseline != null
-        ? rootModelMessageIdsSinceBaseline(foldState, groupRootBaseline)
-        : (foldState.threads.get(ROOT_THREAD_ID)?.modelMessageIds ?? []);
-    yield withSandbox({ content: buildRootAssistantContentForIds(foldState, ids) });
+    yield withSandbox(buildRootContentUpdate(foldState, groupRootBaseline));
   }
 
   // SSE ended without turn.done or a pause. A sandbox-only prefix is not terminal.

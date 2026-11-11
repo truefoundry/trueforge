@@ -51,8 +51,9 @@ export interface MemoryIngestModelMessage {
 }
 
 /**
- * Which sessions a run looks at, by `session.updated_at`. That moves when a turn is created, so it
- * bounds the latest turn's start; turns finish within the execution timeout.
+ * Which sessions a run looks at, by `session.updated_at`. That moves when a turn is created,
+ * when it pauses, and again when it finishes, so a pause longer than the lookback still
+ * re-enters the window.
  */
 export interface ListMemoryIngestCandidatesInput {
   /** Only sessions of these tenants (non-empty), the ones with memory on. */
