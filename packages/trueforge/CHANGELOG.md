@@ -1,5 +1,11 @@
 # @truefoundry/trueforge
 
+## 0.183.2
+
+### Patch Changes
+
+- d5fea53: Fix PostgreSQL 13 compatibility when persisting MCP server selections and sandbox info by using jsonb_set instead of JSONB subscript assignment.
+
 ## 0.183.1
 
 ### Patch Changes
