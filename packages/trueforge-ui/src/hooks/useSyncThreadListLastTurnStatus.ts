@@ -9,9 +9,10 @@ import { useOptionalServer } from '../server/ServerContext.js';
 
 /**
  * Keep Chat History `lastTurnStatus` in sync with the live main thread.
- * List polling only runs while a row is already non-terminal, so a fresh send
- * from a done/idle row would never re-check without this optimistic stamp +
- * post-turn getSession refresh.
+ * List polling skips the main row only while `useThreadIsRunning()` is true, so a
+ * fresh send needs this optimistic stamp; when the turn ends we drop `running`
+ * immediately (so a failed getSession cannot leave the row shimmering) and then
+ * refine from getSession.
  */
 export function useSyncThreadListLastTurnStatus(): void {
   const server = useOptionalServer();
@@ -31,9 +32,18 @@ export function useSyncThreadListLastTurnStatus(): void {
     const finishedTurn = wasRunningRef.current && !isRunning;
     wasRunningRef.current = isRunning;
 
-    if (!finishedTurn || server == null || remoteId == null) {
+    if (!finishedTurn || remoteId == null) {
       return;
     }
+
+    // Drop the optimistic running stamp immediately so the row cannot stick on
+    // shimmering dots if getSession fails; poll may also refresh once !isRunning.
+    const custom = aui.threadListItem().getState().custom;
+    if (readThreadLastTurnStatus(custom) === 'running') {
+      void aui.threadListItem().updateCustom(threadCustomWithLastTurnStatus(custom, null));
+    }
+
+    if (server == null) return;
 
     let cancelled = false;
     void server
@@ -41,9 +51,9 @@ export function useSyncThreadListLastTurnStatus(): void {
       .then(session => {
         if (cancelled) return;
         const nextStatus = session.lastTurnDetails?.state.status ?? null;
-        const custom = aui.threadListItem().getState().custom;
-        if (readThreadLastTurnStatus(custom) === nextStatus) return;
-        return aui.threadListItem().updateCustom(threadCustomWithLastTurnStatus(custom, nextStatus));
+        const latestCustom = aui.threadListItem().getState().custom;
+        if (readThreadLastTurnStatus(latestCustom) === nextStatus) return;
+        return aui.threadListItem().updateCustom(threadCustomWithLastTurnStatus(latestCustom, nextStatus));
       })
       .catch(() => undefined);
 

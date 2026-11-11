@@ -1,5 +1,6 @@
 'use client';
 
+import { useThreadIsRunning } from '@assistant-ui/core/react';
 import {
   ThreadListItemByIndexProvider,
   ThreadListItemMorePrimitive,
@@ -503,8 +504,11 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
   const hasMoreRef = useRef(hasMore);
   const auiRef = useRef(aui);
   const selectionRef = useRef(0);
+  const mainThreadIsRunning = useThreadIsRunning();
+  const mainThreadIsRunningRef = useRef(mainThreadIsRunning);
   hasMoreRef.current = hasMore;
   auiRef.current = aui;
+  mainThreadIsRunningRef.current = mainThreadIsRunning;
 
   const showNewChat = shell?.isNewChatEnabled !== false;
   const isIdle = shell?.mode.status === 'idle';
@@ -544,8 +548,9 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
         const threadsState = auiRef.current.threads().getState();
         const mainThreadId = threadsState.mainThreadId;
         for (const item of threadsState.threadItems) {
-          // Live main thread owns its own lastTurnStatus via useSyncThreadListLastTurnStatus.
-          if (item.id === mainThreadId) continue;
+          // While the live turn is generating, sync owns the main row (avoids stale done→running races).
+          // After it finishes, poll may refresh main again if getSession fails.
+          if (item.id === mainThreadId && mainThreadIsRunningRef.current) continue;
           if (item.remoteId == null || !statusByRemoteId.has(item.remoteId)) continue;
           const nextStatus = statusByRemoteId.get(item.remoteId);
           const prevStatus = readThreadLastTurnStatus(item.custom);

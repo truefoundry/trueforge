@@ -413,7 +413,7 @@ describe('ThreadListContainer', () => {
     );
   });
 
-  it('polls last-turn status for non-main rows only', async () => {
+  it('polls last-turn status for every row when the main thread is not live-running', async () => {
     const onUpdateCustom = vi.fn(async () => {});
     const listSessions = vi.fn(async () => ({
       data: [
@@ -465,8 +465,10 @@ describe('ThreadListContainer', () => {
       expect(onUpdateCustom).toHaveBeenCalledWith('thread-other', {
         lastTurnStatus: 'paused',
       });
+      expect(onUpdateCustom).toHaveBeenCalledWith('thread-main', {
+        lastTurnStatus: 'done',
+      });
     });
-    expect(onUpdateCustom).not.toHaveBeenCalledWith('thread-main', expect.objectContaining({ lastTurnStatus: 'done' }));
   });
 
   it('toasts when delete fails and does not track the deletion', async () => {

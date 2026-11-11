@@ -77,7 +77,8 @@ describe('useSyncThreadListLastTurnStatus', () => {
     expect(updateCustom).not.toHaveBeenCalled();
   });
 
-  it('refreshes lastTurnStatus from getSession after a turn finishes', async () => {
+  it('clears running immediately when a turn finishes, then refreshes from getSession', async () => {
+    getState.mockReturnValue({ custom: { isMutable: true, lastTurnStatus: 'running' } });
     getSession.mockResolvedValue({
       id: 'sess-1',
       lastTurnDetails: { id: 'turn-1', state: { status: 'paused' } },
@@ -91,8 +92,26 @@ describe('useSyncThreadListLastTurnStatus', () => {
     rerender();
 
     await waitFor(() => {
+      expect(updateCustom).toHaveBeenCalledWith({ isMutable: true });
       expect(getSession).toHaveBeenCalledWith({ sessionId: 'sess-1' });
       expect(updateCustom).toHaveBeenCalledWith({ isMutable: true, lastTurnStatus: 'paused' });
     });
+  });
+
+  it('still clears running when getSession fails after a turn finishes', async () => {
+    getState.mockReturnValue({ custom: { isMutable: true, lastTurnStatus: 'running' } });
+    getSession.mockRejectedValue(new Error('network'));
+
+    useThreadIsRunning.mockReturnValue(true);
+    const { rerender } = renderHook(() => useSyncThreadListLastTurnStatus());
+    updateCustom.mockClear();
+
+    useThreadIsRunning.mockReturnValue(false);
+    rerender();
+
+    await waitFor(() => {
+      expect(updateCustom).toHaveBeenCalledWith({ isMutable: true });
+    });
+    expect(updateCustom).not.toHaveBeenCalledWith(expect.objectContaining({ lastTurnStatus: 'running' }));
   });
 });
