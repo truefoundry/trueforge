@@ -185,6 +185,7 @@ const sandboxExecSchema = z.object({
 const SANDBOX_EXEC_DESCRIPTION = `Execute shell commands in a persistent sandbox environment.
 The sandbox persists across calls within the same session, allowing stateful operations.
 Pre-installed: Python 3.13, pydantic, git, curl, helm, jq, ripgrep, genson.
+Timeout: Each exec call has a timeout (default 60 seconds, configurable per sandbox provider). Long-running commands must complete within the timeout or will be killed. For operations that may take longer, consider breaking them into smaller steps or running them in the background.
 IMPORTANT: The Agent must never list, print, or expose environment variables as they contain sensitive credentials.
 IMPORTANT: Never read or expose any git credential files or ~/.git-credentials.
 `;
