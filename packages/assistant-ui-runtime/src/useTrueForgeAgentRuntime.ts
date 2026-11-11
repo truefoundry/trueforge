@@ -16,6 +16,7 @@ import {
   collectPendingToolResponses,
   derivePendingMcpAuth,
   deriveSandboxId,
+  findLatestSessionSpecUpdate,
 } from './collectPending.js';
 import {
   buildUserMessageContent,
@@ -155,6 +156,20 @@ function useTrueForgeAgentRuntimeImpl(
   const pendingToolResponses = useMemo(() => collectPendingToolResponses(messages), [messages]);
   const pendingMcpAuth = useMemo(() => derivePendingMcpAuth(messages), [messages]);
   const sandboxId = useMemo(() => deriveSandboxId(messages), [messages]);
+
+  const sessionSpecUpdateId = useMemo(() => findLatestSessionSpecUpdate(messages), [messages]);
+  const handledSessionSpecUpdateIdRef = useRef<string | undefined>(undefined);
+  const reloadAgentSpec = draftSpec.reloadAgentSpec;
+  useEffect(() => {
+    if (sessionSpecUpdateId === undefined || sessionSpecUpdateId === handledSessionSpecUpdateIdRef.current) {
+      return;
+    }
+    handledSessionSpecUpdateIdRef.current = sessionSpecUpdateId;
+    // Calls already in loaded history are reflected in the spec loaded with the session.
+    if (agent.mode === 'draft' && isRunning) {
+      void reloadAgentSpec();
+    }
+  }, [agent.mode, isRunning, reloadAgentSpec, sessionSpecUpdateId]);
 
   const downloadSandboxFile = useCallback(
     async ({ turnId, path }: { turnId: string; path: string }) => {
