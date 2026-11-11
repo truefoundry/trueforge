@@ -2,8 +2,8 @@
 
 import type { ReactNode } from 'react';
 
-import { Button } from '@/atoms/primitives/Button.js';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/atoms/primitives/Dialog.js';
+import { Button } from './Button.js';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './Dialog.js';
 
 export type ConfirmDeleteDialogProps = {
   title: string;

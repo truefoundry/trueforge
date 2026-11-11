@@ -5,7 +5,7 @@ import {
   type ExternalStoreThreadListAdapter,
   type ThreadMessageLike,
 } from '@assistant-ui/react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -387,6 +387,20 @@ describe('ThreadListContainer', () => {
     fireEvent.click(actionButton);
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
 
+    expect(screen.getByRole('dialog', { name: 'Delete chat' })).toBeInTheDocument();
+    expect(onDelete).not.toHaveBeenCalled();
+    expect(track).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog', { name: 'Delete chat' })).not.toBeInTheDocument();
+    expect(onDelete).not.toHaveBeenCalled();
+
+    fireEvent.click(actionButton);
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    fireEvent.click(
+      within(screen.getByRole('dialog', { name: 'Delete chat' })).getByRole('button', { name: 'Delete' }),
+    );
+
     await waitFor(() => {
       expect(onDelete).toHaveBeenCalledWith('thread-1');
     });
@@ -394,6 +408,42 @@ describe('ThreadListContainer', () => {
       AnalyticsEvents.Session.DELETED,
       expect.objectContaining({ session_id: 'session-1' }),
     );
+  });
+
+  it('toasts when delete fails and does not track the deletion', async () => {
+    const onDelete = vi.fn(async () => {
+      throw new Error('Session delete failed');
+    });
+    const track = vi.fn();
+
+    renderThreadList({
+      adapter: {
+        threadId: 'thread-1',
+        threads: [
+          {
+            status: 'regular',
+            id: 'thread-1',
+            remoteId: 'session-1',
+            title: 'Remote session',
+          },
+        ],
+        onDelete,
+      },
+      canDelete: true,
+      track,
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Session actions' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    fireEvent.click(
+      within(screen.getByRole('dialog', { name: 'Delete chat' })).getByRole('button', { name: 'Delete' }),
+    );
+
+    await waitFor(() => {
+      expect(onDelete).toHaveBeenCalledWith('thread-1');
+    });
+    expect(await screen.findByRole('alert')).toHaveTextContent('Session delete failed');
+    expect(track).not.toHaveBeenCalled();
   });
 
   it('hides rename when the server does not opt in', () => {

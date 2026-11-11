@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTrackAnalytics } from '@/analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '@/analytics/events.js';
 import { Button } from '../../atoms/primitives/Button.js';
+import ConfirmDeleteDialog from '../../atoms/primitives/ConfirmDeleteDialog.js';
 import { Switch } from '../../atoms/primitives/Switch.js';
 import { Icon } from '../../icons/Icon.js';
 import {
@@ -17,7 +18,6 @@ import type { WebSearchProviderBase, WebSearchProviderCatalogEntry } from '../..
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import { useToasterOptional } from '../ToasterContainer.js';
 import ConfigureWebSearchForm, { type WebSearchConfigDraft } from './ConfigureWebSearchForm.js';
-import ConfirmDeleteDialog from './ConfirmDeleteDialog.js';
 
 const WebSearchSettings = () => {
   const catalogServer = useOptionalCatalogServer();

@@ -26,6 +26,7 @@ import {
 } from '../atoms/lib/threadListMeta.js';
 import { useIsMobile } from '../atoms/lib/useIsMobile.js';
 import { BottomSheet } from '../atoms/primitives/BottomSheet.js';
+import ConfirmDeleteDialog from '../atoms/primitives/ConfirmDeleteDialog.js';
 import { RenameSessionModal } from '../atoms/RenameSessionModal.js';
 import { useResourcePermissions } from '../hooks/useResourcePermissions.js';
 import { Icon } from '../icons/Icon.js';
@@ -38,7 +39,7 @@ import { useToasterOptional } from './ToasterContainer.js';
  * Simplified relative to the reference: renders threads in a single flat list
  * rather than grouping them by Today/Yesterday/Earlier.
  *
- * Delete uses assistant-ui ThreadListItemPrimitive.Delete / ThreadListItemMorePrimitive
+ * Delete asks for confirmation, then calls `aui.threadListItem().delete()`
  * (adapter.delete → server.deleteSession). Rename opens RenameSessionModal via
  * aui.threadListItem().rename (adapter.rename → server.renameSession) when
  * `renameSession` is implemented. Mobile/compact keeps a BottomSheet chrome.
@@ -111,8 +112,10 @@ function ThreadListItemActionsMenu({
 
   const deleteButton = canDelete ? (
     <PermissionGuard allowed={!deleteDisabled}>
-      <ThreadListItemPrimitive.Delete
+      <button
+        type="button"
         className={deleteItemClass}
+        disabled={deleteDisabled}
         onClick={() => {
           if (deleteDisabled) return;
           setSheetOpen(false);
@@ -121,7 +124,7 @@ function ThreadListItemActionsMenu({
       >
         <Icon name="trash" className="size-3.5" />
         Delete
-      </ThreadListItemPrimitive.Delete>
+      </button>
     </PermissionGuard>
   ) : null;
 
@@ -216,6 +219,7 @@ function ThreadListItemRow({
     shell?.environmentsOpen === true;
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameSaving, setRenameSaving] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const displayTitle = title ?? 'New Chat';
 
@@ -318,13 +322,30 @@ function ThreadListItemRow({
               canDelete={showDelete}
               deleteDisabled={deleteDisabled}
               onRename={() => setRenameOpen(true)}
-              onDelete={() => {
-                track(AnalyticsEvents.Session.DELETED, withSessionProps(undefined, { sessionId: remoteId, agentName }));
-              }}
+              onDelete={() => setDeleteOpen(true)}
             />
           ) : undefined
         }
       />
+      {deleteOpen ? (
+        <ConfirmDeleteDialog
+          title="Delete chat"
+          description={`“${displayTitle}” will be permanently deleted. This cannot be undone.`}
+          confirmLabel="Delete"
+          onCancel={() => setDeleteOpen(false)}
+          onConfirm={() => {
+            setDeleteOpen(false);
+            void Promise.resolve(aui.threadListItem().delete()).then(
+              () => {
+                track(AnalyticsEvents.Session.DELETED, withSessionProps(undefined, { sessionId: remoteId, agentName }));
+              },
+              (caught: unknown) => {
+                toaster?.showError(caught);
+              },
+            );
+          }}
+        />
+      ) : null}
       <RenameSessionModal
         open={renameOpen}
         initialTitle={title ?? ''}
