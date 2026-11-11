@@ -59,22 +59,22 @@ describe('selectDraftSpecPreferences', () => {
     });
   });
 
-  it('freshAgentBuilderSeed starts the next agent with memory off', () => {
+  it('freshAgentBuilderSeed keeps the memory choice for the next agent', () => {
     expect(
       freshAgentBuilderSeed({
         model: { name: 'm' },
-        config: { sandbox: { enabled: true }, memory: { enabled: true } },
+        config: { sandbox: { enabled: true }, memory: { enabled: false } },
       }),
-    ).toEqual({ model: { name: 'm' }, config: { sandbox: { enabled: true } } });
+    ).toEqual({ model: { name: 'm' }, config: { sandbox: { enabled: true }, memory: { enabled: false } } });
   });
 
-  it('never keeps memory as an agent preference', () => {
+  it('keeps memory as an agent preference', () => {
     expect(
       selectAgentDraftSpecPreferences({
         model: { name: 'm' },
-        config: { sandbox: { enabled: true }, memory: { enabled: true } },
+        config: { sandbox: { enabled: true }, memory: { enabled: false } },
       }),
-    ).toEqual({ model: { name: 'm' }, config: { sandbox: { enabled: true } } });
+    ).toEqual({ model: { name: 'm' }, config: { sandbox: { enabled: true }, memory: { enabled: false } } });
   });
 
   it('keeps runtime config for agent', () => {
@@ -113,18 +113,6 @@ describe('draft preference storage', () => {
       model: { name: 'agent/model' },
       config: { sandbox: { enabled: true } },
     });
-  });
-
-  it('drops memory from an agent preference stored before it was excluded', () => {
-    window.localStorage.setItem(
-      AGENT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY,
-      JSON.stringify({
-        version: 1,
-        spec: { model: { name: 'agent/model' }, config: { memory: { enabled: true } } },
-      }),
-    );
-
-    expect(readDraftSpecPreferences('agent')).toEqual({ model: { name: 'agent/model' }, config: {} });
   });
 
   it('stores a wire sandbox environment name as environmentName', () => {

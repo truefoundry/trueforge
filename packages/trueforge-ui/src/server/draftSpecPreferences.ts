@@ -131,20 +131,12 @@ export function selectChatDraftSpecPreferences(spec: AgentSpec): AgentSpec {
   };
 }
 
-/** A new draft takes the memory default (on while the tenant allows it), not the last agent's choice. */
-function withoutMemory(config: AgentRuntimeConfig | undefined): AgentRuntimeConfig | undefined {
-  if (config?.memory === undefined) return config;
-  const { memory: _memory, ...rest } = config;
-  return rest;
-}
-
 /** New Agent: full composer seed including runtime config (sandbox, ask-user, …). */
 export function selectAgentDraftSpecPreferences(spec: AgentSpec): AgentSpec {
   const normalized = normalizeSandboxEnvironmentName(spec);
-  const config = withoutMemory(normalized.config);
   return {
     ...selectChatDraftSpecPreferences(normalized),
-    ...(config !== undefined ? { config } : {}),
+    ...(normalized.config !== undefined ? { config: normalized.config } : {}),
   };
 }
 
@@ -153,10 +145,9 @@ export function selectAgentDraftSpecPreferences(spec: AgentSpec): AgentSpec {
  * instructions / initial messages / MCP / skills from the previous build.
  */
 export function freshAgentBuilderSeed(spec: AgentSpec): AgentSpec {
-  const config = withoutMemory(spec.config);
   return {
     model: spec.model,
-    ...(config !== undefined ? { config } : {}),
+    ...(spec.config !== undefined ? { config: spec.config } : {}),
   };
 }
 
