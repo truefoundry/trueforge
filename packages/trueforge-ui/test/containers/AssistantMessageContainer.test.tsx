@@ -6,7 +6,11 @@ import {
   type ThreadMessageLike,
 } from '@assistant-ui/react';
 import { render, screen } from '@testing-library/react';
-import { CANCELLATION_REASON_CUSTOM_KEY, trueForgeExtras } from '@truefoundry/trueforge-assistant-ui-runtime';
+import {
+  CANCELLATION_REASON_CUSTOM_KEY,
+  TURN_CANCELLATION_REASON,
+  trueForgeExtras,
+} from '@truefoundry/trueforge-assistant-ui-runtime';
 import { describe, expect, it } from 'vitest';
 
 import { AssistantMessageContainer } from '@/containers/AssistantMessageContainer.js';
@@ -28,14 +32,12 @@ const runningToolCallMessage: ThreadMessageLike = {
   status: { type: 'running' },
 };
 
-function cancelledMessage(options?: { content?: ThreadMessageLike['content']; reason?: string }): ThreadMessageLike {
+function cancelledMessage(options: { reason: string; content?: ThreadMessageLike['content'] }): ThreadMessageLike {
   return {
     role: 'assistant',
-    content: options?.content ?? 'partial reply',
+    content: options.content ?? 'partial reply',
     status: { type: 'incomplete', reason: 'cancelled' },
-    metadata: {
-      custom: { [CANCELLATION_REASON_CUSTOM_KEY]: options?.reason ?? 'Superseded by a later message' },
-    },
+    metadata: { custom: { [CANCELLATION_REASON_CUSTOM_KEY]: options.reason } },
   };
 }
 
@@ -43,17 +45,12 @@ function renderAssistantMessage(
   messages: ThreadMessageLike[],
   options?: { isRunning?: boolean; sessionReplay?: boolean },
 ) {
-  const tree = (
-    <RuntimeHarness messages={messages} isRunning={options?.isRunning}>
-      <ThreadPrimitive.Messages>{() => <AssistantMessageContainer />}</ThreadPrimitive.Messages>
-    </RuntimeHarness>
-  );
   return render(
-    options?.sessionReplay === true ? (
-      <SessionReplayContext.Provider value={true}>{tree}</SessionReplayContext.Provider>
-    ) : (
-      tree
-    ),
+    <SessionReplayContext.Provider value={options?.sessionReplay === true}>
+      <RuntimeHarness messages={messages} isRunning={options?.isRunning}>
+        <ThreadPrimitive.Messages>{() => <AssistantMessageContainer />}</ThreadPrimitive.Messages>
+      </RuntimeHarness>
+    </SessionReplayContext.Provider>,
   );
 }
 
@@ -171,22 +168,45 @@ describe('AssistantMessageContainer', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
-  it('hides the cancel-reason banner in live chat', () => {
-    renderAssistantMessage([cancelledMessage()]);
-    expect(screen.getByText('partial reply')).toBeInTheDocument();
-    expect(screen.queryByText('Superseded by a later message')).not.toBeInTheDocument();
+  it.each([
+    [TURN_CANCELLATION_REASON.CLIENT_CANCELLED, 'You stopped this response'],
+    [TURN_CANCELLATION_REASON.SERVER_EXECUTION_TIMEOUT, 'Response timed out'],
+    [TURN_CANCELLATION_REASON.ABANDONED, 'Response was interrupted'],
+  ])('shows why a %s turn stopped, even with no output', (reason, label) => {
+    renderAssistantMessage([cancelledMessage({ reason, content: [] })]);
+    expect(screen.getByRole('status')).toHaveTextContent(label);
   });
 
-  it('shows the cancel-reason banner in session-detail replay', () => {
-    renderAssistantMessage([cancelledMessage()], { sessionReplay: true });
-    expect(screen.getByText('partial reply')).toBeInTheDocument();
-    expect(screen.getByText('Superseded by a later message')).toBeInTheDocument();
+  it('falls back to the raw reason for unknown cancel reasons', () => {
+    renderAssistantMessage([cancelledMessage({ reason: 'something-new' })]);
+    expect(screen.getByRole('status')).toHaveTextContent('something-new');
   });
 
-  it('omits an empty cancelled assistant bubble in live chat', () => {
-    const { container } = renderAssistantMessage([cancelledMessage({ content: [] })]);
+  it('hides a turn cancelled for the next turn in live chat', () => {
+    const { container } = renderAssistantMessage([
+      cancelledMessage({ reason: TURN_CANCELLATION_REASON.CANCELLED_FOR_NEXT_TURN, content: [] }),
+    ]);
     expect(container.querySelector('[data-role="assistant"]')).not.toBeInTheDocument();
-    expect(screen.queryByText('Superseded by a later message')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Copy' })).not.toBeInTheDocument();
+  });
+
+  it('keeps partial output without a banner when cancelled for the next turn', () => {
+    renderAssistantMessage([cancelledMessage({ reason: TURN_CANCELLATION_REASON.CANCELLED_FOR_NEXT_TURN })]);
+    expect(screen.getByText('partial reply')).toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('shows cancelled-for-next-turn in session replay', () => {
+    renderAssistantMessage(
+      [cancelledMessage({ reason: TURN_CANCELLATION_REASON.CANCELLED_FOR_NEXT_TURN, content: [] })],
+      { sessionReplay: true },
+    );
+    expect(screen.getByRole('status')).toHaveTextContent('Stopped for a newer message');
+  });
+
+  it('shows the error banner for a failed turn with no output', () => {
+    renderAssistantMessage([
+      { role: 'assistant', content: [], status: { type: 'incomplete', reason: 'error', error: 'model failed' } },
+    ]);
+    expect(screen.getByRole('alert')).toHaveTextContent('model failed');
   });
 });
