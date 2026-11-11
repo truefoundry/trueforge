@@ -131,7 +131,7 @@ export function selectChatDraftSpecPreferences(spec: AgentSpec): AgentSpec {
   };
 }
 
-/** Memory is opted into per agent, so a new draft never inherits it from the last one. */
+/** A new draft takes the memory default (on while the tenant allows it), not the last agent's choice. */
 function withoutMemory(config: AgentRuntimeConfig | undefined): AgentRuntimeConfig | undefined {
   if (config?.memory === undefined) return config;
   const { memory: _memory, ...rest } = config;

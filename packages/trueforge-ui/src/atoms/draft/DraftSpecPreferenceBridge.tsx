@@ -175,6 +175,18 @@ export function reconcileDraftWebSearch({
   return nextSpec === agentSpec ? {} : { config: nextSpec.config };
 }
 
+/** A new agent starts with memory on once the tenant allows it; an explicit toggle is kept. */
+export function reconcileDraftMemory({
+  agentSpec,
+  memoryEnabled,
+}: {
+  agentSpec: AgentSpec;
+  memoryEnabled: boolean | null | undefined;
+}): Partial<AgentSpec> {
+  if (memoryEnabled !== true || agentSpec.config?.memory !== undefined) return {};
+  return { config: { ...agentSpec.config, memory: { enabled: true } } };
+}
+
 /**
  * Mirrors plain-draft composer choices into the shell seed and removes catalog
  * entries that disappeared since those choices were stored.
@@ -188,6 +200,7 @@ export function DraftSpecPreferenceBridge() {
   const capabilities = useServerCapabilities();
   const sandboxEnabled = capabilities?.sandbox.enabled;
   const webSearchEnabled = capabilities?.webSearch?.enabled;
+  const memoryEnabled = capabilities?.memory?.enabled;
   const prevWebSearchEnabledRef = useRef(webSearchEnabled);
   const { models, skills, connectors, loaded, error, ensureLoaded } = useDraftCatalog();
   const isMutableDraft = mode.status === 'active' && mode.isMutable && pendingSessionId == null;
@@ -218,6 +231,32 @@ export function DraftSpecPreferenceBridge() {
       updateAgentSpec(update);
     }
   }, [agentSpec, canReconcileLiveSpec, isPlainDraft, preferenceKind, sandboxEnabled, updateAgentSpec]);
+
+  useEffect(() => {
+    // New Agent drafts only: New Chat does not use the agent memory setting.
+    if (
+      !isMutableDraft ||
+      preferenceKind !== 'agent' ||
+      editsStoredSpec ||
+      !canReconcileLiveSpec ||
+      agentSpec == null ||
+      updateAgentSpec == null
+    ) {
+      return;
+    }
+    const update = reconcileDraftMemory({ agentSpec, memoryEnabled });
+    if (Object.keys(update).length > 0) {
+      updateAgentSpec(update);
+    }
+  }, [
+    agentSpec,
+    canReconcileLiveSpec,
+    editsStoredSpec,
+    isMutableDraft,
+    memoryEnabled,
+    preferenceKind,
+    updateAgentSpec,
+  ]);
 
   useEffect(() => {
     // Apply to New Chat / New Agent drafts, never to a spec that is already stored.

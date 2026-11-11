@@ -24,7 +24,7 @@ One provider is active at a time. API and UI reads redact the key, so when you u
 
 ## Turn memory on for the tenant
 
-**Settings → Memory → Allow memory** is the tenant-wide switch, and it is off by default. Agents keep their own memory setting while it is off, so turning the switch back on restores memory for them without editing each agent. See [Turning memory off](#turning-memory-off) for what changes while it is off.
+**Settings → Memory → Allow memory** is the tenant-wide switch, and it is on by default. Agents keep their own memory setting while it is off, so turning the switch back on restores memory for them without editing each agent. See [Turning memory off](#turning-memory-off) for what changes while it is off.
 
 ## Enable memory on an agent
 
@@ -33,7 +33,7 @@ One provider is active at a time. API and UI reads redact the key, so when you u
 | UI    | **Build Agent → Runtime Config → Memory**   |
 | API   | `config.memory.enabled`                     |
 
-Memory is opted into per agent: the schema default is `{ "enabled": false }`, and new agents in the UI start with it off. Chats started from **New Chat**, without a saved agent, use the user's general memory whenever the tenant allows memory.
+Once memory is available, the UI turns the toggle on for new agents. Agents created through the API keep the schema default, `{ "enabled": false }`, until you set the field. Chats started from **New Chat**, without a saved agent, use the user's general memory whenever the tenant allows memory.
 
 <Note>The **Memory** toggle is hidden until a provider is configured, and can't be turned on while **Allow memory** is off; through the API, both cases return a `422`. An agent that already has memory on keeps working if memory later becomes unavailable, just without memory; see [Turning memory off](#turning-memory-off).</Note>
 
