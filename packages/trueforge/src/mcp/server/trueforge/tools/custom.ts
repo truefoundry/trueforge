@@ -75,11 +75,7 @@ function registerUpdateCurrentSessionTool(server: McpServer, client: WireApiClie
   const descriptor: McpToolDescriptor = {
     name: 'update_current_session',
     description:
-      "Replace this inline chat's agent spec. Use it to attach or remove MCP servers, or to enable and disable " +
-      'capabilities such as sandbox, web search, memory, generative UI, dynamic subagents, and ask-user questions. ' +
-      'This replaces agent.spec entirely: call get_current_session first and send that spec back with your edits; ' +
-      'omitted MCP servers, skills, and config are removed. Named sessions reject agent updates. Only the chat ' +
-      'this turn is running in can be updated.',
+      "Update this session's spec. Send the full spec back with edits; omitted fields are removed.",
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
     method: 'PATCH',
     path: '/api/v1/sessions/{session_id}',
