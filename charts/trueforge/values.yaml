@@ -142,8 +142,10 @@ controller:
   command:
     - node
     - dist/controller-main.js
-  # Base URL the controller uses to reach the server (SERVER_URL).
-  # Empty → the in-cluster server Service (http(s)://<fullname>:<service.port>).
+  # In-cluster server API URL (SERVER_URL) for both controller→server calls and
+  # the server's MCP Host allowlist. Empty → the in-cluster server Service
+  # (http(s)://<fullname>:<service.port>). Override via env.SERVER_URL when the
+  # Service is reached by a different host (e.g. FQDN).
   serverUrl: ""
   # Extra env for the controller only; same item shape as server.extraEnv.
   extraEnv: []
@@ -159,10 +161,11 @@ apiKey: "placeholder-value-please-generate-your-own"
 # Extra env for BOTH server and controller: name -> scalar, { valueFrom: ... },
 # or a "${k8s-secret/<secret>/<key>}" reference string. The key must not contain "/".
 # A key that matches a chart-computed variable (POSTGRES_HOST, PUBLIC_BASE_URL,
-# ...) replaces it in place; a null value drops the override and hands the key
-# back to the chart. This is the extension point for a parent chart, which can
-# only override a key it declares as a scalar - Helm refuses to replace a map
-# with a scalar, so a default written as { valueFrom: ... } is final.
+# SERVER_URL, ...) replaces it in place; a null value drops the override and
+# hands the key back to the chart. This is the extension point for a parent
+# chart, which can only override a key it declares as a scalar - Helm refuses
+# to replace a map with a scalar, so a default written as { valueFrom: ... }
+# is final.
 # Long-term memory (TrueFoundry mode only, off by default; see packages/trueforge/.env.example):
 #   TRUEFOUNDRY_MEMORY_ENABLED: "true"
 #   TRUEFOUNDRY_MEMORY_PROVIDER: "zep"
