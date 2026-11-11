@@ -41,6 +41,7 @@ export {
   SessionSchema,
   SessionSourceScheduleSchema,
   SessionSourceSchema,
+  SessionSourceServiceSchema,
   SessionSourceTypeSchema,
 } from './schemas/session';
 export type {
@@ -93,6 +94,7 @@ export type {
   FreezeAndGetTurnInput,
   GetOwnedIdsInput,
   GetSessionByExternalIdInput,
+  GetSessionByIdInput,
   GetSessionInput,
   GetTurnInput,
   ISessionStore,

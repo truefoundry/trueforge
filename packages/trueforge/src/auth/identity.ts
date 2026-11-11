@@ -44,6 +44,7 @@ export type ResolveRequestContext = (c: Context) => RequestContext;
 
 declare module 'hono' {
   interface ContextVariableMap {
+    subject?: RequestSubject;
     request_context?: RequestContext;
   }
 }

@@ -1,5 +1,6 @@
 import type { RemoteThreadListAdapter } from '@assistant-ui/core';
 
+import { generateSessionTitleStream } from './generateSessionTitleStream.js';
 import type { AgentChatServer } from './server/types.js';
 import { sessionListStartTimestamp } from './sessionListStartTimestamp.js';
 import { getSession } from './sessions.js';
@@ -62,8 +63,8 @@ export function createTrueForgeThreadListAdapter(options: {
       await server.deleteSession({ sessionId: remoteId });
     },
 
-    generateTitle() {
-      return Promise.resolve(new ReadableStream());
+    generateTitle(remoteId) {
+      return generateSessionTitleStream(server, remoteId);
     },
   };
 }

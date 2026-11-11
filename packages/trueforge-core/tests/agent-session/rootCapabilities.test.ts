@@ -87,8 +87,8 @@ describe('TurnResourceResolver rootCapabilities', () => {
     const root = await resolver.resolveAgentDefinition({ spec, signal, tracing });
     const nested = await resolver.resolveAgentDefinition({ spec, signal, tracing, agent_info: child });
 
-    expect(root.extraCapabilities?.[0]?.systemToolSets?.[0]?.id).toBe('capability:trueforge-management');
-    expect(nested.extraCapabilities?.[0]?.systemToolSets?.[0]?.id).toBe('capability:trueforge-management');
+    expect(root.extraCapabilities?.[0]?.systemToolSets?.[0]?.id).toBe('built-in:trueforge-mcp');
+    expect(nested.extraCapabilities?.[0]?.systemToolSets?.[0]?.id).toBe('built-in:trueforge-mcp');
   });
 
   it('keeps direct capability sources distinct from configured MCPs with the same display name', async () => {
@@ -138,7 +138,7 @@ describe('TurnResourceResolver rootCapabilities', () => {
     });
 
     expect(resolved.definition.toolSets?.[0]?.id).toBe('trueforge-mcp');
-    expect(resolved.extraCapabilities?.[0]?.systemToolSets?.[0]?.id).toBe('capability:trueforge-management');
+    expect(resolved.extraCapabilities?.[0]?.systemToolSets?.[0]?.id).toBe('built-in:trueforge-mcp');
     expect(resolved.extraCapabilities?.[0]?.systemToolSets?.[0]?.name).toBe('trueforge-mcp');
   });
 

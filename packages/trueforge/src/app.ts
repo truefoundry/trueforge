@@ -23,10 +23,15 @@ import { createSandboxEnvironmentBuildRouter } from './apis/sandboxEnvironmentBu
 import { createSandboxEnvironmentsRouter } from './apis/sandboxEnvironments';
 import { createScheduleExecutionRouter, createSchedulesRouter } from './apis/schedules';
 import { createInternalMetricsRouter } from './apis/sessionMetrics';
-import { createInternalSessionsRouter, createSessionsRouter } from './apis/sessions';
+import { createSessionsRouter, registerInternalSessionsRoutes } from './apis/sessions';
 import { createSettingsRouter } from './apis/settings';
 import { createAvailableSkillsRouter } from './apis/skills';
-import { createTurnsRouter, type ResolveTurnExecutionStoresInput, type TurnExecutionStores } from './apis/turns';
+import {
+  createTurnsRouter,
+  registerInternalSessionTurnRoutes,
+  type ResolveTurnExecutionStoresInput,
+  type TurnExecutionStores,
+} from './apis/turns';
 import { createUsersRouter } from './apis/users';
 import type { Authenticator } from './auth/authenticator';
 import type { Authorizer } from './auth/authorizer';
@@ -131,7 +136,10 @@ function withAdminAuth(router: OpenAPIHono, middleware: MiddlewareHandler): Open
   return shell;
 }
 
-/** One line per request: method, path, status, duration. Skips `/healthz` and `/assets/`. */
+/**
+ * One line per request: method, path, status, duration, and the authenticated subject
+ * (`subject_type`, `subject_id`) when auth middleware resolved one. Skips `/healthz` and `/assets/`.
+ */
 export function createAccessLogMiddleware(logger: Logger): MiddlewareHandler {
   return async (c, next) => {
     const started = performance.now();
@@ -140,11 +148,14 @@ export function createAccessLogMiddleware(logger: Logger): MiddlewareHandler {
     if (path === '/healthz' || path.startsWith('/assets/')) {
       return;
     }
+    const subject = c.get('subject');
     logger.info('request', {
       method: c.req.method,
       path,
       status: c.res.status,
       duration_ms: Math.round(performance.now() - started),
+      subject_type: subject?.type,
+      subject_id: subject?.id,
     });
   };
 }
@@ -575,27 +586,40 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       catalogAdminAuthMiddleware,
     ),
   );
-  app.route(
-    '/api/internal/sessions',
-    withAuth(
-      createInternalSessionsRouter({
-        accessControlStore: deps.accessControlStore,
-        authorizer: deps.authorizer,
-        resolveAgentStore: resolveHttpAgentStore,
-        resolveMcpServerStore: deps.resolveMcpServerStore,
-        resolveModelProviderStore: deps.resolveModelProviderStore,
-        resolveRequestContext,
-        resolveSkillStore: deps.resolveSkillStore,
-        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-        sandboxProviderStore: deps.sandboxProviderStore,
-        sessions: deps.sessions,
-        webSearchProviderStore: deps.webSearchProviderStore,
-        memoryProviderStore: deps.memoryProviderStore,
-        configurationStore: deps.configurationStore,
-      }),
-      authMiddleware,
-    ),
-  );
+  // Same prefix as public sessions; path-scoped auth (JWT vs service key) — do not wrap with withAuth('*').
+  const internalSessionsRouter = new OpenAPIHono();
+  internalSessionsRouter.use('/get-or-create-by-external-id', authMiddleware);
+  internalSessionsRouter.use('/:session_id/turns', scheduleExecutionAuthMiddleware);
+  registerInternalSessionsRoutes(internalSessionsRouter, {
+    accessControlStore: deps.accessControlStore,
+    authorizer: deps.authorizer,
+    resolveAgentStore: resolveHttpAgentStore,
+    resolveMcpServerStore: deps.resolveMcpServerStore,
+    resolveModelProviderStore: deps.resolveModelProviderStore,
+    resolveRequestContext,
+    resolveSkillStore: deps.resolveSkillStore,
+    sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
+    sandboxProviderStore: deps.sandboxProviderStore,
+    sessions: deps.sessions,
+    webSearchProviderStore: deps.webSearchProviderStore,
+    memoryProviderStore: deps.memoryProviderStore,
+    configurationStore: deps.configurationStore,
+  });
+  registerInternalSessionTurnRoutes(internalSessionsRouter, {
+    activeTurns: deps.activeTurns,
+    agentStore: deps.agentStore,
+    eventSubscriptions: deps.eventSubscriptions,
+    logger: deps.logger,
+    resolveMcpServerStore: deps.resolveMcpServerStore,
+    resolveModelProviderStore: deps.resolveModelProviderStore,
+    resolveTurnSkillsStore: deps.resolveTurnSkillsStore,
+    sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
+    sandboxProviderStore: deps.sandboxProviderStore,
+    sessions: deps.sessions,
+    sessionStore: deps.sessionStore,
+    webSearchProviderStore: deps.webSearchProviderStore,
+  });
+  app.route('/api/internal/sessions', internalSessionsRouter);
   app.route(
     '/api/internal/metrics',
     withAuth(

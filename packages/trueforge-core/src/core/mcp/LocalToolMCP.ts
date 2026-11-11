@@ -32,9 +32,6 @@ export type ToolDefinition = ListToolsResult['tools'][number] & {
   execute: (raw: unknown, approvalDecision?: ApprovalDecision) => Promise<CallToolResponse>;
 };
 
-/** Reserved id prefix for deferred built-in tool sets so their deferred addressing key can't collide with a user server's name. */
-export const BUILT_IN_NAMESPACE_PREFIX = 'built-in:';
-
 type ToolInputSchema = ListToolsResult['tools'][number]['inputSchema'];
 
 export function defineTool<T extends z.ZodType>(config: {
@@ -68,13 +65,6 @@ export abstract class LocalToolMCP implements IToolSet {
   readonly hasPreloadedTools: boolean = true;
   readonly tracingEnabled: boolean = true;
 
-  /**
-   * When true, `id` is namespaced with {@link BUILT_IN_NAMESPACE_PREFIX} so a deferred built-in's
-   * addressing key doesn't collide. Note that this only reduces the probability of collisions,
-   * it does not eliminate them.
-   */
-  protected readonly namespacedId: boolean = false;
-
   private readonly tracing: AgentTracing;
   readonly serverClass: McpServerClass;
 
@@ -84,7 +74,7 @@ export abstract class LocalToolMCP implements IToolSet {
   }
 
   get id(): string {
-    return this.namespacedId ? `${BUILT_IN_NAMESPACE_PREFIX}${this.mcpServerId}` : this.mcpServerId;
+    return this.mcpServerId;
   }
 
   protected get mcpServerId(): string {

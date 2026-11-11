@@ -411,9 +411,14 @@ describe('session grants API', () => {
       expect((await app.request(`/${SESSION_ID}`, jsonInit('PATCH', { title: 'x' }, 'alice'))).status).toBe(403);
       expect((await app.request(`/${SESSION_ID}`, asCaller('alice', 'DELETE'))).status).toBe(403);
       expect((await app.request(`/${SESSION_ID}/cancel`, asCaller('alice', 'POST'))).status).toBe(403);
-      expect((await app.request(`/${SESSION_ID}/turns`, jsonInit('POST', { stream: false }, 'alice'))).status).toBe(
-        403,
-      );
+      expect(
+        (
+          await app.request(
+            `/${SESSION_ID}/turns`,
+            jsonInit('POST', { input: [{ type: 'user.message', content: 'hello' }], stream: false }, 'alice'),
+          )
+        ).status,
+      ).toBe(403);
       expect((await app.request(`/${SESSION_ID}/turns/missing/subscribe`, asCaller('alice'))).status).toBe(403);
       expect((await app.request(download, asCaller('alice'))).status).toBe(403);
       expect((await app.request(`/${SESSION_ID}/grants`, asCaller('alice'))).status).toBe(403);

@@ -1329,10 +1329,34 @@
       "CreateTurnRequest": {
         "properties": {
           "input": {
-            "description": "User messages supplied when the turn is created.",
+            "description": "User messages for this turn. At least one is required.",
             "items": {
-              "$ref": "#/components/schemas/UserMessage"
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/UserMessage"
+                },
+                {
+                  "properties": {
+                    "content": {
+                      "anyOf": [
+                        {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        {
+                          "items": {
+                            "$ref": "#/components/schemas/UserMessageContentItem"
+                          },
+                          "type": "array"
+                        }
+                      ]
+                    }
+                  },
+                  "type": "object"
+                }
+              ]
             },
+            "minItems": 1,
             "type": "array"
           },
           "previous_turn_id": {
@@ -1344,6 +1368,9 @@
             "type": "boolean"
           }
         },
+        "required": [
+          "input"
+        ],
         "type": "object"
       },
       "CreatedBySubject": {
@@ -1760,7 +1787,7 @@
             "type": "string"
           },
           "source": {
-            "$ref": "#/components/schemas/SessionSourceSchedule"
+            "$ref": "#/components/schemas/SessionSource"
           }
         },
         "required": [
@@ -2040,6 +2067,56 @@
         "required": [
           "type",
           "value"
+        ],
+        "type": "object"
+      },
+      "InternalCreateSessionTurnRequest": {
+        "properties": {
+          "input": {
+            "description": "User messages for this turn. At least one is required.",
+            "items": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/UserMessage"
+                },
+                {
+                  "properties": {
+                    "content": {
+                      "anyOf": [
+                        {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        {
+                          "items": {
+                            "$ref": "#/components/schemas/UserMessageContentItem"
+                          },
+                          "type": "array"
+                        }
+                      ]
+                    }
+                  },
+                  "type": "object"
+                }
+              ]
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "previous_turn_id": {
+            "$ref": "#/components/schemas/PreviousTurnIdInput"
+          },
+          "stream": {
+            "default": false,
+            "description": "Must be false; streaming is not supported on this endpoint.",
+            "enum": [
+              false
+            ],
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "input"
         ],
         "type": "object"
       },
@@ -4868,35 +4945,17 @@
         "type": "object"
       },
       "SessionSource": {
-        "additionalProperties": false,
         "description": "How this session was created (e.g. a schedule run). Null for interactive sessions.",
-        "properties": {
-          "id": {
-            "description": "Schedule id.",
-            "minLength": 1,
-            "type": "string"
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/SessionSourceSchedule"
           },
-          "run_id": {
-            "description": "Schedule run id.",
-            "minLength": 1,
-            "type": "string"
+          {
+            "$ref": "#/components/schemas/SessionSourceService"
           },
-          "type": {
-            "description": "Session was created by a schedule run.",
-            "enum": [
-              "schedule"
-            ],
-            "type": "string"
+          {
+            "type": "null"
           }
-        },
-        "required": [
-          "type",
-          "id",
-          "run_id"
-        ],
-        "type": [
-          "object",
-          "null"
         ]
       },
       "SessionSourceSchedule": {
@@ -4927,10 +4986,27 @@
         ],
         "type": "object"
       },
+      "SessionSourceService": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "description": "Session was created by a service caller (service API key create-turn).",
+            "enum": [
+              "service"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
       "SessionSourceType": {
         "description": "When set, returns only sessions created by this source type.",
         "enum": [
-          "schedule"
+          "schedule",
+          "service"
         ],
         "type": "string"
       },
@@ -7373,6 +7449,127 @@
           "sessions"
         ],
         "x-fern-sdk-method-name": "get_or_create_by_external_id"
+      }
+    },
+    "/api/internal/sessions/{session_id}/turns": {
+      "post": {
+        "description": "Service API key. Non-streaming; requires external_id and a non-null source.",
+        "parameters": [
+          {
+            "description": "Session identifier.",
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "description": "Session identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InternalCreateSessionTurnRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetTurnResponse"
+                }
+              }
+            },
+            "description": "The running turn."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid service credential."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Session lacks external_id or source and is not eligible."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Session, prior turn, or referenced agent not found."
+          },
+          "412": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Requested action cannot be performed on the session because it is no longer usable."
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Request body exceeds the configured maximum size (MAX_REQUEST_BODY_BYTES)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Missing agent/resource, sandbox unavailable, or turn input conflicts with session state."
+          }
+        },
+        "summary": "Create and execute a turn in a session (internal)",
+        "tags": [
+          "Internal"
+        ],
+        "x-excluded": true,
+        "x-fern-sdk-group-name": [
+          "internal",
+          "sessions"
+        ],
+        "x-fern-sdk-method-name": "create_turn"
       }
     },
     "/api/v1/agents": {

@@ -295,7 +295,6 @@ function buildOpenUIDeferredInstruction(builder: InstructionBuilder): void {
 export class OpenUIInstructions extends LocalToolMCP {
   readonly name = OPENUI_SERVER_NAME;
   readonly displayName = 'OpenUI';
-  protected override readonly namespacedId = true;
 
   constructor(tracing: AgentTracing) {
     super({ tracing });

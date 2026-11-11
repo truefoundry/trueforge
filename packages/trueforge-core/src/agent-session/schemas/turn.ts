@@ -2,6 +2,7 @@ import { z } from '@hono/zod-openapi';
 import {
   ActionRequiredEventSchema,
   ModelMessageEventSchema,
+  UserContentPartSchema,
   UserMessageSchema,
   UserToolApprovalMessageSchema,
   UserToolResponseMessageSchema,
@@ -157,7 +158,16 @@ export const TurnSchema = z
  */
 export const CreateTurnRequestSchema = z
   .object({
-    input: z.array(UserMessageSchema).optional().describe('User messages supplied when the turn is created.'),
+    // Create-time only: persisted UserMessageSchema must keep accepting empty
+    // string content for historical Turn.input / turn.created rows.
+    input: z
+      .array(
+        UserMessageSchema.extend({
+          content: z.union([z.string().min(1), z.array(UserContentPartSchema)]),
+        }),
+      )
+      .min(1)
+      .describe('User messages for this turn. At least one is required.'),
     previous_turn_id: z
       .union([z.literal('auto'), z.literal('none'), z.string().min(1)])
       .optional()

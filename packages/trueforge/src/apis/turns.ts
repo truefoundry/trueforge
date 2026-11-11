@@ -1,5 +1,6 @@
 /**
- * DB-backed turns API (mounted at /api/v1/sessions).
+ * DB-backed turns API (mounted at /api/v1/sessions) and internal create-turn
+ * (mounted at /api/internal/sessions/{session_id}/turns).
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type {
@@ -67,11 +68,16 @@ import { streamSSE } from 'hono/streaming';
 import type { Logger } from 'winston';
 import { z } from 'zod';
 import type { Authorizer } from '../auth/authorizer';
-import { requestContextFromWire, type RequestContext, type ResolveRequestContext } from '../auth/identity';
+import {
+  requestContextFromCreatedBySubject,
+  requestContextFromWire,
+  type RequestContext,
+  type ResolveRequestContext,
+} from '../auth/identity';
 import configuration from '../config';
 import type { IAccessControlStore } from '../db/accessControlStore';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
-import type { ICapabilitiesStore } from '../db/capabilitiesStore';
+import { EmptyCapabilitiesStore, type ICapabilitiesStore } from '../db/capabilitiesStore';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
@@ -86,6 +92,7 @@ import type { TenantMemoryDeps } from '../memory/providers';
 import { resolveSessionMemory } from '../memory/sessionMemory';
 import {
   createAndExecuteTurnRoute,
+  createInternalSessionTurnRoute,
   downloadSandboxFileRoute,
   getTurnRoute,
   listTurnEventsRoute,
@@ -2303,4 +2310,113 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
   router.openapi(subscribeTurnRoute, subscribeTurnHandler);
   deps.requestReplyRouter.registerRoute(TURNS_SEND_EVENTS_PATH, handlePeerTurnEvents(deps));
   return router;
+}
+
+/** Runtime + Context store resolvers for service-key create-turn (same shape as schedules). */
+export interface InternalSessionTurnsDeps<TTransaction = never> {
+  activeTurns: ActiveTurnRegistry<TTransaction>;
+  agentStore: IAgentStore<TTransaction>;
+  eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
+  logger: Logger;
+  resolveMcpServerStore: (input: { c: Context; runAsAgent?: AgentRecord }) => IMcpServerWithAuthStore<TTransaction>;
+  resolveModelProviderStore: (input: { c: Context; runAsAgent?: AgentRecord }) => IModelProviderStore<TTransaction>;
+  resolveTurnSkillsStore: (input: {
+    c?: Context;
+    allowInlineResources?: boolean;
+  }) => Pick<ISkillStore, 'resolveTurnSkills'>;
+  sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
+  sandboxProviderStore: ISandboxProviderStore<TTransaction>;
+  sessions: Sessions<TTransaction>;
+  sessionStore: Pick<ISessionStore<TTransaction>, 'getTurn' | 'listTurnEvents'>;
+  webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
+}
+
+/** Register internal create-turn on a shared `/api/internal/sessions` router. */
+export function registerInternalSessionTurnRoutes<TTransaction>(
+  router: OpenAPIHono,
+  deps: InternalSessionTurnsDeps<TTransaction>,
+): void {
+  const handler: RouteHandler<typeof createInternalSessionTurnRoute> = async c => {
+    const { session_id: sessionId } = c.req.valid('param');
+    const body = c.req.valid('json');
+
+    // Same as schedule getRunById: session_id is the only trusted input.
+    const session = await deps.sessions.getById({ session_id: sessionId });
+    if (session === undefined) {
+      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+    }
+
+    // external_id + non-null source: service sessions already excluded from memory ingest.
+    if (session.record.external_id === null || session.record.source === null) {
+      return c.json({ error: { message: `Session is not eligible for internal turn create: ${sessionId}` } }, 403);
+    }
+
+    const tenantId = session.record.tenant_id;
+
+    // Saved-agent token exchange needs a named agent; inline sessions have no agent id to vend.
+    if (session.record.agent.type !== 'reference') {
+      return c.json(
+        {
+          error: {
+            message: 'Internal create-turn requires a session bound to a named agent (not an inline agent spec)',
+          },
+        },
+        422,
+      );
+    }
+
+    const agent = await deps.agentStore.getAgent({
+      tenant_id: tenantId,
+      id: session.record.agent.id,
+    });
+    if (agent === undefined) {
+      return c.json({ error: { message: `Agent not found: ${session.record.agent.id}` } }, 422);
+    }
+
+    c.set(
+      'request_context',
+      requestContextFromCreatedBySubject({
+        tenant_id: tenantId,
+        created_by_subject: session.record.created_by_subject,
+        user_credential: null,
+      }),
+    );
+    updateLogContext({ tenant_id: tenantId, session_id: sessionId });
+
+    try {
+      const turn = await startTurnInProcess({
+        session,
+        input: body.input,
+        previous_turn_id: body.previous_turn_id,
+        userRef: session.record.created_by_subject.subject_id,
+        deps: {
+          activeTurns: deps.activeTurns,
+          eventSubscriptions: deps.eventSubscriptions,
+          agentStore: deps.agentStore,
+          modelProviderStore: deps.resolveModelProviderStore({ c, runAsAgent: agent }),
+          mcpServerStore: deps.resolveMcpServerStore({ c, runAsAgent: agent }),
+          sandboxProviderStore: deps.sandboxProviderStore,
+          sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
+          webSearchProviderStore: deps.webSearchProviderStore,
+          // Registry resolve uses the service API key (same as schedules); omit `c`.
+          skillStore: deps.resolveTurnSkillsStore({}),
+          // Internal create-turn has no caller `x-tfg-tools`.
+          capabilitiesStore: new EmptyCapabilitiesStore(),
+          // Internal service turns never read or write memory (same as schedules).
+          memory: undefined,
+          logger: deps.logger,
+          sessionStore: deps.sessionStore,
+        },
+      });
+      return c.json({ data: toWireTurn(turn.record) }, 200);
+    } catch (error) {
+      const mapped = getTurnExecutionError(error);
+      if (mapped !== undefined) {
+        return c.json({ error: { message: mapped.message } }, mapped.status);
+      }
+      throw error;
+    }
+  };
+
+  router.openapi(createInternalSessionTurnRoute, handler);
 }
