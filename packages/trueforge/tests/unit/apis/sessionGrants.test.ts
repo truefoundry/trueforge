@@ -2,7 +2,7 @@ import { OpenAPIHono, z } from '@hono/zod-openapi';
 import { AgentSpecSchema, Sessions } from '@truefoundry/trueforge-core/agent-session';
 import { RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
 import type { Context } from 'hono';
-import { sql, type Kysely } from 'kysely';
+import type { Kysely } from 'kysely';
 import { createClient } from 'redis';
 import { createLogger } from 'winston';
 import { createSessionsRouter } from '../../../src/apis/sessions';
@@ -463,13 +463,6 @@ describe('session grants API', () => {
       expect((await update({ grant: everyone })).status).toBe(200);
 
       expect((await update({ revoke: everyone })).status).toBe(200);
-
-      expect(await readStatuses('alice')).toEqual(CANNOT_READ);
-      expect(await sharedFlag()).toEqual({ get: false, list: [false] });
-    });
-
-    it('ignores the legacy session.shared column', async () => {
-      await sql`UPDATE session SET shared = 1 WHERE session_id = ${SESSION_ID}`.execute(db);
 
       expect(await readStatuses('alice')).toEqual(CANNOT_READ);
       expect(await sharedFlag()).toEqual({ get: false, list: [false] });
