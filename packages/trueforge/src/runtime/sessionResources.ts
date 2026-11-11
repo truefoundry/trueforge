@@ -300,10 +300,6 @@ export async function validateAgentSpec({
   webSearchProviderStore: IWebSearchProviderStore;
   memoryProviderStore: IMemoryProviderStore;
   configurationStore: IConfigurationStore;
-  /**
-   * Spec already saved on this session (or named agent when starting a chat).
-   * Undefined on create and on agent save — agent create/update never grandfather.
-   */
   previousSpec: AgentSpec | undefined;
 }): Promise<void> {
   const resolved = await getModelDetails({
