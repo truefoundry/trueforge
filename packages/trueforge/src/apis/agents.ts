@@ -73,7 +73,6 @@ async function validateManifest<TTransaction>({
   webSearchProviderStore,
   memoryProviderStore,
   configurationStore,
-  previousSpec,
   tenant_id,
   created_by_subject_id,
 }: {
@@ -86,11 +85,11 @@ async function validateManifest<TTransaction>({
   webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
   memoryProviderStore: IMemoryProviderStore<TTransaction>;
   configurationStore: IConfigurationStore;
-  /** Manifest already saved on this agent; undefined when creating. */
-  previousSpec: AgentSpec | undefined;
   tenant_id: string;
   created_by_subject_id: string;
 }): Promise<AgentSpec> {
+  // Create and update use the same checks: no previousSpec grandfathering. Sessions may
+  // keep a stored feature on; saving an agent must not re-assert a disabled capability.
   await validateAgentSpec({
     spec,
     tenant_id,
@@ -103,7 +102,7 @@ async function validateManifest<TTransaction>({
     webSearchProviderStore,
     memoryProviderStore,
     configurationStore,
-    previousSpec,
+    previousSpec: undefined,
   });
   return spec;
 }
@@ -144,7 +143,6 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       webSearchProviderStore: deps.webSearchProviderStore,
       memoryProviderStore: deps.memoryProviderStore,
       configurationStore: deps.configurationStore,
-      previousSpec: undefined,
       tenant_id: requestContext.tenant_id,
       created_by_subject_id: requestContext.subject.id,
     });
@@ -254,7 +252,6 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       webSearchProviderStore: deps.webSearchProviderStore,
       memoryProviderStore: deps.memoryProviderStore,
       configurationStore: deps.configurationStore,
-      previousSpec: existing.manifest,
       tenant_id: requestContext.tenant_id,
       created_by_subject_id: requestContext.subject.id,
     });
