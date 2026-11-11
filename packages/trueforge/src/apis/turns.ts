@@ -18,6 +18,7 @@ import {
   resolvePreviousTurnId,
   SessionStoreConflictError,
   SessionStoreNotFoundError,
+  TRUEFORGE_MCP_ID,
   TurnEventAlreadyExistsError,
   TurnNotFoundError,
   TurnOffloadReason,
@@ -30,7 +31,12 @@ import {
   type TurnUserEvent,
   type UserMessage,
 } from '@truefoundry/trueforge-core/agent-session';
-import type { AgentCapability, IWebSearchProvider } from '@truefoundry/trueforge-core/core';
+import type {
+  AgentCapability,
+  IWebSearchProvider,
+  McpConnection,
+  ResolveHeadersResult,
+} from '@truefoundry/trueforge-core/core';
 import {
   AgentHarnessError,
   existingSandboxIdForProvider,
@@ -79,7 +85,9 @@ import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
+import { createTlsFetch, normalizeTlsUrl } from '../http/tls';
 import { currentLogContext, runWithLogContext, updateLogContext } from '../logger';
+import { TRUEFORGE_SESSION_HEADER, X_TFG_TRUEFORGE_MCP } from '../mcp/server/trueforge/headers';
 import type { TenantMemoryDeps } from '../memory/providers';
 import { resolveSessionMemory } from '../memory/sessionMemory';
 import {
@@ -242,6 +250,7 @@ export type BeginTurnExecutionDeps<TTransaction> = Pick<
   capabilitiesStore: ICapabilitiesStore;
   modelProviderStore: IModelProviderStore;
   mcpServerStore: IMcpServerWithAuthStore;
+  requestContext?: RequestContext | undefined;
   sandboxProviderStore: ISandboxProviderStore;
   webSearchProviderStore: IWebSearchProviderStore;
   skillStore: Pick<ISkillStore, 'resolveTurnSkills'>;
@@ -337,6 +346,8 @@ async function executionDepsForCaller<TTransaction>(input: {
     sandboxEnvironmentStore: input.deps.sandboxEnvironmentStore,
     sessionStore: input.deps.sessionStore,
     redis: input.deps.redis,
+    // Carried so the per-turn resolver can mint the built-in TrueForge MCP headers.
+    requestContext: input.requestContext,
     ...stores,
   };
 }
@@ -371,6 +382,7 @@ function createTurnResolver(deps: {
   session: Pick<SessionHandle, 'tenant_id' | 'session_id'>;
   turnMetadata: TurnMetadata;
   capabilitiesStore: ICapabilitiesStore;
+  trueforgeMcp: McpConnection | undefined;
 }): TurnResourceResolver {
   const {
     mcpServerStore,
@@ -387,6 +399,7 @@ function createTurnResolver(deps: {
     session,
     turnMetadata,
     capabilitiesStore,
+    trueforgeMcp,
   } = deps;
   const tenant_id = session.tenant_id;
   const sessionId = session.session_id;
@@ -410,20 +423,23 @@ function createTurnResolver(deps: {
         providerType: resolved.providerConfig.provider.type,
       };
     },
-    mcp: async name => {
+    mcp: async id => {
+      if (id === TRUEFORGE_MCP_ID) {
+        return trueforgeMcp === undefined ? undefined : withTurnSessionHeader(trueforgeMcp, sessionId);
+      }
       const connection = await getMcpConnection({
         tenant_id,
-        name,
+        name: id,
         store: mcpServerStore,
         userRef,
         turnMetadata,
       });
       if (connection === undefined) {
         throw new HTTPException(422, {
-          message: `Unknown MCP server "${name}" — not configured`,
+          message: `Unknown MCP server "${id}" — not configured`,
         });
       }
-      return connection;
+      return withTurnSessionHeader(connection, sessionId);
     },
     mcpRequestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
     mcpConnectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
@@ -486,7 +502,7 @@ function createTurnResolver(deps: {
     },
     webSearchProvider,
     logger,
-    // Root thread only: sub-agents get neither memory tools nor the summary.
+    // Client-side tools and memory belong only to the root thread.
     rootCapabilities: () => [
       ...capabilitiesStore.list(),
       ...(memoryCapability === undefined ? [] : [memoryCapability]),
@@ -672,6 +688,31 @@ export interface TurnEventDrainInput {
   pausedKeepalive: TurnPausedKeepalive;
 }
 
+function buildTrueForgeMcpConnection(input: {
+  sessionAgent: SessionHandle['record']['agent'];
+  requestContext: RequestContext | undefined;
+  requestHeaders: Record<string, string> | undefined;
+}): McpConnection | undefined {
+  const { sessionAgent, requestContext, requestHeaders } = input;
+  const enabled =
+    sessionAgent.type === 'inline' &&
+    requestContext !== undefined &&
+    Object.keys(requestHeaders ?? {}).some(header => header.toLowerCase() === X_TFG_TRUEFORGE_MCP);
+  if (!enabled) {
+    return undefined;
+  }
+  return {
+    name: 'trueforge-mcp',
+    description:
+      "Create, update, and read agents, schedules, and sandbox environments in this deployment. Read this chat's " +
+      'configuration and the configured models, MCP servers, and skills. Does not run agents or turns.',
+    url: new URL('/mcp', normalizeTlsUrl({ url: configuration.SERVER_URL, enabled: configuration.MTLS_ENABLED })).href,
+    headers:
+      requestContext.user_credential === null ? {} : { Authorization: `Bearer ${requestContext.user_credential}` },
+    fetchFn: trueforgeMcpFetch,
+  };
+}
+
 /**
  * Header check, abort, execution timeout, web search, and the per-turn resolver.
  * Create and resume each keep their own persist and drain steps.
@@ -707,6 +748,13 @@ async function prepareTurnExecution<TTransaction>(input: {
     }),
   ]);
   const sessionAgent = input.session.record.agent;
+
+  // TrueForge MCP is a draft-chat tool. The UI sends the header while the Built-in switch is on.
+  const trueforgeMcp = buildTrueForgeMcpConnection({
+    sessionAgent,
+    requestContext: input.deps.requestContext,
+    requestHeaders: input.requestHeaders,
+  });
   const resolver = createTurnResolver({
     mcpServerStore: input.deps.mcpServerStore,
     skillStore: input.deps.skillStore,
@@ -727,6 +775,7 @@ async function prepareTurnExecution<TTransaction>(input: {
       ...(input.requestHeaders === undefined ? {} : { requestHeaders: input.requestHeaders }),
     },
     capabilitiesStore: input.deps.capabilitiesStore,
+    trueforgeMcp,
   });
   let executionTimer: NodeJS.Timeout | undefined;
   const executionTimeout: TurnExecutionTimeout = {
@@ -756,6 +805,36 @@ async function prepareTurnExecution<TTransaction>(input: {
     resolver,
     executionTimeout,
   };
+}
+
+/**
+ * Process-lifetime mTLS fetch for the built-in TrueForge MCP. `createTlsFetch` allocates an undici
+ * Agent when mTLS is on, and RemoteMCP never closes that dispatcher, so a per-turn fetch would leak
+ * a connection pool on every opted-in chat.
+ */
+const trueforgeMcpFetch = createTlsFetch({
+  enabled: configuration.MTLS_ENABLED,
+  dir: configuration.MTLS_CERTS_DIR,
+});
+
+/**
+ * Stamps the chat session id onto an MCP connection so every server (built-in and user-configured)
+ * can correlate calls back to this session. Host-controlled, so it is applied last and wins over any
+ * configured header. Handles both static headers and the connect-time resolver form.
+ */
+function withTurnSessionHeader(connection: McpConnection, sessionId: string): McpConnection {
+  const sessionHeader = { [TRUEFORGE_SESSION_HEADER]: sessionId };
+  const headers = connection.headers;
+  if (typeof headers === 'function') {
+    return {
+      ...connection,
+      headers: async (): Promise<ResolveHeadersResult> => {
+        const resolved = await headers();
+        return 'authRequired' in resolved ? resolved : { headers: { ...resolved.headers, ...sessionHeader } };
+      },
+    };
+  }
+  return { ...connection, headers: { ...(headers ?? {}), ...sessionHeader } };
 }
 
 /**

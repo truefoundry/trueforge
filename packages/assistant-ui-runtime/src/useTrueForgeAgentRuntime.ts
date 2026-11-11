@@ -27,13 +27,14 @@ import { createDraftSessionBridge, DRAFT_SESSION_LAST_UPDATED_AT_HEADER } from '
 import { createTrueForgeDraftThreadListAdapter } from './draft/trueforgeDraftThreadListAdapter.js';
 import { useDraftAgentSpec } from './draft/useDraftAgentSpec.js';
 import { buildSandboxDownloadRequest } from './sandboxDownload.js';
-import type { AgentSpec } from './server/types.js';
+import { readDraftTrueforgeEnabled, type AgentSpec } from './server/types.js';
 import { trueForgeExtras } from './trueforgeExtras.js';
 import { createTrueForgeThreadListAdapter } from './trueforgeThreadListAdapter.js';
 import type { UseTrueForgeAgentRuntimeOptions } from './types.js';
 import { resolveTrueForgeAgentRuntimeOptions } from './types.js';
 import { useTrueForgeAgentMessages } from './useTrueForgeAgentMessages.js';
 
+const TRUEFORGE_MCP_REQUEST_HEADER = 'x-tfg-trueforge-mcp';
 const EMPTY_NAMED_DEFAULT_SPEC: AgentSpec = { model: { name: '' } };
 
 /**
@@ -99,16 +100,18 @@ function useTrueForgeAgentRuntimeImpl(
 
   const takeTurnHeaderTimestampRef = useRef(draftSpec.takeTurnHeaderTimestamp);
   takeTurnHeaderTimestampRef.current = draftSpec.takeTurnHeaderTimestamp;
+  const trueforgeEnabledRef = useRef(true);
+  trueforgeEnabledRef.current = readDraftTrueforgeEnabled(draftSpec.agentSpec?.config) !== false;
 
   const getTurnHeaders = useCallback(async () => {
     if (agent.mode !== 'draft') {
       return undefined;
     }
     const updatedAt = await takeTurnHeaderTimestampRef.current();
-    if (updatedAt == null) {
-      return undefined;
-    }
-    return { [DRAFT_SESSION_LAST_UPDATED_AT_HEADER]: updatedAt };
+    return {
+      ...(trueforgeEnabledRef.current ? { [TRUEFORGE_MCP_REQUEST_HEADER]: 'true' } : {}),
+      ...(updatedAt == null ? {} : { [DRAFT_SESSION_LAST_UPDATED_AT_HEADER]: updatedAt }),
+    };
   }, [agent.mode]);
 
   const aui = useAui();

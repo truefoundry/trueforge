@@ -1,10 +1,15 @@
-import { TurnResourceResolver } from '../../src/agent-session/TurnResourceResolver';
+import { TRUEFORGE_MCP_ID, TurnResourceResolver } from '../../src/agent-session/TurnResourceResolver';
+import type { AgentSpec } from '../../src/agent-session/schemas/agentSpec';
 import type { AgentCapability, AgentInfo } from '../../src/core';
 import { makeAgentSpec, makeMockILLM, makeSilentLogger } from './testHelpers';
 
 const child: AgentInfo = { type: 'dynamic', name: 'child', input: 'do the task' };
 
-function resolverWith(rootCapabilities?: () => readonly AgentCapability[]): TurnResourceResolver {
+function resolverWith(
+  input: {
+    rootCapabilities?: () => readonly AgentCapability[];
+  } = {},
+): TurnResourceResolver {
   return new TurnResourceResolver({
     llm: () =>
       Promise.resolve({
@@ -12,11 +17,11 @@ function resolverWith(rootCapabilities?: () => readonly AgentCapability[]): Turn
         defaultModelParams: {},
         providerType: undefined,
       }),
-    mcp: () => Promise.reject(new Error('unused')),
+    mcp: () => Promise.resolve(undefined),
     mcpRequestTimeoutMs: 1_000,
     mcpConnectTimeoutMs: 1_000,
     logger: makeSilentLogger(),
-    ...(rootCapabilities === undefined ? {} : { rootCapabilities }),
+    ...input,
   });
 }
 
@@ -24,9 +29,11 @@ describe('TurnResourceResolver rootCapabilities', () => {
   it('mounts them on the main thread and skips child threads', async () => {
     const capability: AgentCapability = {};
     let calls = 0;
-    const resolver = resolverWith(() => {
-      calls += 1;
-      return [capability];
+    const resolver = resolverWith({
+      rootCapabilities: () => {
+        calls += 1;
+        return [capability];
+      },
     });
     const tracing = resolver.createTracing();
     const signal = new AbortController().signal;
@@ -41,7 +48,7 @@ describe('TurnResourceResolver rootCapabilities', () => {
   });
 
   it('omits extraCapabilities when the list is empty', async () => {
-    const resolver = resolverWith(() => []);
+    const resolver = resolverWith({ rootCapabilities: () => [] });
     const resolved = await resolver.resolveAgentDefinition({
       spec: makeAgentSpec(),
       signal: new AbortController().signal,
@@ -49,6 +56,90 @@ describe('TurnResourceResolver rootCapabilities', () => {
     });
 
     expect(resolved.extraCapabilities).toBeUndefined();
+  });
+
+  it('mounts the TrueForge MCP on root and child threads', async () => {
+    const resolver = new TurnResourceResolver({
+      llm: () =>
+        Promise.resolve({
+          modelClient: makeMockILLM(),
+          defaultModelParams: {},
+          providerType: undefined,
+        }),
+      mcp: id =>
+        Promise.resolve(
+          id === TRUEFORGE_MCP_ID
+            ? {
+                url: 'http://internal.example/mcp',
+                name: 'trueforge-mcp',
+                description: 'TrueForge management',
+              }
+            : undefined,
+        ),
+      mcpRequestTimeoutMs: 1_000,
+      mcpConnectTimeoutMs: 1_000,
+      logger: makeSilentLogger(),
+    });
+    const tracing = resolver.createTracing();
+    const signal = new AbortController().signal;
+    const spec = makeAgentSpec();
+
+    const root = await resolver.resolveAgentDefinition({ spec, signal, tracing });
+    const nested = await resolver.resolveAgentDefinition({ spec, signal, tracing, agent_info: child });
+
+    expect(root.extraCapabilities?.[0]?.systemToolSets?.[0]?.id).toBe('built-in:trueforge-mcp');
+    expect(nested.extraCapabilities?.[0]?.systemToolSets?.[0]?.id).toBe('built-in:trueforge-mcp');
+  });
+
+  it('keeps direct capability sources distinct from configured MCPs with the same display name', async () => {
+    const resolver = new TurnResourceResolver({
+      llm: () =>
+        Promise.resolve({
+          modelClient: makeMockILLM(),
+          defaultModelParams: {},
+          providerType: undefined,
+        }),
+      mcp: id =>
+        Promise.resolve(
+          id === TRUEFORGE_MCP_ID
+            ? {
+                url: 'http://internal.example/mcp',
+                name: 'trueforge-mcp',
+                description: 'TrueForge management',
+              }
+            : {
+                url: 'https://configured.example/mcp',
+                name: 'trueforge-mcp',
+                description: 'Configured server',
+              },
+        ),
+      mcpRequestTimeoutMs: 1_000,
+      mcpConnectTimeoutMs: 1_000,
+      logger: makeSilentLogger(),
+    });
+    const spec: AgentSpec = {
+      ...makeAgentSpec(),
+      mcp_servers: [
+        {
+          name: 'trueforge-mcp',
+          enable_tools: ['@all'],
+          disable_tools: [],
+          preload_tools: [],
+          require_approval_for_tools: [],
+          preload: false,
+        },
+      ],
+    };
+
+    const resolved = await resolver.resolveAgentDefinition({
+      spec,
+      signal: new AbortController().signal,
+      tracing: resolver.createTracing(),
+    });
+
+    expect(resolved.definition.toolSets?.[0]?.id).toBe('trueforge-mcp');
+    expect(resolved.extraCapabilities?.[0]?.systemToolSets?.[0]?.id).toBe('built-in:trueforge-mcp');
+    expect(resolved.extraCapabilities?.[0]?.systemToolSets?.[0]?.name).toBe('trueforge-mcp');
   });
 
   it('omits extraCapabilities when none are configured', async () => {

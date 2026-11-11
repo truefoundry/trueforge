@@ -151,7 +151,7 @@ export const SandboxEnvironmentManifestSchema =
   SandboxEnvironmentManifestFieldsSchema.openapi('SandboxEnvironmentManifest');
 
 /** PUT body manifest — rejects reserved name `"default"`. */
-const SandboxEnvironmentManifestRequestSchema = SandboxEnvironmentManifestFieldsSchema.refine(
+export const SandboxEnvironmentManifestRequestSchema = SandboxEnvironmentManifestFieldsSchema.refine(
   manifest => manifest.name !== RESERVED_SANDBOX_ENVIRONMENT_NAME,
   { message: 'name "default" is reserved', path: ['name'] },
 ).openapi('SandboxEnvironmentManifestRequest');

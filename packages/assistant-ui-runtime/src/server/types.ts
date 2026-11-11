@@ -158,8 +158,19 @@ export interface AgentRuntimeConfig {
   dynamicSubAgents?: AgentCapabilityConfig;
   askUserQuestions?: AgentCapabilityConfig;
   webSearch?: AgentCapabilityConfig;
-  /** Long-term memory for this agent. */
   memory?: AgentCapabilityConfig;
+}
+
+export function readDraftTrueforgeEnabled(config: AgentRuntimeConfig | undefined): boolean | undefined {
+  if (config === undefined) {
+    return undefined;
+  }
+  const trueforge: unknown = Reflect.get(config, 'trueforge');
+  if (typeof trueforge !== 'object' || trueforge === null) {
+    return undefined;
+  }
+  const enabled: unknown = Reflect.get(trueforge, 'enabled');
+  return typeof enabled === 'boolean' ? enabled : undefined;
 }
 
 /**

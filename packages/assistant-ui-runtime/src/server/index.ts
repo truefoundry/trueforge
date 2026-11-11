@@ -223,4 +223,9 @@ export type {
 
 export { EVENT_TYPE, SYSTEM_TOOL_NAME, TOOL_INFO_TYPE } from './events.js';
 export { isEventDelta, mergeEventDelta } from './eventUtils.js';
-export { APPROVAL_DECISION_STATUS, TOOL_APPROVAL_POLICY_ACTION_TYPE, TURN_STATUS } from './types.js';
+export {
+  APPROVAL_DECISION_STATUS,
+  TOOL_APPROVAL_POLICY_ACTION_TYPE,
+  TURN_STATUS,
+  readDraftTrueforgeEnabled,
+} from './types.js';
