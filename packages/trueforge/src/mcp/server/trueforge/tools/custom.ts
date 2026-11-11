@@ -1,5 +1,6 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { IsomorphicHeaders } from '@modelcontextprotocol/sdk/types.js';
+import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 import { z } from 'zod';
 import { SandboxEnvironmentManifestRequestSchema } from '../../../../schemas/sandboxEnvironment';
 import { TRUEFORGE_SESSION_HEADER } from '../headers';
@@ -70,6 +71,41 @@ function registerCurrentSessionTool(server: McpServer, client: WireApiClient): v
   );
 }
 
+function registerUpdateCurrentSessionTool(server: McpServer, client: WireApiClient): void {
+  const descriptor: McpToolDescriptor = {
+    name: 'update_current_session',
+    description:
+      "Replace this inline chat's agent spec. Use it to attach or remove MCP servers, or to enable and disable " +
+      'capabilities such as sandbox, web search, memory, generative UI, dynamic subagents, and ask-user questions. ' +
+      'This replaces agent.spec entirely: call get_current_session first and send that spec back with your edits; ' +
+      'omitted MCP servers, skills, and config are removed. Named sessions reject agent updates. Only the chat ' +
+      'this turn is running in can be updated.',
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
+    method: 'PATCH',
+    path: '/api/v1/sessions/{session_id}',
+    inputSchema: {},
+    pathParameters: ['session_id'],
+    queryParameters: [],
+    bodyParameters: ['agent'],
+  };
+  server.registerTool(
+    descriptor.name,
+    {
+      description: descriptor.description,
+      inputSchema: { spec: AgentSpecSchema },
+      annotations: descriptor.annotations,
+    },
+    async ({ spec }, extra) =>
+      runTool(async () => {
+        const sessionId = headerValue(extra.requestInfo?.headers, TRUEFORGE_SESSION_HEADER);
+        if (sessionId === undefined) {
+          throw new ToolResultError(400, 'No current chat. This tool is only available during a draft session turn.');
+        }
+        return client.execute(descriptor, { session_id: sessionId, agent: { spec } }, extra.signal);
+      }),
+  );
+}
+
 function registerSandboxEnvironmentUpdateTool(
   server: McpServer,
   client: WireApiClient,
@@ -117,5 +153,6 @@ export function registerCustomTools(
   tools: readonly McpToolDescriptor[],
 ): void {
   registerCurrentSessionTool(server, client);
+  registerUpdateCurrentSessionTool(server, client);
   registerSandboxEnvironmentUpdateTool(server, client, tools);
 }
