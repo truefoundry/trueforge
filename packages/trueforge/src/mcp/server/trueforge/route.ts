@@ -10,8 +10,7 @@ import { Hono } from 'hono';
 import type { ResolveRequestContext } from '../../../auth/identity';
 import configuration from '../../../config';
 import { createTlsFetch, normalizeTlsUrl } from '../../../http/tls';
-import type { McpToolDescriptor } from './openApiTools';
-import { createTrueForgeMcpServer } from './server';
+import { createTrueForgeMcpServer, type CompiledMcpTool } from './server';
 import { createWireApiClient } from './wireApiClient';
 
 const baseUrl = normalizeTlsUrl({ url: configuration.SERVER_URL, enabled: configuration.MTLS_ENABLED });
@@ -29,7 +28,7 @@ const MAX_MCP_REQUEST_BODY_BYTES = 1024 * 1024;
 
 export interface TrueForgeMcpRouterDeps {
   resolveRequestContext: ResolveRequestContext;
-  resolveTools: () => readonly McpToolDescriptor[];
+  resolveTools: () => readonly CompiledMcpTool[];
   version: string;
 }
 

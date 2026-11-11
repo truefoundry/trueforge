@@ -10,7 +10,6 @@ import {
   type CallToolResponse,
   isApprovalRequiredResponse,
   isAuthRequired,
-  isCallToolResponseCreateSubAgent,
   isCallToolResponseResult,
   type IToolSet,
   type ListToolsResolvedResponse,
@@ -76,14 +75,7 @@ export class DeferredTool extends LocalToolMCP {
   ) {
     super({ tracing: options.tracing });
     this.logger = options.logger.child({ module: 'DeferredTool' });
-    this.serverMap = new Map();
-    for (const server of servers) {
-      let key = server.name;
-      for (let suffix = 2; this.serverMap.has(key); suffix += 1) {
-        key = `${server.name} (${String(suffix)})`;
-      }
-      this.serverMap.set(key, server);
-    }
+    this.serverMap = new Map(servers.map(server => [server.id, server]));
     this.tools = this.buildTools();
   }
 
@@ -97,8 +89,8 @@ export class DeferredTool extends LocalToolMCP {
     }
 
     const deferredList = deferredServers
-      .map(([name, server]) =>
-        server.description ? `- ${name}: "${server.description.slice(0, MAX_DESCRIPTION_LENGTH)}"` : `- ${name}`,
+      .map(([key, server]) =>
+        server.description ? `- ${key}: "${server.description.slice(0, MAX_DESCRIPTION_LENGTH)}"` : `- ${key}`,
       )
       .join('\n');
 
@@ -334,11 +326,6 @@ export class DeferredTool extends LocalToolMCP {
           }
 
           if (isApprovalRequiredResponse(response)) {
-            return response;
-          }
-
-          // executeToolCalls turns this into the sub-agent; a tool result would swallow it.
-          if (isCallToolResponseCreateSubAgent(response)) {
             return response;
           }
 

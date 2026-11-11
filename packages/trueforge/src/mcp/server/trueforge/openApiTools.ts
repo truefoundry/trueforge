@@ -72,6 +72,13 @@ function schemaProperties(
   return { properties, required: (required ?? []) as string[] };
 }
 
+/**
+ * An MCP tool's inputSchema ships to the client on its own — the OpenAPI document (and its
+ * `components/schemas`) does not travel with it, so a `#/components/schemas/X` ref would dangle.
+ * Rewrite those refs to local `#/$defs/X` and inline the referenced definitions, producing a
+ * self-contained schema. `$defs` (not inlining) keeps recursive/shared schemas finite; the
+ * `visiting` set guards cycles. This also lets `z.fromJSONSchema` resolve the refs downstream.
+ */
 function bundleSchema({ document, root }: { document: JsonObject; root: JsonObject }): JsonObject {
   const definitions: JsonObject = {};
   const visiting = new Set<string>();

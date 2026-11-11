@@ -363,7 +363,8 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
     enabled: webSearchEnabled,
   });
   const canToggleWebSearch = !webSearchLocked;
-  const trueforgeEnabled = agentSpec?.config?.trueforge?.enabled !== false;
+  const trueforgeConfig = agentSpec?.config as { trueforge?: { enabled?: boolean } } | undefined;
+  const trueforgeEnabled = trueforgeConfig?.trueforge?.enabled !== false;
   const needsSandbox = capabilities?.sandbox.enabled === false;
   const settings = capabilities?.settings;
   const canConfigureConnectors =

@@ -41,7 +41,7 @@ function specWantsSandbox(spec: AgentSpec): boolean {
 }
 
 /** Runtime id of the built-in TrueForge management MCP. Display name stays on the connection. */
-export const TRUEFORGE_MCP_ID = 'capability:trueforge-management';
+export const TRUEFORGE_MCP_ID = 'built-in:trueforge-mcp';
 
 const TRUEFORGE_MCP_SELECTORS: ToolSelectorConfig = {
   enableTools: DEFAULT_ENABLE_TOOLS,
@@ -277,17 +277,19 @@ export class TurnResourceResolver<
     }
     const source = await this.getOrCreateToolSource({
       id: TRUEFORGE_MCP_ID,
-      create: async () =>
-        new RemoteMCP({
-          id: TRUEFORGE_MCP_ID,
-          connection,
-          requestTimeoutMs: this.deps.mcpRequestTimeoutMs,
-          connectTimeoutMs: this.deps.mcpConnectTimeoutMs,
-          ...(this.deps.mcpMaxResponseBytes !== undefined ? { maxResponseBytes: this.deps.mcpMaxResponseBytes } : {}),
-          logger: this.deps.logger,
-          tracing: input.tracing,
-          signal: input.signal,
-        }),
+      create: () =>
+        Promise.resolve(
+          new RemoteMCP({
+            id: TRUEFORGE_MCP_ID,
+            connection,
+            requestTimeoutMs: this.deps.mcpRequestTimeoutMs,
+            connectTimeoutMs: this.deps.mcpConnectTimeoutMs,
+            ...(this.deps.mcpMaxResponseBytes !== undefined ? { maxResponseBytes: this.deps.mcpMaxResponseBytes } : {}),
+            logger: this.deps.logger,
+            tracing: input.tracing,
+            signal: input.signal,
+          }),
+        ),
     });
     return new ToolSet({
       source,

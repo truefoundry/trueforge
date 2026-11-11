@@ -7,7 +7,7 @@ import type { AgentTracing } from '../../tracing/AgentTracing';
 import { NOOP_AGENT_TRACING } from '../../tracing/NoopAgentTracing';
 import type { AgentCapability } from '../AgentCapability';
 
-export const OPENUI_SERVER_ID = 'openui';
+export const OPENUI_SERVER_NAME = 'openui';
 export const GET_OPENUI_INSTRUCTIONS_TOOL_NAME = 'get_openui_instructions';
 
 const getOpenUIInstructionsInputSchema = z.object({}).strict();
@@ -293,8 +293,9 @@ function buildOpenUIDeferredInstruction(builder: InstructionBuilder): void {
 }
 
 export class OpenUIInstructions extends LocalToolMCP {
-  readonly name = OPENUI_SERVER_ID;
+  readonly name = OPENUI_SERVER_NAME;
   readonly displayName = 'OpenUI';
+  protected override readonly namespacedId = true;
 
   constructor(tracing: AgentTracing) {
     super({ tracing });

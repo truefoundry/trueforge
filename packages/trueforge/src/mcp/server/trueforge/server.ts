@@ -14,14 +14,23 @@ const TRUEFORGE_INSTRUCTIONS =
   'configured models, MCP servers, and skills they can reference. You cannot run agents or execute ' +
   'turns through this server; it only defines and configures them.';
 
-/** Register all OpenAPI-annotated tools with their schemas and fixed HTTP mappings. */
+/** A tool descriptor with its JSON Schema already compiled to Zod. */
+export interface CompiledMcpTool {
+  descriptor: McpToolDescriptor;
+  inputSchema: ReturnType<typeof z.fromJSONSchema>;
+}
+
+export function compileMcpTools(tools: readonly McpToolDescriptor[]): CompiledMcpTool[] {
+  return tools.map(descriptor => ({ descriptor, inputSchema: z.fromJSONSchema(descriptor.inputSchema) }));
+}
+
+/** Register all OpenAPI-annotated tools with their (precompiled) schemas and fixed HTTP mappings. */
 export function registerOpenApiTools(
   server: McpServer,
   client: WireApiClient,
-  tools: readonly McpToolDescriptor[],
+  tools: readonly CompiledMcpTool[],
 ): void {
-  for (const descriptor of tools) {
-    const inputSchema = z.fromJSONSchema(descriptor.inputSchema);
+  for (const { descriptor, inputSchema } of tools) {
     server.registerTool(
       descriptor.name,
       {
@@ -38,13 +47,17 @@ export function registerOpenApiTools(
 export function createTrueForgeMcpServer(input: {
   client: WireApiClient;
   version: string;
-  tools: readonly McpToolDescriptor[];
+  tools: readonly CompiledMcpTool[];
 }): McpServer {
   const server = new McpServer(
     { name: 'trueforge-mcp', title: TRUEFORGE_SERVER_TITLE, version: input.version },
     { instructions: TRUEFORGE_INSTRUCTIONS },
   );
   registerOpenApiTools(server, input.client, input.tools);
-  registerCustomTools(server, input.client, input.tools);
+  registerCustomTools(
+    server,
+    input.client,
+    input.tools.map(tool => tool.descriptor),
+  );
   return server;
 }

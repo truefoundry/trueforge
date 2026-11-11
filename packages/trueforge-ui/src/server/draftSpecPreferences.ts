@@ -112,8 +112,11 @@ function readWebSearchEnabled(spec: AgentSpec): boolean | undefined {
 }
 
 function readTrueforgeEnabled(spec: AgentSpec): boolean | undefined {
-  if (spec.config?.trueforge === undefined) return undefined;
-  const enabled = spec.config.trueforge.enabled;
+  if (spec.config === undefined) return undefined;
+  // `trueforge` is a draft-only toggle persisted on config; it is not part of AgentRuntimeConfig.
+  const trueforge = Reflect.get(spec.config, 'trueforge');
+  if (!isObject(trueforge)) return undefined;
+  const enabled = Reflect.get(trueforge, 'enabled');
   return typeof enabled === 'boolean' ? enabled : undefined;
 }
 

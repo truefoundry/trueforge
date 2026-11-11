@@ -1,5 +1,4 @@
 import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
-import configuration, { STANDALONE_TRUEFORGE_API_KEY } from '../../../src/config';
 import { internalTrueForgeClient } from '../../../src/controller/internalTrueForgeClient';
 import {
   loadScheduleDispatchItem,
@@ -104,43 +103,22 @@ async function tickDispatch() {
   return { store, logger };
 }
 
-describe('schedule execution HTTP transport', () => {
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
-
-  it('sends one API-key authenticated request with the run id', async () => {
-    const request = jest.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 204 }));
-
-    await internalTrueForgeClient.executeScheduleRun('run-1');
-
-    expect(request).toHaveBeenCalledTimes(1);
-    const [url, init] = request.mock.calls[0] ?? [];
-    expect(String(url)).toBe(`${configuration.SERVER_URL}/api/internal/schedules/runs/execute`);
-    expect(init?.method).toBe('POST');
-    expect(new Headers(init?.headers).get('authorization')).toBe(`Bearer ${STANDALONE_TRUEFORGE_API_KEY}`);
-    expect(init?.body).toBe(JSON.stringify({ schedule_run_id: 'run-1' }));
-  });
-});
-
 describe('scheduleDispatchLoop', () => {
   afterEach(() => {
     jest.restoreAllMocks();
   });
 
-  it('hands the persisted run id to the execution endpoint', async () => {
-    const request = jest.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 204 }));
+  it('hands the persisted run id to the execution client', async () => {
+    const execute = jest.spyOn(internalTrueForgeClient, 'executeScheduleRun').mockResolvedValue(undefined);
 
     await tickDispatch();
 
-    expect(request).toHaveBeenCalledTimes(1);
-    const [url, init] = request.mock.calls[0] ?? [];
-    expect(String(url)).toBe(`${configuration.SERVER_URL}/api/internal/schedules/runs/execute`);
-    expect(init?.body).toBe(JSON.stringify({ schedule_run_id: 'run-1' }));
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(execute).toHaveBeenCalledWith('run-1');
   });
 
-  it('marks HTTP execution failures as failed', async () => {
-    jest.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('request failed', { status: 500 }));
+  it('marks execution failures as failed', async () => {
+    jest.spyOn(internalTrueForgeClient, 'executeScheduleRun').mockRejectedValue(new Error('request failed'));
 
     const { logger } = await tickDispatch();
 

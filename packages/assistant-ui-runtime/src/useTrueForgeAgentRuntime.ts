@@ -101,7 +101,8 @@ function useTrueForgeAgentRuntimeImpl(
   const takeTurnHeaderTimestampRef = useRef(draftSpec.takeTurnHeaderTimestamp);
   takeTurnHeaderTimestampRef.current = draftSpec.takeTurnHeaderTimestamp;
   const trueforgeEnabledRef = useRef(true);
-  trueforgeEnabledRef.current = draftSpec.agentSpec?.config?.trueforge?.enabled !== false;
+  const trueforgeConfig = draftSpec.agentSpec?.config as { trueforge?: { enabled?: boolean } } | undefined;
+  trueforgeEnabledRef.current = trueforgeConfig?.trueforge?.enabled !== false;
 
   const getTurnHeaders = useCallback(async () => {
     if (agent.mode !== 'draft') {

@@ -64,6 +64,7 @@ import { runWithLogContext, updateLogContext, type LogContext } from './logger';
 import type { IOAuthTokenStore } from './mcp/auth/types';
 import { mcpToolsFromOpenApi } from './mcp/server/trueforge/openApiTools';
 import { createTrueForgeMcpRouter } from './mcp/server/trueforge/route';
+import { compileMcpTools, type CompiledMcpTool } from './mcp/server/trueforge/server';
 import type { MemoryProviderCache } from './memory/providers';
 import { PACKAGE_VERSION } from './packageVersion';
 import { OPENAPI_DOCUMENT_TAGS } from './routes/openapiTags';
@@ -352,8 +353,8 @@ export interface ServerDeps<TTransaction> {
 
 export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   const app = new OpenAPIHono({ defaultHook: zodValidationHook });
-  let mcpTools: ReturnType<typeof mcpToolsFromOpenApi> | undefined;
-  const resolveMcpTools = () => (mcpTools ??= mcpToolsFromOpenApi(buildOpenApiDocument(app)));
+  let mcpTools: CompiledMcpTool[] | undefined;
+  const resolveMcpTools = () => (mcpTools ??= compileMcpTools(mcpToolsFromOpenApi(buildOpenApiDocument(app))));
   const authMiddleware = createAuthMiddleware(deps.authenticator);
   const catalogAdminAuthMiddleware = buildAdminAuthMiddleware({
     authenticator: deps.authenticator,
