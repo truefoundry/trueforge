@@ -92,6 +92,7 @@ export function makeStubPublicSandbox(): Sandbox {
     blockDestructiveToolsInCodeMode: true,
     mcpRequestTimeoutMs: 60_000,
     mcpConnectTimeoutMs: 5_000,
+    defaultExecTimeoutSeconds: 60,
     logger: makeSilentLogger(),
     tracing: NOOP_AGENT_TRACING,
   });
