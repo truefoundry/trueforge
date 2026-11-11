@@ -155,7 +155,7 @@ function lastTurnDetails(input: { turn_id: string; turn_state: TurnState }): Raw
 
 /**
  * Folds the closed interval and cost delta. last_turn_details moves only for the session's last turn.
- * A finished turn bumps `updated_at` so memory ingest still sees a pause longer than its lookback.
+ * Pause and a finished turn bump `updated_at`.
  */
 async function applyTurnStateToSession(
   db: Transaction<Database>,
@@ -191,7 +191,7 @@ async function applyTurnStateToSession(
         ELSE last_turn_details
       END`,
       ...(metrics === undefined ? {} : { metrics }),
-      ...(isNonTerminalTurnState(input.turn_state) ? {} : { updated_at: sql`now()` }),
+      ...(input.turn_state.status !== 'running' ? { updated_at: sql`now()` } : {}),
     })
     .where('session_id', '=', input.id)
     .execute();

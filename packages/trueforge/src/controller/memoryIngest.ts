@@ -199,8 +199,8 @@ export async function runMemoryIngestPass({
   const { store, logger, config, now } = deps;
   const startedAt = now();
 
-  // Sessions touched within the lookback. Finishing a turn bumps session.updated_at, so a turn
-  // paused longer than the window is picked up once it closes. A still-paused tip is not ingested.
+  // Sessions touched within the lookback. Pausing and finishing a turn bump session.updated_at,
+  // so a turn paused longer than the window is picked up once it closes. A still-paused tip is not ingested.
   const startedMs = startedAt.getTime();
   const providers = await deps.providersByTenant();
   const listed =
