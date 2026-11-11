@@ -162,10 +162,14 @@ export interface AgentRuntimeConfig {
 }
 
 export function readDraftTrueforgeEnabled(config: AgentRuntimeConfig | undefined): boolean | undefined {
-  if (config === undefined || config === null) return undefined;
-  const trueforge = Reflect.get(config, 'trueforge');
-  if (typeof trueforge !== 'object' || trueforge === null) return undefined;
-  const enabled = Reflect.get(trueforge, 'enabled');
+  if (config === undefined) {
+    return undefined;
+  }
+  const trueforge: unknown = Reflect.get(config, 'trueforge');
+  if (typeof trueforge !== 'object' || trueforge === null) {
+    return undefined;
+  }
+  const enabled: unknown = Reflect.get(trueforge, 'enabled');
   return typeof enabled === 'boolean' ? enabled : undefined;
 }
 
