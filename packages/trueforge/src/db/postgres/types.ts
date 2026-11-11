@@ -4,13 +4,13 @@
  */
 import type {
   AgentSpec,
-  CreatedBySubject,
   LegacyTurnInputItem,
   PersistedTurnEvent,
   SessionLastTurnDetails,
   SessionMetadata,
   SessionMetrics,
   SessionSource,
+  Subject,
   TurnState,
   TurnUserEventMessage,
 } from '@truefoundry/trueforge-core/agent-session';
@@ -70,7 +70,7 @@ export interface SessionTable {
   /** key */
   session_id: string;
   /** Caller identity that created the session (immutable after create). */
-  created_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
+  created_by_subject: JSONColumnType<Subject, Subject, Subject>;
   /**
    * Null for interactive sessions.
    */
@@ -130,7 +130,7 @@ export interface AccessControlTable {
   session_id: string;
   subject_type: SessionGrantSubjectType;
   subject_id: string;
-  granted_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
+  granted_by_subject: JSONColumnType<Subject, Subject, Subject>;
   created_at: Date;
 }
 
@@ -466,7 +466,7 @@ export interface AgentTable {
   /** AgentSpec document; replaced whole on every upsert */
   manifest: JSONColumnType<AgentSpec, AgentSpec, AgentSpec>;
   external_id: string | null;
-  created_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
+  created_by_subject: JSONColumnType<Subject, Subject, Subject>;
   created_at: Date;
   updated_at: Date;
 }
@@ -485,7 +485,7 @@ export interface SandboxEnvironmentTable {
   lifecycle_stage: SandboxEnvironmentLifecycleStage;
   enabled: boolean;
   is_default: boolean;
-  created_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
+  created_by_subject: JSONColumnType<Subject, Subject, Subject>;
   created_at: Date;
   updated_at: Date;
 }
@@ -511,7 +511,7 @@ export interface SandboxEnvironmentVersionTable {
     SandboxEnvironmentVersionInternalMetadata,
     SandboxEnvironmentVersionInternalMetadata
   >;
-  created_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
+  created_by_subject: JSONColumnType<Subject, Subject, Subject>;
   created_at: Date;
   updated_at: Date;
 }
@@ -554,7 +554,7 @@ export interface ScheduleTable {
   manifest: JSONColumnType<ScheduleManifest, ScheduleManifest, ScheduleManifest>;
   /** `paused` stops triggering and drops the pending run; in-flight runs continue */
   status: ScheduleStatus;
-  created_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
+  created_by_subject: JSONColumnType<Subject, Subject, Subject>;
   created_at: Date;
   updated_at: Date;
 }
@@ -574,7 +574,7 @@ export interface ScheduleRunTable {
   scheduled_for: Date;
   /** `scheduled` | `triggered` | `failed` | `missed` — varchar(16) */
   status: ScheduleRunStatus;
-  created_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
+  created_by_subject: JSONColumnType<Subject, Subject, Subject>;
   triggered_at: Date | null;
   reason: string | null;
   session_id: string | null;

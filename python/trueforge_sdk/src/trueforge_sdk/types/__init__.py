@@ -63,7 +63,7 @@ if typing.TYPE_CHECKING:
     from .create_schedule_run_response import CreateScheduleRunResponse
     from .create_session_agent import CreateSessionAgent
     from .create_turn_event_response import CreateTurnEventResponse
-    from .created_by_subject import CreatedBySubject
+    from .subject import Subject
     from .cron_expression import CronExpression
     from .custom_model_provider import CustomModelProvider
     from .daytona_sandbox_provider_auth import DaytonaSandboxProviderAuth
@@ -362,7 +362,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CreateScheduleRunResponse": ".create_schedule_run_response",
     "CreateSessionAgent": ".create_session_agent",
     "CreateTurnEventResponse": ".create_turn_event_response",
-    "CreatedBySubject": ".created_by_subject",
+    "Subject": ".subject",
     "CronExpression": ".cron_expression",
     "CustomModelProvider": ".custom_model_provider",
     "DaytonaSandboxProviderAuth": ".daytona_sandbox_provider_auth",
@@ -685,7 +685,7 @@ __all__ = [
     "CreateScheduleRunResponse",
     "CreateSessionAgent",
     "CreateTurnEventResponse",
-    "CreatedBySubject",
+    "Subject",
     "CronExpression",
     "CustomModelProvider",
     "DaytonaSandboxProviderAuth",

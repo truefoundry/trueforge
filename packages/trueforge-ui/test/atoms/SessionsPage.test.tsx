@@ -10,6 +10,8 @@ import type {
   ListPermissionsResponse,
   PermissionsServer,
   Session,
+  SessionAccessGrant,
+  SessionAccessServer,
   SessionEventItem,
   SessionListEntry,
 } from '@/server/types.js';
@@ -101,12 +103,14 @@ function renderPage({
   })),
   deleteSession,
   permissions,
+  sessionAccess,
 }: {
   listSessions?: (req?: ListSessionsRequest) => Promise<{ data: SessionListEntry[] }>;
   listSessionEvents?: () => Promise<{ data: SessionEventItem[] }>;
   getSession?: () => Promise<Session>;
   deleteSession?: (req: { sessionId: string }) => Promise<void>;
   permissions?: PermissionsServer;
+  sessionAccess?: SessionAccessServer;
 } = {}) {
   const server = createMockAgentUIServer({
     getSession,
@@ -116,6 +120,7 @@ function renderPage({
     sessions: { getAgent: vi.fn(), getCodeSnippets: vi.fn(), listSessions, listSessionEvents },
     ...(deleteSession == null ? {} : { deleteSession }),
     ...(permissions == null ? {} : { permissions }),
+    ...(sessionAccess == null ? {} : { sessionAccess }),
   });
   render(
     <SlotsProvider>
@@ -274,11 +279,24 @@ describe('SessionsPage', () => {
   it('copies the no-router shared-session query URL for the selected session', async () => {
     window.history.replaceState(null, '', '/?view=sessions&sessionId=sess-1&agentId=agent-1&s_tw=30');
     renderPage({
+      sessionAccess: {
+        listAccess: vi.fn(async (): Promise<SessionAccessGrant[]> => [
+          {
+            subjectType: 'tenant',
+            subjectId: 'acme',
+            displayName: null,
+            email: null,
+            createdAt: '2026-01-01T00:00:00Z',
+          },
+        ]),
+        grantAccess: vi.fn(async () => []),
+        revokeAccess: vi.fn(async () => undefined),
+        searchUsers: vi.fn(async () => ({ data: [] })),
+      },
       getSession: vi.fn(async (): Promise<Session> => ({
         id: 'sess-1',
         title: 'Named session',
         isMutable: false,
-        shared: true,
         createdAt: namedRow.createdAt,
         updatedAt: namedRow.updatedAt,
       })),

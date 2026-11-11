@@ -1,8 +1,4 @@
-import {
-  CreatedBySubjectSchema,
-  type CreatedBySubject,
-  type TokenPagination,
-} from '@truefoundry/trueforge-core/agent-session';
+import { SubjectSchema, type Subject, type TokenPagination } from '@truefoundry/trueforge-core/agent-session';
 import {
   decodeOffsetPageToken,
   paginateOffsetRows,
@@ -50,7 +46,7 @@ function scheduleColumns(eb: ExpressionBuilder<Database, 'schedule'>) {
     'name' as const,
     jsonText<ScheduleManifest>(eb.ref('manifest')).as('manifest'),
     'status' as const,
-    jsonText<CreatedBySubject>(eb.ref('created_by_subject')).as('created_by_subject'),
+    jsonText<Subject>(eb.ref('created_by_subject')).as('created_by_subject'),
     'created_at' as const,
     'updated_at' as const,
   ];
@@ -64,7 +60,7 @@ function runColumns(eb: ExpressionBuilder<Database, 'schedule_run'>) {
     'name' as const,
     'scheduled_for' as const,
     'status' as const,
-    jsonText<CreatedBySubject>(eb.ref('created_by_subject')).as('created_by_subject'),
+    jsonText<Subject>(eb.ref('created_by_subject')).as('created_by_subject'),
     'triggered_at' as const,
     'reason' as const,
     'session_id' as const,
@@ -81,7 +77,7 @@ interface ScheduleRow {
   name: string;
   manifest: ScheduleManifest;
   status: ScheduleStatus;
-  created_by_subject: CreatedBySubject;
+  created_by_subject: Subject;
   created_at: string;
   updated_at: string;
 }
@@ -93,7 +89,7 @@ interface RunRow {
   name: string;
   scheduled_for: string;
   status: ScheduleRunStatus;
-  created_by_subject: CreatedBySubject;
+  created_by_subject: Subject;
   triggered_at: string | null;
   reason: string | null;
   session_id: string | null;
@@ -105,14 +101,14 @@ function toScheduleRecord(row: ScheduleRow): ScheduleRecord {
   return {
     ...row,
     manifest: parseStoredScheduleManifest(row.manifest),
-    created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
+    created_by_subject: SubjectSchema.parse(row.created_by_subject),
   };
 }
 
 function toRunRecord(row: RunRow): ScheduleRunRecord {
   return {
     ...row,
-    created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
+    created_by_subject: SubjectSchema.parse(row.created_by_subject),
   };
 }
 
@@ -309,13 +305,13 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
     const db = transaction ?? this.#db;
     const rows = await db
       .selectFrom('schedule')
-      .select(['id', jsonText<CreatedBySubject>(sql.ref('created_by_subject')).as('created_by_subject')])
+      .select(['id', jsonText<Subject>(sql.ref('created_by_subject')).as('created_by_subject')])
       .where('tenant_id', '=', input.tenant_id)
       .where('id', 'in', [...input.ids])
       .execute();
     return rows.map(row => ({
       id: row.id,
-      created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
+      created_by_subject: SubjectSchema.parse(row.created_by_subject),
     }));
   }
 

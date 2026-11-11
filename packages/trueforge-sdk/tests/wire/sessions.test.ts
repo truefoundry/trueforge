@@ -23,7 +23,6 @@ describe("SessionsClient", () => {
                     last_turn_details: { id: "id", state: { status: "running" } },
                     metadata: { key: "value" },
                     metrics: { total_duration_ms: 1, total_turns: 1 },
-                    shared: true,
                     source: { id: "id", run_id: "run_id", type: "schedule" },
                     title: "title",
                     updated_at: "updated_at",
@@ -71,7 +70,6 @@ describe("SessionsClient", () => {
                         totalDurationMs: 1,
                         totalTurns: 1,
                     },
-                    shared: true,
                     source: {
                         id: "id",
                         runId: "run_id",
@@ -125,7 +123,6 @@ describe("SessionsClient", () => {
                 last_turn_details: { id: "id", state: { status: "running" } },
                 metadata: { key: "value" },
                 metrics: { total_cost_in_usd: 1.1, total_duration_ms: 1, total_turns: 1 },
-                shared: true,
                 source: { id: "id", run_id: "run_id", type: "schedule" },
                 title: "title",
                 updated_at: "updated_at",
@@ -177,7 +174,6 @@ describe("SessionsClient", () => {
                     totalDurationMs: 1,
                     totalTurns: 1,
                 },
-                shared: true,
                 source: {
                     id: "id",
                     runId: "run_id",
@@ -278,7 +274,6 @@ describe("SessionsClient", () => {
                 last_turn_details: { id: "id", state: { status: "running" } },
                 metadata: { key: "value" },
                 metrics: { total_cost_in_usd: 1.1, total_duration_ms: 1, total_turns: 1 },
-                shared: true,
                 source: { id: "id", run_id: "run_id", type: "schedule" },
                 title: "title",
                 updated_at: "updated_at",
@@ -325,7 +320,6 @@ describe("SessionsClient", () => {
                     totalDurationMs: 1,
                     totalTurns: 1,
                 },
-                shared: true,
                 source: {
                     id: "id",
                     runId: "run_id",
@@ -421,7 +415,6 @@ describe("SessionsClient", () => {
                 last_turn_details: { id: "id", state: { status: "running" } },
                 metadata: { key: "value" },
                 metrics: { total_cost_in_usd: 1.1, total_duration_ms: 1, total_turns: 1 },
-                shared: true,
                 source: { id: "id", run_id: "run_id", type: "schedule" },
                 title: "title",
                 updated_at: "updated_at",
@@ -469,7 +462,6 @@ describe("SessionsClient", () => {
                     totalDurationMs: 1,
                     totalTurns: 1,
                 },
-                shared: true,
                 source: {
                     id: "id",
                     runId: "run_id",

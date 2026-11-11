@@ -1,4 +1,4 @@
-import type { CreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
+import type { Subject } from '@truefoundry/trueforge-core/agent-session';
 import type { Context } from 'hono';
 
 import configuration, {
@@ -111,7 +111,7 @@ export function canEditSchedule(
 }
 
 /** Subject rebuilt from a stored creator snapshot, for work that runs without a live request. */
-export function requestSubjectFromCreatedBySubject(subject: CreatedBySubject): RequestSubject {
+export function requestSubjectFromCreatedBySubject(subject: Subject): RequestSubject {
   return {
     id: subject.subject_id,
     type: subject.subject_type,
@@ -125,7 +125,7 @@ export function requestSubjectFromCreatedBySubject(subject: CreatedBySubject): R
  */
 export function requestContextFromCreatedBySubject(params: {
   tenant_id: string;
-  created_by_subject: CreatedBySubject;
+  created_by_subject: Subject;
   user_credential: string | null;
 }): RequestContext {
   const base: RequestContext = {
@@ -146,7 +146,7 @@ export function requestContextFromWire(context: RequestContext): RequestContext 
 }
 
 /** Persistable creator snapshot derived from the authenticated request. */
-export function createdBySubjectFromRequestContext(ctx: RequestContext): CreatedBySubject {
+export function createdBySubjectFromRequestContext(ctx: RequestContext): Subject {
   return {
     subject_id: ctx.subject.id,
     subject_type: ctx.subject.type,

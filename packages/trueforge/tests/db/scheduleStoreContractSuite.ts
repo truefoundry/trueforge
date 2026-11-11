@@ -1,4 +1,4 @@
-import { AgentSpecSchema, type CreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
+import { AgentSpecSchema, type Subject } from '@truefoundry/trueforge-core/agent-session';
 import type { IAgentStore } from '../../src/db/agentStore';
 import { cronRunName, ScheduleNameConflictError, type IScheduleStore } from '../../src/db/scheduleStore';
 import { nextTriggerAfter } from '../../src/runtime/cron';
@@ -6,7 +6,7 @@ import { ScheduleManifestSchema, type ScheduleManifest } from '../../src/schemas
 
 const TENANT = 'default';
 const USER = 'tester';
-const USER_SUBJECT: CreatedBySubject = {
+const USER_SUBJECT: Subject = {
   subject_id: USER,
   subject_type: 'user',
   subject_display_name: USER,
@@ -613,7 +613,7 @@ export function runScheduleStoreContractSuite(deps: {
     const store = deps.getScheduleStore();
     const ownedAgent = await seedAgent();
     const managedAgent = await seedAgent();
-    const otherSubject: CreatedBySubject = {
+    const otherSubject: Subject = {
       subject_id: 'other-user',
       subject_type: 'user',
       subject_display_name: 'Other',

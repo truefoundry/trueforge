@@ -7,7 +7,7 @@
 import {
   AgentSpecSchema,
   type AgentSpec,
-  type CreatedBySubject,
+  type Subject,
   type TokenPagination,
 } from '@truefoundry/trueforge-core/agent-session';
 import type { ResourceName } from '../schemas/common';
@@ -19,7 +19,7 @@ export interface AgentRecord {
   description: string;
   manifest: AgentSpec;
   external_id: string | null;
-  created_by_subject: CreatedBySubject;
+  created_by_subject: Subject;
   /** ISO-8601 UTC instant. */
   created_at: string;
   /** ISO-8601 UTC instant. */
@@ -70,7 +70,7 @@ export interface CreateAgentInput {
   description: string;
   manifest: AgentSpec;
   external_id: string | null;
-  created_by_subject: CreatedBySubject;
+  created_by_subject: Subject;
 }
 
 /**

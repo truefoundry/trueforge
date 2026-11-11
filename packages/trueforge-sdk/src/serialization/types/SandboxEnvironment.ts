@@ -3,18 +3,18 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { CreatedBySubject } from "./CreatedBySubject.js";
 import { ResourceName } from "./ResourceName.js";
 import { SandboxEnvironmentLifecycleStage } from "./SandboxEnvironmentLifecycleStage.js";
 import { SandboxEnvironmentManifest } from "./SandboxEnvironmentManifest.js";
 import { SandboxEnvironmentVersionStatus } from "./SandboxEnvironmentVersionStatus.js";
+import { Subject } from "./Subject.js";
 
 export const SandboxEnvironment: core.serialization.ObjectSchema<
     serializers.SandboxEnvironment.Raw,
     TrueForge.SandboxEnvironment
 > = core.serialization.object({
     createdAt: core.serialization.property("created_at", core.serialization.date()),
-    createdBySubject: core.serialization.property("created_by_subject", CreatedBySubject),
+    createdBySubject: core.serialization.property("created_by_subject", Subject),
     description: core.serialization.string(),
     enabled: core.serialization.boolean(),
     id: core.serialization.string(),
@@ -30,7 +30,7 @@ export const SandboxEnvironment: core.serialization.ObjectSchema<
 export declare namespace SandboxEnvironment {
     export interface Raw {
         created_at: string;
-        created_by_subject: CreatedBySubject.Raw;
+        created_by_subject: Subject.Raw;
         description: string;
         enabled: boolean;
         id: string;
