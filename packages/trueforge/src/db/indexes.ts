@@ -70,8 +70,5 @@ export const SANDBOX_ENVIRONMENT_VERSION_PENDING_IDX = 'sandbox_environment_vers
  */
 export const OAUTH_PENDING_AUTHORIZATION_SERVER_ID_IDX = 'oauth_pending_authorization_oauth_server_id_idx';
 
-/**
- * Partial `(session_id) WHERE event.type IN ('sandbox.created', 'model.message', 'thread.created')`
- * on session_event — per-session feature-adoption signals without reading other event payloads.
- */
+/** Partial `(session_id)` on session_event for feature-adoption event types only. */
 export const SESSION_EVENT_FEATURE_TYPE_IDX = 'session_event_feature_type_idx';
