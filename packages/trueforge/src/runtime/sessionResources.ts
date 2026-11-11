@@ -300,7 +300,6 @@ export async function validateAgentSpec({
   webSearchProviderStore: IWebSearchProviderStore;
   memoryProviderStore: IMemoryProviderStore;
   configurationStore: IConfigurationStore;
-  /** Spec already saved on this session or agent; undefined when creating. */
   previousSpec: AgentSpec | undefined;
 }): Promise<void> {
   const resolved = await getModelDetails({
@@ -382,8 +381,6 @@ export async function validateAgentSpec({
     }
   }
 
-  // Both checks gate turning web search on. A spec already saved with it on keeps it,
-  // so later edits are not blocked by a switch or a provider that changed since.
   if (spec.config.web_search.enabled && previousSpec?.config.web_search.enabled !== true) {
     const tenantAllows = await isWebSearchEnabledForTenant({ tenant_id, store: configurationStore });
     if (!tenantAllows) {
@@ -400,8 +397,8 @@ export async function validateAgentSpec({
     }
   }
 
-  // Memory can be turned on only while the tenant has its switch on and a provider. A spec already
-  // saved with it on keeps it, and its turns run without memory until both hold again.
+  // Sessions may keep memory on a stored spec; agent save always re-checks (previousSpec undefined).
+  // Turns still run without memory until the tenant switch and provider both hold again.
   if (spec.config.memory.enabled && previousSpec?.config.memory.enabled !== true) {
     const tenantAllows = await isMemoryEnabledForTenant({ tenant_id, store: configurationStore });
     if (!tenantAllows) {
