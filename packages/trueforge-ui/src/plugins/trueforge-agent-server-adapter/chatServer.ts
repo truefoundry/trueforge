@@ -79,7 +79,7 @@ export function toUiAgentSpec(spec: TrueForgeApi.AgentSpec): HarnessAgentSpec {
   const { mcpServers, skills, ...rest } = spec;
   return {
     ...rest,
-    ...(mcpServers ? { mcpServers: mcpServers.map(toUiMcpServer) } : {}),
+    ...(mcpServers && mcpServers.length > 0 ? { mcpServers: mcpServers.map(toUiMcpServer) } : {}),
     ...(skills ? { skills: skills.map(toUiSkill) } : {}),
   };
 }
@@ -249,11 +249,25 @@ export function createHarnessChatServer(
       return toUiSession(response.data);
     },
 
-    async *createTurn({ sessionId, input, previousTurnId }) {
-      const stream = await client.sessions.createTurnStream(sessionId, {
-        input: toHarnessInput(input),
-        ...(previousTurnId === undefined ? {} : { previousTurnId }),
-      });
+    async *createTurn({
+      sessionId,
+      input,
+      previousTurnId,
+      headers,
+    }: {
+      sessionId: string;
+      input: UserMessage[];
+      previousTurnId?: string;
+      headers?: Record<string, string>;
+    }) {
+      const stream = await client.sessions.createTurnStream(
+        sessionId,
+        {
+          input: toHarnessInput(input),
+          ...(previousTurnId === undefined ? {} : { previousTurnId }),
+        },
+        headers === undefined ? undefined : { headers },
+      );
       for await (const item of stream.withMetadata()) {
         const event = toUiStreamingEvent(item.data);
         if (event === undefined) {

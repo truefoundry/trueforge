@@ -546,11 +546,15 @@ export class AgentThread {
       }
     }
 
-    if (this.definition.toolSets?.length) {
-      this.deferredTool = new DeferredTool(this.definition.toolSets, {
-        tracing: this.tracing,
-        logger: input.logger,
-      });
+    // Preloaded builtins (current time, sub-agents, and so on) are already on the tool list.
+    // Deferred discovery tools exist only when some server still has tools to discover.
+    // DeferredTool keys each server by its `id`; built-ins carry a namespaced id
+    // (e.g. `built-in.*`, `capability:*`) so they can't collide with a user server's name.
+    const deferredServers = [...this.systemToolSets, ...(this.definition.toolSets ?? [])].filter(
+      toolSet => !toolSet.preload,
+    );
+    if (deferredServers.length > 0) {
+      this.deferredTool = new DeferredTool(deferredServers, { tracing: this.tracing, logger: input.logger });
     }
 
     this.instruction = this.buildInstruction(this.definition.instruction);

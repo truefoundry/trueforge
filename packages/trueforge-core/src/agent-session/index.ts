@@ -134,7 +134,7 @@ export {
 } from './store/SessionStoreErrors';
 
 export type { ITurnResourceResolver } from './ITurnResourceResolver';
-export { TurnResourceResolver } from './TurnResourceResolver';
+export { TRUEFORGE_MCP_ID, TurnResourceResolver } from './TurnResourceResolver';
 export type { TurnSandboxFactory } from './TurnResourceResolver';
 
 export { SessionHandle, resolvePreviousTurnId } from './SessionHandle';

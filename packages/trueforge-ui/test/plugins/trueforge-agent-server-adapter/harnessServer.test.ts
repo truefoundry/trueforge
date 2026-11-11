@@ -30,6 +30,7 @@ const session = {
 };
 
 const turnRequests: unknown[] = [];
+const turnRequestHeaders: Headers[] = [];
 const sessionRequests: unknown[] = [];
 const turnEventRequests: unknown[] = [];
 const deletedSessions: string[] = [];
@@ -41,6 +42,7 @@ const fetchMock: typeof fetch = async (input, init) => {
   if (url.endsWith('/api/v1/sessions/ses_1/turns') && typeof init?.body === 'string') {
     const body: unknown = JSON.parse(init.body);
     turnRequests.push(body);
+    turnRequestHeaders.push(new Headers(init.headers));
   }
   if (url.endsWith('/api/v1/sessions/ses_1/turns/trn_1/events') && method === 'POST') {
     const body: unknown = typeof init?.body === 'string' ? JSON.parse(init.body) : undefined;
@@ -125,7 +127,7 @@ describe('createHarnessChatServer', () => {
 
     assert.equal(created.isMutable, true);
     assert.equal(created.title, undefined);
-    assert.deepEqual(created.agentSpec?.mcpServers?.[0], { name: 'github', enableTools: ['@all'] });
+    assert.deepEqual(created.agentSpec?.mcpServers, [{ name: 'github', enableTools: ['@all'] }]);
     assert.deepEqual(created.agentSpec?.skills?.[0], { name: 'review', preload: false });
   });
 
@@ -210,6 +212,7 @@ describe('createHarnessChatServer', () => {
       sessionId: 'ses_1',
       input: [{ type: 'user.message', content: 'hello' }],
       previousTurnId: 'none',
+      headers: { 'x-tfg-trueforge-mcp': 'true' },
     })) {
       events.push(event);
     }
@@ -218,6 +221,7 @@ describe('createHarnessChatServer', () => {
     assert.ok(sent !== null && typeof sent === 'object' && 'previous_turn_id' in sent && 'stream' in sent);
     assert.equal(sent.previous_turn_id, 'none');
     assert.equal(sent.stream, true);
+    assert.equal(turnRequestHeaders.at(-1)?.get('x-tfg-trueforge-mcp'), 'true');
 
     assert.deepEqual(events, [
       {

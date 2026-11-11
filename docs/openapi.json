@@ -7645,7 +7645,14 @@
         "x-fern-sdk-group-name": [
           "agents"
         ],
-        "x-fern-sdk-method-name": "list"
+        "x-fern-sdk-method-name": "list",
+        "x-tfg-mcp": {
+          "annotations": {
+            "readOnlyHint": true
+          },
+          "description": "Discover existing agents — for example to find one to inspect or update, or to check whether a name is already taken before creating a new agent. Supports optional filters and returns one paginated page.",
+          "name": "list_agents"
+        }
       },
       "post": {
         "description": "Creates an agent and allocates an immutable id. Fails if `name` is already taken. Name cannot be changed later.",
@@ -7708,7 +7715,16 @@
         "x-fern-sdk-group-name": [
           "agents"
         ],
-        "x-fern-sdk-method-name": "create"
+        "x-fern-sdk-method-name": "create",
+        "x-tfg-mcp": {
+          "annotations": {
+            "destructiveHint": false,
+            "idempotentHint": false,
+            "readOnlyHint": false
+          },
+          "description": "Create a named agent from a complete manifest. The name is immutable and all referenced models, MCP servers, skills, and sandbox environments must exist.",
+          "name": "create_agent"
+        }
       }
     },
     "/api/v1/agents/{agent_id}": {
@@ -7814,7 +7830,14 @@
         "x-fern-sdk-group-name": [
           "agents"
         ],
-        "x-fern-sdk-method-name": "get"
+        "x-fern-sdk-method-name": "get",
+        "x-tfg-mcp": {
+          "annotations": {
+            "readOnlyHint": true
+          },
+          "description": "Fetch one agent's full definition by its immutable ID, including the complete manifest. Use it to review an agent or to get a working template before updating it.",
+          "name": "get_agent"
+        }
       },
       "put": {
         "description": "Update an existing agent by immutable id.",
@@ -7891,7 +7914,16 @@
         "x-fern-sdk-group-name": [
           "agents"
         ],
-        "x-fern-sdk-method-name": "update"
+        "x-fern-sdk-method-name": "update",
+        "x-tfg-mcp": {
+          "annotations": {
+            "destructiveHint": true,
+            "idempotentHint": true,
+            "readOnlyHint": false
+          },
+          "description": "Replace an agent's description and complete manifest by immutable ID. This is a full replacement: omitted manifest fields are removed. Call get_agent first to retrieve the current complete manifest and edit it as a template rather than authoring one from scratch.",
+          "name": "update_agent"
+        }
       }
     },
     "/api/v1/agents/{agent_id}/code-snippets": {
@@ -8378,7 +8410,14 @@
         "x-fern-sdk-group-name": [
           "mcpServers"
         ],
-        "x-fern-sdk-method-name": "list"
+        "x-fern-sdk-method-name": "list",
+        "x-tfg-mcp": {
+          "annotations": {
+            "readOnlyHint": true
+          },
+          "description": "List the MCP servers you can attach to an agent, each with its current authentication status so you know whether it is ready to use. Check this before referencing an MCP server in a manifest.",
+          "name": "list_mcp_servers"
+        }
       }
     },
     "/api/v1/mcp-servers/oauth/callback": {
@@ -8538,7 +8577,14 @@
         "x-fern-sdk-group-name": [
           "mcpServers"
         ],
-        "x-fern-sdk-method-name": "get"
+        "x-fern-sdk-method-name": "get",
+        "x-tfg-mcp": {
+          "annotations": {
+            "readOnlyHint": true
+          },
+          "description": "Fetch one MCP server by name — its public connection details and current authentication status — to confirm it exists and is authenticated before referencing it in an agent.",
+          "name": "get_mcp_server"
+        }
       }
     },
     "/api/v1/mcp-servers/{name}/authorize": {
@@ -8796,7 +8842,14 @@
         "x-fern-sdk-group-name": [
           "models"
         ],
-        "x-fern-sdk-method-name": "list"
+        "x-fern-sdk-method-name": "list",
+        "x-tfg-mcp": {
+          "annotations": {
+            "readOnlyHint": true
+          },
+          "description": "List the models you can reference in an agent or draft manifest. Use it to find a valid model identifier before setting one on an agent.",
+          "name": "list_models"
+        }
       }
     },
     "/api/v1/sandbox-environments": {
@@ -8871,7 +8924,14 @@
         "x-fern-sdk-group-name": [
           "sandboxEnvironments"
         ],
-        "x-fern-sdk-method-name": "list"
+        "x-fern-sdk-method-name": "list",
+        "x-tfg-mcp": {
+          "annotations": {
+            "readOnlyHint": true
+          },
+          "description": "Discover existing sandbox environments you can reference from an agent, or find one to update. Returns one paginated page. Secret values are redacted; never ask the user for them. When an environment needs secrets, ask the user to create them in the sandbox environment settings.",
+          "name": "list_sandbox_environments"
+        }
       },
       "post": {
         "description": "Creates by `manifest.name`. Fails if the name is already taken. Requires a configured sandbox provider.",
@@ -8964,7 +9024,16 @@
         "x-fern-sdk-group-name": [
           "sandboxEnvironments"
         ],
-        "x-fern-sdk-method-name": "create"
+        "x-fern-sdk-method-name": "create",
+        "x-tfg-mcp": {
+          "annotations": {
+            "destructiveHint": false,
+            "idempotentHint": false,
+            "readOnlyHint": false
+          },
+          "description": "Create a reusable sandbox environment that agents run in — defining its resources, environment variables, networking, and build configuration — from a complete manifest. Fails if an environment with the same name already exists; the reserved `default` environment cannot be created. Never ask the user for a secret value and never send networking.secrets. When the environment needs secrets, ask the user to create them in the sandbox environment settings.",
+          "name": "create_sandbox_environment"
+        }
       },
       "put": {
         "description": "Create a new sandbox environment or update an existing one.",
@@ -9220,7 +9289,14 @@
         "x-fern-sdk-group-name": [
           "sandboxEnvironments"
         ],
-        "x-fern-sdk-method-name": "get"
+        "x-fern-sdk-method-name": "get",
+        "x-tfg-mcp": {
+          "annotations": {
+            "readOnlyHint": true
+          },
+          "description": "Fetch one sandbox environment by name — its manifest, build status, resources, environment variables, and networking configuration. Use it to review an environment or get a template before updating it. Secret values are redacted; never ask the user for them. When the environment needs secrets, ask the user to create them in the sandbox environment settings.",
+          "name": "get_sandbox_environment"
+        }
       },
       "patch": {
         "description": "Update sandbox environment metadata.",
@@ -9426,7 +9502,14 @@
         "x-fern-sdk-group-name": [
           "schedules"
         ],
-        "x-fern-sdk-method-name": "list"
+        "x-fern-sdk-method-name": "list",
+        "x-tfg-mcp": {
+          "annotations": {
+            "readOnlyHint": true
+          },
+          "description": "Discover existing schedules — for example to see what an agent already runs on a timer, or to find one to update. Supports optional filters and returns one paginated page.",
+          "name": "list_schedules"
+        }
       },
       "post": {
         "description": "Create a schedule for an existing agent (by name) and add its first pending run when active.",
@@ -9489,7 +9572,16 @@
         "x-fern-sdk-group-name": [
           "schedules"
         ],
-        "x-fern-sdk-method-name": "create"
+        "x-fern-sdk-method-name": "create",
+        "x-tfg-mcp": {
+          "annotations": {
+            "destructiveHint": false,
+            "idempotentHint": false,
+            "readOnlyHint": false
+          },
+          "description": "Make an existing named agent run automatically on a recurring basis — for example a daily summary — by binding it to a task and a cron schedule. Timezone defaults to UTC and status to active.",
+          "name": "create_schedule"
+        }
       }
     },
     "/api/v1/schedules/runs": {
@@ -9690,7 +9782,14 @@
         "x-fern-sdk-group-name": [
           "schedules"
         ],
-        "x-fern-sdk-method-name": "get"
+        "x-fern-sdk-method-name": "get",
+        "x-tfg-mcp": {
+          "annotations": {
+            "readOnlyHint": true
+          },
+          "description": "Fetch one schedule's full configuration by its immutable ID — its bound agent, task, cron expression, timezone, and status. Use it to review a schedule or get a template before updating it.",
+          "name": "get_schedule"
+        }
       },
       "put": {
         "description": "Replace name and manifest; replaces or drops the pending run when status/cron/timezone change.",
@@ -9777,7 +9876,16 @@
         "x-fern-sdk-group-name": [
           "schedules"
         ],
-        "x-fern-sdk-method-name": "update"
+        "x-fern-sdk-method-name": "update",
+        "x-tfg-mcp": {
+          "annotations": {
+            "destructiveHint": true,
+            "idempotentHint": true,
+            "readOnlyHint": false
+          },
+          "description": "Change an existing schedule — for example its task, cadence, or active/paused state — by replacing its name and complete manifest by immutable ID. The bound agent cannot change, and because this is a full replacement, omitted optional fields return to their defaults.",
+          "name": "update_schedule"
+        }
       }
     },
     "/api/v1/schedules/{schedule_id}/runs": {
@@ -9874,7 +9982,14 @@
         "x-fern-sdk-group-name": [
           "schedules"
         ],
-        "x-fern-sdk-method-name": "list_runs"
+        "x-fern-sdk-method-name": "list_runs",
+        "x-tfg-mcp": {
+          "annotations": {
+            "readOnlyHint": true
+          },
+          "description": "Check a schedule's execution history to see whether its runs are succeeding or why they failed. Each run includes its status, scheduled and triggered times, and any failure reason. Returns one paginated page.",
+          "name": "list_schedule_runs"
+        }
       }
     },
     "/api/v1/sessions": {
@@ -12628,7 +12743,14 @@
         "x-fern-sdk-group-name": [
           "skills"
         ],
-        "x-fern-sdk-method-name": "list"
+        "x-fern-sdk-method-name": "list",
+        "x-tfg-mcp": {
+          "annotations": {
+            "readOnlyHint": true
+          },
+          "description": "List the skills you can add to an agent, each with its name and description. Use it to find a skill to reference in a manifest.",
+          "name": "list_skills"
+        }
       }
     },
     "/api/v1/skills/versions": {
@@ -12676,7 +12798,14 @@
         "x-fern-sdk-group-name": [
           "skills"
         ],
-        "x-fern-sdk-method-name": "list_versions"
+        "x-fern-sdk-method-name": "list_versions",
+        "x-tfg-mcp": {
+          "annotations": {
+            "readOnlyHint": true
+          },
+          "description": "List the available versions of a skill so you can pin a specific version when referencing it in an agent manifest.",
+          "name": "list_skill_versions"
+        }
       }
     },
     "/api/v1/users": {

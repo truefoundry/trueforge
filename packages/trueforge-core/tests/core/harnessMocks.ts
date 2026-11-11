@@ -34,6 +34,8 @@ export function makeSilentLogger(): Logger {
 
 export function makeMockIMCPServer(params: {
   name: string;
+  id?: string | undefined;
+  description?: string | undefined;
   preload: boolean;
   /** When set, overrides default `hasPreloadedTools` (defaults to `preload`). */
   hasPreloadedTools?: boolean | undefined;
@@ -42,7 +44,8 @@ export function makeMockIMCPServer(params: {
 }): IToolSet {
   return {
     name: params.name,
-    id: params.name,
+    id: params.id ?? params.name,
+    description: params.description,
     serverClass: 'local',
     preload: params.preload,
     hasPreloadedTools: params.hasPreloadedTools ?? params.preload,
