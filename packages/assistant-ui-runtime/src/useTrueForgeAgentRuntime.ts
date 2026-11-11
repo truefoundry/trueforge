@@ -49,6 +49,7 @@ function createDelegatingThreadListAdapter(adapterRef: RefObject<RemoteThreadLis
     initialize: threadId => adapterRef.current.initialize(threadId),
     fetch: threadId => adapterRef.current.fetch(threadId),
     rename: (remoteId, newTitle) => adapterRef.current.rename(remoteId, newTitle),
+    updateCustom: (remoteId, custom) => adapterRef.current.updateCustom?.(remoteId, custom) ?? Promise.resolve(),
     archive: remoteId => adapterRef.current.archive(remoteId),
     unarchive: remoteId => adapterRef.current.unarchive(remoteId),
     delete: remoteId => adapterRef.current.delete(remoteId),
