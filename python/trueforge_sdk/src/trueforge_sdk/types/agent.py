@@ -6,12 +6,12 @@ import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
 from .agent_spec import AgentSpec
-from .created_by_subject import CreatedBySubject
 from .resource_name import ResourceName
+from .subject import Subject
 
 
 class Agent(UncheckedBaseModel):
-    created_by_subject: CreatedBySubject
+    created_by_subject: Subject
     description: str
     id: str = pydantic.Field()
     """

@@ -2,7 +2,7 @@
  * Backend-agnostic behavioural contract for the ISandboxEnvironmentStore default slot.
  * Runs under jest against a fresh store per test (see backend test files).
  */
-import type { CreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
+import type { Subject } from '@truefoundry/trueforge-core/agent-session';
 import {
   SandboxEnvironmentDefaultConflictError,
   SandboxEnvironmentDisabledError,
@@ -14,7 +14,7 @@ import { StoredSandboxEnvironmentManifestSchema } from '../../src/schemas/sandbo
 
 const TENANT = 'default';
 
-const SUBJECT: CreatedBySubject = {
+const SUBJECT: Subject = {
   subject_id: 'alice',
   subject_type: 'user',
   subject_display_name: 'Alice',

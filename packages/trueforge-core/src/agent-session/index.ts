@@ -54,8 +54,8 @@ export type {
   SessionSourceType,
 } from './schemas/session';
 
-export { CreatedBySubjectSchema } from './schemas/subject';
-export type { CreatedBySubject } from './schemas/subject';
+export { SubjectSchema } from './schemas/subject';
+export type { Subject } from './schemas/subject';
 
 export {
   EventType,

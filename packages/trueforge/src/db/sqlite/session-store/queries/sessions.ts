@@ -1,14 +1,14 @@
 import {
-  CreatedBySubjectSchema,
   SessionLastTurnDetailsSchema,
   SessionMetadataSchema,
   SessionSourceSchema,
+  SubjectSchema,
   type AgentSpec,
-  type CreatedBySubject,
   type SessionLastTurnDetails,
   type SessionMetadata,
   type SessionMetrics,
   type SessionSource,
+  type Subject,
 } from '@truefoundry/trueforge-core/agent-session';
 import type { SessionRecord } from '@truefoundry/trueforge-core/agent-session/models/SessionRecord';
 import type {
@@ -61,7 +61,7 @@ function parseSessionMetadata(value: unknown): SessionMetadata {
 function mapRowToSessionRecord(row: {
   tenant_id: string;
   session_id: string;
-  created_by_subject: CreatedBySubject;
+  created_by_subject: Subject;
   source: SessionSource | null;
   agent_id: string | null;
   agent_name: string | null;
@@ -79,7 +79,7 @@ function mapRowToSessionRecord(row: {
   return {
     tenant_id: row.tenant_id,
     session_id: row.session_id,
-    created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
+    created_by_subject: SubjectSchema.parse(row.created_by_subject),
     source: SessionSourceSchema.nullable().parse(row.source),
     agent: sessionAgentFromColumns({
       session_id: row.session_id,
@@ -103,7 +103,7 @@ function sessionSelectColumns() {
   return [
     'tenant_id' as const,
     'session_id' as const,
-    jsonText<CreatedBySubject>(sql.ref('created_by_subject')).as('created_by_subject'),
+    jsonText<Subject>(sql.ref('created_by_subject')).as('created_by_subject'),
     jsonText<SessionSource | null>(sql.ref('source')).as('source'),
     'agent_id' as const,
     'agent_name' as const,

@@ -2,7 +2,7 @@
  * DB-backed sandbox environments: parent row + immutable version rows.
  * Implementations: PostgresSandboxEnvironmentStore and SqliteSandboxEnvironmentStore.
  */
-import type { CreatedBySubject, TokenPagination } from '@truefoundry/trueforge-core/agent-session';
+import type { Subject, TokenPagination } from '@truefoundry/trueforge-core/agent-session';
 import type { NextSandboxEnvironmentVersion } from '../sandbox/environment/version';
 import type { ResourceName } from '../schemas/common';
 import type {
@@ -22,7 +22,7 @@ export interface SandboxEnvironmentRecord {
   lifecycle_stage: SandboxEnvironmentLifecycleStage;
   enabled: boolean;
   is_default: boolean;
-  created_by_subject: CreatedBySubject;
+  created_by_subject: Subject;
   /** ISO-8601 UTC instant. */
   created_at: string;
   /** ISO-8601 UTC instant. */
@@ -38,7 +38,7 @@ export interface SandboxEnvironmentVersionRecord {
   status_reason: string | null;
   external_ref: string;
   internal_metadata: SandboxEnvironmentVersionInternalMetadata;
-  created_by_subject: CreatedBySubject;
+  created_by_subject: Subject;
   /** ISO-8601 UTC instant. */
   created_at: string;
   /** ISO-8601 UTC instant. */
@@ -102,7 +102,7 @@ export interface GetSandboxEnvironmentsByIdsInput {
 export interface SandboxEnvironmentOwnership {
   id: string;
   name: string;
-  created_by_subject: CreatedBySubject;
+  created_by_subject: Subject;
 }
 
 /** Version + parent fields needed to progress a build. */
@@ -125,7 +125,7 @@ export interface GetSandboxEnvironmentVersionInput {
  * Result of `buildVersion` during upsert — {@link NextSandboxEnvironmentVersion} plus subject.
  */
 export type UpsertSandboxEnvironmentVersion = NextSandboxEnvironmentVersion & {
-  created_by_subject: CreatedBySubject;
+  created_by_subject: Subject;
 };
 
 /** Complete version row fields after the store resolves secret-row references. */
@@ -145,7 +145,7 @@ export interface CreateSandboxEnvironmentInput {
   tenant_id: string;
   name: ResourceName;
   description: string;
-  created_by_subject: CreatedBySubject;
+  created_by_subject: Subject;
   /** Complete provider refs from a successful secret sync before write. */
   synced_secrets: SyncedSandboxEnvironmentSecret[];
   /** Called after parent lock/create; store upserts secrets from the returned manifest. */

@@ -6,7 +6,7 @@
  * request and response wire shapes.
  */
 import { z } from '@hono/zod-openapi';
-import { CreatedBySubjectSchema, TokenPaginationSchema } from '@truefoundry/trueforge-core/agent-session';
+import { SubjectSchema, TokenPaginationSchema } from '@truefoundry/trueforge-core/agent-session';
 import configuration from '../config';
 import { NameSchema } from './common';
 
@@ -289,7 +289,7 @@ export const SandboxEnvironmentSchema = z
     status: SandboxEnvironmentVersionStatusSchema.describe('Readiness of the environment.'),
     status_reason: z.string().nullable().describe('Failure detail when status is failed; null otherwise.'),
     manifest: SandboxEnvironmentManifestSchema,
-    created_by_subject: CreatedBySubjectSchema,
+    created_by_subject: SubjectSchema,
     created_at: IsoTimestamp.describe('ISO-8601 create time.'),
     updated_at: IsoTimestamp.describe('ISO-8601 last update time.'),
   })
