@@ -175,7 +175,10 @@ export function reconcileDraftWebSearch({
   return nextSpec === agentSpec ? {} : { config: nextSpec.config };
 }
 
-/** A new agent starts with memory on once the tenant allows it; an explicit toggle is kept. */
+/**
+ * A new agent starts with memory on once the tenant allows it; an explicit toggle is kept.
+ * Unavailable memory is cleared so save can't 422 while the Memory row is hidden.
+ */
 export function reconcileDraftMemory({
   agentSpec,
   memoryEnabled,
@@ -183,8 +186,14 @@ export function reconcileDraftMemory({
   agentSpec: AgentSpec;
   memoryEnabled: boolean | null | undefined;
 }): Partial<AgentSpec> {
-  if (memoryEnabled !== true || agentSpec.config?.memory !== undefined) return {};
-  return { config: { ...agentSpec.config, memory: { enabled: true } } };
+  if (memoryEnabled === false && agentSpec.config?.memory !== undefined) {
+    const { memory: _memory, ...config } = agentSpec.config;
+    return { config };
+  }
+  if (memoryEnabled === true && agentSpec.config?.memory === undefined) {
+    return { config: { ...agentSpec.config, memory: { enabled: true } } };
+  }
+  return {};
 }
 
 /**
@@ -200,7 +209,8 @@ export function DraftSpecPreferenceBridge() {
   const capabilities = useServerCapabilities();
   const sandboxEnabled = capabilities?.sandbox.enabled;
   const webSearchEnabled = capabilities?.webSearch?.enabled;
-  const memoryEnabled = capabilities?.memory?.enabled;
+  // Capabilities omit memory when no provider is configured, which means unavailable.
+  const memoryEnabled = capabilities == null ? undefined : (capabilities.memory?.enabled ?? false);
   const prevWebSearchEnabledRef = useRef(webSearchEnabled);
   const { models, skills, connectors, loaded, error, ensureLoaded } = useDraftCatalog();
   const isMutableDraft = mode.status === 'active' && mode.isMutable && pendingSessionId == null;
