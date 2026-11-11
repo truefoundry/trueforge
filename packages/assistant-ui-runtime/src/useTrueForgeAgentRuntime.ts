@@ -159,17 +159,37 @@ function useTrueForgeAgentRuntimeImpl(
 
   const sessionSpecUpdateId = useMemo(() => findLatestSessionSpecUpdate(messages), [messages]);
   const handledSessionSpecUpdateIdRef = useRef<string | undefined>(undefined);
+  // Gate reloads on "has this session run in this mount", not on the current
+  // isRunning flag. Stream teardown often applies the tool result and clears
+  // isRunning in the same batch; marking the id handled while skipping reload
+  // would drop that update permanently.
+  const sawRunningInSessionRef = useRef(false);
+  const trackedSessionIdRef = useRef(sessionId);
+  if (trackedSessionIdRef.current !== sessionId) {
+    trackedSessionIdRef.current = sessionId;
+    sawRunningInSessionRef.current = false;
+    handledSessionSpecUpdateIdRef.current = undefined;
+  }
   const reloadAgentSpec = draftSpec.reloadAgentSpec;
+  useEffect(() => {
+    if (isRunning) {
+      sawRunningInSessionRef.current = true;
+    }
+  }, [isRunning]);
   useEffect(() => {
     if (sessionSpecUpdateId === undefined || sessionSpecUpdateId === handledSessionSpecUpdateIdRef.current) {
       return;
     }
-    handledSessionSpecUpdateIdRef.current = sessionSpecUpdateId;
     // Calls already in loaded history are reflected in the spec loaded with the session.
-    if (agent.mode === 'draft' && isRunning) {
+    if (!sawRunningInSessionRef.current) {
+      handledSessionSpecUpdateIdRef.current = sessionSpecUpdateId;
+      return;
+    }
+    handledSessionSpecUpdateIdRef.current = sessionSpecUpdateId;
+    if (agent.mode === 'draft') {
       void reloadAgentSpec();
     }
-  }, [agent.mode, isRunning, reloadAgentSpec, sessionSpecUpdateId]);
+  }, [agent.mode, reloadAgentSpec, sessionSpecUpdateId]);
 
   const downloadSandboxFile = useCallback(
     async ({ turnId, path }: { turnId: string; path: string }) => {
