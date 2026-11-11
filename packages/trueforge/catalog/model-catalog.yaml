@@ -399,6 +399,15 @@ providers:
             - low
             - medium
             - high
+      - model_id: gemini-4-carbon
+        name: gemini-4-carbon
+        properties:
+          context_length: 1048576
+          max_output_tokens: 65536
+          reasoning_efforts:
+            - low
+            - medium
+            - high
       - model_id: gemini-flash-latest
         name: gemini-flash-latest
         properties:
@@ -916,7 +925,7 @@ providers:
       - model_id: zai-org/GLM-5.3-Flash
         name: glm-5-3-flash
         properties:
-          context_length: 1048576
+          context_length: 1048575
           max_output_tokens: 128000
           reasoning_efforts:
             - low
