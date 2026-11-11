@@ -568,7 +568,7 @@ export class SandboxEnvironmentsClient {
     }
 
     /**
-     * Delete a sandbox environment. Fails if any agent still references it, if it is the tenant default, or if it is the reserved "default" environment.
+     * Delete a sandbox environment. Fails if any agent still references it, if it is the tenant default, or if it is the reserved platform environment.
      *
      * @param {string} name - Sandbox environment name.
      * @param {SandboxEnvironmentsClient.RequestOptions} requestOptions - Request-specific configuration.

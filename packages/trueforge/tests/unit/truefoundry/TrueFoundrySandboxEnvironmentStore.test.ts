@@ -159,10 +159,9 @@ describe('TrueFoundrySandboxEnvironmentStore', () => {
       page_token: undefined,
     });
 
-    expect(listed.data.map(row => row.environment.name).sort()).toEqual([
-      RESERVED_SANDBOX_ENVIRONMENT_NAME,
-      'pyjokes-env',
-    ]);
+    expect(listed.data.map(row => row.environment.name).sort()).toEqual(
+      [RESERVED_SANDBOX_ENVIRONMENT_NAME, 'pyjokes-env'].sort(),
+    );
     expect(listed.data.find(row => row.environment.name === RESERVED_SANDBOX_ENVIRONMENT_NAME)?.version.status).toBe(
       'ready',
     );

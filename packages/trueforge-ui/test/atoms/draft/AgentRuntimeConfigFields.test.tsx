@@ -19,13 +19,13 @@ vi.mock('@/server/ShellModeContext.js', () => ({
 const sampleEnvironments: SandboxEnvironment[] = [
   {
     id: 'env-default',
-    name: 'default',
+    name: 'trueforge-sandbox-env',
     description: 'Default environment',
     status: 'ready',
     enabled: true,
     isDefault: true,
     statusReason: null,
-    manifest: { name: 'default', description: 'Default environment' },
+    manifest: { name: 'trueforge-sandbox-env', description: 'Default environment' },
     createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
     createdAt: '2026-09-01T10:00:00Z',
     updatedAt: '2026-09-01T10:00:00Z',
@@ -222,7 +222,7 @@ describe('AgentRuntimeConfigFields', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Environment' }));
 
     expect(await screen.findByRole('option', { name: 'python-dev' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'default' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'trueforge-sandbox-env' })).toBeInTheDocument();
 
     const building = screen.getByRole('option', { name: 'pending-env' });
     expect(building).toBeDisabled();
@@ -252,7 +252,7 @@ describe('AgentRuntimeConfigFields', () => {
 
     await waitFor(() => {
       expect(onChange).toHaveBeenCalledWith(
-        expect.objectContaining({ sandbox: expect.objectContaining({ environmentName: 'default' }) }),
+        expect.objectContaining({ sandbox: expect.objectContaining({ environmentName: 'trueforge-sandbox-env' }) }),
       );
     });
   });
@@ -271,16 +271,16 @@ describe('AgentRuntimeConfigFields', () => {
   it('shows and pins a default that is still building', async () => {
     const onChange = vi.fn();
     const buildingDefault = sampleEnvironments.map(env =>
-      env.name === 'default' ? { ...env, status: 'pending' as const } : env,
+      env.name === 'trueforge-sandbox-env' ? { ...env, status: 'pending' as const } : env,
     );
     renderRuntimeFields({ environments: buildingDefault, onChange });
 
     const trigger = await screen.findByRole('button', { name: 'Environment' });
     await waitFor(() => {
-      expect(trigger).toHaveTextContent('default');
+      expect(trigger).toHaveTextContent('trueforge-sandbox-env');
     });
     expect(onChange).toHaveBeenCalledWith(
-      expect.objectContaining({ sandbox: expect.objectContaining({ environmentName: 'default' }) }),
+      expect.objectContaining({ sandbox: expect.objectContaining({ environmentName: 'trueforge-sandbox-env' }) }),
     );
   });
 

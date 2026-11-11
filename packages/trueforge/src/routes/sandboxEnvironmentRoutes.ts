@@ -267,7 +267,7 @@ export const deleteSandboxEnvironmentRoute = createRoute({
   tags: [OpenApiTag.SANDBOXES],
   summary: 'Delete a sandbox environment',
   description:
-    'Delete a sandbox environment. Fails if any agent still references it, if it is the tenant default, or if it is the reserved "default" environment.',
+    'Delete a sandbox environment. Fails if any agent still references it, if it is the tenant default, or if it is the reserved platform environment.',
   'x-fern-sdk-group-name': ['sandboxEnvironments'],
   'x-fern-sdk-method-name': 'delete',
   request: {
@@ -288,7 +288,7 @@ export const deleteSandboxEnvironmentRoute = createRoute({
     },
     409: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Environment is referenced by an agent, is the tenant default, or is the reserved "default".',
+      description: 'Environment is referenced by an agent, is the tenant default, or is reserved by the platform.',
     },
     422: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
