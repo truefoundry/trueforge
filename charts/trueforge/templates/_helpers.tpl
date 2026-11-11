@@ -136,10 +136,10 @@ Controller labels.
 {{- end }}
 
 {{/*
-Base URL the controller uses to reach the server API. Defaults to the in-cluster
-server Service when controller.serverUrl is empty (https when mtls is enabled).
+In-cluster server API URL (SERVER_URL). Defaults to the in-cluster server
+Service when controller.serverUrl is empty (https when mtls is enabled).
 */}}
-{{- define "trueforge.controller.serverUrl" -}}
+{{- define "trueforge.serverUrl" -}}
 {{- if .Values.controller.serverUrl -}}
 {{- .Values.controller.serverUrl -}}
 {{- else -}}
@@ -496,6 +496,7 @@ the env map, and mTLS.
 {{- $env = append $env (dict "name" "NODE_ENV" "value" "production") -}}
 {{- $env = append $env (dict "name" "PORT" "value" (.Values.server.port | toString)) -}}
 {{- $env = append $env (dict "name" "PUBLIC_BASE_URL" "value" .Values.server.publicBaseUrl) -}}
+{{- $env = append $env (dict "name" "SERVER_URL" "value" (include "trueforge.serverUrl" .)) -}}
 {{- $env = append $env (dict "name" "STANDALONE" "value" "false") -}}
 {{- $env = append $env (dict "name" "GRACEFUL_TIMEOUT_SECONDS" "value" (.Values.server.gracefulTimeoutSeconds | toString)) -}}
 
