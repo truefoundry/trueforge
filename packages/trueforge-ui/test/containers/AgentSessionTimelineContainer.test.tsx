@@ -288,7 +288,7 @@ describe('AgentSessionTimelineContainer', () => {
     expect(within(turn1).queryByText('turn two response')).not.toBeInTheDocument();
     expect(within(turn2).getByText('continue')).toBeInTheDocument();
     expect(within(turn2).getByText('turn two response')).toBeInTheDocument();
-    expect(within(turn3).getByText('client-cancelled')).toBeInTheDocument();
+    expect(within(turn3).getByText('You stopped this response')).toBeInTheDocument();
     expect(within(turn4).getByText('model failed')).toBeInTheDocument();
     await waitFor(() => {
       expect(timelineTitles).toContain('turn.cancelled');

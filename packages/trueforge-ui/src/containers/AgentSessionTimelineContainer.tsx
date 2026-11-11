@@ -1,7 +1,11 @@
 'use client';
 
 import { ThreadPrimitive, useAuiState, type ThreadMessageLike } from '@assistant-ui/react';
-import { convertTurnsToThreadMessages, isMcpServerAuthInfoList } from '@truefoundry/trueforge-assistant-ui-runtime';
+import {
+  CANCELLATION_REASON_CUSTOM_KEY,
+  convertTurnsToThreadMessages,
+  isMcpServerAuthInfoList,
+} from '@truefoundry/trueforge-assistant-ui-runtime';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 
 import { AssistantMessageBubble, type AssistantMessageBubbleProps } from '../atoms/AssistantMessageBubble.js';
@@ -109,11 +113,6 @@ function buildProjectionEvents(items: SessionEventItem[], turns: SessionTurnView
   });
 }
 
-function appendTerminalText(content: ThreadMessageLike['content'], text: string): ThreadMessageLike['content'] {
-  const terminalPart: { type: 'text'; text: string } = { type: 'text', text };
-  return typeof content === 'string' ? [{ type: 'text', text: content }, terminalPart] : [...content, terminalPart];
-}
-
 function applyTerminalState(messages: ThreadMessageLike[], turn: SessionTurnView): ThreadMessageLike[] {
   const state = turn.done?.state;
   if (state?.status !== 'error' && state?.status !== 'cancelled') return messages;
@@ -122,28 +121,23 @@ function applyTerminalState(messages: ThreadMessageLike[], turn: SessionTurnView
   const assistantIndex = messages.findIndex(message => message.role === 'assistant');
   const assistant = assistantIndex < 0 ? undefined : messages[assistantIndex];
   const createdAt = new Date(state.completedAt ?? turn.done?.createdAt ?? turn.created.createdAt);
+  const base: ThreadMessageLike = assistant ?? {
+    id: `${turn.turnId}-assistant`,
+    role: 'assistant',
+    content: [],
+    createdAt,
+    metadata: { custom: { turnId: turn.turnId } },
+  };
   const terminal: ThreadMessageLike =
     state.status === 'error'
-      ? {
-          ...(assistant ?? {
-            id: `${turn.turnId}-assistant`,
-            role: 'assistant',
-            content: [],
-            createdAt,
-            metadata: { custom: { turnId: turn.turnId } },
-          }),
-          status: { type: 'incomplete', reason: 'error', error: state.message },
-        }
+      ? { ...base, status: { type: 'incomplete', reason: 'error', error: state.message } }
       : {
-          ...(assistant ?? {
-            id: `${turn.turnId}-assistant`,
-            role: 'assistant',
-            content: [],
-            createdAt,
-            metadata: { custom: { turnId: turn.turnId } },
-          }),
-          content: appendTerminalText(assistant?.content ?? [], `Cancelled: ${state.reason}`),
+          ...base,
           status: { type: 'incomplete', reason: 'cancelled' },
+          metadata: {
+            ...base.metadata,
+            custom: { ...base.metadata?.custom, [CANCELLATION_REASON_CUSTOM_KEY]: state.reason },
+          },
         };
 
   if (assistantIndex < 0) return [...messages, terminal];
