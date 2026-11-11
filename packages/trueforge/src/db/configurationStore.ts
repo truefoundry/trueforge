@@ -51,11 +51,7 @@ export async function isWebSearchEnabledForTenant({
   return manifest.web_search.enabled;
 }
 
-/**
- * Whether agents in this tenant may use memory. Off stops memory for the whole tenant.
- * Stores the default row on first use: ingestion lists tenants from stored rows, so a tenant
- * on the default would otherwise use memory in chats but never be ingested.
- */
+/** Whether agents in this tenant may use memory. Creates the row if missing: ingestion only sees tenants with one. */
 export async function isMemoryEnabledForTenant({
   tenant_id,
   store,
