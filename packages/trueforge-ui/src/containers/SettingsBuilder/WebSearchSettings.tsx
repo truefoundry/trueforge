@@ -182,7 +182,7 @@ const WebSearchSettings = () => {
   return (
     <>
       <h3 className="text-xl font-semibold tracking-tight text-text-primary">Web search</h3>
-      <p className="mt-1 text-sm text-text-secondary">Choose whether agents in this tenant may search the web.</p>
+      <p className="mt-1 text-sm text-text-secondary">Let agents search the web and fetch page content.</p>
 
       {error ? (
         <p className="mt-3 rounded-md border border-failure-bg/30 bg-failure-bg/10 px-3 py-2 text-sm text-failure-bg">
