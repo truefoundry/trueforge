@@ -5,6 +5,7 @@
  * Handlers are registered in apis/turns.ts.
  */
 import { createRoute, z } from '@hono/zod-openapi';
+import { ASSUME_USER_HEADER, AssumeUser } from '../auth/assumeUser';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import {
   CreateTurnEventRequestSchema,
@@ -30,6 +31,15 @@ export const TurnIdParamsSchema = SessionIdParamsSchema.extend({
   turn_id: z.string().min(1).describe('Turn identifier.'),
 });
 
+/** OpenAPI-only (like Nest `@ApiHeader`); not a Zod request validator. */
+const ASSUME_USER_HEADER_PARAM = {
+  name: ASSUME_USER_HEADER,
+  in: 'header' as const,
+  required: false,
+  description: 'With the service API key, set to session-creator to act as the session creator.',
+  schema: { type: 'string' as const, enum: [AssumeUser.SessionCreator] },
+};
+
 export const listTurnsRoute = createRoute({
   method: 'get',
   path: '/{session_id}/turns',
@@ -37,6 +47,7 @@ export const listTurnsRoute = createRoute({
   summary: 'List turns in a session',
   description:
     'List turns for a session (newest first by default), token-paginated. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.',
+  parameters: [ASSUME_USER_HEADER_PARAM],
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'list_turns',
   'x-fern-pagination': TOKEN_PAGINATION,
@@ -232,6 +243,7 @@ Only the session creator may create turns.
 When \`stream\` is true (default), respond with a Server-Sent Events stream of turn events.
 When \`stream\` is false, return the turn immediately with \`state.status: "running"\` while execution continues in the background; use get turn or subscribe to observe completion.
 Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto\`); use \`none\` for a new root.`,
+  parameters: [ASSUME_USER_HEADER_PARAM],
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'create_turn',
   'x-fern-streaming': {
