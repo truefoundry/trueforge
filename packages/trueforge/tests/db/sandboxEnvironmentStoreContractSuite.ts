@@ -46,9 +46,46 @@ function createEnvironment<TTransaction>(
   });
 }
 
-export function runSandboxEnvironmentStoreContractSuite<TTransaction>(
-  getStore: () => ISandboxEnvironmentStore<TTransaction>,
-): void {
+export function runSandboxEnvironmentStoreContractSuite<TTransaction>({
+  getStore,
+  setUpdatedAt,
+}: {
+  getStore: () => ISandboxEnvironmentStore<TTransaction>;
+  setUpdatedAt: (input: { name: string; updatedAt: string }) => Promise<void>;
+}): void {
+  it('lists the default first, then latest updates with name breaking ties, before pagination', async () => {
+    const store = getStore();
+    for (const name of ['default-env', 'alpha', 'bravo', 'zeta']) {
+      await createEnvironment(store, name);
+      await setUpdatedAt({ name, updatedAt: '2024-01-01T00:00:00.000Z' });
+    }
+    await store.setDefaultEnvironment({ tenant_id: TENANT, name: 'default-env' });
+    await setUpdatedAt({ name: 'zeta', updatedAt: '2024-01-02T00:00:00.000Z' });
+
+    const all = await store.listEnvironments({ tenant_id: TENANT, limit: undefined, page_token: undefined });
+    expect(all.data.map(row => row.environment.name)).toEqual(['default-env', 'zeta', 'alpha', 'bravo']);
+
+    const first = await store.listEnvironments({ tenant_id: TENANT, limit: 2, page_token: undefined });
+    expect(first.data.map(row => row.environment.name)).toEqual(['default-env', 'zeta']);
+    expect(first.pagination.next_page_token).toEqual(expect.any(String));
+
+    const second = await store.listEnvironments({
+      tenant_id: TENANT,
+      limit: 2,
+      page_token: first.pagination.next_page_token,
+    });
+    expect(second.data.map(row => row.environment.name)).toEqual(['alpha', 'bravo']);
+    expect(second.pagination.next_page_token).toBeUndefined();
+    expect(second.pagination.previous_page_token).toEqual(expect.any(String));
+
+    const previous = await store.listEnvironments({
+      tenant_id: TENANT,
+      limit: 2,
+      page_token: second.pagination.previous_page_token,
+    });
+    expect(previous.data).toEqual(first.data);
+  });
+
   it('setDefaultEnvironment moves the flag and leaves the environment definition untouched', async () => {
     const store = getStore();
     const created = await createEnvironment(store, 'first-env');
