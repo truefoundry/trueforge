@@ -8,8 +8,16 @@ export async function up<TDatabase>(db: Kysely<TDatabase>): Promise<void> {
     await sql`
       UPDATE session
       SET metadata = jsonb_set(metadata, '$."tfg.source"', 'schedule')
-      WHERE json_extract(source, '$.type') = 'schedule'
-        AND json_extract(metadata, '$."tfg.source"') IS NULL
+      WHERE (
+        json_extract(source, '$.type') = 'schedule'
+        OR EXISTS (
+          SELECT 1
+          FROM schedule_run AS r
+          WHERE r.tenant_id = session.tenant_id
+            AND r.session_id = session.session_id
+        )
+      )
+      AND json_extract(metadata, '$."tfg.source"') IS NULL
     `.execute(trx);
   });
 }
