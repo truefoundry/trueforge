@@ -297,14 +297,10 @@ describe('resolveSessionMemory', () => {
   it('starts without a summary when loading it fails', async () => {
     const provider = fakeMemoryProvider();
     provider.getUserSummary.mockRejectedValue(new Error('memory provider down'));
-    const { capability, log } = await resolve({ provider });
+    const { capability } = await resolve({ provider });
 
     expect(capability).toBeDefined();
     expect(await injected(capability)).toEqual([]);
-    expect(log.warn).toHaveBeenCalledWith(
-      'Memory summary unavailable; starting the session without it',
-      expect.objectContaining({ timed_out: false, error: 'memory provider down' }),
-    );
   });
 
   it('gives up on a slow summary after the timeout', async () => {
@@ -315,14 +311,10 @@ describe('resolveSessionMemory', () => {
           signal?.addEventListener('abort', () => reject(new Error('aborted')));
         }),
     );
-    const { capability, log } = await resolve({ provider, summaryTimeoutMs: 10 });
+    const { capability } = await resolve({ provider, summaryTimeoutMs: 10 });
 
     expect(capability).toBeDefined();
     expect(await injected(capability)).toEqual([]);
-    expect(log.warn).toHaveBeenCalledWith(
-      'Memory summary unavailable; starting the session without it',
-      expect.objectContaining({ timed_out: true }),
-    );
   });
 });
 

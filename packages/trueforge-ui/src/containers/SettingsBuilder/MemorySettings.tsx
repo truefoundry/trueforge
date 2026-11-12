@@ -182,7 +182,7 @@ const MemorySettings = () => {
     <>
       <h3 className="text-xl font-semibold tracking-tight text-text-primary">Memory</h3>
       <p className="mt-1 text-sm text-text-secondary">
-        Choose whether agents in this tenant may remember details from past chats.
+        Let TrueForge personalize your conversations based on your past chats.
       </p>
 
       {error ? (
@@ -197,8 +197,8 @@ const MemorySettings = () => {
             <h4 className="text-sm font-medium text-text-primary">Allow memory</h4>
             <p className="mt-0.5 text-xs text-text-secondary">
               {tenantEnabled
-                ? 'Agents with memory turned on remember details from past chats.'
-                : 'No agent remembers details from past chats.'}
+                ? 'Agents may remember details from past chats.'
+                : 'Agents cannot use memory, including in chats that already had it.'}
             </p>
           </div>
           <Switch

@@ -278,6 +278,14 @@ export const TURN_STATUS = {
   RUNNING: 'running',
 } as const;
 
+/** Known `TurnStateCancelled.reason` values; hosts may send others. */
+export const TURN_CANCELLATION_REASON = {
+  ABANDONED: 'abandoned',
+  CANCELLED_FOR_NEXT_TURN: 'cancelled-for-next-turn',
+  CLIENT_CANCELLED: 'client-cancelled',
+  SERVER_EXECUTION_TIMEOUT: 'server-execution-timeout',
+} as const;
+
 /** Status of a turn, including `paused` (waiting on required actions). */
 export type TurnStatus = (typeof TURN_STATUS)[keyof typeof TURN_STATUS];
 
