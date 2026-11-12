@@ -536,7 +536,10 @@ for (const pending of pendingApprovals) {
 }
 
 const resume = await client.sessions.createTurnStream(session.id, { input: approvals });
-for await (const { data: event } of resume.withMetadata()) console.log(event.type);
+for await (const { data: event } of resume.withMetadata()) {
+  console.log(event.type);
+  // Handle other event types.
+}
 ```
 
 ```python Python wrap
@@ -589,6 +592,7 @@ for pending in pending_approvals:
 resume = client.sessions.create_turn_stream(session_id=session.data.id, input=approvals)
 for event in resume:
     print(event.type)
+    # Handle other event types.
 ```
 </CodeGroup>
 
@@ -642,7 +646,10 @@ for (const pending of pendingQuestions) {
 }
 
 const resume = await client.sessions.createTurnStream(session.id, { input: responses });
-for await (const { data: event } of resume.withMetadata()) console.log(event.type);
+for await (const { data: event } of resume.withMetadata()) {
+  console.log(event.type);
+  // Handle other event types.
+}
 ```
 
 ```python Python wrap
@@ -700,6 +707,7 @@ for pending in pending_questions:
 resume = client.sessions.create_turn_stream(session_id=session.data.id, input=responses)
 for event in resume:
     print(event.type)
+    # Handle other event types.
 ```
 </CodeGroup>
 
@@ -738,7 +746,10 @@ if (pendingAuth != null) {
 
 // Resume with empty input; the agent continues the interrupted work.
 const resume = await client.sessions.createTurnStream(session.id, {});
-for await (const { data: event } of resume.withMetadata()) console.log(event.type);
+for await (const { data: event } of resume.withMetadata()) {
+  console.log(event.type);
+  // Handle other event types.
+}
 ```
 
 ```python Python wrap
@@ -769,6 +780,7 @@ if pending_auth is not None:
 resume = client.sessions.create_turn_stream(session_id=session.data.id)
 for event in resume:
     print(event.type)
+    # Handle other event types.
 ```
 </CodeGroup>
 
