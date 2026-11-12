@@ -71,7 +71,7 @@ describe('TurnResourceResolver rootCapabilities', () => {
           id === TRUEFORGE_MCP_ID
             ? {
                 url: 'http://internal.example/mcp',
-                name: 'trueforge-mcp',
+                name: TRUEFORGE_MCP_ID,
                 description: 'TrueForge management',
               }
             : undefined,
@@ -87,8 +87,9 @@ describe('TurnResourceResolver rootCapabilities', () => {
     const root = await resolver.resolveAgentDefinition({ spec, signal, tracing });
     const nested = await resolver.resolveAgentDefinition({ spec, signal, tracing, agent_info: child });
 
-    expect(root.extraCapabilities?.[0]?.systemToolSets?.[0]?.id).toBe('built-in:trueforge-mcp');
-    expect(nested.extraCapabilities?.[0]?.systemToolSets?.[0]?.id).toBe('built-in:trueforge-mcp');
+    expect(root.extraCapabilities?.[0]?.systemToolSets?.[0]?.id).toBe(TRUEFORGE_MCP_ID);
+    expect(nested.extraCapabilities?.[0]?.systemToolSets?.[0]?.id).toBe(TRUEFORGE_MCP_ID);
+    expect(root.extraCapabilities?.[0]?.systemToolSets?.[0]?.name).toBe(TRUEFORGE_MCP_ID);
   });
 
   it('keeps direct capability sources distinct from configured MCPs with the same display name', async () => {
@@ -104,7 +105,7 @@ describe('TurnResourceResolver rootCapabilities', () => {
           id === TRUEFORGE_MCP_ID
             ? {
                 url: 'http://internal.example/mcp',
-                name: 'trueforge-mcp',
+                name: TRUEFORGE_MCP_ID,
                 description: 'TrueForge management',
               }
             : {
@@ -138,8 +139,8 @@ describe('TurnResourceResolver rootCapabilities', () => {
     });
 
     expect(resolved.definition.toolSets?.[0]?.id).toBe('trueforge-mcp');
-    expect(resolved.extraCapabilities?.[0]?.systemToolSets?.[0]?.id).toBe('built-in:trueforge-mcp');
-    expect(resolved.extraCapabilities?.[0]?.systemToolSets?.[0]?.name).toBe('trueforge-mcp');
+    expect(resolved.extraCapabilities?.[0]?.systemToolSets?.[0]?.id).toBe(TRUEFORGE_MCP_ID);
+    expect(resolved.extraCapabilities?.[0]?.systemToolSets?.[0]?.name).toBe(TRUEFORGE_MCP_ID);
   });
 
   it('omits extraCapabilities when none are configured', async () => {
