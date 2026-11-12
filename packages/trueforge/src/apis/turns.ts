@@ -1150,10 +1150,12 @@ async function resolveTurnSession<TTransaction>(params: {
   c: Context;
   sessions: Sessions<TTransaction>;
   session_id: string;
+  resolveRequestContext: ResolveRequestContext;
 }): Promise<{ requestContext: RequestContext; session: SessionHandle<TTransaction> }> {
-  const { c, sessions, session_id: sessionId } = params;
+  const { c, sessions, session_id: sessionId, resolveRequestContext } = params;
   const existing = c.get('request_context');
-  if (!existing) {
+  // Service key leaves request_context unset and sends assume-user; JWT/tests use resolveRequestContext.
+  if (!existing && c.req.header(ASSUME_USER_HEADER)?.trim()) {
     parseAssumeUserHeader(c.req.header(ASSUME_USER_HEADER));
     const session = await sessions.getById({ session_id: sessionId });
     if (!session) {
@@ -1169,14 +1171,15 @@ async function resolveTurnSession<TTransaction>(params: {
     return { requestContext, session };
   }
 
+  const requestContext = existing ?? resolveRequestContext(c);
   const session = await sessions.get({
-    tenant_id: existing.tenant_id,
+    tenant_id: requestContext.tenant_id,
     session_id: sessionId,
   });
   if (!session) {
     throw new HTTPException(404, { message: `Session not found: ${sessionId}` });
   }
-  return { requestContext: existing, session };
+  return { requestContext, session };
 }
 
 /** Request-reply path the owner serves for inbound turn events. */
@@ -1829,6 +1832,7 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
       c,
       sessions: deps.sessions,
       session_id: sessionId,
+      resolveRequestContext: deps.resolveRequestContext,
     });
     const allowed = await canReadSession({
       session_id: session.record.session_id,
@@ -2001,11 +2005,12 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
   const createAndExecuteTurnHandler: RouteHandler<typeof createAndExecuteTurnRoute> = async c => {
     const { session_id: sessionId } = c.req.valid('param');
     const body = c.req.valid('json');
-    const serviceAuth = !c.get('request_context');
+    const serviceAuth = Boolean(c.req.header(ASSUME_USER_HEADER)?.trim());
     const { requestContext, session } = await resolveTurnSession({
       c,
       sessions: deps.sessions,
       session_id: sessionId,
+      resolveRequestContext: deps.resolveRequestContext,
     });
 
     let referencedAgent: AgentRecord | undefined;
