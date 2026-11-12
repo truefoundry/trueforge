@@ -97,12 +97,18 @@ describe('agents router', () => {
   let deniedRouter: ReturnType<typeof createAgentsRouter>;
   let sandboxEnvironmentStore: SqliteSandboxEnvironmentStore;
   let sandboxProviderStore: SqliteSandboxProviderStore;
+  let webSearchProviderStore: SqliteWebSearchProviderStore;
+  let memoryProviderStore: SqliteMemoryProviderStore;
+  let configurationStore: SqliteConfigurationStore;
 
   beforeAll(async () => {
     const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
     sandboxEnvironmentStore = new SqliteSandboxEnvironmentStore(db);
     sandboxProviderStore = new SqliteSandboxProviderStore(db);
+    webSearchProviderStore = new SqliteWebSearchProviderStore(db);
+    memoryProviderStore = new SqliteMemoryProviderStore(db);
+    configurationStore = new SqliteConfigurationStore(db);
     const modelProviderStore = new SqliteModelProviderStore(db);
     await modelProviderStore.upsertProvider({ tenant_id: 'default', name: 'anthropic', manifest: modelProvider });
     const agentStore = new SqliteAgentStore(db);
@@ -111,11 +117,11 @@ describe('agents router', () => {
       resolveModelProviderStore: () => modelProviderStore,
       resolveMcpServerStore: () => new SqliteMcpServerStore(db),
       resolveSkillStore: () => new SqliteSkillStore(db),
-      sandboxProviderStore: new SqliteSandboxProviderStore(db),
-      sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
-      webSearchProviderStore: new SqliteWebSearchProviderStore(db),
-      memoryProviderStore: new SqliteMemoryProviderStore(db),
-      configurationStore: new SqliteConfigurationStore(db),
+      sandboxProviderStore,
+      sandboxEnvironmentStore,
+      webSearchProviderStore,
+      memoryProviderStore,
+      configurationStore,
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
       authorizer: new TrueForgeAuthorizer(),
@@ -125,11 +131,11 @@ describe('agents router', () => {
       resolveModelProviderStore: () => modelProviderStore,
       resolveMcpServerStore: () => new SqliteMcpServerStore(db),
       resolveSkillStore: () => new SqliteSkillStore(db),
-      sandboxProviderStore: new SqliteSandboxProviderStore(db),
-      sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
-      webSearchProviderStore: new SqliteWebSearchProviderStore(db),
-      memoryProviderStore: new SqliteMemoryProviderStore(db),
-      configurationStore: new SqliteConfigurationStore(db),
+      sandboxProviderStore,
+      sandboxEnvironmentStore,
+      webSearchProviderStore,
+      memoryProviderStore,
+      configurationStore,
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
       authorizer: denyAllAuthorizer,
@@ -376,7 +382,34 @@ describe('agents router', () => {
     ]);
   });
 
-  it('PUT keeps an agent that already named a now-disabled sandbox environment', async () => {
+  it('POST rejects sandbox.enabled without environment_name when Daytona is configured', async () => {
+    await sandboxProviderStore.upsertSandboxProvider({
+      tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
+      manifest: {
+        type: 'daytona',
+        auth: { api_key: 'dtn-test' },
+        exec_timeout_ms: 60_000,
+        auto_stop_interval_in_minutes: 5,
+        auto_archive_interval_in_minutes: 60,
+        auto_delete_interval_in_minutes: 7200,
+      },
+    });
+    const res = await router.request(
+      '/',
+      jsonInit('POST', {
+        ...writeBody,
+        name: 'missing-env-agent',
+        manifest: {
+          ...manifest,
+          config: { sandbox: { enabled: true } },
+        },
+      }),
+    );
+    expect(res.status).toBe(422);
+    expect(await res.text()).toContain('sandbox.environment_name is required when sandbox is enabled');
+  });
+
+  it('PUT rejects an agent that still names a now-disabled sandbox environment', async () => {
     await sandboxProviderStore.upsertSandboxProvider({
       tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
       manifest: {
@@ -430,6 +463,73 @@ describe('agents router', () => {
       `/${agent.id}`,
       jsonInit('PUT', { description: 'Updated.', manifest: pinnedManifest }),
     );
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(422);
+    expect(await res.text()).toContain('disabled and cannot be selected');
+  });
+
+  it('PUT rejects keeping web_search on after the tenant disables it', async () => {
+    await webSearchProviderStore.upsertProvider({
+      tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
+      manifest: { type: 'parallel', auth: { api_key: 'parallel-key' } },
+    });
+    await configurationStore.upsertConfiguration({
+      tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
+      manifest: { web_search: { enabled: true }, memory: { enabled: false } },
+    });
+    const webSearchManifest = {
+      ...manifest,
+      config: { web_search: { enabled: true } },
+    };
+    const created = await router.request(
+      '/',
+      jsonInit('POST', { ...writeBody, name: 'web-search-agent', manifest: webSearchManifest }),
+    );
+    expect(created.status).toBe(201);
+    const { data: agent } = (await created.json()) as { data: { id: string } };
+
+    await configurationStore.upsertConfiguration({
+      tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
+      manifest: { web_search: { enabled: false }, memory: { enabled: false } },
+    });
+
+    const res = await router.request(
+      `/${agent.id}`,
+      jsonInit('PUT', { description: 'Updated.', manifest: webSearchManifest }),
+    );
+    expect(res.status).toBe(422);
+    expect(await res.text()).toContain('web_search cannot be enabled because it is disabled for this tenant');
+  });
+
+  it('PUT rejects keeping memory on after the tenant disables it', async () => {
+    await memoryProviderStore.upsertProvider({
+      tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
+      manifest: { type: 'zep', auth: { api_key: 'zep-test-key' } },
+    });
+    await configurationStore.upsertConfiguration({
+      tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
+      manifest: { web_search: { enabled: false }, memory: { enabled: true } },
+    });
+    const memoryManifest = {
+      ...manifest,
+      config: { memory: { enabled: true } },
+    };
+    const created = await router.request(
+      '/',
+      jsonInit('POST', { ...writeBody, name: 'memory-agent', manifest: memoryManifest }),
+    );
+    expect(created.status).toBe(201);
+    const { data: agent } = (await created.json()) as { data: { id: string } };
+
+    await configurationStore.upsertConfiguration({
+      tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
+      manifest: { web_search: { enabled: false }, memory: { enabled: false } },
+    });
+
+    const res = await router.request(
+      `/${agent.id}`,
+      jsonInit('PUT', { description: 'Updated.', manifest: memoryManifest }),
+    );
+    expect(res.status).toBe(422);
+    expect(await res.text()).toContain('memory cannot be enabled because it is disabled for this tenant');
   });
 });

@@ -25,6 +25,13 @@ export const listAvailableMcpServersRoute = createRoute({
   description: 'Configured MCP servers as a slim name/url list for the composer.',
   'x-fern-sdk-group-name': ['mcpServers'],
   'x-fern-sdk-method-name': 'list',
+  'x-tfg-mcp': {
+    name: 'list_mcp_servers',
+    description:
+      'List the MCP servers you can attach to an agent, each with its current authentication status so you ' +
+      'know whether it is ready to use. Check this before referencing an MCP server in a manifest.',
+    annotations: { readOnlyHint: true },
+  },
   responses: {
     200: {
       content: { 'application/json': { schema: ListAvailableMcpServersResponseSchema } },
@@ -46,6 +53,13 @@ export const getAvailableMcpServerRoute = createRoute({
   description: 'A single MCP server as the slim chat projection, with live per-user auth_status.',
   'x-fern-sdk-group-name': ['mcpServers'],
   'x-fern-sdk-method-name': 'get',
+  'x-tfg-mcp': {
+    name: 'get_mcp_server',
+    description:
+      'Fetch one MCP server by name — its public connection details and current authentication status — to ' +
+      'confirm it exists and is authenticated before referencing it in an agent.',
+    annotations: { readOnlyHint: true },
+  },
   request: {
     params: McpServerNameParamsSchema,
   },

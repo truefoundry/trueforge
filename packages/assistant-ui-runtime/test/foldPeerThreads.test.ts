@@ -8,6 +8,7 @@ import {
   applyApprovalPoliciesToFold,
   buildRootAssistantContent,
   buildRootAssistantContentForIds,
+  buildRootAssistantFoldForIds,
   earliestOpenModelMessageId,
   ingestStreamEvent,
   ingestTurnEvent,
@@ -755,6 +756,78 @@ describe('foldPeerThreads', () => {
     expect(toolCall.result).toEqual({ error: 'not allowed' });
   });
 
+  it('gives create_sub_agent a truthy result after empty tool.response so aui marks it complete', () => {
+    const state = new PeerThreadFoldState();
+
+    ingestTurnEvent(
+      state,
+      modelMessage({
+        id: 'root-msg',
+        threadId: ROOT_THREAD_ID,
+        toolCalls: [
+          {
+            id: 'spawn-1',
+            type: 'function',
+            function: { name: 'create_sub_agent', arguments: '{}' },
+            toolInfo: { type: 'trueforge-system', name: 'create_sub_agent' },
+          },
+          {
+            id: 'spawn-2',
+            type: 'function',
+            function: { name: 'create_sub_agent', arguments: '{}' },
+            toolInfo: { type: 'trueforge-system', name: 'create_sub_agent' },
+          },
+        ],
+      }),
+    );
+    ingestTurnEvent(
+      state,
+      threadCreated({
+        id: 't-created-1',
+        threadId: 'child-1',
+        title: 'Done agent',
+        agentInfo: { type: 'dynamic', name: 'done', input: 'finish' },
+        parent: { threadId: ROOT_THREAD_ID, toolCallId: 'spawn-1' },
+      }),
+    );
+    ingestTurnEvent(
+      state,
+      modelMessage({
+        id: 'child-1-msg',
+        threadId: 'child-1',
+        content: 'done',
+      }),
+    );
+    ingestTurnEvent(state, {
+      type: 'thread.done',
+      id: 't-done-1',
+      threadId: 'child-1',
+      createdAt,
+      state: { status: 'done' },
+    });
+    // Orchestrator closes create_sub_agent with empty content; payload is on send_to_parent.
+    ingestTurnEvent(state, {
+      type: 'tool.response',
+      id: 'tr-1',
+      threadId: ROOT_THREAD_ID,
+      createdAt,
+      toolCallId: 'spawn-1',
+      content: '',
+    });
+
+    const parts = buildRootAssistantContent(state).filter(part => part.type === 'tool-call');
+    const done = parts.find(part => part.type === 'tool-call' && part.toolCallId === 'spawn-1');
+    const open = parts.find(part => part.type === 'tool-call' && part.toolCallId === 'spawn-2');
+    expect(done?.type).toBe('tool-call');
+    expect(open?.type).toBe('tool-call');
+    if (done?.type !== 'tool-call' || open?.type !== 'tool-call') {
+      return;
+    }
+    expect(done.result).toBeTruthy();
+    expect(open.result).toBeUndefined();
+    expect(done.messages?.[0]?.status).toEqual({ type: 'complete', reason: 'stop' });
+  });
+
   it('marks nested sub-agent incomplete when thread.done is error', () => {
     const state = new PeerThreadFoldState();
 
@@ -1140,5 +1213,156 @@ describe('foldPeerThreads', () => {
 
     state.settledTurnCompletedAtMs = Date.parse('2026-10-26T12:52:46.773Z');
     expect(buildRootAssistantContentForIds(state, [])).toEqual([]);
+  });
+
+  it('maps toolCallIds to the model.message that first emitted them', () => {
+    const state = new PeerThreadFoldState();
+    ingestTurnEvent(
+      state,
+      modelMessage({
+        id: 'm-batch',
+        threadId: ROOT_THREAD_ID,
+        toolCalls: [
+          {
+            id: 't1',
+            type: 'function',
+            function: { name: 'list_teams_for_user', arguments: '{}' },
+          },
+          {
+            id: 't2',
+            type: 'function',
+            function: { name: 'get_manifest_json_schema', arguments: '{}' },
+          },
+          {
+            id: 't3',
+            type: 'function',
+            function: { name: 'check_user_registration', arguments: '{}' },
+          },
+          {
+            id: 'spawn-1',
+            type: 'function',
+            function: { name: 'create_sub_agent', arguments: '{}' },
+            toolInfo: { type: 'trueforge-system', name: 'create_sub_agent' },
+          },
+        ],
+      }),
+    );
+    ingestTurnEvent(
+      state,
+      modelMessage({
+        id: 'm-later',
+        threadId: ROOT_THREAD_ID,
+        toolCalls: [
+          {
+            id: 't4',
+            type: 'function',
+            function: { name: 'validate_manifest', arguments: '{}' },
+          },
+        ],
+      }),
+    );
+
+    const { parallelToolGroups } = buildRootAssistantFoldForIds(state, ['m-batch', 'm-later']);
+    expect(parallelToolGroups).toEqual({
+      t1: 'm-batch',
+      t2: 'm-batch',
+      t3: 'm-batch',
+      'spawn-1': 'm-batch',
+      t4: 'm-later',
+    });
+  });
+
+  it('keeps the first model.message id when a toolCallId is re-emitted later', () => {
+    const state = new PeerThreadFoldState();
+    ingestTurnEvent(
+      state,
+      modelMessage({
+        id: 'm-first',
+        threadId: ROOT_THREAD_ID,
+        toolCalls: [
+          {
+            id: 'tool-1',
+            type: 'function',
+            function: { name: 'search_docs', arguments: '{}' },
+          },
+        ],
+      }),
+    );
+    ingestTurnEvent(
+      state,
+      modelMessage({
+        id: 'm-resume',
+        threadId: ROOT_THREAD_ID,
+        toolCalls: [
+          {
+            id: 'tool-1',
+            type: 'function',
+            function: { name: 'search_docs', arguments: '{"q":"x"}' },
+          },
+        ],
+      }),
+    );
+
+    const { parallelToolGroups, parts } = buildRootAssistantFoldForIds(state, ['m-first', 'm-resume']);
+    expect(parallelToolGroups).toEqual({ 'tool-1': 'm-first' });
+    expect(parts.filter(part => part.type === 'tool-call')).toHaveLength(1);
+  });
+
+  it('stamps parallelToolGroups onto nested sub-agent messages', () => {
+    const state = new PeerThreadFoldState();
+    ingestTurnEvent(
+      state,
+      modelMessage({
+        id: 'root-msg',
+        threadId: ROOT_THREAD_ID,
+        toolCalls: [
+          {
+            id: 'spawn-1',
+            type: 'function',
+            function: { name: 'create_sub_agent', arguments: '{}' },
+            toolInfo: { type: 'trueforge-system', name: 'create_sub_agent' },
+          },
+        ],
+      }),
+    );
+    ingestTurnEvent(
+      state,
+      threadCreated({
+        id: 't-created',
+        threadId: 'child-1',
+        title: 'Worker',
+        agentInfo: { type: 'dynamic', name: 'worker', input: 'go' },
+        parent: { threadId: ROOT_THREAD_ID, toolCallId: 'spawn-1' },
+      }),
+    );
+    ingestTurnEvent(
+      state,
+      modelMessage({
+        id: 'child-batch',
+        threadId: 'child-1',
+        toolCalls: [
+          {
+            id: 'c1',
+            type: 'function',
+            function: { name: 'get_session_context', arguments: '{}' },
+          },
+          {
+            id: 'c2',
+            type: 'function',
+            function: { name: 'get_manifest_json_schema', arguments: '{}' },
+          },
+        ],
+      }),
+    );
+
+    const spawn = buildRootAssistantContent(state).find(part => part.type === 'tool-call');
+    if (spawn?.type !== 'tool-call') {
+      throw new Error('expected create_sub_agent tool-call');
+    }
+    const nested = spawn.messages?.[0];
+    expect(nested?.metadata.custom['parallelToolGroups']).toEqual({
+      c1: 'child-batch',
+      c2: 'child-batch',
+    });
   });
 });

@@ -11,7 +11,7 @@ import {
 } from '../../src/agent-session/schemas/turn';
 import type { CreateTurnInput, NewThreadInit, TurnContextAppend } from '../../src/agent-session/store/ISessionStore';
 import { createInitialTurnMetricsCheckpoint } from '../../src/agent-session/turnMetrics';
-import { TurnResourceResolver } from '../../src/agent-session/TurnResourceResolver';
+import { TRUEFORGE_MCP_ID, TurnResourceResolver } from '../../src/agent-session/TurnResourceResolver';
 import type { AgentCapability } from '../../src/core/capabilities/AgentCapability';
 import { newEventId } from '../../src/core/events/schema';
 import type { ILLM } from '../../src/core/llm/ILLM';
@@ -113,8 +113,11 @@ export function makeTestResolver<TTurnCustom extends object = Record<string, nev
         defaultModelParams: {},
         providerType: undefined,
       }),
-    mcp: name => {
-      return Promise.reject(new Error(`unexpected mcp lookup: ${name}`));
+    mcp: id => {
+      if (id === TRUEFORGE_MCP_ID) {
+        return Promise.resolve(undefined);
+      }
+      return Promise.reject(new Error(`unexpected mcp lookup: ${id}`));
     },
     mcpRequestTimeoutMs: 60_000,
     mcpConnectTimeoutMs: 5_000,

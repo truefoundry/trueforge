@@ -2,13 +2,13 @@
  * Backend-agnostic behavioural contract for IAgentStore.
  * Runs under jest against a fresh store per test (see backend test files).
  */
-import { AgentSpecSchema, type AgentSpec, type CreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
+import { AgentSpecSchema, type AgentSpec, type Subject } from '@truefoundry/trueforge-core/agent-session';
 import type { z } from 'zod';
 import { AgentExternalIdConflictError, AgentNameConflictError, type IAgentStore } from '../../src/db/agentStore';
 
 const TENANT = 'default';
 
-const CREATED_BY_SUBJECT: CreatedBySubject = {
+const CREATED_BY_SUBJECT: Subject = {
   subject_id: 'tester',
   subject_type: 'user',
   subject_display_name: 'tester',

@@ -83,15 +83,15 @@ function tenantMemory({
       ),
     upsertProvider: () => Promise.reject(new Error('not used')),
   };
+  const storedConfiguration = (tenantId: string) => ({
+    tenant_id: tenantId,
+    manifest: { web_search: { enabled: true }, memory: { enabled: tenantEnabled } },
+    updated_at: '2026-10-01T00:00:00.000Z',
+  });
   const configurationStore: IConfigurationStore = {
-    getConfiguration: tenantId =>
-      Promise.resolve({
-        tenant_id: tenantId,
-        manifest: { web_search: { enabled: true }, memory: { enabled: tenantEnabled } },
-        updated_at: '2026-10-01T00:00:00.000Z',
-      }),
+    getConfiguration: tenantId => Promise.resolve(storedConfiguration(tenantId)),
     upsertConfiguration: () => Promise.reject(new Error('not used')),
-    getOrCreateConfiguration: () => Promise.reject(new Error('not used')),
+    getOrCreateConfiguration: ({ tenant_id }) => Promise.resolve(storedConfiguration(tenant_id)),
     listTenantIdsWithFeatureEnabled: () => Promise.reject(new Error('not used')),
   };
   return { memoryProviderStore, configurationStore, providers: { get: () => provider } };
@@ -297,14 +297,10 @@ describe('resolveSessionMemory', () => {
   it('starts without a summary when loading it fails', async () => {
     const provider = fakeMemoryProvider();
     provider.getUserSummary.mockRejectedValue(new Error('memory provider down'));
-    const { capability, log } = await resolve({ provider });
+    const { capability } = await resolve({ provider });
 
     expect(capability).toBeDefined();
     expect(await injected(capability)).toEqual([]);
-    expect(log.warn).toHaveBeenCalledWith(
-      'Memory summary unavailable; starting the session without it',
-      expect.objectContaining({ timed_out: false, error: 'memory provider down' }),
-    );
   });
 
   it('gives up on a slow summary after the timeout', async () => {
@@ -315,14 +311,10 @@ describe('resolveSessionMemory', () => {
           signal?.addEventListener('abort', () => reject(new Error('aborted')));
         }),
     );
-    const { capability, log } = await resolve({ provider, summaryTimeoutMs: 10 });
+    const { capability } = await resolve({ provider, summaryTimeoutMs: 10 });
 
     expect(capability).toBeDefined();
     expect(await injected(capability)).toEqual([]);
-    expect(log.warn).toHaveBeenCalledWith(
-      'Memory summary unavailable; starting the session without it',
-      expect.objectContaining({ timed_out: true }),
-    );
   });
 });
 

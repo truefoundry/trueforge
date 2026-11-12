@@ -64,7 +64,7 @@ if typing.TYPE_CHECKING:
         CreateScheduleRunResponse,
         CreateSessionAgent,
         CreateTurnEventResponse,
-        CreatedBySubject,
+        Subject,
         CronExpression,
         CustomModelProvider,
         DaytonaSandboxProviderAuth,
@@ -238,6 +238,7 @@ if typing.TYPE_CHECKING:
         SessionSharingCapabilityGranularity,
         SessionSource,
         SessionSourceSchedule,
+        SessionSourceService,
         SessionSourceType,
         SettingsCapability,
         SettingsCapabilitySection,
@@ -336,6 +337,7 @@ if typing.TYPE_CHECKING:
     )
     from ._default_clients import DefaultAioHttpClient, DefaultAsyncHttpxClient
     from .client import AsyncTrueForge, TrueForge
+    from .sessions import CreateTurnSessionsRequestInputItem, CreateTurnSessionsStreamRequestInputItem
     from .version import __version__
 _dynamic_imports: typing.Dict[str, str] = {
     "ActionRequiredEvent": ".types",
@@ -400,7 +402,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CreateScheduleRunResponse": ".types",
     "CreateSessionAgent": ".types",
     "CreateTurnEventResponse": ".types",
-    "CreatedBySubject": ".types",
+    "CreateTurnSessionsRequestInputItem": ".sessions",
+    "CreateTurnSessionsStreamRequestInputItem": ".sessions",
+    "Subject": ".types",
     "CronExpression": ".types",
     "CustomModelProvider": ".types",
     "DaytonaSandboxProviderAuth": ".types",
@@ -582,6 +586,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SessionSharingCapabilityGranularity": ".types",
     "SessionSource": ".types",
     "SessionSourceSchedule": ".types",
+    "SessionSourceService": ".types",
     "SessionSourceType": ".types",
     "SettingsCapability": ".types",
     "SettingsCapabilitySection": ".types",
@@ -752,7 +757,9 @@ __all__ = [
     "CreateScheduleRunResponse",
     "CreateSessionAgent",
     "CreateTurnEventResponse",
-    "CreatedBySubject",
+    "CreateTurnSessionsRequestInputItem",
+    "CreateTurnSessionsStreamRequestInputItem",
+    "Subject",
     "CronExpression",
     "CustomModelProvider",
     "DaytonaSandboxProviderAuth",
@@ -934,6 +941,7 @@ __all__ = [
     "SessionSharingCapabilityGranularity",
     "SessionSource",
     "SessionSourceSchedule",
+    "SessionSourceService",
     "SessionSourceType",
     "SettingsCapability",
     "SettingsCapabilitySection",

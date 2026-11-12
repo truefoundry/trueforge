@@ -1171,7 +1171,7 @@ await client.sandboxEnvironments.get("name");
 <dl>
 <dd>
 
-Delete a sandbox environment. Fails if any agent still references it, if it is the tenant default, or if it is the reserved "default" environment.
+Delete a sandbox environment. Fails if any agent still references it, if it is the tenant default, or if it is the reserved platform environment.
 </dd>
 </dl>
 </dd>
@@ -1945,7 +1945,7 @@ await client.sessions.create({
 <dl>
 <dd>
 
-Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or a subject with a session access grant.
 </dd>
 </dl>
 </dd>
@@ -2071,7 +2071,7 @@ await client.sessions.delete("session_id");
 <dl>
 <dd>
 
-Update a session: optional `title`, `metadata`, `shared`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
+Update a session: optional `title`, `metadata`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
 </dd>
 </dl>
 </dd>
@@ -2213,7 +2213,7 @@ await client.sessions.cancel("session_id");
 <dl>
 <dd>
 
-List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or a subject with a session access grant.
 </dd>
 </dl>
 </dd>
@@ -2532,7 +2532,12 @@ Use `previous_turn_id` to chain to the session's last turn (defaults to `auto`);
 <dd>
 
 ```typescript
-const response = await client.sessions.createTurnStream("session_id", {});
+const response = await client.sessions.createTurnStream("session_id", {
+    input: [{
+            content: "content",
+            type: "user.message"
+        }]
+});
 for await (const item of response) {
     console.log(item);
 }
@@ -2610,7 +2615,12 @@ Use `previous_turn_id` to chain to the session's last turn (defaults to `auto`);
 <dd>
 
 ```typescript
-await client.sessions.createTurn("session_id", {});
+await client.sessions.createTurn("session_id", {
+    input: [{
+            content: "content",
+            type: "user.message"
+        }]
+});
 
 ```
 </dd>
@@ -4023,6 +4033,82 @@ await client.internal.sessions.getOrCreateByExternalId({
 <dd>
 
 **request:** `TrueForge.internal.GetOrCreateSessionByExternalIdRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `SessionsClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.internal.sessions.<a href="/src/api/resources/internal/resources/sessions/client/Client.ts">createTurn</a>(session_id, { ...params }) -> TrueForge.GetTurnResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Service API key. Non-streaming; requires external_id and a non-null source.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.internal.sessions.createTurn("session_id", {
+    input: [{
+            content: "content",
+            type: "user.message"
+        }]
+});
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**session_id:** `string` — Session identifier.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request:** `TrueForge.internal.InternalCreateSessionTurnRequest` 
     
 </dd>
 </dl>

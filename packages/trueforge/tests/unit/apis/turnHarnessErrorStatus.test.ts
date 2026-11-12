@@ -104,7 +104,9 @@ async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response
   return app.request('/s1/turns', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: '{}',
+    body: JSON.stringify({
+      input: [{ type: 'user.message', content: 'hello' }],
+    }),
   });
 }
 

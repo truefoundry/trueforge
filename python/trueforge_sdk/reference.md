@@ -1346,7 +1346,7 @@ client.sandbox_environments.get(
 <dl>
 <dd>
 
-Delete a sandbox environment. Fails if any agent still references it, if it is the tenant default, or if it is the reserved "default" environment.
+Delete a sandbox environment. Fails if any agent still references it, if it is the tenant default, or if it is the reserved platform environment.
 </dd>
 </dl>
 </dd>
@@ -2316,7 +2316,7 @@ client.sessions.create(
 <dl>
 <dd>
 
-Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or a subject with a session access grant.
 </dd>
 </dl>
 </dd>
@@ -2460,7 +2460,7 @@ client.sessions.delete(
 <dl>
 <dd>
 
-Update a session: optional `title`, `metadata`, `shared`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
+Update a session: optional `title`, `metadata`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
 </dd>
 </dl>
 </dd>
@@ -2517,14 +2517,6 @@ client.sessions.update(
 <dd>
 
 **metadata:** `typing.Optional[SessionMetadata]` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**shared:** `typing.Optional[bool]` — Deprecated; use `POST /sessions/{session_id}/grants` with a `tenant` subject.
     
 </dd>
 </dl>
@@ -2636,7 +2628,7 @@ client.sessions.cancel(
 <dl>
 <dd>
 
-List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or a subject with a session access grant.
 </dd>
 </dl>
 </dd>
@@ -3000,6 +2992,7 @@ Use `previous_turn_id` to chain to the session's last turn (defaults to `auto`);
 
 ```python
 from trueforge_sdk import TrueForge
+from trueforge_sdk.sessions import CreateTurnSessionsStreamRequestInputItem
 
 client = TrueForge(
     token="<token>",
@@ -3008,6 +3001,12 @@ client = TrueForge(
 
 client.sessions.create_turn_stream(
     session_id="session_id",
+    input=[
+        CreateTurnSessionsStreamRequestInputItem(
+            content="content",
+            type="user.message",
+        )
+    ],
 )
 
 ```
@@ -3032,7 +3031,7 @@ client.sessions.create_turn_stream(
 <dl>
 <dd>
 
-**stream:** `typing.Literal` — When true (default), stream turn events as SSE. When false, return the running turn immediately.
+**input:** `typing.List[CreateTurnSessionsStreamRequestInputItem]` — User messages for this turn. At least one is required.
     
 </dd>
 </dl>
@@ -3040,7 +3039,7 @@ client.sessions.create_turn_stream(
 <dl>
 <dd>
 
-**input:** `typing.Optional[typing.List[UserMessage]]` — User messages supplied when the turn is created.
+**stream:** `typing.Literal` — When true (default), stream turn events as SSE. When false, return the running turn immediately.
     
 </dd>
 </dl>
@@ -3100,6 +3099,7 @@ Use `previous_turn_id` to chain to the session's last turn (defaults to `auto`);
 
 ```python
 from trueforge_sdk import TrueForge
+from trueforge_sdk.sessions import CreateTurnSessionsStreamRequestInputItem
 
 client = TrueForge(
     token="<token>",
@@ -3108,6 +3108,12 @@ client = TrueForge(
 
 client.sessions.create_turn_stream(
     session_id="session_id",
+    input=[
+        CreateTurnSessionsStreamRequestInputItem(
+            content="content",
+            type="user.message",
+        )
+    ],
 )
 
 ```
@@ -3132,7 +3138,7 @@ client.sessions.create_turn_stream(
 <dl>
 <dd>
 
-**stream:** `typing.Literal` — When true (default), stream turn events as SSE. When false, return the running turn immediately.
+**input:** `typing.List[CreateTurnSessionsRequestInputItem]` — User messages for this turn. At least one is required.
     
 </dd>
 </dl>
@@ -3140,7 +3146,7 @@ client.sessions.create_turn_stream(
 <dl>
 <dd>
 
-**input:** `typing.Optional[typing.List[UserMessage]]` — User messages supplied when the turn is created.
+**stream:** `typing.Literal` — When true (default), stream turn events as SSE. When false, return the running turn immediately.
     
 </dd>
 </dl>
@@ -4785,7 +4791,110 @@ client.internal.sessions.get_or_create_by_external_id(
 <dl>
 <dd>
 
-**source:** `typing.Optional[SessionSourceSchedule]` 
+**source:** `typing.Optional[SessionSource]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.internal.sessions.<a href="src/trueforge_sdk/internal/sessions/client.py">create_turn</a>(...) -> GetTurnResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Service API key. Non-streaming; requires external_id and a non-null source.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge
+from trueforge_sdk.internal.sessions import InternalCreateSessionTurnRequestInputItem
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.internal.sessions.create_turn(
+    session_id="session_id",
+    input=[
+        InternalCreateSessionTurnRequestInputItem(
+            content="content",
+            type="user.message",
+        )
+    ],
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**session_id:** `str` — Session identifier.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**input:** `typing.List[InternalCreateSessionTurnRequestInputItem]` — User messages for this turn. At least one is required.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**previous_turn_id:** `typing.Optional[PreviousTurnIdInput]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**stream:** `typing.Optional[typing.Literal]` — Must be false; streaming is not supported on this endpoint.
     
 </dd>
 </dl>

@@ -1,4 +1,4 @@
-import { CreatedBySubjectSchema, type TokenPagination } from '@truefoundry/trueforge-core/agent-session';
+import { SubjectSchema, type TokenPagination } from '@truefoundry/trueforge-core/agent-session';
 import {
   decodeOffsetPageToken,
   paginateOffsetRows,
@@ -37,7 +37,7 @@ function toRecord(row: Selectable<AgentTable>): AgentRecord {
     description: row.description,
     manifest: parseStoredAgentSpec(row.manifest),
     external_id: row.external_id,
-    created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
+    created_by_subject: SubjectSchema.parse(row.created_by_subject),
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
   };

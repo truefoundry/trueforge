@@ -3,8 +3,13 @@ import { describe, expect, it } from 'vitest';
 import {
   canReuseMutableShell,
   formatRelativeShort,
+  isRunningTurnStatus,
+  lastTurnStatusDotClass,
+  lastTurnStatusLabel,
   readThreadAgentName,
   readThreadIsMutable,
+  readThreadLastTurnStatus,
+  threadCustomWithLastTurnStatus,
   threadListIndicesByRecency,
   threadListItemIsMutable,
 } from '@/atoms/lib/threadListMeta.js';
@@ -25,6 +30,62 @@ describe('readThreadAgentName', () => {
     expect(readThreadAgentName({})).toBeUndefined();
     expect(readThreadAgentName(null)).toBeUndefined();
     expect(readThreadAgentName({ agentName: 1 })).toBeUndefined();
+  });
+});
+
+describe('readThreadLastTurnStatus', () => {
+  it('reads a valid lastTurnStatus from custom metadata', () => {
+    expect(readThreadLastTurnStatus({ lastTurnStatus: 'running' })).toBe('running');
+    expect(readThreadLastTurnStatus({ lastTurnStatus: 'paused' })).toBe('paused');
+    expect(readThreadLastTurnStatus({})).toBeUndefined();
+    expect(readThreadLastTurnStatus({ lastTurnStatus: 'nope' })).toBeUndefined();
+  });
+});
+
+describe('lastTurnStatusDotClass', () => {
+  it('maps paused and error; hides running, cancelled, and done', () => {
+    expect(lastTurnStatusDotClass('paused')).toBe('bg-warning-bg');
+    expect(lastTurnStatusDotClass('error')).toBe('bg-failure-bg');
+    expect(lastTurnStatusDotClass('cancelled')).toBeUndefined();
+    expect(lastTurnStatusDotClass('running')).toBeUndefined();
+    expect(lastTurnStatusDotClass('done')).toBeUndefined();
+    expect(lastTurnStatusDotClass(null)).toBeUndefined();
+  });
+});
+
+describe('lastTurnStatusLabel', () => {
+  it('labels running, paused, and error for screen readers', () => {
+    expect(lastTurnStatusLabel('running')).toBe('Running');
+    expect(lastTurnStatusLabel('paused')).toBe('Waiting for input');
+    expect(lastTurnStatusLabel('error')).toBe('Failed');
+    expect(lastTurnStatusLabel('cancelled')).toBeUndefined();
+    expect(lastTurnStatusLabel('done')).toBeUndefined();
+  });
+});
+
+describe('isRunningTurnStatus', () => {
+  it('is true only for running', () => {
+    expect(isRunningTurnStatus('running')).toBe(true);
+    expect(isRunningTurnStatus('paused')).toBe(false);
+    expect(isRunningTurnStatus(undefined)).toBe(false);
+  });
+});
+
+describe('threadCustomWithLastTurnStatus', () => {
+  it('sets, replaces, and clears lastTurnStatus without mutating the input', () => {
+    const custom = { isMutable: true, lastTurnStatus: 'running' };
+    expect(threadCustomWithLastTurnStatus(custom, 'paused')).toEqual({
+      isMutable: true,
+      lastTurnStatus: 'paused',
+    });
+    expect(custom).toEqual({ isMutable: true, lastTurnStatus: 'running' });
+    expect(threadCustomWithLastTurnStatus(custom, null)).toEqual({ isMutable: true });
+    expect(threadCustomWithLastTurnStatus(undefined, 'error')).toEqual({ lastTurnStatus: 'error' });
+  });
+
+  it('normalizes non-record custom values', () => {
+    expect(threadCustomWithLastTurnStatus(null, 'running')).toEqual({ lastTurnStatus: 'running' });
+    expect(threadCustomWithLastTurnStatus(['nope'], 'paused')).toEqual({ lastTurnStatus: 'paused' });
   });
 });
 

@@ -30,6 +30,7 @@ const session = {
 };
 
 const turnRequests: unknown[] = [];
+const turnRequestHeaders: Headers[] = [];
 const sessionRequests: unknown[] = [];
 const turnEventRequests: unknown[] = [];
 const deletedSessions: string[] = [];
@@ -41,6 +42,7 @@ const fetchMock: typeof fetch = async (input, init) => {
   if (url.endsWith('/api/v1/sessions/ses_1/turns') && typeof init?.body === 'string') {
     const body: unknown = JSON.parse(init.body);
     turnRequests.push(body);
+    turnRequestHeaders.push(new Headers(init.headers));
   }
   if (url.endsWith('/api/v1/sessions/ses_1/turns/trn_1/events') && method === 'POST') {
     const body: unknown = typeof init?.body === 'string' ? JSON.parse(init.body) : undefined;
@@ -86,11 +88,7 @@ const fetchMock: typeof fetch = async (input, init) => {
       body !== null && typeof body === 'object' && 'title' in body && typeof body.title === 'string'
         ? body.title
         : session.title;
-    const shared =
-      body !== null && typeof body === 'object' && 'shared' in body && typeof body.shared === 'boolean'
-        ? body.shared
-        : false;
-    return Response.json({ data: { ...session, title, shared } });
+    return Response.json({ data: { ...session, title } });
   }
   if (url.endsWith('/api/v1/sessions/ses_1') && method === 'DELETE') {
     deletedSessions.push('ses_1');
@@ -129,7 +127,7 @@ describe('createHarnessChatServer', () => {
 
     assert.equal(created.isMutable, true);
     assert.equal(created.title, undefined);
-    assert.deepEqual(created.agentSpec?.mcpServers?.[0], { name: 'github', enableTools: ['@all'] });
+    assert.deepEqual(created.agentSpec?.mcpServers, [{ name: 'github', enableTools: ['@all'] }]);
     assert.deepEqual(created.agentSpec?.skills?.[0], { name: 'review', preload: false });
   });
 
@@ -214,6 +212,7 @@ describe('createHarnessChatServer', () => {
       sessionId: 'ses_1',
       input: [{ type: 'user.message', content: 'hello' }],
       previousTurnId: 'none',
+      headers: { 'x-tfg-trueforge-mcp': 'true' },
     })) {
       events.push(event);
     }
@@ -222,6 +221,7 @@ describe('createHarnessChatServer', () => {
     assert.ok(sent !== null && typeof sent === 'object' && 'previous_turn_id' in sent && 'stream' in sent);
     assert.equal(sent.previous_turn_id, 'none');
     assert.equal(sent.stream, true);
+    assert.equal(turnRequestHeaders.at(-1)?.get('x-tfg-trueforge-mcp'), 'true');
 
     assert.deepEqual(events, [
       {
@@ -331,14 +331,6 @@ describe('createHarnessChatServer', () => {
     const updated = await server.updateSession({ sessionId: 'ses_1', title: 'Acme onboarding' });
     assert.deepEqual(sessionRequests.at(-1), { title: 'Acme onboarding' });
     assert.equal(updated.title, 'Acme onboarding');
-  });
-
-  it('PATCHes session shared when updateSession receives shared', async () => {
-    sessionRequests.length = 0;
-    const server = createHarnessChatServer({ fetch: fetchMock });
-    const updated = await server.updateSession({ sessionId: 'ses_1', shared: true });
-    assert.deepEqual(sessionRequests.at(-1), { shared: true });
-    assert.equal(updated.shared, true);
   });
 
   it('listSessions forwards an unknown agentId to the API (empty page from the server)', async () => {

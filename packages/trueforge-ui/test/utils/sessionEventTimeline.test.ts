@@ -1290,9 +1290,11 @@ describe('buildSessionMetrics', () => {
         wallDurationMs: 10_000,
       },
     ];
-    const metrics = buildSessionMetrics({ turns, segments });
+    const metrics = buildSessionMetrics({ turns, segments, sessionMetrics: { totalDurationMs: 5_000 } });
     const waiting = metrics.timeBreakdown.find(item => item.label === 'waiting on human');
     assert.equal(waiting?.value, 10_000);
+    assert.equal(metrics.wallTimeMs, 15_000);
+    assert.equal(metrics.timeBreakdown.find(item => item.label === 'overhead')?.value, 5_000);
   });
 
   it('derives tiles from terminal turn metrics and timeline segments', () => {

@@ -3,11 +3,7 @@
  * AgentSpec document (JSON key `manifest`).
  */
 import { z } from '@hono/zod-openapi';
-import {
-  AgentSpecSchema,
-  CreatedBySubjectSchema,
-  TokenPaginationSchema,
-} from '@truefoundry/trueforge-core/agent-session';
+import { AgentSpecSchema, SubjectSchema, TokenPaginationSchema } from '@truefoundry/trueforge-core/agent-session';
 import { NameSchema } from './common';
 
 const RESERVED_AGENT_NAMES = new Set(['tfg', 'trueforge']);
@@ -44,7 +40,7 @@ export const AgentSchema = z
     name: NameSchema,
     description: AgentDescriptionSchema,
     manifest: AgentSpecSchema,
-    created_by_subject: CreatedBySubjectSchema,
+    created_by_subject: SubjectSchema,
   })
   .strict()
   .openapi('Agent');

@@ -23,10 +23,15 @@ import { createSandboxEnvironmentBuildRouter } from './apis/sandboxEnvironmentBu
 import { createSandboxEnvironmentsRouter } from './apis/sandboxEnvironments';
 import { createScheduleExecutionRouter, createSchedulesRouter } from './apis/schedules';
 import { createInternalMetricsRouter } from './apis/sessionMetrics';
-import { createInternalSessionsRouter, createSessionsRouter } from './apis/sessions';
+import { createSessionsRouter, registerInternalSessionsRoutes } from './apis/sessions';
 import { createSettingsRouter } from './apis/settings';
 import { createAvailableSkillsRouter } from './apis/skills';
-import { createTurnsRouter, type ResolveTurnExecutionStoresInput, type TurnExecutionStores } from './apis/turns';
+import {
+  createTurnsRouter,
+  registerInternalSessionTurnRoutes,
+  type ResolveTurnExecutionStoresInput,
+  type TurnExecutionStores,
+} from './apis/turns';
 import { createUsersRouter } from './apis/users';
 import type { Authenticator } from './auth/authenticator';
 import type { Authorizer } from './auth/authorizer';
@@ -62,6 +67,9 @@ import type { HttpMetrics } from './http/prometheus';
 import { createClientCertificateMiddleware } from './http/tls';
 import { runWithLogContext, updateLogContext, type LogContext } from './logger';
 import type { IOAuthTokenStore } from './mcp/auth/types';
+import { mcpToolsFromOpenApi } from './mcp/server/trueforge/openApiTools';
+import { createTrueForgeMcpRouter } from './mcp/server/trueforge/route';
+import { compileMcpTools, type CompiledMcpTool } from './mcp/server/trueforge/server';
 import type { MemoryProviderCache } from './memory/providers';
 import { PACKAGE_VERSION } from './packageVersion';
 import { OPENAPI_DOCUMENT_TAGS } from './routes/openapiTags';
@@ -356,6 +364,8 @@ export interface ServerDeps<TTransaction> {
 
 export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   const app = new OpenAPIHono({ defaultHook: zodValidationHook });
+  let mcpTools: CompiledMcpTool[] | undefined;
+  const resolveMcpTools = () => (mcpTools ??= compileMcpTools(mcpToolsFromOpenApi(buildOpenApiDocument(app))));
   const authMiddleware = createAuthMiddleware(deps.authenticator);
   const catalogAdminAuthMiddleware = buildAdminAuthMiddleware({
     authenticator: deps.authenticator,
@@ -576,27 +586,40 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       catalogAdminAuthMiddleware,
     ),
   );
-  app.route(
-    '/api/internal/sessions',
-    withAuth(
-      createInternalSessionsRouter({
-        accessControlStore: deps.accessControlStore,
-        authorizer: deps.authorizer,
-        resolveAgentStore: resolveHttpAgentStore,
-        resolveMcpServerStore: deps.resolveMcpServerStore,
-        resolveModelProviderStore: deps.resolveModelProviderStore,
-        resolveRequestContext,
-        resolveSkillStore: deps.resolveSkillStore,
-        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-        sandboxProviderStore: deps.sandboxProviderStore,
-        sessions: deps.sessions,
-        webSearchProviderStore: deps.webSearchProviderStore,
-        memoryProviderStore: deps.memoryProviderStore,
-        configurationStore: deps.configurationStore,
-      }),
-      authMiddleware,
-    ),
-  );
+  // Same prefix as public sessions; path-scoped auth (JWT vs service key) — do not wrap with withAuth('*').
+  const internalSessionsRouter = new OpenAPIHono();
+  internalSessionsRouter.use('/get-or-create-by-external-id', authMiddleware);
+  internalSessionsRouter.use('/:session_id/turns', scheduleExecutionAuthMiddleware);
+  registerInternalSessionsRoutes(internalSessionsRouter, {
+    accessControlStore: deps.accessControlStore,
+    authorizer: deps.authorizer,
+    resolveAgentStore: resolveHttpAgentStore,
+    resolveMcpServerStore: deps.resolveMcpServerStore,
+    resolveModelProviderStore: deps.resolveModelProviderStore,
+    resolveRequestContext,
+    resolveSkillStore: deps.resolveSkillStore,
+    sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
+    sandboxProviderStore: deps.sandboxProviderStore,
+    sessions: deps.sessions,
+    webSearchProviderStore: deps.webSearchProviderStore,
+    memoryProviderStore: deps.memoryProviderStore,
+    configurationStore: deps.configurationStore,
+  });
+  registerInternalSessionTurnRoutes(internalSessionsRouter, {
+    activeTurns: deps.activeTurns,
+    agentStore: deps.agentStore,
+    eventSubscriptions: deps.eventSubscriptions,
+    logger: deps.logger,
+    resolveMcpServerStore: deps.resolveMcpServerStore,
+    resolveModelProviderStore: deps.resolveModelProviderStore,
+    resolveTurnSkillsStore: deps.resolveTurnSkillsStore,
+    sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
+    sandboxProviderStore: deps.sandboxProviderStore,
+    sessions: deps.sessions,
+    sessionStore: deps.sessionStore,
+    webSearchProviderStore: deps.webSearchProviderStore,
+  });
+  app.route('/api/internal/sessions', internalSessionsRouter);
   app.route(
     '/api/internal/metrics',
     withAuth(
@@ -672,6 +695,17 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       }),
       authMiddleware,
     ),
+  );
+
+  // First-party TrueForge MCP (Streamable HTTP). Protocol endpoint.
+  app.use('/mcp', authMiddleware);
+  app.route(
+    '/mcp',
+    createTrueForgeMcpRouter({
+      resolveRequestContext,
+      resolveTools: resolveMcpTools,
+      version: PACKAGE_VERSION,
+    }),
   );
 
   const uiBasePath = getPublicUiBasePath();

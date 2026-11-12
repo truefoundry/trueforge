@@ -79,7 +79,7 @@ export function toUiAgentSpec(spec: TrueForgeApi.AgentSpec): HarnessAgentSpec {
   const { mcpServers, skills, ...rest } = spec;
   return {
     ...rest,
-    ...(mcpServers ? { mcpServers: mcpServers.map(toUiMcpServer) } : {}),
+    ...(mcpServers && mcpServers.length > 0 ? { mcpServers: mcpServers.map(toUiMcpServer) } : {}),
     ...(skills ? { skills: skills.map(toUiSkill) } : {}),
   };
 }
@@ -89,10 +89,10 @@ function toUiSession(session: TrueForgeApi.Session): HarnessUiSession {
     id: session.id,
     isMutable: session.agent.type === 'inline',
     isCreateAgent: readSessionIsCreateAgent(session.metadata),
-    shared: session.shared,
     createdBy: { id: session.createdBySubject.subjectId, displayName: session.createdBySubject.subjectDisplayName },
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
+    lastTurnDetails: session.lastTurnDetails ?? null,
     metrics: {
       totalTurns: session.metrics.totalTurns,
       totalDurationMs: session.metrics.totalDurationMs,
@@ -240,22 +240,35 @@ export function createHarnessChatServer(
       await client.sessions.update(sessionId, { title });
     },
 
-    async updateSession({ sessionId, agentSpec, title, shared }) {
+    async updateSession({ sessionId, agentSpec, title }) {
       // Named (reference) sessions reject agent updates server-side.
       const body: TrueForgeApi.UpdateSessionRequest = {
         ...(agentSpec === undefined ? {} : { agent: { spec: toHarnessAgentSpec(agentSpec) } }),
         ...(title === undefined ? {} : { title }),
-        ...(shared === undefined ? {} : { shared }),
       };
       const response = await client.sessions.update(sessionId, body);
       return toUiSession(response.data);
     },
 
-    async *createTurn({ sessionId, input, previousTurnId }) {
-      const stream = await client.sessions.createTurnStream(sessionId, {
-        ...(input === undefined ? {} : { input: toHarnessInput(input) }),
-        ...(previousTurnId === undefined ? {} : { previousTurnId }),
-      });
+    async *createTurn({
+      sessionId,
+      input,
+      previousTurnId,
+      headers,
+    }: {
+      sessionId: string;
+      input: UserMessage[];
+      previousTurnId?: string;
+      headers?: Record<string, string>;
+    }) {
+      const stream = await client.sessions.createTurnStream(
+        sessionId,
+        {
+          input: toHarnessInput(input),
+          ...(previousTurnId === undefined ? {} : { previousTurnId }),
+        },
+        headers === undefined ? undefined : { headers },
+      );
       for await (const item of stream.withMetadata()) {
         const event = toUiStreamingEvent(item.data);
         if (event === undefined) {

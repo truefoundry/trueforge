@@ -6,6 +6,7 @@ import {
   collectPendingToolResponses,
   derivePendingMcpAuth,
   deriveSandboxId,
+  findLatestSessionSpecUpdate,
 } from '../src/collectPending.js';
 import { ROOT_THREAD_ID } from '../src/constants.js';
 import { MESSAGE_CUSTOM_KEY } from '../src/messageCustomMetadata.js';
@@ -133,5 +134,67 @@ describe('current pause collection', () => {
       ],
     });
     expect(collectPendingApprovals([pausedApproval])).toEqual([expect.objectContaining({ approvalId: 'approval-1' })]);
+  });
+});
+
+describe('findLatestSessionSpecUpdate', () => {
+  function toolCall(toolCallId: string, toolName: string, args: Record<string, string>, result?: string) {
+    return {
+      type: 'tool-call' as const,
+      toolCallId,
+      toolName,
+      args,
+      argsText: JSON.stringify(args),
+      ...(result === undefined ? {} : { result }),
+    };
+  }
+
+  it('returns the latest finished update_current_session call on the TrueForge server', () => {
+    const messages = [
+      assistantMessage('a1', {
+        content: [
+          toolCall(
+            'first',
+            'call_tool',
+            { mcp_server: 'built-in:trueforge-mcp', tool_name: 'update_current_session' },
+            '{}',
+          ),
+        ],
+      }),
+      userMessage('u2'),
+      assistantMessage('a2', {
+        content: [
+          toolCall(
+            'second',
+            'call_tool',
+            { mcp_server: 'built-in:trueforge-mcp', tool_name: 'update_current_session' },
+            '{}',
+          ),
+        ],
+      }),
+    ];
+    expect(findLatestSessionSpecUpdate(messages)).toBe('second');
+  });
+
+  it('ignores the same tool name on another server, direct calls, and calls still running', () => {
+    const messages = [
+      assistantMessage('a1', {
+        content: [
+          toolCall('other-server', 'call_tool', { mcp_server: 'github', tool_name: 'update_current_session' }, '{}'),
+          toolCall('direct', 'update_current_session', {}, '{}'),
+          toolCall('running', 'call_tool', {
+            mcp_server: 'built-in:trueforge-mcp',
+            tool_name: 'update_current_session',
+          }),
+          toolCall(
+            'done',
+            'call_tool',
+            { mcp_server: 'built-in:trueforge-mcp', tool_name: 'update_current_session' },
+            '{}',
+          ),
+        ],
+      }),
+    ];
+    expect(findLatestSessionSpecUpdate(messages)).toBe('done');
   });
 });

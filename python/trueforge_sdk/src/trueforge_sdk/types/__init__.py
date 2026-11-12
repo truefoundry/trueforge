@@ -63,7 +63,7 @@ if typing.TYPE_CHECKING:
     from .create_schedule_run_response import CreateScheduleRunResponse
     from .create_session_agent import CreateSessionAgent
     from .create_turn_event_response import CreateTurnEventResponse
-    from .created_by_subject import CreatedBySubject
+    from .subject import Subject
     from .cron_expression import CronExpression
     from .custom_model_provider import CustomModelProvider
     from .daytona_sandbox_provider_auth import DaytonaSandboxProviderAuth
@@ -237,6 +237,7 @@ if typing.TYPE_CHECKING:
     from .session_sharing_capability_granularity import SessionSharingCapabilityGranularity
     from .session_source import SessionSource
     from .session_source_schedule import SessionSourceSchedule
+    from .session_source_service import SessionSourceService
     from .session_source_type import SessionSourceType
     from .settings_capability import SettingsCapability
     from .settings_capability_section import SettingsCapabilitySection
@@ -361,7 +362,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CreateScheduleRunResponse": ".create_schedule_run_response",
     "CreateSessionAgent": ".create_session_agent",
     "CreateTurnEventResponse": ".create_turn_event_response",
-    "CreatedBySubject": ".created_by_subject",
+    "Subject": ".subject",
     "CronExpression": ".cron_expression",
     "CustomModelProvider": ".custom_model_provider",
     "DaytonaSandboxProviderAuth": ".daytona_sandbox_provider_auth",
@@ -535,6 +536,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SessionSharingCapabilityGranularity": ".session_sharing_capability_granularity",
     "SessionSource": ".session_source",
     "SessionSourceSchedule": ".session_source_schedule",
+    "SessionSourceService": ".session_source_service",
     "SessionSourceType": ".session_source_type",
     "SettingsCapability": ".settings_capability",
     "SettingsCapabilitySection": ".settings_capability_section",
@@ -683,7 +685,7 @@ __all__ = [
     "CreateScheduleRunResponse",
     "CreateSessionAgent",
     "CreateTurnEventResponse",
-    "CreatedBySubject",
+    "Subject",
     "CronExpression",
     "CustomModelProvider",
     "DaytonaSandboxProviderAuth",
@@ -857,6 +859,7 @@ __all__ = [
     "SessionSharingCapabilityGranularity",
     "SessionSource",
     "SessionSourceSchedule",
+    "SessionSourceService",
     "SessionSourceType",
     "SettingsCapability",
     "SettingsCapabilitySection",

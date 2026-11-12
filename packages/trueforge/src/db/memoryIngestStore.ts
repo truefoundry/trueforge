@@ -1,8 +1,8 @@
 /** Memory ingestion progress per session, plus the read paths the ingest loop needs. */
 import type {
-  CreatedBySubject,
   LegacyTurnInputItem,
   PersistedTurnEvent,
+  Subject,
   TurnState,
 } from '@truefoundry/trueforge-core/agent-session';
 
@@ -25,7 +25,7 @@ export interface MemoryIngestCursor {
 export interface MemoryIngestCandidate {
   session_id: string;
   tenant_id: string;
-  created_by_subject: CreatedBySubject;
+  created_by_subject: Subject;
   agent_id: string | null;
   /** `metadata['tfg.source']`, when present. */
   tfg_source: string | null;
@@ -51,8 +51,9 @@ export interface MemoryIngestModelMessage {
 }
 
 /**
- * Which sessions a run looks at, by `session.updated_at`. That moves when a turn is created, so it
- * bounds the latest turn's start; turns finish within the execution timeout.
+ * Which sessions a run looks at, by `session.updated_at`. That moves when a turn is created,
+ * when it pauses, and again when it finishes, so a pause longer than the lookback still
+ * re-enters the window.
  */
 export interface ListMemoryIngestCandidatesInput {
   /** Only sessions of these tenants (non-empty), the ones with memory on. */

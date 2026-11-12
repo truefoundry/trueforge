@@ -6,7 +6,7 @@
  * request and response wire shapes.
  */
 import { z } from '@hono/zod-openapi';
-import { CreatedBySubjectSchema, TokenPaginationSchema } from '@truefoundry/trueforge-core/agent-session';
+import { SubjectSchema, TokenPaginationSchema } from '@truefoundry/trueforge-core/agent-session';
 import configuration from '../config';
 import { NameSchema } from './common';
 
@@ -19,7 +19,7 @@ export const SANDBOX_ENVIRONMENT_DOMAIN_ALLOW_LIST_MAX_LENGTH = 1024;
 export const SANDBOX_ENVIRONMENT_SECRETS_MAX_LENGTH = 1024;
 
 /** Reserved platform-provisioned environment name (not creatable via public CRUD). */
-export const RESERVED_SANDBOX_ENVIRONMENT_NAME = 'default';
+export const RESERVED_SANDBOX_ENVIRONMENT_NAME = 'trueforge-sandbox-env';
 
 export const RESERVED_SANDBOX_ENVIRONMENT_RESOURCES = { cpu: 1, memory: 1, disk: 3 } as const;
 
@@ -130,7 +130,7 @@ export const SandboxEnvironmentNetworkingSchema = z
   .openapi('SandboxEnvironmentNetworking');
 
 /**
- * Manifest fields shared by wire and storage. Responses may use name `"default"`;
+ * Manifest fields shared by wire and storage. Responses may use the reserved platform name;
  * create/update requests reject it (reserved system env).
  */
 const SandboxEnvironmentManifestFieldsSchema = z
@@ -146,14 +146,14 @@ const SandboxEnvironmentManifestFieldsSchema = z
   })
   .strict();
 
-/** Wire document (list/get/response) — no `type` / `sandbox_provider`; name `"default"` allowed. */
+/** Wire document (list/get/response) — no `type` / `sandbox_provider`; reserved name allowed. */
 export const SandboxEnvironmentManifestSchema =
   SandboxEnvironmentManifestFieldsSchema.openapi('SandboxEnvironmentManifest');
 
-/** PUT body manifest — rejects reserved name `"default"`. */
-const SandboxEnvironmentManifestRequestSchema = SandboxEnvironmentManifestFieldsSchema.refine(
-  manifest => manifest.name !== RESERVED_SANDBOX_ENVIRONMENT_NAME,
-  { message: 'name "default" is reserved', path: ['name'] },
+export const SandboxEnvironmentManifestRequestSchema = SandboxEnvironmentManifestFieldsSchema.refine(
+  (manifest: z.infer<typeof SandboxEnvironmentManifestFieldsSchema>) =>
+    manifest.name !== RESERVED_SANDBOX_ENVIRONMENT_NAME,
+  { message: `name "${RESERVED_SANDBOX_ENVIRONMENT_NAME}" is reserved`, path: ['name'] },
 ).openapi('SandboxEnvironmentManifestRequest');
 
 /**
@@ -170,7 +170,7 @@ export const SandboxEnvironmentIdentitySchema = z
 
 /**
  * Persisted version jsonb — wire fields plus backend-resolved identity.
- * Not exposed on request/response wire types. Allows name `"default"`.
+ * Not exposed on request/response wire types. Allows the reserved platform name.
  */
 export const StoredSandboxEnvironmentManifestSchema = z
   .object({
@@ -289,7 +289,7 @@ export const SandboxEnvironmentSchema = z
     status: SandboxEnvironmentVersionStatusSchema.describe('Readiness of the environment.'),
     status_reason: z.string().nullable().describe('Failure detail when status is failed; null otherwise.'),
     manifest: SandboxEnvironmentManifestSchema,
-    created_by_subject: CreatedBySubjectSchema,
+    created_by_subject: SubjectSchema,
     created_at: IsoTimestamp.describe('ISO-8601 create time.'),
     updated_at: IsoTimestamp.describe('ISO-8601 last update time.'),
   })

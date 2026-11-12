@@ -54,7 +54,8 @@ from ..types.session_source_type import SessionSourceType
 from ..types.turn import Turn
 from ..types.turn_streaming_event import TurnStreamingEvent
 from ..types.turn_user_event_message import TurnUserEventMessage
-from ..types.user_message import UserMessage
+from .types.create_turn_sessions_request_input_item import CreateTurnSessionsRequestInputItem
+from .types.create_turn_sessions_stream_request_input_item import CreateTurnSessionsStreamRequestInputItem
 from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
@@ -284,7 +285,7 @@ class RawSessionsClient:
         self, *, session_id: str, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[GetSessionResponse]:
         """
-        Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+        Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or a subject with a session access grant.
 
         Parameters
         ----------
@@ -395,12 +396,11 @@ class RawSessionsClient:
         session_id: str,
         agent: typing.Optional[SessionAgentSpecBody] = OMIT,
         metadata: typing.Optional[SessionMetadata] = OMIT,
-        shared: typing.Optional[bool] = OMIT,
         title: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[GetSessionResponse]:
         """
-        Update a session: optional `title`, `metadata`, `shared`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
+        Update a session: optional `title`, `metadata`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
 
         Parameters
         ----------
@@ -410,9 +410,6 @@ class RawSessionsClient:
         agent : typing.Optional[SessionAgentSpecBody]
 
         metadata : typing.Optional[SessionMetadata]
-
-        shared : typing.Optional[bool]
-            Deprecated; use `POST /sessions/{session_id}/grants` with a `tenant` subject.
 
         title : typing.Optional[str]
             Human-readable session title.
@@ -433,7 +430,6 @@ class RawSessionsClient:
                     object_=agent, annotation=SessionAgentSpecBody, direction="write"
                 ),
                 "metadata": metadata,
-                "shared": shared,
                 "title": title,
             },
             headers={
@@ -596,7 +592,7 @@ class RawSessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[SessionEventItem, ListSessionEventsResponse]:
         """
-        List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+        List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or a subject with a session access grant.
 
         Parameters
         ----------
@@ -978,7 +974,7 @@ class RawSessionsClient:
         self,
         *,
         session_id: str,
-        input: typing.Optional[typing.Sequence[UserMessage]] = OMIT,
+        input: typing.Sequence[CreateTurnSessionsStreamRequestInputItem],
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Iterator[HttpResponse[Stream[TurnStreamingEvent]]]:
@@ -994,8 +990,8 @@ class RawSessionsClient:
         session_id : str
             Session identifier.
 
-        input : typing.Optional[typing.Sequence[UserMessage]]
-            User messages supplied when the turn is created.
+        input : typing.Sequence[CreateTurnSessionsStreamRequestInputItem]
+            User messages for this turn. At least one is required.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -1012,7 +1008,9 @@ class RawSessionsClient:
             method="POST",
             json={
                 "input": convert_and_respect_annotation_metadata(
-                    object_=input, annotation=typing.Sequence[UserMessage], direction="write"
+                    object_=input,
+                    annotation=typing.Sequence[CreateTurnSessionsStreamRequestInputItem],
+                    direction="write",
                 ),
                 "previous_turn_id": convert_and_respect_annotation_metadata(
                     object_=previous_turn_id, annotation=PreviousTurnIdInput, direction="write"
@@ -1161,7 +1159,7 @@ class RawSessionsClient:
         self,
         *,
         session_id: str,
-        input: typing.Optional[typing.Sequence[UserMessage]] = OMIT,
+        input: typing.Sequence[CreateTurnSessionsRequestInputItem],
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[GetTurnResponse]:
@@ -1177,8 +1175,8 @@ class RawSessionsClient:
         session_id : str
             Session identifier.
 
-        input : typing.Optional[typing.Sequence[UserMessage]]
-            User messages supplied when the turn is created.
+        input : typing.Sequence[CreateTurnSessionsRequestInputItem]
+            User messages for this turn. At least one is required.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -1195,7 +1193,7 @@ class RawSessionsClient:
             method="POST",
             json={
                 "input": convert_and_respect_annotation_metadata(
-                    object_=input, annotation=typing.Sequence[UserMessage], direction="write"
+                    object_=input, annotation=typing.Sequence[CreateTurnSessionsRequestInputItem], direction="write"
                 ),
                 "previous_turn_id": convert_and_respect_annotation_metadata(
                     object_=previous_turn_id, annotation=PreviousTurnIdInput, direction="write"
@@ -2126,7 +2124,7 @@ class AsyncRawSessionsClient:
         self, *, session_id: str, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[GetSessionResponse]:
         """
-        Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+        Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or a subject with a session access grant.
 
         Parameters
         ----------
@@ -2239,12 +2237,11 @@ class AsyncRawSessionsClient:
         session_id: str,
         agent: typing.Optional[SessionAgentSpecBody] = OMIT,
         metadata: typing.Optional[SessionMetadata] = OMIT,
-        shared: typing.Optional[bool] = OMIT,
         title: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[GetSessionResponse]:
         """
-        Update a session: optional `title`, `metadata`, `shared`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
+        Update a session: optional `title`, `metadata`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
 
         Parameters
         ----------
@@ -2254,9 +2251,6 @@ class AsyncRawSessionsClient:
         agent : typing.Optional[SessionAgentSpecBody]
 
         metadata : typing.Optional[SessionMetadata]
-
-        shared : typing.Optional[bool]
-            Deprecated; use `POST /sessions/{session_id}/grants` with a `tenant` subject.
 
         title : typing.Optional[str]
             Human-readable session title.
@@ -2277,7 +2271,6 @@ class AsyncRawSessionsClient:
                     object_=agent, annotation=SessionAgentSpecBody, direction="write"
                 ),
                 "metadata": metadata,
-                "shared": shared,
                 "title": title,
             },
             headers={
@@ -2440,7 +2433,7 @@ class AsyncRawSessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[SessionEventItem, ListSessionEventsResponse]:
         """
-        List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+        List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or a subject with a session access grant.
 
         Parameters
         ----------
@@ -2828,7 +2821,7 @@ class AsyncRawSessionsClient:
         self,
         *,
         session_id: str,
-        input: typing.Optional[typing.Sequence[UserMessage]] = OMIT,
+        input: typing.Sequence[CreateTurnSessionsStreamRequestInputItem],
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.AsyncIterator[AsyncHttpResponse[AsyncStream[TurnStreamingEvent]]]:
@@ -2844,8 +2837,8 @@ class AsyncRawSessionsClient:
         session_id : str
             Session identifier.
 
-        input : typing.Optional[typing.Sequence[UserMessage]]
-            User messages supplied when the turn is created.
+        input : typing.Sequence[CreateTurnSessionsStreamRequestInputItem]
+            User messages for this turn. At least one is required.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -2862,7 +2855,9 @@ class AsyncRawSessionsClient:
             method="POST",
             json={
                 "input": convert_and_respect_annotation_metadata(
-                    object_=input, annotation=typing.Sequence[UserMessage], direction="write"
+                    object_=input,
+                    annotation=typing.Sequence[CreateTurnSessionsStreamRequestInputItem],
+                    direction="write",
                 ),
                 "previous_turn_id": convert_and_respect_annotation_metadata(
                     object_=previous_turn_id, annotation=PreviousTurnIdInput, direction="write"
@@ -3011,7 +3006,7 @@ class AsyncRawSessionsClient:
         self,
         *,
         session_id: str,
-        input: typing.Optional[typing.Sequence[UserMessage]] = OMIT,
+        input: typing.Sequence[CreateTurnSessionsRequestInputItem],
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[GetTurnResponse]:
@@ -3027,8 +3022,8 @@ class AsyncRawSessionsClient:
         session_id : str
             Session identifier.
 
-        input : typing.Optional[typing.Sequence[UserMessage]]
-            User messages supplied when the turn is created.
+        input : typing.Sequence[CreateTurnSessionsRequestInputItem]
+            User messages for this turn. At least one is required.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -3045,7 +3040,7 @@ class AsyncRawSessionsClient:
             method="POST",
             json={
                 "input": convert_and_respect_annotation_metadata(
-                    object_=input, annotation=typing.Sequence[UserMessage], direction="write"
+                    object_=input, annotation=typing.Sequence[CreateTurnSessionsRequestInputItem], direction="write"
                 ),
                 "previous_turn_id": convert_and_respect_annotation_metadata(
                     object_=previous_turn_id, annotation=PreviousTurnIdInput, direction="write"

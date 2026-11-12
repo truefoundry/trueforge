@@ -46,9 +46,11 @@ export {
   CANCELLATION_REASON_CUSTOM_KEY,
   MESSAGE_CUSTOM_KEY,
   isMcpServerAuthInfoList,
+  parallelToolGroupsCustom,
 } from './messageCustomMetadata.js';
 export type {
   McpAuthMessageCustomMetadata,
+  ParallelToolGroups,
   SandboxMessageCustomMetadata,
   SubAgentMessageCustomMetadata,
   ToolApprovalMessageCustomMetadata,
@@ -56,6 +58,7 @@ export type {
   TrueForgeMessageCustomMetadata,
 } from './messageCustomMetadata.js';
 export { findPausedAssistantMessage, messageHasPendingRequiredActions } from './requiredActionInputs.js';
+export { sessionListStartTimestamp } from './sessionListStartTimestamp.js';
 export { getSession } from './sessions.js';
 export { messageHasPendingApprovals } from './toolApproval.js';
 export type { RespondToToolApprovalOptions } from './toolApproval.js';
@@ -78,9 +81,11 @@ export {
   SYSTEM_TOOL_NAME,
   TOOL_APPROVAL_POLICY_ACTION_TYPE,
   TOOL_INFO_TYPE,
+  TURN_CANCELLATION_REASON,
   TURN_STATUS,
   isEventDelta,
   mergeEventDelta,
+  readDraftTrueforgeEnabled,
 } from './server/index.js';
 export type {
   AgentBuilderCapabilitiesResponse,
@@ -145,7 +150,6 @@ export type {
   CreateTurnRequest,
   CreateWebSearchProviderRequest,
   CreateWebSearchRequest,
-  CreatedBySubject,
   DefinedSkill,
   GithubSkill,
   ImportGithubSkillRequest,
@@ -202,6 +206,8 @@ export type {
   SendTurnEventsRequest,
   Session,
   SessionEventItem,
+  SessionLastTurnDetails,
+  SessionLastTurnState,
   SessionListEntry,
   SessionListMetrics,
   SettingsCapability,
@@ -212,6 +218,7 @@ export type {
   SkillConfigBase,
   SkillMount,
   SkillSelectorEntry,
+  Subject,
   SubscribeToTurnRequest,
   TenantConfiguration,
   TenantConfigurationSwitch,
@@ -232,6 +239,7 @@ export type {
   TurnState,
   TurnStateDone,
   TurnStatePaused,
+  TurnStatus,
   TurnStreamData,
   TurnStreamingEvent,
   TurnUpdateEvent,

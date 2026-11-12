@@ -75,6 +75,13 @@ export const listSchedulesRoute = createRoute({
   'x-fern-sdk-group-name': ['schedules'],
   'x-fern-sdk-method-name': 'list',
   'x-fern-pagination': TOKEN_PAGINATION,
+  'x-tfg-mcp': {
+    name: 'list_schedules',
+    description:
+      'Discover existing schedules — for example to see what an agent already runs on a timer, or to find ' +
+      'one to update. Supports optional filters and returns one paginated page.',
+    annotations: { readOnlyHint: true },
+  },
   request: {
     query: ListSchedulesQuerySchema,
   },
@@ -104,6 +111,13 @@ export const listScheduleRunsRoute = createRoute({
   'x-fern-sdk-group-name': ['schedules'],
   'x-fern-sdk-method-name': 'list_runs',
   'x-fern-pagination': TOKEN_PAGINATION,
+  'x-tfg-mcp': {
+    name: 'list_schedule_runs',
+    description:
+      "Check a schedule's execution history to see whether its runs are succeeding or why they failed. " +
+      'Each run includes its status, scheduled and triggered times, and any failure reason. Returns one paginated page.',
+    annotations: { readOnlyHint: true },
+  },
   request: {
     params: ScheduleIdParamsSchema,
     query: ListScheduleRunsQuerySchema,
@@ -211,6 +225,13 @@ export const createScheduleRoute = createRoute({
   description: 'Create a schedule for an existing agent (by name) and add its first pending run when active.',
   'x-fern-sdk-group-name': ['schedules'],
   'x-fern-sdk-method-name': 'create',
+  'x-tfg-mcp': {
+    name: 'create_schedule',
+    description:
+      'Make an existing named agent run automatically on a recurring basis — for example a daily summary ' +
+      '— by binding it to a task and a cron schedule. Timezone defaults to UTC and status to active.',
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+  },
   request: {
     body: {
       content: { 'application/json': { schema: CreateScheduleRequestSchema } },
@@ -245,6 +266,13 @@ export const getScheduleRoute = createRoute({
   description: 'Get a schedule by id.',
   'x-fern-sdk-group-name': ['schedules'],
   'x-fern-sdk-method-name': 'get',
+  'x-tfg-mcp': {
+    name: 'get_schedule',
+    description:
+      "Fetch one schedule's full configuration by its immutable ID — its bound agent, task, cron " +
+      'expression, timezone, and status. Use it to review a schedule or get a template before updating it.',
+    annotations: { readOnlyHint: true },
+  },
   request: {
     params: ScheduleIdParamsSchema,
   },
@@ -272,6 +300,14 @@ export const putScheduleRoute = createRoute({
   description: 'Replace name and manifest; replaces or drops the pending run when status/cron/timezone change.',
   'x-fern-sdk-group-name': ['schedules'],
   'x-fern-sdk-method-name': 'update',
+  'x-tfg-mcp': {
+    name: 'update_schedule',
+    description:
+      'Change an existing schedule — for example its task, cadence, or active/paused state — by replacing ' +
+      'its name and complete manifest by immutable ID. The bound agent cannot change, and because this is a ' +
+      'full replacement, omitted optional fields return to their defaults.',
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
+  },
   request: {
     params: ScheduleIdParamsSchema,
     body: {

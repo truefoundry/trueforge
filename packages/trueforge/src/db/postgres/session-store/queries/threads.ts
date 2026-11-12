@@ -341,7 +341,7 @@ export async function overwriteThreadContext(db: Kysely<Database>, input: Overwr
 /**
  * patchMCPServers — one-shot conditional UPDATE on the fence row itself
  * (`state->>'status' IN ('running', 'paused')`). No separate FOR SHARE fence CTE.
- * Subscript LHS + expression RHS for shallow merge by server id.
+ * jsonb_set keeps the shallow merge by server id compatible with PostgreSQL 13.
  */
 export async function patchMCPServers(db: DbOrTrx, input: PatchMCPServersInput): Promise<void> {
   const serversById: Record<string, (typeof input.mcp_servers)[number]> = {};
@@ -357,12 +357,15 @@ export async function patchMCPServers(db: DbOrTrx, input: PatchMCPServersInput):
 
   const result = await db
     .updateTable('turn')
-    .set(
-      sql`checkpoint['mcp_servers']`,
-      sql`(CASE WHEN jsonb_typeof(checkpoint->'mcp_servers') = 'object'
+    .set({
+      checkpoint: jsonbSet(
+        sql`checkpoint`,
+        sql`'{mcp_servers}'`,
+        sql`(CASE WHEN jsonb_typeof(checkpoint->'mcp_servers') = 'object'
             THEN checkpoint->'mcp_servers'
             ELSE '{}'::jsonb END) || ${json(serversById)}`,
-    )
+      ),
+    })
     .set({ updated_at: sql`now()` })
     .where('session_id', '=', keys.session_id)
     .where('turn_id', '=', keys.turn_id)
@@ -377,7 +380,7 @@ export async function patchMCPServers(db: DbOrTrx, input: PatchMCPServersInput):
 
 /**
  * patchSandboxInfo — one-shot conditional UPDATE on the fence row itself
- * (`state->>'status' = 'running'`). LWW replace via subscript assignment.
+ * (`state->>'status' = 'running'`). LWW replace via jsonb_set for PostgreSQL 13.
  */
 export async function patchSandboxInfo(db: DbOrTrx, input: PatchSandboxInfoInput): Promise<void> {
   const keys: TurnKeys = {
@@ -388,7 +391,7 @@ export async function patchSandboxInfo(db: DbOrTrx, input: PatchSandboxInfoInput
 
   const result = await db
     .updateTable('turn')
-    .set(sql`checkpoint['sandbox_info']`, json(input.sandbox_info))
+    .set({ checkpoint: jsonbSet(sql`checkpoint`, sql`'{sandbox_info}'`, json(input.sandbox_info)) })
     .set({ updated_at: sql`now()` })
     .where('session_id', '=', keys.session_id)
     .where('turn_id', '=', keys.turn_id)

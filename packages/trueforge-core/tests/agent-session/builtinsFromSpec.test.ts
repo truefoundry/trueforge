@@ -2,7 +2,7 @@ import { builtinsFromSpec } from '../../src/agent-session/builtinsFromSpec';
 import { AgentSpecSchema } from '../../src/agent-session/schemas/agentSpec';
 import {
   GET_OPENUI_INSTRUCTIONS_TOOL_NAME,
-  OPENUI_SERVER_ID,
+  OPENUI_SERVER_NAME,
   buildOpenUIInstruction,
 } from '../../src/core/capabilities/builtins/OpenUI';
 import {
@@ -40,7 +40,7 @@ function runBuiltins(input: {
 }
 
 function hasOpenUITool(capabilities: ReturnType<typeof builtinsFromSpec>): boolean {
-  return capabilities.some(cap => cap.systemToolSets?.some(ts => ts.name === OPENUI_SERVER_ID));
+  return capabilities.some(cap => cap.systemToolSets?.some(ts => ts.name === OPENUI_SERVER_NAME));
 }
 
 function hasCompactionProcessor(capabilities: ReturnType<typeof builtinsFromSpec>): boolean {
@@ -72,7 +72,7 @@ describe('builtinsFromSpec generative_ui', () => {
       spec: AgentSpecSchema.parse({ model: { name: 'provider/model' } }),
     });
     expect(hasOpenUITool(capabilities)).toBe(true);
-    const openUICap = capabilities.find(cap => cap.systemToolSets?.some(ts => ts.name === OPENUI_SERVER_ID));
+    const openUICap = capabilities.find(cap => cap.systemToolSets?.some(ts => ts.name === OPENUI_SERVER_NAME));
     expect(openUICap?.instructionBuilders?.[0]).not.toBe(buildOpenUIInstruction);
     expect(openUICap?.instructionBuilders).toHaveLength(1);
   });
@@ -101,7 +101,7 @@ describe('builtinsFromSpec generative_ui', () => {
     });
     const toolSet = capabilities
       .flatMap(cap => [...(cap.systemToolSets ?? [])])
-      .find(ts => ts.name === OPENUI_SERVER_ID);
+      .find(ts => ts.name === OPENUI_SERVER_NAME);
     const listed = await toolSet?.listTools();
     if (!listed || 'authRequired' in listed) {
       throw new Error('expected listTools result');

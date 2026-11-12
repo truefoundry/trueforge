@@ -546,11 +546,15 @@ export class AgentThread {
       }
     }
 
-    if (this.definition.toolSets?.length) {
-      this.deferredTool = new DeferredTool(this.definition.toolSets, {
-        tracing: this.tracing,
-        logger: input.logger,
-      });
+    // Preloaded builtins (current time, sub-agents, and so on) are already on the tool list.
+    // Deferred discovery tools exist only when some server still has tools to discover.
+    // DeferredTool keys each server by its `id`; built-ins carry a namespaced id
+    // (e.g. `built-in.*`, `capability:*`) so they can't collide with a user server's name.
+    const deferredServers = [...this.systemToolSets, ...(this.definition.toolSets ?? [])].filter(
+      toolSet => !toolSet.preload,
+    );
+    if (deferredServers.length > 0) {
+      this.deferredTool = new DeferredTool(deferredServers, { tracing: this.tracing, logger: input.logger });
     }
 
     this.instruction = this.buildInstruction(this.definition.instruction);
@@ -836,6 +840,7 @@ export class AgentThread {
       completion,
     };
     this.preComputedCompletion ??= completion;
+    this.pendingMCPAuth = false;
   }
 
   *closeAllOpenToolCalls({
@@ -868,6 +873,11 @@ export class AgentThread {
   }
 
   isRunnable(): boolean {
+    // Cancel leaves the approval or sign-in in context. The child still has to run once
+    // so the parent receives the completion and the thread is dropped.
+    if (this.preComputedCompletion !== undefined) {
+      return true;
+    }
     return (
       !this.pendingMCPAuth &&
       getPendingApprovalToolCalls(this.context).length === 0 &&
