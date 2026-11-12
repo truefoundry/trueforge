@@ -2285,6 +2285,107 @@ describe('convertTurnMessages', () => {
       ).toHaveLength(1);
     });
 
+    it('keeps turnState running across later content while a sibling prompt is still open', async () => {
+      const foldState = new PeerThreadFoldState();
+      const updates = await collectStream(
+        streamTurnEvents(
+          streamFrom([
+            modelMessage({
+              id: 'm-root',
+              threadId: ROOT_THREAD_ID,
+              content: 'spawn',
+              toolCalls: [
+                {
+                  id: 'spawn-a',
+                  type: 'function',
+                  function: { name: 'create_sub_agent', arguments: '{}' },
+                  toolInfo: { type: 'trueforge-system', name: 'create_sub_agent' },
+                },
+                {
+                  id: 'spawn-b',
+                  type: 'function',
+                  function: { name: 'create_sub_agent', arguments: '{}' },
+                  toolInfo: { type: 'trueforge-system', name: 'create_sub_agent' },
+                },
+              ],
+            }),
+            threadCreated({
+              id: 't-a',
+              threadId: 'child-a',
+              title: 'a',
+              agentInfo: { type: 'dynamic', name: 'a', input: 'a' },
+              parent: { threadId: ROOT_THREAD_ID, toolCallId: 'spawn-a' },
+            }),
+            threadCreated({
+              id: 't-b',
+              threadId: 'child-b',
+              title: 'b',
+              agentInfo: { type: 'dynamic', name: 'b', input: 'b' },
+              parent: { threadId: ROOT_THREAD_ID, toolCallId: 'spawn-b' },
+            }),
+            modelMessage({
+              id: 'm-a',
+              threadId: 'child-a',
+              content: 'need approval',
+              toolCalls: [
+                {
+                  id: 'approval-a',
+                  type: 'function',
+                  function: { name: 'bash', arguments: '{}' },
+                },
+              ],
+            }),
+            approvalRequired({
+              id: 'approval-event',
+              threadId: 'child-a',
+              toolCalls: [{ id: 'approval-a', sourceEventId: 'm-a' }],
+            }),
+            {
+              type: 'mcp.auth_required',
+              id: 'mcp-auth',
+              createdAt,
+              threadId: 'child-b',
+              mcpServers: [{ id: 'pylon', name: 'pylon', authUrl: 'https://example.com/pylon' }],
+            },
+            {
+              type: 'turn.update',
+              id: 'pause-1',
+              createdAt,
+              threadId: null,
+              state: { status: 'paused' },
+            },
+            {
+              type: 'user.tool_approval',
+              id: 'user-approve',
+              createdAt,
+              threadId: 'child-a',
+              toolCallId: 'approval-a',
+              approval: { status: 'allow' },
+            },
+            {
+              type: 'turn.update',
+              id: 'run-1',
+              createdAt,
+              threadId: null,
+              state: { status: 'running' },
+            },
+            // Sibling resume content must not invent paused over the running turn.
+            modelMessage({
+              id: 'm-a-2',
+              threadId: 'child-a',
+              content: 'approved agent continues',
+            }),
+          ]),
+          foldState,
+        ),
+      );
+
+      const afterContent = updates.at(-1);
+      expect(afterContent?.turnState).toEqual({ status: 'running' });
+      expect(afterContent?.status).toEqual({ type: 'requires-action', reason: 'interrupt' });
+      expect(afterContent?.metadata?.custom?.['pendingMcpAuth']).toBe(true);
+    });
+
     it('folds a later approval_required after pause without another turn.update paused', async () => {
       const foldState = new PeerThreadFoldState();
       const updates = await collectStream(

@@ -2005,6 +2005,14 @@ export async function* streamTurnEvents(
     findFirstPendingApprovalThreadId(foldState) != null ||
     findFirstPendingResponseThreadId(foldState) != null;
 
+  // Authoritative turn.update status. Content events must not invent paused just
+  // because a sibling prompt is still open after the orchestrator resumed.
+  let lastTurnLifecycleStatus: typeof TURN_STATUS.RUNNING | typeof TURN_STATUS.PAUSED | undefined;
+
+  const requiredActionTurnState = (): { status: typeof TURN_STATUS.RUNNING | typeof TURN_STATUS.PAUSED } => ({
+    status: lastTurnLifecycleStatus ?? TURN_STATUS.PAUSED,
+  });
+
   const withSequence = (update: TurnStreamUpdate, sequenceNumber: number | undefined): TurnStreamUpdate =>
     sequenceNumber === undefined ? update : { ...update, sequenceNumber };
 
@@ -2013,7 +2021,7 @@ export async function* streamTurnEvents(
       return withSequence(
         {
           ...buildRequiredActionUpdate(),
-          turnState: { status: TURN_STATUS.PAUSED },
+          turnState: requiredActionTurnState(),
         },
         sequenceNumber,
       );
@@ -2067,6 +2075,7 @@ export async function* streamTurnEvents(
 
     if (event.type === EVENT_TYPE.TURN_UPDATE) {
       if (event.state.status === TURN_STATUS.RUNNING) {
+        lastTurnLifecycleStatus = TURN_STATUS.RUNNING;
         // Approving one sub-agent resumes the turn while a sibling may still need
         // MCP auth (or another approval). Keep required-action chrome until continue.
         if (foldStillNeedsUserInput()) {
@@ -2093,6 +2102,7 @@ export async function* streamTurnEvents(
         continue;
       }
 
+      lastTurnLifecycleStatus = TURN_STATUS.PAUSED;
       // Pause is in-stream: the same SSE continues through apply-only echoes,
       // turn.update running, and turn.done. Do not detach the consumer.
       yield withSandbox(
@@ -2163,7 +2173,7 @@ export async function* streamTurnEvents(
       yield withSandbox({
         ...buildRequiredActionUpdate(),
         ...(lastSequenceNumber != null ? { sequenceNumber: lastSequenceNumber } : {}),
-        turnState: { status: TURN_STATUS.PAUSED },
+        turnState: requiredActionTurnState(),
       });
     }
     return;
