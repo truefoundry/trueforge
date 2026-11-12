@@ -142,6 +142,41 @@ export function derivePendingMcpAuth(
   return { mcpServers: servers };
 }
 
+const UPDATE_CURRENT_SESSION_TOOL_NAME = 'update_current_session';
+/** Mirrors `TRUEFORGE_MCP_ID` in trueforge-core. This package does not depend on it. */
+const TRUEFORGE_MCP_SERVER_ID = 'built-in:trueforge-mcp';
+
+function isUpdateCurrentSessionCall(part: ToolCallPart): boolean {
+  // The TrueForge server is deferred, so its tools arrive as `call_tool` and the
+  // target server is the `mcp_server` argument. A same-named tool on another server
+  // must not refresh this session's spec.
+  return (
+    part.toolName === 'call_tool' &&
+    part.args['tool_name'] === UPDATE_CURRENT_SESSION_TOOL_NAME &&
+    part.args['mcp_server'] === TRUEFORGE_MCP_SERVER_ID
+  );
+}
+
+/** Tool call id of the latest finished `update_current_session` call, which rewrites the session's spec. */
+export function findLatestSessionSpecUpdate(messages: readonly ThreadMessage[]): string | undefined {
+  let latest: string | undefined;
+  for (const message of messages) {
+    if (message.role !== 'assistant') {
+      continue;
+    }
+    walkToolCallParts(
+      message.content,
+      part => {
+        if (part.result !== undefined && isUpdateCurrentSessionCall(part)) {
+          latest = part.toolCallId;
+        }
+      },
+      ROOT_THREAD_ID,
+    );
+  }
+  return latest;
+}
+
 /**
  * Most recent `sandboxId` observed anywhere in the conversation, scanning backward.
  * Unlike `derivePendingMcpAuth`, this isn't gated on message status: once a sandbox
