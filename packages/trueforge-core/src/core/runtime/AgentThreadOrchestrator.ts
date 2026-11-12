@@ -221,9 +221,6 @@ export class AgentThreadOrchestrator {
 
   constructor(params: AgentThreadOrchestratorInput) {
     this.maxParallelSubAgents = params.maxParallelSubAgents ?? DEFAULT_MAX_PARALLEL_SUB_AGENTS;
-    if (!Number.isInteger(this.maxParallelSubAgents) || this.maxParallelSubAgents < 1) {
-      throw new Error('maxParallelSubAgents must be a positive integer');
-    }
     this.agentThreads = params.agentThreads;
     this.createDynamicSubAgentThread = params.createDynamicSubAgentThread;
     this.tracing = params.tracing;
