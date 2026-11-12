@@ -146,11 +146,8 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
     },
   );
 
-  it('skips authorize for a caller Authorization, and runs it only when the upstream rejects it', async () => {
-    const getMcpAuthorize = jest.fn(async () => ({
-      status: 'auth_required' as const,
-      authorization_url: 'https://auth.example/consent',
-    }));
+  it('never calls authorize; a rejected caller Authorization falls back to the gateway auth', async () => {
+    const getMcpAuthorize = jest.fn(async () => ({ status: 'authenticated' as const }));
     const store = new TrueFoundryMcpServerStore({
       client: { ...unusedClient(), getMcpAuthorize },
       requestContext: createTrueFoundryRequestContext({
@@ -161,7 +158,7 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
       }),
       agent: undefined,
       logger: createLogger({ silent: true }),
-      perServerHeaders: { 'tfy-platform-mcp': { Authorization: 'Bearer user' } },
+      perServerHeaders: { 'tfy-platform-mcp': { Authorization: 'Bearer user', 'X-End-User': 'alice' } },
     });
     const resolve = store.resolveInvokeHeaders({ record: record('tfy-platform-mcp'), userRef: 'user-1' });
     if (typeof resolve !== 'function') {
@@ -169,15 +166,13 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
     }
 
     const resolved = await resolve();
-    expect(getMcpAuthorize).not.toHaveBeenCalled();
     if (!('onUnauthorized' in resolved) || resolved.onUnauthorized === undefined) {
-      throw new Error('expected a fallback to the consent flow');
+      throw new Error('expected a fallback to the gateway auth');
     }
     await expect(resolved.onUnauthorized()).resolves.toEqual({
-      authRequired: {
-        servers: [{ id: 'tfy-platform-mcp', name: 'tfy-platform-mcp', auth_url: 'https://auth.example/consent' }],
-      },
+      headers: { Authorization: 'Bearer caller-token', 'X-End-User': 'alice' },
     });
+    expect(getMcpAuthorize).not.toHaveBeenCalled();
   });
 });
 

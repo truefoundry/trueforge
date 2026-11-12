@@ -6,7 +6,8 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import type { FetchLike } from '@modelcontextprotocol/sdk/shared/transport.js';
 import type { CallToolRequest, CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { context, propagation } from '@opentelemetry/api';
-import { McpConnectionError } from '../errors';
+import { z } from 'zod';
+import { McpAuthorizationRequiredError, McpConnectionError } from '../errors';
 import { elapsedSeconds, getOperationMetrics, type McpConnectOutcome } from '../observability/operationMetrics';
 import { mcpSsrfFetch } from '../util/outboundFetch';
 import { PromiseTimeoutError, withTimeout } from '../util/promiseUtils';
@@ -65,6 +66,33 @@ export function withMaxResponseBytes(fetchFn: FetchLike, maxBytes: number): Fetc
         }),
       ),
       { status: response.status, statusText: response.statusText, headers: response.headers },
+    );
+  };
+}
+
+const AuthorizationRequiredBodySchema = z.object({
+  message: z.string().optional(),
+  authorization_urls: z.record(z.string(), z.string().min(1)),
+});
+
+/** A 401 whose body lists `authorization_urls` throws `McpAuthorizationRequiredError`; other responses pass through. */
+export function withAuthorizationRequired(fetchFn: FetchLike): FetchLike {
+  return async (url, init) => {
+    const response = await fetchFn(url, init);
+    if (response.status !== 401) {
+      return response;
+    }
+    const body: unknown = await response
+      .clone()
+      .json()
+      .catch(() => undefined);
+    const parsed = AuthorizationRequiredBodySchema.safeParse(body);
+    if (!parsed.success || Object.keys(parsed.data.authorization_urls).length === 0) {
+      return response;
+    }
+    throw new McpAuthorizationRequiredError(
+      parsed.data.message ?? 'upstream requires authorization',
+      parsed.data.authorization_urls,
     );
   };
 }
@@ -216,7 +244,9 @@ export async function connectRemoteMcp(params: {
   const customFetch = params.fetch;
   const transportFetch: RemoteMcpFetch =
     customFetch === undefined ? mcpSsrfFetch : (input, init) => customFetch(input, { ...init, redirect: 'manual' });
-  const fetchFn = withMaxResponseBytes(transportFetch, params.maxResponseBytes ?? DEFAULT_MAX_MCP_RESPONSE_BYTES);
+  const fetchFn = withAuthorizationRequired(
+    withMaxResponseBytes(transportFetch, params.maxResponseBytes ?? DEFAULT_MAX_MCP_RESPONSE_BYTES),
+  );
   const candidates = params.knownTransportType
     ? [params.knownTransportType, ...TRANSPORT_PROBE_ORDER.filter(t => t !== params.knownTransportType)]
     : TRANSPORT_PROBE_ORDER;

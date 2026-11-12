@@ -1,5 +1,4 @@
 import { McpConnectionError, type RemoteMcpHeaders, type ResolveHeadersResult } from '@truefoundry/trueforge-core/core';
-import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
 import type { RequestContext, RequestSubject } from '../auth/identity';
 import { safeReturnTo } from '../auth/safeReturnTo';
@@ -106,54 +105,30 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
   }
 
   /**
-   * Gateway Bearer (+ optional per-server overrides); SFY authorize first, else authRequired.
-   * A caller entry with Authorization is sent as `x-tfy-mcp-headers`; authorize runs only on a 401.
+   * Gateway Bearer (+ optional per-server overrides). No authorize call: the gateway's 401 carries the consent URL.
+   * A caller entry with Authorization is sent as `x-tfy-mcp-headers`; on a 401 it retries with the gateway's own auth.
    */
   resolveInvokeHeaders(input: {
     record: McpServerRecord;
     userRef: string;
     turnMetadata?: TurnMetadata;
   }): RemoteMcpHeaders {
-    const { record, userRef, turnMetadata } = input;
+    const { record, turnMetadata } = input;
     const callerHeaders = this.#perServerHeaders[record.name];
-    const viaAuthorize = async (): Promise<ResolveHeadersResult> => {
-      const status = await this.authorize({
-        tenant_id: record.tenant_id,
-        name: record.name,
-        userRef,
-      });
-      if (status.status === 'auth_required') {
-        const authUrl = status.authorization_url;
-        if (authUrl === undefined || authUrl.length === 0) {
-          throw new HTTPException(422, {
-            message: `MCP server "${record.name}" requires authentication but returned no authorization URL`,
-          });
-        }
-        return {
-          authRequired: {
-            servers: [{ id: record.name, name: record.name, auth_url: authUrl }],
-          },
-        };
-      }
-      const authorization = await this.#resolveGatewayAuthorization();
-      const invokeHeaders = {
-        ...withoutAuthorization(callerHeaders),
-        ...gatewayHeaders(authorization),
-        ...gatewayMetadataHeadersForTurn(turnMetadata),
-      };
-      return { headers: invokeHeaders };
-    };
+    const gatewayBase = async (): Promise<Record<string, string>> => ({
+      ...gatewayHeaders(await this.#resolveGatewayAuthorization()),
+      ...gatewayMetadataHeadersForTurn(turnMetadata),
+    });
+    const viaGateway = async (): Promise<ResolveHeadersResult> => ({
+      headers: { ...withoutAuthorization(callerHeaders), ...(await gatewayBase()) },
+    });
     if (!hasAuthorizationHeader(callerHeaders)) {
-      return viaAuthorize;
+      return viaGateway;
     }
     // Each connection targets one server's gateway proxy, which takes a flat header map for it.
     return async () => ({
-      headers: {
-        ...gatewayHeaders(await this.#resolveGatewayAuthorization()),
-        ...gatewayMetadataHeadersForTurn(turnMetadata),
-        [X_TFY_MCP_HEADERS]: JSON.stringify(callerHeaders),
-      },
-      onUnauthorized: viaAuthorize,
+      headers: { ...(await gatewayBase()), [X_TFY_MCP_HEADERS]: JSON.stringify(callerHeaders) },
+      onUnauthorized: viaGateway,
     });
   }
 

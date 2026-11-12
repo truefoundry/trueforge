@@ -1,6 +1,12 @@
 import type { CallToolRequest } from '@modelcontextprotocol/sdk/types.js';
 import type { Logger } from 'winston';
-import { applyErrorPrefix, MCP_ERROR_PREFIX, McpConnectionError, stripErrorPrefix } from '../errors';
+import {
+  applyErrorPrefix,
+  MCP_ERROR_PREFIX,
+  McpAuthorizationRequiredError,
+  McpConnectionError,
+  stripErrorPrefix,
+} from '../errors';
 import type { MCPServerInitInfo } from '../events/schema';
 import type { InternalToolCallInfo } from '../llm/LLMTypes';
 import {
@@ -181,6 +187,32 @@ export class RemoteMCP implements ToolSource {
   private async executeWithSessionRetry<T>(
     operation: (connection: RemoteMcpConnection) => Promise<T>,
   ): Promise<ExecuteResult<T>> {
+    try {
+      return await this.executeWithAuthFallback(operation);
+    } catch (error) {
+      const authRequired = this.authRequiredFrom(error);
+      if (authRequired === undefined) {
+        throw error;
+      }
+      return { authRequired };
+    }
+  }
+
+  /** A 401 that carried consent URLs becomes authRequired; a bare 401 stays an error. */
+  private authRequiredFrom(error: unknown): MCPAuthRequired | undefined {
+    for (let current: unknown = error; current instanceof Error; current = current.cause) {
+      if (current instanceof McpAuthorizationRequiredError) {
+        const urls = current.authorizationUrls;
+        const authUrl = urls[this.name] ?? Object.values(urls)[0];
+        return authUrl === undefined ? undefined : { servers: [{ id: this.id, name: this.name, auth_url: authUrl }] };
+      }
+    }
+    return undefined;
+  }
+
+  private async executeWithAuthFallback<T>(
+    operation: (connection: RemoteMcpConnection) => Promise<T>,
+  ): Promise<ExecuteResult<T>> {
     // Auth is re-checked on every operation, not only on the first connect: a registered server's OAuth
     // can be revoked or expire mid-request, and callers must get authRequired rather than a generic
     // upstream failure. When already connected the resolved headers are unused (connect is skipped).
@@ -204,7 +236,7 @@ export class RemoteMCP implements ToolSource {
     try {
       return await this.connectAndRun(headersResult.headers, tracked, true);
     } catch (error) {
-      if (!isAuthError(error)) {
+      if (!isAuthError(error) || this.authRequiredFrom(error) !== undefined) {
         throw error;
       }
       this.logger.info(`Remote MCP ${this.name} rejected supplied credentials, falling back to its auth flow`);

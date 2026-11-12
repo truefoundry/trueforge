@@ -1,5 +1,6 @@
 import type { Logger } from 'winston';
 import { McpConnectionError, RemoteMCP, ToolSet } from '../../../src/core';
+import { McpAuthorizationRequiredError } from '../../../src/core/errors';
 import {
   isApprovalRequiredResponse,
   isCallToolResponseResult,
@@ -446,6 +447,26 @@ describe('RemoteMCP + ToolSet', () => {
     const callRes = await server.callTool({ name: 'read_thing', arguments: {} });
     expect(callRes).toEqual({ authRequired });
     expect(state.callToolCalls).toBe(0);
+  });
+
+  it('returns authRequired from a 401 that carries authorization URLs, without falling back', async () => {
+    installFakeConnection({
+      connectError: new McpAuthorizationRequiredError('auth required', { 'my-inline': 'https://auth.example/consent' }),
+    });
+    const onUnauthorized = jest.fn(() => Promise.resolve({ headers: {} }));
+    const server = makeServer({ headers: () => Promise.resolve({ headers: {}, onUnauthorized }) });
+
+    await expect(server.listTools()).resolves.toEqual({
+      authRequired: { servers: [{ id: 'inline-id-123', name: 'my-inline', auth_url: 'https://auth.example/consent' }] },
+    });
+    expect(onUnauthorized).not.toHaveBeenCalled();
+  });
+
+  it('throws on a bare 401 when there is no fallback', async () => {
+    installFakeConnection({ connectError: new McpConnectionError('upstream 401', 401) });
+    const server = makeServer({ headers: () => Promise.resolve({ headers: {} }) });
+
+    await expect(server.listTools()).rejects.toMatchObject({ statusCode: 401 });
   });
 
   it('falls back to onUnauthorized when supplied credentials are rejected at connect', async () => {

@@ -106,6 +106,18 @@ export class McpConnectionError extends AgentHarnessError {
   }
 }
 
+/** A 401 whose body carries consent URLs (`authorization_urls`, keyed by server name), so the caller can authorize. */
+export class McpAuthorizationRequiredError extends McpConnectionError {
+  constructor(
+    message: string,
+    readonly authorizationUrls: Readonly<Record<string, string>>,
+    options?: ErrorOptions,
+  ) {
+    super(message, 401, options);
+    this.name = 'McpAuthorizationRequiredError';
+  }
+}
+
 /**
  * An MCP server's `auth.type: dcr` is unsatisfiable by configuration, not by a transient fault
  */
