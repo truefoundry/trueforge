@@ -2410,7 +2410,7 @@ describe('convertTurnMessages', () => {
             { type: 'turn.update', id: 'pause-mcp', createdAt, threadId: null, state: { status: 'paused' } },
             // Sibling-thread resume must not advance past auth — only continue does.
             { type: 'turn.update', id: 'run-sibling', createdAt, threadId: null, state: { status: 'running' } },
-            { type: 'user.mcp_auth_continue', id: 'continue-mcp', createdAt, threadId: null },
+            { type: 'user.mcp_auth_continue', id: 'continue-mcp', createdAt },
             { type: 'turn.update', id: 'run-mcp', createdAt, threadId: null, state: { status: 'running' } },
             { type: 'turn.done', id: 'done-mcp', createdAt, state: { status: 'done', completedAt: createdAt } },
           ]),
