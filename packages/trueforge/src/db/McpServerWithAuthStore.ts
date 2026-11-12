@@ -6,7 +6,6 @@ import {
   isVirtualMcpHeaders,
   overrideHeaders,
   withoutAuthorization,
-  X_TFY_MCP_HEADERS,
   type PerServerMcpHeaders,
 } from '../mcp/perServerMcpHeaders';
 import { resolveConfiguredMcpRequestHeaders, resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
@@ -91,7 +90,9 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
       return registered;
     }
     if (isVirtualMcpHeaders(callerHeaders)) {
-      const override = { [X_TFY_MCP_HEADERS]: JSON.stringify(callerHeaders) };
+      const override = Object.fromEntries(
+        Object.entries(callerHeaders).map(([name, value]) => [name, JSON.stringify(value)]),
+      );
       return () => resolveWithOverride({ headers: registered, override });
     }
     if (hasAuthorizationHeader(callerHeaders)) {
