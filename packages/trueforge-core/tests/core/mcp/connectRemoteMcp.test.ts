@@ -125,7 +125,10 @@ describe('connectRemoteMcp custom fetch', () => {
           status: 401,
         }),
       )
-      .mockResolvedValueOnce(new Response('unauthorized', { status: 401 }));
+      .mockResolvedValueOnce(new Response('unauthorized', { status: 401 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ authorization_urls: { github: 'javascript:alert(1)' } }), { status: 401 }),
+      );
     await connectRemoteMcp({ ...baseParams(), url: endpoint, knownTransportType: 'streamable-http', fetch });
     const transportFetch = mockTransportFetches[0];
     if (transportFetch === undefined) {
@@ -137,6 +140,7 @@ describe('connectRemoteMcp custom fetch', () => {
       statusCode: 401,
       authorizationUrls: urls,
     });
+    await expect(transportFetch(endpoint, {})).resolves.toMatchObject({ status: 401 });
     await expect(transportFetch(endpoint, {})).resolves.toMatchObject({ status: 401 });
   });
 });

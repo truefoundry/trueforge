@@ -71,7 +71,7 @@ export function withMaxResponseBytes(fetchFn: FetchLike, maxBytes: number): Fetc
 }
 
 const AuthorizationRequiredBodySchema = z.object({
-  authorization_urls: z.record(z.string(), z.string().min(1)),
+  authorization_urls: z.record(z.string(), z.url({ protocol: /^https?$/ })),
 });
 
 /** A 401 whose body lists `authorization_urls` throws `McpAuthorizationRequiredError`; other responses pass through. */
