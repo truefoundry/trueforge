@@ -71,7 +71,6 @@ export function withMaxResponseBytes(fetchFn: FetchLike, maxBytes: number): Fetc
 }
 
 const AuthorizationRequiredBodySchema = z.object({
-  message: z.string().optional(),
   authorization_urls: z.record(z.string(), z.string().min(1)),
 });
 
@@ -90,10 +89,7 @@ export function withAuthorizationRequired(fetchFn: FetchLike): FetchLike {
     if (!parsed.success || Object.keys(parsed.data.authorization_urls).length === 0) {
       return response;
     }
-    throw new McpAuthorizationRequiredError(
-      parsed.data.message ?? 'upstream requires authorization',
-      parsed.data.authorization_urls,
-    );
+    throw new McpAuthorizationRequiredError('upstream requires authorization', parsed.data.authorization_urls);
   };
 }
 

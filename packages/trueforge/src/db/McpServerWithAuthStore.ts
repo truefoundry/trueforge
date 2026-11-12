@@ -97,16 +97,7 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
       return () =>
         Promise.resolve({ headers, onUnauthorized: () => resolveWithOverride({ headers: registered, override }) });
     }
-    if (typeof registered !== 'function') {
-      return overrideHeaders({ base: registered, override: callerHeaders });
-    }
-    return async () => {
-      const result = await registered();
-      if ('authRequired' in result) {
-        return result;
-      }
-      return { headers: overrideHeaders({ base: result.headers, override: callerHeaders }) };
-    };
+    return () => resolveWithOverride({ headers: registered, override: callerHeaders });
   }
 
   #resolveRegisteredHeaders(input: { record: McpServerRecord; userRef: string }): RemoteMcpHeaders {

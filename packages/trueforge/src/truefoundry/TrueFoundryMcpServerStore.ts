@@ -105,8 +105,8 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
   }
 
   /**
-   * Gateway Bearer (+ optional per-server overrides). No authorize call: the gateway's 401 carries the consent URL.
-   * A caller entry with Authorization is sent as `x-tfy-mcp-headers`; on a 401 it retries with the gateway's own auth.
+   * Gateway Bearer (+ per-server overrides); the gateway's 401 carries any consent URL.
+   * A caller entry with Authorization goes in `x-tfy-mcp-headers`, falling back to the gateway's auth on a 401.
    */
   resolveInvokeHeaders(input: {
     record: McpServerRecord;

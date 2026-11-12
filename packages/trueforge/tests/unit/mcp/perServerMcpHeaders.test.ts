@@ -131,7 +131,7 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
     expect(headers).toEqual({ Authorization: 'Bearer caller-token' });
   });
 
-  it.each(['Authorization', 'authorization', 'AUTHORIZATION'])(
+  it.each(['Authorization', 'authorization', 'AUTHORIZATION', 'AuThOrIzAtIoN'])(
     'sends an override under %s to the upstream via x-tfy-mcp-headers, never as the gateway Bearer',
     async name => {
       const headers = await invokeHeaders(

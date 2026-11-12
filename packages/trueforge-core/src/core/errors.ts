@@ -106,7 +106,7 @@ export class McpConnectionError extends AgentHarnessError {
   }
 }
 
-/** A 401 whose body carries consent URLs (`authorization_urls`, keyed by server name), so the caller can authorize. */
+/** A 401 whose body lists consent URLs (`authorization_urls`, keyed by server name). */
 export class McpAuthorizationRequiredError extends McpConnectionError {
   constructor(
     message: string,

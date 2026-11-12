@@ -240,7 +240,7 @@ export class RemoteMCP implements ToolSource {
         throw error;
       }
       this.logger.info(`Remote MCP ${this.name} rejected supplied credentials, falling back to its auth flow`);
-      // Reset only the rejected connection so a sibling's newer one survives; a failed connect keeps its stale session and tools.
+      // Reset only the rejected connection; a failed connect still leaves the old session and tools.
       if (rejected !== undefined) {
         await this.resetConnection(rejected);
       } else if (!this.isConnected) {

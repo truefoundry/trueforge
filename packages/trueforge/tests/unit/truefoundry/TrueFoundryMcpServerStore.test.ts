@@ -298,23 +298,12 @@ describe('TrueFoundryMcpServerStore', () => {
       return headers();
     }
 
-    it('never calls authorize, even when the account is not connected', async () => {
+    it('returns the gateway Bearer without calling authorize', async () => {
       const { store, client } = createStore();
-      client.getMcpAuthorize.mockResolvedValue({
-        status: 'auth_required',
-        authorization_url: 'https://consent.example/authorize',
-      });
       await expect(invoke(store)).resolves.toEqual({
         headers: { Authorization: `Bearer ${ACCESS_TOKEN}` },
       });
       expect(client.getMcpAuthorize).not.toHaveBeenCalled();
-    });
-
-    it('returns the gateway Bearer', async () => {
-      const { store } = createStore();
-      await expect(invoke(store)).resolves.toEqual({
-        headers: { Authorization: `Bearer ${ACCESS_TOKEN}` },
-      });
     });
 
     it('merges turn metadata after auth headers', async () => {
