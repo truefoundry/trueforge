@@ -15,10 +15,10 @@ import { Icon } from '@/icons/Icon.js';
 import { useCatalogServer } from '@/server/ServerContext.js';
 import type { ConnectorAuth, ConnectorBase, ConnectorCatalogEntry } from '@/server/types.js';
 import { getErrorMessage } from '@/utils/getErrorMessage.js';
+import ConfirmDeleteDialog from '../../atoms/primitives/ConfirmDeleteDialog.js';
 import { useToasterOptional } from '../ToasterContainer.js';
 import AddMcpServerForm, { type AddMcpServerDraft } from './AddMcpServerForm.js';
 import { AUTH_TYPE_LABELS } from './authTypeLabels.js';
-import ConfirmDeleteDialog from './ConfirmDeleteDialog.js';
 import ConnectorDetails from './ConnectorDetails.js';
 
 type ConnectorListItem =

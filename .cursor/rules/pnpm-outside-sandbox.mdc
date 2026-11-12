@@ -1,0 +1,12 @@
+---
+description: Always run pnpm/node package commands outside the sandbox
+alwaysApply: true
+---
+
+# pnpm / node_modules — no sandbox
+
+Sandboxed Shell runs corrupt or partial `node_modules` in this repo (e.g. `EPERM` during `pnpm install` / filter installs).
+
+- Run **any** `pnpm`, `npm`, `yarn`, or package-manager-triggered install/`pnpm exec` / `pnpm --filter` command with Shell `required_permissions: ["all"]`.
+- Do **not** retry package installs inside the sandbox after a permission failure; request `all` on the first attempt for those commands.
+- Prefer `pnpm exec …` / package.json scripts with `all` over sandboxed ad-hoc binaries that may trigger a deps-status install.

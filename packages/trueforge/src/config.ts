@@ -284,6 +284,17 @@ function parsePublicBaseUrl(raw: string | undefined): string {
   return `${parsed.origin}${path}`;
 }
 
+function parseTrueFoundryMemoryProvider(raw: string | undefined): 'zep' | undefined {
+  if (raw === undefined || raw.trim() === '') {
+    return undefined;
+  }
+  const value = raw.trim();
+  if (value === 'zep') {
+    return value;
+  }
+  throw new Error(`Environment variable TRUEFOUNDRY_MEMORY_PROVIDER must be "zep", got ${JSON.stringify(raw)}`);
+}
+
 function parseTrueFoundrySandboxProvider(raw: string | undefined): 'daytona' | 'truefoundry' | undefined {
   if (raw === undefined || raw.trim() === '') {
     return undefined;
@@ -727,6 +738,12 @@ export interface SharedServerConfiguration {
    */
   WEB_SEARCH_CATALOG_PATH: string | undefined;
   /**
+   * Optional override for the memory catalog YAML (discovery presets for
+   * GET /catalogs/memory-providers). When unset, the catalog inlined at build
+   * time is used. Env: `MEMORY_CATALOG_PATH`.
+   */
+  MEMORY_CATALOG_PATH: string | undefined;
+  /**
    * Frontend build served alongside the API; a missing directory leaves the server API-only.
    * Env: `FRONTEND_DIR`. Default: packaged `dist/_frontend` (npx tarball) or
    * monorepo `packages/frontend/dist` — always absolute, independent of CWD.
@@ -745,12 +762,16 @@ export interface SharedServerConfiguration {
    * Env: `SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD`. Default 20 MB (same as gateway).
    */
   SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD: number;
-  /** Max CPU cores for a sandbox environment. Env: `SANDBOX_ENVIRONMENT_CPU_MAX`. Default 32. */
+  /** Max CPU cores for a sandbox environment. Env: `SANDBOX_ENVIRONMENT_CPU_MAX`. Default 4. */
   SANDBOX_ENVIRONMENT_CPU_MAX: number;
-  /** Max memory GiB for a sandbox environment. Env: `SANDBOX_ENVIRONMENT_MEMORY_GIB_MAX`. Default 64. */
+  /** Max memory GiB for a sandbox environment. Env: `SANDBOX_ENVIRONMENT_MEMORY_GIB_MAX`. Default 8. */
   SANDBOX_ENVIRONMENT_MEMORY_GIB_MAX: number;
-  /** Max disk GiB for a sandbox environment. Env: `SANDBOX_ENVIRONMENT_DISK_GIB_MAX`. Default 256. */
+  /** Max disk GiB for a sandbox environment. Env: `SANDBOX_ENVIRONMENT_DISK_GIB_MAX`. Default 10. */
   SANDBOX_ENVIRONMENT_DISK_GIB_MAX: number;
+  /** Max characters in a sandbox environment build script. Env: `SANDBOX_ENVIRONMENT_BUILD_SCRIPT_MAX_LENGTH`. Default 20,000. */
+  SANDBOX_ENVIRONMENT_BUILD_SCRIPT_MAX_LENGTH: number;
+  /** Default and max `limit` for list session/turn events. Env: `LIST_EVENTS_PAGE_LIMIT_MAX`. Default 500. */
+  LIST_EVENTS_PAGE_LIMIT_MAX: number;
   /**
    * Max bytes for an HTTP request body. Env: `MAX_REQUEST_BODY_BYTES`. Default 30 MB.
    */
@@ -761,8 +782,10 @@ export interface SharedServerConfiguration {
    */
   GRACEFUL_TIMEOUT_SECONDS: number;
   /**
-   * Max seconds a single turn may execute before it is cancelled with
-   * `server-execution-timeout`. Env: `SERVER_EXECUTION_TIMEOUT_SECONDS`. Default 600 (10 minutes).
+   * Max seconds a turn may stay `running` before it is cancelled with
+   * `server-execution-timeout`. Paused time is not counted: the window clears on
+   * pause and starts again on the next `running`. Env: `SERVER_EXECUTION_TIMEOUT_SECONDS`.
+   * Default 3600 (60 minutes).
    */
   SERVER_EXECUTION_TIMEOUT_SECONDS: number;
   /**
@@ -780,6 +803,18 @@ export interface SharedServerConfiguration {
    * Env: `TURN_SUBSCRIBE_TIMEOUT_MS`. Default 600000.
    */
   TURN_SUBSCRIBE_TIMEOUT_MS: number;
+  /**
+   * How long a paused turn stays in memory before it is offloaded.
+   * The row stays paused. The next send on the owner rebuilds it.
+   * Env: `TURN_PAUSED_KEEPALIVE_SECONDS`. Default 300.
+   */
+  TURN_PAUSED_KEEPALIVE_SECONDS: number;
+  /**
+   * Max ms to wait when acquiring the per-turn lock.
+   * `0` waits until the holder releases it.
+   * Env: `TURN_LOCK_ACQUIRE_TIMEOUT_MS`. Default 0.
+   */
+  TURN_LOCK_ACQUIRE_TIMEOUT_MS: number;
   /**
    * Max ms to wait for one create-turn SSE write before dropping that client
    * and keeping the turn drain running. Env: `TURN_SSE_STREAM_WRITE_TIMEOUT_MS`. Default 60000.
@@ -875,7 +910,7 @@ export interface SharedServerConfiguration {
   MODEL_HTTP_CONNECT_TIMEOUT_MS: number;
   /**
    * undici headersTimeout for model-provider outbound fetch.
-   * Env: `MODEL_HTTP_HEADERS_TIMEOUT_MS`. Default 2 minutes.
+   * Env: `MODEL_HTTP_HEADERS_TIMEOUT_MS`. Default 20 seconds.
    */
   MODEL_HTTP_HEADERS_TIMEOUT_MS: number;
   /**
@@ -1072,6 +1107,31 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
   TRUEFOUNDRY_WEB_SEARCH_PROVIDER: TrueFoundryWebSearchProviderEnv | undefined;
   TRUEFOUNDRY_AUTH_SERVER_URL: string | undefined;
   TRUEFOUNDRY_TENANT_NAME: string | undefined;
+  /**
+   * When TrueFoundry mode is on, enable long-term memory: the controller's memory-ingest loop sends
+   * chats to the shared memory provider. Env: `TRUEFOUNDRY_MEMORY_ENABLED`. Default false.
+   */
+  TRUEFOUNDRY_MEMORY_ENABLED: boolean;
+  /**
+   * Shared memory backend when `TRUEFOUNDRY_MEMORY_ENABLED` is true.
+   * Env: `TRUEFOUNDRY_MEMORY_PROVIDER` (`zep`).
+   */
+  TRUEFOUNDRY_MEMORY_PROVIDER: 'zep' | undefined;
+  /** Shared API key (required for zep). Env: `TRUEFOUNDRY_MEMORY_API_KEY`. */
+  TRUEFOUNDRY_MEMORY_API_KEY: string | undefined;
+  /** Memory provider API URL; defaults to the provider's hosted API. Env: `TRUEFOUNDRY_MEMORY_SERVER_URL`. */
+  TRUEFOUNDRY_MEMORY_SERVER_URL: string | undefined;
+  /**
+   * Tenants that get memory while `TRUEFOUNDRY_MEMORY_ENABLED`; every other tenant has none. JSON
+   * string array of tenant ids. Env: `TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST`. Unset or empty: every tenant.
+   */
+  TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST: string[];
+  /**
+   * Static JSON settings for the memory-ingest loop: `interval_ms`, `max_sessions_per_run`,
+   * `max_exchanges_per_session`, `lookback_ms` (each optional, with defaults).
+   * Env: `TRUEFOUNDRY_MEMORY_SETTINGS`.
+   */
+  TRUEFOUNDRY_MEMORY_SETTINGS: string | undefined;
 };
 
 export type ServerConfiguration = StandaloneServerConfiguration | DistributedServerConfiguration;
@@ -1117,6 +1177,7 @@ const shared: SharedServerConfiguration = {
   SKILL_CATALOG_PATH: resolveOptionalPathEnv('SKILL_CATALOG_PATH'),
   SANDBOX_CATALOG_PATH: resolveOptionalPathEnv('SANDBOX_CATALOG_PATH'),
   WEB_SEARCH_CATALOG_PATH: resolveOptionalPathEnv('WEB_SEARCH_CATALOG_PATH'),
+  MEMORY_CATALOG_PATH: resolveOptionalPathEnv('MEMORY_CATALOG_PATH'),
   FRONTEND_DIR: resolveFrontendDir(),
   MCP_TOOL_CALL_MAX_RESPONSE_BYTES: parsePositiveInt({
     envKey: 'MCP_TOOL_CALL_MAX_RESPONSE_BYTES',
@@ -1133,17 +1194,27 @@ const shared: SharedServerConfiguration = {
   SANDBOX_ENVIRONMENT_CPU_MAX: parsePositiveInt({
     envKey: 'SANDBOX_ENVIRONMENT_CPU_MAX',
     raw: getEnv('SANDBOX_ENVIRONMENT_CPU_MAX'),
-    defaultValue: 32,
+    defaultValue: 4,
   }),
   SANDBOX_ENVIRONMENT_MEMORY_GIB_MAX: parsePositiveInt({
     envKey: 'SANDBOX_ENVIRONMENT_MEMORY_GIB_MAX',
     raw: getEnv('SANDBOX_ENVIRONMENT_MEMORY_GIB_MAX'),
-    defaultValue: 64,
+    defaultValue: 8,
   }),
   SANDBOX_ENVIRONMENT_DISK_GIB_MAX: parsePositiveInt({
     envKey: 'SANDBOX_ENVIRONMENT_DISK_GIB_MAX',
     raw: getEnv('SANDBOX_ENVIRONMENT_DISK_GIB_MAX'),
-    defaultValue: 256,
+    defaultValue: 10,
+  }),
+  SANDBOX_ENVIRONMENT_BUILD_SCRIPT_MAX_LENGTH: parsePositiveInt({
+    envKey: 'SANDBOX_ENVIRONMENT_BUILD_SCRIPT_MAX_LENGTH',
+    raw: getEnv('SANDBOX_ENVIRONMENT_BUILD_SCRIPT_MAX_LENGTH'),
+    defaultValue: 20_000,
+  }),
+  LIST_EVENTS_PAGE_LIMIT_MAX: parsePositiveInt({
+    envKey: 'LIST_EVENTS_PAGE_LIMIT_MAX',
+    raw: getEnv('LIST_EVENTS_PAGE_LIMIT_MAX'),
+    defaultValue: 500,
   }),
   MAX_REQUEST_BODY_BYTES: parsePositiveInt({
     envKey: 'MAX_REQUEST_BODY_BYTES',
@@ -1170,6 +1241,16 @@ const shared: SharedServerConfiguration = {
     envKey: 'TURN_SUBSCRIBE_TIMEOUT_MS',
     raw: getEnv('TURN_SUBSCRIBE_TIMEOUT_MS'),
     defaultValue: 600_000,
+  }),
+  TURN_PAUSED_KEEPALIVE_SECONDS: parsePositiveInt({
+    envKey: 'TURN_PAUSED_KEEPALIVE_SECONDS',
+    raw: getEnv('TURN_PAUSED_KEEPALIVE_SECONDS'),
+    defaultValue: 300,
+  }),
+  TURN_LOCK_ACQUIRE_TIMEOUT_MS: parseNonNegativeInt({
+    envKey: 'TURN_LOCK_ACQUIRE_TIMEOUT_MS',
+    raw: getEnv('TURN_LOCK_ACQUIRE_TIMEOUT_MS'),
+    defaultValue: 0,
   }),
   TURN_SSE_STREAM_WRITE_TIMEOUT_MS: parsePositiveInt({
     envKey: 'TURN_SSE_STREAM_WRITE_TIMEOUT_MS',
@@ -1249,7 +1330,7 @@ const shared: SharedServerConfiguration = {
   MODEL_HTTP_HEADERS_TIMEOUT_MS: parsePositiveInt({
     envKey: 'MODEL_HTTP_HEADERS_TIMEOUT_MS',
     raw: getEnv('MODEL_HTTP_HEADERS_TIMEOUT_MS'),
-    defaultValue: 2 * 60 * 1000,
+    defaultValue: 20_000,
   }),
   MODEL_HTTP_BODY_TIMEOUT_MS: parsePositiveInt({
     envKey: 'MODEL_HTTP_BODY_TIMEOUT_MS',
@@ -1390,6 +1471,21 @@ const configuration: ServerConfiguration = standalone
       ),
       TRUEFOUNDRY_AUTH_SERVER_URL: getEnv('TRUEFOUNDRY_AUTH_SERVER_URL', { required: false }),
       TRUEFOUNDRY_TENANT_NAME: getEnv('TRUEFOUNDRY_TENANT_NAME', { required: false }),
+      TRUEFOUNDRY_MEMORY_ENABLED: parseBoolean({
+        envKey: 'TRUEFOUNDRY_MEMORY_ENABLED',
+        raw: getEnv('TRUEFOUNDRY_MEMORY_ENABLED'),
+        defaultValue: false,
+      }),
+      TRUEFOUNDRY_MEMORY_PROVIDER: parseTrueFoundryMemoryProvider(
+        getEnv('TRUEFOUNDRY_MEMORY_PROVIDER', { required: false }),
+      ),
+      TRUEFOUNDRY_MEMORY_API_KEY: getEnv('TRUEFOUNDRY_MEMORY_API_KEY', { required: false }),
+      TRUEFOUNDRY_MEMORY_SERVER_URL: getEnv('TRUEFOUNDRY_MEMORY_SERVER_URL', { required: false }),
+      TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST: parseJsonStringArrayEnv({
+        envKey: 'TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST',
+        raw: getEnv('TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST'),
+      }),
+      TRUEFOUNDRY_MEMORY_SETTINGS: getEnv('TRUEFOUNDRY_MEMORY_SETTINGS', { required: false }),
     };
 
 export function isOidcConfigured(
@@ -1475,6 +1571,28 @@ if (isTrueFoundryModeEnabled(configuration)) {
       throw new Error(
         'TRUEFOUNDRY_SANDBOX_PROVIDER=truefoundry requires TRUEFOUNDRY_SANDBOX_SERVER_URL, or set TRUEFOUNDRY_SANDBOX_ENABLED=false.',
       );
+    }
+  }
+
+  // Shared memory
+  if (configuration.TRUEFOUNDRY_MEMORY_ENABLED) {
+    if (configuration.TRUEFOUNDRY_MEMORY_PROVIDER === undefined) {
+      throw new Error(
+        'TRUEFOUNDRY_MEMORY_ENABLED is true but TRUEFOUNDRY_MEMORY_PROVIDER is not set. ' +
+          'Set TRUEFOUNDRY_MEMORY_PROVIDER to "zep", or set TRUEFOUNDRY_MEMORY_ENABLED=false.',
+      );
+    }
+    if (configuration.TRUEFOUNDRY_MEMORY_API_KEY === undefined) {
+      throw new Error(
+        'TRUEFOUNDRY_MEMORY_PROVIDER=zep requires TRUEFOUNDRY_MEMORY_API_KEY, or set TRUEFOUNDRY_MEMORY_ENABLED=false.',
+      );
+    }
+    if (configuration.TRUEFOUNDRY_MEMORY_SETTINGS !== undefined) {
+      try {
+        JSON.parse(configuration.TRUEFOUNDRY_MEMORY_SETTINGS);
+      } catch (error) {
+        throw new Error('TRUEFOUNDRY_MEMORY_SETTINGS must be valid JSON', { cause: error });
+      }
     }
   }
 }

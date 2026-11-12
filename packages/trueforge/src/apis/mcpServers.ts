@@ -426,7 +426,7 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
     const requestContext = deps.resolveRequestContext(c);
     const userRef = requestContext.subject.id;
 
-    if (returnTo && safeReturnTo(returnTo) !== returnTo) {
+    if (returnTo !== undefined && safeReturnTo(returnTo) !== returnTo) {
       return c.json({ error: { message: 'Invalid return_to: must be a same-origin relative path' } }, 400);
     }
 
@@ -482,9 +482,7 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
     }
     const remote = new RemoteMCP({
       id: name,
-      name,
-      url: connection.url,
-      headers: connection.headers ?? {},
+      connection,
       requestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
       connectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
       maxResponseBytes: configuration.MCP_TOOL_CALL_MAX_RESPONSE_BYTES,

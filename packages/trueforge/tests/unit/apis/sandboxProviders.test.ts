@@ -3,6 +3,7 @@ import { createCatalogRouter } from '../../../src/apis/catalog';
 import { createSandboxProvidersRouter } from '../../../src/apis/sandboxProviders';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { McpCatalog } from '../../../src/catalog/McpCatalog';
+import { MemoryCatalog } from '../../../src/catalog/MemoryCatalog';
 import { ModelCatalog } from '../../../src/catalog/ModelCatalog';
 import { SandboxCatalog } from '../../../src/catalog/SandboxCatalog';
 import { SkillCatalog } from '../../../src/catalog/SkillCatalog';
@@ -63,7 +64,7 @@ async function createRouters(): Promise<{
   const sandboxProviderStore = new SqliteSandboxProviderStore(db);
   return {
     settingsRouter: createSandboxProvidersRouter({
-      resolveSandboxProviderStore: () => sandboxProviderStore,
+      sandboxProviderStore,
       sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
       withTransaction: callback => db.transaction().execute(callback),
       logger,
@@ -83,7 +84,7 @@ describe('sandboxProviders router', () => {
     await migrateSqliteToLatest(db);
     sandboxProviderStore = new SqliteSandboxProviderStore(db);
     settingsRouter = createSandboxProvidersRouter({
-      resolveSandboxProviderStore: () => sandboxProviderStore,
+      sandboxProviderStore,
       sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
       withTransaction: callback => db.transaction().execute(callback),
       logger,
@@ -95,6 +96,7 @@ describe('sandboxProviders router', () => {
       skillCatalog: SkillCatalog.load(),
       sandboxCatalog: SandboxCatalog.load(),
       webSearchCatalog: WebSearchCatalog.load(),
+      memoryCatalog: MemoryCatalog.load(),
     });
   });
 

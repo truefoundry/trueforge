@@ -50,7 +50,7 @@ spec:
         {{- . | nindent 8 }}
       {{- end }}
       containers:
-        - name: controller
+        - name: trueforge-controller
           image: {{ include "trueforge.image" . | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command:
@@ -60,9 +60,7 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           env:
-            {{- include "trueforge.server.env" . | nindent 12 }}
-            - name: SERVER_URL
-              value: {{ include "trueforge.controller.serverUrl" . | quote }}
+            {{- include "trueforge.env" . | nindent 12 }}
             {{- with .Values.controller.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}

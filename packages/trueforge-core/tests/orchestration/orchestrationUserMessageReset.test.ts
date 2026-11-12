@@ -105,6 +105,8 @@ describe('orchestration: user-message reset', () => {
         title: 'worker',
         parent: { thread_id: MAIN_ID, tool_call_id: TOOL_CALL_ID },
         agentInfo: { type: 'dynamic', name: 'worker', input: 'task' },
+        pendingMCPAuth: true,
+        context: [assistantWithCalls([approvalToolCall('call-child-hitl')])],
         definition: {
           modelClient: {
             create: jest.fn().mockImplementation(() => {
@@ -131,6 +133,8 @@ describe('orchestration: user-message reset', () => {
       createDynamicSubAgentThread: () => Promise.reject(new Error('unexpected sub-agent')),
       tracing: NOOP_AGENT_TRACING,
       logger: makeSilentLogger(),
+      pendingTurnEvents: [],
+      mcpServers: [],
     });
 
     const sendEvents = [];
@@ -138,8 +142,9 @@ describe('orchestration: user-message reset', () => {
       sendEvents.push(event);
     }
 
-    const { events, result } = await runExecute({ orchestrator });
+    const { events, result } = await runExecute({ orchestrator, signal: AbortSignal.timeout(5_000) });
 
+    expect(child.toSnapshot().pending_mcp_auth).toBe(false);
     expect(child.toSnapshot().completion).toEqual(expect.objectContaining({ type: 'cancelled', reason: CANCELED }));
     expect(sendEvents).toEqual(
       expect.arrayContaining([
@@ -220,6 +225,8 @@ describe('orchestration: user-message reset', () => {
       createDynamicSubAgentThread: () => Promise.reject(new Error('unexpected sub-agent')),
       tracing: NOOP_AGENT_TRACING,
       logger: makeSilentLogger(),
+      pendingTurnEvents: [],
+      mcpServers: [],
     });
 
     const sendEvents: unknown[] = [];
@@ -255,7 +262,7 @@ describe('orchestration: user-message reset', () => {
     );
   });
 
-  it('ignores empty send/validate on a completed thread; non-empty still throws', async () => {
+  it('ignores empty validation on a completed thread; non-empty still throws', async () => {
     const child = new AgentThread(
       baseThreadInput({
         threadId: CHILD_ID,
@@ -268,14 +275,10 @@ describe('orchestration: user-message reset', () => {
         },
       }),
     );
-    await expect(child.send([]).next()).resolves.toEqual({ done: true, value: undefined });
     expect(() => child.validateSendInput([])).not.toThrow();
     expect(() => child.validateSendInput([{ role: 'tool', tool_call_id: TOOL_CALL_ID, content: 'late' }])).toThrow(
       InvalidAgentSendInputError,
     );
-    await expect(
-      child.send([{ role: 'tool', tool_call_id: TOOL_CALL_ID, content: 'late' }]).next(),
-    ).rejects.toBeInstanceOf(InvalidAgentSendInputError);
   });
 
   it('empty orchestrator send ignores leftover children with preComputedCompletion', async () => {
@@ -308,6 +311,8 @@ describe('orchestration: user-message reset', () => {
       createDynamicSubAgentThread: () => Promise.reject(new Error('unexpected sub-agent')),
       tracing: NOOP_AGENT_TRACING,
       logger: makeSilentLogger(),
+      pendingTurnEvents: [],
+      mcpServers: [],
     });
 
     await expect(

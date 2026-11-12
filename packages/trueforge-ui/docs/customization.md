@@ -79,8 +79,7 @@ Public override surface (primitives stay theme/CSS — not slots):
   `AttachmentPickerButton`, `Toast`, `ToastStack`
 - **Tools / prompts:** `ToolCallCard`, `ToolCallContentBlock`,
   `ToolApprovalBar`, `ToolGroupCard`, `SubAgentCard`, `SandboxToolCallCard`,
-  `AgentStepsCard`, `ReasoningCard`, `AskUserPrompt`, `McpAuthPrompt`,
-  `ResumeUnavailable`
+  `AgentStepsCard`, `ReasoningCard`, `AskUserPrompt`, `McpAuthPrompt`
 
 ## URL routing (`withRouter`)
 
@@ -164,8 +163,8 @@ Notes on behaviour:
   reset history pagination; All Chats remains paginated in 20-session pages.
 - Unrecognized paths (and malformed escapes) normalize to the root place.
 - `/settings` is registered only while Settings chrome is available (catalog
-  present and `capabilities.settings.enabled !== false`). When that gate is
-  off, `/settings` is treated like an unknown path and replaces to root.
+  present and at least one `capabilities.settings` section enabled). When that
+  gate is off, `/settings` is treated like an unknown path and replaces to root.
 - A URL naming a place the host cannot honor (e.g. `/agents/x` without the
   agent library) is left in the address bar until the next navigation
   corrects it.

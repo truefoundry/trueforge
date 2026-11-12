@@ -13,7 +13,7 @@
  *
  * Implementations: PostgresScheduleStore and SqliteScheduleStore.
  */
-import type { CreatedBySubject, TokenPagination } from '@truefoundry/trueforge-core/agent-session';
+import type { Subject, TokenPagination } from '@truefoundry/trueforge-core/agent-session';
 import { randomUUID } from 'node:crypto';
 import {
   ScheduleManifestSchema,
@@ -46,7 +46,7 @@ export interface ScheduleRecord {
   name: string;
   manifest: ScheduleManifest;
   status: ScheduleStatus;
-  created_by_subject: CreatedBySubject;
+  created_by_subject: Subject;
   /** ISO-8601 UTC instant. */
   created_at: string;
   /** ISO-8601 UTC instant. */
@@ -61,7 +61,7 @@ export interface ScheduleRunRecord {
   /** ISO-8601 UTC instant this run was scheduled for. Preserved even when `missed`. */
   scheduled_for: string;
   status: ScheduleRunStatus;
-  created_by_subject: CreatedBySubject;
+  created_by_subject: Subject;
   triggered_at: string | null;
   reason: string | null;
   session_id: string | null;
@@ -126,7 +126,7 @@ export interface GetSchedulesByIdsInput {
 /** Minimal schedule fields for permission evaluation. */
 export interface ScheduleOwnership {
   id: string;
-  created_by_subject: CreatedBySubject;
+  created_by_subject: Subject;
 }
 
 export interface CreateScheduleInput {
@@ -135,7 +135,7 @@ export interface CreateScheduleInput {
   agent_name: string;
   name: string;
   manifest: ScheduleManifest;
-  created_by_subject: CreatedBySubject;
+  created_by_subject: Subject;
   /** Instant used to compute the first pending run when status is active. */
   runFrom: Date;
 }
@@ -162,7 +162,7 @@ export interface CreateScheduleRunInput {
   schedule_id: string;
   name: string;
   scheduled_for: Date;
-  created_by_subject: CreatedBySubject;
+  created_by_subject: Subject;
   status: ScheduleRunStatus;
   triggered_at?: Date | null;
   reason?: string | null;

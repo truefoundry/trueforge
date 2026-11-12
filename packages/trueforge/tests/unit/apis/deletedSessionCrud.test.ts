@@ -7,11 +7,15 @@ import { createSessionsRouter } from '../../../src/apis/sessions';
 import { createTurnsRouter } from '../../../src/apis/turns';
 import { TrueForgeAuthorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
+import { EmptyCapabilitiesStore } from '../../../src/db/capabilitiesStore';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
+import { SqliteAccessControlStore } from '../../../src/db/sqlite/access-control-store/SqliteAccessControlStore';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
+import { SqliteConfigurationStore } from '../../../src/db/sqlite/configuration-store/SqliteConfigurationStore';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
+import { SqliteMemoryProviderStore } from '../../../src/db/sqlite/memory-provider-store/SqliteMemoryProviderStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
@@ -19,6 +23,7 @@ import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteS
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
+import { EmptyUserStore } from '../../../src/db/userStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
 import { ListSessionsResponseSchema } from '../../../src/schemas/session';
@@ -29,7 +34,7 @@ describe('public CRUD after session deletion', () => {
     await migrateSqliteToLatest(db);
     const sessionStore = new SqliteSessionStore(db);
     const sessions = new Sessions({ sessionStore });
-    const activeTurns = new ActiveTurnRegistry();
+    const activeTurns = new ActiveTurnRegistry({ logger: createLogger({ silent: true }) });
     const modelProviderStore = new SqliteModelProviderStore(db);
     const tokenStore = new SqliteOAuthTokenStore(db);
     const mcpServerStore = new McpServerWithAuthStore({
@@ -42,45 +47,61 @@ describe('public CRUD after session deletion', () => {
     const sandboxProviderStore = new SqliteSandboxProviderStore(db);
     const sandboxEnvironmentStore = new SqliteSandboxEnvironmentStore(db);
     const webSearchProviderStore = new SqliteWebSearchProviderStore(db);
+    const memoryProviderStore = new SqliteMemoryProviderStore(db);
+    const configurationStore = new SqliteConfigurationStore(db);
     const app = new OpenAPIHono();
 
     app.route(
       '/',
       createSessionsRouter({
-        sessions,
-        sessionStore,
+        accessControlStore: new SqliteAccessControlStore(db),
         activeTurns,
-        resolveModelProviderStore: () => modelProviderStore,
-        resolveMcpServerStore: () => mcpServerStore,
-        resolveSkillStore: () => skillStore,
-        resolveAgentStore: () => agentStore,
-        resolveSandboxProviderStore: () => sandboxProviderStore,
-        sandboxEnvironmentStore,
-        resolveWebSearchProviderStore: () => webSearchProviderStore,
+        authorizer: new TrueForgeAuthorizer(),
+        logger: createLogger({ silent: true }),
         redis: createClient(),
         requestReplyRouter: new RequestReplyRouter(),
+        resolveAgentStore: () => agentStore,
+        resolveMcpServerStore: () => mcpServerStore,
+        resolveModelProviderStore: () => modelProviderStore,
         resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
-        logger: createLogger({ silent: true }),
-        authorizer: new TrueForgeAuthorizer(),
+        resolveSkillStore: () => skillStore,
+        sandboxEnvironmentStore,
+        sandboxProviderStore,
+        sessions,
+        sessionStore,
+        userStore: new EmptyUserStore(),
+        webSearchProviderStore,
+        memoryProviderStore,
+        configurationStore,
+        withTransaction: callback => db.transaction().execute(callback),
       }),
     );
     app.route(
       '/',
       createTurnsRouter({
+        activeTurns,
+        authorizer: new TrueForgeAuthorizer(),
+        eventSubscriptions: new EventSubscriptionRegistry(undefined),
+        logger: createLogger({ silent: true }),
+        requestReplyRouter: new RequestReplyRouter(),
+        resolveAgentStore: () => agentStore,
+        resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+        resolveTurnExecutionStores: () =>
+          Promise.resolve({
+            agentStore,
+            capabilitiesStore: new EmptyCapabilitiesStore(),
+            modelProviderStore,
+            mcpServerStore,
+            skillStore,
+            sandboxProviderStore,
+            webSearchProviderStore,
+            memory: undefined,
+          }),
+        sandboxEnvironmentStore,
+        sandboxProviderStore,
         sessions,
         sessionStore,
-        activeTurns,
-        resolveModelProviderStore: () => modelProviderStore,
-        resolveMcpServerStore: () => mcpServerStore,
-        resolveTurnSkillsStore: () => skillStore,
-        resolveAgentStore: () => agentStore,
-        eventSubscriptions: new EventSubscriptionRegistry(undefined),
-        resolveSandboxProviderStore: () => sandboxProviderStore,
-        sandboxEnvironmentStore,
-        resolveWebSearchProviderStore: () => webSearchProviderStore,
-        logger: createLogger({ silent: true }),
-        resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
-        authorizer: new TrueForgeAuthorizer(),
+        accessControlStore: new SqliteAccessControlStore(db),
       }),
     );
 
@@ -121,7 +142,9 @@ describe('public CRUD after session deletion', () => {
       app.request('/s1/turns', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: '{}',
+        body: JSON.stringify({
+          input: [{ type: 'user.message', content: 'hello' }],
+        }),
       }),
     ];
 

@@ -11,6 +11,13 @@ export const listAvailableModelsRoute = createRoute({
   summary: 'List models for chat',
   'x-fern-sdk-group-name': ['models'],
   'x-fern-sdk-method-name': 'list',
+  'x-tfg-mcp': {
+    name: 'list_models',
+    description:
+      'List the models you can reference in an agent or draft manifest. Use it to find a valid model ' +
+      'identifier before setting one on an agent.',
+    annotations: { readOnlyHint: true },
+  },
   description: 'Configured models as a slim FQN list for the composer.',
   responses: {
     200: {

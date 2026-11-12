@@ -1,14 +1,14 @@
 import {
-  CreatedBySubjectSchema,
   SessionLastTurnDetailsSchema,
   SessionMetadataSchema,
   SessionSourceSchema,
+  SubjectSchema,
   type AgentSpec,
-  type CreatedBySubject,
   type SessionLastTurnDetails,
   type SessionMetadata,
   type SessionMetrics,
   type SessionSource,
+  type Subject,
 } from '@truefoundry/trueforge-core/agent-session';
 import type { SessionRecord } from '@truefoundry/trueforge-core/agent-session/models/SessionRecord';
 import type {
@@ -16,6 +16,7 @@ import type {
   DeleteSessionInput,
   GetOwnedIdsInput,
   GetSessionByExternalIdInput,
+  GetSessionByIdInput,
   GetSessionInput,
   ListSessionsInput,
   UpdateSessionInput,
@@ -60,14 +61,12 @@ function parseSessionMetadata(value: unknown): SessionMetadata {
 function mapRowToSessionRecord(row: {
   tenant_id: string;
   session_id: string;
-  created_by_subject: CreatedBySubject;
+  created_by_subject: Subject;
   source: SessionSource | null;
   agent_id: string | null;
   agent_name: string | null;
   agent_spec: AgentSpec | null;
   title: string | null;
-  shared: number;
-  last_turn_id: string | null;
   last_turn_details: SessionLastTurnDetails | null;
   external_id: string | null;
   custom: Record<string, unknown> | null;
@@ -80,7 +79,7 @@ function mapRowToSessionRecord(row: {
   return {
     tenant_id: row.tenant_id,
     session_id: row.session_id,
-    created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
+    created_by_subject: SubjectSchema.parse(row.created_by_subject),
     source: SessionSourceSchema.nullable().parse(row.source),
     agent: sessionAgentFromColumns({
       session_id: row.session_id,
@@ -89,8 +88,6 @@ function mapRowToSessionRecord(row: {
       agent_spec: row.agent_spec,
     }),
     title: row.title,
-    shared: row.shared !== 0,
-    last_turn_id: row.last_turn_id,
     last_turn_details: SessionLastTurnDetailsSchema.nullable().parse(row.last_turn_details),
     external_id: row.external_id,
     custom: parseSessionCustom(row.custom),
@@ -106,14 +103,12 @@ function sessionSelectColumns() {
   return [
     'tenant_id' as const,
     'session_id' as const,
-    jsonText<CreatedBySubject>(sql.ref('created_by_subject')).as('created_by_subject'),
+    jsonText<Subject>(sql.ref('created_by_subject')).as('created_by_subject'),
     jsonText<SessionSource | null>(sql.ref('source')).as('source'),
     'agent_id' as const,
     'agent_name' as const,
     jsonText<AgentSpec | null>(sql.ref('agent_spec')).as('agent_spec'),
     'title' as const,
-    'shared' as const,
-    'last_turn_id' as const,
     jsonText<SessionLastTurnDetails | null>(sql.ref('last_turn_details')).as('last_turn_details'),
     'external_id' as const,
     jsonText<Record<string, unknown> | null>(sql.ref('custom')).as('custom'),
@@ -141,7 +136,6 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
         agent_name: columns.agent_name,
         agent_spec: columns.agent_spec !== null ? jsonbBind(columns.agent_spec) : null,
         title: null,
-        shared: 0,
         custom: input.custom !== null ? jsonbBind(input.custom) : null,
         metadata: jsonbBind(input.metadata),
         external_id: input.external_id,
@@ -201,6 +195,24 @@ export async function getSession(
   return mapRowToSessionRecord(row);
 }
 
+/** Internal execution lookup when the session id is the only trusted input. */
+export async function getSessionById(
+  db: Kysely<Database>,
+  input: GetSessionByIdInput,
+): Promise<ProtoSessionRecord | undefined> {
+  const row = await db
+    .selectFrom('session')
+    .select(sessionSelectColumns)
+    .where('session_id', '=', input.session_id)
+    .executeTakeFirst();
+
+  if (row === undefined) {
+    return undefined;
+  }
+
+  return mapRowToSessionRecord(row);
+}
+
 export async function getOwnedIds(db: Kysely<Database>, input: GetOwnedIdsInput): Promise<readonly string[]> {
   if (input.ids.length === 0) {
     return [];
@@ -237,7 +249,6 @@ export async function updateSession(db: Kysely<Database>, input: UpdateSessionIn
   const agent = input.agent;
   const title = input.title;
   const metadata = input.metadata;
-  const shared = input.shared;
 
   if (agent !== undefined) {
     const existing = await getSession(db, { tenant_id: input.tenant_id, session_id: input.session_id });
@@ -266,9 +277,6 @@ export async function updateSession(db: Kysely<Database>, input: UpdateSessionIn
   }
   if (metadata !== undefined) {
     qb = qb.set({ metadata: jsonbBind(metadata) });
-  }
-  if (shared !== undefined) {
-    qb = qb.set({ shared: shared ? 1 : 0 });
   }
 
   const result = await qb.executeTakeFirst();

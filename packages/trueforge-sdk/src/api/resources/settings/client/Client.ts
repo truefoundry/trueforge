@@ -2,7 +2,9 @@
 
 import type { BaseClientOptions } from "../../../../BaseClient.js";
 import { type NormalizedClientOptionsWithAuth, normalizeClientOptionsWithAuth } from "../../../../BaseClient.js";
+import { ConfigurationClient } from "../resources/configuration/client/Client.js";
 import { McpServersClient } from "../resources/mcpServers/client/Client.js";
+import { MemoryProvidersClient } from "../resources/memoryProviders/client/Client.js";
 import { ModelProvidersClient } from "../resources/modelProviders/client/Client.js";
 import { SandboxProvidersClient } from "../resources/sandboxProviders/client/Client.js";
 import { SkillsClient } from "../resources/skills/client/Client.js";
@@ -14,7 +16,9 @@ export declare namespace SettingsClient {
 
 export class SettingsClient {
     protected readonly _options: NormalizedClientOptionsWithAuth<SettingsClient.Options>;
+    protected _configuration: ConfigurationClient | undefined;
     protected _mcpServers: McpServersClient | undefined;
+    protected _memoryProviders: MemoryProvidersClient | undefined;
     protected _modelProviders: ModelProvidersClient | undefined;
     protected _sandboxProviders: SandboxProvidersClient | undefined;
     protected _skills: SkillsClient | undefined;
@@ -24,8 +28,16 @@ export class SettingsClient {
         this._options = normalizeClientOptionsWithAuth(options);
     }
 
+    public get configuration(): ConfigurationClient {
+        return (this._configuration ??= new ConfigurationClient(this._options));
+    }
+
     public get mcpServers(): McpServersClient {
         return (this._mcpServers ??= new McpServersClient(this._options));
+    }
+
+    public get memoryProviders(): MemoryProvidersClient {
+        return (this._memoryProviders ??= new MemoryProvidersClient(this._options));
     }
 
     public get modelProviders(): ModelProvidersClient {

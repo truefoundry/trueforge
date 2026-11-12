@@ -4,16 +4,17 @@
  */
 import type {
   AgentSpec,
-  CreatedBySubject,
+  LegacyTurnInputItem,
   PersistedTurnEvent,
   SessionLastTurnDetails,
   SessionMetadata,
   SessionMetrics,
   SessionSource,
-  TurnInboundEventItem,
-  TurnInputItem,
+  Subject,
   TurnState,
+  TurnUserEventMessage,
 } from '@truefoundry/trueforge-core/agent-session';
+import type { TurnMetricsCheckpoint } from '@truefoundry/trueforge-core/agent-session/schemas/turn';
 import type {
   AgentInfo,
   AgentParent,
@@ -25,7 +26,9 @@ import type {
 } from '@truefoundry/trueforge-core/core';
 import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
+import type { ConfigurationManifest } from '../../schemas/configuration';
 import type { McpServerManifest } from '../../schemas/mcpServer';
+import type { MemoryProviderManifest } from '../../schemas/memoryProvider';
 import type { ModelProviderManifest } from '../../schemas/modelProvider';
 import type {
   SandboxEnvironmentLifecycleStage,
@@ -35,6 +38,7 @@ import type {
 } from '../../schemas/sandboxEnvironment';
 import type { StoredSandboxProviderManifest } from '../../schemas/sandboxProvider';
 import type { ScheduleManifest, ScheduleRunStatus, ScheduleStatus } from '../../schemas/schedule';
+import type { SessionGrantSubjectType } from '../../schemas/sessionGrant';
 import type { SkillManifest } from '../../schemas/skill';
 import type { WebSearchProviderManifest } from '../../schemas/webSearchProvider';
 import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpServerStore';
@@ -46,10 +50,11 @@ import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToke
 export interface TurnThreadCheckpoint {
   parent: AgentParent | null;
   completion: SubAgentCompletion | null;
+  pending_mcp_auth: boolean;
 }
 
 /** Turn-level checkpoint — threads live in `turn_thread`; only owned top-level keys remain. */
-export interface TurnCheckpoint {
+export interface TurnCheckpoint extends TurnMetricsCheckpoint {
   mcp_servers: Record<string, MCPServerInitInfo> | null;
   sandbox_info: SandboxInfo | null;
 }
@@ -65,7 +70,7 @@ export interface SessionTable {
   /** key */
   session_id: string;
   /** Caller identity that created the session (immutable after create). */
-  created_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
+  created_by_subject: JSONColumnType<Subject, Subject, Subject>;
   /**
    * Null for interactive sessions.
    */
@@ -90,13 +95,6 @@ export interface SessionTable {
    *      (COALESCE) targets it directly
    */
   title: string | null;
-  /** When true, any subject in the tenant may GET this session. */
-  shared: boolean;
-  /**
-   * top: HOT — bumped once per createTurn under the session lock;
-   *      tiny fixed-width column keeps the bump a cheap HOT update
-   */
-  last_turn_id: string | null;
   /** Null until the first turn; always replaced as a whole document. */
   last_turn_details: JSONColumnType<
     SessionLastTurnDetails,
@@ -123,6 +121,32 @@ export interface SessionTable {
 }
 
 /**
+ * Explicit read grants on a session. Rows are insert-only; revoke deletes the row.
+ * PRIMARY KEY (tenant_id, session_id, subject_type, subject_id)
+ * FK (session_id) → session(session_id) ON DELETE CASCADE
+ */
+export interface AccessControlTable {
+  tenant_id: string;
+  session_id: string;
+  subject_type: SessionGrantSubjectType;
+  subject_id: string;
+  granted_by_subject: JSONColumnType<Subject, Subject, Subject>;
+  created_at: Date;
+}
+
+/**
+ * Memory ingestion checkpoint per session.
+ * PRIMARY KEY (session_id); no FK, so the row outlives a deleted session for provider cleanup.
+ */
+export interface MemoryIngestCursorTable {
+  session_id: string;
+  last_ingested_turn_id: string | null;
+  external_thread_id: string | null;
+  last_error: string | null;
+  updated_at: Date;
+}
+
+/**
  * PRIMARY KEY (session_id, turn_id)
  * WITH (fillfactor = 85); headroom for the state flip + rare checkpoint patches
  * CREATE INDEX turn_list_idx ON turn (session_id, created_at, turn_id)
@@ -145,15 +169,16 @@ export interface TurnTable {
   active_executor_id: string;
   /** top: big + written once at create; TOAST pointer stable after */
   // Insert arrays/objects via json() helper (bare JS arrays become PG arrays via node-pg).
-  input: JSONColumnType<TurnInputItem[], TurnInputItem[] | string, TurnInputItem[] | string>;
+  input: JSONColumnType<LegacyTurnInputItem[], LegacyTurnInputItem[] | string, LegacyTurnInputItem[] | string>;
   /**
    * top: THE fence/freeze target — every gated write predicates on
    *      state->>'status'; exactly one terminal flip per turn
    */
   state: JSONColumnType<TurnState, TurnState, TurnState>;
   /**
-   * inlined: {mcp_servers, sandbox_info, ...future} — both small,
-   *      patched at most once or twice per turn (resource init);
+   * inlined: {mcp_servers, sandbox_info, metrics, active_duration_ms, running_since}.
+   *      Sandbox and MCP stay small patches. The metrics keys are replaced together on pause, resume, and terminal.
+   *      Legacy rows omit the metrics keys; readers fill the defaults.
    *      extensible without migration
    */
   checkpoint: JSONColumnType<TurnCheckpoint, TurnCheckpoint, TurnCheckpoint>;
@@ -270,7 +295,7 @@ export interface TurnInboundEventsTable {
   session_id: string;
   turn_id: string;
   event_id: string;
-  payload: JSONColumnType<TurnInboundEventItem, TurnInboundEventItem, TurnInboundEventItem>;
+  payload: JSONColumnType<TurnUserEventMessage, TurnUserEventMessage, TurnUserEventMessage>;
   consumed: boolean;
   created_at: Date;
 }
@@ -379,6 +404,27 @@ export interface WebSearchProviderTable {
 }
 
 /**
+ * Configured memory provider - mirrors the Postgres `memory_provider` table.
+ * PRIMARY KEY (tenant_id)
+ */
+export interface MemoryProviderTable {
+  tenant_id: string;
+  manifest: JSONColumnType<MemoryProviderManifest, MemoryProviderManifest, MemoryProviderManifest>;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/**
+ * Tenant-wide feature switches (canonical table).
+ * PRIMARY KEY (tenant_id)
+ */
+export interface ConfigurationTable {
+  tenant_id: string;
+  manifest: JSONColumnType<ConfigurationManifest, ConfigurationManifest, ConfigurationManifest>;
+  updated_at: Date;
+}
+
+/**
  * Configured skills — mirrors the Postgres `skill` table.
  * PRIMARY KEY (tenant_id, name)
  */
@@ -420,7 +466,7 @@ export interface AgentTable {
   /** AgentSpec document; replaced whole on every upsert */
   manifest: JSONColumnType<AgentSpec, AgentSpec, AgentSpec>;
   external_id: string | null;
-  created_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
+  created_by_subject: JSONColumnType<Subject, Subject, Subject>;
   created_at: Date;
   updated_at: Date;
 }
@@ -428,6 +474,7 @@ export interface AgentTable {
 /**
  * Sandbox environments — immutable ULID `id` PK.
  * Partial unique (tenant_id, name) WHERE lifecycle_stage = 'active'.
+ * Partial unique (tenant_id) WHERE is_default.
  */
 export interface SandboxEnvironmentTable {
   id: string;
@@ -436,7 +483,9 @@ export interface SandboxEnvironmentTable {
   description: string;
   active_version: number;
   lifecycle_stage: SandboxEnvironmentLifecycleStage;
-  created_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
+  enabled: boolean;
+  is_default: boolean;
+  created_by_subject: JSONColumnType<Subject, Subject, Subject>;
   created_at: Date;
   updated_at: Date;
 }
@@ -462,7 +511,7 @@ export interface SandboxEnvironmentVersionTable {
     SandboxEnvironmentVersionInternalMetadata,
     SandboxEnvironmentVersionInternalMetadata
   >;
-  created_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
+  created_by_subject: JSONColumnType<Subject, Subject, Subject>;
   created_at: Date;
   updated_at: Date;
 }
@@ -505,7 +554,7 @@ export interface ScheduleTable {
   manifest: JSONColumnType<ScheduleManifest, ScheduleManifest, ScheduleManifest>;
   /** `paused` stops triggering and drops the pending run; in-flight runs continue */
   status: ScheduleStatus;
-  created_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
+  created_by_subject: JSONColumnType<Subject, Subject, Subject>;
   created_at: Date;
   updated_at: Date;
 }
@@ -525,7 +574,7 @@ export interface ScheduleRunTable {
   scheduled_for: Date;
   /** `scheduled` | `triggered` | `failed` | `missed` — varchar(16) */
   status: ScheduleRunStatus;
-  created_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
+  created_by_subject: JSONColumnType<Subject, Subject, Subject>;
   triggered_at: Date | null;
   reason: string | null;
   session_id: string | null;
@@ -608,6 +657,8 @@ export interface OAuthPendingAuthorizationTable {
  */
 export interface Database {
   session: SessionTable;
+  access_control: AccessControlTable;
+  memory_ingest_cursor: MemoryIngestCursorTable;
   turn: TurnTable;
   turn_thread: TurnThreadTable;
   session_event: SessionEventTable;
@@ -616,6 +667,8 @@ export interface Database {
   thread_capability_state: ThreadCapabilityStateTable;
   model_provider: ModelProviderTable;
   web_search_provider: WebSearchProviderTable;
+  memory_provider: MemoryProviderTable;
+  configuration: ConfigurationTable;
   skill: SkillTable;
   sandbox_provider: SandboxProviderTable;
   agent: AgentTable;

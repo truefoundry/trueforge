@@ -1,8 +1,9 @@
 /**
  * Shared Kysely SQL expression helpers for Postgres stores.
  */
+import type { TurnMetricsCheckpoint } from '@truefoundry/trueforge-core/agent-session/schemas/turn';
 import { sql, type Expression, type RawBuilder, type SelectQueryBuilder } from 'kysely';
-import type { Database } from './types';
+import type { Database, TurnCheckpoint } from './types';
 
 /** Bind a JS value as jsonb (stringified + cast). Required for arrays and for `||` / jsonb_set operands. */
 export function json<T>(value: T): RawBuilder<T> {
@@ -25,6 +26,18 @@ export function jsonbSet<T = unknown>(
   newValue: Expression<unknown>,
 ): RawBuilder<T> {
   return sql<T>`jsonb_set(${target}, ${path}, ${newValue})`;
+}
+
+/** Merge `metrics`, `active_duration_ms`, and `running_since` onto the checkpoint. */
+export function jsonbSetTurnMetrics(
+  target: Expression<unknown>,
+  metrics: TurnMetricsCheckpoint,
+): RawBuilder<TurnCheckpoint> {
+  return sql<TurnCheckpoint>`${target} || ${json({
+    metrics: metrics.metrics,
+    active_duration_ms: metrics.active_duration_ms,
+    running_since: metrics.running_since,
+  })}`;
 }
 
 /** `now()` timestamptz expression. */

@@ -29,6 +29,7 @@ function toSessionListEntry(session: TrueForgeApi.Session): HarnessSessionListEn
     lastActivityAt: session.updatedAt,
     isCreateAgent: readSessionIsCreateAgent(session.metadata),
     isMutable: session.agent.type === 'inline',
+    lastTurnDetails: session.lastTurnDetails ?? null,
     metrics: {
       totalTurns: session.metrics.totalTurns,
       ...(session.metrics.totalCostInUsd == null ? {} : { totalCostInUsd: session.metrics.totalCostInUsd }),
@@ -83,10 +84,9 @@ export function createHarnessAgentSessionsServer(
       });
       return toListResult(page, toSessionListEntry);
     },
-    async listSessionEvents({ sessionId, pageToken, limit }) {
+    async listSessionEvents({ sessionId, pageToken }) {
       const page = await client.sessions.listEvents(sessionId, {
         ...(pageToken === undefined ? {} : { pageToken }),
-        ...(limit === undefined ? {} : { limit }),
       });
       return toListResult(page, toUiEventItem);
     },

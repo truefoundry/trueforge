@@ -1,9 +1,17 @@
 'use client';
 
+import type { RespondToToolApprovalOptions } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useCallback, useMemo, useState } from 'react';
 
 import type { ApprovalOption } from '../atoms/ToolApprovalBar.js';
 
+import {
+  approvalChoicesForTool,
+  approvalResponseForChoice,
+  TOOL_APPROVAL_CHOICES,
+  TOOL_APPROVAL_OPTION_ID,
+  type ToolApprovalChoice,
+} from '@/utils/toolApprovalOptions.js';
 import { parseMcpToolArgs } from '@/utils/toolCallParsing.js';
 import { useActiveSessionCanManage } from '../hooks/useResourcePermissions.js';
 import { useSlot } from '../theme/SlotsProvider.js';
@@ -20,18 +28,13 @@ export type ToolApprovalOption = {
 };
 
 type ToolApprovalContainerProps = {
+  approvalId: string;
   toolName?: string;
   argsText?: string;
-  options: ToolApprovalOption[];
-  onSelectOption: (optionId: string, reason?: string) => void;
+  onRespond: (response: RespondToToolApprovalOptions) => Promise<void>;
 };
 
-export function ToolApprovalContainer({
-  toolName = '',
-  argsText,
-  options,
-  onSelectOption,
-}: ToolApprovalContainerProps) {
+export function ToolApprovalContainer({ approvalId, toolName = '', argsText, onRespond }: ToolApprovalContainerProps) {
   const ToolApprovalBar = useSlot('ToolApprovalBar');
   const canManageSession = useActiveSessionCanManage();
   const { mcpServer, innerToolName } = parseMcpToolArgs(argsText);
@@ -39,6 +42,15 @@ export function ToolApprovalContainer({
   const [selectedDenyOptionId, setSelectedDenyOptionId] = useState<string | null>(null);
   const [denialReason, setDenialReason] = useState('');
   const [showReasonError, setShowReasonError] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const options = useMemo<ToolApprovalOption[]>(
+    () =>
+      approvalChoicesForTool({ toolName, argsText }).map(option => ({
+        ...option,
+        ...(option.id === TOOL_APPROVAL_OPTION_ID.DENY ? { confirm: {} } : {}),
+      })),
+    [argsText, toolName],
+  );
   const approveOptions = useMemo<ApprovalOption[]>(
     () =>
       options
@@ -72,18 +84,41 @@ export function ToolApprovalContainer({
     setDenialReason(reason);
     setShowReasonError(false);
   }, []);
+  const submitResponse = useCallback(
+    async (option: ToolApprovalChoice, reason?: string): Promise<boolean> => {
+      if (!canManageSession || isSubmitting) return false;
+      setIsSubmitting(true);
+      try {
+        await onRespond(
+          approvalResponseForChoice({
+            approvalId,
+            optionId: option.id,
+            ...(reason == null ? {} : { reason }),
+          }),
+        );
+        return true;
+      } catch {
+        return false;
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [approvalId, canManageSession, isSubmitting, onRespond],
+  );
   const onReasonSubmit = useCallback(() => {
-    if (!canManageSession) return;
+    if (!canManageSession || isSubmitting) return;
     const reason = denialReason.trim();
     if (!reason) {
       setShowReasonError(true);
       return;
     }
-    if (selectedDenyOptionId) {
-      onSelectOption(selectedDenyOptionId, reason);
-      onDenyOptionChange(null);
+    const option = TOOL_APPROVAL_CHOICES.find(item => item.id === selectedDenyOptionId);
+    if (option != null) {
+      void submitResponse(option, reason).then(submitted => {
+        if (submitted) onDenyOptionChange(null);
+      });
     }
-  }, [canManageSession, denialReason, onDenyOptionChange, onSelectOption, selectedDenyOptionId]);
+  }, [canManageSession, denialReason, isSubmitting, onDenyOptionChange, selectedDenyOptionId, submitResponse]);
 
   return (
     <ToolApprovalBar
@@ -93,14 +128,10 @@ export function ToolApprovalContainer({
       selectedDenyOption={selectedDenyOption}
       denialReason={denialReason}
       showReasonError={showReasonError}
-      disabled={!canManageSession}
-      onSelect={(optionId, reason) => {
-        if (!canManageSession) return;
-        if (reason === undefined) {
-          onSelectOption(optionId);
-          return;
-        }
-        onSelectOption(optionId, reason);
+      disabled={!canManageSession || isSubmitting}
+      onSelect={optionId => {
+        const option = TOOL_APPROVAL_CHOICES.find(item => item.id === optionId);
+        if (option != null) void submitResponse(option);
       }}
       onDenyOptionChange={onDenyOptionChange}
       onDenialReasonChange={onDenialReasonChange}

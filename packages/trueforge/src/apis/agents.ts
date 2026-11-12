@@ -2,7 +2,7 @@
  * DB-backed agent registry API (mounted at /api/v1/agents).
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import { InvalidPageTokenError, type AgentSpec } from '@truefoundry/trueforge-core/agent-session';
+import { InvalidPageTokenError } from '@truefoundry/trueforge-core/agent-session';
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { Authorizer } from '../auth/authorizer';
@@ -14,11 +14,12 @@ import {
   type AgentRecord,
   type IAgentStore,
 } from '../db/agentStore';
+import type { IConfigurationStore } from '../db/configurationStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
+import type { IMemoryProviderStore } from '../db/memoryProviderStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
-import type { ISkillStore } from '../db/skillStore';
 import type { WithTransaction } from '../db/transaction';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import {
@@ -40,9 +41,11 @@ export interface AgentsRouterDeps<TTransaction> {
   resolveModelProviderStore: (c: Context) => IModelProviderStore<TTransaction>;
   resolveMcpServerStore: (c: Context) => IMcpServerStore<TTransaction>;
   resolveSkillStore: ResolveSkillStore<TTransaction>;
-  resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
+  sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
-  resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore<TTransaction>;
+  webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
+  memoryProviderStore: IMemoryProviderStore<TTransaction>;
+  configurationStore: IConfigurationStore;
   withTransaction: WithTransaction<TTransaction>;
   resolveRequestContext: ResolveRequestContext;
   authorizer: Authorizer;
@@ -57,41 +60,6 @@ function toWireAgent(record: AgentRecord): Agent {
     manifest: record.manifest,
     created_by_subject: record.created_by_subject,
   };
-}
-
-async function validateManifest<TTransaction>({
-  spec,
-  modelProviderStore,
-  mcpServerStore,
-  skillStore,
-  sandboxProviderStore,
-  sandboxEnvironmentStore,
-  webSearchProviderStore,
-  tenant_id,
-  created_by_subject_id,
-}: {
-  spec: AgentSpec;
-  modelProviderStore: IModelProviderStore<TTransaction>;
-  mcpServerStore: IMcpServerStore<TTransaction>;
-  skillStore: ISkillStore<TTransaction>;
-  sandboxProviderStore: ISandboxProviderStore<TTransaction>;
-  sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
-  webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
-  tenant_id: string;
-  created_by_subject_id: string;
-}): Promise<AgentSpec> {
-  await validateAgentSpec({
-    spec,
-    tenant_id,
-    created_by_subject_id,
-    modelProviderStore,
-    mcpServerStore,
-    skillStore,
-    sandboxProviderStore,
-    sandboxEnvironmentStore,
-    webSearchProviderStore,
-  });
-  return spec;
 }
 
 export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransaction>) {
@@ -120,23 +88,26 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
   const createHandler: RouteHandler<typeof createAgentRoute> = async c => {
     const body: CreateAgentRequest = c.req.valid('json');
     const requestContext = deps.resolveRequestContext(c);
-    const manifest = await validateManifest({
+    await validateAgentSpec({
       spec: body.manifest,
       modelProviderStore: deps.resolveModelProviderStore(c),
       mcpServerStore: deps.resolveMcpServerStore(c),
       skillStore: deps.resolveSkillStore(c),
-      sandboxProviderStore: deps.resolveSandboxProviderStore(c),
+      sandboxProviderStore: deps.sandboxProviderStore,
       sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-      webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
+      webSearchProviderStore: deps.webSearchProviderStore,
+      memoryProviderStore: deps.memoryProviderStore,
+      configurationStore: deps.configurationStore,
       tenant_id: requestContext.tenant_id,
       created_by_subject_id: requestContext.subject.id,
+      previousSpec: undefined,
     });
     try {
       const record = await deps.resolveAgentStore(c).createAgent({
         tenant_id: requestContext.tenant_id,
         name: body.name,
         description: body.description,
-        manifest,
+        manifest: body.manifest,
         external_id: null,
         created_by_subject: createdBySubjectFromRequestContext(requestContext),
       });
@@ -227,22 +198,25 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
     if (existing === undefined) {
       return c.json({ error: { message: `Agent not found: ${agentId}` } }, 404);
     }
-    const manifest = await validateManifest({
+    await validateAgentSpec({
       spec: body.manifest,
       modelProviderStore: deps.resolveModelProviderStore(c),
       mcpServerStore: deps.resolveMcpServerStore(c),
       skillStore: deps.resolveSkillStore(c),
-      sandboxProviderStore: deps.resolveSandboxProviderStore(c),
+      sandboxProviderStore: deps.sandboxProviderStore,
       sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-      webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
+      webSearchProviderStore: deps.webSearchProviderStore,
+      memoryProviderStore: deps.memoryProviderStore,
+      configurationStore: deps.configurationStore,
       tenant_id: requestContext.tenant_id,
       created_by_subject_id: requestContext.subject.id,
+      previousSpec: undefined,
     });
     const record = await deps.resolveAgentStore(c).updateAgent({
       tenant_id: requestContext.tenant_id,
       id: agentId,
       ...(body.description === undefined ? {} : { description: body.description }),
-      manifest,
+      manifest: body.manifest,
     });
     if (record === undefined) {
       return c.json({ error: { message: `Agent not found: ${agentId}` } }, 404);

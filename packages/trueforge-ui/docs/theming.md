@@ -78,7 +78,7 @@ props):
 - Tools: `ToolCallCard`, `ToolCallContentBlock`, `ToolApprovalBar`,
   `ToolGroupCard`, `SubAgentCard`, `SandboxToolCallCard`, `AgentStepsCard`,
   `ReasoningCard`
-- Prompts: `AskUserPrompt`, `McpAuthPrompt`, `ResumeUnavailable`
+- Prompts: `AskUserPrompt`, `McpAuthPrompt`
 - `Markdown` (OpenUI + highlighter)
 - Layout helpers using `IconProvider` → local icon resolver
 

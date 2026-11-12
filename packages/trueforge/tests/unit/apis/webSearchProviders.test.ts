@@ -18,7 +18,7 @@ async function createRouter() {
   await migrateSqliteToLatest(db);
   const store = new SqliteWebSearchProviderStore(db);
   const router = createWebSearchProvidersRouter({
-    resolveWebSearchProviderStore: () => store,
+    webSearchProviderStore: store,
     resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
   });
   return { router, store };

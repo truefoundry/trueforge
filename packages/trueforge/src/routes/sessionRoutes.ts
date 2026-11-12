@@ -1,8 +1,7 @@
 /**
  * Session route definitions.
- * Public DB-backed routes mount at /api/v1/sessions; internal operations mount
- * at /api/internal/sessions.
- * Handlers are registered in apis/sessions.ts.
+ * Public DB-backed routes mount at /api/v1/sessions; internal get-or-create at
+ * /api/internal/sessions.
  */
 import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
@@ -15,6 +14,7 @@ import {
   ListSessionsResponseSchema,
   UpdateSessionRequestSchema,
 } from '../schemas/session';
+import { ListSessionGrantsResponseSchema, UpdateSessionGrantsRequestSchema } from '../schemas/sessionGrant';
 import { CancelSessionRequestSchema, CancelSessionResponseSchema } from '../schemas/turn';
 import { TOKEN_PAGINATION } from './fernExtensions';
 import { OpenApiTag } from './openapiTags';
@@ -113,7 +113,7 @@ export const getSessionRoute = createRoute({
   tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'Get a session',
   description:
-    'Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.',
+    'Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or a subject with a session access grant.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'get',
   request: {
@@ -164,7 +164,7 @@ export const updateSessionRoute = createRoute({
   tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'Update a session',
   description:
-    'Update a session: optional `title`, `metadata`, `shared`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.',
+    'Update a session: optional `title`, `metadata`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'update',
   request: {
@@ -265,7 +265,7 @@ export const listSessionEventsRoute = createRoute({
   tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'List session events',
   description:
-    'List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.',
+    'List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or a subject with a session access grant.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'list_events',
   'x-fern-pagination': TOKEN_PAGINATION,
@@ -289,6 +289,73 @@ export const listSessionEventsRoute = createRoute({
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Session not found.',
+    },
+  },
+});
+
+export const listSessionGrantsRoute = createRoute({
+  method: 'get',
+  path: '/{session_id}/grants',
+  tags: [OpenApiTag.AGENT_SESSIONS],
+  summary: 'List session grants',
+  description: 'List the subjects this session is shared with.',
+  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-method-name': 'list_grants',
+  request: {
+    params: SessionIdParamsSchema,
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: ListSessionGrantsResponseSchema } },
+      description: 'Subjects the session is shared with.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'User does not have permission.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Session not found.',
+    },
+  },
+});
+
+export const updateSessionGrantsRoute = createRoute({
+  method: 'post',
+  path: '/{session_id}/grants',
+  tags: [OpenApiTag.AGENT_SESSIONS],
+  summary: 'Update session grants',
+  description:
+    'Share this session with subjects and remove access for others in one atomic request. Subjects get read access to the session, its turns and its events. A `tenant` subject, whose `subject_id` must be your tenant ID, shares with everyone in the tenant. Granting an existing subject or revoking one without access is a no-op. Returns every subject the session is shared with.',
+  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-method-name': 'update_grants',
+  request: {
+    params: SessionIdParamsSchema,
+    body: {
+      content: { 'application/json': { schema: UpdateSessionGrantsRequestSchema } },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: ListSessionGrantsResponseSchema } },
+      description: 'Subjects the session is shared with after the change.',
+    },
+    400: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid request body.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'User does not have permission.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Session not found.',
+    },
+    422: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'A subject to grant is unknown or is the session creator, or a subject is both granted and revoked.',
     },
   },
 });

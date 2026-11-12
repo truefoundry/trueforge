@@ -142,7 +142,7 @@ controller:
   command:
     - node
     - dist/controller-main.js
-  # Base URL the controller uses to reach the server (SERVER_URL).
+  # Base URL for in-cluster calls to the server API (SERVER_URL).
   # Empty → the in-cluster server Service (http(s)://<fullname>:<service.port>).
   serverUrl: ""
   # Extra env for the controller only; same item shape as server.extraEnv.
@@ -159,10 +159,17 @@ apiKey: "placeholder-value-please-generate-your-own"
 # Extra env for BOTH server and controller: name -> scalar, { valueFrom: ... },
 # or a "${k8s-secret/<secret>/<key>}" reference string. The key must not contain "/".
 # A key that matches a chart-computed variable (POSTGRES_HOST, PUBLIC_BASE_URL,
-# ...) replaces it in place; a null value drops the override and hands the key
-# back to the chart. This is the extension point for a parent chart, which can
-# only override a key it declares as a scalar - Helm refuses to replace a map
-# with a scalar, so a default written as { valueFrom: ... } is final.
+# SERVER_URL, ...) replaces it in place; a null value drops the override and
+# hands the key back to the chart. This is the extension point for a parent
+# chart, which can only override a key it declares as a scalar - Helm refuses
+# to replace a map with a scalar, so a default written as { valueFrom: ... }
+# is final.
+# Long-term memory (TrueFoundry mode only, off by default; see packages/trueforge/.env.example):
+#   TRUEFOUNDRY_MEMORY_ENABLED: "true"
+#   TRUEFOUNDRY_MEMORY_PROVIDER: "zep"
+#   TRUEFOUNDRY_MEMORY_API_KEY: "${k8s-secret/trueforge-memory/TRUEFOUNDRY_MEMORY_API_KEY}"
+#   TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST: '["tenant-a"]'   # unset or empty: every tenant
+#   TRUEFOUNDRY_MEMORY_SETTINGS: '{"interval_ms":300000}'   # optional loop settings, see .env.example
 env: {}
 # Application feature config (maps to env vars in packages/trueforge/src/config.ts).
 # clientSecret (and other secret-like fields) accept a string or
@@ -416,3 +423,4 @@ affinity: {}
 # Empty = server pods spread across nodes (maxSkew 1, ScheduleAnyway). Set to
 # override; entries apply verbatim to both server and controller pods.
 topologySpreadConstraints: []
+ 

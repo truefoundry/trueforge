@@ -1,10 +1,17 @@
 import type { Logger } from 'winston';
+import type { AgentCapability } from '../core/capabilities/AgentCapability';
 import type { ILLM } from '../core/llm/ILLM';
 import type { ModelParams } from '../core/llm/model';
 import type { VercelAIProviderName } from '../core/llm/VercelAILLM';
 import type { ToolSource } from '../core/mcp/IMCPServer';
 import { RemoteMCP, type McpConnection } from '../core/mcp/RemoteMCP';
 import type { ToolSelectorConfig } from '../core/mcp/ToolSelectorPolicy';
+import {
+  DEFAULT_DISABLE_TOOLS,
+  DEFAULT_ENABLE_TOOLS,
+  DEFAULT_PRELOAD_TOOLS,
+  DEFAULT_REQUIRE_APPROVAL_FOR_TOOLS,
+} from '../core/mcp/toolSelectors';
 import { ToolSet } from '../core/mcp/ToolSet';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import type { AgentInfo } from '../core/runtime/AgentThread.types';
@@ -32,6 +39,16 @@ export type TurnSandboxFactory = (input: {
 function specWantsSandbox(spec: AgentSpec): boolean {
   return spec.config.sandbox.enabled;
 }
+
+/** Runtime id and display name of the built-in TrueForge management MCP. */
+export const TRUEFORGE_MCP_ID = 'trueforge:mcp';
+
+const TRUEFORGE_MCP_SELECTORS: ToolSelectorConfig = {
+  enableTools: DEFAULT_ENABLE_TOOLS,
+  disableTools: DEFAULT_DISABLE_TOOLS,
+  preloadTools: DEFAULT_PRELOAD_TOOLS,
+  requireApprovalForTools: DEFAULT_REQUIRE_APPROVAL_FOR_TOOLS,
+};
 
 function toSelectors(entry: {
   enable_tools: string[];
@@ -72,10 +89,11 @@ export class TurnResourceResolver<
       /** Model name → client and defaults. Called once per resolved definition; may load provider config. */
       llm: (model: string) => Promise<ResolvedModel>;
       /**
-       * MCP server name → resolved server. The AgentSpec carries names only; the runtime supplies the catalog.
-       * Called once per distinct server name per turn. Throw for unknown names.
+       * MCP id → connection. Spec servers use their name as the id.
+       * {@link TRUEFORGE_MCP_ID} is the built-in management server; return undefined when this turn
+       * should not mount it. Throw for an unknown spec server. Called once per distinct id per turn.
        */
-      mcp: (name: string) => Promise<McpConnection>;
+      mcp: (id: string) => Promise<McpConnection | undefined>;
       mcpRequestTimeoutMs: number;
       mcpConnectTimeoutMs: number;
       mcpMaxResponseBytes?: number | undefined;
@@ -88,6 +106,12 @@ export class TurnResourceResolver<
       agent?: ((agentId: string) => Promise<AgentSpec>) | undefined;
       /** Host web-search backend; omit when not configured. */
       webSearchProvider?: IWebSearchProvider | undefined;
+      /**
+       * Main-thread capabilities. Called once per root resolve, so each call gets fresh instances.
+       * A child thread passes `agent_info` and does not receive these. A subclass that replaces
+       * `resolveAgentDefinition` without calling `super` does not mount them.
+       */
+      rootCapabilities?: (() => readonly AgentCapability[]) | undefined;
       /** Forwarded to RemoteMCP / AgentThread (required by their constructors). */
       logger: Logger;
     },
@@ -185,13 +209,13 @@ export class TurnResourceResolver<
         const source = await this.getOrCreateToolSource({
           id: entry.name,
           create: async () => {
-            const { url, headers, server } = await this.deps.mcp(entry.name);
+            const connection = await this.deps.mcp(entry.name);
+            if (connection === undefined) {
+              throw new Error(`Unknown MCP server "${entry.name}" — not configured`);
+            }
             return new RemoteMCP({
               id: entry.name,
-              name: entry.name,
-              url,
-              headers: headers ?? {},
-              description: server.description,
+              connection,
               sessionId: previousTurn?.snapshot.mcp_servers?.[entry.name]?.session_id,
               requestTimeoutMs: this.deps.mcpRequestTimeoutMs,
               connectTimeoutMs: this.deps.mcpConnectTimeoutMs,
@@ -212,6 +236,11 @@ export class TurnResourceResolver<
         });
       }),
     );
+    const trueforgeToolSet = await this.trueforgeToolSet({ signal, tracing });
+    const extraCapabilities = [
+      ...(trueforgeToolSet === undefined ? [] : [{ systemToolSets: [trueforgeToolSet] }]),
+      ...(agentInfo === undefined ? (this.deps.rootCapabilities?.() ?? []) : []),
+    ];
     // Sub-agents may request a different catalog model via agent_info.model;
     // resolve that name so modelClient matches the override (not just a label).
     const modelName = agentInfo?.model ?? spec.model.name;
@@ -237,7 +266,38 @@ export class TurnResourceResolver<
         iterationLimit: spec.config.iteration_limit,
         toolSets,
       },
+      ...(extraCapabilities.length === 0 ? {} : { extraCapabilities }),
     };
+  }
+
+  private async trueforgeToolSet(input: { signal: AbortSignal; tracing: AgentTracing }): Promise<ToolSet | undefined> {
+    const connection = await this.deps.mcp(TRUEFORGE_MCP_ID);
+    if (connection === undefined) {
+      return undefined;
+    }
+    const source = await this.getOrCreateToolSource({
+      id: TRUEFORGE_MCP_ID,
+      create: () =>
+        Promise.resolve(
+          new RemoteMCP({
+            id: TRUEFORGE_MCP_ID,
+            connection,
+            requestTimeoutMs: this.deps.mcpRequestTimeoutMs,
+            connectTimeoutMs: this.deps.mcpConnectTimeoutMs,
+            ...(this.deps.mcpMaxResponseBytes !== undefined ? { maxResponseBytes: this.deps.mcpMaxResponseBytes } : {}),
+            logger: this.deps.logger,
+            tracing: input.tracing,
+            signal: input.signal,
+            isSystem: true,
+          }),
+        ),
+    });
+    return new ToolSet({
+      source,
+      selectors: TRUEFORGE_MCP_SELECTORS,
+      preload: false,
+      approvalPolicies: undefined,
+    });
   }
 
   /**

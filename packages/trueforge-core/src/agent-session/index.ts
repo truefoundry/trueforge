@@ -6,12 +6,14 @@
 export { AgentSpecSchema, DEFAULT_AGENT_CONFIG_ITERATION_LIMIT, RuntimeConfigSchema } from './schemas/agentSpec';
 export type { AgentSpec, Skill } from './schemas/agentSpec';
 
+export { TurnUserEventMessageSchema, TurnUserEventSchema } from '../core/events/schema';
+export type { TurnUserEvent, TurnUserEventMessage } from '../core/events/schema';
+export type { UserMessage } from '../core/runtime/UserInputMessage';
+
 export {
-  ActionRequiredSchema,
   CancellationReason,
   CreateTurnRequestSchema,
-  TurnInboundEventItemSchema,
-  TurnInputItemSchema,
+  LegacyTurnInputItemSchema,
   TurnMetricsSchema,
   TurnSchema,
   TurnStateCancelledReasonSchema,
@@ -24,11 +26,10 @@ export {
   isNonTerminalTurnState,
 } from './schemas/turn';
 export type {
+  LegacyTurnInputItem,
   NonTerminalTurnState,
   TerminalTurnState,
   Turn,
-  TurnInboundEventItem,
-  TurnInputItem,
   TurnMetrics,
   TurnState,
 } from './schemas/turn';
@@ -40,6 +41,7 @@ export {
   SessionSchema,
   SessionSourceScheduleSchema,
   SessionSourceSchema,
+  SessionSourceServiceSchema,
   SessionSourceTypeSchema,
 } from './schemas/session';
 export type {
@@ -52,8 +54,8 @@ export type {
   SessionSourceType,
 } from './schemas/session';
 
-export { CreatedBySubjectSchema } from './schemas/subject';
-export type { CreatedBySubject } from './schemas/subject';
+export { SubjectSchema } from './schemas/subject';
+export type { Subject } from './schemas/subject';
 
 export {
   EventType,
@@ -85,12 +87,14 @@ export type {
   AddThreadsInput,
   AppendToEventsInput,
   AppendToThreadContextInput,
+  ClaimTurnExecutorInput,
   CreateSessionInput,
   CreateTurnInput,
   DeleteSessionInput,
   FreezeAndGetTurnInput,
   GetOwnedIdsInput,
   GetSessionByExternalIdInput,
+  GetSessionByIdInput,
   GetSessionInput,
   GetTurnInput,
   ISessionStore,
@@ -99,6 +103,8 @@ export type {
   ListSessionsInput,
   ListTurnEventsInput,
   ListTurnsInput,
+  ListUnconsumedTurnInboundEventsInput,
+  MarkTurnInboundEventsConsumedInput,
   NewThreadInit,
   OverwriteThreadContextInput,
   PatchMCPServersInput,
@@ -124,13 +130,14 @@ export {
   TurnEventAlreadyExistsError,
   TurnNotFoundError,
   TurnNotRunningError,
+  TurnOwnershipLostError,
 } from './store/SessionStoreErrors';
 
 export type { ITurnResourceResolver } from './ITurnResourceResolver';
-export { TurnResourceResolver } from './TurnResourceResolver';
+export { TRUEFORGE_MCP_ID, TurnResourceResolver } from './TurnResourceResolver';
 export type { TurnSandboxFactory } from './TurnResourceResolver';
 
-export { SessionHandle } from './SessionHandle';
+export { SessionHandle, resolvePreviousTurnId } from './SessionHandle';
 export { Sessions } from './Sessions';
-export { TurnHandle } from './TurnHandle';
+export { TurnHandle, TurnOffloadReason, isTurnOffloadReason } from './TurnHandle';
 export type { TurnStreamingEvent } from './TurnHandle';

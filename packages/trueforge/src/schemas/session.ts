@@ -4,7 +4,7 @@ import {
   AgentSpecSchema,
   SessionMetadataSchema,
   SessionSchema,
-  SessionSourceScheduleSchema,
+  SessionSourceSchema,
   SessionSourceTypeSchema,
   TokenPaginationSchema,
 } from '@truefoundry/trueforge-core/agent-session';
@@ -26,12 +26,11 @@ export const CreateSessionAgentSchema = z
   .openapi('CreateSessionAgent');
 
 export type CreateSessionAgent = z.infer<typeof CreateSessionAgentSchema>;
-export type SessionAgentNameRef = z.infer<typeof SessionAgentNameRefSchema>;
 export type SessionAgentSpecBody = z.infer<typeof SessionAgentSpecBodySchema>;
 
 /** Narrows the create-body union after OpenAPI already accepted either arm. */
-export function isSessionAgentNameRef(agent: CreateSessionAgent): agent is SessionAgentNameRef {
-  return SessionAgentNameRefSchema.safeParse(agent).success;
+export function isSessionAgentSpecBody(agent: CreateSessionAgent): agent is SessionAgentSpecBody {
+  return SessionAgentSpecBodySchema.safeParse(agent).success;
 }
 
 export const CreateSessionRequestSchema = z
@@ -47,7 +46,7 @@ export const GetOrCreateSessionByExternalIdRequestSchema = z
     external_id: z.string().min(1).max(128).describe('Caller-supplied id unique within the tenant.'),
     agent: CreateSessionAgentSchema,
     /** Internal-only provenance; not on public create/update. */
-    source: SessionSourceScheduleSchema.optional(),
+    source: SessionSourceSchema.optional(),
   })
   .strict()
   .openapi('GetOrCreateSessionByExternalIdRequest');
@@ -68,10 +67,6 @@ export const UpdateSessionRequestSchema = z
     agent: SessionAgentSpecBodySchema.optional(),
     title: SessionTitleSchema.optional(),
     metadata: SessionMetadataSchema.optional(),
-    shared: z
-      .boolean()
-      .optional()
-      .describe('When true, any subject in the tenant may read this session and its turns/events by id.'),
   })
   .strict()
   .openapi('UpdateSessionRequest');

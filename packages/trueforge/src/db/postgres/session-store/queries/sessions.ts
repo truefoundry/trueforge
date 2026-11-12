@@ -1,14 +1,14 @@
 import {
-  CreatedBySubjectSchema,
   SessionLastTurnDetailsSchema,
   SessionMetadataSchema,
   SessionSourceSchema,
+  SubjectSchema,
   type AgentSpec,
-  type CreatedBySubject,
   type SessionLastTurnDetails,
   type SessionMetadata,
   type SessionMetrics,
   type SessionSource,
+  type Subject,
 } from '@truefoundry/trueforge-core/agent-session';
 import type { SessionRecord } from '@truefoundry/trueforge-core/agent-session/models/SessionRecord';
 import type {
@@ -16,6 +16,7 @@ import type {
   DeleteSessionInput,
   GetOwnedIdsInput,
   GetSessionByExternalIdInput,
+  GetSessionByIdInput,
   GetSessionInput,
   ListSessionsInput,
   UpdateSessionInput,
@@ -61,14 +62,12 @@ function parseSessionMetadata(value: unknown): SessionMetadata {
 function mapRowToSessionRecord(row: {
   tenant_id: string;
   session_id: string;
-  created_by_subject: CreatedBySubject;
+  created_by_subject: Subject;
   source: SessionSource | null;
   agent_id: string | null;
   agent_name: string | null;
   agent_spec: AgentSpec | null;
   title: string | null;
-  shared: boolean;
-  last_turn_id: string | null;
   last_turn_details: SessionLastTurnDetails | null;
   external_id: string | null;
   custom: Record<string, unknown> | null;
@@ -81,7 +80,7 @@ function mapRowToSessionRecord(row: {
   return {
     tenant_id: row.tenant_id,
     session_id: row.session_id,
-    created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
+    created_by_subject: SubjectSchema.parse(row.created_by_subject),
     source: SessionSourceSchema.nullable().parse(row.source),
     agent: sessionAgentFromColumns({
       session_id: row.session_id,
@@ -90,8 +89,6 @@ function mapRowToSessionRecord(row: {
       agent_spec: row.agent_spec,
     }),
     title: row.title,
-    shared: row.shared,
-    last_turn_id: row.last_turn_id,
     last_turn_details: SessionLastTurnDetailsSchema.nullable().parse(row.last_turn_details),
     external_id: row.external_id,
     custom: parseSessionCustom(row.custom),
@@ -119,7 +116,6 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
         agent_name: columns.agent_name,
         agent_spec: columns.agent_spec !== null ? json(columns.agent_spec) : null,
         title: null,
-        shared: false,
         custom: input.custom !== null ? json(input.custom) : null,
         metadata: json(input.metadata),
         external_id: input.external_id,
@@ -169,6 +165,20 @@ export async function getSession(
   return mapRowToSessionRecord(row);
 }
 
+/** Internal execution lookup when the session id is the only trusted input. */
+export async function getSessionById(
+  db: Kysely<Database>,
+  input: GetSessionByIdInput,
+): Promise<ProtoSessionRecord | undefined> {
+  const row = await db.selectFrom('session').selectAll().where('session_id', '=', input.session_id).executeTakeFirst();
+
+  if (row === undefined) {
+    return undefined;
+  }
+
+  return mapRowToSessionRecord(row);
+}
+
 export async function getOwnedIds(db: Kysely<Database>, input: GetOwnedIdsInput): Promise<readonly string[]> {
   if (input.ids.length === 0) {
     return [];
@@ -205,7 +215,6 @@ export async function updateSession(db: Kysely<Database>, input: UpdateSessionIn
   const agent = input.agent;
   const title = input.title;
   const metadata = input.metadata;
-  const shared = input.shared;
 
   if (agent !== undefined) {
     const existing = await getSession(db, { tenant_id: input.tenant_id, session_id: input.session_id });
@@ -240,12 +249,6 @@ export async function updateSession(db: Kysely<Database>, input: UpdateSessionIn
         return qb;
       }
       return qb.set({ metadata: json(metadata) });
-    })
-    .$if(shared !== undefined, qb => {
-      if (shared === undefined) {
-        return qb;
-      }
-      return qb.set({ shared });
     })
     .where('tenant_id', '=', input.tenant_id)
     .where('session_id', '=', input.session_id)
@@ -285,6 +288,12 @@ export async function listSessions(
       query = query.where(sql<boolean>`metadata = '{}'::jsonb`);
     } else {
       query = query.where(sql<boolean>`metadata @> ${json(input.metadata)}`);
+      // Matches the same rows as the `@>` filter above (metadata values are always strings).
+      // Postgres can only use the GIN index for `@>`; spelling each pair as `metadata->>'key' = value`
+      // also lets it use single-key indexes. Those match on the literal key, so it is inlined, not bound.
+      for (const [key, value] of Object.entries(input.metadata)) {
+        query = query.where(sql<string>`metadata->>${sql.lit(key)}`, '=', value);
+      }
     }
   }
   if (input.source_type !== undefined) {

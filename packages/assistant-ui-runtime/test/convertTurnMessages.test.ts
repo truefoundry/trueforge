@@ -14,7 +14,7 @@ import type {
   TurnStreamData,
 } from '../src/server/index.js';
 
-import { collectPendingToolResponses } from '../src/collectPending.js';
+import { collectPendingApprovals, collectPendingToolResponses, derivePendingMcpAuth } from '../src/collectPending.js';
 import { ROOT_THREAD_ID } from '../src/constants.js';
 import {
   buildSnapshotFromSessionEvents,
@@ -24,30 +24,26 @@ import {
   buildUserMessageFromTurnInput,
   convertTurnsToThreadMessages,
   getTurnMessageContent,
+  prependFoldState,
   prependOlderSessionHistory,
   projectSessionMessages,
   repositoryItemsFromMessages,
   resolveGatewayBranchPreviousTurnIdForTurn,
-  rootModelMessageIdsSinceBaseline,
   streamTurnEvents,
   TurnStreamDisconnectedError,
   turnStreamUpdateToAssistantMessage,
 } from '../src/convertTurnMessages.js';
 import { buildRootAssistantContent, ingestTurnEvent, PeerThreadFoldState } from '../src/foldPeerThreads.js';
-import { findCurrentPausedAssistantMessage } from '../src/requiredActionInputs.js';
+import { MESSAGE_CUSTOM_KEY } from '../src/messageCustomMetadata.js';
+import { findPausedAssistantMessage } from '../src/requiredActionInputs.js';
 import {
   createEmptySessionSnapshot,
   replaceSessionSnapshot,
   type SessionSnapshot,
   turnToSessionRecord,
 } from '../src/sessionSnapshot.js';
-import { TOOL_APPROVAL_THREAD_ID_CUSTOM_KEY } from '../src/toolApproval.js';
-import {
-  applyUserToolResponsesToFold,
-  TOOL_RESPONSE_THREAD_ID_CUSTOM_KEY,
-  toolResponseStatus,
-} from '../src/toolResponse.js';
-import type { TurnStreamUpdate } from '../src/turnStreamUpdate.js';
+import { applyUserToolResponsesToFold, toolResponseStatus } from '../src/toolResponse.js';
+import type { TurnStreamUpdate, TurnSubscribeCursor } from '../src/turnStreamUpdate.js';
 
 const createdAt = new Date().toISOString();
 const SESSION_ID = 'session-1';
@@ -78,15 +74,6 @@ function sandboxCreated(event: { id: string; sandboxId: string; threadId?: strin
 
 function responseRequired(event: Omit<ToolResponseRequiredEvent, 'type' | 'createdAt'>): ToolResponseRequiredEvent {
   return { type: 'tool.response_required', createdAt, ...event };
-}
-
-function turnDone(id = 'turn-done'): TurnDoneEvent {
-  return {
-    type: 'turn.done',
-    id,
-    createdAt,
-    state: { status: 'done', requiredActions: [], completedAt: createdAt },
-  };
 }
 
 async function* streamFrom(events: TurnStreamData['event'][]): AsyncGenerator<TurnStreamData> {
@@ -930,6 +917,51 @@ describe('convertTurnMessages', () => {
       expect(result.messages.at(-1)?.role).toBe('assistant');
     });
 
+    it('projects open-tip assistant content when listEvents already includes tip events', async () => {
+      const tipMessage = modelMessage({
+        id: 'm-tip',
+        threadId: ROOT_THREAD_ID,
+        content: 'partial in-flight reply',
+      });
+      const runningTurn = {
+        id: 'turn-running',
+        sessionId: SESSION_ID,
+        state: { status: 'running' as const },
+        createdAt,
+        input: [{ type: 'user.message' as const, content: 'in flight' }],
+      };
+      const items: SessionEventItem[] = [
+        {
+          turnId: 'turn-running',
+          event: {
+            type: 'turn.created',
+            id: 'evt-c-running',
+            turnId: 'turn-running',
+            input: [{ type: 'user.message', content: 'in flight' }],
+            state: { status: 'running' },
+            createdAt,
+          },
+        },
+        { turnId: 'turn-running', event: tipMessage },
+      ];
+      const server = {
+        listTurns: async () => ({ data: [runningTurn] }),
+        getTurn: async () => runningTurn,
+        listEvents: sessionEventsPage(items),
+        // Same tip events as listEvents — beforeCount slice would attribute nothing.
+        listTurnEvents: async () => ({ data: [tipMessage] }),
+      } as unknown as AgentChatServer;
+
+      const result = await convertTurnsToThreadMessages(server, SESSION_ID);
+
+      expect(result.runningTurn?.id).toBe('turn-running');
+      expect(result.messages).toHaveLength(2);
+      expect(result.messages[0]).toMatchObject({ role: 'user', id: 'turn-running-user' });
+      expect(result.messages[1]?.role).toBe('assistant');
+      const texts = (result.messages[1]?.content ?? []).filter(part => part.type === 'text').map(part => part.text);
+      expect(texts).toEqual(['partial in-flight reply']);
+    });
+
     it('merges continuation turns without user input into the last assistant message', async () => {
       const firstTurn = mockTurn({
         id: 'turn-1',
@@ -1147,13 +1179,13 @@ describe('convertTurnMessages', () => {
         type: 'requires-action',
         reason: 'tool-calls',
       });
-      expect(assistant.metadata.custom[TOOL_APPROVAL_THREAD_ID_CUSTOM_KEY]).toBe(ROOT_THREAD_ID);
+      expect(assistant.metadata.custom[MESSAGE_CUSTOM_KEY.TOOL_APPROVAL_THREAD_ID]).toBe(ROOT_THREAD_ID);
       expect(assistant.content.find(part => part.type === 'tool-call')).toMatchObject({
         type: 'tool-call',
         toolCallId: 'approval-1',
         approval: { id: 'approval-1' },
       });
-      expect(findCurrentPausedAssistantMessage(result.messages)).toBe(assistant);
+      expect(findPausedAssistantMessage(result.messages)).toBe(assistant);
     });
 
     it('downgrades to complete after a later turn submits user.tool_approval', async () => {
@@ -1230,7 +1262,7 @@ describe('convertTurnMessages', () => {
         return;
       }
       expect(assistant.status).toEqual({ type: 'complete', reason: 'stop' });
-      expect(assistant.metadata.custom[TOOL_APPROVAL_THREAD_ID_CUSTOM_KEY]).toBeUndefined();
+      expect(assistant.metadata.custom[MESSAGE_CUSTOM_KEY.TOOL_APPROVAL_THREAD_ID]).toBeUndefined();
       const toolCall = assistant.content.find(part => part.type === 'tool-call');
       expect(toolCall?.type).toBe('tool-call');
       if (toolCall?.type !== 'tool-call') {
@@ -1297,7 +1329,7 @@ describe('convertTurnMessages', () => {
         type: 'requires-action',
         reason: 'tool-calls',
       });
-      expect(assistant.metadata.custom[TOOL_RESPONSE_THREAD_ID_CUSTOM_KEY]).toBe(ROOT_THREAD_ID);
+      expect(assistant.metadata.custom[MESSAGE_CUSTOM_KEY.TOOL_RESPONSE_THREAD_ID]).toBe(ROOT_THREAD_ID);
       expect(assistant.content[0]).toMatchObject({
         type: 'tool-call',
         toolCallId: 'question-1',
@@ -1306,7 +1338,7 @@ describe('convertTurnMessages', () => {
           payload: { question: 'Pick one', options: ['A', 'B'] },
         },
       });
-      expect(findCurrentPausedAssistantMessage(result.messages)).toBe(assistant);
+      expect(findPausedAssistantMessage(result.messages)).toBe(assistant);
     });
 
     it('downgrades to complete after a later turn submits user.tool_response', async () => {
@@ -1386,7 +1418,7 @@ describe('convertTurnMessages', () => {
         return;
       }
       expect(assistant.status).toEqual({ type: 'complete', reason: 'stop' });
-      expect(assistant.metadata.custom[TOOL_RESPONSE_THREAD_ID_CUSTOM_KEY]).toBeUndefined();
+      expect(assistant.metadata.custom[MESSAGE_CUSTOM_KEY.TOOL_RESPONSE_THREAD_ID]).toBeUndefined();
       const toolCall = assistant.content[0];
       expect(toolCall?.type).toBe('tool-call');
       if (toolCall?.type !== 'tool-call') {
@@ -1677,13 +1709,19 @@ describe('convertTurnMessages', () => {
               threadId: ROOT_THREAD_ID,
               content: 'streaming',
             }),
-            turnDone(),
+            {
+              type: 'turn.done',
+              id: 'done-auto',
+              createdAt,
+              state: { status: 'done', completedAt: createdAt },
+            },
           ]),
           foldState,
         ),
       );
 
-      expect(updates).toEqual([{ content: [{ type: 'text', text: 'streaming' }], sequenceNumber: 1 }]);
+      expect(updates[0]).toEqual({ content: [{ type: 'text', text: 'streaming' }], sequenceNumber: 1 });
+      expect(updates.at(-1)).toMatchObject({ turnState: { status: 'done' } });
     });
 
     it('yields Cancelled: reason and cancellationReason on cancelled turn.done', async () => {
@@ -1708,6 +1746,7 @@ describe('convertTurnMessages', () => {
           status: { type: 'incomplete', reason: 'cancelled' },
           metadata: { custom: { cancellationReason: 'abandoned' } },
           sequenceNumber: 1,
+          turnState: { status: 'cancelled', reason: 'abandoned', completedAt: createdAt },
         },
       ]);
     });
@@ -1821,7 +1860,15 @@ describe('convertTurnMessages', () => {
               threadId: ROOT_THREAD_ID,
               content: 'hi',
             }),
-            turnDone(),
+            {
+              type: 'turn.done',
+              id: 'turn-done',
+              createdAt,
+              state: {
+                status: 'done',
+                completedAt: createdAt,
+              },
+            },
           ]),
           foldState,
           undefined,
@@ -1832,6 +1879,102 @@ describe('convertTurnMessages', () => {
 
       expect(sequences).toEqual([1, 2, 3]);
       expect(onSequenceNumber).toHaveBeenCalledTimes(3);
+    });
+
+    it('resumes a model message from its id and every other event after its id', async () => {
+      const foldState = new PeerThreadFoldState();
+      const cursors: { fromEventId?: string; afterEventId?: string }[] = [];
+
+      await collectStream(
+        streamTurnEvents(
+          (async function* () {
+            yield {
+              event: {
+                type: 'model.message' as const,
+                createdAt,
+                id: 'm1',
+                threadId: ROOT_THREAD_ID,
+                content: 'hi',
+              },
+            };
+            yield {
+              event: {
+                type: 'mcp.auth_required' as const,
+                id: 'auth-1',
+                createdAt,
+                threadId: null,
+                mcpServers: [{ id: 'github', name: 'GitHub', authUrl: 'https://example.com/auth' }],
+              },
+            };
+            yield {
+              event: {
+                type: 'turn.done' as const,
+                id: 'turn-done',
+                createdAt,
+                state: { status: 'done' as const, completedAt: createdAt },
+              },
+            };
+          })(),
+          foldState,
+          undefined,
+          undefined,
+          undefined,
+          cursor => {
+            cursors.push(cursor);
+          },
+        ),
+      );
+
+      expect(cursors).toEqual([{ fromEventId: 'm1' }, { fromEventId: 'auth-1' }, { afterEventId: 'turn-done' }]);
+    });
+
+    it('keeps the resume cursor on the earliest open model message while a later one is streaming', async () => {
+      const cursors: { fromEventId?: string; afterEventId?: string }[] = [];
+      await collectStream(
+        streamTurnEvents(
+          streamFrom([
+            modelMessage({ id: 'm-a', threadId: ROOT_THREAD_ID, content: '' }),
+            modelMessage({ id: 'm-b', threadId: ROOT_THREAD_ID, content: '' }),
+            {
+              type: 'model.message.delta',
+              id: 'm-b',
+              createdAt,
+              threadId: ROOT_THREAD_ID,
+              content: 'later',
+            },
+            modelMessage({ id: 'm-a', threadId: ROOT_THREAD_ID, content: 'earlier', finishReason: 'stop' }),
+            {
+              type: 'model.message.delta',
+              id: 'm-b',
+              createdAt,
+              threadId: ROOT_THREAD_ID,
+              content: ' still open',
+            },
+            {
+              type: 'turn.done',
+              id: 'done-open',
+              createdAt,
+              state: { status: 'done', completedAt: createdAt },
+            },
+          ]),
+          new PeerThreadFoldState(),
+          undefined,
+          undefined,
+          undefined,
+          cursor => {
+            cursors.push(cursor);
+          },
+        ),
+      );
+
+      expect(cursors).toEqual([
+        { fromEventId: 'm-a' },
+        { fromEventId: 'm-a' },
+        { fromEventId: 'm-a' },
+        { fromEventId: 'm-a' },
+        { fromEventId: 'm-b' },
+        { afterEventId: 'done-open' },
+      ]);
     });
 
     it('yields folded content after each ingested stream event', async () => {
@@ -1854,13 +1997,18 @@ describe('convertTurnMessages', () => {
               threadId: ROOT_THREAD_ID,
               content: 'third',
             }),
-            turnDone(),
+            {
+              type: 'turn.done',
+              id: 'done-auto',
+              createdAt,
+              state: { status: 'done', completedAt: createdAt },
+            },
           ]),
           foldState,
         ),
       );
 
-      expect(updates).toHaveLength(3);
+      expect(updates.length).toBeGreaterThanOrEqual(3);
       expect(updates[0]?.content).toEqual([{ type: 'text', text: 'first' }]);
       expect(updates[1]?.content).toEqual([
         { type: 'text', text: 'first' },
@@ -1894,37 +2042,45 @@ describe('convertTurnMessages', () => {
               threadId: ROOT_THREAD_ID,
               content: 'new turn only',
             }),
-            turnDone(),
+            {
+              type: 'turn.done',
+              id: 'done-auto',
+              createdAt,
+              state: { status: 'done', completedAt: createdAt },
+            },
           ]),
           foldState,
           ['prior'],
         ),
       );
 
-      expect(updates).toEqual([{ content: [{ type: 'text', text: 'new turn only' }], sequenceNumber: 1 }]);
+      expect(updates[0]).toEqual({ content: [{ type: 'text', text: 'new turn only' }], sequenceNumber: 1 });
+      expect(updates.at(-1)).toMatchObject({ turnState: { status: 'done' } });
     });
 
-    it('throws when the turn ends in error', async () => {
+    it('projects terminal turn errors', async () => {
       const foldState = new PeerThreadFoldState();
-      await expect(
-        collectStream(
-          streamTurnEvents(
-            streamFrom([
-              {
-                type: 'turn.done',
-                id: 'turn-done',
-                createdAt,
-                state: {
-                  status: 'error',
-                  message: 'boom',
-                  completedAt: createdAt,
-                },
+      const updates = await collectStream(
+        streamTurnEvents(
+          streamFrom([
+            {
+              type: 'turn.done',
+              id: 'turn-done',
+              createdAt,
+              state: {
+                status: 'error',
+                message: 'boom',
+                completedAt: createdAt,
               },
-            ]),
-            foldState,
-          ),
+            },
+          ]),
+          foldState,
         ),
-      ).rejects.toThrow('boom');
+      );
+      expect(updates.at(-1)).toMatchObject({
+        status: { type: 'incomplete', reason: 'error', error: 'boom' },
+        turnState: { status: 'error', message: 'boom' },
+      });
     });
 
     it('emits tool approval metadata after the stream when approvals remain pending', async () => {
@@ -1955,6 +2111,15 @@ describe('convertTurnMessages', () => {
               threadId: ROOT_THREAD_ID,
               toolCalls: [{ id: 'approval-1', sourceEventId: 'm1' }],
             }),
+            {
+              type: 'turn.update',
+              id: 'pause-1',
+              createdAt,
+              threadId: null,
+              state: {
+                status: 'paused',
+              },
+            },
           ]),
           foldState,
         ),
@@ -1965,7 +2130,322 @@ describe('convertTurnMessages', () => {
         type: 'requires-action',
         reason: 'tool-calls',
       });
-      expect(final?.metadata?.custom?.[TOOL_APPROVAL_THREAD_ID_CUSTOM_KEY]).toBe(ROOT_THREAD_ID);
+      expect(final?.metadata?.custom?.[MESSAGE_CUSTOM_KEY.TOOL_APPROVAL_THREAD_ID]).toBe(ROOT_THREAD_ID);
+    });
+
+    it('keeps requires-action after a partial user.tool_approval with no turn.update', async () => {
+      const foldState = new PeerThreadFoldState();
+      // Tip already paused with two pending approvals; subscribe resumes with only
+      // the first allow echo (BE no longer re-emits paused for apply-only wakes).
+      ingestTurnEvent(
+        foldState,
+        modelMessage({
+          id: 'm1',
+          threadId: ROOT_THREAD_ID,
+          content: 'run tools',
+          toolCalls: [
+            {
+              id: 'approval-1',
+              type: 'function',
+              function: { name: 'bash', arguments: '{}' },
+            },
+            {
+              id: 'approval-2',
+              type: 'function',
+              function: { name: 'bash', arguments: '{}' },
+            },
+          ],
+        }),
+      );
+      ingestTurnEvent(
+        foldState,
+        approvalRequired({
+          id: 'approval-event',
+          threadId: ROOT_THREAD_ID,
+          toolCalls: [
+            { id: 'approval-1', sourceEventId: 'm1' },
+            { id: 'approval-2', sourceEventId: 'm1' },
+          ],
+        }),
+      );
+
+      const updates = await collectStream(
+        streamTurnEvents(
+          streamFrom([
+            {
+              type: 'user.tool_approval',
+              id: 'user-approval-1',
+              createdAt,
+              threadId: ROOT_THREAD_ID,
+              toolCallId: 'approval-1',
+              approval: { status: 'allow' },
+            },
+          ]),
+          foldState,
+        ),
+      );
+
+      expect(updates.length).toBeGreaterThanOrEqual(1);
+      const final = updates.at(-1);
+      expect(final?.status).toEqual({ type: 'requires-action', reason: 'tool-calls' });
+      expect(final?.turnState).toMatchObject({ status: 'paused' });
+      const content = final?.content ?? [];
+      const pending = content.filter(
+        part => part.type === 'tool-call' && part.approval != null && part.approval.approved === undefined,
+      );
+      const approved = content.filter(part => part.type === 'tool-call' && part.approval?.approved === true);
+      expect(approved).toHaveLength(1);
+      expect(pending).toHaveLength(1);
+      expect(pending[0]).toMatchObject({ toolCallId: 'approval-2' });
+      expect(final?.sequenceNumber).toBe(1);
+    });
+
+    it('keeps draining after pause through an apply-only echo then running', async () => {
+      const foldState = new PeerThreadFoldState();
+      const updates = await collectStream(
+        streamTurnEvents(
+          streamFrom([
+            modelMessage({
+              id: 'm1',
+              threadId: ROOT_THREAD_ID,
+              content: 'run tools',
+              toolCalls: [
+                {
+                  id: 'approval-1',
+                  type: 'function',
+                  function: { name: 'bash', arguments: '{}' },
+                },
+                {
+                  id: 'approval-2',
+                  type: 'function',
+                  function: { name: 'bash', arguments: '{}' },
+                },
+              ],
+            }),
+            approvalRequired({
+              id: 'approval-event',
+              threadId: ROOT_THREAD_ID,
+              toolCalls: [
+                { id: 'approval-1', sourceEventId: 'm1' },
+                { id: 'approval-2', sourceEventId: 'm1' },
+              ],
+            }),
+            {
+              type: 'turn.update',
+              id: 'pause-1',
+              createdAt,
+              threadId: null,
+              state: { status: 'paused' },
+            },
+            {
+              type: 'user.tool_approval',
+              id: 'user-approval-1',
+              createdAt,
+              threadId: ROOT_THREAD_ID,
+              toolCallId: 'approval-1',
+              approval: { status: 'allow' },
+            },
+            {
+              type: 'turn.update',
+              id: 'run-1',
+              createdAt,
+              threadId: null,
+              state: { status: 'running' },
+            },
+          ]),
+          foldState,
+        ),
+      );
+
+      const paused = updates.find(update => update.turnState?.status === 'paused');
+      expect(paused?.status).toEqual({ type: 'requires-action', reason: 'tool-calls' });
+
+      const afterEcho = updates.filter(update => update.sequenceNumber === 4);
+      expect(afterEcho.at(-1)?.status).toEqual({ type: 'requires-action', reason: 'tool-calls' });
+      expect(afterEcho.at(-1)?.turnState).toMatchObject({ status: 'paused' });
+      const echoContent = afterEcho.at(-1)?.content ?? [];
+      expect(echoContent.filter(part => part.type === 'tool-call' && part.approval?.approved === true)).toHaveLength(1);
+      expect(
+        echoContent.filter(
+          part => part.type === 'tool-call' && part.approval != null && part.approval.approved === undefined,
+        ),
+      ).toHaveLength(1);
+
+      // turn.update running can arrive while a sibling approval is still open
+      // (same bug class as concurrent MCP auth). Keep requires-action chrome.
+      expect(updates.at(-1)).toMatchObject({
+        status: { type: 'requires-action', reason: 'tool-calls' },
+        turnState: { status: 'running' },
+      });
+      const runningContent = updates.at(-1)?.content ?? [];
+      expect(
+        runningContent.filter(
+          part => part.type === 'tool-call' && part.approval != null && part.approval.approved === undefined,
+        ),
+      ).toHaveLength(1);
+    });
+
+    it('keeps turnState running across later content while a sibling prompt is still open', async () => {
+      const foldState = new PeerThreadFoldState();
+      const updates = await collectStream(
+        streamTurnEvents(
+          streamFrom([
+            modelMessage({
+              id: 'm-root',
+              threadId: ROOT_THREAD_ID,
+              content: 'spawn',
+              toolCalls: [
+                {
+                  id: 'spawn-a',
+                  type: 'function',
+                  function: { name: 'create_sub_agent', arguments: '{}' },
+                  toolInfo: { type: 'trueforge-system', name: 'create_sub_agent' },
+                },
+                {
+                  id: 'spawn-b',
+                  type: 'function',
+                  function: { name: 'create_sub_agent', arguments: '{}' },
+                  toolInfo: { type: 'trueforge-system', name: 'create_sub_agent' },
+                },
+              ],
+            }),
+            threadCreated({
+              id: 't-a',
+              threadId: 'child-a',
+              title: 'a',
+              agentInfo: { type: 'dynamic', name: 'a', input: 'a' },
+              parent: { threadId: ROOT_THREAD_ID, toolCallId: 'spawn-a' },
+            }),
+            threadCreated({
+              id: 't-b',
+              threadId: 'child-b',
+              title: 'b',
+              agentInfo: { type: 'dynamic', name: 'b', input: 'b' },
+              parent: { threadId: ROOT_THREAD_ID, toolCallId: 'spawn-b' },
+            }),
+            modelMessage({
+              id: 'm-a',
+              threadId: 'child-a',
+              content: 'need approval',
+              toolCalls: [
+                {
+                  id: 'approval-a',
+                  type: 'function',
+                  function: { name: 'bash', arguments: '{}' },
+                },
+              ],
+            }),
+            approvalRequired({
+              id: 'approval-event',
+              threadId: 'child-a',
+              toolCalls: [{ id: 'approval-a', sourceEventId: 'm-a' }],
+            }),
+            {
+              type: 'mcp.auth_required',
+              id: 'mcp-auth',
+              createdAt,
+              threadId: 'child-b',
+              mcpServers: [{ id: 'pylon', name: 'pylon', authUrl: 'https://example.com/pylon' }],
+            },
+            {
+              type: 'turn.update',
+              id: 'pause-1',
+              createdAt,
+              threadId: null,
+              state: { status: 'paused' },
+            },
+            {
+              type: 'user.tool_approval',
+              id: 'user-approve',
+              createdAt,
+              threadId: 'child-a',
+              toolCallId: 'approval-a',
+              approval: { status: 'allow' },
+            },
+            {
+              type: 'turn.update',
+              id: 'run-1',
+              createdAt,
+              threadId: null,
+              state: { status: 'running' },
+            },
+            // Sibling resume content must not invent paused over the running turn.
+            modelMessage({
+              id: 'm-a-2',
+              threadId: 'child-a',
+              content: 'approved agent continues',
+            }),
+          ]),
+          foldState,
+        ),
+      );
+
+      const afterContent = updates.at(-1);
+      expect(afterContent?.turnState).toEqual({ status: 'running' });
+      expect(afterContent?.status).toEqual({ type: 'requires-action', reason: 'interrupt' });
+      expect(afterContent?.metadata?.custom?.['pendingMcpAuth']).toBe(true);
+    });
+
+    it('folds a later approval_required after pause without another turn.update paused', async () => {
+      const foldState = new PeerThreadFoldState();
+      const updates = await collectStream(
+        streamTurnEvents(
+          streamFrom([
+            modelMessage({
+              id: 'm1',
+              threadId: ROOT_THREAD_ID,
+              content: 'first tool',
+              toolCalls: [
+                {
+                  id: 'approval-1',
+                  type: 'function',
+                  function: { name: 'bash', arguments: '{}' },
+                },
+              ],
+            }),
+            approvalRequired({
+              id: 'approval-event-1',
+              threadId: ROOT_THREAD_ID,
+              toolCalls: [{ id: 'approval-1', sourceEventId: 'm1' }],
+            }),
+            {
+              type: 'turn.update',
+              id: 'pause-1',
+              createdAt,
+              threadId: null,
+              state: { status: 'paused' },
+            },
+            modelMessage({
+              id: 'm2',
+              threadId: ROOT_THREAD_ID,
+              content: 'second tool',
+              toolCalls: [
+                {
+                  id: 'approval-2',
+                  type: 'function',
+                  function: { name: 'bash', arguments: '{}' },
+                },
+              ],
+            }),
+            approvalRequired({
+              id: 'approval-event-2',
+              threadId: ROOT_THREAD_ID,
+              toolCalls: [{ id: 'approval-2', sourceEventId: 'm2' }],
+            }),
+          ]),
+          foldState,
+        ),
+      );
+
+      const final = updates.at(-1);
+      expect(final?.status).toEqual({ type: 'requires-action', reason: 'tool-calls' });
+      const pending = (final?.content ?? []).filter(
+        part => part.type === 'tool-call' && part.approval != null && part.approval.approved === undefined,
+      );
+      expect(pending.map(part => (part.type === 'tool-call' ? part.toolCallId : undefined))).toEqual([
+        'approval-1',
+        'approval-2',
+      ]);
     });
 
     it('defers mcp auth until stream end and appends auth prompt', async () => {
@@ -1990,16 +2470,22 @@ describe('convertTurnMessages', () => {
                 },
               ],
             },
+            {
+              type: 'turn.update',
+              id: 'pause-mcp',
+              createdAt,
+              threadId: null,
+              state: {
+                status: 'paused',
+              },
+            },
           ]),
           foldState,
         ),
       );
 
       expect(updates).toHaveLength(2);
-      expect(updates[0]).toEqual({
-        content: [{ type: 'text', text: 'before auth' }],
-        sequenceNumber: 1,
-      });
+      expect(updates[0]).toEqual({ content: [{ type: 'text', text: 'before auth' }], sequenceNumber: 1 });
       expect(updates[1]?.status).toEqual({
         type: 'requires-action',
         reason: 'interrupt',
@@ -2010,22 +2496,165 @@ describe('convertTurnMessages', () => {
       });
     });
 
-    it('throws when the SSE body ends without turn.done or a pause', async () => {
-      const foldState = new PeerThreadFoldState();
-      await expect(
-        collectStream(
-          streamTurnEvents(
-            streamFrom([
-              modelMessage({
-                id: 'm1',
-                threadId: ROOT_THREAD_ID,
-                content: 'partial',
-              }),
-            ]),
-            foldState,
-          ),
+    it('keeps the resume cursor on mcp.auth_required until user.mcp_auth_continue answers it', async () => {
+      const cursors: TurnSubscribeCursor[] = [];
+      const mcpAuth = {
+        type: 'mcp.auth_required' as const,
+        id: 'mcp-auth',
+        createdAt,
+        mcpServers: [{ id: 'github-auth', name: 'github', authUrl: 'https://example.com/auth' }],
+      };
+      await collectStream(
+        streamTurnEvents(
+          streamFrom([
+            mcpAuth,
+            { type: 'turn.update', id: 'pause-mcp', createdAt, threadId: null, state: { status: 'paused' } },
+            // Sibling-thread resume must not advance past auth — only continue does.
+            { type: 'turn.update', id: 'run-sibling', createdAt, threadId: null, state: { status: 'running' } },
+            { type: 'user.mcp_auth_continue', id: 'continue-mcp', createdAt },
+            { type: 'turn.update', id: 'run-mcp', createdAt, threadId: null, state: { status: 'running' } },
+            { type: 'turn.done', id: 'done-mcp', createdAt, state: { status: 'done', completedAt: createdAt } },
+          ]),
+          new PeerThreadFoldState(),
+          undefined,
+          undefined,
+          undefined,
+          cursor => cursors.push(cursor),
         ),
-      ).rejects.toThrow(TurnStreamDisconnectedError);
+      );
+
+      expect(cursors).toEqual([
+        { fromEventId: 'mcp-auth' },
+        { afterEventId: 'continue-mcp' },
+        { afterEventId: 'run-mcp' },
+        { afterEventId: 'done-mcp' },
+      ]);
+    });
+
+    it('prefers tool-approval chrome over MCP auth when both are pending, then shows MCP after approve', async () => {
+      const foldState = new PeerThreadFoldState();
+      const mcpServers = [{ id: 'pylon', name: 'pylon', authUrl: 'https://example.com/pylon' }];
+      const updates = await collectStream(
+        streamTurnEvents(
+          streamFrom([
+            modelMessage({
+              id: 'm-root',
+              threadId: ROOT_THREAD_ID,
+              content: 'spawn agents',
+              toolCalls: [
+                {
+                  id: 'spawn-approve',
+                  type: 'function',
+                  function: { name: 'create_sub_agent', arguments: '{}' },
+                  toolInfo: { type: 'trueforge-system', name: 'create_sub_agent' },
+                },
+                {
+                  id: 'spawn-auth',
+                  type: 'function',
+                  function: { name: 'create_sub_agent', arguments: '{}' },
+                  toolInfo: { type: 'trueforge-system', name: 'create_sub_agent' },
+                },
+              ],
+            }),
+            threadCreated({
+              id: 't-approve',
+              threadId: 'child-approve',
+              title: 'approver',
+              agentInfo: { type: 'dynamic', name: 'approver', input: 'comment' },
+              parent: { threadId: ROOT_THREAD_ID, toolCallId: 'spawn-approve' },
+            }),
+            threadCreated({
+              id: 't-auth',
+              threadId: 'child-auth',
+              title: 'auther',
+              agentInfo: { type: 'dynamic', name: 'auther', input: 'events' },
+              parent: { threadId: ROOT_THREAD_ID, toolCallId: 'spawn-auth' },
+            }),
+            modelMessage({
+              id: 'm-approve',
+              threadId: 'child-approve',
+              content: 'need approval',
+              toolCalls: [
+                {
+                  id: 'approval-1',
+                  type: 'function',
+                  function: { name: 'save_comment', arguments: '{"body":"Test"}' },
+                  toolInfo: {
+                    type: 'mcp',
+                    name: 'save_comment',
+                    serverId: 'linear',
+                    serverName: 'linear',
+                  },
+                },
+              ],
+            }),
+            approvalRequired({
+              id: 'approval-event',
+              threadId: 'child-approve',
+              toolCalls: [{ id: 'approval-1', sourceEventId: 'm-approve' }],
+            }),
+            {
+              type: 'mcp.auth_required',
+              id: 'mcp-auth',
+              createdAt,
+              threadId: 'child-auth',
+              mcpServers,
+            },
+            {
+              type: 'turn.update',
+              id: 'pause-both',
+              createdAt,
+              threadId: null,
+              state: { status: 'paused' },
+            },
+            {
+              type: 'user.tool_approval',
+              id: 'user-approve',
+              createdAt,
+              threadId: 'child-approve',
+              toolCallId: 'approval-1',
+              approval: { status: 'allow' },
+            },
+            {
+              type: 'turn.update',
+              id: 'run-after-approve',
+              createdAt,
+              threadId: null,
+              state: { status: 'running' },
+            },
+            {
+              type: 'turn.update',
+              id: 'pause-auth-only',
+              createdAt,
+              threadId: null,
+              state: { status: 'paused' },
+            },
+          ]),
+          foldState,
+        ),
+      );
+
+      // While both are open: approval status wins, but MCP metadata stays for an
+      // instant Connect handoff once the last approval is answered.
+      const bothPaused = updates.find(
+        update =>
+          update.turnState?.status === 'paused' &&
+          update.status?.type === 'requires-action' &&
+          update.status.reason === 'tool-calls' &&
+          update.metadata?.custom?.['pendingMcpAuth'] === true,
+      );
+      expect(bothPaused?.metadata?.custom?.['mcpServers']).toEqual(mcpServers);
+
+      const afterApproveRunning = updates.find(update => update.turnState?.status === 'running');
+      expect(afterApproveRunning?.metadata?.custom?.['pendingMcpAuth']).toBe(true);
+      expect(afterApproveRunning?.metadata?.custom?.['mcpServers']).toEqual(mcpServers);
+      expect(afterApproveRunning?.status).toEqual({ type: 'requires-action', reason: 'interrupt' });
+
+      const final = updates.at(-1);
+      expect(final?.turnState?.status).toBe('paused');
+      expect(final?.metadata?.custom?.['pendingMcpAuth']).toBe(true);
+      expect(final?.metadata?.custom?.['mcpServers']).toEqual(mcpServers);
+      expect(final?.status).toEqual({ type: 'requires-action', reason: 'interrupt' });
     });
 
     it('stamps sandboxId onto every content yield after sandbox.created is seen', async () => {
@@ -2044,15 +2673,20 @@ describe('convertTurnMessages', () => {
               threadId: ROOT_THREAD_ID,
               content: 'after sandbox',
             }),
-            turnDone(),
+            {
+              type: 'turn.done',
+              id: 'done-auto',
+              createdAt,
+              state: { status: 'done', completedAt: createdAt },
+            },
           ]),
           foldState,
         ),
       );
 
-      expect(updates).toHaveLength(2);
       expect(updates[0]?.metadata?.custom?.['sandboxId']).toBeUndefined();
       expect(updates[1]?.metadata?.custom?.['sandboxId']).toBe('sbx-123');
+      expect(updates.at(-1)).toMatchObject({ turnState: { status: 'done' } });
     });
 
     it('yields a trailing update carrying sandboxId when sandbox.created is the last event', async () => {
@@ -2066,7 +2700,12 @@ describe('convertTurnMessages', () => {
               content: 'some content',
             }),
             sandboxCreated({ id: 'sandbox-evt', sandboxId: 'sbx-123' }),
-            turnDone(),
+            {
+              type: 'turn.done',
+              id: 'done-auto',
+              createdAt,
+              state: { status: 'done', completedAt: createdAt },
+            },
           ]),
           foldState,
         ),
@@ -2074,6 +2713,23 @@ describe('convertTurnMessages', () => {
 
       const final = updates.at(-1);
       expect(final?.metadata?.custom?.['sandboxId']).toBe('sbx-123');
+    });
+
+    it('yields sandbox metadata and then disconnects when the stream ends on sandbox.created', async () => {
+      const generator = streamTurnEvents(
+        streamFrom([sandboxCreated({ id: 'sandbox-evt', sandboxId: 'sbx-123' })]),
+        new PeerThreadFoldState(),
+      );
+      const updates: TurnStreamUpdate[] = [];
+      await expect(
+        (async () => {
+          for await (const update of generator) {
+            updates.push(update);
+          }
+        })(),
+      ).rejects.toBeInstanceOf(TurnStreamDisconnectedError);
+      expect(updates).toHaveLength(1);
+      expect(updates[0]?.metadata?.custom?.['sandboxId']).toBe('sbx-123');
     });
 
     it('keeps sandboxId on the final mcp auth yield when both occur in the same stream', async () => {
@@ -2099,6 +2755,15 @@ describe('convertTurnMessages', () => {
                 },
               ],
             },
+            {
+              type: 'turn.update',
+              id: 'pause-mcp',
+              createdAt,
+              threadId: null,
+              state: {
+                status: 'paused',
+              },
+            },
           ]),
           foldState,
         ),
@@ -2110,7 +2775,7 @@ describe('convertTurnMessages', () => {
     });
   });
 
-  describe('projectSessionMessages streamComplete', () => {
+  describe('projectSessionMessages paused segment', () => {
     const turnId = 'turn-live';
 
     function snapshotWithCompletedStream(update: TurnStreamUpdate, foldState: PeerThreadFoldState) {
@@ -2124,8 +2789,7 @@ describe('convertTurnMessages', () => {
           activeStream: {
             turnId,
             update,
-            isContinuation: false,
-            streamComplete: true,
+            segmentStatus: 'paused',
           },
         }),
         fold: foldState,
@@ -2152,8 +2816,7 @@ describe('convertTurnMessages', () => {
                 },
               ],
             },
-            isContinuation: false,
-            streamComplete: true,
+            segmentStatus: 'paused',
           },
         }),
       );
@@ -2179,7 +2842,147 @@ describe('convertTurnMessages', () => {
       ]);
     });
 
-    it('preserves requires-action when streamComplete and update has approval status', async () => {
+    it('keeps MCP auth composer chrome after a paused segment ends', () => {
+      const mcpServers = [
+        {
+          id: 'linear',
+          name: 'linear',
+          authUrl: 'https://example.com/auth',
+        },
+      ];
+      const messages = projectSessionMessages(
+        replaceSessionSnapshot(createEmptySessionSnapshot(), {
+          pendingUser: {
+            turnId,
+            content: 'use linear',
+            createdAt: new Date(createdAt),
+          },
+          runningTurn: {
+            id: turnId,
+            sessionId: SESSION_ID,
+            createdAt,
+            state: {
+              status: 'paused',
+            },
+          },
+          activeStream: {
+            turnId,
+            update: {
+              content: [
+                { type: 'text', text: 'Waiting for user to authenticate.' },
+                {
+                  type: 'text',
+                  text: 'This agent needs access to external services before it can continue.\n\nClick the **Connect** button(s) to authorize the Connectors, then press **Continue**.',
+                },
+              ],
+              status: { type: 'requires-action', reason: 'interrupt' },
+              metadata: { custom: { pendingMcpAuth: true, mcpServers } },
+              turnState: {
+                status: 'paused',
+              },
+            },
+            segmentStatus: 'paused',
+          },
+        }),
+      );
+
+      const assistant = messages.at(-1);
+      expect(assistant?.role).toBe('assistant');
+      expect(assistant?.status).toEqual({ type: 'requires-action', reason: 'interrupt' });
+      expect(assistant?.metadata.custom['pendingMcpAuth']).toBe(true);
+      expect(derivePendingMcpAuth(messages)).toEqual({ mcpServers });
+    });
+
+    it('drops MCP auth chrome when the live update moved on to tool approval', async () => {
+      const mcpServers = [
+        {
+          id: 'linear',
+          name: 'linear',
+          authUrl: 'https://example.com/auth',
+        },
+      ];
+      const foldState = new PeerThreadFoldState();
+      ingestTurnEvent(
+        foldState,
+        modelMessage({
+          id: 'm1',
+          threadId: ROOT_THREAD_ID,
+          content: 'calling linear',
+          toolCalls: [
+            {
+              id: 'approval-1',
+              type: 'function',
+              function: { name: 'save_comment', arguments: '{"body":"test"}' },
+              toolInfo: {
+                type: 'mcp',
+                name: 'save_comment',
+                serverId: 'linear',
+                serverName: 'linear',
+              },
+            },
+          ],
+        }),
+      );
+      ingestTurnEvent(
+        foldState,
+        approvalRequired({
+          id: 'approval-event',
+          threadId: ROOT_THREAD_ID,
+          toolCalls: [{ id: 'approval-1', sourceEventId: 'm1' }],
+        }),
+      );
+
+      // Stale snapshot auth after user.mcp_auth_continue (no affirming live yield).
+      const messages = projectSessionMessages(
+        replaceSessionSnapshot(
+          {
+            ...createEmptySessionSnapshot(),
+            fold: foldState,
+          },
+          {
+            pendingMcpAuth: {
+              type: 'mcp.auth_required',
+              id: 'mcp-auth-1',
+              createdAt,
+              threadId: null,
+              mcpServers,
+            },
+            pendingUser: {
+              turnId,
+              content: 'use linear',
+              createdAt: new Date(createdAt),
+            },
+            runningTurn: {
+              id: turnId,
+              sessionId: SESSION_ID,
+              createdAt,
+              state: {
+                status: 'paused',
+              },
+            },
+            activeStream: {
+              turnId,
+              update: {
+                content: buildRootAssistantContent(foldState),
+                status: { type: 'requires-action', reason: 'tool-calls' },
+                metadata: { custom: { toolApprovalThreadId: ROOT_THREAD_ID } },
+                turnState: {
+                  status: 'paused',
+                },
+              },
+              segmentStatus: 'paused',
+            },
+          },
+        ),
+      );
+
+      expect(derivePendingMcpAuth(messages)).toBeNull();
+      expect(collectPendingApprovals(messages)).toHaveLength(1);
+      const assistant = messages.at(-1);
+      expect(assistant?.metadata.custom['pendingMcpAuth']).toBeUndefined();
+    });
+
+    it('preserves requires-action when a paused segment has approval status', async () => {
       const foldState = new PeerThreadFoldState();
       const updates = await collectStream(
         streamTurnEvents(
@@ -2207,6 +3010,15 @@ describe('convertTurnMessages', () => {
               threadId: ROOT_THREAD_ID,
               toolCalls: [{ id: 'approval-1', sourceEventId: 'm1' }],
             }),
+            {
+              type: 'turn.update',
+              id: 'pause-approval',
+              createdAt,
+              threadId: null,
+              state: {
+                status: 'paused',
+              },
+            },
           ]),
           foldState,
         ),
@@ -2229,10 +3041,10 @@ describe('convertTurnMessages', () => {
         toolCallId: 'approval-1',
         approval: { id: 'approval-1' },
       });
-      expect(findCurrentPausedAssistantMessage(messages)).toBe(assistant);
+      expect(findPausedAssistantMessage(messages)).toBe(assistant);
     });
 
-    it('preserves requires-action when streamComplete and update has ask-user status', async () => {
+    it('preserves requires-action when a paused segment has ask-user status', async () => {
       const foldState = new PeerThreadFoldState();
       const updates = await collectStream(
         streamTurnEvents(
@@ -2263,6 +3075,15 @@ describe('convertTurnMessages', () => {
               threadId: ROOT_THREAD_ID,
               toolCalls: [{ id: 'question-1', sourceEventId: 'model-1' }],
             }),
+            {
+              type: 'turn.update',
+              id: 'pause-response',
+              createdAt,
+              threadId: null,
+              state: {
+                status: 'paused',
+              },
+            },
           ]),
           foldState,
         ),
@@ -2288,10 +3109,10 @@ describe('convertTurnMessages', () => {
           payload: { question: 'Pick one', options: ['A', 'B'] },
         },
       });
-      expect(findCurrentPausedAssistantMessage(messages)).toBe(assistant);
+      expect(findPausedAssistantMessage(messages)).toBe(assistant);
     });
 
-    it('forces complete when streamComplete and update has no explicit status', () => {
+    it('keeps an unclassified non-terminal segment running', () => {
       const foldState = new PeerThreadFoldState();
       const messages = projectSessionMessages(
         snapshotWithCompletedStream({ content: [{ type: 'text', text: 'done' }] }, foldState),
@@ -2303,8 +3124,7 @@ describe('convertTurnMessages', () => {
         return;
       }
       expect(assistant.status).toEqual({
-        type: 'complete',
-        reason: 'stop',
+        type: 'running',
       });
     });
 
@@ -2348,8 +3168,7 @@ describe('convertTurnMessages', () => {
             status: { type: 'requires-action', reason: 'interrupt' },
             metadata: { custom: { pendingMcpAuth: true, mcpServers } },
           },
-          isContinuation: false,
-          streamComplete: true,
+          segmentStatus: 'paused',
         },
       };
 
@@ -2481,7 +3300,7 @@ describe('convertTurnMessages', () => {
       // fabricated `TurnStateDone`. The pause must survive as a
       // `tool.response_required` required action, otherwise the projected
       // assistant message is not `requires-action` and
-      // `findCurrentPausedAssistantMessage` (the gate that fires the resume turn)
+      // `findPausedAssistantMessage` (the gate that fires the resume turn)
       // never sees it.
       const fold = new PeerThreadFoldState();
       const turnId = 'turn-ask';
@@ -2544,7 +3363,7 @@ describe('convertTurnMessages', () => {
       });
 
       const messages = projectSessionMessages(snapshot);
-      const paused = findCurrentPausedAssistantMessage(messages);
+      const paused = findPausedAssistantMessage(messages);
       expect(paused).toBeDefined();
       expect(paused?.status).toMatchObject({ type: 'requires-action' });
     });
@@ -2605,8 +3424,7 @@ describe('convertTurnMessages', () => {
         },
         activeStream: {
           turnId,
-          isContinuation: false,
-          streamComplete: true,
+          segmentStatus: 'paused',
           update: {
             content: pausedContent,
             status: toolResponseStatus(),
@@ -2770,9 +3588,8 @@ describe('convertTurnMessages', () => {
           },
         ],
         activeStream: {
-          turnId: 'turn-4',
-          isContinuation: true,
-          streamComplete: true,
+          turnId: 'turn-3',
+          segmentStatus: 'paused',
           update: {
             content: [{ type: 'text', text: 'Group 2 follow-up' }],
             status: { type: 'complete', reason: 'stop' },
@@ -2943,6 +3760,466 @@ describe('buildSnapshotFromSessionEvents', () => {
     expect(snapshot.pendingUser).toBeUndefined();
   });
 
+  it('rehydrates an open paused tip on the same turn id', async () => {
+    const pausedTurn: Turn = {
+      id: 't-paused',
+      sessionId: SESSION_ID,
+      state: {
+        status: 'paused',
+      },
+      input: [{ type: 'user.message', content: 'run it' }],
+      createdAt,
+    };
+    const items: SessionEventItem[] = [
+      {
+        turnId: pausedTurn.id,
+        event: {
+          type: 'turn.created',
+          id: 'created-paused',
+          turnId: pausedTurn.id,
+          input: [{ type: 'user.message', content: 'run it' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      {
+        turnId: pausedTurn.id,
+        event: modelMessage({
+          id: 'model-paused',
+          threadId: ROOT_THREAD_ID,
+          toolCalls: [
+            {
+              id: 'approval-1',
+              type: 'function',
+              function: { name: 'bash', arguments: '{}' },
+            },
+          ],
+        }),
+      },
+      {
+        turnId: pausedTurn.id,
+        event: approvalRequired({
+          id: 'approval-required-1',
+          threadId: ROOT_THREAD_ID,
+          toolCalls: [{ id: 'approval-1', sourceEventId: 'model-paused' }],
+        }),
+      },
+      {
+        turnId: pausedTurn.id,
+        event: {
+          type: 'turn.update',
+          id: 'paused-update',
+          createdAt,
+          threadId: null,
+          state: {
+            status: 'paused',
+          },
+        },
+      },
+    ];
+
+    const snapshot = await buildSnapshotFromSessionEvents(mockServerWithEvents([pausedTurn], items), SESSION_ID);
+
+    expect(snapshot.turns).toHaveLength(0);
+    expect(snapshot.runningTurn).toEqual(pausedTurn);
+    expect(snapshot.pendingUser).toMatchObject({ turnId: pausedTurn.id, content: 'run it' });
+    expect(snapshot.unstable_resume).toBe(true);
+    // Tip model ids are already in the fold — baseline must stay empty so
+    // subscribe rebuilds do not wipe tip content after refresh.
+    expect(snapshot.groupRootBaseline).toEqual([]);
+    const messages = projectSessionMessages(snapshot);
+    expect(messages).toHaveLength(2);
+    expect(messages[1]).toMatchObject({
+      role: 'assistant',
+      status: { type: 'requires-action', reason: 'tool-calls' },
+      metadata: { custom: { turnId: pausedTurn.id } },
+    });
+    expect(collectPendingApprovals(messages)).toMatchObject([{ approvalId: 'approval-1', threadId: ROOT_THREAD_ID }]);
+
+    // Reproduce post-refresh subscribe: fold already has tip events; stream
+    // only delivers the pause update. Wrong baseline would yield empty content.
+    const updates = await collectStream(
+      streamTurnEvents(
+        streamFrom([
+          {
+            type: 'turn.update',
+            id: 'paused-update-replay',
+            createdAt,
+            threadId: null,
+            state: {
+              status: 'paused',
+            },
+          },
+        ]),
+        snapshot.fold,
+        snapshot.groupRootBaseline,
+      ),
+    );
+    expect(updates).toHaveLength(1);
+    expect(updates[0]?.content.length).toBeGreaterThan(0);
+    expect(updates[0]?.status).toMatchObject({ type: 'requires-action', reason: 'tool-calls' });
+  });
+
+  it('keeps already-ingested event ids when older history is prepended', () => {
+    const older = new PeerThreadFoldState();
+    const request = approvalRequired({
+      id: 'approval-required-old',
+      threadId: ROOT_THREAD_ID,
+      toolCalls: [{ id: 'approval-1', sourceEventId: 'model-old' }],
+    });
+    ingestTurnEvent(older, request);
+    ingestTurnEvent(older, {
+      type: 'user.tool_approval',
+      id: 'user-approval-old',
+      createdAt,
+      threadId: ROOT_THREAD_ID,
+      toolCallId: 'approval-1',
+      approval: { status: 'allow' },
+    });
+
+    const merged = prependFoldState(older, new PeerThreadFoldState());
+    ingestTurnEvent(merged, request);
+
+    expect(merged.threads.get(ROOT_THREAD_ID)?.pendingApprovals.size).toBe(0);
+  });
+
+  it('shows a paused tip as running once every prompt is answered', async () => {
+    const pausedTurn: Turn = {
+      id: 't-answered',
+      sessionId: SESSION_ID,
+      state: { status: 'paused' },
+      input: [{ type: 'user.message', content: 'run it' }],
+      createdAt,
+    };
+    const items: SessionEventItem[] = [
+      {
+        turnId: pausedTurn.id,
+        event: {
+          type: 'turn.created',
+          id: 'created-answered',
+          turnId: pausedTurn.id,
+          input: [{ type: 'user.message', content: 'run it' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      {
+        turnId: pausedTurn.id,
+        event: modelMessage({
+          id: 'model-answered',
+          threadId: ROOT_THREAD_ID,
+          toolCalls: [{ id: 'approval-1', type: 'function', function: { name: 'bash', arguments: '{}' } }],
+        }),
+      },
+      {
+        turnId: pausedTurn.id,
+        event: approvalRequired({
+          id: 'approval-required-answered',
+          threadId: ROOT_THREAD_ID,
+          toolCalls: [{ id: 'approval-1', sourceEventId: 'model-answered' }],
+        }),
+      },
+      {
+        turnId: pausedTurn.id,
+        event: { type: 'turn.update', id: 'paused-answered', createdAt, threadId: null, state: { status: 'paused' } },
+      },
+      {
+        turnId: pausedTurn.id,
+        event: {
+          type: 'user.tool_approval',
+          id: 'user-approval-answered',
+          createdAt,
+          threadId: ROOT_THREAD_ID,
+          toolCallId: 'approval-1',
+          approval: { status: 'allow' },
+        },
+      },
+    ];
+
+    const snapshot = await buildSnapshotFromSessionEvents(mockServerWithEvents([pausedTurn], items), SESSION_ID);
+    const messages = projectSessionMessages(snapshot);
+
+    expect(messages.at(-1)).toMatchObject({ role: 'assistant', status: { type: 'running' } });
+    expect(collectPendingApprovals(messages)).toEqual([]);
+  });
+
+  it('clears a live paused stream once every prompt is answered', async () => {
+    const pausedTurn: Turn = {
+      id: 't-live-answered',
+      sessionId: SESSION_ID,
+      state: { status: 'paused' },
+      input: [{ type: 'user.message', content: 'run it' }],
+      createdAt,
+    };
+    const items: SessionEventItem[] = [
+      {
+        turnId: pausedTurn.id,
+        event: {
+          type: 'turn.created',
+          id: 'created-live-answered',
+          turnId: pausedTurn.id,
+          input: [{ type: 'user.message', content: 'run it' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      {
+        turnId: pausedTurn.id,
+        event: modelMessage({
+          id: 'model-live-answered',
+          threadId: ROOT_THREAD_ID,
+          toolCalls: [{ id: 'approval-1', type: 'function', function: { name: 'bash', arguments: '{}' } }],
+        }),
+      },
+      {
+        turnId: pausedTurn.id,
+        event: approvalRequired({
+          id: 'approval-required-live-answered',
+          threadId: ROOT_THREAD_ID,
+          toolCalls: [{ id: 'approval-1', sourceEventId: 'model-live-answered' }],
+        }),
+      },
+      {
+        turnId: pausedTurn.id,
+        event: {
+          type: 'turn.update',
+          id: 'paused-live-answered',
+          createdAt,
+          threadId: null,
+          state: { status: 'paused' },
+        },
+      },
+    ];
+
+    const snapshot = await buildSnapshotFromSessionEvents(mockServerWithEvents([pausedTurn], items), SESSION_ID);
+    expect(projectSessionMessages(snapshot).at(-1)).toMatchObject({
+      role: 'assistant',
+      status: { type: 'requires-action', reason: 'tool-calls' },
+      metadata: { custom: { [MESSAGE_CUSTOM_KEY.TOOL_APPROVAL_THREAD_ID]: ROOT_THREAD_ID } },
+    });
+
+    ingestTurnEvent(snapshot.fold, {
+      type: 'user.tool_approval',
+      id: 'user-approval-live-answered',
+      createdAt,
+      threadId: ROOT_THREAD_ID,
+      toolCallId: 'approval-1',
+      approval: { status: 'allow' },
+    });
+
+    const assistant = projectSessionMessages(snapshot).at(-1);
+    expect(assistant).toMatchObject({ role: 'assistant', status: { type: 'running' } });
+    expect(assistant?.metadata.custom[MESSAGE_CUSTOM_KEY.TOOL_APPROVAL_THREAD_ID]).toBeUndefined();
+  });
+
+  it('does not baseline tip model messages that are already folded on refresh', async () => {
+    const priorDone: Turn = {
+      id: 't-prior',
+      sessionId: SESSION_ID,
+      state: { status: 'done', requiredActions: [], completedAt: createdAt },
+      input: [{ type: 'user.message', content: 'hi' }],
+      createdAt,
+    };
+    const pausedTip: Turn = {
+      id: 't-tip',
+      sessionId: SESSION_ID,
+      state: {
+        status: 'paused',
+      },
+      input: [{ type: 'user.message', content: 'spawn two agents' }],
+      createdAt,
+    };
+    const items: SessionEventItem[] = [
+      {
+        turnId: priorDone.id,
+        event: {
+          type: 'turn.created',
+          id: 'created-prior',
+          turnId: priorDone.id,
+          input: [{ type: 'user.message', content: 'hi' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      {
+        turnId: priorDone.id,
+        event: modelMessage({ id: 'm-prior', threadId: ROOT_THREAD_ID, content: 'prior reply' }),
+      },
+      {
+        turnId: priorDone.id,
+        event: {
+          type: 'turn.done',
+          id: 'done-prior',
+          state: { status: 'done', requiredActions: [], completedAt: createdAt },
+          createdAt,
+        } as TurnDoneEvent,
+      },
+      {
+        turnId: pausedTip.id,
+        event: {
+          type: 'turn.created',
+          id: 'created-tip',
+          turnId: pausedTip.id,
+          input: [{ type: 'user.message', content: 'spawn two agents' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      {
+        turnId: pausedTip.id,
+        event: modelMessage({
+          id: 'm-tip',
+          threadId: ROOT_THREAD_ID,
+          content: 'Launching sub-agents',
+          toolCalls: [
+            {
+              id: 'sub-1',
+              type: 'function',
+              function: { name: 'create_sub_agent', arguments: '{}' },
+            },
+          ],
+        }),
+      },
+      {
+        turnId: pausedTip.id,
+        event: threadCreated({
+          id: 'thread-created-1',
+          threadId: 'sub-thread-1',
+          title: 'sub-1',
+          agentInfo: { type: 'dynamic', name: 'sub-1', input: 'work' },
+          parent: { toolCallId: 'sub-1', threadId: ROOT_THREAD_ID },
+        }),
+      },
+      {
+        turnId: pausedTip.id,
+        event: modelMessage({
+          id: 'm-sub',
+          threadId: 'sub-thread-1',
+          content: 'need approval',
+          toolCalls: [
+            {
+              id: 'nested-tool',
+              type: 'function',
+              function: { name: 'bash', arguments: '{}' },
+            },
+          ],
+        }),
+      },
+      {
+        turnId: pausedTip.id,
+        event: approvalRequired({
+          id: 'nested-approval',
+          threadId: 'sub-thread-1',
+          toolCalls: [{ id: 'nested-tool', sourceEventId: 'm-sub' }],
+        }),
+      },
+      {
+        turnId: pausedTip.id,
+        event: {
+          type: 'turn.update',
+          id: 'tip-paused',
+          createdAt,
+          threadId: null,
+          state: { status: 'paused' },
+        },
+      },
+    ];
+
+    const snapshot = await buildSnapshotFromSessionEvents(
+      mockServerWithEvents([priorDone, pausedTip], items),
+      SESSION_ID,
+    );
+
+    expect(snapshot.groupRootBaseline).toEqual(['m-prior']);
+    expect(snapshot.groupRootBaseline).not.toContain('m-tip');
+
+    const messages = projectSessionMessages(snapshot);
+    const assistant = messages.find(
+      m => m.role === 'assistant' && m.metadata?.custom?.[MESSAGE_CUSTOM_KEY.TURN_ID] === pausedTip.id,
+    );
+    expect(assistant?.content.some(part => part.type === 'text' && part.text.includes('Launching'))).toBe(true);
+    expect(collectPendingApprovals(messages)).toMatchObject([{ approvalId: 'nested-tool', threadId: 'sub-thread-1' }]);
+
+    const updates = await collectStream(
+      streamTurnEvents(
+        streamFrom([
+          {
+            type: 'turn.update',
+            id: 'tip-paused-replay',
+            createdAt,
+            threadId: null,
+            state: { status: 'paused' },
+          },
+        ]),
+        snapshot.fold,
+        snapshot.groupRootBaseline,
+      ),
+    );
+    expect(updates[0]?.content.some(part => part.type === 'text' && part.text.includes('Launching'))).toBe(true);
+  });
+
+  it('rehydrates pending MCP auth before subscription replay', async () => {
+    const pausedTurn: Turn = {
+      id: 't-mcp-paused',
+      sessionId: SESSION_ID,
+      state: {
+        status: 'paused',
+      },
+      input: [{ type: 'user.message', content: 'use github' }],
+      createdAt,
+    };
+    const items: SessionEventItem[] = [
+      {
+        turnId: pausedTurn.id,
+        event: {
+          type: 'turn.created',
+          id: 'created-mcp',
+          turnId: pausedTurn.id,
+          input: [{ type: 'user.message', content: 'use github' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      {
+        turnId: pausedTurn.id,
+        event: modelMessage({ id: 'model-mcp', threadId: ROOT_THREAD_ID, content: 'Connecting' }),
+      },
+      {
+        turnId: pausedTurn.id,
+        event: {
+          type: 'mcp.auth_required',
+          id: 'mcp-auth-1',
+          createdAt,
+          threadId: null,
+          mcpServers: [{ id: 'github', name: 'GitHub', authUrl: 'https://example.com/auth' }],
+        },
+      },
+      {
+        turnId: pausedTurn.id,
+        event: {
+          type: 'turn.update',
+          id: 'paused-mcp',
+          createdAt,
+          threadId: null,
+          state: {
+            status: 'paused',
+          },
+        },
+      },
+    ];
+
+    const snapshot = await buildSnapshotFromSessionEvents(mockServerWithEvents([pausedTurn], items), SESSION_ID);
+    const messages = projectSessionMessages(snapshot);
+
+    expect(messages.at(-1)).toMatchObject({
+      role: 'assistant',
+      status: { type: 'requires-action', reason: 'interrupt' },
+    });
+    expect(derivePendingMcpAuth(messages)).toEqual({
+      mcpServers: [{ id: 'github', name: 'GitHub', authUrl: 'https://example.com/auth' }],
+    });
+  });
+
   it('baselines all prior root model messages when resuming a new user tip', async () => {
     const runningTurn = {
       id: 't3',
@@ -3035,85 +4312,6 @@ describe('buildSnapshotFromSessionEvents', () => {
       id: 't3-user',
       role: 'user',
     });
-  });
-
-  it("keeps the running tip's already-ingested model messages in live resume scope", async () => {
-    const runningTurn = {
-      id: 't2',
-      state: { status: 'running' },
-      input: [{ type: 'user.message', content: 'can 10 random sandbox tool calll' }],
-      createdAt,
-    } as unknown as Turn;
-
-    const items: SessionEventItem[] = [
-      {
-        turnId: 't1',
-        event: {
-          type: 'turn.created',
-          id: 'evt-c1',
-          turnId: 't1',
-          input: [{ type: 'user.message', content: 'first' }],
-          state: { status: 'running' },
-          createdAt,
-        },
-      },
-      {
-        turnId: 't1',
-        event: modelMessage({ id: 'm1', threadId: ROOT_THREAD_ID, content: 'reply 1' }),
-      },
-      {
-        turnId: 't1',
-        event: {
-          type: 'turn.done',
-          id: 'evt-d1',
-          state: { status: 'done', requiredActions: [], completedAt: createdAt },
-          createdAt,
-        } as TurnDoneEvent,
-      },
-      {
-        turnId: 't2',
-        event: {
-          type: 'turn.created',
-          id: 'evt-c2',
-          turnId: 't2',
-          input: [{ type: 'user.message', content: 'can 10 random sandbox tool calll' }],
-          state: { status: 'running' },
-          createdAt,
-        },
-      },
-      {
-        turnId: 't2',
-        event: modelMessage({
-          id: 'm2',
-          threadId: ROOT_THREAD_ID,
-          content: 'Running 10 random sandbox commands at once:',
-        }),
-      },
-    ];
-
-    const snapshot = await buildSnapshotFromSessionEvents(mockServerWithEvents([runningTurn], items), SESSION_ID);
-
-    expect(snapshot.turns).toHaveLength(1);
-    expect(snapshot.groupRootBaseline).toEqual(['m1']);
-    expect(rootModelMessageIdsSinceBaseline(snapshot.fold, snapshot.groupRootBaseline ?? [])).toEqual(['m2']);
-
-    const updates = await collectStream(
-      streamTurnEvents(
-        streamFrom([
-          modelMessage({
-            id: 'm3',
-            threadId: ROOT_THREAD_ID,
-            content: 'I ran 10 sandbox commands',
-          }),
-          turnDone(),
-        ]),
-        snapshot.fold,
-        snapshot.groupRootBaseline,
-      ),
-    );
-
-    const texts = (updates.at(-1)?.content ?? []).filter(part => part.type === 'text').map(part => part.text);
-    expect(texts).toEqual(['Running 10 random sandbox commands at once:', 'I ran 10 sandbox commands']);
   });
 
   it('calls onProgress after each completed turn', async () => {
@@ -3259,6 +4457,227 @@ describe('buildSnapshotFromSessionEvents', () => {
     const snapshot = await pending;
     expect(snapshot.runningTurn?.id).toBe('t-running');
     expect(snapshot.pendingUser?.content).toBe('now');
+  });
+
+  it('carries the open tip sandbox id on the pre-getTurn paint', async () => {
+    const progress: SessionSnapshot[] = [];
+    let resolveGetTurn: (turn: Turn) => void = () => undefined;
+    const getTurn = vi.fn(
+      () =>
+        new Promise<Turn>(resolve => {
+          resolveGetTurn = resolve;
+        }),
+    );
+    const items: SessionEventItem[] = [
+      {
+        turnId: 't-running',
+        event: {
+          type: 'turn.created',
+          id: 'evt-c-running',
+          turnId: 't-running',
+          input: [{ type: 'user.message', content: 'now' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      { turnId: 't-running', event: sandboxCreated({ id: 'sandbox-evt', sandboxId: 'sbx-123' }) },
+      { turnId: 't-running', event: modelMessage({ id: 'm1', threadId: ROOT_THREAD_ID, content: 'working' }) },
+    ];
+    const server = {
+      listTurns: vi.fn(async () => ({ data: [] })),
+      getTurn,
+      listEvents: sessionEventsPage(items),
+      listTurnEvents: async () => ({ data: [] }),
+    } as unknown as AgentChatServer;
+
+    let notifyProgress: () => void = () => undefined;
+    const progressed = new Promise<void>(resolve => {
+      notifyProgress = resolve;
+    });
+    const pending = buildSnapshotFromSessionEvents(server, SESSION_ID, snap => {
+      progress.push(snap);
+      if (snap.pendingUser != null) {
+        notifyProgress();
+      }
+    });
+
+    await progressed;
+    expect(progress.at(-1)?.activeStream?.update.metadata?.custom?.['sandboxId']).toBe('sbx-123');
+
+    resolveGetTurn({
+      id: 't-running',
+      sessionId: SESSION_ID,
+      state: { status: 'running' },
+      input: [{ type: 'user.message', content: 'now' }],
+      createdAt,
+    });
+    const snapshot = await pending;
+    expect(snapshot.activeStream?.update.metadata?.custom?.['sandboxId']).toBe('sbx-123');
+  });
+
+  it('publishes a paused tip with requires-action before getTurn resolves', async () => {
+    const progress: SessionSnapshot[] = [];
+    let resolveGetTurn: (turn: Turn) => void = () => undefined;
+    const getTurn = vi.fn(
+      () =>
+        new Promise<Turn>(resolve => {
+          resolveGetTurn = resolve;
+        }),
+    );
+    const items: SessionEventItem[] = [
+      {
+        turnId: 't-paused',
+        event: {
+          type: 'turn.created',
+          id: 'created-paused',
+          turnId: 't-paused',
+          input: [{ type: 'user.message', content: 'run it' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      {
+        turnId: 't-paused',
+        event: modelMessage({
+          id: 'model-paused',
+          threadId: ROOT_THREAD_ID,
+          toolCalls: [
+            {
+              id: 'approval-1',
+              type: 'function',
+              function: { name: 'bash', arguments: '{}' },
+            },
+          ],
+        }),
+      },
+      {
+        turnId: 't-paused',
+        event: approvalRequired({
+          id: 'approval-required-1',
+          threadId: ROOT_THREAD_ID,
+          toolCalls: [{ id: 'approval-1', sourceEventId: 'model-paused' }],
+        }),
+      },
+      {
+        turnId: 't-paused',
+        event: {
+          type: 'turn.update',
+          id: 'paused-update',
+          createdAt,
+          threadId: null,
+          state: { status: 'paused' },
+        },
+      },
+    ];
+    const server = {
+      listTurns: vi.fn(async () => ({ data: [] })),
+      getTurn,
+      listEvents: sessionEventsPage(items),
+      listTurnEvents: async () => ({ data: [] }),
+    } as unknown as AgentChatServer;
+
+    let notifyProgress: () => void = () => undefined;
+    const progressed = new Promise<void>(resolve => {
+      notifyProgress = resolve;
+    });
+    const pending = buildSnapshotFromSessionEvents(server, SESSION_ID, snap => {
+      progress.push(snap);
+      if (snap.runningTurn?.state.status === 'paused') {
+        notifyProgress();
+      }
+    });
+
+    await progressed;
+    const painted = progress.at(-1);
+    expect(painted?.runningTurn?.state.status).toBe('paused');
+    expect(collectPendingApprovals(projectSessionMessages(painted!))).toMatchObject([
+      { approvalId: 'approval-1', threadId: ROOT_THREAD_ID },
+    ]);
+
+    resolveGetTurn({
+      id: 't-paused',
+      sessionId: SESSION_ID,
+      state: { status: 'paused' },
+      input: [{ type: 'user.message', content: 'run it' }],
+      createdAt,
+    });
+    const snapshot = await pending;
+    expect(snapshot.runningTurn?.state.status).toBe('paused');
+  });
+
+  it('prefers getTurn running over a stale events-page pause', async () => {
+    const items: SessionEventItem[] = [
+      {
+        turnId: 't-tip',
+        event: {
+          type: 'turn.created',
+          id: 'created-tip',
+          turnId: 't-tip',
+          input: [{ type: 'user.message', content: 'run it' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      {
+        turnId: 't-tip',
+        event: modelMessage({
+          id: 'model-tip',
+          threadId: ROOT_THREAD_ID,
+          toolCalls: [
+            {
+              id: 'approval-1',
+              type: 'function',
+              function: { name: 'bash', arguments: '{}' },
+            },
+          ],
+        }),
+      },
+      {
+        turnId: 't-tip',
+        event: approvalRequired({
+          id: 'approval-required-1',
+          threadId: ROOT_THREAD_ID,
+          toolCalls: [{ id: 'approval-1', sourceEventId: 'model-tip' }],
+        }),
+      },
+      {
+        turnId: 't-tip',
+        event: {
+          type: 'turn.update',
+          id: 'paused-update',
+          createdAt,
+          threadId: null,
+          state: { status: 'paused' },
+        },
+      },
+    ];
+    const resumed: Turn = {
+      id: 't-tip',
+      sessionId: SESSION_ID,
+      state: { status: 'running' },
+      input: [
+        { type: 'user.message', content: 'run it' },
+        {
+          type: 'user.tool_approval',
+          threadId: ROOT_THREAD_ID,
+          toolCallId: 'approval-1',
+          approval: { status: 'allow' },
+        },
+      ],
+      createdAt,
+    };
+    const snapshot = await buildSnapshotFromSessionEvents(
+      {
+        listTurns: vi.fn(async () => ({ data: [] })),
+        getTurn: vi.fn(async () => resumed),
+        listEvents: sessionEventsPage(items),
+        listTurnEvents: async () => ({ data: [] }),
+      } as unknown as AgentChatServer,
+      SESSION_ID,
+    );
+
+    expect(snapshot.runningTurn?.state.status).toBe('running');
+    expect(snapshot.runningTurn?.input).toEqual(resumed.input);
   });
 
   it('attaches an open tip from events when listTurns is oldest-first and clears answered ask-user', async () => {
@@ -3675,6 +5094,176 @@ describe('buildSnapshotFromSessionEvents', () => {
     const withAll = await prependOlderSessionHistory(server, SESSION_ID, withOlder);
     expect(withAll.turns.map(t => t.id)).toEqual(['t1', 't2', 't3']);
     expect(withAll.historyPagination?.hasOlder).toBe(false);
+  });
+
+  it('renders a turn split by the event page boundary together with the older page', async () => {
+    const userTurn = (id: string, text: string, reply: string): SessionEventItem[] => [
+      {
+        turnId: id,
+        event: {
+          type: 'turn.created',
+          id: `evt-c-${id}`,
+          turnId: id,
+          input: [{ type: 'user.message', content: text }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      {
+        turnId: id,
+        event: modelMessage({ id: `m-${id}`, threadId: ROOT_THREAD_ID, content: reply }),
+      },
+      {
+        turnId: id,
+        event: {
+          type: 'turn.done',
+          id: `evt-d-${id}`,
+          state: { status: 'done', requiredActions: [], completedAt: createdAt },
+          createdAt,
+        } as TurnDoneEvent,
+      },
+    ];
+    // Newest page is t3 plus the tail of t2 (no turn.created). The next page holds
+    // t2's start. Stopping after the first page drops t2: its done is already
+    // consumed and its created never lands in a later window.
+    const splitTurn: SessionEventItem[] = [
+      {
+        turnId: 't2',
+        event: {
+          type: 'turn.created',
+          id: 'evt-c-t2',
+          turnId: 't2',
+          input: [{ type: 'user.message', content: 'split' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      {
+        turnId: 't2',
+        event: modelMessage({ id: 'm-t2-a', threadId: ROOT_THREAD_ID, content: 'split-a' }),
+      },
+      {
+        turnId: 't2',
+        event: modelMessage({ id: 'm-t2-b', threadId: ROOT_THREAD_ID, content: 'split-b' }),
+      },
+      {
+        turnId: 't2',
+        event: {
+          type: 'turn.done',
+          id: 'evt-d-t2',
+          state: { status: 'done', requiredActions: [], completedAt: createdAt },
+          createdAt,
+        } as TurnDoneEvent,
+      },
+    ];
+    const items = [
+      ...userTurn('t1', 'older', 'older reply'),
+      ...splitTurn,
+      ...userTurn('t3', 'newest', 'newest reply'),
+    ];
+    const listEvents = sessionEventsPage(items, { pageSize: 4 });
+    const listEventsSpy = vi.fn(listEvents);
+    const server = {
+      listTurns: async () => ({ data: [] }),
+      listEvents: listEventsSpy,
+      listTurnEvents: async () => ({ data: [] }),
+    } as unknown as AgentChatServer;
+
+    const textsOf = (snap: SessionSnapshot) =>
+      projectSessionMessages(snap).flatMap(message =>
+        message.content.flatMap(part => (part.type === 'text' ? [part.text] : [])),
+      );
+
+    // Initial load stays one page; t2's tail is held instead of dropped.
+    const snapshot = await buildSnapshotFromSessionEvents(server, SESSION_ID);
+    expect(listEventsSpy).toHaveBeenCalledTimes(1);
+    expect(snapshot.turns.map(turn => turn.id)).toEqual(['t3']);
+    expect(snapshot.historyPagination?.pendingItemsAsc?.map(item => item.event.id)).toEqual(['evt-d-t2']);
+
+    const withSplit = await prependOlderSessionHistory(server, SESSION_ID, snapshot);
+    expect(withSplit.turns.map(turn => turn.id)).toEqual(['t2', 't3']);
+    expect(textsOf(withSplit)).toEqual(['split', 'split-a', 'split-b', 'newest', 'newest reply']);
+
+    const withAll = await prependOlderSessionHistory(server, SESSION_ID, withSplit);
+    expect(withAll.turns.map(turn => turn.id)).toEqual(['t1', 't2', 't3']);
+    expect(withAll.historyPagination).toEqual({ hasOlder: false });
+    expect(textsOf(withAll)).toEqual(['older', 'older reply', 'split', 'split-a', 'split-b', 'newest', 'newest reply']);
+  });
+
+  it('keeps paging through a turn longer than the boundary page cap', async () => {
+    const longTurn: SessionEventItem[] = [
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.created',
+          id: 'evt-c-t1',
+          turnId: 't1',
+          input: [{ type: 'user.message', content: 'long' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      ...Array.from({ length: 11 }, (_, index) => ({
+        turnId: 't1',
+        event: modelMessage({
+          id: `m-t1-${String(index)}`,
+          threadId: ROOT_THREAD_ID,
+          content: `part ${String(index)}`,
+        }),
+      })),
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.done',
+          id: 'evt-d-t1',
+          state: { status: 'done', requiredActions: [], completedAt: createdAt },
+          createdAt,
+        } as TurnDoneEvent,
+      },
+    ];
+    const tip: SessionEventItem[] = [
+      {
+        turnId: 't2',
+        event: {
+          type: 'turn.created',
+          id: 'evt-c-t2',
+          turnId: 't2',
+          previousTurnId: 't1',
+          input: [{ type: 'user.message', content: 'next' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      {
+        turnId: 't2',
+        event: {
+          type: 'turn.done',
+          id: 'evt-d-t2',
+          state: { status: 'done', requiredActions: [], completedAt: createdAt },
+          createdAt,
+        } as TurnDoneEvent,
+      },
+    ];
+    const server = {
+      listTurns: async () => ({ data: [] }),
+      listEvents: sessionEventsPage([...longTurn, ...tip], { pageSize: 1 }),
+      listTurnEvents: async () => ({ data: [] }),
+    } as unknown as AgentChatServer;
+
+    const snapshot = await buildSnapshotFromSessionEvents(server, SESSION_ID);
+    expect(snapshot.turns.map(turn => turn.id)).toEqual(['t2']);
+
+    // Ten pages land inside t1: nothing renders yet, but nothing is lost.
+    const midTurn = await prependOlderSessionHistory(server, SESSION_ID, snapshot);
+    expect(midTurn.turns.map(turn => turn.id)).toEqual(['t2']);
+    expect(midTurn.historyPagination?.hasOlder).toBe(true);
+    expect(midTurn.historyPagination?.pendingItemsAsc).toHaveLength(10);
+
+    const complete = await prependOlderSessionHistory(server, SESSION_ID, midTurn);
+    expect(complete.turns.map(turn => turn.id)).toEqual(['t1', 't2']);
+    expect(complete.historyPagination).toEqual({ hasOlder: false });
+    const assistant = projectSessionMessages(complete)[1];
+    expect(assistant?.content.filter(part => part.type === 'text')).toHaveLength(11);
   });
 
   it('backfills sandboxId onto tip turns after older history reveals sandbox.created', async () => {

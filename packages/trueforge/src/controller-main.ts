@@ -1,7 +1,7 @@
 /**
  * Controller entry point (`dist/controller-main.js`).
  *
- * Runs the periodic control loops (schedule dispatch, …) as a dedicated,
+ * Runs the periodic control loops (schedule dispatch, memory ingestion, …) as a dedicated,
  * single-replica process for distributed mode (`STANDALONE=false`). The controller
  * must run in exactly ONE process per database (see `controller/Controller.ts`);
  * in standalone mode the server process already owns it (HTTP loopback to itself), so this
@@ -12,12 +12,18 @@
  * each tick until the schema is present. The loops call the server over HTTP(S) at
  * `SERVER_URL` (mutual TLS when `MTLS_ENABLED`), so no Redis peering is wired here.
  */
-import configuration from './config';
+import configuration, { isTrueFoundryModeEnabled } from './config';
 import { runController } from './controller';
+import { memoryIngestFromConfig } from './controller/memoryIngest';
 import { createDb } from './db/postgres/client';
+import { PostgresConfigurationStore } from './db/postgres/configuration-store/PostgresConfigurationStore';
+import { PostgresMemoryIngestStore } from './db/postgres/memory-ingest-store/PostgresMemoryIngestStore';
+import { PostgresMemoryProviderStore } from './db/postgres/memory-provider-store/PostgresMemoryProviderStore';
 import { PostgresScheduleStore } from './db/postgres/schedule-store/PostgresScheduleStore';
 import { createControllerLogger } from './logger';
+import { MemoryProviderCache } from './memory/providers';
 import { initSentry } from './sentry';
+import { TrueFoundryMemoryProviderStore } from './truefoundry/TrueFoundryMemoryProviderStore';
 
 try {
   const logger = createControllerLogger({
@@ -49,10 +55,29 @@ try {
     mTlsEnabled: configuration.MTLS_ENABLED,
   });
 
+  const memory = memoryIngestFromConfig({
+    config: configuration,
+    store: new PostgresMemoryIngestStore(db),
+    tenantMemory: {
+      memoryProviderStore: isTrueFoundryModeEnabled(configuration)
+        ? new TrueFoundryMemoryProviderStore()
+        : new PostgresMemoryProviderStore(db),
+      configurationStore: new PostgresConfigurationStore(db),
+      providers: new MemoryProviderCache({ logger }),
+    },
+  });
+  if (memory !== undefined) {
+    logger.info('Memory ingestion enabled', {
+      interval_ms: memory.config.intervalMs,
+      max_sessions_per_run: memory.config.maxSessionsPerRun,
+    });
+  }
+
   runController({
     scheduleStore: new PostgresScheduleStore(db),
     withTransaction: callback => db.transaction().execute(callback),
     logger,
+    memory,
     gracefulTimeoutSeconds: configuration.GRACEFUL_TIMEOUT_SECONDS,
     onStopped: () => db.destroy(),
   });

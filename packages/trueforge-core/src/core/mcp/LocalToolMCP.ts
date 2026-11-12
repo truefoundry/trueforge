@@ -1,6 +1,6 @@
 import type { CallToolRequest, ListToolsResult } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
-import type { ApprovalDecision, ToolApprovalPolicyAction } from '../events/schema';
+import type { ApprovalDecision, ToolApprovalPolicy } from '../events/schema';
 import type { InternalToolCallInfo } from '../llm/LLMTypes';
 import { type McpServerClass, observeMcpOperation } from '../observability/operationMetrics';
 import type { AgentTracing } from '../tracing/AgentTracing';
@@ -90,10 +90,13 @@ export abstract class LocalToolMCP implements IToolSet {
       run: () =>
         Promise.resolve({
           result: {
-            tools: this.getTools().map(t => ({
-              name: t.name,
-              description: t.description,
-              inputSchema: t.inputSchema,
+            tools: this.getTools().map(tool => ({
+              name: tool.name,
+              description: tool.description,
+              inputSchema: tool.inputSchema,
+              // Discovery and selector policy read these from the list, not the definition.
+              ...(tool.outputSchema !== undefined ? { outputSchema: tool.outputSchema } : {}),
+              ...(tool.annotations !== undefined ? { annotations: tool.annotations } : {}),
               preload: true,
             })),
           },
@@ -129,13 +132,19 @@ export abstract class LocalToolMCP implements IToolSet {
   }
 
   // System tool sets are never approval-gated, so policies are a no-op here.
-  setApprovalPolicy(_toolName: string, _action: ToolApprovalPolicyAction): void {
+  setApprovalPolicy(_toolName: string, _policy: ToolApprovalPolicy): void {
     void _toolName;
-    void _action;
+    void _policy;
   }
 
-  getApprovalPolicies(): Record<string, ToolApprovalPolicyAction> {
+  getApprovalPolicies(): Record<string, ToolApprovalPolicy> {
     return {};
+  }
+
+  // System tool sets are never approval-gated, so no policy ever applies.
+  hasApplicableApprovalPolicy(_toolName: string): boolean {
+    void _toolName;
+    return false;
   }
 
   // Local tools are not approval gated by default.

@@ -10,6 +10,7 @@ import {
   DeleteSandboxEnvironmentResponseSchema,
   GetSandboxEnvironmentResponseSchema,
   ListSandboxEnvironmentsResponseSchema,
+  PatchSandboxEnvironmentRequestSchema,
   UpdateSandboxEnvironmentRequestSchema,
 } from '../schemas/sandboxEnvironment';
 import { TOKEN_PAGINATION } from './fernExtensions';
@@ -44,6 +45,14 @@ export const listSandboxEnvironmentsRoute = createRoute({
   'x-fern-sdk-group-name': ['sandboxEnvironments'],
   'x-fern-sdk-method-name': 'list',
   'x-fern-pagination': TOKEN_PAGINATION,
+  'x-tfg-mcp': {
+    name: 'list_sandbox_environments',
+    description:
+      'Discover existing sandbox environments you can reference from an agent, or find one to update. ' +
+      'Returns one paginated page. Secret values are redacted; never ask the user for them. When an ' +
+      'environment needs secrets, ask the user to create them in the sandbox environment settings.',
+    annotations: { readOnlyHint: true },
+  },
   request: {
     query: ListSandboxEnvironmentsQuerySchema,
   },
@@ -70,6 +79,15 @@ export const getSandboxEnvironmentRoute = createRoute({
   summary: 'Get a sandbox environment',
   'x-fern-sdk-group-name': ['sandboxEnvironments'],
   'x-fern-sdk-method-name': 'get',
+  'x-tfg-mcp': {
+    name: 'get_sandbox_environment',
+    description:
+      'Fetch one sandbox environment by name — its manifest, build status, resources, environment ' +
+      'variables, and networking configuration. Use it to review an environment or get a template before updating it. ' +
+      'Secret values are redacted; never ask the user for them. When the environment needs secrets, ask the user ' +
+      'to create them in the sandbox environment settings.',
+    annotations: { readOnlyHint: true },
+  },
   request: {
     params: SandboxEnvironmentNameParamsSchema,
   },
@@ -98,6 +116,16 @@ export const createSandboxEnvironmentRoute = createRoute({
     'Creates by `manifest.name`. Fails if the name is already taken. Requires a configured sandbox provider.',
   'x-fern-sdk-group-name': ['sandboxEnvironments'],
   'x-fern-sdk-method-name': 'create',
+  'x-tfg-mcp': {
+    name: 'create_sandbox_environment',
+    description:
+      'Create a reusable sandbox environment that agents run in — defining its resources, environment ' +
+      'variables, networking, and build configuration — from a complete manifest. Fails if an environment ' +
+      'with the same name already exists; the reserved `default` environment cannot be created. ' +
+      'Never ask the user for a secret value and never send networking.secrets. When the environment needs ' +
+      'secrets, ask the user to create them in the sandbox environment settings.',
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+  },
   request: {
     body: {
       content: { 'application/json': { schema: CreateSandboxEnvironmentRequestSchema } },
@@ -186,12 +214,60 @@ export const putSandboxEnvironmentRoute = createRoute({
   },
 });
 
+export const patchSandboxEnvironmentRoute = createRoute({
+  method: 'patch',
+  path: '/{name}',
+  tags: [OpenApiTag.SANDBOXES],
+  summary: 'Update sandbox environment flags',
+  description: 'Update sandbox environment metadata.',
+  'x-fern-sdk-group-name': ['sandboxEnvironments'],
+  'x-fern-sdk-method-name': 'update',
+  request: {
+    params: SandboxEnvironmentNameParamsSchema,
+    body: {
+      content: { 'application/json': { schema: PatchSandboxEnvironmentRequestSchema } },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: GetSandboxEnvironmentResponseSchema } },
+      description: 'The updated sandbox environment.',
+    },
+    400: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid request body.',
+    },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Unauthenticated.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'User cannot edit this environment.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Sandbox environment not found.',
+    },
+    409: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Environment is disabled when setting default, or the default changed concurrently.',
+    },
+    422: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Sandbox provider is missing or does not support environments.',
+    },
+  },
+});
+
 export const deleteSandboxEnvironmentRoute = createRoute({
   method: 'delete',
   path: '/{name}',
   tags: [OpenApiTag.SANDBOXES],
   summary: 'Delete a sandbox environment',
-  description: 'Delete a sandbox environment, fails if any agent still references it.',
+  description:
+    'Delete a sandbox environment. Fails if any agent still references it, if it is the tenant default, or if it is the reserved platform environment.',
   'x-fern-sdk-group-name': ['sandboxEnvironments'],
   'x-fern-sdk-method-name': 'delete',
   request: {
@@ -200,7 +276,7 @@ export const deleteSandboxEnvironmentRoute = createRoute({
   responses: {
     200: {
       content: { 'application/json': { schema: DeleteSandboxEnvironmentResponseSchema } },
-      description: 'Sandbox environment deleted.',
+      description: 'Sandbox environment deleted, or already absent.',
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -210,13 +286,9 @@ export const deleteSandboxEnvironmentRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'User does not have permission to edit Sandbox environment',
     },
-    404: {
-      content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Sandbox environment not found or not owned by the caller.',
-    },
     409: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Environment is referenced by one or more agents.',
+      description: 'Environment is referenced by an agent, is the tenant default, or is reserved by the platform.',
     },
     422: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

@@ -1,4 +1,4 @@
-import type { SessionHandle, Sessions, TurnInputItem } from '@truefoundry/trueforge-core/agent-session';
+import type { SessionHandle, Sessions, UserMessage } from '@truefoundry/trueforge-core/agent-session';
 import type { Logger } from 'winston';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import {
@@ -77,9 +77,9 @@ export class ScheduleNotFoundError extends Error {
  *
  * Callers start the turn (e.g. via `startTurnInProcess`) with request-scoped stores.
  */
-export interface PreparedScheduleTurn {
-  session: SessionHandle;
-  input: TurnInputItem[];
+export interface PreparedScheduleTurn<TTransaction> {
+  session: SessionHandle<TTransaction>;
+  input: UserMessage[];
   previous_turn_id: string;
   userRef: string;
   agent: AgentRecord;
@@ -87,10 +87,10 @@ export interface PreparedScheduleTurn {
 
 export async function startScheduleRun<TTransaction>(params: {
   item: ScheduleDispatchItem;
-  sessions: Sessions;
+  sessions: Sessions<TTransaction>;
   agentStore: IAgentStore;
   scheduleStore: Pick<IScheduleStore<TTransaction>, 'updateRun'>;
-}): Promise<PreparedScheduleTurn | undefined> {
+}): Promise<PreparedScheduleTurn<TTransaction> | undefined> {
   const {
     item: { run, schedule },
     sessions,
@@ -109,6 +109,7 @@ export async function startScheduleRun<TTransaction>(params: {
     created_by_subject: schedule.created_by_subject,
     agent: { type: 'reference', id: named.id, name: named.name },
     source: { type: 'schedule', id: schedule.id, run_id: run.id },
+    metadata: { 'tfg.source': 'schedule' },
   });
 
   // This is not atomic with session creation so a failure here leaves the run unlinked.

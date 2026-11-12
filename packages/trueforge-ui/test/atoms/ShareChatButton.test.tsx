@@ -14,7 +14,7 @@ import { ActiveSessionPermissionsProvider } from '@/hooks/useResourcePermissions
 import { resolveRoutesConfig } from '@/routing/paths.js';
 import { ResolvedRoutesProvider } from '@/routing/ResolvedRoutesContext.js';
 import { ServerProvider } from '@/server/ServerContext.js';
-import type { ListPermissionsResponse } from '@/server/types.js';
+import type { ListPermissionsResponse, SessionAccessGrant } from '@/server/types.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 import { createMockAgentUIServer } from '../server/mockServer.js';
 
@@ -53,10 +53,23 @@ describe('ShareChatButton', () => {
   it('opens the share popover and copies the routed shared-session URL', async () => {
     activeThread.remoteId = 'session-1';
     const server = createMockAgentUIServer({
+      sessionAccess: {
+        listAccess: vi.fn(async (): Promise<SessionAccessGrant[]> => [
+          {
+            subjectType: 'tenant',
+            subjectId: 'acme',
+            displayName: null,
+            email: null,
+            createdAt: '2026-01-01T00:00:00Z',
+          },
+        ]),
+        grantAccess: vi.fn(async () => []),
+        revokeAccess: vi.fn(async () => undefined),
+        searchUsers: vi.fn(async () => ({ data: [] })),
+      },
       getSession: vi.fn(async () => ({
         id: 'session-1',
         isMutable: true,
-        shared: true,
         createdAt: '2026-01-01T00:00:00Z',
         updatedAt: '2026-01-01T00:00:00Z',
       })),

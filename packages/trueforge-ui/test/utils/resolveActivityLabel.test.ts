@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   loaderActivityKey,
+  loaderActivityProgress,
   resolveActivityLabel,
   resolveLoaderLabel,
   type ActivityPart,
@@ -110,5 +111,18 @@ describe('resolveActivityLabel', () => {
       loaderActivityKey([{ type: 'tool-call', toolName: 'exec', status: { type: 'requires-action' } }]),
     ).toBeNull();
     expect(loaderActivityKey([running('create_sub_agent')])).toBeNull();
+  });
+
+  it('fingerprints streamed reasoning text and tool args without changing for a stable tool', () => {
+    const shortReasoning = loaderActivityProgress([{ type: 'reasoning', text: 'hmm' }]);
+    const longReasoning = loaderActivityProgress([{ type: 'reasoning', text: 'hmm more' }]);
+    expect(shortReasoning).not.toBe(longReasoning);
+
+    const shortArgs = loaderActivityProgress([running('exec', { argsText: '{"a":1}' })]);
+    const longArgs = loaderActivityProgress([running('exec', { argsText: '{"a":1,"b":2}' })]);
+    expect(shortArgs).not.toBe(longArgs);
+
+    const stable = running('exec', { toolCallId: 'call-1', argsText: '{"command":"ls"}' });
+    expect(loaderActivityProgress([stable])).toBe(loaderActivityProgress([stable]));
   });
 });

@@ -136,10 +136,10 @@ Controller labels.
 {{- end }}
 
 {{/*
-Base URL the controller uses to reach the server API. Defaults to the in-cluster
-server Service when controller.serverUrl is empty (https when mtls is enabled).
+In-cluster server API URL (SERVER_URL). Defaults to the in-cluster server
+Service when controller.serverUrl is empty (https when mtls is enabled).
 */}}
-{{- define "trueforge.controller.serverUrl" -}}
+{{- define "trueforge.serverUrl" -}}
 {{- if .Values.controller.serverUrl -}}
 {{- .Values.controller.serverUrl -}}
 {{- else -}}
@@ -487,14 +487,16 @@ string becomes a secretKeyRef.
 {{- end }}
 
 {{/*
-Full server container env list (YAML). Validates required string|valueFrom
-fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
+Env list shared by the server and controller containers (YAML). Validates
+required string|valueFrom fields, wires bundled Postgres/Redis, optional OIDC,
+the env map, and mTLS.
 */}}
-{{- define "trueforge.server.env" -}}
+{{- define "trueforge.env" -}}
 {{- $env := list -}}
 {{- $env = append $env (dict "name" "NODE_ENV" "value" "production") -}}
 {{- $env = append $env (dict "name" "PORT" "value" (.Values.server.port | toString)) -}}
 {{- $env = append $env (dict "name" "PUBLIC_BASE_URL" "value" .Values.server.publicBaseUrl) -}}
+{{- $env = append $env (dict "name" "SERVER_URL" "value" (include "trueforge.serverUrl" .)) -}}
 {{- $env = append $env (dict "name" "STANDALONE" "value" "false") -}}
 {{- $env = append $env (dict "name" "GRACEFUL_TIMEOUT_SECONDS" "value" (.Values.server.gracefulTimeoutSeconds | toString)) -}}
 
@@ -690,10 +692,6 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- end -}}
 {{- end -}}
 {{- $env = $out -}}
-{{- end -}}
-
-{{- range .Values.server.extraEnv -}}
-{{- $env = append $env . -}}
 {{- end -}}
 
 {{- if .Values.mtls.enabled -}}

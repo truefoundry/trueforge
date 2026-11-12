@@ -7,16 +7,17 @@
  */
 import type {
   AgentSpec,
-  CreatedBySubject,
+  LegacyTurnInputItem,
   PersistedTurnEvent,
   SessionLastTurnDetails,
   SessionMetadata,
   SessionMetrics,
   SessionSource,
-  TurnInboundEventItem,
-  TurnInputItem,
+  Subject,
   TurnState,
+  TurnUserEventMessage,
 } from '@truefoundry/trueforge-core/agent-session';
+import type { TurnMetricsCheckpoint } from '@truefoundry/trueforge-core/agent-session/schemas/turn';
 import type {
   AgentInfo,
   AgentParent,
@@ -28,7 +29,9 @@ import type {
 } from '@truefoundry/trueforge-core/core';
 import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
+import type { ConfigurationManifest } from '../../schemas/configuration';
 import type { McpServerManifest } from '../../schemas/mcpServer';
+import type { MemoryProviderManifest } from '../../schemas/memoryProvider';
 import type { ModelProviderManifest } from '../../schemas/modelProvider';
 import type {
   SandboxEnvironmentLifecycleStage,
@@ -38,6 +41,7 @@ import type {
 } from '../../schemas/sandboxEnvironment';
 import type { StoredSandboxProviderManifest } from '../../schemas/sandboxProvider';
 import type { ScheduleManifest, ScheduleRunStatus, ScheduleStatus } from '../../schemas/schedule';
+import type { SessionGrantSubjectType } from '../../schemas/sessionGrant';
 import type { SkillManifest } from '../../schemas/skill';
 import type { WebSearchProviderManifest } from '../../schemas/webSearchProvider';
 import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpServerStore';
@@ -49,10 +53,11 @@ import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToke
 export interface TurnThreadCheckpoint {
   parent: AgentParent | null;
   completion: SubAgentCompletion | null;
+  pending_mcp_auth: boolean;
 }
 
 /** Turn-level checkpoint — threads live in `turn_thread`; only owned top-level keys remain. */
-export interface TurnCheckpoint {
+export interface TurnCheckpoint extends TurnMetricsCheckpoint {
   mcp_servers: Record<string, MCPServerInitInfo> | null;
   sandbox_info: SandboxInfo | null;
 }
@@ -68,7 +73,7 @@ export interface SessionTable {
   tenant_id: string;
   session_id: string;
   /** Caller identity that created the session (immutable after create). */
-  created_by_subject: JsonbColumn<CreatedBySubject>;
+  created_by_subject: JsonbColumn<Subject>;
   /** Optional provenance (e.g. schedule). Null for interactive sessions. */
   source: JsonbColumn<SessionSource> | null;
   /** Named registry binding; XOR with `agent_spec`. */
@@ -81,9 +86,6 @@ export interface SessionTable {
   /** Inline spec binding; XOR with `agent_id`. */
   agent_spec: JsonbColumn<AgentSpec> | null;
   title: string | null;
-  /** 0/1. When 1, any subject in the tenant may GET this session. */
-  shared: number;
-  last_turn_id: string | null;
   /** Null until the first turn; always replaced as a whole document. */
   last_turn_details: JsonbColumn<SessionLastTurnDetails> | null;
   /** Optional unique key within `tenant_id` when set. */
@@ -94,6 +96,32 @@ export interface SessionTable {
   created_at: string;
   updated_at: string;
   last_activity_timestamp_ms: number;
+}
+
+/**
+ * Explicit read grants on a session — mirrors the Postgres `access_control`.
+ * PRIMARY KEY (tenant_id, session_id, subject_type, subject_id)
+ * FK (session_id) → session(session_id) ON DELETE CASCADE
+ */
+export interface AccessControlTable {
+  tenant_id: string;
+  session_id: string;
+  subject_type: SessionGrantSubjectType;
+  subject_id: string;
+  granted_by_subject: JsonbColumn<Subject>;
+  created_at: string;
+}
+
+/**
+ * Memory ingestion checkpoint per session — mirrors the Postgres `memory_ingest_cursor`.
+ * PRIMARY KEY (session_id); no FK, so the row outlives a deleted session for provider cleanup.
+ */
+export interface MemoryIngestCursorTable {
+  session_id: string;
+  last_ingested_turn_id: string | null;
+  external_thread_id: string | null;
+  last_error: string | null;
+  updated_at: string;
 }
 
 /**
@@ -109,7 +137,7 @@ export interface TurnTable {
   ancestor_ids: JsonbColumn<string[]>;
   /** Replica currently owning the in-memory ActiveTurn. */
   active_executor_id: string;
-  input: JsonbColumn<TurnInputItem[]>;
+  input: JsonbColumn<LegacyTurnInputItem[]>;
   state: JsonbColumn<TurnState>;
   checkpoint: JsonbColumn<TurnCheckpoint>;
   custom: JsonbColumn<Record<string, unknown>> | null;
@@ -165,7 +193,7 @@ export interface TurnInboundEventsTable {
   session_id: string;
   turn_id: string;
   event_id: string;
-  payload: JsonbColumn<TurnInboundEventItem>;
+  payload: JsonbColumn<TurnUserEventMessage>;
   consumed: number;
   created_at: string;
 }
@@ -222,6 +250,27 @@ export interface WebSearchProviderTable {
 }
 
 /**
+ * Configured memory provider - mirrors the Postgres `memory_provider` table.
+ * PRIMARY KEY (tenant_id)
+ */
+export interface MemoryProviderTable {
+  tenant_id: string;
+  manifest: JsonbColumn<MemoryProviderManifest>;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Tenant-wide feature switches - mirrors the Postgres `configuration` table.
+ * PRIMARY KEY (tenant_id)
+ */
+export interface ConfigurationTable {
+  tenant_id: string;
+  manifest: JsonbColumn<ConfigurationManifest>;
+  updated_at: string;
+}
+
+/**
  * Configured skills — mirrors the Postgres `skill` table.
  * PRIMARY KEY (tenant_id, name)
  */
@@ -261,7 +310,7 @@ export interface AgentTable {
   /** AgentSpec document; replaced whole on every upsert */
   manifest: JsonbColumn<AgentSpec>;
   external_id: string | null;
-  created_by_subject: JsonbColumn<CreatedBySubject>;
+  created_by_subject: JsonbColumn<Subject>;
   created_at: string;
   updated_at: string;
 }
@@ -269,6 +318,8 @@ export interface AgentTable {
 /**
  * Sandbox environments — mirrors Postgres `sandbox_environment`.
  * Partial unique (tenant_id, name) WHERE lifecycle_stage = 'active'.
+ * Partial unique (tenant_id) WHERE is_default = 1.
+ * `enabled` / `is_default` are INTEGER 0/1 (STRICT has no boolean).
  */
 export interface SandboxEnvironmentTable {
   id: string;
@@ -277,7 +328,9 @@ export interface SandboxEnvironmentTable {
   description: string;
   active_version: number;
   lifecycle_stage: SandboxEnvironmentLifecycleStage;
-  created_by_subject: JsonbColumn<CreatedBySubject>;
+  enabled: number;
+  is_default: number;
+  created_by_subject: JsonbColumn<Subject>;
   created_at: string;
   updated_at: string;
 }
@@ -295,7 +348,7 @@ export interface SandboxEnvironmentVersionTable {
   status_reason: string | null;
   external_ref: string;
   internal_metadata: JsonbColumn<SandboxEnvironmentVersionInternalMetadata>;
-  created_by_subject: JsonbColumn<CreatedBySubject>;
+  created_by_subject: JsonbColumn<Subject>;
   created_at: string;
   updated_at: string;
 }
@@ -335,7 +388,7 @@ export interface ScheduleTable {
   manifest: JsonbColumn<ScheduleManifest>;
   /** `paused` stops triggering and drops the pending run; in-flight runs continue */
   status: ScheduleStatus;
-  created_by_subject: JsonbColumn<CreatedBySubject>;
+  created_by_subject: JsonbColumn<Subject>;
   created_at: string;
   updated_at: string;
 }
@@ -355,7 +408,7 @@ export interface ScheduleRunTable {
   scheduled_for: string;
   /** `scheduled` | `triggered` | `failed` | `missed` — length ≤ 16 */
   status: ScheduleRunStatus;
-  created_by_subject: JsonbColumn<CreatedBySubject>;
+  created_by_subject: JsonbColumn<Subject>;
   triggered_at: string | null;
   reason: string | null;
   session_id: string | null;
@@ -415,6 +468,8 @@ export interface OAuthPendingAuthorizationTable {
 
 export interface Database {
   session: SessionTable;
+  access_control: AccessControlTable;
+  memory_ingest_cursor: MemoryIngestCursorTable;
   turn: TurnTable;
   turn_thread: TurnThreadTable;
   turn_thread_context: TurnThreadContextTable;
@@ -424,6 +479,8 @@ export interface Database {
   thread_capability_state: ThreadCapabilityStateTable;
   model_provider: ModelProviderTable;
   web_search_provider: WebSearchProviderTable;
+  memory_provider: MemoryProviderTable;
+  configuration: ConfigurationTable;
   skill: SkillTable;
   sandbox_provider: SandboxProviderTable;
   agent: AgentTable;

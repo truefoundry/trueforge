@@ -5,9 +5,14 @@ export function estimateTokensForString(s: string): number {
   return s.length / 4;
 }
 
+/** Inverse of {@link estimateTokensForString}: about how many characters fit in `tokens`. */
+export function estimateCharactersForTokens(tokens: number): number {
+  return tokens * 4;
+}
+
 /** Size label for prompts replacing full content, so the model can size reads without guessing. */
 export function describeContentSize(content: string): string {
-  return `${content.length.toLocaleString('en-US')} characters`;
+  return `${String(content.length)} characters`;
 }
 
 function sumOptional(a: number | undefined, b: number | undefined): number | undefined {

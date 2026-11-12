@@ -7,7 +7,7 @@ import { jwtVerify } from 'jose';
 import { updateLogContext } from '../logger';
 import type { Authenticator } from './authenticator';
 import { toRequestContext, type IdTokenClaims } from './claims';
-import { canAccessSettings, type RequestContext } from './identity';
+import { hasAdminRole, type RequestContext } from './identity';
 import { getOidcVerify } from './oidc';
 import { extractRequestToken, readBearerToken } from './token';
 
@@ -19,21 +19,42 @@ export function createAuthMiddleware(authenticator: Authenticator): MiddlewareHa
     if (requestContext === undefined) {
       throw new HTTPException(401, { message: 'Authentication required' });
     }
+    c.set('subject', requestContext.subject);
     c.set('request_context', requestContext);
     updateLogContext({ tenant_id: requestContext.tenant_id });
     return next();
   };
 }
 
-/** Gates `/api/v1/settings` — uses {@link canAccessSettings} (always denied in TrueFoundry). */
-export function createAdminAuthMiddleware(authenticator: Authenticator): MiddlewareHandler {
+/**
+ * Admin gate for a route group.
+ *
+ * `accessible` says whether the group exists in the current deployment mode at all.
+ * Catalog settings pass `areCatalogSettingsAvailable()`, which is false in TrueFoundry
+ * because the platform owns those catalogs; a group that is merely admin-only passes `true`.
+ * An inaccessible group says so outright rather than hiding behind a 404: the same
+ * deployment fact is already public on `GET /api/v1/capabilities`.
+ */
+export function buildAdminAuthMiddleware({
+  authenticator,
+  accessible,
+}: {
+  authenticator: Authenticator;
+  accessible: boolean;
+}): MiddlewareHandler {
   return async (c, next) => {
     const requestContext = await tryAuthenticate({ authenticator, context: c });
     if (requestContext === undefined) {
       throw new HTTPException(401, { message: 'Authentication required' });
     }
+    c.set('subject', requestContext.subject);
     updateLogContext({ tenant_id: requestContext.tenant_id });
-    if (!canAccessSettings(requestContext)) {
+    if (!accessible) {
+      throw new HTTPException(422, {
+        message: `Route ${c.req.path} is not accessible under current configuration`,
+      });
+    }
+    if (!hasAdminRole(requestContext)) {
       throw new HTTPException(403, { message: 'Admin access required' });
     }
     c.set('request_context', requestContext);

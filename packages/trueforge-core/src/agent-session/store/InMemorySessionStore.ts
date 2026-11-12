@@ -1,3 +1,4 @@
+import type { TurnUserEvent } from '../../core/events/schema';
 import type { AgentThreadSnapshot } from '../../core/runtime/AgentThread.types';
 import { getEmptyCurrentContextUsage } from '../../core/runtime/contextUsage';
 import type { SessionRecord } from '../models/SessionRecord';
@@ -5,23 +6,27 @@ import type { TurnRecord, TurnSnapshot } from '../models/TurnRecord';
 import type { PersistedTurnEvent, SessionEventItem } from '../schemas/events';
 import type { TokenPagination } from '../schemas/pagination';
 import { SessionLastTurnDetailsSchema } from '../schemas/session';
+import { isNonTerminalTurnState, type TurnState } from '../schemas/turn';
 import {
-  isNonTerminalTurnState,
-  type TerminalTurnState,
-  type TurnInboundEventItem,
-  type TurnState,
-} from '../schemas/turn';
+  cancelledStateWithCheckpointMetrics,
+  createInitialTurnMetricsCheckpoint,
+  foldTurnMetricsCheckpoint,
+  resolveStoredTurnMetricsCheckpoint,
+  writeTurnMetricsCheckpoint,
+} from '../turnMetrics';
 import { assertCreateTurnThreadDelta } from './assertCreateTurnThreadDelta';
 import type {
   AddThreadsInput,
   AppendToEventsInput,
   AppendToThreadContextInput,
+  ClaimTurnExecutorInput,
   CreateSessionInput,
   CreateTurnInput,
   DeleteSessionInput,
   FreezeAndGetTurnInput,
   GetOwnedIdsInput,
   GetSessionByExternalIdInput,
+  GetSessionByIdInput,
   GetSessionInput,
   GetTurnInput,
   InsertTurnInboundEventsInput,
@@ -30,11 +35,14 @@ import type {
   ListSessionsInput,
   ListTurnEventsInput,
   ListTurnsInput,
+  ListUnconsumedTurnInboundEventsInput,
+  MarkTurnInboundEventsConsumedInput,
   NewThreadInit,
   OverwriteThreadContextInput,
   PatchMCPServersInput,
   PatchSandboxInfoInput,
   PatchThreadCapabilityStateInput,
+  PatchThreadsMCPAuthInput,
   RemoveThreadsInput,
   TurnContextAppend,
   TurnRecordWithoutSnapshot,
@@ -59,17 +67,15 @@ import {
   TurnEventAlreadyExistsError,
   TurnNotFoundError,
   TurnNotRunningError,
+  TurnOwnershipLostError,
 } from './SessionStoreErrors';
-
 /* eslint-disable @typescript-eslint/require-await -- in-memory store is synchronous; methods stay async so thrown SessionStore*Error reject as Promises for ISessionStore callers */
 
 type StoredEvent = PersistedTurnEvent;
 
 interface StoredInboundEvent {
-  event_id: string;
+  event: TurnUserEvent;
   turn_id: string;
-  payload: TurnInboundEventItem;
-  created_at: string;
   consumed: boolean;
 }
 
@@ -110,6 +116,7 @@ function newThreadSnapshot(thread: NewThreadInit): AgentThreadSnapshot {
     context: [],
     current_context_usage: getEmptyCurrentContextUsage(),
     completion: null,
+    pending_mcp_auth: false,
   };
 }
 
@@ -134,10 +141,14 @@ function buildSnapshotFromDelta(input: {
   new_threads: NewThreadInit[];
   new_context_appends: TurnContextAppend[];
   capability_states: CreateTurnInput['capability_states'];
+  created_at: Date;
 }): TurnSnapshot {
   const threads: Record<string, AgentThreadSnapshot> = input.previousSnapshot
     ? deepCopy(input.previousSnapshot.threads)
     : {};
+  for (const thread of Object.values(threads)) {
+    thread.pending_mcp_auth = false;
+  }
 
   assertCreateTurnThreadDelta({
     previousThreadIds: new Set(Object.keys(threads)),
@@ -163,6 +174,7 @@ function buildSnapshotFromDelta(input: {
     threads,
     mcp_servers: input.previousSnapshot ? deepCopy(input.previousSnapshot.mcp_servers) : null,
     sandbox_info: input.previousSnapshot ? deepCopy(input.previousSnapshot.sandbox_info) : null,
+    ...createInitialTurnMetricsCheckpoint(input.created_at.toISOString()),
   };
 }
 
@@ -182,16 +194,22 @@ function paginate<T>(items: T[], limit: number, pageToken?: string): { data: T[]
 /**
  * Reference ISessionStore implementation. Proves the contract without SSE/subscription
  * hooks. Deep-copies on read/write boundaries so callers cannot mutate stored state.
+ * Does not support transactional updates: `withTransaction` runs the callback and
+ * leaves any writes in place when the callback throws.
  */
 export class InMemorySessionStore<
   TSessionCustom extends object = Record<string, never>,
   TTurnCustom extends object = Record<string, never>,
-> implements ISessionStore<TSessionCustom, TTurnCustom> {
+> implements ISessionStore<undefined, TSessionCustom, TTurnCustom> {
   private readonly sessions = new Map<string, StoredSession<TSessionCustom>>();
   private readonly turns = new Map<string, TurnRecord<TTurnCustom>>();
   private readonly events = new Map<string, StoredEvent[]>();
-  /** session_id → inbound send-event inbox */
+  /** session_id:turn_id → inbound send-event inbox */
   private readonly inboundEvents = new Map<string, StoredInboundEvent[]>();
+
+  async withTransaction<T>(callback: (transaction: undefined) => Promise<T>): Promise<T> {
+    return await callback(undefined);
+  }
 
   async createSession(input: CreateSessionInput<TSessionCustom>): Promise<void> {
     const key = sessionKey(input.session_id);
@@ -213,8 +231,6 @@ export class InMemorySessionStore<
       created_by_subject: input.created_by_subject,
       agent: deepCopy(input.agent),
       title: null,
-      shared: false,
-      last_turn_id: null,
       last_turn_details: null,
       external_id: externalId,
       source: input.source !== null ? deepCopy(input.source) : null,
@@ -250,6 +266,11 @@ export class InMemorySessionStore<
   async getSession(input: GetSessionInput): Promise<SessionRecord<TSessionCustom> | undefined> {
     const stored = this.sessions.get(sessionKey(input.session_id));
     return stored?.record.tenant_id === input.tenant_id ? deepCopy(stored.record) : undefined;
+  }
+
+  async getSessionById(input: GetSessionByIdInput): Promise<SessionRecord<TSessionCustom> | undefined> {
+    const stored = this.sessions.get(sessionKey(input.session_id));
+    return stored === undefined ? undefined : deepCopy(stored.record);
   }
 
   async getOwnedIds(input: GetOwnedIdsInput): Promise<readonly string[]> {
@@ -297,9 +318,6 @@ export class InMemorySessionStore<
     if (input.metadata !== undefined) {
       stored.record.metadata = deepCopy(input.metadata);
     }
-    if (input.shared !== undefined) {
-      stored.record.shared = input.shared;
-    }
     const now = Date.now();
     stored.record.updated_at = new Date(now);
     stored.record.last_activity_timestamp_ms = now;
@@ -344,7 +362,10 @@ export class InMemorySessionStore<
       if (input.source_type !== undefined && stored.record.source?.type !== input.source_type) {
         continue;
       }
-      if (input.source_id !== undefined && stored.record.source?.id !== input.source_id) {
+      if (
+        input.source_id !== undefined &&
+        !(stored.record.source?.type === 'schedule' && stored.record.source.id === input.source_id)
+      ) {
         continue;
       }
       const createdAt = stored.record.created_at.getTime();
@@ -421,6 +442,7 @@ export class InMemorySessionStore<
       new_threads: input.new_threads,
       new_context_appends: input.new_context_appends,
       capability_states: input.capability_states,
+      created_at: input.turn.created_at,
     });
 
     const turnRecord: TurnRecord<TTurnCustom> = {
@@ -431,7 +453,6 @@ export class InMemorySessionStore<
     this.turns.set(tKey, turnRecord);
     this.events.set(tKey, []);
     stored.turnIds.push(input.turn.turn_id);
-    stored.record.last_turn_id = input.turn.turn_id;
     stored.record.last_turn_details = SessionLastTurnDetailsSchema.parse({
       id: input.turn.turn_id,
       state: input.turn.state,
@@ -449,22 +470,37 @@ export class InMemorySessionStore<
     const turn = this.requireTurn(input.session_id, input.turn_id);
 
     if (isNonTerminalTurnState(turn.state)) {
-      const cancelledState: TerminalTurnState = {
-        status: 'cancelled',
+      const completed_at = new Date().toISOString();
+      const folded = foldTurnMetricsCheckpoint({
+        stored: resolveStoredTurnMetricsCheckpoint({
+          checkpoint: turn.snapshot,
+          state: turn.state,
+          created_at: turn.created_at,
+        }),
+        transition: {
+          kind: 'freeze',
+          completed_at,
+          stored_status: turn.state.status,
+        },
+      });
+      const cancelledState = cancelledStateWithCheckpointMetrics({
         reason: input.reason,
-        completed_at: new Date().toISOString(),
-      };
+        completed_at,
+        metrics: folded.checkpoint.metrics,
+      });
       turn.state = cancelledState;
+      writeTurnMetricsCheckpoint(turn.snapshot, deepCopy(folded.checkpoint));
       turn.updated_at = new Date();
       const list = this.events.get(tKey);
       if (list) {
-        list.push(deepCopy(input.turn_done_event));
+        list.push(deepCopy({ ...input.turn_done_event, state: cancelledState }));
       }
       this.applyTurnStateToSession({
         id: input.session_id,
         turn_id: input.turn_id,
-        turn_created_at: turn.created_at,
         turn_state: cancelledState,
+        duration_ms: folded.duration_ms,
+        cost_delta: folded.cost_delta,
       });
     }
 
@@ -495,10 +531,20 @@ export class InMemorySessionStore<
     return paginate(records, input.limit, input.page_token);
   }
 
+  async claimTurnExecutor(input: ClaimTurnExecutorInput): Promise<boolean> {
+    const turn = this.turns.get(turnKey({ session_id: input.session_id, turn_id: input.turn_id }));
+    if (turn?.state.status !== 'paused' || turn.active_executor_id !== input.expected_executor_id) {
+      return false;
+    }
+    turn.active_executor_id = input.new_executor_id;
+    turn.updated_at = new Date();
+    return true;
+  }
+
   async updateTurnNonTerminalState(input: UpdateTurnNonTerminalStateInput): Promise<void> {
     // Same as createTurn: synchronous body ⇒ atomic under run-to-completion.
     const tKey = turnKey(input);
-    const turn = this.requireTurn(input.session_id, input.turn_id);
+    const turn = this.requireOwnedTurn(input);
     const expectedSourceStatus = input.state.status === 'paused' ? 'running' : 'paused';
     if (turn.state.status !== expectedSourceStatus) {
       if (isNonTerminalTurnState(turn.state)) {
@@ -512,20 +558,42 @@ export class InMemorySessionStore<
     if (!list) {
       throw new TurnNotFoundError(input.turn_id);
     }
+    if (input.turn_metrics.status !== input.state.status) {
+      throw new SessionStoreInvariantError(
+        `turn_metrics status ${input.turn_metrics.status} does not match state ${input.state.status} for turn ${input.turn_id}`,
+      );
+    }
+    const folded = foldTurnMetricsCheckpoint({
+      stored: resolveStoredTurnMetricsCheckpoint({
+        checkpoint: turn.snapshot,
+        state: turn.state,
+        created_at: turn.created_at,
+      }),
+      transition:
+        input.turn_metrics.status === 'paused'
+          ? {
+              kind: 'pause',
+              observed_at: input.turn_metrics.observed_at,
+              metrics: input.turn_metrics.metrics,
+            }
+          : { kind: 'resume', observed_at: input.turn_metrics.observed_at },
+    });
     turn.state = deepCopy(input.state);
+    writeTurnMetricsCheckpoint(turn.snapshot, deepCopy(folded.checkpoint));
     turn.updated_at = new Date();
     list.push(deepCopy(input.turn_update_event));
     this.applyTurnStateToSession({
       id: input.session_id,
       turn_id: input.turn_id,
-      turn_created_at: turn.created_at,
       turn_state: input.state,
+      duration_ms: folded.duration_ms,
+      cost_delta: folded.cost_delta,
     });
   }
 
   async updateTurnTerminalState(input: UpdateTurnTerminalStateInput): Promise<void> {
     const tKey = turnKey(input);
-    const turn = this.requireTurn(input.session_id, input.turn_id);
+    const turn = this.requireOwnedTurn(input);
     if (!isNonTerminalTurnState(turn.state)) {
       throw new TurnNotRunningError(input.turn_id, turn.state);
     }
@@ -533,19 +601,36 @@ export class InMemorySessionStore<
     if (!list) {
       throw new TurnNotFoundError(input.turn_id);
     }
+    const storedStatus = turn.state.status;
+    const folded = foldTurnMetricsCheckpoint({
+      stored: resolveStoredTurnMetricsCheckpoint({
+        checkpoint: turn.snapshot,
+        state: turn.state,
+        created_at: turn.created_at,
+      }),
+      transition: {
+        kind: 'terminal',
+        completed_at: input.state.completed_at,
+        stored_status: storedStatus,
+        runningPhaseMetrics: input.metrics,
+      },
+    });
     turn.state = deepCopy(input.state);
+    writeTurnMetricsCheckpoint(turn.snapshot, deepCopy(folded.checkpoint));
     turn.updated_at = new Date();
     list.push(deepCopy(input.turn_done_event));
     this.applyTurnStateToSession({
       id: input.session_id,
       turn_id: input.turn_id,
-      turn_created_at: turn.created_at,
       turn_state: input.state,
+      duration_ms: folded.duration_ms,
+      cost_delta: folded.cost_delta,
     });
   }
 
   async appendToEvents(input: AppendToEventsInput): Promise<void> {
-    this.requireRunningTurn(input.session_id, input.turn_id);
+    this.requireOwnedTurn(input);
+    this.requireNonTerminalTurn(input);
     const tKey = turnKey(input);
     const list = this.events.get(tKey);
     if (!list) {
@@ -555,61 +640,117 @@ export class InMemorySessionStore<
     return;
   }
 
+  async patchThreadsMCPAuth(input: PatchThreadsMCPAuthInput): Promise<void> {
+    this.requireOwnedTurn(input);
+    const turn = this.requireNonTerminalTurn(input);
+    const threads = input.thread_ids.map(threadId => {
+      const thread = turn.snapshot.threads[threadId];
+      if (!thread) {
+        throw new SessionStoreInvariantError(`Thread not found: ${threadId}`);
+      }
+      return thread;
+    });
+    for (const thread of threads) {
+      thread.pending_mcp_auth = input.pending_mcp_auth;
+    }
+    turn.updated_at = new Date();
+  }
+
   async insertTurnInboundEvents(input: InsertTurnInboundEventsInput): Promise<void> {
     if (input.events.length === 0) {
       return;
     }
     this.requireSession(input.session_id);
-    this.requireRunningTurn(input.session_id, input.turn_id);
+    this.requireOwnedTurn(input);
+    this.requireNonTerminalTurn(input);
     const tKey = turnKey(input);
     let list = this.inboundEvents.get(tKey);
     if (!list) {
       list = [];
       this.inboundEvents.set(tKey, list);
     }
-    const existing = new Set(list.map(row => row.event_id));
+    const existing = new Set(list.map(row => row.event.id));
     for (const event of input.events) {
-      if (existing.has(event.event_id)) {
+      if (existing.has(event.id)) {
         throw new TurnEventAlreadyExistsError({
           session_id: input.session_id,
           turn_id: input.turn_id,
-          event_id: event.event_id,
+          event_id: event.id,
         });
       }
-      existing.add(event.event_id);
+      existing.add(event.id);
     }
     for (const event of input.events) {
       list.push({
-        event_id: event.event_id,
+        event: deepCopy(event),
         turn_id: input.turn_id,
-        payload: deepCopy(event.payload),
-        created_at: event.created_at,
         consumed: false,
       });
     }
   }
 
-  /** Terminal states fold cost and duration; last_turn_details moves only for the session's last turn. */
+  async listUnconsumedTurnInboundEvents(input: ListUnconsumedTurnInboundEventsInput): Promise<TurnUserEvent[]> {
+    this.requireSession(input.session_id);
+    this.requireNonTerminalTurn(input);
+    const list = this.inboundEvents.get(turnKey(input)) ?? [];
+    return list
+      .filter(row => !row.consumed)
+      .slice()
+      .sort((a, b) => (a.event.id < b.event.id ? -1 : a.event.id > b.event.id ? 1 : 0))
+      .map(row => deepCopy(row.event));
+  }
+
+  async markTurnInboundEventsConsumed(input: MarkTurnInboundEventsConsumedInput): Promise<void> {
+    if (input.event_ids.length === 0) {
+      return;
+    }
+    this.requireSession(input.session_id);
+    this.requireNonTerminalTurn(input);
+    const list = this.inboundEvents.get(turnKey(input)) ?? [];
+    const byId = new Map(list.map(row => [row.event.id, row]));
+    const uniqueIds = [...new Set(input.event_ids)];
+    // Check all ids first so a missing id rolls back like the DB backends.
+    const rows: StoredInboundEvent[] = [];
+    for (const eventId of uniqueIds) {
+      const row = byId.get(eventId);
+      if (!row) {
+        throw new SessionStoreInvariantError(
+          `Inbound event not found for mark-consumed: ${input.session_id}/${input.turn_id}/${eventId}`,
+        );
+      }
+      rows.push(row);
+    }
+    for (const row of rows) {
+      row.consumed = true;
+    }
+  }
+
+  /**
+   * Folds the closed interval and cost delta. last_turn_details moves only for the session's last turn.
+   * Pause and a finished turn bump `updated_at`.
+   */
   private applyTurnStateToSession(input: {
     id: string;
     turn_id: string;
-    turn_created_at: Date;
     turn_state: TurnState;
+    duration_ms: number;
+    cost_delta: number | undefined;
   }): void {
     const stored = this.requireSession(input.id);
-    if (!isNonTerminalTurnState(input.turn_state)) {
-      const elapsed_ms = Date.parse(input.turn_state.completed_at) - input.turn_created_at.getTime();
-      const turnCost = input.turn_state.metrics?.total_cost_in_usd;
-      if (turnCost !== undefined) {
-        stored.record.metrics.total_cost_in_usd = (stored.record.metrics.total_cost_in_usd ?? 0) + turnCost;
-      }
-      stored.record.metrics.total_duration_ms += elapsed_ms > 0 ? Math.trunc(elapsed_ms) : 0;
+    if (input.duration_ms > 0) {
+      stored.record.metrics.total_duration_ms += input.duration_ms;
+    }
+    if (input.cost_delta !== undefined) {
+      stored.record.metrics.total_cost_in_usd = (stored.record.metrics.total_cost_in_usd ?? 0) + input.cost_delta;
     }
     if (stored.record.last_turn_details?.id === input.turn_id) {
       stored.record.last_turn_details = SessionLastTurnDetailsSchema.parse({
         id: input.turn_id,
         state: input.turn_state,
       });
+    }
+    if (input.turn_state.status !== 'running') {
+      stored.record.updated_at = new Date();
     }
   }
 
@@ -629,19 +770,43 @@ export class InMemorySessionStore<
     return turn;
   }
 
-  private requireRunningTurn(sessionId: string, turnId: string): TurnRecord<TTurnCustom> {
-    const turn = this.requireTurn(sessionId, turnId);
+  private requireOwnedTurn(input: {
+    session_id: string;
+    turn_id: string;
+    active_executor_id: string;
+  }): TurnRecord<TTurnCustom> {
+    const turn = this.requireTurn(input.session_id, input.turn_id);
+    if (turn.active_executor_id !== input.active_executor_id) {
+      throw new TurnOwnershipLostError({
+        turn_id: input.turn_id,
+        active_executor_id: input.active_executor_id,
+      });
+    }
+    return turn;
+  }
+
+  private requireRunningTurn(input: { session_id: string; turn_id: string }): TurnRecord<TTurnCustom> {
+    const turn = this.requireTurn(input.session_id, input.turn_id);
     if (turn.state.status === 'paused') {
-      throw new SessionStoreInvariantError(`expected running state for turn ${turnId}, got paused`);
+      throw new SessionStoreInvariantError(`expected running state for turn ${input.turn_id}, got paused`);
     }
     if (turn.state.status !== 'running') {
-      throw new TurnNotRunningError(turnId, turn.state);
+      throw new TurnNotRunningError(input.turn_id, turn.state);
+    }
+    return turn;
+  }
+
+  private requireNonTerminalTurn(input: { session_id: string; turn_id: string }): TurnRecord<TTurnCustom> {
+    const turn = this.requireTurn(input.session_id, input.turn_id);
+    if (turn.state.status !== 'running' && turn.state.status !== 'paused') {
+      throw new TurnNotRunningError(input.turn_id, turn.state);
     }
     return turn;
   }
 
   async addThreads(input: AddThreadsInput): Promise<void> {
-    const turn = this.requireRunningTurn(input.session_id, input.turn_id);
+    this.requireOwnedTurn(input);
+    const turn = this.requireRunningTurn(input);
     for (const thread of input.threads) {
       turn.snapshot.threads[thread.thread_id] = deepCopy(thread);
     }
@@ -653,7 +818,8 @@ export class InMemorySessionStore<
     if (input.thread_ids.length === 0) {
       return;
     }
-    const turn = this.requireRunningTurn(input.session_id, input.turn_id);
+    this.requireOwnedTurn(input);
+    const turn = this.requireRunningTurn(input);
     for (const id of input.thread_ids) {
       Reflect.deleteProperty(turn.snapshot.threads, id);
     }
@@ -662,7 +828,8 @@ export class InMemorySessionStore<
   }
 
   async appendToThreadContext(input: AppendToThreadContextInput): Promise<void> {
-    const turn = this.requireRunningTurn(input.session_id, input.turn_id);
+    this.requireOwnedTurn(input);
+    const turn = this.requireNonTerminalTurn(input);
     const thread = turn.snapshot.threads[input.thread_id];
     if (!thread) {
       throw new SessionStoreInvariantError(`Thread not found: ${input.thread_id}`);
@@ -679,7 +846,8 @@ export class InMemorySessionStore<
   }
 
   async overwriteThreadContext(input: OverwriteThreadContextInput): Promise<void> {
-    const turn = this.requireRunningTurn(input.session_id, input.turn_id);
+    this.requireOwnedTurn(input);
+    const turn = this.requireNonTerminalTurn(input);
     const threadId = input.event.thread_id;
     const thread = turn.snapshot.threads[threadId];
     if (!thread) {
@@ -692,7 +860,8 @@ export class InMemorySessionStore<
   }
 
   async patchMCPServers(input: PatchMCPServersInput): Promise<void> {
-    const turn = this.requireRunningTurn(input.session_id, input.turn_id);
+    this.requireOwnedTurn(input);
+    const turn = this.requireNonTerminalTurn(input);
     turn.snapshot.mcp_servers ??= {};
     for (const server of input.mcp_servers) {
       turn.snapshot.mcp_servers[server.id] = deepCopy(server);
@@ -702,14 +871,16 @@ export class InMemorySessionStore<
   }
 
   async patchSandboxInfo(input: PatchSandboxInfoInput): Promise<void> {
-    const turn = this.requireRunningTurn(input.session_id, input.turn_id);
+    this.requireOwnedTurn(input);
+    const turn = this.requireRunningTurn(input);
     turn.snapshot.sandbox_info = deepCopy(input.sandbox_info);
     turn.updated_at = new Date();
     return;
   }
 
   async patchThreadCapabilityState(input: PatchThreadCapabilityStateInput): Promise<void> {
-    const turn = this.requireRunningTurn(input.session_id, input.turn_id);
+    this.requireOwnedTurn(input);
+    const turn = this.requireRunningTurn(input);
     const thread = turn.snapshot.threads[input.thread_id];
     if (!thread) {
       throw new SessionStoreInvariantError(`Thread not found: ${input.thread_id}`);
@@ -753,8 +924,8 @@ export class InMemorySessionStore<
     }
 
     const decodedCursor = input.page_token === undefined ? undefined : decodeSessionEventPageToken(input.page_token);
-    const lastTurnId = decodedCursor?.last_turn_id ?? input.last_turn_id ?? stored.record.last_turn_id;
-    if (lastTurnId === null) {
+    const lastTurnId = decodedCursor?.last_turn_id ?? input.last_turn_id ?? stored.record.last_turn_details?.id;
+    if (lastTurnId === undefined) {
       return { data: [], pagination: { limit: input.limit } };
     }
     const cursor: SessionEventPageCursor = {

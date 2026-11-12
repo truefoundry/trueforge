@@ -18,14 +18,17 @@ import {
   SessionNotFoundError,
   TurnNotFoundError,
 } from '@truefoundry/trueforge-core/agent-session/store/SessionStoreErrors';
-import type { Kysely } from 'kysely';
+import type { Kysely, Transaction } from 'kysely';
 import { sql } from 'kysely';
 import { json } from '../../sqlExpressions';
 import type { Database } from '../../types';
 import { unnestWithOrdinality, values } from '../sqlExpressions';
-import { classifyTurnFenceWriteFailure, turnRunningFence } from './turns';
+import { classifyTurnFenceWriteFailure, turnNonTerminalFence } from './turns';
 
-export async function appendToEvents(db: Kysely<Database>, input: AppendToEventsInput): Promise<void> {
+export async function appendToEvents(
+  db: Kysely<Database> | Transaction<Database>,
+  input: AppendToEventsInput,
+): Promise<void> {
   if (input.events.length === 0) {
     return;
   }
@@ -33,6 +36,7 @@ export async function appendToEvents(db: Kysely<Database>, input: AppendToEvents
   const keys = {
     session_id: input.session_id,
     turn_id: input.turn_id,
+    active_executor_id: input.active_executor_id,
   };
 
   const eventRows = input.events.map(event => ({
@@ -43,7 +47,7 @@ export async function appendToEvents(db: Kysely<Database>, input: AppendToEvents
   }));
 
   const inserted = await db
-    .with('turn_fence', qb => turnRunningFence(qb, keys))
+    .with('turn_fence', qb => turnNonTerminalFence(qb, keys))
     .insertInto('session_event')
     .columns(['session_id', 'turn_id', 'event_id', 'event', 'created_at'])
     .expression(eb =>
@@ -121,7 +125,7 @@ export async function listSessionEvents(
 
   const session = await db
     .selectFrom('session')
-    .select('last_turn_id')
+    .select(sql<string | null>`last_turn_details->>'id'`.as('last_turn_id'))
     .where('session_id', '=', input.session_id)
     .executeTakeFirst();
   if (!session) {

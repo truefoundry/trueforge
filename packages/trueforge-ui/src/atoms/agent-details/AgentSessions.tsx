@@ -8,6 +8,7 @@ import { AnalyticsEvents } from '../../analytics/events.js';
 import { withSessionProps } from '../../analytics/sessionProps.js';
 import { useToasterOptional } from '../../containers/ToasterContainer.js';
 import { useResourcePermissions } from '../../hooks/useResourcePermissions.js';
+import { useSessionListStatusPoll } from '../../hooks/useSessionListStatusPoll.js';
 import { useSessionShareSearch } from '../../hooks/useSessionShareSearch.js';
 import { Icon } from '../../icons/Icon.js';
 import { buildSessionResumeHref } from '../../routing/paths.js';
@@ -23,6 +24,11 @@ import { sessionTimeRangeFromCreatedAt } from '../../utils/sessionShareUrl.js';
 import { EmptyScreen } from '../EmptyScreen.js';
 import { cn } from '../lib/cn.js';
 import { sessionIsCreateAgent } from '../lib/sessionCreateAgent.js';
+import {
+  mergeSessionListFirstPage,
+  SESSION_LIST_FIRST_PAGE_LIMIT,
+  sessionListPollIntervalMs,
+} from '../lib/sessionListPoll.js';
 import { Button } from '../primitives/Button.js';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../primitives/Dialog.js';
 import { Skeleton } from '../primitives/Skeleton.js';
@@ -105,7 +111,7 @@ export function AgentSessions({
   const listRequest = useMemo(
     () => ({
       order: 'desc' as const,
-      limit: 20,
+      limit: SESSION_LIST_FIRST_PAGE_LIMIT,
       ...(agentId == null || agentId.length === 0 ? {} : { agentId }),
       ...(startTimestamp == null ? {} : { startTimestamp }),
       ...(endTimestamp == null ? {} : { endTimestamp }),
@@ -153,6 +159,40 @@ export function AgentSessions({
       cancelled = true;
     };
   }, [detailOnly, listRequest, refreshKey, sessionsServer]);
+
+  // ponytail: first-page-only poll — rows past page 1 (or stuck server turns) never refresh;
+  // upgrade via per-session status endpoint or server push.
+  const lastTurnStatusPollIntervalMs = useMemo(() => {
+    if (detailOnly || listLoading || listFailed) return null;
+    return sessionListPollIntervalMs(entries.map(entry => entry.lastTurnDetails?.state.status));
+  }, [detailOnly, entries, listFailed, listLoading]);
+
+  useSessionListStatusPoll({
+    intervalMs: lastTurnStatusPollIntervalMs,
+    poll: useCallback(async () => {
+      const requestId = listRequestIdRef.current;
+      try {
+        const page = await sessionsServer.listSessions(listRequest);
+        if (listRequestIdRef.current !== requestId) return;
+        setEntries(current =>
+          mergeSessionListFirstPage({
+            current,
+            firstPage: page.data,
+            mergeItem: (prev, next) => {
+              const prevDetails = prev.lastTurnDetails;
+              const nextDetails = next.lastTurnDetails;
+              if (prevDetails?.id === nextDetails?.id && prevDetails?.state.status === nextDetails?.state.status) {
+                return prev;
+              }
+              return { ...prev, lastTurnDetails: nextDetails };
+            },
+          }),
+        );
+      } catch {
+        // Keep showing the last known status on transient poll failures.
+      }
+    }, [listRequest, sessionsServer]),
+  });
 
   const loadMore = useCallback(async () => {
     // A ref, not `listLoadingMore`: the observer can fire twice before a re-render.
@@ -212,7 +252,6 @@ export function AgentSessions({
         fetchPage: pageToken =>
           sessionsServer.listSessionEvents({
             sessionId: selectedSessionId,
-            limit: 100,
             ...(pageToken == null ? {} : { pageToken }),
           }),
       }),
@@ -428,6 +467,7 @@ export function AgentSessions({
                   agentName={entry.agentName ?? undefined}
                   scheduleId={entryScheduleId(entry)}
                   lastActivityAt={entry.lastActivityAt}
+                  {...(entry.lastTurnDetails == null ? {} : { lastTurnStatus: entry.lastTurnDetails.state.status })}
                   metrics={entry.metrics}
                   {...(entry.createdBySubject == null ? {} : { createdBySubject: entry.createdBySubject })}
                   active={entry.id === selectedSessionId}

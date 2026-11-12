@@ -118,6 +118,7 @@ describe('createHarnessAgentSessionsServer', () => {
           lastActivityAt: '2026-01-02T00:00:00.000Z',
           isCreateAgent: false,
           isMutable: false,
+          lastTurnDetails: null,
           metrics: { totalTurns: 3, totalCostInUsd: 0.25, totalDurationMs: 29_711 },
           agentName: 'writer',
           scheduleId: 'schedule-1',
@@ -130,7 +131,7 @@ describe('createHarnessAgentSessionsServer', () => {
       ],
       nextPageToken: 'next-1',
     });
-    assert.deepEqual(await server.listSessionEvents({ sessionId: 'sess-1', limit: 25 }), {
+    assert.deepEqual(await server.listSessionEvents({ sessionId: 'sess-1' }), {
       data: [{ turnId: 'turn-1', event: { type: 'turn.created', id: 'evt-1', turnId: 'turn-1' } }],
     });
     await assert.rejects(

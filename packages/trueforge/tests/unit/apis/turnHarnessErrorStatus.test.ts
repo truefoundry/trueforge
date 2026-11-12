@@ -1,13 +1,16 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import type { Sessions } from '@truefoundry/trueforge-core/agent-session';
 import { AgentHarnessError } from '@truefoundry/trueforge-core/core';
+import { RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
 import { createLogger } from 'winston';
 import { createTurnsRouter } from '../../../src/apis/turns';
 import { createAppErrorHandler } from '../../../src/app';
 import { TrueForgeAuthorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
+import { EmptyCapabilitiesStore } from '../../../src/db/capabilitiesStore';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
+import { SqliteAccessControlStore } from '../../../src/db/sqlite/access-control-store/SqliteAccessControlStore';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
@@ -51,7 +54,7 @@ async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response
         tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
         agent_spec: { model: { name: 'test-provider/test-model' } },
         record: {
-          last_turn_id: null,
+          last_turn_details: null,
           created_by_subject: {
             subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
             subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
@@ -68,32 +71,42 @@ async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response
   app.route(
     '/',
     createTurnsRouter({
+      activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
+      authorizer: new TrueForgeAuthorizer(),
+      eventSubscriptions: new EventSubscriptionRegistry(undefined),
+      logger: createLogger({ silent: true }),
+      requestReplyRouter: new RequestReplyRouter(),
+      resolveAgentStore: () => new SqliteAgentStore(db),
+      resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+      resolveTurnExecutionStores: () =>
+        Promise.resolve({
+          agentStore: new SqliteAgentStore(db),
+          capabilitiesStore: new EmptyCapabilitiesStore(),
+          modelProviderStore,
+          mcpServerStore: new McpServerWithAuthStore({
+            store: new SqliteMcpServerStore(db),
+            tokenStore,
+            clientName: 'test-client',
+          }),
+          skillStore: new SqliteSkillStore(db),
+          sandboxProviderStore: new SqliteSandboxProviderStore(db),
+          webSearchProviderStore: new SqliteWebSearchProviderStore(db),
+          memory: undefined,
+        }),
+      sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
+      sandboxProviderStore: new SqliteSandboxProviderStore(db),
       sessions,
       sessionStore: new SqliteSessionStore(db),
-      activeTurns: new ActiveTurnRegistry(),
-      resolveModelProviderStore: () => modelProviderStore,
-      resolveMcpServerStore: () =>
-        new McpServerWithAuthStore({
-          store: new SqliteMcpServerStore(db),
-          tokenStore,
-          clientName: 'test-client',
-        }),
-      resolveTurnSkillsStore: () => new SqliteSkillStore(db),
-      resolveAgentStore: () => new SqliteAgentStore(db),
-      eventSubscriptions: new EventSubscriptionRegistry(undefined),
-      resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
-      sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
-      resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
-      logger: createLogger({ silent: true }),
-      resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
-      authorizer: new TrueForgeAuthorizer(),
+      accessControlStore: new SqliteAccessControlStore(db),
     }),
   );
 
   return app.request('/s1/turns', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: '{}',
+    body: JSON.stringify({
+      input: [{ type: 'user.message', content: 'hello' }],
+    }),
   });
 }
 

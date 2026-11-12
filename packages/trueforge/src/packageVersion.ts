@@ -24,3 +24,6 @@ function readPackageVersion(): string {
 }
 
 export const PACKAGE_VERSION = readPackageVersion();
+
+/** Identifies TrueForge and its version on outbound HTTP (model, MCP, ServiceFoundry). */
+export const TRUEFORGE_USER_AGENT = `trueforge/${PACKAGE_VERSION}`;

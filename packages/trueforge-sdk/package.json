@@ -143,6 +143,17 @@
             },
             "default": "./dist/esm/api/resources/skills/exports.mjs"
         },
+        "./users": {
+            "import": {
+                "types": "./dist/esm/api/resources/users/exports.d.mts",
+                "default": "./dist/esm/api/resources/users/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/users/exports.d.ts",
+                "default": "./dist/cjs/api/resources/users/exports.js"
+            },
+            "default": "./dist/esm/api/resources/users/exports.mjs"
+        },
         "./catalogs": {
             "import": {
                 "types": "./dist/esm/api/resources/catalogs/exports.d.mts",
@@ -164,6 +175,17 @@
                 "default": "./dist/cjs/api/resources/catalogs/resources/mcpServers/exports.js"
             },
             "default": "./dist/esm/api/resources/catalogs/resources/mcpServers/exports.mjs"
+        },
+        "./catalogs/memoryProviders": {
+            "import": {
+                "types": "./dist/esm/api/resources/catalogs/resources/memoryProviders/exports.d.mts",
+                "default": "./dist/esm/api/resources/catalogs/resources/memoryProviders/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/catalogs/resources/memoryProviders/exports.d.ts",
+                "default": "./dist/cjs/api/resources/catalogs/resources/memoryProviders/exports.js"
+            },
+            "default": "./dist/esm/api/resources/catalogs/resources/memoryProviders/exports.mjs"
         },
         "./catalogs/modelProviders": {
             "import": {
@@ -275,6 +297,17 @@
             },
             "default": "./dist/esm/api/resources/settings/exports.mjs"
         },
+        "./settings/configuration": {
+            "import": {
+                "types": "./dist/esm/api/resources/settings/resources/configuration/exports.d.mts",
+                "default": "./dist/esm/api/resources/settings/resources/configuration/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/settings/resources/configuration/exports.d.ts",
+                "default": "./dist/cjs/api/resources/settings/resources/configuration/exports.js"
+            },
+            "default": "./dist/esm/api/resources/settings/resources/configuration/exports.mjs"
+        },
         "./settings/mcpServers": {
             "import": {
                 "types": "./dist/esm/api/resources/settings/resources/mcpServers/exports.d.mts",
@@ -285,6 +318,17 @@
                 "default": "./dist/cjs/api/resources/settings/resources/mcpServers/exports.js"
             },
             "default": "./dist/esm/api/resources/settings/resources/mcpServers/exports.mjs"
+        },
+        "./settings/memoryProviders": {
+            "import": {
+                "types": "./dist/esm/api/resources/settings/resources/memoryProviders/exports.d.mts",
+                "default": "./dist/esm/api/resources/settings/resources/memoryProviders/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/settings/resources/memoryProviders/exports.d.ts",
+                "default": "./dist/cjs/api/resources/settings/resources/memoryProviders/exports.js"
+            },
+            "default": "./dist/esm/api/resources/settings/resources/memoryProviders/exports.mjs"
         },
         "./settings/modelProviders": {
             "import": {

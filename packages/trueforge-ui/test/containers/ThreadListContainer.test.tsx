@@ -5,7 +5,7 @@ import {
   type ExternalStoreThreadListAdapter,
   type ThreadMessageLike,
 } from '@assistant-ui/react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -114,6 +114,7 @@ function renderThreadList({
   canDelete = false,
   canRename = false,
   permissions,
+  listSessions,
   variant,
   track,
 }: {
@@ -124,6 +125,7 @@ function renderThreadList({
   permissions?: {
     listPermissions: (req: { resourceType: string; resourceIds: string[] }) => Promise<ListPermissionsResponse>;
   };
+  listSessions?: NonNullable<Parameters<typeof createMockAgentUIServer>[0]>['listSessions'];
   variant?: ThreadListContainerProps['variant'];
   track?: (eventName: string, data?: Record<string, string | number | boolean | undefined>) => void;
 }) {
@@ -140,7 +142,7 @@ function renderThreadList({
   );
   const withAnalytics = track != null ? <AnalyticsProvider track={track}>{list}</AnalyticsProvider> : list;
 
-  if (!canDelete && !canRename) {
+  if (!canDelete && !canRename && listSessions === undefined && permissions === undefined) {
     return render(withAnalytics);
   }
 
@@ -149,6 +151,7 @@ function renderThreadList({
       server={createMockAgentUIServer({
         ...(canDelete ? { deleteSession: async () => {} } : {}),
         ...(canRename ? { renameSession: async () => {} } : {}),
+        ...(listSessions === undefined ? {} : { listSessions }),
         ...(permissions === undefined ? {} : { permissions }),
       })}
     >
@@ -387,6 +390,20 @@ describe('ThreadListContainer', () => {
     fireEvent.click(actionButton);
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
 
+    expect(screen.getByRole('dialog', { name: 'Delete chat' })).toBeInTheDocument();
+    expect(onDelete).not.toHaveBeenCalled();
+    expect(track).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog', { name: 'Delete chat' })).not.toBeInTheDocument();
+    expect(onDelete).not.toHaveBeenCalled();
+
+    fireEvent.click(actionButton);
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    fireEvent.click(
+      within(screen.getByRole('dialog', { name: 'Delete chat' })).getByRole('button', { name: 'Delete' }),
+    );
+
     await waitFor(() => {
       expect(onDelete).toHaveBeenCalledWith('thread-1');
     });
@@ -394,6 +411,100 @@ describe('ThreadListContainer', () => {
       AnalyticsEvents.Session.DELETED,
       expect.objectContaining({ session_id: 'session-1' }),
     );
+  });
+
+  it('polls last-turn status for every row when the main thread is not live-running', async () => {
+    const onUpdateCustom = vi.fn(async () => {});
+    const listSessions = vi.fn(async () => ({
+      data: [
+        {
+          id: 'session-main',
+          isMutable: false,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+          lastTurnDetails: { id: 'turn-main', state: { status: 'done' as const } },
+        },
+        {
+          id: 'session-other',
+          isMutable: false,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+          lastTurnDetails: { id: 'turn-other', state: { status: 'paused' as const } },
+        },
+      ],
+    }));
+
+    renderThreadList({
+      adapter: {
+        threadId: 'thread-main',
+        threads: [
+          {
+            status: 'regular',
+            id: 'thread-main',
+            remoteId: 'session-main',
+            title: 'Main running',
+            custom: { lastTurnStatus: 'running' },
+          },
+          {
+            status: 'regular',
+            id: 'thread-other',
+            remoteId: 'session-other',
+            title: 'Other running',
+            custom: { lastTurnStatus: 'running' },
+          },
+        ],
+        onUpdateCustom,
+      },
+      listSessions,
+    });
+
+    await waitFor(() => {
+      expect(listSessions).toHaveBeenCalled();
+    });
+    await waitFor(() => {
+      expect(onUpdateCustom).toHaveBeenCalledWith('thread-other', {
+        lastTurnStatus: 'paused',
+      });
+      expect(onUpdateCustom).toHaveBeenCalledWith('thread-main', {
+        lastTurnStatus: 'done',
+      });
+    });
+  });
+
+  it('toasts when delete fails and does not track the deletion', async () => {
+    const onDelete = vi.fn(async () => {
+      throw new Error('Session delete failed');
+    });
+    const track = vi.fn();
+
+    renderThreadList({
+      adapter: {
+        threadId: 'thread-1',
+        threads: [
+          {
+            status: 'regular',
+            id: 'thread-1',
+            remoteId: 'session-1',
+            title: 'Remote session',
+          },
+        ],
+        onDelete,
+      },
+      canDelete: true,
+      track,
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Session actions' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    fireEvent.click(
+      within(screen.getByRole('dialog', { name: 'Delete chat' })).getByRole('button', { name: 'Delete' }),
+    );
+
+    await waitFor(() => {
+      expect(onDelete).toHaveBeenCalledWith('thread-1');
+    });
+    expect(await screen.findByRole('alert')).toHaveTextContent('Session delete failed');
+    expect(track).not.toHaveBeenCalled();
   });
 
   it('hides rename when the server does not opt in', () => {

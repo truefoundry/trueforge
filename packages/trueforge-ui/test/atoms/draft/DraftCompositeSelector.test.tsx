@@ -7,6 +7,7 @@ import { DraftCompositeSelector } from '@/atoms/draft/DraftCompositeSelector.js'
 import { CompactLayoutProvider } from '@/atoms/lib/CompactLayoutContext.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import type {
+  AgentBuilderCapabilitiesResponse,
   AgentSkill,
   AgentSpec,
   CatalogServer,
@@ -18,7 +19,9 @@ import {
   createMockAgentUIServer,
   createMockCatalog,
   createMockSandboxEnvironmentServer,
+  tenantSessionSharing,
 } from '../../server/mockServer.js';
+import { allSettingsSections } from '../../server/settingsCapabilityFixture.js';
 
 let agentSpec: AgentSpec;
 let draftSessionId: string | undefined;
@@ -76,14 +79,7 @@ function renderSelector({
   environmentServer,
 }: {
   onAttach?: () => void;
-  getCapabilities?: () => Promise<{
-    data: {
-      sandbox: { enabled: boolean };
-      skill: { enabled: boolean; reason?: string };
-      settings?: { enabled: boolean };
-      webSearch?: { enabled: boolean };
-    };
-  }>;
+  getCapabilities?: () => Promise<AgentBuilderCapabilitiesResponse>;
   getSkills?: () => Promise<AgentSkill[]>;
   getMcp?: () => Promise<{ id: string; name: string; authenticated: boolean }[]>;
   catalog?: CatalogServer | null;
@@ -97,8 +93,9 @@ function renderSelector({
       getCapabilities ??
       (async () => ({
         data: {
-          sandbox: { enabled: true },
+          sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
+          sessionSharing: tenantSessionSharing,
         },
       })),
     getModels: async () => [],
@@ -141,9 +138,9 @@ describe('DraftCompositeSelector', () => {
 
   it('shows one combined Tools count only for a valid model', () => {
     const view = renderSelector();
-    const toolsTrigger = screen.getByRole('button', { name: 'Tools (2)' });
+    const toolsTrigger = screen.getByRole('button', { name: 'Tools (3)' });
     expect(toolsTrigger).toHaveTextContent('Tools');
-    expect(toolsTrigger).toHaveTextContent('2');
+    expect(toolsTrigger).toHaveTextContent('3');
     fireEvent.click(toolsTrigger);
     expect(screen.getByRole('dialog', { name: 'Add to composer' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Connectors/ })).toBeInTheDocument();
@@ -180,7 +177,7 @@ describe('DraftCompositeSelector', () => {
 
   it('uses contrasting search surfaces in light and dark themes', () => {
     renderSelector();
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
 
     expect(screen.getByPlaceholderText('Search connectors...')).toHaveClass(
       'border-input-border',
@@ -191,7 +188,7 @@ describe('DraftCompositeSelector', () => {
 
   it('filters the complete connector catalog client-side', async () => {
     renderSelector();
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
 
     expect(await screen.findByRole('menuitemcheckbox', { name: /GitHub/ })).toBeInTheDocument();
     expect(screen.getByRole('menuitemcheckbox', { name: /Slack/ })).toBeInTheDocument();
@@ -204,7 +201,8 @@ describe('DraftCompositeSelector', () => {
 
   it('shows selected connectors and skills in the Tools tooltip', () => {
     renderSelector();
-    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Tools (2)' }));
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Tools (3)' }));
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Built-in: TrueForge');
     expect(screen.getByRole('tooltip')).toHaveTextContent('Connectors: Slack');
     expect(screen.getByRole('tooltip')).toHaveTextContent('Skills: Research');
   });
@@ -223,7 +221,7 @@ describe('DraftCompositeSelector', () => {
       skills: [],
     };
     renderSelector();
-    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Tools (6)' }));
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Tools (7)' }));
     expect(screen.getByRole('tooltip')).toHaveTextContent('Connectors: Alpha, Beta, Gamma, Delta +2');
   });
 
@@ -243,23 +241,23 @@ describe('DraftCompositeSelector', () => {
     const onAttach = vi.fn();
     renderSelector({ onAttach, compact: true });
 
-    expect(screen.queryByRole('button', { name: 'Tools (2)' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Tools (3)' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Attach a file' })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Add' }));
-    expect(screen.getByRole('menuitem', { name: 'Tools (2)' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Tools (3)' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('menuitem', { name: 'Attach a file' }));
 
     expect(onAttach).toHaveBeenCalledOnce();
 
     fireEvent.click(screen.getByRole('button', { name: 'Add' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Tools (2)' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Tools (3)' }));
     expect(screen.getByRole('dialog', { name: 'Add to composer' })).toBeInTheDocument();
   });
 
   it('debounces connector changes into one draft update', async () => {
     renderSelector();
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
     fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: /GitHub/ }));
 
     expect(updateAgentSpec).not.toHaveBeenCalled();
@@ -277,7 +275,7 @@ describe('DraftCompositeSelector', () => {
 
   it('opens settings from the empty connectors state', async () => {
     renderSelector({ getMcp: async () => [] });
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
 
     fireEvent.click(await screen.findByRole('button', { name: /Please configure Connectors in the settings/ }));
 
@@ -287,7 +285,7 @@ describe('DraftCompositeSelector', () => {
 
   it('opens settings from the empty skills state', async () => {
     renderSelector({ getSkills: async () => [] });
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
     fireEvent.click(screen.getByRole('button', { name: /Skills/ }));
 
     fireEvent.click(await screen.findByRole('button', { name: /Please configure Skills in the settings/ }));
@@ -299,13 +297,14 @@ describe('DraftCompositeSelector', () => {
     renderSelector({
       getCapabilities: async () => ({
         data: {
-          sandbox: { enabled: false },
+          sandbox: { enabled: false, environments: { enabled: false } },
           skill: { enabled: false, reason: 'Skills run in a sandbox, which is not configured.' },
+          sessionSharing: tenantSessionSharing,
         },
       }),
       getSkills: async () => [],
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
     fireEvent.click(screen.getByRole('button', { name: /Skills/ }));
 
     expect(await screen.findByRole('status')).toHaveTextContent('Skills run in a sandbox, which is not configured.');
@@ -319,13 +318,14 @@ describe('DraftCompositeSelector', () => {
     renderSelector({
       getCapabilities: async () => ({
         data: {
-          sandbox: { enabled: true },
+          sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: false, reason: 'Skills are not available.' },
+          sessionSharing: tenantSessionSharing,
         },
       }),
       getSkills: async () => [],
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
     fireEvent.click(screen.getByRole('button', { name: /Skills/ }));
 
     fireEvent.click(await screen.findByRole('button', { name: /Please configure Skills in the settings/ }));
@@ -335,7 +335,7 @@ describe('DraftCompositeSelector', () => {
 
   it('does not offer connector settings without a settings catalog', async () => {
     renderSelector({ getMcp: async () => [], catalog: null });
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
 
     expect(await screen.findByText('No connectors')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Please configure Connectors/ })).not.toBeInTheDocument();
@@ -345,14 +345,15 @@ describe('DraftCompositeSelector', () => {
     renderSelector({
       getCapabilities: async () => ({
         data: {
-          sandbox: { enabled: true },
+          sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
-          settings: { enabled: false },
+          sessionSharing: tenantSessionSharing,
+          settings: allSettingsSections(false),
         },
       }),
       getMcp: async () => [],
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
 
     expect(await screen.findByText('No connectors')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Please configure Connectors/ })).not.toBeInTheDocument();
@@ -360,7 +361,7 @@ describe('DraftCompositeSelector', () => {
 
   it('does not offer skills settings when the skills settings section is unavailable', async () => {
     renderSelector({ getSkills: async () => [], catalog: createMockCatalog() });
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
     fireEvent.click(screen.getByRole('button', { name: /Skills/ }));
 
     expect(await screen.findByText('No skills')).toBeInTheDocument();
@@ -371,31 +372,34 @@ describe('DraftCompositeSelector', () => {
     renderSelector({
       getCapabilities: async () => ({
         data: {
-          sandbox: { enabled: false },
+          sandbox: { enabled: false, environments: { enabled: false } },
           skill: { enabled: false, reason: 'Skills run in a sandbox, which is not configured.' },
+          sessionSharing: tenantSessionSharing,
         },
       }),
       getSkills: async () => [],
       catalog: createMockCatalog({ skillCatalog }),
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
     fireEvent.click(screen.getByRole('button', { name: /Skills/ }));
 
     expect(await screen.findByText('No skills')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Please configure a Sandbox/ })).not.toBeInTheDocument();
   });
 
-  it('renders environment tab with default and ready environments only, excluding pending/failed and status badges', async () => {
+  it('renders every environment, greying out pending/failed ones, with no status badges', async () => {
     const environmentServer = createMockSandboxEnvironmentServer({
       listEnvironments: async () => ({
         data: [
           {
             id: 'env-default',
-            name: 'default',
+            name: 'trueforge-sandbox-env',
             description: 'Default environment',
             status: 'ready',
+            enabled: true,
+            isDefault: true,
             statusReason: null,
-            manifest: { name: 'default', description: 'Default environment' },
+            manifest: { name: 'trueforge-sandbox-env', description: 'Default environment' },
             createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
             createdAt: '2026-09-01T10:00:00Z',
             updatedAt: '2026-09-01T10:00:00Z',
@@ -405,6 +409,8 @@ describe('DraftCompositeSelector', () => {
             name: 'python-dev',
             description: 'Python 3.11 environment with poetry',
             status: 'ready',
+            enabled: true,
+            isDefault: false,
             statusReason: null,
             manifest: { name: 'python-dev', description: 'Python 3.11 environment with poetry' },
             createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
@@ -416,6 +422,8 @@ describe('DraftCompositeSelector', () => {
             name: 'building-env',
             description: '',
             status: 'pending',
+            enabled: true,
+            isDefault: false,
             statusReason: null,
             manifest: { name: 'building-env' },
             createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
@@ -427,6 +435,8 @@ describe('DraftCompositeSelector', () => {
             name: 'broken-env',
             description: '',
             status: 'failed',
+            enabled: true,
+            isDefault: false,
             statusReason: 'Build failed',
             manifest: { name: 'broken-env' },
             createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
@@ -438,17 +448,21 @@ describe('DraftCompositeSelector', () => {
     });
 
     renderSelector({ environmentServer });
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
-    fireEvent.click(screen.getByRole('button', { name: /Environment/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
+    fireEvent.click(await screen.findByRole('button', { name: /Environment/ }));
 
-    expect(await screen.findByText('default')).toBeInTheDocument();
+    expect(await screen.findByText('trueforge-sandbox-env')).toBeInTheDocument();
     expect(screen.getByText('Default environment')).toBeInTheDocument();
     expect(await screen.findByText('python-dev')).toBeInTheDocument();
     expect(screen.getByText('Python 3.11 environment with poetry')).toBeInTheDocument();
 
-    // pending and failed environments must NOT be displayed
-    expect(screen.queryByText('building-env')).not.toBeInTheDocument();
-    expect(screen.queryByText('broken-env')).not.toBeInTheDocument();
+    // Pending and failed environments are listed, but cannot be picked
+    const building = screen.getByRole('radio', { name: 'Select building-env' });
+    expect(building).toBeDisabled();
+    fireEvent.mouseEnter(building.parentElement ?? building);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Still building');
+    fireEvent.mouseLeave(building.parentElement ?? building);
+    expect(screen.getByRole('radio', { name: 'Select broken-env' })).toBeDisabled();
 
     // No "Ready" status badge should be rendered
     expect(screen.queryByText('Ready')).not.toBeInTheDocument();
@@ -464,12 +478,12 @@ describe('DraftCompositeSelector', () => {
       }),
     });
 
-    // Select default environment clears environmentName
-    fireEvent.click(screen.getByText('default'));
+    // The tenant default is listed under its own name and pins like any other
+    fireEvent.click(screen.getByText('trueforge-sandbox-env'));
     expect(updateAgentSpec).toHaveBeenCalledWith({
       config: expect.objectContaining({
         sandbox: expect.objectContaining({
-          environmentName: undefined,
+          environmentName: 'trueforge-sandbox-env',
         }),
       }),
     });
@@ -486,11 +500,13 @@ describe('DraftCompositeSelector', () => {
         data: [
           {
             id: 'env-default',
-            name: 'default',
+            name: 'trueforge-sandbox-env',
             description: 'Default environment',
             status: 'ready',
+            enabled: true,
+            isDefault: true,
             statusReason: null,
-            manifest: { name: 'default', description: 'Default environment' },
+            manifest: { name: 'trueforge-sandbox-env', description: 'Default environment' },
             createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
             createdAt: '2026-09-01T10:00:00Z',
             updatedAt: '2026-09-01T10:00:00Z',
@@ -500,6 +516,8 @@ describe('DraftCompositeSelector', () => {
             name: 'python-dev',
             description: 'Python 3.11 environment',
             status: 'ready',
+            enabled: true,
+            isDefault: false,
             statusReason: null,
             manifest: { name: 'python-dev', description: 'Python 3.11 environment' },
             createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
@@ -511,12 +529,25 @@ describe('DraftCompositeSelector', () => {
     });
 
     renderSelector({ environmentServer });
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
-    fireEvent.click(screen.getByRole('button', { name: /Environment/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
+    fireEvent.click(await screen.findByRole('button', { name: /Environment/ }));
 
     expect(await screen.findByText("Can't change the environment after a chat has started")).toBeInTheDocument();
-    fireEvent.click(screen.getByText('default'));
+    fireEvent.click(screen.getByText('trueforge-sandbox-env'));
     expect(updateAgentSpec).not.toHaveBeenCalled();
+  });
+
+  it('says no environments exist instead of offering Default when none are ready', async () => {
+    const environmentServer = createMockSandboxEnvironmentServer({
+      listEnvironments: async () => ({ data: [] }),
+    });
+
+    renderSelector({ environmentServer });
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
+    fireEvent.click(await screen.findByRole('button', { name: /Environment/ }));
+
+    expect(await screen.findByRole('button', { name: /Please configure Environments/ })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitemradio')).not.toBeInTheDocument();
   });
 
   it('shows a deleted environment from the agent spec and does not change it', async () => {
@@ -529,11 +560,13 @@ describe('DraftCompositeSelector', () => {
         data: [
           {
             id: 'env-default',
-            name: 'default',
+            name: 'trueforge-sandbox-env',
             description: 'Default environment',
             status: 'ready',
+            enabled: true,
+            isDefault: true,
             statusReason: null,
-            manifest: { name: 'default', description: 'Default environment' },
+            manifest: { name: 'trueforge-sandbox-env', description: 'Default environment' },
             createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
             createdAt: '2026-09-01T10:00:00Z',
             updatedAt: '2026-09-01T10:00:00Z',
@@ -543,8 +576,8 @@ describe('DraftCompositeSelector', () => {
     });
 
     renderSelector({ environmentServer });
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
-    fireEvent.click(screen.getByRole('button', { name: /Environment/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
+    fireEvent.click(await screen.findByRole('button', { name: /Environment/ }));
 
     expect(await screen.findByText('gone-env')).toBeInTheDocument();
     expect(screen.queryByText('This environment is no longer available')).not.toBeInTheDocument();
@@ -564,14 +597,15 @@ describe('DraftCompositeSelector', () => {
     renderSelector({
       getCapabilities: async () => ({
         data: {
-          sandbox: { enabled: true },
+          sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
+          sessionSharing: tenantSessionSharing,
           webSearch: { enabled: true },
         },
       }),
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (4)' }));
     expect(screen.getByText('Built-in')).toBeInTheDocument();
     await waitFor(() => {
       const row = screen.getByRole('menuitemcheckbox', { name: /Web search/ });
@@ -592,6 +626,25 @@ describe('DraftCompositeSelector', () => {
     );
   });
 
+  it('enables TrueForge under Built-in by default and lets the user turn it off', () => {
+    renderSelector();
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
+    const row = screen.getByRole('menuitemcheckbox', { name: /TrueForge/ });
+    expect(row).toHaveAttribute('aria-checked', 'true');
+
+    fireEvent.click(row);
+    expect(updateAgentSpec).toHaveBeenCalledWith({
+      config: { trueforge: { enabled: false } },
+    });
+    expect(rememberDraftSpec).toHaveBeenCalledWith(
+      {
+        ...agentSpec,
+        config: { trueforge: { enabled: false } },
+      },
+      'chat',
+    );
+  });
+
   it('keeps Web search disabled with a tooltip when the capability is off', async () => {
     agentSpec = {
       ...agentSpec,
@@ -600,14 +653,15 @@ describe('DraftCompositeSelector', () => {
     renderSelector({
       getCapabilities: async () => ({
         data: {
-          sandbox: { enabled: true },
+          sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
+          sessionSharing: tenantSessionSharing,
           webSearch: { enabled: false },
         },
       }),
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
     await waitFor(() => {
       const row = screen.getByRole('menuitemcheckbox', { name: /Web search/ });
       expect(row).toHaveAttribute('aria-disabled', 'true');
@@ -630,5 +684,80 @@ describe('DraftCompositeSelector', () => {
 
     fireEvent.click(checkbox);
     expect(updateAgentSpec).not.toHaveBeenCalled();
+  });
+
+  it('explains why web search is unavailable using the host reason', async () => {
+    agentSpec = {
+      ...agentSpec,
+      config: { webSearch: { enabled: false } },
+    };
+    renderSelector({
+      getCapabilities: async () => ({
+        data: {
+          sandbox: { enabled: true },
+          skill: { enabled: true },
+          sessionSharing: tenantSessionSharing,
+          webSearch: { enabled: false, reason: 'Web search is turned off for this tenant.' },
+        },
+      }),
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
+    // The row renders locked with a generic hint until capabilities land, so wait for the reason.
+    const note = await screen.findByText('Web search is turned off for this tenant.');
+    expect(note.closest('[role="status"]')).not.toBeNull();
+  });
+
+  it('lets a chat that already searches the web turn it off after the capability goes away', async () => {
+    agentSpec = {
+      ...agentSpec,
+      config: { webSearch: { enabled: true } },
+    };
+    renderSelector({
+      getCapabilities: async () => ({
+        data: {
+          sandbox: { enabled: true },
+          skill: { enabled: true },
+          sessionSharing: tenantSessionSharing,
+          webSearch: { enabled: false },
+        },
+      }),
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (4)' }));
+    await waitFor(() => {
+      const row = screen.getByRole('menuitemcheckbox', { name: /Web search/ });
+      expect(row).toHaveAttribute('aria-checked', 'true');
+      expect(row).not.toHaveAttribute('aria-disabled', 'true');
+    });
+
+    // Turning it off is the last chance, so the row has to say so before the click.
+    expect(await screen.findByText(/Turning it off here is final/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /Web search/ }));
+    expect(updateAgentSpec).toHaveBeenCalledWith({ config: { webSearch: { enabled: false } } });
+  });
+
+  it('does not caution a chat the host still allows', async () => {
+    agentSpec = {
+      ...agentSpec,
+      config: { webSearch: { enabled: true } },
+    };
+    renderSelector({
+      getCapabilities: async () => ({
+        data: {
+          sandbox: { enabled: true },
+          skill: { enabled: true },
+          sessionSharing: tenantSessionSharing,
+          webSearch: { enabled: true },
+        },
+      }),
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (4)' }));
+    await waitFor(() => {
+      expect(screen.getByRole('menuitemcheckbox', { name: /Web search/ })).toHaveAttribute('aria-checked', 'true');
+    });
+    expect(screen.queryByText(/Turning it off here is final/)).not.toBeInTheDocument();
   });
 });
