@@ -462,6 +462,10 @@ describe('validateAgentSpec', () => {
       tenant_id: 'default',
       manifest: { type: 'zep', auth: { api_key: 'zep-test-key' } },
     });
+    await stores.configurationStore.upsertConfiguration({
+      tenant_id: 'default',
+      manifest: { web_search: { enabled: true }, memory: { enabled: false } },
+    });
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({
@@ -507,7 +511,7 @@ describe('validateAgentSpec', () => {
     } satisfies Partial<HTTPException>);
   });
 
-  it('rejects turning memory on when the tenant has no stored configuration, since memory starts off', async () => {
+  it('admits turning memory on when the tenant has no stored configuration, since memory starts on', async () => {
     const stores = await setup();
     await stores.memoryProviderStore.upsertProvider({
       tenant_id: 'default',
@@ -524,10 +528,7 @@ describe('validateAgentSpec', () => {
         created_by_subject_id: 'test-subject',
         ...stores,
       }),
-    ).rejects.toMatchObject({
-      status: 422,
-      message: expect.stringContaining('memory cannot be enabled because it is disabled for this tenant'),
-    } satisfies Partial<HTTPException>);
+    ).resolves.toBeUndefined();
   });
 
   it('admits memory on once the tenant allows it and a provider is configured', async () => {

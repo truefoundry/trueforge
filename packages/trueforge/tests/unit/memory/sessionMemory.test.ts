@@ -83,15 +83,15 @@ function tenantMemory({
       ),
     upsertProvider: () => Promise.reject(new Error('not used')),
   };
+  const storedConfiguration = (tenantId: string) => ({
+    tenant_id: tenantId,
+    manifest: { web_search: { enabled: true }, memory: { enabled: tenantEnabled } },
+    updated_at: '2026-10-01T00:00:00.000Z',
+  });
   const configurationStore: IConfigurationStore = {
-    getConfiguration: tenantId =>
-      Promise.resolve({
-        tenant_id: tenantId,
-        manifest: { web_search: { enabled: true }, memory: { enabled: tenantEnabled } },
-        updated_at: '2026-10-01T00:00:00.000Z',
-      }),
+    getConfiguration: tenantId => Promise.resolve(storedConfiguration(tenantId)),
     upsertConfiguration: () => Promise.reject(new Error('not used')),
-    getOrCreateConfiguration: () => Promise.reject(new Error('not used')),
+    getOrCreateConfiguration: ({ tenant_id }) => Promise.resolve(storedConfiguration(tenant_id)),
     listTenantIdsWithFeatureEnabled: () => Promise.reject(new Error('not used')),
   };
   return { memoryProviderStore, configurationStore, providers: { get: () => provider } };

@@ -6,6 +6,7 @@ import type { HistoryAgentIntent } from '../utils/historyAgentSearch.js';
 import { replaceSessionShareSearch } from '../utils/sessionShareUrl.js';
 import {
   freshAgentBuilderSeed,
+  memoryPreferenceToStore,
   readDraftSpecPreferences,
   selectDraftSpecPreferences,
   webSearchPreferenceToStore,
@@ -608,6 +609,8 @@ export function ShellModeProvider({
 
   const sandboxEnabled = capabilities?.sandbox.enabled;
   const webSearchEnabled = capabilities?.webSearch?.enabled;
+  // Capabilities omit memory when no provider is configured, which means unavailable.
+  const memoryEnabled = capabilities == null ? undefined : (capabilities.memory?.enabled ?? false);
 
   const openDraft = useCallback(() => {
     if (!isComposerEnabled) return;
@@ -686,9 +689,14 @@ export function ShellModeProvider({
   useEffect(() => {
     prevWebSearchEnabledRef.current = webSearchEnabled;
   }, [webSearchEnabled]);
+  const prevMemoryEnabledRef = useRef(memoryEnabled);
+  useEffect(() => {
+    prevMemoryEnabledRef.current = memoryEnabled;
+  }, [memoryEnabled]);
   const rememberDraftSpec = useCallback(
     (agentSpec: AgentSpec, kind: DraftPreferenceKind = 'chat') => {
       const previousWebSearchEnabled = prevWebSearchEnabledRef.current;
+      const previousMemoryEnabled = prevMemoryEnabledRef.current;
       const selected = selectDraftSpecPreferences(agentSpec, kind);
       const withSandbox = kind === 'agent' ? withCapabilitiesSandbox(selected, sandboxEnabled) : selected;
       const aligned = withCapabilitiesWebSearch({
@@ -696,13 +704,22 @@ export function ShellModeProvider({
         webSearchEnabled,
         kind,
       });
-      const preferences = webSearchPreferenceToStore({
+      const webSearchPreferences = webSearchPreferenceToStore({
         spec: aligned,
         webSearchEnabled,
         previousWebSearchEnabled,
         capabilitiesPending,
         kind,
       });
+      const preferences =
+        kind === 'agent'
+          ? memoryPreferenceToStore({
+              spec: webSearchPreferences,
+              memoryEnabled,
+              previousMemoryEnabled,
+              capabilitiesPending,
+            })
+          : webSearchPreferences;
       if (kind === 'chat') {
         chatSeedRef.current = preferences;
       } else {
@@ -712,17 +729,22 @@ export function ShellModeProvider({
           webSearchEnabled,
           kind: 'agent',
         });
-        agentSeedRef.current = webSearchPreferenceToStore({
-          spec: agentAligned,
-          webSearchEnabled,
-          previousWebSearchEnabled,
+        agentSeedRef.current = memoryPreferenceToStore({
+          spec: webSearchPreferenceToStore({
+            spec: agentAligned,
+            webSearchEnabled,
+            previousWebSearchEnabled,
+            capabilitiesPending,
+            kind: 'agent',
+          }),
+          memoryEnabled,
+          previousMemoryEnabled,
           capabilitiesPending,
-          kind: 'agent',
         });
       }
       writeDraftSpecPreferences(kind, preferences);
     },
-    [sandboxEnabled, webSearchEnabled, capabilitiesPending],
+    [sandboxEnabled, webSearchEnabled, memoryEnabled, capabilitiesPending],
   );
 
   const openHistorySession = useCallback(
