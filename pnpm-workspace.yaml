@@ -26,7 +26,3 @@ overrides:
   resolve: '1.22.11'
   # Rollup 4.63.0 OOMs the frontend Vite build (Monaco + compression plugin); stay on 4.62.x.
   rollup: '4.62.2'
-  # Security: fix High CVEs in transitive deps (node-forge via @anthropic-ai/sandbox-runtime, follow-redirects via axios, body-parser via express).
-  node-forge: '^1.4.1'
-  follow-redirects: '^1.16.2'
-  body-parser@2: '^2.4.0'
