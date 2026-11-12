@@ -12,7 +12,7 @@ import type * as TrueForge from "../../../../index.js";
  *     }
  */
 export interface CreateTurnSessionsStreamRequest {
-    /** With the service API key, set to session-creator to act as the session creator. */
+    /** Service API key only: assume role (not a user id). Today only session-creator; more roles may be added later. */
     assumeUser?: "session-creator";
     /** User messages for this turn. At least one is required. */
     input: TrueForge.CreateTurnSessionsStreamRequestInputItem[];

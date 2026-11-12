@@ -491,7 +491,7 @@ class SessionsClient:
             Opaque token from a previous response `next_page_token`.
 
         assume_user : typing.Optional[typing.Literal["session-creator"]]
-            With the service API key, set to session-creator to act as the session creator.
+            Service API key only: assume role (not a user id). Today only session-creator; more roles may be added later.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -551,7 +551,7 @@ class SessionsClient:
             User messages for this turn. At least one is required.
 
         assume_user : typing.Optional[typing.Literal["session-creator"]]
-            With the service API key, set to session-creator to act as the session creator.
+            Service API key only: assume role (not a user id). Today only session-creator; more roles may be added later.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -621,7 +621,7 @@ class SessionsClient:
             User messages for this turn. At least one is required.
 
         assume_user : typing.Optional[typing.Literal["session-creator"]]
-            With the service API key, set to session-creator to act as the session creator.
+            Service API key only: assume role (not a user id). Today only session-creator; more roles may be added later.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -1453,7 +1453,7 @@ class AsyncSessionsClient:
             Opaque token from a previous response `next_page_token`.
 
         assume_user : typing.Optional[typing.Literal["session-creator"]]
-            With the service API key, set to session-creator to act as the session creator.
+            Service API key only: assume role (not a user id). Today only session-creator; more roles may be added later.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1522,7 +1522,7 @@ class AsyncSessionsClient:
             User messages for this turn. At least one is required.
 
         assume_user : typing.Optional[typing.Literal["session-creator"]]
-            With the service API key, set to session-creator to act as the session creator.
+            Service API key only: assume role (not a user id). Today only session-creator; more roles may be added later.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -1601,7 +1601,7 @@ class AsyncSessionsClient:
             User messages for this turn. At least one is required.
 
         assume_user : typing.Optional[typing.Literal["session-creator"]]
-            With the service API key, set to session-creator to act as the session creator.
+            Service API key only: assume role (not a user id). Today only session-creator; more roles may be added later.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
