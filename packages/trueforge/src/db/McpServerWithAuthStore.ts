@@ -79,7 +79,7 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
     return this.#store.deleteServer(input, transaction);
   }
 
-  /** Caller headers go straight to the server (a nested entry as `x-tfy-mcp-headers`); Authorization skips consent. */
+  /** Caller headers for the server go straight to it; one with Authorization skips its consent flow. */
   resolveInvokeHeaders(input: {
     record: McpServerRecord;
     userRef: string;
