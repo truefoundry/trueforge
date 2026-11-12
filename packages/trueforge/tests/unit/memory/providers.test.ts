@@ -51,11 +51,11 @@ describe('resolveTenantMemoryProvider', () => {
     await expect(resolveTenantMemoryProvider({ tenant_id: 'acme', ...deps })).resolves.toBe(deps.providers.get(ZEP));
   });
 
-  it('returns nothing while the switch is off, which it is by default', async () => {
+  it('returns the provider by default, and nothing once the switch is turned off', async () => {
     const { deps, memoryProviderStore, setSwitch } = await setup();
     await memoryProviderStore.upsertProvider({ tenant_id: 'acme', manifest: ZEP });
 
-    await expect(resolveTenantMemoryProvider({ tenant_id: 'acme', ...deps })).resolves.toBeUndefined();
+    await expect(resolveTenantMemoryProvider({ tenant_id: 'acme', ...deps })).resolves.toBe(deps.providers.get(ZEP));
     await setSwitch('acme', false);
     await expect(resolveTenantMemoryProvider({ tenant_id: 'acme', ...deps })).resolves.toBeUndefined();
   });

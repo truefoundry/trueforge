@@ -132,15 +132,15 @@ describe('capabilities routers', () => {
         ),
       upsertProvider: () => Promise.reject(new Error('not used')),
     };
+    const storedConfiguration = {
+      tenant_id: 'default',
+      manifest: { web_search: { enabled: tenantWebSearchEnabled }, memory: { enabled: tenantMemoryEnabled } },
+      updated_at: '2026-01-01T00:00:00.000Z',
+    };
     const configurationStore: IConfigurationStore = {
-      getConfiguration: () =>
-        Promise.resolve({
-          tenant_id: 'default',
-          manifest: { web_search: { enabled: tenantWebSearchEnabled }, memory: { enabled: tenantMemoryEnabled } },
-          updated_at: '2026-01-01T00:00:00.000Z',
-        }),
+      getConfiguration: () => Promise.resolve(storedConfiguration),
       upsertConfiguration: () => Promise.reject(new Error('not used')),
-      getOrCreateConfiguration: () => Promise.reject(new Error('not used')),
+      getOrCreateConfiguration: () => Promise.resolve(storedConfiguration),
       listTenantIdsWithFeatureEnabled: () => Promise.reject(new Error('not used')),
     };
     return withAuth(
@@ -504,7 +504,12 @@ describe('capabilities routers', () => {
       const allOnConfigurationStore: IConfigurationStore = {
         getConfiguration: () => Promise.resolve(undefined),
         upsertConfiguration: () => Promise.reject(new Error('not used')),
-        getOrCreateConfiguration: () => Promise.reject(new Error('not used')),
+        getOrCreateConfiguration: input =>
+          Promise.resolve({
+            tenant_id: input.tenant_id,
+            manifest: input.default_manifest,
+            updated_at: '2026-01-01T00:00:00.000Z',
+          }),
         listTenantIdsWithFeatureEnabled: () => Promise.reject(new Error('not used')),
       };
       const zepMemoryStore: IMemoryProviderStore = {
@@ -551,7 +556,7 @@ describe('capabilities routers', () => {
           },
           settings: ALL_SETTINGS_ON,
           web_search: { enabled: false, reason: NO_PROVIDER_REASON },
-          memory: { enabled: false, reason: MEMORY_TENANT_OFF_REASON },
+          memory: { enabled: true },
           session_sharing: { granularity: 'tenant' },
         },
       });
@@ -572,7 +577,7 @@ describe('capabilities routers', () => {
           },
           settings: ALL_SETTINGS_OFF,
           web_search: { enabled: false, reason: NO_PROVIDER_REASON },
-          memory: { enabled: false, reason: MEMORY_TENANT_OFF_REASON },
+          memory: { enabled: true },
           session_sharing: { granularity: 'tenant' },
         },
       });
