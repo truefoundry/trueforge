@@ -28,22 +28,10 @@ describePg('PostgresSandboxEnvironmentStore (ISandboxEnvironmentStore contract)'
     }
   });
 
-  runSandboxEnvironmentStoreContractSuite({
-    getStore: () => {
-      if (env === undefined) {
-        throw new Error('Postgres test environment not initialized');
-      }
-      return new PostgresSandboxEnvironmentStore(env.db);
-    },
-    setUpdatedAt: async ({ name, updatedAt }) => {
-      if (env === undefined) {
-        throw new Error('Postgres test environment not initialized');
-      }
-      await env.db
-        .updateTable('sandbox_environment')
-        .set({ updated_at: new Date(updatedAt) })
-        .where('name', '=', name)
-        .execute();
-    },
+  runSandboxEnvironmentStoreContractSuite(() => {
+    if (env === undefined) {
+      throw new Error('Postgres test environment not initialized');
+    }
+    return new PostgresSandboxEnvironmentStore(env.db);
   });
 });

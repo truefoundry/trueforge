@@ -13,10 +13,5 @@ describe('SqliteSandboxEnvironmentStore (ISandboxEnvironmentStore contract)', ()
     await env?.teardown();
   });
 
-  runSandboxEnvironmentStoreContractSuite({
-    getStore: () => new SqliteSandboxEnvironmentStore(env.db),
-    setUpdatedAt: async ({ name, updatedAt }) => {
-      await env.db.updateTable('sandbox_environment').set({ updated_at: updatedAt }).where('name', '=', name).execute();
-    },
-  });
+  runSandboxEnvironmentStoreContractSuite(() => new SqliteSandboxEnvironmentStore(env.db));
 });
