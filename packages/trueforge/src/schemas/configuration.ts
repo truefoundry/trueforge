@@ -61,7 +61,7 @@ export type ConfigurationFeature = keyof ConfigurationManifest;
  */
 export const DEFAULT_CONFIGURATION_MANIFEST: ConfigurationManifest = {
   web_search: { enabled: true },
-  memory: { enabled: false },
+  memory: { enabled: true },
 };
 
 /**

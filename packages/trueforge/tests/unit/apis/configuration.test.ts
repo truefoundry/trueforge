@@ -26,17 +26,17 @@ async function createRouter() {
 }
 
 describe('settings configuration router', () => {
-  it('GET reports the defaults (memory off) and materialises the row on first read', async () => {
+  it('GET reports the defaults (memory on) and materialises the row on first read', async () => {
     const { router, store } = await createRouter();
 
     const response = await router.request('/');
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
-      data: { manifest: { web_search: { enabled: true }, memory: { enabled: false } }, updated_at: expect.any(String) },
+      data: { manifest: { web_search: { enabled: true }, memory: { enabled: true } }, updated_at: expect.any(String) },
     });
     await expect(store.getConfiguration(STANDALONE_REQUEST_CONTEXT.tenant_id)).resolves.toEqual({
       tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
-      manifest: { web_search: { enabled: true }, memory: { enabled: false } },
+      manifest: { web_search: { enabled: true }, memory: { enabled: true } },
       updated_at: expect.any(String),
     });
   });
@@ -47,13 +47,13 @@ describe('settings configuration router', () => {
     const patched = await router.request('/', patchInit({ web_search: { enabled: false } }));
     expect(patched.status).toBe(200);
     expect(await patched.json()).toMatchObject({
-      data: { manifest: { web_search: { enabled: false }, memory: { enabled: false } } },
+      data: { manifest: { web_search: { enabled: false }, memory: { enabled: true } } },
     });
 
     const get = await router.request('/');
     expect(get.status).toBe(200);
     expect(await get.json()).toMatchObject({
-      data: { manifest: { web_search: { enabled: false }, memory: { enabled: false } } },
+      data: { manifest: { web_search: { enabled: false }, memory: { enabled: true } } },
     });
   });
 
@@ -63,7 +63,7 @@ describe('settings configuration router', () => {
     const patched = await router.request('/', patchInit({ web_search: { enabled: false } }));
     expect(patched.status).toBe(200);
     await expect(store.getConfiguration(STANDALONE_REQUEST_CONTEXT.tenant_id)).resolves.toMatchObject({
-      manifest: { web_search: { enabled: false }, memory: { enabled: false } },
+      manifest: { web_search: { enabled: false }, memory: { enabled: true } },
     });
   });
 
@@ -75,18 +75,18 @@ describe('settings configuration router', () => {
     expect(reEnabled.status).toBe(200);
 
     await expect(store.getConfiguration(STANDALONE_REQUEST_CONTEXT.tenant_id)).resolves.toMatchObject({
-      manifest: { web_search: { enabled: true }, memory: { enabled: false } },
+      manifest: { web_search: { enabled: true }, memory: { enabled: true } },
     });
   });
 
-  it('PATCH turns memory on without touching web search', async () => {
+  it('PATCH turns memory off without touching web search', async () => {
     const { router, store } = await createRouter();
 
-    const patched = await router.request('/', patchInit({ memory: { enabled: true } }));
+    const patched = await router.request('/', patchInit({ memory: { enabled: false } }));
     expect(patched.status).toBe(200);
 
     await expect(store.getConfiguration(STANDALONE_REQUEST_CONTEXT.tenant_id)).resolves.toMatchObject({
-      manifest: { web_search: { enabled: true }, memory: { enabled: true } },
+      manifest: { web_search: { enabled: true }, memory: { enabled: false } },
     });
   });
 
@@ -98,7 +98,7 @@ describe('settings configuration router', () => {
     expect(empty.status).toBe(200);
 
     await expect(store.getConfiguration(STANDALONE_REQUEST_CONTEXT.tenant_id)).resolves.toMatchObject({
-      manifest: { web_search: { enabled: false }, memory: { enabled: false } },
+      manifest: { web_search: { enabled: false }, memory: { enabled: true } },
     });
   });
 
@@ -133,7 +133,7 @@ describe('settings configuration router', () => {
     });
   });
 
-  it('seeds memory off into a row saved without it, keeping the switches it has', async () => {
+  it('seeds memory on into a row saved without it, keeping the switches it has', async () => {
     const { router, db } = await createRouter();
     const tenant_id = STANDALONE_REQUEST_CONTEXT.tenant_id;
     await sql`INSERT INTO configuration (tenant_id, manifest, updated_at)
@@ -142,7 +142,7 @@ describe('settings configuration router', () => {
     const read = await router.request('/');
     expect(read.status).toBe(200);
     expect(await read.json()).toMatchObject({
-      data: { manifest: { web_search: { enabled: false }, memory: { enabled: false } } },
+      data: { manifest: { web_search: { enabled: false }, memory: { enabled: true } } },
     });
 
     // Aliased away from `manifest` so the raw stored document is read.
@@ -151,7 +151,7 @@ describe('settings configuration router', () => {
     }>`SELECT json(manifest) AS raw FROM configuration WHERE tenant_id = ${tenant_id}`.execute(db);
     expect(JSON.parse(stored.rows[0]?.raw ?? 'null')).toEqual({
       web_search: { enabled: false },
-      memory: { enabled: false },
+      memory: { enabled: true },
     });
   });
 
