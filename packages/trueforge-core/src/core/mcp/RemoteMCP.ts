@@ -73,6 +73,7 @@ export class RemoteMCP implements ToolSource {
   private readonly requestTimeoutMs: number;
   private readonly connectTimeoutMs: number;
   private readonly maxResponseBytes: number;
+  private readonly toolInfoType: InternalToolCallInfo['type'];
   // Redacted display url for trace spans (derived from url; unused when tracing is a no-op).
   private readonly traceUrl: string;
 
@@ -97,6 +98,7 @@ export class RemoteMCP implements ToolSource {
     connectTimeoutMs: number;
     maxResponseBytes?: number | undefined;
     signal: AbortSignal;
+    toolInfoType?: InternalToolCallInfo['type'] | undefined;
   }) {
     this.name = params.connection.name;
     this.id = params.id;
@@ -108,6 +110,7 @@ export class RemoteMCP implements ToolSource {
     this.requestTimeoutMs = params.requestTimeoutMs;
     this.connectTimeoutMs = params.connectTimeoutMs;
     this.maxResponseBytes = params.maxResponseBytes ?? DEFAULT_MAX_MCP_RESPONSE_BYTES;
+    this.toolInfoType = params.toolInfoType ?? 'mcp';
     this.logger = params.logger;
     this.tracing = params.tracing ?? NOOP_AGENT_TRACING;
     this.traceUrl = redactUrlForTrace(params.connection.url);
@@ -283,7 +286,7 @@ export class RemoteMCP implements ToolSource {
   toolCallInfo(params: CallToolRequest['params'], _resolveUnderlyingTool?: boolean): Promise<InternalToolCallInfo> {
     void _resolveUnderlyingTool;
     return Promise.resolve({
-      type: 'mcp',
+      type: this.toolInfoType,
       original_tool_name: params.name,
       mcp_server_id: this.id,
       mcp_server_name: this.name,

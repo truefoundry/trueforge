@@ -40,8 +40,8 @@ function specWantsSandbox(spec: AgentSpec): boolean {
   return spec.config.sandbox.enabled;
 }
 
-/** Runtime id of the built-in TrueForge management MCP. Display name stays on the connection. */
-export const TRUEFORGE_MCP_ID = 'built-in:trueforge-mcp';
+/** Runtime id and display name of the built-in TrueForge management MCP. */
+export const TRUEFORGE_MCP_ID = 'trueforge:mcp';
 
 const TRUEFORGE_MCP_SELECTORS: ToolSelectorConfig = {
   enableTools: DEFAULT_ENABLE_TOOLS,
@@ -288,6 +288,8 @@ export class TurnResourceResolver<
             logger: this.deps.logger,
             tracing: input.tracing,
             signal: input.signal,
+            // Management tools are harness system tools, not third-party MCP tools.
+            toolInfoType: 'truefoundry-system',
           }),
         ),
     });

@@ -153,23 +153,13 @@ describe('findLatestSessionSpecUpdate', () => {
     const messages = [
       assistantMessage('a1', {
         content: [
-          toolCall(
-            'first',
-            'call_tool',
-            { mcp_server: 'built-in:trueforge-mcp', tool_name: 'update_current_session' },
-            '{}',
-          ),
+          toolCall('first', 'call_tool', { mcp_server: 'trueforge:mcp', tool_name: 'update_current_session' }, '{}'),
         ],
       }),
       userMessage('u2'),
       assistantMessage('a2', {
         content: [
-          toolCall(
-            'second',
-            'call_tool',
-            { mcp_server: 'built-in:trueforge-mcp', tool_name: 'update_current_session' },
-            '{}',
-          ),
+          toolCall('second', 'call_tool', { mcp_server: 'trueforge:mcp', tool_name: 'update_current_session' }, '{}'),
         ],
       }),
     ];
@@ -183,15 +173,10 @@ describe('findLatestSessionSpecUpdate', () => {
           toolCall('other-server', 'call_tool', { mcp_server: 'github', tool_name: 'update_current_session' }, '{}'),
           toolCall('direct', 'update_current_session', {}, '{}'),
           toolCall('running', 'call_tool', {
-            mcp_server: 'built-in:trueforge-mcp',
+            mcp_server: 'trueforge:mcp',
             tool_name: 'update_current_session',
           }),
-          toolCall(
-            'done',
-            'call_tool',
-            { mcp_server: 'built-in:trueforge-mcp', tool_name: 'update_current_session' },
-            '{}',
-          ),
+          toolCall('done', 'call_tool', { mcp_server: 'trueforge:mcp', tool_name: 'update_current_session' }, '{}'),
         ],
       }),
     ];
