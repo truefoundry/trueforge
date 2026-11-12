@@ -275,6 +275,9 @@ jobs:
       - name: Lint chart
         run: pnpm chart:lint
 
+      - name: Test chart cluster domain
+        run: pnpm chart:test
+
   # Store contract suites when store paths change. Parallel with typecheck-and-build.
   store-tests:
     name: Store Tests

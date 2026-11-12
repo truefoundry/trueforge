@@ -5,6 +5,8 @@
 # JFrog mirror instead. Overriding the registry trips Bitnami's image guardrail,
 # so allowInsecureImages must be set for the subcharts to render.
 global:
+  # Kubernetes cluster DNS domain for generated in-cluster service FQDNs.
+  clusterDomain: cluster.local
   # small | medium | large. Used when resourceTierOverride is empty.
   # An explicit server.resources or controller.resources table wins over this.
   resourceTier: small
