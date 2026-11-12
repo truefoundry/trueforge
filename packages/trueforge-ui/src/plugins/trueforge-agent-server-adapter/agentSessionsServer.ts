@@ -29,6 +29,7 @@ function toSessionListEntry(session: TrueForgeApi.Session): HarnessSessionListEn
     lastActivityAt: session.updatedAt,
     isCreateAgent: readSessionIsCreateAgent(session.metadata),
     isMutable: session.agent.type === 'inline',
+    lastTurnDetails: session.lastTurnDetails ?? null,
     metrics: {
       totalTurns: session.metrics.totalTurns,
       ...(session.metrics.totalCostInUsd == null ? {} : { totalCostInUsd: session.metrics.totalCostInUsd }),

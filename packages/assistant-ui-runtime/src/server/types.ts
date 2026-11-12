@@ -212,6 +212,8 @@ export interface Session<TSpec extends AgentSpec = AgentSpec> {
   createdBy?: SessionSubject;
   /** Rolled-up turns/duration/cost from the session detail API when the host provides it. */
   metrics?: SessionListMetrics;
+  /** Slim snapshot of the session's last turn when the host provides it. */
+  lastTurnDetails?: SessionLastTurnDetails | null;
   createdAt: string;
   updatedAt: string;
   /** Arbitrary caller key-value metadata strings. */
@@ -283,6 +285,20 @@ export const TURN_CANCELLATION_REASON = {
   CLIENT_CANCELLED: 'client-cancelled',
   SERVER_EXECUTION_TIMEOUT: 'server-execution-timeout',
 } as const;
+
+/** Status of a turn, including `paused` (waiting on required actions). */
+export type TurnStatus = (typeof TURN_STATUS)[keyof typeof TURN_STATUS];
+
+/** Slim turn state on session list/detail payloads (`last_turn_details.state`). */
+export interface SessionLastTurnState {
+  status: TurnStatus;
+}
+
+/** The session's most recent turn; null until the first turn. */
+export interface SessionLastTurnDetails {
+  id: string;
+  state: SessionLastTurnState;
+}
 
 export const APPROVAL_DECISION_STATUS = {
   ALLOW: 'allow',
@@ -1153,6 +1169,8 @@ export interface SessionListEntry<TSpec extends AgentSpec = AgentSpec> {
   updatedAt: string;
   lastActivityAt: string;
   metrics: SessionListMetrics;
+  /** Slim snapshot of the session's last turn; null until the first turn. */
+  lastTurnDetails?: SessionLastTurnDetails | null;
   /** Present when bound to a published (immutable) agent. */
   agentName?: string | null;
   /** Present when bound to a mutable / draft agent spec. */

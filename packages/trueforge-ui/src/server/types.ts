@@ -124,6 +124,8 @@ export type {
   SessionAccessSubject,
   SessionAccessSubjectType,
   SessionEventItem,
+  SessionLastTurnDetails,
+  SessionLastTurnState,
   SessionListEntry,
   SessionListMetrics,
   SessionSubject,
@@ -147,6 +149,7 @@ export type {
   TurnInputItem,
   TurnState,
   TurnStatePaused,
+  TurnStatus,
   TurnStreamData,
   TurnStreamingEvent,
   TurnUpdateEvent,
@@ -173,3 +176,5 @@ export type {
   WebSearchProviderBase,
   WebSearchProviderCatalogEntry,
 } from '@truefoundry/trueforge-assistant-ui-runtime/server';
+
+export { TURN_STATUS, sessionListStartTimestamp } from '@truefoundry/trueforge-assistant-ui-runtime/server';

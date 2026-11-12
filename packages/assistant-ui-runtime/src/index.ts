@@ -58,6 +58,7 @@ export type {
   TrueForgeMessageCustomMetadata,
 } from './messageCustomMetadata.js';
 export { findPausedAssistantMessage, messageHasPendingRequiredActions } from './requiredActionInputs.js';
+export { sessionListStartTimestamp } from './sessionListStartTimestamp.js';
 export { getSession } from './sessions.js';
 export { messageHasPendingApprovals } from './toolApproval.js';
 export type { RespondToToolApprovalOptions } from './toolApproval.js';
@@ -205,6 +206,8 @@ export type {
   SendTurnEventsRequest,
   Session,
   SessionEventItem,
+  SessionLastTurnDetails,
+  SessionLastTurnState,
   SessionListEntry,
   SessionListMetrics,
   SettingsCapability,
@@ -236,6 +239,7 @@ export type {
   TurnState,
   TurnStateDone,
   TurnStatePaused,
+  TurnStatus,
   TurnStreamData,
   TurnStreamingEvent,
   TurnUpdateEvent,

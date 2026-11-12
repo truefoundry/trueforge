@@ -126,6 +126,8 @@ export type {
   SessionAccessServer,
   SessionAccessSubject,
   SessionAccessSubjectType,
+  SessionLastTurnDetails,
+  SessionLastTurnState,
   SessionListEntry,
   SessionListMetrics,
   SessionSubject,
@@ -155,6 +157,7 @@ export type {
   TurnStateError,
   TurnStatePaused,
   TurnStateRunning,
+  TurnStatus,
   UpdateConnectorRequest,
   UpdateMemoryProviderRequest,
   UpdateModelProviderRequest,
@@ -221,6 +224,7 @@ export type {
   UserToolResponseEvent,
 } from './events.js';
 
+export { sessionListStartTimestamp } from '../sessionListStartTimestamp.js';
 export { EVENT_TYPE, SYSTEM_TOOL_NAME, TOOL_INFO_TYPE } from './events.js';
 export { isEventDelta, mergeEventDelta } from './eventUtils.js';
 export {
