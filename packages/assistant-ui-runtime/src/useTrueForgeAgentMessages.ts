@@ -538,6 +538,7 @@ export function useTrueForgeAgentMessages({
   const sendEpochRef = useRef(0);
   const streamReconnectPendingRef = useRef(false);
   const cancelRequestedRef = useRef(false);
+  const cancelInFlightRef = useRef<Promise<void> | null>(null);
   const lazilyCreatedSessionIdRef = useRef<string | undefined>(undefined);
   const initialLoadStartedForRef = useRef<string | undefined>(undefined);
   const skipInitialPromotionLoadForRef = useRef<string | undefined>(undefined);
@@ -1251,43 +1252,59 @@ export function useTrueForgeAgentMessages({
   );
 
   const cancel = useCallback(async () => {
-    // A turn can start before the thread list publishes `remoteId`, and that
-    // run still has a backend session to stop.
-    const activeSessionId = sessionId ?? lazilyCreatedSessionIdRef.current;
-    if (activeSessionId == null) {
-      abortControllerRef.current?.abort();
+    if (cancelInFlightRef.current != null) {
+      await cancelInFlightRef.current;
       return;
     }
-    const conversationSessionId = await resolveActiveSessionId(
-      activeSessionId,
-      resolveConversationSessionIdRef.current,
-    );
-    const runningTurn = snapshotRef.current.runningTurn;
-    if (runningTurn?.state.status === TURN_STATUS.PAUSED) {
-      await ensureTurnSubscription({ conversationSessionId, turnId: runningTurn.id });
-    }
-    cancelRequestedRef.current = true;
-    // Drain a healthy live SSE for the cancelled turn.done. Abort a pending
-    // reconnect so cancel cannot start or keep a new subscribe after the live
-    // stream dropped.
-    if (streamReconnectPendingRef.current) {
-      abortControllerRef.current?.abort();
-    }
+
+    const run = (async () => {
+      // A turn can start before the thread list publishes `remoteId`, and that
+      // run still has a backend session to stop.
+      const activeSessionId = sessionId ?? lazilyCreatedSessionIdRef.current;
+      if (activeSessionId == null) {
+        abortControllerRef.current?.abort();
+        return;
+      }
+      const conversationSessionId = await resolveActiveSessionId(
+        activeSessionId,
+        resolveConversationSessionIdRef.current,
+      );
+      const runningTurn = snapshotRef.current.runningTurn;
+      if (runningTurn?.state.status === TURN_STATUS.PAUSED) {
+        await ensureTurnSubscription({ conversationSessionId, turnId: runningTurn.id });
+      }
+      cancelRequestedRef.current = true;
+      // Drain a healthy live SSE for the cancelled turn.done. Abort a pending
+      // reconnect so cancel cannot start or keep a new subscribe after the live
+      // stream dropped.
+      if (streamReconnectPendingRef.current) {
+        abortControllerRef.current?.abort();
+      }
+      try {
+        // Cancellation remains server-authoritative. The attached subscription
+        // delivers the cancelled turn.done for both running and paused turns.
+        await server.cancelSession({ sessionId: conversationSessionId });
+      } catch (error) {
+        onErrorRef.current?.(error);
+        throw error;
+      }
+      await activeRunRef.current?.promise.catch(() => undefined);
+      // No attached stream delivered turn.done (resumeUnavailable / detached
+      // reconnect). Finalize locally so the tip is not left status:running —
+      // clearing resumeUnavailable would otherwise bring the activity loader back.
+      updateSnapshot(finalizeLocallyCancelledTurn);
+      markResumeUnavailable(false);
+      setIsRunning(false);
+    })();
+
+    cancelInFlightRef.current = run;
     try {
-      // Cancellation remains server-authoritative. The attached subscription
-      // delivers the cancelled turn.done for both running and paused turns.
-      await server.cancelSession({ sessionId: conversationSessionId });
-    } catch (error) {
-      onErrorRef.current?.(error);
-      throw error;
+      await run;
+    } finally {
+      if (cancelInFlightRef.current === run) {
+        cancelInFlightRef.current = null;
+      }
     }
-    await activeRunRef.current?.promise.catch(() => undefined);
-    // No attached stream delivered turn.done (resumeUnavailable / detached
-    // reconnect). Finalize locally so the tip is not left status:running —
-    // clearing resumeUnavailable would otherwise bring the activity loader back.
-    updateSnapshot(finalizeLocallyCancelledTurn);
-    markResumeUnavailable(false);
-    setIsRunning(false);
   }, [ensureTurnSubscription, markResumeUnavailable, server, sessionId, updateSnapshot]);
 
   const submitTurnEvents = useCallback(

@@ -1924,43 +1924,7 @@ describe('useTrueForgeAgentMessages', () => {
     });
   });
 
-  it('submits MCP auth continuation on the paused turn', async () => {
-    vi.mocked(loadSessionSnapshot).mockResolvedValue(
-      snapshotWithAssistantMessage({
-        id: 'turn-1-assistant',
-        role: 'assistant',
-        content: [{ type: 'text', text: 'Connect the required service.' }],
-        status: { type: 'requires-action', reason: 'interrupt' },
-        createdAt: new Date(),
-        metadata: {
-          unstable_state: null,
-          unstable_annotations: [],
-          unstable_data: [],
-          steps: [],
-          custom: {
-            turnId: 'turn-1',
-            pendingMcpAuth: true,
-            mcpServers: [{ id: 'github', name: 'GitHub', authUrl: 'https://example.com/auth' }],
-          },
-        },
-      }),
-    );
-
-    const { result } = renderHook(() => useTrueForgeAgentMessages({ server: mockServer, sessionId: 'session-1' }));
-    await waitFor(() => expect(result.current.messages).toHaveLength(1));
-
-    await act(async () => {
-      await result.current.continueMcpAuth();
-    });
-
-    expect(mockServer.sendTurnEvents).toHaveBeenCalledWith({
-      sessionId: 'session-1',
-      turnId: 'turn-1',
-      events: [{ type: 'user.mcp_auth_continue' }],
-    });
-  });
-
-  it('keeps Connect visible until the continue request succeeds', async () => {
+  it('submits MCP auth continuation and clears Connect only after the request succeeds', async () => {
     let resolveSend: (() => void) | undefined;
     vi.mocked(mockServer.sendTurnEvents).mockImplementation(
       () =>
@@ -1997,7 +1961,11 @@ describe('useTrueForgeAgentMessages', () => {
       continued = result.current.continueMcpAuth();
     });
     await waitFor(() => expect(mockServer.sendTurnEvents).toHaveBeenCalledTimes(1));
-
+    expect(mockServer.sendTurnEvents).toHaveBeenCalledWith({
+      sessionId: 'session-1',
+      turnId: 'turn-1',
+      events: [{ type: 'user.mcp_auth_continue' }],
+    });
     expect(result.current.messages[0]?.metadata.custom?.['pendingMcpAuth']).toBe(true);
 
     await act(async () => {
