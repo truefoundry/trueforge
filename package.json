@@ -11,7 +11,6 @@
     "chart:lint": "helm lint charts/trueforge --values charts/trueforge/ci/lint-values.yaml",
     "chart:package": "helm package charts/trueforge --destination dist",
     "chart:template": "helm template trueforge charts/trueforge --values charts/trueforge/ci/lint-values.yaml",
-    "chart:test": "bash charts/trueforge/ci/test-cluster-domain.sh",
     "changeset": "changeset",
     "changeset:sdk-regen": "bash scripts/changeset-sdk-regen.sh",
     "clean:all": "node scripts/clean.mjs --dependencies",
