@@ -43,7 +43,7 @@ export interface WireApiClient {
 }
 
 /** Map generated tool arguments onto raw SDK passthrough requests. */
-export function createWireApiClient(client: Pick<TrueForge, 'fetch'>): WireApiClient {
+export function createWireApiClient(client: Pick<TrueForge, 'fetch'>, baseUrl: string): WireApiClient {
   return {
     async execute(descriptor, args, signal) {
       let pathname = descriptor.path;
@@ -80,9 +80,12 @@ export function createWireApiClient(client: Pick<TrueForge, 'fetch'>): WireApiCl
         headers.set('content-type', 'application/json');
       }
 
-      const queryString = query.toString();
+      // Resolve an absolute URL here. The SDK passthrough fetch appends a relative path onto the
+      // base pathname, which percent-encodes `?` and turns the query string into part of the route.
+      const url = new URL(pathname, baseUrl);
+      url.search = query.toString();
       const response = await client.fetch(
-        queryString.length === 0 ? pathname : `${pathname}?${queryString}`,
+        url,
         {
           method: descriptor.method,
           headers,
