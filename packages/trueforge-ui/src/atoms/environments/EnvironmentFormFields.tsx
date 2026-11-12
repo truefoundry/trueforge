@@ -1,13 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { Prism as PrismHighlighter } from 'react-syntax-highlighter';
-import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { useId, useState } from 'react';
 
 import { Icon } from '../../icons/Icon.js';
 import type { SandboxEnvironmentManifest, SandboxEnvironmentSecret } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
-import { useOptionalThemeMode } from '../../theme/ThemeProvider.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { Button } from '../primitives/Button.js';
@@ -121,9 +118,11 @@ export function EnvironmentFormFields({
   readOnly?: boolean;
 }) {
   const MonacoEditorCore = useSlot('MonacoEditorCore');
-  const themeMode = useOptionalThemeMode();
+  const buildScriptLabelId = useId();
   const [buildScriptOpen, setBuildScriptOpen] = useState(false);
   const update = (patch: Partial<EnvironmentFormValues>) => onChange({ ...values, ...patch });
+  const scriptEditorOptions = { readOnly, lineNumbers: 'on', renderFinalNewline: 'on' };
+  const updateBuildScript = (buildScript: string) => update({ buildScript });
 
   return (
     <fieldset disabled={readOnly} className="m-0 flex min-w-0 flex-col gap-4 border-0 p-0 pb-8">
@@ -155,50 +154,36 @@ export function EnvironmentFormFields({
         <h3 className="text-sm font-medium text-text-primary">Image And Resources</h3>
 
         <div className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-text-secondary">Build Script</span>
-          <button
-            type="button"
-            aria-label="Edit build script full screen"
-            aria-haspopup="dialog"
-            className={cn(
-              fieldClassName,
-              'relative flex min-h-24 cursor-pointer items-start overflow-hidden pr-9 text-left font-mono text-xs',
-            )}
-            onClick={() => setBuildScriptOpen(true)}
-          >
-            <span
-              data-testid="build-script-preview"
-              className="block max-h-32 min-w-0 flex-1 overflow-y-auto overscroll-contain"
-            >
-              {values.buildScript ? (
-                <PrismHighlighter
-                  language="bash"
-                  style={themeMode === 'dark' ? oneDark : oneLight}
-                  PreTag="span"
-                  CodeTag="span"
-                  customStyle={{
-                    margin: 0,
-                    padding: 0,
-                    background: 'transparent',
-                    fontFamily: 'inherit',
-                    fontSize: 'inherit',
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                    minWidth: 0,
-                  }}
-                  codeTagProps={{ style: { fontFamily: 'inherit', fontSize: 'inherit', whiteSpace: 'pre-wrap' } }}
-                  wrapLongLines
-                >
-                  {values.buildScript}
-                </PrismHighlighter>
-              ) : (
-                <span className="block whitespace-pre-wrap break-words text-text-secondary/70">
-                  {'set -ex\npip install httpx\n'}
-                </span>
-              )}
+          <div className="flex items-center justify-between gap-3">
+            <span id={buildScriptLabelId} className="text-xs font-medium text-text-secondary">
+              Build Script
             </span>
-            <Icon name="expand" className="absolute right-2.5 top-2 size-4 text-text-secondary" />
-          </button>
+            <button
+              type="button"
+              aria-label="Edit build script full screen"
+              aria-haspopup="dialog"
+              title="Full screen"
+              className={auiButtonClass({ variant: 'ghost', size: 'icon', className: 'size-7 shrink-0' })}
+              onClick={() => setBuildScriptOpen(true)}
+            >
+              <Icon name="expand" className="size-4" />
+            </button>
+          </div>
+          <div
+            role="group"
+            aria-labelledby={buildScriptLabelId}
+            className="h-36 overflow-hidden rounded-md border border-border bg-input-box-bg"
+          >
+            {buildScriptOpen ? null : (
+              <MonacoEditorCore
+                value={values.buildScript}
+                language="shell"
+                height="100%"
+                options={scriptEditorOptions}
+                onChange={updateBuildScript}
+              />
+            )}
+          </div>
           <Dialog
             open={buildScriptOpen}
             onOpenChange={setBuildScriptOpen}
@@ -218,8 +203,8 @@ export function EnvironmentFormFields({
                     value={values.buildScript}
                     language="shell"
                     height="100%"
-                    options={{ readOnly, lineNumbers: 'on', renderFinalNewline: 'on' }}
-                    onChange={buildScript => update({ buildScript })}
+                    options={scriptEditorOptions}
+                    onChange={updateBuildScript}
                   />
                 </div>
               </>

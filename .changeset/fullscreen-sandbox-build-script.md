@@ -2,4 +2,4 @@
 '@truefoundry/trueforge-ui': patch
 ---
 
-Open sandbox environment build scripts in a full-screen shell editor when editing, with visible line numbers even for empty scripts and a compact, scrollable, syntax-highlighted Bash preview.
+Edit sandbox environment build scripts inline or full-screen using the shared shell editor, with bounded scrolling and visible line numbers even for empty scripts. Keep nested editor dismissal from closing the environment form.

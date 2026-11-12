@@ -135,7 +135,7 @@ function renderDrawer({
 }
 
 describe('EnvironmentFormDrawer', () => {
-  it('keeps long build script previews compact and scrollable without truncating the script', async () => {
+  it('keeps long scripts in a fixed-height inline shell editor', async () => {
     const buildScript = Array.from({ length: 80 }, (_, index) => `echo "line ${index + 1}"`).join('\n');
     renderDrawer({
       mode: 'edit',
@@ -146,47 +146,56 @@ describe('EnvironmentFormDrawer', () => {
     });
 
     const trigger = screen.getByRole('button', { name: 'Edit build script full screen' });
-    const preview = within(trigger).getByTestId('build-script-preview');
-    expect(preview).toHaveClass('max-h-32', 'overflow-y-auto', 'overscroll-contain');
-    expect(preview.textContent).toBe(buildScript);
+    const inlineGroup = screen.getByRole('group', { name: 'Build Script' });
+    const inlineEditor = within(inlineGroup).getByRole('textbox', { name: 'Build script editor' });
+    expect(inlineGroup).toHaveClass('h-36', 'overflow-hidden');
+    expect(inlineEditor).toHaveValue(buildScript);
+    expect(inlineEditor).toHaveAttribute('data-language', 'shell');
+    expect(inlineEditor).toHaveStyle({ height: '100%' });
 
     fireEvent.click(trigger);
     expect(screen.getByRole('textbox', { name: 'Build script editor' })).toHaveValue(buildScript);
+    expect(within(inlineGroup).queryByRole('textbox')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Done' }));
-    await waitFor(() => expect(preview).toBeVisible());
-    expect(preview).toHaveClass('max-h-32', 'overflow-y-auto');
+    await waitFor(() => expect(within(inlineGroup).getByRole('textbox')).toHaveValue(buildScript));
+    expect(inlineGroup).toHaveClass('h-36', 'overflow-hidden');
   });
 
-  it('top-aligns the placeholder and highlights saved scripts as Bash', async () => {
-    renderDrawer();
-    const trigger = screen.getByRole('button', { name: 'Edit build script full screen' });
-    expect(trigger).toHaveClass('flex', 'items-start');
-    expect(trigger).toHaveTextContent('set -ex pip install httpx');
-    expect(within(trigger).queryByTestId('aui-syntax-highlighter')).not.toBeInTheDocument();
+  it('edits and saves scripts inline without opening full screen', async () => {
+    const { createEnvironment } = renderDrawer();
+    const buildScript = '#!/bin/bash\necho "$HOME"\n';
+    const inlineEditor = screen.getByRole('textbox', { name: 'Build script editor' });
+    expect(inlineEditor).toHaveValue('');
+    expect(inlineEditor).toHaveAttribute('data-language', 'shell');
+    expect(inlineEditor).toHaveAttribute('data-line-numbers', 'on');
+    expect(inlineEditor).toHaveAttribute('data-render-final-newline', 'on');
 
-    fireEvent.click(trigger);
-    fireEvent.change(screen.getByRole('textbox', { name: 'Build script editor' }), {
-      target: { value: '#!/bin/bash\necho "$HOME"\n' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    fireEvent.change(inlineEditor, { target: { value: buildScript } });
+    expect(screen.queryByRole('dialog', { name: 'Edit build script full screen' })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText('my-environment'), { target: { value: 'node-web' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
 
     await waitFor(() => {
-      expect(within(trigger).getByTestId('aui-syntax-highlighter')).toHaveClass('language-bash');
+      expect(createEnvironment).toHaveBeenCalledWith({
+        manifest: expect.objectContaining({ image: { type: 'build', buildScript } }),
+      });
     });
-    expect(trigger).toHaveTextContent('echo "$HOME"');
   });
 
   it('opens a full-screen shell editor and saves build script edits with the form', async () => {
     const { createEnvironment } = renderDrawer();
     const buildScript = 'set -ex\n  pip install httpx\n';
     fireEvent.change(screen.getByPlaceholderText('my-environment'), { target: { value: 'node-web' } });
-    expect(screen.queryByRole('textbox', { name: 'Build script editor' })).not.toBeInTheDocument();
+    const inlineEditor = screen.getByRole('textbox', { name: 'Build script editor' });
+    expect(inlineEditor).toHaveValue('');
+    fireEvent.change(inlineEditor, { target: { value: 'echo inline\n' } });
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit build script full screen' }));
     const dialog = screen.getByRole('dialog', { name: 'Edit build script full screen' });
     expect(dialog).toHaveClass('max-h-none', 'max-w-none', 'h-[calc(100dvh-2rem)]', 'w-[calc(100vw-2rem)]');
     const editor = within(dialog).getByRole('textbox', { name: 'Build script editor' });
-    expect(editor).toHaveValue('');
+    expect(editor).toHaveValue('echo inline\n');
+    expect(screen.getAllByRole('textbox', { name: 'Build script editor' })).toHaveLength(1);
     expect(screen.getAllByText('Build Script')).toHaveLength(2);
     expect(screen.queryByText(/\/5120/)).not.toBeInTheDocument();
     expect(editor).toHaveAttribute('data-language', 'shell');
@@ -198,9 +207,7 @@ describe('EnvironmentFormDrawer', () => {
 
     expect(screen.queryByRole('dialog', { name: 'Edit build script full screen' })).not.toBeInTheDocument();
     expect(createEnvironment).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: 'Edit build script full screen' })).toHaveTextContent(
-      'pip install httpx',
-    );
+    expect(screen.getByRole('textbox', { name: 'Build script editor' })).toHaveValue(buildScript);
     fireEvent.click(screen.getByRole('button', { name: 'Edit build script full screen' }));
     expect(screen.getByRole('textbox', { name: 'Build script editor' })).toHaveValue(buildScript);
     fireEvent.click(screen.getByRole('button', { name: 'Done' }));
@@ -225,9 +232,12 @@ describe('EnvironmentFormDrawer', () => {
     const editor = screen.getByRole('textbox', { name: 'Build script editor' });
     expect(editor).toHaveValue('echo original\n');
     fireEvent.change(editor, { target: { value: 'echo updated\n' } });
-    fireEvent(screen.getByRole('dialog', { name: 'Edit build script full screen' }), new Event('close'));
+    const cancelEvent = new Event('cancel', { bubbles: true, cancelable: true });
+    fireEvent(screen.getByRole('dialog', { name: 'Edit build script full screen' }), cancelEvent);
 
-    expect(screen.queryByRole('textbox', { name: 'Build script editor' })).not.toBeInTheDocument();
+    expect(cancelEvent.defaultPrevented).toBe(true);
+    expect(screen.queryByRole('dialog', { name: 'Edit build script full screen' })).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Build script editor' })).toHaveValue('echo updated\n');
     expect(onOpenChange).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => {
@@ -241,7 +251,7 @@ describe('EnvironmentFormDrawer', () => {
     renderDrawer({ mode: 'edit', environment: editEnvironment, readOnly: true });
 
     expect(screen.getByRole('button', { name: 'Edit build script full screen' })).toBeDisabled();
-    expect(screen.queryByRole('textbox', { name: 'Build script editor' })).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Build script editor' })).toHaveAttribute('readonly');
   });
 
   it('saves UI form values', async () => {

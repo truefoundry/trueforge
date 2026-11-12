@@ -49,6 +49,25 @@ function getNativeDialog(container: HTMLElement) {
 }
 
 describe('Dialog', () => {
+  it('handles cancel without dismissing an enclosing dialog', () => {
+    const onOpenChange = vi.fn();
+    const onParentCancel = vi.fn();
+    render(
+      <dialog open onCancel={onParentCancel}>
+        <Dialog open onOpenChange={onOpenChange} aria-label="Editor">
+          Editor body
+        </Dialog>
+      </dialog>,
+    );
+
+    const cancelEvent = new Event('cancel', { bubbles: true, cancelable: true });
+    fireEvent(screen.getByRole('dialog', { name: 'Editor' }), cancelEvent);
+
+    expect(cancelEvent.defaultPrevented).toBe(true);
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(onParentCancel).not.toHaveBeenCalled();
+  });
+
   it('synchronizes the controlled open state and reports native close events', () => {
     const onOpenChange = vi.fn();
     const view = render(
