@@ -153,6 +153,7 @@ describe('startScheduleRun', () => {
       created_by_subject: { subject_id: 'tester', subject_type: 'user', subject_display_name: 'tester' },
       agent: { type: 'reference', id: 'agent-1', name: 'reporter' },
       source: { type: 'schedule', id: 'sched-1', run_id: 'run-1' },
+      metadata: { 'tfg.source': 'schedule' },
     });
     expect(prepared).toEqual({
       session,
