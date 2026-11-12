@@ -481,6 +481,7 @@ export class SessionHandle<
     const previousMcpServers = input.previous?.snapshot.mcp_servers;
     const orchestrator = new AgentThreadOrchestrator({
       agentThreads,
+      maxParallelSubAgents: input.resolver.maxParallelSubAgents,
       createDynamicSubAgentThread,
       tracing,
       logger: input.resolver.logger,

@@ -97,6 +97,7 @@ export class TurnResourceResolver<
       mcpRequestTimeoutMs: number;
       mcpConnectTimeoutMs: number;
       mcpMaxResponseBytes?: number | undefined;
+      maxParallelSubAgents?: number | undefined;
       /** One sandbox type per runtime. Omit = no sandbox support. */
       sandboxProvider?: TurnSandboxFactory | undefined;
       /**
@@ -119,6 +120,10 @@ export class TurnResourceResolver<
 
   get webSearchProvider(): IWebSearchProvider | undefined {
     return this.deps.webSearchProvider;
+  }
+
+  get maxParallelSubAgents(): number | undefined {
+    return this.deps.maxParallelSubAgents;
   }
 
   get logger(): Logger {

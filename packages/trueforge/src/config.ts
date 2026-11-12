@@ -16,6 +16,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { DEFAULT_MAX_PARALLEL_SUB_AGENTS } from '@truefoundry/trueforge-core/core';
 import envPaths from 'env-paths';
 import { z } from 'zod';
 
@@ -788,6 +789,8 @@ export interface SharedServerConfiguration {
    * Default 3600 (60 minutes).
    */
   SERVER_EXECUTION_TIMEOUT_SECONDS: number;
+  /** Max parallel sub-agents per turn. Env: `MAX_PARALLEL_SUB_AGENTS`. Default 10. */
+  MAX_PARALLEL_SUB_AGENTS: number;
   /**
    * TTL for a running turn's resumable event stream.
    * Env: `TURN_STREAM_TTL_SECONDS`. Default execution timeout + 300.
@@ -1227,6 +1230,11 @@ const shared: SharedServerConfiguration = {
     defaultValue: 30,
   }),
   SERVER_EXECUTION_TIMEOUT_SECONDS: serverExecutionTimeoutSeconds,
+  MAX_PARALLEL_SUB_AGENTS: parsePositiveInt({
+    envKey: 'MAX_PARALLEL_SUB_AGENTS',
+    raw: getEnv('MAX_PARALLEL_SUB_AGENTS'),
+    defaultValue: DEFAULT_MAX_PARALLEL_SUB_AGENTS,
+  }),
   TURN_STREAM_TTL_SECONDS: parsePositiveInt({
     envKey: 'TURN_STREAM_TTL_SECONDS',
     raw: getEnv('TURN_STREAM_TTL_SECONDS'),
