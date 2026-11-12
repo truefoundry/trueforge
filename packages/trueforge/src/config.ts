@@ -770,7 +770,7 @@ export interface SharedServerConfiguration {
   SANDBOX_ENVIRONMENT_DISK_GIB_MAX: number;
   /** Max characters in a sandbox environment build script. Env: `SANDBOX_ENVIRONMENT_BUILD_SCRIPT_MAX_LENGTH`. Default 20,000. */
   SANDBOX_ENVIRONMENT_BUILD_SCRIPT_MAX_LENGTH: number;
-  /** Default and max `limit` for list session/turn events. Env: `LIST_EVENTS_PAGE_LIMIT_MAX`. Default 100. */
+  /** Default and max `limit` for list session/turn events. Env: `LIST_EVENTS_PAGE_LIMIT_MAX`. Default 500. */
   LIST_EVENTS_PAGE_LIMIT_MAX: number;
   /**
    * Max bytes for an HTTP request body. Env: `MAX_REQUEST_BODY_BYTES`. Default 30 MB.
@@ -1214,7 +1214,7 @@ const shared: SharedServerConfiguration = {
   LIST_EVENTS_PAGE_LIMIT_MAX: parsePositiveInt({
     envKey: 'LIST_EVENTS_PAGE_LIMIT_MAX',
     raw: getEnv('LIST_EVENTS_PAGE_LIMIT_MAX'),
-    defaultValue: 100,
+    defaultValue: 500,
   }),
   MAX_REQUEST_BODY_BYTES: parsePositiveInt({
     envKey: 'MAX_REQUEST_BODY_BYTES',

@@ -3,7 +3,8 @@ import { render, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DraftCatalogProvider } from '@/atoms/draft/DraftCatalogProvider.js';
-import { DraftSpecPreferenceBridge } from '@/atoms/draft/DraftSpecPreferenceBridge.js';
+import { DraftSpecPreferenceBridge, reconcileDraftMemory } from '@/atoms/draft/DraftSpecPreferenceBridge.js';
+import { writeDraftSpecPreferences } from '@/server/draftSpecPreferences.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import type { AgentSpec } from '@/server/types.js';
 import { createMockAgentUIServer, tenantSessionSharing } from '../../server/mockServer.js';
@@ -31,7 +32,17 @@ async function expectWebSearchUntouched() {
   }
 }
 
-function renderBridge() {
+/** No update set or cleared memory on this draft. */
+async function expectMemoryUntouched() {
+  await new Promise(resolve => setTimeout(resolve, 50));
+  for (const [update] of updateAgentSpec.mock.calls) {
+    if (update.config !== undefined) {
+      expect(update.config.memory).toEqual(agentSpec.config?.memory);
+    }
+  }
+}
+
+function renderBridge({ memory }: { memory?: { enabled: boolean } } = {}) {
   const server = createMockAgentUIServer({
     getCapabilities: async () => ({
       data: {
@@ -39,6 +50,7 @@ function renderBridge() {
         skill: { enabled: true },
         sessionSharing: tenantSessionSharing,
         webSearch: { enabled: false },
+        ...(memory === undefined ? {} : { memory }),
       },
     }),
   });
@@ -98,5 +110,114 @@ describe('DraftSpecPreferenceBridge web search', () => {
     await waitFor(() => {
       expect(updateAgentSpec).toHaveBeenCalledWith({ config: { webSearch: { enabled: false } } });
     });
+  });
+});
+
+describe('reconcileDraftMemory', () => {
+  it('turns memory on when it is available and the draft has not set it', () => {
+    expect(
+      reconcileDraftMemory({
+        agentSpec: { model: { name: 'model' }, config: { sandbox: { enabled: true } } },
+        memoryEnabled: true,
+      }),
+    ).toEqual({ config: { sandbox: { enabled: true }, memory: { enabled: true } } });
+  });
+
+  it('keeps a memory choice already on the draft', () => {
+    expect(
+      reconcileDraftMemory({
+        agentSpec: { model: { name: 'model' }, config: { memory: { enabled: false } } },
+        memoryEnabled: true,
+      }),
+    ).toEqual({});
+  });
+
+  it('clears memory that is on when memory is unavailable, but keeps an explicit off', () => {
+    expect(
+      reconcileDraftMemory({
+        agentSpec: { model: { name: 'model' }, config: { sandbox: { enabled: true }, memory: { enabled: true } } },
+        memoryEnabled: false,
+      }),
+    ).toEqual({ config: { sandbox: { enabled: true } } });
+    expect(
+      reconcileDraftMemory({
+        agentSpec: { model: { name: 'model' }, config: { memory: { enabled: false } } },
+        memoryEnabled: false,
+      }),
+    ).toEqual({});
+  });
+
+  it('turns a leftover off back on when memory returns, unless the off was stored', () => {
+    const agentSpec = { model: { name: 'model' }, config: { memory: { enabled: false } } };
+
+    expect(reconcileDraftMemory({ agentSpec, memoryEnabled: true, previousMemoryEnabled: false })).toEqual({
+      config: { memory: { enabled: true } },
+    });
+    expect(
+      reconcileDraftMemory({ agentSpec, memoryEnabled: true, previousMemoryEnabled: false, explicitOff: true }),
+    ).toEqual({});
+  });
+
+  it('changes nothing before capabilities load', () => {
+    const agentSpec = { model: { name: 'model' }, config: { memory: { enabled: true } } };
+
+    expect(reconcileDraftMemory({ agentSpec, memoryEnabled: undefined })).toEqual({});
+    expect(reconcileDraftMemory({ agentSpec: { model: { name: 'model' } }, memoryEnabled: null })).toEqual({});
+  });
+});
+
+describe('DraftSpecPreferenceBridge memory', () => {
+  it('turns memory on for a New Agent draft once memory is available', async () => {
+    agentSpec = { model: { name: 'model' } };
+    draftSessionId = undefined;
+    mode = { status: 'active', isMutable: true, isCreateAgent: true };
+
+    renderBridge({ memory: { enabled: true } });
+
+    await waitFor(() => {
+      expect(updateAgentSpec).toHaveBeenCalledWith({ config: { memory: { enabled: true } } });
+    });
+  });
+
+  it('clears memory from a New Agent draft when no memory provider is configured', async () => {
+    agentSpec = { model: { name: 'model' }, config: { memory: { enabled: true } } };
+    draftSessionId = undefined;
+    mode = { status: 'active', isMutable: true, isCreateAgent: true };
+
+    renderBridge();
+
+    await waitFor(() => {
+      expect(updateAgentSpec).toHaveBeenCalledWith({ config: {} });
+    });
+  });
+
+  it('keeps a remembered memory off on a New Agent draft', async () => {
+    writeDraftSpecPreferences('agent', { model: { name: 'model' }, config: { memory: { enabled: false } } });
+    agentSpec = { model: { name: 'model' }, config: { memory: { enabled: false } } };
+    draftSessionId = undefined;
+    mode = { status: 'active', isMutable: true, isCreateAgent: true };
+
+    renderBridge({ memory: { enabled: true } });
+
+    await expectMemoryUntouched();
+  });
+
+  it('leaves a New Chat draft without memory', async () => {
+    agentSpec = { model: { name: 'model' } };
+    draftSessionId = undefined;
+
+    renderBridge({ memory: { enabled: true } });
+
+    await expectMemoryUntouched();
+  });
+
+  it('leaves a saved agent memory setting alone', async () => {
+    agentSpec = { model: { name: 'model' }, config: { memory: { enabled: true } } };
+    draftSessionId = undefined;
+    mode = { status: 'active', isMutable: true, isCreateAgent: true, agentId: 'agent-1' };
+
+    renderBridge();
+
+    await expectMemoryUntouched();
   });
 });
