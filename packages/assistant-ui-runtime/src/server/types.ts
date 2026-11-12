@@ -276,6 +276,14 @@ export const TURN_STATUS = {
   RUNNING: 'running',
 } as const;
 
+/** Known `TurnStateCancelled.reason` values; hosts may send others. */
+export const TURN_CANCELLATION_REASON = {
+  ABANDONED: 'abandoned',
+  CANCELLED_FOR_NEXT_TURN: 'cancelled-for-next-turn',
+  CLIENT_CANCELLED: 'client-cancelled',
+  SERVER_EXECUTION_TIMEOUT: 'server-execution-timeout',
+} as const;
+
 export const APPROVAL_DECISION_STATUS = {
   ALLOW: 'allow',
   DENY: 'deny',

@@ -137,7 +137,7 @@ describe('AgentThread deferred discovery registration', () => {
     const names = await registeredToolNames({
       capabilities: [
         currentDateTime({ tracing: NOOP_AGENT_TRACING }),
-        { systemToolSets: [makeMockIMCPServer({ name: 'trueforge-mcp', preload: false })] },
+        { systemToolSets: [makeMockIMCPServer({ name: 'trueforge:mcp', preload: false })] },
       ],
     });
 

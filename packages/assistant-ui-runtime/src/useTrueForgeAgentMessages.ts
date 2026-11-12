@@ -13,7 +13,7 @@ import type {
   UserToolApprovalPolicyInputEvent,
   UserToolResponseInputEvent,
 } from './server/index.js';
-import { EVENT_TYPE, TURN_STATUS } from './server/index.js';
+import { EVENT_TYPE, TURN_CANCELLATION_REASON, TURN_STATUS } from './server/index.js';
 import type { AgentChatServer } from './server/types.js';
 
 import { collectPendingApprovals, collectPendingToolResponses } from './collectPending.js';
@@ -35,6 +35,7 @@ import {
   resolveToolApprovalPolicyTarget,
 } from './foldPeerThreads.js';
 import { loadSessionSnapshot } from './loadSessionSnapshot.js';
+import { withOptimisticMcpAuthContinue } from './mcpAuth.js';
 import { isMcpServerAuthInfoList, MESSAGE_CUSTOM_KEY } from './messageCustomMetadata.js';
 import type { AssistantContentPart } from './modelMessageContent.js';
 import { findPausedAssistantMessage } from './requiredActionInputs.js';
@@ -210,7 +211,7 @@ function commitActiveStream(snapshot: SessionSnapshot): SessionSnapshot {
 
 function buildCancelledTurnState({
   completedAt,
-  reason = 'Superseded by a later message',
+  reason = TURN_CANCELLATION_REASON.CANCELLED_FOR_NEXT_TURN,
 }: {
   completedAt: string;
   reason?: string;
@@ -291,7 +292,7 @@ function materializeAbandonedStreamRootIds(options: {
  */
 function abandonInFlightClientTurn(
   snapshot: SessionSnapshot,
-  reason = 'Superseded by a later message',
+  reason: string = TURN_CANCELLATION_REASON.CANCELLED_FOR_NEXT_TURN,
 ): SessionSnapshot {
   const active = snapshot.activeStream;
   const hasIncompleteStream = isIncompleteActiveStream(snapshot);
@@ -404,7 +405,7 @@ function finalizeLocallyCancelledTurn(snapshot: SessionSnapshot): SessionSnapsho
   const completedAt = new Date().toISOString();
   const cancelledState = buildCancelledTurnState({
     completedAt,
-    reason: 'client-cancelled',
+    reason: TURN_CANCELLATION_REASON.CLIENT_CANCELLED,
   });
   const tipIndex = abandoned.turns.findIndex(turn => turn.id === openTurn.id);
   if (tipIndex >= 0) {
@@ -537,6 +538,7 @@ export function useTrueForgeAgentMessages({
   const sendEpochRef = useRef(0);
   const streamReconnectPendingRef = useRef(false);
   const cancelRequestedRef = useRef(false);
+  const cancelInFlightRef = useRef<Promise<void> | null>(null);
   const lazilyCreatedSessionIdRef = useRef<string | undefined>(undefined);
   const initialLoadStartedForRef = useRef<string | undefined>(undefined);
   const skipInitialPromotionLoadForRef = useRef<string | undefined>(undefined);
@@ -1250,43 +1252,59 @@ export function useTrueForgeAgentMessages({
   );
 
   const cancel = useCallback(async () => {
-    // A turn can start before the thread list publishes `remoteId`, and that
-    // run still has a backend session to stop.
-    const activeSessionId = sessionId ?? lazilyCreatedSessionIdRef.current;
-    if (activeSessionId == null) {
-      abortControllerRef.current?.abort();
+    if (cancelInFlightRef.current != null) {
+      await cancelInFlightRef.current;
       return;
     }
-    const conversationSessionId = await resolveActiveSessionId(
-      activeSessionId,
-      resolveConversationSessionIdRef.current,
-    );
-    const runningTurn = snapshotRef.current.runningTurn;
-    if (runningTurn?.state.status === TURN_STATUS.PAUSED) {
-      await ensureTurnSubscription({ conversationSessionId, turnId: runningTurn.id });
-    }
-    cancelRequestedRef.current = true;
-    // Drain a healthy live SSE for the cancelled turn.done. Abort a pending
-    // reconnect so cancel cannot start or keep a new subscribe after the live
-    // stream dropped.
-    if (streamReconnectPendingRef.current) {
-      abortControllerRef.current?.abort();
-    }
+
+    const run = (async () => {
+      // A turn can start before the thread list publishes `remoteId`, and that
+      // run still has a backend session to stop.
+      const activeSessionId = sessionId ?? lazilyCreatedSessionIdRef.current;
+      if (activeSessionId == null) {
+        abortControllerRef.current?.abort();
+        return;
+      }
+      const conversationSessionId = await resolveActiveSessionId(
+        activeSessionId,
+        resolveConversationSessionIdRef.current,
+      );
+      const runningTurn = snapshotRef.current.runningTurn;
+      if (runningTurn?.state.status === TURN_STATUS.PAUSED) {
+        await ensureTurnSubscription({ conversationSessionId, turnId: runningTurn.id });
+      }
+      cancelRequestedRef.current = true;
+      // Drain a healthy live SSE for the cancelled turn.done. Abort a pending
+      // reconnect so cancel cannot start or keep a new subscribe after the live
+      // stream dropped.
+      if (streamReconnectPendingRef.current) {
+        abortControllerRef.current?.abort();
+      }
+      try {
+        // Cancellation remains server-authoritative. The attached subscription
+        // delivers the cancelled turn.done for both running and paused turns.
+        await server.cancelSession({ sessionId: conversationSessionId });
+      } catch (error) {
+        onErrorRef.current?.(error);
+        throw error;
+      }
+      await activeRunRef.current?.promise.catch(() => undefined);
+      // No attached stream delivered turn.done (resumeUnavailable / detached
+      // reconnect). Finalize locally so the tip is not left status:running —
+      // clearing resumeUnavailable would otherwise bring the activity loader back.
+      updateSnapshot(finalizeLocallyCancelledTurn);
+      markResumeUnavailable(false);
+      setIsRunning(false);
+    })();
+
+    cancelInFlightRef.current = run;
     try {
-      // Cancellation remains server-authoritative. The attached subscription
-      // delivers the cancelled turn.done for both running and paused turns.
-      await server.cancelSession({ sessionId: conversationSessionId });
-    } catch (error) {
-      onErrorRef.current?.(error);
-      throw error;
+      await run;
+    } finally {
+      if (cancelInFlightRef.current === run) {
+        cancelInFlightRef.current = null;
+      }
     }
-    await activeRunRef.current?.promise.catch(() => undefined);
-    // No attached stream delivered turn.done (resumeUnavailable / detached
-    // reconnect). Finalize locally so the tip is not left status:running —
-    // clearing resumeUnavailable would otherwise bring the activity loader back.
-    updateSnapshot(finalizeLocallyCancelledTurn);
-    markResumeUnavailable(false);
-    setIsRunning(false);
   }, [ensureTurnSubscription, markResumeUnavailable, server, sessionId, updateSnapshot]);
 
   const submitTurnEvents = useCallback(
@@ -1298,9 +1316,9 @@ export function useTrueForgeAgentMessages({
       events: TurnInboundEventItem[];
       submissionId: string;
       optimisticSnapshot: SessionSnapshot;
-    }): Promise<void> => {
+    }): Promise<boolean> => {
       if (actionSubmissionsRef.current.has(submissionId)) {
-        return;
+        return false;
       }
       const activeSessionId = sessionId ?? lazilyCreatedSessionIdRef.current;
       const active = snapshotRef.current.activeStream;
@@ -1338,6 +1356,7 @@ export function useTrueForgeAgentMessages({
           // authoritative point where every resolved overlay can be cleared.
           return replaceSessionSnapshot(previous, {});
         });
+        return true;
       } catch (error) {
         updateSnapshot(previous => {
           const approvals = new Map(previous.requiredActions.approvals);
@@ -1456,12 +1475,22 @@ export function useTrueForgeAgentMessages({
 
   const continueMcpAuth = useCallback(async (): Promise<void> => {
     const event: UserMcpAuthContinueInputEvent = { type: EVENT_TYPE.USER_MCP_AUTH_CONTINUE };
-    await submitTurnEvents({
+    // Leave Connect up until the request succeeds. A duplicate click while this
+    // submission is in flight returns false and must not clear the prompt.
+    const accepted = await submitTurnEvents({
       events: [event],
       submissionId: 'mcp-auth-continue',
       optimisticSnapshot: snapshotRef.current,
     });
-  }, [submitTurnEvents]);
+    if (!accepted) {
+      return;
+    }
+    const next = updateSnapshot(withOptimisticMcpAuthContinue);
+    // Working... needs thread isRunning as well as message status:running.
+    if (next.runningTurn?.state.status === TURN_STATUS.RUNNING) {
+      setIsRunning(true);
+    }
+  }, [submitTurnEvents, updateSnapshot]);
 
   const resumeRun = useCallback(async () => {
     const turn = runningTurnRef.current;

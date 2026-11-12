@@ -498,9 +498,9 @@ function ingestSessionEventsIntoSnapshot(
     } else if (event.type === EVENT_TYPE.TURN_UPDATE) {
       // Lifecycle updates describe the open turn but do not belong in a thread
       // bucket. resolveSessionTip reads the latest update below.
-      if (event.state.status === TURN_STATUS.RUNNING) {
-        snapshot.pendingMcpAuth = undefined;
-      }
+      // Do not clear pendingMcpAuth on running: approving one sub-agent makes the
+      // turn running while another thread can still need MCP auth. Only
+      // user.mcp_auth_continue / turn.done clear it.
       continue;
     } else {
       if (currentTurnId != null) {
@@ -878,10 +878,10 @@ function assistantStatusFromTurnState(state: Turn['state']): MessageStatus {
 }
 
 /**
- * Cancelled-turn projection (session detail shows the reason banner; live chat does not):
+ * Cancelled-turn UI flow (chat + session detail share this projection):
  *
  * Example: turn.done { status: "cancelled", reason: "abandoned" } with no model
- * text. Without special handling the transcript would show only the user bubble.
+ * text. Without special handling the chat would show only the user bubble.
  *
  * 1. Live SSE — streamTurnEvents yields status cancelled +
  *    metadata.cancellationReason = "abandoned" (no synthetic text part).
@@ -889,8 +889,7 @@ function assistantStatusFromTurnState(state: Turn['state']): MessageStatus {
  *    the turn record (not a fake "done"), then clears activeStream.
  * 3. History / reload — projectHistoryTurns sees state.cancelled, puts the wire
  *    reason on metadata.custom, and always emits an assistant row even when the
- *    fold has no model.message parts. trueforge-ui shows the orange banner only
- *    in session-detail replay (`SessionReplayContext`).
+ *    fold has no model.message parts. trueforge-ui renders the orange banner.
  *
  * assistant-ui MessageStatus only knows reason: "cancelled" (no wire reason),
  * so the human-readable reason lives on metadata.custom.cancellationReason.
@@ -1158,6 +1157,27 @@ function buildTurnUpdateFromFold(
   }
   try {
     const { parts: content, parallelToolGroups } = buildRootAssistantFoldForIds(foldState, rootModelMessageIds);
+    const approvalThreadId = findFirstPendingApprovalThreadId(foldState);
+    const responseThreadId = findFirstPendingResponseThreadId(foldState);
+    // Approvals / ask-user before MCP auth when both are open on the same pause.
+    // Keep pendingMcpAuth on metadata (no Connect text yet) so the composer can
+    // switch to Connect as soon as the last approval clears — without waiting
+    // for the next SSE pause.
+    if (approvalThreadId != null || responseThreadId != null) {
+      const custom = {
+        ...(approvalThreadId != null ? toolApprovalMessageCustom(approvalThreadId) : {}),
+        ...(responseThreadId != null ? toolResponseMessageCustom(responseThreadId) : {}),
+        ...(turn.pendingMcpAuth != null ? mcpAuthMessageCustom(turn.pendingMcpAuth.mcpServers) : {}),
+      };
+      return withParallelToolGroups(
+        {
+          content,
+          status: approvalThreadId != null ? toolApprovalStatus() : toolResponseStatus(),
+          metadata: { custom },
+        },
+        parallelToolGroups,
+      );
+    }
     if (turn.pendingMcpAuth != null) {
       return withParallelToolGroups(
         {
@@ -1171,23 +1191,7 @@ function buildTurnUpdateFromFold(
     let update: TurnStreamUpdate = { content };
     update = appendMcpAuthToTurnContent(update.content, turn);
     update = appendToolApprovalToTurnContent(update, turn);
-    if (turn.state.status === TURN_STATUS.PAUSED && update.status == null) {
-      const approvalThreadId = findFirstPendingApprovalThreadId(foldState);
-      const responseThreadId = findFirstPendingResponseThreadId(foldState);
-      // Answered but not yet resumed: leave status unset so it does not look blocked.
-      if (approvalThreadId == null && responseThreadId == null) {
-        return update;
-      }
-      const custom = {
-        ...(approvalThreadId != null ? toolApprovalMessageCustom(approvalThreadId) : {}),
-        ...(responseThreadId != null ? toolResponseMessageCustom(responseThreadId) : {}),
-      };
-      update = {
-        content,
-        status: approvalThreadId != null ? toolApprovalStatus() : toolResponseStatus(),
-        metadata: { custom },
-      };
-    }
+    // Paused with every prompt answered (not yet resumed): leave status unset.
     return withParallelToolGroups(update, parallelToolGroups);
   } finally {
     foldState.parentTerminalStatus = previousParentTerminal;
@@ -1966,23 +1970,33 @@ export async function* streamTurnEvents(
   };
 
   const buildRequiredActionUpdate = (): TurnStreamUpdate => {
+    const approvalThreadId = findFirstPendingApprovalThreadId(foldState);
+    const responseThreadId = findFirstPendingResponseThreadId(foldState);
+    // Prefer tool approval / ask-user over MCP auth when both are pending so the
+    // composer shows "N tools need your input" first; Connect waits until those clear.
+    // Stash MCP metadata anyway so approving the last tool can reveal Connect
+    // immediately (optimistic overlay) instead of after the next running/pause SSE.
+    if (approvalThreadId != null || responseThreadId != null) {
+      const custom: Record<string, unknown> = {
+        ...(pendingMcpAuth != null ? mcpAuthMessageCustom(pendingMcpAuth.mcpServers) : {}),
+      };
+      if (approvalThreadId != null) {
+        Object.assign(custom, toolApprovalMessageCustom(approvalThreadId));
+      }
+      if (responseThreadId != null) {
+        Object.assign(custom, toolResponseMessageCustom(responseThreadId));
+      }
+      return buildRootContentUpdate(foldState, groupRootBaseline, {
+        status: approvalThreadId != null ? toolApprovalStatus() : toolResponseStatus(),
+        metadata: { custom },
+      });
+    }
+
     if (pendingMcpAuth != null) {
       return buildMcpAuthUpdate(pendingMcpAuth, foldState, groupRootBaseline);
     }
 
-    const approvalThreadId = findFirstPendingApprovalThreadId(foldState);
-    const responseThreadId = findFirstPendingResponseThreadId(foldState);
-    const custom: Record<string, unknown> = {};
-    if (approvalThreadId != null) {
-      Object.assign(custom, toolApprovalMessageCustom(approvalThreadId));
-    }
-    if (responseThreadId != null) {
-      Object.assign(custom, toolResponseMessageCustom(responseThreadId));
-    }
-    return buildRootContentUpdate(foldState, groupRootBaseline, {
-      status: approvalThreadId != null ? toolApprovalStatus() : toolResponseStatus(),
-      metadata: { custom },
-    });
+    return buildRootContentUpdate(foldState, groupRootBaseline);
   };
 
   /** Partial approvals: BE may echo user.tool_approval without another turn.update. */
@@ -1990,6 +2004,14 @@ export async function* streamTurnEvents(
     pendingMcpAuth != null ||
     findFirstPendingApprovalThreadId(foldState) != null ||
     findFirstPendingResponseThreadId(foldState) != null;
+
+  // Authoritative turn.update status. Content events must not invent paused just
+  // because a sibling prompt is still open after the orchestrator resumed.
+  let lastTurnLifecycleStatus: typeof TURN_STATUS.RUNNING | typeof TURN_STATUS.PAUSED | undefined;
+
+  const requiredActionTurnState = (): { status: typeof TURN_STATUS.RUNNING | typeof TURN_STATUS.PAUSED } => ({
+    status: lastTurnLifecycleStatus ?? TURN_STATUS.PAUSED,
+  });
 
   const withSequence = (update: TurnStreamUpdate, sequenceNumber: number | undefined): TurnStreamUpdate =>
     sequenceNumber === undefined ? update : { ...update, sequenceNumber };
@@ -1999,7 +2021,7 @@ export async function* streamTurnEvents(
       return withSequence(
         {
           ...buildRequiredActionUpdate(),
-          turnState: { status: TURN_STATUS.PAUSED },
+          turnState: requiredActionTurnState(),
         },
         sequenceNumber,
       );
@@ -2020,10 +2042,9 @@ export async function* streamTurnEvents(
       activeTurnId = event.turnId;
     }
     if ('id' in event && typeof event.id === 'string') {
-      const endsMcpAuthPrompt =
-        event.type === EVENT_TYPE.USER_MCP_AUTH_CONTINUE ||
-        event.type === EVENT_TYPE.TURN_DONE ||
-        (event.type === EVENT_TYPE.TURN_UPDATE && event.state.status === TURN_STATUS.RUNNING);
+      // Running alone does not answer MCP auth: another sub-agent can resume
+      // while this thread still needs Connect. Only continue / done end it.
+      const endsMcpAuthPrompt = event.type === EVENT_TYPE.USER_MCP_AUTH_CONTINUE || event.type === EVENT_TYPE.TURN_DONE;
       // Resume replays from mcp.auth_required until the prompt is answered. A later
       // paused update must not move the cursor past it: a fresh fold would lose the prompt.
       if (pendingMcpAuth == null || event.type === EVENT_TYPE.MCP_AUTH_REQUIRED || endsMcpAuthPrompt) {
@@ -2054,19 +2075,34 @@ export async function* streamTurnEvents(
 
     if (event.type === EVENT_TYPE.TURN_UPDATE) {
       if (event.state.status === TURN_STATUS.RUNNING) {
-        pendingMcpAuth = undefined;
-        yield withSandbox(
-          withSequence(
-            buildRootContentUpdate(foldState, groupRootBaseline, {
-              status: runningAssistantStatus(),
-              turnState: { status: TURN_STATUS.RUNNING },
-            }),
-            data.sequenceNumber,
-          ),
-        );
+        lastTurnLifecycleStatus = TURN_STATUS.RUNNING;
+        // Approving one sub-agent resumes the turn while a sibling may still need
+        // MCP auth (or another approval). Keep required-action chrome until continue.
+        if (foldStillNeedsUserInput()) {
+          yield withSandbox(
+            withSequence(
+              {
+                ...buildRequiredActionUpdate(),
+                turnState: { status: TURN_STATUS.RUNNING },
+              },
+              data.sequenceNumber,
+            ),
+          );
+        } else {
+          yield withSandbox(
+            withSequence(
+              buildRootContentUpdate(foldState, groupRootBaseline, {
+                status: runningAssistantStatus(),
+                turnState: { status: TURN_STATUS.RUNNING },
+              }),
+              data.sequenceNumber,
+            ),
+          );
+        }
         continue;
       }
 
+      lastTurnLifecycleStatus = TURN_STATUS.PAUSED;
       // Pause is in-stream: the same SSE continues through apply-only echoes,
       // turn.update running, and turn.done. Do not detach the consumer.
       yield withSandbox(
@@ -2137,7 +2173,7 @@ export async function* streamTurnEvents(
       yield withSandbox({
         ...buildRequiredActionUpdate(),
         ...(lastSequenceNumber != null ? { sequenceNumber: lastSequenceNumber } : {}),
-        turnState: { status: TURN_STATUS.PAUSED },
+        turnState: requiredActionTurnState(),
       });
     }
     return;

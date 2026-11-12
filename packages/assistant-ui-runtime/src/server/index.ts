@@ -226,6 +226,7 @@ export { isEventDelta, mergeEventDelta } from './eventUtils.js';
 export {
   APPROVAL_DECISION_STATUS,
   TOOL_APPROVAL_POLICY_ACTION_TYPE,
+  TURN_CANCELLATION_REASON,
   TURN_STATUS,
   readDraftTrueforgeEnabled,
 } from './types.js';
