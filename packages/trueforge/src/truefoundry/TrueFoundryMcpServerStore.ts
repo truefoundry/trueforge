@@ -23,6 +23,7 @@ import {
   hasAuthorizationHeader,
   isVirtualMcpHeaders,
   withoutAuthorization,
+  X_TFY_MCP_HEADERS,
   type PerServerMcpHeaders,
 } from '../mcp/perServerMcpHeaders';
 import { resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
@@ -55,9 +56,6 @@ export type TrueFoundryMcpApiClient = Pick<
   | 'vendToken'
   | 'getTenantControlPlaneUrl'
 >;
-
-/** Per-server upstream headers the TrueFoundry gateway applies after its own caller auth. */
-const X_TFY_MCP_HEADERS = 'x-tfy-mcp-headers';
 
 /**
  * Absolute FE landing for the upstream authorize `redirectURL`.

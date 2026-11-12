@@ -6,6 +6,7 @@ import {
   isVirtualMcpHeaders,
   overrideHeaders,
   withoutAuthorization,
+  X_TFY_MCP_HEADERS,
   type PerServerMcpHeaders,
 } from '../mcp/perServerMcpHeaders';
 import { resolveConfiguredMcpRequestHeaders, resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
@@ -78,7 +79,7 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
     return this.#store.deleteServer(input, transaction);
   }
 
-  /** Caller headers for the server go straight to it; one with Authorization skips its consent flow. */
+  /** Caller headers go straight to the server (a nested entry as `x-tfy-mcp-headers`); Authorization skips consent. */
   resolveInvokeHeaders(input: {
     record: McpServerRecord;
     userRef: string;
@@ -86,9 +87,12 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
   }): RemoteMcpHeaders {
     const registered = this.#resolveRegisteredHeaders(input);
     const callerHeaders = this.#perServerHeaders[input.record.name];
-    // Nested (virtual MCP) entries only apply to the TrueFoundry gateway.
-    if (callerHeaders === undefined || isVirtualMcpHeaders(callerHeaders)) {
+    if (callerHeaders === undefined) {
       return registered;
+    }
+    if (isVirtualMcpHeaders(callerHeaders)) {
+      const override = { [X_TFY_MCP_HEADERS]: JSON.stringify(callerHeaders) };
+      return () => resolveWithOverride({ headers: registered, override });
     }
     if (hasAuthorizationHeader(callerHeaders)) {
       const headers = overrideHeaders({

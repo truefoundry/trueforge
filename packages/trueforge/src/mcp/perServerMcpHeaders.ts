@@ -12,6 +12,9 @@ import { z } from 'zod';
  */
 export const X_TFG_MCP_HEADERS = 'x-tfg-mcp-headers';
 
+/** Per-server upstream headers a TrueFoundry gateway (or virtual MCP) applies after its own caller auth. */
+export const X_TFY_MCP_HEADERS = 'x-tfy-mcp-headers';
+
 const McpHeaderMapSchema = z.record(z.string().min(1), z.string());
 
 const VirtualMcpHeadersSchema = z.record(z.string().min(1), McpHeaderMapSchema);

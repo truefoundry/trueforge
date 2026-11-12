@@ -218,4 +218,33 @@ describe('McpServerWithAuthStore.resolveInvokeHeaders', () => {
     await expect(resolve()).resolves.toMatchObject({ headers: { Authorization: 'Bearer user', 'x-extra': '1' } });
     await db.destroy();
   });
+
+  it('sends a virtual MCP entry as x-tfy-mcp-headers on top of the registered auth', async () => {
+    const entry = { serv1: { Authorization: 'Bearer a' } };
+    const db = createSqliteDb(':memory:');
+    const store = new McpServerWithAuthStore({
+      store: new SqliteMcpServerStore(db),
+      tokenStore: new SqliteOAuthTokenStore(db),
+      clientName: 'test-client',
+      perServerHeaders: { 'virtual-mcp': entry },
+    });
+    const record: McpServerRecord = {
+      ...ossRecord,
+      name: 'virtual-mcp',
+      manifest: {
+        ...ossRecord.manifest,
+        name: 'virtual-mcp',
+        auth: { type: 'header', headers: { Authorization: 'Bearer gateway' } },
+      },
+    };
+
+    const resolve = store.resolveInvokeHeaders({ record, userRef: 'user-1' });
+    if (typeof resolve !== 'function') {
+      throw new Error('expected a headers resolver');
+    }
+    await expect(resolve()).resolves.toEqual({
+      headers: { Authorization: 'Bearer gateway', 'x-tfy-mcp-headers': JSON.stringify(entry) },
+    });
+    await db.destroy();
+  });
 });
