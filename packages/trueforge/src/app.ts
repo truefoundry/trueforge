@@ -647,7 +647,8 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       authMiddleware,
     ),
   );
-  // One mount so JWT-only sessions auth cannot 401 a service-key list/create-turn before dual auth runs.
+  // Sibling JWT-only sessions + dual-auth turns mounts share this prefix; JWT would 401 the
+  // service key before turns auth runs. One mount + dual auth avoids that ordering bug.
   const publicSessionsRouter = new OpenAPIHono();
   publicSessionsRouter.use(
     '*',

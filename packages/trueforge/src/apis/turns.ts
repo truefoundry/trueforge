@@ -67,7 +67,7 @@ import { HTTPException } from 'hono/http-exception';
 import { streamSSE } from 'hono/streaming';
 import type { Logger } from 'winston';
 import { z } from 'zod';
-import { ASSUME_USER_HEADER, parseAssumeUserHeader } from '../auth/assumeUser';
+import { applyAssumeUserToContext, ASSUME_USER_HEADER } from '../auth/assumeUser';
 import type { Authorizer } from '../auth/authorizer';
 import {
   requestContextFromCreatedBySubject,
@@ -1156,18 +1156,24 @@ async function resolveTurnSession<TTransaction>(params: {
   const existing = c.get('request_context');
   // Service key clears context; require assume-user so a JWT+header cannot take this path.
   if (!existing && c.req.header(ASSUME_USER_HEADER)?.trim()) {
-    parseAssumeUserHeader(c.req.header(ASSUME_USER_HEADER));
-    const session = await sessions.getById({ session_id: sessionId });
+    let session: SessionHandle<TTransaction> | undefined;
+    const requestContext = await applyAssumeUserToContext({
+      c,
+      resolveCreatedBy: async () => {
+        session = await sessions.getById({ session_id: sessionId });
+        if (!session) {
+          throw new HTTPException(404, { message: `Session not found: ${sessionId}` });
+        }
+        return {
+          tenant_id: session.record.tenant_id,
+          created_by_subject: session.record.created_by_subject,
+          session_id: sessionId,
+        };
+      },
+    });
     if (!session) {
       throw new HTTPException(404, { message: `Session not found: ${sessionId}` });
     }
-    const requestContext = requestContextFromCreatedBySubject({
-      tenant_id: session.record.tenant_id,
-      created_by_subject: session.record.created_by_subject,
-      user_credential: null,
-    });
-    c.set('request_context', requestContext);
-    updateLogContext({ tenant_id: session.record.tenant_id, session_id: sessionId });
     return { requestContext, session };
   }
 

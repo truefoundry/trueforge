@@ -5,7 +5,7 @@
  * Handlers are registered in apis/turns.ts.
  */
 import { createRoute, z } from '@hono/zod-openapi';
-import { ASSUME_USER_HEADER, AssumeUser } from '../auth/assumeUser';
+import { ASSUME_USER_HEADER_PARAM } from '../auth/assumeUser';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import {
   CreateTurnEventRequestSchema,
@@ -30,15 +30,6 @@ import { SessionIdParamsSchema } from './sessionRoutes';
 export const TurnIdParamsSchema = SessionIdParamsSchema.extend({
   turn_id: z.string().min(1).describe('Turn identifier.'),
 });
-
-/** OpenAPI-only (like Nest `@ApiHeader`); not a Zod request validator. */
-const ASSUME_USER_HEADER_PARAM = {
-  name: ASSUME_USER_HEADER,
-  in: 'header' as const,
-  required: false,
-  description: 'With the service API key, set to session-creator to act as the session creator.',
-  schema: { type: 'string' as const, enum: [AssumeUser.SessionCreator] },
-};
 
 export const listTurnsRoute = createRoute({
   method: 'get',
