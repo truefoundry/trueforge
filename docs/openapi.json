@@ -10725,6 +10725,18 @@
         "description": "List turns for a session (newest first by default), token-paginated. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.",
         "parameters": [
           {
+            "description": "With the service API key, set to session-creator to act as the session creator.",
+            "in": "header",
+            "name": "assume-user",
+            "required": false,
+            "schema": {
+              "enum": [
+                "session-creator"
+              ],
+              "type": "string"
+            }
+          },
+          {
             "description": "Session identifier.",
             "in": "path",
             "name": "session_id",
@@ -10819,6 +10831,18 @@
       "post": {
         "description": "Create a turn within a session and execute it.\nOnly the session creator may create turns.\nWhen `stream` is true (default), respond with a Server-Sent Events stream of turn events.\nWhen `stream` is false, return the turn immediately with `state.status: \"running\"` while execution continues in the background; use get turn or subscribe to observe completion.\nUse `previous_turn_id` to chain to the session's last turn (defaults to `auto`); use `none` for a new root.",
         "parameters": [
+          {
+            "description": "With the service API key, set to session-creator to act as the session creator.",
+            "in": "header",
+            "name": "assume-user",
+            "required": false,
+            "schema": {
+              "enum": [
+                "session-creator"
+              ],
+              "type": "string"
+            }
+          },
           {
             "description": "Session identifier.",
             "in": "path",

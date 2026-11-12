@@ -2,7 +2,7 @@
 
 import type { BaseClientOptions, BaseRequestOptions } from "../../../../BaseClient.js";
 import { type NormalizedClientOptionsWithAuth, normalizeClientOptionsWithAuth } from "../../../../BaseClient.js";
-import { mergeHeaders } from "../../../../core/headers.js";
+import { mergeHeaders, mergeOnlyDefinedHeaders } from "../../../../core/headers.js";
 import * as core from "../../../../core/index.js";
 import { mergeAdditionalBodyParameters } from "../../../../core/requestBody.js";
 import { handleNonStatusCodeError } from "../../../../errors/handleNonStatusCodeError.js";
@@ -1112,7 +1112,7 @@ export class SessionsClient {
             async (
                 request: TrueForge.ListTurnsSessionsRequest,
             ): Promise<core.WithRawResponse<TrueForge.ListTurnsResponse>> => {
-                const { limit = 25, pageToken } = request;
+                const { limit = 25, pageToken, assumeUser } = request;
                 const _queryParams: Record<string, unknown> = {
                     limit,
                     page_token: pageToken,
@@ -1121,6 +1121,7 @@ export class SessionsClient {
                 const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
                     _authRequest.headers,
                     this._options?.headers,
+                    mergeOnlyDefinedHeaders({ "assume-user": assumeUser }),
                     requestOptions?.headers,
                 );
                 const _response = await (this._options.fetcher ?? core.fetcher)({
@@ -1239,10 +1240,12 @@ export class SessionsClient {
         request: TrueForge.CreateTurnSessionsStreamRequest,
         requestOptions?: SessionsClient.RequestOptions,
     ): Promise<core.WithRawResponse<core.Stream<TrueForge.TurnStreamingEvent>>> {
+        const { assumeUser, ..._body } = request;
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
             _authRequest.headers,
             this._options?.headers,
+            mergeOnlyDefinedHeaders({ "assume-user": assumeUser }),
             requestOptions?.headers,
         );
         const _response = await (this._options.fetcher ?? core.fetcher)<ReadableStream>({
@@ -1258,7 +1261,7 @@ export class SessionsClient {
             requestType: "json",
             body: mergeAdditionalBodyParameters(
                 {
-                    ...serializers.CreateTurnSessionsStreamRequest.jsonOrThrow(request, {
+                    ...serializers.CreateTurnSessionsStreamRequest.jsonOrThrow(_body, {
                         unrecognizedObjectKeys: "passthrough",
                         allowUnrecognizedUnionMembers: true,
                         allowUnrecognizedEnumValues: true,
@@ -1435,10 +1438,12 @@ export class SessionsClient {
         request: TrueForge.CreateTurnSessionsRequest,
         requestOptions?: SessionsClient.RequestOptions,
     ): Promise<core.WithRawResponse<TrueForge.GetTurnResponse>> {
+        const { assumeUser, ..._body } = request;
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
             _authRequest.headers,
             this._options?.headers,
+            mergeOnlyDefinedHeaders({ "assume-user": assumeUser }),
             requestOptions?.headers,
         );
         const _response = await (this._options.fetcher ?? core.fetcher)({
@@ -1454,7 +1459,7 @@ export class SessionsClient {
             requestType: "json",
             body: mergeAdditionalBodyParameters(
                 {
-                    ...serializers.CreateTurnSessionsRequest.jsonOrThrow(request, {
+                    ...serializers.CreateTurnSessionsRequest.jsonOrThrow(_body, {
                         unrecognizedObjectKeys: "passthrough",
                         allowUnrecognizedUnionMembers: true,
                         allowUnrecognizedEnumValues: true,

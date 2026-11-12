@@ -2948,6 +2948,14 @@ client.sessions.list_turns(
 <dl>
 <dd>
 
+**assume_user:** `typing.Optional[typing.Literal]` — With the service API key, set to session-creator to act as the session creator.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
     
 </dd>
@@ -3040,6 +3048,14 @@ client.sessions.create_turn_stream(
 <dd>
 
 **stream:** `typing.Literal` — When true (default), stream turn events as SSE. When false, return the running turn immediately.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**assume_user:** `typing.Optional[typing.Literal]` — With the service API key, set to session-creator to act as the session creator.
     
 </dd>
 </dl>
@@ -3147,6 +3163,14 @@ client.sessions.create_turn_stream(
 <dd>
 
 **stream:** `typing.Literal` — When true (default), stream turn events as SSE. When false, return the running turn immediately.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**assume_user:** `typing.Optional[typing.Literal]` — With the service API key, set to session-creator to act as the session creator.
     
 </dd>
 </dl>

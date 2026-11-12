@@ -872,6 +872,7 @@ class RawSessionsClient:
         session_id: str,
         limit: typing.Optional[int] = 25,
         page_token: typing.Optional[str] = None,
+        assume_user: typing.Optional[typing.Literal["session-creator"]] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[Turn, ListTurnsResponse]:
         """
@@ -888,6 +889,9 @@ class RawSessionsClient:
         page_token : typing.Optional[str]
             Opaque token from a previous response `next_page_token`.
 
+        assume_user : typing.Optional[typing.Literal["session-creator"]]
+            With the service API key, set to session-creator to act as the session creator.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -902,6 +906,9 @@ class RawSessionsClient:
             params={
                 "limit": limit,
                 "page_token": page_token,
+            },
+            headers={
+                "assume-user": str(assume_user) if assume_user is not None else None,
             },
             request_options=request_options,
         )
@@ -924,6 +931,7 @@ class RawSessionsClient:
                         session_id=session_id,
                         limit=limit,
                         page_token=_parsed_next,
+                        assume_user=assume_user,
                         request_options=request_options,
                     )
                 return SyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
@@ -975,6 +983,7 @@ class RawSessionsClient:
         *,
         session_id: str,
         input: typing.Sequence[CreateTurnSessionsStreamRequestInputItem],
+        assume_user: typing.Optional[typing.Literal["session-creator"]] = None,
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Iterator[HttpResponse[Stream[TurnStreamingEvent]]]:
@@ -992,6 +1001,9 @@ class RawSessionsClient:
 
         input : typing.Sequence[CreateTurnSessionsStreamRequestInputItem]
             User messages for this turn. At least one is required.
+
+        assume_user : typing.Optional[typing.Literal["session-creator"]]
+            With the service API key, set to session-creator to act as the session creator.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -1019,6 +1031,7 @@ class RawSessionsClient:
             },
             headers={
                 "content-type": "application/json",
+                "assume-user": str(assume_user) if assume_user is not None else None,
             },
             request_options=request_options,
             omit=OMIT,
@@ -1160,6 +1173,7 @@ class RawSessionsClient:
         *,
         session_id: str,
         input: typing.Sequence[CreateTurnSessionsRequestInputItem],
+        assume_user: typing.Optional[typing.Literal["session-creator"]] = None,
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[GetTurnResponse]:
@@ -1177,6 +1191,9 @@ class RawSessionsClient:
 
         input : typing.Sequence[CreateTurnSessionsRequestInputItem]
             User messages for this turn. At least one is required.
+
+        assume_user : typing.Optional[typing.Literal["session-creator"]]
+            With the service API key, set to session-creator to act as the session creator.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -1202,6 +1219,7 @@ class RawSessionsClient:
             },
             headers={
                 "content-type": "application/json",
+                "assume-user": str(assume_user) if assume_user is not None else None,
             },
             request_options=request_options,
             omit=OMIT,
@@ -2716,6 +2734,7 @@ class AsyncRawSessionsClient:
         session_id: str,
         limit: typing.Optional[int] = 25,
         page_token: typing.Optional[str] = None,
+        assume_user: typing.Optional[typing.Literal["session-creator"]] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[Turn, ListTurnsResponse]:
         """
@@ -2732,6 +2751,9 @@ class AsyncRawSessionsClient:
         page_token : typing.Optional[str]
             Opaque token from a previous response `next_page_token`.
 
+        assume_user : typing.Optional[typing.Literal["session-creator"]]
+            With the service API key, set to session-creator to act as the session creator.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -2746,6 +2768,9 @@ class AsyncRawSessionsClient:
             params={
                 "limit": limit,
                 "page_token": page_token,
+            },
+            headers={
+                "assume-user": str(assume_user) if assume_user is not None else None,
             },
             request_options=request_options,
         )
@@ -2770,6 +2795,7 @@ class AsyncRawSessionsClient:
                             session_id=session_id,
                             limit=limit,
                             page_token=_parsed_next,
+                            assume_user=assume_user,
                             request_options=request_options,
                         )
 
@@ -2822,6 +2848,7 @@ class AsyncRawSessionsClient:
         *,
         session_id: str,
         input: typing.Sequence[CreateTurnSessionsStreamRequestInputItem],
+        assume_user: typing.Optional[typing.Literal["session-creator"]] = None,
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.AsyncIterator[AsyncHttpResponse[AsyncStream[TurnStreamingEvent]]]:
@@ -2839,6 +2866,9 @@ class AsyncRawSessionsClient:
 
         input : typing.Sequence[CreateTurnSessionsStreamRequestInputItem]
             User messages for this turn. At least one is required.
+
+        assume_user : typing.Optional[typing.Literal["session-creator"]]
+            With the service API key, set to session-creator to act as the session creator.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -2866,6 +2896,7 @@ class AsyncRawSessionsClient:
             },
             headers={
                 "content-type": "application/json",
+                "assume-user": str(assume_user) if assume_user is not None else None,
             },
             request_options=request_options,
             omit=OMIT,
@@ -3007,6 +3038,7 @@ class AsyncRawSessionsClient:
         *,
         session_id: str,
         input: typing.Sequence[CreateTurnSessionsRequestInputItem],
+        assume_user: typing.Optional[typing.Literal["session-creator"]] = None,
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[GetTurnResponse]:
@@ -3024,6 +3056,9 @@ class AsyncRawSessionsClient:
 
         input : typing.Sequence[CreateTurnSessionsRequestInputItem]
             User messages for this turn. At least one is required.
+
+        assume_user : typing.Optional[typing.Literal["session-creator"]]
+            With the service API key, set to session-creator to act as the session creator.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -3049,6 +3084,7 @@ class AsyncRawSessionsClient:
             },
             headers={
                 "content-type": "application/json",
+                "assume-user": str(assume_user) if assume_user is not None else None,
             },
             request_options=request_options,
             omit=OMIT,
