@@ -1,5 +1,12 @@
 # @truefoundry/trueforge-core
 
+## 0.185.0-rc.2
+
+### Patch Changes
+
+- c5dea02: The built-in TrueForge MCP now uses the same id and name, `trueforge:mcp`, and labels its tools as `truefoundry-system` instead of `mcp`.
+- c5dea02: Bump high/critical dependency advisories where possible (node-forge, follow-redirects, body-parser, js-yaml, brace-expansion, source-map-js, launch-editor) and upgrade Jest to 30.
+
 ## 0.185.0-rc.1
 
 ### Patch Changes

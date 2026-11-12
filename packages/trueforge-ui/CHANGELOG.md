@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.185.0-rc.3
+
+### Patch Changes
+
+- c5dea02: Prefer tool-approval chrome over MCP auth when both are pending, keep Connect/ask-user/custom prompts usable while siblings run without inventing paused turnState on later content, dismiss Continue without a blank Working gap, and show Cancelling feedback on the composer stop button.
+- c5dea02: Show cancelled-turn reason banners in live New Chat and Build chat again.
+- c5dea02: Show why a chat turn stopped: readable reasons for stopped, timed-out, and interrupted turns, hidden only when a newer message replaced the turn.
+- c5dea02: Bump high/critical dependency advisories where possible (node-forge, follow-redirects, body-parser, js-yaml, brace-expansion, source-map-js, launch-editor) and upgrade Jest to 30.
+- Updated dependencies [c5dea02]
+- Updated dependencies [c5dea02]
+- Updated dependencies [c5dea02]
+  - @truefoundry/trueforge-assistant-ui-runtime@0.185.0-rc.2
+
 ## 0.185.0-rc.2
 
 ### Patch Changes

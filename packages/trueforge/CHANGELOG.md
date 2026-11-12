@@ -1,5 +1,17 @@
 # @truefoundry/trueforge
 
+## 0.185.0-rc.4
+
+### Patch Changes
+
+- c5dea02: Apply the same capability checks on agent update as on create: updating an agent now returns 422 if web search or memory is enabled while the tenant switch or provider is missing, or if the named sandbox environment is disabled. Sessions still grandfather stored specs so existing chats keep running.
+- c5dea02: Schedule-run sessions now carry `tfg.source = 'schedule'` metadata, and existing schedule-run sessions are backfilled so source counts include them.
+- c5dea02: The built-in TrueForge MCP now uses the same id and name, `trueforge:mcp`, and labels its tools as `truefoundry-system` instead of `mcp`.
+- c5dea02: Bump high/critical dependency advisories where possible (node-forge, follow-redirects, body-parser, js-yaml, brace-expansion, source-map-js, launch-editor) and upgrade Jest to 30.
+- Updated dependencies [c5dea02]
+- Updated dependencies [c5dea02]
+  - @truefoundry/trueforge-core@0.185.0-rc.2
+
 ## 0.185.0-rc.3
 
 ### Patch Changes

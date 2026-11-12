@@ -1,5 +1,13 @@
 # @truefoundry/trueforge-assistant-ui-runtime
 
+## 0.185.0-rc.2
+
+### Patch Changes
+
+- c5dea02: Prefer tool-approval chrome over MCP auth when both are pending, keep Connect/ask-user/custom prompts usable while siblings run without inventing paused turnState on later content, dismiss Continue without a blank Working gap, and show Cancelling feedback on the composer stop button.
+- c5dea02: Show why a chat turn stopped: readable reasons for stopped, timed-out, and interrupted turns, hidden only when a newer message replaced the turn.
+- c5dea02: The built-in TrueForge MCP now uses the same id and name, `trueforge:mcp`, and labels its tools as `truefoundry-system` instead of `mcp`.
+
 ## 0.185.0-rc.1
 
 ### Patch Changes
