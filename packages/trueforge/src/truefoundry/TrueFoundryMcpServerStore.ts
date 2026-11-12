@@ -19,7 +19,12 @@ import {
 } from '../db/mcpServerStore';
 import type { TurnMetadata } from '../db/turnMetadata';
 import type { OAuthClientRecord } from '../mcp/auth/types';
-import { hasAuthorizationHeader, withoutAuthorization, type PerServerMcpHeaders } from '../mcp/perServerMcpHeaders';
+import {
+  hasAuthorizationHeader,
+  isVirtualMcpHeaders,
+  withoutAuthorization,
+  type PerServerMcpHeaders,
+} from '../mcp/perServerMcpHeaders';
 import { resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
 import {
   accessTokenForRequest,
@@ -119,6 +124,12 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
       ...gatewayHeaders(await this.#resolveGatewayAuthorization()),
       ...gatewayMetadataHeadersForTurn(turnMetadata),
     });
+    if (callerHeaders !== undefined && isVirtualMcpHeaders(callerHeaders)) {
+      // The gateway fans a virtual MCP's nested map out to its servers itself.
+      return async () => ({
+        headers: { ...(await gatewayBase()), [X_TFY_MCP_HEADERS]: JSON.stringify(callerHeaders) },
+      });
+    }
     const viaGateway = async (): Promise<ResolveHeadersResult> => ({
       headers: { ...withoutAuthorization(callerHeaders), ...(await gatewayBase()) },
     });

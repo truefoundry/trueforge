@@ -5,7 +5,7 @@ import type { McpServerRecord } from '../../../src/db/mcpServerStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
-import { parsePerServerMcpHeaders } from '../../../src/mcp/perServerMcpHeaders';
+import { parsePerServerMcpHeaders, type PerServerMcpHeaders } from '../../../src/mcp/perServerMcpHeaders';
 import {
   TrueFoundryMcpServerStore,
   type TrueFoundryMcpApiClient,
@@ -47,7 +47,7 @@ const record = (name: string): McpServerRecord => ({
   updated_at: '2026-01-16T12:00:00.000Z',
 });
 
-const storeWith = (perServerHeaders: Record<string, Record<string, string>>): TrueFoundryMcpServerStore =>
+const storeWith = (perServerHeaders: PerServerMcpHeaders): TrueFoundryMcpServerStore =>
   new TrueFoundryMcpServerStore({
     client: unusedClient(),
     requestContext: createTrueFoundryRequestContext({
@@ -88,6 +88,7 @@ describe('parsePerServerMcpHeaders', () => {
     ['a scalar', '"nope"'],
     ['a server mapped to a string', JSON.stringify({ 'tfy-platform-mcp': 'Bearer user' })],
     ['a header mapped to a number', JSON.stringify({ 'tfy-platform-mcp': { 'x-h': 1 } })],
+    ['mixed nesting', JSON.stringify({ 'virtual-mcp': { serv1: { Authorization: 'Bearer a' }, 'x-h': '1' } })],
   ])('rejects %s rather than silently dropping the identity it carries', (_case, raw) => {
     expect(() => parsePerServerMcpHeaders(raw)).toThrow(HTTPException);
   });
@@ -100,6 +101,15 @@ describe('parsePerServerMcpHeaders', () => {
 });
 
 describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
+  it('passes a virtual MCP entry through as x-tfy-mcp-headers', async () => {
+    const entry = { serv1: { Authorization: 'Bearer a' }, serv2: { Authorization: 'Bearer b' } };
+    const raw = JSON.stringify({ 'virtual-mcp': entry });
+
+    const headers = await invokeHeaders(storeWith(parsePerServerMcpHeaders(raw)), 'virtual-mcp');
+
+    expect(headers).toEqual({ Authorization: 'Bearer caller-token', 'x-tfy-mcp-headers': JSON.stringify(entry) });
+  });
+
   it('sends only the gateway Bearer when a server has no override', async () => {
     await expect(invokeHeaders(storeWith({}), 'tfy-docs-mcp')).resolves.toEqual({
       Authorization: 'Bearer caller-token',

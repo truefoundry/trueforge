@@ -3,6 +3,7 @@ import { isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
 import type { IOAuthTokenStore, OAuthClientRecord } from '../mcp/auth/types';
 import {
   hasAuthorizationHeader,
+  isVirtualMcpHeaders,
   overrideHeaders,
   withoutAuthorization,
   type PerServerMcpHeaders,
@@ -85,7 +86,8 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
   }): RemoteMcpHeaders {
     const registered = this.#resolveRegisteredHeaders(input);
     const callerHeaders = this.#perServerHeaders[input.record.name];
-    if (callerHeaders === undefined) {
+    // Nested (virtual MCP) entries only apply to the TrueFoundry gateway.
+    if (callerHeaders === undefined || isVirtualMcpHeaders(callerHeaders)) {
       return registered;
     }
     if (hasAuthorizationHeader(callerHeaders)) {
