@@ -243,30 +243,14 @@ export function DraftSpecPreferenceBridge() {
   }, [agentSpec, canReconcileLiveSpec, isPlainDraft, preferenceKind, sandboxEnabled, updateAgentSpec]);
 
   useEffect(() => {
-    // New Agent drafts only: New Chat does not use the agent memory setting.
-    if (
-      !isMutableDraft ||
-      preferenceKind !== 'agent' ||
-      editsStoredSpec ||
-      !canReconcileLiveSpec ||
-      agentSpec == null ||
-      updateAgentSpec == null
-    ) {
+    if (!isMutableDraft || editsStoredSpec || !canReconcileLiveSpec || agentSpec == null || updateAgentSpec == null) {
       return;
     }
     const update = reconcileDraftMemory({ agentSpec, memoryEnabled });
     if (Object.keys(update).length > 0) {
       updateAgentSpec(update);
     }
-  }, [
-    agentSpec,
-    canReconcileLiveSpec,
-    editsStoredSpec,
-    isMutableDraft,
-    memoryEnabled,
-    preferenceKind,
-    updateAgentSpec,
-  ]);
+  }, [agentSpec, canReconcileLiveSpec, editsStoredSpec, isMutableDraft, memoryEnabled, updateAgentSpec]);
 
   useEffect(() => {
     // Apply to New Chat / New Agent drafts, never to a spec that is already stored.
