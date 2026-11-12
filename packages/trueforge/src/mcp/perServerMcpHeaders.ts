@@ -41,7 +41,7 @@ export function parsePerServerMcpHeaders(raw: string): PerServerMcpHeaders {
   const parsed = PerServerMcpHeadersSchema.safeParse(decoded);
   if (!parsed.success) {
     throw new HTTPException(400, {
-      message: `${X_TFG_MCP_HEADERS} must map each MCP server name to a header map, or to per-server header maps`,
+      message: `${X_TFG_MCP_HEADERS} must map each MCP server name to a header map`,
     });
   }
   return parsed.data;
