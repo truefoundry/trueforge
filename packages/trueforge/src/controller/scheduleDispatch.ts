@@ -109,6 +109,7 @@ export async function startScheduleRun<TTransaction>(params: {
     created_by_subject: schedule.created_by_subject,
     agent: { type: 'reference', id: named.id, name: named.name },
     source: { type: 'schedule', id: schedule.id, run_id: run.id },
+    metadata: { 'tfg.source': 'schedule' },
   });
 
   // This is not atomic with session creation so a failure here leaves the run unlinked.
