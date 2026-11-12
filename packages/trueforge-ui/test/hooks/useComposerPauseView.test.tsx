@@ -128,7 +128,7 @@ describe('useComposerPauseView', () => {
     expect(result.current).toEqual({ kind: 'ask-user' });
   });
 
-  it('gives MCP authorization precedence over pending tool responses', () => {
+  it('gives pending tool responses precedence over MCP authorization', () => {
     useAuiState.mockReturnValue(true);
     useToolResponses.mockReturnValue({
       pending: [{ toolCallId: 'question-1', toolName: 'secret_select' }],
@@ -138,7 +138,18 @@ describe('useComposerPauseView', () => {
       wrapper: withRenderers({ secret_select: () => null }),
     });
 
-    expect(result.current).toEqual({ kind: 'mcp' });
+    expect(result.current).toEqual({ kind: 'custom', toolName: 'secret_select' });
+  });
+
+  it('gives pending tool approvals precedence over MCP authorization', () => {
+    useAuiState.mockReturnValue(true);
+    useApprovals.mockReturnValue({
+      pending: [{ approvalId: 'appr-1', threadId: 'root', toolName: 'call_tool', args: {}, argsText: '{}' }],
+    });
+
+    const { result } = renderHook(() => useComposerPauseView());
+
+    expect(result.current).toEqual({ kind: 'approval' });
   });
 
   it('gives custom renderers precedence over ask-user for the same pending tool', () => {

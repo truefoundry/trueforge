@@ -601,7 +601,7 @@ A turn can wait on several things at once (e.g. parallel subagents each hit a ga
 
 For approvals and questions, each pending call in `tool_calls` has an `id` (the tool call you answer, as `tool_call_id`) and a `source_event_id` pointing at the [`model.message`](#model-message) that made the call. Look it up in the [event index](#create-and-stream-a-turn) to read the tool's name and arguments.
 
-The answers you send also show up on the stream as events (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`, `user.mcp_auth_continue`). So the stream always tells you what is still open: a call is waiting until a matching answer with its `tool_call_id` appears, and an MCP sign-in is waiting until a `user.mcp_auth_continue` follows it.
+The answers you send also show up on the stream as events (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`, `user.mcp_auth_continue`). So the stream always tells you what is still open: a call is waiting until a matching answer with its `tool_call_id` appears or a [session approval](#approve-a-tool-for-the-rest-of-the-session) covers its tool, and an MCP sign-in is waiting until a `user.mcp_auth_continue` follows it. [Answer later](#answer-later) shows how to work this out from the turn's events.
 
 <Note>
 `web-research-brief` won't pause on its own; it has no gated tool or clarifying-question step. The snippets below are **illustrative**: point them at an agent that has a `require_approval_for_tools` tool, uses `ask_user_question`, or connects to an MCP server needing OAuth.
@@ -681,6 +681,7 @@ await client.sessions.createTurnEvents(session.id, turnId!, {
 });
 for await (const event of resume) {
   if (event.type === 'turn.done') console.log('status:', event.state.status);
+  // Handle other event types.
 }
 ```
 
@@ -754,41 +755,95 @@ with client.sessions.subscribe_to_turn(
     for event in resume:
         if event.type == "turn.done":
             print("status:", event.state.status)
+        # Handle other event types.
 ```
 </CodeGroup>
 
 #### Approve a tool for the rest of the session
 
-For a tool on an MCP server, you can approve every call to it for the rest of the session instead of one call at a time. Send a `user.tool_approval_policy` with the server and tool name from the call's `toolInfo` / `tool_info` (when its `type` is `"mcp"`). It also approves calls to that tool that are already waiting, so send it **instead of** a `user.tool_approval` for those calls. Add `expireAt` / `expire_at` (an ISO 8601 time) to make the approval expire.
+For a tool on an MCP server, you can approve every call to it for the rest of the session instead of one call at a time. Send a `user.tool_approval_policy` with the MCP server name and the tool name. It also approves calls to that tool that are already waiting, so send it **instead of** a `user.tool_approval` for those calls. Add `expireAt` / `expire_at` (an ISO 8601 time) to make the approval expire.
 
-In the recipe above, replace the `user.tool_approval` push with:
+Where you read the server and tool name depends on how the agent loads tools:
+
+- **Preloaded tools** arrive as the tool itself. `toolInfo` / `tool_info` has `type: "mcp"` with `serverName` / `server_name` and `name`.
+- **Deferred tools** (the default, see [Deferred tool loading](/key-features/deferred-tool-loading)) arrive as a `call_tool` call whose `toolInfo` / `tool_info` is `type: "truefoundry-system"`. The real server and tool are in its arguments as `mcp_server` and `tool_name`.
+
+In the recipe above, replace the `user.tool_approval` push with the following. A call that isn't an MCP tool falls back to a normal one-off approval.
 
 <CodeGroup>
 ```typescript TypeScript wrap
-if (call.toolInfo.type === 'mcp') {
+// Server and tool behind a call, or undefined if it isn't an MCP tool.
+function mcpTarget(call: TrueForgeApi.ToolCall) {
+  if (call.toolInfo.type === 'mcp') {
+    return { server: call.toolInfo.serverName, tool: call.toolInfo.name };
+  }
+  if (call.toolInfo.name !== 'call_tool') return undefined;
+  const args = JSON.parse(call.function.arguments || '{}') as {
+    mcp_server?: string;
+    tool_name?: string;
+  };
+  if (!args.mcp_server || !args.tool_name) return undefined;
+  return { server: args.mcp_server, tool: args.tool_name };
+}
+
+const target = mcpTarget(call);
+if (target) {
   approvals.push({
     type: 'user.tool_approval_policy',
     policies: [
       {
-        serverName: call.toolInfo.serverName,
-        name: call.toolInfo.name,
+        serverName: target.server,
+        name: target.tool,
         // Add expireAt: '2026-06-24T18:00:00Z' to expire.
         policy: { type: 'allow_session' },
       },
     ],
   });
+} else {
+  approvals.push({
+    type: 'user.tool_approval',
+    threadId: pending.threadId,
+    toolCallId: ref.id,
+    approval: { status: 'allow' },
+  });
 }
 ```
 
 ```python Python wrap
-if call.tool_info.type == "mcp":
+import json
+
+
+def mcp_target(call):
+    """Server and tool behind a call, or None if it isn't an MCP tool."""
+    if call.tool_info.type == "mcp":
+        return call.tool_info.server_name, call.tool_info.name
+    if call.tool_info.name != "call_tool":
+        return None
+    args = json.loads(call.function.arguments or "{}")
+    if "mcp_server" not in args or "tool_name" not in args:
+        return None
+    return args["mcp_server"], args["tool_name"]
+
+
+target = mcp_target(call)
+if target is None:
+    approvals.append(
+        {
+            "type": "user.tool_approval",
+            "thread_id": pending.thread_id,
+            "tool_call_id": ref.id,
+            "approval": {"status": "allow"},
+        }
+    )
+else:
+    server_name, tool_name = target
     approvals.append(
         {
             "type": "user.tool_approval_policy",
             "policies": [
                 {
-                    "server_name": call.tool_info.server_name,
-                    "name": call.tool_info.name,
+                    "server_name": server_name,
+                    "name": tool_name,
                     "policy": {
                         "type": "allow_session"
                     },  # add "expire_at": "2026-06-24T18:00:00Z" to expire
@@ -883,6 +938,7 @@ await client.sessions.createTurnEvents(session.id, turnId!, {
 });
 for await (const event of resume) {
   if (event.type === 'turn.done') console.log('status:', event.state.status);
+  // Handle other event types.
 }
 ```
 
@@ -968,6 +1024,7 @@ with client.sessions.subscribe_to_turn(
     for event in resume:
         if event.type == "turn.done":
             print("status:", event.state.status)
+        # Handle other event types.
 ```
 </CodeGroup>
 
@@ -1021,6 +1078,7 @@ await client.sessions.createTurnEvents(session.id, turnId!, {
 });
 for await (const event of resume) {
   if (event.type === 'turn.done') console.log('status:', event.state.status);
+  // Handle other event types.
 }
 ```
 
@@ -1075,6 +1133,7 @@ with client.sessions.subscribe_to_turn(
     for event in resume:
         if event.type == "turn.done":
             print("status:", event.state.status)
+        # Handle other event types.
 ```
 </CodeGroup>
 
@@ -1082,7 +1141,13 @@ with client.sessions.subscribe_to_turn(
 
 The answer doesn't have to come while you hold the stream open. If a person needs time to review, stop reading, save the session id and turn id, and come back later, even from a different process. A paused turn keeps waiting until you answer it, [cancel](#cancel-a-turn) it, or send a new message. Time spent waiting doesn't count toward the turn's execution time limit.
 
-When you come back, [list the turn's events](#replay-a-turn) to see what it is waiting on: every pending call whose `tool_call_id` has no answer yet. Then [subscribe](#resume-a-stream) from the last event, send the answers, and read that subscription.
+When you come back, [list the turn's events](#replay-a-turn) and work out what it is still waiting on:
+
+- **Approvals and questions**: every call in a `tool.approval_required` or `tool.response_required` that has no matching `user.tool_approval` or `user.tool_response` yet.
+- **Session approvals**: a `user.tool_approval_policy` also settles the waiting calls to its tools, without a separate `user.tool_approval` for each. Match each waiting call's server and tool (see [Approve a tool for the rest of the session](#approve-a-tool-for-the-rest-of-the-session)) against the policies. An approval that had already expired when it was sent settles nothing.
+- **MCP sign-in**: an `mcp.auth_required` with no `user.mcp_auth_continue` after it.
+
+Then [subscribe](#resume-a-stream) from the last event, send the answers, and read that subscription. Don't answer anything that is already settled: the request fails with `400` and none of its answers are applied.
 
 <CodeGroup>
 ```typescript TypeScript wrap
@@ -1095,31 +1160,95 @@ const client = new TrueForge({
 const sessionId = 'sess-abc123'; // saved earlier
 const turnId = 'turn-abc123'; // saved earlier
 
+// Server and tool behind a call, or undefined if it isn't an MCP tool.
+function mcpTarget(call: TrueForgeApi.ToolCall) {
+  if (call.toolInfo.type === 'mcp') {
+    return { server: call.toolInfo.serverName, tool: call.toolInfo.name };
+  }
+  if (call.toolInfo.name !== 'call_tool') return undefined;
+  const args = JSON.parse(call.function.arguments || '{}') as {
+    mcp_server?: string;
+    tool_name?: string;
+  };
+  if (!args.mcp_server || !args.tool_name) return undefined;
+  return { server: args.mcp_server, tool: args.tool_name };
+}
+
 const { data: turn } = await client.sessions.getTurn(sessionId, turnId);
 if (turn.state.status === 'paused') {
-  // Calls waiting for approval, keyed by tool call id.
-  const waiting = new Map<string, string>(); // toolCallId → threadId
+  const calls = new Map<string, TrueForgeApi.ToolCall>(); // by tool call id
+  const approvals = new Map<string, string>(); // toolCallId → threadId
+  const questions = new Map<string, string>(); // toolCallId → threadId
+  let signIn: TrueForgeApi.McpAuthRequiredEvent | undefined;
   let lastEventId: string | undefined;
+
   for await (const event of await client.sessions.listTurnEvents(
     sessionId,
     turnId,
   )) {
     lastEventId = event.id;
-    if (event.type === 'tool.approval_required') {
-      for (const ref of event.toolCalls) waiting.set(ref.id, event.threadId);
+    switch (event.type) {
+      case 'model.message':
+        for (const call of event.toolCalls ?? []) calls.set(call.id, call);
+        break;
+      case 'tool.approval_required':
+        for (const ref of event.toolCalls) approvals.set(ref.id, event.threadId);
+        break;
+      case 'tool.response_required':
+        for (const ref of event.toolCalls) questions.set(ref.id, event.threadId);
+        break;
+      case 'user.tool_approval':
+        approvals.delete(event.toolCallId);
+        break;
+      case 'user.tool_response':
+        questions.delete(event.toolCallId);
+        break;
+      case 'user.tool_approval_policy':
+        for (const toolCallId of approvals.keys()) {
+          const call = calls.get(toolCallId);
+          const target = call && mcpTarget(call);
+          const covered = event.policies.some(
+            p =>
+              p.serverName === target?.server &&
+              p.name === target.tool &&
+              (p.policy.expireAt == null ||
+                Date.parse(p.policy.expireAt) > Date.parse(event.createdAt)),
+          );
+          if (covered) approvals.delete(toolCallId);
+        }
+        break;
+      case 'mcp.auth_required':
+        signIn = event;
+        break;
+      case 'user.mcp_auth_continue':
+        signIn = undefined;
+        break;
     }
-    if (event.type === 'user.tool_approval') waiting.delete(event.toolCallId);
   }
 
-  const approvals: TrueForgeApi.TurnUserEventMessage[] = [];
-  for (const [toolCallId, threadId] of waiting) {
-    approvals.push({
+  const answers: TrueForgeApi.TurnUserEventMessage[] = [];
+  for (const [toolCallId, threadId] of approvals) {
+    answers.push({
       type: 'user.tool_approval',
       threadId,
       toolCallId,
+      // or { status: 'deny', reason: 'denied by user' }
       approval: { status: 'allow' },
     });
   }
+  for (const [toolCallId, threadId] of questions) {
+    answers.push({
+      type: 'user.tool_response',
+      threadId,
+      toolCallId,
+      content: 'the user’s answer',
+    });
+  }
+  if (signIn) {
+    // Send only once the user has signed in at each server's authUrl.
+    answers.push({ type: 'user.mcp_auth_continue' });
+  }
+
   // Subscribe first, then send, then read what the answer produces.
   const rest = await client.sessions.subscribeToTurn(
     sessionId,
@@ -1128,14 +1257,17 @@ if (turn.state.status === 'paused') {
     { timeoutInSeconds: 600 },
   );
   await client.sessions.createTurnEvents(sessionId, turnId, {
-    events: approvals,
+    events: answers,
   });
   for await (const event of rest) console.log(event.type);
 }
 ```
 
 ```python Python wrap
+import json
 import os
+from datetime import datetime
+
 from trueforge_sdk import TrueForge
 
 client = TrueForge(
@@ -1145,30 +1277,94 @@ client = TrueForge(
 session_id = "sess-abc123"  # saved earlier
 turn_id = "turn-abc123"  # saved earlier
 
+
+def mcp_target(call):
+    """Server and tool behind a call, or None if it isn't an MCP tool."""
+    if call.tool_info.type == "mcp":
+        return call.tool_info.server_name, call.tool_info.name
+    if call.tool_info.name != "call_tool":
+        return None
+    args = json.loads(call.function.arguments or "{}")
+    if "mcp_server" not in args or "tool_name" not in args:
+        return None
+    return args["mcp_server"], args["tool_name"]
+
+
+def parse_time(value):
+    # Python 3.10 rejects a trailing "Z"; a time without an offset is local.
+    return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone()
+
+
+def covers(policy, target, sent_at):
+    """Whether a session-approval policy settles a call to target."""
+    if target != (policy.server_name, policy.name):
+        return False
+    expire_at = policy.policy.expire_at
+    return expire_at is None or parse_time(expire_at) > parse_time(sent_at)
+
+
 turn = client.sessions.get_turn(session_id=session_id, turn_id=turn_id).data
 if turn.state.status == "paused":
-    # Calls waiting for approval, keyed by tool call id.
-    waiting = {}  # tool_call_id → thread_id
+    calls = {}  # by tool call id
+    approvals = {}  # tool_call_id → thread_id
+    questions = {}  # tool_call_id → thread_id
+    sign_in = None
     last_event_id = None
+
     for event in client.sessions.list_turn_events(
         session_id=session_id, turn_id=turn_id
     ):
         last_event_id = event.id
-        if event.type == "tool.approval_required":
+        if event.type == "model.message":
+            for call in event.tool_calls or []:
+                calls[call.id] = call
+        elif event.type == "tool.approval_required":
             for ref in event.tool_calls:
-                waiting[ref.id] = event.thread_id
-        if event.type == "user.tool_approval":
-            waiting.pop(event.tool_call_id, None)
+                approvals[ref.id] = event.thread_id
+        elif event.type == "tool.response_required":
+            for ref in event.tool_calls:
+                questions[ref.id] = event.thread_id
+        elif event.type == "user.tool_approval":
+            approvals.pop(event.tool_call_id, None)
+        elif event.type == "user.tool_response":
+            questions.pop(event.tool_call_id, None)
+        elif event.type == "user.tool_approval_policy":
+            for tool_call_id in list(approvals):
+                call = calls.get(tool_call_id)
+                target = mcp_target(call) if call is not None else None
+                if any(covers(p, target, event.created_at) for p in event.policies):
+                    del approvals[tool_call_id]
+        elif event.type == "mcp.auth_required":
+            sign_in = event
+        elif event.type == "user.mcp_auth_continue":
+            sign_in = None
 
-    approvals = [
-        {
-            "type": "user.tool_approval",
-            "thread_id": thread_id,
-            "tool_call_id": tool_call_id,
-            "approval": {"status": "allow"},
-        }
-        for tool_call_id, thread_id in waiting.items()
-    ]
+    answers = []
+    for tool_call_id, thread_id in approvals.items():
+        answers.append(
+            {
+                "type": "user.tool_approval",
+                "thread_id": thread_id,
+                "tool_call_id": tool_call_id,
+                "approval": {
+                    "status": "allow"
+                },  # or {"status": "deny", "reason": "denied by user"}
+            }
+        )
+    for tool_call_id, thread_id in questions.items():
+        answers.append(
+            {
+                "type": "user.tool_response",
+                "thread_id": thread_id,
+                "tool_call_id": tool_call_id,
+                "content": "the user's answer",
+            }
+        )
+    if sign_in is not None:
+        # Send only once the user has signed in at each server's auth_url.
+        answers.append({"type": "user.mcp_auth_continue"})
+
+    # Subscribe first, then send, then read what the answer produces.
     with client.sessions.subscribe_to_turn(
         session_id=session_id,
         turn_id=turn_id,
@@ -1176,14 +1372,12 @@ if turn.state.status == "paused":
         request_options={"timeout": 600},
     ) as rest:
         client.sessions.create_turn_events(
-            session_id=session_id, turn_id=turn_id, events=approvals
+            session_id=session_id, turn_id=turn_id, events=answers
         )
         for event in rest:
             print(event.type)
 ```
 </CodeGroup>
-
-The same works for questions (`tool.response_required` answered by `user.tool_response`) and MCP sign-ins (`mcp.auth_required` answered by `user.mcp_auth_continue`).
 
 <Note>
 An answer is checked against what the turn is waiting for. If it names a call that isn't waiting (already answered, or a wrong `thread_id`), the request fails with `400` and none of the events in it are applied. Answering a turn that has already ended, for example because a new message cancelled it, fails with `409`.
