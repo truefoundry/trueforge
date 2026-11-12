@@ -2533,9 +2533,16 @@ describe('convertTurnMessages', () => {
         ),
       );
 
-      const bothPaused = updates.find(update => update.turnState?.status === 'paused');
-      expect(bothPaused?.status).toEqual({ type: 'requires-action', reason: 'tool-calls' });
-      expect(bothPaused?.metadata?.custom?.['pendingMcpAuth']).toBeUndefined();
+      // While both are open: approval status wins, but MCP metadata stays for an
+      // instant Connect handoff once the last approval is answered.
+      const bothPaused = updates.find(
+        update =>
+          update.turnState?.status === 'paused' &&
+          update.status?.type === 'requires-action' &&
+          update.status.reason === 'tool-calls' &&
+          update.metadata?.custom?.['pendingMcpAuth'] === true,
+      );
+      expect(bothPaused?.metadata?.custom?.['mcpServers']).toEqual(mcpServers);
 
       const afterApproveRunning = updates.find(update => update.turnState?.status === 'running');
       expect(afterApproveRunning?.metadata?.custom?.['pendingMcpAuth']).toBe(true);

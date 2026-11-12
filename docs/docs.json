@@ -78,7 +78,7 @@
           },
           {
             "group": "SDK",
-            "pages": ["api/quickstart", "api/overview", "api/overview-v2", "api/use-agent", "api/use-agent-v2"]
+            "pages": ["api/quickstart", "api/overview", "api/use-agent"]
           },
           {
             "group": "UI Chat",

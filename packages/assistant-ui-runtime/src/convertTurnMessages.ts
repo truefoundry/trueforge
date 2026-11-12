@@ -1160,10 +1160,14 @@ function buildTurnUpdateFromFold(
     const approvalThreadId = findFirstPendingApprovalThreadId(foldState);
     const responseThreadId = findFirstPendingResponseThreadId(foldState);
     // Approvals / ask-user before MCP auth when both are open on the same pause.
+    // Keep pendingMcpAuth on metadata (no Connect text yet) so the composer can
+    // switch to Connect as soon as the last approval clears — without waiting
+    // for the next SSE pause.
     if (approvalThreadId != null || responseThreadId != null) {
       const custom = {
         ...(approvalThreadId != null ? toolApprovalMessageCustom(approvalThreadId) : {}),
         ...(responseThreadId != null ? toolResponseMessageCustom(responseThreadId) : {}),
+        ...(turn.pendingMcpAuth != null ? mcpAuthMessageCustom(turn.pendingMcpAuth.mcpServers) : {}),
       };
       return withParallelToolGroups(
         {
@@ -1970,8 +1974,12 @@ export async function* streamTurnEvents(
     const responseThreadId = findFirstPendingResponseThreadId(foldState);
     // Prefer tool approval / ask-user over MCP auth when both are pending so the
     // composer shows "N tools need your input" first; Connect waits until those clear.
+    // Stash MCP metadata anyway so approving the last tool can reveal Connect
+    // immediately (optimistic overlay) instead of after the next running/pause SSE.
     if (approvalThreadId != null || responseThreadId != null) {
-      const custom: Record<string, unknown> = {};
+      const custom: Record<string, unknown> = {
+        ...(pendingMcpAuth != null ? mcpAuthMessageCustom(pendingMcpAuth.mcpServers) : {}),
+      };
       if (approvalThreadId != null) {
         Object.assign(custom, toolApprovalMessageCustom(approvalThreadId));
       }

@@ -47,6 +47,25 @@ describe('cursorFromTurnEvents', () => {
       ]),
     ).toEqual({ afterEventId: 'done' });
   });
+
+  it('keeps mcp auth when a sibling turn.update running is newest', () => {
+    expect(
+      cursorFromTurnEvents([
+        { type: 'turn.update', id: 'running', state: { status: 'running' } },
+        { type: 'mcp.auth_required', id: 'auth' },
+      ]),
+    ).toEqual({ fromEventId: 'auth' });
+  });
+
+  it('ends mcp auth on user.mcp_auth_continue even if running follows', () => {
+    expect(
+      cursorFromTurnEvents([
+        { type: 'turn.update', id: 'running', state: { status: 'running' } },
+        { type: 'user.mcp_auth_continue', id: 'continue' },
+        { type: 'mcp.auth_required', id: 'auth' },
+      ]),
+    ).toEqual({ afterEventId: 'running' });
+  });
 });
 
 describe('createSubscribeReplayProgress', () => {
