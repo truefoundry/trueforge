@@ -1,5 +1,13 @@
 # @truefoundry/trueforge
 
+## 0.185.0-rc.3
+
+### Patch Changes
+
+- 35882e8: Memory failures during a chat are now reported to Sentry: setting up memory for a turn, loading the memory summary at the start of a session (timeouts stay warnings), and the memory search and save tools.
+- 35882e8: Turn memory on by default: the tenant memory switch now defaults to on, a migration turns it on for existing tenants, and the agent builder starts new agents with Memory on when memory is available.
+- 80c18f7: Document tenant-wide web search and memory switches, clarify those Settings descriptions, and keep query strings intact when the TrueForge MCP server calls list-style API tools.
+
 ## 0.185.0-rc.2
 
 ### Patch Changes
