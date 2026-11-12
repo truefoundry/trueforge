@@ -144,7 +144,7 @@ export function derivePendingMcpAuth(
 
 const UPDATE_CURRENT_SESSION_TOOL_NAME = 'update_current_session';
 /** Mirrors `TRUEFORGE_MCP_ID` in trueforge-core. This package does not depend on it. */
-const TRUEFORGE_MCP_SERVER_ID = 'built-in:trueforge-mcp';
+const TRUEFORGE_MCP_SERVER_ID = 'trueforge:mcp';
 
 function isUpdateCurrentSessionCall(part: ToolCallPart): boolean {
   // The TrueForge server is deferred, so its tools arrive as `call_tool` and the

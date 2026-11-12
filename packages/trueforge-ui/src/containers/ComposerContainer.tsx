@@ -2,7 +2,7 @@
 
 import { ComposerPrimitive, useAui, useAuiState } from '@assistant-ui/react';
 import { useTrueForgeAgentSpec, useTrueForgeCancel } from '@truefoundry/trueforge-assistant-ui-runtime';
-import { useRef, type KeyboardEvent } from 'react';
+import { useRef, useState, type KeyboardEvent } from 'react';
 
 import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '../analytics/events.js';
@@ -67,6 +67,8 @@ function ComposerBody({
   const cancel = useTrueForgeCancel();
   const toaster = useToasterOptional();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const cancellingRef = useRef(false);
   // Running/pause no longer lock the input — only session permissions do.
   const disabled = !canManageSession;
   const canSubmit = canSubmitComposer({ disabled, hasText, hasAttachments, requiresModel, hasModel });
@@ -179,13 +181,22 @@ function ComposerBody({
             canSubmit={canSubmit}
             hasContent={hasContent}
             isRunning={isBusy}
+            isCancelling={isCancelling}
             onSubmit={submit}
             onCancel={
               canManageSession
                 ? () => {
+                    if (cancellingRef.current) return;
+                    cancellingRef.current = true;
+                    setIsCancelling(true);
                     track(AnalyticsEvents.Message.CANCELLED, withSessionProps(undefined, { sessionId, ...shellAgent }));
                     resetBusy();
-                    void cancel();
+                    void cancel()
+                      .catch(() => undefined)
+                      .finally(() => {
+                        cancellingRef.current = false;
+                        setIsCancelling(false);
+                      });
                   }
                 : undefined
             }
