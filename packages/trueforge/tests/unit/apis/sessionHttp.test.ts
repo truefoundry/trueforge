@@ -86,6 +86,7 @@ describe('sessions HTTP agent binding', () => {
   let configurationStore: SqliteConfigurationStore;
   let webSearchProviderStore: SqliteWebSearchProviderStore;
   let memoryProviderStore: SqliteMemoryProviderStore;
+  let sandboxProviderStore: SqliteSandboxProviderStore;
   let sessionDeps: SessionsRouterDeps<Transaction<Database>>;
   let resolveModelProviderStore: jest.Mock;
   let resolveMcpServerStore: jest.Mock;
@@ -100,7 +101,7 @@ describe('sessions HTTP agent binding', () => {
     const modelProviderStore = new SqliteModelProviderStore(db);
     const mcpServerStore = new SqliteMcpServerStore(db);
     const skillStore = new SqliteSkillStore(db);
-    const sandboxProviderStore = new SqliteSandboxProviderStore(db);
+    sandboxProviderStore = new SqliteSandboxProviderStore(db);
     const sandboxEnvironmentStore = new SqliteSandboxEnvironmentStore(db);
     webSearchProviderStore = new SqliteWebSearchProviderStore(db);
     memoryProviderStore = new SqliteMemoryProviderStore(db);
@@ -220,6 +221,34 @@ describe('sessions HTTP agent binding', () => {
       subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
     });
     expect(json.data.metrics).toEqual({ total_duration_ms: 0, total_turns: 0 });
+  });
+
+  it('rejects an inline session with sandbox enabled and no environment_name', async () => {
+    await sandboxProviderStore.upsertSandboxProvider({
+      tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
+      manifest: {
+        type: 'daytona',
+        auth: { api_key: 'dtn-test' },
+        exec_timeout_ms: 60_000,
+        auto_stop_interval_in_minutes: 5,
+        auto_archive_interval_in_minutes: 60,
+        auto_delete_interval_in_minutes: 7200,
+      },
+    });
+    const res = await app.request(
+      '/',
+      jsonInit('POST', {
+        agent: {
+          spec: AgentSpecSchema.parse({
+            model: { name: 'anthropic/claude-sonnet-4-6' },
+            instructions: 'inline',
+            config: { sandbox: { enabled: true } },
+          }),
+        },
+      }),
+    );
+    expect(res.status).toBe(422);
+    expect(await res.text()).toContain('sandbox.environment_name is required when sandbox is enabled');
   });
 
   it('returns last_turn_details on get and list', async () => {

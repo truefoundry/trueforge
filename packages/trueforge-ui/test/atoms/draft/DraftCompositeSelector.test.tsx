@@ -393,13 +393,13 @@ describe('DraftCompositeSelector', () => {
         data: [
           {
             id: 'env-default',
-            name: 'default',
+            name: 'trueforge-sandbox-env',
             description: 'Default environment',
             status: 'ready',
             enabled: true,
             isDefault: true,
             statusReason: null,
-            manifest: { name: 'default', description: 'Default environment' },
+            manifest: { name: 'trueforge-sandbox-env', description: 'Default environment' },
             createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
             createdAt: '2026-09-01T10:00:00Z',
             updatedAt: '2026-09-01T10:00:00Z',
@@ -451,7 +451,7 @@ describe('DraftCompositeSelector', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
     fireEvent.click(await screen.findByRole('button', { name: /Environment/ }));
 
-    expect(await screen.findByText('default')).toBeInTheDocument();
+    expect(await screen.findByText('trueforge-sandbox-env')).toBeInTheDocument();
     expect(screen.getByText('Default environment')).toBeInTheDocument();
     expect(await screen.findByText('python-dev')).toBeInTheDocument();
     expect(screen.getByText('Python 3.11 environment with poetry')).toBeInTheDocument();
@@ -479,11 +479,11 @@ describe('DraftCompositeSelector', () => {
     });
 
     // The tenant default is listed under its own name and pins like any other
-    fireEvent.click(screen.getByText('default'));
+    fireEvent.click(screen.getByText('trueforge-sandbox-env'));
     expect(updateAgentSpec).toHaveBeenCalledWith({
       config: expect.objectContaining({
         sandbox: expect.objectContaining({
-          environmentName: 'default',
+          environmentName: 'trueforge-sandbox-env',
         }),
       }),
     });
@@ -500,13 +500,13 @@ describe('DraftCompositeSelector', () => {
         data: [
           {
             id: 'env-default',
-            name: 'default',
+            name: 'trueforge-sandbox-env',
             description: 'Default environment',
             status: 'ready',
             enabled: true,
             isDefault: true,
             statusReason: null,
-            manifest: { name: 'default', description: 'Default environment' },
+            manifest: { name: 'trueforge-sandbox-env', description: 'Default environment' },
             createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
             createdAt: '2026-09-01T10:00:00Z',
             updatedAt: '2026-09-01T10:00:00Z',
@@ -533,7 +533,7 @@ describe('DraftCompositeSelector', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Environment/ }));
 
     expect(await screen.findByText("Can't change the environment after a chat has started")).toBeInTheDocument();
-    fireEvent.click(screen.getByText('default'));
+    fireEvent.click(screen.getByText('trueforge-sandbox-env'));
     expect(updateAgentSpec).not.toHaveBeenCalled();
   });
 
@@ -560,13 +560,13 @@ describe('DraftCompositeSelector', () => {
         data: [
           {
             id: 'env-default',
-            name: 'default',
+            name: 'trueforge-sandbox-env',
             description: 'Default environment',
             status: 'ready',
             enabled: true,
             isDefault: true,
             statusReason: null,
-            manifest: { name: 'default', description: 'Default environment' },
+            manifest: { name: 'trueforge-sandbox-env', description: 'Default environment' },
             createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
             createdAt: '2026-09-01T10:00:00Z',
             updatedAt: '2026-09-01T10:00:00Z',

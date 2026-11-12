@@ -24,11 +24,12 @@ import type { IMcpServerStore, IMcpServerWithAuthStore } from '../db/mcpServerSt
 import type { IMemoryProviderStore } from '../db/memoryProviderStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore, SandboxEnvironmentWithVersion } from '../db/sandboxEnvironmentStore';
-import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
+import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { hasConfiguredMemoryProvider } from '../memory/providers';
+import { sandboxEnvironmentsEnabled } from '../sandbox/environment/support';
 import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProvider';
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import {
@@ -272,6 +273,8 @@ export function buildTurnSandbox<TEnvironment = undefined>(input: {
  * Cross-checks an AgentSpec against configured models / MCP / skills and
  * sandbox capability. Throws HTTPException(422) for semantic failures.
  * Skills must exist in the skill store (git name) or pass SFY resolve (registry FQN).
+ * When sandbox is enabled and the configured provider supports environments,
+ * `config.sandbox.environment_name` is required.
  */
 export async function validateAgentSpec({
   spec,
@@ -297,7 +300,6 @@ export async function validateAgentSpec({
   webSearchProviderStore: IWebSearchProviderStore;
   memoryProviderStore: IMemoryProviderStore;
   configurationStore: IConfigurationStore;
-  /** Spec already saved on this session or agent; undefined when creating. */
   previousSpec: AgentSpec | undefined;
 }): Promise<void> {
   const resolved = await getModelDetails({
@@ -341,9 +343,10 @@ export async function validateAgentSpec({
 
   const wantsSandbox = spec.config.sandbox.enabled;
   const hasSkills = requestedSkills.length > 0;
+  let sandboxProvider: SandboxProviderRecord | undefined;
   if (wantsSandbox || hasSkills) {
-    const record = await sandboxProviderStore.getSandboxProvider(tenant_id);
-    if (record === undefined && !isLocalSandboxFallbackEnabled()) {
+    sandboxProvider = await sandboxProviderStore.getSandboxProvider(tenant_id);
+    if (sandboxProvider === undefined && !isLocalSandboxFallbackEnabled()) {
       throw new HTTPException(422, {
         message: hasSkills
           ? 'skills require a sandbox provider — configure via PUT /settings/sandbox-providers'
@@ -353,6 +356,14 @@ export async function validateAgentSpec({
   }
 
   const environmentName = spec.config.sandbox.environment_name;
+  // Daytona is the only env-capable provider; local fallback and TFY on-prem skip this.
+  const environmentsRequired =
+    wantsSandbox && sandboxEnvironmentsEnabled() && sandboxProvider?.manifest.type === 'daytona';
+  if (environmentsRequired && environmentName === undefined) {
+    throw new HTTPException(422, {
+      message: 'sandbox.environment_name is required when sandbox is enabled',
+    });
+  }
   if (environmentName !== undefined) {
     const environment = await sandboxEnvironmentStore.getEnvironment({
       tenant_id,
@@ -370,8 +381,6 @@ export async function validateAgentSpec({
     }
   }
 
-  // Both checks gate turning web search on. A spec already saved with it on keeps it,
-  // so later edits are not blocked by a switch or a provider that changed since.
   if (spec.config.web_search.enabled && previousSpec?.config.web_search.enabled !== true) {
     const tenantAllows = await isWebSearchEnabledForTenant({ tenant_id, store: configurationStore });
     if (!tenantAllows) {
@@ -388,8 +397,8 @@ export async function validateAgentSpec({
     }
   }
 
-  // Memory can be turned on only while the tenant has its switch on and a provider. A spec already
-  // saved with it on keeps it, and its turns run without memory until both hold again.
+  // Sessions may keep memory on a stored spec; agent save always re-checks (previousSpec undefined).
+  // Turns still run without memory until the tenant switch and provider both hold again.
   if (spec.config.memory.enabled && previousSpec?.config.memory.enabled !== true) {
     const tenantAllows = await isMemoryEnabledForTenant({ tenant_id, store: configurationStore });
     if (!tenantAllows) {

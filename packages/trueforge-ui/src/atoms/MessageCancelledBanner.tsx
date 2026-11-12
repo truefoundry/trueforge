@@ -2,7 +2,7 @@ import { Icon } from '../icons/Icon.js';
 import { cn } from './lib/cn.js';
 
 export type MessageCancelledBannerProps = {
-  /** Wire cancel reason as-is, e.g. "client-cancelled". */
+  /** Human-readable cancel reason, e.g. "You stopped this response". */
   message: string;
   className?: string;
 };

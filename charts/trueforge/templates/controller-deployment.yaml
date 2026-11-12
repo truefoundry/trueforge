@@ -61,8 +61,6 @@ spec:
           {{- end }}
           env:
             {{- include "trueforge.env" . | nindent 12 }}
-            - name: SERVER_URL
-              value: {{ include "trueforge.controller.serverUrl" . | quote }}
             {{- with .Values.controller.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
