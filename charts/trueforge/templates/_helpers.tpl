@@ -662,7 +662,10 @@ the env map, and mTLS.
 {{- $env = append $env (dict "name" "TRUEFOUNDRY_SANDBOX_ENABLED" "value" "true") -}}
 {{- $env = append $env (dict "name" "TRUEFOUNDRY_SANDBOX_PROVIDER" "value" "truefoundry") -}}
 {{- $env = append $env (dict "name" "TRUEFOUNDRY_SANDBOX_SERVER_URL" "value" (printf "http://%s:%v" $sandboxHost ($sandboxSvc.port | default 8080))) -}}
-{{- $env = append $env (dict "name" "TRUEFOUNDRY_SANDBOX_SETTINGS" "value" (dict "nats_bridge_url" (printf "ws://%s:%v" $sandboxHost ($sandboxSvc.natsBridgePort | default 4444)) | toJson)) -}}
+{{- /* Scheme is configurable (tfy-sandbox-server.service.natsBridgeScheme) so a
+       deployment that terminates TLS in front of the bridge can opt into "wss". */ -}}
+{{- $natsBridgeScheme := $sandboxSvc.natsBridgeScheme | default "ws" -}}
+{{- $env = append $env (dict "name" "TRUEFOUNDRY_SANDBOX_SETTINGS" "value" (dict "nats_bridge_url" (printf "%s://%s:%v" $natsBridgeScheme $sandboxHost ($sandboxSvc.natsBridgePort | default 4444)) | toJson)) -}}
 {{- end -}}
 
 {{- /* env map: replace in place when the chart already emits the name, else
