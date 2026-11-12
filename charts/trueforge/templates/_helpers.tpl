@@ -659,15 +659,11 @@ the env map, and mTLS.
 {{- $env = append $env (dict "name" "NODE_EXTRA_CA_CERTS" "value" "/etc/ssl/certs/ca-certificates.crt") -}}
 {{- end -}}
 
-{{- /* Bundled dev sandbox server: point the app at the subchart's Service.
-       The subchart's fullname helper computes the name; it needs the
-       subchart's scope (its values live under our tfy-sandbox-server key)
-       and is only defined while the dependency is enabled - the same flag
-       that gates this block. */ -}}
+{{- /* Use the enabled subchart's scope so endpoint helpers share its merged globals and overrides. */ -}}
 {{- if (.Values.truefoundry | default dict).devSandboxServerEnabled -}}
-{{- $sandbox := index .Values "tfy-sandbox-server" | default dict -}}
-{{- $sandboxSvc := $sandbox.service | default dict -}}
-{{- $sandboxHost := include "tfy-sandbox-server.serviceFQDN" (dict "Values" $sandbox "Chart" (dict "Name" "tfy-sandbox-server") "Release" .Release) -}}
+{{- $sandbox := index .Subcharts "tfy-sandbox-server" -}}
+{{- $sandboxSvc := $sandbox.Values.service | default dict -}}
+{{- $sandboxHost := include "tfy-sandbox-server.serviceFQDN" $sandbox -}}
 {{- $env = append $env (dict "name" "TRUEFOUNDRY_SANDBOX_ENABLED" "value" "true") -}}
 {{- $env = append $env (dict "name" "TRUEFOUNDRY_SANDBOX_PROVIDER" "value" "truefoundry") -}}
 {{- $env = append $env (dict "name" "TRUEFOUNDRY_SANDBOX_SERVER_URL" "value" (printf "http://%s:%v" $sandboxHost ($sandboxSvc.port | default 8080))) -}}
