@@ -83,6 +83,31 @@ export function createApiKeyAuthMiddleware(apiKey: string): MiddlewareHandler {
   };
 }
 
+export function createAuthOrServiceKeyMiddleware(params: {
+  authenticator: Authenticator;
+  apiKey: string;
+}): MiddlewareHandler {
+  const { authenticator, apiKey } = params;
+  return async (c, next) => {
+    const token = readBearerToken(c);
+    if (token && matchesServiceKey({ provided: token, expected: apiKey })) {
+      // Clear any prior JWT context (e.g. sibling `/api/v1/sessions` mount with standalone auth).
+      c.set('request_context', undefined);
+      c.set('subject', undefined);
+      return next();
+    }
+
+    const requestContext = await tryAuthenticate({ authenticator, context: c });
+    if (!requestContext) {
+      throw new HTTPException(401, { message: 'Authentication required' });
+    }
+    c.set('subject', requestContext.subject);
+    c.set('request_context', requestContext);
+    updateLogContext({ tenant_id: requestContext.tenant_id });
+    return next();
+  };
+}
+
 /**
  * Soft OIDC probe for login/callback — not request-gate middleware.
  *

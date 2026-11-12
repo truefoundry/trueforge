@@ -40,6 +40,7 @@ import {
   buildAdminAuthMiddleware,
   createApiKeyAuthMiddleware,
   createAuthMiddleware,
+  createAuthOrServiceKeyMiddleware,
   tryAuthenticate,
 } from './auth/middleware';
 import type { McpCatalog } from './catalog/McpCatalog';
@@ -693,7 +694,10 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         sessions: deps.sessions,
         sessionStore: deps.sessionStore,
       }),
-      authMiddleware,
+      createAuthOrServiceKeyMiddleware({
+        authenticator: deps.authenticator,
+        apiKey: configuration.TRUEFORGE_API_KEY,
+      }),
     ),
   );
 

@@ -67,6 +67,7 @@ import { HTTPException } from 'hono/http-exception';
 import { streamSSE } from 'hono/streaming';
 import type { Logger } from 'winston';
 import { z } from 'zod';
+import { ASSUME_USER_HEADER, parseAssumeUserHeader } from '../auth/assumeUser';
 import type { Authorizer } from '../auth/authorizer';
 import {
   requestContextFromCreatedBySubject,
@@ -1145,6 +1146,39 @@ function isSessionOwner({
   return created_by_subject.subject_id === subject_id;
 }
 
+async function resolveTurnSession<TTransaction>(params: {
+  c: Context;
+  sessions: Sessions<TTransaction>;
+  session_id: string;
+}): Promise<{ requestContext: RequestContext; session: SessionHandle<TTransaction> }> {
+  const { c, sessions, session_id: sessionId } = params;
+  const existing = c.get('request_context');
+  if (!existing) {
+    parseAssumeUserHeader(c.req.header(ASSUME_USER_HEADER));
+    const session = await sessions.getById({ session_id: sessionId });
+    if (!session) {
+      throw new HTTPException(404, { message: `Session not found: ${sessionId}` });
+    }
+    const requestContext = requestContextFromCreatedBySubject({
+      tenant_id: session.record.tenant_id,
+      created_by_subject: session.record.created_by_subject,
+      user_credential: null,
+    });
+    c.set('request_context', requestContext);
+    updateLogContext({ tenant_id: session.record.tenant_id, session_id: sessionId });
+    return { requestContext, session };
+  }
+
+  const session = await sessions.get({
+    tenant_id: existing.tenant_id,
+    session_id: sessionId,
+  });
+  if (!session) {
+    throw new HTTPException(404, { message: `Session not found: ${sessionId}` });
+  }
+  return { requestContext: existing, session };
+}
+
 /** Request-reply path the owner serves for inbound turn events. */
 const TURNS_SEND_EVENTS_PATH = 'turns/send-events';
 
@@ -1791,14 +1825,11 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
   const listTurnsHandler: RouteHandler<typeof listTurnsRoute> = async c => {
     const { session_id: sessionId } = c.req.valid('param');
     const query = c.req.valid('query');
-    const requestContext = deps.resolveRequestContext(c);
-    const session = await deps.sessions.get({
-      tenant_id: requestContext.tenant_id,
+    const { requestContext, session } = await resolveTurnSession({
+      c,
+      sessions: deps.sessions,
       session_id: sessionId,
     });
-    if (!session) {
-      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
-    }
     const allowed = await canReadSession({
       session_id: session.record.session_id,
       accessControlStore: deps.accessControlStore,
@@ -1970,16 +2001,15 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
   const createAndExecuteTurnHandler: RouteHandler<typeof createAndExecuteTurnRoute> = async c => {
     const { session_id: sessionId } = c.req.valid('param');
     const body = c.req.valid('json');
-    const requestContext = deps.resolveRequestContext(c);
-
-    const session = await deps.sessions.get({
-      tenant_id: requestContext.tenant_id,
+    const serviceAuth = !c.get('request_context');
+    const { requestContext, session } = await resolveTurnSession({
+      c,
+      sessions: deps.sessions,
       session_id: sessionId,
     });
-    if (!session) {
-      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
-    }
+
     if (
+      !serviceAuth &&
       !isSessionOwner({
         subject_id: requestContext.subject.id,
         created_by_subject: session.record.created_by_subject,
@@ -1996,6 +2026,12 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
     });
     if (agentUse.type === 'rejected') {
       return c.json({ error: { message: agentUse.message } }, agentUse.status);
+    }
+    // Service path vends as the saved agent; inline sessions have no agent id.
+    if (serviceAuth && !agentUse.agent) {
+      throw new HTTPException(422, {
+        message: 'Service create-turn requires a session bound to a named agent (not an inline agent spec)',
+      });
     }
     const referencedAgent = agentUse.agent;
 
