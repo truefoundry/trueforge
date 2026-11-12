@@ -107,6 +107,7 @@ describe('ComposerContainer', () => {
     toolResponsesState.respond = vi.fn();
     approvalsState.pending = [];
     cancelMock.mockReset();
+    cancelMock.mockResolvedValue(undefined);
   });
   it('wraps the composer in an attachment dropzone by default', () => {
     renderComposer();
@@ -379,6 +380,32 @@ describe('ComposerContainer', () => {
     expect(screen.getByRole('textbox', { name: 'Message input' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeEnabled();
     expect(screen.queryByRole('button', { name: 'Send message' })).not.toBeInTheDocument();
+  });
+
+  it('disables Cancel and shows Cancelling while cancel is in flight', async () => {
+    let resolveCancel: (() => void) | undefined;
+    cancelMock.mockImplementationOnce(
+      () =>
+        new Promise<void>(resolve => {
+          resolveCancel = resolve;
+        }),
+    );
+
+    render(
+      <RuntimeHarness messages={[]} isRunning>
+        <ComposerBusyProvider>
+          <ComposerContainer />
+        </ComposerBusyProvider>
+      </RuntimeHarness>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Cancelling' })).toBeDisabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelling' }));
+    expect(cancelMock).toHaveBeenCalledTimes(1);
+
+    resolveCancel?.();
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Cancelling' })).not.toBeInTheDocument());
   });
 
   it('sends while running without calling cancel', async () => {

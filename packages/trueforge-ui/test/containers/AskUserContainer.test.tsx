@@ -7,14 +7,9 @@ import { AskUserContainer } from '@/containers/AskUserContainer.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 
 const useToolResponses = vi.hoisted(() => vi.fn());
-const useThreadRunning = vi.hoisted(() => vi.fn());
 
 vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
   useTrueForgeToolResponses: () => useToolResponses(),
-}));
-
-vi.mock('@assistant-ui/core/react', () => ({
-  useThreadIsRunning: () => useThreadRunning(),
 }));
 
 function AskUserPromptProbe({
@@ -81,7 +76,6 @@ describe('AskUserContainer', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    useThreadRunning.mockReturnValue(false);
     useToolResponses.mockReturnValue({ pending: [], respond });
   });
 
@@ -143,17 +137,20 @@ describe('AskUserContainer', () => {
     expect(screen.getByRole('button', { name: 'Submit response' })).toBeDisabled();
   });
 
-  it('maps a running thread to read-only pending state', () => {
-    useThreadRunning.mockReturnValue(true);
+  it('honors the disabled prop for session permissions', () => {
     useToolResponses.mockReturnValue({
       pending: [{ toolCallId: 'question-1', question: 'Continue?', options: ['Proceed'] }],
       respond,
     });
-    renderSubject();
+    render(
+      <SlotsProvider overrides={{ AskUserPrompt: AskUserPromptProbe }}>
+        <AskUserContainer disabled />
+      </SlotsProvider>,
+    );
 
     expect(screen.getByTestId('ask-user-probe')).toHaveAttribute('data-read-only', 'true');
     expect(screen.getByRole('button', { name: 'Choose Proceed' })).toBeDisabled();
-    expect(screen.getByRole('textbox', { name: 'Custom response' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Submit response' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Choose Proceed' }));
+    expect(respond).not.toHaveBeenCalled();
   });
 });

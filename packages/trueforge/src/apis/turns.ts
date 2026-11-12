@@ -702,7 +702,7 @@ function buildTrueForgeMcpConnection(input: {
     return undefined;
   }
   return {
-    name: 'trueforge-mcp',
+    name: TRUEFORGE_MCP_ID,
     description:
       "Create, update, and read agents, schedules, and sandbox environments in this deployment. Read this chat's " +
       'configuration and the configured models, MCP servers, and skills. Does not run agents or turns.',

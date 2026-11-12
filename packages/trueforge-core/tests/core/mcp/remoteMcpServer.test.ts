@@ -156,6 +156,31 @@ function makeServer(params: {
 }
 
 describe('RemoteMCP + ToolSet', () => {
+  it('can label tools as truefoundry-system for built-in management MCP', async () => {
+    const remote = new RemoteMCP({
+      id: 'trueforge:mcp',
+      connection: {
+        url: 'https://mcp.example.com/mcp',
+        name: 'trueforge:mcp',
+        description: 'TrueForge management',
+      },
+      logger: noopLogger,
+      tracing: NOOP_AGENT_TRACING,
+      requestTimeoutMs: 60_000,
+      connectTimeoutMs: 5_000,
+      signal: new AbortController().signal,
+      isSystem: true,
+    });
+
+    await expect(remote.toolCallInfo({ name: 'update_current_session' })).resolves.toEqual({
+      type: 'truefoundry-system',
+      original_tool_name: 'update_current_session',
+      mcp_server_id: 'trueforge:mcp',
+      mcp_server_name: 'trueforge:mcp',
+      is_approval_required: false,
+    });
+  });
+
   it('passes a connection-specific fetch to the MCP transport', async () => {
     installFakeConnection();
     const fetch = jest.fn() as unknown as RemoteMcpFetch;
