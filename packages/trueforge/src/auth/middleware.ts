@@ -83,6 +83,10 @@ export function createApiKeyAuthMiddleware(apiKey: string): MiddlewareHandler {
   };
 }
 
+/**
+ * JWT for session + turn routes; service API key leaves request_context unset so
+ * list/create-turn can assume the session creator. Other handlers still require a JWT context.
+ */
 export function createAuthOrServiceKeyMiddleware(params: {
   authenticator: Authenticator;
   apiKey: string;
@@ -91,7 +95,6 @@ export function createAuthOrServiceKeyMiddleware(params: {
   return async (c, next) => {
     const token = readBearerToken(c);
     if (token && matchesServiceKey({ provided: token, expected: apiKey })) {
-      // Clear any prior JWT context (e.g. sibling `/api/v1/sessions` mount with standalone auth).
       c.set('request_context', undefined);
       c.set('subject', undefined);
       return next();

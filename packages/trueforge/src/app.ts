@@ -647,59 +647,60 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       authMiddleware,
     ),
   );
-  app.route(
-    '/api/v1/sessions',
-    withAuth(
-      createSessionsRouter({
-        accessControlStore: deps.accessControlStore,
-        activeTurns: deps.activeTurns,
-        authorizer: deps.authorizer,
-        logger: deps.logger,
-        redis: deps.redis,
-        requestReplyRouter: deps.requestReplyRouter,
-        resolveAgentStore: resolveHttpAgentStore,
-        resolveMcpServerStore: deps.resolveMcpServerStore,
-        resolveModelProviderStore: deps.resolveModelProviderStore,
-        resolveRequestContext,
-        resolveSkillStore: deps.resolveSkillStore,
-        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-        sandboxProviderStore: deps.sandboxProviderStore,
-        sessions: deps.sessions,
-        sessionStore: deps.sessionStore,
-        userStore: deps.userStore,
-        webSearchProviderStore: deps.webSearchProviderStore,
-        memoryProviderStore: deps.memoryProviderStore,
-        configurationStore: deps.configurationStore,
-        withTransaction: deps.withTransaction,
-      }),
-      authMiddleware,
-    ),
+  // One mount so JWT-only sessions auth cannot 401 a service-key list/create-turn before dual auth runs.
+  const publicSessionsRouter = new OpenAPIHono();
+  publicSessionsRouter.use(
+    '*',
+    createAuthOrServiceKeyMiddleware({
+      authenticator: deps.authenticator,
+      apiKey: configuration.TRUEFORGE_API_KEY,
+    }),
   );
-  app.route(
-    '/api/v1/sessions',
-    withAuth(
-      createTurnsRouter({
-        accessControlStore: deps.accessControlStore,
-        activeTurns: deps.activeTurns,
-        authorizer: deps.authorizer,
-        eventSubscriptions: deps.eventSubscriptions,
-        logger: deps.logger,
-        redis: deps.redis,
-        requestReplyRouter: deps.requestReplyRouter,
-        resolveAgentStore: deps.resolveAgentStore,
-        resolveRequestContext,
-        resolveTurnExecutionStores: deps.resolveTurnExecutionStores,
-        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-        sandboxProviderStore: deps.sandboxProviderStore,
-        sessions: deps.sessions,
-        sessionStore: deps.sessionStore,
-      }),
-      createAuthOrServiceKeyMiddleware({
-        authenticator: deps.authenticator,
-        apiKey: configuration.TRUEFORGE_API_KEY,
-      }),
-    ),
+  publicSessionsRouter.route(
+    '/',
+    createSessionsRouter({
+      accessControlStore: deps.accessControlStore,
+      activeTurns: deps.activeTurns,
+      authorizer: deps.authorizer,
+      logger: deps.logger,
+      redis: deps.redis,
+      requestReplyRouter: deps.requestReplyRouter,
+      resolveAgentStore: resolveHttpAgentStore,
+      resolveMcpServerStore: deps.resolveMcpServerStore,
+      resolveModelProviderStore: deps.resolveModelProviderStore,
+      resolveRequestContext,
+      resolveSkillStore: deps.resolveSkillStore,
+      sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
+      sandboxProviderStore: deps.sandboxProviderStore,
+      sessions: deps.sessions,
+      sessionStore: deps.sessionStore,
+      userStore: deps.userStore,
+      webSearchProviderStore: deps.webSearchProviderStore,
+      memoryProviderStore: deps.memoryProviderStore,
+      configurationStore: deps.configurationStore,
+      withTransaction: deps.withTransaction,
+    }),
   );
+  publicSessionsRouter.route(
+    '/',
+    createTurnsRouter({
+      accessControlStore: deps.accessControlStore,
+      activeTurns: deps.activeTurns,
+      authorizer: deps.authorizer,
+      eventSubscriptions: deps.eventSubscriptions,
+      logger: deps.logger,
+      redis: deps.redis,
+      requestReplyRouter: deps.requestReplyRouter,
+      resolveAgentStore: deps.resolveAgentStore,
+      resolveRequestContext,
+      resolveTurnExecutionStores: deps.resolveTurnExecutionStores,
+      sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
+      sandboxProviderStore: deps.sandboxProviderStore,
+      sessions: deps.sessions,
+      sessionStore: deps.sessionStore,
+    }),
+  );
+  app.route('/api/v1/sessions', publicSessionsRouter);
 
   // First-party TrueForge MCP (Streamable HTTP). Protocol endpoint.
   app.use('/mcp', authMiddleware);

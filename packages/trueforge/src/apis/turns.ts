@@ -2008,32 +2008,41 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
       session_id: sessionId,
     });
 
-    if (
-      !serviceAuth &&
-      !isSessionOwner({
-        subject_id: requestContext.subject.id,
-        created_by_subject: session.record.created_by_subject,
-      })
-    ) {
-      return c.json({ error: { message: FORBIDDEN_CREATE_TURN } }, 403);
-    }
-
-    const agentUse = await referencedAgentForUse({
-      session,
-      requestContext,
-      agentStore: deps.resolveAgentStore(requestContext),
-      authorizer: deps.authorizer,
-    });
-    if (agentUse.type === 'rejected') {
-      return c.json({ error: { message: agentUse.message } }, agentUse.status);
-    }
-    // Service path vends as the saved agent; inline sessions have no agent id.
-    if (serviceAuth && !agentUse.agent) {
-      throw new HTTPException(422, {
-        message: 'Service create-turn requires a session bound to a named agent (not an inline agent spec)',
+    let referencedAgent: AgentRecord | undefined;
+    if (serviceAuth) {
+      if (session.record.agent.type !== 'reference') {
+        throw new HTTPException(422, {
+          message: 'Service create-turn requires a session bound to a named agent (not an inline agent spec)',
+        });
+      }
+      const agent = await deps.resolveAgentStore(requestContext).getAgent({
+        tenant_id: requestContext.tenant_id,
+        id: session.record.agent.id,
       });
+      if (!agent) {
+        return c.json({ error: { message: `Agent not found: ${session.record.agent.id}` } }, 422);
+      }
+      referencedAgent = agent;
+    } else {
+      if (
+        !isSessionOwner({
+          subject_id: requestContext.subject.id,
+          created_by_subject: session.record.created_by_subject,
+        })
+      ) {
+        return c.json({ error: { message: FORBIDDEN_CREATE_TURN } }, 403);
+      }
+      const agentUse = await referencedAgentForUse({
+        session,
+        requestContext,
+        agentStore: deps.resolveAgentStore(requestContext),
+        authorizer: deps.authorizer,
+      });
+      if (agentUse.type === 'rejected') {
+        return c.json({ error: { message: agentUse.message } }, agentUse.status);
+      }
+      referencedAgent = agentUse.agent;
     }
-    const referencedAgent = agentUse.agent;
 
     // x-tfg-skills / x-tfg-mcp / x-tfg-models on turns only when the session agent is inline.
     const turnParams: BeginTurnExecutionParams<TTransaction> = {
@@ -2047,7 +2056,7 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
         session,
         requestContext,
         requestHeaders: c.req.header(),
-        ...(referencedAgent !== undefined ? { runAsAgent: referencedAgent } : {}),
+        ...(referencedAgent ? { runAsAgent: referencedAgent } : {}),
       }),
     };
 
