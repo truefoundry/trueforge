@@ -53,20 +53,20 @@ export function runSandboxEnvironmentStoreContractSuite<TTransaction>({
   getStore: () => ISandboxEnvironmentStore<TTransaction>;
   setUpdatedAt: (input: { name: string; updatedAt: string }) => Promise<void>;
 }): void {
-  it('lists the default first, then latest updates with name breaking ties, before pagination', async () => {
+  it('lists latest updates with name breaking ties before pagination, regardless of the default flag', async () => {
     const store = getStore();
     for (const name of ['default-env', 'alpha', 'bravo', 'zeta']) {
       await createEnvironment(store, name);
       await setUpdatedAt({ name, updatedAt: '2024-01-01T00:00:00.000Z' });
     }
-    await store.setDefaultEnvironment({ tenant_id: TENANT, name: 'default-env' });
+    await store.setDefaultEnvironment({ tenant_id: TENANT, name: 'bravo' });
     await setUpdatedAt({ name: 'zeta', updatedAt: '2024-01-02T00:00:00.000Z' });
 
     const all = await store.listEnvironments({ tenant_id: TENANT, limit: undefined, page_token: undefined });
-    expect(all.data.map(row => row.environment.name)).toEqual(['default-env', 'zeta', 'alpha', 'bravo']);
+    expect(all.data.map(row => row.environment.name)).toEqual(['zeta', 'alpha', 'bravo', 'default-env']);
 
     const first = await store.listEnvironments({ tenant_id: TENANT, limit: 2, page_token: undefined });
-    expect(first.data.map(row => row.environment.name)).toEqual(['default-env', 'zeta']);
+    expect(first.data.map(row => row.environment.name)).toEqual(['zeta', 'alpha']);
     expect(first.pagination.next_page_token).toEqual(expect.any(String));
 
     const second = await store.listEnvironments({
@@ -74,7 +74,7 @@ export function runSandboxEnvironmentStoreContractSuite<TTransaction>({
       limit: 2,
       page_token: first.pagination.next_page_token,
     });
-    expect(second.data.map(row => row.environment.name)).toEqual(['alpha', 'bravo']);
+    expect(second.data.map(row => row.environment.name)).toEqual(['bravo', 'default-env']);
     expect(second.pagination.next_page_token).toBeUndefined();
     expect(second.pagination.previous_page_token).toEqual(expect.any(String));
 

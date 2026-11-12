@@ -39,7 +39,12 @@ import {
   TableTokenPagination,
 } from '../primitives/Table.js';
 import { Tooltip } from '../primitives/Tooltip.js';
-import { formatNetworkingSummary, formatResourcesSummary, isReservedEnvironmentName } from './environmentDisplay.js';
+import {
+  formatNetworkingSummary,
+  formatResourcesSummary,
+  isReservedEnvironmentName,
+  RESERVED_ENVIRONMENT_NAME,
+} from './environmentDisplay.js';
 import { EnvironmentFormDrawer } from './EnvironmentFormDrawer.js';
 import { EnvironmentStatusBadge } from './EnvironmentStatusBadge.js';
 
@@ -178,8 +183,16 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
           limit: clampPageSize(size),
           ...(token === undefined || token === '' ? {} : { pageToken: token }),
         });
+        // The platform environment stays pinned even when it falls on another API page.
+        const reserved =
+          page.data.find(environment => isReservedEnvironmentName(environment.name)) ??
+          (await environmentServer.getEnvironment({ name: RESERVED_ENVIRONMENT_NAME }).catch(() => undefined));
         if (gen !== loadGenRef.current) return;
-        setEnvironments(page.data);
+        setEnvironments(
+          reserved === undefined
+            ? page.data
+            : [reserved, ...page.data.filter(environment => !isReservedEnvironmentName(environment.name))],
+        );
         setNextPageToken(page.nextPageToken);
         setPreviousPageToken(page.previousPageToken);
       } catch (caught) {

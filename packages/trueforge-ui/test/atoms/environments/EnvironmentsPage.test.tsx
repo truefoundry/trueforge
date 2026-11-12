@@ -146,6 +146,59 @@ function renderPage({
 }
 
 describe('EnvironmentsPage', () => {
+  it('pins the reserved environment by name without promoting a custom default or reordering other rows', async () => {
+    const getEnvironment = vi.fn();
+    const environments = sampleEnvironments.flatMap(environment => [
+      { ...environment, id: 'recent', name: 'recent-env', updatedAt: '2024-01-04T00:00:00.000Z' },
+      { ...environment, id: 'custom-default', name: 'custom-default', isDefault: true },
+      { ...environment, id: 'reserved', name: 'trueforge-sandbox-env', isDefault: false },
+    ]);
+    renderPage({ environments, environmentOverrides: { getEnvironment } });
+
+    await screen.findByRole('button', { name: 'Actions for trueforge-sandbox-env' });
+    const rows = within(screen.getByRole('table')).getAllByRole('row').slice(1);
+    expect(
+      rows.map(row =>
+        within(row)
+          .getByRole('button', { name: /^Actions for / })
+          .getAttribute('aria-label'),
+      ),
+    ).toEqual(['Actions for trueforge-sandbox-env', 'Actions for recent-env', 'Actions for custom-default']);
+    expect(getEnvironment).not.toHaveBeenCalled();
+  });
+
+  it('pins the reserved environment from another API page and preserves pagination tokens without duplicates', async () => {
+    const [reserved] = sampleEnvironments.map(environment => ({
+      ...environment,
+      id: 'reserved',
+      name: 'trueforge-sandbox-env',
+      isDefault: true,
+    }));
+    if (reserved === undefined) throw new Error('Expected an environment fixture');
+    const getEnvironment = vi.fn(async () => reserved);
+    const listEnvironments = vi.fn(async ({ pageToken }: { pageToken?: string } = {}) =>
+      pageToken === 'next-token'
+        ? { data: [reserved], previousPageToken: 'previous-token' }
+        : { data: sampleEnvironments, nextPageToken: 'next-token' },
+    );
+    renderPage({ environmentOverrides: { listEnvironments, getEnvironment } });
+
+    await screen.findByText('python-data');
+    const rows = within(screen.getByRole('table')).getAllByRole('row').slice(1);
+    expect(rows[0]).toHaveTextContent('trueforge-sandbox-env');
+    expect(rows[1]).toHaveTextContent('python-data');
+    expect(getEnvironment).toHaveBeenCalledWith({ name: 'trueforge-sandbox-env' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+    await waitFor(() => {
+      expect(listEnvironments).toHaveBeenCalledWith(expect.objectContaining({ pageToken: 'next-token' }));
+      expect(screen.queryByText('python-data')).not.toBeInTheDocument();
+    });
+    expect(screen.getAllByRole('button', { name: 'Actions for trueforge-sandbox-env' })).toHaveLength(1);
+    expect(getEnvironment).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'Previous page' })).toBeEnabled();
+  });
+
   it('lists environments without calling sandbox providers', async () => {
     renderPage();
     await waitFor(() => {
@@ -319,10 +372,10 @@ describe('EnvironmentsPage', () => {
     const listEnvironments = vi.fn(async () => ({
       data: [pendingEnv],
     }));
-    const getEnvironment = vi.fn(async () => ({
-      ...pendingEnv,
-      status: 'ready' as const,
-    }));
+    const getEnvironment = vi.fn(({ name }: { name: string }) => {
+      if (name !== pendingEnv.name) return Promise.reject(new Error('Environment not found'));
+      return Promise.resolve({ ...pendingEnv, status: 'ready' as const });
+    });
 
     try {
       renderPage({ environmentOverrides: { listEnvironments, getEnvironment } });
@@ -330,7 +383,7 @@ describe('EnvironmentsPage', () => {
         expect(screen.getByText('building-env')).toBeInTheDocument();
       });
 
-      expect(getEnvironment).not.toHaveBeenCalled();
+      expect(getEnvironment).not.toHaveBeenCalledWith({ name: 'building-env' });
 
       await act(async () => {
         await vi.advanceTimersByTimeAsync(PENDING_ENVIRONMENTS_POLL_INTERVAL_MS);
