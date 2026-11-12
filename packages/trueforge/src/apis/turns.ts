@@ -1154,7 +1154,7 @@ async function resolveTurnSession<TTransaction>(params: {
 }): Promise<{ requestContext: RequestContext; session: SessionHandle<TTransaction> }> {
   const { c, sessions, session_id: sessionId, resolveRequestContext } = params;
   const existing = c.get('request_context');
-  // Service key leaves request_context unset and sends assume-user; JWT/tests use resolveRequestContext.
+  // Service key clears context; require assume-user so a JWT+header cannot take this path.
   if (!existing && c.req.header(ASSUME_USER_HEADER)?.trim()) {
     parseAssumeUserHeader(c.req.header(ASSUME_USER_HEADER));
     const session = await sessions.getById({ session_id: sessionId });
@@ -2005,7 +2005,7 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
   const createAndExecuteTurnHandler: RouteHandler<typeof createAndExecuteTurnRoute> = async c => {
     const { session_id: sessionId } = c.req.valid('param');
     const body = c.req.valid('json');
-    const serviceAuth = Boolean(c.req.header(ASSUME_USER_HEADER)?.trim());
+    const serviceAuth = !c.get('request_context') && Boolean(c.req.header(ASSUME_USER_HEADER)?.trim());
     const { requestContext, session } = await resolveTurnSession({
       c,
       sessions: deps.sessions,
