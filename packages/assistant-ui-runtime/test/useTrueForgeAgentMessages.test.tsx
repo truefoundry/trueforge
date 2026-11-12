@@ -1103,6 +1103,7 @@ describe('useTrueForgeAgentMessages', () => {
         m => m.role === 'assistant' && m.content.some(p => p.type === 'text' && p.text.includes('How are you')),
       ),
     ).toBe(false);
+    expect(mockServer.cancelSession).not.toHaveBeenCalled();
 
     await act(async () => {
       releaseStream?.();

@@ -55,7 +55,7 @@ export function UserEditComposerContainer() {
                 Cancel
               </Button.Secondary>
               <ComposerPrimitive.Send asChild>
-                <Button.Primary type="submit" disabled={sendDisabled || isRunning || !canManageSession}>
+                <Button.Primary type="button" disabled={sendDisabled || isRunning || !canManageSession}>
                   Save &amp; Rerun
                 </Button.Primary>
               </ComposerPrimitive.Send>
