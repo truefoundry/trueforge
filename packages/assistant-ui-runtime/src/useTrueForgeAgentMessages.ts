@@ -35,7 +35,7 @@ import {
   resolveToolApprovalPolicyTarget,
 } from './foldPeerThreads.js';
 import { loadSessionSnapshot } from './loadSessionSnapshot.js';
-import { restoreMcpAuthAfterFailedContinue, withOptimisticMcpAuthContinue } from './mcpAuth.js';
+import { withOptimisticMcpAuthContinue } from './mcpAuth.js';
 import { isMcpServerAuthInfoList, MESSAGE_CUSTOM_KEY } from './messageCustomMetadata.js';
 import type { AssistantContentPart } from './modelMessageContent.js';
 import { findPausedAssistantMessage } from './requiredActionInputs.js';
@@ -1299,9 +1299,9 @@ export function useTrueForgeAgentMessages({
       events: TurnInboundEventItem[];
       submissionId: string;
       optimisticSnapshot: SessionSnapshot;
-    }): Promise<void> => {
+    }): Promise<boolean> => {
       if (actionSubmissionsRef.current.has(submissionId)) {
-        return;
+        return false;
       }
       const activeSessionId = sessionId ?? lazilyCreatedSessionIdRef.current;
       const active = snapshotRef.current.activeStream;
@@ -1339,6 +1339,7 @@ export function useTrueForgeAgentMessages({
           // authoritative point where every resolved overlay can be cleared.
           return replaceSessionSnapshot(previous, {});
         });
+        return true;
       } catch (error) {
         updateSnapshot(previous => {
           const approvals = new Map(previous.requiredActions.approvals);
@@ -1456,28 +1457,21 @@ export function useTrueForgeAgentMessages({
   );
 
   const continueMcpAuth = useCallback(async (): Promise<void> => {
-    const previous = snapshotRef.current;
     const event: UserMcpAuthContinueInputEvent = { type: EVENT_TYPE.USER_MCP_AUTH_CONTINUE };
-    const optimisticSnapshot = withOptimisticMcpAuthContinue(previous);
-    // Working... needs thread isRunning as well as message status:running.
-    const wakeTurn = optimisticSnapshot.runningTurn?.state.status === TURN_STATUS.RUNNING;
-    if (wakeTurn) {
-      setIsRunning(true);
+    // Leave Connect up until the request succeeds. A duplicate click while this
+    // submission is in flight returns false and must not clear the prompt.
+    const accepted = await submitTurnEvents({
+      events: [event],
+      submissionId: 'mcp-auth-continue',
+      optimisticSnapshot: snapshotRef.current,
+    });
+    if (!accepted) {
+      return;
     }
-    try {
-      await submitTurnEvents({
-        events: [event],
-        submissionId: 'mcp-auth-continue',
-        // Drop Connect immediately so Continue cannot be pressed twice while the
-        // turn is still waking; stream can restore the prompt if auth is still open.
-        optimisticSnapshot,
-      });
-    } catch (error) {
-      if (wakeTurn) {
-        setIsRunning(false);
-      }
-      updateSnapshot(current => restoreMcpAuthAfterFailedContinue({ current, beforeContinue: previous }));
-      throw error;
+    const next = updateSnapshot(withOptimisticMcpAuthContinue);
+    // Working... needs thread isRunning as well as message status:running.
+    if (next.runningTurn?.state.status === TURN_STATUS.RUNNING) {
+      setIsRunning(true);
     }
   }, [submitTurnEvents, updateSnapshot]);
 

@@ -3,11 +3,7 @@ import type { McpAuthRequiredEvent, TurnStateDone } from './server/index.js';
 import { EVENT_TYPE, TURN_STATUS } from './server/index.js';
 
 import { interruptRequiredAssistantStatus, runningAssistantStatus } from './assistantMessageStatus.js';
-import {
-  isMcpServerAuthInfoList,
-  MESSAGE_CUSTOM_KEY,
-  type McpAuthMessageCustomMetadata,
-} from './messageCustomMetadata.js';
+import { MESSAGE_CUSTOM_KEY, type McpAuthMessageCustomMetadata } from './messageCustomMetadata.js';
 import type { AssistantContentPart } from './modelMessageContent.js';
 import { replaceSessionSnapshot, STREAM_SEGMENT_STATUS, type SessionSnapshot } from './sessionSnapshot.js';
 
@@ -56,10 +52,10 @@ function omitMcpAuthHintText(content: readonly AssistantContentPart[]): Assistan
 }
 
 /**
- * Clears Connect chrome as soon as Continue is sent so the prompt cannot be
- * clicked twice while the turn is still catching up. Also marks the tip running
- * so Working... shows immediately (not a blank gap until SSE resumes).
- * Stream updates can put Connect back if auth is still required.
+ * Clears Connect chrome after the continue request has returned success, so
+ * Working... can show before the stream reports running. A failed request does
+ * not call this, and the prompt stays. Stream updates can put Connect back if
+ * auth is still required.
  */
 export function withOptimisticMcpAuthContinue(snapshot: SessionSnapshot): SessionSnapshot {
   const active = snapshot.activeStream;
@@ -121,64 +117,6 @@ export function withOptimisticMcpAuthContinue(snapshot: SessionSnapshot): Sessio
                 custom,
               },
             }),
-      },
-    },
-  });
-}
-
-/** Undoes {@link withOptimisticMcpAuthContinue} when Continue fails to send. */
-export function restoreMcpAuthAfterFailedContinue({
-  current,
-  beforeContinue,
-}: {
-  current: SessionSnapshot;
-  beforeContinue: SessionSnapshot;
-}): SessionSnapshot {
-  if (current.pendingMcpAuth != null) {
-    return current;
-  }
-  const priorPending = beforeContinue.pendingMcpAuth;
-  const priorActive = beforeContinue.activeStream;
-  const priorCustom = priorActive?.update.metadata?.custom;
-  const priorServers = priorCustom?.[MESSAGE_CUSTOM_KEY.MCP_SERVERS];
-  const restoredMcpCustom =
-    priorCustom?.[MESSAGE_CUSTOM_KEY.PENDING_MCP_AUTH] === true && isMcpServerAuthInfoList(priorServers)
-      ? mcpAuthMessageCustom(priorServers)
-      : undefined;
-  if (priorPending == null && restoredMcpCustom == null) {
-    return current;
-  }
-
-  const active = current.activeStream ?? priorActive;
-  if (active == null) {
-    return replaceSessionSnapshot(current, {
-      ...(priorPending != null ? { pendingMcpAuth: priorPending } : {}),
-      ...(beforeContinue.runningTurn != null ? { runningTurn: beforeContinue.runningTurn } : {}),
-    });
-  }
-
-  return replaceSessionSnapshot(current, {
-    ...(priorPending != null ? { pendingMcpAuth: priorPending } : {}),
-    ...(beforeContinue.runningTurn != null ? { runningTurn: beforeContinue.runningTurn } : {}),
-    activeStream: {
-      ...active,
-      ...(priorActive != null ? { segmentStatus: priorActive.segmentStatus } : {}),
-      update: {
-        ...active.update,
-        ...(priorActive != null
-          ? {
-              content: priorActive.update.content,
-              status: priorActive.update.status,
-              turnState: priorActive.update.turnState,
-            }
-          : {}),
-        metadata: {
-          ...active.update.metadata,
-          custom: {
-            ...active.update.metadata?.custom,
-            ...restoredMcpCustom,
-          },
-        },
       },
     },
   });

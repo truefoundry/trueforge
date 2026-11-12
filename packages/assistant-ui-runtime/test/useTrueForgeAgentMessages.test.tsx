@@ -1960,6 +1960,55 @@ describe('useTrueForgeAgentMessages', () => {
     });
   });
 
+  it('keeps Connect visible until the continue request succeeds', async () => {
+    let resolveSend: (() => void) | undefined;
+    vi.mocked(mockServer.sendTurnEvents).mockImplementation(
+      () =>
+        new Promise(resolve => {
+          resolveSend = () => resolve([]);
+        }),
+    );
+    vi.mocked(loadSessionSnapshot).mockResolvedValue(
+      snapshotWithAssistantMessage({
+        id: 'turn-1-assistant',
+        role: 'assistant',
+        content: [{ type: 'text', text: 'Connect the required service.' }],
+        status: { type: 'requires-action', reason: 'interrupt' },
+        createdAt: new Date(),
+        metadata: {
+          unstable_state: null,
+          unstable_annotations: [],
+          unstable_data: [],
+          steps: [],
+          custom: {
+            turnId: 'turn-1',
+            pendingMcpAuth: true,
+            mcpServers: [{ id: 'github', name: 'GitHub', authUrl: 'https://example.com/auth' }],
+          },
+        },
+      }),
+    );
+
+    const { result } = renderHook(() => useTrueForgeAgentMessages({ server: mockServer, sessionId: 'session-1' }));
+    await waitFor(() => expect(result.current.messages).toHaveLength(1));
+
+    let continued: Promise<void> | undefined;
+    act(() => {
+      continued = result.current.continueMcpAuth();
+    });
+    await waitFor(() => expect(mockServer.sendTurnEvents).toHaveBeenCalledTimes(1));
+
+    expect(result.current.messages[0]?.metadata.custom?.['pendingMcpAuth']).toBe(true);
+
+    await act(async () => {
+      resolveSend?.();
+      await continued;
+    });
+
+    expect(result.current.messages[0]?.metadata.custom?.['pendingMcpAuth']).toBeUndefined();
+    expect(result.current.messages[0]?.status).toEqual({ type: 'running' });
+  });
+
   it('uses the stored event-id cursor when subscribing before an action', async () => {
     const base = snapshotWithAssistantMessage(assistantMessageWithPendingApproval());
     const active = base.activeStream;
