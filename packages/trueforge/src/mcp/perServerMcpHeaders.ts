@@ -18,6 +18,9 @@ const VirtualMcpHeadersSchema = z.record(z.string().min(1), McpHeaderMapSchema);
 const PerServerMcpHeadersSchema = z.record(z.string().min(1), z.union([McpHeaderMapSchema, VirtualMcpHeadersSchema]));
 
 export type PerServerMcpHeaders = z.infer<typeof PerServerMcpHeadersSchema>;
+
+// Transport headers TrueForge manages; a caller value would override them in the MCP client.
+const MANAGED_MCP_HEADERS = new Set(['mcp-session-id', 'mcp-protocol-version']);
 type VirtualMcpHeaders = z.infer<typeof VirtualMcpHeadersSchema>;
 
 export function isVirtualMcpHeaders(entry: PerServerMcpHeaders[string]): entry is VirtualMcpHeaders {
@@ -42,6 +45,12 @@ export function parsePerServerMcpHeaders(raw: string): PerServerMcpHeaders {
     throw new HTTPException(400, {
       message: `${X_TFG_MCP_HEADERS} must map each MCP server name to a header map`,
     });
+  }
+  const managed = Object.values(parsed.data)
+    .flatMap(entry => Object.keys(entry))
+    .find(name => MANAGED_MCP_HEADERS.has(name.toLowerCase()));
+  if (managed !== undefined) {
+    throw new HTTPException(400, { message: `${X_TFG_MCP_HEADERS} must not set ${managed}` });
   }
   return parsed.data;
 }

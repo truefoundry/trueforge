@@ -89,6 +89,8 @@ describe('parsePerServerMcpHeaders', () => {
     ['a server mapped to a string', JSON.stringify({ 'tfy-platform-mcp': 'Bearer user' })],
     ['a header mapped to a number', JSON.stringify({ 'tfy-platform-mcp': { 'x-h': 1 } })],
     ['mixed nesting', JSON.stringify({ 'virtual-mcp': { serv1: { Authorization: 'Bearer a' }, 'x-h': '1' } })],
+    ['a managed session header', JSON.stringify({ 'tfy-platform-mcp': { 'Mcp-Session-Id': 'other' } })],
+    ['a managed protocol header', JSON.stringify({ 'tfy-platform-mcp': { 'mcp-protocol-version': '2025-06-18' } })],
   ])('rejects %s rather than silently dropping the identity it carries', (_case, raw) => {
     expect(() => parsePerServerMcpHeaders(raw)).toThrow(HTTPException);
   });
