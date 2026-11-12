@@ -647,42 +647,18 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       authMiddleware,
     ),
   );
-  // Sibling JWT-only sessions + dual-auth turns mounts share this prefix; JWT would 401 the
-  // service key before turns auth runs. One mount + dual auth avoids that ordering bug.
-  const publicSessionsRouter = new OpenAPIHono();
-  publicSessionsRouter.use(
-    '*',
+  // Turns before sessions: a JWT-only sessions shell mounted first would 401 the service key
+  // on list/create turns before dual-auth runs.
+  const turnsRouter = new OpenAPIHono();
+  turnsRouter.use(
+    '/:session_id/turns',
     createAuthOrServiceKeyMiddleware({
       authenticator: deps.authenticator,
       apiKey: configuration.TRUEFORGE_API_KEY,
     }),
   );
-  publicSessionsRouter.route(
-    '/',
-    createSessionsRouter({
-      accessControlStore: deps.accessControlStore,
-      activeTurns: deps.activeTurns,
-      authorizer: deps.authorizer,
-      logger: deps.logger,
-      redis: deps.redis,
-      requestReplyRouter: deps.requestReplyRouter,
-      resolveAgentStore: resolveHttpAgentStore,
-      resolveMcpServerStore: deps.resolveMcpServerStore,
-      resolveModelProviderStore: deps.resolveModelProviderStore,
-      resolveRequestContext,
-      resolveSkillStore: deps.resolveSkillStore,
-      sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-      sandboxProviderStore: deps.sandboxProviderStore,
-      sessions: deps.sessions,
-      sessionStore: deps.sessionStore,
-      userStore: deps.userStore,
-      webSearchProviderStore: deps.webSearchProviderStore,
-      memoryProviderStore: deps.memoryProviderStore,
-      configurationStore: deps.configurationStore,
-      withTransaction: deps.withTransaction,
-    }),
-  );
-  publicSessionsRouter.route(
+  turnsRouter.use('/:session_id/turns/:turn_id/*', authMiddleware);
+  turnsRouter.route(
     '/',
     createTurnsRouter({
       accessControlStore: deps.accessControlStore,
@@ -701,7 +677,35 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       sessionStore: deps.sessionStore,
     }),
   );
-  app.route('/api/v1/sessions', publicSessionsRouter);
+  app.route('/api/v1/sessions', turnsRouter);
+  app.route(
+    '/api/v1/sessions',
+    withAuth(
+      createSessionsRouter({
+        accessControlStore: deps.accessControlStore,
+        activeTurns: deps.activeTurns,
+        authorizer: deps.authorizer,
+        logger: deps.logger,
+        redis: deps.redis,
+        requestReplyRouter: deps.requestReplyRouter,
+        resolveAgentStore: resolveHttpAgentStore,
+        resolveMcpServerStore: deps.resolveMcpServerStore,
+        resolveModelProviderStore: deps.resolveModelProviderStore,
+        resolveRequestContext,
+        resolveSkillStore: deps.resolveSkillStore,
+        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
+        sandboxProviderStore: deps.sandboxProviderStore,
+        sessions: deps.sessions,
+        sessionStore: deps.sessionStore,
+        userStore: deps.userStore,
+        webSearchProviderStore: deps.webSearchProviderStore,
+        memoryProviderStore: deps.memoryProviderStore,
+        configurationStore: deps.configurationStore,
+        withTransaction: deps.withTransaction,
+      }),
+      authMiddleware,
+    ),
+  );
 
   // First-party TrueForge MCP (Streamable HTTP). Protocol endpoint.
   app.use('/mcp', authMiddleware);

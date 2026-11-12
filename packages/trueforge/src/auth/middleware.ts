@@ -84,8 +84,9 @@ export function createApiKeyAuthMiddleware(apiKey: string): MiddlewareHandler {
 }
 
 /**
- * JWT for session + turn routes; service API key leaves request_context unset so
- * list/create-turn can assume the session creator.
+ * JWT or service API key. Service key leaves request_context unset so list/create-turn
+ * can assume the session creator. Mount only on those routes; other /sessions routes
+ * stay on {@link createAuthMiddleware}.
  */
 export function createAuthOrServiceKeyMiddleware(params: {
   authenticator: Authenticator;
