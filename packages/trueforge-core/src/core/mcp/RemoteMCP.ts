@@ -73,7 +73,8 @@ export class RemoteMCP implements ToolSource {
   private readonly requestTimeoutMs: number;
   private readonly connectTimeoutMs: number;
   private readonly maxResponseBytes: number;
-  private readonly toolInfoType: InternalToolCallInfo['type'];
+  /** When true, tool_info.type is `truefoundry-system` instead of `mcp`. */
+  private readonly isSystem: boolean;
   // Redacted display url for trace spans (derived from url; unused when tracing is a no-op).
   private readonly traceUrl: string;
 
@@ -98,7 +99,7 @@ export class RemoteMCP implements ToolSource {
     connectTimeoutMs: number;
     maxResponseBytes?: number | undefined;
     signal: AbortSignal;
-    toolInfoType?: InternalToolCallInfo['type'] | undefined;
+    isSystem?: boolean;
   }) {
     this.name = params.connection.name;
     this.id = params.id;
@@ -110,7 +111,7 @@ export class RemoteMCP implements ToolSource {
     this.requestTimeoutMs = params.requestTimeoutMs;
     this.connectTimeoutMs = params.connectTimeoutMs;
     this.maxResponseBytes = params.maxResponseBytes ?? DEFAULT_MAX_MCP_RESPONSE_BYTES;
-    this.toolInfoType = params.toolInfoType ?? 'mcp';
+    this.isSystem = params.isSystem ?? false;
     this.logger = params.logger;
     this.tracing = params.tracing ?? NOOP_AGENT_TRACING;
     this.traceUrl = redactUrlForTrace(params.connection.url);
@@ -286,7 +287,7 @@ export class RemoteMCP implements ToolSource {
   toolCallInfo(params: CallToolRequest['params'], _resolveUnderlyingTool?: boolean): Promise<InternalToolCallInfo> {
     void _resolveUnderlyingTool;
     return Promise.resolve({
-      type: this.toolInfoType,
+      type: this.isSystem ? 'truefoundry-system' : 'mcp',
       original_tool_name: params.name,
       mcp_server_id: this.id,
       mcp_server_name: this.name,

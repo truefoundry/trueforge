@@ -168,7 +168,7 @@ describe('RemoteMCP + ToolSet', () => {
       requestTimeoutMs: 60_000,
       connectTimeoutMs: 5_000,
       signal: new AbortController().signal,
-      toolInfoType: 'truefoundry-system',
+      isSystem: true,
     });
 
     await expect(remote.toolCallInfo({ name: 'update_current_session' })).resolves.toEqual({

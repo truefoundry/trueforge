@@ -288,8 +288,7 @@ export class TurnResourceResolver<
             logger: this.deps.logger,
             tracing: input.tracing,
             signal: input.signal,
-            // Management tools are harness system tools, not third-party MCP tools.
-            toolInfoType: 'truefoundry-system',
+            isSystem: true,
           }),
         ),
     });
