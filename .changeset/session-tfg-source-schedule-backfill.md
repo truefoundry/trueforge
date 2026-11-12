@@ -2,4 +2,4 @@
 '@truefoundry/trueforge': patch
 ---
 
-Backfill `tfg.source = 'schedule'` metadata on existing schedule-run sessions so source counts include them.
+Schedule-run sessions now carry `tfg.source = 'schedule'` metadata, and existing schedule-run sessions are backfilled so source counts include them.
