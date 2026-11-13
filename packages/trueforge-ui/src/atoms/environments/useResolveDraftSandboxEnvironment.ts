@@ -9,10 +9,6 @@ import { useOptionalSandboxEnvironmentServer, useServerCapabilities } from '../.
 import { useSandboxEnvironments } from './useSandboxEnvironments.js';
 
 export type UseResolveDraftSandboxEnvironmentResult = {
-  /**
-   * True while environments chrome is on and this draft still needs a pinned
-   * environment name — list in flight, or pin write not yet applied.
-   */
   pending: boolean;
 };
 
@@ -23,8 +19,6 @@ export type UseResolveDraftSandboxEnvironmentResult = {
  * does not move a chat or agent that was already started.
  *
  * Mounted with the composer so it runs on page load, not only when the config drawer opens.
- * Exposes `pending` so Send can wait for the pin without blocking when the feature is off,
- * the list failed, or the tenant has no default.
  */
 export function useResolveDraftSandboxEnvironment(): UseResolveDraftSandboxEnvironmentResult {
   const { agentSpec, draftSessionId } = useTrueForgeAgentSpec();

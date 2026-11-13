@@ -39,7 +39,6 @@ export function canSubmitComposer({
   hasAttachments: boolean;
   requiresModel: boolean;
   hasModel: boolean;
-  /** True while models or the default sandbox are still loading for a draft. */
   isBlocked?: boolean;
 }): boolean {
   return !disabled && !isBlocked && (hasText || hasAttachments) && (!requiresModel || hasModel);
@@ -53,7 +52,6 @@ function ComposerBody({
   placeholder: string;
   /** Flatten top radius/border so pause chrome sits flush above. */
   connectedToBanner?: boolean;
-  /** Why Send is blocked while a draft waits on models or sandbox resolution. */
   sendBlockedReason?: string;
 }) {
   const ComposerShell = useSlot('ComposerShell');
@@ -230,12 +228,10 @@ function MutableDraftComposer({
   placeholder: string;
   connectedToBanner?: boolean;
 }) {
-  // Mounted here (not in a slot) so a host override of DraftComposerLeftSection cannot skip pinning.
   const { pending: sandboxPending } = useResolveDraftSandboxEnvironment();
   const { agentSpec } = useTrueForgeAgentSpec();
   const { loaded: modelsLoaded, loading: modelsLoading } = useDraftCatalog();
   const hasModel = Boolean(agentSpec?.model?.name?.trim());
-  // Prefer the model wait message when both are still settling — users already know models gate Send.
   const sendBlockedReason =
     !hasModel && (!modelsLoaded || modelsLoading)
       ? 'Loading models…'

@@ -105,7 +105,6 @@ function renderMutableComposer({
         >
           <SlotsProvider
             overrides={{
-              // Gate logic lives in MutableDraftComposer; skip DraftModelSelector fixtures.
               ComposerRightSection: () => <></>,
               DraftComposerRightSection: () => <></>,
             }}
@@ -597,7 +596,6 @@ describe('ComposerContainer', () => {
 
   it('blocks send with Loading models while the catalog loads', async () => {
     agentSpecState.agentSpec = { model: { name: '' } };
-    // Right section stubbed so ensureLoaded never runs; catalog stays unloaded.
     renderMutableComposer({
       listEnvironments: async () => ({ data: [defaultSandboxEnv] }),
     });

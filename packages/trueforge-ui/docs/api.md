@@ -71,12 +71,12 @@ Custom servers remain permissive unless they provide the optional port.
 
 ## Slots / theme
 
-| Export                                                               | Notes                                                                                                                                           |
-| -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SlotsProvider`, `useSlot`, `defaultSlots`                           | Override registry                                                                                                                               |
-| `SlotOverrides`, `AtomSlots`, `ThemeMode`                            | Types                                                                                                                                           |
-| `useTheme`, `useThemeMode`                                           | Theme mode                                                                                                                                      |
-| Feature atoms (`WelcomeScreen`, `ComposerShell`, bubbles, toasts, …) | Defaults + override targets; `ComposerShell` / `ComposerSendButton` accept optional `blockedReason` while draft Send waits on models or sandbox |
+| Export                                                               | Notes                       |
+| -------------------------------------------------------------------- | --------------------------- |
+| `SlotsProvider`, `useSlot`, `defaultSlots`                           | Override registry           |
+| `SlotOverrides`, `AtomSlots`, `ThemeMode`                            | Types                       |
+| `useTheme`, `useThemeMode`                                           | Theme mode                  |
+| Feature atoms (`WelcomeScreen`, `ComposerShell`, bubbles, toasts, …) | Defaults + override targets |
 
 ## Chrome / runtime
 
