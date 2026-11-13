@@ -16,7 +16,6 @@ import type {
   DeleteSessionInput,
   GetOwnedIdsInput,
   GetSessionByExternalIdInput,
-  GetSessionByIdInput,
   GetSessionInput,
   ListSessionsInput,
   UpdateSessionInput,
@@ -157,20 +156,6 @@ export async function getSession(
     .where('tenant_id', '=', input.tenant_id)
     .where('session_id', '=', input.session_id)
     .executeTakeFirst();
-
-  if (row === undefined) {
-    return undefined;
-  }
-
-  return mapRowToSessionRecord(row);
-}
-
-/** Internal execution lookup when the session id is the only trusted input. */
-export async function getSessionById(
-  db: Kysely<Database>,
-  input: GetSessionByIdInput,
-): Promise<ProtoSessionRecord | undefined> {
-  const row = await db.selectFrom('session').selectAll().where('session_id', '=', input.session_id).executeTakeFirst();
 
   if (row === undefined) {
     return undefined;

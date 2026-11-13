@@ -26,7 +26,6 @@ import type {
   FreezeAndGetTurnInput,
   GetOwnedIdsInput,
   GetSessionByExternalIdInput,
-  GetSessionByIdInput,
   GetSessionInput,
   GetTurnInput,
   InsertTurnInboundEventsInput,
@@ -268,11 +267,6 @@ export class InMemorySessionStore<
     return stored?.record.tenant_id === input.tenant_id ? deepCopy(stored.record) : undefined;
   }
 
-  async getSessionById(input: GetSessionByIdInput): Promise<SessionRecord<TSessionCustom> | undefined> {
-    const stored = this.sessions.get(sessionKey(input.session_id));
-    return stored === undefined ? undefined : deepCopy(stored.record);
-  }
-
   async getOwnedIds(input: GetOwnedIdsInput): Promise<readonly string[]> {
     if (input.ids.length === 0) {
       return [];
@@ -362,10 +356,7 @@ export class InMemorySessionStore<
       if (input.source_type !== undefined && stored.record.source?.type !== input.source_type) {
         continue;
       }
-      if (
-        input.source_id !== undefined &&
-        !(stored.record.source?.type === 'schedule' && stored.record.source.id === input.source_id)
-      ) {
+      if (input.source_id !== undefined && stored.record.source?.id !== input.source_id) {
         continue;
       }
       const createdAt = stored.record.created_at.getTime();

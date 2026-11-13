@@ -500,15 +500,6 @@ export function runStoreContractSuite<TTransaction>(
       expect(await store.getSessionByExternalId({ tenant_id: 'other', external_id: 'run-1' })).toBeUndefined();
     });
 
-    it('getSessionById finds by session_id alone', async () => {
-      const store = createStore();
-      await seedSession(store);
-      const byId = await store.getSessionById({ session_id: sessionId });
-      expect(mustGet(byId).session_id).toBe(sessionId);
-      expect(mustGet(byId).tenant_id).toBe(tenant);
-      expect(await store.getSessionById({ session_id: 'missing' })).toBeUndefined();
-    });
-
     it('createSession unique external_id within a tenant; nulls and other tenants do not collide', async () => {
       const store = createStore();
       await store.createSession({

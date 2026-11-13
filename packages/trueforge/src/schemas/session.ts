@@ -4,7 +4,7 @@ import {
   AgentSpecSchema,
   SessionMetadataSchema,
   SessionSchema,
-  SessionSourceSchema,
+  SessionSourceScheduleSchema,
   SessionSourceTypeSchema,
   TokenPaginationSchema,
 } from '@truefoundry/trueforge-core/agent-session';
@@ -46,7 +46,7 @@ export const GetOrCreateSessionByExternalIdRequestSchema = z
     external_id: z.string().min(1).max(128).describe('Caller-supplied id unique within the tenant.'),
     agent: CreateSessionAgentSchema,
     /** Internal-only provenance; not on public create/update. */
-    source: SessionSourceSchema.optional(),
+    source: SessionSourceScheduleSchema.optional(),
   })
   .strict()
   .openapi('GetOrCreateSessionByExternalIdRequest');
