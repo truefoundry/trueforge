@@ -31,10 +31,18 @@ type ToolApprovalContainerProps = {
   approvalId: string;
   toolName?: string;
   argsText?: string;
+  /** Offer "for 10 minutes" / "in this session"; true when the runtime resolved a policy target. */
+  supportsSessionPolicy?: boolean;
   onRespond: (response: RespondToToolApprovalOptions) => Promise<void>;
 };
 
-export function ToolApprovalContainer({ approvalId, toolName = '', argsText, onRespond }: ToolApprovalContainerProps) {
+export function ToolApprovalContainer({
+  approvalId,
+  toolName = '',
+  argsText,
+  supportsSessionPolicy = false,
+  onRespond,
+}: ToolApprovalContainerProps) {
   const ToolApprovalBar = useSlot('ToolApprovalBar');
   const canManageSession = useActiveSessionCanManage();
   const { mcpServer, innerToolName } = parseMcpToolArgs(argsText);
@@ -45,11 +53,11 @@ export function ToolApprovalContainer({ approvalId, toolName = '', argsText, onR
   const [isSubmitting, setIsSubmitting] = useState(false);
   const options = useMemo<ToolApprovalOption[]>(
     () =>
-      approvalChoicesForTool({ toolName, argsText }).map(option => ({
+      approvalChoicesForTool({ supportsSessionPolicy }).map(option => ({
         ...option,
         ...(option.id === TOOL_APPROVAL_OPTION_ID.DENY ? { confirm: {} } : {}),
       })),
-    [argsText, toolName],
+    [supportsSessionPolicy],
   );
   const approveOptions = useMemo<ApprovalOption[]>(
     () =>

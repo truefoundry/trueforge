@@ -69,7 +69,7 @@ function ToolApprovalBarProbe({
 
 function renderSubject(
   onRespond: (response: RespondToToolApprovalOptions) => Promise<void>,
-  props: { toolName?: string; argsText?: string } = { toolName: 'shell' },
+  props: { toolName?: string; argsText?: string; supportsSessionPolicy?: boolean } = { toolName: 'shell' },
 ) {
   return render(
     <SlotsProvider overrides={{ ToolApprovalBar: ToolApprovalBarProbe }}>
@@ -77,6 +77,7 @@ function renderSubject(
         approvalId="approval-1"
         toolName={props.toolName}
         argsText={props.argsText}
+        supportsSessionPolicy={props.supportsSessionPolicy}
         onRespond={onRespond}
       />
     </SlotsProvider>,
@@ -97,29 +98,15 @@ describe('ToolApprovalContainer', () => {
     await waitFor(() => expect(onRespond).toHaveBeenCalledWith({ approvalId: 'approval-1', approved: true }));
   });
 
-  it('offers session policy choices for deferred MCP call_tool args', () => {
+  it('offers session policy choices when the runtime resolved a policy target', () => {
     const onRespond = vi.fn().mockResolvedValue(undefined);
-    renderSubject(onRespond, {
-      toolName: 'call_tool',
-      argsText: JSON.stringify({ mcp_server: 'github', tool_name: 'search' }),
-    });
+    renderSubject(onRespond, { toolName: 'save_comment', supportsSessionPolicy: true });
 
     expect(screen.getByTestId('approval-probe')).toHaveAttribute(
       'data-approve-variants',
       'primary|secondary|secondary',
     );
     expect(screen.getByRole('button', { name: 'Approve this tool in this session' })).toBeTruthy();
-  });
-
-  it('does not offer session policy for get_tool_info even when args name an MCP tool', () => {
-    const onRespond = vi.fn().mockResolvedValue(undefined);
-    renderSubject(onRespond, {
-      toolName: 'get_tool_info',
-      argsText: JSON.stringify({ mcp_server: 'github', tool_name: 'search' }),
-    });
-
-    expect(screen.getByTestId('approval-probe')).toHaveAttribute('data-approve-variants', 'primary');
-    expect(screen.queryByRole('button', { name: 'Approve this tool in this session' })).toBeNull();
   });
 
   it('shows MCP inner tool name with server when args include both fields', () => {
