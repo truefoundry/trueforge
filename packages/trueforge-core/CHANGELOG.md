@@ -1,5 +1,34 @@
 # @truefoundry/trueforge-core
 
+## 0.185.0
+
+### Patch Changes
+
+- a966ce0: Round context token counts up to whole numbers in backend context compaction events.
+- 660f649: Remove the deprecated session `shared` field and PATCH sharing flow in favor of access grants, and drop the unused `session.shared` database column. Rename the exported `CreatedBySubject` schema/type to `Subject` without changing creator fields. These API and type removals are breaking changes for consumers.
+- 475c0c2: Add POST `/api/internal/sessions/{session_id}/turns` (service API key): non-streaming body, getSessionById, requires external_id + non-null source (skips memory ingest), SessionSource `service` arm.
+- cadd0d1: Add the built-in TrueForge MCP server for managing agents and supporting resources from draft sessions.
+- 1998de5: Turns now pause, instead of finishing, while waiting for user input such as tool approvals, questions, or MCP authentication. The same turn resumes once every required interaction is answered. Clients send those answers as events on the paused turn and can reconnect to its event stream at any point.
+
+  - While a turn is paused, its cost and time so far stay visible. Time spent waiting on the user does not count. Cancelling a paused turn still shows its final cost and time.
+  - Conversations that were already waiting on the user stay waiting after upgrade, with the same cost, time, and status.
+  - The chat shows a waiting notice instead of a running indicator while a turn is paused or cannot continue.
+  - A conversation is saved to memory only after it finishes, not while it is waiting on the user.
+  - Creating a turn requires a user message. Omitting `input` or sending an empty message is rejected.
+  - Sending a new message while a sub-agent is waiting runs that message, instead of leaving the turn stuck.
+  - A conversation paused longer than the memory window is still saved once it finishes.
+  - An old `pause_timeout_ms` memory setting is ignored, instead of stopping startup.
+
+  Breaking changes for package consumers:
+
+  - `@truefoundry/trueforge-assistant-ui-runtime`: `useTrueForgeResumeMcpAuth` is renamed to `useTrueForgeContinueMcpAuth`, and `findCurrentPausedAssistantMessage` to `findPausedAssistantMessage`. `collectRequiredActionInputs`, `collectApprovalInputs`, `toTrueForgeApprovalInputs`, `collectResponseInputs`, and `TOOL_RESPONSE_THREAD_ID_CUSTOM_KEY` are removed; answer approvals and questions with `useTrueForgeRespondToToolApproval` and `useTrueForgeRespondToToolResponse` instead.
+  - Custom chat servers must implement `sendTurnEvents` to deliver answers to a paused turn. `CreateTurnRequest.input` is required.
+  - `@truefoundry/trueforge-ui`: `ToolApprovalContainer` takes `approvalId` and `onRespond` instead of `options` and `onSelectOption`.
+
+- 63ab385: A session's `updated_at` now moves when its turn pauses, so a conversation waiting on the user rises in the session list. It still moves again when the turn finishes.
+- c5dea02: The built-in TrueForge MCP now uses the same id and name, `trueforge:mcp`, and labels its tools as `truefoundry-system` instead of `mcp`.
+- c5dea02: Bump high/critical dependency advisories where possible (node-forge, follow-redirects, body-parser, js-yaml, brace-expansion, source-map-js, launch-editor) and upgrade Jest to 30.
+
 ## 0.185.0-rc.2
 
 ### Patch Changes
