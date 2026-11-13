@@ -404,7 +404,6 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
               </TableHeader>
               <TableBody>
                 {filtered.map(env => {
-                  const readOnly = isReservedEnvironmentName(env.name) || !allows(env.id, 'MANAGE');
                   const actions = environmentRowActionReasons({
                     environment: env,
                     canManage: allows(env.id, 'MANAGE'),
@@ -458,9 +457,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
                       <TableCell className="text-sm text-text-secondary">
                         {formatNetworkingSummary(env.manifest.networking)}
                       </TableCell>
-                      <TableCell className="text-sm text-text-secondary">
-                        {readOnly ? '—' : formatRelativeTime(env.updatedAt)}
-                      </TableCell>
+                      <TableCell className="text-sm text-text-secondary">{formatRelativeTime(env.updatedAt)}</TableCell>
                       {/* Swallow here, not on the trigger: the trigger's own click must reach
                           the menu wrapper, and portal menu items still bubble through React. */}
                       <TableCell onClick={event => event.stopPropagation()}>

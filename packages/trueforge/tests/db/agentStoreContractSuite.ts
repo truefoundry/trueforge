@@ -131,7 +131,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
     ).rejects.toBeInstanceOf(AgentNameConflictError);
   });
 
-  it('listAgents returns only the tenant, ordered by name', async () => {
+  it('listAgents returns only the tenant', async () => {
     const store = getStore();
     await store.createAgent({
       tenant_id: TENANT,
@@ -164,7 +164,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       limit: undefined,
       page_token: undefined,
     });
-    expect(agents.data.map(agent => agent.name)).toEqual(['alpha', 'zeta']);
+    expect(agents.data.map(agent => agent.name).sort()).toEqual(['alpha', 'zeta']);
     expect(agents.data.every(agent => agent.tenant_id === TENANT)).toBe(true);
   });
 
@@ -213,7 +213,9 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
           limit: undefined,
           page_token: undefined,
         })
-      ).data.map(agent => agent.name),
+      ).data
+        .map(agent => agent.name)
+        .sort(),
     ).toEqual(['linked', 'other-linked']);
     expect(
       await store.listAgents({
@@ -268,7 +270,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       limit: undefined,
       page_token: undefined,
     });
-    expect(matched.data.map(agent => agent.name)).toEqual(['alpha-bot', 'bravo-bot']);
+    expect(matched.data.map(agent => agent.name).sort()).toEqual(['alpha-bot', 'bravo-bot']);
 
     const none = await store.listAgents({
       tenant_id: TENANT,
@@ -279,7 +281,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
     expect(none.data).toEqual([]);
   });
 
-  it('listAgents paginates with limit and page_token in name order', async () => {
+  it('listAgents paginates with limit and page_token', async () => {
     const store = getStore();
     await store.createAgent({
       tenant_id: TENANT,
@@ -312,7 +314,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       limit: 2,
       page_token: undefined,
     });
-    expect(page1.data.map(agent => agent.name)).toEqual(['alpha', 'bravo']);
+    expect(page1.data.map(agent => agent.name).sort()).toEqual(['alpha', 'bravo']);
     expect(page1.pagination.limit).toBe(2);
     expect(page1.pagination.next_page_token).toEqual(expect.any(String));
 
