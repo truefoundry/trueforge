@@ -50,6 +50,10 @@ export function createTrueForgeThreadListAdapter(options: {
       }
       await server.renameSession({ sessionId: remoteId, title: newTitle });
     },
+    // Local-only metadata (e.g. lastTurnStatus polls); nothing to persist.
+    updateCustom() {
+      return Promise.resolve();
+    },
     archive() {
       return Promise.resolve();
     },

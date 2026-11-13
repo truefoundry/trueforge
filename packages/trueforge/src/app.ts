@@ -40,6 +40,7 @@ import {
   buildAdminAuthMiddleware,
   createApiKeyAuthMiddleware,
   createAuthMiddleware,
+  createAuthOrServiceKeyMiddleware,
   tryAuthenticate,
 } from './auth/middleware';
 import type { McpCatalog } from './catalog/McpCatalog';
@@ -646,6 +647,37 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       authMiddleware,
     ),
   );
+  // Turns before sessions: a JWT-only sessions shell mounted first would 401 the service key
+  // on list/create turns before dual-auth runs.
+  const turnsRouter = new OpenAPIHono();
+  turnsRouter.use(
+    '/:session_id/turns',
+    createAuthOrServiceKeyMiddleware({
+      authenticator: deps.authenticator,
+      apiKey: configuration.TRUEFORGE_API_KEY,
+    }),
+  );
+  turnsRouter.use('/:session_id/turns/:turn_id/*', authMiddleware);
+  turnsRouter.route(
+    '/',
+    createTurnsRouter({
+      accessControlStore: deps.accessControlStore,
+      activeTurns: deps.activeTurns,
+      authorizer: deps.authorizer,
+      eventSubscriptions: deps.eventSubscriptions,
+      logger: deps.logger,
+      redis: deps.redis,
+      requestReplyRouter: deps.requestReplyRouter,
+      resolveAgentStore: deps.resolveAgentStore,
+      resolveRequestContext,
+      resolveTurnExecutionStores: deps.resolveTurnExecutionStores,
+      sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
+      sandboxProviderStore: deps.sandboxProviderStore,
+      sessions: deps.sessions,
+      sessionStore: deps.sessionStore,
+    }),
+  );
+  app.route('/api/v1/sessions', turnsRouter);
   app.route(
     '/api/v1/sessions',
     withAuth(
@@ -670,28 +702,6 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         memoryProviderStore: deps.memoryProviderStore,
         configurationStore: deps.configurationStore,
         withTransaction: deps.withTransaction,
-      }),
-      authMiddleware,
-    ),
-  );
-  app.route(
-    '/api/v1/sessions',
-    withAuth(
-      createTurnsRouter({
-        accessControlStore: deps.accessControlStore,
-        activeTurns: deps.activeTurns,
-        authorizer: deps.authorizer,
-        eventSubscriptions: deps.eventSubscriptions,
-        logger: deps.logger,
-        redis: deps.redis,
-        requestReplyRouter: deps.requestReplyRouter,
-        resolveAgentStore: deps.resolveAgentStore,
-        resolveRequestContext,
-        resolveTurnExecutionStores: deps.resolveTurnExecutionStores,
-        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-        sandboxProviderStore: deps.sandboxProviderStore,
-        sessions: deps.sessions,
-        sessionStore: deps.sessionStore,
       }),
       authMiddleware,
     ),

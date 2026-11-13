@@ -1,5 +1,49 @@
+import { TURN_STATUS, type TurnStatus } from '../../server/types.js';
+
 /** Matches TrueForge `PATCH /sessions/{id}` title max. */
 export const MAX_SESSION_TITLE_LENGTH = 50;
+
+const TURN_STATUS_VALUES = new Set<string>(Object.values(TURN_STATUS));
+
+function isTurnStatus(value: unknown): value is TurnStatus {
+  return typeof value === 'string' && TURN_STATUS_VALUES.has(value);
+}
+
+/** Tailwind bg class for a last-turn status dot; undefined means hide the dot. */
+export function lastTurnStatusDotClass(status: TurnStatus | undefined | null): string | undefined {
+  switch (status) {
+    case 'paused':
+      return 'bg-warning-bg';
+    case 'error':
+      return 'bg-failure-bg';
+    default:
+      return undefined;
+  }
+}
+
+/** Screen-reader label for a last-turn status; undefined when the row has no live status chrome. */
+export function lastTurnStatusLabel(status: TurnStatus | undefined | null): string | undefined {
+  switch (status) {
+    case 'running':
+      return 'Running';
+    case 'paused':
+      return 'Waiting for input';
+    case 'error':
+      return 'Failed';
+    default:
+      return undefined;
+  }
+}
+
+/** Whether the title should use the running shimmer. */
+export function isRunningTurnStatus(status: TurnStatus | undefined | null): boolean {
+  return status === 'running';
+}
+
+/** Paused tips blink — the user still needs to act. */
+export function isPausedTurnStatus(status: TurnStatus | undefined | null): boolean {
+  return status === 'paused';
+}
 
 /** Compact relative age for sidebar session rows (e.g. 30m, 22h, 1d). */
 export function formatRelativeShort(date: Date, now: Date = new Date()): string {
@@ -55,6 +99,30 @@ export function readThreadIsMutable(custom: unknown): boolean | undefined {
   if (!('isMutable' in custom)) return undefined;
   const value = Reflect.get(custom, 'isMutable');
   return typeof value === 'boolean' ? value : undefined;
+}
+
+/** Last-turn status stamped on thread-list custom by `sessionToThreadMetadata`. */
+export function readThreadLastTurnStatus(custom: unknown): TurnStatus | undefined {
+  if (custom == null || typeof custom !== 'object') return undefined;
+  if (!('lastTurnStatus' in custom)) return undefined;
+  const value = Reflect.get(custom, 'lastTurnStatus');
+  return isTurnStatus(value) ? value : undefined;
+}
+
+/** Merge `lastTurnStatus` into thread-list custom (omits the key when cleared). */
+export function threadCustomWithLastTurnStatus(
+  custom: unknown,
+  status: TurnStatus | null | undefined,
+): Record<string, unknown> {
+  const base =
+    custom != null && typeof custom === 'object' && !Array.isArray(custom)
+      ? Object.fromEntries(Object.entries(custom))
+      : {};
+  Reflect.deleteProperty(base, 'lastTurnStatus');
+  if (status != null) {
+    base.lastTurnStatus = status;
+  }
+  return base;
 }
 
 /**

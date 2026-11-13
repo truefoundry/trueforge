@@ -25,6 +25,8 @@ export interface UseDraftAgentSpecResult {
   updateAgentSpec: (update: AgentSpecUpdate) => void;
   flushAgentSpec: () => Promise<void>;
   adoptAgentSpec: (request: { agentSpec: AgentSpec; updatedAt?: string }) => void;
+  /** Re-read the stored spec after the backend changed it (e.g. the agent edited its own session). */
+  reloadAgentSpec: () => Promise<void>;
   takeTurnHeaderTimestamp: () => Promise<string | undefined>;
 }
 
@@ -223,6 +225,21 @@ export function useDraftAgentSpec({
     [],
   );
 
+  const reloadAgentSpec = useCallback(async () => {
+    if (draftBridge == null || draftSessionId == null) {
+      return;
+    }
+    try {
+      const loaded = await draftBridge.getDraftAgentSpec(draftSessionId);
+      if (loaded == null || activeDraftIdRef.current !== draftSessionId) {
+        return;
+      }
+      adoptAgentSpec({ agentSpec: loaded });
+    } catch (error) {
+      onError?.(error);
+    }
+  }, [adoptAgentSpec, draftBridge, draftSessionId, onError]);
+
   const takeTurnHeaderTimestamp = useCallback(async () => {
     await flushPendingSpecSyncNow();
     const updatedAt = lastUpdatedAtRef.current;
@@ -265,6 +282,7 @@ export function useDraftAgentSpec({
       updateAgentSpec,
       flushAgentSpec: flushPendingSpecSyncNow,
       adoptAgentSpec,
+      reloadAgentSpec,
       takeTurnHeaderTimestamp,
     }),
     [
@@ -276,6 +294,7 @@ export function useDraftAgentSpec({
       specError,
       flushPendingSpecSyncNow,
       adoptAgentSpec,
+      reloadAgentSpec,
       takeTurnHeaderTimestamp,
       updateAgentSpec,
     ],

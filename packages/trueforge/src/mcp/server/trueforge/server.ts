@@ -1,4 +1,5 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { TRUEFORGE_MCP_ID } from '@truefoundry/trueforge-core/agent-session';
 import { z } from 'zod';
 import type { McpToolDescriptor } from './openApiTools';
 import { runTool } from './result';
@@ -50,7 +51,7 @@ export function createTrueForgeMcpServer(input: {
   tools: readonly CompiledMcpTool[];
 }): McpServer {
   const server = new McpServer(
-    { name: 'trueforge-mcp', title: TRUEFORGE_SERVER_TITLE, version: input.version },
+    { name: TRUEFORGE_MCP_ID, title: TRUEFORGE_SERVER_TITLE, version: input.version },
     { instructions: TRUEFORGE_INSTRUCTIONS },
   );
   registerOpenApiTools(server, input.client, input.tools);

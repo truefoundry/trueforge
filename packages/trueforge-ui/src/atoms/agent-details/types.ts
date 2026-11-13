@@ -6,6 +6,7 @@ import type {
   AgentMetricMeter,
   CodeSnippet,
   Subject,
+  TurnStatus,
 } from '../../server/types.js';
 import type { SessionMetrics } from '../../utils/buildSessionMetrics.js';
 import type { SessionEventTimelineSegment, SessionEventType } from '../../utils/sessionEventTimeline.js';
@@ -37,6 +38,8 @@ export type AgentSessionListRowProps = {
   /** Set when the session was created by a schedule run. */
   scheduleId?: string;
   lastActivityAt: string;
+  /** Last-turn status for the after-title status dot / running title shimmer. */
+  lastTurnStatus?: TurnStatus;
   metrics: {
     totalTurns: number;
     totalCostInUsd?: number;
