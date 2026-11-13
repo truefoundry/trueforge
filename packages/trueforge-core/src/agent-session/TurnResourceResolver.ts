@@ -6,12 +6,7 @@ import type { VercelAIProviderName } from '../core/llm/VercelAILLM';
 import type { ToolSource } from '../core/mcp/IMCPServer';
 import { RemoteMCP, type McpConnection } from '../core/mcp/RemoteMCP';
 import type { ToolSelectorConfig } from '../core/mcp/ToolSelectorPolicy';
-import {
-  DEFAULT_DISABLE_TOOLS,
-  DEFAULT_ENABLE_TOOLS,
-  DEFAULT_PRELOAD_TOOLS,
-  DEFAULT_REQUIRE_APPROVAL_FOR_TOOLS,
-} from '../core/mcp/toolSelectors';
+import { DEFAULT_DISABLE_TOOLS, DEFAULT_ENABLE_TOOLS, DEFAULT_PRELOAD_TOOLS } from '../core/mcp/toolSelectors';
 import { ToolSet } from '../core/mcp/ToolSet';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import type { AgentInfo } from '../core/runtime/AgentThread.types';
@@ -47,7 +42,8 @@ const TRUEFORGE_MCP_SELECTORS: ToolSelectorConfig = {
   enableTools: DEFAULT_ENABLE_TOOLS,
   disableTools: DEFAULT_DISABLE_TOOLS,
   preloadTools: DEFAULT_PRELOAD_TOOLS,
-  requireApprovalForTools: DEFAULT_REQUIRE_APPROVAL_FOR_TOOLS,
+  // Session approval policies do not target system tool sets yet.
+  requireApprovalForTools: [],
 };
 
 function toSelectors(entry: {
