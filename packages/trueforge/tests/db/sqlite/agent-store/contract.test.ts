@@ -13,10 +13,5 @@ describe('SqliteAgentStore (IAgentStore contract)', () => {
     await env?.teardown();
   });
 
-  runAgentStoreContractSuite({
-    getStore: () => new SqliteAgentStore(env.db),
-    setUpdatedAt: async ({ name, updatedAt }) => {
-      await env.db.updateTable('agent').set({ updated_at: updatedAt }).where('name', '=', name).execute();
-    },
-  });
+  runAgentStoreContractSuite(() => new SqliteAgentStore(env.db));
 });

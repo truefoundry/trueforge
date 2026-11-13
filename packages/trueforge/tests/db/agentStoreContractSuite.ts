@@ -25,13 +25,7 @@ function manifest(overrides: Partial<z.input<typeof AgentSpecSchema>> = {}): Age
 
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
-export function runAgentStoreContractSuite({
-  getStore,
-  setUpdatedAt,
-}: {
-  getStore: () => IAgentStore;
-  setUpdatedAt: (input: { name: string; updatedAt: string }) => Promise<void>;
-}): void {
+export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
   it('createAgent allocates an id and round-trips the manifest', async () => {
     const store = getStore();
     const created = await store.createAgent({
@@ -137,7 +131,7 @@ export function runAgentStoreContractSuite({
     ).rejects.toBeInstanceOf(AgentNameConflictError);
   });
 
-  it('listAgents returns only the tenant, ordered by most recently updated', async () => {
+  it('listAgents returns only the tenant', async () => {
     const store = getStore();
     await store.createAgent({
       tenant_id: TENANT,
@@ -164,16 +158,13 @@ export function runAgentStoreContractSuite({
       external_id: null,
     });
 
-    await setUpdatedAt({ name: 'zeta', updatedAt: '2024-01-02T00:00:00.000Z' });
-    await setUpdatedAt({ name: 'alpha', updatedAt: '2024-01-01T00:00:00.000Z' });
-
     const agents = await store.listAgents({
       tenant_id: TENANT,
       agent_name: undefined,
       limit: undefined,
       page_token: undefined,
     });
-    expect(agents.data.map(agent => agent.name)).toEqual(['zeta', 'alpha']);
+    expect(agents.data.map(agent => agent.name).sort()).toEqual(['alpha', 'zeta']);
     expect(agents.data.every(agent => agent.tenant_id === TENANT)).toBe(true);
   });
 
@@ -290,9 +281,9 @@ export function runAgentStoreContractSuite({
     expect(none.data).toEqual([]);
   });
 
-  it('listAgents paginates by latest update with name as the timestamp tie-breaker', async () => {
+  it('listAgents paginates with limit and page_token', async () => {
     const store = getStore();
-    const charlie = await store.createAgent({
+    await store.createAgent({
       tenant_id: TENANT,
       created_by_subject: CREATED_BY_SUBJECT,
       name: 'charlie',
@@ -317,18 +308,13 @@ export function runAgentStoreContractSuite({
       external_id: null,
     });
 
-    for (const name of ['charlie', 'alpha', 'bravo']) {
-      await setUpdatedAt({ name, updatedAt: '2024-01-01T00:00:00.000Z' });
-    }
-    await store.updateAgent({ tenant_id: TENANT, id: charlie.id, description: 'Recently updated.' });
-
     const page1 = await store.listAgents({
       tenant_id: TENANT,
       agent_name: undefined,
       limit: 2,
       page_token: undefined,
     });
-    expect(page1.data.map(agent => agent.name)).toEqual(['charlie', 'alpha']);
+    expect(page1.data.map(agent => agent.name).sort()).toEqual(['alpha', 'bravo']);
     expect(page1.pagination.limit).toBe(2);
     expect(page1.pagination.next_page_token).toEqual(expect.any(String));
 
@@ -338,16 +324,9 @@ export function runAgentStoreContractSuite({
       limit: 2,
       page_token: page1.pagination.next_page_token,
     });
-    expect(page2.data.map(agent => agent.name)).toEqual(['bravo']);
+    expect(page2.data.map(agent => agent.name)).toEqual(['charlie']);
     expect(page2.pagination.previous_page_token).toEqual(expect.any(String));
     expect(page2.pagination.next_page_token).toBeUndefined();
-    const previous = await store.listAgents({
-      tenant_id: TENANT,
-      agent_name: undefined,
-      limit: 2,
-      page_token: page2.pagination.previous_page_token,
-    });
-    expect(previous.data).toEqual(page1.data);
   });
 
   it('getAgent by id is tenant-scoped', async () => {

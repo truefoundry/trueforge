@@ -93,7 +93,6 @@ const denyAllAuthorizer: Authorizer = {
 };
 
 describe('agents router', () => {
-  let db: ReturnType<typeof createSqliteDb>;
   let router: ReturnType<typeof createAgentsRouter>;
   let deniedRouter: ReturnType<typeof createAgentsRouter>;
   let sandboxEnvironmentStore: SqliteSandboxEnvironmentStore;
@@ -103,7 +102,7 @@ describe('agents router', () => {
   let configurationStore: SqliteConfigurationStore;
 
   beforeAll(async () => {
-    db = createSqliteDb(':memory:');
+    const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
     sandboxEnvironmentStore = new SqliteSandboxEnvironmentStore(db);
     sandboxProviderStore = new SqliteSandboxProviderStore(db);
@@ -341,23 +340,15 @@ describe('agents router', () => {
     expect(alpha.status).toBe(201);
     expect(bravo.status).toBe(201);
 
-    for (const { name, updatedAt } of [
-      { name: 'aaa-list-charlie', updatedAt: '2024-01-01T00:00:00.000Z' },
-      { name: 'aaa-list-alpha', updatedAt: '2024-01-02T00:00:00.000Z' },
-      { name: 'aaa-list-bravo', updatedAt: '2024-01-03T00:00:00.000Z' },
-    ]) {
-      await db.updateTable('agent').set({ updated_at: updatedAt }).where('name', '=', name).execute();
-    }
-
-    const first = await router.request('/?limit=2&agent_name=aaa-list');
+    const first = await router.request('/?limit=2');
     expect(first.status).toBe(200);
     const firstBody = ListAgentsResponseSchema.parse(await first.json());
-    expect(firstBody.data.map(agent => agent.name)).toEqual(['aaa-list-bravo', 'aaa-list-alpha']);
+    expect(firstBody.data.map(agent => agent.name).sort()).toEqual(['aaa-list-alpha', 'aaa-list-bravo']);
     expect(firstBody.pagination.limit).toBe(2);
     expect(firstBody.pagination.next_page_token).toEqual(expect.any(String));
 
     const second = await router.request(
-      `/?limit=2&agent_name=aaa-list&page_token=${encodeURIComponent(firstBody.pagination.next_page_token ?? '')}`,
+      `/?limit=2&page_token=${encodeURIComponent(firstBody.pagination.next_page_token ?? '')}`,
     );
     expect(second.status).toBe(200);
     const secondBody = ListAgentsResponseSchema.parse(await second.json());

@@ -26,22 +26,10 @@ describePg('PostgresAgentStore (IAgentStore contract)', () => {
     }
   });
 
-  runAgentStoreContractSuite({
-    getStore: () => {
-      if (env === undefined) {
-        throw new Error('Postgres test environment not initialized');
-      }
-      return new PostgresAgentStore(env.db);
-    },
-    setUpdatedAt: async ({ name, updatedAt }) => {
-      if (env === undefined) {
-        throw new Error('Postgres test environment not initialized');
-      }
-      await env.db
-        .updateTable('agent')
-        .set({ updated_at: new Date(updatedAt) })
-        .where('name', '=', name)
-        .execute();
-    },
+  runAgentStoreContractSuite(() => {
+    if (env === undefined) {
+      throw new Error('Postgres test environment not initialized');
+    }
+    return new PostgresAgentStore(env.db);
   });
 });
