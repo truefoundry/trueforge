@@ -1,5 +1,11 @@
 # @truefoundry/trueforge-core
 
+## 0.185.1
+
+### Patch Changes
+
+- 03a62d4: Built-in TrueForge MCP tools no longer require approval. Session approval policies do not target system tool sets yet, so write and destructive tools from this server run without pausing.
+
 ## 0.185.0
 
 ### Patch Changes
