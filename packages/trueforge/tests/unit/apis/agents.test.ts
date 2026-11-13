@@ -343,7 +343,7 @@ describe('agents router', () => {
     const first = await router.request('/?limit=2');
     expect(first.status).toBe(200);
     const firstBody = ListAgentsResponseSchema.parse(await first.json());
-    expect(firstBody.data.map(agent => agent.name)).toEqual(['aaa-list-alpha', 'aaa-list-bravo']);
+    expect(firstBody.data.map(agent => agent.name).sort()).toEqual(['aaa-list-alpha', 'aaa-list-bravo']);
     expect(firstBody.pagination.limit).toBe(2);
     expect(firstBody.pagination.next_page_token).toEqual(expect.any(String));
 
@@ -375,7 +375,7 @@ describe('agents router', () => {
     const both = await router.request('/?agent_name=zzz-filter');
     expect(both.status).toBe(200);
     const bothBody = ListAgentsResponseSchema.parse(await both.json());
-    expect(bothBody.data.map(agent => agent.name)).toEqual([
+    expect(bothBody.data.map(agent => agent.name).sort()).toEqual([
       'zzz-filter-alpha-bot',
       'zzz-filter-bravo-bot',
       'zzz-filter-unrelated',

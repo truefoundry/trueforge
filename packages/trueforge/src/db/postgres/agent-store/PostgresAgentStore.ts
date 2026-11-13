@@ -117,7 +117,7 @@ export class PostgresAgentStore implements IAgentStore<Transaction<Database>> {
     if (input.agent_name !== undefined) {
       query = query.where(sql<boolean>`position(lower(${input.agent_name}) in lower(name)) > 0`);
     }
-    query = query.orderBy('name');
+    query = query.orderBy('updated_at', 'desc').orderBy('name');
     if (input.limit === undefined) {
       const rows = await query.execute();
       const data = rows.map(toRecord);
