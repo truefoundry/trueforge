@@ -1155,27 +1155,39 @@ async function resolveTurnRequestContext<TTransaction>(params: {
   c: Context;
   sessions: Sessions<TTransaction>;
   session_id: string;
+  resolveRequestContext: ResolveRequestContext;
 }): Promise<RequestContext> {
-  const { c, sessions, session_id: sessionId } = params;
+  const { c, sessions, session_id: sessionId, resolveRequestContext } = params;
   const existing = c.get('request_context');
   if (existing) {
     return existing;
   }
-  // Service key left context unset; assume-user is required (400 if missing/invalid).
-  return applyAssumeUserToContext({
-    c,
-    resolveCreatedBy: async () => {
-      const session = await sessions.getById({ session_id: sessionId });
-      if (!session) {
-        throw new HTTPException(404, { message: `Session not found: ${sessionId}` });
-      }
-      return {
-        tenant_id: session.record.tenant_id,
-        created_by_subject: session.record.created_by_subject,
-        session_id: sessionId,
-      };
-    },
-  });
+  // Service key clears context; require assume-user so a JWT+header cannot take this path.
+  if (c.req.header(ASSUME_USER_HEADER)?.trim()) {
+    return applyAssumeUserToContext({
+      c,
+      resolveCreatedBy: async () => {
+        const session = await sessions.getById({ session_id: sessionId });
+        if (!session) {
+          throw new HTTPException(404, { message: `Session not found: ${sessionId}` });
+        }
+        return {
+          tenant_id: session.record.tenant_id,
+          created_by_subject: session.record.created_by_subject,
+          session_id: sessionId,
+        };
+      },
+    });
+  }
+  try {
+    return resolveRequestContext(c);
+  } catch (error) {
+    // Service key left context unset with no assume-user → 400, not a 500 from missing context.
+    if (error instanceof Error && error.message === 'RequestContext missing; auth middleware did not run') {
+      throw new HTTPException(400, { message: `Missing ${ASSUME_USER_HEADER} header`, cause: error });
+    }
+    throw error;
+  }
 }
 
 /** Request-reply path the owner serves for inbound turn events. */
@@ -1828,6 +1840,7 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
       c,
       sessions: deps.sessions,
       session_id: sessionId,
+      resolveRequestContext: deps.resolveRequestContext,
     });
     const session = await deps.sessions.get({
       tenant_id: requestContext.tenant_id,
@@ -2012,6 +2025,7 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
       c,
       sessions: deps.sessions,
       session_id: sessionId,
+      resolveRequestContext: deps.resolveRequestContext,
     });
     const session = await deps.sessions.get({
       tenant_id: requestContext.tenant_id,
