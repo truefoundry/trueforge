@@ -9,7 +9,7 @@ import {
   type ToolCallMessagePartComponent,
   type ToolCallMessagePartProps,
 } from '@assistant-ui/react';
-import { useTrueForgeRespondToToolApproval } from '@truefoundry/trueforge-assistant-ui-runtime';
+import { useTrueForgeApprovals, useTrueForgeRespondToToolApproval } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useCallback, useState } from 'react';
 
 import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
@@ -106,10 +106,13 @@ function NestedSubAgentAssistantMessage() {
 function ToolApprovalSlot({ part }: { part: ToolCallMessagePartProps }) {
   const isNestedReadonly = useNestedApprovalBridge();
   const respondToApproval = useTrueForgeRespondToToolApproval();
+  const { pending: pendingApprovals } = useTrueForgeApprovals();
   // Fire here (not the bar atom) so nested + optionId/approved mapping stay correct.
   const track = useTrackAnalytics();
   const approval = part.approval;
   if (approval == null) return null;
+  const supportsSessionPolicy =
+    pendingApprovals.find(pending => pending.approvalId === approval.id)?.policyTarget != null;
 
   const onRespond = async (response: Parameters<typeof respondToApproval>[0]) => {
     track(AnalyticsEvents.Tool.APPROVAL_RESOLVED, {
@@ -130,6 +133,7 @@ function ToolApprovalSlot({ part }: { part: ToolCallMessagePartProps }) {
       approvalId={approval.id}
       toolName={part.toolName}
       argsText={part.argsText}
+      supportsSessionPolicy={supportsSessionPolicy}
       onRespond={onRespond}
     />
   );
