@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import type { AppendMessage } from '@assistant-ui/react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AnalyticsProvider } from '@/analytics/AnalyticsProvider.js';
@@ -11,11 +12,14 @@ import {
   CustomActionRenderersProvider,
   type CustomActionRendererProps,
 } from '@/server/CustomActionRenderersContext.js';
+import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider } from '@/server/ShellModeContext.js';
+import type { AgentSpec, SandboxEnvironment } from '@/server/types.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
+import { createMockAgentUIServer, createMockSandboxEnvironmentServer } from '../server/mockServer.js';
 import { RuntimeHarness } from './RuntimeHarness.js';
 
-const agentSpecState: { agentSpec: { model: { name: string } } | undefined } = {
+const agentSpecState: { agentSpec: AgentSpec | undefined } = {
   agentSpec: { model: { name: 'test/model' } },
 };
 
@@ -35,12 +39,14 @@ const approvalsState = vi.hoisted(() => ({
 }));
 
 const cancelMock = vi.hoisted(() => vi.fn());
+const updateAgentSpecMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
   useTrueForgeCancel: () => cancelMock,
   useTrueForgeToolResponses: () => toolResponsesState,
   useTrueForgeApprovals: () => approvalsState,
   useTrueForgeAgentSpec: () => ({ agentSpec: agentSpecState.agentSpec }),
+  useTrueForgeUpdateAgentSpec: () => updateAgentSpecMock,
 }));
 
 function SecretSelectProbe({ onSubmit }: CustomActionRendererProps) {
@@ -58,6 +64,64 @@ function renderComposer(onNew?: (message: AppendMessage) => Promise<void>) {
         <ComposerContainer />
       </ComposerBusyProvider>
     </RuntimeHarness>,
+  );
+}
+
+const defaultSandboxEnv: SandboxEnvironment = {
+  id: 'e1',
+  name: 'team-base',
+  description: 'Team base',
+  status: 'ready',
+  enabled: true,
+  isDefault: true,
+  statusReason: null,
+  manifest: { name: 'team-base', description: 'Team base' },
+  createdBySubject: { subjectId: 'user-1', subjectType: 'user', subjectDisplayName: 'alice' },
+  createdAt: '2024-01-01T00:00:00.000Z',
+  updatedAt: '2024-01-02T00:00:00.000Z',
+};
+
+function renderMutableComposer({
+  onNew,
+  listEnvironments,
+}: {
+  onNew?: (message: AppendMessage) => Promise<void>;
+  listEnvironments?: () => Promise<{ data: SandboxEnvironment[] }>;
+} = {}) {
+  const server = createMockAgentUIServer({
+    sandboxEnvironments: createMockSandboxEnvironmentServer({
+      listEnvironments: listEnvironments ?? (async () => ({ data: [defaultSandboxEnv] })),
+    }),
+  });
+
+  function Tree({ children }: { children: ReactNode }) {
+    return (
+      <ServerProvider server={server}>
+        <ShellModeProvider
+          agentConfig={{
+            mode: 'AgentComposer',
+            defaultAgentSpec: { model: { name: 'test/model' } },
+          }}
+        >
+          <SlotsProvider
+            overrides={{
+              ComposerRightSection: () => <></>,
+              DraftComposerRightSection: () => <></>,
+            }}
+          >
+            <RuntimeHarness messages={[]} onNew={onNew}>
+              <ComposerBusyProvider>{children}</ComposerBusyProvider>
+            </RuntimeHarness>
+          </SlotsProvider>
+        </ShellModeProvider>
+      </ServerProvider>
+    );
+  }
+
+  return render(
+    <Tree>
+      <ComposerContainer />
+    </Tree>,
   );
 }
 
@@ -98,6 +162,19 @@ describe('canSubmitComposer', () => {
       }),
     ).toBe(false);
   });
+
+  it('blocks submission while models or sandbox are still loading', () => {
+    expect(
+      canSubmitComposer({
+        disabled: false,
+        hasText: true,
+        hasAttachments: false,
+        requiresModel: true,
+        hasModel: true,
+        isBlocked: true,
+      }),
+    ).toBe(false);
+  });
 });
 
 describe('ComposerContainer', () => {
@@ -108,6 +185,17 @@ describe('ComposerContainer', () => {
     approvalsState.pending = [];
     cancelMock.mockReset();
     cancelMock.mockResolvedValue(undefined);
+    updateAgentSpecMock.mockReset();
+    updateAgentSpecMock.mockImplementation((patch: Partial<AgentSpec>) => {
+      agentSpecState.agentSpec = {
+        ...agentSpecState.agentSpec,
+        ...patch,
+        model: patch.model ?? agentSpecState.agentSpec?.model ?? { name: '' },
+        config: patch.config
+          ? { ...agentSpecState.agentSpec?.config, ...patch.config }
+          : agentSpecState.agentSpec?.config,
+      };
+    });
   });
   it('wraps the composer in an attachment dropzone by default', () => {
     renderComposer();
@@ -439,5 +527,83 @@ describe('ComposerContainer', () => {
 
     fireEvent.keyDown(screen.getByRole('textbox', { name: 'Message input' }), { key: 'Enter' });
     expect(cancelMock).not.toHaveBeenCalled();
+  });
+
+  it('blocks send with Preparing sandbox while environments load', async () => {
+    renderMutableComposer({
+      listEnvironments: () => new Promise(() => {}),
+    });
+    const input = screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Message input' });
+    fireEvent.change(input, { target: { value: 'hi' } });
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Preparing sandbox…' })).toBeDisabled();
+    });
+  });
+
+  it('allows send once the draft already names a sandbox environment', async () => {
+    agentSpecState.agentSpec = {
+      model: { name: 'test/model' },
+      config: { sandbox: { environmentName: 'team-base' } },
+    };
+    const onNew = vi.fn(async () => {});
+    renderMutableComposer({ onNew });
+    const input = screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Message input' });
+    fireEvent.change(input, { target: { value: 'hi' } });
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Send message' })).toBeEnabled();
+    });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(onNew).toHaveBeenCalledTimes(1));
+  });
+
+  it('allows send when the environments list fails', async () => {
+    const onNew = vi.fn(async () => {});
+    renderMutableComposer({
+      onNew,
+      listEnvironments: async () => {
+        throw new Error('list failed');
+      },
+    });
+    const input = screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Message input' });
+    fireEvent.change(input, { target: { value: 'hi' } });
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Send message' })).toBeEnabled();
+    });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(onNew).toHaveBeenCalledTimes(1));
+  });
+
+  it('allows send when the tenant has no default sandbox', async () => {
+    const onNew = vi.fn(async () => {});
+    renderMutableComposer({
+      onNew,
+      listEnvironments: async () => ({
+        data: [{ ...defaultSandboxEnv, isDefault: false, name: 'python-data', id: 'e2' }],
+      }),
+    });
+    const input = screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Message input' });
+    fireEvent.change(input, { target: { value: 'hi' } });
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Send message' })).toBeEnabled();
+    });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(onNew).toHaveBeenCalledTimes(1));
+  });
+
+  it('blocks send with Loading models while the catalog loads', async () => {
+    agentSpecState.agentSpec = { model: { name: '' } };
+    renderMutableComposer({
+      listEnvironments: async () => ({ data: [defaultSandboxEnv] }),
+    });
+    const input = screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Message input' });
+    fireEvent.change(input, { target: { value: 'hi' } });
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Loading models…' })).toBeDisabled();
+    });
   });
 });
