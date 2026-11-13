@@ -479,9 +479,10 @@ export class SessionHandle<
     });
 
     const previousMcpServers = input.previous?.snapshot.mcp_servers;
+    const maxParallelSubAgents = input.resolver.maxParallelSubAgents;
     const orchestrator = new AgentThreadOrchestrator({
       agentThreads,
-      maxParallelSubAgents: input.resolver.maxParallelSubAgents,
+      ...(maxParallelSubAgents !== undefined ? { maxParallelSubAgents } : {}),
       createDynamicSubAgentThread,
       tracing,
       logger: input.resolver.logger,

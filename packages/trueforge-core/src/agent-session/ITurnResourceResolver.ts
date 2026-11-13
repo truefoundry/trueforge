@@ -20,7 +20,7 @@ export interface ResolvedAgentDefinition {
  */
 export interface ITurnResourceResolver<TTurnCustom extends object = Record<string, never>> {
   /** Maximum sub-agent threads executed in parallel per turn. Defaults to 10. */
-  readonly maxParallelSubAgents?: number | undefined;
+  readonly maxParallelSubAgents?: number;
   /**
    * Host web-search backend. When set and `config.web_search.enabled`, builtins
    * register search/fetch system tools. Omit when the host has no provider configured.

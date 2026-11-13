@@ -193,7 +193,7 @@ export async function* wrapWithSubAgentSpan(
 
 export interface AgentThreadOrchestratorInput {
   agentThreads: Map<string, AgentThread>;
-  maxParallelSubAgents?: number | undefined;
+  maxParallelSubAgents?: number;
   createDynamicSubAgentThread: CreateDynamicSubAgentThread;
   tracing: AgentTracing;
   logger: Logger;
