@@ -59,14 +59,17 @@ to reference:
   </Accordion>
   <Accordion title="Sessions and turns">
     `Session`, `CreateSessionRequest`, `UpdateSessionRequest`, `Turn`, `TurnState`,
-    `PreviousTurnIdInput`.
+    `TurnStatePaused`, `TurnStatus`, `PreviousTurnIdInput`.
   </Accordion>
-  <Accordion title="Turn input">
-    `TurnInputItem`, `UserMessage`, `UserMessageContent`, `UserToolApprovalEvent`,
-    `UserToolResponseEvent`, `ApprovalDecision`.
+  <Accordion title="Turn input and answers">
+    `TurnInputItem`, `UserMessage`, `UserMessageContent`, `TurnInboundEventItem`,
+    `UserToolApprovalInputEvent`, `UserToolApprovalPolicyInputEvent`, `UserToolResponseInputEvent`,
+    `ToolApprovalPolicyItem`, `ToolApprovalPolicyAllowSession`, `ApprovalDecision`.
   </Accordion>
   <Accordion title="Events and streaming">
-    `TurnStreamData`, `TurnStreamingEvent`, `SessionEventItem`. The concrete event shapes are in
+    `TurnStreamData`, `TurnStreamingEvent`, `TurnUpdateEvent`, `TurnInboundEvent`,
+    `UserToolApprovalEvent`, `UserToolApprovalPolicyEvent`, `UserToolResponseEvent`,
+    `SessionEventItem`. The concrete event shapes are in
     [Streaming events](/ui-sdk/reference/events).
   </Accordion>
   <Accordion title="Agents and models">
