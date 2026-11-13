@@ -318,6 +318,10 @@ export class TFYSandboxProvider implements SandboxProvider {
   `;
   }
 
+  getDefaultExecTimeoutSeconds(): number {
+    return this.defaultExecTimeoutSeconds;
+  }
+
   // Cwd-relative (no FS jail). exec() pwd-joins GIT_CONFIG / PATH / PYTHONPATH.
   //   uploads, skills, tool-results, skill_downloader.py, .git-credentials
   //   mcp-client/mcp_client.py  (no /usr/local/bin symlink)

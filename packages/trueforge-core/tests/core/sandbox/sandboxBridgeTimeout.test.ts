@@ -29,6 +29,7 @@ function makeSandbox(options: {
       return Promise.resolve({ success: true, response: { exitCode: 0, result: '' } });
     },
     getAdditionalInstructions: () => undefined,
+    getDefaultExecTimeoutSeconds: () => 60,
     getToolResultDumpDir: () => '/tmp/tool-results',
     getGitCredentialsPath: () => '/tmp/.git-credentials',
     getFileUploadsDir: () => '/tmp/uploads',
@@ -49,6 +50,7 @@ function makeSandbox(options: {
       blockDestructiveToolsInCodeMode: true,
       mcpRequestTimeoutMs: options.mcpRequestTimeoutMs,
       mcpConnectTimeoutMs: options.mcpConnectTimeoutMs,
+      defaultExecTimeoutSeconds: 60,
       logger: makeSilentLogger(),
       tracing: NOOP_AGENT_TRACING,
     }),
