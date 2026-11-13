@@ -8,6 +8,7 @@ import {
   deriveSandboxId,
 } from '../src/collectPending.js';
 import { ROOT_THREAD_ID } from '../src/constants.js';
+import { ingestTurnEvent, PeerThreadFoldState } from '../src/foldPeerThreads.js';
 import { MESSAGE_CUSTOM_KEY } from '../src/messageCustomMetadata.js';
 
 function assistantMessage(
@@ -133,5 +134,41 @@ describe('current pause collection', () => {
       ],
     });
     expect(collectPendingApprovals([pausedApproval])).toEqual([expect.objectContaining({ approvalId: 'approval-1' })]);
+  });
+
+  it('resolves the policy target for a direct MCP tool approval from the fold', () => {
+    const fold = new PeerThreadFoldState();
+    ingestTurnEvent(fold, {
+      type: 'model.message',
+      id: 'model-1',
+      createdAt: new Date().toISOString(),
+      threadId: ROOT_THREAD_ID,
+      toolCalls: [
+        {
+          id: 'call-1',
+          type: 'function',
+          function: { name: 'save_comment', arguments: '{}' },
+          toolInfo: { type: 'mcp', name: 'save_comment', serverId: 'linear-id', serverName: 'linear' },
+        },
+      ],
+    });
+    const paused = assistantMessage('paused-mcp', {
+      status: { type: 'requires-action', reason: 'tool-calls' },
+      content: [
+        {
+          type: 'tool-call',
+          toolCallId: 'call-1',
+          toolName: 'save_comment',
+          args: {},
+          argsText: '{}',
+          approval: { id: 'call-1' },
+        },
+      ],
+    });
+
+    expect(collectPendingApprovals([paused], fold)).toMatchObject([
+      { approvalId: 'call-1', policyTarget: { serverName: 'linear', name: 'save_comment' } },
+    ]);
+    expect(collectPendingApprovals([paused])[0]?.policyTarget).toBeUndefined();
   });
 });

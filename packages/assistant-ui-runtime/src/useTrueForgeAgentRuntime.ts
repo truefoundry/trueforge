@@ -12,7 +12,6 @@ import type { RefObject } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
-  collectPendingApprovals,
   collectPendingToolResponses,
   derivePendingMcpAuth,
   deriveSandboxId,
@@ -121,6 +120,7 @@ function useTrueForgeAgentRuntimeImpl(
 
   const {
     messages,
+    pendingApprovals,
     isRunning,
     resumeUnavailable,
     isLoading,
@@ -151,7 +151,6 @@ function useTrueForgeAgentRuntimeImpl(
     pendingAgentSpecRef.current = draftSpec.agentSpec;
   }
 
-  const pendingApprovals = useMemo(() => collectPendingApprovals(messages), [messages]);
   const pendingToolResponses = useMemo(() => collectPendingToolResponses(messages), [messages]);
   const pendingMcpAuth = useMemo(() => derivePendingMcpAuth(messages), [messages]);
   const sandboxId = useMemo(() => deriveSandboxId(messages), [messages]);
