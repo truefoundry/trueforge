@@ -83,6 +83,7 @@ export class TurnResourceResolver<
   readonly #sources = new Map<string, Promise<ToolSource>>();
   readonly #models = new Map<string, Promise<ResolvedModel>>();
   #sandbox?: HarnessSandbox | undefined;
+  readonly maxParallelSubAgents?: number;
 
   constructor(
     protected readonly deps: {
@@ -97,6 +98,7 @@ export class TurnResourceResolver<
       mcpRequestTimeoutMs: number;
       mcpConnectTimeoutMs: number;
       mcpMaxResponseBytes?: number | undefined;
+      maxParallelSubAgents?: number;
       /** One sandbox type per runtime. Omit = no sandbox support. */
       sandboxProvider?: TurnSandboxFactory | undefined;
       /**
@@ -115,7 +117,11 @@ export class TurnResourceResolver<
       /** Forwarded to RemoteMCP / AgentThread (required by their constructors). */
       logger: Logger;
     },
-  ) {}
+  ) {
+    if (deps.maxParallelSubAgents !== undefined) {
+      this.maxParallelSubAgents = deps.maxParallelSubAgents;
+    }
+  }
 
   get webSearchProvider(): IWebSearchProvider | undefined {
     return this.deps.webSearchProvider;
