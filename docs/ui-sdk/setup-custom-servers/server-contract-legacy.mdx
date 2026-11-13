@@ -1,0 +1,366 @@
+---
+title: "Server contract"
+description: "The interfaces a backend must implement for the SDK to talk to it."
+hidden: true
+---
+
+<Warning>
+  You are viewing documentation for older version of TrueForge (< 0.185.0). Click [here](/ui-sdk/setup-custom-servers/server-contract) to view the documentation for latest version.
+</Warning>
+
+The `server` prop accepts either a built-in config object or an object implementing `AgentUIServer`.
+
+```ts
+type TrueForgeServerConfig =
+  | {
+      type: "trueforge";
+      baseUrl?: string;
+      token?: string;
+      fetch?: typeof fetch;
+      catalog?: CatalogServer;
+      permissions?: PermissionsServer;
+    }
+  | AgentUIServer;
+```
+
+An `AgentUIServer` object is used immediately. The built-in `trueforge` config resolves
+asynchronously, so the SDK renders a loading indicator (`role="status"`) for a moment first. It loads
+`plugins/trueforge-agent-server-adapter` and composes a full Harness `AgentUIServer` - see
+[Quickstart](/ui-sdk/get-started/quickstart).
+
+`catalog` and `permissions` optionally override the adapter's built-in ports. A custom
+`AgentUIServer` can expose the same optional ports directly.
+
+## The composed contract
+
+```ts
+type AgentUIServer = AgentChatServer & AgentBuilderServer & {
+  catalog?: CatalogServer;
+  sessions?: AgentSessionsServer;
+  schedules?: ScheduleServer;
+  sandboxEnvironments?: SandboxEnvironmentServer;
+  metrics?: AgentMetricsServer;
+  permissions?: PermissionsServer;
+  getMe?: () => Promise<{ tenantId: string }>;
+};
+```
+
+Chat and agent-builder operations are required. The optional ports add settings catalogs,
+agent detail/session views, schedules, sandbox environments, aggregate metrics, and resource
+permissions. `getMe` supplies the caller's tenant identity for sharing. A custom server can
+attach these ports directly, or pass them to `createTrueForgeServer`.
+
+Every interface is generic. The SDK's types constrain only the fields the UI itself reads, so when your backend returns richer objects you widen the type parameters rather than casting or stripping fields. See [widening](#widening-the-types) below.
+
+## AgentChatServer
+
+The runtime calls these. All operations are keyed by a flat `sessionId`.
+
+```ts
+interface AgentChatServer {
+  createSession(req: CreateSessionRequest): Promise<Session>;
+  listSessions(req?: ListSessionsParams): Promise<ListResult<Session>>;
+  getSession(req: { sessionId: string }): Promise<Session>;
+  updateSession(req: UpdateSessionRequest): Promise<Session>;
+
+  createTurn(req: {
+    sessionId: string;
+    input?: TurnInputItem[];
+    previousTurnId?: PreviousTurnIdInput;
+    abortSignal?: AbortSignal;
+    headers?: Record<string, string>;
+  }): AsyncIterable<TurnStreamData>;
+
+  cancelSession(req: { sessionId: string }): Promise<void>;
+  deleteSession?(req: { sessionId: string }): Promise<void>;
+  renameSession?(req: { sessionId: string; title: string }): Promise<void>;
+
+  listTurns(req: {
+    sessionId: string;
+    limit?: number;
+    pageToken?: string;
+    order?: ListSessionsOrder;
+  }): Promise<ListResult<Turn>>;
+  getTurn(req: { sessionId: string; turnId: string }): Promise<Turn>;
+
+  listEvents(req: {
+    sessionId: string;
+    pageToken?: string;
+    lastTurnId?: string;
+    limit?: number;
+  }): Promise<ListResult<SessionEventItem>>;
+
+  listTurnEvents?(req: {
+    sessionId: string;
+    turnId: string;
+    limit?: number;
+    pageToken?: string;
+    order?: ListSessionsOrder;
+  }): Promise<ListResult<TurnEvent>>;
+
+  subscribeToTurn?(req: {
+    sessionId: string;
+    turnId: string;
+    afterSequenceNumber?: number;
+    abortSignal?: AbortSignal;
+  }): AsyncIterable<TurnStreamData>;
+
+  downloadSandboxFile?(req: {
+    sessionId: string;
+    turnId: string;
+    sandboxId: string;
+    path: string;
+  }): Promise<Blob>;
+}
+```
+
+`deleteSession` and `renameSession` are optional. Presence gates Delete and Rename in the session list; `renameSession` persists `{ sessionId, title }`. TrueForge implements both. TrueFoundry Gateway does not persist titles and should omit `renameSession`. `listTurnEvents` hydrates the events of a single in-flight turn when your backend can serve them per turn. `subscribeToTurn` lets a reconnecting client resume a stream from `afterSequenceNumber` rather than replaying it - pass the same `abortSignal` you use on `createTurn` to tear it down. `downloadSandboxFile` enables artifact downloads.
+
+<Note>
+  `downloadSandboxFile` receives both `turnId` and `sandboxId` because backends address sandboxes differently. If your download route is scoped to a turn, resolve the sandbox from `turnId` and ignore `sandboxId`; if you address sandboxes directly, use `sandboxId`.
+</Note>
+
+`createTurn` and `subscribeToTurn` yield `TurnStreamData`, an envelope of `{ sequenceNumber, event }`. The event protocol is documented in [Streaming events](/ui-sdk/reference/events-legacy).
+
+## Sessions
+
+```ts
+interface Session {
+  id: string;
+  title?: string | null;
+  agentName?: string | null;
+  agentSpec?: AgentSpec;
+  isMutable: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+`id`, `isMutable`, `createdAt`, and `updatedAt` are required; timestamps are ISO strings. Set `isMutable: true` while the agent spec may still be edited. `renameSession` must work for named and inline sessions.
+
+`CreateSessionRequest` is `{ agentName?, agentSpec?, title? }`; `UpdateSessionRequest` is `{ sessionId, agentSpec?, title? }`.
+
+## Pagination
+
+```ts
+interface ListResult<T> {
+  data: T[];
+  nextPageToken?: string;
+}
+```
+
+`ListResult` is a plain DTO - `data` holds the rows and `nextPageToken` carries the cursor for the next page, absent on the last page. Requests accept a matching `pageToken`, which the SDK feeds back on the following call.
+
+```ts
+async listSessions({ pageToken, limit = 20 } = {}) {
+  const res = await fetch(`/api/sessions?limit=${limit}&cursor=${pageToken ?? ""}`);
+  const body = await res.json(); // { data, pagination }
+  const token = body.pagination?.nextPageToken;
+  return {
+    data: body.data,
+    ...(token === undefined ? {} : { nextPageToken: token }),
+  };
+}
+```
+
+<Note>
+  Because `ListResult` is a plain object, you can return a parsed JSON body directly as long as it exposes `data` and (optionally) `nextPageToken`.
+</Note>
+
+## Turn input
+
+What the UI sends into `createTurn`:
+
+```ts
+type TurnInputItem = UserMessage | UserToolApprovalEvent | UserToolResponseEvent;
+
+interface UserMessage {
+  type: "user.message";
+  content: UserMessageContent;
+}
+
+interface UserToolApprovalEvent {
+  type: "user.tool_approval";
+  threadId: string;
+  toolCallId: string;
+  approval: { status: "allow" } | { status: "deny"; reason?: string };
+}
+
+interface UserToolResponseEvent {
+  type: "user.tool_response";
+  threadId: string;
+  toolCallId: string;
+  content: string;
+}
+```
+
+A plain chat message arrives as `user.message`. Approving or rejecting a tool call, and answering a prompt the agent raised, arrive as the other two - all three through the same `createTurn` entry point, so branch on `type`.
+
+## Turn state
+
+```ts
+interface Turn {
+  id: string;
+  sessionId: string;
+  previousTurnId?: string | null;
+  input?: TurnInputItem[];
+  state: TurnState;
+  createdAt: string;
+}
+
+type TurnState =
+  | { status: "running" }
+  | { status: "done"; output?: unknown; requiredActions?: unknown[]; completedAt: string }
+  | { status: "cancelled"; reason: string; completedAt: string }
+  | { status: "error"; message: string; completedAt: string };
+```
+
+A turn ends in one of three terminal states, each carrying `completedAt`. A `done` turn may still carry `requiredActions` - that is how a turn signals it is waiting on the user, such as a tool approval, rather than being finished outright. The user's reply arrives on the next `createTurn` call as a `user.tool_approval` or `user.tool_response` input item.
+
+## AgentBuilderServer
+
+Powers the agent library and the draft composer.
+
+```ts
+interface AgentBuilderServer {
+  getCapabilities(): Promise<AgentBuilderCapabilitiesResponse>;
+  getModels(): Promise<ModelSelection[]>;
+  getSkills(): Promise<AgentSkill[]>;
+  getMcp(): Promise<ConnectorState[]>;
+  searchAgents(req?: SearchAgentsParams): Promise<ListResult<AgentLibraryEntry>>;
+  saveAgent(req: SaveAgentRequest): Promise<SaveAgentResult>;
+  deleteAgent?(req: { agentName: string }): Promise<void>;
+}
+```
+
+`deleteAgent` is the only optional method here - the rest must be implemented.
+
+### Capabilities
+
+`getCapabilities` tells the UI which optional features your backend supports, so it can hide what you do not offer rather than surfacing controls that fail.
+
+```ts
+interface AgentBuilderCapabilitiesResponse {
+  data: {
+    sandbox: { enabled: boolean; environments?: { enabled: boolean } };
+    skill: { enabled: boolean; reason?: string };
+    settings?: SettingsCapability;
+    webSearch?: { enabled: boolean; reason?: string };
+    memory?: { enabled: boolean; reason?: string };
+    sessionSharing: { granularity: 'tenant' | 'subject' };
+  };
+}
+
+interface SettingsCapability {
+  modelProviders?: SettingsCapabilitySection;
+  mcpServers?: SettingsCapabilitySection;
+  skills?: SettingsCapabilitySection;
+  sandboxProviders?: SettingsCapabilitySection;
+  webSearch?: SettingsCapabilitySection;
+  memoryProviders?: SettingsCapabilitySection;
+}
+
+interface SettingsCapabilitySection {
+  enabled: boolean;
+  manageProviders: boolean;
+}
+```
+
+It is fetched once when the server resolves. `skill.reason` is shown to the user when skills are disabled, so use it to explain why - for example that no skill registry is configured. Omit `memory` when your backend has no memory provider; the UI then hides every memory setting. With `enabled: false`, the agent builder's Memory toggle is locked and shows `reason`.
+
+`settings` reports one entry per settings section rather than a single switch, so you can open the sections a caller may use and close the rest. A section you omit stays **visible**, which is what keeps servers written before this existed working. Set `enabled: false` on a section to hide it; the settings control itself disappears once every section is closed. Use `manageProviders: false` for a section whose providers your platform owns centrally - the section still opens, but the controls that add or edit providers do not render.
+
+```ts
+async getCapabilities() {
+  return { data: { sandbox: { enabled: false }, skill: { enabled: true } } };
+}
+```
+
+Read the resolved value anywhere in your own components with [`useServerCapabilities()`](/ui-sdk/reference/hooks).
+
+### Picker rows
+
+The remaining methods return the minimum each selector renders:
+
+| Type | Required | Optional |
+| --- | --- | --- |
+| `ModelSelection` | `id`, `name`, `provider`, `properties` | - |
+| `AgentSkill` | `id`, `name` | `description` |
+| `ConnectorState` | `id`, `name` | `description`, `requiresAuth`, `authenticated` |
+| `AgentLibraryEntry` | `name` | `agentId`, `agentSpec` |
+
+`provider` is a `{ name; logo? }` object, and `properties` is a `{ reasoningEfforts?: string[] }` object - both are required on the row even when empty (`properties: {}`).
+
+<Note>
+  Return a non-empty `properties.reasoningEfforts` on a `ModelSelection` and the UI shows a reasoning-effort picker beside the model selector. On `AgentLibraryEntry`, `agentId` is the stable identifier used for selection, history filtering, and session binding; omit it and the row falls back to `name`. Supply `agentSpec` to enable Edit; omit it for try-only agents.
+</Note>
+
+`SearchAgentsParams` is `{ query?, limit?, pageToken? }`. `searchAgents` returns `{ data, nextPageToken? }`, using the same token pagination as the session lists; pass the returned token as `pageToken` for the next page. `SaveAgentRequest` is `{ agentName, agentSpec, intent, sessionId? }`, where `intent` is `"create"` for a new agent and `"update"` when the chat is already bound to one. It returns a `SaveAgentResult` of `{ agentId?, sessionUpdatedAt? }` - `agentId` is the id the host registry allocated, and `sessionUpdatedAt` is set when the active mutable session was updated in the same call.
+
+## AgentSpec
+
+```ts
+interface AgentSpec {
+  model: Model;
+  instructions?: string;
+  skills?: SkillMount[];
+  mcpServers?: McpServerMount[];
+  config?: AgentRuntimeConfig;
+  variables?: Record<string, string>;
+}
+
+interface Model {
+  name: string;
+  params?: { maxTokens?: number; reasoningEffort?: string };
+}
+
+interface AgentRuntimeConfig {
+  generativeUi?: { enabled?: boolean };
+  dynamicSubAgents?: { enabled?: boolean };
+  askUserQuestions?: { enabled?: boolean };
+}
+```
+
+Only `model` is required. `instructions` carries the system prompt. `config` toggles runtime features per agent (generative UI, dynamic sub-agents, ask-user questions), and `variables` holds string substitutions the backend interpolates.
+
+`SkillMount` and `McpServerMount` are typed as `object`. The runtime stores and forwards mounts without reading any field, and your backend owns their shape - so the base constrains only that a mount is an object, and you intersect your concrete type over it.
+
+## Widening the types
+
+Every interface takes type parameters defaulting to the SDK-minimal shapes. Supply your own to carry extra fields through the UI without casting:
+
+```ts
+interface MyModel extends ModelSelection {
+  modelId: string;
+  pricePerMillionTokens: number;
+}
+
+type MySkillMount = { fqn: string; preload: boolean };
+type MySpec = AgentSpec<Model, MySkillMount>;
+
+const server: AgentChatServer<MySpec> & AgentBuilderServer<MySpec, MyModel> = {
+  /* ... */
+};
+```
+
+The UI keeps reading only the fields it knows about; your own components - supplied through [slot overrides](/ui-sdk/setup-custom-ui/slot-overrides) - can read the rest.
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="Worked implementation" icon="server" href="/ui-sdk/setup-custom-servers/custom-server-legacy">
+    A minimal `AgentUIServer` you can copy.
+  </Card>
+
+  <Card title="Streaming events" icon="bolt" href="/ui-sdk/reference/events-legacy">
+    The event protocol `createTurn` yields.
+  </Card>
+
+  <Card title="Settings catalog" icon="sliders" href="/ui-sdk/reference/catalog">
+    The optional `catalog` port behind the settings UI.
+  </Card>
+
+  <Card title="Type reference" icon="code" href="/ui-sdk/reference/server">
+    Every exported server type.
+  </Card>
+</CardGroup>
