@@ -697,7 +697,7 @@ export function toUserContent(content: string | ChatCompletionContentPart[]): Us
  * - `'openai'`        → `openai.reasoningEncryptedContent`
  * - `'anthropic'`     → `anthropic.signature`
  * - `'google-gemini'` → per-tool-call `google.thoughtSignature`, no standalone reasoning block
- * - `'custom'`        → OpenAI-compatible ignores providerOptions, so the token has nowhere to go
+ * - `'custom'`        → no reasoning token; Gemini's per-tool-call `google.thoughtSignature` is sent as `extra_content`
  *
  * Signatures attach when `source` (`type/name/model`) matches both provider type and
  * provider name. Missing/foreign source → reasoning text only.
@@ -1413,6 +1413,21 @@ export async function* mapStreamToChunks({
         throw aborted;
       }
 
+      case 'tool-call': {
+        // OpenAI-compatible endpoints (e.g. Gemini on Vertex via `custom`) attach the signature
+        // here, keyed by provider name rather than `google`; it replays via `google.thoughtSignature`.
+        const state = toolCallStates.get(part.toolCallId);
+        if (state !== undefined && state.thoughtSignature === undefined) {
+          const signature = Object.values(part.providerMetadata ?? {}).find(
+            meta => typeof meta['thoughtSignature'] === 'string',
+          )?.['thoughtSignature'];
+          if (typeof signature === 'string') {
+            state.thoughtSignature = signature;
+          }
+        }
+        break;
+      }
+
       case 'start':
       case 'text-start':
       case 'text-end':
@@ -1421,7 +1436,6 @@ export async function* mapStreamToChunks({
       case 'source':
       case 'file':
       case 'reasoning-file':
-      case 'tool-call':
       case 'tool-result':
       case 'tool-error':
       case 'tool-output-denied':
