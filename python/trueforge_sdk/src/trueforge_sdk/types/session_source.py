@@ -2,7 +2,35 @@
 
 import typing
 
-from .session_source_schedule import SessionSourceSchedule
-from .session_source_service import SessionSourceService
+import pydantic
+from ..core.pydantic_utilities import IS_PYDANTIC_V2
+from ..core.unchecked_base_model import UncheckedBaseModel
 
-SessionSource = typing.Union[SessionSourceSchedule, SessionSourceService]
+
+class SessionSource(UncheckedBaseModel):
+    """
+    How this session was created (e.g. a schedule run). Null for interactive sessions.
+    """
+
+    id: str = pydantic.Field()
+    """
+    Schedule id.
+    """
+
+    run_id: str = pydantic.Field()
+    """
+    Schedule run id.
+    """
+
+    type: typing.Literal["schedule"] = pydantic.Field(default="schedule")
+    """
+    Session was created by a schedule run.
+    """
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
