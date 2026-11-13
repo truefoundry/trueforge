@@ -8,6 +8,7 @@ import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '../analytics/events.js';
 import { withSessionProps } from '../analytics/sessionProps.js';
 import { DraftCatalogProvider } from '../atoms/draft/DraftCatalogProvider.js';
+import { useResolveDraftSandboxEnvironment } from '../atoms/environments/useResolveDraftSandboxEnvironment.js';
 import { useComposerBusyState } from '../hooks/useComposerBusyState.js';
 import { useComposerPauseView } from '../hooks/useComposerPauseView.js';
 import { useActiveSessionCanManage } from '../hooks/useResourcePermissions.js';
@@ -31,14 +32,17 @@ export function canSubmitComposer({
   hasAttachments,
   requiresModel,
   hasModel,
+  sandboxEnvironmentReady = true,
 }: {
   disabled: boolean;
   hasText: boolean;
   hasAttachments: boolean;
   requiresModel: boolean;
   hasModel: boolean;
+  /** False while a draft still waits for sandbox environment pin before createSession. */
+  sandboxEnvironmentReady?: boolean;
 }): boolean {
-  return !disabled && (hasText || hasAttachments) && (!requiresModel || hasModel);
+  return !disabled && sandboxEnvironmentReady && (hasText || hasAttachments) && (!requiresModel || hasModel);
 }
 
 function ComposerBody({
@@ -59,6 +63,8 @@ function ComposerBody({
   const hasAttachments = attachmentCount > 0;
   const hasContent = hasText || hasAttachments;
   const { agentSpec } = useTrueForgeAgentSpec();
+  // Pins tenant default env on new drafts; hold send until ready so createSession is not raced.
+  const { readyForSend: sandboxEnvironmentReady } = useResolveDraftSandboxEnvironment();
   // Named (immutable) agents use a server-side model; only draft/mutable composers pick one here.
   const requiresModel = shell == null || (shell.mode.status === 'active' && shell.mode.isMutable);
   const hasModel = Boolean(agentSpec?.model?.name?.trim());
@@ -71,7 +77,14 @@ function ComposerBody({
   const cancellingRef = useRef(false);
   // Running/pause no longer lock the input — only session permissions do.
   const disabled = !canManageSession;
-  const canSubmit = canSubmitComposer({ disabled, hasText, hasAttachments, requiresModel, hasModel });
+  const canSubmit = canSubmitComposer({
+    disabled,
+    hasText,
+    hasAttachments,
+    requiresModel,
+    hasModel,
+    sandboxEnvironmentReady,
+  });
   const shellAgent =
     shell?.mode.status === 'active' ? { agentId: shell.mode.agentId, agentName: shell.mode.agentName } : {};
   const submit = () => {

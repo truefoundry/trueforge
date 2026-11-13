@@ -42,6 +42,14 @@ export function BottomSheet({
     return () => dialog.removeEventListener('close', handleClose);
   }, [onOpenChange]);
 
+  useEffect(() => {
+    const dialog = ref.current;
+    return () => {
+      // Call sites that unmount on dismiss must not tear down an still-open top-layer dialog.
+      if (dialog?.open && typeof dialog.close === 'function') dialog.close();
+    };
+  }, []);
+
   const handleBackdropClick = (event: MouseEvent<HTMLDialogElement>) => {
     if (event.target === ref.current) onOpenChange(false);
   };
@@ -53,6 +61,8 @@ export function BottomSheet({
       aria-label={ariaLabel}
       onClick={handleBackdropClick}
       onCancel={event => {
+        // Keep React `open` as source of truth (busy save/clone can ignore dismiss).
+        // stopPropagation keeps Escape from also dismissing a parent <dialog>.
         event.preventDefault();
         event.stopPropagation();
         onOpenChange(false);

@@ -41,7 +41,17 @@ vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
   useTrueForgeToolResponses: () => toolResponsesState,
   useTrueForgeApprovals: () => approvalsState,
   useTrueForgeAgentSpec: () => ({ agentSpec: agentSpecState.agentSpec }),
+  useTrueForgeUpdateAgentSpec: () => undefined,
 }));
+
+// ShellModeProvider reads draft preferences which import this /server helper; dist may lag src.
+vi.mock('@truefoundry/trueforge-assistant-ui-runtime/server', async importOriginal => {
+  const actual = await importOriginal<typeof import('@truefoundry/trueforge-assistant-ui-runtime/server')>();
+  return {
+    ...actual,
+    readDraftTrueforgeEnabled: () => undefined,
+  };
+});
 
 function SecretSelectProbe({ onSubmit }: CustomActionRendererProps) {
   return (
@@ -76,6 +86,19 @@ describe('canSubmitComposer', () => {
         hasModel,
       }),
     ).toBe(true);
+  });
+
+  it('blocks submission while the sandbox environment pin is still pending', () => {
+    expect(
+      canSubmitComposer({
+        disabled: false,
+        hasText: true,
+        hasAttachments: false,
+        requiresModel: true,
+        hasModel: true,
+        sandboxEnvironmentReady: false,
+      }),
+    ).toBe(false);
   });
 
   it('blocks empty messages and mutable drafts without a model', () => {

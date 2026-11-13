@@ -77,6 +77,14 @@ export function SideDrawer({
     return () => el.removeEventListener('close', handler);
   }, [onOpenChange]);
 
+  useEffect(() => {
+    const el = ref.current;
+    return () => {
+      // Call sites that unmount on dismiss must not tear down an still-open top-layer dialog.
+      if (el?.open && typeof el.close === 'function') el.close();
+    };
+  }, []);
+
   return (
     <dialog
       ref={ref}
@@ -86,6 +94,8 @@ export function SideDrawer({
       // Escape still closes via cancel; backdrop click must not (no light-dismiss).
       closedby="closerequest"
       onCancel={event => {
+        // Keep React `open` as source of truth (busy save/clone can ignore dismiss).
+        // stopPropagation keeps Escape from also dismissing a parent <dialog>.
         event.preventDefault();
         event.stopPropagation();
         onOpenChange(false);
