@@ -1,0 +1,49 @@
+---
+title: 'Prometheus Metrics'
+sidebarTitle: 'Metrics'
+description: 'Scrape request counts, statuses, and latency from the TrueForge server at GET /metrics.'
+---
+
+The TrueForge server serves Prometheus metrics at `GET /metrics`. The endpoint sits outside `/api` and needs no API token, and it skips the client-certificate requirement when mTLS is on, the same way `/healthz` does.
+
+## What is exposed
+
+| Series | What it records |
+| --- | --- |
+| `http_requests_total` | Inbound `/api` requests by method, route template, and status |
+| `http_request_duration_seconds` | Request latency histogram; buckets run to 5 minutes for long turns |
+| Process and runtime metrics | The defaults collected by `prom-client` (`process_*`, `nodejs_*`) |
+
+The HTTP series use the matched route template rather than raw paths. Static files and the scrape endpoint itself are not counted.
+
+## Scrape the endpoint
+
+Point a scraper at port 8790, the default server port:
+
+```yaml
+scrape_configs:
+  - job_name: trueforge
+    static_configs:
+      - targets: ['<trueforge-host>:8790']
+```
+
+On a local install you can check it by hand:
+
+```bash
+curl http://localhost:8790/metrics
+```
+
+## Helm deployments
+
+In Helm, server pods carry the standard `prometheus.io/scrape`, `prometheus.io/path`, and `prometheus.io/port` annotations, so annotation-based service discovery works without extra configuration.
+
+For the Prometheus Operator, enable the chart's ServiceMonitor:
+
+```yaml
+serviceMonitor:
+  enabled: true
+  labels:
+    release: kube-prometheus-stack
+```
+
+Set `labels` to whatever your Prometheus instance selects on, and `interval` (30s by default) if the default does not fit. When `mtls.enabled` is set, the monitor scrapes over `https` and skips certificate verification; `/metrics` does not need a client certificate. See the [chart README](https://github.com/truefoundry/trueforge/blob/main/charts/trueforge/README.md) for the full `serviceMonitor` options.
