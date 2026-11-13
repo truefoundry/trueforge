@@ -1155,31 +1155,27 @@ async function resolveTurnRequestContext<TTransaction>(params: {
   c: Context;
   sessions: Sessions<TTransaction>;
   session_id: string;
-  resolveRequestContext: ResolveRequestContext;
 }): Promise<RequestContext> {
-  const { c, sessions, session_id: sessionId, resolveRequestContext } = params;
+  const { c, sessions, session_id: sessionId } = params;
   const existing = c.get('request_context');
   if (existing) {
     return existing;
   }
-  // Service key clears context; require assume-user so a JWT+header cannot take this path.
-  if (c.req.header(ASSUME_USER_HEADER)?.trim()) {
-    return applyAssumeUserToContext({
-      c,
-      resolveCreatedBy: async () => {
-        const session = await sessions.getById({ session_id: sessionId });
-        if (!session) {
-          throw new HTTPException(404, { message: `Session not found: ${sessionId}` });
-        }
-        return {
-          tenant_id: session.record.tenant_id,
-          created_by_subject: session.record.created_by_subject,
-          session_id: sessionId,
-        };
-      },
-    });
-  }
-  return resolveRequestContext(c);
+  // Service key left context unset; assume-user is required (400 if missing/invalid).
+  return applyAssumeUserToContext({
+    c,
+    resolveCreatedBy: async () => {
+      const session = await sessions.getById({ session_id: sessionId });
+      if (!session) {
+        throw new HTTPException(404, { message: `Session not found: ${sessionId}` });
+      }
+      return {
+        tenant_id: session.record.tenant_id,
+        created_by_subject: session.record.created_by_subject,
+        session_id: sessionId,
+      };
+    },
+  });
 }
 
 /** Request-reply path the owner serves for inbound turn events. */
@@ -1832,7 +1828,6 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
       c,
       sessions: deps.sessions,
       session_id: sessionId,
-      resolveRequestContext: deps.resolveRequestContext,
     });
     const session = await deps.sessions.get({
       tenant_id: requestContext.tenant_id,
@@ -2017,7 +2012,6 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
       c,
       sessions: deps.sessions,
       session_id: sessionId,
-      resolveRequestContext: deps.resolveRequestContext,
     });
     const session = await deps.sessions.get({
       tenant_id: requestContext.tenant_id,
