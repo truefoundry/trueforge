@@ -1,9 +1,14 @@
 'use client';
 
+import { useId, useState } from 'react';
+
 import { Icon } from '../../icons/Icon.js';
 import type { SandboxEnvironmentManifest, SandboxEnvironmentSecret } from '../../server/types.js';
+import { useSlot } from '../../theme/SlotsProvider.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
+import { Button } from '../primitives/Button.js';
+import { Dialog } from '../primitives/Dialog.js';
 import { Switch } from '../primitives/Switch.js';
 import { isReservedEnvironmentName, RESERVED_ENVIRONMENT_NAME } from './environmentDisplay.js';
 
@@ -112,7 +117,12 @@ export function EnvironmentFormFields({
   nameDisabled?: boolean;
   readOnly?: boolean;
 }) {
+  const MonacoEditorCore = useSlot('MonacoEditorCore');
+  const buildScriptLabelId = useId();
+  const [buildScriptOpen, setBuildScriptOpen] = useState(false);
   const update = (patch: Partial<EnvironmentFormValues>) => onChange({ ...values, ...patch });
+  const scriptEditorOptions = { readOnly, lineNumbers: 'on', renderFinalNewline: 'on' };
+  const updateBuildScript = (buildScript: string) => update({ buildScript });
 
   return (
     <fieldset disabled={readOnly} className="m-0 flex min-w-0 flex-col gap-4 border-0 p-0 pb-8">
@@ -143,15 +153,64 @@ export function EnvironmentFormFields({
       <div className={sectionCardClassName}>
         <h3 className="text-sm font-medium text-text-primary">Image And Resources</h3>
 
-        <label className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-text-secondary">Build Script</span>
-          <textarea
-            className={cn(fieldClassName, 'min-h-24 resize-y font-mono text-xs')}
-            value={values.buildScript}
-            placeholder={'set -ex\npip install httpx\n'}
-            onChange={event => update({ buildScript: event.target.value })}
-          />
-        </label>
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center justify-between gap-3">
+            <span id={buildScriptLabelId} className="text-xs font-medium text-text-secondary">
+              Build Script
+            </span>
+            <button
+              type="button"
+              aria-label="Edit build script full screen"
+              aria-haspopup="dialog"
+              title="Full screen"
+              className={auiButtonClass({ variant: 'ghost', size: 'icon', className: 'size-7 shrink-0' })}
+              onClick={() => setBuildScriptOpen(true)}
+            >
+              <Icon name="expand" className="size-4" />
+            </button>
+          </div>
+          <div
+            role="group"
+            aria-labelledby={buildScriptLabelId}
+            className="h-36 overflow-hidden rounded-md border border-border bg-input-box-bg"
+          >
+            {buildScriptOpen ? null : (
+              <MonacoEditorCore
+                value={values.buildScript}
+                language="shell"
+                height="100%"
+                options={scriptEditorOptions}
+                onChange={updateBuildScript}
+              />
+            )}
+          </div>
+          <Dialog
+            open={buildScriptOpen}
+            onOpenChange={setBuildScriptOpen}
+            aria-label="Edit build script full screen"
+            className="h-[calc(100dvh-2rem)] max-h-none w-[calc(100vw-2rem)] max-w-none"
+          >
+            {buildScriptOpen ? (
+              <>
+                <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2">
+                  <h2 className="text-sm font-semibold text-text-primary">Build Script</h2>
+                  <Button.Secondary type="button" size="small" onClick={() => setBuildScriptOpen(false)}>
+                    Done
+                  </Button.Secondary>
+                </div>
+                <div className="min-h-0 flex-1">
+                  <MonacoEditorCore
+                    value={values.buildScript}
+                    language="shell"
+                    height="100%"
+                    options={scriptEditorOptions}
+                    onChange={updateBuildScript}
+                  />
+                </div>
+              </>
+            ) : null}
+          </Dialog>
+        </div>
 
         <div className="grid grid-cols-3 gap-3">
           <label className="flex flex-col gap-1">

@@ -66,6 +66,8 @@
     "pack:tgz": "pnpm build && pnpm pack",
     "pretest": "pnpm run runtime:build",
     "test": "vitest run && pnpm test:package",
+    "pretest:unit": "pnpm run runtime:build",
+    "test:unit": "vitest run",
     "test:package": "pnpm build && node test/packageExports.smoke.mjs",
     "test:coverage": "vitest run --coverage",
     "pretypecheck": "pnpm run runtime:build && pnpm -w run sdk:types",
