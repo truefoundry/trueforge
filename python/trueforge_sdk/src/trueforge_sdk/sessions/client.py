@@ -28,10 +28,11 @@ from ..types.session_grant_subject import SessionGrantSubject
 from ..types.session_metadata import SessionMetadata
 from ..types.session_source_type import SessionSourceType
 from ..types.turn import Turn
-from ..types.turn_inbound_event_item import TurnInboundEventItem
-from ..types.turn_input_item import TurnInputItem
 from ..types.turn_streaming_event import TurnStreamingEvent
+from ..types.turn_user_event_message import TurnUserEventMessage
 from .raw_client import AsyncRawSessionsClient, RawSessionsClient
+from .types.create_turn_sessions_request_input_item import CreateTurnSessionsRequestInputItem
+from .types.create_turn_sessions_stream_request_input_item import CreateTurnSessionsStreamRequestInputItem
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -182,7 +183,7 @@ class SessionsClient:
 
     def get(self, *, session_id: str, request_options: typing.Optional[RequestOptions] = None) -> GetSessionResponse:
         """
-        Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+        Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or a subject with a session access grant.
 
         Parameters
         ----------
@@ -249,12 +250,11 @@ class SessionsClient:
         session_id: str,
         agent: typing.Optional[SessionAgentSpecBody] = OMIT,
         metadata: typing.Optional[SessionMetadata] = OMIT,
-        shared: typing.Optional[bool] = OMIT,
         title: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetSessionResponse:
         """
-        Update a session: optional `title`, `metadata`, `shared`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
+        Update a session: optional `title`, `metadata`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
 
         Parameters
         ----------
@@ -264,9 +264,6 @@ class SessionsClient:
         agent : typing.Optional[SessionAgentSpecBody]
 
         metadata : typing.Optional[SessionMetadata]
-
-        shared : typing.Optional[bool]
-            Deprecated; use `POST /sessions/{session_id}/grants` with a `tenant` subject.
 
         title : typing.Optional[str]
             Human-readable session title.
@@ -292,12 +289,7 @@ class SessionsClient:
         )
         """
         _response = self._raw_client.update(
-            session_id=session_id,
-            agent=agent,
-            metadata=metadata,
-            shared=shared,
-            title=title,
-            request_options=request_options,
+            session_id=session_id, agent=agent, metadata=metadata, title=title, request_options=request_options
         )
         return _response.data
 
@@ -345,7 +337,7 @@ class SessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[SessionEventItem, ListSessionEventsResponse]:
         """
-        List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+        List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or a subject with a session access grant.
 
         Parameters
         ----------
@@ -481,6 +473,7 @@ class SessionsClient:
         session_id: str,
         limit: typing.Optional[int] = 25,
         page_token: typing.Optional[str] = None,
+        assume_user: typing.Optional[typing.Literal["session-creator"]] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[Turn, ListTurnsResponse]:
         """
@@ -496,6 +489,9 @@ class SessionsClient:
 
         page_token : typing.Optional[str]
             Opaque token from a previous response `next_page_token`.
+
+        assume_user : typing.Optional[typing.Literal["session-creator"]]
+            Service API key only: which user identity to assume. Currently only session-creator.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -523,14 +519,19 @@ class SessionsClient:
             yield page
         """
         return self._raw_client.list_turns(
-            session_id=session_id, limit=limit, page_token=page_token, request_options=request_options
+            session_id=session_id,
+            limit=limit,
+            page_token=page_token,
+            assume_user=assume_user,
+            request_options=request_options,
         )
 
     def create_turn_stream(
         self,
         *,
         session_id: str,
-        input: typing.Optional[typing.Sequence[TurnInputItem]] = OMIT,
+        input: typing.Sequence[CreateTurnSessionsStreamRequestInputItem],
+        assume_user: typing.Optional[typing.Literal["session-creator"]] = None,
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Stream[TurnStreamingEvent]:
@@ -546,8 +547,11 @@ class SessionsClient:
         session_id : str
             Session identifier.
 
-        input : typing.Optional[typing.Sequence[TurnInputItem]]
-            Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.
+        input : typing.Sequence[CreateTurnSessionsStreamRequestInputItem]
+            User messages for this turn. At least one is required.
+
+        assume_user : typing.Optional[typing.Literal["session-creator"]]
+            Service API key only: which user identity to assume. Currently only session-creator.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -562,6 +566,7 @@ class SessionsClient:
         Examples
         --------
         from trueforge_sdk import TrueForge
+        from trueforge_sdk.sessions import CreateTurnSessionsStreamRequestInputItem
 
         client = TrueForge(
             token="YOUR_TOKEN",
@@ -569,6 +574,11 @@ class SessionsClient:
         )
         response = client.sessions.create_turn_stream(
             session_id="session_id",
+            input=[
+                CreateTurnSessionsStreamRequestInputItem(
+                    content="content",
+                )
+            ],
         )
         for chunk in response:
             yield chunk
@@ -576,7 +586,11 @@ class SessionsClient:
 
         def _events() -> typing.Generator[StreamEvent[TurnStreamingEvent], None, None]:
             with self._raw_client.create_turn_stream(
-                session_id=session_id, input=input, previous_turn_id=previous_turn_id, request_options=request_options
+                session_id=session_id,
+                input=input,
+                assume_user=assume_user,
+                previous_turn_id=previous_turn_id,
+                request_options=request_options,
             ) as r:
                 yield from r.data.with_metadata()
 
@@ -586,7 +600,8 @@ class SessionsClient:
         self,
         *,
         session_id: str,
-        input: typing.Optional[typing.Sequence[TurnInputItem]] = OMIT,
+        input: typing.Sequence[CreateTurnSessionsRequestInputItem],
+        assume_user: typing.Optional[typing.Literal["session-creator"]] = None,
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetTurnResponse:
@@ -602,8 +617,11 @@ class SessionsClient:
         session_id : str
             Session identifier.
 
-        input : typing.Optional[typing.Sequence[TurnInputItem]]
-            Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.
+        input : typing.Sequence[CreateTurnSessionsRequestInputItem]
+            User messages for this turn. At least one is required.
+
+        assume_user : typing.Optional[typing.Literal["session-creator"]]
+            Service API key only: which user identity to assume. Currently only session-creator.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -618,6 +636,7 @@ class SessionsClient:
         Examples
         --------
         from trueforge_sdk import TrueForge
+        from trueforge_sdk.sessions import CreateTurnSessionsRequestInputItem
 
         client = TrueForge(
             token="YOUR_TOKEN",
@@ -625,10 +644,19 @@ class SessionsClient:
         )
         client.sessions.create_turn(
             session_id="session_id",
+            input=[
+                CreateTurnSessionsRequestInputItem(
+                    content="content",
+                )
+            ],
         )
         """
         _response = self._raw_client.create_turn(
-            session_id=session_id, input=input, previous_turn_id=previous_turn_id, request_options=request_options
+            session_id=session_id,
+            input=input,
+            assume_user=assume_user,
+            previous_turn_id=previous_turn_id,
+            request_options=request_options,
         )
         return _response.data
 
@@ -779,12 +807,12 @@ class SessionsClient:
             request_options=request_options,
         )
 
-    def create_turn_event(
+    def create_turn_events(
         self,
         *,
         session_id: str,
         turn_id: str,
-        events: typing.Sequence[TurnInboundEventItem],
+        events: typing.Sequence[TurnUserEventMessage],
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateTurnEventResponse:
         """
@@ -798,7 +826,7 @@ class SessionsClient:
         turn_id : str
             Turn identifier.
 
-        events : typing.Sequence[TurnInboundEventItem]
+        events : typing.Sequence[TurnUserEventMessage]
             One or more user events.
 
         request_options : typing.Optional[RequestOptions]
@@ -817,13 +845,13 @@ class SessionsClient:
             token="YOUR_TOKEN",
             base_url="https://yourhost.com/path/to/api",
         )
-        client.sessions.create_turn_event(
+        client.sessions.create_turn_events(
             session_id="session_id",
             turn_id="turn_id",
             events=[UserMcpAuthContinueInputEvent()],
         )
         """
-        _response = self._raw_client.create_turn_event(
+        _response = self._raw_client.create_turn_events(
             session_id=session_id, turn_id=turn_id, events=events, request_options=request_options
         )
         return _response.data
@@ -834,10 +862,12 @@ class SessionsClient:
         session_id: str,
         turn_id: str,
         after_sequence_number: typing.Optional[int] = None,
+        from_event_id: typing.Optional[str] = None,
+        after_event_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Stream[TurnStreamingEvent]:
         """
-        Subscribe to the live SSE stream for a turn. Only the session creator may subscribe. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).
+        Subscribe to the live SSE stream. Resume with from_event_id or after_event_id.
 
         Parameters
         ----------
@@ -848,7 +878,13 @@ class SessionsClient:
             Turn identifier.
 
         after_sequence_number : typing.Optional[int]
-            Exclusive resume cursor: replay only events with a sequence number greater than this value. Omit to start from the beginning of the live buffer.
+            Deprecated. Rejected on new turns. Use from_event_id or after_event_id instead.
+
+        from_event_id : typing.Optional[str]
+            Inclusive cursor. Replay starts at the entry with this event id
+
+        after_event_id : typing.Optional[str]
+            Exclusive cursor. Replay starts after the last entry with this event id.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -879,6 +915,8 @@ class SessionsClient:
                 session_id=session_id,
                 turn_id=turn_id,
                 after_sequence_number=after_sequence_number,
+                from_event_id=from_event_id,
+                after_event_id=after_event_id,
                 request_options=request_options,
             ) as r:
                 yield from r.data.with_metadata()
@@ -1050,7 +1088,7 @@ class AsyncSessionsClient:
         self, *, session_id: str, request_options: typing.Optional[RequestOptions] = None
     ) -> GetSessionResponse:
         """
-        Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+        Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or a subject with a session access grant.
 
         Parameters
         ----------
@@ -1133,12 +1171,11 @@ class AsyncSessionsClient:
         session_id: str,
         agent: typing.Optional[SessionAgentSpecBody] = OMIT,
         metadata: typing.Optional[SessionMetadata] = OMIT,
-        shared: typing.Optional[bool] = OMIT,
         title: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetSessionResponse:
         """
-        Update a session: optional `title`, `metadata`, `shared`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
+        Update a session: optional `title`, `metadata`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
 
         Parameters
         ----------
@@ -1148,9 +1185,6 @@ class AsyncSessionsClient:
         agent : typing.Optional[SessionAgentSpecBody]
 
         metadata : typing.Optional[SessionMetadata]
-
-        shared : typing.Optional[bool]
-            Deprecated; use `POST /sessions/{session_id}/grants` with a `tenant` subject.
 
         title : typing.Optional[str]
             Human-readable session title.
@@ -1184,12 +1218,7 @@ class AsyncSessionsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.update(
-            session_id=session_id,
-            agent=agent,
-            metadata=metadata,
-            shared=shared,
-            title=title,
-            request_options=request_options,
+            session_id=session_id, agent=agent, metadata=metadata, title=title, request_options=request_options
         )
         return _response.data
 
@@ -1245,7 +1274,7 @@ class AsyncSessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[SessionEventItem, ListSessionEventsResponse]:
         """
-        List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+        List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or a subject with a session access grant.
 
         Parameters
         ----------
@@ -1406,6 +1435,7 @@ class AsyncSessionsClient:
         session_id: str,
         limit: typing.Optional[int] = 25,
         page_token: typing.Optional[str] = None,
+        assume_user: typing.Optional[typing.Literal["session-creator"]] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[Turn, ListTurnsResponse]:
         """
@@ -1421,6 +1451,9 @@ class AsyncSessionsClient:
 
         page_token : typing.Optional[str]
             Opaque token from a previous response `next_page_token`.
+
+        assume_user : typing.Optional[typing.Literal["session-creator"]]
+            Service API key only: which user identity to assume. Currently only session-creator.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1457,14 +1490,19 @@ class AsyncSessionsClient:
         asyncio.run(main())
         """
         return await self._raw_client.list_turns(
-            session_id=session_id, limit=limit, page_token=page_token, request_options=request_options
+            session_id=session_id,
+            limit=limit,
+            page_token=page_token,
+            assume_user=assume_user,
+            request_options=request_options,
         )
 
     def create_turn_stream(
         self,
         *,
         session_id: str,
-        input: typing.Optional[typing.Sequence[TurnInputItem]] = OMIT,
+        input: typing.Sequence[CreateTurnSessionsStreamRequestInputItem],
+        assume_user: typing.Optional[typing.Literal["session-creator"]] = None,
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncStream[TurnStreamingEvent]:
@@ -1480,8 +1518,11 @@ class AsyncSessionsClient:
         session_id : str
             Session identifier.
 
-        input : typing.Optional[typing.Sequence[TurnInputItem]]
-            Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.
+        input : typing.Sequence[CreateTurnSessionsStreamRequestInputItem]
+            User messages for this turn. At least one is required.
+
+        assume_user : typing.Optional[typing.Literal["session-creator"]]
+            Service API key only: which user identity to assume. Currently only session-creator.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -1498,6 +1539,7 @@ class AsyncSessionsClient:
         import asyncio
 
         from trueforge_sdk import AsyncTrueForge
+        from trueforge_sdk.sessions import CreateTurnSessionsStreamRequestInputItem
 
         client = AsyncTrueForge(
             token="YOUR_TOKEN",
@@ -1508,6 +1550,11 @@ class AsyncSessionsClient:
         async def main() -> None:
             response = await client.sessions.create_turn_stream(
                 session_id="session_id",
+                input=[
+                    CreateTurnSessionsStreamRequestInputItem(
+                        content="content",
+                    )
+                ],
             )
             async for chunk in response:
                 yield chunk
@@ -1518,7 +1565,11 @@ class AsyncSessionsClient:
 
         async def _events() -> typing.AsyncGenerator[StreamEvent[TurnStreamingEvent], None]:
             async with self._raw_client.create_turn_stream(
-                session_id=session_id, input=input, previous_turn_id=previous_turn_id, request_options=request_options
+                session_id=session_id,
+                input=input,
+                assume_user=assume_user,
+                previous_turn_id=previous_turn_id,
+                request_options=request_options,
             ) as r:
                 async for _event in r.data.with_metadata():
                     yield _event
@@ -1529,7 +1580,8 @@ class AsyncSessionsClient:
         self,
         *,
         session_id: str,
-        input: typing.Optional[typing.Sequence[TurnInputItem]] = OMIT,
+        input: typing.Sequence[CreateTurnSessionsRequestInputItem],
+        assume_user: typing.Optional[typing.Literal["session-creator"]] = None,
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetTurnResponse:
@@ -1545,8 +1597,11 @@ class AsyncSessionsClient:
         session_id : str
             Session identifier.
 
-        input : typing.Optional[typing.Sequence[TurnInputItem]]
-            Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.
+        input : typing.Sequence[CreateTurnSessionsRequestInputItem]
+            User messages for this turn. At least one is required.
+
+        assume_user : typing.Optional[typing.Literal["session-creator"]]
+            Service API key only: which user identity to assume. Currently only session-creator.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -1563,6 +1618,7 @@ class AsyncSessionsClient:
         import asyncio
 
         from trueforge_sdk import AsyncTrueForge
+        from trueforge_sdk.sessions import CreateTurnSessionsRequestInputItem
 
         client = AsyncTrueForge(
             token="YOUR_TOKEN",
@@ -1573,13 +1629,22 @@ class AsyncSessionsClient:
         async def main() -> None:
             await client.sessions.create_turn(
                 session_id="session_id",
+                input=[
+                    CreateTurnSessionsRequestInputItem(
+                        content="content",
+                    )
+                ],
             )
 
 
         asyncio.run(main())
         """
         _response = await self._raw_client.create_turn(
-            session_id=session_id, input=input, previous_turn_id=previous_turn_id, request_options=request_options
+            session_id=session_id,
+            input=input,
+            assume_user=assume_user,
+            previous_turn_id=previous_turn_id,
+            request_options=request_options,
         )
         return _response.data
 
@@ -1758,12 +1823,12 @@ class AsyncSessionsClient:
             request_options=request_options,
         )
 
-    async def create_turn_event(
+    async def create_turn_events(
         self,
         *,
         session_id: str,
         turn_id: str,
-        events: typing.Sequence[TurnInboundEventItem],
+        events: typing.Sequence[TurnUserEventMessage],
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateTurnEventResponse:
         """
@@ -1777,7 +1842,7 @@ class AsyncSessionsClient:
         turn_id : str
             Turn identifier.
 
-        events : typing.Sequence[TurnInboundEventItem]
+        events : typing.Sequence[TurnUserEventMessage]
             One or more user events.
 
         request_options : typing.Optional[RequestOptions]
@@ -1801,7 +1866,7 @@ class AsyncSessionsClient:
 
 
         async def main() -> None:
-            await client.sessions.create_turn_event(
+            await client.sessions.create_turn_events(
                 session_id="session_id",
                 turn_id="turn_id",
                 events=[UserMcpAuthContinueInputEvent()],
@@ -1810,7 +1875,7 @@ class AsyncSessionsClient:
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.create_turn_event(
+        _response = await self._raw_client.create_turn_events(
             session_id=session_id, turn_id=turn_id, events=events, request_options=request_options
         )
         return _response.data
@@ -1821,10 +1886,12 @@ class AsyncSessionsClient:
         session_id: str,
         turn_id: str,
         after_sequence_number: typing.Optional[int] = None,
+        from_event_id: typing.Optional[str] = None,
+        after_event_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncStream[TurnStreamingEvent]:
         """
-        Subscribe to the live SSE stream for a turn. Only the session creator may subscribe. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).
+        Subscribe to the live SSE stream. Resume with from_event_id or after_event_id.
 
         Parameters
         ----------
@@ -1835,7 +1902,13 @@ class AsyncSessionsClient:
             Turn identifier.
 
         after_sequence_number : typing.Optional[int]
-            Exclusive resume cursor: replay only events with a sequence number greater than this value. Omit to start from the beginning of the live buffer.
+            Deprecated. Rejected on new turns. Use from_event_id or after_event_id instead.
+
+        from_event_id : typing.Optional[str]
+            Inclusive cursor. Replay starts at the entry with this event id
+
+        after_event_id : typing.Optional[str]
+            Exclusive cursor. Replay starts after the last entry with this event id.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1874,6 +1947,8 @@ class AsyncSessionsClient:
                 session_id=session_id,
                 turn_id=turn_id,
                 after_sequence_number=after_sequence_number,
+                from_event_id=from_event_id,
+                after_event_id=after_event_id,
                 request_options=request_options,
             ) as r:
                 async for _event in r.data.with_metadata():

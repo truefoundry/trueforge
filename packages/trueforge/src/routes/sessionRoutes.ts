@@ -1,8 +1,7 @@
 /**
  * Session route definitions.
- * Public DB-backed routes mount at /api/v1/sessions; internal operations mount
- * at /api/internal/sessions.
- * Handlers are registered in apis/sessions.ts.
+ * Public DB-backed routes mount at /api/v1/sessions; internal get-or-create at
+ * /api/internal/sessions.
  */
 import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
@@ -114,7 +113,7 @@ export const getSessionRoute = createRoute({
   tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'Get a session',
   description:
-    'Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.',
+    'Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or a subject with a session access grant.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'get',
   request: {
@@ -165,7 +164,7 @@ export const updateSessionRoute = createRoute({
   tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'Update a session',
   description:
-    'Update a session: optional `title`, `metadata`, `shared`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.',
+    'Update a session: optional `title`, `metadata`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'update',
   request: {
@@ -266,7 +265,7 @@ export const listSessionEventsRoute = createRoute({
   tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'List session events',
   description:
-    'List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.',
+    'List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or a subject with a session access grant.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'list_events',
   'x-fern-pagination': TOKEN_PAGINATION,

@@ -16,6 +16,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { DEFAULT_MAX_PARALLEL_SUB_AGENTS } from '@truefoundry/trueforge-core/core';
 import envPaths from 'env-paths';
 import { z } from 'zod';
 
@@ -770,7 +771,7 @@ export interface SharedServerConfiguration {
   SANDBOX_ENVIRONMENT_DISK_GIB_MAX: number;
   /** Max characters in a sandbox environment build script. Env: `SANDBOX_ENVIRONMENT_BUILD_SCRIPT_MAX_LENGTH`. Default 20,000. */
   SANDBOX_ENVIRONMENT_BUILD_SCRIPT_MAX_LENGTH: number;
-  /** Default and max `limit` for list session/turn events. Env: `LIST_EVENTS_PAGE_LIMIT_MAX`. Default 100. */
+  /** Default and max `limit` for list session/turn events. Env: `LIST_EVENTS_PAGE_LIMIT_MAX`. Default 500. */
   LIST_EVENTS_PAGE_LIMIT_MAX: number;
   /**
    * Max bytes for an HTTP request body. Env: `MAX_REQUEST_BODY_BYTES`. Default 30 MB.
@@ -782,10 +783,14 @@ export interface SharedServerConfiguration {
    */
   GRACEFUL_TIMEOUT_SECONDS: number;
   /**
-   * Max seconds a single turn may execute before it is cancelled with
-   * `server-execution-timeout`. Env: `SERVER_EXECUTION_TIMEOUT_SECONDS`. Default 600 (10 minutes).
+   * Max seconds a turn may stay `running` before it is cancelled with
+   * `server-execution-timeout`. Paused time is not counted: the window clears on
+   * pause and starts again on the next `running`. Env: `SERVER_EXECUTION_TIMEOUT_SECONDS`.
+   * Default 3600 (60 minutes).
    */
   SERVER_EXECUTION_TIMEOUT_SECONDS: number;
+  /** Max parallel sub-agents per turn. Env: `MAX_PARALLEL_SUB_AGENTS`. Default 10. */
+  MAX_PARALLEL_SUB_AGENTS: number;
   /**
    * TTL for a running turn's resumable event stream.
    * Env: `TURN_STREAM_TTL_SECONDS`. Default execution timeout + 300.
@@ -801,6 +806,18 @@ export interface SharedServerConfiguration {
    * Env: `TURN_SUBSCRIBE_TIMEOUT_MS`. Default 600000.
    */
   TURN_SUBSCRIBE_TIMEOUT_MS: number;
+  /**
+   * How long a paused turn stays in memory before it is offloaded.
+   * The row stays paused. The next send on the owner rebuilds it.
+   * Env: `TURN_PAUSED_KEEPALIVE_SECONDS`. Default 300.
+   */
+  TURN_PAUSED_KEEPALIVE_SECONDS: number;
+  /**
+   * Max ms to wait when acquiring the per-turn lock.
+   * `0` waits until the holder releases it.
+   * Env: `TURN_LOCK_ACQUIRE_TIMEOUT_MS`. Default 0.
+   */
+  TURN_LOCK_ACQUIRE_TIMEOUT_MS: number;
   /**
    * Max ms to wait for one create-turn SSE write before dropping that client
    * and keeping the turn drain running. Env: `TURN_SSE_STREAM_WRITE_TIMEOUT_MS`. Default 60000.
@@ -1114,7 +1131,7 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
   TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST: string[];
   /**
    * Static JSON settings for the memory-ingest loop: `interval_ms`, `max_sessions_per_run`,
-   * `max_exchanges_per_session`, `lookback_ms`, `pause_timeout_ms` (each optional, with defaults).
+   * `max_exchanges_per_session`, `lookback_ms` (each optional, with defaults).
    * Env: `TRUEFOUNDRY_MEMORY_SETTINGS`.
    */
   TRUEFOUNDRY_MEMORY_SETTINGS: string | undefined;
@@ -1200,7 +1217,7 @@ const shared: SharedServerConfiguration = {
   LIST_EVENTS_PAGE_LIMIT_MAX: parsePositiveInt({
     envKey: 'LIST_EVENTS_PAGE_LIMIT_MAX',
     raw: getEnv('LIST_EVENTS_PAGE_LIMIT_MAX'),
-    defaultValue: 100,
+    defaultValue: 500,
   }),
   MAX_REQUEST_BODY_BYTES: parsePositiveInt({
     envKey: 'MAX_REQUEST_BODY_BYTES',
@@ -1213,6 +1230,11 @@ const shared: SharedServerConfiguration = {
     defaultValue: 30,
   }),
   SERVER_EXECUTION_TIMEOUT_SECONDS: serverExecutionTimeoutSeconds,
+  MAX_PARALLEL_SUB_AGENTS: parsePositiveInt({
+    envKey: 'MAX_PARALLEL_SUB_AGENTS',
+    raw: getEnv('MAX_PARALLEL_SUB_AGENTS'),
+    defaultValue: DEFAULT_MAX_PARALLEL_SUB_AGENTS,
+  }),
   TURN_STREAM_TTL_SECONDS: parsePositiveInt({
     envKey: 'TURN_STREAM_TTL_SECONDS',
     raw: getEnv('TURN_STREAM_TTL_SECONDS'),
@@ -1227,6 +1249,16 @@ const shared: SharedServerConfiguration = {
     envKey: 'TURN_SUBSCRIBE_TIMEOUT_MS',
     raw: getEnv('TURN_SUBSCRIBE_TIMEOUT_MS'),
     defaultValue: 600_000,
+  }),
+  TURN_PAUSED_KEEPALIVE_SECONDS: parsePositiveInt({
+    envKey: 'TURN_PAUSED_KEEPALIVE_SECONDS',
+    raw: getEnv('TURN_PAUSED_KEEPALIVE_SECONDS'),
+    defaultValue: 300,
+  }),
+  TURN_LOCK_ACQUIRE_TIMEOUT_MS: parseNonNegativeInt({
+    envKey: 'TURN_LOCK_ACQUIRE_TIMEOUT_MS',
+    raw: getEnv('TURN_LOCK_ACQUIRE_TIMEOUT_MS'),
+    defaultValue: 0,
   }),
   TURN_SSE_STREAM_WRITE_TIMEOUT_MS: parsePositiveInt({
     envKey: 'TURN_SSE_STREAM_WRITE_TIMEOUT_MS',

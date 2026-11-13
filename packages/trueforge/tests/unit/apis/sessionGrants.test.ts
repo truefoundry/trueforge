@@ -2,7 +2,7 @@ import { OpenAPIHono, z } from '@hono/zod-openapi';
 import { AgentSpecSchema, Sessions } from '@truefoundry/trueforge-core/agent-session';
 import { RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
 import type { Context } from 'hono';
-import { sql, type Kysely } from 'kysely';
+import type { Kysely } from 'kysely';
 import { createClient } from 'redis';
 import { createLogger } from 'winston';
 import { createSessionsRouter } from '../../../src/apis/sessions';
@@ -10,6 +10,7 @@ import { createTurnsRouter } from '../../../src/apis/turns';
 import { createAppErrorHandler } from '../../../src/app';
 import { TrueForgeAuthorizer } from '../../../src/auth/authorizer';
 import type { RequestContext } from '../../../src/auth/identity';
+import { EmptyCapabilitiesStore } from '../../../src/db/capabilitiesStore';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAccessControlStore } from '../../../src/db/sqlite/access-control-store/SqliteAccessControlStore';
@@ -27,7 +28,6 @@ import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/Sqlite
 import type { Database } from '../../../src/db/sqlite/types';
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
 import { EmptyUserStore, type IUserStore } from '../../../src/db/userStore';
-import { MemoryProviderCache } from '../../../src/memory/providers';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription';
 import { ListSessionGrantsResponseSchema } from '../../../src/schemas/sessionGrant';
@@ -39,8 +39,8 @@ const CALLER_HEADER = 'x-test-caller';
 /** Callers named `sa:<id>` are service accounts rather than users. */
 const SERVICE_ACCOUNT_PREFIX = 'sa:';
 
-const SharedSessionBodySchema = z.object({ data: z.object({ shared: z.boolean() }) });
-const SharedSessionListSchema = z.object({ data: z.array(z.object({ shared: z.boolean() })) });
+const SharedSessionBodySchema = z.object({ data: z.record(z.string(), z.unknown()) });
+const SharedSessionListSchema = z.object({ data: z.array(z.record(z.string(), z.unknown())) });
 
 const USERS: User[] = [
   { id: 'alice', display_name: 'Alice', email: 'alice@example.com' },
@@ -102,55 +102,58 @@ function buildApp(input: { db: Kysely<Database>; sessionStore: SqliteSessionStor
   app.route(
     '/',
     createTurnsRouter({
+      accessControlStore,
+      activeTurns: new ActiveTurnRegistry({ logger }),
+      authorizer: new TrueForgeAuthorizer(),
+      eventSubscriptions: new EventSubscriptionRegistry(undefined),
+      logger,
+      requestReplyRouter: new RequestReplyRouter(),
+      resolveAgentStore: () => agentStore,
+      resolveRequestContext,
+      resolveTurnExecutionStores: () =>
+        Promise.resolve({
+          agentStore,
+          capabilitiesStore: new EmptyCapabilitiesStore(),
+          modelProviderStore: new SqliteModelProviderStore(db),
+          mcpServerStore: new McpServerWithAuthStore({
+            store: new SqliteMcpServerStore(db),
+            tokenStore: new SqliteOAuthTokenStore(db),
+            clientName: 'test-client',
+          }),
+          skillStore: new SqliteSkillStore(db),
+          sandboxProviderStore: new SqliteSandboxProviderStore(db),
+          webSearchProviderStore: new SqliteWebSearchProviderStore(db),
+          memory: undefined,
+        }),
+      sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
+      sandboxProviderStore: new SqliteSandboxProviderStore(db),
       sessions,
       sessionStore,
-      accessControlStore,
-      activeTurns: new ActiveTurnRegistry(),
-      resolveModelProviderStore: () => new SqliteModelProviderStore(db),
-      resolveMcpServerStore: () =>
-        new McpServerWithAuthStore({
-          store: new SqliteMcpServerStore(db),
-          tokenStore: new SqliteOAuthTokenStore(db),
-          clientName: 'test-client',
-        }),
-      resolveTurnSkillsStore: () => new SqliteSkillStore(db),
-      resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
-      resolveAgentStore: () => agentStore,
-      eventSubscriptions: new EventSubscriptionRegistry(undefined),
-      resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
-      sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
-      resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
-      resolveMemoryProviderStore: () => new SqliteMemoryProviderStore(db),
-      resolveConfigurationStore: () => new SqliteConfigurationStore(db),
-      memoryProviders: new MemoryProviderCache({ logger: createLogger({ silent: true }) }),
-      logger,
-      resolveRequestContext,
-      authorizer: new TrueForgeAuthorizer(),
     }),
   );
   app.route(
     '/',
     createSessionsRouter({
-      sessions,
-      sessionStore,
       accessControlStore,
-      userStore,
-      withTransaction: callback => db.transaction().execute(callback),
-      activeTurns: new ActiveTurnRegistry(),
-      resolveModelProviderStore: () => new SqliteModelProviderStore(db),
-      resolveMcpServerStore: () => new SqliteMcpServerStore(db),
-      resolveSkillStore: () => new SqliteSkillStore(db),
-      resolveAgentStore: () => agentStore,
-      resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
-      sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
-      resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
-      resolveMemoryProviderStore: () => new SqliteMemoryProviderStore(db),
-      resolveConfigurationStore: () => new SqliteConfigurationStore(db),
+      activeTurns: new ActiveTurnRegistry({ logger }),
+      authorizer: new TrueForgeAuthorizer(),
+      logger,
       redis: createClient(),
       requestReplyRouter: new RequestReplyRouter(),
+      resolveAgentStore: () => agentStore,
+      resolveMcpServerStore: () => new SqliteMcpServerStore(db),
+      resolveModelProviderStore: () => new SqliteModelProviderStore(db),
       resolveRequestContext,
-      logger,
-      authorizer: new TrueForgeAuthorizer(),
+      resolveSkillStore: () => new SqliteSkillStore(db),
+      sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
+      sandboxProviderStore: new SqliteSandboxProviderStore(db),
+      sessions,
+      sessionStore,
+      userStore,
+      webSearchProviderStore: new SqliteWebSearchProviderStore(db),
+      memoryProviderStore: new SqliteMemoryProviderStore(db),
+      configurationStore: new SqliteConfigurationStore(db),
+      withTransaction: callback => db.transaction().execute(callback),
     }),
   );
   app.onError(createAppErrorHandler({ logger }));
@@ -390,11 +393,11 @@ describe('session grants API', () => {
   const CAN_READ = [200, 200, 200, 404, 404];
   const CANNOT_READ = [403, 403, 403, 403, 403];
 
-  /** `shared` as the owner sees it from get session and from list sessions. */
+  /** Neither session response exposes the removed sharing flag. */
   async function sharedFlag(): Promise<{ get: boolean; list: boolean[] }> {
     const got = SharedSessionBodySchema.parse(await (await app.request(`/${SESSION_ID}`, asCaller('owner'))).json());
     const listed = SharedSessionListSchema.parse(await (await app.request('/', asCaller('owner'))).json());
-    return { get: got.data.shared, list: listed.data.map(session => session.shared) };
+    return { get: 'shared' in got.data, list: listed.data.map(session => 'shared' in session) };
   }
 
   describe('read access', () => {
@@ -408,9 +411,14 @@ describe('session grants API', () => {
       expect((await app.request(`/${SESSION_ID}`, jsonInit('PATCH', { title: 'x' }, 'alice'))).status).toBe(403);
       expect((await app.request(`/${SESSION_ID}`, asCaller('alice', 'DELETE'))).status).toBe(403);
       expect((await app.request(`/${SESSION_ID}/cancel`, asCaller('alice', 'POST'))).status).toBe(403);
-      expect((await app.request(`/${SESSION_ID}/turns`, jsonInit('POST', { stream: false }, 'alice'))).status).toBe(
-        403,
-      );
+      expect(
+        (
+          await app.request(
+            `/${SESSION_ID}/turns`,
+            jsonInit('POST', { input: [{ type: 'user.message', content: 'hello' }], stream: false }, 'alice'),
+          )
+        ).status,
+      ).toBe(403);
       expect((await app.request(`/${SESSION_ID}/turns/missing/subscribe`, asCaller('alice'))).status).toBe(403);
       expect((await app.request(download, asCaller('alice'))).status).toBe(403);
       expect((await app.request(`/${SESSION_ID}/grants`, asCaller('alice'))).status).toBe(403);
@@ -441,7 +449,7 @@ describe('session grants API', () => {
       ]);
       expect(await readStatuses('alice')).toEqual(CAN_READ);
       expect(await readStatuses(`${SERVICE_ACCOUNT_PREFIX}bot`)).toEqual(CAN_READ);
-      expect(await sharedFlag()).toEqual({ get: true, list: [true] });
+      expect(await sharedFlag()).toEqual({ get: false, list: [false] });
     });
 
     it('rejects a tenant other than the caller’s', async () => {
@@ -460,34 +468,12 @@ describe('session grants API', () => {
       expect(await sharedFlag()).toEqual({ get: false, list: [false] });
     });
 
-    it('ignores the legacy session.shared column', async () => {
-      await sql`UPDATE session SET shared = 1 WHERE session_id = ${SESSION_ID}`.execute(db);
+    it('rejects the removed PATCH sharing field without changing grants', async () => {
+      const response = await app.request(`/${SESSION_ID}`, jsonInit('PATCH', { shared: true }));
 
-      expect(await readStatuses('alice')).toEqual(CANNOT_READ);
-      expect(await sharedFlag()).toEqual({ get: false, list: [false] });
-    });
-
-    it('the deprecated PATCH { shared } grants and revokes the tenant', async () => {
-      app = buildApp({ db, sessionStore, userStore: new EmptyUserStore() });
-
-      const shared = await app.request(`/${SESSION_ID}`, jsonInit('PATCH', { shared: true }));
-
-      expect(shared.status).toBe(200);
-      expect(SharedSessionBodySchema.parse(await shared.json()).data.shared).toBe(true);
-      expect(await listSubjectIds()).toEqual([TENANT]);
-      expect(await readStatuses('alice')).toEqual(CAN_READ);
-
-      const unshared = await app.request(`/${SESSION_ID}`, jsonInit('PATCH', { shared: false }));
-
-      expect(unshared.status).toBe(200);
-      expect(SharedSessionBodySchema.parse(await unshared.json()).data.shared).toBe(false);
+      expect(response.status).toBe(400);
       expect(await listSubjectIds()).toEqual([]);
       expect(await readStatuses('alice')).toEqual(CANNOT_READ);
-    });
-
-    it('the deprecated PATCH { shared } stays creator-only', async () => {
-      expect((await app.request(`/${SESSION_ID}`, jsonInit('PATCH', { shared: true }, 'alice'))).status).toBe(403);
-      expect(await listSubjectIds()).toEqual([]);
     });
   });
 });

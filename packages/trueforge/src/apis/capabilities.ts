@@ -1,8 +1,6 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
-import type { Context } from 'hono';
 import type { Logger } from 'winston';
 import { areCatalogSettingsAvailable, hasAdminRole, type ResolveRequestContext } from '../auth/identity';
-import configuration, { isTrueFoundryModeEnabled } from '../config';
 import {
   isMemoryEnabledForTenant,
   isWebSearchEnabledForTenant,
@@ -14,9 +12,10 @@ import type { WithTransaction } from '../db/transaction';
 import type { IUserStore } from '../db/userStore';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { hasConfiguredMemoryProvider } from '../memory/providers';
-import { getCapabilitiesRoute } from '../routes/capabilityRoutes';
+import { getCapabilitiesRoute, type SessionSharingCapability } from '../routes/capabilityRoutes';
+import { sandboxEnvironmentsEnabled } from '../sandbox/environment/support';
 import { isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
-import { DEFAULT_SANDBOX_ENVIRONMENT_NAME, type SandboxEnvironmentVersionStatus } from '../schemas/sandboxEnvironment';
+import type { SandboxEnvironmentVersionStatus } from '../schemas/sandboxEnvironment';
 import { hasTrueFoundrySandboxProviderConfig } from '../truefoundry/resolveTrueFoundrySandboxProviderConfig';
 import { hasConfiguredWebSearchProvider } from '../websearch/providers';
 
@@ -62,23 +61,11 @@ function settingsCapability({
   };
 }
 
-/**
- * Environments UI/CRUD — matches `envSupported` on the sandbox-environment store.
- * Standalone/OIDC persistence always supports envs; TFY mode only when the shared
- * provider is Daytona. Independent of default-env readiness.
- */
-function sandboxEnvironmentsEnabled(): boolean {
-  if (!isTrueFoundryModeEnabled(configuration)) {
-    return true;
-  }
-  return configuration.TRUEFOUNDRY_SANDBOX_PROVIDER === 'daytona';
-}
-
 export function createCapabilitiesRouter<TTransaction>(deps: {
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
-  resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore<TTransaction>;
-  resolveConfigurationStore: (c: Context) => IConfigurationStore<TTransaction>;
-  resolveMemoryProviderStore: (c: Context) => IMemoryProviderStore<TTransaction>;
+  webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
+  configurationStore: IConfigurationStore;
+  memoryProviderStore: IMemoryProviderStore<TTransaction>;
   userStore: IUserStore;
   withTransaction: WithTransaction<TTransaction>;
   logger: Logger;
@@ -87,33 +74,36 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
   const router = new OpenAPIHono();
   router.openapi(getCapabilitiesRoute, async c => {
     const requestContext = deps.resolveRequestContext(c);
-    const defaultEnv = await deps.sandboxEnvironmentStore.getActiveEnvironment({
-      tenant_id: requestContext.tenant_id,
-      name: DEFAULT_SANDBOX_ENVIRONMENT_NAME,
-    });
-    const status = defaultEnv?.version.status;
-    // Shared TFY provider (incl. on-prem with no env tip), ready default env, or local fallback.
+    // Shared TFY provider (incl. on-prem with no env tip), any enabled ready env, or local fallback.
     // hasTrueFoundrySandboxProviderConfig never throws — incomplete TFY settings stay "disabled".
     const sandboxEnabled =
       hasTrueFoundrySandboxProviderConfig() ||
-      status === 'ready' ||
-      (defaultEnv === undefined && isLocalSandboxFallbackEnabled());
+      isLocalSandboxFallbackEnabled() ||
+      (await deps.sandboxEnvironmentStore.hasUsableEnvironment({ tenant_id: requestContext.tenant_id }));
+    // Only read the default row on the disabled path, where its status turns "not configured"
+    // into the more useful "still being prepared".
+    const skillDisabled = sandboxEnabled
+      ? undefined
+      : skillDisabledReason(
+          (await deps.sandboxEnvironmentStore.getDefaultEnvironment({ tenant_id: requestContext.tenant_id }))?.version
+            .status,
+        );
     const [hasProvider, tenantAllowsWebSearch, tenantAllowsMemory, hasMemoryProvider] = await Promise.all([
       hasConfiguredWebSearchProvider({
         tenant_id: requestContext.tenant_id,
-        store: deps.resolveWebSearchProviderStore(c),
+        store: deps.webSearchProviderStore,
       }),
       isWebSearchEnabledForTenant({
         tenant_id: requestContext.tenant_id,
-        store: deps.resolveConfigurationStore(c),
+        store: deps.configurationStore,
       }),
       isMemoryEnabledForTenant({
         tenant_id: requestContext.tenant_id,
-        store: deps.resolveConfigurationStore(c),
+        store: deps.configurationStore,
       }),
       hasConfiguredMemoryProvider({
         tenant_id: requestContext.tenant_id,
-        store: deps.resolveMemoryProviderStore(c),
+        store: deps.memoryProviderStore,
       }),
     ]);
 
@@ -138,6 +128,9 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
         reason: 'Memory is turned off for this tenant - an admin can turn it back on in settings.',
       };
     }
+    const sessionSharing: SessionSharingCapability = {
+      granularity: deps.userStore.supportsUserLookup ? 'subject' : 'tenant',
+    };
     return c.json(
       {
         data: {
@@ -145,7 +138,7 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
             enabled: sandboxEnabled,
             environments: { enabled: sandboxEnvironmentsEnabled() },
           },
-          skill: sandboxEnabled ? { enabled: true } : { enabled: false, reason: skillDisabledReason(status) },
+          skill: skillDisabled === undefined ? { enabled: true } : { enabled: false, reason: skillDisabled },
           settings: settingsCapability({
             isAdmin: hasAdminRole(requestContext),
             ownsCatalogs: areCatalogSettingsAvailable(),
@@ -153,7 +146,7 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
           }),
           web_search: webSearchResponse,
           ...(memoryResponse && { memory: memoryResponse }),
-          session_sharing: { enabled: deps.userStore.supportsUserLookup },
+          session_sharing: sessionSharing,
         },
       },
       200,

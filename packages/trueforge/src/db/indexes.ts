@@ -37,6 +37,12 @@ export const SCHEDULE_RUN_CREATED_BY_SUBJECT_ID_IDX = 'schedule_run_created_by_s
 /** Partial unique `(tenant_id, name) WHERE lifecycle_stage = 'active'` on sandbox_environment. */
 export const SANDBOX_ENVIRONMENT_TENANT_NAME_ACTIVE_UQ = 'sandbox_environment_tenant_name_active_uq';
 
+/**
+ * Partial unique `(tenant_id) WHERE is_default` on sandbox_environment — one default per
+ * tenant. Also serialises concurrent set-default calls.
+ */
+export const SANDBOX_ENVIRONMENT_TENANT_DEFAULT_UQ = 'sandbox_environment_tenant_default_uq';
+
 /** Unique `(environment_id, version)` on sandbox_environment_version. */
 export const SANDBOX_ENVIRONMENT_VERSION_UQ = 'sandbox_environment_version_uq';
 
@@ -63,3 +69,6 @@ export const SANDBOX_ENVIRONMENT_VERSION_PENDING_IDX = 'sandbox_environment_vers
  * mcp_server and `deletePendingAuthorizationsForServer`.
  */
 export const OAUTH_PENDING_AUTHORIZATION_SERVER_ID_IDX = 'oauth_pending_authorization_oauth_server_id_idx';
+
+/** `(event.type)` on session_event — filter events by type without parsing every payload. */
+export const SESSION_EVENT_TYPE_IDX = 'session_event_type_idx';

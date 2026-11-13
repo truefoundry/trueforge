@@ -32,6 +32,10 @@ class ResizeObserverMock implements ResizeObserver {
   disconnect(): void {}
 }
 
+vi.mock('@assistant-ui/core/react', () => ({
+  useThreadIsRunning: () => false,
+}));
+
 vi.mock('@assistant-ui/react', () => ({
   useAui: () => ({
     threads: () => ({

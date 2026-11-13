@@ -5,7 +5,7 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 import MemorySettings from '@/containers/SettingsBuilder/MemorySettings.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import type { ConfigurationServer, MemoryCatalogServer } from '@/server/types.js';
-import { createMockAgentUIServer, createMockCatalog } from '../../server/mockServer.js';
+import { createMockAgentUIServer, createMockCatalog, tenantSessionSharing } from '../../server/mockServer.js';
 import { allSettingsSections } from '../../server/settingsCapabilityFixture.js';
 
 async function unavailable(): Promise<never> {
@@ -43,6 +43,7 @@ function renderSettings(
     data: {
       sandbox: { enabled: true },
       skill: { enabled: true },
+      sessionSharing: tenantSessionSharing,
       settings: { ...allSettingsSections(true), memoryProviders: { enabled: true, manageProviders } },
     },
   }));
@@ -68,7 +69,7 @@ describe('MemorySettings tenant switch', () => {
 
     const toggle = await screen.findByRole('switch', { name: 'Allow memory' });
     expect(toggle).toHaveAttribute('aria-checked', 'false');
-    expect(screen.getByText('No agent remembers details from past chats.')).toBeInTheDocument();
+    expect(screen.getByText('Agents cannot use memory, including in chats that already had it.')).toBeInTheDocument();
   });
 
   it('saves only the memory switch and re-renders from the response', async () => {

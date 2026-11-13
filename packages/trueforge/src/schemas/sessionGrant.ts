@@ -1,6 +1,6 @@
 /** Session grant wire schemas. */
 import { z } from '@hono/zod-openapi';
-import { CreatedBySubjectSchema } from '@truefoundry/trueforge-core/agent-session';
+import { SubjectSchema } from '@truefoundry/trueforge-core/agent-session';
 
 const SESSION_GRANT_MAX_SUBJECTS_PER_LIST = 50;
 
@@ -21,7 +21,7 @@ export const SessionGrantSubjectSchema = z
 export const SessionGrantSchema = z
   .object({
     subject: SessionGrantSubjectSchema,
-    granted_by_subject: CreatedBySubjectSchema,
+    granted_by_subject: SubjectSchema,
     created_at: z.string().describe('When the session was shared with the subject (ISO-8601 UTC).'),
   })
   .strict()

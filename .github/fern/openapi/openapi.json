@@ -2,18 +2,6 @@
   "components": {
     "parameters": {},
     "schemas": {
-      "ActionRequired": {
-        "properties": {
-          "id": {
-            "description": "Unique identifier for the event (monotonic ULID).",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id"
-        ],
-        "type": "object"
-      },
       "ActionRequiredEvent": {
         "discriminator": {
           "mapping": {
@@ -39,7 +27,7 @@
         "additionalProperties": false,
         "properties": {
           "created_by_subject": {
-            "$ref": "#/components/schemas/CreatedBySubject"
+            "$ref": "#/components/schemas/Subject"
           },
           "description": {
             "maxLength": 1024,
@@ -1312,7 +1300,7 @@
           "events": {
             "description": "One or more user events.",
             "items": {
-              "$ref": "#/components/schemas/TurnInboundEventItem"
+              "$ref": "#/components/schemas/TurnUserEventMessage"
             },
             "minItems": 1,
             "type": "array"
@@ -1328,29 +1316,7 @@
           "data": {
             "description": "Events with server-minted `id` and `created_at`, in request order.",
             "items": {
-              "discriminator": {
-                "mapping": {
-                  "user.mcp_auth_continue": "#/components/schemas/UserMCPAuthContinueEvent",
-                  "user.tool_approval": "#/components/schemas/UserToolApprovalEvent",
-                  "user.tool_approval_policy": "#/components/schemas/UserToolApprovalPolicyEvent",
-                  "user.tool_response": "#/components/schemas/UserToolResponseEvent"
-                },
-                "propertyName": "type"
-              },
-              "oneOf": [
-                {
-                  "$ref": "#/components/schemas/UserToolApprovalEvent"
-                },
-                {
-                  "$ref": "#/components/schemas/UserToolResponseEvent"
-                },
-                {
-                  "$ref": "#/components/schemas/UserToolApprovalPolicyEvent"
-                },
-                {
-                  "$ref": "#/components/schemas/UserMCPAuthContinueEvent"
-                }
-              ]
+              "$ref": "#/components/schemas/TurnUserEvent"
             },
             "type": "array"
           }
@@ -1363,10 +1329,34 @@
       "CreateTurnRequest": {
         "properties": {
           "input": {
-            "description": "Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.",
+            "description": "User messages for this turn. At least one is required.",
             "items": {
-              "$ref": "#/components/schemas/TurnInputItem"
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/UserMessage"
+                },
+                {
+                  "properties": {
+                    "content": {
+                      "anyOf": [
+                        {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        {
+                          "items": {
+                            "$ref": "#/components/schemas/UserMessageContentItem"
+                          },
+                          "type": "array"
+                        }
+                      ]
+                    }
+                  },
+                  "type": "object"
+                }
+              ]
             },
+            "minItems": 1,
             "type": "array"
           },
           "previous_turn_id": {
@@ -1378,32 +1368,8 @@
             "type": "boolean"
           }
         },
-        "type": "object"
-      },
-      "CreatedBySubject": {
-        "additionalProperties": false,
-        "description": "Who created this resource.",
-        "properties": {
-          "subject_display_name": {
-            "description": "Display name.",
-            "minLength": 1,
-            "type": "string"
-          },
-          "subject_id": {
-            "description": "Subject id.",
-            "minLength": 1,
-            "type": "string"
-          },
-          "subject_type": {
-            "description": "Subject type.",
-            "minLength": 1,
-            "type": "string"
-          }
-        },
         "required": [
-          "subject_id",
-          "subject_type",
-          "subject_display_name"
+          "input"
         ],
         "type": "object"
       },
@@ -1794,7 +1760,7 @@
             "type": "string"
           },
           "source": {
-            "$ref": "#/components/schemas/SessionSourceSchedule"
+            "$ref": "#/components/schemas/SessionSource"
           }
         },
         "required": [
@@ -2077,6 +2043,56 @@
         ],
         "type": "object"
       },
+      "InternalCreateSessionTurnRequest": {
+        "properties": {
+          "input": {
+            "description": "User messages for this turn. At least one is required.",
+            "items": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/UserMessage"
+                },
+                {
+                  "properties": {
+                    "content": {
+                      "anyOf": [
+                        {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        {
+                          "items": {
+                            "$ref": "#/components/schemas/UserMessageContentItem"
+                          },
+                          "type": "array"
+                        }
+                      ]
+                    }
+                  },
+                  "type": "object"
+                }
+              ]
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "previous_turn_id": {
+            "$ref": "#/components/schemas/PreviousTurnIdInput"
+          },
+          "stream": {
+            "default": false,
+            "description": "Must be false; streaming is not supported on this endpoint.",
+            "enum": [
+              false
+            ],
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "input"
+        ],
+        "type": "object"
+      },
       "LargeToolResponseConfig": {
         "default": {
           "enabled": true
@@ -2089,6 +2105,27 @@
           }
         },
         "type": "object"
+      },
+      "LegacyTurnInputItem": {
+        "discriminator": {
+          "mapping": {
+            "user.message": "#/components/schemas/UserMessage",
+            "user.tool_approval": "#/components/schemas/UserToolApprovalInputEvent",
+            "user.tool_response": "#/components/schemas/UserToolResponseInputEvent"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/UserMessage"
+          },
+          {
+            "$ref": "#/components/schemas/UserToolApprovalInputEvent"
+          },
+          {
+            "$ref": "#/components/schemas/UserToolResponseInputEvent"
+          }
+        ]
       },
       "ListAgentsResponse": {
         "properties": {
@@ -2732,7 +2769,7 @@
         "properties": {
           "approval_policies": {
             "additionalProperties": {
-              "$ref": "#/components/schemas/ToolApprovalPolicyAction"
+              "$ref": "#/components/schemas/ToolApprovalPolicy"
             },
             "description": "Sticky per-tool approval policies (keyed by tool name) that auto-allow future calls.",
             "type": "object"
@@ -3408,6 +3445,20 @@
         ],
         "type": "object"
       },
+      "PatchSandboxEnvironmentRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "description": "Whether new chats and agents may select this environment.",
+            "type": "boolean"
+          },
+          "is_default": {
+            "description": "If true, make this environment the default in new chats and agents.",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
       "PendingSandboxEnvironmentVersion": {
         "additionalProperties": false,
         "properties": {
@@ -3840,16 +3891,24 @@
             "type": "string"
           },
           "created_by_subject": {
-            "$ref": "#/components/schemas/CreatedBySubject"
+            "$ref": "#/components/schemas/Subject"
           },
           "description": {
             "description": "Human-readable description; empty when unset.",
             "type": "string"
           },
+          "enabled": {
+            "description": "Whether new chats and agents may select this environment.",
+            "type": "boolean"
+          },
           "id": {
             "description": "Immutable server-generated environment identifier.",
             "minLength": 1,
             "type": "string"
+          },
+          "is_default": {
+            "description": "If true, environment is selected by default in new chats and agents.",
+            "type": "boolean"
           },
           "lifecycle_stage": {
             "$ref": "#/components/schemas/SandboxEnvironmentLifecycleStage"
@@ -3881,6 +3940,8 @@
           "name",
           "description",
           "lifecycle_stage",
+          "enabled",
+          "is_default",
           "status",
           "status_reason",
           "manifest",
@@ -4148,7 +4209,7 @@
             "type": "string"
           },
           "created_by_subject": {
-            "$ref": "#/components/schemas/CreatedBySubject"
+            "$ref": "#/components/schemas/Subject"
           },
           "id": {
             "type": "string"
@@ -4207,7 +4268,7 @@
             "type": "string"
           },
           "created_by_subject": {
-            "$ref": "#/components/schemas/CreatedBySubject"
+            "$ref": "#/components/schemas/Subject"
           },
           "id": {
             "type": "string"
@@ -4290,7 +4351,7 @@
             "type": "string"
           },
           "created_by_subject": {
-            "$ref": "#/components/schemas/CreatedBySubject"
+            "$ref": "#/components/schemas/Subject"
           },
           "id": {
             "description": "Unique session id.",
@@ -4304,10 +4365,6 @@
           },
           "metrics": {
             "$ref": "#/components/schemas/SessionMetrics"
-          },
-          "shared": {
-            "description": "When true, any subject in the tenant may read this session and its turns/events by id.",
-            "type": "boolean"
           },
           "source": {
             "$ref": "#/components/schemas/SessionSource"
@@ -4328,7 +4385,6 @@
           "id",
           "agent",
           "title",
-          "shared",
           "created_by_subject",
           "created_at",
           "updated_at",
@@ -4535,7 +4591,7 @@
             "type": "string"
           },
           "granted_by_subject": {
-            "$ref": "#/components/schemas/CreatedBySubject"
+            "$ref": "#/components/schemas/Subject"
           },
           "subject": {
             "$ref": "#/components/schemas/SessionGrantSubject"
@@ -4842,46 +4898,32 @@
       },
       "SessionSharingCapability": {
         "properties": {
-          "enabled": {
-            "description": "Whether sessions can be shared with specific users. Sharing with the whole tenant is always available.",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "enabled"
-        ],
-        "type": "object"
-      },
-      "SessionSource": {
-        "additionalProperties": false,
-        "description": "How this session was created (e.g. a schedule run). Null for interactive sessions.",
-        "properties": {
-          "id": {
-            "description": "Schedule id.",
-            "minLength": 1,
-            "type": "string"
-          },
-          "run_id": {
-            "description": "Schedule run id.",
-            "minLength": 1,
-            "type": "string"
-          },
-          "type": {
-            "description": "Session was created by a schedule run.",
+          "granularity": {
+            "description": "The finest supported sharing scope. Subject allows sharing with specific users; tenant-wide sharing is always available.",
             "enum": [
-              "schedule"
+              "tenant",
+              "subject"
             ],
             "type": "string"
           }
         },
         "required": [
-          "type",
-          "id",
-          "run_id"
+          "granularity"
         ],
-        "type": [
-          "object",
-          "null"
+        "type": "object"
+      },
+      "SessionSource": {
+        "description": "How this session was created (e.g. a schedule run). Null for interactive sessions.",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/SessionSourceSchedule"
+          },
+          {
+            "$ref": "#/components/schemas/SessionSourceService"
+          },
+          {
+            "type": "null"
+          }
         ]
       },
       "SessionSourceSchedule": {
@@ -4912,10 +4954,27 @@
         ],
         "type": "object"
       },
+      "SessionSourceService": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "description": "Session was created by a service caller (service API key create-turn).",
+            "enum": [
+              "service"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
       "SessionSourceType": {
         "description": "When set, returns only sessions created by this source type.",
         "enum": [
-          "schedule"
+          "schedule",
+          "service"
         ],
         "type": "string"
       },
@@ -5046,6 +5105,33 @@
           "display_name",
           "description",
           "version"
+        ],
+        "type": "object"
+      },
+      "Subject": {
+        "additionalProperties": false,
+        "description": "Identity of a subject.",
+        "properties": {
+          "subject_display_name": {
+            "description": "Display name.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "subject_id": {
+            "description": "Subject id.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "subject_type": {
+            "description": "Subject type.",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject_id",
+          "subject_type",
+          "subject_display_name"
         ],
         "type": "object"
       },
@@ -5352,7 +5438,7 @@
         ],
         "type": "object"
       },
-      "ToolApprovalPolicyAction": {
+      "ToolApprovalPolicy": {
         "discriminator": {
           "mapping": {
             "allow_session": "#/components/schemas/ToolApprovalPolicyAllowSession"
@@ -5386,13 +5472,13 @@
       },
       "ToolApprovalPolicyItem": {
         "properties": {
-          "action": {
-            "$ref": "#/components/schemas/ToolApprovalPolicyAction"
-          },
           "name": {
             "description": "Tool name on that server.",
             "minLength": 1,
             "type": "string"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/ToolApprovalPolicy"
           },
           "server_name": {
             "description": "MCP server name.",
@@ -5403,7 +5489,7 @@
         "required": [
           "server_name",
           "name",
-          "action"
+          "policy"
         ],
         "type": "object"
       },
@@ -5714,9 +5800,9 @@
             "type": "string"
           },
           "input": {
-            "description": "Input items supplied when the turn was created.",
+            "description": "Inputs stored when the turn was created, including legacy continuation inputs.",
             "items": {
-              "$ref": "#/components/schemas/TurnInputItem"
+              "$ref": "#/components/schemas/LegacyTurnInputItem"
             },
             "type": "array"
           },
@@ -5755,9 +5841,9 @@
             "type": "string"
           },
           "input": {
-            "description": "Input items supplied when the turn was created.",
+            "description": "Inputs stored when the turn was created, including legacy continuation inputs.",
             "items": {
-              "$ref": "#/components/schemas/TurnInputItem"
+              "$ref": "#/components/schemas/LegacyTurnInputItem"
             },
             "type": "array"
           },
@@ -5857,54 +5943,8 @@
         ],
         "type": "object"
       },
-      "TurnInboundEventItem": {
-        "discriminator": {
-          "mapping": {
-            "user.mcp_auth_continue": "#/components/schemas/UserMCPAuthContinueInputEvent",
-            "user.tool_approval": "#/components/schemas/UserToolApprovalInputEvent",
-            "user.tool_approval_policy": "#/components/schemas/UserToolApprovalPolicyMessage",
-            "user.tool_response": "#/components/schemas/UserToolResponseInputEvent"
-          },
-          "propertyName": "type"
-        },
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/UserToolApprovalInputEvent"
-          },
-          {
-            "$ref": "#/components/schemas/UserToolResponseInputEvent"
-          },
-          {
-            "$ref": "#/components/schemas/UserToolApprovalPolicyMessage"
-          },
-          {
-            "$ref": "#/components/schemas/UserMCPAuthContinueInputEvent"
-          }
-        ]
-      },
-      "TurnInputItem": {
-        "discriminator": {
-          "mapping": {
-            "user.message": "#/components/schemas/UserMessage",
-            "user.tool_approval": "#/components/schemas/UserToolApprovalInputEvent",
-            "user.tool_response": "#/components/schemas/UserToolResponseInputEvent"
-          },
-          "propertyName": "type"
-        },
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/UserMessage"
-          },
-          {
-            "$ref": "#/components/schemas/UserToolApprovalInputEvent"
-          },
-          {
-            "$ref": "#/components/schemas/UserToolResponseInputEvent"
-          }
-        ]
-      },
       "TurnMetrics": {
-        "description": "Optional billable aggregate for the whole turn.",
+        "description": "Billable aggregate for this turn so far.",
         "properties": {
           "total_cache_read_tokens": {
             "description": "Total cache-read tokens across model calls in this turn.",
@@ -5980,14 +6020,7 @@
             "type": "string"
           },
           "metrics": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/TurnMetrics"
-              },
-              {
-                "description": "Optional billable aggregate for work done before cancel."
-              }
-            ]
+            "$ref": "#/components/schemas/TurnMetrics"
           },
           "reason": {
             "$ref": "#/components/schemas/TurnStateCancelledReason"
@@ -6071,14 +6104,7 @@
             "type": "string"
           },
           "metrics": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/TurnMetrics"
-              },
-              {
-                "description": "Optional billable aggregate for work done before the error."
-              }
-            ]
+            "$ref": "#/components/schemas/TurnMetrics"
           },
           "status": {
             "description": "Turn ended with an error.",
@@ -6097,15 +6123,11 @@
       },
       "TurnStatePaused": {
         "properties": {
-          "action_required_on_events": {
-            "description": "Events that still need a user or client action.",
-            "items": {
-              "$ref": "#/components/schemas/ActionRequired"
-            },
-            "type": "array"
+          "metrics": {
+            "$ref": "#/components/schemas/TurnMetrics"
           },
           "status": {
-            "description": "Turn is paused waiting for required actions.",
+            "description": "Turn is paused waiting for user actions.",
             "enum": [
               "paused"
             ],
@@ -6113,8 +6135,7 @@
           }
         },
         "required": [
-          "status",
-          "action_required_on_events"
+          "status"
         ],
         "type": "object"
       },
@@ -6280,6 +6301,56 @@
         ],
         "type": "object"
       },
+      "TurnUserEvent": {
+        "discriminator": {
+          "mapping": {
+            "user.mcp_auth_continue": "#/components/schemas/UserMCPAuthContinueEvent",
+            "user.tool_approval": "#/components/schemas/UserToolApprovalEvent",
+            "user.tool_approval_policy": "#/components/schemas/UserToolApprovalPolicyEvent",
+            "user.tool_response": "#/components/schemas/UserToolResponseEvent"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/UserToolApprovalEvent"
+          },
+          {
+            "$ref": "#/components/schemas/UserToolResponseEvent"
+          },
+          {
+            "$ref": "#/components/schemas/UserToolApprovalPolicyEvent"
+          },
+          {
+            "$ref": "#/components/schemas/UserMCPAuthContinueEvent"
+          }
+        ]
+      },
+      "TurnUserEventMessage": {
+        "discriminator": {
+          "mapping": {
+            "user.mcp_auth_continue": "#/components/schemas/UserMCPAuthContinueInputEvent",
+            "user.tool_approval": "#/components/schemas/UserToolApprovalInputEvent",
+            "user.tool_approval_policy": "#/components/schemas/UserToolApprovalPolicyMessage",
+            "user.tool_response": "#/components/schemas/UserToolResponseInputEvent"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/UserToolApprovalInputEvent"
+          },
+          {
+            "$ref": "#/components/schemas/UserToolResponseInputEvent"
+          },
+          {
+            "$ref": "#/components/schemas/UserToolApprovalPolicyMessage"
+          },
+          {
+            "$ref": "#/components/schemas/UserMCPAuthContinueInputEvent"
+          }
+        ]
+      },
       "UpdateAgentRequest": {
         "additionalProperties": false,
         "properties": {
@@ -6417,11 +6488,6 @@
           },
           "metadata": {
             "$ref": "#/components/schemas/SessionMetadata"
-          },
-          "shared": {
-            "deprecated": true,
-            "description": "Deprecated; use `POST /sessions/{session_id}/grants` with a `tenant` subject.",
-            "type": "boolean"
           },
           "title": {
             "description": "Human-readable session title.",
@@ -7375,6 +7441,127 @@
         "x-fern-sdk-method-name": "get_or_create_by_external_id"
       }
     },
+    "/api/internal/sessions/{session_id}/turns": {
+      "post": {
+        "description": "Service API key. Non-streaming; requires external_id and a non-null source.",
+        "parameters": [
+          {
+            "description": "Session identifier.",
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "description": "Session identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InternalCreateSessionTurnRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetTurnResponse"
+                }
+              }
+            },
+            "description": "The running turn."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid service credential."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Session lacks external_id or source and is not eligible."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Session, prior turn, or referenced agent not found."
+          },
+          "412": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Requested action cannot be performed on the session because it is no longer usable."
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Request body exceeds the configured maximum size (MAX_REQUEST_BODY_BYTES)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Missing agent/resource, sandbox unavailable, or turn input conflicts with session state."
+          }
+        },
+        "summary": "Create and execute a turn in a session (internal)",
+        "tags": [
+          "Internal"
+        ],
+        "x-excluded": true,
+        "x-fern-sdk-group-name": [
+          "internal",
+          "sessions"
+        ],
+        "x-fern-sdk-method-name": "create_turn"
+      }
+    },
     "/api/v1/agents": {
       "get": {
         "description": "List configured agents for the tenant, ordered by name. Optional `agent_name` filters by substring.",
@@ -7458,7 +7645,14 @@
         "x-fern-sdk-group-name": [
           "agents"
         ],
-        "x-fern-sdk-method-name": "list"
+        "x-fern-sdk-method-name": "list",
+        "x-tfg-mcp": {
+          "annotations": {
+            "readOnlyHint": true
+          },
+          "description": "Discover existing agents — for example to find one to inspect or update, or to check whether a name is already taken before creating a new agent. Supports optional filters and returns one paginated page.",
+          "name": "list_agents"
+        }
       },
       "post": {
         "description": "Creates an agent and allocates an immutable id. Fails if `name` is already taken. Name cannot be changed later.",
@@ -7521,7 +7715,16 @@
         "x-fern-sdk-group-name": [
           "agents"
         ],
-        "x-fern-sdk-method-name": "create"
+        "x-fern-sdk-method-name": "create",
+        "x-tfg-mcp": {
+          "annotations": {
+            "destructiveHint": false,
+            "idempotentHint": false,
+            "readOnlyHint": false
+          },
+          "description": "Create a named agent from a complete manifest. The name is immutable and all referenced models, MCP servers, skills, and sandbox environments must exist.",
+          "name": "create_agent"
+        }
       }
     },
     "/api/v1/agents/{agent_id}": {
@@ -7627,7 +7830,14 @@
         "x-fern-sdk-group-name": [
           "agents"
         ],
-        "x-fern-sdk-method-name": "get"
+        "x-fern-sdk-method-name": "get",
+        "x-tfg-mcp": {
+          "annotations": {
+            "readOnlyHint": true
+          },
+          "description": "Fetch one agent's full definition by its immutable ID, including the complete manifest. Use it to review an agent or to get a working template before updating it.",
+          "name": "get_agent"
+        }
       },
       "put": {
         "description": "Update an existing agent by immutable id.",
@@ -7704,7 +7914,16 @@
         "x-fern-sdk-group-name": [
           "agents"
         ],
-        "x-fern-sdk-method-name": "update"
+        "x-fern-sdk-method-name": "update",
+        "x-tfg-mcp": {
+          "annotations": {
+            "destructiveHint": true,
+            "idempotentHint": true,
+            "readOnlyHint": false
+          },
+          "description": "Replace an agent's description and complete manifest by immutable ID. This is a full replacement: omitted manifest fields are removed. Call get_agent first to retrieve the current complete manifest and edit it as a template rather than authoring one from scratch.",
+          "name": "update_agent"
+        }
       }
     },
     "/api/v1/agents/{agent_id}/code-snippets": {
@@ -8191,7 +8410,14 @@
         "x-fern-sdk-group-name": [
           "mcpServers"
         ],
-        "x-fern-sdk-method-name": "list"
+        "x-fern-sdk-method-name": "list",
+        "x-tfg-mcp": {
+          "annotations": {
+            "readOnlyHint": true
+          },
+          "description": "List the MCP servers you can attach to an agent, each with its current authentication status so you know whether it is ready to use. Check this before referencing an MCP server in a manifest.",
+          "name": "list_mcp_servers"
+        }
       }
     },
     "/api/v1/mcp-servers/oauth/callback": {
@@ -8351,7 +8577,14 @@
         "x-fern-sdk-group-name": [
           "mcpServers"
         ],
-        "x-fern-sdk-method-name": "get"
+        "x-fern-sdk-method-name": "get",
+        "x-tfg-mcp": {
+          "annotations": {
+            "readOnlyHint": true
+          },
+          "description": "Fetch one MCP server by name — its public connection details and current authentication status — to confirm it exists and is authenticated before referencing it in an agent.",
+          "name": "get_mcp_server"
+        }
       }
     },
     "/api/v1/mcp-servers/{name}/authorize": {
@@ -8416,12 +8649,13 @@
             }
           },
           {
-            "description": "Same-origin path to land in the browser after consent.",
+            "description": "Same-origin path to land in the browser after consent. When omitted, no post-consent redirect is requested.",
             "in": "query",
             "name": "return_to",
             "required": false,
             "schema": {
-              "description": "Same-origin path to land in the browser after consent.",
+              "description": "Same-origin path to land in the browser after consent. When omitted, no post-consent redirect is requested.",
+              "minLength": 1,
               "type": "string"
             }
           }
@@ -8608,7 +8842,14 @@
         "x-fern-sdk-group-name": [
           "models"
         ],
-        "x-fern-sdk-method-name": "list"
+        "x-fern-sdk-method-name": "list",
+        "x-tfg-mcp": {
+          "annotations": {
+            "readOnlyHint": true
+          },
+          "description": "List the models you can reference in an agent or draft manifest. Use it to find a valid model identifier before setting one on an agent.",
+          "name": "list_models"
+        }
       }
     },
     "/api/v1/sandbox-environments": {
@@ -8683,7 +8924,14 @@
         "x-fern-sdk-group-name": [
           "sandboxEnvironments"
         ],
-        "x-fern-sdk-method-name": "list"
+        "x-fern-sdk-method-name": "list",
+        "x-tfg-mcp": {
+          "annotations": {
+            "readOnlyHint": true
+          },
+          "description": "Discover existing sandbox environments you can reference from an agent, or find one to update. Returns one paginated page. Secret values are redacted; never ask the user for them. When an environment needs secrets, ask the user to create them in the sandbox environment settings.",
+          "name": "list_sandbox_environments"
+        }
       },
       "post": {
         "description": "Creates by `manifest.name`. Fails if the name is already taken. Requires a configured sandbox provider.",
@@ -8776,7 +9024,16 @@
         "x-fern-sdk-group-name": [
           "sandboxEnvironments"
         ],
-        "x-fern-sdk-method-name": "create"
+        "x-fern-sdk-method-name": "create",
+        "x-tfg-mcp": {
+          "annotations": {
+            "destructiveHint": false,
+            "idempotentHint": false,
+            "readOnlyHint": false
+          },
+          "description": "Create a reusable sandbox environment that agents run in — defining its resources, environment variables, networking, and build configuration — from a complete manifest. Fails if an environment with the same name already exists; the reserved `default` environment cannot be created. Never ask the user for a secret value and never send networking.secrets. When the environment needs secrets, ask the user to create them in the sandbox environment settings.",
+          "name": "create_sandbox_environment"
+        }
       },
       "put": {
         "description": "Create a new sandbox environment or update an existing one.",
@@ -8884,7 +9141,7 @@
     },
     "/api/v1/sandbox-environments/{name}": {
       "delete": {
-        "description": "Delete a sandbox environment, fails if any agent still references it.",
+        "description": "Delete a sandbox environment. Fails if any agent still references it, if it is the tenant default, or if it is the reserved platform environment.",
         "parameters": [
           {
             "description": "Sandbox environment name.",
@@ -8912,7 +9169,7 @@
                 }
               }
             },
-            "description": "Sandbox environment deleted."
+            "description": "Sandbox environment deleted, or already absent."
           },
           "401": {
             "content": {
@@ -8934,16 +9191,6 @@
             },
             "description": "User does not have permission to edit Sandbox environment"
           },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Sandbox environment not found or not owned by the caller."
-          },
           "409": {
             "content": {
               "application/json": {
@@ -8952,7 +9199,7 @@
                 }
               }
             },
-            "description": "Environment is referenced by one or more agents."
+            "description": "Environment is referenced by an agent, is the tenant default, or is reserved by the platform."
           },
           "422": {
             "content": {
@@ -9042,7 +9289,125 @@
         "x-fern-sdk-group-name": [
           "sandboxEnvironments"
         ],
-        "x-fern-sdk-method-name": "get"
+        "x-fern-sdk-method-name": "get",
+        "x-tfg-mcp": {
+          "annotations": {
+            "readOnlyHint": true
+          },
+          "description": "Fetch one sandbox environment by name — its manifest, build status, resources, environment variables, and networking configuration. Use it to review an environment or get a template before updating it. Secret values are redacted; never ask the user for them. When the environment needs secrets, ask the user to create them in the sandbox environment settings.",
+          "name": "get_sandbox_environment"
+        }
+      },
+      "patch": {
+        "description": "Update sandbox environment metadata.",
+        "parameters": [
+          {
+            "description": "Sandbox environment name.",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ResourceName"
+                },
+                {
+                  "description": "Sandbox environment name."
+                }
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchSandboxEnvironmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSandboxEnvironmentResponse"
+                }
+              }
+            },
+            "description": "The updated sandbox environment."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthenticated."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "User cannot edit this environment."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Sandbox environment not found."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Environment is disabled when setting default, or the default changed concurrently."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Sandbox provider is missing or does not support environments."
+          }
+        },
+        "summary": "Update sandbox environment flags",
+        "tags": [
+          "Sandboxes"
+        ],
+        "x-fern-sdk-group-name": [
+          "sandboxEnvironments"
+        ],
+        "x-fern-sdk-method-name": "update"
       }
     },
     "/api/v1/schedules": {
@@ -9137,7 +9502,14 @@
         "x-fern-sdk-group-name": [
           "schedules"
         ],
-        "x-fern-sdk-method-name": "list"
+        "x-fern-sdk-method-name": "list",
+        "x-tfg-mcp": {
+          "annotations": {
+            "readOnlyHint": true
+          },
+          "description": "Discover existing schedules — for example to see what an agent already runs on a timer, or to find one to update. Supports optional filters and returns one paginated page.",
+          "name": "list_schedules"
+        }
       },
       "post": {
         "description": "Create a schedule for an existing agent (by name) and add its first pending run when active.",
@@ -9200,7 +9572,16 @@
         "x-fern-sdk-group-name": [
           "schedules"
         ],
-        "x-fern-sdk-method-name": "create"
+        "x-fern-sdk-method-name": "create",
+        "x-tfg-mcp": {
+          "annotations": {
+            "destructiveHint": false,
+            "idempotentHint": false,
+            "readOnlyHint": false
+          },
+          "description": "Make an existing named agent run automatically on a recurring basis — for example a daily summary — by binding it to a task and a cron schedule. Timezone defaults to UTC and status to active.",
+          "name": "create_schedule"
+        }
       }
     },
     "/api/v1/schedules/runs": {
@@ -9401,7 +9782,14 @@
         "x-fern-sdk-group-name": [
           "schedules"
         ],
-        "x-fern-sdk-method-name": "get"
+        "x-fern-sdk-method-name": "get",
+        "x-tfg-mcp": {
+          "annotations": {
+            "readOnlyHint": true
+          },
+          "description": "Fetch one schedule's full configuration by its immutable ID — its bound agent, task, cron expression, timezone, and status. Use it to review a schedule or get a template before updating it.",
+          "name": "get_schedule"
+        }
       },
       "put": {
         "description": "Replace name and manifest; replaces or drops the pending run when status/cron/timezone change.",
@@ -9488,7 +9876,16 @@
         "x-fern-sdk-group-name": [
           "schedules"
         ],
-        "x-fern-sdk-method-name": "update"
+        "x-fern-sdk-method-name": "update",
+        "x-tfg-mcp": {
+          "annotations": {
+            "destructiveHint": true,
+            "idempotentHint": true,
+            "readOnlyHint": false
+          },
+          "description": "Change an existing schedule — for example its task, cadence, or active/paused state — by replacing its name and complete manifest by immutable ID. The bound agent cannot change, and because this is a full replacement, omitted optional fields return to their defaults.",
+          "name": "update_schedule"
+        }
       }
     },
     "/api/v1/schedules/{schedule_id}/runs": {
@@ -9585,7 +9982,14 @@
         "x-fern-sdk-group-name": [
           "schedules"
         ],
-        "x-fern-sdk-method-name": "list_runs"
+        "x-fern-sdk-method-name": "list_runs",
+        "x-tfg-mcp": {
+          "annotations": {
+            "readOnlyHint": true
+          },
+          "description": "Check a schedule's execution history to see whether its runs are succeeding or why they failed. Each run includes its status, scheduled and triggered times, and any failure reason. Returns one paginated page.",
+          "name": "list_schedule_runs"
+        }
       }
     },
     "/api/v1/sessions": {
@@ -9842,7 +10246,7 @@
         "x-fern-sdk-method-name": "delete"
       },
       "get": {
-        "description": "Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.",
+        "description": "Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or a subject with a session access grant.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -9899,7 +10303,7 @@
         "x-fern-sdk-method-name": "get"
       },
       "patch": {
-        "description": "Update a session: optional `title`, `metadata`, `shared`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.",
+        "description": "Update a session: optional `title`, `metadata`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -10067,7 +10471,7 @@
     },
     "/api/v1/sessions/{session_id}/events": {
       "get": {
-        "description": "List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.",
+        "description": "List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or a subject with a session access grant.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -10321,6 +10725,18 @@
         "description": "List turns for a session (newest first by default), token-paginated. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.",
         "parameters": [
           {
+            "description": "Service API key only: which user identity to assume. Currently only session-creator.",
+            "in": "header",
+            "name": "assume-user",
+            "required": false,
+            "schema": {
+              "enum": [
+                "session-creator"
+              ],
+              "type": "string"
+            }
+          },
+          {
             "description": "Session identifier.",
             "in": "path",
             "name": "session_id",
@@ -10415,6 +10831,18 @@
       "post": {
         "description": "Create a turn within a session and execute it.\nOnly the session creator may create turns.\nWhen `stream` is true (default), respond with a Server-Sent Events stream of turn events.\nWhen `stream` is false, return the turn immediately with `state.status: \"running\"` while execution continues in the background; use get turn or subscribe to observe completion.\nUse `previous_turn_id` to chain to the session's last turn (defaults to `auto`); use `none` for a new root.",
         "parameters": [
+          {
+            "description": "Service API key only: which user identity to assume. Currently only session-creator.",
+            "in": "header",
+            "name": "assume-user",
+            "required": false,
+            "schema": {
+              "enum": [
+                "session-creator"
+              ],
+              "type": "string"
+            }
+          },
           {
             "description": "Session identifier.",
             "in": "path",
@@ -10938,7 +11366,7 @@
                 }
               }
             },
-            "description": "Session or turn not found."
+            "description": "Session, turn, or referenced agent not found."
           },
           "409": {
             "content": {
@@ -10948,7 +11376,27 @@
                 }
               }
             },
-            "description": "Turn is terminal, or an event id already exists."
+            "description": "Turn is terminal, running and not accepting events, or an event id already exists."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The referenced agent for this session no longer exists."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The executor ran the request and failed while applying the events."
           }
         },
         "summary": "Create turn events",
@@ -10958,12 +11406,12 @@
         "x-fern-sdk-group-name": [
           "sessions"
         ],
-        "x-fern-sdk-method-name": "create_turn_event"
+        "x-fern-sdk-method-name": "create_turn_events"
       }
     },
     "/api/v1/sessions/{session_id}/turns/{turn_id}/subscribe": {
       "get": {
-        "description": "Subscribe to the live SSE stream for a turn. Only the session creator may subscribe. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).",
+        "description": "Subscribe to the live SSE stream. Resume with from_event_id or after_event_id.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -10989,17 +11437,39 @@
             }
           },
           {
-            "description": "Exclusive resume cursor: replay only events with a sequence number greater than this value. Omit to start from the beginning of the live buffer.",
+            "description": "Deprecated. Rejected on new turns. Use from_event_id or after_event_id instead.",
             "in": "query",
             "name": "after_sequence_number",
             "required": false,
             "schema": {
-              "description": "Exclusive resume cursor: replay only events with a sequence number greater than this value. Omit to start from the beginning of the live buffer.",
+              "description": "Deprecated. Rejected on new turns. Use from_event_id or after_event_id instead.",
               "minimum": 0,
               "type": [
                 "integer",
                 "null"
               ]
+            }
+          },
+          {
+            "description": "Inclusive cursor. Replay starts at the entry with this event id",
+            "in": "query",
+            "name": "from_event_id",
+            "required": false,
+            "schema": {
+              "description": "Inclusive cursor. Replay starts at the entry with this event id",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Exclusive cursor. Replay starts after the last entry with this event id.",
+            "in": "query",
+            "name": "after_event_id",
+            "required": false,
+            "schema": {
+              "description": "Exclusive cursor. Replay starts after the last entry with this event id.",
+              "minLength": 1,
+              "type": "string"
             }
           }
         ],
@@ -11052,10 +11522,10 @@
                 }
               }
             },
-            "description": "Cannot subscribe — the live stream no longer exists."
+            "description": "The turn stream is no longer available or resumable."
           }
         },
-        "summary": "Subscribe to a running turn",
+        "summary": "Subscribe to a turn stream",
         "tags": [
           "Agent Sessions"
         ],
@@ -11065,7 +11535,7 @@
         "x-fern-sdk-method-name": "subscribe_to_turn",
         "x-fern-streaming": {
           "format": "sse",
-          "resumable": true
+          "resumable": false
         }
       }
     },
@@ -12297,7 +12767,14 @@
         "x-fern-sdk-group-name": [
           "skills"
         ],
-        "x-fern-sdk-method-name": "list"
+        "x-fern-sdk-method-name": "list",
+        "x-tfg-mcp": {
+          "annotations": {
+            "readOnlyHint": true
+          },
+          "description": "List the skills you can add to an agent, each with its name and description. Use it to find a skill to reference in a manifest.",
+          "name": "list_skills"
+        }
       }
     },
     "/api/v1/skills/versions": {
@@ -12345,7 +12822,14 @@
         "x-fern-sdk-group-name": [
           "skills"
         ],
-        "x-fern-sdk-method-name": "list_versions"
+        "x-fern-sdk-method-name": "list_versions",
+        "x-tfg-mcp": {
+          "annotations": {
+            "readOnlyHint": true
+          },
+          "description": "List the available versions of a skill so you can pin a specific version when referencing it in an agent manifest.",
+          "name": "list_skill_versions"
+        }
       }
     },
     "/api/v1/users": {

@@ -1,6 +1,7 @@
 import type { SessionRecord } from '@truefoundry/trueforge-core/agent-session';
 import { memory, type AgentCapability, type ScopedMemory } from '@truefoundry/trueforge-core/core';
 import { estimateCharactersForTokens, estimateTokensForString } from '@truefoundry/trueforge-core/core/llm/usage';
+import { extractErrorLogFields } from '@truefoundry/trueforge-core/core/util/errorLogFields';
 import type { Logger } from 'winston';
 import type { IAgentStore } from '../db/agentStore';
 import type { MemoryProvider } from './MemoryProvider';
@@ -74,7 +75,7 @@ export async function resolveSessionMemory({
     }
     scope = resolved;
   } catch (error) {
-    logger.warn('Memory unavailable for this turn', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('Memory unavailable for this turn', { ...extractErrorLogFields(error), reportable_error: { error } });
     return undefined;
   }
 
@@ -86,10 +87,42 @@ export async function resolveSessionMemory({
   }
 
   const scopedMemory: ScopedMemory = {
-    search: ({ query, limit }) => provider.search({ scope, query, limit }),
-    add: ({ content }) => provider.addMemory({ scope, content, sessionId, createdAt: new Date().toISOString() }),
+    search: ({ query, limit }) =>
+      reportToolFailure({
+        operation: 'search',
+        call: () => provider.search({ scope, query, limit }),
+        logger,
+      }),
+    add: ({ content }) =>
+      reportToolFailure({
+        operation: 'add',
+        call: () => provider.addMemory({ scope, content, sessionId, createdAt: new Date().toISOString() }),
+        logger,
+      }),
   };
   return memory({ scopedMemory, sessionStartMemory });
+}
+
+/** Reports a failed memory tool call and rethrows it, so the model still gets the tool error. */
+async function reportToolFailure<T>({
+  operation,
+  call,
+  logger,
+}: {
+  operation: keyof ScopedMemory;
+  call: () => Promise<T>;
+  logger: Logger;
+}): Promise<T> {
+  try {
+    return await call();
+  } catch (error) {
+    logger.error('Memory tool call failed', {
+      operation,
+      ...extractErrorLogFields(error),
+      reportable_error: { error, extra: { operation } },
+    });
+    throw error;
+  }
 }
 
 /**
@@ -131,11 +164,17 @@ async function fetchSessionStartSummary({
   try {
     raw = await provider.getUserSummary({ scope, signal: controller.signal });
   } catch (error) {
-    logger.warn('Memory summary unavailable; starting the session without it', {
-      scope_type: scope.type,
-      timed_out: controller.signal.aborted,
-      error: error instanceof Error ? error.message : String(error),
-    });
+    const timedOut = controller.signal.aborted;
+    const fields = { scope_type: scope.type, timed_out: timedOut, ...extractErrorLogFields(error) };
+    // Timeouts are expected while the provider is slow; reporting each one would flood Sentry.
+    if (timedOut) {
+      logger.warn('Memory summary unavailable; starting the session without it', fields);
+    } else {
+      logger.error('Memory summary unavailable; starting the session without it', {
+        ...fields,
+        reportable_error: { error, extra: { scope_type: scope.type } },
+      });
+    }
     return undefined;
   } finally {
     clearTimeout(timer);

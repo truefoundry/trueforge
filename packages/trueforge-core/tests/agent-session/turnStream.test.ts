@@ -2,7 +2,7 @@ import { EventType } from '../../src/agent-session/schemas/events';
 import { CancellationReason } from '../../src/agent-session/schemas/turn';
 import { Sessions } from '../../src/agent-session/Sessions';
 import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
-import { TurnResourceResolver } from '../../src/agent-session/TurnResourceResolver';
+import { TRUEFORGE_MCP_ID, TurnResourceResolver } from '../../src/agent-session/TurnResourceResolver';
 import { RemoteMCP } from '../../src/core/mcp/RemoteMCP';
 import { makeStubPublicSandbox } from '../core/harnessMocks';
 import {
@@ -45,7 +45,7 @@ describe('TurnHandle.stream()', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver: makeTestResolver(),
     });
     expect(turn.state.status).toBe('running');
@@ -88,7 +88,7 @@ describe('TurnHandle.stream()', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver: makeTestResolver({
         usage: {
           input_tokens: 12,
@@ -124,7 +124,7 @@ describe('TurnHandle.stream()', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'turn one' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver: makeTestResolver({
         usage: {
           input_tokens: 100,
@@ -152,7 +152,7 @@ describe('TurnHandle.stream()', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'turn two' }],
       previous_turn_id: 'auto',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver: makeTestResolver({
         usage: {
           input_tokens: 7,
@@ -191,7 +191,7 @@ describe('TurnHandle.stream()', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver: makeTestResolver({
         usage: {
           input_tokens: 12,
@@ -218,7 +218,7 @@ describe('TurnHandle.stream()', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver: makeTestResolver(),
     });
     await (async () => {
@@ -237,7 +237,7 @@ describe('TurnHandle.stream()', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver: makeTestResolver(),
     });
     for await (const event of turn.stream()) {
@@ -262,7 +262,7 @@ describe('TurnHandle.stream()', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver: makeTestResolver({
         close: () => {
           closeCalls += 1;
@@ -294,7 +294,7 @@ describe('TurnHandle.stream()', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
-      signal: controller.signal,
+      abortController: controller,
       resolver: makeTestResolver(),
     });
     controller.abort(CancellationReason.ClientCancelled);
@@ -321,7 +321,7 @@ describe('TurnHandle.stream()', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
-      signal: controller.signal,
+      abortController: controller,
       resolver: makeTestResolver(),
     });
     controller.abort(CancellationReason.Abandoned);
@@ -350,7 +350,7 @@ describe('TurnHandle.stream()', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
-      signal: controller.signal,
+      abortController: controller,
       resolver: makeTestResolver(),
     });
     controller.abort(CancellationReason.ServerExecutionTimeout);
@@ -379,7 +379,7 @@ describe('TurnHandle.stream()', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver: makeTestResolver({
         close: () => {
           closeCalls += 1;
@@ -411,11 +411,16 @@ describe('TurnHandle.stream()', () => {
           defaultModelParams: {},
           providerType: undefined,
         }),
-      mcp: () =>
-        Promise.resolve({
-          url: 'http://localhost',
-          server: { name: 'local', description: 'Local MCP server.' },
-        }),
+      mcp: id =>
+        Promise.resolve(
+          id === TRUEFORGE_MCP_ID
+            ? undefined
+            : {
+                url: 'http://localhost',
+                name: 'local',
+                description: 'Local MCP server.',
+              },
+        ),
       mcpRequestTimeoutMs: 60_000,
       mcpConnectTimeoutMs: 5_000,
       sandboxProvider: () => Promise.resolve(sandbox),
@@ -428,7 +433,7 @@ describe('TurnHandle.stream()', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver,
     });
     for await (const event of turn.stream()) {
@@ -452,10 +457,12 @@ describe('TurnResourceResolver caches', () => {
           await new Promise(r => setTimeout(r, 10));
           return new RemoteMCP({
             id: 'svc',
-            name: 'svc',
-            description: 'Example MCP server.',
-            url: 'http://example.invalid',
-            headers: {},
+            connection: {
+              url: 'http://example.invalid',
+              headers: {},
+              name: 'svc',
+              description: 'Example MCP server.',
+            },
             logger,
             tracing: this.createTracing(),
             requestTimeoutMs: 60_000,
@@ -479,7 +486,8 @@ describe('TurnResourceResolver caches', () => {
       mcp: () =>
         Promise.resolve({
           url: 'http://example.invalid',
-          server: { name: 'example', description: 'Example MCP server.' },
+          name: 'example',
+          description: 'Example MCP server.',
         }),
       mcpRequestTimeoutMs: 60_000,
       mcpConnectTimeoutMs: 5_000,
@@ -529,11 +537,16 @@ describe('TurnResourceResolver caches', () => {
           defaultModelParams: {},
           providerType: undefined,
         }),
-      mcp: () =>
-        Promise.resolve({
-          url: 'http://localhost',
-          server: { name: 'local', description: 'Local MCP server.' },
-        }),
+      mcp: id =>
+        Promise.resolve(
+          id === TRUEFORGE_MCP_ID
+            ? undefined
+            : {
+                url: 'http://localhost',
+                name: 'local',
+                description: 'Local MCP server.',
+              },
+        ),
       mcpRequestTimeoutMs: 60_000,
       mcpConnectTimeoutMs: 5_000,
       sandboxProvider: () => {
@@ -563,7 +576,7 @@ describe('TurnResourceResolver caches', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hi' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver,
     });
     for await (const event of turn.stream()) {

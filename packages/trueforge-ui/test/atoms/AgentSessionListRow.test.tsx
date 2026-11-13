@@ -118,4 +118,37 @@ describe('AgentSessionListRow', () => {
     expect(loadScheduleName).toHaveBeenCalledTimes(1);
     expect(loadScheduleName).toHaveBeenCalledWith('sched-1');
   });
+
+  it('shimmers the title when running and hides the status dot', () => {
+    const { container } = render(<AgentSessionListRow {...baseProps} lastTurnStatus="running" />);
+
+    expect(screen.getByText('Hello session')).toHaveClass('aui-text-shimmer');
+    expect(container.querySelector('[data-slot="session-status-dot"]')).not.toBeInTheDocument();
+  });
+
+  it('shows a blinking paused status dot after the title', () => {
+    const { container } = render(<AgentSessionListRow {...baseProps} lastTurnStatus="paused" />);
+
+    const pausedDot = container.querySelector('[data-slot="session-status-dot"]');
+    expect(pausedDot?.querySelector('.bg-warning-bg')).toBeInTheDocument();
+    expect(pausedDot?.querySelector('.motion-safe\\:animate-ping')).toBeInTheDocument();
+    expect(screen.getByText('Waiting for input', { selector: '.sr-only' })).toBeInTheDocument();
+  });
+
+  it('shows a static failure status dot for error and hides cancelled', () => {
+    const { container: errorContainer } = render(<AgentSessionListRow {...baseProps} lastTurnStatus="error" />);
+    const errorDot = errorContainer.querySelector('[data-slot="session-status-dot"]');
+    expect(errorDot?.querySelector('.bg-failure-bg')).toBeInTheDocument();
+    expect(errorDot?.querySelector('.motion-safe\\:animate-ping')).not.toBeInTheDocument();
+    expect(screen.getByText('Failed', { selector: '.sr-only' })).toBeInTheDocument();
+
+    const { container: cancelledContainer } = render(<AgentSessionListRow {...baseProps} lastTurnStatus="cancelled" />);
+    expect(cancelledContainer.querySelector('[data-slot="session-status-dot"]')).not.toBeInTheDocument();
+  });
+
+  it('hides the status dot when last turn is done', () => {
+    const { container } = render(<AgentSessionListRow {...baseProps} lastTurnStatus="done" />);
+
+    expect(container.querySelector('[data-slot="session-status-dot"]')).not.toBeInTheDocument();
+  });
 });

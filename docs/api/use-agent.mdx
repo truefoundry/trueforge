@@ -4,6 +4,11 @@ sidebarTitle: 'Use an agent'
 description: 'Run a saved agent with the TypeScript or Python SDK: a Quick Start, then recipes for streaming, approvals, questions, threads, and reconnects.'
 ---
 
+<Note>
+  TrueForge 0.185.0+ introduces breaking changes to turn lifecycle - turns now pause when waiting for user input.
+  Click [here](/api/use-agent-legacy) to view the documentation for older versions.
+</Note>
+
 The recipe book for running an agent with [`@truefoundry/trueforge-sdk`](https://www.npmjs.com/package/@truefoundry/trueforge-sdk) or [`trueforge-sdk`](https://pypi.org/project/trueforge-sdk/). New here? Install and stream your first turn in the [SDK Quickstart](/api/quickstart) first. For the mental model (Agent → Session → Turn → Event → Delta), see [Concepts](/api/overview); for every event field, see the [turn events reference](#turn-events-reference) at the bottom of this page.
 
 <Note>
@@ -42,7 +47,8 @@ from trueforge_sdk import TrueForge
 client = TrueForge(
     base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"),
     timeout=600,  # raise for long-running SSE turns (default 60s)
-    # token=os.environ.get("TRUEFORGE_TOKEN"),  # ID token when OIDC login is enabled
+    # ID token when OIDC login is enabled.
+    # token=os.environ.get("TRUEFORGE_TOKEN"),
 )
 ```
 </CodeGroup>
@@ -51,7 +57,7 @@ Point `baseUrl` / `base_url` at your running TrueForge server; `http://localhost
 
 ## Quick Start
 
-The [Concepts](/api/overview) page explains the model with a conceptual `support-bot`; here is a real agent you can run. In the [Quickstart](/quickstart) you built **`web-research-brief`**, an agent with Exa web search and the web-artifacts-builder skill. Here it is from the SDK: open a session on that agent, stream one research turn, and print the brief as it arrives. It fans out to [subagents](/key-features/subagents), so you'll see their threads in the same stream. It has no approval gate, so it runs end to end without pausing; for the approval and question pauses, see [Handle pauses](#handle-pauses).
+The [Concepts](/api/overview) page explains the model with a conceptual `support-bot`; here is a real agent you can run. In the [Quickstart](/quickstart) you built **`web-research-brief`**, an agent with Exa web search and the web-artifacts-builder skill. Here it is from the SDK: open a session on that agent, stream one research turn, and print the brief as it arrives. It fans out to [subagents](/key-features/subagents), so you'll see their threads in the same stream. It has no approval gate, so it runs end to end without waiting on you; for approvals and questions, see [Handle pauses](#handle-pauses).
 
 <CodeGroup>
 ```typescript TypeScript wrap
@@ -63,22 +69,27 @@ const client = new TrueForge({
 });
 
 // The agent you saved in the Quickstart.
-const { data: session } = await client.sessions.create({ agent: { name: 'web-research-brief' } });
+const { data: session } = await client.sessions.create({
+  agent: { name: 'web-research-brief' },
+});
 
 const stream = await client.sessions.createTurnStream(session.id, {
   input: [
     {
       type: 'user.message',
       content:
-        'Compare Qdrant, Weaviate, and Milvus on performance, features, and licensing, then write a one-page brief with sources.',
+        'Compare Qdrant, Weaviate, and Milvus on performance, features, '
+        + 'and licensing, then write a one-page brief with sources.',
     },
   ],
 });
 
-for await (const { data: event } of stream.withMetadata()) {
-  if (event.type === 'thread.created') console.log(`\n↳ subagent: ${event.title}`);
+for await (const event of stream) {
+  if (event.type === 'thread.created')
+    console.log(`\n↳ subagent: ${event.title}`);
   if (event.type === 'model.message.delta' && event.threadId === 'main') {
-    process.stdout.write(event.content ?? ''); // the root agent's reply, streaming in
+    // The root agent's reply, streaming in.
+    process.stdout.write(event.content ?? '');
   }
   if (event.type === 'turn.done' && event.state.status === 'done') {
     console.log('\n\n--- brief ---\n', event.state.output?.content ?? '');
@@ -98,24 +109,30 @@ client = TrueForge(
 # The agent you saved in the Quickstart.
 session = client.sessions.create(agent={"name": "web-research-brief"})
 
-stream = client.sessions.create_turn_stream(
+with client.sessions.create_turn_stream(
     session_id=session.data.id,
     input=[
         {
             "type": "user.message",
-            "content": "Compare Qdrant, Weaviate, and Milvus on performance, features, and licensing, then write a one-page brief with sources.",
+            "content": (
+                "Compare Qdrant, Weaviate, and Milvus on performance, "
+                "features, and licensing, then write a one-page brief "
+                "with sources."
+            ),
         },
     ],
-)
-
-for event in stream:
-    if event.type == "thread.created":
-        print(f"\n↳ subagent: {event.title}")
-    if event.type == "model.message.delta" and event.thread_id == "main":
-        print(event.content or "", end="", flush=True)
-    if event.type == "turn.done" and event.state.status == "done":
-        output = event.state.output
-        print("\n\n--- brief ---\n", None if output is None else output.content)
+) as stream:
+    for event in stream:
+        if event.type == "thread.created":
+            print(f"\n↳ subagent: {event.title}")
+        if event.type == "model.message.delta" and event.thread_id == "main":
+            print(event.content or "", end="", flush=True)
+        if event.type == "turn.done" and event.state.status == "done":
+            output = event.state.output
+            print(
+                "\n\n--- brief ---\n",
+                None if output is None else output.content,
+            )
 ```
 </CodeGroup>
 
@@ -139,10 +156,14 @@ stateDiagram-v2
 ```typescript TypeScript wrap
 import { TrueForge } from '@truefoundry/trueforge-sdk';
 
-const client = new TrueForge({ baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790' });
+const client = new TrueForge({
+  baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790',
+});
 
 // By saved agent name:
-const { data: session } = await client.sessions.create({ agent: { name: 'web-research-brief' } });
+const { data: session } = await client.sessions.create({
+  agent: { name: 'web-research-brief' },
+});
 
 // …or with an inline spec (no saved agent needed):
 const { data: inlineSession } = await client.sessions.create({
@@ -159,7 +180,9 @@ const { data: inlineSession } = await client.sessions.create({
 import os
 from trueforge_sdk import TrueForge
 
-client = TrueForge(base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"))
+client = TrueForge(
+    base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790")
+)
 
 # By saved agent name:
 session = client.sessions.create(agent={"name": "web-research-brief"})
@@ -184,7 +207,9 @@ Newest-first; filter with `agentId` / `agent_id`. TypeScript returns a `Page` as
 ```typescript TypeScript wrap
 import { TrueForge } from '@truefoundry/trueforge-sdk';
 
-const client = new TrueForge({ baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790' });
+const client = new TrueForge({
+  baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790',
+});
 
 for await (const session of await client.sessions.list()) {
   console.log(session.id, session.createdAt);
@@ -195,7 +220,9 @@ for await (const session of await client.sessions.list()) {
 import os
 from trueforge_sdk import TrueForge
 
-client = TrueForge(base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"))
+client = TrueForge(
+    base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790")
+)
 
 for session in client.sessions.list():
     print(session.id, session.created_at)
@@ -204,37 +231,65 @@ for session in client.sessions.list():
 
 ## Turns
 
-A **turn** is one request/response cycle: send input, the agent runs until it finishes or pauses, then the stream closes. Turns chain automatically (`previousTurnId` defaults to `"auto"`), so you never resend history.
+A **turn** is one request/response cycle: you send a message, and the agent works until it has an answer. If it needs something from you along the way (an approval, an answer, or an MCP sign-in), the turn **pauses** and waits. You answer on the same turn and it carries on. Turns chain automatically (`previousTurnId` defaults to `"auto"`), so you never resend history.
+
+```mermaid
+stateDiagram-v2
+  [*] --> running: createTurnStream()
+  running --> paused: agent needs your input
+  paused --> running: you answer with createTurnEvents()
+  running --> done
+  running --> error
+  running --> cancelled: sessions.cancel() or a new message
+  paused --> cancelled: sessions.cancel() or a new message
+  done --> [*]
+  error --> [*]
+  cancelled --> [*]
+```
 
 <Note>
-Creating a new turn in a session automatically cancels any turn still running in that session.
+Only one turn is active in a session at a time. Sending a new message cancels a turn that is still running or waiting for an answer, and the new turn picks up from there.
 </Note>
 
 ### Create and stream a turn
 
-`createTurnStream` / `create_turn_stream` returns a stream of [turn events](#turn-events-reference). `stream.withMetadata()` / `stream.with_metadata()` yields `{ data, id }` (TypeScript) or `StreamEvent` (Python: `.data`, `.id`), where `data` is the parsed event and `id` is the per-stream sequence number used to [resume after a disconnect](#resume-a-stream). The stream opens with `turn.created` and closes with `turn.done`; read the terminal result from `turn.done.state`.
+`createTurnStream` / `create_turn_stream` returns a stream of [turn events](#turn-events-reference). The stream opens with `turn.created` and closes with `turn.done`; read the final result from `turn.done.state`. If the turn pauses, stop reading there and continue with [Handle pauses](#handle-pauses): subscribe, send your answer, then read.
 
-Keep an **`id`-keyed event index**. Model output streams as an empty `model.message` base followed by `model.message.delta` fragments that share the base's `id`. Store each non-delta event under its `id` and merge each delta into the base with TypeScript `isEventDelta` / `mergeEventDelta` or Python `is_event_delta` / `merge_event_delta` (`from trueforge_sdk.events import …`). (Deltas appear only while streaming; [`listTurnEvents`](#replay-a-finished-turn) / `list_turn_events` returns them already merged.) Pause handlers and the per-thread index below reuse this pattern.
+Keep an **`id`-keyed event index**. Model output streams as an empty `model.message` base followed by `model.message.delta` fragments that share the base's `id`. Store each non-delta event under its `id` and merge each delta into the base with TypeScript `isEventDelta` / `mergeEventDelta` or Python `is_event_delta` / `merge_event_delta` (`from trueforge_sdk.events import …`). (Deltas appear only while streaming; [`listTurnEvents`](#replay-a-turn) / `list_turn_events` returns them already merged.) Pause handlers and the per-thread index below reuse this pattern.
+
+Also keep the turn id (from `turn.created`) and the `id` of the last event you received. You need the turn id to answer a paused turn, and the last event id to [resume the stream](#resume-a-stream) if the connection drops.
 
 <CodeGroup>
 ```typescript TypeScript wrap
-import { TrueForge, TrueForgeApi, isEventDelta, mergeEventDelta } from '@truefoundry/trueforge-sdk';
+import {
+  TrueForge,
+  TrueForgeApi,
+  isEventDelta,
+  mergeEventDelta,
+} from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({
   baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790',
   timeoutInSeconds: 600,
 });
-const { data: session } = await client.sessions.create({ agent: { name: 'web-research-brief' } });
+const { data: session } = await client.sessions.create({
+  agent: { name: 'web-research-brief' },
+});
 
 const events = new Map<string, TrueForgeApi.TurnStreamingEvent>();
 let turnId: string | undefined;
-let lastSequenceNumber = 0;
+let lastEventId: string | undefined;
 
 const stream = await client.sessions.createTurnStream(session.id, {
-  input: [{ type: 'user.message', content: 'Summarize the current state of open-source vector databases.' }],
+  input: [
+    {
+      type: 'user.message',
+      content: 'Summarize the current state of open-source vector databases.',
+    },
+  ],
 });
-for await (const { data: event, id } of stream.withMetadata()) {
-  if (id != null) lastSequenceNumber = Number(id);
+for await (const event of stream) {
+  lastEventId = event.id;
   if (event.type === 'turn.created') turnId = event.turnId;
   if (isEventDelta(event)) {
     const base = events.get(event.id);
@@ -259,58 +314,67 @@ session = client.sessions.create(agent={"name": "web-research-brief"})
 
 events = {}
 turn_id = None
-last_sequence_number = 0
+last_event_id = None
 
-stream = client.sessions.create_turn_stream(
+with client.sessions.create_turn_stream(
     session_id=session.data.id,
-    input=[{"type": "user.message", "content": "Summarize the current state of open-source vector databases."}],
-)
-for meta in stream.with_metadata():
-    event = meta.data
-    if meta.id is not None:
-        last_sequence_number = int(meta.id)
-    if event.type == "turn.created":
-        turn_id = event.turn_id
-    if is_event_delta(event):
-        base = events.get(event.id)
-        if base is not None:
-            merge_event_delta(base, event)
-    else:
-        events[event.id] = event
-    if event.type == "turn.done":
-        print("status:", event.state.status)
+    input=[
+        {
+            "type": "user.message",
+            "content": (
+                "Summarize the current state of open-source vector databases."
+            ),
+        }
+    ],
+) as stream:
+    for event in stream:
+        last_event_id = event.id
+        if event.type == "turn.created":
+            turn_id = event.turn_id
+        if is_event_delta(event):
+            base = events.get(event.id)
+            if base is not None:
+                merge_event_delta(base, event)
+        else:
+            events[event.id] = event
+        if event.type == "turn.done":
+            print("status:", event.state.status)
 ```
 </CodeGroup>
 
-Turn `input` accepts three item types (a single turn can't mix a `user.message` with approval or response items):
-
-| `type` | Purpose |
-| --- | --- |
-| `user.message` | A message. `content` is a string, or an array of `text` / `file` parts (files as data URIs). |
-| `user.tool_approval` | An [approval decision](/create-agent/overview#what’s-in-an-agent) for a paused tool call. |
-| `user.tool_response` | An [answer](/create-agent/overview#what’s-in-an-agent) for a paused client-side tool call. |
+A turn's `input` is one or more `user.message` items. `content` is a non-empty string, or an array of `text` / `file` parts (files as data URIs). Approvals, answers, and MCP sign-ins are not part of `input`; you send them to the paused turn, as shown in [Handle pauses](#handle-pauses).
 
 ### Non-streaming turn
 
-If you don't need live events, TypeScript `sessions.createTurn` (`stream: false`) and Python `sessions.create_turn` return immediately with `state.status: "running"` and run in the background. Poll `getTurn` / `get_turn` until the status is terminal (`done`, `cancelled`, `error`).
+If you don't need live events, TypeScript `sessions.createTurn` (`stream: false`) and Python `sessions.create_turn` return immediately with `state.status: "running"` and run in the background. Poll `getTurn` / `get_turn` while the status is `running`. When it stops, the turn has either finished (`done`, `cancelled`, `error`) or is `paused` and waiting for you.
 
 <CodeGroup>
 ```typescript TypeScript wrap
 import { TrueForge } from '@truefoundry/trueforge-sdk';
 
-const client = new TrueForge({ baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790' });
-const { data: session } = await client.sessions.create({ agent: { name: 'web-research-brief' } });
+const client = new TrueForge({
+  baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790',
+});
+const { data: session } = await client.sessions.create({
+  agent: { name: 'web-research-brief' },
+});
 
 const { data: created } = await client.sessions.createTurn(session.id, {
-  input: [{ type: 'user.message', content: 'Give me a one-paragraph summary of the Qdrant licensing model.' }],
+  input: [
+    {
+      type: 'user.message',
+      content: 'Give me a one-paragraph summary of the Qdrant licensing model.',
+    },
+  ],
 });
 
 let turn = created;
 while (turn.state.status === 'running') {
-  await new Promise((resolve) => setTimeout(resolve, 500));
+  await new Promise(resolve => setTimeout(resolve, 500));
   ({ data: turn } = await client.sessions.getTurn(session.id, created.id));
 }
-console.log(turn.state); // done → state.output / required_actions; else reason / message
+// done → output; paused → waiting for you; else reason / message
+console.log(turn.state);
 ```
 
 ```python Python wrap
@@ -318,31 +382,46 @@ import os
 import time
 from trueforge_sdk import TrueForge
 
-client = TrueForge(base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"))
+client = TrueForge(
+    base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790")
+)
 session = client.sessions.create(agent={"name": "web-research-brief"})
 
 created = client.sessions.create_turn(
     session_id=session.data.id,
-    input=[{"type": "user.message", "content": "Give me a one-paragraph summary of the Qdrant licensing model."}],
+    input=[
+        {
+            "type": "user.message",
+            "content": (
+                "Give me a one-paragraph summary of the Qdrant licensing model."
+            ),
+        }
+    ],
 )
 
 turn = created.data
 while turn.state.status == "running":
     time.sleep(0.5)
-    turn = client.sessions.get_turn(session_id=session.data.id, turn_id=created.data.id).data
-print(turn.state)  # done → state.output / required_actions; else reason / message
+    turn = client.sessions.get_turn(
+        session_id=session.data.id, turn_id=created.data.id
+    ).data
+print(
+    turn.state
+)  # done → output; paused → waiting for you; else reason / message
 ```
 </CodeGroup>
 
 ### List turns
 
-Oldest-first; each turn exposes its `input` and `state`. A `done` turn's `state.requiredActions` / `state.required_actions` lists any pauses it surfaced.
+Oldest-first; each turn exposes its `input` and `state`.
 
 <CodeGroup>
 ```typescript TypeScript wrap
 import { TrueForge } from '@truefoundry/trueforge-sdk';
 
-const client = new TrueForge({ baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790' });
+const client = new TrueForge({
+  baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790',
+});
 
 for await (const turn of await client.sessions.listTurns('sess-abc123')) {
   console.log(turn.id, turn.state.status);
@@ -356,7 +435,9 @@ for await (const turn of await client.sessions.listTurns('sess-abc123')) {
 import os
 from trueforge_sdk import TrueForge
 
-client = TrueForge(base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"))
+client = TrueForge(
+    base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790")
+)
 
 for turn in client.sessions.list_turns(session_id="sess-abc123"):
     print(turn.id, turn.state.status)
@@ -371,16 +452,19 @@ A `user.message`'s `content` can be an array of parts: text plus one or more fil
 
 <CodeGroup>
 ```typescript TypeScript wrap
-import { readFileSync } from 'node:fs';
 import { TrueForge } from '@truefoundry/trueforge-sdk';
+import { readFileSync } from 'node:fs';
 
 const client = new TrueForge({
   baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790',
   timeoutInSeconds: 600,
 });
-const { data: session } = await client.sessions.create({ agent: { name: 'web-research-brief' } });
+const { data: session } = await client.sessions.create({
+  agent: { name: 'web-research-brief' },
+});
 
-const toDataUri = (path: string, mime: string) => `data:${mime};base64,${readFileSync(path).toString('base64')}`;
+const toDataUri = (path: string, mime: string) =>
+  `data:${mime};base64,${readFileSync(path).toString('base64')}`;
 
 const stream = await client.sessions.createTurnStream(session.id, {
   input: [
@@ -388,12 +472,16 @@ const stream = await client.sessions.createTurnStream(session.id, {
       type: 'user.message',
       content: [
         { type: 'text', text: 'Use this chart in the brief.' },
-        { type: 'file', name: 'benchmarks.png', data: toDataUri('benchmarks.png', 'image/png') },
+        {
+          type: 'file',
+          name: 'benchmarks.png',
+          data: toDataUri('benchmarks.png', 'image/png'),
+        },
       ],
     },
   ],
 });
-for await (const { data: event } of stream.withMetadata()) console.log(event.type);
+for await (const event of stream) console.log(event.type);
 ```
 
 ```python Python wrap
@@ -408,24 +496,30 @@ client = TrueForge(
 )
 session = client.sessions.create(agent={"name": "web-research-brief"})
 
+
 def to_data_uri(path: str, mime: str) -> str:
     payload = base64.b64encode(Path(path).read_bytes()).decode("ascii")
     return f"data:{mime};base64,{payload}"
 
-stream = client.sessions.create_turn_stream(
+
+with client.sessions.create_turn_stream(
     session_id=session.data.id,
     input=[
         {
             "type": "user.message",
             "content": [
                 {"type": "text", "text": "Use this chart in the brief."},
-                {"type": "file", "name": "benchmarks.png", "data": to_data_uri("benchmarks.png", "image/png")},
+                {
+                    "type": "file",
+                    "name": "benchmarks.png",
+                    "data": to_data_uri("benchmarks.png", "image/png"),
+                },
             ],
         },
     ],
-)
-for event in stream:
-    print(event.type)
+) as stream:
+    for event in stream:
+        print(event.type)
 ```
 </CodeGroup>
 
@@ -435,7 +529,7 @@ Whether a file is understood depends on the agent's model, so send images only t
 
 ### Cancel a turn
 
-`sessions.cancel(sessionId)` / `sessions.cancel(session_id=…)` stops the running turn: it aborts the in-flight model request, waits for running MCP tool calls to finish, and force-stops any sandbox the turn provisioned. It's idempotent, and the backend closes the SSE stream gracefully (a terminal `turn.done`, then it ends, so don't `break`). Continue by creating a new turn, which chains on the cancelled turn's history.
+`sessions.cancel(sessionId)` / `sessions.cancel(session_id=…)` stops the session's active turn, whether it is running or paused waiting for you. It aborts the in-flight model request, waits for running MCP tool calls to finish, and force-stops any sandbox the turn provisioned. It's idempotent, and the backend closes the SSE stream gracefully (a terminal `turn.done`, then it ends, so don't `break`). Continue by creating a new turn, which chains on the cancelled turn's history.
 
 <CodeGroup>
 ```typescript TypeScript wrap
@@ -445,14 +539,22 @@ const client = new TrueForge({
   baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790',
   timeoutInSeconds: 600,
 });
-const { data: session } = await client.sessions.create({ agent: { name: 'web-research-brief' } });
+const { data: session } = await client.sessions.create({
+  agent: { name: 'web-research-brief' },
+});
 
 const stream = await client.sessions.createTurnStream(session.id, {
-  input: [{ type: 'user.message', content: 'Run a deep comparison across a dozen vector databases.' }],
+  input: [
+    {
+      type: 'user.message',
+      content: 'Run a deep comparison across a dozen vector databases.',
+    },
+  ],
 });
 let i = 0;
-for await (const { data: event } of stream.withMetadata()) {
-  if (i++ === 5) await client.sessions.cancel(session.id); // stream ends itself after the terminal turn.done
+for await (const event of stream) {
+  // The stream ends itself after the terminal turn.done.
+  if (i++ === 5) await client.sessions.cancel(session.id);
 }
 ```
 
@@ -466,23 +568,45 @@ client = TrueForge(
 )
 session = client.sessions.create(agent={"name": "web-research-brief"})
 
-stream = client.sessions.create_turn_stream(
+with client.sessions.create_turn_stream(
     session_id=session.data.id,
-    input=[{"type": "user.message", "content": "Run a deep comparison across a dozen vector databases."}],
-)
-i = 0
-for event in stream:
-    if i == 5:
-        client.sessions.cancel(session_id=session.data.id)  # stream ends itself after the terminal turn.done
-    i += 1
+    input=[
+        {
+            "type": "user.message",
+            "content": "Run a deep comparison across a dozen vector databases.",
+        }
+    ],
+) as stream:
+    i = 0
+    for event in stream:
+        if i == 5:
+            # The stream ends itself after the terminal turn.done.
+            client.sessions.cancel(session_id=session.data.id)
+        i += 1
 ```
 </CodeGroup>
 
 ## Handle pauses
 
-A turn ends **paused** when it needs something from you. Each pause populates `turn.done.state.requiredActions`; you resume by creating a **new turn** with the matching response item(s). A single turn can surface more than one pending item (e.g. parallel threads each hit a gate), so collect them all.
+A turn **pauses** when the agent needs something from you. You'll first see an event saying what it needs, then a [`turn.update`](#turn-update) with `state.status: "paused"`. The turn isn't over. Read until that point and keep the id of the last event, then:
 
-For approvals and questions, each pending ref carries the `sourceEventId` of the [`model.message`](#model-message) that made the call. Look it up in the [event index](#create-and-stream-a-turn) to read the tool's name and arguments.
+1. Open `subscribeToTurn` / `subscribe_to_turn` from that event id.
+2. Send your answers to the same turn with `createTurnEvents` / `create_turn_events`.
+3. Read the subscription. It carries everything your answer produces, through to `turn.done` or the next pause.
+
+Subscribe before you send, so the events the answer produces arrive on a stream you're about to read. A turn can pause more than once; each time, subscribe, send, then read.
+
+| The agent emits | It's waiting for | You send |
+| --- | --- | --- |
+| [`tool.approval_required`](#tool-approval-required) | A decision on a gated tool call | `user.tool_approval` (allow or deny) for each call |
+| [`tool.response_required`](#tool-response-required) | An answer to a question, or a client-side tool result | `user.tool_response` for each call |
+| [`mcp.auth_required`](#mcp-auth-required) | The user to sign in to an MCP server | `user.mcp_auth_continue` once they have |
+
+A turn can wait on several things at once (e.g. parallel subagents each hit a gate), so collect every prompt. The turn continues once everything it was waiting for is answered. You can send all the answers in one call, or a few at a time.
+
+For approvals and questions, each pending call in `tool_calls` has an `id` (the tool call you answer, as `tool_call_id`) and a `source_event_id` pointing at the [`model.message`](#model-message) that made the call. Look it up in the [event index](#create-and-stream-a-turn) to read the tool's name and arguments.
+
+The answers you send also show up on the stream as events (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`, `user.mcp_auth_continue`). So the stream always tells you what is still open: a call is waiting until a matching answer with its `tool_call_id` appears or a [session approval](#approve-a-tool-until-an-expiry) covers its tool, and an MCP sign-in is waiting until a `user.mcp_auth_continue` follows it.
 
 <Note>
 `web-research-brief` won't pause on its own; it has no gated tool or clarifying-question step. The snippets below are **illustrative**: point them at an agent that has a `require_approval_for_tools` tool, uses `ask_user_question`, or connects to an MCP server needing OAuth.
@@ -490,53 +614,80 @@ For approvals and questions, each pending ref carries the `sourceEventId` of the
 
 ### Tool approvals
 
-A gated tool ([human approval](/create-agent/overview#what’s-in-an-agent)) emits [`tool.approval_required`](#tool-approval-required). Collect the pending events while streaming, then resume with one `user.tool_approval` per pending call, either allowing it or denying it with a reason. Look up each ref in the [event index](#create-and-stream-a-turn).
+A gated tool ([human approval](/create-agent/overview#what’s-in-an-agent)) emits [`tool.approval_required`](#tool-approval-required). Read until the turn pauses and collect the pending calls. Then subscribe from the last event, send one `user.tool_approval` per call (allow, or deny with a reason), and read that subscription.
 
 <CodeGroup>
 ```typescript TypeScript wrap
-import { TrueForge, TrueForgeApi, isEventDelta, mergeEventDelta } from '@truefoundry/trueforge-sdk';
+import {
+  TrueForge,
+  TrueForgeApi,
+  isEventDelta,
+  mergeEventDelta,
+} from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({
   baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790',
   timeoutInSeconds: 600,
 });
-const { data: session } = await client.sessions.create({ agent: { name: 'ops-bot' } });
+const { data: session } = await client.sessions.create({
+  agent: { name: 'ops-bot' },
+});
 
 const events = new Map<string, TrueForgeApi.TurnStreamingEvent>();
 const pendingApprovals: TrueForgeApi.ToolApprovalRequiredEvent[] = [];
+let turnId: string | undefined;
+let lastEventId: string | undefined;
 
 const stream = await client.sessions.createTurnStream(session.id, {
   input: [{ type: 'user.message', content: 'Restart the billing service.' }],
 });
-for await (const { data: event } of stream.withMetadata()) {
+for await (const event of stream) {
+  lastEventId = event.id;
   if (isEventDelta(event)) {
     const base = events.get(event.id);
     if (base) mergeEventDelta(base, event);
   } else {
     events.set(event.id, event);
   }
+  if (event.type === 'turn.created') turnId = event.turnId;
   if (event.type === 'tool.approval_required') pendingApprovals.push(event);
+  if (event.type === 'turn.update' && event.state.status === 'paused') break;
 }
 
-const approvals: TrueForgeApi.UserToolApprovalEvent[] = [];
+const approvals: TrueForgeApi.TurnUserEventMessage[] = [];
 for (const pending of pendingApprovals) {
   for (const ref of pending.toolCalls) {
     const msg = events.get(ref.sourceEventId);
     if (msg?.type !== 'model.message') continue;
-    const call = msg.toolCalls?.find((tc) => tc.id === ref.id);
+    const call = msg.toolCalls?.find(tc => tc.id === ref.id);
     if (!call) continue;
-    console.log(`approve ${call.toolInfo.name}? args: ${call.function.arguments}`);
+    console.log(
+      `approve ${call.toolInfo.name}? args: ${call.function.arguments}`,
+    );
     approvals.push({
       type: 'user.tool_approval',
       threadId: pending.threadId,
       toolCallId: ref.id,
-      approval: { status: 'allow' }, // or { status: 'deny', reason: 'denied by user' }
+      // or { status: 'deny', reason: 'denied by user' }
+      approval: { status: 'allow' },
     });
   }
 }
 
-const resume = await client.sessions.createTurnStream(session.id, { input: approvals });
-for await (const { data: event } of resume.withMetadata()) console.log(event.type);
+// Subscribe first, then send, then read what the answer produces.
+const resume = await client.sessions.subscribeToTurn(
+  session.id,
+  turnId!,
+  { afterEventId: lastEventId },
+  { timeoutInSeconds: 600 },
+);
+await client.sessions.createTurnEvents(session.id, turnId!, {
+  events: approvals,
+});
+for await (const event of resume) {
+  if (event.type === 'turn.done') console.log('status:', event.state.status);
+  // Handle other event types.
+}
 ```
 
 ```python Python wrap
@@ -552,20 +703,27 @@ session = client.sessions.create(agent={"name": "ops-bot"})
 
 events = {}
 pending_approvals = []
+turn_id = None
+last_event_id = None
 
-stream = client.sessions.create_turn_stream(
+with client.sessions.create_turn_stream(
     session_id=session.data.id,
     input=[{"type": "user.message", "content": "Restart the billing service."}],
-)
-for event in stream:
-    if is_event_delta(event):
-        base = events.get(event.id)
-        if base is not None:
-            merge_event_delta(base, event)
-    else:
-        events[event.id] = event
-    if event.type == "tool.approval_required":
-        pending_approvals.append(event)
+) as stream:
+    for event in stream:
+        last_event_id = event.id
+        if is_event_delta(event):
+            base = events.get(event.id)
+            if base is not None:
+                merge_event_delta(base, event)
+        else:
+            events[event.id] = event
+        if event.type == "turn.created":
+            turn_id = event.turn_id
+        if event.type == "tool.approval_required":
+            pending_approvals.append(event)
+        if event.type == "turn.update" and event.state.status == "paused":
+            break
 
 approvals = []
 for pending in pending_approvals:
@@ -573,7 +731,9 @@ for pending in pending_approvals:
         msg = events.get(ref.source_event_id)
         if msg is None or msg.type != "model.message":
             continue
-        call = next((tc for tc in (msg.tool_calls or []) if tc.id == ref.id), None)
+        call = next(
+            (tc for tc in (msg.tool_calls or []) if tc.id == ref.id), None
+        )
         if call is None:
             continue
         print(f"approve {call.tool_info.name}? args: {call.function.arguments}")
@@ -582,55 +742,194 @@ for pending in pending_approvals:
                 "type": "user.tool_approval",
                 "thread_id": pending.thread_id,
                 "tool_call_id": ref.id,
-                "approval": {"status": "allow"},  # or {"status": "deny", "reason": "denied by user"}
+                "approval": {
+                    "status": "allow"
+                },  # or {"status": "deny", "reason": "denied by user"}
             }
         )
 
-resume = client.sessions.create_turn_stream(session_id=session.data.id, input=approvals)
-for event in resume:
-    print(event.type)
+with client.sessions.subscribe_to_turn(
+    session_id=session.data.id,
+    turn_id=turn_id,
+    after_event_id=last_event_id,
+    request_options={"timeout": 600},
+) as resume:
+    client.sessions.create_turn_events(
+        session_id=session.data.id, turn_id=turn_id, events=approvals
+    )
+    for event in resume:
+        if event.type == "turn.done":
+            print("status:", event.state.status)
+        # Handle other event types.
+```
+</CodeGroup>
+
+#### Approve a tool until an expiry
+
+For a tool on an MCP server, you can approve every call to it until an expiry instead of one call at a time. Send a `user.tool_approval_policy` with the MCP server name, the tool name, and `expireAt` / `expire_at` — an absolute ISO 8601 time, such as 10 minutes from now. It also approves calls to that tool that are already waiting, so send it **instead of** a `user.tool_approval` for those calls.
+
+Where you read the server and tool name depends on how the agent loads tools:
+
+- **Preloaded tools** arrive as the tool itself. `toolInfo` / `tool_info` has `type: "mcp"` with `serverName` / `server_name` and `name`.
+- **Deferred tools** (the default, see [Deferred tool loading](/key-features/deferred-tool-loading)) arrive as a `call_tool` call whose `toolInfo` / `tool_info` is `type: "truefoundry-system"`. The real server and tool are in its arguments as `mcp_server` and `tool_name`.
+
+In the recipe above, replace the `user.tool_approval` push with the following. A call that isn't an MCP tool falls back to a normal one-off approval.
+
+<CodeGroup>
+```typescript TypeScript wrap
+// Server and tool behind a call, or undefined if it isn't an MCP tool.
+function mcpTarget(call: TrueForgeApi.ToolCall) {
+  if (call.toolInfo.type === 'mcp') {
+    return { server: call.toolInfo.serverName, tool: call.toolInfo.name };
+  }
+  if (call.toolInfo.name !== 'call_tool') return undefined;
+  const args = JSON.parse(call.function.arguments || '{}') as {
+    mcp_server?: string;
+    tool_name?: string;
+  };
+  if (!args.mcp_server || !args.tool_name) return undefined;
+  return { server: args.mcp_server, tool: args.tool_name };
+}
+
+const target = mcpTarget(call);
+if (target) {
+  approvals.push({
+    type: 'user.tool_approval_policy',
+    policies: [
+      {
+        serverName: target.server,
+        name: target.tool,
+        policy: {
+          type: 'allow_session',
+          // 10 minutes from now.
+          expireAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+        },
+      },
+    ],
+  });
+} else {
+  approvals.push({
+    type: 'user.tool_approval',
+    threadId: pending.threadId,
+    toolCallId: ref.id,
+    approval: { status: 'allow' },
+  });
+}
+```
+
+```python Python wrap
+import json
+from datetime import datetime, timedelta, timezone
+
+
+def mcp_target(call):
+    """Server and tool behind a call, or None if it isn't an MCP tool."""
+    if call.tool_info.type == "mcp":
+        return call.tool_info.server_name, call.tool_info.name
+    if call.tool_info.name != "call_tool":
+        return None
+    args = json.loads(call.function.arguments or "{}")
+    if "mcp_server" not in args or "tool_name" not in args:
+        return None
+    return args["mcp_server"], args["tool_name"]
+
+
+target = mcp_target(call)
+if target is None:
+    approvals.append(
+        {
+            "type": "user.tool_approval",
+            "thread_id": pending.thread_id,
+            "tool_call_id": ref.id,
+            "approval": {"status": "allow"},
+        }
+    )
+else:
+    server_name, tool_name = target
+    approvals.append(
+        {
+            "type": "user.tool_approval_policy",
+            "policies": [
+                {
+                    "server_name": server_name,
+                    "name": tool_name,
+                    "policy": {
+                        "type": "allow_session",
+                        # 10 minutes from now.
+                        "expire_at": (
+                            datetime.now(timezone.utc) + timedelta(minutes=10)
+                        ).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    },
+                }
+            ],
+        }
+    )
 ```
 </CodeGroup>
 
 ### Agent questions
 
-When the agent uses the built-in [`ask_user_question`](/create-agent/overview#what’s-in-an-agent) tool, it emits [`tool.response_required`](#tool-response-required); the pending call's `arguments` carry the `question` and `options`. Resume with one `user.tool_response` per pending call.
+When the agent uses the built-in [`ask_user_question`](/create-agent/overview#what’s-in-an-agent) tool, it emits [`tool.response_required`](#tool-response-required); the pending call's `arguments` carry the `question` and `options`. Read until the turn pauses, then subscribe, send one `user.tool_response` per pending call, and read on.
 
 <CodeGroup>
 ```typescript TypeScript wrap
-import { TrueForge, TrueForgeApi, isEventDelta, mergeEventDelta } from '@truefoundry/trueforge-sdk';
+import {
+  TrueForge,
+  TrueForgeApi,
+  isEventDelta,
+  mergeEventDelta,
+} from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({
   baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790',
   timeoutInSeconds: 600,
 });
-const { data: session } = await client.sessions.create({ agent: { name: 'ops-bot' } });
+const { data: session } = await client.sessions.create({
+  agent: { name: 'ops-bot' },
+});
 
 const events = new Map<string, TrueForgeApi.TurnStreamingEvent>();
 const pendingQuestions: TrueForgeApi.ToolResponseRequiredEvent[] = [];
+let turnId: string | undefined;
+let lastEventId: string | undefined;
 
 const stream = await client.sessions.createTurnStream(session.id, {
-  input: [{ type: 'user.message', content: 'Create a new environment called testing-1.' }],
+  input: [
+    {
+      type: 'user.message',
+      content: 'Create a new environment called testing-1.',
+    },
+  ],
 });
-for await (const { data: event } of stream.withMetadata()) {
+for await (const event of stream) {
+  lastEventId = event.id;
   if (isEventDelta(event)) {
     const base = events.get(event.id);
     if (base) mergeEventDelta(base, event);
   } else {
     events.set(event.id, event);
   }
+  if (event.type === 'turn.created') turnId = event.turnId;
   if (event.type === 'tool.response_required') pendingQuestions.push(event);
+  if (event.type === 'turn.update' && event.state.status === 'paused') break;
 }
 
-const responses: TrueForgeApi.UserToolResponseEvent[] = [];
+const responses: TrueForgeApi.TurnUserEventMessage[] = [];
 for (const pending of pendingQuestions) {
   for (const ref of pending.toolCalls) {
     const msg = events.get(ref.sourceEventId);
     if (msg?.type !== 'model.message') continue;
-    const call = msg.toolCalls?.find((tc) => tc.id === ref.id);
-    // tool.response_required covers any client-side tool; handle ask_user_question here.
-    if (call?.toolInfo.type !== 'truefoundry-system' || call.toolInfo.name !== 'ask_user_question') continue;
-    const { question, options } = JSON.parse(call.function.arguments || '{}') as { question?: string; options?: string[] };
+    const call = msg.toolCalls?.find(tc => tc.id === ref.id);
+    // tool.response_required covers any client-side tool.
+    // Handle ask_user_question here.
+    if (
+      call?.toolInfo.type !== 'truefoundry-system' ||
+      call.toolInfo.name !== 'ask_user_question'
+    )
+      continue;
+    const { question, options } = JSON.parse(
+      call.function.arguments || '{}',
+    ) as { question?: string; options?: string[] };
     console.log(question, options);
     responses.push({
       type: 'user.tool_response',
@@ -641,8 +940,19 @@ for (const pending of pendingQuestions) {
   }
 }
 
-const resume = await client.sessions.createTurnStream(session.id, { input: responses });
-for await (const { data: event } of resume.withMetadata()) console.log(event.type);
+const resume = await client.sessions.subscribeToTurn(
+  session.id,
+  turnId!,
+  { afterEventId: lastEventId },
+  { timeoutInSeconds: 600 },
+);
+await client.sessions.createTurnEvents(session.id, turnId!, {
+  events: responses,
+});
+for await (const event of resume) {
+  if (event.type === 'turn.done') console.log('status:', event.state.status);
+  // Handle other event types.
+}
 ```
 
 ```python Python wrap
@@ -659,20 +969,32 @@ session = client.sessions.create(agent={"name": "ops-bot"})
 
 events = {}
 pending_questions = []
+turn_id = None
+last_event_id = None
 
-stream = client.sessions.create_turn_stream(
+with client.sessions.create_turn_stream(
     session_id=session.data.id,
-    input=[{"type": "user.message", "content": "Create a new environment called testing-1."}],
-)
-for event in stream:
-    if is_event_delta(event):
-        base = events.get(event.id)
-        if base is not None:
-            merge_event_delta(base, event)
-    else:
-        events[event.id] = event
-    if event.type == "tool.response_required":
-        pending_questions.append(event)
+    input=[
+        {
+            "type": "user.message",
+            "content": "Create a new environment called testing-1.",
+        }
+    ],
+) as stream:
+    for event in stream:
+        last_event_id = event.id
+        if is_event_delta(event):
+            base = events.get(event.id)
+            if base is not None:
+                merge_event_delta(base, event)
+        else:
+            events[event.id] = event
+        if event.type == "turn.created":
+            turn_id = event.turn_id
+        if event.type == "tool.response_required":
+            pending_questions.append(event)
+        if event.type == "turn.update" and event.state.status == "paused":
+            break
 
 responses = []
 for pending in pending_questions:
@@ -680,11 +1002,17 @@ for pending in pending_questions:
         msg = events.get(ref.source_event_id)
         if msg is None or msg.type != "model.message":
             continue
-        call = next((tc for tc in (msg.tool_calls or []) if tc.id == ref.id), None)
+        call = next(
+            (tc for tc in (msg.tool_calls or []) if tc.id == ref.id), None
+        )
         if call is None:
             continue
-        # tool.response_required covers any client-side tool; handle ask_user_question here.
-        if call.tool_info.type != "truefoundry-system" or call.tool_info.name != "ask_user_question":
+        # tool.response_required covers any client-side tool.
+        # Handle ask_user_question here.
+        if (
+            call.tool_info.type != "truefoundry-system"
+            or call.tool_info.name != "ask_user_question"
+        ):
             continue
         payload = json.loads(call.function.arguments or "{}")
         print(payload.get("question"), payload.get("options"))
@@ -697,19 +1025,25 @@ for pending in pending_questions:
             }
         )
 
-resume = client.sessions.create_turn_stream(session_id=session.data.id, input=responses)
-for event in resume:
-    print(event.type)
+with client.sessions.subscribe_to_turn(
+    session_id=session.data.id,
+    turn_id=turn_id,
+    after_event_id=last_event_id,
+    request_options={"timeout": 600},
+) as resume:
+    client.sessions.create_turn_events(
+        session_id=session.data.id, turn_id=turn_id, events=responses
+    )
+    for event in resume:
+        if event.type == "turn.done":
+            print("status:", event.state.status)
+        # Handle other event types.
 ```
 </CodeGroup>
 
 ### MCP outbound auth
 
-When a tool needs a server's OAuth, the turn ends with [`mcp.auth_required`](#mcp-auth-required), listing each server and its `authUrl`. Send the user there, then resume. See [In-chat authentication](/mcp-servers#in-chat-authentication).
-
-<Note>
-After `mcp.auth_required`, the resuming turn must **not** include a `user.message`; resume with empty `input` (or omit it).
-</Note>
+When a tool needs a server's OAuth, the agent emits [`mcp.auth_required`](#mcp-auth-required), listing each server and its `authUrl`, and the turn pauses. Send the user there. Once they've signed in, subscribe, send `user.mcp_auth_continue`, and read on. The agent picks up the interrupted work. See [In-chat authentication](/mcp-servers#in-chat-authentication).
 
 <CodeGroup>
 ```typescript TypeScript wrap
@@ -719,14 +1053,24 @@ const client = new TrueForge({
   baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790',
   timeoutInSeconds: 600,
 });
-const { data: session } = await client.sessions.create({ agent: { name: 'github-bot' } });
-
-let pendingAuth: TrueForgeApi.McpAuthRequiredEvent | undefined;
-const stream = await client.sessions.createTurnStream(session.id, {
-  input: [{ type: 'user.message', content: 'Summarize my latest GitHub issues.' }],
+const { data: session } = await client.sessions.create({
+  agent: { name: 'github-bot' },
 });
-for await (const { data: event } of stream.withMetadata()) {
+
+let turnId: string | undefined;
+let lastEventId: string | undefined;
+let pendingAuth: TrueForgeApi.McpAuthRequiredEvent | undefined;
+
+const stream = await client.sessions.createTurnStream(session.id, {
+  input: [
+    { type: 'user.message', content: 'Summarize my latest GitHub issues.' },
+  ],
+});
+for await (const event of stream) {
+  lastEventId = event.id;
+  if (event.type === 'turn.created') turnId = event.turnId;
   if (event.type === 'mcp.auth_required') pendingAuth = event;
+  if (event.type === 'turn.update' && event.state.status === 'paused') break;
 }
 
 if (pendingAuth != null) {
@@ -736,9 +1080,19 @@ if (pendingAuth != null) {
   // …wait for the user to authorize the server(s)…
 }
 
-// Resume with empty input; the agent continues the interrupted work.
-const resume = await client.sessions.createTurnStream(session.id, {});
-for await (const { data: event } of resume.withMetadata()) console.log(event.type);
+const resume = await client.sessions.subscribeToTurn(
+  session.id,
+  turnId!,
+  { afterEventId: lastEventId },
+  { timeoutInSeconds: 600 },
+);
+await client.sessions.createTurnEvents(session.id, turnId!, {
+  events: [{ type: 'user.mcp_auth_continue' }],
+});
+for await (const event of resume) {
+  if (event.type === 'turn.done') console.log('status:', event.state.status);
+  // Handle other event types.
+}
 ```
 
 ```python Python wrap
@@ -751,24 +1105,48 @@ client = TrueForge(
 )
 session = client.sessions.create(agent={"name": "github-bot"})
 
+turn_id = None
+last_event_id = None
 pending_auth = None
-stream = client.sessions.create_turn_stream(
+
+with client.sessions.create_turn_stream(
     session_id=session.data.id,
-    input=[{"type": "user.message", "content": "Summarize my latest GitHub issues."}],
-)
-for event in stream:
-    if event.type == "mcp.auth_required":
-        pending_auth = event
+    input=[
+        {
+            "type": "user.message",
+            "content": "Summarize my latest GitHub issues.",
+        }
+    ],
+) as stream:
+    for event in stream:
+        last_event_id = event.id
+        if event.type == "turn.created":
+            turn_id = event.turn_id
+        if event.type == "mcp.auth_required":
+            pending_auth = event
+        if event.type == "turn.update" and event.state.status == "paused":
+            break
 
 if pending_auth is not None:
     for server in pending_auth.mcp_servers:
         print(f"Authorize {server.name}: {server.auth_url}")
     # …wait for the user to authorize the server(s)…
 
-# Resume with empty input; the agent continues the interrupted work.
-resume = client.sessions.create_turn_stream(session_id=session.data.id)
-for event in resume:
-    print(event.type)
+with client.sessions.subscribe_to_turn(
+    session_id=session.data.id,
+    turn_id=turn_id,
+    after_event_id=last_event_id,
+    request_options={"timeout": 600},
+) as resume:
+    client.sessions.create_turn_events(
+        session_id=session.data.id,
+        turn_id=turn_id,
+        events=[{"type": "user.mcp_auth_continue"}],
+    )
+    for event in resume:
+        if event.type == "turn.done":
+            print("status:", event.state.status)
+        # Handle other event types.
 ```
 </CodeGroup>
 
@@ -776,57 +1154,68 @@ for event in resume:
 
 ### Resume a stream
 
-If you lose the `createTurnStream` / `create_turn_stream` connection (e.g. a process restart), persist `session.id`, `turnId` / `turn_id`, and `lastSequenceNumber` / `last_sequence_number`. To resume: call `getTurn` / `get_turn` → if still `running`, reconnect with `subscribeToTurn` / `subscribe_to_turn` and `afterSequenceNumber` / `after_sequence_number` to skip events you already saw; if finished, rebuild from `listTurnEvents` / `list_turn_events`.
+If you lose the `createTurnStream` / `create_turn_stream` connection (e.g. a process restart), persist `session.id`, `turnId` / `turn_id`, and the `id` of the last event you received. To resume, call `getTurn` / `get_turn`:
+
+- **Running or paused:** reconnect with `subscribeToTurn` / `subscribe_to_turn` and `fromEventId` / `from_event_id` set to the last event id. The replay starts at that event, so if you dropped in the middle of a reply, the `model.message` base arrives again and your [event index](#create-and-stream-a-turn) rebuilds it from its deltas. Use `afterEventId` / `after_event_id` instead when you only want what comes after it.
+- **Finished:** rebuild from `listTurnEvents` / `list_turn_events`.
 
 <CodeGroup>
 ```typescript TypeScript wrap
-import { TrueForge, TrueForgeApi, isEventDelta, mergeEventDelta } from '@truefoundry/trueforge-sdk';
+import {
+  TrueForge,
+  TrueForgeApi,
+  isEventDelta,
+  mergeEventDelta,
+} from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({
   baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790',
   timeoutInSeconds: 600,
 });
-const { data: session } = await client.sessions.create({ agent: { name: 'web-research-brief' } });
+const { data: session } = await client.sessions.create({
+  agent: { name: 'web-research-brief' },
+});
 
 const events = new Map<string, TrueForgeApi.TurnStreamingEvent>();
 let turnId: string | undefined;
-let lastSequenceNumber = 0;
+let lastEventId: string | undefined;
 
-const stream = await client.sessions.createTurnStream(session.id, {
-  input: [{ type: 'user.message', content: 'Compare Qdrant, Weaviate, and Milvus.' }],
-});
-for await (const { data: event, id } of stream.withMetadata()) {
-  if (id != null) lastSequenceNumber = Number(id);
-  if (event.type === 'turn.created') turnId = event.turnId;
+const index = (event: TrueForgeApi.TurnStreamingEvent) => {
+  lastEventId = event.id;
   if (isEventDelta(event)) {
     const base = events.get(event.id);
     if (base) mergeEventDelta(base, event);
   } else {
     events.set(event.id, event);
   }
+};
+
+const stream = await client.sessions.createTurnStream(session.id, {
+  input: [
+    { type: 'user.message', content: 'Compare Qdrant, Weaviate, and Milvus.' },
+  ],
+});
+for await (const event of stream) {
+  if (event.type === 'turn.created') turnId = event.turnId;
+  index(event);
 }
 
-// …after a disconnect, with session.id / turnId / lastSequenceNumber restored:
+// …after a disconnect, with session.id / turnId / lastEventId restored:
 const { data: turn } = await client.sessions.getTurn(session.id, turnId!);
-if (turn.state.status === 'running') {
+if (turn.state.status === 'running' || turn.state.status === 'paused') {
   const resume = await client.sessions.subscribeToTurn(
     session.id,
     turnId!,
-    { afterSequenceNumber: lastSequenceNumber },
+    { fromEventId: lastEventId },
     { timeoutInSeconds: 600 },
   );
-  for await (const { data: event, id } of resume.withMetadata()) {
-    if (id != null) lastSequenceNumber = Number(id);
-    if (isEventDelta(event)) {
-      const base = events.get(event.id);
-      if (base) mergeEventDelta(base, event);
-    } else {
-      events.set(event.id, event);
-    }
-  }
+  for await (const event of resume) index(event);
 } else {
   // Already finished: rebuild from the stored log (deltas already merged).
-  for await (const event of await client.sessions.listTurnEvents(session.id, turnId!)) {
+  for await (const event of await client.sessions.listTurnEvents(
+    session.id,
+    turnId!,
+  )) {
     events.set(event.id, event);
   }
 }
@@ -845,18 +1234,12 @@ session = client.sessions.create(agent={"name": "web-research-brief"})
 
 events = {}
 turn_id = None
-last_sequence_number = 0
+last_event_id = None
 
-stream = client.sessions.create_turn_stream(
-    session_id=session.data.id,
-    input=[{"type": "user.message", "content": "Compare Qdrant, Weaviate, and Milvus."}],
-)
-for meta in stream.with_metadata():
-    event = meta.data
-    if meta.id is not None:
-        last_sequence_number = int(meta.id)
-    if event.type == "turn.created":
-        turn_id = event.turn_id
+
+def index(event):
+    global last_event_id
+    last_event_id = event.id
     if is_event_delta(event):
         base = events.get(event.id)
         if base is not None:
@@ -864,34 +1247,45 @@ for meta in stream.with_metadata():
     else:
         events[event.id] = event
 
-# …after a disconnect, with session.id / turn_id / last_sequence_number restored:
-turn = client.sessions.get_turn(session_id=session.data.id, turn_id=turn_id).data
-if turn.state.status == "running":
-    resume = client.sessions.subscribe_to_turn(
+
+with client.sessions.create_turn_stream(
+    session_id=session.data.id,
+    input=[
+        {
+            "type": "user.message",
+            "content": "Compare Qdrant, Weaviate, and Milvus.",
+        }
+    ],
+) as stream:
+    for event in stream:
+        if event.type == "turn.created":
+            turn_id = event.turn_id
+        index(event)
+
+# …after a disconnect, with session.id / turn_id / last_event_id restored:
+turn = client.sessions.get_turn(
+    session_id=session.data.id, turn_id=turn_id
+).data
+if turn.state.status in ("running", "paused"):
+    with client.sessions.subscribe_to_turn(
         session_id=session.data.id,
         turn_id=turn_id,
-        after_sequence_number=last_sequence_number,
+        from_event_id=last_event_id,
         request_options={"timeout": 600},
-    )
-    for meta in resume.with_metadata():
-        event = meta.data
-        if meta.id is not None:
-            last_sequence_number = int(meta.id)
-        if is_event_delta(event):
-            base = events.get(event.id)
-            if base is not None:
-                merge_event_delta(base, event)
-        else:
-            events[event.id] = event
+    ) as resume:
+        for event in resume:
+            index(event)
 else:
     # Already finished: rebuild from the stored log (deltas already merged).
-    for event in client.sessions.list_turn_events(session_id=session.data.id, turn_id=turn_id):
+    for event in client.sessions.list_turn_events(
+        session_id=session.data.id, turn_id=turn_id
+    ):
         events[event.id] = event
 ```
 </CodeGroup>
 
 <Tip>
-`createTurn` / `create_turn` + `subscribeToTurn` / `subscribe_to_turn` is resilient: the SDK reconnects with `Last-Event-ID` on transient drops. Persist the sequence number from `.withMetadata()` / `.with_metadata()` so you can call `subscribeToTurn({ afterSequenceNumber })` / `subscribe_to_turn(..., after_sequence_number=…)` again after a restart.
+`subscribeToTurn` / `subscribe_to_turn` doesn't reconnect on its own. A subscription can also end before `turn.done`, for example after a long wait on a paused turn. Whenever it ends without `turn.done`, subscribe again from the last event id you saw.
 </Tip>
 
 ### Subagent threads
@@ -900,9 +1294,11 @@ A turn stream interleaves the root agent and any parallel [subagents](/key-featu
 
 - `"main"`: the root agent.
 - A unique id: a subagent thread. [`thread.created`](#thread-created) and [`thread.done`](#thread-done) bracket its lifecycle.
-- `null`: a turn-level event, such as [`turn.created`](#turn-created), [`turn.done`](#turn-done), [`sandbox.created`](#sandbox-created), and [`mcp.auth_required`](#mcp-auth-required).
+- `null`: a turn-level event, such as [`turn.created`](#turn-created), [`turn.update`](#turn-update), [`turn.done`](#turn-done), [`sandbox.created`](#sandbox-created), and [`mcp.auth_required`](#mcp-auth-required).
 
 Keep a **per-thread** index (`Map<threadId, Map<id, event>>` in TypeScript; nested dicts in Python) and apply the same [event-index](#create-and-stream-a-turn) merge inside each thread's bucket.
+
+A subagent can need your approval or answer too. Its prompt carries the subagent's `thread_id`; send that same `thread_id` back with your answer. Other subagents may keep working while one waits, so a prompt can arrive while the turn is still running; the turn shows `paused` only once nothing else can move forward. Answer it the same way as any other pause: subscribe from the last event you saw, send, then read.
 
 ```mermaid
 sequenceDiagram
@@ -925,21 +1321,34 @@ sequenceDiagram
 
 <CodeGroup>
 ```typescript TypeScript wrap
-import { TrueForge, TrueForgeApi, isEventDelta, mergeEventDelta } from '@truefoundry/trueforge-sdk';
+import {
+  TrueForge,
+  TrueForgeApi,
+  isEventDelta,
+  mergeEventDelta,
+} from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({
   baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790',
   timeoutInSeconds: 600,
 });
-const { data: session } = await client.sessions.create({ agent: { name: 'web-research-brief' } });
+const { data: session } = await client.sessions.create({
+  agent: { name: 'web-research-brief' },
+});
 
 const threads = new Map<string, Map<string, TrueForgeApi.TurnStreamingEvent>>();
 
 const stream = await client.sessions.createTurnStream(session.id, {
-  input: [{ type: 'user.message', content: 'Compare Qdrant, Weaviate, and Milvus in parallel.' }],
+  input: [
+    {
+      type: 'user.message',
+      content: 'Compare Qdrant, Weaviate, and Milvus in parallel.',
+    },
+  ],
 });
-for await (const { data: event } of stream.withMetadata()) {
-  if (event.threadId == null) {
+for await (const event of stream) {
+  // These two answer events omit threadId.
+  if (!('threadId' in event) || event.threadId == null) {
     console.log('turn-level event:', event.type);
     continue;
   }
@@ -953,7 +1362,9 @@ for await (const { data: event } of stream.withMetadata()) {
     bucket.set(event.id, event);
   }
   if (event.type === 'thread.done') {
-    console.log(`${event.threadId} done: ${event.title} (${bucket.size} events)`);
+    console.log(
+      `${event.threadId} done: ${event.title} (${bucket.size} events)`,
+    );
     threads.delete(event.threadId);
   }
 }
@@ -972,44 +1383,57 @@ session = client.sessions.create(agent={"name": "web-research-brief"})
 
 threads = {}
 
-stream = client.sessions.create_turn_stream(
+with client.sessions.create_turn_stream(
     session_id=session.data.id,
-    input=[{"type": "user.message", "content": "Compare Qdrant, Weaviate, and Milvus in parallel."}],
-)
-for event in stream:
-    if event.thread_id is None:
-        print("turn-level event:", event.type)
-        continue
-    bucket = threads.setdefault(event.thread_id, {})
-    if is_event_delta(event):
-        base = bucket.get(event.id)
-        if base is not None:
-            merge_event_delta(base, event)
-    else:
-        bucket[event.id] = event
-    if event.type == "thread.done":
-        print(f"{event.thread_id} done: {event.title} ({len(bucket)} events)")
-        del threads[event.thread_id]
+    input=[
+        {
+            "type": "user.message",
+            "content": "Compare Qdrant, Weaviate, and Milvus in parallel.",
+        }
+    ],
+) as stream:
+    for event in stream:
+        # These two answer events omit thread_id.
+        thread_id = getattr(event, "thread_id", None)
+        if thread_id is None:
+            print("turn-level event:", event.type)
+            continue
+        bucket = threads.setdefault(thread_id, {})
+        if is_event_delta(event):
+            base = bucket.get(event.id)
+            if base is not None:
+                merge_event_delta(base, event)
+        else:
+            bucket[event.id] = event
+        if event.type == "thread.done":
+            print(f"{thread_id} done: {event.title} ({len(bucket)} events)")
+            del threads[thread_id]
 ```
 </CodeGroup>
 
-### Replay a finished turn
+### Replay a turn
 
-`sessions.listTurnEvents()` / `list_turn_events()` yields a finished turn's [events](#turn-events-reference) in order (auto-paginates; `order: "asc"` default, or `"desc"`). Events are **already merged**, so you can use each one directly.
+`sessions.listTurnEvents()` / `list_turn_events()` yields a turn's [events](#turn-events-reference) in order (auto-paginates; `order: "asc"` default, or `"desc"`). Events are **already merged**, so you can use each one directly. It works for finished and paused turns, including the answers you sent.
 
 <Note>
-Only available for completed turns; a running turn has no stored log yet, so stream it with `createTurnStream` / `create_turn_stream` or `subscribeToTurn` / `subscribe_to_turn` instead.
+While a turn is running, the reply it is writing right now is not in the list yet. To watch a running turn, stream it with `createTurnStream` / `create_turn_stream` or `subscribeToTurn` / `subscribe_to_turn` instead.
 </Note>
 
 <CodeGroup>
 ```typescript TypeScript wrap
 import { TrueForge } from '@truefoundry/trueforge-sdk';
 
-const client = new TrueForge({ baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790' });
+const client = new TrueForge({
+  baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790',
+});
 
 for await (const turn of await client.sessions.listTurns('sess-abc123')) {
   if (turn.state.status === 'running') continue;
-  for await (const event of await client.sessions.listTurnEvents('sess-abc123', turn.id, { order: 'asc' })) {
+  for await (const event of await client.sessions.listTurnEvents(
+    'sess-abc123',
+    turn.id,
+    { order: 'asc' },
+  )) {
     console.log(event.type);
   }
 }
@@ -1019,12 +1443,16 @@ for await (const turn of await client.sessions.listTurns('sess-abc123')) {
 import os
 from trueforge_sdk import TrueForge
 
-client = TrueForge(base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"))
+client = TrueForge(
+    base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790")
+)
 
 for turn in client.sessions.list_turns(session_id="sess-abc123"):
     if turn.state.status == "running":
         continue
-    for event in client.sessions.list_turn_events(session_id="sess-abc123", turn_id=turn.id, order="asc"):
+    for event in client.sessions.list_turn_events(
+        session_id="sess-abc123", turn_id=turn.id, order="asc"
+    ):
         print(event.type)
 ```
 </CodeGroup>
@@ -1041,7 +1469,9 @@ const { data: schedule } = await client.schedules.create({
   agentName: 'web-research-brief',
   name: 'morning-brief',
   manifest: {
-    task: 'Summarize the most important AI news from the last 24 hours and list the top five items with links.',
+    task:
+      'Summarize the most important AI news from the last 24 hours '
+      + 'and list the top five items with links.',
     cron: '0 9 * * *', // 09:00 every day, evaluated in `timezone`
     timezone: 'Asia/Kolkata', // IANA time zone
     status: 'active', // or 'paused'
@@ -1054,7 +1484,10 @@ schedule = client.schedules.create(
     agent_name="web-research-brief",
     name="morning-brief",
     manifest={
-        "task": "Summarize the most important AI news from the last 24 hours and list the top five items with links.",
+        "task": (
+            "Summarize the most important AI news from the last 24 hours "
+            "and list the top five items with links."
+        ),
         "cron": "0 9 * * *",  # 09:00 every day, evaluated in `timezone`
         "timezone": "Asia/Kolkata",  # IANA time zone
         "status": "active",  # or "paused"
@@ -1080,7 +1513,9 @@ const { data: schedule } = await client.schedules.get('sched-abc123');
 await client.schedules.update('sched-abc123', {
   name: 'morning-brief',
   manifest: {
-    task: 'Summarize the most important AI news from the last 24 hours and list the top five items with links.',
+    task:
+      'Summarize the most important AI news from the last 24 hours '
+      + 'and list the top five items with links.',
     cron: '0 8 * * 1-5', // now weekdays at 08:00
     timezone: 'Asia/Kolkata',
     status: 'paused',
@@ -1094,20 +1529,23 @@ await client.schedules.delete('sched-abc123');
 for schedule in client.schedules.list():
     print(schedule.name, schedule.manifest.cron)
 
-schedule = client.schedules.get("sched-abc123").data
+schedule = client.schedules.get(schedule_id="sched-abc123").data
 
 client.schedules.update(
-    "sched-abc123",
+    schedule_id="sched-abc123",
     name="morning-brief",
     manifest={
-        "task": "Summarize the most important AI news from the last 24 hours and list the top five items with links.",
+        "task": (
+            "Summarize the most important AI news from the last 24 hours "
+            "and list the top five items with links."
+        ),
         "cron": "0 8 * * 1-5",  # now weekdays at 08:00
         "timezone": "Asia/Kolkata",
         "status": "paused",
     },
 )
 
-client.schedules.delete("sched-abc123")
+client.schedules.delete(schedule_id="sched-abc123")
 ```
 </CodeGroup>
 
@@ -1120,7 +1558,8 @@ await client.schedules.createRun({ scheduleId: 'sched-abc123' });
 
 // Review recent runs.
 for await (const run of await client.schedules.listRuns('sched-abc123')) {
-  console.log(run.scheduledFor, run.status); // 'scheduled' | 'triggered' | 'failed'
+  // 'scheduled' | 'triggered' | 'failed'
+  console.log(run.scheduledFor, run.status);
 }
 ```
 
@@ -1129,7 +1568,7 @@ for await (const run of await client.schedules.listRuns('sched-abc123')) {
 client.schedules.create_run(schedule_id="sched-abc123")
 
 # Review recent runs.
-for run in client.schedules.list_runs("sched-abc123"):
+for run in client.schedules.list_runs(schedule_id="sched-abc123"):
     print(run.scheduled_for, run.status)  # "scheduled" | "triggered" | "failed"
 ```
 </CodeGroup>
@@ -1144,22 +1583,22 @@ Field-level schemas for every event streamed while a turn runs. The recipes abov
   Field names in this reference use the HTTP/JSON wire format (snake_case, e.g. `turn_id`, `source_event_id`). The Python SDK uses those same names. The TypeScript SDK returns the same fields camelCased (`turnId`, `sourceEventId`).
 </Note>
 
-Every event carries:
+Events carry:
 
 | Field        | Description                                                                                                                                                                                                        |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `type`       | The event type — one of the types below.                                                                                                                                                                           |
-| `id`         | Unique event id (monotonic ULID — sortable by creation order).                                                                                                                                                     |
-| `created_at` | ISO 8601 timestamp.                                                                                                                                                                                                |
-| `thread_id`  | Which execution thread emitted it: `"main"` for the root agent, a generated id for [subagents](/key-features/subagents), or `null` for run-level events (`turn.*`, `sandbox.created`, `mcp.auth_required`). |
+| `id`         | Unique event id (monotonic ULID — sortable by creation order). Pass it as `from_event_id` / `after_event_id` to [resume a stream](#resume-a-stream). |
+| `created_at` | ISO 8601 timestamp. Some `model.message.delta` fragments omit it.                                                                                                                                                  |
+| `thread_id`  | Which execution thread emitted it: `"main"` for the root agent, a generated id for [subagents](/key-features/subagents), or `null` for run-level events (`turn.*`, `sandbox.created`, `mcp.auth_required`). `user.tool_approval_policy` and `user.mcp_auth_continue` omit this field. |
 
-A stream always opens with `turn.created` and closes with `turn.done`. When you list persisted session events afterwards, you get the same events with deltas pre-merged into their `model.message`.
+A new turn's stream opens with `turn.created` and closes with `turn.done`. A [resumed stream](#resume-a-stream) starts at the event id you pass. When you list persisted session events afterwards, you get the same events with deltas pre-merged into their `model.message`.
 
 ### Lifecycle events
 
 #### `turn.created`
 
-First event on every stream.
+First event on a new turn's stream. A resumed stream starts at the cursor you pass.
 
 | Field              | Description                                               |
 | ------------------ | --------------------------------------------------------- |
@@ -1168,34 +1607,50 @@ First event on every stream.
 | `input`            | The turn's input items, echoed back.                      |
 | `state`            | `{ "status": "running" }`                                 |
 
-#### `turn.done`
+#### `turn.update`
 
-Last event on every stream. `state.status` is one of:
+The turn paused or started running again. `state.status` is one of:
 
-- **`done`** — carries `output` (the final `model.message`, or `null` when the turn ended paused), `required_actions` (pending `tool.approval_required` / `tool.response_required` / `mcp.auth_required` events, empty when none), `completed_at`, and optional `metrics`.
-- **`cancelled`** — carries a `reason`: `client-cancelled`, `server-execution-timeout`, `cancelled-for-next-turn`, or `abandoned`.
-- **`error`** — carries a `message`.
+- **`paused`** — the agent is waiting for you. The events just before it say what it needs (see [Handle pauses](#handle-pauses)). Carries optional `metrics` (tokens and cost) for the turn so far.
+- **`running`** — your answers were applied and the agent is working again.
 
-`metrics`, when present, aggregates the whole turn: `total_input_tokens`, `total_output_tokens`, `total_tokens`, `total_cache_read_tokens`, `total_cache_write_tokens`, `total_reasoning_tokens`, and `total_cost_in_usd`.
-
-```json turn.done — paused for approval wrap
+```json turn.update — paused for approval wrap
 {
-  "type": "turn.done",
+  "type": "turn.update",
   "id": "01jc...",
   "thread_id": null,
   "created_at": "2026-06-24T10:01:12Z",
   "state": {
-    "status": "done",
-    "output": null,
-    "required_actions": [
-      {
-        "type": "tool.approval_required",
-        "thread_id": "main",
-        "tool_calls": [{ "id": "call-refund-01", "source_event_id": "msg-b2" }]
-      }
-    ],
-    "completed_at": "2026-06-24T10:01:12Z",
+    "status": "paused",
     "metrics": { "total_tokens": 2451, "total_cost_in_usd": 0.011 }
+  }
+}
+```
+
+#### `turn.done`
+
+Last event on every stream. `state.status` is one of:
+
+- **`done`** — carries `output` (the final `model.message`, or `null` when the turn ended without one), `completed_at`, and optional `metrics`.
+- **`cancelled`** — carries a `reason`: `client-cancelled`, `server-execution-timeout`, `cancelled-for-next-turn`, or `abandoned`.
+- **`error`** — carries a `message`.
+
+`metrics`, when present, aggregates the whole turn: `total_input_tokens`, `total_output_tokens`, `total_tokens`, `total_cache_read_tokens`, `total_cache_write_tokens`, `total_reasoning_tokens`, and `total_cost_in_usd`. A cancelled turn keeps the metrics for the work it did.
+
+```json turn.done wrap
+{
+  "type": "turn.done",
+  "id": "01jc...",
+  "thread_id": null,
+  "created_at": "2026-06-24T10:02:40Z",
+  "state": {
+    "status": "done",
+    "output": {
+      "type": "model.message",
+      "content": "Refund RF-9914 has been processed."
+    },
+    "completed_at": "2026-06-24T10:02:40Z",
+    "metrics": { "total_tokens": 3920, "total_cost_in_usd": 0.018 }
   }
 }
 ```
@@ -1209,7 +1664,7 @@ An assistant message — text content and/or tool calls. On a live stream the ba
 | Field           | Description                                                                                                                                                                                    |
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `content`       | Assistant text (may be empty when the message is only tool calls).                                                                                                                             |
-| `tool_calls`    | Tool invocations, each with an `id` and `function` (`name`, `arguments`).                                                                                                                      |
+| `tool_calls`    | Tool invocations, each with an `id`, `function` (`name`, `arguments`), and `tool_info` (`{ type: "mcp", server_name, name }` or `{ type: "truefoundry-system", name }`).                      |
 | `finish_reason` | Why generation stopped (`stop`, `tool_calls`, ...), `null` mid-stream.                                                                                                                         |
 | `usage`         | Token usage for this model call: `input_tokens`, `output_tokens`, optional cache counters, and `input_tokens_breakdown` (`harness`, `skills`, `instructions`, `tool_definitions`, `messages`). |
 
@@ -1236,15 +1691,25 @@ The result of a tool the harness executed, linked to its call by `tool_call_id`:
 
 #### `tool.approval_required`
 
-A tool call needs [human approval](/create-agent/overview#what’s-in-an-agent) before it can run. The turn ends after this event; resume with a `user.tool_approval` input.
+One or more tool calls need [human approval](/create-agent/overview#what’s-in-an-agent) before they can run. The turn waits for a `user.tool_approval` for each call (or a [session approval](#approve-a-tool-until-an-expiry) for the tool).
 
 | Field        | Description                                                                                                                                       |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `tool_calls` | Pending calls: each `{ id, source_event_id }`, where `source_event_id` points at the `model.message` that contains the call's name and arguments. |
 
+```json wrap
+{
+  "type": "tool.approval_required",
+  "id": "01jc...",
+  "thread_id": "main",
+  "created_at": "2026-06-24T10:01:11Z",
+  "tool_calls": [{ "id": "call-refund-01", "source_event_id": "msg-b2" }]
+}
+```
+
 #### `tool.response_required`
 
-A client-side tool (e.g. [`ask_user_question`](/create-agent/overview#what’s-in-an-agent)) needs a result from your app. Same shape as `tool.approval_required`; resume with a `user.tool_response` input.
+A client-side tool (e.g. [`ask_user_question`](/create-agent/overview#what’s-in-an-agent)) needs a result from your app. Same shape as `tool.approval_required`; the turn waits for a `user.tool_response` for each call.
 
 ### Subagent thread events
 
@@ -1271,20 +1736,52 @@ MCP server connections were initialized for a thread. `mcp_servers` lists each s
 
 #### `mcp.auth_required`
 
-One or more MCP servers need [OAuth authorization](/mcp-servers#in-chat-authentication) before the agent can proceed. `mcp_servers` lists `{ id, name, auth_url }` — send the user to `auth_url`, then start the next turn. The turn ends after this event.
+One or more MCP servers need [OAuth authorization](/mcp-servers#in-chat-authentication) before the agent can proceed. `mcp_servers` lists `{ id, name, auth_url }`. Send the user to `auth_url`; the turn waits for a `user.mcp_auth_continue`.
 
 #### `sandbox.created`
 
 A [sandbox](/sandbox) was provisioned, carrying its `sandbox_id`. Emitted once per session — subsequent turns reuse the same sandbox and emit no new event.
 
-### User input events
+### User events
 
-These are not streamed — they are the input items **you send** when creating a turn, listed here for completeness:
+`user.message` is the input you send when you create a turn. The others are answers you send to a paused turn with `createTurnEvents` / `create_turn_events`. Once applied, each answer also appears on the turn's stream and in its event list, with its own `id` and `created_at`.
 
-| Type                 | Fields                                                                                                                                   | Purpose                                    |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| `user.message`       | `content` — string, or array of `{ type: "text", text }` / `{ type: "file", name, data }` parts (files as `data:<mime>;base64,...` URIs) | A user message.                            |
-| `user.tool_approval` | `thread_id`, `tool_call_id`, `approval` — `{ status: "allow" }` or `{ status: "deny", reason? }`                                         | Decision for a paused tool call.           |
-| `user.tool_response` | `thread_id`, `tool_call_id`, `content`                                                                                                   | Answer for a paused client-side tool call. |
+#### `user.message`
 
-A turn's `input` cannot mix `user.message` items with approval or tool-response items.
+A user message.
+
+| Field     | Description                                                                                                                                                |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `content` | Non-empty string, or an array of `{ type: "text", text }` / `{ type: "file", name, data }` parts. Files are `data:<mime>;base64,...` URIs.                 |
+
+#### `user.mcp_auth_continue`
+
+The user finished signing in, so the turn continues the paused work. This event has no fields of its own and omits `thread_id`. See [MCP outbound auth](#mcp-outbound-auth).
+
+#### `user.tool_approval`
+
+Decision for a pending tool call. See [Tool approvals](#tool-approvals).
+
+| Field          | Description                                                          |
+| -------------- | -------------------------------------------------------------------- |
+| `thread_id`    | Thread the call belongs to.                                          |
+| `tool_call_id` | The pending call.                                                    |
+| `approval`     | `{ status: "allow" }`, or `{ status: "deny", reason? }`.             |
+
+#### `user.tool_approval_policy`
+
+Approve an MCP tool until an absolute expiry. This event omits `thread_id`. See [Approve a tool until an expiry](#approve-a-tool-until-an-expiry).
+
+| Field      | Description                                                                                                                                                                  |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `policies` | Each `{ server_name, name, policy: { type: "allow_session", expire_at } }`. `expire_at` is an absolute ISO 8601 timestamp, such as 10 minutes from now.                     |
+
+#### `user.tool_response`
+
+Answer for a pending client-side tool call. See [Agent questions](#agent-questions).
+
+| Field          | Description                 |
+| -------------- | --------------------------- |
+| `thread_id`    | Thread the call belongs to. |
+| `tool_call_id` | The pending call.           |
+| `content`      | Non-empty answer.           |

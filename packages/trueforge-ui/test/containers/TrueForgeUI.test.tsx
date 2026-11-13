@@ -3,7 +3,7 @@ import type { CatalogServer } from '@/server/types.js';
 import { useExternalStoreRuntime, type ThreadMessageLike } from '@assistant-ui/react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { createMockAgentUIServer, createMockCatalog } from '../server/mockServer.js';
+import { createMockAgentUIServer, createMockCatalog, tenantSessionSharing } from '../server/mockServer.js';
 
 vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
   trueForgeAttachmentAdapter: {},
@@ -47,6 +47,7 @@ vi.mock('@/plugins/trueforge-agent-server-adapter/index.js', () => ({
         data: {
           sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
+          sessionSharing: tenantSessionSharing,
           settings: allSettingsSections(true),
         },
       }),
@@ -233,12 +234,17 @@ describe('TrueForgeUI', () => {
     const getCapabilities = vi
       .fn()
       .mockResolvedValueOnce({
-        data: { sandbox: { enabled: true, environments: { enabled: true } }, skill: { enabled: true } },
+        data: {
+          sandbox: { enabled: true, environments: { enabled: true } },
+          skill: { enabled: true },
+          sessionSharing: tenantSessionSharing,
+        },
       })
       .mockResolvedValueOnce({
         data: {
           sandbox: { enabled: false, environments: { enabled: false } },
           skill: { enabled: false, reason: 'Select Sandbox first' },
+          sessionSharing: tenantSessionSharing,
         },
       });
     const getModels = vi.fn(async () => []);
@@ -269,7 +275,7 @@ describe('TrueForgeUI', () => {
       expect(getMcp).toHaveBeenCalledTimes(1);
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (0)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (1)' }));
     fireEvent.click(screen.getByRole('button', { name: /Skills/ }));
     expect(await screen.findByRole('status')).toHaveTextContent('Select Sandbox first');
   });
@@ -830,6 +836,7 @@ describe('SidebarLayout', () => {
               data: {
                 sandbox: { enabled: true, environments: { enabled: true } },
                 skill: { enabled: true },
+                sessionSharing: tenantSessionSharing,
                 settings: allSettingsSections(false),
               },
             }),

@@ -5,42 +5,47 @@
 import {
   AgentSpecSchema,
   MAIN_THREAD_ID,
-  type CreatedBySubject,
   type ISessionStore,
+  type LegacyTurnInputItem,
   type PersistedTurnEvent,
   type SessionMetadata,
+  type Subject,
   type TerminalTurnState,
-  type TurnInputItem,
 } from '@truefoundry/trueforge-core/agent-session';
+import { createEmptyAgentThreadMetrics } from '../../../trueforge-core/src/core/runtime/metrics';
 import {
   makeCreateTurnInput,
   makeDoneTurnState,
+  makePausedTurnState,
   makeTurnDoneEvent,
+  makeTurnUpdateEvent,
+  TEST_ACTIVE_EXECUTOR_ID,
 } from '../../../trueforge-core/tests/agent-session/testHelpers';
 import type { IMemoryIngestStore } from '../../src/db/memoryIngestStore';
 import { reply } from '../unit/memory/turnFixtures';
 
 const TENANT = 'default';
-const OWNER: CreatedBySubject = { subject_id: 'owner', subject_type: 'user', subject_display_name: 'Owner' };
+const OWNER: Subject = { subject_id: 'owner', subject_type: 'user', subject_display_name: 'Owner' };
 const UI: SessionMetadata = { 'tfg.source': 'ui' };
 const SPEC = AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' }, instructions: 'test' });
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const HOUR_AGO = () => new Date(Date.now() - 60 * 60 * 1000);
-const IN_A_MINUTE = () => new Date(Date.now() + 60 * 1000);
 
-/** Every session updated since `since`; an empty paused range. */
+/** Every session updated since `since`. */
 function recent(since: Date) {
-  return { tenant_ids: [TENANT], recent_since: since, paused_from: since, paused_until: since };
+  return { tenant_ids: [TENANT], recent_since: since };
 }
 
-export interface MemoryIngestStoreContractEnv {
+export interface MemoryIngestStoreContractEnv<TTransaction> {
   store: IMemoryIngestStore;
-  sessionStore: ISessionStore;
+  sessionStore: ISessionStore<TTransaction>;
   /** Registry agent row whose manifest carries the agent memory toggle. */
   seedAgent: (input: { tenant_id: string; agent_id: string; memory_enabled: boolean }) => Promise<void>;
 }
 
-export function runMemoryIngestStoreContractSuite(getEnv: () => MemoryIngestStoreContractEnv): void {
+export function runMemoryIngestStoreContractSuite<TTransaction>(
+  getEnv: () => MemoryIngestStoreContractEnv<TTransaction>,
+): void {
   async function createSession({
     session_id,
     tenant_id = TENANT,
@@ -77,7 +82,7 @@ export function runMemoryIngestStoreContractSuite(getEnv: () => MemoryIngestStor
     session_id: string;
     turn_id: string;
     previous_turn_id?: string | null;
-    input?: TurnInputItem[];
+    input?: LegacyTurnInputItem[];
     events?: PersistedTurnEvent[];
     state?: TerminalTurnState;
   }) {
@@ -85,13 +90,33 @@ export function runMemoryIngestStoreContractSuite(getEnv: () => MemoryIngestStor
     const created = makeCreateTurnInput({ sessionId: session_id, turnId: turn_id, previousTurnId: previous_turn_id });
     await sessionStore.createTurn({ ...created, turn: { ...created.turn, input } });
     if (events.length > 0) {
-      await sessionStore.appendToEvents({ session_id, turn_id, events });
+      await sessionStore.appendToEvents({ session_id, turn_id, active_executor_id: TEST_ACTIVE_EXECUTOR_ID, events });
     }
     await sessionStore.updateTurnTerminalState({
       session_id,
       turn_id,
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       state,
       turn_done_event: makeTurnDoneEvent(state),
+      metrics: createEmptyAgentThreadMetrics(),
+    });
+  }
+
+  async function addPausedTurn({ session_id, turn_id }: { session_id: string; turn_id: string }) {
+    const { sessionStore } = getEnv();
+    await sessionStore.createTurn(makeCreateTurnInput({ sessionId: session_id, turnId: turn_id }));
+    const state = makePausedTurnState();
+    await sessionStore.updateTurnNonTerminalState({
+      session_id,
+      turn_id,
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+      state,
+      turn_update_event: makeTurnUpdateEvent(state),
+      turn_metrics: {
+        status: 'paused',
+        observed_at: new Date().toISOString(),
+        metrics: createEmptyAgentThreadMetrics(),
+      },
     });
   }
 
@@ -159,35 +184,12 @@ export function runMemoryIngestStoreContractSuite(getEnv: () => MemoryIngestStor
     expect(await candidateIds()).toEqual(['ui']);
   });
 
-  it('lists only sessions paused on the user from the paused range', async () => {
+  it('reports a paused turn as paused', async () => {
     await createSession({ session_id: 'paused' });
-    const pausedState: TerminalTurnState = {
-      status: 'done',
-      output: null,
-      completed_at: new Date().toISOString(),
-      required_actions: [
-        {
-          type: 'tool.response_required',
-          id: 'evt-req',
-          created_at: new Date().toISOString(),
-          thread_id: MAIN_THREAD_ID,
-          tool_calls: [{ id: 'call-1', source_event_id: 'evt-ask' }],
-        },
-      ],
-    };
-    await addTurn({ session_id: 'paused', turn_id: 't1', state: pausedState });
-    await createSession({ session_id: 'closed' });
-    await addTurn({ session_id: 'closed', turn_id: 't1' });
+    await addPausedTurn({ session_id: 'paused', turn_id: 't1' });
 
-    // Nothing is recent; both sessions fall inside the paused range.
-    const candidates = await getEnv().store.listCandidateSessions({
-      tenant_ids: [TENANT],
-      recent_since: IN_A_MINUTE(),
-      paused_from: HOUR_AGO(),
-      paused_until: IN_A_MINUTE(),
-      limit: 10,
-    });
-    expect(candidates.map(c => c.session_id)).toEqual(['paused']);
+    const [turn] = await getEnv().store.listSessionTurns({ session_id: 'paused' });
+    expect(turn?.state).toEqual({ status: 'paused' });
   });
 
   it('includes sessions on a registry agent only when its memory is enabled, even from the UI', async () => {

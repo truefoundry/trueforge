@@ -1,10 +1,38 @@
 /** Server-only turn wire schemas (SSE resume / cancel / list). Core turn schemas live in agent-session. */
 import { z } from '@hono/zod-openapi';
 import { SessionEventSchema, TokenPaginationSchema, TurnSchema } from '@truefoundry/trueforge-core/agent-session';
+import { UserContentPartSchema, UserMessageSchema } from '@truefoundry/trueforge-core/core/events/schema';
 import { EventsPageLimitQuerySchema, PAGE_LIMIT } from './common';
 
 export { CreateTurnRequestSchema, TurnSchema } from '@truefoundry/trueforge-core/agent-session';
 export type { Turn } from '@truefoundry/trueforge-core/agent-session';
+
+/** Internal create-turn body: CreateTurnRequest fields with stream fixed to false. */
+export const InternalCreateSessionTurnRequestSchema = z
+  .object({
+    input: z
+      .array(
+        UserMessageSchema.extend({
+          content: z.union([z.string().min(1), z.array(UserContentPartSchema)]),
+        }),
+      )
+      .min(1)
+      .describe('User messages for this turn. At least one is required.'),
+    previous_turn_id: z
+      .union([z.literal('auto'), z.literal('none'), z.string().min(1)])
+      .optional()
+      .default('auto')
+      .describe(`Defaults to 'auto' (chain to session last turn). Use 'none' for a new root turn.`)
+      .openapi('PreviousTurnIdInput'),
+    stream: z
+      .literal(false)
+      .optional()
+      .default(false)
+      .describe('Must be false; streaming is not supported on this endpoint.'),
+  })
+  .openapi('InternalCreateSessionTurnRequest');
+
+export type InternalCreateSessionTurnRequest = z.infer<typeof InternalCreateSessionTurnRequestSchema>;
 
 export const SubscribeTurnQuerySchema = z
   .object({
@@ -17,10 +45,29 @@ export const SubscribeTurnQuerySchema = z
         .int()
         .nonnegative()
         .optional()
-        .describe(
-          'Exclusive resume cursor: replay only events with a sequence number greater than this value. Omit to start from the beginning of the live buffer.',
-        ),
+        .describe('Deprecated. Rejected on new turns. Use from_event_id or after_event_id instead.'),
     ),
+    from_event_id: z
+      .string()
+      .min(1)
+      .optional()
+      .describe('Inclusive cursor. Replay starts at the entry with this event id'),
+    after_event_id: z
+      .string()
+      .min(1)
+      .optional()
+      .describe('Exclusive cursor. Replay starts after the last entry with this event id.'),
+  })
+  .superRefine((query, ctx) => {
+    const cursors = [query.after_sequence_number, query.from_event_id, query.after_event_id].filter(
+      value => value !== undefined,
+    );
+    if (cursors.length > 1) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Pass only one of after_sequence_number, from_event_id, or after_event_id.',
+      });
+    }
   })
   .openapi('SubscribeTurnQuery');
 

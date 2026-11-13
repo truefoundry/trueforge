@@ -14,8 +14,39 @@ import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkill
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
 import { getModelDetails, localSandboxSessionSegment, validateAgentSpec } from '../../../src/runtime/sessionResources';
 import { setCachedLocalSandboxSupport } from '../../../src/sandbox/localRuntime';
+import { NameSchema } from '../../../src/schemas/common';
 import type { ReasoningEffort } from '../../../src/schemas/modelProvider';
+import { StoredSandboxEnvironmentManifestSchema } from '../../../src/schemas/sandboxEnvironment';
 import { hasConfiguredWebSearchProvider } from '../../../src/websearch/providers';
+
+const SUBJECT = {
+  subject_id: 'test-subject',
+  subject_type: 'user' as const,
+  subject_display_name: 'Tester',
+};
+
+async function createSandboxEnvironment(store: SqliteSandboxEnvironmentStore, name: string): Promise<void> {
+  await store.createEnvironment({
+    tenant_id: 'default',
+    name: NameSchema.parse(name),
+    description: `${name} description`,
+    created_by_subject: SUBJECT,
+    synced_secrets: [],
+    buildVersion: () =>
+      Promise.resolve({
+        version: 1,
+        manifest: StoredSandboxEnvironmentManifestSchema.parse({
+          name,
+          type: 'daytona',
+          sandbox_provider: 'daytona',
+        }),
+        status: 'ready',
+        status_reason: null,
+        external_ref: `ref-${name}`,
+        created_by_subject: SUBJECT,
+      }),
+  });
+}
 
 jest.mock('../../../src/websearch/providers', () => ({
   hasConfiguredWebSearchProvider: jest.fn(() => Promise.resolve(false)),
@@ -96,6 +127,27 @@ describe('validateAgentSpec', () => {
       defaultModelParams: { max_tokens: 4096 },
       modelProperties: { contextLength: 128000 },
     });
+  });
+
+  it('does not resolve the sandbox provider when the spec uses neither sandbox nor skills', async () => {
+    const stores = await setup();
+    const getSandboxProvider = jest
+      .spyOn(stores.sandboxProviderStore, 'getSandboxProvider')
+      .mockRejectedValue(new Error('invalid sandbox provider configuration'));
+
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          config: { sandbox: { enabled: false } },
+        }),
+        tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
+        ...stores,
+      }),
+    ).resolves.toBeUndefined();
+    expect(getSandboxProvider).not.toHaveBeenCalled();
   });
 
   it('rejects malformed model FQN with 422', async () => {
@@ -410,6 +462,10 @@ describe('validateAgentSpec', () => {
       tenant_id: 'default',
       manifest: { type: 'zep', auth: { api_key: 'zep-test-key' } },
     });
+    await stores.configurationStore.upsertConfiguration({
+      tenant_id: 'default',
+      manifest: { web_search: { enabled: true }, memory: { enabled: false } },
+    });
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({
@@ -455,7 +511,7 @@ describe('validateAgentSpec', () => {
     } satisfies Partial<HTTPException>);
   });
 
-  it('rejects turning memory on when the tenant has no stored configuration, since memory starts off', async () => {
+  it('admits turning memory on when the tenant has no stored configuration, since memory starts on', async () => {
     const stores = await setup();
     await stores.memoryProviderStore.upsertProvider({
       tenant_id: 'default',
@@ -472,10 +528,7 @@ describe('validateAgentSpec', () => {
         created_by_subject_id: 'test-subject',
         ...stores,
       }),
-    ).rejects.toMatchObject({
-      status: 422,
-      message: expect.stringContaining('memory cannot be enabled because it is disabled for this tenant'),
-    } satisfies Partial<HTTPException>);
+    ).resolves.toBeUndefined();
   });
 
   it('admits memory on once the tenant allows it and a provider is configured', async () => {
@@ -546,6 +599,35 @@ describe('validateAgentSpec', () => {
         auto_delete_interval_in_minutes: 7200,
       },
     });
+    await createSandboxEnvironment(stores.sandboxEnvironmentStore, 'team-base');
+
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          config: { sandbox: { enabled: true, environment_name: 'team-base' } },
+        }),
+        tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
+        ...stores,
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('rejects sandbox.enabled without environment_name when the provider supports environments', async () => {
+    const stores = await setup();
+    await stores.sandboxProviderStore.upsertSandboxProvider({
+      tenant_id: 'default',
+      manifest: {
+        type: 'daytona',
+        auth: { api_key: 'dtn-test' },
+        exec_timeout_ms: 60_000,
+        auto_stop_interval_in_minutes: 5,
+        auto_archive_interval_in_minutes: 60,
+        auto_delete_interval_in_minutes: 7200,
+      },
+    });
 
     await expect(
       validateAgentSpec({
@@ -558,7 +640,10 @@ describe('validateAgentSpec', () => {
         created_by_subject_id: 'test-subject',
         ...stores,
       }),
-    ).resolves.toBeUndefined();
+    ).rejects.toMatchObject({
+      status: 422,
+      message: 'sandbox.environment_name is required when sandbox is enabled',
+    } satisfies Partial<HTTPException>);
   });
 
   it('allows an agent to use a sandbox environment created by another tenant subject', async () => {
@@ -574,7 +659,9 @@ describe('validateAgentSpec', () => {
         auto_delete_interval_in_minutes: 7200,
       },
     });
-    const getEnvironment = jest.spyOn(stores.sandboxEnvironmentStore, 'getEnvironment').mockResolvedValue({} as never);
+    const getEnvironment = jest
+      .spyOn(stores.sandboxEnvironmentStore, 'getEnvironment')
+      .mockResolvedValue({ environment: { enabled: true } } as never);
 
     await expect(
       validateAgentSpec({
@@ -591,6 +678,59 @@ describe('validateAgentSpec', () => {
     expect(getEnvironment).toHaveBeenCalledWith({
       tenant_id: 'default',
       name: 'shared-env',
+    });
+  });
+
+  describe('a sandbox environment that has since been disabled', () => {
+    async function setupWithDisabledEnvironment() {
+      const stores = await setup();
+      await stores.sandboxProviderStore.upsertSandboxProvider({
+        tenant_id: 'default',
+        manifest: {
+          type: 'daytona',
+          auth: { api_key: 'dtn-test' },
+          exec_timeout_ms: 60_000,
+          auto_stop_interval_in_minutes: 5,
+          auto_archive_interval_in_minutes: 60,
+          auto_delete_interval_in_minutes: 7200,
+        },
+      });
+      jest
+        .spyOn(stores.sandboxEnvironmentStore, 'getEnvironment')
+        .mockResolvedValue({ environment: { enabled: false } } as never);
+      const spec = AgentSpecSchema.parse({
+        model: { name: 'test-provider/test-model' },
+        instructions: 'test',
+        config: { sandbox: { enabled: true, environment_name: 'retired-env' } },
+      });
+      return { stores, spec };
+    }
+
+    it('still keeps a spec that already named it', async () => {
+      const { stores, spec } = await setupWithDisabledEnvironment();
+
+      await expect(
+        validateAgentSpec({
+          spec,
+          tenant_id: 'default',
+          created_by_subject_id: 'agent-author',
+          ...stores,
+          previousSpec: spec,
+        }),
+      ).resolves.toBeUndefined();
+    });
+
+    it('cannot be newly selected', async () => {
+      const { stores, spec } = await setupWithDisabledEnvironment();
+
+      await expect(
+        validateAgentSpec({
+          spec,
+          tenant_id: 'default',
+          created_by_subject_id: 'agent-author',
+          ...stores,
+        }),
+      ).rejects.toMatchObject({ status: 422 });
     });
   });
 

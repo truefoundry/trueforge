@@ -1,4 +1,4 @@
-import type { CreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
+import type { Subject } from '@truefoundry/trueforge-core/agent-session';
 import { createHash } from 'node:crypto';
 
 /** Agent key for sessions without an agent that has memory: TrueForge acts as the default agent. */
@@ -25,7 +25,7 @@ export interface MemoryScope {
 
 export interface MemoryScopeSession {
   tenantId: string;
-  createdBySubject: CreatedBySubject;
+  createdBySubject: Subject;
   /** Registry agent binding; null for inline-spec sessions. */
   agentId: string | null;
   /** Whether the bound registry agent has memory enabled. */

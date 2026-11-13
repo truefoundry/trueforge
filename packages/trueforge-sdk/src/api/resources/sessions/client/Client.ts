@@ -2,7 +2,7 @@
 
 import type { BaseClientOptions, BaseRequestOptions } from "../../../../BaseClient.js";
 import { type NormalizedClientOptionsWithAuth, normalizeClientOptionsWithAuth } from "../../../../BaseClient.js";
-import { mergeHeaders } from "../../../../core/headers.js";
+import { mergeHeaders, mergeOnlyDefinedHeaders } from "../../../../core/headers.js";
 import * as core from "../../../../core/index.js";
 import { mergeAdditionalBodyParameters } from "../../../../core/requestBody.js";
 import { handleNonStatusCodeError } from "../../../../errors/handleNonStatusCodeError.js";
@@ -282,7 +282,7 @@ export class SessionsClient {
     }
 
     /**
-     * Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+     * Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or a subject with a session access grant.
      *
      * @param {string} session_id - Session identifier.
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
@@ -453,7 +453,7 @@ export class SessionsClient {
     }
 
     /**
-     * Update a session: optional `title`, `metadata`, `shared`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
+     * Update a session: optional `title`, `metadata`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
      *
      * @param {string} session_id - Session identifier.
      * @param {TrueForge.UpdateSessionRequest} request
@@ -717,7 +717,7 @@ export class SessionsClient {
     }
 
     /**
-     * List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+     * List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or a subject with a session access grant.
      *
      * @param {string} session_id - Session identifier.
      * @param {TrueForge.ListEventsSessionsRequest} request
@@ -1112,7 +1112,7 @@ export class SessionsClient {
             async (
                 request: TrueForge.ListTurnsSessionsRequest,
             ): Promise<core.WithRawResponse<TrueForge.ListTurnsResponse>> => {
-                const { limit = 25, pageToken } = request;
+                const { limit = 25, pageToken, assumeUser } = request;
                 const _queryParams: Record<string, unknown> = {
                     limit,
                     page_token: pageToken,
@@ -1121,6 +1121,7 @@ export class SessionsClient {
                 const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
                     _authRequest.headers,
                     this._options?.headers,
+                    mergeOnlyDefinedHeaders({ "assume-user": assumeUser }),
                     requestOptions?.headers,
                 );
                 const _response = await (this._options.fetcher ?? core.fetcher)({
@@ -1239,10 +1240,12 @@ export class SessionsClient {
         request: TrueForge.CreateTurnSessionsStreamRequest,
         requestOptions?: SessionsClient.RequestOptions,
     ): Promise<core.WithRawResponse<core.Stream<TrueForge.TurnStreamingEvent>>> {
+        const { assumeUser, ..._body } = request;
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
             _authRequest.headers,
             this._options?.headers,
+            mergeOnlyDefinedHeaders({ "assume-user": assumeUser }),
             requestOptions?.headers,
         );
         const _response = await (this._options.fetcher ?? core.fetcher)<ReadableStream>({
@@ -1258,7 +1261,7 @@ export class SessionsClient {
             requestType: "json",
             body: mergeAdditionalBodyParameters(
                 {
-                    ...serializers.CreateTurnSessionsStreamRequest.jsonOrThrow(request, {
+                    ...serializers.CreateTurnSessionsStreamRequest.jsonOrThrow(_body, {
                         unrecognizedObjectKeys: "passthrough",
                         allowUnrecognizedUnionMembers: true,
                         allowUnrecognizedEnumValues: true,
@@ -1415,7 +1418,12 @@ export class SessionsClient {
      * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
-     *     await client.sessions.createTurn("session_id", {})
+     *     await client.sessions.createTurn("session_id", {
+     *         input: [{
+     *                 content: "content",
+     *                 type: "user.message"
+     *             }]
+     *     })
      */
     public createTurn(
         session_id: string,
@@ -1430,10 +1438,12 @@ export class SessionsClient {
         request: TrueForge.CreateTurnSessionsRequest,
         requestOptions?: SessionsClient.RequestOptions,
     ): Promise<core.WithRawResponse<TrueForge.GetTurnResponse>> {
+        const { assumeUser, ..._body } = request;
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
             _authRequest.headers,
             this._options?.headers,
+            mergeOnlyDefinedHeaders({ "assume-user": assumeUser }),
             requestOptions?.headers,
         );
         const _response = await (this._options.fetcher ?? core.fetcher)({
@@ -1449,7 +1459,7 @@ export class SessionsClient {
             requestType: "json",
             body: mergeAdditionalBodyParameters(
                 {
-                    ...serializers.CreateTurnSessionsRequest.jsonOrThrow(request, {
+                    ...serializers.CreateTurnSessionsRequest.jsonOrThrow(_body, {
                         unrecognizedObjectKeys: "passthrough",
                         allowUnrecognizedUnionMembers: true,
                         allowUnrecognizedEnumValues: true,
@@ -1992,28 +2002,30 @@ export class SessionsClient {
      * @throws {@link TrueForge.ForbiddenError}
      * @throws {@link TrueForge.NotFoundError}
      * @throws {@link TrueForge.ConflictError}
+     * @throws {@link TrueForge.UnprocessableEntityError}
+     * @throws {@link TrueForge.InternalServerError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
-     *     await client.sessions.createTurnEvent("session_id", "turn_id", {
+     *     await client.sessions.createTurnEvents("session_id", "turn_id", {
      *         events: [{
      *                 type: "user.mcp_auth_continue"
      *             }]
      *     })
      */
-    public createTurnEvent(
+    public createTurnEvents(
         session_id: string,
         turn_id: string,
         request: TrueForge.CreateTurnEventRequest,
         requestOptions?: SessionsClient.RequestOptions,
     ): core.HttpResponsePromise<TrueForge.CreateTurnEventResponse> {
         return core.HttpResponsePromise.fromPromise(
-            this.__createTurnEvent(session_id, turn_id, request, requestOptions),
+            this.__createTurnEvents(session_id, turn_id, request, requestOptions),
         );
     }
 
-    private async __createTurnEvent(
+    private async __createTurnEvents(
         session_id: string,
         turn_id: string,
         request: TrueForge.CreateTurnEventRequest,
@@ -2110,6 +2122,28 @@ export class SessionsClient {
                         }),
                         _response.rawResponse,
                     );
+                case 422:
+                    throw new TrueForge.UnprocessableEntityError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 500:
+                    throw new TrueForge.InternalServerError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
                 default:
                     throw new errors.TrueForgeError({
                         statusCode: _response.error.statusCode,
@@ -2128,7 +2162,7 @@ export class SessionsClient {
     }
 
     /**
-     * Subscribe to the live SSE stream for a turn. Only the session creator may subscribe. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).
+     * Subscribe to the live SSE stream. Resume with from_event_id or after_event_id.
      */
     public subscribeToTurn(
         session_id: string,
@@ -2147,9 +2181,11 @@ export class SessionsClient {
         request: TrueForge.SubscribeToTurnSessionsRequest = {},
         requestOptions?: SessionsClient.RequestOptions,
     ): Promise<core.WithRawResponse<core.Stream<TrueForge.TurnStreamingEvent>>> {
-        const { afterSequenceNumber } = request;
+        const { afterSequenceNumber, fromEventId, afterEventId } = request;
         const _queryParams: Record<string, unknown> = {
             after_sequence_number: afterSequenceNumber,
+            from_event_id: fromEventId,
+            after_event_id: afterEventId,
         };
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
@@ -2177,35 +2213,6 @@ export class SessionsClient {
             fetchFn: this._options?.fetch,
             logging: this._options.logging,
         });
-        const _reconnect = async (lastEventId: string) => {
-            const _reconnectResponse = await (this._options.fetcher ?? core.fetcher)<ReadableStream>({
-                url: core.url.join(
-                    (await core.Supplier.get(this._options.baseUrl)) ??
-                        (await core.Supplier.get(this._options.environment)),
-                    `api/v1/sessions/${core.url.encodePathParam(session_id, errors.TrueForgeError)}/turns/${core.url.encodePathParam(turn_id, errors.TrueForgeError)}/subscribe`,
-                ),
-                method: "GET",
-                headers: { ..._headers, "Last-Event-ID": lastEventId },
-                queryString: core.url
-                    .queryBuilder()
-                    .addMany(_queryParams)
-                    .mergeAdditional(requestOptions?.queryParams)
-                    .build(),
-                responseType: "sse",
-                timeoutMs: (requestOptions?.timeoutInSeconds ?? this._options?.timeoutInSeconds ?? 60) * 1000,
-                maxRetries: requestOptions?.maxRetries ?? this._options?.maxRetries,
-                abortSignal: requestOptions?.abortSignal,
-                fetchFn: this._options?.fetch,
-                logging: this._options.logging,
-            });
-            if (!_reconnectResponse.ok) {
-                throw new Error("SSE stream reconnection failed");
-            }
-            if (_reconnectResponse.body == null) {
-                throw new Error("SSE stream reconnection failed: empty response body");
-            }
-            return _reconnectResponse.body;
-        };
         if (_response.ok) {
             return {
                 data: new core.Stream({
@@ -2222,14 +2229,7 @@ export class SessionsClient {
                     signal: requestOptions?.abortSignal,
                     eventShape: {
                         type: "sse",
-                        resumable: true,
                     },
-                    reconnectionEnabled:
-                        requestOptions?.stream?.reconnectionEnabled ?? this._options?.stream?.reconnectionEnabled,
-                    maxReconnectionAttempts:
-                        requestOptions?.stream?.maxReconnectionAttempts ??
-                        this._options?.stream?.maxReconnectionAttempts,
-                    reconnect: _reconnect,
                 }),
                 rawResponse: _response.rawResponse,
             };

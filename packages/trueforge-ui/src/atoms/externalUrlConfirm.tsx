@@ -178,9 +178,9 @@ export function MarkdownExternalLink({
   const { requestLinkConfirm } = useExternalUrlConfirm();
   const dangerous = href != null && href !== '' && isDangerousNavigationUrl(href);
   const external = href != null && href !== '' && !dangerous && isExternalHttpUrl(href);
-  // External destinations never stay in href — middle-click / context-menu bypass onClick.
-  // Activation always goes through guardNavigation (trusted hosts skip the dialog there).
-  const anchorHref = dangerous ? undefined : external ? '#' : href;
+  // Keep the real href so selection/copy pastes original destinations (not the session URL from `#`).
+  // Click / middle-click still go through guardNavigation; context-menu "Open link" can bypass.
+  const anchorHref = dangerous ? undefined : href;
 
   const guardNavigation = (event: MouseEvent<HTMLAnchorElement>) => {
     if (href == null || href === '') return;

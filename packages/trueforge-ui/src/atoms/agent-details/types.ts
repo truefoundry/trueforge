@@ -5,7 +5,8 @@ import type {
   AgentMetricGraph,
   AgentMetricMeter,
   CodeSnippet,
-  CreatedBySubject,
+  Subject,
+  TurnStatus,
 } from '../../server/types.js';
 import type { SessionMetrics } from '../../utils/buildSessionMetrics.js';
 import type { SessionEventTimelineSegment, SessionEventType } from '../../utils/sessionEventTimeline.js';
@@ -37,13 +38,15 @@ export type AgentSessionListRowProps = {
   /** Set when the session was created by a schedule run. */
   scheduleId?: string;
   lastActivityAt: string;
+  /** Last-turn status for the after-title status dot / running title shimmer. */
+  lastTurnStatus?: TurnStatus;
   metrics: {
     totalTurns: number;
     totalCostInUsd?: number;
     totalDurationMs: number;
   };
   /** Session creator; avatar shown in the meta row when present. */
-  createdBySubject?: CreatedBySubject;
+  createdBySubject?: Subject;
   active: boolean;
   onSelect: () => void;
   /** Opens delete confirmation; does not call the API. */

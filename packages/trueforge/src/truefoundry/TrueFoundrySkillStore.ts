@@ -113,10 +113,10 @@ export class TrueFoundrySkillStore<TTransaction = never>
   readonly #client: TrueFoundrySkillApiClient;
   readonly #resolveAccessToken: ResolveServiceFoundryAuthorization;
 
-  constructor(input: { client: TrueFoundrySkillApiClient; context: RequestContext }) {
+  constructor(input: { client: TrueFoundrySkillApiClient; requestContext: RequestContext }) {
     super(input);
     this.#client = input.client;
-    this.#resolveAccessToken = callerAccessToken(input.context);
+    this.#resolveAccessToken = callerAccessToken(input.requestContext);
   }
 
   async listSkills(input: ListSkillsInput, transaction?: TTransaction): Promise<SkillRecord[]> {

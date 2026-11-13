@@ -1,16 +1,26 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import WebSearchSettings from '@/containers/SettingsBuilder/WebSearchSettings.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import type { ConfigurationServer, WebSearchCatalogServer } from '@/server/types.js';
-import { createMockAgentUIServer, createMockCatalog } from '../../server/mockServer.js';
+import { createMockAgentUIServer, createMockCatalog, tenantSessionSharing } from '../../server/mockServer.js';
 import { allSettingsSections } from '../../server/settingsCapabilityFixture.js';
 
 async function unavailable(): Promise<never> {
   throw new Error('Unexpected web search call');
 }
+
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = function showModal() {
+    this.setAttribute('open', '');
+  };
+  HTMLDialogElement.prototype.close = function close() {
+    this.removeAttribute('open');
+    this.dispatchEvent(new Event('close'));
+  };
+});
 
 const webSearchCatalog: WebSearchCatalogServer = {
   getWebSearchProviderCatalog: async () => [{ id: 'parallel', name: 'Parallel', type: 'parallel' }],
@@ -32,6 +42,7 @@ function renderSettings(
       data: {
         sandbox: { enabled: true },
         skill: { enabled: true },
+        sessionSharing: tenantSessionSharing,
         settings: { ...sections, webSearch: { enabled: true, manageProviders } },
       },
     }),
@@ -93,7 +104,7 @@ describe('WebSearchSettings tenant switch', () => {
     expect(note).not.toHaveTextContent('provider setup comes back with it');
   });
 
-  it('saves the new value and re-renders from the response', async () => {
+  it('asks before turning web search off, then saves and re-renders from the response', async () => {
     const updateConfiguration = vi.fn(async () => ({ webSearch: { enabled: false }, memory: { enabled: true } }));
     renderSettings({
       getConfiguration: async () => ({ webSearch: { enabled: true }, memory: { enabled: true } }),
@@ -101,13 +112,56 @@ describe('WebSearchSettings tenant switch', () => {
     });
 
     const toggle = await screen.findByRole('switch', { name: 'Allow web search' });
-    toggle.click();
+    fireEvent.click(toggle);
+
+    expect(updateConfiguration).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog', { name: 'Turn off web search?' })).toHaveTextContent(
+      'Existing chats, agents, and schedules that already use web search keep access',
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Turn off' }));
 
     await waitFor(() => {
       expect(updateConfiguration).toHaveBeenCalledWith({ webSearch: { enabled: false } });
     });
     await waitFor(() => {
       expect(screen.getByRole('switch', { name: 'Allow web search' })).toHaveAttribute('aria-checked', 'false');
+    });
+    expect(screen.queryByRole('dialog', { name: 'Turn off web search?' })).not.toBeInTheDocument();
+  });
+
+  it('leaves web search on when the turn-off confirmation is cancelled', async () => {
+    const updateConfiguration = vi.fn(unavailable);
+    renderSettings({
+      getConfiguration: async () => ({ webSearch: { enabled: true }, memory: { enabled: true } }),
+      updateConfiguration,
+    });
+
+    const toggle = await screen.findByRole('switch', { name: 'Allow web search' });
+    fireEvent.click(toggle);
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(updateConfiguration).not.toHaveBeenCalled();
+    expect(toggle).toHaveAttribute('aria-checked', 'true');
+    expect(screen.queryByRole('dialog', { name: 'Turn off web search?' })).not.toBeInTheDocument();
+  });
+
+  it('turns web search back on without a confirmation', async () => {
+    const updateConfiguration = vi.fn(async () => ({ webSearch: { enabled: true }, memory: { enabled: true } }));
+    renderSettings({
+      getConfiguration: async () => ({ webSearch: { enabled: false }, memory: { enabled: true } }),
+      updateConfiguration,
+    });
+
+    const toggle = await screen.findByRole('switch', { name: 'Allow web search' });
+    fireEvent.click(toggle);
+
+    expect(screen.queryByRole('dialog', { name: 'Turn off web search?' })).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(updateConfiguration).toHaveBeenCalledWith({ webSearch: { enabled: true } });
+    });
+    await waitFor(() => {
+      expect(screen.getByRole('switch', { name: 'Allow web search' })).toHaveAttribute('aria-checked', 'true');
     });
   });
 

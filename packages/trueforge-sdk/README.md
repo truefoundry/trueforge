@@ -55,7 +55,12 @@ Instantiate and use the client with the following:
 import { TrueForge } from "@truefoundry/trueforge-sdk";
 
 const client = new TrueForge({ baseUrl: "YOUR_BASE_URL", token: "YOUR_TOKEN" });
-const response = await client.sessions.createTurnStream("session_id", {});
+const response = await client.sessions.createTurnStream("session_id", {
+    input: [{
+            content: "content",
+            type: "user.message"
+        }]
+});
 for await (const item of response) {
     console.log(item);
 }
@@ -103,7 +108,12 @@ The SDK uses async iterators, so you can consume the responses using a `for awai
 import { TrueForge } from "@truefoundry/trueforge-sdk";
 
 const client = new TrueForge({ baseUrl: "YOUR_BASE_URL", token: "YOUR_TOKEN" });
-const response = await client.sessions.createTurnStream("session_id", {});
+const response = await client.sessions.createTurnStream("session_id", {
+    input: [{
+            content: "content",
+            type: "user.message"
+        }]
+});
 for await (const item of response) {
     console.log(item);
 }

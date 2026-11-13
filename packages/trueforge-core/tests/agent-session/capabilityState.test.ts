@@ -74,12 +74,13 @@ describe('capability_state (tfy.plan fixture)', () => {
     };
     let loads: JsonValue[] = [];
 
+    const turn1Controller = new AbortController();
     const turn1 = await session.createTurn({
       turn_id: mintTestTurnId(),
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'start' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: turn1Controller,
       resolver: makeTestResolver({
         extraCapabilities: [
           makePlanShapedCapability({
@@ -103,12 +104,13 @@ describe('capability_state (tfy.plan fixture)', () => {
     expect(loads).toHaveLength(0);
 
     loads = [];
+    const turn2Controller = new AbortController();
     const turn2 = await session.createTurn({
       turn_id: mintTestTurnId(),
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'continue' }],
       previous_turn_id: 'auto',
-      signal: new AbortController().signal,
+      abortController: turn2Controller,
       resolver: makeTestResolver({
         extraCapabilities: [
           makePlanShapedCapability({
@@ -147,12 +149,13 @@ describe('capability_state (tfy.plan fixture)', () => {
       todo: [{ title: 'step', description: 'do it', status: 'done' }],
     };
 
+    const turn1Controller = new AbortController();
     const turn1 = await session.createTurn({
       turn_id: mintTestTurnId(),
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'start' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: turn1Controller,
       resolver: makeTestResolver({
         extraCapabilities: [makePlanShapedCapability({ enabled: true, emitState: planV1 })],
       }),
@@ -181,12 +184,13 @@ describe('capability_state (tfy.plan fixture)', () => {
       close: () => resolver.close(),
     };
 
+    const turn3Controller = new AbortController();
     const turn3 = await session.createTurn({
       turn_id: mintTestTurnId(),
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'no plan' }],
       previous_turn_id: 'auto',
-      signal: new AbortController().signal,
+      abortController: turn3Controller,
       resolver: wrapped,
     });
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("Dropping unclaimed capability_state key 'tfy.plan'"));
@@ -239,12 +243,13 @@ describe('capability_state (tfy.plan fixture)', () => {
       agent: { type: 'inline', spec: makeAgentSpec() },
       external_id: null,
     });
+    const controller = new AbortController();
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'x' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: controller,
       resolver: makeTestResolver({ extraCapabilities: [undefinedStateCapability] }),
     });
     let errorMessage: string | undefined;
@@ -290,9 +295,9 @@ describe('capability_state (tfy.plan fixture)', () => {
       tracing: NOOP_AGENT_TRACING,
       logger: makeSilentLogger(),
     });
-    for await (const event of thread.send([{ type: EventType.USER_MESSAGE, content: 'x' }])) {
+    for await (const event of thread.sendUserMessages([{ type: EventType.USER_MESSAGE, content: 'x' }])) {
       void event;
-      // drain send
+      // send initial input
     }
     let errorMessage: string | undefined;
     for await (const event of thread.execute({ signal: new AbortController().signal })) {

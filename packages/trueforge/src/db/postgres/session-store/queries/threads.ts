@@ -11,13 +11,15 @@ import type { AgentInfo } from '@truefoundry/trueforge-core/core/events/schema';
 import type { ContextMessage, SubAgentCompletion } from '@truefoundry/trueforge-core/core/runtime/AgentThread.types';
 import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runtime/contextUsage';
 import { sql, type Kysely, type RawBuilder, type Transaction } from 'kysely';
+import { isTransaction } from '../../../transaction';
 import { json, jsonbSet } from '../../sqlExpressions';
 import type { Database, TurnThreadCheckpoint } from '../../types';
 import { values } from '../sqlExpressions';
 import {
-  assertTurnRunning,
+  assertOwnedRunningTurn,
+  classifyNonTerminalTurnThreadWriteFailure,
   classifyTurnFenceWriteFailure,
-  classifyTurnThreadWriteFailure,
+  turnNonTerminalFence,
   turnRunningFence,
   type TurnKeys,
 } from './turns';
@@ -37,115 +39,123 @@ interface CapabilityStateInsertRow {
  * addThreads — fenced tx, max 3 batched statements: log INSERT, turn_thread INSERT,
  * capability upsert. No turn.checkpoint touch (threads live in turn_thread).
  */
-export async function addThreads(db: Kysely<Database>, input: AddThreadsInput): Promise<void> {
-  await db.transaction().execute(async trx => {
-    await assertTurnRunning(trx, {
-      session_id: input.session_id,
-      turn_id: input.turn_id,
+export async function addThreads(db: DbOrTrx, input: AddThreadsInput): Promise<void> {
+  if (isTransaction<Database>(db)) {
+    await addThreadsInTransaction(db, input);
+    return;
+  }
+  await db.transaction().execute(trx => addThreadsInTransaction(trx, input));
+}
+
+async function addThreadsInTransaction(db: Transaction<Database>, input: AddThreadsInput): Promise<void> {
+  await assertOwnedRunningTurn(db, {
+    session_id: input.session_id,
+    turn_id: input.turn_id,
+    active_executor_id: input.active_executor_id,
+  });
+
+  const now = new Date();
+  const logRows: {
+    session_id: string;
+    thread_id: string;
+    turn_id: string;
+    body: RawBuilder<ContextMessage>;
+    created_at: Date;
+  }[] = [];
+  const capabilityStateRows: CapabilityStateInsertRow[] = [];
+  const turnThreadPlans: {
+    thread_id: string;
+    checkpoint: TurnThreadCheckpoint;
+    agent_info: RawBuilder<AgentInfo> | null;
+    current_context_usage: CurrentContextUsage;
+  }[] = [];
+
+  for (const thread of input.threads) {
+    const threadCheckpoint: TurnThreadCheckpoint = {
+      parent: thread.parent ?? null,
+      completion: thread.completion ?? null,
+      pending_mcp_auth: thread.pending_mcp_auth,
+    };
+    turnThreadPlans.push({
+      thread_id: thread.thread_id,
+      checkpoint: threadCheckpoint,
+      agent_info: thread.agent_info != null ? json(thread.agent_info) : null,
+      current_context_usage: thread.current_context_usage,
     });
 
-    const now = new Date();
-    const logRows: {
-      session_id: string;
-      thread_id: string;
-      turn_id: string;
-      body: RawBuilder<ContextMessage>;
-      created_at: Date;
-    }[] = [];
-    const capabilityStateRows: CapabilityStateInsertRow[] = [];
-    const turnThreadPlans: {
-      thread_id: string;
-      checkpoint: TurnThreadCheckpoint;
-      agent_info: RawBuilder<AgentInfo> | null;
-      current_context_usage: CurrentContextUsage;
-    }[] = [];
-
-    for (const thread of input.threads) {
-      const threadCheckpoint: TurnThreadCheckpoint = {
-        parent: thread.parent ?? null,
-        completion: thread.completion ?? null,
-      };
-      turnThreadPlans.push({
+    for (const body of thread.context) {
+      logRows.push({
+        session_id: input.session_id,
         thread_id: thread.thread_id,
-        checkpoint: threadCheckpoint,
-        agent_info: thread.agent_info != null ? json(thread.agent_info) : null,
-        current_context_usage: thread.current_context_usage,
+        turn_id: input.turn_id,
+        body: json(body),
+        created_at: now,
       });
+    }
 
-      for (const body of thread.context) {
-        logRows.push({
+    const capabilityState = thread.capability_state;
+    if (capabilityState != null) {
+      for (const key of Object.keys(capabilityState)) {
+        const state = capabilityState[key];
+        if (state === undefined) {
+          throw new Error(
+            `capability_state['${key}'] for thread '${thread.thread_id}' is undefined — undefined is banned from capability state`,
+          );
+        }
+        capabilityStateRows.push({
           session_id: input.session_id,
-          thread_id: thread.thread_id,
           turn_id: input.turn_id,
-          body: json(body),
-          created_at: now,
+          thread_id: thread.thread_id,
+          key,
+          state: json(state),
+          updated_at: sql<Date>`now()`,
         });
       }
+    }
+  }
 
-      const capabilityState = thread.capability_state;
-      if (capabilityState != null) {
-        for (const key of Object.keys(capabilityState)) {
-          const state = capabilityState[key];
-          if (state === undefined) {
-            throw new Error(
-              `capability_state['${key}'] for thread '${thread.thread_id}' is undefined — undefined is banned from capability state`,
-            );
-          }
-          capabilityStateRows.push({
-            session_id: input.session_id,
-            turn_id: input.turn_id,
-            thread_id: thread.thread_id,
-            key,
-            state: json(state),
-            updated_at: sql<Date>`now()`,
-          });
-        }
+  const newIdsByThread = new Map<string, number[]>();
+  if (logRows.length > 0) {
+    const inserted = await db
+      .insertInto('thread_context_log')
+      .values(logRows)
+      .returning(['thread_id', 'append_id'])
+      .execute();
+    for (const row of inserted) {
+      const list = newIdsByThread.get(row.thread_id);
+      if (list === undefined) {
+        newIdsByThread.set(row.thread_id, [row.append_id]);
+      } else {
+        list.push(row.append_id);
       }
     }
+  }
 
-    const newIdsByThread = new Map<string, number[]>();
-    if (logRows.length > 0) {
-      const inserted = await trx
-        .insertInto('thread_context_log')
-        .values(logRows)
-        .returning(['thread_id', 'append_id'])
-        .execute();
-      for (const row of inserted) {
-        const list = newIdsByThread.get(row.thread_id);
-        if (list === undefined) {
-          newIdsByThread.set(row.thread_id, [row.append_id]);
-        } else {
-          list.push(row.append_id);
-        }
-      }
-    }
+  const turnThreadRows = turnThreadPlans.map(plan => ({
+    session_id: input.session_id,
+    turn_id: input.turn_id,
+    thread_id: plan.thread_id,
+    checkpoint: plan.checkpoint,
+    agent_info: plan.agent_info,
+    current_context_usage: plan.current_context_usage,
+    context_ids: newIdsByThread.get(plan.thread_id) ?? [],
+    updated_at: now,
+  }));
 
-    const turnThreadRows = turnThreadPlans.map(plan => ({
-      session_id: input.session_id,
-      turn_id: input.turn_id,
-      thread_id: plan.thread_id,
-      checkpoint: plan.checkpoint,
-      agent_info: plan.agent_info,
-      current_context_usage: plan.current_context_usage,
-      context_ids: newIdsByThread.get(plan.thread_id) ?? [],
-      updated_at: now,
-    }));
+  if (turnThreadRows.length > 0) {
+    await db.insertInto('turn_thread').values(turnThreadRows).execute();
+  }
 
-    if (turnThreadRows.length > 0) {
-      await trx.insertInto('turn_thread').values(turnThreadRows).execute();
-    }
-
-    if (capabilityStateRows.length > 0) {
-      await trx.insertInto('thread_capability_state').values(capabilityStateRows).execute();
-    }
-  });
+  if (capabilityStateRows.length > 0) {
+    await db.insertInto('thread_capability_state').values(capabilityStateRows).execute();
+  }
 }
 
 /**
  * removeThreads — one statement: fence FOR SHARE + delete turn_thread + capability rows.
  * Older turns keep their maps; log rows stay. Empty thread_ids is a no-op.
  */
-export async function removeThreads(db: Kysely<Database>, input: RemoveThreadsInput): Promise<void> {
+export async function removeThreads(db: DbOrTrx, input: RemoveThreadsInput): Promise<void> {
   if (input.thread_ids.length === 0) {
     return;
   }
@@ -153,6 +163,7 @@ export async function removeThreads(db: Kysely<Database>, input: RemoveThreadsIn
   const keys: TurnKeys = {
     session_id: input.session_id,
     turn_id: input.turn_id,
+    active_executor_id: input.active_executor_id,
   };
   const onFence = sql<boolean>`EXISTS (SELECT 1 FROM turn_fence)`;
 
@@ -199,7 +210,7 @@ function usageSetExpr(usage: CurrentContextUsage | null): RawBuilder<CurrentCont
 }
 
 async function fencedTurnThreadContextUpdate(
-  db: Kysely<Database>,
+  db: DbOrTrx,
   args: {
     keys: TurnKeys;
     thread_id: string;
@@ -216,7 +227,7 @@ async function fencedTurnThreadContextUpdate(
   if (context.length === 0) {
     // No log INSERT — still fence + patch usage/completion / clear-or-keep array.
     const emptyResult = await db
-      .with('turn_fence', qb => turnRunningFence(qb, keys))
+      .with('turn_fence', qb => turnNonTerminalFence(qb, keys))
       .updateTable('turn_thread')
       .set({
         context_ids: replace_array ? sql<number[]>`'{}'::bigint[]` : sql<number[]>`context_ids`,
@@ -231,7 +242,7 @@ async function fencedTurnThreadContextUpdate(
       .executeTakeFirst();
 
     if (Number(emptyResult.numUpdatedRows) === 0) {
-      await classifyTurnThreadWriteFailure(db, keys, thread_id);
+      await classifyNonTerminalTurnThreadWriteFailure(db, keys, thread_id);
     }
     return;
   }
@@ -248,7 +259,7 @@ async function fencedTurnThreadContextUpdate(
       >`context_ids || coalesce((SELECT array_agg(append_id ORDER BY append_id) FROM new_rows), '{}'::bigint[])`;
 
   const result = await db
-    .with('turn_fence', qb => turnRunningFence(qb, keys))
+    .with('turn_fence', qb => turnNonTerminalFence(qb, keys))
     .with('new_rows', qb =>
       qb
         .insertInto('thread_context_log')
@@ -282,7 +293,7 @@ async function fencedTurnThreadContextUpdate(
     .executeTakeFirst();
 
   if (Number(result.numUpdatedRows) === 0) {
-    await classifyTurnThreadWriteFailure(db, keys, thread_id);
+    await classifyNonTerminalTurnThreadWriteFailure(db, keys, thread_id);
   }
 }
 
@@ -291,11 +302,12 @@ async function fencedTurnThreadContextUpdate(
  * concats their ids, stamps usage (COALESCE), and patches completion on the same
  * turn_thread row version.
  */
-export async function appendToThreadContext(db: Kysely<Database>, input: AppendToThreadContextInput): Promise<void> {
+export async function appendToThreadContext(db: DbOrTrx, input: AppendToThreadContextInput): Promise<void> {
   await fencedTurnThreadContextUpdate(db, {
     keys: {
       session_id: input.session_id,
       turn_id: input.turn_id,
+      active_executor_id: input.active_executor_id,
     },
     thread_id: input.thread_id,
     context: input.context,
@@ -315,6 +327,7 @@ export async function overwriteThreadContext(db: Kysely<Database>, input: Overwr
     keys: {
       session_id: input.session_id,
       turn_id: input.turn_id,
+      active_executor_id: input.active_executor_id,
     },
     thread_id: input.event.thread_id,
     context: input.event.context,
@@ -327,10 +340,10 @@ export async function overwriteThreadContext(db: Kysely<Database>, input: Overwr
 
 /**
  * patchMCPServers — one-shot conditional UPDATE on the fence row itself
- * (`state->>'status' = 'running'`). No separate FOR SHARE fence CTE.
- * Subscript LHS + expression RHS for shallow merge by server id.
+ * (`state->>'status' IN ('running', 'paused')`). No separate FOR SHARE fence CTE.
+ * jsonb_set keeps the shallow merge by server id compatible with PostgreSQL 13.
  */
-export async function patchMCPServers(db: Kysely<Database>, input: PatchMCPServersInput): Promise<void> {
+export async function patchMCPServers(db: DbOrTrx, input: PatchMCPServersInput): Promise<void> {
   const serversById: Record<string, (typeof input.mcp_servers)[number]> = {};
   for (const server of input.mcp_servers) {
     serversById[server.id] = server;
@@ -339,20 +352,25 @@ export async function patchMCPServers(db: Kysely<Database>, input: PatchMCPServe
   const keys: TurnKeys = {
     session_id: input.session_id,
     turn_id: input.turn_id,
+    active_executor_id: input.active_executor_id,
   };
 
   const result = await db
     .updateTable('turn')
-    .set(
-      sql`checkpoint['mcp_servers']`,
-      sql`(CASE WHEN jsonb_typeof(checkpoint->'mcp_servers') = 'object'
+    .set({
+      checkpoint: jsonbSet(
+        sql`checkpoint`,
+        sql`'{mcp_servers}'`,
+        sql`(CASE WHEN jsonb_typeof(checkpoint->'mcp_servers') = 'object'
             THEN checkpoint->'mcp_servers'
             ELSE '{}'::jsonb END) || ${json(serversById)}`,
-    )
+      ),
+    })
     .set({ updated_at: sql`now()` })
     .where('session_id', '=', keys.session_id)
     .where('turn_id', '=', keys.turn_id)
-    .where(sql<boolean>`state->>'status' = 'running'`)
+    .where('active_executor_id', '=', keys.active_executor_id)
+    .where(sql<boolean>`state->>'status' IN ('running', 'paused')`)
     .executeTakeFirst();
 
   if (Number(result.numUpdatedRows) === 0) {
@@ -362,20 +380,22 @@ export async function patchMCPServers(db: Kysely<Database>, input: PatchMCPServe
 
 /**
  * patchSandboxInfo — one-shot conditional UPDATE on the fence row itself
- * (`state->>'status' = 'running'`). LWW replace via subscript assignment.
+ * (`state->>'status' = 'running'`). LWW replace via jsonb_set for PostgreSQL 13.
  */
-export async function patchSandboxInfo(db: Kysely<Database>, input: PatchSandboxInfoInput): Promise<void> {
+export async function patchSandboxInfo(db: DbOrTrx, input: PatchSandboxInfoInput): Promise<void> {
   const keys: TurnKeys = {
     session_id: input.session_id,
     turn_id: input.turn_id,
+    active_executor_id: input.active_executor_id,
   };
 
   const result = await db
     .updateTable('turn')
-    .set(sql`checkpoint['sandbox_info']`, json(input.sandbox_info))
+    .set({ checkpoint: jsonbSet(sql`checkpoint`, sql`'{sandbox_info}'`, json(input.sandbox_info)) })
     .set({ updated_at: sql`now()` })
     .where('session_id', '=', keys.session_id)
     .where('turn_id', '=', keys.turn_id)
+    .where('active_executor_id', '=', keys.active_executor_id)
     .where(sql<boolean>`state->>'status' = 'running'`)
     .executeTakeFirst();
 

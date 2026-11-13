@@ -1,14 +1,15 @@
 'use client';
 
 import { useTrueForgeAgentSpec } from '@truefoundry/trueforge-assistant-ui-runtime';
-import { useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, type ReactNode } from 'react';
 
 import { Icon } from '../../icons/Icon.js';
 import { readSandboxEnvironmentName, sandboxWithEnvironmentName } from '../../server/draftSpecPreferences.js';
 import { useServerCapabilities } from '../../server/ServerContext.js';
 import { useOptionalShellMode } from '../../server/ShellModeContext.js';
 import type { AgentCompactionConfig, AgentRuntimeConfig } from '../../server/types.js';
-import { useReadySandboxEnvironments } from '../environments/useReadySandboxEnvironments.js';
+import { environmentUnavailableReason } from '../environments/environmentDisplay.js';
+import { useSandboxEnvironments } from '../environments/useSandboxEnvironments.js';
 import { cn } from '../lib/cn.js';
 import { auiInputClass } from '../lib/inputClasses.js';
 import { PopoverSelect } from '../primitives/PopoverSelect.js';
@@ -90,27 +91,55 @@ export function AgentRuntimeConfigFields({
   const shell = useOptionalShellMode();
   const capabilities = useServerCapabilities();
   const environmentsCapabilityEnabled = capabilities?.sandbox?.environments?.enabled === true;
-  const { environments: readyEnvironments, refetch: refetchEnvironments } = useReadySandboxEnvironments();
+  const {
+    environments,
+    defaultEnvironment,
+    loaded: environmentsLoaded,
+    refetch: refetchEnvironments,
+  } = useSandboxEnvironments();
   const { draftSessionId } = useTrueForgeAgentSpec();
   // Turns reuse the session sandbox, so the environment is fixed once a chat has started.
   const environmentLocked = draftSessionId != null;
   const selectedEnvironmentName = readSandboxEnvironmentName(value.sandbox);
+  // Naming none means the tenant default applies, so show it rather than an empty control
+  // even where the picker is locked and nothing can be written back.
+  const shownEnvironmentName = selectedEnvironmentName ?? defaultEnvironment?.name;
+
+  // Where the picker is still editable, record that default on the config so saving pins it
+  // by name instead of leaving the choice to resolve later.
+  const unpinnedDefaultName =
+    !environmentLocked && environmentsLoaded && selectedEnvironmentName === undefined
+      ? defaultEnvironment?.name
+      : undefined;
+  useEffect(() => {
+    if (unpinnedDefaultName === undefined) return;
+    onChange({ ...value, sandbox: sandboxWithEnvironmentName(value.sandbox, unpinnedDefaultName) });
+    // Only react to the unpinned-default transition.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unpinnedDefaultName]);
 
   const environmentOptions = useMemo(() => {
-    const options: Array<{ value: string; label: string; disabled?: boolean }> = readyEnvironments.map(env => ({
-      value: env.name,
-      label: env.name,
-    }));
-    // Keep a deleted session/agent environment visible so the control does not fall back to Select.
-    if (selectedEnvironmentName !== 'default' && !options.some(option => option.value === selectedEnvironmentName)) {
+    // Everything is listed; what cannot be picked is greyed out and says why on hover.
+    const options = environments.map(env => {
+      const reason = environmentUnavailableReason(env);
+      return {
+        value: env.name,
+        label: env.name,
+        disabled: reason !== undefined,
+        ...(reason === undefined ? {} : { disabledReason: reason }),
+      };
+    });
+    // Keep a deleted environment visible so the control does not fall back to the placeholder.
+    if (shownEnvironmentName !== undefined && !options.some(option => option.value === shownEnvironmentName)) {
       options.unshift({
-        value: selectedEnvironmentName,
-        label: selectedEnvironmentName,
+        value: shownEnvironmentName,
+        label: shownEnvironmentName,
         disabled: true,
+        disabledReason: 'No longer available.',
       });
     }
     return options;
-  }, [readyEnvironments, selectedEnvironmentName]);
+  }, [environments, shownEnvironmentName]);
 
   const withCompaction = (compaction: AgentCompactionConfig): AgentRuntimeConfig => ({
     ...value,
@@ -147,8 +176,10 @@ export function AgentRuntimeConfigFields({
   const environmentSelect = (
     <PopoverSelect
       aria-label="Environment"
-      value={selectedEnvironmentName}
+      value={shownEnvironmentName ?? ''}
       options={environmentOptions}
+      placeholder={environmentsLoaded && environments.length === 0 ? 'No environments' : 'Select environment'}
+      emptyContent={<p className="text-text-secondary px-2 py-1.5 text-sm">No environments yet</p>}
       disabled={disabled || environmentLocked || !sandboxAvailable || !sandboxEnabled}
       className="w-48"
       onOpenChange={nextOpen => {
@@ -157,7 +188,7 @@ export function AgentRuntimeConfigFields({
       onValueChange={selected =>
         onChange({
           ...value,
-          sandbox: sandboxWithEnvironmentName(value.sandbox, selected === 'default' ? undefined : selected),
+          sandbox: sandboxWithEnvironmentName(value.sandbox, selected),
         })
       }
     />

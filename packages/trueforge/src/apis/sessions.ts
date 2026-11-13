@@ -11,6 +11,7 @@ import type {
 } from '@truefoundry/trueforge-core/agent-session';
 import {
   CancellationReason,
+  isNonTerminalTurnState,
   SessionStoreConflictError,
   SessionStoreInvariantError,
   SessionStoreNotFoundError,
@@ -28,7 +29,6 @@ import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
 import { z } from 'zod';
-import type { ResolveSkillStoreInput } from '../app';
 import type { Authorizer } from '../auth/authorizer';
 import { createdBySubjectFromRequestContext, type RequestContext, type ResolveRequestContext } from '../auth/identity';
 import configuration from '../config';
@@ -81,13 +81,11 @@ const CancelPeerBodySchema = z.object({
 });
 type CancelPeerBody = z.infer<typeof CancelPeerBodySchema>;
 
-/** `shared` is whether the session holds a `tenant` grant. */
-export function toWireSession(record: SessionRecord, shared: boolean): Session {
+export function toWireSession(record: SessionRecord): Session {
   return {
     id: record.session_id,
     agent: record.agent,
     title: record.title,
-    shared,
     created_by_subject: record.created_by_subject,
     created_at: record.created_at.toISOString(),
     updated_at: record.updated_at.toISOString(),
@@ -99,65 +97,77 @@ export function toWireSession(record: SessionRecord, shared: boolean): Session {
 }
 
 export interface SessionsRouterDeps<TTransaction = never> {
-  sessions: Sessions;
-  sessionStore: ISessionStore;
   accessControlStore: IAccessControlStore<TTransaction>;
-  userStore: IUserStore;
-  withTransaction: WithTransaction<TTransaction>;
-  activeTurns: ActiveTurnRegistry;
-  resolveModelProviderStore: (input: { c: Context; allowInlineResources?: boolean }) => IModelProviderStore;
-  resolveMcpServerStore: (input: { c: Context; allowInlineResources?: boolean }) => IMcpServerStore;
-  resolveSkillStore: (input: ResolveSkillStoreInput) => ISkillStore;
-  resolveAgentStore: (c: Context) => IAgentStore;
-  resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore;
-  sandboxEnvironmentStore: ISandboxEnvironmentStore;
-  redis?: RedisClient | undefined;
-  resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore;
-  resolveMemoryProviderStore: (c: Context) => IMemoryProviderStore;
-  resolveConfigurationStore: (c: Context) => IConfigurationStore;
-  requestReplyRouter: RequestReplyRouter;
-  resolveRequestContext: ResolveRequestContext;
-  logger: Logger;
+  activeTurns: ActiveTurnRegistry<TTransaction>;
   authorizer: Authorizer;
-}
-
-function cancelTurnOnThisExecutor(
-  activeTurns: ActiveTurnRegistry,
-  input: { sessionId: string; turnId: string; reason: CancellationReason },
-): boolean {
-  return activeTurns.cancelIfRunning({
-    sessionId: input.sessionId,
-    turnId: input.turnId,
-    abortReason: input.reason,
-  });
+  logger: Logger;
+  /**
+   * Publishes to another executor:
+   *  - Creating the next turn -> redis request `sessions/cancel`
+   * when the previous run is not in this process.
+   * Unset in standalone.
+   */
+  redis?: RedisClient | undefined;
+  /**
+   * Used to register routes
+   * - `sessions/cancel` -> {@link cancelSessionTurnPeerHandler}
+   */
+  requestReplyRouter: RequestReplyRouter;
+  resolveAgentStore: (c: Context) => IAgentStore;
+  resolveMcpServerStore: (input: {
+    c: Context;
+    allowInlineResources?: boolean;
+    runAsAgent?: AgentRecord;
+  }) => IMcpServerStore;
+  resolveModelProviderStore: (input: {
+    c: Context;
+    allowInlineResources?: boolean;
+    runAsAgent?: AgentRecord;
+  }) => IModelProviderStore;
+  resolveRequestContext: ResolveRequestContext;
+  resolveSkillStore: (input: { c: Context; allowInlineResources?: boolean }) => ISkillStore;
+  sandboxEnvironmentStore: ISandboxEnvironmentStore;
+  sandboxProviderStore: ISandboxProviderStore;
+  sessions: Sessions<TTransaction>;
+  sessionStore: ISessionStore<TTransaction>;
+  userStore: IUserStore;
+  webSearchProviderStore: IWebSearchProviderStore;
+  memoryProviderStore: IMemoryProviderStore;
+  configurationStore: IConfigurationStore;
+  withTransaction: WithTransaction<TTransaction>;
 }
 
 /**
- * Peer-facing cancel handler: aborts the turn if it runs in this process.
- * 200 = abort fired, 412 = not running here (treated by callers as a no-op).
+ * Peer-facing cancel handler. 200 means this process found the run and signaled abort.
+ * The drain writes `turn.done` afterward. 412 means it is not running here.
  */
-export function cancelSessionTurnPeerHandler(activeTurns: ActiveTurnRegistry): RequestReplyRouteHandler {
-  // Synchronous by nature; the transport expects a Promise and require-await
-  // forbids an async fn without awaits.
+export function cancelSessionTurnPeerHandler<TTransaction>(
+  activeTurns: ActiveTurnRegistry<TTransaction>,
+): RequestReplyRouteHandler {
   return request => {
     const parsed = CancelPeerBodySchema.safeParse(request.body);
     if (!parsed.success) {
       return Promise.resolve({ status: 400, body: { message: 'Invalid sessions/cancel payload' } });
     }
-    const found = cancelTurnOnThisExecutor(activeTurns, {
+    // Note that we do not wait for the abort to complete.
+    // This means a turn.done can arrive delayed till any in progress step is completed
+    // if they do not honor the abort signal.
+    // This is intentional.
+    const found = activeTurns.cancelIfRunning({
       sessionId: parsed.data.session_id,
       turnId: parsed.data.turn_id,
-      reason: parsed.data.reason,
+      abortReason: parsed.data.reason,
     });
-    return Promise.resolve(
-      found ? { status: 200, body: {} } : { status: 412, body: { message: 'Turn is not running on this executor' } },
-    );
+    if (!found) {
+      return Promise.resolve({ status: 412, body: { message: 'Turn is not running on this executor' } });
+    }
+    return Promise.resolve({ status: 200, body: {} });
   };
 }
 
 /** A registry to abort in, a session to freeze, durable state to read, and a way to reach peers. */
-export interface CancelTurnDeps {
-  activeTurns: ActiveTurnRegistry;
+export interface CancelTurnDeps<TTransaction = never> {
+  activeTurns: ActiveTurnRegistry<TTransaction>;
   session: Pick<SessionHandle, 'session_id' | 'freezeTurn'>;
   sessionStore: Pick<ISessionStore, 'getTurn'>;
   redis?: RedisClient | undefined;
@@ -165,19 +175,20 @@ export interface CancelTurnDeps {
 }
 
 /**
- * Cancels the turn wherever it runs: locally or on the owning peer over Redis
- * request-reply. Callers state the motive; default is a plain client cancel.
+ * Cancels a `running` or `paused` turn wherever it lives: locally or on the
+ * owning peer over Redis request-reply. Callers state the motive; default is a
+ * plain client cancel.
  *
- * A confirmed abort (this process, or peer HTTP 200) lets TurnHandle persist
- * the terminal state. If abort cannot be confirmed, this replica freezes the
- * turn in the store so the session is not stuck `running`.
+ * A found run (this process, or peer HTTP 200) is aborted and not frozen. The drain
+ * writes the terminal state afterward. A stuck call can leave the row non-terminal.
+ * If the run was not found, this replica freezes the turn in the store.
  *
  * Redis timeout and Redis/transport failures are not a clean cancellation —
  * the owning replica may still be executing — but the turn is still frozen.
  * Later writes from that replica lose to first-terminal-write-wins.
  */
-export async function cancelSessionTurn(
-  deps: CancelTurnDeps,
+export async function cancelSessionTurn<TTransaction>(
+  deps: CancelTurnDeps<TTransaction>,
   input: { turnId: string; reason?: CancellationReason },
 ): Promise<void> {
   const { turnId, reason = CancellationReason.ClientCancelled } = input;
@@ -189,8 +200,7 @@ export async function cancelSessionTurn(
     session_id: sessionId,
     turn_id: turnId,
   });
-  if (turn?.state.status !== 'running') {
-    // Missing or already terminal — nothing to cancel.
+  if (!turn || !isNonTerminalTurnState(turn.state)) {
     return;
   }
 
@@ -216,17 +226,18 @@ export async function cancelSessionTurn(
       }
     } catch (error) {
       const fields = {
+        session_id: sessionId,
         turn_id: turnId,
         owner,
         ...extractErrorLogFields(error),
       };
       if (error instanceof RequestTimeoutError) {
-        deps.logger.warn('Timed out waiting for owning executor to cancel; freezing the running turn', {
+        deps.logger.warn('Timed out waiting for owning executor to cancel; freezing the turn', {
           ...fields,
           reportable_error: { error, extra: { turn_id: turnId, owner } },
         });
       } else {
-        deps.logger.warn('Failed to reach owning executor over Redis; freezing the running turn', {
+        deps.logger.warn('Failed to reach owning executor over Redis; freezing the turn', {
           ...fields,
           reportable_error: { error, extra: { turn_id: turnId, owner } },
         });
@@ -236,13 +247,17 @@ export async function cancelSessionTurn(
     return;
   }
 
-  const aborted = cancelTurnOnThisExecutor(deps.activeTurns, { sessionId, turnId, reason });
+  const aborted = deps.activeTurns.cancelIfRunning({
+    sessionId,
+    turnId,
+    abortReason: reason,
+  });
   if (!aborted) {
     await freezeTurnIgnoringMissing(deps.session, { turnId, reason });
   }
 }
 
-/** Freeze a running turn; missing turns are a no-op (already gone). */
+/** Freeze a non-terminal turn; missing turns are a no-op (already gone). */
 async function freezeTurnIgnoringMissing(
   session: Pick<SessionHandle, 'freezeTurn'>,
   input: { turnId: string; reason: CancellationReason },
@@ -272,8 +287,8 @@ function isSessionOwner({
 const FORBIDDEN_SESSION_ACCESS_MANAGEMENT = 'Only the session creator can manage access to this session';
 
 /** Session the caller created; 404 when missing, 403 for anyone else. */
-async function requireOwnedSession(
-  deps: Pick<SessionsRouterDeps, 'sessionStore' | 'resolveRequestContext'>,
+async function requireOwnedSession<TTransaction>(
+  deps: Pick<SessionsRouterDeps<TTransaction>, 'sessionStore' | 'resolveRequestContext'>,
   input: { c: Context; session_id: string },
 ): Promise<{ requestContext: RequestContext; record: SessionRecord }> {
   const requestContext = deps.resolveRequestContext(input.c);
@@ -302,49 +317,6 @@ function uniqueSubjects(subjects: readonly SessionGrantSubject[]): SessionGrantS
   return [...byKey.values()];
 }
 
-/** The ids among `session_ids` shared with everyone in the tenant, i.e. holding its `tenant` grant. */
-async function tenantSharedSessionIds<TTransaction>(
-  accessControlStore: IAccessControlStore<TTransaction>,
-  input: { tenant_id: string; session_ids: readonly string[] },
-): Promise<Set<string>> {
-  const grants = await accessControlStore.listAccessGrants({
-    tenant_id: input.tenant_id,
-    session_ids: input.session_ids,
-    subjects: [{ subject_type: 'tenant', subject_id: input.tenant_id }],
-  });
-  return new Set(grants.map(grant => grant.session_id));
-}
-
-async function isSharedWithTenant<TTransaction>(
-  accessControlStore: IAccessControlStore<TTransaction>,
-  input: { tenant_id: string; session_id: string },
-): Promise<boolean> {
-  const sharedIds = await tenantSharedSessionIds(accessControlStore, {
-    tenant_id: input.tenant_id,
-    session_ids: [input.session_id],
-  });
-  return sharedIds.has(input.session_id);
-}
-
-/** Deprecated `PATCH { shared }`: sharing with everyone is the `tenant` grant. */
-async function setSharedWithTenant<TTransaction>(
-  accessControlStore: IAccessControlStore<TTransaction>,
-  input: { requestContext: RequestContext; session_id: string; shared: boolean },
-): Promise<void> {
-  const { requestContext, session_id } = input;
-  const subjects: SessionGrantSubject[] = [{ subject_type: 'tenant', subject_id: requestContext.tenant_id }];
-  if (input.shared) {
-    await accessControlStore.createAccessGrants({
-      tenant_id: requestContext.tenant_id,
-      session_id,
-      subjects,
-      granted_by_subject: createdBySubjectFromRequestContext(requestContext),
-    });
-    return;
-  }
-  await accessControlStore.deleteAccessGrants({ tenant_id: requestContext.tenant_id, session_id, subjects });
-}
-
 function toWireSessionGrant(record: AccessGrantRecord): SessionGrant {
   return {
     subject: { subject_type: record.subject_type, subject_id: record.subject_id },
@@ -353,16 +325,16 @@ function toWireSessionGrant(record: AccessGrantRecord): SessionGrant {
   };
 }
 
-type ValidateSessionSpecDeps = Pick<
-  SessionsRouterDeps,
+type ValidateSessionSpecDeps<TTransaction = never> = Pick<
+  SessionsRouterDeps<TTransaction>,
   | 'resolveModelProviderStore'
   | 'resolveMcpServerStore'
   | 'resolveSkillStore'
-  | 'resolveSandboxProviderStore'
+  | 'sandboxProviderStore'
   | 'sandboxEnvironmentStore'
-  | 'resolveWebSearchProviderStore'
-  | 'resolveMemoryProviderStore'
-  | 'resolveConfigurationStore'
+  | 'webSearchProviderStore'
+  | 'memoryProviderStore'
+  | 'configurationStore'
 >;
 
 /**
@@ -376,7 +348,7 @@ type ValidateSessionSpecDeps = Pick<
  * `runAsAgent` matches the identity a turn runs under, so a caller who may use an
  * agent is not rejected for models or connectors only the agent can reach.
  */
-function validateSessionSpec({
+function validateSessionSpec<TTransaction>({
   deps,
   c,
   spec,
@@ -385,7 +357,7 @@ function validateSessionSpec({
   allowInlineResources,
   runAsAgent,
 }: {
-  deps: ValidateSessionSpecDeps;
+  deps: ValidateSessionSpecDeps<TTransaction>;
   c: Context;
   spec: AgentSpec;
   requestContext: RequestContext;
@@ -401,11 +373,11 @@ function validateSessionSpec({
     modelProviderStore: deps.resolveModelProviderStore({ c, allowInlineResources, ...asAgent }),
     mcpServerStore: deps.resolveMcpServerStore({ c, allowInlineResources, ...asAgent }),
     skillStore: deps.resolveSkillStore({ c, allowInlineResources }),
-    sandboxProviderStore: deps.resolveSandboxProviderStore(c),
+    sandboxProviderStore: deps.sandboxProviderStore,
     sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-    webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
-    memoryProviderStore: deps.resolveMemoryProviderStore(c),
-    configurationStore: deps.resolveConfigurationStore(c),
+    webSearchProviderStore: deps.webSearchProviderStore,
+    memoryProviderStore: deps.memoryProviderStore,
+    configurationStore: deps.configurationStore,
     previousSpec,
   });
 }
@@ -419,13 +391,16 @@ function savedInlineAgentSpec(record: SessionRecord): AgentSpec | undefined {
 type NewSessionAgent = { found: true; agent: SessionRecord['agent'] } | { found: false; message: string };
 
 /** Validated agent to persist for a new session, shared by both create paths. */
-async function resolveNewSessionAgent({
+async function resolveNewSessionAgent<TTransaction>({
   deps,
   c,
   agent,
   requestContext,
 }: {
-  deps: Pick<InternalSessionsRouterDeps, keyof ValidateSessionSpecDeps | 'resolveAgentStore' | 'authorizer'>;
+  deps: Pick<
+    InternalSessionsRouterDeps<TTransaction>,
+    keyof ValidateSessionSpecDeps<TTransaction> | 'resolveAgentStore' | 'authorizer'
+  >;
   c: Context;
   agent: CreateSessionAgent;
   requestContext: RequestContext;
@@ -467,25 +442,25 @@ async function resolveNewSessionAgent({
   return { found: true, agent: { type: 'reference', id: named.id, name: named.name } };
 }
 
-type InternalSessionsRouterDeps = Pick<
-  SessionsRouterDeps,
+type InternalSessionsRouterDeps<TTransaction> = Pick<
+  SessionsRouterDeps<TTransaction>,
   | 'sessions'
   | 'accessControlStore'
   | 'resolveModelProviderStore'
   | 'resolveMcpServerStore'
   | 'resolveSkillStore'
   | 'resolveAgentStore'
-  | 'resolveSandboxProviderStore'
+  | 'sandboxProviderStore'
   | 'sandboxEnvironmentStore'
-  | 'resolveWebSearchProviderStore'
-  | 'resolveMemoryProviderStore'
-  | 'resolveConfigurationStore'
+  | 'webSearchProviderStore'
+  | 'memoryProviderStore'
+  | 'configurationStore'
   | 'resolveRequestContext'
   | 'authorizer'
 >;
 
-function createGetOrCreateSessionByExternalIdHandler(
-  deps: InternalSessionsRouterDeps,
+function createGetOrCreateSessionByExternalIdHandler<TTransaction>(
+  deps: InternalSessionsRouterDeps<TTransaction>,
 ): RouteHandler<typeof getOrCreateSessionByExternalIdRoute> {
   return async c => {
     const body = c.req.valid('json');
@@ -506,11 +481,7 @@ function createGetOrCreateSessionByExternalIdHandler(
       if (!allowed) {
         return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
       }
-      const shared = await isSharedWithTenant(deps.accessControlStore, {
-        tenant_id: requestContext.tenant_id,
-        session_id: existing.record.session_id,
-      });
-      return c.json({ data: toWireSession(existing.record, shared) }, 200);
+      return c.json({ data: toWireSession(existing.record) }, 200);
     }
 
     const resolved = await resolveNewSessionAgent({ deps, c, agent: body.agent, requestContext });
@@ -526,7 +497,7 @@ function createGetOrCreateSessionByExternalIdHandler(
       source: body.source ?? null,
     });
     if (created) {
-      return c.json({ data: toWireSession(session.record, false) }, 201);
+      return c.json({ data: toWireSession(session.record) }, 201);
     }
     const allowed = await canReadAgentBoundResource({
       store: deps.resolveAgentStore(c),
@@ -538,18 +509,22 @@ function createGetOrCreateSessionByExternalIdHandler(
     if (!allowed) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
-    const shared = await isSharedWithTenant(deps.accessControlStore, {
-      tenant_id: requestContext.tenant_id,
-      session_id: session.record.session_id,
-    });
-    return c.json({ data: toWireSession(session.record, shared) }, 200);
+    return c.json({ data: toWireSession(session.record) }, 200);
   };
 }
 
-/** Internal session operations (mounted at /api/internal/sessions). */
-export function createInternalSessionsRouter(deps: InternalSessionsRouterDeps) {
-  const router = new OpenAPIHono();
+/** Register internal session routes on a shared `/api/internal/sessions` router. */
+export function registerInternalSessionsRoutes<TTransaction>(
+  router: OpenAPIHono,
+  deps: InternalSessionsRouterDeps<TTransaction>,
+): void {
   router.openapi(getOrCreateSessionByExternalIdRoute, createGetOrCreateSessionByExternalIdHandler(deps));
+}
+
+/** Internal session operations (mounted at /api/internal/sessions). */
+export function createInternalSessionsRouter<TTransaction>(deps: InternalSessionsRouterDeps<TTransaction>) {
+  const router = new OpenAPIHono();
+  registerInternalSessionsRoutes(router, deps);
   return router;
 }
 
@@ -573,7 +548,7 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
       metadata: body.metadata,
       external_id: null,
     });
-    return c.json({ data: toWireSession(session.record, false) }, 201);
+    return c.json({ data: toWireSession(session.record) }, 201);
   };
 
   const getSessionHandler: RouteHandler<typeof getSessionRoute> = async c => {
@@ -598,11 +573,7 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
     if (!allowed) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
-    const shared = await isSharedWithTenant(deps.accessControlStore, {
-      tenant_id: requestContext.tenant_id,
-      session_id: sessionId,
-    });
-    return c.json({ data: toWireSession(record, shared) }, 200);
+    return c.json({ data: toWireSession(record) }, 200);
   };
 
   const deleteSessionHandler: RouteHandler<typeof deleteSessionRoute> = async c => {
@@ -679,13 +650,6 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
       }
       throw error;
     }
-    if (body.shared !== undefined) {
-      await setSharedWithTenant(deps.accessControlStore, {
-        requestContext,
-        session_id: sessionId,
-        shared: body.shared,
-      });
-    }
     const record = await deps.sessionStore.getSession({
       tenant_id: requestContext.tenant_id,
       session_id: sessionId,
@@ -693,11 +657,7 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
     if (!record) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    const shared = await isSharedWithTenant(deps.accessControlStore, {
-      tenant_id: requestContext.tenant_id,
-      session_id: sessionId,
-    });
-    return c.json({ data: toWireSession(record, shared) }, 200);
+    return c.json({ data: toWireSession(record) }, 200);
   };
 
   const listSessionsHandler: RouteHandler<typeof listSessionsRoute> = async c => {
@@ -727,14 +687,7 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
         source_type: query.source_type,
         source_id: query.source_id,
       });
-      const sharedIds = await tenantSharedSessionIds(deps.accessControlStore, {
-        tenant_id: requestContext.tenant_id,
-        session_ids: data.map(record => record.session_id),
-      });
-      return c.json(
-        { data: data.map(record => toWireSession(record, sharedIds.has(record.session_id))), pagination },
-        200,
-      );
+      return c.json({ data: data.map(toWireSession), pagination }, 200);
     } catch (error) {
       if (error instanceof SessionStoreConflictError) {
         throw new HTTPException(400, { message: error.message, cause: error });
