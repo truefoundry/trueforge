@@ -1,5 +1,6 @@
 import type { Logger } from 'winston';
 import { McpConnectionError, RemoteMCP, ToolSet } from '../../../src/core';
+import { McpAuthorizationRequiredError } from '../../../src/core/errors';
 import {
   isApprovalRequiredResponse,
   isCallToolResponseResult,
@@ -471,6 +472,96 @@ describe('RemoteMCP + ToolSet', () => {
     const callRes = await server.callTool({ name: 'read_thing', arguments: {} });
     expect(callRes).toEqual({ authRequired });
     expect(state.callToolCalls).toBe(0);
+  });
+
+  it('returns authRequired from a 401 that carries authorization URLs, without falling back', async () => {
+    installFakeConnection({
+      connectError: new McpAuthorizationRequiredError('auth required', { 'my-inline': 'https://auth.example/consent' }),
+    });
+    const onUnauthorized = jest.fn(() => Promise.resolve({ headers: {} }));
+    const server = makeServer({ headers: () => Promise.resolve({ headers: {}, onUnauthorized }) });
+
+    await expect(server.listTools()).resolves.toEqual({
+      authRequired: { servers: [{ id: 'inline-id-123', name: 'my-inline', auth_url: 'https://auth.example/consent' }] },
+    });
+    expect(onUnauthorized).not.toHaveBeenCalled();
+  });
+
+  it('drops the rejected connection when a call returns consent URLs, so the next call reconnects', async () => {
+    const state = installFakeConnection({ sessionId: 'sess-1' });
+    const server = makeServer({ headers: () => Promise.resolve({ headers: {} }) });
+
+    await server.listTools();
+    state.queueCallToolError(
+      new McpAuthorizationRequiredError('auth required', { 'my-inline': 'https://auth.example/consent' }),
+    );
+    await expect(server.callTool({ name: 'read_thing', arguments: {} })).resolves.toHaveProperty('authRequired');
+    await server.callTool({ name: 'read_thing', arguments: {} });
+
+    expect(state.connectCalls).toBe(2);
+  });
+
+  it('throws on a bare 401 when there is no fallback', async () => {
+    installFakeConnection({ connectError: new McpConnectionError('upstream 401', 401) });
+    const server = makeServer({ headers: () => Promise.resolve({ headers: {} }) });
+
+    await expect(server.listTools()).rejects.toMatchObject({ statusCode: 401 });
+  });
+
+  it('falls back to onUnauthorized when supplied credentials are rejected at connect', async () => {
+    installFakeConnection({ connectError: new McpConnectionError('upstream 401', 401) });
+    const authRequired: MCPAuthRequired = {
+      servers: [{ id: 'inline-id-123', name: 'my-inline', auth_url: 'https://auth.example' }],
+    };
+    const onUnauthorized = jest.fn(() => Promise.resolve({ authRequired }));
+    const server = makeServer({
+      headers: () => Promise.resolve({ headers: { Authorization: 'Bearer caller' }, onUnauthorized }),
+    });
+
+    await expect(server.listTools()).resolves.toEqual({ authRequired });
+    expect(onUnauthorized).toHaveBeenCalledTimes(1);
+  });
+
+  it('reconnects with fallback headers when a call is rejected mid-session', async () => {
+    const state = installFakeConnection({ sessionId: 'sess-1' });
+    const server = makeServer({
+      headers: () =>
+        Promise.resolve({
+          headers: { Authorization: 'Bearer caller' },
+          onUnauthorized: () => Promise.resolve({ headers: { Authorization: 'Bearer fallback' } }),
+        }),
+    });
+
+    await server.listTools();
+    state.queueCallToolError(Object.assign(new Error('HTTP 401'), { code: 401 }));
+    const res = await server.callTool({ name: 'read_thing', arguments: {} });
+
+    expect(res).toMatchObject({ result: { content: [{ type: 'text', text: 'called read_thing' }] } });
+    expect(state.connectCalls).toBe(2);
+    expect(mockConnect.mock.lastCall?.[0].headers).toEqual({ Authorization: 'Bearer fallback' });
+  });
+
+  it('re-checks fallback auth before reusing a fallback connection', async () => {
+    const state = installFakeConnection({ sessionId: 'sess-1' });
+    const authRequired: MCPAuthRequired = {
+      servers: [{ id: 'inline-id-123', name: 'my-inline', auth_url: 'https://auth.example' }],
+    };
+    const onUnauthorized = jest
+      .fn<Promise<{ headers: Record<string, string> } | { authRequired: MCPAuthRequired }>, []>()
+      .mockResolvedValueOnce({ headers: { Authorization: 'Bearer fallback' } })
+      .mockResolvedValue({ authRequired });
+    const server = makeServer({
+      headers: () => Promise.resolve({ headers: { Authorization: 'Bearer caller' }, onUnauthorized }),
+    });
+
+    await server.listTools();
+    state.queueCallToolError(Object.assign(new Error('HTTP 401'), { code: 401 }));
+    await server.callTool({ name: 'read_thing', arguments: {} });
+    const callsBefore = state.callToolCalls;
+
+    // The fallback account was disconnected: the reused connection must not run the call.
+    await expect(server.callTool({ name: 'read_thing', arguments: {} })).resolves.toEqual({ authRequired });
+    expect(state.callToolCalls).toBe(callsBefore);
   });
 
   it('emits init for a stateless (SSE) server on connect (matches gateway strict-compare behavior)', async () => {

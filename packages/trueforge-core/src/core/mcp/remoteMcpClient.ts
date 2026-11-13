@@ -6,7 +6,8 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import type { FetchLike } from '@modelcontextprotocol/sdk/shared/transport.js';
 import type { CallToolRequest, CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { context, propagation } from '@opentelemetry/api';
-import { McpConnectionError } from '../errors';
+import { z } from 'zod';
+import { McpAuthorizationRequiredError, McpConnectionError } from '../errors';
 import { elapsedSeconds, getOperationMetrics, type McpConnectOutcome } from '../observability/operationMetrics';
 import { mcpSsrfFetch } from '../util/outboundFetch';
 import { PromiseTimeoutError, withTimeout } from '../util/promiseUtils';
@@ -35,11 +36,12 @@ const TRANSPORT_PROBE_ORDER: RemoteMcpTransportType[] = ['streamable-http', 'sse
 
 export const DEFAULT_MAX_MCP_RESPONSE_BYTES = 50 * 1024 * 1024;
 
-/** GET SSE is long-lived and uncapped; every other body aborts at `maxBytes`. */
+/** A successful GET SSE is long-lived and uncapped; every other body aborts at `maxBytes`. */
 export function withMaxResponseBytes(fetchFn: FetchLike, maxBytes: number): FetchLike {
   return async (url, init) => {
     const response = await fetchFn(url, init);
     const isGetSse =
+      response.ok &&
       (init?.method ?? 'GET').toUpperCase() === 'GET' &&
       (response.headers.get('content-type') ?? '').toLowerCase().includes('text/event-stream');
     if (isGetSse || !response.body) {
@@ -66,6 +68,29 @@ export function withMaxResponseBytes(fetchFn: FetchLike, maxBytes: number): Fetc
       ),
       { status: response.status, statusText: response.statusText, headers: response.headers },
     );
+  };
+}
+
+const AuthorizationRequiredBodySchema = z.object({
+  authorization_urls: z.record(z.string(), z.url({ protocol: /^https?$/ })),
+});
+
+/** A 401 whose body lists `authorization_urls` throws `McpAuthorizationRequiredError`; other responses pass through. */
+export function withAuthorizationRequired(fetchFn: FetchLike): FetchLike {
+  return async (url, init) => {
+    const response = await fetchFn(url, init);
+    if (response.status !== 401) {
+      return response;
+    }
+    const body: unknown = await response
+      .clone()
+      .json()
+      .catch(() => undefined);
+    const parsed = AuthorizationRequiredBodySchema.safeParse(body);
+    if (!parsed.success || Object.keys(parsed.data.authorization_urls).length === 0) {
+      return response;
+    }
+    throw new McpAuthorizationRequiredError('upstream requires authorization', parsed.data.authorization_urls);
   };
 }
 
@@ -124,9 +149,13 @@ function mcpConnectOutcome(error: unknown): McpConnectOutcome {
   return 'other';
 }
 
-function isAuthError(error: unknown): boolean {
+/** Upstream rejected the credentials, whether at connect or on a later request. */
+export function isAuthError(error: unknown): boolean {
   if (!(error instanceof Error)) {
     return false;
+  }
+  if (error instanceof McpConnectionError) {
+    return error.statusCode === 401;
   }
   if ('code' in error && error.code === 401) {
     return true;
@@ -212,7 +241,9 @@ export async function connectRemoteMcp(params: {
   const customFetch = params.fetch;
   const transportFetch: RemoteMcpFetch =
     customFetch === undefined ? mcpSsrfFetch : (input, init) => customFetch(input, { ...init, redirect: 'manual' });
-  const fetchFn = withMaxResponseBytes(transportFetch, params.maxResponseBytes ?? DEFAULT_MAX_MCP_RESPONSE_BYTES);
+  const fetchFn = withAuthorizationRequired(
+    withMaxResponseBytes(transportFetch, params.maxResponseBytes ?? DEFAULT_MAX_MCP_RESPONSE_BYTES),
+  );
   const candidates = params.knownTransportType
     ? [params.knownTransportType, ...TRANSPORT_PROBE_ORDER.filter(t => t !== params.knownTransportType)]
     : TRANSPORT_PROBE_ORDER;

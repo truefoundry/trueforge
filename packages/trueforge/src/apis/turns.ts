@@ -88,6 +88,7 @@ import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { createTlsFetch, normalizeTlsUrl } from '../http/tls';
 import { currentLogContext, runWithLogContext, updateLogContext } from '../logger';
+import { X_TFG_MCP_HEADERS } from '../mcp/perServerMcpHeaders';
 import { TRUEFORGE_SESSION_HEADER, X_TFG_TRUEFORGE_MCP } from '../mcp/server/trueforge/headers';
 import type { TenantMemoryDeps } from '../memory/providers';
 import { resolveSessionMemory } from '../memory/sessionMemory';
@@ -123,7 +124,6 @@ import { restoreTurnEventLog } from '../runtime/turnEventLogRestore';
 import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
 import { assertGatewayMetadataRequestHeaders, X_TFY_METADATA } from '../truefoundry/gatewayMetadata';
 import { X_TFG_MCP, X_TFG_MODELS, X_TFG_SKILLS, X_TFG_TOOLS } from '../truefoundry/inlineResources';
-import { X_TFG_MCP_HEADERS } from '../truefoundry/perServerMcpHeaders';
 import { newId } from '../utils/id';
 import { resolveWebSearchProvider } from '../websearch/providers';
 import { canReadAgentBoundResource, canReadSession } from './agentAccess';
@@ -828,15 +828,29 @@ function withTurnSessionHeader(connection: McpConnection, sessionId: string): Mc
   const sessionHeader = { [TRUEFORGE_SESSION_HEADER]: sessionId };
   const headers = connection.headers;
   if (typeof headers === 'function') {
-    return {
-      ...connection,
-      headers: async (): Promise<ResolveHeadersResult> => {
-        const resolved = await headers();
-        return 'authRequired' in resolved ? resolved : { headers: { ...resolved.headers, ...sessionHeader } };
-      },
-    };
+    return { ...connection, headers: withSessionHeaderResolver({ resolve: headers, sessionHeader }) };
   }
   return { ...connection, headers: { ...(headers ?? {}), ...sessionHeader } };
+}
+
+function withSessionHeaderResolver(input: {
+  resolve: () => Promise<ResolveHeadersResult>;
+  sessionHeader: Record<string, string>;
+}): () => Promise<ResolveHeadersResult> {
+  const { resolve, sessionHeader } = input;
+  return async () => {
+    const resolved = await resolve();
+    if ('authRequired' in resolved) {
+      return resolved;
+    }
+    const { onUnauthorized } = resolved;
+    return {
+      headers: { ...resolved.headers, ...sessionHeader },
+      ...(onUnauthorized === undefined
+        ? {}
+        : { onUnauthorized: withSessionHeaderResolver({ resolve: onUnauthorized, sessionHeader }) }),
+    };
+  };
 }
 
 /**

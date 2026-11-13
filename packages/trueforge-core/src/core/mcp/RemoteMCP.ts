@@ -1,6 +1,12 @@
 import type { CallToolRequest } from '@modelcontextprotocol/sdk/types.js';
 import type { Logger } from 'winston';
-import { applyErrorPrefix, MCP_ERROR_PREFIX, McpConnectionError, stripErrorPrefix } from '../errors';
+import {
+  applyErrorPrefix,
+  MCP_ERROR_PREFIX,
+  McpAuthorizationRequiredError,
+  McpConnectionError,
+  stripErrorPrefix,
+} from '../errors';
 import type { MCPServerInitInfo } from '../events/schema';
 import type { InternalToolCallInfo } from '../llm/LLMTypes';
 import {
@@ -24,6 +30,7 @@ import { paginateWithCursorGuard } from './pagination';
 import {
   connectRemoteMcp,
   DEFAULT_MAX_MCP_RESPONSE_BYTES,
+  isAuthError,
   isSessionExpiredError,
   type RemoteMcpConnection,
   type RemoteMcpFetch,
@@ -40,8 +47,13 @@ function redactUrlForTrace(url: string): string {
   }
 }
 
-/** What a headers resolver returns: the headers to send, or a signal that auth is required. */
-export type ResolveHeadersResult = { headers: Record<string, string> } | { authRequired: MCPAuthRequired };
+/**
+ * What a headers resolver returns: the headers to send, or a signal that auth is required.
+ * `onUnauthorized` is consulted once if the upstream rejects `headers` with a 401.
+ */
+export type ResolveHeadersResult =
+  | { headers: Record<string, string>; onUnauthorized?: () => Promise<ResolveHeadersResult> }
+  | { authRequired: MCPAuthRequired };
 
 /** Static headers, or a resolver (invoked at connect) returning headers or signalling auth-required. */
 export type RemoteMcpHeaders = Record<string, string> | (() => Promise<ResolveHeadersResult>);
@@ -87,6 +99,8 @@ export class RemoteMCP implements ToolSource {
   private cachedTools?: AgentToolSchema[] | undefined;
   private inflight = 0;
   private pendingClose: RemoteMcpConnection | undefined;
+  // Connection opened with onUnauthorized fallback headers; its auth is re-checked before reuse.
+  private fallbackConnection: RemoteMcpConnection | undefined;
 
   constructor(params: {
     id: string;
@@ -177,6 +191,48 @@ export class RemoteMCP implements ToolSource {
   private async executeWithSessionRetry<T>(
     operation: (connection: RemoteMcpConnection) => Promise<T>,
   ): Promise<ExecuteResult<T>> {
+    let used: RemoteMcpConnection | undefined;
+    const tracked = (connection: RemoteMcpConnection): Promise<T> => {
+      used = connection;
+      return operation(connection);
+    };
+    try {
+      return await this.executeWithAuthFallback(tracked);
+    } catch (error) {
+      const authRequired = this.authRequiredFrom(error);
+      if (authRequired === undefined) {
+        throw error;
+      }
+      await this.discardRejected(used);
+      return { authRequired };
+    }
+  }
+
+  // Reset only the rejected connection; a failed connect still leaves the old session and tools.
+  private async discardRejected(rejected: RemoteMcpConnection | undefined): Promise<void> {
+    if (rejected !== undefined) {
+      await this.resetConnection(rejected);
+    } else if (!this.isConnected) {
+      this.sessionId = undefined;
+      this.cachedTools = undefined;
+    }
+  }
+
+  /** A 401 that carried consent URLs becomes authRequired; a bare 401 stays an error. */
+  private authRequiredFrom(error: unknown): MCPAuthRequired | undefined {
+    for (let current: unknown = error; current instanceof Error; current = current.cause) {
+      if (current instanceof McpAuthorizationRequiredError) {
+        const urls = current.authorizationUrls;
+        const authUrl = urls[this.name] ?? Object.values(urls)[0];
+        return authUrl === undefined ? undefined : { servers: [{ id: this.id, name: this.name, auth_url: authUrl }] };
+      }
+    }
+    return undefined;
+  }
+
+  private async executeWithAuthFallback<T>(
+    operation: (connection: RemoteMcpConnection) => Promise<T>,
+  ): Promise<ExecuteResult<T>> {
     // Auth is re-checked on every operation, not only on the first connect: a registered server's OAuth
     // can be revoked or expire mid-request, and callers must get authRequired rather than a generic
     // upstream failure. When already connected the resolved headers are unused (connect is skipped).
@@ -184,7 +240,47 @@ export class RemoteMCP implements ToolSource {
     if ('authRequired' in headersResult) {
       return { authRequired: headersResult.authRequired };
     }
-    return this.connectAndRun(headersResult.headers, operation, true);
+    const { onUnauthorized } = headersResult;
+    if (onUnauthorized === undefined) {
+      return this.connectAndRun(headersResult.headers, operation, true);
+    }
+    if (this.isConnected && this._connection !== undefined && this._connection === this.fallbackConnection) {
+      // Re-check the fallback auth before reusing its connection so a disconnected account stops here.
+      return this.runWithFallback(onUnauthorized, operation);
+    }
+    let rejected: RemoteMcpConnection | undefined;
+    const tracked = (connection: RemoteMcpConnection): Promise<T> => {
+      rejected = connection;
+      return operation(connection);
+    };
+    try {
+      return await this.connectAndRun(headersResult.headers, tracked, true);
+    } catch (error) {
+      if (!isAuthError(error) || this.authRequiredFrom(error) !== undefined) {
+        throw error;
+      }
+      this.logger.info(`Remote MCP ${this.name} rejected supplied credentials, falling back to its auth flow`);
+      await this.discardRejected(rejected);
+      return this.runWithFallback(onUnauthorized, operation);
+    }
+  }
+
+  private async runWithFallback<T>(
+    onUnauthorized: () => Promise<ResolveHeadersResult>,
+    operation: (connection: RemoteMcpConnection) => Promise<T>,
+  ): Promise<ExecuteResult<T>> {
+    const fallback = await onUnauthorized();
+    if ('authRequired' in fallback) {
+      if (this.fallbackConnection !== undefined) {
+        await this.resetConnection(this.fallbackConnection);
+      }
+      return { authRequired: fallback.authRequired };
+    }
+    const tracked = (connection: RemoteMcpConnection): Promise<T> => {
+      this.fallbackConnection = connection;
+      return operation(connection);
+    };
+    return this.connectAndRun(fallback.headers, tracked, true);
   }
 
   private async connectAndRun<T>(

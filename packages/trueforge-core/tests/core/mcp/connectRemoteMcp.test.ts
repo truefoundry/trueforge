@@ -115,6 +115,34 @@ describe('connectRemoteMcp custom fetch', () => {
 
     expect(fetch).toHaveBeenCalledWith(endpoint, expect.objectContaining({ redirect: 'manual' }));
   });
+
+  it('turns a 401 with authorization_urls into McpAuthorizationRequiredError and passes a bare 401 through', async () => {
+    const urls = { github: 'https://auth.example/consent' };
+    const fetch = jest
+      .fn<Promise<Response>, Parameters<RemoteMcpFetch>>()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: { type: 'McpAuthRequiredError' }, authorization_urls: urls }), {
+          status: 401,
+        }),
+      )
+      .mockResolvedValueOnce(new Response('unauthorized', { status: 401 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ authorization_urls: { github: 'javascript:alert(1)' } }), { status: 401 }),
+      );
+    await connectRemoteMcp({ ...baseParams(), url: endpoint, knownTransportType: 'streamable-http', fetch });
+    const transportFetch = mockTransportFetches[0];
+    if (transportFetch === undefined) {
+      throw new Error('expected transport fetch');
+    }
+
+    await expect(transportFetch(endpoint, {})).rejects.toMatchObject({
+      name: 'McpAuthorizationRequiredError',
+      statusCode: 401,
+      authorizationUrls: urls,
+    });
+    await expect(transportFetch(endpoint, {})).resolves.toMatchObject({ status: 401 });
+    await expect(transportFetch(endpoint, {})).resolves.toMatchObject({ status: 401 });
+  });
 });
 
 describe('connectRemoteMcp transport selection', () => {

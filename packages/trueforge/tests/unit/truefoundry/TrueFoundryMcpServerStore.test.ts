@@ -298,51 +298,16 @@ describe('TrueFoundryMcpServerStore', () => {
       return headers();
     }
 
-    it('returns authRequired when authorize reports auth_required', async () => {
+    it('returns the gateway Bearer without calling authorize', async () => {
       const { store, client } = createStore();
-      client.getMcpAuthorize.mockResolvedValue({
-        status: 'auth_required',
-        authorization_url: 'https://consent.example/authorize',
-      });
-      await expect(invoke(store)).resolves.toEqual({
-        authRequired: {
-          servers: [{ id: 'github', name: 'github', auth_url: 'https://consent.example/authorize' }],
-        },
-      });
-    });
-
-    it('gates non-dcr truefoundry servers through authorize as well', async () => {
-      const { store, client } = createStore();
-      const record = truefoundryRecordWithoutAuth();
-      client.getMcpServerByName.mockResolvedValue({
-        id: record.id,
-        name: record.name,
-        proxyUrl: `${MCP_PROXY_BASE_URL_TEMPLATE}/mcp-server/${record.name}`,
-        createdAt: record.created_at,
-        updatedAt: record.updated_at,
-        manifest: { description: record.manifest.description, auth_data: { type: 'header' } },
-      });
-      client.getMcpAuthorize.mockResolvedValue({
-        status: 'auth_required',
-        authorization_url: 'https://consent.example/auth-override',
-      });
-      await expect(invoke(store, record)).resolves.toEqual({
-        authRequired: {
-          servers: [{ id: record.name, name: record.name, auth_url: 'https://consent.example/auth-override' }],
-        },
-      });
-      expect(client.getMcpAuthorize).toHaveBeenCalled();
-    });
-
-    it('returns gateway Bearer when authorize reports authenticated', async () => {
-      const { store } = createStore();
       await expect(invoke(store)).resolves.toEqual({
         headers: { Authorization: `Bearer ${ACCESS_TOKEN}` },
       });
+      expect(client.getMcpAuthorize).not.toHaveBeenCalled();
     });
 
-    it('merges turn metadata after auth headers and leaves authRequired untouched', async () => {
-      const { store, client } = createStore();
+    it('merges turn metadata after auth headers', async () => {
+      const { store } = createStore();
       const headers = store.resolveInvokeHeaders({
         record: dcrRecord(),
         userRef: 'user-1',
@@ -368,19 +333,9 @@ describe('TrueFoundryMcpServerStore', () => {
         throw new Error('expected invoke headers');
       }
       expect(JSON.parse(resolved.headers[X_TFY_METADATA] ?? '')).toMatchObject({ env: 'prod' });
-
-      client.getMcpAuthorize.mockResolvedValue({
-        status: 'auth_required',
-        authorization_url: 'https://consent.example/authorize',
-      });
-      await expect(headers()).resolves.toEqual({
-        authRequired: {
-          servers: [{ id: 'github', name: 'github', auth_url: 'https://consent.example/authorize' }],
-        },
-      });
     });
 
-    it('delegates invoke: caller bearer, actor header, actor token for SFY lookups', async () => {
+    it('delegates invoke: caller bearer, actor header, no SFY lookups', async () => {
       const { store, client } = createStore({ agent: AGENT });
       await expect(invoke(store)).resolves.toEqual({
         headers: {
@@ -388,9 +343,7 @@ describe('TrueFoundryMcpServerStore', () => {
           [ACTOR_AUTHORIZATION_HEADER]: `Bearer ${ACTOR_TOKEN}`,
         },
       });
-      expect(client.getMcpAuthorize).toHaveBeenCalledWith(expect.objectContaining({ accessToken: ACCESS_TOKEN }));
-      expect(client.getMcpServerByName).toHaveBeenCalledWith(expect.objectContaining({ accessToken: ACTOR_TOKEN }));
-      expect(client.listGatewayInstallations).toHaveBeenCalledWith(ACTOR_TOKEN);
+      expect(client.getMcpServerByName).not.toHaveBeenCalled();
       expect(client.vendToken).toHaveBeenCalledTimes(1);
     });
 
@@ -399,14 +352,7 @@ describe('TrueFoundryMcpServerStore', () => {
       await expect(invoke(store)).resolves.toEqual({
         headers: { Authorization: `Bearer ${SUBJECT_TOKEN}` },
       });
-      expect(client.getMcpAuthorize).toHaveBeenCalledWith(expect.objectContaining({ accessToken: SUBJECT_TOKEN }));
-      expect(client.getMcpServerByName).toHaveBeenCalledWith(expect.objectContaining({ accessToken: ACTOR_TOKEN }));
-    });
-
-    it('throws 422 when auth_required lacks authorization_url', async () => {
-      const { store, client } = createStore();
-      client.getMcpAuthorize.mockResolvedValue({ status: 'auth_required' });
-      await expect(invoke(store)).rejects.toMatchObject({ status: 422 });
+      expect(client.getMcpServerByName).not.toHaveBeenCalled();
     });
   });
 });
