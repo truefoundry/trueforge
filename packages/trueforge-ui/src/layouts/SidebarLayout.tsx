@@ -19,6 +19,7 @@ import { useIsMobile } from '../atoms/lib/useIsMobile.js';
 import { NamedAgentHeaderLabel } from '../atoms/NamedAgentHeaderLabel.js';
 import { PageHeader } from '../atoms/PageHeader.js';
 import { Spinner } from '../atoms/primitives/Spinner.js';
+import { Tooltip } from '../atoms/primitives/Tooltip.js';
 import { ShellActions } from '../atoms/ShellActions.js';
 import { AgentConfigDrawerContainer } from '../containers/AgentConfigDrawerContainer.js';
 import { Thread } from '../containers/Thread.js';
@@ -43,6 +44,7 @@ const brandLogoClassName = 'h-5 w-5 max-w-40 shrink-0 object-contain';
 const brandLogoExpandedClassName = 'h-5 max-w-40 shrink-0 object-contain';
 const railWidthClassName = 'w-20';
 const mobileDrawerWidthClassName = 'w-80';
+const recentHistoryPanelId = 'aui-recent-chat-history';
 
 const railActionButtonClassName = cn(sidebarRailButtonClassName, 'text-sidebar-text');
 
@@ -53,15 +55,52 @@ function isRecentHistoryVisible({ overlayOpen, mode }: { overlayOpen: boolean; m
   return !overlayOpen && mode?.status === 'active' && !mode.isCreateAgent;
 }
 
-function RecentChatsAside() {
+function RecentChatsAside({
+  collapsed,
+  onCollapsedChange,
+}: {
+  collapsed: boolean;
+  onCollapsedChange: (next: boolean) => void;
+}) {
   const preview = useFilePreview();
   if (preview.presentation === 'full') return null;
+
+  if (collapsed) {
+    return (
+      <aside
+        id={recentHistoryPanelId}
+        aria-label="Recent chats"
+        className="hidden min-h-0 w-12 shrink-0 flex-col border-r border-border bg-sidebar-bg md:flex"
+      >
+        <div className="flex w-full items-start justify-center p-2">
+          <Tooltip content="Open chat history" side="right">
+            <button
+              type="button"
+              aria-label="Open chat history"
+              aria-controls={recentHistoryPanelId}
+              aria-expanded={false}
+              className={auiButtonClass({
+                variant: 'ghost',
+                size: 'icon',
+                className: 'size-7 text-text-secondary hover:bg-ghost-button-hover hover:text-ghost-button-text',
+              })}
+              onClick={() => onCollapsedChange(false)}
+            >
+              <Icon name="panel-left-open" className="size-3.5" />
+            </button>
+          </Tooltip>
+        </div>
+      </aside>
+    );
+  }
+
   return (
     <aside
+      id={recentHistoryPanelId}
       aria-label="Recent chats"
       className="hidden min-h-0 w-64 shrink-0 border-r border-border bg-sidebar-bg md:flex"
     >
-      <ThreadListContainer variant="recent-history" />
+      <ThreadListContainer variant="recent-history" onCollapseRecentHistory={() => onCollapsedChange(true)} />
     </aside>
   );
 }
@@ -246,6 +285,7 @@ export function SidebarLayout({ className }: { className?: string }) {
   const SaveAgentButton = useSlot('SaveAgentButton');
   const SelectAgentEmptyState = useSlot('SelectAgentEmptyState');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [recentHistoryCollapsed, setRecentHistoryCollapsed] = useState(false);
   const menuBtnRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
@@ -352,7 +392,9 @@ export function SidebarLayout({ className }: { className?: string }) {
 
         <FilePreviewProvider>
           <div className="flex min-h-0 min-w-0 flex-1">
-            {showRecentHistory ? <RecentChatsAside /> : null}
+            {showRecentHistory ? (
+              <RecentChatsAside collapsed={recentHistoryCollapsed} onCollapsedChange={setRecentHistoryCollapsed} />
+            ) : null}
 
             <div ref={mainRef} className="min-h-0 min-w-0 flex-1">
               {settingsOpen ? (
