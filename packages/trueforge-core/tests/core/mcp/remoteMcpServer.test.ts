@@ -487,6 +487,20 @@ describe('RemoteMCP + ToolSet', () => {
     expect(onUnauthorized).not.toHaveBeenCalled();
   });
 
+  it('drops the rejected connection when a call returns consent URLs, so the next call reconnects', async () => {
+    const state = installFakeConnection({ sessionId: 'sess-1' });
+    const server = makeServer({ headers: () => Promise.resolve({ headers: {} }) });
+
+    await server.listTools();
+    state.queueCallToolError(
+      new McpAuthorizationRequiredError('auth required', { 'my-inline': 'https://auth.example/consent' }),
+    );
+    await expect(server.callTool({ name: 'read_thing', arguments: {} })).resolves.toHaveProperty('authRequired');
+    await server.callTool({ name: 'read_thing', arguments: {} });
+
+    expect(state.connectCalls).toBe(2);
+  });
+
   it('throws on a bare 401 when there is no fallback', async () => {
     installFakeConnection({ connectError: new McpConnectionError('upstream 401', 401) });
     const server = makeServer({ headers: () => Promise.resolve({ headers: {} }) });

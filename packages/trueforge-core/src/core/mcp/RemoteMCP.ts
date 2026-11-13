@@ -191,14 +191,30 @@ export class RemoteMCP implements ToolSource {
   private async executeWithSessionRetry<T>(
     operation: (connection: RemoteMcpConnection) => Promise<T>,
   ): Promise<ExecuteResult<T>> {
+    let used: RemoteMcpConnection | undefined;
+    const tracked = (connection: RemoteMcpConnection): Promise<T> => {
+      used = connection;
+      return operation(connection);
+    };
     try {
-      return await this.executeWithAuthFallback(operation);
+      return await this.executeWithAuthFallback(tracked);
     } catch (error) {
       const authRequired = this.authRequiredFrom(error);
       if (authRequired === undefined) {
         throw error;
       }
+      await this.discardRejected(used);
       return { authRequired };
+    }
+  }
+
+  // Reset only the rejected connection; a failed connect still leaves the old session and tools.
+  private async discardRejected(rejected: RemoteMcpConnection | undefined): Promise<void> {
+    if (rejected !== undefined) {
+      await this.resetConnection(rejected);
+    } else if (!this.isConnected) {
+      this.sessionId = undefined;
+      this.cachedTools = undefined;
     }
   }
 
@@ -244,13 +260,7 @@ export class RemoteMCP implements ToolSource {
         throw error;
       }
       this.logger.info(`Remote MCP ${this.name} rejected supplied credentials, falling back to its auth flow`);
-      // Reset only the rejected connection; a failed connect still leaves the old session and tools.
-      if (rejected !== undefined) {
-        await this.resetConnection(rejected);
-      } else if (!this.isConnected) {
-        this.sessionId = undefined;
-        this.cachedTools = undefined;
-      }
+      await this.discardRejected(rejected);
       return this.runWithFallback(onUnauthorized, operation);
     }
   }

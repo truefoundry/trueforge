@@ -36,11 +36,12 @@ const TRANSPORT_PROBE_ORDER: RemoteMcpTransportType[] = ['streamable-http', 'sse
 
 export const DEFAULT_MAX_MCP_RESPONSE_BYTES = 50 * 1024 * 1024;
 
-/** GET SSE is long-lived and uncapped; every other body aborts at `maxBytes`. */
+/** A successful GET SSE is long-lived and uncapped; every other body aborts at `maxBytes`. */
 export function withMaxResponseBytes(fetchFn: FetchLike, maxBytes: number): FetchLike {
   return async (url, init) => {
     const response = await fetchFn(url, init);
     const isGetSse =
+      response.ok &&
       (init?.method ?? 'GET').toUpperCase() === 'GET' &&
       (response.headers.get('content-type') ?? '').toLowerCase().includes('text/event-stream');
     if (isGetSse || !response.body) {
