@@ -890,7 +890,7 @@ class RawSessionsClient:
             Opaque token from a previous response `next_page_token`.
 
         assume_user : typing.Optional[typing.Literal["session-creator"]]
-            Service API key only: assume role (not a user id). Today only session-creator; more roles may be added later.
+            Service API key only: which user identity to assume. Currently only session-creator.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1003,7 +1003,7 @@ class RawSessionsClient:
             User messages for this turn. At least one is required.
 
         assume_user : typing.Optional[typing.Literal["session-creator"]]
-            Service API key only: assume role (not a user id). Today only session-creator; more roles may be added later.
+            Service API key only: which user identity to assume. Currently only session-creator.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -1193,7 +1193,7 @@ class RawSessionsClient:
             User messages for this turn. At least one is required.
 
         assume_user : typing.Optional[typing.Literal["session-creator"]]
-            Service API key only: assume role (not a user id). Today only session-creator; more roles may be added later.
+            Service API key only: which user identity to assume. Currently only session-creator.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -2752,7 +2752,7 @@ class AsyncRawSessionsClient:
             Opaque token from a previous response `next_page_token`.
 
         assume_user : typing.Optional[typing.Literal["session-creator"]]
-            Service API key only: assume role (not a user id). Today only session-creator; more roles may be added later.
+            Service API key only: which user identity to assume. Currently only session-creator.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -2868,7 +2868,7 @@ class AsyncRawSessionsClient:
             User messages for this turn. At least one is required.
 
         assume_user : typing.Optional[typing.Literal["session-creator"]]
-            Service API key only: assume role (not a user id). Today only session-creator; more roles may be added later.
+            Service API key only: which user identity to assume. Currently only session-creator.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -3058,7 +3058,7 @@ class AsyncRawSessionsClient:
             User messages for this turn. At least one is required.
 
         assume_user : typing.Optional[typing.Literal["session-creator"]]
-            Service API key only: assume role (not a user id). Today only session-creator; more roles may be added later.
+            Service API key only: which user identity to assume. Currently only session-creator.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 

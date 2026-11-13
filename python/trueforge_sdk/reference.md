@@ -2948,7 +2948,7 @@ client.sessions.list_turns(
 <dl>
 <dd>
 
-**assume_user:** `typing.Optional[typing.Literal]` — Service API key only: assume role (not a user id). Today only session-creator; more roles may be added later.
+**assume_user:** `typing.Optional[typing.Literal]` — Service API key only: which user identity to assume. Currently only session-creator.
     
 </dd>
 </dl>
@@ -3055,7 +3055,7 @@ client.sessions.create_turn_stream(
 <dl>
 <dd>
 
-**assume_user:** `typing.Optional[typing.Literal]` — Service API key only: assume role (not a user id). Today only session-creator; more roles may be added later.
+**assume_user:** `typing.Optional[typing.Literal]` — Service API key only: which user identity to assume. Currently only session-creator.
     
 </dd>
 </dl>
@@ -3170,7 +3170,7 @@ client.sessions.create_turn_stream(
 <dl>
 <dd>
 
-**assume_user:** `typing.Optional[typing.Literal]` — Service API key only: assume role (not a user id). Today only session-creator; more roles may be added later.
+**assume_user:** `typing.Optional[typing.Literal]` — Service API key only: which user identity to assume. Currently only session-creator.
     
 </dd>
 </dl>
