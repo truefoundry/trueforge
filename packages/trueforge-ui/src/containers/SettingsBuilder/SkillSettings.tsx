@@ -7,11 +7,11 @@ import { AnalyticsEvents } from '@/analytics/events.js';
 import { Button } from '@/atoms/primitives/Button.js';
 import SearchInput from '@/atoms/primitives/SearchInput.js';
 import { Icon } from '@/icons/Icon.js';
+import ConfirmDeleteDialog from '../../atoms/primitives/ConfirmDeleteDialog.js';
 import { useCatalogServer } from '../../server/ServerContext.js';
 import type { RegistrySkill, SkillBase, SkillCatalogEntry, SkillConfigBase } from '../../server/types.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import { useToasterOptional } from '../ToasterContainer.js';
-import ConfirmDeleteDialog from './ConfirmDeleteDialog.js';
 import ImportGithubSkillForm from './ImportGithubSkillForm.js';
 
 const matchesQuery = (query: string, name: string, description: string) =>

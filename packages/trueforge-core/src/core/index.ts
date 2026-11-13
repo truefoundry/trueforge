@@ -19,7 +19,7 @@ export type {
   AgentThreadExecutionResult,
   SubAgentCompletion,
 } from './runtime/AgentThread.types';
-export { AgentThreadOrchestrator } from './runtime/AgentThreadOrchestrator';
+export { AgentThreadOrchestrator, DEFAULT_MAX_PARALLEL_SUB_AGENTS } from './runtime/AgentThreadOrchestrator';
 export type { CreateDynamicSubAgentThread } from './runtime/CreateDynamicSubAgentThread';
 export { isAgentUserMessage, isEmptyMessageContent, isFileContentPart } from './runtime/UserInputMessage';
 export type { UserMessage } from './runtime/UserInputMessage';

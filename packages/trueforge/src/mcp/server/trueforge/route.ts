@@ -51,7 +51,7 @@ export function createTrueForgeMcpRouter(deps: TrueForgeMcpRouterDeps): Hono {
       ...(requestContext.user_credential === null ? { auth: false } : { token: requestContext.user_credential }),
       fetch: internalFetch,
     });
-    const client = createWireApiClient(apiClient);
+    const client = createWireApiClient(apiClient, baseUrl);
     const server = createTrueForgeMcpServer({ client, version: deps.version, tools: deps.resolveTools() });
     const transport = new WebStandardStreamableHTTPServerTransport({
       enableJsonResponse: true,

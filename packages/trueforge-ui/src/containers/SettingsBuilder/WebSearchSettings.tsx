@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTrackAnalytics } from '@/analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '@/analytics/events.js';
 import { Button } from '../../atoms/primitives/Button.js';
+import ConfirmDeleteDialog from '../../atoms/primitives/ConfirmDeleteDialog.js';
 import { Switch } from '../../atoms/primitives/Switch.js';
 import { Icon } from '../../icons/Icon.js';
 import {
@@ -35,6 +36,7 @@ const WebSearchSettings = () => {
   // `null` until the tenant switch loads, so the control is not rendered half-known.
   const [tenantEnabled, setTenantEnabled] = useState<boolean | null>(null);
   const [tenantBusy, setTenantBusy] = useState(false);
+  const [confirmOff, setConfirmOff] = useState(false);
   const [providers, setProviders] = useState<WebSearchProviderBase[]>([]);
   const [catalog, setCatalog] = useState<WebSearchProviderCatalogEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -182,7 +184,7 @@ const WebSearchSettings = () => {
   return (
     <>
       <h3 className="text-xl font-semibold tracking-tight text-text-primary">Web search</h3>
-      <p className="mt-1 text-sm text-text-secondary">Choose whether agents in this tenant may search the web.</p>
+      <p className="mt-1 text-sm text-text-secondary">Let agents search the web and fetch page content.</p>
 
       {error ? (
         <p className="mt-3 rounded-md border border-failure-bg/30 bg-failure-bg/10 px-3 py-2 text-sm text-failure-bg">
@@ -205,7 +207,12 @@ const WebSearchSettings = () => {
             disabled={tenantBusy}
             aria-label="Allow web search"
             onCheckedChange={next => {
-              void handleTenantToggle(next);
+              // Turning it back on is reversible and does not take access away.
+              if (next) {
+                void handleTenantToggle(true);
+                return;
+              }
+              setConfirmOff(true);
             }}
           />
         </div>
@@ -326,6 +333,23 @@ const WebSearchSettings = () => {
           </div>
         )}
       </div>
+
+      {confirmOff ? (
+        <ConfirmDeleteDialog
+          title="Turn off web search?"
+          description="Existing chats, agents, and schedules that already use web search keep access. New chats and agents created after this do not. You can turn this back on later."
+          confirmLabel="Turn off"
+          busy={tenantBusy}
+          onCancel={() => {
+            if (tenantBusy) return;
+            setConfirmOff(false);
+          }}
+          onConfirm={() => {
+            if (tenantBusy) return;
+            void handleTenantToggle(false).finally(() => setConfirmOff(false));
+          }}
+        />
+      ) : null}
 
       <ConfigureWebSearchForm
         open={formOpen}

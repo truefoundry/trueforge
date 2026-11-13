@@ -445,6 +445,7 @@ function createTurnResolver(deps: {
     mcpRequestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
     mcpConnectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
     mcpMaxResponseBytes: configuration.MCP_TOOL_CALL_MAX_RESPONSE_BYTES,
+    maxParallelSubAgents: configuration.MAX_PARALLEL_SUB_AGENTS,
     sandboxProvider: async ({ spec, existingSandboxId, tracing }) => {
       const provider = await resolveSandboxProvider({
         tenant_id,
@@ -703,7 +704,7 @@ function buildTrueForgeMcpConnection(input: {
     return undefined;
   }
   return {
-    name: 'trueforge-mcp',
+    name: TRUEFORGE_MCP_ID,
     description:
       "Create, update, and read agents, schedules, and sandbox environments in this deployment. Read this chat's " +
       'configuration and the configured models, MCP servers, and skills. Does not run agents or turns.',

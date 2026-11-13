@@ -24,7 +24,7 @@ import { formatRelativeTime } from '../lib/dateFormat.js';
 import { PageHeader } from '../PageHeader.js';
 import { Badge } from '../primitives/Badge.js';
 import { Button } from '../primitives/Button.js';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../primitives/Dialog.js';
+import ConfirmDeleteDialog from '../primitives/ConfirmDeleteDialog.js';
 import { DropdownMenu, DropdownMenuItem } from '../primitives/DropdownMenu.js';
 import SearchInput from '../primitives/SearchInput.js';
 import { Skeleton } from '../primitives/Skeleton.js';
@@ -557,25 +557,20 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
         }}
       />
 
-      <Dialog open={pendingDelete != null} onOpenChange={open => !open && setPendingDelete(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete environment</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-text-secondary">
-            Delete <span className="font-medium text-text-primary">{pendingDelete?.name}</span>? This cannot be undone.
-            Delete fails if any agent still references the environment.
-          </p>
-          <DialogFooter>
-            <Button.Secondary type="button" onClick={() => setPendingDelete(null)}>
-              Cancel
-            </Button.Secondary>
-            <Button.Primary type="button" onClick={() => void handleDelete()}>
-              Delete
-            </Button.Primary>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {pendingDelete != null ? (
+        <ConfirmDeleteDialog
+          title="Delete environment"
+          description={
+            <>
+              Delete <span className="font-medium text-text-primary">{pendingDelete.name}</span>? This cannot be undone.
+              Delete fails if any agent still references the environment.
+            </>
+          }
+          confirmLabel="Delete"
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={() => void handleDelete()}
+        />
+      ) : null}
     </div>
   );
 }

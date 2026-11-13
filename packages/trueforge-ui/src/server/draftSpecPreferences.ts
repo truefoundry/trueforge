@@ -131,20 +131,12 @@ export function selectChatDraftSpecPreferences(spec: AgentSpec): AgentSpec {
   };
 }
 
-/** Memory is opted into per agent, so a new draft never inherits it from the last one. */
-function withoutMemory(config: AgentRuntimeConfig | undefined): AgentRuntimeConfig | undefined {
-  if (config?.memory === undefined) return config;
-  const { memory: _memory, ...rest } = config;
-  return rest;
-}
-
-/** New Agent: full composer seed including runtime config (sandbox, ask-user, …). */
+/** New Agent: full composer seed including runtime config (sandbox, ask-user, memory, …). */
 export function selectAgentDraftSpecPreferences(spec: AgentSpec): AgentSpec {
   const normalized = normalizeSandboxEnvironmentName(spec);
-  const config = withoutMemory(normalized.config);
   return {
     ...selectChatDraftSpecPreferences(normalized),
-    ...(config !== undefined ? { config } : {}),
+    ...(normalized.config !== undefined ? { config: normalized.config } : {}),
   };
 }
 
@@ -153,10 +145,9 @@ export function selectAgentDraftSpecPreferences(spec: AgentSpec): AgentSpec {
  * instructions / initial messages / MCP / skills from the previous build.
  */
 export function freshAgentBuilderSeed(spec: AgentSpec): AgentSpec {
-  const config = withoutMemory(spec.config);
   return {
     model: spec.model,
-    ...(config !== undefined ? { config } : {}),
+    ...(spec.config !== undefined ? { config: spec.config } : {}),
   };
 }
 
@@ -309,6 +300,82 @@ export function webSearchPreferenceToStore({
     webSearchEnabled,
     explicitOff: persistedEnabled === false,
     kind,
+  });
+}
+
+function readMemoryEnabled(spec: AgentSpec): boolean | undefined {
+  const enabled = spec.config?.memory?.enabled;
+  return typeof enabled === 'boolean' ? enabled : undefined;
+}
+
+function withMemoryEnabled(spec: AgentSpec, enabled: boolean): AgentSpec {
+  if (readMemoryEnabled(spec) === enabled) return spec;
+  return { ...spec, config: { ...spec.config, memory: { enabled } } };
+}
+
+/** Drop memory so a value seen while memory is unavailable is not stored as a user preference. */
+export function withoutMemoryPreference(spec: AgentSpec): AgentSpec {
+  if (spec.config?.memory === undefined) return spec;
+  const { memory: _ignored, ...restConfig } = spec.config;
+  if (Object.keys(restConfig).length === 0) {
+    const { config: _config, ...rest } = spec;
+    return rest;
+  }
+  return { ...spec, config: restConfig };
+}
+
+/** Memory is an agent setting, so only New Agent preferences store it. */
+export function persistedMemoryEnabled(): boolean | undefined {
+  const stored = readDraftSpecPreferences('agent');
+  return stored == null ? undefined : readMemoryEnabled(stored);
+}
+
+/**
+ * When memory becomes available again, a draft `enabled: false` may be the schema default of an
+ * agent saved while memory was unavailable. Turn it back on unless the stored choice is off.
+ */
+export function recoverMemoryAfterCapabilityAvailable({
+  spec,
+  previousMemoryEnabled,
+  memoryEnabled,
+  explicitOff = false,
+}: {
+  spec: AgentSpec;
+  previousMemoryEnabled: boolean | null | undefined;
+  memoryEnabled: boolean | null | undefined;
+  /** A stored off is a user choice, not a value left over from the outage. */
+  explicitOff?: boolean;
+}): AgentSpec {
+  if (explicitOff || memoryEnabled !== true || previousMemoryEnabled !== false) return spec;
+  if (readMemoryEnabled(spec) !== false) return spec;
+  return withMemoryEnabled(spec, true);
+}
+
+/**
+ * Remember a user memory choice for the next New Agent. While memory is unavailable or capabilities
+ * are pending, the draft value is not a choice, so the stored one (if any) is kept instead.
+ */
+export function memoryPreferenceToStore({
+  spec,
+  memoryEnabled,
+  previousMemoryEnabled,
+  capabilitiesPending = false,
+}: {
+  spec: AgentSpec;
+  memoryEnabled: boolean | null | undefined;
+  previousMemoryEnabled: boolean | null | undefined;
+  capabilitiesPending?: boolean;
+}): AgentSpec {
+  const persistedEnabled = persistedMemoryEnabled();
+  if (memoryEnabled !== true || capabilitiesPending) {
+    const stripped = withoutMemoryPreference(spec);
+    return persistedEnabled === undefined ? stripped : withMemoryEnabled(stripped, persistedEnabled);
+  }
+  return recoverMemoryAfterCapabilityAvailable({
+    spec,
+    previousMemoryEnabled,
+    memoryEnabled,
+    explicitOff: persistedEnabled === false,
   });
 }
 

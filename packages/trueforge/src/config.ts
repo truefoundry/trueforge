@@ -16,6 +16,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { DEFAULT_MAX_PARALLEL_SUB_AGENTS } from '@truefoundry/trueforge-core/core';
 import envPaths from 'env-paths';
 import { z } from 'zod';
 
@@ -770,7 +771,7 @@ export interface SharedServerConfiguration {
   SANDBOX_ENVIRONMENT_DISK_GIB_MAX: number;
   /** Max characters in a sandbox environment build script. Env: `SANDBOX_ENVIRONMENT_BUILD_SCRIPT_MAX_LENGTH`. Default 20,000. */
   SANDBOX_ENVIRONMENT_BUILD_SCRIPT_MAX_LENGTH: number;
-  /** Default and max `limit` for list session/turn events. Env: `LIST_EVENTS_PAGE_LIMIT_MAX`. Default 100. */
+  /** Default and max `limit` for list session/turn events. Env: `LIST_EVENTS_PAGE_LIMIT_MAX`. Default 500. */
   LIST_EVENTS_PAGE_LIMIT_MAX: number;
   /**
    * Max bytes for an HTTP request body. Env: `MAX_REQUEST_BODY_BYTES`. Default 30 MB.
@@ -788,6 +789,8 @@ export interface SharedServerConfiguration {
    * Default 3600 (60 minutes).
    */
   SERVER_EXECUTION_TIMEOUT_SECONDS: number;
+  /** Max parallel sub-agents per turn. Env: `MAX_PARALLEL_SUB_AGENTS`. Default 10. */
+  MAX_PARALLEL_SUB_AGENTS: number;
   /**
    * TTL for a running turn's resumable event stream.
    * Env: `TURN_STREAM_TTL_SECONDS`. Default execution timeout + 300.
@@ -1214,7 +1217,7 @@ const shared: SharedServerConfiguration = {
   LIST_EVENTS_PAGE_LIMIT_MAX: parsePositiveInt({
     envKey: 'LIST_EVENTS_PAGE_LIMIT_MAX',
     raw: getEnv('LIST_EVENTS_PAGE_LIMIT_MAX'),
-    defaultValue: 100,
+    defaultValue: 500,
   }),
   MAX_REQUEST_BODY_BYTES: parsePositiveInt({
     envKey: 'MAX_REQUEST_BODY_BYTES',
@@ -1227,6 +1230,11 @@ const shared: SharedServerConfiguration = {
     defaultValue: 30,
   }),
   SERVER_EXECUTION_TIMEOUT_SECONDS: serverExecutionTimeoutSeconds,
+  MAX_PARALLEL_SUB_AGENTS: parsePositiveInt({
+    envKey: 'MAX_PARALLEL_SUB_AGENTS',
+    raw: getEnv('MAX_PARALLEL_SUB_AGENTS'),
+    defaultValue: DEFAULT_MAX_PARALLEL_SUB_AGENTS,
+  }),
   TURN_STREAM_TTL_SECONDS: parsePositiveInt({
     envKey: 'TURN_STREAM_TTL_SECONDS',
     raw: getEnv('TURN_STREAM_TTL_SECONDS'),

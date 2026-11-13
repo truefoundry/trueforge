@@ -102,9 +102,13 @@ describe('McpAuthContainer', () => {
     expect(continueMcpAuth).toHaveBeenCalledTimes(1);
   });
 
-  it('disables Continue while the thread is running', () => {
-    render(<McpAuthHarness pendingMcpAuth={PENDING} continueMcpAuth={vi.fn()} isRunning={true} />);
-    expect(screen.getByRole('button', { name: /continue/i })).toBeDisabled();
+  it('keeps Continue enabled while the thread is running with pending MCP auth', () => {
+    const continueMcpAuth = vi.fn().mockResolvedValue(undefined);
+    render(<McpAuthHarness pendingMcpAuth={PENDING} continueMcpAuth={continueMcpAuth} isRunning={true} />);
+    const continueButton = screen.getByRole('button', { name: /continue/i });
+    expect(continueButton).toBeEnabled();
+    fireEvent.click(continueButton);
+    expect(continueMcpAuth).toHaveBeenCalledTimes(1);
   });
 
   it('shows each successful catalog connection and resumes once all servers are connected', async () => {
@@ -153,8 +157,9 @@ describe('McpAuthContainer', () => {
     await act(async () => {
       resolveResume?.();
     });
-    // Ack without clearing pending MCP auth must allow another Continue click.
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled());
+    // Successful Continue hides the prompt immediately so it cannot be clicked twice
+    // while the turn wakes; a later mcp.auth_required can bring Connect back.
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument());
   });
 
   it('keeps a failed catalog connection available without resuming', async () => {
@@ -285,9 +290,10 @@ describe('McpAuthContainer', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Connect' }));
 
     await waitFor(() => expect(getMcpConnector).toHaveBeenCalledWith({ connectorId: GITHUB_SERVER.id }));
-    await waitFor(() => expect(screen.getByText('Connected')).toBeInTheDocument());
+    await waitFor(() => expect(continueMcpAuth).toHaveBeenCalledTimes(1));
+    // Auto-Continue after the only server connects hides the card on success.
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument());
     expect(getConnector).not.toHaveBeenCalled();
-    expect(continueMcpAuth).toHaveBeenCalledTimes(1);
   });
 
   it('does not resume a paused turn after the prompt unmounts mid-authorize', async () => {

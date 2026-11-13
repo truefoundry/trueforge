@@ -11,6 +11,8 @@ export type ComposerShellProps = {
   disabled: boolean;
   canSubmit: boolean;
   isRunning?: boolean;
+  /** True while a cancel request is in flight. */
+  isCancelling?: boolean;
   /** True when the composer has trimmed text or attachments. */
   hasContent?: boolean;
   attachments?: ReactNode;
@@ -28,6 +30,7 @@ export function ComposerShell({
   disabled,
   canSubmit,
   isRunning = false,
+  isCancelling = false,
   hasContent = false,
   attachments,
   modelLabel,
@@ -76,6 +79,7 @@ export function ComposerShell({
             disabled={disabled}
             canSubmit={canSubmit}
             isRunning={isRunning}
+            isCancelling={isCancelling}
             hasContent={hasContent}
             onSubmit={onSubmit}
             onCancel={onCancel}

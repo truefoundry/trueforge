@@ -6,6 +6,7 @@ import { preloadMarkdownOpenUI } from '../atoms/Markdown.js';
 import { FilePreviewBoundary } from '../filePreview/FilePreviewContext.js';
 import { ComposerBusyProvider } from '../hooks/useComposerBusyState.js';
 import { useSyncSessionTitle } from '../hooks/useSyncSessionTitle.js';
+import { useSyncThreadListLastTurnStatus } from '../hooks/useSyncThreadListLastTurnStatus.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { isNewChatView } from '../utils/isNewChatView.js';
@@ -45,6 +46,7 @@ export function ThreadContainer({ composer }: ThreadContainerProps) {
     void preloadMarkdownOpenUI();
   }, []);
   useSyncSessionTitle();
+  useSyncThreadListLastTurnStatus();
 
   const shell = useOptionalShellMode();
   const WelcomeScreen = useSlot('WelcomeScreen');

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTrackAnalytics } from '@/analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '@/analytics/events.js';
 import { Button } from '../../atoms/primitives/Button.js';
+import ConfirmDeleteDialog from '../../atoms/primitives/ConfirmDeleteDialog.js';
 import { Icon } from '../../icons/Icon.js';
 import {
   isDaytonaSandboxConfig,
@@ -15,7 +16,6 @@ import type { SandboxProviderBase, SandboxProviderCatalogEntry } from '../../ser
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import { useToasterOptional } from '../ToasterContainer.js';
 import ConfigureSandboxForm, { type SandboxConfigDraft } from './ConfigureSandboxForm.js';
-import ConfirmDeleteDialog from './ConfirmDeleteDialog.js';
 
 const configFrom = ({
   execTimeoutMs,

@@ -2271,10 +2271,119 @@ describe('convertTurnMessages', () => {
         ),
       ).toHaveLength(1);
 
+      // turn.update running can arrive while a sibling approval is still open
+      // (same bug class as concurrent MCP auth). Keep requires-action chrome.
       expect(updates.at(-1)).toMatchObject({
-        status: { type: 'running' },
+        status: { type: 'requires-action', reason: 'tool-calls' },
         turnState: { status: 'running' },
       });
+      const runningContent = updates.at(-1)?.content ?? [];
+      expect(
+        runningContent.filter(
+          part => part.type === 'tool-call' && part.approval != null && part.approval.approved === undefined,
+        ),
+      ).toHaveLength(1);
+    });
+
+    it('keeps turnState running across later content while a sibling prompt is still open', async () => {
+      const foldState = new PeerThreadFoldState();
+      const updates = await collectStream(
+        streamTurnEvents(
+          streamFrom([
+            modelMessage({
+              id: 'm-root',
+              threadId: ROOT_THREAD_ID,
+              content: 'spawn',
+              toolCalls: [
+                {
+                  id: 'spawn-a',
+                  type: 'function',
+                  function: { name: 'create_sub_agent', arguments: '{}' },
+                  toolInfo: { type: 'trueforge-system', name: 'create_sub_agent' },
+                },
+                {
+                  id: 'spawn-b',
+                  type: 'function',
+                  function: { name: 'create_sub_agent', arguments: '{}' },
+                  toolInfo: { type: 'trueforge-system', name: 'create_sub_agent' },
+                },
+              ],
+            }),
+            threadCreated({
+              id: 't-a',
+              threadId: 'child-a',
+              title: 'a',
+              agentInfo: { type: 'dynamic', name: 'a', input: 'a' },
+              parent: { threadId: ROOT_THREAD_ID, toolCallId: 'spawn-a' },
+            }),
+            threadCreated({
+              id: 't-b',
+              threadId: 'child-b',
+              title: 'b',
+              agentInfo: { type: 'dynamic', name: 'b', input: 'b' },
+              parent: { threadId: ROOT_THREAD_ID, toolCallId: 'spawn-b' },
+            }),
+            modelMessage({
+              id: 'm-a',
+              threadId: 'child-a',
+              content: 'need approval',
+              toolCalls: [
+                {
+                  id: 'approval-a',
+                  type: 'function',
+                  function: { name: 'bash', arguments: '{}' },
+                },
+              ],
+            }),
+            approvalRequired({
+              id: 'approval-event',
+              threadId: 'child-a',
+              toolCalls: [{ id: 'approval-a', sourceEventId: 'm-a' }],
+            }),
+            {
+              type: 'mcp.auth_required',
+              id: 'mcp-auth',
+              createdAt,
+              threadId: 'child-b',
+              mcpServers: [{ id: 'pylon', name: 'pylon', authUrl: 'https://example.com/pylon' }],
+            },
+            {
+              type: 'turn.update',
+              id: 'pause-1',
+              createdAt,
+              threadId: null,
+              state: { status: 'paused' },
+            },
+            {
+              type: 'user.tool_approval',
+              id: 'user-approve',
+              createdAt,
+              threadId: 'child-a',
+              toolCallId: 'approval-a',
+              approval: { status: 'allow' },
+            },
+            {
+              type: 'turn.update',
+              id: 'run-1',
+              createdAt,
+              threadId: null,
+              state: { status: 'running' },
+            },
+            // Sibling resume content must not invent paused over the running turn.
+            modelMessage({
+              id: 'm-a-2',
+              threadId: 'child-a',
+              content: 'approved agent continues',
+            }),
+          ]),
+          foldState,
+        ),
+      );
+
+      const afterContent = updates.at(-1);
+      expect(afterContent?.turnState).toEqual({ status: 'running' });
+      expect(afterContent?.status).toEqual({ type: 'requires-action', reason: 'interrupt' });
+      expect(afterContent?.metadata?.custom?.['pendingMcpAuth']).toBe(true);
     });
 
     it('folds a later approval_required after pause without another turn.update paused', async () => {
@@ -2387,7 +2496,7 @@ describe('convertTurnMessages', () => {
       });
     });
 
-    it('keeps the resume cursor on mcp.auth_required until a running update answers it', async () => {
+    it('keeps the resume cursor on mcp.auth_required until user.mcp_auth_continue answers it', async () => {
       const cursors: TurnSubscribeCursor[] = [];
       const mcpAuth = {
         type: 'mcp.auth_required' as const,
@@ -2400,6 +2509,9 @@ describe('convertTurnMessages', () => {
           streamFrom([
             mcpAuth,
             { type: 'turn.update', id: 'pause-mcp', createdAt, threadId: null, state: { status: 'paused' } },
+            // Sibling-thread resume must not advance past auth — only continue does.
+            { type: 'turn.update', id: 'run-sibling', createdAt, threadId: null, state: { status: 'running' } },
+            { type: 'user.mcp_auth_continue', id: 'continue-mcp', createdAt },
             { type: 'turn.update', id: 'run-mcp', createdAt, threadId: null, state: { status: 'running' } },
             { type: 'turn.done', id: 'done-mcp', createdAt, state: { status: 'done', completedAt: createdAt } },
           ]),
@@ -2411,7 +2523,138 @@ describe('convertTurnMessages', () => {
         ),
       );
 
-      expect(cursors).toEqual([{ fromEventId: 'mcp-auth' }, { afterEventId: 'run-mcp' }, { afterEventId: 'done-mcp' }]);
+      expect(cursors).toEqual([
+        { fromEventId: 'mcp-auth' },
+        { afterEventId: 'continue-mcp' },
+        { afterEventId: 'run-mcp' },
+        { afterEventId: 'done-mcp' },
+      ]);
+    });
+
+    it('prefers tool-approval chrome over MCP auth when both are pending, then shows MCP after approve', async () => {
+      const foldState = new PeerThreadFoldState();
+      const mcpServers = [{ id: 'pylon', name: 'pylon', authUrl: 'https://example.com/pylon' }];
+      const updates = await collectStream(
+        streamTurnEvents(
+          streamFrom([
+            modelMessage({
+              id: 'm-root',
+              threadId: ROOT_THREAD_ID,
+              content: 'spawn agents',
+              toolCalls: [
+                {
+                  id: 'spawn-approve',
+                  type: 'function',
+                  function: { name: 'create_sub_agent', arguments: '{}' },
+                  toolInfo: { type: 'trueforge-system', name: 'create_sub_agent' },
+                },
+                {
+                  id: 'spawn-auth',
+                  type: 'function',
+                  function: { name: 'create_sub_agent', arguments: '{}' },
+                  toolInfo: { type: 'trueforge-system', name: 'create_sub_agent' },
+                },
+              ],
+            }),
+            threadCreated({
+              id: 't-approve',
+              threadId: 'child-approve',
+              title: 'approver',
+              agentInfo: { type: 'dynamic', name: 'approver', input: 'comment' },
+              parent: { threadId: ROOT_THREAD_ID, toolCallId: 'spawn-approve' },
+            }),
+            threadCreated({
+              id: 't-auth',
+              threadId: 'child-auth',
+              title: 'auther',
+              agentInfo: { type: 'dynamic', name: 'auther', input: 'events' },
+              parent: { threadId: ROOT_THREAD_ID, toolCallId: 'spawn-auth' },
+            }),
+            modelMessage({
+              id: 'm-approve',
+              threadId: 'child-approve',
+              content: 'need approval',
+              toolCalls: [
+                {
+                  id: 'approval-1',
+                  type: 'function',
+                  function: { name: 'save_comment', arguments: '{"body":"Test"}' },
+                  toolInfo: {
+                    type: 'mcp',
+                    name: 'save_comment',
+                    serverId: 'linear',
+                    serverName: 'linear',
+                  },
+                },
+              ],
+            }),
+            approvalRequired({
+              id: 'approval-event',
+              threadId: 'child-approve',
+              toolCalls: [{ id: 'approval-1', sourceEventId: 'm-approve' }],
+            }),
+            {
+              type: 'mcp.auth_required',
+              id: 'mcp-auth',
+              createdAt,
+              threadId: 'child-auth',
+              mcpServers,
+            },
+            {
+              type: 'turn.update',
+              id: 'pause-both',
+              createdAt,
+              threadId: null,
+              state: { status: 'paused' },
+            },
+            {
+              type: 'user.tool_approval',
+              id: 'user-approve',
+              createdAt,
+              threadId: 'child-approve',
+              toolCallId: 'approval-1',
+              approval: { status: 'allow' },
+            },
+            {
+              type: 'turn.update',
+              id: 'run-after-approve',
+              createdAt,
+              threadId: null,
+              state: { status: 'running' },
+            },
+            {
+              type: 'turn.update',
+              id: 'pause-auth-only',
+              createdAt,
+              threadId: null,
+              state: { status: 'paused' },
+            },
+          ]),
+          foldState,
+        ),
+      );
+
+      // While both are open: approval status wins, but MCP metadata stays for an
+      // instant Connect handoff once the last approval is answered.
+      const bothPaused = updates.find(
+        update =>
+          update.turnState?.status === 'paused' &&
+          update.status?.type === 'requires-action' &&
+          update.status.reason === 'tool-calls' &&
+          update.metadata?.custom?.['pendingMcpAuth'] === true,
+      );
+      expect(bothPaused?.metadata?.custom?.['mcpServers']).toEqual(mcpServers);
+
+      const afterApproveRunning = updates.find(update => update.turnState?.status === 'running');
+      expect(afterApproveRunning?.metadata?.custom?.['pendingMcpAuth']).toBe(true);
+      expect(afterApproveRunning?.metadata?.custom?.['mcpServers']).toEqual(mcpServers);
+      expect(afterApproveRunning?.status).toEqual({ type: 'requires-action', reason: 'interrupt' });
+
+      const final = updates.at(-1);
+      expect(final?.turnState?.status).toBe('paused');
+      expect(final?.metadata?.custom?.['pendingMcpAuth']).toBe(true);
+      expect(final?.metadata?.custom?.['mcpServers']).toEqual(mcpServers);
+      expect(final?.status).toEqual({ type: 'requires-action', reason: 'interrupt' });
     });
 
     it('stamps sandboxId onto every content yield after sandbox.created is seen', async () => {

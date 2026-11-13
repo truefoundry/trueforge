@@ -1,6 +1,5 @@
 'use client';
 
-import { useThreadIsRunning } from '@assistant-ui/core/react';
 import { useTrueForgeToolResponses } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -19,7 +18,6 @@ export function AskUserContainer({ disabled = false }: { disabled?: boolean }) {
   const AskUserPrompt = useSlot('AskUserPrompt');
   const { pending, respond } = useTrueForgeToolResponses();
   const track = useTrackAnalytics();
-  const isRunning = useThreadIsRunning();
   const item = pending[0];
 
   const questions = useMemo<Question[]>(
@@ -59,7 +57,9 @@ export function AskUserContainer({ disabled = false }: { disabled?: boolean }) {
   );
   const selectedResponse =
     currentAnswer.radioValue === ASK_USER_CUSTOM_OPTION ? currentAnswer.custom.trim() : currentAnswer.radioValue.trim();
-  const isSubmitDisabled = isRunning || disabled || currentQuestion == null || selectedResponse.length === 0;
+  // Do not gate on thread isRunning: a sibling sub-agent can keep the turn
+  // running while this ask-user prompt is still waiting for an answer.
+  const isSubmitDisabled = disabled || currentQuestion == null || selectedResponse.length === 0;
   const isSubmitAllDisabled = isSubmitDisabled || !allQuestionsAnswered;
 
   const onCurrentAnswerChange = useCallback((questionId: string, update: Partial<AskUserAnswerDraft>) => {
@@ -90,7 +90,7 @@ export function AskUserContainer({ disabled = false }: { disabled?: boolean }) {
   return (
     <AskUserPrompt
       questions={questions}
-      readOnly={isRunning || disabled}
+      readOnly={disabled}
       currentQuestion={currentQuestion}
       currentQuestionIndex={safeIndex}
       currentAnswer={currentAnswer}

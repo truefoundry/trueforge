@@ -40,8 +40,8 @@ function specWantsSandbox(spec: AgentSpec): boolean {
   return spec.config.sandbox.enabled;
 }
 
-/** Runtime id of the built-in TrueForge management MCP. Display name stays on the connection. */
-export const TRUEFORGE_MCP_ID = 'built-in:trueforge-mcp';
+/** Runtime id and display name of the built-in TrueForge management MCP. */
+export const TRUEFORGE_MCP_ID = 'trueforge:mcp';
 
 const TRUEFORGE_MCP_SELECTORS: ToolSelectorConfig = {
   enableTools: DEFAULT_ENABLE_TOOLS,
@@ -83,6 +83,7 @@ export class TurnResourceResolver<
   readonly #sources = new Map<string, Promise<ToolSource>>();
   readonly #models = new Map<string, Promise<ResolvedModel>>();
   #sandbox?: HarnessSandbox | undefined;
+  readonly maxParallelSubAgents?: number;
 
   constructor(
     protected readonly deps: {
@@ -97,6 +98,7 @@ export class TurnResourceResolver<
       mcpRequestTimeoutMs: number;
       mcpConnectTimeoutMs: number;
       mcpMaxResponseBytes?: number | undefined;
+      maxParallelSubAgents?: number;
       /** One sandbox type per runtime. Omit = no sandbox support. */
       sandboxProvider?: TurnSandboxFactory | undefined;
       /**
@@ -115,7 +117,11 @@ export class TurnResourceResolver<
       /** Forwarded to RemoteMCP / AgentThread (required by their constructors). */
       logger: Logger;
     },
-  ) {}
+  ) {
+    if (deps.maxParallelSubAgents !== undefined) {
+      this.maxParallelSubAgents = deps.maxParallelSubAgents;
+    }
+  }
 
   get webSearchProvider(): IWebSearchProvider | undefined {
     return this.deps.webSearchProvider;
@@ -288,6 +294,7 @@ export class TurnResourceResolver<
             logger: this.deps.logger,
             tracing: input.tracing,
             signal: input.signal,
+            isSystem: true,
           }),
         ),
     });

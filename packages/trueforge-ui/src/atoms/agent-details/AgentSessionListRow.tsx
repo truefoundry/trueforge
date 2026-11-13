@@ -7,10 +7,17 @@ import { useSlot } from '../../theme/SlotsProvider.js';
 import { createdByLabel } from '../../utils/createdBySubject.js';
 import { formatSessionListMetrics } from '../../utils/sessionDisplayFormat.js';
 import { getUserInitials } from '../UserAvatar.js';
+import { StatusDot } from '../agent-chat/StatusDot.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { formatAbsoluteDateTime } from '../lib/dateFormat.js';
-import { formatRelativeShort } from '../lib/threadListMeta.js';
+import {
+  formatRelativeShort,
+  isPausedTurnStatus,
+  isRunningTurnStatus,
+  lastTurnStatusDotClass,
+  lastTurnStatusLabel,
+} from '../lib/threadListMeta.js';
 import { Avatar, AvatarFallback } from '../primitives/Avatar.js';
 import { DropdownMenu, DropdownMenuItem } from '../primitives/DropdownMenu.js';
 import { Tooltip } from '../primitives/Tooltip.js';
@@ -21,6 +28,7 @@ export function AgentSessionListRow({
   agentName,
   scheduleId,
   lastActivityAt,
+  lastTurnStatus,
   metrics,
   createdBySubject,
   active,
@@ -48,6 +56,10 @@ export function AgentSessionListRow({
   const absolute = formatAbsoluteDateTime(activityAt);
   const subjectLabel = createdBySubject != null ? createdByLabel(createdBySubject) : null;
   const subjectInitials = subjectLabel != null ? getUserInitials(subjectLabel) || '?' : null;
+  const statusDotClass = lastTurnStatusDotClass(lastTurnStatus);
+  const statusLabel = lastTurnStatusLabel(lastTurnStatus);
+  const running = isRunningTurnStatus(lastTurnStatus);
+  const paused = isPausedTurnStatus(lastTurnStatus);
 
   return (
     <div
@@ -58,8 +70,16 @@ export function AgentSessionListRow({
       )}
     >
       <div className="flex items-center gap-2 px-4 pt-3">
-        <button type="button" onClick={onSelect} className="flex min-w-0 flex-1 items-center gap-1 text-left">
-          <span className="truncate text-sm font-medium text-text-primary">{title}</span>
+        <button type="button" onClick={onSelect} className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
+          <span className={cn('truncate text-sm font-medium text-text-primary', running && 'aui-text-shimmer')}>
+            {title}
+          </span>
+          {statusDotClass != null ? (
+            <span data-slot="session-status-dot" className="shrink-0">
+              <StatusDot className="size-1.5" colorClassName={statusDotClass} pulse={paused} />
+            </span>
+          ) : null}
+          {statusLabel != null ? <span className="sr-only">{statusLabel}</span> : null}
           {scheduleId != null ? (
             <Tooltip
               content={

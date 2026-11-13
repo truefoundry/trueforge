@@ -51,7 +51,7 @@ export async function isWebSearchEnabledForTenant({
   return manifest.web_search.enabled;
 }
 
-/** Whether agents in this tenant may use memory. Off stops memory for the whole tenant. Reads only. */
+/** Whether agents in this tenant may use memory. Creates the row if missing: ingestion only sees tenants with one. */
 export async function isMemoryEnabledForTenant({
   tenant_id,
   store,
@@ -59,7 +59,6 @@ export async function isMemoryEnabledForTenant({
   tenant_id: string;
   store: IConfigurationStore;
 }): Promise<boolean> {
-  const record = await store.getConfiguration(tenant_id);
-  const manifest = record?.manifest ?? DEFAULT_CONFIGURATION_MANIFEST;
-  return manifest.memory.enabled;
+  const record = await store.getOrCreateConfiguration({ tenant_id, default_manifest: DEFAULT_CONFIGURATION_MANIFEST });
+  return record.manifest.memory.enabled;
 }

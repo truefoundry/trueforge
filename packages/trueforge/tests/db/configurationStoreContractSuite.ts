@@ -18,7 +18,7 @@ function manifest({ webSearch, memory }: { webSearch: boolean; memory: boolean }
 }
 
 const LEGACY_MANIFEST_JSON = '{"web_search":{"enabled":false}}';
-const SEEDED = { web_search: { enabled: false }, memory: { enabled: false } };
+const SEEDED = { web_search: { enabled: false }, memory: { enabled: true } };
 
 export function runConfigurationStoreContractSuite(getEnv: () => ConfigurationStoreContractEnv): void {
   it('lists only tenants whose stored row has the given feature on', async () => {
@@ -45,7 +45,7 @@ export function runConfigurationStoreContractSuite(getEnv: () => ConfigurationSt
 
     expect((await store.getConfiguration('legacy'))?.manifest).toEqual(SEEDED);
     expect(await readRawManifest('legacy')).toEqual(SEEDED);
-    await expect(isMemoryEnabledForTenant({ tenant_id: 'legacy', store })).resolves.toBe(false);
+    await expect(isMemoryEnabledForTenant({ tenant_id: 'legacy', store })).resolves.toBe(true);
   });
 
   it('getOrCreateConfiguration seeds a missing switch without replacing the stored ones', async () => {
