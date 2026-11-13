@@ -1,0 +1,92 @@
+# yaml-language-server: $schema=https://schema.buildwithfern.dev/sdk-config.json
+#
+# TypeScript SDK (generator v4+). Python stays on generators.legacy.yml until it migrates.
+# openapi/openapi.json is committed by `pnpm openapi:write`, so Fern never needs the server.
+# Not expressible here vs. v3 config: requireBaseUrl, optional-auth, deepObjectMapQueryParameters,
+# packageJsonMergeStrategy, publishConfig, repository.directory. Release sets NPM_CONFIG_PROVENANCE
+# and .changeset/config.json sets public access; the rest is checked on the regenerated SDK.
+schemaVersion: sdk-config/v1
+sdkName: TrueForge
+source:
+  specs:
+    - id: openapi
+      type: openapi
+      path: ./openapi/openapi.json
+  apiImportSettings:
+    respectNullableSchemas: true
+    titleAsSchemaName: false
+    coerceEnumsToLiterals: true
+    idiomaticRequestNames: true
+    wrapReferencesToNullableInOptional: false
+    coerceOptionalSchemasToNullable: false
+    onlyIncludeReferencedSchemas: true
+    objectQueryParameters: true
+    typeDatesAsStrings: true
+    discriminatedUnionV2: true
+    undiscriminatedUnionsWithLiterals: true
+client:
+  pathParameterStyle: inline
+  filePropertyStyle: inline
+  responseValidation: false
+  useDefaultRequestParameterValues: true
+docs:
+  readme:
+    apiName: TrueForge
+    introduction: |
+      API client for the TrueForge Agent Harness Server: a self-hosted runtime that executes agent turns and streams them over Server-Sent Events.
+
+      When auth is enabled on the server, pass an ID token via the optional `token` client option (`Authorization: Bearer`).
+    apiReferenceLink: https://trueforge.dev/api/use-agent
+    defaultEndpoint:
+      method: POST
+      path: /api/v1/sessions/{session_id}/turns
+      stream: true
+  includeApiReference: true
+generation:
+  naming:
+    clientName: TrueForge
+    exportedClientName: TrueForge
+    smartCasing: true
+  streams:
+    enabled: true
+    responseType: web
+    fileResponseType: binary-response
+  serialization:
+    inlineTypes: false
+    omitUndefined: true
+package:
+  authors:
+    - name: TrueForge
+targets:
+  - language: typescript
+    # Pinned like the v3 generator was; bump deliberately and review the regenerated SDK.
+    generatorVersion: 4.0.0
+    output:
+      delivery: files
+      path: ../../packages/trueforge-sdk
+    package:
+      packageName: '@truefoundry/trueforge-sdk'
+      homepage: https://github.com/truefoundry/trueforge/tree/main/packages/trueforge-sdk#readme
+      license:
+        type: MIT
+      bugs:
+        url: https://github.com/truefoundry/trueforge/issues
+      repository: git+https://github.com/truefoundry/trueforge.git
+    generation:
+      formDataSupport: Node18
+      allowExtraFields: true
+      outputEsm: true
+      # Opt-in via --conditions=trueforge-dev / customConditions. Never name this "development"
+      # (Vite/webpack auto-activate; src/ is unpublished). Types stay on sdk:types .d.mts.
+      exports:
+        .:
+          trueforge-dev:
+            types: ./dist/esm/index.d.mts
+            default: ./src/index.ts
+      engines:
+        node: '>=22'
+      httpClient:
+        name: fetch
+      namespaceExportName: TrueForge
+      allowCustomFetcher: true
+      serdeLayer: true
