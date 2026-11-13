@@ -15,6 +15,8 @@ export type ComposerShellProps = {
   isCancelling?: boolean;
   /** True when the composer has trimmed text or attachments. */
   hasContent?: boolean;
+  /** Why Send is blocked (e.g. models or sandbox still loading); shown as the button tooltip. */
+  blockedReason?: string;
   attachments?: ReactNode;
   modelLabel?: string;
   modelIcon?: ReactNode;
@@ -32,6 +34,7 @@ export function ComposerShell({
   isRunning = false,
   isCancelling = false,
   hasContent = false,
+  blockedReason,
   attachments,
   modelLabel,
   modelIcon,
@@ -81,6 +84,7 @@ export function ComposerShell({
             isRunning={isRunning}
             isCancelling={isCancelling}
             hasContent={hasContent}
+            blockedReason={blockedReason}
             onSubmit={onSubmit}
             onCancel={onCancel}
           />

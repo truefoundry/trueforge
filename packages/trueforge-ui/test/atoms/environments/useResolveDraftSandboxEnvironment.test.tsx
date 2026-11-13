@@ -40,10 +40,17 @@ const defaultEnv: SandboxEnvironment = {
   manifest: { name: 'team-base', description: 'Team base' },
 };
 
-function renderResolve(environments: SandboxEnvironment[]) {
+function renderResolve(
+  environments: SandboxEnvironment[],
+  {
+    listEnvironments,
+  }: {
+    listEnvironments?: () => Promise<{ data: SandboxEnvironment[] }>;
+  } = {},
+) {
   const server = createMockAgentUIServer({
     sandboxEnvironments: createMockSandboxEnvironmentServer({
-      listEnvironments: async () => ({ data: environments }),
+      listEnvironments: listEnvironments ?? (async () => ({ data: environments })),
     }),
   });
   function wrapper({ children }: { children: ReactNode }) {
@@ -56,10 +63,10 @@ function renderResolve(environments: SandboxEnvironment[]) {
   // The sibling loader exposes when the catalog has arrived, so "no update" assertions
   // cannot pass merely by running before the resolver had any data.
   return renderHook(
-    () => {
-      useResolveDraftSandboxEnvironment();
-      return useSandboxEnvironments();
-    },
+    () => ({
+      resolve: useResolveDraftSandboxEnvironment(),
+      environments: useSandboxEnvironments(),
+    }),
     { wrapper },
   );
 }
@@ -67,8 +74,9 @@ function renderResolve(environments: SandboxEnvironment[]) {
 async function renderResolved(environments: SandboxEnvironment[]) {
   const { result } = renderResolve(environments);
   await waitFor(() => {
-    expect(result.current.loaded).toBe(true);
+    expect(result.current.environments.loaded).toBe(true);
   });
+  return { result };
 }
 
 describe('useResolveDraftSandboxEnvironment', () => {
@@ -90,9 +98,10 @@ describe('useResolveDraftSandboxEnvironment', () => {
 
   it('leaves an environment the user already picked alone', async () => {
     agentSpec = { model: { name: 'gpt-4' }, config: { sandbox: { enabled: true, environmentName: 'python-data' } } };
-    await renderResolved([readyEnv, defaultEnv]);
+    const { result } = await renderResolved([readyEnv, defaultEnv]);
 
     expect(updateAgentSpec).not.toHaveBeenCalled();
+    expect(result.current.resolve.pending).toBe(false);
   });
 
   it('repoints a remembered environment that left the catalog to the default', async () => {
@@ -149,15 +158,68 @@ describe('useResolveDraftSandboxEnvironment', () => {
   });
 
   it('names nothing when the tenant has no default', async () => {
-    await renderResolved([readyEnv]);
+    const { result } = await renderResolved([readyEnv]);
 
     expect(updateAgentSpec).not.toHaveBeenCalled();
+    expect(result.current.resolve.pending).toBe(false);
   });
 
   it('leaves a started chat alone', async () => {
     draftSessionId = 'session-1';
-    await renderResolved([readyEnv, defaultEnv]);
+    const { result } = await renderResolved([readyEnv, defaultEnv]);
 
     expect(updateAgentSpec).not.toHaveBeenCalled();
+    expect(result.current.resolve.pending).toBe(false);
+  });
+
+  it('reports pending while environments are loading', async () => {
+    let resolveList: ((value: { data: SandboxEnvironment[] }) => void) | undefined;
+    const { result } = renderResolve([], {
+      listEnvironments: () =>
+        new Promise(resolve => {
+          resolveList = resolve;
+        }),
+    });
+
+    await waitFor(() => {
+      expect(result.current.resolve.pending).toBe(true);
+    });
+
+    resolveList?.({ data: [readyEnv, defaultEnv] });
+    await waitFor(() => {
+      expect(result.current.environments.loaded).toBe(true);
+    });
+  });
+
+  it('reports pending until the default is pinned onto the draft', async () => {
+    const { result, rerender } = renderResolve([readyEnv, defaultEnv]);
+
+    await waitFor(() => {
+      expect(updateAgentSpec).toHaveBeenCalled();
+    });
+    // Spec still has no environment name until the host applies the update.
+    expect(result.current.resolve.pending).toBe(true);
+
+    agentSpec = {
+      model: { name: 'gpt-4' },
+      config: { sandbox: { environmentName: 'team-base' } },
+    };
+    rerender();
+    await waitFor(() => {
+      expect(result.current.resolve.pending).toBe(false);
+    });
+  });
+
+  it('does not stay pending when the environments list fails', async () => {
+    const { result } = renderResolve([], {
+      listEnvironments: async () => {
+        throw new Error('list failed');
+      },
+    });
+
+    await waitFor(() => {
+      expect(result.current.environments.error).toBe('list failed');
+    });
+    expect(result.current.resolve.pending).toBe(false);
   });
 });

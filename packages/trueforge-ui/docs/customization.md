@@ -52,7 +52,8 @@ Public override surface (primitives stay theme/CSS — not slots):
 
 - **Layout / composer:** `Accordion`, `AccordionSummary`, `AccordionDetails`,
   `ComposerShell`, `ComposerLeftSection`, `ComposerRightSection`,
-  `ComposerSendButton`, `DraftComposerLeftSection`,
+  `ComposerSendButton` (optional `blockedReason` tooltip while Send waits on
+  models or the default sandbox), `DraftComposerLeftSection`,
   `DraftComposerRightSection`, `DraftCompositeSelector`, `DraftModelSelector`,
   `ThreadRootShell`, `ThreadViewportShell`,
   `ThreadComposerAreaShell`, `MessageGroup`, `ScrollToBottomButton`,
