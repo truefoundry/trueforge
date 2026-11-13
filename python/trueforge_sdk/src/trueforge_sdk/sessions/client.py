@@ -473,6 +473,7 @@ class SessionsClient:
         session_id: str,
         limit: typing.Optional[int] = 25,
         page_token: typing.Optional[str] = None,
+        assume_user: typing.Optional[typing.Literal["session-creator"]] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[Turn, ListTurnsResponse]:
         """
@@ -488,6 +489,9 @@ class SessionsClient:
 
         page_token : typing.Optional[str]
             Opaque token from a previous response `next_page_token`.
+
+        assume_user : typing.Optional[typing.Literal["session-creator"]]
+            Service API key only: which user identity to assume. Currently only session-creator.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -515,7 +519,11 @@ class SessionsClient:
             yield page
         """
         return self._raw_client.list_turns(
-            session_id=session_id, limit=limit, page_token=page_token, request_options=request_options
+            session_id=session_id,
+            limit=limit,
+            page_token=page_token,
+            assume_user=assume_user,
+            request_options=request_options,
         )
 
     def create_turn_stream(
@@ -523,6 +531,7 @@ class SessionsClient:
         *,
         session_id: str,
         input: typing.Sequence[CreateTurnSessionsStreamRequestInputItem],
+        assume_user: typing.Optional[typing.Literal["session-creator"]] = None,
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Stream[TurnStreamingEvent]:
@@ -540,6 +549,9 @@ class SessionsClient:
 
         input : typing.Sequence[CreateTurnSessionsStreamRequestInputItem]
             User messages for this turn. At least one is required.
+
+        assume_user : typing.Optional[typing.Literal["session-creator"]]
+            Service API key only: which user identity to assume. Currently only session-creator.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -574,7 +586,11 @@ class SessionsClient:
 
         def _events() -> typing.Generator[StreamEvent[TurnStreamingEvent], None, None]:
             with self._raw_client.create_turn_stream(
-                session_id=session_id, input=input, previous_turn_id=previous_turn_id, request_options=request_options
+                session_id=session_id,
+                input=input,
+                assume_user=assume_user,
+                previous_turn_id=previous_turn_id,
+                request_options=request_options,
             ) as r:
                 yield from r.data.with_metadata()
 
@@ -585,6 +601,7 @@ class SessionsClient:
         *,
         session_id: str,
         input: typing.Sequence[CreateTurnSessionsRequestInputItem],
+        assume_user: typing.Optional[typing.Literal["session-creator"]] = None,
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetTurnResponse:
@@ -602,6 +619,9 @@ class SessionsClient:
 
         input : typing.Sequence[CreateTurnSessionsRequestInputItem]
             User messages for this turn. At least one is required.
+
+        assume_user : typing.Optional[typing.Literal["session-creator"]]
+            Service API key only: which user identity to assume. Currently only session-creator.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -632,7 +652,11 @@ class SessionsClient:
         )
         """
         _response = self._raw_client.create_turn(
-            session_id=session_id, input=input, previous_turn_id=previous_turn_id, request_options=request_options
+            session_id=session_id,
+            input=input,
+            assume_user=assume_user,
+            previous_turn_id=previous_turn_id,
+            request_options=request_options,
         )
         return _response.data
 
@@ -1411,6 +1435,7 @@ class AsyncSessionsClient:
         session_id: str,
         limit: typing.Optional[int] = 25,
         page_token: typing.Optional[str] = None,
+        assume_user: typing.Optional[typing.Literal["session-creator"]] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[Turn, ListTurnsResponse]:
         """
@@ -1426,6 +1451,9 @@ class AsyncSessionsClient:
 
         page_token : typing.Optional[str]
             Opaque token from a previous response `next_page_token`.
+
+        assume_user : typing.Optional[typing.Literal["session-creator"]]
+            Service API key only: which user identity to assume. Currently only session-creator.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1462,7 +1490,11 @@ class AsyncSessionsClient:
         asyncio.run(main())
         """
         return await self._raw_client.list_turns(
-            session_id=session_id, limit=limit, page_token=page_token, request_options=request_options
+            session_id=session_id,
+            limit=limit,
+            page_token=page_token,
+            assume_user=assume_user,
+            request_options=request_options,
         )
 
     def create_turn_stream(
@@ -1470,6 +1502,7 @@ class AsyncSessionsClient:
         *,
         session_id: str,
         input: typing.Sequence[CreateTurnSessionsStreamRequestInputItem],
+        assume_user: typing.Optional[typing.Literal["session-creator"]] = None,
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncStream[TurnStreamingEvent]:
@@ -1487,6 +1520,9 @@ class AsyncSessionsClient:
 
         input : typing.Sequence[CreateTurnSessionsStreamRequestInputItem]
             User messages for this turn. At least one is required.
+
+        assume_user : typing.Optional[typing.Literal["session-creator"]]
+            Service API key only: which user identity to assume. Currently only session-creator.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -1529,7 +1565,11 @@ class AsyncSessionsClient:
 
         async def _events() -> typing.AsyncGenerator[StreamEvent[TurnStreamingEvent], None]:
             async with self._raw_client.create_turn_stream(
-                session_id=session_id, input=input, previous_turn_id=previous_turn_id, request_options=request_options
+                session_id=session_id,
+                input=input,
+                assume_user=assume_user,
+                previous_turn_id=previous_turn_id,
+                request_options=request_options,
             ) as r:
                 async for _event in r.data.with_metadata():
                     yield _event
@@ -1541,6 +1581,7 @@ class AsyncSessionsClient:
         *,
         session_id: str,
         input: typing.Sequence[CreateTurnSessionsRequestInputItem],
+        assume_user: typing.Optional[typing.Literal["session-creator"]] = None,
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetTurnResponse:
@@ -1558,6 +1599,9 @@ class AsyncSessionsClient:
 
         input : typing.Sequence[CreateTurnSessionsRequestInputItem]
             User messages for this turn. At least one is required.
+
+        assume_user : typing.Optional[typing.Literal["session-creator"]]
+            Service API key only: which user identity to assume. Currently only session-creator.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -1596,7 +1640,11 @@ class AsyncSessionsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.create_turn(
-            session_id=session_id, input=input, previous_turn_id=previous_turn_id, request_options=request_options
+            session_id=session_id,
+            input=input,
+            assume_user=assume_user,
+            previous_turn_id=previous_turn_id,
+            request_options=request_options,
         )
         return _response.data
 

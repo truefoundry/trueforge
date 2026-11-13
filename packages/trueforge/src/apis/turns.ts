@@ -67,6 +67,7 @@ import { HTTPException } from 'hono/http-exception';
 import { streamSSE } from 'hono/streaming';
 import type { Logger } from 'winston';
 import { z } from 'zod';
+import { applyAssumeUserToContext, ASSUME_USER_HEADER } from '../auth/assumeUser';
 import type { Authorizer } from '../auth/authorizer';
 import {
   requestContextFromCreatedBySubject,
@@ -1146,6 +1147,49 @@ function isSessionOwner({
   return created_by_subject.subject_id === subject_id;
 }
 
+/**
+ * JWT context from auth middleware, or service-key + `assume-user` as the session creator.
+ * Callers load the session themselves after this returns.
+ */
+async function resolveTurnRequestContext<TTransaction>(params: {
+  c: Context;
+  sessions: Sessions<TTransaction>;
+  session_id: string;
+  resolveRequestContext: ResolveRequestContext;
+}): Promise<RequestContext> {
+  const { c, sessions, session_id: sessionId, resolveRequestContext } = params;
+  const existing = c.get('request_context');
+  if (existing) {
+    return existing;
+  }
+  // Service key clears context; require assume-user so a JWT+header cannot take this path.
+  if (c.req.header(ASSUME_USER_HEADER)?.trim()) {
+    return applyAssumeUserToContext({
+      c,
+      resolveCreatedBy: async () => {
+        const session = await sessions.getById({ session_id: sessionId });
+        if (!session) {
+          throw new HTTPException(404, { message: `Session not found: ${sessionId}` });
+        }
+        return {
+          tenant_id: session.record.tenant_id,
+          created_by_subject: session.record.created_by_subject,
+          session_id: sessionId,
+        };
+      },
+    });
+  }
+  try {
+    return resolveRequestContext(c);
+  } catch (error) {
+    // Service key left context unset with no assume-user → 400, not a 500 from missing context.
+    if (error instanceof Error && error.message === 'RequestContext missing; auth middleware did not run') {
+      throw new HTTPException(400, { message: `Missing ${ASSUME_USER_HEADER} header`, cause: error });
+    }
+    throw error;
+  }
+}
+
 /** Request-reply path the owner serves for inbound turn events. */
 const TURNS_SEND_EVENTS_PATH = 'turns/send-events';
 
@@ -1792,7 +1836,12 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
   const listTurnsHandler: RouteHandler<typeof listTurnsRoute> = async c => {
     const { session_id: sessionId } = c.req.valid('param');
     const query = c.req.valid('query');
-    const requestContext = deps.resolveRequestContext(c);
+    const requestContext = await resolveTurnRequestContext({
+      c,
+      sessions: deps.sessions,
+      session_id: sessionId,
+      resolveRequestContext: deps.resolveRequestContext,
+    });
     const session = await deps.sessions.get({
       tenant_id: requestContext.tenant_id,
       session_id: sessionId,
@@ -1971,8 +2020,13 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
   const createAndExecuteTurnHandler: RouteHandler<typeof createAndExecuteTurnRoute> = async c => {
     const { session_id: sessionId } = c.req.valid('param');
     const body = c.req.valid('json');
-    const requestContext = deps.resolveRequestContext(c);
-
+    const serviceAuth = !c.get('request_context') && Boolean(c.req.header(ASSUME_USER_HEADER)?.trim());
+    const requestContext = await resolveTurnRequestContext({
+      c,
+      sessions: deps.sessions,
+      session_id: sessionId,
+      resolveRequestContext: deps.resolveRequestContext,
+    });
     const session = await deps.sessions.get({
       tenant_id: requestContext.tenant_id,
       session_id: sessionId,
@@ -1980,25 +2034,42 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
     if (!session) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    if (
-      !isSessionOwner({
-        subject_id: requestContext.subject.id,
-        created_by_subject: session.record.created_by_subject,
-      })
-    ) {
-      return c.json({ error: { message: FORBIDDEN_CREATE_TURN } }, 403);
-    }
 
-    const agentUse = await referencedAgentForUse({
-      session,
-      requestContext,
-      agentStore: deps.resolveAgentStore(requestContext),
-      authorizer: deps.authorizer,
-    });
-    if (agentUse.type === 'rejected') {
-      return c.json({ error: { message: agentUse.message } }, agentUse.status);
+    let referencedAgent: AgentRecord | undefined;
+    if (serviceAuth) {
+      if (session.record.agent.type !== 'reference') {
+        throw new HTTPException(422, {
+          message: 'Service create-turn requires a session bound to a named agent (not an inline agent spec)',
+        });
+      }
+      const agent = await deps.resolveAgentStore(requestContext).getAgent({
+        tenant_id: requestContext.tenant_id,
+        id: session.record.agent.id,
+      });
+      if (!agent) {
+        return c.json({ error: { message: `Agent not found: ${session.record.agent.id}` } }, 422);
+      }
+      referencedAgent = agent;
+    } else {
+      if (
+        !isSessionOwner({
+          subject_id: requestContext.subject.id,
+          created_by_subject: session.record.created_by_subject,
+        })
+      ) {
+        return c.json({ error: { message: FORBIDDEN_CREATE_TURN } }, 403);
+      }
+      const agentUse = await referencedAgentForUse({
+        session,
+        requestContext,
+        agentStore: deps.resolveAgentStore(requestContext),
+        authorizer: deps.authorizer,
+      });
+      if (agentUse.type === 'rejected') {
+        return c.json({ error: { message: agentUse.message } }, agentUse.status);
+      }
+      referencedAgent = agentUse.agent;
     }
-    const referencedAgent = agentUse.agent;
 
     // x-tfg-skills / x-tfg-mcp / x-tfg-models on turns only when the session agent is inline.
     const turnParams: BeginTurnExecutionParams<TTransaction> = {
@@ -2012,7 +2083,7 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
         session,
         requestContext,
         requestHeaders: c.req.header(),
-        ...(referencedAgent !== undefined ? { runAsAgent: referencedAgent } : {}),
+        ...(referencedAgent ? { runAsAgent: referencedAgent } : {}),
       }),
     };
 
