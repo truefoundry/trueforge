@@ -57,6 +57,23 @@ describe('ComposerSendButton', () => {
     expect(onSubmit).toHaveBeenCalledOnce();
   });
 
+  it('uses blockedReason as the send tooltip while submission is blocked', () => {
+    render(
+      <ComposerSendButton
+        disabled={false}
+        canSubmit={false}
+        isRunning={false}
+        hasContent
+        blockedReason="Preparing sandbox…"
+        onSubmit={() => {}}
+      />,
+    );
+
+    const blocked = screen.getByRole('button', { name: 'Preparing sandbox…' });
+    expect(blocked).toBeDisabled();
+    expect(blocked).toHaveAttribute('title', 'Preparing sandbox…');
+  });
+
   it('shows cancel only while running with an empty composer', () => {
     const onSubmit = vi.fn();
     const onCancel = vi.fn();
