@@ -64,6 +64,14 @@ export function CenteredModal({
     return () => el.removeEventListener('close', handler);
   }, [onOpenChange]);
 
+  useEffect(() => {
+    const el = ref.current;
+    return () => {
+      // Call sites that unmount on dismiss must not tear down an still-open top-layer dialog.
+      if (el?.open && typeof el.close === 'function') el.close();
+    };
+  }, []);
+
   return (
     <dialog
       ref={ref}
@@ -71,9 +79,11 @@ export function CenteredModal({
       aria-labelledby={titleId}
       aria-describedby={description ? descriptionId : undefined}
       onCancel={event => {
-        // Let the browser close() so focus / top layer clear; `close` syncs React.
+        // Keep React `open` as source of truth (busy save/clone can ignore dismiss).
         // stopPropagation keeps Escape from also dismissing a parent <dialog>.
+        event.preventDefault();
         event.stopPropagation();
+        onOpenChange(false);
       }}
       style={compactStyle ?? (contentSized ? { height: 'fit-content', maxHeight: '85dvh' } : undefined)}
       className={cn(

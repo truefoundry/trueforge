@@ -122,12 +122,9 @@ describe('BottomSheet', () => {
     const cancelEvent = new Event('cancel', { bubbles: true, cancelable: true });
     fireEvent(screen.getByRole('dialog', { name: 'Picker' }), cancelEvent);
 
-    // Native close must run (no preventDefault); parent cancel must not fire.
-    expect(cancelEvent.defaultPrevented).toBe(false);
-    expect(onParentCancel).not.toHaveBeenCalled();
-
-    fireEvent(screen.getByRole('dialog', { name: 'Picker' }), new Event('close'));
+    expect(cancelEvent.defaultPrevented).toBe(true);
     expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(onParentCancel).not.toHaveBeenCalled();
   });
 
   it('forwards its id, accessible label, custom class, and children', () => {

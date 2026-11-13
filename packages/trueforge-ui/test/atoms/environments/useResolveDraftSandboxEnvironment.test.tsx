@@ -157,6 +157,7 @@ describe('useResolveDraftSandboxEnvironment', () => {
   });
 
   it('holds send until the environments catalog finishes loading', async () => {
+    agentSpec = { model: { name: 'gpt-4' }, config: { sandbox: { enabled: true } } };
     let resolveList!: (value: { data: SandboxEnvironment[] }) => void;
     const listPromise = new Promise<{ data: SandboxEnvironment[] }>(resolve => {
       resolveList = resolve;
@@ -205,5 +206,35 @@ describe('useResolveDraftSandboxEnvironment', () => {
     agentSpec = { model: { name: 'gpt-4' }, config: { sandbox: { enabled: true } } };
     const { result } = renderResolve([readyEnv, defaultEnv]);
     expect(result.current.readyForSend).toBe(true);
+  });
+
+  it('allows send when sandbox is explicitly disabled', async () => {
+    agentSpec = { model: { name: 'gpt-4' }, config: { sandbox: { enabled: false } } };
+    const { result } = renderResolve([readyEnv, defaultEnv]);
+    await waitFor(() => {
+      expect(result.current.loaded).toBe(true);
+      expect(result.current.readyForSend).toBe(true);
+    });
+  });
+
+  it('allows send after a catalog error when the draft already names an environment', async () => {
+    agentSpec = {
+      model: { name: 'gpt-4' },
+      config: { sandbox: { enabled: true, environmentName: 'team-base' } },
+    };
+    const server = createMockAgentUIServer({
+      sandboxEnvironments: createMockSandboxEnvironmentServer({
+        listEnvironments: async () => {
+          throw new Error('network down');
+        },
+      }),
+    });
+    function wrapper({ children }: { children: ReactNode }) {
+      return <ServerProvider server={server}>{children}</ServerProvider>;
+    }
+    const { result } = renderHook(() => useResolveDraftSandboxEnvironment(), { wrapper });
+    await waitFor(() => {
+      expect(result.current.readyForSend).toBe(true);
+    });
   });
 });

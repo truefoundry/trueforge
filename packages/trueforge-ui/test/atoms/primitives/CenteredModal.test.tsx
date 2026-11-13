@@ -86,7 +86,7 @@ describe('CenteredModal', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
-  it('reports native close and close-button; Escape does not cancel a parent dialog', () => {
+  it('reports native close, close-button, and cancel requests', () => {
     const onOpenChange = vi.fn();
     const onParentCancel = vi.fn();
     render(
@@ -110,8 +110,8 @@ describe('CenteredModal', () => {
     onOpenChange.mockClear();
     const cancelEvent = new Event('cancel', { bubbles: true, cancelable: true });
     fireEvent(dialog, cancelEvent);
-    // Native close must run (no preventDefault) so unmounting call sites do not drop an open modal.
-    expect(cancelEvent.defaultPrevented).toBe(false);
+    expect(cancelEvent.defaultPrevented).toBe(true);
+    expect(onOpenChange).toHaveBeenCalledWith(false);
     expect(onParentCancel).not.toHaveBeenCalled();
 
     onOpenChange.mockClear();
