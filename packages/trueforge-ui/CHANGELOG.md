@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.185.1
+
+### Patch Changes
+
+- 18c4936: Disable Send on draft composers while models are still loading or the default sandbox environment is being resolved, and show why on the button tooltip.
+
 ## 0.185.0
 
 ### Patch Changes
