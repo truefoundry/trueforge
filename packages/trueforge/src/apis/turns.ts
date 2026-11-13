@@ -1146,21 +1146,27 @@ function isSessionOwner({
   return created_by_subject.subject_id === subject_id;
 }
 
-async function resolveTurnSession<TTransaction>(params: {
+/**
+ * JWT context from auth middleware, or service-key + `assume-user` as the session creator.
+ * Callers load the session themselves after this returns.
+ */
+async function resolveTurnRequestContext<TTransaction>(params: {
   c: Context;
   sessions: Sessions<TTransaction>;
   session_id: string;
   resolveRequestContext: ResolveRequestContext;
-}): Promise<{ requestContext: RequestContext; session: SessionHandle<TTransaction> }> {
+}): Promise<RequestContext> {
   const { c, sessions, session_id: sessionId, resolveRequestContext } = params;
   const existing = c.get('request_context');
+  if (existing) {
+    return existing;
+  }
   // Service key clears context; require assume-user so a JWT+header cannot take this path.
-  if (!existing && c.req.header(ASSUME_USER_HEADER)?.trim()) {
-    let session: SessionHandle<TTransaction> | undefined;
-    const requestContext = await applyAssumeUserToContext({
+  if (c.req.header(ASSUME_USER_HEADER)?.trim()) {
+    return applyAssumeUserToContext({
       c,
       resolveCreatedBy: async () => {
-        session = await sessions.getById({ session_id: sessionId });
+        const session = await sessions.getById({ session_id: sessionId });
         if (!session) {
           throw new HTTPException(404, { message: `Session not found: ${sessionId}` });
         }
@@ -1171,21 +1177,8 @@ async function resolveTurnSession<TTransaction>(params: {
         };
       },
     });
-    if (!session) {
-      throw new HTTPException(404, { message: `Session not found: ${sessionId}` });
-    }
-    return { requestContext, session };
   }
-
-  const requestContext = existing ?? resolveRequestContext(c);
-  const session = await sessions.get({
-    tenant_id: requestContext.tenant_id,
-    session_id: sessionId,
-  });
-  if (!session) {
-    throw new HTTPException(404, { message: `Session not found: ${sessionId}` });
-  }
-  return { requestContext, session };
+  return resolveRequestContext(c);
 }
 
 /** Request-reply path the owner serves for inbound turn events. */
@@ -1834,12 +1827,19 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
   const listTurnsHandler: RouteHandler<typeof listTurnsRoute> = async c => {
     const { session_id: sessionId } = c.req.valid('param');
     const query = c.req.valid('query');
-    const { requestContext, session } = await resolveTurnSession({
+    const requestContext = await resolveTurnRequestContext({
       c,
       sessions: deps.sessions,
       session_id: sessionId,
       resolveRequestContext: deps.resolveRequestContext,
     });
+    const session = await deps.sessions.get({
+      tenant_id: requestContext.tenant_id,
+      session_id: sessionId,
+    });
+    if (!session) {
+      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+    }
     const allowed = await canReadSession({
       session_id: session.record.session_id,
       accessControlStore: deps.accessControlStore,
@@ -2012,12 +2012,19 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
     const { session_id: sessionId } = c.req.valid('param');
     const body = c.req.valid('json');
     const serviceAuth = !c.get('request_context') && Boolean(c.req.header(ASSUME_USER_HEADER)?.trim());
-    const { requestContext, session } = await resolveTurnSession({
+    const requestContext = await resolveTurnRequestContext({
       c,
       sessions: deps.sessions,
       session_id: sessionId,
       resolveRequestContext: deps.resolveRequestContext,
     });
+    const session = await deps.sessions.get({
+      tenant_id: requestContext.tenant_id,
+      session_id: sessionId,
+    });
+    if (!session) {
+      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+    }
 
     let referencedAgent: AgentRecord | undefined;
     if (serviceAuth) {

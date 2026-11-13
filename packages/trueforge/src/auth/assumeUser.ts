@@ -7,16 +7,8 @@ import { requestContextFromCreatedBySubject, type RequestContext } from './ident
 
 export const ASSUME_USER_HEADER = 'assume-user';
 
-/** Header values are assume roles (not raw user ids). More roles can be added later. */
-export const AssumeUser = {
-  SessionCreator: 'session-creator',
-} as const;
-
-export type AssumeUser = (typeof AssumeUser)[keyof typeof AssumeUser];
-
-const ASSUME_USER_BY_VALUE: Record<string, AssumeUser> = {
-  [AssumeUser.SessionCreator]: AssumeUser.SessionCreator,
-};
+/** Supported `assume-user` header values (not raw user ids). */
+export type AssumeUser = 'session-creator';
 
 /**
  * OpenAPI `parameters` entry (docs only). Prefer this over Zod `request.headers`:
@@ -27,9 +19,8 @@ export const ASSUME_USER_HEADER_PARAM = {
   name: ASSUME_USER_HEADER,
   in: 'header' as const,
   required: false,
-  description:
-    'Service API key only: assume role (not a user id). Today only session-creator; more roles may be added later.',
-  schema: { type: 'string' as const, enum: [AssumeUser.SessionCreator] },
+  description: 'Service API key only: which user identity to assume. Currently only session-creator.',
+  schema: { type: 'string' as const, enum: ['session-creator'] satisfies AssumeUser[] },
 };
 
 export function parseAssumeUserHeader(header: string | undefined): AssumeUser {
@@ -37,16 +28,15 @@ export function parseAssumeUserHeader(header: string | undefined): AssumeUser {
   if (!raw) {
     throw new HTTPException(400, { message: `Missing ${ASSUME_USER_HEADER} header` });
   }
-  const assumed = ASSUME_USER_BY_VALUE[raw];
-  if (!assumed) {
+  if (raw !== 'session-creator') {
     throw new HTTPException(400, {
-      message: `Invalid ${ASSUME_USER_HEADER}: only "${AssumeUser.SessionCreator}" is supported`,
+      message: `Invalid ${ASSUME_USER_HEADER}: only "session-creator" is supported`,
     });
   }
-  return assumed;
+  return raw;
 }
 
-/** Load tenant + created_by for the assume role (session_id here, schedule_id later). */
+/** Load tenant + created_by for the assumed identity. */
 export type ResolveAssumedCreatedBy = () => Promise<{
   tenant_id: string;
   created_by_subject: Subject;

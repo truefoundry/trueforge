@@ -47,7 +47,7 @@ declare module 'hono' {
   interface ContextVariableMap {
     subject?: RequestSubject;
     request_context?: RequestContext;
-    /** Set when service auth assumed a role via `assume-user`. */
+    /** Set when service auth applied `assume-user`. */
     assume_user?: AssumeUser;
   }
 }
