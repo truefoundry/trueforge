@@ -46,6 +46,10 @@ export interface GetSessionInput {
   session_id: string;
 }
 
+export interface GetSessionByIdInput {
+  session_id: string;
+}
+
 export interface GetOwnedIdsInput {
   tenant_id: string;
   ids: readonly string[];
@@ -291,6 +295,8 @@ export interface ISessionStore<
    * Does **not** bump `last_activity_timestamp_ms` (read path).
    */
   getSession(input: GetSessionInput): Promise<SessionRecord<TSessionCustom> | undefined>;
+
+  getSessionById(input: GetSessionByIdInput): Promise<SessionRecord<TSessionCustom> | undefined>;
 
   /**
    * Session ids among `ids` owned by `subject_id`. Empty `ids` → `[]`.
