@@ -144,7 +144,6 @@ describe('current pause collection', () => {
       id: 'model-1',
       createdAt: new Date().toISOString(),
       threadId: ROOT_THREAD_ID,
-      role: 'assistant',
       toolCalls: [
         {
           id: 'call-1',
