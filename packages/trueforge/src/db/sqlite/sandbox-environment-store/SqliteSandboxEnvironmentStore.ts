@@ -268,6 +268,7 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
     const query = latestVersionJoin(db)
       .where('env.tenant_id', '=', input.tenant_id)
       .where('env.lifecycle_stage', '=', 'active')
+      .orderBy('env.is_default', 'desc')
       .orderBy('env.updated_at', 'desc')
       .orderBy('env.name');
     if (!input.limit) {

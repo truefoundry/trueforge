@@ -278,10 +278,8 @@ describe('EnvironmentsPage', () => {
     });
 
     fireEvent.click(await screen.findByRole('button', { name: 'Actions for python-data' }));
-    await waitFor(() => {
-      expect(screen.getByRole('menuitem', { name: 'Disable' })).toBeEnabled();
-      expect(screen.getByRole('menuitem', { name: 'Edit' })).toBeEnabled();
-    });
+    expect(screen.getByRole('menuitem', { name: 'Disable' })).toBeEnabled();
+    expect(screen.getByRole('menuitem', { name: 'Edit' })).toBeEnabled();
 
     const setDefault = screen.getByRole('menuitem', { name: 'Set as default' });
     expect(setDefault).toBeDisabled();

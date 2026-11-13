@@ -11,7 +11,6 @@ import { Icon } from '../../icons/Icon.js';
 import { useSandboxEnvironmentServer } from '../../server/ServerContext.js';
 import { useOptionalShellMode } from '../../server/ShellModeContext.js';
 import type { SandboxEnvironment } from '../../server/types.js';
-import { drainListPages } from '../../utils/drainListPages.js';
 import {
   ENVIRONMENT_SHARE_CHANGE_EVENT,
   readEnvironmentShareSearch,
@@ -36,8 +35,8 @@ import {
   TableCell,
   TableHead,
   TableHeader,
-  TablePagination,
   TableRow,
+  TableTokenPagination,
 } from '../primitives/Table.js';
 import { Tooltip } from '../primitives/Tooltip.js';
 import { formatNetworkingSummary, formatResourcesSummary, isReservedEnvironmentName } from './environmentDisplay.js';
@@ -159,30 +158,44 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
   const [drawer, setDrawer] = useState<DrawerState>({ kind: 'closed' });
   const [pendingDelete, setPendingDelete] = useState<SandboxEnvironment | null>(null);
   const [pageSize, setPageSize] = useState(() => clampPageSize(DEFAULT_TABLE_PAGE_SIZE));
-  const [page, setPage] = useState(0);
+  const [pageToken, setPageToken] = useState<string | undefined>(undefined);
+  const [nextPageToken, setNextPageToken] = useState<string | undefined>(undefined);
+  const [previousPageToken, setPreviousPageToken] = useState<string | undefined>(undefined);
   const loadGenRef = useRef(0);
   const didConsumeIsNewRef = useRef(false);
   const wasSettingsOpenRef = useRef(shell?.settingsOpen ?? false);
   const settingsOpen = shell?.settingsOpen ?? false;
 
-  const loadEnvironments = useCallback(async () => {
-    const gen = ++loadGenRef.current;
-    setLoading(true);
-    setError(null);
-    try {
-      const all = await drainListPages({
-        fetchPage: pageToken => environmentServer.listEnvironments({ limit: 1000, pageToken }),
-      });
-      if (gen !== loadGenRef.current) return;
-      setEnvironments(all);
-    } catch (caught) {
-      if (gen !== loadGenRef.current) return;
-      setError(getErrorMessage(caught, 'Check your connection and try again.'));
-      setEnvironments([]);
-    } finally {
-      if (gen === loadGenRef.current) setLoading(false);
-    }
-  }, [environmentServer]);
+  const loadEnvironments = useCallback(
+    async ({ token, size, silent = false }: { token: string | undefined; size: number; silent?: boolean }) => {
+      const gen = ++loadGenRef.current;
+      if (!silent) {
+        setLoading(true);
+        setError(null);
+      }
+      try {
+        const page = await environmentServer.listEnvironments({
+          limit: clampPageSize(size),
+          ...(token === undefined || token === '' ? {} : { pageToken: token }),
+        });
+        if (gen !== loadGenRef.current) return;
+        setEnvironments(page.data);
+        setNextPageToken(page.nextPageToken);
+        setPreviousPageToken(page.previousPageToken);
+      } catch (caught) {
+        if (gen !== loadGenRef.current) return;
+        if (!silent) {
+          setError(getErrorMessage(caught, 'Check your connection and try again.'));
+          setEnvironments([]);
+          setNextPageToken(undefined);
+          setPreviousPageToken(undefined);
+        }
+      } finally {
+        if (gen === loadGenRef.current && !silent) setLoading(false);
+      }
+    },
+    [environmentServer],
+  );
 
   useEffect(() => {
     replaceEnvironmentShareSearch({
@@ -191,15 +204,15 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
   }, [nameQuery]);
 
   useEffect(() => {
-    void loadEnvironments();
-  }, [loadEnvironments]);
+    void loadEnvironments({ token: pageToken, size: pageSize });
+  }, [loadEnvironments, pageSize, pageToken]);
 
   useEffect(() => {
     if (wasSettingsOpenRef.current && !settingsOpen) {
-      void loadEnvironments();
+      void loadEnvironments({ token: pageToken, size: pageSize });
     }
     wasSettingsOpenRef.current = settingsOpen;
-  }, [settingsOpen, loadEnvironments]);
+  }, [settingsOpen, loadEnvironments, pageToken, pageSize]);
 
   // Poll individual pending environments using single-environment get API
   useEffect(() => {
@@ -257,7 +270,6 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
     const onShareChange = () => {
       const share = readEnvironmentShareSearch(window.location.search);
       setNameQuery(share.q ?? '');
-      setPage(0);
       if (!share.isNew) return;
       // Leave envIsNew in the URL until CREATE finishes loading so the resolve effect can honor it.
       if (createPermissionLoading) return;
@@ -272,19 +284,16 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
 
   const filtered = useMemo(() => {
     const q = nameQuery.trim().toLowerCase();
-    return environments
-      .filter(env => env.name.toLowerCase().includes(q) || env.description.toLowerCase().includes(q))
-      .sort(
-        (left, right) => Number(isReservedEnvironmentName(right.name)) - Number(isReservedEnvironmentName(left.name)),
-      );
+    if (q.length === 0) return environments;
+    return environments.filter(env => env.name.toLowerCase().includes(q) || env.description.toLowerCase().includes(q));
   }, [environments, nameQuery]);
-  const currentPage = Math.min(page, Math.max(0, Math.ceil(filtered.length / pageSize) - 1));
-  const visibleEnvironments = filtered.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
 
   // Derived live so the drawer gains Save once permissions load after it was opened.
   const drawerReadOnly =
     drawer.kind === 'edit' &&
     (isReservedEnvironmentName(drawer.environment.name) || !allows(drawer.environment.id, 'MANAGE'));
+
+  const hasPageNav = nextPageToken != null || previousPageToken != null || environments.length > 0;
 
   const openCreate = () => {
     if (!canCreateSandboxEnvironment) return;
@@ -302,9 +311,9 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
         environment_id: target.id,
       });
       toaster?.showSuccess({ title: 'Environment deleted' });
-      setPage(0);
+      setPageToken(undefined);
       shell?.invalidateEnvironmentsList();
-      void loadEnvironments();
+      void loadEnvironments({ token: undefined, size: pageSize });
     } catch (caught) {
       toaster?.showError(caught);
     }
@@ -315,7 +324,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
       await change();
       toaster?.showSuccess({ title });
       shell?.invalidateEnvironmentsList();
-      void loadEnvironments();
+      void loadEnvironments({ token: pageToken, size: pageSize });
     } catch (caught) {
       toaster?.showError(caught);
     }
@@ -328,14 +337,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
         end={
           <>
             <div className="w-64">
-              <SearchInput
-                query={nameQuery}
-                setQuery={query => {
-                  setNameQuery(query);
-                  setPage(0);
-                }}
-                placeholder="Search environments by name"
-              />
+              <SearchInput query={nameQuery} setQuery={setNameQuery} placeholder="Search environments by name" />
             </div>
             <Tooltip
               content={
@@ -401,7 +403,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {visibleEnvironments.map(env => {
+                {filtered.map(env => {
                   const readOnly = isReservedEnvironmentName(env.name) || !allows(env.id, 'MANAGE');
                   const actions = environmentRowActionReasons({
                     environment: env,
@@ -521,17 +523,22 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
                 })}
               </TableBody>
             </Table>
-            <TablePagination
-              page={currentPage}
-              pageSize={pageSize}
-              total={filtered.length}
-              onPageChange={setPage}
-              pageSizeOptions={ENVIRONMENTS_PAGE_SIZE_OPTIONS}
-              onPageSizeChange={size => {
-                setPageSize(clampPageSize(size));
-                setPage(0);
-              }}
-            />
+            {hasPageNav ? (
+              <TableTokenPagination
+                pageSize={pageSize}
+                rowCount={filtered.length}
+                canPrev={previousPageToken != null}
+                canNext={nextPageToken != null}
+                onPrev={() => setPageToken(previousPageToken)}
+                onNext={() => setPageToken(nextPageToken)}
+                pageSizeOptions={ENVIRONMENTS_PAGE_SIZE_OPTIONS}
+                onPageSizeChange={size => {
+                  setPageSize(clampPageSize(size));
+                  setPageToken(undefined);
+                  setPreviousPageToken(undefined);
+                }}
+              />
+            ) : null}
           </div>
         )}
       </div>
@@ -544,9 +551,9 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
           if (!open) setDrawer({ kind: 'closed' });
         }}
         onSaved={() => {
-          setPage(0);
+          setPageToken(undefined);
           shell?.invalidateEnvironmentsList();
-          void loadEnvironments();
+          void loadEnvironments({ token: undefined, size: pageSize });
         }}
       />
 
