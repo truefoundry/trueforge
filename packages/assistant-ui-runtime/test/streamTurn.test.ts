@@ -402,8 +402,9 @@ describe('streamTurn', () => {
           },
         },
         {
+          // Sibling/orchestrator running does not clear pending approval chrome.
           sequenceNumber: 5,
-          status: { type: 'running' },
+          status: { type: 'requires-action', reason: 'tool-calls' },
           turnState: { status: 'running' },
         },
         {

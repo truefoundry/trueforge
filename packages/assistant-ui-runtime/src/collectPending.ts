@@ -2,6 +2,11 @@ import type { ThreadAssistantMessagePart, ThreadMessage } from '@assistant-ui/co
 import type { McpAuthRequiredEvent } from './server/index.js';
 
 import { ROOT_THREAD_ID } from './constants.js';
+import {
+  resolveToolApprovalPolicyTarget,
+  type PeerThreadFoldState,
+  type ToolApprovalPolicyTarget,
+} from './foldPeerThreads.js';
 import { isMcpServerAuthInfoList, isUnknownRecord, MESSAGE_CUSTOM_KEY } from './messageCustomMetadata.js';
 import { findPausedAssistantMessage } from './requiredActionInputs.js';
 import { getToolApprovalThreadId, hasPendingToolApproval } from './toolApproval.js';
@@ -17,6 +22,8 @@ export interface PendingApproval {
   toolName: string;
   args: Record<string, unknown>;
   argsText: string;
+  /** `(serverName, name)` a session / timed allow policy would apply to; absent when none can. */
+  policyTarget?: ToolApprovalPolicyTarget;
 }
 
 export interface PendingToolResponse {
@@ -54,7 +61,11 @@ function walkToolCallParts(
   }
 }
 
-export function collectPendingApprovals(messages: readonly ThreadMessage[]): PendingApproval[] {
+/** Projected tool-call parts carry no `toolInfo`; pass `fold` to resolve each approval's policy target. */
+export function collectPendingApprovals(
+  messages: readonly ThreadMessage[],
+  fold?: PeerThreadFoldState,
+): PendingApproval[] {
   const pending: PendingApproval[] = [];
   const paused = findPausedAssistantMessage(messages);
   if (paused == null) {
@@ -69,12 +80,15 @@ export function collectPendingApprovals(messages: readonly ThreadMessage[]): Pen
       if (approval == null || !hasPendingToolApproval(approval)) {
         return;
       }
+      const policyTarget =
+        fold == null ? undefined : resolveToolApprovalPolicyTarget({ state: fold, threadId, toolCallId: approval.id });
       pending.push({
         approvalId: approval.id,
         threadId,
         toolName: part.toolName,
         args: { ...part.args },
         argsText: part.argsText,
+        ...(policyTarget == null ? {} : { policyTarget }),
       });
     },
     rootThreadId,
@@ -144,7 +158,7 @@ export function derivePendingMcpAuth(
 
 const UPDATE_CURRENT_SESSION_TOOL_NAME = 'update_current_session';
 /** Mirrors `TRUEFORGE_MCP_ID` in trueforge-core. This package does not depend on it. */
-const TRUEFORGE_MCP_SERVER_ID = 'built-in:trueforge-mcp';
+const TRUEFORGE_MCP_SERVER_ID = 'trueforge:mcp';
 
 function isUpdateCurrentSessionCall(part: ToolCallPart): boolean {
   // The TrueForge server is deferred, so its tools arrive as `call_tool` and the

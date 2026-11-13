@@ -9,6 +9,7 @@ import {
   findLatestSessionSpecUpdate,
 } from '../src/collectPending.js';
 import { ROOT_THREAD_ID } from '../src/constants.js';
+import { ingestTurnEvent, PeerThreadFoldState } from '../src/foldPeerThreads.js';
 import { MESSAGE_CUSTOM_KEY } from '../src/messageCustomMetadata.js';
 
 function assistantMessage(
@@ -135,6 +136,42 @@ describe('current pause collection', () => {
     });
     expect(collectPendingApprovals([pausedApproval])).toEqual([expect.objectContaining({ approvalId: 'approval-1' })]);
   });
+
+  it('resolves the policy target for a direct MCP tool approval from the fold', () => {
+    const fold = new PeerThreadFoldState();
+    ingestTurnEvent(fold, {
+      type: 'model.message',
+      id: 'model-1',
+      createdAt: new Date().toISOString(),
+      threadId: ROOT_THREAD_ID,
+      toolCalls: [
+        {
+          id: 'call-1',
+          type: 'function',
+          function: { name: 'save_comment', arguments: '{}' },
+          toolInfo: { type: 'mcp', name: 'save_comment', serverId: 'linear-id', serverName: 'linear' },
+        },
+      ],
+    });
+    const paused = assistantMessage('paused-mcp', {
+      status: { type: 'requires-action', reason: 'tool-calls' },
+      content: [
+        {
+          type: 'tool-call',
+          toolCallId: 'call-1',
+          toolName: 'save_comment',
+          args: {},
+          argsText: '{}',
+          approval: { id: 'call-1' },
+        },
+      ],
+    });
+
+    expect(collectPendingApprovals([paused], fold)).toMatchObject([
+      { approvalId: 'call-1', policyTarget: { serverName: 'linear', name: 'save_comment' } },
+    ]);
+    expect(collectPendingApprovals([paused])[0]?.policyTarget).toBeUndefined();
+  });
 });
 
 describe('findLatestSessionSpecUpdate', () => {
@@ -153,23 +190,13 @@ describe('findLatestSessionSpecUpdate', () => {
     const messages = [
       assistantMessage('a1', {
         content: [
-          toolCall(
-            'first',
-            'call_tool',
-            { mcp_server: 'built-in:trueforge-mcp', tool_name: 'update_current_session' },
-            '{}',
-          ),
+          toolCall('first', 'call_tool', { mcp_server: 'trueforge:mcp', tool_name: 'update_current_session' }, '{}'),
         ],
       }),
       userMessage('u2'),
       assistantMessage('a2', {
         content: [
-          toolCall(
-            'second',
-            'call_tool',
-            { mcp_server: 'built-in:trueforge-mcp', tool_name: 'update_current_session' },
-            '{}',
-          ),
+          toolCall('second', 'call_tool', { mcp_server: 'trueforge:mcp', tool_name: 'update_current_session' }, '{}'),
         ],
       }),
     ];
@@ -183,15 +210,10 @@ describe('findLatestSessionSpecUpdate', () => {
           toolCall('other-server', 'call_tool', { mcp_server: 'github', tool_name: 'update_current_session' }, '{}'),
           toolCall('direct', 'update_current_session', {}, '{}'),
           toolCall('running', 'call_tool', {
-            mcp_server: 'built-in:trueforge-mcp',
+            mcp_server: 'trueforge:mcp',
             tool_name: 'update_current_session',
           }),
-          toolCall(
-            'done',
-            'call_tool',
-            { mcp_server: 'built-in:trueforge-mcp', tool_name: 'update_current_session' },
-            '{}',
-          ),
+          toolCall('done', 'call_tool', { mcp_server: 'trueforge:mcp', tool_name: 'update_current_session' }, '{}'),
         ],
       }),
     ];

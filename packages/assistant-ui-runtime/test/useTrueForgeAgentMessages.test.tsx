@@ -1103,6 +1103,7 @@ describe('useTrueForgeAgentMessages', () => {
         m => m.role === 'assistant' && m.content.some(p => p.type === 'text' && p.text.includes('How are you')),
       ),
     ).toBe(false);
+    expect(mockServer.cancelSession).not.toHaveBeenCalled();
 
     await act(async () => {
       releaseStream?.();
@@ -1924,7 +1925,14 @@ describe('useTrueForgeAgentMessages', () => {
     });
   });
 
-  it('submits MCP auth continuation on the paused turn', async () => {
+  it('submits MCP auth continuation and clears Connect only after the request succeeds', async () => {
+    let resolveSend: (() => void) | undefined;
+    vi.mocked(mockServer.sendTurnEvents).mockImplementation(
+      () =>
+        new Promise(resolve => {
+          resolveSend = () => resolve([]);
+        }),
+    );
     vi.mocked(loadSessionSnapshot).mockResolvedValue(
       snapshotWithAssistantMessage({
         id: 'turn-1-assistant',
@@ -1949,15 +1957,25 @@ describe('useTrueForgeAgentMessages', () => {
     const { result } = renderHook(() => useTrueForgeAgentMessages({ server: mockServer, sessionId: 'session-1' }));
     await waitFor(() => expect(result.current.messages).toHaveLength(1));
 
-    await act(async () => {
-      await result.current.continueMcpAuth();
+    let continued: Promise<void> | undefined;
+    act(() => {
+      continued = result.current.continueMcpAuth();
     });
-
+    await waitFor(() => expect(mockServer.sendTurnEvents).toHaveBeenCalledTimes(1));
     expect(mockServer.sendTurnEvents).toHaveBeenCalledWith({
       sessionId: 'session-1',
       turnId: 'turn-1',
       events: [{ type: 'user.mcp_auth_continue' }],
     });
+    expect(result.current.messages[0]?.metadata.custom?.['pendingMcpAuth']).toBe(true);
+
+    await act(async () => {
+      resolveSend?.();
+      await continued;
+    });
+
+    expect(result.current.messages[0]?.metadata.custom?.['pendingMcpAuth']).toBeUndefined();
+    expect(result.current.messages[0]?.status).toEqual({ type: 'running' });
   });
 
   it('uses the stored event-id cursor when subscribing before an action', async () => {
