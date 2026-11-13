@@ -127,6 +127,15 @@
           "source": "./openapi.json",
           "directory": "api-reference"
         }
+      },
+      {
+        "tab": "Announcements",
+        "groups": [
+          {
+            "group": "Announcements",
+            "pages": ["announcements/turn-lifecycle-0-185-0"]
+          }
+        ]
       }
     ]
   },

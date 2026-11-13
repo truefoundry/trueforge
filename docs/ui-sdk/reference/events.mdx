@@ -3,11 +3,15 @@ title: "Streaming events"
 description: "The event protocol createTurn yields and the UI folds into a transcript."
 ---
 
-`createTurn` is an async generator. Each value it yields is an envelope, not a bare event:
+<Note>
+  TrueForge 0.185.0+ introduces breaking changes to turn lifecycle - turns now pause when waiting for user input.
+  Click [here](/ui-sdk/reference/events-legacy) to view the documentation for older versions.
+</Note>
+
+`createTurn` and `subscribeToTurn` are async generators. Each value they yield is an envelope, not a bare event:
 
 ```ts
 interface TurnStreamData {
-  sequenceNumber: number;
   event: TurnStreamingEvent;
 }
 ```
@@ -23,22 +27,23 @@ interface TurnStreamData {
   streaming union, so most hosts do not need a direct runtime import.
 </Note>
 
-`sequenceNumber` must increase monotonically within a turn. It is what
-[`subscribeToTurn`](/ui-sdk/setup-custom-servers/server-contract#agentchatserver) uses to resume — a reconnecting
-client passes the last number it saw as `afterSequenceNumber`, and you replay only what follows.
+The event's own `id` is the resume cursor. A reconnecting client calls
+[`subscribeToTurn`](/ui-sdk/setup-custom-servers/server-contract#agentchatserver) with the id of the
+last event it applied, as `afterEventId` (replay what follows) or `fromEventId` (replay from that
+event, used to rebuild a message that was still streaming). Event ids must therefore be unique within
+the turn and sort in the order you emit them.
 
 ```ts
 async *createTurn({ sessionId, input }) {
-  let seq = 0;
   for await (const event of myBackendStream(sessionId, input)) {
-    yield { sequenceNumber: seq++, event };
+    yield { event };
   }
 }
 ```
 
 ## Turn lifecycle
 
-Every turn is bracketed by two lifecycle events.
+Every turn is bracketed by two lifecycle events, with `turn.update` marking pauses in between.
 
 ```ts
 interface TurnCreatedEvent {
@@ -52,19 +57,32 @@ interface TurnCreatedEvent {
   threadId?: string | null;
 }
 
+interface TurnUpdateEvent {
+  type: "turn.update";
+  id: string;
+  state: { status: "paused" } | { status: "running" };
+  createdAt: string;
+  threadId: string | null;
+}
+
 interface TurnDoneEvent {
   type: "turn.done";
   id: string;
-  state: Exclude<TurnState, { status: "running" }>;
+  state: TerminalTurnState; // done | cancelled | error
   createdAt: string;
   threadId?: string | null;
 }
 ```
 
-Emit `turn.created` first, then content events, then exactly one `turn.done`. Because
-`turn.done`'s `state` excludes `running`, it must carry a terminal state — `done`, `cancelled`,
-or `error` — each with a `completedAt`. A stream that ends without `turn.done` leaves the UI
-believing the turn is still running.
+Emit `turn.created` first, then content events, then exactly one `turn.done`. `turn.done`
+carries a terminal state — `done`, `cancelled`, or `error` — each with a `completedAt`. A stream
+that ends without `turn.done` leaves the UI believing the turn is still running, unless the last
+`turn.update` paused it.
+
+`turn.update` is the authoritative signal that the turn is waiting or working again. Emit
+`{ status: "paused" }` after the requests that need the user (see [Pausing for the user](#pausing-for-the-user)),
+and `{ status: "running" }` once every request is answered and the turn continues. The UI treats
+a paused turn as working again only after that running update, not when new content arrives.
 
 ## Content events
 
@@ -225,15 +243,53 @@ interface McpAuthRequiredEvent {
 
 `authUrl` is the URL the popup opens. See [MCP OAuth](/ui-sdk/setup-custom-ui/mcp-oauth).
 
-<Note>
-  These events also appear in `requiredActions` on a `done` turn state. That is how a turn that
-  finished *while waiting* on the user communicates what it needs — a `done` turn carrying
-  `requiredActions` is paused, not complete.
-</Note>
+After emitting one or more of these, emit `turn.update` with `{ status: "paused" }`. The turn
+stays open: the UI answers through
+[`sendTurnEvents`](/ui-sdk/setup-custom-servers/server-contract#answering-a-paused-turn) on the same
+turn, and you continue it with `turn.update` `{ status: "running" }` once nothing is left open.
 
-The user's reply comes back through `createTurn` as a `user.tool_approval` or
-`user.tool_response` [input item](/ui-sdk/setup-custom-servers/server-contract#turn-input), carrying the same
-`toolCallId`.
+## User events
+
+Every answer the UI sends is stored as an event on the turn, with the `id` and `createdAt` your
+server assigned. Return them from `sendTurnEvents`, and include them when you replay the turn
+through `subscribeToTurn`, `listTurnEvents`, or `listEvents`.
+
+```ts
+interface UserToolApprovalEvent {
+  type: "user.tool_approval";
+  id: string;
+  createdAt: string;
+  threadId: string;
+  toolCallId: string;
+  approval: { status: "allow" } | { status: "deny"; reason?: string };
+}
+
+interface UserToolApprovalPolicyEvent {
+  type: "user.tool_approval_policy";
+  id: string;
+  createdAt: string;
+  policies: Array<{ serverName: string; name: string; policy: { type: "allow_session"; expireAt?: string } }>;
+}
+
+interface UserToolResponseEvent {
+  type: "user.tool_response";
+  id: string;
+  createdAt: string;
+  threadId: string;
+  toolCallId: string;
+  content: string;
+}
+
+interface UserMcpAuthContinueEvent {
+  type: "user.mcp_auth_continue";
+  id: string;
+  createdAt: string;
+}
+```
+
+`toolCallId` matches the call the request named. A policy has no `toolCallId`: it settles every
+pending approval for the same `serverName` + `name`. A `user.mcp_auth_continue` closes the
+`mcp.auth_required` prompt; if sign-in is still missing, emit a new `mcp.auth_required`.
 
 ## Sub-agents
 
@@ -288,26 +344,27 @@ reports MCP server startup.
 
 | Union | Contains | Where it appears |
 | --- | --- | --- |
-| `TurnEvent` | `model.message`, `tool.response`, `thread.created`, `thread.done`, `mcp.auth_required`, `mcp.initialize`, `sandbox.created`, `tool.approval_required`, `tool.response_required` | `listTurnEvents` |
-| `TurnStreamingEvent` | `TurnEvent` plus `model.message.delta`, `turn.created`, `turn.done` | `createTurn`, `subscribeToTurn` |
-| `ActionRequiredEvent` | the three pause events | `TurnState.requiredActions` |
+| `TurnEvent` | `model.message`, `tool.response`, `thread.created`, `thread.done`, `thread.context_compaction_started`, `thread.context_compaction_finished`, `mcp.auth_required`, `mcp.initialize`, `sandbox.created`, `tool.approval_required`, `tool.response_required`, and the [user events](#user-events) | Inside the unions below |
+| `PersistedTurnEvent` | `TurnEvent` plus `turn.created`, `turn.update`, `turn.done` | `listTurnEvents`, `listEvents` |
+| `TurnStreamingEvent` | `PersistedTurnEvent` plus `model.message.delta` | `createTurn`, `subscribeToTurn` |
+| `ActionRequiredEvent` | the three pause events | Requests that pause a turn |
+| `TurnInboundEvent` | the four user events | `sendTurnEvents` return value |
 
-The distinction is that `TurnEvent` holds the settled record of a turn, while
-`TurnStreamingEvent` adds the transient deltas and lifecycle markers that only matter live.
-This is why replaying a turn from history yields no deltas — the assembled `model.message` is
-stored instead.
+The distinction is that `PersistedTurnEvent` holds the settled record of a turn, while
+`TurnStreamingEvent` adds the transient deltas that only matter live. This is why listing a
+turn's history yields no deltas — the assembled `model.message` is stored instead.
 
 `listEvents` returns a session-level wrapper that identifies the turn rather than a position:
 
 ```ts
 interface SessionEventItem {
   turnId: string;
-  event: TurnCreatedEvent | TurnDoneEvent | TurnEvent;
+  event: PersistedTurnEvent;
 }
 ```
 
 <Warning>
-  Note the asymmetry between the two envelopes: `createTurn` yields
-  `{ sequenceNumber, event }`, while `listEvents` returns `{ turnId, event }`. Streaming is
-  ordered within one turn; history spans many, so it labels each event with its turn instead.
+  Note the asymmetry between the two envelopes: `createTurn` yields `{ event }`, while
+  `listEvents` returns `{ turnId, event }`. Streaming is scoped to one turn; history spans many,
+  so it labels each event with its turn.
 </Warning>
