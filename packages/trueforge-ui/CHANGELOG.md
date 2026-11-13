@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.185.0-rc.5
+
+### Patch Changes
+
+- 43366e0: List the default sandbox environment first, then sort remaining environments by most recently updated. Sort agents by most recently updated as well. Apply ordering in the backend before pagination. Show the actual updated timestamp for every environment, including platform-managed and read-only environments.
+
 ## 0.185.0-rc.4
 
 ### Patch Changes
