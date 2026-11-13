@@ -563,6 +563,30 @@ describe('mapStreamToChunks', () => {
     });
   });
 
+  it('captures an OpenAI-compatible thoughtSignature from tool-call providerMetadata', async () => {
+    const { final } = await drainStream(
+      mapStreamToChunks({
+        stream: makeStream([
+          { type: 'tool-input-start', id: 'call-c', toolName: 'search_tool' },
+          { type: 'tool-input-delta', id: 'call-c', delta: '{}' },
+          {
+            type: 'tool-call',
+            toolCallId: 'call-c',
+            toolName: 'search_tool',
+            input: {},
+            providerMetadata: { custom: { thoughtSignature: 'custom-sig' } },
+          },
+          makeFinishStep('tool-calls'),
+        ]),
+        chunkMeta: CHUNK_META,
+      }),
+    );
+
+    expect(final.output.tool_calls?.[0]).toMatchObject({
+      provider_specific_fields: { thought_signature: 'custom-sig' },
+    });
+  });
+
   it('omits provider_specific_fields when no thoughtSignature is present on tool-input-start', async () => {
     const { final } = await drainStream(
       mapStreamToChunks({
