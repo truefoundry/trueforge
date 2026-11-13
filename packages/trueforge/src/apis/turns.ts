@@ -826,15 +826,29 @@ function withTurnSessionHeader(connection: McpConnection, sessionId: string): Mc
   const sessionHeader = { [TRUEFORGE_SESSION_HEADER]: sessionId };
   const headers = connection.headers;
   if (typeof headers === 'function') {
-    return {
-      ...connection,
-      headers: async (): Promise<ResolveHeadersResult> => {
-        const resolved = await headers();
-        return 'authRequired' in resolved ? resolved : { headers: { ...resolved.headers, ...sessionHeader } };
-      },
-    };
+    return { ...connection, headers: withSessionHeaderResolver({ resolve: headers, sessionHeader }) };
   }
   return { ...connection, headers: { ...(headers ?? {}), ...sessionHeader } };
+}
+
+function withSessionHeaderResolver(input: {
+  resolve: () => Promise<ResolveHeadersResult>;
+  sessionHeader: Record<string, string>;
+}): () => Promise<ResolveHeadersResult> {
+  const { resolve, sessionHeader } = input;
+  return async () => {
+    const resolved = await resolve();
+    if ('authRequired' in resolved) {
+      return resolved;
+    }
+    const { onUnauthorized } = resolved;
+    return {
+      headers: { ...resolved.headers, ...sessionHeader },
+      ...(onUnauthorized === undefined
+        ? {}
+        : { onUnauthorized: withSessionHeaderResolver({ resolve: onUnauthorized, sessionHeader }) }),
+    };
+  };
 }
 
 /**
