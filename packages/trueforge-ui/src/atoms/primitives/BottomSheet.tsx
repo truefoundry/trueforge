@@ -53,9 +53,9 @@ export function BottomSheet({
       aria-label={ariaLabel}
       onClick={handleBackdropClick}
       onCancel={event => {
-        event.preventDefault();
+        // Let the browser close() so focus / top layer clear; `close` syncs React.
+        // stopPropagation keeps Escape from also dismissing a parent <dialog>.
         event.stopPropagation();
-        onOpenChange(false);
       }}
       style={compactStyle ?? { height: 'min(70dvh, 30rem)', maxHeight: '85dvh' }}
       className={cn(

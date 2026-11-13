@@ -86,9 +86,9 @@ export function SideDrawer({
       // Escape still closes via cancel; backdrop click must not (no light-dismiss).
       closedby="closerequest"
       onCancel={event => {
-        event.preventDefault();
+        // Let the browser close() so focus / top layer clear; `close` syncs React.
+        // stopPropagation keeps Escape from also dismissing a parent <dialog>.
         event.stopPropagation();
-        onOpenChange(false);
       }}
       style={compactStyle}
       data-anchor={anchor}

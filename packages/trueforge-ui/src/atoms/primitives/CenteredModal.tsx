@@ -71,9 +71,9 @@ export function CenteredModal({
       aria-labelledby={titleId}
       aria-describedby={description ? descriptionId : undefined}
       onCancel={event => {
-        event.preventDefault();
+        // Let the browser close() so focus / top layer clear; `close` syncs React.
+        // stopPropagation keeps Escape from also dismissing a parent <dialog>.
         event.stopPropagation();
-        onOpenChange(false);
       }}
       style={compactStyle ?? (contentSized ? { height: 'fit-content', maxHeight: '85dvh' } : undefined)}
       className={cn(
