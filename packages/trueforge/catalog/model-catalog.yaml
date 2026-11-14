@@ -408,6 +408,16 @@ providers:
             - low
             - medium
             - high
+      - model_id: gemini-4-hydrogen
+        name: gemini-4-hydrogen
+        properties:
+          context_length: 1048576
+          max_output_tokens: 65536
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+            - xhigh
       - model_id: gemini-flash-latest
         name: gemini-flash-latest
         properties:
@@ -890,6 +900,10 @@ providers:
         name: inkling
         properties:
           context_length: 524288
+      - model_id: thinkingmachines/Inkling-2-Small
+        name: inkling-2-small
+        properties:
+          context_length: 1048576
       - model_id: thinkingmachines/Inkling-Small
         name: inkling-small
         properties:
