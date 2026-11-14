@@ -900,6 +900,10 @@ providers:
         name: inkling
         properties:
           context_length: 524288
+      - model_id: thinkingmachines/Inkling-2-Small
+        name: inkling-2-small
+        properties:
+          context_length: 1048576
       - model_id: thinkingmachines/Inkling-Small
         name: inkling-small
         properties:
