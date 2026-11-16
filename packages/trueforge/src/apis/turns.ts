@@ -387,22 +387,15 @@ function subagentModelRouter(input: {
     mode: tenantRouting.subagent,
     listCandidates: () => modelProviderStore.listRoutingCandidates?.({ tenant_id }) ?? Promise.resolve([]),
     decision: createJevDecisionClient({
-      model: tenantRouting.decision_model,
-      resolveGateway: async model => {
-        const { providerConfig } = await getModelDetails({
-          tenant_id,
-          name: model,
-          store: modelProviderStore,
-          turnMetadata,
-        });
-        if (providerConfig.provider.type !== 'truefoundry' || providerConfig.baseUrl === undefined) {
-          throw new Error(`Model "${model}" is not served by the TrueFoundry gateway`);
-        }
-        return {
-          baseUrl: providerConfig.baseUrl,
-          headers: { Authorization: `Bearer ${providerConfig.apiKey}`, ...providerConfig.headers },
-        };
-      },
+      resolveProviderConfig: async () =>
+        (
+          await getModelDetails({
+            tenant_id,
+            name: tenantRouting.decision_model,
+            store: modelProviderStore,
+            turnMetadata,
+          })
+        ).providerConfig,
     }),
     timeoutMs: routing.timeout_ms,
     maxCandidates: routing.max_candidates,
