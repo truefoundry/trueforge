@@ -22,7 +22,7 @@ From `lld.md`, the model-params fix and the `THREAD_CREATED` fix still apply.
 | I8 | **The router never throws.** Any error, timeout or unusable pick means the fallback model runs, as today. | §4 |
 | I9 | **The routed model is applied through the existing `request.model` path** (`create_sub_agent` request, then `agent_info.model`, then `resolveAgentDefinition`). Only the chosen model is persisted, on `agent_info.model`. Resume and rebuild never call the router. | §1 |
 | I10 | **One generic core hook,** `routeModel(RouteModelInput) → RouteModelResult`, with a `scope`. All routing logic lives in the server. | §1, §9 |
-| I11 | **Observability is in the gateway traces.** `tfg.thread_id` is on every model call and on the Jev call. The routing result (`tfg.routing_*`) is on every model call of the routed thread. One info log line repeats the decision server-side. No new tables or public API for the subagent scope. | §6, §7 |
+| I11 | **Observability comes from gateway traces,** with `tfg.thread_id` on every model call and on the Jev call, plus one info log line. No new tables or public API for the subagent scope. | §6, §7 |
 | I12 | **Mode per tenant and per scope:** off, shadow or on. Off is the default. | §5 |
 
 **Tunable without a design change,** as config or data:
@@ -52,7 +52,7 @@ flowchart TD
   R -- not wired --> K["keep the model the thread would use today"]
   R -- wired --> J["Jev: POST {gateway}/v1/systemone<br/>candidate + benchmark questions<br/>x-tfy-metadata: tfg.thread_id, tfg.routing_scope"]
   J --> P["pick: cheapest candidate with P(yes) >= threshold, else fallback model"]
-  P --> L["tfg.routing_* trace keys + one info log line"]
+  P --> L["one info log line (scope, thread_id, pick, reason)"]
   L --> A["apply at the call site:<br/>subagent → agent_info.model · root → turn model override"]
   A --> T["every model call of the thread: tfg.thread_id (+ tfg.parent_thread_id)"]
 ```
@@ -83,7 +83,6 @@ interface RouteModelInput {
 
 interface RouteModelResult {
   model?: string;                   // set only in "on" mode when a candidate was picked
-  traceMetadata: Record<string, string>;  // tfg.routing_* keys (§6), stamped on every model call of the thread
 }
 
 interface ITurnResourceResolver {
@@ -96,7 +95,7 @@ interface ITurnResourceResolver {
 
 | Scope | Where | Builds `work` from | Applies the result | When |
 |---|---|---|---|---|
-| `subagent` | `SessionHandle.makeCreateDynamicSubAgentThread` | `create_sub_agent` name and input, the turn's user message, the subagent's tools | `request.model = result.model`, so `resolveAgentDefinition` picks it up. It's persisted on `agent_info.model` through `THREAD_CREATED`. `result.traceMetadata` goes on the child's definition, for its model calls. | Now |
+| `subagent` | `SessionHandle.makeCreateDynamicSubAgentThread` | `create_sub_agent` name and input, the turn's user message, the subagent's tools | `request.model = result.model`, so `resolveAgentDefinition` picks it up. It's persisted on `agent_info.model` through `THREAD_CREATED`. | Now |
 | `root` | Where `SessionHandle` builds the root thread's definition for a turn (`resolveAgentDefinition` without `agent_info`) | The turn's user message, a clipped excerpt of recent conversation, the agent's tools | Pass as a model override into the root `resolveAgentDefinition`, and persist it with the turn so approval or user-input resumes keep the same model (§8) | Later |
 
 Resume and rebuild never call the router. A subagent is rebuilt from its saved `agent_info`. A resumed root turn reuses the model stored for that turn.
@@ -273,7 +272,7 @@ TRUEFOUNDRY_MODEL_ROUTING = {
 - **shadow:** ask Jev and log the decision, but run on the fallback model.
 - **on:** run on the pick.
 
-## 6. Tracing: `tfg.thread_id` and the routing result
+## 6. Tracing: `tfg.thread_id`
 
 TrueForge's own `AgentTracing` is a no-op by default (`createTracing()` returns `NOOP_AGENT_TRACING`). The traces we can see are the gateway's request traces, which record each call's `x-tfy-metadata`. The turn-level keys are there (`tfg.session_id`, `tfg.turn_id`, `tfg.agent_id`, `tfg.agent_name`), but nothing identifies the thread.
 - **Every thread's model calls:** in `AgentThread`, the model call `modelClient.create(requestBody)` gets `{ metadata: { 'tfg.thread_id': this.threadId, ...(parent ? { 'tfg.parent_thread_id': parent.thread_id } : {}) } }`.
@@ -281,24 +280,20 @@ TrueForge's own `AgentTracing` is a no-op by default (`createTracing()` returns 
   - It covers the root thread and subagents alike, so root routing needs nothing extra here.
   - Context compaction merges the same keys alongside `tfg.compaction`.
 - **The Jev call** carries the turn metadata, plus `tfg.thread_id` (the thread being routed), `tfg.routing_scope` and `tfg.model_routing: "true"`.
-- **The routing result on the routed thread's model calls.** The router returns `traceMetadata`, which goes on the child's definition. `AgentThread` merges it into the same `metadata` as `tfg.thread_id`, on every model call of that thread:
-  - `tfg.routing_mode`: `shadow` or `on`.
-  - `tfg.routing_reason`: `picked`, `no_candidate_confident`, `no_candidates`, `decision_error`, `decision_timeout` or `model_unavailable`.
-  - `tfg.routing_pick`: the model the router chose. In shadow mode, that's the one it would have used.
-  - `tfg.routing_price`: `up`, `down` or `same`, the pick's price against the fallback model's.
-
-  These are on every call, not just the first, so any single trace row says how its thread was routed. A thread rebuilt after a resume doesn't call the router, so its later calls carry `tfg.thread_id` but not the routing keys. The earlier calls still have them.
 - **Joining on `tfg.thread_id`** links the Jev request and response with every model call the thread made (§7).
 
 ## 7. What's observable, and the one log line
 
-Everything about a routing decision is in the gateway traces, joined by `tfg.thread_id`:
+Most of the decision is already in the gateway traces, joined by `tfg.thread_id`:
 - **The Jev request:** every candidate, with its score, and the benchmark questions.
 - **The Jev response:** the probability for each one, including the benchmark-resemblance answers.
-- **The router's result:** the `tfg.routing_*` keys on the thread's model calls. They also cover decisions where Jev wasn't called (`no_candidates`), and shadow-mode picks that weren't applied.
 - **Every model call the thread made:** the served model, tokens, cost and latency.
 
-The router also writes one plain `logger.info('model routing', { scope, thread_id, mode, fallback_model, picked_model, chosen_model, price_direction, reason })`, with the same values as the trace keys. It's for reading server logs while debugging. The traces are the place to analyse routing. It's not a schema or a contract, and never includes task text.
+Two things never reach a trace:
+- **Decisions where Jev isn't called:** no candidate qualifies, or the scope is off.
+- **The router's own result:** which candidate it picked, why it fell back, and in shadow mode the pick it didn't apply.
+
+For those, the router writes one plain `logger.info('model routing', { scope, thread_id, mode, fallback_model, picked_model, chosen_model, price_direction, reason })`. Here `price_direction` is `up`, `down` or `same`: the pick's price against the fallback model's. It's for our own understanding, not a schema or a contract, and never includes task text.
 
 User feedback is joined by `thread_id`. The benchmark-resemblance counts are read from the Jev responses in the traces.
 
@@ -320,10 +315,9 @@ The router, tables, Jev request, pick rule, config and tracing are all shared. W
 |---|---|
 | `agent-session/ITurnResourceResolver.ts` | `RoutingScope`, `RouteModelInput`, `RouteModelResult`, and the optional hook `routeModel?(input)` (§1). |
 | `agent-session/TurnResourceResolver.ts` | Forward the hook from deps, and pass `isModelAvailable` (built on `getModel`). Plus the params fix from `lld.md` §5. |
-| `agent-session/SessionHandle.ts` `makeCreateDynamicSubAgentThread` | If `request.model` is unset, build `RouteModelInput` (`scope: 'subagent'`) and call `routeModel`. If `model` comes back, use `{ ...request, model }` from then on, through the existing override path (§1). Put `traceMetadata` on the child definition. |
-| `core/runtime/AgentDefinition.ts` | An optional `callMetadata: Record<string, string>`, merged into every model call's `metadata`. |
+| `agent-session/SessionHandle.ts` `makeCreateDynamicSubAgentThread` | If `request.model` is unset, build `RouteModelInput` (`scope: 'subagent'`) and call `routeModel`. If `model` comes back, use `{ ...request, model }` from then on, through the existing override path (§1). |
 | `core/runtime/AgentThreadOrchestrator.ts` (`AGENT_CREATE_SUBAGENT`) | Build `THREAD_CREATED.agent_info` from `subAgentThread.agentInfo`, so the routed model is persisted. |
-| `core/runtime/AgentThread.ts` | Pass `tfg.thread_id`, `tfg.parent_thread_id` and the definition's `callMetadata` on every model call (§6). |
+| `core/runtime/AgentThread.ts` | Pass `tfg.thread_id` and `tfg.parent_thread_id` metadata on every model call (§6). |
 
 **Server (`packages/trueforge`):**
 
@@ -335,7 +329,7 @@ The router, tables, Jev request, pick rule, config and tracing are all shared. W
 | **New** `truefoundry/modelRoutingScores.json` | The score table, nested by effort level, with source, version and date (§2). It's generated by the refresh script. |
 | **New** `truefoundry/modelRoutingTables.ts` | Loads and validates the JSON at startup into an in-memory map, does the lookup by effort with its fallback order, and holds the five benchmark descriptions (§2). |
 | **New** `benchmark/refresh_model_scores.py` (offline) | Calls the Artificial Analysis API, matches models by slug, and writes `modelRoutingScores.json`. |
-| **New** `truefoundry/modelRouter.ts` | `createModelRouter()`, which returns `routeModel`. It's scope-agnostic: candidates (§2), the Jev request (§3), the pick (§4), the `tfg.routing_*` trace keys (§6) and one info log line (§7). It never throws. |
+| **New** `truefoundry/modelRouter.ts` | `createModelRouter()`, which returns `routeModel`. It's scope-agnostic: candidates (§2), the Jev request (§3), the pick (§4), one info log line (§7). It never throws. |
 | `apis/turns.ts` | Wire `routeModel` when any scope for the tenant isn't off. The router checks the per-scope mode itself. |
 
 The subagent scope needs no database schema or public API changes, since `agent_info.model` already exists. The root scope adds one turn-snapshot field (§8).
