@@ -464,9 +464,11 @@ describe('ThreadListContainer', () => {
     await waitFor(() => {
       expect(onUpdateCustom).toHaveBeenCalledWith('thread-other', {
         lastTurnStatus: 'paused',
+        lastActivityAt: '2026-01-01T00:00:00.000Z',
       });
       expect(onUpdateCustom).toHaveBeenCalledWith('thread-main', {
         lastTurnStatus: 'done',
+        lastActivityAt: '2026-01-01T00:00:00.000Z',
       });
     });
   });
