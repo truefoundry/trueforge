@@ -27,6 +27,10 @@ export function useSyncThreadListLastTurnStatus(): void {
   const isRunning = useThreadIsRunning();
   const wasRunningRef = useRef(false);
   const prevRemoteIdRef = useRef(remoteId);
+  // Read inside the finished-turn effect. A dep would rerun it after isRunning
+  // flips false, cancel the in-flight getSession, and skip the paused/error stamp.
+  const lastMessageAtRef = useRef(lastMessageAt);
+  lastMessageAtRef.current = lastMessageAt;
 
   useEffect(() => {
     if (!isRunning || remoteId == null) return;
@@ -63,7 +67,7 @@ export function useSyncThreadListLastTurnStatus(): void {
         const nextStatus = session.lastTurnDetails?.state.status ?? null;
         const latestCustom = aui.threadListItem().getState().custom;
         const statusSame = (readThreadLastTurnStatus(latestCustom) ?? null) === nextStatus;
-        const prevActivity = readThreadLastActivityAt(latestCustom) ?? lastMessageAt;
+        const prevActivity = readThreadLastActivityAt(latestCustom) ?? lastMessageAtRef.current;
         if (statusSame && !isNewerActivityAt(session.updatedAt, prevActivity)) return;
         return aui
           .threadListItem()
@@ -74,5 +78,5 @@ export function useSyncThreadListLastTurnStatus(): void {
     return () => {
       cancelled = true;
     };
-  }, [aui, isRunning, lastMessageAt, remoteId, server]);
+  }, [aui, isRunning, remoteId, server]);
 }
