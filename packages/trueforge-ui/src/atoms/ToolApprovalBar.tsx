@@ -143,7 +143,7 @@ export function ToolApprovalBar({
                     variant={defaultApproval == null ? 'secondary' : optionVariant(defaultApproval)}
                     disabled={interactionsLocked || defaultApproval == null}
                     aria-label="More approval options"
-                    className="rounded-l-none border-l border-l-white/30 px-1.5"
+                    className="rounded-l-none border-l border-l-current/30 px-1.5"
                   >
                     <Icon name="chevron-down" className="size-3" />
                   </Button>
