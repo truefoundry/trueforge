@@ -14,7 +14,7 @@ From `lld.md`, the model-params fix and the `THREAD_CREATED` fix still apply.
 |---|---|---|
 | I1 | **One Jev call per routing decision, made before the thread starts.** Never during the agent loop. A subagent is routed once, and the root once per turn. | §1, §8 |
 | I2 | **The Jev payload shape:** `state` = `{ scope, name, task, context, tools }`; `questions` = one yes/no `can_<n>` per candidate (model name, effort and score in the text) plus one yes/no `resembles_<key>` per benchmark. **Jev sees only the task and a pool of candidates.** It's never told about the fallback model, prices, or any comparison. | §3 |
-| I3 | **The pick rule shape:** candidates in price order, cheapest first; take the first whose yes-probability is at or above the threshold; otherwise run the fallback model. | §4 |
+| I3 | **The pick rule:** the candidate with the highest yes-probability. On a tie, the cheaper one. There's no threshold. The fallback model runs only when routing can't produce a pick (no candidates, a Jev error or timeout, or an unusable pick). | §4 |
 | I4 | **The fallback model is the model the thread would use without routing:** the parent's model for a subagent, the spec's model for the root. It's used only when routing doesn't pick. It doesn't limit which candidates are asked about: **there's no price ceiling,** so a routed thread can run on a model that costs more than its parent. | §4 |
 | I5 | **Candidates come only from the caller's own model list** (the same `provider-integrations` fetch as `listModels`, no extra account filter), and only models in the score table. | §2 |
 | I6 | **Scores are bundled data,** generated offline from the Artificial Analysis API. There's no call to Artificial Analysis while a request runs. | §2 |
@@ -26,7 +26,7 @@ From `lld.md`, the model-params fix and the `THREAD_CREATED` fix still apply.
 | I12 | **Mode per tenant and per scope:** off, shadow or on. Off is the default. | §5 |
 
 **Tunable without a design change,** as config or data:
-- **Config:** the threshold (0.4), the Jev timeout (2 s), `max_candidates` (60), the decision model ID, and the mode for each tenant and scope.
+- **Config:** the Jev timeout (2 s), `max_candidates` (60), the decision model ID, and the mode for each tenant and scope.
 - **Data:** the score table's contents and which benchmark it's based on (today the Intelligence Index v5), and the benchmark-resemblance list (today five benchmarks).
 
 **Needs a reviewer's decision:** see §11.
@@ -35,7 +35,7 @@ From `lld.md`, the model-params fix and the `THREAD_CREATED` fix still apply.
 
 Before a thread runs, the router asks Jev, the decision model, two things about the work. The thread is a subagent now, and later the root agent.
 
-1. **Routing:** for each candidate model, "can this model complete the task?". Candidates are models the caller can use that are in the model table (§2). Each question carries the candidate's score. The thread runs on the cheapest candidate Jev says yes to. Otherwise it runs on the **fallback model**, the model it would use without routing:
+1. **Routing:** for each candidate model, "can this model complete the task?". Candidates are models the caller can use that are in the model table (§2). Each question carries the candidate's score. The thread runs on the candidate with the highest yes-probability. If routing can't produce a pick, it runs on the **fallback model**, the model it would use without routing:
    - **For a subagent,** that's the parent's model.
    - **For the root,** it's the agent spec's model.
 
@@ -51,7 +51,7 @@ flowchart TD
   R{"resolver.routeModel?<br/>(wired if the scope's mode is shadow/on)"}
   R -- not wired --> K["keep the model the thread would use today"]
   R -- wired --> J["Jev: POST {gateway}/v1/systemone<br/>candidate + benchmark questions<br/>x-tfy-metadata: tfg.thread_id, tfg.routing_scope"]
-  J --> P["pick: cheapest candidate with P(yes) >= threshold, else fallback model"]
+  J --> P["pick: candidate with the highest P(yes), cheaper on a tie"]
   P --> L["one info log line (scope, thread_id, pick, reason)"]
   L --> A["apply at the call site:<br/>subagent → agent_info.model · root → turn model override"]
   A --> T["every model call of the thread: tfg.thread_id (+ tfg.parent_thread_id)"]
@@ -174,7 +174,7 @@ A model is a candidate when it's:
 - an active chat model with tool calling, not retiring within 30 days,
 - and in the model table.
 
-Candidates are ordered by the blended price of 0.8 × input plus 0.2 × output. If several accounts serve the same model, it's asked about once, preferring the fallback model's account, then its provider, then the first by name. There's no fixed limit. On devtest, Jev took 0.9, 0.9, 1.2 and 1.2 seconds for 6, 20, 40 and 60 candidate questions plus 7 benchmark questions.
+Price, the blended 0.8 × input plus 0.2 × output, is used only to break ties and for the log line's price direction. If several accounts serve the same model, it's asked about once, preferring the fallback model's account, then its provider, then the first by name. There's no fixed limit. On devtest, Jev took 0.9, 0.9, 1.2 and 1.2 seconds for 6, 20, 40 and 60 candidate questions plus 7 benchmark questions.
 
 **Benchmarks for the resemblance questions.** These are only benchmarks that `model-benchmarks` has data for, and that cover all the models we route between today (Opus 5.5, Sonnet 5.5, Haiku 5.5, GPT-6.1 Sol, GPT-6 Sol, GPT-6 Luna, Gemini 4, Gemini 3.8 Flash and Grok 4.7). So whichever one our tasks resemble, we can switch the score table to it straight away. The descriptions and examples are our own paraphrases.
 
@@ -236,21 +236,22 @@ One call per routing decision to `POST {gateway}/v1/systemone`, with the gateway
 
 ## 4. Picking the model
 
-1. **Order:** candidates sorted by price, cheapest first. On a price tie, the higher score goes first.
-2. **Pick** the first candidate with `noul >= threshold`. The threshold is a config value, starting at 0.4. In the offline test, with an Opus 5.5 parent:
-   - **At 0.4,** 29 of 49 tasks went to cheaper models. The same number of tasks were done correctly as when everything stayed on Opus, at 74% of the cost.
-   - **At 0.7,** almost nothing was routed.
-
-   Shadow mode and user feedback tune it from there.
-3. **Fall back to the parent's model** (the fallback model):
-   - when no candidate reaches the threshold (`no_candidate_confident`),
+1. **Pick** the candidate with the highest `noul`. On a tie, the cheaper one wins, using the blended price (§2). There's no threshold. Only the order of Jev's answers matters, not their level, so there's nothing to tune.
+2. **Fall back to the parent's model** (the fallback model) only when there's no usable pick:
    - when no candidate qualifies at all (`no_candidates`),
    - when Jev fails or times out (`decision_error` / `decision_timeout`),
    - or when the pick can't be resolved for the caller (`model_unavailable`, using the existing `getModel` check).
-4. **No price ceiling.** The pick can cost more than the parent's model. Because the rule takes the cheapest confident candidate, a pricier model is picked only when Jev isn't confident about anything cheaper. The log line records whether each pick went up or down in price (§7), so shadow mode shows how often each happens.
-5. **Routed threads use their own model's default params,** not the parent's (the fix from `lld.md` §5).
+3. **No price ceiling.** The pick can cost more than the parent's model. The log line records whether each pick went up or down in price (§7), so shadow mode shows how often each happens.
+4. **Routed threads use their own model's default params,** not the parent's (the fix from `lld.md` §5).
 
-**Example,** with illustrative answers in the range Jev gave in the offline test: a subagent of a Haiku 5.5 parent. Every scored model the caller can use is asked about. In price order, Jev answers Kimi K3 0.17, GPT-6 Luna 0.30, Gemini 3.8 Flash 0.32, Haiku 5.5 0.35, Grok 4.6 0.33, Grok 4.7 0.38, …, Sonnet 5.5 0.46, …. The first answer at or above 0.4 is Sonnet 5.5, so the subagent runs on Sonnet 5.5, a pricier model than its parent. If no answer had reached 0.4, it would run on Haiku 5.5.
+**In the offline test** (49 tasks, the 11 candidates cheaper than Opus 5.5, compared against Opus):
+- **Sonnet 5.5 was picked for 47 of 49 tasks.** Jev's highest answer was nearly always the same model, so on this pool the rule behaves almost like a fixed pick.
+- **As good as Opus on 76% of tasks, at 53% of Opus's cost.**
+- **The gap between the top two answers was small:** a median of 0.05, and under 0.02 on 20% of tasks.
+
+Opus and the models priced above it weren't candidates in that test. With no ceiling they will be. Since Jev's answers rise with the score, the top-scoring model the caller can use may be picked for most tasks. Shadow mode should check the pick distribution and the price direction before switching to "on".
+
+**Example,** with illustrative answers: a subagent of a Haiku 5.5 parent. Every scored model the caller can use is asked about. Jev answers Kimi K3 0.17, GPT-6 Luna 0.30, Haiku 5.5 0.35, Grok 4.7 0.38, GPT-6 Sol 0.41, Sonnet 5.5 0.46. The highest is Sonnet 5.5, so the subagent runs on Sonnet 5.5, a pricier model than its parent.
 
 ## 5. Modes and config
 
@@ -260,7 +261,6 @@ Modes are set per tenant **and per scope**, so root routing can be turned on sep
 TRUEFOUNDRY_MODEL_ROUTING = {
   "decision_model": "archit-typesafe/jev-1.13.0",
   "timeout_ms": 2000,
-  "threshold": 0.4,
   "max_candidates": 60,
   "tenants": {
     "<tenant_id>": { "subagent": "shadow", "root": "off" }
@@ -345,9 +345,8 @@ The subagent scope needs no database schema or public API changes, since `agent_
 ## 11. Open questions for review
 
 1. **Unscored models in use:** Sonnet 4.6, the Opus 4.x models and GLM 5.2 have no v5 score. As fallback models they're fine, since they aren't shown to Jev. As candidates they're never picked. Should they get a hand-assigned tier so they can be candidates, or stay out of the candidate pool?
-2. **Pick rule:** the cheapest candidate with P(yes) ≥ 0.4, or the highest P(yes) overall?
-3. **Price ceiling, later:** none in the first version. If shadow or "on" data shows routing up in price costs too much for too little, add a per-tenant cap as a multiple of the fallback model's price.
-4. **Model names in the questions:** name them, as in option 1 of the picture, or say only "a model with Intelligence Index S" to avoid Jev's priors about names?
-5. **Benchmark list:** are these five right? Should there also be a single "closest benchmark" choice question?
-6. **Root scope:** routing once per turn or once per session, and how a user or agent opts in to an automatically selected model.
-7. **Traces:** is the gateway request trace with `x-tfy-metadata` enough, or should a real TrueForge tracer be wired up as well?
+2. **Price ceiling, later:** none in the first version. If shadow or "on" data shows the highest-probability pick goes up in price too often for too little, add a per-tenant cap as a multiple of the fallback model's price.
+3. **Model names in the questions:** name them, as in option 1 of the picture, or say only "a model with Intelligence Index S" to avoid Jev's priors about names?
+4. **Benchmark list:** are these five right? Should there also be a single "closest benchmark" choice question?
+5. **Root scope:** routing once per turn or once per session, and how a user or agent opts in to an automatically selected model.
+6. **Traces:** is the gateway request trace with `x-tfy-metadata` enough, or should a real TrueForge tracer be wired up as well?
