@@ -3829,7 +3829,7 @@
             "type": "boolean"
           },
           "environment_name": {
-            "description": "Name of a configured sandbox environment to use. Must exist when set.",
+            "description": "Name of a configured sandbox environment to use. Required when sandbox is enabled and the provider supports environments (Daytona).",
             "minLength": 1,
             "type": "string"
           },
