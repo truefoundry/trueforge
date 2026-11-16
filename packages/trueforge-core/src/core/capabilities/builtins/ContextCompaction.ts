@@ -11,7 +11,7 @@ import type {
   PreLLMAgentContextProcessor,
 } from '../AgentContextProcessor';
 
-export const DEFAULT_CONTEXT_COMPACTION_THRESHOLD_TOKENS = 2 * 1000;
+export const DEFAULT_CONTEXT_COMPACTION_THRESHOLD_TOKENS = 50 * 1000;
 export const DEFAULT_CONTEXT_COMPACTION_RATIO = 0.8;
 
 export function resolveCompactionThresholdTokens(input: {
@@ -19,7 +19,6 @@ export function resolveCompactionThresholdTokens(input: {
   modelContextLength: number | undefined;
   modelParams: AgentDefinition['modelParams'];
 }): number {
-  return DEFAULT_CONTEXT_COMPACTION_THRESHOLD_TOKENS;
   if (input.configuredThresholdTokens !== undefined) {
     return input.configuredThresholdTokens;
   }
@@ -39,6 +38,7 @@ export function resolveCompactionThresholdTokens(input: {
     // An unusable output reservation must not turn compaction into an always-on loop.
     return ratioThreshold;
   }
+  return DEFAULT_CONTEXT_COMPACTION_THRESHOLD_TOKENS;
 }
 
 // https://platform.openai.com/tokenizer
@@ -85,7 +85,7 @@ Here's an example of how your output should be structured:
 5. Problem Solving:
    [Description of solved problems and ongoing troubleshooting]
 
-6. All user messages:
+6. All user messages: 
     - [Detailed non tool use user message]
     - [...]
 
@@ -103,7 +103,7 @@ Here's an example of how your output should be structured:
 </summary>
 </example>
 
-Please provide your summary based on the conversation so far, following this structure and ensuring precision and thoroughness in your response.
+Please provide your summary based on the conversation so far, following this structure and ensuring precision and thoroughness in your response. 
 
 There may be additional summarization instructions provided in the included context. If so, remember to follow these instructions when creating the above summary. Examples of instructions include:
 <example>
