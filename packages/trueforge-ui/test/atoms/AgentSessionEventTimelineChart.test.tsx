@@ -265,6 +265,105 @@ describe('AgentSessionEventTimelineChart', () => {
     }
   });
 
+  it('doubles the minimum turn bar width once a session passes 100 turns', async () => {
+    const clientWidth = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(400);
+    const widthFor = async (turnCount: number): Promise<number> => {
+      const { container, unmount } = render(
+        <AgentSessionEventTimelineChart
+          turns={turns}
+          segments={Array.from({ length: turnCount }, (_, turnIndex) => ({
+            id: `turn-${turnIndex}-model`,
+            type: 'model' as const,
+            title: 'model.message',
+            description: 'response',
+            startMs: turnIndex * 1_000,
+            endMs: turnIndex * 1_000 + 1_000,
+            turnIndex,
+            threadId: 'main',
+          }))}
+          hiddenTypes={new Set()}
+        />,
+      );
+      const wrapper = container.querySelector<HTMLElement>('[data-slot="agent-session-event-timeline-chart"]');
+      let pixels = 0;
+      await waitFor(() => {
+        pixels = Number(
+          /width:\s*(\d+(?:\.\d+)?)px/.exec(wrapper?.firstElementChild?.getAttribute('style') ?? '')?.[1],
+        );
+        expect(pixels).toBeGreaterThan(400);
+      });
+      unmount();
+      return pixels;
+    };
+
+    try {
+      // Each turn is padded to its minimum, so width tracks turnCount * minimum.
+      expect(await widthFor(100)).toBeLessThan(100 * 64);
+      expect(await widthFor(101)).toBeGreaterThan(101 * 64);
+    } finally {
+      clientWidth.mockRestore();
+    }
+  });
+
+  it('keeps a gap between turn bars after a pause chip', () => {
+    const clientWidth = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(400);
+    const paused: SessionEventTimelineSegment[] = [0, 1, 2].flatMap(turnIndex => {
+      const startMs = turnIndex * 1_000;
+      return [
+        {
+          id: `turn-${turnIndex}-model`,
+          type: 'model' as const,
+          title: 'model.message',
+          description: 'response',
+          startMs,
+          endMs: startMs + 1_000,
+          turnIndex,
+          threadId: 'main',
+        },
+        ...(turnIndex === 0
+          ? [
+              {
+                id: 'turn-0-pause',
+                type: 'waiting_on_human' as const,
+                title: 'turn.paused',
+                description: 'Paused',
+                startMs: 1_000,
+                endMs: 1_000,
+                turnIndex: 0,
+                threadId: 'main',
+                isPauseChip: true,
+                wallDurationMs: 180_000,
+              },
+            ]
+          : []),
+      ];
+    });
+
+    try {
+      render(<AgentSessionEventTimelineChart turns={turns} segments={paused} hiddenTypes={new Set()} />);
+      const datasets = Reflect.get(capturedData ?? {}, 'datasets');
+      if (!Array.isArray(datasets)) throw new Error('Expected chart datasets');
+      const ranges = datasets.flatMap(dataset => {
+        const label = Reflect.get(dataset, 'label');
+        if (typeof label !== 'string' || !label.startsWith('Turn ')) return [];
+        const data = Reflect.get(dataset, 'data');
+        const point = Array.isArray(data) ? data[0] : undefined;
+        const range = typeof point === 'object' && point != null ? Reflect.get(point, 'x') : undefined;
+        return Array.isArray(range) ? [[Number(range[0]), Number(range[1])] as const] : [];
+      });
+      expect(ranges).toHaveLength(3);
+      const first = ranges[0];
+      const second = ranges[1];
+      const third = ranges[2];
+      if (first == null || second == null || third == null) throw new Error('Expected a turn range');
+      // The chip replaces the gap. Only the 4px marker pad may cross into the next turn.
+      expect(first[1] - second[0]).toBeLessThan((second[1] - second[0]) / 8);
+      expect(third[0]).toBeGreaterThan(second[1]);
+    } finally {
+      clientWidth.mockRestore();
+    }
+  });
+
   it('keeps every turn within the drawn axis even when the gap floor forces extra room', () => {
     // 100px pane, 6 turns -> 5 gaps. Unclamped scale (100 - 5*12 - 12 = 28) is below the
     // half-pane floor (50), so the floor itself demands 22px more than the pane has.
