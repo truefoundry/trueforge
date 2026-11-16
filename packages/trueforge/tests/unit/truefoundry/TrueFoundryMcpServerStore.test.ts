@@ -2,7 +2,6 @@ import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 import { createLogger } from 'winston';
 import type { AgentRecord } from '../../../src/db/agentStore';
 import { McpServerNotFoundError, type McpServerRecord } from '../../../src/db/mcpServerStore';
-import { parsePerServerMcpHeaders, type PerServerMcpHeaders } from '../../../src/runtime/perServerMcpHeaders';
 import { ACTOR_AUTHORIZATION_HEADER, createTrueFoundryRequestContext } from '../../../src/truefoundry/accessToken';
 import { X_TFY_CONVERSATION_ID, X_TFY_METADATA } from '../../../src/truefoundry/gatewayMetadata';
 import { MCP_PROXY_BASE_URL_TEMPLATE } from '../../../src/truefoundry/mapSfyMcpServers';
@@ -11,6 +10,10 @@ import {
   resolveAuthorizeRedirectURL,
   TrueFoundryMcpServerStore,
 } from '../../../src/truefoundry/TrueFoundryMcpServerStore';
+import {
+  parseTrueFoundryPerServerMcpHeaders,
+  type TrueFoundryPerServerMcpHeaders,
+} from '../../../src/truefoundry/virtualMcpHeaders';
 
 const TENANT = 'default';
 const ACCESS_TOKEN = 'caller-access-token';
@@ -393,7 +396,7 @@ const record = (name: string): McpServerRecord => ({
   updated_at: '2026-01-16T12:00:00.000Z',
 });
 
-const storeWith = (perServerHeaders: PerServerMcpHeaders): TrueFoundryMcpServerStore =>
+const storeWith = (perServerHeaders: TrueFoundryPerServerMcpHeaders): TrueFoundryMcpServerStore =>
   new TrueFoundryMcpServerStore({
     client: unusedClient(),
     requestContext: createTrueFoundryRequestContext({
@@ -424,18 +427,18 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
     const entry = { serv1: { Authorization: 'Bearer a' }, serv2: { Authorization: 'Bearer b' } };
     const raw = JSON.stringify({ 'virtual-mcp': entry });
 
-    const headers = await invokeHeaders(storeWith(parsePerServerMcpHeaders(raw)), 'virtual-mcp');
+    const headers = await invokeHeaders(storeWith(parseTrueFoundryPerServerMcpHeaders(raw)), 'virtual-mcp');
 
     expect(headers).toEqual({ Authorization: 'Bearer caller-token', 'x-tfy-mcp-headers': JSON.stringify(entry) });
   });
 
-  it('sends only the gateway Bearer when a server has no override', async () => {
+  it('sends only the gateway Bearer when a server has no caller headers', async () => {
     await expect(invokeHeaders(storeWith({}), 'tfy-docs-mcp')).resolves.toEqual({
       Authorization: 'Bearer caller-token',
     });
   });
 
-  it("merges that server's override on top of the Bearer", async () => {
+  it("merges that server's caller headers on top of the Bearer", async () => {
     const headers = await invokeHeaders(
       storeWith({
         'tfy-platform-mcp': { 'x-tfy-mcp-headers': '{"Authorization":"Bearer user"}' },
@@ -461,7 +464,7 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
   });
 
   it.each(['Authorization', 'authorization', 'AUTHORIZATION', 'AuThOrIzAtIoN'])(
-    'sends an override under %s to the upstream via x-tfy-mcp-headers, never as the gateway Bearer',
+    'sends a caller header under %s to the upstream via x-tfy-mcp-headers, never as the gateway Bearer',
     async name => {
       const headers = await invokeHeaders(
         storeWith({ 'tfy-platform-mcp': { [name]: 'Bearer user' } }),

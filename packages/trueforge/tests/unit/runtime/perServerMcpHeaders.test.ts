@@ -21,7 +21,7 @@ describe('parsePerServerMcpHeaders', () => {
     ['a scalar', '"nope"'],
     ['a server mapped to a string', JSON.stringify({ 'github-mcp': 'Bearer user' })],
     ['a header mapped to a number', JSON.stringify({ 'github-mcp': { 'x-h': 1 } })],
-    ['mixed nesting', JSON.stringify({ 'virtual-mcp': { serv1: { Authorization: 'Bearer a' }, 'x-h': '1' } })],
+    ['a nested virtual MCP map', JSON.stringify({ 'virtual-mcp': { serv1: { Authorization: 'Bearer a' } } })],
     ['a managed session header', JSON.stringify({ 'github-mcp': { 'Mcp-Session-Id': 'other' } })],
     ['a managed protocol header', JSON.stringify({ 'github-mcp': { 'mcp-protocol-version': '2025-06-18' } })],
   ])('rejects %s rather than silently dropping the identity it carries', (_case, raw) => {
@@ -68,22 +68,21 @@ describe('McpServerWithAuthStore.resolveInvokeHeaders', () => {
     await db.destroy();
   });
 
-  it('sends a virtual MCP entry as JSON-valued headers on top of the registered auth', async () => {
-    const entry = { serv1: { Authorization: 'Bearer a' } };
+  it('merges caller headers over the registered headers under any casing', async () => {
     const db = createSqliteDb(':memory:');
     const store = new McpServerWithAuthStore({
       store: new SqliteMcpServerStore(db),
       tokenStore: new SqliteOAuthTokenStore(db),
       clientName: 'test-client',
-      perServerHeaders: { 'virtual-mcp': entry },
+      perServerHeaders: { 'header-mcp': { 'X-Tenant': 'caller' } },
     });
     const record: McpServerRecord = {
       ...ossRecord,
-      name: 'virtual-mcp',
+      name: 'header-mcp',
       manifest: {
         ...ossRecord.manifest,
-        name: 'virtual-mcp',
-        auth: { type: 'header', headers: { Authorization: 'Bearer server' } },
+        name: 'header-mcp',
+        auth: { type: 'header', headers: { Authorization: 'Bearer server', 'x-tenant': 'server' } },
       },
     };
 
@@ -92,7 +91,7 @@ describe('McpServerWithAuthStore.resolveInvokeHeaders', () => {
       throw new Error('expected a headers resolver');
     }
     await expect(resolve()).resolves.toEqual({
-      headers: { Authorization: 'Bearer server', serv1: JSON.stringify(entry.serv1) },
+      headers: { Authorization: 'Bearer server', 'X-Tenant': 'caller' },
     });
     await db.destroy();
   });

@@ -1,13 +1,7 @@
-import type { RemoteMcpHeaders, ResolveHeadersResult } from '@truefoundry/trueforge-core/core';
+import type { RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
 import { isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
 import type { IOAuthTokenStore, OAuthClientRecord } from '../mcp/auth/types';
-import {
-  hasAuthorizationHeader,
-  isVirtualMcpHeaders,
-  overrideHeaders,
-  withoutAuthorization,
-  type PerServerMcpHeaders,
-} from '../runtime/perServerMcpHeaders';
+import { withCallerMcpHeaders, type PerServerMcpHeaders } from '../runtime/perServerMcpHeaders';
 import { resolveConfiguredMcpRequestHeaders, resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
 import {
   McpServerNotFoundError,
@@ -24,17 +18,6 @@ import {
   type UpsertMcpServerInput,
 } from './mcpServerStore';
 import type { TurnMetadata } from './turnMetadata';
-
-async function resolveWithOverride(input: {
-  headers: RemoteMcpHeaders;
-  override: Record<string, string>;
-}): Promise<ResolveHeadersResult> {
-  const result = typeof input.headers === 'function' ? await input.headers() : { headers: input.headers };
-  if ('authRequired' in result) {
-    return result;
-  }
-  return { headers: overrideHeaders({ base: result.headers, override: input.override }) };
-}
 
 export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerWithAuthStore<TTransaction> {
   readonly #store: IMcpServerStore<TTransaction>;
@@ -78,33 +61,16 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
     return this.#store.deleteServer(input, transaction);
   }
 
-  /** Caller headers for the server go straight to it; one with Authorization skips its consent flow. */
   resolveInvokeHeaders(input: {
     record: McpServerRecord;
     userRef: string;
     turnMetadata?: TurnMetadata;
   }): RemoteMcpHeaders {
-    const registered = this.#resolveRegisteredHeaders(input);
-    const callerHeaders = this.#perServerHeaders[input.record.name];
-    if (callerHeaders === undefined) {
-      return registered;
-    }
-    if (isVirtualMcpHeaders(callerHeaders)) {
-      const override = Object.fromEntries(
-        Object.entries(callerHeaders).map(([name, value]) => [name, JSON.stringify(value)]),
-      );
-      return () => resolveWithOverride({ headers: registered, override });
-    }
-    if (hasAuthorizationHeader(callerHeaders)) {
-      const headers = overrideHeaders({
-        base: resolveConfiguredMcpRequestHeaders(input.record.manifest),
-        override: callerHeaders,
-      });
-      const override = withoutAuthorization(callerHeaders);
-      return () =>
-        Promise.resolve({ headers, onUnauthorized: () => resolveWithOverride({ headers: registered, override }) });
-    }
-    return () => resolveWithOverride({ headers: registered, override: callerHeaders });
+    return withCallerMcpHeaders({
+      callerHeaders: this.#perServerHeaders[input.record.name],
+      registeredHeaders: this.#resolveRegisteredHeaders(input),
+      configuredHeaders: resolveConfiguredMcpRequestHeaders(input.record.manifest),
+    });
   }
 
   #resolveRegisteredHeaders(input: { record: McpServerRecord; userRef: string }): RemoteMcpHeaders {

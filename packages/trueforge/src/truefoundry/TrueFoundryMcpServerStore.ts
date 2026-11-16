@@ -19,12 +19,7 @@ import {
 } from '../db/mcpServerStore';
 import type { TurnMetadata } from '../db/turnMetadata';
 import type { OAuthClientRecord } from '../mcp/auth/types';
-import {
-  hasAuthorizationHeader,
-  isVirtualMcpHeaders,
-  withoutAuthorization,
-  type PerServerMcpHeaders,
-} from '../runtime/perServerMcpHeaders';
+import { hasAuthorizationHeader, withoutAuthorization } from '../runtime/perServerMcpHeaders';
 import { resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
 import {
   accessTokenForRequest,
@@ -43,6 +38,7 @@ import {
   type SfyMcpServerSummary,
 } from './mapSfyMcpServers';
 import type { TrueFoundryServiceFoundryServerClient } from './TrueFoundryServiceFoundryServerClient';
+import { isVirtualMcpHeaders, type TrueFoundryPerServerMcpHeaders } from './virtualMcpHeaders';
 
 export type TrueFoundryMcpApiClient = Pick<
   TrueFoundryServiceFoundryServerClient,
@@ -85,14 +81,14 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
   readonly #resolveServiceFoundryAuthorization: ResolveServiceFoundryAuthorization;
   readonly #resolveGatewayAuthorization: ResolveGatewayAuthorization;
   readonly #subject: RequestSubject;
-  readonly #perServerHeaders: PerServerMcpHeaders;
+  readonly #perServerHeaders: TrueFoundryPerServerMcpHeaders;
   #gatewayUrl: string | undefined;
 
   constructor(input: {
     client: TrueFoundryMcpApiClient;
     requestContext: RequestContext;
     agent: AgentRecord | undefined;
-    perServerHeaders?: PerServerMcpHeaders;
+    perServerHeaders?: TrueFoundryPerServerMcpHeaders;
     logger: Logger;
   }) {
     this.#client = input.client;
@@ -110,7 +106,7 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
   }
 
   /**
-   * Gateway Bearer (+ per-server overrides); the gateway's 401 carries any consent URL.
+   * Gateway Bearer (+ the caller's headers for that server); the gateway's 401 carries any consent URL.
    * A caller entry with Authorization goes in `x-tfy-mcp-headers`, falling back to the gateway's auth on a 401.
    */
   resolveInvokeHeaders(input: {
