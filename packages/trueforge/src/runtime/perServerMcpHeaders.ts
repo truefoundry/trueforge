@@ -8,7 +8,7 @@ import { z } from 'zod';
  * TrueForge authenticates the whole turn as one caller, so every MCP connection would otherwise
  * present that same identity. This carries the identity each individual server should see —
  * typically the end user behind the caller, for a server that resolves its own permissions.
- * An entry carrying Authorization is used instead of that server's consent flow unless rejected.
+ * An entry carrying Authorization is used instead of that server's consent flow.
  */
 export const X_TFG_MCP_HEADERS = 'x-tfg-mcp-headers';
 export const McpHeaderMapSchema = z.record(z.string().min(1), z.string());
@@ -55,20 +55,13 @@ export function decodePerServerMcpHeaders<T extends Record<string, Record<string
   return parsed.data;
 }
 
-export function hasAuthorizationHeader(headers: Record<string, string> | undefined): headers is Record<string, string> {
-  return headers !== undefined && Object.keys(headers).some(name => name.toLowerCase() === 'authorization');
-}
-
-export function withoutAuthorization(headers: Record<string, string> | undefined): Record<string, string> {
-  if (headers === undefined) {
-    return {};
-  }
-  return Object.fromEntries(Object.entries(headers).filter(([name]) => name.toLowerCase() !== 'authorization'));
+export function hasAuthorizationHeader(headers: Record<string, string>): boolean {
+  return Object.keys(headers).some(name => name.toLowerCase() === 'authorization');
 }
 
 /**
  * Sends a server's caller headers over its registered auth. Caller Authorization goes out over only the
- * configured static headers, so a DCR consent flow is skipped unless the upstream rejects it.
+ * configured static headers, so a DCR consent flow is skipped.
  */
 export function withCallerMcpHeaders(input: {
   callerHeaders: Record<string, string> | undefined;
@@ -79,16 +72,10 @@ export function withCallerMcpHeaders(input: {
   if (callerHeaders === undefined) {
     return registeredHeaders;
   }
-  if (!hasAuthorizationHeader(callerHeaders)) {
-    return () => resolveWithCallerHeaders({ registeredHeaders, callerHeaders });
+  if (hasAuthorizationHeader(callerHeaders)) {
+    return mergeCallerHeaders({ headers: configuredHeaders, callerHeaders });
   }
-  const headers = mergeCallerHeaders({ headers: configuredHeaders, callerHeaders });
-  return () =>
-    Promise.resolve({
-      headers,
-      onUnauthorized: () =>
-        resolveWithCallerHeaders({ registeredHeaders, callerHeaders: withoutAuthorization(callerHeaders) }),
-    });
+  return () => resolveWithCallerHeaders({ registeredHeaders, callerHeaders });
 }
 
 async function resolveWithCallerHeaders(input: {

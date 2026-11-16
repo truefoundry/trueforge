@@ -478,7 +478,7 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
     },
   );
 
-  it('never calls authorize; a rejected caller Authorization falls back to the gateway auth', async () => {
+  it('never calls authorize for a caller Authorization', async () => {
     const getMcpAuthorize = jest.fn(async () => ({ status: 'authenticated' as const }));
     const store = new TrueFoundryMcpServerStore({
       client: { ...unusedClient(), getMcpAuthorize },
@@ -497,12 +497,11 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
       throw new Error('expected a headers resolver');
     }
 
-    const resolved = await resolve();
-    if (!('onUnauthorized' in resolved) || resolved.onUnauthorized === undefined) {
-      throw new Error('expected a fallback to the gateway auth');
-    }
-    await expect(resolved.onUnauthorized()).resolves.toEqual({
-      headers: { Authorization: 'Bearer caller-token', 'X-End-User': 'alice' },
+    await expect(resolve()).resolves.toEqual({
+      headers: {
+        Authorization: 'Bearer caller-token',
+        'x-tfy-mcp-headers': JSON.stringify({ Authorization: 'Bearer user', 'X-End-User': 'alice' }),
+      },
     });
     expect(getMcpAuthorize).not.toHaveBeenCalled();
   });

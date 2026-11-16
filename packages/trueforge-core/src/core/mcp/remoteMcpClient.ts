@@ -149,8 +149,7 @@ function mcpConnectOutcome(error: unknown): McpConnectOutcome {
   return 'other';
 }
 
-/** Upstream rejected the credentials, whether at connect or on a later request. */
-export function isAuthError(error: unknown): boolean {
+function isAuthError(error: unknown): boolean {
   if (!(error instanceof Error)) {
     return false;
   }

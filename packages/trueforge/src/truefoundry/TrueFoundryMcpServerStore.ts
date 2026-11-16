@@ -1,4 +1,4 @@
-import { McpConnectionError, type RemoteMcpHeaders, type ResolveHeadersResult } from '@truefoundry/trueforge-core/core';
+import { McpConnectionError, type RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
 import type { RequestContext, RequestSubject } from '../auth/identity';
 import { safeReturnTo } from '../auth/safeReturnTo';
@@ -19,7 +19,7 @@ import {
 } from '../db/mcpServerStore';
 import type { TurnMetadata } from '../db/turnMetadata';
 import type { OAuthClientRecord } from '../mcp/auth/types';
-import { hasAuthorizationHeader, withoutAuthorization } from '../runtime/perServerMcpHeaders';
+import { hasAuthorizationHeader } from '../runtime/perServerMcpHeaders';
 import { resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
 import {
   accessTokenForRequest,
@@ -107,7 +107,7 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
 
   /**
    * Gateway Bearer (+ the caller's headers for that server); the gateway's 401 carries any consent URL.
-   * A caller entry with Authorization goes in `x-tfy-mcp-headers`, falling back to the gateway's auth on a 401.
+   * A caller entry with Authorization, or a virtual MCP's nested entry, goes in `x-tfy-mcp-headers`.
    */
   resolveInvokeHeaders(input: {
     record: McpServerRecord;
@@ -120,23 +120,13 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
       ...gatewayHeaders(await this.#resolveGatewayAuthorization()),
       ...gatewayMetadataHeadersForTurn(turnMetadata),
     });
-    if (callerHeaders !== undefined && isVirtualMcpHeaders(callerHeaders)) {
-      // The gateway fans a virtual MCP's nested map out to its servers itself.
+    if (callerHeaders !== undefined && (isVirtualMcpHeaders(callerHeaders) || hasAuthorizationHeader(callerHeaders))) {
+      // Each connection targets one server's gateway proxy; a virtual MCP's nested map is fanned out by the gateway.
       return async () => ({
         headers: { ...(await gatewayBase()), [X_TFY_MCP_HEADERS]: JSON.stringify(callerHeaders) },
       });
     }
-    const viaGateway = async (): Promise<ResolveHeadersResult> => ({
-      headers: { ...withoutAuthorization(callerHeaders), ...(await gatewayBase()) },
-    });
-    if (!hasAuthorizationHeader(callerHeaders)) {
-      return viaGateway;
-    }
-    // Each connection targets one server's gateway proxy, which takes a flat header map for it.
-    return async () => ({
-      headers: { ...(await gatewayBase()), [X_TFY_MCP_HEADERS]: JSON.stringify(callerHeaders) },
-      onUnauthorized: viaGateway,
-    });
+    return async () => ({ headers: { ...callerHeaders, ...(await gatewayBase()) } });
   }
 
   async listServers(input: ListMcpServersInput, transaction?: TTransaction): Promise<McpServerRecord[]> {
