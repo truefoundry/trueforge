@@ -24,7 +24,7 @@ import {
   isVirtualMcpHeaders,
   withoutAuthorization,
   type PerServerMcpHeaders,
-} from '../runtime/perServerMcpHeaders';
+} from '../mcp/perServerMcpHeaders';
 import { resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
 import {
   accessTokenForRequest,

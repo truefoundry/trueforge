@@ -121,7 +121,7 @@ describe('connectRemoteMcp custom fetch', () => {
     const fetch = jest
       .fn<Promise<Response>, Parameters<RemoteMcpFetch>>()
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ authorization_urls: urls }), {
+        new Response(JSON.stringify({ error: { type: 'McpAuthRequiredError' }, authorization_urls: urls }), {
           status: 401,
         }),
       )
