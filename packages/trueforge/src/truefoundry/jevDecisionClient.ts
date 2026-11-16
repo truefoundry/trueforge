@@ -7,14 +7,14 @@ const SystemOneResponseSchema = z.object({
   answers: z.record(z.string(), z.object({ noul: z.number().nullish() })),
 });
 
-/** Gateway base URL and invoke headers (auth plus the turn's `x-tfy-metadata`) for a model. */
+/** The model's gateway base URL and invoke headers (auth plus the turn's `x-tfy-metadata`). */
 export type ResolveGateway = (model: string) => Promise<{ baseUrl: string; headers: Record<string, string> }>;
 
 /** Yes/no questions to a TrueFoundry decision model (Jev) through the gateway's `/v1/systemone`. */
 export function createJevDecisionClient(input: { model: string; resolveGateway: ResolveGateway }): DecisionClient {
   return {
-    async ask({ fallbackModel, threadId, state, questions, signal }) {
-      const gateway = await input.resolveGateway(fallbackModel);
+    async ask({ threadId, state, questions, signal }) {
+      const gateway = await input.resolveGateway(input.model);
       const turnMetadataHeader = headerValue(gateway.headers, X_TFY_METADATA);
       const headers = {
         ...Object.fromEntries(Object.entries(gateway.headers).filter(([key]) => key.toLowerCase() !== X_TFY_METADATA)),

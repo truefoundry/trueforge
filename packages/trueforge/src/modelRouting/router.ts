@@ -135,7 +135,6 @@ export function createModelRouter(input: {
         return fallback('no_candidates');
       }
       const answers = await input.decision.ask({
-        fallbackModel: route.fallbackModel,
         threadId: route.threadId,
         state: {
           name: route.task.name,

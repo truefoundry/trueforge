@@ -137,7 +137,7 @@ interface ITurnResourceResolver {
 
 ## 3. The Jev request
 
-One call per subagent to `POST {gateway}/v1/systemone`, using the gateway URL, token and turn headers from the parent model's provider config. There's no call when there are no candidates.
+One call per subagent to `POST {gateway}/v1/systemone`, using Jev's own provider config: gateway URL, token and turn headers. The TrueFoundry store's by-name lookup resolves decision-type models as well as chat models, so `getModelDetails` works for Jev exactly as for any model. Model listings stay chat-only, so Jev never shows up in the model picker. There's no call when there are no candidates.
 
 ```json
 {
@@ -292,15 +292,15 @@ The same router, score table, Jev request and pick rule. The root needs four thi
 
 **Server: TrueFoundry implementations.**
 
-| File                                           | Change                                                                                                                                                                   |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `db/modelProviderStore.ts`                     | An optional `listRoutingCandidates()` on `IModelProviderStore`. Stores that can't supply catalogue metadata omit it, and routing isn't wired for them.                   |
-| `truefoundry/mapEnabledModels.ts`              | Widen the internal `TrueFoundryEnabledModel` with the fields in §2. Each new field falls back to undefined on an unexpected shape, so it can never break model listing.  |
-| `truefoundry/TrueFoundryModelProviderStore.ts` | `listRoutingCandidates()` for TrueFoundry mode, from the same `provider-integrations` fetch.                                                                             |
-| `truefoundry/InlineModelProviderStore.ts`      | Forwards `listRoutingCandidates()` to the wrapped store.                                                                                                                 |
-| **New** `truefoundry/jevDecisionClient.ts`     | The `DecisionClient` for Jev: `POST {gateway}/v1/systemone` with the parent model's gateway URL, token and turn headers.                                                 |
-| `config.ts`                                    | `TRUEFOUNDRY_MODEL_ROUTING` (§5).                                                                                                                                        |
-| `apis/turns.ts`                                | When the tenant's subagent mode isn't off, create the router per turn from the TrueFoundry candidate source and the Jev client, and pass `routeModel` into the resolver. |
+| File                                           | Change                                                                                                                                                                                                                                  |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `db/modelProviderStore.ts`                     | An optional `listRoutingCandidates()` on `IModelProviderStore`. Stores that can't supply catalogue metadata omit it, and routing isn't wired for them.                                                                                  |
+| `truefoundry/mapEnabledModels.ts`              | Widen the internal `TrueFoundryEnabledModel` with the fields in §2. Each new field falls back to undefined on an unexpected shape, so it can never break model listing.                                                                 |
+| `truefoundry/TrueFoundryModelProviderStore.ts` | `listRoutingCandidates()` for TrueFoundry mode, from the same `provider-integrations` fetch. The by-name lookup (`getProvider`) also resolves decision-type models, so Jev's config resolves like any model's; listings stay chat-only. |
+| `truefoundry/InlineModelProviderStore.ts`      | Forwards `listRoutingCandidates()` to the wrapped store.                                                                                                                                                                                |
+| **New** `truefoundry/jevDecisionClient.ts`     | The `DecisionClient` for Jev: `POST {gateway}/v1/systemone` with Jev's own gateway URL, token and turn headers.                                                                                                                         |
+| `config.ts`                                    | `TRUEFOUNDRY_MODEL_ROUTING` (§5).                                                                                                                                                                                                       |
+| `apis/turns.ts`                                | When the tenant's subagent mode isn't off, create the router per turn from the TrueFoundry candidate source and the Jev client, and pass `routeModel` into the resolver.                                                                |
 
 No database schema or public API changes.
 

@@ -22,12 +22,8 @@ export interface DecisionQuestion {
 }
 
 export interface DecisionClient {
-  /**
-   * Yes-probability per question key. `fallbackModel` is the model whose provider config the call
-   * may borrow; keys the decision model didn't answer are omitted.
-   */
+  /** Yes-probability per question key; keys the decision model didn't answer are omitted. */
   ask(input: {
-    fallbackModel: string;
     threadId: string;
     state: Record<string, unknown>;
     questions: Record<string, DecisionQuestion>;

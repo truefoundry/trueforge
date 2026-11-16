@@ -113,11 +113,16 @@ export interface TrueFoundryEnabledModel {
   routing: Omit<RoutingCandidate, 'model'>;
 }
 
-export function mapEnabledModels(input: { integrations: readonly unknown[] }): TrueFoundryEnabledModel[] {
+/** `modelTypes` defaults to chat only, so listings never show models agents can't run on. */
+export function mapEnabledModels(input: {
+  integrations: readonly unknown[];
+  modelTypes?: readonly string[];
+}): TrueFoundryEnabledModel[] {
+  const modelTypes = input.modelTypes ?? ['chat'];
   const models: TrueFoundryEnabledModel[] = [];
   for (const row of input.integrations) {
     const integration = IntegrationSchema.parse(row);
-    if (!integration.manifest.model_types?.includes('chat')) {
+    if (!integration.manifest.model_types?.some(type => modelTypes.includes(type))) {
       continue;
     }
     models.push({
