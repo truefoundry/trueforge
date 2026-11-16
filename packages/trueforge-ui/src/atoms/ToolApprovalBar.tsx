@@ -122,51 +122,65 @@ export function ToolApprovalBar({
             )}
           </div>
           {!isDecided && !readOnly && !selectedDenyOption && (
-            <DropdownMenu
-              align="end"
-              trigger={
-                <Button
-                  size="small"
-                  variant={defaultApproval == null ? 'secondary' : optionVariant(defaultApproval)}
-                  disabled={interactionsLocked || defaultApproval == null}
-                >
-                  <Icon name="check" size="0.75rem" />
-                  {defaultApproval?.label ?? 'Approve'}
-                  <Icon name="chevron-down" className="size-3" />
-                </Button>
-              }
-              className="w-max min-w-[16.25rem]"
-            >
-              {approveOptions.map((option, index) => (
-                <DropdownMenuItem
-                  key={option.id}
-                  disabled={interactionsLocked}
-                  onClick={() => onSelect(option.id)}
-                  className="whitespace-nowrap"
-                >
-                  <span className="w-3 shrink-0">{index === 0 ? <Icon name="check" size="0.75rem" /> : null}</span>
-                  {option.label}
-                </DropdownMenuItem>
-              ))}
-              {approveOptions.length > 0 && denyOptions.length > 0 ? <DropdownMenuSeparator /> : null}
-              {denyOptions.map(option => (
-                <DropdownMenuItem
-                  key={option.id}
-                  disabled={interactionsLocked}
-                  onClick={() => {
-                    if (option.requiresReason) {
-                      onDenyOptionChange?.(option.id);
-                    } else {
-                      onSelect(option.id);
-                    }
-                  }}
-                  className="whitespace-nowrap"
-                >
-                  <span className="w-3 shrink-0" />
-                  {option.label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenu>
+            <div className="inline-flex items-stretch">
+              <Button
+                size="small"
+                variant={defaultApproval == null ? 'secondary' : optionVariant(defaultApproval)}
+                disabled={interactionsLocked || defaultApproval == null}
+                className="rounded-r-none"
+                onClick={() => {
+                  if (defaultApproval != null) onSelect(defaultApproval.id);
+                }}
+              >
+                <Icon name="check" size="0.75rem" />
+                {defaultApproval?.label ?? 'Approve'}
+              </Button>
+              <DropdownMenu
+                align="end"
+                trigger={
+                  <Button
+                    size="small"
+                    variant={defaultApproval == null ? 'secondary' : optionVariant(defaultApproval)}
+                    disabled={interactionsLocked || defaultApproval == null}
+                    aria-label="More approval options"
+                    className="rounded-l-none border-l border-l-white/30 px-1.5"
+                  >
+                    <Icon name="chevron-down" className="size-3" />
+                  </Button>
+                }
+                className="w-max min-w-[16.25rem]"
+              >
+                {approveOptions.map((option, index) => (
+                  <DropdownMenuItem
+                    key={option.id}
+                    disabled={interactionsLocked}
+                    onClick={() => onSelect(option.id)}
+                    className="whitespace-nowrap"
+                  >
+                    <span className="w-3 shrink-0">{index === 0 ? <Icon name="check" size="0.75rem" /> : null}</span>
+                    {option.label}
+                  </DropdownMenuItem>
+                ))}
+                {approveOptions.length > 0 && denyOptions.length > 0 ? <DropdownMenuSeparator /> : null}
+                {denyOptions.map(option => (
+                  <DropdownMenuItem
+                    key={option.id}
+                    disabled={interactionsLocked}
+                    onClick={() => {
+                      if (option.requiresReason) {
+                        onDenyOptionChange?.(option.id);
+                      } else {
+                        onSelect(option.id);
+                      }
+                    }}
+                    className="whitespace-nowrap"
+                  >
+                    <span className="w-3 shrink-0" />
+                    {option.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenu>
+            </div>
           )}
         </div>
       </div>
