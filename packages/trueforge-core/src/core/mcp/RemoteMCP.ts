@@ -3,8 +3,8 @@ import type { Logger } from 'winston';
 import {
   applyErrorPrefix,
   MCP_ERROR_PREFIX,
-  McpAuthorizationRequiredError,
   McpConnectionError,
+  McpUnauthorizedError,
   stripErrorPrefix,
 } from '../errors';
 import type { MCPServerInitInfo } from '../events/schema';
@@ -50,10 +50,17 @@ function redactUrlForTrace(url: string): string {
 /**
  * What a headers resolver returns: the headers to send, or a signal that auth is required.
  * `onUnauthorized` is consulted once if the upstream rejects `headers` with a 401.
+ * `authRequiredFromBody` reads consent details from a 401 body; without it a 401 stays an error.
  */
 export type ResolveHeadersResult =
-  | { headers: Record<string, string>; onUnauthorized?: () => Promise<ResolveHeadersResult> }
+  | {
+      headers: Record<string, string>;
+      onUnauthorized?: () => Promise<ResolveHeadersResult>;
+      authRequiredFromBody?: (body: string) => MCPAuthRequired | undefined;
+    }
   | { authRequired: MCPAuthRequired };
+
+type HeadersResult = Extract<ResolveHeadersResult, { headers: Record<string, string> }>;
 
 /** Static headers, or a resolver (invoked at connect) returning headers or signalling auth-required. */
 export type RemoteMcpHeaders = Record<string, string> | (() => Promise<ResolveHeadersResult>);
@@ -191,15 +198,22 @@ export class RemoteMCP implements ToolSource {
   private async executeWithSessionRetry<T>(
     operation: (connection: RemoteMcpConnection) => Promise<T>,
   ): Promise<ExecuteResult<T>> {
+    // Auth is re-checked on every operation, not only on the first connect: a registered server's OAuth
+    // can be revoked or expire mid-request, and callers must get authRequired rather than a generic
+    // upstream failure. When already connected the resolved headers are unused (connect is skipped).
+    const headersResult = await this.resolveHeaders();
+    if ('authRequired' in headersResult) {
+      return { authRequired: headersResult.authRequired };
+    }
     let used: RemoteMcpConnection | undefined;
     const tracked = (connection: RemoteMcpConnection): Promise<T> => {
       used = connection;
       return operation(connection);
     };
     try {
-      return await this.executeWithAuthFallback(tracked);
+      return await this.executeWithAuthFallback(headersResult, tracked);
     } catch (error) {
-      const authRequired = this.authRequiredFrom(error);
+      const authRequired = this.authRequiredFrom(error, headersResult);
       if (authRequired === undefined) {
         throw error;
       }
@@ -218,28 +232,19 @@ export class RemoteMCP implements ToolSource {
     }
   }
 
-  /** A 401 that carried consent URLs becomes authRequired; a bare 401 stays an error. */
-  private authRequiredFrom(error: unknown): MCPAuthRequired | undefined {
+  private authRequiredFrom(error: unknown, headersResult: HeadersResult): MCPAuthRequired | undefined {
     for (let current: unknown = error; current instanceof Error; current = current.cause) {
-      if (current instanceof McpAuthorizationRequiredError) {
-        const urls = current.authorizationUrls;
-        const authUrl = urls[this.name] ?? Object.values(urls)[0];
-        return authUrl === undefined ? undefined : { servers: [{ id: this.id, name: this.name, auth_url: authUrl }] };
+      if (current instanceof McpUnauthorizedError) {
+        return headersResult.authRequiredFromBody?.(current.body);
       }
     }
     return undefined;
   }
 
   private async executeWithAuthFallback<T>(
+    headersResult: HeadersResult,
     operation: (connection: RemoteMcpConnection) => Promise<T>,
   ): Promise<ExecuteResult<T>> {
-    // Auth is re-checked on every operation, not only on the first connect: a registered server's OAuth
-    // can be revoked or expire mid-request, and callers must get authRequired rather than a generic
-    // upstream failure. When already connected the resolved headers are unused (connect is skipped).
-    const headersResult = await this.resolveHeaders();
-    if ('authRequired' in headersResult) {
-      return { authRequired: headersResult.authRequired };
-    }
     const { onUnauthorized } = headersResult;
     if (onUnauthorized === undefined) {
       return this.connectAndRun(headersResult.headers, operation, true);
@@ -256,7 +261,7 @@ export class RemoteMCP implements ToolSource {
     try {
       return await this.connectAndRun(headersResult.headers, tracked, true);
     } catch (error) {
-      if (!isAuthError(error) || this.authRequiredFrom(error) !== undefined) {
+      if (!isAuthError(error) || this.authRequiredFrom(error, headersResult) !== undefined) {
         throw error;
       }
       this.logger.info(`Remote MCP ${this.name} rejected supplied credentials, falling back to its auth flow`);

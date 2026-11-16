@@ -1,6 +1,6 @@
 import type { Logger } from 'winston';
 import { McpConnectionError, RemoteMCP, ToolSet } from '../../../src/core';
-import { McpAuthorizationRequiredError } from '../../../src/core/errors';
+import { McpUnauthorizedError } from '../../../src/core/errors';
 import {
   isApprovalRequiredResponse,
   isCallToolResponseResult,
@@ -474,27 +474,32 @@ describe('RemoteMCP + ToolSet', () => {
     expect(state.callToolCalls).toBe(0);
   });
 
-  it('returns authRequired from a 401 that carries authorization URLs, without falling back', async () => {
-    installFakeConnection({
-      connectError: new McpAuthorizationRequiredError('auth required', { 'my-inline': 'https://auth.example/consent' }),
-    });
+  it('returns authRequired when the resolver reads consent details from the 401 body, without falling back', async () => {
+    installFakeConnection({ connectError: new McpUnauthorizedError('consent body') });
+    const authRequired: MCPAuthRequired = {
+      servers: [{ id: 'inline-id-123', name: 'my-inline', auth_url: 'https://auth.example/consent' }],
+    };
     const onUnauthorized = jest.fn(() => Promise.resolve({ headers: {} }));
-    const server = makeServer({ headers: () => Promise.resolve({ headers: {}, onUnauthorized }) });
-
-    await expect(server.listTools()).resolves.toEqual({
-      authRequired: { servers: [{ id: 'inline-id-123', name: 'my-inline', auth_url: 'https://auth.example/consent' }] },
+    const authRequiredFromBody = jest.fn((body: string) => (body === 'consent body' ? authRequired : undefined));
+    const server = makeServer({
+      headers: () => Promise.resolve({ headers: {}, onUnauthorized, authRequiredFromBody }),
     });
+
+    await expect(server.listTools()).resolves.toEqual({ authRequired });
     expect(onUnauthorized).not.toHaveBeenCalled();
   });
 
   it('drops the rejected connection when a call returns consent URLs, so the next call reconnects', async () => {
     const state = installFakeConnection({ sessionId: 'sess-1' });
-    const server = makeServer({ headers: () => Promise.resolve({ headers: {} }) });
+    const authRequired: MCPAuthRequired = {
+      servers: [{ id: 'inline-id-123', name: 'my-inline', auth_url: 'https://auth.example/consent' }],
+    };
+    const server = makeServer({
+      headers: () => Promise.resolve({ headers: {}, authRequiredFromBody: () => authRequired }),
+    });
 
     await server.listTools();
-    state.queueCallToolError(
-      new McpAuthorizationRequiredError('auth required', { 'my-inline': 'https://auth.example/consent' }),
-    );
+    state.queueCallToolError(new McpUnauthorizedError('consent body'));
     await expect(server.callTool({ name: 'read_thing', arguments: {} })).resolves.toHaveProperty('authRequired');
     await server.callTool({ name: 'read_thing', arguments: {} });
 
