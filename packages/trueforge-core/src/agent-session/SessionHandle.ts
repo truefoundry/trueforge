@@ -600,9 +600,30 @@ export class SessionHandle<
     tracing: AgentTracing;
   }): CreateDynamicSubAgentThread {
     return async params => {
+      let request = params.request;
+      if (request.model === undefined && input.resolver.routeModel !== undefined) {
+        const routed = await input.resolver.routeModel({
+          scope: 'subagent',
+          threadId: params.threadId,
+          fallbackModel: params.parentDefinition.modelName,
+          work: {
+            name: request.name,
+            text: request.input,
+            tools: [
+              ...(input.spec.mcp_servers ?? []).map(server => server.name),
+              ...(input.spec.config.web_search.enabled && input.resolver.webSearchProvider ? ['web_search'] : []),
+              ...(input.sandbox ? ['sandbox'] : []),
+            ],
+          },
+          signal: params.signal,
+        });
+        if (routed.model !== undefined) {
+          request = { ...request, model: routed.model };
+        }
+      }
       const { definition, extraCapabilities } = await input.resolver.resolveAgentDefinition({
         spec: input.spec,
-        agent_info: params.request,
+        agent_info: request,
         previousTurn: input.previous,
         signal: params.signal,
         tracing: input.tracing,
@@ -615,7 +636,7 @@ export class SessionHandle<
         // The delegated task goes in as the initial user message; the sub-agent
         // system prompt is SUB_AGENT_IDENTITY (added by AgentThread.buildInstruction).
         instruction: undefined,
-        messages: [{ role: 'user', content: params.request.input }],
+        messages: [{ role: 'user', content: request.input }],
         // Sub-agents should return free-form summaries to the parent, not the user-facing structured response.
         responseFormat: undefined,
       };
@@ -634,10 +655,10 @@ export class SessionHandle<
       return new AgentThread({
         definition: childDefinition,
         threadId: params.threadId,
-        title: params.request.name,
+        title: request.name,
         sandbox: input.sandbox,
         parent: params.parent,
-        agentInfo: params.request,
+        agentInfo: request,
         capabilities,
         tracing: input.tracing,
         logger: input.resolver.logger,

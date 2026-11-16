@@ -75,7 +75,7 @@ import {
   type RequestContext,
   type ResolveRequestContext,
 } from '../auth/identity';
-import configuration from '../config';
+import configuration, { isTrueFoundryModeEnabled } from '../config';
 import type { IAccessControlStore } from '../db/accessControlStore';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import { EmptyCapabilitiesStore, type ICapabilitiesStore } from '../db/capabilitiesStore';
@@ -91,6 +91,7 @@ import { currentLogContext, runWithLogContext, updateLogContext } from '../logge
 import { TRUEFORGE_SESSION_HEADER, X_TFG_TRUEFORGE_MCP } from '../mcp/server/trueforge/headers';
 import type { TenantMemoryDeps } from '../memory/providers';
 import { resolveSessionMemory } from '../memory/sessionMemory';
+import { createModelRouter } from '../modelRouting/router';
 import {
   createAndExecuteTurnRoute,
   createInternalSessionTurnRoute,
@@ -123,6 +124,7 @@ import { restoreTurnEventLog } from '../runtime/turnEventLogRestore';
 import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
 import { assertGatewayMetadataRequestHeaders, X_TFY_METADATA } from '../truefoundry/gatewayMetadata';
 import { X_TFG_MCP, X_TFG_MODELS, X_TFG_SKILLS, X_TFG_TOOLS } from '../truefoundry/inlineResources';
+import { createJevDecisionClient } from '../truefoundry/jevDecisionClient';
 import { X_TFG_MCP_HEADERS } from '../truefoundry/perServerMcpHeaders';
 import { newId } from '../utils/id';
 import { resolveWebSearchProvider } from '../websearch/providers';
@@ -363,6 +365,47 @@ interface BeginTurnExecutionParams<TTransaction> {
   deps: BeginTurnExecutionDeps<TTransaction>;
 }
 
+/** This turn's subagent model router, or undefined when routing is off for the tenant. */
+function subagentModelRouter(input: {
+  tenant_id: string;
+  modelProviderStore: IModelProviderStore;
+  turnMetadata: TurnMetadata;
+  logger: Logger;
+}): ReturnType<typeof createModelRouter> | undefined {
+  const { tenant_id, modelProviderStore, turnMetadata, logger } = input;
+  const routing = isTrueFoundryModeEnabled(configuration) ? configuration.TRUEFOUNDRY_MODEL_ROUTING : undefined;
+  const mode = routing?.tenants[tenant_id]?.subagent ?? 'off';
+  const listRoutingCandidates = modelProviderStore.listRoutingCandidates?.bind(modelProviderStore);
+  if (routing === undefined || mode === 'off' || listRoutingCandidates === undefined) {
+    return undefined;
+  }
+  return createModelRouter({
+    mode,
+    listCandidates: () => listRoutingCandidates({ tenant_id }),
+    decision: createJevDecisionClient({
+      model: routing.decision_model,
+      resolveGateway: async model => {
+        const { providerConfig } = await getModelDetails({
+          tenant_id,
+          name: model,
+          store: modelProviderStore,
+          turnMetadata,
+        });
+        if (providerConfig.provider.type !== 'truefoundry' || providerConfig.baseUrl === undefined) {
+          throw new Error(`Model "${model}" is not served by the TrueFoundry gateway`);
+        }
+        return {
+          baseUrl: providerConfig.baseUrl,
+          headers: { Authorization: `Bearer ${providerConfig.apiKey}`, ...providerConfig.headers },
+        };
+      },
+    }),
+    timeoutMs: routing.timeout_ms,
+    maxCandidates: routing.max_candidates,
+    logger,
+  });
+}
+
 /**
  * Builds the per-turn resolver. Agent / MCP / sandbox / LLM lookups are wired
  * the same way: async factories over the corresponding stores.
@@ -404,8 +447,10 @@ function createTurnResolver(deps: {
   } = deps;
   const tenant_id = session.tenant_id;
   const sessionId = session.session_id;
+  const routeModel = subagentModelRouter({ tenant_id, modelProviderStore, turnMetadata, logger });
 
   return new TurnResourceResolver({
+    ...(routeModel === undefined ? {} : { routeModel }),
     llm: async name => {
       const resolved = await getModelDetails({
         tenant_id,

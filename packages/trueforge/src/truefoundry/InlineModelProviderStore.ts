@@ -9,6 +9,7 @@ import type {
   UpsertModelProviderInput,
 } from '../db/modelProviderStore';
 import type { TurnMetadata } from '../db/turnMetadata';
+import type { RoutingCandidate } from '../modelRouting/types';
 import type { AvailableModel } from '../schemas/modelProvider';
 import { gatewayMetadataHeadersForTurn } from './gatewayMetadata';
 import type { InlineModelProviders } from './inlineResources';
@@ -62,6 +63,11 @@ export class InlineModelProviderStore<TTransaction = never> implements IModelPro
 
   listModels(input: ListModelProvidersInput, transaction?: TTransaction): Promise<AvailableModel[]> {
     return this.#inner.listModels(input, transaction);
+  }
+
+  /** Request-scoped providers carry no catalog metadata, so only the inner store's models are routable. */
+  listRoutingCandidates(input: ListModelProvidersInput): Promise<RoutingCandidate[]> {
+    return this.#inner.listRoutingCandidates?.(input) ?? Promise.resolve([]);
   }
 
   /**

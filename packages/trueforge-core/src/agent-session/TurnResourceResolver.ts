@@ -14,7 +14,12 @@ import type { HarnessSandbox, SandboxInfo } from '../core/sandbox/Sandbox';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
 import { NOOP_AGENT_TRACING } from '../core/tracing/NoopAgentTracing';
 import type { IWebSearchProvider } from '../core/web-search/WebSearchProvider';
-import type { ITurnResourceResolver, ResolvedAgentDefinition } from './ITurnResourceResolver';
+import type {
+  ITurnResourceResolver,
+  ResolvedAgentDefinition,
+  RouteModelInput,
+  RouteModelResult,
+} from './ITurnResourceResolver';
 import type { TurnRecord } from './models/TurnRecord';
 import type { AgentSpec } from './schemas/agentSpec';
 
@@ -80,6 +85,7 @@ export class TurnResourceResolver<
   readonly #models = new Map<string, Promise<ResolvedModel>>();
   #sandbox?: HarnessSandbox | undefined;
   readonly maxParallelSubAgents?: number;
+  readonly routeModel?: (input: RouteModelInput) => Promise<RouteModelResult>;
 
   constructor(
     protected readonly deps: {
@@ -110,12 +116,17 @@ export class TurnResourceResolver<
        * `resolveAgentDefinition` without calling `super` does not mount them.
        */
       rootCapabilities?: (() => readonly AgentCapability[]) | undefined;
+      /** Model router for threads about to start; omit to disable routing. */
+      routeModel?: ((input: RouteModelInput) => Promise<RouteModelResult>) | undefined;
       /** Forwarded to RemoteMCP / AgentThread (required by their constructors). */
       logger: Logger;
     },
   ) {
     if (deps.maxParallelSubAgents !== undefined) {
       this.maxParallelSubAgents = deps.maxParallelSubAgents;
+    }
+    if (deps.routeModel !== undefined) {
+      this.routeModel = deps.routeModel;
     }
   }
 

@@ -14,6 +14,27 @@ export interface ResolvedAgentDefinition {
   extraCapabilities?: AgentCapability[] | undefined;
 }
 
+export type RoutingScope = 'subagent' | 'root';
+
+/** The thread about to start, as seen by {@link ITurnResourceResolver.routeModel}. */
+export interface RouteModelInput {
+  scope: RoutingScope;
+  threadId: string;
+  /** Model the thread runs on when routing doesn't pick one (`provider/model`). */
+  fallbackModel: string;
+  work: {
+    name?: string | undefined;
+    text: string;
+    tools: string[];
+  };
+  signal: AbortSignal;
+}
+
+export interface RouteModelResult {
+  /** Model to run instead of the fallback. Undefined keeps the fallback. */
+  model?: string | undefined;
+}
+
 /**
  * Per-run wiring contract consumed by SessionHandle.createTurn(). Implementations hold
  * per-request state (secrets, providers, caches) freely.
@@ -63,6 +84,11 @@ export interface ITurnResourceResolver<TTurnCustom extends object = Record<strin
     signal: AbortSignal;
     tracing: AgentTracing;
   }): Promise<ResolvedAgentDefinition>;
+  /**
+   * Chooses the model for a thread before it starts. Omit to keep every thread on its default model.
+   * Must not throw: on any failure, resolve without a model.
+   */
+  routeModel?(input: RouteModelInput): Promise<RouteModelResult>;
   /**
    * Release per-run resources. Called by the harness at the end of the run:
    * by TurnHandle.stream() in its finally (AFTER the terminal state write), or by

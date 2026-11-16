@@ -2,13 +2,21 @@ import { SUPPORTED_REASONING_EFFORTS } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
 import configuration, { isTrueFoundryModeEnabled } from '../config';
+import type { RoutingCandidate } from '../modelRouting/types';
 import type { ModelProperties, ReasoningEffort } from '../schemas/modelProvider';
 
 const ModelParamSchema = z.object({
   key: z.string(),
   supportedValues: z.array(z.string()).optional(),
+  defaultValue: z.unknown().optional(),
 });
 
+const TokenCostSchema = z.object({
+  input_cost_per_token: z.number().nullish(),
+  output_cost_per_token: z.number().nullish(),
+});
+
+// Routing-only fields fall back to undefined on an unexpected shape, so they can never break listing.
 const MetadataSchema = z.object({
   limits: z
     .object({
@@ -19,6 +27,16 @@ const MetadataSchema = z.object({
     })
     .optional(),
   params: z.array(ModelParamSchema).optional(),
+  external_ids: z.object({ artificial_analysis_slug: z.string().nullish() }).optional().catch(undefined),
+  public_cost: TokenCostSchema.optional().catch(undefined),
+  costs: z
+    .array(TokenCostSchema.extend({ region: z.string().nullish() }))
+    .optional()
+    .catch(undefined),
+  modalities: z
+    .object({ input: z.array(z.string()).optional() })
+    .optional()
+    .catch(undefined),
 });
 
 const IntegrationSchema = z.object({
@@ -61,10 +79,37 @@ function toProperties(metadata: IntegrationMetadata | undefined): ModelPropertie
   };
 }
 
+/** Blended USD per million tokens from the catalog price: the public price, else the global region, else the first priced one. */
+function toBlendedPrice(metadata: IntegrationMetadata | undefined): number | undefined {
+  const priced = [
+    metadata?.public_cost,
+    ...(metadata?.costs?.filter(cost => cost.region === '*') ?? []),
+    ...(metadata?.costs ?? []),
+  ];
+  for (const cost of priced) {
+    if (typeof cost?.input_cost_per_token === 'number' && typeof cost.output_cost_per_token === 'number') {
+      return (0.8 * cost.input_cost_per_token + 0.2 * cost.output_cost_per_token) * 1e6;
+    }
+  }
+  return undefined;
+}
+
+function toRoutingMetadata(metadata: IntegrationMetadata | undefined): TrueFoundryEnabledModel['routing'] {
+  const defaultEffort = metadata?.params?.find(param => param.key === 'reasoning_effort')?.defaultValue;
+  return {
+    slug: metadata?.external_ids?.artificial_analysis_slug ?? undefined,
+    defaultEffort: typeof defaultEffort === 'string' ? defaultEffort : undefined,
+    price: toBlendedPrice(metadata),
+    imageInput: metadata?.modalities?.input?.includes('image'),
+  };
+}
+
 export interface TrueFoundryEnabledModel {
   accountName: string;
   modelName: string;
   properties: ModelProperties;
+  /** Catalog fields the model router reads; never part of the public model listing. */
+  routing: Omit<RoutingCandidate, 'model'>;
 }
 
 export function mapEnabledModels(input: { integrations: readonly unknown[] }): TrueFoundryEnabledModel[] {
@@ -78,6 +123,7 @@ export function mapEnabledModels(input: { integrations: readonly unknown[] }): T
       accountName: integration.providerAccount.name,
       modelName: integration.name,
       properties: toProperties(integration.metadata),
+      routing: toRoutingMetadata(integration.metadata),
     });
   }
   return models;

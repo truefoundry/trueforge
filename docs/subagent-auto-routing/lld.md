@@ -5,6 +5,7 @@ Status: ready for review. Scope: a PoC on internal TrueFoundry tenants, in TrueF
 When a subagent is spawned, one Jev call picks the model it runs on. The router is generic (it takes a `scope`), so the root agent can use it later (§8). Its modules are split so that model routing can later become a capability that also works outside TrueFoundry mode (§9). Only the subagent scope is built now.
 
 **Related work, tracked separately:**
+
 - **`tfg.thread_id` on every model call** (AGE-2837, PR #1392). Routing analysis joins on it.
 - **Subagent model overrides** (AGE-2841). A subagent on a different model must use that model's own default params, not the parent's, and `THREAD_CREATED` must save the model the subagent actually runs on. Shadow mode doesn't need this. "On" mode does.
 
@@ -12,22 +13,23 @@ When a subagent is spawned, one Jev call picks the model it runs on. The router 
 
 **Fixed by this design.** Changing any of these means a new design review.
 
-| # | Invariant | Where |
-|---|---|---|
-| I1 | **One Jev call per subagent, made before it starts.** Never during the agent loop. | §1 |
-| I2 | **Jev sees only the task and the candidate pool.** One yes/no question per candidate (name, effort, score), plus one per benchmark. No parent model, prices or comparisons. | §3 |
-| I3 | **The pick is the candidate with the highest yes-probability,** the cheaper one on a tie. There's no threshold and no price ceiling yet. | §4 |
-| I4 | **The fallback is the parent's model.** It runs only when routing can't produce a pick. | §4 |
-| I5 | **Candidates are the caller's models that have a score.** No other metadata filters candidates. Other fields are read only for the log line. | §2 |
-| I6 | **Scores are bundled data,** keyed by Artificial Analysis slug. No Artificial Analysis call while a request runs. | §2 |
-| I7 | **Jev sees each candidate's score at the effort it will actually run at:** its default effort on TrueFoundry. | §2 |
-| I8 | **The router never throws.** Any error, timeout or unusable pick means the parent's model runs, as today. | §4 |
-| I9 | **The routed model is applied through the existing `request.model` path** and saved on `agent_info.model`. Resume and rebuild never call the router. | §1 |
-| I10 | **One optional core hook,** `routeModel`. The router's logic lives in the server, split into provider-neutral and TrueFoundry-specific modules. | §1, §9 |
-| I11 | **Observability:** gateway traces joined on `tfg.thread_id`, plus one info log line per decision. No new tables or public API. | §6 |
-| I12 | **Mode per tenant and per scope:** off, shadow or on. Off by default. | §5 |
+| #   | Invariant                                                                                                                                                                   | Where  |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| I1  | **One Jev call per subagent, made before it starts.** Never during the agent loop.                                                                                          | §1     |
+| I2  | **Jev sees only the task and the candidate pool.** One yes/no question per candidate (name, effort, score), plus one per benchmark. No parent model, prices or comparisons. | §3     |
+| I3  | **The pick is the candidate with the highest yes-probability,** the cheaper one on a tie. There's no threshold and no price ceiling yet.                                    | §4     |
+| I4  | **The fallback is the parent's model.** It runs only when routing can't produce a pick.                                                                                     | §4     |
+| I5  | **Candidates are the caller's models that have a score.** No other metadata filters candidates. Other fields are read only for the log line.                                | §2     |
+| I6  | **Scores are bundled data,** keyed by Artificial Analysis slug. No Artificial Analysis call while a request runs.                                                           | §2     |
+| I7  | **Jev sees each candidate's score at the effort it will actually run at:** its default effort on TrueFoundry.                                                               | §2     |
+| I8  | **The router never throws.** Any error, timeout or unusable pick means the parent's model runs, as today.                                                                   | §4     |
+| I9  | **The routed model is applied through the existing `request.model` path** and saved on `agent_info.model`. Resume and rebuild never call the router.                        | §1     |
+| I10 | **One optional core hook,** `routeModel`. The router's logic lives in the server, split into provider-neutral and TrueFoundry-specific modules.                             | §1, §9 |
+| I11 | **Observability:** gateway traces joined on `tfg.thread_id`, plus one info log line per decision. No new tables or public API.                                              | §6     |
+| I12 | **Mode per tenant and per scope:** off, shadow or on. Off by default.                                                                                                       | §5     |
 
 **Tunable without a design change:**
+
 - **Config:** the decision model, the Jev timeout (2 s), `max_candidates` (60), and each tenant's mode.
 - **Data:** the score table, and the benchmark-resemblance list.
 
@@ -58,24 +60,23 @@ type RoutingScope = 'subagent' | 'root';
 
 interface RouteModelInput {
   scope: RoutingScope;
-  threadId: string;          // the thread being routed
-  fallbackModel: string;     // the parent's model (account/model)
+  threadId: string; // the thread being routed
+  fallbackModel: string; // the parent's model (account/model)
   work: {
-    name?: string;           // subagent name
-    text: string;            // the delegated task
-    context?: string;        // the turn's user message
-    tools: string[];         // MCP server names, web_search, sandbox
+    name?: string; // subagent name
+    text: string; // the delegated task (self-contained by the create_sub_agent contract)
+    tools: string[]; // MCP server names, web_search, sandbox
   };
   signal: AbortSignal;
 }
 
 interface RouteModelResult {
-  model?: string;            // set only in "on" mode when a candidate was picked
+  model?: string; // set only in "on" mode when a candidate was picked
 }
 
 interface ITurnResourceResolver {
   // ...existing methods
-  routeModel?(input: RouteModelInput): Promise<RouteModelResult>;   // never throws; undefined = today
+  routeModel?(input: RouteModelInput): Promise<RouteModelResult>; // never throws; undefined = today
 }
 ```
 
@@ -85,58 +86,55 @@ interface ITurnResourceResolver {
 
 **The score is the Artificial Analysis Intelligence Index, v5** (0–100). It's the closest single score to agentic work: seven of its nine evaluations use tools. It averages four equal categories: Knowledge Work, Coding, Science and General.
 
-**The score table** is a JSON file checked into the server package, `modelRoutingScores.json`. It's keyed by Artificial Analysis slug, with one score per effort variant:
+**The score table** is a typed TypeScript constant in the server package, `modelRouting/modelRoutingScores.ts`. It mirrors Artificial Analysis: one entry per Artificial Analysis slug, so each effort variant is its own entry:
 
-```json
-{
-  "source": "Artificial Analysis Intelligence Index", "index_version": "5", "retrieved_at": "2026-11-13",
-  "models": {
-    "claude-haiku-5-5": { "default": 36.5, "low": 18.6, "medium": 24.6, "high": 29.9, "xhigh": 34.6 },
-    "mimo-v2-6-pro": { "default": 29.9 }
-  }
-}
+```ts
+'claude-haiku-5-5':        { name: 'Claude Haiku 5.5', score: 36.5 },   // plain slug: Artificial Analysis labels it (Max)
+'claude-haiku-5-5-medium': { name: 'Claude Haiku 5.5', score: 24.6 },
+'mimo-v2-6-pro':           { name: 'MiMo-V2.6-Pro',    score: 29.9 },
 ```
 
-- **How it's produced:** generated once for the PoC from the Artificial Analysis free endpoint (`/api/v2/language/models/free`), and reviewed like code. An entry groups the plain slug (`default`) with its exact effort variants (`<slug>-low`, `-medium`, `-high`, `-xhigh`, `-max`, and `-non-reasoning` as `none`). Variants are matched exactly, never by prefix. A prefix match would merge `claude-sonnet-5` with `claude-sonnet-5-5-*`. A refresh script can come later.
-- **How it's loaded:** once at startup, validated with zod, so a bad file fails at startup and not mid-request.
+- **How it's produced:** generated once for the PoC from the Artificial Analysis free endpoint (`/api/v2/language/models/free`), and reviewed like code. A refresh script can come later.
+- **Why a TypeScript constant:** it's bundled like the shipped catalogues, and a malformed entry fails at compile time. No loader is needed.
+- **The name** is Artificial Analysis's model name without the effort label. It's what Jev sees in the question.
 
 **Candidates are built once per turn from the caller's model list.** An internal `listRoutingCandidates()` on `TrueFoundryModelProviderStore` shares `listModels`' `provider-integrations` fetch. It reads these fields from each model's metadata:
 
-| Field | Used for |
-|---|---|
-| `external_ids.artificial_analysis_slug` | Score lookup. A model without a slug, or with one that isn't in the table, isn't a candidate. |
-| `params[reasoning_effort].defaultValue` | Which effort's score Jev sees. |
-| Price (`public_cost` or `costs`), blended 0.8 × input + 0.2 × output | Breaking ties, and the log line. It's also needed if a threshold or price ceiling is added. |
-| `modalities.input`, `features` | The log line only. No filtering. |
+| Field                                                                | Used for                                                                                      |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `external_ids.artificial_analysis_slug`                              | Score lookup. A model without a slug, or with one that isn't in the table, isn't a candidate. |
+| `params[reasoning_effort].defaultValue`                              | Which effort's score Jev sees.                                                                |
+| Price (`public_cost` or `costs`), blended 0.8 × input + 0.2 × output | Breaking ties, and the log line. It's also needed if a threshold or price ceiling is added.   |
+| `modalities.input`, `features`                                       | The log line only. No filtering.                                                              |
 
 - **The internal type is widened:** `TrueFoundryEnabledModel` gains these fields. `listModels` and the public `AvailableModel` are unchanged.
-- **How a score is looked up:** at the default effort. If that effort has no score, use `default`, then the nearest effort, with ties going to the higher one.
+- **How a score is looked up:** the exact variant `<slug>-<default effort>` (`-non-reasoning` for `none`). If there isn't one, use the plain slug, then the nearest effort variant, with ties going to the higher one. Variants match exactly, never by prefix. A prefix match would let `claude-sonnet-5` read `claude-sonnet-5-5-*`.
 - **A model served by several accounts is asked about once** (same slug), preferring the parent model's account, then its provider, then the first by name.
 - **The parent's model is a candidate like any other** if it has a score. If it doesn't, routing still runs among the scored candidates.
-- **Revoked access:** the pick goes through the existing `getModel` check before the subagent runs. Access revoked before the pick means `model_unavailable`, and the parent's model runs. Access revoked mid-turn behaves as it does today for any model.
+- **Revoked access:** candidates come from the caller's model list for this turn, so a pick is a model the caller could use when the turn started. Access revoked mid-turn behaves as it does today for any model: the gateway rejects the call.
 
 **The internal pool today:** 44 chat models, 18 of them scored.
 
-| Model | Score | TrueFoundry default effort | Score taken from | $/M blended |
-|---|---|---|---|---|
-| GPT-6 Astra | 51.6 | medium | medium | 18.00 |
-| Claude Opus 5.5 | 48.2 | medium | medium | 7.20 |
-| GPT-6.1 Sol | 46.3 | medium | medium | 3.60 |
-| Claude Opus 5 | 44.2 | high | unlabelled | 9.00 |
-| Claude Sonnet 5.5 | 41.5 | high | high | 3.60 |
-| Grok 4.7 | 35.2 | high | high | 2.80 |
-| Qwen 3.8 Max | 33.7 | xhigh | unlabelled | 2.80 |
-| GPT-5.6 Terra | 32.3 | medium | unlabelled | 4.00 |
-| GLM 5.3 | 31.7 | max | unlabelled | 4.00 |
-| MiMo V2.6 Pro | 29.9 | medium | unlabelled | 0.52 |
-| GLM 5.3 Flash | 27.8 | max | unlabelled | 0.22 |
-| MiMo V2.6 Flash | 26.7 | medium | unlabelled | 0.17 |
-| Claude Haiku 5.5 | 24.6 | medium | medium | 0.18 |
-| GPT-5.6 Luna | 23.8 | medium | unlabelled | 0.40 |
-| MiniMax M3 | 18.9 | medium | unlabelled | 0.96 |
-| GPT-6 Luna | 18.5 | medium | medium | 0.18 |
-| Kimi K3 | 17.4 | max | low (nearest) | 5.40 |
-| gpt-oss-120b | 3.8 | medium | unlabelled | 0.43 |
+| Model             | Score | TrueFoundry default effort | Score taken from | $/M blended |
+| ----------------- | ----- | -------------------------- | ---------------- | ----------- |
+| GPT-6 Astra       | 51.6  | medium                     | medium           | 18.00       |
+| Claude Opus 5.5   | 48.2  | medium                     | medium           | 7.20        |
+| GPT-6.1 Sol       | 46.3  | medium                     | medium           | 3.60        |
+| Claude Opus 5     | 44.2  | high                       | unlabelled       | 9.00        |
+| Claude Sonnet 5.5 | 41.5  | high                       | high             | 3.60        |
+| Grok 4.7          | 35.2  | high                       | high             | 2.80        |
+| Qwen 3.8 Max      | 33.7  | xhigh                      | unlabelled       | 2.80        |
+| GPT-5.6 Terra     | 32.3  | medium                     | unlabelled       | 4.00        |
+| GLM 5.3           | 31.7  | max                        | unlabelled       | 4.00        |
+| MiMo V2.6 Pro     | 29.9  | medium                     | unlabelled       | 0.52        |
+| GLM 5.3 Flash     | 27.8  | max                        | unlabelled       | 0.22        |
+| MiMo V2.6 Flash   | 26.7  | medium                     | unlabelled       | 0.17        |
+| Claude Haiku 5.5  | 24.6  | medium                     | medium           | 0.18        |
+| GPT-5.6 Luna      | 23.8  | medium                     | unlabelled       | 0.40        |
+| MiniMax M3        | 18.9  | medium                     | unlabelled       | 0.96        |
+| GPT-6 Luna        | 18.5  | medium                     | medium           | 0.18        |
+| Kimi K3           | 17.4  | max                        | low (nearest)    | 5.40        |
+| gpt-oss-120b      | 3.8   | medium                     | unlabelled       | 0.43        |
 
 "Unlabelled" means Artificial Analysis publishes a single score with no effort label. That score is usually the model's maximum effort: Haiku 5.5's is 36.5, above its xhigh 34.6. So models that only have an unlabelled score may be overrated at a lower default. "Nearest" means only other efforts are published. Kimi K3, for example, has only a `low` score, so it's likely underrated at its `max` default.
 
@@ -151,7 +149,6 @@ One call per subagent to `POST {gateway}/v1/systemone`, using the gateway URL, t
     "scope": "subagent",
     "name": "<subagent name>",
     "task": "<the delegated task, clipped to 8k (head + tail)>",
-    "context": "<the turn's user message, clipped to 4k>",
     "tools": ["<mcp server names>", "web_search", "sandbox"],
     "benchmark_note": "Artificial Analysis Intelligence Index (0-100, higher is better) averages agentic knowledge work, coding, science and general reasoning evaluations."
   },
@@ -164,7 +161,11 @@ One call per subagent to `POST {gateway}/v1/systemone`, using the gateway URL, t
         "false": "It would likely miss parts, make errors, or stop before the task is done."
       }
     },
-    "can_1": { "type": "noul", "instructions": "Can Claude Sonnet 5.5 at high effort (Intelligence Index 41.5) complete this task fully and correctly?", "criteria": { "...": "same as above" } },
+    "can_1": {
+      "type": "noul",
+      "instructions": "Can Claude Sonnet 5.5 at high effort (Intelligence Index 41.5) complete this task fully and correctly?",
+      "criteria": { "...": "same as above" }
+    },
     "resembles_gdpval": {
       "type": "noul",
       "instructions": "Does this task resemble the benchmark GDPval? Knowledge-work deliverables (reports, analyses, plans) produced with tools. Example: 'From these project documents, write a one-page status report with risks and next steps.'",
@@ -179,15 +180,16 @@ One call per subagent to `POST {gateway}/v1/systemone`, using the gateway URL, t
 - **Limits:** one call, with a 2-second timeout and at most `max_candidates` (60) candidate questions.
 - **Benchmark-resemblance questions:** five benchmarks, all of which our key models have data for in `model-benchmarks`. The answers are recorded only.
 
-| Key | Benchmark | Description given to Jev | Example task given to Jev |
-|---|---|---|---|
-| `automation` | AutomationBench-AA | Multi-step workflows across apps through API tools: look things up, combine results, act on them | "When a support ticket is tagged urgent, look up the customer's plan and notify the account owner" |
-| `terminal_bench` | Terminal-Bench 4.0 | Multi-step technical tasks in a shell: run commands, inspect files and logs, fix or configure something | "Find why the service fails to start from its logs and fix the config" |
-| `gdpval` | GDPval-AA | Knowledge-work deliverables (reports, analyses, plans) produced with tools | "From these project documents, write a one-page status report with risks and next steps" |
-| `lcr` | AA-LCR | Answer questions that need reasoning across long documents or large outputs | "From these three long reports, which risk do all of them mention and how does each address it?" |
-| `hle` | Humanity's Last Exam | Hard expert-level knowledge and reasoning questions with one correct answer | "A difficult graduate-level question in a technical field" |
+| Key              | Benchmark            | Description given to Jev                                                                                | Example task given to Jev                                                                          |
+| ---------------- | -------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `automation`     | AutomationBench-AA   | Multi-step workflows across apps through API tools: look things up, combine results, act on them        | "When a support ticket is tagged urgent, look up the customer's plan and notify the account owner" |
+| `terminal_bench` | Terminal-Bench 4.0   | Multi-step technical tasks in a shell: run commands, inspect files and logs, fix or configure something | "Find why the service fails to start from its logs and fix the config"                             |
+| `gdpval`         | GDPval-AA            | Knowledge-work deliverables (reports, analyses, plans) produced with tools                              | "From these project documents, write a one-page status report with risks and next steps"           |
+| `lcr`            | AA-LCR               | Answer questions that need reasoning across long documents or large outputs                             | "From these three long reports, which risk do all of them mention and how does each address it?"   |
+| `hle`            | Humanity's Last Exam | Hard expert-level knowledge and reasoning questions with one correct answer                             | "A difficult graduate-level question in a technical field"                                         |
 
 **Offline test** on 49 real subagent tasks × 11 candidates, checked against how each model actually did:
+
 - **Jev doesn't say yes to everything.** Average yes-probability per model was 0.17–0.42.
 - **It ranks models sensibly on average** (rank correlation 0.53 with how often each model passed). On a single task, though, it only weakly tells whether a model will do well: 0.6, where 0.5 is a coin flip.
 - **Showing Jev the parent model made it worse.** Jev then mostly compared the two scores. That's why the request has no parent model.
@@ -198,8 +200,8 @@ One call per subagent to `POST {gateway}/v1/systemone`, using the gateway URL, t
 1. **Pick** the candidate with the highest yes-probability. On a tie, the cheaper one wins.
 2. **Fall back to the parent's model** when there's no usable pick. The reason is logged:
    - `no_candidates`;
-   - `decision_error` or `decision_timeout`;
-   - `model_unavailable`: the pick fails the `getModel` check.
+   - `decision_error`: the call failed, or Jev answered none of the candidate questions;
+   - `decision_timeout`.
 3. **Shadow mode** logs the pick but runs the parent's model. **On mode** runs the pick.
 
 **In the offline test** (candidates cheaper than Opus 5.5, judged against Opus): Sonnet 5.5 was picked for 47 of 49 tasks. It was as good as Opus on 76% of tasks, at 53% of Opus's cost.
@@ -230,12 +232,24 @@ TRUEFOUNDRY_MODEL_ROUTING = {
   - the Jev call, which carries the turn metadata plus `tfg.thread_id` (the subagent being routed) and `tfg.model_routing: "true"`.
 
   The Jev request and response hold every candidate's question and probability, and the benchmark-resemblance answers.
+
 - **One log line per decision:**
 
   ```ts
   logger.info('model routing', {
-    scope, thread_id, mode, reason, fallback_model, picked_model, chosen_model,
-    picked_p_yes, picked_price, fallback_price, price_direction, picked_image_input, candidate_count,
+    scope,
+    thread_id,
+    mode,
+    reason,
+    fallback_model,
+    picked_model,
+    chosen_model,
+    picked_p_yes,
+    picked_price,
+    fallback_price,
+    price_direction,
+    picked_image_input,
+    candidate_count,
   });
   ```
 
@@ -253,6 +267,7 @@ TRUEFOUNDRY_MODEL_ROUTING = {
 ## 8. Root agent (later)
 
 The same router, score table, Jev request and pick rule. The root needs four things on top:
+
 - **A call site** where the root thread's definition is built for a turn, with `scope: 'root'` and the spec's model as the fallback.
 - **Once per turn,** never mid-turn.
 - **Persistence:** save the routed model with the turn, so a resumed turn keeps it.
@@ -262,34 +277,36 @@ The same router, score table, Jev request and pick rule. The root needs four thi
 
 **Core (`packages/trueforge-core`):** only the hook and the call site. Core has no access to the model list, Jev or the scores.
 
-| File | Change |
-|---|---|
-| `agent-session/ITurnResourceResolver.ts` | `RoutingScope`, `RouteModelInput`, `RouteModelResult` and the optional `routeModel` hook (§1). |
-| `agent-session/TurnResourceResolver.ts` | Accept `routeModel` in its deps and expose it. |
-| `agent-session/SessionHandle.ts` | In `makeCreateDynamicSubAgentThread`, call `routeModel` when `request.model` is unset, and continue with `{ ...request, model }` if one comes back. |
+| File                                     | Change                                                                                                                                              |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `agent-session/ITurnResourceResolver.ts` | `RoutingScope`, `RouteModelInput`, `RouteModelResult` and the optional `routeModel` hook (§1).                                                      |
+| `agent-session/TurnResourceResolver.ts`  | Accept `routeModel` in its deps and expose it.                                                                                                      |
+| `agent-session/SessionHandle.ts`         | In `makeCreateDynamicSubAgentThread`, call `routeModel` when `request.model` is unset, and continue with `{ ...request, model }` if one comes back. |
 
 **Server: provider-neutral routing (`packages/trueforge/src/modelRouting/`).** None of this knows about TrueFoundry. It's the part a future routing capability would reuse or move into core.
 
-| File | Change |
-|---|---|
-| **New** `types.ts` | The two interfaces a provider implements: `RoutingCandidateSource`, which lists candidates (`model`, `slug`, `defaultEffort`, `price`, plus metadata for the log line), and `DecisionClient`, which asks yes/no questions and returns probabilities. |
-| **New** `scores.ts` + `modelRoutingScores.json` | Loads and validates the score table at startup, and looks up a score by slug and effort (§2). |
-| **New** `pick.ts` | The pick rule, as a pure function from candidates and probabilities to a pick (§4). A threshold or price ceiling would change only this file and the config. |
-| **New** `router.ts` | `createModelRouter({ candidates, decision, scores, config, logger })`. It builds the questions (§3), calls the decision client, picks, logs (§6), and returns `routeModel`. It never throws. |
+| File                                          | Change                                                                                                                                                                                                                                   |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **New** `types.ts`                            | What a provider supplies: `RoutingCandidate` (`model`, `slug`, `defaultEffort`, `price`, `imageInput`), a function that lists them, and `DecisionClient`, which asks yes/no questions and returns probabilities. Also the routing modes. |
+| **New** `scores.ts` + `modelRoutingScores.ts` | The score table, and the lookup by slug and effort (§2).                                                                                                                                                                                 |
+| **New** `pick.ts`                             | The pick rule, as a pure function from candidates and probabilities to a pick (§4). A threshold or price ceiling would change only this file and the config.                                                                             |
+| **New** `router.ts`                           | `createModelRouter({ candidates, decision, scores, config, logger })`. It builds the questions (§3), calls the decision client, picks, logs (§6), and returns `routeModel`. It never throws.                                             |
 
 **Server: TrueFoundry implementations.**
 
-| File | Change |
-|---|---|
-| `truefoundry/mapEnabledModels.ts` | Widen the internal `TrueFoundryEnabledModel` with the fields in §2. |
-| `truefoundry/TrueFoundryModelProviderStore.ts` | `listRoutingCandidates()`, the `RoutingCandidateSource` for TrueFoundry mode. |
-| **New** `truefoundry/jevDecisionClient.ts` | The `DecisionClient` for Jev: `POST {gateway}/v1/systemone` with the parent model's gateway URL, token and turn headers. |
-| `config.ts` | `TRUEFOUNDRY_MODEL_ROUTING` (§5). |
-| `apis/turns.ts` | When the tenant's subagent mode isn't off, create the router per turn from the TrueFoundry candidate source and the Jev client, and pass `routeModel` into the resolver. |
+| File                                           | Change                                                                                                                                                                   |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `db/modelProviderStore.ts`                     | An optional `listRoutingCandidates()` on `IModelProviderStore`. Stores that can't supply catalogue metadata omit it, and routing isn't wired for them.                   |
+| `truefoundry/mapEnabledModels.ts`              | Widen the internal `TrueFoundryEnabledModel` with the fields in §2. Each new field falls back to undefined on an unexpected shape, so it can never break model listing.  |
+| `truefoundry/TrueFoundryModelProviderStore.ts` | `listRoutingCandidates()` for TrueFoundry mode, from the same `provider-integrations` fetch.                                                                             |
+| `truefoundry/InlineModelProviderStore.ts`      | Forwards `listRoutingCandidates()` to the wrapped store.                                                                                                                 |
+| **New** `truefoundry/jevDecisionClient.ts`     | The `DecisionClient` for Jev: `POST {gateway}/v1/systemone` with the parent model's gateway URL, token and turn headers.                                                 |
+| `config.ts`                                    | `TRUEFOUNDRY_MODEL_ROUTING` (§5).                                                                                                                                        |
+| `apis/turns.ts`                                | When the tenant's subagent mode isn't off, create the router per turn from the TrueFoundry candidate source and the Jev client, and pass `routeModel` into the resolver. |
 
 No database schema or public API changes.
 
-**Extending outside TrueFoundry mode later:** add a `RoutingCandidateSource` for configured providers (slug from the shipped catalogue), and a `DecisionClient` for whatever decision model is available. Then wire them where the resolver is built. The score table, pick rule, router and core hook stay the same.
+**Extending outside TrueFoundry mode later:** implement `listRoutingCandidates()` on the configured-provider stores (slug from the shipped catalogue), and add a `DecisionClient` for whatever decision model is available. Then wire them where the resolver is built. The score table, pick rule, router and core hook stay the same.
 
 ## 10. Open questions
 

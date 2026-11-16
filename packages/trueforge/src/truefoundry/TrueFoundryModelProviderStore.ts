@@ -13,6 +13,7 @@ import {
   type UpsertModelProviderInput,
 } from '../db/modelProviderStore';
 import type { TurnMetadata } from '../db/turnMetadata';
+import type { RoutingCandidate } from '../modelRouting/types';
 import type { AvailableModel, ModelProviderManifest } from '../schemas/modelProvider';
 import {
   accessTokenForRequest,
@@ -99,6 +100,16 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
 
   async listModels(input: ListModelProvidersInput, transaction?: TTransaction): Promise<AvailableModel[]> {
     return flattenProviderModels(await this.listProviders(input, transaction));
+  }
+
+  async listRoutingCandidates(input: ListModelProvidersInput): Promise<RoutingCandidate[]> {
+    const integrations = await this.#client.listProviderIntegrations({
+      accessToken: await this.#resolveServiceFoundryAuthorization(),
+    });
+    return filterEnvModels({ tenant_id: input.tenant_id, models: mapEnabledModels({ integrations }) }).map(model => ({
+      model: `${model.accountName}/${model.modelName}`,
+      ...model.routing,
+    }));
   }
 
   async resolveInvokeHeaders(input: {

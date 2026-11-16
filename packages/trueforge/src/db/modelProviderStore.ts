@@ -3,6 +3,7 @@
  * `ModelProviderManifest` document. Implementations: Postgres, Sqlite, and
  * TrueFoundry (read-only ServiceFoundry server listing).
  */
+import type { RoutingCandidate } from '../modelRouting/types';
 import type { ResourceName } from '../schemas/common';
 import type { AvailableModel, ModelProperties, ModelProviderManifest } from '../schemas/modelProvider';
 import type { TurnMetadata } from './turnMetadata';
@@ -85,6 +86,8 @@ export interface IModelProviderStore<TTransaction = never> {
     record: ModelProviderRecord;
     turnMetadata?: TurnMetadata;
   }): Promise<Record<string, string>>;
+  /** The caller's models with the catalog fields model routing needs. Omitted by stores that can't route. */
+  listRoutingCandidates?(input: ListModelProvidersInput): Promise<RoutingCandidate[]>;
 }
 
 export function modelPropertiesWarning(input: { properties: ModelProperties }): string | undefined {
