@@ -97,8 +97,8 @@ export interface UpdateArtifactInput {
   tenant_id: string;
   id: string;
   title: string;
-  /** Omitted leaves the stored description unchanged. */
-  description?: string | null;
+  /** `undefined` leaves the stored description unchanged; `null` clears it. */
+  description: string | null | undefined;
 }
 
 export interface DeleteArtifactInput {
@@ -144,12 +144,6 @@ export interface ListArtifactVersionsResult {
   pagination: TokenPagination;
 }
 
-export interface FindArtifactBySessionEntryInput {
-  tenant_id: string;
-  session_id: string;
-  entry_path: string;
-}
-
 export interface IArtifactStore<TTransaction = never> {
   listArtifacts(input: ListArtifactsInput, transaction?: TTransaction): Promise<ListArtifactsResult>;
   getArtifact(input: GetArtifactInput, transaction?: TTransaction): Promise<ArtifactRecord | undefined>;
@@ -179,9 +173,11 @@ export interface IArtifactStore<TTransaction = never> {
     input: { tenant_id: string; artifact_version_ids: readonly string[] },
     transaction?: TTransaction,
   ): Promise<{ artifact_version_id: string; file: ArtifactFileRecord }[]>;
-  /** Newest artifact this session published from this sandbox entry path. */
-  findBySessionEntry(
-    input: FindArtifactBySessionEntryInput,
+  /** Latest version of each artifact, in one query. Ids with no version are omitted. */
+  listLatestVersions(
+    input: { tenant_id: string; artifact_ids: readonly string[] },
     transaction?: TTransaction,
-  ): Promise<ArtifactRecord | undefined>;
+  ): Promise<ArtifactVersionRecord[]>;
+  /** Bytes held by every version of every artifact in the tenant. */
+  sumVersionBytes(input: { tenant_id: string }, transaction?: TTransaction): Promise<number>;
 }

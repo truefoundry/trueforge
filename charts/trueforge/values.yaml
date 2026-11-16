@@ -126,6 +126,9 @@ server:
   # Escape hatch for knobs not covered by configs.*. Each entry is a full env
   # item: {name, value} or {name, valueFrom: {secretKeyRef|configMapKeyRef: ...}}.
   extraEnv: []
+  # Requests and limits. A set table is used as-is, so CPU limits can be omitted.
+  # Empty uses resourceTierOverride, then global.resourceTier.
+  resources: {}
 # Published HTML and Markdown files. Distributed mode cannot use an implicit
 # local directory: every server replica must share the bytes or use S3.
 artifacts:
@@ -145,9 +148,6 @@ artifacts:
     forcePathStyle: false
   # Empty keeps a generated Secret across upgrades. Set a string to pin the key.
   signingKey: ""
-  # Requests and limits. A set table is used as-is, so CPU limits can be omitted.
-  # Empty uses resourceTierOverride, then global.resourceTier.
-  resources: {}
 # Schedule controller. A dedicated, single-replica Deployment that runs the
 # periodic control loops (schedule dispatch). It MUST run as exactly one replica
 # per database, so it is never autoscaled. It calls the server API over HTTP and

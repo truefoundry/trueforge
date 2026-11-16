@@ -53,6 +53,9 @@ export async function listSandboxFiles(input: {
     '+',
   ].join(' ');
   const result = await input.exec({ sandboxId: input.sandboxId, command, timeoutSeconds: 30 });
+  if (!result.success) {
+    throw new Error(result.error);
+  }
   ensureExecSuccess(result);
   return parseFindWcOutput({ output: result.response.result, root: input.root, maxFiles: input.maxFiles });
 }

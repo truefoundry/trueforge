@@ -18,7 +18,7 @@ import type { SandboxFileReader } from '../artifacts/collectBundle';
 import { ArtifactBundleError } from '../artifacts/collectBundle';
 import { createdBySubjectFromRequestContext, hasAdminRole, type ResolveRequestContext } from '../auth/identity';
 import configuration, { effectivePublicBaseUrl, getPublicUiBasePath } from '../config';
-import type { IArtifactStore } from '../db/artifactStore';
+import type { ArtifactVersionRecord, IArtifactStore } from '../db/artifactStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { WithTransaction } from '../db/transaction';
 import {
@@ -36,7 +36,7 @@ import {
 } from '../routes/artifactRoutes';
 import { validateSandboxFilePath } from '../runtime/sandboxFilePath';
 import { resolveSandboxProvider } from '../runtime/sessionResources';
-import type { Artifact, ArtifactVersion } from '../schemas/artifact';
+import type { Artifact, ArtifactVersion, ArtifactVersionSummary } from '../schemas/artifact';
 
 export interface ArtifactRouterDeps<TTransaction> {
   artifactService: ArtifactService<TTransaction>;
@@ -46,7 +46,7 @@ export interface ArtifactRouterDeps<TTransaction> {
   logger: Logger;
 }
 
-function toWireVersion(version: ArtifactVersionView): ArtifactVersion {
+function toWireVersionSummary(version: ArtifactVersionRecord): ArtifactVersionSummary {
   return {
     artifact_id: version.artifact_id,
     version: version.version,
@@ -59,8 +59,14 @@ function toWireVersion(version: ArtifactVersionView): ArtifactVersion {
     turn_id: version.turn_id,
     source_root: version.source_root,
     storage_backend: version.storage_backend,
-    created_by: version.created_by_subject,
+    created_by_subject: version.created_by_subject,
     created_at: version.created_at,
+  };
+}
+
+function toWireVersion(version: ArtifactVersionView): ArtifactVersion {
+  return {
+    ...toWireVersionSummary(version),
     files: version.files.map(file => ({
       path: file.path,
       size_bytes: file.size_bytes,
@@ -77,8 +83,8 @@ function toWireArtifact(artifact: ArtifactView): Artifact {
     title: artifact.title,
     description: artifact.description,
     url: artifact.url,
-    latest_version: artifact.latest === undefined ? null : toWireVersion(artifact.latest),
-    created_by: artifact.created_by_subject,
+    latest_version: toWireVersionSummary(artifact.latest),
+    created_by_subject: artifact.created_by_subject,
     created_at: artifact.created_at,
     updated_at: artifact.updated_at,
   };
@@ -103,12 +109,17 @@ function fail(error: unknown): never {
 export function createArtifactsRouter<TTransaction>(deps: ArtifactRouterDeps<TTransaction>): OpenAPIHono {
   const router = new OpenAPIHono();
 
-  const openSandbox = async (
-    tenantId: string,
-    sessionId: string,
-    turnId: string,
-    subjectId: string,
-  ): Promise<{ reader: SandboxFileReader; sessionId: string; turnId: string }> => {
+  const openSandbox = async ({
+    tenantId,
+    sessionId,
+    turnId,
+    subjectId,
+  }: {
+    tenantId: string;
+    sessionId: string;
+    turnId: string;
+    subjectId: string;
+  }): Promise<{ reader: SandboxFileReader; sessionId: string; turnId: string }> => {
     const session = await deps.sessions.get({ tenant_id: tenantId, session_id: sessionId });
     if (!session) {
       throw new ArtifactRequestError(404, 'not_found', `Session not found: ${sessionId}`);
@@ -196,12 +207,12 @@ export function createArtifactsRouter<TTransaction>(deps: ArtifactRouterDeps<TTr
       const body = c.req.valid('json');
       validateSandboxFilePath(body.entry_path);
       const requestContext = deps.resolveRequestContext(c);
-      const sandbox = await openSandbox(
-        requestContext.tenant_id,
-        body.session_id,
-        body.turn_id,
-        requestContext.subject.id,
-      );
+      const sandbox = await openSandbox({
+        tenantId: requestContext.tenant_id,
+        sessionId: body.session_id,
+        turnId: body.turn_id,
+        subjectId: requestContext.subject.id,
+      });
       const preview = await deps.artifactService.preview({
         sandbox: sandbox.reader,
         entryPath: body.entry_path,
@@ -219,12 +230,12 @@ export function createArtifactsRouter<TTransaction>(deps: ArtifactRouterDeps<TTr
       const body = c.req.valid('json');
       validateSandboxFilePath(body.source.entry_path);
       const requestContext = deps.resolveRequestContext(c);
-      const sandbox = await openSandbox(
-        requestContext.tenant_id,
-        body.source.session_id,
-        body.source.turn_id,
-        requestContext.subject.id,
-      );
+      const sandbox = await openSandbox({
+        tenantId: requestContext.tenant_id,
+        sessionId: body.source.session_id,
+        turnId: body.source.turn_id,
+        subjectId: requestContext.subject.id,
+      });
       const published = await deps.artifactService.publishNew({
         tenantId: requestContext.tenant_id,
         subject: createdBySubjectFromRequestContext(requestContext),
@@ -265,7 +276,7 @@ export function createArtifactsRouter<TTransaction>(deps: ArtifactRouterDeps<TTr
         subject: createdBySubjectFromRequestContext(requestContext),
         isAdmin: hasAdminRole(requestContext),
         title: body.title,
-        ...(body.description === undefined ? {} : { description: body.description }),
+        description: body.description,
       });
       return c.json({ data: toWireArtifact(artifact) }, 200);
     } catch (error) {
@@ -315,12 +326,12 @@ export function createArtifactsRouter<TTransaction>(deps: ArtifactRouterDeps<TTr
       const body = c.req.valid('json');
       validateSandboxFilePath(body.source.entry_path);
       const requestContext = deps.resolveRequestContext(c);
-      const sandbox = await openSandbox(
-        requestContext.tenant_id,
-        body.source.session_id,
-        body.source.turn_id,
-        requestContext.subject.id,
-      );
+      const sandbox = await openSandbox({
+        tenantId: requestContext.tenant_id,
+        sessionId: body.source.session_id,
+        turnId: body.source.turn_id,
+        subjectId: requestContext.subject.id,
+      });
       const published = await deps.artifactService.publishVersion({
         tenantId: requestContext.tenant_id,
         artifactId,
@@ -458,6 +469,7 @@ export function createArtifactService<TTransaction>(deps: {
       maxFileBytes: configuration.ARTIFACT_MAX_FILE_BYTES,
       maxVersionBytes: configuration.ARTIFACT_MAX_VERSION_BYTES,
     },
+    maxTenantBytes: configuration.ARTIFACT_MAX_TENANT_BYTES,
     signingKey: deps.signingKey,
     urlForSlug: artifactPublicUrl,
   });

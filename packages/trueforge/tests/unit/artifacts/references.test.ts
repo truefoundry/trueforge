@@ -18,6 +18,20 @@ describe('artifact references', () => {
     expect(resolveReference('index.html', '../../secret.txt')).toBeUndefined();
   });
 
+  it('scans malformed markdown and css in linear time', () => {
+    const unmatchedBrackets = '['.repeat(200_000);
+    const started = performance.now();
+    expect(extractReferences(unmatchedBrackets, 'markdown')).toEqual([]);
+    expect(extractReferences(`${'url("'.repeat(50_000)}`, 'css')).toEqual(expect.any(Array));
+    expect(extractReferences(`${'](a'.repeat(50_000)}`, 'markdown')).toEqual([]);
+    expect(performance.now() - started).toBeLessThan(1000);
+  });
+
+  it('finds markdown targets only when the link is closed', () => {
+    expect(extractReferences('[a](one.png) ![b](two.png "title") [c](three.png', 'markdown')).toEqual(['one.png']);
+    expect(extractReferences('[](empty) [x]()', 'markdown')).toEqual(expect.not.arrayContaining(['']));
+  });
+
   it('rewrites root-absolute urls that exist in the bundle', () => {
     const rewritten = rewriteSiteAbsoluteUrls({
       content: '<link href="/assets/app.css"><a href="/missing.css">',

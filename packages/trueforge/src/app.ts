@@ -35,6 +35,8 @@ import {
   type TurnExecutionStores,
 } from './apis/turns';
 import { createUsersRouter } from './apis/users';
+import { ArtifactRequestError } from './artifacts/ArtifactService';
+import { ArtifactBundleError } from './artifacts/collectBundle';
 import { resolveArtifactSigningKey } from './artifacts/signingKey';
 import { createArtifactStorage } from './artifacts/storage/createArtifactStorage';
 import type { Authenticator } from './auth/authenticator';
@@ -142,6 +144,13 @@ function withAdminAuth(router: OpenAPIHono, middleware: MiddlewareHandler): Open
   return shell;
 }
 
+const CONTENT_TOKEN_PATH = /^\/artifact-content\/[^/]+/;
+
+/** Artifact content URLs carry a bearer token in the path; logs keep only a route template. */
+export function pathForLogs(path: string): string {
+  return path.replace(CONTENT_TOKEN_PATH, '/artifact-content/:token');
+}
+
 /**
  * One line per request: method, path, status, duration, and the authenticated subject
  * (`subject_type`, `subject_id`) when auth middleware resolved one. Skips `/healthz` and `/assets/`.
@@ -157,7 +166,7 @@ export function createAccessLogMiddleware(logger: Logger): MiddlewareHandler {
     const subject = c.get('subject');
     logger.info('request', {
       method: c.req.method,
-      path,
+      path: pathForLogs(path),
       status: c.res.status,
       duration_ms: Math.round(performance.now() - started),
       subject_type: subject?.type,
@@ -184,7 +193,7 @@ export function createAppErrorHandler(params: { logger: Logger }): ErrorHandler 
     const logError = (status: number, message: string): void => {
       const fields = {
         method: c.req.method,
-        path: c.req.path,
+        path: pathForLogs(c.req.path),
         status,
         ...extractErrorLogFields(error),
         ...(status >= 500 ? { reportable_error: { error } } : {}),
@@ -218,8 +227,9 @@ export function createAppErrorHandler(params: { logger: Logger }): ErrorHandler 
   };
 }
 
+/** Only artifact errors expose a machine-readable code; other causes (system errors, SDK errors) stay private. */
 function errorCode(cause: unknown): string | undefined {
-  if (typeof cause === 'object' && cause !== null && 'code' in cause && typeof cause.code === 'string') {
+  if (cause instanceof ArtifactRequestError || cause instanceof ArtifactBundleError) {
     return cause.code;
   }
   return undefined;

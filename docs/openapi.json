@@ -337,7 +337,7 @@
             "format": "date-time",
             "type": "string"
           },
-          "created_by": {
+          "created_by_subject": {
             "$ref": "#/components/schemas/Subject"
           },
           "description": {
@@ -350,7 +350,7 @@
             "type": "string"
           },
           "latest_version": {
-            "$ref": "#/components/schemas/ArtifactVersion"
+            "$ref": "#/components/schemas/ArtifactVersionSummary"
           },
           "slug": {
             "type": "string"
@@ -374,36 +374,11 @@
           "description",
           "url",
           "latest_version",
-          "created_by",
+          "created_by_subject",
           "created_at",
           "updated_at"
         ],
         "type": "object"
-      },
-      "ArtifactBundleChange": {
-        "properties": {
-          "added": {
-            "minimum": 0,
-            "type": "integer"
-          },
-          "changed": {
-            "minimum": 0,
-            "type": "integer"
-          },
-          "removed": {
-            "minimum": 0,
-            "type": "integer"
-          }
-        },
-        "required": [
-          "added",
-          "removed",
-          "changed"
-        ],
-        "type": [
-          "object",
-          "null"
-        ]
       },
       "ArtifactBundleSource": {
         "properties": {
@@ -500,7 +475,7 @@
             "format": "date-time",
             "type": "string"
           },
-          "created_by": {
+          "created_by_subject": {
             "$ref": "#/components/schemas/Subject"
           },
           "entry_content_type": {
@@ -558,14 +533,77 @@
           "turn_id",
           "source_root",
           "storage_backend",
-          "created_by",
+          "created_by_subject",
           "created_at",
           "files"
         ],
-        "type": [
-          "object",
-          "null"
-        ]
+        "type": "object"
+      },
+      "ArtifactVersionSummary": {
+        "properties": {
+          "artifact_id": {
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "created_by_subject": {
+            "$ref": "#/components/schemas/Subject"
+          },
+          "entry_content_type": {
+            "$ref": "#/components/schemas/ArtifactEntryContentType"
+          },
+          "entry_path": {
+            "type": "string"
+          },
+          "file_count": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "session_id": {
+            "type": "string"
+          },
+          "source_root": {
+            "type": "string"
+          },
+          "storage_backend": {
+            "$ref": "#/components/schemas/ArtifactStorageBackend"
+          },
+          "total_size_bytes": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "turn_id": {
+            "type": "string"
+          },
+          "version": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "artifact_id",
+          "version",
+          "note",
+          "entry_path",
+          "entry_content_type",
+          "file_count",
+          "total_size_bytes",
+          "session_id",
+          "turn_id",
+          "source_root",
+          "storage_backend",
+          "created_by_subject",
+          "created_at"
+        ],
+        "type": "object"
       },
       "AskUserQuestionsConfig": {
         "default": {
@@ -3850,7 +3888,29 @@
       "PreviewArtifactBundle": {
         "properties": {
           "changes": {
-            "$ref": "#/components/schemas/ArtifactBundleChange"
+            "properties": {
+              "added": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "changed": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "removed": {
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "added",
+              "removed",
+              "changed"
+            ],
+            "type": [
+              "object",
+              "null"
+            ]
           },
           "entry_content_type": {
             "$ref": "#/components/schemas/ArtifactEntryContentType"

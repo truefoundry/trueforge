@@ -44,7 +44,7 @@ export interface ArtifactVersionView extends ArtifactVersionRecord {
 
 export interface ArtifactView extends ArtifactRecord {
   url: string;
-  latest: ArtifactVersionView | undefined;
+  latest: ArtifactVersionRecord;
 }
 
 export interface BundlePreview {
@@ -73,6 +73,7 @@ export class ArtifactService<TTransaction> {
   readonly #storage: StorageRegistry;
   readonly #withTransaction: <T>(callback: (transaction: TTransaction) => Promise<T>) => Promise<T>;
   readonly #limits: ArtifactLimits;
+  readonly #maxTenantBytes: number;
   readonly #signingKey: string;
   /** HMAC key for content URLs. The content route verifies tokens with the same key. */
   get signingKey(): string {
@@ -85,6 +86,7 @@ export class ArtifactService<TTransaction> {
     storage: StorageRegistry;
     withTransaction: <T>(callback: (transaction: TTransaction) => Promise<T>) => Promise<T>;
     limits: ArtifactLimits;
+    maxTenantBytes: number;
     signingKey: string;
     urlForSlug: (slug: string) => string;
   }) {
@@ -92,6 +94,7 @@ export class ArtifactService<TTransaction> {
     this.#storage = deps.storage;
     this.#withTransaction = deps.withTransaction;
     this.#limits = deps.limits;
+    this.#maxTenantBytes = deps.maxTenantBytes;
     this.#signingKey = deps.signingKey;
     this.#urlForSlug = deps.urlForSlug;
   }
@@ -117,7 +120,12 @@ export class ArtifactService<TTransaction> {
       created_by_subject_id: input.createdBySubjectId,
       query: input.query,
     });
-    const data = await Promise.all(page.data.map(record => this.#toView(record)));
+    const latest = await this.#store.listLatestVersions({
+      tenant_id: input.tenantId,
+      artifact_ids: page.data.map(record => record.id),
+    });
+    const latestByArtifact = new Map(latest.map(version => [version.artifact_id, version]));
+    const data = page.data.map(record => this.#view(record, requireLatest(record, latestByArtifact.get(record.id))));
     return { data, pagination: page.pagination };
   }
 
@@ -179,6 +187,7 @@ export class ArtifactService<TTransaction> {
         'Slug must be 3–64 lowercase letters, numbers, and single hyphens',
       );
     }
+    await this.#assertQuotaAllows({ tenantId: input.tenantId, incomingBytes: bundle.totalSizeBytes });
     const artifactId = newId();
     const versionId = newId();
     const location = await this.#upload(input.tenantId, artifactId, versionId, bundle);
@@ -212,11 +221,12 @@ export class ArtifactService<TTransaction> {
             }),
             transaction,
           );
+          await this.#assertQuotaHolds({ tenantId: input.tenantId, transaction });
           return { artifact: { ...artifact, latest_version: 1 }, version };
         });
         const files = bundle.files.map(toFileRecord);
         return {
-          artifact: this.#view(published.artifact, { ...published.version, files }),
+          artifact: this.#view(published.artifact, published.version),
           version: { ...published.version, files },
           deduplicated: false,
         };
@@ -258,10 +268,11 @@ export class ArtifactService<TTransaction> {
       limits: this.#limits,
     });
     const current = await this.#latestVersion(existing);
-    if (current !== undefined && current.manifest_sha256 === bundle.manifestSha256) {
+    if (current?.manifest_sha256 === bundle.manifestSha256) {
       const view = await this.#toView(existing);
       return { artifact: view, version: current, deduplicated: true };
     }
+    await this.#assertQuotaAllows({ tenantId: input.tenantId, incomingBytes: bundle.totalSizeBytes });
     const versionId = newId();
     const location = await this.#upload(input.tenantId, existing.id, versionId, bundle);
     try {
@@ -277,7 +288,7 @@ export class ArtifactService<TTransaction> {
           { tenant_id: input.tenantId, artifact_id: locked.id, version: locked.latest_version },
           transaction,
         );
-        if (latest !== undefined && latest.manifest_sha256 === bundle.manifestSha256) {
+        if (latest?.manifest_sha256 === bundle.manifestSha256) {
           return { artifact: locked, version: latest, deduplicated: true, discardPrefix: true };
         }
         const version = await this.#store.insertVersion(
@@ -295,6 +306,7 @@ export class ArtifactService<TTransaction> {
           }),
           transaction,
         );
+        await this.#assertQuotaHolds({ tenantId: input.tenantId, transaction });
         return {
           artifact: { ...locked, latest_version: version.version },
           version,
@@ -326,7 +338,7 @@ export class ArtifactService<TTransaction> {
     subject: Subject;
     isAdmin: boolean;
     title: string;
-    description?: string | null;
+    description: string | null | undefined;
   }): Promise<ArtifactView> {
     const existing = await this.#requireArtifact(input);
     this.#assertCanManage(existing, input.subject, input.isAdmin);
@@ -334,7 +346,7 @@ export class ArtifactService<TTransaction> {
       tenant_id: input.tenantId,
       id: input.artifactId,
       title: input.title,
-      ...(input.description === undefined ? {} : { description: input.description }),
+      description: input.description,
     });
     if (updated === undefined) {
       throw new ArtifactRequestError(404, 'not_found', 'Artifact not found');
@@ -519,11 +531,31 @@ export class ArtifactService<TTransaction> {
   }
 
   async #toView(record: ArtifactRecord): Promise<ArtifactView> {
-    return this.#view(record, await this.#latestVersion(record));
+    const latest = await this.#store.getVersion({
+      tenant_id: record.tenant_id,
+      artifact_id: record.id,
+      version: record.latest_version,
+    });
+    return this.#view(record, requireLatest(record, latest));
   }
 
-  #view(record: ArtifactRecord, latest: ArtifactVersionView | undefined): ArtifactView {
+  #view(record: ArtifactRecord, latest: ArtifactVersionRecord): ArtifactView {
     return { ...record, url: this.#urlForSlug(record.slug), latest };
+  }
+
+  /** Rejects an upload up front; the in-transaction recheck below closes most of the race between publishes. */
+  async #assertQuotaAllows(input: { tenantId: string; incomingBytes: number }): Promise<void> {
+    const used = await this.#store.sumVersionBytes({ tenant_id: input.tenantId });
+    if (used + input.incomingBytes > this.#maxTenantBytes) {
+      throw quotaExceeded();
+    }
+  }
+
+  async #assertQuotaHolds(input: { tenantId: string; transaction: TTransaction }): Promise<void> {
+    const used = await this.#store.sumVersionBytes({ tenant_id: input.tenantId }, input.transaction);
+    if (used > this.#maxTenantBytes) {
+      throw quotaExceeded();
+    }
   }
 
   async #versionById(tenantId: string, versionId: string): Promise<ArtifactVersionRecord> {
@@ -541,6 +573,21 @@ export class ArtifactService<TTransaction> {
     }
     return storage;
   }
+}
+
+function quotaExceeded(): ArtifactRequestError {
+  return new ArtifactRequestError(
+    413,
+    'artifact_too_large',
+    'Artifact storage quota exceeded. Delete unused artifacts.',
+  );
+}
+
+function requireLatest(record: ArtifactRecord, latest: ArtifactVersionRecord | undefined): ArtifactVersionRecord {
+  if (latest === undefined) {
+    throw new Error(`Artifact ${record.id} has no version ${String(record.latest_version)}`);
+  }
+  return latest;
 }
 
 function versionInput(input: {
