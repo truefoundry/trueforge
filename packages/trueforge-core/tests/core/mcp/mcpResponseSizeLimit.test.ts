@@ -33,4 +33,15 @@ describe('withMaxResponseBytes', () => {
 
     expect((await response.arrayBuffer()).byteLength).toBe(80);
   });
+
+  it('caps a non-OK GET text/event-stream body', async () => {
+    const fetchFn = withMaxResponseBytes(
+      async () =>
+        new Response(streamOf(new Uint8Array(80)), { status: 401, headers: { 'content-type': 'text/event-stream' } }),
+      50,
+    );
+    const response = await fetchFn('https://mcp.example.com', { method: 'GET' });
+
+    await expect(response.arrayBuffer()).rejects.toThrow(/exceeded max 50 bytes/);
+  });
 });

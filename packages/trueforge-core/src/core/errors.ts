@@ -106,14 +106,15 @@ export class McpConnectionError extends AgentHarnessError {
   }
 }
 
-/** An upstream 401 that keeps its response body, so a headers resolver can read consent details from it. */
-export class McpUnauthorizedError extends McpConnectionError {
+/** A 401 whose body lists consent URLs (`authorization_urls`, keyed by server name). */
+export class McpAuthorizationRequiredError extends McpConnectionError {
   constructor(
-    readonly body: string,
+    message: string,
+    readonly authorizationUrls: Readonly<Record<string, string>>,
     options?: ErrorOptions,
   ) {
-    super('upstream returned 401 Unauthorized', 401, options);
-    this.name = 'McpUnauthorizedError';
+    super(message, 401, options);
+    this.name = 'McpAuthorizationRequiredError';
   }
 }
 

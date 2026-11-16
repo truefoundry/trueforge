@@ -1,11 +1,5 @@
-import {
-  McpConnectionError,
-  type MCPAuthRequired,
-  type RemoteMcpHeaders,
-  type ResolveHeadersResult,
-} from '@truefoundry/trueforge-core/core';
+import { McpConnectionError, type RemoteMcpHeaders, type ResolveHeadersResult } from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
-import { z } from 'zod';
 import type { RequestContext, RequestSubject } from '../auth/identity';
 import { safeReturnTo } from '../auth/safeReturnTo';
 import { getPublicUiBasePath } from '../config';
@@ -64,27 +58,6 @@ export type TrueFoundryMcpApiClient = Pick<
 
 /** Per-server upstream headers the TrueFoundry gateway applies after its own caller auth. */
 const X_TFY_MCP_HEADERS = 'x-tfy-mcp-headers';
-
-/** The gateway's 401 when outbound auth is missing: consent URLs keyed by server name. */
-const GatewayAuthRequiredBodySchema = z.object({
-  authorization_urls: z.record(z.string(), z.url({ protocol: /^https?$/ })),
-});
-
-function gatewayAuthRequired(input: { name: string; body: string }): MCPAuthRequired | undefined {
-  let decoded: unknown;
-  try {
-    decoded = JSON.parse(input.body);
-  } catch {
-    return undefined;
-  }
-  const parsed = GatewayAuthRequiredBodySchema.safeParse(decoded);
-  if (!parsed.success) {
-    return undefined;
-  }
-  const urls = parsed.data.authorization_urls;
-  const authUrl = urls[input.name] ?? Object.values(urls)[0];
-  return authUrl === undefined ? undefined : { servers: [{ id: input.name, name: input.name, auth_url: authUrl }] };
-}
 
 /**
  * Absolute FE landing for the upstream authorize `redirectURL`.
@@ -147,7 +120,6 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
   }): RemoteMcpHeaders {
     const { record, turnMetadata } = input;
     const callerHeaders = this.#perServerHeaders[record.name];
-    const authRequiredFromBody = (body: string) => gatewayAuthRequired({ name: record.name, body });
     const gatewayBase = async (): Promise<Record<string, string>> => ({
       ...gatewayHeaders(await this.#resolveGatewayAuthorization()),
       ...gatewayMetadataHeadersForTurn(turnMetadata),
@@ -156,12 +128,10 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
       // The gateway fans a virtual MCP's nested map out to its servers itself.
       return async () => ({
         headers: { ...(await gatewayBase()), [X_TFY_MCP_HEADERS]: JSON.stringify(callerHeaders) },
-        authRequiredFromBody,
       });
     }
     const viaGateway = async (): Promise<ResolveHeadersResult> => ({
       headers: { ...withoutAuthorization(callerHeaders), ...(await gatewayBase()) },
-      authRequiredFromBody,
     });
     if (!hasAuthorizationHeader(callerHeaders)) {
       return viaGateway;
@@ -170,7 +140,6 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
     return async () => ({
       headers: { ...(await gatewayBase()), [X_TFY_MCP_HEADERS]: JSON.stringify(callerHeaders) },
       onUnauthorized: viaGateway,
-      authRequiredFromBody,
     });
   }
 
