@@ -7,7 +7,7 @@ import {
   overrideHeaders,
   withoutAuthorization,
   type PerServerMcpHeaders,
-} from '../mcp/perServerMcpHeaders';
+} from '../runtime/perServerMcpHeaders';
 import { resolveConfiguredMcpRequestHeaders, resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
 import {
   McpServerNotFoundError,
