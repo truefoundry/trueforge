@@ -14,7 +14,9 @@ import {
 
 import { cn } from '../atoms/lib/cn.js';
 import { ensureStyles } from './ensureStyles.js';
+import { ensureTypefaceStylesheet } from './ensureTypeface.js';
 import { resolvePresetTokens } from './presets/index.js';
+import { getTypefaceOption, isTypefaceId, type TypefaceId } from './typefaces.js';
 import {
   TOKEN_CSS_VARS,
   type BrandConfig,
@@ -34,6 +36,14 @@ export type ThemeContextValue = {
   preference: ThemeMode;
   isDark: boolean;
   setTheme: (mode: ThemeMode) => void;
+  /**
+   * User-chosen UI typeface from Settings → Appearance.
+   * `null` keeps the active preset’s `fontFamily`.
+   */
+  typefaceId: TypefaceId | null;
+  setTypeface: (id: TypefaceId) => void;
+  /** Clears the stored typeface preference so the preset default returns. */
+  resetTypeface: () => void;
   /** Partial: `theme.brand` is optional, so consumers fall back to SDK defaults. */
   brand: Partial<BrandConfig>;
   icons: IconMap;
@@ -46,6 +56,7 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 export { ThemeContext };
 
 const STORAGE_KEY = 'aui-theme-preference';
+const TYPEFACE_STORAGE_KEY = 'aui-typeface';
 
 function getSystemTheme(): 'light' | 'dark' {
   if (typeof window === 'undefined') return 'light';
@@ -71,6 +82,17 @@ function readStoredPreference(): ThemeMode {
   return 'system';
 }
 
+function readStoredTypeface(): TypefaceId | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const stored = localStorage.getItem(TYPEFACE_STORAGE_KEY);
+    if (stored != null && isTypefaceId(stored)) return stored;
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
 function tokensToStyle(tokens: Partial<SemanticTokens> | undefined): CSSProperties {
   if (!tokens) return {};
   const style: Record<string, string> = {};
@@ -85,6 +107,7 @@ export function ThemeProvider({ theme, children }: { theme?: ThemeConfig; childr
   const isControlled = theme?.mode !== undefined;
   const [preference, setPreference] = useState<ThemeMode>(() => theme?.mode ?? readStoredPreference());
   const [mode, setMode] = useState<'light' | 'dark'>(() => resolveMode(theme?.mode ?? readStoredPreference()));
+  const [typefaceId, setTypefaceId] = useState<TypefaceId | null>(() => readStoredTypeface());
 
   useLayoutEffect(() => {
     ensureStyles();
@@ -100,6 +123,11 @@ export function ThemeProvider({ theme, children }: { theme?: ThemeConfig; childr
     setPreference(stored);
     setMode(resolveMode(stored));
   }, [theme?.mode]);
+
+  useLayoutEffect(() => {
+    if (typefaceId == null) return;
+    ensureTypefaceStylesheet(getTypefaceOption(typefaceId));
+  }, [typefaceId]);
 
   useEffect(() => {
     if (isControlled || typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
@@ -128,6 +156,25 @@ export function ThemeProvider({ theme, children }: { theme?: ThemeConfig; childr
     [isControlled],
   );
 
+  const setTypeface = useCallback((id: TypefaceId) => {
+    setTypefaceId(id);
+    ensureTypefaceStylesheet(getTypefaceOption(id));
+    try {
+      localStorage.setItem(TYPEFACE_STORAGE_KEY, id);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const resetTypeface = useCallback(() => {
+    setTypefaceId(null);
+    try {
+      localStorage.removeItem(TYPEFACE_STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   const value = useMemo<ThemeContextValue>(
     () => ({
       preset: theme?.preset ?? 'trueforge',
@@ -135,22 +182,39 @@ export function ThemeProvider({ theme, children }: { theme?: ThemeConfig; childr
       preference,
       isDark: mode === 'dark',
       setTheme,
+      typefaceId,
+      setTypeface,
+      resetTypeface,
       brand: theme?.brand ?? {},
       icons: theme?.icons ?? {},
       classNames: theme?.classNames ?? {},
       tokens: theme?.tokens ?? {},
     }),
-    [mode, preference, setTheme, theme?.preset, theme?.brand, theme?.icons, theme?.classNames, theme?.tokens],
+    [
+      mode,
+      preference,
+      setTheme,
+      typefaceId,
+      setTypeface,
+      resetTypeface,
+      theme?.preset,
+      theme?.brand,
+      theme?.icons,
+      theme?.classNames,
+      theme?.tokens,
+    ],
   );
 
-  const rootStyle = useMemo(
-    () =>
-      tokensToStyle({
-        ...resolvePresetTokens(theme?.preset, mode),
-        ...theme?.tokens,
-      }),
-    [theme?.preset, theme?.tokens, mode],
-  );
+  const rootStyle = useMemo(() => {
+    const typefaceOverride =
+      typefaceId != null ? { fontFamily: getTypefaceOption(typefaceId).fontFamily } : undefined;
+    return tokensToStyle({
+      ...resolvePresetTokens(theme?.preset, mode),
+      ...typefaceOverride,
+      // Host token overrides still win (including an explicit fontFamily).
+      ...theme?.tokens,
+    });
+  }, [theme?.preset, theme?.tokens, mode, typefaceId]);
 
   return (
     <ThemeContext.Provider value={value}>
@@ -158,6 +222,7 @@ export function ThemeProvider({ theme, children }: { theme?: ThemeConfig; childr
         className={cn('aui-theme-root h-full min-h-0', mode === 'dark' && 'dark', theme?.className)}
         data-theme={mode}
         data-preset={theme?.preset ?? 'trueforge'}
+        data-typeface={typefaceId ?? undefined}
         style={rootStyle}
       >
         {children}
@@ -174,9 +239,13 @@ function useThemeContext(): ThemeContextValue {
   return ctx;
 }
 
-export function useTheme(): Pick<ThemeContextValue, 'preset' | 'mode' | 'preference' | 'isDark' | 'setTheme'> {
-  const { preset, mode, preference, isDark, setTheme } = useThemeContext();
-  return { preset, mode, preference, isDark, setTheme };
+export function useTheme(): Pick<
+  ThemeContextValue,
+  'preset' | 'mode' | 'preference' | 'isDark' | 'setTheme' | 'typefaceId' | 'setTypeface' | 'resetTypeface'
+> {
+  const { preset, mode, preference, isDark, setTheme, typefaceId, setTypeface, resetTypeface } =
+    useThemeContext();
+  return { preset, mode, preference, isDark, setTheme, typefaceId, setTypeface, resetTypeface };
 }
 
 /** Configured branding. Fields are optional — `theme.brand` may be omitted entirely. */

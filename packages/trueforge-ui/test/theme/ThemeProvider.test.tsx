@@ -271,7 +271,7 @@ describe('ThemeProvider', () => {
     );
 
     expect(getThemeRoot(container).style.getPropertyValue('--font-agent-ui')).toBe(
-      '"Google Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+      '"Geist Sans", "GeistSans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
     );
     expect(getThemeRoot(container).style.getPropertyValue('--sidebar-text')).toBe('#3E5680');
     expect(getThemeRoot(container).style.getPropertyValue('--radius')).toBe('0.375rem');

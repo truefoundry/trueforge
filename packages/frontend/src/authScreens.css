@@ -9,6 +9,8 @@
   background: var(--primary-bg);
   color: var(--text-primary);
   font-family:
+    'Geist Sans',
+    'GeistSans',
     ui-sans-serif,
     system-ui,
     -apple-system,

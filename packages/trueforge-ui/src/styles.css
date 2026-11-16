@@ -177,14 +177,15 @@
  * shells and consumer slot overrides. `.font-sans-flex` remains available
  * for explicitly portaled surfaces. All three override `--font-sans`.
  * Override `--font-agent-ui` in host CSS to brand the font. Default face is
- * Google Sans (loaded once via `ensureStyles`).
+ * Geist (loaded once via `ensureStyles`).
  */
 .aui-theme-root,
 .aui-root,
 .font-sans-flex {
   --font-sans: var(
     --font-agent-ui,
-    'Google Sans',
+    'Geist Sans',
+    'GeistSans',
     ui-sans-serif,
     system-ui,
     -apple-system,
@@ -196,7 +197,8 @@
   );
   font-family: var(
     --font-agent-ui,
-    'Google Sans',
+    'Geist Sans',
+    'GeistSans',
     ui-sans-serif,
     system-ui,
     -apple-system,

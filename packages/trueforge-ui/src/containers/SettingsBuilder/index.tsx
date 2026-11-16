@@ -25,6 +25,7 @@ import { useShellMode, type SettingsSection } from '@/server/ShellModeContext.js
 import type { SettingsCapability } from '@/server/types.js';
 
 // Section modules (and their list/catalog APIs) load only when that tab mounts.
+const AppearanceSettings = lazy(() => import('./AppearanceSettings.js'));
 const ModelSettings = lazy(() => import('./ModelSettings.js'));
 const ConnectorSettings = lazy(() => import('./ConnectorSettings.js'));
 const SkillSettings = lazy(() => import('./SkillSettings.js'));
@@ -35,8 +36,9 @@ const MemorySettings = lazy(() => import('./MemorySettings.js'));
 type SettingsSectionItem = {
   id: SettingsSection;
   label: string;
-  icon: 'cpu' | 'plug' | 'lightbulb' | 'cube' | 'search' | 'brain';
-  capability: keyof SettingsCapability;
+  icon: 'type' | 'cpu' | 'plug' | 'lightbulb' | 'cube' | 'search' | 'brain';
+  /** Client-only sections omit a capability and always stay visible. */
+  capability?: keyof SettingsCapability;
 };
 
 function SettingsSectionFallback() {
@@ -113,7 +115,11 @@ const TruefoundrySettingsBuilder = ({ headerStart }: { headerStart?: ReactNode }
     if (hasMemory) {
       mounted.push({ id: 'memory', label: 'Memory', icon: 'brain', capability: 'memoryProviders' });
     }
-    return mounted.filter(item => isSettingsSectionEnabled({ settings, section: item.capability }));
+    // Appearance is local chrome (typeface) — always available when Settings is open.
+    mounted.push({ id: 'appearance', label: 'Appearance', icon: 'type' });
+    return mounted.filter(
+      item => item.capability == null || isSettingsSectionEnabled({ settings, section: item.capability }),
+    );
   }, [hasSkills, hasSandbox, hasWebSearch, hasMemory, settings]);
 
   // A section the caller may not open (or the host never mounted) hands over to the first it may.
@@ -190,6 +196,7 @@ const TruefoundrySettingsBuilder = ({ headerStart }: { headerStart?: ReactNode }
               {activeSection?.id === 'sandbox' ? <SandboxSettings /> : null}
               {activeSection?.id === 'web-search' ? <WebSearchSettings /> : null}
               {activeSection?.id === 'memory' ? <MemorySettings /> : null}
+              {activeSection?.id === 'appearance' ? <AppearanceSettings /> : null}
             </Suspense>
           </div>
         </section>
