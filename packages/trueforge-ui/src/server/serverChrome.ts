@@ -2,6 +2,7 @@ import type { ResolvedRoutes } from '../routing/types.js';
 import type {
   AgentMetricsServer,
   AgentSessionsServer,
+  ArtifactServer,
   CatalogServer,
   SandboxEnvironmentServer,
   ScheduleServer,
@@ -63,6 +64,11 @@ export function isSchedulesChromeEnabled({ schedules }: { schedules: ScheduleSer
   return schedules != null;
 }
 
+/** Artifacts list, viewer, and the preview Publish button. */
+export function isArtifactsChromeEnabled({ artifacts }: { artifacts: ArtifactServer | null | undefined }): boolean {
+  return artifacts != null;
+}
+
 /** Environments page (sandbox environments CRUD). */
 export function isEnvironmentsChromeEnabled({
   sandboxEnvironments,
@@ -90,6 +96,7 @@ export function toEffectiveRoutes({
   capabilities,
   sessions,
   schedules,
+  artifacts,
   sandboxEnvironments,
 }: {
   routes: ResolvedRoutes;
@@ -103,6 +110,7 @@ export function toEffectiveRoutes({
     | undefined;
   sessions: AgentSessionsServer | null | undefined;
   schedules: ScheduleServer | null | undefined;
+  artifacts: ArtifactServer | null | undefined;
   sandboxEnvironments: SandboxEnvironmentServer | null | undefined;
 }): ResolvedRoutes {
   const sessionsEnabled = isSessionsChromeEnabled({ sessions });
@@ -113,6 +121,8 @@ export function toEffectiveRoutes({
     sharedSession: sessionsEnabled ? routes.sharedSession : null,
     libraryAgent: sessionsEnabled ? routes.libraryAgent : null,
     schedules: isSchedulesChromeEnabled({ schedules }) ? routes.schedules : null,
+    artifacts: isArtifactsChromeEnabled({ artifacts }) ? routes.artifacts : null,
+    artifactViewer: isArtifactsChromeEnabled({ artifacts }) ? routes.artifactViewer : null,
     environments: isEnvironmentsChromeEnabled({ sandboxEnvironments, capabilities }) ? routes.environments : null,
   };
 }

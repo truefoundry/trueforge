@@ -20,6 +20,8 @@ describe('resolveRoutesConfig', () => {
       library: '/library',
       libraryAgent: '/library/:agentId',
       schedules: '/schedules',
+      artifacts: '/artifacts',
+      artifactViewer: '/artifacts/:slug',
       environments: '/environments',
       buildAgent: '/build-agent',
       agent: '/agents/:agentName',
@@ -170,6 +172,12 @@ describe('matchPath', () => {
     expect(matchPath('/library', routes)).toEqual({ type: 'library' });
     expect(matchPath('/library/agent%2Fid', routes)).toEqual({ type: 'libraryAgent', agentId: 'agent/id' });
     expect(matchPath('/schedules', routes)).toEqual({ type: 'schedules' });
+    expect(matchPath('/artifacts', routes)).toEqual({ type: 'artifacts' });
+    expect(matchPath('/artifacts/revenue-report', routes)).toEqual({
+      type: 'artifactViewer',
+      slug: 'revenue-report',
+      version: null,
+    });
     expect(matchPath('/environments', routes)).toEqual({ type: 'environments' });
     expect(matchPath('/build-agent', routes)).toEqual({ type: 'buildAgent' });
     expect(matchPath('/agents/a%2Fb', routes)).toEqual({ type: 'agent', agentName: 'a/b' });
@@ -202,6 +210,8 @@ describe('matchPath', () => {
       { type: 'library' as const },
       { type: 'libraryAgent' as const, agentId: 'agent id/1' },
       { type: 'schedules' as const },
+      { type: 'artifacts' as const },
+      { type: 'artifactViewer' as const, slug: 'revenue-report', version: null },
       { type: 'environments' as const },
       { type: 'buildAgent' as const },
       { type: 'agent' as const, agentName: 'weird name/1' },

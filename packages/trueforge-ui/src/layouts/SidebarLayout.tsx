@@ -36,6 +36,12 @@ const TruefoundrySettingsBuilder = lazy(() => import('../containers/SettingsBuil
 const SchedulesPage = lazy(() =>
   import('../atoms/schedules/SchedulesPage.js').then(m => ({ default: m.SchedulesPage })),
 );
+const ArtifactsPage = lazy(() =>
+  import('../atoms/artifacts/ArtifactsPage.js').then(m => ({ default: m.ArtifactsPage })),
+);
+const ArtifactViewerPage = lazy(() =>
+  import('../atoms/artifacts/ArtifactViewerPage.js').then(m => ({ default: m.ArtifactViewerPage })),
+);
 const EnvironmentsPage = lazy(() =>
   import('../atoms/environments/EnvironmentsPage.js').then(m => ({ default: m.EnvironmentsPage })),
 );
@@ -111,6 +117,7 @@ function SidebarNav(): ReactNode {
   const AgentsLibraryButton = useSlot('AgentsLibraryButton');
   const SessionsBrowserButton = useSlot('SessionsBrowserButton');
   const SchedulesButton = useSlot('SchedulesButton');
+  const ArtifactsButton = useSlot('ArtifactsButton');
   const EnvironmentsButton = useSlot('EnvironmentsButton');
   const showNewActions = shell?.isNewChatEnabled !== false;
   const overlayOpen =
@@ -118,6 +125,8 @@ function SidebarNav(): ReactNode {
     shell?.libraryOpen === true ||
     shell?.sessionsOpen === true ||
     shell?.schedulesOpen === true ||
+    shell?.artifactsOpen === true ||
+    shell?.artifactView != null ||
     shell?.environmentsOpen === true;
   const mode = shell?.mode;
   const newChatSelected =
@@ -185,6 +194,7 @@ function SidebarNav(): ReactNode {
       <AgentsLibraryButton compact />
       <SessionsBrowserButton compact />
       <SchedulesButton compact />
+      <ArtifactsButton compact />
       <EnvironmentsButton compact />
     </nav>
   );
@@ -296,14 +306,17 @@ export function SidebarLayout({ className }: { className?: string }) {
   const libraryListOpen = libraryOpen && shell?.libraryAgentId == null;
   const sessionsOpen = shell?.sessionsOpen === true;
   const schedulesOpen = shell?.schedulesOpen === true;
+  const artifactsOpen = shell?.artifactsOpen === true;
+  const artifactView = shell?.artifactView ?? null;
   const environmentsOpen = shell?.environmentsOpen === true;
-  const overlayOpen = settingsOpen || libraryOpen || sessionsOpen || schedulesOpen || environmentsOpen;
+  const overlayOpen = settingsOpen || libraryOpen || sessionsOpen || schedulesOpen || artifactsOpen || environmentsOpen;
+  const viewingArtifact = artifactView != null && !overlayOpen;
   const isCreateAgent = shell != null && shellIsCreateAgent(shell.mode);
   // Build Agent, Sessions, Schedules, and Environments are desktop-only; keep the URL and show a notice.
   const showDesktopOnlyNotice =
     isMobile && (sessionsOpen || schedulesOpen || environmentsOpen || (isCreateAgent && !settingsOpen && !libraryOpen));
-  const showAgentConfig = isCreateAgent && !overlayOpen && !isMobile;
-  const showRecentHistory = isRecentHistoryVisible({ overlayOpen, mode: shell?.mode });
+  const showAgentConfig = isCreateAgent && !overlayOpen && !viewingArtifact && !isMobile;
+  const showRecentHistory = isRecentHistoryVisible({ overlayOpen: overlayOpen || viewingArtifact, mode: shell?.mode });
   const hasChatHeaderContent = useChatHeaderContentVisible();
   // Agents / Settings own a page header — put the hamburger there instead of a second top bar.
   const inlineMobileNav = isMobile && (settingsOpen || libraryListOpen);
@@ -373,12 +386,13 @@ export function SidebarLayout({ className }: { className?: string }) {
               // Desktop: hide when settings/idle or the thread header has nothing to show
               // (empty untitled draft). Mobile still needs the menu button.
               // Builder mode keeps New Agent and its actions beside the persistent config.
-              (overlayOpen || isIdle || !hasChatHeaderContent || showDesktopOnlyNotice) && 'md:hidden',
+              (overlayOpen || viewingArtifact || isIdle || !hasChatHeaderContent || showDesktopOnlyNotice) &&
+                'md:hidden',
             )}
             start={mobileNavButton}
-            title={!overlayOpen && !showDesktopOnlyNotice ? <NamedAgentHeaderLabel /> : null}
+            title={!overlayOpen && !viewingArtifact && !showDesktopOnlyNotice ? <NamedAgentHeaderLabel /> : null}
             end={
-              !overlayOpen && !showDesktopOnlyNotice ? (
+              !overlayOpen && !viewingArtifact && !showDesktopOnlyNotice ? (
                 <>
                   <ResetAgentBuilderButton />
                   <ShareChatButton />
@@ -440,6 +454,22 @@ export function SidebarLayout({ className }: { className?: string }) {
                 >
                   <SchedulesPage />
                 </Suspense>
+              ) : artifactsOpen ? (
+                <Suspense
+                  fallback={
+                    <div
+                      className="flex h-full items-center justify-center"
+                      role="status"
+                      aria-live="polite"
+                      aria-busy="true"
+                    >
+                      <Spinner size={28} className="text-text-primary" />
+                      <span className="sr-only">Loading</span>
+                    </div>
+                  }
+                >
+                  <ArtifactsPage />
+                </Suspense>
               ) : environmentsOpen ? (
                 <Suspense
                   fallback={
@@ -455,6 +485,22 @@ export function SidebarLayout({ className }: { className?: string }) {
                   }
                 >
                   <EnvironmentsPage />
+                </Suspense>
+              ) : artifactView != null ? (
+                <Suspense
+                  fallback={
+                    <div
+                      className="flex h-full items-center justify-center"
+                      role="status"
+                      aria-live="polite"
+                      aria-busy="true"
+                    >
+                      <Spinner size={28} className="text-text-primary" />
+                      <span className="sr-only">Loading</span>
+                    </div>
+                  }
+                >
+                  <ArtifactViewerPage slug={artifactView.slug} version={artifactView.version} />
                 </Suspense>
               ) : isIdle ? (
                 <SelectAgentEmptyState />

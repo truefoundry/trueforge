@@ -7,6 +7,7 @@ import type {
   AgentSessionsServer,
   AgentSkill,
   AgentSpec,
+  ArtifactServer,
   CatalogServer,
   ConfigurationServer,
   ConnectorState,
@@ -55,6 +56,8 @@ export type CreateTrueForgeServerOptions<
   metrics?: TMetrics;
   /** Schedules listing + CRUD. Optional. */
   schedules?: TSchedules;
+  /** Published HTML and Markdown. Optional. */
+  artifacts?: ArtifactServer;
   /** Sandbox environments listing + CRUD. Optional. */
   sandboxEnvironments?: TSandboxEnvironments;
   /** Per-resource grants. Omit to leave actions enabled. */
@@ -87,6 +90,7 @@ export type TrueForgeServer<
     sessions?: TSessions;
     metrics?: TMetrics;
     schedules?: TSchedules;
+    artifacts?: ArtifactServer;
     sandboxEnvironments?: TSandboxEnvironments;
     permissions?: TPermissions;
     configuration?: ConfigurationServer;
@@ -183,6 +187,7 @@ export function createTrueForgeServer<
     ...(opts.sessions != null ? { sessions: opts.sessions } : {}),
     ...(opts.metrics != null ? { metrics: opts.metrics } : {}),
     ...(opts.schedules != null ? { schedules: opts.schedules } : {}),
+    ...(opts.artifacts != null ? { artifacts: opts.artifacts } : {}),
     ...(opts.sandboxEnvironments != null ? { sandboxEnvironments: opts.sandboxEnvironments } : {}),
     ...(opts.permissions != null ? { permissions: opts.permissions } : {}),
     ...(opts.configuration != null ? { configuration: opts.configuration } : {}),

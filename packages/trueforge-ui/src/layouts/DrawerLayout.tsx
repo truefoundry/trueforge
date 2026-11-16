@@ -22,6 +22,12 @@ const TruefoundrySettingsBuilder = lazy(() => import('../containers/SettingsBuil
 const SchedulesPage = lazy(() =>
   import('../atoms/schedules/SchedulesPage.js').then(m => ({ default: m.SchedulesPage })),
 );
+const ArtifactsPage = lazy(() =>
+  import('../atoms/artifacts/ArtifactsPage.js').then(m => ({ default: m.ArtifactsPage })),
+);
+const ArtifactViewerPage = lazy(() =>
+  import('../atoms/artifacts/ArtifactViewerPage.js').then(m => ({ default: m.ArtifactViewerPage })),
+);
 const EnvironmentsPage = lazy(() =>
   import('../atoms/environments/EnvironmentsPage.js').then(m => ({ default: m.EnvironmentsPage })),
 );
@@ -45,13 +51,16 @@ export function DrawerLayout({ className }: { className?: string }) {
   const libraryOpen = shell?.libraryOpen === true;
   const sessionsOpen = shell?.sessionsOpen === true;
   const schedulesOpen = shell?.schedulesOpen === true;
+  const artifactsOpen = shell?.artifactsOpen === true;
+  const artifactView = shell?.artifactView ?? null;
   const environmentsOpen = shell?.environmentsOpen === true;
-  const overlayOpen = settingsOpen || libraryOpen || sessionsOpen || schedulesOpen || environmentsOpen;
+  const overlayOpen = settingsOpen || libraryOpen || sessionsOpen || schedulesOpen || artifactsOpen || environmentsOpen;
+  const viewingArtifact = artifactView != null && !overlayOpen;
   const chatChromeActionsVisible = useChatChromeActionsVisible();
   const isCreateAgent = shell != null && shellIsCreateAgent(shell.mode);
   const showDesktopOnlyNotice =
     isMobile && (sessionsOpen || schedulesOpen || environmentsOpen || (isCreateAgent && !settingsOpen && !libraryOpen));
-  const showAgentConfig = isCreateAgent && !overlayOpen && !isMobile;
+  const showAgentConfig = isCreateAgent && !overlayOpen && !viewingArtifact && !isMobile;
   const showNewActions = shell?.isNewChatEnabled !== false;
 
   const handleNewChat = () => {
@@ -85,7 +94,7 @@ export function DrawerLayout({ className }: { className?: string }) {
     if (showDesktopOnlyNotice && isCreateAgent) shell?.openDraft();
   };
 
-  const showBackToChat = showDesktopOnlyNotice || libraryOpen || schedulesOpen || environmentsOpen;
+  const showBackToChat = showDesktopOnlyNotice || libraryOpen || schedulesOpen || artifactsOpen || environmentsOpen;
 
   return (
     <div className={cn('relative flex h-full min-h-0 w-full bg-primary-bg', className)}>
@@ -104,7 +113,7 @@ export function DrawerLayout({ className }: { className?: string }) {
         <PageHeader
           className="bg-topbar-bg"
           title={
-            showBackToChat ? (
+            showBackToChat || viewingArtifact ? (
               <button
                 type="button"
                 className={auiButtonClass({ variant: 'ghost', size: 'small' })}
@@ -119,7 +128,7 @@ export function DrawerLayout({ className }: { className?: string }) {
           }
           end={
             <>
-              {!overlayOpen && !showDesktopOnlyNotice ? (
+              {!overlayOpen && !viewingArtifact && !showDesktopOnlyNotice ? (
                 <>
                   <ResetAgentBuilderButton />
                   <ShareChatButton />
@@ -129,7 +138,7 @@ export function DrawerLayout({ className }: { className?: string }) {
               ) : null}
               <ShellActions key="shell-actions" />
               <UserAvatar />
-              {!overlayOpen && !showDesktopOnlyNotice ? (
+              {!overlayOpen && !viewingArtifact && !showDesktopOnlyNotice ? (
                 <>
                   {showNewActions && !chatChromeActionsVisible ? (
                     <button
@@ -199,6 +208,22 @@ export function DrawerLayout({ className }: { className?: string }) {
             >
               <SchedulesPage />
             </Suspense>
+          ) : artifactsOpen ? (
+            <Suspense
+              fallback={
+                <div
+                  className="flex h-full items-center justify-center"
+                  role="status"
+                  aria-live="polite"
+                  aria-busy="true"
+                >
+                  <Spinner size={28} className="text-text-primary" />
+                  <span className="sr-only">Loading</span>
+                </div>
+              }
+            >
+              <ArtifactsPage />
+            </Suspense>
           ) : environmentsOpen ? (
             <Suspense
               fallback={
@@ -214,6 +239,22 @@ export function DrawerLayout({ className }: { className?: string }) {
               }
             >
               <EnvironmentsPage />
+            </Suspense>
+          ) : artifactView != null ? (
+            <Suspense
+              fallback={
+                <div
+                  className="flex h-full items-center justify-center"
+                  role="status"
+                  aria-live="polite"
+                  aria-busy="true"
+                >
+                  <Spinner size={28} className="text-text-primary" />
+                  <span className="sr-only">Loading</span>
+                </div>
+              }
+            >
+              <ArtifactViewerPage slug={artifactView.slug} version={artifactView.version} />
             </Suspense>
           ) : isIdle ? (
             <SelectAgentEmptyState />

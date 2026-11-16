@@ -18,6 +18,8 @@ const DEFAULTS = {
   library: '/library',
   libraryAgent: '/library/:agentId',
   schedules: '/schedules',
+  artifacts: '/artifacts',
+  artifactViewer: '/artifacts/:slug',
   environments: '/environments',
   buildAgent: '/build-agent',
   agent: '/agents/:agentName',
@@ -47,6 +49,8 @@ export function resolveRoutesConfig(routes?: RoutesConfig): ResolvedRoutes {
     library: resolveOptional(paths?.library, DEFAULTS.library),
     libraryAgent: resolveOptional(paths?.libraryAgent, DEFAULTS.libraryAgent),
     schedules: resolveOptional(paths?.schedules, DEFAULTS.schedules),
+    artifacts: resolveOptional(paths?.artifacts, DEFAULTS.artifacts),
+    artifactViewer: resolveOptional(paths?.artifactViewer, DEFAULTS.artifactViewer),
     environments: resolveOptional(paths?.environments, DEFAULTS.environments),
     buildAgent: resolveOptional(paths?.buildAgent, DEFAULTS.buildAgent),
     agent: resolveOptional(paths?.agent, DEFAULTS.agent),
@@ -83,6 +87,10 @@ export function buildPath(place: RoutePlace, routes: ResolvedRoutes): string | n
       return routes.libraryAgent == null ? null : fillTemplate(routes.libraryAgent, place.agentId);
     case 'schedules':
       return routes.schedules;
+    case 'artifacts':
+      return routes.artifacts;
+    case 'artifactViewer':
+      return routes.artifactViewer == null ? null : fillTemplate(routes.artifactViewer, place.slug);
     case 'environments':
       return routes.environments;
     case 'buildAgent':
@@ -159,6 +167,7 @@ export function sanitizeSearchForPlace(place: RoutePlace, search: string): strin
   if (place.type === 'settings') return search;
 
   const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
+  params.delete('version');
   if (place.type === 'sessionsBrowser') {
     writeSessionShareSearch(params, { tab: null });
     clearScheduleShareSearch(params);
@@ -227,6 +236,9 @@ export function sanitizeSearchForPlace(place: RoutePlace, search: string): strin
     clearEnvironmentShareSearch(params);
     clearLibraryShareSearch(params);
   }
+  if (place.type === 'artifactViewer' && place.version != null) {
+    params.set('version', String(place.version));
+  }
   const next = params.toString();
   return next.length > 0 ? `?${next}` : '';
 }
@@ -278,6 +290,13 @@ export function matchPath(pathname: string, routes: ResolvedRoutes): RoutePlace 
     const agentId = matchTemplate(routes.libraryAgent, segments);
     if (agentId != null) return { type: 'libraryAgent', agentId };
   }
+  if (routes.artifactViewer != null) {
+    const slug = matchTemplate(routes.artifactViewer, segments);
+    if (slug != null) return { type: 'artifactViewer', slug, version: null };
+  }
+  if (routes.artifacts != null && normalized === routes.artifacts) {
+    return { type: 'artifacts' };
+  }
   if (routes.schedules != null && normalized === routes.schedules) {
     return { type: 'schedules' };
   }
@@ -316,6 +335,9 @@ export function matchLocation({
   routes: ResolvedRoutes;
 }): RoutePlace | null {
   const matched = matchPath(pathname, routes);
+  if (matched?.type === 'artifactViewer') {
+    return { ...matched, version: readArtifactVersion(search) };
+  }
   if (matched == null || matched.type !== 'root') return matched;
   const { agentId, sessionId, view } = readSessionShareSearch(search);
   if (view === SHARED_SESSION_VIEW_VALUE && sessionId != null) return { type: 'sharedSession', sessionId };
@@ -328,5 +350,16 @@ export function placesEqual(a: RoutePlace, b: RoutePlace): boolean {
   if (a.type === 'libraryAgent' && b.type === 'libraryAgent') return a.agentId === b.agentId;
   if (a.type === 'session' && b.type === 'session') return a.sessionId === b.sessionId;
   if (a.type === 'sharedSession' && b.type === 'sharedSession') return a.sessionId === b.sessionId;
+  if (a.type === 'artifactViewer' && b.type === 'artifactViewer') {
+    return a.slug === b.slug && a.version === b.version;
+  }
   return true;
+}
+
+function readArtifactVersion(search: string): number | null {
+  const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
+  const raw = params.get('version');
+  if (raw == null || !/^[1-9]\d*$/.test(raw)) return null;
+  const version = Number(raw);
+  return Number.isSafeInteger(version) ? version : null;
 }

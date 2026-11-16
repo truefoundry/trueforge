@@ -66,6 +66,17 @@ export const AnalyticsEvents = {
   SessionsBrowser: {
     OPENED: 'trueforge.sessions_browser.opened',
   },
+  Artifact: {
+    PUBLISH_DIALOG_OPENED: 'trueforge.artifact.publish_dialog_opened',
+    PUBLISHED: 'trueforge.artifact.published',
+    PAGE_OPENED: 'trueforge.artifact.page_opened',
+    VIEWER_OPENED: 'trueforge.artifact.viewer_opened',
+    LINK_COPIED: 'trueforge.artifact.link_copied',
+    SESSION_OPENED: 'trueforge.artifact.session_opened',
+    FILE_SELECTED: 'trueforge.artifact.file_selected',
+    DOWNLOADED: 'trueforge.artifact.downloaded',
+    DELETED: 'trueforge.artifact.deleted',
+  },
   Schedule: {
     PAGE_OPENED: 'trueforge.schedule.page_opened',
     CREATED: 'trueforge.schedule.created',

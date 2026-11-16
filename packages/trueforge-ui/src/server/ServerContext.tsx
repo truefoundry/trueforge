@@ -8,6 +8,7 @@ import type {
   AgentMetricsServer,
   AgentSessionsServer,
   AgentUIServer,
+  ArtifactServer,
   CatalogServer,
   ConfigurationServer,
   PermissionsServer,
@@ -138,6 +139,18 @@ export function useScheduleServer(): ScheduleServer {
 
 export function useOptionalScheduleServer(): ScheduleServer | null {
   return useOptionalServer()?.schedules ?? null;
+}
+
+export function useArtifactServer(): ArtifactServer {
+  const server = useServer();
+  if (server.artifacts == null) {
+    throw new Error('useArtifactServer requires AgentUIServer.artifacts. Pass artifacts to createTrueForgeServer.');
+  }
+  return server.artifacts;
+}
+
+export function useOptionalArtifactServer(): ArtifactServer | null {
+  return useOptionalServer()?.artifacts ?? null;
 }
 
 export function useSandboxEnvironmentServer(): SandboxEnvironmentServer {

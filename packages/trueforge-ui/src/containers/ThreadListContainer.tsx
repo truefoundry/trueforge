@@ -225,6 +225,8 @@ function ThreadListItemRow({
     shell?.libraryOpen === true ||
     shell?.sessionsOpen === true ||
     shell?.schedulesOpen === true ||
+    shell?.artifactsOpen === true ||
+    shell?.artifactView != null ||
     shell?.environmentsOpen === true;
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameSaving, setRenameSaving] = useState(false);
@@ -521,6 +523,7 @@ export function ThreadListContainer({
   const AgentsLibraryButton = useSlot('AgentsLibraryButton');
   const SessionsBrowserButton = useSlot('SessionsBrowserButton');
   const SchedulesButton = useSlot('SchedulesButton');
+  const ArtifactsButton = useSlot('ArtifactsButton');
   const EnvironmentsButton = useSlot('EnvironmentsButton');
   const ThreadListRowSkeleton = useSlot('ThreadListRowSkeleton');
   const ThreadListEmptyState = useSlot('ThreadListEmptyState');
@@ -700,6 +703,7 @@ export function ThreadListContainer({
           <>
             <SessionsBrowserButton />
             <SchedulesButton />
+            <ArtifactsButton />
             <EnvironmentsButton />
           </>
         )}

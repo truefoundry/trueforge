@@ -97,6 +97,7 @@ describe('serverChrome', () => {
       capabilities: null,
       sessions: null,
       schedules: null,
+      artifacts: null,
       sandboxEnvironments: null,
     });
     expect(disabled.settings).toBeNull();
@@ -104,6 +105,8 @@ describe('serverChrome', () => {
     expect(disabled.sharedSession).toBeNull();
     expect(disabled.libraryAgent).toBeNull();
     expect(disabled.schedules).toBeNull();
+    expect(disabled.artifacts).toBeNull();
+    expect(disabled.artifactViewer).toBeNull();
     expect(disabled.environments).toBeNull();
     expect(disabled.root).toBe('/');
     expect(disabled.library).toBe('/library');
@@ -117,6 +120,7 @@ describe('serverChrome', () => {
       },
       sessions,
       schedules,
+      artifacts: null,
       sandboxEnvironments,
     });
     expect(enabled.settings).toBe('/settings');

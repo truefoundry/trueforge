@@ -1494,6 +1494,118 @@ export interface AgentMetricsServer<
   getChartData(req: TChartDataRequest): Promise<TChartData>;
 }
 
+export type ArtifactEntryContentType = 'html' | 'markdown';
+
+export interface ArtifactFile {
+  path: string;
+  sizeBytes: number;
+  sha256: string;
+  mediaType: string;
+}
+
+export interface ArtifactVersion {
+  artifactId: string;
+  version: number;
+  note: string | null;
+  entryPath: string;
+  entryContentType: ArtifactEntryContentType;
+  fileCount: number;
+  totalSizeBytes: number;
+  sessionId: string;
+  turnId: string;
+  sourceRoot: string;
+  storageBackend: 'local' | 's3';
+  createdBySubject: Subject;
+  createdAt: string;
+  files: ArtifactFile[];
+}
+
+export interface Artifact {
+  id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  url: string;
+  latestVersion: ArtifactVersion | null;
+  createdBySubject: Subject;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ListArtifactsParams {
+  limit?: number;
+  pageToken?: string;
+  slug?: string;
+  sessionId?: string;
+  createdByMe?: boolean;
+  query?: string;
+}
+
+export interface ArtifactBundlePreview {
+  root: string;
+  entryPath: string;
+  entryContentType: ArtifactEntryContentType;
+  files: { path: string; sizeBytes: number }[];
+  missing: string[];
+  totalSizeBytes: number;
+  changes: { added: number; removed: number; changed: number } | null;
+}
+
+export interface PreviewArtifactBundleRequest {
+  sessionId: string;
+  turnId: string;
+  entryPath: string;
+  artifactId?: string;
+}
+
+export interface CreateArtifactRequest {
+  title: string;
+  slug?: string;
+  description?: string | null;
+  note?: string | null;
+  sessionId: string;
+  turnId: string;
+  entryPath: string;
+}
+
+export interface UpdateArtifactRequest {
+  id: string;
+  title: string;
+  description?: string | null;
+}
+
+export interface CreateArtifactVersionRequest {
+  artifactId: string;
+  note?: string | null;
+  sessionId: string;
+  turnId: string;
+  entryPath: string;
+}
+
+export interface ArtifactContentToken {
+  token: string;
+  baseUrl: string;
+  expiresAt: string;
+}
+
+/**
+ * Published HTML and Markdown. Omit the port to hide the sidebar entry,
+ * the Publish button, and the artifact routes.
+ */
+export interface ArtifactServer {
+  listArtifacts(req?: ListArtifactsParams): Promise<ListResult<Artifact>>;
+  getArtifact(req: { id: string }): Promise<Artifact>;
+  previewBundle(req: PreviewArtifactBundleRequest): Promise<ArtifactBundlePreview>;
+  createArtifact(req: CreateArtifactRequest): Promise<Artifact>;
+  updateArtifact(req: UpdateArtifactRequest): Promise<Artifact>;
+  deleteArtifact(req: { id: string }): Promise<void>;
+  listVersions(req: { artifactId: string; limit?: number; pageToken?: string }): Promise<ListResult<ArtifactVersion>>;
+  getVersion(req: { artifactId: string; version: number }): Promise<ArtifactVersion>;
+  createVersion(req: CreateArtifactVersionRequest): Promise<ArtifactVersion>;
+  getContentToken(req: { artifactId: string; version: number }): Promise<ArtifactContentToken>;
+  downloadVersion(req: { artifactId: string; version: number }): Promise<Blob>;
+}
+
 /**
  * Composed host port: chat + builder + optional settings catalog + optional
  * agent-detail / sessions shell + optional schedules surface + optional metrics.
@@ -1509,6 +1621,9 @@ export interface AgentMetricsServer<
  * `schedules` is optional — if the host passes it, schedules UI can call
  * `useScheduleServer()` / list and manage schedules; if omitted, that surface
  * stays hidden.
+ *
+ * `artifacts` is optional — if the host passes it, the artifacts page, viewer,
+ * and preview Publish button are available; if omitted, that surface stays hidden.
  *
  * `sandboxEnvironments` is optional — if the host passes it, Environments UI
  * can call `useSandboxEnvironmentServer()`; if omitted, that surface stays hidden.
@@ -1536,6 +1651,7 @@ export type AgentUIServerPort<
     configuration?: TConfiguration;
     sessions?: TSessions;
     schedules?: TSchedules;
+    artifacts?: ArtifactServer;
     sandboxEnvironments?: TSandboxEnvironments;
     metrics?: TMetrics;
     permissions?: TPermissions;

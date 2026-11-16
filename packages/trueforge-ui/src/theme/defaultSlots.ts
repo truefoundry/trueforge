@@ -35,6 +35,10 @@ import { AgentLibraryUsageCells } from '../atoms/AgentLibraryUsage.js';
 import { AgentLibraryRow, AgentsLibrary } from '../atoms/AgentsLibrary.js';
 import { AgentsLibraryButton } from '../atoms/AgentsLibraryButton.js';
 import { ApprovalNavBanner } from '../atoms/ApprovalNavBanner.js';
+import type { ArtifactsPageProps } from '../atoms/artifacts/ArtifactsPage.js';
+import type { ArtifactViewerPageProps } from '../atoms/artifacts/ArtifactViewerPage.js';
+import type { PublishArtifactDialogProps } from '../atoms/artifacts/PublishArtifactDialog.js';
+import { ArtifactsButton } from '../atoms/ArtifactsButton.js';
 import { AssistantMessageBubble } from '../atoms/AssistantMessageBubble.js';
 import { AttachmentCard } from '../atoms/AttachmentCard.js';
 import { AttachmentPickerButton } from '../atoms/AttachmentPickerButton.js';
@@ -128,6 +132,18 @@ const AgentSessions: ComponentType<AgentSessionsProps> = lazy(async () => {
 const AgentCodeSnippets: ComponentType<AgentCodeSnippetsProps> = lazy(
   () => import('../atoms/agent-details/AgentCodeSnippets.js'),
 );
+const ArtifactsPage: ComponentType<ArtifactsPageProps> = lazy(async () => {
+  const mod = await import('../atoms/artifacts/ArtifactsPage.js');
+  return { default: mod.ArtifactsPage };
+});
+const ArtifactViewerPage: ComponentType<ArtifactViewerPageProps> = lazy(async () => {
+  const mod = await import('../atoms/artifacts/ArtifactViewerPage.js');
+  return { default: mod.ArtifactViewerPage };
+});
+const PublishArtifactDialog: ComponentType<PublishArtifactDialogProps> = lazy(async () => {
+  const mod = await import('../atoms/artifacts/PublishArtifactDialog.js');
+  return { default: mod.PublishArtifactDialog };
+});
 const SchedulesPage: ComponentType<SchedulesPageProps> = lazy(async () => {
   const mod = await import('../atoms/schedules/SchedulesPage.js');
   return { default: mod.SchedulesPage };
@@ -263,6 +279,10 @@ export const defaultSlots = {
   AgentSessions,
   AgentCodeSnippets,
   AgentCodeBlock,
+  ArtifactsPage,
+  ArtifactViewerPage,
+  PublishArtifactDialog,
+  ArtifactsButton,
   SchedulesPage,
   SchedulesButton,
   EnvironmentsPage,

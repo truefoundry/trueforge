@@ -6,6 +6,7 @@ import { clampPreviewWidth } from '../filePreview/previewPaneWidth.js';
 import { FILE_PREVIEW_HIGHLIGHT_CHAR_LIMIT, type ReadFilePreviewResult } from '../filePreview/readFilePreview.js';
 import { Icon } from '../icons/Icon.js';
 import { useSlot } from '../theme/SlotsProvider.js';
+import { RenderedDocument } from './RenderedDocument.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 import { Spinner } from './primitives/Spinner.js';
@@ -22,6 +23,7 @@ export type FilePreviewPanelProps = {
   view: FilePreviewView;
   onClose: () => void;
   onDownload: () => void;
+  onPublish?: () => void;
   onEnterFullPage?: () => void;
   onExitFullPage?: () => void;
   onRetry?: () => void;
@@ -33,7 +35,6 @@ export type FilePreviewPanelProps = {
 
 function PreviewBody({ name, view }: { name: string; view: FilePreviewView }) {
   const SyntaxHighlighter = useSlot('SyntaxHighlighter');
-  const Markdown = useSlot('Markdown');
 
   if (view.status === 'loading') {
     return (
@@ -63,24 +64,11 @@ function PreviewBody({ name, view }: { name: string; view: FilePreviewView }) {
   }
 
   if (view.status === 'html') {
-    return (
-      <iframe
-        title={name}
-        // Scripts and forms run only after the page is opened. Popups stay off, and same-origin is omitted so the page cannot read the chat.
-        sandbox="allow-scripts allow-forms"
-        referrerPolicy="no-referrer"
-        srcDoc={view.text}
-        className="absolute inset-0 h-full w-full border-0 bg-white"
-      />
-    );
+    return <RenderedDocument name={name} kind="html" text={view.text} />;
   }
 
   if (view.status === 'markdown') {
-    return (
-      <div className="px-4 py-3">
-        <Markdown content={view.text} />
-      </div>
-    );
+    return <RenderedDocument name={name} kind="markdown" text={view.text} />;
   }
 
   if (view.language != null && view.text.length <= FILE_PREVIEW_HIGHLIGHT_CHAR_LIMIT) {
@@ -112,6 +100,7 @@ export function FilePreviewPanel({
   view,
   onClose,
   onDownload,
+  onPublish,
   onEnterFullPage,
   onExitFullPage,
   onRetry,
@@ -242,6 +231,17 @@ export function FilePreviewPanel({
             className={auiButtonClass({ variant: 'ghost', size: 'icon', className: 'h-7 w-7' })}
           >
             <Icon name="expand" size={14} />
+          </button>
+        ) : null}
+        {onPublish != null ? (
+          <button
+            type="button"
+            onClick={onPublish}
+            aria-label={`Publish ${name}`}
+            title="Publish"
+            className={auiButtonClass({ variant: 'ghost', size: 'small' })}
+          >
+            Publish
           </button>
         ) : null}
         <button

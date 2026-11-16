@@ -30,6 +30,14 @@ export type {
   ThemePreset,
 } from './theme/types.js';
 
+export { ArtifactsPage } from './atoms/artifacts/ArtifactsPage.js';
+export type { ArtifactsPageProps } from './atoms/artifacts/ArtifactsPage.js';
+export { ArtifactViewerPage } from './atoms/artifacts/ArtifactViewerPage.js';
+export type { ArtifactViewerPageProps } from './atoms/artifacts/ArtifactViewerPage.js';
+export { PublishArtifactDialog } from './atoms/artifacts/PublishArtifactDialog.js';
+export type { PublishArtifactDialogProps } from './atoms/artifacts/PublishArtifactDialog.js';
+export { ArtifactsButton } from './atoms/ArtifactsButton.js';
+export type { ArtifactsButtonProps } from './atoms/ArtifactsButton.js';
 export { EnvironmentsPage } from './atoms/environments/EnvironmentsPage.js';
 export type { EnvironmentsPageProps } from './atoms/environments/EnvironmentsPage.js';
 export { EnvironmentsButton } from './atoms/EnvironmentsButton.js';

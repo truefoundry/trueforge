@@ -20,6 +20,12 @@ const TruefoundrySettingsBuilder = lazy(() => import('../containers/SettingsBuil
 const SchedulesPage = lazy(() =>
   import('../atoms/schedules/SchedulesPage.js').then(m => ({ default: m.SchedulesPage })),
 );
+const ArtifactsPage = lazy(() =>
+  import('../atoms/artifacts/ArtifactsPage.js').then(m => ({ default: m.ArtifactsPage })),
+);
+const ArtifactViewerPage = lazy(() =>
+  import('../atoms/artifacts/ArtifactViewerPage.js').then(m => ({ default: m.ArtifactViewerPage })),
+);
 const EnvironmentsPage = lazy(() =>
   import('../atoms/environments/EnvironmentsPage.js').then(m => ({ default: m.EnvironmentsPage })),
 );
@@ -51,6 +57,8 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
   const libraryOpen = shell?.libraryOpen === true;
   const sessionsOpen = shell?.sessionsOpen === true;
   const schedulesOpen = shell?.schedulesOpen === true;
+  const artifactsOpen = shell?.artifactsOpen === true;
+  const artifactView = shell?.artifactView ?? null;
   const environmentsOpen = shell?.environmentsOpen === true;
   const chatChromeActionsVisible = useChatChromeActionsVisible();
   const showNewActions = shell?.isNewChatEnabled !== false;
@@ -131,6 +139,24 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
             <SchedulesPage />
           </Suspense>
         </div>
+      ) : artifactsOpen ? (
+        <div className="min-h-0 flex-1">
+          <Suspense
+            fallback={
+              <div
+                className="flex h-full items-center justify-center"
+                role="status"
+                aria-live="polite"
+                aria-busy="true"
+              >
+                <Spinner size={28} className="text-text-primary" />
+                <span className="sr-only">Loading</span>
+              </div>
+            }
+          >
+            <ArtifactsPage />
+          </Suspense>
+        </div>
       ) : environmentsOpen ? (
         <div className="min-h-0 flex-1">
           <Suspense
@@ -147,6 +173,24 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
             }
           >
             <EnvironmentsPage />
+          </Suspense>
+        </div>
+      ) : artifactView != null ? (
+        <div className="min-h-0 flex-1">
+          <Suspense
+            fallback={
+              <div
+                className="flex h-full items-center justify-center"
+                role="status"
+                aria-live="polite"
+                aria-busy="true"
+              >
+                <Spinner size={28} className="text-text-primary" />
+                <span className="sr-only">Loading</span>
+              </div>
+            }
+          >
+            <ArtifactViewerPage slug={artifactView.slug} version={artifactView.version} />
           </Suspense>
         </div>
       ) : (
@@ -195,7 +239,7 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
       {/* Stable mount: only ShellActions needs to survive Settings / list / thread; host end chrome stays in the thread header. */}
       <footer className="flex shrink-0 items-center justify-between border-t border-border px-2 py-1.5">
         <div className="flex min-w-0 items-center gap-1">
-          {libraryOpen || schedulesOpen || environmentsOpen ? (
+          {libraryOpen || schedulesOpen || artifactsOpen || environmentsOpen || artifactView != null ? (
             <button
               type="button"
               className={auiButtonClass({ variant: 'ghost', size: 'small' })}

@@ -5,6 +5,7 @@ import { createTrueForgeServer } from '../../server/createTrueForgeServer.js';
 import type { CatalogServer, PermissionsServer } from '../../server/types.js';
 import { createHarnessAgentMetricsServer } from './agentMetricsServer.js';
 import { createHarnessAgentSessionsServer } from './agentSessionsServer.js';
+import { createArtifactServer } from './artifacts/artifactServer.js';
 import { createHarnessBuilderServer } from './builderServer.js';
 import { createConnectorCatalog } from './catalogs/connectorCatalog.js';
 import { createMemoryProviderCatalog } from './catalogs/memoryProviderCatalog.js';
@@ -26,6 +27,7 @@ export {
   createHarnessAgentSessionsServer,
   type CreateHarnessAgentSessionsServerOptions,
 } from './agentSessionsServer.js';
+export { createArtifactServer } from './artifacts/artifactServer.js';
 export {
   createHarnessBuilderServer,
   modelProviderLogosByName,
@@ -125,6 +127,7 @@ export function createTrueForgeAgentUIServer(options: CreateTrueForgeAgentUIServ
     sessions: createHarnessAgentSessionsServer({ ...clientOptions, client }),
     metrics: createHarnessAgentMetricsServer({ ...clientOptions, client }),
     schedules: createScheduleServer({ client }),
+    artifacts: createArtifactServer(clientOptions),
     sandboxEnvironments: createSandboxEnvironmentServer({ client }),
     permissions: permissions ?? createHarnessPermissionsServer({ client }),
     sessionAccess: createHarnessSessionAccessServer({ client }),

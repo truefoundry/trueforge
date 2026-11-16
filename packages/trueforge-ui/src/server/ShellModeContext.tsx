@@ -17,6 +17,7 @@ import {
 } from './draftSpecPreferences.js';
 import {
   hasAnySettingsSectionEnabled,
+  isArtifactsChromeEnabled,
   isEnvironmentsChromeEnabled,
   isSchedulesChromeEnabled,
   isSessionsChromeEnabled,
@@ -24,6 +25,7 @@ import {
 } from './serverChrome.js';
 import {
   useOptionalAgentSessionsServer,
+  useOptionalArtifactServer,
   useOptionalCatalogServer,
   useOptionalRefreshServerCapabilities,
   useOptionalSandboxEnvironmentServer,
@@ -121,6 +123,11 @@ type ShellModeContextValue = {
   closeLibraryAgent: () => void;
   schedulesOpen: boolean;
   setSchedulesOpen: (open: boolean) => void;
+  artifactsOpen: boolean;
+  setArtifactsOpen: (open: boolean) => void;
+  artifactView: { slug: string; version: number | null } | null;
+  openArtifactViewer: (view: { slug: string; version: number | null }) => void;
+  closeArtifactViewer: () => void;
   environmentsOpen: boolean;
   setEnvironmentsOpen: (open: boolean) => void;
   /**
@@ -288,6 +295,8 @@ export function ShellModeProvider({
   const [sharedSessionId, setSharedSessionId] = useState<string | null>(null);
   const [libraryAgentId, setLibraryAgentId] = useState<string | null>(null);
   const [schedulesOpenState, setSchedulesOpenState] = useState(false);
+  const [artifactsOpenState, setArtifactsOpenState] = useState(false);
+  const [artifactViewState, setArtifactViewState] = useState<{ slug: string; version: number | null } | null>(null);
   const [environmentsOpenState, setEnvironmentsOpenState] = useState(false);
   const [historyAgentFilter, setHistoryAgentFilter] = useState<HistoryAgentFilter | null>(null);
   const [pendingSessionId, setPendingSessionId] = useState<string | undefined>(undefined);
@@ -298,6 +307,14 @@ export function ShellModeProvider({
   const sessionsEnabled = isSessionsChromeEnabled({ sessions: sessionsServer });
   const schedulesEnabled = isSchedulesChromeEnabled({ schedules: scheduleServer });
   const schedulesOpen = schedulesEnabled && schedulesOpenState;
+  const artifactServer = useOptionalArtifactServer();
+  const artifactsEnabled = isArtifactsChromeEnabled({ artifacts: artifactServer });
+  const artifactsOpen = artifactsEnabled && artifactsOpenState;
+  const artifactView = artifactsEnabled ? artifactViewState : null;
+  const dismissArtifacts = useCallback(() => {
+    setArtifactsOpenState(false);
+    setArtifactViewState(null);
+  }, []);
   const environmentsEnabled = isEnvironmentsChromeEnabled({
     sandboxEnvironments: sandboxEnvironmentServer,
     capabilities,
@@ -308,6 +325,7 @@ export function ShellModeProvider({
   const setSessionsOpen = useCallback(
     (open: boolean) => {
       if (open) {
+        dismissArtifacts();
         setSettingsOpenState(false);
         setAgentConfigOpenState(false);
         setLibraryOpenState(false);
@@ -323,11 +341,12 @@ export function ShellModeProvider({
       setSharedSessionId(null);
       setSessionsOpenState(sessionsEnabled && open);
     },
-    [sessionsEnabled, sharedSessionId],
+    [dismissArtifacts, sessionsEnabled, sharedSessionId],
   );
   const openSharedSession = useCallback(
     (sessionId: string) => {
       if (!sessionsEnabled) return;
+      dismissArtifacts();
       setSettingsOpenState(false);
       setAgentConfigOpenState(false);
       setLibraryOpenState(false);
@@ -337,7 +356,7 @@ export function ShellModeProvider({
       setSharedSessionId(sessionId);
       setSessionsOpenState(true);
     },
-    [sessionsEnabled],
+    [dismissArtifacts, sessionsEnabled],
   );
   const closeSharedSession = useCallback(() => {
     setSharedSessionId(null);
@@ -347,6 +366,7 @@ export function ShellModeProvider({
     (open: boolean) => {
       if (!isLibraryEnabled) return;
       if (open) {
+        dismissArtifacts();
         setSettingsOpenState(false);
         setAgentConfigOpenState(false);
         setSessionsOpen(false);
@@ -356,11 +376,12 @@ export function ShellModeProvider({
       setLibraryAgentId(null);
       setLibraryOpenState(open);
     },
-    [isLibraryEnabled, setSessionsOpen],
+    [dismissArtifacts, isLibraryEnabled, setSessionsOpen],
   );
   const openLibraryAgent = useCallback(
     (agentId: string) => {
       if (!isLibraryEnabled || !sessionsEnabled) return;
+      dismissArtifacts();
       setSettingsOpenState(false);
       setAgentConfigOpenState(false);
       setSessionsOpen(false);
@@ -369,7 +390,7 @@ export function ShellModeProvider({
       setLibraryOpenState(true);
       setLibraryAgentId(agentId);
     },
-    [isLibraryEnabled, sessionsEnabled, setSessionsOpen],
+    [dismissArtifacts, isLibraryEnabled, sessionsEnabled, setSessionsOpen],
   );
   const closeLibraryAgent = useCallback(() => {
     setLibraryAgentId(null);
@@ -380,6 +401,7 @@ export function ShellModeProvider({
         setSettingsSection(section);
       }
       if (open) {
+        dismissArtifacts();
         setAgentConfigOpenState(false);
         setLibraryOpenState(false);
         setLibraryAgentId(null);
@@ -389,11 +411,12 @@ export function ShellModeProvider({
       }
       setSettingsOpenState(settingsEnabled && open);
     },
-    [setSessionsOpen, settingsEnabled],
+    [dismissArtifacts, setSessionsOpen, settingsEnabled],
   );
   const setAgentConfigOpen = useCallback(
     (open: boolean) => {
       if (open) {
+        dismissArtifacts();
         setSettingsOpenState(false);
         setLibraryOpenState(false);
         setLibraryAgentId(null);
@@ -403,10 +426,11 @@ export function ShellModeProvider({
       }
       setAgentConfigOpenState(open);
     },
-    [setSessionsOpen],
+    [dismissArtifacts, setSessionsOpen],
   );
   const setSchedulesOpen = useCallback(
     (open: boolean) => {
+      dismissArtifacts();
       if (open) {
         setSettingsOpenState(false);
         setAgentConfigOpenState(false);
@@ -417,11 +441,46 @@ export function ShellModeProvider({
       }
       setSchedulesOpenState(schedulesEnabled && open);
     },
-    [schedulesEnabled, setSessionsOpen],
+    [dismissArtifacts, schedulesEnabled, setSessionsOpen],
   );
+  const setArtifactsOpen = useCallback(
+    (open: boolean) => {
+      if (open) {
+        setSettingsOpenState(false);
+        setAgentConfigOpenState(false);
+        setLibraryOpenState(false);
+        setLibraryAgentId(null);
+        setSessionsOpen(false);
+        setSchedulesOpenState(false);
+        setEnvironmentsOpenState(false);
+        setArtifactViewState(null);
+      }
+      setArtifactsOpenState(artifactsEnabled && open);
+    },
+    [artifactsEnabled, setSessionsOpen],
+  );
+  const openArtifactViewer = useCallback(
+    (view: { slug: string; version: number | null }) => {
+      if (!artifactsEnabled) return;
+      setSettingsOpenState(false);
+      setAgentConfigOpenState(false);
+      setLibraryOpenState(false);
+      setLibraryAgentId(null);
+      setSessionsOpen(false);
+      setSchedulesOpenState(false);
+      setEnvironmentsOpenState(false);
+      setArtifactsOpenState(false);
+      setArtifactViewState(view);
+    },
+    [artifactsEnabled, setSessionsOpen],
+  );
+  const closeArtifactViewer = useCallback(() => {
+    setArtifactViewState(null);
+  }, []);
   const setEnvironmentsOpen = useCallback(
     (open: boolean) => {
       if (open) {
+        dismissArtifacts();
         setSettingsOpenState(false);
         setAgentConfigOpenState(false);
         setLibraryOpenState(false);
@@ -431,7 +490,7 @@ export function ShellModeProvider({
       }
       setEnvironmentsOpenState(environmentsEnabled && open);
     },
-    [environmentsEnabled, setSessionsOpen],
+    [dismissArtifacts, environmentsEnabled, setSessionsOpen],
   );
 
   const settingsCapability = capabilities?.settings;
@@ -453,6 +512,10 @@ export function ShellModeProvider({
       setSchedulesOpenState(false);
     }
   }, [schedulesEnabled]);
+
+  useEffect(() => {
+    if (!artifactsEnabled) dismissArtifacts();
+  }, [artifactsEnabled, dismissArtifacts]);
 
   useEffect(() => {
     if (!environmentsEnabled) {
@@ -926,6 +989,11 @@ export function ShellModeProvider({
       closeLibraryAgent,
       schedulesOpen,
       setSchedulesOpen,
+      artifactsOpen,
+      setArtifactsOpen,
+      artifactView,
+      openArtifactViewer,
+      closeArtifactViewer,
       environmentsOpen,
       setEnvironmentsOpen,
       selectLibraryAgent,
@@ -974,6 +1042,11 @@ export function ShellModeProvider({
       closeLibraryAgent,
       schedulesOpen,
       setSchedulesOpen,
+      artifactsOpen,
+      setArtifactsOpen,
+      artifactView,
+      openArtifactViewer,
+      closeArtifactViewer,
       environmentsOpen,
       setEnvironmentsOpen,
       selectLibraryAgent,

@@ -1,0 +1,29 @@
+---
+title: 'Artifacts'
+sidebarTitle: 'Artifacts'
+description: 'Publish an HTML or Markdown page from a chat and share a link that stays readable after the session changes.'
+---
+
+**Artifacts** are published pages. From a file preview you can publish an HTML or Markdown file, including the CSS, JavaScript, and images it references, and open it later at a stable link.
+
+## Publishing
+
+Open an HTML or Markdown file from a chat. In the preview header, click **Publish**.
+
+The dialog shows how many files will be included and how large they are. **Show files** lists those paths. It does not let you add or remove files: the server follows references from the page you opened.
+
+- **Title** is the name on the artifacts page.
+- **Slug** is the last part of the link. Leave it blank to generate one. A slug cannot be changed later.
+- **Note** is stored with that version.
+
+Publishing again from the same file adds a version. If nothing changed, the existing version is kept.
+
+Anyone signed in to the tenant can open an artifact. Only the person who published it, or a tenant admin, can publish another version or delete it.
+
+## Opening an artifact
+
+**Artifacts** in the sidebar lists every published page. Click a row to open it. **Open session** on the row, and on each version, returns to the chat that produced that version.
+
+The page link always opens the latest version. Copy link on an older version adds `?version=` so the link stays on that version.
+
+Download saves one file as itself, or a zip when the version has more than one file.

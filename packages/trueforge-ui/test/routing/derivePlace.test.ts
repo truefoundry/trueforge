@@ -11,6 +11,8 @@ function snap(partial: Partial<ShellSnapshot>): ShellSnapshot {
     sharedSessionId: null,
     libraryAgentId: null,
     schedulesOpen: false,
+    artifactsOpen: false,
+    artifactView: null,
     environmentsOpen: false,
     mode: { status: 'idle' },
     agentConfigMode: 'AgentLibraryWithComposer',

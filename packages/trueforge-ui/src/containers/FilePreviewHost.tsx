@@ -1,12 +1,16 @@
 'use client';
 
-import { useLayoutEffect, useState } from 'react';
+import { useAuiState } from '@assistant-ui/react';
+import { Suspense, useLayoutEffect, useState } from 'react';
 
+import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '../analytics/events.js';
 import { useCompactLayout } from '../atoms/lib/CompactLayoutContext.js';
 import { useIsMobile } from '../atoms/lib/useIsMobile.js';
 import { useFilePreview } from '../filePreview/FilePreviewContext.js';
 import { clampPreviewWidth, defaultPreviewWidth } from '../filePreview/previewPaneWidth.js';
 import { useLoadedFilePreview } from '../filePreview/useLoadedFilePreview.js';
+import { useOptionalArtifactServer } from '../server/ServerContext.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { filenameFromPath, triggerBrowserDownload } from '../utils/triggerBrowserDownload.js';
 import { useToasterOptional } from './ToasterContainer.js';
@@ -36,14 +40,25 @@ function storePreviewWidth(widthPx: number) {
 export function FilePreviewHost() {
   const preview = useFilePreview();
   const FilePreviewPanel = useSlot('FilePreviewPanel');
+  const PublishArtifactDialog = useSlot('PublishArtifactDialog');
+  const artifacts = useOptionalArtifactServer();
+  const remoteId = useAuiState(state => state.threadListItem.remoteId);
+  const track = useTrackAnalytics();
   const compact = useCompactLayout();
   const isMobile = useIsMobile();
   const toaster = useToasterOptional();
   const [reloadToken, setReloadToken] = useState(0);
   const [downloadBusy, setDownloadBusy] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
   const [widthPx, setWidthPx] = useState<number | null>(readStoredPreviewWidth);
   const loaded = useLoadedFilePreview(preview.target, reloadToken);
   const target = preview.target;
+  const sessionId = remoteId ?? null;
+  const canPublish =
+    artifacts != null &&
+    sessionId != null &&
+    target != null &&
+    (loaded.view.status === 'html' || loaded.view.status === 'markdown');
   const placement = preview.presentation === 'full' ? 'full' : compact || isMobile ? 'overlay' : 'side';
 
   useLayoutEffect(() => {
@@ -74,25 +89,47 @@ export function FilePreviewHost() {
   };
 
   return (
-    <FilePreviewPanel
-      name={target.name}
-      placement={placement}
-      view={loaded.view}
-      onClose={preview.close}
-      onDownload={handleDownload}
-      onEnterFullPage={() => preview.setPresentation('full')}
-      onExitFullPage={() => preview.setPresentation('panel')}
-      downloadBusy={downloadBusy}
-      {...(placement === 'side' && widthPx != null ? { widthPx } : {})}
-      {...(placement === 'side'
-        ? {
-            onWidthChange: (next: number) => {
-              setWidthPx(next);
-              storePreviewWidth(next);
-            },
-          }
-        : {})}
-      {...(canRetry ? { onRetry: () => setReloadToken(token => token + 1) } : {})}
-    />
+    <>
+      <FilePreviewPanel
+        name={target.name}
+        placement={placement}
+        view={loaded.view}
+        onClose={preview.close}
+        onDownload={handleDownload}
+        onEnterFullPage={() => preview.setPresentation('full')}
+        onExitFullPage={() => preview.setPresentation('panel')}
+        downloadBusy={downloadBusy}
+        {...(canPublish
+          ? {
+              onPublish: () => {
+                track(AnalyticsEvents.Artifact.PUBLISH_DIALOG_OPENED);
+                setPublishOpen(true);
+              },
+            }
+          : {})}
+        {...(placement === 'side' && widthPx != null ? { widthPx } : {})}
+        {...(placement === 'side'
+          ? {
+              onWidthChange: (next: number) => {
+                setWidthPx(next);
+                storePreviewWidth(next);
+              },
+            }
+          : {})}
+        {...(canRetry ? { onRetry: () => setReloadToken(token => token + 1) } : {})}
+      />
+      {canPublish ? (
+        <Suspense fallback={null}>
+          <PublishArtifactDialog
+            open={publishOpen}
+            onOpenChange={setPublishOpen}
+            sessionId={sessionId}
+            turnId={target.turnId}
+            entryPath={target.path}
+            suggestedTitle={target.name}
+          />
+        </Suspense>
+      ) : null}
+    </>
   );
 }
