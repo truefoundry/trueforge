@@ -1,4 +1,5 @@
 import type { RouteModelInput, RouteModelResult } from '@truefoundry/trueforge-core/agent-session';
+import { describeUnknownError } from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
 import { RESEMBLANCE_BENCHMARKS } from './benchmarks';
 import { pickCandidate } from './pick';
@@ -119,13 +120,13 @@ export function createModelRouter(input: {
       return {};
     };
 
-    const timeout = AbortSignal.timeout(input.timeoutMs);
-    try {
+    const decide = async (timeout: AbortSignal): Promise<RouteModelResult> => {
       models ??= input.listCandidates().catch((error: unknown) => {
         models = undefined;
         throw error;
       });
       const all = await models;
+      timeout.throwIfAborted();
       const candidates = scoredCandidates({
         models: all,
         fallbackModel: route.fallbackModel,
@@ -145,6 +146,7 @@ export function createModelRouter(input: {
         questions: questions(candidates),
         signal: AbortSignal.any([route.signal, timeout]),
       });
+      timeout.throwIfAborted();
       const picked = pickCandidate(
         candidates.flatMap((candidate, index) => {
           const pYes = answers[`can_${String(index)}`];
@@ -166,10 +168,34 @@ export function createModelRouter(input: {
         price_direction: priceDirection({ picked: picked.candidate.price, fallback: fallbackPrice }),
         picked_image_input: picked.candidate.imageInput,
         candidate_count: candidates.length,
+        candidates: Object.fromEntries(
+          candidates
+            .map((candidate, index) => [candidate.model, answers[`can_${String(index)}`]] as const)
+            .sort(([, a], [, b]) => (b ?? -1) - (a ?? -1)),
+        ),
       });
       return input.mode === 'on' ? { model: picked.candidate.model } : {};
+    };
+
+    // The budget covers the whole step, including candidate listing and gateway lookups, not just the Jev call.
+    const timeout = AbortSignal.timeout(input.timeoutMs);
+    const timedOut = new Promise<never>((_, reject) => {
+      timeout.addEventListener(
+        'abort',
+        () => {
+          reject(new Error(`Routing timed out after ${String(input.timeoutMs)} ms`, { cause: timeout.reason }));
+        },
+        { once: true },
+      );
+    });
+    const work = decide(timeout);
+    // Whichever promise loses the race settles later; its outcome is already reported.
+    work.catch(() => undefined);
+    timedOut.catch(() => undefined);
+    try {
+      return await Promise.race([work, timedOut]);
     } catch (error) {
-      return fallback(timeout.aborted ? 'decision_timeout' : 'decision_error', { err: error });
+      return fallback(timeout.aborted ? 'decision_timeout' : 'decision_error', { err: describeUnknownError(error) });
     }
   };
 }

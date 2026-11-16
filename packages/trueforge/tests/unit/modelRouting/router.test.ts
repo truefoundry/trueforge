@@ -10,10 +10,14 @@ const candidates = [
   { model: 'acct/claude-sonnet-5-5', slug: 'claude-sonnet-5-5', defaultEffort: 'high', price: 3.6 },
 ];
 
-function route(decision: DecisionClient, mode: 'shadow' | 'on') {
+function route(
+  decision: DecisionClient,
+  mode: 'shadow' | 'on',
+  listCandidates: () => Promise<typeof candidates> = () => Promise.resolve(candidates),
+) {
   const routeModel = createModelRouter({
     mode,
-    listCandidates: () => Promise.resolve(candidates),
+    listCandidates,
     decision,
     timeoutMs: 1_000,
     maxCandidates: 60,
@@ -51,6 +55,17 @@ describe('createModelRouter', () => {
     const decision = prefersSonnet();
     await expect(route(decision, 'shadow')).resolves.toEqual({});
     expect(decision.ask).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the fallback model when listing candidates outlasts the timeout', async () => {
+    jest.useFakeTimers();
+    try {
+      const pending = route(prefersSonnet(), 'on', () => new Promise(() => undefined));
+      await jest.advanceTimersByTimeAsync(1_000);
+      await expect(pending).resolves.toEqual({});
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('keeps the fallback model when the decision model fails', async () => {
