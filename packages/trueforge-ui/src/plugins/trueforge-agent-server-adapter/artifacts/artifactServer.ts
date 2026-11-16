@@ -10,6 +10,7 @@ import type {
   ArtifactFile,
   ArtifactServer,
   ArtifactVersion,
+  ArtifactVersionSummary,
   CreateArtifactRequest,
   CreateArtifactVersionRequest,
   ListArtifactsParams,
@@ -35,7 +36,7 @@ const WireFileSchema = z.object({
 });
 type WireFile = z.infer<typeof WireFileSchema>;
 
-const WireVersionSchema = z.object({
+const WireVersionSummarySchema = z.object({
   artifact_id: z.string(),
   version: z.number(),
   note: z.string().nullable(),
@@ -47,8 +48,12 @@ const WireVersionSchema = z.object({
   turn_id: z.string(),
   source_root: z.string(),
   storage_backend: z.enum(['local', 's3']),
-  created_by: WireSubjectSchema,
+  created_by_subject: WireSubjectSchema,
   created_at: z.string(),
+});
+type WireVersionSummary = z.infer<typeof WireVersionSummarySchema>;
+
+const WireVersionSchema = WireVersionSummarySchema.extend({
   files: z.array(WireFileSchema),
 });
 type WireVersion = z.infer<typeof WireVersionSchema>;
@@ -59,8 +64,8 @@ const WireArtifactSchema = z.object({
   title: z.string(),
   description: z.string().nullable(),
   url: z.string(),
-  latest_version: WireVersionSchema.nullable(),
-  created_by: WireSubjectSchema,
+  latest_version: WireVersionSummarySchema,
+  created_by_subject: WireSubjectSchema,
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -115,7 +120,7 @@ function toFile(wire: WireFile): ArtifactFile {
   return { path: wire.path, sizeBytes: wire.size_bytes, sha256: wire.sha256, mediaType: wire.media_type };
 }
 
-function toVersion(wire: WireVersion): ArtifactVersion {
+function toVersionSummary(wire: WireVersionSummary): ArtifactVersionSummary {
   return {
     artifactId: wire.artifact_id,
     version: wire.version,
@@ -128,8 +133,14 @@ function toVersion(wire: WireVersion): ArtifactVersion {
     turnId: wire.turn_id,
     sourceRoot: wire.source_root,
     storageBackend: wire.storage_backend,
-    createdBySubject: toSubject(wire.created_by),
+    createdBySubject: toSubject(wire.created_by_subject),
     createdAt: wire.created_at,
+  };
+}
+
+function toVersion(wire: WireVersion): ArtifactVersion {
+  return {
+    ...toVersionSummary(wire),
     files: wire.files.map(toFile),
   };
 }
@@ -141,8 +152,8 @@ function toArtifact(wire: WireArtifact): Artifact {
     title: wire.title,
     description: wire.description,
     url: wire.url,
-    latestVersion: wire.latest_version == null ? null : toVersion(wire.latest_version),
-    createdBySubject: toSubject(wire.created_by),
+    latestVersion: toVersionSummary(wire.latest_version),
+    createdBySubject: toSubject(wire.created_by_subject),
     createdAt: wire.created_at,
     updatedAt: wire.updated_at,
   };

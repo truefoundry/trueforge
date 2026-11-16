@@ -10,6 +10,7 @@ import { auiButtonClass } from '../lib/buttonClasses.js';
 import { Dialog, DialogContent, DialogHeader } from '../primitives/Dialog.js';
 import { FileTree } from '../primitives/FileTree.js';
 import { formatBytes } from './formatBytes.js';
+import { sandboxEntryPath } from './sandboxEntryPath.js';
 
 export type PublishArtifactDialogProps = {
   open: boolean;
@@ -38,8 +39,7 @@ export function PublishArtifactDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<Awaited<ReturnType<typeof artifacts.previewBundle>> | null>(null);
-  const [existingId, setExistingId] = useState<string | null>(null);
-  const [existingSlug, setExistingSlug] = useState<string | null>(null);
+  const [existing, setExisting] = useState<{ id: string; slug: string; title: string } | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -48,11 +48,13 @@ export function PublishArtifactDialog({
     setNote('');
     setShowFiles(false);
     setError(null);
+    setExisting(null);
+    setPreview(null);
     let cancelled = false;
     void (async () => {
       try {
         const listed = await artifacts.listArtifacts({ sessionId, limit: 25 });
-        const match = listed.data.find(artifact => artifact.latestVersion?.entryPath === entryPath);
+        const match = listed.data.find(artifact => sandboxEntryPath(artifact.latestVersion) === entryPath);
         const nextPreview = await artifacts.previewBundle({
           sessionId,
           turnId,
@@ -60,8 +62,10 @@ export function PublishArtifactDialog({
           ...(match == null ? {} : { artifactId: match.id }),
         });
         if (cancelled) return;
-        setExistingId(match?.id ?? null);
-        setExistingSlug(match?.slug ?? null);
+        if (match != null) {
+          setExisting({ id: match.id, slug: match.slug, title: match.title });
+          setTitle(match.title);
+        }
         setPreview(nextPreview);
       } catch (caught) {
         if (!cancelled) setError(caught instanceof Error ? caught.message : 'Could not preview this bundle');
@@ -79,7 +83,7 @@ export function PublishArtifactDialog({
     void (async () => {
       try {
         const published =
-          existingId == null
+          existing == null
             ? await artifacts.createArtifact({
                 title: title.trim(),
                 ...(slug.trim() === '' ? {} : { slug: slug.trim() }),
@@ -89,9 +93,12 @@ export function PublishArtifactDialog({
                 entryPath,
               })
             : null;
-        if (existingId != null) {
+        if (existing != null) {
+          if (title.trim() !== existing.title) {
+            await artifacts.updateArtifact({ id: existing.id, title: title.trim() });
+          }
           await artifacts.createVersion({
-            artifactId: existingId,
+            artifactId: existing.id,
             ...(note.trim() === '' ? {} : { note: note.trim() }),
             sessionId,
             turnId,
@@ -99,11 +106,11 @@ export function PublishArtifactDialog({
           });
         }
         track(AnalyticsEvents.Artifact.PUBLISHED, {
-          mode: existingId == null ? 'create' : 'version',
+          mode: existing == null ? 'create' : 'version',
           entry_content_type: preview.entryContentType,
           file_count: preview.files.length,
         });
-        const slugToOpen = published?.slug ?? existingSlug;
+        const slugToOpen = published?.slug ?? existing?.slug;
         onOpenChange(false);
         if (slugToOpen != null) shell?.openArtifactViewer({ slug: slugToOpen, version: null });
       } catch (caught) {
@@ -136,9 +143,10 @@ export function PublishArtifactDialog({
         <label className="flex flex-col gap-1 text-sm">
           Slug
           <input
-            value={slug}
+            value={existing?.slug ?? slug}
             onChange={event => setSlug(event.target.value)}
-            placeholder="Leave blank to generate one"
+            readOnly={existing != null}
+            placeholder={existing == null ? 'Leave blank to generate one' : undefined}
             className="rounded-md border border-border bg-primary-bg px-2 py-1.5"
           />
         </label>
@@ -178,7 +186,7 @@ export function PublishArtifactDialog({
             disabled={busy || preview == null || title.trim() === ''}
             onClick={publish}
           >
-            {busy ? 'Publishing…' : existingId == null ? 'Publish' : 'Publish version'}
+            {busy ? 'Publishing…' : existing == null ? 'Publish' : 'Publish version'}
           </button>
         </div>
       </DialogContent>

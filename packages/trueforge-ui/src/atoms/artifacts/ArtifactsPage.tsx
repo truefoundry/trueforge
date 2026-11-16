@@ -86,26 +86,22 @@ export function ArtifactsPage({ className }: ArtifactsPageProps) {
                         openVersions(artifact);
                       }}
                     >
-                      {artifact.latestVersion == null ? '—' : `v${String(artifact.latestVersion.version)}`}
+                      {`v${String(artifact.latestVersion.version)}`}
                     </button>
                   </td>
                   <td className="px-2 py-2">{new Date(artifact.updatedAt).toLocaleString()}</td>
                   <td className="px-2 py-2">
-                    {artifact.latestVersion == null ? null : (
-                      <button
-                        type="button"
-                        className={auiButtonClass({ variant: 'ghost', size: 'small' })}
-                        onClick={event => {
-                          event.stopPropagation();
-                          const sessionId = artifact.latestVersion?.sessionId;
-                          if (sessionId == null) return;
-                          track(AnalyticsEvents.Artifact.SESSION_OPENED);
-                          shell.openHistorySession({ sessionId });
-                        }}
-                      >
-                        Open session
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      className={auiButtonClass({ variant: 'ghost', size: 'small' })}
+                      onClick={event => {
+                        event.stopPropagation();
+                        track(AnalyticsEvents.Artifact.SESSION_OPENED);
+                        shell.openHistorySession({ sessionId: artifact.latestVersion.sessionId });
+                      }}
+                    >
+                      Open session
+                    </button>
                   </td>
                 </tr>
                 {expandedId === artifact.id

@@ -34,6 +34,7 @@ export type {
   ArtifactFile,
   ArtifactServer,
   ArtifactVersion,
+  ArtifactVersionSummary,
   AuthenticateConnectorRequest,
   CatalogServer,
   CodeSnippet,

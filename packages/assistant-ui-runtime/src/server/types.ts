@@ -1503,7 +1503,8 @@ export interface ArtifactFile {
   mediaType: string;
 }
 
-export interface ArtifactVersion {
+/** A published version without its file list. List and artifact payloads use this. */
+export interface ArtifactVersionSummary {
   artifactId: string;
   version: number;
   note: string | null;
@@ -1517,6 +1518,9 @@ export interface ArtifactVersion {
   storageBackend: 'local' | 's3';
   createdBySubject: Subject;
   createdAt: string;
+}
+
+export interface ArtifactVersion extends ArtifactVersionSummary {
   files: ArtifactFile[];
 }
 
@@ -1526,7 +1530,7 @@ export interface Artifact {
   title: string;
   description: string | null;
   url: string;
-  latestVersion: ArtifactVersion | null;
+  latestVersion: ArtifactVersionSummary;
   createdBySubject: Subject;
   createdAt: string;
   updatedAt: string;

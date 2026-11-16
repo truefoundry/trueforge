@@ -44,14 +44,10 @@ export function ArtifactViewerPage({ slug, version }: ArtifactViewerPageProps) {
           if (!cancelled) setError('Artifact not found');
           return;
         }
-        const resolved =
-          version == null || found.latestVersion?.version === version
-            ? found.latestVersion
-            : await artifacts.getVersion({ artifactId: found.id, version });
-        if (resolved == null) {
-          if (!cancelled) setError('This artifact has no published version');
-          return;
-        }
+        const resolved = await artifacts.getVersion({
+          artifactId: found.id,
+          version: version ?? found.latestVersion.version,
+        });
         const [contentToken, versionPage] = await Promise.all([
           artifacts.getContentToken({ artifactId: found.id, version: resolved.version }),
           artifacts.listVersions({ artifactId: found.id, limit: 25 }),
@@ -114,7 +110,7 @@ export function ArtifactViewerPage({ slug, version }: ArtifactViewerPageProps) {
               {versions.map(item => (
                 <option key={item.version} value={String(item.version)}>
                   v{String(item.version)}
-                  {artifact.latestVersion?.version === item.version ? ' latest' : ''}
+                  {artifact.latestVersion.version === item.version ? ' latest' : ''}
                 </option>
               ))}
             </select>
