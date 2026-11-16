@@ -2,6 +2,7 @@ import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 import { createLogger } from 'winston';
 import type { AgentRecord } from '../../../src/db/agentStore';
 import { McpServerNotFoundError, type McpServerRecord } from '../../../src/db/mcpServerStore';
+import { parsePerServerMcpHeaders, type PerServerMcpHeaders } from '../../../src/runtime/perServerMcpHeaders';
 import { ACTOR_AUTHORIZATION_HEADER, createTrueFoundryRequestContext } from '../../../src/truefoundry/accessToken';
 import { X_TFY_CONVERSATION_ID, X_TFY_METADATA } from '../../../src/truefoundry/gatewayMetadata';
 import { MCP_PROXY_BASE_URL_TEMPLATE } from '../../../src/truefoundry/mapSfyMcpServers';
@@ -354,5 +355,152 @@ describe('TrueFoundryMcpServerStore', () => {
       });
       expect(client.getMcpServerByName).not.toHaveBeenCalled();
     });
+  });
+});
+
+function unusedClient(): TrueFoundryMcpApiClient {
+  const unused = (): Promise<never> => Promise.reject(new Error('unused'));
+  return {
+    getMcpServerByName: async ({ name }) => ({
+      id: name,
+      name,
+      proxyUrl: `https://gateway.example/mcp-server/${name}`,
+      createdAt: '2026-01-15T12:00:00.000Z',
+      updatedAt: '2026-01-16T12:00:00.000Z',
+      manifest: { description: name },
+    }),
+    listMcpServers: unused,
+    listGatewayInstallations: async () => [{ isDefault: true, manifest: { url: 'https://gateway.example' } }],
+    getMcpAuthorize: async () => ({ status: 'authenticated' }),
+    getMcpAuthStatus: unused,
+    deleteMcpAuth: unused,
+    vendToken: () => Promise.resolve({ subjectToken: 'caller-token', actorToken: 'caller-token' }),
+    getTenantControlPlaneUrl: async () => 'https://tenant.example.com',
+  };
+}
+
+const record = (name: string): McpServerRecord => ({
+  id: name,
+  tenant_id: 'default',
+  name,
+  manifest: {
+    type: 'truefoundry',
+    name,
+    url: `https://gateway.example/mcp-server/${name}`,
+    description: name,
+  },
+  created_at: '2026-01-15T12:00:00.000Z',
+  updated_at: '2026-01-16T12:00:00.000Z',
+});
+
+const storeWith = (perServerHeaders: PerServerMcpHeaders): TrueFoundryMcpServerStore =>
+  new TrueFoundryMcpServerStore({
+    client: unusedClient(),
+    requestContext: createTrueFoundryRequestContext({
+      tenant_id: 'default',
+      subject: { id: 'user-1', type: 'user', display_name: 'user-1' },
+      roles: [],
+      user_credential: 'caller-token',
+    }),
+    agent: undefined,
+    logger: createLogger({ silent: true }),
+    perServerHeaders,
+  });
+
+async function invokeHeaders(store: TrueFoundryMcpServerStore, name: string): Promise<Record<string, string>> {
+  const resolve = store.resolveInvokeHeaders({ record: record(name), userRef: 'user-1' });
+  if (typeof resolve !== 'function') {
+    throw new Error('expected a headers resolver so the token is read at connect time');
+  }
+  const resolved = await resolve();
+  if (!('headers' in resolved)) {
+    throw new Error('expected headers rather than an auth-required signal');
+  }
+  return resolved.headers;
+}
+
+describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
+  it('passes a virtual MCP entry through as x-tfy-mcp-headers', async () => {
+    const entry = { serv1: { Authorization: 'Bearer a' }, serv2: { Authorization: 'Bearer b' } };
+    const raw = JSON.stringify({ 'virtual-mcp': entry });
+
+    const headers = await invokeHeaders(storeWith(parsePerServerMcpHeaders(raw)), 'virtual-mcp');
+
+    expect(headers).toEqual({ Authorization: 'Bearer caller-token', 'x-tfy-mcp-headers': JSON.stringify(entry) });
+  });
+
+  it('sends only the gateway Bearer when a server has no override', async () => {
+    await expect(invokeHeaders(storeWith({}), 'tfy-docs-mcp')).resolves.toEqual({
+      Authorization: 'Bearer caller-token',
+    });
+  });
+
+  it("merges that server's override on top of the Bearer", async () => {
+    const headers = await invokeHeaders(
+      storeWith({
+        'tfy-platform-mcp': { 'x-tfy-mcp-headers': '{"Authorization":"Bearer user"}' },
+      }),
+      'tfy-platform-mcp',
+    );
+
+    expect(headers).toEqual({
+      Authorization: 'Bearer caller-token',
+      'x-tfy-mcp-headers': '{"Authorization":"Bearer user"}',
+    });
+  });
+
+  it('gives one server nothing of another, so an identity cannot reach the wrong upstream', async () => {
+    const headers = await invokeHeaders(
+      storeWith({
+        'tfy-platform-mcp': { 'x-tfy-mcp-headers': '{"Authorization":"Bearer user"}' },
+      }),
+      'tfy-pylon-mcp',
+    );
+
+    expect(headers).toEqual({ Authorization: 'Bearer caller-token' });
+  });
+
+  it.each(['Authorization', 'authorization', 'AUTHORIZATION', 'AuThOrIzAtIoN'])(
+    'sends an override under %s to the upstream via x-tfy-mcp-headers, never as the gateway Bearer',
+    async name => {
+      const headers = await invokeHeaders(
+        storeWith({ 'tfy-platform-mcp': { [name]: 'Bearer user' } }),
+        'tfy-platform-mcp',
+      );
+
+      expect(headers).toEqual({
+        Authorization: 'Bearer caller-token',
+        'x-tfy-mcp-headers': JSON.stringify({ [name]: 'Bearer user' }),
+      });
+    },
+  );
+
+  it('never calls authorize; a rejected caller Authorization falls back to the gateway auth', async () => {
+    const getMcpAuthorize = jest.fn(async () => ({ status: 'authenticated' as const }));
+    const store = new TrueFoundryMcpServerStore({
+      client: { ...unusedClient(), getMcpAuthorize },
+      requestContext: createTrueFoundryRequestContext({
+        tenant_id: 'default',
+        subject: { id: 'user-1', type: 'user', display_name: 'user-1' },
+        roles: [],
+        user_credential: 'caller-token',
+      }),
+      agent: undefined,
+      logger: createLogger({ silent: true }),
+      perServerHeaders: { 'tfy-platform-mcp': { Authorization: 'Bearer user', 'X-End-User': 'alice' } },
+    });
+    const resolve = store.resolveInvokeHeaders({ record: record('tfy-platform-mcp'), userRef: 'user-1' });
+    if (typeof resolve !== 'function') {
+      throw new Error('expected a headers resolver');
+    }
+
+    const resolved = await resolve();
+    if (!('onUnauthorized' in resolved) || resolved.onUnauthorized === undefined) {
+      throw new Error('expected a fallback to the gateway auth');
+    }
+    await expect(resolved.onUnauthorized()).resolves.toEqual({
+      headers: { Authorization: 'Bearer caller-token', 'X-End-User': 'alice' },
+    });
+    expect(getMcpAuthorize).not.toHaveBeenCalled();
   });
 });

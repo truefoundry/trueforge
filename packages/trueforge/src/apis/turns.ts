@@ -87,7 +87,6 @@ import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { createTlsFetch, normalizeTlsUrl } from '../http/tls';
 import { currentLogContext, runWithLogContext, updateLogContext } from '../logger';
-import { X_TFG_MCP_HEADERS } from '../mcp/perServerMcpHeaders';
 import { TRUEFORGE_SESSION_HEADER, X_TFG_TRUEFORGE_MCP } from '../mcp/server/trueforge/headers';
 import type { TenantMemoryDeps } from '../memory/providers';
 import { resolveSessionMemory } from '../memory/sessionMemory';
@@ -111,6 +110,7 @@ import {
   type EventSubscriptionPollOptions,
   type EventSubscriptionRegistry,
 } from '../runtime/event-subscription';
+import { X_TFG_MCP_HEADERS } from '../runtime/perServerMcpHeaders';
 import { validateSandboxFilePath } from '../runtime/sandboxFilePath';
 import {
   buildTurnSandbox,
