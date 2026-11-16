@@ -3,6 +3,11 @@ title: "Bring your own server"
 description: "Implement AgentUIServer and pass the object straight to the component."
 ---
 
+<Note>
+  TrueForge 0.185.0+ introduces breaking changes to turn lifecycle - turns now pause when waiting for user input.
+  Click [here](/ui-sdk/setup-custom-servers/custom-server-legacy) to view the documentation for older versions.
+</Note>
+
 Use this when your backend owns the whole contract — sessions, chat streaming, and the agent builder. You implement `AgentUIServer` and pass the object straight to the component, with no `type` wrapper: every call the UI makes, including the `createTurn` event stream, hits your endpoints.
 
 Because `server` accepts an `AgentUIServer` directly, you can front any backend — including your own proxy that keeps API keys server-side. The object is used immediately, so there is no loading indicator on mount.
@@ -43,10 +48,17 @@ export const server: AgentUIServer = {
       method: "POST",
       body: JSON.stringify({ input }),
     });
-    let seq = 0;
     for await (const event of parseEventStream(res)) {
-      yield { sequenceNumber: seq++, event };
+      yield { event };
     }
+  },
+  async sendTurnEvents({ sessionId, turnId, events }) {
+    const res = await fetch(`/api/sessions/${sessionId}/turns/${turnId}/events`, {
+      method: "POST",
+      body: JSON.stringify({ events }),
+    });
+    if (!res.ok) throw new Error(`sendTurnEvents failed: ${res.status}`);
+    return (await res.json()).data; // the stored events, each with id and createdAt
   },
   async cancelSession({ sessionId }) {
     await fetch(`/api/sessions/${sessionId}/cancel`, { method: "POST" });
@@ -93,27 +105,24 @@ Declaring `sandbox` and `skill` as disabled is the honest starting point — the
 
 ## Streaming
 
-`createTurn` yields envelopes of the form `{ sequenceNumber, event }` — not bare events. The number must increase monotonically within the turn, and it is what lets a reconnecting client resume via `subscribeToTurn({ afterSequenceNumber })`.
+`createTurn` yields envelopes of the form `{ event }` — not bare events. Each event's `id` is also the cursor a reconnecting client resumes from, so ids must be unique within the turn and **sort in the order you emit them** (for example UUIDv7, ULID, or a zero-padded counter). Random UUIDs do not work.
 
-The minimum viable stream for one assistant reply is three events:
+The minimum viable stream for one assistant reply is a turn, one message, and the end of the turn:
 
 ```ts
 async *createTurn({ sessionId, input }) {
   const turnId = crypto.randomUUID();
   const threadId = sessionId;
-  let seq = 0;
+  let n = 0;
+  const nextId = () => `${turnId}-${String(n++).padStart(8, "0")}`; // sorts in emit order
   const at = () => new Date().toISOString();
 
-  yield {
-    sequenceNumber: seq++,
-    event: { type: "turn.created", id: crypto.randomUUID(), turnId, createdAt: at() },
-  };
+  yield { event: { type: "turn.created", id: nextId(), turnId, createdAt: at() } };
 
   // stream text as it arrives; reuse one message id across all deltas
-  const messageId = crypto.randomUUID();
+  const messageId = nextId();
   for await (const piece of myModelStream(input)) {
     yield {
-      sequenceNumber: seq++,
       event: {
         type: "model.message.delta",
         id: messageId,
@@ -124,10 +133,9 @@ async *createTurn({ sessionId, input }) {
   }
 
   yield {
-    sequenceNumber: seq++,
     event: {
       type: "turn.done",
-      id: crypto.randomUUID(),
+      id: nextId(),
       state: { status: "done", completedAt: at() },
       createdAt: at(),
     },
@@ -135,9 +143,63 @@ async *createTurn({ sessionId, input }) {
 }
 ```
 
-Two things are easy to get wrong. Deltas carry the _increment_ rather than the accumulated text, and every delta for one message shares a single `id`. And a stream that ends without a `turn.done` leaves the UI showing the turn as still running.
+Two things are easy to get wrong. Deltas carry the _increment_ rather than the accumulated text, and every delta for one message shares a single `id`. And a stream that ends without a `turn.done` leaves the UI showing the turn as still running, unless the turn [paused](#pausing-for-the-user).
 
 [Streaming events](/ui-sdk/reference/events) documents the full protocol — tool calls, approval prompts, sub-agent threads, and sandbox artifacts.
+
+## Pausing for the user
+
+When the agent needs an approval, an answer, or an MCP sign-in, the turn **pauses** instead of finishing. Emit the request, then `turn.update` with `{ status: "paused" }`:
+
+```ts
+// the model asked to call a tool that needs approval
+yield {
+  event: {
+    type: "model.message",
+    id: messageId,
+    threadId,
+    toolCalls: [{
+      id: "call-1",
+      type: "function",
+      function: { name: "issue_refund", arguments: '{"amount": 40}' },
+      toolInfo: { type: "mcp", serverId: "billing", serverName: "billing", name: "issue_refund" },
+    }],
+    finishReason: "tool_calls",
+    createdAt: at(),
+  },
+};
+yield {
+  event: {
+    type: "tool.approval_required",
+    id: nextId(),
+    threadId,
+    toolCalls: [{ id: "call-1", sourceEventId: messageId }],
+    createdAt: at(),
+  },
+};
+yield { event: { type: "turn.update", id: nextId(), state: { status: "paused" }, threadId: null, createdAt: at() } };
+// keep the stream open until the turn continues, or end it here - both work
+```
+
+The UI shows the prompt and answers through `sendTurnEvents` on the same turn. Your backend records the answer, and once nothing is left open it continues the turn: `turn.update` `{ status: "running" }`, then the tool's `tool.response`, more model output, and finally `turn.done`. Those events reach the UI through `subscribeToTurn`, which it opens from the last event it saw before sending the answer:
+
+```ts
+async *subscribeToTurn({ sessionId, turnId, fromEventId, afterEventId, abortSignal }) {
+  const cursor =
+    fromEventId !== undefined ? { from_event_id: fromEventId }
+    : afterEventId !== undefined ? { after_event_id: afterEventId }
+    : {};
+  const res = await fetch(
+    `/api/sessions/${sessionId}/turns/${turnId}/subscribe?${new URLSearchParams(cursor)}`,
+    { signal: abortSignal },
+  );
+  for await (const event of parseEventStream(res)) {
+    yield { event };
+  }
+},
+```
+
+On the backend, replay every stored event of the turn after the cursor - starting **at** `fromEventId`, or just **after** `afterEventId` - then keep streaming new events live until `turn.done`. The UI asks for `fromEventId` when it resumes inside a message, so it can rebuild that message from its first delta. Answers that name a call that is already settled, or a turn that has ended, should make `sendTurnEvents` throw. See [Answering a paused turn](/ui-sdk/setup-custom-servers/server-contract#answering-a-paused-turn) for each answer type.
 
 ## Pagination
 
@@ -171,7 +233,7 @@ Spreading `nextPageToken` in only when present keeps the result valid under `exa
   </Accordion>
 
   <Accordion title="subscribeToTurn">
-    Resumes a live stream from `afterSequenceNumber`, so a reconnecting client picks up where it left off instead of replaying the turn. Skip it if your backend cannot resume.
+    Resumes a running or paused turn from an event id (`fromEventId` inclusive, `afterEventId` exclusive), so a reconnecting client picks up where it left off instead of replaying the turn. It is also how the UI reads a paused turn after answering it, so skip it only if your agents never pause and your backend cannot resume; without it the UI shows such turns as unable to resume.
   </Accordion>
 
   <Accordion title="catalog">

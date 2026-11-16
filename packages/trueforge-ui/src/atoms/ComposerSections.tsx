@@ -26,6 +26,7 @@ export type ComposerSendButtonProps = {
   isCancelling?: boolean;
   /** True when the composer has trimmed text or attachments. */
   hasContent: boolean;
+  blockedReason?: string;
   onSubmit: () => void;
   onCancel?: () => void;
 };
@@ -59,6 +60,7 @@ export function ComposerSendButton({
   isRunning,
   isCancelling = false,
   hasContent,
+  blockedReason,
   onSubmit,
   onCancel,
 }: ComposerSendButtonProps) {
@@ -80,6 +82,8 @@ export function ComposerSendButton({
     );
   }
 
+  const sendLabel = !canSubmit && blockedReason != null ? blockedReason : 'Send message';
+
   return (
     <Button.Primary
       type="button"
@@ -88,8 +92,8 @@ export function ComposerSendButton({
       className="shadow-none"
       disabled={!canSubmit}
       onClick={onSubmit}
-      title="Send message"
-      aria-label="Send message"
+      title={sendLabel}
+      aria-label={sendLabel}
     >
       <Icon name="arrow-up" />
     </Button.Primary>

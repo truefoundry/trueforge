@@ -3,6 +3,11 @@ title: "Server contract"
 description: "The interfaces a backend must implement for the SDK to talk to it."
 ---
 
+<Note>
+  TrueForge 0.185.0+ introduces breaking changes to turn lifecycle - turns now pause when waiting for user input.
+  Click [here](/ui-sdk/setup-custom-servers/server-contract-legacy) to view the documentation for older versions.
+</Note>
+
 The `server` prop accepts either a built-in config object or an object implementing `AgentUIServer`.
 
 ```ts
@@ -58,13 +63,8 @@ interface AgentChatServer {
   getSession(req: { sessionId: string }): Promise<Session>;
   updateSession(req: UpdateSessionRequest): Promise<Session>;
 
-  createTurn(req: {
-    sessionId: string;
-    input?: TurnInputItem[];
-    previousTurnId?: PreviousTurnIdInput;
-    abortSignal?: AbortSignal;
-    headers?: Record<string, string>;
-  }): AsyncIterable<TurnStreamData>;
+  createTurn(req: CreateTurnRequest): AsyncIterable<TurnStreamData>;
+  sendTurnEvents(req: SendTurnEventsRequest): Promise<TurnInboundEvent[]>;
 
   cancelSession(req: { sessionId: string }): Promise<void>;
   deleteSession?(req: { sessionId: string }): Promise<void>;
@@ -82,23 +82,16 @@ interface AgentChatServer {
     sessionId: string;
     pageToken?: string;
     lastTurnId?: string;
-    limit?: number;
   }): Promise<ListResult<SessionEventItem>>;
 
   listTurnEvents?(req: {
     sessionId: string;
     turnId: string;
-    limit?: number;
     pageToken?: string;
     order?: ListSessionsOrder;
-  }): Promise<ListResult<TurnEvent>>;
+  }): Promise<ListResult<PersistedTurnEvent>>;
 
-  subscribeToTurn?(req: {
-    sessionId: string;
-    turnId: string;
-    afterSequenceNumber?: number;
-    abortSignal?: AbortSignal;
-  }): AsyncIterable<TurnStreamData>;
+  subscribeToTurn?(req: SubscribeToTurnRequest): AsyncIterable<TurnStreamData>;
 
   downloadSandboxFile?(req: {
     sessionId: string;
@@ -109,13 +102,13 @@ interface AgentChatServer {
 }
 ```
 
-`deleteSession` and `renameSession` are optional. Presence gates Delete and Rename in the session list; `renameSession` persists `{ sessionId, title }`. TrueForge implements both. TrueFoundry Gateway does not persist titles and should omit `renameSession`. `listTurnEvents` hydrates the events of a single in-flight turn when your backend can serve them per turn. `subscribeToTurn` lets a reconnecting client resume a stream from `afterSequenceNumber` rather than replaying it - pass the same `abortSignal` you use on `createTurn` to tear it down. `downloadSandboxFile` enables artifact downloads.
+`deleteSession` and `renameSession` are optional. Presence gates Delete and Rename in the session list; `renameSession` persists `{ sessionId, title }`. TrueForge implements both. TrueFoundry Gateway does not persist titles and should omit `renameSession`. `listTurnEvents` hydrates the events of a single in-flight turn when your backend can serve them per turn. `subscribeToTurn` lets a client reattach to a running or paused turn from an event id instead of replaying it, and is how the UI reads what happens after it answers a paused turn. Omit it and the UI still loads the turn as history, but shows it as unable to resume. `downloadSandboxFile` enables artifact downloads.
 
 <Note>
   `downloadSandboxFile` receives both `turnId` and `sandboxId` because backends address sandboxes differently. If your download route is scoped to a turn, resolve the sandbox from `turnId` and ignore `sandboxId`; if you address sandboxes directly, use `sandboxId`.
 </Note>
 
-`createTurn` and `subscribeToTurn` yield `TurnStreamData`, an envelope of `{ sequenceNumber, event }`. The event protocol is documented in [Streaming events](/ui-sdk/reference/events).
+`createTurn` and `subscribeToTurn` yield `TurnStreamData`, an envelope of `{ event }`. The event protocol is documented in [Streaming events](/ui-sdk/reference/events).
 
 ## Sessions
 
@@ -167,29 +160,91 @@ async listSessions({ pageToken, limit = 20 } = {}) {
 What the UI sends into `createTurn`:
 
 ```ts
-type TurnInputItem = UserMessage | UserToolApprovalEvent | UserToolResponseEvent;
+interface CreateTurnRequest {
+  sessionId: string;
+  input: UserMessage[];
+  previousTurnId?: PreviousTurnIdInput;
+  abortSignal?: AbortSignal;
+  headers?: Record<string, string>;
+}
 
 interface UserMessage {
   type: "user.message";
   content: UserMessageContent;
 }
 
-interface UserToolApprovalEvent {
+type UserMessageContent =
+  | string
+  | Array<{ type: "text"; text: string } | { type: "file"; name: string; data: string }>;
+```
+
+`createTurn` only starts a new turn from a chat message, so `input` always holds a `user.message`. Approvals, answers, and MCP sign-in never arrive here - they go to `sendTurnEvents` on the turn that is waiting for them.
+
+`previousTurnId` places the turn in the conversation. The UI sends `"none"` for the first turn of a session and `"auto"` for a normal follow-up (continue from the latest turn). When the user edits or retries a message, it sends the id of the turn before that message (or `"none"` if it was the first), which starts a branch from there.
+
+A new turn can arrive while the previous one is still running or paused, for example when the user types instead of answering a prompt, or edits a message. The UI does not cancel the open turn first, so `createTurn` must end it, typically as `cancelled` with reason `"cancelled-for-next-turn"`.
+
+## Answering a paused turn
+
+When the agent needs the user, the turn pauses instead of finishing (see [Turn state](#turn-state)). The UI answers it with `sendTurnEvents`:
+
+```ts
+interface SendTurnEventsRequest {
+  sessionId: string;
+  turnId: string;
+  events: TurnInboundEventItem[];
+  abortSignal?: AbortSignal;
+}
+
+type TurnInboundEventItem =
+  | UserToolApprovalInputEvent
+  | UserToolApprovalPolicyInputEvent
+  | UserToolResponseInputEvent
+  | UserMcpAuthContinueInputEvent;
+
+interface UserToolApprovalInputEvent {
   type: "user.tool_approval";
   threadId: string;
   toolCallId: string;
   approval: { status: "allow" } | { status: "deny"; reason?: string };
 }
 
-interface UserToolResponseEvent {
+interface UserToolApprovalPolicyInputEvent {
+  type: "user.tool_approval_policy";
+  policies: Array<{
+    serverName: string;
+    name: string;
+    policy: { type: "allow_session"; expireAt?: string };
+  }>;
+}
+
+interface UserToolResponseInputEvent {
   type: "user.tool_response";
   threadId: string;
   toolCallId: string;
   content: string;
 }
+
+interface UserMcpAuthContinueInputEvent {
+  type: "user.mcp_auth_continue";
+}
 ```
 
-A plain chat message arrives as `user.message`. Approving or rejecting a tool call, and answering a prompt the agent raised, arrive as the other two - all three through the same `createTurn` entry point, so branch on `type`.
+| Event | Sent when the user | Your server should |
+| --- | --- | --- |
+| `user.tool_approval` | Approves once or denies one call. | Settle that call. |
+| `user.tool_approval_policy` | Picks "Approve this tool for next 10 minutes" or "Approve this tool in this session". | Approve every pending call to the same `serverName` + `name`, and later calls to it until `expireAt` (or for the rest of the session when `expireAt` is absent). The UI sends no separate `user.tool_approval` for these calls. |
+| `user.tool_response` | Answers a question the agent asked. | Use `content` as that call's result. |
+| `user.mcp_auth_continue` | Presses Continue after signing in to an MCP server. | Re-check the sign-in, then resume, or pause again with a new `mcp.auth_required`. |
+
+The UI offers the two policy choices only when it can tell which tool a call targets: a tool call whose `toolInfo` is `{ type: "mcp", serverName, name }`, or a deferred `call_tool` call whose arguments carry `mcp_server` and `tool_name`.
+
+Implement `sendTurnEvents` with these rules:
+
+- **Return what you stored.** Persist each event and return it with the `id` and `createdAt` you assigned (`TurnInboundEvent[]`). The UI folds the returned events into the transcript straight away.
+- **Do not resume inside the request.** Sending an event only records the answer. Once every open request on the turn is answered, continue the turn yourself and announce it on the turn's stream with `turn.update` `{ status: "running" }`. A partial answer (one of two approvals) leaves the turn paused.
+- **Deliver the rest of the turn to `subscribeToTurn`.** The UI subscribes from the last event it applied *before* it sends, so everything you emit after the pause - the running update, new content, and the final `turn.done` - must reach that subscription.
+- **Reject stale answers.** Throw when an event names a call that is already settled or belongs to another thread, or when the turn has ended. The UI rolls back its optimistic state and reports the error.
 
 ## Turn state
 
@@ -205,12 +260,15 @@ interface Turn {
 
 type TurnState =
   | { status: "running" }
-  | { status: "done"; output?: unknown; requiredActions?: unknown[]; completedAt: string }
-  | { status: "cancelled"; reason: string; completedAt: string }
-  | { status: "error"; message: string; completedAt: string };
+  | { status: "paused" }
+  | { status: "done"; output?: unknown; completedAt: string; metrics?: TurnDoneMetrics }
+  | { status: "cancelled"; reason: string; completedAt: string; metrics?: TurnDoneMetrics }
+  | { status: "error"; message: string; completedAt: string; metrics?: TurnDoneMetrics };
 ```
 
-A turn ends in one of three terminal states, each carrying `completedAt`. A `done` turn may still carry `requiredActions` - that is how a turn signals it is waiting on the user, such as a tool approval, rather than being finished outright. The user's reply arrives on the next `createTurn` call as a `user.tool_approval` or `user.tool_response` input item.
+`running` and `paused` are the two active states; `done`, `cancelled`, and `error` are terminal and carry `completedAt`. A turn waiting on the user is `paused`, not `done`: it stays the same turn, and continues once the answers arrive through `sendTurnEvents`. `getTurn` and `listTurns` must report `paused` for such a turn so a reloaded page shows the pending prompt and reattaches with `subscribeToTurn`.
+
+`Turn.input` is typed as `TurnInputItem[]` so turns recorded by older servers, which carried approvals as turn input, still load. New turns only carry `user.message`.
 
 ## AgentBuilderServer
 
@@ -348,7 +406,7 @@ The UI keeps reading only the fields it knows about; your own components - suppl
   </Card>
 
   <Card title="Streaming events" icon="bolt" href="/ui-sdk/reference/events">
-    The event protocol `createTurn` yields.
+    The event protocol `createTurn` and `subscribeToTurn` yield.
   </Card>
 
   <Card title="Settings catalog" icon="sliders" href="/ui-sdk/reference/catalog">

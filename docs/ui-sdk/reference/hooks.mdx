@@ -60,7 +60,9 @@ Import these from `@truefoundry/trueforge-ui` like everything else:
 | `useTrueForgeTurnId` | The id of the current turn. |
 | `useTrueForgeHistoryPagination` | Page backwards through history. |
 | `useTrueForgeMcpAuth` | Low-level MCP auth state. |
-| `useTrueForgeRespondToToolApproval` | Approve or reject a tool call. |
+| `useTrueForgeApprovals` | Pending tool approvals on the paused turn, plus a `respond` action. |
+| `useTrueForgeRespondToToolApproval` | Approve or reject a tool call: `{ approvalId, approved, reason?, policy? }`. Pass `policy` to approve the tool for a period instead of once. |
+| `useTrueForgeContinueMcpAuth` | Continue a paused turn after the user signs in to an MCP server. |
 | `useTrueForgeToolResponses` | Read tool responses. |
 | `useTrueForgeDownloadSandboxFile` | Download a sandbox artifact. |
 | `mergeAgentSpec` | Merge partial specs. |

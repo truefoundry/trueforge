@@ -4,7 +4,13 @@ import { useTrueForgeAgentSpec, useTrueForgeUpdateAgentSpec } from '@truefoundry
 import { useEffect } from 'react';
 
 import { readSandboxEnvironmentName, sandboxWithEnvironmentName } from '../../server/draftSpecPreferences.js';
+import { isEnvironmentsChromeEnabled } from '../../server/serverChrome.js';
+import { useOptionalSandboxEnvironmentServer, useServerCapabilities } from '../../server/ServerContext.js';
 import { useSandboxEnvironments } from './useSandboxEnvironments.js';
+
+export type UseResolveDraftSandboxEnvironmentResult = {
+  pending: boolean;
+};
 
 /**
  * Pins a fresh draft to a concrete environment: the tenant default when the draft names none,
@@ -14,12 +20,15 @@ import { useSandboxEnvironments } from './useSandboxEnvironments.js';
  *
  * Mounted with the composer so it runs on page load, not only when the config drawer opens.
  */
-export function useResolveDraftSandboxEnvironment(): void {
+export function useResolveDraftSandboxEnvironment(): UseResolveDraftSandboxEnvironmentResult {
   const { agentSpec, draftSessionId } = useTrueForgeAgentSpec();
   const updateAgentSpec = useTrueForgeUpdateAgentSpec();
+  const sandboxEnvironments = useOptionalSandboxEnvironmentServer();
+  const capabilities = useServerCapabilities();
   const { environments, defaultEnvironment, loaded, loading, error } = useSandboxEnvironments();
 
   const sandbox = agentSpec?.config?.sandbox;
+  const featureOn = isEnvironmentsChromeEnabled({ sandboxEnvironments, capabilities }) && sandbox?.enabled !== false;
   const name = readSandboxEnvironmentName(sandbox);
   const settled = draftSessionId == null && loaded && !loading && error === null;
   // A building or failed environment is still the user's own choice and will come back, so the
@@ -38,4 +47,8 @@ export function useResolveDraftSandboxEnvironment(): void {
     // Only react to the unresolved-environment transition.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolve, target]);
+
+  const pending = featureOn && draftSessionId == null && (loading || (!loaded && error === null) || resolve);
+
+  return { pending };
 }
