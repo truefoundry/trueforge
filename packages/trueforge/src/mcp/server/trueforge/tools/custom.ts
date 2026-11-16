@@ -76,7 +76,7 @@ function registerUpdateCurrentSessionTool(server: McpServer, client: WireApiClie
     name: 'update_current_session',
     description:
       "Update this session's spec. Send the full spec back with edits; omitted fields are removed. " +
-      'Changes such as newly attached MCP servers take effect from the next message.',
+      "Newly attached MCP servers take effect from the user's next message; tell the user to send it.",
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
     method: 'PATCH',
     path: '/api/v1/sessions/{session_id}',
