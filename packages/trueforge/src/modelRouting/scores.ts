@@ -26,8 +26,7 @@ function effortsNearest(target: Effort): Effort[] {
 /**
  * The Intelligence Index for a model running at `effort`. Tries, in order: the exact effort variant
  * (`<slug>-high`); the model's unlabelled score, which Artificial Analysis publishes at max effort; and the
- * closest effort that has a score (from medium when `effort` is unknown). Slugs match exactly, so a model never
- * picks up scores of a longer slug that starts with its own (`claude-sonnet-5` vs `claude-sonnet-5-5`).
+ * closest effort that has a score (from medium when `effort` is unknown).
  */
 export function lookupScore({
   slug,
