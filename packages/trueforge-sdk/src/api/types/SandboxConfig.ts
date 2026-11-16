@@ -3,7 +3,7 @@
 export interface SandboxConfig {
     /** Give the agent a sandbox. Required for skills and Code Mode. */
     enabled: boolean;
-    /** Name of a configured sandbox environment to use. Must exist when set. */
+    /** Name of a configured sandbox environment to use. Required when sandbox is enabled and the provider supports environments. */
     environmentName?: string;
     /** Allow downloading agent-produced files via the turn download endpoint. Default: true. */
     fileDownloads?: boolean;
