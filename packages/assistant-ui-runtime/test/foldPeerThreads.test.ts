@@ -1136,6 +1136,75 @@ describe('foldPeerThreads', () => {
     ]);
   });
 
+  it('leaves a compaction abandoned by steering on the cancelled turn', () => {
+    const state = new PeerThreadFoldState();
+    const trigger = {
+      type: 'context_threshold_exceeded' as const,
+      contextTokens: 90_000,
+      thresholdTokens: 80_000,
+    };
+    ingestTurnEvent(state, {
+      ...modelMessage({ id: 'm-before', threadId: ROOT_THREAD_ID, content: 'before' }),
+      createdAt: '2026-10-26T12:52:40.000Z',
+    });
+    ingestStreamEvent(state, {
+      type: 'thread.context_compaction_started',
+      id: 'comp-abandoned',
+      createdAt: '2026-10-26T12:52:50.000Z',
+      threadId: ROOT_THREAD_ID,
+      trigger,
+    });
+    ingestStreamEvent(state, {
+      type: 'thread.context_compaction_started',
+      id: 'comp-retry',
+      createdAt: '2026-10-26T12:53:00.000Z',
+      threadId: ROOT_THREAD_ID,
+      trigger,
+    });
+
+    const liveRetry = buildRootAssistantContentForIds(state, []);
+    expect(liveRetry).toHaveLength(1);
+    expect(liveRetry[0]).toMatchObject({
+      type: 'data',
+      name: CONTEXT_COMPACTION_DATA_NAME,
+      data: { status: 'running', started: { id: 'comp-retry' } },
+    });
+
+    ingestStreamEvent(state, {
+      type: 'thread.context_compaction_finished',
+      id: 'comp-retry-done',
+      createdAt: '2026-10-26T12:53:05.000Z',
+      threadId: ROOT_THREAD_ID,
+      trigger,
+      durationMs: 1000,
+      usage: { inputTokens: 1, outputTokens: 1 },
+    });
+    ingestTurnEvent(state, {
+      ...modelMessage({ id: 'm-after', threadId: ROOT_THREAD_ID, content: 'after steer' }),
+      createdAt: '2026-10-26T12:53:06.000Z',
+    });
+
+    const nextTurn = buildRootAssistantContentForIds(state, ['m-after']);
+    expect(nextTurn).toHaveLength(2);
+    expect(nextTurn[0]).toMatchObject({
+      type: 'data',
+      name: CONTEXT_COMPACTION_DATA_NAME,
+      data: { status: 'complete', started: { id: 'comp-retry' } },
+    });
+    expect(nextTurn[1]).toEqual({ type: 'text', text: 'after steer' });
+
+    state.parentTerminalStatus = 'cancelled';
+    state.settledTurnCompletedAtMs = Date.parse('2026-10-26T12:52:55.000Z');
+    const cancelledTurn = buildRootAssistantContentForIds(state, ['m-before']);
+    expect(cancelledTurn).toHaveLength(2);
+    expect(cancelledTurn[0]).toEqual({ type: 'text', text: 'before' });
+    expect(cancelledTurn[1]).toMatchObject({
+      type: 'data',
+      name: CONTEXT_COMPACTION_DATA_NAME,
+      data: { status: 'incomplete', reason: 'cancelled', started: { id: 'comp-abandoned' } },
+    });
+  });
+
   it('keeps an unpaired compaction after an earlier model message in scope', () => {
     const state = new PeerThreadFoldState();
     ingestTurnEvent(state, modelMessage({ id: 'm1', threadId: ROOT_THREAD_ID, content: 'before' }));
