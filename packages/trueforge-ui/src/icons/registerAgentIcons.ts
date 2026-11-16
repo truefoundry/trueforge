@@ -2,7 +2,6 @@ import type React from 'react';
 
 import { registerIcons } from './IconRegistry.js';
 
-import Agent2Icon from './agent-2.svg';
 import AiIcon from './ai.svg';
 import BrainRegularIcon from './brain-regular.svg';
 import CompareIcon from './compare.svg';
@@ -16,10 +15,7 @@ type SvgIcon = React.FC<React.SVGProps<SVGSVGElement>>;
 
 registerIcons({
   'mcp-server': McpServerIcon as unknown as SvgIcon,
-  'agent-2': Agent2Icon as unknown as SvgIcon,
-  // Prefer the custom agent glyph over Lucide Bot for bot/robot aliases.
-  bot: Agent2Icon as unknown as SvgIcon,
-  robot: Agent2Icon as unknown as SvgIcon,
+  // agent-2 / bot / robot live in IconRegistry defaults so code-split chunks share them.
   compare: CompareIcon as unknown as SvgIcon,
   ai: AiIcon as unknown as SvgIcon,
   searchGlobe: SearchGlobeIcon as unknown as SvgIcon,

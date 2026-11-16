@@ -13,13 +13,17 @@ import {
 
 import { useAui } from '../assistant-ui.js';
 import { DesktopOnlyNotice } from '../atoms/DesktopOnlyNotice.js';
-import { auiButtonClass, sidebarRailButtonClassName } from '../atoms/lib/buttonClasses.js';
+import {
+  auiButtonClass,
+  shellRailSelectedClassName,
+  sidebarRailButtonClassName,
+} from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
 import { useIsMobile } from '../atoms/lib/useIsMobile.js';
 import { NamedAgentHeaderLabel } from '../atoms/NamedAgentHeaderLabel.js';
 import { PageHeader } from '../atoms/PageHeader.js';
 import { Spinner } from '../atoms/primitives/Spinner.js';
-import { Tooltip } from '../atoms/primitives/Tooltip.js';
+import { RailTooltip } from '../atoms/primitives/Tooltip.js';
 import { ShellActions } from '../atoms/ShellActions.js';
 import { AgentConfigDrawerContainer } from '../containers/AgentConfigDrawerContainer.js';
 import { Thread } from '../containers/Thread.js';
@@ -42,14 +46,16 @@ const EnvironmentsPage = lazy(() =>
 
 const brandLogoClassName = 'h-5 w-5 max-w-40 shrink-0 object-contain';
 const brandLogoExpandedClassName = 'h-5 max-w-40 shrink-0 object-contain';
-const railWidthClassName = 'w-20';
+/** Icon-only app rail: 52px. */
+const railWidthClassName = 'w-[3.25rem]';
 const mobileDrawerWidthClassName = 'w-80';
 const recentHistoryPanelId = 'aui-recent-chat-history';
+/** Outer chrome behind the padded shell (rail + inset gutter). */
+const shellChromeBgClassName = 'bg-primary-bg';
+/** Chat history + main pane surface inside the padded shell. */
+const shellSurfaceBgClassName = 'bg-card-bg';
 
 const railActionButtonClassName = cn(sidebarRailButtonClassName, 'text-sidebar-text');
-
-const railSelectedClassName =
-  'bg-primary-button-bg font-medium text-primary-button-text hover:bg-primary-button-hover hover:text-primary-button-text';
 
 function isRecentHistoryVisible({ overlayOpen, mode }: { overlayOpen: boolean; mode?: ShellMode }): boolean {
   return !overlayOpen && mode?.status === 'active' && !mode.isCreateAgent;
@@ -70,10 +76,13 @@ function RecentChatsAside({
       <aside
         id={recentHistoryPanelId}
         aria-label="Recent chats"
-        className="hidden min-h-0 w-12 shrink-0 flex-col border-r border-border bg-sidebar-bg md:flex"
+        className={cn(
+          'hidden min-h-0 w-12 shrink-0 flex-col border-r border-border md:flex',
+          shellSurfaceBgClassName,
+        )}
       >
         <div className="flex w-full items-start justify-center p-2">
-          <Tooltip content="Open chat history" side="right">
+          <RailTooltip content="Open chat history">
             <button
               type="button"
               aria-label="Open chat history"
@@ -88,7 +97,7 @@ function RecentChatsAside({
             >
               <Icon name="panel-left-open" className="size-3.5" />
             </button>
-          </Tooltip>
+          </RailTooltip>
         </div>
       </aside>
     );
@@ -98,7 +107,7 @@ function RecentChatsAside({
     <aside
       id={recentHistoryPanelId}
       aria-label="Recent chats"
-      className="hidden min-h-0 w-64 shrink-0 border-r border-border bg-sidebar-bg md:flex"
+      className={cn('hidden min-h-0 w-64 shrink-0 border-r border-border md:flex', shellSurfaceBgClassName)}
     >
       <ThreadListContainer variant="recent-history" onCollapseRecentHistory={() => onCollapsedChange(true)} />
     </aside>
@@ -149,38 +158,38 @@ function SidebarNav(): ReactNode {
   };
 
   return (
-    <nav className="flex min-h-0 flex-1 flex-col items-center gap-1 p-1" aria-label="Sidebar">
+    <nav className="flex min-h-0 flex-1 flex-col items-center gap-4" aria-label="Sidebar">
       {showNewActions ? (
-        <button
-          type="button"
-          aria-label="Start new chat"
-          title="New chat"
-          aria-current={newChatSelected ? 'page' : undefined}
-          className={auiButtonClass({
-            variant: 'ghost',
-            className: cn(railActionButtonClassName, newChatSelected && railSelectedClassName),
-          })}
-          onClick={handleNewChat}
-        >
-          <Icon name="square-pen" size={14} />
-          <span className="text-center">New Chat</span>
-        </button>
+        <RailTooltip content="New chat">
+          <button
+            type="button"
+            aria-label="Start new chat"
+            aria-current={newChatSelected ? 'page' : undefined}
+            className={auiButtonClass({
+              variant: 'ghost',
+              className: cn(railActionButtonClassName, newChatSelected && shellRailSelectedClassName),
+            })}
+            onClick={handleNewChat}
+          >
+            <Icon name="square-pen" size={16} />
+          </button>
+        </RailTooltip>
       ) : null}
       {showNewActions && shell?.isComposerEnabled ? (
-        <button
-          type="button"
-          aria-label="Start new agent"
-          title="New Agent"
-          aria-current={newAgentSelected ? 'page' : undefined}
-          className={auiButtonClass({
-            variant: 'ghost',
-            className: cn(railActionButtonClassName, newAgentSelected && railSelectedClassName),
-          })}
-          onClick={handleNewAgent}
-        >
-          <Icon name="agent-2" size={14} />
-          <span className="text-center whitespace-nowrap">Build Agent</span>
-        </button>
+        <RailTooltip content="New Agent">
+          <button
+            type="button"
+            aria-label="Start new agent"
+            aria-current={newAgentSelected ? 'page' : undefined}
+            className={auiButtonClass({
+              variant: 'ghost',
+              className: cn(railActionButtonClassName, newAgentSelected && shellRailSelectedClassName),
+            })}
+            onClick={handleNewAgent}
+          >
+            <Icon name="agent-2" size={16} />
+          </button>
+        </RailTooltip>
       ) : null}
       <AgentsLibraryButton compact />
       <SessionsBrowserButton compact />
@@ -190,7 +199,7 @@ function SidebarNav(): ReactNode {
   );
 }
 
-/** Desktop icon+label rail (brand, nav, footer actions). */
+/** Desktop icon-only rail (brand, nav, footer actions). */
 function SidebarRail({
   className,
   railRef,
@@ -207,20 +216,24 @@ function SidebarRail({
   return (
     <aside
       ref={railRef}
+      data-slot="aui_app-rail"
       className={cn(
         railWidthClassName,
-        'flex min-h-0 shrink-0 flex-col border-r border-border bg-sidebar-bg',
+        'flex min-h-0 shrink-0 flex-col py-1 text-sidebar-text',
+        shellChromeBgClassName,
         className,
       )}
       {...dialogProps}
     >
-      <div className="flex h-14 w-full shrink-0 items-center justify-center text-text-primary">
-        <BrandLogo variant={chrome.collapsedVariant} className={brandLogoClassName} />
+      <div className="flex min-h-0 flex-1 flex-col items-center gap-4 px-2 pt-2">
+        <div className="flex size-9 shrink-0 items-center justify-center text-text-primary">
+          <BrandLogo variant={chrome.collapsedVariant} className={brandLogoClassName} />
+        </div>
+        <SidebarNav />
       </div>
-      <SidebarNav />
-      <footer className="flex shrink-0 flex-col items-center border-border p-2">
-        <ShellActions labeled className="flex-col" />
-        <UserAvatar labeled className="mt-2 py-1.5" />
+      <footer className="flex shrink-0 flex-col items-center gap-2 px-2 pb-2">
+        <ShellActions iconOnly />
+        <UserAvatar iconOnly />
       </footer>
     </aside>
   );
@@ -349,7 +362,7 @@ export function SidebarLayout({ className }: { className?: string }) {
   }, [mobileNavOpen]);
 
   return (
-    <div className={cn('relative flex h-full min-h-0 w-full min-w-0', className)}>
+    <div className={cn('relative flex h-full min-h-0 w-full min-w-0', shellChromeBgClassName, className)}>
       <SidebarRail className="hidden md:flex" />
 
       {showAgentConfig ? (
@@ -362,108 +375,117 @@ export function SidebarLayout({ className }: { className?: string }) {
         </aside>
       ) : null}
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-primary-bg">
-        {/* Desktop keeps shell chrome in the rail footer (always mounted, including
-            when visually hidden on small screens so host action-slot state persists).
-            Mobile reaches theme/settings via the nav drawer. */}
-        {inlineMobileNav ? null : (
-          <PageHeader
-            className={cn(
-              'bg-topbar-bg',
-              // Desktop: hide when settings/idle or the thread header has nothing to show
-              // (empty untitled draft). Mobile still needs the menu button.
-              // Builder mode keeps New Agent and its actions beside the persistent config.
-              (overlayOpen || isIdle || !hasChatHeaderContent || showDesktopOnlyNotice) && 'md:hidden',
-            )}
-            start={mobileNavButton}
-            title={!overlayOpen && !showDesktopOnlyNotice ? <NamedAgentHeaderLabel /> : null}
-            end={
-              !overlayOpen && !showDesktopOnlyNotice ? (
-                <>
-                  <ResetAgentBuilderButton />
-                  <ShareChatButton />
-                  <ClearChatButton />
-                  <SaveAgentButton />
-                </>
-              ) : null
-            }
-          />
-        )}
+      {/* Desktop: 8px inset on top/right/bottom; flush to the icon rail on the left. */}
+      <div className={cn('flex min-h-0 min-w-0 flex-1 flex-col md:pt-2 md:pr-2 md:pb-2', shellChromeBgClassName)}>
+        <div
+          className={cn(
+            // Soft left-cast + ambient shadow so the pane reads raised above the rail.
+            'relative z-[1] flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:rounded-2xl md:border md:border-border md:shadow-[-0.25rem_0_1.25rem_color-mix(in_oklab,var(--shadow-color)_7%,transparent),0_0.0625rem_0.375rem_color-mix(in_oklab,var(--shadow-color)_3.5%,transparent)]',
+            shellSurfaceBgClassName,
+          )}
+        >
+              <FilePreviewProvider>
+            <div className="flex min-h-0 min-w-0 flex-1">
+              {showRecentHistory ? (
+                <RecentChatsAside collapsed={recentHistoryCollapsed} onCollapsedChange={setRecentHistoryCollapsed} />
+              ) : null}
 
-        <FilePreviewProvider>
-          <div className="flex min-h-0 min-w-0 flex-1">
-            {showRecentHistory ? (
-              <RecentChatsAside collapsed={recentHistoryCollapsed} onCollapsedChange={setRecentHistoryCollapsed} />
-            ) : null}
+              <div className={cn('flex min-h-0 min-w-0 flex-1 flex-col', shellSurfaceBgClassName)}>
+                {/* Header sits beside history so "New Chat" starts after the history column. */}
+                {inlineMobileNav ? null : (
+                  <PageHeader
+                    className={cn(
+                      shellSurfaceBgClassName,
+                      // Desktop: hide when settings/idle or the thread header has nothing to show
+                      // (empty untitled draft). Mobile still needs the menu button.
+                      // Builder mode keeps New Agent and its actions beside the persistent config.
+                      (overlayOpen || isIdle || !hasChatHeaderContent || showDesktopOnlyNotice) && 'md:hidden',
+                    )}
+                    start={mobileNavButton}
+                    title={!overlayOpen && !showDesktopOnlyNotice ? <NamedAgentHeaderLabel /> : null}
+                    end={
+                      !overlayOpen && !showDesktopOnlyNotice ? (
+                        <>
+                          <ResetAgentBuilderButton />
+                          <ShareChatButton />
+                          <ClearChatButton />
+                          <SaveAgentButton />
+                        </>
+                      ) : null
+                    }
+                  />
+                )}
 
-            <div ref={mainRef} className="min-h-0 min-w-0 flex-1">
-              {settingsOpen ? (
-                <Suspense
-                  fallback={
-                    <div
-                      className="flex h-full items-center justify-center"
-                      role="status"
-                      aria-live="polite"
-                      aria-busy="true"
+                <div ref={mainRef} className="min-h-0 min-w-0 flex-1">
+                  {settingsOpen ? (
+                    <Suspense
+                      fallback={
+                        <div
+                          className="flex h-full items-center justify-center"
+                          role="status"
+                          aria-live="polite"
+                          aria-busy="true"
+                        >
+                          <Spinner size={28} className="text-text-primary" />
+                          <span className="sr-only">Loading</span>
+                        </div>
+                      }
                     >
-                      <Spinner size={28} className="text-text-primary" />
-                      <span className="sr-only">Loading</span>
-                    </div>
-                  }
-                >
-                  <TruefoundrySettingsBuilder {...(inlineMobileNav ? { headerStart: mobileNavButton } : {})} />
-                </Suspense>
-              ) : showDesktopOnlyNotice ? (
-                <DesktopOnlyNotice />
-              ) : sessionsOpen ? (
-                <SessionsPage />
-              ) : libraryOpen && shell?.libraryAgentId != null ? (
-                <AgentDetailsPage key={shell.libraryAgentId} agentId={shell.libraryAgentId} />
-              ) : libraryOpen ? (
-                <AgentsLibrary
-                  onSelectAgent={closeMobileNav}
-                  {...(inlineMobileNav ? { headerStart: mobileNavButton } : {})}
-                />
-              ) : schedulesOpen ? (
-                <Suspense
-                  fallback={
-                    <div
-                      className="flex h-full items-center justify-center"
-                      role="status"
-                      aria-live="polite"
-                      aria-busy="true"
+                      <TruefoundrySettingsBuilder {...(inlineMobileNav ? { headerStart: mobileNavButton } : {})} />
+                    </Suspense>
+                  ) : showDesktopOnlyNotice ? (
+                    <DesktopOnlyNotice />
+                  ) : sessionsOpen ? (
+                    <SessionsPage />
+                  ) : libraryOpen && shell?.libraryAgentId != null ? (
+                    <AgentDetailsPage key={shell.libraryAgentId} agentId={shell.libraryAgentId} />
+                  ) : libraryOpen ? (
+                    <AgentsLibrary
+                      onSelectAgent={closeMobileNav}
+                      {...(inlineMobileNav ? { headerStart: mobileNavButton } : {})}
+                    />
+                  ) : schedulesOpen ? (
+                    <Suspense
+                      fallback={
+                        <div
+                          className="flex h-full items-center justify-center"
+                          role="status"
+                          aria-live="polite"
+                          aria-busy="true"
+                        >
+                          <Spinner size={28} className="text-text-primary" />
+                          <span className="sr-only">Loading</span>
+                        </div>
+                      }
                     >
-                      <Spinner size={28} className="text-text-primary" />
-                      <span className="sr-only">Loading</span>
-                    </div>
-                  }
-                >
-                  <SchedulesPage />
-                </Suspense>
-              ) : environmentsOpen ? (
-                <Suspense
-                  fallback={
-                    <div
-                      className="flex h-full items-center justify-center"
-                      role="status"
-                      aria-live="polite"
-                      aria-busy="true"
+                      <SchedulesPage />
+                    </Suspense>
+                  ) : environmentsOpen ? (
+                    <Suspense
+                      fallback={
+                        <div
+                          className="flex h-full items-center justify-center"
+                          role="status"
+                          aria-live="polite"
+                          aria-busy="true"
+                        >
+                          <Spinner size={28} className="text-text-primary" />
+                          <span className="sr-only">Loading</span>
+                        </div>
+                      }
                     >
-                      <Spinner size={28} className="text-text-primary" />
-                      <span className="sr-only">Loading</span>
-                    </div>
-                  }
-                >
-                  <EnvironmentsPage />
-                </Suspense>
-              ) : isIdle ? (
-                <SelectAgentEmptyState />
-              ) : (
-                <Thread />
-              )}
+                      <EnvironmentsPage />
+                    </Suspense>
+                  ) : isIdle ? (
+                    <SelectAgentEmptyState />
+                  ) : (
+                    <Thread />
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-        </FilePreviewProvider>
+          </FilePreviewProvider>
+        </div>
       </div>
 
       {mobileNavOpen ? (

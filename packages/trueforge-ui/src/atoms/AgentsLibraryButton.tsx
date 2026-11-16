@@ -7,9 +7,15 @@ import { AnalyticsEvents } from '../analytics/events.js';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalServer } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
-import { auiButtonClass, sidebarButtonRadiusClassName, sidebarRailButtonClassName } from './lib/buttonClasses.js';
+import {
+  auiButtonClass,
+  shellRailSelectedClassName,
+  sidebarButtonRadiusClassName,
+  sidebarRailButtonClassName,
+} from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 import { SEARCH_AGENTS_PAGE_SIZE } from './lib/useSearchAgentsList.js';
+import { RailTooltip } from './primitives/Tooltip.js';
 
 export type AgentsLibraryButtonProps = {
   className?: string;
@@ -49,43 +55,47 @@ export function AgentsLibraryButton({ className, compact = false }: AgentsLibrar
 
   if (!enabled) return null;
 
+  const button = (
+    <button
+      type="button"
+      aria-label={compact ? 'Agents' : undefined}
+      aria-current={libraryOpen ? 'page' : undefined}
+      className={auiButtonClass({
+        variant: 'ghost',
+        className: cn(
+          'font-normal shadow-none hover:bg-secondary-button-hover hover:text-ghost-button-text',
+          compact
+            ? cn(sidebarRailButtonClassName, 'text-inherit')
+            : cn(
+                sidebarButtonRadiusClassName,
+                'h-8 w-full !justify-start px-2.5 text-sm text-sidebar-text',
+              ),
+          libraryOpen && shellRailSelectedClassName,
+        ),
+      })}
+      onClick={() => {
+        if (!libraryOpen) track(AnalyticsEvents.Library.OPENED);
+        shell?.setLibraryOpen(true);
+      }}
+    >
+      <Icon name="book-text" size={compact ? 16 : undefined} />
+      {compact ? null : (
+        <>
+          <span className="truncate">
+            Agents
+            {countLabel != null ? (
+              <span className={cn(!libraryOpen && 'text-text-secondary')}> ({countLabel})</span>
+            ) : null}
+          </span>
+          <Icon name="chevron-right" className="ml-auto size-3.5 shrink-0 opacity-60" />
+        </>
+      )}
+    </button>
+  );
+
   return (
     <div className={cn('relative min-w-0', compact ? 'flex justify-center' : 'w-full', className)}>
-      <button
-        type="button"
-        aria-label={compact ? 'Agents' : undefined}
-        title={compact ? 'Agents' : undefined}
-        aria-current={libraryOpen ? 'page' : undefined}
-        className={auiButtonClass({
-          variant: 'ghost',
-          className: cn(
-            sidebarButtonRadiusClassName,
-            'font-normal text-sidebar-text shadow-none hover:bg-secondary-button-hover hover:text-ghost-button-text',
-            compact ? sidebarRailButtonClassName : 'h-8 w-full !justify-start px-2.5 text-sm',
-            libraryOpen &&
-              'bg-primary-button-bg font-medium text-primary-button-text hover:bg-primary-button-hover hover:text-primary-button-text',
-          ),
-        })}
-        onClick={() => {
-          if (!libraryOpen) track(AnalyticsEvents.Library.OPENED);
-          shell?.setLibraryOpen(true);
-        }}
-      >
-        <Icon name="library-big" size={compact ? 14 : undefined} />
-        {compact ? (
-          <span className="text-center">Agents</span>
-        ) : (
-          <>
-            <span className="truncate">
-              Agents
-              {countLabel != null ? (
-                <span className={cn(!libraryOpen && 'text-text-secondary')}> ({countLabel})</span>
-              ) : null}
-            </span>
-            <Icon name="chevron-right" className="ml-auto size-3.5 shrink-0 opacity-60" />
-          </>
-        )}
-      </button>
+      {compact ? <RailTooltip content="Agents">{button}</RailTooltip> : button}
     </div>
   );
 }

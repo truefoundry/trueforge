@@ -32,6 +32,14 @@ body {
   box-shadow: 0 0.25rem 0.75rem color-mix(in oklab, #4f39f6 35%, transparent);
 }
 
+/* Light-only: selected icon-rail control matches the primary CTA gradient (overrides shell fill). */
+.harness-primary-gradient[data-theme='light'] [data-slot='aui_app-rail'] .aui-shell-selected,
+.harness-primary-gradient[data-theme='light'] [data-slot='aui_app-rail'] .aui-shell-selected:hover {
+  background: radial-gradient(289.46% 144.73% at 8.33% 7.41%, #b27aff 0%, #155dfc 58.99%, #4f39f6 100%);
+  border-color: transparent;
+  color: #ffffff;
+}
+
 /* New Agent welcome only: polka-dot canvas on the empty thread viewport.
    `.new-agent-welcome` is set by NewAgentWelcomeScreen; WelcomeScreen unmounts once the thread has messages. */
 [data-slot='aui_thread-viewport']:has(.new-agent-welcome) {

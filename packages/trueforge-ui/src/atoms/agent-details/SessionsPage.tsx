@@ -83,7 +83,7 @@ export function SessionsPage() {
   }, [updateShareSearch]);
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col bg-primary-bg">
+    <div className="flex h-full min-h-0 w-full flex-col bg-card-bg">
       <PageHeader
         title="Agent Sessions"
         end={

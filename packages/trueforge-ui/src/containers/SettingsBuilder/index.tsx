@@ -127,7 +127,7 @@ const TruefoundrySettingsBuilder = ({ headerStart }: { headerStart?: ReactNode }
   if (!settingsOpen || !catalog) return null;
 
   return (
-    <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-x-hidden bg-primary-bg">
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-x-hidden bg-card-bg">
       <PageHeader
         title="Settings"
         start={
