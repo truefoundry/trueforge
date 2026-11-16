@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { computeAgentStepsSplit, countAgentSteps, type AgentStepPart } from '@/index.js';
+import { computeAgentStepsSplit, type AgentStepPart } from '@/index.js';
+import { countAgentSteps } from '@/utils/computeAgentStepsSplit.js';
 
 function text(content: string): AgentStepPart {
   return { type: 'text', text: content };
