@@ -10,6 +10,7 @@ export type AgentStepPart = {
 };
 
 function isAgentStepPart(part: AgentStepPart): boolean {
+  if (part.hidden) return false;
   return (
     part.type === 'tool-call' ||
     part.type === 'reasoning' ||
@@ -20,8 +21,21 @@ function isAgentStepPart(part: AgentStepPart): boolean {
 export interface AgentStepsSplitResult {
   cutIndex: number;
   hasFinal: boolean;
-  toolCount: number;
-  thinkingCount: number;
+}
+
+/** Counts per accordion, so groups split by a visible part do not repeat message-wide totals. */
+export function countAgentSteps(parts: readonly AgentStepPart[]): { toolCount: number; thinkingCount: number } {
+  let toolCount = 0;
+  let thinkingCount = 0;
+  for (const part of parts) {
+    if (part.hidden) continue;
+    if (part.type === 'tool-call') {
+      toolCount++;
+    } else if (part.type === 'reasoning') {
+      thinkingCount++;
+    }
+  }
+  return { toolCount, thinkingCount };
 }
 
 export function computeAgentStepsSplit(parts: readonly AgentStepPart[], isRunning: boolean): AgentStepsSplitResult {
@@ -59,25 +73,8 @@ export function computeAgentStepsSplit(parts: readonly AgentStepPart[], isRunnin
 
   const actualCutIndex = finalConfirmed ? cutIdx : parts.length;
 
-  let toolCount = 0;
-  let thinkingCount = 0;
-  for (let i = 0; i < actualCutIndex; i++) {
-    const part = parts[i];
-    if (!part) continue;
-
-    if (part.hidden) continue;
-
-    if (part.type === 'tool-call') {
-      toolCount++;
-    } else if (part.type === 'reasoning') {
-      thinkingCount++;
-    }
-  }
-
   return {
     cutIndex: actualCutIndex,
     hasFinal: finalConfirmed,
-    toolCount,
-    thinkingCount,
   };
 }

@@ -504,7 +504,7 @@ export type { SessionEventTimelineSegment, SessionEventType } from './utils/sess
 export type { SessionTurnView } from './utils/sessionTurnViews.js';
 
 // Utils
-export { computeAgentStepsSplit } from './utils/computeAgentStepsSplit.js';
+export { computeAgentStepsSplit, countAgentSteps } from './utils/computeAgentStepsSplit.js';
 export type { AgentStepPart, AgentStepsSplitResult } from './utils/computeAgentStepsSplit.js';
 export { findSubAgentAncestorsForApproval } from './utils/findApprovalAncestors.js';
 export { getErrorMessage } from './utils/getErrorMessage.js';
