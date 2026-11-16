@@ -4,17 +4,13 @@ export interface ScoredAnswer<T> {
   price?: number | undefined;
 }
 
-/** Highest yes-probability wins; ties go to the cheaper model, then to the earlier candidate. */
+/** Higher yes-probability first; among equal probabilities, cheaper first, and an unpriced model last. */
+function byPYesThenPrice<T>(a: ScoredAnswer<T>, b: ScoredAnswer<T>): number {
+  const price = (answer: ScoredAnswer<T>) => answer.price ?? Number.MAX_VALUE;
+  return b.pYes - a.pYes || price(a) - price(b);
+}
+
+/** The answer with the highest yes-probability; ties go to the cheapest model. Undefined when there are no answers. */
 export function pickCandidate<T>(answers: readonly ScoredAnswer<T>[]): ScoredAnswer<T> | undefined {
-  let best: ScoredAnswer<T> | undefined;
-  for (const answer of answers) {
-    if (
-      best === undefined ||
-      answer.pYes > best.pYes ||
-      (answer.pYes === best.pYes && (answer.price ?? Infinity) < (best.price ?? Infinity))
-    ) {
-      best = answer;
-    }
-  }
-  return best;
+  return [...answers].sort(byPYesThenPrice)[0];
 }

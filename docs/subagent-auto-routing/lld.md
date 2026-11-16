@@ -2,7 +2,7 @@
 
 Status: ready for review. Scope: a PoC on internal TrueFoundry tenants, in TrueFoundry mode only.
 
-When a subagent is spawned, one Jev call picks the model it runs on. The router is generic (it takes a `scope`), so the root agent can use it later (§8). Its modules are split so that model routing can later become a capability that also works outside TrueFoundry mode (§9). Only the subagent scope is built now.
+When a subagent is spawned, one Jev call picks the model it runs on. Root-agent routing can reuse the same router later (§8). The modules are split so that model routing can later become a capability that also works outside TrueFoundry mode (§9).
 
 **Related work, tracked separately:**
 
@@ -26,18 +26,18 @@ When a subagent is spawned, one Jev call picks the model it runs on. The router 
 | I9  | **The routed model is applied through the existing `request.model` path** and saved on `agent_info.model`. Resume and rebuild never call the router.                        | §1     |
 | I10 | **One optional core hook,** `routeModel`. The router's logic lives in the server, split into provider-neutral and TrueFoundry-specific modules.                             | §1, §9 |
 | I11 | **Observability:** gateway traces joined on `tfg.thread_id`, plus one info log line per decision. No new tables or public API.                                              | §6     |
-| I12 | **Mode per tenant and per scope:** off, shadow or on. Off by default.                                                                                                       | §5     |
+| I12 | **Mode per tenant:** off, shadow or on. Off by default.                                                                                                                     | §5     |
 
 **Tunable without a design change:**
 
-- **Config:** the decision model, the Jev timeout (2 s), `max_candidates` (60), and each tenant's mode.
+- **Config:** the Jev timeout (2 s), `max_candidates` (60), and each tenant's mode and decision model.
 - **Data:** the score table, and the benchmark-resemblance list.
 
 ## What it does
 
 1. **The parent calls `create_sub_agent`** with a name and a task.
 2. **The router builds the candidates:** the caller's models that have a score (§2).
-3. **One Jev call** asks, for each candidate, "can this model complete this task fully and correctly?" (§3). It also asks whether the task resembles each of five public benchmarks. Those answers are only recorded, to learn later which benchmark our work looks like.
+3. **One Jev call** asks, for each candidate, "can this model complete this task fully and correctly?" (§3). It also asks whether the task resembles each of the nine benchmarks in the Intelligence Index. Those answers are only recorded, to learn later which kind of work our subagents do.
 4. **The router picks** the candidate with the highest yes-probability (§4). In shadow mode it logs the pick and runs the parent's model. In "on" mode the subagent runs on the pick.
 5. **If anything fails,** the subagent runs on the parent's model.
 
@@ -46,7 +46,7 @@ flowchart TD
   S["create_sub_agent call<br/>(makeCreateDynamicSubAgentThread)"] --> R{"routeModel wired?<br/>(tenant's subagent mode is shadow/on)"}
   R -- no --> K["parent's model, as today"]
   R -- yes --> C["candidates: caller's models with a score"]
-  C --> J["Jev: POST {gateway}/v1/systemone<br/>one question per candidate + 5 benchmark questions"]
+  C --> J["Jev: POST {gateway}/v1/systemone<br/>one question per candidate + 9 benchmark questions"]
   J --> P["pick: highest P(yes), cheaper on a tie"]
   P --> L["one info log line"]
   L --> A["on: request.model = pick · shadow: parent's model"]
@@ -56,18 +56,15 @@ flowchart TD
 
 ```ts
 // trueforge-core: agent-session/ITurnResourceResolver.ts
-type RoutingScope = 'subagent' | 'root';
-
 interface RouteModelInput {
-  scope: RoutingScope;
-  threadId: string; // the thread being routed
+  threadId: string; // the subagent being routed
   fallbackModel: string; // the parent's model (account/model)
-  work: {
+  task: {
     name?: string; // subagent name
-    text: string; // the delegated task (self-contained by the create_sub_agent contract)
+    instructions: string; // the delegated task (self-contained by the create_sub_agent contract)
     tools: string[]; // MCP server names, web_search, sandbox
   };
-  signal: AbortSignal;
+  signal: AbortSignal; // the subagent's abort signal: cancelling the turn cancels the Jev call
 }
 
 interface RouteModelResult {
@@ -84,7 +81,7 @@ interface ITurnResourceResolver {
 
 ## 2. Candidates and scores
 
-**The score is the Artificial Analysis Intelligence Index, v5** (0–100). It's the closest single score to agentic work: seven of its nine evaluations use tools. It averages four equal categories: Knowledge Work, Coding, Science and General.
+**The score is the Artificial Analysis Intelligence Index, v5** (0–100). It's the closest single score to agentic work: six of its nine evaluations use tools. It averages four equal categories: Knowledge Work, Coding, Science and General.
 
 **The score table** is a typed TypeScript constant in the server package, `modelRouting/modelRoutingScores.ts`. It mirrors Artificial Analysis: one entry per Artificial Analysis slug, so each effort variant is its own entry:
 
@@ -146,7 +143,6 @@ One call per subagent to `POST {gateway}/v1/systemone`, using the gateway URL, t
 {
   "model": "typesafe/jev-1.13.0",
   "state": {
-    "scope": "subagent",
     "name": "<subagent name>",
     "task": "<the delegated task, clipped to 8k (head + tail)>",
     "tools": ["<mcp server names>", "web_search", "sandbox"],
@@ -166,27 +162,31 @@ One call per subagent to `POST {gateway}/v1/systemone`, using the gateway URL, t
       "instructions": "Can Claude Sonnet 5.5 at high effort (Intelligence Index 41.5) complete this task fully and correctly?",
       "criteria": { "...": "same as above" }
     },
-    "resembles_gdpval": {
+    "resembles_automationbench": {
       "type": "noul",
-      "instructions": "Does this task resemble the benchmark GDPval? Knowledge-work deliverables (reports, analyses, plans) produced with tools. Example: 'From these project documents, write a one-page status report with risks and next steps.'",
+      "instructions": "Does this task resemble the benchmark AutomationBench? It tests whether models can complete realistic SaaS workflows that span multiple simulated business apps, using REST APIs as the tool interface.",
       "criteria": { "true": "Same kind of work as the benchmark.", "false": "A different kind of work." }
     }
   }
 }
 ```
 
-- **The decision model comes from config,** set per environment: `typesafe/jev-1.13.0` on internal. If a tenant can't reach it, the call fails and the parent's model runs (`decision_error`).
+- **The decision model is configured per tenant,** because it's a model on the tenant's own gateway: `typesafe/jev-1.13.0` on internal. If the tenant can't reach it, the call fails and the parent's model runs (`decision_error`).
 - **Candidate questions** are keyed `can_<n>`, and the router maps them back to models.
 - **Limits:** one call, with a 2-second timeout and at most `max_candidates` (60) candidate questions.
-- **Benchmark-resemblance questions:** five benchmarks, all of which our key models have data for in `model-benchmarks`. The answers are recorded only.
+- **Benchmark-resemblance questions:** the nine evaluations in the Artificial Analysis Intelligence Index v5, the score routing uses, so the answers say which part of the index our subagent work resembles. The answers are recorded only. Each description is quoted verbatim from the benchmark's official page (`modelRouting/benchmarks.ts`): the [Artificial Analysis methodology](https://artificialanalysis.ai/methodology/intelligence-benchmarking), and [lastexam.ai](https://lastexam.ai/) for HLE.
 
-| Key              | Benchmark            | Description given to Jev                                                                                | Example task given to Jev                                                                          |
-| ---------------- | -------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `automation`     | AutomationBench-AA   | Multi-step workflows across apps through API tools: look things up, combine results, act on them        | "When a support ticket is tagged urgent, look up the customer's plan and notify the account owner" |
-| `terminal_bench` | Terminal-Bench 4.0   | Multi-step technical tasks in a shell: run commands, inspect files and logs, fix or configure something | "Find why the service fails to start from its logs and fix the config"                             |
-| `gdpval`         | GDPval-AA            | Knowledge-work deliverables (reports, analyses, plans) produced with tools                              | "From these project documents, write a one-page status report with risks and next steps"           |
-| `lcr`            | AA-LCR               | Answer questions that need reasoning across long documents or large outputs                             | "From these three long reports, which risk do all of them mention and how does each address it?"   |
-| `hle`            | Humanity's Last Exam | Hard expert-level knowledge and reasoning questions with one correct answer                             | "A difficult graduate-level question in a technical field"                                         |
+| Category       | Benchmark              |
+| -------------- | ---------------------- |
+| Knowledge Work | AA-Briefcase           |
+| Knowledge Work | AutomationBench        |
+| Knowledge Work | GDP.pdf                |
+| Coding         | FrontierCode           |
+| Coding         | Terminal-Bench         |
+| Science        | Terminal-Bench-Science |
+| Science        | CritPt                 |
+| General        | AA-Omniscience         |
+| General        | Humanity's Last Exam   |
 
 **Offline test** on 49 real subagent tasks × 11 candidates, checked against how each model actually did:
 
@@ -212,16 +212,15 @@ One call per subagent to `POST {gateway}/v1/systemone`, using the gateway URL, t
 
 ```json
 TRUEFOUNDRY_MODEL_ROUTING = {
-  "decision_model": "typesafe/jev-1.13.0",
   "timeout_ms": 2000,
   "max_candidates": 60,
   "tenants": {
-    "<tenant_id>": { "subagent": "shadow" }
+    "<tenant_id>": { "subagent": "shadow", "decision_model": "typesafe/jev-1.13.0" }
   }
 }
 ```
 
-- **off** (the default, or when unset): the hook isn't wired, and nothing changes.
+- **off** (the default, or when the tenant isn't listed): the hook isn't wired, and nothing changes.
 - **shadow:** ask Jev and log the decision, but run the parent's model.
 - **on:** run the pick.
 
@@ -229,7 +228,7 @@ TRUEFOUNDRY_MODEL_ROUTING = {
 
 - **Gateway traces,** joined on `tfg.thread_id`:
   - every model call a subagent makes (AGE-2837);
-  - the Jev call, which carries the turn metadata plus `tfg.thread_id` (the subagent being routed) and `tfg.model_routing: "true"`.
+  - the Jev call, which carries the turn metadata plus `tfg.thread_id` (the subagent being routed). Its model name identifies it as a routing call.
 
   The Jev request and response hold every candidate's question and probability, and the benchmark-resemblance answers.
 
@@ -237,7 +236,6 @@ TRUEFOUNDRY_MODEL_ROUTING = {
 
   ```ts
   logger.info('model routing', {
-    scope,
     thread_id,
     mode,
     reason,
@@ -268,7 +266,7 @@ TRUEFOUNDRY_MODEL_ROUTING = {
 
 The same router, score table, Jev request and pick rule. The root needs four things on top:
 
-- **A call site** where the root thread's definition is built for a turn, with `scope: 'root'` and the spec's model as the fallback.
+- **A call site** where the root thread's definition is built for a turn, with the spec's model as the fallback, and a `scope` field on the input to tell the two apart.
 - **Once per turn,** never mid-turn.
 - **Persistence:** save the routed model with the turn, so a resumed turn keeps it.
 - **Opt-in:** a per-tenant or per-agent opt-in. A model the user picked explicitly is never overridden.
@@ -279,7 +277,7 @@ The same router, score table, Jev request and pick rule. The root needs four thi
 
 | File                                     | Change                                                                                                                                              |
 | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `agent-session/ITurnResourceResolver.ts` | `RoutingScope`, `RouteModelInput`, `RouteModelResult` and the optional `routeModel` hook (§1).                                                      |
+| `agent-session/ITurnResourceResolver.ts` | `RouteModelInput`, `RouteModelResult` and the optional `routeModel` hook (§1).                                                                      |
 | `agent-session/TurnResourceResolver.ts`  | Accept `routeModel` in its deps and expose it.                                                                                                      |
 | `agent-session/SessionHandle.ts`         | In `makeCreateDynamicSubAgentThread`, call `routeModel` when `request.model` is unset, and continue with `{ ...request, model }` if one comes back. |
 
@@ -288,7 +286,7 @@ The same router, score table, Jev request and pick rule. The root needs four thi
 | File                                          | Change                                                                                                                                                                                                                                   |
 | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **New** `types.ts`                            | What a provider supplies: `RoutingCandidate` (`model`, `slug`, `defaultEffort`, `price`, `imageInput`), a function that lists them, and `DecisionClient`, which asks yes/no questions and returns probabilities. Also the routing modes. |
-| **New** `scores.ts` + `modelRoutingScores.ts` | The score table, and the lookup by slug and effort (§2).                                                                                                                                                                                 |
+| **New** `scores.ts` + `modelRoutingScores.ts` | The score table, and the lookup by slug and effort (§2). `benchmarks.ts` holds the resemblance benchmarks (§3).                                                                                                                          |
 | **New** `pick.ts`                             | The pick rule, as a pure function from candidates and probabilities to a pick (§4). A threshold or price ceiling would change only this file and the config.                                                                             |
 | **New** `router.ts`                           | `createModelRouter({ candidates, decision, scores, config, logger })`. It builds the questions (§3), calls the decision client, picks, logs (§6), and returns `routeModel`. It never throws.                                             |
 
@@ -312,5 +310,4 @@ No database schema or public API changes.
 
 1. **How is quality measured?** The TrueForge backend doesn't store user feedback. Only the UI runtime passes a feedback adapter through. Feedback is also given per turn, on the root agent's answer, not per subagent. Before "on" mode we need to know where feedback lands on internal tenants, and how to attribute it to subagents.
 2. **Model names in the questions:** keep them, or say only "a model with Intelligence Index S" to avoid Jev's preconceptions about names?
-3. **Benchmark list:** are these five right?
-4. **Threshold or price ceiling:** likely needed soon, if shadow data shows picks go up in price too often (§4). It's a change to `pick.ts` and config only.
+3. **Threshold or price ceiling:** likely needed soon, if shadow data shows picks go up in price too often (§4). It's a change to `pick.ts` and config only.

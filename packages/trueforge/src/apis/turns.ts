@@ -374,16 +374,20 @@ function subagentModelRouter(input: {
 }): ReturnType<typeof createModelRouter> | undefined {
   const { tenant_id, modelProviderStore, turnMetadata, logger } = input;
   const routing = isTrueFoundryModeEnabled(configuration) ? configuration.TRUEFOUNDRY_MODEL_ROUTING : undefined;
-  const mode = routing?.tenants[tenant_id]?.subagent ?? 'off';
-  const listRoutingCandidates = modelProviderStore.listRoutingCandidates?.bind(modelProviderStore);
-  if (routing === undefined || mode === 'off' || listRoutingCandidates === undefined) {
+  const tenantRouting = routing?.tenants[tenant_id];
+  if (
+    routing === undefined ||
+    tenantRouting === undefined ||
+    tenantRouting.subagent === 'off' ||
+    modelProviderStore.listRoutingCandidates === undefined
+  ) {
     return undefined;
   }
   return createModelRouter({
-    mode,
-    listCandidates: () => listRoutingCandidates({ tenant_id }),
+    mode: tenantRouting.subagent,
+    listCandidates: () => modelProviderStore.listRoutingCandidates?.({ tenant_id }) ?? Promise.resolve([]),
     decision: createJevDecisionClient({
-      model: routing.decision_model,
+      model: tenantRouting.decision_model,
       resolveGateway: async model => {
         const { providerConfig } = await getModelDetails({
           tenant_id,

@@ -1,17 +1,33 @@
+import { SUPPORTED_REASONING_EFFORTS } from '@truefoundry/trueforge-core/core';
 import { MODEL_ROUTING_SCORES } from './modelRoutingScores';
 
-const EFFORTS = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
+type Effort = (typeof SUPPORTED_REASONING_EFFORTS)[number];
 
 type ScoreTable = Readonly<Record<string, { readonly name: string; readonly score: number }>>;
 
-function variantSlug({ slug, effort }: { slug: string; effort: string }): string {
+const EFFORTS: readonly string[] = SUPPORTED_REASONING_EFFORTS;
+
+function isEffort(value: string | undefined): value is Effort {
+  return value !== undefined && EFFORTS.includes(value);
+}
+
+/** Artificial Analysis publishes each effort as its own slug: `<slug>-high`, and `<slug>-non-reasoning` for `none`. */
+function variantSlug({ slug, effort }: { slug: string; effort: Effort }): string {
   return effort === 'none' ? `${slug}-non-reasoning` : `${slug}-${effort}`;
 }
 
+/** Efforts ordered by closeness to `target`; of two equally close, the higher effort comes first. */
+function effortsNearest(target: Effort): Effort[] {
+  const rank = (effort: Effort) => SUPPORTED_REASONING_EFFORTS.indexOf(effort);
+  const distance = (effort: Effort) => Math.abs(rank(effort) - rank(target));
+  return [...SUPPORTED_REASONING_EFFORTS].sort((a, b) => distance(a) - distance(b) || rank(b) - rank(a));
+}
+
 /**
- * Score for `slug` at `effort`: that exact variant, else the unlabelled slug, else the nearest
- * effort (ties go higher). Variants match exactly, never by prefix, so `claude-sonnet-5` never
- * reads `claude-sonnet-5-5-*`.
+ * The Intelligence Index for a model running at `effort`. Tries, in order: the exact effort variant
+ * (`<slug>-high`); the model's unlabelled score, which Artificial Analysis publishes at max effort; and the
+ * closest effort that has a score (from medium when `effort` is unknown). Slugs match exactly, so a model never
+ * picks up scores of a longer slug that starts with its own (`claude-sonnet-5` vs `claude-sonnet-5-5`).
  */
 export function lookupScore({
   slug,
@@ -22,7 +38,7 @@ export function lookupScore({
   effort: string | undefined;
   scores?: ScoreTable;
 }): { name: string; score: number } | undefined {
-  const target = effort !== undefined && EFFORTS.includes(effort) ? effort : undefined;
+  const target = isEffort(effort) ? effort : undefined;
   if (target !== undefined) {
     const exact = scores[variantSlug({ slug, effort: target })];
     if (exact !== undefined) {
@@ -33,13 +49,8 @@ export function lookupScore({
   if (unlabelled !== undefined) {
     return unlabelled;
   }
-  const from = EFFORTS.indexOf(target ?? 'medium');
-  const byDistance = [...EFFORTS].sort((a, b) => {
-    const distance = Math.abs(EFFORTS.indexOf(a) - from) - Math.abs(EFFORTS.indexOf(b) - from);
-    return distance !== 0 ? distance : EFFORTS.indexOf(b) - EFFORTS.indexOf(a);
-  });
-  for (const candidate of byDistance) {
-    const entry = scores[variantSlug({ slug, effort: candidate })];
+  for (const nearby of effortsNearest(target ?? 'medium')) {
+    const entry = scores[variantSlug({ slug, effort: nearby })];
     if (entry !== undefined) {
       return entry;
     }

@@ -1,8 +1,9 @@
 import type { RouteModelInput, RouteModelResult } from '@truefoundry/trueforge-core/agent-session';
 import type { Logger } from 'winston';
+import { RESEMBLANCE_BENCHMARKS } from './benchmarks';
 import { pickCandidate } from './pick';
 import { lookupScore } from './scores';
-import type { DecisionClient, DecisionQuestion, ListRoutingCandidates, RoutingCandidate } from './types';
+import type { DecisionClient, DecisionQuestion, RoutingCandidate } from './types';
 
 const TASK_CHARS = 8_000;
 
@@ -17,36 +18,6 @@ const CAN_COMPLETE: DecisionQuestion['criteria'] = {
 const RESEMBLES: DecisionQuestion['criteria'] = {
   true: 'Same kind of work as the benchmark.',
   false: 'A different kind of work.',
-};
-
-// Recorded only: tells us over time which public benchmark this work resembles.
-const BENCHMARKS: Record<string, { name: string; description: string; example: string }> = {
-  automation: {
-    name: 'AutomationBench',
-    description: 'Multi-step workflows across apps through API tools: look things up, combine results, act on them.',
-    example: "When a support ticket is tagged urgent, look up the customer's plan and notify the account owner.",
-  },
-  terminal_bench: {
-    name: 'Terminal-Bench',
-    description:
-      'Multi-step technical tasks in a shell: run commands, inspect files and logs, fix or configure something.',
-    example: 'Find why the service fails to start from its logs and fix the config.',
-  },
-  gdpval: {
-    name: 'GDPval',
-    description: 'Knowledge-work deliverables (reports, analyses, plans) produced with tools.',
-    example: 'From these project documents, write a one-page status report with risks and next steps.',
-  },
-  lcr: {
-    name: 'AA-LCR',
-    description: 'Answer questions that need reasoning across long documents or large outputs.',
-    example: 'From these three long reports, which risk do all of them mention and how does each address it?',
-  },
-  hle: {
-    name: "Humanity's Last Exam",
-    description: 'Hard expert-level knowledge and reasoning questions with one correct answer.',
-    example: 'A difficult graduate-level question in a technical field.',
-  },
 };
 
 interface ScoredCandidate extends RoutingCandidate {
@@ -101,9 +72,9 @@ function questions(candidates: readonly ScoredCandidate[]): Record<string, Decis
       criteria: CAN_COMPLETE,
     };
   });
-  for (const [key, benchmark] of Object.entries(BENCHMARKS)) {
+  for (const [key, benchmark] of Object.entries(RESEMBLANCE_BENCHMARKS)) {
     out[`resembles_${key}`] = {
-      instructions: `Does this task resemble the benchmark ${benchmark.name}? ${benchmark.description} Example: '${benchmark.example}'`,
+      instructions: `Does this task resemble the benchmark ${benchmark.name}? ${benchmark.description}`,
       criteria: RESEMBLES,
     };
   }
@@ -123,7 +94,8 @@ function priceDirection(input: { picked?: number | undefined; fallback?: number 
  */
 export function createModelRouter(input: {
   mode: 'shadow' | 'on';
-  listCandidates: ListRoutingCandidates;
+  /** The caller's models; called once per turn. */
+  listCandidates: () => Promise<RoutingCandidate[]>;
   decision: DecisionClient;
   timeoutMs: number;
   maxCandidates: number;
@@ -135,7 +107,6 @@ export function createModelRouter(input: {
     const startedMs = Date.now();
     const log = (fields: Record<string, unknown>) => {
       input.logger.info('model routing', {
-        scope: route.scope,
         thread_id: route.threadId,
         mode: input.mode,
         fallback_model: route.fallbackModel,
@@ -167,10 +138,9 @@ export function createModelRouter(input: {
         fallbackModel: route.fallbackModel,
         threadId: route.threadId,
         state: {
-          scope: route.scope,
-          name: route.work.name,
-          task: clip(route.work.text),
-          tools: route.work.tools,
+          name: route.task.name,
+          task: clip(route.task.instructions),
+          tools: route.task.tools,
           benchmark_note: SCORE_NOTE,
         },
         questions: questions(candidates),

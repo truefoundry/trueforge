@@ -19,10 +19,9 @@ function route(decision: DecisionClient, mode: 'shadow' | 'on') {
     logger,
   });
   return routeModel({
-    scope: 'subagent',
     threadId: 'child',
     fallbackModel: 'acct/claude-opus-5-5',
-    work: { name: 'research', text: 'Compare pricing of three CI tools.', tools: [] },
+    task: { name: 'research', instructions: 'Compare pricing of three CI tools.', tools: [] },
     signal: new AbortController().signal,
   });
 }

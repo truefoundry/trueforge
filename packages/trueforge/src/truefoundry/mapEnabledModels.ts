@@ -79,14 +79,15 @@ function toProperties(metadata: IntegrationMetadata | undefined): ModelPropertie
   };
 }
 
-/** Blended USD per million tokens from the catalog price: the public price, else the global region, else the first priced one. */
+/**
+ * Blended USD per million tokens, weighted 0.8 × input + 0.2 × output since agent loops read far more than
+ * they write. Uses the public price if set, else the global-region price, else the first region with a price.
+ */
 function toBlendedPrice(metadata: IntegrationMetadata | undefined): number | undefined {
-  const priced = [
-    metadata?.public_cost,
-    ...(metadata?.costs?.filter(cost => cost.region === '*') ?? []),
-    ...(metadata?.costs ?? []),
-  ];
-  for (const cost of priced) {
+  const regionCosts = metadata?.costs ?? [];
+  const globalCosts = regionCosts.filter(cost => cost.region === '*');
+  const inPreferenceOrder = [metadata?.public_cost, ...globalCosts, ...regionCosts];
+  for (const cost of inPreferenceOrder) {
     if (typeof cost?.input_cost_per_token === 'number' && typeof cost.output_cost_per_token === 'number') {
       return (0.8 * cost.input_cost_per_token + 0.2 * cost.output_cost_per_token) * 1e6;
     }

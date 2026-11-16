@@ -14,19 +14,18 @@ export interface ResolvedAgentDefinition {
   extraCapabilities?: AgentCapability[] | undefined;
 }
 
-export type RoutingScope = 'subagent' | 'root';
-
-/** The thread about to start, as seen by {@link ITurnResourceResolver.routeModel}. */
+/** Input to {@link ITurnResourceResolver.routeModel}: a subagent that's about to start, and the task it was given. */
 export interface RouteModelInput {
-  scope: RoutingScope;
   threadId: string;
-  /** Model the thread runs on when routing doesn't pick one (`provider/model`). */
+  /** Model the subagent runs on when routing doesn't pick one (`provider/model`): the parent's model. */
   fallbackModel: string;
-  work: {
+  task: {
     name?: string | undefined;
-    text: string;
+    instructions: string;
+    /** MCP server names, plus `web_search` and `sandbox` when available. */
     tools: string[];
   };
+  /** The subagent's abort signal; cancels routing when the turn is cancelled. */
   signal: AbortSignal;
 }
 
@@ -85,7 +84,7 @@ export interface ITurnResourceResolver<TTurnCustom extends object = Record<strin
     tracing: AgentTracing;
   }): Promise<ResolvedAgentDefinition>;
   /**
-   * Chooses the model for a thread before it starts. Omit to keep every thread on its default model.
+   * Chooses the model for a subagent before it starts. Omit to keep every subagent on its parent's model.
    * Must not throw: on any failure, resolve without a model.
    */
   routeModel?(input: RouteModelInput): Promise<RouteModelResult>;

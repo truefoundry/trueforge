@@ -12,10 +12,9 @@ export interface RoutingCandidate {
   defaultEffort?: string | undefined;
   /** Blended USD per million tokens: 0.8 × input + 0.2 × output. */
   price?: number | undefined;
+  /** Logged with the pick only; never used to choose a model. */
   imageInput?: boolean | undefined;
 }
-
-export type ListRoutingCandidates = () => Promise<RoutingCandidate[]>;
 
 export interface DecisionQuestion {
   instructions: string;

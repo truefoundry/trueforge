@@ -116,7 +116,7 @@ export class TurnResourceResolver<
        * `resolveAgentDefinition` without calling `super` does not mount them.
        */
       rootCapabilities?: (() => readonly AgentCapability[]) | undefined;
-      /** Model router for threads about to start; omit to disable routing. */
+      /** Chooses a subagent's model before it starts; omit to keep subagents on their parent's model. */
       routeModel?: ((input: RouteModelInput) => Promise<RouteModelResult>) | undefined;
       /** Forwarded to RemoteMCP / AgentThread (required by their constructors). */
       logger: Logger;

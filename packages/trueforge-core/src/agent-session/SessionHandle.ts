@@ -603,12 +603,11 @@ export class SessionHandle<
       let request = params.request;
       if (request.model === undefined && input.resolver.routeModel !== undefined) {
         const routed = await input.resolver.routeModel({
-          scope: 'subagent',
           threadId: params.threadId,
           fallbackModel: params.parentDefinition.modelName,
-          work: {
+          task: {
             name: request.name,
-            text: request.input,
+            instructions: request.input,
             tools: [
               ...(input.spec.mcp_servers ?? []).map(server => server.name),
               ...(input.spec.config.web_search.enabled && input.resolver.webSearchProvider ? ['web_search'] : []),

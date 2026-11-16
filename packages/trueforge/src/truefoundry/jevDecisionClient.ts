@@ -21,7 +21,6 @@ export function createJevDecisionClient(input: { model: string; resolveGateway: 
         ...gatewayMetadataHeaders({
           ...(turnMetadataHeader === undefined ? {} : parseGatewayMetadataHeader(turnMetadataHeader)),
           'tfg.thread_id': threadId,
-          'tfg.model_routing': 'true',
         }),
         'content-type': 'application/json',
       };
