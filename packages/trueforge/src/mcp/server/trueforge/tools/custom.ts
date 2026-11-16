@@ -64,7 +64,10 @@ function registerCurrentSessionTool(server: McpServer, client: WireApiClient): v
       runTool(async () => {
         const sessionId = headerValue(extra.requestInfo?.headers, TRUEFORGE_SESSION_HEADER);
         if (sessionId === undefined) {
-          throw new ToolResultError(400, 'No current chat. This tool is only available during a draft session turn.');
+          throw new ToolResultError(
+            400,
+            'Unable to resolve session_id. This tool is only usable from TrueForge sessions',
+          );
         }
         return client.execute(descriptor, { session_id: sessionId }, extra.signal);
       }),
@@ -96,7 +99,10 @@ function registerUpdateCurrentSessionTool(server: McpServer, client: WireApiClie
       runTool(async () => {
         const sessionId = headerValue(extra.requestInfo?.headers, TRUEFORGE_SESSION_HEADER);
         if (sessionId === undefined) {
-          throw new ToolResultError(400, 'No current chat. This tool is only available during a draft session turn.');
+          throw new ToolResultError(
+            400,
+            'Unable to resolve session_id. This tool is only usable from TrueForge sessions',
+          );
         }
         return client.execute(descriptor, { session_id: sessionId, agent: { spec } }, extra.signal);
       }),
