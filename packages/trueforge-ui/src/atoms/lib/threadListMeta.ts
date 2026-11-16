@@ -9,13 +9,34 @@ function isTurnStatus(value: unknown): value is TurnStatus {
   return typeof value === 'string' && TURN_STATUS_VALUES.has(value);
 }
 
+/** Orange paused dots older than this are hidden (AGE-2831). */
+export const PAUSED_STATUS_DOT_MAX_AGE_MS = 48 * 60 * 60 * 1000;
+
+function isValidActivityDate(date: Date): boolean {
+  return !Number.isNaN(date.getTime());
+}
+
 /** Tailwind bg class for a last-turn status dot; undefined means hide the dot. */
-export function lastTurnStatusDotClass(status: TurnStatus | undefined | null): string | undefined {
+export function lastTurnStatusDotClass({
+  status,
+  activityAt,
+  now = new Date(),
+}: {
+  status: TurnStatus | undefined | null;
+  activityAt?: Date | null;
+  now?: Date;
+}): string | undefined {
   switch (status) {
-    case 'paused':
+    case 'paused': {
+      if (
+        activityAt != null &&
+        isValidActivityDate(activityAt) &&
+        now.getTime() - activityAt.getTime() > PAUSED_STATUS_DOT_MAX_AGE_MS
+      ) {
+        return undefined;
+      }
       return 'bg-warning-bg';
-    case 'error':
-      return 'bg-failure-bg';
+    }
     default:
       return undefined;
   }

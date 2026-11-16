@@ -3,18 +3,14 @@ import { describe, expect, it } from 'vitest';
 import {
   mergeSessionListFirstPage,
   SESSION_LIST_FIRST_PAGE_LIMIT,
-  SESSION_LIST_PAUSED_POLL_INTERVAL_MS,
-  SESSION_LIST_RUNNING_POLL_INTERVAL_MS,
+  SESSION_LIST_POLL_INTERVAL_MS,
   sessionListPollIntervalMs,
 } from '@/atoms/lib/sessionListPoll.js';
 
 describe('sessionListPollIntervalMs', () => {
-  it('returns the running cadence when any status is running', () => {
-    expect(sessionListPollIntervalMs(['paused', 'running', 'done'])).toBe(SESSION_LIST_RUNNING_POLL_INTERVAL_MS);
-  });
-
-  it('returns the paused cadence when statuses are only paused', () => {
-    expect(sessionListPollIntervalMs(['paused', null, 'done'])).toBe(SESSION_LIST_PAUSED_POLL_INTERVAL_MS);
+  it('polls while any status is running or paused', () => {
+    expect(sessionListPollIntervalMs(['paused', 'running', 'done'])).toBe(SESSION_LIST_POLL_INTERVAL_MS);
+    expect(sessionListPollIntervalMs(['paused', null, 'done'])).toBe(SESSION_LIST_POLL_INTERVAL_MS);
   });
 
   it('returns null when nothing needs polling', () => {

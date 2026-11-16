@@ -6,6 +6,7 @@ import {
   isRunningTurnStatus,
   lastTurnStatusDotClass,
   lastTurnStatusLabel,
+  PAUSED_STATUS_DOT_MAX_AGE_MS,
   readThreadAgentName,
   readThreadIsMutable,
   readThreadLastTurnStatus,
@@ -43,13 +44,30 @@ describe('readThreadLastTurnStatus', () => {
 });
 
 describe('lastTurnStatusDotClass', () => {
-  it('maps paused and error; hides running, cancelled, and done', () => {
-    expect(lastTurnStatusDotClass('paused')).toBe('bg-warning-bg');
-    expect(lastTurnStatusDotClass('error')).toBe('bg-failure-bg');
-    expect(lastTurnStatusDotClass('cancelled')).toBeUndefined();
-    expect(lastTurnStatusDotClass('running')).toBeUndefined();
-    expect(lastTurnStatusDotClass('done')).toBeUndefined();
-    expect(lastTurnStatusDotClass(null)).toBeUndefined();
+  const now = new Date('2026-11-16T12:00:00.000Z');
+
+  it('maps recent paused; hides stale paused, error, running, cancelled, and done', () => {
+    expect(
+      lastTurnStatusDotClass({
+        status: 'paused',
+        activityAt: new Date(now.getTime() - PAUSED_STATUS_DOT_MAX_AGE_MS),
+        now,
+      }),
+    ).toBe('bg-warning-bg');
+    expect(
+      lastTurnStatusDotClass({
+        status: 'paused',
+        activityAt: new Date(now.getTime() - PAUSED_STATUS_DOT_MAX_AGE_MS - 1),
+        now,
+      }),
+    ).toBeUndefined();
+    expect(lastTurnStatusDotClass({ status: 'paused', now })).toBe('bg-warning-bg');
+    expect(lastTurnStatusDotClass({ status: 'paused', activityAt: new Date('invalid'), now })).toBe('bg-warning-bg');
+    expect(lastTurnStatusDotClass({ status: 'error', now })).toBeUndefined();
+    expect(lastTurnStatusDotClass({ status: 'cancelled', now })).toBeUndefined();
+    expect(lastTurnStatusDotClass({ status: 'running', now })).toBeUndefined();
+    expect(lastTurnStatusDotClass({ status: 'done', now })).toBeUndefined();
+    expect(lastTurnStatusDotClass({ status: null, now })).toBeUndefined();
   });
 });
 
