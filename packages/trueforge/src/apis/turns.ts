@@ -706,8 +706,8 @@ function buildTrueForgeMcpConnection(input: {
   return {
     name: TRUEFORGE_MCP_ID,
     description:
-      "Create, update, and read agents, schedules, and sandbox environments in this deployment. Read this chat's " +
-      'configuration and the configured models, MCP servers, and skills. Does not run agents or turns.',
+      'Manage agents, schedules, and sandbox environments in this deployment. Read and update own chat, ' +
+      'including attaching or removing configured MCP servers and skills to it.',
     url: new URL('/mcp', normalizeTlsUrl({ url: configuration.SERVER_URL, enabled: configuration.MTLS_ENABLED })).href,
     headers:
       requestContext.user_credential === null ? {} : { Authorization: `Bearer ${requestContext.user_credential}` },
