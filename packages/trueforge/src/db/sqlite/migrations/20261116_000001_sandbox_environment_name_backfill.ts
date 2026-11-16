@@ -11,49 +11,23 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       SET manifest = jsonb_set(
         manifest,
         '$.config.sandbox.environment_name',
-        jsonb(json_quote((
-          SELECT COALESCE(
-            (
-              SELECT env.name
-              FROM sandbox_environment AS env
-              WHERE env.tenant_id = agent.tenant_id
-                AND env.lifecycle_stage = 'active'
-                AND env.is_default = 1
-              LIMIT 1
-            ),
-            (
-              SELECT env.name
-              FROM sandbox_environment AS env
-              WHERE env.tenant_id = agent.tenant_id
-                AND env.lifecycle_stage = 'active'
-                AND env.name = 'trueforge-sandbox-env'
-              LIMIT 1
-            )
-          )
-        )))
+        jsonb(json_quote(pin.name))
       )
-      WHERE json_extract(manifest, '$.config.sandbox.enabled') IN (1, 'true')
-        AND nullif(json_extract(manifest, '$.config.sandbox.environment_name'), '') IS NULL
-        AND (
-          SELECT COALESCE(
-            (
-              SELECT env.name
-              FROM sandbox_environment AS env
-              WHERE env.tenant_id = agent.tenant_id
-                AND env.lifecycle_stage = 'active'
-                AND env.is_default = 1
-              LIMIT 1
-            ),
-            (
-              SELECT env.name
-              FROM sandbox_environment AS env
-              WHERE env.tenant_id = agent.tenant_id
-                AND env.lifecycle_stage = 'active'
-                AND env.name = 'trueforge-sandbox-env'
-              LIMIT 1
-            )
-          )
-        ) IS NOT NULL
+      FROM (
+        SELECT
+          tenant_id,
+          COALESCE(
+            MAX(CASE WHEN is_default = 1 THEN name END),
+            MAX(CASE WHEN name = 'trueforge-sandbox-env' THEN name END)
+          ) AS name
+        FROM sandbox_environment
+        WHERE lifecycle_stage = 'active'
+        GROUP BY tenant_id
+      ) AS pin
+      WHERE pin.tenant_id = agent.tenant_id
+        AND pin.name IS NOT NULL
+        AND json_extract(agent.manifest, '$.config.sandbox.enabled') IN (1, 'true')
+        AND nullif(json_extract(agent.manifest, '$.config.sandbox.environment_name'), '') IS NULL
     `.execute(trx);
 
     await sql`
@@ -61,50 +35,24 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       SET agent_spec = jsonb_set(
         agent_spec,
         '$.config.sandbox.environment_name',
-        jsonb(json_quote((
-          SELECT COALESCE(
-            (
-              SELECT env.name
-              FROM sandbox_environment AS env
-              WHERE env.tenant_id = session.tenant_id
-                AND env.lifecycle_stage = 'active'
-                AND env.is_default = 1
-              LIMIT 1
-            ),
-            (
-              SELECT env.name
-              FROM sandbox_environment AS env
-              WHERE env.tenant_id = session.tenant_id
-                AND env.lifecycle_stage = 'active'
-                AND env.name = 'trueforge-sandbox-env'
-              LIMIT 1
-            )
-          )
-        )))
+        jsonb(json_quote(pin.name))
       )
-      WHERE agent_spec IS NOT NULL
-        AND json_extract(agent_spec, '$.config.sandbox.enabled') IN (1, 'true')
-        AND nullif(json_extract(agent_spec, '$.config.sandbox.environment_name'), '') IS NULL
-        AND (
-          SELECT COALESCE(
-            (
-              SELECT env.name
-              FROM sandbox_environment AS env
-              WHERE env.tenant_id = session.tenant_id
-                AND env.lifecycle_stage = 'active'
-                AND env.is_default = 1
-              LIMIT 1
-            ),
-            (
-              SELECT env.name
-              FROM sandbox_environment AS env
-              WHERE env.tenant_id = session.tenant_id
-                AND env.lifecycle_stage = 'active'
-                AND env.name = 'trueforge-sandbox-env'
-              LIMIT 1
-            )
-          )
-        ) IS NOT NULL
+      FROM (
+        SELECT
+          tenant_id,
+          COALESCE(
+            MAX(CASE WHEN is_default = 1 THEN name END),
+            MAX(CASE WHEN name = 'trueforge-sandbox-env' THEN name END)
+          ) AS name
+        FROM sandbox_environment
+        WHERE lifecycle_stage = 'active'
+        GROUP BY tenant_id
+      ) AS pin
+      WHERE pin.tenant_id = session.tenant_id
+        AND pin.name IS NOT NULL
+        AND session.agent_spec IS NOT NULL
+        AND json_extract(session.agent_spec, '$.config.sandbox.enabled') IN (1, 'true')
+        AND nullif(json_extract(session.agent_spec, '$.config.sandbox.environment_name'), '') IS NULL
     `.execute(trx);
   });
 }
