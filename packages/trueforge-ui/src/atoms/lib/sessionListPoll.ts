@@ -14,6 +14,25 @@ export function sessionListPollIntervalMs(statuses: ReadonlyArray<TurnStatus | u
   return null;
 }
 
+type PolledTurn = { id: string; state: { status: string } };
+
+/**
+ * Apply a first-page poll onto one row.
+ * Status-only patches used to leave `lastActivityAt` at the original payload, so a
+ * new pause on a row older than 48 hours stayed hidden.
+ */
+export function mergePolledSessionRow<T extends { lastActivityAt: string; lastTurnDetails?: PolledTurn | null }>(
+  prev: T,
+  next: T,
+): T {
+  const prevDetails = prev.lastTurnDetails;
+  const nextDetails = next.lastTurnDetails;
+  const sameTurn = prevDetails?.id === nextDetails?.id && prevDetails?.state.status === nextDetails?.state.status;
+  if (sameTurn && prev.lastActivityAt === next.lastActivityAt) return prev;
+  if (sameTurn) return { ...prev, lastActivityAt: next.lastActivityAt };
+  return { ...prev, lastActivityAt: next.lastActivityAt, lastTurnDetails: nextDetails };
+}
+
 /**
  * Patch items that appear on a first-page poll into the full loaded list by id.
  * Later pages from load-more are left in place; unknown first-page ids are ignored.

@@ -122,6 +122,32 @@ export function readThreadIsMutable(custom: unknown): boolean | undefined {
   return typeof value === 'boolean' ? value : undefined;
 }
 
+/** Activity time stamped by the status poll. Newer than `lastMessageAt` after a fresh pause. */
+export function readThreadLastActivityAt(custom: unknown): Date | undefined {
+  if (custom == null || typeof custom !== 'object') return undefined;
+  if (!('lastActivityAt' in custom)) return undefined;
+  const value = Reflect.get(custom, 'lastActivityAt');
+  if (typeof value !== 'string') return undefined;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
+/** True when `nextIso` is a valid time strictly after `prev`. Missing `prev` counts as newer. */
+export function isNewerActivityAt(nextIso: string, prev: Date | undefined): boolean {
+  const next = new Date(nextIso);
+  if (Number.isNaN(next.getTime())) return false;
+  if (prev == null || Number.isNaN(prev.getTime())) return true;
+  return next.getTime() > prev.getTime();
+}
+
+/** Later of the list payload time and a poll stamp. */
+export function laterActivityAt(left: Date | undefined, right: Date | undefined): Date | undefined {
+  if (left == null || Number.isNaN(left.getTime()))
+    return right != null && !Number.isNaN(right.getTime()) ? right : undefined;
+  if (right == null || Number.isNaN(right.getTime())) return left;
+  return right.getTime() > left.getTime() ? right : left;
+}
+
 /** Last-turn status stamped on thread-list custom by `sessionToThreadMetadata`. */
 export function readThreadLastTurnStatus(custom: unknown): TurnStatus | undefined {
   if (custom == null || typeof custom !== 'object') return undefined;
@@ -134,6 +160,7 @@ export function readThreadLastTurnStatus(custom: unknown): TurnStatus | undefine
 export function threadCustomWithLastTurnStatus(
   custom: unknown,
   status: TurnStatus | null | undefined,
+  activityAt?: string,
 ): Record<string, unknown> {
   const base =
     custom != null && typeof custom === 'object' && !Array.isArray(custom)
@@ -142,6 +169,9 @@ export function threadCustomWithLastTurnStatus(
   Reflect.deleteProperty(base, 'lastTurnStatus');
   if (status != null) {
     base.lastTurnStatus = status;
+  }
+  if (activityAt != null) {
+    base.lastActivityAt = activityAt;
   }
   return base;
 }

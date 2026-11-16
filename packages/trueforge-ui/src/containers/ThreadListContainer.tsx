@@ -21,8 +21,11 @@ import { useCompactLayout } from '../atoms/lib/CompactLayoutContext.js';
 import { SESSION_LIST_FIRST_PAGE_LIMIT, sessionListPollIntervalMs } from '../atoms/lib/sessionListPoll.js';
 import {
   canReuseMutableShell,
+  isNewerActivityAt,
+  laterActivityAt,
   readThreadAgentName,
   readThreadIsMutable,
+  readThreadLastActivityAt,
   readThreadLastTurnStatus,
   threadCustomWithLastTurnStatus,
   threadListIndicesByRecency,
@@ -214,6 +217,7 @@ function ThreadListItemRow({
   const mainThreadId = useAuiState(s => s.threads.mainThreadId);
   const agentName = readThreadAgentName(custom);
   const lastTurnStatus = readThreadLastTurnStatus(custom);
+  const activityAt = laterActivityAt(lastMessageAt, readThreadLastActivityAt(custom));
   const showRename = canRenameSession && remoteId != null;
   const showDelete = canDeleteSession && remoteId != null;
   const showActions = showRename || showDelete;
@@ -288,7 +292,7 @@ function ThreadListItemRow({
         active={id === mainThreadId && !sidebarNavOpen}
         agentName={agentName}
         {...(lastTurnStatus == null ? {} : { lastTurnStatus })}
-        lastMessageAt={lastMessageAt}
+        {...(activityAt == null ? {} : { lastMessageAt: activityAt })}
         onSelect={() => {
           track(
             AnalyticsEvents.Session.SELECTED,
@@ -546,7 +550,10 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
         });
 
         const statusByRemoteId = new Map(
-          page.data.map(session => [session.id, session.lastTurnDetails?.state.status] as const),
+          page.data.map(
+            session =>
+              [session.id, { status: session.lastTurnDetails?.state.status, updatedAt: session.updatedAt }] as const,
+          ),
         );
         const threadsState = auiRef.current.threads().getState();
         const mainThreadId = threadsState.mainThreadId;
@@ -557,13 +564,15 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
             continue;
           }
           if (item.remoteId == null || !statusByRemoteId.has(item.remoteId)) continue;
-          const nextStatus = statusByRemoteId.get(item.remoteId);
+          const polled = statusByRemoteId.get(item.remoteId);
+          if (polled == null) continue;
           const prevStatus = readThreadLastTurnStatus(item.custom);
-          if (nextStatus === prevStatus) continue;
+          const prevActivity = readThreadLastActivityAt(item.custom) ?? item.lastMessageAt;
+          if (polled.status === prevStatus && !isNewerActivityAt(polled.updatedAt, prevActivity)) continue;
           void auiRef.current
             .threads()
             .item({ id: item.id })
-            .updateCustom(threadCustomWithLastTurnStatus(item.custom, nextStatus ?? null));
+            .updateCustom(threadCustomWithLastTurnStatus(item.custom, polled.status ?? null, polled.updatedAt));
         }
       } catch {
         // Keep showing the last known status on transient poll failures.

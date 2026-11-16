@@ -3,12 +3,15 @@ import { describe, expect, it } from 'vitest';
 import {
   canReuseMutableShell,
   formatRelativeShort,
+  isNewerActivityAt,
   isRunningTurnStatus,
   lastTurnStatusDotClass,
   lastTurnStatusLabel,
+  laterActivityAt,
   PAUSED_STATUS_DOT_MAX_AGE_MS,
   readThreadAgentName,
   readThreadIsMutable,
+  readThreadLastActivityAt,
   readThreadLastTurnStatus,
   threadCustomWithLastTurnStatus,
   threadListIndicesByRecency,
@@ -98,12 +101,37 @@ describe('threadCustomWithLastTurnStatus', () => {
     });
     expect(custom).toEqual({ isMutable: true, lastTurnStatus: 'running' });
     expect(threadCustomWithLastTurnStatus(custom, null)).toEqual({ isMutable: true });
+    expect(threadCustomWithLastTurnStatus(custom, 'paused', '2026-11-16T00:00:00.000Z')).toEqual({
+      isMutable: true,
+      lastTurnStatus: 'paused',
+      lastActivityAt: '2026-11-16T00:00:00.000Z',
+    });
     expect(threadCustomWithLastTurnStatus(undefined, 'error')).toEqual({ lastTurnStatus: 'error' });
   });
 
   it('normalizes non-record custom values', () => {
     expect(threadCustomWithLastTurnStatus(null, 'running')).toEqual({ lastTurnStatus: 'running' });
     expect(threadCustomWithLastTurnStatus(['nope'], 'paused')).toEqual({ lastTurnStatus: 'paused' });
+  });
+});
+
+describe('readThreadLastActivityAt', () => {
+  it('reads a valid poll stamp and ignores anything else', () => {
+    expect(readThreadLastActivityAt({ lastActivityAt: '2026-11-16T00:00:00.000Z' })?.toISOString()).toBe(
+      '2026-11-16T00:00:00.000Z',
+    );
+    expect(readThreadLastActivityAt({ lastActivityAt: 'nope' })).toBeUndefined();
+    expect(readThreadLastActivityAt({})).toBeUndefined();
+  });
+
+  it('treats a later stamp as newer and prefers it over the list payload', () => {
+    const older = new Date('2026-11-01T00:00:00.000Z');
+    const newer = new Date('2026-11-16T00:00:00.000Z');
+    expect(isNewerActivityAt('2026-11-16T00:00:00.000Z', older)).toBe(true);
+    expect(isNewerActivityAt('2026-11-01T00:00:00.000Z', newer)).toBe(false);
+    expect(isNewerActivityAt('nope', older)).toBe(false);
+    expect(laterActivityAt(older, newer)).toBe(newer);
+    expect(laterActivityAt(newer, undefined)).toBe(newer);
   });
 });
 

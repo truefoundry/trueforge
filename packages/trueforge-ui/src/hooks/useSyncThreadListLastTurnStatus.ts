@@ -4,7 +4,12 @@ import { useThreadIsRunning } from '@assistant-ui/core/react';
 import { useEffect, useRef } from 'react';
 
 import { useAui, useAuiState } from '../assistant-ui.js';
-import { readThreadLastTurnStatus, threadCustomWithLastTurnStatus } from '../atoms/lib/threadListMeta.js';
+import {
+  isNewerActivityAt,
+  readThreadLastActivityAt,
+  readThreadLastTurnStatus,
+  threadCustomWithLastTurnStatus,
+} from '../atoms/lib/threadListMeta.js';
 import { useOptionalServer } from '../server/ServerContext.js';
 
 /**
@@ -18,6 +23,7 @@ export function useSyncThreadListLastTurnStatus(): void {
   const server = useOptionalServer();
   const aui = useAui();
   const remoteId = useAuiState(s => s.threadListItem.remoteId);
+  const lastMessageAt = useAuiState(s => s.threadListItem.lastMessageAt);
   const isRunning = useThreadIsRunning();
   const wasRunningRef = useRef(false);
   const prevRemoteIdRef = useRef(remoteId);
@@ -26,7 +32,7 @@ export function useSyncThreadListLastTurnStatus(): void {
     if (!isRunning || remoteId == null) return;
     const custom = aui.threadListItem().getState().custom;
     if (readThreadLastTurnStatus(custom) === 'running') return;
-    void aui.threadListItem().updateCustom(threadCustomWithLastTurnStatus(custom, 'running'));
+    void aui.threadListItem().updateCustom(threadCustomWithLastTurnStatus(custom, 'running', new Date().toISOString()));
   }, [aui, isRunning, remoteId]);
 
   useEffect(() => {
@@ -56,13 +62,17 @@ export function useSyncThreadListLastTurnStatus(): void {
         if (cancelled) return;
         const nextStatus = session.lastTurnDetails?.state.status ?? null;
         const latestCustom = aui.threadListItem().getState().custom;
-        if (readThreadLastTurnStatus(latestCustom) === nextStatus) return;
-        return aui.threadListItem().updateCustom(threadCustomWithLastTurnStatus(latestCustom, nextStatus));
+        const statusSame = (readThreadLastTurnStatus(latestCustom) ?? null) === nextStatus;
+        const prevActivity = readThreadLastActivityAt(latestCustom) ?? lastMessageAt;
+        if (statusSame && !isNewerActivityAt(session.updatedAt, prevActivity)) return;
+        return aui
+          .threadListItem()
+          .updateCustom(threadCustomWithLastTurnStatus(latestCustom, nextStatus, session.updatedAt));
       })
       .catch(() => undefined);
 
     return () => {
       cancelled = true;
     };
-  }, [aui, isRunning, remoteId, server]);
+  }, [aui, isRunning, lastMessageAt, remoteId, server]);
 }
