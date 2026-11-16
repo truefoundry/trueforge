@@ -92,7 +92,7 @@ export function createWireApiClient(options: CreateWireApiClientOptions): WireAp
         headers.set('content-type', 'application/json');
       }
 
-      const url = new URL(pathname, baseUrl);
+      const url = new URL(baseUrl.replace(/\/+$/, '') + pathname);
       url.search = query.toString();
       const timeoutSignal = AbortSignal.timeout(timeoutInSeconds * 1000);
       const requestSignal = signal === undefined ? timeoutSignal : AbortSignal.any([signal, timeoutSignal]);
