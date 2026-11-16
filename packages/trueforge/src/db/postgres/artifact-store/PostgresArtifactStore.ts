@@ -10,7 +10,6 @@ import {
   type ArtifactRecord,
   type ArtifactVersionRecord,
   type DeleteArtifactInput,
-  type FindArtifactBySessionEntryInput,
   type GetArtifactBySlugInput,
   type GetArtifactInput,
   type GetArtifactVersionInput,
@@ -352,27 +351,34 @@ export class PostgresArtifactStore implements IArtifactStore<Transaction<Databas
     }));
   }
 
-  async findBySessionEntry(
-    input: FindArtifactBySessionEntryInput,
+  async listLatestVersions(
+    input: { tenant_id: string; artifact_ids: readonly string[] },
     transaction?: Transaction<Database>,
-  ): Promise<ArtifactRecord | undefined> {
+  ): Promise<ArtifactVersionRecord[]> {
+    if (input.artifact_ids.length === 0) {
+      return [];
+    }
     const db = transaction ?? this.#db;
-    const row = await db
-      .selectFrom('artifact')
+    const rows = await db
+      .selectFrom('artifact_version')
       .selectAll()
       .where('tenant_id', '=', input.tenant_id)
-      .where('id', 'in', eb =>
-        eb
-          .selectFrom('artifact_version')
-          .select('artifact_id')
-          .where('tenant_id', '=', input.tenant_id)
-          .where('session_id', '=', input.session_id)
-          .where('entry_path', '=', input.entry_path)
-          .orderBy('created_at', 'desc')
-          .limit(1),
+      .where('artifact_id', 'in', [...input.artifact_ids])
+      .where(
+        sql<boolean>`version = (SELECT latest_version FROM artifact WHERE artifact.id = artifact_version.artifact_id)`,
       )
+      .execute();
+    return rows.map(toVersion);
+  }
+
+  async sumVersionBytes(input: { tenant_id: string }, transaction?: Transaction<Database>): Promise<number> {
+    const db = transaction ?? this.#db;
+    const row = await db
+      .selectFrom('artifact_version')
+      .select(sql<string | number | null>`SUM(total_size_bytes)`.as('total'))
+      .where('tenant_id', '=', input.tenant_id)
       .executeTakeFirst();
-    return row === undefined ? undefined : toArtifact(row);
+    return Number(row?.total ?? 0);
   }
 }
 

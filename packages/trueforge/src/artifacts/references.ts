@@ -2,6 +2,9 @@ import path from 'node:path';
 
 const SCHEME = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i;
 
+/** Longest reference target considered; bounds every scan so hostile input stays linear. */
+const MAX_TARGET_LENGTH = 2048;
+
 /** Drop query and fragment so a reference can be resolved as a file path. */
 export function stripReferenceDecorations(reference: string): string {
   const hash = reference.indexOf('#');
@@ -75,19 +78,16 @@ export function extractReferences(content: string, kind: ReferenceKind): string[
     }
     collectStringLiterals(content, found);
   } else if (kind === 'css') {
-    for (const match of content.matchAll(/url\(\s*(?:"([^"]*)"|'([^']*)'|([^)'"\s]+))\s*\)/gi)) {
+    for (const match of content.matchAll(
+      /url\(\s*(?:"([^"\n]{0,2048})"|'([^'\n]{0,2048})'|([^)'"\s]{1,2048}))\s*\)/gi,
+    )) {
       add(match[1] ?? match[2] ?? match[3]);
     }
-    for (const match of content.matchAll(/@import\s+(?:"([^"]*)"|'([^']*)')/gi)) {
+    for (const match of content.matchAll(/@import\s+(?:"([^"\n]{0,2048})"|'([^'\n]{0,2048})')/gi)) {
       add(match[1] ?? match[2]);
     }
   } else if (kind === 'markdown') {
-    for (const match of content.matchAll(/!\[[^\]]*]\(([^)\s]+)\)/g)) {
-      add(match[1]);
-    }
-    for (const match of content.matchAll(/(?<!!)\[[^\]]*]\(([^)\s]+)\)/g)) {
-      add(match[1]);
-    }
+    collectMarkdownTargets(content, add);
     collectStringLiterals(content, found);
   } else if (kind === 'script' || kind === 'json') {
     collectStringLiterals(content, found);
@@ -98,22 +98,48 @@ export function extractReferences(content: string, kind: ReferenceKind): string[
 export type ReferenceKind = 'html' | 'css' | 'markdown' | 'script' | 'json' | 'other';
 
 export function referenceKindForPath(filePath: string): ReferenceKind {
-  const extension = path.posix.extname(filePath).toLowerCase();
-  if (extension === '.html' || extension === '.htm') return 'html';
-  if (extension === '.css') return 'css';
-  if (extension === '.md' || extension === '.markdown') return 'markdown';
-  if (
-    extension === '.js' ||
-    extension === '.mjs' ||
-    extension === '.cjs' ||
-    extension === '.jsx' ||
-    extension === '.ts' ||
-    extension === '.tsx'
-  ) {
-    return 'script';
+  switch (path.posix.extname(filePath).toLowerCase()) {
+    case '.html':
+    case '.htm':
+      return 'html';
+    case '.css':
+      return 'css';
+    case '.md':
+    case '.markdown':
+      return 'markdown';
+    case '.js':
+    case '.mjs':
+    case '.cjs':
+    case '.jsx':
+    case '.ts':
+    case '.tsx':
+      return 'script';
+    case '.json':
+      return 'json';
+    default:
+      return 'other';
   }
-  if (extension === '.json') return 'json';
-  return 'other';
+}
+
+/**
+ * Targets of `[text](target)` and `![alt](target)`. Anchors on `](` instead of matching the
+ * bracketed text, which backtracks quadratically on unmatched `[`. A target ends at `]`, so
+ * the next anchor is never inside a scanned range and every character is read at most once.
+ */
+function collectMarkdownTargets(content: string, add: (value: string | undefined) => void): void {
+  let index = content.indexOf('](');
+  while (index >= 0) {
+    const start = index + 2;
+    const limit = Math.min(content.length, start + MAX_TARGET_LENGTH);
+    let end = start;
+    while (end < limit && content[end] !== ')' && content[end] !== ']' && content.charCodeAt(end) > 0x20) {
+      end += 1;
+    }
+    if (end > start && content[end] === ')') {
+      add(content.slice(start, end));
+    }
+    index = content.indexOf('](', start);
+  }
 }
 
 function collectStringLiterals(content: string, found: Set<string>): void {

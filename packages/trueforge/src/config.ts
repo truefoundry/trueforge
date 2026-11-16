@@ -956,8 +956,8 @@ export interface SharedServerConfiguration {
   SENTRY_ADDITIONAL_TAGS: Record<string, string>;
   /** `local` or `s3`. Env: `ARTIFACT_STORAGE_BACKEND`. Default `local`. */
   ARTIFACT_STORAGE_BACKEND: 'local' | 's3';
-  /** Directory for local artifact files. Env: `ARTIFACT_STORAGE_LOCAL_DIR`. */
-  ARTIFACT_STORAGE_LOCAL_DIR: string;
+  /** Directory for local artifact files; required at startup in distributed mode. Env: `ARTIFACT_STORAGE_LOCAL_DIR`. */
+  ARTIFACT_STORAGE_LOCAL_DIR: string | undefined;
   /** Required when the backend is `s3`. Env: `ARTIFACT_S3_BUCKET`. */
   ARTIFACT_S3_BUCKET: string | undefined;
   /** Key prefix inside the bucket. Env: `ARTIFACT_S3_PREFIX`. Default `artifacts/`. */
@@ -971,6 +971,8 @@ export interface SharedServerConfiguration {
   ARTIFACT_MAX_VERSION_BYTES: number;
   ARTIFACT_MAX_FILES: number;
   ARTIFACT_MAX_LISTED_FILES: number;
+  /** Total bytes of all artifact versions one tenant may hold. Env: `ARTIFACT_MAX_TENANT_BYTES`. Default 5 GiB. */
+  ARTIFACT_MAX_TENANT_BYTES: number;
 }
 
 export type StandaloneServerConfiguration = SharedServerConfiguration & {
@@ -1181,6 +1183,11 @@ const standalone = parseBoolean({
 const appDataDirSuffix = getEnv('APP_DATA_DIR_SUFFIX', { defaultValue: '' }) ?? '';
 const appDataDir = envPaths(ENV_PATHS_APP_NAME, { suffix: appDataDirSuffix }).data;
 
+function nonEmptyTrimmed(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed === '' ? undefined : trimmed;
+}
+
 function resolveArtifactStorageBackend(): 'local' | 's3' {
   const raw = getEnv('ARTIFACT_STORAGE_BACKEND', { defaultValue: 'local' }) ?? 'local';
   if (raw !== 'local' && raw !== 's3') {
@@ -1190,16 +1197,7 @@ function resolveArtifactStorageBackend(): 'local' | 's3' {
 }
 
 const artifactStorageBackend = resolveArtifactStorageBackend();
-const artifactLocalDirFromEnv = getEnv('ARTIFACT_STORAGE_LOCAL_DIR');
-if (
-  !standalone &&
-  artifactStorageBackend === 'local' &&
-  (artifactLocalDirFromEnv === undefined || artifactLocalDirFromEnv.trim() === '')
-) {
-  throw new Error(
-    'ARTIFACT_STORAGE_LOCAL_DIR is required when ARTIFACT_STORAGE_BACKEND=local and STANDALONE is false. Set it to a directory shared by every replica.',
-  );
-}
+const artifactLocalDirFromEnv = nonEmptyTrimmed(getEnv('ARTIFACT_STORAGE_LOCAL_DIR'));
 const artifactS3Bucket = getEnv('ARTIFACT_S3_BUCKET');
 if (artifactStorageBackend === 's3' && (artifactS3Bucket === undefined || artifactS3Bucket.trim() === '')) {
   throw new Error('ARTIFACT_S3_BUCKET is required when ARTIFACT_STORAGE_BACKEND=s3');
@@ -1427,8 +1425,8 @@ const shared: SharedServerConfiguration = {
   SENTRY_DSN: getEnv('SENTRY_DSN', { required: false }),
   SENTRY_ADDITIONAL_TAGS: parseSentryAdditionalTags(getEnv('SENTRY_ADDITIONAL_TAGS', { required: false })),
   ARTIFACT_STORAGE_BACKEND: artifactStorageBackend,
-  ARTIFACT_STORAGE_LOCAL_DIR: artifactLocalDirFromEnv?.trim() || path.join(appDataDir, 'artifacts'),
-  ARTIFACT_S3_BUCKET: artifactS3Bucket?.trim() || undefined,
+  ARTIFACT_STORAGE_LOCAL_DIR: artifactLocalDirFromEnv,
+  ARTIFACT_S3_BUCKET: nonEmptyTrimmed(artifactS3Bucket),
   ARTIFACT_S3_PREFIX: artifactS3Prefix,
   ARTIFACT_S3_REGION: getEnv('ARTIFACT_S3_REGION'),
   ARTIFACT_S3_ENDPOINT: getEnv('ARTIFACT_S3_ENDPOINT'),
@@ -1457,6 +1455,11 @@ const shared: SharedServerConfiguration = {
     envKey: 'ARTIFACT_MAX_LISTED_FILES',
     raw: getEnv('ARTIFACT_MAX_LISTED_FILES'),
     defaultValue: 2000,
+  }),
+  ARTIFACT_MAX_TENANT_BYTES: parsePositiveInt({
+    envKey: 'ARTIFACT_MAX_TENANT_BYTES',
+    raw: getEnv('ARTIFACT_MAX_TENANT_BYTES'),
+    defaultValue: 5 * 1024 * 1024 * 1024,
   }),
 };
 
@@ -1710,12 +1713,12 @@ export function getPublicBaseUrl(config: ServerConfiguration = configuration): s
   return publicBaseUrl;
 }
 
-/** `/` or `/custom/proxy/path/` — trailing slash for asset URLs and the boot script. Empty / standalone non-dev → `/`. */
-/** OS app-data directory. Standalone artifact signing keys are stored here. */
+/** OS app-data directory. Standalone artifact files and signing keys are stored here. */
 export function getAppDataDir(): string {
   return appDataDir;
 }
 
+/** `/` or `/custom/proxy/path/` — trailing slash for asset URLs and the boot script. Empty / standalone non-dev → `/`. */
 export function getPublicUiBasePath(config: ServerConfiguration = configuration): string {
   const publicBaseUrl = effectivePublicBaseUrl(config);
   if (publicBaseUrl === '') {

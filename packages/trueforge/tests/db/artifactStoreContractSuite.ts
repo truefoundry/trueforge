@@ -190,7 +190,7 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     });
   });
 
-  it('keeps an omitted description and finds the artifact by session entry', async () => {
+  it('keeps an omitted description and clears it with null', async () => {
     const store = getStore();
     await store.insertArtifact({
       id: 'art-1',
@@ -200,23 +200,54 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
       description: 'kept',
       created_by_subject: SUBJECT,
     });
-    await store.updateArtifact({ tenant_id: TENANT, id: 'art-1', title: 'Renamed' });
+    await store.updateArtifact({ tenant_id: TENANT, id: 'art-1', title: 'Renamed', description: undefined });
     expect((await store.getArtifact({ tenant_id: TENANT, id: 'art-1' }))?.description).toBe('kept');
-    await store.insertVersion(
-      versionInput({
-        id: 'ver-1',
-        artifact_id: 'art-1',
-        version: 1,
-        entry_path: 'out/index.html',
-        session_id: 'session-1',
-      }),
-    );
-    expect(
-      (await store.findBySessionEntry({ tenant_id: TENANT, session_id: 'session-1', entry_path: 'out/index.html' }))
-        ?.id,
-    ).toBe('art-1');
-    expect(await store.getVersionById({ tenant_id: TENANT, id: 'ver-1' })).toEqual(
-      expect.objectContaining({ version: 1, entry_path: 'out/index.html' }),
-    );
+    await store.updateArtifact({ tenant_id: TENANT, id: 'art-1', title: 'Renamed', description: null });
+    expect((await store.getArtifact({ tenant_id: TENANT, id: 'art-1' }))?.description).toBeNull();
+  });
+
+  it('returns only the latest version of each artifact in one call', async () => {
+    const store = getStore();
+    for (const id of ['art-1', 'art-2', 'art-3']) {
+      await store.insertArtifact({
+        id,
+        tenant_id: TENANT,
+        slug: id,
+        title: id,
+        description: null,
+        created_by_subject: SUBJECT,
+      });
+    }
+    await store.insertVersion(versionInput({ id: 'ver-1a', artifact_id: 'art-1', version: 1 }));
+    await store.insertVersion(versionInput({ id: 'ver-1b', artifact_id: 'art-1', version: 2 }));
+    await store.insertVersion(versionInput({ id: 'ver-2a', artifact_id: 'art-2', version: 1 }));
+
+    const latest = await store.listLatestVersions({
+      tenant_id: TENANT,
+      artifact_ids: ['art-1', 'art-2', 'art-3'],
+    });
+    expect(latest.map(version => version.id).sort()).toEqual(['ver-1b', 'ver-2a']);
+    expect(await store.listLatestVersions({ tenant_id: TENANT, artifact_ids: [] })).toEqual([]);
+    expect(await store.listLatestVersions({ tenant_id: 'other', artifact_ids: ['art-1'] })).toEqual([]);
+  });
+
+  it('sums version bytes per tenant across artifacts', async () => {
+    const store = getStore();
+    expect(await store.sumVersionBytes({ tenant_id: TENANT })).toBe(0);
+    for (const id of ['art-1', 'art-2']) {
+      await store.insertArtifact({
+        id,
+        tenant_id: TENANT,
+        slug: id,
+        title: id,
+        description: null,
+        created_by_subject: SUBJECT,
+      });
+    }
+    await store.insertVersion(versionInput({ id: 'ver-1a', artifact_id: 'art-1', version: 1, total_size_bytes: 100 }));
+    await store.insertVersion(versionInput({ id: 'ver-1b', artifact_id: 'art-1', version: 2, total_size_bytes: 50 }));
+    await store.insertVersion(versionInput({ id: 'ver-2a', artifact_id: 'art-2', version: 1, total_size_bytes: 7 }));
+    expect(await store.sumVersionBytes({ tenant_id: TENANT })).toBe(157);
+    expect(await store.sumVersionBytes({ tenant_id: 'other' })).toBe(0);
   });
 }

@@ -13,23 +13,26 @@ export const ArtifactFileSchema = z
   })
   .openapi('ArtifactFile');
 
+const artifactVersionSummaryShape = {
+  artifact_id: z.string(),
+  version: z.number().int().positive(),
+  note: z.string().nullable(),
+  entry_path: z.string(),
+  entry_content_type: ArtifactEntryContentTypeSchema,
+  file_count: z.number().int().nonnegative(),
+  total_size_bytes: z.number().int().nonnegative(),
+  session_id: z.string(),
+  turn_id: z.string(),
+  source_root: z.string(),
+  storage_backend: ArtifactStorageBackendSchema,
+  created_by_subject: SubjectSchema,
+  created_at: z.iso.datetime(),
+};
+
+export const ArtifactVersionSummarySchema = z.object(artifactVersionSummaryShape).openapi('ArtifactVersionSummary');
+
 export const ArtifactVersionSchema = z
-  .object({
-    artifact_id: z.string(),
-    version: z.number().int().positive(),
-    note: z.string().nullable(),
-    entry_path: z.string(),
-    entry_content_type: ArtifactEntryContentTypeSchema,
-    file_count: z.number().int().nonnegative(),
-    total_size_bytes: z.number().int().nonnegative(),
-    session_id: z.string(),
-    turn_id: z.string(),
-    source_root: z.string(),
-    storage_backend: ArtifactStorageBackendSchema,
-    created_by: SubjectSchema,
-    created_at: z.string().datetime(),
-    files: z.array(ArtifactFileSchema),
-  })
+  .object({ ...artifactVersionSummaryShape, files: z.array(ArtifactFileSchema) })
   .openapi('ArtifactVersion');
 
 export const ArtifactSchema = z
@@ -39,10 +42,10 @@ export const ArtifactSchema = z
     title: z.string(),
     description: z.string().nullable(),
     url: z.string().describe('Absolute or path-absolute link that opens the artifact.'),
-    latest_version: ArtifactVersionSchema.nullable(),
-    created_by: SubjectSchema,
-    created_at: z.string().datetime(),
-    updated_at: z.string().datetime(),
+    latest_version: ArtifactVersionSummarySchema,
+    created_by_subject: SubjectSchema,
+    created_at: z.iso.datetime(),
+    updated_at: z.iso.datetime(),
   })
   .openapi('Artifact');
 
@@ -66,13 +69,12 @@ export const ArtifactBundleSourceSchema = z
   })
   .openapi('ArtifactBundleSource');
 
-export const ArtifactBundleChangeSchema = z
-  .object({
-    added: z.number().int().nonnegative(),
-    removed: z.number().int().nonnegative(),
-    changed: z.number().int().nonnegative(),
-  })
-  .openapi('ArtifactBundleChange');
+// Left unnamed: `.nullable()` on a named schema would make the shared component nullable.
+const ArtifactBundleChangeSchema = z.object({
+  added: z.number().int().nonnegative(),
+  removed: z.number().int().nonnegative(),
+  changed: z.number().int().nonnegative(),
+});
 
 export const PreviewArtifactBundleRequestSchema = z
   .object({
@@ -139,7 +141,7 @@ export const ArtifactContentTokenSchema = z
   .object({
     token: z.string(),
     base_url: z.string().describe('Prefix to load bundle files from. Append a bundle path.'),
-    expires_at: z.string().datetime(),
+    expires_at: z.iso.datetime(),
   })
   .openapi('ArtifactContentToken');
 
@@ -149,3 +151,4 @@ export const GetArtifactContentTokenResponseSchema = z
 
 export type Artifact = z.infer<typeof ArtifactSchema>;
 export type ArtifactVersion = z.infer<typeof ArtifactVersionSchema>;
+export type ArtifactVersionSummary = z.infer<typeof ArtifactVersionSummarySchema>;

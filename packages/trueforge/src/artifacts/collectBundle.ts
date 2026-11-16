@@ -52,9 +52,13 @@ export interface SandboxFileReader {
   readFile(absolutePath: string): Promise<Buffer>;
 }
 
+/** Caps the `missing` list so a page full of dead links cannot bloat the response. */
+const MAX_REPORTED_MISSING = 50;
+
 /**
  * Follows references from the entry file and reads every regular file it needs.
- * The bundle root is the nearest common directory of those files. Root-absolute
+ * Only files under the entry file's directory are eligible, and hidden files and
+ * folders (`.env`, `.git-credentials`, ...) are never published. Root-absolute
  * references (`/assets/app.css`) resolve against the entry file's directory.
  */
 export async function collectArtifactBundle(input: {
@@ -67,39 +71,41 @@ export async function collectArtifactBundle(input: {
     throw new ArtifactBundleError(422, 'invalid_path', 'Entry path must be an absolute sandbox path');
   }
   const siteRoot = path.posix.dirname(entryPath);
+  const sitePrefix = siteRoot === '/' ? '/' : `${siteRoot}/`;
+
+  // The listing is recursive, so one call covers every file a reference can resolve to.
+  const listing = await input.sandbox.listDirectory(siteRoot);
+  if (listing.truncated) {
+    throw new ArtifactBundleError(
+      413,
+      'artifact_too_large',
+      'The page folder holds too many files to scan. Move the page into its own folder.',
+    );
+  }
   const sizes = new Map<string, number>();
-  const listed = new Set<string>();
-
-  const ensureListed = async (directory: string): Promise<void> => {
-    if (listed.has(directory)) {
-      return;
-    }
-    listed.add(directory);
-    const result = await input.sandbox.listDirectory(directory);
-    for (const file of result.files) {
-      sizes.set(`${directory}/${file.path}`, file.sizeBytes);
-    }
-  };
-
-  await ensureListed(siteRoot);
+  for (const file of listing.files) {
+    sizes.set(`${sitePrefix}${file.path}`, file.sizeBytes);
+  }
   if (!sizes.has(entryPath)) {
     throw new ArtifactBundleError(422, 'invalid_path', `Entry file was not found: ${entryPath}`);
   }
 
   const included = new Map<string, Buffer>();
-  const missing: string[] = [];
+  const missing = new Set<string>();
+  const queued = new Set<string>([entryPath]);
   const pending = [entryPath];
   let totalSize = 0;
 
   while (pending.length > 0) {
     const absolute = pending.shift();
-    if (absolute === undefined || included.has(absolute)) {
+    if (absolute === undefined) {
       continue;
     }
-    await ensureListed(path.posix.dirname(absolute));
     const size = sizes.get(absolute);
     if (size === undefined) {
-      missing.push(absolute);
+      if (missing.size < MAX_REPORTED_MISSING) {
+        missing.add(absolute);
+      }
       continue;
     }
     if (size > input.limits.maxFileBytes) {
@@ -128,8 +134,14 @@ export async function collectArtifactBundle(input: {
     }
     for (const reference of extractReferences(body.toString('utf8'), kind)) {
       const nextAbsolute = resolveToAbsolute({ siteRoot, fromAbsolute: absolute, reference });
-      if (nextAbsolute !== undefined && !included.has(nextAbsolute)) {
+      if (nextAbsolute === undefined || queued.has(nextAbsolute)) {
+        continue;
+      }
+      queued.add(nextAbsolute);
+      if (isPublishable({ absolute: nextAbsolute, sitePrefix })) {
         pending.push(nextAbsolute);
+      } else if (missing.size < MAX_REPORTED_MISSING) {
+        missing.add(nextAbsolute);
       }
     }
   }
@@ -144,9 +156,10 @@ export async function collectArtifactBundle(input: {
   }
 
   const root = commonDirectory([...included.keys()]);
+  const rootPrefix = root === '/' ? '/' : `${root}/`;
   const files: CollectedArtifactFile[] = [];
   for (const [absolute, body] of included) {
-    const bundlePath = absolute.slice(root.length + 1);
+    const bundlePath = absolute.slice(rootPrefix.length);
     files.push({
       absolutePath: absolute,
       bundlePath,
@@ -159,10 +172,10 @@ export async function collectArtifactBundle(input: {
   files.sort((left, right) => (left.bundlePath < right.bundlePath ? -1 : left.bundlePath > right.bundlePath ? 1 : 0));
   return {
     root,
-    entryPath: entryPath.slice(root.length + 1),
+    entryPath: entryPath.slice(rootPrefix.length),
     entryContentType,
     files,
-    missing,
+    missing: [...missing],
     totalSizeBytes: totalSize,
     manifestSha256: manifestHash(files),
   };
@@ -193,6 +206,17 @@ function resolveToAbsolute(input: { siteRoot: string; fromAbsolute: string; refe
     return undefined;
   }
   return joined;
+}
+
+/** Inside the entry directory and free of hidden path segments, which commonly hold credentials. */
+function isPublishable(input: { absolute: string; sitePrefix: string }): boolean {
+  if (!input.absolute.startsWith(input.sitePrefix)) {
+    return false;
+  }
+  return !input.absolute
+    .slice(input.sitePrefix.length)
+    .split('/')
+    .some(segment => segment.startsWith('.'));
 }
 
 function commonDirectory(absolutePaths: readonly string[]): string {
