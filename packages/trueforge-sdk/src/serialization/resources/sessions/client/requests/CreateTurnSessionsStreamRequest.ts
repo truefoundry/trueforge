@@ -8,7 +8,7 @@ import { CreateTurnSessionsStreamRequestInputItem } from "../../types/CreateTurn
 
 export const CreateTurnSessionsStreamRequest: core.serialization.Schema<
     serializers.CreateTurnSessionsStreamRequest.Raw,
-    TrueForge.CreateTurnSessionsStreamRequest
+    Omit<TrueForge.CreateTurnSessionsStreamRequest, "assumeUser">
 > = core.serialization.object({
     input: core.serialization.list(CreateTurnSessionsStreamRequestInputItem),
     previousTurnId: core.serialization.property("previous_turn_id", PreviousTurnIdInput.optional()),

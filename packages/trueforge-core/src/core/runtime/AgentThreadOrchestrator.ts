@@ -41,7 +41,7 @@ import {
 import type { CreateDynamicSubAgentThread } from './CreateDynamicSubAgentThread';
 import { addAgentThreadMetrics, createEmptyAgentThreadMetrics, type AgentThreadMetrics } from './metrics';
 
-const MAX_PARALLEL_SUB_AGENTS = 5;
+export const DEFAULT_MAX_PARALLEL_SUB_AGENTS = 10;
 const CANCELED_BECAUSE_USER_SENT_NEW_MESSAGE = 'Canceled because user sent a new message.';
 
 function getActiveAgentThreads(agentThreads: Map<string, AgentThread>): AgentThread[] {
@@ -193,6 +193,7 @@ export async function* wrapWithSubAgentSpan(
 
 export interface AgentThreadOrchestratorInput {
   agentThreads: Map<string, AgentThread>;
+  maxParallelSubAgents?: number;
   createDynamicSubAgentThread: CreateDynamicSubAgentThread;
   tracing: AgentTracing;
   logger: Logger;
@@ -207,6 +208,7 @@ export interface AgentThreadOrchestratorInput {
 
 export class AgentThreadOrchestrator {
   private readonly agentThreads: Map<string, AgentThread>;
+  private readonly maxParallelSubAgents: number;
   private readonly createDynamicSubAgentThread: CreateDynamicSubAgentThread;
   private readonly tracing: AgentTracing;
   private readonly logger: Logger;
@@ -218,6 +220,7 @@ export class AgentThreadOrchestrator {
   private readonly mcpServerInitInfoById = new Map<string, MCPServerInitInfo>();
 
   constructor(params: AgentThreadOrchestratorInput) {
+    this.maxParallelSubAgents = params.maxParallelSubAgents ?? DEFAULT_MAX_PARALLEL_SUB_AGENTS;
     this.agentThreads = params.agentThreads;
     this.createDynamicSubAgentThread = params.createDynamicSubAgentThread;
     this.tracing = params.tracing;
@@ -694,8 +697,8 @@ export class AgentThreadOrchestrator {
           turnPaused = false;
         }
 
-        for (let i = 0; i < runnable.length; i += MAX_PARALLEL_SUB_AGENTS) {
-          const batch = runnable.slice(i, i + MAX_PARALLEL_SUB_AGENTS);
+        for (let i = 0; i < runnable.length; i += this.maxParallelSubAgents) {
+          const batch = runnable.slice(i, i + this.maxParallelSubAgents);
           const generators = batch.map(thread =>
             thread.parent
               ? wrapWithSubAgentSpan(rootSpan.trace, thread, signal)

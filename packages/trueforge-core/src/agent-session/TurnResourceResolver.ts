@@ -6,12 +6,7 @@ import type { VercelAIProviderName } from '../core/llm/VercelAILLM';
 import type { ToolSource } from '../core/mcp/IMCPServer';
 import { RemoteMCP, type McpConnection } from '../core/mcp/RemoteMCP';
 import type { ToolSelectorConfig } from '../core/mcp/ToolSelectorPolicy';
-import {
-  DEFAULT_DISABLE_TOOLS,
-  DEFAULT_ENABLE_TOOLS,
-  DEFAULT_PRELOAD_TOOLS,
-  DEFAULT_REQUIRE_APPROVAL_FOR_TOOLS,
-} from '../core/mcp/toolSelectors';
+import { DEFAULT_DISABLE_TOOLS, DEFAULT_ENABLE_TOOLS, DEFAULT_PRELOAD_TOOLS } from '../core/mcp/toolSelectors';
 import { ToolSet } from '../core/mcp/ToolSet';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import type { AgentInfo } from '../core/runtime/AgentThread.types';
@@ -47,7 +42,8 @@ const TRUEFORGE_MCP_SELECTORS: ToolSelectorConfig = {
   enableTools: DEFAULT_ENABLE_TOOLS,
   disableTools: DEFAULT_DISABLE_TOOLS,
   preloadTools: DEFAULT_PRELOAD_TOOLS,
-  requireApprovalForTools: DEFAULT_REQUIRE_APPROVAL_FOR_TOOLS,
+  // Session approval policies do not target system tool sets yet.
+  requireApprovalForTools: [],
 };
 
 function toSelectors(entry: {
@@ -83,6 +79,7 @@ export class TurnResourceResolver<
   readonly #sources = new Map<string, Promise<ToolSource>>();
   readonly #models = new Map<string, Promise<ResolvedModel>>();
   #sandbox?: HarnessSandbox | undefined;
+  readonly maxParallelSubAgents?: number;
 
   constructor(
     protected readonly deps: {
@@ -97,6 +94,7 @@ export class TurnResourceResolver<
       mcpRequestTimeoutMs: number;
       mcpConnectTimeoutMs: number;
       mcpMaxResponseBytes?: number | undefined;
+      maxParallelSubAgents?: number;
       /** One sandbox type per runtime. Omit = no sandbox support. */
       sandboxProvider?: TurnSandboxFactory | undefined;
       /**
@@ -115,7 +113,11 @@ export class TurnResourceResolver<
       /** Forwarded to RemoteMCP / AgentThread (required by their constructors). */
       logger: Logger;
     },
-  ) {}
+  ) {
+    if (deps.maxParallelSubAgents !== undefined) {
+      this.maxParallelSubAgents = deps.maxParallelSubAgents;
+    }
+  }
 
   get webSearchProvider(): IWebSearchProvider | undefined {
     return this.deps.webSearchProvider;

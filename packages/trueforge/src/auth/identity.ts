@@ -9,6 +9,7 @@ import configuration, {
 } from '../config';
 import { RESERVED_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
 import { createTrueFoundryRequestContext } from '../truefoundry/accessToken';
+import type { AssumeUser } from './assumeUser';
 
 /** Standalone / default TrueForge admin role string. */
 export const STANDALONE_ADMIN_ROLE = 'admin';
@@ -46,6 +47,8 @@ declare module 'hono' {
   interface ContextVariableMap {
     subject?: RequestSubject;
     request_context?: RequestContext;
+    /** Set when service auth applied `assume-user`. */
+    assume_user?: AssumeUser;
   }
 }
 
