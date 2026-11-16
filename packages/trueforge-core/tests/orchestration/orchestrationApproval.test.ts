@@ -7,7 +7,7 @@ import { AgentThread } from '../../src/core/runtime/AgentThread';
 import { InternalEventType, type AgentThreadConstructorInput } from '../../src/core/runtime/AgentThread.types';
 import { AgentThreadOrchestrator } from '../../src/core/runtime/AgentThreadOrchestrator';
 import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
-import { makeSilentLogger, TEST_MODEL_NAME } from '../core/harnessMocks';
+import { makeMockIMCPServer, makeSilentLogger, TEST_MODEL_NAME } from '../core/harnessMocks';
 import {
   driveUntilPauseOrDone,
   llmCreateInputs,
@@ -578,6 +578,54 @@ describe('orchestration: a policy that lands mid-pause resolves an existing pend
     await expect(finished).resolves.toMatchObject({ done: true });
   });
 
+  it('applies a policy to a system tool set that supports approval policies', async () => {
+    const { orchestrator, callTool, toolSet } = makeApprovalHarness(ROOT_FINAL);
+
+    for await (const _event of orchestrator.send([{ type: EventType.USER_MESSAGE, content: 'hello' }])) {
+      void _event;
+    }
+    const iterator = orchestrator.execute({ signal: new AbortController().signal });
+    expect((await driveUntilPauseOrDone(iterator)).kind).toBe('paused');
+
+    for await (const _batch of orchestrator.send([
+      {
+        type: EventType.USER_TOOL_APPROVAL_POLICY,
+        id: newEventId(),
+        created_at: new Date().toISOString(),
+        policies: [{ server_name: POLICY_SERVER_NAME, name: WRITE_NOTE_TOOL_NAME, policy: { type: 'allow_session' } }],
+      },
+    ])) {
+      void _batch;
+    }
+    orchestrator.wake();
+
+    const resumed = await driveUntilPauseOrDone(iterator);
+    expect(resumed.kind).toBe('done');
+    expect(toolSet.getApprovalPolicies()).toEqual({ [WRITE_NOTE_TOOL_NAME]: { type: 'allow_session' } });
+    expect(callTool).toHaveBeenCalledTimes(1);
+  });
+
+  it('send() rejects a policy for a system tool set whose capability does not support approvals', async () => {
+    const { orchestrator } = makeApprovalHarness(ROOT_FINAL, [
+      makeMockIMCPServer({ name: 'local-tools', preload: true }),
+    ]);
+
+    await expect(
+      (async () => {
+        for await (const _batch of orchestrator.send([
+          {
+            type: EventType.USER_TOOL_APPROVAL_POLICY,
+            id: newEventId(),
+            created_at: new Date().toISOString(),
+            policies: [{ server_name: 'local-tools', name: 'tool_a', policy: { type: 'allow_session' } }],
+          },
+        ])) {
+          void _batch;
+        }
+      })(),
+    ).rejects.toThrow(/unknown server_name 'local-tools'/);
+  });
+
   it('send() rejects a policy for an unknown server and applies nothing (fail-closed)', async () => {
     const { orchestrator, toolSet } = makeApprovalHarnessWithUserToolSet(ROOT_FINAL);
 
@@ -765,10 +813,14 @@ describe('ToolSet: policy-aware is_approval_required', () => {
   });
 });
 
-function makeApprovalHarness(finalReply: string): {
+function makeApprovalHarness(
+  finalReply: string,
+  extraSystemToolSets: IToolSet[] = [],
+): {
   orchestrator: AgentThreadOrchestrator;
   thread: AgentThread;
   callTool: jest.Mock;
+  toolSet: IToolSet;
 } {
   const { toolSet, callTool } = makeApprovalGatedWriteNoteToolSet();
   const agentThreadInput: AgentThreadConstructorInput = {
@@ -807,6 +859,7 @@ function makeApprovalHarness(finalReply: string): {
         toolResponseProcessors: undefined,
         instructionBuilders: undefined,
       },
+      { systemToolSets: extraSystemToolSets },
     ],
     capabilityState: undefined,
     tracing: NOOP_AGENT_TRACING,
@@ -822,7 +875,7 @@ function makeApprovalHarness(finalReply: string): {
     pendingTurnEvents: [],
     mcpServers: [],
   });
-  return { orchestrator, thread, callTool };
+  return { orchestrator, thread, callTool, toolSet };
 }
 
 function makeApprovalHarnessWithUserToolSet(
