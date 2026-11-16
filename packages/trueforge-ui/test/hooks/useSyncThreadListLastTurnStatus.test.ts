@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const useThreadIsRunning = vi.fn(() => false);
 const useAuiState = vi.fn();
-const updateCustom = vi.fn(async () => undefined);
+const updateCustom = vi.fn(async (_custom: Record<string, unknown>) => undefined);
 const getState = vi.fn(() => ({ custom: { isMutable: true } as Record<string, unknown> }));
 const getSession = vi.fn();
 const useOptionalServer = vi.fn((): { getSession: typeof getSession } | null => null);
@@ -50,9 +50,12 @@ describe('useSyncThreadListLastTurnStatus', () => {
         expect.objectContaining({ isMutable: true, lastTurnStatus: 'running' }),
       );
     });
-    const stamped = updateCustom.mock.calls[0]?.[0] as { lastActivityAt?: string };
-    expect(stamped.lastActivityAt).toEqual(expect.any(String));
-    expect(Number.isNaN(new Date(stamped.lastActivityAt ?? '').getTime())).toBe(false);
+    const activityAt = updateCustom.mock.calls[0]?.[0]?.lastActivityAt;
+    expect(typeof activityAt).toBe('string');
+    if (typeof activityAt !== 'string') {
+      throw new Error('expected lastActivityAt string');
+    }
+    expect(Number.isNaN(new Date(activityAt).getTime())).toBe(false);
   });
 
   it('does not stamp running before the thread has a remote session id', async () => {
