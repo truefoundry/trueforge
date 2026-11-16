@@ -21,6 +21,7 @@ import {
   readParallelToolGroups,
 } from '../utils/parallelToolGroups.js';
 import { loaderActivityKey, loaderActivityProgress, resolveLoaderLabel } from '../utils/resolveActivityLabel.js';
+import { ASK_USER_TOOL_NAME, getAskUserAnswerResult } from '../utils/toolCallParsing.js';
 import { AgentStepsContainer } from './AgentStepsContainer.js';
 import { AssistantLeafPartContainer } from './AssistantLeafPartContainer.js';
 import { AssistantTextContainer } from './AssistantTextContainer.js';
@@ -83,7 +84,15 @@ export function AssistantMessageContainer() {
     isCancelled && !isSessionReplay && cancellationReason === TURN_CANCELLATION_REASON.CANCELLED_FOR_NEXT_TURN;
   const cancelledBanner = isCancelled && !hideCancelled ? cancellationLabel(cancellationReason) : undefined;
 
-  const { cutIndex, hasFinal, toolCount, thinkingCount } = computeAgentStepsSplit(parts, isMessageRunning);
+  const { cutIndex, hasFinal, toolCount, thinkingCount } = computeAgentStepsSplit(
+    parts.map(p => ({
+      type: p.type,
+      text: p.type === 'text' ? p.text : undefined,
+      name: p.type === 'data' ? p.name : undefined,
+      hidden: isAnsweredAskUser(p),
+    })),
+    isMessageRunning,
+  );
 
   // Built-in indicator modes hide the loader while reasoning streams; we want it there too.
   // Hide when resume is unavailable (message stays "running" but no events arrive) or the
@@ -105,6 +114,8 @@ export function AssistantMessageContainer() {
     }
 
     if (index < cutIndex) {
+      // Answered user questions stay visible: render them outside the collapsible Agent steps.
+      if (isAnsweredAskUser(part)) return null;
       if (part.type === 'reasoning') {
         return ['group-agentSteps', 'group-reasoning'];
       }
@@ -172,5 +183,11 @@ export function AssistantMessageContainer() {
         {showIndicator ? <MessageIndicator label={loaderLabel} /> : null}
       </AssistantMessageBubble>
     </MessagePrimitive.Root>
+  );
+}
+
+function isAnsweredAskUser(part: PartState): boolean {
+  return (
+    part.type === 'tool-call' && part.toolName === ASK_USER_TOOL_NAME && getAskUserAnswerResult(part.result) != null
   );
 }

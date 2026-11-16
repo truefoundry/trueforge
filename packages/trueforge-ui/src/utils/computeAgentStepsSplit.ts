@@ -5,6 +5,8 @@ export type AgentStepPart = {
   type: PartState['type'];
   text?: string;
   name?: string;
+  /** Rendered outside the Agent steps group (e.g. answered user questions); not counted. */
+  hidden?: boolean;
 };
 
 function isAgentStepPart(part: AgentStepPart): boolean {
@@ -62,6 +64,8 @@ export function computeAgentStepsSplit(parts: readonly AgentStepPart[], isRunnin
   for (let i = 0; i < actualCutIndex; i++) {
     const part = parts[i];
     if (!part) continue;
+
+    if (part.hidden) continue;
 
     if (part.type === 'tool-call') {
       toolCount++;
