@@ -168,11 +168,10 @@ export function createModelRouter(input: {
         price_direction: priceDirection({ picked: picked.candidate.price, fallback: fallbackPrice }),
         picked_image_input: picked.candidate.imageInput,
         candidate_count: candidates.length,
-        candidates: Object.fromEntries(
-          candidates
-            .map((candidate, index) => [candidate.model, answers[`can_${String(index)}`]] as const)
-            .sort(([, a], [, b]) => (b ?? -1) - (a ?? -1)),
-        ),
+        // A list, not an object: the JSON log format sorts object keys, which would lose the ranking.
+        candidates: candidates
+          .map((candidate, index) => ({ model: candidate.model, p_yes: answers[`can_${String(index)}`] }))
+          .sort((a, b) => (b.p_yes ?? -1) - (a.p_yes ?? -1)),
       });
       return input.mode === 'on' ? { model: picked.candidate.model } : {};
     };
