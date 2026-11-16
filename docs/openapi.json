@@ -331,6 +331,242 @@
         ],
         "type": "object"
       },
+      "Artifact": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "created_by": {
+            "$ref": "#/components/schemas/Subject"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "latest_version": {
+            "$ref": "#/components/schemas/ArtifactVersion"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "url": {
+            "description": "Absolute or path-absolute link that opens the artifact.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "title",
+          "description",
+          "url",
+          "latest_version",
+          "created_by",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "ArtifactBundleChange": {
+        "properties": {
+          "added": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "changed": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "removed": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "added",
+          "removed",
+          "changed"
+        ],
+        "type": [
+          "object",
+          "null"
+        ]
+      },
+      "ArtifactBundleSource": {
+        "properties": {
+          "entry_path": {
+            "description": "Absolute sandbox path of the HTML or Markdown file to publish.",
+            "maxLength": 4095,
+            "minLength": 1,
+            "type": "string"
+          },
+          "session_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "turn_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "turn_id",
+          "entry_path"
+        ],
+        "type": "object"
+      },
+      "ArtifactContentToken": {
+        "properties": {
+          "base_url": {
+            "description": "Prefix to load bundle files from. Append a bundle path.",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "base_url",
+          "expires_at"
+        ],
+        "type": "object"
+      },
+      "ArtifactEntryContentType": {
+        "enum": [
+          "html",
+          "markdown"
+        ],
+        "type": "string"
+      },
+      "ArtifactFile": {
+        "properties": {
+          "media_type": {
+            "type": "string"
+          },
+          "path": {
+            "description": "Path inside the bundle, relative to the version root.",
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "path",
+          "size_bytes",
+          "sha256",
+          "media_type"
+        ],
+        "type": "object"
+      },
+      "ArtifactStorageBackend": {
+        "enum": [
+          "local",
+          "s3"
+        ],
+        "type": "string"
+      },
+      "ArtifactVersion": {
+        "properties": {
+          "artifact_id": {
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "created_by": {
+            "$ref": "#/components/schemas/Subject"
+          },
+          "entry_content_type": {
+            "$ref": "#/components/schemas/ArtifactEntryContentType"
+          },
+          "entry_path": {
+            "type": "string"
+          },
+          "file_count": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/ArtifactFile"
+            },
+            "type": "array"
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "session_id": {
+            "type": "string"
+          },
+          "source_root": {
+            "type": "string"
+          },
+          "storage_backend": {
+            "$ref": "#/components/schemas/ArtifactStorageBackend"
+          },
+          "total_size_bytes": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "turn_id": {
+            "type": "string"
+          },
+          "version": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "artifact_id",
+          "version",
+          "note",
+          "entry_path",
+          "entry_content_type",
+          "file_count",
+          "total_size_bytes",
+          "session_id",
+          "turn_id",
+          "source_root",
+          "storage_backend",
+          "created_by",
+          "created_at",
+          "files"
+        ],
+        "type": [
+          "object",
+          "null"
+        ]
+      },
       "AskUserQuestionsConfig": {
         "default": {
           "enabled": true
@@ -1175,6 +1411,60 @@
         ],
         "type": "object"
       },
+      "CreateArtifactRequest": {
+        "properties": {
+          "description": {
+            "maxLength": 2000,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "note": {
+            "maxLength": 500,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "slug": {
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ArtifactBundleSource"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "source"
+        ],
+        "type": "object"
+      },
+      "CreateArtifactVersionRequest": {
+        "properties": {
+          "note": {
+            "maxLength": 500,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "$ref": "#/components/schemas/ArtifactBundleSource"
+          }
+        },
+        "required": [
+          "source"
+        ],
+        "type": "object"
+      },
       "CreateMCPServerRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1434,6 +1724,10 @@
         "properties": {},
         "type": "object"
       },
+      "DeleteArtifactResponse": {
+        "properties": {},
+        "type": "object"
+      },
       "DeleteMCPServerResponse": {
         "properties": {},
         "type": "object"
@@ -1599,6 +1893,39 @@
         "properties": {
           "data": {
             "$ref": "#/components/schemas/Agent"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "GetArtifactContentTokenResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ArtifactContentToken"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "GetArtifactResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Artifact"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "GetArtifactVersionResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ArtifactVersion"
           }
         },
         "required": [
@@ -2132,6 +2459,42 @@
           "data": {
             "items": {
               "$ref": "#/components/schemas/Agent"
+            },
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/TokenPagination"
+          }
+        },
+        "required": [
+          "data",
+          "pagination"
+        ],
+        "type": "object"
+      },
+      "ListArtifactVersionsResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/ArtifactVersion"
+            },
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/TokenPagination"
+          }
+        },
+        "required": [
+          "data",
+          "pagination"
+        ],
+        "type": "object"
+      },
+      "ListArtifactsResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/Artifact"
             },
             "type": "array"
           },
@@ -3483,6 +3846,106 @@
           "sandbox_environment"
         ],
         "type": "string"
+      },
+      "PreviewArtifactBundle": {
+        "properties": {
+          "changes": {
+            "$ref": "#/components/schemas/ArtifactBundleChange"
+          },
+          "entry_content_type": {
+            "$ref": "#/components/schemas/ArtifactEntryContentType"
+          },
+          "entry_path": {
+            "type": "string"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/PreviewArtifactBundleFile"
+            },
+            "type": "array"
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "root": {
+            "type": "string"
+          },
+          "total_size_bytes": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "root",
+          "entry_path",
+          "entry_content_type",
+          "files",
+          "missing",
+          "total_size_bytes",
+          "changes"
+        ],
+        "type": "object"
+      },
+      "PreviewArtifactBundleFile": {
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "path",
+          "size_bytes"
+        ],
+        "type": "object"
+      },
+      "PreviewArtifactBundleRequest": {
+        "properties": {
+          "artifact_id": {
+            "description": "When set, the response includes a diff against this artifact.",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "entry_path": {
+            "maxLength": 4095,
+            "minLength": 1,
+            "type": "string"
+          },
+          "session_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "turn_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "turn_id",
+          "entry_path"
+        ],
+        "type": "object"
+      },
+      "PreviewArtifactBundleResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/PreviewArtifactBundle"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
       },
       "PreviousTurnIdInput": {
         "anyOf": [
@@ -6368,6 +6831,26 @@
         ],
         "type": "object"
       },
+      "UpdateArtifactRequest": {
+        "properties": {
+          "description": {
+            "maxLength": 2000,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "type": "object"
+      },
       "UpdateConfigurationRequest": {
         "additionalProperties": false,
         "properties": {
@@ -7986,6 +8469,785 @@
           "agents"
         ],
         "x-fern-sdk-method-name": "get_code_snippets"
+      }
+    },
+    "/api/v1/artifacts": {
+      "get": {
+        "description": "List artifacts in the tenant, newest first. Any signed-in user can list them.",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 25,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_token",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Exact slug match. Returns at most one artifact.",
+            "in": "query",
+            "name": "slug",
+            "required": false,
+            "schema": {
+              "description": "Exact slug match. Returns at most one artifact.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only artifacts that have a version from this session.",
+            "in": "query",
+            "name": "session_id",
+            "required": false,
+            "schema": {
+              "description": "Only artifacts that have a version from this session.",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "created_by_me",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Case-insensitive match against the title or slug.",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "description": "Case-insensitive match against the title or slug.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListArtifactsResponse"
+                }
+              }
+            },
+            "description": "A page of artifacts."
+          }
+        },
+        "summary": "List artifacts",
+        "tags": [
+          "Artifacts"
+        ],
+        "x-fern-pagination": {
+          "cursor": "$request.page_token",
+          "next_cursor": "$response.pagination.next_page_token",
+          "results": "$response.data"
+        },
+        "x-fern-sdk-group-name": [
+          "artifacts"
+        ],
+        "x-fern-sdk-method-name": "list"
+      },
+      "post": {
+        "description": "Copy a sandbox HTML or Markdown file and the files it needs into durable storage.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateArtifactRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetArtifactResponse"
+                }
+              }
+            },
+            "description": "The published artifact."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller cannot perform this action."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Artifact was not found."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Slug is taken, or the sandbox is unavailable."
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The bundle exceeds a size or file-count limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Slug, path, or content type is not valid."
+          }
+        },
+        "summary": "Publish an artifact",
+        "tags": [
+          "Artifacts"
+        ],
+        "x-fern-sdk-group-name": [
+          "artifacts"
+        ],
+        "x-fern-sdk-method-name": "create"
+      }
+    },
+    "/api/v1/artifacts/bundle-preview": {
+      "post": {
+        "description": "Resolve the files an entry page needs, without publishing. The caller must own the session.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewArtifactBundleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewArtifactBundleResponse"
+                }
+              }
+            },
+            "description": "Files that would be published."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller cannot perform this action."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Artifact was not found."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Slug is taken, or the sandbox is unavailable."
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The bundle exceeds a size or file-count limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Slug, path, or content type is not valid."
+          }
+        },
+        "summary": "Preview an artifact bundle",
+        "tags": [
+          "Artifacts"
+        ],
+        "x-fern-sdk-group-name": [
+          "artifacts"
+        ],
+        "x-fern-sdk-method-name": "preview_bundle"
+      }
+    },
+    "/api/v1/artifacts/{artifact_id}": {
+      "delete": {
+        "description": "Delete an artifact and its versions. The slug can be reused. The creator or a tenant admin may delete.",
+        "parameters": [
+          {
+            "description": "Immutable artifact identifier.",
+            "in": "path",
+            "name": "artifact_id",
+            "required": true,
+            "schema": {
+              "description": "Immutable artifact identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteArtifactResponse"
+                }
+              }
+            },
+            "description": "The artifact was deleted."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller cannot perform this action."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Artifact was not found."
+          }
+        },
+        "summary": "Delete an artifact",
+        "tags": [
+          "Artifacts"
+        ],
+        "x-fern-sdk-group-name": [
+          "artifacts"
+        ],
+        "x-fern-sdk-method-name": "delete"
+      },
+      "get": {
+        "description": "Fetch one artifact, including its latest version and files.",
+        "parameters": [
+          {
+            "description": "Immutable artifact identifier.",
+            "in": "path",
+            "name": "artifact_id",
+            "required": true,
+            "schema": {
+              "description": "Immutable artifact identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetArtifactResponse"
+                }
+              }
+            },
+            "description": "The artifact."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Artifact was not found."
+          }
+        },
+        "summary": "Get an artifact",
+        "tags": [
+          "Artifacts"
+        ],
+        "x-fern-sdk-group-name": [
+          "artifacts"
+        ],
+        "x-fern-sdk-method-name": "get"
+      },
+      "put": {
+        "description": "Replace the title and description. The creator or a tenant admin may update.",
+        "parameters": [
+          {
+            "description": "Immutable artifact identifier.",
+            "in": "path",
+            "name": "artifact_id",
+            "required": true,
+            "schema": {
+              "description": "Immutable artifact identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateArtifactRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetArtifactResponse"
+                }
+              }
+            },
+            "description": "The updated artifact."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller cannot perform this action."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Artifact was not found."
+          }
+        },
+        "summary": "Update artifact details",
+        "tags": [
+          "Artifacts"
+        ],
+        "x-fern-sdk-group-name": [
+          "artifacts"
+        ],
+        "x-fern-sdk-method-name": "update"
+      }
+    },
+    "/api/v1/artifacts/{artifact_id}/versions": {
+      "get": {
+        "description": "List versions of an artifact, newest first.",
+        "parameters": [
+          {
+            "description": "Immutable artifact identifier.",
+            "in": "path",
+            "name": "artifact_id",
+            "required": true,
+            "schema": {
+              "description": "Immutable artifact identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 25,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_token",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListArtifactVersionsResponse"
+                }
+              }
+            },
+            "description": "A page of versions."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Artifact was not found."
+          }
+        },
+        "summary": "List artifact versions",
+        "tags": [
+          "Artifacts"
+        ],
+        "x-fern-pagination": {
+          "cursor": "$request.page_token",
+          "next_cursor": "$response.pagination.next_page_token",
+          "results": "$response.data"
+        },
+        "x-fern-sdk-group-name": [
+          "artifacts"
+        ],
+        "x-fern-sdk-method-name": "list_versions"
+      },
+      "post": {
+        "description": "Publish a new immutable version. An unchanged bundle returns the current version.",
+        "parameters": [
+          {
+            "description": "Immutable artifact identifier.",
+            "in": "path",
+            "name": "artifact_id",
+            "required": true,
+            "schema": {
+              "description": "Immutable artifact identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateArtifactVersionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetArtifactVersionResponse"
+                }
+              }
+            },
+            "description": "The existing version; the bundle was unchanged."
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetArtifactVersionResponse"
+                }
+              }
+            },
+            "description": "The new version."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller cannot perform this action."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Artifact was not found."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Slug is taken, or the sandbox is unavailable."
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The bundle exceeds a size or file-count limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Slug, path, or content type is not valid."
+          }
+        },
+        "summary": "Publish an artifact version",
+        "tags": [
+          "Artifacts"
+        ],
+        "x-fern-sdk-group-name": [
+          "artifacts"
+        ],
+        "x-fern-sdk-method-name": "create_version"
+      }
+    },
+    "/api/v1/artifacts/{artifact_id}/versions/{version}": {
+      "get": {
+        "description": "Fetch one version, including its files.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "artifact_id",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetArtifactVersionResponse"
+                }
+              }
+            },
+            "description": "The version."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Artifact was not found."
+          }
+        },
+        "summary": "Get an artifact version",
+        "tags": [
+          "Artifacts"
+        ],
+        "x-fern-sdk-group-name": [
+          "artifacts"
+        ],
+        "x-fern-sdk-method-name": "get_version"
+      }
+    },
+    "/api/v1/artifacts/{artifact_id}/versions/{version}/content-token": {
+      "get": {
+        "description": "Mint a short-lived token used to load the version files in the viewer.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "artifact_id",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetArtifactContentTokenResponse"
+                }
+              }
+            },
+            "description": "A token and the URL prefix for the version."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Artifact was not found."
+          }
+        },
+        "summary": "Get an artifact content token",
+        "tags": [
+          "Artifacts"
+        ],
+        "x-fern-sdk-group-name": [
+          "artifacts"
+        ],
+        "x-fern-sdk-method-name": "get_content_token"
+      }
+    },
+    "/api/v1/artifacts/{artifact_id}/versions/{version}/download": {
+      "get": {
+        "description": "Download a single file, or a zip when the version contains more than one file.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "artifact_id",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The file, or a zip of the bundle."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Artifact was not found."
+          }
+        },
+        "summary": "Download an artifact version",
+        "tags": [
+          "Artifacts"
+        ],
+        "x-fern-sdk-group-name": [
+          "artifacts"
+        ],
+        "x-fern-sdk-method-name": "download_version"
       }
     },
     "/api/v1/auth/callback": {
@@ -12964,6 +14226,9 @@
     },
     {
       "name": "Schedules"
+    },
+    {
+      "name": "Artifacts"
     },
     {
       "name": "Agent Sessions"

@@ -73,6 +73,12 @@ helm upgrade --install trueforge oci://tfy.jfrog.io/tfy-helm/trueforge \
 authenticates controller → server calls (schedule dispatch). The chart always
 runs peered (`STANDALONE=false`) and rejects an empty key.
 
+Published artifacts default to a local volume at `artifacts.localDir`. That volume
+is one replica only. Set `artifacts.storageBackend` to `s3` and `artifacts.s3.bucket`
+when `server.replicaCount` or the resource tier runs more than one server pod.
+The chart creates an `artifact-signing` Secret when `artifacts.signingKey` is empty
+and reuses it on upgrade.
+
 `values.yaml` ships a **dev placeholder**
 (`placeholder-value-please-generate-your-own`). The chart does **not** create a
 Secret for it. Before any shared or production deploy, create a Secret and

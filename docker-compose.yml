@@ -52,11 +52,17 @@ services:
       # A single-process deployment can set STANDALONE=true and drop redis.
       STANDALONE: 'false'
       REDIS_URL: redis://redis:6379
+      # Peered mode refuses an implicit artifact directory and an empty signing key.
+      ARTIFACT_STORAGE_BACKEND: local
+      ARTIFACT_STORAGE_LOCAL_DIR: /var/lib/trueforge/artifacts
+      ARTIFACT_CONTENT_SIGNING_KEY: compose-artifact-signing-key
     # Secrets and Postgres credentials (POSTGRES_USER, …).
     # `environment` above overrides any colliding keys from this file.
     env_file:
       - path: packages/trueforge/.env
         required: true
+    volumes:
+      - artifact-data:/var/lib/trueforge/artifacts
     depends_on:
       postgres:
         condition: service_healthy
@@ -94,6 +100,9 @@ services:
       # The controller is its own container, so localhost would be itself; `server` is
       # the compose DNS name that resolves to the server container.
       SERVER_URL: http://server:8790
+      ARTIFACT_STORAGE_BACKEND: local
+      ARTIFACT_STORAGE_LOCAL_DIR: /var/lib/trueforge/artifacts
+      ARTIFACT_CONTENT_SIGNING_KEY: compose-artifact-signing-key
     env_file:
       - path: packages/trueforge/.env
         required: true
@@ -105,3 +114,6 @@ services:
     # Above GRACEFUL_TIMEOUT_SECONDS (30) so SIGKILL does not cut off loop drain.
     stop_grace_period: 35s
     restart: unless-stopped
+
+volumes:
+  artifact-data:

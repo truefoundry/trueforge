@@ -954,6 +954,23 @@ export interface SharedServerConfiguration {
   SENTRY_ENABLED: boolean;
   SENTRY_DSN: string | undefined;
   SENTRY_ADDITIONAL_TAGS: Record<string, string>;
+  /** `local` or `s3`. Env: `ARTIFACT_STORAGE_BACKEND`. Default `local`. */
+  ARTIFACT_STORAGE_BACKEND: 'local' | 's3';
+  /** Directory for local artifact files. Env: `ARTIFACT_STORAGE_LOCAL_DIR`. */
+  ARTIFACT_STORAGE_LOCAL_DIR: string;
+  /** Required when the backend is `s3`. Env: `ARTIFACT_S3_BUCKET`. */
+  ARTIFACT_S3_BUCKET: string | undefined;
+  /** Key prefix inside the bucket. Env: `ARTIFACT_S3_PREFIX`. Default `artifacts/`. */
+  ARTIFACT_S3_PREFIX: string;
+  ARTIFACT_S3_REGION: string | undefined;
+  ARTIFACT_S3_ENDPOINT: string | undefined;
+  ARTIFACT_S3_FORCE_PATH_STYLE: boolean;
+  /** Required in distributed mode. Standalone generates and persists one. Env: `ARTIFACT_CONTENT_SIGNING_KEY`. */
+  ARTIFACT_CONTENT_SIGNING_KEY: string | undefined;
+  ARTIFACT_MAX_FILE_BYTES: number;
+  ARTIFACT_MAX_VERSION_BYTES: number;
+  ARTIFACT_MAX_FILES: number;
+  ARTIFACT_MAX_LISTED_FILES: number;
 }
 
 export type StandaloneServerConfiguration = SharedServerConfiguration & {
@@ -1163,6 +1180,32 @@ const standalone = parseBoolean({
 
 const appDataDirSuffix = getEnv('APP_DATA_DIR_SUFFIX', { defaultValue: '' }) ?? '';
 const appDataDir = envPaths(ENV_PATHS_APP_NAME, { suffix: appDataDirSuffix }).data;
+
+function resolveArtifactStorageBackend(): 'local' | 's3' {
+  const raw = getEnv('ARTIFACT_STORAGE_BACKEND', { defaultValue: 'local' }) ?? 'local';
+  if (raw !== 'local' && raw !== 's3') {
+    throw new Error(`ARTIFACT_STORAGE_BACKEND must be "local" or "s3", got "${raw}"`);
+  }
+  return raw;
+}
+
+const artifactStorageBackend = resolveArtifactStorageBackend();
+const artifactLocalDirFromEnv = getEnv('ARTIFACT_STORAGE_LOCAL_DIR');
+if (
+  !standalone &&
+  artifactStorageBackend === 'local' &&
+  (artifactLocalDirFromEnv === undefined || artifactLocalDirFromEnv.trim() === '')
+) {
+  throw new Error(
+    'ARTIFACT_STORAGE_LOCAL_DIR is required when ARTIFACT_STORAGE_BACKEND=local and STANDALONE is false. Set it to a directory shared by every replica.',
+  );
+}
+const artifactS3Bucket = getEnv('ARTIFACT_S3_BUCKET');
+if (artifactStorageBackend === 's3' && (artifactS3Bucket === undefined || artifactS3Bucket.trim() === '')) {
+  throw new Error('ARTIFACT_S3_BUCKET is required when ARTIFACT_STORAGE_BACKEND=s3');
+}
+const artifactS3PrefixRaw = getEnv('ARTIFACT_S3_PREFIX', { defaultValue: 'artifacts/' }) ?? 'artifacts/';
+const artifactS3Prefix = artifactS3PrefixRaw.endsWith('/') ? artifactS3PrefixRaw : `${artifactS3PrefixRaw}/`;
 
 const port = parsePort(getEnv('PORT'));
 const host = getEnv('HOST', { defaultValue: DEFAULT_HOST }) ?? DEFAULT_HOST;
@@ -1383,6 +1426,38 @@ const shared: SharedServerConfiguration = {
   }),
   SENTRY_DSN: getEnv('SENTRY_DSN', { required: false }),
   SENTRY_ADDITIONAL_TAGS: parseSentryAdditionalTags(getEnv('SENTRY_ADDITIONAL_TAGS', { required: false })),
+  ARTIFACT_STORAGE_BACKEND: artifactStorageBackend,
+  ARTIFACT_STORAGE_LOCAL_DIR: artifactLocalDirFromEnv?.trim() || path.join(appDataDir, 'artifacts'),
+  ARTIFACT_S3_BUCKET: artifactS3Bucket?.trim() || undefined,
+  ARTIFACT_S3_PREFIX: artifactS3Prefix,
+  ARTIFACT_S3_REGION: getEnv('ARTIFACT_S3_REGION'),
+  ARTIFACT_S3_ENDPOINT: getEnv('ARTIFACT_S3_ENDPOINT'),
+  ARTIFACT_S3_FORCE_PATH_STYLE: parseBoolean({
+    envKey: 'ARTIFACT_S3_FORCE_PATH_STYLE',
+    raw: getEnv('ARTIFACT_S3_FORCE_PATH_STYLE'),
+    defaultValue: false,
+  }),
+  ARTIFACT_CONTENT_SIGNING_KEY: getEnv('ARTIFACT_CONTENT_SIGNING_KEY'),
+  ARTIFACT_MAX_FILE_BYTES: parsePositiveInt({
+    envKey: 'ARTIFACT_MAX_FILE_BYTES',
+    raw: getEnv('ARTIFACT_MAX_FILE_BYTES'),
+    defaultValue: 10 * 1024 * 1024,
+  }),
+  ARTIFACT_MAX_VERSION_BYTES: parsePositiveInt({
+    envKey: 'ARTIFACT_MAX_VERSION_BYTES',
+    raw: getEnv('ARTIFACT_MAX_VERSION_BYTES'),
+    defaultValue: 50 * 1024 * 1024,
+  }),
+  ARTIFACT_MAX_FILES: parsePositiveInt({
+    envKey: 'ARTIFACT_MAX_FILES',
+    raw: getEnv('ARTIFACT_MAX_FILES'),
+    defaultValue: 20,
+  }),
+  ARTIFACT_MAX_LISTED_FILES: parsePositiveInt({
+    envKey: 'ARTIFACT_MAX_LISTED_FILES',
+    raw: getEnv('ARTIFACT_MAX_LISTED_FILES'),
+    defaultValue: 2000,
+  }),
 };
 
 const configuration: ServerConfiguration = standalone
@@ -1613,7 +1688,7 @@ if (!configuration.STANDALONE && configuration.TRUEFORGE_API_KEY.trim() === '') 
  * Effective public application URL. Empty `PUBLIC_BASE_URL` stays empty
  * (callers that need a callback origin throw).
  */
-function effectivePublicBaseUrl(config: ServerConfiguration): string {
+export function effectivePublicBaseUrl(config: ServerConfiguration = configuration): string {
   // Standalone production is one process on $PORT. Ignore a leftover Vite
   // PUBLIC_BASE_URL (e.g. http://localhost:3000) from the shared .env.
   if (config.STANDALONE && config.NODE_ENV !== 'development') {
@@ -1636,6 +1711,11 @@ export function getPublicBaseUrl(config: ServerConfiguration = configuration): s
 }
 
 /** `/` or `/custom/proxy/path/` — trailing slash for asset URLs and the boot script. Empty / standalone non-dev → `/`. */
+/** OS app-data directory. Standalone artifact signing keys are stored here. */
+export function getAppDataDir(): string {
+  return appDataDir;
+}
+
 export function getPublicUiBasePath(config: ServerConfiguration = configuration): string {
   const publicBaseUrl = effectivePublicBaseUrl(config);
   if (publicBaseUrl === '') {

@@ -112,6 +112,7 @@ import { createController } from './controller';
 import { memoryIngestFromConfig } from './controller/memoryIngest';
 import type { IAccessControlStore } from './db/accessControlStore';
 import type { IAgentStore } from './db/agentStore';
+import type { IArtifactStore } from './db/artifactStore';
 import type { IConfigurationStore } from './db/configurationStore';
 import type { IMcpServerWithAuthStore } from './db/mcpServerStore';
 import { McpServerWithAuthStore } from './db/McpServerWithAuthStore';
@@ -179,6 +180,7 @@ interface ServerPersistence<TTransaction> {
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   scheduleStore: IScheduleStore<TTransaction>;
+  artifactStore: IArtifactStore<TTransaction>;
   /** One shared client for TrueFoundry store resolvers + auth; undefined when TrueFoundry mode is off. */
   serviceFoundryClient: TrueFoundryServiceFoundryServerClient | undefined;
   sessionMetricsStore: ISessionMetricsStore;
@@ -289,6 +291,7 @@ async function createStandalonePersistence(options: {
       import('./db/sqlite/configuration-store/SqliteConfigurationStore'),
       import('./db/sqlite/agent-store/SqliteAgentStore'),
       import('./db/sqlite/schedule-store/SqliteScheduleStore'),
+      import('./db/sqlite/artifact-store/SqliteArtifactStore'),
       import('./db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore'),
       import('./db/sqlite/access-control-store/SqliteAccessControlStore'),
     ]),
@@ -307,6 +310,7 @@ async function createStandalonePersistence(options: {
     { SqliteConfigurationStore },
     { SqliteAgentStore },
     { SqliteScheduleStore },
+    { SqliteArtifactStore },
     { SqliteSandboxEnvironmentStore },
     { SqliteAccessControlStore },
   ] = sqliteStores;
@@ -355,6 +359,7 @@ async function createStandalonePersistence(options: {
     sandboxEnvironmentStore,
     sandboxProviderStore,
     scheduleStore: new SqliteScheduleStore(db),
+    artifactStore: new SqliteArtifactStore(db),
     serviceFoundryClient: undefined,
     sessionMetricsStore: new SqliteSessionMetricsStore(db),
     sessionStore: new SqliteSessionStore(db),
@@ -409,6 +414,7 @@ async function createDistributedPersistence(options: {
       import('./db/postgres/configuration-store/PostgresConfigurationStore'),
       import('./db/postgres/agent-store/PostgresAgentStore'),
       import('./db/postgres/schedule-store/PostgresScheduleStore'),
+      import('./db/postgres/artifact-store/PostgresArtifactStore'),
       import('./db/postgres/sandbox-environment-store/PostgresSandboxEnvironmentStore'),
       import('./db/postgres/access-control-store/PostgresAccessControlStore'),
     ]),
@@ -426,6 +432,7 @@ async function createDistributedPersistence(options: {
     { PostgresConfigurationStore },
     { PostgresAgentStore },
     { PostgresScheduleStore },
+    { PostgresArtifactStore },
     { PostgresSandboxEnvironmentStore },
     { PostgresAccessControlStore },
   ] = postgresStores;
@@ -523,6 +530,7 @@ async function createDistributedPersistence(options: {
     sandboxEnvironmentStore,
     sandboxProviderStore,
     scheduleStore: new PostgresScheduleStore(db),
+    artifactStore: new PostgresArtifactStore(db),
     serviceFoundryClient,
     sessionMetricsStore: new PostgresSessionMetricsStore(db),
     sessionStore: new PostgresSessionStore(db),
@@ -547,6 +555,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     sandboxEnvironmentStore,
     sandboxProviderStore,
     scheduleStore,
+    artifactStore,
     serviceFoundryClient,
     sessionMetricsStore,
     sessionStore,
@@ -662,6 +671,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     sandboxEnvironmentStore,
     sandboxProviderStore,
     scheduleStore,
+    artifactStore,
     sessionMetricsStore,
     sessions,
     sessionStore,

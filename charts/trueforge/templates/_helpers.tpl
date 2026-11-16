@@ -665,6 +665,35 @@ the env map, and mTLS.
 {{- $env = append $env (dict "name" "TRUEFOUNDRY_SANDBOX_SETTINGS" "value" (dict "nats_bridge_url" (printf "ws://%s:%v" $sandboxHost ($sandboxSvc.natsBridgePort | default 4444)) | toJson)) -}}
 {{- end -}}
 
+{{- $artifacts := .Values.artifacts | default dict -}}
+{{- $artifactBackend := $artifacts.storageBackend | default "local" -}}
+{{- if eq $artifactBackend "local" -}}
+{{- $artifactReplicas := include "trueforge.replicas" . | int -}}
+{{- if gt $artifactReplicas 1 -}}
+{{- fail "artifacts.storageBackend=local keeps files on one volume. Set artifacts.storageBackend=s3 when the server has more than one replica." -}}
+{{- end -}}
+{{- $env = append $env (dict "name" "ARTIFACT_STORAGE_BACKEND" "value" "local") -}}
+{{- $env = append $env (dict "name" "ARTIFACT_STORAGE_LOCAL_DIR" "value" ($artifacts.localDir | default "/var/lib/trueforge/artifacts")) -}}
+{{- else if eq $artifactBackend "s3" -}}
+{{- $artifactS3 := $artifacts.s3 | default dict -}}
+{{- $_ := required "artifacts.s3.bucket is required when artifacts.storageBackend is s3" $artifactS3.bucket -}}
+{{- $env = append $env (dict "name" "ARTIFACT_STORAGE_BACKEND" "value" "s3") -}}
+{{- $env = append $env (dict "name" "ARTIFACT_S3_BUCKET" "value" $artifactS3.bucket) -}}
+{{- $env = append $env (dict "name" "ARTIFACT_S3_PREFIX" "value" ($artifactS3.prefix | default "artifacts/")) -}}
+{{- if $artifactS3.region -}}
+{{- $env = append $env (dict "name" "ARTIFACT_S3_REGION" "value" $artifactS3.region) -}}
+{{- end -}}
+{{- if $artifactS3.endpoint -}}
+{{- $env = append $env (dict "name" "ARTIFACT_S3_ENDPOINT" "value" $artifactS3.endpoint) -}}
+{{- end -}}
+{{- if $artifactS3.forcePathStyle -}}
+{{- $env = append $env (dict "name" "ARTIFACT_S3_FORCE_PATH_STYLE" "value" "true") -}}
+{{- end -}}
+{{- else -}}
+{{- fail "artifacts.storageBackend must be local or s3" -}}
+{{- end -}}
+{{- $env = append $env (dict "name" "ARTIFACT_CONTENT_SIGNING_KEY" "valueFrom" (dict "secretKeyRef" (dict "name" (printf "%s-artifact-signing" (include "trueforge.fullname" .)) "key" "key"))) -}}
+
 {{- /* env map: replace in place when the chart already emits the name, else
        append. Keeps the pod spec free of duplicate env entries. A null value
        drops the override, so a parent chart can hand a key back to the chart

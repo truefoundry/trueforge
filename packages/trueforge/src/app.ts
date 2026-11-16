@@ -11,6 +11,8 @@ import { randomUUID } from 'node:crypto';
 import type { Configuration } from 'openid-client';
 import type { Logger } from 'winston';
 import { createAgentsRouter } from './apis/agents';
+import { createArtifactContentRouter } from './apis/artifactContent';
+import { createArtifactService, createArtifactsRouter } from './apis/artifacts';
 import { createAuthRouter } from './apis/auth';
 import { createCapabilitiesRouter } from './apis/capabilities';
 import { createCatalogRouter } from './apis/catalog';
@@ -33,6 +35,8 @@ import {
   type TurnExecutionStores,
 } from './apis/turns';
 import { createUsersRouter } from './apis/users';
+import { resolveArtifactSigningKey } from './artifacts/signingKey';
+import { createArtifactStorage } from './artifacts/storage/createArtifactStorage';
 import type { Authenticator } from './auth/authenticator';
 import type { Authorizer } from './auth/authorizer';
 import { areCatalogSettingsAvailable, resolveRequestContext, type RequestContext } from './auth/identity';
@@ -49,9 +53,10 @@ import type { ModelCatalog } from './catalog/ModelCatalog';
 import type { SandboxCatalog } from './catalog/SandboxCatalog';
 import type { SkillCatalog } from './catalog/SkillCatalog';
 import type { WebSearchCatalog } from './catalog/WebSearchCatalog';
-import configuration, { getPublicUiBasePath, getTrueForgeAuthMode, TrueForgeAuthMode } from './config';
+import configuration, { getAppDataDir, getPublicUiBasePath, getTrueForgeAuthMode, TrueForgeAuthMode } from './config';
 import type { IAccessControlStore } from './db/accessControlStore';
 import type { AgentRecord, IAgentStore } from './db/agentStore';
+import type { IArtifactStore } from './db/artifactStore';
 import type { IConfigurationStore } from './db/configurationStore';
 import type { IMcpServerWithAuthStore } from './db/mcpServerStore';
 import type { IMemoryProviderStore } from './db/memoryProviderStore';
@@ -205,11 +210,19 @@ export function createAppErrorHandler(params: { logger: Logger }): ErrorHandler 
     }
     if (error instanceof HTTPException) {
       logError(error.status, error.status >= 500 ? 'Server API error' : 'Client API error');
-      return c.json({ error: { message: error.message } }, error.status);
+      const code = errorCode(error.cause);
+      return c.json({ error: { message: error.message, ...(code === undefined ? {} : { code }) } }, error.status);
     }
     logError(500, 'Unhandled error');
     return c.json({ error: { message: 'Internal server error' } }, 500);
   };
+}
+
+function errorCode(cause: unknown): string | undefined {
+  if (typeof cause === 'object' && cause !== null && 'code' in cause && typeof cause.code === 'string') {
+    return cause.code;
+  }
+  return undefined;
 }
 
 const openApiDocConfig = {
@@ -341,6 +354,7 @@ export interface ServerDeps<TTransaction> {
   /** DB singleton, or the env-backed shared store in TrueFoundry mode. */
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   scheduleStore: IScheduleStore<TTransaction>;
+  artifactStore: IArtifactStore<TTransaction>;
   sessionMetricsStore: ISessionMetricsStore;
   sessions: Sessions<TTransaction>;
   sessionStore: ISessionStore<TTransaction>;
@@ -540,6 +554,30 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         logger: deps.logger,
       }),
       scheduleExecutionAuthMiddleware,
+    ),
+  );
+  const artifactService = createArtifactService({
+    store: deps.artifactStore,
+    storage: createArtifactStorage(configuration),
+    withTransaction: deps.withTransaction,
+    signingKey: resolveArtifactSigningKey({
+      configured: configuration.ARTIFACT_CONTENT_SIGNING_KEY,
+      standalone: configuration.STANDALONE,
+      appDataDir: getAppDataDir(),
+    }),
+  });
+  app.route('/artifact-content', createArtifactContentRouter({ artifactService }));
+  app.route(
+    '/api/v1/artifacts',
+    withAuth(
+      createArtifactsRouter({
+        artifactService,
+        sessions: deps.sessions,
+        sandboxProviderStore: deps.sandboxProviderStore,
+        resolveRequestContext,
+        logger: deps.logger,
+      }),
+      authMiddleware,
     ),
   );
   app.route(

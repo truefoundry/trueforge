@@ -374,6 +374,53 @@ export interface SandboxEnvironmentSecretTable {
  * PRIMARY KEY (id).
  * FK (agent_id) → agent(id) ON DELETE CASCADE.
  */
+export type ArtifactEntryContentType = 'html' | 'markdown';
+export type ArtifactStorageBackendName = 'local' | 's3';
+
+/** Shareable artifact — mirrors Postgres `artifact`. PRIMARY KEY (id). */
+export interface ArtifactTable {
+  id: string;
+  tenant_id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  latest_version: number;
+  created_by_subject: JsonbColumn<Subject>;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Immutable publish — mirrors Postgres `artifact_version`. PRIMARY KEY (id). */
+export interface ArtifactVersionTable {
+  id: string;
+  tenant_id: string;
+  artifact_id: string;
+  version: number;
+  entry_path: string;
+  entry_content_type: ArtifactEntryContentType;
+  file_count: number;
+  total_size_bytes: number;
+  manifest_sha256: string;
+  session_id: string;
+  turn_id: string;
+  source_root: string;
+  note: string | null;
+  storage_backend: ArtifactStorageBackendName;
+  created_by_subject: JsonbColumn<Subject>;
+  storage_location: string;
+  created_at: string;
+}
+
+/** One file inside a version — mirrors Postgres `artifact_file`. */
+export interface ArtifactFileTable {
+  artifact_version_id: string;
+  tenant_id: string;
+  path: string;
+  size_bytes: number;
+  sha256: string;
+  media_type: string;
+}
+
 export interface ScheduleTable {
   /** application-generated (ulid); FK target for schedule_run */
   id: string;
@@ -489,6 +536,9 @@ export interface Database {
   sandbox_environment_secret: SandboxEnvironmentSecretTable;
   schedule: ScheduleTable;
   schedule_run: ScheduleRunTable;
+  artifact: ArtifactTable;
+  artifact_version: ArtifactVersionTable;
+  artifact_file: ArtifactFileTable;
   mcp_server: McpServerTable;
   oauth_token: OAuthTokenTable;
   oauth_pending_authorization: OAuthPendingAuthorizationTable;

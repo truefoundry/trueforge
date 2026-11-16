@@ -540,6 +540,64 @@ export interface SandboxEnvironmentSecretTable {
  * CREATE INDEX schedule_agent_id_idx ON schedule (tenant_id, agent_id)
  * FK (agent_id) → agent(id) ON DELETE CASCADE
  */
+/** `html` or `markdown` — the entry file the viewer opens. */
+export type ArtifactEntryContentType = 'html' | 'markdown';
+
+/** Blob backend that holds one version's files. */
+export type ArtifactStorageBackendName = 'local' | 's3';
+
+/**
+ * Shareable artifact. PRIMARY KEY (id). UNIQUE (tenant_id, slug).
+ */
+export interface ArtifactTable {
+  id: string;
+  tenant_id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  latest_version: number;
+  created_by_subject: JSONColumnType<Subject, Subject, Subject>;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/**
+ * Immutable publish of an artifact. PRIMARY KEY (id). UNIQUE (artifact_id, version).
+ * `session_id` is not a foreign key so the artifact outlives the session.
+ */
+export interface ArtifactVersionTable {
+  id: string;
+  tenant_id: string;
+  artifact_id: string;
+  version: number;
+  entry_path: string;
+  entry_content_type: ArtifactEntryContentType;
+  file_count: number;
+  total_size_bytes: number;
+  manifest_sha256: string;
+  session_id: string;
+  turn_id: string;
+  source_root: string;
+  note: string | null;
+  storage_backend: ArtifactStorageBackendName;
+  storage_location: string;
+  created_by_subject: JSONColumnType<Subject, Subject, Subject>;
+  created_at: Date;
+}
+
+/**
+ * One file inside a version. Bytes live at `{storage_location}/{path}`.
+ * PRIMARY KEY (artifact_version_id, path)
+ */
+export interface ArtifactFileTable {
+  artifact_version_id: string;
+  tenant_id: string;
+  path: string;
+  size_bytes: number;
+  sha256: string;
+  media_type: string;
+}
+
 export interface ScheduleTable {
   /** application-generated (ulid); FK target for schedule_run */
   id: string;
@@ -677,6 +735,9 @@ export interface Database {
   sandbox_environment_secret: SandboxEnvironmentSecretTable;
   schedule: ScheduleTable;
   schedule_run: ScheduleRunTable;
+  artifact: ArtifactTable;
+  artifact_version: ArtifactVersionTable;
+  artifact_file: ArtifactFileTable;
   mcp_server: McpServerTable;
   oauth_token: OAuthTokenTable;
   oauth_pending_authorization: OAuthPendingAuthorizationTable;

@@ -92,6 +92,11 @@ spec:
               mountPath: /tmp
             {{- include "trueforge.mtlsVolumeMount" . | nindent 12 }}
             {{- include "trueforge.customCA.volumeMounts" . | nindent 12 }}
+            {{- $artifacts := .Values.artifacts | default dict }}
+            {{- if eq ($artifacts.storageBackend | default "local") "local" }}
+            - name: artifacts
+              mountPath: {{ $artifacts.localDir | default "/var/lib/trueforge/artifacts" | quote }}
+            {{- end }}
             {{- with .Values.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -108,6 +113,12 @@ spec:
           {{- end }}
         {{- include "trueforge.mtlsVolume" . | nindent 8 }}
         {{- include "trueforge.customCA.volumes" . | nindent 8 }}
+        {{- $artifacts := .Values.artifacts | default dict }}
+        {{- if eq ($artifacts.storageBackend | default "local") "local" }}
+        - name: artifacts
+          persistentVolumeClaim:
+            claimName: {{ include "trueforge.fullname" . }}-artifacts
+        {{- end }}
         {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}

@@ -1,0 +1,19 @@
+{{- $artifacts := .Values.artifacts | default dict -}}
+{{- if eq ($artifacts.storageBackend | default "local") "local" }}
+{{- $persistence := $artifacts.persistence | default dict -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "trueforge.fullname" . }}-artifacts
+  labels:
+    {{- include "trueforge.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- with $persistence.storageClassName }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ $persistence.size | default "10Gi" | quote }}
+{{- end }}
