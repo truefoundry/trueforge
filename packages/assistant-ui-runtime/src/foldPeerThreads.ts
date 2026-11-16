@@ -341,24 +341,102 @@ function previousModelMessageIdBefore({
 }
 
 /**
+ * Another compaction started before any model.message, so this attempt was
+ * replaced (a steer froze the turn while summarization was still running).
+ */
+function compactionSupersededBeforeModelMessage({
+  bucket,
+  startedId,
+}: {
+  bucket: ThreadBucket;
+  startedId: string;
+}): boolean {
+  let passed = false;
+  for (const [id, event] of eventsInTimeOrder(bucket)) {
+    if (!passed) {
+      if (id === startedId) {
+        passed = true;
+      }
+      continue;
+    }
+    if (event.type === 'model.message') {
+      return false;
+    }
+    if (event.type === 'thread.context_compaction_started') {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * The abandoned attempt belongs to the turn that ended around it: the latest
+ * start at or before that turn's completion. A later start is the next turn's.
+ */
+function abandonedCompactionBelongsToSettledTurn({
+  bucket,
+  startedId,
+  settledTurnCompletedAtMs,
+}: {
+  bucket: ThreadBucket;
+  startedId: string;
+  settledTurnCompletedAtMs: number | undefined;
+}): boolean {
+  if (settledTurnCompletedAtMs == null) {
+    return false;
+  }
+  const started = Date.parse(bucket.events.get(startedId)?.createdAt ?? '');
+  if (Number.isNaN(started) || started > settledTurnCompletedAtMs) {
+    return false;
+  }
+  let passed = false;
+  for (const [id, event] of eventsInTimeOrder(bucket)) {
+    if (!passed) {
+      if (id === startedId) {
+        passed = true;
+      }
+      continue;
+    }
+    if (event.type !== 'thread.context_compaction_started') {
+      continue;
+    }
+    const at = Date.parse(event.createdAt);
+    if (!Number.isNaN(at) && at <= settledTurnCompletedAtMs) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
  * Compaction started events belonging to a model-message scope.
  *
  * A started event pairs with the next model.message after it. When that model
  * message is in scope, include the compaction. When there is no following model
  * message yet, it is the live tip: include for an empty scope, or when the
  * scope holds the model message right before it (mid-turn compaction).
+ * A start replaced by a later compaction before any model.message stays on the
+ * cancelled or failed turn, so the retry does not draw a second spinner.
  */
 function shouldIncludeCompactionStarted({
   bucket,
   startedId,
   scopedModelIds,
   settledTurnCompletedAtMs,
+  parentTerminalStatus,
 }: {
   bucket: ThreadBucket;
   startedId: string;
   scopedModelIds: ReadonlySet<string> | null;
   settledTurnCompletedAtMs: number | undefined;
+  parentTerminalStatus: ParentTerminalStatus | undefined;
 }): boolean {
+  if (compactionSupersededBeforeModelMessage({ bucket, startedId })) {
+    return (
+      parentTerminalStatus != null &&
+      abandonedCompactionBelongsToSettledTurn({ bucket, startedId, settledTurnCompletedAtMs })
+    );
+  }
   if (scopedModelIds == null) {
     return true;
   }
@@ -868,6 +946,7 @@ function buildThreadAssistantFold(
           startedId: id,
           scopedModelIds,
           settledTurnCompletedAtMs: state.settledTurnCompletedAtMs,
+          parentTerminalStatus: state.parentTerminalStatus,
         })
       ) {
         continue;
