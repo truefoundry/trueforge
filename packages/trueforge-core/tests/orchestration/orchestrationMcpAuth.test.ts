@@ -27,6 +27,7 @@ function makeAuthBlockedThread(threadId: string): AgentThread {
     toolCallInfo: jest.fn(),
     setApprovalPolicy: jest.fn(),
     getApprovalPolicies: jest.fn(() => ({})),
+    supportsApprovals: false,
     hasApplicableApprovalPolicy: jest.fn(() => false),
   };
   const input: AgentThreadConstructorInput = {
