@@ -1,5 +1,15 @@
 # @truefoundry/trueforge-assistant-ui-runtime
 
+## 0.186.0-rc.1
+
+### Patch Changes
+
+- be07a30: Fix editing a message while a turn is open. Save & Rerun no longer sends twice, which threw "Composer is not available", and edit or retry no longer cancels and re-subscribes to the open turn before creating the branch. Tool approvals for directly loaded MCP tools now offer "Approve for 10 minutes" and "Approve in this session"; the runtime resolves the policy target for each pending approval and exposes it as `PendingApproval.policyTarget`. Use In Code stream samples iterate turn events directly: the TypeScript sample no longer unwraps `withMetadata`, and the Python sample opens the stream with a `with` block.
+- 2edb343: Prefer tool-approval chrome over MCP auth when both are pending, keep Connect/ask-user/custom prompts usable while siblings run without inventing paused turnState on later content, dismiss Continue without a blank Working gap, and show Cancelling feedback on the composer stop button.
+- f90acdb: Ask before turning off tenant web search or deleting a chat from history. Show last-turn status on session lists (warning/failure dots, running title shimmer and jumping dots, desktop full-title hover tip), and sync Chat History status when the live thread starts or finishes so polling resumes after idle/done rows. The shared text shimmer also updates the assistant "Working..." indicator in light mode.
+- a218542: Show why a chat turn stopped: readable reasons for stopped, timed-out, and interrupted turns, hidden only when a newer message replaced the turn.
+- bf57ece: The built-in TrueForge MCP now uses the same id and name, `trueforge:mcp`, and labels its tools as `truefoundry-system` instead of `mcp`.
+
 ## 0.185.0
 
 ### Patch Changes

@@ -1,5 +1,29 @@
 # @truefoundry/trueforge
 
+## 0.186.0-rc.1
+
+### Patch Changes
+
+- eac2ddf: Apply the same capability checks on agent update as on create: updating an agent now returns 422 if web search or memory is enabled while the tenant switch or provider is missing, or if the named sandbox environment is disabled. Sessions still grandfather stored specs so existing chats keep running.
+- e41abb3: Service API key may create or list turns on `/api/v1/sessions/{session_id}/turns` with `assume-user: session-creator` (identity is the session creator).
+- 4b8a354: Make the per-turn sub-agent concurrency limit configurable with `MAX_PARALLEL_SUB_AGENTS`, defaulting to 10.
+- 7f5fdba: List the default sandbox environment first, then sort remaining environments by most recently updated. Sort agents by most recently updated as well. Apply ordering in the backend before pagination. Show the actual updated timestamp for every environment, including platform-managed and read-only environments.
+- be07a30: Fix editing a message while a turn is open. Save & Rerun no longer sends twice, which threw "Composer is not available", and edit or retry no longer cancels and re-subscribes to the open turn before creating the branch. Tool approvals for directly loaded MCP tools now offer "Approve for 10 minutes" and "Approve in this session"; the runtime resolves the policy target for each pending approval and exposes it as `PendingApproval.policyTarget`. Use In Code stream samples iterate turn events directly: the TypeScript sample no longer unwraps `withMetadata`, and the Python sample opens the stream with a `with` block.
+- 0abc518: Memory failures during a chat are now reported to Sentry: setting up memory for a turn, loading the memory summary at the start of a session (timeouts stay warnings), and the memory search and save tools.
+- 0c25dd3: Turn memory on by default: the tenant memory switch now defaults to on, a migration turns it on for existing tenants, and the agent builder starts new agents with Memory on when memory is available.
+- 6a07b91: Sync model catalog from truefoundry/models: set Together Qwen/Qwen3.8-2.4T-A95B max output tokens to 131072 and zai-org/GLM-5.2-FP8 context length to 1048575.
+- 5ec1a26: Add a Postgres index on `session_event` by event type (`event->>'type'`), so queries that filter events by type no longer parse every event payload. The migration uses `IF NOT EXISTS`, so large deployments can pre-create the index `CONCURRENTLY` to avoid blocking event inserts during the build.
+- d818222: Schedule-run sessions now carry `tfg.source = 'schedule'` metadata, and existing schedule-run sessions are backfilled so source counts include them.
+- 6b6d220: Document tenant-wide web search and memory switches, clarify those Settings descriptions, and keep query strings intact when the TrueForge MCP server calls list-style API tools.
+- bf57ece: The built-in TrueForge MCP now uses the same id and name, `trueforge:mcp`, and labels its tools as `truefoundry-system` instead of `mcp`.
+- e5350c2: An inline chat can replace its own agent spec through the TrueForge MCP tool `update_current_session`, for example to attach MCP servers or turn capabilities on or off. Send the full spec back; omitted fields are removed. Named sessions reject the update.
+- b0ce6ec: Bump high/critical dependency advisories where possible (node-forge, follow-redirects, body-parser, js-yaml, brace-expansion, source-map-js, launch-editor) and upgrade Jest to 30.
+- Updated dependencies [4b8a354]
+- Updated dependencies [18b5718]
+- Updated dependencies [bf57ece]
+- Updated dependencies [b0ce6ec]
+  - @truefoundry/trueforge-core@0.186.0-rc.1
+
 ## 0.185.0
 
 ### Patch Changes

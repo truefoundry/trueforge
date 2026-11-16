@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.186.0-rc.1
+
+### Patch Changes
+
+- 3e8184b: Add a collapsible desktop chat-history panel on the New Chat page.
+- 4e8ade2: Disable Send on draft composers while models are still loading or the default sandbox environment is being resolved, and show why on the button tooltip.
+- 7f5fdba: List the default sandbox environment first, then sort remaining environments by most recently updated. Sort agents by most recently updated as well. Apply ordering in the backend before pagination. Show the actual updated timestamp for every environment, including platform-managed and read-only environments.
+- be07a30: Fix editing a message while a turn is open. Save & Rerun no longer sends twice, which threw "Composer is not available", and edit or retry no longer cancels and re-subscribes to the open turn before creating the branch. Tool approvals for directly loaded MCP tools now offer "Approve for 10 minutes" and "Approve in this session"; the runtime resolves the policy target for each pending approval and exposes it as `PendingApproval.policyTarget`. Use In Code stream samples iterate turn events directly: the TypeScript sample no longer unwraps `withMetadata`, and the Python sample opens the stream with a `with` block.
+- 2edb343: Prefer tool-approval chrome over MCP auth when both are pending, keep Connect/ask-user/custom prompts usable while siblings run without inventing paused turnState on later content, dismiss Continue without a blank Working gap, and show Cancelling feedback on the composer stop button.
+- 0c25dd3: Turn memory on by default: the tenant memory switch now defaults to on, a migration turns it on for existing tenants, and the agent builder starts new agents with Memory on when memory is available.
+- a218542: Show cancelled-turn reason banners in live New Chat and Build chat again.
+- f90acdb: Ask before turning off tenant web search or deleting a chat from history. Show last-turn status on session lists (warning/failure dots, running title shimmer and jumping dots, desktop full-title hover tip), and sync Chat History status when the live thread starts or finishes so polling resumes after idle/done rows. The shared text shimmer also updates the assistant "Working..." indicator in light mode.
+- a218542: Show why a chat turn stopped: readable reasons for stopped, timed-out, and interrupted turns, hidden only when a newer message replaced the turn.
+- 6b6d220: Document tenant-wide web search and memory switches, clarify those Settings descriptions, and keep query strings intact when the TrueForge MCP server calls list-style API tools.
+- b0ce6ec: Bump high/critical dependency advisories where possible (node-forge, follow-redirects, body-parser, js-yaml, brace-expansion, source-map-js, launch-editor) and upgrade Jest to 30.
+- Updated dependencies [be07a30]
+- Updated dependencies [2edb343]
+- Updated dependencies [f90acdb]
+- Updated dependencies [a218542]
+- Updated dependencies [bf57ece]
+  - @truefoundry/trueforge-assistant-ui-runtime@0.186.0-rc.1
+
 ## 0.185.0
 
 ### Patch Changes

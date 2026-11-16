@@ -1,5 +1,14 @@
 # @truefoundry/trueforge-core
 
+## 0.186.0-rc.1
+
+### Patch Changes
+
+- 4b8a354: Make the per-turn sub-agent concurrency limit configurable with `MAX_PARALLEL_SUB_AGENTS`, defaulting to 10.
+- 18b5718: Built-in TrueForge MCP tools no longer require approval. Session approval policies do not target system tool sets yet, so write and destructive tools from this server run without pausing.
+- bf57ece: The built-in TrueForge MCP now uses the same id and name, `trueforge:mcp`, and labels its tools as `truefoundry-system` instead of `mcp`.
+- b0ce6ec: Bump high/critical dependency advisories where possible (node-forge, follow-redirects, body-parser, js-yaml, brace-expansion, source-map-js, launch-editor) and upgrade Jest to 30.
+
 ## 0.185.0
 
 ### Patch Changes
