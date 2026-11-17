@@ -159,7 +159,6 @@ export function parseOidcAllowedEmails(raw: string | undefined): string[] {
 
 const TrueFoundryModelRoutingSchema = z.object({
   timeout_ms: z.number().int().positive().default(2_000),
-  max_candidates: z.number().int().positive().default(60),
   /** Per tenant: the decision model is the tenant's own gateway model (`account/model`). */
   tenants: z.record(
     z.string(),
@@ -178,7 +177,7 @@ export function parseTrueFoundryModelRouting(raw: string | undefined): TrueFound
     return TrueFoundryModelRoutingSchema.parse(JSON.parse(raw));
   } catch (error) {
     throw new Error(
-      'Environment variable TRUEFOUNDRY_MODEL_ROUTING must be a JSON object with per-tenant "tenants" entries (e.g. {"tenants":{"<tenant_id>":{"subagent":"shadow","decision_model":"typesafe/jev-1.13.0"}}})',
+      'Environment variable TRUEFOUNDRY_MODEL_ROUTING must be a JSON object with per-tenant "tenants" entries (e.g. {"tenants":{"<tenant_id>":{"subagent":"on","decision_model":"typesafe/jev-1.13.0"}}})',
       { cause: error },
     );
   }
@@ -1131,9 +1130,9 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    */
   TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS: Record<string, string[]>;
   /**
-   * Optional subagent model routing (TrueFoundry mode only). JSON object with `timeout_ms`,
-   * `max_candidates`, and per-tenant entries: mode (`off` | `shadow` | `on`) and the tenant's decision
-   * model. Unset, or a tenant not listed → off. Env: `TRUEFOUNDRY_MODEL_ROUTING`.
+   * Optional subagent model routing (TrueFoundry mode only). JSON object with `timeout_ms` and
+   * per-tenant entries: mode (`off` | `on`) and the tenant's decision model.
+   * Unset, or a tenant not listed → off. Env: `TRUEFOUNDRY_MODEL_ROUTING`.
    */
   TRUEFOUNDRY_MODEL_ROUTING: TrueFoundryModelRouting | undefined;
   /**

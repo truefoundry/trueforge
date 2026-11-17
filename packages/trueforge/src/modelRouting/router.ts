@@ -1,32 +1,38 @@
 import type { RouteModelInput, RouteModelResult } from '@truefoundry/trueforge-core/agent-session';
-import { describeUnknownError } from '@truefoundry/trueforge-core/core';
+import { type Decision, describeUnknownError, type IDecisionModel } from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
-import { RESEMBLANCE_BENCHMARKS } from './benchmarks';
-import { pickCandidate } from './pick';
-import { lookupScore } from './scores';
-import type { DecisionClient, DecisionQuestion, RoutingCandidate } from './types';
+import type { RoutingCandidate } from './types';
 
 const TASK_CHARS = 8_000;
 
-const SCORE_NOTE =
-  'Artificial Analysis Intelligence Index (0-100, higher is better) averages agentic knowledge work, coding, science and general reasoning evaluations.';
+const INSTRUCTIONS = 'Which category best describes what this task needs to be completed?';
 
-const CAN_COMPLETE: DecisionQuestion['criteria'] = {
-  true: 'It would produce a result that can be used as-is: complete, accurate, and with the needed tool use done.',
-  false: 'It would likely miss parts, make errors, or stop before the task is done.',
+/** What the decision model chooses between. Described by the task's structure, with no example tasks to match on. */
+const CATEGORIES = {
+  direct:
+    'The answer follows directly from the task text and general knowledge, and the work is routine: no tool is needed and nothing has to be worked out carefully.',
+  fixed_steps:
+    'Needs tools, but the task spells out every action: one call or several independent ones, carried out as stated. Tool results are only passed along or reported, never used to decide what to do next.',
+  adaptive:
+    "What to do next depends on what earlier tool calls return: investigate, branch, retry or reconcile results, or plan an approach the task doesn't spell out. Also any task, with or without tools, whose result depends on careful expert reasoning, such as finding subtle faults or weighing trade-offs.",
+} as const;
+
+type Category = keyof typeof CATEGORIES;
+
+/** One canonical model per category for now; clusters of models replace this. */
+const CATEGORY_MODEL: Record<Category, string> = {
+  direct: 'anthropic/claude-haiku-5-5',
+  fixed_steps: 'anthropic/claude-sonnet-5-5',
+  adaptive: 'openai/gpt-6-1-sol',
 };
 
-const RESEMBLES: DecisionQuestion['criteria'] = {
-  true: 'Same kind of work as the benchmark.',
-  false: 'A different kind of work.',
-};
+type ChoiceAnswer = Extract<Decision['answers'][number], { type: 'choice' }>;
 
-interface ScoredCandidate extends RoutingCandidate {
-  name: string;
-  score: number;
+type FallbackReason = 'decision_error' | 'decision_timeout' | 'model_unavailable';
+
+function isCategory(value: unknown): value is Category {
+  return typeof value === 'string' && Object.hasOwn(CATEGORIES, value);
 }
-
-type FallbackReason = 'no_candidates' | 'decision_error' | 'decision_timeout';
 
 function clip(text: string): string {
   if (text.length <= TASK_CHARS) {
@@ -40,46 +46,19 @@ function accountOf(model: string): string {
   return model.split('/', 1)[0] ?? model;
 }
 
-/** One candidate per scored slug, preferring the fallback model's account, capped by score. */
-function scoredCandidates(input: {
+/** The caller's model for `canonicalModel`, preferring the fallback model's account. */
+function modelFor(input: {
+  canonicalModel: string;
   models: readonly RoutingCandidate[];
   fallbackModel: string;
-  maxCandidates: number;
-}): ScoredCandidate[] {
+}): RoutingCandidate | undefined {
   const fallbackAccount = accountOf(input.fallbackModel);
-  const bySlug = new Map<string, ScoredCandidate>();
-  const ordered = [...input.models].sort((a, b) => {
-    const preferred = Number(accountOf(b.model) === fallbackAccount) - Number(accountOf(a.model) === fallbackAccount);
-    return preferred !== 0 ? preferred : a.model.localeCompare(b.model);
-  });
-  for (const model of ordered) {
-    if (model.slug === undefined || bySlug.has(model.slug)) {
-      continue;
-    }
-    const scored = lookupScore({ slug: model.slug, effort: model.defaultEffort });
-    if (scored !== undefined) {
-      bySlug.set(model.slug, { ...model, ...scored });
-    }
-  }
-  return [...bySlug.values()].sort((a, b) => b.score - a.score).slice(0, input.maxCandidates);
-}
-
-function questions(candidates: readonly ScoredCandidate[]): Record<string, DecisionQuestion> {
-  const out: Record<string, DecisionQuestion> = {};
-  candidates.forEach((candidate, index) => {
-    const effort = candidate.defaultEffort ?? 'its default';
-    out[`can_${String(index)}`] = {
-      instructions: `Can ${candidate.name} at ${effort} effort (Intelligence Index ${String(candidate.score)}) complete this task fully and correctly?`,
-      criteria: CAN_COMPLETE,
-    };
-  });
-  for (const [key, benchmark] of Object.entries(RESEMBLANCE_BENCHMARKS)) {
-    out[`resembles_${key}`] = {
-      instructions: `Does this task resemble the benchmark ${benchmark.name}? ${benchmark.description}`,
-      criteria: RESEMBLES,
-    };
-  }
-  return out;
+  return input.models
+    .filter(model => model.canonicalModel === input.canonicalModel)
+    .sort((a, b) => {
+      const preferred = Number(accountOf(b.model) === fallbackAccount) - Number(accountOf(a.model) === fallbackAccount);
+      return preferred !== 0 ? preferred : a.model.localeCompare(b.model);
+    })[0];
 }
 
 function priceDirection(input: { picked?: number | undefined; fallback?: number | undefined }) {
@@ -90,16 +69,14 @@ function priceDirection(input: { picked?: number | undefined; fallback?: number 
 }
 
 /**
- * `routeModel` for one turn. Candidates are listed once and shared by the turn's subagents.
- * Shadow mode logs the pick and keeps the fallback. Never throws.
+ * `routeModel` for one turn: the decision model classifies the subagent's task, and the category picks the model.
+ * Candidates are listed once and shared by the turn's subagents. Never throws.
  */
 export function createModelRouter(input: {
-  mode: 'shadow' | 'on';
   /** The caller's models; called once per turn. */
   listCandidates: () => Promise<RoutingCandidate[]>;
-  decision: DecisionClient;
+  decision: IDecisionModel;
   timeoutMs: number;
-  maxCandidates: number;
   logger: Logger;
 }): (route: RouteModelInput) => Promise<RouteModelResult> {
   let models: Promise<RoutingCandidate[]> | undefined;
@@ -109,7 +86,6 @@ export function createModelRouter(input: {
     const log = (fields: Record<string, unknown>) => {
       input.logger.info('model routing', {
         thread_id: route.threadId,
-        mode: input.mode,
         fallback_model: route.fallbackModel,
         latency_ms: Date.now() - startedMs,
         ...fields,
@@ -125,58 +101,60 @@ export function createModelRouter(input: {
         models = undefined;
         throw error;
       });
-      const all = await models;
+      const task = clip(route.task.instructions);
+      const [all, decision] = await Promise.all([
+        models,
+        input.decision.create(
+          {
+            input: route.task.name === undefined ? task : `Subagent: ${route.task.name}\n\nTask:\n${task}`,
+            questions: [
+              {
+                type: 'choice',
+                name: 'category',
+                instructions: INSTRUCTIONS,
+                choices: Object.entries(CATEGORIES).map(([value, description]) => ({ value, description })),
+              },
+            ],
+          },
+          { metadata: { 'tfg.thread_id': route.threadId }, signal: AbortSignal.any([route.signal, timeout]) },
+        ),
+      ]);
       timeout.throwIfAborted();
-      const candidates = scoredCandidates({
+      const answer = decision.answers.find(
+        (candidate): candidate is ChoiceAnswer => candidate.type === 'choice' && candidate.name === 'category',
+      );
+      if (answer === undefined || !isCategory(answer.choice)) {
+        return fallback('decision_error', { answer });
+      }
+      const classified = {
+        category: answer.choice,
+        confidence: answer.confidence,
+        // A list, not an object: the JSON log format sorts object keys, which would lose the ranking.
+        probabilities: [...answer.probabilities].sort((a, b) => b.probability - a.probability),
+        canonical_model: CATEGORY_MODEL[answer.choice],
+      };
+      const picked = modelFor({
+        canonicalModel: CATEGORY_MODEL[answer.choice],
         models: all,
         fallbackModel: route.fallbackModel,
-        maxCandidates: input.maxCandidates,
       });
-      if (candidates.length === 0) {
-        return fallback('no_candidates');
-      }
-      const answers = await input.decision.ask({
-        threadId: route.threadId,
-        state: {
-          name: route.task.name,
-          task: clip(route.task.instructions),
-          tools: route.task.tools,
-          benchmark_note: SCORE_NOTE,
-        },
-        questions: questions(candidates),
-        signal: AbortSignal.any([route.signal, timeout]),
-      });
-      timeout.throwIfAborted();
-      const picked = pickCandidate(
-        candidates.flatMap((candidate, index) => {
-          const pYes = answers[`can_${String(index)}`];
-          return pYes === undefined ? [] : [{ candidate, pYes, price: candidate.price }];
-        }),
-      );
       if (picked === undefined) {
-        return fallback('decision_error', { candidate_count: candidates.length });
+        return fallback('model_unavailable', classified);
       }
       const fallbackPrice = all.find(model => model.model === route.fallbackModel)?.price;
-      const chosen = input.mode === 'on' ? picked.candidate.model : route.fallbackModel;
       log({
         reason: 'picked',
-        picked_model: picked.candidate.model,
-        chosen_model: chosen,
-        picked_p_yes: picked.pYes,
-        picked_price: picked.candidate.price,
+        ...classified,
+        chosen_model: picked.model,
+        picked_price: picked.price,
         fallback_price: fallbackPrice,
-        price_direction: priceDirection({ picked: picked.candidate.price, fallback: fallbackPrice }),
-        picked_image_input: picked.candidate.imageInput,
-        candidate_count: candidates.length,
-        // A list, not an object: the JSON log format sorts object keys, which would lose the ranking.
-        candidates: candidates
-          .map((candidate, index) => ({ model: candidate.model, p_yes: answers[`can_${String(index)}`] }))
-          .sort((a, b) => (b.p_yes ?? -1) - (a.p_yes ?? -1)),
+        price_direction: priceDirection({ picked: picked.price, fallback: fallbackPrice }),
+        picked_image_input: picked.imageInput,
       });
-      return input.mode === 'on' ? { model: picked.candidate.model } : {};
+      return { model: picked.model };
     };
 
-    // The budget covers the whole step, including candidate listing and gateway lookups, not just the Jev call.
+    // The budget covers the whole step, including candidate listing and gateway lookups, not just the decision call.
     const timeout = AbortSignal.timeout(input.timeoutMs);
     const timedOut = new Promise<never>((_, reject) => {
       timeout.addEventListener(

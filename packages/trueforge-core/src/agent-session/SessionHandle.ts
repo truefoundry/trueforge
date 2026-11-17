@@ -605,15 +605,7 @@ export class SessionHandle<
         const routed = await input.resolver.routeModel({
           threadId: params.threadId,
           fallbackModel: params.parentDefinition.modelName,
-          task: {
-            name: request.name,
-            instructions: request.input,
-            tools: [
-              ...(input.spec.mcp_servers ?? []).map(server => server.name),
-              ...(input.spec.config.web_search.enabled && input.resolver.webSearchProvider ? ['web_search'] : []),
-              ...(input.sandbox ? ['sandbox'] : []),
-            ],
-          },
+          task: { name: request.name, instructions: request.input },
           signal: params.signal,
         });
         if (routed.model !== undefined) {

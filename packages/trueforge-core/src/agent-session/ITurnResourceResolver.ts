@@ -22,8 +22,6 @@ export interface RouteModelInput {
   task: {
     name?: string | undefined;
     instructions: string;
-    /** MCP server names, plus `web_search` and `sandbox` when available. */
-    tools: string[];
   };
   /** The subagent's abort signal; cancels routing when the turn is cancelled. */
   signal: AbortSignal;

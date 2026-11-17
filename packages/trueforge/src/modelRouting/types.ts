@@ -1,32 +1,15 @@
-export const MODEL_ROUTING_MODES = ['off', 'shadow', 'on'] as const;
+export const MODEL_ROUTING_MODES = ['off', 'on'] as const;
 
 export type ModelRoutingMode = (typeof MODEL_ROUTING_MODES)[number];
 
-/** One of the caller's models. Only models whose slug has a score become routing candidates. */
+/** One of the caller's models. */
 export interface RoutingCandidate {
   /** `provider/model`, as the harness resolves it. */
   model: string;
-  /** Artificial Analysis slug; the score lookup key. */
-  slug?: string | undefined;
-  /** Reasoning effort the model runs at when none is set. */
-  defaultEffort?: string | undefined;
-  /** Blended USD per million tokens: 0.8 × input + 0.2 × output. */
+  /** Provider-neutral model id (e.g. `anthropic/claude-haiku-5-5`); the routing key. */
+  canonicalModel?: string | undefined;
+  /** Blended USD per million tokens: 0.75 × input + 0.25 × output. Logged only. */
   price?: number | undefined;
-  /** Logged with the pick only; never used to choose a model. */
+  /** Logged only. */
   imageInput?: boolean | undefined;
-}
-
-export interface DecisionQuestion {
-  instructions: string;
-  criteria: { true: string; false: string };
-}
-
-export interface DecisionClient {
-  /** Yes-probability per question key; keys the decision model didn't answer are omitted. */
-  ask(input: {
-    threadId: string;
-    state: Record<string, unknown>;
-    questions: Record<string, DecisionQuestion>;
-    signal: AbortSignal;
-  }): Promise<Record<string, number>>;
 }

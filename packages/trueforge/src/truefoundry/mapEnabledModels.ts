@@ -27,7 +27,7 @@ const MetadataSchema = z.object({
     })
     .optional(),
   params: z.array(ModelParamSchema).optional(),
-  external_ids: z.object({ artificial_analysis_slug: z.string().nullish() }).optional().catch(undefined),
+  canonical_model: z.string().nullish().catch(undefined),
   public_cost: TokenCostSchema.optional().catch(undefined),
   costs: z
     .array(TokenCostSchema.extend({ region: z.string().nullish() }))
@@ -80,8 +80,8 @@ function toProperties(metadata: IntegrationMetadata | undefined): ModelPropertie
 }
 
 /**
- * Blended USD per million tokens, weighted 0.8 × input + 0.2 × output since agent loops read far more than
- * they write. Uses the public price if set, else the global-region price, else the first region with a price.
+ * Blended USD per million tokens, weighted 3:1 input to output.
+ * Uses the public price if set, else the global-region price, else the first region with a price.
  */
 function toBlendedPrice(metadata: IntegrationMetadata | undefined): number | undefined {
   const regionCosts = metadata?.costs ?? [];
@@ -89,17 +89,15 @@ function toBlendedPrice(metadata: IntegrationMetadata | undefined): number | und
   const inPreferenceOrder = [metadata?.public_cost, ...globalCosts, ...regionCosts];
   for (const cost of inPreferenceOrder) {
     if (typeof cost?.input_cost_per_token === 'number' && typeof cost.output_cost_per_token === 'number') {
-      return (0.8 * cost.input_cost_per_token + 0.2 * cost.output_cost_per_token) * 1e6;
+      return (0.75 * cost.input_cost_per_token + 0.25 * cost.output_cost_per_token) * 1e6;
     }
   }
   return undefined;
 }
 
 function toRoutingMetadata(metadata: IntegrationMetadata | undefined): TrueFoundryEnabledModel['routing'] {
-  const defaultEffort = metadata?.params?.find(param => param.key === 'reasoning_effort')?.defaultValue;
   return {
-    slug: metadata?.external_ids?.artificial_analysis_slug ?? undefined,
-    defaultEffort: typeof defaultEffort === 'string' ? defaultEffort : undefined,
+    canonicalModel: metadata?.canonical_model ?? undefined,
     price: toBlendedPrice(metadata),
     imageInput: metadata?.modalities?.input?.includes('image'),
   };

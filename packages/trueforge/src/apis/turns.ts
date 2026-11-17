@@ -45,6 +45,7 @@ import {
   isFileContentPart,
   McpConnectionError,
   newEventId,
+  OpenAIDecisionModel,
   PromiseTimeoutError,
   rawSandboxId,
   redisKey,
@@ -124,7 +125,6 @@ import { restoreTurnEventLog } from '../runtime/turnEventLogRestore';
 import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
 import { assertGatewayMetadataRequestHeaders, X_TFY_METADATA } from '../truefoundry/gatewayMetadata';
 import { X_TFG_MCP, X_TFG_MODELS, X_TFG_SKILLS, X_TFG_TOOLS } from '../truefoundry/inlineResources';
-import { createJevDecisionClient } from '../truefoundry/jevDecisionClient';
 import { X_TFG_MCP_HEADERS } from '../truefoundry/perServerMcpHeaders';
 import { newId } from '../utils/id';
 import { resolveWebSearchProvider } from '../websearch/providers';
@@ -377,28 +377,29 @@ function subagentModelRouter(input: {
   const tenantRouting = routing?.tenants[tenant_id];
   if (
     routing === undefined ||
-    tenantRouting === undefined ||
-    tenantRouting.subagent === 'off' ||
+    tenantRouting?.subagent !== 'on' ||
     modelProviderStore.listRoutingCandidates === undefined
   ) {
     return undefined;
   }
+  // Resolved on first use, so the lookup counts towards the routing timeout and turns that spawn no subagent skip it.
+  let decisionModel: Promise<OpenAIDecisionModel> | undefined;
+  const resolveDecisionModel = () => {
+    decisionModel ??= getModelDetails({
+      tenant_id,
+      name: tenantRouting.decision_model,
+      store: modelProviderStore,
+      turnMetadata,
+    }).then(resolved => new OpenAIDecisionModel(resolved.providerConfig));
+    decisionModel.catch(() => {
+      decisionModel = undefined;
+    });
+    return decisionModel;
+  };
   return createModelRouter({
-    mode: tenantRouting.subagent,
     listCandidates: () => modelProviderStore.listRoutingCandidates?.({ tenant_id }) ?? Promise.resolve([]),
-    decision: createJevDecisionClient({
-      resolveProviderConfig: async () =>
-        (
-          await getModelDetails({
-            tenant_id,
-            name: tenantRouting.decision_model,
-            store: modelProviderStore,
-            turnMetadata,
-          })
-        ).providerConfig,
-    }),
+    decision: { create: async (body, options) => (await resolveDecisionModel()).create(body, options) },
     timeoutMs: routing.timeout_ms,
-    maxCandidates: routing.max_candidates,
     logger,
   });
 }

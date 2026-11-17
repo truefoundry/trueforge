@@ -106,6 +106,15 @@ export type { ResponseFormat } from './llm/responseFormat';
 export { SUPPORTED_REASONING_EFFORTS, VERCEL_AI_PROVIDER_NAMES, VercelAILLM } from './llm/VercelAILLM';
 export type { VercelAILLMConfig, VercelAIProviderConfig, VercelAIProviderName } from './llm/VercelAILLM';
 
+// Decision model contracts
+export type {
+  Decision,
+  DecisionModelCreateParams,
+  DecisionRequestOptions,
+  IDecisionModel,
+} from './decision/IDecisionModel';
+export { OpenAIDecisionModel } from './decision/OpenAIDecisionModel';
+
 // Event contracts
 export {
   ActionRequiredEventSchema,

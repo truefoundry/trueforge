@@ -1,66 +1,65 @@
+import type { Decision, IDecisionModel } from '@truefoundry/trueforge-core/core';
 import { createLogger } from 'winston';
 import { createModelRouter } from '../../../src/modelRouting/router';
-import type { DecisionClient } from '../../../src/modelRouting/types';
+import type { RoutingCandidate } from '../../../src/modelRouting/types';
 
 const logger = createLogger({ silent: true });
 
-// Haiku is listed first and is cheaper, so a tie would pick it; only Jev's answer can pick Sonnet.
-const candidates = [
-  { model: 'acct/claude-haiku-5-5', slug: 'claude-haiku-5-5', defaultEffort: 'medium', price: 0.2 },
-  { model: 'acct/claude-sonnet-5-5', slug: 'claude-sonnet-5-5', defaultEffort: 'high', price: 3.6 },
+const candidates: RoutingCandidate[] = [
+  { model: 'acct/claude-haiku-5-5', canonicalModel: 'anthropic/claude-haiku-5-5', price: 0.2 },
+  { model: 'other/claude-sonnet-5-5', canonicalModel: 'anthropic/claude-sonnet-5-5', price: 4 },
+  { model: 'acct/claude-sonnet-5-5', canonicalModel: 'anthropic/claude-sonnet-5-5', price: 4 },
 ];
 
+function classifiesAs(category: string): IDecisionModel {
+  const decision: Decision = {
+    model: 'jev',
+    answers: [
+      {
+        type: 'choice',
+        name: 'category',
+        choice: category,
+        confidence: 0.9,
+        probabilities: [{ value: category, probability: 0.95 }],
+      },
+    ],
+    usage: {
+      input_tokens: 0,
+      input_tokens_details: { cache_write_tokens: 0, cached_tokens: 0 },
+      output_tokens: 0,
+      output_tokens_details: { reasoning_tokens: 0 },
+      total_tokens: 0,
+    },
+  };
+  return { create: () => Promise.resolve(decision) };
+}
+
 function route(
-  decision: DecisionClient,
-  mode: 'shadow' | 'on',
-  listCandidates: () => Promise<typeof candidates> = () => Promise.resolve(candidates),
+  decision: IDecisionModel,
+  listCandidates: () => Promise<RoutingCandidate[]> = () => Promise.resolve(candidates),
 ) {
-  const routeModel = createModelRouter({
-    mode,
-    listCandidates,
-    decision,
-    timeoutMs: 1_000,
-    maxCandidates: 60,
-    logger,
-  });
+  const routeModel = createModelRouter({ listCandidates, decision, timeoutMs: 1_000, logger });
   return routeModel({
     threadId: 'child',
     fallbackModel: 'acct/claude-opus-5-5',
-    task: { name: 'research', instructions: 'Compare pricing of three CI tools.', tools: [] },
+    task: { name: 'research', instructions: 'Compare pricing of three CI tools.' },
     signal: new AbortController().signal,
   });
 }
 
-function prefersSonnet(): DecisionClient & { ask: jest.Mock } {
-  return {
-    ask: jest.fn(({ questions }: Parameters<DecisionClient['ask']>[0]) =>
-      Promise.resolve(
-        Object.fromEntries(
-          Object.entries(questions).map(([key, question]) => [
-            key,
-            question.instructions.includes('Sonnet') ? 0.6 : 0.3,
-          ]),
-        ),
-      ),
-    ),
-  };
-}
-
 describe('createModelRouter', () => {
-  it('runs the highest yes-probability candidate in on mode', async () => {
-    await expect(route(prefersSonnet(), 'on')).resolves.toEqual({ model: 'acct/claude-sonnet-5-5' });
+  it("runs the category's model, on the parent model's account when it has one", async () => {
+    await expect(route(classifiesAs('fixed_steps'))).resolves.toEqual({ model: 'acct/claude-sonnet-5-5' });
   });
 
-  it('asks the decision model but keeps the fallback model in shadow mode', async () => {
-    const decision = prefersSonnet();
-    await expect(route(decision, 'shadow')).resolves.toEqual({});
-    expect(decision.ask).toHaveBeenCalledTimes(1);
+  it("keeps the fallback model when the caller doesn't have the category's model", async () => {
+    await expect(route(classifiesAs('adaptive'))).resolves.toEqual({});
   });
 
   it('keeps the fallback model when listing candidates outlasts the timeout', async () => {
     jest.useFakeTimers();
     try {
-      const pending = route(prefersSonnet(), 'on', () => new Promise(() => undefined));
+      const pending = route(classifiesAs('direct'), () => new Promise(() => undefined));
       await jest.advanceTimersByTimeAsync(1_000);
       await expect(pending).resolves.toEqual({});
     } finally {
@@ -69,7 +68,7 @@ describe('createModelRouter', () => {
   });
 
   it('keeps the fallback model when the decision model fails', async () => {
-    const failing: DecisionClient = { ask: () => Promise.reject(new Error('HTTP 403')) };
-    await expect(route(failing, 'on')).resolves.toEqual({});
+    const failing: IDecisionModel = { create: () => Promise.reject(new Error('HTTP 403')) };
+    await expect(route(failing)).resolves.toEqual({});
   });
 });
