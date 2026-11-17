@@ -3,23 +3,34 @@ import type { TurnStatus } from '../../server/types.js';
 /** Matches thread-list / AgentSessions first-page `limit`. */
 export const SESSION_LIST_FIRST_PAGE_LIMIT = 20;
 
-/** Cadence while any listed row is still running. */
-export const SESSION_LIST_RUNNING_POLL_INTERVAL_MS = 10_000;
+/** Cadence while any listed row is running or paused. */
+export const SESSION_LIST_POLL_INTERVAL_MS = 5_000;
 
-/** Slower cadence when listed rows are only paused (approvals can wait a long time). */
-export const SESSION_LIST_PAUSED_POLL_INTERVAL_MS = 60_000;
+/** Poll interval for live last-turn status, or `null` when nothing needs polling. */
+export function sessionListPollIntervalMs(statuses: ReadonlyArray<TurnStatus | undefined | null>): number | null {
+  for (const status of statuses) {
+    if (status === 'running' || status === 'paused') return SESSION_LIST_POLL_INTERVAL_MS;
+  }
+  return null;
+}
+
+type PolledTurn = { id: string; state: { status: string } };
 
 /**
- * Poll interval for live last-turn status, or `null` when nothing needs polling.
- * Running wins over paused so a mixed page stays on the fast cadence.
+ * Apply a first-page poll onto one row.
+ * Status-only patches used to leave `lastActivityAt` at the original payload, so a
+ * new pause on a row older than 48 hours stayed hidden.
  */
-export function sessionListPollIntervalMs(statuses: ReadonlyArray<TurnStatus | undefined | null>): number | null {
-  let hasPaused = false;
-  for (const status of statuses) {
-    if (status === 'running') return SESSION_LIST_RUNNING_POLL_INTERVAL_MS;
-    if (status === 'paused') hasPaused = true;
-  }
-  return hasPaused ? SESSION_LIST_PAUSED_POLL_INTERVAL_MS : null;
+export function mergePolledSessionRow<T extends { lastActivityAt: string; lastTurnDetails?: PolledTurn | null }>(
+  prev: T,
+  next: T,
+): T {
+  const prevDetails = prev.lastTurnDetails;
+  const nextDetails = next.lastTurnDetails;
+  const sameTurn = prevDetails?.id === nextDetails?.id && prevDetails?.state.status === nextDetails?.state.status;
+  if (sameTurn && prev.lastActivityAt === next.lastActivityAt) return prev;
+  if (sameTurn) return { ...prev, lastActivityAt: next.lastActivityAt };
+  return { ...prev, lastActivityAt: next.lastActivityAt, lastTurnDetails: nextDetails };
 }
 
 /**
