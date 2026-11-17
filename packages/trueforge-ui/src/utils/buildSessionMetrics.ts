@@ -77,6 +77,13 @@ function segmentDurationMs(segment: SessionEventTimelineSegment): number {
   return Math.max(0, segment.endMs - segment.startMs);
 }
 
+/** Drop sandbox intent suffix so frequency groups by tool (`Sandbox: exec`), not per intent. */
+function toolCallFrequencyLabel(description: string): string {
+  if (!description.startsWith('Sandbox: ')) return description;
+  const separator = description.indexOf(' - ');
+  return separator === -1 ? description : description.slice(0, separator);
+}
+
 function turnHasMetrics(turn: SessionTurnView): boolean {
   return (
     turn.totalTokens != null ||
@@ -180,7 +187,10 @@ export function buildSessionMetrics({
   const toolCallCounts = new Map<string, number>();
   for (const segment of segments) {
     if (segment.type !== 'tool_call' || segment.threadId !== MAIN_THREAD_ID) continue;
-    toolCallCounts.set(segment.description, (toolCallCounts.get(segment.description) ?? 0) + 1);
+    // Timeline descriptions keep sandbox intent ("Sandbox: exec - List files"); frequency
+    // collapses those to the tool so each intent is not its own bar of 1.
+    const label = toolCallFrequencyLabel(segment.description);
+    toolCallCounts.set(label, (toolCallCounts.get(label) ?? 0) + 1);
   }
   const toolCallFrequency = Array.from(toolCallCounts, ([label, value]) => ({
     label,
