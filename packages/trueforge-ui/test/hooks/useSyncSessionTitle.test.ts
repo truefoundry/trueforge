@@ -20,8 +20,19 @@ vi.mock('@/assistant-ui.js', () => ({
 
 import { useSyncSessionTitle } from '@/hooks/useSyncSessionTitle.js';
 
-function mockThreadListItem(item: { remoteId: string | undefined; title: string | undefined }) {
-  useAuiState.mockImplementation((selector: (state: unknown) => unknown) => selector({ threadListItem: item }));
+function mockThreadListItem(item: {
+  remoteId: string | undefined;
+  title: string | undefined;
+  firstUserMessageId?: string;
+}) {
+  useAuiState.mockImplementation((selector: (state: unknown) => unknown) =>
+    selector({
+      threadListItem: { remoteId: item.remoteId, title: item.title },
+      thread: {
+        messages: item.firstUserMessageId == null ? [] : [{ id: item.firstUserMessageId, role: 'user' }],
+      },
+    }),
+  );
 }
 
 async function finishTurn() {
@@ -133,5 +144,48 @@ describe('useSyncSessionTitle', () => {
     });
 
     expect(generateTitle).not.toHaveBeenCalled();
+  });
+
+  it('does not read the title for the optimistic user message', async () => {
+    useThreadIsRunning.mockReturnValue(true);
+    mockThreadListItem({ remoteId: 'sess-1', title: undefined, firstUserMessageId: 'local-turn:user' });
+    renderHook(() => useSyncSessionTitle());
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(generateTitle).not.toHaveBeenCalled();
+  });
+
+  it('reads the title once the server turn id replaces the optimistic message', async () => {
+    useThreadIsRunning.mockReturnValue(true);
+    mockThreadListItem({ remoteId: 'sess-1', title: undefined, firstUserMessageId: 'local-turn:user' });
+    const { rerender } = renderHook(() => useSyncSessionTitle());
+
+    mockThreadListItem({ remoteId: 'sess-1', title: undefined, firstUserMessageId: 'gateway-turn:user' });
+    rerender();
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(generateTitle).toHaveBeenCalledTimes(1);
+    expect(rename).not.toHaveBeenCalled();
+  });
+
+  it('does not read the title again when that turn later ends', async () => {
+    useThreadIsRunning.mockReturnValue(true);
+    mockThreadListItem({ remoteId: 'sess-1', title: undefined, firstUserMessageId: 'local-turn:user' });
+    const { rerender } = renderHook(() => useSyncSessionTitle());
+
+    mockThreadListItem({ remoteId: 'sess-1', title: undefined, firstUserMessageId: 'gateway-turn:user' });
+    rerender();
+    useThreadIsRunning.mockReturnValue(false);
+    rerender();
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(generateTitle).toHaveBeenCalledTimes(1);
   });
 });
