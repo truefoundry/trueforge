@@ -224,7 +224,7 @@ export class ContextCompaction implements PreLLMAgentContextProcessor {
     let response: Awaited<ReturnType<ILLM['createNonStream']>>;
     try {
       response = await this.modelClient.createNonStream(body, {
-        metadata: { 'tfg.compaction': 'true' },
+        metadata: { 'tfg.thread_id': execution.threadId, 'tfg.compaction': 'true' },
       });
     } catch (error) {
       getOperationMetrics()?.recordHarnessLimit({ limit: 'context_compaction_error' });

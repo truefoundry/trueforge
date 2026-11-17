@@ -27,6 +27,7 @@ export type SessionMetrics = {
   wallTimeMs: number;
   totalCostUsd?: number;
   totalTokens: number;
+  /** Context in play after the latest turn, not a sum over turns. */
   contextTokens: number;
   toolCalls: number;
   subAgents: number;
@@ -117,9 +118,13 @@ export function buildSessionMetrics({
   // Aggregate by display band so MCP-auth resumes don't emit duplicate T1 chart keys.
   const bandCostUsd = new Map<number, number>();
   const bandTokens = new Map<number, number>();
+  const bandContextTokens = new Map<number, number>();
 
   for (const turn of turns) {
     derivedWallTimeMs += turn.durationMs ?? 0;
+    // Context is a snapshot of the live conversation, so a band takes its last turn's value
+    // rather than a sum. Recorded before the metrics guard: a turn can still be running.
+    if (turn.contextTokens != null) bandContextTokens.set(turn.turnNumber, turn.contextTokens);
     if (!turnHasMetrics(turn)) {
       if (!bandCostUsd.has(turn.turnNumber)) bandCostUsd.set(turn.turnNumber, 0);
       if (!bandTokens.has(turn.turnNumber)) bandTokens.set(turn.turnNumber, 0);
@@ -161,12 +166,13 @@ export function buildSessionMetrics({
   let contextTokens = 0;
   for (const turnNumber of [...bandTokens.keys()].sort((left, right) => left - right)) {
     const label = `T${turnNumber}`;
-    contextTokens += bandTokens.get(turnNumber) ?? 0;
     costPerTurn.push({
       label,
       value: bandCostUsd.get(turnNumber) ?? 0,
       color: getSessionEventColor('tool_call'),
     });
+    // A band with no root model call (an MCP-auth resume) leaves the context untouched.
+    contextTokens = bandContextTokens.get(turnNumber) ?? contextTokens;
     contextByTurn.push({ label, value: contextTokens, color: getSessionEventColor('model') });
   }
 
