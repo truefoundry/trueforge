@@ -130,7 +130,9 @@ export function AssistantMessageContainer() {
         error={error !== undefined ? <MessageErrorBanner message={String(error)} /> : undefined}
         statusBanner={cancelledBanner !== undefined ? <MessageCancelledBanner message={cancelledBanner} /> : undefined}
         actionBar={
-          !isThreadRunning ? <MessageActionBar isCopied={isCopied} onCopy={onCopy} createdAt={createdAt} /> : undefined
+          isThreadRunning && isMessageRunning ? undefined : (
+            <MessageActionBar isCopied={isCopied} onCopy={onCopy} createdAt={createdAt} />
+          )
         }
       >
         <MessagePrimitive.GroupedParts groupBy={groupBy} indicator="never">
