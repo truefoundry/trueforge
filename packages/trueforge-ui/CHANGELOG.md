@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.186.0-rc.2
+
+### Patch Changes
+
+- 60deef7: Hide paused status dots after 48 hours of inactivity, and show failed runs with a circle-xmark icon in the agent session list only (no failure chrome in chat history). Session lists poll running and paused rows every 5 seconds, and a poll that sees a new pause also refreshes the activity time so the dot is not stuck hidden.
+- a8c613b: Show the chat sidebar title when the first turn is created, before the reply finishes.
+
 ## 0.186.0-rc.1
 
 ### Patch Changes

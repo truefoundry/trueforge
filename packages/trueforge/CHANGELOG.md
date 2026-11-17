@@ -1,5 +1,11 @@
 # @truefoundry/trueforge
 
+## 0.186.0-rc.2
+
+### Patch Changes
+
+- 97930d3: Service-key `assume-user` can list and create turns in TrueFoundry mode without a caller token.
+
 ## 0.186.0-rc.1
 
 ### Patch Changes
