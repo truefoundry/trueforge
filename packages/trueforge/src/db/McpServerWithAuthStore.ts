@@ -1,5 +1,10 @@
 import type { RemoteMcpHeaders, ResolveHeadersResult } from '@truefoundry/trueforge-core/core';
-import { isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
+import {
+  buildMcpAuthorizationUrl,
+  ensureMcpClientRegistered,
+  isMcpAuthRequired,
+  resolveMcpAuth,
+} from '../mcp/auth/mcpDcr';
 import type { IOAuthTokenStore, OAuthClientRecord } from '../mcp/auth/types';
 import { withCallerMcpHeaders, type PerServerMcpHeaders } from '../runtime/perServerMcpHeaders';
 import { resolveConfiguredMcpRequestHeaders, resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
@@ -77,7 +82,7 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
   #resolveRegisteredHeaders(input: { record: McpServerRecord; userRef: string }): RemoteMcpHeaders {
     const { record, userRef } = input;
     if (record.manifest.auth?.type === 'dcr') {
-      const resolveDcr = async (): Promise<ResolveHeadersResult> => {
+      return async (): Promise<ResolveHeadersResult> => {
         const result = await resolveMcpAuth({
           tokenStore: this.#tokenStore,
           mcpServerStore: this.#store,
@@ -97,15 +102,24 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
         }
         return {
           headers: result.headers,
-          // A 401 means the stored token was rejected: drop it and restart DCR consent.
+          // On a 401, start DCR consent; the stored token stays until the callback replaces it.
           authRequiredOnUnauthorized: async () => {
-            await this.#tokenStore.deleteToken({ id: record.id, userRef });
-            const retry = await resolveDcr();
-            return 'authRequired' in retry ? retry.authRequired : undefined;
+            const location = { serverId: record.id, mcpServerUrl: record.manifest.url, mcpServerName: record.name };
+            const client = await ensureMcpClientRegistered({
+              mcpServerStore: this.#store,
+              clientName: this.#clientName,
+              ...location,
+            });
+            const { authorizationUrl } = await buildMcpAuthorizationUrl({
+              tokenStore: this.#tokenStore,
+              client,
+              userRef,
+              ...location,
+            });
+            return { servers: [{ id: record.name, name: record.name, auth_url: authorizationUrl.href }] };
           },
         };
       };
-      return resolveDcr;
     }
     return resolveConfiguredMcpRequestHeaders(record.manifest);
   }
