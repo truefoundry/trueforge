@@ -9,7 +9,7 @@ const TASK_CHARS = 8_000;
 
 /** One canonical model per category for now; clusters of models replace this. */
 const CATEGORY_MODEL: Record<RoutingCategory, string> = {
-  direct: 'anthropic/claude-haiku-5-5',
+  direct: 'openai/gpt-6-luna',
   fixed_steps: 'anthropic/claude-sonnet-5-5',
   adaptive: 'openai/gpt-6-1-sol',
 };
