@@ -137,4 +137,52 @@ describe('AgentSessionsFilters', () => {
 
     expect(screen.queryByRole('button', { name: 'Reload sessions' })).not.toBeInTheDocument();
   });
+
+  it('filters to sessions created by the current user', () => {
+    const onCreatedByMeChange = vi.fn();
+    render(
+      <AgentSessionsFilters
+        agentId={null}
+        timeRange={{ startTs: 1, endTs: 2 }}
+        onAgentChange={() => undefined}
+        onTimeRangeChange={() => undefined}
+        onCreatedByMeChange={onCreatedByMeChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'My sessions' }));
+    expect(onCreatedByMeChange).toHaveBeenCalledWith(true);
+    fireEvent.click(screen.getByRole('button', { name: 'All sessions' }));
+    expect(onCreatedByMeChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it('marks the active scope as pressed', () => {
+    render(
+      <AgentSessionsFilters
+        agentId={null}
+        timeRange={{ startTs: 1, endTs: 2 }}
+        onAgentChange={() => undefined}
+        onTimeRangeChange={() => undefined}
+        createdByMe
+        onCreatedByMeChange={() => undefined}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'My sessions' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'All sessions' })).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('hides the creator filter when the page does not handle it', () => {
+    render(
+      <AgentSessionsFilters
+        agentId={null}
+        timeRange={{ startTs: 1, endTs: 2 }}
+        onAgentChange={() => undefined}
+        onTimeRangeChange={() => undefined}
+        showAgentFilter={false}
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: 'My sessions' })).not.toBeInTheDocument();
+  });
 });

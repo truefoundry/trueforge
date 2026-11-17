@@ -20,10 +20,18 @@ import { auiSelectMenuClass, auiSelectOptionClass, auiSelectTriggerClass } from 
 import { findLibraryAgent } from '../lib/useSearchAgentsList.js';
 import { Button } from '../primitives/Button.js';
 
+const SESSION_SCOPE_OPTIONS = [
+  { label: 'All sessions', createdByMe: false },
+  { label: 'My sessions', createdByMe: true },
+] as const;
+
 export type AgentSessionsFiltersProps = {
   agentId: string | null;
   timeRange: SessionTimeRange;
   onAgentChange: (agentId: string | null) => void;
+  /** When set, shows All / Me. Omitted on surfaces that only reuse the time control. */
+  createdByMe?: boolean;
+  onCreatedByMeChange?: (createdByMe: boolean) => void;
   onTimeRangeChange: (range: SessionTimeRange) => void;
   showAgentFilter?: boolean;
   showCustomTimeRange?: boolean;
@@ -35,6 +43,8 @@ export function AgentSessionsFilters({
   agentId,
   timeRange,
   onAgentChange,
+  createdByMe = false,
+  onCreatedByMeChange,
   onTimeRangeChange,
   showAgentFilter = true,
   showCustomTimeRange = true,
@@ -139,6 +149,33 @@ export function AgentSessionsFilters({
             }));
           }}
         />
+      ) : null}
+      {onCreatedByMeChange != null ? (
+        <div
+          role="group"
+          aria-label="Show sessions"
+          className="flex h-8 shrink-0 items-center gap-0.5 rounded-md border border-input-border bg-input-box-bg p-0.5"
+        >
+          {SESSION_SCOPE_OPTIONS.map(option => {
+            const selected = option.createdByMe === createdByMe;
+            return (
+              <button
+                key={option.label}
+                type="button"
+                aria-pressed={selected}
+                className={cn(
+                  'h-full cursor-pointer rounded-sm px-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-focus-ring/40',
+                  selected
+                    ? 'bg-dropdown-selected-item-bg font-medium text-dropdown-selected-item-text'
+                    : 'text-text-secondary hover:bg-ghost-button-hover hover:text-text-primary',
+                )}
+                onClick={() => onCreatedByMeChange(option.createdByMe)}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
       ) : null}
       <div className="relative" ref={popoverRef}>
         <button

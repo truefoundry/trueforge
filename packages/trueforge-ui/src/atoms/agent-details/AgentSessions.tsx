@@ -57,6 +57,7 @@ export function AgentSessions({
   agentId,
   startTimestamp,
   endTimestamp,
+  createdByMe = false,
   shareView,
   detailOnly = false,
   detailSessionId,
@@ -115,8 +116,9 @@ export function AgentSessions({
       ...(agentId == null || agentId.length === 0 ? {} : { agentId }),
       ...(startTimestamp == null ? {} : { startTimestamp }),
       ...(endTimestamp == null ? {} : { endTimestamp }),
+      ...(createdByMe ? { createdByMe: true } : {}),
     }),
-    [agentId, endTimestamp, startTimestamp],
+    [agentId, createdByMe, endTimestamp, startTimestamp],
   );
 
   useEffect(() => {
