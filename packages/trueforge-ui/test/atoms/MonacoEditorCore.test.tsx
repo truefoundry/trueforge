@@ -3,6 +3,7 @@ import { act, render, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MonacoEditorCore } from '@/atoms/MonacoEditorCore.js';
+import * as monacoPreload from '@/atoms/monacoPreload.js';
 import { preloadMonaco, resetMonacoPreloadForTests } from '@/atoms/monacoPreload.js';
 
 const monacoMocks = vi.hoisted(() => {
@@ -59,6 +60,7 @@ describe('MonacoEditorCore', () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     resetMonacoPreloadForTests();
     vi.unstubAllGlobals();
   });
@@ -122,6 +124,60 @@ describe('MonacoEditorCore', () => {
     rerender(<MonacoEditorCore value="second" />);
 
     await waitFor(() => expect(monacoMocks.editor.setValue).toHaveBeenCalledWith('second'));
+    expect(monacoMocks.editorApi.create).toHaveBeenCalledOnce();
+  });
+
+  it('initializes with the latest script and options after a delayed import', async () => {
+    const monaco = await preloadMonaco();
+    let resolveMonaco: ((module: typeof monaco) => void) | undefined;
+    const pending = new Promise<typeof monaco>(resolve => {
+      resolveMonaco = resolve;
+    });
+    vi.spyOn(monacoPreload, 'preloadMonaco').mockReturnValueOnce(pending);
+    const { rerender } = render(<MonacoEditorCore value="" options={{ readOnly: false }} theme="first-theme" />);
+
+    rerender(
+      <MonacoEditorCore
+        value={'echo selected-environment\n'}
+        language="shell"
+        options={{ readOnly: true, tabFocusMode: true }}
+        theme="latest-theme"
+      />,
+    );
+    expect(monacoMocks.editorApi.create).not.toHaveBeenCalled();
+    await act(async () => {
+      resolveMonaco?.(monaco);
+      await pending;
+    });
+
+    expect(monacoMocks.editorApi.create).toHaveBeenCalledOnce();
+    expect(monacoMocks.editorApi.create).toHaveBeenCalledWith(
+      expect.any(HTMLElement),
+      expect.objectContaining({
+        value: 'echo selected-environment\n',
+        language: 'shell',
+        readOnly: true,
+        tabFocusMode: true,
+        theme: 'latest-theme',
+      }),
+    );
+  });
+
+  it('updates read-only and keyboard options between sessions without recreating Monaco', async () => {
+    const { rerender } = render(
+      <MonacoEditorCore value="initial value" options={{ readOnly: false, tabFocusMode: true }} />,
+    );
+    await waitFor(() => expect(monacoMocks.editorApi.create).toHaveBeenCalledOnce());
+
+    rerender(<MonacoEditorCore value="initial value" options={{ readOnly: true, tabFocusMode: true }} />);
+    expect(monacoMocks.editor.updateOptions).toHaveBeenLastCalledWith(
+      expect.objectContaining({ readOnly: true, tabFocusMode: true }),
+    );
+
+    rerender(<MonacoEditorCore value="initial value" options={{ readOnly: false, tabFocusMode: false }} />);
+    expect(monacoMocks.editor.updateOptions).toHaveBeenLastCalledWith(
+      expect.objectContaining({ readOnly: false, tabFocusMode: false }),
+    );
     expect(monacoMocks.editorApi.create).toHaveBeenCalledOnce();
   });
 

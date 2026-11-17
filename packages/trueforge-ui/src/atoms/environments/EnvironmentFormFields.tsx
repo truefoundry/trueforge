@@ -121,7 +121,12 @@ export function EnvironmentFormFields({
   const buildScriptLabelId = useId();
   const [buildScriptOpen, setBuildScriptOpen] = useState(false);
   const update = (patch: Partial<EnvironmentFormValues>) => onChange({ ...values, ...patch });
-  const scriptEditorOptions = { readOnly, lineNumbers: 'on', renderFinalNewline: 'on' };
+  const scriptEditorOptions = {
+    readOnly,
+    lineNumbers: 'on',
+    renderFinalNewline: 'on',
+    tabFocusMode: !buildScriptOpen,
+  };
   const updateBuildScript = (buildScript: string) => update({ buildScript });
 
   return (

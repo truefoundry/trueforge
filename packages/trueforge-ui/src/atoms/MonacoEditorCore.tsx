@@ -190,6 +190,8 @@ export function MonacoEditorCore({
   const [autoPx, setAutoPx] = useState(() => (autoHeight ? estimateHeightFromValue(value, minPx, maxPx) : 0));
 
   const resolvedTheme = resolveThemeName(theme, classNames.monaco?.monacoTheme, mode);
+  const initializationRef = useRef({ value, language, options, resolvedTheme, autoHeight });
+  initializationRef.current = { value, language, options, resolvedTheme, autoHeight };
 
   const syncAutoHeight = () => {
     const editor = editorRef.current;
@@ -219,12 +221,13 @@ export function MonacoEditorCore({
       defineAuiThemes(monaco);
       beforeMountRef.current?.(monaco);
 
+      const latest = initializationRef.current;
       editor = monaco.editor.create(containerRef.current, {
-        value,
-        language,
-        theme: resolvedTheme,
+        value: latest.value,
+        language: latest.language,
+        theme: latest.resolvedTheme,
         ...EMBEDDED_DEFAULTS,
-        ...options,
+        ...latest.options,
       });
 
       editorRef.current = editor;
@@ -233,7 +236,7 @@ export function MonacoEditorCore({
         onChangeRef.current?.(editor!.getValue());
       });
 
-      if (autoHeight) {
+      if (latest.autoHeight) {
         sizeDisposable = editor.onDidContentSizeChange(() => {
           syncAutoHeight();
         });
@@ -252,7 +255,6 @@ export function MonacoEditorCore({
       editorRef.current = null;
       monacoRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // mount-only: editor manages its own state
 
   // Sync external value changes without recreating the editor.
@@ -265,6 +267,10 @@ export function MonacoEditorCore({
       }
     }
   }, [value, autoHeight, minPx, maxPx]);
+
+  useEffect(() => {
+    editorRef.current?.updateOptions({ ...EMBEDDED_DEFAULTS, ...options });
+  }, [options]);
 
   // Re-clamp when max/min change.
   useEffect(() => {

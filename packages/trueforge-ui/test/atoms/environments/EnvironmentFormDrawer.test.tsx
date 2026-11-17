@@ -20,6 +20,7 @@ vi.mock('@/atoms/MonacoEditorCore.js', () => ({
       data-language={language}
       data-line-numbers={String(options?.lineNumbers)}
       data-render-final-newline={String(options?.renderFinalNewline)}
+      data-tab-focus-mode={String(options?.tabFocusMode)}
       style={{ height }}
       readOnly={options?.readOnly === true}
       onChange={event => onChange?.(event.target.value)}
@@ -173,6 +174,7 @@ describe('EnvironmentFormDrawer', () => {
     expect(inlineEditor).toHaveAttribute('data-language', 'shell');
     expect(inlineEditor).toHaveAttribute('data-line-numbers', 'on');
     expect(inlineEditor).toHaveAttribute('data-render-final-newline', 'on');
+    expect(inlineEditor).toHaveAttribute('data-tab-focus-mode', 'true');
 
     fireEvent.change(inlineEditor, { target: { value: buildScript } });
     expect(screen.queryByRole('dialog', { name: 'Edit build script full screen' })).not.toBeInTheDocument();
@@ -205,6 +207,7 @@ describe('EnvironmentFormDrawer', () => {
     expect(editor).toHaveAttribute('data-language', 'shell');
     expect(editor).toHaveAttribute('data-line-numbers', 'on');
     expect(editor).toHaveAttribute('data-render-final-newline', 'on');
+    expect(editor).toHaveAttribute('data-tab-focus-mode', 'false');
     expect(editor).toHaveStyle({ height: '100%' });
     fireEvent.change(editor, { target: { value: buildScript } });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Done' }));
@@ -212,6 +215,7 @@ describe('EnvironmentFormDrawer', () => {
     expect(screen.queryByRole('dialog', { name: 'Edit build script full screen' })).not.toBeInTheDocument();
     expect(createEnvironment).not.toHaveBeenCalled();
     expect(screen.getByRole('textbox', { name: 'Build script editor' })).toHaveValue(buildScript);
+    expect(screen.getByRole('textbox', { name: 'Build script editor' })).toHaveAttribute('data-tab-focus-mode', 'true');
     fireEvent.click(screen.getByRole('button', { name: 'Edit build script full screen' }));
     expect(screen.getByRole('textbox', { name: 'Build script editor' })).toHaveValue(buildScript);
     fireEvent.click(screen.getByRole('button', { name: 'Done' }));
