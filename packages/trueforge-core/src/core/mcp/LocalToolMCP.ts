@@ -58,6 +58,7 @@ export function defineTool<T extends z.ZodType>(config: {
  * approval-gated), executed in-process within a local trace span. Base for all local/client-side tools.
  */
 export abstract class LocalToolMCP implements IToolSet {
+  readonly supportsApprovals = false;
   abstract readonly name: string;
   abstract readonly displayName: string;
   readonly description: string = '';

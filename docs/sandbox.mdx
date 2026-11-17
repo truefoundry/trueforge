@@ -147,9 +147,10 @@ The sandbox is **off by default** per agent. Turn it on in the agent builder whe
 Optional controls:
 
 - **File downloads**: let users download files the agent produces (on by default in the chat UI).
-- **Environment**: the environment a sandbox is cloned from. Leave it as **default**, or pick one you created (only **Ready** environments appear).
+- **Environment**: the environment a sandbox is cloned from. Pick the tenant default or one you created (only **Ready** environments appear).
 
-In the agent builder, both controls live in **Runtime Config** under **Sandbox**, where the **Environment** dropdown also has a **Manage Environments** link to the Envs page. For a one-off chat, pick an environment from the composer's **Tools** menu under the **Environment** tab. Via the SDK, set `config.sandbox.environment_name` on the [agent spec](/create-agent/overview#config); omit it to use `default`:
+In the agent builder, both controls live in **Runtime Config** under **Sandbox**, where the **Environment** dropdown also has a **Manage Environments** link to the Envs page. For a one-off chat, pick an environment from the composer's **Tools** menu under the **Environment** tab. Via the SDK, set `config.sandbox.environment_name` on the [agent spec](/create-agent/overview#config). 
+When sandbox is enabled and the provider supports environments (Daytona), this field is **required**:
 
 ```json
 "config": { "sandbox": { "enabled": true, "environment_name": "data-tools" } }
