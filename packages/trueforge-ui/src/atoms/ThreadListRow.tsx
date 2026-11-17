@@ -85,12 +85,16 @@ export function ThreadListRow({
   className,
 }: ThreadListRowProps) {
   const isMobile = useIsMobile();
-  const statusDotClass = lastTurnStatusDotClass(lastTurnStatus);
-  const statusLabel = lastTurnStatusLabel(lastTurnStatus);
+  const statusDotClass = lastTurnStatusDotClass({
+    status: lastTurnStatus,
+    ...(lastMessageAt != null ? { activityAt: lastMessageAt } : {}),
+  });
   const running = isRunningTurnStatus(lastTurnStatus);
   const paused = isPausedTurnStatus(lastTurnStatus);
+  // Chat history keeps paused chrome; failed runs are session-list only.
+  const statusLabel = running || statusDotClass != null ? lastTurnStatusLabel(lastTurnStatus) : undefined;
   const age = lastMessageAt != null ? formatRelativeShort(lastMessageAt) : undefined;
-  // Paused/error → status dot; running → jumping dots; otherwise relative age.
+  // Paused → status dot; running → jumping dots; otherwise relative age.
   const relative = !running && statusDotClass == null ? age : undefined;
   const hasTrailing = running || relative != null || statusDotClass != null || actions != null;
 
@@ -124,7 +128,7 @@ export function ThreadListRow({
             <span className={cn('truncate text-sm font-normal text-text-primary', running && 'aui-text-shimmer')}>
               {title}
             </span>
-            {/* Mobile: keep the paused/error dot next to the title when actions own the trailing slot. */}
+            {/* Mobile: keep the paused dot next to the title when actions own the trailing slot. */}
             {statusDotClass != null && actions != null ? (
               <span data-slot="session-status-dot" className="shrink-0 md:hidden">
                 <StatusDot className="size-1.5" colorClassName={statusDotClass} pulse={paused} />
