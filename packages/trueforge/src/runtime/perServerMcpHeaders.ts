@@ -69,10 +69,7 @@ export async function resolveMcpConsent(input: {
 }): Promise<MCPAuthRequired | undefined> {
   const status = await input.authorize();
   const authUrl = status.status === 'auth_required' ? status.authorization_url : undefined;
-  if (authUrl === undefined || authUrl.length === 0) {
-    return undefined;
-  }
-  return { servers: [{ id: input.name, name: input.name, auth_url: authUrl }] };
+  return authUrl === undefined ? undefined : { servers: [{ id: input.name, name: input.name, auth_url: authUrl }] };
 }
 
 /**

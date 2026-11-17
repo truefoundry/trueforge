@@ -1,4 +1,4 @@
-import { McpConnectionError, type MCPAuthRequired, type RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
+import { McpConnectionError, type RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
 import type { RequestContext, RequestSubject } from '../auth/identity';
@@ -52,6 +52,13 @@ export type TrueFoundryMcpApiClient = Pick<
   | 'vendToken'
   | 'getTenantControlPlaneUrl'
 >;
+
+function withoutAuthorization(headers: Record<string, string> | undefined): Record<string, string> {
+  if (headers === undefined) {
+    return {};
+  }
+  return Object.fromEntries(Object.entries(headers).filter(([name]) => name.toLowerCase() !== 'authorization'));
+}
 
 /** Per-server upstream headers the TrueFoundry gateway applies after its own caller auth. */
 const X_TFY_MCP_HEADERS = 'x-tfy-mcp-headers';
@@ -107,9 +114,9 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
   }
 
   /**
-   * Gateway Bearer (+ the caller's headers for that server); SFY authorize first, else authRequired.
-   * A caller entry with Authorization, or a virtual MCP's nested entry, goes in `x-tfy-mcp-headers` and
-   * authorize runs only after a 401.
+   * Gateway Bearer (+ optional per-server overrides); SFY authorize first, else authRequired.
+   * A caller entry with Authorization, or a virtual MCP's nested entry, goes in `x-tfy-mcp-headers`
+   * and authorize runs only after a 401.
    */
   resolveInvokeHeaders(input: {
     record: McpServerRecord;
@@ -118,37 +125,48 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
   }): RemoteMcpHeaders {
     const { record, userRef, turnMetadata } = input;
     const callerHeaders = this.#perServerHeaders[record.name];
-    const consent = (): Promise<MCPAuthRequired | undefined> =>
-      resolveMcpConsent({ name: record.name, authorize: () => this.#authorizeWithUrl({ record, userRef }) });
-    const gatewayBase = async (): Promise<Record<string, string>> => ({
-      ...gatewayHeaders(await this.#resolveGatewayAuthorization()),
-      ...gatewayMetadataHeadersForTurn(turnMetadata),
-    });
     if (callerHeaders !== undefined && (isVirtualMcpHeaders(callerHeaders) || hasAuthorizationHeader(callerHeaders))) {
       // Each connection targets one server's gateway proxy; a virtual MCP's nested map is fanned out by the gateway.
       return async () => ({
-        headers: { ...(await gatewayBase()), [X_TFY_MCP_HEADERS]: JSON.stringify(callerHeaders) },
-        authRequiredOnUnauthorized: consent,
+        headers: {
+          ...gatewayHeaders(await this.#resolveGatewayAuthorization()),
+          ...gatewayMetadataHeadersForTurn(turnMetadata),
+          [X_TFY_MCP_HEADERS]: JSON.stringify(callerHeaders),
+        },
+        authRequiredOnUnauthorized: () =>
+          resolveMcpConsent({
+            name: record.name,
+            authorize: () => this.authorize({ tenant_id: record.tenant_id, name: record.name, userRef }),
+          }),
       });
     }
     return async () => {
-      const authRequired = await consent();
-      if (authRequired !== undefined) {
-        return { authRequired };
-      }
-      return { headers: { ...callerHeaders, ...(await gatewayBase()) } };
-    };
-  }
-
-  async #authorizeWithUrl(input: { record: McpServerRecord; userRef: string }): Promise<McpAuthStatus> {
-    const { record, userRef } = input;
-    const status = await this.authorize({ tenant_id: record.tenant_id, name: record.name, userRef });
-    if (status.status === 'auth_required' && (status.authorization_url ?? '').length === 0) {
-      throw new HTTPException(422, {
-        message: `MCP server "${record.name}" requires authentication but returned no authorization URL`,
+      const status = await this.authorize({
+        tenant_id: record.tenant_id,
+        name: record.name,
+        userRef,
       });
-    }
-    return status;
+      if (status.status === 'auth_required') {
+        const authUrl = status.authorization_url;
+        if (authUrl === undefined || authUrl.length === 0) {
+          throw new HTTPException(422, {
+            message: `MCP server "${record.name}" requires authentication but returned no authorization URL`,
+          });
+        }
+        return {
+          authRequired: {
+            servers: [{ id: record.name, name: record.name, auth_url: authUrl }],
+          },
+        };
+      }
+      const authorization = await this.#resolveGatewayAuthorization();
+      const invokeHeaders = {
+        ...withoutAuthorization(callerHeaders),
+        ...gatewayHeaders(authorization),
+        ...gatewayMetadataHeadersForTurn(turnMetadata),
+      };
+      return { headers: invokeHeaders };
+    };
   }
 
   async listServers(input: ListMcpServersInput, transaction?: TTransaction): Promise<McpServerRecord[]> {

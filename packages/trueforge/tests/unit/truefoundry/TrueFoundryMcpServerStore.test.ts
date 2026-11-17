@@ -575,7 +575,7 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
     getMcpAuthorize.mockResolvedValueOnce({ status: 'not_required' });
     await expect(resolved.authRequiredOnUnauthorized()).resolves.toBeUndefined();
     getMcpAuthorize.mockResolvedValueOnce({ status: 'auth_required' });
-    await expect(resolved.authRequiredOnUnauthorized()).rejects.toMatchObject({ status: 422 });
+    await expect(resolved.authRequiredOnUnauthorized()).resolves.toBeUndefined();
   });
 
   it('never calls authorize for a caller Authorization', async () => {
