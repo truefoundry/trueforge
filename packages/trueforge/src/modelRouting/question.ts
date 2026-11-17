@@ -1,13 +1,10 @@
-/** The question the decision model answers to route a subagent. `TRUEFOUNDRY_MODEL_ROUTING` can override it. */
 export interface RoutingQuestion {
   instructions: string;
-  /** Exactly the categories the router maps to models. */
   categories: { direct: string; fixed_steps: string; adaptive: string };
 }
 
 export type RoutingCategory = keyof RoutingQuestion['categories'];
 
-/** Described by the task's structure: example tasks in a description make the decision model match on wording. */
 export const DEFAULT_ROUTING_QUESTION: RoutingQuestion = {
   instructions: 'Which category best describes what this task needs to be completed?',
   categories: {
