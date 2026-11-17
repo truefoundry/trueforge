@@ -75,6 +75,7 @@
                 ]
               },
               "authentication/overview",
+              "metrics",
               "benchmarking"
             ]
           },
