@@ -28,9 +28,9 @@ export class ToolSet implements IToolSet {
   }
   readonly preload: boolean;
   readonly hasPreloadedTools: boolean;
-
   private readonly source: ToolSource;
   private readonly toolSelectorPolicy: ToolSelectorPolicy;
+  readonly supportsApprovals = true;
   private readonly approvalPolicies = new Map<string, ToolApprovalPolicy>();
 
   static isPolicyApplicable(policy: ToolApprovalPolicy, asOf: Date): boolean {

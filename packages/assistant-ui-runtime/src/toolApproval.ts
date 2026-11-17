@@ -68,7 +68,7 @@ function applyApprovalDecisionToToolCall(
   return {
     ...part,
     approval,
-    result: { error: reason ?? 'Tool approval denied' },
+    result: { reason: reason ?? 'Tool approval denied' },
     isError: true,
   };
 }

@@ -61,7 +61,7 @@ export function McpAuthPrompt({
                 Connected
               </span>
             ) : (
-              <Button.Secondary
+              <Button.Primary
                 size="small"
                 disabled={readOnly}
                 onClick={() => onConnect(server.id)}
@@ -69,21 +69,16 @@ export function McpAuthPrompt({
               >
                 Connect
                 <Icon name="external-link" size="0.75em" className="ml-1" />
-              </Button.Secondary>
+              </Button.Primary>
             )}
           </div>
         ))}
         {onContinue && (
           <div className="flex justify-end pt-1">
-            <Button.Primary
-              size="small"
-              disabled={readOnly || continueLoading}
-              onClick={onContinue}
-              className="bg-gray-850 text-white hover:bg-gray-850 dark:text-black"
-            >
+            <Button.Secondary size="small" disabled={readOnly || continueLoading} onClick={onContinue}>
               {continueLoading ? <Icon name="loader" className="animate-spin" /> : null}
               Continue
-            </Button.Primary>
+            </Button.Secondary>
           </div>
         )}
       </div>

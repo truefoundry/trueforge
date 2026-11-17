@@ -866,8 +866,8 @@ export class AgentThread {
     return getOpenToolCallIds(this.context).has(toolCallId);
   }
 
-  getUserToolSets(): readonly IToolSet[] {
-    return this.definition.toolSets ?? [];
+  getToolSets(): readonly IToolSet[] {
+    return [...this.systemToolSets, ...(this.definition.toolSets ?? [])];
   }
 
   isRunnable(): boolean {
