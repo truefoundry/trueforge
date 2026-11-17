@@ -3,8 +3,6 @@ import {
   type RespondToToolApprovalOptions,
 } from '@truefoundry/trueforge-assistant-ui-runtime';
 
-import { parseMcpToolArgs } from './toolCallParsing.js';
-
 export const TOOL_APPROVAL_OPTION_ID = {
   APPROVE_ONCE: 'approve-once',
   APPROVE_SESSION: 'approve-session',
@@ -41,32 +39,14 @@ const SESSION_POLICY_OPTION_IDS = new Set<ToolApprovalChoice['id']>([
   TOOL_APPROVAL_OPTION_ID.APPROVE_TEN_MINUTES,
 ]);
 
-const DEFERRED_CALL_TOOL_NAME = 'call_tool';
-
-// Session / 10-minute allow is a remembered yes. Only deferred `call_tool`
-// can attach that policy (needs mcp_server + tool_name). Meta-tools like
-// get_tool_info reuse those arg names but are not policy targets.
-export function toolSupportsSessionPolicy({ toolName, argsText }: { toolName?: string; argsText?: string }): boolean {
-  if (toolName !== DEFERRED_CALL_TOOL_NAME) {
-    return false;
-  }
-  const { mcpServer, innerToolName } = parseMcpToolArgs(argsText);
-  return (
-    typeof mcpServer === 'string' &&
-    mcpServer.length > 0 &&
-    typeof innerToolName === 'string' &&
-    innerToolName.length > 0
-  );
-}
-
+// Session / 10-minute allow is a remembered yes keyed by (server, tool). The
+// runtime resolves that target per pending approval; without one, offer only once/deny.
 export function approvalChoicesForTool({
-  toolName,
-  argsText,
+  supportsSessionPolicy,
 }: {
-  toolName?: string;
-  argsText?: string;
-} = {}): readonly ToolApprovalChoice[] {
-  if (toolSupportsSessionPolicy({ toolName, argsText })) {
+  supportsSessionPolicy: boolean;
+}): readonly ToolApprovalChoice[] {
+  if (supportsSessionPolicy) {
     return TOOL_APPROVAL_CHOICES;
   }
   return TOOL_APPROVAL_CHOICES.filter(choice => !SESSION_POLICY_OPTION_IDS.has(choice.id));

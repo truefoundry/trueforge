@@ -84,6 +84,34 @@ export function createApiKeyAuthMiddleware(apiKey: string): MiddlewareHandler {
 }
 
 /**
+ * JWT or service API key. Service key leaves `request_context` unset so the handler can
+ * apply `assume-user`. Prefer {@link createAuthMiddleware} when service keys are not allowed.
+ */
+export function createAuthOrServiceKeyMiddleware(params: {
+  authenticator: Authenticator;
+  apiKey: string;
+}): MiddlewareHandler {
+  const { authenticator, apiKey } = params;
+  return async (c, next) => {
+    const token = readBearerToken(c);
+    if (token && matchesServiceKey({ provided: token, expected: apiKey })) {
+      c.set('request_context', undefined);
+      c.set('subject', undefined);
+      return next();
+    }
+
+    const requestContext = await tryAuthenticate({ authenticator, context: c });
+    if (!requestContext) {
+      throw new HTTPException(401, { message: 'Authentication required' });
+    }
+    c.set('subject', requestContext.subject);
+    c.set('request_context', requestContext);
+    updateLogContext({ tenant_id: requestContext.tenant_id });
+    return next();
+  };
+}
+
+/**
  * Soft OIDC probe for login/callback — not request-gate middleware.
  *
  * Same JWT → {@link RequestContext} path as {@link OidcAuthenticator}, but missing/invalid

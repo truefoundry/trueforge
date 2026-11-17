@@ -15,7 +15,7 @@ const stream = await client.sessions.createTurnStream(session.id, {
   input: [{ type: "user.message", content: "Hello!" }],
 });
 
-for await (const { data: event } of stream.withMetadata()) {
+for await (const event of stream) {
   console.log(event);
   if (isEventDelta(event)) {
     const base = events.get(event.id);

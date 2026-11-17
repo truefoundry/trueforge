@@ -577,6 +577,7 @@ export function useTrueForgeAgentMessages({
   );
 
   const messages = useMemo(() => projectSessionMessages(snapshot, projectOptions), [snapshot, projectOptions]);
+  const pendingApprovals = useMemo(() => collectPendingApprovals(messages, snapshot.fold), [messages, snapshot.fold]);
 
   const runStream = useCallback(
     (
@@ -1538,11 +1539,6 @@ export function useTrueForgeAgentMessages({
           throw new Error('Cannot branch from a turn without an active session.');
         }
 
-        committed = commitActiveStream(snapshotRef.current);
-        setSnapshot(committed);
-
-        await cancel();
-
         const conversationSessionId = await resolveActiveSessionId(
           activeSessionId,
           resolveConversationSessionIdRef.current,
@@ -1555,6 +1551,11 @@ export function useTrueForgeAgentMessages({
           conversationSessionId,
           previousTurnId === 'none' ? null : previousTurnId,
         );
+        // The server supersedes the open turn when the branch is created; only
+        // detach the client stream so its late updates cannot overwrite the rewind.
+        ++streamGenerationRef.current;
+        abortControllerRef.current?.abort();
+        committed = commitActiveStream(snapshotRef.current);
         createdAtByMessageIdRef.current = new Map();
         // Keep the ref aligned before awaiting sendTurn so any intermediate
         // reads (and the atomic pendingUser apply) see the rewound history.
@@ -1574,7 +1575,7 @@ export function useTrueForgeAgentMessages({
         branchRollbackSnapshot: committed,
       });
     },
-    [cancel, server, sendTurn, sessionId],
+    [server, sendTurn, sessionId],
   );
 
   const resetFromTurn = useCallback(
@@ -1714,6 +1715,7 @@ export function useTrueForgeAgentMessages({
 
   return {
     messages,
+    pendingApprovals,
     isRunning,
     resumeUnavailable,
     isLoading,

@@ -41,7 +41,7 @@ import {
 import type { CreateDynamicSubAgentThread } from './CreateDynamicSubAgentThread';
 import { addAgentThreadMetrics, createEmptyAgentThreadMetrics, type AgentThreadMetrics } from './metrics';
 
-const MAX_PARALLEL_SUB_AGENTS = 5;
+export const DEFAULT_MAX_PARALLEL_SUB_AGENTS = 10;
 const CANCELED_BECAUSE_USER_SENT_NEW_MESSAGE = 'Canceled because user sent a new message.';
 
 function getActiveAgentThreads(agentThreads: Map<string, AgentThread>): AgentThread[] {
@@ -193,6 +193,7 @@ export async function* wrapWithSubAgentSpan(
 
 export interface AgentThreadOrchestratorInput {
   agentThreads: Map<string, AgentThread>;
+  maxParallelSubAgents?: number;
   createDynamicSubAgentThread: CreateDynamicSubAgentThread;
   tracing: AgentTracing;
   logger: Logger;
@@ -207,6 +208,7 @@ export interface AgentThreadOrchestratorInput {
 
 export class AgentThreadOrchestrator {
   private readonly agentThreads: Map<string, AgentThread>;
+  private readonly maxParallelSubAgents: number;
   private readonly createDynamicSubAgentThread: CreateDynamicSubAgentThread;
   private readonly tracing: AgentTracing;
   private readonly logger: Logger;
@@ -218,6 +220,7 @@ export class AgentThreadOrchestrator {
   private readonly mcpServerInitInfoById = new Map<string, MCPServerInitInfo>();
 
   constructor(params: AgentThreadOrchestratorInput) {
+    this.maxParallelSubAgents = params.maxParallelSubAgents ?? DEFAULT_MAX_PARALLEL_SUB_AGENTS;
     this.agentThreads = params.agentThreads;
     this.createDynamicSubAgentThread = params.createDynamicSubAgentThread;
     this.tracing = params.tracing;
@@ -277,12 +280,12 @@ export class AgentThreadOrchestrator {
     yield* thread.send(messages);
   }
 
-  // Pure: every `server_name` must match a currently-configured user MCP tool set. Returns one
+  // Pure: every `server_name` must match an approval tool set on some thread. Returns one
   // error string per unknown name (empty when all valid). Applies nothing.
   private validateApprovalPolicies(policies: ToolApprovalPolicyItem[]): string[] {
     const knownServerNames = new Set<string>();
     for (const thread of this.agentThreads.values()) {
-      for (const toolSet of thread.getUserToolSets()) {
+      for (const toolSet of thread.getToolSets().filter(t => t.supportsApprovals)) {
         knownServerNames.add(toolSet.name);
       }
     }
@@ -296,7 +299,7 @@ export class AgentThreadOrchestrator {
     return errors;
   }
 
-  // Record each policy on its matching user tool sets, then resolve any
+  // Record each policy on its matching tool sets, then resolve any
   // already-pending approvals the policy now covers.
   // Last write wins for a given (server, tool).
   //
@@ -316,7 +319,7 @@ export class AgentThreadOrchestrator {
       let appliedAny = false;
 
       for (const policy of policies) {
-        for (const toolSet of thread.getUserToolSets()) {
+        for (const toolSet of thread.getToolSets().filter(t => t.supportsApprovals)) {
           if (toolSet.name !== policy.server_name) {
             continue;
           }
@@ -362,7 +365,7 @@ export class AgentThreadOrchestrator {
     // Apply the policies to the thread tool sets.
     for (const thread of this.agentThreads.values()) {
       for (const policy of policies) {
-        for (const toolSet of thread.getUserToolSets()) {
+        for (const toolSet of thread.getToolSets().filter(t => t.supportsApprovals)) {
           if (toolSet.name !== policy.server_name) {
             continue;
           }
@@ -694,8 +697,8 @@ export class AgentThreadOrchestrator {
           turnPaused = false;
         }
 
-        for (let i = 0; i < runnable.length; i += MAX_PARALLEL_SUB_AGENTS) {
-          const batch = runnable.slice(i, i + MAX_PARALLEL_SUB_AGENTS);
+        for (let i = 0; i < runnable.length; i += this.maxParallelSubAgents) {
+          const batch = runnable.slice(i, i + this.maxParallelSubAgents);
           const generators = batch.map(thread =>
             thread.parent
               ? wrapWithSubAgentSpan(rootSpan.trace, thread, signal)

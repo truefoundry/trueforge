@@ -1,5 +1,6 @@
 import type { Logger } from 'winston';
 import type { AgentCapability } from '../core/capabilities/AgentCapability';
+import type { ToolApprovalPolicy } from '../core/events/schema';
 import type { ILLM } from '../core/llm/ILLM';
 import type { ModelParams } from '../core/llm/model';
 import type { VercelAIProviderName } from '../core/llm/VercelAILLM';
@@ -83,6 +84,7 @@ export class TurnResourceResolver<
   readonly #sources = new Map<string, Promise<ToolSource>>();
   readonly #models = new Map<string, Promise<ResolvedModel>>();
   #sandbox?: HarnessSandbox | undefined;
+  readonly maxParallelSubAgents?: number;
 
   constructor(
     protected readonly deps: {
@@ -97,6 +99,7 @@ export class TurnResourceResolver<
       mcpRequestTimeoutMs: number;
       mcpConnectTimeoutMs: number;
       mcpMaxResponseBytes?: number | undefined;
+      maxParallelSubAgents?: number;
       /** One sandbox type per runtime. Omit = no sandbox support. */
       sandboxProvider?: TurnSandboxFactory | undefined;
       /**
@@ -115,7 +118,11 @@ export class TurnResourceResolver<
       /** Forwarded to RemoteMCP / AgentThread (required by their constructors). */
       logger: Logger;
     },
-  ) {}
+  ) {
+    if (deps.maxParallelSubAgents !== undefined) {
+      this.maxParallelSubAgents = deps.maxParallelSubAgents;
+    }
+  }
 
   get webSearchProvider(): IWebSearchProvider | undefined {
     return this.deps.webSearchProvider;
@@ -236,7 +243,11 @@ export class TurnResourceResolver<
         });
       }),
     );
-    const trueforgeToolSet = await this.trueforgeToolSet({ signal, tracing });
+    const trueforgeToolSet = await this.trueforgeToolSet({
+      signal,
+      tracing,
+      approvalPolicies: previousTurn?.snapshot.mcp_servers?.[TRUEFORGE_MCP_ID]?.approval_policies,
+    });
     const extraCapabilities = [
       ...(trueforgeToolSet === undefined ? [] : [{ systemToolSets: [trueforgeToolSet] }]),
       ...(agentInfo === undefined ? (this.deps.rootCapabilities?.() ?? []) : []),
@@ -270,7 +281,11 @@ export class TurnResourceResolver<
     };
   }
 
-  private async trueforgeToolSet(input: { signal: AbortSignal; tracing: AgentTracing }): Promise<ToolSet | undefined> {
+  private async trueforgeToolSet(input: {
+    signal: AbortSignal;
+    tracing: AgentTracing;
+    approvalPolicies: Record<string, ToolApprovalPolicy> | undefined;
+  }): Promise<ToolSet | undefined> {
     const connection = await this.deps.mcp(TRUEFORGE_MCP_ID);
     if (connection === undefined) {
       return undefined;
@@ -296,7 +311,7 @@ export class TurnResourceResolver<
       source,
       selectors: TRUEFORGE_MCP_SELECTORS,
       preload: false,
-      approvalPolicies: undefined,
+      approvalPolicies: input.approvalPolicies,
     });
   }
 

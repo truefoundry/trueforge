@@ -21,8 +21,11 @@ import { useCompactLayout } from '../atoms/lib/CompactLayoutContext.js';
 import { SESSION_LIST_FIRST_PAGE_LIMIT, sessionListPollIntervalMs } from '../atoms/lib/sessionListPoll.js';
 import {
   canReuseMutableShell,
+  isNewerActivityAt,
+  laterActivityAt,
   readThreadAgentName,
   readThreadIsMutable,
+  readThreadLastActivityAt,
   readThreadLastTurnStatus,
   threadCustomWithLastTurnStatus,
   threadListIndicesByRecency,
@@ -31,6 +34,7 @@ import {
 import { useIsMobile } from '../atoms/lib/useIsMobile.js';
 import { BottomSheet } from '../atoms/primitives/BottomSheet.js';
 import ConfirmDeleteDialog from '../atoms/primitives/ConfirmDeleteDialog.js';
+import { Tooltip } from '../atoms/primitives/Tooltip.js';
 import { RenameSessionModal } from '../atoms/RenameSessionModal.js';
 import { useResourcePermissions } from '../hooks/useResourcePermissions.js';
 import { useSessionListStatusPoll } from '../hooks/useSessionListStatusPoll.js';
@@ -53,6 +57,7 @@ import { useToasterOptional } from './ToasterContainer.js';
 export type ThreadListContainerProps = {
   /** Called after New chat or selecting a row — used by stack/drawer chrome. */
   onThreadOpen?: () => void;
+  onCollapseRecentHistory?: () => void;
   /**
    * `recent-history` hides navigation and lists only persisted sessions.
    * `mobile-drawer` shows New Chat + Agents Library, then persisted sessions (no Sessions/Schedules).
@@ -214,6 +219,7 @@ function ThreadListItemRow({
   const mainThreadId = useAuiState(s => s.threads.mainThreadId);
   const agentName = readThreadAgentName(custom);
   const lastTurnStatus = readThreadLastTurnStatus(custom);
+  const activityAt = laterActivityAt(lastMessageAt, readThreadLastActivityAt(custom));
   const showRename = canRenameSession && remoteId != null;
   const showDelete = canDeleteSession && remoteId != null;
   const showActions = showRename || showDelete;
@@ -288,7 +294,7 @@ function ThreadListItemRow({
         active={id === mainThreadId && !sidebarNavOpen}
         agentName={agentName}
         {...(lastTurnStatus == null ? {} : { lastTurnStatus })}
-        lastMessageAt={lastMessageAt}
+        {...(activityAt == null ? {} : { lastMessageAt: activityAt })}
         onSelect={() => {
           track(
             AnalyticsEvents.Session.SELECTED,
@@ -443,10 +449,12 @@ function RecentChatsSection({
   children,
   viewportRef,
   hideScrollbar,
+  onCollapse,
 }: {
   children: ReactNode;
   viewportRef: Ref<HTMLDivElement>;
   hideScrollbar: boolean;
+  onCollapse?: () => void;
 }) {
   const shell = useOptionalShellMode();
   const activeRemoteId = useAuiState(s => s.threadListItem.remoteId);
@@ -467,6 +475,24 @@ function RecentChatsSection({
       <div className="flex shrink-0 items-center gap-1 px-1 py-1">
         <h2 className="min-w-0 flex-1 truncate px-1.5 py-1 text-sm font-medium text-text-secondary">{heading}</h2>
         {showFilter ? <AgentHistoryFilterButton /> : null}
+        {onCollapse != null ? (
+          <Tooltip content="Close chat history" side="right">
+            <button
+              type="button"
+              aria-label="Close chat history"
+              aria-expanded={true}
+              className={auiButtonClass({
+                variant: 'ghost',
+                size: 'icon',
+                className:
+                  'size-7 shrink-0 text-text-secondary hover:bg-ghost-button-hover hover:text-ghost-button-text',
+              })}
+              onClick={onCollapse}
+            >
+              <Icon name="panel-left-close" className="size-3.5" />
+            </button>
+          </Tooltip>
+        ) : null}
       </div>
       <div
         ref={viewportRef}
@@ -479,7 +505,11 @@ function RecentChatsSection({
   );
 }
 
-export function ThreadListContainer({ onThreadOpen, variant = 'default' }: ThreadListContainerProps = {}) {
+export function ThreadListContainer({
+  onThreadOpen,
+  onCollapseRecentHistory,
+  variant = 'default',
+}: ThreadListContainerProps = {}) {
   const aui = useAui();
   const server = useOptionalServer();
   const track = useTrackAnalytics();
@@ -546,7 +576,10 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
         });
 
         const statusByRemoteId = new Map(
-          page.data.map(session => [session.id, session.lastTurnDetails?.state.status] as const),
+          page.data.map(
+            session =>
+              [session.id, { status: session.lastTurnDetails?.state.status, updatedAt: session.updatedAt }] as const,
+          ),
         );
         const threadsState = auiRef.current.threads().getState();
         const mainThreadId = threadsState.mainThreadId;
@@ -557,13 +590,15 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
             continue;
           }
           if (item.remoteId == null || !statusByRemoteId.has(item.remoteId)) continue;
-          const nextStatus = statusByRemoteId.get(item.remoteId);
+          const polled = statusByRemoteId.get(item.remoteId);
+          if (polled == null) continue;
           const prevStatus = readThreadLastTurnStatus(item.custom);
-          if (nextStatus === prevStatus) continue;
+          const prevActivity = readThreadLastActivityAt(item.custom) ?? item.lastMessageAt;
+          if (polled.status === prevStatus && !isNewerActivityAt(polled.updatedAt, prevActivity)) continue;
           void auiRef.current
             .threads()
             .item({ id: item.id })
-            .updateCustom(threadCustomWithLastTurnStatus(item.custom, nextStatus ?? null));
+            .updateCustom(threadCustomWithLastTurnStatus(item.custom, polled.status ?? null, polled.updatedAt));
         }
       } catch {
         // Keep showing the last known status on transient poll failures.
@@ -682,7 +717,11 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
 
   return (
     <ThreadListShell header={header}>
-      <RecentChatsSection viewportRef={viewportRef} hideScrollbar={isPersistedHistory}>
+      <RecentChatsSection
+        viewportRef={viewportRef}
+        hideScrollbar={isPersistedHistory}
+        onCollapse={variant === 'recent-history' ? onCollapseRecentHistory : undefined}
+      >
         {listBody}
         {!isIdle && hasMore ? <div className="h-4 shrink-0" aria-hidden /> : null}
       </RecentChatsSection>
