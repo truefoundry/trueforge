@@ -305,7 +305,7 @@ describe('sessions HTTP agent binding', () => {
     expect(listJson.data.some(row => row.id === json.data.id)).toBe(true);
   });
 
-  it('returns both tenant-wide and caller metrics for a named agent under an all scope', async () => {
+  it('returns both tenant-wide and caller metrics to the manager of a named agent', async () => {
     const agent = await agentStore.createAgent({
       tenant_id: 'default',
       created_by_subject: {
@@ -397,7 +397,8 @@ describe('sessions HTTP agent binding', () => {
             ? { kind: 'agent_external_ids', agent_external_ids: ['managed-agent-external'] }
             : { kind: 'agent_external_ids', agent_external_ids: [] },
         ),
-      canAccessAgent: () => Promise.resolve(false),
+      canAccessAgent: input =>
+        Promise.resolve(input.action === 'manage' && input.agent.external_id === 'managed-agent-external'),
       getPermissions: async ({ resourceType, resourceIds }) => ({
         type: resourceType,
         permissions: Object.fromEntries(resourceIds.map(id => [id, []])),
@@ -484,8 +485,9 @@ describe('sessions HTTP agent binding', () => {
       });
     }
     const viewerAuthorizer: Authorizer = {
-      listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
-      canAccessAgent: () => Promise.resolve(true),
+      // An `all` list scope with no manage right on the agent: the shape that OIDC deployments produce.
+      listAgentAccess: () => Promise.resolve({ kind: 'all' }),
+      canAccessAgent: input => Promise.resolve(input.action !== 'manage'),
       getPermissions: ({ resourceType, resourceIds }) =>
         Promise.resolve({
           type: resourceType,

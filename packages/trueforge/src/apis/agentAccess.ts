@@ -56,28 +56,6 @@ export async function listAccessibleAgents<TTransaction>(input: {
   });
 }
 
-type ManagedAgents = { kind: 'all' } | { kind: 'ids'; ids: string[] };
-
-async function resolveManagedAgents<TTransaction>(input: {
-  store: IAgentStore<TTransaction>;
-  context: RequestContext;
-  authorizer: Authorizer;
-}): Promise<ManagedAgents> {
-  const { store, context, authorizer } = input;
-  const access = await authorizer.listAgentAccess({ context, action: 'manage' });
-  if (access.kind === 'all') {
-    return { kind: 'all' };
-  }
-  const { data } = await store.listAgents({
-    tenant_id: context.tenant_id,
-    external_ids: access.agent_external_ids,
-    agent_name: undefined,
-    limit: undefined,
-    page_token: undefined,
-  });
-  return { kind: 'ids', ids: data.map(agent => agent.id) };
-}
-
 /**
  * Resolve only explicit manage grants to internal ids. An `all` scope does not
  * identify explicit grants and must not widen related-resource visibility.
@@ -87,14 +65,26 @@ export async function resolveManagedAgentIds<TTransaction>(input: {
   context: RequestContext;
   authorizer: Authorizer;
 }): Promise<string[]> {
-  const managed = await resolveManagedAgents(input);
-  return managed.kind === 'all' ? [] : managed.ids;
+  const { store, context, authorizer } = input;
+  const access = await authorizer.listAgentAccess({ context, action: 'manage' });
+  if (access.kind === 'all') {
+    return [];
+  }
+  const { data } = await store.listAgents({
+    tenant_id: context.tenant_id,
+    external_ids: access.agent_external_ids,
+    agent_name: undefined,
+    limit: undefined,
+    page_token: undefined,
+  });
+  return data.map(agent => agent.id);
 }
 
 /**
- * Who may see metrics covering other users' sessions on an agent: managers of it,
- * plus every caller under an `all` scope, where agents are not partitioned per user.
- * Aggregates only - individual sessions stay creator-scoped.
+ * Who may see metrics covering other users' sessions on an agent: whoever may manage
+ * that agent. The per-agent check is the only sound one, since an `all` list scope
+ * says nothing about the caller's rights on a given agent. Aggregates only -
+ * individual sessions stay creator-scoped.
  */
 export async function canReadAgentAggregates<TTransaction>(input: {
   store: IAgentStore<TTransaction>;
@@ -102,8 +92,12 @@ export async function canReadAgentAggregates<TTransaction>(input: {
   authorizer: Authorizer;
   agent_id: string;
 }): Promise<boolean> {
-  const managed = await resolveManagedAgents(input);
-  return managed.kind === 'all' || managed.ids.includes(input.agent_id);
+  const { store, context, authorizer, agent_id } = input;
+  const agent = await store.getAgent({ tenant_id: context.tenant_id, id: agent_id });
+  if (agent === undefined) {
+    return false;
+  }
+  return authorizer.canAccessAgent({ context, action: 'manage', agent });
 }
 
 /** Related rows are readable by their creator or a manager of the bound named agent. */
