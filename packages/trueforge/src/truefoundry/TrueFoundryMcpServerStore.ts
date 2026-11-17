@@ -19,7 +19,7 @@ import {
 } from '../db/mcpServerStore';
 import type { TurnMetadata } from '../db/turnMetadata';
 import type { OAuthClientRecord } from '../mcp/auth/types';
-import { hasAuthorizationHeader } from '../runtime/perServerMcpHeaders';
+import { consentOnUnauthorized, hasAuthorizationHeader } from '../runtime/perServerMcpHeaders';
 import { resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
 import {
   accessTokenForRequest,
@@ -106,7 +106,7 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
   }
 
   /**
-   * Gateway Bearer (+ the caller's headers for that server); the gateway's 401 carries any consent URL.
+   * Gateway Bearer (+ the caller's headers for that server); authorize runs only after a 401.
    * A caller entry with Authorization, or a virtual MCP's nested entry, goes in `x-tfy-mcp-headers`.
    */
   resolveInvokeHeaders(input: {
@@ -114,8 +114,12 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
     userRef: string;
     turnMetadata?: TurnMetadata;
   }): RemoteMcpHeaders {
-    const { record, turnMetadata } = input;
+    const { record, userRef, turnMetadata } = input;
     const callerHeaders = this.#perServerHeaders[record.name];
+    const authRequiredOnUnauthorized = consentOnUnauthorized({
+      name: record.name,
+      authorize: () => this.authorize({ tenant_id: record.tenant_id, name: record.name, userRef }),
+    });
     const gatewayBase = async (): Promise<Record<string, string>> => ({
       ...gatewayHeaders(await this.#resolveGatewayAuthorization()),
       ...gatewayMetadataHeadersForTurn(turnMetadata),
@@ -124,9 +128,10 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
       // Each connection targets one server's gateway proxy; a virtual MCP's nested map is fanned out by the gateway.
       return async () => ({
         headers: { ...(await gatewayBase()), [X_TFY_MCP_HEADERS]: JSON.stringify(callerHeaders) },
+        authRequiredOnUnauthorized,
       });
     }
-    return async () => ({ headers: { ...callerHeaders, ...(await gatewayBase()) } });
+    return async () => ({ headers: { ...callerHeaders, ...(await gatewayBase()) }, authRequiredOnUnauthorized });
   }
 
   async listServers(input: ListMcpServersInput, transaction?: TTransaction): Promise<McpServerRecord[]> {

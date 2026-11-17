@@ -1,6 +1,5 @@
 import type { Logger } from 'winston';
 import { McpConnectionError, RemoteMCP, ToolSet } from '../../../src/core';
-import { McpAuthorizationRequiredError } from '../../../src/core/errors';
 import {
   isApprovalRequiredResponse,
   isCallToolResponseResult,
@@ -474,29 +473,42 @@ describe('RemoteMCP + ToolSet', () => {
     expect(state.callToolCalls).toBe(0);
   });
 
-  it('returns authRequired from a 401 that carries authorization URLs', async () => {
-    installFakeConnection({
-      connectError: new McpAuthorizationRequiredError('auth required', { 'my-inline': 'https://auth.example/consent' }),
+  it('returns authRequired when the resolver offers consent for a 401', async () => {
+    installFakeConnection({ connectError: new McpConnectionError('upstream 401', 401) });
+    const authRequired: MCPAuthRequired = {
+      servers: [{ id: 'inline-id-123', name: 'my-inline', auth_url: 'https://auth.example/consent' }],
+    };
+    const server = makeServer({
+      headers: () => Promise.resolve({ headers: {}, authRequiredOnUnauthorized: () => Promise.resolve(authRequired) }),
     });
-    const server = makeServer({ headers: () => Promise.resolve({ headers: {} }) });
 
-    await expect(server.listTools()).resolves.toEqual({
-      authRequired: { servers: [{ id: 'inline-id-123', name: 'my-inline', auth_url: 'https://auth.example/consent' }] },
-    });
+    await expect(server.listTools()).resolves.toEqual({ authRequired });
   });
 
-  it('drops the rejected connection when a call returns consent URLs, so the next call reconnects', async () => {
+  it('drops the rejected connection when a call gets a 401 with consent, so the next call reconnects', async () => {
     const state = installFakeConnection({ sessionId: 'sess-1' });
-    const server = makeServer({ headers: () => Promise.resolve({ headers: {} }) });
+    const authRequired: MCPAuthRequired = {
+      servers: [{ id: 'inline-id-123', name: 'my-inline', auth_url: 'https://auth.example/consent' }],
+    };
+    const server = makeServer({
+      headers: () => Promise.resolve({ headers: {}, authRequiredOnUnauthorized: () => Promise.resolve(authRequired) }),
+    });
 
     await server.listTools();
-    state.queueCallToolError(
-      new McpAuthorizationRequiredError('auth required', { 'my-inline': 'https://auth.example/consent' }),
-    );
-    await expect(server.callTool({ name: 'read_thing', arguments: {} })).resolves.toHaveProperty('authRequired');
+    state.queueCallToolError(Object.assign(new Error('HTTP 401'), { code: 401 }));
+    await expect(server.callTool({ name: 'read_thing', arguments: {} })).resolves.toEqual({ authRequired });
     await server.callTool({ name: 'read_thing', arguments: {} });
 
     expect(state.connectCalls).toBe(2);
+  });
+
+  it('throws on a 401 when the resolver offers no consent', async () => {
+    installFakeConnection({ connectError: new McpConnectionError('upstream 401', 401) });
+    const server = makeServer({
+      headers: () => Promise.resolve({ headers: {}, authRequiredOnUnauthorized: () => Promise.resolve(undefined) }),
+    });
+
+    await expect(server.listTools()).rejects.toMatchObject({ statusCode: 401 });
   });
 
   it('throws on a bare 401', async () => {

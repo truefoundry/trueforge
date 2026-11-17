@@ -306,8 +306,26 @@ describe('TrueFoundryMcpServerStore', () => {
       const { store, client } = createStore();
       await expect(invoke(store)).resolves.toEqual({
         headers: { Authorization: `Bearer ${ACCESS_TOKEN}` },
+        authRequiredOnUnauthorized: expect.any(Function),
       });
       expect(client.getMcpAuthorize).not.toHaveBeenCalled();
+    });
+
+    it('on a 401, offers consent only when authorize reports auth_required', async () => {
+      const { store, client } = createStore();
+      const resolved = await invoke(store);
+      if (!('headers' in resolved) || resolved.authRequiredOnUnauthorized === undefined) {
+        throw new Error('expected a 401 consent hook');
+      }
+      client.getMcpAuthorize.mockResolvedValueOnce({
+        status: 'auth_required',
+        authorization_url: 'https://consent.example/authorize',
+      });
+      await expect(resolved.authRequiredOnUnauthorized()).resolves.toEqual({
+        servers: [{ id: 'github', name: 'github', auth_url: 'https://consent.example/authorize' }],
+      });
+      client.getMcpAuthorize.mockResolvedValueOnce({ status: 'authenticated' });
+      await expect(resolved.authRequiredOnUnauthorized()).resolves.toBeUndefined();
     });
 
     it('merges turn metadata after auth headers', async () => {
@@ -332,6 +350,7 @@ describe('TrueFoundryMcpServerStore', () => {
           [X_TFY_METADATA]: expect.any(String),
           [X_TFY_CONVERSATION_ID]: 'sess-1',
         },
+        authRequiredOnUnauthorized: expect.any(Function),
       });
       if (!('headers' in resolved) || resolved.headers === undefined) {
         throw new Error('expected invoke headers');
@@ -346,6 +365,7 @@ describe('TrueFoundryMcpServerStore', () => {
           Authorization: `Bearer ${ACCESS_TOKEN}`,
           [ACTOR_AUTHORIZATION_HEADER]: `Bearer ${ACTOR_TOKEN}`,
         },
+        authRequiredOnUnauthorized: expect.any(Function),
       });
       expect(client.getMcpServerByName).not.toHaveBeenCalled();
       expect(client.vendToken).toHaveBeenCalledTimes(1);
@@ -355,6 +375,7 @@ describe('TrueFoundryMcpServerStore', () => {
       const { store, client } = createStore({ agent: AGENT, userCredential: null });
       await expect(invoke(store)).resolves.toEqual({
         headers: { Authorization: `Bearer ${SUBJECT_TOKEN}` },
+        authRequiredOnUnauthorized: expect.any(Function),
       });
       expect(client.getMcpServerByName).not.toHaveBeenCalled();
     });
@@ -502,6 +523,7 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
         Authorization: 'Bearer caller-token',
         'x-tfy-mcp-headers': JSON.stringify({ Authorization: 'Bearer user', 'X-End-User': 'alice' }),
       },
+      authRequiredOnUnauthorized: expect.any(Function),
     });
     expect(getMcpAuthorize).not.toHaveBeenCalled();
   });
