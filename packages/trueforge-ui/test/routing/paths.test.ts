@@ -181,7 +181,7 @@ describe('sanitizeSearchForPlace', () => {
     const search =
       '?theme=dark&agentId=agent-1&tab=schedules&agent=stale&status=paused&q=digest&isNew=true&scheduleId=s1';
     expect(sanitizeSearchForPlace({ type: 'libraryAgent', agentId: 'agent-1' }, search)).toBe(
-      '?theme=dark&agentId=agent-1&tab=schedules&status=paused&q=digest&isNew=true',
+      '?theme=dark&agentId=agent-1&tab=schedules&status=paused&q=digest&isNew=true&scheduleId=s1',
     );
   });
 });

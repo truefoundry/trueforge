@@ -208,10 +208,12 @@ export function sanitizeSearchForPlace(place: RoutePlace, search: string): strin
     clearEnvironmentShareSearch(params);
     clearLibraryShareSearch(params);
     if (share.tab === 'schedules') {
+      // Pin + filters owned by the embedded Schedules tab (same as global /schedules).
       writeScheduleShareSearch(params, {
         status: scheduleShare.status,
         q: scheduleShare.q,
         isNew: scheduleShare.isNew,
+        scheduleId: scheduleShare.scheduleId,
       });
     }
   } else if (place.type === 'schedules') {
