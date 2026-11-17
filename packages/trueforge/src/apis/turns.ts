@@ -830,7 +830,9 @@ function withTurnSessionHeader(connection: McpConnection, sessionId: string): Mc
       ...connection,
       headers: async (): Promise<ResolveHeadersResult> => {
         const resolved = await headers();
-        return 'authRequired' in resolved ? resolved : { headers: { ...resolved.headers, ...sessionHeader } };
+        return 'authRequired' in resolved
+          ? resolved
+          : { ...resolved, headers: { ...resolved.headers, ...sessionHeader } };
       },
     };
   }
