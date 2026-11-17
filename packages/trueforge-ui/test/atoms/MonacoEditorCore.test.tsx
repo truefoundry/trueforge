@@ -25,6 +25,7 @@ const monacoMocks = vi.hoisted(() => {
       return sizeDisposable;
     }),
     updateOptions: vi.fn(),
+    focus: vi.fn(),
     dispose: vi.fn(),
     layout: vi.fn(),
   };
@@ -106,6 +107,7 @@ describe('MonacoEditorCore', () => {
       }),
     );
     expect(onMount).toHaveBeenCalledWith(monacoMocks.editor, monacoMocks.module);
+    expect(monacoMocks.editor.focus).not.toHaveBeenCalled();
 
     monacoMocks.editor.getValue.mockReturnValue('edited value');
     act(() => monacoMocks.invokeChange());
@@ -127,7 +129,7 @@ describe('MonacoEditorCore', () => {
     expect(monacoMocks.editorApi.create).toHaveBeenCalledOnce();
   });
 
-  it('initializes with the latest script and options after a delayed import', async () => {
+  it('initializes and focuses with the latest props after a delayed import', async () => {
     const monaco = await preloadMonaco();
     let resolveMonaco: ((module: typeof monaco) => void) | undefined;
     const pending = new Promise<typeof monaco>(resolve => {
@@ -138,6 +140,7 @@ describe('MonacoEditorCore', () => {
 
     rerender(
       <MonacoEditorCore
+        autoFocus
         value={'echo selected-environment\n'}
         language="shell"
         options={{ readOnly: true, tabFocusMode: true }}
@@ -161,6 +164,7 @@ describe('MonacoEditorCore', () => {
         theme: 'latest-theme',
       }),
     );
+    expect(monacoMocks.editor.focus).toHaveBeenCalledOnce();
   });
 
   it('updates read-only and keyboard options between sessions without recreating Monaco', async () => {

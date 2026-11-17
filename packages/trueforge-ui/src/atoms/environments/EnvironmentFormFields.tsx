@@ -205,6 +205,7 @@ export function EnvironmentFormFields({
                 </div>
                 <div className="min-h-0 flex-1">
                   <MonacoEditorCore
+                    autoFocus
                     value={values.buildScript}
                     language="shell"
                     height="100%"

@@ -17,6 +17,8 @@ export type MonacoEditorCoreProps = {
   beforeMount?: (monaco: unknown) => void;
   onAutoHeightChange?: (height: number) => void; // Reports Monaco's measured, clamped content height while `autoHeight` is active.
   className?: string;
+  /** Focus the editor after its lazy initialization. Defaults to false. */
+  autoFocus?: boolean;
   /**
    * Fixed height. Ignored when `autoHeight` is true (except as an initial
    * fallback before the editor mounts). Use `"100%"` for fill-parent layouts
@@ -38,6 +40,7 @@ type MonacoEditor = {
   onDidChangeModelContent(listener: () => void): { dispose(): void };
   onDidContentSizeChange(listener: () => void): { dispose(): void };
   updateOptions(options: Record<string, unknown>): void;
+  focus(): void;
   dispose(): void;
   layout(): void;
 };
@@ -162,6 +165,7 @@ export function MonacoEditorCore({
   beforeMount,
   onAutoHeightChange,
   className,
+  autoFocus = false,
   height = 400,
   autoHeight = false,
   maxHeight = DEFAULT_MAX_HEIGHT,
@@ -190,8 +194,8 @@ export function MonacoEditorCore({
   const [autoPx, setAutoPx] = useState(() => (autoHeight ? estimateHeightFromValue(value, minPx, maxPx) : 0));
 
   const resolvedTheme = resolveThemeName(theme, classNames.monaco?.monacoTheme, mode);
-  const initializationRef = useRef({ value, language, options, resolvedTheme, autoHeight });
-  initializationRef.current = { value, language, options, resolvedTheme, autoHeight };
+  const initializationRef = useRef({ value, language, options, resolvedTheme, autoHeight, autoFocus });
+  initializationRef.current = { value, language, options, resolvedTheme, autoHeight, autoFocus };
 
   const syncAutoHeight = () => {
     const editor = editorRef.current;
@@ -245,6 +249,7 @@ export function MonacoEditorCore({
       }
 
       onMountRef.current?.(editor, monaco);
+      if (latest.autoFocus) editor.focus();
     });
 
     return () => {

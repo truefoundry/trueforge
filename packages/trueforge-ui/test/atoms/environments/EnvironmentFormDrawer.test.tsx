@@ -13,8 +13,9 @@ import type { SandboxEnvironment, SandboxEnvironmentServer } from '@/server/type
 import { createMockAgentUIServer, createMockSandboxEnvironmentServer } from '../../server/mockServer.js';
 
 vi.mock('@/atoms/MonacoEditorCore.js', () => ({
-  MonacoEditorCore: ({ value, onChange, language, height, options }: MonacoEditorCoreProps) => (
+  MonacoEditorCore: ({ value, onChange, language, height, options, autoFocus }: MonacoEditorCoreProps) => (
     <textarea
+      autoFocus={autoFocus}
       aria-label="Build script editor"
       value={value}
       data-language={language}
@@ -195,11 +196,13 @@ describe('EnvironmentFormDrawer', () => {
     const inlineEditor = screen.getByRole('textbox', { name: 'Build script editor' });
     expect(inlineEditor).toHaveValue('');
     fireEvent.change(inlineEditor, { target: { value: 'echo inline\n' } });
+    fireEvent.focus(screen.getByRole('button', { name: 'Edit build script full screen' }));
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit build script full screen' }));
     const dialog = screen.getByRole('dialog', { name: 'Edit build script full screen' });
     expect(dialog).toHaveClass('max-h-none', 'max-w-none', 'h-[calc(100dvh-2rem)]', 'w-[calc(100vw-2rem)]');
     const editor = within(dialog).getByRole('textbox', { name: 'Build script editor' });
+    expect(editor).toHaveFocus();
     expect(editor).toHaveValue('echo inline\n');
     expect(screen.getAllByRole('textbox', { name: 'Build script editor' })).toHaveLength(1);
     expect(screen.getAllByText('Build Script')).toHaveLength(2);
