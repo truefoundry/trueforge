@@ -15,7 +15,7 @@ class SandboxConfig(UncheckedBaseModel):
 
     environment_name: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Name of a configured sandbox environment to use. Must exist when set.
+    Name of a configured sandbox environment to use. Required when sandbox is enabled and the provider supports environments.
     """
 
     file_downloads: typing.Optional[bool] = pydantic.Field(default=True)

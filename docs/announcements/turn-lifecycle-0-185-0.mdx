@@ -1,0 +1,752 @@
+---
+title: "Turns now pause for user input"
+sidebarTitle: "0.185.0: Turns pause for input"
+description: "Breaking change in TrueForge 0.185.0: a turn that needs an approval, an answer, or an MCP sign-in pauses and resumes in place. How to migrate SDK clients."
+---
+
+<Info>
+  **Released in TrueForge 0.185.0 — November 2026.** This is a breaking change for clients that answer tool approvals, agent questions, or MCP sign-ins.
+</Info>
+
+Before 0.185.0, a turn that needed something from the user (a tool approval, an answer to a question, or an MCP sign-in) **ended**. The stream closed with `turn.done`, and you answered by creating a **new turn** whose `input` carried the answer.
+
+From 0.185.0, that turn **pauses** instead. It emits `turn.update` with `state.status: "paused"`, stays open, and waits. You send the answer **to the same turn**, and the same turn continues to `turn.done`. One user message is now one turn, however many times the agent stops to ask.
+
+## Who is affected
+
+| You use | What to do |
+| --- | --- |
+| The built-in TrueForge chat UI | Nothing. It already works with paused turns. |
+| `@truefoundry/trueforge-sdk` or `trueforge-sdk` | Upgrade the SDK and follow [Migrate with the SDK](#migrate-with-the-sdk). |
+| `@truefoundry/trueforge-ui` with your own server | Implement `sendTurnEvents` and paused turns. See [Server contract](/ui-sdk/setup-custom-servers/server-contract#answering-a-paused-turn) and [Bring your own server](/ui-sdk/setup-custom-servers/custom-server#pausing-for-the-user). |
+
+## What changed
+
+| Area | Before 0.185.0 | From 0.185.0 |
+| --- | --- | --- |
+| How a pause shows up | `turn.done` with `state.status: "done"`, `output: null`, and a non-empty `state.required_actions` | `turn.update` with `state.status: "paused"`; `turn.done` comes only when the turn really ends |
+| How you answer | `POST /turns` (a new turn) with `user.tool_approval` / `user.tool_response` items in `input` | `POST /turns/{turn_id}/events` on the **same** turn |
+| Resuming after MCP sign-in | `POST /turns` with empty or missing `input` | `POST /turns/{turn_id}/events` with `user.mcp_auth_continue` |
+| `POST /turns` body | `input` optional; could contain `user.message`, `user.tool_approval`, `user.tool_response` | `input` required, at least one item, **`user.message` only**, non-empty `content` |
+| `state.required_actions` on `turn.done` | Listed the pending actions | Always `[]` (kept for compatibility) |
+| `state` when paused | `{ status: "paused", action_required_on_events: [...] }` | `{ status: "paused", metrics? }`. Pending actions are no longer listed in `state`. |
+| SSE frame `id:` line | Per-stream sequence number | **Not sent.** Use the event's JSON `id`. |
+| Subscribe resume cursor | `?after_sequence_number=N` | `?after_event_id=<event id>` or `?from_event_id=<event id>` |
+| Cancel and new messages | Affected a running turn | Also affect a **paused** turn; a new message cancels it with `reason: "cancelled-for-next-turn"` |
+
+## Migrate with the SDK
+
+Upgrade to the latest SDK:
+
+<CodeGroup>
+```bash npm
+npm install @truefoundry/trueforge-sdk@latest
+```
+
+```bash pip
+pip install --upgrade trueforge-sdk
+```
+</CodeGroup>
+
+The snippets below assume a client and a session:
+
+<CodeGroup>
+```typescript TypeScript wrap
+import { TrueForge, TrueForgeApi, isEventDelta, mergeEventDelta } from '@truefoundry/trueforge-sdk';
+
+const client = new TrueForge({
+  baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790',
+  timeoutInSeconds: 600,
+});
+const { data: session } = await client.sessions.create({ agent: { name: 'ops-bot' } });
+```
+
+```python Python wrap
+import os
+from trueforge_sdk import TrueForge
+from trueforge_sdk.events import is_event_delta, merge_event_delta
+
+client = TrueForge(
+    base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"),
+    timeout=600,
+)
+session = client.sessions.create(agent={"name": "ops-bot"})
+```
+</CodeGroup>
+
+### Read the stream and keep an event id
+
+Iterate the stream directly and keep the **id of the last event** as your cursor. There is no sequence number any more. In Python, open streams with a `with` block so the connection closes when you stop reading.
+
+<Tabs>
+  <Tab title="Before">
+<CodeGroup>
+```typescript TypeScript wrap
+const events = new Map<string, TrueForgeApi.TurnStreamingEvent>();
+let turnId: string | undefined;
+let lastSequenceNumber = 0;
+
+const stream = await client.sessions.createTurnStream(session.id, {
+  input: [{ type: 'user.message', content: 'Summarize the current state of open-source vector databases.' }],
+});
+for await (const { data: event, id } of stream.withMetadata()) {
+  if (id != null) lastSequenceNumber = Number(id);
+  if (event.type === 'turn.created') turnId = event.turnId;
+  if (isEventDelta(event)) {
+    const base = events.get(event.id);
+    if (base) mergeEventDelta(base, event);
+  } else {
+    events.set(event.id, event);
+  }
+  if (event.type === 'turn.done') console.log('status:', event.state.status);
+}
+```
+
+```python Python wrap
+events = {}
+turn_id = None
+last_sequence_number = 0
+
+stream = client.sessions.create_turn_stream(
+    session_id=session.data.id,
+    input=[{"type": "user.message", "content": "Summarize the current state of open-source vector databases."}],
+)
+for meta in stream.with_metadata():
+    event = meta.data
+    if meta.id is not None:
+        last_sequence_number = int(meta.id)
+    if event.type == "turn.created":
+        turn_id = event.turn_id
+    if is_event_delta(event):
+        base = events.get(event.id)
+        if base is not None:
+            merge_event_delta(base, event)
+    else:
+        events[event.id] = event
+    if event.type == "turn.done":
+        print("status:", event.state.status)
+```
+</CodeGroup>
+  </Tab>
+  <Tab title="After">
+<CodeGroup>
+```typescript TypeScript wrap
+const events = new Map<string, TrueForgeApi.TurnStreamingEvent>();
+let turnId: string | undefined;
+let lastEventId: string | undefined;
+
+const stream = await client.sessions.createTurnStream(session.id, {
+  input: [{ type: 'user.message', content: 'Summarize the current state of open-source vector databases.' }],
+});
+for await (const event of stream) {
+  lastEventId = event.id;
+  if (event.type === 'turn.created') turnId = event.turnId;
+  if (isEventDelta(event)) {
+    const base = events.get(event.id);
+    if (base) mergeEventDelta(base, event);
+  } else {
+    events.set(event.id, event);
+  }
+  if (event.type === 'turn.done') console.log('status:', event.state.status);
+}
+```
+
+```python Python wrap
+events = {}
+turn_id = None
+last_event_id = None
+
+with client.sessions.create_turn_stream(
+    session_id=session.data.id,
+    input=[{"type": "user.message", "content": "Summarize the current state of open-source vector databases."}],
+) as stream:
+    for event in stream:
+        last_event_id = event.id
+        if event.type == "turn.created":
+            turn_id = event.turn_id
+        if is_event_delta(event):
+            base = events.get(event.id)
+            if base is not None:
+                merge_event_delta(base, event)
+        else:
+            events[event.id] = event
+        if event.type == "turn.done":
+            print("status:", event.state.status)
+```
+</CodeGroup>
+  </Tab>
+</Tabs>
+
+### Answer tool approvals on the same turn
+
+Stop reading at the paused `turn.update`. Then **subscribe** from the last event id, **send** the approvals to the same turn with `createTurnEvents`, and **read** the subscription to see what the answer produced. Subscribe before you send so nothing the answer produces is missed.
+
+<Tabs>
+  <Tab title="Before">
+<CodeGroup>
+```typescript TypeScript wrap
+const events = new Map<string, TrueForgeApi.TurnStreamingEvent>();
+const pendingApprovals: TrueForgeApi.ToolApprovalRequiredEvent[] = [];
+
+const stream = await client.sessions.createTurnStream(session.id, {
+  input: [{ type: 'user.message', content: 'Restart the billing service.' }],
+});
+for await (const { data: event } of stream.withMetadata()) {
+  if (isEventDelta(event)) {
+    const base = events.get(event.id);
+    if (base) mergeEventDelta(base, event);
+  } else {
+    events.set(event.id, event);
+  }
+  if (event.type === 'tool.approval_required') pendingApprovals.push(event);
+}
+// The stream ended with turn.done carrying required_actions.
+
+const approvals: TrueForgeApi.UserToolApprovalEvent[] = [];
+for (const pending of pendingApprovals) {
+  for (const ref of pending.toolCalls) {
+    const msg = events.get(ref.sourceEventId);
+    if (msg?.type !== 'model.message') continue;
+    const call = msg.toolCalls?.find(tc => tc.id === ref.id);
+    if (!call) continue;
+    console.log(`approve ${call.toolInfo.name}? args: ${call.function.arguments}`);
+    approvals.push({
+      type: 'user.tool_approval',
+      threadId: pending.threadId,
+      toolCallId: ref.id,
+      approval: { status: 'allow' }, // or { status: 'deny', reason: 'denied by user' }
+    });
+  }
+}
+
+// Answer by creating a new turn whose input carries the approvals.
+const resume = await client.sessions.createTurnStream(session.id, { input: approvals });
+for await (const { data: event } of resume.withMetadata()) {
+  console.log(event.type);
+}
+```
+
+```python Python wrap
+events = {}
+pending_approvals = []
+
+stream = client.sessions.create_turn_stream(
+    session_id=session.data.id,
+    input=[{"type": "user.message", "content": "Restart the billing service."}],
+)
+for event in stream:
+    if is_event_delta(event):
+        base = events.get(event.id)
+        if base is not None:
+            merge_event_delta(base, event)
+    else:
+        events[event.id] = event
+    if event.type == "tool.approval_required":
+        pending_approvals.append(event)
+# The stream ended with turn.done carrying required_actions.
+
+approvals = []
+for pending in pending_approvals:
+    for ref in pending.tool_calls:
+        msg = events.get(ref.source_event_id)
+        if msg is None or msg.type != "model.message":
+            continue
+        call = next((tc for tc in (msg.tool_calls or []) if tc.id == ref.id), None)
+        if call is None:
+            continue
+        print(f"approve {call.tool_info.name}? args: {call.function.arguments}")
+        approvals.append(
+            {
+                "type": "user.tool_approval",
+                "thread_id": pending.thread_id,
+                "tool_call_id": ref.id,
+                "approval": {"status": "allow"},  # or {"status": "deny", "reason": "denied by user"}
+            }
+        )
+
+# Answer by creating a new turn whose input carries the approvals.
+resume = client.sessions.create_turn_stream(session_id=session.data.id, input=approvals)
+for event in resume:
+    print(event.type)
+```
+</CodeGroup>
+  </Tab>
+  <Tab title="After">
+<CodeGroup>
+```typescript TypeScript wrap
+const events = new Map<string, TrueForgeApi.TurnStreamingEvent>();
+const pendingApprovals: TrueForgeApi.ToolApprovalRequiredEvent[] = [];
+let turnId: string | undefined;
+let lastEventId: string | undefined;
+
+const stream = await client.sessions.createTurnStream(session.id, {
+  input: [{ type: 'user.message', content: 'Restart the billing service.' }],
+});
+for await (const event of stream) {
+  lastEventId = event.id;
+  if (isEventDelta(event)) {
+    const base = events.get(event.id);
+    if (base) mergeEventDelta(base, event);
+  } else {
+    events.set(event.id, event);
+  }
+  if (event.type === 'turn.created') turnId = event.turnId;
+  if (event.type === 'tool.approval_required') pendingApprovals.push(event);
+  // The turn pauses and the stream stays open; stop reading here.
+  if (event.type === 'turn.update' && event.state.status === 'paused') break;
+}
+
+const approvals: TrueForgeApi.TurnUserEventMessage[] = [];
+for (const pending of pendingApprovals) {
+  for (const ref of pending.toolCalls) {
+    const msg = events.get(ref.sourceEventId);
+    if (msg?.type !== 'model.message') continue;
+    const call = msg.toolCalls?.find(tc => tc.id === ref.id);
+    if (!call) continue;
+    console.log(`approve ${call.toolInfo.name}? args: ${call.function.arguments}`);
+    approvals.push({
+      type: 'user.tool_approval',
+      threadId: pending.threadId,
+      toolCallId: ref.id,
+      approval: { status: 'allow' }, // or { status: 'deny', reason: 'denied by user' }
+    });
+  }
+}
+
+// Subscribe first, then send the approvals to the same turn, then read.
+const resume = await client.sessions.subscribeToTurn(
+  session.id,
+  turnId!,
+  { afterEventId: lastEventId },
+  { timeoutInSeconds: 600 },
+);
+await client.sessions.createTurnEvents(session.id, turnId!, { events: approvals });
+for await (const event of resume) {
+  if (event.type === 'turn.done') console.log('status:', event.state.status);
+}
+```
+
+```python Python wrap
+events = {}
+pending_approvals = []
+turn_id = None
+last_event_id = None
+
+with client.sessions.create_turn_stream(
+    session_id=session.data.id,
+    input=[{"type": "user.message", "content": "Restart the billing service."}],
+) as stream:
+    for event in stream:
+        last_event_id = event.id
+        if is_event_delta(event):
+            base = events.get(event.id)
+            if base is not None:
+                merge_event_delta(base, event)
+        else:
+            events[event.id] = event
+        if event.type == "turn.created":
+            turn_id = event.turn_id
+        if event.type == "tool.approval_required":
+            pending_approvals.append(event)
+        # The turn pauses and the stream stays open; stop reading here.
+        if event.type == "turn.update" and event.state.status == "paused":
+            break
+
+approvals = []
+for pending in pending_approvals:
+    for ref in pending.tool_calls:
+        msg = events.get(ref.source_event_id)
+        if msg is None or msg.type != "model.message":
+            continue
+        call = next((tc for tc in (msg.tool_calls or []) if tc.id == ref.id), None)
+        if call is None:
+            continue
+        print(f"approve {call.tool_info.name}? args: {call.function.arguments}")
+        approvals.append(
+            {
+                "type": "user.tool_approval",
+                "thread_id": pending.thread_id,
+                "tool_call_id": ref.id,
+                "approval": {"status": "allow"},  # or {"status": "deny", "reason": "denied by user"}
+            }
+        )
+
+# Subscribe first, then send the approvals to the same turn, then read.
+with client.sessions.subscribe_to_turn(
+    session_id=session.data.id,
+    turn_id=turn_id,
+    after_event_id=last_event_id,
+    request_options={"timeout": 600},
+) as resume:
+    client.sessions.create_turn_events(session_id=session.data.id, turn_id=turn_id, events=approvals)
+    for event in resume:
+        if event.type == "turn.done":
+            print("status:", event.state.status)
+```
+</CodeGroup>
+  </Tab>
+</Tabs>
+
+### Answer agent questions on the same turn
+
+Questions (`tool.response_required`, for example `ask_user_question`) follow the same pattern. Collect them exactly as before, stop at the paused `turn.update`, and send `user.tool_response` events to the same turn instead of creating a new one.
+
+<Tabs>
+  <Tab title="Before">
+<CodeGroup>
+```typescript TypeScript wrap
+// `responses` holds one user.tool_response per pending question.
+const resume = await client.sessions.createTurnStream(session.id, { input: responses });
+for await (const { data: event } of resume.withMetadata()) {
+  console.log(event.type);
+}
+```
+
+```python Python wrap
+# `responses` holds one user.tool_response per pending question.
+resume = client.sessions.create_turn_stream(session_id=session.data.id, input=responses)
+for event in resume:
+    print(event.type)
+```
+</CodeGroup>
+  </Tab>
+  <Tab title="After">
+<CodeGroup>
+```typescript TypeScript wrap
+// `responses` holds one user.tool_response per pending question:
+// { type: 'user.tool_response', threadId, toolCallId, content: 'the user’s answer' }
+const resume = await client.sessions.subscribeToTurn(
+  session.id,
+  turnId!,
+  { afterEventId: lastEventId },
+  { timeoutInSeconds: 600 },
+);
+await client.sessions.createTurnEvents(session.id, turnId!, { events: responses });
+for await (const event of resume) {
+  if (event.type === 'turn.done') console.log('status:', event.state.status);
+}
+```
+
+```python Python wrap
+# `responses` holds one user.tool_response per pending question:
+# {"type": "user.tool_response", "thread_id": ..., "tool_call_id": ..., "content": "the user's answer"}
+with client.sessions.subscribe_to_turn(
+    session_id=session.data.id,
+    turn_id=turn_id,
+    after_event_id=last_event_id,
+    request_options={"timeout": 600},
+) as resume:
+    client.sessions.create_turn_events(session_id=session.data.id, turn_id=turn_id, events=responses)
+    for event in resume:
+        if event.type == "turn.done":
+            print("status:", event.state.status)
+```
+</CodeGroup>
+  </Tab>
+</Tabs>
+
+### Continue after MCP sign-in
+
+Resuming with an empty turn is no longer allowed. Once the user has signed in at each server's `authUrl`, send `user.mcp_auth_continue` to the paused turn.
+
+<Tabs>
+  <Tab title="Before">
+<CodeGroup>
+```typescript TypeScript wrap
+let pendingAuth: TrueForgeApi.McpAuthRequiredEvent | undefined;
+const stream = await client.sessions.createTurnStream(session.id, {
+  input: [{ type: 'user.message', content: 'Summarize my latest GitHub issues.' }],
+});
+for await (const { data: event } of stream.withMetadata()) {
+  if (event.type === 'mcp.auth_required') pendingAuth = event;
+}
+
+if (pendingAuth != null) {
+  for (const server of pendingAuth.mcpServers) {
+    console.log(`Authorize ${server.name}: ${server.authUrl}`);
+  }
+  // …wait for the user to authorize the server(s)…
+}
+
+// Resume with empty input; the agent continues the interrupted work.
+const resume = await client.sessions.createTurnStream(session.id, {});
+for await (const { data: event } of resume.withMetadata()) {
+  console.log(event.type);
+}
+```
+
+```python Python wrap
+pending_auth = None
+stream = client.sessions.create_turn_stream(
+    session_id=session.data.id,
+    input=[{"type": "user.message", "content": "Summarize my latest GitHub issues."}],
+)
+for event in stream:
+    if event.type == "mcp.auth_required":
+        pending_auth = event
+
+if pending_auth is not None:
+    for server in pending_auth.mcp_servers:
+        print(f"Authorize {server.name}: {server.auth_url}")
+    # …wait for the user to authorize the server(s)…
+
+# Resume with empty input; the agent continues the interrupted work.
+resume = client.sessions.create_turn_stream(session_id=session.data.id)
+for event in resume:
+    print(event.type)
+```
+</CodeGroup>
+  </Tab>
+  <Tab title="After">
+<CodeGroup>
+```typescript TypeScript wrap
+let turnId: string | undefined;
+let lastEventId: string | undefined;
+let pendingAuth: TrueForgeApi.McpAuthRequiredEvent | undefined;
+
+const stream = await client.sessions.createTurnStream(session.id, {
+  input: [{ type: 'user.message', content: 'Summarize my latest GitHub issues.' }],
+});
+for await (const event of stream) {
+  lastEventId = event.id;
+  if (event.type === 'turn.created') turnId = event.turnId;
+  if (event.type === 'mcp.auth_required') pendingAuth = event;
+  if (event.type === 'turn.update' && event.state.status === 'paused') break;
+}
+
+if (pendingAuth != null) {
+  for (const server of pendingAuth.mcpServers) {
+    console.log(`Authorize ${server.name}: ${server.authUrl}`);
+  }
+  // …wait for the user to authorize the server(s)…
+}
+
+const resume = await client.sessions.subscribeToTurn(
+  session.id,
+  turnId!,
+  { afterEventId: lastEventId },
+  { timeoutInSeconds: 600 },
+);
+await client.sessions.createTurnEvents(session.id, turnId!, {
+  events: [{ type: 'user.mcp_auth_continue' }],
+});
+for await (const event of resume) {
+  if (event.type === 'turn.done') console.log('status:', event.state.status);
+}
+```
+
+```python Python wrap
+turn_id = None
+last_event_id = None
+pending_auth = None
+
+with client.sessions.create_turn_stream(
+    session_id=session.data.id,
+    input=[{"type": "user.message", "content": "Summarize my latest GitHub issues."}],
+) as stream:
+    for event in stream:
+        last_event_id = event.id
+        if event.type == "turn.created":
+            turn_id = event.turn_id
+        if event.type == "mcp.auth_required":
+            pending_auth = event
+        if event.type == "turn.update" and event.state.status == "paused":
+            break
+
+if pending_auth is not None:
+    for server in pending_auth.mcp_servers:
+        print(f"Authorize {server.name}: {server.auth_url}")
+    # …wait for the user to authorize the server(s)…
+
+with client.sessions.subscribe_to_turn(
+    session_id=session.data.id,
+    turn_id=turn_id,
+    after_event_id=last_event_id,
+    request_options={"timeout": 600},
+) as resume:
+    client.sessions.create_turn_events(
+        session_id=session.data.id,
+        turn_id=turn_id,
+        events=[{"type": "user.mcp_auth_continue"}],
+    )
+    for event in resume:
+        if event.type == "turn.done":
+            print("status:", event.state.status)
+```
+</CodeGroup>
+  </Tab>
+</Tabs>
+
+### Resume a dropped stream
+
+Resume from an event id instead of a sequence number, and resume `paused` turns as well as `running` ones. `fromEventId` replays starting **at** that event, so a reply that was mid-stream is rebuilt from its first delta; `afterEventId` replays only what comes after it.
+
+<Tabs>
+  <Tab title="Before">
+<CodeGroup>
+```typescript TypeScript wrap
+// …after a disconnect, with session.id / turnId / lastSequenceNumber restored:
+const { data: turn } = await client.sessions.getTurn(session.id, turnId!);
+if (turn.state.status === 'running') {
+  const resume = await client.sessions.subscribeToTurn(
+    session.id,
+    turnId!,
+    { afterSequenceNumber: lastSequenceNumber },
+    { timeoutInSeconds: 600 },
+  );
+  for await (const { data: event, id } of resume.withMetadata()) {
+    if (id != null) lastSequenceNumber = Number(id);
+    if (isEventDelta(event)) {
+      const base = events.get(event.id);
+      if (base) mergeEventDelta(base, event);
+    } else {
+      events.set(event.id, event);
+    }
+  }
+} else {
+  // Already finished: rebuild from the stored log (deltas already merged).
+  for await (const event of await client.sessions.listTurnEvents(session.id, turnId!)) {
+    events.set(event.id, event);
+  }
+}
+```
+
+```python Python wrap
+# …after a disconnect, with session.id / turn_id / last_sequence_number restored:
+turn = client.sessions.get_turn(session_id=session.data.id, turn_id=turn_id).data
+if turn.state.status == "running":
+    resume = client.sessions.subscribe_to_turn(
+        session_id=session.data.id,
+        turn_id=turn_id,
+        after_sequence_number=last_sequence_number,
+        request_options={"timeout": 600},
+    )
+    for meta in resume.with_metadata():
+        event = meta.data
+        if meta.id is not None:
+            last_sequence_number = int(meta.id)
+        if is_event_delta(event):
+            base = events.get(event.id)
+            if base is not None:
+                merge_event_delta(base, event)
+        else:
+            events[event.id] = event
+else:
+    # Already finished: rebuild from the stored log (deltas already merged).
+    for event in client.sessions.list_turn_events(session_id=session.data.id, turn_id=turn_id):
+        events[event.id] = event
+```
+</CodeGroup>
+  </Tab>
+  <Tab title="After">
+<CodeGroup>
+```typescript TypeScript wrap
+const index = (event: TrueForgeApi.TurnStreamingEvent) => {
+  lastEventId = event.id;
+  if (isEventDelta(event)) {
+    const base = events.get(event.id);
+    if (base) mergeEventDelta(base, event);
+  } else {
+    events.set(event.id, event);
+  }
+};
+
+// …after a disconnect, with session.id / turnId / lastEventId restored:
+const { data: turn } = await client.sessions.getTurn(session.id, turnId!);
+if (turn.state.status === 'running' || turn.state.status === 'paused') {
+  const resume = await client.sessions.subscribeToTurn(
+    session.id,
+    turnId!,
+    { fromEventId: lastEventId },
+    { timeoutInSeconds: 600 },
+  );
+  for await (const event of resume) index(event);
+} else {
+  // Already finished: rebuild from the stored log (deltas already merged).
+  for await (const event of await client.sessions.listTurnEvents(session.id, turnId!)) {
+    events.set(event.id, event);
+  }
+}
+```
+
+```python Python wrap
+def index(event):
+    global last_event_id
+    last_event_id = event.id
+    if is_event_delta(event):
+        base = events.get(event.id)
+        if base is not None:
+            merge_event_delta(base, event)
+    else:
+        events[event.id] = event
+
+
+# …after a disconnect, with session.id / turn_id / last_event_id restored:
+turn = client.sessions.get_turn(session_id=session.data.id, turn_id=turn_id).data
+if turn.state.status in ("running", "paused"):
+    with client.sessions.subscribe_to_turn(
+        session_id=session.data.id,
+        turn_id=turn_id,
+        from_event_id=last_event_id,
+        request_options={"timeout": 600},
+    ) as resume:
+        for event in resume:
+            index(event)
+else:
+    # Already finished: rebuild from the stored log (deltas already merged).
+    for event in client.sessions.list_turn_events(session_id=session.data.id, turn_id=turn_id):
+        events[event.id] = event
+```
+</CodeGroup>
+  </Tab>
+</Tabs>
+
+### Poll a turn without streaming
+
+A polled turn that waits on the user now reports `paused` instead of `done` with `required_actions`. Stop polling on `paused` too, then answer it as above.
+
+<Tabs>
+  <Tab title="Before">
+<CodeGroup>
+```typescript TypeScript wrap
+let turn = created;
+while (turn.state.status === 'running') {
+  await new Promise(resolve => setTimeout(resolve, 500));
+  ({ data: turn } = await client.sessions.getTurn(session.id, created.id));
+}
+console.log(turn.state); // done → state.output / required_actions; else reason / message
+```
+
+```python Python wrap
+turn = created.data
+while turn.state.status == "running":
+    time.sleep(0.5)
+    turn = client.sessions.get_turn(session_id=session.data.id, turn_id=created.data.id).data
+print(turn.state)  # done → state.output / required_actions; else reason / message
+```
+</CodeGroup>
+  </Tab>
+  <Tab title="After">
+<CodeGroup>
+```typescript TypeScript wrap
+let turn = created;
+while (turn.state.status === 'running') {
+  await new Promise(resolve => setTimeout(resolve, 500));
+  ({ data: turn } = await client.sessions.getTurn(session.id, created.id));
+}
+console.log(turn.state); // done → output; paused → waiting for you; else reason / message
+```
+
+```python Python wrap
+turn = created.data
+while turn.state.status == "running":
+    time.sleep(0.5)
+    turn = client.sessions.get_turn(session_id=session.data.id, turn_id=created.data.id).data
+print(turn.state)  # done → output; paused → waiting for you; else reason / message
+```
+</CodeGroup>
+  </Tab>
+</Tabs>
+
+A turn can wait on several things at once, for example when parallel subagents each hit an approval. If you come back to a paused turn later, rebuild what is still open from `listTurnEvents` before you answer. [Use an agent](/api/use-agent) has the full SDK recipes, including that bookkeeping.
+

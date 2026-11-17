@@ -123,8 +123,9 @@ export interface IToolSet {
   // back to the current unrestricted envelope; callTool still enforces policy.
   getAllowedToolNamesForSandbox?(): string[] | undefined;
 
-  // Per-tool approval policies. User MCP tool sets record and expose policies;
-  // system tool sets are never approval-gated and implement these as no-ops.
+  // True when tools can be approval-gated and the policy methods below record
+  // policies. Local tool sets never require approval and implement them as no-ops.
+  readonly supportsApprovals: boolean;
   setApprovalPolicy(toolName: string, policy: ToolApprovalPolicy): void;
   getApprovalPolicies(): Record<string, ToolApprovalPolicy>;
   hasApplicableApprovalPolicy(toolName: string): boolean;

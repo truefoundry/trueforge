@@ -121,7 +121,7 @@ export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
     if (input.agent_name !== undefined) {
       query = query.where(sql<boolean>`instr(lower(name), lower(${input.agent_name})) > 0`);
     }
-    query = query.orderBy('name');
+    query = query.orderBy('updated_at', 'desc').orderBy('name');
     if (input.limit === undefined) {
       const rows = await query.execute();
       const data = rows.map(toRecord);

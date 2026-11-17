@@ -1,4 +1,5 @@
 import { TRUEFORGE_MCP_ID, TurnResourceResolver } from '../../src/agent-session/TurnResourceResolver';
+import type { TurnRecord } from '../../src/agent-session/models/TurnRecord';
 import type { AgentSpec } from '../../src/agent-session/schemas/agentSpec';
 import type { AgentCapability, AgentInfo } from '../../src/core';
 import { makeAgentSpec, makeMockILLM, makeSilentLogger } from './testHelpers';
@@ -90,6 +91,47 @@ describe('TurnResourceResolver rootCapabilities', () => {
     expect(root.extraCapabilities?.[0]?.systemToolSets?.[0]?.id).toBe(TRUEFORGE_MCP_ID);
     expect(nested.extraCapabilities?.[0]?.systemToolSets?.[0]?.id).toBe(TRUEFORGE_MCP_ID);
     expect(root.extraCapabilities?.[0]?.systemToolSets?.[0]?.name).toBe(TRUEFORGE_MCP_ID);
+  });
+
+  it('restores TrueForge MCP approval policies from the previous turn', async () => {
+    const resolver = new TurnResourceResolver({
+      llm: () =>
+        Promise.resolve({
+          modelClient: makeMockILLM(),
+          defaultModelParams: {},
+          providerType: undefined,
+        }),
+      mcp: id =>
+        Promise.resolve(
+          id === TRUEFORGE_MCP_ID
+            ? { url: 'http://internal.example/mcp', name: TRUEFORGE_MCP_ID, description: 'TrueForge management' }
+            : undefined,
+        ),
+      mcpRequestTimeoutMs: 1_000,
+      mcpConnectTimeoutMs: 1_000,
+      logger: makeSilentLogger(),
+    });
+    const previousTurn = {
+      snapshot: {
+        mcp_servers: {
+          [TRUEFORGE_MCP_ID]: {
+            id: TRUEFORGE_MCP_ID,
+            name: TRUEFORGE_MCP_ID,
+            approval_policies: { create_agent: { type: 'allow_session' } },
+          },
+        },
+      },
+    } as unknown as TurnRecord;
+
+    const resolved = await resolver.resolveAgentDefinition({
+      spec: makeAgentSpec(),
+      previousTurn,
+      signal: new AbortController().signal,
+      tracing: resolver.createTracing(),
+    });
+
+    const toolSet = resolved.extraCapabilities?.[0]?.systemToolSets?.[0];
+    expect(toolSet?.getApprovalPolicies()).toEqual({ create_agent: { type: 'allow_session' } });
   });
 
   it('keeps direct capability sources distinct from configured MCPs with the same display name', async () => {
