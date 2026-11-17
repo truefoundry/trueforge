@@ -1,7 +1,7 @@
 import type { RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
 import { isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
 import type { IOAuthTokenStore, OAuthClientRecord } from '../mcp/auth/types';
-import { consentOnUnauthorized, withCallerMcpHeaders, type PerServerMcpHeaders } from '../runtime/perServerMcpHeaders';
+import { withCallerMcpHeaders, type PerServerMcpHeaders } from '../runtime/perServerMcpHeaders';
 import { resolveConfiguredMcpRequestHeaders, resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
 import {
   McpServerNotFoundError,
@@ -66,15 +66,10 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
     userRef: string;
     turnMetadata?: TurnMetadata;
   }): RemoteMcpHeaders {
-    const { record, userRef } = input;
     return withCallerMcpHeaders({
-      callerHeaders: this.#perServerHeaders[record.name],
+      callerHeaders: this.#perServerHeaders[input.record.name],
       registeredHeaders: this.#resolveRegisteredHeaders(input),
-      configuredHeaders: resolveConfiguredMcpRequestHeaders(record.manifest),
-      authRequiredOnUnauthorized: consentOnUnauthorized({
-        name: record.name,
-        authorize: () => this.authorize({ tenant_id: record.tenant_id, name: record.name, userRef }),
-      }),
+      configuredHeaders: resolveConfiguredMcpRequestHeaders(input.record.manifest),
     });
   }
 

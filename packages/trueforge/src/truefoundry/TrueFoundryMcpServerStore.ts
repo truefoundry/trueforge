@@ -1,4 +1,4 @@
-import { McpConnectionError, type RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
+import { McpConnectionError, type MCPAuthRequired, type RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
 import type { RequestContext, RequestSubject } from '../auth/identity';
 import { safeReturnTo } from '../auth/safeReturnTo';
@@ -19,7 +19,7 @@ import {
 } from '../db/mcpServerStore';
 import type { TurnMetadata } from '../db/turnMetadata';
 import type { OAuthClientRecord } from '../mcp/auth/types';
-import { consentOnUnauthorized, hasAuthorizationHeader } from '../runtime/perServerMcpHeaders';
+import { hasAuthorizationHeader } from '../runtime/perServerMcpHeaders';
 import { resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
 import {
   accessTokenForRequest,
@@ -116,10 +116,13 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
   }): RemoteMcpHeaders {
     const { record, userRef, turnMetadata } = input;
     const callerHeaders = this.#perServerHeaders[record.name];
-    const authRequiredOnUnauthorized = consentOnUnauthorized({
-      name: record.name,
-      authorize: () => this.authorize({ tenant_id: record.tenant_id, name: record.name, userRef }),
-    });
+    const authRequiredOnUnauthorized = async (): Promise<MCPAuthRequired | undefined> => {
+      const status = await this.authorize({ tenant_id: record.tenant_id, name: record.name, userRef });
+      const authUrl = status.status === 'auth_required' ? status.authorization_url : undefined;
+      return authUrl === undefined
+        ? undefined
+        : { servers: [{ id: record.name, name: record.name, auth_url: authUrl }] };
+    };
     const gatewayBase = async (): Promise<Record<string, string>> => ({
       ...gatewayHeaders(await this.#resolveGatewayAuthorization()),
       ...gatewayMetadataHeadersForTurn(turnMetadata),

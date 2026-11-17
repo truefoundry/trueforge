@@ -1,7 +1,6 @@
-import type { MCPAuthRequired, RemoteMcpHeaders, ResolveHeadersResult } from '@truefoundry/trueforge-core/core';
+import type { RemoteMcpHeaders, ResolveHeadersResult } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
-import type { McpAuthStatus } from '../schemas/mcpServer';
 
 /**
  * Per-MCP-server request headers, keyed by server name.
@@ -64,35 +63,21 @@ export function hasAuthorizationHeader(headers: Record<string, string>): boolean
 
 /**
  * Sends a server's caller headers over its registered auth. Caller Authorization goes out over only the
- * configured static headers, so a DCR consent flow is skipped; a 401 then falls to `authRequiredOnUnauthorized`.
+ * configured static headers, so a DCR consent flow is skipped.
  */
 export function withCallerMcpHeaders(input: {
   callerHeaders: Record<string, string> | undefined;
   registeredHeaders: RemoteMcpHeaders;
   configuredHeaders: Record<string, string>;
-  authRequiredOnUnauthorized: () => Promise<MCPAuthRequired | undefined>;
 }): RemoteMcpHeaders {
-  const { callerHeaders, registeredHeaders, configuredHeaders, authRequiredOnUnauthorized } = input;
+  const { callerHeaders, registeredHeaders, configuredHeaders } = input;
   if (callerHeaders === undefined) {
     return registeredHeaders;
   }
   if (hasAuthorizationHeader(callerHeaders)) {
-    const headers = mergeCallerHeaders({ headers: configuredHeaders, callerHeaders });
-    return () => Promise.resolve({ headers, authRequiredOnUnauthorized });
+    return mergeCallerHeaders({ headers: configuredHeaders, callerHeaders });
   }
   return () => resolveWithCallerHeaders({ registeredHeaders, callerHeaders });
-}
-
-/** On a 401, offers the server's own consent flow (DCR / OAuth) when `authorize` reports one. */
-export function consentOnUnauthorized(input: {
-  name: string;
-  authorize: () => Promise<McpAuthStatus>;
-}): () => Promise<MCPAuthRequired | undefined> {
-  return async () => {
-    const status = await input.authorize();
-    const authUrl = status.status === 'auth_required' ? status.authorization_url : undefined;
-    return authUrl === undefined ? undefined : { servers: [{ id: input.name, name: input.name, auth_url: authUrl }] };
-  };
 }
 
 async function resolveWithCallerHeaders(input: {
