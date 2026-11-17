@@ -78,7 +78,7 @@
     "better-sqlite3": "^13.0.3",
     "cron-parser": "^5.10.1",
     "env-paths": "^4.0.0",
-    "hono": "^4.13.11",
+    "hono": "^4.13.16",
     "jose": "^6.2.12",
     "kysely": "^0.29.6",
     "lru-cache": "^11.5.3",
