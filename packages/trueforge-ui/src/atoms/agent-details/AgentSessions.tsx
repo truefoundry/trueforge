@@ -474,9 +474,11 @@ export function AgentSessions({
                   onSelect={() => selectSession(entry)}
                   href={buildAgentSessionShareHref({
                     sessionId: entry.id,
-                    createdAt: entry.createdAt,
                     ...(agentId == null ? {} : { agentId }),
-                    ...(shareView === 'sessions' ? { view: 'sessions' } : { view: null }),
+                    // Match selectSession: only the global sessions view pins a time window.
+                    ...(shareView === 'sessions'
+                      ? { view: 'sessions', createdAt: entry.createdAt }
+                      : { view: null, timeRange: null }),
                   })}
                   {...(shell == null ? {} : { onOpenSchedule: openSchedule })}
                   {...(scheduleServer == null ? {} : { loadScheduleName })}

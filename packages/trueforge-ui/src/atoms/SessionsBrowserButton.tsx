@@ -7,7 +7,11 @@ import { Icon } from '../icons/Icon.js';
 import { useOptionalAgentSessionsServer } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { isSessionsChromeEnabled } from '../server/serverChrome.js';
-import { defaultSessionTimeRange, readSessionShareSearch } from '../utils/sessionShareUrl.js';
+import {
+  defaultSessionTimeRange,
+  readSessionShareSearch,
+  sessionsBrowserOpenSearch,
+} from '../utils/sessionShareUrl.js';
 import { auiButtonClass, sidebarButtonRadiusClassName, sidebarRailButtonClassName } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 import { ShellLink } from './primitives/ShellLink.js';
@@ -31,6 +35,7 @@ export function SessionsBrowserButton({ className, compact = false }: SessionsBr
     <div className={cn('relative min-w-0', compact ? 'flex justify-center' : 'w-full', className)}>
       <ShellLink
         place={{ type: 'sessionsBrowser' }}
+        search={sessionsBrowserOpenSearch()}
         aria-label={compact ? 'Sessions' : undefined}
         title={compact ? 'Sessions' : undefined}
         aria-current={sessionsOpen ? 'page' : undefined}

@@ -22,6 +22,7 @@ import {
   readScheduleShareSearch,
   replaceScheduleShareSearch,
   writeOpenScheduleByIdSearch,
+  writeScheduleShareSearch,
 } from '../../utils/scheduleShareUrl.js';
 import {
   replaceSessionShareSearch,
@@ -71,6 +72,39 @@ function runSessionHref({ run, routes }: { run: ScheduleRun; routes: ResolvedRou
     ...(pinned == null ? {} : { timeRange: pinned }),
   });
   return buildPlaceHref({ place: { type: 'sessionsBrowser' }, routes, search: `?${params.toString()}` }) ?? undefined;
+}
+
+function embeddedScheduleHref({
+  agentId,
+  scheduleId,
+  name,
+  routes,
+}: {
+  agentId: string;
+  scheduleId: string;
+  name: string;
+  routes: ResolvedRoutes;
+}): string | null {
+  const params = new URLSearchParams();
+  writeSessionShareSearch(params, {
+    agentId,
+    tab: 'schedules',
+    sessionId: null,
+    view: null,
+    timeRange: null,
+  });
+  writeScheduleShareSearch(params, {
+    agent: null,
+    status: null,
+    q: name,
+    isNew: null,
+    scheduleId,
+  });
+  return buildPlaceHref({
+    place: { type: 'libraryAgent', agentId },
+    routes,
+    search: `?${params.toString()}`,
+  });
 }
 
 export type SchedulesPageProps = {
@@ -616,24 +650,69 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
                   return (
                     <TableRow key={schedule.id}>
                       <TableCell className="w-48 max-w-48">
-                        {routes == null ? (
-                          <span className="text-text-primary block truncate font-medium">{schedule.name}</span>
-                        ) : (
-                          <ShellLink
-                            place={{ type: 'schedules' }}
-                            search={openScheduleByIdSearch({ id: schedule.id, name: schedule.name })}
-                            className="text-text-primary block max-w-full truncate font-medium text-left"
-                            aria-label={`Open schedule ${schedule.name}`}
-                            onNavigate={() => {
-                              writeOpenScheduleByIdSearch({ id: schedule.id, name: schedule.name });
-                              setScheduleId(schedule.id);
-                              setNameQuery(schedule.name);
-                              shell?.setSchedulesOpen(true);
-                            }}
-                          >
-                            {schedule.name}
-                          </ShellLink>
-                        )}
+                        {(() => {
+                          const pinSchedule = () => {
+                            setScheduleId(schedule.id);
+                            setNameQuery(schedule.name);
+                            replaceScheduleShareSearch({
+                              agent: null,
+                              status: null,
+                              q: schedule.name,
+                              isNew: null,
+                              scheduleId: schedule.id,
+                            });
+                          };
+                          const nameClassName = 'text-text-primary block max-w-full truncate font-medium text-left';
+                          const embeddedHref =
+                            agentId != null && routes != null
+                              ? embeddedScheduleHref({
+                                  agentId,
+                                  scheduleId: schedule.id,
+                                  name: schedule.name,
+                                  routes,
+                                })
+                              : null;
+                          if (embeddedHref != null) {
+                            // Stay on agent details for left-click; new tab boots the same tab via URL.
+                            return (
+                              <ShellLink
+                                href={embeddedHref}
+                                className={nameClassName}
+                                aria-label={`Open schedule ${schedule.name}`}
+                                onNavigate={pinSchedule}
+                              >
+                                {schedule.name}
+                              </ShellLink>
+                            );
+                          }
+                          if (routes != null) {
+                            return (
+                              <ShellLink
+                                place={{ type: 'schedules' }}
+                                search={openScheduleByIdSearch({ id: schedule.id, name: schedule.name })}
+                                className={nameClassName}
+                                aria-label={`Open schedule ${schedule.name}`}
+                                onNavigate={() => {
+                                  writeOpenScheduleByIdSearch({ id: schedule.id, name: schedule.name });
+                                  pinSchedule();
+                                  shell?.setSchedulesOpen(true);
+                                }}
+                              >
+                                {schedule.name}
+                              </ShellLink>
+                            );
+                          }
+                          return (
+                            <button
+                              type="button"
+                              className={nameClassName}
+                              aria-label={`Open schedule ${schedule.name}`}
+                              onClick={pinSchedule}
+                            >
+                              {schedule.name}
+                            </button>
+                          );
+                        })()}
                         <span className="mt-1 flex min-w-0 items-center gap-1 text-xs">
                           <Icon name="agent-2" className="size-3 shrink-0" />
                           <span className="truncate">{agentLabel}</span>
