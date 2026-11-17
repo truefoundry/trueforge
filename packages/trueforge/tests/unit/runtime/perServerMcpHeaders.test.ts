@@ -4,6 +4,7 @@ import type { McpServerRecord } from '../../../src/db/mcpServerStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
+import { InMemoryOAuthTokenStore } from '../../../src/mcp/auth/inMemoryStores';
 import { parsePerServerMcpHeaders } from '../../../src/runtime/perServerMcpHeaders';
 
 describe('parsePerServerMcpHeaders', () => {
@@ -86,6 +87,37 @@ describe('McpServerWithAuthStore.resolveInvokeHeaders', () => {
     };
 
     expect(store.resolveInvokeHeaders({ record, userRef: 'user-1' })).toEqual({ authorization: 'Bearer user' });
+    await db.destroy();
+  });
+
+  it('keeps the DCR 401 consent hook when caller headers carry no Authorization', async () => {
+    const db = createSqliteDb(':memory:');
+    const tokenStore = new InMemoryOAuthTokenStore();
+    await tokenStore.saveToken({
+      id: ossRecord.id,
+      userRef: 'user-1',
+      token: {
+        accessToken: 'stored',
+        refreshToken: null,
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        scope: null,
+      },
+    });
+    const store = new McpServerWithAuthStore({
+      store: new SqliteMcpServerStore(db),
+      tokenStore,
+      clientName: 'test-client',
+      perServerHeaders: { 'oauth-mcp': { 'X-End-User': 'alice' } },
+    });
+
+    const resolve = store.resolveInvokeHeaders({ record: ossRecord, userRef: 'user-1' });
+    if (typeof resolve !== 'function') {
+      throw new Error('expected a headers resolver');
+    }
+    await expect(resolve()).resolves.toEqual({
+      headers: { Authorization: 'Bearer stored', 'X-End-User': 'alice' },
+      authRequiredOnUnauthorized: expect.any(Function),
+    });
     await db.destroy();
   });
 

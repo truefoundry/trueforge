@@ -1,5 +1,5 @@
 import { HTTPException } from 'hono/http-exception';
-import { isVirtualMcpHeaders, parseTrueFoundryPerServerMcpHeaders } from '../../../src/truefoundry/virtualMcpHeaders';
+import { parseTrueFoundryPerServerMcpHeaders } from '../../../src/truefoundry/virtualMcpHeaders';
 
 describe('parseTrueFoundryPerServerMcpHeaders', () => {
   it('accepts a flat header map and a virtual MCP nested map', () => {
@@ -14,9 +14,6 @@ describe('parseTrueFoundryPerServerMcpHeaders', () => {
       'github-mcp': { Authorization: 'Bearer user' },
       'virtual-mcp': { serv1: { Authorization: 'Bearer a' } },
     });
-    expect(
-      Object.fromEntries(Object.entries(parsed).map(([name, entry]) => [name, isVirtualMcpHeaders(entry)])),
-    ).toEqual({ 'github-mcp': false, 'virtual-mcp': true });
   });
 
   it.each([

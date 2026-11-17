@@ -302,20 +302,35 @@ describe('TrueFoundryMcpServerStore', () => {
       return headers();
     }
 
-    it('returns authRequired when authorize reports auth_required', async () => {
+    async function consentOn401(store: TrueFoundryMcpServerStore, record: McpServerRecord = dcrRecord()) {
+      const resolved = await invoke(store, record);
+      if (!('headers' in resolved) || resolved.authRequiredOnUnauthorized === undefined) {
+        throw new Error('expected a 401 consent hook');
+      }
+      return resolved.authRequiredOnUnauthorized();
+    }
+
+    it('returns the gateway Bearer without calling authorize up front', async () => {
+      const { store, client } = createStore();
+      await expect(invoke(store)).resolves.toEqual({
+        headers: { Authorization: `Bearer ${ACCESS_TOKEN}` },
+        authRequiredOnUnauthorized: expect.any(Function),
+      });
+      expect(client.getMcpAuthorize).not.toHaveBeenCalled();
+    });
+
+    it('on a 401, returns authRequired when authorize reports auth_required', async () => {
       const { store, client } = createStore();
       client.getMcpAuthorize.mockResolvedValue({
         status: 'auth_required',
         authorization_url: 'https://consent.example/authorize',
       });
-      await expect(invoke(store)).resolves.toEqual({
-        authRequired: {
-          servers: [{ id: 'github', name: 'github', auth_url: 'https://consent.example/authorize' }],
-        },
+      await expect(consentOn401(store)).resolves.toEqual({
+        servers: [{ id: 'github', name: 'github', auth_url: 'https://consent.example/authorize' }],
       });
     });
 
-    it('gates non-dcr truefoundry servers through authorize as well', async () => {
+    it('on a 401, gates non-dcr truefoundry servers through authorize as well', async () => {
       const { store, client } = createStore();
       const record = truefoundryRecordWithoutAuth();
       client.getMcpServerByName.mockResolvedValue({
@@ -330,23 +345,24 @@ describe('TrueFoundryMcpServerStore', () => {
         status: 'auth_required',
         authorization_url: 'https://consent.example/auth-override',
       });
-      await expect(invoke(store, record)).resolves.toEqual({
-        authRequired: {
-          servers: [{ id: record.name, name: record.name, auth_url: 'https://consent.example/auth-override' }],
-        },
-      });
-      expect(client.getMcpAuthorize).toHaveBeenCalled();
-    });
-
-    it('returns gateway Bearer when authorize reports authenticated', async () => {
-      const { store } = createStore();
-      await expect(invoke(store)).resolves.toEqual({
-        headers: { Authorization: `Bearer ${ACCESS_TOKEN}` },
+      await expect(consentOn401(store, record)).resolves.toEqual({
+        servers: [{ id: record.name, name: record.name, auth_url: 'https://consent.example/auth-override' }],
       });
     });
 
-    it('merges turn metadata after auth headers and leaves authRequired untouched', async () => {
+    it('on a 401, throws 422 when auth_required lacks authorization_url', async () => {
       const { store, client } = createStore();
+      client.getMcpAuthorize.mockResolvedValue({ status: 'auth_required' });
+      await expect(consentOn401(store)).rejects.toMatchObject({ status: 422 });
+    });
+
+    it('on a 401, throws 422 when authorize reports authenticated', async () => {
+      const { store } = createStore();
+      await expect(consentOn401(store)).rejects.toMatchObject({ status: 422 });
+    });
+
+    it('merges turn metadata after auth headers', async () => {
+      const { store } = createStore();
       const headers = store.resolveInvokeHeaders({
         record: dcrRecord(),
         userRef: 'user-1',
@@ -367,21 +383,12 @@ describe('TrueFoundryMcpServerStore', () => {
           [X_TFY_METADATA]: expect.any(String),
           [X_TFY_CONVERSATION_ID]: 'sess-1',
         },
+        authRequiredOnUnauthorized: expect.any(Function),
       });
       if (!('headers' in resolved) || resolved.headers === undefined) {
         throw new Error('expected invoke headers');
       }
       expect(JSON.parse(resolved.headers[X_TFY_METADATA] ?? '')).toMatchObject({ env: 'prod' });
-
-      client.getMcpAuthorize.mockResolvedValue({
-        status: 'auth_required',
-        authorization_url: 'https://consent.example/authorize',
-      });
-      await expect(headers()).resolves.toEqual({
-        authRequired: {
-          servers: [{ id: 'github', name: 'github', auth_url: 'https://consent.example/authorize' }],
-        },
-      });
     });
 
     it('delegates invoke: caller bearer, actor header, actor token for SFY lookups', async () => {
@@ -391,10 +398,15 @@ describe('TrueFoundryMcpServerStore', () => {
           Authorization: `Bearer ${ACCESS_TOKEN}`,
           [ACTOR_AUTHORIZATION_HEADER]: `Bearer ${ACTOR_TOKEN}`,
         },
+        authRequiredOnUnauthorized: expect.any(Function),
       });
+      client.getMcpAuthorize.mockResolvedValue({
+        status: 'auth_required',
+        authorization_url: 'https://consent.example/a',
+      });
+      await consentOn401(store);
       expect(client.getMcpAuthorize).toHaveBeenCalledWith(expect.objectContaining({ accessToken: ACCESS_TOKEN }));
       expect(client.getMcpServerByName).toHaveBeenCalledWith(expect.objectContaining({ accessToken: ACTOR_TOKEN }));
-      expect(client.listGatewayInstallations).toHaveBeenCalledWith(ACTOR_TOKEN);
       expect(client.vendToken).toHaveBeenCalledTimes(1);
     });
 
@@ -402,15 +414,15 @@ describe('TrueFoundryMcpServerStore', () => {
       const { store, client } = createStore({ agent: AGENT, userCredential: null });
       await expect(invoke(store)).resolves.toEqual({
         headers: { Authorization: `Bearer ${SUBJECT_TOKEN}` },
+        authRequiredOnUnauthorized: expect.any(Function),
       });
+      client.getMcpAuthorize.mockResolvedValue({
+        status: 'auth_required',
+        authorization_url: 'https://consent.example/a',
+      });
+      await consentOn401(store);
       expect(client.getMcpAuthorize).toHaveBeenCalledWith(expect.objectContaining({ accessToken: SUBJECT_TOKEN }));
       expect(client.getMcpServerByName).toHaveBeenCalledWith(expect.objectContaining({ accessToken: ACTOR_TOKEN }));
-    });
-
-    it('throws 422 when auth_required lacks authorization_url', async () => {
-      const { store, client } = createStore();
-      client.getMcpAuthorize.mockResolvedValue({ status: 'auth_required' });
-      await expect(invoke(store)).rejects.toMatchObject({ status: 422 });
     });
   });
 });
@@ -492,17 +504,15 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
     });
   });
 
-  it("merges that server's caller headers on top of the Bearer", async () => {
+  it("sends that server's caller entry without Authorization as x-tfy-mcp-headers too", async () => {
     const headers = await invokeHeaders(
-      storeWith({
-        'tfy-platform-mcp': { 'x-tfy-mcp-headers': '{"Authorization":"Bearer user"}' },
-      }),
+      storeWith({ 'tfy-platform-mcp': { 'X-End-User': 'alice' } }),
       'tfy-platform-mcp',
     );
 
     expect(headers).toEqual({
       Authorization: 'Bearer caller-token',
-      'x-tfy-mcp-headers': '{"Authorization":"Bearer user"}',
+      'x-tfy-mcp-headers': JSON.stringify({ 'X-End-User': 'alice' }),
     });
   });
 
@@ -532,23 +542,9 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
     },
   );
 
-  it('calls authorize up front only without caller credentials', async () => {
-    const getMcpAuthorize = jest.fn<ReturnType<TrueFoundryMcpApiClient['getMcpAuthorize']>, []>(async () => ({
-      status: 'authenticated',
-    }));
-    const store = new TrueFoundryMcpServerStore({
-      client: { ...unusedClient(), getMcpAuthorize },
-      requestContext: createTrueFoundryRequestContext({
-        tenant_id: 'default',
-        subject: { id: 'user-1', type: 'user', display_name: 'user-1' },
-        roles: [],
-        user_credential: 'caller-token',
-      }),
-      agent: undefined,
-      logger: createLogger({ silent: true }),
-      perServerHeaders: { 'tfy-platform-mcp': { Authorization: 'Bearer user' } },
-    });
-    const resolveFor = (name: string) => {
+  it('attaches the 401 consent hook only when the server has no caller entry', async () => {
+    const store = storeWith({ 'tfy-platform-mcp': { 'X-End-User': 'alice' } });
+    const resolveFor = async (name: string) => {
       const resolve = store.resolveInvokeHeaders({ record: record(name), userRef: 'user-1' });
       if (typeof resolve !== 'function') {
         throw new Error('expected a headers resolver');
@@ -556,17 +552,8 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
       return resolve();
     };
 
-    await expect(resolveFor('tfy-docs-mcp')).resolves.toEqual({ headers: { Authorization: 'Bearer caller-token' } });
-    expect(getMcpAuthorize).toHaveBeenCalledTimes(1);
-
-    getMcpAuthorize.mockClear();
-    await expect(resolveFor('tfy-platform-mcp')).resolves.toEqual({
-      headers: {
-        Authorization: 'Bearer caller-token',
-        'x-tfy-mcp-headers': JSON.stringify({ Authorization: 'Bearer user' }),
-      },
-    });
-    expect(getMcpAuthorize).not.toHaveBeenCalled();
+    await expect(resolveFor('tfy-docs-mcp')).resolves.toHaveProperty('authRequiredOnUnauthorized');
+    await expect(resolveFor('tfy-platform-mcp')).resolves.not.toHaveProperty('authRequiredOnUnauthorized');
   });
 
   it('never calls authorize for a caller Authorization', async () => {

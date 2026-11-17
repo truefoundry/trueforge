@@ -11,12 +11,6 @@ const TrueFoundryPerServerMcpHeadersSchema = z.record(
 
 export type TrueFoundryPerServerMcpHeaders = z.infer<typeof TrueFoundryPerServerMcpHeadersSchema>;
 
-type VirtualMcpHeaders = z.infer<typeof VirtualMcpHeadersSchema>;
-
 export function parseTrueFoundryPerServerMcpHeaders(raw: string): TrueFoundryPerServerMcpHeaders {
   return decodePerServerMcpHeaders({ raw, schema: TrueFoundryPerServerMcpHeadersSchema });
-}
-
-export function isVirtualMcpHeaders(entry: TrueFoundryPerServerMcpHeaders[string]): entry is VirtualMcpHeaders {
-  return Object.values(entry).some(value => typeof value === 'object');
 }

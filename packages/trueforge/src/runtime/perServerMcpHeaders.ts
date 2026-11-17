@@ -57,7 +57,7 @@ export function decodePerServerMcpHeaders<T extends Record<string, Record<string
   return parsed.data;
 }
 
-export function hasAuthorizationHeader(headers: Record<string, string>): boolean {
+function hasAuthorizationHeader(headers: Record<string, string>): boolean {
   return Object.keys(headers).some(name => name.toLowerCase() === 'authorization');
 }
 
@@ -82,7 +82,7 @@ export function withCallerMcpHeaders(input: {
     if ('authRequired' in result) {
       return result;
     }
-    return { headers: mergeCallerHeaders({ headers: result.headers, callerHeaders }) };
+    return { ...result, headers: mergeCallerHeaders({ headers: result.headers, callerHeaders }) };
   };
 }
 

@@ -1,4 +1,4 @@
-import type { RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
+import type { RemoteMcpHeaders, ResolveHeadersResult } from '@truefoundry/trueforge-core/core';
 import { isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
 import type { IOAuthTokenStore, OAuthClientRecord } from '../mcp/auth/types';
 import { withCallerMcpHeaders, type PerServerMcpHeaders } from '../runtime/perServerMcpHeaders';
@@ -77,7 +77,7 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
   #resolveRegisteredHeaders(input: { record: McpServerRecord; userRef: string }): RemoteMcpHeaders {
     const { record, userRef } = input;
     if (record.manifest.auth?.type === 'dcr') {
-      return async () => {
+      const resolveDcr = async (): Promise<ResolveHeadersResult> => {
         const result = await resolveMcpAuth({
           tokenStore: this.#tokenStore,
           mcpServerStore: this.#store,
@@ -95,8 +95,17 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
             },
           };
         }
-        return { headers: result.headers };
+        return {
+          headers: result.headers,
+          // A 401 means the stored token was rejected: drop it and restart DCR consent.
+          authRequiredOnUnauthorized: async () => {
+            await this.#tokenStore.deleteToken({ id: record.id, userRef });
+            const retry = await resolveDcr();
+            return 'authRequired' in retry ? retry.authRequired : undefined;
+          },
+        };
       };
+      return resolveDcr;
     }
     return resolveConfiguredMcpRequestHeaders(record.manifest);
   }
