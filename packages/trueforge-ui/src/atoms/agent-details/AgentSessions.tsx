@@ -20,7 +20,7 @@ import { useSlot } from '../../theme/SlotsProvider.js';
 import { drainListPages } from '../../utils/drainListPages.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import { writeOpenScheduleByIdSearch } from '../../utils/scheduleShareUrl.js';
-import { sessionTimeRangeFromCreatedAt } from '../../utils/sessionShareUrl.js';
+import { buildAgentSessionShareHref, sessionTimeRangeFromCreatedAt } from '../../utils/sessionShareUrl.js';
 import { EmptyScreen } from '../EmptyScreen.js';
 import { cn } from '../lib/cn.js';
 import { sessionIsCreateAgent } from '../lib/sessionCreateAgent.js';
@@ -472,6 +472,12 @@ export function AgentSessions({
                   {...(entry.createdBySubject == null ? {} : { createdBySubject: entry.createdBySubject })}
                   active={entry.id === selectedSessionId}
                   onSelect={() => selectSession(entry)}
+                  href={buildAgentSessionShareHref({
+                    sessionId: entry.id,
+                    createdAt: entry.createdAt,
+                    ...(agentId == null ? {} : { agentId }),
+                    ...(shareView === 'sessions' ? { view: 'sessions' } : { view: null }),
+                  })}
                   {...(shell == null ? {} : { onOpenSchedule: openSchedule })}
                   {...(scheduleServer == null ? {} : { loadScheduleName })}
                   {...(canDeleteSession

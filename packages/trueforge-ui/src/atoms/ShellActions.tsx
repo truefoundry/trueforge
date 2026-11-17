@@ -10,6 +10,7 @@ import { useSlot } from '../theme/SlotsProvider.js';
 import { useTheme } from '../theme/ThemeProvider.js';
 import { auiButtonClass, sidebarRailButtonClassName } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
+import { ShellLink } from './primitives/ShellLink.js';
 
 export function ShellActions({
   className,
@@ -75,8 +76,8 @@ export function ShellActions({
         {labeled ? <span className="text-center">{themeLabel}</span> : null}
       </button>
       {shell != null && settingsChromeEnabled ? (
-        <button
-          type="button"
+        <ShellLink
+          place={{ type: 'settings' }}
           aria-label="Settings"
           title="Settings"
           aria-expanded={shell.settingsOpen}
@@ -91,7 +92,7 @@ export function ShellActions({
                 'bg-primary-button-bg font-medium text-primary-button-text hover:bg-primary-button-hover hover:text-primary-button-text',
             ),
           })}
-          onClick={() => {
+          onNavigate={() => {
             if (!shell.settingsOpen) track(AnalyticsEvents.Settings.OPENED);
             shell.setSettingsOpen(true);
             onAction?.();
@@ -99,7 +100,7 @@ export function ShellActions({
         >
           <Icon name="settings" size={labeled ? 14 : undefined} />
           {labeled ? <span className="text-center">Settings</span> : null}
-        </button>
+        </ShellLink>
       ) : null}
       <ActionSlot />
     </div>

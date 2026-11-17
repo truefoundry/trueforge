@@ -103,9 +103,17 @@ export function writeOpenSchedulesForAgentSearch({ agentId, isNew }: { agentId: 
   window.history.replaceState(window.history.state, '', url);
 }
 
-/** Point the address bar at one schedule. Caller still opens the schedules place via shell. */
-export function writeOpenScheduleByIdSearch({ id, name }: { id: string; name: string }): void {
-  const url = new URL(window.location.href);
+/** Search string that pins schedules to one schedule id (no history write). */
+export function openScheduleByIdSearch({
+  id,
+  name,
+  href = typeof window === 'undefined' ? 'http://localhost/' : window.location.href,
+}: {
+  id: string;
+  name: string;
+  href?: string;
+}): string {
+  const url = new URL(href);
   writeSessionShareSearch(url.searchParams, {
     sessionId: null,
     agentId: null,
@@ -114,5 +122,12 @@ export function writeOpenScheduleByIdSearch({ id, name }: { id: string; name: st
     timeRange: null,
   });
   writeScheduleShareSearch(url.searchParams, { agent: null, status: null, q: name, isNew: null, scheduleId: id });
+  return url.search;
+}
+
+/** Point the address bar at one schedule. Caller still opens the schedules place via shell. */
+export function writeOpenScheduleByIdSearch({ id, name }: { id: string; name: string }): void {
+  const url = new URL(window.location.href);
+  url.search = openScheduleByIdSearch({ id, name, href: url.toString() });
   window.history.replaceState(window.history.state, '', url);
 }

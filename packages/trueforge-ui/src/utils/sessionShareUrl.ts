@@ -169,6 +169,13 @@ export function buildAgentSessionShareUrl({
   return url.toString();
 }
 
+/** Relative path+search for the current page with a session share selection. */
+export function buildAgentSessionShareHref(args: Parameters<typeof buildAgentSessionShareUrl>[0]): string {
+  const absolute = buildAgentSessionShareUrl(args);
+  const url = new URL(absolute);
+  return `${url.pathname}${url.search}`;
+}
+
 export const SESSION_SHARE_CHANGE_EVENT = 'trueforge-session-share';
 
 export function replaceSessionShareSearch(next: SessionShareWrite): string {

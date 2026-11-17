@@ -18,6 +18,7 @@ import { cn } from '../atoms/lib/cn.js';
 import { useIsMobile } from '../atoms/lib/useIsMobile.js';
 import { NamedAgentHeaderLabel } from '../atoms/NamedAgentHeaderLabel.js';
 import { PageHeader } from '../atoms/PageHeader.js';
+import { ShellLink } from '../atoms/primitives/ShellLink.js';
 import { Spinner } from '../atoms/primitives/Spinner.js';
 import { Tooltip } from '../atoms/primitives/Tooltip.js';
 import { ShellActions } from '../atoms/ShellActions.js';
@@ -151,8 +152,8 @@ function SidebarNav(): ReactNode {
   return (
     <nav className="flex min-h-0 flex-1 flex-col items-center gap-1 p-1" aria-label="Sidebar">
       {showNewActions ? (
-        <button
-          type="button"
+        <ShellLink
+          place={{ type: 'root' }}
           aria-label="Start new chat"
           title="New chat"
           aria-current={newChatSelected ? 'page' : undefined}
@@ -160,15 +161,15 @@ function SidebarNav(): ReactNode {
             variant: 'ghost',
             className: cn(railActionButtonClassName, newChatSelected && railSelectedClassName),
           })}
-          onClick={handleNewChat}
+          onNavigate={handleNewChat}
         >
           <Icon name="square-pen" size={14} />
           <span className="text-center">New Chat</span>
-        </button>
+        </ShellLink>
       ) : null}
       {showNewActions && shell?.isComposerEnabled ? (
-        <button
-          type="button"
+        <ShellLink
+          place={{ type: 'buildAgent' }}
           aria-label="Start new agent"
           title="New Agent"
           aria-current={newAgentSelected ? 'page' : undefined}
@@ -176,11 +177,11 @@ function SidebarNav(): ReactNode {
             variant: 'ghost',
             className: cn(railActionButtonClassName, newAgentSelected && railSelectedClassName),
           })}
-          onClick={handleNewAgent}
+          onNavigate={handleNewAgent}
         >
           <Icon name="agent-2" size={14} />
           <span className="text-center whitespace-nowrap">Build Agent</span>
-        </button>
+        </ShellLink>
       ) : null}
       <AgentsLibraryButton compact />
       <SessionsBrowserButton compact />

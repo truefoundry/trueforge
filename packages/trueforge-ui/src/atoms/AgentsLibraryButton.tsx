@@ -10,6 +10,7 @@ import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { auiButtonClass, sidebarButtonRadiusClassName, sidebarRailButtonClassName } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 import { SEARCH_AGENTS_PAGE_SIZE } from './lib/useSearchAgentsList.js';
+import { ShellLink } from './primitives/ShellLink.js';
 
 export type AgentsLibraryButtonProps = {
   className?: string;
@@ -51,8 +52,8 @@ export function AgentsLibraryButton({ className, compact = false }: AgentsLibrar
 
   return (
     <div className={cn('relative min-w-0', compact ? 'flex justify-center' : 'w-full', className)}>
-      <button
-        type="button"
+      <ShellLink
+        place={{ type: 'library' }}
         aria-label={compact ? 'Agents' : undefined}
         title={compact ? 'Agents' : undefined}
         aria-current={libraryOpen ? 'page' : undefined}
@@ -66,7 +67,7 @@ export function AgentsLibraryButton({ className, compact = false }: AgentsLibrar
               'bg-primary-button-bg font-medium text-primary-button-text hover:bg-primary-button-hover hover:text-primary-button-text',
           ),
         })}
-        onClick={() => {
+        onNavigate={() => {
           if (!libraryOpen) track(AnalyticsEvents.Library.OPENED);
           shell?.setLibraryOpen(true);
         }}
@@ -85,7 +86,7 @@ export function AgentsLibraryButton({ className, compact = false }: AgentsLibrar
             <Icon name="chevron-right" className="ml-auto size-3.5 shrink-0 opacity-60" />
           </>
         )}
-      </button>
+      </ShellLink>
     </div>
   );
 }

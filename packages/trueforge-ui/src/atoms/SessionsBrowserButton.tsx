@@ -10,6 +10,7 @@ import { isSessionsChromeEnabled } from '../server/serverChrome.js';
 import { defaultSessionTimeRange, readSessionShareSearch } from '../utils/sessionShareUrl.js';
 import { auiButtonClass, sidebarButtonRadiusClassName, sidebarRailButtonClassName } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
+import { ShellLink } from './primitives/ShellLink.js';
 
 export type SessionsBrowserButtonProps = {
   className?: string;
@@ -28,8 +29,8 @@ export function SessionsBrowserButton({ className, compact = false }: SessionsBr
 
   return (
     <div className={cn('relative min-w-0', compact ? 'flex justify-center' : 'w-full', className)}>
-      <button
-        type="button"
+      <ShellLink
+        place={{ type: 'sessionsBrowser' }}
         aria-label={compact ? 'Sessions' : undefined}
         title={compact ? 'Sessions' : undefined}
         aria-current={sessionsOpen ? 'page' : undefined}
@@ -43,7 +44,7 @@ export function SessionsBrowserButton({ className, compact = false }: SessionsBr
               'bg-primary-button-bg font-medium text-primary-button-text hover:bg-primary-button-hover hover:text-primary-button-text',
           ),
         })}
-        onClick={() => {
+        onNavigate={() => {
           if (!sessionsOpen) {
             track(AnalyticsEvents.SessionsBrowser.OPENED);
             const share = readSessionShareSearch(window.location.search);
@@ -66,7 +67,7 @@ export function SessionsBrowserButton({ className, compact = false }: SessionsBr
             <Icon name="chevron-right" className="ml-auto size-3.5 shrink-0 opacity-60" />
           </>
         )}
-      </button>
+      </ShellLink>
     </div>
   );
 }

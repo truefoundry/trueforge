@@ -7,9 +7,11 @@ import { lastHistoricalRuns } from './scheduleRuns.js';
 export function ScheduleLastRunsCell({
   runs,
   onOpenSession,
+  sessionHrefForRun,
 }: {
   runs: readonly ScheduleRun[];
   onOpenSession?: (run: ScheduleRun) => void;
+  sessionHrefForRun?: (run: ScheduleRun) => string | undefined;
 }) {
   const history = lastHistoricalRuns(runs);
   if (history.length === 0) {
@@ -17,9 +19,17 @@ export function ScheduleLastRunsCell({
   }
   return (
     <div className="flex items-center gap-1">
-      {history.map(run => (
-        <ScheduleRunChip key={run.id} run={run} {...(onOpenSession == null ? {} : { onOpenSession })} />
-      ))}
+      {history.map(run => {
+        const href = sessionHrefForRun?.(run);
+        return (
+          <ScheduleRunChip
+            key={run.id}
+            run={run}
+            {...(onOpenSession == null ? {} : { onOpenSession })}
+            {...(href == null ? {} : { href })}
+          />
+        );
+      })}
     </div>
   );
 }

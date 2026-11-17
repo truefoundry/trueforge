@@ -7,6 +7,9 @@ import { AnalyticsEvents } from '../../analytics/events.js';
 import { useToasterOptional } from '../../containers/ToasterContainer.js';
 import { useResourcePermissions } from '../../hooks/useResourcePermissions.js';
 import { Icon } from '../../icons/Icon.js';
+import { buildPlaceHref } from '../../routing/paths.js';
+import { useOptionalResolvedRoutes } from '../../routing/ResolvedRoutesContext.js';
+import type { ResolvedRoutes } from '../../routing/types.js';
 import { isSessionsChromeEnabled } from '../../server/serverChrome.js';
 import { useOptionalAgentSessionsServer, useScheduleServer, useServer } from '../../server/ServerContext.js';
 import { libraryAgentId, useOptionalShellMode } from '../../server/ShellModeContext.js';
@@ -14,8 +17,17 @@ import type { Schedule, ScheduleRun, ScheduleStatus } from '../../server/types.j
 import { useSlot } from '../../theme/SlotsProvider.js';
 import { hasCreatedBySubject } from '../../utils/createdBySubject.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
-import { readScheduleShareSearch, replaceScheduleShareSearch } from '../../utils/scheduleShareUrl.js';
-import { replaceSessionShareSearch, sessionTimeRangeFromCreatedAt } from '../../utils/sessionShareUrl.js';
+import {
+  openScheduleByIdSearch,
+  readScheduleShareSearch,
+  replaceScheduleShareSearch,
+  writeOpenScheduleByIdSearch,
+} from '../../utils/scheduleShareUrl.js';
+import {
+  replaceSessionShareSearch,
+  sessionTimeRangeFromCreatedAt,
+  writeSessionShareSearch,
+} from '../../utils/sessionShareUrl.js';
 import { AgentSearchPicker } from '../AgentSearchPicker.js';
 import { CreatedByCell } from '../CreatedByCell.js';
 import { EmptyScreen } from '../EmptyScreen.js';
@@ -27,6 +39,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { DropdownMenu, DropdownMenuItem } from '../primitives/DropdownMenu.js';
 import { PopoverSelect } from '../primitives/PopoverSelect.js';
 import SearchInput from '../primitives/SearchInput.js';
+import { ShellLink } from '../primitives/ShellLink.js';
 import { Skeleton } from '../primitives/Skeleton.js';
 import {
   DEFAULT_TABLE_PAGE_SIZE,
@@ -45,6 +58,20 @@ import { ScheduleLastRunsCell } from './ScheduleLastRunsCell.js';
 import { ScheduleStatusBadge } from './ScheduleStatusBadge.js';
 
 type DrawerState = { kind: 'closed' } | { kind: 'create'; agentId?: string } | { kind: 'edit'; schedule: Schedule };
+
+function runSessionHref({ run, routes }: { run: ScheduleRun; routes: ResolvedRoutes }): string | undefined {
+  if (run.sessionId == null || run.sessionId === '') return undefined;
+  const params = new URLSearchParams();
+  const pinned = sessionTimeRangeFromCreatedAt(run.triggeredAt ?? run.scheduledFor);
+  writeSessionShareSearch(params, {
+    sessionId: run.sessionId,
+    view: 'sessions',
+    agentId: null,
+    tab: null,
+    ...(pinned == null ? {} : { timeRange: pinned }),
+  });
+  return buildPlaceHref({ place: { type: 'sessionsBrowser' }, routes, search: `?${params.toString()}` }) ?? undefined;
+}
 
 export type SchedulesPageProps = {
   /** Lock the page to one agent when embedded in Agent Details. */
@@ -164,6 +191,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
   const toaster = useToasterOptional();
   const track = useTrackAnalytics();
   const shell = useOptionalShellMode();
+  const routes = useOptionalResolvedRoutes();
   const sessionsServer = useOptionalAgentSessionsServer();
   const canOpenRunSession = shell != null && isSessionsChromeEnabled({ sessions: sessionsServer });
 
@@ -588,7 +616,24 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
                   return (
                     <TableRow key={schedule.id}>
                       <TableCell className="w-48 max-w-48">
-                        <span className="text-text-primary block truncate font-medium">{schedule.name}</span>
+                        {routes == null ? (
+                          <span className="text-text-primary block truncate font-medium">{schedule.name}</span>
+                        ) : (
+                          <ShellLink
+                            place={{ type: 'schedules' }}
+                            search={openScheduleByIdSearch({ id: schedule.id, name: schedule.name })}
+                            className="text-text-primary block max-w-full truncate font-medium text-left"
+                            aria-label={`Open schedule ${schedule.name}`}
+                            onNavigate={() => {
+                              writeOpenScheduleByIdSearch({ id: schedule.id, name: schedule.name });
+                              setScheduleId(schedule.id);
+                              setNameQuery(schedule.name);
+                              shell?.setSchedulesOpen(true);
+                            }}
+                          >
+                            {schedule.name}
+                          </ShellLink>
+                        )}
                         <span className="mt-1 flex min-w-0 items-center gap-1 text-xs">
                           <Icon name="agent-2" className="size-3 shrink-0" />
                           <span className="truncate">{agentLabel}</span>
@@ -620,7 +665,14 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
                             runs={runsByScheduleId[schedule.id] ?? []}
                             {...(!canOpenRunSession
                               ? {}
-                              : { onOpenSession: run => handleOpenRunSession({ run, schedule }) })}
+                              : {
+                                  onOpenSession: run => handleOpenRunSession({ run, schedule }),
+                                  ...(routes == null
+                                    ? {}
+                                    : {
+                                        sessionHrefForRun: run => runSessionHref({ run, routes }),
+                                      }),
+                                })}
                           />
                         )}
                       </TableCell>

@@ -8,6 +8,7 @@ import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { isSchedulesChromeEnabled } from '../server/serverChrome.js';
 import { auiButtonClass, sidebarButtonRadiusClassName, sidebarRailButtonClassName } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
+import { ShellLink } from './primitives/ShellLink.js';
 
 export type SchedulesButtonProps = {
   className?: string;
@@ -26,8 +27,8 @@ export function SchedulesButton({ className, compact = false }: SchedulesButtonP
 
   return (
     <div className={cn('relative min-w-0', compact ? 'flex justify-center' : 'w-full', className)}>
-      <button
-        type="button"
+      <ShellLink
+        place={{ type: 'schedules' }}
         aria-label={compact ? 'Schedules' : undefined}
         title={compact ? 'Schedules' : undefined}
         aria-current={open ? 'page' : undefined}
@@ -41,7 +42,7 @@ export function SchedulesButton({ className, compact = false }: SchedulesButtonP
               'bg-primary-button-bg font-medium text-primary-button-text hover:bg-primary-button-hover hover:text-primary-button-text',
           ),
         })}
-        onClick={() => {
+        onNavigate={() => {
           if (!open) track(AnalyticsEvents.Schedule.PAGE_OPENED);
           shell.setSchedulesOpen(!open);
         }}
@@ -55,7 +56,7 @@ export function SchedulesButton({ className, compact = false }: SchedulesButtonP
             <Icon name="chevron-right" className="ml-auto size-3.5 shrink-0 opacity-60" />
           </>
         )}
-      </button>
+      </ShellLink>
     </div>
   );
 }

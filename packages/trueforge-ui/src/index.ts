@@ -49,6 +49,8 @@ export { PopoverSelect } from './atoms/primitives/PopoverSelect.js';
 export type { PopoverSelectOption, PopoverSelectProps } from './atoms/primitives/PopoverSelect.js';
 export { ResponsiveDropdownMenu } from './atoms/primitives/ResponsiveDropdownMenu.js';
 export type { ResponsiveDropdownMenuProps } from './atoms/primitives/ResponsiveDropdownMenu.js';
+export { ShellLink } from './atoms/primitives/ShellLink.js';
+export type { ShellLinkProps } from './atoms/primitives/ShellLink.js';
 export { SideDrawer } from './atoms/primitives/SideDrawer.js';
 export type { SideDrawerAnchor, SideDrawerProps, SideDrawerSize } from './atoms/primitives/SideDrawer.js';
 export { Switch } from './atoms/primitives/Switch.js';
