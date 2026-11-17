@@ -28,12 +28,15 @@ describe('ToolApprovalBar', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Allow once' }));
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'More approval options' }));
     expect(screen.getByRole('menuitem', { name: 'Allow once' })).not.toHaveAttribute('aria-selected');
     fireEvent.click(screen.getByRole('menuitem', { name: 'Allow once' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Allow once' }));
+    fireEvent.click(screen.getByRole('button', { name: 'More approval options' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Reject' }));
     expect(onSelect).toHaveBeenNthCalledWith(1, 'allow-once');
-    expect(onSelect).toHaveBeenNthCalledWith(2, 'reject');
+    expect(onSelect).toHaveBeenNthCalledWith(2, 'allow-once');
+    expect(onSelect).toHaveBeenNthCalledWith(3, 'reject');
   });
 
   it('drives the controlled denial-reason workflow and error state', () => {
@@ -49,7 +52,7 @@ describe('ToolApprovalBar', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Approve once' }));
+    fireEvent.click(screen.getByRole('button', { name: 'More approval options' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Deny' }));
     expect(onDenyOptionChange).toHaveBeenCalledWith('deny-with-reason');
 

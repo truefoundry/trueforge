@@ -37,6 +37,11 @@ export type SessionTurnView = {
   cacheWriteTokens?: number;
   /** Sum of model.message usage.inputTokensBreakdown across all threads in the turn. */
   inputTokensBreakdown?: SessionInputTokensBreakdown;
+  /**
+   * Context in play once the turn ended, from the last root model call's prompt plus its
+   * completion. Unlike the token totals this does not accumulate across turns or model calls.
+   */
+  contextTokens?: number;
   totalCostInUsd?: number;
   durationMs?: number;
   /** Model FQN of the last root-thread model call in the turn. */
@@ -148,6 +153,25 @@ function rootModelName(events: readonly TurnEvent[]): string | undefined {
   return undefined;
 }
 
+/**
+ * Context size at the end of the turn. The last root model call already re-sent the whole
+ * conversation, so its prompt plus completion is the context, while summing every call would
+ * count the same messages once per call.
+ */
+function rootContextTokens(events: readonly TurnEvent[]): number | undefined {
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    const event = events[index];
+    if (event?.type !== 'model.message' || event.threadId !== MAIN_THREAD_ID) continue;
+    const usage = event.usage;
+    if (typeof usage !== 'object' || usage == null) continue;
+    const inputTokens = readMetricNumber(usage, 'inputTokens', 'input_tokens');
+    const outputTokens = readMetricNumber(usage, 'outputTokens', 'output_tokens');
+    if (inputTokens === undefined && outputTokens === undefined) continue;
+    return (inputTokens ?? 0) + (outputTokens ?? 0);
+  }
+  return undefined;
+}
+
 function readNonNegativeInt(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined;
 }
@@ -244,6 +268,7 @@ export function buildSessionTurnViews(itemsAsc: SessionEventItem[]): SessionTurn
     group.events.sort((left, right) => timestampMs(left.createdAt) - timestampMs(right.createdAt));
     const modelName = rootModelName(group.events);
     const inputTokensBreakdown = inputTokensBreakdownFromEvents(group.events);
+    const contextTokens = rootContextTokens(group.events);
 
     return {
       turnId,
@@ -262,6 +287,7 @@ export function buildSessionTurnViews(itemsAsc: SessionEventItem[]): SessionTurn
       events: group.events,
       ...(modelName === undefined ? {} : { modelName }),
       ...(inputTokensBreakdown === undefined ? {} : { inputTokensBreakdown }),
+      ...(contextTokens === undefined ? {} : { contextTokens }),
     };
   });
 }
@@ -293,9 +319,12 @@ export function aggregateSessionTurnBand(
   let hasDuration = false;
   let modelName: string | undefined;
   let inputTokensBreakdown: SessionInputTokensBreakdown | undefined;
+  let contextTokens: number | undefined;
 
   for (const turn of band) {
     if (turn.modelName != null) modelName = turn.modelName;
+    // Context is a snapshot, not a quantity spent, so the band inherits its last turn's value.
+    if (turn.contextTokens != null) contextTokens = turn.contextTokens;
     if (turn.totalTokens != null) {
       totalTokens += turn.totalTokens;
       hasTokens = true;
@@ -343,5 +372,6 @@ export function aggregateSessionTurnBand(
     ...(hasDuration ? { durationMs } : {}),
     ...(modelName === undefined ? {} : { modelName }),
     ...(inputTokensBreakdown === undefined ? {} : { inputTokensBreakdown }),
+    ...(contextTokens === undefined ? {} : { contextTokens }),
   };
 }
