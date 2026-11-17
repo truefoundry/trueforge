@@ -50,7 +50,9 @@ export function decodePerServerMcpHeaders<T extends Record<string, Record<string
     .flatMap(entry => Object.keys(entry))
     .find(name => MANAGED_MCP_HEADERS.has(name.toLowerCase()));
   if (managed !== undefined) {
-    throw new HTTPException(400, { message: `${X_TFG_MCP_HEADERS} must not set ${managed}` });
+    throw new HTTPException(400, {
+      message: `${X_TFG_MCP_HEADERS} must not have keys as one of ${[...MANAGED_MCP_HEADERS].join(', ')} (got ${managed})`,
+    });
   }
   return parsed.data;
 }
