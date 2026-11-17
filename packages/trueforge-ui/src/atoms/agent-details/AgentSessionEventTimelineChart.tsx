@@ -77,6 +77,9 @@ ChartJS.register(BarController, BarElement, LinearScale, PointElement, ScatterCo
 const MARKER_PX = 4;
 /** Wide enough for a T999 label in the 10px turn font. */
 const MIN_TURN_BAR_PX = 32;
+/** Sessions past this many turns get wider minimum bars so they stay distinguishable. */
+const LARGE_SESSION_TURN_COUNT = 100;
+const LARGE_SESSION_MIN_TURN_BAR_PX = 64;
 /** Empty space drawn between turns (not real idle time). */
 const TURN_GAP_PX = 12;
 /** Fixed width of each hatched “Paused” chip. */
@@ -342,7 +345,8 @@ export function AgentSessionEventTimelineChart({
         ? getTimelineTurnStretch({
             durationsMs: orderedRanges.map(range => Math.max(0, range.endMs - range.startMs)),
             msPerPx,
-            minTurnBarPx: MIN_TURN_BAR_PX,
+            minTurnBarPx:
+              orderedRanges.length > LARGE_SESSION_TURN_COUNT ? LARGE_SESSION_MIN_TURN_BAR_PX : MIN_TURN_BAR_PX,
             markerPx: MARKER_PX,
           })
         : {
@@ -354,7 +358,8 @@ export function AgentSessionEventTimelineChart({
   );
   const unclampedScaleWidthPx = widthPx - TURN_GAP_PX * gapCount - PAUSE_CHIP_PX * pauseChipCount - END_PAD_PX;
   const floorDeficitPx = widthPx > 0 ? Math.max(0, scaleWidthPx - unclampedScaleWidthPx) : 0;
-  const totalExtraPx = stretch.extraPx.reduce((sum, px) => sum + px, 0) + floorDeficitPx;
+  const stretchExtraPx = stretch.extraPx.reduce((sum, px) => sum + px, 0);
+  const totalExtraPx = stretchExtraPx + floorDeficitPx;
   const scrolls = totalExtraPx > 0;
   const chartWidthPx = widthPx + Math.ceil(totalExtraPx);
   // Visual gaps drive both chart spacing and wall-time axis labels.
@@ -375,7 +380,8 @@ export function AgentSessionEventTimelineChart({
     return [...turnGaps, ...pauseGapsByStart.values()].sort((left, right) => left.atActiveMs - right.atActiveMs);
   }, [hiddenTypes, hideSubAgentThreads, pauseChipMs, segments, turnGapAnchorMs, turnGapMs]);
   const totalMs = activeTotalMs + visualGaps.reduce((sum, gap) => sum + gap.gapMs, 0);
-  const timelineMaxMs = totalMs + END_PAD_PX * msPerPx + totalExtraPx * msPerPx;
+  // The scale-width floor is already inside totalMs (gaps and chips); only stretch adds time here.
+  const timelineMaxMs = totalMs + END_PAD_PX * msPerPx + stretchExtraPx * msPerPx;
 
   // Shift later turns for separators, stretch short turns, then expand each pause chip.
   // Hiding "Sub-agent" drops that type and every non-main thread (markers/pauses stay off main).
@@ -440,12 +446,28 @@ export function AgentSessionEventTimelineChart({
   );
   const turnBars = useMemo<TimelineTurnBar[]>(() => {
     if (turnRanges.length < 2) return [];
+    // Chip starts in visibleSegments already include earlier chips. Undo that so the
+    // turn-start seed, which is still pre-chip, can take the same shift as the segments.
+    let expandedShiftMs = 0;
+    const pauseChipShiftStartsMs = [
+      ...new Set(visibleSegments.filter(segment => segment.isPauseChip).map(segment => segment.startMs)),
+    ]
+      .sort((left, right) => left - right)
+      .map(startMs => {
+        const chipStartMs = startMs - expandedShiftMs;
+        expandedShiftMs += pauseChipMs;
+        return chipStartMs;
+      });
     return turnRanges.map(range => {
       const inTurn = visibleSegments.filter(segment => segment.turnIndex === range.turnIndex);
       const fallbackStart =
         stretchActiveMs({ activeMs: range.startMs, turn: range, stretch, msPerPx }) +
         (turnGapShiftsMs.get(range.turnIndex) ?? 0);
-      const startMs = inTurn.reduce((min, segment) => Math.min(min, segment.startMs), fallbackStart);
+      const chipShiftMs = pauseChipShiftStartsMs.reduce(
+        (shift, chipStartMs) => (fallbackStart >= chipStartMs ? shift + pauseChipMs : shift),
+        0,
+      );
+      const startMs = inTurn.reduce((min, segment) => Math.min(min, segment.startMs), fallbackStart + chipShiftMs);
       const durationMs = Math.max(0, range.endMs - range.startMs);
       const zeroTurnExtraMs = durationMs <= 0 ? (stretch.extraPx[range.ordinal] ?? 0) * msPerPx : 0;
       const endMs =
@@ -461,7 +483,7 @@ export function AgentSessionEventTimelineChart({
         endMs,
       };
     });
-  }, [msPerPx, segments, stretch, turnGapShiftsMs, turnRanges, visibleSegments]);
+  }, [msPerPx, pauseChipMs, segments, stretch, turnGapShiftsMs, turnRanges, visibleSegments]);
   const subAgentSegments = useMemo(
     () => durationSegments.filter(segment => segment.type === 'sub_agent'),
     [durationSegments],
