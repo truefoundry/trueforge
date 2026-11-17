@@ -1951,4 +1951,49 @@ describe('buildSessionMetrics', () => {
     });
     assert.equal(matchedSessionTotal.sessionTotalTurns, undefined);
   });
+
+  it('aggregates sandbox exec frequency by tool, not by intent', () => {
+    const turns = buildSessionTurnViews([created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' })]);
+    const segments = [
+      {
+        id: 'exec-1',
+        type: 'tool_call' as const,
+        title: 'tool.call',
+        description: 'Sandbox: exec - List workspace files',
+        startMs: 0,
+        endMs: 100,
+        turnIndex: 0,
+        threadId: 'main',
+      },
+      {
+        id: 'exec-2',
+        type: 'tool_call' as const,
+        title: 'tool.call',
+        description: 'Sandbox: exec - Run tests',
+        startMs: 100,
+        endMs: 200,
+        turnIndex: 0,
+        threadId: 'main',
+      },
+      {
+        id: 'search-1',
+        type: 'tool_call' as const,
+        title: 'tool.call',
+        description: 'search',
+        startMs: 200,
+        endMs: 300,
+        turnIndex: 0,
+        threadId: 'main',
+      },
+    ];
+    const metrics = buildSessionMetrics({ turns, segments });
+    assert.equal(metrics.toolCalls, 3);
+    assert.deepEqual(
+      metrics.toolCallFrequency.map(row => ({ label: row.label, value: row.value })),
+      [
+        { label: 'Sandbox: exec', value: 2 },
+        { label: 'search', value: 1 },
+      ],
+    );
+  });
 });
