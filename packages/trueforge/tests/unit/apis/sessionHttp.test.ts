@@ -305,7 +305,7 @@ describe('sessions HTTP agent binding', () => {
     expect(listJson.data.some(row => row.id === json.data.id)).toBe(true);
   });
 
-  it('returns caller-scoped metrics for a named agent', async () => {
+  it('returns both tenant-wide and caller metrics for a named agent under an all scope', async () => {
     const agent = await agentStore.createAgent({
       tenant_id: 'default',
       created_by_subject: {
@@ -355,7 +355,9 @@ describe('sessions HTTP agent binding', () => {
     expect(response.status).toBe(200);
     const meters = GetSessionMetricsMeterResponseSchema.parse(await response.json());
     expect(meters.data.meters).toHaveLength(12);
-    expect(meters.data.meters.find(meter => meter.name === 'total_sessions')?.aggregate_value).toBe(1);
+    // An `all` scope does not partition agents per user, so totals cover both sessions.
+    expect(meters.data.meters.find(meter => meter.name === 'total_sessions')?.aggregate_value).toBe(2);
+    expect(meters.data.meters.find(meter => meter.name === 'total_sessions')?.your_aggregate_value).toBe(1);
     expect(meters.data.meters.find(meter => meter.name === 'total_turns')?.aggregate_value).toBe(0);
     expect(meters.data.meters.find(meter => meter.name === 'total_cost_in_usd')?.aggregate_value).toBe(0);
     expect(meters.data.meters.find(meter => meter.name === 'avg_turns_per_session')?.aggregate_value).toBe(0);
@@ -366,7 +368,7 @@ describe('sessions HTTP agent binding', () => {
     );
     expect(sessionsChartResponse.status).toBe(200);
     const sessionsChart = GetSessionMetricsChartDataResponseSchema.parse(await sessionsChartResponse.json());
-    expect(sessionsChart.data.graphs[0]?.graph_lines[0]?.values.reduce((sum, point) => sum + point.value, 0)).toBe(1);
+    expect(sessionsChart.data.graphs[0]?.graph_lines[0]?.values.reduce((sum, point) => sum + point.value, 0)).toBe(2);
   });
 
   it('lets an agent manager read named sessions, events, and metrics but not mutate them', async () => {
@@ -448,11 +450,77 @@ describe('sessions HTTP agent binding', () => {
     const metrics = GetSessionMetricsMeterResponseSchema.parse(
       await (await managerApp.request(`/api/internal/metrics/meters?${query.toString()}`)).json(),
     );
+    // The manager sees the agent's whole total while their own half stays empty.
     expect(metrics.data.meters.find(meter => meter.name === 'total_sessions')?.aggregate_value).toBe(1);
+    expect(metrics.data.meters.find(meter => meter.name === 'total_sessions')?.your_aggregate_value).toBe(0);
 
     expect((await managerApp.request('/managed-session', jsonInit('PATCH', {}))).status).toBe(403);
     expect((await managerApp.request('/managed-session', { method: 'DELETE' })).status).toBe(403);
     expect((await managerApp.request('/managed-session/cancel', { method: 'POST' })).status).toBe(403);
+  });
+
+  it('hides tenant-wide metrics from a caller with no manage grant', async () => {
+    const agent = await agentStore.createAgent({
+      tenant_id: 'default',
+      created_by_subject: { subject_id: 'owner', subject_type: 'user', subject_display_name: 'Owner' },
+      name: 'unmanaged-agent',
+      description: 'Test agent.',
+      manifest: inlineSpec,
+      external_id: 'unmanaged-agent-external',
+    });
+    for (const { session_id, subject_id } of [
+      { session_id: 'unmanaged-own-session', subject_id: STANDALONE_REQUEST_CONTEXT.subject.id },
+      { session_id: 'unmanaged-other-session', subject_id: 'someone-else' },
+    ]) {
+      await sessionStore.createSession({
+        tenant_id: 'default',
+        session_id,
+        created_by_subject: { subject_id, subject_type: 'user', subject_display_name: subject_id },
+        agent: { type: 'reference', id: agent.id, name: agent.name },
+        custom: null,
+        metadata: {},
+        external_id: null,
+        source: null,
+      });
+    }
+    const viewerAuthorizer: Authorizer = {
+      listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
+      canAccessAgent: () => Promise.resolve(true),
+      getPermissions: ({ resourceType, resourceIds }) =>
+        Promise.resolve({
+          type: resourceType,
+          permissions: Object.fromEntries(resourceIds.map(id => [id, []])),
+        }),
+    };
+    const viewerApp = new OpenAPIHono();
+    viewerApp.route(
+      '/api/internal/metrics',
+      createInternalMetricsRouter({
+        sessionMetricsStore,
+        resolveRequestContext: sessionDeps.resolveRequestContext,
+        resolveAgentStore: sessionDeps.resolveAgentStore,
+        authorizer: viewerAuthorizer,
+      }),
+    );
+    const query = new URLSearchParams({
+      agent_id: agent.id,
+      start_timestamp: new Date(Date.now() - 60_000).toISOString(),
+      end_timestamp: new Date(Date.now() + 60_000).toISOString(),
+    });
+
+    const meters = GetSessionMetricsMeterResponseSchema.parse(
+      await (await viewerApp.request(`/api/internal/metrics/meters?${query.toString()}`)).json(),
+    );
+
+    expect(meters.data.meters.every(meter => meter.aggregate_value === null)).toBe(true);
+    expect(meters.data.meters.find(meter => meter.name === 'total_sessions')?.your_aggregate_value).toBe(1);
+
+    const chart = GetSessionMetricsChartDataResponseSchema.parse(
+      await (
+        await viewerApp.request(`/api/internal/metrics/charts-data?${query.toString()}&chart_name=sessions_over_time`)
+      ).json(),
+    );
+    expect(chart.data.graphs[0]?.graph_lines[0]?.values.reduce((sum, point) => sum + point.value, 0)).toBe(1);
   });
 
   it('returns the static session metrics charts', async () => {

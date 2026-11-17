@@ -136,7 +136,15 @@ describe("MetricsClient", () => {
 
         const rawResponseBody = {
             data: {
-                meters: [{ aggregate_value: 1.1, description: "description", name: "total_sessions", unit: "count" }],
+                meters: [
+                    {
+                        aggregate_value: null,
+                        description: "description",
+                        name: "total_sessions",
+                        unit: "count",
+                        your_aggregate_value: 1.1,
+                    },
+                ],
             },
         };
 
@@ -157,10 +165,11 @@ describe("MetricsClient", () => {
             data: {
                 meters: [
                     {
-                        aggregateValue: 1.1,
+                        aggregateValue: null,
                         description: "description",
                         name: "total_sessions",
                         unit: "count",
+                        yourAggregateValue: 1.1,
                     },
                 ],
             },

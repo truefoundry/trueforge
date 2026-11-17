@@ -6,6 +6,7 @@ import {
   sessionMetricsStepSeconds,
   type GetSessionMetricsChartDataInput,
   type GetSessionMetricsInput,
+  type GetSessionMetricsMetersInput,
   type SessionMetricsAggregate,
   type SessionMetricsBucket,
 } from '../../sessionMetricsStore';
@@ -106,10 +107,13 @@ async function fetchSessionMetricsBuckets(
 
 export async function getSessionMetricsMeters(
   db: Kysely<Database>,
-  input: GetSessionMetricsInput,
+  input: GetSessionMetricsMetersInput,
 ): Promise<SessionMetricsMeterResponse> {
-  const aggregate = await fetchSessionMetricsAggregate(db, input);
-  return buildSessionMetricsMeters(aggregate);
+  const yours = await fetchSessionMetricsAggregate(db, { ...input, created_by_subject_id: input.subject_id });
+  const total = input.include_total
+    ? await fetchSessionMetricsAggregate(db, { ...input, created_by_subject_id: undefined })
+    : null;
+  return buildSessionMetricsMeters({ total, yours });
 }
 
 export async function getSessionMetricsChartData(

@@ -35,6 +35,7 @@ describe('createHarnessAgentMetricsServer', () => {
               {
                 name: 'total_cost_in_usd',
                 aggregate_value: 1.248,
+                your_aggregate_value: 0.5,
                 description: 'Total cost',
                 unit: '$',
               },
@@ -77,6 +78,7 @@ describe('createHarnessAgentMetricsServer', () => {
       {
         name: 'total_cost_in_usd',
         aggregateValue: 1.248,
+        yourAggregateValue: 0.5,
         description: 'Total cost',
         unit: '$',
       },

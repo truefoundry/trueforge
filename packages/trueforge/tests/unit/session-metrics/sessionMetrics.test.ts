@@ -55,27 +55,42 @@ describe('session metrics builders', () => {
 
   it('builds the complete meter list with derived averages', () => {
     const metrics = buildSessionMetricsMeters({
-      total_sessions: 4,
-      total_turns: 7,
-      total_cost_in_usd: 1,
-      min_turns_per_session: 0,
-      max_turns_per_session: 4,
-      median_turns_per_session: 1.5,
-      min_session_duration_ms: 0,
-      max_session_duration_ms: 1000,
-      median_session_duration_ms: 250,
-      p95_session_duration_ms: 910,
+      total: {
+        total_sessions: 4,
+        total_turns: 7,
+        total_cost_in_usd: 1,
+        min_turns_per_session: 0,
+        max_turns_per_session: 4,
+        median_turns_per_session: 1.5,
+        min_session_duration_ms: 0,
+        max_session_duration_ms: 1000,
+        median_session_duration_ms: 250,
+        p95_session_duration_ms: 910,
+      },
+      yours: { ...emptyAggregate, total_sessions: 2, total_turns: 3, total_cost_in_usd: 0.5 },
     });
 
     expect(metrics.meters).toHaveLength(12);
     expect(metrics.meters.find(meter => meter.name === 'cost_per_session_in_usd')).toEqual({
       name: 'cost_per_session_in_usd',
       aggregate_value: 0.25,
+      your_aggregate_value: 0.25,
       description: 'Total cost / total sessions',
       unit: '$',
     });
     expect(metrics.meters.find(meter => meter.name === 'avg_turns_per_session')?.aggregate_value).toBe(1.75);
+    expect(metrics.meters.find(meter => meter.name === 'avg_turns_per_session')?.your_aggregate_value).toBe(1.5);
     expect(metrics.meters.find(meter => meter.name === 'p95_session_duration_ms')?.aggregate_value).toBe(910);
+  });
+
+  it('nulls every tenant-wide value when the caller may not see other users sessions', () => {
+    const metrics = buildSessionMetricsMeters({
+      total: null,
+      yours: { ...emptyAggregate, total_sessions: 1, total_cost_in_usd: 2.5 },
+    });
+
+    expect(metrics.meters.every(meter => meter.aggregate_value === null)).toBe(true);
+    expect(metrics.meters.find(meter => meter.name === 'total_cost_in_usd')?.your_aggregate_value).toBe(2.5);
   });
 
   it('maps bucket fields by chart name', () => {
@@ -113,7 +128,7 @@ describe('session metrics builders', () => {
   });
 
   it('returns empty meters for an empty aggregate', () => {
-    expect(buildSessionMetricsMeters(emptyAggregate).meters).toHaveLength(12);
+    expect(buildSessionMetricsMeters({ total: emptyAggregate, yours: emptyAggregate }).meters).toHaveLength(12);
   });
 
   it('includes zero-turn and zero-duration sessions in distributions', () => {

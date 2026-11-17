@@ -71,7 +71,15 @@ export function runSessionMetricsStoreContractSuite(
         start_timestamp: start,
         end_timestamp: new Date(start.getTime() + 2 * 60 * 60 * 1000),
       };
-      const meters = await metricsStore.getSessionMetricsMeters(metricsQuery);
+      const metersQuery = {
+        tenant_id: tenant,
+        agent_id: 'agent-abc',
+        subject_id: 'user-1',
+        include_total: false,
+        start_timestamp: metricsQuery.start_timestamp,
+        end_timestamp: metricsQuery.end_timestamp,
+      };
+      const meters = await metricsStore.getSessionMetricsMeters(metersQuery);
       const sessionsChart = await metricsStore.getSessionMetricsChartData({
         ...metricsQuery,
         chart_name: 'sessions_over_time',
@@ -87,29 +95,34 @@ export function runSessionMetricsStoreContractSuite(
 
       expect(sessionsChart.step).toBe('3600');
       expect(meters.meters).toHaveLength(12);
-      expect(meters.meters.find(meter => meter.name === 'total_sessions')?.aggregate_value).toBe(1);
-      expect(meters.meters.find(meter => meter.name === 'total_turns')?.aggregate_value).toBe(1);
-      expect(meters.meters.find(meter => meter.name === 'total_cost_in_usd')?.aggregate_value).toBe(1.25);
-      expect(meters.meters.find(meter => meter.name === 'avg_turns_per_session')?.aggregate_value).toBe(1);
-      expect(meters.meters.find(meter => meter.name === 'min_turns_per_session')?.aggregate_value).toBe(1);
-      expect(meters.meters.find(meter => meter.name === 'max_turns_per_session')?.aggregate_value).toBe(1);
-      expect(meters.meters.find(meter => meter.name === 'median_turns_per_session')?.aggregate_value).toBe(1);
-      expect(meters.meters.find(meter => meter.name === 'min_session_duration_ms')?.aggregate_value).toBe(1500);
-      expect(meters.meters.find(meter => meter.name === 'max_session_duration_ms')?.aggregate_value).toBe(1500);
-      expect(meters.meters.find(meter => meter.name === 'median_session_duration_ms')?.aggregate_value).toBe(1500);
-      expect(meters.meters.find(meter => meter.name === 'p95_session_duration_ms')?.aggregate_value).toBe(1500);
+      // Without total access every meter reports the caller's sessions only.
+      expect(meters.meters.every(meter => meter.aggregate_value === null)).toBe(true);
+      expect(meters.meters.find(meter => meter.name === 'total_sessions')?.your_aggregate_value).toBe(1);
+      expect(meters.meters.find(meter => meter.name === 'total_turns')?.your_aggregate_value).toBe(1);
+      expect(meters.meters.find(meter => meter.name === 'total_cost_in_usd')?.your_aggregate_value).toBe(1.25);
+      expect(meters.meters.find(meter => meter.name === 'avg_turns_per_session')?.your_aggregate_value).toBe(1);
+      expect(meters.meters.find(meter => meter.name === 'min_turns_per_session')?.your_aggregate_value).toBe(1);
+      expect(meters.meters.find(meter => meter.name === 'max_turns_per_session')?.your_aggregate_value).toBe(1);
+      expect(meters.meters.find(meter => meter.name === 'median_turns_per_session')?.your_aggregate_value).toBe(1);
+      expect(meters.meters.find(meter => meter.name === 'min_session_duration_ms')?.your_aggregate_value).toBe(1500);
+      expect(meters.meters.find(meter => meter.name === 'max_session_duration_ms')?.your_aggregate_value).toBe(1500);
+      expect(meters.meters.find(meter => meter.name === 'median_session_duration_ms')?.your_aggregate_value).toBe(1500);
+      expect(meters.meters.find(meter => meter.name === 'p95_session_duration_ms')?.your_aggregate_value).toBe(1500);
       expect(sessionsChart.graphs[0]?.graph_lines[0]?.values.reduce((sum, point) => sum + point.value, 0)).toBe(1);
       expect(turnsChart.graphs[0]?.graph_lines[0]?.values.reduce((sum, point) => sum + point.value, 0)).toBe(1);
       expect(costChart.graphs[0]?.graph_lines[0]?.values.reduce((sum, point) => sum + point.value, 0)).toBe(1.25);
       expect(sessionsChart.graphs[0]?.graph_lines[0]?.values.some(point => point.value === 0)).toBe(true);
 
-      const allCreatorsQuery = { ...metricsQuery, created_by_subject_id: undefined };
-      const allCreatorsMeters = await metricsStore.getSessionMetricsMeters(allCreatorsQuery);
+      // With total access both halves come back: everyone's sessions and the caller's own.
+      const allCreatorsMeters = await metricsStore.getSessionMetricsMeters({ ...metersQuery, include_total: true });
       const allCreatorsChart = await metricsStore.getSessionMetricsChartData({
-        ...allCreatorsQuery,
+        ...metricsQuery,
+        created_by_subject_id: undefined,
         chart_name: 'sessions_over_time',
       });
       expect(allCreatorsMeters.meters.find(meter => meter.name === 'total_sessions')?.aggregate_value).toBe(2);
+      expect(allCreatorsMeters.meters.find(meter => meter.name === 'total_sessions')?.your_aggregate_value).toBe(1);
+      expect(allCreatorsMeters.meters.find(meter => meter.name === 'total_cost_in_usd')?.aggregate_value).toBe(1.25);
       expect(allCreatorsChart.graphs[0]?.graph_lines[0]?.values.reduce((sum, point) => sum + point.value, 0)).toBe(2);
 
       const dailyChart = await metricsStore.getSessionMetricsChartData({
@@ -162,7 +175,8 @@ export function runSessionMetricsStoreContractSuite(
       const meters = await metricsStore.getSessionMetricsMeters({
         tenant_id: tenant,
         agent_id: 'agent-distributions',
-        created_by_subject_id: 'user-1',
+        subject_id: 'user-1',
+        include_total: true,
         start_timestamp: new Date(Date.now() - 60 * 60 * 1000),
         end_timestamp: new Date(Date.now() + 60 * 60 * 1000),
       });
@@ -178,6 +192,8 @@ export function runSessionMetricsStoreContractSuite(
       expect(meters.meters.find(meter => meter.name === 'max_session_duration_ms')?.aggregate_value).toBe(1000);
       expect(meters.meters.find(meter => meter.name === 'median_session_duration_ms')?.aggregate_value).toBe(250);
       expect(meters.meters.find(meter => meter.name === 'p95_session_duration_ms')?.aggregate_value).toBe(910);
+      // The caller created every session here, so both halves agree.
+      expect(meters.meters.find(meter => meter.name === 'total_sessions')?.your_aggregate_value).toBe(4);
     });
 
     it('includes zero-duration in-flight sessions in duration meters', async () => {
@@ -222,7 +238,8 @@ export function runSessionMetricsStoreContractSuite(
       const meters = await metricsStore.getSessionMetricsMeters({
         tenant_id: tenant,
         agent_id: 'agent-inflight',
-        created_by_subject_id: 'user-1',
+        subject_id: 'user-1',
+        include_total: true,
         start_timestamp: start,
         end_timestamp: new Date(start.getTime() + 2 * 60 * 60 * 1000),
       });

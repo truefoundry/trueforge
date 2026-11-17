@@ -1,8 +1,10 @@
 import type {
+  MetricsUnit,
   SessionMetricsChartDataResponse,
   SessionMetricsChartName,
   SessionMetricsChartResponse,
   SessionMetricsGraph,
+  SessionMetricsMeterName,
   SessionMetricsMeterResponse,
   SessionMetricsPoint,
 } from '../schemas/sessionMetrics';
@@ -15,12 +17,22 @@ export interface GetSessionMetricsInput {
   end_timestamp: Date;
 }
 
+/** Meters always carry the caller's own numbers; `include_total` adds the all-session ones. */
+export interface GetSessionMetricsMetersInput {
+  tenant_id: string;
+  agent_id: string;
+  subject_id: string;
+  include_total: boolean;
+  start_timestamp: Date;
+  end_timestamp: Date;
+}
+
 export interface GetSessionMetricsChartDataInput extends GetSessionMetricsInput {
   chart_name: SessionMetricsChartName;
 }
 
 export interface ISessionMetricsStore {
-  getSessionMetricsMeters(input: GetSessionMetricsInput): Promise<SessionMetricsMeterResponse>;
+  getSessionMetricsMeters(input: GetSessionMetricsMetersInput): Promise<SessionMetricsMeterResponse>;
   getSessionMetricsChartData(input: GetSessionMetricsChartDataInput): Promise<SessionMetricsChartDataResponse>;
 }
 
@@ -79,6 +91,12 @@ export interface SessionMetricsRow {
   total_turns: number;
   total_duration_ms: number;
   total_cost_in_usd: number;
+}
+
+/** `total` is null when the caller may only see their own sessions. */
+export interface SessionMetricsAggregatePair {
+  total: SessionMetricsAggregate | null;
+  yours: SessionMetricsAggregate;
 }
 
 export interface SessionMetricsBucket {
@@ -144,93 +162,71 @@ export function foldSessionMetricsAggregate(rows: SessionMetricsRow[]): SessionM
   };
 }
 
-function buildMeters(aggregate: SessionMetricsAggregate): SessionMetricsMeterResponse['meters'] {
-  const costPerSession =
-    aggregate.total_sessions === 0
-      ? 0
-      : round({ value: aggregate.total_cost_in_usd / aggregate.total_sessions, digits: 3 });
-  const avgTurnsPerSession =
-    aggregate.total_sessions === 0 ? 0 : round({ value: aggregate.total_turns / aggregate.total_sessions, digits: 2 });
-  const medianTurns = round({ value: aggregate.median_turns_per_session, digits: 2 });
-  const minDuration = Math.round(aggregate.min_session_duration_ms);
-  const maxDuration = Math.round(aggregate.max_session_duration_ms);
-  const medianDuration = Math.round(aggregate.median_session_duration_ms);
-  const p95Duration = Math.round(aggregate.p95_session_duration_ms);
+interface MeterDefinition {
+  name: SessionMetricsMeterName;
+  description: string;
+  unit: MetricsUnit;
+  value: (aggregate: SessionMetricsAggregate) => number;
+}
 
-  return [
-    {
-      name: 'total_sessions',
-      aggregate_value: aggregate.total_sessions,
-      description: 'Total sessions',
-      unit: 'count',
-    },
-    {
-      name: 'total_cost_in_usd',
-      aggregate_value: aggregate.total_cost_in_usd,
-      description: 'Total cost',
-      unit: '$',
-    },
-    {
-      name: 'total_turns',
-      aggregate_value: aggregate.total_turns,
-      description: 'Total turns',
-      unit: 'count',
-    },
-    {
-      name: 'cost_per_session_in_usd',
-      aggregate_value: costPerSession,
-      description: 'Total cost / total sessions',
-      unit: '$',
-    },
-    {
-      name: 'avg_turns_per_session',
-      aggregate_value: avgTurnsPerSession,
-      description: 'Avg turns / session',
-      unit: 'count',
-    },
-    {
-      name: 'min_turns_per_session',
-      aggregate_value: aggregate.min_turns_per_session,
-      description: 'Min turns',
-      unit: 'count',
-    },
-    {
-      name: 'max_turns_per_session',
-      aggregate_value: aggregate.max_turns_per_session,
-      description: 'Max turns',
-      unit: 'count',
-    },
-    {
-      name: 'median_turns_per_session',
-      aggregate_value: medianTurns,
-      description: 'Median turns',
-      unit: 'count',
-    },
-    {
-      name: 'min_session_duration_ms',
-      aggregate_value: minDuration,
-      description: 'Min duration',
-      unit: 'ms',
-    },
-    {
-      name: 'max_session_duration_ms',
-      aggregate_value: maxDuration,
-      description: 'Max duration',
-      unit: 'ms',
-    },
-    {
-      name: 'median_session_duration_ms',
-      aggregate_value: medianDuration,
-      description: 'Median duration',
-      unit: 'ms',
-    },
-    {
-      name: 'p95_session_duration_ms',
-      aggregate_value: p95Duration,
-      description: 'P95 duration',
-      unit: 'ms',
-    },
-  ];
+const METER_DEFINITIONS: readonly MeterDefinition[] = [
+  { name: 'total_sessions', description: 'Total sessions', unit: 'count', value: a => a.total_sessions },
+  { name: 'total_cost_in_usd', description: 'Total cost', unit: '$', value: a => a.total_cost_in_usd },
+  { name: 'total_turns', description: 'Total turns', unit: 'count', value: a => a.total_turns },
+  {
+    name: 'cost_per_session_in_usd',
+    description: 'Total cost / total sessions',
+    unit: '$',
+    value: a => (a.total_sessions === 0 ? 0 : round({ value: a.total_cost_in_usd / a.total_sessions, digits: 3 })),
+  },
+  {
+    name: 'avg_turns_per_session',
+    description: 'Avg turns / session',
+    unit: 'count',
+    value: a => (a.total_sessions === 0 ? 0 : round({ value: a.total_turns / a.total_sessions, digits: 2 })),
+  },
+  { name: 'min_turns_per_session', description: 'Min turns', unit: 'count', value: a => a.min_turns_per_session },
+  { name: 'max_turns_per_session', description: 'Max turns', unit: 'count', value: a => a.max_turns_per_session },
+  {
+    name: 'median_turns_per_session',
+    description: 'Median turns',
+    unit: 'count',
+    value: a => round({ value: a.median_turns_per_session, digits: 2 }),
+  },
+  {
+    name: 'min_session_duration_ms',
+    description: 'Min duration',
+    unit: 'ms',
+    value: a => Math.round(a.min_session_duration_ms),
+  },
+  {
+    name: 'max_session_duration_ms',
+    description: 'Max duration',
+    unit: 'ms',
+    value: a => Math.round(a.max_session_duration_ms),
+  },
+  {
+    name: 'median_session_duration_ms',
+    description: 'Median duration',
+    unit: 'ms',
+    value: a => Math.round(a.median_session_duration_ms),
+  },
+  {
+    name: 'p95_session_duration_ms',
+    description: 'P95 duration',
+    unit: 'ms',
+    value: a => Math.round(a.p95_session_duration_ms),
+  },
+];
+
+function buildMeters(input: SessionMetricsAggregatePair): SessionMetricsMeterResponse['meters'] {
+  return METER_DEFINITIONS.map(definition => ({
+    name: definition.name,
+    aggregate_value: input.total == null ? null : definition.value(input.total),
+    your_aggregate_value: definition.value(input.yours),
+    description: definition.description,
+    unit: definition.unit,
+  }));
 }
 
 function bucketValue(bucket: SessionMetricsBucket | undefined, chart_name: SessionMetricsChartName): number {
@@ -311,8 +307,8 @@ function buildChartValues(input: {
   return values;
 }
 
-export function buildSessionMetricsMeters(aggregate: SessionMetricsAggregate): SessionMetricsMeterResponse {
-  return { meters: buildMeters(aggregate) };
+export function buildSessionMetricsMeters(input: SessionMetricsAggregatePair): SessionMetricsMeterResponse {
+  return { meters: buildMeters(input) };
 }
 
 export function buildSessionMetricsCharts(): SessionMetricsChartResponse {

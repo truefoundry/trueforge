@@ -952,9 +952,21 @@ describe('AgentsLibraryButton', () => {
 
   it('shows sessions, spend, sparkline, and last run when metrics and sessions are available', async () => {
     const getMeters = vi.fn(async () => [
-      { name: 'total_sessions', aggregateValue: 12, description: 'Total sessions', unit: 'count' },
-      { name: 'total_cost_in_usd', aggregateValue: 4.5, description: 'Total cost', unit: '$' },
-      { name: 'cost_per_session_in_usd', aggregateValue: 0.375, description: 'Cost per session', unit: '$' },
+      {
+        name: 'total_sessions',
+        aggregateValue: 12,
+        yourAggregateValue: 3,
+        description: 'Total sessions',
+        unit: 'count',
+      },
+      { name: 'total_cost_in_usd', aggregateValue: 4.5, yourAggregateValue: 1.2, description: 'Total cost', unit: '$' },
+      {
+        name: 'cost_per_session_in_usd',
+        aggregateValue: 0.375,
+        yourAggregateValue: 0.4,
+        description: 'Cost per session',
+        unit: '$',
+      },
     ]);
     const getChartData = vi.fn(async () => ({
       step: '86400',
@@ -1001,7 +1013,7 @@ describe('AgentsLibraryButton', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
 
     expect(await screen.findByRole('columnheader', { name: 'Sessions, 30d' })).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: 'Spend, 30d' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Your / Total Spend, 30d' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Daily, 14d' })).toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: 'Last run' })).not.toBeInTheDocument();
 
@@ -1011,8 +1023,9 @@ describe('AgentsLibraryButton', () => {
     });
 
     expect(await screen.findByLabelText('12 sessions')).toBeInTheDocument();
-    expect(screen.getByText('$4.50')).toBeInTheDocument();
-    expect(screen.getByText('$0.38 / session')).toBeInTheDocument();
+    expect(screen.getByLabelText('Your spend $1.20')).toBeInTheDocument();
+    expect(screen.getByLabelText('Total spend $4.50')).toBeInTheDocument();
+    expect(screen.getByText('$0.38 per session')).toBeInTheDocument();
     const sparkline = screen.getByRole('img', { name: 'Daily spend over 14 days for metrics-agent' });
     expect(sparkline).toHaveClass('text-success-bg');
     fireEvent.mouseMove(sparkline, { clientX: 0, clientY: 8 });
@@ -1024,5 +1037,45 @@ describe('AgentsLibraryButton', () => {
     expect(await screen.findByRole('tooltip')).toHaveTextContent(utcDay);
     expect(screen.getByRole('tooltip')).toHaveTextContent('$0.10');
     expect(listSessions).not.toHaveBeenCalledWith(expect.objectContaining({ agentId: 'metrics-agent', limit: 1 }));
+  });
+
+  it('dashes the total spend when the viewer may not see other users sessions', async () => {
+    const getMeters = vi.fn(async () => [
+      {
+        name: 'total_sessions',
+        aggregateValue: null,
+        yourAggregateValue: 3,
+        description: 'Total sessions',
+        unit: 'count',
+      },
+      {
+        name: 'total_cost_in_usd',
+        aggregateValue: null,
+        yourAggregateValue: 1.2,
+        description: 'Total cost',
+        unit: '$',
+      },
+      {
+        name: 'cost_per_session_in_usd',
+        aggregateValue: null,
+        yourAggregateValue: 0.4,
+        description: 'Cost per session',
+        unit: '$',
+      },
+    ]);
+    const server = createMockAgentUIServer({
+      searchAgents: vi.fn(async () => ({
+        data: [{ name: 'metrics-agent', agentId: 'metrics-agent', agentSpec: { model: { name: 'openai/gpt-4.1' } } }],
+      })),
+      metrics: createMockAgentMetricsServer({ getMeters }),
+    });
+
+    renderLibrary(<LibraryHarness />, { server });
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
+
+    expect(await screen.findByLabelText('Your spend $1.20')).toBeInTheDocument();
+    expect(screen.getByLabelText('Total spend unavailable for metrics-agent')).toHaveTextContent('—');
+    expect(screen.getByLabelText('3 sessions')).toBeInTheDocument();
+    expect(screen.getByText('$0.40 per session')).toBeInTheDocument();
   });
 });

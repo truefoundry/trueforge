@@ -10,10 +10,18 @@ from .session_metrics_meter_name import SessionMetricsMeterName
 
 
 class SessionMetricsMeter(UncheckedBaseModel):
-    aggregate_value: float
+    aggregate_value: typing.Optional[float] = pydantic.Field(default=None)
+    """
+    Value across every session on the agent, or null when the caller may not see other users sessions.
+    """
+
     description: str
     name: SessionMetricsMeterName
     unit: MetricsUnit
+    your_aggregate_value: float = pydantic.Field()
+    """
+    Value across the sessions the caller created.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2

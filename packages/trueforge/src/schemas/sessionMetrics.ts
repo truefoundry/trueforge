@@ -42,7 +42,12 @@ export const MetricsUnitSchema = z.enum(['count', '$', 'ms']).openapi('MetricsUn
 export const SessionMetricsMeterSchema = z
   .object({
     name: SessionMetricsMeterNameSchema,
-    aggregate_value: z.number().nonnegative(),
+    aggregate_value: z
+      .number()
+      .nonnegative()
+      .nullable()
+      .describe('Value across every session on the agent, or null when the caller may not see other users sessions.'),
+    your_aggregate_value: z.number().nonnegative().describe('Value across the sessions the caller created.'),
     description: z.string(),
     unit: MetricsUnitSchema,
   })

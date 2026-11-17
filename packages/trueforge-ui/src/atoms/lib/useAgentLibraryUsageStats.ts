@@ -21,14 +21,28 @@ export type AgentLibraryDailyPoint = {
 
 export type AgentLibraryUsageStats = {
   totalSessions: number | null;
+  /** Spend on the sessions the viewer created. */
+  yourCostUsd: number | null;
+  /** Spend across every user's sessions; null when the viewer may not see it. */
   totalCostUsd: number | null;
   costPerSessionUsd: number | null;
   dailyPoints: AgentLibraryDailyPoint[] | null;
 };
 
-function meterValue(meters: readonly AgentMetricMeter[], name: string): number | null {
+function finite(value: number | null | undefined): number | null {
+  return value == null || !Number.isFinite(value) ? null : value;
+}
+
+function meterPair(meters: readonly AgentMetricMeter[], name: string): { yours: number | null; total: number | null } {
   const match = meters.find(meter => meter.name === name);
-  return match == null || !Number.isFinite(match.aggregateValue) ? null : match.aggregateValue;
+  if (match == null) return { yours: null, total: null };
+  return { yours: finite(match.yourAggregateValue), total: finite(match.aggregateValue) };
+}
+
+/** Columns that show one number per agent prefer the agent-wide figure. */
+function meterValue(meters: readonly AgentMetricMeter[], name: string): number | null {
+  const { yours, total } = meterPair(meters, name);
+  return total ?? yours;
 }
 
 function chartPoints(points: readonly AgentMetricPoint[] | undefined): AgentLibraryDailyPoint[] | null {
@@ -42,6 +56,7 @@ function chartPoints(points: readonly AgentMetricPoint[] | undefined): AgentLibr
 function unavailableUsage(): AgentLibraryUsageStats {
   return {
     totalSessions: null,
+    yourCostUsd: null,
     totalCostUsd: null,
     costPerSessionUsd: null,
     dailyPoints: null,
@@ -91,9 +106,12 @@ async function loadUsageForAgent({
   const meters = metersResult.ok ? metersResult.meters : [];
   const dailyPoints = chartResult.ok ? chartPoints(chartResult.data.graphs[0]?.graphLines[0]?.values) : null;
 
+  const cost = metersResult.ok ? meterPair(meters, 'total_cost_in_usd') : { yours: null, total: null };
+
   return {
     totalSessions: metersResult.ok ? meterValue(meters, 'total_sessions') : null,
-    totalCostUsd: metersResult.ok ? meterValue(meters, 'total_cost_in_usd') : null,
+    yourCostUsd: cost.yours,
+    totalCostUsd: cost.total,
     costPerSessionUsd: metersResult.ok ? meterValue(meters, 'cost_per_session_in_usd') : null,
     dailyPoints,
   };
