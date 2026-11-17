@@ -4,11 +4,7 @@ import { type VercelAIProviderConfig, withGatewayMetadata } from '../llm/VercelA
 import { modelSsrfFetch } from '../util/outboundFetch';
 import type { DecisionModelCreateParams, DecisionRequestOptions, IDecisionModel } from './IDecisionModel';
 
-/**
- * IDecisionModel over the OpenAI Decisions API (`POST {baseUrl}/decisions`), bound to one provider config.
- * Works against OpenAI directly and against the TrueFoundry gateway, which translates the request for decision
- * models with their own format (such as TypeSafe Jev).
- */
+/** IDecisionModel over the OpenAI Decisions API, for OpenAI or the TrueFoundry gateway. */
 export class OpenAIDecisionModel implements IDecisionModel {
   readonly #config: VercelAIProviderConfig;
   readonly #client: OpenAI;
