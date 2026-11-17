@@ -1,9 +1,10 @@
 import type { RouteModelInput, RouteModelResult } from '@truefoundry/trueforge-core/agent-session';
-import { type Decision, describeUnknownError, type IDecisionModel } from '@truefoundry/trueforge-core/core';
+import { describeUnknownError, type IDecisionModel } from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
 import type { RoutingCategory, RoutingQuestion } from './question';
 import type { RoutingCandidate } from './types';
 
+/** Keeps the decision request under the gateway's body limit. */
 const TASK_CHARS = 8_000;
 
 /** One canonical model per category for now; clusters of models replace this. */
@@ -12,48 +13,6 @@ const CATEGORY_MODEL: Record<RoutingCategory, string> = {
   fixed_steps: 'anthropic/claude-sonnet-5-5',
   adaptive: 'openai/gpt-6-1-sol',
 };
-
-type ChoiceAnswer = Extract<Decision['answers'][number], { type: 'choice' }>;
-
-type FallbackReason = 'decision_error' | 'decision_timeout' | 'model_unavailable';
-
-function isCategory(value: unknown): value is RoutingCategory {
-  return typeof value === 'string' && Object.hasOwn(CATEGORY_MODEL, value);
-}
-
-function clip(text: string): string {
-  if (text.length <= TASK_CHARS) {
-    return text;
-  }
-  const half = TASK_CHARS / 2;
-  return `${text.slice(0, half)}\n…\n${text.slice(-half)}`;
-}
-
-function accountOf(model: string): string {
-  return model.split('/', 1)[0] ?? model;
-}
-
-/** The caller's model for `canonicalModel`, preferring the fallback model's account. */
-function modelFor(input: {
-  canonicalModel: string;
-  models: readonly RoutingCandidate[];
-  fallbackModel: string;
-}): RoutingCandidate | undefined {
-  const fallbackAccount = accountOf(input.fallbackModel);
-  return input.models
-    .filter(model => model.canonicalModel === input.canonicalModel)
-    .sort((a, b) => {
-      const preferred = Number(accountOf(b.model) === fallbackAccount) - Number(accountOf(a.model) === fallbackAccount);
-      return preferred !== 0 ? preferred : a.model.localeCompare(b.model);
-    })[0];
-}
-
-function priceDirection(input: { picked?: number | undefined; fallback?: number | undefined }) {
-  if (input.picked === undefined || input.fallback === undefined) {
-    return undefined;
-  }
-  return input.picked > input.fallback ? 'up' : input.picked < input.fallback ? 'down' : 'same';
-}
 
 /**
  * `routeModel` for one turn: the decision model classifies the subagent's task, and the category picks the model.
@@ -79,7 +38,7 @@ export function createModelRouter(input: {
         ...fields,
       });
     };
-    const fallback = (reason: FallbackReason, extra: Record<string, unknown> = {}): RouteModelResult => {
+    const fallback = (reason: string, extra: Record<string, unknown> = {}): RouteModelResult => {
       log({ reason, chosen_model: route.fallbackModel, ...extra });
       return {};
     };
@@ -89,7 +48,7 @@ export function createModelRouter(input: {
         models = undefined;
         throw error;
       });
-      const task = clip(route.task.instructions);
+      const task = route.task.instructions.slice(0, TASK_CHARS);
       const [all, decision] = await Promise.all([
         models,
         input.decision.create(
@@ -111,35 +70,35 @@ export function createModelRouter(input: {
         ),
       ]);
       timeout.throwIfAborted();
-      const answer = decision.answers.find(
-        (candidate): candidate is ChoiceAnswer => candidate.type === 'choice' && candidate.name === 'category',
-      );
-      if (answer === undefined || !isCategory(answer.choice)) {
+      const answer = decision.answers.find(candidate => candidate.name === 'category');
+      if (
+        answer?.type !== 'choice' ||
+        typeof answer.choice !== 'string' ||
+        !Object.hasOwn(CATEGORY_MODEL, answer.choice)
+      ) {
         return fallback('decision_error', { answer });
       }
+      const canonicalModel = CATEGORY_MODEL[answer.choice as RoutingCategory];
       const classified = {
         category: answer.choice,
         confidence: answer.confidence,
         // A list, not an object: the JSON log format sorts object keys, which would lose the ranking.
         probabilities: [...answer.probabilities].sort((a, b) => b.probability - a.probability),
-        canonical_model: CATEGORY_MODEL[answer.choice],
+        canonical_model: canonicalModel,
       };
-      const picked = modelFor({
-        canonicalModel: CATEGORY_MODEL[answer.choice],
-        models: all,
-        fallbackModel: route.fallbackModel,
-      });
+      // Prefer the parent model's account, so the subagent stays on the same provider when it can.
+      const matches = all.filter(model => model.canonicalModel === canonicalModel);
+      const parentAccount = `${route.fallbackModel.split('/', 1)[0] ?? ''}/`;
+      const picked = matches.find(model => model.model.startsWith(parentAccount)) ?? matches[0];
       if (picked === undefined) {
         return fallback('model_unavailable', classified);
       }
-      const fallbackPrice = all.find(model => model.model === route.fallbackModel)?.price;
       log({
         reason: 'picked',
         ...classified,
         chosen_model: picked.model,
         picked_price: picked.price,
-        fallback_price: fallbackPrice,
-        price_direction: priceDirection({ picked: picked.price, fallback: fallbackPrice }),
+        fallback_price: all.find(model => model.model === route.fallbackModel)?.price,
         picked_image_input: picked.imageInput,
       });
       return { model: picked.model };
