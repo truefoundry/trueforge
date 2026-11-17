@@ -20,7 +20,7 @@ import {
 } from '../db/mcpServerStore';
 import type { TurnMetadata } from '../db/turnMetadata';
 import type { OAuthClientRecord } from '../mcp/auth/types';
-import { hasAuthorizationHeader, resolveMcpConsent } from '../runtime/perServerMcpHeaders';
+import { hasAuthorizationHeader } from '../runtime/perServerMcpHeaders';
 import { resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
 import {
   accessTokenForRequest,
@@ -116,7 +116,7 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
   /**
    * Gateway Bearer (+ optional per-server overrides); SFY authorize first, else authRequired.
    * A caller entry with Authorization, or a virtual MCP's nested entry, goes in `x-tfy-mcp-headers`
-   * and authorize runs only after a 401.
+   * and skips authorize.
    */
   resolveInvokeHeaders(input: {
     record: McpServerRecord;
@@ -133,11 +133,6 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
           ...gatewayMetadataHeadersForTurn(turnMetadata),
           [X_TFY_MCP_HEADERS]: JSON.stringify(callerHeaders),
         },
-        authRequiredOnUnauthorized: () =>
-          resolveMcpConsent({
-            name: record.name,
-            authorize: () => this.authorize({ tenant_id: record.tenant_id, name: record.name, userRef }),
-          }),
       });
     }
     return async () => {

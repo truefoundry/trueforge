@@ -560,22 +560,13 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
     expect(getMcpAuthorize).toHaveBeenCalledTimes(1);
 
     getMcpAuthorize.mockClear();
-    const resolved = await resolveFor('tfy-platform-mcp');
-    expect(getMcpAuthorize).not.toHaveBeenCalled();
-    if (!('headers' in resolved) || resolved.authRequiredOnUnauthorized === undefined) {
-      throw new Error('expected a 401 consent hook');
-    }
-
-    getMcpAuthorize.mockResolvedValueOnce({ status: 'auth_required', authorization_url: 'https://consent.example/a' });
-    await expect(resolved.authRequiredOnUnauthorized()).resolves.toEqual({
-      servers: [{ id: 'tfy-platform-mcp', name: 'tfy-platform-mcp', auth_url: 'https://consent.example/a' }],
+    await expect(resolveFor('tfy-platform-mcp')).resolves.toEqual({
+      headers: {
+        Authorization: 'Bearer caller-token',
+        'x-tfy-mcp-headers': JSON.stringify({ Authorization: 'Bearer user' }),
+      },
     });
-    getMcpAuthorize.mockResolvedValueOnce({ status: 'authenticated' });
-    await expect(resolved.authRequiredOnUnauthorized()).resolves.toBeUndefined();
-    getMcpAuthorize.mockResolvedValueOnce({ status: 'not_required' });
-    await expect(resolved.authRequiredOnUnauthorized()).resolves.toBeUndefined();
-    getMcpAuthorize.mockResolvedValueOnce({ status: 'auth_required' });
-    await expect(resolved.authRequiredOnUnauthorized()).resolves.toBeUndefined();
+    expect(getMcpAuthorize).not.toHaveBeenCalled();
   });
 
   it('never calls authorize for a caller Authorization', async () => {
@@ -602,7 +593,6 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
         Authorization: 'Bearer caller-token',
         'x-tfy-mcp-headers': JSON.stringify({ Authorization: 'Bearer user', 'X-End-User': 'alice' }),
       },
-      authRequiredOnUnauthorized: expect.any(Function),
     });
     expect(getMcpAuthorize).not.toHaveBeenCalled();
   });

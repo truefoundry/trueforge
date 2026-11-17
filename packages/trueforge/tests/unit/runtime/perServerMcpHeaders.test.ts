@@ -1,11 +1,10 @@
 import { HTTPException } from 'hono/http-exception';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import type { McpServerRecord } from '../../../src/db/mcpServerStore';
-import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
-import { parsePerServerMcpHeaders, resolveMcpConsent } from '../../../src/runtime/perServerMcpHeaders';
+import { parsePerServerMcpHeaders } from '../../../src/runtime/perServerMcpHeaders';
 
 describe('parsePerServerMcpHeaders', () => {
   it('parses a header map per server name', () => {
@@ -61,44 +60,32 @@ describe('McpServerWithAuthStore.resolveInvokeHeaders', () => {
       perServerHeaders: { 'oauth-mcp': { Authorization: 'Bearer user', 'x-extra': '1' } },
     });
 
-    const resolve = store.resolveInvokeHeaders({ record: ossRecord, userRef: 'user-1' });
-    if (typeof resolve !== 'function') {
-      throw new Error('expected a headers resolver');
-    }
-    await expect(resolve()).resolves.toEqual({
-      headers: { Authorization: 'Bearer user', 'x-extra': '1' },
-      authRequiredOnUnauthorized: expect.any(Function),
+    expect(store.resolveInvokeHeaders({ record: ossRecord, userRef: 'user-1' })).toEqual({
+      Authorization: 'Bearer user',
+      'x-extra': '1',
     });
     await db.destroy();
   });
 
-  it('offers no consent on a 401 from a header-auth server', async () => {
+  it("replaces a header-auth server's configured Authorization with the caller's", async () => {
     const db = createSqliteDb(':memory:');
-    await migrateSqliteToLatest(db);
-    const persistence = new SqliteMcpServerStore(db);
-    const manifest = {
-      ...ossRecord.manifest,
-      name: 'header-mcp',
-      auth: { type: 'header' as const, headers: { Authorization: 'Bearer server' } },
-    };
-    const record = await persistence.createServer({ tenant_id: 'default', name: 'header-mcp', manifest });
     const store = new McpServerWithAuthStore({
-      store: persistence,
+      store: new SqliteMcpServerStore(db),
       tokenStore: new SqliteOAuthTokenStore(db),
       clientName: 'test-client',
-      perServerHeaders: { 'header-mcp': { Authorization: 'Bearer user' } },
+      perServerHeaders: { 'header-mcp': { authorization: 'Bearer user' } },
     });
+    const record: McpServerRecord = {
+      ...ossRecord,
+      name: 'header-mcp',
+      manifest: {
+        ...ossRecord.manifest,
+        name: 'header-mcp',
+        auth: { type: 'header', headers: { Authorization: 'Bearer server' } },
+      },
+    };
 
-    const resolve = store.resolveInvokeHeaders({ record, userRef: 'user-1' });
-    if (typeof resolve !== 'function') {
-      throw new Error('expected a headers resolver');
-    }
-    const resolved = await resolve();
-    if (!('headers' in resolved) || resolved.authRequiredOnUnauthorized === undefined) {
-      throw new Error('expected a 401 consent hook');
-    }
-    expect(resolved.headers).toEqual({ Authorization: 'Bearer user' });
-    await expect(resolved.authRequiredOnUnauthorized()).resolves.toBeUndefined();
+    expect(store.resolveInvokeHeaders({ record, userRef: 'user-1' })).toEqual({ authorization: 'Bearer user' });
     await db.destroy();
   });
 
@@ -126,25 +113,7 @@ describe('McpServerWithAuthStore.resolveInvokeHeaders', () => {
     }
     await expect(resolve()).resolves.toEqual({
       headers: { Authorization: 'Bearer server', 'X-Tenant': 'caller' },
-      authRequiredOnUnauthorized: expect.any(Function),
     });
     await db.destroy();
-  });
-});
-
-describe('resolveMcpConsent', () => {
-  it('turns only auth_required with an authorization URL into consent', async () => {
-    await expect(
-      resolveMcpConsent({
-        name: 'oauth-mcp',
-        authorize: async () => ({ status: 'auth_required', authorization_url: 'https://consent.example/a' }),
-      }),
-    ).resolves.toEqual({ servers: [{ id: 'oauth-mcp', name: 'oauth-mcp', auth_url: 'https://consent.example/a' }] });
-    await expect(
-      resolveMcpConsent({ name: 'oauth-mcp', authorize: async () => ({ status: 'auth_required' }) }),
-    ).resolves.toBeUndefined();
-    await expect(
-      resolveMcpConsent({ name: 'oauth-mcp', authorize: async () => ({ status: 'authenticated' }) }),
-    ).resolves.toBeUndefined();
   });
 });

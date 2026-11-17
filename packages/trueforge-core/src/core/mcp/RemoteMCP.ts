@@ -24,7 +24,6 @@ import { paginateWithCursorGuard } from './pagination';
 import {
   connectRemoteMcp,
   DEFAULT_MAX_MCP_RESPONSE_BYTES,
-  isAuthError,
   isSessionExpiredError,
   type RemoteMcpConnection,
   type RemoteMcpFetch,
@@ -41,13 +40,8 @@ function redactUrlForTrace(url: string): string {
   }
 }
 
-/**
- * What a headers resolver returns: the headers to send, or a signal that auth is required.
- * On a 401, `authRequiredOnUnauthorized` may offer consent; without it, or if it returns undefined, the 401 fails.
- */
-export type ResolveHeadersResult =
-  | { headers: Record<string, string>; authRequiredOnUnauthorized?: () => Promise<MCPAuthRequired | undefined> }
-  | { authRequired: MCPAuthRequired };
+/** What a headers resolver returns: the headers to send, or a signal that auth is required. */
+export type ResolveHeadersResult = { headers: Record<string, string> } | { authRequired: MCPAuthRequired };
 
 /** Static headers, or a resolver (invoked at connect) returning headers or signalling auth-required. */
 export type RemoteMcpHeaders = Record<string, string> | (() => Promise<ResolveHeadersResult>);
@@ -190,33 +184,7 @@ export class RemoteMCP implements ToolSource {
     if ('authRequired' in headersResult) {
       return { authRequired: headersResult.authRequired };
     }
-    let used: RemoteMcpConnection | undefined;
-    const tracked = (connection: RemoteMcpConnection): Promise<T> => {
-      used = connection;
-      return operation(connection);
-    };
-    try {
-      return await this.connectAndRun(headersResult.headers, tracked, true);
-    } catch (error) {
-      // A failed consent lookup is treated like a 401 without consent.
-      const authRequired = isAuthError(error)
-        ? await headersResult.authRequiredOnUnauthorized?.().catch((hookError: unknown) => {
-            this.logger.warn(`Consent lookup failed for remote MCP ${this.name}`, extractErrorLogFields(hookError));
-            return undefined;
-          })
-        : undefined;
-      if (authRequired === undefined) {
-        throw error;
-      }
-      // Reset only the rejected connection; a failed connect still leaves the old session and tools.
-      if (used !== undefined) {
-        await this.resetConnection(used);
-      } else if (!this.isConnected) {
-        this.sessionId = undefined;
-        this.cachedTools = undefined;
-      }
-      return { authRequired };
-    }
+    return this.connectAndRun(headersResult.headers, operation, true);
   }
 
   private async connectAndRun<T>(
