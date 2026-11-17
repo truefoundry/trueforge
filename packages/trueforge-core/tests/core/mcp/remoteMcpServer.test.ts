@@ -511,6 +511,19 @@ describe('RemoteMCP + ToolSet', () => {
     await expect(server.listTools()).rejects.toMatchObject({ statusCode: 401 });
   });
 
+  it('throws the original 401 when the consent lookup fails', async () => {
+    installFakeConnection({ connectError: new McpConnectionError('upstream 401', 401) });
+    const server = makeServer({
+      headers: () =>
+        Promise.resolve({
+          headers: {},
+          authRequiredOnUnauthorized: () => Promise.reject(new Error('authorize failed')),
+        }),
+    });
+
+    await expect(server.listTools()).rejects.toMatchObject({ statusCode: 401 });
+  });
+
   it('throws on a bare 401', async () => {
     installFakeConnection({ connectError: new McpConnectionError('upstream 401', 401) });
     const server = makeServer({ headers: () => Promise.resolve({ headers: {} }) });

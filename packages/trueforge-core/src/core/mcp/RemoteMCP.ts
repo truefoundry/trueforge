@@ -198,7 +198,13 @@ export class RemoteMCP implements ToolSource {
     try {
       return await this.connectAndRun(headersResult.headers, tracked, true);
     } catch (error) {
-      const authRequired = isAuthError(error) ? await headersResult.authRequiredOnUnauthorized?.() : undefined;
+      // A failed consent lookup is treated like a 401 without consent.
+      const authRequired = isAuthError(error)
+        ? await headersResult.authRequiredOnUnauthorized?.().catch((hookError: unknown) => {
+            this.logger.warn(`Consent lookup failed for remote MCP ${this.name}`, extractErrorLogFields(hookError));
+            return undefined;
+          })
+        : undefined;
       if (authRequired === undefined) {
         throw error;
       }
