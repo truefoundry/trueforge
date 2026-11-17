@@ -31,7 +31,7 @@ import {
 import { useIsMobile } from '../atoms/lib/useIsMobile.js';
 import { BottomSheet } from '../atoms/primitives/BottomSheet.js';
 import ConfirmDeleteDialog from '../atoms/primitives/ConfirmDeleteDialog.js';
-import { Tooltip } from '../atoms/primitives/Tooltip.js';
+import { RailTooltip } from '../atoms/primitives/Tooltip.js';
 import { RenameSessionModal } from '../atoms/RenameSessionModal.js';
 import { useResourcePermissions } from '../hooks/useResourcePermissions.js';
 import { useSessionListStatusPoll } from '../hooks/useSessionListStatusPoll.js';
@@ -472,7 +472,7 @@ function RecentChatsSection({
         <h2 className="min-w-0 flex-1 truncate px-1.5 py-1 text-sm font-medium text-text-secondary">{heading}</h2>
         {showFilter ? <AgentHistoryFilterButton /> : null}
         {onCollapse != null ? (
-          <Tooltip content="Close chat history" side="right">
+          <RailTooltip content="Close chat history">
             <button
               type="button"
               aria-label="Close chat history"
@@ -487,7 +487,7 @@ function RecentChatsSection({
             >
               <Icon name="panel-left-close" className="size-3.5" />
             </button>
-          </Tooltip>
+          </RailTooltip>
         ) : null}
       </div>
       <div

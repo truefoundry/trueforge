@@ -4,7 +4,7 @@ import {
   ArrowLeft,
   ArrowUp,
   BookOpen,
-  Bot,
+  BookText,
   Box,
   Brain,
   Calendar,
@@ -19,6 +19,7 @@ import {
   CircleCheck,
   CircleX,
   Clock,
+  Clock7,
   Code2,
   Copy,
   Cpu,
@@ -78,6 +79,7 @@ import {
   Terminal,
   Trash2,
   TriangleAlert,
+  Type,
   UserCog,
   Users,
   Wrench,
@@ -86,6 +88,8 @@ import {
 import type { SVGProps } from 'react';
 
 import type { IconEntry, IconMap } from '../theme/types.js';
+
+import Agent2Icon from './agent-2.svg';
 
 /** Lucide `broom` (https://lucide.dev/icons/broom) — not in lucide-react 0.x. */
 function Broom({ size = 24, ...props }: SVGProps<SVGSVGElement> & { size?: string | number }) {
@@ -177,6 +181,7 @@ const defaults: Record<string, IconEntry> = {
   plus: Plus,
   sun: Sun,
   moon: Moon,
+  type: Type,
   settings: Settings,
   share: Share,
   shield: Shield,
@@ -185,18 +190,22 @@ const defaults: Record<string, IconEntry> = {
   'log-out': LogOut,
   search: Search,
   clock: Clock,
+  'clock-7': Clock7,
   'circle-check': CircleCheck,
   'circle-xmark': CircleX,
   'oauth-success': CircleCheck,
   'oauth-error': CircleX,
   'oauth-loading': Loader2,
   'welcome-sparkle': Sparkle,
-  robot: Bot,
-  bot: Bot,
+  // Custom agent glyph (not Lucide Bot) so lazy layout chunks always resolve it.
+  'agent-2': Agent2Icon,
+  robot: Agent2Icon,
+  bot: Agent2Icon,
   layers: Layers,
   'library-big': LibraryBig,
   'message-square-text': MessageSquareText,
   'book-open': BookOpen,
+  'book-text': BookText,
   funnel: ListFilter,
   plug: Plug,
   'list-check': ListChecks,

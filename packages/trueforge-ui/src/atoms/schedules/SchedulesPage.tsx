@@ -462,7 +462,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-primary-bg">
+    <div className="flex h-full min-h-0 flex-col bg-card-bg">
       <PageHeader
         title={agentId === undefined ? 'Agent Schedules' : undefined}
         end={

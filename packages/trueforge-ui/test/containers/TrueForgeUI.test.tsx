@@ -158,14 +158,18 @@ describe('TrueForgeUI', () => {
 
     const avatar = await screen.findByLabelText('Ada Lovelace');
     expect(avatar.querySelector('[data-slot="avatar-fallback"]')).toHaveTextContent(/^A$/);
-    expect(avatar).toHaveTextContent('Ada Lovelace');
     if (layout === 'sidebar') {
+      // Desktop rail is icon-only; name stays on aria-label / title.
+      expect(avatar).not.toHaveTextContent('Ada Lovelace');
       expect(avatar.closest('aside')).not.toBeNull();
-      expect(avatar).toHaveClass('w-14.5');
-    } else if (layout === 'drawer') {
-      expect(avatar.closest('header')).not.toBeNull();
+      expect(avatar).toHaveClass('size-9');
     } else {
-      expect(avatar.closest('footer')).not.toBeNull();
+      expect(avatar).toHaveTextContent('Ada Lovelace');
+      if (layout === 'drawer') {
+        expect(avatar.closest('header')).not.toBeNull();
+      } else {
+        expect(avatar.closest('footer')).not.toBeNull();
+      }
     }
   });
 
@@ -184,9 +188,8 @@ describe('TrueForgeUI', () => {
       fireEvent.click(await screen.findByRole('button', { name: 'Open chat' }));
     }
 
-    expect(await screen.findByTestId('custom-user-avatar')).toHaveTextContent(
-      layout === 'sidebar' ? 'labeled user' : 'compact user',
-    );
+    // Sidebar rail passes iconOnly (not labeled); other layouts use the default compact chrome.
+    expect(await screen.findByTestId('custom-user-avatar')).toHaveTextContent('compact user');
   });
 
   it('keeps the widget open across mutable runtime remounts', async () => {
@@ -644,7 +647,7 @@ describe('SidebarLayout', () => {
     expect(screen.queryByText('Acme')).not.toBeInTheDocument();
   });
 
-  it('shows a permanent labeled rail with New Chat and no expand control', () => {
+  it('shows a permanent icon-only rail with New Chat and no expand control', () => {
     const { container } = render(
       <SlotsProvider theme={{ brand: { mode: 'icon-title', name: 'Acme', icon: '/acme.svg' } }}>
         <RuntimeHarness messages={[]}>
@@ -657,8 +660,9 @@ describe('SidebarLayout', () => {
 
     expect(container.querySelector('aside img')).toHaveAttribute('src', '/acme.svg');
     expect(screen.queryByText('Acme')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Start new chat' })).toBeInTheDocument();
-    expect(screen.getByText('New Chat')).toBeInTheDocument();
+    const newChat = screen.getByRole('button', { name: 'Start new chat' });
+    expect(newChat).toBeInTheDocument();
+    expect(newChat).not.toHaveTextContent('New Chat');
     expect(screen.getByRole('link', { name: 'Documentation' })).toHaveAttribute('href', 'https://trueforge.dev');
     expect(screen.queryByRole('button', { name: /^(Collapse|Expand) sidebar$/ })).not.toBeInTheDocument();
   });
@@ -692,8 +696,9 @@ describe('SidebarLayout', () => {
 
     const recentChats = screen.getByRole('complementary', { name: 'Recent chats' });
     expect(recentChats).toHaveClass('hidden', 'md:flex');
-    expect(recentChats.parentElement?.previousElementSibling?.tagName).toBe('HEADER');
-    expect(screen.getAllByText('New Chat')).toHaveLength(2);
+    // History shares the padded shell with the chat column; the header sits beside history, not above it.
+    expect(recentChats.nextElementSibling?.querySelector('header')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'New Chat' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Start new agent' }));
     await waitFor(() => {

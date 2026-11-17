@@ -49,11 +49,11 @@
     --color-indigo-500: #6366f1;
     --color-red-500: #ef4444;
 
-    --sidebar-bg: var(--color-white);
+    --sidebar-bg: #fafcff;
     --topbar-bg: var(--color-white);
-    --primary-bg: var(--color-white);
+    --primary-bg: #fafcff;
     --secondary-bg: var(--color-gray-100);
-    --border: var(--color-gray-250);
+    --border: #e0ecfd;
     --input-box-bg: var(--color-white);
     --input-border: var(--color-gray-250);
     --text-primary: var(--color-gray-1000);
@@ -95,6 +95,10 @@
     /* Light: primary base + lighter flash (secondary→primary reads as a darkening pulse). */
     --text-shimmer-base: var(--text-primary);
     --text-shimmer-highlight: var(--color-gray-300);
+    /* Active rail / chat-history row: fill + vertical gradient stroke. */
+    --shell-selected-bg: var(--secondary-button-hover);
+    --shell-selected-stroke-start: var(--color-gray-300);
+    --shell-selected-stroke-end: var(--color-gray-400);
   }
 
   .aui-theme-root *,
@@ -126,8 +130,8 @@
     --topbar-bg: var(--color-gray-200);
     --primary-bg: var(--color-gray-200);
     --secondary-bg: var(--color-gray-250);
-    --border: var(--color-gray-275);
-    --input-box-bg: var(--color-gray-150);
+    --border: var(--color-gray-250);
+    --input-box-bg: var(--color-gray-200);
     --input-border: var(--color-gray-275);
     --text-primary: var(--color-gray-1000);
     --text-secondary: var(--color-gray-600);
@@ -166,7 +170,29 @@
     /* Dark: muted base + bright flash (same contrast direction as before). */
     --text-shimmer-base: var(--text-secondary);
     --text-shimmer-highlight: var(--text-primary);
+    /* Figma active chrome: fill #343439, stroke light→dark (#71717A → #3F3F46). */
+    --shell-selected-bg: var(--secondary-button-hover);
+    --shell-selected-stroke-start: var(--color-gray-500);
+    --shell-selected-stroke-end: var(--color-gray-300);
   }
+}
+
+/**
+ * Selected rail control / chat-history row: theme fill with 0.5px inside
+ * gradient stroke (top → bottom).
+ */
+.aui-shell-selected,
+.aui-shell-selected:hover {
+  background:
+    linear-gradient(var(--shell-selected-bg), var(--shell-selected-bg)) padding-box,
+    linear-gradient(
+      180deg,
+      var(--shell-selected-stroke-start) 0%,
+      var(--shell-selected-stroke-end) 100%
+    )
+    border-box;
+  border: 0.03125rem solid transparent;
+  color: var(--text-primary);
 }
 
 /*
@@ -177,14 +203,15 @@
  * shells and consumer slot overrides. `.font-sans-flex` remains available
  * for explicitly portaled surfaces. All three override `--font-sans`.
  * Override `--font-agent-ui` in host CSS to brand the font. Default face is
- * Google Sans (loaded once via `ensureStyles`).
+ * Geist (loaded once via `ensureStyles`).
  */
 .aui-theme-root,
 .aui-root,
 .font-sans-flex {
   --font-sans: var(
     --font-agent-ui,
-    'Google Sans',
+    'Geist Sans',
+    'GeistSans',
     ui-sans-serif,
     system-ui,
     -apple-system,
@@ -196,7 +223,8 @@
   );
   font-family: var(
     --font-agent-ui,
-    'Google Sans',
+    'Geist Sans',
+    'GeistSans',
     ui-sans-serif,
     system-ui,
     -apple-system,

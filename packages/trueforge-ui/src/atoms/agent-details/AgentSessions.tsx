@@ -377,13 +377,13 @@ export function AgentSessions({
     resumeHref != null ? { resumeHref, resumeLabel } : shell != null ? { onResume: handleResume, resumeLabel } : {};
 
   const detailPanel = (
-    <section className="isolate flex h-full min-w-0 flex-col bg-primary-bg">
+    <section className="isolate flex h-full min-w-0 flex-col bg-card-bg">
       {selectedSessionId == null ? (
         <div className="flex flex-1 items-center justify-center px-6 text-sm text-text-secondary">
           Select a session to view details
         </div>
       ) : detailFailed ? (
-        <EmptyScreen title="Unable to load session" description={detailErrorMessage} className="bg-primary-bg" />
+        <EmptyScreen title="Unable to load session" description={detailErrorMessage} className="bg-card-bg" />
       ) : (
         <>
           <AgentSessionDetailHeader
@@ -429,7 +429,7 @@ export function AgentSessions({
       <EmptyScreen
         title="No Sessions Found"
         description="There are no sessions available at the moment."
-        className="bg-primary-bg"
+        className="bg-card-bg"
       />
     );
   }

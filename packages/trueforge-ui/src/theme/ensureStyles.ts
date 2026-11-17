@@ -1,30 +1,54 @@
 import { EMBEDDED_STYLES } from './embeddedStyles.js';
+import { getTypefaceOption } from './typefaces.js';
 
 export const TRUEFORGE_UI_STYLE_ID = 'trueforge-ui-styles';
 export const TRUEFORGE_UI_FONTS_ID = 'trueforge-ui-fonts';
+export const TRUEFORGE_UI_FONTS_PRECONNECT_GOOGLE_ID = 'trueforge-ui-fonts-preconnect-google';
+export const TRUEFORGE_UI_FONTS_PRECONNECT_GSTATIC_ID = 'trueforge-ui-fonts-preconnect-gstatic';
 
-/** Default UI face — https://fonts.google.com/specimen/Google+Sans */
-const GOOGLE_SANS_STYLESHEET =
-  'https://fonts.googleapis.com/css2?family=Google+Sans:ital,opsz,wght@0,17..18,400..700;1,17..18,400..700&display=swap';
+/** Default UI face (Geist) — stylesheet from the typeface catalog. */
+const DEFAULT_TYPEFACE_STYLESHEET = getTypefaceOption('geist').stylesheetHref;
 
-function ensureGoogleSans(): void {
+function ensureFontPreconnect({ id, href, crossOrigin }: { id: string; href: string; crossOrigin?: string }): void {
+  if (document.getElementById(id) != null) return;
+  const link = document.createElement('link');
+  link.id = id;
+  link.rel = 'preconnect';
+  link.href = href;
+  if (crossOrigin != null) link.crossOrigin = crossOrigin;
+  document.head.appendChild(link);
+}
+
+function ensureDefaultTypeface(): void {
+  if (DEFAULT_TYPEFACE_STYLESHEET == null) return;
+  if (DEFAULT_TYPEFACE_STYLESHEET.includes('fonts.googleapis.com')) {
+    ensureFontPreconnect({
+      id: TRUEFORGE_UI_FONTS_PRECONNECT_GOOGLE_ID,
+      href: 'https://fonts.googleapis.com',
+    });
+    ensureFontPreconnect({
+      id: TRUEFORGE_UI_FONTS_PRECONNECT_GSTATIC_ID,
+      href: 'https://fonts.gstatic.com',
+      crossOrigin: 'anonymous',
+    });
+  }
   if (document.getElementById(TRUEFORGE_UI_FONTS_ID) != null) return;
   const link = document.createElement('link');
   link.id = TRUEFORGE_UI_FONTS_ID;
   link.rel = 'stylesheet';
-  link.href = GOOGLE_SANS_STYLESHEET;
+  link.href = DEFAULT_TYPEFACE_STYLESHEET;
   document.head.appendChild(link);
 }
 
 /**
  * Injects the published SDK stylesheet once into `document.head`, and loads
- * Google Sans for the default `trueforge` preset.
+ * Geist for the default `trueforge` preset.
  * No-ops when a host already loaded styles (same id) or when CSS was not
  * embedded (dev without a prior CSS build).
  */
 export function ensureStyles(css: string = EMBEDDED_STYLES): void {
   if (typeof document === 'undefined') return;
-  ensureGoogleSans();
+  ensureDefaultTypeface();
   if (document.getElementById(TRUEFORGE_UI_STYLE_ID) != null) return;
   if (css.length === 0) return;
 

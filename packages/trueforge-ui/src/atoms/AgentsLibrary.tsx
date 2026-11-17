@@ -764,7 +764,7 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
   );
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col bg-primary-bg">
+    <div className="flex h-full min-h-0 w-full flex-col bg-card-bg">
       <PageHeader
         title="Agents"
         start={headerStart}
@@ -780,7 +780,7 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
         }
       />
 
-      <div className="bg-secondary-bg/40 flex min-h-0 flex-1 flex-col">
+      <div className="flex min-h-0 flex-1 flex-col bg-card-bg">
         {/* Not flex-col: overflow-hidden table chrome would clip instead of letting this scroll. */}
         <div
           className={cn('min-h-0 flex-1 overflow-y-auto p-4', error ? 'flex flex-col' : undefined)}
