@@ -1,6 +1,7 @@
-import type { RemoteMcpHeaders, ResolveHeadersResult } from '@truefoundry/trueforge-core/core';
+import type { MCPAuthRequired, RemoteMcpHeaders, ResolveHeadersResult } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
+import type { McpAuthStatus } from '../schemas/mcpServer';
 
 /**
  * Per-MCP-server request headers, keyed by server name.
@@ -61,6 +62,19 @@ export function hasAuthorizationHeader(headers: Record<string, string>): boolean
   return Object.keys(headers).some(name => name.toLowerCase() === 'authorization');
 }
 
+/** Asks the server's consent flow after a 401; only an authorization URL turns the 401 into consent. */
+export async function resolveMcpConsent(input: {
+  name: string;
+  authorize: () => Promise<McpAuthStatus>;
+}): Promise<MCPAuthRequired | undefined> {
+  const status = await input.authorize();
+  const authUrl = status.status === 'auth_required' ? status.authorization_url : undefined;
+  if (authUrl === undefined || authUrl.length === 0) {
+    return undefined;
+  }
+  return { servers: [{ id: input.name, name: input.name, auth_url: authUrl }] };
+}
+
 /**
  * Sends a server's caller headers over its registered auth. Caller Authorization goes out over only the
  * configured static headers, so a DCR consent flow is skipped.
@@ -69,27 +83,22 @@ export function withCallerMcpHeaders(input: {
   callerHeaders: Record<string, string> | undefined;
   registeredHeaders: RemoteMcpHeaders;
   configuredHeaders: Record<string, string>;
+  authRequiredOnUnauthorized: () => Promise<MCPAuthRequired | undefined>;
 }): RemoteMcpHeaders {
-  const { callerHeaders, registeredHeaders, configuredHeaders } = input;
+  const { callerHeaders, registeredHeaders, configuredHeaders, authRequiredOnUnauthorized } = input;
   if (callerHeaders === undefined) {
     return registeredHeaders;
   }
-  if (hasAuthorizationHeader(callerHeaders)) {
-    return mergeCallerHeaders({ headers: configuredHeaders, callerHeaders });
-  }
-  return () => resolveWithCallerHeaders({ registeredHeaders, callerHeaders });
-}
-
-async function resolveWithCallerHeaders(input: {
-  registeredHeaders: RemoteMcpHeaders;
-  callerHeaders: Record<string, string>;
-}): Promise<ResolveHeadersResult> {
-  const { registeredHeaders, callerHeaders } = input;
-  const result = typeof registeredHeaders === 'function' ? await registeredHeaders() : { headers: registeredHeaders };
-  if ('authRequired' in result) {
-    return result;
-  }
-  return { headers: mergeCallerHeaders({ headers: result.headers, callerHeaders }) };
+  return async (): Promise<ResolveHeadersResult> => {
+    if (hasAuthorizationHeader(callerHeaders)) {
+      return { headers: mergeCallerHeaders({ headers: configuredHeaders, callerHeaders }), authRequiredOnUnauthorized };
+    }
+    const result = typeof registeredHeaders === 'function' ? await registeredHeaders() : { headers: registeredHeaders };
+    if ('authRequired' in result) {
+      return result;
+    }
+    return { headers: mergeCallerHeaders({ headers: result.headers, callerHeaders }), authRequiredOnUnauthorized };
+  };
 }
 
 // Header names are case-insensitive, so a caller header must replace a same-named entry under any casing.
