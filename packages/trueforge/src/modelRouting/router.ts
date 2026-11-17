@@ -1,26 +1,13 @@
 import type { RouteModelInput, RouteModelResult } from '@truefoundry/trueforge-core/agent-session';
 import { type Decision, describeUnknownError, type IDecisionModel } from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
+import type { RoutingCategory, RoutingQuestion } from './question';
 import type { RoutingCandidate } from './types';
 
 const TASK_CHARS = 8_000;
 
-const INSTRUCTIONS = 'Which category best describes what this task needs to be completed?';
-
-/** What the decision model chooses between. Described by the task's structure, with no example tasks to match on. */
-const CATEGORIES = {
-  direct:
-    'The answer follows directly from the task text and general knowledge, and the work is routine: no tool is needed and nothing has to be worked out carefully.',
-  fixed_steps:
-    'Needs tools, but the task spells out every action: one call or several independent ones, carried out as stated. Tool results are only passed along or reported, never used to decide what to do next.',
-  adaptive:
-    "What to do next depends on what earlier tool calls return: investigate, branch, retry or reconcile results, or plan an approach the task doesn't spell out. Also any task, with or without tools, whose result depends on careful expert reasoning, such as finding subtle faults or weighing trade-offs.",
-} as const;
-
-type Category = keyof typeof CATEGORIES;
-
 /** One canonical model per category for now; clusters of models replace this. */
-const CATEGORY_MODEL: Record<Category, string> = {
+const CATEGORY_MODEL: Record<RoutingCategory, string> = {
   direct: 'anthropic/claude-haiku-5-5',
   fixed_steps: 'anthropic/claude-sonnet-5-5',
   adaptive: 'openai/gpt-6-1-sol',
@@ -30,8 +17,8 @@ type ChoiceAnswer = Extract<Decision['answers'][number], { type: 'choice' }>;
 
 type FallbackReason = 'decision_error' | 'decision_timeout' | 'model_unavailable';
 
-function isCategory(value: unknown): value is Category {
-  return typeof value === 'string' && Object.hasOwn(CATEGORIES, value);
+function isCategory(value: unknown): value is RoutingCategory {
+  return typeof value === 'string' && Object.hasOwn(CATEGORY_MODEL, value);
 }
 
 function clip(text: string): string {
@@ -73,6 +60,7 @@ function priceDirection(input: { picked?: number | undefined; fallback?: number 
  * Candidates are listed once and shared by the turn's subagents. Never throws.
  */
 export function createModelRouter(input: {
+  question: RoutingQuestion;
   /** The caller's models; called once per turn. */
   listCandidates: () => Promise<RoutingCandidate[]>;
   decision: IDecisionModel;
@@ -111,8 +99,11 @@ export function createModelRouter(input: {
               {
                 type: 'choice',
                 name: 'category',
-                instructions: INSTRUCTIONS,
-                choices: Object.entries(CATEGORIES).map(([value, description]) => ({ value, description })),
+                instructions: input.question.instructions,
+                choices: Object.entries(input.question.categories).map(([value, description]) => ({
+                  value,
+                  description,
+                })),
               },
             ],
           },

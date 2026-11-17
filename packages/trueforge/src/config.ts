@@ -20,6 +20,7 @@ import { DEFAULT_MAX_PARALLEL_SUB_AGENTS } from '@truefoundry/trueforge-core/cor
 import envPaths from 'env-paths';
 import { z } from 'zod';
 
+import { DEFAULT_ROUTING_QUESTION } from './modelRouting/question';
 import { MODEL_ROUTING_MODES } from './modelRouting/types';
 import { parseRedisSentinelNodes, type RedisConnection } from './runtime/redis';
 
@@ -157,8 +158,21 @@ export function parseOidcAllowedEmails(raw: string | undefined): string[] {
   return parseCommaSeparatedEnvList(raw);
 }
 
+const RoutingDescriptionSchema = z.string().trim().min(1);
+
 const TrueFoundryModelRoutingSchema = z.object({
   timeout_ms: z.number().int().positive().default(2_000),
+  /** The decision model's question; defaults to the tested wording. */
+  instructions: RoutingDescriptionSchema.default(DEFAULT_ROUTING_QUESTION.instructions),
+  /** What each category means to the decision model; all three or none. */
+  categories: z
+    .object({
+      direct: RoutingDescriptionSchema,
+      fixed_steps: RoutingDescriptionSchema,
+      adaptive: RoutingDescriptionSchema,
+    })
+    .strict()
+    .default(DEFAULT_ROUTING_QUESTION.categories),
   /** Per tenant: the decision model is the tenant's own gateway model (`account/model`). */
   tenants: z.record(
     z.string(),
@@ -1130,9 +1144,10 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    */
   TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS: Record<string, string[]>;
   /**
-   * Optional subagent model routing (TrueFoundry mode only). JSON object with `timeout_ms` and
-   * per-tenant entries: mode (`off` | `on`) and the tenant's decision model.
-   * Unset, or a tenant not listed → off. Env: `TRUEFOUNDRY_MODEL_ROUTING`.
+   * Optional subagent model routing (TrueFoundry mode only). JSON object with `timeout_ms`, optional
+   * `instructions` and `categories` overriding the decision model's question, and per-tenant entries:
+   * mode (`off` | `on`) and the tenant's decision model. Unset, or a tenant not listed → off.
+   * Env: `TRUEFOUNDRY_MODEL_ROUTING`.
    */
   TRUEFOUNDRY_MODEL_ROUTING: TrueFoundryModelRouting | undefined;
   /**

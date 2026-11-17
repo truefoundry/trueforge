@@ -397,6 +397,7 @@ function subagentModelRouter(input: {
     return decisionModel;
   };
   return createModelRouter({
+    question: { instructions: routing.instructions, categories: routing.categories },
     listCandidates: () => modelProviderStore.listRoutingCandidates?.({ tenant_id }) ?? Promise.resolve([]),
     decision: { create: async (body, options) => (await resolveDecisionModel()).create(body, options) },
     timeoutMs: routing.timeout_ms,

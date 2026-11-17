@@ -1,5 +1,6 @@
 import type { Decision, IDecisionModel } from '@truefoundry/trueforge-core/core';
 import { createLogger } from 'winston';
+import { DEFAULT_ROUTING_QUESTION } from '../../../src/modelRouting/question';
 import { createModelRouter } from '../../../src/modelRouting/router';
 import type { RoutingCandidate } from '../../../src/modelRouting/types';
 
@@ -38,7 +39,13 @@ function route(
   decision: IDecisionModel,
   listCandidates: () => Promise<RoutingCandidate[]> = () => Promise.resolve(candidates),
 ) {
-  const routeModel = createModelRouter({ listCandidates, decision, timeoutMs: 1_000, logger });
+  const routeModel = createModelRouter({
+    question: DEFAULT_ROUTING_QUESTION,
+    listCandidates,
+    decision,
+    timeoutMs: 1_000,
+    logger,
+  });
   return routeModel({
     threadId: 'child',
     fallbackModel: 'acct/claude-opus-5-5',
