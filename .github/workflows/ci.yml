@@ -344,9 +344,7 @@ jobs:
       - package-checks
       - chart-checks
       - store-tests
-    runs-on:
-      group: large-runner-group
-      labels: 'gh-large-linux-2c.'
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Decide whether the needed jobs succeeded or failed
