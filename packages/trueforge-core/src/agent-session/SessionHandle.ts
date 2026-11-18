@@ -2,6 +2,7 @@
  * Bound session handle: starts turns via {@link SessionHandle.createTurn}.
  */
 import { newEventId, type TurnUserEvent, type UserMessage } from '../core/events/schema';
+import { createModelRouter } from '../core/modelRouting/router';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import { AgentThread } from '../core/runtime/AgentThread';
 import type { AgentThreadAppendContext, AgentThreadSnapshot } from '../core/runtime/AgentThread.types';
@@ -599,18 +600,21 @@ export class SessionHandle<
     sandbox: HarnessSandbox | undefined;
     tracing: AgentTracing;
   }): CreateDynamicSubAgentThread {
+    const { modelRouting } = input.resolver;
+    const routeModel =
+      modelRouting === undefined ? undefined : createModelRouter({ ...modelRouting, logger: input.resolver.logger });
     return async params => {
       let request = params.request;
-      if (request.model === undefined && input.resolver.routeModel !== undefined) {
-        const routed = await input.resolver.routeModel({
-          threadId: params.threadId,
+      let routedEffort: string | undefined;
+      if (request.model === undefined && routeModel !== undefined) {
+        const routed = await routeModel({
+          state: { threadId: params.threadId, name: request.name, instructions: request.input },
           fallbackModel: params.parentDefinition.modelName,
-          effort: input.spec.model.params?.reasoning_effort,
-          task: { name: request.name, instructions: request.input },
           signal: params.signal,
         });
-        if (routed.model !== undefined) {
+        if (routed !== undefined) {
           request = { ...request, model: routed.model };
+          routedEffort = routed.effort;
         }
       }
       const { definition, extraCapabilities } = await input.resolver.resolveAgentDefinition({
@@ -624,6 +628,9 @@ export class SessionHandle<
       // into modelClient — do not re-label a stale client here.
       const childDefinition: AgentDefinition = {
         ...definition,
+        ...(routedEffort === undefined
+          ? {}
+          : { modelParams: { ...definition.modelParams, reasoning_effort: routedEffort } }),
         toolSets: params.parentDefinition.toolSets ?? definition.toolSets,
         // The delegated task goes in as the initial user message; the sub-agent
         // system prompt is SUB_AGENT_IDENTITY (added by AgentThread.buildInstruction).

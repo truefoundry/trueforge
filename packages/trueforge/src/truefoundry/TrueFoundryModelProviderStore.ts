@@ -1,3 +1,4 @@
+import type { RoutableModel } from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
 import type { RequestContext } from '../auth/identity';
 import type { AgentRecord } from '../db/agentStore';
@@ -13,7 +14,6 @@ import {
   type UpsertModelProviderInput,
 } from '../db/modelProviderStore';
 import type { TurnMetadata } from '../db/turnMetadata';
-import type { RoutingCandidate } from '../modelRouting/types';
 import type { AvailableModel, ModelProviderManifest } from '../schemas/modelProvider';
 import {
   accessTokenForRequest,
@@ -102,7 +102,7 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
     return flattenProviderModels(await this.listProviders(input, transaction));
   }
 
-  async listRoutingCandidates(input: ListModelProvidersInput): Promise<RoutingCandidate[]> {
+  async listRoutingCandidates(input: ListModelProvidersInput): Promise<RoutableModel[]> {
     const integrations = await this.#client.listProviderIntegrations({
       accessToken: await this.#resolveServiceFoundryAuthorization(),
     });

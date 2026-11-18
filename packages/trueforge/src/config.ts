@@ -16,11 +16,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { DEFAULT_MAX_PARALLEL_SUB_AGENTS } from '@truefoundry/trueforge-core/core';
+import { DEFAULT_MAX_PARALLEL_SUB_AGENTS, DEFAULT_ROUTING_QUESTION } from '@truefoundry/trueforge-core/core';
 import envPaths from 'env-paths';
 import { z } from 'zod';
 
-import { DEFAULT_ROUTING_QUESTION } from './modelRouting/question';
 import { MODEL_ROUTING_MODES } from './modelRouting/types';
 import { parseRedisSentinelNodes, type RedisConnection } from './runtime/redis';
 

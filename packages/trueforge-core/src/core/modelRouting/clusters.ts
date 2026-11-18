@@ -1,13 +1,15 @@
 import type { RoutingCategory } from './question';
 
-export type ClusterEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+/** Lowest first; on a price tie the router picks the lower effort. */
+export const CLUSTER_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
 
-/** Category -> the parent's effort -> canonical ids of the models good enough for that work. */
+export type ClusterEffort = (typeof CLUSTER_EFFORTS)[number];
+
+/** Category -> effort -> canonical ids: every model and effort pair listed is good enough for that work. */
 export type RoutingClusters = Record<RoutingCategory, Partial<Record<ClusterEffort, readonly string[]>>>;
 
 /**
- * The router picks the cheapest of these the tenant has, by its gateway price per token. No entry for an effort means
- * the subagent keeps the parent's model.
+ * The router picks the cheapest pair the tenant has, by its gateway price per token, and the thread runs at that effort.
  * Nearest anchor by AA Intelligence Index v5.0.1 (Haiku 24.6, Sonnet 30.8, GPT-6.1 Sol 46.3 at medium); min 18/26/41.
  */
 export const ROUTING_CLUSTERS: RoutingClusters = {

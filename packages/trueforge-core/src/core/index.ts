@@ -115,6 +115,25 @@ export type {
 } from './decision/IDecisionModel';
 export { OpenAIDecisionModel } from './decision/OpenAIDecisionModel';
 
+// Model routing
+export type { ClusterEffort } from './modelRouting/clusters';
+export { DecisionRoutingClassifier } from './modelRouting/DecisionRoutingClassifier';
+export type { IRoutingClassifier, RoutingClassification, RoutingState } from './modelRouting/IRoutingClassifier';
+export {
+  BENCHMARK_QUESTION,
+  DEFAULT_ROUTING_QUESTION,
+  type RoutingCategory,
+  type RoutingQuestion,
+} from './modelRouting/question';
+export {
+  createModelRouter,
+  selectModel,
+  type ModelRouterInput,
+  type RoutableModel,
+  type RouteInput,
+  type RoutedModel,
+} from './modelRouting/router';
+
 // Event contracts
 export {
   ActionRequiredEventSchema,

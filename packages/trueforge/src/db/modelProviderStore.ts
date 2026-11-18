@@ -3,7 +3,7 @@
  * `ModelProviderManifest` document. Implementations: Postgres, Sqlite, and
  * TrueFoundry (read-only ServiceFoundry server listing).
  */
-import type { RoutingCandidate } from '../modelRouting/types';
+import type { RoutableModel } from '@truefoundry/trueforge-core/core';
 import type { ResourceName } from '../schemas/common';
 import type { AvailableModel, ModelProperties, ModelProviderManifest } from '../schemas/modelProvider';
 import type { TurnMetadata } from './turnMetadata';
@@ -90,7 +90,7 @@ export interface IModelProviderStore<TTransaction = never> {
    * The caller's models with the catalog fields model routing needs. Only the TrueFoundry-mode store
    * implements it for now; stores that omit it never get routing.
    */
-  listRoutingCandidates?(input: ListModelProvidersInput): Promise<RoutingCandidate[]>;
+  listRoutingCandidates?(input: ListModelProvidersInput): Promise<RoutableModel[]>;
 }
 
 export function modelPropertiesWarning(input: { properties: ModelProperties }): string | undefined {

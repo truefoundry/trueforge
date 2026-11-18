@@ -1,3 +1,4 @@
+import type { RoutableModel } from '@truefoundry/trueforge-core/core';
 import type {
   CreateModelProviderInput,
   DeleteModelProviderInput,
@@ -9,7 +10,6 @@ import type {
   UpsertModelProviderInput,
 } from '../db/modelProviderStore';
 import type { TurnMetadata } from '../db/turnMetadata';
-import type { RoutingCandidate } from '../modelRouting/types';
 import type { AvailableModel } from '../schemas/modelProvider';
 import { gatewayMetadataHeadersForTurn } from './gatewayMetadata';
 import type { InlineModelProviders } from './inlineResources';
@@ -66,7 +66,7 @@ export class InlineModelProviderStore<TTransaction = never> implements IModelPro
   }
 
   /** Request-scoped providers carry no catalog metadata, so only the inner store's models are routable. */
-  listRoutingCandidates(input: ListModelProvidersInput): Promise<RoutingCandidate[]> {
+  listRoutingCandidates(input: ListModelProvidersInput): Promise<RoutableModel[]> {
     return this.#inner.listRoutingCandidates?.(input) ?? Promise.resolve([]);
   }
 

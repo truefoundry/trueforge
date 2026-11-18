@@ -1,8 +1,7 @@
-import { SUPPORTED_REASONING_EFFORTS } from '@truefoundry/trueforge-core/core';
+import { SUPPORTED_REASONING_EFFORTS, type RoutableModel } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
 import configuration, { isTrueFoundryModeEnabled } from '../config';
-import type { RoutingCandidate } from '../modelRouting/types';
 import type { ModelProperties, ReasoningEffort } from '../schemas/modelProvider';
 
 const ModelParamSchema = z.object({
@@ -102,7 +101,7 @@ export interface TrueFoundryEnabledModel {
   modelName: string;
   properties: ModelProperties;
   /** Catalog fields the model router reads; never part of the public model listing. */
-  routing: Omit<RoutingCandidate, 'model'>;
+  routing: Omit<RoutableModel, 'model'>;
 }
 
 /** `modelTypes` defaults to chat only, so listings never show models agents can't run on. */

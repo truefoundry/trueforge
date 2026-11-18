@@ -1,5 +1,6 @@
 import type { Logger } from 'winston';
 import type { AgentCapability } from '../core/capabilities/AgentCapability';
+import type { ModelRouterInput } from '../core/modelRouting/router';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import type { AgentInfo } from '../core/runtime/AgentThread.types';
 import type { HarnessSandbox, SandboxInfo } from '../core/sandbox/Sandbox';
@@ -14,26 +15,8 @@ export interface ResolvedAgentDefinition {
   extraCapabilities?: AgentCapability[] | undefined;
 }
 
-/** Input to {@link ITurnResourceResolver.routeModel}: a thread that's about to start, and the task it was given. */
-export interface RouteModelInput {
-  threadId: string;
-  /** Model the thread runs on when routing doesn't pick one (`provider/model`); for a subagent, the parent's model. */
-  fallbackModel: string;
-  /** Reasoning effort the thread runs at, from the spec. Undefined when the spec sets none. */
-  effort?: string | undefined;
-  task: {
-    /** The name the parent gave a subagent. */
-    name?: string | undefined;
-    instructions: string;
-  };
-  /** The thread's abort signal; cancels routing when the turn is cancelled. */
-  signal: AbortSignal;
-}
-
-export interface RouteModelResult {
-  /** Model to run instead of the fallback. Undefined keeps the fallback. */
-  model?: string | undefined;
-}
+/** What the harness needs to route a thread to a model; the harness supplies the logger. */
+export type TurnModelRouting = Omit<ModelRouterInput, 'logger'>;
 
 /**
  * Per-run wiring contract consumed by SessionHandle.createTurn(). Implementations hold
@@ -85,10 +68,9 @@ export interface ITurnResourceResolver<TTurnCustom extends object = Record<strin
     tracing: AgentTracing;
   }): Promise<ResolvedAgentDefinition>;
   /**
-   * Chooses the model for a thread before it starts; called today for subagents spawned without a model.
-   * Omit to keep every thread on its fallback model. Must not throw: on any failure, resolve without a model.
+   * Inputs for routing a thread to a model before it starts. Omit to keep every thread on its fallback model.
    */
-  routeModel?(input: RouteModelInput): Promise<RouteModelResult>;
+  readonly modelRouting?: TurnModelRouting | undefined;
   /**
    * Release per-run resources. Called by the harness at the end of the run:
    * by TurnHandle.stream() in its finally (AFTER the terminal state write), or by

@@ -7,6 +7,7 @@ import type {
   ISessionStore,
   Sessions,
   Turn,
+  TurnModelRouting,
   TurnRecord,
   TurnStreamingEvent,
 } from '@truefoundry/trueforge-core/agent-session';
@@ -39,6 +40,7 @@ import type {
 } from '@truefoundry/trueforge-core/core';
 import {
   AgentHarnessError,
+  DecisionRoutingClassifier,
   existingSandboxIdForProvider,
   extractErrorLogFields,
   getOperationMetrics,
@@ -92,8 +94,6 @@ import { currentLogContext, runWithLogContext, updateLogContext } from '../logge
 import { TRUEFORGE_SESSION_HEADER, X_TFG_TRUEFORGE_MCP } from '../mcp/server/trueforge/headers';
 import type { TenantMemoryDeps } from '../memory/providers';
 import { resolveSessionMemory } from '../memory/sessionMemory';
-import { ROUTING_CLUSTERS } from '../modelRouting/clusters';
-import { createModelRouter } from '../modelRouting/router';
 import {
   createAndExecuteTurnRoute,
   createInternalSessionTurnRoute,
@@ -366,14 +366,13 @@ interface BeginTurnExecutionParams<TTransaction> {
   deps: BeginTurnExecutionDeps<TTransaction>;
 }
 
-/** This turn's subagent model router, or undefined when routing is off for the tenant. */
-function subagentModelRouter(input: {
+/** This turn's model routing inputs, or undefined when routing is off for the tenant. */
+function turnModelRouting(input: {
   tenant_id: string;
   modelProviderStore: IModelProviderStore;
   turnMetadata: TurnMetadata;
-  logger: Logger;
-}): ReturnType<typeof createModelRouter> | undefined {
-  const { tenant_id, modelProviderStore, turnMetadata, logger } = input;
+}): TurnModelRouting | undefined {
+  const { tenant_id, modelProviderStore, turnMetadata } = input;
   const routing = isTrueFoundryModeEnabled(configuration) ? configuration.TRUEFOUNDRY_MODEL_ROUTING : undefined;
   const tenantRouting = routing?.tenants[tenant_id];
   if (
@@ -383,7 +382,7 @@ function subagentModelRouter(input: {
   ) {
     return undefined;
   }
-  // Resolved on first use, so the lookup counts towards the routing timeout and turns that spawn no subagent skip it.
+  // Resolved on first use, so the lookup counts towards the routing timeout and turns that route no thread skip it.
   let decisionModel: Promise<OpenAIDecisionModel> | undefined;
   const resolveDecisionModel = () => {
     decisionModel ??= getModelDetails({
@@ -397,14 +396,14 @@ function subagentModelRouter(input: {
     });
     return decisionModel;
   };
-  return createModelRouter({
-    question: { instructions: routing.instructions, categories: routing.categories },
-    clusters: ROUTING_CLUSTERS,
-    listCandidates: () => modelProviderStore.listRoutingCandidates?.({ tenant_id }) ?? Promise.resolve([]),
-    decision: { create: async (body, options) => (await resolveDecisionModel()).create(body, options) },
+  return {
+    classifier: new DecisionRoutingClassifier({
+      decision: { create: async (body, options) => (await resolveDecisionModel()).create(body, options) },
+      question: { instructions: routing.instructions, categories: routing.categories },
+    }),
+    listModels: () => modelProviderStore.listRoutingCandidates?.({ tenant_id }) ?? Promise.resolve([]),
     timeoutMs: routing.timeout_ms,
-    logger,
-  });
+  };
 }
 
 /**
@@ -448,10 +447,10 @@ function createTurnResolver(deps: {
   } = deps;
   const tenant_id = session.tenant_id;
   const sessionId = session.session_id;
-  const routeModel = subagentModelRouter({ tenant_id, modelProviderStore, turnMetadata, logger });
+  const modelRouting = turnModelRouting({ tenant_id, modelProviderStore, turnMetadata });
 
   return new TurnResourceResolver({
-    ...(routeModel === undefined ? {} : { routeModel }),
+    ...(modelRouting === undefined ? {} : { modelRouting }),
     llm: async name => {
       const resolved = await getModelDetails({
         tenant_id,

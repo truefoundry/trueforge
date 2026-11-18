@@ -14,12 +14,7 @@ import type { HarnessSandbox, SandboxInfo } from '../core/sandbox/Sandbox';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
 import { NOOP_AGENT_TRACING } from '../core/tracing/NoopAgentTracing';
 import type { IWebSearchProvider } from '../core/web-search/WebSearchProvider';
-import type {
-  ITurnResourceResolver,
-  ResolvedAgentDefinition,
-  RouteModelInput,
-  RouteModelResult,
-} from './ITurnResourceResolver';
+import type { ITurnResourceResolver, ResolvedAgentDefinition, TurnModelRouting } from './ITurnResourceResolver';
 import type { TurnRecord } from './models/TurnRecord';
 import type { AgentSpec } from './schemas/agentSpec';
 
@@ -85,7 +80,7 @@ export class TurnResourceResolver<
   readonly #models = new Map<string, Promise<ResolvedModel>>();
   #sandbox?: HarnessSandbox | undefined;
   readonly maxParallelSubAgents?: number;
-  readonly routeModel?: (input: RouteModelInput) => Promise<RouteModelResult>;
+  readonly modelRouting?: TurnModelRouting | undefined;
 
   constructor(
     protected readonly deps: {
@@ -116,8 +111,8 @@ export class TurnResourceResolver<
        * `resolveAgentDefinition` without calling `super` does not mount them.
        */
       rootCapabilities?: (() => readonly AgentCapability[]) | undefined;
-      /** Chooses a subagent's model before it starts; omit to keep subagents on their parent's model. */
-      routeModel?: ((input: RouteModelInput) => Promise<RouteModelResult>) | undefined;
+      /** Inputs for routing a thread to a model; omit to keep every thread on its fallback model. */
+      modelRouting?: TurnModelRouting | undefined;
       /** Forwarded to RemoteMCP / AgentThread (required by their constructors). */
       logger: Logger;
     },
@@ -125,8 +120,8 @@ export class TurnResourceResolver<
     if (deps.maxParallelSubAgents !== undefined) {
       this.maxParallelSubAgents = deps.maxParallelSubAgents;
     }
-    if (deps.routeModel !== undefined) {
-      this.routeModel = deps.routeModel;
+    if (deps.modelRouting !== undefined) {
+      this.modelRouting = deps.modelRouting;
     }
   }
 
