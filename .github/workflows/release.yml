@@ -64,7 +64,7 @@ jobs:
     name: Version packages for the release
     runs-on:
       group: large-runner-group
-      labels: ubuntu-24-4-core
+      labels: "gh-large-linux-2c."
     timeout-minutes: 30
     outputs:
       # Every downstream job checks this out; actions/checkout's default ref is
@@ -157,7 +157,7 @@ jobs:
     needs: [version-release]
     runs-on:
       group: large-runner-group
-      labels: ubuntu-24-4-core
+      labels: "gh-large-linux-2c."
     timeout-minutes: 30
     outputs:
       pack-dir-artifact-id: ${{ steps.pack.outputs.pack-dir-artifact-id }}
@@ -238,7 +238,7 @@ jobs:
     if: ${{ inputs.dry_run != true }} # DRY-RUN (temporary)
     runs-on:
       group: large-runner-group
-      labels: ubuntu-24-4-core
+      labels: "gh-large-linux-2c."
     timeout-minutes: 20
     permissions:
       contents: write
@@ -284,7 +284,7 @@ jobs:
     if: ${{ inputs.dry_run != true }} # DRY-RUN (temporary)
     runs-on:
       group: large-runner-group
-      labels: ubuntu-24-4-core
+      labels: "gh-large-linux-2c."
     timeout-minutes: 20
     permissions:
       contents: read
@@ -350,7 +350,7 @@ jobs:
     needs: [version-release]
     runs-on:
       group: large-runner-group
-      labels: ubuntu-24-4-core
+      labels: "gh-large-linux-2c."
     timeout-minutes: 10
     outputs:
       app_version: ${{ steps.resolve.outputs.app_version }}
@@ -541,7 +541,7 @@ jobs:
       && inputs.dry_run != true }} # DRY-RUN (temporary)
     runs-on:
       group: large-runner-group
-      labels: ubuntu-24-4-core
+      labels: "gh-large-linux-2c."
     timeout-minutes: 60
     continue-on-error: true
     permissions:

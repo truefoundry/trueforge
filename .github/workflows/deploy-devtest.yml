@@ -17,7 +17,7 @@ jobs:
     name: Pin SHA and push
     runs-on:
       group: large-runner-group
-      labels: ubuntu-24-4-core
+      labels: "gh-large-linux-2c."
     steps:
       - id: app-token
         uses: actions/create-github-app-token@v3
