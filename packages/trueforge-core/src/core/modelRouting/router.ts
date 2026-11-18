@@ -1,8 +1,9 @@
 import type { Logger } from 'winston';
+import type { DecisionModelCreateParams, IDecisionModel } from '../decision/IDecisionModel';
 import { describeUnknownError } from '../util/errorLogFields';
+import { classificationRequest, readClassification } from './classification';
 import { CLUSTER_EFFORTS, ROUTING_CLUSTERS, type ClusterEffort } from './clusters';
-import type { IRoutingClassifier, RoutingState } from './IRoutingClassifier';
-import type { RoutingCategory } from './question';
+import type { RoutingCategory, RoutingQuestion } from './question';
 
 /** One of the models the user has access to. */
 export interface RoutableModel {
@@ -59,7 +60,9 @@ export function selectModel(input: {
 }
 
 export interface ModelRouterInput {
-  classifier: IRoutingClassifier;
+  /** Decides the task's category, e.g. Jev. */
+  classifier: IDecisionModel;
+  question: RoutingQuestion;
   /** The models the user has access to; called at most once per router. */
   listModels: () => Promise<RoutableModel[]>;
   /** Bounds the whole step, including listing models and classifying. */
@@ -68,64 +71,65 @@ export interface ModelRouterInput {
 }
 
 export interface RouteInput {
-  state: RoutingState;
-  /** Model the thread runs on when routing doesn't pick one (`provider/model`). */
-  fallbackModel: string;
+  threadId: string;
+  /** What to classify: text, or an ordered list of messages. */
+  input: DecisionModelCreateParams['input'];
   signal: AbortSignal;
 }
 
-/** Routes threads to a model: classify the task, then pick the cheapest pair in that cluster. Never throws. */
+interface Outcome {
+  reason: 'picked' | 'decision_error' | 'decision_timeout' | 'model_unavailable';
+  routed?: RoutedModel | undefined;
+  fields: Record<string, unknown>;
+}
+
+/**
+ * Routes threads to a model: classify the task, then pick the cheapest pair in that cluster. Never throws; resolves to
+ * undefined when it can't pick one, and the caller keeps its own model.
+ */
 export function createModelRouter(input: ModelRouterInput): (route: RouteInput) => Promise<RoutedModel | undefined> {
   let models: Promise<RoutableModel[]> | undefined;
 
   return async route => {
     const startedMs = Date.now();
-    const log = (fields: Record<string, unknown>) => {
-      input.logger.info('model routing', {
-        thread_id: route.state.threadId,
-        fallback_model: route.fallbackModel,
-        latency_ms: Date.now() - startedMs,
-        ...fields,
-      });
-    };
-    const logFallback = (reason: string, extra: Record<string, unknown> = {}) => {
-      log({ reason, chosen_model: route.fallbackModel, ...extra });
-    };
 
-    const decide = async (timeout: AbortSignal): Promise<RoutedModel | undefined> => {
+    const decide = async (timeout: AbortSignal): Promise<Outcome> => {
       models ??= input.listModels().catch((error: unknown) => {
         models = undefined;
         throw error;
       });
-      const [userModels, classification] = await Promise.all([
+      const [userModels, decision] = await Promise.all([
         models,
-        input.classifier.classify(route.state, AbortSignal.any([route.signal, timeout])),
+        input.classifier.create(classificationRequest(route.input, input.question), {
+          metadata: { 'tfg.thread_id': route.threadId },
+          signal: AbortSignal.any([route.signal, timeout]),
+        }),
       ]);
       timeout.throwIfAborted();
+      const classification = readClassification(decision);
+      if (classification === undefined) {
+        return { reason: 'decision_error', fields: { answers: decision.answers } };
+      }
       const classified = { category: classification.category, ...classification.details };
       if (!Object.hasOwn(ROUTING_CLUSTERS, classification.category)) {
-        logFallback('decision_error', classified);
-        return undefined;
+        return { reason: 'decision_error', fields: classified };
       }
-      const selection = selectModel({
-        category: classification.category as RoutingCategory,
-        models: userModels,
-      });
+      const selection = selectModel({ category: classification.category as RoutingCategory, models: userModels });
       if (selection === undefined) {
-        logFallback('model_unavailable', classified);
-        return undefined;
+        return { reason: 'model_unavailable', fields: classified };
       }
-      log({
+      return {
         reason: 'picked',
-        ...classified,
-        canonical_model: selection.canonicalModel,
-        effort: selection.routed.effort,
-        available_in_cluster: selection.available,
-        chosen_model: selection.routed.model,
-        picked_price: selection.price,
-        fallback_price: userModels.find(model => model.model === route.fallbackModel)?.price,
-      });
-      return selection.routed;
+        routed: selection.routed,
+        fields: {
+          ...classified,
+          canonical_model: selection.canonicalModel,
+          available_in_cluster: selection.available,
+          model: selection.routed.model,
+          effort: selection.routed.effort,
+          price: selection.price,
+        },
+      };
     };
 
     const timeout = AbortSignal.timeout(input.timeoutMs);
@@ -139,14 +143,24 @@ export function createModelRouter(input: ModelRouterInput): (route: RouteInput) 
       );
     });
     const work = decide(timeout);
-    // Whichever promise loses the race settles later; its outcome is already reported.
+    // Whichever promise loses the race settles later and is ignored.
     work.catch(() => undefined);
     timedOut.catch(() => undefined);
+    let outcome: Outcome;
     try {
-      return await Promise.race([work, timedOut]);
+      outcome = await Promise.race([work, timedOut]);
     } catch (error) {
-      logFallback(timeout.aborted ? 'decision_timeout' : 'decision_error', { err: describeUnknownError(error) });
-      return undefined;
+      outcome = {
+        reason: timeout.aborted ? 'decision_timeout' : 'decision_error',
+        fields: { err: describeUnknownError(error) },
+      };
     }
+    input.logger.info('model routing', {
+      thread_id: route.threadId,
+      latency_ms: Date.now() - startedMs,
+      reason: outcome.reason,
+      ...outcome.fields,
+    });
+    return outcome.routed;
   };
 }

@@ -117,8 +117,6 @@ export { OpenAIDecisionModel } from './decision/OpenAIDecisionModel';
 
 // Model routing
 export type { ClusterEffort } from './modelRouting/clusters';
-export { DecisionRoutingClassifier } from './modelRouting/DecisionRoutingClassifier';
-export type { IRoutingClassifier, RoutingClassification, RoutingState } from './modelRouting/IRoutingClassifier';
 export {
   BENCHMARK_QUESTION,
   DEFAULT_ROUTING_QUESTION,

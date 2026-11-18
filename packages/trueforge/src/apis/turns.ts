@@ -40,7 +40,6 @@ import type {
 } from '@truefoundry/trueforge-core/core';
 import {
   AgentHarnessError,
-  DecisionRoutingClassifier,
   existingSandboxIdForProvider,
   extractErrorLogFields,
   getOperationMetrics,
@@ -397,10 +396,8 @@ function turnModelRouting(input: {
     return decisionModel;
   };
   return {
-    classifier: new DecisionRoutingClassifier({
-      decision: { create: async (body, options) => (await resolveDecisionModel()).create(body, options) },
-      question: { instructions: routing.instructions, categories: routing.categories },
-    }),
+    classifier: { create: async (body, options) => (await resolveDecisionModel()).create(body, options) },
+    question: { instructions: routing.instructions, categories: routing.categories },
     listModels: () => modelProviderStore.listRoutingCandidates?.({ tenant_id }) ?? Promise.resolve([]),
     timeoutMs: routing.timeout_ms,
   };
