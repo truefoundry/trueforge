@@ -422,6 +422,30 @@ describe('truefoundry reasoning replay, on the shape the TFY gateway actually se
     expect(wire).not.toHaveProperty('thinking_blocks');
   });
 
+  it('replays a signed block that shares the array with a redacted one', async () => {
+    const mixed = [
+      { type: 'redacted_thinking', data: 'opaque-payload' },
+      { type: 'thinking', thinking: THINKING, signature: SIGNATURE },
+    ];
+    const { output } = await drainStream(
+      mapStreamToChunks({
+        stream: makeStream([
+          { type: 'reasoning-start', id: 'r1' },
+          { type: 'reasoning-delta', id: 'r1', text: THINKING },
+          { type: 'reasoning-end', id: 'r1' },
+          makeFinishStep('stop', { truefoundry: { thinking_blocks: mixed } }),
+        ]),
+        chunkMeta: CHUNK_META,
+      }),
+    );
+
+    // Rejecting the redacted entry would take the signed block with it and unsign the replay.
+    expect(output.thinking_blocks).toEqual(mixed);
+    expect(toWireMessage(output, 'truefoundry/truefoundry/claude-sonnet-5')).toMatchObject({
+      thinking_blocks: mixed,
+    });
+  });
+
   it('does not replay blocks signed by a different configured provider', async () => {
     const { output } = await drainStream(
       mapStreamToChunks({ stream: gatewayStream('stop', true), chunkMeta: CHUNK_META }),

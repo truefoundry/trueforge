@@ -3,7 +3,7 @@ import type { JSONObject } from '@ai-sdk/provider';
 import type { ProviderOptions } from '@ai-sdk/provider-utils';
 import { z } from '@hono/zod-openapi';
 import type { ProviderMetadata } from 'ai';
-import { type ThinkingBlock, ThinkingBlockSchema } from './LLMTypes';
+import { type ThinkingBlockUnion, ThinkingBlockUnionSchema } from './LLMTypes';
 
 /**
  * Namespace the extracted blocks travel under, matching the `name` the compatible client is built
@@ -14,7 +14,11 @@ const TRUEFOUNDRY_METADATA_KEY = 'truefoundry';
 /** Metadata field holding the signed blocks. Snake_case mirrors the gateway's own wire field. */
 const THINKING_BLOCKS_FIELD = 'thinking_blocks';
 
-const ThinkingBlocksSchema = z.array(ThinkingBlockSchema).nonempty();
+/**
+ * Redacted blocks sit in the same array as plain ones, so the union is required: rejecting them
+ * would discard the signed blocks beside them and leave replay unsigned again.
+ */
+const ThinkingBlocksSchema = z.array(ThinkingBlockUnionSchema).nonempty();
 
 /**
  * Where the gateway restates its thinking consolidated and signed: the trailing chunk of a stream,
@@ -32,13 +36,24 @@ const ThinkingBlocksBodySchema = z.object({
     .optional(),
 });
 
-/** Drops absent signatures rather than serializing them as `undefined`, which is not valid JSON. */
-function toJsonBlocks(blocks: readonly ThinkingBlock[]): JSONObject[] {
-  return blocks.map(block => ({
+/** Drops an absent signature rather than serializing it as `undefined`, which is not valid JSON. */
+function toJsonBlock(block: ThinkingBlockUnion): JSONObject {
+  if (block.type === 'redacted_thinking') {
+    return { type: block.type, data: block.data };
+  }
+  return {
     type: block.type,
     thinking: block.thinking,
     ...(block.signature !== undefined ? { signature: block.signature } : {}),
-  }));
+  };
+}
+
+/**
+ * Whether the gateway sent something only it can verify. Plain thinking replays fine as text, but
+ * a signature or a redacted payload has to go back verbatim or the provider rejects the block.
+ */
+export function hasReplayableSignature(blocks: readonly ThinkingBlockUnion[]): boolean {
+  return blocks.some(block => block.type === 'redacted_thinking' || block.signature !== undefined);
 }
 
 /**
@@ -47,14 +62,14 @@ function toJsonBlocks(blocks: readonly ThinkingBlock[]): JSONObject[] {
  * than per content part — so replayed thinking cannot ride on the reasoning part like it does for
  * Anthropic and OpenAI.
  */
-export function trueFoundryReplayOptions(blocks: readonly ThinkingBlock[]): ProviderOptions {
-  return { openaiCompatible: { [THINKING_BLOCKS_FIELD]: toJsonBlocks(blocks) } };
+export function trueFoundryReplayOptions(blocks: readonly ThinkingBlockUnion[]): ProviderOptions {
+  return { openaiCompatible: { [THINKING_BLOCKS_FIELD]: blocks.map(toJsonBlock) } };
 }
 
 /** Signed blocks the gateway attached to a finished stream, if it sent any. */
 export function readTrueFoundryThinkingBlocks(
   providerMetadata: ProviderMetadata | undefined,
-): ThinkingBlock[] | undefined {
+): ThinkingBlockUnion[] | undefined {
   const parsed = ThinkingBlocksSchema.safeParse(providerMetadata?.[TRUEFOUNDRY_METADATA_KEY]?.[THINKING_BLOCKS_FIELD]);
   return parsed.success ? [...parsed.data] : undefined;
 }
@@ -69,7 +84,7 @@ export function readTrueFoundryThinkingBlocks(
  * a loose `reasoning_signature` with an open block, which keeps interleaved thinking intact.
  */
 export function createTrueFoundryMetadataExtractor(): MetadataExtractor {
-  const parseBody = (body: unknown): ThinkingBlock[] | undefined => {
+  const parseBody = (body: unknown): ThinkingBlockUnion[] | undefined => {
     const parsed = ThinkingBlocksBodySchema.safeParse(body);
     if (!parsed.success) {
       return undefined;
@@ -83,15 +98,15 @@ export function createTrueFoundryMetadataExtractor(): MetadataExtractor {
     return undefined;
   };
 
-  const buildFrom = (blocks: ThinkingBlock[] | undefined): ProviderMetadata | undefined =>
+  const buildFrom = (blocks: ThinkingBlockUnion[] | undefined): ProviderMetadata | undefined =>
     blocks === undefined
       ? undefined
-      : { [TRUEFOUNDRY_METADATA_KEY]: { [THINKING_BLOCKS_FIELD]: toJsonBlocks(blocks) } };
+      : { [TRUEFOUNDRY_METADATA_KEY]: { [THINKING_BLOCKS_FIELD]: blocks.map(toJsonBlock) } };
 
   return {
     extractMetadata: ({ parsedBody }) => Promise.resolve(buildFrom(parseBody(parsedBody))),
     createStreamExtractor: () => {
-      let blocks: ThinkingBlock[] | undefined;
+      let blocks: ThinkingBlockUnion[] | undefined;
       return {
         processChunk: (parsedChunk: unknown): void => {
           blocks = parseBody(parsedChunk) ?? blocks;

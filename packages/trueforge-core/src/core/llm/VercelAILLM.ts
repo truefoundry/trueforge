@@ -46,10 +46,12 @@ import {
   type RawAssistantMessage,
   type RawAssistantMessageWithUsage,
   type ThinkingBlock,
-  ThinkingBlockSchema,
+  type ThinkingBlockUnion,
+  ThinkingBlockUnionSchema,
 } from './LLMTypes';
 import {
   createTrueFoundryMetadataExtractor,
+  hasReplayableSignature,
   readTrueFoundryThinkingBlocks,
   trueFoundryReplayOptions,
 } from './truefoundryReasoning';
@@ -739,19 +741,23 @@ export function toAssistantModelMessage({
     provider === 'alibaba' || !Array.isArray(rawThinking)
       ? []
       : rawThinking.flatMap((tb: unknown) => {
-          const parsed = ThinkingBlockSchema.safeParse(tb);
+          const parsed = ThinkingBlockUnionSchema.safeParse(tb);
           return parsed.success ? [parsed.data] : [];
         });
 
-  // The gateway needs whole signed blocks on the message: the compatible adapter flattens
-  // reasoning parts into a bare `reasoning_content` string, which drops the signature.
+  // The gateway needs whole blocks on the message: the compatible adapter flattens reasoning parts
+  // into a bare `reasoning_content` string, which drops the signature and redacted blocks with it.
   const gatewayThinking =
-    provider === 'truefoundry' && attachSignature && thinkingBlocks.some(block => block.signature !== undefined)
+    provider === 'truefoundry' && attachSignature && hasReplayableSignature(thinkingBlocks)
       ? thinkingBlocks
       : undefined;
 
   if (gatewayThinking === undefined) {
+    // Redacted blocks carry no text, so they cannot become a reasoning part.
     for (const block of thinkingBlocks) {
+      if (block.type === 'redacted_thinking') {
+        continue;
+      }
       let reasoningProviderOptions: ProviderOptions | undefined;
       if (block.signature !== undefined && attachSignature) {
         if (provider === 'openai') {
@@ -1271,7 +1277,7 @@ export async function* mapStreamToChunks({
    * The TrueFoundry gateway signs its thinking only in trailing metadata, never on the reasoning
    * deltas, so these supersede the unsigned blocks accumulated above.
    */
-  let signedThinking: ThinkingBlock[] | undefined;
+  let signedThinking: ThinkingBlockUnion[] | undefined;
 
   /**
    * The block this reasoning part belongs to: the one already open for its item, or a new one.
@@ -1489,7 +1495,7 @@ export async function* mapStreamToChunks({
         : {}),
     }));
 
-  const thinkingBlocks = signedThinking ?? accumulatedThinking;
+  const thinkingBlocks: ThinkingBlockUnion[] = signedThinking ?? accumulatedThinking;
   const output: RawAssistantMessage = {
     role: 'assistant',
     content: accumulatedText || null,
