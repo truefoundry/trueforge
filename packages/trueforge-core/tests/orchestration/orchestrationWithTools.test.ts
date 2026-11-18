@@ -110,23 +110,23 @@ describe('orchestration: dynamic sub-agent', () => {
     let agentThreadInput: AgentThreadConstructorInput = {
       // AgentDefinition
       definition: {
+        instruction: INSTRUCTION,
+        // Undefined
+        messages: undefined,
+        responseFormat: undefined,
+        iterationLimit: undefined,
+        toolSets: undefined,
+      },
+      model: {
         // This is an instance if ILLM
-        modelClient: {
+        client: {
           create: jest
             .fn()
             .mockImplementationOnce(() => createSubAgentStream())
             .mockImplementation(() => textReplyStream(ROOT_FINAL)),
           createNonStream: jest.fn(),
         },
-        modelName: TEST_MODEL_NAME,
-
-        instruction: INSTRUCTION,
-        // Undefined
-        messages: undefined,
-        modelParams: undefined,
-        responseFormat: undefined,
-        iterationLimit: undefined,
-        toolSets: undefined,
+        name: TEST_MODEL_NAME,
       },
       threadId: ROOT_ID,
       title: 'orchestration-with-tools',
@@ -159,18 +159,15 @@ describe('orchestration: dynamic sub-agent', () => {
       };
 
       const agentDefinition: AgentDefinition = {
-        modelClient: childLLM,
-        modelName: TEST_MODEL_NAME,
-
         instruction: undefined,
         messages: [{ role: 'user', content: request.input }],
-        modelParams: parentDefinition.modelParams,
         responseFormat: undefined,
         iterationLimit: parentDefinition.iterationLimit,
         toolSets: undefined,
       };
       return new AgentThread({
         definition: agentDefinition,
+        model: { client: childLLM, name: TEST_MODEL_NAME },
         threadId,
         title: request.name,
         parent,
@@ -209,7 +206,7 @@ describe('orchestration: dynamic sub-agent', () => {
     expect(outcome.events).toMatchObject(EXPECTED_EVENTS);
     expect(outcome.result).toMatchObject(OUTPUT);
     expect(outcome.result.root_agent_error).toBeUndefined();
-    expect(llmCreateInputs(thread_1.definition.modelClient)).toMatchObject(EXPECTED_ROOT_LLM_INPUT);
+    expect(llmCreateInputs(thread_1.model.client)).toMatchObject(EXPECTED_ROOT_LLM_INPUT);
     if (childLLM === undefined) {
       throw new Error('expected child LLM to be created');
     }

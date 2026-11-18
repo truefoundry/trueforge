@@ -560,12 +560,12 @@ export class SessionHandle<
     tracing: AgentTracing;
     resolvedDefinition: ResolvedAgentDefinition;
   }): AgentThread {
-    const { definition, extraCapabilities } = input.resolvedDefinition;
+    const { definition, model, extraCapabilities } = input.resolvedDefinition;
     const isChild = Boolean(input.previousThreadSnapshot?.parent);
     const capabilities = [
       ...builtinsFromSpec({
         spec: input.spec,
-        definition,
+        model,
         isChild,
         sandboxAvailable: Boolean(input.sandbox),
         tracing: input.tracing,
@@ -576,6 +576,7 @@ export class SessionHandle<
     ];
     return new AgentThread({
       definition,
+      model,
       threadId: input.threadId,
       title: input.previousThreadSnapshot?.agent_info?.name ?? (isChild ? input.threadId : 'main'),
       sandbox: input.sandbox,
@@ -600,15 +601,14 @@ export class SessionHandle<
     tracing: AgentTracing;
   }): CreateDynamicSubAgentThread {
     return async params => {
-      const { definition, extraCapabilities } = await input.resolver.resolveAgentDefinition({
+      const { definition, model, extraCapabilities } = await input.resolver.resolveAgentDefinition({
         spec: input.spec,
         agent_info: params.request,
         previousTurn: input.previous,
         signal: params.signal,
         tracing: input.tracing,
       });
-      // Model override (request.model) is resolved inside resolveAgentDefinition
-      // into modelClient — do not re-label a stale client here.
+      // Model override (request.model) is resolved inside resolveAgentDefinition into `model`.
       const childDefinition: AgentDefinition = {
         ...definition,
         toolSets: params.parentDefinition.toolSets ?? definition.toolSets,
@@ -622,7 +622,7 @@ export class SessionHandle<
       const capabilities = [
         ...builtinsFromSpec({
           spec: input.spec,
-          definition: childDefinition,
+          model,
           isChild: true,
           sandboxAvailable: Boolean(input.sandbox),
           tracing: input.tracing,
@@ -633,6 +633,7 @@ export class SessionHandle<
       ];
       return new AgentThread({
         definition: childDefinition,
+        model,
         threadId: params.threadId,
         title: params.request.name,
         sandbox: input.sandbox,

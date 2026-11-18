@@ -2,7 +2,7 @@ import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import {
   Sandbox,
   SkillMounter,
-  type AgentDefinition,
+  type AgentModel,
   type AgentTracing,
   type DaytonaSandboxEnvironment,
   type McpConnection,
@@ -70,7 +70,7 @@ export async function getModelDetails({
 }): Promise<{
   providerConfig: VercelAIProviderConfig;
   defaultModelParams: ModelParams;
-  modelProperties: AgentDefinition['modelProperties'];
+  modelProperties: AgentModel['properties'];
   reasoningEfforts: ReasoningEffort[] | undefined;
 }> {
   const parsed = parseModelFqn(name);

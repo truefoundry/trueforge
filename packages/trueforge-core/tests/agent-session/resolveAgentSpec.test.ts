@@ -46,13 +46,13 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
       logger: makeSilentLogger(),
     });
 
-    const { definition } = await resolver.resolveAgentDefinition({
+    const { model } = await resolver.resolveAgentDefinition({
       spec: makeAgentSpec(),
       signal: new AbortController().signal,
       tracing: resolver.createTracing(),
     });
 
-    expect(definition.modelProperties).toBeUndefined();
+    expect(model.properties).toBeUndefined();
   });
 
   it.each([
@@ -89,15 +89,15 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
       },
     });
 
-    const { definition } = await resolver.resolveAgentDefinition({
+    const { model } = await resolver.resolveAgentDefinition({
       spec,
       signal: new AbortController().signal,
       tracing: resolver.createTracing(),
     });
 
-    expect(definition.modelParams?.['max_tokens']).toBe(expected);
-    expect(definition.modelName).toBe('provider/model');
-    expect(definition.modelProperties?.contextLength).toBe(128_000);
+    expect(model.params?.['max_tokens']).toBe(expected);
+    expect(model.name).toBe('provider/model');
+    expect(model.properties?.contextLength).toBe(128_000);
   });
 });
 

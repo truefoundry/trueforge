@@ -170,8 +170,6 @@ describe('AgentThread LLM request mapping (end-to-end)', () => {
       tracing: NOOP_AGENT_TRACING,
       logger: makeSilentLogger(),
       definition: {
-        modelClient,
-        modelName: TEST_MODEL_NAME,
         instruction: 'test',
         toolSets: [],
         responseFormat: ResponseFormatSchema.parse({
@@ -179,6 +177,10 @@ describe('AgentThread LLM request mapping (end-to-end)', () => {
           vendor_ext: 42,
           json_schema: { name: 'out', nested_ext: 'keep' },
         }),
+      },
+      model: {
+        client: modelClient,
+        name: TEST_MODEL_NAME,
       },
       // Prior-turn assistant in context — must be replayed with gateway semantics.
       context: [{ role: 'user', content: 'prev' }, assistant],

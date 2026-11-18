@@ -7,6 +7,7 @@
 export { ModelParamsSchema, ModelSchema } from './llm/model';
 export type { Model, ModelParams } from './llm/model';
 export type { AgentDefinition } from './runtime/AgentDefinition';
+export type { AgentModel } from './runtime/AgentModel';
 export { AgentThread } from './runtime/AgentThread';
 export type {
   AgentInfo,

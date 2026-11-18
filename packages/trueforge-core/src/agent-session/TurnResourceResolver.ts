@@ -14,7 +14,7 @@ import {
   DEFAULT_REQUIRE_APPROVAL_FOR_TOOLS,
 } from '../core/mcp/toolSelectors';
 import { ToolSet } from '../core/mcp/ToolSet';
-import type { AgentDefinition } from '../core/runtime/AgentDefinition';
+import type { AgentModel } from '../core/runtime/AgentModel';
 import type { AgentInfo } from '../core/runtime/AgentThread.types';
 import type { HarnessSandbox, SandboxInfo } from '../core/sandbox/Sandbox';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
@@ -73,7 +73,7 @@ function toSelectors(entry: {
 interface ResolvedModel {
   modelClient: ILLM;
   defaultModelParams: ModelParams;
-  modelProperties?: AgentDefinition['modelProperties'];
+  modelProperties?: AgentModel['properties'];
   /** Explicit `undefined` when the host has no provider label for the model call series. */
   providerType: VercelAIProviderName | undefined;
 }
@@ -253,25 +253,27 @@ export class TurnResourceResolver<
       ...(agentInfo === undefined ? (this.deps.rootCapabilities?.() ?? []) : []),
     ];
     // Sub-agents may request a different catalog model via agent_info.model;
-    // resolve that name so modelClient matches the override (not just a label).
+    // resolve that name so the model's client matches the override (not just a label).
     const modelName = agentInfo?.model ?? spec.model.name;
     const resolvedModel = await this.getModel(modelName);
     return {
-      definition: {
-        modelClient: resolvedModel.modelClient,
-        modelName,
+      model: {
+        client: resolvedModel.modelClient,
+        name: modelName,
         ...(resolvedModel.providerType !== undefined ? { providerType: resolvedModel.providerType } : {}),
-        modelProperties: resolvedModel.modelProperties,
+        properties: resolvedModel.modelProperties,
+        params: {
+          ...resolvedModel.defaultModelParams,
+          ...spec.model.params,
+        },
+      },
+      definition: {
         // Sub-agents receive the delegated task as a user message; their system
         // prompt is SUB_AGENT_IDENTITY (added by AgentThread), not user instructions.
         instruction: agentInfo ? undefined : spec.instructions,
         messages: agentInfo
           ? [{ role: 'user' as const, content: agentInfo.input }]
           : spec.messages?.map(m => ({ role: 'user' as const, content: m.content })),
-        modelParams: {
-          ...resolvedModel.defaultModelParams,
-          ...spec.model.params,
-        },
         // Sub-agents should return free-form summaries to the parent, not the user-facing structured response.
         responseFormat: agentInfo ? undefined : spec.response_format,
         iterationLimit: spec.config.iteration_limit,
