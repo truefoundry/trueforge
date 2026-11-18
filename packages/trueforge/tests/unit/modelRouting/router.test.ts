@@ -1,5 +1,6 @@
 import type { Decision, IDecisionModel } from '@truefoundry/trueforge-core/core';
 import { createLogger } from 'winston';
+import type { RoutingClusters } from '../../../src/modelRouting/clusters';
 import { DEFAULT_ROUTING_QUESTION } from '../../../src/modelRouting/question';
 import { createModelRouter } from '../../../src/modelRouting/router';
 import type { RoutingCandidate } from '../../../src/modelRouting/types';
@@ -11,6 +12,15 @@ const candidates: RoutingCandidate[] = [
   { model: 'other/claude-sonnet-5-5', canonicalModel: 'anthropic/claude-sonnet-5-5', price: 4 },
   { model: 'acct/claude-sonnet-5-5', canonicalModel: 'anthropic/claude-sonnet-5-5', price: 4 },
 ];
+
+const clusters: RoutingClusters = {
+  direct: { medium: ['anthropic/claude-haiku-5-5'] },
+  fixed_steps: {
+    medium: ['openai/gpt-6-luna', 'anthropic/claude-sonnet-5-5'],
+    high: ['anthropic/claude-haiku-5-5'],
+  },
+  adaptive: { medium: ['openai/gpt-6-1-sol'] },
+};
 
 function classifiesAs(category: string): IDecisionModel {
   const decision: Decision = {
@@ -37,11 +47,12 @@ function classifiesAs(category: string): IDecisionModel {
 
 function route(
   decision: IDecisionModel,
-  listCandidates: () => Promise<RoutingCandidate[]> = () => Promise.resolve(candidates),
+  options: { effort?: string; listCandidates?: () => Promise<RoutingCandidate[]> } = {},
 ) {
   const routeModel = createModelRouter({
     question: DEFAULT_ROUTING_QUESTION,
-    listCandidates,
+    clusters,
+    listCandidates: options.listCandidates ?? (() => Promise.resolve(candidates)),
     decision,
     timeoutMs: 1_000,
     logger,
@@ -49,24 +60,41 @@ function route(
   return routeModel({
     threadId: 'child',
     fallbackModel: 'acct/claude-opus-5-5',
+    effort: options.effort,
     task: { name: 'research', instructions: 'Compare pricing of three CI tools.' },
     signal: new AbortController().signal,
   });
 }
 
 describe('createModelRouter', () => {
-  it("runs the category's model, on the parent model's account when it has one", async () => {
+  it("runs the first model in the cluster the caller has, on the parent model's account", async () => {
+    await expect(route(classifiesAs('fixed_steps'), { effort: 'medium' })).resolves.toEqual({
+      model: 'acct/claude-sonnet-5-5',
+    });
+  });
+
+  it("uses the cluster for the parent's effort", async () => {
+    await expect(route(classifiesAs('fixed_steps'), { effort: 'high' })).resolves.toEqual({
+      model: 'acct/claude-haiku-5-5',
+    });
+  });
+
+  it('uses the medium cluster when the spec sets no effort', async () => {
     await expect(route(classifiesAs('fixed_steps'))).resolves.toEqual({ model: 'acct/claude-sonnet-5-5' });
   });
 
-  it("keeps the fallback model when the caller doesn't have the category's model", async () => {
-    await expect(route(classifiesAs('adaptive'))).resolves.toEqual({});
+  it("keeps the fallback model when there's no cluster for the parent's effort", async () => {
+    await expect(route(classifiesAs('direct'), { effort: 'low' })).resolves.toEqual({});
+  });
+
+  it("keeps the fallback model when the caller has none of the cluster's models", async () => {
+    await expect(route(classifiesAs('adaptive'), { effort: 'medium' })).resolves.toEqual({});
   });
 
   it('keeps the fallback model when listing candidates outlasts the timeout', async () => {
     jest.useFakeTimers();
     try {
-      const pending = route(classifiesAs('direct'), () => new Promise(() => undefined));
+      const pending = route(classifiesAs('direct'), { listCandidates: () => new Promise(() => undefined) });
       await jest.advanceTimersByTimeAsync(1_000);
       await expect(pending).resolves.toEqual({});
     } finally {

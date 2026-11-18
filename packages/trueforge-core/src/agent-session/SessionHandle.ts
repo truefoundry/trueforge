@@ -605,6 +605,7 @@ export class SessionHandle<
         const routed = await input.resolver.routeModel({
           threadId: params.threadId,
           fallbackModel: params.parentDefinition.modelName,
+          effort: input.spec.model.params?.reasoning_effort,
           task: { name: request.name, instructions: request.input },
           signal: params.signal,
         });

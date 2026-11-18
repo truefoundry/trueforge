@@ -19,6 +19,8 @@ export interface RouteModelInput {
   threadId: string;
   /** Model the subagent runs on when routing doesn't pick one (`provider/model`): the parent's model. */
   fallbackModel: string;
+  /** Reasoning effort the subagent inherits from the spec. Undefined when the spec sets none. */
+  effort?: string | undefined;
   task: {
     name?: string | undefined;
     instructions: string;

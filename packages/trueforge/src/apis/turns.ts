@@ -92,6 +92,7 @@ import { currentLogContext, runWithLogContext, updateLogContext } from '../logge
 import { TRUEFORGE_SESSION_HEADER, X_TFG_TRUEFORGE_MCP } from '../mcp/server/trueforge/headers';
 import type { TenantMemoryDeps } from '../memory/providers';
 import { resolveSessionMemory } from '../memory/sessionMemory';
+import { ROUTING_CLUSTERS } from '../modelRouting/clusters';
 import { createModelRouter } from '../modelRouting/router';
 import {
   createAndExecuteTurnRoute,
@@ -398,6 +399,7 @@ function subagentModelRouter(input: {
   };
   return createModelRouter({
     question: { instructions: routing.instructions, categories: routing.categories },
+    clusters: ROUTING_CLUSTERS,
     listCandidates: () => modelProviderStore.listRoutingCandidates?.({ tenant_id }) ?? Promise.resolve([]),
     decision: { create: async (body, options) => (await resolveDecisionModel()).create(body, options) },
     timeoutMs: routing.timeout_ms,
