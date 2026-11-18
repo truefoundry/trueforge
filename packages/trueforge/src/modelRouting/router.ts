@@ -100,23 +100,29 @@ export function createModelRouter(input: {
       }
       // Prefer the parent model's account, so the subagent stays on the same provider when it can.
       const parentAccount = `${route.fallbackModel.split('/', 1)[0] ?? ''}/`;
-      for (const [index, canonicalModel] of cluster.entries()) {
+      const available = cluster.flatMap((canonicalModel, index) => {
         const matches = callerModels.filter(model => model.canonicalModel === canonicalModel);
-        const picked = matches.find(model => model.model.startsWith(parentAccount)) ?? matches[0];
-        if (picked !== undefined) {
-          log({
-            reason: 'picked',
-            ...classified,
-            canonical_model: canonicalModel,
-            cluster_index: index,
-            chosen_model: picked.model,
-            picked_price: picked.price,
-            fallback_price: callerModels.find(model => model.model === route.fallbackModel)?.price,
-          });
-          return { model: picked.model };
-        }
+        const model = matches.find(match => match.model.startsWith(parentAccount)) ?? matches[0];
+        return model === undefined ? [] : [{ canonicalModel, index, model }];
+      });
+      // Cheapest first; unpriced models go last, and the cluster's order breaks ties.
+      const [picked] = available.sort(
+        (a, b) => (a.model.price ?? Number.MAX_VALUE) - (b.model.price ?? Number.MAX_VALUE),
+      );
+      if (picked === undefined) {
+        return fallback('model_unavailable', classified);
       }
-      return fallback('model_unavailable', classified);
+      log({
+        reason: 'picked',
+        ...classified,
+        canonical_model: picked.canonicalModel,
+        cluster_index: picked.index,
+        available_in_cluster: available.length,
+        chosen_model: picked.model.model,
+        picked_price: picked.model.price,
+        fallback_price: callerModels.find(model => model.model === route.fallbackModel)?.price,
+      });
+      return { model: picked.model.model };
     };
 
     // The budget covers the whole step, including candidate listing and gateway lookups, not just the decision call.

@@ -2,11 +2,12 @@ import type { RoutingCategory } from './question';
 
 export type ClusterEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
-/** Category -> the parent's effort -> canonical model ids, cheapest per task first. */
+/** Category -> the parent's effort -> canonical ids of the models good enough for that work. */
 export type RoutingClusters = Record<RoutingCategory, Partial<Record<ClusterEffort, readonly string[]>>>;
 
 /**
- * The router picks the first model the tenant has. No entry for an effort means the subagent keeps the parent's model.
+ * The router picks the cheapest of these the tenant has, by its gateway price per token. No entry for an effort means
+ * the subagent keeps the parent's model.
  * Nearest anchor by AA Intelligence Index v5.0.1 (Haiku 24.6, Sonnet 30.8, GPT-6.1 Sol 46.3 at medium); min 18/26/41.
  */
 export const ROUTING_CLUSTERS: RoutingClusters = {
@@ -17,7 +18,7 @@ export const ROUTING_CLUSTERS: RoutingClusters = {
     xhigh: ['openai/gpt-6-luna', 'alibaba/qwen3-8-27b'],
   },
   fixed_steps: {
-    low: ['openai/gpt-6-1-sol', 'xai/grok-4-7'],
+    low: ['openai/gpt-6-1-sol'],
     medium: ['anthropic/claude-sonnet-5-5', 'google/gemini-3-8-flash'],
     high: ['anthropic/claude-haiku-5-5', 'deepseek/deepseek-v4-1-flash', 'xai/grok-4-7', 'google/gemini-3-8-flash'],
     xhigh: ['anthropic/claude-haiku-5-5', 'xai/grok-4-6', 'xai/grok-4-7'],

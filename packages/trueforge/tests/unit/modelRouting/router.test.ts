@@ -11,6 +11,7 @@ const candidates: RoutingCandidate[] = [
   { model: 'acct/claude-haiku-5-5', canonicalModel: 'anthropic/claude-haiku-5-5', price: 0.2 },
   { model: 'other/claude-sonnet-5-5', canonicalModel: 'anthropic/claude-sonnet-5-5', price: 4 },
   { model: 'acct/claude-sonnet-5-5', canonicalModel: 'anthropic/claude-sonnet-5-5', price: 4 },
+  { model: 'acct/gpt-6-luna', canonicalModel: 'openai/gpt-6-luna' },
 ];
 
 const clusters: RoutingClusters = {
@@ -19,7 +20,10 @@ const clusters: RoutingClusters = {
     medium: ['openai/gpt-6-luna', 'anthropic/claude-sonnet-5-5'],
     high: ['anthropic/claude-haiku-5-5'],
   },
-  adaptive: { medium: ['openai/gpt-6-1-sol'] },
+  adaptive: {
+    medium: ['openai/gpt-6-1-sol'],
+    high: ['anthropic/claude-sonnet-5-5', 'anthropic/claude-haiku-5-5'],
+  },
 };
 
 function classifiesAs(category: string): IDecisionModel {
@@ -67,7 +71,13 @@ function route(
 }
 
 describe('createModelRouter', () => {
-  it("runs the first model in the cluster the caller has, on the parent model's account", async () => {
+  it('runs the cheapest model in the cluster the caller has', async () => {
+    await expect(route(classifiesAs('adaptive'), { effort: 'high' })).resolves.toEqual({
+      model: 'acct/claude-haiku-5-5',
+    });
+  });
+
+  it("puts unpriced models last and prefers the parent model's account", async () => {
     await expect(route(classifiesAs('fixed_steps'), { effort: 'medium' })).resolves.toEqual({
       model: 'acct/claude-sonnet-5-5',
     });

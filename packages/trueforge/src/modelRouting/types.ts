@@ -8,6 +8,6 @@ export interface RoutingCandidate {
   model: string;
   /** Provider-neutral model id (e.g. `anthropic/claude-haiku-5-5`); the routing key. */
   canonicalModel?: string | undefined;
-  /** Blended USD per million tokens: 0.75 × input + 0.25 × output. Logged only. */
+  /** Blended USD per million tokens from the gateway: 0.75 × input + 0.25 × output. */
   price?: number | undefined;
 }
