@@ -21,7 +21,7 @@ import {
   readParallelToolGroups,
 } from '../utils/parallelToolGroups.js';
 import { loaderActivityKey, loaderActivityProgress, resolveLoaderLabel } from '../utils/resolveActivityLabel.js';
-import { ASK_USER_TOOL_NAME, getAskUserAnswerResult } from '../utils/toolCallParsing.js';
+import { ASK_USER_TOOL_NAME } from '../utils/toolCallParsing.js';
 import { AgentStepsContainer } from './AgentStepsContainer.js';
 import { AssistantLeafPartContainer } from './AssistantLeafPartContainer.js';
 import { AssistantTextContainer } from './AssistantTextContainer.js';
@@ -88,7 +88,7 @@ export function AssistantMessageContainer() {
     type: p.type,
     text: p.type === 'text' ? p.text : undefined,
     name: p.type === 'data' ? p.name : undefined,
-    hidden: isAnsweredAskUser(p),
+    hidden: isAskUserTool(p),
   }));
   const { cutIndex, hasFinal } = computeAgentStepsSplit(stepParts, isMessageRunning);
 
@@ -112,8 +112,9 @@ export function AssistantMessageContainer() {
     }
 
     if (index < cutIndex) {
-      // Answered user questions stay visible: render them outside the collapsible Agent steps.
-      if (isAnsweredAskUser(part)) return null;
+      // Ask-user stays outside Agent steps. Answered cards stay visible; a pending
+      // question is owned by the composer and must not count as an empty tool call.
+      if (isAskUserTool(part)) return null;
       if (part.type === 'reasoning') {
         return ['group-agentSteps', 'group-reasoning'];
       }
@@ -186,8 +187,6 @@ export function AssistantMessageContainer() {
   );
 }
 
-function isAnsweredAskUser(part: PartState): boolean {
-  return (
-    part.type === 'tool-call' && part.toolName === ASK_USER_TOOL_NAME && getAskUserAnswerResult(part.result) != null
-  );
+function isAskUserTool(part: PartState): boolean {
+  return part.type === 'tool-call' && part.toolName === ASK_USER_TOOL_NAME;
 }

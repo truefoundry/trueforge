@@ -63,6 +63,20 @@ describe('computeAgentStepsSplit', () => {
     expect(result.cutIndex).toBe(1);
   });
 
+  it('streams a short reply after an answered question when earlier tools exist', () => {
+    const parts = [tool(), { ...tool(), hidden: true }, text('hi')];
+    const result = computeAgentStepsSplit(parts, true);
+    expect(result.hasFinal).toBe(true);
+    expect(result.cutIndex).toBe(2);
+  });
+
+  it('holds back a short reply when a later tool shares its group', () => {
+    const parts = [tool(), { ...tool(), hidden: true }, tool(), text('hi')];
+    const result = computeAgentStepsSplit(parts, true);
+    expect(result.hasFinal).toBe(false);
+    expect(result.cutIndex).toBe(parts.length);
+  });
+
   it('excludes hidden parts from counts', () => {
     expect(countAgentSteps([tool(), { ...tool(), hidden: true }, reasoning()])).toEqual({
       toolCount: 1,

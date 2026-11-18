@@ -9,6 +9,16 @@ export type AgentStepPart = {
   hidden?: boolean;
 };
 
+/** Steps after the last hidden part and before the trailing reply share its accordion. */
+function hasContiguousAgentSteps(parts: readonly AgentStepPart[], cutIdx: number): boolean {
+  for (let i = cutIdx - 1; i >= 0; i--) {
+    const part = parts[i];
+    if (!part || part.hidden) return false;
+    if (isAgentStepPart(part)) return true;
+  }
+  return false;
+}
+
 function isAgentStepPart(part: AgentStepPart): boolean {
   if (part.hidden) return false;
   return (
@@ -63,11 +73,11 @@ export function computeAgentStepsSplit(parts: readonly AgentStepPart[], isRunnin
 
   const trailingChars = finalTexts.reduce((sum, t) => sum + t.content.length, 0);
 
-  // Only apply the 500-char holdback when there are actual agent steps (tool calls,
-  // reasoning, or context compaction) before the text. For pure-text responses the
-  // text is always the final answer and must stream directly, not be hidden inside
-  // the "Agent steps" accordion.
-  const hasAgentStepsBeforeCut = parts.slice(0, cutIdx).some(isAgentStepPart);
+  // Hold the reply inside Agent steps only while a tool, reasoning block, or
+  // compaction still shares that accordion. A hidden part (an answered question)
+  // renders outside the accordion and splits the group, so earlier steps must not
+  // park a later short reply in a second accordion that has no steps of its own.
+  const hasAgentStepsBeforeCut = hasContiguousAgentSteps(parts, cutIdx);
 
   const finalConfirmed = finalTexts.length > 0 && (!isRunning || trailingChars >= 500 || !hasAgentStepsBeforeCut);
 
