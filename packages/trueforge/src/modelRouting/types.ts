@@ -10,6 +10,4 @@ export interface RoutingCandidate {
   canonicalModel?: string | undefined;
   /** Blended USD per million tokens: 0.75 × input + 0.25 × output. Logged only. */
   price?: number | undefined;
-  /** Logged only. */
-  imageInput?: boolean | undefined;
 }

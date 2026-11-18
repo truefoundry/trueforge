@@ -8,7 +8,6 @@ import type { ModelProperties, ReasoningEffort } from '../schemas/modelProvider'
 const ModelParamSchema = z.object({
   key: z.string(),
   supportedValues: z.array(z.string()).optional(),
-  defaultValue: z.unknown().optional(),
 });
 
 const TokenCostSchema = z.object({
@@ -31,10 +30,6 @@ const MetadataSchema = z.object({
   public_cost: TokenCostSchema.optional().catch(undefined),
   costs: z
     .array(TokenCostSchema.extend({ region: z.string().nullish() }))
-    .optional()
-    .catch(undefined),
-  modalities: z
-    .object({ input: z.array(z.string()).optional() })
     .optional()
     .catch(undefined),
 });
@@ -99,7 +94,6 @@ function toRoutingMetadata(metadata: IntegrationMetadata | undefined): TrueFound
   return {
     canonicalModel: metadata?.canonical_model ?? undefined,
     price: toBlendedPrice(metadata),
-    imageInput: metadata?.modalities?.input?.includes('image'),
   };
 }
 
