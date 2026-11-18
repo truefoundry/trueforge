@@ -85,23 +85,23 @@ describe('createModelRouter', () => {
     await expect(route(classifiesAs('fixed_steps'))).resolves.toEqual({ model: 'b/claude-haiku-5-5', effort: 'high' });
   });
 
-  it('keeps the fallback model for an unknown category', async () => {
+  it('picks nothing for an unknown category', async () => {
     await expect(route(classifiesAs('unknown'))).resolves.toBeUndefined();
   });
 
-  it('keeps the fallback model when the decision has no category', async () => {
+  it('picks nothing when the decision has no category', async () => {
     await expect(route(classifiesAs())).resolves.toBeUndefined();
   });
 
-  it("keeps the fallback model when the user has none of the cluster's models", async () => {
+  it("picks nothing when the user has none of the cluster's models", async () => {
     await expect(route(classifiesAs('adaptive'), () => Promise.resolve(haikuOnly))).resolves.toBeUndefined();
   });
 
-  it('keeps the fallback model when the classifier fails', async () => {
+  it('picks nothing when the classifier fails', async () => {
     await expect(route({ create: () => Promise.reject(new Error('HTTP 403')) })).resolves.toBeUndefined();
   });
 
-  it('keeps the fallback model when the step outlasts the timeout', async () => {
+  it('picks nothing when the step outlasts the timeout', async () => {
     jest.useFakeTimers();
     try {
       const pending = route(classifiesAs('direct'), () => new Promise(() => undefined));

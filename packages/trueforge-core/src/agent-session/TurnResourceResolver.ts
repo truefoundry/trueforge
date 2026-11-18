@@ -111,7 +111,7 @@ export class TurnResourceResolver<
        * `resolveAgentDefinition` without calling `super` does not mount them.
        */
       rootCapabilities?: (() => readonly AgentCapability[]) | undefined;
-      /** Inputs for routing a thread to a model; omit to keep every thread on its fallback model. */
+      /** Inputs for routing a thread to a model; omit to not route. */
       modelRouting?: TurnModelRouting | undefined;
       /** Forwarded to RemoteMCP / AgentThread (required by their constructors). */
       logger: Logger;

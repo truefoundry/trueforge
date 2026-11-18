@@ -68,7 +68,7 @@ export interface ITurnResourceResolver<TTurnCustom extends object = Record<strin
     tracing: AgentTracing;
   }): Promise<ResolvedAgentDefinition>;
   /**
-   * Inputs for routing a thread to a model before it starts. Omit to keep every thread on its fallback model.
+   * Inputs for routing a thread to a model before it starts. Omit to not route.
    */
   readonly modelRouting?: TurnModelRouting | undefined;
   /**
