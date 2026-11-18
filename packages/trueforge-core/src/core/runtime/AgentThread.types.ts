@@ -208,6 +208,8 @@ export interface AgentThreadSnapshot {
   current_context_usage: CurrentContextUsage;
   parent: AgentParent | null;
   agent_info: AgentInfo | null;
+  /** Model the thread ran on in this turn; null when not recorded. A rebuilt subagent runs on it; the root follows its spec. */
+  model: string | null;
   completion: SubAgentCompletion | null;
   pending_mcp_auth: boolean;
   /** Cross-turn capability KV. Keys: capability.state.key; `tfy.` reserved for builtins. */

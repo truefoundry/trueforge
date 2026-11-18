@@ -934,6 +934,7 @@ export class AgentThread {
       current_context_usage: this.currentContextUsage,
       parent: this.parent ?? null,
       agent_info: this.agentInfo ?? null,
+      model: this.model.name,
       completion: this.preComputedCompletion ?? null,
       pending_mcp_auth: this.pendingMCPAuth,
       capability_state,

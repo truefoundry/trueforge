@@ -583,7 +583,7 @@ export class AgentThreadOrchestrator {
             type: 'dynamic',
             name: chunk.agent_info.name,
             input: chunk.agent_info.input,
-            model: chunk.agent_info.model,
+            model: subAgentThread.model.name,
           },
           created_at: new Date().toISOString(),
           parent,

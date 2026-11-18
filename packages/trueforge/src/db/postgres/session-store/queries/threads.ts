@@ -75,6 +75,7 @@ async function addThreadsInTransaction(db: Transaction<Database>, input: AddThre
       parent: thread.parent ?? null,
       completion: thread.completion ?? null,
       pending_mcp_auth: thread.pending_mcp_auth,
+      model: thread.model,
     };
     turnThreadPlans.push({
       thread_id: thread.thread_id,

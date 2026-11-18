@@ -1,8 +1,10 @@
+import { MAIN_THREAD_ID } from '../../src/agent-session/models/TurnRecord';
 import { AgentSpecSchema } from '../../src/agent-session/schemas/agentSpec';
 import { EventType } from '../../src/agent-session/schemas/events';
 import { Sessions } from '../../src/agent-session/Sessions';
 import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
 import { TurnResourceResolver } from '../../src/agent-session/TurnResourceResolver';
+import { getEmptyCurrentContextUsage } from '../../src/core/runtime/contextUsage';
 import {
   makeAgentSpec,
   makeMockILLM,
@@ -99,6 +101,44 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
     expect(model.name).toBe('provider/model');
     expect(model.properties?.contextLength).toBe(128_000);
   });
+
+  it.each([
+    {
+      name: "runs another model on its own defaults, not the agent's params",
+      resolvedModelParams: { max_tokens: 4096 },
+      expected: { max_tokens: 4096, parallel_tool_calls: true },
+    },
+    {
+      name: "sends no max_tokens on another model whose limit isn't known",
+      resolvedModelParams: {},
+      expected: { parallel_tool_calls: true },
+    },
+  ])('$name', async ({ resolvedModelParams, expected }) => {
+    const resolver = new TurnResourceResolver({
+      llm: () =>
+        Promise.resolve({
+          modelClient: makeMockILLM(),
+          defaultModelParams: resolvedModelParams,
+          providerType: undefined,
+        }),
+      mcp: () => Promise.resolve(undefined),
+      mcpRequestTimeoutMs: 1_000,
+      mcpConnectTimeoutMs: 1_000,
+      logger: makeSilentLogger(),
+    });
+    const spec = AgentSpecSchema.parse({
+      model: { name: 'provider/model', params: { max_tokens: 8192, temperature: 0.2, reasoning_effort: 'high' } },
+    });
+
+    const { model } = await resolver.resolveAgentDefinition({
+      spec,
+      agent_info: { type: 'dynamic', name: 'worker', input: 'task', model: 'provider/other' },
+      signal: new AbortController().signal,
+      tracing: resolver.createTracing(),
+    });
+
+    expect(model.params).toEqual(expected);
+  });
 });
 
 describe('SessionHandle.createTurn named resolve', () => {
@@ -126,5 +166,63 @@ describe('SessionHandle.createTurn named resolve', () => {
 
     expect(turn.state.status).toBe('running');
     expect(agent).toHaveBeenCalledWith('agent-abc');
+  });
+});
+
+describe('SessionHandle rebuild', () => {
+  it('brings a subagent back on the model it ran on, and the root on its spec model', async () => {
+    const store = new InMemorySessionStore();
+    const sessions = new Sessions({ sessionStore: store });
+    const session = await sessions.create({
+      tenant_id: 'tenant-1',
+      session_id: 's-rebuild',
+      created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
+      agent: { type: 'inline', spec: makeAgentSpec() },
+      external_id: null,
+    });
+    const turn1 = await session.createTurn({
+      turn_id: mintTestTurnId(),
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+      input: [{ type: EventType.USER_MESSAGE, content: 'hi' }],
+      previous_turn_id: 'none',
+      abortController: new AbortController(),
+      resolver: makeTestResolver(),
+    });
+    await store.addThreads({
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+      session_id: 's-rebuild',
+      turn_id: turn1.id,
+      threads: [
+        {
+          thread_id: 'child',
+          context: [],
+          current_context_usage: getEmptyCurrentContextUsage(),
+          parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'tc1' },
+          agent_info: { type: 'dynamic', name: 'child', input: 'task', model: 'acct/requested' },
+          model: 'acct/routed',
+          completion: null,
+          pending_mcp_auth: false,
+          capability_state: null,
+        },
+      ],
+    });
+    for await (const event of turn1.stream()) {
+      void event;
+    }
+
+    const resolver = makeTestResolver();
+    const resolveAgentDefinition = jest.spyOn(resolver, 'resolveAgentDefinition');
+    await session.createTurn({
+      turn_id: mintTestTurnId(),
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+      input: [{ type: EventType.USER_MESSAGE, content: 'again' }],
+      previous_turn_id: 'auto',
+      abortController: new AbortController(),
+      resolver,
+    });
+
+    const agentInfos = resolveAgentDefinition.mock.calls.map(([input]) => input.agent_info);
+    expect(agentInfos).toContainEqual(expect.objectContaining({ name: 'child', model: 'acct/routed' }));
+    expect(agentInfos).toContainEqual(undefined);
   });
 });

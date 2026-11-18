@@ -108,11 +108,14 @@ export type TurnRecordWithoutSnapshot<TTurnCustom extends object = Record<string
 /** Thread registration; mutable per-turn data arrives through dedicated createTurn fields. */
 export type NewThreadInit = Omit<
   AgentThreadSnapshot,
-  'context' | 'current_context_usage' | 'completion' | 'pending_mcp_auth' | 'capability_state'
+  'context' | 'current_context_usage' | 'completion' | 'pending_mcp_auth' | 'capability_state' | 'model'
 >;
 
 /** Full post-send capability map for one thread. */
 export type ThreadCapabilityStateInit = Pick<AgentThreadSnapshot, 'thread_id' | 'capability_state'>;
+
+/** Model one thread runs on in this turn. */
+export type ThreadModelInit = Pick<AgentThreadSnapshot, 'thread_id' | 'model'>;
 
 /** One drained send() append batch for one thread; writer = the new turn. */
 export interface TurnContextAppend {
@@ -139,6 +142,8 @@ export interface CreateTurnInput<TTurnCustom extends object = Record<string, nev
    * Authoritative for this turn; the store does not carry capability rows forward.
    */
   capability_states: ThreadCapabilityStateInit[];
+  /** The model each turn thread runs on in this turn. A thread without an entry keeps its previous value. */
+  thread_models: ThreadModelInit[];
   /** Set only if session.title is NULL (first write wins). */
   update_session_title_if_not_exist: string | null;
 }
