@@ -62,7 +62,9 @@ permissions: {}
 jobs:
   version-release:
     name: Version packages for the release
-    runs-on: ubuntu-latest
+    runs-on:
+      group: large-runner-group
+      labels: ubuntu-24-4-core
     timeout-minutes: 30
     outputs:
       # Every downstream job checks this out; actions/checkout's default ref is
@@ -153,7 +155,9 @@ jobs:
     name: Pack packages
     if: needs.version-release.outputs.mode == 'publish'
     needs: [version-release]
-    runs-on: ubuntu-latest
+    runs-on:
+      group: large-runner-group
+      labels: ubuntu-24-4-core
     timeout-minutes: 30
     outputs:
       pack-dir-artifact-id: ${{ steps.pack.outputs.pack-dir-artifact-id }}
@@ -232,7 +236,9 @@ jobs:
     # the image path and land a version no image or chart will ever match.
     needs: [version-release, pack, windows-npx-smoke, resolve-image]
     if: ${{ inputs.dry_run != true }} # DRY-RUN (temporary)
-    runs-on: ubuntu-latest
+    runs-on:
+      group: large-runner-group
+      labels: ubuntu-24-4-core
     timeout-minutes: 20
     permissions:
       contents: write
@@ -276,7 +282,9 @@ jobs:
     # version be reused, so it must not outrun a refusal either.
     needs: [version-release, pack, windows-npx-smoke, resolve-image]
     if: ${{ inputs.dry_run != true }} # DRY-RUN (temporary)
-    runs-on: ubuntu-latest
+    runs-on:
+      group: large-runner-group
+      labels: ubuntu-24-4-core
     timeout-minutes: 20
     permissions:
       contents: read
@@ -340,7 +348,9 @@ jobs:
   resolve-image:
     name: Resolve image identity
     needs: [version-release]
-    runs-on: ubuntu-latest
+    runs-on:
+      group: large-runner-group
+      labels: ubuntu-24-4-core
     timeout-minutes: 10
     outputs:
       app_version: ${{ steps.resolve.outputs.app_version }}
@@ -529,7 +539,9 @@ jobs:
       && needs.version-release.outputs.final_minor == 'true'
       && needs.release-chart.result == 'success'
       && inputs.dry_run != true }} # DRY-RUN (temporary)
-    runs-on: ubuntu-latest
+    runs-on:
+      group: large-runner-group
+      labels: ubuntu-24-4-core
     timeout-minutes: 60
     continue-on-error: true
     permissions:
