@@ -1,5 +1,10 @@
+'use client';
+
+import { useCallback, useState, type MouseEvent } from 'react';
+
 import { Icon } from '../../icons/Icon.js';
 import type { SandboxEnvironmentStatus } from '../../server/types.js';
+import { auiButtonClass } from '../lib/buttonClasses.js';
 import { Badge, type BadgeVariant } from '../primitives/Badge.js';
 import { Tooltip } from '../primitives/Tooltip.js';
 
@@ -11,6 +16,40 @@ const STATUS_CONFIG: Record<
   ready: { label: 'Ready', variant: 'success', icon: 'check' },
   failed: { label: 'Failed', variant: 'destructive', icon: 'triangle-exclamation' },
 };
+
+function FailedStatusReason({ reason }: { reason: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(
+    (event: MouseEvent<HTMLButtonElement>) => {
+      // Row click opens the environment form; keep copy from triggering that.
+      event.stopPropagation();
+      void navigator.clipboard.writeText(reason).then(
+        () => {
+          setCopied(true);
+          window.setTimeout(() => setCopied(false), 1500);
+        },
+        () => undefined,
+      );
+    },
+    [reason],
+  );
+
+  return (
+    <span className="flex max-w-md items-start gap-2">
+      <span className="min-w-0 flex-1 text-left break-words whitespace-pre-wrap">{reason}</span>
+      <button
+        type="button"
+        aria-label={copied ? 'Copied' : 'Copy failure message'}
+        title={copied ? 'Copied' : 'Copy'}
+        className={auiButtonClass({ variant: 'ghost', size: 'icon', className: 'size-6 shrink-0' })}
+        onClick={handleCopy}
+      >
+        <Icon name={copied ? 'check' : 'copy'} size="0.875rem" />
+      </button>
+    </span>
+  );
+}
 
 export function EnvironmentStatusBadge({
   status,
@@ -31,7 +70,15 @@ export function EnvironmentStatusBadge({
   );
 
   if (status === 'failed' && statusReason != null && statusReason.length > 0) {
-    return <Tooltip content={statusReason}>{badge}</Tooltip>;
+    return (
+      <Tooltip
+        content={<FailedStatusReason reason={statusReason} />}
+        className="max-w-md whitespace-normal"
+        dismissOnClick={false}
+      >
+        {badge}
+      </Tooltip>
+    );
   }
   return badge;
 }

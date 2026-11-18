@@ -448,7 +448,8 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
                           {env.enabled ? 'Enabled' : 'Disabled'}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      {/* Status tooltip can include a copy control; don't open edit on that click. */}
+                      <TableCell onClick={event => event.stopPropagation()}>
                         <EnvironmentStatusBadge status={env.status} statusReason={env.statusReason} />
                       </TableCell>
                       <TableCell className="text-sm text-text-secondary">

@@ -25,6 +25,7 @@ import { EmptyScreen } from '../EmptyScreen.js';
 import { cn } from '../lib/cn.js';
 import { sessionIsCreateAgent } from '../lib/sessionCreateAgent.js';
 import {
+  mergePolledSessionRow,
   mergeSessionListFirstPage,
   SESSION_LIST_FIRST_PAGE_LIMIT,
   sessionListPollIntervalMs,
@@ -180,14 +181,7 @@ export function AgentSessions({
           mergeSessionListFirstPage({
             current,
             firstPage: page.data,
-            mergeItem: (prev, next) => {
-              const prevDetails = prev.lastTurnDetails;
-              const nextDetails = next.lastTurnDetails;
-              if (prevDetails?.id === nextDetails?.id && prevDetails?.state.status === nextDetails?.state.status) {
-                return prev;
-              }
-              return { ...prev, lastTurnDetails: nextDetails };
-            },
+            mergeItem: mergePolledSessionRow,
           }),
         );
       } catch {
