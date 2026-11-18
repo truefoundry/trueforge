@@ -178,7 +178,8 @@ describe('SessionsPage', () => {
     expect(await screen.findByText('Named session')).toBeInTheDocument();
     expect(listSessions).toHaveBeenCalledWith(expect.objectContaining({ createdByMe: true }));
 
-    fireEvent.click(screen.getByRole('button', { name: 'All sessions' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show sessions' }));
+    fireEvent.click(screen.getByRole('option', { name: 'All sessions' }));
     await waitFor(() => {
       expect(listSessions).toHaveBeenLastCalledWith(expect.not.objectContaining({ createdByMe: true }));
     });

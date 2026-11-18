@@ -150,9 +150,11 @@ describe('AgentSessionsFilters', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'My sessions' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show sessions' }));
+    fireEvent.click(screen.getByRole('option', { name: 'My sessions' }));
     expect(onCreatedByMeChange).toHaveBeenCalledWith(true);
-    fireEvent.click(screen.getByRole('button', { name: 'All sessions' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show sessions' }));
+    fireEvent.click(screen.getByRole('option', { name: 'All sessions' }));
     expect(onCreatedByMeChange).toHaveBeenLastCalledWith(false);
   });
 
@@ -168,8 +170,9 @@ describe('AgentSessionsFilters', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: 'My sessions' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: 'All sessions' })).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(screen.getByRole('button', { name: 'Show sessions' }));
+    expect(screen.getByRole('option', { name: 'My sessions' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('option', { name: 'All sessions' })).toHaveAttribute('aria-selected', 'false');
   });
 
   it('hides the creator filter when the page does not handle it', () => {
@@ -183,6 +186,6 @@ describe('AgentSessionsFilters', () => {
       />,
     );
 
-    expect(screen.queryByRole('button', { name: 'My sessions' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Show sessions' })).not.toBeInTheDocument();
   });
 });
