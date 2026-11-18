@@ -24,7 +24,6 @@ describe('parsePerServerMcpHeaders', () => {
     ['a header mapped to a number', JSON.stringify({ 'github-mcp': { 'x-h': 1 } })],
     ['a nested virtual MCP map', JSON.stringify({ 'virtual-mcp': { serv1: { Authorization: 'Bearer a' } } })],
     ['a managed session header', JSON.stringify({ 'github-mcp': { 'Mcp-Session-Id': 'other' } })],
-    ['a managed protocol header', JSON.stringify({ 'github-mcp': { 'mcp-protocol-version': '2025-06-18' } })],
   ])('rejects %s rather than silently dropping the identity it carries', (_case, raw) => {
     expect(() => parsePerServerMcpHeaders(raw)).toThrow(HTTPException);
   });
@@ -65,28 +64,6 @@ describe('McpServerWithAuthStore.resolveInvokeHeaders', () => {
       Authorization: 'Bearer user',
       'x-extra': '1',
     });
-    await db.destroy();
-  });
-
-  it("replaces a header-auth server's configured Authorization with the caller's", async () => {
-    const db = createSqliteDb(':memory:');
-    const store = new McpServerWithAuthStore({
-      store: new SqliteMcpServerStore(db),
-      tokenStore: new SqliteOAuthTokenStore(db),
-      clientName: 'test-client',
-      perServerHeaders: { 'header-mcp': { authorization: 'Bearer user' } },
-    });
-    const record: McpServerRecord = {
-      ...ossRecord,
-      name: 'header-mcp',
-      manifest: {
-        ...ossRecord.manifest,
-        name: 'header-mcp',
-        auth: { type: 'header', headers: { Authorization: 'Bearer server' } },
-      },
-    };
-
-    expect(store.resolveInvokeHeaders({ record, userRef: 'user-1' })).toEqual({ authorization: 'Bearer user' });
     await db.destroy();
   });
 

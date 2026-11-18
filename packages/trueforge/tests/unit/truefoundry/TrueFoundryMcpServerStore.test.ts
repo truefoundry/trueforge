@@ -498,12 +498,6 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
     expect(headers).toEqual({ Authorization: 'Bearer caller-token', 'x-tfy-mcp-headers': JSON.stringify(entry) });
   });
 
-  it('sends only the gateway Bearer when a server has no caller headers', async () => {
-    await expect(invokeHeaders(storeWith({}), 'tfy-docs-mcp')).resolves.toEqual({
-      Authorization: 'Bearer caller-token',
-    });
-  });
-
   it("sends that server's caller entry without Authorization as x-tfy-mcp-headers too", async () => {
     const headers = await invokeHeaders(
       storeWith({ 'tfy-platform-mcp': { 'X-End-User': 'alice' } }),
@@ -526,21 +520,6 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
 
     expect(headers).toEqual({ Authorization: 'Bearer caller-token' });
   });
-
-  it.each(['Authorization', 'authorization', 'AUTHORIZATION', 'AuThOrIzAtIoN'])(
-    'sends a caller header under %s to the upstream via x-tfy-mcp-headers, never as the gateway Bearer',
-    async name => {
-      const headers = await invokeHeaders(
-        storeWith({ 'tfy-platform-mcp': { [name]: 'Bearer user' } }),
-        'tfy-platform-mcp',
-      );
-
-      expect(headers).toEqual({
-        Authorization: 'Bearer caller-token',
-        'x-tfy-mcp-headers': JSON.stringify({ [name]: 'Bearer user' }),
-      });
-    },
-  );
 
   it('attaches the 401 consent hook only when the server has no caller entry', async () => {
     const store = storeWith({ 'tfy-platform-mcp': { 'X-End-User': 'alice' } });

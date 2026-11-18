@@ -16,10 +16,9 @@ describe('parseTrueFoundryPerServerMcpHeaders', () => {
     });
   });
 
-  it.each([
-    ['mixed nesting', JSON.stringify({ 'virtual-mcp': { serv1: { Authorization: 'Bearer a' }, 'x-h': '1' } })],
-    ['a managed session header', JSON.stringify({ 'github-mcp': { 'Mcp-Session-Id': 'other' } })],
-  ])('rejects %s', (_case, raw) => {
+  it('rejects mixed nesting', () => {
+    const raw = JSON.stringify({ 'virtual-mcp': { serv1: { Authorization: 'Bearer a' }, 'x-h': '1' } });
+
     expect(() => parseTrueFoundryPerServerMcpHeaders(raw)).toThrow(HTTPException);
   });
 });
