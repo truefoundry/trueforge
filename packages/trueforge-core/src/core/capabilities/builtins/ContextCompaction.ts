@@ -1,7 +1,7 @@
 import { EventType, newEventId, type CompactionTrigger } from '../../events/schema';
 import type { ILLM, LLMCreateParams } from '../../llm/ILLM';
 import { getOperationMetrics } from '../../observability/operationMetrics';
-import type { AgentDefinition } from '../../runtime/AgentDefinition';
+import type { AgentModel } from '../../runtime/AgentModel';
 import type { ContextMessage } from '../../runtime/AgentThread.types';
 import { internalSystemMessage, isInternalSystemMessage, isLLMContextMessage } from '../../runtime/contextUtils';
 import type { AgentCapability } from '../AgentCapability';
@@ -17,7 +17,7 @@ export const DEFAULT_CONTEXT_COMPACTION_RATIO = 0.8;
 export function resolveCompactionThresholdTokens(input: {
   configuredThresholdTokens: number | undefined;
   modelContextLength: number | undefined;
-  modelParams: AgentDefinition['modelParams'];
+  modelParams: AgentModel['params'];
 }): number {
   if (input.configuredThresholdTokens !== undefined) {
     return input.configuredThresholdTokens;
@@ -264,19 +264,19 @@ export interface ContextCompactionSettings {
 }
 
 export function contextCompaction(options: {
-  definition: AgentDefinition;
+  model: AgentModel;
   settings?: ContextCompactionSettings | undefined;
   compactionThresholdTokens?: number | undefined;
 }): AgentCapability {
   const threshold = resolveCompactionThresholdTokens({
     configuredThresholdTokens: options.compactionThresholdTokens ?? options.settings?.compactionThresholdTokens,
-    modelContextLength: options.definition.modelProperties?.contextLength,
-    modelParams: options.definition.modelParams,
+    modelContextLength: options.model.properties?.contextLength,
+    modelParams: options.model.params,
   });
   return {
     preLLMProcessors: [
       new ContextCompaction({
-        modelClient: options.definition.modelClient,
+        modelClient: options.model.client,
         compactionThresholdTokens: threshold,
       }),
     ],

@@ -32,6 +32,7 @@ import type { InternalEnrichedAssistantMessage, LLMToolMessage, LLMUserMessage }
 import type { HarnessSandbox } from '../sandbox/Sandbox';
 import type { AgentTracing } from '../tracing/AgentTracing';
 import type { AgentDefinition } from './AgentDefinition';
+import type { AgentModel } from './AgentModel';
 import type { CurrentContextUsage } from './contextUsage';
 
 export type { AgentInfo, AgentParent };
@@ -215,6 +216,7 @@ export interface AgentThreadSnapshot {
 
 export interface AgentThreadConstructorInput {
   definition: AgentDefinition;
+  model: AgentModel;
   threadId: string;
   title: string;
   parent?: AgentParent | undefined;

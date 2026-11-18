@@ -561,12 +561,12 @@ export class SessionHandle<
     tracing: AgentTracing;
     resolvedDefinition: ResolvedAgentDefinition;
   }): AgentThread {
-    const { definition, extraCapabilities } = input.resolvedDefinition;
+    const { definition, model, extraCapabilities } = input.resolvedDefinition;
     const isChild = Boolean(input.previousThreadSnapshot?.parent);
     const capabilities = [
       ...builtinsFromSpec({
         spec: input.spec,
-        definition,
+        model,
         isChild,
         sandboxAvailable: Boolean(input.sandbox),
         tracing: input.tracing,
@@ -577,6 +577,7 @@ export class SessionHandle<
     ];
     return new AgentThread({
       definition,
+      model,
       threadId: input.threadId,
       title: input.previousThreadSnapshot?.agent_info?.name ?? (isChild ? input.threadId : 'main'),
       sandbox: input.sandbox,
@@ -608,23 +609,21 @@ export class SessionHandle<
       const routed = await routeModel?.({ threadId: params.threadId, input: task });
       const request = routed === undefined ? params.request : { ...params.request, model: routed.model };
 
-      const resolved = await input.resolver.resolveAgentDefinition({
+      const { definition, model: resolvedModel, extraCapabilities } = await input.resolver.resolveAgentDefinition({
         spec: input.spec,
         agent_info: request,
         previousTurn: input.previous,
         signal: params.signal,
         tracing: input.tracing,
       });
-      // Model override (request.model) is resolved inside resolveAgentDefinition
-      // into modelClient — do not re-label a stale client here.
-      const modelParams =
+      // Model override (request.model) is resolved inside resolveAgentDefinition into `model`.
+      const model =
         routed === undefined
-          ? resolved.definition.modelParams
-          : { ...resolved.definition.modelParams, reasoning_effort: routed.effort };
-      const definition: AgentDefinition = {
-        ...resolved.definition,
-        modelParams,
-        toolSets: params.parentDefinition.toolSets ?? resolved.definition.toolSets,
+          ? resolvedModel
+          : { ...resolvedModel, params: { ...resolvedModel.params, reasoning_effort: routed.effort } };
+      const childDefinition: AgentDefinition = {
+        ...definition,
+        toolSets: params.parentDefinition.toolSets ?? definition.toolSets,
         // The delegated task goes in as the initial user message; the sub-agent
         // system prompt is SUB_AGENT_IDENTITY (added by AgentThread.buildInstruction).
         instruction: undefined,
@@ -635,17 +634,18 @@ export class SessionHandle<
       const capabilities = [
         ...builtinsFromSpec({
           spec: input.spec,
-          definition,
+          model,
           isChild: true,
           sandboxAvailable: Boolean(input.sandbox),
           tracing: input.tracing,
           webSearchProvider: input.resolver.webSearchProvider,
           logger: input.resolver.logger,
         }),
-        ...(resolved.extraCapabilities ?? []),
+        ...(extraCapabilities ?? []),
       ];
       return new AgentThread({
-        definition,
+        definition: childDefinition,
+        model,
         threadId: params.threadId,
         title: request.name,
         sandbox: input.sandbox,

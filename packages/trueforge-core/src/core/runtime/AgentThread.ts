@@ -63,6 +63,7 @@ import type { HarnessSandbox, SandboxInfo } from '../sandbox/Sandbox';
 import type { AgentTracing } from '../tracing/AgentTracing';
 import { describeUnknownError, extractErrorLogFields, isReportableError } from '../util/errorLogFields';
 import type { AgentDefinition } from './AgentDefinition';
+import type { AgentModel } from './AgentModel';
 import type {
   AgentThreadConstructorInput,
   AgentThreadRuntimeSendBatch,
@@ -243,10 +244,10 @@ function toContextAssistantMessage(
   return forContext;
 }
 
-function modelFromDefinition(definition: AgentDefinition): Model {
-  const params = definition.modelParams;
+function toEventModel(model: AgentModel): Model {
+  const params = model.params;
   return ModelSchema.parse({
-    name: definition.modelName,
+    name: model.name,
     ...(params && Object.keys(params).length > 0 ? { params } : {}),
   });
 }
@@ -471,6 +472,7 @@ export class AgentThread {
   readonly threadId: string;
   readonly parent?: AgentParent | undefined;
   readonly definition: AgentDefinition;
+  readonly model: AgentModel;
   readonly agentInfo?: AgentInfo | undefined;
   private readonly title: string;
 
@@ -510,6 +512,7 @@ export class AgentThread {
     this.logger = input.logger.child({ module: 'AgentThread' });
     this.threadId = input.threadId;
     this.definition = input.definition;
+    this.model = input.model;
     this.context = input.context ? [...input.context] : [];
     this.title = input.title;
     this.parent = input.parent;
@@ -975,9 +978,9 @@ export class AgentThread {
       messages = processor.processPreLLMEphemeral(messages) ?? messages;
     }
 
-    // modelParams may include provider extensions (e.g. reasoning_effort) beyond the SDK's
+    // Model params may include provider extensions (e.g. reasoning_effort) beyond the SDK's
     // ChatCompletionCreateParamsStreaming field set; assign after constructing the typed body.
-    // Model identity is owned by modelClient — do not set `model` on the request.
+    // Model identity is owned by the model's client — do not set `model` on the request.
     const requestBody: LLMCreateParamsStreaming = {
       messages,
       stream: true,
@@ -985,8 +988,8 @@ export class AgentThread {
         ? { response_format: toOpenAIResponseFormat(this.definition.responseFormat) }
         : {}),
     };
-    if (this.definition.modelParams) {
-      Object.assign(requestBody, this.definition.modelParams);
+    if (this.model.params) {
+      Object.assign(requestBody, this.model.params);
     }
 
     if (tools.length > 0) {
@@ -1192,7 +1195,7 @@ export class AgentThread {
     finishReason: FinishReason | null;
   }): void {
     const metrics = getOperationMetrics();
-    const providerType = this.definition.providerType;
+    const providerType = this.model.providerType;
     if (metrics === undefined || providerType === undefined) {
       return;
     }
@@ -1206,7 +1209,7 @@ export class AgentThread {
 
   private recordLlmTimeToFirstToken(startedMs: number): void {
     const metrics = getOperationMetrics();
-    const providerType = this.definition.providerType;
+    const providerType = this.model.providerType;
     if (metrics === undefined || providerType === undefined) {
       return;
     }
@@ -1233,7 +1236,7 @@ export class AgentThread {
     const requestBody = this.transformToLLMRequest(tools);
     // Duration includes the provider stream and each delta's drain. appendToContext stays outside.
     const requestStartedMs = performance.now();
-    const llmStream = this.definition.modelClient.create(requestBody, { metadata: { 'tfg.thread_id': this.threadId } });
+    const llmStream = this.model.client.create(requestBody, { metadata: { 'tfg.thread_id': this.threadId } });
 
     // We start the delta stream with a model message event.
     // `model` FQN is known from the bound client before any chunk arrives.
@@ -1242,7 +1245,7 @@ export class AgentThread {
       thread_id: this.threadId,
       created_at: new Date().toISOString(),
       id: modelMessageEventId,
-      model: modelFromDefinition(this.definition),
+      model: toEventModel(this.model),
     } satisfies ModelMessageEvent;
 
     let firstDeltaTimestamped = false;
@@ -1331,7 +1334,7 @@ export class AgentThread {
       finishReason,
       usage: modelMessageUsage,
       id: modelMessageEventId,
-      model: modelFromDefinition(this.definition),
+      model: toEventModel(this.model),
     });
 
     const finishError = finishReasonErrorMessage({
