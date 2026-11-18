@@ -1,5 +1,5 @@
 import { SandboxNotAvailableError } from '@truefoundry/trueforge-core/core';
-import { mkdir, mkdtemp, rm, symlink } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createLogger } from 'winston';
@@ -70,6 +70,33 @@ describeUnix('LocalSandboxProvider missing root', () => {
     } finally {
       await rm(sandboxRootPathParent, { recursive: true, force: true });
       await rm(outside, { recursive: true, force: true });
+    }
+  });
+
+  it('reports the requested missing cwd before spawning a shell', async () => {
+    const sandboxRootPathParent = await mkdtemp(join(tmpdir(), 'tfy-local-cwd-missing-'));
+    const sandboxId = join(sandboxRootPathParent, 'sandbox');
+    await mkdir(sandboxId);
+    const provider = await makeProvider(sandboxRootPathParent);
+    try {
+      const result = await provider.exec({ sandboxId, command: 'true', cwd: '.sandbox' });
+      expect(result).toEqual({ success: false, error: 'File not found: .sandbox' });
+    } finally {
+      await rm(sandboxRootPathParent, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects a cwd that is not a directory', async () => {
+    const sandboxRootPathParent = await mkdtemp(join(tmpdir(), 'tfy-local-cwd-file-'));
+    const sandboxId = join(sandboxRootPathParent, 'sandbox');
+    await mkdir(sandboxId);
+    await writeFile(join(sandboxId, 'not-directory'), 'x');
+    const provider = await makeProvider(sandboxRootPathParent);
+    try {
+      const result = await provider.exec({ sandboxId, command: 'true', cwd: 'not-directory' });
+      expect(result).toEqual({ success: false, error: 'Working directory is not a directory: not-directory' });
+    } finally {
+      await rm(sandboxRootPathParent, { recursive: true, force: true });
     }
   });
 
