@@ -80,7 +80,7 @@ jobs:
     name: Publish Helm chart
     runs-on:
       group: large-runner-group
-      labels: "gh-large-linux-2c."
+      labels: 'gh-large-linux-2c.'
     timeout-minutes: 20
     # Job-level so it also applies when this workflow is called from release.yml.
     concurrency:

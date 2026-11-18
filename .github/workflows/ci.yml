@@ -18,7 +18,7 @@ jobs:
     name: Detect Changes
     runs-on:
       group: large-runner-group
-      labels: "gh-large-linux-2c."
+      labels: 'gh-large-linux-2c.'
     timeout-minutes: 5
     permissions:
       contents: read
@@ -130,7 +130,7 @@ jobs:
     name: Migration Order
     runs-on:
       group: large-runner-group
-      labels: "gh-large-linux-2c."
+      labels: 'gh-large-linux-2c.'
     timeout-minutes: 5
 
     steps:
@@ -154,7 +154,7 @@ jobs:
     name: Format, Typecheck, Lint and Build
     runs-on:
       group: large-runner-group
-      labels: "gh-large-linux-2c."
+      labels: 'gh-large-linux-2c.'
     timeout-minutes: 30
 
     steps:
@@ -227,7 +227,7 @@ jobs:
     if: needs.detect-changes.outputs.packages != '[]'
     runs-on:
       group: large-runner-group
-      labels: "gh-large-linux-2c."
+      labels: 'gh-large-linux-2c.'
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -259,7 +259,7 @@ jobs:
     if: needs.detect-changes.outputs.chart == 'true'
     runs-on:
       group: large-runner-group
-      labels: "gh-large-linux-2c."
+      labels: 'gh-large-linux-2c.'
     timeout-minutes: 10
 
     steps:
@@ -292,7 +292,7 @@ jobs:
     if: needs.detect-changes.outputs.store == 'true'
     runs-on:
       group: large-runner-group
-      labels: "gh-large-linux-2c."
+      labels: 'gh-large-linux-2c.'
     timeout-minutes: 30
 
     services:
@@ -346,7 +346,7 @@ jobs:
       - store-tests
     runs-on:
       group: large-runner-group
-      labels: "gh-large-linux-2c."
+      labels: 'gh-large-linux-2c.'
     timeout-minutes: 5
     steps:
       - name: Decide whether the needed jobs succeeded or failed

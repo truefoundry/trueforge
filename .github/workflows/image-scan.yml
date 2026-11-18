@@ -18,7 +18,7 @@ jobs:
     name: Upload Grype results
     runs-on:
       group: large-runner-group
-      labels: "gh-large-linux-2c."
+      labels: 'gh-large-linux-2c.'
     permissions:
       actions: read
       contents: read
