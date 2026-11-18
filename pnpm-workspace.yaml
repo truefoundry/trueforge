@@ -26,3 +26,7 @@ overrides:
   resolve: '1.22.11'
   # Rollup 4.63.0 OOMs the frontend Vite build (Monaco + compression plugin); stay on 4.62.x.
   rollup: '4.62.2'
+  # GHSA-mrhx-c7xc-m3w5 (zod 3.x memory exhaustion, no fixed 3.x): force zod 4 for transitive deps
+  # that still pin zod@3 (@ag-ui/core via @openuidev/react-headless; @anthropic-ai/sandbox-runtime).
+  '@ag-ui/core>zod': '^4.6.7'
+  '@anthropic-ai/sandbox-runtime>zod': '^4.6.7'
