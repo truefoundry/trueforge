@@ -100,11 +100,11 @@ export function AskUserPrompt({
       <div className={cn('aui-ask-user-prompt mt-2 flex flex-col gap-3', className)}>
         {answeredQuestions.map(q => (
           <div key={q.id} data-testid={dataTestPrefix ? `${dataTestPrefix}-answered-${q.id}` : undefined}>
-            <div className="flex items-center justify-between rounded-t-lg border border-primary-button-bg/30 bg-primary-button-bg/10 px-4 py-2">
-              <div className="min-w-0 font-sans text-xs font-medium text-primary-button-bg [&_.markdown-body]:text-inherit!">
+            <div className="flex items-center justify-between rounded-t-lg border border-border bg-secondary-bg px-4 py-2">
+              <div className="min-w-0 font-sans text-xs font-medium text-text-secondary [&_.markdown-body]:text-inherit!">
                 <Markdown content={q.question} />
               </div>
-              <div className="flex h-fit shrink-0 items-center gap-1 rounded border border-primary-button-bg/40 bg-primary-bg px-2 py-0.5 text-[0.6875rem] font-medium text-text-secondary">
+              <div className="flex h-fit shrink-0 items-center gap-1 rounded border border-border bg-primary-bg px-2 py-0.5 text-[0.6875rem] font-medium text-text-secondary">
                 <span className="leading-tight">Answered</span>
               </div>
             </div>
