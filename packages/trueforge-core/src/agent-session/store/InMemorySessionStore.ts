@@ -112,6 +112,7 @@ function newThreadSnapshot(thread: NewThreadInit): AgentThreadSnapshot {
     thread_id: thread.thread_id,
     parent: thread.parent ?? null,
     agent_info: thread.agent_info ?? null,
+    model: null,
     capability_state: null,
     context: [],
     current_context_usage: getEmptyCurrentContextUsage(),
@@ -141,6 +142,7 @@ function buildSnapshotFromDelta(input: {
   new_threads: NewThreadInit[];
   new_context_appends: TurnContextAppend[];
   capability_states: CreateTurnInput['capability_states'];
+  thread_models: CreateTurnInput['thread_models'];
   created_at: Date;
 }): TurnSnapshot {
   const threads: Record<string, AgentThreadSnapshot> = input.previousSnapshot
@@ -168,6 +170,13 @@ function buildSnapshotFromDelta(input: {
       throw new SessionStoreInvariantError(`capability_states references unknown thread ${capability.thread_id}`);
     }
     thread.capability_state = deepCopy(capability.capability_state);
+  }
+  for (const { thread_id, model } of input.thread_models) {
+    const thread = threads[thread_id];
+    if (thread === undefined) {
+      throw new SessionStoreInvariantError(`thread_models references unknown thread ${thread_id}`);
+    }
+    thread.model = model;
   }
 
   return {
@@ -442,6 +451,7 @@ export class InMemorySessionStore<
       new_threads: input.new_threads,
       new_context_appends: input.new_context_appends,
       capability_states: input.capability_states,
+      thread_models: input.thread_models,
       created_at: input.turn.created_at,
     });
 

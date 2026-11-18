@@ -267,10 +267,11 @@ export class TurnResourceResolver<
         name: modelName,
         ...(resolvedModel.providerType !== undefined ? { providerType: resolvedModel.providerType } : {}),
         properties: resolvedModel.modelProperties,
-        params: {
-          ...resolvedModel.defaultModelParams,
-          ...spec.model.params,
-        },
+        // The spec's params are set for its own model; any other model runs on its own defaults.
+        params:
+          modelName === spec.model.name
+            ? { ...resolvedModel.defaultModelParams, ...spec.model.params }
+            : { ...resolvedModel.defaultModelParams, parallel_tool_calls: true },
       },
       definition: {
         // Sub-agents receive the delegated task as a user message; their system

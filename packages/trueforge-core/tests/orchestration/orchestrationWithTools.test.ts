@@ -18,6 +18,8 @@ const CHILD_REPLY = 'hello from the child';
 const ROOT_FINAL = 'How are you?';
 const INSTRUCTION = 'You are running in a test setup.';
 const CHILD_TASK = 'do the delegated task';
+/** Chosen by the thread factory, not the parent's request, as when the subagent's model is routed. */
+const CHILD_MODEL = 'provider/child-model';
 
 const CREATE_SUB_AGENT_ARGS = JSON.stringify({ name: 'worker', input: CHILD_TASK });
 
@@ -45,6 +47,7 @@ const EXPECTED_EVENTS = [
   {
     type: EventType.THREAD_CREATED,
     title: 'worker',
+    agent_info: { name: 'worker', model: CHILD_MODEL },
     parent: { thread_id: ROOT_ID, tool_call_id: TOOL_CALL_ID },
   },
   { type: EventType.MODEL_MESSAGE, thread_id: expect.any(String) },
@@ -167,7 +170,7 @@ describe('orchestration: dynamic sub-agent', () => {
       };
       return new AgentThread({
         definition: agentDefinition,
-        model: { client: childLLM, name: TEST_MODEL_NAME },
+        model: { client: childLLM, name: CHILD_MODEL },
         threadId,
         title: request.name,
         parent,

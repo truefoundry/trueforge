@@ -43,11 +43,12 @@ export function resolvePreviousTurnId(
 }
 
 function toNewThreadInit(snapshot: AgentThreadSnapshot): NewThreadInit {
-  const { context, current_context_usage, completion, capability_state, ...rest } = snapshot;
+  const { context, current_context_usage, completion, capability_state, model, ...rest } = snapshot;
   void context;
   void current_context_usage;
   void completion;
   void capability_state;
+  void model;
   return rest;
 }
 
@@ -255,6 +256,10 @@ export class SessionHandle<
         capability_states: [...agentThreads].map(([thread_id, thread]) => ({
           thread_id,
           capability_state: thread.toSnapshot().capability_state,
+        })),
+        thread_models: [...agentThreads].map(([thread_id, thread]) => ({
+          thread_id,
+          model: thread.model.name,
         })),
         update_session_title_if_not_exist: input.update_session_title_if_not_exist ?? null,
       });
@@ -508,9 +513,12 @@ export class SessionHandle<
     await Promise.all(
       threadIds.map(async threadId => {
         const previousThreadSnapshot = snapshots?.[threadId];
+        const agentInfo = previousThreadSnapshot?.agent_info ?? undefined;
+        const savedModel = previousThreadSnapshot?.model ?? undefined;
         const resolved = await input.resolver.resolveAgentDefinition({
           spec: input.spec,
-          agent_info: previousThreadSnapshot?.agent_info ?? undefined,
+          // A subagent comes back on the model it ran on; the root follows its spec.
+          agent_info: agentInfo && savedModel ? { ...agentInfo, model: savedModel } : agentInfo,
           previousTurn: input.previous,
           signal: input.signal,
           tracing: input.tracing,

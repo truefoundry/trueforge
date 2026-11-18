@@ -212,6 +212,7 @@ export function makeCreateTurnInput(input: {
     completion?: TurnContextAppend['completion'];
   })[];
   capability_states?: CreateTurnInput['capability_states'];
+  thread_models?: CreateTurnInput['thread_models'];
   update_session_title_if_not_exist?: string;
 }): CreateTurnInput {
   const turn = makeRunningTurnRecord({
@@ -232,6 +233,7 @@ export function makeCreateTurnInput(input: {
       completion: append.completion ?? null,
     })),
     capability_states: input.capability_states ?? [{ thread_id: MAIN_THREAD_ID, capability_state: null }],
+    thread_models: input.thread_models ?? [],
     update_session_title_if_not_exist: input.update_session_title_if_not_exist ?? null,
   };
 }
@@ -281,6 +283,7 @@ export function makeRunningTurnRecord(input: {
           current_context_usage: getEmptyCurrentContextUsage(),
           parent: null,
           agent_info: null,
+          model: null,
           completion: null,
           pending_mcp_auth: false,
           capability_state: null,

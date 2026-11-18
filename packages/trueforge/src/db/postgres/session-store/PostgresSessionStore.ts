@@ -174,6 +174,7 @@ export class PostgresSessionStore implements ISessionStore<Transaction<Database>
       })),
       new_context_appends: input.new_context_appends,
       capability_states: input.capability_states,
+      thread_models: input.thread_models,
       last_activity_timestamp_ms: Date.now(),
       update_session_title_if_not_exist: input.update_session_title_if_not_exist,
       mcp_servers: null,

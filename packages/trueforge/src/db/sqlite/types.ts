@@ -54,6 +54,7 @@ export interface TurnThreadCheckpoint {
   parent: AgentParent | null;
   completion: SubAgentCompletion | null;
   pending_mcp_auth: boolean;
+  model: string | null;
 }
 
 /** Turn-level checkpoint — threads live in `turn_thread`; only owned top-level keys remain. */
