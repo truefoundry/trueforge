@@ -1303,7 +1303,7 @@ describe('AgentConfigEditors', () => {
       </SlotsProvider>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
     expect(onClose).toHaveBeenCalled();
     expect(onChange).not.toHaveBeenCalled();
   });

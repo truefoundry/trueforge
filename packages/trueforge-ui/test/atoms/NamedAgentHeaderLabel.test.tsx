@@ -125,6 +125,36 @@ describe('NamedAgentHeaderLabel', () => {
     expect(screen.getByRole('heading', { name: 'reviewer Editing' })).toBeInTheDocument();
   });
 
+  it('swaps Editing for Unsaved changes while the builder has unsaved edits', () => {
+    function MarkUnsaved() {
+      const shell = useShellMode();
+      return (
+        <button type="button" onClick={() => shell.setHasUnsavedAgentChanges(true)}>
+          dirty
+        </button>
+      );
+    }
+    render(
+      <ShellModeProvider agentConfig={{ mode: 'AgentComposer' }}>
+        <RuntimeHarness messages={[]}>
+          <SelectEditable />
+          <MarkUnsaved />
+          <NamedAgentHeaderLabel />
+        </RuntimeHarness>
+      </ShellModeProvider>,
+    );
+
+    act(() => {
+      screen.getByRole('button', { name: 'edit' }).click();
+    });
+    act(() => {
+      screen.getByRole('button', { name: 'dirty' }).click();
+    });
+
+    expect(screen.getByRole('heading', { name: 'reviewer Unsaved changes' })).toBeInTheDocument();
+    expect(screen.queryByText('Editing')).not.toBeInTheDocument();
+  });
+
   it('shows the clone draft name without an Editing label', () => {
     render(
       <ShellModeProvider agentConfig={{ mode: 'AgentComposer' }}>

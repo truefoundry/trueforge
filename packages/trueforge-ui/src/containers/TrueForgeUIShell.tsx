@@ -12,6 +12,7 @@ import type { AnalyticsConfig } from '../analytics/types.js';
 import { AgentConfigInstructionsProvider } from '../atoms/draft/AgentConfigInstructionsContext.js';
 import { DraftCatalogProvider } from '../atoms/draft/DraftCatalogProvider.js';
 import { DraftSpecPreferenceBridge } from '../atoms/draft/DraftSpecPreferenceBridge.js';
+import { UnsavedAgentChangesBridge } from '../atoms/draft/UnsavedAgentChangesBridge.js';
 import { cn } from '../atoms/lib/cn.js';
 import { IS_CREATE_AGENT_METADATA_KEY, isCreateAgentMetadataValue } from '../atoms/lib/sessionCreateAgent.js';
 import { preloadMonaco } from '../atoms/monacoPreload.js';
@@ -277,6 +278,7 @@ function ChatProviderFromShell({
       >
         <AgentConfigInstructionsProvider>
           <DraftSpecPreferenceBridge />
+          <UnsavedAgentChangesBridge />
           <HistorySessionSwitchBridge />
           {onRemoteIdChange != null ? <RemoteIdRouteBridge onRemoteIdChange={onRemoteIdChange} /> : null}
           {children}

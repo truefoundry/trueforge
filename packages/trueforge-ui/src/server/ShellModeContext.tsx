@@ -171,6 +171,9 @@ type ShellModeContextValue = {
   clearChat: (liveSpec?: AgentSpec) => void;
   /** Return library-only mode to its idle landing; no-op in other modes. */
   openLibraryHome: () => void;
+  /** Agent builder has edits that were never saved to the agent. */
+  hasUnsavedAgentChanges: boolean;
+  setHasUnsavedAgentChanges: (dirty: boolean) => void;
   /** Changes only when the chat runtime must reset. */
   runtimeKey: string;
   /**
@@ -895,6 +898,8 @@ export function ShellModeProvider({
     bumpEpoch(false);
   }, [isLibraryEnabled, isComposerEnabled, setSettingsOpen, setSchedulesOpen, setEnvironmentsOpen, bumpEpoch]);
 
+  const [hasUnsavedAgentChanges, setHasUnsavedAgentChanges] = useState(false);
+
   // Only explicit resets remount the runtime; history and identity changes happen in place.
   const runtimeKey = useMemo(() => {
     if (effectiveMode.status === 'idle') return 'idle';
@@ -940,6 +945,8 @@ export function ShellModeProvider({
       sessionAccessError,
       clearChat,
       openLibraryHome,
+      hasUnsavedAgentChanges,
+      setHasUnsavedAgentChanges,
       runtimeKey,
       historyAgentFilter,
       setHistoryAgentFilter,
@@ -988,6 +995,7 @@ export function ShellModeProvider({
       sessionAccessError,
       clearChat,
       openLibraryHome,
+      hasUnsavedAgentChanges,
       runtimeKey,
       historyAgentFilter,
       listSessionsAgentId,

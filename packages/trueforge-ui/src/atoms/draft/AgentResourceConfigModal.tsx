@@ -51,10 +51,13 @@ export function AgentResourceConfigModal({ editor, onClose, ...contentProps }: A
           <div className="flex items-center justify-between gap-3">
             <p className="text-text-secondary flex min-w-0 items-center gap-1.5 text-xs">
               <Icon name="shield-check" className="text-warning-bg size-3.5 shrink-0" />
-              <span className="min-w-0">Shielded tools always ask before the agent runs them.</span>
+              <span className="min-w-0">
+                Shielded tools always ask before the agent runs them. Apply updates this draft; save the agent to keep
+                it.
+              </span>
             </p>
             <Button.Primary type="button" onClick={onClose}>
-              Save
+              Apply
             </Button.Primary>
           </div>
         ) : undefined
