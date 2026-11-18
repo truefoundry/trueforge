@@ -20,7 +20,6 @@ import { DEFAULT_MAX_PARALLEL_SUB_AGENTS, DEFAULT_ROUTING_QUESTION } from '@true
 import envPaths from 'env-paths';
 import { z } from 'zod';
 
-import { MODEL_ROUTING_MODES } from './modelRouting/types';
 import { parseRedisSentinelNodes, type RedisConnection } from './runtime/redis';
 
 export type { RedisConnection };
@@ -175,7 +174,7 @@ const TrueFoundryModelRoutingSchema = z.object({
   /** Per tenant: the decision model is the tenant's own gateway model (`account/model`). */
   tenants: z.record(
     z.string(),
-    z.object({ subagent: z.enum(MODEL_ROUTING_MODES).default('off'), decision_model: z.string().min(1) }),
+    z.object({ subagent: z.enum(['off', 'on']).default('off'), decision_model: z.string().min(1) }),
   ),
 });
 
