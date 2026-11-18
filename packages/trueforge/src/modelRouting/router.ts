@@ -2,7 +2,7 @@ import type { RouteModelInput, RouteModelResult } from '@truefoundry/trueforge-c
 import { describeUnknownError, type IDecisionModel } from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
 import type { ClusterEffort, RoutingClusters } from './clusters';
-import type { RoutingCategory, RoutingQuestion } from './question';
+import { BENCHMARK_QUESTION, type RoutingCategory, type RoutingQuestion } from './question';
 import type { RoutingCandidate } from './types';
 
 /** Keeps the decision request under the gateway's body limit. */
@@ -62,6 +62,7 @@ export function createModelRouter(input: {
                   description,
                 })),
               },
+              { type: 'choice', ...BENCHMARK_QUESTION },
             ],
           },
           { metadata: { 'tfg.thread_id': route.threadId }, signal: AbortSignal.any([route.signal, timeout]) },
@@ -79,13 +80,20 @@ export function createModelRouter(input: {
       const clusters = input.clusters[answer.choice as RoutingCategory];
       const effort = route.effort ?? ASSUMED_EFFORT;
       const cluster = Object.hasOwn(clusters, effort) ? clusters[effort as ClusterEffort] : undefined;
+      const benchmark = decision.answers.find(candidate => candidate.name === BENCHMARK_QUESTION.name);
+      // Lists, not objects: the JSON log format sorts object keys, which would lose the ranking.
       const classified = {
         category: answer.choice,
         confidence: answer.confidence,
-        // A list, not an object: the JSON log format sorts object keys, which would lose the ranking.
         probabilities: [...answer.probabilities].sort((a, b) => b.probability - a.probability),
         effort,
         effort_assumed: route.effort === undefined,
+        ...(benchmark?.type === 'choice'
+          ? {
+              benchmark: benchmark.choice,
+              benchmark_probabilities: [...benchmark.probabilities].sort((a, b) => b.probability - a.probability),
+            }
+          : {}),
       };
       if (cluster === undefined) {
         return fallback('no_cluster', classified);
@@ -104,7 +112,6 @@ export function createModelRouter(input: {
             chosen_model: picked.model,
             picked_price: picked.price,
             fallback_price: callerModels.find(model => model.model === route.fallbackModel)?.price,
-            picked_image_input: picked.imageInput,
           });
           return { model: picked.model };
         }

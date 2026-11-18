@@ -73,6 +73,13 @@ describe('createModelRouter', () => {
     });
   });
 
+  it('also asks which benchmark the task resembles', async () => {
+    const decision = classifiesAs('fixed_steps');
+    const create = jest.spyOn(decision, 'create');
+    await route(decision, { effort: 'medium' });
+    expect(create.mock.calls[0]?.[0].questions.map(question => question.name)).toEqual(['category', 'benchmark']);
+  });
+
   it("uses the cluster for the parent's effort", async () => {
     await expect(route(classifiesAs('fixed_steps'), { effort: 'high' })).resolves.toEqual({
       model: 'acct/claude-haiku-5-5',
