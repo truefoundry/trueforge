@@ -319,8 +319,9 @@ async function createStandalonePersistence(options: {
   const tokenStore = new SqliteOAuthTokenStore(db);
   const agentStore = new SqliteAgentStore(db);
   const modelProviderStore = new SqliteModelProviderStore(db);
+  const mcpPersistenceStore = new SqliteMcpServerStore(db);
   const mcpServerStore = new McpServerWithAuthStore({
-    store: new SqliteMcpServerStore(db),
+    store: mcpPersistenceStore,
     tokenStore,
     clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
   });
@@ -345,7 +346,12 @@ async function createStandalonePersistence(options: {
     mcpOAuthStore: mcpServerStore,
     redis: undefined,
     resolveAgentStore: () => agentStore,
-    resolveMcpServerStore: () => mcpServerStore,
+    resolveMcpServerStore: buildResolveMcpServerStore({
+      persistenceStore: mcpPersistenceStore,
+      tokenStore,
+      client: undefined,
+      logger,
+    }),
     resolveModelProviderStore: () => modelProviderStore,
     resolveSkillStore: () => skillStore,
     resolveTurnSkillsStore: buildResolveTurnSkillsStore({

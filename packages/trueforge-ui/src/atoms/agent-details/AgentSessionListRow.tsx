@@ -56,7 +56,8 @@ export function AgentSessionListRow({
   const absolute = formatAbsoluteDateTime(activityAt);
   const subjectLabel = createdBySubject != null ? createdByLabel(createdBySubject) : null;
   const subjectInitials = subjectLabel != null ? getUserInitials(subjectLabel) || '?' : null;
-  const statusDotClass = lastTurnStatusDotClass(lastTurnStatus);
+  const statusDotClass = lastTurnStatusDotClass({ status: lastTurnStatus, activityAt });
+  const failed = lastTurnStatus === 'error';
   const statusLabel = lastTurnStatusLabel(lastTurnStatus);
   const running = isRunningTurnStatus(lastTurnStatus);
   const paused = isPausedTurnStatus(lastTurnStatus);
@@ -77,6 +78,10 @@ export function AgentSessionListRow({
           {statusDotClass != null ? (
             <span data-slot="session-status-dot" className="shrink-0">
               <StatusDot className="size-1.5" colorClassName={statusDotClass} pulse={paused} />
+            </span>
+          ) : failed ? (
+            <span data-slot="session-status-failed" className="shrink-0 text-failure-bg" aria-hidden>
+              <Icon name="circle-exclamation-point" className="size-3.5" />
             </span>
           ) : null}
           {statusLabel != null ? <span className="sr-only">{statusLabel}</span> : null}
