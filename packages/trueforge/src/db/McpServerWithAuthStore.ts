@@ -1,10 +1,5 @@
 import type { RemoteMcpHeaders, ResolveHeadersResult } from '@truefoundry/trueforge-core/core';
-import {
-  buildMcpAuthorizationUrl,
-  ensureMcpClientRegistered,
-  isMcpAuthRequired,
-  resolveMcpAuth,
-} from '../mcp/auth/mcpDcr';
+import { beginMcpAuthorization, isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
 import type { IOAuthTokenStore, OAuthClientRecord } from '../mcp/auth/types';
 import { withCallerMcpHeaders, type PerServerMcpHeaders } from '../runtime/perServerMcpHeaders';
 import { resolveConfiguredMcpRequestHeaders, resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
@@ -104,17 +99,14 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
           headers: result.headers,
           // On a 401, start DCR consent; the stored token stays until the callback replaces it.
           authRequiredOnUnauthorized: async () => {
-            const location = { serverId: record.id, mcpServerUrl: record.manifest.url, mcpServerName: record.name };
-            const client = await ensureMcpClientRegistered({
-              mcpServerStore: this.#store,
-              clientName: this.#clientName,
-              ...location,
-            });
-            const { authorizationUrl } = await buildMcpAuthorizationUrl({
+            const authorizationUrl = await beginMcpAuthorization({
               tokenStore: this.#tokenStore,
-              client,
+              mcpServerStore: this.#store,
+              serverId: record.id,
               userRef,
-              ...location,
+              mcpServerUrl: record.manifest.url,
+              mcpServerName: record.name,
+              clientName: this.#clientName,
             });
             return { servers: [{ id: record.name, name: record.name, auth_url: authorizationUrl.href }] };
           },

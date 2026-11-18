@@ -1,5 +1,5 @@
 import { HTTPException } from 'hono/http-exception';
-import { parseTrueFoundryPerServerMcpHeaders } from '../../../src/truefoundry/virtualMcpHeaders';
+import { parseTrueFoundryPerServerMcpHeaders } from '../../../src/truefoundry/perServerMcpHeaders';
 
 describe('parseTrueFoundryPerServerMcpHeaders', () => {
   it('accepts a flat header map and a virtual MCP nested map', () => {

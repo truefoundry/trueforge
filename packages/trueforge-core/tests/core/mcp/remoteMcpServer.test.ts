@@ -518,7 +518,10 @@ describe('RemoteMCP + ToolSet', () => {
         Promise.resolve({ headers: {}, authRequiredOnUnauthorized: () => Promise.reject(new Error('lookup failed')) }),
     });
 
-    await expect(server.listTools()).rejects.toThrow('lookup failed');
+    await expect(server.listTools()).rejects.toMatchObject({
+      message: 'lookup failed',
+      cause: expect.objectContaining({ statusCode: 401 }),
+    });
   });
 
   it('emits init for a stateless (SSE) server on connect (matches gateway strict-compare behavior)', async () => {

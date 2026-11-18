@@ -37,8 +37,8 @@ import {
   toTrueFoundryMcpManifest,
   type SfyMcpServerSummary,
 } from './mapSfyMcpServers';
+import type { TrueFoundryPerServerMcpHeaders } from './perServerMcpHeaders';
 import type { TrueFoundryServiceFoundryServerClient } from './TrueFoundryServiceFoundryServerClient';
-import type { TrueFoundryPerServerMcpHeaders } from './virtualMcpHeaders';
 
 export type TrueFoundryMcpApiClient = Pick<
   TrueFoundryServiceFoundryServerClient,

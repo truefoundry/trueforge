@@ -43,12 +43,12 @@ import {
 } from './truefoundry/inlineResources';
 import { InlineSkillStore } from './truefoundry/InlineSkillStore';
 import { InlineCapabilitiesStore } from './truefoundry/inlineTools';
+import { parseTrueFoundryPerServerMcpHeaders } from './truefoundry/perServerMcpHeaders';
 import { TrueFoundryAgentStore } from './truefoundry/TrueFoundryAgentStore';
 import { TrueFoundryMcpServerStore } from './truefoundry/TrueFoundryMcpServerStore';
 import { TrueFoundryModelProviderStore } from './truefoundry/TrueFoundryModelProviderStore';
 import type { TrueFoundryServiceFoundryServerClient } from './truefoundry/TrueFoundryServiceFoundryServerClient';
 import { TrueFoundryAdminSkillStore, TrueFoundrySkillStore } from './truefoundry/TrueFoundrySkillStore';
-import { parseTrueFoundryPerServerMcpHeaders } from './truefoundry/virtualMcpHeaders';
 
 /** ------------------------------------------------------------------------
  * Persistence-layer model store resolve (RequestContext, not Hono Context)

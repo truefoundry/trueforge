@@ -5,15 +5,15 @@ import { McpServerNotFoundError, type McpServerRecord } from '../../../src/db/mc
 import { ACTOR_AUTHORIZATION_HEADER, createTrueFoundryRequestContext } from '../../../src/truefoundry/accessToken';
 import { X_TFY_CONVERSATION_ID, X_TFY_METADATA } from '../../../src/truefoundry/gatewayMetadata';
 import { MCP_PROXY_BASE_URL_TEMPLATE } from '../../../src/truefoundry/mapSfyMcpServers';
+import {
+  parseTrueFoundryPerServerMcpHeaders,
+  type TrueFoundryPerServerMcpHeaders,
+} from '../../../src/truefoundry/perServerMcpHeaders';
 import type { TrueFoundryMcpApiClient } from '../../../src/truefoundry/TrueFoundryMcpServerStore';
 import {
   resolveAuthorizeRedirectURL,
   TrueFoundryMcpServerStore,
 } from '../../../src/truefoundry/TrueFoundryMcpServerStore';
-import {
-  parseTrueFoundryPerServerMcpHeaders,
-  type TrueFoundryPerServerMcpHeaders,
-} from '../../../src/truefoundry/virtualMcpHeaders';
 
 const TENANT = 'default';
 const ACCESS_TOKEN = 'caller-access-token';
