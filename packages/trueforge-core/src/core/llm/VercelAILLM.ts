@@ -46,7 +46,13 @@ import {
   type RawAssistantMessage,
   type RawAssistantMessageWithUsage,
   type ThinkingBlock,
+  ThinkingBlockSchema,
 } from './LLMTypes';
+import {
+  createTrueFoundryMetadataExtractor,
+  readTrueFoundryThinkingBlocks,
+  trueFoundryReplayOptions,
+} from './truefoundryReasoning';
 import { resolveMaxOutputTokens } from './usage';
 
 // ---------------------------------------------------------------------------
@@ -144,6 +150,8 @@ function compatibleModel(config: VercelAIProviderConfig): LanguageModel {
     supportsStructuredOutputs: true,
     // These endpoints omit token counts from streamed responses unless asked.
     includeUsage: true,
+    // The adapter reads no reasoning signature of its own; without this Claude replay is unsigned.
+    ...(provider.type === 'truefoundry' ? { metadataExtractor: createTrueFoundryMetadataExtractor() } : {}),
     ...(Object.keys(headers).length > 0 ? { headers } : {}),
   });
   return client(model.id);
@@ -697,6 +705,7 @@ export function toUserContent(content: string | ChatCompletionContentPart[]): Us
  * - `'openai'`        → `openai.reasoningEncryptedContent`
  * - `'anthropic'`     → `anthropic.signature`
  * - `'google-gemini'` → per-tool-call `google.thoughtSignature`, no standalone reasoning block
+ * - `'truefoundry'`   → whole signed blocks on the message, not a reasoning part
  * - `'custom'`        → OpenAI-compatible ignores providerOptions, so the token has nowhere to go
  *
  * Signatures attach when `source` (`type/name/model`) matches both provider type and
@@ -725,34 +734,38 @@ export function toAssistantModelMessage({
     logger,
   });
   // Alibaba appends replayed thinking to the visible answer, and Qwen signs nothing to preserve.
-  if (Array.isArray(rawThinking) && provider !== 'alibaba') {
-    // Widen any[] → unknown[] so the in-guards below narrow safely.
-    const blocks: unknown[] = rawThinking;
-    for (const tb of blocks) {
-      if (
-        typeof tb === 'object' &&
-        tb !== null &&
-        'type' in tb &&
-        'thinking' in tb &&
-        tb.type === 'thinking' &&
-        typeof tb.thinking === 'string'
-      ) {
-        const signature = 'signature' in tb && typeof tb.signature === 'string' ? tb.signature : undefined;
-        let reasoningProviderOptions: ProviderOptions | undefined;
-        if (signature !== undefined && attachSignature) {
-          if (provider === 'openai') {
-            reasoningProviderOptions = { openai: { reasoningEncryptedContent: signature } };
-          } else if (provider === 'anthropic') {
-            reasoningProviderOptions = { anthropic: { signature } };
-          }
+  // Malformed entries are skipped rather than failing the whole message.
+  const thinkingBlocks =
+    provider === 'alibaba' || !Array.isArray(rawThinking)
+      ? []
+      : rawThinking.flatMap((tb: unknown) => {
+          const parsed = ThinkingBlockSchema.safeParse(tb);
+          return parsed.success ? [parsed.data] : [];
+        });
+
+  // The gateway needs whole signed blocks on the message: the compatible adapter flattens
+  // reasoning parts into a bare `reasoning_content` string, which drops the signature.
+  const gatewayThinking =
+    provider === 'truefoundry' && attachSignature && thinkingBlocks.some(block => block.signature !== undefined)
+      ? thinkingBlocks
+      : undefined;
+
+  if (gatewayThinking === undefined) {
+    for (const block of thinkingBlocks) {
+      let reasoningProviderOptions: ProviderOptions | undefined;
+      if (block.signature !== undefined && attachSignature) {
+        if (provider === 'openai') {
+          reasoningProviderOptions = { openai: { reasoningEncryptedContent: block.signature } };
+        } else if (provider === 'anthropic') {
+          reasoningProviderOptions = { anthropic: { signature: block.signature } };
         }
-        const reasoningPart: ReasoningPart = {
-          type: 'reasoning',
-          text: tb.thinking,
-          ...(reasoningProviderOptions !== undefined ? { providerOptions: reasoningProviderOptions } : {}),
-        };
-        parts.push(reasoningPart);
       }
+      const reasoningPart: ReasoningPart = {
+        type: 'reasoning',
+        text: block.thinking,
+        ...(reasoningProviderOptions !== undefined ? { providerOptions: reasoningProviderOptions } : {}),
+      };
+      parts.push(reasoningPart);
     }
   }
 
@@ -806,6 +819,7 @@ export function toAssistantModelMessage({
   return {
     role: 'assistant',
     content: parts.length > 0 ? parts : [{ type: 'text', text: '' }],
+    ...(gatewayThinking !== undefined ? { providerOptions: trueFoundryReplayOptions(gatewayThinking) } : {}),
   };
 }
 
@@ -1253,6 +1267,11 @@ export async function* mapStreamToChunks({
   const accumulatedThinking: ThinkingBlock[] = [];
   const thinkingByReasoningItem = new Map<string, ThinkingBlock>();
   let currentThinkingBlock: ThinkingBlock | null = null;
+  /**
+   * The TrueFoundry gateway signs its thinking only in trailing metadata, never on the reasoning
+   * deltas, so these supersede the unsigned blocks accumulated above.
+   */
+  let signedThinking: ThinkingBlock[] | undefined;
 
   /**
    * The block this reasoning part belongs to: the one already open for its item, or a new one.
@@ -1402,6 +1421,7 @@ export async function* mapStreamToChunks({
       case 'finish-step': {
         finalUsage = normalizeUsage(part.usage);
         finalFinishReason = mapFinishReason(part.finishReason);
+        signedThinking = readTrueFoundryThinkingBlocks(part.providerMetadata) ?? signedThinking;
         yield {
           ...makeBase(),
           choices: [
@@ -1469,11 +1489,12 @@ export async function* mapStreamToChunks({
         : {}),
     }));
 
+  const thinkingBlocks = signedThinking ?? accumulatedThinking;
   const output: RawAssistantMessage = {
     role: 'assistant',
     content: accumulatedText || null,
     ...(accumulatedReasoning.length > 0 ? { reasoning_content: accumulatedReasoning } : {}),
-    ...(accumulatedThinking.length > 0 ? { thinking_blocks: accumulatedThinking } : {}),
+    ...(thinkingBlocks.length > 0 ? { thinking_blocks: thinkingBlocks } : {}),
     ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
   };
 

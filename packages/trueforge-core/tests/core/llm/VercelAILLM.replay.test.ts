@@ -11,6 +11,8 @@
  * A bug in either boundary would not be caught by unit tests alone; these cross-layer tests close
  * that gap for every provider that has a replay token.
  */
+import { convertToOpenAICompatibleChatMessages } from '@ai-sdk/openai-compatible/internal';
+import type { LanguageModelV4Prompt } from '@ai-sdk/provider';
 import type { LanguageModelUsage, ProviderMetadata, StepResultPerformance, TextStreamPart, ToolSet } from 'ai';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat';
 import type { ExtendedChatCompletionChunk, RawAssistantMessageWithUsage } from '../../../src/core/llm/LLMTypes';
@@ -32,7 +34,10 @@ function makeUsage(): LanguageModelUsage {
   };
 }
 
-function makeFinishStep(finishReason: 'stop' | 'tool-calls'): TextStreamPart<ToolSet> {
+function makeFinishStep(
+  finishReason: 'stop' | 'tool-calls',
+  providerMetadata?: ProviderMetadata,
+): TextStreamPart<ToolSet> {
   const performance: StepResultPerformance = {
     effectiveOutputTokensPerSecond: 0,
     outputTokensPerSecond: undefined,
@@ -50,7 +55,7 @@ function makeFinishStep(finishReason: 'stop' | 'tool-calls'): TextStreamPart<Too
     performance,
     finishReason,
     rawFinishReason: undefined,
-    providerMetadata: undefined,
+    providerMetadata,
   };
 }
 
@@ -324,5 +329,106 @@ describe('google-gemini reasoning replay round-trip', () => {
     const reasoningPart = (replayMsg.content as Array<{ type: string }>).find(p => p.type === 'reasoning');
     expect(reasoningPart).toBeDefined();
     expect(reasoningPart).not.toHaveProperty('providerOptions');
+  });
+});
+
+describe('truefoundry reasoning replay, on the shape the TFY gateway actually sends', () => {
+  const SIGNATURE = 'EuMDCpoCCBMQAhgCKkDSGVGyihyHKHDq';
+  const THINKING = 'Plan: table first, then the tool.';
+
+  /**
+   * The gateway streams reasoning unsigned via `reasoning_content`, then restates it consolidated
+   * and signed in a trailing chunk. @ai-sdk/openai-compatible surfaces only the former as stream
+   * parts; the latter reaches us as finish-step metadata via the TrueFoundry metadata extractor.
+   */
+  function gatewayStream(finishReason: 'stop' | 'tool-calls', signed: boolean) {
+    return makeStream([
+      { type: 'reasoning-start', id: 'r1' },
+      { type: 'reasoning-delta', id: 'r1', text: THINKING },
+      { type: 'reasoning-end', id: 'r1' },
+      { type: 'tool-input-start', id: 'call-tf1', toolName: 'get_current_datetime' },
+      { type: 'tool-input-delta', id: 'call-tf1', delta: '{}' },
+      makeFinishStep(
+        finishReason,
+        signed
+          ? { truefoundry: { thinking_blocks: [{ type: 'thinking', thinking: THINKING, signature: SIGNATURE }] } }
+          : undefined,
+      ),
+    ]);
+  }
+
+  /**
+   * Replay through `toAssistantModelMessage` and on to the exact message the adapter puts on the
+   * wire. `ModelMessage` is wider than the converter's prompt type, so the parts are narrowed
+   * rather than asserted across.
+   */
+  function toWireMessage(output: RawAssistantMessageWithUsage['output'], source: string) {
+    const assistantMsg: Extract<ChatCompletionMessageParam, { role: 'assistant' }> = {
+      role: 'assistant',
+      content: null,
+      ...(output.tool_calls !== undefined ? { tool_calls: output.tool_calls } : {}),
+    };
+    Reflect.set(assistantMsg, 'thinking_blocks', output.thinking_blocks);
+    Reflect.set(assistantMsg, 'source', source);
+    const replayed = toAssistantModelMessage({
+      msg: assistantMsg,
+      provider: 'truefoundry',
+      providerName: 'truefoundry',
+    });
+    if (typeof replayed.content === 'string') {
+      throw new Error('expected structured assistant content');
+    }
+    const content = replayed.content.flatMap(part =>
+      part.type === 'reasoning' || part.type === 'text' || part.type === 'tool-call' ? [part] : [],
+    );
+    const prompt: LanguageModelV4Prompt = [
+      {
+        role: 'assistant',
+        content,
+        ...(replayed.providerOptions !== undefined ? { providerOptions: replayed.providerOptions } : {}),
+      },
+    ];
+    return convertToOpenAICompatibleChatMessages(prompt, { providerOptionsKey: 'truefoundry' })[0];
+  }
+
+  it('carries the signature from finish-step metadata onto the outbound gateway message', async () => {
+    const { output } = await drainStream(
+      mapStreamToChunks({ stream: gatewayStream('tool-calls', true), chunkMeta: CHUNK_META }),
+    );
+
+    expect(output.thinking_blocks).toEqual([{ type: 'thinking', thinking: THINKING, signature: SIGNATURE }]);
+
+    const wire = toWireMessage(output, 'truefoundry/truefoundry/claude-sonnet-5');
+
+    expect(wire).toEqual({
+      role: 'assistant',
+      content: null,
+      thinking_blocks: [{ type: 'thinking', thinking: THINKING, signature: SIGNATURE }],
+      tool_calls: [{ id: 'call-tf1', type: 'function', function: { name: 'get_current_datetime', arguments: '{}' } }],
+    });
+    // Sending both would hand the gateway the same reasoning twice, once unsigned.
+    expect(wire).not.toHaveProperty('reasoning_content');
+  });
+
+  it('falls back to plain reasoning_content when the gateway signs nothing', async () => {
+    const { output } = await drainStream(
+      mapStreamToChunks({ stream: gatewayStream('stop', false), chunkMeta: CHUNK_META }),
+    );
+
+    expect(output.thinking_blocks?.[0]).not.toHaveProperty('signature');
+
+    const wire = toWireMessage(output, 'truefoundry/truefoundry/claude-sonnet-5');
+    expect(wire).toMatchObject({ reasoning_content: THINKING });
+    expect(wire).not.toHaveProperty('thinking_blocks');
+  });
+
+  it('does not replay blocks signed by a different configured provider', async () => {
+    const { output } = await drainStream(
+      mapStreamToChunks({ stream: gatewayStream('stop', true), chunkMeta: CHUNK_META }),
+    );
+
+    const wire = toWireMessage(output, 'truefoundry/other-gateway/claude-sonnet-5');
+    expect(wire).not.toHaveProperty('thinking_blocks');
+    expect(wire).toMatchObject({ reasoning_content: THINKING });
   });
 });
