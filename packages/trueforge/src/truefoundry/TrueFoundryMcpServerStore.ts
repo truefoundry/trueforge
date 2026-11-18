@@ -106,7 +106,7 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
   }
 
   /**
-   * Gateway Bearer; a caller entry (flat or virtual MCP nested map) goes in `x-tfy-mcp-headers`.
+   * Gateway Bearer; an override entry (flat or virtual MCP nested map) goes in `x-tfy-mcp-headers`.
    * Without one, SFY authorize runs only after a 401.
    */
   resolveInvokeHeaders(input: {
@@ -115,14 +115,14 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
     turnMetadata?: TurnMetadata;
   }): RemoteMcpHeaders {
     const { record, userRef, turnMetadata } = input;
-    const callerHeaders = this.#perServerHeaders[record.name];
+    const serverOverrideHeaders = this.#perServerHeaders[record.name];
     return async () => {
       const headers = {
         ...gatewayHeaders(await this.#resolveGatewayAuthorization()),
         ...gatewayMetadataHeadersForTurn(turnMetadata),
       };
-      if (callerHeaders !== undefined) {
-        return { headers: { ...headers, [X_TFY_MCP_HEADERS]: JSON.stringify(callerHeaders) } };
+      if (serverOverrideHeaders !== undefined) {
+        return { headers: { ...headers, [X_TFY_MCP_HEADERS]: JSON.stringify(serverOverrideHeaders) } };
       }
       return { headers, authRequiredOnUnauthorized: () => this.#authorizeAfterUnauthorized({ record, userRef }) };
     };
@@ -132,13 +132,15 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
   async #authorizeAfterUnauthorized(input: { record: McpServerRecord; userRef: string }): Promise<MCPAuthRequired> {
     const { record, userRef } = input;
     const status = await this.authorize({ tenant_id: record.tenant_id, name: record.name, userRef });
-    const authUrl = status.status === 'auth_required' ? status.authorization_url : undefined;
+    if (status.status !== 'auth_required') {
+      throw new HTTPException(422, {
+        message: `MCP server "${record.name}" authorization status is in conflicted state`,
+      });
+    }
+    const authUrl = status.authorization_url;
     if (authUrl === undefined || authUrl.length === 0) {
       throw new HTTPException(422, {
-        message:
-          status.status === 'auth_required'
-            ? `MCP server "${record.name}" requires authentication but returned no authorization URL`
-            : `MCP server "${record.name}" returned 401 but authorization reports ${status.status}`,
+        message: `MCP server "${record.name}" requires authentication but failed to discover authorization url`,
       });
     }
     return { servers: [{ id: record.name, name: record.name, auth_url: authUrl }] };

@@ -198,9 +198,11 @@ export class RemoteMCP implements ToolSource {
     try {
       return await this.connectAndRun(headersResult.headers, tracked, true);
     } catch (error) {
-      let authRequired: MCPAuthRequired | undefined;
+      let authRequired: MCPAuthRequired | undefined = undefined;
       try {
-        authRequired = isAuthError(error) ? await headersResult.authRequiredOnUnauthorized?.() : undefined;
+        if (isAuthError(error)) {
+          authRequired = await headersResult.authRequiredOnUnauthorized?.();
+        }
       } catch (recoveryError) {
         // Rethrow the recovery error unchanged so its status survives, with the 401 it replaced as
         // `cause` — error logging already walks that chain.

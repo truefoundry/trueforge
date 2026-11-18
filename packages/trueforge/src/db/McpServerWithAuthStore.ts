@@ -1,7 +1,7 @@
 import type { RemoteMcpHeaders, ResolveHeadersResult } from '@truefoundry/trueforge-core/core';
 import { beginMcpAuthorization, isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
 import type { IOAuthTokenStore, OAuthClientRecord } from '../mcp/auth/types';
-import { withCallerMcpHeaders, type PerServerMcpHeaders } from '../runtime/perServerMcpHeaders';
+import { withServerOverrideHeaders, type PerServerMcpHeaders } from '../runtime/perServerMcpHeaders';
 import { resolveConfiguredMcpRequestHeaders, resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
 import {
   McpServerNotFoundError,
@@ -67,14 +67,14 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
     turnMetadata?: TurnMetadata;
   }): RemoteMcpHeaders {
     const { record } = input;
-    return withCallerMcpHeaders({
-      callerHeaders: this.#perServerHeaders[record.name],
-      registeredHeaders: this.#resolveRegisteredHeaders(input),
+    return withServerOverrideHeaders({
+      serverOverrideHeaders: this.#perServerHeaders[record.name],
+      storeHeaders: this.#resolveStoreHeaders(input),
       configuredHeaders: resolveConfiguredMcpRequestHeaders(record.manifest),
     });
   }
 
-  #resolveRegisteredHeaders(input: { record: McpServerRecord; userRef: string }): RemoteMcpHeaders {
+  #resolveStoreHeaders(input: { record: McpServerRecord; userRef: string }): RemoteMcpHeaders {
     const { record, userRef } = input;
     if (record.manifest.auth?.type === 'dcr') {
       return async (): Promise<ResolveHeadersResult> => {

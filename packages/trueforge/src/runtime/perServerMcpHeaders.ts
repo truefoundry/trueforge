@@ -62,38 +62,41 @@ function hasAuthorizationHeader(headers: Record<string, string>): boolean {
 }
 
 /**
- * Sends a server's caller headers over its registered auth. Caller Authorization goes out over only the
- * configured static headers, so a DCR consent flow is skipped.
+ * Sends a server's override headers over its store-resolved auth. An override Authorization goes out over only
+ * the configured static headers, so a DCR consent flow is skipped.
  */
-export function withCallerMcpHeaders(input: {
-  callerHeaders: Record<string, string> | undefined;
-  registeredHeaders: RemoteMcpHeaders;
+export function withServerOverrideHeaders(input: {
+  serverOverrideHeaders: Record<string, string> | undefined;
+  storeHeaders: RemoteMcpHeaders;
   configuredHeaders: Record<string, string>;
 }): RemoteMcpHeaders {
-  const { callerHeaders, registeredHeaders, configuredHeaders } = input;
-  if (callerHeaders === undefined) {
-    return registeredHeaders;
+  const { serverOverrideHeaders, storeHeaders, configuredHeaders } = input;
+  if (serverOverrideHeaders === undefined) {
+    return storeHeaders;
   }
-  if (hasAuthorizationHeader(callerHeaders)) {
-    return mergeCallerHeaders({ headers: configuredHeaders, callerHeaders });
+  if (hasAuthorizationHeader(serverOverrideHeaders)) {
+    return mergeOverrideHeaders({ headers: configuredHeaders, overrideHeaders: serverOverrideHeaders });
   }
   return async (): Promise<ResolveHeadersResult> => {
-    const result = typeof registeredHeaders === 'function' ? await registeredHeaders() : { headers: registeredHeaders };
+    const result = typeof storeHeaders === 'function' ? await storeHeaders() : { headers: storeHeaders };
     if ('authRequired' in result) {
       return result;
     }
-    return { ...result, headers: mergeCallerHeaders({ headers: result.headers, callerHeaders }) };
+    return {
+      ...result,
+      headers: mergeOverrideHeaders({ headers: result.headers, overrideHeaders: serverOverrideHeaders }),
+    };
   };
 }
 
-// Header names are case-insensitive, so a caller header must replace a same-named entry under any casing.
-function mergeCallerHeaders(input: {
+// Header names are case-insensitive, so an override header must replace a same-named entry under any casing.
+function mergeOverrideHeaders(input: {
   headers: Record<string, string>;
-  callerHeaders: Record<string, string>;
+  overrideHeaders: Record<string, string>;
 }): Record<string, string> {
-  const callerNames = new Set(Object.keys(input.callerHeaders).map(name => name.toLowerCase()));
+  const overrideNames = new Set(Object.keys(input.overrideHeaders).map(name => name.toLowerCase()));
   return {
-    ...Object.fromEntries(Object.entries(input.headers).filter(([name]) => !callerNames.has(name.toLowerCase()))),
-    ...input.callerHeaders,
+    ...Object.fromEntries(Object.entries(input.headers).filter(([name]) => !overrideNames.has(name.toLowerCase()))),
+    ...input.overrideHeaders,
   };
 }
