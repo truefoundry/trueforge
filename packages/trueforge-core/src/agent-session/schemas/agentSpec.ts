@@ -140,7 +140,9 @@ const SandboxConfigSchema = z
       .string()
       .min(1)
       .optional()
-      .describe('Name of a configured sandbox environment to use. Must exist when set.'),
+      .describe(
+        'Name of a configured sandbox environment to use. Required when sandbox is enabled and the provider supports environments.',
+      ),
   })
   .openapi('SandboxConfig');
 

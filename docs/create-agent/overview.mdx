@@ -316,7 +316,7 @@ The `manifest` you save (or the inline `spec`) is the agent spec below — every
   ],
   "skills": [{ "name": "customer-support" }],
   "config": {
-    "sandbox": { "enabled": true },
+    "sandbox": { "enabled": true, "environment_name": "trueforge-sandbox-env" },
     "generative_ui": { "enabled": true },
     "ask_user_questions": { "enabled": true },
     "dynamic_sub_agents": { "enabled": true },
@@ -398,6 +398,7 @@ Runtime behavior. Every field has a default, so `config` can be omitted entirely
 | Field                        | Default | Set via  | Description                                                                                                                                                                                             |
 | ---------------------------- | ------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `enabled`                    | `false` | UI + API | Give the agent a sandbox. Required for skills and Code Mode.                                                                                                                                            |
+| `environment_name`           | —       | UI + API | Name of a configured sandbox environment. **Required** when sandbox is enabled and the provider supports environments (Daytona). See [Sandbox](/sandbox).                                              |
 | `file_downloads`             | `true`  | API      | Allow clients to download files the agent produces in the sandbox.                                                                                                                                     |
 
 #### `config.context_management`

@@ -1,11 +1,10 @@
 /**
  * Authenticated, stateless Streamable HTTP endpoint for the TrueForge MCP (mounted at /mcp).
  *
- * Each request: authenticate → build a request-scoped SDK client + stateless MCP server → hand the Web
+ * Each request: authenticate → build a request-scoped wire client + stateless MCP server → hand the Web
  * Request to the transport. Nothing is retained across requests.
  */
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
-import { TrueForge } from '@truefoundry/trueforge-sdk';
 import { Hono } from 'hono';
 import type { ResolveRequestContext } from '../../../auth/identity';
 import configuration from '../../../config';
@@ -44,14 +43,12 @@ export function createTrueForgeMcpRouter(deps: TrueForgeMcpRouterDeps): Hono {
 
     // Built per request: the server's tools close over this caller's credential, and stateless
     // Streamable HTTP wants a fresh server+transport per request to isolate concurrent callers.
-    const apiClient = new TrueForge({
+    const client = createWireApiClient({
       baseUrl,
-      timeoutInSeconds: 60,
-      maxRetries: 0,
-      ...(requestContext.user_credential === null ? { auth: false } : { token: requestContext.user_credential }),
       fetch: internalFetch,
+      token: requestContext.user_credential,
+      timeoutInSeconds: 60,
     });
-    const client = createWireApiClient(apiClient, baseUrl);
     const server = createTrueForgeMcpServer({ client, version: deps.version, tools: deps.resolveTools() });
     const transport = new WebStandardStreamableHTTPServerTransport({
       enableJsonResponse: true,
