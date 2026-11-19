@@ -19,7 +19,10 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addUniqueConstraint('artifact_tenant_slug_uq', ['tenant_id', 'slug'])
     .execute();
 
-  await sql`CREATE INDEX artifact_list_idx ON artifact (tenant_id, updated_at DESC, id)`.execute(db);
+  await sql`
+    CREATE INDEX artifact_list_idx
+      ON artifact (tenant_id, (created_by_subject->>'subject_id'), updated_at DESC, id)
+  `.execute(db);
   await sql`CREATE INDEX artifact_session_idx ON artifact (tenant_id, created_by_session_id)`.execute(db);
 
   await db.schema

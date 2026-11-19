@@ -52,7 +52,7 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     await expect(createArtifact(OTHER_TENANT)).resolves.toEqual(expect.objectContaining({ tenant_id: OTHER_TENANT }));
   });
 
-  it('lists artifacts in the tenant with pagination', async () => {
+  it("lists the subject's artifacts in the tenant with pagination", async () => {
     const store = getStore();
     const slugs = ['a', 'b', 'c'];
     for (const slug of slugs) {
@@ -65,14 +65,18 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
       });
     }
     await createArtifact(OTHER_TENANT);
-
-    const first = await store.listArtifacts({ tenant_id: TENANT, limit: 2, page_token: undefined });
-    expect(first.data).toHaveLength(2);
-    const second = await store.listArtifacts({
+    await store.createArtifact({
       tenant_id: TENANT,
-      limit: 2,
-      page_token: first.pagination.next_page_token,
+      slug: 'other-subject',
+      title: 'other',
+      created_by_subject: { ...SUBJECT, subject_id: 'someone-else' },
+      created_by_session_id: 'session-2',
     });
+
+    const query = { tenant_id: TENANT, created_by_subject_id: SUBJECT.subject_id, limit: 2 };
+    const first = await store.listArtifacts({ ...query, page_token: undefined });
+    expect(first.data).toHaveLength(2);
+    const second = await store.listArtifacts({ ...query, page_token: first.pagination.next_page_token });
     expect(second.data).toHaveLength(1);
     expect(second.pagination.next_page_token).toBeUndefined();
     expect([...first.data, ...second.data].map(a => a.slug).sort()).toEqual(slugs);
