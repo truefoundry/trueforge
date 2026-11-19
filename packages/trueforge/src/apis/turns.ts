@@ -77,7 +77,7 @@ import {
   type RequestContext,
   type ResolveRequestContext,
 } from '../auth/identity';
-import configuration, { isTrueFoundryModeEnabled } from '../config';
+import configuration, { isTrueFoundryModeEnabled, type TrueFoundryModelRouting } from '../config';
 import type { IAccessControlStore } from '../db/accessControlStore';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import { EmptyCapabilitiesStore, type ICapabilitiesStore } from '../db/capabilitiesStore';
@@ -367,12 +367,12 @@ interface BeginTurnExecutionParams<TTransaction> {
 
 /** This turn's model routing inputs, or undefined when routing is off for the tenant. */
 function turnModelRouting(input: {
+  routing: TrueFoundryModelRouting | undefined;
   tenant_id: string;
   modelProviderStore: IModelProviderStore;
   turnMetadata: TurnMetadata;
 }): ModelRouterDeps | undefined {
-  const { tenant_id, modelProviderStore, turnMetadata } = input;
-  const routing = isTrueFoundryModeEnabled(configuration) ? configuration.TRUEFOUNDRY_MODEL_ROUTING : undefined;
+  const { routing, tenant_id, modelProviderStore, turnMetadata } = input;
   const tenantRouting = routing?.tenants[tenant_id];
   if (
     routing === undefined ||
@@ -414,6 +414,7 @@ function createTurnResolver(deps: {
   sandboxEnvironmentStore: ISandboxEnvironmentStore;
   agentStore: IAgentStore;
   modelProviderStore: IModelProviderStore;
+  modelRouting: ModelRouterDeps | undefined;
   webSearchProvider: IWebSearchProvider | undefined;
   /** Root-thread memory for this turn; undefined when memory doesn't apply to the session. */
   memoryCapability: AgentCapability | undefined;
@@ -432,6 +433,7 @@ function createTurnResolver(deps: {
     sandboxEnvironmentStore,
     agentStore,
     modelProviderStore,
+    modelRouting,
     webSearchProvider,
     memoryCapability,
     logger,
@@ -444,7 +446,6 @@ function createTurnResolver(deps: {
   } = deps;
   const tenant_id = session.tenant_id;
   const sessionId = session.session_id;
-  const modelRouting = turnModelRouting({ tenant_id, modelProviderStore, turnMetadata });
 
   return new TurnResourceResolver({
     modelRouting,
@@ -799,6 +800,12 @@ async function prepareTurnExecution<TTransaction>(input: {
     requestContext: input.deps.requestContext,
     requestHeaders: input.requestHeaders,
   });
+  const turnMetadata: TurnMetadata = {
+    sessionId: input.session.session_id,
+    turnId: input.turnId,
+    ...(sessionAgent.type === 'reference' ? { agent: { id: sessionAgent.id, name: sessionAgent.name } } : {}),
+    ...(input.requestHeaders === undefined ? {} : { requestHeaders: input.requestHeaders }),
+  };
   const resolver = createTurnResolver({
     mcpServerStore: input.deps.mcpServerStore,
     skillStore: input.deps.skillStore,
@@ -806,18 +813,19 @@ async function prepareTurnExecution<TTransaction>(input: {
     sandboxEnvironmentStore: input.deps.sandboxEnvironmentStore,
     agentStore: input.deps.agentStore,
     modelProviderStore: input.deps.modelProviderStore,
+    modelRouting: turnModelRouting({
+      routing: isTrueFoundryModeEnabled(configuration) ? configuration.TRUEFOUNDRY_MODEL_ROUTING : undefined,
+      tenant_id: input.session.tenant_id,
+      modelProviderStore: input.deps.modelProviderStore,
+      turnMetadata,
+    }),
     webSearchProvider,
     memoryCapability,
     logger: input.deps.logger,
     signal: abortController.signal,
     userRef: input.userRef,
     session: input.session,
-    turnMetadata: {
-      sessionId: input.session.session_id,
-      turnId: input.turnId,
-      ...(sessionAgent.type === 'reference' ? { agent: { id: sessionAgent.id, name: sessionAgent.name } } : {}),
-      ...(input.requestHeaders === undefined ? {} : { requestHeaders: input.requestHeaders }),
-    },
+    turnMetadata,
     capabilitiesStore: input.deps.capabilitiesStore,
     trueforgeMcp,
   });

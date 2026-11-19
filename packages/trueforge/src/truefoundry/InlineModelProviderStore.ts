@@ -65,7 +65,6 @@ export class InlineModelProviderStore<TTransaction = never> implements IModelPro
     return this.#inner.listModels(input, transaction);
   }
 
-  /** Request-scoped providers carry no catalog metadata, so only the inner store's models are routable. */
   listRoutingCandidates(input: ListModelProvidersInput): Promise<RoutableModel[]> {
     return this.#inner.listRoutingCandidates?.(input) ?? Promise.resolve([]);
   }
