@@ -72,7 +72,7 @@ function RecentChatsAside({
       <aside
         id={recentHistoryPanelId}
         aria-label="Recent chats"
-        className={cn('hidden min-h-0 w-12 shrink-0 flex-col border-r border-border md:flex', shellSurfaceBgClassName)}
+        className={cn('hidden min-h-0 w-12 shrink-0 flex-col md:flex', shellSurfaceBgClassName)}
       >
         <div className="flex min-h-14 w-full items-center justify-center border-b border-border px-2">
           <RailTooltip content="Open chat history">
@@ -397,6 +397,8 @@ export function SidebarLayout({ className }: { className?: string }) {
                       // (empty untitled draft). Mobile still needs the menu button.
                       // Builder mode keeps New Agent and its actions beside the persistent config.
                       (overlayOpen || isIdle || !hasChatHeaderContent || showDesktopOnlyNotice) && 'md:hidden',
+                      // Collapsed history already leaves room for its toggle; tighten the title's left inset.
+                      showRecentHistory && recentHistoryCollapsed && 'pl-2',
                     )}
                     start={mobileNavButton}
                     title={!overlayOpen && !showDesktopOnlyNotice ? <NamedAgentHeaderLabel /> : null}
