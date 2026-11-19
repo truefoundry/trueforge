@@ -6,10 +6,10 @@ import type { ProviderMetadata } from 'ai';
 import { type ThinkingBlockUnion, ThinkingBlockUnionSchema } from './LLMTypes';
 
 /**
- * Namespace the extracted blocks travel under, matching the `name` the compatible client is built
- * with so they land beside the adapter's own metadata.
+ * Namespace the extracted blocks travel under. Ours alone: the adapter keys its own metadata by
+ * provider name, so a distinct key keeps the two from overwriting each other for any provider.
  */
-const TRUEFOUNDRY_METADATA_KEY = 'truefoundry';
+const THINKING_METADATA_KEY = 'trueforgeThinking';
 
 /** Metadata field holding the signed blocks. Snake_case mirrors the gateway's own wire field. */
 const THINKING_BLOCKS_FIELD = 'thinking_blocks';
@@ -21,7 +21,7 @@ const THINKING_BLOCKS_FIELD = 'thinking_blocks';
 const ThinkingBlocksSchema = z.array(ThinkingBlockUnionSchema).nonempty();
 
 /**
- * Where the gateway restates its thinking consolidated and signed: the trailing chunk of a stream,
+ * Where a gateway restates its thinking consolidated and signed: the trailing chunk of a stream,
  * or the assistant message of a non-streamed response. Earlier chunks stream the same text
  * unsigned via `reasoning_content`.
  */
@@ -58,32 +58,32 @@ export function hasReplayableSignature(blocks: readonly ThinkingBlockUnion[]): b
 
 /**
  * Message-level passthrough the compatible adapter spreads verbatim onto the outbound assistant
- * message. The key is the adapter's own, not the provider name, and it is read per message rather
- * than per content part — so replayed thinking cannot ride on the reasoning part like it does for
- * Anthropic and OpenAI.
+ * message. The key is the adapter's own, fixed for every provider it serves, and it is read per
+ * message rather than per content part — so replayed thinking cannot ride on the reasoning part
+ * like it does for Anthropic and OpenAI.
  */
-export function trueFoundryReplayOptions(blocks: readonly ThinkingBlockUnion[]): ProviderOptions {
+export function thinkingBlocksReplayOptions(blocks: readonly ThinkingBlockUnion[]): ProviderOptions {
   return { openaiCompatible: { [THINKING_BLOCKS_FIELD]: blocks.map(toJsonBlock) } };
 }
 
 /** Signed blocks the gateway attached to a finished stream, if it sent any. */
-export function readTrueFoundryThinkingBlocks(
-  providerMetadata: ProviderMetadata | undefined,
-): ThinkingBlockUnion[] | undefined {
-  const parsed = ThinkingBlocksSchema.safeParse(providerMetadata?.[TRUEFOUNDRY_METADATA_KEY]?.[THINKING_BLOCKS_FIELD]);
+export function readThinkingBlocks(providerMetadata: ProviderMetadata | undefined): ThinkingBlockUnion[] | undefined {
+  const parsed = ThinkingBlocksSchema.safeParse(providerMetadata?.[THINKING_METADATA_KEY]?.[THINKING_BLOCKS_FIELD]);
   return parsed.success ? [...parsed.data] : undefined;
 }
 
 /**
- * Recovers Claude's reasoning signatures from the TrueFoundry gateway.
+ * Recovers Claude's reasoning signatures from an OpenAI-compatible gateway.
  *
- * `@ai-sdk/openai-compatible` reads only `reasoning_content`, so the signature the gateway sends
+ * `@ai-sdk/openai-compatible` reads only `reasoning_content`, so the signature a gateway sends
  * alongside it never reaches the stream parts. Without it a replayed thinking block is unsigned,
  * and Bedrock drops it: the model loses its plan on every iteration and loops to the iteration
  * limit. The gateway's own consolidated `thinking_blocks` are taken wholesale rather than pairing
  * a loose `reasoning_signature` with an open block, which keeps interleaved thinking intact.
+ *
+ * Gateways that send no thinking blocks produce no metadata, so this stays inert for them.
  */
-export function createTrueFoundryMetadataExtractor(): MetadataExtractor {
+export function createThinkingBlocksMetadataExtractor(): MetadataExtractor {
   const parseBody = (body: unknown): ThinkingBlockUnion[] | undefined => {
     const parsed = ThinkingBlocksBodySchema.safeParse(body);
     if (!parsed.success) {
@@ -101,7 +101,7 @@ export function createTrueFoundryMetadataExtractor(): MetadataExtractor {
   const buildFrom = (blocks: ThinkingBlockUnion[] | undefined): ProviderMetadata | undefined =>
     blocks === undefined
       ? undefined
-      : { [TRUEFOUNDRY_METADATA_KEY]: { [THINKING_BLOCKS_FIELD]: blocks.map(toJsonBlock) } };
+      : { [THINKING_METADATA_KEY]: { [THINKING_BLOCKS_FIELD]: blocks.map(toJsonBlock) } };
 
   return {
     extractMetadata: ({ parsedBody }) => Promise.resolve(buildFrom(parseBody(parsedBody))),

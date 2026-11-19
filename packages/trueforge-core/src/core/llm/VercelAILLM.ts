@@ -50,11 +50,11 @@ import {
   ThinkingBlockUnionSchema,
 } from './LLMTypes';
 import {
-  createTrueFoundryMetadataExtractor,
+  createThinkingBlocksMetadataExtractor,
   hasReplayableSignature,
-  readTrueFoundryThinkingBlocks,
-  trueFoundryReplayOptions,
-} from './truefoundryReasoning';
+  readThinkingBlocks,
+  thinkingBlocksReplayOptions,
+} from './openAICompatibleReasoning';
 import { resolveMaxOutputTokens } from './usage';
 
 // ---------------------------------------------------------------------------
@@ -79,6 +79,15 @@ export const VERCEL_AI_PROVIDER_NAMES = [
 ] as const;
 
 export type VercelAIProviderName = (typeof VERCEL_AI_PROVIDER_NAMES)[number];
+
+/** Types served by `@ai-sdk/openai-compatible`, whose wire shape carries thinking blocks whole. */
+const OPENAI_COMPATIBLE_PROVIDERS: ReadonlySet<VercelAIProviderName> = new Set([
+  'fireworks',
+  'zai',
+  'together',
+  'custom',
+  'truefoundry',
+]);
 
 /**
  * Adapter-facing config, camelCase throughout. Callers translate from the snake_case wire and
@@ -153,7 +162,7 @@ function compatibleModel(config: VercelAIProviderConfig): LanguageModel {
     // These endpoints omit token counts from streamed responses unless asked.
     includeUsage: true,
     // The adapter reads no reasoning signature of its own; without this Claude replay is unsigned.
-    ...(provider.type === 'truefoundry' ? { metadataExtractor: createTrueFoundryMetadataExtractor() } : {}),
+    metadataExtractor: createThinkingBlocksMetadataExtractor(),
     ...(Object.keys(headers).length > 0 ? { headers } : {}),
   });
   return client(model.id);
@@ -707,8 +716,7 @@ export function toUserContent(content: string | ChatCompletionContentPart[]): Us
  * - `'openai'`        → `openai.reasoningEncryptedContent`
  * - `'anthropic'`     → `anthropic.signature`
  * - `'google-gemini'` → per-tool-call `google.thoughtSignature`, no standalone reasoning block
- * - `'truefoundry'`   → whole signed blocks on the message, not a reasoning part
- * - `'custom'`        → OpenAI-compatible ignores providerOptions, so the token has nowhere to go
+ * - OpenAI-compatible → whole signed blocks on the message, not a reasoning part
  *
  * Signatures attach when `source` (`type/name/model`) matches both provider type and
  * provider name. Missing/foreign source → reasoning text only.
@@ -748,7 +756,7 @@ export function toAssistantModelMessage({
   // The gateway needs whole blocks on the message: the compatible adapter flattens reasoning parts
   // into a bare `reasoning_content` string, which drops the signature and redacted blocks with it.
   const gatewayThinking =
-    provider === 'truefoundry' && attachSignature && hasReplayableSignature(thinkingBlocks)
+    OPENAI_COMPATIBLE_PROVIDERS.has(provider) && attachSignature && hasReplayableSignature(thinkingBlocks)
       ? thinkingBlocks
       : undefined;
 
@@ -825,7 +833,7 @@ export function toAssistantModelMessage({
   return {
     role: 'assistant',
     content: parts.length > 0 ? parts : [{ type: 'text', text: '' }],
-    ...(gatewayThinking !== undefined ? { providerOptions: trueFoundryReplayOptions(gatewayThinking) } : {}),
+    ...(gatewayThinking !== undefined ? { providerOptions: thinkingBlocksReplayOptions(gatewayThinking) } : {}),
   };
 }
 
@@ -1274,8 +1282,8 @@ export async function* mapStreamToChunks({
   const thinkingByReasoningItem = new Map<string, ThinkingBlock>();
   let currentThinkingBlock: ThinkingBlock | null = null;
   /**
-   * The TrueFoundry gateway signs its thinking only in trailing metadata, never on the reasoning
-   * deltas, so these supersede the unsigned blocks accumulated above.
+   * OpenAI-compatible gateways sign their thinking only in trailing metadata, never on the
+   * reasoning deltas, so these supersede the unsigned blocks accumulated above.
    */
   let signedThinking: ThinkingBlockUnion[] | undefined;
 
@@ -1427,7 +1435,7 @@ export async function* mapStreamToChunks({
       case 'finish-step': {
         finalUsage = normalizeUsage(part.usage);
         finalFinishReason = mapFinishReason(part.finishReason);
-        signedThinking = readTrueFoundryThinkingBlocks(part.providerMetadata) ?? signedThinking;
+        signedThinking = readThinkingBlocks(part.providerMetadata) ?? signedThinking;
         yield {
           ...makeBase(),
           choices: [

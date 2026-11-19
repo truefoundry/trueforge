@@ -351,7 +351,7 @@ describe('truefoundry reasoning replay, on the shape the TFY gateway actually se
       makeFinishStep(
         finishReason,
         signed
-          ? { truefoundry: { thinking_blocks: [{ type: 'thinking', thinking: THINKING, signature: SIGNATURE }] } }
+          ? { trueforgeThinking: { thinking_blocks: [{ type: 'thinking', thinking: THINKING, signature: SIGNATURE }] } }
           : undefined,
       ),
     ]);
@@ -362,7 +362,17 @@ describe('truefoundry reasoning replay, on the shape the TFY gateway actually se
    * wire. `ModelMessage` is wider than the converter's prompt type, so the parts are narrowed
    * rather than asserted across.
    */
-  function toWireMessage(output: RawAssistantMessageWithUsage['output'], source: string) {
+  function toWireMessage({
+    output,
+    source,
+    provider = 'truefoundry',
+    providerName = 'truefoundry',
+  }: {
+    output: RawAssistantMessageWithUsage['output'];
+    source: string;
+    provider?: VercelAIProviderName;
+    providerName?: string;
+  }) {
     const assistantMsg: Extract<ChatCompletionMessageParam, { role: 'assistant' }> = {
       role: 'assistant',
       content: null,
@@ -370,11 +380,7 @@ describe('truefoundry reasoning replay, on the shape the TFY gateway actually se
     };
     Reflect.set(assistantMsg, 'thinking_blocks', output.thinking_blocks);
     Reflect.set(assistantMsg, 'source', source);
-    const replayed = toAssistantModelMessage({
-      msg: assistantMsg,
-      provider: 'truefoundry',
-      providerName: 'truefoundry',
-    });
+    const replayed = toAssistantModelMessage({ msg: assistantMsg, provider, providerName });
     if (typeof replayed.content === 'string') {
       throw new Error('expected structured assistant content');
     }
@@ -398,7 +404,7 @@ describe('truefoundry reasoning replay, on the shape the TFY gateway actually se
 
     expect(output.thinking_blocks).toEqual([{ type: 'thinking', thinking: THINKING, signature: SIGNATURE }]);
 
-    const wire = toWireMessage(output, 'truefoundry/truefoundry/claude-sonnet-5');
+    const wire = toWireMessage({ output, source: 'truefoundry/truefoundry/claude-sonnet-5' });
 
     expect(wire).toEqual({
       role: 'assistant',
@@ -417,7 +423,7 @@ describe('truefoundry reasoning replay, on the shape the TFY gateway actually se
 
     expect(output.thinking_blocks?.[0]).not.toHaveProperty('signature');
 
-    const wire = toWireMessage(output, 'truefoundry/truefoundry/claude-sonnet-5');
+    const wire = toWireMessage({ output, source: 'truefoundry/truefoundry/claude-sonnet-5' });
     expect(wire).toMatchObject({ reasoning_content: THINKING });
     expect(wire).not.toHaveProperty('thinking_blocks');
   });
@@ -433,7 +439,7 @@ describe('truefoundry reasoning replay, on the shape the TFY gateway actually se
           { type: 'reasoning-start', id: 'r1' },
           { type: 'reasoning-delta', id: 'r1', text: THINKING },
           { type: 'reasoning-end', id: 'r1' },
-          makeFinishStep('stop', { truefoundry: { thinking_blocks: mixed } }),
+          makeFinishStep('stop', { trueforgeThinking: { thinking_blocks: mixed } }),
         ]),
         chunkMeta: CHUNK_META,
       }),
@@ -441,7 +447,7 @@ describe('truefoundry reasoning replay, on the shape the TFY gateway actually se
 
     // Rejecting the redacted entry would take the signed block with it and unsign the replay.
     expect(output.thinking_blocks).toEqual(mixed);
-    expect(toWireMessage(output, 'truefoundry/truefoundry/claude-sonnet-5')).toMatchObject({
+    expect(toWireMessage({ output, source: 'truefoundry/truefoundry/claude-sonnet-5' })).toMatchObject({
       thinking_blocks: mixed,
     });
   });
@@ -451,8 +457,27 @@ describe('truefoundry reasoning replay, on the shape the TFY gateway actually se
       mapStreamToChunks({ stream: gatewayStream('stop', true), chunkMeta: CHUNK_META }),
     );
 
-    const wire = toWireMessage(output, 'truefoundry/other-gateway/claude-sonnet-5');
+    const wire = toWireMessage({ output, source: 'truefoundry/other-gateway/claude-sonnet-5' });
     expect(wire).not.toHaveProperty('thinking_blocks');
     expect(wire).toMatchObject({ reasoning_content: THINKING });
+  });
+
+  // Any gateway on the compatible adapter sends this shape, so replay cannot be keyed to one type.
+  it.each(['custom', 'fireworks', 'zai', 'together'] as const)('replays signed blocks for %s too', async provider => {
+    const { output } = await drainStream(
+      mapStreamToChunks({ stream: gatewayStream('stop', true), chunkMeta: CHUNK_META }),
+    );
+
+    const wire = toWireMessage({
+      output,
+      source: `${provider}/litellm/claude-sonnet-5`,
+      provider,
+      providerName: 'litellm',
+    });
+
+    expect(wire).toMatchObject({
+      thinking_blocks: [{ type: 'thinking', thinking: THINKING, signature: SIGNATURE }],
+    });
+    expect(wire).not.toHaveProperty('reasoning_content');
   });
 });
