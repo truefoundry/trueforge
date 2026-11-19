@@ -188,10 +188,11 @@ describe('TrueFoundry naming vs NameSchema', () => {
       store.validateAgentSkills({
         tenant_id: 'default',
         skills: [{ name: SKILL_FQN, preload: false }],
+        agent_id: undefined,
       }),
     ).resolves.toBeUndefined();
     expect(client.resolveAgentSkillVersions).toHaveBeenCalledWith({
-      accessToken: 'tfy-api-key',
+      accessToken: 'token',
       skills: [{ fqn: SKILL_FQN }],
     });
   });

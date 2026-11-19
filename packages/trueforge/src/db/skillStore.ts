@@ -45,6 +45,7 @@ export interface DeleteSkillInput {
 export interface AgentSkillsInput {
   tenant_id: string;
   skills: readonly AgentSkillRef[];
+  agent_id: string | undefined;
 }
 
 /** Unique `(tenant_id, name)` violation on create. */
@@ -69,7 +70,7 @@ export interface ISkillStore<TTransaction = never> {
   /** Removes one skill. Resolves `false` when no row matched. */
   deleteSkill(input: DeleteSkillInput, transaction?: TTransaction): Promise<boolean>;
   listSkillVersions(input: { name: string }): Promise<SkillVersion[]>;
-  /** Admit AgentSpec skill refs (git store or TrueFoundry SFY resolve with the service API key). */
+  /** Admit AgentSpec skill refs (git store or TrueFoundry SFY resolve). */
   validateAgentSkills(input: AgentSkillsInput, transaction?: TTransaction): Promise<void>;
   /** Expand AgentSpec skill refs to sandbox mounts (git store or TrueFoundry SFY resolve with API key). */
   resolveTurnSkills(input: AgentSkillsInput): Promise<SkillMount[]>;

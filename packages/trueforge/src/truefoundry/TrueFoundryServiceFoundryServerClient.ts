@@ -399,8 +399,7 @@ export class TrueFoundryServiceFoundryServerClient {
 
   /**
    * `POST /internal/tfg/agent-skill-versions/resolve`. Chunks to 50 FQNs.
-   * Caller supplies the token (service API key for validate + turn mount; other callers may pass a JWT).
-   * Failures: SFY HTTP errors from `#requestJson` (401/403/424/500); unexpected body → 500.
+   * Caller supplies the token. Failures: SFY HTTP errors from `#requestJson` (401/403/424/500); unexpected body → 500.
    */
   async resolveAgentSkillVersions(input: {
     accessToken: string;

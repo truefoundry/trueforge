@@ -103,9 +103,7 @@ export class TrueFoundryAdminSkillStore<TTransaction = never> implements Pick<
   }
 }
 
-/** Read-only TrueFoundry registry skill catalog; writes are managed by TrueFoundry.
- * Catalog / version list use the caller JWT; validate and turn mounts use the service API key.
- */
+/** Read-only TrueFoundry registry skill catalog; writes are managed by TrueFoundry. */
 export class TrueFoundrySkillStore<TTransaction = never>
   extends TrueFoundryAdminSkillStore<TTransaction>
   implements ISkillStore<TTransaction>
@@ -185,9 +183,9 @@ export class TrueFoundrySkillStore<TTransaction = never>
       seenFqns.add(skill.name);
     }
 
-    // Existence / uniqueness only — same service key as turn mount (no caller skill RBAC).
+    const accessToken = input.agent_id ? this.#client.apiKey : await this.#resolveAccessToken();
     const resolved = await this.#client.resolveAgentSkillVersions({
-      accessToken: this.#client.apiKey,
+      accessToken,
       skills: skills.map(skill => ({ fqn: skill.name })),
     });
 
