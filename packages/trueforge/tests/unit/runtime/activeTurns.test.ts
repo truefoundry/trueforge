@@ -221,11 +221,7 @@ describe('ActiveTurnRegistry', () => {
       await registry.shutdownAndWait(CancellationReason.Abandoned);
       await Promise.all(drains);
       expect(warn).toHaveBeenCalledTimes(1);
-      expect(warn).toHaveBeenCalledWith('Abandoning running turn for shutdown', {
-        session_id: 's1',
-        turn_id: 't1',
-        reason: CancellationReason.Abandoned,
-      });
+      expect(warn).toHaveBeenCalledWith('Abandoning turn for shutdown', { session_id: 's1', turn_id: 't1' });
       expect(pausedAbort.signal.reason).toBe(TurnOffloadReason);
     } finally {
       warn.mockRestore();
@@ -233,21 +229,27 @@ describe('ActiveTurnRegistry', () => {
   });
 
   it('late track after shutdownAndWait aborts immediately with the shutdown reason', async () => {
-    const registry = new ActiveTurnRegistry({ logger });
-    await registry.shutdownAndWait(CancellationReason.Abandoned);
+    const warn = jest.spyOn(logger, 'warn');
+    try {
+      const registry = new ActiveTurnRegistry({ logger });
+      await registry.shutdownAndWait(CancellationReason.Abandoned);
 
-    const abortController = new AbortController();
-    const tracked = registry.track({
-      turn: turn('s1', 'late'),
-      abortController,
-      stream: values(['x']),
-    });
+      const abortController = new AbortController();
+      const tracked = registry.track({
+        turn: turn('s1', 'late'),
+        abortController,
+        stream: values(['x']),
+      });
 
-    expect(abortController.signal.aborted).toBe(true);
-    expect(abortController.signal.reason).toBe(CancellationReason.Abandoned);
+      expect(abortController.signal.aborted).toBe(true);
+      expect(abortController.signal.reason).toBe(CancellationReason.Abandoned);
+      expect(warn).toHaveBeenCalledWith('Abandoning turn for shutdown', { session_id: 's1', turn_id: 'late' });
 
-    for await (const value of tracked) {
-      void value;
+      for await (const value of tracked) {
+        void value;
+      }
+    } finally {
+      warn.mockRestore();
     }
   });
 

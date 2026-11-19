@@ -810,72 +810,72 @@ try {
     process.exit(1);
   });
 
-  // Without a signal listener the process exits before running turns are persisted as abandoned.
-  let shuttingDown = false;
-  const shutdown = async (signal: NodeJS.Signals) => {
-    if (shuttingDown) {
-      return;
-    }
-    shuttingDown = true;
-    logger.info(`Received ${signal}, draining connections before shutdown`);
+  // Graceful drain is the safe default for built and direct execution.
+  // Development watch mode opts out so tsx can restart without waiting for a drain.
+  if (configuration.NODE_ENV !== 'development') {
+    let shuttingDown = false;
+    const shutdown = async (signal: NodeJS.Signals) => {
+      if (shuttingDown) {
+        return;
+      }
+      shuttingDown = true;
+      logger.info(`Received ${signal}, draining connections before shutdown`);
 
-    // Arm at the start of each shutdown; unref so this timer alone cannot keep the process alive.
-    setTimeout(() => {
-      logger.warn(`Drain timed out after ${String(configuration.GRACEFUL_TIMEOUT_SECONDS)}s, exiting`, {
-        reportable_error: {
-          error: new Error(`Drain timed out after ${String(configuration.GRACEFUL_TIMEOUT_SECONDS)}s, exiting`),
-        },
+      // Arm at the start of each shutdown; unref so this timer alone cannot keep the process alive.
+      setTimeout(() => {
+        logger.warn(`Drain timed out after ${String(configuration.GRACEFUL_TIMEOUT_SECONDS)}s, exiting`, {
+          reportable_error: {
+            error: new Error(`Drain timed out after ${String(configuration.GRACEFUL_TIMEOUT_SECONDS)}s, exiting`),
+          },
+        });
+        process.exit(1);
+      }, configuration.GRACEFUL_TIMEOUT_SECONDS * 1000).unref();
+
+      const closed = new Promise<void>(resolve => {
+        server.close(() => {
+          resolve();
+        });
       });
-      process.exit(1);
-    }, configuration.GRACEFUL_TIMEOUT_SECONDS * 1000).unref();
 
-    const closed = new Promise<void>(resolve => {
-      server.close(() => {
-        resolve();
-      });
-    });
+      // Stop the control loops before draining; anything they already started drains
+      // with every other turn below.
+      await controller?.stop();
 
-    // Stop the control loops before draining; anything they already started drains
-    // with every other turn below.
-    await controller?.stop();
-
-    // Sets the registry's shutdown reason immediately so late track() (in-flight create-turn still
-    // inside session.createTurn) aborts as Abandoned; then drains the registry. await
-    // closed covers the gap where the registry is empty before that late track().
-    await activeTurns.shutdownAndWait(CancellationReason.Abandoned);
-    // tsx watch force-kills a restarting child after 5s; open SSE connections can hold server.close() longer.
-    if (configuration.NODE_ENV !== 'development') {
+      // Sets the registry's shutdown reason immediately so late track() (in-flight create-turn still
+      // inside session.createTurn) aborts as Abandoned; then drains the registry. await
+      // closed covers the gap where the registry is empty before that late track().
+      await activeTurns.shutdownAndWait(CancellationReason.Abandoned);
       await closed;
-    }
-    // Stop serving peer requests (waits for in-flight replies), then close
-    // Redis clients (Set dedupes when Sentinel shares one client for pub/sub).
-    await requestReplyExecutor?.drain();
-    const redisClients = new Set<RedisClient>();
-    if (requestReplySubscriber !== undefined) {
-      redisClients.add(requestReplySubscriber);
-    }
-    if (redis !== undefined) {
-      redisClients.add(redis.client);
-    }
-    for (const client of redisClients) {
-      await client.close().catch((error: unknown) => {
-        logger.warn('[Redis] Error closing client during shutdown', extractErrorLogFields(error));
-      });
-    }
-    if (configuration.STANDALONE) {
-      await removeCodeModeSocketParent(configuration.CODE_MODE_SOCKET_PARENT).catch((error: unknown) => {
-        logger.warn('Error removing Code Mode socket parent during shutdown', extractErrorLogFields(error));
-      });
-    }
-    await destroyDb();
-    process.exit(0);
-  };
-  process.on('SIGTERM', signal => {
-    void shutdown(signal);
-  });
-  process.on('SIGINT', signal => {
-    void shutdown(signal);
-  });
+      // Stop serving peer requests (waits for in-flight replies), then close
+      // Redis clients (Set dedupes when Sentinel shares one client for pub/sub).
+      await requestReplyExecutor?.drain();
+      const redisClients = new Set<RedisClient>();
+      if (requestReplySubscriber !== undefined) {
+        redisClients.add(requestReplySubscriber);
+      }
+      if (redis !== undefined) {
+        redisClients.add(redis.client);
+      }
+      for (const client of redisClients) {
+        await client.close().catch((error: unknown) => {
+          logger.warn('[Redis] Error closing client during shutdown', extractErrorLogFields(error));
+        });
+      }
+      if (configuration.STANDALONE) {
+        await removeCodeModeSocketParent(configuration.CODE_MODE_SOCKET_PARENT).catch((error: unknown) => {
+          logger.warn('Error removing Code Mode socket parent during shutdown', extractErrorLogFields(error));
+        });
+      }
+      await destroyDb();
+      process.exit(0);
+    };
+    process.on('SIGTERM', signal => {
+      void shutdown(signal);
+    });
+    process.on('SIGINT', signal => {
+      void shutdown(signal);
+    });
+  }
 } catch (error) {
   console.error('Failed to start server:', error instanceof Error ? error.message : error);
   process.exit(1);
