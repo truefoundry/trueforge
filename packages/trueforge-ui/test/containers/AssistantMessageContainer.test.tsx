@@ -171,7 +171,7 @@ describe('AssistantMessageContainer', () => {
   it.each([
     [TURN_CANCELLATION_REASON.CLIENT_CANCELLED, 'You stopped this response'],
     [TURN_CANCELLATION_REASON.SERVER_EXECUTION_TIMEOUT, 'Response timed out'],
-    [TURN_CANCELLATION_REASON.ABANDONED, 'Server stopped before turn completion. Please retry'],
+    [TURN_CANCELLATION_REASON.ABANDONED, 'Server stopped the turn before shutting down. Please retry'],
   ])('shows why a %s turn stopped, even with no output', (reason, label) => {
     renderAssistantMessage([cancelledMessage({ reason, content: [] })]);
     expect(screen.getByRole('status')).toHaveTextContent(label);
