@@ -63,7 +63,7 @@
     "@anthropic-ai/sandbox-runtime": "0.0.77",
     "@daytona/sdk": "^0.218.0",
     "@getzep/zep-cloud": "^4.1.0",
-    "@hono/node-server": "^2.1.3",
+    "@hono/node-server": "^2.1.6",
     "@hono/prometheus": "^1.0.3",
     "@hono/swagger-ui": "^0.6.1",
     "@hono/zod-openapi": "^1.6.3",

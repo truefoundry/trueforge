@@ -27,6 +27,7 @@ export type SessionMetrics = {
   wallTimeMs: number;
   totalCostUsd?: number;
   totalTokens: number;
+  /** Context in play after the latest turn, not a sum over turns. */
   contextTokens: number;
   toolCalls: number;
   subAgents: number;
@@ -77,6 +78,13 @@ function segmentDurationMs(segment: SessionEventTimelineSegment): number {
   return Math.max(0, segment.endMs - segment.startMs);
 }
 
+/** Drop sandbox intent suffix so frequency groups by tool (`Sandbox: exec`), not per intent. */
+function toolCallFrequencyLabel(description: string): string {
+  if (!description.startsWith('Sandbox: ')) return description;
+  const separator = description.indexOf(' - ');
+  return separator === -1 ? description : description.slice(0, separator);
+}
+
 function turnHasMetrics(turn: SessionTurnView): boolean {
   return (
     turn.totalTokens != null ||
@@ -110,9 +118,13 @@ export function buildSessionMetrics({
   // Aggregate by display band so MCP-auth resumes don't emit duplicate T1 chart keys.
   const bandCostUsd = new Map<number, number>();
   const bandTokens = new Map<number, number>();
+  const bandContextTokens = new Map<number, number>();
 
   for (const turn of turns) {
     derivedWallTimeMs += turn.durationMs ?? 0;
+    // Context is a snapshot of the live conversation, so a band takes its last turn's value
+    // rather than a sum. Recorded before the metrics guard: a turn can still be running.
+    if (turn.contextTokens != null) bandContextTokens.set(turn.turnNumber, turn.contextTokens);
     if (!turnHasMetrics(turn)) {
       if (!bandCostUsd.has(turn.turnNumber)) bandCostUsd.set(turn.turnNumber, 0);
       if (!bandTokens.has(turn.turnNumber)) bandTokens.set(turn.turnNumber, 0);
@@ -154,12 +166,13 @@ export function buildSessionMetrics({
   let contextTokens = 0;
   for (const turnNumber of [...bandTokens.keys()].sort((left, right) => left - right)) {
     const label = `T${turnNumber}`;
-    contextTokens += bandTokens.get(turnNumber) ?? 0;
     costPerTurn.push({
       label,
       value: bandCostUsd.get(turnNumber) ?? 0,
       color: getSessionEventColor('tool_call'),
     });
+    // A band with no root model call (an MCP-auth resume) leaves the context untouched.
+    contextTokens = bandContextTokens.get(turnNumber) ?? contextTokens;
     contextByTurn.push({ label, value: contextTokens, color: getSessionEventColor('model') });
   }
 
@@ -180,7 +193,10 @@ export function buildSessionMetrics({
   const toolCallCounts = new Map<string, number>();
   for (const segment of segments) {
     if (segment.type !== 'tool_call' || segment.threadId !== MAIN_THREAD_ID) continue;
-    toolCallCounts.set(segment.description, (toolCallCounts.get(segment.description) ?? 0) + 1);
+    // Timeline descriptions keep sandbox intent ("Sandbox: exec - List files"); frequency
+    // collapses those to the tool so each intent is not its own bar of 1.
+    const label = toolCallFrequencyLabel(segment.description);
+    toolCallCounts.set(label, (toolCallCounts.get(label) ?? 0) + 1);
   }
   const toolCallFrequency = Array.from(toolCallCounts, ([label, value]) => ({
     label,

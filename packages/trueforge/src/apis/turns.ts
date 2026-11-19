@@ -111,6 +111,7 @@ import {
   type EventSubscriptionPollOptions,
   type EventSubscriptionRegistry,
 } from '../runtime/event-subscription';
+import { X_TFG_MCP_HEADERS } from '../runtime/perServerMcpHeaders';
 import { validateSandboxFilePath } from '../runtime/sandboxFilePath';
 import {
   buildTurnSandbox,
@@ -123,7 +124,6 @@ import { restoreTurnEventLog } from '../runtime/turnEventLogRestore';
 import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
 import { assertGatewayMetadataRequestHeaders, X_TFY_METADATA } from '../truefoundry/gatewayMetadata';
 import { X_TFG_MCP, X_TFG_MODELS, X_TFG_SKILLS, X_TFG_TOOLS } from '../truefoundry/inlineResources';
-import { X_TFG_MCP_HEADERS } from '../truefoundry/perServerMcpHeaders';
 import { newId } from '../utils/id';
 import { resolveWebSearchProvider } from '../websearch/providers';
 import { canReadAgentBoundResource, canReadSession } from './agentAccess';
@@ -832,7 +832,9 @@ function withTurnSessionHeader(connection: McpConnection, sessionId: string): Mc
       ...connection,
       headers: async (): Promise<ResolveHeadersResult> => {
         const resolved = await headers();
-        return 'authRequired' in resolved ? resolved : { headers: { ...resolved.headers, ...sessionHeader } };
+        return 'authRequired' in resolved
+          ? resolved
+          : { ...resolved, headers: { ...resolved.headers, ...sessionHeader } };
       },
     };
   }

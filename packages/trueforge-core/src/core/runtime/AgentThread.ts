@@ -1233,7 +1233,7 @@ export class AgentThread {
     const requestBody = this.transformToLLMRequest(tools);
     // Duration includes the provider stream and each delta's drain. appendToContext stays outside.
     const requestStartedMs = performance.now();
-    const llmStream = this.definition.modelClient.create(requestBody);
+    const llmStream = this.definition.modelClient.create(requestBody, { metadata: { 'tfg.thread_id': this.threadId } });
 
     // We start the delta stream with a model message event.
     // `model` FQN is known from the bound client before any chunk arrives.

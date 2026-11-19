@@ -25,7 +25,7 @@ vi.mock('@truefoundry/trueforge-assistant-ui-runtime', async importOriginal => {
 });
 
 function openApprovalMenu() {
-  fireEvent.click(screen.getByRole('button', { name: 'Approve once' }));
+  fireEvent.click(screen.getByRole('button', { name: 'More approval options' }));
 }
 
 function renderToolCallMessage(content: ThreadMessageLike['content'], overrides?: SlotOverrides) {
