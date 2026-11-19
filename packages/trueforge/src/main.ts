@@ -112,6 +112,7 @@ import { createController } from './controller';
 import { memoryIngestFromConfig } from './controller/memoryIngest';
 import type { IAccessControlStore } from './db/accessControlStore';
 import type { IAgentStore } from './db/agentStore';
+import type { IArtifactStore } from './db/artifactStore';
 import type { IConfigurationStore } from './db/configurationStore';
 import type { IMcpServerWithAuthStore } from './db/mcpServerStore';
 import { McpServerWithAuthStore } from './db/McpServerWithAuthStore';
@@ -165,6 +166,7 @@ interface ServerPersistence<TTransaction> {
   accessControlStore: IAccessControlStore<TTransaction>;
   /** extra pre-resolved stores for scheduled runs */
   agentStore: IAgentStore<TTransaction>;
+  artifactStore: IArtifactStore<TTransaction>;
   destroyDb: () => Promise<void>;
   mcpOAuthStore: IMcpServerWithAuthStore<TTransaction>;
   /** Connected Redis (client + mode) for distributed peering; undefined in standalone. */
@@ -291,6 +293,7 @@ async function createStandalonePersistence(options: {
       import('./db/sqlite/schedule-store/SqliteScheduleStore'),
       import('./db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore'),
       import('./db/sqlite/access-control-store/SqliteAccessControlStore'),
+      import('./db/sqlite/artifact-store/SqliteArtifactStore'),
     ]),
   ]);
   const [
@@ -309,6 +312,7 @@ async function createStandalonePersistence(options: {
     { SqliteScheduleStore },
     { SqliteSandboxEnvironmentStore },
     { SqliteAccessControlStore },
+    { SqliteArtifactStore },
   ] = sqliteStores;
 
   const db = createSqliteDb(sqlitePath);
@@ -342,6 +346,7 @@ async function createStandalonePersistence(options: {
   return {
     accessControlStore: new SqliteAccessControlStore(db),
     agentStore,
+    artifactStore: new SqliteArtifactStore(db),
     destroyDb: () => db.destroy(),
     mcpOAuthStore: mcpServerStore,
     redis: undefined,
@@ -417,6 +422,7 @@ async function createDistributedPersistence(options: {
       import('./db/postgres/schedule-store/PostgresScheduleStore'),
       import('./db/postgres/sandbox-environment-store/PostgresSandboxEnvironmentStore'),
       import('./db/postgres/access-control-store/PostgresAccessControlStore'),
+      import('./db/postgres/artifact-store/PostgresArtifactStore'),
     ]),
   ]);
   const [
@@ -434,6 +440,7 @@ async function createDistributedPersistence(options: {
     { PostgresScheduleStore },
     { PostgresSandboxEnvironmentStore },
     { PostgresAccessControlStore },
+    { PostgresArtifactStore },
   ] = postgresStores;
 
   logger.info('Connecting to Postgres');
@@ -504,6 +511,7 @@ async function createDistributedPersistence(options: {
   return {
     accessControlStore: new PostgresAccessControlStore(db),
     agentStore,
+    artifactStore: new PostgresArtifactStore(db),
     destroyDb: () => db.destroy(),
     mcpOAuthStore: mcpServerWithAuthStore,
     redis: await connectRedis({
@@ -547,6 +555,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
   const {
     accessControlStore,
     agentStore,
+    artifactStore,
     destroyDb,
     mcpOAuthStore,
     redis,
@@ -649,6 +658,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     accessControlStore,
     activeTurns,
     agentStore,
+    artifactStore,
     authenticator,
     authorizer,
     eventSubscriptions,
