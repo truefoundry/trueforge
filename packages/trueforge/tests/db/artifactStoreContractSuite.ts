@@ -75,7 +75,7 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
       await store.commitVersion({ tenant_id: TENANT, artifact_id: artifact.id, version: 2, files }),
     ).toBeUndefined();
 
-    const fetched = await store.getVersion({ artifact_id: artifact.id, version: 2 });
+    const fetched = await store.getVersion({ tenant_id: TENANT, artifact_id: artifact.id, version: 2 });
     expect(fetched).toEqual(
       expect.objectContaining({ status: 'committed', entrypoint: 'index.html', created_by_turn_id: 'turn-1' }),
     );
@@ -97,7 +97,7 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     expect((await store.getVersion(key))?.status).toBe('failed');
   });
 
-  it('rejects version writes from other tenants', async () => {
+  it('hides versions from other tenants', async () => {
     const store = getStore();
     const artifact = await createArtifact();
     const v1 = await createVersion(artifact.id);
@@ -112,5 +112,6 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     ).toBeUndefined();
     expect(await store.commitVersion({ ...key, files: [] })).toBeUndefined();
     expect(await store.failVersion(key)).toBe(false);
+    expect(await store.getVersion(key)).toBeUndefined();
   });
 }
