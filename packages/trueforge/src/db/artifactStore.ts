@@ -1,4 +1,4 @@
-import type { Subject } from '@truefoundry/trueforge-core/agent-session';
+import type { Subject, TokenPagination } from '@truefoundry/trueforge-core/agent-session';
 
 export type ArtifactVersionStatus = 'pending' | 'committed' | 'failed';
 
@@ -56,6 +56,12 @@ export interface GetArtifactInput {
   slug: string;
 }
 
+export interface ListArtifactsInput {
+  tenant_id: string;
+  limit: number;
+  page_token: string | undefined;
+}
+
 export interface CreateArtifactVersionInput {
   tenant_id: string;
   artifact_id: string;
@@ -91,6 +97,11 @@ export interface IArtifactStore<TTransaction = never> {
   /** Throws `ArtifactSlugConflictError` when the slug is taken in the tenant. */
   createArtifact(input: CreateArtifactInput, transaction?: TTransaction): Promise<ArtifactRecord>;
   getArtifact(input: GetArtifactInput, transaction?: TTransaction): Promise<ArtifactRecord | undefined>;
+  /** Newest first. */
+  listArtifacts(
+    input: ListArtifactsInput,
+    transaction?: TTransaction,
+  ): Promise<{ data: ArtifactRecord[]; pagination: TokenPagination }>;
   /**
    * Inserts the next version as `pending`. Storage keys depend on the version number, so files
    * are recorded at commit. Undefined when the artifact is not in the tenant.
