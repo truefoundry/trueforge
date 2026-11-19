@@ -166,21 +166,21 @@ export class PostgresArtifactStore implements IArtifactStore<Transaction<Databas
 
   async failVersion(input: ArtifactVersionKey, transaction?: Transaction<Database>): Promise<boolean> {
     const db = transaction ?? this.#db;
+    const artifact = await db
+      .selectFrom('artifact')
+      .select('id')
+      .where('tenant_id', '=', input.tenant_id)
+      .where('id', '=', input.artifact_id)
+      .executeTakeFirst();
+    if (artifact === undefined) {
+      return false;
+    }
     const result = await db
       .updateTable('artifact_version')
       .set({ status: 'failed', updated_at: now() })
-      .where('artifact_id', '=', input.artifact_id)
+      .where('artifact_id', '=', artifact.id)
       .where('version', '=', input.version)
       .where('status', '=', 'pending')
-      .where(eb =>
-        eb.exists(
-          eb
-            .selectFrom('artifact')
-            .select('artifact.id')
-            .whereRef('artifact.id', '=', 'artifact_version.artifact_id')
-            .where('artifact.tenant_id', '=', input.tenant_id),
-        ),
-      )
       .executeTakeFirst();
     return result.numUpdatedRows > 0n;
   }
