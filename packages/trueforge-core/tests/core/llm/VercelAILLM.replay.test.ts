@@ -16,6 +16,7 @@ import type { LanguageModelV4Prompt } from '@ai-sdk/provider';
 import type { LanguageModelUsage, ProviderMetadata, StepResultPerformance, TextStreamPart, ToolSet } from 'ai';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat';
 import type { ExtendedChatCompletionChunk, RawAssistantMessageWithUsage } from '../../../src/core/llm/LLMTypes';
+import { createThinkingBlocksMetadataExtractor } from '../../../src/core/llm/openAICompatibleReasoning';
 import {
   mapStreamToChunks,
   toAssistantModelMessage,
@@ -401,6 +402,42 @@ describe('truefoundry reasoning replay, on the shape the TFY gateway actually se
     return convertToOpenAICompatibleChatMessages(prompt, { providerOptionsKey: 'truefoundry' })[0];
   }
 
+  /**
+   * Capture and replay joined end to end, with the real extractor in the middle: raw gateway
+   * chunks in, outbound gateway message out. Every other test here hand-writes the metadata the
+   * extractor would have produced, so none of them would catch the two sides naming it differently.
+   */
+  it('round-trips raw gateway chunks through the real extractor and back onto the wire', async () => {
+    const extractor = createThinkingBlocksMetadataExtractor().createStreamExtractor();
+    extractor.processChunk({ choices: [{ index: 0, delta: { role: 'assistant', content: '' } }] });
+    extractor.processChunk({ choices: [{ index: 0, delta: { reasoning_content: THINKING } }] });
+    extractor.processChunk({ choices: [{ index: 0, delta: { reasoning_signature: SIGNATURE } }] });
+    extractor.processChunk({
+      choices: [
+        { index: 0, delta: { thinking_blocks: [{ type: 'thinking', thinking: THINKING, signature: SIGNATURE }] } },
+      ],
+    });
+
+    const { output } = await drainStream(
+      mapStreamToChunks({
+        stream: makeStream([
+          { type: 'reasoning-start', id: 'r1' },
+          { type: 'reasoning-delta', id: 'r1', text: THINKING },
+          { type: 'reasoning-end', id: 'r1' },
+          { type: 'tool-input-start', id: 'call-tf1', toolName: 'get_current_datetime' },
+          { type: 'tool-input-delta', id: 'call-tf1', delta: '{}' },
+          makeFinishStep('tool-calls', extractor.buildMetadata()),
+        ]),
+        chunkMeta: CHUNK_META,
+      }),
+    );
+
+    expect(output.thinking_blocks).toEqual([{ type: 'thinking', thinking: THINKING, signature: SIGNATURE }]);
+    expect(toWireMessage({ output, source: 'truefoundry/truefoundry/claude-sonnet-5' })).toMatchObject({
+      thinking_blocks: [{ type: 'thinking', thinking: THINKING, signature: SIGNATURE }],
+    });
+  });
+
   it('carries the signature from finish-step metadata onto the outbound gateway message', async () => {
     const { output } = await drainStream(
       mapStreamToChunks({ stream: gatewayStream('tool-calls', true), chunkMeta: CHUNK_META }),
@@ -557,6 +594,20 @@ describe('replaying history after the session switches provider', () => {
     const wire = convertToOpenAICompatibleChatMessages(prompt, { providerOptionsKey: 'truefoundry' })[0];
     expect(wire).not.toHaveProperty('thinking_blocks');
     expect(wire).toMatchObject({ reasoning_content: THINKING });
+  });
+
+  // Both sides take message-level blocks, which is exactly why the type has to be checked: the
+  // replay would otherwise be well-formed and silently carry another gateway's signature.
+  it('drops blocks when the session switches to a gateway of another type', () => {
+    const replayed = replay({
+      blocks: signedBlocks,
+      source: 'truefoundry/shared-gateway/claude-sonnet-5',
+      provider: 'fireworks',
+      providerName: 'shared-gateway',
+    });
+
+    expect(replayed.providerOptions).toBeUndefined();
+    expect(replayed.reasoning.map(part => part.text)).toEqual([THINKING]);
   });
 
   // Two gateways of the same type are still two different issuers.
