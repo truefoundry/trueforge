@@ -19,9 +19,9 @@ function file(path: string, version: number): CommitArtifactVersionInput['files'
 }
 
 export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): void {
-  async function createArtifact(tenant_id = TENANT) {
+  async function createArtifact(tenantId = TENANT) {
     return getStore().createArtifact({
-      tenant_id,
+      tenant_id: tenantId,
       slug: 'q3-report',
       title: 'Q3 report',
       created_by_subject: SUBJECT,
@@ -29,10 +29,10 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     });
   }
 
-  async function createVersion(artifact_id: string) {
+  async function createVersion(artifactId: string) {
     const version = await getStore().createVersion({
       tenant_id: TENANT,
-      artifact_id,
+      artifact_id: artifactId,
       entrypoint: 'index.html',
       created_by_turn_id: 'turn-1',
     });
