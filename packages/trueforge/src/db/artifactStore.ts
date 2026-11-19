@@ -58,6 +58,7 @@ export interface GetArtifactInput {
 
 export interface ListArtifactsInput {
   tenant_id: string;
+  created_by_subject_id: string;
   limit: number;
   page_token: string | undefined;
 }
@@ -97,7 +98,7 @@ export interface IArtifactStore<TTransaction = never> {
   /** Throws `ArtifactSlugConflictError` when the slug is taken in the tenant. */
   createArtifact(input: CreateArtifactInput, transaction?: TTransaction): Promise<ArtifactRecord>;
   getArtifact(input: GetArtifactInput, transaction?: TTransaction): Promise<ArtifactRecord | undefined>;
-  /** Newest first. */
+  /** Most recently updated first. */
   listArtifacts(
     input: ListArtifactsInput,
     transaction?: TTransaction,
