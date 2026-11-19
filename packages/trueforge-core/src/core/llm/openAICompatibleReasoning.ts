@@ -9,7 +9,7 @@ import { type ThinkingBlockUnion, ThinkingBlockUnionSchema } from './LLMTypes';
  * Namespace the extracted blocks travel under. Ours alone: the adapter keys its own metadata by
  * provider name, so a distinct key keeps the two from overwriting each other for any provider.
  */
-const THINKING_METADATA_KEY = 'trueforgeThinking';
+const THINKING_METADATA_KEY = 'openaiCompatibleThinking';
 
 /** Metadata field holding the signed blocks. Snake_case mirrors the gateway's own wire field. */
 const THINKING_BLOCKS_FIELD = 'thinking_blocks';
@@ -52,7 +52,7 @@ function toJsonBlock(block: ThinkingBlockUnion): JSONObject {
  * Whether the gateway sent something only it can verify. Plain thinking replays fine as text, but
  * a signature or a redacted payload has to go back verbatim or the provider rejects the block.
  */
-export function hasReplayableSignature(blocks: readonly ThinkingBlockUnion[]): boolean {
+export function needsWholeBlockReplay(blocks: readonly ThinkingBlockUnion[]): boolean {
   return blocks.some(block => block.type === 'redacted_thinking' || block.signature !== undefined);
 }
 
@@ -69,7 +69,7 @@ export function thinkingBlocksReplayOptions(blocks: readonly ThinkingBlockUnion[
 /** Signed blocks the gateway attached to a finished stream, if it sent any. */
 export function readThinkingBlocks(providerMetadata: ProviderMetadata | undefined): ThinkingBlockUnion[] | undefined {
   const parsed = ThinkingBlocksSchema.safeParse(providerMetadata?.[THINKING_METADATA_KEY]?.[THINKING_BLOCKS_FIELD]);
-  return parsed.success ? [...parsed.data] : undefined;
+  return parsed.success ? parsed.data : undefined;
 }
 
 /**
@@ -92,7 +92,7 @@ export function createThinkingBlocksMetadataExtractor(): MetadataExtractor {
     for (const choice of parsed.data.choices ?? []) {
       const blocks = choice.delta?.thinking_blocks ?? choice.message?.thinking_blocks;
       if (blocks !== undefined) {
-        return [...blocks];
+        return blocks;
       }
     }
     return undefined;

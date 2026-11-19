@@ -6,7 +6,7 @@
  */
 import {
   createThinkingBlocksMetadataExtractor,
-  hasReplayableSignature,
+  needsWholeBlockReplay,
   readThinkingBlocks,
   thinkingBlocksReplayOptions,
 } from '../../../src/core/llm/openAICompatibleReasoning';
@@ -38,7 +38,7 @@ describe('OpenAI-compatible thinking-blocks metadata extractor', () => {
     extractor.processChunk(thinkingBlocksDelta([{ type: 'thinking', thinking: THINKING, signature: SIGNATURE }]));
 
     expect(extractor.buildMetadata()).toEqual({
-      trueforgeThinking: { thinking_blocks: [{ type: 'thinking', thinking: THINKING, signature: SIGNATURE }] },
+      openaiCompatibleThinking: { thinking_blocks: [{ type: 'thinking', thinking: THINKING, signature: SIGNATURE }] },
     });
   });
 
@@ -118,12 +118,12 @@ describe('readThinkingBlocks', () => {
   });
 });
 
-describe('hasReplayableSignature', () => {
+describe('needsWholeBlockReplay', () => {
   it('is true for a signature and for a redacted payload, false for bare thinking', () => {
-    expect(hasReplayableSignature([{ type: 'thinking', thinking: THINKING, signature: SIGNATURE }])).toBe(true);
-    expect(hasReplayableSignature([{ type: 'redacted_thinking', data: 'opaque' }])).toBe(true);
-    expect(hasReplayableSignature([{ type: 'thinking', thinking: THINKING }])).toBe(false);
-    expect(hasReplayableSignature([])).toBe(false);
+    expect(needsWholeBlockReplay([{ type: 'thinking', thinking: THINKING, signature: SIGNATURE }])).toBe(true);
+    expect(needsWholeBlockReplay([{ type: 'redacted_thinking', data: 'opaque' }])).toBe(true);
+    expect(needsWholeBlockReplay([{ type: 'thinking', thinking: THINKING }])).toBe(false);
+    expect(needsWholeBlockReplay([])).toBe(false);
   });
 });
 

@@ -351,7 +351,11 @@ describe('truefoundry reasoning replay, on the shape the TFY gateway actually se
       makeFinishStep(
         finishReason,
         signed
-          ? { trueforgeThinking: { thinking_blocks: [{ type: 'thinking', thinking: THINKING, signature: SIGNATURE }] } }
+          ? {
+              openaiCompatibleThinking: {
+                thinking_blocks: [{ type: 'thinking', thinking: THINKING, signature: SIGNATURE }],
+              },
+            }
           : undefined,
       ),
     ]);
@@ -439,7 +443,7 @@ describe('truefoundry reasoning replay, on the shape the TFY gateway actually se
           { type: 'reasoning-start', id: 'r1' },
           { type: 'reasoning-delta', id: 'r1', text: THINKING },
           { type: 'reasoning-end', id: 'r1' },
-          makeFinishStep('stop', { trueforgeThinking: { thinking_blocks: mixed } }),
+          makeFinishStep('stop', { openaiCompatibleThinking: { thinking_blocks: mixed } }),
         ]),
         chunkMeta: CHUNK_META,
       }),

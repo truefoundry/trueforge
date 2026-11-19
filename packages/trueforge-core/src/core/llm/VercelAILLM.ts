@@ -51,7 +51,7 @@ import {
 } from './LLMTypes';
 import {
   createThinkingBlocksMetadataExtractor,
-  hasReplayableSignature,
+  needsWholeBlockReplay,
   readThinkingBlocks,
   thinkingBlocksReplayOptions,
 } from './openAICompatibleReasoning';
@@ -756,7 +756,7 @@ export function toAssistantModelMessage({
   // The gateway needs whole blocks on the message: the compatible adapter flattens reasoning parts
   // into a bare `reasoning_content` string, which drops the signature and redacted blocks with it.
   const gatewayThinking =
-    OPENAI_COMPATIBLE_PROVIDERS.has(provider) && attachSignature && hasReplayableSignature(thinkingBlocks)
+    OPENAI_COMPATIBLE_PROVIDERS.has(provider) && attachSignature && needsWholeBlockReplay(thinkingBlocks)
       ? thinkingBlocks
       : undefined;
 
