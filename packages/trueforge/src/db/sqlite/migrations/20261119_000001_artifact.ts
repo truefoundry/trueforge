@@ -46,6 +46,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         size_bytes INTEGER NOT NULL,
         storage_key TEXT NOT NULL,
         sha256 TEXT NOT NULL,
+        created_at TEXT NOT NULL,
         PRIMARY KEY (artifact_id, version, path),
         FOREIGN KEY (artifact_id, version) REFERENCES artifact_version (artifact_id, version) ON DELETE CASCADE
       ) STRICT

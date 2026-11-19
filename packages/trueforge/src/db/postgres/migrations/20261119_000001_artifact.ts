@@ -47,6 +47,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('size_bytes', 'bigint', col => col.notNull())
     .addColumn('storage_key', 'text', col => col.notNull())
     .addColumn('sha256', 'text', col => col.notNull())
+    .addColumn('created_at', 'timestamptz', col => col.notNull())
     .addPrimaryKeyConstraint('artifact_file_pkey', ['artifact_id', 'version', 'path'])
     .addForeignKeyConstraint(
       'artifact_file_version_fkey',
