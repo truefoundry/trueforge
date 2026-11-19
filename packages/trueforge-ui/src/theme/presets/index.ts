@@ -1,9 +1,13 @@
+import { DEFAULT_TYPEFACE_ID, getTypefaceOption } from '../typefaces.js';
 import type { SemanticTokens, ThemePreset } from '../types.js';
 
 export type PresetTokens = {
   light: SemanticTokens;
   dark: SemanticTokens;
 };
+
+/** Brand default face — one owner for trueforge / chatgpt / gemini stacks. */
+const DEFAULT_FONT_FAMILY = getTypefaceOption(DEFAULT_TYPEFACE_ID).fontFamily;
 
 const trueforge: PresetTokens = {
   light: {
@@ -13,7 +17,7 @@ const trueforge: PresetTokens = {
     primaryBg: '#FFFFFF',
     secondaryBg: '#FAFCFF',
     border: '#E0ECFD',
-    fontFamily: '"Google Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+    fontFamily: DEFAULT_FONT_FAMILY,
     inputBoxBg: '#FAFCFF',
     inputBorder: '#CEE0F8',
     textPrimary: '#162236',
@@ -54,7 +58,7 @@ const trueforge: PresetTokens = {
     primaryBg: '#1F1F22',
     secondaryBg: '#27272A',
     border: '#343439',
-    fontFamily: '"Google Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+    fontFamily: DEFAULT_FONT_FAMILY,
     inputBoxBg: '#27272A',
     inputBorder: '#343439',
     textPrimary: '#E4E4E7',
@@ -185,7 +189,7 @@ const chatgpt: PresetTokens = {
     primaryBg: '#ffffff',
     secondaryBg: '#f9f9f9',
     border: '#e5e5e5',
-    fontFamily: '"GeistSans", "GeistSans Fallback", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
+    fontFamily: DEFAULT_FONT_FAMILY,
     inputBoxBg: '#ffffff',
     inputBorder: '#e5e5e5',
     textPrimary: '#0d0d0d',
@@ -226,7 +230,7 @@ const chatgpt: PresetTokens = {
     primaryBg: '#000000',
     secondaryBg: '#303030',
     border: '#ffffff26',
-    fontFamily: '"GeistSans", "GeistSans Fallback", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
+    fontFamily: DEFAULT_FONT_FAMILY,
     inputBoxBg: '#212121',
     inputBorder: '#ffffff26',
     textPrimary: '#ececec',
@@ -271,7 +275,7 @@ const gemini: PresetTokens = {
     primaryBg: '#fdfcfc',
     secondaryBg: '#f8fafd',
     border: '#dadce0',
-    fontFamily: '"GeistSans", "GeistSans Fallback", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
+    fontFamily: DEFAULT_FONT_FAMILY,
     inputBoxBg: '#ffffff',
     inputBorder: '#dadce0',
     textPrimary: '#1f1f1f',
@@ -312,7 +316,7 @@ const gemini: PresetTokens = {
     primaryBg: '#0c0c0c',
     secondaryBg: '#1b1b1b',
     border: '#3c4043',
-    fontFamily: '"GeistSans", "GeistSans Fallback", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
+    fontFamily: DEFAULT_FONT_FAMILY,
     inputBoxBg: '#1e1f20',
     inputBorder: '#3c4043',
     textPrimary: '#e3e3e3',
