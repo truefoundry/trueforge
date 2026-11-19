@@ -37,7 +37,7 @@ function cancellationLabel(reason: string | undefined): string {
     case TURN_CANCELLATION_REASON.SERVER_EXECUTION_TIMEOUT:
       return 'Response timed out';
     case TURN_CANCELLATION_REASON.ABANDONED:
-      return 'Something went wrong. Please try again';
+      return 'Server stopped before turn completion. Please retry';
     case TURN_CANCELLATION_REASON.CANCELLED_FOR_NEXT_TURN:
       return 'Stopped for a newer message';
     default:

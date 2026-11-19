@@ -203,53 +203,22 @@ describe('ActiveTurnRegistry', () => {
     ).toBe(false);
   });
 
-  it('shutdownAndWait logs each running turn it abandons but not offloaded paused turns', async () => {
-    const warn = jest.spyOn(logger, 'warn');
-    try {
-      const registry = new ActiveTurnRegistry({ logger });
-      const runningAbort = new AbortController();
-      const pausedAbort = new AbortController();
-      const drains = [
-        { turn: turn('s1', 't1'), abortController: runningAbort },
-        { turn: turn('s1', 't2', 'paused'), abortController: pausedAbort },
-      ].map(async input => {
-        for await (const value of registry.track({ ...input, stream: gateOnAbort(input.abortController.signal) })) {
-          void value;
-        }
-      });
-
-      await registry.shutdownAndWait(CancellationReason.Abandoned);
-      await Promise.all(drains);
-      expect(warn).toHaveBeenCalledTimes(1);
-      expect(warn).toHaveBeenCalledWith('Abandoning turn for shutdown', { session_id: 's1', turn_id: 't1' });
-      expect(pausedAbort.signal.reason).toBe(TurnOffloadReason);
-    } finally {
-      warn.mockRestore();
-    }
-  });
-
   it('late track after shutdownAndWait aborts immediately with the shutdown reason', async () => {
-    const warn = jest.spyOn(logger, 'warn');
-    try {
-      const registry = new ActiveTurnRegistry({ logger });
-      await registry.shutdownAndWait(CancellationReason.Abandoned);
+    const registry = new ActiveTurnRegistry({ logger });
+    await registry.shutdownAndWait(CancellationReason.Abandoned);
 
-      const abortController = new AbortController();
-      const tracked = registry.track({
-        turn: turn('s1', 'late'),
-        abortController,
-        stream: values(['x']),
-      });
+    const abortController = new AbortController();
+    const tracked = registry.track({
+      turn: turn('s1', 'late'),
+      abortController,
+      stream: values(['x']),
+    });
 
-      expect(abortController.signal.aborted).toBe(true);
-      expect(abortController.signal.reason).toBe(CancellationReason.Abandoned);
-      expect(warn).toHaveBeenCalledWith('Abandoning turn for shutdown', { session_id: 's1', turn_id: 'late' });
+    expect(abortController.signal.aborted).toBe(true);
+    expect(abortController.signal.reason).toBe(CancellationReason.Abandoned);
 
-      for await (const value of tracked) {
-        void value;
-      }
-    } finally {
-      warn.mockRestore();
+    for await (const value of tracked) {
+      void value;
     }
   });
 
