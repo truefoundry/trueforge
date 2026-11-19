@@ -16,7 +16,9 @@ concurrency:
 jobs:
   detect-changes:
     name: Detect Changes
-    runs-on: ubuntu-latest
+    runs-on:
+      group: large-runner-group
+      labels: "gh-large-linux-2c."
     timeout-minutes: 5
     permissions:
       contents: read
@@ -126,7 +128,9 @@ jobs:
   # - build last (full emit; SDK JS built once via the root graph, still always-on as a ship gate)
   migration-order:
     name: Migration Order
-    runs-on: ubuntu-latest
+    runs-on:
+      group: large-runner-group
+      labels: "gh-large-linux-2c."
     timeout-minutes: 5
 
     steps:
@@ -148,7 +152,9 @@ jobs:
 
   typecheck-and-build:
     name: Format, Typecheck, Lint and Build
-    runs-on: ubuntu-latest
+    runs-on:
+      group: large-runner-group
+      labels: "gh-large-linux-2c."
     timeout-minutes: 30
 
     steps:
@@ -219,7 +225,9 @@ jobs:
     name: Package (${{ matrix.package }})
     needs: detect-changes
     if: needs.detect-changes.outputs.packages != '[]'
-    runs-on: ubuntu-latest
+    runs-on:
+      group: large-runner-group
+      labels: "gh-large-linux-2c."
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -249,7 +257,9 @@ jobs:
     name: Helm Chart
     needs: detect-changes
     if: needs.detect-changes.outputs.chart == 'true'
-    runs-on: ubuntu-latest
+    runs-on:
+      group: large-runner-group
+      labels: "gh-large-linux-2c."
     timeout-minutes: 10
 
     steps:
@@ -280,7 +290,9 @@ jobs:
     name: Store Tests
     needs: detect-changes
     if: needs.detect-changes.outputs.store == 'true'
-    runs-on: ubuntu-latest
+    runs-on:
+      group: large-runner-group
+      labels: "gh-large-linux-2c."
     timeout-minutes: 30
 
     services:
