@@ -9,9 +9,10 @@ const ModelParamSchema = z.object({
   supportedValues: z.array(z.string()).optional(),
 });
 
-const TokenCostSchema = z.object({
-  input_cost_per_token: z.number().nullish(),
-  output_cost_per_token: z.number().nullish(),
+const RegionCostSchema = z.object({
+  region: z.string().nullish(),
+  input_cost_per_token: z.number(),
+  output_cost_per_token: z.number(),
 });
 
 // Routing-only fields fall back to undefined on an unexpected shape, so they can never break listing.
@@ -26,11 +27,7 @@ const MetadataSchema = z.object({
     .optional(),
   params: z.array(ModelParamSchema).optional(),
   canonical_model: z.string().nullish().catch(undefined),
-  public_cost: TokenCostSchema.optional().catch(undefined),
-  costs: z
-    .array(TokenCostSchema.extend({ region: z.string().nullish() }))
-    .optional()
-    .catch(undefined),
+  costs: z.array(RegionCostSchema.nullable().catch(null)).optional().catch(undefined),
 });
 
 const IntegrationSchema = z.object({
@@ -73,20 +70,12 @@ function toProperties(metadata: IntegrationMetadata | undefined): ModelPropertie
   };
 }
 
-/**
- * Blended USD per million tokens, weighted 3:1 input to output.
- * Uses the public price if set, else the global-region price, else the first region with a price.
- */
+/** Blended USD per million tokens from the default price, weighted 3:1 input to output. */
 function toBlendedPrice(metadata: IntegrationMetadata | undefined): number | undefined {
-  const regionCosts = metadata?.costs ?? [];
-  const globalCosts = regionCosts.filter(cost => cost.region === '*');
-  const inPreferenceOrder = [metadata?.public_cost, ...globalCosts, ...regionCosts];
-  for (const cost of inPreferenceOrder) {
-    if (typeof cost?.input_cost_per_token === 'number' && typeof cost.output_cost_per_token === 'number') {
-      return (0.75 * cost.input_cost_per_token + 0.25 * cost.output_cost_per_token) * 1e6;
-    }
-  }
-  return undefined;
+  const cost = metadata?.costs?.find(entry => entry?.region === '*');
+  return cost === undefined || cost === null
+    ? undefined
+    : (0.75 * cost.input_cost_per_token + 0.25 * cost.output_cost_per_token) * 1e6;
 }
 
 function toRoutingMetadata(metadata: IntegrationMetadata | undefined): TrueFoundryEnabledModel['routing'] {
