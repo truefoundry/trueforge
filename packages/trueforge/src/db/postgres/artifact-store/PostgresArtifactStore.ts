@@ -19,8 +19,13 @@ import type { ArtifactTable, ArtifactVersionTable, Database } from '../types';
 
 function toArtifactRecord(row: Selectable<ArtifactTable>): ArtifactRecord {
   return {
-    ...row,
+    id: row.id,
+    tenant_id: row.tenant_id,
+    slug: row.slug,
+    title: row.title,
+    latest_version: row.latest_version,
     created_by_subject: SubjectSchema.parse(row.created_by_subject),
+    created_by_session_id: row.created_by_session_id,
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
   };
@@ -28,33 +33,27 @@ function toArtifactRecord(row: Selectable<ArtifactTable>): ArtifactRecord {
 
 function toVersionRecord(row: Selectable<ArtifactVersionTable>): ArtifactVersionRecord {
   return {
-    ...row,
+    artifact_id: row.artifact_id,
+    version: row.version,
+    status: row.status,
+    entrypoint: row.entrypoint,
+    created_by_turn_id: row.created_by_turn_id,
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
   };
 }
 
-/** Locks the tenant's artifact row so version writes for one artifact serialise. */
-async function lockArtifact(db: Transaction<Database>, input: { tenant_id: string; artifact_id: string }) {
-  return db
-    .selectFrom('artifact')
-    .select('id')
-    .where('tenant_id', '=', input.tenant_id)
-    .where('id', '=', input.artifact_id)
-    .forUpdate()
-    .executeTakeFirst();
-}
-
-export class PostgresArtifactStore implements IArtifactStore {
+export class PostgresArtifactStore implements IArtifactStore<Transaction<Database>> {
   readonly #db: Kysely<Database>;
 
   constructor(db: Kysely<Database>) {
     this.#db = db;
   }
 
-  async createArtifact(input: CreateArtifactInput): Promise<ArtifactRecord> {
+  async createArtifact(input: CreateArtifactInput, transaction?: Transaction<Database>): Promise<ArtifactRecord> {
+    const db = transaction ?? this.#db;
     try {
-      const row = await this.#db
+      const row = await db
         .insertInto('artifact')
         .values({
           id: newId(),
@@ -78,19 +77,23 @@ export class PostgresArtifactStore implements IArtifactStore {
     }
   }
 
-  async getArtifact(input: GetArtifactInput): Promise<ArtifactRecord | undefined> {
-    const row = await this.#db
+  async getArtifact(input: GetArtifactInput, transaction?: Transaction<Database>): Promise<ArtifactRecord | undefined> {
+    const db = transaction ?? this.#db;
+    const row = await db
       .selectFrom('artifact')
       .selectAll()
       .where('tenant_id', '=', input.tenant_id)
       .where('slug', '=', input.slug)
       .executeTakeFirst();
-    return row ? toArtifactRecord(row) : undefined;
+    return row === undefined ? undefined : toArtifactRecord(row);
   }
 
-  async createVersion(input: CreateArtifactVersionInput): Promise<ArtifactVersionRecord | undefined> {
-    return this.#db.transaction().execute(async db => {
-      const artifact = await lockArtifact(db, input);
+  async createVersion(
+    input: CreateArtifactVersionInput,
+    transaction?: Transaction<Database>,
+  ): Promise<ArtifactVersionRecord | undefined> {
+    const write = async (db: Transaction<Database>): Promise<ArtifactVersionRecord | undefined> => {
+      const artifact = await this.#lockArtifact(input, db);
       if (artifact === undefined) {
         return undefined;
       }
@@ -113,12 +116,16 @@ export class PostgresArtifactStore implements IArtifactStore {
         .returningAll()
         .executeTakeFirstOrThrow();
       return toVersionRecord(row);
-    });
+    };
+    return transaction ? write(transaction) : this.#db.transaction().execute(write);
   }
 
-  async commitVersion(input: CommitArtifactVersionInput): Promise<ArtifactRecord | undefined> {
-    return this.#db.transaction().execute(async db => {
-      const artifact = await lockArtifact(db, input);
+  async commitVersion(
+    input: CommitArtifactVersionInput,
+    transaction?: Transaction<Database>,
+  ): Promise<ArtifactRecord | undefined> {
+    const write = async (db: Transaction<Database>): Promise<ArtifactRecord | undefined> => {
+      const artifact = await this.#lockArtifact(input, db);
       if (artifact === undefined) {
         return undefined;
       }
@@ -153,11 +160,13 @@ export class PostgresArtifactStore implements IArtifactStore {
         .returningAll()
         .executeTakeFirstOrThrow();
       return toArtifactRecord(row);
-    });
+    };
+    return transaction ? write(transaction) : this.#db.transaction().execute(write);
   }
 
-  async failVersion(input: ArtifactVersionKey): Promise<boolean> {
-    const result = await this.#db
+  async failVersion(input: ArtifactVersionKey, transaction?: Transaction<Database>): Promise<boolean> {
+    const db = transaction ?? this.#db;
+    const result = await db
       .updateTable('artifact_version')
       .set({ status: 'failed', updated_at: now() })
       .where('artifact_id', '=', input.artifact_id)
@@ -176,8 +185,12 @@ export class PostgresArtifactStore implements IArtifactStore {
     return result.numUpdatedRows > 0n;
   }
 
-  async getVersion(input: ArtifactVersionKey): Promise<ArtifactVersionWithFiles | undefined> {
-    const version = await this.#db
+  async getVersion(
+    input: ArtifactVersionKey,
+    transaction?: Transaction<Database>,
+  ): Promise<ArtifactVersionWithFiles | undefined> {
+    const db = transaction ?? this.#db;
+    const version = await db
       .selectFrom('artifact_version as ver')
       .innerJoin('artifact as art', 'art.id', 'ver.artifact_id')
       .selectAll('ver')
@@ -188,7 +201,7 @@ export class PostgresArtifactStore implements IArtifactStore {
     if (version === undefined) {
       return undefined;
     }
-    const files = await this.#db
+    const files = await db
       .selectFrom('artifact_file')
       .select(['path', 'size_bytes', 'storage_key', 'sha256'])
       .where('artifact_id', '=', input.artifact_id)
@@ -196,5 +209,19 @@ export class PostgresArtifactStore implements IArtifactStore {
       .orderBy('path')
       .execute();
     return { ...toVersionRecord(version), files };
+  }
+
+  /** Row lock so concurrent version writes for one artifact queue instead of racing. */
+  async #lockArtifact(
+    input: { tenant_id: string; artifact_id: string },
+    db: Transaction<Database>,
+  ): Promise<{ id: string } | undefined> {
+    return db
+      .selectFrom('artifact')
+      .select('id')
+      .where('tenant_id', '=', input.tenant_id)
+      .where('id', '=', input.artifact_id)
+      .forUpdate()
+      .executeTakeFirst();
   }
 }

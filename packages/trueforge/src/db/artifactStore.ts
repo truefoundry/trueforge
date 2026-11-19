@@ -84,21 +84,24 @@ export class ArtifactSlugConflictError extends Error {
   }
 }
 
-export interface IArtifactStore {
+export interface IArtifactStore<TTransaction = never> {
   /** Throws `ArtifactSlugConflictError` when the slug is taken in the tenant. */
-  createArtifact(input: CreateArtifactInput): Promise<ArtifactRecord>;
-  getArtifact(input: GetArtifactInput): Promise<ArtifactRecord | undefined>;
+  createArtifact(input: CreateArtifactInput, transaction?: TTransaction): Promise<ArtifactRecord>;
+  getArtifact(input: GetArtifactInput, transaction?: TTransaction): Promise<ArtifactRecord | undefined>;
   /**
    * Inserts the next version as `pending`. Storage keys depend on the version number, so files
    * are recorded at commit. Undefined when the artifact is not in the tenant.
    */
-  createVersion(input: CreateArtifactVersionInput): Promise<ArtifactVersionRecord | undefined>;
+  createVersion(
+    input: CreateArtifactVersionInput,
+    transaction?: TTransaction,
+  ): Promise<ArtifactVersionRecord | undefined>;
   /**
    * Records the uploaded files, marks a `pending` version `committed`, and advances
    * `latest_version` (never backwards). Undefined when no pending version matched.
    */
-  commitVersion(input: CommitArtifactVersionInput): Promise<ArtifactRecord | undefined>;
+  commitVersion(input: CommitArtifactVersionInput, transaction?: TTransaction): Promise<ArtifactRecord | undefined>;
   /** Marks a `pending` version `failed`. False when no pending version matched. */
-  failVersion(input: ArtifactVersionKey): Promise<boolean>;
-  getVersion(input: ArtifactVersionKey): Promise<ArtifactVersionWithFiles | undefined>;
+  failVersion(input: ArtifactVersionKey, transaction?: TTransaction): Promise<boolean>;
+  getVersion(input: ArtifactVersionKey, transaction?: TTransaction): Promise<ArtifactVersionWithFiles | undefined>;
 }
