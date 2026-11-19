@@ -1,0 +1,80 @@
+import { sql, type Kysely } from 'kysely';
+import { ARTIFACT_LIST_IDX, ARTIFACT_SESSION_IDX, ARTIFACT_TENANT_SLUG_UQ } from '../../indexes';
+
+/**
+ * Versioned artifacts: parent row + immutable version rows + one row per file.
+ * No FK to session — an artifact outlives the session that created it.
+ */
+export async function up(db: Kysely<unknown>): Promise<void> {
+  await sql`SET LOCAL lock_timeout = '5s'`.execute(db);
+
+  await db.schema
+    .createTable('artifact')
+    .addColumn('id', 'text', col => col.notNull())
+    .addColumn('tenant_id', 'text', col => col.notNull())
+    .addColumn('slug', 'text', col => col.notNull())
+    .addColumn('title', 'text', col => col.notNull())
+    .addColumn('kind', 'text', col => col.notNull())
+    .addColumn('latest_version', 'integer', col => col.notNull())
+    .addColumn('created_by_subject', 'jsonb', col => col.notNull())
+    .addColumn('created_by_session_id', 'text', col => col.notNull())
+    .addColumn('created_at', 'timestamptz', col => col.notNull())
+    .addColumn('updated_at', 'timestamptz', col => col.notNull())
+    .addPrimaryKeyConstraint('artifact_pkey', ['id'])
+    .addUniqueConstraint(ARTIFACT_TENANT_SLUG_UQ, ['tenant_id', 'slug'])
+    .execute();
+
+  await sql`
+    CREATE INDEX ${sql.raw(ARTIFACT_LIST_IDX)}
+      ON artifact (tenant_id, updated_at DESC, id)
+  `.execute(db);
+
+  await sql`
+    CREATE INDEX ${sql.raw(ARTIFACT_SESSION_IDX)}
+      ON artifact (tenant_id, created_by_session_id)
+  `.execute(db);
+
+  await db.schema
+    .createTable('artifact_version')
+    .addColumn('artifact_id', 'text', col => col.notNull())
+    .addColumn('version', 'integer', col => col.notNull())
+    .addColumn('status', 'text', col => col.notNull())
+    .addColumn('entrypoint', 'text', col => col.notNull())
+    .addColumn('total_bytes', 'bigint', col => col.notNull())
+    .addColumn('created_by_subject', 'jsonb', col => col.notNull())
+    .addColumn('created_by_session_id', 'text', col => col.notNull())
+    .addColumn('created_by_turn_id', 'text')
+    .addColumn('created_at', 'timestamptz', col => col.notNull())
+    .addColumn('updated_at', 'timestamptz', col => col.notNull())
+    .addPrimaryKeyConstraint('artifact_version_pkey', ['artifact_id', 'version'])
+    .addForeignKeyConstraint('artifact_version_artifact_id_fkey', ['artifact_id'], 'artifact', ['id'], fk =>
+      fk.onDelete('cascade'),
+    )
+    .execute();
+
+  await db.schema
+    .createTable('artifact_file')
+    .addColumn('artifact_id', 'text', col => col.notNull())
+    .addColumn('version', 'integer', col => col.notNull())
+    .addColumn('path', 'text', col => col.notNull())
+    .addColumn('size_bytes', 'bigint', col => col.notNull())
+    .addColumn('content_type', 'text', col => col.notNull())
+    .addColumn('storage_key', 'text', col => col.notNull())
+    .addColumn('sha256', 'text', col => col.notNull())
+    .addPrimaryKeyConstraint('artifact_file_pkey', ['artifact_id', 'version', 'path'])
+    .addForeignKeyConstraint(
+      'artifact_file_version_fkey',
+      ['artifact_id', 'version'],
+      'artifact_version',
+      ['artifact_id', 'version'],
+      fk => fk.onDelete('cascade'),
+    )
+    .execute();
+}
+
+export async function down(db: Kysely<unknown>): Promise<void> {
+  await sql`SET LOCAL lock_timeout = '5s'`.execute(db);
+  await db.schema.dropTable('artifact_file').ifExists().execute();
+  await db.schema.dropTable('artifact_version').ifExists().execute();
+  await db.schema.dropTable('artifact').ifExists().execute();
+}

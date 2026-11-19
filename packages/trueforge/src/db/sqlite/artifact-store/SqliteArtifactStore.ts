@@ -1,0 +1,348 @@
+import { SubjectSchema, type Subject, type TokenPagination } from '@truefoundry/trueforge-core/agent-session';
+import {
+  decodeOffsetPageToken,
+  paginateOffsetRows,
+} from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
+import { sql, type Kysely, type Transaction } from 'kysely';
+import type { ArtifactKind, ArtifactVersionStatus } from '../../../schemas/artifact';
+import { newId } from '../../../utils/id';
+import {
+  ArtifactSlugConflictError,
+  type ArtifactFileRecord,
+  type ArtifactRecord,
+  type ArtifactVersionKey,
+  type ArtifactVersionRecord,
+  type ArtifactVersionWithFiles,
+  type CommitArtifactVersionInput,
+  type CreateArtifactInput,
+  type CreateArtifactVersionInput,
+  type DeleteArtifactInput,
+  type GetArtifactInput,
+  type IArtifactStore,
+  type ListArtifactsInput,
+  type ListArtifactVersionsInput,
+  type UpdateArtifactInput,
+} from '../../artifactStore';
+import { isUniqueViolation } from '../client';
+import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
+import type { Database } from '../types';
+
+type Db = Kysely<Database> | Transaction<Database>;
+
+interface ArtifactRow {
+  id: string;
+  tenant_id: string;
+  slug: string;
+  title: string;
+  kind: ArtifactKind;
+  latest_version: number;
+  created_by_subject: Subject;
+  created_by_session_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface VersionRow {
+  artifact_id: string;
+  version: number;
+  status: ArtifactVersionStatus;
+  entrypoint: string;
+  total_bytes: number;
+  created_by_subject: Subject;
+  created_by_session_id: string;
+  created_by_turn_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+function artifactSelect() {
+  return [
+    'id' as const,
+    'tenant_id' as const,
+    'slug' as const,
+    'title' as const,
+    'kind' as const,
+    'latest_version' as const,
+    jsonText<Subject>(sql.ref('created_by_subject')).as('created_by_subject'),
+    'created_by_session_id' as const,
+    'created_at' as const,
+    'updated_at' as const,
+  ];
+}
+
+function versionSelect(prefix: 'ver' | 'artifact_version') {
+  return [
+    sql.ref<string>(`${prefix}.artifact_id`).as('artifact_id'),
+    sql.ref<number>(`${prefix}.version`).as('version'),
+    sql.ref<ArtifactVersionStatus>(`${prefix}.status`).as('status'),
+    sql.ref<string>(`${prefix}.entrypoint`).as('entrypoint'),
+    sql.ref<number>(`${prefix}.total_bytes`).as('total_bytes'),
+    jsonText<Subject>(sql.ref(`${prefix}.created_by_subject`)).as('created_by_subject'),
+    sql.ref<string>(`${prefix}.created_by_session_id`).as('created_by_session_id'),
+    sql.ref<string | null>(`${prefix}.created_by_turn_id`).as('created_by_turn_id'),
+    sql.ref<string>(`${prefix}.created_at`).as('created_at'),
+    sql.ref<string>(`${prefix}.updated_at`).as('updated_at'),
+  ];
+}
+
+function toArtifactRecord(row: ArtifactRow): ArtifactRecord {
+  return { ...row, created_by_subject: SubjectSchema.parse(row.created_by_subject) };
+}
+
+function toVersionRecord(row: VersionRow): ArtifactVersionRecord {
+  return { ...row, created_by_subject: SubjectSchema.parse(row.created_by_subject) };
+}
+
+const FILE_COLUMNS = ['path', 'size_bytes', 'content_type', 'storage_key', 'sha256'] as const;
+
+export class SqliteArtifactStore implements IArtifactStore<Transaction<Database>> {
+  readonly #db: Kysely<Database>;
+
+  constructor(db: Kysely<Database>) {
+    this.#db = db;
+  }
+
+  async createArtifact(input: CreateArtifactInput, transaction?: Transaction<Database>): Promise<ArtifactRecord> {
+    const db = transaction ?? this.#db;
+    const timestamp = nowIso();
+    try {
+      const row = await db
+        .insertInto('artifact')
+        .values({
+          id: newId(),
+          tenant_id: input.tenant_id,
+          slug: input.slug,
+          title: input.title,
+          kind: input.kind,
+          latest_version: 0,
+          created_by_subject: jsonbBind(input.created_by_subject),
+          created_by_session_id: input.created_by_session_id,
+          created_at: timestamp,
+          updated_at: timestamp,
+        })
+        .returning(artifactSelect())
+        .executeTakeFirstOrThrow();
+      return toArtifactRecord(row);
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new ArtifactSlugConflictError({ tenant_id: input.tenant_id, slug: input.slug }, { cause: error });
+      }
+      throw error;
+    }
+  }
+
+  async getArtifact(input: GetArtifactInput, transaction?: Transaction<Database>): Promise<ArtifactRecord | undefined> {
+    const db = transaction ?? this.#db;
+    const row = await db
+      .selectFrom('artifact')
+      .select(artifactSelect())
+      .where('tenant_id', '=', input.tenant_id)
+      .where('slug', '=', input.slug)
+      .executeTakeFirst();
+    return row ? toArtifactRecord(row) : undefined;
+  }
+
+  async listArtifacts(
+    input: ListArtifactsInput,
+    transaction?: Transaction<Database>,
+  ): Promise<{ data: ArtifactRecord[]; pagination: TokenPagination }> {
+    const db = transaction ?? this.#db;
+    let query = db
+      .selectFrom('artifact')
+      .select(artifactSelect())
+      .where('tenant_id', '=', input.tenant_id)
+      .orderBy('updated_at', 'desc')
+      .orderBy('id', 'desc');
+    if (input.created_by_session_id !== undefined) {
+      query = query.where('created_by_session_id', '=', input.created_by_session_id);
+    }
+    if (input.kind !== undefined) {
+      query = query.where('kind', '=', input.kind);
+    }
+    if (!input.limit) {
+      const rows = await query.execute();
+      return { data: rows.map(toArtifactRecord), pagination: { limit: rows.length } };
+    }
+    const offset = decodeOffsetPageToken(input.page_token);
+    const rows = await query
+      .limit(input.limit + 1)
+      .offset(offset)
+      .execute();
+    const { data, pagination } = paginateOffsetRows(rows, input.limit, offset);
+    return { data: data.map(toArtifactRecord), pagination };
+  }
+
+  async updateArtifact(
+    input: UpdateArtifactInput,
+    transaction?: Transaction<Database>,
+  ): Promise<ArtifactRecord | undefined> {
+    const db = transaction ?? this.#db;
+    const row = await db
+      .updateTable('artifact')
+      .set({ title: input.title, updated_at: nowIso() })
+      .where('tenant_id', '=', input.tenant_id)
+      .where('slug', '=', input.slug)
+      .returning(artifactSelect())
+      .executeTakeFirst();
+    return row ? toArtifactRecord(row) : undefined;
+  }
+
+  async deleteArtifact(input: DeleteArtifactInput, transaction?: Transaction<Database>): Promise<string | undefined> {
+    const db = transaction ?? this.#db;
+    const row = await db
+      .deleteFrom('artifact')
+      .where('tenant_id', '=', input.tenant_id)
+      .where('slug', '=', input.slug)
+      .returning('id')
+      .executeTakeFirst();
+    return row?.id;
+  }
+
+  async createVersion(
+    input: CreateArtifactVersionInput,
+    transaction?: Transaction<Database>,
+  ): Promise<ArtifactVersionWithFiles | undefined> {
+    // SQLite transactions are BEGIN IMMEDIATE, so version allocation is already serialised.
+    const write = async (db: Transaction<Database>): Promise<ArtifactVersionWithFiles | undefined> => {
+      const artifact = await db
+        .selectFrom('artifact')
+        .select('id')
+        .where('tenant_id', '=', input.tenant_id)
+        .where('id', '=', input.artifact_id)
+        .executeTakeFirst();
+      if (artifact === undefined) {
+        return undefined;
+      }
+      const { max_version } = await db
+        .selectFrom('artifact_version')
+        .select(eb => eb.fn.coalesce(eb.fn.max('version'), sql<number>`0`).as('max_version'))
+        .where('artifact_id', '=', artifact.id)
+        .executeTakeFirstOrThrow();
+      const timestamp = nowIso();
+      const version = await db
+        .insertInto('artifact_version')
+        .values({
+          artifact_id: artifact.id,
+          version: max_version + 1,
+          status: 'pending',
+          entrypoint: input.entrypoint,
+          total_bytes: input.files.reduce((sum, file) => sum + file.size_bytes, 0),
+          created_by_subject: jsonbBind(input.created_by_subject),
+          created_by_session_id: input.created_by_session_id,
+          created_by_turn_id: input.created_by_turn_id,
+          created_at: timestamp,
+          updated_at: timestamp,
+        })
+        .returning(versionSelect('artifact_version'))
+        .executeTakeFirstOrThrow();
+      const files =
+        input.files.length === 0
+          ? []
+          : await db
+              .insertInto('artifact_file')
+              .values(input.files.map(file => ({ ...file, artifact_id: artifact.id, version: version.version })))
+              .returning(FILE_COLUMNS)
+              .execute();
+      return { ...toVersionRecord(version), files };
+    };
+    return transaction ? write(transaction) : this.#db.transaction().execute(write);
+  }
+
+  async getVersion(
+    input: ArtifactVersionKey,
+    transaction?: Transaction<Database>,
+  ): Promise<ArtifactVersionWithFiles | undefined> {
+    const db = transaction ?? this.#db;
+    const version = await db
+      .selectFrom('artifact_version as ver')
+      .innerJoin('artifact as art', 'art.id', 'ver.artifact_id')
+      .select(versionSelect('ver'))
+      .where('art.tenant_id', '=', input.tenant_id)
+      .where('ver.artifact_id', '=', input.artifact_id)
+      .where('ver.version', '=', input.version)
+      .executeTakeFirst();
+    if (version === undefined) {
+      return undefined;
+    }
+    const files: ArtifactFileRecord[] = await db
+      .selectFrom('artifact_file')
+      .select(FILE_COLUMNS)
+      .where('artifact_id', '=', input.artifact_id)
+      .where('version', '=', input.version)
+      .orderBy('path')
+      .execute();
+    return { ...toVersionRecord(version), files };
+  }
+
+  async listVersions(
+    input: ListArtifactVersionsInput,
+    transaction?: Transaction<Database>,
+  ): Promise<ArtifactVersionRecord[]> {
+    const db = transaction ?? this.#db;
+    const rows = await db
+      .selectFrom('artifact_version as ver')
+      .innerJoin('artifact as art', 'art.id', 'ver.artifact_id')
+      .select(versionSelect('ver'))
+      .where('art.tenant_id', '=', input.tenant_id)
+      .where('ver.artifact_id', '=', input.artifact_id)
+      .orderBy('ver.version', 'desc')
+      .execute();
+    return rows.map(toVersionRecord);
+  }
+
+  async commitVersion(
+    input: CommitArtifactVersionInput,
+    transaction?: Transaction<Database>,
+  ): Promise<ArtifactRecord | undefined> {
+    const write = async (db: Transaction<Database>): Promise<ArtifactRecord | undefined> => {
+      const committed = await this.#transitionPending(db, input, 'committed');
+      if (committed === undefined) {
+        return undefined;
+      }
+      const artifact = await db
+        .updateTable('artifact')
+        .set({
+          latest_version: sql<number>`MAX(latest_version, ${committed.version})`,
+          kind: input.kind,
+          updated_at: nowIso(),
+        })
+        .where('id', '=', committed.artifact_id)
+        .returning(artifactSelect())
+        .executeTakeFirstOrThrow();
+      return toArtifactRecord(artifact);
+    };
+    return transaction ? write(transaction) : this.#db.transaction().execute(write);
+  }
+
+  async failVersion(
+    input: ArtifactVersionKey,
+    transaction?: Transaction<Database>,
+  ): Promise<ArtifactVersionRecord | undefined> {
+    const row = await this.#transitionPending(transaction ?? this.#db, input, 'failed');
+    return row ? toVersionRecord(row) : undefined;
+  }
+
+  async #transitionPending(
+    db: Db,
+    input: ArtifactVersionKey,
+    status: 'committed' | 'failed',
+  ): Promise<VersionRow | undefined> {
+    return db
+      .updateTable('artifact_version')
+      .set({ status, updated_at: nowIso() })
+      .where('artifact_id', '=', input.artifact_id)
+      .where('version', '=', input.version)
+      .where('status', '=', 'pending')
+      .where(eb =>
+        eb.exists(
+          eb
+            .selectFrom('artifact')
+            .select('artifact.id')
+            .whereRef('artifact.id', '=', 'artifact_version.artifact_id')
+            .where('artifact.tenant_id', '=', input.tenant_id),
+        ),
+      )
+      .returning(versionSelect('artifact_version'))
+      .executeTakeFirst();
+  }
+}

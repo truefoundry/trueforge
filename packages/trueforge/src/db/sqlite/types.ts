@@ -29,6 +29,7 @@ import type {
 } from '@truefoundry/trueforge-core/core';
 import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
+import type { ArtifactKind, ArtifactVersionStatus } from '../../schemas/artifact';
 import type { ConfigurationManifest } from '../../schemas/configuration';
 import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { MemoryProviderManifest } from '../../schemas/memoryProvider';
@@ -466,6 +467,55 @@ export interface OAuthPendingAuthorizationTable {
   created_at: string;
 }
 
+/**
+ * Shareable artifacts — mirrors Postgres `artifact`.
+ * PRIMARY KEY (id); UNIQUE (tenant_id, slug).
+ */
+export interface ArtifactTable {
+  id: string;
+  tenant_id: string;
+  slug: string;
+  title: string;
+  kind: ArtifactKind;
+  /** Highest committed version; 0 until the first commit. */
+  latest_version: number;
+  created_by_subject: JsonbColumn<Subject>;
+  created_by_session_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Immutable artifact snapshots — mirrors Postgres `artifact_version`.
+ * PRIMARY KEY (artifact_id, version); FK → artifact ON DELETE CASCADE.
+ */
+export interface ArtifactVersionTable {
+  artifact_id: string;
+  version: number;
+  status: ArtifactVersionStatus;
+  entrypoint: string;
+  total_bytes: number;
+  created_by_subject: JsonbColumn<Subject>;
+  created_by_session_id: string;
+  created_by_turn_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * One row per file in a version — mirrors Postgres `artifact_file`.
+ * PRIMARY KEY (artifact_id, version, path); FK → artifact_version ON DELETE CASCADE.
+ */
+export interface ArtifactFileTable {
+  artifact_id: string;
+  version: number;
+  path: string;
+  size_bytes: number;
+  content_type: string;
+  storage_key: string;
+  sha256: string;
+}
+
 export interface Database {
   session: SessionTable;
   access_control: AccessControlTable;
@@ -492,4 +542,7 @@ export interface Database {
   mcp_server: McpServerTable;
   oauth_token: OAuthTokenTable;
   oauth_pending_authorization: OAuthPendingAuthorizationTable;
+  artifact: ArtifactTable;
+  artifact_version: ArtifactVersionTable;
+  artifact_file: ArtifactFileTable;
 }
