@@ -5,7 +5,7 @@ import type { RoutingCategory } from './question';
 export type RoutingClusters = Record<RoutingCategory, Partial<Record<ReasoningEffort, readonly string[]>>>;
 
 /**
- * The router picks the cheapest pair the tenant has, by its gateway price per token, and the thread runs at that effort.
+ * The router picks the cheapest pair the tenant has, by its gateway cost per token, and the thread runs at that effort.
  * Nearest anchor by AA Intelligence Index v5.0.1 (Haiku 24.6, Sonnet 30.8, GPT-6.1 Sol 46.3 at medium); min 18/26/41.
  */
 export const ROUTING_CLUSTERS: RoutingClusters = {

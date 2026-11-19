@@ -66,7 +66,7 @@ export class InlineModelProviderStore<TTransaction = never> implements IModelPro
   }
 
   listRoutingCandidates(input: ListModelProvidersInput): Promise<RoutableModel[]> {
-    return this.#inner.listRoutingCandidates?.(input) ?? Promise.resolve([]);
+    return this.#inner.listRoutingCandidates(input);
   }
 
   /**

@@ -374,14 +374,10 @@ function turnModelRouting(input: {
 }): ModelRouterDeps | undefined {
   const { routing, tenant_id, modelProviderStore, turnMetadata } = input;
   const tenantRouting = routing?.tenants[tenant_id];
-  if (
-    routing === undefined ||
-    tenantRouting?.subagent !== 'on' ||
-    modelProviderStore.listRoutingCandidates === undefined
-  ) {
+  if (routing === undefined || tenantRouting?.subagent !== 'on') {
     return undefined;
   }
-  // Resolved on first use, so the lookup counts towards the routing timeout and turns that route no thread skip it.
+  // Resolved on first use, so turns that route no thread skip the lookup.
   let decisionModel: Promise<OpenAIDecisionModel> | undefined;
   const resolveDecisionModel = () => {
     decisionModel ??= getModelDetails({
@@ -398,8 +394,7 @@ function turnModelRouting(input: {
   return {
     classifier: { create: async (body, options) => (await resolveDecisionModel()).create(body, options) },
     question: { instructions: routing.instructions, categories: routing.categories },
-    listModels: () => modelProviderStore.listRoutingCandidates?.({ tenant_id }) ?? Promise.resolve([]),
-    timeoutMs: routing.timeout_ms,
+    listModels: () => modelProviderStore.listRoutingCandidates({ tenant_id }),
   };
 }
 

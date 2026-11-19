@@ -7,10 +7,10 @@ import { createModelRouter, selectModel, type RoutableModel } from '../../../src
 const logger = createLogger({ silent: true });
 
 const models: RoutableModel[] = [
-  { model: 'a/claude-sonnet-5-5', canonicalModel: 'anthropic/claude-sonnet-5-5', price: 4 },
-  { model: 'a/claude-haiku-5-5', canonicalModel: 'anthropic/claude-haiku-5-5', price: 0.5 },
-  { model: 'b/claude-haiku-5-5', canonicalModel: 'anthropic/claude-haiku-5-5', price: 0.2 },
-  { model: 'a/gpt-6-luna', canonicalModel: 'openai/gpt-6-luna', price: undefined },
+  { name: 'a/claude-sonnet-5-5', canonicalModel: 'anthropic/claude-sonnet-5-5', cost: 4 },
+  { name: 'a/claude-haiku-5-5', canonicalModel: 'anthropic/claude-haiku-5-5', cost: 0.5 },
+  { name: 'b/claude-haiku-5-5', canonicalModel: 'anthropic/claude-haiku-5-5', cost: 0.2 },
+  { name: 'a/gpt-6-luna', canonicalModel: 'openai/gpt-6-luna', cost: undefined },
 ];
 const haikuOnly = models.filter(model => model.canonicalModel === 'anthropic/claude-haiku-5-5');
 
@@ -51,16 +51,18 @@ describe('selectModel', () => {
     });
   });
 
-  it('gives a price tie to the lower effort', () => {
+  it('gives a cost tie to the lower effort', () => {
     expect(selectModel({ category: 'direct', models })?.routed).toEqual({
       model: 'b/claude-haiku-5-5',
       effort: 'low',
     });
   });
 
-  it('puts unpriced models last', () => {
-    const unpricedFirst = [models[3], models[0]].filter(model => model !== undefined);
-    expect(selectModel({ category: 'fixed_steps', models: unpricedFirst })?.routed.model).toBe('a/claude-sonnet-5-5');
+  it('puts models without a cost last', () => {
+    const withoutCostFirst = [models[3], models[0]].filter(model => model !== undefined);
+    expect(selectModel({ category: 'fixed_steps', models: withoutCostFirst })?.routed.model).toBe(
+      'a/claude-sonnet-5-5',
+    );
   });
 
   it('returns nothing when the user has none of the cluster models', () => {
@@ -77,7 +79,6 @@ describe('createModelRouter', () => {
         classifier,
         question: DEFAULT_ROUTING_QUESTION,
         listModels,
-        timeoutMs: 1_000,
       },
       logger,
     )(routeInput);
@@ -103,17 +104,6 @@ describe('createModelRouter', () => {
     await expect(route({ create: () => Promise.reject(new Error('HTTP 403')) })).resolves.toBeUndefined();
   });
 
-  it('picks nothing when the step outlasts the timeout', async () => {
-    jest.useFakeTimers();
-    try {
-      const pending = route(classifiesAs('direct'), () => new Promise(() => undefined));
-      await jest.advanceTimersByTimeAsync(1_000);
-      await expect(pending).resolves.toBeUndefined();
-    } finally {
-      jest.useRealTimers();
-    }
-  });
-
   it('lists the models once per router', async () => {
     const listModels = jest.fn(() => Promise.resolve(models));
     const routeModel = createModelRouter(
@@ -121,7 +111,6 @@ describe('createModelRouter', () => {
         classifier: classifiesAs('direct'),
         question: DEFAULT_ROUTING_QUESTION,
         listModels,
-        timeoutMs: 1_000,
       },
       logger,
     );

@@ -1,3 +1,4 @@
+import type { RoutableModel } from '@truefoundry/trueforge-core/core';
 import type { Kysely, Selectable, Transaction } from 'kysely';
 import type { AvailableModel } from '../../../schemas/modelProvider';
 import {
@@ -143,5 +144,9 @@ export class PostgresModelProviderStore implements IModelProviderStore<Transacti
 
   async listModels(input: ListModelProvidersInput, transaction?: Transaction<Database>): Promise<AvailableModel[]> {
     return flattenProviderModels(await this.listProviders(input, transaction));
+  }
+  /** No model catalog, so nothing is routable. */
+  listRoutingCandidates(): Promise<RoutableModel[]> {
+    return Promise.resolve([]);
   }
 }

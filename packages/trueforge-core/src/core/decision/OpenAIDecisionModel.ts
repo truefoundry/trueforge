@@ -17,7 +17,7 @@ export class OpenAIDecisionModel implements IDecisionModel {
       );
     }
     this.#config = config;
-    // The caller bounds the whole decision with its own timeout, so the client doesn't retry.
+    // A failed decision leaves the thread on its own model, so the client doesn't retry.
     this.#client = new OpenAI({ apiKey: config.apiKey, baseURL: config.baseUrl, fetch: modelSsrfFetch, maxRetries: 0 });
   }
 

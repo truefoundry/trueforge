@@ -107,7 +107,7 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
       accessToken: await this.#resolveServiceFoundryAuthorization(),
     });
     return filterEnvModels({ tenant_id: input.tenant_id, models: mapEnabledModels({ integrations }) }).map(model => ({
-      model: `${model.accountName}/${model.modelName}`,
+      name: `${model.accountName}/${model.modelName}`,
       ...model.routing,
     }));
   }

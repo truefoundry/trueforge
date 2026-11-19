@@ -9,11 +9,11 @@ import type { RoutingCategory, RoutingQuestion } from './question';
 /** One of the models the user has access to. */
 export interface RoutableModel {
   /** `provider/model`, as the harness resolves it. */
-  model: string;
+  name: string;
   /** Provider-neutral model id (e.g. `anthropic/claude-haiku-5-5`); matched against the clusters. */
   canonicalModel: string | undefined;
   /** Blended USD per million tokens: 0.75 × input + 0.25 × output. */
-  price: number | undefined;
+  cost: number | undefined;
 }
 
 export interface RoutedModel {
@@ -25,7 +25,7 @@ export interface RoutedModel {
 interface Selection {
   routed: RoutedModel;
   canonicalModel: string;
-  price: number | undefined;
+  cost: number | undefined;
   /** How many model, effort and account combinations in the cluster the user has. */
   available: number;
 }
@@ -47,15 +47,15 @@ export function selectModel(input: {
     ),
   );
   const [cheapest] = candidates.sort(
-    (a, b) => (a.model.price ?? Number.MAX_VALUE) - (b.model.price ?? Number.MAX_VALUE) || a.effortRank - b.effortRank,
+    (a, b) => (a.model.cost ?? Number.MAX_VALUE) - (b.model.cost ?? Number.MAX_VALUE) || a.effortRank - b.effortRank,
   );
   if (cheapest === undefined) {
     return undefined;
   }
   return {
-    routed: { model: cheapest.model.model, effort: cheapest.effort },
+    routed: { model: cheapest.model.name, effort: cheapest.effort },
     canonicalModel: cheapest.canonicalModel,
-    price: cheapest.model.price,
+    cost: cheapest.model.cost,
     available: candidates.length,
   };
 }
@@ -66,8 +66,6 @@ export interface ModelRouterDeps {
   question: RoutingQuestion;
   /** The models the user has access to; called at most once per router. */
   listModels: () => Promise<RoutableModel[]>;
-  /** Bounds the whole step, including listing models and classifying. */
-  timeoutMs: number;
 }
 
 export interface RouteInput {
@@ -77,7 +75,7 @@ export interface RouteInput {
 }
 
 interface Outcome {
-  reason: 'picked' | 'decision_error' | 'decision_timeout' | 'model_unavailable';
+  reason: 'picked' | 'decision_error' | 'model_unavailable';
   routed: RoutedModel | undefined;
   fields: Record<string, unknown>;
 }
@@ -96,7 +94,7 @@ export function createModelRouter(
     const startedMs = Date.now();
     const request = classificationRequest(route.input, deps.question);
 
-    const decide = async (timeout: AbortSignal): Promise<Outcome> => {
+    const decide = async (): Promise<Outcome> => {
       models ??= deps.listModels().catch((error: unknown) => {
         models = undefined;
         throw error;
@@ -107,7 +105,6 @@ export function createModelRouter(
           metadata: { 'tfg.thread_id': route.threadId },
         }),
       ]);
-      timeout.throwIfAborted();
       const classification = readClassification(decision);
       if (classification === undefined) {
         return { reason: 'decision_error', routed: undefined, fields: { answers: decision.answers } };
@@ -129,34 +126,16 @@ export function createModelRouter(
           available_in_cluster: selection.available,
           model: selection.routed.model,
           effort: selection.routed.effort,
-          price: selection.price,
+          cost: selection.cost,
         },
       };
     };
 
-    const timeout = AbortSignal.timeout(deps.timeoutMs);
-    const timedOut = new Promise<never>((_, reject) => {
-      timeout.addEventListener(
-        'abort',
-        () => {
-          reject(new Error(`Routing timed out after ${String(deps.timeoutMs)} ms`, { cause: timeout.reason }));
-        },
-        { once: true },
-      );
-    });
-    const work = decide(timeout);
-    // Whichever promise loses the race settles later and is ignored.
-    work.catch(() => undefined);
-    timedOut.catch(() => undefined);
     let outcome: Outcome;
     try {
-      outcome = await Promise.race([work, timedOut]);
+      outcome = await decide();
     } catch (error) {
-      outcome = {
-        reason: timeout.aborted ? 'decision_timeout' : 'decision_error',
-        routed: undefined,
-        fields: { err: describeUnknownError(error) },
-      };
+      outcome = { reason: 'decision_error', routed: undefined, fields: { err: describeUnknownError(error) } };
     }
     logger.info('model routing', {
       thread_id: route.threadId,

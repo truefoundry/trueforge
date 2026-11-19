@@ -86,11 +86,8 @@ export interface IModelProviderStore<TTransaction = never> {
     record: ModelProviderRecord;
     turnMetadata?: TurnMetadata;
   }): Promise<Record<string, string>>;
-  /**
-   * The caller's models with the catalog fields model routing needs. Only the TrueFoundry-mode store
-   * implements it for now; stores that omit it never get routing.
-   */
-  listRoutingCandidates?(input: ListModelProvidersInput): Promise<RoutableModel[]>;
+  /** The caller's models with the catalog fields model routing needs; empty for stores without a model catalog. */
+  listRoutingCandidates(input: ListModelProvidersInput): Promise<RoutableModel[]>;
 }
 
 export function modelPropertiesWarning(input: { properties: ModelProperties }): string | undefined {

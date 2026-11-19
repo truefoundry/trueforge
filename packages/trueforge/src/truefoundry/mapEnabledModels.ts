@@ -70,8 +70,8 @@ function toProperties(metadata: IntegrationMetadata | undefined): ModelPropertie
   };
 }
 
-/** Blended USD per million tokens from the default price, weighted 3:1 input to output. */
-function toBlendedPrice(metadata: IntegrationMetadata | undefined): number | undefined {
+/** Blended USD per million tokens from the default (`*` region) cost, weighted 3:1 input to output. */
+function toBlendedCost(metadata: IntegrationMetadata | undefined): number | undefined {
   const cost = metadata?.costs?.find(entry => entry?.region === '*');
   return cost === undefined || cost === null
     ? undefined
@@ -81,7 +81,7 @@ function toBlendedPrice(metadata: IntegrationMetadata | undefined): number | und
 function toRoutingMetadata(metadata: IntegrationMetadata | undefined): TrueFoundryEnabledModel['routing'] {
   return {
     canonicalModel: metadata?.canonical_model ?? undefined,
-    price: toBlendedPrice(metadata),
+    cost: toBlendedCost(metadata),
   };
 }
 
@@ -90,7 +90,7 @@ export interface TrueFoundryEnabledModel {
   modelName: string;
   properties: ModelProperties;
   /** Catalog fields the model router reads; never part of the public model listing. */
-  routing: Omit<RoutableModel, 'model'>;
+  routing: Omit<RoutableModel, 'name'>;
 }
 
 /** `modelTypes` defaults to chat only, so listings never show models agents can't run on. */
