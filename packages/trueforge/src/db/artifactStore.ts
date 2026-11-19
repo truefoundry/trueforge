@@ -63,10 +63,13 @@ export interface CreateArtifactVersionInput {
   created_by_turn_id: string;
 }
 
-export interface ArtifactVersionKey {
-  tenant_id: string;
+export interface GetArtifactVersionInput {
   artifact_id: string;
   version: number;
+}
+
+export interface ArtifactVersionKey extends GetArtifactVersionInput {
+  tenant_id: string;
 }
 
 export interface CommitArtifactVersionInput extends ArtifactVersionKey {
@@ -106,5 +109,6 @@ export interface IArtifactStore<TTransaction = never> {
   commitVersion(input: CommitArtifactVersionInput, transaction?: TTransaction): Promise<ArtifactRecord | undefined>;
   /** Marks a `pending` version `failed`. False when no pending version matched. */
   failVersion(input: ArtifactVersionKey, transaction?: TTransaction): Promise<boolean>;
-  getVersion(input: ArtifactVersionKey, transaction?: TTransaction): Promise<ArtifactVersionWithFiles | undefined>;
+  /** Not tenant-scoped: resolve the artifact with `getArtifact` first. */
+  getVersion(input: GetArtifactVersionInput, transaction?: TTransaction): Promise<ArtifactVersionWithFiles | undefined>;
 }

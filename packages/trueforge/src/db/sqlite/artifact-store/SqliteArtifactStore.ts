@@ -11,6 +11,7 @@ import {
   type CreateArtifactInput,
   type CreateArtifactVersionInput,
   type GetArtifactInput,
+  type GetArtifactVersionInput,
   type IArtifactStore,
 } from '../../artifactStore';
 import { isUniqueViolation } from '../client';
@@ -202,17 +203,15 @@ export class SqliteArtifactStore implements IArtifactStore<Transaction<Database>
   }
 
   async getVersion(
-    input: ArtifactVersionKey,
+    input: GetArtifactVersionInput,
     transaction?: Transaction<Database>,
   ): Promise<ArtifactVersionWithFiles | undefined> {
     const db = transaction ?? this.#db;
     const version = await db
-      .selectFrom('artifact_version as ver')
-      .innerJoin('artifact as art', 'art.id', 'ver.artifact_id')
-      .selectAll('ver')
-      .where('art.tenant_id', '=', input.tenant_id)
-      .where('ver.artifact_id', '=', input.artifact_id)
-      .where('ver.version', '=', input.version)
+      .selectFrom('artifact_version')
+      .selectAll()
+      .where('artifact_id', '=', input.artifact_id)
+      .where('version', '=', input.version)
       .executeTakeFirst();
     if (version === undefined) {
       return undefined;
