@@ -72,12 +72,3 @@ export const OAUTH_PENDING_AUTHORIZATION_SERVER_ID_IDX = 'oauth_pending_authoriz
 
 /** `(event.type)` on session_event — filter events by type without parsing every payload. */
 export const SESSION_EVENT_TYPE_IDX = 'session_event_type_idx';
-
-/** Unique `(tenant_id, slug)` on artifact. */
-export const ARTIFACT_TENANT_SLUG_UQ = 'artifact_tenant_slug_uq';
-
-/** `(tenant_id, updated_at, id)` on artifact — tenant list in recency order. */
-export const ARTIFACT_LIST_IDX = 'artifact_list_idx';
-
-/** `(tenant_id, created_by_session_id)` on artifact — "this session" filter. */
-export const ARTIFACT_SESSION_IDX = 'artifact_session_idx';

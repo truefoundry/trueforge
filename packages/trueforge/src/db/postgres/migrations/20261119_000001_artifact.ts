@@ -1,10 +1,6 @@
 import { sql, type Kysely } from 'kysely';
-import { ARTIFACT_LIST_IDX, ARTIFACT_SESSION_IDX, ARTIFACT_TENANT_SLUG_UQ } from '../../indexes';
 
-/**
- * Versioned artifacts: parent row + immutable version rows + one row per file.
- * No FK to session — an artifact outlives the session that created it.
- */
+/** Artifact metadata; file bytes live in object storage. No FK to session: artifacts outlive it. */
 export async function up(db: Kysely<unknown>): Promise<void> {
   await sql`SET LOCAL lock_timeout = '5s'`.execute(db);
 
@@ -14,25 +10,17 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('tenant_id', 'text', col => col.notNull())
     .addColumn('slug', 'text', col => col.notNull())
     .addColumn('title', 'text', col => col.notNull())
-    .addColumn('kind', 'text', col => col.notNull())
     .addColumn('latest_version', 'integer', col => col.notNull())
     .addColumn('created_by_subject', 'jsonb', col => col.notNull())
     .addColumn('created_by_session_id', 'text', col => col.notNull())
     .addColumn('created_at', 'timestamptz', col => col.notNull())
     .addColumn('updated_at', 'timestamptz', col => col.notNull())
     .addPrimaryKeyConstraint('artifact_pkey', ['id'])
-    .addUniqueConstraint(ARTIFACT_TENANT_SLUG_UQ, ['tenant_id', 'slug'])
+    .addUniqueConstraint('artifact_tenant_slug_uq', ['tenant_id', 'slug'])
     .execute();
 
-  await sql`
-    CREATE INDEX ${sql.raw(ARTIFACT_LIST_IDX)}
-      ON artifact (tenant_id, updated_at DESC, id)
-  `.execute(db);
-
-  await sql`
-    CREATE INDEX ${sql.raw(ARTIFACT_SESSION_IDX)}
-      ON artifact (tenant_id, created_by_session_id)
-  `.execute(db);
+  await sql`CREATE INDEX artifact_list_idx ON artifact (tenant_id, updated_at DESC, id)`.execute(db);
+  await sql`CREATE INDEX artifact_session_idx ON artifact (tenant_id, created_by_session_id)`.execute(db);
 
   await db.schema
     .createTable('artifact_version')
@@ -43,7 +31,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('total_bytes', 'bigint', col => col.notNull())
     .addColumn('created_by_subject', 'jsonb', col => col.notNull())
     .addColumn('created_by_session_id', 'text', col => col.notNull())
-    .addColumn('created_by_turn_id', 'text')
+    .addColumn('created_by_turn_id', 'text', col => col.notNull())
     .addColumn('created_at', 'timestamptz', col => col.notNull())
     .addColumn('updated_at', 'timestamptz', col => col.notNull())
     .addPrimaryKeyConstraint('artifact_version_pkey', ['artifact_id', 'version'])
@@ -58,7 +46,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('version', 'integer', col => col.notNull())
     .addColumn('path', 'text', col => col.notNull())
     .addColumn('size_bytes', 'bigint', col => col.notNull())
-    .addColumn('content_type', 'text', col => col.notNull())
     .addColumn('storage_key', 'text', col => col.notNull())
     .addColumn('sha256', 'text', col => col.notNull())
     .addPrimaryKeyConstraint('artifact_file_pkey', ['artifact_id', 'version', 'path'])

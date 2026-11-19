@@ -1,10 +1,6 @@
 import { sql, type Kysely } from 'kysely';
-import { ARTIFACT_LIST_IDX, ARTIFACT_SESSION_IDX, ARTIFACT_TENANT_SLUG_UQ } from '../../indexes';
 
-/**
- * Versioned artifacts for SQLite (mirrors Postgres).
- * STRICT tables; jsonb as BLOB; timestamps as ISO TEXT.
- */
+/** Artifact metadata (mirrors Postgres). STRICT tables; jsonb as BLOB; timestamps as ISO TEXT. */
 export async function up(db: Kysely<unknown>): Promise<void> {
   await db.transaction().execute(async trx => {
     await sql`
@@ -13,26 +9,18 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         tenant_id TEXT NOT NULL,
         slug TEXT NOT NULL,
         title TEXT NOT NULL,
-        kind TEXT NOT NULL,
         latest_version INTEGER NOT NULL,
         created_by_subject BLOB NOT NULL,
         created_by_session_id TEXT NOT NULL,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         PRIMARY KEY (id),
-        CONSTRAINT ${sql.raw(ARTIFACT_TENANT_SLUG_UQ)} UNIQUE (tenant_id, slug)
+        CONSTRAINT artifact_tenant_slug_uq UNIQUE (tenant_id, slug)
       ) STRICT
     `.execute(trx);
 
-    await sql`
-      CREATE INDEX ${sql.raw(ARTIFACT_LIST_IDX)}
-        ON artifact (tenant_id, updated_at DESC, id)
-    `.execute(trx);
-
-    await sql`
-      CREATE INDEX ${sql.raw(ARTIFACT_SESSION_IDX)}
-        ON artifact (tenant_id, created_by_session_id)
-    `.execute(trx);
+    await sql`CREATE INDEX artifact_list_idx ON artifact (tenant_id, updated_at DESC, id)`.execute(trx);
+    await sql`CREATE INDEX artifact_session_idx ON artifact (tenant_id, created_by_session_id)`.execute(trx);
 
     await sql`
       CREATE TABLE artifact_version (
@@ -43,7 +31,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         total_bytes INTEGER NOT NULL,
         created_by_subject BLOB NOT NULL,
         created_by_session_id TEXT NOT NULL,
-        created_by_turn_id TEXT,
+        created_by_turn_id TEXT NOT NULL,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         PRIMARY KEY (artifact_id, version),
@@ -57,7 +45,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         version INTEGER NOT NULL,
         path TEXT NOT NULL,
         size_bytes INTEGER NOT NULL,
-        content_type TEXT NOT NULL,
         storage_key TEXT NOT NULL,
         sha256 TEXT NOT NULL,
         PRIMARY KEY (artifact_id, version, path),

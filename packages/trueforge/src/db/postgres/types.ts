@@ -26,7 +26,6 @@ import type {
 } from '@truefoundry/trueforge-core/core';
 import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
-import type { ArtifactKind, ArtifactVersionStatus } from '../../schemas/artifact';
 import type { ConfigurationManifest } from '../../schemas/configuration';
 import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { MemoryProviderManifest } from '../../schemas/memoryProvider';
@@ -643,55 +642,6 @@ export interface OAuthPendingAuthorizationTable {
 }
 
 /**
- * Shareable artifacts — immutable ULID `id` PK; UNIQUE (tenant_id, slug).
- * No FK to session: an artifact outlives the session that created it.
- */
-export interface ArtifactTable {
-  id: string;
-  tenant_id: string;
-  slug: string;
-  title: string;
-  kind: ArtifactKind;
-  /** Highest committed version; 0 until the first commit. */
-  latest_version: number;
-  created_by_subject: JSONColumnType<Subject, Subject, Subject>;
-  created_by_session_id: string;
-  created_at: Date;
-  updated_at: Date;
-}
-
-/**
- * Immutable artifact snapshots; only `status` / `updated_at` change.
- * PRIMARY KEY (artifact_id, version); FK → artifact ON DELETE CASCADE.
- */
-export interface ArtifactVersionTable {
-  artifact_id: string;
-  version: number;
-  status: ArtifactVersionStatus;
-  entrypoint: string;
-  total_bytes: number;
-  created_by_subject: JSONColumnType<Subject, Subject, Subject>;
-  created_by_session_id: string;
-  created_by_turn_id: string | null;
-  created_at: Date;
-  updated_at: Date;
-}
-
-/**
- * One row per file in a version; insert-only.
- * PRIMARY KEY (artifact_id, version, path); FK → artifact_version ON DELETE CASCADE.
- */
-export interface ArtifactFileTable {
-  artifact_id: string;
-  version: number;
-  path: string;
-  size_bytes: number;
-  content_type: string;
-  storage_key: string;
-  sha256: string;
-}
-
-/**
  * Write-heat summary: `turn_thread` is the one deliberately-hot table with its hot
  * columns (`context_ids`, `current_context_usage`) isolated from the pointer-carried
  * big ones (`agent_info`, `checkpoint`); `session`, `turn`, and
@@ -730,7 +680,4 @@ export interface Database {
   mcp_server: McpServerTable;
   oauth_token: OAuthTokenTable;
   oauth_pending_authorization: OAuthPendingAuthorizationTable;
-  artifact: ArtifactTable;
-  artifact_version: ArtifactVersionTable;
-  artifact_file: ArtifactFileTable;
 }
