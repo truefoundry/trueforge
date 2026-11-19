@@ -23,6 +23,8 @@ export interface ArtifactFileRecord {
   size_bytes: number;
   storage_key: string;
   sha256: string;
+  /** ISO-8601 UTC instant. */
+  created_at: string;
 }
 
 export interface ArtifactVersionRecord {
@@ -68,7 +70,8 @@ export interface ArtifactVersionKey {
 }
 
 export interface CommitArtifactVersionInput extends ArtifactVersionKey {
-  files: ArtifactFileRecord[];
+  /** `created_at` is set by the store at commit. */
+  files: Omit<ArtifactFileRecord, 'created_at'>[];
 }
 
 /** Unique `(tenant_id, slug)` violation. */

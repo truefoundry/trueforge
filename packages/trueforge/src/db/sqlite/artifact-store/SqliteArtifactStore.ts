@@ -219,7 +219,7 @@ export class SqliteArtifactStore implements IArtifactStore<Transaction<Database>
     }
     const files = await db
       .selectFrom('artifact_file')
-      .select(['path', 'size_bytes', 'storage_key', 'sha256'])
+      .select(['path', 'size_bytes', 'storage_key', 'sha256', 'created_at'])
       .where('artifact_id', '=', input.artifact_id)
       .where('version', '=', input.version)
       .orderBy('path')
