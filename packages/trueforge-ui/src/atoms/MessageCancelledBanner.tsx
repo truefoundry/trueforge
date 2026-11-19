@@ -17,7 +17,7 @@ export function MessageCancelledBanner({ message, className }: MessageCancelledB
         className,
       )}
     >
-      <Icon name="circle-exclamation" size="1rem" className="shrink-0" aria-hidden />
+      <Icon name="circle-exclamation" size="1rem" className="-translate-y-[0.0625rem] shrink-0" aria-hidden />
       <span className="aui-message-cancelled-message min-w-0 break-words">{message}</span>
     </div>
   );
