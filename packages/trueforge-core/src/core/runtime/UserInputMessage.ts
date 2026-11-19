@@ -1,3 +1,4 @@
+import type { ChatCompletionContentPart } from 'openai/resources/chat';
 import { AgentSandboxRequiredError, InvalidFileInputError } from '../errors';
 import {
   EventType,
@@ -124,7 +125,7 @@ export async function processAgentUserInput(
     return { message: { role: 'user', content: textParts }, sandboxCreated: undefined };
   }
 
-  const modelParts: Exclude<LLMUserMessage['content'], string> = [];
+  const modelParts: ChatCompletionContentPart[] = [];
   const filesToUploadToSandbox: { filename: string; buffer: Buffer; mime: string }[] = [];
 
   for (const filePart of fileParts) {
