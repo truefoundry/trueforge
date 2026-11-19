@@ -71,6 +71,7 @@ export interface NewThreadRegistration {
   thread_id: string;
   parent: AgentParent | null;
   agent_info: AgentInfo | null;
+  model: string | null;
 }
 
 export interface TurnKeys {
@@ -120,7 +121,6 @@ export interface CreateTurnInput {
     thread_id: string;
     capability_state: CapabilityState | null;
   }[];
-  thread_models: { thread_id: string; model: string | null }[];
   last_activity_timestamp_ms: number;
   update_session_title_if_not_exist: string | null;
   mcp_servers: Record<string, MCPServerInitInfo> | null;
@@ -660,7 +660,6 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
           appendCompletionByThread.set(append.thread_id, append.completion);
         }
       }
-      const modelByThread = new Map(input.thread_models.map(entry => [entry.thread_id, entry.model]));
 
       // Step 5: insert turn_thread rows for carried-forward and new threads.
       const turnThreadRows: {
@@ -688,7 +687,6 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
           ...parent.checkpoint,
           ...(completion !== undefined ? { completion } : {}),
           pending_mcp_auth: false,
-          model: modelByThread.get(parent.thread_id) ?? parent.checkpoint.model,
         };
         turnThreadRows.push({
           session_id: input.session_id,
@@ -753,7 +751,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
           parent: nt.parent,
           completion: null,
           pending_mcp_auth: false,
-          model: modelByThread.get(nt.thread_id) ?? null,
+          model: nt.model,
         };
         turnThreadRows.push({
           session_id: input.session_id,
