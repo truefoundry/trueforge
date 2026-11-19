@@ -7,7 +7,7 @@ import { useServerQueryClient } from '@/server/queryClient.js';
 import { ServerProvider, useOptionalRefreshServerCapabilities, useServerCapabilities } from '@/server/ServerContext.js';
 import type { AgentBuilderCapabilitiesResponse } from '@/server/types.js';
 
-import { createMockAgentUIServer } from './mockServer.js';
+import { createMockAgentUIServer, tenantSessionSharing } from './mockServer.js';
 import { allSettingsSections } from './settingsCapabilityFixture.js';
 
 function capabilitiesResponse(settingsEnabled: boolean): AgentBuilderCapabilitiesResponse {
@@ -16,6 +16,7 @@ function capabilitiesResponse(settingsEnabled: boolean): AgentBuilderCapabilitie
       sandbox: { enabled: true },
       skill: { enabled: true },
       settings: allSettingsSections(settingsEnabled),
+      sessionSharing: tenantSessionSharing,
     },
   };
 }
