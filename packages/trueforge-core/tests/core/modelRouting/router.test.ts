@@ -132,16 +132,12 @@ describe('createModelRouter', () => {
 });
 
 describe('classification', () => {
-  it('asks the category and benchmark questions', () => {
-    const request = classificationRequest('task', DEFAULT_ROUTING_QUESTION);
-    expect(request.questions.map(question => question.name)).toEqual(['category', 'benchmark']);
-  });
-
   it('keeps the start and the end of a long task', () => {
     const task = `START${'x'.repeat(20_000)}END`;
-    const { input } = classificationRequest(task, DEFAULT_ROUTING_QUESTION);
-    expect(typeof input === 'string' && input.length <= 8_000).toBe(true);
-    expect(input).toEqual(expect.stringMatching(/^START[\s\S]*END$/));
+    const { body, truncated } = classificationRequest(task, DEFAULT_ROUTING_QUESTION);
+    expect(truncated).toBe(true);
+    expect(typeof body.input === 'string' && body.input.length <= 8_000).toBe(true);
+    expect(body.input).toEqual(expect.stringMatching(/^START[\s\S]*END$/));
   });
 
   it('reads the category, or nothing when the decision has none', () => {

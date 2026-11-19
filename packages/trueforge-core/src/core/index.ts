@@ -116,12 +116,7 @@ export type { Decision, DecisionModelCreateParams, IDecisionModel } from './deci
 export { OpenAIDecisionModel } from './decision/OpenAIDecisionModel';
 
 // Model routing
-export {
-  BENCHMARK_QUESTION,
-  DEFAULT_ROUTING_QUESTION,
-  type RoutingCategory,
-  type RoutingQuestion,
-} from './modelRouting/question';
+export { DEFAULT_ROUTING_QUESTION, type RoutingCategory, type RoutingQuestion } from './modelRouting/question';
 export {
   createModelRouter,
   selectModel,

@@ -94,6 +94,7 @@ export function createModelRouter(
 
   return async route => {
     const startedMs = Date.now();
+    const request = classificationRequest(route.input, deps.question);
 
     const decide = async (timeout: AbortSignal): Promise<Outcome> => {
       models ??= deps.listModels().catch((error: unknown) => {
@@ -102,7 +103,7 @@ export function createModelRouter(
       });
       const [userModels, decision] = await Promise.all([
         models,
-        deps.classifier.create(classificationRequest(route.input, deps.question), {
+        deps.classifier.create(request.body, {
           metadata: { 'tfg.thread_id': route.threadId },
         }),
       ]);
@@ -160,6 +161,7 @@ export function createModelRouter(
     logger.info('model routing', {
       thread_id: route.threadId,
       latency_ms: Date.now() - startedMs,
+      input_truncated: request.truncated,
       reason: outcome.reason,
       ...outcome.fields,
     });
