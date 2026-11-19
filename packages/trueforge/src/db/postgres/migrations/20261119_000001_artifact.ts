@@ -61,3 +61,10 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     )
     .execute();
 }
+
+export async function down(db: Kysely<unknown>): Promise<void> {
+  await sql`SET LOCAL lock_timeout = '5s'`.execute(db);
+  await db.schema.dropTable('artifact_file').ifExists().execute();
+  await db.schema.dropTable('artifact_version').ifExists().execute();
+  await db.schema.dropTable('artifact').ifExists().execute();
+}
