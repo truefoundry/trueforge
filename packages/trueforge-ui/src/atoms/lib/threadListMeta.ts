@@ -83,21 +83,24 @@ export function formatRelativeShort(date: Date, now: Date = new Date()): string 
 }
 
 /**
- * Indices into `threadIds` ordered newest-first by `lastMessageAt`.
- * Stabilizes UI when assistant-ui appends a switched-to thread at the end.
- * Missing `lastMessageAt` (empty local "New Chat") sorts as newest so it stays on top.
+ * Indices into `threadIds`, newest activity first.
+ * A poll or the live stream can stamp `lastActivityAt` after `lastMessageAt` was loaded;
+ * the later of the two moves that chat above rows that have not been touched since.
+ * Missing both times (empty local "New Chat") sorts as newest so it stays on top.
+ * Equal times keep the original index so a switched-to thread appended at the end stays stable.
  */
 export function threadListIndicesByRecency({
   threadIds,
   threadItems,
 }: {
   threadIds: readonly string[];
-  threadItems: readonly { id: string; remoteId?: string | null; lastMessageAt?: Date | null }[];
+  threadItems: readonly { id: string; remoteId?: string | null; lastMessageAt?: Date | null; custom?: unknown }[];
 }): number[] {
   const timeByKey = new Map<string, number>();
   for (const item of threadItems) {
+    const activityAt = laterActivityAt(item.lastMessageAt ?? undefined, readThreadLastActivityAt(item.custom));
     // Empty / not-yet-messaged threads have no timestamp; treat as newest.
-    const t = item.lastMessageAt?.getTime() ?? Number.POSITIVE_INFINITY;
+    const t = activityAt?.getTime() ?? Number.POSITIVE_INFINITY;
     timeByKey.set(item.id, t);
     if (item.remoteId != null) timeByKey.set(item.remoteId, t);
   }
