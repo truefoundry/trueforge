@@ -1,5 +1,5 @@
 import { SubjectSchema, type Subject } from '@truefoundry/trueforge-core/agent-session';
-import { sql, type Kysely } from 'kysely';
+import { sql, type ExpressionBuilder, type Kysely, type Transaction } from 'kysely';
 import { newId } from '../../../utils/id';
 import {
   ArtifactSlugConflictError,
@@ -17,33 +17,47 @@ import { isUniqueViolation } from '../client';
 import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
 import type { Database } from '../types';
 
-const ARTIFACT_COLUMNS = [
-  'id',
-  'tenant_id',
-  'slug',
-  'title',
-  'latest_version',
-  jsonText<Subject>(sql.ref('created_by_subject')).as('created_by_subject'),
-  'created_by_session_id',
-  'created_at',
-  'updated_at',
-] as const;
+/** Column list projecting JSONB columns as parsed JSON (see JSON_RESULT_COLUMNS). */
+function recordColumns(eb: ExpressionBuilder<Database, 'artifact'>) {
+  return [
+    'id' as const,
+    'tenant_id' as const,
+    'slug' as const,
+    'title' as const,
+    'latest_version' as const,
+    jsonText<Subject>(eb.ref('created_by_subject')).as('created_by_subject'),
+    'created_by_session_id' as const,
+    'created_at' as const,
+    'updated_at' as const,
+  ];
+}
 
-function toArtifactRecord(row: ArtifactRecord): ArtifactRecord {
+function toArtifactRecord(row: {
+  id: string;
+  tenant_id: string;
+  slug: string;
+  title: string;
+  latest_version: number;
+  created_by_subject: Subject;
+  created_by_session_id: string;
+  created_at: string;
+  updated_at: string;
+}): ArtifactRecord {
   return { ...row, created_by_subject: SubjectSchema.parse(row.created_by_subject) };
 }
 
-export class SqliteArtifactStore implements IArtifactStore {
+export class SqliteArtifactStore implements IArtifactStore<Transaction<Database>> {
   readonly #db: Kysely<Database>;
 
   constructor(db: Kysely<Database>) {
     this.#db = db;
   }
 
-  async createArtifact(input: CreateArtifactInput): Promise<ArtifactRecord> {
+  async createArtifact(input: CreateArtifactInput, transaction?: Transaction<Database>): Promise<ArtifactRecord> {
+    const db = transaction ?? this.#db;
     const timestamp = nowIso();
     try {
-      const row = await this.#db
+      const row = await db
         .insertInto('artifact')
         .values({
           id: newId(),
@@ -56,7 +70,7 @@ export class SqliteArtifactStore implements IArtifactStore {
           created_at: timestamp,
           updated_at: timestamp,
         })
-        .returning(ARTIFACT_COLUMNS)
+        .returning(recordColumns)
         .executeTakeFirstOrThrow();
       return toArtifactRecord(row);
     } catch (error) {
@@ -67,19 +81,23 @@ export class SqliteArtifactStore implements IArtifactStore {
     }
   }
 
-  async getArtifact(input: GetArtifactInput): Promise<ArtifactRecord | undefined> {
-    const row = await this.#db
+  async getArtifact(input: GetArtifactInput, transaction?: Transaction<Database>): Promise<ArtifactRecord | undefined> {
+    const db = transaction ?? this.#db;
+    const row = await db
       .selectFrom('artifact')
-      .select(ARTIFACT_COLUMNS)
+      .select(recordColumns)
       .where('tenant_id', '=', input.tenant_id)
       .where('slug', '=', input.slug)
       .executeTakeFirst();
-    return row ? toArtifactRecord(row) : undefined;
+    return row === undefined ? undefined : toArtifactRecord(row);
   }
 
-  // SQLite transactions are BEGIN IMMEDIATE, so version writes for one artifact already serialise.
-  async createVersion(input: CreateArtifactVersionInput): Promise<ArtifactVersionRecord | undefined> {
-    return this.#db.transaction().execute(async db => {
+  async createVersion(
+    input: CreateArtifactVersionInput,
+    transaction?: Transaction<Database>,
+  ): Promise<ArtifactVersionRecord | undefined> {
+    // SQLite transactions are BEGIN IMMEDIATE, so version writes for one artifact already serialise.
+    const write = async (db: Transaction<Database>): Promise<ArtifactVersionRecord | undefined> => {
       const artifact = await db
         .selectFrom('artifact')
         .select('id')
@@ -108,11 +126,15 @@ export class SqliteArtifactStore implements IArtifactStore {
         })
         .returningAll()
         .executeTakeFirstOrThrow();
-    });
+    };
+    return transaction ? write(transaction) : this.#db.transaction().execute(write);
   }
 
-  async commitVersion(input: CommitArtifactVersionInput): Promise<ArtifactRecord | undefined> {
-    return this.#db.transaction().execute(async db => {
+  async commitVersion(
+    input: CommitArtifactVersionInput,
+    transaction?: Transaction<Database>,
+  ): Promise<ArtifactRecord | undefined> {
+    const write = async (db: Transaction<Database>): Promise<ArtifactRecord | undefined> => {
       const artifact = await db
         .selectFrom('artifact')
         .select('id')
@@ -151,14 +173,16 @@ export class SqliteArtifactStore implements IArtifactStore {
         .updateTable('artifact')
         .set({ latest_version: sql<number>`MAX(latest_version, ${committed.version})`, updated_at: timestamp })
         .where('id', '=', artifact.id)
-        .returning(ARTIFACT_COLUMNS)
+        .returning(recordColumns)
         .executeTakeFirstOrThrow();
       return toArtifactRecord(row);
-    });
+    };
+    return transaction ? write(transaction) : this.#db.transaction().execute(write);
   }
 
-  async failVersion(input: ArtifactVersionKey): Promise<boolean> {
-    const result = await this.#db
+  async failVersion(input: ArtifactVersionKey, transaction?: Transaction<Database>): Promise<boolean> {
+    const db = transaction ?? this.#db;
+    const result = await db
       .updateTable('artifact_version')
       .set({ status: 'failed', updated_at: nowIso() })
       .where('artifact_id', '=', input.artifact_id)
@@ -177,8 +201,12 @@ export class SqliteArtifactStore implements IArtifactStore {
     return result.numUpdatedRows > 0n;
   }
 
-  async getVersion(input: ArtifactVersionKey): Promise<ArtifactVersionWithFiles | undefined> {
-    const version = await this.#db
+  async getVersion(
+    input: ArtifactVersionKey,
+    transaction?: Transaction<Database>,
+  ): Promise<ArtifactVersionWithFiles | undefined> {
+    const db = transaction ?? this.#db;
+    const version = await db
       .selectFrom('artifact_version as ver')
       .innerJoin('artifact as art', 'art.id', 'ver.artifact_id')
       .selectAll('ver')
@@ -189,7 +217,7 @@ export class SqliteArtifactStore implements IArtifactStore {
     if (version === undefined) {
       return undefined;
     }
-    const files = await this.#db
+    const files = await db
       .selectFrom('artifact_file')
       .select(['path', 'size_bytes', 'storage_key', 'sha256'])
       .where('artifact_id', '=', input.artifact_id)
