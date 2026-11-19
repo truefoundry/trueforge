@@ -21,7 +21,7 @@ export const listArtifactsRoute = createRoute({
   path: '/',
   tags: [OpenApiTag.ARTIFACTS],
   summary: 'List artifacts',
-  description: 'List artifacts for the tenant, newest first.',
+  description: 'List artifacts created by the caller, most recently updated first.',
   'x-fern-sdk-group-name': ['artifacts'],
   'x-fern-sdk-method-name': 'list',
   'x-fern-pagination': TOKEN_PAGINATION,
@@ -37,6 +37,10 @@ export const listArtifactsRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid query parameters or page token.',
     },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Unauthenticated.',
+    },
   },
 });
 
@@ -45,7 +49,7 @@ export const getArtifactRoute = createRoute({
   path: '/{slug}',
   tags: [OpenApiTag.ARTIFACTS],
   summary: 'Get an artifact',
-  description: 'Get an artifact by slug.',
+  description: 'Get an artifact created by the caller, by slug.',
   'x-fern-sdk-group-name': ['artifacts'],
   'x-fern-sdk-method-name': 'get',
   request: {
@@ -55,6 +59,10 @@ export const getArtifactRoute = createRoute({
     200: {
       content: { 'application/json': { schema: GetArtifactResponseSchema } },
       description: 'The artifact.',
+    },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Unauthenticated.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

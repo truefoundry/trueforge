@@ -22,12 +22,22 @@ describe('artifacts router', () => {
         created_by_session_id: 'session-1',
       });
     }
+    await artifactStore.createArtifact({
+      tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
+      slug: 'not-mine',
+      title: 'not mine',
+      created_by_subject: {
+        ...createdBySubjectFromRequestContext(STANDALONE_REQUEST_CONTEXT),
+        subject_id: 'someone-else',
+      },
+      created_by_session_id: 'session-2',
+    });
     app = mountWithErrorHandler(
       createArtifactsRouter({ artifactStore, resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT }),
     );
   });
 
-  it('lists artifacts with pagination', async () => {
+  it("lists only the caller's artifacts with pagination", async () => {
     const first = ListArtifactsResponseSchema.parse(await (await app.request('/?limit=1')).json());
     expect(first.data).toHaveLength(1);
     const second = ListArtifactsResponseSchema.parse(
@@ -46,7 +56,7 @@ describe('artifacts router', () => {
     expect(GetArtifactResponseSchema.parse(await response.json()).data.slug).toBe('a');
   });
 
-  it('returns 404 for an unknown slug', async () => {
-    expect((await app.request('/missing')).status).toBe(404);
+  it.each(['missing', 'not-mine'])('returns 404 for %s', async slug => {
+    expect((await app.request(`/${slug}`)).status).toBe(404);
   });
 });
