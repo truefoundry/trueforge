@@ -481,3 +481,102 @@ describe('truefoundry reasoning replay, on the shape the TFY gateway actually se
     expect(wire).not.toHaveProperty('reasoning_content');
   });
 });
+
+// ─────────── Switching provider or model between turns ───────────
+
+/**
+ * A session can change model between turns, so replay has to cope with history signed by whoever
+ * answered last. A signature is only meaningful to the provider that issued it: replaying one
+ * across providers is at best ignored and at worst rejected, so it must be dropped.
+ */
+describe('replaying history after the session switches provider', () => {
+  const SIGNATURE = 'sig-from-previous-turn';
+  const THINKING = 'Plan formed on the previous turn.';
+
+  function replay({
+    blocks,
+    source,
+    provider,
+    providerName,
+  }: {
+    blocks: unknown;
+    source: string;
+    provider: VercelAIProviderName;
+    providerName: string;
+  }) {
+    const assistantMsg: Extract<ChatCompletionMessageParam, { role: 'assistant' }> = {
+      role: 'assistant',
+      content: null,
+    };
+    Reflect.set(assistantMsg, 'thinking_blocks', blocks);
+    Reflect.set(assistantMsg, 'source', source);
+    const replayed = toAssistantModelMessage({ msg: assistantMsg, provider, providerName });
+    if (typeof replayed.content === 'string') {
+      throw new Error('expected structured assistant content');
+    }
+    // Narrowed here: the caller only ever needs the reasoning parts and the message-level options.
+    const reasoning = replayed.content.flatMap(part => (part.type === 'reasoning' ? [part] : []));
+    return { providerOptions: replayed.providerOptions, reasoning };
+  }
+
+  const signedBlocks = [{ type: 'thinking', thinking: THINKING, signature: SIGNATURE }];
+
+  // Gateway history replayed to a native adapter: the blocks must not ride along on the message.
+  it.each(['anthropic', 'openai', 'google-gemini'] as const)(
+    'drops gateway-signed blocks when the next turn runs on %s',
+    provider => {
+      const replayed = replay({
+        blocks: signedBlocks,
+        source: 'truefoundry/tfy-gateway/claude-sonnet-5',
+        provider,
+        providerName: provider,
+      });
+
+      expect(replayed.providerOptions).toBeUndefined();
+      expect(replayed.reasoning.map(part => part.text)).toEqual([THINKING]);
+      expect(replayed.reasoning[0]).not.toHaveProperty('providerOptions');
+    },
+  );
+
+  // Native history replayed to a gateway: no message-level blocks, and the text survives as plain
+  // reasoning the compatible adapter will flatten into `reasoning_content`.
+  it.each(['anthropic', 'openai'] as const)('drops %s-signed blocks when the next turn runs on a gateway', provider => {
+    const replayed = replay({
+      blocks: signedBlocks,
+      source: `${provider}/${provider}/some-model`,
+      provider: 'truefoundry',
+      providerName: 'tfy-gateway',
+    });
+
+    expect(replayed.providerOptions).toBeUndefined();
+    const prompt: LanguageModelV4Prompt = [{ role: 'assistant', content: replayed.reasoning }];
+    const wire = convertToOpenAICompatibleChatMessages(prompt, { providerOptionsKey: 'truefoundry' })[0];
+    expect(wire).not.toHaveProperty('thinking_blocks');
+    expect(wire).toMatchObject({ reasoning_content: THINKING });
+  });
+
+  // Two gateways of the same type are still two different issuers.
+  it('drops blocks when only the configured provider name changes', () => {
+    const replayed = replay({
+      blocks: signedBlocks,
+      source: 'truefoundry/gateway-a/claude-sonnet-5',
+      provider: 'truefoundry',
+      providerName: 'gateway-b',
+    });
+
+    expect(replayed.providerOptions).toBeUndefined();
+  });
+
+  // Same issuer, different model. The signature is replayed, which is what lets a turn keep its
+  // plan; whether the provider accepts a signature across models is the provider's call.
+  it('still replays blocks when only the model changes on the same provider', () => {
+    const replayed = replay({
+      blocks: signedBlocks,
+      source: 'truefoundry/tfy-gateway/claude-sonnet-5',
+      provider: 'truefoundry',
+      providerName: 'tfy-gateway',
+    });
+
+    expect(replayed.providerOptions).toEqual({ openaiCompatible: { thinking_blocks: signedBlocks } });
+  });
+});
