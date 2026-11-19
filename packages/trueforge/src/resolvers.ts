@@ -23,6 +23,7 @@ import type { ISkillStore } from './db/skillStore';
 import type { IWebSearchProviderStore } from './db/webSearchProviderStore';
 import type { IOAuthTokenStore } from './mcp/auth/types';
 import type { MemoryProviderCache, TenantMemoryDeps } from './memory/providers';
+import { parsePerServerMcpHeaders, X_TFG_MCP_HEADERS } from './runtime/perServerMcpHeaders';
 import { headerValue } from './truefoundry/gatewayMetadata';
 import { InlineMcpServerStore } from './truefoundry/InlineMcpServerStore';
 import { InlineModelProviderStore } from './truefoundry/InlineModelProviderStore';
@@ -42,11 +43,7 @@ import {
 } from './truefoundry/inlineResources';
 import { InlineSkillStore } from './truefoundry/InlineSkillStore';
 import { InlineCapabilitiesStore } from './truefoundry/inlineTools';
-import {
-  parsePerServerMcpHeaders,
-  X_TFG_MCP_HEADERS,
-  type PerServerMcpHeaders,
-} from './truefoundry/perServerMcpHeaders';
+import { parseTrueFoundryPerServerMcpHeaders } from './truefoundry/perServerMcpHeaders';
 import { TrueFoundryAgentStore } from './truefoundry/TrueFoundryAgentStore';
 import { TrueFoundryMcpServerStore } from './truefoundry/TrueFoundryMcpServerStore';
 import { TrueFoundryModelProviderStore } from './truefoundry/TrueFoundryModelProviderStore';
@@ -67,7 +64,7 @@ export type ResolveModelProviderStore<TTransaction> = (input: {
 export type ResolveMcpServerStore<TTransaction> = (input: {
   rc: RequestContext;
   runAsAgent?: AgentRecord;
-  perServerHeaders?: PerServerMcpHeaders;
+  rawPerServerHeaders?: string;
   inlineMcpServers?: InlineMcpServers;
 }) => IMcpServerWithAuthStore<TTransaction>;
 
@@ -110,7 +107,8 @@ export function buildResolveModelProviderStore<TTransaction>(options: {
 }
 
 /**
- * Per-request MCP store over ServiceFoundry. `runAsAgent` selects a saved agent's token for turns.
+ * Per-request MCP store over ServiceFoundry, else the DB store with any `x-tfg-mcp-headers`.
+ * `runAsAgent` selects a saved agent's token for turns.
  */
 export function buildResolveMcpServerStore<TTransaction>(options: {
   persistenceStore: IMcpServerStore<TTransaction>;
@@ -131,12 +129,22 @@ export function buildResolveMcpServerStore<TTransaction>(options: {
         requestContext: input.rc,
         agent: input.runAsAgent,
         logger: options.logger,
-        ...(input.perServerHeaders === undefined ? {} : { perServerHeaders: input.perServerHeaders }),
+        ...(input.rawPerServerHeaders === undefined
+          ? {}
+          : { perServerHeaders: parseTrueFoundryPerServerMcpHeaders(input.rawPerServerHeaders) }),
       });
       if (input.inlineMcpServers) {
         return new InlineMcpServerStore({ inner: store, inline: input.inlineMcpServers });
       }
       return store;
+    }
+    if (input.rawPerServerHeaders !== undefined) {
+      return new McpServerWithAuthStore<TTransaction>({
+        store: options.persistenceStore,
+        tokenStore: options.tokenStore,
+        clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
+        perServerHeaders: parsePerServerMcpHeaders(input.rawPerServerHeaders),
+      });
     }
     return withAuthMcpPersistenceStore;
   };
@@ -313,7 +321,7 @@ export function createRequestStoreResolvers<TTransaction>(input: {
     return input.resolveMcpServerStore({
       rc: requestContext,
       ...(runAsAgent !== undefined ? { runAsAgent } : {}),
-      ...(rawPerServerHeaders !== undefined ? { perServerHeaders: parsePerServerMcpHeaders(rawPerServerHeaders) } : {}),
+      ...(rawPerServerHeaders !== undefined ? { rawPerServerHeaders } : {}),
       ...(rawInlineMcpHeader !== undefined ? { inlineMcpServers: parseInlineMcpServers(rawInlineMcpHeader) } : {}),
     });
   };
