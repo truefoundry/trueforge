@@ -11,7 +11,6 @@ import {
   type CreateArtifactInput,
   type CreateArtifactVersionInput,
   type GetArtifactInput,
-  type GetArtifactVersionInput,
   type IArtifactStore,
 } from '../../artifactStore';
 import { isUniqueViolation } from '../client';
@@ -167,12 +166,7 @@ export class PostgresArtifactStore implements IArtifactStore<Transaction<Databas
 
   async failVersion(input: ArtifactVersionKey, transaction?: Transaction<Database>): Promise<boolean> {
     const db = transaction ?? this.#db;
-    const artifact = await db
-      .selectFrom('artifact')
-      .select('id')
-      .where('tenant_id', '=', input.tenant_id)
-      .where('id', '=', input.artifact_id)
-      .executeTakeFirst();
+    const artifact = await this.#findArtifact(input, db);
     if (artifact === undefined) {
       return false;
     }
@@ -187,14 +181,18 @@ export class PostgresArtifactStore implements IArtifactStore<Transaction<Databas
   }
 
   async getVersion(
-    input: GetArtifactVersionInput,
+    input: ArtifactVersionKey,
     transaction?: Transaction<Database>,
   ): Promise<ArtifactVersionWithFiles | undefined> {
     const db = transaction ?? this.#db;
+    const artifact = await this.#findArtifact(input, db);
+    if (artifact === undefined) {
+      return undefined;
+    }
     const version = await db
       .selectFrom('artifact_version')
       .selectAll()
-      .where('artifact_id', '=', input.artifact_id)
+      .where('artifact_id', '=', artifact.id)
       .where('version', '=', input.version)
       .executeTakeFirst();
     if (version === undefined) {
@@ -203,7 +201,7 @@ export class PostgresArtifactStore implements IArtifactStore<Transaction<Databas
     const files = await db
       .selectFrom('artifact_file')
       .select(['path', 'size_bytes', 'storage_key', 'sha256', 'created_at'])
-      .where('artifact_id', '=', input.artifact_id)
+      .where('artifact_id', '=', artifact.id)
       .where('version', '=', input.version)
       .orderBy('path')
       .execute();
@@ -211,6 +209,19 @@ export class PostgresArtifactStore implements IArtifactStore<Transaction<Databas
       ...toVersionRecord(version),
       files: files.map(file => ({ ...file, created_at: file.created_at.toISOString() })),
     };
+  }
+
+  /** Artifact id when it belongs to the tenant. */
+  async #findArtifact(
+    input: { tenant_id: string; artifact_id: string },
+    db: Kysely<Database> | Transaction<Database>,
+  ): Promise<{ id: string } | undefined> {
+    return db
+      .selectFrom('artifact')
+      .select('id')
+      .where('tenant_id', '=', input.tenant_id)
+      .where('id', '=', input.artifact_id)
+      .executeTakeFirst();
   }
 
   /** Row lock so concurrent version writes for one artifact queue instead of racing. */

@@ -11,7 +11,6 @@ import {
   type CreateArtifactInput,
   type CreateArtifactVersionInput,
   type GetArtifactInput,
-  type GetArtifactVersionInput,
   type IArtifactStore,
 } from '../../artifactStore';
 import { isUniqueViolation } from '../client';
@@ -99,12 +98,7 @@ export class SqliteArtifactStore implements IArtifactStore<Transaction<Database>
   ): Promise<ArtifactVersionRecord | undefined> {
     // SQLite transactions are BEGIN IMMEDIATE, so version writes for one artifact already serialise.
     const write = async (db: Transaction<Database>): Promise<ArtifactVersionRecord | undefined> => {
-      const artifact = await db
-        .selectFrom('artifact')
-        .select('id')
-        .where('tenant_id', '=', input.tenant_id)
-        .where('id', '=', input.artifact_id)
-        .executeTakeFirst();
+      const artifact = await this.#findArtifact(input, db);
       if (artifact === undefined) {
         return undefined;
       }
@@ -136,12 +130,7 @@ export class SqliteArtifactStore implements IArtifactStore<Transaction<Database>
     transaction?: Transaction<Database>,
   ): Promise<ArtifactRecord | undefined> {
     const write = async (db: Transaction<Database>): Promise<ArtifactRecord | undefined> => {
-      const artifact = await db
-        .selectFrom('artifact')
-        .select('id')
-        .where('tenant_id', '=', input.tenant_id)
-        .where('id', '=', input.artifact_id)
-        .executeTakeFirst();
+      const artifact = await this.#findArtifact(input, db);
       if (artifact === undefined) {
         return undefined;
       }
@@ -183,12 +172,7 @@ export class SqliteArtifactStore implements IArtifactStore<Transaction<Database>
 
   async failVersion(input: ArtifactVersionKey, transaction?: Transaction<Database>): Promise<boolean> {
     const db = transaction ?? this.#db;
-    const artifact = await db
-      .selectFrom('artifact')
-      .select('id')
-      .where('tenant_id', '=', input.tenant_id)
-      .where('id', '=', input.artifact_id)
-      .executeTakeFirst();
+    const artifact = await this.#findArtifact(input, db);
     if (artifact === undefined) {
       return false;
     }
@@ -203,14 +187,18 @@ export class SqliteArtifactStore implements IArtifactStore<Transaction<Database>
   }
 
   async getVersion(
-    input: GetArtifactVersionInput,
+    input: ArtifactVersionKey,
     transaction?: Transaction<Database>,
   ): Promise<ArtifactVersionWithFiles | undefined> {
     const db = transaction ?? this.#db;
+    const artifact = await this.#findArtifact(input, db);
+    if (artifact === undefined) {
+      return undefined;
+    }
     const version = await db
       .selectFrom('artifact_version')
       .selectAll()
-      .where('artifact_id', '=', input.artifact_id)
+      .where('artifact_id', '=', artifact.id)
       .where('version', '=', input.version)
       .executeTakeFirst();
     if (version === undefined) {
@@ -219,10 +207,23 @@ export class SqliteArtifactStore implements IArtifactStore<Transaction<Database>
     const files = await db
       .selectFrom('artifact_file')
       .select(['path', 'size_bytes', 'storage_key', 'sha256', 'created_at'])
-      .where('artifact_id', '=', input.artifact_id)
+      .where('artifact_id', '=', artifact.id)
       .where('version', '=', input.version)
       .orderBy('path')
       .execute();
     return { ...version, files };
+  }
+
+  /** Artifact id when it belongs to the tenant. */
+  async #findArtifact(
+    input: { tenant_id: string; artifact_id: string },
+    db: Kysely<Database> | Transaction<Database>,
+  ): Promise<{ id: string } | undefined> {
+    return db
+      .selectFrom('artifact')
+      .select('id')
+      .where('tenant_id', '=', input.tenant_id)
+      .where('id', '=', input.artifact_id)
+      .executeTakeFirst();
   }
 }
