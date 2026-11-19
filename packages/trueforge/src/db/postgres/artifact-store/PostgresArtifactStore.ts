@@ -1,4 +1,8 @@
-import { SubjectSchema } from '@truefoundry/trueforge-core/agent-session';
+import { SubjectSchema, type TokenPagination } from '@truefoundry/trueforge-core/agent-session';
+import {
+  decodeOffsetPageToken,
+  paginateOffsetRows,
+} from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import { sql, type Kysely, type Selectable, type Transaction } from 'kysely';
 import { newId } from '../../../utils/id';
 import {
@@ -12,6 +16,7 @@ import {
   type CreateArtifactVersionInput,
   type GetArtifactInput,
   type IArtifactStore,
+  type ListArtifactsInput,
 } from '../../artifactStore';
 import { isUniqueViolation } from '../client';
 import { json, now } from '../sqlExpressions';
@@ -86,6 +91,26 @@ export class PostgresArtifactStore implements IArtifactStore<Transaction<Databas
       .where('slug', '=', input.slug)
       .executeTakeFirst();
     return row === undefined ? undefined : toArtifactRecord(row);
+  }
+
+  async listArtifacts(
+    input: ListArtifactsInput,
+    transaction?: Transaction<Database>,
+  ): Promise<{ data: ArtifactRecord[]; pagination: TokenPagination }> {
+    const offset = decodeOffsetPageToken(input.page_token);
+    const db = transaction ?? this.#db;
+    const rows = await db
+      .selectFrom('artifact')
+      .selectAll()
+      .where('tenant_id', '=', input.tenant_id)
+      .where(sql`created_by_subject->>'subject_id'`, '=', input.created_by_subject_id)
+      .orderBy('updated_at', 'desc')
+      .orderBy('id')
+      .limit(input.limit + 1)
+      .offset(offset)
+      .execute();
+    const { data, pagination } = paginateOffsetRows(rows, input.limit, offset);
+    return { data: data.map(toArtifactRecord), pagination };
   }
 
   async createVersion(
