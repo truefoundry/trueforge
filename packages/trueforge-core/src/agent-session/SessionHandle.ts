@@ -610,13 +610,6 @@ export class SessionHandle<
         const routed = await routeModel({
           threadId: params.threadId,
           input: `Name: ${request.name}\n\nTask:\n${request.input}`,
-          signal: params.signal,
-        });
-        input.resolver.logger.info('subagent model', {
-          thread_id: params.threadId,
-          parent_model: params.parentDefinition.modelName,
-          model: routed?.model ?? params.parentDefinition.modelName,
-          effort: routed?.effort,
         });
         if (routed !== undefined) {
           request = { ...request, model: routed.model };

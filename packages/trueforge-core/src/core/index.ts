@@ -107,16 +107,10 @@ export { SUPPORTED_REASONING_EFFORTS, VERCEL_AI_PROVIDER_NAMES, VercelAILLM } fr
 export type { VercelAILLMConfig, VercelAIProviderConfig, VercelAIProviderName } from './llm/VercelAILLM';
 
 // Decision model contracts
-export type {
-  Decision,
-  DecisionModelCreateParams,
-  DecisionRequestOptions,
-  IDecisionModel,
-} from './decision/IDecisionModel';
+export type { Decision, DecisionModelCreateParams, IDecisionModel } from './decision/IDecisionModel';
 export { OpenAIDecisionModel } from './decision/OpenAIDecisionModel';
 
 // Model routing
-export type { ClusterEffort } from './modelRouting/clusters';
 export {
   BENCHMARK_QUESTION,
   DEFAULT_ROUTING_QUESTION,

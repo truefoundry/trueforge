@@ -1,12 +1,11 @@
+import type { SUPPORTED_REASONING_EFFORTS } from '../llm/VercelAILLM';
 import type { RoutingCategory } from './question';
 
-/** Lowest first; on a price tie the router picks the lower effort. */
-export const CLUSTER_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
-
-export type ClusterEffort = (typeof CLUSTER_EFFORTS)[number];
-
 /** Category -> effort -> canonical ids: every model and effort pair listed is good enough for that work. */
-export type RoutingClusters = Record<RoutingCategory, Partial<Record<ClusterEffort, readonly string[]>>>;
+export type RoutingClusters = Record<
+  RoutingCategory,
+  Partial<Record<(typeof SUPPORTED_REASONING_EFFORTS)[number], readonly string[]>>
+>;
 
 /**
  * The router picks the cheapest pair the tenant has, by its gateway price per token, and the thread runs at that effort.

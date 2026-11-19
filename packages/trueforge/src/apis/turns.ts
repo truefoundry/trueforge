@@ -447,7 +447,7 @@ function createTurnResolver(deps: {
   const modelRouting = turnModelRouting({ tenant_id, modelProviderStore, turnMetadata });
 
   return new TurnResourceResolver({
-    ...(modelRouting === undefined ? {} : { modelRouting }),
+    modelRouting,
     llm: async name => {
       const resolved = await getModelDetails({
         tenant_id,

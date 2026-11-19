@@ -107,6 +107,7 @@ export function makeTestResolver<TTurnCustom extends object = Record<string, nev
     create: options?.llmCreate ?? jest.fn().mockImplementation(() => emptyLlmStream(options?.usage)),
   });
   const base = new TurnResourceResolver<TTurnCustom>({
+    modelRouting: undefined,
     llm: () =>
       Promise.resolve({
         modelClient: llm,
@@ -144,6 +145,7 @@ export function makeTestResolver<TTurnCustom extends object = Record<string, nev
       return base.logger;
     },
     createTracing: () => base.createTracing(),
+    modelRouting: undefined,
     resolveAgentSpec: input => base.resolveAgentSpec(input),
     resolveSandbox: input => {
       if (options.failResolveWith) {

@@ -10,7 +10,7 @@ const models: RoutableModel[] = [
   { model: 'a/claude-sonnet-5-5', canonicalModel: 'anthropic/claude-sonnet-5-5', price: 4 },
   { model: 'a/claude-haiku-5-5', canonicalModel: 'anthropic/claude-haiku-5-5', price: 0.5 },
   { model: 'b/claude-haiku-5-5', canonicalModel: 'anthropic/claude-haiku-5-5', price: 0.2 },
-  { model: 'a/gpt-6-luna', canonicalModel: 'openai/gpt-6-luna' },
+  { model: 'a/gpt-6-luna', canonicalModel: 'openai/gpt-6-luna', price: undefined },
 ];
 const haikuOnly = models.filter(model => model.canonicalModel === 'anthropic/claude-haiku-5-5');
 
@@ -78,7 +78,7 @@ describe('createModelRouter', () => {
       listModels,
       timeoutMs: 1_000,
       logger,
-    })({ ...routeInput, signal: new AbortController().signal });
+    })(routeInput);
   }
 
   it("routes to the classified cluster's cheapest pair", async () => {
@@ -121,9 +121,8 @@ describe('createModelRouter', () => {
       timeoutMs: 1_000,
       logger,
     });
-    const signal = new AbortController().signal;
-    await routeModel({ ...routeInput, signal });
-    await routeModel({ ...routeInput, signal });
+    await routeModel(routeInput);
+    await routeModel(routeInput);
     expect(listModels).toHaveBeenCalledTimes(1);
   });
 });

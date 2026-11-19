@@ -80,7 +80,7 @@ export class TurnResourceResolver<
   readonly #models = new Map<string, Promise<ResolvedModel>>();
   #sandbox?: HarnessSandbox | undefined;
   readonly maxParallelSubAgents?: number;
-  readonly modelRouting?: TurnModelRouting | undefined;
+  readonly modelRouting: TurnModelRouting | undefined;
 
   constructor(
     protected readonly deps: {
@@ -111,8 +111,8 @@ export class TurnResourceResolver<
        * `resolveAgentDefinition` without calling `super` does not mount them.
        */
       rootCapabilities?: (() => readonly AgentCapability[]) | undefined;
-      /** Inputs for routing a thread to a model; omit to not route. */
-      modelRouting?: TurnModelRouting | undefined;
+      /** Inputs for routing a thread to a model; undefined to not route. */
+      modelRouting: TurnModelRouting | undefined;
       /** Forwarded to RemoteMCP / AgentThread (required by their constructors). */
       logger: Logger;
     },
@@ -120,9 +120,7 @@ export class TurnResourceResolver<
     if (deps.maxParallelSubAgents !== undefined) {
       this.maxParallelSubAgents = deps.maxParallelSubAgents;
     }
-    if (deps.modelRouting !== undefined) {
-      this.modelRouting = deps.modelRouting;
-    }
+    this.modelRouting = deps.modelRouting;
   }
 
   get webSearchProvider(): IWebSearchProvider | undefined {

@@ -11,6 +11,7 @@ function resolverWith(
   } = {},
 ): TurnResourceResolver {
   return new TurnResourceResolver({
+    modelRouting: undefined,
     llm: () =>
       Promise.resolve({
         modelClient: makeMockILLM(),
@@ -60,6 +61,7 @@ describe('TurnResourceResolver rootCapabilities', () => {
 
   it('mounts the TrueForge MCP on root and child threads', async () => {
     const resolver = new TurnResourceResolver({
+      modelRouting: undefined,
       llm: () =>
         Promise.resolve({
           modelClient: makeMockILLM(),
@@ -94,6 +96,7 @@ describe('TurnResourceResolver rootCapabilities', () => {
 
   it('keeps direct capability sources distinct from configured MCPs with the same display name', async () => {
     const resolver = new TurnResourceResolver({
+      modelRouting: undefined,
       llm: () =>
         Promise.resolve({
           modelClient: makeMockILLM(),

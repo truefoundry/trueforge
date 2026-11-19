@@ -1,8 +1,9 @@
 import type { Logger } from 'winston';
 import type { DecisionModelCreateParams, IDecisionModel } from '../decision/IDecisionModel';
+import { SUPPORTED_REASONING_EFFORTS } from '../llm/VercelAILLM';
 import { describeUnknownError } from '../util/errorLogFields';
 import { classificationRequest, readClassification } from './classification';
-import { CLUSTER_EFFORTS, ROUTING_CLUSTERS, type ClusterEffort } from './clusters';
+import { ROUTING_CLUSTERS } from './clusters';
 import type { RoutingCategory, RoutingQuestion } from './question';
 
 /** One of the models the user has access to. */
@@ -10,15 +11,15 @@ export interface RoutableModel {
   /** `provider/model`, as the harness resolves it. */
   model: string;
   /** Provider-neutral model id (e.g. `anthropic/claude-haiku-5-5`); matched against the clusters. */
-  canonicalModel?: string | undefined;
+  canonicalModel: string | undefined;
   /** Blended USD per million tokens: 0.75 × input + 0.25 × output. */
-  price?: number | undefined;
+  price: number | undefined;
 }
 
 export interface RoutedModel {
   model: string;
   /** Reasoning effort the thread should run at. */
-  effort: ClusterEffort;
+  effort: (typeof SUPPORTED_REASONING_EFFORTS)[number];
 }
 
 interface Selection {
@@ -38,7 +39,7 @@ export function selectModel(input: {
   models: readonly RoutableModel[];
 }): Selection | undefined {
   const cluster = ROUTING_CLUSTERS[input.category];
-  const candidates = CLUSTER_EFFORTS.flatMap((effort, effortRank) =>
+  const candidates = SUPPORTED_REASONING_EFFORTS.flatMap((effort, effortRank) =>
     (cluster[effort] ?? []).flatMap(canonicalModel =>
       input.models
         .filter(model => model.canonicalModel === canonicalModel)
@@ -74,12 +75,11 @@ export interface RouteInput {
   threadId: string;
   /** What to classify: text, or an ordered list of messages. */
   input: DecisionModelCreateParams['input'];
-  signal: AbortSignal;
 }
 
 interface Outcome {
   reason: 'picked' | 'decision_error' | 'decision_timeout' | 'model_unavailable';
-  routed?: RoutedModel | undefined;
+  routed: RoutedModel | undefined;
   fields: Record<string, unknown>;
 }
 
@@ -102,21 +102,20 @@ export function createModelRouter(input: ModelRouterInput): (route: RouteInput) 
         models,
         input.classifier.create(classificationRequest(route.input, input.question), {
           metadata: { 'tfg.thread_id': route.threadId },
-          signal: AbortSignal.any([route.signal, timeout]),
         }),
       ]);
       timeout.throwIfAborted();
       const classification = readClassification(decision);
       if (classification === undefined) {
-        return { reason: 'decision_error', fields: { answers: decision.answers } };
+        return { reason: 'decision_error', routed: undefined, fields: { answers: decision.answers } };
       }
       const classified = { category: classification.category, ...classification.details };
       if (!Object.hasOwn(ROUTING_CLUSTERS, classification.category)) {
-        return { reason: 'decision_error', fields: classified };
+        return { reason: 'decision_error', routed: undefined, fields: classified };
       }
       const selection = selectModel({ category: classification.category as RoutingCategory, models: userModels });
       if (selection === undefined) {
-        return { reason: 'model_unavailable', fields: classified };
+        return { reason: 'model_unavailable', routed: undefined, fields: classified };
       }
       return {
         reason: 'picked',
@@ -152,6 +151,7 @@ export function createModelRouter(input: ModelRouterInput): (route: RouteInput) 
     } catch (error) {
       outcome = {
         reason: timeout.aborted ? 'decision_timeout' : 'decision_error',
+        routed: undefined,
         fields: { err: describeUnknownError(error) },
       };
     }

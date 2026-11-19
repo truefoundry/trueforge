@@ -67,10 +67,8 @@ export interface ITurnResourceResolver<TTurnCustom extends object = Record<strin
     signal: AbortSignal;
     tracing: AgentTracing;
   }): Promise<ResolvedAgentDefinition>;
-  /**
-   * Inputs for routing a thread to a model before it starts. Omit to not route.
-   */
-  readonly modelRouting?: TurnModelRouting | undefined;
+  /** Inputs for routing a thread to a model before it starts; undefined to not route. */
+  readonly modelRouting: TurnModelRouting | undefined;
   /**
    * Release per-run resources. Called by the harness at the end of the run:
    * by TurnHandle.stream() in its finally (AFTER the terminal state write), or by
