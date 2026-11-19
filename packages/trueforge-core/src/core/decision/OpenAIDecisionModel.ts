@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import type { Decision } from 'openai/resources/decisions';
 import type { LLMRequestOptions } from '../llm/ILLM';
-import { type VercelAIProviderConfig, withGatewayMetadata } from '../llm/VercelAILLM';
+import { buildOutboundRequestHeaders, type VercelAIProviderConfig } from '../llm/VercelAILLM';
 import { modelSsrfFetch } from '../util/outboundFetch';
 import type { DecisionModelCreateParams, IDecisionModel } from './IDecisionModel';
 
@@ -22,12 +22,14 @@ export class OpenAIDecisionModel implements IDecisionModel {
   }
 
   create(body: DecisionModelCreateParams, options?: LLMRequestOptions): Promise<Decision> {
-    const headers = { ...this.#config.headers, ...options?.headers };
     return this.#client.decisions.create(
       { ...body, model: this.#config.model.id },
       {
-        headers:
-          this.#config.provider.type === 'truefoundry' ? withGatewayMetadata(headers, options?.metadata) : headers,
+        headers: buildOutboundRequestHeaders({
+          providerType: this.#config.provider.type,
+          clientHeaders: this.#config.headers,
+          options,
+        }),
       },
     );
   }

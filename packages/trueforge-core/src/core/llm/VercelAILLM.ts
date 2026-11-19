@@ -38,7 +38,7 @@ import { ModelProviderError } from '../errors';
 import { getOperationMetrics, httpStatusClass, type OutboundHttpStatusClass } from '../observability/operationMetrics';
 import { describeUnknownError, extractErrorLogFields, isReportableError } from '../util/errorLogFields';
 import { modelSsrfFetch } from '../util/outboundFetch';
-import type { AgentMetadata, ILLM, LLMCreateParams, LLMCreateParamsStreaming, LLMRequestOptions } from './ILLM';
+import type { ILLM, LLMCreateParams, LLMCreateParamsStreaming, LLMRequestOptions } from './ILLM';
 import {
   type CompletionUsage,
   type ExtendedChatCompletionChunk,
@@ -178,14 +178,7 @@ export function buildOutboundRequestHeaders(input: {
     'x-tfy-forward-pings': 'true',
   };
 
-  return withGatewayMetadata(headers, input.options?.metadata);
-}
-
-/** Folds `metadata` into the TrueFoundry gateway `x-tfy-metadata` header, keeping entries already in it. */
-export function withGatewayMetadata(
-  headers: Record<string, string>,
-  metadata: AgentMetadata | undefined,
-): Record<string, string> {
+  const metadata = input.options?.metadata;
   if (metadata === undefined || Object.keys(metadata).length === 0) {
     return headers;
   }
