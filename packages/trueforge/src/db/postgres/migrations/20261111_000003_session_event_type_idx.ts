@@ -1,0 +1,16 @@
+import { sql, type Kysely } from 'kysely';
+import { SESSION_EVENT_TYPE_IDX } from '../../indexes';
+
+// IF NOT EXISTS lets large deployments pre-create the index CONCURRENTLY.
+export async function up(db: Kysely<unknown>): Promise<void> {
+  await sql`SET LOCAL lock_timeout = '5s'`.execute(db);
+  await sql`
+    CREATE INDEX IF NOT EXISTS ${sql.raw(SESSION_EVENT_TYPE_IDX)}
+      ON session_event ((event->>'type'))
+  `.execute(db);
+}
+
+export async function down(db: Kysely<unknown>): Promise<void> {
+  await sql`SET LOCAL lock_timeout = '5s'`.execute(db);
+  await sql`DROP INDEX IF EXISTS ${sql.raw(SESSION_EVENT_TYPE_IDX)}`.execute(db);
+}

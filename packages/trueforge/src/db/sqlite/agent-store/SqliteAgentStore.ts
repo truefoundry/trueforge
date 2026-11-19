@@ -1,7 +1,7 @@
 import {
-  CreatedBySubjectSchema,
+  SubjectSchema,
   type AgentSpec,
-  type CreatedBySubject,
+  type Subject,
   type TokenPagination,
 } from '@truefoundry/trueforge-core/agent-session';
 import {
@@ -42,7 +42,7 @@ function recordColumns(eb: ExpressionBuilder<Database, 'agent'>) {
     'description' as const,
     jsonText<AgentSpec>(eb.ref('manifest')).as('manifest'),
     'external_id' as const,
-    jsonText<CreatedBySubject>(eb.ref('created_by_subject')).as('created_by_subject'),
+    jsonText<Subject>(eb.ref('created_by_subject')).as('created_by_subject'),
     'created_at' as const,
     'updated_at' as const,
   ];
@@ -55,14 +55,14 @@ function toRecord(row: {
   description: string;
   manifest: AgentSpec;
   external_id: string | null;
-  created_by_subject: CreatedBySubject;
+  created_by_subject: Subject;
   created_at: string;
   updated_at: string;
 }): AgentRecord {
   return {
     ...row,
     manifest: parseStoredAgentSpec(row.manifest),
-    created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
+    created_by_subject: SubjectSchema.parse(row.created_by_subject),
   };
 }
 
@@ -121,7 +121,7 @@ export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
     if (input.agent_name !== undefined) {
       query = query.where(sql<boolean>`instr(lower(name), lower(${input.agent_name})) > 0`);
     }
-    query = query.orderBy('name');
+    query = query.orderBy('updated_at', 'desc').orderBy('name');
     if (input.limit === undefined) {
       const rows = await query.execute();
       const data = rows.map(toRecord);

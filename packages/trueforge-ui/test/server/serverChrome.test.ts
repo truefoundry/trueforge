@@ -72,8 +72,20 @@ describe('serverChrome', () => {
     expect(isSessionsChromeEnabled({ sessions })).toBe(true);
     expect(isSchedulesChromeEnabled({ schedules: null })).toBe(false);
     expect(isSchedulesChromeEnabled({ schedules })).toBe(true);
-    expect(isEnvironmentsChromeEnabled({ sandboxEnvironments: null })).toBe(false);
-    expect(isEnvironmentsChromeEnabled({ sandboxEnvironments })).toBe(true);
+    expect(isEnvironmentsChromeEnabled({ sandboxEnvironments: null, capabilities: null })).toBe(false);
+    expect(
+      isEnvironmentsChromeEnabled({
+        sandboxEnvironments,
+        capabilities: { sandbox: { environments: { enabled: true } } },
+      }),
+    ).toBe(true);
+    expect(isEnvironmentsChromeEnabled({ sandboxEnvironments, capabilities: null })).toBe(false);
+    expect(
+      isEnvironmentsChromeEnabled({
+        sandboxEnvironments,
+        capabilities: { sandbox: { environments: { enabled: false } } },
+      }),
+    ).toBe(false);
     expect(isMetricsChromeEnabled({ metrics: null })).toBe(false);
     expect(isMetricsChromeEnabled({ metrics })).toBe(true);
   });
@@ -99,7 +111,10 @@ describe('serverChrome', () => {
     const enabled = toEffectiveRoutes({
       routes,
       catalog,
-      capabilities: { settings: allSettingsSections(true) },
+      capabilities: {
+        settings: allSettingsSections(true),
+        sandbox: { environments: { enabled: true } },
+      },
       sessions,
       schedules,
       sandboxEnvironments,

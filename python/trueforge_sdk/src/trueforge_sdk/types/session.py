@@ -5,12 +5,12 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .created_by_subject import CreatedBySubject
 from .session_agent import SessionAgent
 from .session_last_turn_details import SessionLastTurnDetails
 from .session_metadata import SessionMetadata
 from .session_metrics import SessionMetrics
 from .session_source import SessionSource
+from .subject import Subject
 
 
 class Session(UncheckedBaseModel):
@@ -20,7 +20,7 @@ class Session(UncheckedBaseModel):
     ISO 8601 creation timestamp.
     """
 
-    created_by_subject: CreatedBySubject
+    created_by_subject: Subject
     id: str = pydantic.Field()
     """
     Unique session id.
@@ -29,11 +29,6 @@ class Session(UncheckedBaseModel):
     last_turn_details: typing.Optional[SessionLastTurnDetails] = None
     metadata: SessionMetadata
     metrics: SessionMetrics
-    shared: bool = pydantic.Field()
-    """
-    When true, any subject in the tenant may read this session and its turns/events by id.
-    """
-
     source: typing.Optional[SessionSource] = None
     title: typing.Optional[str] = pydantic.Field(default=None)
     """

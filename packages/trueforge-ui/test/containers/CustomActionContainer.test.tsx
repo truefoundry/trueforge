@@ -9,14 +9,9 @@ import {
 } from '@/server/CustomActionRenderersContext.js';
 
 const useToolResponses = vi.hoisted(() => vi.fn());
-const useThreadRunning = vi.hoisted(() => vi.fn());
 
 vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
   useTrueForgeToolResponses: () => useToolResponses(),
-}));
-
-vi.mock('@assistant-ui/core/react', () => ({
-  useThreadIsRunning: () => useThreadRunning(),
 }));
 
 function SecretSelectProbe({ args, disabled, onSubmit }: CustomActionRendererProps) {
@@ -49,7 +44,6 @@ describe('CustomActionContainer', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    useThreadRunning.mockReturnValue(false);
     useToolResponses.mockReturnValue({ pending: [], respond });
   });
 
@@ -90,15 +84,19 @@ describe('CustomActionContainer', () => {
     expect(respond).toHaveBeenCalledWith({ toolCallId: 'tc-secret', content: 'prod-db' });
   });
 
-  it('disables the host component while the thread is running', () => {
-    useThreadRunning.mockReturnValue(true);
+  it('honors the disabled prop for session permissions', () => {
     useToolResponses.mockReturnValue({
       pending: [{ toolCallId: 'tc-secret', toolName: 'secret_select', args: {} }],
       respond,
     });
-    renderSubject();
+    render(
+      <CustomActionRenderersProvider renderers={{ secret_select: SecretSelectProbe }}>
+        <CustomActionContainer disabled />
+      </CustomActionRenderersProvider>,
+    );
 
     expect(screen.getByTestId('secret-select-probe')).toHaveAttribute('data-disabled', 'true');
-    expect(screen.getByRole('button', { name: 'Choose prod-db' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Choose prod-db' }));
+    expect(respond).not.toHaveBeenCalled();
   });
 });

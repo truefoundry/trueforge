@@ -177,7 +177,7 @@ describe('TrueFoundry naming vs NameSchema', () => {
         .mockResolvedValue([{ fqn: SKILL_FQN, name: 'my.echo', description: 'Echo' }]),
       apiKey: 'tfy-api-key',
     };
-    const store = new TrueFoundrySkillStore({ client, context: requestContext });
+    const store = new TrueFoundrySkillStore({ client, requestContext });
 
     const listed = await store.listSkills({ tenant_id: 'default', names: undefined });
     expect(listed).toHaveLength(1);

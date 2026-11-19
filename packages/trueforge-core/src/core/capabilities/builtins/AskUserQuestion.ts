@@ -6,7 +6,7 @@ import type { AgentCapability } from '../AgentCapability';
 import { OPENUI_SECTION_TAG } from './OpenUI';
 
 const ASK_USER_QUESTION_SERVER_ID = 'ask-user-question';
-const ASK_USER_QUESTION_TOOL_NAME = 'ask_user_question';
+export const ASK_USER_QUESTION_TOOL_NAME = 'ask_user_question';
 
 const askUserQuestionInputSchema = z.object({
   question: z.string().describe('The question to ask the user.'),

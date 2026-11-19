@@ -87,10 +87,10 @@ function toolCallToPart(toolCall: SdkToolCall, context?: ToolCallContext): ToolC
   let result: ToolCallPart['result'];
   let isError = false;
   if (toolResult !== undefined) {
-    result = toolResult;
+    result = toolResult === '' ? true : toolResult;
   } else if (approvalDecision?.approved === false) {
     result = {
-      error:
+      reason:
         approvalDecision.reason == null || approvalDecision.reason.length === 0
           ? 'Tool approval denied'
           : approvalDecision.reason,

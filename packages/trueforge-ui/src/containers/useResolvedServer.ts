@@ -26,9 +26,10 @@ const DEFAULT_CAPABILITIES = {
       skills: { enabled: true, manageProviders: true },
       sandboxProviders: { enabled: true, manageProviders: true },
       webSearch: { enabled: true, manageProviders: true },
-      memory: { enabled: true, manageProviders: true },
+      memoryProviders: { enabled: true, manageProviders: true },
     },
     webSearch: { enabled: false },
+    sessionSharing: { granularity: 'tenant' },
   },
 } satisfies AgentBuilderCapabilitiesResponse;
 

@@ -92,6 +92,9 @@
     --overlay: rgb(9 9 11 / 0.5);
     --shadow-color: var(--color-black);
     --scrollbar-thumb: var(--color-gray-550);
+    /* Light: primary base + lighter flash (secondary→primary reads as a darkening pulse). */
+    --text-shimmer-base: var(--text-primary);
+    --text-shimmer-highlight: var(--color-gray-300);
   }
 
   .aui-theme-root *,
@@ -160,6 +163,9 @@
     --overlay: rgb(0 0 0 / 0.7);
     --shadow-color: #000000;
     --scrollbar-thumb: var(--color-gray-600);
+    /* Dark: muted base + bright flash (same contrast direction as before). */
+    --text-shimmer-base: var(--text-secondary);
+    --text-shimmer-highlight: var(--text-primary);
   }
 }
 
@@ -474,7 +480,7 @@
   }
 }
 
-/* Left-to-right shimmer for assistant "Working..." indicator text. */
+/* Left-to-right shimmer for running-state text (message indicator, session titles). */
 @keyframes aui-text-shimmer {
   from {
     background-position: 100% center;
@@ -485,19 +491,80 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .aui-message-indicator-shimmer {
+  .aui-text-shimmer {
     background-image: linear-gradient(
       90deg,
-      var(--text-secondary) 0%,
-      var(--text-secondary) 40%,
-      var(--text-primary) 50%,
-      var(--text-secondary) 60%,
-      var(--text-secondary) 100%
+      var(--text-shimmer-base) 0%,
+      var(--text-shimmer-base) 35%,
+      var(--text-shimmer-highlight) 50%,
+      var(--text-shimmer-base) 65%,
+      var(--text-shimmer-base) 100%
     );
     background-size: 200% auto;
     background-clip: text;
     -webkit-background-clip: text;
     color: transparent;
     animation: aui-text-shimmer 1.5s linear infinite;
+  }
+}
+
+/* Classic sequential typing-indicator bounce on the Lucide-ellipsis SVG. */
+@keyframes aui-jumping-dot {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-0.25rem);
+  }
+}
+
+.aui-jumping-dots {
+  display: block;
+  overflow: visible;
+}
+
+.aui-jumping-dots > circle {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .aui-jumping-dots > circle {
+    animation: aui-jumping-dot 1.05s ease-in-out infinite;
+  }
+
+  .aui-jumping-dots > circle:nth-child(2) {
+    animation-delay: 0.15s;
+  }
+
+  .aui-jumping-dots > circle:nth-child(3) {
+    animation-delay: 0.3s;
+  }
+}
+
+/* Keep running distinguishable from the static actions ellipsis when bounce is off. */
+@keyframes aui-jumping-dot-fade {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aui-jumping-dots > circle {
+    animation: aui-jumping-dot-fade 1.6s ease-in-out infinite;
+  }
+
+  .aui-jumping-dots > circle:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+
+  .aui-jumping-dots > circle:nth-child(3) {
+    animation-delay: 0.4s;
   }
 }

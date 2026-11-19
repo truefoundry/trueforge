@@ -4,10 +4,13 @@ import { Icon } from '../../icons/Icon.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
+import { IS_CREATE_AGENT_METADATA_KEY } from '../lib/sessionCreateAgent.js';
 import { Button } from '../primitives/Button.js';
 import type { AgentSessionDetailHeaderProps } from './types.js';
 
 export { buildAgentSessionShareUrl } from '../../utils/sessionShareUrl.js';
+
+const HIDDEN_METADATA_KEYS = new Set([IS_CREATE_AGENT_METADATA_KEY, 'is_created_agent', 'tfg.is_created_agent']);
 
 function SessionsShareTrigger({ disabled }: { disabled?: boolean }) {
   return (
@@ -31,7 +34,10 @@ export function AgentSessionDetailHeader({
 }: AgentSessionDetailHeaderProps) {
   const PermissionGuard = useSlot('PermissionGuard');
   const ShareSessionDialog = useSlot('ShareSessionDialog');
-  const hasMetadata = metadata != null && Object.keys(metadata).length > 0;
+  const visibleMetadata = Object.fromEntries(
+    Object.entries(metadata ?? {}).filter(([key]) => !HIDDEN_METADATA_KEYS.has(key)),
+  );
+  const hasMetadata = Object.keys(visibleMetadata).length > 0;
 
   return (
     <div className="flex shrink-0 flex-col border-b border-border">
@@ -94,7 +100,7 @@ export function AgentSessionDetailHeader({
           className="flex flex-wrap items-center gap-1.5 border-t border-border px-3 py-2"
           data-slot="session-metadata-tags"
         >
-          {Object.entries(metadata).map(([key, value]) => (
+          {Object.entries(visibleMetadata).map(([key, value]) => (
             <div
               key={key}
               className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-secondary-bg/40 px-2.5 py-1 text-xs"

@@ -12,10 +12,10 @@ import type { RefObject } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
-  collectPendingApprovals,
   collectPendingToolResponses,
   derivePendingMcpAuth,
   deriveSandboxId,
+  findLatestSessionSpecUpdate,
 } from './collectPending.js';
 import {
   buildUserMessageContent,
@@ -26,15 +26,15 @@ import {
 import { createDraftSessionBridge, DRAFT_SESSION_LAST_UPDATED_AT_HEADER } from './draft/draftSessionBridge.js';
 import { createTrueForgeDraftThreadListAdapter } from './draft/trueforgeDraftThreadListAdapter.js';
 import { useDraftAgentSpec } from './draft/useDraftAgentSpec.js';
-import { MCP_AUTH_RESUME_RUN_CUSTOM_KEY } from './mcpAuth.js';
 import { buildSandboxDownloadRequest } from './sandboxDownload.js';
-import type { AgentSpec } from './server/types.js';
+import { readDraftTrueforgeEnabled, type AgentSpec } from './server/types.js';
 import { trueForgeExtras } from './trueforgeExtras.js';
 import { createTrueForgeThreadListAdapter } from './trueforgeThreadListAdapter.js';
 import type { UseTrueForgeAgentRuntimeOptions } from './types.js';
 import { resolveTrueForgeAgentRuntimeOptions } from './types.js';
 import { useTrueForgeAgentMessages } from './useTrueForgeAgentMessages.js';
 
+const TRUEFORGE_MCP_REQUEST_HEADER = 'x-tfg-trueforge-mcp';
 const EMPTY_NAMED_DEFAULT_SPEC: AgentSpec = { model: { name: '' } };
 
 /**
@@ -49,6 +49,7 @@ function createDelegatingThreadListAdapter(adapterRef: RefObject<RemoteThreadLis
     initialize: threadId => adapterRef.current.initialize(threadId),
     fetch: threadId => adapterRef.current.fetch(threadId),
     rename: (remoteId, newTitle) => adapterRef.current.rename(remoteId, newTitle),
+    updateCustom: (remoteId, custom) => adapterRef.current.updateCustom?.(remoteId, custom) ?? Promise.resolve(),
     archive: remoteId => adapterRef.current.archive(remoteId),
     unarchive: remoteId => adapterRef.current.unarchive(remoteId),
     delete: remoteId => adapterRef.current.delete(remoteId),
@@ -100,16 +101,18 @@ function useTrueForgeAgentRuntimeImpl(
 
   const takeTurnHeaderTimestampRef = useRef(draftSpec.takeTurnHeaderTimestamp);
   takeTurnHeaderTimestampRef.current = draftSpec.takeTurnHeaderTimestamp;
+  const trueforgeEnabledRef = useRef(true);
+  trueforgeEnabledRef.current = readDraftTrueforgeEnabled(draftSpec.agentSpec?.config) !== false;
 
   const getTurnHeaders = useCallback(async () => {
     if (agent.mode !== 'draft') {
       return undefined;
     }
     const updatedAt = await takeTurnHeaderTimestampRef.current();
-    if (updatedAt == null) {
-      return undefined;
-    }
-    return { [DRAFT_SESSION_LAST_UPDATED_AT_HEADER]: updatedAt };
+    return {
+      ...(trueforgeEnabledRef.current ? { [TRUEFORGE_MCP_REQUEST_HEADER]: 'true' } : {}),
+      ...(updatedAt == null ? {} : { [DRAFT_SESSION_LAST_UPDATED_AT_HEADER]: updatedAt }),
+    };
   }, [agent.mode]);
 
   const aui = useAui();
@@ -119,6 +122,7 @@ function useTrueForgeAgentRuntimeImpl(
 
   const {
     messages,
+    pendingApprovals,
     isRunning,
     resumeUnavailable,
     isLoading,
@@ -129,6 +133,7 @@ function useTrueForgeAgentRuntimeImpl(
     cancel,
     respondToToolApproval,
     respondToToolResponse,
+    continueMcpAuth,
     resumeRun,
     editFromTurn,
     resetFromTurn,
@@ -148,12 +153,43 @@ function useTrueForgeAgentRuntimeImpl(
     pendingAgentSpecRef.current = draftSpec.agentSpec;
   }
 
-  const pendingApprovals = useMemo(() => collectPendingApprovals(messages), [messages]);
   const pendingToolResponses = useMemo(() => collectPendingToolResponses(messages), [messages]);
   const pendingMcpAuth = useMemo(() => derivePendingMcpAuth(messages), [messages]);
   const sandboxId = useMemo(() => deriveSandboxId(messages), [messages]);
 
-  const resumeMcpAuth = useMemo(() => () => sendTurn({ resumeMcpAuth: true }), [sendTurn]);
+  const sessionSpecUpdateId = useMemo(() => findLatestSessionSpecUpdate(messages), [messages]);
+  const handledSessionSpecUpdateIdRef = useRef<string | undefined>(undefined);
+  // Gate reloads on "has this session run in this mount", not on the current
+  // isRunning flag. Stream teardown often applies the tool result and clears
+  // isRunning in the same batch; marking the id handled while skipping reload
+  // would drop that update permanently.
+  const sawRunningInSessionRef = useRef(false);
+  const trackedSessionIdRef = useRef(sessionId);
+  if (trackedSessionIdRef.current !== sessionId) {
+    trackedSessionIdRef.current = sessionId;
+    sawRunningInSessionRef.current = false;
+    handledSessionSpecUpdateIdRef.current = undefined;
+  }
+  const reloadAgentSpec = draftSpec.reloadAgentSpec;
+  useEffect(() => {
+    if (isRunning) {
+      sawRunningInSessionRef.current = true;
+    }
+  }, [isRunning]);
+  useEffect(() => {
+    if (sessionSpecUpdateId === undefined || sessionSpecUpdateId === handledSessionSpecUpdateIdRef.current) {
+      return;
+    }
+    // Calls already in loaded history are reflected in the spec loaded with the session.
+    if (!sawRunningInSessionRef.current) {
+      handledSessionSpecUpdateIdRef.current = sessionSpecUpdateId;
+      return;
+    }
+    handledSessionSpecUpdateIdRef.current = sessionSpecUpdateId;
+    if (agent.mode === 'draft') {
+      void reloadAgentSpec();
+    }
+  }, [agent.mode, reloadAgentSpec, sessionSpecUpdateId]);
 
   const downloadSandboxFile = useCallback(
     async ({ turnId, path }: { turnId: string; path: string }) => {
@@ -207,7 +243,7 @@ function useTrueForgeAgentRuntimeImpl(
       sandboxId,
       respondToToolApproval,
       respondToToolResponse,
-      resumeMcpAuth,
+      continueMcpAuth,
       downloadSandboxFile,
       cancel,
       // resetFromTurn/branchFromTurn/sendTurn already report via onError.
@@ -232,13 +268,6 @@ function useTrueForgeAgentRuntimeImpl(
         return;
       }
 
-      const resumeMcpAuthFlag = message.runConfig?.custom?.[MCP_AUTH_RESUME_RUN_CUSTOM_KEY] === true;
-
-      if (resumeMcpAuthFlag) {
-        await sendTurn({ resumeMcpAuth: true });
-        return;
-      }
-
       const userMessage = buildUserMessageContent(message);
       await sendTurn({
         userMessage,
@@ -256,10 +285,7 @@ function useTrueForgeAgentRuntimeImpl(
     onCancel: async () => {
       await cancel();
     },
-    onRespondToToolApproval: response => {
-      respondToToolApproval(response);
-      return Promise.resolve();
-    },
+    onRespondToToolApproval: respondToToolApproval,
     onResume: async () => {
       await resumeRun();
     },

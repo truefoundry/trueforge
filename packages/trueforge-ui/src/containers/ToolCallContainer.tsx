@@ -3,27 +3,29 @@
 import {
   MessagePartPrimitive,
   MessagePrimitive,
+  useAuiState,
   useToolCallElapsed,
-  type ToolApprovalResponse,
+  type PartState,
   type ToolCallMessagePartComponent,
   type ToolCallMessagePartProps,
 } from '@assistant-ui/react';
-import {
-  CONTEXT_COMPACTION_DATA_NAME,
-  useTrueForgeRespondToToolApproval,
-} from '@truefoundry/trueforge-assistant-ui-runtime';
+import { useTrueForgeApprovals, useTrueForgeRespondToToolApproval } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useCallback, useState } from 'react';
 
 import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '../analytics/events.js';
 import { useSlot } from '../theme/SlotsProvider.js';
+import {
+  isParallelToolGroupPart,
+  parallelGroupKeyForPart,
+  readParallelToolGroups,
+} from '../utils/parallelToolGroups.js';
 import { resolveActivityLabel } from '../utils/resolveActivityLabel.js';
 import {
   ASK_USER_TOOL_NAME,
   MCP_META_TOOLS,
   SANDBOX_TOOL_NAMES,
   SUB_AGENT_TOOL_NAME,
-  buildApprovalOptions,
   formatDuration,
   getAskUserAnswerResult,
   getJsonDisplayValue,
@@ -38,33 +40,63 @@ import {
   toStatus,
 } from '../utils/toolCallParsing.js';
 import { useRegisterApprovalExpand } from './approvalFocus.js';
-import { AssistantTextContainer } from './AssistantTextContainer.js';
-import { ContextCompactionContainer } from './ContextCompactionContainer.js';
+import { AssistantLeafPartContainer } from './AssistantLeafPartContainer.js';
 import { NestedApprovalBridgeContext, useNestedApprovalBridge } from './nestedApprovalBridge.js';
 import { SandboxToolCallContainer } from './SandboxToolCallContainer.js';
 import { useSessionReplay } from './sessionReplayContext.js';
 import { ToolApprovalContainer } from './ToolApprovalContainer.js';
 import { ToolCallContentBlockContainer } from './ToolCallContentBlockContainer.js';
+import { ToolGroupContainer } from './ToolGroupContainer.js';
 
 function NestedSubAgentAssistantMessage() {
   const AssistantMessageBubble = useSlot('AssistantMessageBubble');
+  const StepTreeItem = useSlot('StepTreeItem');
+  const parts = useAuiState(s => s.message.parts);
+  const parallelToolGroups = useAuiState(s => readParallelToolGroups(s.message.metadata.custom));
+
+  // Sub-agent messages have no outer "agent steps" group, so only parallel tool calls are grouped here; every
+  // other part renders on its own.
+  const groupBy = (part: PartState): readonly `group-${string}`[] | null => {
+    const parallelKey = parallelGroupKeyForPart({ part, parts, parallelToolGroups });
+    return parallelKey != null ? [parallelKey] : null;
+  };
 
   return (
     <div className="mb-3 min-w-0">
       <MessagePrimitive.Root data-role="assistant">
         <AssistantMessageBubble>
-          <MessagePrimitive.Parts
-            components={{
-              Text: AssistantTextContainer,
-              Reasoning: AssistantTextContainer,
-              tools: { Fallback: ToolCallContainer },
-              data: {
-                by_name: {
-                  [CONTEXT_COMPACTION_DATA_NAME]: ContextCompactionContainer,
-                },
-              },
-            }}
-          />
+          <div className="flex min-w-0 flex-col" data-slot="step-tree">
+            <MessagePrimitive.GroupedParts groupBy={groupBy} indicator="never">
+              {({ part, children }) => {
+                if (isParallelToolGroupPart(part)) {
+                  return (
+                    <StepTreeItem>
+                      <ToolGroupContainer group={part}>{children}</ToolGroupContainer>
+                    </StepTreeItem>
+                  );
+                }
+                if (
+                  part.type === 'text' ||
+                  part.type === 'reasoning' ||
+                  part.type === 'tool-call' ||
+                  part.type === 'image' ||
+                  part.type === 'data'
+                ) {
+                  const leaf = <AssistantLeafPartContainer part={part} />;
+                  // Calls inside a parallel group already get a branch from the group's own tree, so only
+                  // top-level steps are wrapped here; wrapping both would draw a double connector.
+                  if (parallelGroupKeyForPart({ part, parts, parallelToolGroups }) != null) {
+                    return leaf;
+                  }
+                  // Tool calls and compaction are steps and get a branch; text, reasoning prose and images are
+                  // plain content, so they only carry the line through when a later step follows.
+                  const isStep = part.type === 'tool-call' || part.type === 'data';
+                  return <StepTreeItem branch={isStep}>{leaf}</StepTreeItem>;
+                }
+                return null;
+              }}
+            </MessagePrimitive.GroupedParts>
+          </div>
         </AssistantMessageBubble>
       </MessagePrimitive.Root>
     </div>
@@ -73,63 +105,36 @@ function NestedSubAgentAssistantMessage() {
 
 function ToolApprovalSlot({ part }: { part: ToolCallMessagePartProps }) {
   const isNestedReadonly = useNestedApprovalBridge();
-  const respondToNestedApproval = useTrueForgeRespondToToolApproval();
+  const respondToApproval = useTrueForgeRespondToToolApproval();
+  const { pending: pendingApprovals } = useTrueForgeApprovals();
   // Fire here (not the bar atom) so nested + optionId/approved mapping stay correct.
   const track = useTrackAnalytics();
+  const approval = part.approval;
+  if (approval == null) return null;
+  const supportsSessionPolicy =
+    pendingApprovals.find(pending => pending.approvalId === approval.id)?.policyTarget != null;
 
-  const respond = (response: ToolApprovalResponse) => {
-    if (!isNestedReadonly) {
-      part.respondToApproval(response);
-      return;
-    }
-    // Readonly nested thread: use this part's approval id, not the outer
-    // create_sub_agent tool (which usually has no approval of its own).
-    if (part.approval == null) return;
-
-    let approved: boolean | undefined;
-    let optionId: string | undefined;
-    if ('approved' in response) {
-      approved = response.approved;
-    } else if ('optionId' in response) {
-      const option = buildApprovalOptions(part.approval.options).find(o => o.id === response.optionId);
-      if (option == null) return;
-      approved = option.isAllow;
-      optionId = response.optionId;
-    }
-    if (approved === undefined) return;
-
-    respondToNestedApproval({
-      approvalId: part.approval.id,
-      approved,
-      ...(optionId != null && optionId !== '__allow' && optionId !== '__deny' ? { optionId } : {}),
-      ...('reason' in response && response.reason != null ? { reason: response.reason } : {}),
-    });
-  };
-
-  const onSelectOption = (optionId: string, reason?: string) => {
-    const options = buildApprovalOptions(part.approval?.options);
-    const option = options.find(o => o.id === optionId);
-    const approved = optionId === '__allow' ? true : optionId === '__deny' ? false : option?.isAllow;
+  const onRespond = async (response: Parameters<typeof respondToApproval>[0]) => {
     track(AnalyticsEvents.Tool.APPROVAL_RESOLVED, {
       tool_name: part.toolName,
-      option_id: optionId,
-      approved,
-      has_reason: reason != null && reason.trim().length > 0,
+      option_id: response.optionId ?? (response.approved ? '__allow' : '__deny'),
+      approved: response.approved,
+      has_reason: response.reason != null && response.reason.trim().length > 0,
       nested: isNestedReadonly,
     });
-    if (optionId === '__allow') return respond({ approved: true });
-    if (optionId === '__deny') return respond({ approved: false, reason });
-    return respond({ optionId, reason });
+    await respondToApproval({
+      ...response,
+      approvalId: approval.id,
+    });
   };
 
   return (
     <ToolApprovalContainer
+      approvalId={approval.id}
       toolName={part.toolName}
       argsText={part.argsText}
-      options={
-        buildApprovalOptions(part.approval?.options) as import('./ToolApprovalContainer.js').ToolApprovalOption[]
-      }
-      onSelectOption={onSelectOption}
+      supportsSessionPolicy={supportsSessionPolicy}
+      onRespond={onRespond}
     />
   );
 }

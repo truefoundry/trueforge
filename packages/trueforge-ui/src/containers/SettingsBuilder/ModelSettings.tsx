@@ -6,11 +6,11 @@ import { useTrackAnalytics } from '@/analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '@/analytics/events.js';
 import { Button } from '@/atoms/primitives/Button.js';
 import { CatalogLogo } from '@/atoms/primitives/CatalogLogo.js';
+import ConfirmDeleteDialog from '@/atoms/primitives/ConfirmDeleteDialog.js';
 import SearchInput from '@/atoms/primitives/SearchInput.js';
 import ConfigureModelProviderForm, {
   type ModelProviderKeyDraft,
 } from '@/containers/SettingsBuilder/ConfigureModelProviderForm.js';
-import ConfirmDeleteDialog from '@/containers/SettingsBuilder/ConfirmDeleteDialog.js';
 import CustomModelProviderForm, {
   type CustomProviderDraft,
 } from '@/containers/SettingsBuilder/CustomModelProviderForm.js';

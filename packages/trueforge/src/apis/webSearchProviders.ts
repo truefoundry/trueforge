@@ -1,5 +1,4 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { ResolveRequestContext } from '../auth/identity';
 import type { IWebSearchProviderStore, WebSearchProviderRecord } from '../db/webSearchProviderStore';
@@ -13,7 +12,7 @@ import {
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 
 export interface WebSearchProvidersRouterDeps {
-  resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore;
+  webSearchProviderStore: IWebSearchProviderStore;
   resolveRequestContext: ResolveRequestContext;
 }
 
@@ -52,7 +51,7 @@ function toWireProvider(record: WebSearchProviderRecord): ConfiguredWebSearchPro
 export function createWebSearchProvidersRouter(deps: WebSearchProvidersRouterDeps) {
   const getHandler: RouteHandler<typeof getWebSearchProviderRoute> = async c => {
     const requestContext = deps.resolveRequestContext(c);
-    const record = await deps.resolveWebSearchProviderStore(c).getProvider(requestContext.tenant_id);
+    const record = await deps.webSearchProviderStore.getProvider(requestContext.tenant_id);
     if (!record) {
       return c.json({ error: { message: 'No web search provider configured' } }, 404);
     }
@@ -60,7 +59,7 @@ export function createWebSearchProvidersRouter(deps: WebSearchProvidersRouterDep
   };
 
   const putHandler: RouteHandler<typeof putWebSearchProviderRoute> = async c => {
-    const store = deps.resolveWebSearchProviderStore(c);
+    const store = deps.webSearchProviderStore;
     const body: UpdateWebSearchProviderRequest = c.req.valid('json');
     const requestContext = deps.resolveRequestContext(c);
     const provider = body.manifest;

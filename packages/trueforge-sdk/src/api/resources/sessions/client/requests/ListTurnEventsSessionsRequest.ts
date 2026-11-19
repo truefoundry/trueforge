@@ -7,7 +7,7 @@ import type * as TrueForge from "../../../../index.js";
  *     {}
  */
 export interface ListTurnEventsSessionsRequest {
-    /** Page size. Defaults to 100, max 100. */
+    /** Page size. Defaults to and is capped at the server-configured maximum. */
     limit?: number;
     /** Opaque token from a previous response `next_page_token`. */
     pageToken?: string;

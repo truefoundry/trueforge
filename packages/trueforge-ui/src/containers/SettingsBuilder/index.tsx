@@ -30,11 +30,12 @@ const ConnectorSettings = lazy(() => import('./ConnectorSettings.js'));
 const SkillSettings = lazy(() => import('./SkillSettings.js'));
 const SandboxSettings = lazy(() => import('./SandboxSettings.js'));
 const WebSearchSettings = lazy(() => import('./WebSearchSettings.js'));
+const MemorySettings = lazy(() => import('./MemorySettings.js'));
 
 type SettingsSectionItem = {
   id: SettingsSection;
   label: string;
-  icon: 'cpu' | 'plug' | 'lightbulb' | 'cube' | 'search';
+  icon: 'cpu' | 'plug' | 'lightbulb' | 'cube' | 'search' | 'brain';
   capability: keyof SettingsCapability;
 };
 
@@ -65,6 +66,7 @@ const TruefoundrySettingsBuilder = ({ headerStart }: { headerStart?: ReactNode }
   // The tab also hosts the tenant switch, so a catalog with no web-search provider
   // list still shows it whenever the host wires the configuration port.
   const hasWebSearch = catalog?.webSearchCatalog != null || configuration != null;
+  const hasMemory = catalog?.memoryCatalog != null || configuration != null;
 
   const closeSettings = useCallback(() => {
     track(AnalyticsEvents.Settings.CLOSED, { section });
@@ -108,8 +110,11 @@ const TruefoundrySettingsBuilder = ({ headerStart }: { headerStart?: ReactNode }
     if (hasWebSearch) {
       mounted.push({ id: 'web-search', label: 'Web search', icon: 'search', capability: 'webSearch' });
     }
+    if (hasMemory) {
+      mounted.push({ id: 'memory', label: 'Memory', icon: 'brain', capability: 'memoryProviders' });
+    }
     return mounted.filter(item => isSettingsSectionEnabled({ settings, section: item.capability }));
-  }, [hasSkills, hasSandbox, hasWebSearch, settings]);
+  }, [hasSkills, hasSandbox, hasWebSearch, hasMemory, settings]);
 
   // A section the caller may not open (or the host never mounted) hands over to the first it may.
   const activeSection = sections.find(item => item.id === section);
@@ -184,6 +189,7 @@ const TruefoundrySettingsBuilder = ({ headerStart }: { headerStart?: ReactNode }
               {activeSection?.id === 'skills' ? <SkillSettings /> : null}
               {activeSection?.id === 'sandbox' ? <SandboxSettings /> : null}
               {activeSection?.id === 'web-search' ? <WebSearchSettings /> : null}
+              {activeSection?.id === 'memory' ? <MemorySettings /> : null}
             </Suspense>
           </div>
         </section>

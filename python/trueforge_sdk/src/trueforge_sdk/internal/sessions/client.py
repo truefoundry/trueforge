@@ -6,8 +6,11 @@ from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.request_options import RequestOptions
 from ...types.create_session_agent import CreateSessionAgent
 from ...types.get_session_response import GetSessionResponse
-from ...types.session_source_schedule import SessionSourceSchedule
+from ...types.get_turn_response import GetTurnResponse
+from ...types.previous_turn_id_input import PreviousTurnIdInput
+from ...types.session_source import SessionSource
 from .raw_client import AsyncRawSessionsClient, RawSessionsClient
+from .types.internal_create_session_turn_request_input_item import InternalCreateSessionTurnRequestInputItem
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -33,7 +36,7 @@ class SessionsClient:
         *,
         agent: CreateSessionAgent,
         external_id: str,
-        source: typing.Optional[SessionSourceSchedule] = OMIT,
+        source: typing.Optional[SessionSource] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetSessionResponse:
         """
@@ -46,7 +49,7 @@ class SessionsClient:
         external_id : str
             Caller-supplied id unique within the tenant.
 
-        source : typing.Optional[SessionSourceSchedule]
+        source : typing.Optional[SessionSource]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -76,6 +79,68 @@ class SessionsClient:
         )
         return _response.data
 
+    def create_turn(
+        self,
+        *,
+        session_id: str,
+        input: typing.Sequence[InternalCreateSessionTurnRequestInputItem],
+        previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
+        stream: typing.Optional[typing.Literal[False]] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> GetTurnResponse:
+        """
+        Service API key. Non-streaming; requires external_id and a non-null source.
+
+        Parameters
+        ----------
+        session_id : str
+            Session identifier.
+
+        input : typing.Sequence[InternalCreateSessionTurnRequestInputItem]
+            User messages for this turn. At least one is required.
+
+        previous_turn_id : typing.Optional[PreviousTurnIdInput]
+
+        stream : typing.Optional[typing.Literal[False]]
+            Must be false; streaming is not supported on this endpoint.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        GetTurnResponse
+            The running turn.
+
+        Examples
+        --------
+        from trueforge_sdk import TrueForge
+        from trueforge_sdk.internal.sessions import (
+            InternalCreateSessionTurnRequestInputItem,
+        )
+
+        client = TrueForge(
+            token="YOUR_TOKEN",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.internal.sessions.create_turn(
+            session_id="session_id",
+            input=[
+                InternalCreateSessionTurnRequestInputItem(
+                    content="content",
+                )
+            ],
+        )
+        """
+        _response = self._raw_client.create_turn(
+            session_id=session_id,
+            input=input,
+            previous_turn_id=previous_turn_id,
+            stream=stream,
+            request_options=request_options,
+        )
+        return _response.data
+
 
 class AsyncSessionsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -97,7 +162,7 @@ class AsyncSessionsClient:
         *,
         agent: CreateSessionAgent,
         external_id: str,
-        source: typing.Optional[SessionSourceSchedule] = OMIT,
+        source: typing.Optional[SessionSource] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetSessionResponse:
         """
@@ -110,7 +175,7 @@ class AsyncSessionsClient:
         external_id : str
             Caller-supplied id unique within the tenant.
 
-        source : typing.Optional[SessionSourceSchedule]
+        source : typing.Optional[SessionSource]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -145,5 +210,75 @@ class AsyncSessionsClient:
         """
         _response = await self._raw_client.get_or_create_by_external_id(
             agent=agent, external_id=external_id, source=source, request_options=request_options
+        )
+        return _response.data
+
+    async def create_turn(
+        self,
+        *,
+        session_id: str,
+        input: typing.Sequence[InternalCreateSessionTurnRequestInputItem],
+        previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
+        stream: typing.Optional[typing.Literal[False]] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> GetTurnResponse:
+        """
+        Service API key. Non-streaming; requires external_id and a non-null source.
+
+        Parameters
+        ----------
+        session_id : str
+            Session identifier.
+
+        input : typing.Sequence[InternalCreateSessionTurnRequestInputItem]
+            User messages for this turn. At least one is required.
+
+        previous_turn_id : typing.Optional[PreviousTurnIdInput]
+
+        stream : typing.Optional[typing.Literal[False]]
+            Must be false; streaming is not supported on this endpoint.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        GetTurnResponse
+            The running turn.
+
+        Examples
+        --------
+        import asyncio
+
+        from trueforge_sdk import AsyncTrueForge
+        from trueforge_sdk.internal.sessions import (
+            InternalCreateSessionTurnRequestInputItem,
+        )
+
+        client = AsyncTrueForge(
+            token="YOUR_TOKEN",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.internal.sessions.create_turn(
+                session_id="session_id",
+                input=[
+                    InternalCreateSessionTurnRequestInputItem(
+                        content="content",
+                    )
+                ],
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.create_turn(
+            session_id=session_id,
+            input=input,
+            previous_turn_id=previous_turn_id,
+            stream=stream,
+            request_options=request_options,
         )
         return _response.data

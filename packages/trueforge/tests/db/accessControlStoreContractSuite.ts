@@ -2,15 +2,15 @@
  * Backend-agnostic behavioural contract for IAccessControlStore.
  * Runs under jest against a fresh store per test (see backend test files).
  */
-import { AgentSpecSchema, type CreatedBySubject, type ISessionStore } from '@truefoundry/trueforge-core/agent-session';
+import { AgentSpecSchema, type ISessionStore, type Subject } from '@truefoundry/trueforge-core/agent-session';
 import type { IAccessControlStore } from '../../src/db/accessControlStore';
 
 const TENANT = 'default';
 const OTHER_TENANT = 'other-tenant';
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
-const OWNER: CreatedBySubject = { subject_id: 'owner', subject_type: 'user', subject_display_name: 'Owner' };
-const OTHER_GRANTER: CreatedBySubject = { subject_id: 'other', subject_type: 'user', subject_display_name: 'Other' };
+const OWNER: Subject = { subject_id: 'owner', subject_type: 'user', subject_display_name: 'Owner' };
+const OTHER_GRANTER: Subject = { subject_id: 'other', subject_type: 'user', subject_display_name: 'Other' };
 const SPEC = AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' }, instructions: 'test' });
 
 export interface AccessControlStoreContractEnv {
@@ -20,8 +20,8 @@ export interface AccessControlStoreContractEnv {
 }
 
 /** Session seeding through the backend's real session store. */
-export function sessionSeeding(
-  sessionStore: ISessionStore,
+export function sessionSeeding<TTransaction>(
+  sessionStore: ISessionStore<TTransaction>,
 ): Pick<AccessControlStoreContractEnv, 'seedSession' | 'deleteSession'> {
   return {
     async seedSession({ tenant_id, session_id }) {

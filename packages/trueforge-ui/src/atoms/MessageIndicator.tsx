@@ -15,7 +15,7 @@ export function MessageIndicator({ label = 'Working...', className }: MessageInd
       className={cn('inline-flex items-center gap-1.5 font-sans text-sm text-text-secondary', className)}
     >
       <ThinkingOrb state="listening" size={20} aria-hidden />
-      <span className="aui-message-indicator-shimmer">{label}</span>
+      <span className="aui-text-shimmer">{label}</span>
     </span>
   );
 }

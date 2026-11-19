@@ -3,8 +3,17 @@ import { describe, expect, it } from 'vitest';
 import {
   canReuseMutableShell,
   formatRelativeShort,
+  isNewerActivityAt,
+  isRunningTurnStatus,
+  lastTurnStatusDotClass,
+  lastTurnStatusLabel,
+  laterActivityAt,
+  PAUSED_STATUS_DOT_MAX_AGE_MS,
   readThreadAgentName,
   readThreadIsMutable,
+  readThreadLastActivityAt,
+  readThreadLastTurnStatus,
+  threadCustomWithLastTurnStatus,
   threadListIndicesByRecency,
   threadListItemIsMutable,
 } from '@/atoms/lib/threadListMeta.js';
@@ -25,6 +34,104 @@ describe('readThreadAgentName', () => {
     expect(readThreadAgentName({})).toBeUndefined();
     expect(readThreadAgentName(null)).toBeUndefined();
     expect(readThreadAgentName({ agentName: 1 })).toBeUndefined();
+  });
+});
+
+describe('readThreadLastTurnStatus', () => {
+  it('reads a valid lastTurnStatus from custom metadata', () => {
+    expect(readThreadLastTurnStatus({ lastTurnStatus: 'running' })).toBe('running');
+    expect(readThreadLastTurnStatus({ lastTurnStatus: 'paused' })).toBe('paused');
+    expect(readThreadLastTurnStatus({})).toBeUndefined();
+    expect(readThreadLastTurnStatus({ lastTurnStatus: 'nope' })).toBeUndefined();
+  });
+});
+
+describe('lastTurnStatusDotClass', () => {
+  const now = new Date('2026-11-16T12:00:00.000Z');
+
+  it('maps recent paused; hides stale paused, error, running, cancelled, and done', () => {
+    expect(
+      lastTurnStatusDotClass({
+        status: 'paused',
+        activityAt: new Date(now.getTime() - PAUSED_STATUS_DOT_MAX_AGE_MS),
+        now,
+      }),
+    ).toBe('bg-warning-bg');
+    expect(
+      lastTurnStatusDotClass({
+        status: 'paused',
+        activityAt: new Date(now.getTime() - PAUSED_STATUS_DOT_MAX_AGE_MS - 1),
+        now,
+      }),
+    ).toBeUndefined();
+    expect(lastTurnStatusDotClass({ status: 'paused', now })).toBe('bg-warning-bg');
+    expect(lastTurnStatusDotClass({ status: 'paused', activityAt: new Date('invalid'), now })).toBe('bg-warning-bg');
+    expect(lastTurnStatusDotClass({ status: 'error', now })).toBeUndefined();
+    expect(lastTurnStatusDotClass({ status: 'cancelled', now })).toBeUndefined();
+    expect(lastTurnStatusDotClass({ status: 'running', now })).toBeUndefined();
+    expect(lastTurnStatusDotClass({ status: 'done', now })).toBeUndefined();
+    expect(lastTurnStatusDotClass({ status: null, now })).toBeUndefined();
+  });
+});
+
+describe('lastTurnStatusLabel', () => {
+  it('labels running, paused, and error for screen readers', () => {
+    expect(lastTurnStatusLabel('running')).toBe('Running');
+    expect(lastTurnStatusLabel('paused')).toBe('Waiting for input');
+    expect(lastTurnStatusLabel('error')).toBe('Failed');
+    expect(lastTurnStatusLabel('cancelled')).toBeUndefined();
+    expect(lastTurnStatusLabel('done')).toBeUndefined();
+  });
+});
+
+describe('isRunningTurnStatus', () => {
+  it('is true only for running', () => {
+    expect(isRunningTurnStatus('running')).toBe(true);
+    expect(isRunningTurnStatus('paused')).toBe(false);
+    expect(isRunningTurnStatus(undefined)).toBe(false);
+  });
+});
+
+describe('threadCustomWithLastTurnStatus', () => {
+  it('sets, replaces, and clears lastTurnStatus without mutating the input', () => {
+    const custom = { isMutable: true, lastTurnStatus: 'running' };
+    expect(threadCustomWithLastTurnStatus(custom, 'paused')).toEqual({
+      isMutable: true,
+      lastTurnStatus: 'paused',
+    });
+    expect(custom).toEqual({ isMutable: true, lastTurnStatus: 'running' });
+    expect(threadCustomWithLastTurnStatus(custom, null)).toEqual({ isMutable: true });
+    expect(threadCustomWithLastTurnStatus(custom, 'paused', '2026-11-16T00:00:00.000Z')).toEqual({
+      isMutable: true,
+      lastTurnStatus: 'paused',
+      lastActivityAt: '2026-11-16T00:00:00.000Z',
+    });
+    expect(threadCustomWithLastTurnStatus(undefined, 'error')).toEqual({ lastTurnStatus: 'error' });
+  });
+
+  it('normalizes non-record custom values', () => {
+    expect(threadCustomWithLastTurnStatus(null, 'running')).toEqual({ lastTurnStatus: 'running' });
+    expect(threadCustomWithLastTurnStatus(['nope'], 'paused')).toEqual({ lastTurnStatus: 'paused' });
+  });
+});
+
+describe('readThreadLastActivityAt', () => {
+  it('reads a valid poll stamp and ignores anything else', () => {
+    expect(readThreadLastActivityAt({ lastActivityAt: '2026-11-16T00:00:00.000Z' })?.toISOString()).toBe(
+      '2026-11-16T00:00:00.000Z',
+    );
+    expect(readThreadLastActivityAt({ lastActivityAt: 'nope' })).toBeUndefined();
+    expect(readThreadLastActivityAt({})).toBeUndefined();
+  });
+
+  it('treats a later stamp as newer and prefers it over the list payload', () => {
+    const older = new Date('2026-11-01T00:00:00.000Z');
+    const newer = new Date('2026-11-16T00:00:00.000Z');
+    expect(isNewerActivityAt('2026-11-16T00:00:00.000Z', older)).toBe(true);
+    expect(isNewerActivityAt('2026-11-01T00:00:00.000Z', newer)).toBe(false);
+    expect(isNewerActivityAt('nope', older)).toBe(false);
+    expect(laterActivityAt(older, newer)).toBe(newer);
+    expect(laterActivityAt(newer, undefined)).toBe(newer);
   });
 });
 

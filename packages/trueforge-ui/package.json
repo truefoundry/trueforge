@@ -102,7 +102,7 @@
     "@truefoundry/trueforge-sdk": "workspace:*",
     "chart.js": "^4.5.1",
     "clsx": "^2.1.1",
-    "lucide-react": "^0.562.0",
+    "lucide-react": "^1.73.0",
     "monaco-editor": "^0.57.0",
     "partial-json": "^0.1.7",
     "react-chartjs-2": "^5.3.1",
@@ -113,7 +113,7 @@
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.6.0",
     "thinking-orbs": "^0.3.1",
-    "zod": "^4.6.6"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",

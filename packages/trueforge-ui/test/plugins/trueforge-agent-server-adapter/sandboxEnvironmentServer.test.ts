@@ -10,6 +10,8 @@ const savedEnvResponse = {
     description: '',
     lifecycleStage: 'active' as const,
     status: 'pending' as const,
+    enabled: true,
+    isDefault: false,
     statusReason: null,
     createdAt: new Date('2024-01-01T00:00:00.000Z'),
     updatedAt: new Date('2024-01-01T00:00:00.000Z'),
@@ -27,6 +29,7 @@ function mockClient(
     list?: ReturnType<typeof vi.fn>;
     create?: ReturnType<typeof vi.fn>;
     createOrUpdate?: ReturnType<typeof vi.fn>;
+    update?: ReturnType<typeof vi.fn>;
     delete?: ReturnType<typeof vi.fn>;
   } = {},
 ): TrueForge {
@@ -40,6 +43,8 @@ function mockClient(
           description: 'Python with httpx',
           lifecycleStage: 'active' as const,
           status: 'ready' as const,
+          enabled: true,
+          isDefault: false,
           statusReason: null,
           createdAt: new Date('2024-01-01T00:00:00.000Z'),
           updatedAt: new Date('2024-01-02T00:00:00.000Z'),
@@ -67,6 +72,7 @@ function mockClient(
       get: vi.fn(),
       create: overrides.create ?? vi.fn(async () => savedEnvResponse),
       createOrUpdate: overrides.createOrUpdate ?? vi.fn(async () => savedEnvResponse),
+      update: overrides.update ?? vi.fn(async () => savedEnvResponse),
       delete: overrides.delete ?? vi.fn(async () => ({})),
     },
   } as unknown as TrueForge;
@@ -109,5 +115,17 @@ describe('createSandboxEnvironmentServer', () => {
     });
     await server.deleteEnvironment({ name: 'node-web' });
     expect(del).toHaveBeenCalledWith('node-web');
+  });
+
+  it('setEnvironmentEnabled and setDefaultEnvironment PATCH flags through update', async () => {
+    const update = vi.fn(async () => savedEnvResponse);
+    const client = mockClient({ update });
+    const server = createSandboxEnvironmentServer({ client });
+
+    await server.setEnvironmentEnabled({ name: 'node-web', enabled: false });
+    expect(update).toHaveBeenCalledWith('node-web', { enabled: false });
+
+    await server.setDefaultEnvironment({ name: 'node-web' });
+    expect(update).toHaveBeenCalledWith('node-web', { isDefault: true });
   });
 });

@@ -32,6 +32,10 @@ class ResizeObserverMock implements ResizeObserver {
   disconnect(): void {}
 }
 
+vi.mock('@assistant-ui/core/react', () => ({
+  useThreadIsRunning: () => false,
+}));
+
 vi.mock('@assistant-ui/react', () => ({
   useAui: () => ({
     threads: () => ({
@@ -84,6 +88,11 @@ vi.mock('@/server/ServerContext.js', () => ({
   useOptionalPermissionsServer: () => null,
   useOptionalScheduleServer: () => null,
   useOptionalSandboxEnvironmentServer: () => null,
+  useServerCapabilities: () => ({
+    sandbox: { enabled: true, environments: { enabled: true } },
+    skill: { enabled: true },
+  }),
+  useServerCapabilitiesSettled: () => true,
 }));
 
 vi.mock('@/server/ShellModeContext.js', () => ({

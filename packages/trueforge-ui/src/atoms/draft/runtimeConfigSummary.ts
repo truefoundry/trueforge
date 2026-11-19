@@ -14,10 +14,13 @@ export function runtimeConfigValueClassName(value: string): string {
   return value === 'off' ? 'text-failure-bg font-medium' : 'text-primary-button-bg font-medium';
 }
 
-/** `webSearchAvailable` only sets what an unset spec falls back to, matching the editor. */
+/**
+ * `webSearchAvailable` only sets what an unset spec falls back to, matching the editor.
+ * `memoryOffered` hides the memory row when the host does not offer memory.
+ */
 export function runtimeConfigSummary(
   config?: AgentRuntimeConfig,
-  { webSearchAvailable = false }: { webSearchAvailable?: boolean } = {},
+  { webSearchAvailable = false, memoryOffered = false }: { webSearchAvailable?: boolean; memoryOffered?: boolean } = {},
 ): RuntimeConfigSummaryEntry[] {
   return [
     { label: 'iteration limit', value: String(config?.iterationLimit ?? 512) },
@@ -31,5 +34,6 @@ export function runtimeConfigSummary(
     { label: 'generative UI', value: enabledLabel(config?.generativeUi?.enabled, true) },
     { label: 'ask user questions', value: enabledLabel(config?.askUserQuestions?.enabled, true) },
     { label: 'web search', value: enabledLabel(config?.webSearch?.enabled, webSearchAvailable) },
+    ...(memoryOffered ? [{ label: 'memory', value: enabledLabel(config?.memory?.enabled, false) }] : []),
   ];
 }

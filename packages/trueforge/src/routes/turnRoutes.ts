@@ -1,9 +1,11 @@
 /**
  * Turn route definitions.
- * DB-backed routes mount at /api/v1/sessions.
+ * Public DB-backed routes mount at /api/v1/sessions.
+ * Internal create-turn mounts at /api/internal/sessions (same `/{session_id}/turns` path).
  * Handlers are registered in apis/turns.ts.
  */
 import { createRoute, z } from '@hono/zod-openapi';
+import { ASSUME_USER_HEADER_PARAM } from '../auth/assumeUser';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import {
   CreateTurnEventRequestSchema,
@@ -14,6 +16,7 @@ import {
   CreateTurnRequestSchema,
   DownloadSandboxFileRequestQuerySchema,
   GetTurnResponseSchema,
+  InternalCreateSessionTurnRequestSchema,
   ListTurnEventsRequestQuerySchema,
   ListTurnEventsResponseSchema,
   ListTurnsRequestQuerySchema,
@@ -35,6 +38,7 @@ export const listTurnsRoute = createRoute({
   summary: 'List turns in a session',
   description:
     'List turns for a session (newest first by default), token-paginated. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.',
+  parameters: [ASSUME_USER_HEADER_PARAM],
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'list_turns',
   'x-fern-pagination': TOKEN_PAGINATION,
@@ -173,14 +177,14 @@ export const listTurnEventsRoute = createRoute({
   },
 });
 
-export const createTurnEventRoute = createRoute({
+export const postTurnEventsRoute = createRoute({
   method: 'post',
   path: '/{session_id}/turns/{turn_id}/events',
   tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'Create turn events',
   description: 'Create events for a turn. Only the session creator may create them.',
   'x-fern-sdk-group-name': ['sessions'],
-  'x-fern-sdk-method-name': 'create_turn_event',
+  'x-fern-sdk-method-name': 'create_turn_events',
   request: {
     params: TurnIdParamsSchema,
     body: {
@@ -203,11 +207,19 @@ export const createTurnEventRoute = createRoute({
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Session or turn not found.',
+      description: 'Session, turn, or referenced agent not found.',
     },
     409: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Turn is terminal, or an event id already exists.',
+      description: 'Turn is terminal, running and not accepting events, or an event id already exists.',
+    },
+    422: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'The referenced agent for this session no longer exists.',
+    },
+    500: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'The executor ran the request and failed while applying the events.',
     },
   },
 });
@@ -222,6 +234,7 @@ Only the session creator may create turns.
 When \`stream\` is true (default), respond with a Server-Sent Events stream of turn events.
 When \`stream\` is false, return the turn immediately with \`state.status: "running"\` while execution continues in the background; use get turn or subscribe to observe completion.
 Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto\`); use \`none\` for a new root.`,
+  parameters: [ASSUME_USER_HEADER_PARAM],
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'create_turn',
   'x-fern-streaming': {
@@ -286,16 +299,68 @@ Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto
   },
 });
 
+/** Service-key create-turn under `/api/internal/sessions`. */
+export const createInternalSessionTurnRoute = createRoute({
+  method: 'post',
+  path: '/{session_id}/turns',
+  tags: [OpenApiTag.INTERNAL],
+  summary: 'Create and execute a turn in a session (internal)',
+  description: 'Service API key. Non-streaming; requires external_id and a non-null source.',
+  'x-fern-sdk-group-name': ['internal', 'sessions'],
+  'x-fern-sdk-method-name': 'create_turn',
+  'x-excluded': true,
+  request: {
+    params: SessionIdParamsSchema,
+    body: {
+      content: { 'application/json': { schema: InternalCreateSessionTurnRequestSchema } },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: GetTurnResponseSchema } },
+      description: 'The running turn.',
+    },
+    400: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid request body.',
+    },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid service credential.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Session lacks external_id or source and is not eligible.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Session, prior turn, or referenced agent not found.',
+    },
+    412: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Requested action cannot be performed on the session because it is no longer usable.',
+    },
+    413: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Request body exceeds the configured maximum size (MAX_REQUEST_BODY_BYTES).',
+    },
+    422: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Missing agent/resource, sandbox unavailable, or turn input conflicts with session state.',
+    },
+  },
+});
+
 export const subscribeTurnRoute = createRoute({
   method: 'get',
   path: '/{session_id}/turns/{turn_id}/subscribe',
   tags: [OpenApiTag.AGENT_SESSIONS],
-  summary: 'Subscribe to a running turn',
-  description:
-    'Subscribe to the live SSE stream for a turn. Only the session creator may subscribe. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).',
+  summary: 'Subscribe to a turn stream',
+  description: 'Subscribe to the live SSE stream. Resume with from_event_id or after_event_id.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'subscribe_to_turn',
-  'x-fern-streaming': { format: 'sse', resumable: true },
+  'x-fern-streaming': { format: 'sse', resumable: false },
   request: {
     params: TurnIdParamsSchema,
     query: SubscribeTurnQuerySchema,
@@ -323,7 +388,7 @@ export const subscribeTurnRoute = createRoute({
     },
     412: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Cannot subscribe — the live stream no longer exists.',
+      description: 'The turn stream is no longer available or resumable.',
     },
   },
 });

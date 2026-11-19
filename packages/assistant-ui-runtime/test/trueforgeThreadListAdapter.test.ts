@@ -140,6 +140,21 @@ describe('createTrueForgeThreadListAdapter', () => {
     expect(renameSession).not.toHaveBeenCalled();
   });
 
+  it('generateTitle loads the stored title without renameSession', async () => {
+    const getSession = vi.fn().mockResolvedValue(mockSession('s1', 'Hello chat', '2026-06-30T10:00:00.000Z'));
+    const renameSession = vi.fn().mockResolvedValue(undefined);
+    const adapter = createTrueForgeThreadListAdapter({
+      server: mockServer({ getSession, renameSession }),
+      agentName: 'my-agent',
+    });
+
+    const stream = await adapter.generateTitle('s1', []);
+
+    expect(getSession).toHaveBeenCalledWith({ sessionId: 's1' });
+    expect(renameSession).not.toHaveBeenCalled();
+    expect(stream).toBeDefined();
+  });
+
   it('delete is a no-op when server.deleteSession is missing', async () => {
     const adapter = createTrueForgeThreadListAdapter({
       server: mockServer({}),

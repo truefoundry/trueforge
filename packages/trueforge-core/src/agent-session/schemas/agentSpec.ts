@@ -140,7 +140,9 @@ const SandboxConfigSchema = z
       .string()
       .min(1)
       .optional()
-      .describe('Name of a configured sandbox environment to use. Must exist when set.'),
+      .describe(
+        'Name of a configured sandbox environment to use. Required when sandbox is enabled and the provider supports environments.',
+      ),
   })
   .openapi('SandboxConfig');
 
@@ -182,6 +184,12 @@ const WebSearchConfigSchema = z
   })
   .openapi('WebSearchConfig');
 
+const MemoryConfigSchema = z
+  .object({
+    enabled: z.boolean().default(false).describe('Enable long-term memory for this agent. Default: false.'),
+  })
+  .openapi('MemoryConfig');
+
 export const RuntimeConfigSchema = z
   .object({
     iteration_limit: z
@@ -202,6 +210,7 @@ export const RuntimeConfigSchema = z
     generative_ui: GenerativeUIConfigSchema.default(() => ({ enabled: true })),
     ask_user_questions: AskUserQuestionsConfigSchema.default(() => ({ enabled: true })),
     web_search: WebSearchConfigSchema.default(() => ({ enabled: false })),
+    memory: MemoryConfigSchema.default(() => ({ enabled: false })),
   })
   .openapi('RuntimeConfig');
 

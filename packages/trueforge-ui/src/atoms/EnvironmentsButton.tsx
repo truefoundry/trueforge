@@ -3,7 +3,7 @@
 import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '../analytics/events.js';
 import { Icon } from '../icons/Icon.js';
-import { useOptionalSandboxEnvironmentServer } from '../server/ServerContext.js';
+import { useOptionalSandboxEnvironmentServer, useServerCapabilities } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { isEnvironmentsChromeEnabled } from '../server/serverChrome.js';
 import { auiButtonClass, sidebarButtonRadiusClassName, sidebarRailButtonClassName } from './lib/buttonClasses.js';
@@ -17,9 +17,11 @@ export type EnvironmentsButtonProps = {
 export function EnvironmentsButton({ className, compact = false }: EnvironmentsButtonProps) {
   const shell = useOptionalShellMode();
   const sandboxEnvironmentServer = useOptionalSandboxEnvironmentServer();
+  const capabilities = useServerCapabilities();
   const track = useTrackAnalytics();
 
-  const enabled = isEnvironmentsChromeEnabled({ sandboxEnvironments: sandboxEnvironmentServer }) && shell != null;
+  const enabled =
+    isEnvironmentsChromeEnabled({ sandboxEnvironments: sandboxEnvironmentServer, capabilities }) && shell != null;
   const open = shell?.environmentsOpen === true;
 
   if (!enabled) return null;

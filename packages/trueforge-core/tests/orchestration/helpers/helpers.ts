@@ -1,10 +1,10 @@
 import type { ILLM } from '../../../src/core/llm/ILLM';
 import type { ExtendedChatCompletionChunk, RawAssistantMessageWithUsage } from '../../../src/core/llm/LLMTypes';
 import { getEmptyUsage } from '../../../src/core/llm/LLMTypes';
-import type {
-  AgentThreadExecutionEvent,
-  AgentThreadExecutionResult,
-  AgentThreadSendBatch,
+import {
+  InternalEventType,
+  type AgentThreadExecutionEvent,
+  type AgentThreadExecutionResult,
 } from '../../../src/core/runtime/AgentThread.types';
 import type { AgentThreadOrchestrator } from '../../../src/core/runtime/AgentThreadOrchestrator';
 
@@ -130,6 +130,33 @@ export async function* writeNoteToolCallStream() {
   };
 }
 
+export type DriveOutcome =
+  | { kind: 'paused'; events: AgentThreadExecutionEvent[] }
+  | { kind: 'done'; events: AgentThreadExecutionEvent[]; result: AgentThreadExecutionResult };
+
+/**
+ * Drive a live `execute()` generator exactly as the production wiring layer would.
+ */
+export async function driveUntilPauseOrDone(
+  iterator: AsyncGenerator<AgentThreadExecutionEvent, AgentThreadExecutionResult, unknown>,
+): Promise<DriveOutcome> {
+  const events: AgentThreadExecutionEvent[] = [];
+  let step = await iterator.next();
+  while (!step.done) {
+    const event = step.value;
+    if (event.type === InternalEventType.TURN_STATE) {
+      if (event.transition.status === 'paused') {
+        return { kind: 'paused', events };
+      }
+      step = await iterator.next();
+      continue;
+    }
+    events.push(event);
+    step = await iterator.next();
+  }
+  return { kind: 'done', events, result: step.value };
+}
+
 /** Consume execute(); return raw events and the generator result. */
 export async function runExecute(input: {
   orchestrator: AgentThreadOrchestrator;
@@ -145,18 +172,6 @@ export async function runExecute(input: {
     step = await iterator.next();
   }
   return { events, result: step.value };
-}
-
-/** Consume send() then execute(); return raw events and the generator result. */
-export async function runTurn(input: {
-  orchestrator: AgentThreadOrchestrator;
-  sendBatch: AgentThreadSendBatch;
-  signal?: AbortSignal | undefined;
-}): Promise<{ events: AgentThreadExecutionEvent[]; result: AgentThreadExecutionResult }> {
-  for await (const _event of input.orchestrator.send(input.sendBatch)) {
-    void _event;
-  }
-  return runExecute({ orchestrator: input.orchestrator, signal: input.signal });
 }
 
 export function llmCreateInputs(llm: ILLM): unknown[] {

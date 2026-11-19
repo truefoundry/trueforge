@@ -4,15 +4,18 @@ import type {
   SandboxEnvironmentNetworking,
 } from '../../server/types.js';
 
-export const RESERVED_ENVIRONMENT_NAME = 'default';
+export const RESERVED_ENVIRONMENT_NAME = 'trueforge-sandbox-env';
 
 export function isReservedEnvironmentName(name: string): boolean {
   return name.trim() === RESERVED_ENVIRONMENT_NAME;
 }
 
-/** Reserved `default` env, or lacking MANAGE from list-permissions. */
-export function isEnvironmentReadOnly(env: Pick<SandboxEnvironment, 'name'>, canManage: boolean): boolean {
-  return isReservedEnvironmentName(env.name) || !canManage;
+/** Why an environment cannot be picked for a new chat or agent, or undefined when it can. */
+export function environmentUnavailableReason(env: Pick<SandboxEnvironment, 'status' | 'enabled'>): string | undefined {
+  if (!env.enabled) return 'Disabled by an admin. Existing chats and agents keep using it.';
+  if (env.status === 'pending') return 'Still building. Available once the build finishes.';
+  if (env.status === 'failed') return 'The last build failed. Fix it under Manage Environments.';
+  return undefined;
 }
 
 export function formatResourcesSummary(resources: SandboxEnvironmentManifest['resources']): string {

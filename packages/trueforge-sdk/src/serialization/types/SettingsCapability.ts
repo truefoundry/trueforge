@@ -10,7 +10,7 @@ export const SettingsCapability: core.serialization.ObjectSchema<
     TrueForge.SettingsCapability
 > = core.serialization.object({
     mcpServers: core.serialization.property("mcp_servers", SettingsCapabilitySection),
-    memory: SettingsCapabilitySection,
+    memoryProviders: core.serialization.property("memory_providers", SettingsCapabilitySection),
     modelProviders: core.serialization.property("model_providers", SettingsCapabilitySection),
     sandboxProviders: core.serialization.property("sandbox_providers", SettingsCapabilitySection),
     skills: SettingsCapabilitySection,
@@ -20,7 +20,7 @@ export const SettingsCapability: core.serialization.ObjectSchema<
 export declare namespace SettingsCapability {
     export interface Raw {
         mcp_servers: SettingsCapabilitySection.Raw;
-        memory: SettingsCapabilitySection.Raw;
+        memory_providers: SettingsCapabilitySection.Raw;
         model_providers: SettingsCapabilitySection.Raw;
         sandbox_providers: SettingsCapabilitySection.Raw;
         skills: SettingsCapabilitySection.Raw;

@@ -9,4 +9,6 @@ export interface ListTurnsSessionsRequest {
     limit?: number;
     /** Opaque token from a previous response `next_page_token`. */
     pageToken?: string;
+    /** Service API key only: which user identity to assume. Currently only session-creator. */
+    assumeUser?: "session-creator";
 }

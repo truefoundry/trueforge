@@ -1,4 +1,10 @@
-import type { Kysely, Selectable, Transaction } from 'kysely';
+import { sql, type Kysely, type Selectable, type Transaction } from 'kysely';
+import {
+  DEFAULT_CONFIGURATION_MANIFEST,
+  hasEveryConfigurationSwitch,
+  type ConfigurationFeature,
+  type ConfigurationManifest,
+} from '../../../schemas/configuration';
 import type {
   ConfigurationRecord,
   GetOrCreateConfigurationInput,
@@ -16,6 +22,25 @@ function toRecord(row: Selectable<ConfigurationTable>): ConfigurationRecord {
   };
 }
 
+/** Adds only the switches a row lacks, in one statement, so a concurrent save is never overwritten. */
+async function seedMissingSwitches({
+  db,
+  row,
+}: {
+  db: Kysely<Database>;
+  row: Selectable<ConfigurationTable>;
+}): Promise<Selectable<ConfigurationTable>> {
+  if (hasEveryConfigurationSwitch(row.manifest)) {
+    return row;
+  }
+  return await db
+    .updateTable('configuration')
+    .set({ manifest: sql<ConfigurationManifest>`${json(DEFAULT_CONFIGURATION_MANIFEST)} || manifest` })
+    .where('tenant_id', '=', row.tenant_id)
+    .returningAll()
+    .executeTakeFirstOrThrow();
+}
+
 export class PostgresConfigurationStore implements IConfigurationStore<Transaction<Database>> {
   readonly #db: Kysely<Database>;
 
@@ -29,7 +54,7 @@ export class PostgresConfigurationStore implements IConfigurationStore<Transacti
   ): Promise<ConfigurationRecord | undefined> {
     const db = transaction ?? this.#db;
     const row = await db.selectFrom('configuration').selectAll().where('tenant_id', '=', tenantId).executeTakeFirst();
-    return row ? toRecord(row) : undefined;
+    return row ? toRecord(await seedMissingSwitches({ db, row })) : undefined;
   }
 
   async upsertConfiguration(
@@ -79,6 +104,19 @@ export class PostgresConfigurationStore implements IConfigurationStore<Transacti
       .selectAll()
       .where('tenant_id', '=', input.tenant_id)
       .executeTakeFirstOrThrow();
-    return toRecord(existing);
+    return toRecord(await seedMissingSwitches({ db, row: existing }));
+  }
+
+  async listTenantIdsWithFeatureEnabled(
+    feature: ConfigurationFeature,
+    transaction?: Transaction<Database>,
+  ): Promise<string[]> {
+    const db = transaction ?? this.#db;
+    const rows = await db
+      .selectFrom('configuration')
+      .select('tenant_id')
+      .where(sql<boolean>`manifest -> ${sql.lit(feature)} ->> 'enabled' = 'true'`)
+      .execute();
+    return rows.map(row => row.tenant_id);
   }
 }

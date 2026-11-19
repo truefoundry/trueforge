@@ -222,8 +222,9 @@ describe('harnessBuilderServer', () => {
       if (url.endsWith('/api/v1/capabilities')) {
         return Response.json({
           data: {
-            sandbox: { enabled: false },
+            sandbox: { enabled: false, environments: { enabled: false } },
             skill: { enabled: false, reason: 'Configure a sandbox provider' },
+            session_sharing: { granularity: 'tenant' },
             settings: allSettingsSections(true),
           },
         });
@@ -235,8 +236,9 @@ describe('harnessBuilderServer', () => {
 
     assert.deepEqual(await builder.getCapabilities(), {
       data: {
-        sandbox: { enabled: false },
+        sandbox: { enabled: false, environments: { enabled: false } },
         skill: { enabled: false, reason: 'Configure a sandbox provider' },
+        sessionSharing: { granularity: 'tenant' },
         settings: allSettingsSections(true),
       },
     });

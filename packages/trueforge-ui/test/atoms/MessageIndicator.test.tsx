@@ -15,7 +15,7 @@ describe('MessageIndicator', () => {
     expect(indicator).toHaveTextContent('Working...');
     expect(indicator).toHaveAttribute('data-slot', 'aui_assistant-message-indicator');
     expect(indicator).toHaveClass('host-indicator');
-    expect(screen.getByText('Working...')).toHaveClass('aui-message-indicator-shimmer');
+    expect(screen.getByText('Working...')).toHaveClass('aui-text-shimmer');
     expect(screen.getByTestId('thinking-orb')).toBeInTheDocument();
   });
 });

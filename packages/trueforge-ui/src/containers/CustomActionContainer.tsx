@@ -1,6 +1,5 @@
 'use client';
 
-import { useThreadIsRunning } from '@assistant-ui/core/react';
 import { useTrueForgeToolResponses } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useCallback } from 'react';
 
@@ -10,7 +9,6 @@ import { useOptionalCustomActionRenderers } from '../server/CustomActionRenderer
 export function CustomActionContainer({ disabled = false }: { disabled?: boolean }) {
   const renderers = useOptionalCustomActionRenderers();
   const { pending, respond } = useTrueForgeToolResponses();
-  const isRunning = useThreadIsRunning();
   const item = pending[0];
 
   const onSubmit = useCallback(
@@ -27,5 +25,7 @@ export function CustomActionContainer({ disabled = false }: { disabled?: boolean
   const Renderer = renderers?.[item.toolName];
   if (Renderer == null) return null;
 
-  return <Renderer args={item.args ?? {}} disabled={isRunning || disabled} onSubmit={onSubmit} />;
+  // Do not gate on thread isRunning: a sibling sub-agent can keep the turn
+  // running while this custom action is still waiting for input.
+  return <Renderer args={item.args ?? {}} disabled={disabled} onSubmit={onSubmit} />;
 }

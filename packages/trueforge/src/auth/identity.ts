@@ -1,4 +1,4 @@
-import type { CreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
+import type { Subject } from '@truefoundry/trueforge-core/agent-session';
 import type { Context } from 'hono';
 
 import configuration, {
@@ -7,7 +7,9 @@ import configuration, {
   isTrueFoundryModeEnabled,
   TrueForgeAuthMode,
 } from '../config';
+import { RESERVED_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
 import { createTrueFoundryRequestContext } from '../truefoundry/accessToken';
+import type { AssumeUser } from './assumeUser';
 
 /** Standalone / default TrueForge admin role string. */
 export const STANDALONE_ADMIN_ROLE = 'admin';
@@ -43,7 +45,10 @@ export type ResolveRequestContext = (c: Context) => RequestContext;
 
 declare module 'hono' {
   interface ContextVariableMap {
+    subject?: RequestSubject;
     request_context?: RequestContext;
+    /** Set when service auth applied `assume-user`. */
+    assume_user?: AssumeUser;
   }
 }
 
@@ -85,19 +90,19 @@ export function areCatalogSettingsAvailable(): boolean {
   return getTrueForgeAuthMode() !== TrueForgeAuthMode.TrueFoundry;
 }
 
-/**
- * Create / update / delete sandbox environments (list/get stay open to all callers).
- * - Create (no `created_by_subject_id`): admin only
- * - Update / delete: admin or the environment creator
- */
-export function canCreateOrEdit(
-  requestContext: Pick<RequestContext, 'subject' | 'roles'>,
-  created_by_subject_id?: string,
+export type SandboxEnvironmentMutation = 'create' | 'edit' | 'delete' | 'patch';
+
+export function canManageOrDeleteEnvironment(
+  requestContext: Pick<RequestContext, 'roles'>,
+  options: { action: SandboxEnvironmentMutation; name?: string },
 ): boolean {
-  return (
-    hasAdminRole(requestContext) ||
-    (created_by_subject_id !== undefined && requestContext.subject.id === created_by_subject_id)
-  );
+  if (!hasAdminRole(requestContext)) {
+    return false;
+  }
+  if (options.name === RESERVED_SANDBOX_ENVIRONMENT_NAME) {
+    return options.action === 'patch';
+  }
+  return true;
 }
 
 /** Update / delete / run-now a schedule (and admin/creator schedule reads). */
@@ -109,7 +114,7 @@ export function canEditSchedule(
 }
 
 /** Subject rebuilt from a stored creator snapshot, for work that runs without a live request. */
-export function requestSubjectFromCreatedBySubject(subject: CreatedBySubject): RequestSubject {
+export function requestSubjectFromCreatedBySubject(subject: Subject): RequestSubject {
   return {
     id: subject.subject_id,
     type: subject.subject_type,
@@ -123,19 +128,28 @@ export function requestSubjectFromCreatedBySubject(subject: CreatedBySubject): R
  */
 export function requestContextFromCreatedBySubject(params: {
   tenant_id: string;
-  created_by_subject: CreatedBySubject;
+  created_by_subject: Subject;
+  user_credential: string | null;
 }): RequestContext {
   const base: RequestContext = {
     tenant_id: params.tenant_id,
     subject: requestSubjectFromCreatedBySubject(params.created_by_subject),
     roles: [],
-    user_credential: null,
+    user_credential: params.user_credential,
   };
   return isTrueFoundryModeEnabled(configuration) ? createTrueFoundryRequestContext(base) : base;
 }
 
+/**
+ * A context that arrived as JSON has no TrueFoundry token cache. Wrap a fresh one
+ * so model and MCP stores can vend on this replica.
+ */
+export function requestContextFromWire(context: RequestContext): RequestContext {
+  return isTrueFoundryModeEnabled(configuration) ? createTrueFoundryRequestContext(context) : context;
+}
+
 /** Persistable creator snapshot derived from the authenticated request. */
-export function createdBySubjectFromRequestContext(ctx: RequestContext): CreatedBySubject {
+export function createdBySubjectFromRequestContext(ctx: RequestContext): Subject {
   return {
     subject_id: ctx.subject.id,
     subject_type: ctx.subject.type,

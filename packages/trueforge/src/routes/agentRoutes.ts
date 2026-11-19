@@ -45,6 +45,13 @@ export const listAgentsRoute = createRoute({
   'x-fern-sdk-group-name': ['agents'],
   'x-fern-sdk-method-name': 'list',
   'x-fern-pagination': TOKEN_PAGINATION,
+  'x-tfg-mcp': {
+    name: 'list_agents',
+    description:
+      'Discover existing agents — for example to find one to inspect or update, or to check whether a ' +
+      'name is already taken before creating a new agent. Supports optional filters and returns one paginated page.',
+    annotations: { readOnlyHint: true },
+  },
   request: {
     query: ListAgentsQuerySchema,
   },
@@ -73,6 +80,13 @@ export const createAgentRoute = createRoute({
     'Creates an agent and allocates an immutable id. Fails if `name` is already taken. Name cannot be changed later.',
   'x-fern-sdk-group-name': ['agents'],
   'x-fern-sdk-method-name': 'create',
+  'x-tfg-mcp': {
+    name: 'create_agent',
+    description:
+      'Create a named agent from a complete manifest. The name is immutable and all referenced models, ' +
+      'MCP servers, skills, and sandbox environments must exist.',
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+  },
   request: {
     body: {
       content: { 'application/json': { schema: CreateAgentRequestSchema } },
@@ -134,6 +148,13 @@ export const getAgentRoute = createRoute({
   description: 'Fetch a configured agent by immutable id.',
   'x-fern-sdk-group-name': ['agents'],
   'x-fern-sdk-method-name': 'get',
+  'x-tfg-mcp': {
+    name: 'get_agent',
+    description:
+      "Fetch one agent's full definition by its immutable ID, including the complete manifest. Use it to " +
+      'review an agent or to get a working template before updating it.',
+    annotations: { readOnlyHint: true },
+  },
   request: {
     params: AgentIdParamsSchema,
   },
@@ -184,6 +205,14 @@ export const putAgentRoute = createRoute({
   description: 'Update an existing agent by immutable id.',
   'x-fern-sdk-group-name': ['agents'],
   'x-fern-sdk-method-name': 'update',
+  'x-tfg-mcp': {
+    name: 'update_agent',
+    description:
+      "Replace an agent's description and complete manifest by immutable ID. This is a full replacement: " +
+      'omitted manifest fields are removed. Call get_agent first to retrieve the current complete manifest ' +
+      'and edit it as a template rather than authoring one from scratch.',
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
+  },
   request: {
     params: AgentIdParamsSchema,
     body: {

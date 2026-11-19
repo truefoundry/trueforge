@@ -19,6 +19,7 @@ export function createAuthMiddleware(authenticator: Authenticator): MiddlewareHa
     if (requestContext === undefined) {
       throw new HTTPException(401, { message: 'Authentication required' });
     }
+    c.set('subject', requestContext.subject);
     c.set('request_context', requestContext);
     updateLogContext({ tenant_id: requestContext.tenant_id });
     return next();
@@ -46,6 +47,7 @@ export function buildAdminAuthMiddleware({
     if (requestContext === undefined) {
       throw new HTTPException(401, { message: 'Authentication required' });
     }
+    c.set('subject', requestContext.subject);
     updateLogContext({ tenant_id: requestContext.tenant_id });
     if (!accessible) {
       throw new HTTPException(422, {
@@ -77,6 +79,34 @@ export function createApiKeyAuthMiddleware(apiKey: string): MiddlewareHandler {
     if (token === undefined || !matchesServiceKey({ provided: token, expected: apiKey })) {
       throw new HTTPException(401, { message: 'Invalid service credential' });
     }
+    return next();
+  };
+}
+
+/**
+ * JWT or service API key. Service key leaves `request_context` unset so the handler can
+ * apply `assume-user`. Prefer {@link createAuthMiddleware} when service keys are not allowed.
+ */
+export function createAuthOrServiceKeyMiddleware(params: {
+  authenticator: Authenticator;
+  apiKey: string;
+}): MiddlewareHandler {
+  const { authenticator, apiKey } = params;
+  return async (c, next) => {
+    const token = readBearerToken(c);
+    if (token && matchesServiceKey({ provided: token, expected: apiKey })) {
+      c.set('request_context', undefined);
+      c.set('subject', undefined);
+      return next();
+    }
+
+    const requestContext = await tryAuthenticate({ authenticator, context: c });
+    if (!requestContext) {
+      throw new HTTPException(401, { message: 'Authentication required' });
+    }
+    c.set('subject', requestContext.subject);
+    c.set('request_context', requestContext);
+    updateLogContext({ tenant_id: requestContext.tenant_id });
     return next();
   };
 }

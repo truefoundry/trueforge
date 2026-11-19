@@ -17,7 +17,7 @@ export interface PermissionsRouterDeps<TTransaction> {
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
   scheduleStore: IScheduleStore<TTransaction>;
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
-  sessionStore: ISessionStore;
+  sessionStore: ISessionStore<TTransaction>;
   resolveRequestContext: ResolveRequestContext;
 }
 

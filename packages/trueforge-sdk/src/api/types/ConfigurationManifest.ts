@@ -3,5 +3,6 @@
 import type * as TrueForge from "../index.js";
 
 export interface ConfigurationManifest {
+    memory: TrueForge.MemoryConfiguration;
     webSearch: TrueForge.WebSearchConfiguration;
 }

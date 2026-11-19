@@ -5,8 +5,8 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .created_by_subject import CreatedBySubject
 from .session_grant_subject import SessionGrantSubject
+from .subject import Subject
 
 
 class SessionGrant(UncheckedBaseModel):
@@ -15,7 +15,7 @@ class SessionGrant(UncheckedBaseModel):
     When the session was shared with the subject (ISO-8601 UTC).
     """
 
-    granted_by_subject: CreatedBySubject
+    granted_by_subject: Subject
     subject: SessionGrantSubject
 
     if IS_PYDANTIC_V2:

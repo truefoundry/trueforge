@@ -9,6 +9,7 @@ import type { Logger } from 'winston';
 import type { ResolveRequestContext } from '../auth/identity';
 import type { IAgentStore } from '../db/agentStore';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
+import type { IMemoryProviderStore } from '../db/memoryProviderStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
@@ -16,6 +17,7 @@ import type { WithTransaction } from '../db/transaction';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import type { IOAuthTokenStore } from '../mcp/auth/types';
 import { createSettingsMcpServersRouter } from './mcpServers';
+import { createMemoryProvidersRouter } from './memoryProviders';
 import { createModelProvidersRouter } from './modelProviders';
 import { createSandboxProvidersRouter } from './sandboxProviders';
 import { createSkillsRouter, type ResolveSkillStore } from './skills';
@@ -26,9 +28,10 @@ export interface SettingsRouterDeps<TTransaction> {
   resolveMcpServerStore: (input: { c: Context }) => IMcpServerWithAuthStore<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
   resolveSkillStore: ResolveSkillStore<TTransaction>;
-  resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
+  sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
-  resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore<TTransaction>;
+  webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
+  memoryProviderStore: IMemoryProviderStore<TTransaction>;
   /** Delete routes refuse to remove a catalog entry an agent still references. */
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
@@ -70,7 +73,7 @@ export function createSettingsRouter<TTransaction>(deps: SettingsRouterDeps<TTra
   router.route(
     '/sandbox-providers',
     createSandboxProvidersRouter({
-      resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+      sandboxProviderStore: deps.sandboxProviderStore,
       sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
       withTransaction: deps.withTransaction,
       logger: deps.logger,
@@ -80,7 +83,14 @@ export function createSettingsRouter<TTransaction>(deps: SettingsRouterDeps<TTra
   router.route(
     '/web-search-providers',
     createWebSearchProvidersRouter({
-      resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
+      webSearchProviderStore: deps.webSearchProviderStore,
+      resolveRequestContext: deps.resolveRequestContext,
+    }),
+  );
+  router.route(
+    '/memory-providers',
+    createMemoryProvidersRouter({
+      resolveMemoryProviderStore: () => deps.memoryProviderStore,
       resolveRequestContext: deps.resolveRequestContext,
     }),
   );

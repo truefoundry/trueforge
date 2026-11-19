@@ -12,19 +12,18 @@ session = client.sessions.create(
 
 events = {}
 
-stream = client.sessions.create_turn_stream(
+with client.sessions.create_turn_stream(
     session_id=session.data.id,
     input=[{"type": "user.message", "content": "Hello!"}],
-)
-
-for event in stream:
-    print(event)
-    if is_event_delta(event):
-        base = events.get(event.id)
-        if base is not None:
-            merge_event_delta(base, event)
-    else:
-        events[event.id] = event
+) as stream:
+    for event in stream:
+        print(event)
+        if is_event_delta(event):
+            base = events.get(event.id)
+            if base is not None:
+                merge_event_delta(base, event)
+        else:
+            events[event.id] = event
 `;
 
 export const pythonNonStreamTemplate = `# pip install trueforge-sdk

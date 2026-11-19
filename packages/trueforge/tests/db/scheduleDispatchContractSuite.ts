@@ -1,4 +1,4 @@
-import { AgentSpecSchema, type CreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
+import { AgentSpecSchema, type Subject } from '@truefoundry/trueforge-core/agent-session';
 import { createLogger } from 'winston';
 
 import { dispatchScheduledRuns } from '../../src/controller/scheduleDispatch';
@@ -16,14 +16,14 @@ import { ScheduleManifestSchema, type ScheduleManifest } from '../../src/schemas
 const TENANT = 'default';
 /** Schedule creator. Every advanced run must be attributed to this identity. */
 const USER = 'tester';
-const USER_SUBJECT: CreatedBySubject = {
+const USER_SUBJECT: Subject = {
   subject_id: USER,
   subject_type: 'user',
   subject_display_name: USER,
 };
 /** Distinct from {@link USER}, so `created_by_subject` assertions cannot pass by aliasing. */
 const OTHER_ACTOR = 'someone-else';
-const OTHER_ACTOR_SUBJECT: CreatedBySubject = {
+const OTHER_ACTOR_SUBJECT: Subject = {
   subject_id: OTHER_ACTOR,
   subject_type: 'user',
   subject_display_name: OTHER_ACTOR,
@@ -102,7 +102,7 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
     status?: 'active' | 'paused';
     scheduledFor: Date;
     cron?: string;
-    createdBySubject?: CreatedBySubject;
+    createdBySubject?: Subject;
   }): Promise<{ schedule: ScheduleRecord; run: ScheduleRunRecord }> {
     const store = deps.getScheduleStore();
     const agent = await seedAgent();

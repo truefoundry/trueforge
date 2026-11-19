@@ -1,8 +1,10 @@
 import type { ISessionStore } from '@truefoundry/trueforge-core/agent-session';
+import { createEmptyAgentThreadMetrics } from '../../../../trueforge-core/src/core/runtime/metrics';
 import {
   makeCreateTurnInput,
   makeDoneTurnState,
   makeTurnDoneEvent,
+  TEST_ACTIVE_EXECUTOR_ID,
 } from '../../../../trueforge-core/tests/agent-session/testHelpers';
 import type { ISessionMetricsStore } from '../../../src/db/sessionMetricsStore';
 
@@ -16,7 +18,7 @@ function mustGet<T>(value: T | undefined | null, label = 'value'): T {
 /** Shared meters/charts contract for Postgres / SQLite metrics stores. */
 export function runSessionMetricsStoreContractSuite(
   createStores: () => {
-    sessionStore: ISessionStore;
+    sessionStore: Pick<ISessionStore, 'createSession' | 'createTurn' | 'getTurn' | 'updateTurnTerminalState'>;
     metricsStore: ISessionMetricsStore;
   },
 ) {
@@ -54,10 +56,12 @@ export function runSessionMetricsStoreContractSuite(
         metrics: { total_cost_in_usd: 1.25 },
       };
       await sessionStore.updateTurnTerminalState({
+        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
         session_id: 'metrics-session',
         turn_id: 'metrics-turn',
         state,
         turn_done_event: makeTurnDoneEvent(state),
+        metrics: { ...createEmptyAgentThreadMetrics(), total_cost_in_usd: 1.25 },
       });
 
       const metricsQuery = {
@@ -145,10 +149,12 @@ export function runSessionMetricsStoreContractSuite(
             completed_at: new Date(turn.created_at.getTime() + durationMs).toISOString(),
           };
           await sessionStore.updateTurnTerminalState({
+            active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
             session_id: definition.id,
             turn_id: turnId,
             state,
             turn_done_event: makeTurnDoneEvent(state),
+            metrics: createEmptyAgentThreadMetrics(),
           });
         }
       }
@@ -205,10 +211,12 @@ export function runSessionMetricsStoreContractSuite(
         completed_at: new Date(turn.created_at.getTime() + 2000).toISOString(),
       };
       await sessionStore.updateTurnTerminalState({
+        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
         session_id: 'completed-session',
         turn_id: 'completed-turn',
         state,
         turn_done_event: makeTurnDoneEvent(state),
+        metrics: createEmptyAgentThreadMetrics(),
       });
 
       const meters = await metricsStore.getSessionMetricsMeters({
