@@ -1,4 +1,3 @@
-import type { RemoteMcpHeaders, ResolveHeadersResult } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
 
@@ -57,46 +56,18 @@ export function decodePerServerMcpHeaders<T extends Record<string, Record<string
   return parsed.data;
 }
 
-function hasAuthorizationHeader(headers: Record<string, string>): boolean {
+export function hasAuthorizationHeader(headers: Record<string, string>): boolean {
   return Object.keys(headers).some(name => name.toLowerCase() === 'authorization');
 }
 
-/**
- * Sends a server's override headers over its store-resolved auth. An override Authorization goes out over only
- * the configured static headers, so a DCR consent flow is skipped.
- */
-export function withServerOverrideHeaders(input: {
-  serverOverrideHeaders: Record<string, string> | undefined;
-  storeHeaders: RemoteMcpHeaders;
-  configuredHeaders: Record<string, string>;
-}): RemoteMcpHeaders {
-  const { serverOverrideHeaders, storeHeaders, configuredHeaders } = input;
-  if (serverOverrideHeaders === undefined) {
-    return storeHeaders;
-  }
-  if (hasAuthorizationHeader(serverOverrideHeaders)) {
-    return mergeOverrideHeaders({ headers: configuredHeaders, overrideHeaders: serverOverrideHeaders });
-  }
-  return async (): Promise<ResolveHeadersResult> => {
-    const result = typeof storeHeaders === 'function' ? await storeHeaders() : { headers: storeHeaders };
-    if ('authRequired' in result) {
-      return result;
-    }
-    return {
-      ...result,
-      headers: mergeOverrideHeaders({ headers: result.headers, overrideHeaders: serverOverrideHeaders }),
-    };
-  };
-}
-
-// Header names are case-insensitive, so an override header must replace a same-named entry under any casing.
-function mergeOverrideHeaders(input: {
-  headers: Record<string, string>;
-  overrideHeaders: Record<string, string>;
+/** Header names are case-insensitive, so an override replaces a same-named base entry under any casing. */
+export function mergeServerHeaders(input: {
+  base: Record<string, string>;
+  override: Record<string, string>;
 }): Record<string, string> {
-  const overrideNames = new Set(Object.keys(input.overrideHeaders).map(name => name.toLowerCase()));
+  const overrideNames = new Set(Object.keys(input.override).map(name => name.toLowerCase()));
   return {
-    ...Object.fromEntries(Object.entries(input.headers).filter(([name]) => !overrideNames.has(name.toLowerCase()))),
-    ...input.overrideHeaders,
+    ...Object.fromEntries(Object.entries(input.base).filter(([name]) => !overrideNames.has(name.toLowerCase()))),
+    ...input.override,
   };
 }
