@@ -203,6 +203,35 @@ describe('ActiveTurnRegistry', () => {
     ).toBe(false);
   });
 
+  it('shutdownAndWait logs each running turn it abandons but not offloaded paused turns', async () => {
+    const warn = jest.spyOn(logger, 'warn');
+    try {
+      const registry = new ActiveTurnRegistry({ logger });
+      const runningAbort = new AbortController();
+      const pausedAbort = new AbortController();
+      const drains = [
+        { turn: turn('s1', 't1'), abortController: runningAbort },
+        { turn: turn('s1', 't2', 'paused'), abortController: pausedAbort },
+      ].map(async input => {
+        for await (const value of registry.track({ ...input, stream: gateOnAbort(input.abortController.signal) })) {
+          void value;
+        }
+      });
+
+      await registry.shutdownAndWait(CancellationReason.Abandoned);
+      await Promise.all(drains);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledWith('Abandoning running turn for shutdown', {
+        session_id: 's1',
+        turn_id: 't1',
+        reason: CancellationReason.Abandoned,
+      });
+      expect(pausedAbort.signal.reason).toBe(TurnOffloadReason);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   it('late track after shutdownAndWait aborts immediately with the shutdown reason', async () => {
     const registry = new ActiveTurnRegistry({ logger });
     await registry.shutdownAndWait(CancellationReason.Abandoned);

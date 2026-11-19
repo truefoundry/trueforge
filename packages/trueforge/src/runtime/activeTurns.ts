@@ -386,9 +386,16 @@ export class ActiveTurnRegistry<TTransaction = never> {
         if (run.abortController.signal.aborted) {
           continue;
         }
+        const turn = run.phase === 'live' ? run.turn : undefined;
         const offload = isPausedRun(run);
         if (offload) {
           this.logger.info('Offloading paused turn', { cause: 'shutdown' });
+        } else if (turn) {
+          this.logger.warn('Abandoning running turn for shutdown', {
+            session_id: turn.session_id,
+            turn_id: turn.id,
+            reason: abortReason,
+          });
         }
         run.abortController.abort(offload ? TurnOffloadReason : abortReason);
       }
