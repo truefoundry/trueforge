@@ -3,7 +3,6 @@
  * `ModelProviderManifest` document. Implementations: Postgres, Sqlite, and
  * TrueFoundry (read-only ServiceFoundry server listing).
  */
-import type { RoutableModel } from '@truefoundry/trueforge-core/core';
 import type { ResourceName } from '../schemas/common';
 import type { AvailableModel, ModelProperties, ModelProviderManifest } from '../schemas/modelProvider';
 import type { TurnMetadata } from './turnMetadata';
@@ -20,6 +19,16 @@ export interface ModelProviderRecord {
 
 export interface ListModelProvidersInput {
   tenant_id: string;
+  /** Fill in the catalog fields; only a store with a model catalog (TrueFoundry) has them. */
+  include_catalog_info?: boolean;
+}
+
+/** A listed model with its catalog info; both fields are undefined unless listed with `include_catalog_info` by a store that has them. */
+export interface CatalogModel extends AvailableModel {
+  /** Provider-neutral model id, e.g. `anthropic/claude-haiku-5-5`. */
+  canonical_model: string | undefined;
+  /** Blended USD per million tokens: 0.75 × input + 0.25 × output. */
+  cost: number | undefined;
 }
 
 export interface GetModelProviderInput {
@@ -80,14 +89,12 @@ export interface IModelProviderStore<TTransaction = never> {
   /** Removes one provider and every model it declares. Resolves `false` when no row matched. */
   deleteProvider(input: DeleteModelProviderInput, transaction?: TTransaction): Promise<boolean>;
   /** Flattens manifests into the FQN read view for GET /models. */
-  listModels(input: ListModelProvidersInput, transaction?: TTransaction): Promise<AvailableModel[]>;
+  listModels(input: ListModelProvidersInput, transaction?: TTransaction): Promise<CatalogModel[]>;
   /** Extra headers for a model invoke. */
   resolveInvokeHeaders(input: {
     record: ModelProviderRecord;
     turnMetadata?: TurnMetadata;
   }): Promise<Record<string, string>>;
-  /** The caller's models with the catalog fields model routing needs; empty for stores without a model catalog. */
-  listRoutingCandidates(input: ListModelProvidersInput): Promise<RoutableModel[]>;
 }
 
 export function modelPropertiesWarning(input: { properties: ModelProperties }): string | undefined {
@@ -106,7 +113,7 @@ export function modelPropertiesWarning(input: { properties: ModelProperties }): 
 }
 
 /** Application-side flatten shared by both store implementations. */
-export function flattenProviderModels(records: ModelProviderRecord[]): AvailableModel[] {
+export function flattenProviderModels(records: ModelProviderRecord[]): CatalogModel[] {
   return records.flatMap(record =>
     record.manifest.models.map(model => {
       const warning = modelPropertiesWarning({ properties: model.properties });
@@ -116,6 +123,8 @@ export function flattenProviderModels(records: ModelProviderRecord[]): Available
         provider: { name: record.name },
         properties: model.properties,
         ...(warning === undefined ? {} : { warning }),
+        canonical_model: undefined,
+        cost: undefined,
       };
     }),
   );

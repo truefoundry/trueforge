@@ -1,7 +1,8 @@
-import { SUPPORTED_REASONING_EFFORTS, type RoutableModel } from '@truefoundry/trueforge-core/core';
+import { SUPPORTED_REASONING_EFFORTS } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
 import configuration, { isTrueFoundryModeEnabled } from '../config';
+import type { CatalogModel } from '../db/modelProviderStore';
 import type { ModelProperties, ReasoningEffort } from '../schemas/modelProvider';
 
 const ModelParamSchema = z.object({
@@ -78,9 +79,9 @@ function toBlendedCost(metadata: IntegrationMetadata | undefined): number | unde
     : (0.75 * cost.input_cost_per_token + 0.25 * cost.output_cost_per_token) * 1e6;
 }
 
-function toRoutingMetadata(metadata: IntegrationMetadata | undefined): TrueFoundryEnabledModel['routing'] {
+function toCatalogInfo(metadata: IntegrationMetadata | undefined): TrueFoundryEnabledModel['catalog'] {
   return {
-    canonicalModel: metadata?.canonical_model ?? undefined,
+    canonical_model: metadata?.canonical_model ?? undefined,
     cost: toBlendedCost(metadata),
   };
 }
@@ -89,8 +90,8 @@ export interface TrueFoundryEnabledModel {
   accountName: string;
   modelName: string;
   properties: ModelProperties;
-  /** Catalog fields the model router reads; never part of the public model listing. */
-  routing: Omit<RoutableModel, 'name'>;
+  /** Returned only when models are listed with `include_catalog_info`. */
+  catalog: Pick<CatalogModel, 'canonical_model' | 'cost'>;
 }
 
 /** `modelTypes` defaults to chat only, so listings never show models agents can't run on. */
@@ -109,7 +110,7 @@ export function mapEnabledModels(input: {
       accountName: integration.providerAccount.name,
       modelName: integration.name,
       properties: toProperties(integration.metadata),
-      routing: toRoutingMetadata(integration.metadata),
+      catalog: toCatalogInfo(integration.metadata),
     });
   }
   return models;

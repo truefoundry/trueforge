@@ -1,9 +1,9 @@
-import type { RoutableModel } from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
 import type { RequestContext } from '../auth/identity';
 import type { AgentRecord } from '../db/agentStore';
 import {
   flattenProviderModels,
+  type CatalogModel,
   type CreateModelProviderInput,
   type DeleteModelProviderInput,
   type GetModelProviderForUpdateInput,
@@ -14,7 +14,7 @@ import {
   type UpsertModelProviderInput,
 } from '../db/modelProviderStore';
 import type { TurnMetadata } from '../db/turnMetadata';
-import type { AvailableModel, ModelProviderManifest } from '../schemas/modelProvider';
+import type { ModelProviderManifest } from '../schemas/modelProvider';
 import {
   accessTokenForRequest,
   actorAuthorizationHeaders,
@@ -56,7 +56,7 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
 
   async listProviders(input: ListModelProvidersInput, transaction?: TTransaction): Promise<ModelProviderRecord[]> {
     void transaction;
-    return this.#records(input);
+    return (await this.#records(input)).records;
   }
 
   async getProvider(
@@ -64,7 +64,7 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
     transaction?: TTransaction,
   ): Promise<ModelProviderRecord | undefined> {
     void transaction;
-    const records = await this.#records({
+    const { records } = await this.#records({
       tenant_id: input.tenant_id,
       filter: { provider_account_name: input.name, name: input.model_name },
     });
@@ -98,18 +98,15 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
     return trueFoundryManaged();
   }
 
-  async listModels(input: ListModelProvidersInput, transaction?: TTransaction): Promise<AvailableModel[]> {
-    return flattenProviderModels(await this.listProviders(input, transaction));
-  }
-
-  async listRoutingCandidates(input: ListModelProvidersInput): Promise<RoutableModel[]> {
-    const integrations = await this.#client.listProviderIntegrations({
-      accessToken: await this.#resolveServiceFoundryAuthorization(),
-    });
-    return filterEnvModels({ tenant_id: input.tenant_id, models: mapEnabledModels({ integrations }) }).map(model => ({
-      name: `${model.accountName}/${model.modelName}`,
-      ...model.routing,
-    }));
+  async listModels(input: ListModelProvidersInput, transaction?: TTransaction): Promise<CatalogModel[]> {
+    void transaction;
+    const { records, models } = await this.#records({ tenant_id: input.tenant_id });
+    const listed = flattenProviderModels(records);
+    if (input.include_catalog_info !== true) {
+      return listed;
+    }
+    const catalogByName = new Map(models.map(model => [`${model.accountName}/${model.modelName}`, model.catalog]));
+    return listed.map(model => ({ ...model, ...catalogByName.get(model.name) }));
   }
 
   async resolveInvokeHeaders(input: {
@@ -124,10 +121,11 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
     };
   }
 
+  /** The caller's provider records, and the parsed models they're built from. */
   async #records(input: {
     tenant_id: string;
     filter?: { provider_account_name: string; name: string };
-  }): Promise<ModelProviderRecord[]> {
+  }): Promise<{ records: ModelProviderRecord[]; models: TrueFoundryEnabledModel[] }> {
     const [serviceFoundryAccessToken, gatewayAuthorization] = await Promise.all([
       this.#resolveServiceFoundryAuthorization(),
       this.#resolveGatewayAuthorization(),
@@ -148,12 +146,13 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
         ...(input.filter !== undefined ? { modelTypes: ['chat', 'decision'] } : {}),
       }),
     });
-    return toRecords({
+    const records = toRecords({
       tenant_id: input.tenant_id,
       gatewayUrl,
       accessToken: gatewayAuthorization.subjectToken,
       models,
     });
+    return { records, models };
   }
 }
 

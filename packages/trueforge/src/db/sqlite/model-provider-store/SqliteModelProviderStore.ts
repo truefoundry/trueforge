@@ -1,9 +1,9 @@
-import type { RoutableModel } from '@truefoundry/trueforge-core/core';
 import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
-import type { AvailableModel, ModelProviderManifest } from '../../../schemas/modelProvider';
+import type { ModelProviderManifest } from '../../../schemas/modelProvider';
 import {
   flattenProviderModels,
   ModelProviderNameConflictError,
+  type CatalogModel,
   type CreateModelProviderInput,
   type DeleteModelProviderInput,
   type GetModelProviderForUpdateInput,
@@ -143,11 +143,7 @@ export class SqliteModelProviderStore implements IModelProviderStore<Transaction
     return Promise.resolve({});
   }
 
-  async listModels(input: ListModelProvidersInput, transaction?: Transaction<Database>): Promise<AvailableModel[]> {
+  async listModels(input: ListModelProvidersInput, transaction?: Transaction<Database>): Promise<CatalogModel[]> {
     return flattenProviderModels(await this.listProviders(input, transaction));
-  }
-  /** No model catalog, so nothing is routable. */
-  listRoutingCandidates(): Promise<RoutableModel[]> {
-    return Promise.resolve([]);
   }
 }
