@@ -72,13 +72,15 @@ describe('createModelRouter', () => {
   const routeInput = { threadId: 'child', input: 'Name: research\n\nTask:\nCompare pricing of three CI tools.' };
 
   function route(classifier: IDecisionModel, listModels = () => Promise.resolve(models)) {
-    return createModelRouter({
-      classifier,
-      question: DEFAULT_ROUTING_QUESTION,
-      listModels,
-      timeoutMs: 1_000,
+    return createModelRouter(
+      {
+        classifier,
+        question: DEFAULT_ROUTING_QUESTION,
+        listModels,
+        timeoutMs: 1_000,
+      },
       logger,
-    })(routeInput);
+    )(routeInput);
   }
 
   it("routes to the classified cluster's cheapest pair", async () => {
@@ -114,13 +116,15 @@ describe('createModelRouter', () => {
 
   it('lists the models once per router', async () => {
     const listModels = jest.fn(() => Promise.resolve(models));
-    const routeModel = createModelRouter({
-      classifier: classifiesAs('direct'),
-      question: DEFAULT_ROUTING_QUESTION,
-      listModels,
-      timeoutMs: 1_000,
+    const routeModel = createModelRouter(
+      {
+        classifier: classifiesAs('direct'),
+        question: DEFAULT_ROUTING_QUESTION,
+        listModels,
+        timeoutMs: 1_000,
+      },
       logger,
-    });
+    );
     await routeModel(routeInput);
     await routeModel(routeInput);
     expect(listModels).toHaveBeenCalledTimes(1);

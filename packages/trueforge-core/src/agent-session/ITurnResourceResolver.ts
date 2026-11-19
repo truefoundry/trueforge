@@ -1,6 +1,6 @@
 import type { Logger } from 'winston';
 import type { AgentCapability } from '../core/capabilities/AgentCapability';
-import type { ModelRouterInput } from '../core/modelRouting/router';
+import type { ModelRouterDeps } from '../core/modelRouting/router';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import type { AgentInfo } from '../core/runtime/AgentThread.types';
 import type { HarnessSandbox, SandboxInfo } from '../core/sandbox/Sandbox';
@@ -14,9 +14,6 @@ export interface ResolvedAgentDefinition {
   definition: AgentDefinition;
   extraCapabilities?: AgentCapability[] | undefined;
 }
-
-/** What the harness needs to route a thread to a model; the harness supplies the logger. */
-export type TurnModelRouting = Omit<ModelRouterInput, 'logger'>;
 
 /**
  * Per-run wiring contract consumed by SessionHandle.createTurn(). Implementations hold
@@ -68,7 +65,7 @@ export interface ITurnResourceResolver<TTurnCustom extends object = Record<strin
     tracing: AgentTracing;
   }): Promise<ResolvedAgentDefinition>;
   /** Inputs for routing a thread to a model before it starts; undefined to not route. */
-  readonly modelRouting: TurnModelRouting | undefined;
+  readonly modelRouting: ModelRouterDeps | undefined;
   /**
    * Release per-run resources. Called by the harness at the end of the run:
    * by TurnHandle.stream() in its finally (AFTER the terminal state write), or by

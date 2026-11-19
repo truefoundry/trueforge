@@ -324,6 +324,8 @@ const EFFORT_ALIASES: Readonly<Record<string, ReasoningLevel>> = { max: 'xhigh' 
 /** What a model may advertise in `reasoning_efforts`, lowest first; anything else resolves to the provider default. */
 export const SUPPORTED_REASONING_EFFORTS = [...COMMON_REASONING_LEVELS, 'max'] as const;
 
+export type ReasoningEffort = (typeof SUPPORTED_REASONING_EFFORTS)[number];
+
 /**
  * The effort travels on the top-level `reasoning` setting, which each adapter translates per model:
  * an effort string for OpenAI-shaped APIs, a thinking shape for Anthropic, a level or budget for

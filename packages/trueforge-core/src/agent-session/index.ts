@@ -133,7 +133,7 @@ export {
   TurnOwnershipLostError,
 } from './store/SessionStoreErrors';
 
-export type { ITurnResourceResolver, TurnModelRouting } from './ITurnResourceResolver';
+export type { ITurnResourceResolver } from './ITurnResourceResolver';
 export { TRUEFORGE_MCP_ID, TurnResourceResolver } from './TurnResourceResolver';
 export type { TurnSandboxFactory } from './TurnResourceResolver';
 

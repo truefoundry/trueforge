@@ -1,11 +1,8 @@
-import type { SUPPORTED_REASONING_EFFORTS } from '../llm/VercelAILLM';
+import type { ReasoningEffort } from '../llm/VercelAILLM';
 import type { RoutingCategory } from './question';
 
 /** Category -> effort -> canonical ids: every model and effort pair listed is good enough for that work. */
-export type RoutingClusters = Record<
-  RoutingCategory,
-  Partial<Record<(typeof SUPPORTED_REASONING_EFFORTS)[number], readonly string[]>>
->;
+export type RoutingClusters = Record<RoutingCategory, Partial<Record<ReasoningEffort, readonly string[]>>>;
 
 /**
  * The router picks the cheapest pair the tenant has, by its gateway price per token, and the thread runs at that effort.

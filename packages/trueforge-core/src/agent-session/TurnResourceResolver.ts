@@ -8,13 +8,14 @@ import { RemoteMCP, type McpConnection } from '../core/mcp/RemoteMCP';
 import type { ToolSelectorConfig } from '../core/mcp/ToolSelectorPolicy';
 import { DEFAULT_DISABLE_TOOLS, DEFAULT_ENABLE_TOOLS, DEFAULT_PRELOAD_TOOLS } from '../core/mcp/toolSelectors';
 import { ToolSet } from '../core/mcp/ToolSet';
+import type { ModelRouterDeps } from '../core/modelRouting/router';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import type { AgentInfo } from '../core/runtime/AgentThread.types';
 import type { HarnessSandbox, SandboxInfo } from '../core/sandbox/Sandbox';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
 import { NOOP_AGENT_TRACING } from '../core/tracing/NoopAgentTracing';
 import type { IWebSearchProvider } from '../core/web-search/WebSearchProvider';
-import type { ITurnResourceResolver, ResolvedAgentDefinition, TurnModelRouting } from './ITurnResourceResolver';
+import type { ITurnResourceResolver, ResolvedAgentDefinition } from './ITurnResourceResolver';
 import type { TurnRecord } from './models/TurnRecord';
 import type { AgentSpec } from './schemas/agentSpec';
 
@@ -80,7 +81,7 @@ export class TurnResourceResolver<
   readonly #models = new Map<string, Promise<ResolvedModel>>();
   #sandbox?: HarnessSandbox | undefined;
   readonly maxParallelSubAgents?: number;
-  readonly modelRouting: TurnModelRouting | undefined;
+  readonly modelRouting: ModelRouterDeps | undefined;
 
   constructor(
     protected readonly deps: {
@@ -112,7 +113,7 @@ export class TurnResourceResolver<
        */
       rootCapabilities?: (() => readonly AgentCapability[]) | undefined;
       /** Inputs for routing a thread to a model; undefined to not route. */
-      modelRouting: TurnModelRouting | undefined;
+      modelRouting: ModelRouterDeps | undefined;
       /** Forwarded to RemoteMCP / AgentThread (required by their constructors). */
       logger: Logger;
     },

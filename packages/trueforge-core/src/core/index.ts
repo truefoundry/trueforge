@@ -104,7 +104,12 @@ export type { AgentMetadata, ILLM, LLMCreateParams, LLMCreateParamsStreaming, LL
 export { ResponseFormatSchema, toOpenAIResponseFormat } from './llm/responseFormat';
 export type { ResponseFormat } from './llm/responseFormat';
 export { SUPPORTED_REASONING_EFFORTS, VERCEL_AI_PROVIDER_NAMES, VercelAILLM } from './llm/VercelAILLM';
-export type { VercelAILLMConfig, VercelAIProviderConfig, VercelAIProviderName } from './llm/VercelAILLM';
+export type {
+  ReasoningEffort,
+  VercelAILLMConfig,
+  VercelAIProviderConfig,
+  VercelAIProviderName,
+} from './llm/VercelAILLM';
 
 // Decision model contracts
 export type { Decision, DecisionModelCreateParams, IDecisionModel } from './decision/IDecisionModel';
@@ -120,7 +125,7 @@ export {
 export {
   createModelRouter,
   selectModel,
-  type ModelRouterInput,
+  type ModelRouterDeps,
   type RoutableModel,
   type RouteInput,
   type RoutedModel,

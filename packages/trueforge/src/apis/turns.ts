@@ -7,7 +7,6 @@ import type {
   ISessionStore,
   Sessions,
   Turn,
-  TurnModelRouting,
   TurnRecord,
   TurnStreamingEvent,
 } from '@truefoundry/trueforge-core/agent-session';
@@ -36,6 +35,7 @@ import type {
   AgentCapability,
   IWebSearchProvider,
   McpConnection,
+  ModelRouterDeps,
   ResolveHeadersResult,
 } from '@truefoundry/trueforge-core/core';
 import {
@@ -370,7 +370,7 @@ function turnModelRouting(input: {
   tenant_id: string;
   modelProviderStore: IModelProviderStore;
   turnMetadata: TurnMetadata;
-}): TurnModelRouting | undefined {
+}): ModelRouterDeps | undefined {
   const { tenant_id, modelProviderStore, turnMetadata } = input;
   const routing = isTrueFoundryModeEnabled(configuration) ? configuration.TRUEFOUNDRY_MODEL_ROUTING : undefined;
   const tenantRouting = routing?.tenants[tenant_id];

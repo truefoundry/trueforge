@@ -1,6 +1,6 @@
 import type { Logger } from 'winston';
 import type { DecisionModelCreateParams, IDecisionModel } from '../decision/IDecisionModel';
-import { SUPPORTED_REASONING_EFFORTS } from '../llm/VercelAILLM';
+import { type ReasoningEffort, SUPPORTED_REASONING_EFFORTS } from '../llm/VercelAILLM';
 import { describeUnknownError } from '../util/errorLogFields';
 import { classificationRequest, readClassification } from './classification';
 import { ROUTING_CLUSTERS } from './clusters';
@@ -19,7 +19,7 @@ export interface RoutableModel {
 export interface RoutedModel {
   model: string;
   /** Reasoning effort the thread should run at. */
-  effort: (typeof SUPPORTED_REASONING_EFFORTS)[number];
+  effort: ReasoningEffort;
 }
 
 interface Selection {
@@ -60,7 +60,7 @@ export function selectModel(input: {
   };
 }
 
-export interface ModelRouterInput {
+export interface ModelRouterDeps {
   /** Decides the task's category, e.g. Jev. */
   classifier: IDecisionModel;
   question: RoutingQuestion;
@@ -68,7 +68,6 @@ export interface ModelRouterInput {
   listModels: () => Promise<RoutableModel[]>;
   /** Bounds the whole step, including listing models and classifying. */
   timeoutMs: number;
-  logger: Logger;
 }
 
 export interface RouteInput {
@@ -87,20 +86,23 @@ interface Outcome {
  * Routes threads to a model: classify the task, then pick the cheapest pair in that cluster. Never throws; resolves to
  * undefined when it can't pick one, and the caller keeps its own model.
  */
-export function createModelRouter(input: ModelRouterInput): (route: RouteInput) => Promise<RoutedModel | undefined> {
+export function createModelRouter(
+  deps: ModelRouterDeps,
+  logger: Logger,
+): (route: RouteInput) => Promise<RoutedModel | undefined> {
   let models: Promise<RoutableModel[]> | undefined;
 
   return async route => {
     const startedMs = Date.now();
 
     const decide = async (timeout: AbortSignal): Promise<Outcome> => {
-      models ??= input.listModels().catch((error: unknown) => {
+      models ??= deps.listModels().catch((error: unknown) => {
         models = undefined;
         throw error;
       });
       const [userModels, decision] = await Promise.all([
         models,
-        input.classifier.create(classificationRequest(route.input, input.question), {
+        deps.classifier.create(classificationRequest(route.input, deps.question), {
           metadata: { 'tfg.thread_id': route.threadId },
         }),
       ]);
@@ -131,12 +133,12 @@ export function createModelRouter(input: ModelRouterInput): (route: RouteInput) 
       };
     };
 
-    const timeout = AbortSignal.timeout(input.timeoutMs);
+    const timeout = AbortSignal.timeout(deps.timeoutMs);
     const timedOut = new Promise<never>((_, reject) => {
       timeout.addEventListener(
         'abort',
         () => {
-          reject(new Error(`Routing timed out after ${String(input.timeoutMs)} ms`, { cause: timeout.reason }));
+          reject(new Error(`Routing timed out after ${String(deps.timeoutMs)} ms`, { cause: timeout.reason }));
         },
         { once: true },
       );
@@ -155,7 +157,7 @@ export function createModelRouter(input: ModelRouterInput): (route: RouteInput) 
         fields: { err: describeUnknownError(error) },
       };
     }
-    input.logger.info('model routing', {
+    logger.info('model routing', {
       thread_id: route.threadId,
       latency_ms: Date.now() - startedMs,
       reason: outcome.reason,

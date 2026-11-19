@@ -601,8 +601,7 @@ export class SessionHandle<
     tracing: AgentTracing;
   }): CreateDynamicSubAgentThread {
     const { modelRouting } = input.resolver;
-    const routeModel =
-      modelRouting === undefined ? undefined : createModelRouter({ ...modelRouting, logger: input.resolver.logger });
+    const routeModel = modelRouting === undefined ? undefined : createModelRouter(modelRouting, input.resolver.logger);
     return async params => {
       let request = params.request;
       let routedEffort: string | undefined;
