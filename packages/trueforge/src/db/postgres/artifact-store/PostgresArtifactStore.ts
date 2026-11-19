@@ -203,12 +203,15 @@ export class PostgresArtifactStore implements IArtifactStore<Transaction<Databas
     }
     const files = await db
       .selectFrom('artifact_file')
-      .select(['path', 'size_bytes', 'storage_key', 'sha256'])
+      .select(['path', 'size_bytes', 'storage_key', 'sha256', 'created_at'])
       .where('artifact_id', '=', input.artifact_id)
       .where('version', '=', input.version)
       .orderBy('path')
       .execute();
-    return { ...toVersionRecord(version), files };
+    return {
+      ...toVersionRecord(version),
+      files: files.map(file => ({ ...file, created_at: file.created_at.toISOString() })),
+    };
   }
 
   /** Row lock so concurrent version writes for one artifact queue instead of racing. */
