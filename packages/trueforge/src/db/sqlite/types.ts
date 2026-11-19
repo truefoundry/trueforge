@@ -44,6 +44,7 @@ import type { ScheduleManifest, ScheduleRunStatus, ScheduleStatus } from '../../
 import type { SessionGrantSubjectType } from '../../schemas/sessionGrant';
 import type { SkillManifest } from '../../schemas/skill';
 import type { WebSearchProviderManifest } from '../../schemas/webSearchProvider';
+import type { ArtifactVersionStatus } from '../artifactStore';
 import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpServerStore';
 
 /**
@@ -466,6 +467,46 @@ export interface OAuthPendingAuthorizationTable {
   created_at: string;
 }
 
+/**
+ * Mirrors Postgres `artifact`. PRIMARY KEY (id); UNIQUE (tenant_id, slug).
+ */
+export interface ArtifactTable {
+  id: string;
+  tenant_id: string;
+  slug: string;
+  title: string;
+  latest_version: number;
+  created_by_subject: JsonbColumn<Subject>;
+  created_by_session_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Mirrors Postgres `artifact_version`. PRIMARY KEY (artifact_id, version).
+ */
+export interface ArtifactVersionTable {
+  artifact_id: string;
+  version: number;
+  status: ArtifactVersionStatus;
+  entrypoint: string;
+  created_by_turn_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Mirrors Postgres `artifact_file`. PRIMARY KEY (artifact_id, version, path).
+ */
+export interface ArtifactFileTable {
+  artifact_id: string;
+  version: number;
+  path: string;
+  size_bytes: number;
+  storage_key: string;
+  sha256: string;
+}
+
 export interface Database {
   session: SessionTable;
   access_control: AccessControlTable;
@@ -492,4 +533,7 @@ export interface Database {
   mcp_server: McpServerTable;
   oauth_token: OAuthTokenTable;
   oauth_pending_authorization: OAuthPendingAuthorizationTable;
+  artifact: ArtifactTable;
+  artifact_version: ArtifactVersionTable;
+  artifact_file: ArtifactFileTable;
 }
