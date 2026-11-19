@@ -118,15 +118,18 @@ export function savedAgentAccess(input: {
   };
 }
 
-/** Token of whoever made the request. */
+/** Caller bearer. A missing credential rejects when the resolver runs, not when it is built. */
 export function callerAccessToken(context: RequestContext): ResolveServiceFoundryAuthorization {
-  if (context.user_credential === null) {
-    throw new HTTPException(401, {
-      message: 'Authentication token required to list or call TrueFoundry models, MCP servers, skills, and agents',
-    });
-  }
-  const token = context.user_credential;
-  return () => Promise.resolve(token);
+  return () => {
+    if (context.user_credential === null) {
+      return Promise.reject(
+        new HTTPException(401, {
+          message: 'Authentication token required to list or call TrueFoundry models, MCP servers, skills, and agents',
+        }),
+      );
+    }
+    return Promise.resolve(context.user_credential);
+  };
 }
 
 /**

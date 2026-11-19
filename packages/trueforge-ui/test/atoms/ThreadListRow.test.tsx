@@ -156,7 +156,7 @@ describe('ThreadListRow', () => {
     expect(screen.getByRole('tooltip')).toHaveTextContent('18h');
   });
 
-  it('replaces the relative age with a paused status dot', () => {
+  it('replaces the relative age with a paused status dot when activity is recent', () => {
     const lastMessageAt = new Date(Date.now() - 30 * 60_000);
     const { container } = render(
       <SlotsProvider>
@@ -177,7 +177,26 @@ describe('ThreadListRow', () => {
     expect(screen.queryByText('30m')).not.toBeInTheDocument();
   });
 
-  it('replaces the relative age with a failure status dot for error', () => {
+  it('hides the paused status dot and shows relative age when activity is older than 48 hours', () => {
+    const lastMessageAt = new Date(Date.now() - 49 * 60 * 60_000);
+    const { container } = render(
+      <SlotsProvider>
+        <ThreadListRow
+          title="Stale paused chat"
+          active={false}
+          onSelect={() => {}}
+          lastTurnStatus="paused"
+          lastMessageAt={lastMessageAt}
+        />
+      </SlotsProvider>,
+    );
+
+    expect(container.querySelector('[data-slot="session-status-dot"]')).not.toBeInTheDocument();
+    expect(screen.queryByText('Waiting for input', { selector: '.sr-only' })).not.toBeInTheDocument();
+    expect(screen.getByText('2d')).toBeInTheDocument();
+  });
+
+  it('shows relative age for error with no failure chrome', () => {
     const lastMessageAt = new Date(Date.now() - 30 * 60_000);
     const { container } = render(
       <SlotsProvider>
@@ -191,11 +210,9 @@ describe('ThreadListRow', () => {
       </SlotsProvider>,
     );
 
-    const errorDot = container.querySelector('[data-slot="session-status-dot"]');
-    expect(errorDot?.querySelector('.bg-failure-bg')).toBeInTheDocument();
-    expect(errorDot?.querySelector('.motion-safe\\:animate-ping')).not.toBeInTheDocument();
-    expect(screen.getByText('Failed', { selector: '.sr-only' })).toBeInTheDocument();
-    expect(screen.queryByText('30m')).not.toBeInTheDocument();
+    expect(container.querySelector('[data-slot="session-status-dot"]')).not.toBeInTheDocument();
+    expect(screen.queryByText('Failed', { selector: '.sr-only' })).not.toBeInTheDocument();
+    expect(screen.getByText('30m')).toBeInTheDocument();
   });
 
   it('shows a desktop hover tip with the full title and relative age', () => {

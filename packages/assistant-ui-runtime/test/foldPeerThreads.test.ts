@@ -735,7 +735,7 @@ describe('foldPeerThreads', () => {
     expect(state.ingestedEventIds).toEqual(new Set(['mcp-continue-1', 'policy-1']));
   });
 
-  it('recordToolApprovalInFold synthesizes an error result on deny', () => {
+  it('recordToolApprovalInFold synthesizes a reason result on deny', () => {
     const state = seedPendingApproval();
 
     recordToolApprovalInFold(state, {
@@ -753,7 +753,7 @@ describe('foldPeerThreads', () => {
     }
     expect(toolCall.approval?.approved).toBe(false);
     expect(toolCall.isError).toBe(true);
-    expect(toolCall.result).toEqual({ error: 'not allowed' });
+    expect(toolCall.result).toEqual({ reason: 'not allowed' });
   });
 
   it('gives create_sub_agent a truthy result after empty tool.response so aui marks it complete', () => {

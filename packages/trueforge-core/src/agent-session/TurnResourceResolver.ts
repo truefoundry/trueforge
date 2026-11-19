@@ -1,12 +1,18 @@
 import type { Logger } from 'winston';
 import type { AgentCapability } from '../core/capabilities/AgentCapability';
+import type { ToolApprovalPolicy } from '../core/events/schema';
 import type { ILLM } from '../core/llm/ILLM';
 import type { ModelParams } from '../core/llm/model';
 import type { VercelAIProviderName } from '../core/llm/VercelAILLM';
 import type { ToolSource } from '../core/mcp/IMCPServer';
 import { RemoteMCP, type McpConnection } from '../core/mcp/RemoteMCP';
 import type { ToolSelectorConfig } from '../core/mcp/ToolSelectorPolicy';
-import { DEFAULT_DISABLE_TOOLS, DEFAULT_ENABLE_TOOLS, DEFAULT_PRELOAD_TOOLS } from '../core/mcp/toolSelectors';
+import {
+  DEFAULT_DISABLE_TOOLS,
+  DEFAULT_ENABLE_TOOLS,
+  DEFAULT_PRELOAD_TOOLS,
+  DEFAULT_REQUIRE_APPROVAL_FOR_TOOLS,
+} from '../core/mcp/toolSelectors';
 import { ToolSet } from '../core/mcp/ToolSet';
 import type { ModelRouterDeps } from '../core/modelRouting/router';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
@@ -43,8 +49,7 @@ const TRUEFORGE_MCP_SELECTORS: ToolSelectorConfig = {
   enableTools: DEFAULT_ENABLE_TOOLS,
   disableTools: DEFAULT_DISABLE_TOOLS,
   preloadTools: DEFAULT_PRELOAD_TOOLS,
-  // Session approval policies do not target system tool sets yet.
-  requireApprovalForTools: [],
+  requireApprovalForTools: DEFAULT_REQUIRE_APPROVAL_FOR_TOOLS,
 };
 
 function toSelectors(entry: {
@@ -243,7 +248,11 @@ export class TurnResourceResolver<
         });
       }),
     );
-    const trueforgeToolSet = await this.trueforgeToolSet({ signal, tracing });
+    const trueforgeToolSet = await this.trueforgeToolSet({
+      signal,
+      tracing,
+      approvalPolicies: previousTurn?.snapshot.mcp_servers?.[TRUEFORGE_MCP_ID]?.approval_policies,
+    });
     const extraCapabilities = [
       ...(trueforgeToolSet === undefined ? [] : [{ systemToolSets: [trueforgeToolSet] }]),
       ...(agentInfo === undefined ? (this.deps.rootCapabilities?.() ?? []) : []),
@@ -277,7 +286,11 @@ export class TurnResourceResolver<
     };
   }
 
-  private async trueforgeToolSet(input: { signal: AbortSignal; tracing: AgentTracing }): Promise<ToolSet | undefined> {
+  private async trueforgeToolSet(input: {
+    signal: AbortSignal;
+    tracing: AgentTracing;
+    approvalPolicies: Record<string, ToolApprovalPolicy> | undefined;
+  }): Promise<ToolSet | undefined> {
     const connection = await this.deps.mcp(TRUEFORGE_MCP_ID);
     if (connection === undefined) {
       return undefined;
@@ -303,7 +316,7 @@ export class TurnResourceResolver<
       source,
       selectors: TRUEFORGE_MCP_SELECTORS,
       preload: false,
-      approvalPolicies: undefined,
+      approvalPolicies: input.approvalPolicies,
     });
   }
 

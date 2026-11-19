@@ -1,4 +1,3 @@
-import type { TrueForge } from '@truefoundry/trueforge-sdk';
 import type { McpToolDescriptor } from './openApiTools';
 
 export class WireApiError extends Error {
@@ -42,8 +41,18 @@ export interface WireApiClient {
   execute(descriptor: McpToolDescriptor, args: Record<string, unknown>, signal?: AbortSignal): Promise<unknown>;
 }
 
-/** Map generated tool arguments onto raw SDK passthrough requests. */
-export function createWireApiClient(client: Pick<TrueForge, 'fetch'>, baseUrl: string): WireApiClient {
+export interface CreateWireApiClientOptions {
+  baseUrl: string;
+  fetch: typeof fetch;
+  /** Caller credential; when null/undefined, no Authorization header is sent. */
+  token?: string | null;
+  /** Request timeout in seconds. Defaults to 60. */
+  timeoutInSeconds?: number;
+}
+
+/** Map generated tool arguments onto authenticated internal HTTP requests. */
+export function createWireApiClient(options: CreateWireApiClientOptions): WireApiClient {
+  const { baseUrl, fetch: fetchFn, token, timeoutInSeconds = 60 } = options;
   return {
     async execute(descriptor, args, signal) {
       let pathname = descriptor.path;
@@ -70,6 +79,9 @@ export function createWireApiClient(client: Pick<TrueForge, 'fetch'>, baseUrl: s
       }
 
       const headers = new Headers();
+      if (token != null && token !== '') {
+        headers.set('authorization', `Bearer ${token}`);
+      }
       const body =
         descriptor.bodyParameters.length === 0
           ? undefined
@@ -80,19 +92,16 @@ export function createWireApiClient(client: Pick<TrueForge, 'fetch'>, baseUrl: s
         headers.set('content-type', 'application/json');
       }
 
-      // Resolve an absolute URL here. The SDK passthrough fetch appends a relative path onto the
-      // base pathname, which percent-encodes `?` and turns the query string into part of the route.
-      const url = new URL(pathname, baseUrl);
+      const url = new URL(baseUrl.replace(/\/+$/, '') + pathname);
       url.search = query.toString();
-      const response = await client.fetch(
-        url,
-        {
-          method: descriptor.method,
-          headers,
-          ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-        },
-        { maxRetries: 0, ...(signal === undefined ? {} : { abortSignal: signal }) },
-      );
+      const timeoutSignal = AbortSignal.timeout(timeoutInSeconds * 1000);
+      const requestSignal = signal === undefined ? timeoutSignal : AbortSignal.any([signal, timeoutSignal]);
+      const response = await fetchFn(url, {
+        method: descriptor.method,
+        headers,
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        signal: requestSignal,
+      });
       const parsed = responseBody(await response.text());
       if (!response.ok) {
         throw new WireApiError(response.status, parsed);

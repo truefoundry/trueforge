@@ -124,9 +124,12 @@ function mcpConnectOutcome(error: unknown): McpConnectOutcome {
   return 'other';
 }
 
-function isAuthError(error: unknown): boolean {
+export function isAuthError(error: unknown): boolean {
   if (!(error instanceof Error)) {
     return false;
+  }
+  if (error instanceof McpConnectionError) {
+    return error.statusCode === 401;
   }
   if ('code' in error && error.code === 401) {
     return true;
