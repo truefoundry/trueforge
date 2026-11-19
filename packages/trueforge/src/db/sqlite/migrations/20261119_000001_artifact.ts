@@ -10,6 +10,8 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         slug TEXT NOT NULL,
         title TEXT NOT NULL,
         latest_version INTEGER NOT NULL,
+        created_by_subject BLOB NOT NULL,
+        created_by_session_id TEXT NOT NULL,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         PRIMARY KEY (id),
@@ -18,6 +20,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     `.execute(trx);
 
     await sql`CREATE INDEX artifact_list_idx ON artifact (tenant_id, updated_at DESC, id)`.execute(trx);
+    await sql`CREATE INDEX artifact_session_idx ON artifact (tenant_id, created_by_session_id)`.execute(trx);
 
     await sql`
       CREATE TABLE artifact_version (
@@ -25,8 +28,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         version INTEGER NOT NULL,
         status TEXT NOT NULL,
         entrypoint TEXT NOT NULL,
-        created_by_subject BLOB NOT NULL,
-        created_by_session_id TEXT NOT NULL,
         created_by_turn_id TEXT NOT NULL,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
@@ -34,6 +35,8 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         FOREIGN KEY (artifact_id) REFERENCES artifact (id) ON DELETE CASCADE
       ) STRICT
     `.execute(trx);
+
+    await sql`CREATE INDEX artifact_version_status_idx ON artifact_version (artifact_id, status)`.execute(trx);
 
     await sql`
       CREATE TABLE artifact_file (

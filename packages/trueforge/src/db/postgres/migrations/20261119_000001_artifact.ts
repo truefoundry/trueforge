@@ -11,6 +11,8 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('slug', 'text', col => col.notNull())
     .addColumn('title', 'text', col => col.notNull())
     .addColumn('latest_version', 'integer', col => col.notNull())
+    .addColumn('created_by_subject', 'jsonb', col => col.notNull())
+    .addColumn('created_by_session_id', 'text', col => col.notNull())
     .addColumn('created_at', 'timestamptz', col => col.notNull())
     .addColumn('updated_at', 'timestamptz', col => col.notNull())
     .addPrimaryKeyConstraint('artifact_pkey', ['id'])
@@ -18,6 +20,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .execute();
 
   await sql`CREATE INDEX artifact_list_idx ON artifact (tenant_id, updated_at DESC, id)`.execute(db);
+  await sql`CREATE INDEX artifact_session_idx ON artifact (tenant_id, created_by_session_id)`.execute(db);
 
   await db.schema
     .createTable('artifact_version')
@@ -25,8 +28,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('version', 'integer', col => col.notNull())
     .addColumn('status', 'text', col => col.notNull())
     .addColumn('entrypoint', 'text', col => col.notNull())
-    .addColumn('created_by_subject', 'jsonb', col => col.notNull())
-    .addColumn('created_by_session_id', 'text', col => col.notNull())
     .addColumn('created_by_turn_id', 'text', col => col.notNull())
     .addColumn('created_at', 'timestamptz', col => col.notNull())
     .addColumn('updated_at', 'timestamptz', col => col.notNull())
@@ -35,6 +36,8 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       fk.onDelete('cascade'),
     )
     .execute();
+
+  await sql`CREATE INDEX artifact_version_status_idx ON artifact_version (artifact_id, status)`.execute(db);
 
   await db.schema
     .createTable('artifact_file')
