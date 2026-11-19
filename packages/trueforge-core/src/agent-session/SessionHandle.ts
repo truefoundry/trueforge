@@ -43,12 +43,11 @@ export function resolvePreviousTurnId(
 }
 
 function toNewThreadInit(snapshot: AgentThreadSnapshot): NewThreadInit {
-  const { context, current_context_usage, completion, capability_state, model, ...rest } = snapshot;
+  const { context, current_context_usage, completion, capability_state, ...rest } = snapshot;
   void context;
   void current_context_usage;
   void completion;
   void capability_state;
-  void model;
   return rest;
 }
 
@@ -256,10 +255,6 @@ export class SessionHandle<
         capability_states: [...agentThreads].map(([thread_id, thread]) => ({
           thread_id,
           capability_state: thread.toSnapshot().capability_state,
-        })),
-        thread_models: [...agentThreads].map(([thread_id, thread]) => ({
-          thread_id,
-          model: thread.model.name,
         })),
         update_session_title_if_not_exist: input.update_session_title_if_not_exist ?? null,
       });

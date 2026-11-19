@@ -1670,38 +1670,6 @@ export function runStoreContractSuite<TTransaction>(
       expect(mustGet(afterSecond).metrics.total_turns).toBe(2);
     });
 
-    it("records each thread's model per turn, keeping the previous one when a turn has no entry", async () => {
-      const store = createStore();
-      await seedSession(store);
-      const modelOf = async (turnId: string) =>
-        mustGet(await store.getTurn({ session_id: sessionId, turn_id: turnId })).snapshot.threads[MAIN_THREAD_ID]
-          ?.model;
-      await store.createTurn(
-        makeCreateTurnInput({
-          sessionId,
-          turnId: 'turn-1',
-          thread_models: [{ thread_id: MAIN_THREAD_ID, model: 'acct/model-a' }],
-        }),
-      );
-      await finishTurn(store, 'turn-1');
-      await store.createTurn(
-        makeCreateTurnInput({
-          sessionId,
-          turnId: 'turn-2',
-          previousTurnId: 'turn-1',
-          firstTurnId: 'turn-1',
-          thread_models: [{ thread_id: MAIN_THREAD_ID, model: 'acct/model-b' }],
-        }),
-      );
-      await finishTurn(store, 'turn-2');
-      await store.createTurn(
-        makeCreateTurnInput({ sessionId, turnId: 'turn-3', previousTurnId: 'turn-2', firstTurnId: 'turn-1' }),
-      );
-      expect(await modelOf('turn-1')).toBe('acct/model-a');
-      expect(await modelOf('turn-2')).toBe('acct/model-b');
-      expect(await modelOf('turn-3')).toBe('acct/model-b');
-    });
-
     it('keeps the model of a thread added mid-turn', async () => {
       const store = createStore();
       await seedSession(store);
@@ -1962,6 +1930,7 @@ export function runStoreContractSuite<TTransaction>(
           turnId: 't1',
           new_threads: [
             {
+              model: null,
               thread_id: MAIN_THREAD_ID,
               parent: null,
               agent_info: null,
@@ -2019,8 +1988,9 @@ export function runStoreContractSuite<TTransaction>(
           sessionId,
           turnId: 't1',
           new_threads: [
-            { thread_id: MAIN_THREAD_ID, parent: null, agent_info: null },
+            { thread_id: MAIN_THREAD_ID, parent: null, agent_info: null, model: null },
             {
+              model: null,
               thread_id: 'child',
               parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'tc-child' },
               agent_info: { type: 'dynamic', name: 'worker', input: 'task' },
@@ -2201,16 +2171,19 @@ export function runStoreContractSuite<TTransaction>(
           turnId: 't1',
           new_threads: [
             {
+              model: null,
               thread_id: MAIN_THREAD_ID,
               parent: null,
               agent_info: null,
             },
             {
+              model: null,
               thread_id: 'child-a',
               parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'tc-a' },
               agent_info: { type: 'dynamic', name: 'child-a', input: 'task-a' },
             },
             {
+              model: null,
               thread_id: 'child-b',
               parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'tc-b' },
               agent_info: { type: 'dynamic', name: 'child-b', input: 'task-b' },
@@ -3821,6 +3794,7 @@ export function runStoreContractSuite<TTransaction>(
           turnId: 't1',
           new_threads: [
             {
+              model: null,
               thread_id: MAIN_THREAD_ID,
               parent: null,
               agent_info: null,
