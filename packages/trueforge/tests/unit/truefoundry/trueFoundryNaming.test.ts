@@ -191,7 +191,7 @@ describe('TrueFoundry naming vs NameSchema', () => {
       }),
     ).resolves.toBeUndefined();
     expect(client.resolveAgentSkillVersions).toHaveBeenCalledWith({
-      accessToken: 'token',
+      accessToken: 'tfy-api-key',
       skills: [{ fqn: SKILL_FQN }],
     });
   });

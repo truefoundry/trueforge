@@ -110,7 +110,7 @@ describe('TrueFoundrySkillStore', () => {
       }),
     ).resolves.toBeUndefined();
     expect(client.resolveAgentSkillVersions).toHaveBeenCalledWith({
-      accessToken: ACCESS_TOKEN,
+      accessToken: 'tfy-api-key',
       skills: [{ fqn: 'agent-skill:acme/team-a/echo:3' }],
     });
   });
@@ -254,7 +254,7 @@ describe('TrueFoundrySkillStore', () => {
     expect(records[0]?.name).toBe('agent-skill:acme/team-a/echo:3');
   });
 
-  it('validateAgentSkills uses the caller token on resolve', async () => {
+  it('validateAgentSkills uses the service API key on resolve', async () => {
     const { store, client } = createStore();
     client.resolveAgentSkillVersions.mockResolvedValue([
       {
@@ -268,7 +268,7 @@ describe('TrueFoundrySkillStore', () => {
       skills: [{ name: 'agent-skill:acme/team-a/echo:3', preload: false }],
     });
     expect(client.resolveAgentSkillVersions).toHaveBeenCalledWith({
-      accessToken: ACCESS_TOKEN,
+      accessToken: 'tfy-api-key',
       skills: [{ fqn: 'agent-skill:acme/team-a/echo:3' }],
     });
   });

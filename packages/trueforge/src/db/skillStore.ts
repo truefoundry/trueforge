@@ -69,7 +69,7 @@ export interface ISkillStore<TTransaction = never> {
   /** Removes one skill. Resolves `false` when no row matched. */
   deleteSkill(input: DeleteSkillInput, transaction?: TTransaction): Promise<boolean>;
   listSkillVersions(input: { name: string }): Promise<SkillVersion[]>;
-  /** Admit AgentSpec skill refs (git store or TrueFoundry SFY resolve with caller token). */
+  /** Admit AgentSpec skill refs (git store or TrueFoundry SFY resolve with the service API key). */
   validateAgentSkills(input: AgentSkillsInput, transaction?: TTransaction): Promise<void>;
   /** Expand AgentSpec skill refs to sandbox mounts (git store or TrueFoundry SFY resolve with API key). */
   resolveTurnSkills(input: AgentSkillsInput): Promise<SkillMount[]>;
