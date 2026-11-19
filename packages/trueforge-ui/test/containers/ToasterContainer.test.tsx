@@ -37,6 +37,7 @@ describe('ToasterProvider', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -75,6 +76,19 @@ describe('ToasterProvider', () => {
       expect(screen.queryByText('drop-me')).toBeNull();
     });
     expect(screen.getByText('keep-me')).toBeTruthy();
+  });
+
+  it('auto-dismisses error toasts after 10 seconds', async () => {
+    vi.useFakeTimers();
+    renderToaster(<Trigger errors={[new Error('stale-error')]} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'boom' }));
+    expect(screen.getByText('stale-error')).toBeTruthy();
+
+    await act(async () => {
+      vi.advanceTimersByTime(10_000);
+    });
+    expect(screen.queryByText('stale-error')).toBeNull();
   });
 
   it('formats HTTP-like status and response body details', async () => {

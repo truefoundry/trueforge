@@ -384,7 +384,7 @@ describe('EnvironmentsPage', () => {
     renderPage({ environmentOverrides: { deleteEnvironment }, track });
     fireEvent.click(await screen.findByRole('button', { name: 'Actions for python-data' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
-    const dialog = screen.getByRole('dialog');
+    const dialog = await screen.findByRole('dialog');
     Object.defineProperty(dialog, 'close', {
       configurable: true,
       value() {
@@ -519,7 +519,7 @@ describe('EnvironmentsPage', () => {
     renderPage({ environmentOverrides: { deleteEnvironment } });
     fireEvent.click(await screen.findByRole('button', { name: 'Actions for python-data' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
-    const dialog = screen.getByRole('dialog');
+    const dialog = await screen.findByRole('dialog');
     fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => expect(deleteEnvironment).toHaveBeenCalledWith({ name: 'python-data' }));
