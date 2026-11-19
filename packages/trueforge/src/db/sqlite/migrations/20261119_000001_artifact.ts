@@ -52,16 +52,3 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     `.execute(trx);
   });
 }
-
-export async function down(db: Kysely<unknown>): Promise<void> {
-  await sql`PRAGMA foreign_keys = OFF`.execute(db);
-  try {
-    await db.transaction().execute(async trx => {
-      await sql`DROP TABLE IF EXISTS artifact_file`.execute(trx);
-      await sql`DROP TABLE IF EXISTS artifact_version`.execute(trx);
-      await sql`DROP TABLE IF EXISTS artifact`.execute(trx);
-    });
-  } finally {
-    await sql`PRAGMA foreign_keys = ON`.execute(db);
-  }
-}
