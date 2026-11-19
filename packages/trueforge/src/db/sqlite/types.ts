@@ -505,6 +505,7 @@ export interface ArtifactFileTable {
   size_bytes: number;
   storage_key: string;
   sha256: string;
+  created_at: string;
 }
 
 export interface Database {
