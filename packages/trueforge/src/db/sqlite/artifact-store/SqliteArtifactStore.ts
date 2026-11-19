@@ -137,7 +137,14 @@ export class SqliteArtifactStore implements IArtifactStore {
       if (input.files.length > 0) {
         await db
           .insertInto('artifact_file')
-          .values(input.files.map(file => ({ ...file, artifact_id: artifact.id, version: committed.version })))
+          .values(
+            input.files.map(file => ({
+              ...file,
+              artifact_id: artifact.id,
+              version: committed.version,
+              created_at: timestamp,
+            })),
+          )
           .execute();
       }
       const row = await db
