@@ -1,11 +1,15 @@
 import type { Subject } from '@truefoundry/trueforge-core/agent-session';
-import { ArtifactSlugConflictError, type ArtifactFileRecord, type IArtifactStore } from '../../src/db/artifactStore';
+import {
+  ArtifactSlugConflictError,
+  type CommitArtifactVersionInput,
+  type IArtifactStore,
+} from '../../src/db/artifactStore';
 
 const TENANT = 'default';
 const OTHER_TENANT = 'other';
 const SUBJECT: Subject = { subject_id: 'tester', subject_type: 'user', subject_display_name: 'tester' };
 
-function file(path: string, version: number): ArtifactFileRecord {
+function file(path: string, version: number): CommitArtifactVersionInput['files'][number] {
   return {
     path,
     size_bytes: 100,
@@ -71,9 +75,15 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
       await store.commitVersion({ tenant_id: TENANT, artifact_id: artifact.id, version: 2, files }),
     ).toBeUndefined();
 
-    expect(await store.getVersion({ tenant_id: TENANT, artifact_id: artifact.id, version: 2 })).toEqual(
-      expect.objectContaining({ status: 'committed', entrypoint: 'index.html', created_by_turn_id: 'turn-1', files }),
+    const fetched = await store.getVersion({ tenant_id: TENANT, artifact_id: artifact.id, version: 2 });
+    expect(fetched).toEqual(
+      expect.objectContaining({ status: 'committed', entrypoint: 'index.html', created_by_turn_id: 'turn-1' }),
     );
+    expect(fetched?.files).toHaveLength(files.length);
+    for (const f of files) {
+      expect(fetched?.files).toContainEqual(expect.objectContaining(f));
+    }
+    expect(fetched?.files.every(f => !Number.isNaN(Date.parse(f.created_at)))).toBe(true);
   });
 
   it('fails only pending versions', async () => {
