@@ -97,6 +97,7 @@ describe('TurnResourceResolver rootCapabilities', () => {
 
   it('restores TrueForge MCP approval policies from the previous turn', async () => {
     const resolver = new TurnResourceResolver({
+      modelRouting: undefined,
       llm: () =>
         Promise.resolve({
           modelClient: makeMockILLM(),
