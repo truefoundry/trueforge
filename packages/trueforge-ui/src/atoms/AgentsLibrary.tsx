@@ -685,6 +685,7 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
       sessionId: null,
       view: null,
       timeRange: null,
+      createdByMe: null,
     });
     shell.openLibraryAgent(agentId);
   };
@@ -758,6 +759,7 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
                   sessionId: null,
                   view: null,
                   timeRange: null,
+                  createdByMe: null,
                 });
                 shell.openLibraryAgent(agentId);
               },
@@ -787,9 +789,9 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
   );
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col bg-primary-bg">
+    <div className="flex h-full min-h-0 w-full flex-col bg-card-bg">
       <PageHeader
-        title="Agents"
+        title="Agents Registry"
         start={headerStart}
         end={
           <div className="w-56 shrink-0">
@@ -803,7 +805,7 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
         }
       />
 
-      <div className="bg-secondary-bg/40 flex min-h-0 flex-1 flex-col">
+      <div className="flex min-h-0 flex-1 flex-col">
         {/* Not flex-col: overflow-hidden table chrome would clip instead of letting this scroll. */}
         <div
           className={cn('min-h-0 flex-1 overflow-y-auto p-4', error ? 'flex flex-col' : undefined)}
@@ -869,8 +871,8 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
             </div>
           ) : (
             <div className="overflow-hidden rounded-lg border border-border">
-              <Table>
-                <TableHeader>
+              <Table className="bg-card-bg">
+                <TableHeader className="bg-card-bg">
                   <TableRow className="hover:bg-transparent">
                     <TableHead className="w-72 min-w-72">Agent</TableHead>
                     <TableHead>Configuration</TableHead>

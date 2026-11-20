@@ -129,7 +129,7 @@ describe('buildPath', () => {
       buildSharedSessionHref({
         sessionId: 'sess-1',
         routes: null,
-        href: 'https://app.example/embed?view=sessions&agentId=agent-1&s_tw=30&theme=dark',
+        href: 'https://app.example/embed?view=sessions&agentId=agent-1&s_tw=30&theme=dark&createdByMe=true',
       }),
     ).toBe('https://app.example/embed?view=shared-session&theme=dark&sessionId=sess-1');
   });
@@ -137,6 +137,23 @@ describe('buildPath', () => {
 
 describe('sanitizeSearchForPlace', () => {
   const sessionSearch = '?theme=dark&sessionId=sess-1&agentId=agent-1&tab=sessions&view=sessions&s_sts=1&s_ets=2';
+
+  it('drops createdByMe outside the sessions list and keeps it there', () => {
+    const search = '?theme=dark&createdByMe=true&sessionId=sess-1&agentId=agent-1';
+    expect(sanitizeSearchForPlace({ type: 'sessionsBrowser' }, search)).toBe(
+      '?theme=dark&createdByMe=true&sessionId=sess-1&agentId=agent-1',
+    );
+    expect(sanitizeSearchForPlace({ type: 'library' }, search)).toBe('?theme=dark');
+    expect(sanitizeSearchForPlace({ type: 'root' }, search)).toBe('?theme=dark');
+    expect(sanitizeSearchForPlace({ type: 'schedules' }, search)).toBe('?theme=dark');
+    expect(sanitizeSearchForPlace({ type: 'environments' }, search)).toBe('?theme=dark');
+    expect(sanitizeSearchForPlace({ type: 'sharedSession', sessionId: 'sess-2' }, search)).toBe('?theme=dark');
+    expect(sanitizeSearchForPlace({ type: 'libraryAgent', agentId: 'agent-1' }, search)).toBe(
+      '?theme=dark&sessionId=sess-1&agentId=agent-1',
+    );
+    expect(sanitizeSearchForPlace({ type: 'libraryAgent', agentId: 'agent-2' }, search)).toBe('?theme=dark');
+    expect(sanitizeSearchForPlace({ type: 'settings' }, search)).toBe(search);
+  });
 
   it('clears session-owned query keys on unrelated places without dropping host keys', () => {
     expect(sanitizeSearchForPlace({ type: 'library' }, sessionSearch)).toBe('?theme=dark');

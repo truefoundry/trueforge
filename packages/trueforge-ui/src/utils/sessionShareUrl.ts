@@ -7,6 +7,7 @@ export const SHARED_SESSION_VIEW_VALUE = 'shared-session';
 export const SESSION_START_TIME_QUERY = 's_sts';
 export const SESSION_END_TIME_QUERY = 's_ets';
 export const SESSION_TIME_WINDOW_QUERY = 's_tw';
+export const CREATED_BY_ME_QUERY = 'createdByMe';
 export const SESSION_TIME_BUFFER_MS = 5 * 60 * 1000;
 export const SESSION_CUSTOM_RANGE_MAX_DAYS = 70;
 export const DEFAULT_SESSION_TIME_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
@@ -27,6 +28,8 @@ export type SessionShareSearch = {
   tab: LibraryAgentTab | null;
   view: SessionShareView | null;
   timeRange: SessionTimeRange | null;
+  /** True when the sessions list is limited to the current subject. */
+  createdByMe: boolean;
 };
 
 export type SessionShareWrite = {
@@ -35,6 +38,8 @@ export type SessionShareWrite = {
   tab?: LibraryAgentTab | null;
   view?: SessionShareView | null;
   timeRange?: SessionTimeRange | null;
+  /** `false` or `null` removes the param so the list stays unscoped. */
+  createdByMe?: boolean | null;
 };
 
 function parseLibraryAgentTab(value: string | null): LibraryAgentTab | null {
@@ -110,6 +115,7 @@ export function readSessionShareSearch(search: string): SessionShareSearch {
         : timeWindowMs != null
           ? { startTs: now - timeWindowMs, endTs: now, timeWindowMs }
           : null,
+    createdByMe: params.get(CREATED_BY_ME_QUERY) === 'true',
   };
 }
 
@@ -143,6 +149,8 @@ export function writeSessionShareSearch(params: URLSearchParams, next: SessionSh
       params.delete(SESSION_TIME_WINDOW_QUERY);
     }
   }
+  if (next.createdByMe === true) params.set(CREATED_BY_ME_QUERY, 'true');
+  else if (next.createdByMe === false || next.createdByMe === null) params.delete(CREATED_BY_ME_QUERY);
 }
 
 /** Search that opens the global Sessions browser (clears agent/session selection). */
@@ -189,6 +197,7 @@ export function buildAgentSessionShareUrl({
       : createdAt == null
         ? {}
         : { timeRange: sessionTimeRangeFromCreatedAt(createdAt) }),
+    createdByMe: null,
   });
   return url.toString();
 }

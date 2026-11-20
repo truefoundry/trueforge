@@ -1,6 +1,6 @@
 'use client';
 
-import type { AriaAttributes, CSSProperties, MouseEvent, ReactNode } from 'react';
+import type { AriaAttributes, CSSProperties, FocusEvent, MouseEvent, ReactNode } from 'react';
 
 import { useOptionalResolvedRoutes } from '../../routing/ResolvedRoutesContext.js';
 import { buildPlaceHref } from '../../routing/paths.js';
@@ -16,6 +16,13 @@ type ShellLinkCommon = {
   'aria-label'?: string;
   'aria-current'?: AriaAttributes['aria-current'];
   'aria-expanded'?: AriaAttributes['aria-expanded'];
+  /** Hover/focus handlers from a parent tooltip clone. */
+  onClick?: (event: MouseEvent<HTMLElement>) => void;
+  onMouseEnter?: (event: MouseEvent<HTMLElement>) => void;
+  onMouseMove?: (event: MouseEvent<HTMLElement>) => void;
+  onMouseLeave?: (event: MouseEvent<HTMLElement>) => void;
+  onFocus?: (event: FocusEvent<HTMLElement>) => void;
+  onBlur?: (event: FocusEvent<HTMLElement>) => void;
 };
 
 type ShellLinkPlaceProps = ShellLinkCommon & {
@@ -54,6 +61,12 @@ export function ShellLink(props: ShellLinkProps) {
     'aria-label': ariaLabel,
     'aria-current': ariaCurrent,
     'aria-expanded': ariaExpanded,
+    onClick,
+    onMouseEnter,
+    onMouseMove,
+    onMouseLeave,
+    onFocus,
+    onBlur,
   } = props;
   const place = props.place;
   const search = props.search;
@@ -78,9 +91,24 @@ export function ShellLink(props: ShellLinkProps) {
     ...(ariaExpanded === undefined ? {} : { 'aria-expanded': ariaExpanded }),
   };
 
+  // A rail tooltip clones this component and passes hover/focus handlers. Attach them
+  // on the real control so the tip still opens when the control is a link.
+  const pointer = { onMouseEnter, onMouseMove, onMouseLeave, onFocus, onBlur };
+
   if (resolvedHref == null || disabled) {
     return (
-      <button type="button" className={className} disabled={disabled} onClick={onNavigate} {...a11y}>
+      <button
+        type="button"
+        className={className}
+        disabled={disabled}
+        onClick={event => {
+          onClick?.(event);
+          if (event.defaultPrevented) return;
+          onNavigate();
+        }}
+        {...pointer}
+        {...a11y}
+      >
         {children}
       </button>
     );
@@ -91,10 +119,12 @@ export function ShellLink(props: ShellLinkProps) {
       href={resolvedHref}
       className={className}
       onClick={event => {
+        onClick?.(event);
         if (event.defaultPrevented || event.button !== 0 || isModifiedClick(event)) return;
         event.preventDefault();
         onNavigate();
       }}
+      {...pointer}
       {...a11y}
     >
       {children}

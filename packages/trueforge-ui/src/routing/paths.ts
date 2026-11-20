@@ -168,6 +168,7 @@ export function buildSharedSessionHref({
     tab: null,
     view: SHARED_SESSION_VIEW_VALUE,
     timeRange: null,
+    createdByMe: null,
   });
   return url.toString();
 }
@@ -192,6 +193,7 @@ export function sanitizeSearchForPlace(place: RoutePlace, search: string): strin
       tab: null,
       view: null,
       timeRange: null,
+      createdByMe: null,
     });
     clearScheduleShareSearch(params);
     clearEnvironmentShareSearch(params);
@@ -202,6 +204,7 @@ export function sanitizeSearchForPlace(place: RoutePlace, search: string): strin
     writeSessionShareSearch(params, {
       view: null,
       timeRange: null,
+      createdByMe: null,
       ...(share.sessionId != null && share.agentId !== place.agentId ? { sessionId: null, agentId: null } : {}),
     });
     clearScheduleShareSearch(params);
@@ -223,6 +226,7 @@ export function sanitizeSearchForPlace(place: RoutePlace, search: string): strin
       tab: null,
       view: null,
       timeRange: null,
+      createdByMe: null,
     });
     clearEnvironmentShareSearch(params);
     clearLibraryShareSearch(params);
@@ -234,6 +238,7 @@ export function sanitizeSearchForPlace(place: RoutePlace, search: string): strin
       tab: null,
       view: null,
       timeRange: null,
+      createdByMe: null,
     });
     clearScheduleShareSearch(params);
     clearLibraryShareSearch(params);
@@ -245,6 +250,7 @@ export function sanitizeSearchForPlace(place: RoutePlace, search: string): strin
       tab: null,
       view: null,
       timeRange: null,
+      createdByMe: null,
     });
     clearScheduleShareSearch(params);
     clearEnvironmentShareSearch(params);

@@ -39,10 +39,8 @@ describe('callerAccessToken', () => {
     await expect(callerAccessToken(CONTEXT)()).resolves.toBe('caller-token');
   });
 
-  it('rejects with 401 before any call is attempted when the caller has no token', () => {
-    expect(() => callerAccessToken({ ...CONTEXT, user_credential: null })).toThrow(
-      expect.objectContaining({ status: 401 }),
-    );
+  it('rejects with 401 when resolved and the caller has no token', async () => {
+    await expect(callerAccessToken({ ...CONTEXT, user_credential: null })()).rejects.toMatchObject({ status: 401 });
   });
 });
 

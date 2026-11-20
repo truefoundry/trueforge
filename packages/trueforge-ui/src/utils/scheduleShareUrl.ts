@@ -92,6 +92,7 @@ export function writeOpenSchedulesForAgentSearch({ agentId, isNew }: { agentId: 
     tab: null,
     view: null,
     timeRange: null,
+    createdByMe: null,
   });
   writeScheduleShareSearch(url.searchParams, {
     agent: agentId,
@@ -120,6 +121,7 @@ export function openScheduleByIdSearch({
     tab: null,
     view: null,
     timeRange: null,
+    createdByMe: null,
   });
   writeScheduleShareSearch(url.searchParams, { agent: null, status: null, q: name, isNew: null, scheduleId: id });
   return url.search;

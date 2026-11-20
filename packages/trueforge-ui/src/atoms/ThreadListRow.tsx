@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import { Icon } from '../icons/Icon.js';
 import type { TurnStatus } from '../server/types.js';
 import { StatusDot } from './agent-chat/StatusDot.js';
-import { auiButtonClass } from './lib/buttonClasses.js';
+import { auiButtonClass, shellSelectedClassName } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 import {
   formatRelativeShort,
@@ -89,20 +89,24 @@ export function ThreadListRow({
   className,
 }: ThreadListRowProps) {
   const isMobile = useIsMobile();
-  const statusDotClass = lastTurnStatusDotClass(lastTurnStatus);
-  const statusLabel = lastTurnStatusLabel(lastTurnStatus);
+  const statusDotClass = lastTurnStatusDotClass({
+    status: lastTurnStatus,
+    ...(lastMessageAt != null ? { activityAt: lastMessageAt } : {}),
+  });
   const running = isRunningTurnStatus(lastTurnStatus);
   const paused = isPausedTurnStatus(lastTurnStatus);
+  // Chat history keeps paused chrome; failed runs are session-list only.
+  const statusLabel = running || statusDotClass != null ? lastTurnStatusLabel(lastTurnStatus) : undefined;
   const age = lastMessageAt != null ? formatRelativeShort(lastMessageAt) : undefined;
-  // Paused/error → status dot; running → jumping dots; otherwise relative age.
+  // Paused → status dot; running → jumping dots; otherwise relative age.
   const relative = !running && statusDotClass == null ? age : undefined;
   const hasTrailing = running || relative != null || statusDotClass != null || actions != null;
   const titleClassName = auiButtonClass({
     variant: 'ghost',
     className: cn(
-      '!justify-start h-auto min-h-8 min-w-0 flex-1 overflow-hidden rounded-[0.75rem] px-2.5 py-1.5 text-left font-normal shadow-none',
+      '!justify-start h-auto min-h-8 min-w-0 flex-1 overflow-hidden rounded-[0.5rem] px-2.5 py-1.5 text-left font-normal shadow-none',
       'bg-transparent hover:bg-transparent hover:text-inherit',
-      active ? 'text-dropdown-selected-item-text' : 'text-inherit',
+      active ? 'text-text-primary' : 'text-inherit',
     ),
   });
   const titleContent = (
@@ -129,9 +133,7 @@ export function ThreadListRow({
       data-active={active || undefined}
       className={cn(
         'group flex min-w-0 items-center gap-0.5 rounded-[0.5rem] transition-colors',
-        active
-          ? 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text'
-          : 'text-text-secondary hover:bg-ghost-button-hover hover:text-text-primary',
+        active ? shellSelectedClassName : 'text-text-secondary hover:bg-ghost-button-hover hover:text-text-primary',
         className,
       )}
     >
@@ -139,7 +141,7 @@ export function ThreadListRow({
         <ShellLink
           href={href}
           onNavigate={onSelect}
-          style={{ borderRadius: 'var(--thread-list-item-radius, 0.75rem)' }}
+          style={{ borderRadius: 'var(--thread-list-item-radius, 0.5rem)' }}
           className={titleClassName}
         >
           {titleContent}
@@ -148,7 +150,7 @@ export function ThreadListRow({
         <button
           type="button"
           onClick={onSelect}
-          style={{ borderRadius: 'var(--thread-list-item-radius, 0.75rem)' }}
+          style={{ borderRadius: 'var(--thread-list-item-radius, 0.5rem)' }}
           className={titleClassName}
         >
           {titleContent}

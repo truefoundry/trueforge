@@ -1016,6 +1016,24 @@ export function buildStreamTextArgs(input: {
 // Stream mapping (SDK → harness chunks)
 // ---------------------------------------------------------------------------
 
+/**
+ * OpenAI-compatible endpoints bill cache writes and report them under the standard
+ * `prompt_tokens_details.cache_write_tokens`, but `@ai-sdk/openai-compatible` maps only
+ * `cached_tokens` and hardcodes the cache write to `undefined`. The mapped field can therefore
+ * never carry one on that adapter, while the forwarded `raw` payload still holds it. Token counts
+ * are non-negative integers, so anything else is dropped rather than failing `CompletionUsage`
+ * validation downstream.
+ * Drop this once https://github.com/vercel/ai/issues/25200 ships.
+ */
+function cacheWriteTokensFromRawUsage(raw: JSONObject | undefined): number | undefined {
+  const details: JSONValue | undefined = raw?.['prompt_tokens_details'];
+  if (!isPlainObject(details)) {
+    return undefined;
+  }
+  const value: unknown = details['cache_write_tokens'];
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : undefined;
+}
+
 /** Maps Vercel AI SDK LanguageModelUsage → harness CompletionUsage. */
 export function normalizeUsage(usage: {
   inputTokens: number | undefined;
@@ -1040,7 +1058,7 @@ export function normalizeUsage(usage: {
     output_tokens: output,
     total_tokens: input + output,
     cache_read_tokens: usage.inputTokenDetails.cacheReadTokens ?? undefined,
-    cache_write_tokens: usage.inputTokenDetails.cacheWriteTokens ?? undefined,
+    cache_write_tokens: usage.inputTokenDetails.cacheWriteTokens ?? cacheWriteTokensFromRawUsage(usage.raw),
     reasoning_tokens: usage.outputTokenDetails.reasoningTokens ?? undefined,
     cost_in_usd: typeof costInUsd === 'number' && costInUsd >= 0 ? costInUsd : undefined,
   };

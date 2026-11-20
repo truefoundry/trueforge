@@ -63,6 +63,20 @@ describe('ShellLink', () => {
     expect(onNavigate).toHaveBeenCalledOnce();
   });
 
+  it('forwards hover handlers onto the link', () => {
+    const onMouseEnter = vi.fn();
+    render(
+      <ResolvedRoutesProvider routes={routes}>
+        <ShellLink place={{ type: 'library' }} onNavigate={() => undefined} onMouseEnter={onMouseEnter}>
+          Agents
+        </ShellLink>
+      </ResolvedRoutesProvider>,
+    );
+
+    fireEvent.mouseEnter(screen.getByRole('link', { name: 'Agents' }));
+    expect(onMouseEnter).toHaveBeenCalledOnce();
+  });
+
   it('uses a raw href when provided', () => {
     const onNavigate = vi.fn();
     render(
