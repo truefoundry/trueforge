@@ -108,6 +108,7 @@ describe('validateAgentSpec', () => {
       configurationStore: new SqliteConfigurationStore(db),
       previousSpec: undefined,
       agentId: undefined,
+      modelRouting: undefined,
     };
   }
 
@@ -183,8 +184,8 @@ describe('validateAgentSpec', () => {
         }),
         tenant_id: 'default',
         created_by_subject_id: 'test-subject',
-        modelRouting,
         ...stores,
+        modelRouting,
       }),
     ).resolves.toBeUndefined();
   });
