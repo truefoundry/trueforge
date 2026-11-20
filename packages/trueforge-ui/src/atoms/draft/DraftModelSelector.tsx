@@ -54,7 +54,7 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
   const settingsChromeEnabled = isSettingsChromeEnabled({ catalog, capabilities });
   const showConfigureSettingsCta = loaded && models.length === 0 && settingsChromeEnabled && shell != null;
   const seededDefaultModelRef = useRef<string | null>(null);
-  const keepAutoModel = keepsAutoModel(capabilities);
+  const isAutoModelKept = keepsAutoModel(capabilities);
 
   useEffect(() => {
     ensureLoaded();
@@ -69,7 +69,7 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
     const firstValue = first.name;
     const currentName = agentSpec?.model?.name?.trim() ?? '';
     if (currentName) {
-      const available = currentName === AUTO_MODEL ? keepAutoModel : models.some(m => m.name === currentName);
+      const available = currentName === AUTO_MODEL ? isAutoModelKept : models.some(m => m.name === currentName);
       if (available) {
         seededDefaultModelRef.current = null;
         return;
@@ -80,7 +80,7 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
     updateAgentSpec({
       model: modelPatchWithReasoningEffort(firstValue, agentSpec?.model?.params, first.properties.reasoningEfforts),
     });
-  }, [updateAgentSpec, loading, models, keepAutoModel, agentSpec?.model?.name, agentSpec?.model?.params]);
+  }, [updateAgentSpec, loading, models, isAutoModelKept, agentSpec?.model?.name, agentSpec?.model?.params]);
 
   const selectedName = agentSpec?.model?.name ?? models[0]?.name ?? '';
   const selected = models.find(m => m.name === selectedName);

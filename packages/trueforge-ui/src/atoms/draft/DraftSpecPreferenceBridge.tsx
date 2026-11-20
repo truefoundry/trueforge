@@ -75,19 +75,19 @@ export function reconcileDraftSpecPreferences({
   skills,
   connectors,
   skillsEnabled,
-  keepAutoModel,
+  isAutoModelKept,
 }: {
   agentSpec: AgentSpec;
   models: ModelSelection[];
   skills: AgentSkill[];
   connectors: ConnectorState[];
   skillsEnabled: boolean | undefined;
-  keepAutoModel: boolean;
+  isAutoModelKept: boolean;
 }): Partial<AgentSpec> {
   const update: Partial<AgentSpec> = {};
   const selectedModel = agentSpec.model.name.trim();
   const modelAvailable =
-    selectedModel === AUTO_MODEL ? keepAutoModel : models.some(model => model.name === selectedModel);
+    selectedModel === AUTO_MODEL ? isAutoModelKept : models.some(model => model.name === selectedModel);
   if (!modelAvailable) {
     const fallback = models[0];
     if (fallback !== undefined) {
@@ -229,7 +229,7 @@ export function DraftSpecPreferenceBridge() {
   const webSearchEnabled = capabilities?.webSearch?.enabled;
   // Capabilities omit memory when no provider is configured, which means unavailable.
   const memoryEnabled = capabilities == null ? undefined : (capabilities.memory?.enabled ?? false);
-  const keepAutoModel = keepsAutoModel(capabilities);
+  const isAutoModelKept = keepsAutoModel(capabilities);
   const prevWebSearchEnabledRef = useRef(webSearchEnabled);
   const prevMemoryEnabledRef = useRef(memoryEnabled);
   const { models, skills, connectors, loaded, error, ensureLoaded } = useDraftCatalog();
@@ -366,7 +366,7 @@ export function DraftSpecPreferenceBridge() {
       skills,
       connectors,
       skillsEnabled: capabilities?.skill.enabled,
-      keepAutoModel,
+      isAutoModelKept,
     });
     if (Object.keys(update).length > 0) {
       updateAgentSpec(update);
@@ -378,7 +378,7 @@ export function DraftSpecPreferenceBridge() {
     connectors,
     error,
     isPlainDraft,
-    keepAutoModel,
+    isAutoModelKept,
     loaded,
     models,
     skills,
