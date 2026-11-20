@@ -1,22 +1,9 @@
 import type { Subject } from '@truefoundry/trueforge-core/agent-session';
-import {
-  ArtifactSlugConflictError,
-  type CommitArtifactVersionInput,
-  type IArtifactStore,
-} from '../../src/db/artifactStore';
+import { ArtifactSlugConflictError, type IArtifactStore } from '../../src/db/artifactStore';
 
 const TENANT = 'default';
 const OTHER_TENANT = 'other';
 const SUBJECT: Subject = { subject_id: 'tester', subject_type: 'user', subject_display_name: 'tester' };
-
-function file(path: string, version: number): CommitArtifactVersionInput['files'][number] {
-  return {
-    path,
-    size_bytes: 100,
-    storage_key: `artifacts/${TENANT}/a/${String(version)}/${path}`,
-    sha256: 'a'.repeat(64),
-  };
-}
 
 export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): void {
   async function createArtifact(tenantId = TENANT) {
@@ -29,11 +16,13 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     });
   }
 
-  async function createVersion(artifactId: string) {
+  async function createVersion(artifactId: string, uploadId: string) {
     const version = await getStore().createVersion({
       tenant_id: TENANT,
       artifact_id: artifactId,
       entrypoint: 'index.html',
+      storage_prefix: `artifacts/${TENANT}/${artifactId}/${uploadId}/`,
+      total_bytes: 100,
     });
     if (version === undefined) {
       throw new Error('Expected version to be created');
@@ -81,63 +70,41 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     expect([...first.data, ...second.data].map(a => a.slug).sort()).toEqual(slugs);
   });
 
-  it('allocates pending versions and commits them with files', async () => {
+  it('creates monotonic versions and advances latest_version', async () => {
     const store = getStore();
     const artifact = await createArtifact();
-    const v1 = await createVersion(artifact.id);
-    const v2 = await createVersion(artifact.id);
+    const v1 = await createVersion(artifact.id, 'u1');
+    const v2 = await createVersion(artifact.id, 'u2');
     expect([v1.version, v2.version]).toEqual([1, 2]);
-    expect(v1.status).toBe('pending');
+    expect((await store.getArtifact({ tenant_id: TENANT, slug: artifact.slug }))?.latest_version).toBe(2);
 
-    const files = [file('assets/chart.png', 2), file('index.html', 2)];
-    const afterV2 = await store.commitVersion({ tenant_id: TENANT, artifact_id: artifact.id, version: 2, files });
-    expect(afterV2?.latest_version).toBe(2);
-    // An older commit must not move latest_version backwards.
-    const afterV1 = await store.commitVersion({
-      tenant_id: TENANT,
-      artifact_id: artifact.id,
-      version: 1,
-      files: [file('index.html', 1)],
-    });
-    expect(afterV1?.latest_version).toBe(2);
-    expect(
-      await store.commitVersion({ tenant_id: TENANT, artifact_id: artifact.id, version: 2, files }),
-    ).toBeUndefined();
-
-    const fetched = await store.getVersion({ tenant_id: TENANT, artifact_id: artifact.id, version: 2 });
-    expect(fetched).toEqual(expect.objectContaining({ status: 'committed', entrypoint: 'index.html' }));
-    expect(fetched?.files).toHaveLength(files.length);
-    for (const f of files) {
-      expect(fetched?.files).toContainEqual(expect.objectContaining(f));
-    }
-    expect(fetched?.files.every(f => !Number.isNaN(Date.parse(f.created_at)))).toBe(true);
-  });
-
-  it('fails only pending versions', async () => {
-    const store = getStore();
-    const artifact = await createArtifact();
-    const v1 = await createVersion(artifact.id);
-    const key = { tenant_id: TENANT, artifact_id: artifact.id, version: v1.version };
-    expect(await store.failVersion(key)).toBe(true);
-    expect(await store.failVersion(key)).toBe(false);
-    expect(await store.commitVersion({ ...key, files: [] })).toBeUndefined();
-    expect((await store.getVersion(key))?.status).toBe('failed');
+    expect(await store.getVersion({ tenant_id: TENANT, artifact_id: artifact.id, version: 1 })).toEqual(v1);
+    expect(v1).toEqual(
+      expect.objectContaining({
+        entrypoint: 'index.html',
+        storage_prefix: `artifacts/${TENANT}/${artifact.id}/u1/`,
+        total_bytes: 100,
+      }),
+    );
+    expect(await store.getVersion({ tenant_id: TENANT, artifact_id: artifact.id, version: 3 })).toBeUndefined();
   });
 
   it('hides versions from other tenants', async () => {
     const store = getStore();
     const artifact = await createArtifact();
-    const v1 = await createVersion(artifact.id);
-    const key = { tenant_id: OTHER_TENANT, artifact_id: artifact.id, version: v1.version };
+    const v1 = await createVersion(artifact.id, 'u1');
     expect(
       await store.createVersion({
         tenant_id: OTHER_TENANT,
         artifact_id: artifact.id,
         entrypoint: 'index.html',
+        storage_prefix: 'p/',
+        total_bytes: 1,
       }),
     ).toBeUndefined();
-    expect(await store.commitVersion({ ...key, files: [] })).toBeUndefined();
-    expect(await store.failVersion(key)).toBe(false);
-    expect(await store.getVersion(key)).toBeUndefined();
+    expect(
+      await store.getVersion({ tenant_id: OTHER_TENANT, artifact_id: artifact.id, version: v1.version }),
+    ).toBeUndefined();
+    expect((await store.getArtifact({ tenant_id: TENANT, slug: artifact.slug }))?.latest_version).toBe(1);
   });
 }

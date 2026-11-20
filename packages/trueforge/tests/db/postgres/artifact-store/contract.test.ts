@@ -22,7 +22,7 @@ describePg('PostgresArtifactStore (IArtifactStore contract)', () => {
 
   beforeEach(async () => {
     if (env !== undefined) {
-      await sql`TRUNCATE TABLE artifact, artifact_version, artifact_file`.execute(env.db);
+      await sql`TRUNCATE TABLE artifact, artifact_version`.execute(env.db);
     }
   });
 

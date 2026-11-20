@@ -44,7 +44,6 @@ import type { ScheduleManifest, ScheduleRunStatus, ScheduleStatus } from '../../
 import type { SessionGrantSubjectType } from '../../schemas/sessionGrant';
 import type { SkillManifest } from '../../schemas/skill';
 import type { WebSearchProviderManifest } from '../../schemas/webSearchProvider';
-import type { ArtifactVersionStatus } from '../artifactStore';
 import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpServerStore';
 
 /**
@@ -488,22 +487,9 @@ export interface ArtifactTable {
 export interface ArtifactVersionTable {
   artifact_id: string;
   version: number;
-  status: ArtifactVersionStatus;
   entrypoint: string;
-  created_at: string;
-  updated_at: string;
-}
-
-/**
- * Mirrors Postgres `artifact_file`. PRIMARY KEY (artifact_id, version, path).
- */
-export interface ArtifactFileTable {
-  artifact_id: string;
-  version: number;
-  path: string;
-  size_bytes: number;
-  storage_key: string;
-  sha256: string;
+  storage_prefix: string;
+  total_bytes: number;
   created_at: string;
 }
 
@@ -535,5 +521,4 @@ export interface Database {
   oauth_pending_authorization: OAuthPendingAuthorizationTable;
   artifact: ArtifactTable;
   artifact_version: ArtifactVersionTable;
-  artifact_file: ArtifactFileTable;
 }
