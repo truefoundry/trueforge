@@ -39,7 +39,9 @@ jobs:
   print-uri:
     name: Print pushed image URI
     needs: [build]
-    runs-on: ubuntu-latest
+    runs-on:
+      group: large-runner-group
+      labels: 'gh-large-linux-2c.'
     steps:
       - env:
           IMAGE_URI: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_REPOSITORY }}/trueforge-sandbox:${{ github.sha }}
@@ -51,7 +53,9 @@ jobs:
     name: Open SANDBOX_IMAGE_URI pin PR
     if: github.ref == 'refs/heads/main'
     needs: [build]
-    runs-on: ubuntu-latest
+    runs-on:
+      group: large-runner-group
+      labels: 'gh-large-linux-2c.'
     permissions:
       contents: write
       pull-requests: write

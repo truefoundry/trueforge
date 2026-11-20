@@ -35,7 +35,9 @@ permissions:
 jobs:
   generate:
     name: Generate OpenAPI and SDKs
-    runs-on: ubuntu-latest
+    runs-on:
+      group: large-runner-group
+      labels: 'gh-large-linux-2c.'
     timeout-minutes: 30
     # A pull_request path filter matches the whole PR, not just the new commit,
     # so this job's own commits would otherwise retrigger it indefinitely.
