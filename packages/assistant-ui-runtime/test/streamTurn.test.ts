@@ -251,7 +251,7 @@ describe('streamTurn', () => {
       );
 
       expect(onTurnIdAvailable).toHaveBeenCalledTimes(1);
-      expect(onTurnIdAvailable).toHaveBeenCalledWith(gatewayTurnId);
+      expect(onTurnIdAvailable).toHaveBeenCalledWith(gatewayTurnId, undefined);
       expect(updates.at(-1)).toMatchObject({
         status: {
           type: 'incomplete',
