@@ -64,14 +64,16 @@ type DrawerState = { kind: 'closed' } | { kind: 'create'; agentId?: string } | {
 
 function runSessionHref({ run, routes }: { run: ScheduleRun; routes: ResolvedRoutes }): string | undefined {
   if (run.sessionId == null || run.sessionId === '') return undefined;
-  const params = new URLSearchParams();
+  // Start from the current search so host params (e.g. theme) reach the new tab.
+  const params = new URLSearchParams(window.location.search);
   const pinned = sessionTimeRangeFromCreatedAt(run.triggeredAt ?? run.scheduledFor);
   writeSessionShareSearch(params, {
     sessionId: run.sessionId,
     view: 'sessions',
     agentId: null,
     tab: null,
-    ...(pinned == null ? {} : { timeRange: pinned }),
+    timeRange: pinned,
+    createdByMe: null,
   });
   return buildPlaceHref({ place: { type: 'sessionsBrowser' }, routes, search: `?${params.toString()}` }) ?? undefined;
 }
@@ -87,7 +89,8 @@ function embeddedScheduleHref({
   name: string;
   routes: ResolvedRoutes;
 }): string | null {
-  const params = new URLSearchParams();
+  // Start from the current search so host params (e.g. theme) reach the new tab.
+  const params = new URLSearchParams(window.location.search);
   writeSessionShareSearch(params, {
     agentId,
     tab: 'schedules',
