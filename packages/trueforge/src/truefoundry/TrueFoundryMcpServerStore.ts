@@ -124,7 +124,7 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
       if (serverOverrideHeaders !== undefined) {
         return { headers: { ...headers, [X_TFY_MCP_HEADERS]: JSON.stringify(serverOverrideHeaders) } };
       }
-      return { headers, authRequiredOnUnauthorized: () => this.#authorizeAfterUnauthorized({ record, userRef }) };
+      return { headers, onUnauthorized: () => this.#authorizeAfterUnauthorized({ record, userRef }) };
     };
   }
 
@@ -140,7 +140,7 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
     const authUrl = status.authorization_url;
     if (authUrl === undefined || authUrl.length === 0) {
       throw new HTTPException(422, {
-        message: `MCP server "${record.name}" requires authentication but failed to discover authorization url`,
+        message: `MCP server "${record.name}" requires authorization but failed to discover authorization url`,
       });
     }
     return { servers: [{ id: record.name, name: record.name, auth_url: authUrl }] };

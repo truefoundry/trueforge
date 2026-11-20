@@ -62,7 +62,7 @@ describe('ThreadListRow', () => {
       </SlotsProvider>,
     );
     const activeRow = container.querySelector('[data-slot="aui_thread-list-item"]');
-    expect(activeRow?.className).toMatch(/bg-dropdown-selected-item-bg/);
+    expect(activeRow?.className).toMatch(/aui-shell-selected/);
   });
 
   it('renders agent name and relative time when provided', () => {

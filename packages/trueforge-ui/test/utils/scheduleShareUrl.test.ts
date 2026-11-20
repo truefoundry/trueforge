@@ -44,7 +44,11 @@ describe('scheduleShareUrl', () => {
   });
 
   it('writeOpenSchedulesForAgentSearch clears library share keys and sets agent filter', () => {
-    window.history.replaceState(null, '', '/library/old?agentId=old&tab=overview&scheduleId=old&theme=dark');
+    window.history.replaceState(
+      null,
+      '',
+      '/library/old?agentId=old&tab=overview&scheduleId=old&createdByMe=true&theme=dark',
+    );
     writeOpenSchedulesForAgentSearch({ agentId: 'agt_1', isNew: true });
     const url = new URL(window.location.href);
     expect(url.searchParams.get('agent')).toBe('agt_1');
@@ -52,6 +56,7 @@ describe('scheduleShareUrl', () => {
     expect(url.searchParams.get('scheduleId')).toBeNull();
     expect(url.searchParams.get('agentId')).toBeNull();
     expect(url.searchParams.get('tab')).toBeNull();
+    expect(url.searchParams.get('createdByMe')).toBeNull();
     expect(url.searchParams.get('theme')).toBe('dark');
   });
 
