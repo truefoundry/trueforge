@@ -41,28 +41,27 @@ export function UserMessageContainer() {
         text={text}
         attachments={<MessageAttachmentsContainer />}
         editAction={
-          !isRunning ? (
-            <UserMessageActionBar
-              isCopied={isCopied}
-              editDisabled={editDisabled || !canManageSession}
-              retryDisabled={!canManageSession}
-              createdAt={createdAt}
-              onCopy={() => {
-                track(AnalyticsEvents.Message.COPIED, withSessionProps({ role: 'user' }, sessionProps));
-                copy();
-              }}
-              onEdit={() => {
-                track(AnalyticsEvents.Message.EDIT_STARTED, withSessionProps(undefined, sessionProps));
-                edit();
-              }}
-              onRetry={() => {
-                if (!canManageSession) return;
-                track(AnalyticsEvents.Message.RETRIED, withSessionProps(undefined, sessionProps));
-                aui.message().composer().beginEdit();
-                aui.message().composer().send({ startRun: true });
-              }}
-            />
-          ) : undefined
+          <UserMessageActionBar
+            isCopied={isCopied}
+            copyOnly={isRunning}
+            editDisabled={editDisabled || !canManageSession}
+            retryDisabled={!canManageSession}
+            createdAt={createdAt}
+            onCopy={() => {
+              track(AnalyticsEvents.Message.COPIED, withSessionProps({ role: 'user' }, sessionProps));
+              copy();
+            }}
+            onEdit={() => {
+              track(AnalyticsEvents.Message.EDIT_STARTED, withSessionProps(undefined, sessionProps));
+              edit();
+            }}
+            onRetry={() => {
+              if (!canManageSession) return;
+              track(AnalyticsEvents.Message.RETRIED, withSessionProps(undefined, sessionProps));
+              aui.message().composer().beginEdit();
+              aui.message().composer().send({ startRun: true });
+            }}
+          />
         }
       />
     </MessagePrimitive.Root>

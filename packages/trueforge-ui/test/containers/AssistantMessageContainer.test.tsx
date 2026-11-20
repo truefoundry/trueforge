@@ -116,9 +116,23 @@ describe('AssistantMessageContainer', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
-  it('hides the action bar while the thread is running (streaming state)', () => {
-    renderAssistantMessage([{ role: 'assistant', content: 'typing...' }], { isRunning: true });
+  it('hides the action bar on the message that is still streaming', () => {
+    renderAssistantMessage([{ role: 'assistant', content: 'typing...', status: { type: 'running' } }], {
+      isRunning: true,
+    });
     expect(screen.queryByRole('button', { name: 'Copy' })).not.toBeInTheDocument();
+  });
+
+  it('keeps copy on an earlier assistant message while a later turn is running', () => {
+    renderAssistantMessage(
+      [
+        { role: 'assistant', content: 'earlier reply', status: { type: 'complete', reason: 'stop' } },
+        { role: 'assistant', content: 'typing...', status: { type: 'running' } },
+      ],
+      { isRunning: true },
+    );
+    expect(screen.getByText('earlier reply')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Copy' })).toHaveLength(1);
   });
 
   it('shows the action bar once the thread is idle', () => {
@@ -171,7 +185,7 @@ describe('AssistantMessageContainer', () => {
   it.each([
     [TURN_CANCELLATION_REASON.CLIENT_CANCELLED, 'You stopped this response'],
     [TURN_CANCELLATION_REASON.SERVER_EXECUTION_TIMEOUT, 'Response timed out'],
-    [TURN_CANCELLATION_REASON.ABANDONED, 'Response was interrupted'],
+    [TURN_CANCELLATION_REASON.ABANDONED, 'Server stopped the turn before shutting down. Please retry'],
   ])('shows why a %s turn stopped, even with no output', (reason, label) => {
     renderAssistantMessage([cancelledMessage({ reason, content: [] })]);
     expect(screen.getByRole('status')).toHaveTextContent(label);

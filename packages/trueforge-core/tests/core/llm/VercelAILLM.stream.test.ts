@@ -119,6 +119,41 @@ describe('normalizeUsage', () => {
     expect(normalizeUsage(usage).cost_in_usd).toBe(0.0042);
   });
 
+  it('recovers gateway cache writes the openai-compatible adapter drops', () => {
+    const usage = makeUsage(19478, 4);
+    usage.inputTokenDetails.cacheReadTokens = 19475;
+    usage.raw = {
+      prompt_tokens: 19478,
+      prompt_tokens_details: { cached_tokens: 19475, cache_write_tokens: 3 },
+    };
+    const result = normalizeUsage(usage);
+    expect(result.cache_read_tokens).toBe(19475);
+    expect(result.cache_write_tokens).toBe(3);
+  });
+
+  it('prefers a mapped cache write over raw, for providers that report one', () => {
+    const usage = makeUsage(20, 10);
+    usage.inputTokenDetails.cacheWriteTokens = 7;
+    usage.raw = { prompt_tokens_details: { cache_write_tokens: 999 } };
+    expect(normalizeUsage(usage).cache_write_tokens).toBe(7);
+  });
+
+  it('ignores a non-integer cache write in raw', () => {
+    const usage = makeUsage(20, 10);
+    usage.raw = { prompt_tokens_details: { cache_write_tokens: 'lots' } };
+    expect(normalizeUsage(usage).cache_write_tokens).toBeUndefined();
+  });
+
+  it('keeps mapped cache details when raw carries no cache fields', () => {
+    const usage = makeUsage(20, 10);
+    usage.inputTokenDetails.cacheReadTokens = 5;
+    usage.inputTokenDetails.cacheWriteTokens = 0;
+    usage.raw = { costInUSD: 0.01 };
+    const result = normalizeUsage(usage);
+    expect(result.cache_read_tokens).toBe(5);
+    expect(result.cache_write_tokens).toBe(0);
+  });
+
   it('omits cost_in_usd when raw.costInUSD is not a nonnegative number', () => {
     const usage = makeUsage();
     usage.raw = { costInUSD: -0.01 };
