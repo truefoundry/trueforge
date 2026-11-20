@@ -29,6 +29,12 @@ export type ResourceName = z.infer<typeof NameSchema>;
 /** Session and artifact titles; matches auto-derived titles from the first user message on turn 1. */
 export const MAX_TITLE_LENGTH = 50;
 
+/** Wire ISO-8601 (RFC 3339, offsets allowed) → Date for the store. */
+export const IsoTimestampQueryParam = z.iso
+  .datetime({ offset: true })
+  .openapi({ type: 'string', format: 'date-time' })
+  .transform(s => new Date(s));
+
 export const PAGE_LIMIT = 25;
 /** Session/turn event list page size; default and max are read from config per request, so not baked into OpenAPI. */
 export const EventsPageLimitQuerySchema = z.coerce

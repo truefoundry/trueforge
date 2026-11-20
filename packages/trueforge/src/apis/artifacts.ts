@@ -26,14 +26,18 @@ function toWireArtifact(record: ArtifactRecord): Artifact {
 
 export function createArtifactsRouter<TTransaction>(deps: ArtifactsRouterDeps<TTransaction>) {
   const listHandler: RouteHandler<typeof listArtifactsRoute> = async c => {
-    const { limit, page_token } = c.req.valid('query');
+    const query = c.req.valid('query');
     const requestContext = deps.resolveRequestContext(c);
     try {
       const { data, pagination } = await deps.artifactStore.listArtifacts({
         tenant_id: requestContext.tenant_id,
         created_by_subject_id: requestContext.subject.id,
-        limit,
-        page_token,
+        created_by_session_id: query.created_by_session_id,
+        title: query.title,
+        updated_since: query.updated_since,
+        updated_before: query.updated_before,
+        limit: query.limit,
+        page_token: query.page_token,
       });
       return c.json({ data: data.map(toWireArtifact), pagination }, 200);
     } catch (error) {
