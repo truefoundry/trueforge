@@ -4,9 +4,8 @@ import {
   paginateOffsetRows,
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import { sql, type ExpressionBuilder, type Kysely, type Transaction } from 'kysely';
-import { newId } from '../../../utils/id';
 import {
-  ArtifactSlugConflictError,
+  newArtifactIdentity,
   type ArtifactRecord,
   type ArtifactVersionRecord,
   type CreateArtifactInput,
@@ -16,7 +15,6 @@ import {
   type IArtifactStore,
   type ListArtifactsInput,
 } from '../../artifactStore';
-import { isUniqueViolation } from '../client';
 import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
 import type { Database } from '../types';
 
@@ -59,29 +57,20 @@ export class SqliteArtifactStore implements IArtifactStore<Transaction<Database>
   async createArtifact(input: CreateArtifactInput, transaction?: Transaction<Database>): Promise<ArtifactRecord> {
     const db = transaction ?? this.#db;
     const timestamp = nowIso();
-    try {
-      const row = await db
-        .insertInto('artifact')
-        .values({
-          id: newId(),
-          tenant_id: input.tenant_id,
-          slug: input.slug,
-          title: input.title,
-          latest_version: 0,
-          created_by_subject: jsonbBind(input.created_by_subject),
-          created_by_session_id: input.created_by_session_id,
-          created_at: timestamp,
-          updated_at: timestamp,
-        })
-        .returning(recordColumns)
-        .executeTakeFirstOrThrow();
-      return toArtifactRecord(row);
-    } catch (error) {
-      if (isUniqueViolation(error)) {
-        throw new ArtifactSlugConflictError({ tenant_id: input.tenant_id, slug: input.slug }, { cause: error });
-      }
-      throw error;
-    }
+    const row = await db
+      .insertInto('artifact')
+      .values({
+        ...newArtifactIdentity(input.title),
+        tenant_id: input.tenant_id,
+        latest_version: 0,
+        created_by_subject: jsonbBind(input.created_by_subject),
+        created_by_session_id: input.created_by_session_id,
+        created_at: timestamp,
+        updated_at: timestamp,
+      })
+      .returning(recordColumns)
+      .executeTakeFirstOrThrow();
+    return toArtifactRecord(row);
   }
 
   async getArtifact(input: GetArtifactInput, transaction?: Transaction<Database>): Promise<ArtifactRecord | undefined> {
@@ -101,11 +90,24 @@ export class SqliteArtifactStore implements IArtifactStore<Transaction<Database>
   ): Promise<{ data: ArtifactRecord[]; pagination: TokenPagination }> {
     const offset = decodeOffsetPageToken(input.page_token);
     const db = transaction ?? this.#db;
-    const rows = await db
+    let query = db
       .selectFrom('artifact')
       .select(recordColumns)
       .where('tenant_id', '=', input.tenant_id)
-      .where(sql`json_extract(created_by_subject, '$.subject_id')`, '=', input.created_by_subject_id)
+      .where(sql`json_extract(created_by_subject, '$.subject_id')`, '=', input.created_by_subject_id);
+    if (input.created_by_session_id !== undefined) {
+      query = query.where('created_by_session_id', '=', input.created_by_session_id);
+    }
+    if (input.title !== undefined) {
+      query = query.where(sql<boolean>`instr(lower(title), lower(${input.title})) > 0`);
+    }
+    if (input.updated_since !== undefined) {
+      query = query.where('updated_at', '>=', input.updated_since.toISOString());
+    }
+    if (input.updated_before !== undefined) {
+      query = query.where('updated_at', '<', input.updated_before.toISOString());
+    }
+    const rows = await query
       .orderBy('updated_at', 'desc')
       .orderBy('id')
       .limit(input.limit + 1)
@@ -123,19 +125,14 @@ export class SqliteArtifactStore implements IArtifactStore<Transaction<Database>
     const write = async (db: Transaction<Database>): Promise<ArtifactVersionRecord | undefined> => {
       const artifact = await db
         .selectFrom('artifact')
-        .select('id')
+        .select(['id', 'latest_version'])
         .where('tenant_id', '=', input.tenant_id)
         .where('id', '=', input.artifact_id)
         .executeTakeFirst();
       if (artifact === undefined) {
         return undefined;
       }
-      const { max_version } = await db
-        .selectFrom('artifact_version')
-        .select(eb => eb.fn.coalesce(eb.fn.max('version'), sql<number>`0`).as('max_version'))
-        .where('artifact_id', '=', artifact.id)
-        .executeTakeFirstOrThrow();
-      const version = max_version + 1;
+      const version = artifact.latest_version + 1;
       const timestamp = nowIso();
       const row = await db
         .insertInto('artifact_version')
