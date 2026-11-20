@@ -21,6 +21,7 @@ function makeProvider(overrides: Partial<SandboxProvider> = {}): SandboxProvider
     deleteSecret: unsupportedOrgSecret,
     exec: () => readyExec(),
     getAdditionalInstructions: () => undefined,
+    getDefaultExecTimeoutSeconds: () => 60,
     getToolResultDumpDir: () => '/prov/tool-results',
     getGitCredentialsPath: () => '/prov/.git-credentials',
     getFileUploadsDir: () => '/prov/uploads',
@@ -44,6 +45,7 @@ function makeSandbox(
     blockDestructiveToolsInCodeMode: true,
     mcpRequestTimeoutMs: 60_000,
     mcpConnectTimeoutMs: 5_000,
+    defaultExecTimeoutSeconds: 60,
     logger: makeSilentLogger(),
     tracing: NOOP_AGENT_TRACING,
   });

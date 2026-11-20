@@ -263,6 +263,7 @@ export function buildTurnSandbox<TEnvironment = undefined>(input: {
     blockDestructiveToolsInCodeMode: true,
     mcpRequestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
     mcpConnectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
+    defaultExecTimeoutSeconds: input.provider.getDefaultExecTimeoutSeconds(),
     skillMounter: new SkillMounter({ skills: input.skills ?? [] }),
     tracing: input.tracing,
     logger: input.logger,

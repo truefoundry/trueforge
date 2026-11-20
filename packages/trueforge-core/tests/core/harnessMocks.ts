@@ -79,6 +79,7 @@ export function makeStubPublicSandbox(): Sandbox {
     deleteSecret: unsupportedOrgSecret,
     exec: jest.fn(),
     getAdditionalInstructions: () => undefined,
+    getDefaultExecTimeoutSeconds: () => 60,
     getToolResultDumpDir: () => '/tmp/tool-results',
     getGitCredentialsPath: () => '/tmp/.git-credentials',
     getFileUploadsDir: () => '/tmp/uploads',
@@ -93,6 +94,7 @@ export function makeStubPublicSandbox(): Sandbox {
     blockDestructiveToolsInCodeMode: true,
     mcpRequestTimeoutMs: 60_000,
     mcpConnectTimeoutMs: 5_000,
+    defaultExecTimeoutSeconds: 60,
     logger: makeSilentLogger(),
     tracing: NOOP_AGENT_TRACING,
   });

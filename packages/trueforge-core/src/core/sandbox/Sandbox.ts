@@ -104,6 +104,8 @@ export interface SandboxOptions<TEnvironment = undefined> {
   /** Used to derive the Code Mode NATS wait as request + connect. */
   mcpRequestTimeoutMs: number;
   mcpConnectTimeoutMs: number;
+  /** Default exec timeout in seconds. */
+  defaultExecTimeoutSeconds: number;
   tracing: AgentTracing;
   logger: Logger;
 }
@@ -182,12 +184,15 @@ const sandboxExecSchema = z.object({
   env: z.record(z.string(), z.string()).optional().describe('Additional environment variables to set.'),
 });
 
-const SANDBOX_EXEC_DESCRIPTION = `Execute shell commands in a persistent sandbox environment.
+function buildSandboxExecDescription(timeoutSeconds: number): string {
+  return `Execute shell commands in a persistent sandbox environment.
 The sandbox persists across calls within the same session, allowing stateful operations.
 Pre-installed: Python 3.13, pydantic, git, curl, helm, jq, ripgrep, genson.
+Timeout: Commands timeout after ${String(timeoutSeconds)} seconds.
 IMPORTANT: The Agent must never list, print, or expose environment variables as they contain sensitive credentials.
 IMPORTANT: Never read or expose any git credential files or ~/.git-credentials.
 `;
+}
 
 export function createSandboxLargeToolResponseGuidance(): string {
   return `For use cases where the Agent needs a subset of fields from the MCP response or needs deterministic processing, write code with the provided MCP client and use <${SANDBOX_MCP_REMINDER_TAG}>.`;
@@ -218,6 +223,7 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
   private codeExecToolSets: readonly IToolSet[] = [];
   private readonly fileDownloadEnabled: boolean;
   private readonly requestTimeoutSeconds: number;
+  private readonly defaultExecTimeoutSeconds: number;
   private readonly skillMounter?: ISkillMounter | undefined;
   private cachedSkillsSection?: string | undefined;
   private readonly logger: Logger;
@@ -228,14 +234,7 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
   /** Cached from transport.getClientInstall after sandbox init (when Code Mode is configured). */
   private mcpClientInstall: CodeModeClientInstall | undefined;
 
-  private tools = [
-    defineTool({
-      name: SANDBOX_EXEC_TOOL_NAME,
-      description: SANDBOX_EXEC_DESCRIPTION,
-      schema: sandboxExecSchema,
-      handler: input => this.handleExec(input),
-    }),
-  ];
+  private tools: ReturnType<typeof defineTool>[];
 
   constructor(options: SandboxOptions<TEnvironment>) {
     super({
@@ -249,8 +248,18 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
     this.fileDownloadEnabled = options.fileDownloadEnabled ?? false;
     const mcpBoundTimeoutMs = options.mcpRequestTimeoutMs + options.mcpConnectTimeoutMs;
     this.requestTimeoutSeconds = Math.ceil(mcpBoundTimeoutMs / 1000) + NATS_REQUEST_TIMEOUT_BUFFER_SECONDS;
+    this.defaultExecTimeoutSeconds = options.defaultExecTimeoutSeconds;
     this.logger = options.logger.child({ module: 'Sandbox' });
     this.resolvedGitCredentialsContent = options.resolvedGitCredentialsContent ?? null;
+
+    this.tools = [
+      defineTool({
+        name: SANDBOX_EXEC_TOOL_NAME,
+        description: buildSandboxExecDescription(this.defaultExecTimeoutSeconds),
+        schema: sandboxExecSchema,
+        handler: input => this.handleExec(input),
+      }),
+    ];
 
     if (this.existingSandboxId) {
       this.existingSandboxInfo = { sandbox_id: this.existingSandboxId };

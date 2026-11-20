@@ -128,6 +128,8 @@ export interface SandboxProvider<TEnvironment = undefined> {
   exec(params: SandboxExecParams): Promise<ExecResult>;
   /** Provider-specific instructions appended to the agent system prompt. */
   getAdditionalInstructions(): string | undefined;
+  /** Default exec timeout in seconds. */
+  getDefaultExecTimeoutSeconds(): number;
   /** Directory inside the sandbox where large tool responses are dumped. */
   getToolResultDumpDir(sandboxId: string): string;
   /**

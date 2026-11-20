@@ -611,6 +611,10 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
     return undefined;
   }
 
+  getDefaultExecTimeoutSeconds(): number {
+    return Math.ceil(this.timeoutMs / 1000);
+  }
+
   // Isolated container: image-absolute layout. GIT_CONFIG store --file needs an absolute path.
   //   /opt/tf/{uploads,skills,tool-results,skill_downloader.py,.git-credentials}
   //   /opt/tfy/mcp-client/mcp_client.py  +  /usr/local/bin/mcp-client (image PATH; no layout bin)
