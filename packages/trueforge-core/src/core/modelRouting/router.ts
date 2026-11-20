@@ -1,10 +1,13 @@
 import type { Logger } from 'winston';
-import type { DecisionModelCreateParams, IDecisionModel } from '../decision/IDecisionModel';
+import type { DecisionModel, DecisionModelCreateParams } from '../decision/IDecisionModel';
 import { type ReasoningEffort, SUPPORTED_REASONING_EFFORTS } from '../llm/VercelAILLM';
 import { describeUnknownError } from '../util/errorLogFields';
 import { classificationRequest, readClassification } from './classification';
 import { ROUTING_CLUSTERS } from './clusters';
 import type { RoutingCategory, RoutingQuestion } from './question';
+
+/** Spec model name that asks the harness to route the root thread's model on every turn. */
+export const AUTO_MODEL = 'auto';
 
 /** One of the models the user has access to. */
 export interface RoutableModel {
@@ -18,8 +21,8 @@ export interface RoutableModel {
 
 export interface RoutedModel {
   model: string;
-  /** Reasoning effort the thread should run at. */
-  effort: ReasoningEffort;
+  /** Reasoning effort the thread should run at; undefined keeps the model's default. */
+  effort: ReasoningEffort | undefined;
 }
 
 interface Selection {
@@ -65,8 +68,8 @@ function isRoutingCategory(category: string): category is RoutingCategory {
 }
 
 export interface ModelRouterDeps {
-  /** Decides the task's category, e.g. Jev. */
-  classifier: IDecisionModel;
+  /** The decision model that categorises the task, e.g. Jev; called on every route. */
+  classifier: () => Promise<DecisionModel>;
   question: RoutingQuestion;
   /** The models the user has access to; called at most once per router. */
   listModels: () => Promise<RoutableModel[]>;
@@ -96,16 +99,19 @@ export function createModelRouter(
 
   return async route => {
     const startedMs = Date.now();
-    const request = classificationRequest(route.input, deps.question);
+    let isTruncated: boolean | undefined;
 
     const decide = async (): Promise<Outcome> => {
       models ??= deps.listModels().catch((error: unknown) => {
         models = undefined;
         throw error;
       });
+      const classifier = await deps.classifier();
+      const request = classificationRequest(route.input, deps.question, classifier.properties.contextLength);
+      isTruncated = request.isTruncated;
       const [userModels, decision] = await Promise.all([
         models,
-        deps.classifier.create(request.body, {
+        classifier.client.create(request.body, {
           metadata: { 'tfg.thread_id': route.threadId },
         }),
       ]);
@@ -144,7 +150,7 @@ export function createModelRouter(
     logger.info('model routing', {
       thread_id: route.threadId,
       latency_ms: Date.now() - startedMs,
-      input_truncated: request.isTruncated,
+      input_truncated: isTruncated,
       reason: outcome.reason,
       ...outcome.fields,
     });

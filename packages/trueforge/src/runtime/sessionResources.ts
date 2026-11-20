@@ -1,5 +1,6 @@
 import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import {
+  AUTO_MODEL,
   Sandbox,
   SkillMounter,
   type AgentModel,
@@ -302,18 +303,21 @@ export async function validateAgentSpec({
   configurationStore: IConfigurationStore;
   previousSpec: AgentSpec | undefined;
 }): Promise<void> {
-  const resolved = await getModelDetails({
-    tenant_id,
-    name: spec.model.name,
-    store: modelProviderStore,
-  });
-  const reasoningEffort = spec.model.params?.reasoning_effort;
-  if (reasoningEffort !== undefined) {
-    const efforts = resolved.reasoningEfforts;
-    if (efforts && efforts.length > 0 && !efforts.some(effort => effort === reasoningEffort)) {
-      throw new HTTPException(422, {
-        message: `Reasoning effort "${reasoningEffort}" is not supported by model "${spec.model.name}"`,
-      });
+  // `auto` names no model: the root's model is routed on each turn.
+  if (spec.model.name !== AUTO_MODEL) {
+    const resolved = await getModelDetails({
+      tenant_id,
+      name: spec.model.name,
+      store: modelProviderStore,
+    });
+    const reasoningEffort = spec.model.params?.reasoning_effort;
+    if (reasoningEffort !== undefined) {
+      const efforts = resolved.reasoningEfforts;
+      if (efforts && efforts.length > 0 && !efforts.some(effort => effort === reasoningEffort)) {
+        throw new HTTPException(422, {
+          message: `Reasoning effort "${reasoningEffort}" is not supported by model "${spec.model.name}"`,
+        });
+      }
     }
   }
 

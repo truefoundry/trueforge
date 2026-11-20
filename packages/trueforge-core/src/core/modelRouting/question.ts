@@ -1,5 +1,8 @@
 export interface RoutingQuestion {
+  /** Asked about a single task, e.g. a subagent's. */
   instructions: string;
+  /** Asked about the latest user message of a conversation, e.g. the root thread's. */
+  conversationInstructions: string;
   categories: { direct: string; fixed_steps: string; adaptive: string };
 }
 
@@ -7,6 +10,8 @@ export type RoutingCategory = keyof RoutingQuestion['categories'];
 
 export const DEFAULT_ROUTING_QUESTION: RoutingQuestion = {
   instructions: 'Which category best describes what this task needs to be completed?',
+  conversationInstructions:
+    'Given the conversation so far, which category best describes what the latest user message needs to be completed?',
   categories: {
     direct:
       'The answer follows directly from the task text and general knowledge, and the work is routine: no tool is needed and nothing has to be worked out carefully.',

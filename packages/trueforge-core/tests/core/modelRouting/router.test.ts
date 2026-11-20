@@ -1,8 +1,12 @@
 import { createLogger } from 'winston';
 import type { Decision, IDecisionModel } from '../../../src/core/decision/IDecisionModel';
 import { classificationRequest, readClassification } from '../../../src/core/modelRouting/classification';
+import { routingConversation } from '../../../src/core/modelRouting/conversation';
 import { DEFAULT_ROUTING_QUESTION } from '../../../src/core/modelRouting/question';
 import { createModelRouter, selectModel, type RoutableModel } from '../../../src/core/modelRouting/router';
+import type { ContextMessage } from '../../../src/core/runtime/AgentThread.types';
+import { internalSystemMessage } from '../../../src/core/runtime/contextUtils';
+import { buildUploadedFilesAnnouncement } from '../../../src/core/runtime/UserInputMessage';
 
 const logger = createLogger({ silent: true });
 
@@ -76,7 +80,7 @@ describe('createModelRouter', () => {
   function route(classifier: IDecisionModel, listModels = () => Promise.resolve(models)) {
     return createModelRouter(
       {
-        classifier,
+        classifier: () => Promise.resolve({ client: classifier, properties: { contextLength: 16_000 } }),
         question: DEFAULT_ROUTING_QUESTION,
         listModels,
       },
@@ -108,7 +112,7 @@ describe('createModelRouter', () => {
     const listModels = jest.fn(() => Promise.resolve(models));
     const routeModel = createModelRouter(
       {
-        classifier: classifiesAs('direct'),
+        classifier: () => Promise.resolve({ client: classifiesAs('direct'), properties: { contextLength: 16_000 } }),
         question: DEFAULT_ROUTING_QUESTION,
         listModels,
       },
@@ -121,16 +125,95 @@ describe('createModelRouter', () => {
 });
 
 describe('classification', () => {
-  it('keeps the start and the end of a long task', () => {
+  it('keeps the start and the end of a task that exceeds the context window', () => {
     const task = `START${'x'.repeat(20_000)}END`;
-    const { body, isTruncated } = classificationRequest(task, DEFAULT_ROUTING_QUESTION);
+    const { body, isTruncated } = classificationRequest(task, DEFAULT_ROUTING_QUESTION, 4_000);
     expect(isTruncated).toBe(true);
-    expect(typeof body.input === 'string' && body.input.length <= 8_000).toBe(true);
+    expect(typeof body.input === 'string' && body.input.length <= 16_000).toBe(true);
     expect(body.input).toEqual(expect.stringMatching(/^START[\s\S]*END$/));
+  });
+
+  it('leaves a task inside the context window unchanged', () => {
+    const task = `START${'x'.repeat(20_000)}END`;
+    const { body, isTruncated } = classificationRequest(task, DEFAULT_ROUTING_QUESTION, 64_000);
+    expect(isTruncated).toBe(false);
+    expect(body.input).toBe(task);
+  });
+
+  it('keeps the newest messages of a conversation that fit, and asks about the latest one', () => {
+    const conversation = Array.from({ length: 50 }, (_, index) => ({
+      role: 'user' as const,
+      content: `message ${String(index)} ${'x'.repeat(1_000)}`,
+    }));
+    const { body, isTruncated } = classificationRequest(conversation, DEFAULT_ROUTING_QUESTION, 4_000);
+    expect(isTruncated).toBe(true);
+    expect(Array.isArray(body.input) && body.input.length < conversation.length).toBe(true);
+    expect(Array.isArray(body.input) && body.input.at(-1)).toEqual(conversation.at(-1));
+    expect(body.questions[0]).toEqual(
+      expect.objectContaining({ instructions: DEFAULT_ROUTING_QUESTION.conversationInstructions }),
+    );
   });
 
   it('reads the category, or nothing when the decision has none', () => {
     expect(readClassification(decisionFor('fixed_steps'))?.category).toBe('fixed_steps');
     expect(readClassification(decisionFor())).toBeUndefined();
+  });
+});
+
+describe('routingConversation', () => {
+  it('keeps user and assistant text in order, without tool calls or results, then the latest input', () => {
+    const context = [
+      { role: 'user', content: 'Find the failing test' },
+      {
+        role: 'assistant',
+        content: null,
+        tool_calls: [{ id: 'call-1', type: 'function', function: { name: 'run', arguments: '{}' } }],
+      },
+      { role: 'tool', tool_call_id: 'call-1', content: 'FAIL auth.test.ts' },
+      { role: 'assistant', content: 'auth.test.ts fails on token expiry.' },
+    ] as unknown as ContextMessage[];
+    expect(routingConversation(context, [{ type: 'user.message', content: 'Fix it' }])).toEqual([
+      { role: 'user', content: 'Find the failing test' },
+      { role: 'assistant', content: 'auth.test.ts fails on token expiry.' },
+      { role: 'user', content: 'Fix it' },
+    ]);
+  });
+
+  it('skips internal system messages and names attachments instead of inlining them', () => {
+    const context: ContextMessage[] = [
+      internalSystemMessage('User memory: prefers short answers'),
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Look at this' },
+          { type: 'image_url', image_url: { url: 'data:image/png;base64,YQ==' } },
+          { type: 'file', file: { filename: 'spec.pdf', file_data: 'data:application/pdf;base64,YQ==' } },
+          {
+            type: 'text',
+            text: buildUploadedFilesAnnouncement([
+              { filename: 'report.csv', path: '/sandbox/report.csv', mime: 'text/csv', size: 4 },
+            ]),
+          },
+        ],
+      },
+    ];
+    expect(
+      routingConversation(context, [
+        {
+          type: 'user.message',
+          content: [
+            { type: 'text', text: 'Fix this' },
+            { type: 'file', name: 'notes.txt', data: 'data:text/plain;base64,YQ==' },
+          ],
+        },
+      ]),
+    ).toEqual([
+      {
+        role: 'user',
+        content:
+          'Look at this\n[attached image: image/png]\n[attached file: spec.pdf, application/pdf]\n[attached file: report.csv, text/csv]',
+      },
+      { role: 'user', content: 'Fix this\n[attached file: notes.txt, text/plain]' },
+    ]);
   });
 });
