@@ -87,6 +87,8 @@ export class RemoteMCP implements ToolSource {
   private cachedTools?: AgentToolSchema[] | undefined;
   private inflight = 0;
   private pendingClose: RemoteMcpConnection | undefined;
+  /** Set when the turn drops this source. A connect that finishes afterward must not keep the GET open. */
+  private closed = false;
 
   constructor(params: {
     id: string;
@@ -119,6 +121,30 @@ export class RemoteMCP implements ToolSource {
 
   getSessionId(): string | undefined {
     return this.sessionId ?? undefined;
+  }
+
+  /**
+   * When the turn ends, SSE still holds a GET until the client is closed. Dropping this object
+   * waits for that GET to time out. Idempotent; never throws.
+   */
+  async close(): Promise<void> {
+    this.closed = true;
+    const connecting = this.connectPromise;
+    if (connecting !== undefined) {
+      await connecting.catch(() => undefined);
+    }
+    const pending = this.pendingClose;
+    this.pendingClose = undefined;
+    const current = this._connection;
+    this._connection = undefined;
+    this.isConnected = false;
+    this.connectPromise = undefined;
+    if (pending !== undefined) {
+      await pending.close().catch(() => undefined);
+    }
+    if (current !== undefined && current !== pending) {
+      await current.close().catch(() => undefined);
+    }
   }
 
   // Concurrent callTool/listTools share one transport. Session-expired retry must not close it
@@ -296,6 +322,9 @@ export class RemoteMCP implements ToolSource {
   }
 
   private async connectIfNeeded(headers: Record<string, string>): Promise<MCPServerInitInfo | undefined> {
+    if (this.closed) {
+      return undefined;
+    }
     if (this.isConnected) {
       return undefined;
     }
@@ -358,6 +387,12 @@ export class RemoteMCP implements ToolSource {
       this._connection = connection;
       this.resolvedTransportType = connection.transportType;
       this.isConnected = true;
+      if (this.closed) {
+        this._connection = undefined;
+        this.isConnected = false;
+        await connection.close().catch(() => undefined);
+        return undefined;
+      }
       this.sessionId = connection.sessionId;
       if (existingSessionId === this.sessionId) {
         return undefined;

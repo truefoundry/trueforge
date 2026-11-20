@@ -155,6 +155,29 @@ function makeServer(params: {
 }
 
 describe('RemoteMCP + ToolSet', () => {
+  it('closes the live connection when the turn drops the source', async () => {
+    const state = installFakeConnection();
+    const remote = new RemoteMCP({
+      id: 'inline-id-123',
+      connection: {
+        url: 'https://mcp.example.com/mcp',
+        name: 'my-inline',
+        description: 'my-inline MCP server',
+      },
+      logger: noopLogger,
+      tracing: NOOP_AGENT_TRACING,
+      requestTimeoutMs: 60_000,
+      connectTimeoutMs: 5_000,
+      signal: new AbortController().signal,
+    });
+    await remote.listTools();
+    expect(state.closes).toBe(0);
+    await remote.close();
+    expect(state.closes).toBe(1);
+    await remote.close();
+    expect(state.closes).toBe(1);
+  });
+
   it('can label tools as truefoundry-system for built-in management MCP', async () => {
     const remote = new RemoteMCP({
       id: 'trueforge:mcp',

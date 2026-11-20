@@ -3,6 +3,7 @@ import { EventType } from '../../src/agent-session/schemas/events';
 import { Sessions } from '../../src/agent-session/Sessions';
 import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
 import { TurnResourceResolver } from '../../src/agent-session/TurnResourceResolver';
+import { RemoteMCP } from '../../src/core/mcp/RemoteMCP';
 import {
   makeAgentSpec,
   makeMockILLM,
@@ -98,6 +99,40 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
     expect(definition.modelParams?.['max_tokens']).toBe(expected);
     expect(definition.modelName).toBe('provider/model');
     expect(definition.modelProperties?.contextLength).toBe(128_000);
+  });
+
+  it('closes each RemoteMCP when the turn ends', async () => {
+    const close = jest.spyOn(RemoteMCP.prototype, 'close').mockResolvedValue(undefined);
+    const resolver = new TurnResourceResolver({
+      llm: () =>
+        Promise.resolve({
+          modelClient: makeMockILLM(),
+          defaultModelParams: {},
+          providerType: undefined,
+        }),
+      mcp: id =>
+        Promise.resolve(
+          id === 'docs' ? { url: 'http://localhost', name: 'docs', description: 'Docs MCP server.' } : undefined,
+        ),
+      mcpRequestTimeoutMs: 1_000,
+      mcpConnectTimeoutMs: 1_000,
+      logger: makeSilentLogger(),
+    });
+    const spec = AgentSpecSchema.parse({
+      model: { name: 'provider/model' },
+      mcp_servers: [{ name: 'docs' }],
+    });
+
+    await resolver.resolveAgentDefinition({
+      spec,
+      signal: new AbortController().signal,
+      tracing: resolver.createTracing(),
+    });
+    await resolver.close();
+    await resolver.close();
+
+    expect(close).toHaveBeenCalledTimes(1);
+    close.mockRestore();
   });
 });
 
