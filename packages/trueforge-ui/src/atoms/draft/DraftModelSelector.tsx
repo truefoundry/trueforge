@@ -17,7 +17,7 @@ import { useIsMobile } from '../lib/useIsMobile.js';
 import { BottomSheet } from '../primitives/BottomSheet.js';
 import { Button } from '../primitives/Button.js';
 import { Tooltip } from '../primitives/Tooltip.js';
-import { AUTO_MODEL, AUTO_MODEL_PATCH, keepsAutoModel } from './autoModel.js';
+import { AUTO_MODEL, AUTO_MODEL_PATCH, AUTO_MODEL_UNAVAILABLE_HINT, keepsAutoModel } from './autoModel.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
 import { displayModelLabel, DraftModelCatalogPanel, ModelWarningMark, ProviderMark } from './DraftModelCatalogPanel.js';
 import { DraftReasoningEffortMenu } from './DraftReasoningEffortMenu.js';
@@ -159,10 +159,15 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
         setEffortTarget(null);
       }}
       listboxId={menuId}
-      autoOption={{
-        enabled: capabilities?.auto?.enabled === true,
-        onSelect: () => commit(AUTO_MODEL_PATCH),
-      }}
+      autoOption={
+        capabilities?.auto === undefined
+          ? undefined
+          : {
+              enabled: capabilities.auto.enabled,
+              unavailableHint: capabilities.auto.reason ?? AUTO_MODEL_UNAVAILABLE_HINT,
+              onSelect: () => commit(AUTO_MODEL_PATCH),
+            }
+      }
       reasoning={{
         effortLabel: model =>
           hasReasoningEfforts(model.properties.reasoningEfforts) ? reasoningEffortLabel(effortFor(model)) : undefined,

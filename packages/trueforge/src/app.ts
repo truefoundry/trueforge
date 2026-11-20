@@ -527,6 +527,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     sessions: deps.sessions,
     sessionStore: deps.sessionStore,
     webSearchProviderStore: deps.webSearchProviderStore,
+    configurationStore: deps.configurationStore,
   };
   app.route(
     '/api/internal/schedules',
@@ -620,6 +621,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     sessions: deps.sessions,
     sessionStore: deps.sessionStore,
     webSearchProviderStore: deps.webSearchProviderStore,
+    configurationStore: deps.configurationStore,
   });
   app.route('/api/internal/sessions', internalSessionsRouter);
   app.route(

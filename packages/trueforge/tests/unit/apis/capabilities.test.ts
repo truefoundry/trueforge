@@ -9,7 +9,8 @@ import { createAuthMiddleware } from '../../../src/auth/middleware';
 import { disableOidcAuth, enableOidcAuth, initOidc } from '../../../src/auth/oidc';
 import { OidcAuthenticator } from '../../../src/auth/oidcAuthenticator';
 import { StandaloneAuthenticator } from '../../../src/auth/standaloneAuthenticator';
-import configuration, { type OIDCConfig } from '../../../src/config';
+import * as configModule from '../../../src/config';
+import configuration, { parseTrueFoundryModelRouting, type OIDCConfig } from '../../../src/config';
 import type { IConfigurationStore } from '../../../src/db/configurationStore';
 import type { IMemoryProviderStore } from '../../../src/db/memoryProviderStore';
 import type { ISandboxEnvironmentStore, SandboxEnvironmentWithVersion } from '../../../src/db/sandboxEnvironmentStore';
@@ -44,6 +45,7 @@ const ALL_SETTINGS_OFF = {
 const NO_PROVIDER_REASON = 'Web search needs a provider, which is not configured.';
 const TENANT_OFF_REASON = 'Web search is turned off for this tenant - an admin can turn it back on in settings.';
 const MEMORY_TENANT_OFF_REASON = 'Memory is turned off for this tenant - an admin can turn it back on in settings.';
+const AUTO_TENANT_OFF_REASON = 'Auto mode is turned off for this tenant - an admin can turn it back on in settings.';
 
 let mockActiveDefaultStatus: SandboxEnvironmentVersionStatus | undefined;
 let mockLatestDefaultStatus: SandboxEnvironmentVersionStatus | undefined;
@@ -104,6 +106,7 @@ describe('capabilities routers', () => {
     webSearchStore,
     tenantWebSearchEnabled = true,
     tenantMemoryEnabled = true,
+    tenantAutoEnabled = true,
     hasMemoryProvider = true,
     userStore = new EmptyUserStore(),
   }: {
@@ -111,6 +114,7 @@ describe('capabilities routers', () => {
     webSearchStore?: IWebSearchProviderStore;
     tenantWebSearchEnabled?: boolean;
     tenantMemoryEnabled?: boolean;
+    tenantAutoEnabled?: boolean;
     hasMemoryProvider?: boolean;
     userStore?: IUserStore;
   } = {}): OpenAPIHono {
@@ -135,7 +139,11 @@ describe('capabilities routers', () => {
     };
     const storedConfiguration = {
       tenant_id: 'default',
-      manifest: { web_search: { enabled: tenantWebSearchEnabled }, memory: { enabled: tenantMemoryEnabled } },
+      manifest: {
+        web_search: { enabled: tenantWebSearchEnabled },
+        memory: { enabled: tenantMemoryEnabled },
+        auto: { enabled: tenantAutoEnabled },
+      },
       updated_at: '2026-01-01T00:00:00.000Z',
     };
     const configurationStore: IConfigurationStore = {
@@ -184,7 +192,6 @@ describe('capabilities routers', () => {
         settings: ALL_SETTINGS_ON,
         web_search: { enabled: false, reason: NO_PROVIDER_REASON },
         memory: { enabled: true },
-        auto: { enabled: false },
         session_sharing: { granularity: 'tenant' },
       },
     });
@@ -263,6 +270,43 @@ describe('capabilities routers', () => {
     expect(body).not.toHaveProperty('data.memory');
   });
 
+  describe('auto', () => {
+    const routingForDefaultTenant = parseTrueFoundryModelRouting(
+      JSON.stringify({ tenants: { default: { enabled: 'on', decision_model: 'typesafe/jev-1.13.0' } } }),
+    );
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('omits auto when model routing is not set up for the tenant', async () => {
+      disableOidcAuth();
+      const response = await makeRouter().request('/');
+      expect(response.status).toBe(200);
+      expect(await response.json()).not.toHaveProperty('data.auto');
+    });
+
+    it('reports auto disabled with a reason when the tenant turned it off', async () => {
+      disableOidcAuth();
+      jest.spyOn(configModule, 'trueFoundryModelRouting').mockReturnValue(routingForDefaultTenant);
+      const response = await makeRouter({ tenantAutoEnabled: false }).request('/');
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({
+        data: { auto: { enabled: false, reason: AUTO_TENANT_OFF_REASON } },
+      });
+    });
+
+    it('reports auto unavailable when the tenant allows it but has no models to route to', async () => {
+      disableOidcAuth();
+      jest.spyOn(configModule, 'trueFoundryModelRouting').mockReturnValue(routingForDefaultTenant);
+      const response = await makeRouter().request('/');
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({
+        data: { auto: { enabled: false, reason: 'Auto mode is not available for now' } },
+      });
+    });
+  });
+
   it.each([
     { granularity: 'tenant', userStore: new EmptyUserStore() },
     {
@@ -299,7 +343,6 @@ describe('capabilities routers', () => {
         settings: ALL_SETTINGS_ON,
         web_search: { enabled: false, reason: NO_PROVIDER_REASON },
         memory: { enabled: true },
-        auto: { enabled: false },
         session_sharing: { granularity: 'tenant' },
       },
     });
@@ -319,7 +362,6 @@ describe('capabilities routers', () => {
         settings: ALL_SETTINGS_ON,
         web_search: { enabled: false, reason: NO_PROVIDER_REASON },
         memory: { enabled: true },
-        auto: { enabled: false },
         session_sharing: { granularity: 'tenant' },
       },
     });
@@ -563,7 +605,6 @@ describe('capabilities routers', () => {
           settings: ALL_SETTINGS_ON,
           web_search: { enabled: false, reason: NO_PROVIDER_REASON },
           memory: { enabled: true },
-          auto: { enabled: false },
           session_sharing: { granularity: 'tenant' },
         },
       });
@@ -585,7 +626,6 @@ describe('capabilities routers', () => {
           settings: ALL_SETTINGS_OFF,
           web_search: { enabled: false, reason: NO_PROVIDER_REASON },
           memory: { enabled: true },
-          auto: { enabled: false },
           session_sharing: { granularity: 'tenant' },
         },
       });

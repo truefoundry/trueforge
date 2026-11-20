@@ -51,6 +51,19 @@ export async function isWebSearchEnabledForTenant({
   return manifest.web_search.enabled;
 }
 
+/** Whether the tenant switch lets this tenant use Auto mode and model routing. Reads only; never writes the row. */
+export async function isAutoEnabledForTenant({
+  tenant_id,
+  store,
+}: {
+  tenant_id: string;
+  store: IConfigurationStore;
+}): Promise<boolean> {
+  const record = await store.getConfiguration(tenant_id);
+  const manifest = record?.manifest ?? DEFAULT_CONFIGURATION_MANIFEST;
+  return manifest.auto.enabled;
+}
+
 /** Whether agents in this tenant may use memory. Creates the row if missing: ingestion only sees tenants with one. */
 export async function isMemoryEnabledForTenant({
   tenant_id,
