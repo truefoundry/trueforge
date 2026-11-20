@@ -97,17 +97,33 @@ export function runSessionMetricsStoreContractSuite(
       expect(meters.meters).toHaveLength(12);
       // Without total access every meter reports the caller's sessions only.
       expect(meters.meters.every(meter => meter.aggregate_value === null)).toBe(true);
-      expect(meters.meters.find(meter => meter.name === 'total_sessions')?.your_aggregate_value).toBe(1);
-      expect(meters.meters.find(meter => meter.name === 'total_turns')?.your_aggregate_value).toBe(1);
-      expect(meters.meters.find(meter => meter.name === 'total_cost_in_usd')?.your_aggregate_value).toBe(1.25);
-      expect(meters.meters.find(meter => meter.name === 'avg_turns_per_session')?.your_aggregate_value).toBe(1);
-      expect(meters.meters.find(meter => meter.name === 'min_turns_per_session')?.your_aggregate_value).toBe(1);
-      expect(meters.meters.find(meter => meter.name === 'max_turns_per_session')?.your_aggregate_value).toBe(1);
-      expect(meters.meters.find(meter => meter.name === 'median_turns_per_session')?.your_aggregate_value).toBe(1);
-      expect(meters.meters.find(meter => meter.name === 'min_session_duration_ms')?.your_aggregate_value).toBe(1500);
-      expect(meters.meters.find(meter => meter.name === 'max_session_duration_ms')?.your_aggregate_value).toBe(1500);
-      expect(meters.meters.find(meter => meter.name === 'median_session_duration_ms')?.your_aggregate_value).toBe(1500);
-      expect(meters.meters.find(meter => meter.name === 'p95_session_duration_ms')?.your_aggregate_value).toBe(1500);
+      expect(meters.meters.find(meter => meter.name === 'total_sessions')?.created_by_me_aggregate_value).toBe(1);
+      expect(meters.meters.find(meter => meter.name === 'total_turns')?.created_by_me_aggregate_value).toBe(1);
+      expect(meters.meters.find(meter => meter.name === 'total_cost_in_usd')?.created_by_me_aggregate_value).toBe(1.25);
+      expect(meters.meters.find(meter => meter.name === 'avg_turns_per_session')?.created_by_me_aggregate_value).toBe(
+        1,
+      );
+      expect(meters.meters.find(meter => meter.name === 'min_turns_per_session')?.created_by_me_aggregate_value).toBe(
+        1,
+      );
+      expect(meters.meters.find(meter => meter.name === 'max_turns_per_session')?.created_by_me_aggregate_value).toBe(
+        1,
+      );
+      expect(
+        meters.meters.find(meter => meter.name === 'median_turns_per_session')?.created_by_me_aggregate_value,
+      ).toBe(1);
+      expect(meters.meters.find(meter => meter.name === 'min_session_duration_ms')?.created_by_me_aggregate_value).toBe(
+        1500,
+      );
+      expect(meters.meters.find(meter => meter.name === 'max_session_duration_ms')?.created_by_me_aggregate_value).toBe(
+        1500,
+      );
+      expect(
+        meters.meters.find(meter => meter.name === 'median_session_duration_ms')?.created_by_me_aggregate_value,
+      ).toBe(1500);
+      expect(meters.meters.find(meter => meter.name === 'p95_session_duration_ms')?.created_by_me_aggregate_value).toBe(
+        1500,
+      );
       expect(sessionsChart.graphs[0]?.graph_lines[0]?.values.reduce((sum, point) => sum + point.value, 0)).toBe(1);
       expect(turnsChart.graphs[0]?.graph_lines[0]?.values.reduce((sum, point) => sum + point.value, 0)).toBe(1);
       expect(costChart.graphs[0]?.graph_lines[0]?.values.reduce((sum, point) => sum + point.value, 0)).toBe(1.25);
@@ -121,7 +137,9 @@ export function runSessionMetricsStoreContractSuite(
         chart_name: 'sessions_over_time',
       });
       expect(allCreatorsMeters.meters.find(meter => meter.name === 'total_sessions')?.aggregate_value).toBe(2);
-      expect(allCreatorsMeters.meters.find(meter => meter.name === 'total_sessions')?.your_aggregate_value).toBe(1);
+      expect(
+        allCreatorsMeters.meters.find(meter => meter.name === 'total_sessions')?.created_by_me_aggregate_value,
+      ).toBe(1);
       expect(allCreatorsMeters.meters.find(meter => meter.name === 'total_cost_in_usd')?.aggregate_value).toBe(1.25);
       expect(allCreatorsChart.graphs[0]?.graph_lines[0]?.values.reduce((sum, point) => sum + point.value, 0)).toBe(2);
 
@@ -193,7 +211,7 @@ export function runSessionMetricsStoreContractSuite(
       expect(meters.meters.find(meter => meter.name === 'median_session_duration_ms')?.aggregate_value).toBe(250);
       expect(meters.meters.find(meter => meter.name === 'p95_session_duration_ms')?.aggregate_value).toBe(910);
       // The caller created every session here, so both halves agree.
-      expect(meters.meters.find(meter => meter.name === 'total_sessions')?.your_aggregate_value).toBe(4);
+      expect(meters.meters.find(meter => meter.name === 'total_sessions')?.created_by_me_aggregate_value).toBe(4);
     });
 
     it('includes zero-duration in-flight sessions in duration meters', async () => {

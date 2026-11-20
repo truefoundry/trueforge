@@ -15,13 +15,14 @@ class SessionMetricsMeter(UncheckedBaseModel):
     Value across every session on the agent, or null when the caller may not see other users sessions.
     """
 
-    description: str
-    name: SessionMetricsMeterName
-    unit: MetricsUnit
-    your_aggregate_value: float = pydantic.Field()
+    created_by_me_aggregate_value: float = pydantic.Field()
     """
     Value across the sessions the caller created.
     """
+
+    description: str
+    name: SessionMetricsMeterName
+    unit: MetricsUnit
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2

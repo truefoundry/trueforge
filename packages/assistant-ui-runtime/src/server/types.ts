@@ -1446,7 +1446,7 @@ export interface AgentMetricMeter {
   /** Across every session on the agent; null when the caller may not see other users' sessions. */
   aggregateValue: number | null;
   /** Across the sessions the caller created. */
-  yourAggregateValue: number;
+  createdByMeAggregateValue: number;
   description: string;
   unit: string;
 }

@@ -139,10 +139,10 @@ describe("MetricsClient", () => {
                 meters: [
                     {
                         aggregate_value: null,
+                        created_by_me_aggregate_value: 1.1,
                         description: "description",
                         name: "total_sessions",
                         unit: "count",
-                        your_aggregate_value: 1.1,
                     },
                 ],
             },
@@ -166,10 +166,10 @@ describe("MetricsClient", () => {
                 meters: [
                     {
                         aggregateValue: null,
+                        createdByMeAggregateValue: 1.1,
                         description: "description",
                         name: "total_sessions",
                         unit: "count",
-                        yourAggregateValue: 1.1,
                     },
                 ],
             },

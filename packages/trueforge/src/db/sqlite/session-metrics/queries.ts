@@ -81,11 +81,11 @@ export async function getSessionMetricsMeters(
   db: Kysely<Database>,
   input: GetSessionMetricsMetersInput,
 ): Promise<SessionMetricsMeterResponse> {
-  const yours = await fetchSessionMetricsAggregate(db, { ...input, created_by_subject_id: input.subject_id });
+  const created_by_me = await fetchSessionMetricsAggregate(db, { ...input, created_by_subject_id: input.subject_id });
   const total = input.include_total
     ? await fetchSessionMetricsAggregate(db, { ...input, created_by_subject_id: undefined })
     : null;
-  return buildSessionMetricsMeters({ total, yours });
+  return buildSessionMetricsMeters({ total, created_by_me });
 }
 
 export async function getSessionMetricsChartData(

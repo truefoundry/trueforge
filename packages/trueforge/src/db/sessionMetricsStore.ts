@@ -96,7 +96,7 @@ export interface SessionMetricsRow {
 /** `total` is null when the caller may only see their own sessions. */
 export interface SessionMetricsAggregatePair {
   total: SessionMetricsAggregate | null;
-  yours: SessionMetricsAggregate;
+  created_by_me: SessionMetricsAggregate;
 }
 
 export interface SessionMetricsBucket {
@@ -223,7 +223,7 @@ function buildMeters(input: SessionMetricsAggregatePair): SessionMetricsMeterRes
   return METER_DEFINITIONS.map(definition => ({
     name: definition.name,
     aggregate_value: input.total == null ? null : definition.value(input.total),
-    your_aggregate_value: definition.value(input.yours),
+    created_by_me_aggregate_value: definition.value(input.created_by_me),
     description: definition.description,
     unit: definition.unit,
   }));

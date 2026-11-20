@@ -222,7 +222,7 @@ export function AgentSpendCell({
       </div>
     );
   }
-  if (usage?.yourCostUsd == null) {
+  if (usage?.createdByMeCostUsd == null) {
     return (
       <span className="text-text-secondary text-sm" aria-label={`Spend unavailable for ${agentName}`}>
         {UNAVAILABLE_VALUE}
@@ -230,7 +230,7 @@ export function AgentSpendCell({
     );
   }
   const hasTotal = usage.totalCostUsd != null;
-  const yourSpend = formatLibraryCostUsd(usage.yourCostUsd);
+  const yourSpend = formatLibraryCostUsd(usage.createdByMeCostUsd);
   return (
     <Tooltip content={spendTooltipContent(hasTotal)} className="max-w-xs whitespace-normal text-left">
       <span className="flex min-w-0 flex-col gap-0.5">

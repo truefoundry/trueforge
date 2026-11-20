@@ -357,7 +357,7 @@ describe('sessions HTTP agent binding', () => {
     expect(meters.data.meters).toHaveLength(12);
     // An `all` scope does not partition agents per user, so totals cover both sessions.
     expect(meters.data.meters.find(meter => meter.name === 'total_sessions')?.aggregate_value).toBe(2);
-    expect(meters.data.meters.find(meter => meter.name === 'total_sessions')?.your_aggregate_value).toBe(1);
+    expect(meters.data.meters.find(meter => meter.name === 'total_sessions')?.created_by_me_aggregate_value).toBe(1);
     expect(meters.data.meters.find(meter => meter.name === 'total_turns')?.aggregate_value).toBe(0);
     expect(meters.data.meters.find(meter => meter.name === 'total_cost_in_usd')?.aggregate_value).toBe(0);
     expect(meters.data.meters.find(meter => meter.name === 'avg_turns_per_session')?.aggregate_value).toBe(0);
@@ -453,7 +453,7 @@ describe('sessions HTTP agent binding', () => {
     );
     // The manager sees the agent's whole total while their own half stays empty.
     expect(metrics.data.meters.find(meter => meter.name === 'total_sessions')?.aggregate_value).toBe(1);
-    expect(metrics.data.meters.find(meter => meter.name === 'total_sessions')?.your_aggregate_value).toBe(0);
+    expect(metrics.data.meters.find(meter => meter.name === 'total_sessions')?.created_by_me_aggregate_value).toBe(0);
 
     expect((await managerApp.request('/managed-session', jsonInit('PATCH', {}))).status).toBe(403);
     expect((await managerApp.request('/managed-session', { method: 'DELETE' })).status).toBe(403);
@@ -515,7 +515,7 @@ describe('sessions HTTP agent binding', () => {
     );
 
     expect(meters.data.meters.every(meter => meter.aggregate_value === null)).toBe(true);
-    expect(meters.data.meters.find(meter => meter.name === 'total_sessions')?.your_aggregate_value).toBe(1);
+    expect(meters.data.meters.find(meter => meter.name === 'total_sessions')?.created_by_me_aggregate_value).toBe(1);
 
     const chart = GetSessionMetricsChartDataResponseSchema.parse(
       await (

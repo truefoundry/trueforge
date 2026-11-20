@@ -27,7 +27,7 @@ export function createInternalMetricsRouter(deps: InternalMetricsRouterDeps) {
   const getSessionMetricsMetersHandler: RouteHandler<typeof getSessionMetricsMetersRoute> = async c => {
     const query = c.req.valid('query');
     const requestContext = deps.resolveRequestContext(c);
-    const include_total = await canReadAgentAggregates({
+    const includeTotal = await canReadAgentAggregates({
       store: deps.resolveAgentStore(c),
       context: requestContext,
       authorizer: deps.authorizer,
@@ -37,7 +37,7 @@ export function createInternalMetricsRouter(deps: InternalMetricsRouterDeps) {
       tenant_id: requestContext.tenant_id,
       agent_id: query.agent_id,
       subject_id: requestContext.subject.id,
-      include_total,
+      include_total: includeTotal,
       start_timestamp: query.start_timestamp,
       end_timestamp: query.end_timestamp,
     });

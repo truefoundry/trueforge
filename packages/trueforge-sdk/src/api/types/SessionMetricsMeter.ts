@@ -5,9 +5,9 @@ import type * as TrueForge from "../index.js";
 export interface SessionMetricsMeter {
     /** Value across every session on the agent, or null when the caller may not see other users sessions. */
     aggregateValue: number | null;
+    /** Value across the sessions the caller created. */
+    createdByMeAggregateValue: number;
     description: string;
     name: TrueForge.SessionMetricsMeterName;
     unit: TrueForge.MetricsUnit;
-    /** Value across the sessions the caller created. */
-    yourAggregateValue: number;
 }

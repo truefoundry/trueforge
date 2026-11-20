@@ -11,18 +11,21 @@ export const SessionMetricsMeter: core.serialization.ObjectSchema<
     TrueForge.SessionMetricsMeter
 > = core.serialization.object({
     aggregateValue: core.serialization.property("aggregate_value", core.serialization.number().nullable()),
+    createdByMeAggregateValue: core.serialization.property(
+        "created_by_me_aggregate_value",
+        core.serialization.number(),
+    ),
     description: core.serialization.string(),
     name: SessionMetricsMeterName,
     unit: MetricsUnit,
-    yourAggregateValue: core.serialization.property("your_aggregate_value", core.serialization.number()),
 });
 
 export declare namespace SessionMetricsMeter {
     export interface Raw {
         aggregate_value?: number | null;
+        created_by_me_aggregate_value: number;
         description: string;
         name: SessionMetricsMeterName.Raw;
         unit: MetricsUnit.Raw;
-        your_aggregate_value: number;
     }
 }

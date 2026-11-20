@@ -47,7 +47,7 @@ export const SessionMetricsMeterSchema = z
       .nonnegative()
       .nullable()
       .describe('Value across every session on the agent, or null when the caller may not see other users sessions.'),
-    your_aggregate_value: z.number().nonnegative().describe('Value across the sessions the caller created.'),
+    created_by_me_aggregate_value: z.number().nonnegative().describe('Value across the sessions the caller created.'),
     description: z.string(),
     unit: MetricsUnitSchema,
   })
