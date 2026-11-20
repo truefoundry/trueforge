@@ -43,10 +43,10 @@ function redactUrlForTrace(url: string): string {
 
 /**
  * What a headers resolver returns: the headers to send, or a signal that auth is required.
- * On a 401, `authRequiredOnUnauthorized` may offer consent; without it, or if it returns undefined, the 401 fails.
+ * On a 401, `onUnauthorized` may offer a way to start authorization consent. Without the hook, the 401 fails.
  */
 export type ResolveHeadersResult =
-  | { headers: Record<string, string>; authRequiredOnUnauthorized?: () => Promise<MCPAuthRequired | undefined> }
+  | { headers: Record<string, string>; onUnauthorized?: () => Promise<MCPAuthRequired> }
   | { authRequired: MCPAuthRequired };
 
 /** Static headers, or a resolver (invoked at connect) returning headers or signalling auth-required. */
@@ -201,7 +201,8 @@ export class RemoteMCP implements ToolSource {
       let authRequired: MCPAuthRequired | undefined = undefined;
       try {
         if (isAuthError(error)) {
-          authRequired = await headersResult.authRequiredOnUnauthorized?.();
+          // Start consent on a 401 if the headers resolver offers a hook.
+          authRequired = await headersResult.onUnauthorized?.();
         }
       } catch (recoveryError) {
         // Rethrow the recovery error unchanged so its status survives, with the 401 it replaced as
