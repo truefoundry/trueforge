@@ -169,7 +169,7 @@ describe('ThemeProvider', () => {
     expect(root.style.getPropertyValue('--primary-button-bg')).toBe('#0d0d0d');
     expect(root.style.getPropertyValue('--primary-bg')).toBe('#ffffff');
     expect(root.style.getPropertyValue('--font-agent-ui')).toBe(
-      '"GeistSans", "GeistSans Fallback", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
+      '"Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
     );
     expect(root.style.fontFamily).toBe('');
     expect(root.style.getPropertyValue('--radius')).toBe('1.5rem');
@@ -207,7 +207,7 @@ describe('ThemeProvider', () => {
     expect(root.style.getPropertyValue('--card-bg')).toBe('#ffffff');
     expect(root.style.getPropertyValue('--primary-button-bg')).toBe('#c96442');
     expect(root.style.getPropertyValue('--font-agent-ui')).toBe(
-      'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
+      '"Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
     );
     expect(root.style.getPropertyValue('--radius')).toBe('1rem');
     expect(root.style.getPropertyValue('--composer-radius')).toBe('1rem');
@@ -241,7 +241,7 @@ describe('ThemeProvider', () => {
     expect(root.style.getPropertyValue('--text-primary')).toBe('#1f1f1f');
     expect(root.style.getPropertyValue('--primary-button-bg')).toBe('#1f3b9b');
     expect(root.style.getPropertyValue('--font-agent-ui')).toBe(
-      '"GeistSans", "GeistSans Fallback", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
+      '"Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
     );
     expect(root.style.getPropertyValue('--radius')).toBe('1rem');
     expect(root.style.getPropertyValue('--composer-radius')).toBe('2rem');
@@ -271,7 +271,7 @@ describe('ThemeProvider', () => {
     );
 
     expect(getThemeRoot(container).style.getPropertyValue('--font-agent-ui')).toBe(
-      '"Google Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+      '"Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
     );
     expect(getThemeRoot(container).style.getPropertyValue('--sidebar-text')).toBe('#3E5680');
     expect(getThemeRoot(container).style.getPropertyValue('--radius')).toBe('0.375rem');
