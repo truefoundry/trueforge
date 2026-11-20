@@ -1,13 +1,11 @@
 import type { Subject, TokenPagination } from '@truefoundry/trueforge-core/agent-session';
 
-export type ArtifactVersionStatus = 'pending' | 'committed' | 'failed';
-
 export interface ArtifactRecord {
   id: string;
   tenant_id: string;
   slug: string;
   title: string;
-  /** Highest committed version; 0 until the first commit. */
+  /** Highest version; 0 until the first version. */
   latest_version: number;
   created_by_subject: Subject;
   created_by_session_id: string;
@@ -17,29 +15,15 @@ export interface ArtifactRecord {
   updated_at: string;
 }
 
-export interface ArtifactFileRecord {
-  /** Relative path within the version. */
-  path: string;
-  size_bytes: number;
-  storage_key: string;
-  sha256: string;
-  /** ISO-8601 UTC instant. */
-  created_at: string;
-}
-
 export interface ArtifactVersionRecord {
   artifact_id: string;
   version: number;
-  status: ArtifactVersionStatus;
   entrypoint: string;
+  /** Object-store prefix holding the version's files. */
+  storage_prefix: string;
+  total_bytes: number;
   /** ISO-8601 UTC instant. */
   created_at: string;
-  /** ISO-8601 UTC instant. */
-  updated_at: string;
-}
-
-export interface ArtifactVersionWithFiles extends ArtifactVersionRecord {
-  files: ArtifactFileRecord[];
 }
 
 export interface CreateArtifactInput {
@@ -66,17 +50,14 @@ export interface CreateArtifactVersionInput {
   tenant_id: string;
   artifact_id: string;
   entrypoint: string;
+  storage_prefix: string;
+  total_bytes: number;
 }
 
-export interface ArtifactVersionKey {
+export interface GetArtifactVersionInput {
   tenant_id: string;
   artifact_id: string;
   version: number;
-}
-
-export interface CommitArtifactVersionInput extends ArtifactVersionKey {
-  /** `created_at` is set by the store at commit. */
-  files: Omit<ArtifactFileRecord, 'created_at'>[];
 }
 
 /** Unique `(tenant_id, slug)` violation. */
@@ -102,19 +83,12 @@ export interface IArtifactStore<TTransaction = never> {
     transaction?: TTransaction,
   ): Promise<{ data: ArtifactRecord[]; pagination: TokenPagination }>;
   /**
-   * Inserts the next version as `pending`. Storage keys depend on the version number, so files
-   * are recorded at commit. Undefined when the artifact is not in the tenant.
+   * Inserts the next version for files already uploaded under `storage_prefix` and advances
+   * `latest_version`. Undefined when the artifact is not in the tenant.
    */
   createVersion(
     input: CreateArtifactVersionInput,
     transaction?: TTransaction,
   ): Promise<ArtifactVersionRecord | undefined>;
-  /**
-   * Records the uploaded files, marks a `pending` version `committed`, and advances
-   * `latest_version` (never backwards). Undefined when no pending version matched.
-   */
-  commitVersion(input: CommitArtifactVersionInput, transaction?: TTransaction): Promise<ArtifactRecord | undefined>;
-  /** Marks a `pending` version `failed`. False when no pending version matched. */
-  failVersion(input: ArtifactVersionKey, transaction?: TTransaction): Promise<boolean>;
-  getVersion(input: ArtifactVersionKey, transaction?: TTransaction): Promise<ArtifactVersionWithFiles | undefined>;
+  getVersion(input: GetArtifactVersionInput, transaction?: TTransaction): Promise<ArtifactVersionRecord | undefined>;
 }
