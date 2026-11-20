@@ -120,6 +120,7 @@ import type { IOAuthTokenStore } from './mcp/auth/types';
 import { PACKAGE_VERSION } from './packageVersion';
 import { ActiveTurnRegistry } from './runtime/activeTurns';
 import { EventSubscriptionRegistry } from './runtime/event-subscription';
+import { parsePerServerMcpHeaders, X_TFG_MCP_HEADERS } from './runtime/perServerMcpHeaders';
 import type { ConnectedRedis } from './runtime/redis';
 import { initSentry } from './sentry';
 import { printStandaloneStartupBanner } from './startupBanner';
@@ -134,11 +135,7 @@ import {
   X_TFG_SKILLS,
 } from './truefoundry/inlineResources';
 import { InlineSkillStore } from './truefoundry/InlineSkillStore';
-import {
-  parsePerServerMcpHeaders,
-  X_TFG_MCP_HEADERS,
-  type PerServerMcpHeaders,
-} from './truefoundry/perServerMcpHeaders';
+import { parseTrueFoundryPerServerMcpHeaders } from './truefoundry/perServerMcpHeaders';
 import { TrueFoundryAgentStore } from './truefoundry/TrueFoundryAgentStore';
 import { TrueFoundryAuthorizer } from './truefoundry/TrueFoundryAuthorizer';
 import { TrueFoundryMcpServerStore } from './truefoundry/TrueFoundryMcpServerStore';
@@ -161,7 +158,7 @@ interface ServerPersistence<TTransaction> {
   resolveMcpServerStore: (
     rc: RequestContext,
     runAsAgent?: AgentRecord,
-    perServerHeaders?: PerServerMcpHeaders,
+    rawPerServerHeaders?: string,
   ) => IMcpServerWithAuthStore<TTransaction>;
   resolveSandboxProviderStore: (rc: RequestContext) => ISandboxProviderStore<TTransaction>;
   resolveWebSearchProviderStore: (rc: RequestContext) => IWebSearchProviderStore<TTransaction>;
@@ -253,7 +250,8 @@ function buildResolveModelProviderStore<TTransaction>(options: {
 }
 
 /**
- * Per-request MCP store over ServiceFoundry. `runAsAgent` selects a saved agent's token for turns.
+ * Per-request MCP store over ServiceFoundry, else the DB store with any `x-tfg-mcp-headers`.
+ * `runAsAgent` selects a saved agent's token for turns.
  */
 function buildResolveMcpServerStore<TTransaction>(options: {
   persistenceStore: IMcpServerStore<TTransaction>;
@@ -263,14 +261,14 @@ function buildResolveMcpServerStore<TTransaction>(options: {
 }): (
   rc: RequestContext,
   runAsAgent?: AgentRecord,
-  perServerHeaders?: PerServerMcpHeaders,
+  rawPerServerHeaders?: string,
 ) => IMcpServerWithAuthStore<TTransaction> {
   const withAuthMcpPersistenceStore = new McpServerWithAuthStore<TTransaction>({
     store: options.persistenceStore,
     tokenStore: options.tokenStore,
     clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
   });
-  return (rc, runAsAgent, perServerHeaders) => {
+  return (rc, runAsAgent, rawPerServerHeaders) => {
     const { client } = options;
     if (client) {
       return new TrueFoundryMcpServerStore<TTransaction>({
@@ -278,7 +276,17 @@ function buildResolveMcpServerStore<TTransaction>(options: {
         requestContext: rc,
         agent: runAsAgent,
         logger: options.logger,
-        ...(perServerHeaders === undefined ? {} : { perServerHeaders }),
+        ...(rawPerServerHeaders === undefined
+          ? {}
+          : { perServerHeaders: parseTrueFoundryPerServerMcpHeaders(rawPerServerHeaders) }),
+      });
+    }
+    if (rawPerServerHeaders !== undefined) {
+      return new McpServerWithAuthStore<TTransaction>({
+        store: options.persistenceStore,
+        tokenStore: options.tokenStore,
+        clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
+        perServerHeaders: parsePerServerMcpHeaders(rawPerServerHeaders),
       });
     }
     return withAuthMcpPersistenceStore;
@@ -388,8 +396,9 @@ async function createStandalonePersistence(options: {
   const agentStore = new SqliteAgentStore(db);
   const sandboxEnvironmentStore = wrapSandboxEnvironmentStore(new SqliteSandboxEnvironmentStore(db));
   const modelProviderStore = new SqliteModelProviderStore(db);
+  const mcpPersistenceStore = new SqliteMcpServerStore(db);
   const mcpServerStore = new McpServerWithAuthStore({
-    store: new SqliteMcpServerStore(db),
+    store: mcpPersistenceStore,
     tokenStore,
     clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
   });
@@ -404,7 +413,12 @@ async function createStandalonePersistence(options: {
     tokenStore,
     scheduleStore: new SqliteScheduleStore(db),
     resolveModelProviderStore: () => modelProviderStore,
-    resolveMcpServerStore: () => mcpServerStore,
+    resolveMcpServerStore: buildResolveMcpServerStore({
+      persistenceStore: mcpPersistenceStore,
+      tokenStore,
+      client: undefined,
+      logger,
+    }),
     resolveSandboxProviderStore: () => sandboxProviderStore,
     resolveWebSearchProviderStore: () => webSearchProviderStore,
     resolveSkillStore: () => skillStore,
@@ -650,11 +664,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
       return mcpOAuthStore;
     }
     const rawPerServerHeaders = c.req.header(X_TFG_MCP_HEADERS);
-    const store = persistence.resolveMcpServerStore(
-      resolveRequestContext(c),
-      runAsAgent,
-      rawPerServerHeaders === undefined ? undefined : parsePerServerMcpHeaders(rawPerServerHeaders),
-    );
+    const store = persistence.resolveMcpServerStore(resolveRequestContext(c), runAsAgent, rawPerServerHeaders);
     if (!isTrueFoundryModeEnabled(configuration)) {
       return store;
     }

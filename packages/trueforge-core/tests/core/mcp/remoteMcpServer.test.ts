@@ -429,6 +429,56 @@ describe('RemoteMCP + ToolSet', () => {
     expect(state.callToolCalls).toBe(0);
   });
 
+  it('returns authRequired when the resolver offers consent for a 401', async () => {
+    installFakeConnection({ connectError: new McpConnectionError('upstream 401', 401) });
+    const authRequired: MCPAuthRequired = {
+      servers: [{ id: 'inline-id-123', name: 'my-inline', auth_url: 'https://auth.example/consent' }],
+    };
+    const server = makeServer({
+      headers: () => Promise.resolve({ headers: {}, onUnauthorized: () => Promise.resolve(authRequired) }),
+    });
+
+    await expect(server.listTools()).resolves.toEqual({ authRequired });
+  });
+
+  it('drops the rejected connection when a call gets a 401 with consent, so the next call reconnects', async () => {
+    const state = installFakeConnection({ sessionId: 'sess-1' });
+    const authRequired: MCPAuthRequired = {
+      servers: [{ id: 'inline-id-123', name: 'my-inline', auth_url: 'https://auth.example/consent' }],
+    };
+    const server = makeServer({
+      headers: () => Promise.resolve({ headers: {}, onUnauthorized: () => Promise.resolve(authRequired) }),
+    });
+
+    await server.listTools();
+    state.queueCallToolError(Object.assign(new Error('HTTP 401'), { code: 401 }));
+    await expect(server.callTool({ name: 'read_thing', arguments: {} })).resolves.toEqual({ authRequired });
+    await server.callTool({ name: 'read_thing', arguments: {} });
+
+    expect(state.connectCalls).toBe(2);
+  });
+
+  it('throws the 401 when the resolver offers no consent', async () => {
+    installFakeConnection({ connectError: new McpConnectionError('upstream 401', 401) });
+    const server = makeServer({
+      headers: () => Promise.resolve({ headers: {} }),
+    });
+
+    await expect(server.listTools()).rejects.toMatchObject({ statusCode: 401 });
+  });
+
+  it('propagates the resolver error when the consent lookup fails', async () => {
+    installFakeConnection({ connectError: new McpConnectionError('upstream 401', 401) });
+    const server = makeServer({
+      headers: () => Promise.resolve({ headers: {}, onUnauthorized: () => Promise.reject(new Error('lookup failed')) }),
+    });
+
+    await expect(server.listTools()).rejects.toMatchObject({
+      message: 'lookup failed',
+      cause: expect.objectContaining({ statusCode: 401 }),
+    });
+  });
+
   it('emits init for a stateless (SSE) server on connect (matches gateway strict-compare behavior)', async () => {
     // Stateless connection reports a null session id.
     installFakeConnection({ sessionId: null });
