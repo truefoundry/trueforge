@@ -486,7 +486,7 @@ def encode_by_type(o: Any) -> Any:
 
 def update_forward_refs(model: Type["Model"], **localns: Any) -> None:
     if IS_PYDANTIC_V2:
-        model.model_rebuild(raise_errors=False)  # type: ignore[attr-defined]
+        model.model_rebuild(raise_errors=False, _types_namespace=localns or None)  # type: ignore[attr-defined]
     else:
         model.update_forward_refs(**localns)
 

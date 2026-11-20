@@ -260,7 +260,9 @@ function validateAndTransformObject<Transformed>({
                 transformed[property.transformedKey] = value.value;
             } else {
                 transformed[preTransformedKey] = preTransformedItemValue;
-                errors.push(...value.errors);
+                for (const error of value.errors) {
+                    errors.push(error);
+                }
             }
         } else {
             switch (unrecognizedObjectKeys) {
