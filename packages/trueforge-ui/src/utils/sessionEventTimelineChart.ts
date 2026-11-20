@@ -1,13 +1,5 @@
 import type { SessionEventTimelineSegment } from './sessionEventTimeline.js';
 
-/**
- * Pure layout helpers for the Sessions timeline.
- *
- * Segment construction owns event meaning; this module owns visual grouping,
- * lane allocation, and the compressed time axis. Keeping these calculations
- * outside React/Chart.js makes the rendering rules deterministic and testable.
- */
-
 /** Minimal interval shared by bars, compressed gaps, and grouped tool calls. */
 export type TimelineGap = {
   startMs: number;
@@ -53,6 +45,8 @@ export type TimelineSubAgentGroup = TimelineGap & {
   id: string;
   barId: string;
   segments: SessionEventTimelineSegment[];
+  /** Active track span plus pause wall waits (compressed chart span omits pauses). */
+  durationMs?: number;
 };
 
 export type TimelineMarkerGroup = TimelineGap & {
@@ -88,20 +82,31 @@ export function getTimelineRange({ startMs, endMs }: TimelineGap): [number, numb
   return [startMs, endMs];
 }
 
-/** Collapse point events that share (or nearly share) a chart timestamp into one marker and tooltip. */
+/**
+ * Merge diamonds that land on the same (or nearly same) x into one hover target.
+ * Same thread only — concurrent sub-agent approvals share a compressed x but must
+ * stay on their own lanes (not one stack of N diamonds on the first track).
+ * Example: approval_required + policy at the same ms on main → one diamond.
+ */
 export function groupCoincidentTimelineMarkers(
   segments: SessionEventTimelineSegment[],
   { toleranceMs = 0 }: { toleranceMs?: number } = {},
 ): TimelineMarkerGroup[] {
   const markers = segments
     .flatMap((segment, index) => (segment.isMarker ? [{ segment, index }] : []))
-    .sort((left, right) => left.segment.startMs - right.segment.startMs || left.index - right.index)
+    .sort(
+      (left, right) =>
+        left.segment.threadId.localeCompare(right.segment.threadId) ||
+        left.segment.startMs - right.segment.startMs ||
+        left.index - right.index,
+    )
     .map(({ segment }) => segment);
 
   const groups: TimelineMarkerGroup[] = [];
   for (const segment of markers) {
     const current = groups.at(-1);
-    if (current != null && segment.startMs - current.startMs <= toleranceMs) {
+    const sameThread = current != null && current.segments[0]?.threadId === segment.threadId;
+    if (sameThread && segment.startMs - current.startMs <= toleranceMs) {
       current.segments.push(segment);
       continue;
     }
@@ -218,18 +223,289 @@ function getCleanAxisStepMs({ totalMs, tickTarget }: { totalMs: number; tickTarg
   return multiplier * magnitude * divisorMs;
 }
 
-/** Generate clean active-time ticks, translated around fixed visual turn separators. */
+/**
+ * Extra empty space inserted on the chart axis (not real work time).
+ * Turn separators: small gap between turns. Pause chips: fixed-width hatched bar.
+ */
+export type TimelineVisualGap = {
+  /** Where on the compressed “active work” axis this gap starts. */
+  atActiveMs: number;
+  gapMs: number;
+  /**
+   * Pause chips: the diamond at `atActiveMs` sits *inside* the gap.
+   * Turn separators: that point sits *after* the gap.
+   */
+  containsAnchor?: boolean;
+  /** Real paused wait (for wall-time axis labels); turn separators omit this. */
+  wallDurationMs?: number;
+};
+
+/** How far to shift an active-time point after earlier visual gaps. */
+export function visualGapShiftMs(activeMs: number, gaps: readonly TimelineVisualGap[]): number {
+  return gaps.reduce((shift, gap) => {
+    const applies = gap.containsAnchor ? activeMs > gap.atActiveMs : activeMs >= gap.atActiveMs;
+    return applies ? shift + gap.gapMs : shift;
+  }, 0);
+}
+
+/** Convert active-time visual gaps into [start,end] ranges in chart coordinates. */
+export function buildTimelineGaps(gaps: readonly TimelineVisualGap[]): TimelineGap[] {
+  const ordered = [...gaps].sort((left, right) => left.atActiveMs - right.atActiveMs);
+  return ordered.map(gap => {
+    const priorShift = ordered
+      .filter(candidate => candidate.atActiveMs < gap.atActiveMs)
+      .reduce((sum, candidate) => sum + candidate.gapMs, 0);
+    const startMs = gap.atActiveMs + priorShift;
+    return { startMs, endMs: startMs + gap.gapMs };
+  });
+}
+
+export type PackedTimelineMarker = {
+  id: string;
+  x: number;
+  segments: SessionEventTimelineSegment[];
+};
+
+/** Expanded pause chip on the chart + how long the real wait was. */
+export type TimelinePauseChipRange = TimelineGap & {
+  wallDurationMs: number;
+  /** When set, only markers on this thread pack onto the chip. */
+  threadId?: string;
+  /** Segment id, so approval markers can pin to a specific wait span. */
+  id?: string;
+};
+
+/**
+ * How far before a chip start a marker may still belong to that pause.
+ * Matches gateway lead-in (approval a few ms before turn.update paused) — not full chip width.
+ */
+export const PAUSE_MARKER_LEAD_MS = 50;
+
+/** Map wall offset into the chip: offset=0 → left edge, offset=wall → right edge. */
+function pauseMarkerX({ chip, offsetMs }: { chip: TimelinePauseChipRange; offsetMs: number }): number {
+  const span = Math.max(0, chip.endMs - chip.startMs);
+  const wall = Math.max(0, chip.wallDurationMs);
+  if (span <= 0 || wall <= 0) return chip.startMs;
+  const ratio = Math.min(1, Math.max(0, offsetMs / wall));
+  return chip.startMs + ratio * span;
+}
+
+/**
+ * Find which pause chip owns a marker group.
+ * On-chip, or within PAUSE_MARKER_LEAD_MS before the chip (gateway lead-in /
+ * pauseOffsetMs anchors) — never the full expanded chip width.
+ */
+function markerGroupThreadId(group: TimelineMarkerGroup): string | undefined {
+  const threadIds = new Set(group.segments.map(segment => segment.threadId));
+  if (threadIds.size !== 1) return undefined;
+  return [...threadIds][0];
+}
+
+function pauseChipMatchesThread(chip: TimelinePauseChipRange, threadId: string | undefined): boolean {
+  // Unscoped chips (tests / legacy) accept any marker.
+  if (chip.threadId == null) return true;
+  // Scoped chips only accept that thread — never a mixed/unknown group.
+  if (threadId == null) return false;
+  return chip.threadId === threadId;
+}
+
+function pauseChipForMarkerGroup({
+  group,
+  pauseChips,
+}: {
+  group: TimelineMarkerGroup;
+  pauseChips: readonly TimelinePauseChipRange[];
+}): TimelinePauseChipRange | undefined {
+  const threadId = markerGroupThreadId(group);
+  const onChip = pauseChips.find(
+    candidate =>
+      pauseChipMatchesThread(candidate, threadId) &&
+      group.startMs >= candidate.startMs &&
+      group.startMs <= candidate.endMs,
+  );
+  if (onChip != null) return onChip;
+
+  // Gateway lead-in / compressed anchors sit a few ms before the chip — not a full chip width away.
+  let best: TimelinePauseChipRange | undefined;
+  let bestDelta = Number.POSITIVE_INFINITY;
+  for (const candidate of pauseChips) {
+    if (!pauseChipMatchesThread(candidate, threadId)) continue;
+    if (group.startMs > candidate.startMs) continue;
+    const delta = candidate.startMs - group.startMs;
+    if (delta > PAUSE_MARKER_LEAD_MS || delta >= bestDelta) continue;
+    best = candidate;
+    bestDelta = delta;
+  }
+  return best;
+}
+
+/**
+ * Spread pause-related diamonds across the hatched chip by when they happened.
+ *
+ * Example: pause lasts 120s; approval at +0s and user approve at +120s →
+ * two diamonds (left and right of the chip). Same offset → one diamond.
+ * Markers not on a pause chip stay as a single point.
+ */
+export function packTimelineMarkers({
+  groups,
+  pauseChips,
+}: {
+  groups: TimelineMarkerGroup[];
+  pauseChips: readonly TimelinePauseChipRange[];
+}): PackedTimelineMarker[] {
+  const packed: PackedTimelineMarker[] = [];
+  for (const group of groups) {
+    // Approval diamonds pinned to a wait span use that span's edges, not the
+    // turn-pause offset (which lands mid-hatch on a long span).
+    const pinned = group.segments.filter(segment => segment.pauseSpanId != null);
+    const floating = group.segments.filter(segment => segment.pauseSpanId == null);
+    for (const segment of pinned) {
+      const span = pauseChips.find(candidate => candidate.id === segment.pauseSpanId);
+      const x = span == null ? group.startMs : segment.pauseSpanEdge === 'end' ? span.endMs : span.startMs;
+      packed.push({
+        id: `${group.id}-${segment.id}`,
+        x,
+        segments: [segment],
+      });
+    }
+    if (floating.length === 0) continue;
+
+    const floatingGroup = { ...group, segments: floating };
+    const chip = pauseChipForMarkerGroup({ group: floatingGroup, pauseChips });
+    if (chip == null) {
+      packed.push({ id: group.id, x: group.startMs, segments: floating });
+      continue;
+    }
+
+    const ordered = [...floating].sort(
+      (left, right) => (left.pauseOffsetMs ?? 0) - (right.pauseOffsetMs ?? 0) || left.id.localeCompare(right.id),
+    );
+    const byOffset = new Map<number, SessionEventTimelineSegment[]>();
+    for (const segment of ordered) {
+      const offset = segment.pauseOffsetMs ?? 0;
+      const bucket = byOffset.get(offset) ?? [];
+      bucket.push(segment);
+      byOffset.set(offset, bucket);
+    }
+    for (const [offset, segments] of byOffset) {
+      packed.push({
+        id: `${group.id}-${segments.map(segment => segment.id).join('-')}`,
+        x: pauseMarkerX({ chip, offsetMs: offset }),
+        segments,
+      });
+    }
+  }
+  return packed;
+}
+
+/**
+ * Split activity that crosses a chip point so the hatch owns that x-range alone.
+ * Pre stays before the chip; post starts at the chip point (shifted past by layout).
+ */
+function splitActivityAtChipStarts(
+  segment: SessionEventTimelineSegment,
+  chipStartsMs: readonly number[],
+): SessionEventTimelineSegment[] {
+  // Lifetime / pause geometry stays whole — only model/tool bars are exclusive of hatch.
+  if (segment.isPauseChip || segment.isPauseSpan || segment.isMarker || segment.type === 'sub_agent') {
+    return [segment];
+  }
+  let parts = [segment];
+  for (const chipStartMs of chipStartsMs) {
+    parts = parts.flatMap(part => {
+      if (!(part.startMs < chipStartMs && part.endMs > chipStartMs)) return [part];
+      return [
+        { ...part, endMs: chipStartMs, id: `${part.id}@pre:${chipStartMs}` },
+        { ...part, startMs: chipStartMs, id: `${part.id}@post:${chipStartMs}` },
+      ];
+    });
+  }
+  return parts;
+}
+
+/**
+ * After compression, pause chips are 0-width. Give each a fixed chart width
+ * (pauseChipMs ≈ 32px in time units) and push later work past them.
+ *
+ * Activity that would span a chip is split first so the hatch slot stays exclusive
+ * (no model/tool bar drawn through the paused region).
+ * Markers on the chip anchor stay put for packing.
+ */
+export function applyPauseChipLayout({
+  segments,
+  pauseChipMs,
+}: {
+  segments: SessionEventTimelineSegment[];
+  pauseChipMs: number;
+}): SessionEventTimelineSegment[] {
+  // Unique starts — concurrent sub-agent pauses share one chart gap, not N× width.
+  const chips = [...new Set(segments.filter(segment => segment.isPauseChip).map(segment => segment.startMs))].sort(
+    (left, right) => left - right,
+  );
+  if (chips.length === 0 || pauseChipMs <= 0) return segments;
+
+  const pauseTurnByStartMs = new Map(
+    segments.filter(segment => segment.isPauseChip).map(segment => [segment.startMs, segment.turnIndex] as const),
+  );
+
+  const splitSegments = segments.flatMap(segment => splitActivityAtChipStarts(segment, chips));
+
+  return splitSegments.map(segment => {
+    let startShift = 0;
+    let endShift = 0;
+    for (const chipStartMs of chips) {
+      if (segment.isPauseChip && segment.startMs === chipStartMs) continue;
+      // Keep pause-anchored diamonds on the chip; next-turn markers that share the
+      // compressed timestamp (cancelled-for-next-turn) must move past the hatch.
+      if (segment.isMarker && segment.startMs === chipStartMs) {
+        const pauseTurnIndex = pauseTurnByStartMs.get(chipStartMs);
+        const staysOnChip =
+          segment.pauseOffsetMs != null || (pauseTurnIndex != null && segment.turnIndex === pauseTurnIndex);
+        if (staysOnChip) continue;
+        startShift += pauseChipMs;
+        endShift += pauseChipMs;
+        continue;
+      }
+
+      // Wait span that touches this chip paints across the slot. A hidden
+      // compression chip must not leave a blank the span then starts after.
+      if (segment.isPauseSpan && segment.startMs <= chipStartMs && segment.endMs >= chipStartMs) {
+        endShift += pauseChipMs;
+        continue;
+      }
+
+      const startsAtOrAfterChip = segment.isMarker ? segment.startMs > chipStartMs : segment.startMs >= chipStartMs;
+      if (startsAtOrAfterChip) {
+        startShift += pauseChipMs;
+        endShift += pauseChipMs;
+      } else if (segment.endMs > chipStartMs) {
+        // Anything still overlapping — only the tail moves past.
+        endShift += pauseChipMs;
+      }
+    }
+    const startMs = segment.startMs + startShift;
+    if (segment.isPauseChip) {
+      return { ...segment, startMs, endMs: startMs + pauseChipMs };
+    }
+    return { ...segment, startMs, endMs: segment.endMs + endShift };
+  });
+}
+
+/** Generate clean active-time ticks, translated around fixed visual separators. */
 export function buildTimelineAxisTicks({
   activeTotalMs,
   turnStartsMs,
   turnGapMs,
+  visualGaps,
   chartWidthPx,
 }: {
   activeTotalMs: number;
-  turnStartsMs: number[];
-  turnGapMs: number;
+  turnStartsMs?: number[];
+  turnGapMs?: number;
+  visualGaps?: readonly TimelineVisualGap[];
   chartWidthPx?: number;
 }): Array<{ value: number }> {
+  const gaps = visualGaps ?? (turnStartsMs ?? []).slice(1).map(atActiveMs => ({ atActiveMs, gapMs: turnGapMs ?? 0 }));
   const stepMs = getCleanAxisStepMs({ totalMs: activeTotalMs, tickTarget: getTimelineAxisTickTarget(chartWidthPx) });
   const activeTicks: number[] = [];
   for (let activeMs = 0; activeMs < activeTotalMs; activeMs += stepMs) activeTicks.push(activeMs);
@@ -239,8 +515,56 @@ export function buildTimelineAxisTicks({
   }
   if (activeTicks.at(-1) !== activeTotalMs) activeTicks.push(activeTotalMs);
   return activeTicks.map(activeMs => ({
-    value: activeMs + turnStartsMs.slice(1).filter(turnStartMs => turnStartMs <= activeMs).length * turnGapMs,
+    value: activeMs + visualGapShiftMs(activeMs, gaps),
   }));
+}
+
+/**
+ * Cumulative turn-separator shift per turnIndex.
+ * Skips a separator when a pause chip already sits on that boundary — common when
+ * a turn stays paused for days then is cancelled-for-next-turn (pause end ≡ next start).
+ */
+export function getTurnGapShiftsMs({
+  turnRanges,
+  pauseChipStartsMs,
+  turnGapMs,
+}: {
+  turnRanges: readonly TimelineTurnRange[];
+  pauseChipStartsMs: readonly number[];
+  turnGapMs: number;
+}): Map<number, number> {
+  const ordered = [...turnRanges].sort((left, right) => left.ordinal - right.ordinal);
+  const shifts = new Map<number, number>();
+  let cumulative = 0;
+  for (let index = 0; index < ordered.length; index += 1) {
+    const range = ordered[index];
+    if (range == null) continue;
+    shifts.set(range.turnIndex, cumulative);
+    const next = ordered[index + 1];
+    if (next == null || turnGapMs <= 0) continue;
+    const pauseSeparates = pauseChipStartsMs.some(startMs => Math.abs(startMs - next.startMs) <= 1);
+    if (!pauseSeparates) cumulative += turnGapMs;
+  }
+  return shifts;
+}
+
+/** Active-time anchors where a turn separator should be drawn (excludes pause-chip boundaries). */
+export function getTurnGapAnchorMs({
+  turnRanges,
+  pauseChipStartsMs,
+}: {
+  turnRanges: readonly TimelineTurnRange[];
+  pauseChipStartsMs: readonly number[];
+}): number[] {
+  const ordered = [...turnRanges].sort((left, right) => left.ordinal - right.ordinal);
+  const anchors: number[] = [];
+  for (let index = 1; index < ordered.length; index += 1) {
+    const startMs = ordered[index]?.startMs;
+    if (startMs == null) continue;
+    if (pauseChipStartsMs.some(pauseStartMs => Math.abs(pauseStartMs - startMs) <= 1)) continue;
+    anchors.push(startMs);
+  }
+  return anchors;
 }
 
 /**
@@ -275,27 +599,33 @@ export function getTimelineLayout(segments: SessionEventTimelineSegment[]): Time
   };
 }
 
-/** Touching endpoints do not overlap, allowing adjacent bars to share a row. */
-function segmentsOverlap(left: SessionEventTimelineSegment, right: SessionEventTimelineSegment): boolean {
-  return left.startMs < right.endMs && right.startMs < left.endMs;
-}
-
-/** Merge transitively overlapping sub-agent runs into summary bars for the main event row. */
+/**
+ * One main-row summary bar per turn: earliest sub start → latest sub end.
+ * Gaps from pause chips / staggered finishes stay filled so the track reads continuous.
+ */
 export function mergeOverlappingSubAgentSegments(
   segments: SessionEventTimelineSegment[],
 ): SessionEventTimelineSegment[] {
-  const merged: SessionEventTimelineSegment[] = [];
-  for (const segment of [...segments].sort(
-    (left, right) => left.turnIndex - right.turnIndex || left.startMs - right.startMs || left.endMs - right.endMs,
-  )) {
-    const current = merged.at(-1);
-    if (current == null || current.turnIndex !== segment.turnIndex || !segmentsOverlap(current, segment)) {
-      merged.push({ ...segment });
-      continue;
-    }
-    current.endMs = Math.max(current.endMs, segment.endMs);
+  const byTurn = new Map<number, SessionEventTimelineSegment[]>();
+  for (const segment of segments) {
+    const list = byTurn.get(segment.turnIndex) ?? [];
+    list.push(segment);
+    byTurn.set(segment.turnIndex, list);
   }
-  return merged;
+
+  return [...byTurn.entries()]
+    .sort((left, right) => left[0] - right[0])
+    .flatMap(([turnIndex, list]) => {
+      const first = list[0];
+      if (first == null) return [];
+      let startMs = first.startMs;
+      let endMs = first.endMs;
+      for (const segment of list) {
+        startMs = Math.min(startMs, segment.startMs);
+        endMs = Math.max(endMs, segment.endMs);
+      }
+      return [{ ...first, turnIndex, startMs, endMs }];
+    });
 }
 
 /**
@@ -342,9 +672,8 @@ export function getSubAgentHoverGroups({
     barId: bar.id,
     startMs: bar.startMs,
     endMs: bar.endMs,
-    segments: subAgentSegments.filter(
-      segment => segment.turnIndex === bar.turnIndex && (segment.id === bar.id || segmentsOverlap(bar, segment)),
-    ),
+    // Union bar covers the whole turn wave — list every sub in that turn.
+    segments: subAgentSegments.filter(segment => segment.turnIndex === bar.turnIndex),
   }));
 }
 
@@ -389,6 +718,74 @@ export function getSubAgentLanes({
     track,
     segments: childrenByThreadId.get(track.threadId) ?? [],
   }));
+}
+
+/**
+ * Shrink long human pauses inside a turn so active work stays readable.
+ *
+ * Without this, a 10-minute wait would squash a 2-second model bar to a sliver.
+ * We collapse each pause to a point (keep wallDurationMs), pull later same-turn
+ * work left, then the chart re-expands the chip to ~32px.
+ *
+ * Example: [model 0–2s][pause 2–182s][tool 182–185s]
+ *       → [model 0–2s][pause@2s][tool 2–5s]
+ */
+export function compressIntraTurnPauses(segments: SessionEventTimelineSegment[]): SessionEventTimelineSegment[] {
+  // Per-sub-agent chips share one wall wait — merge overlapping intervals so we
+  // don’t subtract the same pause N times.
+  const rawPauses = segments
+    .filter(segment => segment.isPauseChip)
+    .map(segment => ({
+      turnIndex: segment.turnIndex,
+      startMs: segment.startMs,
+      endMs: Math.max(segment.endMs, segment.startMs),
+      wallDurationMs: segment.wallDurationMs ?? Math.max(0, segment.endMs - segment.startMs),
+    }))
+    .filter(pause => pause.wallDurationMs > 0)
+    .sort(
+      (left, right) => left.turnIndex - right.turnIndex || left.startMs - right.startMs || left.endMs - right.endMs,
+    );
+  const pauses: typeof rawPauses = [];
+  for (const pause of rawPauses) {
+    const previous = pauses.at(-1);
+    if (previous != null && previous.turnIndex === pause.turnIndex && pause.startMs <= previous.endMs) {
+      previous.endMs = Math.max(previous.endMs, pause.endMs);
+      previous.wallDurationMs = previous.endMs - previous.startMs;
+      continue;
+    }
+    pauses.push({ ...pause });
+  }
+
+  if (pauses.length === 0) return segments;
+
+  return segments.map(segment => {
+    const relevant = pauses.filter(pause => pause.turnIndex === segment.turnIndex);
+    if (relevant.length === 0) return segment;
+
+    let startShift = 0;
+    let endShift = 0;
+    for (const pause of relevant) {
+      if (segment.startMs >= pause.endMs) startShift += pause.wallDurationMs;
+      else if (segment.startMs > pause.startMs) startShift += segment.startMs - pause.startMs;
+      if (segment.endMs >= pause.endMs) endShift += pause.wallDurationMs;
+      else if (segment.endMs > pause.startMs) endShift += segment.endMs - pause.startMs;
+    }
+
+    const startMs = Math.max(0, segment.startMs - startShift);
+    if (segment.isPauseChip) {
+      return {
+        ...segment,
+        startMs,
+        endMs: startMs,
+        wallDurationMs: segment.wallDurationMs ?? Math.max(0, segment.endMs - segment.startMs),
+      };
+    }
+    return {
+      ...segment,
+      startMs,
+      endMs: Math.max(startMs, segment.endMs - endShift),
+    };
+  });
 }
 
 /**
@@ -440,4 +837,41 @@ export function getActiveTimelineMs(valueMs: number, gaps: TimelineGap[]): numbe
     activeMs -= Math.max(0, Math.min(valueMs, gap.endMs) - gap.startMs);
   }
   return Math.max(0, activeMs);
+}
+
+/**
+ * Chart x → real elapsed wall time (for axis labels like “3m 40s”).
+ *
+ * Active work maps 1:1. Hovering mid-chip interpolates that pause’s wall wait
+ * (left edge = start of pause, right edge = full wait). Turn gaps add 0 wall time.
+ *
+ * Example: 2s work + 32px chip for a 3m pause + 1s work → right edge of chip ≈ 3m 2s.
+ */
+export function getWallTimelineMs({
+  valueMs,
+  visualGaps,
+}: {
+  valueMs: number;
+  visualGaps: readonly TimelineVisualGap[];
+}): number {
+  const ordered = [...visualGaps].sort((left, right) => left.atActiveMs - right.atActiveMs);
+  const chartGaps = buildTimelineGaps(ordered);
+  const activeMs = getActiveTimelineMs(valueMs, chartGaps);
+  let wallMs = activeMs;
+  for (let index = 0; index < ordered.length; index += 1) {
+    const gap = ordered[index];
+    const chart = chartGaps[index];
+    const wallDurationMs = gap?.wallDurationMs ?? 0;
+    if (gap == null || chart == null || wallDurationMs <= 0) continue;
+    if (valueMs >= chart.endMs) {
+      wallMs += wallDurationMs;
+      continue;
+    }
+    if (valueMs > chart.startMs) {
+      const span = chart.endMs - chart.startMs;
+      const ratio = span > 0 ? (valueMs - chart.startMs) / span : 0;
+      wallMs += ratio * wallDurationMs;
+    }
+  }
+  return Math.max(0, wallMs);
 }

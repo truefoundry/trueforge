@@ -31,6 +31,7 @@ export function sessionToThreadMetadata(session: Session, title: string | undefi
     custom: {
       isMutable: session.isMutable,
       ...(session.agentName != null ? { agentName: session.agentName } : {}),
+      ...(session.lastTurnDetails != null ? { lastTurnStatus: session.lastTurnDetails.state.status } : {}),
     },
   };
 }

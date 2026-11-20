@@ -64,6 +64,7 @@ export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
       tab: null,
       view: null,
       timeRange: null,
+      createdByMe: null,
     });
     shell.closeLibraryAgent();
   }, [shell, updateShareSearch]);
@@ -182,6 +183,7 @@ export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
               tab,
               view: null,
               timeRange: null,
+              createdByMe: null,
               ...(tab === 'sessions' ? {} : { sessionId: null }),
             });
           }}

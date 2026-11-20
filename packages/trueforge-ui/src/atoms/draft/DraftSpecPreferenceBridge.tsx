@@ -5,7 +5,9 @@ import { useEffect, useRef } from 'react';
 
 import {
   type DraftPreferenceKind,
+  persistedMemoryEnabled,
   persistedWebSearchEnabled,
+  recoverMemoryAfterCapabilityAvailable,
   recoverWebSearchAfterCapabilityAvailable,
   withCapabilitiesSandbox,
   withCapabilitiesWebSearch,
@@ -176,6 +178,38 @@ export function reconcileDraftWebSearch({
 }
 
 /**
+ * Available → default on when absent; an explicit toggle is kept, and an off left over from an
+ * outage is recovered (see `recoverMemoryAfterCapabilityAvailable`). Unavailable memory that is on
+ * is cleared so save can't 422 while the Memory row is hidden.
+ */
+export function reconcileDraftMemory({
+  agentSpec,
+  memoryEnabled,
+  previousMemoryEnabled,
+  explicitOff = false,
+}: {
+  agentSpec: AgentSpec;
+  memoryEnabled: boolean | null | undefined;
+  previousMemoryEnabled?: boolean | null | undefined;
+  explicitOff?: boolean;
+}): Partial<AgentSpec> {
+  const spec = recoverMemoryAfterCapabilityAvailable({
+    spec: agentSpec,
+    previousMemoryEnabled,
+    memoryEnabled,
+    explicitOff,
+  });
+  if (memoryEnabled === false && spec.config?.memory?.enabled === true) {
+    const { memory: _memory, ...config } = spec.config;
+    return { config };
+  }
+  if (memoryEnabled === true && spec.config?.memory === undefined) {
+    return { config: { ...spec.config, memory: { enabled: true } } };
+  }
+  return spec === agentSpec ? {} : { config: spec.config };
+}
+
+/**
  * Mirrors plain-draft composer choices into the shell seed and removes catalog
  * entries that disappeared since those choices were stored.
  * New Chat and New Agent keep separate seeds; chat persists web-search only
@@ -183,19 +217,26 @@ export function reconcileDraftWebSearch({
  */
 export function DraftSpecPreferenceBridge() {
   const { mode, pendingSessionId, rememberDraftSpec } = useShellMode();
-  const { agentSpec, isSpecLoading } = useTrueForgeAgentSpec();
+  const { agentSpec, draftSessionId, isSpecLoading } = useTrueForgeAgentSpec();
   const updateAgentSpec = useTrueForgeUpdateAgentSpec();
   const capabilities = useServerCapabilities();
   const sandboxEnabled = capabilities?.sandbox.enabled;
   const webSearchEnabled = capabilities?.webSearch?.enabled;
+  // Capabilities omit memory when no provider is configured, which means unavailable.
+  const memoryEnabled = capabilities == null ? undefined : (capabilities.memory?.enabled ?? false);
   const prevWebSearchEnabledRef = useRef(webSearchEnabled);
+  const prevMemoryEnabledRef = useRef(memoryEnabled);
   const { models, skills, connectors, loaded, error, ensureLoaded } = useDraftCatalog();
   const isMutableDraft = mode.status === 'active' && mode.isMutable && pendingSessionId == null;
-  const isPlainDraft = isMutableDraft && mode.agentId == null;
+  const boundAgentId = mode.status === 'active' ? mode.agentId : undefined;
+  const isPlainDraft = isMutableDraft && boundAgentId == null;
   // While a history session's stored spec is loading, agentSpec is still the New Chat
   // seed — do not reconcile/PATCH that seed onto the resumed session.
   const canReconcileLiveSpec = !isSpecLoading;
   const preferenceKind = mode.status === 'active' && mode.isMutable && mode.isCreateAgent ? 'agent' : 'chat';
+  // An existing chat or a saved agent keeps the web search it was stored with, matching
+  // the server: the tenant switch gates turning web search on, not keeping it on.
+  const editsStoredSpec = preferenceKind === 'chat' ? draftSessionId != null : boundAgentId != null;
   useEffect(() => {
     if (isPlainDraft) ensureLoaded();
   }, [ensureLoaded, isPlainDraft]);
@@ -216,12 +257,47 @@ export function DraftSpecPreferenceBridge() {
   }, [agentSpec, canReconcileLiveSpec, isPlainDraft, preferenceKind, sandboxEnabled, updateAgentSpec]);
 
   useEffect(() => {
-    // Apply to New Chat / New Agent / edit-existing mutable drafts.
+    const previousMemoryEnabled = prevMemoryEnabledRef.current;
+    prevMemoryEnabledRef.current = memoryEnabled;
+    // New Agent drafts only: New Chat does not use the agent memory setting.
+    if (
+      !isMutableDraft ||
+      preferenceKind !== 'agent' ||
+      editsStoredSpec ||
+      !canReconcileLiveSpec ||
+      agentSpec == null ||
+      updateAgentSpec == null
+    ) {
+      return;
+    }
+    const update = reconcileDraftMemory({
+      agentSpec,
+      memoryEnabled,
+      previousMemoryEnabled,
+      explicitOff: persistedMemoryEnabled() === false,
+    });
+    if (Object.keys(update).length > 0) {
+      updateAgentSpec(update);
+    }
+  }, [
+    agentSpec,
+    canReconcileLiveSpec,
+    editsStoredSpec,
+    isMutableDraft,
+    memoryEnabled,
+    preferenceKind,
+    updateAgentSpec,
+  ]);
+
+  useEffect(() => {
+    // Apply to New Chat / New Agent drafts, never to a spec that is already stored.
     // Available → default on when absent; unavailable → force off. Explicit toggles are preserved.
     // Force-off recovery is only for plain drafts, and only when no choice was stored.
     const previousWebSearchEnabled = prevWebSearchEnabledRef.current;
     prevWebSearchEnabledRef.current = webSearchEnabled;
-    if (!isMutableDraft || !canReconcileLiveSpec || agentSpec == null || updateAgentSpec == null) return;
+    if (!isMutableDraft || editsStoredSpec || !canReconcileLiveSpec || agentSpec == null || updateAgentSpec == null) {
+      return;
+    }
     const update = reconcileDraftWebSearch({
       agentSpec,
       webSearchEnabled,
@@ -235,6 +311,7 @@ export function DraftSpecPreferenceBridge() {
   }, [
     agentSpec,
     canReconcileLiveSpec,
+    editsStoredSpec,
     isMutableDraft,
     isPlainDraft,
     preferenceKind,

@@ -5,12 +5,13 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
+from .session_sharing_capability_granularity import SessionSharingCapabilityGranularity
 
 
 class SessionSharingCapability(UncheckedBaseModel):
-    enabled: bool = pydantic.Field()
+    granularity: SessionSharingCapabilityGranularity = pydantic.Field()
     """
-    Whether sessions can be shared with specific users. Sharing with the whole tenant is always available.
+    The finest supported sharing scope. Subject allows sharing with specific users; tenant-wide sharing is always available.
     """
 
     if IS_PYDANTIC_V2:

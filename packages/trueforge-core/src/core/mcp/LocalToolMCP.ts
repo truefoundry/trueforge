@@ -1,6 +1,6 @@
 import type { CallToolRequest, ListToolsResult } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
-import type { ApprovalDecision, ToolApprovalPolicyAction } from '../events/schema';
+import type { ApprovalDecision, ToolApprovalPolicy } from '../events/schema';
 import type { InternalToolCallInfo } from '../llm/LLMTypes';
 import { type McpServerClass, observeMcpOperation } from '../observability/operationMetrics';
 import type { AgentTracing } from '../tracing/AgentTracing';
@@ -58,6 +58,7 @@ export function defineTool<T extends z.ZodType>(config: {
  * approval-gated), executed in-process within a local trace span. Base for all local/client-side tools.
  */
 export abstract class LocalToolMCP implements IToolSet {
+  readonly supportsApprovals = false;
   abstract readonly name: string;
   abstract readonly displayName: string;
   readonly description: string = '';
@@ -132,13 +133,19 @@ export abstract class LocalToolMCP implements IToolSet {
   }
 
   // System tool sets are never approval-gated, so policies are a no-op here.
-  setApprovalPolicy(_toolName: string, _action: ToolApprovalPolicyAction): void {
+  setApprovalPolicy(_toolName: string, _policy: ToolApprovalPolicy): void {
     void _toolName;
-    void _action;
+    void _policy;
   }
 
-  getApprovalPolicies(): Record<string, ToolApprovalPolicyAction> {
+  getApprovalPolicies(): Record<string, ToolApprovalPolicy> {
     return {};
+  }
+
+  // System tool sets are never approval-gated, so no policy ever applies.
+  hasApplicableApprovalPolicy(_toolName: string): boolean {
+    void _toolName;
+    return false;
   }
 
   // Local tools are not approval gated by default.

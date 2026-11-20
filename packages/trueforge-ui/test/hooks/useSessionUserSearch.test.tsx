@@ -55,6 +55,22 @@ describe('useSessionUserSearch', () => {
     expect(result.current.users).toEqual([]);
   });
 
+  it('sets loading true in the same update as a non-empty query', () => {
+    searchUsers.mockResolvedValue({ data: [alice] });
+    const loadings: boolean[] = [];
+    const { result } = renderHook(() => {
+      const search = useSessionUserSearch({ enabled: true });
+      loadings.push(search.loading);
+      return search;
+    });
+    loadings.length = 0;
+
+    act(() => result.current.setQuery('a'));
+
+    expect(loadings.length).toBeGreaterThan(0);
+    expect(loadings.every(value => value)).toBe(true);
+  });
+
   it('appends the next page without duplicating users', async () => {
     searchUsers
       .mockResolvedValueOnce({ data: [alice], nextPageToken: 'p2' })

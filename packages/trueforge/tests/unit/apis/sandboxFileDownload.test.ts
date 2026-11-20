@@ -1,10 +1,12 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import { AgentSpecSchema, Sessions } from '@truefoundry/trueforge-core/agent-session';
+import { RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
 import { createLogger } from 'winston';
 import { createTurnsRouter, toContentDisposition } from '../../../src/apis/turns';
 import { TrueForgeAuthorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
+import { EmptyCapabilitiesStore } from '../../../src/db/capabilitiesStore';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAccessControlStore } from '../../../src/db/sqlite/access-control-store/SqliteAccessControlStore';
@@ -40,27 +42,33 @@ async function buildApp() {
   app.route(
     '/',
     createTurnsRouter({
+      activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
+      authorizer: new TrueForgeAuthorizer(),
+      eventSubscriptions: new EventSubscriptionRegistry(undefined),
+      logger: createLogger({ silent: true }),
+      requestReplyRouter: new RequestReplyRouter(),
+      resolveAgentStore: () => new SqliteAgentStore(db),
+      resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+      resolveTurnExecutionStores: () =>
+        Promise.resolve({
+          agentStore: new SqliteAgentStore(db),
+          capabilitiesStore: new EmptyCapabilitiesStore(),
+          modelProviderStore: new SqliteModelProviderStore(db),
+          mcpServerStore: new McpServerWithAuthStore({
+            store: new SqliteMcpServerStore(db),
+            tokenStore,
+            clientName: 'test-client',
+          }),
+          skillStore: new SqliteSkillStore(db),
+          sandboxProviderStore: new SqliteSandboxProviderStore(db),
+          webSearchProviderStore: new SqliteWebSearchProviderStore(db),
+          memory: undefined,
+        }),
+      sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
+      sandboxProviderStore: new SqliteSandboxProviderStore(db),
       sessions,
       sessionStore,
       accessControlStore: new SqliteAccessControlStore(db),
-      activeTurns: new ActiveTurnRegistry(),
-      resolveModelProviderStore: () => new SqliteModelProviderStore(db),
-      resolveMcpServerStore: () =>
-        new McpServerWithAuthStore({
-          store: new SqliteMcpServerStore(db),
-          tokenStore,
-          clientName: 'test-client',
-        }),
-      resolveTurnSkillsStore: () => new SqliteSkillStore(db),
-      resolveCapabilitiesStore: () => ({ resolveCapabilities: () => [] }),
-      resolveAgentStore: () => new SqliteAgentStore(db),
-      eventSubscriptions: new EventSubscriptionRegistry(undefined),
-      resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
-      sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
-      resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
-      logger: createLogger({ silent: true }),
-      resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
-      authorizer: new TrueForgeAuthorizer(),
     }),
   );
 

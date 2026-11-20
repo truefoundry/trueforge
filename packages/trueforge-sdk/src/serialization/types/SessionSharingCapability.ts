@@ -3,16 +3,17 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
+import { SessionSharingCapabilityGranularity } from "./SessionSharingCapabilityGranularity.js";
 
 export const SessionSharingCapability: core.serialization.ObjectSchema<
     serializers.SessionSharingCapability.Raw,
     TrueForge.SessionSharingCapability
 > = core.serialization.object({
-    enabled: core.serialization.boolean(),
+    granularity: SessionSharingCapabilityGranularity,
 });
 
 export declare namespace SessionSharingCapability {
     export interface Raw {
-        enabled: boolean;
+        granularity: SessionSharingCapabilityGranularity.Raw;
     }
 }

@@ -37,6 +37,7 @@ export function SubAgentCard({
   className,
 }: SubAgentCardProps) {
   const Markdown = useSlot('Markdown');
+  const StepTreeItem = useSlot('StepTreeItem');
 
   const agentStatus: AgentStepStatus = status === 'running' ? 'running' : status === 'success' ? 'success' : 'error';
 
@@ -71,28 +72,36 @@ export function SubAgentCard({
         status={agentStatus}
         statusText={durationText}
         dataTestPrefix={dataTestPrefix}
-      >
-        {instructionContent != null && (
-          <div className="mb-3 flex flex-col gap-2 rounded-md border border-border p-2">
-            <h4 className="text-sm font-semibold text-text-primary">Instructions</h4>
+      />
+      {/* Instructions and nested steps render below the header (not in its indented body) so the tree line
+          starts under this card's chevron and runs past the Instructions card into the first step. */}
+      {expanded && (instructionContent != null || children != null) && (
+        <div className="flex min-w-0 flex-col">
+          {instructionContent != null && (
+            <StepTreeItem branch={false} continuesBelow={children != null}>
+              <div className="py-2">
+                <div className="flex flex-col gap-2 rounded-md border border-border p-2">
+                  <h4 className="text-sm font-semibold text-text-primary">Instructions</h4>
+                  <div
+                    className="text-sm text-text-secondary"
+                    data-testid={dataTestPrefix ? `${dataTestPrefix}-instructions` : undefined}
+                  >
+                    {instructionContent}
+                  </div>
+                </div>
+              </div>
+            </StepTreeItem>
+          )}
+          {children != null && (
             <div
-              className="text-sm text-text-secondary"
-              data-testid={dataTestPrefix ? `${dataTestPrefix}-instructions` : undefined}
+              className={cn('flex min-w-0 flex-col gap-3', instructionContent == null && 'mt-1')}
+              data-testid={dataTestPrefix ? `${dataTestPrefix}-nested-content` : undefined}
             >
-              {instructionContent}
+              {children}
             </div>
-          </div>
-        )}
-
-        {children != null && (
-          <div
-            className="flex min-w-0 flex-col gap-3"
-            data-testid={dataTestPrefix ? `${dataTestPrefix}-nested-content` : undefined}
-          >
-            {children}
-          </div>
-        )}
-      </AgentStepRow>
+          )}
+        </div>
+      )}
     </div>
   );
 }

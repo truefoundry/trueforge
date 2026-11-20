@@ -13,8 +13,9 @@ composer renders an auth prompt listing the servers involved.
 
 This flow is deliberately simple. Clicking Connect opens the server's `authUrl` in a **new
 tab** — no popup channel, no callback plumbing on your side. The user authorizes there, returns
-to your app, and presses Continue, which resumes the paused turn. Nothing about this path
-requires a callback route.
+to your app, and presses Continue, which sends `user.mcp_auth_continue` to the paused turn so
+the server can re-check the sign-in and continue it. Nothing about this path requires a
+callback route. Call `useTrueForgeContinueMcpAuth()` to trigger the same step from your own UI.
 
 ```ts
 import { useComposerPauseView } from "@truefoundry/trueforge-ui";

@@ -28,11 +28,12 @@ export interface TrueForgeRuntimeExtras {
   pendingApprovals: PendingApproval[];
   pendingToolResponses: PendingToolResponse[];
   pendingMcpAuth: { mcpServers: McpAuthRequiredEvent['mcpServers'] } | null;
+  /** True when a turn is running that this server cannot stream to the client. */
   resumeUnavailable: boolean;
   sandboxId: string | undefined;
-  respondToToolApproval: (response: RespondToToolApprovalOptions) => void;
-  respondToToolResponse: (response: RespondToToolResponseOptions) => void;
-  resumeMcpAuth: () => Promise<void>;
+  respondToToolApproval: (response: RespondToToolApprovalOptions) => Promise<void>;
+  respondToToolResponse: (response: RespondToToolResponseOptions) => Promise<void>;
+  continueMcpAuth: () => Promise<void>;
   downloadSandboxFile: (req: { turnId: string; path: string }) => Promise<Blob>;
   cancel: () => Promise<void>;
   resetFromTurn: (turnId: string) => Promise<void>;

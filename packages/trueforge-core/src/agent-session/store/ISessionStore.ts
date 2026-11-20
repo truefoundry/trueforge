@@ -1,18 +1,19 @@
 import type { JsonValue } from '../../core/capabilities/AgentCapability';
-import type { MCPServerInitInfo, ThreadOverwriteContextEvent } from '../../core/events/schema';
+import type { MCPServerInitInfo, ThreadOverwriteContextEvent, TurnUserEvent } from '../../core/events/schema';
 import type { AgentThreadSnapshot, ContextMessage, SubAgentCompletion } from '../../core/runtime/AgentThread.types';
 import type { CurrentContextUsage } from '../../core/runtime/contextUsage';
+import type { AgentThreadMetrics } from '../../core/runtime/metrics';
 import type { SandboxInfo } from '../../core/sandbox/Sandbox';
 import type { SessionRecord } from '../models/SessionRecord';
 import type { TurnRecord } from '../models/TurnRecord';
-import type { PersistedTurnEvent, SessionEventItem, TurnUpdateEvent } from '../schemas/events';
+import type { PersistedTurnEvent, SessionEventItem, TurnDoneEvent, TurnUpdateEvent } from '../schemas/events';
 import type { TokenPagination } from '../schemas/pagination';
 import type { SessionMetadata } from '../schemas/session';
 import type {
   CancellationReason,
   NonTerminalTurnState,
   TerminalTurnState,
-  TurnInboundEventItem,
+  TurnNonTerminalMetrics,
 } from '../schemas/turn';
 
 /**
@@ -42,6 +43,10 @@ export type UpdateSessionInput<TSessionCustom extends object = Record<string, ne
 
 export interface GetSessionInput {
   tenant_id: string;
+  session_id: string;
+}
+
+export interface GetSessionByIdInput {
   session_id: string;
 }
 
@@ -103,7 +108,7 @@ export type TurnRecordWithoutSnapshot<TTurnCustom extends object = Record<string
 /** Thread registration; mutable per-turn data arrives through dedicated createTurn fields. */
 export type NewThreadInit = Omit<
   AgentThreadSnapshot,
-  'context' | 'current_context_usage' | 'completion' | 'capability_state'
+  'context' | 'current_context_usage' | 'completion' | 'pending_mcp_auth' | 'capability_state'
 >;
 
 /** Full post-send capability map for one thread. */
@@ -138,13 +143,20 @@ export interface CreateTurnInput<TTurnCustom extends object = Record<string, nev
   update_session_title_if_not_exist: string | null;
 }
 
+export interface ClaimTurnExecutorInput {
+  session_id: string;
+  turn_id: string;
+  expected_executor_id: string;
+  new_executor_id: string;
+}
+
 export interface FreezeAndGetTurnInput {
   session_id: string;
   turn_id: string;
   /** Written onto the turn row when the freeze actually cancels a running turn. */
   reason: CancellationReason;
   /** Caller-built cancelled turn.done event; store persists atomically with state flip when it cancels. */
-  turn_done_event: PersistedTurnEvent;
+  turn_done_event: TurnDoneEvent;
 }
 
 export interface GetTurnInput {
@@ -158,89 +170,85 @@ export interface ListTurnsInput {
   page_token: string | undefined;
 }
 
-interface TurnStateUpdateKeys {
+interface TurnProgressKeys {
   session_id: string;
   turn_id: string;
+  /** Must still own the turn. A mismatch throws TurnOwnershipLostError. */
+  active_executor_id: string;
 }
 
-export interface UpdateTurnTerminalStateInput extends TurnStateUpdateKeys {
+export interface UpdateTurnTerminalStateInput extends TurnProgressKeys {
   state: TerminalTurnState;
   /** Caller-built turn.done; written atomically with the state flip. */
   turn_done_event: PersistedTurnEvent;
+  /** Metrics since the last checkpoint. Added to the turn checkpoint and to session cost. */
+  metrics: AgentThreadMetrics;
 }
 
-export interface UpdateTurnNonTerminalStateInput extends TurnStateUpdateKeys {
+export interface UpdateTurnNonTerminalStateInput extends TurnProgressKeys {
   state: NonTerminalTurnState;
   /** Caller-built turn.update; written atomically with the non-terminal state transition. */
   turn_update_event: TurnUpdateEvent;
+  /** Pause sends metrics since the last resume; the store adds them on. Resume only opens `running_since`. */
+  turn_metrics: TurnNonTerminalMetrics;
 }
 
-export interface AppendToEventsInput {
-  session_id: string;
-  turn_id: string;
+export interface AppendToEventsInput extends TurnProgressKeys {
   events: PersistedTurnEvent[];
 }
 
-export interface InsertTurnInboundEventsInput {
-  session_id: string;
-  /** Tip that receives this batch. One send = one tip; stamp every row with this id. */
-  turn_id: string;
-  /**
-   * Caller mints `event_id` (monotonic ULID) — same contract as session_event.
-   * Empty array is a no-op.
-   */
-  events: {
-    event_id: string;
-    payload: TurnInboundEventItem;
-    created_at: string;
-  }[];
+export interface InsertTurnInboundEventsInput extends TurnProgressKeys {
+  /** Empty array is a no-op. */
+  events: TurnUserEvent[];
 }
 
-export interface AddThreadsInput {
+export interface ListUnconsumedTurnInboundEventsInput {
   session_id: string;
   turn_id: string;
+}
+
+export interface MarkTurnInboundEventsConsumedInput {
+  session_id: string;
+  turn_id: string;
+  event_ids: string[];
+}
+
+export interface AddThreadsInput extends TurnProgressKeys {
   threads: AgentThreadSnapshot[];
 }
 
-export interface RemoveThreadsInput {
-  session_id: string;
-  turn_id: string;
+export interface RemoveThreadsInput extends TurnProgressKeys {
   thread_ids: string[];
 }
 
-export interface AppendToThreadContextInput {
-  session_id: string;
-  turn_id: string;
+export interface AppendToThreadContextInput extends TurnProgressKeys {
   thread_id: string;
   context: ContextMessage[];
   current_context_usage: CurrentContextUsage | null;
   completion: SubAgentCompletion | null;
 }
 
-export interface OverwriteThreadContextInput {
-  session_id: string;
-  turn_id: string;
+export interface OverwriteThreadContextInput extends TurnProgressKeys {
   event: ThreadOverwriteContextEvent;
 }
 
-export interface PatchMCPServersInput {
-  session_id: string;
-  turn_id: string;
+export interface PatchMCPServersInput extends TurnProgressKeys {
   mcp_servers: MCPServerInitInfo[];
 }
 
-export interface PatchSandboxInfoInput {
-  session_id: string;
-  turn_id: string;
+export interface PatchSandboxInfoInput extends TurnProgressKeys {
   sandbox_info: SandboxInfo;
 }
 
-export interface PatchThreadCapabilityStateInput {
-  session_id: string;
-  turn_id: string;
+export interface PatchThreadCapabilityStateInput extends TurnProgressKeys {
   thread_id: string;
   key: string;
   state: JsonValue;
+}
+
+export interface PatchThreadsMCPAuthInput extends TurnProgressKeys {
+  thread_ids: string[];
+  pending_mcp_auth: boolean;
 }
 
 export interface ListTurnEventsInput {
@@ -267,6 +275,7 @@ export interface ListSessionEventsInput {
  * as a discriminated `agent` (ref | value); named agents are not hydrated on read.
  */
 export interface ISessionStore<
+  TTransaction = never,
   TSessionCustom extends object = Record<string, never>,
   TTurnCustom extends object = Record<string, never>,
 > {
@@ -286,6 +295,8 @@ export interface ISessionStore<
    * Does **not** bump `last_activity_timestamp_ms` (read path).
    */
   getSession(input: GetSessionInput): Promise<SessionRecord<TSessionCustom> | undefined>;
+
+  getSessionById(input: GetSessionByIdInput): Promise<SessionRecord<TSessionCustom> | undefined>;
 
   /**
    * Session ids among `ids` owned by `subject_id`. Empty `ids` → `[]`.
@@ -355,10 +366,18 @@ export interface ISessionStore<
   createTurn(input: CreateTurnInput<TTurnCustom>): Promise<void>;
 
   /**
-   * Cancel a non-terminal turn (`running` or `paused`): persist `turn_done` and fold cost/duration into
-   * `session.metrics`. Already-terminal turns are a read. Missing → {@link TurnNotFoundError}.
+   * Cancel a non-terminal turn (`running` or `paused`): persist `turn_done` and fold the open
+   * running interval into `session.metrics`. A paused freeze adds no cost or duration.
+   * Already-terminal turns are a read. Missing → TurnNotFoundError.
    */
   freezeAndGetTurn(input: FreezeAndGetTurnInput): Promise<TurnRecord<TTurnCustom>>;
+
+  /**
+   * Claims a paused turn when `expected_executor_id` still owns it.
+   * One conditional update. Returns whether this caller won.
+   * A running, terminal, missing, or differently owned turn is a loss.
+   */
+  claimTurnExecutor(input: ClaimTurnExecutorInput): Promise<boolean>;
 
   /** Returns the turn record, or undefined if not found in this session. */
   getTurn(input: GetTurnInput): Promise<TurnRecord<TTurnCustom> | undefined>;
@@ -368,14 +387,24 @@ export interface ISessionStore<
     input: ListTurnsInput,
   ): Promise<{ data: TurnRecordWithoutSnapshot<TTurnCustom>[]; pagination: TokenPagination }>;
 
-  /** Atomically performs `running ↔ paused` and appends turn.update. */
+  /**
+   * Atomically performs `running ↔ paused` and appends turn.update.
+   * Pause adds the cost since the last resume and the closed running interval. Resume only sets `running_since`.
+   */
   updateTurnNonTerminalState(input: UpdateTurnNonTerminalStateInput): Promise<void>;
 
   /**
    * First terminal write wins (`running|paused → done|cancelled|error`) and
-   * atomically appends turn.done and folds cost/duration into session metrics.
+   * atomically appends turn.done. Duration is the open running interval.
+   * Cost is the cost since the last checkpoint.
    */
   updateTurnTerminalState(input: UpdateTurnTerminalStateInput): Promise<void>;
+
+  /**
+   * Supplies the backend transaction handle. Database backends commit the callback's
+   * writes together and roll them back when the callback throws.
+   */
+  withTransaction<T>(callback: (transaction: TTransaction) => Promise<T>): Promise<T>;
 
   /**
    * Durable event log for the turn. MUST include lifecycle rows: a
@@ -386,37 +415,58 @@ export interface ISessionStore<
    * `created_at`; `id` is a monotonic ULID and is the primary within-turn sort
    * key. `created_at` records event creation time but is not the order key.
    */
-  appendToEvents(input: AppendToEventsInput): Promise<void>;
+  /** Appends events while the caller owns a `running` or `paused` turn; terminal turns are immutable. */
+  appendToEvents(input: AppendToEventsInput, transaction?: TTransaction): Promise<void>;
 
   /**
-   * Durable inbound send-event inbox for a tip. Tip must be non-terminal
-   * (v1: `running`; `paused` when that status lands) — terminal tip →
-   * {@link TurnNotRunningError}. Missing session → {@link SessionNotFoundError};
+   * Durable inbound send-event inbox for a tip the caller still owns. Tip must be
+   * non-terminal (`running` or `paused`) — terminal tip →
+   * {@link TurnNotRunningError}. A different `active_executor_id` →
+   * {@link TurnOwnershipLostError}. Missing session → {@link SessionNotFoundError};
    * unknown turn → {@link TurnNotFoundError}. Duplicate `event_id` on that tip →
    * {@link TurnEventAlreadyExistsError}.
    */
   insertTurnInboundEvents(input: InsertTurnInboundEventsInput): Promise<void>;
 
+  /**
+   * Unconsumed inbox rows for a tip, ordered by `event_id` asc (accept order).
+   * Tip must be non-terminal (`running` or `paused`) — terminal tip →
+   * {@link TurnNotRunningError}. Missing session → {@link SessionNotFoundError};
+   * unknown turn → {@link TurnNotFoundError}.
+   */
+  listUnconsumedTurnInboundEvents(input: ListUnconsumedTurnInboundEventsInput): Promise<TurnUserEvent[]>;
+
+  /**
+   * Marks inbox rows consumed. Tip must be non-terminal — terminal tip →
+   * {@link TurnNotRunningError}. Empty `event_ids` is a no-op. Already-consumed
+   * ids are idempotent. Unknown `event_id` on that tip →
+   * {@link SessionStoreInvariantError} with no rows left consumed from the batch.
+   */
+  markTurnInboundEventsConsumed(input: MarkTurnInboundEventsConsumedInput, transaction?: TTransaction): Promise<void>;
+
   /** Adds thread snapshots to the turn (sub-agent spawns). */
-  addThreads(input: AddThreadsInput): Promise<void>;
+  addThreads(input: AddThreadsInput, transaction?: TTransaction): Promise<void>;
 
   /** Removes threads from the turn by id. */
-  removeThreads(input: RemoveThreadsInput): Promise<void>;
+  removeThreads(input: RemoveThreadsInput, transaction?: TTransaction): Promise<void>;
 
-  /** Appends messages to a thread's context; optionally updates usage / completion marker. */
-  appendToThreadContext(input: AppendToThreadContextInput): Promise<void>;
+  /** Appends messages while the turn is non-terminal; optionally updates usage / completion marker. */
+  appendToThreadContext(input: AppendToThreadContextInput, transaction?: TTransaction): Promise<void>;
 
-  /** Replaces a thread's context wholesale (context-overwrite event). */
+  /** Replaces a thread's context wholesale while the turn is non-terminal. */
   overwriteThreadContext(input: OverwriteThreadContextInput): Promise<void>;
 
-  /** Patches the turn snapshot's MCP server init info (by source id). */
-  patchMCPServers(input: PatchMCPServersInput): Promise<void>;
+  /** Patches a non-terminal turn's MCP server init info (by source id). */
+  patchMCPServers(input: PatchMCPServersInput, transaction?: TTransaction): Promise<void>;
 
   /** Patches the turn snapshot's sandbox info (id for cross-turn reattach). */
-  patchSandboxInfo(input: PatchSandboxInfoInput): Promise<void>;
+  patchSandboxInfo(input: PatchSandboxInfoInput, transaction?: TTransaction): Promise<void>;
 
   /** Generic capability KV — store has zero Plan/feature knowledge. */
   patchThreadCapabilityState(input: PatchThreadCapabilityStateInput): Promise<void>;
+
+  /** Patches the MCP-auth wait state of the supplied threads. Must still own the turn. */
+  patchThreadsMCPAuth(input: PatchThreadsMCPAuthInput, transaction?: TTransaction): Promise<void>;
 
   /** Paginated read ordered lexically by monotonic `event.id` (asc default). */
   listTurnEvents(input: ListTurnEventsInput): Promise<{

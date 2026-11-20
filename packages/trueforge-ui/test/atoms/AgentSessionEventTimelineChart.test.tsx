@@ -142,7 +142,12 @@ describe('AgentSessionEventTimelineChart', () => {
 
     const native = new MouseEvent('mousemove', { clientX: 320 });
     Object.defineProperty(native, 'target', { value: canvas });
-    act(() => onHover({ native }, [{ datasetIndex: 0 }]));
+    const chartStub = {
+      canvas,
+      getDatasetMeta: () => ({ data: [{ y: 10 }] }),
+      data: { datasets: [{ order: 1 }] },
+    };
+    act(() => onHover({ native }, [{ datasetIndex: 0 }], chartStub));
 
     expect(await screen.findByRole('tooltip')).toHaveStyle({ left: '320px', top: '126px' });
 
@@ -260,6 +265,105 @@ describe('AgentSessionEventTimelineChart', () => {
     }
   });
 
+  it('doubles the minimum turn bar width once a session passes 100 turns', async () => {
+    const clientWidth = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(400);
+    const widthFor = async (turnCount: number): Promise<number> => {
+      const { container, unmount } = render(
+        <AgentSessionEventTimelineChart
+          turns={turns}
+          segments={Array.from({ length: turnCount }, (_, turnIndex) => ({
+            id: `turn-${turnIndex}-model`,
+            type: 'model' as const,
+            title: 'model.message',
+            description: 'response',
+            startMs: turnIndex * 1_000,
+            endMs: turnIndex * 1_000 + 1_000,
+            turnIndex,
+            threadId: 'main',
+          }))}
+          hiddenTypes={new Set()}
+        />,
+      );
+      const wrapper = container.querySelector<HTMLElement>('[data-slot="agent-session-event-timeline-chart"]');
+      let pixels = 0;
+      await waitFor(() => {
+        pixels = Number(
+          /width:\s*(\d+(?:\.\d+)?)px/.exec(wrapper?.firstElementChild?.getAttribute('style') ?? '')?.[1],
+        );
+        expect(pixels).toBeGreaterThan(400);
+      });
+      unmount();
+      return pixels;
+    };
+
+    try {
+      // Each turn is padded to its minimum, so width tracks turnCount * minimum.
+      expect(await widthFor(100)).toBeLessThan(100 * 64);
+      expect(await widthFor(101)).toBeGreaterThan(101 * 64);
+    } finally {
+      clientWidth.mockRestore();
+    }
+  });
+
+  it('keeps a gap between turn bars after a pause chip', () => {
+    const clientWidth = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(400);
+    const paused: SessionEventTimelineSegment[] = [0, 1, 2].flatMap(turnIndex => {
+      const startMs = turnIndex * 1_000;
+      return [
+        {
+          id: `turn-${turnIndex}-model`,
+          type: 'model' as const,
+          title: 'model.message',
+          description: 'response',
+          startMs,
+          endMs: startMs + 1_000,
+          turnIndex,
+          threadId: 'main',
+        },
+        ...(turnIndex === 0
+          ? [
+              {
+                id: 'turn-0-pause',
+                type: 'waiting_on_human' as const,
+                title: 'turn.paused',
+                description: 'Paused',
+                startMs: 1_000,
+                endMs: 1_000,
+                turnIndex: 0,
+                threadId: 'main',
+                isPauseChip: true,
+                wallDurationMs: 180_000,
+              },
+            ]
+          : []),
+      ];
+    });
+
+    try {
+      render(<AgentSessionEventTimelineChart turns={turns} segments={paused} hiddenTypes={new Set()} />);
+      const datasets = Reflect.get(capturedData ?? {}, 'datasets');
+      if (!Array.isArray(datasets)) throw new Error('Expected chart datasets');
+      const ranges = datasets.flatMap(dataset => {
+        const label = Reflect.get(dataset, 'label');
+        if (typeof label !== 'string' || !label.startsWith('Turn ')) return [];
+        const data = Reflect.get(dataset, 'data');
+        const point = Array.isArray(data) ? data[0] : undefined;
+        const range = typeof point === 'object' && point != null ? Reflect.get(point, 'x') : undefined;
+        return Array.isArray(range) ? [[Number(range[0]), Number(range[1])] as const] : [];
+      });
+      expect(ranges).toHaveLength(3);
+      const first = ranges[0];
+      const second = ranges[1];
+      const third = ranges[2];
+      if (first == null || second == null || third == null) throw new Error('Expected a turn range');
+      // The chip replaces the gap. Only the 4px marker pad may cross into the next turn.
+      expect(first[1] - second[0]).toBeLessThan((second[1] - second[0]) / 8);
+      expect(third[0]).toBeGreaterThan(second[1]);
+    } finally {
+      clientWidth.mockRestore();
+    }
+  });
+
   it('keeps every turn within the drawn axis even when the gap floor forces extra room', () => {
     // 100px pane, 6 turns -> 5 gaps. Unclamped scale (100 - 5*12 - 12 = 28) is below the
     // half-pane floor (50), so the floor itself demands 22px more than the pane has.
@@ -343,7 +447,12 @@ describe('AgentSessionEventTimelineChart', () => {
 
     const onHover = Reflect.get(capturedOptions ?? {}, 'onHover');
     if (typeof onHover !== 'function') throw new Error('Expected Chart.js onHover callback');
-    act(() => onHover({ native: null }, [{ datasetIndex: groupedDatasetIndex }]));
+    const chartStub = {
+      canvas: document.createElement('canvas'),
+      getDatasetMeta: () => ({ data: [{ y: 40 }] }),
+      data: { datasets: Array.from({ length: groupedDatasetIndex + 1 }, () => ({ order: 1 })) },
+    };
+    act(() => onHover({ native: null }, [{ datasetIndex: groupedDatasetIndex }], chartStub));
 
     expect(await screen.findByText('Sub-Agent: Researcher')).toBeInTheDocument();
     expect(await screen.findByText('Tool calls')).toBeInTheDocument();
@@ -486,5 +595,136 @@ describe('AgentSessionEventTimelineChart', () => {
     expect(screen.getByText('Events')).toBeInTheDocument();
     expect(screen.getByText('Approval required')).toBeInTheDocument();
     expect(screen.getByText('MCP initialized')).toBeInTheDocument();
+  });
+});
+
+describe('AgentSessionEventTimelineChart pause chips', () => {
+  beforeEach(() => {
+    capturedData = undefined;
+    capturedOptions = undefined;
+  });
+
+  it('hides sub-agent markers and pause chips when Sub-agent is toggled off', () => {
+    const subThread = 'sub-agent-thread';
+    const withSub: SessionEventTimelineSegment[] = [
+      ...segments,
+      {
+        id: 'sub-agent',
+        type: 'sub_agent',
+        title: 'thread.created',
+        description: 'Worker',
+        startMs: 100,
+        endMs: 900,
+        turnIndex: 0,
+        threadId: subThread,
+      },
+      {
+        id: 'sub-approval',
+        type: 'approval',
+        title: 'tool.approval_required',
+        description: 'Approval required',
+        startMs: 400,
+        endMs: 400,
+        turnIndex: 0,
+        threadId: subThread,
+        isMarker: true,
+      },
+      {
+        id: 'sub-pause',
+        type: 'waiting_on_human',
+        title: 'turn.paused',
+        description: 'Paused',
+        startMs: 400,
+        endMs: 400,
+        turnIndex: 0,
+        threadId: subThread,
+        isPauseChip: true,
+        wallDurationMs: 5_000,
+      },
+    ];
+
+    const { rerender } = render(
+      <AgentSessionEventTimelineChart turns={turns} segments={withSub} hiddenTypes={new Set()} />,
+    );
+    let datasets = Reflect.get(capturedData ?? {}, 'datasets');
+    if (!Array.isArray(datasets)) throw new Error('Expected chart datasets');
+    const labelsOn = datasets.map(dataset => Reflect.get(dataset, 'label'));
+    expect(labelsOn).toContain('Paused');
+    expect(labelsOn).toContain('Sub-agent: thread.created');
+    expect(labelsOn.some(label => typeof label === 'string' && label.includes('Approval'))).toBe(true);
+
+    rerender(<AgentSessionEventTimelineChart turns={turns} segments={withSub} hiddenTypes={new Set(['sub_agent'])} />);
+    datasets = Reflect.get(capturedData ?? {}, 'datasets');
+    if (!Array.isArray(datasets)) throw new Error('Expected chart datasets');
+    expect(datasets.some(dataset => Reflect.get(dataset, 'label') === 'Paused')).toBe(false);
+    expect(datasets.some(dataset => Reflect.get(dataset, 'label') === 'Sub-agent: thread.created')).toBe(false);
+    expect(datasets.some(dataset => Reflect.get(dataset, 'label') === 'Approval / HITL')).toBe(false);
+  });
+
+  it('counts one shared pause in the sub-agent group duration', async () => {
+    const subAgentSegments: SessionEventTimelineSegment[] = [
+      ...segments,
+      {
+        id: 'sub-a',
+        type: 'sub_agent',
+        title: 'thread.created',
+        description: 'Agent A',
+        startMs: 100,
+        endMs: 900,
+        turnIndex: 0,
+        threadId: 'thread-a',
+      },
+      {
+        id: 'sub-b',
+        type: 'sub_agent',
+        title: 'thread.created',
+        description: 'Agent B',
+        startMs: 100,
+        endMs: 900,
+        turnIndex: 0,
+        threadId: 'thread-b',
+      },
+      {
+        id: 'pause-a',
+        type: 'waiting_on_human',
+        title: 'turn.paused',
+        description: 'Paused',
+        startMs: 500,
+        endMs: 500,
+        turnIndex: 0,
+        threadId: 'thread-a',
+        isPauseChip: true,
+        wallDurationMs: 5_000,
+      },
+      {
+        id: 'pause-b',
+        type: 'waiting_on_human',
+        title: 'turn.paused',
+        description: 'Paused',
+        startMs: 500,
+        endMs: 500,
+        turnIndex: 0,
+        threadId: 'thread-b',
+        isPauseChip: true,
+        wallDurationMs: 5_000,
+      },
+    ];
+    render(<AgentSessionEventTimelineChart turns={turns} segments={subAgentSegments} hiddenTypes={new Set()} />);
+    const datasets = Reflect.get(capturedData ?? {}, 'datasets');
+    if (!Array.isArray(datasets)) throw new Error('Expected chart datasets');
+    const subIndex = datasets.findIndex(dataset => Reflect.get(dataset, 'label') === 'Sub-agent: thread.created');
+    expect(subIndex).toBeGreaterThanOrEqual(0);
+    const onHover = Reflect.get(capturedOptions ?? {}, 'onHover');
+    if (typeof onHover !== 'function') throw new Error('Expected Chart.js onHover callback');
+    const chartStub = {
+      canvas: document.createElement('canvas'),
+      getDatasetMeta: () => ({ data: [{ y: 20 }] }),
+      data: { datasets: Array.from({ length: subIndex + 1 }, () => ({ order: 1 })) },
+    };
+    act(() => onHover({ native: null }, [{ datasetIndex: subIndex }], chartStub));
+    expect(await screen.findByText('Sub-agents')).toBeInTheDocument();
+    // 800ms of track plus one 5s pause, not 5s per lane.
+    expect(screen.getByText('5.8s')).toBeInTheDocument();
+    expect(screen.queryByText('10.8s')).not.toBeInTheDocument();
   });
 });

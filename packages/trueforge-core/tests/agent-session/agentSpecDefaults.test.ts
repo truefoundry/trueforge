@@ -11,6 +11,15 @@ describe('AgentSpec RuntimeConfig defaults', () => {
     expect(spec.config.context_management.compaction).toEqual({ enabled: true });
     expect(spec.config.context_management.large_tool_response.enabled).toBe(true);
     expect(spec.config.web_search).toEqual({ enabled: false });
+    expect(spec.config.memory).toEqual({ enabled: false });
+  });
+
+  it('accepts an explicit memory toggle', () => {
+    const spec = AgentSpecSchema.parse({
+      model: { name: 'provider/model' },
+      config: { memory: { enabled: true } },
+    });
+    expect(spec.config.memory).toEqual({ enabled: true });
   });
 
   it('accepts an explicit input-token compaction trigger', () => {

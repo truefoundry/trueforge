@@ -1,3 +1,17 @@
+## [0.185.0] - 2026-11-13
+
+## [0.185.0-rc.1] - 2026-11-11
+
+## [0.184.0] - 2026-11-05
+
+## [0.184.0-rc.1] - 2026-11-04
+
+## [0.183.0] - 2026-11-03
+
+## [0.183.0-rc.1] - 2026-11-02
+
+## [0.183.0-rc.0] - 2026-11-02
+
 ## [0.182.0] - 2026-10-30
 
 ## [0.182.0-rc.1] - 2026-10-29
@@ -29,6 +43,80 @@
 ## [0.2.1] - 2026-09-29
 
 ## [0.2.1-rc.0] - 2026-09-22
+
+## 0.185.0
+
+### Patch Changes
+
+- 5714397: Add a Memory toggle to the agent builder, shown once the tenant has a memory provider. In OSS, admins configure Zep in Settings → Memory (`/api/v1/settings/memory-providers`); in TrueFoundry mode it comes from `TRUEFOUNDRY_MEMORY_*` env. A tenant-wide memory switch, off by default, gates memory in chats, ingestion, and agent specs.
+- 475c0c2: Add POST `/api/internal/sessions/{session_id}/turns` (service API key): non-streaming body, getSessionById, requires external_id + non-null source (skips memory ingest), SessionSource `service` arm.
+- 1998de5: Turns now pause, instead of finishing, while waiting for user input such as tool approvals, questions, or MCP authentication. The same turn resumes once every required interaction is answered. Clients send those answers as events on the paused turn and can reconnect to its event stream at any point.
+  
+  - While a turn is paused, its cost and time so far stay visible. Time spent waiting on the user does not count. Cancelling a paused turn still shows its final cost and time.
+  - Conversations that were already waiting on the user stay waiting after upgrade, with the same cost, time, and status.
+  - The chat shows a waiting notice instead of a running indicator while a turn is paused or cannot continue.
+  - A conversation is saved to memory only after it finishes, not while it is waiting on the user.
+  - Creating a turn requires a user message. Omitting `input` or sending an empty message is rejected.
+  - Sending a new message while a sub-agent is waiting runs that message, instead of leaving the turn stuck.
+  - A conversation paused longer than the memory window is still saved once it finishes.
+  - An old `pause_timeout_ms` memory setting is ignored, instead of stopping startup.
+  
+  Breaking changes for package consumers:
+  
+  - `@truefoundry/trueforge-assistant-ui-runtime`: `useTrueForgeResumeMcpAuth` is renamed to `useTrueForgeContinueMcpAuth`, and `findCurrentPausedAssistantMessage` to `findPausedAssistantMessage`. `collectRequiredActionInputs`, `collectApprovalInputs`, `toTrueForgeApprovalInputs`, `collectResponseInputs`, and `TOOL_RESPONSE_THREAD_ID_CUSTOM_KEY` are removed; answer approvals and questions with `useTrueForgeRespondToToolApproval` and `useTrueForgeRespondToToolResponse` instead.
+  - Custom chat servers must implement `sendTurnEvents` to deliver answers to a paused turn. `CreateTurnRequest.input` is required.
+  - `@truefoundry/trueforge-ui`: `ToolApprovalContainer` takes `approvalId` and `onRespond` instead of `options` and `onSelectOption`.
+- 8ef66cc: Replace the session sharing capability's enabled flag with required tenant or subject granularity across the API and UI contracts, and use subject granularity to enable user invitations.
+
+## 0.185.0-rc.1
+
+### Patch Changes
+
+- 5714397: Add a Memory toggle to the agent builder, shown once the tenant has a memory provider. In OSS, admins configure Zep in Settings → Memory (`/api/v1/settings/memory-providers`); in TrueFoundry mode it comes from `TRUEFOUNDRY_MEMORY_*` env. A tenant-wide memory switch, off by default, gates memory in chats, ingestion, and agent specs.
+- 475c0c2: Add POST `/api/internal/sessions/{session_id}/turns` (service API key): non-streaming body, getSessionById, requires external_id + non-null source (skips memory ingest), SessionSource `service` arm.
+- 1998de5: Turns now pause, instead of finishing, while waiting for user input such as tool approvals, questions, or MCP authentication. The same turn resumes once every required interaction is answered. Clients send those answers as events on the paused turn and can reconnect to its event stream at any point.
+  
+  - While a turn is paused, its cost and time so far stay visible. Time spent waiting on the user does not count. Cancelling a paused turn still shows its final cost and time.
+  - Conversations that were already waiting on the user stay waiting after upgrade, with the same cost, time, and status.
+  - The chat shows a waiting notice instead of a running indicator while a turn is paused or cannot continue.
+  - A conversation is saved to memory only after it finishes, not while it is waiting on the user.
+  - Creating a turn requires a user message. Omitting `input` or sending an empty message is rejected.
+  - Sending a new message while a sub-agent is waiting runs that message, instead of leaving the turn stuck.
+  - A conversation paused longer than the memory window is still saved once it finishes.
+  - An old `pause_timeout_ms` memory setting is ignored, instead of stopping startup.
+  
+  Breaking changes for package consumers:
+  
+  - `@truefoundry/trueforge-assistant-ui-runtime`: `useTrueForgeResumeMcpAuth` is renamed to `useTrueForgeContinueMcpAuth`, and `findCurrentPausedAssistantMessage` to `findPausedAssistantMessage`. `collectRequiredActionInputs`, `collectApprovalInputs`, `toTrueForgeApprovalInputs`, `collectResponseInputs`, and `TOOL_RESPONSE_THREAD_ID_CUSTOM_KEY` are removed; answer approvals and questions with `useTrueForgeRespondToToolApproval` and `useTrueForgeRespondToToolResponse` instead.
+  - Custom chat servers must implement `sendTurnEvents` to deliver answers to a paused turn. `CreateTurnRequest.input` is required.
+  - `@truefoundry/trueforge-ui`: `ToolApprovalContainer` takes `approvalId` and `onRespond` instead of `options` and `onSelectOption`.
+- 8ef66cc: Replace the session sharing capability's enabled flag with required tenant or subject granularity across the API and UI contracts, and use subject granularity to enable user invitations.
+
+## 0.184.0
+
+### Patch Changes
+
+- f3998c9: Gate Environments chrome and CRUD on provider env support: hide UI and return 422 when the shared sandbox has no snapshot/env concept. Capabilities expose `sandbox.environments.enabled` for that gate.
+- 1b30b71: Add a tenant-wide web search switch stored in the new `configuration` table, with `GET` and `PATCH /api/v1/settings/configuration` behind an admin gate. Capabilities and session or agent writes follow it, so web search cannot be turned on while the switch is off; a spec that already has it on keeps it, which also leaves existing agents and their schedules running. The `settings` capability now reports one entry per settings section with its own `enabled` and `manage_providers`. Catalog settings routes that the deployment does not own answer 422 naming the route, where they previously answered 403.
+
+## 0.184.0-rc.1
+
+### Patch Changes
+
+- f3998c9: Gate Environments chrome and CRUD on provider env support: hide UI and return 422 when the shared sandbox has no snapshot/env concept. Capabilities expose `sandbox.environments.enabled` for that gate.
+- 1b30b71: Add a tenant-wide web search switch stored in the new `configuration` table, with `GET` and `PATCH /api/v1/settings/configuration` behind an admin gate. Capabilities and session or agent writes follow it, so web search cannot be turned on while the switch is off; a spec that already has it on keeps it, which also leaves existing agents and their schedules running. The `settings` capability now reports one entry per settings section with its own `enabled` and `manage_providers`. Catalog settings routes that the deployment does not own answer 422 naming the route, where they previously answered 403.
+
+## 0.183.0
+
+### Patch Changes
+
+- 61872ac: Add a tenant-wide web search switch stored in the new `configuration` table, with `GET` and `PATCH /api/v1/settings/configuration` behind an admin gate. Capabilities and session or agent writes follow it, so web search cannot be turned on while the switch is off; a spec that already has it on keeps it, which also leaves existing agents and their schedules running. The `settings` capability now reports one entry per settings section with its own `enabled` and `manage_providers`. Catalog settings routes that the deployment does not own answer 422 naming the route, where they previously answered 403.
+
+## 0.183.0-rc.1
+
+### Patch Changes
+
+- 61872ac: Add a tenant-wide web search switch stored in the new `configuration` table, with `GET` and `PATCH /api/v1/settings/configuration` behind an admin gate. Capabilities and session or agent writes follow it, so web search cannot be turned on while the switch is off; a spec that already has it on keeps it, which also leaves existing agents and their schedules running. The `settings` capability now reports one entry per settings section with its own `enabled` and `manage_providers`. Catalog settings routes that the deployment does not own answer 422 naming the route, where they previously answered 403.
 
 ## 0.182.0
 

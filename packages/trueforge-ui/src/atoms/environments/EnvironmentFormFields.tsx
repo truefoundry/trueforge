@@ -5,7 +5,7 @@ import type { SandboxEnvironmentManifest, SandboxEnvironmentSecret } from '../..
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { Switch } from '../primitives/Switch.js';
-import { isReservedEnvironmentName } from './environmentDisplay.js';
+import { isReservedEnvironmentName, RESERVED_ENVIRONMENT_NAME } from './environmentDisplay.js';
 
 export type EnvironmentFormValues = {
   name: string;
@@ -80,7 +80,7 @@ export function formValuesToManifest(values: EnvironmentFormValues): SandboxEnvi
 export function validateEnvironmentForm(values: EnvironmentFormValues): string | null {
   const name = values.name.trim();
   if (name.length === 0) return 'Name is required';
-  if (isReservedEnvironmentName(name)) return 'Name "default" is reserved';
+  if (isReservedEnvironmentName(name)) return `Name "${RESERVED_ENVIRONMENT_NAME}" is reserved`;
   const cpu = Number(values.cpu);
   const memory = Number(values.memory);
   const disk = Number(values.disk);
@@ -144,9 +144,7 @@ export function EnvironmentFormFields({
         <h3 className="text-sm font-medium text-text-primary">Image And Resources</h3>
 
         <label className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-text-secondary">
-            Build Script ({values.buildScript.length}/5120)
-          </span>
+          <span className="text-xs font-medium text-text-secondary">Build Script</span>
           <textarea
             className={cn(fieldClassName, 'min-h-24 resize-y font-mono text-xs')}
             value={values.buildScript}

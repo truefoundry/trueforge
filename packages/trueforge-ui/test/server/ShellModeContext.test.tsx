@@ -14,7 +14,13 @@ import { queryKeys } from '@/server/queryKeys.js';
 import { ServerProvider, useServerCapabilities, useServerCapabilitiesSettled } from '@/server/ServerContext.js';
 import { ShellModeProvider, useOptionalShellMode, useShellMode, type AgentConfig } from '@/server/ShellModeContext.js';
 import type { AgentUIServer } from '@/server/types.js';
-import { createMockAgentSessionsServer, createMockAgentUIServer, createMockCatalog } from './mockServer.js';
+import {
+  createMockAgentSessionsServer,
+  createMockAgentUIServer,
+  createMockCatalog,
+  tenantSessionSharing,
+} from './mockServer.js';
+import { allSettingsSections } from './settingsCapabilityFixture.js';
 
 function wrap(agentConfig?: AgentConfig, initialSettingsOpen?: boolean) {
   const server = createMockAgentUIServer({
@@ -107,9 +113,10 @@ describe('ShellModeProvider', () => {
       catalog: createMockCatalog(),
       getCapabilities: async () => ({
         data: {
-          sandbox: { enabled: true },
+          sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
-          settings: { enabled: false },
+          sessionSharing: tenantSessionSharing,
+          settings: allSettingsSections(false),
         },
       }),
     });
@@ -130,7 +137,7 @@ describe('ShellModeProvider', () => {
     );
 
     expect(result.current.shell.settingsOpen).toBe(false);
-    await waitFor(() => expect(result.current.capabilities?.settings?.enabled).toBe(false));
+    await waitFor(() => expect(result.current.capabilities?.settings?.modelProviders?.enabled).toBe(false));
     act(() => result.current.shell.setSettingsOpen(true));
     expect(result.current.shell.settingsOpen).toBe(false);
   });
@@ -593,9 +600,10 @@ describe('ShellModeProvider', () => {
   it('openDraft and clearChat enable web search on New Chat when the capability is available', async () => {
     const getCapabilities = vi.fn(async () => ({
       data: {
-        sandbox: { enabled: true },
+        sandbox: { enabled: true, environments: { enabled: true } },
         skill: { enabled: true },
-        settings: { enabled: true },
+        sessionSharing: tenantSessionSharing,
+        settings: allSettingsSections(true),
         webSearch: { enabled: true },
       },
     }));
@@ -631,9 +639,10 @@ describe('ShellModeProvider', () => {
   it('does not persist capability-forced web-search off as a chat preference', async () => {
     const getCapabilities = vi.fn(async () => ({
       data: {
-        sandbox: { enabled: true },
+        sandbox: { enabled: true, environments: { enabled: true } },
         skill: { enabled: true },
-        settings: { enabled: true },
+        sessionSharing: tenantSessionSharing,
+        settings: allSettingsSections(true),
         webSearch: { enabled: false },
       },
     }));
@@ -1165,8 +1174,9 @@ describe('ShellModeProvider', () => {
   it('does not treat sandbox availability as the selected runtime value', async () => {
     const getCapabilities = vi.fn(async () => ({
       data: {
-        sandbox: { enabled: true },
+        sandbox: { enabled: true, environments: { enabled: true } },
         skill: { enabled: true },
+        sessionSharing: tenantSessionSharing,
       },
     }));
     const server = createMockAgentUIServer({ getCapabilities });
@@ -1189,8 +1199,9 @@ describe('ShellModeProvider', () => {
   it('overrides a host-seeded sandbox when loaded capabilities disable it', async () => {
     const getCapabilities = vi.fn(async () => ({
       data: {
-        sandbox: { enabled: false },
+        sandbox: { enabled: false, environments: { enabled: false } },
         skill: { enabled: false },
+        sessionSharing: tenantSessionSharing,
       },
     }));
     const server = createMockAgentUIServer({ getCapabilities });

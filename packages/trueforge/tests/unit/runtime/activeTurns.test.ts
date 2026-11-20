@@ -1,5 +1,13 @@
-import { CancellationReason } from '@truefoundry/trueforge-core/agent-session';
-import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
+import { CancellationReason, TurnOffloadReason, type TurnHandle } from '@truefoundry/trueforge-core/agent-session';
+import { E_TIMEOUT } from 'async-mutex';
+import { createLogger } from 'winston';
+import { ActiveTurnRegistry, TurnLockAcquireTimeoutError } from '../../../src/runtime/activeTurns';
+
+const logger = createLogger({ silent: true });
+
+function turn(sessionId: string, turnId: string, status: 'running' | 'paused' = 'running'): TurnHandle {
+  return { session_id: sessionId, id: turnId, state: { status } } as TurnHandle;
+}
 
 async function* values<T>(items: T[]): AsyncGenerator<T> {
   for (const item of items) {
@@ -26,13 +34,19 @@ async function* gateOnAbort(signal: AbortSignal): AsyncGenerator<string> {
   });
 }
 
+function requireTurnLockAcquireTimeout(caught: unknown): TurnLockAcquireTimeoutError {
+  if (!(caught instanceof TurnLockAcquireTimeoutError)) {
+    throw new Error('expected TurnLockAcquireTimeoutError', { cause: caught });
+  }
+  return caught;
+}
+
 describe('ActiveTurnRegistry', () => {
   it('track passes events through and removes the run when the stream completes', async () => {
-    const registry = new ActiveTurnRegistry();
+    const registry = new ActiveTurnRegistry({ logger });
     const abortController = new AbortController();
     const tracked = registry.track({
-      sessionId: 's1',
-      turnId: 't1',
+      turn: turn('s1', 't1'),
       abortController,
       stream: values([1, 2, 3]),
     });
@@ -52,11 +66,10 @@ describe('ActiveTurnRegistry', () => {
   });
 
   it('track cleans up when the consumer breaks early', async () => {
-    const registry = new ActiveTurnRegistry();
+    const registry = new ActiveTurnRegistry({ logger });
     const abortController = new AbortController();
     const tracked = registry.track({
-      sessionId: 's1',
-      turnId: 't1',
+      turn: turn('s1', 't1'),
       abortController,
       stream: values([1, 2, 3]),
     });
@@ -75,11 +88,10 @@ describe('ActiveTurnRegistry', () => {
   });
 
   it('track cleans up when the stream throws', async () => {
-    const registry = new ActiveTurnRegistry();
+    const registry = new ActiveTurnRegistry({ logger });
     const abortController = new AbortController();
     const tracked = registry.track({
-      sessionId: 's1',
-      turnId: 't1',
+      turn: turn('s1', 't1'),
       abortController,
       stream: throwingStream(),
     });
@@ -99,11 +111,10 @@ describe('ActiveTurnRegistry', () => {
   });
 
   it('cancelIfRunning aborts with the given reason and returns true', () => {
-    const registry = new ActiveTurnRegistry();
+    const registry = new ActiveTurnRegistry({ logger });
     const abortController = new AbortController();
     void registry.track({
-      sessionId: 's1',
-      turnId: 't1',
+      turn: turn('s1', 't1'),
       abortController,
       stream: values([1]),
     });
@@ -117,10 +128,24 @@ describe('ActiveTurnRegistry', () => {
     ).toBe(true);
     expect(abortController.signal.aborted).toBe(true);
     expect(abortController.signal.reason).toBe(CancellationReason.ClientCancelled);
+    expect(registry.isCancelled({ sessionId: 's1', turnId: 't1' })).toBe(true);
+  });
+
+  it('isCancelled ignores an offloaded run', () => {
+    const registry = new ActiveTurnRegistry({ logger });
+    const abortController = new AbortController();
+    void registry.track({
+      turn: turn('s1', 't1', 'paused'),
+      abortController,
+      stream: values([1]),
+    });
+    abortController.abort(TurnOffloadReason);
+
+    expect(registry.isCancelled({ sessionId: 's1', turnId: 't1' })).toBe(false);
   });
 
   it('cancelIfRunning returns false for unknown ids', () => {
-    const registry = new ActiveTurnRegistry();
+    const registry = new ActiveTurnRegistry({ logger });
     expect(
       registry.cancelIfRunning({
         sessionId: 'missing',
@@ -131,11 +156,10 @@ describe('ActiveTurnRegistry', () => {
   });
 
   it('cancelIfRunning does not re-abort an already-aborted controller', () => {
-    const registry = new ActiveTurnRegistry();
+    const registry = new ActiveTurnRegistry({ logger });
     const abortController = new AbortController();
     void registry.track({
-      sessionId: 's1',
-      turnId: 't1',
+      turn: turn('s1', 't1'),
       abortController,
       stream: values([1]),
     });
@@ -152,11 +176,10 @@ describe('ActiveTurnRegistry', () => {
   });
 
   it('shutdownAndWait aborts runs and waits until tracked streams finish', async () => {
-    const registry = new ActiveTurnRegistry();
+    const registry = new ActiveTurnRegistry({ logger });
     const abortController = new AbortController();
     const tracked = registry.track({
-      sessionId: 's1',
-      turnId: 't1',
+      turn: turn('s1', 't1'),
       abortController,
       stream: gateOnAbort(abortController.signal),
     });
@@ -181,13 +204,12 @@ describe('ActiveTurnRegistry', () => {
   });
 
   it('late track after shutdownAndWait aborts immediately with the shutdown reason', async () => {
-    const registry = new ActiveTurnRegistry();
+    const registry = new ActiveTurnRegistry({ logger });
     await registry.shutdownAndWait(CancellationReason.Abandoned);
 
     const abortController = new AbortController();
     const tracked = registry.track({
-      sessionId: 's1',
-      turnId: 'late',
+      turn: turn('s1', 'late'),
       abortController,
       stream: values(['x']),
     });
@@ -197,6 +219,74 @@ describe('ActiveTurnRegistry', () => {
 
     for await (const value of tracked) {
       void value;
+    }
+  });
+
+  it('late track after shutdownAndWait offloads a paused turn', async () => {
+    const registry = new ActiveTurnRegistry({ logger });
+    await registry.shutdownAndWait(CancellationReason.Abandoned);
+
+    const abortController = new AbortController();
+    const tracked = registry.track({
+      turn: turn('s1', 'late-paused', 'paused'),
+      abortController,
+      stream: values(['x']),
+    });
+
+    expect(abortController.signal.aborted).toBe(true);
+    expect(abortController.signal.reason).toBe(TurnOffloadReason);
+
+    for await (const value of tracked) {
+      void value;
+    }
+  });
+
+  it('throws TurnLockAcquireTimeoutError when the lock is not acquired in time', async () => {
+    const timeoutMs = 40;
+    const registry = new ActiveTurnRegistry({ logger, lockAcquireTimeoutMs: timeoutMs });
+    const gate = Promise.withResolvers<undefined>();
+    const holder = registry.withTurnLock({ sessionId: 's1', turnId: 't1' }, () => gate.promise);
+    const waiter = registry.withTurnLock({ sessionId: 's1', turnId: 't1' }, async () => 'acquired');
+
+    let caught: unknown;
+    try {
+      await waiter;
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(TurnLockAcquireTimeoutError);
+    const error = requireTurnLockAcquireTimeout(caught);
+    expect(error.timeoutMs).toBe(timeoutMs);
+    expect(error.cause).toBe(E_TIMEOUT);
+
+    gate.resolve(undefined);
+    await holder;
+  });
+
+  it('restarts the paused keepalive when the turn lock is busy past the acquire timeout', async () => {
+    jest.useFakeTimers();
+    const warn = jest.spyOn(logger, 'warn');
+    const info = jest.spyOn(logger, 'info');
+    try {
+      const registry = new ActiveTurnRegistry({ logger, pausedKeepaliveMs: 100, lockAcquireTimeoutMs: 20 });
+      const key = { sessionId: 's1', turnId: 't1' };
+      const gate = Promise.withResolvers<undefined>();
+      const holder = registry.withTurnLock(key, () => gate.promise);
+
+      registry.startPausedKeepalive(key);
+      // The keepalive fires at 100ms, then gives up on the busy lock at 120ms.
+      await jest.advanceTimersByTimeAsync(120);
+      expect(warn).toHaveBeenCalledWith('Paused keepalive could not take the turn lock; restarting', expect.anything());
+
+      gate.resolve(undefined);
+      await holder;
+      // The restarted timer takes the free lock and runs its expiry path.
+      await jest.advanceTimersByTimeAsync(100);
+      expect(info).toHaveBeenCalledWith('Paused keepalive expired; turn is no longer paused');
+    } finally {
+      jest.useRealTimers();
+      warn.mockRestore();
+      info.mockRestore();
     }
   });
 });

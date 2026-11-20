@@ -22,8 +22,11 @@ export type ComposerSendButtonProps = {
   disabled: boolean;
   canSubmit: boolean;
   isRunning: boolean;
+  /** True while a cancel request is in flight. */
+  isCancelling?: boolean;
   /** True when the composer has trimmed text or attachments. */
   hasContent: boolean;
+  blockedReason?: string;
   onSubmit: () => void;
   onCancel?: () => void;
 };
@@ -52,17 +55,34 @@ export function ComposerRightSection(_: ComposerRightSectionProps): ReactNode {
   return null;
 }
 
-export function ComposerSendButton({ canSubmit, isRunning, hasContent, onSubmit, onCancel }: ComposerSendButtonProps) {
+export function ComposerSendButton({
+  canSubmit,
+  isRunning,
+  isCancelling = false,
+  hasContent,
+  blockedReason,
+  onSubmit,
+  onCancel,
+}: ComposerSendButtonProps) {
   // Cancel only while busy with an empty composer. Content (even when Send is
-  // blocked by a missing model) keeps the Send affordance.
-  if (isRunning && !hasContent) {
+  // blocked by a missing model) keeps the Send affordance. Keep the control
+  // visible while cancel is in flight even if the thread already looks idle.
+  if ((isRunning || isCancelling) && !hasContent) {
     return (
-      <Button.Primary type="button" size="small" disabled={!onCancel} onClick={onCancel} aria-label="Cancel">
+      <Button.Primary
+        type="button"
+        size="small"
+        disabled={!onCancel || isCancelling}
+        onClick={onCancel}
+        aria-label={isCancelling ? 'Cancelling' : 'Cancel'}
+      >
         <Spinner size={14} />
-        Cancel
+        {isCancelling ? 'Cancelling...' : 'Cancel'}
       </Button.Primary>
     );
   }
+
+  const sendLabel = !canSubmit && blockedReason != null ? blockedReason : 'Send message';
 
   return (
     <Button.Primary
@@ -72,8 +92,8 @@ export function ComposerSendButton({ canSubmit, isRunning, hasContent, onSubmit,
       className="shadow-none"
       disabled={!canSubmit}
       onClick={onSubmit}
-      title="Send message"
-      aria-label="Send message"
+      title={sendLabel}
+      aria-label={sendLabel}
     >
       <Icon name="arrow-up" />
     </Button.Primary>

@@ -7,10 +7,10 @@ export type PresetTokens = {
 
 const trueforge: PresetTokens = {
   light: {
-    sidebarBg: '#FDFEFF', // indigo-50 10% opacity
+    sidebarBg: '#FAFCFF',
     sidebarText: '#3E5680',
     topbarBg: '#FFFFFF',
-    primaryBg: '#FFFFFF',
+    primaryBg: '#FAFCFF',
     secondaryBg: '#FAFCFF',
     border: '#E0ECFD',
     fontFamily: '"Google Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
@@ -49,13 +49,15 @@ const trueforge: PresetTokens = {
   },
   dark: {
     sidebarBg: '#18181B',
-    sidebarText: '#E4E4E7',
+    sidebarText: '#B8B8BE',
     topbarBg: '#18181B',
-    primaryBg: '#1F1F22',
+    // Outer chrome (rail + inset gutter); padded shell surfaces use cardBg.
+    primaryBg: '#101010',
     secondaryBg: '#27272A',
-    border: '#343439',
+    // Shell dividers + chrome hairlines (matches secondary surface edge).
+    border: '#27272A',
     fontFamily: '"Google Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-    inputBoxBg: '#27272A',
+    inputBoxBg: '#1F1F22',
     inputBorder: '#343439',
     textPrimary: '#E4E4E7',
     textSecondary: '#A1A1AA',

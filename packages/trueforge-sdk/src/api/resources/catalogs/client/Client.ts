@@ -3,6 +3,7 @@
 import type { BaseClientOptions } from "../../../../BaseClient.js";
 import { type NormalizedClientOptionsWithAuth, normalizeClientOptionsWithAuth } from "../../../../BaseClient.js";
 import { McpServersClient } from "../resources/mcpServers/client/Client.js";
+import { MemoryProvidersClient } from "../resources/memoryProviders/client/Client.js";
 import { ModelProvidersClient } from "../resources/modelProviders/client/Client.js";
 import { SandboxProvidersClient } from "../resources/sandboxProviders/client/Client.js";
 import { SkillsClient } from "../resources/skills/client/Client.js";
@@ -15,6 +16,7 @@ export declare namespace CatalogsClient {
 export class CatalogsClient {
     protected readonly _options: NormalizedClientOptionsWithAuth<CatalogsClient.Options>;
     protected _mcpServers: McpServersClient | undefined;
+    protected _memoryProviders: MemoryProvidersClient | undefined;
     protected _modelProviders: ModelProvidersClient | undefined;
     protected _sandboxProviders: SandboxProvidersClient | undefined;
     protected _skills: SkillsClient | undefined;
@@ -26,6 +28,10 @@ export class CatalogsClient {
 
     public get mcpServers(): McpServersClient {
         return (this._mcpServers ??= new McpServersClient(this._options));
+    }
+
+    public get memoryProviders(): MemoryProvidersClient {
+        return (this._memoryProviders ??= new MemoryProvidersClient(this._options));
     }
 
     public get modelProviders(): ModelProvidersClient {

@@ -10,6 +10,8 @@ import type {
   ListPermissionsResponse,
   PermissionsServer,
   Session,
+  SessionAccessGrant,
+  SessionAccessServer,
   SessionEventItem,
   SessionListEntry,
 } from '@/server/types.js';
@@ -39,6 +41,7 @@ const draftRow: SessionListEntry = {
 
 type ListSessionsRequest = {
   agentId?: string;
+  createdByMe?: boolean;
   startTimestamp?: string;
   endTimestamp?: string;
 };
@@ -101,12 +104,14 @@ function renderPage({
   })),
   deleteSession,
   permissions,
+  sessionAccess,
 }: {
   listSessions?: (req?: ListSessionsRequest) => Promise<{ data: SessionListEntry[] }>;
   listSessionEvents?: () => Promise<{ data: SessionEventItem[] }>;
   getSession?: () => Promise<Session>;
   deleteSession?: (req: { sessionId: string }) => Promise<void>;
   permissions?: PermissionsServer;
+  sessionAccess?: SessionAccessServer;
 } = {}) {
   const server = createMockAgentUIServer({
     getSession,
@@ -116,6 +121,7 @@ function renderPage({
     sessions: { getAgent: vi.fn(), getCodeSnippets: vi.fn(), listSessions, listSessionEvents },
     ...(deleteSession == null ? {} : { deleteSession }),
     ...(permissions == null ? {} : { permissions }),
+    ...(sessionAccess == null ? {} : { sessionAccess }),
   });
   render(
     <SlotsProvider>
@@ -154,6 +160,7 @@ describe('SessionsPage', () => {
       }),
     );
     expect(request?.agentId).toBeUndefined();
+    expect(request?.createdByMe).toBeUndefined();
     expect(request?.startTimestamp).toBeDefined();
     expect(request?.endTimestamp).toBeDefined();
     if (request?.startTimestamp == null || request.endTimestamp == null) {
@@ -163,6 +170,20 @@ describe('SessionsPage', () => {
     expect(window.location.search).toContain('view=sessions');
     expect(screen.getByRole('button', { name: 'Last 30 days' })).toBeInTheDocument();
     expect(screen.getByRole('separator', { name: 'Resize session list' })).toHaveClass('w-0');
+  });
+
+  it('lists only the current user sessions when Created by is Me', async () => {
+    window.history.replaceState(null, '', '/?view=sessions&createdByMe=true');
+    const { listSessions } = renderPage();
+    expect(await screen.findByText('Named session')).toBeInTheDocument();
+    expect(listSessions).toHaveBeenCalledWith(expect.objectContaining({ createdByMe: true }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show sessions' }));
+    fireEvent.click(screen.getByRole('option', { name: 'All sessions' }));
+    await waitFor(() => {
+      expect(listSessions).toHaveBeenLastCalledWith(expect.not.objectContaining({ createdByMe: true }));
+    });
+    expect(window.location.search).not.toContain('createdByMe');
   });
 
   it('labels sessions created by a schedule run', async () => {
@@ -274,11 +295,24 @@ describe('SessionsPage', () => {
   it('copies the no-router shared-session query URL for the selected session', async () => {
     window.history.replaceState(null, '', '/?view=sessions&sessionId=sess-1&agentId=agent-1&s_tw=30');
     renderPage({
+      sessionAccess: {
+        listAccess: vi.fn(async (): Promise<SessionAccessGrant[]> => [
+          {
+            subjectType: 'tenant',
+            subjectId: 'acme',
+            displayName: null,
+            email: null,
+            createdAt: '2026-01-01T00:00:00Z',
+          },
+        ]),
+        grantAccess: vi.fn(async () => []),
+        revokeAccess: vi.fn(async () => undefined),
+        searchUsers: vi.fn(async () => ({ data: [] })),
+      },
       getSession: vi.fn(async (): Promise<Session> => ({
         id: 'sess-1',
         title: 'Named session',
         isMutable: false,
-        shared: true,
         createdAt: namedRow.createdAt,
         updatedAt: namedRow.updatedAt,
       })),

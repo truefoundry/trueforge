@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AgentSkillsHeaderActionSlot } from '@/atoms/draft/AgentSkillsHeaderActionSlot.js';
 import type { CatalogServer } from '@/server/types.js';
 import { createMockCatalog } from '../../server/mockServer.js';
+import { allSettingsSections } from '../../server/settingsCapabilityFixture.js';
 
 const setSettingsOpen = vi.fn();
 
@@ -53,7 +54,7 @@ describe('AgentSkillsHeaderActionSlot', () => {
     useServerCapabilities.mockReturnValue({
       sandbox: { enabled: true },
       skill: { enabled: true },
-      settings: { enabled: true },
+      settings: allSettingsSections(true),
     });
     useOptionalCatalogServer.mockReturnValue(settingsCatalog);
     useOptionalResolvedRoutes.mockReturnValue(null);
@@ -83,7 +84,7 @@ describe('AgentSkillsHeaderActionSlot', () => {
     useServerCapabilities.mockReturnValue({
       sandbox: { enabled: true },
       skill: { enabled: true },
-      settings: { enabled: false },
+      settings: allSettingsSections(false),
     });
 
     render(<AgentSkillsHeaderActionSlot platformSkillsUrl="/platform-skills" />);
@@ -106,7 +107,7 @@ describe('AgentSkillsHeaderActionSlot', () => {
     useServerCapabilities.mockReturnValue({
       sandbox: { enabled: true },
       skill: { enabled: true },
-      settings: { enabled: false },
+      settings: allSettingsSections(false),
     });
     useOptionalCatalogServer.mockReturnValue(createMockCatalog() satisfies CatalogServer);
 

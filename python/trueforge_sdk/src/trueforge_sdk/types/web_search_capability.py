@@ -10,7 +10,12 @@ from ..core.unchecked_base_model import UncheckedBaseModel
 class WebSearchCapability(UncheckedBaseModel):
     enabled: bool = pydantic.Field()
     """
-    Whether a host web-search provider is configured.
+    Whether new chats may use web search: the tenant allows it and a provider is configured.
+    """
+
+    reason: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Present when web search is unavailable. Explains why.
     """
 
     if IS_PYDANTIC_V2:

@@ -8,6 +8,7 @@ import { getErrorMessage } from '../utils/getErrorMessage.js';
 
 const MAX_TOAST_DESCRIPTION_CHARS = 480;
 const MAX_VISIBLE_TOASTS = 5;
+const ERROR_TOAST_TTL_MS = 10_000;
 const SUCCESS_TOAST_TTL_MS = 3000;
 const SDK_TIMEOUT_TOAST_TITLE = 'Request timed out';
 const SDK_TIMEOUT_TOAST_DESCRIPTION = 'The request took too long and was cancelled. Try again.';
@@ -67,19 +68,24 @@ export function ToasterProvider({ children }: { children: ReactNode }) {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
-  const showError = useCallback((error: unknown) => {
-    console.error('[trueforge-ui]', error);
-    const item: ToastItem = { id: nextToastId(), variant: 'error', ...normalizeError(error) };
-    setToasts(prev => [...prev, item].slice(-MAX_VISIBLE_TOASTS));
-  }, []);
+  const showError = useCallback(
+    (error: unknown) => {
+      console.error('[trueforge-ui]', error);
+      const id = nextToastId();
+      const item: ToastItem = { id, variant: 'error', ...normalizeError(error) };
+      setToasts(prev => [...prev, item].slice(-MAX_VISIBLE_TOASTS));
+      if (typeof window !== 'undefined') {
+        window.setTimeout(() => dismiss(id), ERROR_TOAST_TTL_MS);
+      }
+    },
+    [dismiss],
+  );
 
   const showSuccess = useCallback(
     (content: ToastContent) => {
       const id = nextToastId();
       const item: ToastItem = { id, variant: 'success', ...content };
       setToasts(prev => [...prev, item].slice(-MAX_VISIBLE_TOASTS));
-      // Success is a transient confirmation — auto-dismiss so it doesn't linger. Errors persist
-      // (a dev may need to read or copy them).
       if (typeof window !== 'undefined') {
         window.setTimeout(() => dismiss(id), SUCCESS_TOAST_TTL_MS);
       }

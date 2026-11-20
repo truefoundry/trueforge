@@ -7,7 +7,7 @@ import {
   type ToolSchema,
 } from '../../../src/core/mcp/IMCPServer';
 import type { RemoteMcpHeaders } from '../../../src/core/mcp/RemoteMCP';
-import { connectRemoteMcp } from '../../../src/core/mcp/remoteMcpClient';
+import { connectRemoteMcp, type RemoteMcpFetch } from '../../../src/core/mcp/remoteMcpClient';
 import type { ToolSelectorConfig } from '../../../src/core/mcp/ToolSelectorPolicy';
 import { NOOP_AGENT_TRACING } from '../../../src/core/tracing/NoopAgentTracing';
 
@@ -127,13 +127,17 @@ function makeServer(params: {
   sessionId?: string | undefined;
   transportType?: 'streamable-http' | 'sse' | undefined;
   headers?: RemoteMcpHeaders | undefined;
+  fetch?: RemoteMcpFetch;
 }): ToolSet {
   const remote = new RemoteMCP({
-    name: 'my-inline',
     id: 'inline-id-123',
-    description: 'my-inline MCP server',
-    url: 'https://mcp.example.com/mcp',
-    headers: params.headers ?? {},
+    connection: {
+      url: 'https://mcp.example.com/mcp',
+      headers: params.headers ?? {},
+      ...(params.fetch === undefined ? {} : { fetchFn: params.fetch }),
+      name: 'my-inline',
+      description: 'my-inline MCP server',
+    },
     logger: noopLogger,
     tracing: NOOP_AGENT_TRACING,
     sessionId: params.sessionId,
@@ -151,6 +155,45 @@ function makeServer(params: {
 }
 
 describe('RemoteMCP + ToolSet', () => {
+  it('can label tools as truefoundry-system for built-in management MCP', async () => {
+    const remote = new RemoteMCP({
+      id: 'trueforge:mcp',
+      connection: {
+        url: 'https://mcp.example.com/mcp',
+        name: 'trueforge:mcp',
+        description: 'TrueForge management',
+      },
+      logger: noopLogger,
+      tracing: NOOP_AGENT_TRACING,
+      requestTimeoutMs: 60_000,
+      connectTimeoutMs: 5_000,
+      signal: new AbortController().signal,
+      isSystem: true,
+    });
+
+    await expect(remote.toolCallInfo({ name: 'update_current_session' })).resolves.toEqual({
+      type: 'truefoundry-system',
+      original_tool_name: 'update_current_session',
+      mcp_server_id: 'trueforge:mcp',
+      mcp_server_name: 'trueforge:mcp',
+      is_approval_required: false,
+    });
+  });
+
+  it('passes a connection-specific fetch to the MCP transport', async () => {
+    installFakeConnection();
+    const fetch = jest.fn() as unknown as RemoteMcpFetch;
+    const server = makeServer({ fetch });
+
+    await server.listTools();
+
+    expect(mockConnect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fetch,
+      }),
+    );
+  });
+
   it('connects once, emits init info with session id, and caches across listTools calls', async () => {
     const state = installFakeConnection({ sessionId: 'sess-1' });
     const server = makeServer({});
@@ -428,6 +471,56 @@ describe('RemoteMCP + ToolSet', () => {
     const callRes = await server.callTool({ name: 'read_thing', arguments: {} });
     expect(callRes).toEqual({ authRequired });
     expect(state.callToolCalls).toBe(0);
+  });
+
+  it('returns authRequired when the resolver offers consent for a 401', async () => {
+    installFakeConnection({ connectError: new McpConnectionError('upstream 401', 401) });
+    const authRequired: MCPAuthRequired = {
+      servers: [{ id: 'inline-id-123', name: 'my-inline', auth_url: 'https://auth.example/consent' }],
+    };
+    const server = makeServer({
+      headers: () => Promise.resolve({ headers: {}, onUnauthorized: () => Promise.resolve(authRequired) }),
+    });
+
+    await expect(server.listTools()).resolves.toEqual({ authRequired });
+  });
+
+  it('drops the rejected connection when a call gets a 401 with consent, so the next call reconnects', async () => {
+    const state = installFakeConnection({ sessionId: 'sess-1' });
+    const authRequired: MCPAuthRequired = {
+      servers: [{ id: 'inline-id-123', name: 'my-inline', auth_url: 'https://auth.example/consent' }],
+    };
+    const server = makeServer({
+      headers: () => Promise.resolve({ headers: {}, onUnauthorized: () => Promise.resolve(authRequired) }),
+    });
+
+    await server.listTools();
+    state.queueCallToolError(Object.assign(new Error('HTTP 401'), { code: 401 }));
+    await expect(server.callTool({ name: 'read_thing', arguments: {} })).resolves.toEqual({ authRequired });
+    await server.callTool({ name: 'read_thing', arguments: {} });
+
+    expect(state.connectCalls).toBe(2);
+  });
+
+  it('throws the 401 when the resolver offers no consent', async () => {
+    installFakeConnection({ connectError: new McpConnectionError('upstream 401', 401) });
+    const server = makeServer({
+      headers: () => Promise.resolve({ headers: {} }),
+    });
+
+    await expect(server.listTools()).rejects.toMatchObject({ statusCode: 401 });
+  });
+
+  it('propagates the resolver error when the consent lookup fails', async () => {
+    installFakeConnection({ connectError: new McpConnectionError('upstream 401', 401) });
+    const server = makeServer({
+      headers: () => Promise.resolve({ headers: {}, onUnauthorized: () => Promise.reject(new Error('lookup failed')) }),
+    });
+
+    await expect(server.listTools()).rejects.toMatchObject({
+      message: 'lookup failed',
+      cause: expect.objectContaining({ statusCode: 401 }),
+    });
   });
 
   it('emits init for a stateless (SSE) server on connect (matches gateway strict-compare behavior)', async () => {

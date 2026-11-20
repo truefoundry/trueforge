@@ -3,7 +3,6 @@ import { CancellationReason } from '../../src/agent-session/schemas/turn';
 import { Sessions } from '../../src/agent-session/Sessions';
 import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
 import { TurnNotFoundError } from '../../src/agent-session/store/SessionStoreErrors';
-import { TurnHandle } from '../../src/agent-session/TurnHandle';
 import { makeAgentSpec, makeTestResolver, mintTestTurnId, TEST_ACTIVE_EXECUTOR_ID } from './testHelpers';
 
 describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
@@ -46,7 +45,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
 
   it('create/get persists an inline value-agent session', async () => {
     const store = new InMemorySessionStore<{ tag: string }>();
-    const sessions = new Sessions<{ tag: string }>({ sessionStore: store });
+    const sessions = new Sessions({ sessionStore: store });
     const created = await sessions.create({
       tenant_id: tenant,
       session_id: 's1',
@@ -140,7 +139,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver: makeTestResolver(),
       update_session_title_if_not_exist: 'From first message',
     });
@@ -171,27 +170,15 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       turn_id: mintTestTurnId(),
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver: makeTestResolver(),
     });
     const getSession = jest.spyOn(store, 'getSession');
 
-    const direct = await TurnHandle.get({
-      store,
-      session_id: 's1',
-      turn_id: created.id,
-    });
     const throughSession = await session.getTurn(created.id);
-    const missingDirect = await TurnHandle.get({
-      store,
-      session_id: 's1',
-      turn_id: 'missing-turn',
-    });
     const missingThroughSession = await session.getTurn('missing-turn');
 
-    expect(direct?.id).toBe(created.id);
-    expect(throughSession?.id).toBe(created.id);
-    expect(missingDirect).toBeUndefined();
+    expect(throughSession?.turn_id).toBe(created.id);
     expect(missingThroughSession).toBeUndefined();
     expect(getSession).not.toHaveBeenCalled();
   });
@@ -210,7 +197,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       turn_id: mintTestTurnId(),
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver: makeTestResolver(),
     });
     const frozen = await session.freezeTurn({
@@ -241,7 +228,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'one' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver: makeTestResolver<{ n: number }>(),
       custom: { n: 1 },
     });
@@ -252,7 +239,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'two' }],
       previous_turn_id: 'auto',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver: makeTestResolver<{ n: number }>(),
       custom: prev => ({ n: (prev?.n ?? 0) + 10 }),
     });
@@ -269,12 +256,13 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       agent: { type: 'inline', spec: makeAgentSpec() },
       external_id: null,
     });
+    const firstController = new AbortController();
     const first = await session.createTurn({
       turn_id: mintTestTurnId(),
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'one' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: firstController,
       resolver: makeTestResolver(),
     });
     for await (const event of first.stream()) {
@@ -286,7 +274,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'fresh root' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver: makeTestResolver(),
     });
     expect(root2.previous_turn_id).toBeNull();
@@ -294,7 +282,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     expect(sessionRecord?.last_turn_details?.id).toBe(root2.id);
   });
 
-  it('send/validation failure in run() persists no turn', async () => {
+  it('resolution failure in createTurn() persists no turn', async () => {
     const store = new InMemorySessionStore();
     const sessions = new Sessions({ sessionStore: store });
     const session = await sessions.create({
@@ -308,19 +296,11 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       session.createTurn({
         turn_id: mintTestTurnId(),
         active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
-        // Mixed batch — rejected by SessionHandle.toSendBatch / orchestrator validation path.
-        input: [
-          { type: EventType.USER_MESSAGE, content: 'hi' },
-          {
-            type: EventType.USER_TOOL_APPROVAL,
-            thread_id: 'main',
-            tool_call_id: 'tc1',
-            approval: { status: 'allow' },
-          },
-        ],
+        input: [{ type: EventType.USER_MESSAGE, content: 'hi' }],
         previous_turn_id: 'none',
-        signal: new AbortController().signal,
-        resolver: makeTestResolver(),
+        abortController: new AbortController(),
+        // Fails during resource resolution — the acquisition phase must persist no turn.
+        resolver: makeTestResolver({ failResolveWith: new Error('simulated resolution failure') }),
       }),
     ).rejects.toThrow();
     const turns = await store.listTurns({
@@ -350,31 +330,27 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       session.createTurn({
         turn_id: mintTestTurnId(),
         active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
-        // Mixed batch — rejected after sandbox/thread resolution.
-        input: [
-          { type: EventType.USER_MESSAGE, content: 'hi' },
-          {
-            type: EventType.USER_TOOL_APPROVAL,
-            thread_id: 'main',
-            tool_call_id: 'tc1',
-            approval: { status: 'allow' },
-          },
-        ],
+        input: [{ type: EventType.USER_MESSAGE, content: 'hi' }],
         previous_turn_id: 'none',
-        signal: new AbortController().signal,
-        resolver: makeTestResolver({ close: closeOnFailure }),
+        abortController: new AbortController(),
+        // Fails during resource resolution, after the resolver is acquired.
+        resolver: makeTestResolver({
+          close: closeOnFailure,
+          failResolveWith: new Error('simulated resolution failure'),
+        }),
       }),
     ).rejects.toThrow();
     expect(closeOnFailure).toHaveBeenCalledTimes(1);
 
     // Success path: run() must NOT close — TurnHandle.stream()'s finally owns it.
     const closeOnSuccess = jest.fn().mockResolvedValue(undefined);
+    const controller = new AbortController();
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: controller,
       resolver: makeTestResolver({ close: closeOnSuccess }),
     });
     expect(closeOnSuccess).not.toHaveBeenCalled();

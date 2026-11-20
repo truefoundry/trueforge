@@ -73,7 +73,10 @@ export type ThreadListShellProps = {
 export function ThreadListShell({ header, children, className }: ThreadListShellProps) {
   return (
     <div className={cn('font-sans-flex flex h-full min-h-0 flex-1 flex-col overflow-hidden', className)}>
-      {header != null ? <div className="shrink-0 border-b border-border px-2 py-2">{header}</div> : null}
+      {/* min-h-14 matches PageHeader / rail brand so the top strip lines up across columns. */}
+      {header != null ? (
+        <div className="flex min-h-14 shrink-0 items-center border-b border-border px-2">{header}</div>
+      ) : null}
       {/* History section owns overflow scroll so infinite-load IO can root on it. */}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-2">{children}</div>
     </div>

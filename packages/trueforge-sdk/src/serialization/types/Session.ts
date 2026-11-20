@@ -3,23 +3,22 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { CreatedBySubject } from "./CreatedBySubject.js";
 import { SessionAgent } from "./SessionAgent.js";
 import { SessionLastTurnDetails } from "./SessionLastTurnDetails.js";
 import { SessionMetadata } from "./SessionMetadata.js";
 import { SessionMetrics } from "./SessionMetrics.js";
 import { SessionSource } from "./SessionSource.js";
+import { Subject } from "./Subject.js";
 
 export const Session: core.serialization.ObjectSchema<serializers.Session.Raw, TrueForge.Session> =
     core.serialization.object({
         agent: SessionAgent,
         createdAt: core.serialization.property("created_at", core.serialization.string()),
-        createdBySubject: core.serialization.property("created_by_subject", CreatedBySubject),
+        createdBySubject: core.serialization.property("created_by_subject", Subject),
         id: core.serialization.string(),
         lastTurnDetails: core.serialization.property("last_turn_details", SessionLastTurnDetails.nullable()),
         metadata: SessionMetadata,
         metrics: SessionMetrics,
-        shared: core.serialization.boolean(),
         source: SessionSource.nullable(),
         title: core.serialization.string().nullable(),
         updatedAt: core.serialization.property("updated_at", core.serialization.string()),
@@ -29,12 +28,11 @@ export declare namespace Session {
     export interface Raw {
         agent: SessionAgent.Raw;
         created_at: string;
-        created_by_subject: CreatedBySubject.Raw;
+        created_by_subject: Subject.Raw;
         id: string;
         last_turn_details?: SessionLastTurnDetails.Raw | null;
         metadata: SessionMetadata.Raw;
         metrics: SessionMetrics.Raw;
-        shared: boolean;
         source?: SessionSource.Raw | null;
         title?: string | null;
         updated_at: string;

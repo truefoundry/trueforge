@@ -1,28 +1,11 @@
 import type { ThreadMessage } from '@assistant-ui/core';
-import type { TurnInputItem, UserToolApprovalEvent, UserToolResponseEvent } from './server/index.js';
 
-import { ROOT_THREAD_ID } from './constants.js';
-import { collectApprovalInputs, messageHasPendingApprovals } from './toolApproval.js';
-import { collectResponseInputs, messageHasPendingResponses } from './toolResponse.js';
-
-export type RequiredActionInput = Extract<TurnInputItem, UserToolApprovalEvent | UserToolResponseEvent>;
+import { isRequiresAction } from './assistantMessageStatus.js';
+import { messageHasPendingApprovals } from './toolApproval.js';
+import { messageHasPendingResponses } from './toolResponse.js';
 
 export function messageHasPendingRequiredActions(message: ThreadMessage | undefined): boolean {
   return messageHasPendingApprovals(message) || messageHasPendingResponses(message);
-}
-
-export function collectRequiredActionInputs(
-  message: ThreadMessage,
-  defaultThreadId: string = ROOT_THREAD_ID,
-): RequiredActionInput[] {
-  if (messageHasPendingRequiredActions(message)) {
-    return [];
-  }
-  return [...collectApprovalInputs(message, defaultThreadId), ...collectResponseInputs(message, defaultThreadId)];
-}
-
-export function isRequiredActionInput(item: TurnInputItem): item is RequiredActionInput {
-  return item.type === 'user.tool_approval' || item.type === 'user.tool_response';
 }
 
 /**
@@ -30,7 +13,7 @@ export function isRequiredActionInput(item: TurnInputItem): item is RequiredActi
  * non-paused assistant (optimistic/running bubble). Returns undefined when a
  * later user message has abandoned the pause.
  */
-export function findCurrentPausedAssistantMessage(
+export function findPausedAssistantMessage(
   messages: readonly ThreadMessage[],
 ): Extract<ThreadMessage, { role: 'assistant' }> | undefined {
   for (let i = messages.length - 1; i >= 0; i--) {
@@ -44,7 +27,7 @@ export function findCurrentPausedAssistantMessage(
     if (candidate.role !== 'assistant') {
       continue;
     }
-    if (candidate.status.type === 'requires-action') {
+    if (isRequiresAction(candidate.status)) {
       return candidate;
     }
     // Skip a trailing non-paused assistant (streaming/complete bubble).

@@ -17,6 +17,15 @@ describe('buildAgentSessionShareUrl', () => {
     expect(url.searchParams.get('sessionId')).toBe('sess-1');
     expect(url.searchParams.get('agentId')).toBe('agent-1');
   });
+
+  it('drops a leftover My sessions filter from the share link', () => {
+    const href = buildAgentSessionShareUrl({
+      sessionId: 'sess-1',
+      agentId: 'agent-1',
+      href: 'https://app.example/sessions?createdByMe=true&view=sessions',
+    });
+    expect(new URL(href).searchParams.get('createdByMe')).toBeNull();
+  });
 });
 
 describe('AgentSessionDetailHeader', () => {
@@ -137,5 +146,28 @@ describe('AgentSessionDetailHeader', () => {
       <AgentSessionDetailHeader title="Help me find more details" sessionId="sess-1" onClose={() => undefined} />,
     );
     expect(container.querySelector('[data-slot="session-metadata-tags"]')).not.toBeInTheDocument();
+  });
+
+  it('hides create-agent intent keys from session metadata tags', () => {
+    const { container } = render(
+      <AgentSessionDetailHeader
+        title="Help me find more details"
+        sessionId="sess-1"
+        onClose={() => undefined}
+        metadata={{
+          is_create_agent: 'true',
+          is_created_agent: 'true',
+          'tfg.is_created_agent': 'true',
+          env: 'production',
+        }}
+      />,
+    );
+
+    expect(container.querySelector('[data-slot="session-metadata-tags"]')).toBeInTheDocument();
+    expect(screen.queryByText('is_create_agent')).not.toBeInTheDocument();
+    expect(screen.queryByText('is_created_agent')).not.toBeInTheDocument();
+    expect(screen.queryByText('tfg.is_created_agent')).not.toBeInTheDocument();
+    expect(screen.getByText('env')).toBeInTheDocument();
+    expect(screen.getByText('production')).toBeInTheDocument();
   });
 });

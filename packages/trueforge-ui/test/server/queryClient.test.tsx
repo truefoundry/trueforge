@@ -9,17 +9,23 @@ import { useServerQueryClient } from '@/server/queryClient.js';
 import { ServerProvider, useOptionalRefreshServerCapabilities, useServerCapabilities } from '@/server/ServerContext.js';
 import type { AgentBuilderCapabilitiesResponse } from '@/server/types.js';
 
-import { createMockAgentUIServer } from './mockServer.js';
+import { createMockAgentUIServer, tenantSessionSharing } from './mockServer.js';
+import { allSettingsSections } from './settingsCapabilityFixture.js';
 
 function capabilitiesResponse(settingsEnabled: boolean): AgentBuilderCapabilitiesResponse {
   return {
-    data: { sandbox: { enabled: true }, skill: { enabled: true }, settings: { enabled: settingsEnabled } },
+    data: {
+      sandbox: { enabled: true },
+      skill: { enabled: true },
+      settings: allSettingsSections(settingsEnabled),
+      sessionSharing: tenantSessionSharing,
+    },
   };
 }
 
 function CapabilitiesProbe() {
   const capabilities = useServerCapabilities();
-  return <output>{capabilities == null ? 'pending' : String(capabilities.settings?.enabled)}</output>;
+  return <output>{capabilities == null ? 'pending' : String(capabilities.settings?.modelProviders?.enabled)}</output>;
 }
 
 function CatalogProbe({ label }: { label: string }) {

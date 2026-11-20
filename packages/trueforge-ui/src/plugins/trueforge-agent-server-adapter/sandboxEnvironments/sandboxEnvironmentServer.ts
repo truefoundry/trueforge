@@ -118,6 +118,8 @@ function toUiEnvironment(wire: TrueForgeApi.SandboxEnvironment): SandboxEnvironm
     id: wire.id,
     name: wire.name,
     description: wire.description,
+    enabled: wire.enabled,
+    isDefault: wire.isDefault,
     status: wire.status,
     statusReason: wire.statusReason,
     manifest: toUiManifest(wire.manifest),
@@ -156,6 +158,16 @@ export function createSandboxEnvironmentServer(options: { client: TrueForge }): 
       const { data } = await client.sandboxEnvironments.createOrUpdate({
         manifest: toWireManifest(manifest),
       });
+      return toUiEnvironment(data);
+    },
+
+    async setEnvironmentEnabled({ name, enabled }): Promise<SandboxEnvironment> {
+      const { data } = await client.sandboxEnvironments.update(name, { enabled });
+      return toUiEnvironment(data);
+    },
+
+    async setDefaultEnvironment({ name }): Promise<SandboxEnvironment> {
+      const { data } = await client.sandboxEnvironments.update(name, { isDefault: true });
       return toUiEnvironment(data);
     },
 

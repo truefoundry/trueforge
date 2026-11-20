@@ -7,7 +7,9 @@ from importlib import import_module
 
 if typing.TYPE_CHECKING:
     from . import agents, metrics, sandbox_environments, schedules, sessions
+    from .sessions import InternalCreateSessionTurnRequestInputItem
 _dynamic_imports: typing.Dict[str, str] = {
+    "InternalCreateSessionTurnRequestInputItem": ".sessions",
     "agents": ".agents",
     "metrics": ".metrics",
     "sandbox_environments": ".sandbox_environments",
@@ -37,4 +39,11 @@ def __dir__():
     return sorted(lazy_attrs)
 
 
-__all__ = ["agents", "metrics", "sandbox_environments", "schedules", "sessions"]
+__all__ = [
+    "InternalCreateSessionTurnRequestInputItem",
+    "agents",
+    "metrics",
+    "sandbox_environments",
+    "schedules",
+    "sessions",
+]

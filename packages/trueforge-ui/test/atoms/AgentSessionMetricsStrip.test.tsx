@@ -30,6 +30,17 @@ const metrics: SessionMetrics = {
     { label: 'output', value: 80_000, color: '#34d399' },
     { label: 'cached', value: 0, color: '#c084fc' },
   ],
+  inputTokens: 200_000,
+  outputTokens: 80_000,
+  cacheReadTokens: 12_000,
+  cacheWriteTokens: 2_000,
+  inputBreakdown: [
+    { label: 'Harness', value: 10_000, color: '#f59e0b' },
+    { label: 'Skills', value: 5_000, color: '#6366f1' },
+    { label: 'Instructions', value: 20_000, color: '#22d3ee' },
+    { label: 'Tool definitions', value: 15_000, color: '#3b82f6' },
+    { label: 'Messages', value: 150_000, color: '#ec4899' },
+  ],
   contextByTurn: [
     { label: 'T1', value: 200_000, color: '#3b82f6' },
     { label: 'T2', value: 280_000, color: '#3b82f6' },
@@ -83,6 +94,48 @@ describe('AgentSessionMetricsStrip', () => {
       expect(tooltip!.className).toMatch(/pointer-events-auto/);
     },
   );
+
+  it('shows total, input and output, then one input breakdown bar, then cache read and write', () => {
+    render(<AgentSessionMetricsStrip metrics={metrics} />);
+    const tile = document.querySelector('[data-slot="session-metric-tokens"]');
+    expect(tile).not.toBeNull();
+    fireEvent.mouseEnter(tile!);
+    const tooltip = document.querySelector('[role="tooltip"]');
+    expect(tooltip).not.toBeNull();
+    const text = tooltip!.textContent ?? '';
+    expect(text).toContain('280,000 total tokens');
+    expect(text).toContain('200,000 input · 80,000 output');
+    expect(text).toContain('Input breakdown');
+    expect(text).toContain('Harness');
+    expect(text).toContain('10,000');
+    expect(text).toContain('Tool definitions');
+    expect(text).toContain('Messages');
+    expect(text).toContain('Output tokens');
+    expect(text).toContain('Cache read');
+    expect(text).toContain('12,000');
+    expect(text).toContain('Cache write');
+    expect(text).toContain('2,000');
+    expect(text).not.toContain('Cached');
+    expect(text.indexOf('total tokens')).toBeLessThan(text.indexOf('input ·'));
+    expect(text.indexOf('input ·')).toBeLessThan(text.indexOf('Input breakdown'));
+    expect(text.indexOf('Input breakdown')).toBeLessThan(text.indexOf('Output tokens'));
+    expect(text.indexOf('Output tokens')).toBeLessThan(text.indexOf('Cache read'));
+    expect(text.indexOf('Cache read')).toBeLessThan(text.indexOf('Cache write'));
+  });
+
+  it('omits the input breakdown bar when attribution is empty', () => {
+    render(<AgentSessionMetricsStrip metrics={{ ...metrics, inputBreakdown: [] }} />);
+    const tile = document.querySelector('[data-slot="session-metric-tokens"]');
+    expect(tile).not.toBeNull();
+    fireEvent.mouseEnter(tile!);
+    const tooltip = document.querySelector('[role="tooltip"]');
+    expect(tooltip).not.toBeNull();
+    expect(tooltip).not.toHaveTextContent('Input breakdown');
+    expect(tooltip).not.toHaveTextContent('Harness');
+    expect(tooltip).toHaveTextContent('280,000 total tokens');
+    expect(tooltip).toHaveTextContent('Cache read');
+    expect(tooltip).toHaveTextContent('Cache write');
+  });
 
   it('scrolls long context and tool-call names inside the tooltip', () => {
     render(

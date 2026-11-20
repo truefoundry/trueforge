@@ -13,7 +13,8 @@ import type {
   SkillCatalogServer,
   WebSearchCatalogServer,
 } from '@/server/types.js';
-import { createMockAgentUIServer, createMockCatalog } from '../../server/mockServer.js';
+import { createMockAgentUIServer, createMockCatalog, tenantSessionSharing } from '../../server/mockServer.js';
+import { allSettingsSections } from '../../server/settingsCapabilityFixture.js';
 
 vi.mock('@/containers/SettingsBuilder/ModelSettings.js', () => ({
   default: () => <div>Model settings content</div>,
@@ -33,6 +34,10 @@ vi.mock('@/containers/SettingsBuilder/SandboxSettings.js', () => ({
 
 vi.mock('@/containers/SettingsBuilder/WebSearchSettings.js', () => ({
   default: () => <div>Web search settings content</div>,
+}));
+
+vi.mock('@/containers/SettingsBuilder/MemorySettings.js', () => ({
+  default: () => <div>Memory settings content</div>,
 }));
 
 async function unavailable(): Promise<never> {
@@ -180,6 +185,99 @@ describe('TruefoundrySettingsBuilder', () => {
     expect(screen.queryByRole('button', { name: 'Skills' })).not.toBeInTheDocument();
   });
 
+  it('opens an allowed section when the caller may only reach web search', async () => {
+    const sections = allSettingsSections(false);
+    const server = createMockAgentUIServer({
+      catalog: createMockCatalog({ webSearchCatalog }),
+      getCapabilities: async () => ({
+        data: {
+          sandbox: { enabled: true },
+          skill: { enabled: true },
+          sessionSharing: tenantSessionSharing,
+          settings: { ...sections, webSearch: { enabled: true, manageProviders: false } },
+        },
+      }),
+    });
+    render(<TestShell server={server} />);
+    await openSettings();
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Web search' })).toHaveAttribute('aria-current', 'page');
+    });
+    expect(await screen.findByText('Web search settings content')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Models' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Connectors' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Model settings content')).not.toBeInTheDocument();
+  });
+
+  it('mounts web search for a host that only exposes the tenant configuration', async () => {
+    const sections = allSettingsSections(false);
+    const server = createMockAgentUIServer({
+      catalog: createMockCatalog({}),
+      configuration: {
+        getConfiguration: async () => ({ webSearch: { enabled: true }, memory: { enabled: true } }),
+        updateConfiguration: unavailable,
+      },
+      getCapabilities: async () => ({
+        data: {
+          sandbox: { enabled: true },
+          skill: { enabled: true },
+          sessionSharing: tenantSessionSharing,
+          settings: { ...sections, webSearch: { enabled: true, manageProviders: false } },
+        },
+      }),
+    });
+    render(<TestShell server={server} />);
+    await openSettings();
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Web search' })).toHaveAttribute('aria-current', 'page');
+    });
+    expect(await screen.findByText('Web search settings content')).toBeInTheDocument();
+  });
+
+  it('mounts memory only for a host with the tenant configuration port', async () => {
+    const { rerender } = render(<TestShell server={createServer()} />);
+    await openSettings();
+    expect(screen.queryByRole('button', { name: 'Memory' })).not.toBeInTheDocument();
+
+    const server = createMockAgentUIServer({
+      catalog: createMockCatalog({}),
+      configuration: {
+        getConfiguration: async () => ({ webSearch: { enabled: true }, memory: { enabled: true } }),
+        updateConfiguration: unavailable,
+      },
+    });
+    rerender(<TestShell server={server} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Memory' }));
+    expect(await screen.findByText('Memory settings content')).toBeInTheDocument();
+  });
+
+  it('hides memory when the host does not offer it to the tenant', async () => {
+    const sections = allSettingsSections(true);
+    const server = createMockAgentUIServer({
+      catalog: createMockCatalog({}),
+      configuration: {
+        getConfiguration: async () => ({ webSearch: { enabled: true }, memory: { enabled: true } }),
+        updateConfiguration: unavailable,
+      },
+      getCapabilities: async () => ({
+        data: {
+          sandbox: { enabled: true },
+          skill: { enabled: true },
+          sessionSharing: tenantSessionSharing,
+          settings: { ...sections, memoryProviders: { enabled: false, manageProviders: true } },
+        },
+      }),
+    });
+    render(<TestShell server={server} />);
+    await openSettings();
+
+    expect(await screen.findByRole('button', { name: 'Web search' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Memory' })).not.toBeInTheDocument();
+  });
+
   it('closes on Escape without leaking the event to a parent handler', async () => {
     const parentKeyDown = vi.fn();
     render(
@@ -209,7 +307,12 @@ describe('TruefoundrySettingsBuilder', () => {
     const getSkills = vi.fn(async () => []);
     const getMcp = vi.fn(async () => []);
     const getCapabilities = vi.fn(async () => ({
-      data: { sandbox: { enabled: true }, skill: { enabled: true }, settings: { enabled: true } },
+      data: {
+        sandbox: { enabled: true, environments: { enabled: true } },
+        skill: { enabled: true },
+        sessionSharing: tenantSessionSharing,
+        settings: allSettingsSections(true),
+      },
     }));
     const server = createMockAgentUIServer({
       catalog: createMockCatalog(),

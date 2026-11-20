@@ -1,4 +1,4 @@
-import configuration, { STANDALONE_TRUEFORGE_API_KEY } from '../../../src/config';
+import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 import { internalTrueForgeClient } from '../../../src/controller/internalTrueForgeClient';
 import {
   loadScheduleDispatchItem,
@@ -10,6 +10,17 @@ import {
 } from '../../../src/controller/scheduleDispatch';
 import type { ScheduleDispatchItem, ScheduleRunRecord } from '../../../src/db/scheduleStore';
 import { ScheduleManifestSchema } from '../../../src/schemas/schedule';
+
+function agentRecord() {
+  return {
+    id: 'agent-1',
+    name: 'reporter',
+    manifest: AgentSpecSchema.parse({
+      model: { name: 'test-provider/test-model' },
+      instructions: 'test',
+    }),
+  };
+}
 
 describe('scheduleRunFailureReason', () => {
   it('uses Error.message when non-empty', () => {
@@ -63,6 +74,12 @@ function fakeLogger() {
   return { error: jest.fn(), debug: jest.fn(), info: jest.fn(), warn: jest.fn() };
 }
 
+function fakeSessions({ getOrCreateByExternalId }: { getOrCreateByExternalId?: jest.Mock }) {
+  return {
+    getOrCreateByExternalId: getOrCreateByExternalId ?? jest.fn(),
+  };
+}
+
 function fakeStore(dispatchItem: ScheduleDispatchItem) {
   return {
     listScheduledRuns: jest.fn().mockResolvedValue([dispatchItem.run]),
@@ -86,43 +103,22 @@ async function tickDispatch() {
   return { store, logger };
 }
 
-describe('schedule execution HTTP transport', () => {
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
-
-  it('sends one API-key authenticated request with the run id', async () => {
-    const request = jest.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 204 }));
-
-    await internalTrueForgeClient.executeScheduleRun('run-1');
-
-    expect(request).toHaveBeenCalledTimes(1);
-    const [url, init] = request.mock.calls[0] ?? [];
-    expect(String(url)).toBe(`${configuration.SERVER_URL}/api/internal/schedules/runs/execute`);
-    expect(init?.method).toBe('POST');
-    expect(new Headers(init?.headers).get('authorization')).toBe(`Bearer ${STANDALONE_TRUEFORGE_API_KEY}`);
-    expect(init?.body).toBe(JSON.stringify({ schedule_run_id: 'run-1' }));
-  });
-});
-
 describe('scheduleDispatchLoop', () => {
   afterEach(() => {
     jest.restoreAllMocks();
   });
 
-  it('hands the persisted run id to the execution endpoint', async () => {
-    const request = jest.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 204 }));
+  it('hands the persisted run id to the execution client', async () => {
+    const execute = jest.spyOn(internalTrueForgeClient, 'executeScheduleRun').mockResolvedValue(undefined);
 
     await tickDispatch();
 
-    expect(request).toHaveBeenCalledTimes(1);
-    const [url, init] = request.mock.calls[0] ?? [];
-    expect(String(url)).toBe(`${configuration.SERVER_URL}/api/internal/schedules/runs/execute`);
-    expect(init?.body).toBe(JSON.stringify({ schedule_run_id: 'run-1' }));
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(execute).toHaveBeenCalledWith('run-1');
   });
 
-  it('marks HTTP execution failures as failed', async () => {
-    jest.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('request failed', { status: 500 }));
+  it('marks execution failures as failed', async () => {
+    jest.spyOn(internalTrueForgeClient, 'executeScheduleRun').mockRejectedValue(new Error('request failed'));
 
     const { logger } = await tickDispatch();
 
@@ -139,12 +135,12 @@ describe('startScheduleRun', () => {
     const listTurns = jest.fn().mockResolvedValue({ data: [] });
     const session = { session_id: 'session-1', listTurns };
     const getOrCreateByExternalId = jest.fn().mockResolvedValue({ session, created: true });
-    const getAgent = jest.fn().mockResolvedValue({ id: 'agent-1', name: 'reporter' });
+    const getAgent = jest.fn().mockResolvedValue(agentRecord());
     const updateRun = jest.fn().mockResolvedValue(undefined);
 
     const prepared = await startScheduleRun({
       item: dispatchItem,
-      sessions: { getOrCreateByExternalId } as never,
+      sessions: fakeSessions({ getOrCreateByExternalId }) as never,
       agentStore: { getAgent } as never,
       scheduleStore: { updateRun },
     });
@@ -157,13 +153,14 @@ describe('startScheduleRun', () => {
       created_by_subject: { subject_id: 'tester', subject_type: 'user', subject_display_name: 'tester' },
       agent: { type: 'reference', id: 'agent-1', name: 'reporter' },
       source: { type: 'schedule', id: 'sched-1', run_id: 'run-1' },
+      metadata: { 'tfg.source': 'schedule' },
     });
     expect(prepared).toEqual({
       session,
       input: [{ type: 'user.message', content: 'Write the report' }],
       previous_turn_id: 'none',
       userRef: 'tester',
-      agent: { id: 'agent-1', name: 'reporter' },
+      agent: agentRecord(),
     });
   });
 
@@ -173,12 +170,12 @@ describe('startScheduleRun', () => {
       session: { session_id: 'session-1', listTurns },
       created: false,
     });
-    const getAgent = jest.fn().mockResolvedValue({ id: 'agent-1', name: 'reporter' });
+    const getAgent = jest.fn().mockResolvedValue(agentRecord());
     const updateRun = jest.fn().mockResolvedValue(undefined);
 
     const prepared = await startScheduleRun({
       item: item(),
-      sessions: { getOrCreateByExternalId } as never,
+      sessions: fakeSessions({ getOrCreateByExternalId }) as never,
       agentStore: { getAgent } as never,
       scheduleStore: { updateRun },
     });
@@ -192,7 +189,7 @@ describe('startScheduleRun', () => {
     await expect(
       startScheduleRun({
         item: item(),
-        sessions: { getOrCreateByExternalId: jest.fn() } as never,
+        sessions: fakeSessions({}) as never,
         agentStore: { getAgent: jest.fn().mockResolvedValue(undefined) } as never,
         scheduleStore: { updateRun },
       }),

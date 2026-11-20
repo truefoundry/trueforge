@@ -1,5 +1,14 @@
-import { MAIN_THREAD_ID, getSessionEventColor, type SessionEventTimelineSegment } from './sessionEventTimeline.js';
-import type { SessionTurnView } from './sessionTurnViews.js';
+import {
+  MAIN_THREAD_ID,
+  getSessionEventColor,
+  mergedPauseWallMs,
+  type SessionEventTimelineSegment,
+} from './sessionEventTimeline.js';
+import {
+  sumSessionInputTokensBreakdown,
+  type SessionInputTokensBreakdown,
+  type SessionTurnView,
+} from './sessionTurnViews.js';
 
 export type SessionMetricBarDatum = {
   label: string;
@@ -18,6 +27,7 @@ export type SessionMetrics = {
   wallTimeMs: number;
   totalCostUsd?: number;
   totalTokens: number;
+  /** Context in play after the latest turn, not a sum over turns. */
   contextTokens: number;
   toolCalls: number;
   subAgents: number;
@@ -25,9 +35,37 @@ export type SessionMetrics = {
   timeBreakdown: SessionMetricBarDatum[];
   costPerTurn: SessionMetricBarDatum[];
   tokenBreakdown: SessionMetricBarDatum[];
+  /** Raw input tokens, including cache read and cache write. */
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  /** Input attribution from model.message usage; empty when no breakdown was recorded. */
+  inputBreakdown: SessionMetricBarDatum[];
   contextByTurn: SessionMetricBarDatum[];
   toolCallFrequency: SessionMetricBarDatum[];
 };
+
+/** Fixed palette for the five input-attribution parts (order matches the tooltip). */
+const INPUT_BREAKDOWN_PARTS = [
+  { key: 'harness', label: 'Harness', color: '#f59e0b' },
+  { key: 'skills', label: 'Skills', color: '#6366f1' },
+  { key: 'instructions', label: 'Instructions', color: '#22d3ee' },
+  { key: 'toolDefinitions', label: 'Tool definitions', color: '#3b82f6' },
+  { key: 'messages', label: 'Messages', color: '#ec4899' },
+] as const satisfies ReadonlyArray<{
+  key: keyof SessionInputTokensBreakdown;
+  label: string;
+  color: string;
+}>;
+
+export function toInputBreakdownBarData(parts: SessionInputTokensBreakdown): SessionMetricBarDatum[] {
+  return INPUT_BREAKDOWN_PARTS.map(part => ({
+    label: part.label,
+    value: parts[part.key],
+    color: part.color,
+  }));
+}
 
 /** Optional getSession overrides — lineage turn count always comes from events. */
 export type SessionMetricsHint = {
@@ -38,6 +76,13 @@ export type SessionMetricsHint = {
 
 function segmentDurationMs(segment: SessionEventTimelineSegment): number {
   return Math.max(0, segment.endMs - segment.startMs);
+}
+
+/** Drop sandbox intent suffix so frequency groups by tool (`Sandbox: exec`), not per intent. */
+function toolCallFrequencyLabel(description: string): string {
+  if (!description.startsWith('Sandbox: ')) return description;
+  const separator = description.indexOf(' - ');
+  return separator === -1 ? description : description.slice(0, separator);
 }
 
 function turnHasMetrics(turn: SessionTurnView): boolean {
@@ -64,24 +109,40 @@ export function buildSessionMetrics({
   let hasDerivedCost = false;
   let totalTokens = 0;
   let totalUncachedInputTokens = 0;
+  let totalRawInputTokens = 0;
   let totalOutputTokens = 0;
   let totalCachedTokens = 0;
+  let totalCacheReadTokens = 0;
+  let totalCacheWriteTokens = 0;
+  let inputTokensBreakdown: SessionInputTokensBreakdown | undefined;
   // Aggregate by display band so MCP-auth resumes don't emit duplicate T1 chart keys.
   const bandCostUsd = new Map<number, number>();
   const bandTokens = new Map<number, number>();
+  const bandContextTokens = new Map<number, number>();
 
   for (const turn of turns) {
     derivedWallTimeMs += turn.durationMs ?? 0;
+    // Context is a snapshot of the live conversation, so a band takes its last turn's value
+    // rather than a sum. Recorded before the metrics guard: a turn can still be running.
+    if (turn.contextTokens != null) bandContextTokens.set(turn.turnNumber, turn.contextTokens);
     if (!turnHasMetrics(turn)) {
       if (!bandCostUsd.has(turn.turnNumber)) bandCostUsd.set(turn.turnNumber, 0);
       if (!bandTokens.has(turn.turnNumber)) bandTokens.set(turn.turnNumber, 0);
       continue;
     }
 
+    // Same turns as the token totals. A cancelled turn can still carry model.message
+    // breakdowns that were never folded into terminal metrics.
+    inputTokensBreakdown = sumSessionInputTokensBreakdown(inputTokensBreakdown, turn.inputTokensBreakdown);
+
     // Prefer canonical turn fields from sessionTurnViews (uncached input already).
     const uncachedInputTokens = turn.inputTokens ?? 0;
     const outputTokens = turn.outputTokens ?? 0;
     const cachedTokens = turn.cachedTokens ?? 0;
+    const hasCacheSplit = turn.cacheReadTokens != null || turn.cacheWriteTokens != null;
+    const cacheReadTokens = turn.cacheReadTokens ?? 0;
+    const cacheWriteTokens = turn.cacheWriteTokens ?? 0;
+    const cacheInInput = hasCacheSplit ? cacheReadTokens + cacheWriteTokens : cachedTokens;
     const turnTotalTokens = turn.totalTokens ?? uncachedInputTokens + cachedTokens + outputTokens;
     const turnCostUsd = turn.totalCostInUsd;
 
@@ -91,8 +152,11 @@ export function buildSessionMetrics({
     }
     totalTokens += turnTotalTokens;
     totalUncachedInputTokens += uncachedInputTokens;
+    totalRawInputTokens += uncachedInputTokens + cacheInInput;
     totalOutputTokens += outputTokens;
     totalCachedTokens += cachedTokens;
+    totalCacheReadTokens += cacheReadTokens;
+    totalCacheWriteTokens += cacheWriteTokens;
     bandCostUsd.set(turn.turnNumber, (bandCostUsd.get(turn.turnNumber) ?? 0) + (turnCostUsd ?? 0));
     bandTokens.set(turn.turnNumber, (bandTokens.get(turn.turnNumber) ?? 0) + turnTotalTokens);
   }
@@ -102,12 +166,13 @@ export function buildSessionMetrics({
   let contextTokens = 0;
   for (const turnNumber of [...bandTokens.keys()].sort((left, right) => left - right)) {
     const label = `T${turnNumber}`;
-    contextTokens += bandTokens.get(turnNumber) ?? 0;
     costPerTurn.push({
       label,
       value: bandCostUsd.get(turnNumber) ?? 0,
       color: getSessionEventColor('tool_call'),
     });
+    // A band with no root model call (an MCP-auth resume) leaves the context untouched.
+    contextTokens = bandContextTokens.get(turnNumber) ?? contextTokens;
     contextByTurn.push({ label, value: contextTokens, color: getSessionEventColor('model') });
   }
 
@@ -117,17 +182,21 @@ export function buildSessionMetrics({
   const toolTimeMs = segments
     .filter(segment => segment.type === 'tool_call')
     .reduce((sum, segment) => sum + segmentDurationMs(segment), 0);
-  const waitingTimeMs = segments
-    .filter(segment => segment.type === 'waiting_on_human' || segment.type === 'approval')
-    .reduce((sum, segment) => sum + segmentDurationMs(segment), 0);
+  // Merge chip and span intervals. A sibling span can keep growing after the
+  // turn is running, and that tail is waiting time, not overhead.
+  const waitingTimeMs = mergedPauseWallMs(segments);
   // Detail session metrics may override wall time and cost; lineage turn count is always from events.
-  const wallTimeMs = sessionMetrics != null ? sessionMetrics.totalDurationMs : derivedWallTimeMs;
+  // Server duration excludes pauses while turn spans include them, so add waiting back to match.
+  const wallTimeMs = sessionMetrics != null ? sessionMetrics.totalDurationMs + waitingTimeMs : derivedWallTimeMs;
   const overheadTimeMs = Math.max(0, wallTimeMs - modelTimeMs - toolTimeMs - waitingTimeMs);
 
   const toolCallCounts = new Map<string, number>();
   for (const segment of segments) {
     if (segment.type !== 'tool_call' || segment.threadId !== MAIN_THREAD_ID) continue;
-    toolCallCounts.set(segment.description, (toolCallCounts.get(segment.description) ?? 0) + 1);
+    // Timeline descriptions keep sandbox intent ("Sandbox: exec - List files"); frequency
+    // collapses those to the tool so each intent is not its own bar of 1.
+    const label = toolCallFrequencyLabel(segment.description);
+    toolCallCounts.set(label, (toolCallCounts.get(label) ?? 0) + 1);
   }
   const toolCallFrequency = Array.from(toolCallCounts, ([label, value]) => ({
     label,
@@ -167,6 +236,11 @@ export function buildSessionMetrics({
       { label: 'output', value: totalOutputTokens, color: getSessionEventColor('user') },
       { label: 'cached', value: totalCachedTokens, color: getSessionEventColor('sub_agent') },
     ],
+    inputTokens: totalRawInputTokens,
+    outputTokens: totalOutputTokens,
+    cacheReadTokens: totalCacheReadTokens,
+    cacheWriteTokens: totalCacheWriteTokens,
+    inputBreakdown: inputTokensBreakdown == null ? [] : toInputBreakdownBarData(inputTokensBreakdown),
     contextByTurn,
     toolCallFrequency,
   };

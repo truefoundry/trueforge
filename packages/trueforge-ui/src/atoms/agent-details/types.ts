@@ -5,18 +5,21 @@ import type {
   AgentMetricGraph,
   AgentMetricMeter,
   CodeSnippet,
-  CreatedBySubject,
+  Subject,
+  TurnStatus,
 } from '../../server/types.js';
 import type { SessionMetrics } from '../../utils/buildSessionMetrics.js';
 import type { SessionEventTimelineSegment, SessionEventType } from '../../utils/sessionEventTimeline.js';
 import type { LibraryAgentTab, SessionTimeRange } from '../../utils/sessionShareUrl.js';
-import type { SessionTurnView } from '../../utils/sessionTurnViews.js';
+import type { SessionInputTokensBreakdown, SessionTurnView } from '../../utils/sessionTurnViews.js';
 
 export type AgentSessionsProps = {
   /** Library tab locks the list to this agent. Omit on the all-user Sessions page. */
   agentId?: string;
   startTimestamp?: string;
   endTimestamp?: string;
+  /** When true, list only sessions created by the current subject. */
+  createdByMe?: boolean;
   /** When `sessions`, selection writes `view=sessions` and pins `s_sts`/`s_ets`. */
   shareView?: 'sessions' | null;
   /** Render only the selected detail pane for a shared-session URL. */
@@ -37,13 +40,15 @@ export type AgentSessionListRowProps = {
   /** Set when the session was created by a schedule run. */
   scheduleId?: string;
   lastActivityAt: string;
+  /** Last-turn status for the after-title status dot / running title shimmer. */
+  lastTurnStatus?: TurnStatus;
   metrics: {
     totalTurns: number;
     totalCostInUsd?: number;
     totalDurationMs: number;
   };
   /** Session creator; avatar shown in the meta row when present. */
-  createdBySubject?: CreatedBySubject;
+  createdBySubject?: Subject;
   active: boolean;
   onSelect: () => void;
   /** Opens delete confirmation; does not call the API. */
@@ -83,6 +88,9 @@ export type AgentSessionTurnHeaderProps = {
   inputTokens?: number;
   outputTokens?: number;
   cachedTokens?: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
+  inputTokensBreakdown?: SessionInputTokensBreakdown;
   durationMs?: number;
   totalCostInUsd?: number;
   modelName?: string;

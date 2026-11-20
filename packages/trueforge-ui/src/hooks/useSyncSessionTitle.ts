@@ -4,56 +4,60 @@ import { useThreadIsRunning } from '@assistant-ui/core/react';
 import { useEffect, useRef } from 'react';
 
 import { useAui, useAuiState } from '../assistant-ui.js';
-import { useOptionalServer } from '../server/ServerContext.js';
 
 /**
- * After a turn ends, read `session.title` from GET /sessions/{id} and rename the
- * thread-list row. Initialize only stores `remoteId`, so first chats stay
- * "New Chat" until this runs.
+ * The server writes the session title when the first turn is created, before the
+ * model replies. assistant-ui skips its own trigger because we initialize the
+ * session first, so refresh the blank sidebar row when the user message id
+ * changes to the server turn id. If that id never changes, refresh when the turn ends.
  */
 export function useSyncSessionTitle(): void {
-  const server = useOptionalServer();
   const aui = useAui();
   const remoteId = useAuiState(s => s.threadListItem.remoteId);
   const title = useAuiState(s => s.threadListItem.title);
+  const firstUserMessageId = useAuiState(s => s.thread.messages.find(message => message.role === 'user')?.id);
   const isRunning = useThreadIsRunning();
   const wasRunningRef = useRef(false);
-  const syncedRemoteIdRef = useRef<string | undefined>(undefined);
+  const prevRemoteIdRef = useRef(remoteId);
+  const seenUserMessageIdRef = useRef(firstUserMessageId);
+  const attemptedRemoteIdRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
-    syncedRemoteIdRef.current = undefined;
-  }, [remoteId]);
-
-  useEffect(() => {
-    const finishedTurn = wasRunningRef.current && !isRunning;
+    // Leaving a running thread for an idle one flips `isRunning` without that session finishing a turn.
+    const switchedSession = prevRemoteIdRef.current !== remoteId;
+    prevRemoteIdRef.current = remoteId;
+    const finishedTurn = !switchedSession && wasRunningRef.current && !isRunning;
     wasRunningRef.current = isRunning;
-
-    if (!finishedTurn || server == null || remoteId == null) {
-      return;
+    // The optimistic user message uses a client turn id. It changes once
+    // `turn.created` arrives, which is after the title write has committed.
+    const previousUserMessageId = seenUserMessageIdRef.current;
+    seenUserMessageIdRef.current = firstUserMessageId;
+    const turnAccepted =
+      !switchedSession &&
+      isRunning &&
+      previousUserMessageId != null &&
+      firstUserMessageId != null &&
+      previousUserMessageId !== firstUserMessageId;
+    if (switchedSession) {
+      attemptedRemoteIdRef.current = undefined;
     }
-    if (syncedRemoteIdRef.current === remoteId) {
+
+    // The server only derives a title on the first turn, so one attempt per session is enough.
+    if ((!turnAccepted && !finishedTurn) || remoteId == null || attemptedRemoteIdRef.current === remoteId) {
       return;
     }
     // History rows already carry a title; only fill blank / "new" local rows.
     if (title != null && title.trim() !== '') {
-      syncedRemoteIdRef.current = remoteId;
       return;
     }
+    attemptedRemoteIdRef.current = remoteId;
 
-    let cancelled = false;
-    void server
-      .getSession({ sessionId: remoteId })
-      .then(session => {
-        if (cancelled) return;
-        const nextTitle = typeof session.title === 'string' ? session.title.trim() : '';
-        if (nextTitle.length === 0) return;
-        syncedRemoteIdRef.current = remoteId;
-        return aui.threadListItem().rename(nextTitle);
-      })
+    // Bind now so the deferred call targets the row that just finished, not whichever is active later.
+    const item = aui.threadListItem();
+    // The scope types `generateTitle` as void, but the runtime returns a promise;
+    // chaining through `then` adopts it so a rejection is still swallowed.
+    void Promise.resolve()
+      .then(() => item.generateTitle())
       .catch(() => undefined);
-
-    return () => {
-      cancelled = true;
-    };
-  }, [aui, isRunning, remoteId, server, title]);
+  }, [aui, firstUserMessageId, isRunning, remoteId, title]);
 }

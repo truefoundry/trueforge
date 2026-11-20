@@ -31,6 +31,13 @@ export const listAvailableSkillsRoute = createRoute({
   description: 'Configured skills as a slim name/description list for the composer.',
   'x-fern-sdk-group-name': ['skills'],
   'x-fern-sdk-method-name': 'list',
+  'x-tfg-mcp': {
+    name: 'list_skills',
+    description:
+      'List the skills you can add to an agent, each with its name and description. Use it to find a skill ' +
+      'to reference in a manifest.',
+    annotations: { readOnlyHint: true },
+  },
   responses: {
     200: {
       content: { 'application/json': { schema: ListAvailableSkillsResponseSchema } },
@@ -52,6 +59,12 @@ export const listSkillVersionsRoute = createRoute({
   description: 'Versions for one skill.',
   'x-fern-sdk-group-name': ['skills'],
   'x-fern-sdk-method-name': 'list_versions',
+  'x-tfg-mcp': {
+    name: 'list_skill_versions',
+    description:
+      'List the available versions of a skill so you can pin a specific version when referencing it in an agent manifest.',
+    annotations: { readOnlyHint: true },
+  },
   request: {
     query: ListSkillVersionsRequestQuerySchema,
   },

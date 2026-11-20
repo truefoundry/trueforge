@@ -6,7 +6,14 @@
  * No dependency on trueforge-gateway-sdk.
  */
 
-import type { ActionRequiredEvent, SessionEventItem, TurnEvent, TurnStreamData } from './events.js';
+import type {
+  ActionRequiredEvent,
+  EVENT_TYPE,
+  PersistedTurnEvent,
+  SessionEventItem,
+  TurnInboundEvent,
+  TurnStreamData,
+} from './events.js';
 
 // ---------------------------------------------------------------------------
 // Catalog — selector rows (SDK-minimal; host extends via generics)
@@ -54,7 +61,7 @@ export interface ConnectorSelectorEntry {
 }
 
 /** Who created a resource. Optional on list DTOs when the host does not track creators. */
-export interface CreatedBySubject {
+export interface Subject {
   subjectId: string;
   subjectType: string;
   subjectDisplayName: string;
@@ -70,7 +77,7 @@ export interface AgentSelectorEntry {
   /** Published agent spec — required for Edit; optional for Try-only hosts. */
   agentSpec?: AgentSpec;
   /** Creator when the host persists one; omit to hide Created-by UI. */
-  createdBySubject?: CreatedBySubject;
+  createdBySubject?: Subject;
 }
 
 export interface SearchAgentSelectorParams {
@@ -151,6 +158,19 @@ export interface AgentRuntimeConfig {
   dynamicSubAgents?: AgentCapabilityConfig;
   askUserQuestions?: AgentCapabilityConfig;
   webSearch?: AgentCapabilityConfig;
+  memory?: AgentCapabilityConfig;
+}
+
+export function readDraftTrueforgeEnabled(config: AgentRuntimeConfig | undefined): boolean | undefined {
+  if (config === undefined) {
+    return undefined;
+  }
+  const trueforge: unknown = Reflect.get(config, 'trueforge');
+  if (typeof trueforge !== 'object' || trueforge === null) {
+    return undefined;
+  }
+  const enabled: unknown = Reflect.get(trueforge, 'enabled');
+  return typeof enabled === 'boolean' ? enabled : undefined;
 }
 
 /**
@@ -188,12 +208,12 @@ export interface Session<TSpec extends AgentSpec = AgentSpec> {
   agentSpec?: TSpec;
   /** true → mutable builder + updateSession(spec) allowed. */
   isMutable: boolean;
-  /** When true, any subject in the tenant may read this session and its turns/events by id. */
-  shared?: boolean;
   /** Creator of the session; the only subject allowed to manage its sharing. */
   createdBy?: SessionSubject;
   /** Rolled-up turns/duration/cost from the session detail API when the host provides it. */
   metrics?: SessionListMetrics;
+  /** Slim snapshot of the session's last turn when the host provides it. */
+  lastTurnDetails?: SessionLastTurnDetails | null;
   createdAt: string;
   updatedAt: string;
   /** Arbitrary caller key-value metadata strings. */
@@ -212,8 +232,6 @@ export interface UpdateSessionRequest<TSpec extends AgentSpec = AgentSpec> {
   sessionId: string;
   agentSpec?: TSpec;
   title?: string;
-  /** When true, any subject in the tenant may read this session and its turns/events by id. */
-  shared?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -252,6 +270,45 @@ export interface ListSessionsParams extends PageParams {
 
 export type PreviousTurnIdInput = string;
 
+export const TURN_STATUS = {
+  CANCELLED: 'cancelled',
+  DONE: 'done',
+  ERROR: 'error',
+  PAUSED: 'paused',
+  RUNNING: 'running',
+} as const;
+
+/** Known `TurnStateCancelled.reason` values; hosts may send others. */
+export const TURN_CANCELLATION_REASON = {
+  ABANDONED: 'abandoned',
+  CANCELLED_FOR_NEXT_TURN: 'cancelled-for-next-turn',
+  CLIENT_CANCELLED: 'client-cancelled',
+  SERVER_EXECUTION_TIMEOUT: 'server-execution-timeout',
+} as const;
+
+/** Status of a turn, including `paused` (waiting on required actions). */
+export type TurnStatus = (typeof TURN_STATUS)[keyof typeof TURN_STATUS];
+
+/** Slim turn state on session list/detail payloads (`last_turn_details.state`). */
+export interface SessionLastTurnState {
+  status: TurnStatus;
+}
+
+/** The session's most recent turn; null until the first turn. */
+export interface SessionLastTurnDetails {
+  id: string;
+  state: SessionLastTurnState;
+}
+
+export const APPROVAL_DECISION_STATUS = {
+  ALLOW: 'allow',
+  DENY: 'deny',
+} as const;
+
+export const TOOL_APPROVAL_POLICY_ACTION_TYPE = {
+  ALLOW_SESSION: 'allow_session',
+} as const;
+
 // ---------------------------------------------------------------------------
 // Turn input / state — what runtime sends and reads
 // ---------------------------------------------------------------------------
@@ -260,35 +317,68 @@ export type UserMessageContent =
   string | ({ type: 'text'; text: string } | { type: 'file'; name: string; data: string })[];
 
 export interface UserMessage {
-  type: 'user.message';
+  type: typeof EVENT_TYPE.USER_MESSAGE;
   content: UserMessageContent;
 }
 
-export type ApprovalDecision = { status: 'allow' } | { status: 'deny'; reason?: string };
+export type ApprovalDecision =
+  { status: typeof APPROVAL_DECISION_STATUS.ALLOW } | { status: typeof APPROVAL_DECISION_STATUS.DENY; reason?: string };
 
-export interface UserToolApprovalEvent {
-  type: 'user.tool_approval';
+export interface UserToolApprovalInputEvent {
+  type: typeof EVENT_TYPE.USER_TOOL_APPROVAL;
   threadId: string;
   toolCallId: string;
   approval: ApprovalDecision;
 }
 
-export interface UserToolResponseEvent {
-  type: 'user.tool_response';
+export interface UserToolResponseInputEvent {
+  type: typeof EVENT_TYPE.USER_TOOL_RESPONSE;
   threadId: string;
   toolCallId: string;
   content: string;
 }
 
-/** Client resume after mcp.auth_required (OAuth completed). */
-export interface UserMcpAuthContinueEvent {
-  type: 'user.mcp_auth_continue';
+export interface ToolApprovalPolicyAllowSession {
+  type: typeof TOOL_APPROVAL_POLICY_ACTION_TYPE.ALLOW_SESSION;
+  expireAt?: string;
 }
 
-export type TurnInputItem = UserMessage | UserToolApprovalEvent | UserToolResponseEvent | UserMcpAuthContinueEvent;
+export interface ToolApprovalPolicyItem {
+  serverName: string;
+  name: string;
+  policy: ToolApprovalPolicyAllowSession;
+}
+
+export interface UserToolApprovalPolicyInputEvent {
+  type: typeof EVENT_TYPE.USER_TOOL_APPROVAL_POLICY;
+  policies: ToolApprovalPolicyItem[];
+}
+
+/**
+ * Reports that the browser-side MCP authorization flow completed. The server
+ * remains authoritative: execution continues only after it emits `turn.update`
+ * with `status: "running"`.
+ */
+export interface UserMcpAuthContinueInputEvent {
+  type: typeof EVENT_TYPE.USER_MCP_AUTH_CONTINUE;
+}
+
+export type TurnInboundEventItem =
+  | UserToolApprovalInputEvent
+  | UserToolApprovalPolicyInputEvent
+  | UserToolResponseInputEvent
+  | UserMcpAuthContinueInputEvent;
+
+/** Includes legacy continuation inputs so previously persisted turns remain readable. */
+export type TurnInputItem =
+  UserMessage | UserToolApprovalInputEvent | UserToolResponseInputEvent | UserMcpAuthContinueInputEvent;
 
 export interface TurnStateRunning {
-  status: 'running';
+  status: typeof TURN_STATUS.RUNNING;
+}
+
+export interface TurnStatePaused {
+  status: typeof TURN_STATUS.PAUSED;
 }
 
 /**
@@ -307,7 +397,7 @@ export interface TurnDoneMetrics {
 }
 
 export interface TurnStateDone {
-  status: 'done';
+  status: typeof TURN_STATUS.DONE;
   output?: unknown;
   requiredActions?: ActionRequiredEvent[];
   completedAt: string;
@@ -316,7 +406,7 @@ export interface TurnStateDone {
 }
 
 export interface TurnStateCancelled {
-  status: 'cancelled';
+  status: typeof TURN_STATUS.CANCELLED;
   reason: string;
   completedAt: string;
   /** Present when the host reports per-turn token totals before cancel. */
@@ -324,14 +414,17 @@ export interface TurnStateCancelled {
 }
 
 export interface TurnStateError {
-  status: 'error';
+  status: typeof TURN_STATUS.ERROR;
   message: string;
   completedAt: string;
   /** Present when the host reports per-turn token totals before error. */
   metrics?: TurnDoneMetrics;
 }
 
-export type TurnState = TurnStateRunning | TurnStateDone | TurnStateCancelled | TurnStateError;
+export type TurnState = TurnStateRunning | TurnStatePaused | TurnStateDone | TurnStateCancelled | TurnStateError;
+/** A turn that is still active: running, or paused until the user responds. */
+export type NonTerminalTurnState = TurnStateRunning | TurnStatePaused;
+export type TerminalTurnState = TurnStateDone | TurnStateCancelled | TurnStateError;
 
 /** Plain turn DTO — no methods. */
 export interface Turn {
@@ -343,6 +436,32 @@ export interface Turn {
   createdAt: string;
 }
 
+export interface CreateTurnRequest {
+  sessionId: string;
+  input: UserMessage[];
+  previousTurnId?: PreviousTurnIdInput;
+  abortSignal?: AbortSignal;
+  headers?: Record<string, string>;
+}
+
+export interface SendTurnEventsRequest {
+  sessionId: string;
+  turnId: string;
+  events: TurnInboundEventItem[];
+  abortSignal?: AbortSignal;
+}
+
+export interface SubscribeToTurnRequest {
+  sessionId: string;
+  turnId: string;
+  afterSequenceNumber?: number;
+  /** Inclusive cursor. Replay starts at this event. */
+  fromEventId?: string;
+  /** Exclusive cursor. Replay starts after the last entry with this event id. */
+  afterEventId?: string;
+  abortSignal?: AbortSignal;
+}
+
 // ---------------------------------------------------------------------------
 // Server ports — flat methods, no session-with-methods objects
 // ---------------------------------------------------------------------------
@@ -352,6 +471,10 @@ export interface Turn {
  *
  * All session ops are flat (sessionId param). No gateway client dependency.
  * `createTrueForgeServer` is one possible implementation (TFY adapter).
+ *
+ * A logical turn may span multiple SSE segments. Sending an inbound event does
+ * not resume it directly; the server decides when all required actions are
+ * satisfied and announces the transition through `turn.update`.
  */
 export interface AgentChatServer<
   TSpec extends AgentSpec = AgentSpec,
@@ -366,13 +489,9 @@ export interface AgentChatServer<
   getSession(req: { sessionId: string }): Promise<TSession>;
   updateSession(req: TUpdate): Promise<TSession>;
 
-  createTurn(req: {
-    sessionId: string;
-    input?: TurnInputItem[];
-    previousTurnId?: PreviousTurnIdInput;
-    abortSignal?: AbortSignal;
-    headers?: Record<string, string>;
-  }): AsyncIterable<TurnStreamData>;
+  createTurn(req: CreateTurnRequest): AsyncIterable<TurnStreamData>;
+
+  sendTurnEvents(req: SendTurnEventsRequest): Promise<TurnInboundEvent[]>;
 
   cancelSession(req: { sessionId: string }): Promise<void>;
   deleteSession?(req: { sessionId: string }): Promise<void>;
@@ -393,24 +512,21 @@ export interface AgentChatServer<
     sessionId: string;
     pageToken?: string;
     lastTurnId?: string;
-    limit?: number;
   }): Promise<ListResult<SessionEventItem>>;
 
   /** Optional per-turn event listing (hydrate in-flight turn content). */
   listTurnEvents?(req: {
     sessionId: string;
     turnId: string;
-    limit?: number;
     pageToken?: string;
     order?: ListSessionsOrder;
-  }): Promise<ListResult<TurnEvent>>;
+  }): Promise<ListResult<PersistedTurnEvent>>;
 
-  subscribeToTurn?(req: {
-    sessionId: string;
-    turnId: string;
-    afterSequenceNumber?: number;
-    abortSignal?: AbortSignal;
-  }): AsyncIterable<TurnStreamData>;
+  /**
+   * Optional reconnect path. When omitted, a running turn still loads as
+   * history but this client cannot stream live updates (`resumeUnavailable`).
+   */
+  subscribeToTurn?(req: SubscribeToTurnRequest): AsyncIterable<TurnStreamData>;
 
   /**
    * Reads a file the agent wrote inside its sandbox. Hosts whose download route is scoped to a
@@ -454,17 +570,39 @@ export interface McpToolSelection {
   description?: string;
 }
 
+/** One settings section. `manageProviders` is false when the platform owns the providers. */
+export interface SettingsCapabilitySection {
+  enabled: boolean;
+  manageProviders: boolean;
+}
+
+/** Settings sections the caller may open. A host may report only the ones it has. */
+export interface SettingsCapability {
+  modelProviders?: SettingsCapabilitySection;
+  mcpServers?: SettingsCapabilitySection;
+  skills?: SettingsCapabilitySection;
+  sandboxProviders?: SettingsCapabilitySection;
+  webSearch?: SettingsCapabilitySection;
+  memoryProviders?: SettingsCapabilitySection;
+}
+
 /**
  * Builder feature flags — atoms gate sandbox / skill / settings surfaces on these.
  */
 export interface AgentBuilderCapabilitiesResponse {
   data: {
-    sandbox: { enabled: boolean };
+    sandbox: {
+      enabled: boolean;
+      /** Gates Environments chrome + environment pickers. Absent → treat as disabled. */
+      environments?: { enabled: boolean };
+    };
     skill: { enabled: boolean; reason?: string };
-    settings?: { enabled: boolean };
-    webSearch?: { enabled: boolean };
-    /** Present when the host reports session sharing; `enabled` gates invite-by-user. */
-    sessionSharing?: { enabled: boolean };
+    settings?: SettingsCapability;
+    webSearch?: { enabled: boolean; reason?: string };
+    /** Absent when the host does not offer memory, which hides memory settings; `reason` explains a locked toggle. */
+    memory?: { enabled: boolean; reason?: string };
+    /** Finest supported sharing scope; `subject` allows invite-by-user as well as tenant-wide sharing. */
+    sessionSharing: { granularity: 'tenant' | 'subject' };
   };
 }
 
@@ -864,6 +1002,55 @@ export interface WebSearchCatalogServer<
   updateWebSearchProvider(req: TUpdate): Promise<TProvider>;
 }
 
+// ---------------------------------------------------------------------------
+// Memory providers catalog — public rows omit credentials; writes accept them
+// ---------------------------------------------------------------------------
+
+export interface MemoryProviderCatalogEntry {
+  id: string;
+  name: string;
+  type: string;
+}
+
+/** Connected memory provider row (settings/memory). No raw `apiKey`. */
+export interface MemoryProviderBase {
+  id: string;
+  name: string;
+  catalogId: string;
+  isConnected: boolean;
+  serverUrl?: string;
+}
+
+export interface CreateMemoryProviderRequest {
+  /** `MemoryProviderCatalogEntry.id` used to create this memory provider. */
+  catalogId: string;
+  name: string;
+  type: string;
+  apiKey: string;
+  /** Omit for the provider's hosted default. */
+  serverUrl?: string;
+}
+
+export interface UpdateMemoryProviderRequest {
+  id: string;
+  /** Omit to keep the existing key; send a value to set/rotate. */
+  apiKey?: string;
+  /** Omit for the provider's hosted default. */
+  serverUrl?: string;
+}
+
+export interface MemoryCatalogServer<
+  TProvider extends MemoryProviderBase = MemoryProviderBase,
+  TCatalogEntry extends MemoryProviderCatalogEntry = MemoryProviderCatalogEntry,
+  TCreate extends CreateMemoryProviderRequest = CreateMemoryProviderRequest,
+  TUpdate extends UpdateMemoryProviderRequest = UpdateMemoryProviderRequest,
+> {
+  getMemoryProviderCatalog(): Promise<TCatalogEntry[]>;
+  listMemoryProviders(): Promise<TProvider[]>;
+  createMemoryProvider(req: TCreate): Promise<TProvider>;
+  updateMemoryProvider(req: TUpdate): Promise<TProvider>;
+}
+
 /** Host-facing selector / compose aliases (trueforge-ui public names). */
 export type ModelSelection = ModelSelectorEntry;
 export type AgentSkill = SkillSelectorEntry;
@@ -882,6 +1069,7 @@ export interface CatalogServer<
   TSkillCatalog extends SkillCatalogServer = SkillCatalogServer,
   TSandboxCatalog extends SandboxCatalogServer = SandboxCatalogServer,
   TWebSearchCatalog extends WebSearchCatalogServer = WebSearchCatalogServer,
+  TMemoryCatalog extends MemoryCatalogServer = MemoryCatalogServer,
 > {
   modelCatalog: TModelCatalog;
   connectorCatalog: TConnectorCatalog;
@@ -891,6 +1079,35 @@ export interface CatalogServer<
   sandboxCatalog?: TSandboxCatalog;
   /** Optional — omit when the host has no web-search settings surface. */
   webSearchCatalog?: TWebSearchCatalog;
+  /** Optional — omit when the host has no memory provider settings surface. */
+  memoryCatalog?: TMemoryCatalog;
+}
+
+/** One tenant-wide switch. */
+export interface TenantConfigurationSwitch {
+  enabled: boolean;
+}
+
+/** Tenant-wide feature switches an admin controls, independent of any provider catalog. */
+export interface TenantConfiguration {
+  webSearch: TenantConfigurationSwitch;
+  memory: TenantConfigurationSwitch;
+}
+
+export interface UpdateTenantConfigurationRequest {
+  /** Omit a switch to leave it as stored. */
+  webSearch?: TenantConfigurationSwitch;
+  memory?: TenantConfigurationSwitch;
+}
+
+/**
+ * Read and change the tenant switches. Kept apart from the provider catalogs
+ * because a deployment may let an admin flip a switch while the platform owns
+ * the providers behind it.
+ */
+export interface ConfigurationServer<TConfiguration extends TenantConfiguration = TenantConfiguration> {
+  getConfiguration(): Promise<TConfiguration>;
+  updateConfiguration(req: UpdateTenantConfigurationRequest): Promise<TConfiguration>;
 }
 
 // ---------------------------------------------------------------------------
@@ -952,18 +1169,20 @@ export interface SessionListEntry<TSpec extends AgentSpec = AgentSpec> {
   updatedAt: string;
   lastActivityAt: string;
   metrics: SessionListMetrics;
+  /** Slim snapshot of the session's last turn; null until the first turn. */
+  lastTurnDetails?: SessionLastTurnDetails | null;
   /** Present when bound to a published (immutable) agent. */
   agentName?: string | null;
   /** Present when bound to a mutable / draft agent spec. */
   agentSpec?: TSpec;
   /** Session creator; omitted when the host does not track creators. */
-  createdBySubject?: CreatedBySubject;
+  createdBySubject?: Subject;
   /** Arbitrary caller key-value metadata strings. */
   metadata?: Record<string, string>;
 }
 
 /** Params for `AgentSessionsServer.listSessionEvents` (session event timeline). */
-export interface ListSessionEventsParams extends Pick<PageParams, 'limit' | 'pageToken'> {
+export interface ListSessionEventsParams extends Pick<PageParams, 'pageToken'> {
   sessionId: string;
 }
 
@@ -1020,7 +1239,7 @@ export interface Schedule {
   status: ScheduleStatus;
   lastRunAt: string | null;
   /** Creator when the host persists one; omit to hide Created-by UI. */
-  createdBySubject?: CreatedBySubject;
+  createdBySubject?: Subject;
 }
 
 /** Flat schedule-run DTO (ISO-8601 timestamps; host maps from wire Dates). */
@@ -1124,10 +1343,14 @@ export interface SandboxEnvironment {
   id: string;
   name: string;
   description: string;
+  /** Whether new chats and agents may select this environment. */
+  enabled: boolean;
+  /** Whether chats and agents that name no environment get this one. */
+  isDefault: boolean;
   status: SandboxEnvironmentStatus;
   statusReason: string | null;
   manifest: SandboxEnvironmentManifest;
-  createdBySubject: CreatedBySubject;
+  createdBySubject: Subject;
   createdAt: string;
   updatedAt: string;
 }
@@ -1140,6 +1363,8 @@ export interface SandboxEnvironmentServer<TEnvironment extends SandboxEnvironmen
   /** Create only — fails if `manifest.name` is already taken. */
   createEnvironment(req: { manifest: SandboxEnvironmentManifest }): Promise<TEnvironment>;
   createOrUpdateEnvironment(req: { manifest: SandboxEnvironmentManifest }): Promise<TEnvironment>;
+  setEnvironmentEnabled(req: { name: string; enabled: boolean }): Promise<TEnvironment>;
+  setDefaultEnvironment(req: { name: string }): Promise<TEnvironment>;
   deleteEnvironment(req: { name: string }): Promise<void>;
 }
 
@@ -1171,10 +1396,10 @@ export interface PermissionsServer<
 }
 
 // ---------------------------------------------------------------------------
-// Session access — share a session with specific users
+// Session access — share a session with subjects
 // ---------------------------------------------------------------------------
 
-export type SessionAccessSubjectType = 'user';
+export type SessionAccessSubjectType = 'user' | 'tenant';
 
 export interface SessionAccessSubject {
   subjectType: SessionAccessSubjectType;
@@ -1182,7 +1407,7 @@ export interface SessionAccessSubject {
 }
 
 export interface SessionAccessGrant extends SessionAccessSubject {
-  /** Null when the directory can no longer resolve the user. */
+  /** Null for tenant grants or when the directory cannot resolve the user. */
   displayName: string | null;
   email: string | null;
   createdAt: string;
@@ -1303,9 +1528,12 @@ export type AgentUIServerPort<
   TMetrics extends AgentMetricsServer = AgentMetricsServer,
   TPermissions extends PermissionsServer = PermissionsServer,
   TSessionAccess extends SessionAccessServer = SessionAccessServer,
+  TConfiguration extends ConfigurationServer = ConfigurationServer,
 > = TChat &
   TBuilder & {
     catalog?: TCatalog;
+    /** Optional tenant-switch port; omit to hide the tenant controls in settings. */
+    configuration?: TConfiguration;
     sessions?: TSessions;
     schedules?: TSchedules;
     sandboxEnvironments?: TSandboxEnvironments;

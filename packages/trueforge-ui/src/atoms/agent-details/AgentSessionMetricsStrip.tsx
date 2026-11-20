@@ -13,6 +13,7 @@ import {
   ProportionDonut,
   SessionMetricTooltipContent,
   StackedProportionBar,
+  TokenUsageTooltip,
 } from './AgentSessionMetricCharts.js';
 import type { AgentSessionMetricsStripProps } from './types.js';
 
@@ -147,9 +148,14 @@ export function AgentSessionMetricsStrip({ metrics }: AgentSessionMetricsStripPr
           }
           tooltip={
             metrics.totalTokens > 0 ? (
-              <SessionMetricTooltipContent title="Tokens">
-                <StackedProportionBar data={metrics.tokenBreakdown} formatValue={formatTokenCount} />
-              </SessionMetricTooltipContent>
+              <TokenUsageTooltip
+                totalTokens={metrics.totalTokens}
+                inputTokens={metrics.inputTokens}
+                outputTokens={metrics.outputTokens}
+                cacheReadTokens={metrics.cacheReadTokens}
+                cacheWriteTokens={metrics.cacheWriteTokens}
+                inputBreakdown={metrics.inputBreakdown}
+              />
             ) : null
           }
         />

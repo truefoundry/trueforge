@@ -4,7 +4,7 @@
  */
 import { z } from '@hono/zod-openapi';
 import { AgentSpecSchema } from './agentSpec';
-import { CreatedBySubjectSchema } from './subject';
+import { SubjectSchema } from './subject';
 import { TurnStatusSchema } from './turn';
 
 const SESSION_METADATA_MAX_KEY_LENGTH = 32;
@@ -90,7 +90,7 @@ export const SessionAgentSchema = z
   .discriminatedUnion('type', [SessionAgentReferenceSchema, SessionAgentInlineSchema])
   .openapi('SessionAgent');
 
-export const SessionSourceTypeSchema = z.enum(['schedule']).openapi('SessionSourceType');
+export const SessionSourceTypeSchema = z.enum(['schedule', 'service']).openapi('SessionSourceType');
 
 export type SessionSourceType = z.infer<typeof SessionSourceTypeSchema>;
 
@@ -104,13 +104,23 @@ function sessionSourceScheduleObject() {
     .strict();
 }
 
+function sessionSourceServiceObject() {
+  return z
+    .object({
+      type: z
+        .literal(SessionSourceTypeSchema.enum.service)
+        .describe('Session was created by a service caller (service API key create-turn).'),
+    })
+    .strict();
+}
+
 export const SessionSourceScheduleSchema = sessionSourceScheduleObject().openapi('SessionSourceSchedule');
 
-/**
- * How a session was created. Same shape as {@link SessionSourceScheduleSchema} today;
- * switch to `discriminatedUnion('type', …)` when a second source arm lands.
- */
-export const SessionSourceSchema = sessionSourceScheduleObject()
+export const SessionSourceServiceSchema = sessionSourceServiceObject().openapi('SessionSourceService');
+
+/** How a session was created. Null for interactive sessions. Non-null sources skip memory ingest. */
+export const SessionSourceSchema = z
+  .discriminatedUnion('type', [SessionSourceScheduleSchema, SessionSourceServiceSchema])
   .describe('How this session was created (e.g. a schedule run). Null for interactive sessions.')
   .openapi('SessionSource');
 
@@ -121,10 +131,7 @@ export const SessionSchema = z
     id: z.string().describe('Unique session id.'),
     agent: SessionAgentSchema,
     title: z.string().nullable().describe('Optional human-readable title; null until set.'),
-    shared: z
-      .boolean()
-      .describe('When true, any subject in the tenant may read this session and its turns/events by id.'),
-    created_by_subject: CreatedBySubjectSchema,
+    created_by_subject: SubjectSchema,
     created_at: z.string().describe('ISO 8601 creation timestamp.'),
     updated_at: z.string().describe('ISO 8601 last-update timestamp.'),
     metrics: SessionMetricsSchema,

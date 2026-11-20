@@ -62,7 +62,7 @@ describe('ThreadListRow', () => {
       </SlotsProvider>,
     );
     const activeRow = container.querySelector('[data-slot="aui_thread-list-item"]');
-    expect(activeRow?.className).toMatch(/bg-dropdown-selected-item-bg/);
+    expect(activeRow?.className).toMatch(/aui-shell-selected/);
   });
 
   it('renders agent name and relative time when provided', () => {
@@ -112,5 +112,144 @@ describe('ThreadListRow', () => {
     expect(actionsSlot?.className).toMatch(/md:group-hover:opacity-100/);
     expect(time.className).toMatch(/md:opacity-100/);
     expect(time.className).toMatch(/md:group-hover:opacity-0/);
+  });
+
+  it('shimmers the title when running and replaces the relative age with jumping dots', () => {
+    const lastMessageAt = new Date(Date.now() - 30 * 60_000);
+    const { container } = render(
+      <SlotsProvider>
+        <ThreadListRow
+          title="Running chat"
+          active={false}
+          onSelect={() => {}}
+          lastTurnStatus="running"
+          lastMessageAt={lastMessageAt}
+        />
+      </SlotsProvider>,
+    );
+
+    expect(screen.getByText('Running chat')).toHaveClass('aui-text-shimmer');
+    expect(screen.getByText('Running', { selector: '.sr-only' })).toBeInTheDocument();
+    expect(screen.queryByText('30m')).not.toBeInTheDocument();
+    expect(container.querySelector('[data-slot="aui_thread-list-item-running-dots"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-slot="session-status-dot"]')).not.toBeInTheDocument();
+  });
+
+  it('keeps age in the hover tip when the trailing slot shows running dots', () => {
+    const lastMessageAt = new Date(Date.now() - 18 * 60 * 60_000);
+    const { container } = render(
+      <SlotsProvider>
+        <ThreadListRow
+          title="Running chat"
+          active={false}
+          onSelect={() => {}}
+          lastTurnStatus="running"
+          lastMessageAt={lastMessageAt}
+        />
+      </SlotsProvider>,
+    );
+
+    const row = container.querySelector('[data-slot="aui_thread-list-item"]');
+    expect(row).toBeInstanceOf(HTMLElement);
+    if (!(row instanceof HTMLElement)) return;
+    fireEvent.mouseEnter(row);
+    expect(screen.getByRole('tooltip')).toHaveTextContent('18h');
+  });
+
+  it('replaces the relative age with a paused status dot when activity is recent', () => {
+    const lastMessageAt = new Date(Date.now() - 30 * 60_000);
+    const { container } = render(
+      <SlotsProvider>
+        <ThreadListRow
+          title="Paused chat"
+          active={false}
+          onSelect={() => {}}
+          lastTurnStatus="paused"
+          lastMessageAt={lastMessageAt}
+        />
+      </SlotsProvider>,
+    );
+
+    const pausedDot = container.querySelector('[data-slot="session-status-dot"]');
+    expect(pausedDot?.querySelector('.bg-warning-bg')).toBeInTheDocument();
+    expect(pausedDot?.querySelector('.motion-safe\\:animate-ping')).toBeInTheDocument();
+    expect(screen.getByText('Waiting for input', { selector: '.sr-only' })).toBeInTheDocument();
+    expect(screen.queryByText('30m')).not.toBeInTheDocument();
+  });
+
+  it('hides the paused status dot and shows relative age when activity is older than 48 hours', () => {
+    const lastMessageAt = new Date(Date.now() - 49 * 60 * 60_000);
+    const { container } = render(
+      <SlotsProvider>
+        <ThreadListRow
+          title="Stale paused chat"
+          active={false}
+          onSelect={() => {}}
+          lastTurnStatus="paused"
+          lastMessageAt={lastMessageAt}
+        />
+      </SlotsProvider>,
+    );
+
+    expect(container.querySelector('[data-slot="session-status-dot"]')).not.toBeInTheDocument();
+    expect(screen.queryByText('Waiting for input', { selector: '.sr-only' })).not.toBeInTheDocument();
+    expect(screen.getByText('2d')).toBeInTheDocument();
+  });
+
+  it('shows relative age for error with no failure chrome', () => {
+    const lastMessageAt = new Date(Date.now() - 30 * 60_000);
+    const { container } = render(
+      <SlotsProvider>
+        <ThreadListRow
+          title="Failed chat"
+          active={false}
+          onSelect={() => {}}
+          lastTurnStatus="error"
+          lastMessageAt={lastMessageAt}
+        />
+      </SlotsProvider>,
+    );
+
+    expect(container.querySelector('[data-slot="session-status-dot"]')).not.toBeInTheDocument();
+    expect(screen.queryByText('Failed', { selector: '.sr-only' })).not.toBeInTheDocument();
+    expect(screen.getByText('30m')).toBeInTheDocument();
+  });
+
+  it('shows a desktop hover tip with the full title and relative age', () => {
+    const lastMessageAt = new Date(Date.now() - 18 * 60 * 60_000);
+    const { container } = render(
+      <SlotsProvider>
+        <ThreadListRow title="Hello what can youndo" active={false} onSelect={() => {}} lastMessageAt={lastMessageAt} />
+      </SlotsProvider>,
+    );
+
+    const row = container.querySelector('[data-slot="aui_thread-list-item"]');
+    expect(row).toBeInstanceOf(HTMLElement);
+    if (!(row instanceof HTMLElement)) return;
+    fireEvent.mouseEnter(row);
+    const tip = screen.getByRole('tooltip');
+    expect(tip).toHaveTextContent('Hello what can youndo');
+    expect(tip).toHaveTextContent('18h');
+  });
+
+  it('keeps age in the hover tip when the trailing slot shows a status dot', () => {
+    const lastMessageAt = new Date(Date.now() - 18 * 60 * 60_000);
+    const { container } = render(
+      <SlotsProvider>
+        <ThreadListRow
+          title="Paused chat"
+          active={false}
+          onSelect={() => {}}
+          lastTurnStatus="paused"
+          lastMessageAt={lastMessageAt}
+        />
+      </SlotsProvider>,
+    );
+
+    const row = container.querySelector('[data-slot="aui_thread-list-item"]');
+    expect(row).toBeInstanceOf(HTMLElement);
+    if (!(row instanceof HTMLElement)) return;
+    fireEvent.mouseEnter(row);
+    expect(screen.getByRole('tooltip')).toHaveTextContent('18h');
   });
 });

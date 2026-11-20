@@ -6,7 +6,9 @@ import {
   CHAT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY,
   DRAFT_SPEC_PREFERENCES_STORAGE_KEY,
   freshAgentBuilderSeed,
+  memoryPreferenceToStore,
   readDraftSpecPreferences,
+  recoverMemoryAfterCapabilityAvailable,
   recoverWebSearchAfterCapabilityAvailable,
   selectAgentDraftSpecPreferences,
   selectChatDraftSpecPreferences,
@@ -57,6 +59,24 @@ describe('selectDraftSpecPreferences', () => {
       model: { name: 'm', params: { reasoningEffort: 'low' } },
       config: { sandbox: { enabled: true }, webSearch: { enabled: true } },
     });
+  });
+
+  it('freshAgentBuilderSeed keeps the memory choice for the next agent', () => {
+    expect(
+      freshAgentBuilderSeed({
+        model: { name: 'm' },
+        config: { sandbox: { enabled: true }, memory: { enabled: false } },
+      }),
+    ).toEqual({ model: { name: 'm' }, config: { sandbox: { enabled: true }, memory: { enabled: false } } });
+  });
+
+  it('keeps memory as an agent preference', () => {
+    expect(
+      selectAgentDraftSpecPreferences({
+        model: { name: 'm' },
+        config: { sandbox: { enabled: true }, memory: { enabled: false } },
+      }),
+    ).toEqual({ model: { name: 'm' }, config: { sandbox: { enabled: true }, memory: { enabled: false } } });
   });
 
   it('keeps runtime config for agent', () => {
@@ -480,5 +500,86 @@ describe('webSearchPreferenceToStore', () => {
       model: { name: 'model' },
       config: { webSearch: { enabled: true } },
     });
+  });
+});
+
+describe('recoverMemoryAfterCapabilityAvailable', () => {
+  const off = { model: { name: 'model' }, config: { memory: { enabled: false } } };
+
+  it('turns a leftover off back on when memory returns', () => {
+    expect(
+      recoverMemoryAfterCapabilityAvailable({ spec: off, previousMemoryEnabled: false, memoryEnabled: true }),
+    ).toEqual({ model: { name: 'model' }, config: { memory: { enabled: true } } });
+  });
+
+  it('keeps a stored off when memory returns', () => {
+    expect(
+      recoverMemoryAfterCapabilityAvailable({
+        spec: off,
+        previousMemoryEnabled: false,
+        memoryEnabled: true,
+        explicitOff: true,
+      }),
+    ).toBe(off);
+  });
+
+  it('keeps an off when memory did not just return', () => {
+    expect(recoverMemoryAfterCapabilityAvailable({ spec: off, previousMemoryEnabled: true, memoryEnabled: true })).toBe(
+      off,
+    );
+    expect(
+      recoverMemoryAfterCapabilityAvailable({ spec: off, previousMemoryEnabled: undefined, memoryEnabled: true }),
+    ).toBe(off);
+  });
+});
+
+describe('memoryPreferenceToStore', () => {
+  beforeEach(() => {
+    window.localStorage.removeItem(AGENT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY);
+  });
+
+  it('stores the memory choice while memory is available', () => {
+    const spec = { model: { name: 'model' }, config: { memory: { enabled: false } } };
+
+    expect(memoryPreferenceToStore({ spec, memoryEnabled: true, previousMemoryEnabled: true })).toEqual(spec);
+  });
+
+  it('does not store the draft value while memory is unavailable or capabilities are pending', () => {
+    const spec = { model: { name: 'model' }, config: { sandbox: { enabled: true }, memory: { enabled: false } } };
+
+    expect(memoryPreferenceToStore({ spec, memoryEnabled: false, previousMemoryEnabled: true })).toEqual({
+      model: { name: 'model' },
+      config: { sandbox: { enabled: true } },
+    });
+    expect(
+      memoryPreferenceToStore({
+        spec,
+        memoryEnabled: undefined,
+        previousMemoryEnabled: undefined,
+        capabilitiesPending: true,
+      }),
+    ).toEqual({ model: { name: 'model' }, config: { sandbox: { enabled: true } } });
+  });
+
+  it('keeps a stored choice while memory is unavailable', () => {
+    writeDraftSpecPreferences('agent', { model: { name: 'model' }, config: { memory: { enabled: false } } });
+
+    expect(
+      memoryPreferenceToStore({
+        spec: { model: { name: 'model' } },
+        memoryEnabled: false,
+        previousMemoryEnabled: true,
+      }),
+    ).toEqual({ model: { name: 'model' }, config: { memory: { enabled: false } } });
+  });
+
+  it('recovers a leftover off when memory returns and no off was stored', () => {
+    expect(
+      memoryPreferenceToStore({
+        spec: { model: { name: 'model' }, config: { memory: { enabled: false } } },
+        memoryEnabled: true,
+        previousMemoryEnabled: false,
+      }),
+    ).toEqual({ model: { name: 'model' }, config: { memory: { enabled: true } } });
   });
 });

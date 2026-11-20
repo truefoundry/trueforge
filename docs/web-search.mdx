@@ -21,6 +21,10 @@ The list comes from the shipped [`web-search-catalog.yaml`](https://github.com/t
 
 One provider is active at a time. API and UI reads redact the key, so when you update the provider later, leave the API key blank to keep the stored value, or enter a new key to rotate it.
 
+## Turn web search on for the tenant
+
+**Settings → Web search → Allow web search** is the tenant-wide switch, and it is on by default. While it is off, new chats and agents cannot enable web search; chats that already use it keep it. In TrueFoundry mode this switch is [per tenant](/tenant-settings).
+
 ## Enable web search on an agent
 
 | Where | How                                                                                                                                |
@@ -48,4 +52,5 @@ An MCP server with search tools works as well, and the [Quickstart](/quickstart)
 - `GET /api/v1/settings/web-search-providers` reads the provider, with the key redacted.
 - `PUT /api/v1/settings/web-search-providers` creates, replaces, or rotates the key.
 - `GET /api/v1/catalogs/web-search-providers` lists the presets.
+- `PATCH /api/v1/settings/configuration` with `{ "manifest": { "web_search": { "enabled": true } } }` turns web search on for the tenant.
 - `GET /api/v1/capabilities` reports whether web search is available.

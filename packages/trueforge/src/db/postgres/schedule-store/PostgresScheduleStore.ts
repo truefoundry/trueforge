@@ -1,4 +1,4 @@
-import { CreatedBySubjectSchema, type TokenPagination } from '@truefoundry/trueforge-core/agent-session';
+import { SubjectSchema, type TokenPagination } from '@truefoundry/trueforge-core/agent-session';
 import {
   decodeOffsetPageToken,
   paginateOffsetRows,
@@ -44,7 +44,7 @@ function toScheduleRecord(row: Selectable<ScheduleTable>): ScheduleRecord {
     name: row.name,
     manifest: parseStoredScheduleManifest(row.manifest),
     status: row.status,
-    created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
+    created_by_subject: SubjectSchema.parse(row.created_by_subject),
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
   };
@@ -58,7 +58,7 @@ function toRunRecord(row: Selectable<ScheduleRunTable>): ScheduleRunRecord {
     name: row.name,
     scheduled_for: row.scheduled_for.toISOString(),
     status: row.status,
-    created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
+    created_by_subject: SubjectSchema.parse(row.created_by_subject),
     triggered_at: row.triggered_at === null ? null : row.triggered_at.toISOString(),
     reason: row.reason,
     session_id: row.session_id,
@@ -261,7 +261,7 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
       .execute();
     return rows.map(row => ({
       id: row.id,
-      created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
+      created_by_subject: SubjectSchema.parse(row.created_by_subject),
     }));
   }
 
