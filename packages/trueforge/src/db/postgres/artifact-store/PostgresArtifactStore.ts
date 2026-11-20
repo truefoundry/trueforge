@@ -4,9 +4,8 @@ import {
   paginateOffsetRows,
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import { sql, type Kysely, type Selectable, type Transaction } from 'kysely';
-import { newId } from '../../../utils/id';
 import {
-  ArtifactSlugConflictError,
+  newArtifactIdentity,
   type ArtifactRecord,
   type ArtifactVersionRecord,
   type CreateArtifactInput,
@@ -16,7 +15,6 @@ import {
   type IArtifactStore,
   type ListArtifactsInput,
 } from '../../artifactStore';
-import { isUniqueViolation } from '../client';
 import { json, now } from '../sqlExpressions';
 import type { ArtifactTable, ArtifactVersionTable, Database } from '../types';
 
@@ -53,29 +51,20 @@ export class PostgresArtifactStore implements IArtifactStore<Transaction<Databas
 
   async createArtifact(input: CreateArtifactInput, transaction?: Transaction<Database>): Promise<ArtifactRecord> {
     const db = transaction ?? this.#db;
-    try {
-      const row = await db
-        .insertInto('artifact')
-        .values({
-          id: newId(),
-          tenant_id: input.tenant_id,
-          slug: input.slug,
-          title: input.title,
-          latest_version: 0,
-          created_by_subject: json(input.created_by_subject),
-          created_by_session_id: input.created_by_session_id,
-          created_at: now(),
-          updated_at: now(),
-        })
-        .returningAll()
-        .executeTakeFirstOrThrow();
-      return toArtifactRecord(row);
-    } catch (error) {
-      if (isUniqueViolation(error)) {
-        throw new ArtifactSlugConflictError({ tenant_id: input.tenant_id, slug: input.slug }, { cause: error });
-      }
-      throw error;
-    }
+    const row = await db
+      .insertInto('artifact')
+      .values({
+        ...newArtifactIdentity(input.title),
+        tenant_id: input.tenant_id,
+        latest_version: 0,
+        created_by_subject: json(input.created_by_subject),
+        created_by_session_id: input.created_by_session_id,
+        created_at: now(),
+        updated_at: now(),
+      })
+      .returningAll()
+      .executeTakeFirstOrThrow();
+    return toArtifactRecord(row);
   }
 
   async getArtifact(input: GetArtifactInput, transaction?: Transaction<Database>): Promise<ArtifactRecord | undefined> {
@@ -95,11 +84,24 @@ export class PostgresArtifactStore implements IArtifactStore<Transaction<Databas
   ): Promise<{ data: ArtifactRecord[]; pagination: TokenPagination }> {
     const offset = decodeOffsetPageToken(input.page_token);
     const db = transaction ?? this.#db;
-    const rows = await db
+    let query = db
       .selectFrom('artifact')
       .selectAll()
       .where('tenant_id', '=', input.tenant_id)
-      .where(sql`created_by_subject->>'subject_id'`, '=', input.created_by_subject_id)
+      .where(sql`created_by_subject->>'subject_id'`, '=', input.created_by_subject_id);
+    if (input.created_by_session_id !== undefined) {
+      query = query.where('created_by_session_id', '=', input.created_by_session_id);
+    }
+    if (input.title !== undefined) {
+      query = query.where(sql<boolean>`position(lower(${input.title}) in lower(title)) > 0`);
+    }
+    if (input.updated_since !== undefined) {
+      query = query.where('updated_at', '>=', input.updated_since);
+    }
+    if (input.updated_before !== undefined) {
+      query = query.where('updated_at', '<', input.updated_before);
+    }
+    const rows = await query
       .orderBy('updated_at', 'desc')
       .orderBy('id')
       .limit(input.limit + 1)
@@ -118,12 +120,7 @@ export class PostgresArtifactStore implements IArtifactStore<Transaction<Databas
       if (artifact === undefined) {
         return undefined;
       }
-      const { max_version } = await db
-        .selectFrom('artifact_version')
-        .select(eb => eb.fn.coalesce(eb.fn.max('version'), sql<number>`0`).as('max_version'))
-        .where('artifact_id', '=', artifact.id)
-        .executeTakeFirstOrThrow();
-      const version = max_version + 1;
+      const version = artifact.latest_version + 1;
       const row = await db
         .insertInto('artifact_version')
         .values({
@@ -165,10 +162,10 @@ export class PostgresArtifactStore implements IArtifactStore<Transaction<Databas
   async #lockArtifact(
     input: { tenant_id: string; artifact_id: string },
     db: Transaction<Database>,
-  ): Promise<{ id: string } | undefined> {
+  ): Promise<{ id: string; latest_version: number } | undefined> {
     return db
       .selectFrom('artifact')
-      .select('id')
+      .select(['id', 'latest_version'])
       .where('tenant_id', '=', input.tenant_id)
       .where('id', '=', input.artifact_id)
       .forUpdate()

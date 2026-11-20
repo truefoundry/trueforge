@@ -1,4 +1,6 @@
 import type { Subject, TokenPagination } from '@truefoundry/trueforge-core/agent-session';
+import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
+import { newId } from '../utils/id';
 
 export interface ArtifactRecord {
   id: string;
@@ -27,7 +29,7 @@ export interface ArtifactVersionRecord {
 
 export interface CreateArtifactInput {
   tenant_id: string;
-  slug: string;
+  /** Trimmed; 1 to `MAX_SESSION_TITLE_LENGTH` characters. */
   title: string;
   created_by_subject: Subject;
   created_by_session_id: string;
@@ -41,6 +43,13 @@ export interface GetArtifactInput {
 export interface ListArtifactsInput {
   tenant_id: string;
   created_by_subject_id: string;
+  created_by_session_id: string | undefined;
+  /** Case-insensitive substring match. */
+  title: string | undefined;
+  /** Inclusive lower bound on `updated_at`. */
+  updated_since: Date | undefined;
+  /** Exclusive upper bound on `updated_at`. */
+  updated_before: Date | undefined;
   limit: number;
   page_token: string | undefined;
 }
@@ -58,21 +67,31 @@ export interface GetArtifactVersionInput {
   version: number;
 }
 
-/** Unique `(tenant_id, slug)` violation. */
-export class ArtifactSlugConflictError extends Error {
-  readonly tenant_id: string;
-  readonly slug: string;
+/** ULID tail chars are random; head chars are the timestamp and repeat for ~17 minutes. */
+const SLUG_ID_SUFFIX_LENGTH = 6;
 
-  constructor({ tenant_id, slug }: { tenant_id: string; slug: string }, options?: ErrorOptions) {
-    super(`Artifact with slug ${slug} already exists`, options);
-    this.name = 'ArtifactSlugConflictError';
-    this.tenant_id = tenant_id;
-    this.slug = slug;
+/**
+ * New artifact id and `<cleaned-title>-<id suffix>` slug. Throws `RangeError` when the trimmed
+ * title is empty or longer than `MAX_SESSION_TITLE_LENGTH`.
+ */
+export function newArtifactIdentity(rawTitle: string): { id: string; title: string; slug: string } {
+  const title = rawTitle.trim();
+  if (title.length === 0 || title.length > MAX_SESSION_TITLE_LENGTH) {
+    throw new RangeError(`Artifact title must be 1-${String(MAX_SESSION_TITLE_LENGTH)} characters`);
   }
+  const id = newId();
+  const suffix = id.slice(-SLUG_ID_SUFFIX_LENGTH);
+  const base = title
+    .normalize('NFKD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return { id, title, slug: base === '' ? suffix : `${base}-${suffix}` };
 }
 
 export interface IArtifactStore<TTransaction = never> {
-  /** Throws `ArtifactSlugConflictError` when the slug is taken in the tenant. */
+  /** Generates the id and slug from the title (see `newArtifactIdentity`). */
   createArtifact(input: CreateArtifactInput, transaction?: TTransaction): Promise<ArtifactRecord>;
   getArtifact(input: GetArtifactInput, transaction?: TTransaction): Promise<ArtifactRecord | undefined>;
   /** Most recently updated first. */
@@ -82,7 +101,7 @@ export interface IArtifactStore<TTransaction = never> {
   ): Promise<{ data: ArtifactRecord[]; pagination: TokenPagination }>;
   /**
    * Inserts the next version for files already uploaded under `storage_prefix` and advances
-   * `latest_version`. Undefined when the artifact is not in the tenant.
+   * `latest_version` and `updated_at`. Undefined when the artifact is not in the tenant.
    */
   createVersion(
     input: CreateArtifactVersionInput,
