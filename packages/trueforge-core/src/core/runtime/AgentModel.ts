@@ -1,6 +1,7 @@
 import type { ILLM } from '../llm/ILLM';
 import type { ModelParams } from '../llm/model';
 import type { VercelAIProviderName } from '../llm/VercelAILLM';
+import type { ThreadModel } from './AgentThread.types';
 
 /** The model a thread runs on, resolved for that thread. */
 export interface AgentModel {
@@ -16,4 +17,12 @@ export interface AgentModel {
       }
     | undefined;
   params?: ModelParams | undefined;
+}
+
+/** Checkpoint form of a resolved model. Effort is the call's `reasoning_effort`. */
+export function threadModelFromAgent(model: AgentModel): ThreadModel {
+  return {
+    name: model.name,
+    effort: model.params?.reasoning_effort ?? null,
+  };
 }

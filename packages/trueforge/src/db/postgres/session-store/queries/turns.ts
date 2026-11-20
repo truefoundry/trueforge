@@ -39,6 +39,7 @@ import {
   foldTurnMetricsCheckpoint,
   resolveStoredTurnMetricsCheckpoint,
 } from '@truefoundry/trueforge-core/agent-session/turnMetrics';
+import type { ThreadModel } from '@truefoundry/trueforge-core/core';
 import type { CapabilityState, JsonValue } from '@truefoundry/trueforge-core/core/capabilities/AgentCapability';
 import type { AgentInfo, AgentParent, MCPServerInitInfo } from '@truefoundry/trueforge-core/core/events/schema';
 import type {
@@ -76,7 +77,7 @@ export interface NewThreadRegistration {
   thread_id: string;
   parent: AgentParent | null;
   agent_info: AgentInfo | null;
-  model: string | null;
+  model: ThreadModel | null;
 }
 
 export interface TurnKeys {
@@ -121,7 +122,7 @@ export interface CreateTurnInput {
     thread_id: string;
     capability_state: CapabilityState | null;
   }[];
-  main_thread_model: string | null;
+  main_thread_model: ThreadModel | null;
   last_activity_timestamp_ms: number;
   update_session_title_if_not_exist: string | null;
   mcp_servers: Record<string, MCPServerInitInfo> | null;
@@ -730,7 +731,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
           parent: nt.parent,
           completion: null,
           pending_mcp_auth: false,
-          model: nt.model,
+          model: nt.thread_id === MAIN_THREAD_ID ? input.main_thread_model : nt.model,
         };
         turnThreadRows.push({
           session_id: input.session_id,

@@ -584,6 +584,7 @@ export class AgentThreadOrchestrator {
             name: chunk.agent_info.name,
             input: chunk.agent_info.input,
             model: subAgentThread.model.name,
+            reasoning_effort: subAgentThread.model.params?.reasoning_effort,
           },
           created_at: new Date().toISOString(),
           parent,

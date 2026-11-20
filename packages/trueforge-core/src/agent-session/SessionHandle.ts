@@ -3,6 +3,7 @@
  */
 import { newEventId, type TurnUserEvent, type UserMessage } from '../core/events/schema';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
+import { threadModelFromAgent } from '../core/runtime/AgentModel';
 import { AgentThread } from '../core/runtime/AgentThread';
 import type { AgentThreadAppendContext, AgentThreadSnapshot } from '../core/runtime/AgentThread.types';
 import { AgentThreadOrchestrator } from '../core/runtime/AgentThreadOrchestrator';
@@ -247,6 +248,7 @@ export class SessionHandle<
         },
       };
 
+      const mainThread = agentThreads.get(MAIN_THREAD_ID);
       await this.store.createTurn({
         turn: turnInit,
         new_threads,
@@ -255,7 +257,7 @@ export class SessionHandle<
           thread_id,
           capability_state: thread.toSnapshot().capability_state,
         })),
-        main_thread_model: agentThreads.get(MAIN_THREAD_ID)?.model.name ?? null,
+        main_thread_model: mainThread === undefined ? null : threadModelFromAgent(mainThread.model),
         update_session_title_if_not_exist: input.update_session_title_if_not_exist ?? null,
       });
 
@@ -508,12 +510,10 @@ export class SessionHandle<
     await Promise.all(
       threadIds.map(async threadId => {
         const previousThreadSnapshot = snapshots?.[threadId];
-        const agentInfo = previousThreadSnapshot?.agent_info ?? undefined;
-        const savedModel = previousThreadSnapshot?.model ?? undefined;
         const resolved = await input.resolver.resolveAgentDefinition({
           spec: input.spec,
-          // A subagent comes back on the model it ran on; the root follows its spec.
-          agent_info: agentInfo && savedModel ? { ...agentInfo, model: savedModel } : agentInfo,
+          // A subagent's agent_info carries the model and effort it ran on; the root has none and follows its spec.
+          agent_info: previousThreadSnapshot?.agent_info ?? undefined,
           previousTurn: input.previous,
           signal: input.signal,
           tracing: input.tracing,

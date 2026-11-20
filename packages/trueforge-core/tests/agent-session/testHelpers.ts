@@ -21,6 +21,7 @@ import type {
   RawAssistantMessageWithUsage,
 } from '../../src/core/llm/LLMTypes';
 import { getEmptyUsage } from '../../src/core/llm/LLMTypes';
+import type { ThreadModel } from '../../src/core/runtime/AgentThread.types';
 import { getEmptyCurrentContextUsage } from '../../src/core/runtime/contextUsage';
 import type { Sandbox } from '../../src/core/sandbox/Sandbox';
 import { makeMockILLM, makeSilentLogger, TEST_MODEL, TEST_MODEL_NAME } from '../core/harnessMocks';
@@ -211,7 +212,7 @@ export function makeCreateTurnInput(input: {
     completion?: TurnContextAppend['completion'];
   })[];
   capability_states?: CreateTurnInput['capability_states'];
-  main_thread_model?: string;
+  main_thread_model?: ThreadModel;
   update_session_title_if_not_exist?: string;
 }): CreateTurnInput {
   const turn = makeRunningTurnRecord({
