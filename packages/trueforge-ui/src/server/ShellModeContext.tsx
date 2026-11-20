@@ -15,6 +15,8 @@ import {
   writeDraftSpecPreferences,
   type DraftPreferenceKind,
 } from './draftSpecPreferences.js';
+import { useServerQueryClient } from './queryClient.js';
+import { queryKeys } from './queryKeys.js';
 import {
   hasAnySettingsSectionEnabled,
   isEnvironmentsChromeEnabled,
@@ -82,7 +84,7 @@ export type SelectLibraryAgentRequest = {
   agentSpec?: AgentSpec;
 };
 
-export type SettingsSection = 'models' | 'connectors' | 'skills' | 'sandbox' | 'web-search' | 'memory';
+export type SettingsSection = 'appearance' | 'models' | 'connectors' | 'skills' | 'sandbox' | 'web-search' | 'memory';
 
 export type HistoryAgentFilter = {
   agentId?: string;
@@ -256,6 +258,7 @@ export function ShellModeProvider({
   initialSettingsOpen?: boolean;
   children: ReactNode;
 }) {
+  const queryClient = useServerQueryClient();
   const capabilities = useServerCapabilities();
   const capabilitiesPending = !useServerCapabilitiesSettled();
   const catalog = useOptionalCatalogServer();
@@ -461,8 +464,11 @@ export function ShellModeProvider({
   }, [environmentsEnabled]);
 
   const invalidateAgentsList = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.agents.all() });
+    // Detail and code-snippet reads are not under the library list key.
+    void queryClient.invalidateQueries({ queryKey: queryKeys.agentDetails.all() });
     setAgentsListEpoch(n => n + 1);
-  }, []);
+  }, [queryClient]);
 
   const invalidateEnvironmentsList = useCallback(() => {
     setEnvironmentsListEpoch(n => n + 1);

@@ -17,6 +17,15 @@ describe('buildAgentSessionShareUrl', () => {
     expect(url.searchParams.get('sessionId')).toBe('sess-1');
     expect(url.searchParams.get('agentId')).toBe('agent-1');
   });
+
+  it('drops a leftover My sessions filter from the share link', () => {
+    const href = buildAgentSessionShareUrl({
+      sessionId: 'sess-1',
+      agentId: 'agent-1',
+      href: 'https://app.example/sessions?createdByMe=true&view=sessions',
+    });
+    expect(new URL(href).searchParams.get('createdByMe')).toBeNull();
+  });
 });
 
 describe('AgentSessionDetailHeader', () => {

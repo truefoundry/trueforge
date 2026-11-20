@@ -27,6 +27,7 @@ export function SessionsPage() {
   const [agentFilter, setAgentFilter] = useState<string | null>(
     () => readSessionShareSearch(window.location.search).agentId,
   );
+  const [createdByMe, setCreatedByMe] = useState(() => readSessionShareSearch(window.location.search).createdByMe);
   const [timeRange, setTimeRange] = useState<SessionTimeRange>(
     () => readSessionShareSearch(window.location.search).timeRange ?? defaultSessionTimeRange(),
   );
@@ -46,6 +47,7 @@ export function SessionsPage() {
     const syncFilters = () => {
       const share = readSessionShareSearch(window.location.search);
       setAgentFilter(share.agentId);
+      setCreatedByMe(share.createdByMe);
       setTimeRange(share.timeRange ?? defaultSessionTimeRange());
     };
     window.addEventListener('popstate', syncFilters);
@@ -95,6 +97,11 @@ export function SessionsPage() {
                 setAgentFilter(nextAgentId);
                 updateShareSearch({ agentId: nextAgentId, sessionId: null, view: 'sessions' });
               }}
+              createdByMe={createdByMe}
+              onCreatedByMeChange={nextCreatedByMe => {
+                setCreatedByMe(nextCreatedByMe);
+                updateShareSearch({ createdByMe: nextCreatedByMe, sessionId: null, view: 'sessions' });
+              }}
               onTimeRangeChange={nextRange => {
                 setTimeRange(nextRange);
                 updateShareSearch({ timeRange: nextRange, sessionId: null, view: 'sessions' });
@@ -120,6 +127,7 @@ export function SessionsPage() {
               refreshKey={refreshEpoch}
               onLoadingChange={handleLoadingChange}
               agentId={agentFilter ?? undefined}
+              createdByMe={createdByMe}
               startTimestamp={new Date(resolved.startTs).toISOString()}
               endTimestamp={new Date(resolved.endTs).toISOString()}
               {...(sharedSessionId == null

@@ -155,10 +155,14 @@ function validateAndTransformRecord<TransformedKey extends string | number, Tran
             result[transformedKey.value] = transformedValue.value;
         } else {
             if (!transformedKey.ok) {
-                errors.push(...transformedKey.errors);
+                for (const error of transformedKey.errors) {
+                    errors.push(error);
+                }
             }
             if (!transformedValue.ok) {
-                errors.push(...transformedValue.errors);
+                for (const error of transformedValue.errors) {
+                    errors.push(error);
+                }
             }
         }
     }

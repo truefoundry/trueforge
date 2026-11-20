@@ -3,4 +3,6 @@
 /**
  * Caller-owned session metadata
  */
-export type SessionMetadata = Record<string, string>;
+export type SessionMetadata = {
+    [key: string]: string;
+};

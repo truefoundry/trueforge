@@ -1,7 +1,10 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useQueries } from '@tanstack/react-query';
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 
+import { CATALOG_STALE_TIME_MS, useServerQueryClient } from '../../server/queryClient.js';
+import { queryKeys } from '../../server/queryKeys.js';
 import { useOptionalServer } from '../../server/ServerContext.js';
 import type {
   AgentSkill,
@@ -39,6 +42,20 @@ const IDLE_ENSURE = () => undefined;
 const IDLE_REFRESH = async () => undefined;
 const EMPTY_LOGOS: Record<string, string> = {};
 
+const EMPTY_MODELS: ModelSelection[] = [];
+const EMPTY_SKILLS: AgentSkill[] = [];
+const EMPTY_CONNECTORS: ConnectorState[] = [];
+
+function requireServer(server: AgentUIServer | null): AgentUIServer {
+  if (server == null) throw new Error('Catalog requires a server.');
+  return server;
+}
+
+function catalogError(entries: { error: Error | null; fallback: string }[]): string | null {
+  const failed = entries.find(entry => entry.error != null);
+  return failed == null ? null : getErrorMessage(failed.error, failed.fallback);
+}
+
 function toConnectorLogos(entries: ConnectorCatalogEntry[]): Record<string, string> {
   const logos: Record<string, string> = {};
   for (const entry of entries) {
@@ -57,78 +74,80 @@ export function DraftCatalogProvider({ children }: { children: ReactNode }) {
 }
 
 function DraftCatalogStore({ server, children }: { server: AgentUIServer | null; children: ReactNode }) {
-  const [requestEpoch, setRequestEpoch] = useState<number | null>(null);
-  const [models, setModels] = useState<ModelSelection[]>([]);
-  const [skills, setSkills] = useState<AgentSkill[]>([]);
-  const [connectors, setConnectors] = useState<ConnectorState[]>([]);
-  const [connectorLogos, setConnectorLogos] = useState<Record<string, string>>(EMPTY_LOGOS);
-  const [completedEpoch, setCompletedEpoch] = useState<number | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useServerQueryClient();
+  // Pickers fetch on first open, not on mount.
+  const [requested, setRequested] = useState(false);
+  const enabled = requested && server != null;
+  const connectorCatalog = server?.catalog?.connectorCatalog;
+
+  // Settle each list alone so one failing picker does not blank the others.
+  const [modelsQuery, skillsQuery, mcpQuery, logosQuery] = useQueries(
+    {
+      queries: [
+        {
+          queryKey: queryKeys.catalog.models(),
+          queryFn: () => requireServer(server).getModels(),
+          enabled,
+          staleTime: CATALOG_STALE_TIME_MS,
+        },
+        {
+          queryKey: queryKeys.catalog.skills(),
+          queryFn: () => requireServer(server).getSkills(),
+          enabled,
+          staleTime: CATALOG_STALE_TIME_MS,
+        },
+        {
+          queryKey: queryKeys.catalog.mcp(),
+          queryFn: () => requireServer(server).getMcp(),
+          enabled,
+          staleTime: CATALOG_STALE_TIME_MS,
+        },
+        {
+          queryKey: queryKeys.catalog.connectorCatalog(),
+          // Logos are cosmetic: a missing catalog port just falls back to icons.
+          queryFn: () => (connectorCatalog ? connectorCatalog.getConnectorCatalog() : Promise.resolve([])),
+          select: toConnectorLogos,
+          enabled,
+          staleTime: CATALOG_STALE_TIME_MS,
+        },
+      ],
+    },
+    queryClient,
+  );
 
   const ensureLoaded = useCallback(() => {
-    setRequestEpoch(current => current ?? 0);
+    setRequested(true);
   }, []);
 
   const refresh = useCallback(() => {
-    setRequestEpoch(current => (current ?? -1) + 1);
-  }, []);
+    setRequested(true);
+    void queryClient.invalidateQueries({ queryKey: queryKeys.catalog.all() });
+  }, [queryClient]);
 
   const refreshConnectors = useCallback(async () => {
     if (!server) return;
-    setLoading(true);
-    setError(null);
+    void queryClient.invalidateQueries({ queryKey: queryKeys.catalog.mcpConnectors() });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.catalog.mcpToolsAll() });
     try {
-      setConnectors(await server.getMcp());
-    } catch (reason: unknown) {
-      setError(getErrorMessage(reason, 'Failed to load connectors.'));
-    } finally {
-      setLoading(false);
+      await queryClient.fetchQuery({ queryKey: queryKeys.catalog.mcp(), queryFn: () => server.getMcp(), staleTime: 0 });
+    } catch {
+      // The failure is recorded on the query and surfaced through `error`.
     }
-  }, [server]);
+  }, [queryClient, server]);
 
-  useEffect(() => {
-    if (requestEpoch === null || !server) return;
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    // Settle each list alone so one failing picker does not blank the others.
-    // Logos are cosmetic: a missing catalog port or a failed fetch just falls back to icons.
-    const connectorCatalog = server.catalog?.connectorCatalog;
-    void Promise.allSettled([
-      server.getModels(),
-      server.getSkills(),
-      server.getMcp(),
-      connectorCatalog ? connectorCatalog.getConnectorCatalog() : Promise.resolve([]),
-    ]).then(([modelsResult, skillsResult, mcpResult, catalogResult]) => {
-      if (cancelled) return;
-      setConnectorLogos(catalogResult.status === 'fulfilled' ? toConnectorLogos(catalogResult.value) : EMPTY_LOGOS);
-      const errors: string[] = [];
-      if (modelsResult.status === 'fulfilled') {
-        setModels(modelsResult.value);
-      } else {
-        errors.push(getErrorMessage(modelsResult.reason, 'Failed to load models.'));
-      }
-      if (skillsResult.status === 'fulfilled') {
-        setSkills(skillsResult.value);
-      } else {
-        errors.push(getErrorMessage(skillsResult.reason, 'Failed to load skills.'));
-      }
-      if (mcpResult.status === 'fulfilled') {
-        setConnectors(mcpResult.value);
-      } else {
-        errors.push(getErrorMessage(mcpResult.reason, 'Failed to load connectors.'));
-      }
-      setError(errors[0] ?? null);
-      setCompletedEpoch(requestEpoch);
-      setLoading(false);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [requestEpoch, server]);
+  const models = modelsQuery.data ?? EMPTY_MODELS;
+  const skills = skillsQuery.data ?? EMPTY_SKILLS;
+  const connectors = mcpQuery.data ?? EMPTY_CONNECTORS;
+  const connectorLogos = logosQuery.data ?? EMPTY_LOGOS;
+  const listQueries = [modelsQuery, skillsQuery, mcpQuery];
+  const loading = listQueries.some(query => query.isFetching);
+  const loaded = enabled && !loading && listQueries.every(query => !query.isPending);
+  const error = catalogError([
+    { error: modelsQuery.error, fallback: 'Failed to load models.' },
+    { error: skillsQuery.error, fallback: 'Failed to load skills.' },
+    { error: mcpQuery.error, fallback: 'Failed to load connectors.' },
+  ]);
 
-  const loaded = requestEpoch !== null && completedEpoch === requestEpoch;
   const value = useMemo(
     () => ({
       server,

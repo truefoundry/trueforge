@@ -3,6 +3,7 @@
 import React, { cloneElement, isValidElement, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
+import { shellRailTooltipClassName } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { themePortalRoot } from '../lib/themePortalRoot.js';
 
@@ -406,6 +407,15 @@ export function LightTooltip({
       open={open}
       interactive={interactive}
     >
+      {children}
+    </Tooltip>
+  );
+}
+
+/** Icon-rail label: pill tooltip anchored to the right of the control. */
+export function RailTooltip({ content, children }: { content: React.ReactNode; children: React.ReactElement }) {
+  return (
+    <Tooltip content={content} side="right" interactive={false} className={shellRailTooltipClassName}>
       {children}
     </Tooltip>
   );
