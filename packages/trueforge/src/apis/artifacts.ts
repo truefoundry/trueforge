@@ -13,7 +13,6 @@ export interface ArtifactsRouterDeps {
 
 function toWireArtifact(record: ArtifactRecord): Artifact {
   return {
-    id: record.id,
     slug: record.slug,
     title: record.title,
     latest_version: record.latest_version,

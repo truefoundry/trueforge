@@ -4,10 +4,9 @@ import { IsoTimestampQueryParam, PAGE_LIMIT } from './common';
 
 export const ArtifactSchema = z
   .object({
-    id: z.string(),
     slug: z.string(),
     title: z.string(),
-    latest_version: z.number().int().describe('Highest committed version; 0 before the first commit.'),
+    latest_version: z.number().int().describe('Latest version.'),
     created_by_subject: SubjectSchema,
     created_by_session_id: z.string(),
     created_at: z.iso.datetime(),
