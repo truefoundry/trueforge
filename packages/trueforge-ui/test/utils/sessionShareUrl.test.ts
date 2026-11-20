@@ -19,6 +19,7 @@ describe('sessionShareUrl', () => {
       tab: null,
       view: null,
       timeRange: null,
+      createdByMe: false,
     });
     assert.deepEqual(readSessionShareSearch(''), {
       sessionId: null,
@@ -26,6 +27,7 @@ describe('sessionShareUrl', () => {
       tab: null,
       view: null,
       timeRange: null,
+      createdByMe: false,
     });
   });
 
@@ -51,7 +53,19 @@ describe('sessionShareUrl', () => {
       tab: null,
       view: null,
       timeRange: { startTs: 1000, endTs: 2000 },
+      createdByMe: false,
     });
+  });
+
+  it('reads and clears createdByMe without touching other share params', () => {
+    assert.equal(readSessionShareSearch('?createdByMe=true&agentId=agent-1').createdByMe, true);
+    assert.equal(readSessionShareSearch('?createdByMe=false').createdByMe, false);
+    const params = new URLSearchParams('agentId=agent-1&createdByMe=true');
+    writeSessionShareSearch(params, { createdByMe: false });
+    assert.equal(params.get('createdByMe'), null);
+    assert.equal(params.get('agentId'), 'agent-1');
+    writeSessionShareSearch(params, { createdByMe: true });
+    assert.equal(params.get('createdByMe'), 'true');
   });
 
   it('writes and clears share params without dropping host query keys', () => {
