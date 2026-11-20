@@ -19,6 +19,10 @@ function compaction(): AgentStepPart {
   return { type: 'data', name: 'thread.context_compaction' };
 }
 
+function incompleteNotice(): AgentStepPart {
+  return { type: 'data', name: 'model.incomplete_response' };
+}
+
 describe('computeAgentStepsSplit', () => {
   it('treats pure text as final immediately while running', () => {
     const parts = [text('hello world')];
@@ -82,5 +86,13 @@ describe('computeAgentStepsSplit', () => {
       toolCount: 1,
       thinkingCount: 1,
     });
+  });
+
+  it('keeps the answer final when the cut-short notice trails it', () => {
+    const parts = [tool(), text('done'), incompleteNotice()];
+    const result = computeAgentStepsSplit(parts, false);
+    expect(result.hasFinal).toBe(true);
+    expect(result.cutIndex).toBe(1);
+    expect(countAgentSteps(parts.slice(0, result.cutIndex))).toEqual({ toolCount: 1, thinkingCount: 0 });
   });
 });

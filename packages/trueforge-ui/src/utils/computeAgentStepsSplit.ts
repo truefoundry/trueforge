@@ -1,5 +1,8 @@
 import type { PartState } from '@assistant-ui/core/react';
-import { CONTEXT_COMPACTION_DATA_NAME } from '@truefoundry/trueforge-assistant-ui-runtime';
+import {
+  CONTEXT_COMPACTION_DATA_NAME,
+  INCOMPLETE_RESPONSE_DATA_NAME,
+} from '@truefoundry/trueforge-assistant-ui-runtime';
 
 export type AgentStepPart = {
   type: PartState['type'];
@@ -55,6 +58,13 @@ export function computeAgentStepsSplit(parts: readonly AgentStepPart[], isRunnin
   for (let i = parts.length - 1; i >= 0; i--) {
     const part = parts[i];
     if (!part) continue;
+
+    // The cut-short notice trails the answer it qualifies, so stopping on it would bury that
+    // answer in the Agent steps accordion. Carry it into the final section instead.
+    if (part.type === 'data' && part.name === INCOMPLETE_RESPONSE_DATA_NAME) {
+      cutIdx = i;
+      continue;
+    }
 
     if (part.type === 'text') {
       const text = part.text ?? '';

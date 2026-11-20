@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ModelMessageEvent } from '../src/server/index.js';
 
+import { INCOMPLETE_RESPONSE_DATA_NAME } from '../src/incompleteResponse.js';
 import { buildAssistantContent } from '../src/modelMessageContent.js';
 
 function modelMessage(event: Omit<ModelMessageEvent, 'type' | 'createdAt'>): ModelMessageEvent {
@@ -59,5 +60,26 @@ describe('buildAssistantContent tool results', () => {
       return;
     }
     expect(tool.result).toBe('found it');
+  });
+});
+
+describe('buildAssistantContent incomplete responses', () => {
+  it('trails the content with a notice when the provider cut the response short', () => {
+    const parts = buildAssistantContent(
+      modelMessage({ id: 'm1', threadId: 'main', content: 'partial answer', finishReason: 'incomplete' }),
+    );
+
+    expect(parts).toEqual([
+      { type: 'text', text: 'partial answer' },
+      { type: 'data', name: INCOMPLETE_RESPONSE_DATA_NAME, data: {} },
+    ]);
+  });
+
+  it('adds no notice when the provider reported a finish reason', () => {
+    const parts = buildAssistantContent(
+      modelMessage({ id: 'm1', threadId: 'main', content: 'full answer', finishReason: 'stop' }),
+    );
+
+    expect(parts).toEqual([{ type: 'text', text: 'full answer' }]);
   });
 });

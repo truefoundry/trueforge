@@ -71,6 +71,7 @@ import type { EnvironmentsPageProps } from '../atoms/environments/EnvironmentsPa
 import { EnvironmentsButton } from '../atoms/EnvironmentsButton.js';
 import { FilePreviewPanel } from '../atoms/FilePreviewPanel.js';
 import { HistoryLoader } from '../atoms/HistoryLoader.js';
+import { IncompleteResponseBanner } from '../atoms/IncompleteResponseBanner.js';
 import { Markdown } from '../atoms/Markdown.js';
 import { MessageActionBar } from '../atoms/MessageActionBar.js';
 import { MessageCancelledBanner } from '../atoms/MessageCancelledBanner.js';
@@ -202,6 +203,7 @@ export const defaultSlots = {
   MessageActionBar,
   MessageCancelledBanner,
   MessageErrorBanner,
+  IncompleteResponseBanner,
   MessageIndicator,
   ResumeUnavailable,
   MessageTimestamp,
