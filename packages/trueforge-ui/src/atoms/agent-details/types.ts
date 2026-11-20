@@ -18,6 +18,8 @@ export type AgentSessionsProps = {
   agentId?: string;
   startTimestamp?: string;
   endTimestamp?: string;
+  /** When true, list only sessions created by the current subject. */
+  createdByMe?: boolean;
   /** When `sessions`, selection writes `view=sessions` and pins `s_sts`/`s_ets`. */
   shareView?: 'sessions' | null;
   /** Render only the selected detail pane for a shared-session URL. */
