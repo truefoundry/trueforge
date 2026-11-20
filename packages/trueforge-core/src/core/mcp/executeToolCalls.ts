@@ -29,7 +29,7 @@ export interface ToolCallResult {
   // short-circuited on the success path.
   info?: MappedMCPTool | undefined;
   failure: boolean;
-  isError?: boolean | undefined;
+  isError: boolean;
   isStructuredContent: boolean;
   completedAt: string;
 }
@@ -179,7 +179,7 @@ export async function executeToolCalls({
         toolInfo,
         response,
         failure: false,
-        ...(isCallToolResponseResult(response) && response.result.isError === true ? { isError: true } : {}),
+        isError: isCallToolResponseResult(response) && response.result.isError === true,
         completedAt: new Date().toISOString(),
       };
     } catch (error) {
@@ -222,6 +222,8 @@ export async function executeToolCalls({
         },
         failure: true,
         info: toolInfo,
+        // A wait for sign-in, not a tool error.
+        isError: false,
         isStructuredContent: false,
         completedAt,
       });
@@ -261,7 +263,7 @@ export async function executeToolCalls({
       message: { role: 'tool' as const, tool_call_id: toolCall.id, content },
       failure,
       info: toolInfo,
-      ...(isError ? { isError: true } : {}),
+      isError,
       isStructuredContent,
       completedAt,
     });
