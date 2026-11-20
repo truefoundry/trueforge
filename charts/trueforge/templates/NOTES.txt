@@ -3,7 +3,7 @@ TrueForge {{ .Chart.AppVersion }} has been deployed as release {{ .Release.Name 
 Image: {{ include "trueforge.image" . }}
 
 Reach the server (API + UI) inside the cluster at:
-  http://{{ include "trueforge.server.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.service.port }}
+  {{ ternary "https" "http" .Values.mtls.enabled }}://{{ include "trueforge.server.serviceFQDN" . }}:{{ .Values.service.port }}
 
 Port-forward it locally with:
   kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "trueforge.server.fullname" . }} 8790:{{ .Values.service.port }}
