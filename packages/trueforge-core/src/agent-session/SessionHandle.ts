@@ -212,7 +212,7 @@ export class SessionHandle<
     try {
       const { orchestrator, agentThreads } = await this.assembleTurn({
         previous,
-        turnInput: input.input ?? [],
+        newUserInput: input.input ?? [],
         resolver: input.resolver,
         abortController: input.abortController,
         pendingTurnEvents: [],
@@ -342,7 +342,7 @@ export class SessionHandle<
       });
       const { orchestrator } = await this.assembleTurn({
         previous: turn,
-        turnInput: undefined,
+        newUserInput: undefined,
         resolver: input.resolver,
         abortController: input.abortController,
         pendingTurnEvents,
@@ -446,8 +446,8 @@ export class SessionHandle<
    */
   private async assembleTurn(input: {
     previous: TurnRecord<TTurnCustom> | undefined;
-    /** The new turn's user input; undefined when rebuilding a paused turn. */
-    turnInput: UserMessage[] | undefined;
+    /** The new turn's user messages; undefined when rebuilding a paused turn. */
+    newUserInput: UserMessage[] | undefined;
     resolver: ITurnResourceResolver<TTurnCustom>;
     abortController: AbortController;
     pendingTurnEvents: TurnUserEvent[];
@@ -468,7 +468,7 @@ export class SessionHandle<
     const rootModel = await this.autoRoutedModel({
       spec,
       previous: input.previous,
-      turnInput: input.turnInput,
+      newUserInput: input.newUserInput,
       routeModel,
     });
 
@@ -532,7 +532,7 @@ export class SessionHandle<
   private async autoRoutedModel(input: {
     spec: AgentSpec;
     previous: TurnRecord<TTurnCustom> | undefined;
-    turnInput: UserMessage[] | undefined;
+    newUserInput: UserMessage[] | undefined;
     routeModel: ((route: RouteInput) => Promise<RoutedModel | undefined>) | undefined;
   }): Promise<RoutedModel | undefined> {
     if (input.spec.model.name !== AUTO_MODEL) {
@@ -540,7 +540,7 @@ export class SessionHandle<
     }
     const previousRoot = input.previous?.snapshot.threads[MAIN_THREAD_ID];
     // If rebuilding a paused turn, resume on the model it ran on.
-    if (input.turnInput === undefined) {
+    if (input.newUserInput === undefined) {
       if (previousRoot?.model == null) {
         throw new AgentHarnessError('auto_model_unavailable', 'This paused turn has no saved model to resume on');
       }
@@ -552,7 +552,7 @@ export class SessionHandle<
     }
     const routed = await input.routeModel({
       threadId: MAIN_THREAD_ID,
-      input: routingConversation(previousRoot?.context ?? [], input.turnInput),
+      input: routingConversation(previousRoot?.context ?? [], input.newUserInput),
     });
     if (routed === undefined) {
       throw new AgentHarnessError('auto_model_unavailable', 'Auto model selection could not choose a model');

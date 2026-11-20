@@ -2,9 +2,9 @@ import { AgentSandboxRequiredError, InvalidFileInputError } from '../../../src/c
 import { EventType } from '../../../src/core/events/schema';
 import {
   buildUploadedFilesAnnouncement,
+  extractUploadedFilesInAnnouncement,
   isEmptyMessageContent,
   processAgentUserInput,
-  uploadedFilesInAnnouncement,
   type FileContentPart,
   type UserMessage,
 } from '../../../src/core/runtime/UserInputMessage';
@@ -101,14 +101,14 @@ describe('UserInputMessage validation', () => {
       { filename: 'my report.csv', path: '/sandbox/my report.csv', mime: 'text/csv', size: 4 },
       { filename: 'notes.txt', path: '/sandbox/notes.txt', mime: 'text/plain', size: 2 },
     ]);
-    expect(uploadedFilesInAnnouncement(text)).toEqual([
+    expect(extractUploadedFilesInAnnouncement(text)).toEqual([
       { filename: 'my report.csv', mime: 'text/csv' },
       { filename: 'notes.txt', mime: 'text/plain' },
     ]);
   });
 
   it('returns nothing for text that is not an uploaded-files announcement', () => {
-    expect(uploadedFilesInAnnouncement('filename: only\nhello')).toEqual([]);
-    expect(uploadedFilesInAnnouncement('<tfy-internal>remember this</tfy-internal>')).toEqual([]);
+    expect(extractUploadedFilesInAnnouncement('filename: only\nhello')).toEqual([]);
+    expect(extractUploadedFilesInAnnouncement('<tfy-internal>remember this</tfy-internal>')).toEqual([]);
   });
 });

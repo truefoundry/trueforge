@@ -1,4 +1,4 @@
-import type { Decision, DecisionModelCreateParams } from '../decision/IDecisionModel';
+import type { Decision, DecisionInputMessage, DecisionModelCreateParams } from '../decision/IDecisionModel';
 import { estimateCharactersForTokens, estimateTokensForString } from '../llm/usage';
 import type { RoutingQuestion } from './question';
 
@@ -12,13 +12,13 @@ function truncateMiddle(text: string, maxChars: number): string {
   return `${text.slice(0, half)}${TRUNCATION_MARKER}${text.slice(-half)}`;
 }
 
-function fitTask(task: string, maxChars: number): string {
+function truncateTask(task: string, maxChars: number): string {
   return task.length > maxChars ? truncateMiddle(task, maxChars) : task;
 }
 
 /** The newest messages that fit in `maxChars`. The latest is always kept, and cut from the middle if it alone is too long. */
-function fitConversation(messages: Exclude<DecisionModelCreateParams['input'], string>, maxChars: number) {
-  const kept: typeof messages = [];
+function truncateMessages(messages: DecisionInputMessage[], maxChars: number): DecisionInputMessage[] {
+  const kept: DecisionInputMessage[] = [];
   let used = 0;
   let truncated = false;
   for (let index = messages.length - 1; index >= 0; index--) {
@@ -31,7 +31,7 @@ function fitConversation(messages: Exclude<DecisionModelCreateParams['input'], s
       truncated = true;
       break;
     }
-    if (kept.length === 0 && size > maxChars && 'content' in message && typeof message.content === 'string') {
+    if (kept.length === 0 && size > maxChars && typeof message.content === 'string') {
       message = { ...message, content: truncateMiddle(message.content, maxChars) };
       truncated = true;
     }
@@ -52,23 +52,22 @@ export interface Classification {
  * its end, and a conversation keeps its newest messages. `isTruncated` when anything was cut.
  */
 export function classificationRequest(
-  input: DecisionModelCreateParams['input'],
+  input: string | DecisionInputMessage[],
   question: RoutingQuestion,
   contextLength: number | undefined,
 ): { body: DecisionModelCreateParams; isTruncated: boolean } {
-  const isTask = typeof input === 'string';
   const questions: DecisionModelCreateParams['questions'] = [
     {
       type: 'choice',
       name: 'category',
-      instructions: isTask ? question.instructions : question.conversationInstructions,
+      instructions: question.instructions,
       choices: Object.entries(question.categories).map(([value, description]) => ({ value, description })),
     },
   ];
   const maxChars = estimateCharactersForTokens(
     (contextLength ?? DEFAULT_CONTEXT_TOKENS) - estimateTokensForString(JSON.stringify(questions)),
   );
-  const fitted = isTask ? fitTask(input, maxChars) : fitConversation(input, maxChars);
+  const fitted = typeof input === 'string' ? truncateTask(input, maxChars) : truncateMessages(input, maxChars);
   return { body: { input: fitted, questions }, isTruncated: fitted !== input };
 }
 
