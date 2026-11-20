@@ -256,6 +256,7 @@ export class SessionHandle<
           thread_id,
           capability_state: thread.toSnapshot().capability_state,
         })),
+        main_thread_model: agentThreads.get(MAIN_THREAD_ID)?.model.name ?? null,
         update_session_title_if_not_exist: input.update_session_title_if_not_exist ?? null,
       });
 

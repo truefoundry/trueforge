@@ -139,6 +139,8 @@ export interface CreateTurnInput<TTurnCustom extends object = Record<string, nev
    * Authoritative for this turn; the store does not carry capability rows forward.
    */
   capability_states: ThreadCapabilityStateInit[];
+  /** Model the main thread runs on in this turn; written to its row every turn. */
+  main_thread_model: string | null;
   /** Set only if session.title is NULL (first write wins). */
   update_session_title_if_not_exist: string | null;
 }
