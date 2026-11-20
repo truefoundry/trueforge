@@ -336,8 +336,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
     try {
       await change();
       toaster?.showSuccess({ title });
-      shell?.invalidateEnvironmentsList();
-      void loadEnvironments({ token: pageToken, size: pageSize });
+      invalidateEnvironmentQueries();
     } catch (caught) {
       toaster?.showError(caught);
     }
