@@ -3,4 +3,4 @@
 '@truefoundry/trueforge': patch
 ---
 
-Backport `x-tfg-mcp-headers` per-MCP-server headers. An entry `Authorization` (any casing) skips DCR in open-source mode; TrueFoundry mode forwards entries as `x-tfy-mcp-headers` without calling authorize before connecting. A 401 fails when the entry carried credentials, otherwise the `onUnauthorized` hook offers consent.
+`x-tfg-mcp-headers` passes per-MCP-server headers. Open-source mode merges a server's entry over its registered headers, and an entry `Authorization` skips DCR. TrueFoundry mode sends the entry (flat, or a nested virtual MCP map) as `x-tfy-mcp-headers` and no longer calls authorize before connecting. On a 401: open-source fails when the entry carried `Authorization`, otherwise a DCR server restarts consent; TrueFoundry fails whenever the server had an entry, otherwise asks authorize for a consent URL and fails with 422 when authorize returns none or reports no consent is needed.
