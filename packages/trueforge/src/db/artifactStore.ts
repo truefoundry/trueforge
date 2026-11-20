@@ -89,22 +89,16 @@ export function newArtifactIdentity(rawTitle: string): { id: string; title: stri
   return { id, title, slug: base === '' ? suffix : `${base}-${suffix}` };
 }
 
-export interface IArtifactStore<TTransaction = never> {
+export interface IArtifactStore {
   /** Generates the id and slug from the title (see `newArtifactIdentity`). */
-  createArtifact(input: CreateArtifactInput, transaction?: TTransaction): Promise<ArtifactRecord>;
-  getArtifact(input: GetArtifactInput, transaction?: TTransaction): Promise<ArtifactRecord | undefined>;
+  createArtifact(input: CreateArtifactInput): Promise<ArtifactRecord>;
+  getArtifact(input: GetArtifactInput): Promise<ArtifactRecord | undefined>;
   /** Most recently updated first. */
-  listArtifacts(
-    input: ListArtifactsInput,
-    transaction?: TTransaction,
-  ): Promise<{ data: ArtifactRecord[]; pagination: TokenPagination }>;
+  listArtifacts(input: ListArtifactsInput): Promise<{ data: ArtifactRecord[]; pagination: TokenPagination }>;
   /**
-   * Inserts the next version for files already uploaded under `storage_prefix` and advances
-   * `latest_version` and `updated_at`. Undefined when the artifact is not in the tenant.
+   * Atomically inserts the next version for files already uploaded under `storage_prefix` and
+   * advances `latest_version` and `updated_at`. Undefined when the artifact is not in the tenant.
    */
-  createVersion(
-    input: CreateArtifactVersionInput,
-    transaction?: TTransaction,
-  ): Promise<ArtifactVersionRecord | undefined>;
-  getVersion(input: GetArtifactVersionInput, transaction?: TTransaction): Promise<ArtifactVersionRecord | undefined>;
+  createVersion(input: CreateArtifactVersionInput): Promise<ArtifactVersionRecord | undefined>;
+  getVersion(input: GetArtifactVersionInput): Promise<ArtifactVersionRecord | undefined>;
 }

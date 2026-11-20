@@ -42,16 +42,15 @@ function toVersionRecord(row: Selectable<ArtifactVersionTable>): ArtifactVersion
   };
 }
 
-export class PostgresArtifactStore implements IArtifactStore<Transaction<Database>> {
+export class PostgresArtifactStore implements IArtifactStore {
   readonly #db: Kysely<Database>;
 
   constructor(db: Kysely<Database>) {
     this.#db = db;
   }
 
-  async createArtifact(input: CreateArtifactInput, transaction?: Transaction<Database>): Promise<ArtifactRecord> {
-    const db = transaction ?? this.#db;
-    const row = await db
+  async createArtifact(input: CreateArtifactInput): Promise<ArtifactRecord> {
+    const row = await this.#db
       .insertInto('artifact')
       .values({
         ...newArtifactIdentity(input.title),
@@ -67,9 +66,8 @@ export class PostgresArtifactStore implements IArtifactStore<Transaction<Databas
     return toArtifactRecord(row);
   }
 
-  async getArtifact(input: GetArtifactInput, transaction?: Transaction<Database>): Promise<ArtifactRecord | undefined> {
-    const db = transaction ?? this.#db;
-    const row = await db
+  async getArtifact(input: GetArtifactInput): Promise<ArtifactRecord | undefined> {
+    const row = await this.#db
       .selectFrom('artifact')
       .selectAll()
       .where('tenant_id', '=', input.tenant_id)
@@ -78,13 +76,9 @@ export class PostgresArtifactStore implements IArtifactStore<Transaction<Databas
     return row === undefined ? undefined : toArtifactRecord(row);
   }
 
-  async listArtifacts(
-    input: ListArtifactsInput,
-    transaction?: Transaction<Database>,
-  ): Promise<{ data: ArtifactRecord[]; pagination: TokenPagination }> {
+  async listArtifacts(input: ListArtifactsInput): Promise<{ data: ArtifactRecord[]; pagination: TokenPagination }> {
     const offset = decodeOffsetPageToken(input.page_token);
-    const db = transaction ?? this.#db;
-    let query = db
+    let query = this.#db
       .selectFrom('artifact')
       .selectAll()
       .where('tenant_id', '=', input.tenant_id)
@@ -111,11 +105,8 @@ export class PostgresArtifactStore implements IArtifactStore<Transaction<Databas
     return { data: data.map(toArtifactRecord), pagination };
   }
 
-  async createVersion(
-    input: CreateArtifactVersionInput,
-    transaction?: Transaction<Database>,
-  ): Promise<ArtifactVersionRecord | undefined> {
-    const write = async (db: Transaction<Database>): Promise<ArtifactVersionRecord | undefined> => {
+  async createVersion(input: CreateArtifactVersionInput): Promise<ArtifactVersionRecord | undefined> {
+    return this.#db.transaction().execute(async db => {
       const artifact = await this.#lockArtifact(input, db);
       if (artifact === undefined) {
         return undefined;
@@ -138,16 +129,11 @@ export class PostgresArtifactStore implements IArtifactStore<Transaction<Databas
         .where('id', '=', artifact.id)
         .execute();
       return toVersionRecord(row);
-    };
-    return transaction ? write(transaction) : this.#db.transaction().execute(write);
+    });
   }
 
-  async getVersion(
-    input: GetArtifactVersionInput,
-    transaction?: Transaction<Database>,
-  ): Promise<ArtifactVersionRecord | undefined> {
-    const db = transaction ?? this.#db;
-    const row = await db
+  async getVersion(input: GetArtifactVersionInput): Promise<ArtifactVersionRecord | undefined> {
+    const row = await this.#db
       .selectFrom('artifact_version')
       .innerJoin('artifact', 'artifact.id', 'artifact_version.artifact_id')
       .selectAll('artifact_version')
