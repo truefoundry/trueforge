@@ -173,7 +173,7 @@ const TrueFoundryModelRoutingSchema = z.object({
   /** Per tenant: the decision model is the tenant's own gateway model (`account/model`). */
   tenants: z.record(
     z.string(),
-    z.object({ subagent: z.enum(['off', 'on']).default('off'), decision_model: z.string().min(1) }),
+    z.object({ enabled: z.enum(['off', 'on']).default('off'), decision_model: z.string().min(1) }),
   ),
 });
 
@@ -188,7 +188,7 @@ export function parseTrueFoundryModelRouting(raw: string | undefined): TrueFound
     return TrueFoundryModelRoutingSchema.parse(JSON.parse(raw));
   } catch (error) {
     throw new Error(
-      'Environment variable TRUEFOUNDRY_MODEL_ROUTING must be a JSON object with per-tenant "tenants" entries (e.g. {"tenants":{"<tenant_id>":{"subagent":"on","decision_model":"typesafe/jev-1.13.0"}}})',
+      'Environment variable TRUEFOUNDRY_MODEL_ROUTING must be a JSON object with per-tenant "tenants" entries (e.g. {"tenants":{"<tenant_id>":{"enabled":"on","decision_model":"typesafe/jev-1.13.0"}}})',
       { cause: error },
     );
   }
@@ -1141,9 +1141,9 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    */
   TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS: Record<string, string[]>;
   /**
-   * Optional subagent model routing (TrueFoundry mode only). JSON object with optional
+   * Optional model routing for subagents and `auto` root agents (TrueFoundry mode only). JSON object with optional
    * `instructions` and `categories` overriding the decision model's question, and per-tenant entries:
-   * mode (`off` | `on`) and the tenant's decision model. Unset, or a tenant not listed → off.
+   * `enabled` (`off` | `on`) and the tenant's decision model. Unset, or a tenant not listed → off.
    * Env: `TRUEFOUNDRY_MODEL_ROUTING`.
    */
   TRUEFOUNDRY_MODEL_ROUTING: TrueFoundryModelRouting | undefined;

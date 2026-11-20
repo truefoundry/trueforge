@@ -10,3 +10,9 @@ export type DecisionModelCreateParams = Omit<DecisionCreateParams, 'model'>;
 export interface IDecisionModel {
   create(body: DecisionModelCreateParams, options?: LLMRequestOptions): Promise<Decision>;
 }
+
+/** A decision model's client with its catalog properties, as `AgentModel` is for chat models. */
+export interface DecisionModel {
+  client: IDecisionModel;
+  properties: { contextLength: number | undefined };
+}

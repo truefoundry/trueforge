@@ -1,8 +1,10 @@
 /**
  * Bound session handle: starts turns via {@link SessionHandle.createTurn}.
  */
+import { AgentHarnessError } from '../core/errors';
 import { newEventId, type TurnUserEvent, type UserMessage } from '../core/events/schema';
-import { createModelRouter } from '../core/modelRouting/router';
+import { routingConversation } from '../core/modelRouting/conversation';
+import { AUTO_MODEL, createModelRouter, type RoutedModel, type RouteInput } from '../core/modelRouting/router';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import { modelSnapshotFromAgent } from '../core/runtime/AgentModel';
 import { AgentThread } from '../core/runtime/AgentThread';
@@ -108,6 +110,15 @@ function threadIdsForCurrentTurn(snapshot: TurnSnapshot | undefined): string[] {
   return snapshot ? Object.keys(snapshot.threads) : [MAIN_THREAD_ID];
 }
 
+/** Routing replaces the spec's model, so its `model.params` are dropped; the thread gets the routed model's defaults. */
+function specForRoutedModel(spec: AgentSpec, routed: RoutedModel | undefined): AgentSpec {
+  if (routed === undefined) {
+    return spec;
+  }
+  const params = routed.effort === undefined ? {} : { reasoning_effort: routed.effort };
+  return { ...spec, model: { name: routed.model, params } };
+}
+
 export class SessionHandle<
   TTransaction = never,
   TSessionCustom extends object = Record<string, never>,
@@ -201,6 +212,7 @@ export class SessionHandle<
     try {
       const { orchestrator, agentThreads } = await this.assembleTurn({
         previous,
+        turnInput: input.input ?? [],
         resolver: input.resolver,
         abortController: input.abortController,
         pendingTurnEvents: [],
@@ -330,6 +342,7 @@ export class SessionHandle<
       });
       const { orchestrator } = await this.assembleTurn({
         previous: turn,
+        turnInput: undefined,
         resolver: input.resolver,
         abortController: input.abortController,
         pendingTurnEvents,
@@ -433,6 +446,8 @@ export class SessionHandle<
    */
   private async assembleTurn(input: {
     previous: TurnRecord<TTurnCustom> | undefined;
+    /** The new turn's user input; undefined when rebuilding a paused turn. */
+    turnInput: UserMessage[] | undefined;
     resolver: ITurnResourceResolver<TTurnCustom>;
     abortController: AbortController;
     pendingTurnEvents: TurnUserEvent[];
@@ -448,10 +463,20 @@ export class SessionHandle<
       tracing,
     });
 
+    const { modelRouting } = input.resolver;
+    const routeModel = modelRouting === undefined ? undefined : createModelRouter(modelRouting, input.resolver.logger);
+    const rootModel = await this.autoRoutedModel({
+      spec,
+      previous: input.previous,
+      turnInput: input.turnInput,
+      routeModel,
+    });
+
     const definitionsByThreadId = await this.resolveAgentDefinitions({
       previous: input.previous,
       resolver: input.resolver,
       spec,
+      rootModel,
       tracing,
       signal: input.abortController.signal,
     });
@@ -478,6 +503,8 @@ export class SessionHandle<
       resolver: input.resolver,
       previous: input.previous,
       spec,
+      routeModel,
+      rootModel,
       sandbox,
       tracing,
     });
@@ -498,10 +525,46 @@ export class SessionHandle<
     return { orchestrator, agentThreads };
   }
 
+  /**
+   * The root's model when its spec asks for `auto`, else undefined. A new turn routes on the conversation and the new
+   * user input; a rebuilt turn resumes on the model its root ran on.
+   */
+  private async autoRoutedModel(input: {
+    spec: AgentSpec;
+    previous: TurnRecord<TTurnCustom> | undefined;
+    turnInput: UserMessage[] | undefined;
+    routeModel: ((route: RouteInput) => Promise<RoutedModel | undefined>) | undefined;
+  }): Promise<RoutedModel | undefined> {
+    if (input.spec.model.name !== AUTO_MODEL) {
+      return undefined;
+    }
+    const previousRoot = input.previous?.snapshot.threads[MAIN_THREAD_ID];
+    // If rebuilding a paused turn, resume on the model it ran on.
+    if (input.turnInput === undefined) {
+      if (previousRoot?.model == null) {
+        throw new AgentHarnessError('auto_model_unavailable', 'This paused turn has no saved model to resume on');
+      }
+      return { model: previousRoot.model.name, effort: undefined };
+    }
+    // If creating a new turn, route on the conversation and the new user input.
+    if (input.routeModel === undefined) {
+      throw new AgentHarnessError('auto_model_unavailable', 'Auto model selection needs model routing for this tenant');
+    }
+    const routed = await input.routeModel({
+      threadId: MAIN_THREAD_ID,
+      input: routingConversation(previousRoot?.context ?? [], input.turnInput),
+    });
+    if (routed === undefined) {
+      throw new AgentHarnessError('auto_model_unavailable', 'Auto model selection could not choose a model');
+    }
+    return routed;
+  }
+
   private async resolveAgentDefinitions(input: {
     previous: TurnRecord<TTurnCustom> | undefined;
     resolver: ITurnResourceResolver<TTurnCustom>;
     spec: AgentSpec;
+    rootModel: RoutedModel | undefined;
     tracing: AgentTracing;
     signal: AbortSignal;
   }): Promise<Map<string, ResolvedAgentDefinition>> {
@@ -513,9 +576,11 @@ export class SessionHandle<
         const previousThreadSnapshot = snapshots?.[threadId];
         const agentInfo = previousThreadSnapshot?.agent_info ?? undefined;
         const savedModel = previousThreadSnapshot?.model ?? null;
+        const rootModel = threadId === MAIN_THREAD_ID ? input.rootModel : undefined;
         const resolved = await input.resolver.resolveAgentDefinition({
-          spec: input.spec,
-          // agent_info is the original request. A subagent resumes on its saved model; the root follows its spec.
+          spec: specForRoutedModel(input.spec, rootModel),
+          // agent_info is the original request. A subagent resumes on its saved model; the root follows its spec, or
+          // its auto-selected model.
           agent_info: agentInfo,
           model: agentInfo !== undefined && savedModel !== null ? savedModel : undefined,
           previousTurn: input.previous,
@@ -605,20 +670,21 @@ export class SessionHandle<
     resolver: ITurnResourceResolver<TTurnCustom>;
     previous: TurnRecord<TTurnCustom> | undefined;
     spec: AgentSpec;
+    routeModel: ((route: RouteInput) => Promise<RoutedModel | undefined>) | undefined;
+    /** The root's auto-selected model and effort; a subagent the router can't place runs on it. */
+    rootModel: RoutedModel | undefined;
     sandbox: HarnessSandbox | undefined;
     tracing: AgentTracing;
   }): CreateDynamicSubAgentThread {
-    const { modelRouting, logger } = input.resolver;
-    const routeModel = modelRouting === undefined ? undefined : createModelRouter(modelRouting, logger);
     return async params => {
       // Route from the delegated task: the classifier requires the name and input to classify the task.
       const task = `Name: ${params.request.name}\n\nTask:\n${params.request.input}`;
-      const routed = await routeModel?.({ threadId: params.threadId, input: task });
+      const routed = (await input.routeModel?.({ threadId: params.threadId, input: task })) ?? input.rootModel;
 
       const { definition, model, extraCapabilities } = await input.resolver.resolveAgentDefinition({
-        spec: input.spec,
+        spec: specForRoutedModel(input.spec, routed),
         agent_info: params.request,
-        model: routed === undefined ? undefined : { name: routed.model, effort: routed.effort },
+        model: routed === undefined ? undefined : { name: routed.model, effort: routed.effort ?? null },
         previousTurn: input.previous,
         signal: params.signal,
         tracing: input.tracing,
