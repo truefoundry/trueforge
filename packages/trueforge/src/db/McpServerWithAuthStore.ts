@@ -1,6 +1,7 @@
-import type { RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
-import { isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
+import type { RemoteMcpHeaders, ResolveHeadersResult } from '@truefoundry/trueforge-core/core';
+import { beginMcpAuthorization, isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
 import type { IOAuthTokenStore, OAuthClientRecord } from '../mcp/auth/types';
+import { hasAuthorizationHeader, mergeServerHeaders, type PerServerMcpHeaders } from '../runtime/perServerMcpHeaders';
 import { resolveConfiguredMcpRequestHeaders, resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
 import {
   McpServerNotFoundError,
@@ -22,15 +23,18 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
   readonly #store: IMcpServerStore<TTransaction>;
   readonly #tokenStore: IOAuthTokenStore<TTransaction>;
   readonly #clientName: string;
+  readonly #perServerHeaders: PerServerMcpHeaders;
 
   constructor(input: {
     store: IMcpServerStore<TTransaction>;
     tokenStore: IOAuthTokenStore<TTransaction>;
     clientName: string;
+    perServerHeaders?: PerServerMcpHeaders;
   }) {
     this.#store = input.store;
     this.#tokenStore = input.tokenStore;
     this.#clientName = input.clientName;
+    this.#perServerHeaders = input.perServerHeaders ?? {};
   }
 
   listServers(input: ListMcpServersInput, transaction?: TTransaction): Promise<McpServerRecord[]> {
@@ -62,9 +66,40 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
     userRef: string;
     turnMetadata?: TurnMetadata;
   }): RemoteMcpHeaders {
+    const { record } = input;
+    const overrideServerHeaders = this.#perServerHeaders[record.name];
+    // Authorization in x-tfg-mcp-headers is the credential sent to the MCP. Skip the DCR token, and
+    // attach no 401 hook, so a rejection fails instead of starting consent.
+    if (overrideServerHeaders !== undefined && hasAuthorizationHeader(overrideServerHeaders)) {
+      const configuredHeaders = resolveConfiguredMcpRequestHeaders(record.manifest);
+      return mergeServerHeaders({ base: configuredHeaders, override: overrideServerHeaders });
+    }
+    const resolveHeaders = this.#buildResolveHeaders(input);
+    if (overrideServerHeaders === undefined) {
+      return resolveHeaders;
+    }
+    return async () => {
+      let resolvedHeaders: ResolveHeadersResult;
+      if (typeof resolveHeaders === 'function') {
+        resolvedHeaders = await resolveHeaders();
+      } else {
+        resolvedHeaders = { headers: resolveHeaders };
+      }
+      if ('authRequired' in resolvedHeaders) {
+        return resolvedHeaders;
+      }
+      return {
+        ...resolvedHeaders,
+        headers: mergeServerHeaders({ base: resolvedHeaders.headers, override: overrideServerHeaders }),
+      };
+    };
+  }
+
+  /** DCR token (or consent before connect), otherwise the static manifest headers. No 401 hook unless DCR. */
+  #buildResolveHeaders(input: { record: McpServerRecord; userRef: string }): RemoteMcpHeaders {
     const { record, userRef } = input;
     if (record.manifest.auth?.type === 'dcr') {
-      return async () => {
+      return async (): Promise<ResolveHeadersResult> => {
         const result = await resolveMcpAuth({
           tokenStore: this.#tokenStore,
           mcpServerStore: this.#store,
@@ -82,7 +117,22 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
             },
           };
         }
-        return { headers: result.headers };
+        return {
+          headers: result.headers,
+          // On a 401, start DCR consent; the stored token stays until the callback replaces it.
+          onUnauthorized: async () => {
+            const authorizationUrl = await beginMcpAuthorization({
+              tokenStore: this.#tokenStore,
+              mcpServerStore: this.#store,
+              serverId: record.id,
+              userRef,
+              mcpServerUrl: record.manifest.url,
+              mcpServerName: record.name,
+              clientName: this.#clientName,
+            });
+            return { servers: [{ id: record.name, name: record.name, auth_url: authorizationUrl.href }] };
+          },
+        };
       };
     }
     return resolveConfiguredMcpRequestHeaders(record.manifest);
