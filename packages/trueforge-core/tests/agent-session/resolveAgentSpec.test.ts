@@ -201,8 +201,8 @@ describe('SessionHandle rebuild', () => {
           context: [],
           current_context_usage: getEmptyCurrentContextUsage(),
           parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'tc1' },
-          agent_info: { type: 'dynamic', name: 'child', input: 'task', model: 'acct/requested' },
-          model: 'acct/routed',
+          agent_info: { type: 'dynamic', name: 'child', input: 'task', model: 'acct/routed', reasoning_effort: 'high' },
+          model: { name: 'acct/routed', effort: 'high' },
           completion: null,
           pending_mcp_auth: false,
           capability_state: null,
@@ -224,8 +224,16 @@ describe('SessionHandle rebuild', () => {
       resolver,
     });
 
-    const agentInfos = resolveAgentDefinition.mock.calls.map(([input]) => input.agent_info);
-    expect(agentInfos).toContainEqual(expect.objectContaining({ name: 'child', model: 'acct/routed' }));
-    expect(agentInfos).toContainEqual(undefined);
+    const calls = resolveAgentDefinition.mock.calls.map(([input]) => input);
+    expect(calls).toContainEqual(
+      expect.objectContaining({
+        agent_info: expect.objectContaining({
+          name: 'child',
+          model: 'acct/routed',
+          reasoning_effort: 'high',
+        }),
+      }),
+    );
+    expect(calls.map(call => call.agent_info)).toContainEqual(undefined);
   });
 });

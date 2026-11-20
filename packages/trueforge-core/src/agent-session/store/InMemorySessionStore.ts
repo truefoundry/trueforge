@@ -161,7 +161,10 @@ function buildSnapshotFromDelta(input: {
   });
 
   for (const nt of input.new_threads) {
-    threads[nt.thread_id] = newThreadSnapshot(nt);
+    threads[nt.thread_id] = newThreadSnapshot({
+      ...nt,
+      model: nt.thread_id === MAIN_THREAD_ID ? input.main_thread_model : nt.model,
+    });
   }
 
   applyContextAppends(threads, input.new_context_appends);

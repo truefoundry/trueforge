@@ -261,17 +261,22 @@ export class TurnResourceResolver<
     // resolve that name so the model's client matches the override (not just a label).
     const modelName = agentInfo?.model ?? spec.model.name;
     const resolvedModel = await this.getModel(modelName);
+    // The spec's params are set for its own model; any other model runs on its own defaults.
+    // A rebuilt subagent passes the effort it ran on through `agent_info.reasoning_effort`.
+    const params =
+      modelName === spec.model.name
+        ? { ...resolvedModel.defaultModelParams, ...spec.model.params }
+        : { ...resolvedModel.defaultModelParams, parallel_tool_calls: true };
+    if (agentInfo?.reasoning_effort !== undefined) {
+      params.reasoning_effort = agentInfo.reasoning_effort;
+    }
     return {
       model: {
         client: resolvedModel.modelClient,
         name: modelName,
         ...(resolvedModel.providerType !== undefined ? { providerType: resolvedModel.providerType } : {}),
         properties: resolvedModel.modelProperties,
-        // The spec's params are set for its own model; any other model runs on its own defaults.
-        params:
-          modelName === spec.model.name
-            ? { ...resolvedModel.defaultModelParams, ...spec.model.params }
-            : { ...resolvedModel.defaultModelParams, parallel_tool_calls: true },
+        params,
       },
       definition: {
         // Sub-agents receive the delegated task as a user message; their system

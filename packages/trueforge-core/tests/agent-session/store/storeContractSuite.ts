@@ -1676,7 +1676,13 @@ export function runStoreContractSuite<TTransaction>(
       const modelOf = async (turnId: string) =>
         mustGet(await store.getTurn({ session_id: sessionId, turn_id: turnId })).snapshot.threads[MAIN_THREAD_ID]
           ?.model;
-      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1', main_thread_model: 'acct/model-a' }));
+      await store.createTurn(
+        makeCreateTurnInput({
+          sessionId,
+          turnId: 'turn-1',
+          main_thread_model: { name: 'acct/model-a', effort: null },
+        }),
+      );
       await finishTurn(store, 'turn-1');
       await store.createTurn(
         makeCreateTurnInput({
@@ -1684,11 +1690,11 @@ export function runStoreContractSuite<TTransaction>(
           turnId: 'turn-2',
           previousTurnId: 'turn-1',
           firstTurnId: 'turn-1',
-          main_thread_model: 'acct/model-b',
+          main_thread_model: { name: 'acct/model-b', effort: 'high' },
         }),
       );
-      expect(await modelOf('turn-1')).toBe('acct/model-a');
-      expect(await modelOf('turn-2')).toBe('acct/model-b');
+      expect(await modelOf('turn-1')).toEqual({ name: 'acct/model-a', effort: null });
+      expect(await modelOf('turn-2')).toEqual({ name: 'acct/model-b', effort: 'high' });
     });
 
     it('keeps the model of a thread added mid-turn', async () => {
@@ -1706,7 +1712,7 @@ export function runStoreContractSuite<TTransaction>(
             current_context_usage: getEmptyCurrentContextUsage(),
             parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'tc1' },
             agent_info: { type: 'dynamic', name: 'child', input: 'task', model: 'acct/model-c' },
-            model: 'acct/model-c',
+            model: { name: 'acct/model-c', effort: null },
             completion: null,
             pending_mcp_auth: false,
             capability_state: null,
@@ -1714,7 +1720,7 @@ export function runStoreContractSuite<TTransaction>(
         ],
       });
       const turn = mustGet(await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' }));
-      expect(turn.snapshot.threads['child']?.model).toBe('acct/model-c');
+      expect(turn.snapshot.threads['child']?.model).toEqual({ name: 'acct/model-c', effort: null });
     });
 
     it('update_session_title_if_not_exist sets once and never overwrites', async () => {
