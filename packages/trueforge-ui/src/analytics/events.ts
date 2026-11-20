@@ -50,6 +50,8 @@ export const AnalyticsEvents = {
     WEB_SEARCH_TENANT_TOGGLED: 'trueforge.settings.web_search_tenant_toggled',
     MEMORY_TENANT_TOGGLED: 'trueforge.settings.memory_tenant_toggled',
     MEMORY_PROVIDER_SAVED: 'trueforge.settings.memory_provider_saved',
+    TYPEFACE_CHANGED: 'trueforge.settings.typeface_changed',
+    TYPEFACE_RESET: 'trueforge.settings.typeface_reset',
   },
   Library: {
     OPENED: 'trueforge.library.opened',
