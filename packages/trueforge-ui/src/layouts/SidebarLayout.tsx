@@ -18,6 +18,7 @@ import { cn } from '../atoms/lib/cn.js';
 import { useIsMobile } from '../atoms/lib/useIsMobile.js';
 import { NamedAgentHeaderLabel } from '../atoms/NamedAgentHeaderLabel.js';
 import { PageHeader } from '../atoms/PageHeader.js';
+import { ShellLink } from '../atoms/primitives/ShellLink.js';
 import { Spinner } from '../atoms/primitives/Spinner.js';
 import { RailTooltip } from '../atoms/primitives/Tooltip.js';
 import { ShellActions } from '../atoms/ShellActions.js';
@@ -154,34 +155,34 @@ function SidebarNav(): ReactNode {
     <nav className="flex min-h-0 flex-1 flex-col items-center gap-4" aria-label="Sidebar">
       {showNewActions ? (
         <RailTooltip content="New chat">
-          <button
-            type="button"
+          <ShellLink
+            place={{ type: 'root' }}
             aria-label="Start new chat"
             aria-current={newChatSelected ? 'page' : undefined}
             className={auiButtonClass({
               variant: 'ghost',
               className: cn(railActionButtonClassName, newChatSelected && shellRailSelectedClassName),
             })}
-            onClick={handleNewChat}
+            onNavigate={handleNewChat}
           >
             <Icon name="square-pen" size={16} />
-          </button>
+          </ShellLink>
         </RailTooltip>
       ) : null}
       {showNewActions && shell?.isComposerEnabled ? (
         <RailTooltip content="New Agent">
-          <button
-            type="button"
+          <ShellLink
+            place={{ type: 'buildAgent' }}
             aria-label="Start new agent"
             aria-current={newAgentSelected ? 'page' : undefined}
             className={auiButtonClass({
               variant: 'ghost',
               className: cn(railActionButtonClassName, newAgentSelected && shellRailSelectedClassName),
             })}
-            onClick={handleNewAgent}
+            onNavigate={handleNewAgent}
           >
             <Icon name="agent-2" size={16} />
-          </button>
+          </ShellLink>
         </RailTooltip>
       ) : null}
       <AgentsLibraryButton compact />

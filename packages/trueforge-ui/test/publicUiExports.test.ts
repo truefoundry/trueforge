@@ -132,6 +132,7 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'ShareChatButton',
   'ShareSessionDialog',
   'ShellActionsActionSlot',
+  'ShellLink',
   'ShellModeProvider',
   'SideDrawer',
   'SlotsProvider',

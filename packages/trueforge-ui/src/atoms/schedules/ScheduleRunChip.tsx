@@ -3,6 +3,7 @@
 import { Icon } from '../../icons/Icon.js';
 import type { ScheduleRun } from '../../server/types.js';
 import { cn } from '../lib/cn.js';
+import { ShellLink } from '../primitives/ShellLink.js';
 import { Tooltip } from '../primitives/Tooltip.js';
 import { formatScheduleRunInstant, runChipKind, runStatusLabel } from './scheduleRuns.js';
 import { ScheduleRunTooltip } from './ScheduleRunTooltip.js';
@@ -15,9 +16,12 @@ const CHIP_STYLES = {
 
 export function ScheduleRunChip({
   run,
+  href,
   onOpenSession,
 }: {
   run: ScheduleRun;
+  /** Sessions-browser share href for right-click / open-in-new-tab. */
+  href?: string;
   onOpenSession?: (run: ScheduleRun) => void;
 }) {
   const kind = runChipKind(run.status);
@@ -28,14 +32,25 @@ export function ScheduleRunChip({
   return (
     <Tooltip content={<ScheduleRunTooltip run={run} />} className="max-w-sm whitespace-normal" side="top">
       {onOpenSession != null && run.sessionId != null && run.sessionId !== '' ? (
-        <button
-          type="button"
-          className={cn(chipClass, 'cursor-pointer hover:brightness-95')}
-          aria-label={`Open session for ${label}`}
-          onClick={() => onOpenSession(run)}
-        >
-          {icon}
-        </button>
+        href != null ? (
+          <ShellLink
+            href={href}
+            className={cn(chipClass, 'cursor-pointer hover:brightness-95')}
+            aria-label={`Open session for ${label}`}
+            onNavigate={() => onOpenSession(run)}
+          >
+            {icon}
+          </ShellLink>
+        ) : (
+          <button
+            type="button"
+            className={cn(chipClass, 'cursor-pointer hover:brightness-95')}
+            aria-label={`Open session for ${label}`}
+            onClick={() => onOpenSession(run)}
+          >
+            {icon}
+          </button>
+        )
       ) : (
         <span className={chipClass} aria-label={label}>
           {icon}

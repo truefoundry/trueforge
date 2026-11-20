@@ -51,6 +51,8 @@ export type AgentSessionListRowProps = {
   createdBySubject?: Subject;
   active: boolean;
   onSelect: () => void;
+  /** Session share href for right-click / open-in-new-tab. */
+  href?: string;
   /** Opens delete confirmation; does not call the API. */
   onRequestDelete?: () => void;
   /** When false, Delete is disabled via PermissionGuard. Defaults to true. */

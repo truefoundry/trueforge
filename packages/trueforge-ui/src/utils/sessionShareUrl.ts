@@ -153,18 +153,38 @@ export function writeSessionShareSearch(params: URLSearchParams, next: SessionSh
   else if (next.createdByMe === false || next.createdByMe === null) params.delete(CREATED_BY_ME_QUERY);
 }
 
+/** Search that opens the global Sessions browser (clears agent/session selection). */
+export function sessionsBrowserOpenSearch(
+  search = typeof window === 'undefined' ? '' : window.location.search,
+): string {
+  const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
+  const share = readSessionShareSearch(search);
+  writeSessionShareSearch(params, {
+    view: SESSIONS_VIEW_VALUE,
+    agentId: null,
+    sessionId: null,
+    tab: null,
+    timeRange: share.timeRange ?? defaultSessionTimeRange(),
+  });
+  const next = params.toString();
+  return next.length > 0 ? `?${next}` : '';
+}
+
 /** Share link for a library or global session. Works with or without `withRouter`. */
 export function buildAgentSessionShareUrl({
   sessionId,
   agentId,
   createdAt,
   view,
+  timeRange,
   href = typeof window === 'undefined' ? '' : window.location.href,
 }: {
   sessionId: string;
   agentId?: string;
   createdAt?: string;
   view?: typeof SESSIONS_VIEW_VALUE | null;
+  /** Explicit pin/clear; wins over `createdAt` when set. */
+  timeRange?: SessionTimeRange | null;
   href?: string;
 }): string {
   const url = new URL(href);
@@ -172,10 +192,21 @@ export function buildAgentSessionShareUrl({
     sessionId,
     agentId: agentId == null || agentId.length === 0 ? null : agentId,
     ...(view === undefined ? {} : { view }),
-    timeRange: createdAt == null ? undefined : sessionTimeRangeFromCreatedAt(createdAt),
+    ...(timeRange !== undefined
+      ? { timeRange }
+      : createdAt == null
+        ? {}
+        : { timeRange: sessionTimeRangeFromCreatedAt(createdAt) }),
     createdByMe: null,
   });
   return url.toString();
+}
+
+/** Relative path+search for the current page with a session share selection. */
+export function buildAgentSessionShareHref(args: Parameters<typeof buildAgentSessionShareUrl>[0]): string {
+  const absolute = buildAgentSessionShareUrl(args);
+  const url = new URL(absolute);
+  return `${url.pathname}${url.search}`;
 }
 
 export const SESSION_SHARE_CHANGE_EVENT = 'trueforge-session-share';

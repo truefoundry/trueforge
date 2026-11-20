@@ -17,6 +17,7 @@ import {
 } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 import { SEARCH_AGENTS_PAGE_SIZE } from './lib/useSearchAgentsList.js';
+import { ShellLink } from './primitives/ShellLink.js';
 import { RailTooltip } from './primitives/Tooltip.js';
 
 export type AgentsLibraryButtonProps = {
@@ -57,9 +58,9 @@ export function AgentsLibraryButton({ className, compact = false }: AgentsLibrar
 
   if (!enabled) return null;
 
-  const button = (
-    <button
-      type="button"
+  const control = (
+    <ShellLink
+      place={{ type: 'library' }}
       aria-label={compact ? 'Agents' : undefined}
       aria-current={libraryOpen ? 'page' : undefined}
       className={auiButtonClass({
@@ -72,7 +73,7 @@ export function AgentsLibraryButton({ className, compact = false }: AgentsLibrar
           libraryOpen && shellRailSelectedClassName,
         ),
       })}
-      onClick={() => {
+      onNavigate={() => {
         if (!libraryOpen) track(AnalyticsEvents.Library.OPENED);
         shell?.setLibraryOpen(true);
       }}
@@ -89,12 +90,12 @@ export function AgentsLibraryButton({ className, compact = false }: AgentsLibrar
           <Icon name="chevron-right" className="ml-auto size-3.5 shrink-0 opacity-60" />
         </>
       )}
-    </button>
+    </ShellLink>
   );
 
   return (
     <div className={cn('relative min-w-0', compact ? 'flex justify-center' : 'w-full', className)}>
-      {compact ? <RailTooltip content="Agents">{button}</RailTooltip> : button}
+      {compact ? <RailTooltip content="Agents">{control}</RailTooltip> : control}
     </div>
   );
 }

@@ -12,6 +12,7 @@ import { useSlot } from '../theme/SlotsProvider.js';
 import { useTheme } from '../theme/ThemeProvider.js';
 import { auiButtonClass, shellRailSelectedClassName, sidebarRailButtonClassName } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
+import { ShellLink } from './primitives/ShellLink.js';
 import { RailTooltip } from './primitives/Tooltip.js';
 
 export function ShellActions({
@@ -100,8 +101,8 @@ export function ShellActions({
       {shell != null && settingsChromeEnabled
         ? wrapRail(
             'Settings',
-            <button
-              type="button"
+            <ShellLink
+              place={{ type: 'settings' }}
               aria-label="Settings"
               title={iconOnly ? undefined : 'Settings'}
               aria-expanded={shell.settingsOpen}
@@ -111,7 +112,7 @@ export function ShellActions({
                 size: showLabels ? undefined : 'icon',
                 className: cn(hoverClass, railClass, labeledClass, shell.settingsOpen && shellRailSelectedClassName),
               })}
-              onClick={() => {
+              onNavigate={() => {
                 if (!shell.settingsOpen) track(AnalyticsEvents.Settings.OPENED);
                 shell.setSettingsOpen(true);
                 onAction?.();
@@ -119,7 +120,7 @@ export function ShellActions({
             >
               <Icon name="settings" size={iconSize} />
               {showLabels ? <span className="text-center">Settings</span> : null}
-            </button>,
+            </ShellLink>,
           )
         : null}
       <ActionSlot />
