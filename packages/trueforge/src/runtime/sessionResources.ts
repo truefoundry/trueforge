@@ -15,7 +15,7 @@ import {
 import { HTTPException } from 'hono/http-exception';
 import { join } from 'node:path';
 import type { Logger } from 'winston';
-import configuration from '../config';
+import configuration, { enabledTenantModelRouting, type TrueFoundryModelRouting } from '../config';
 import {
   isMemoryEnabledForTenant,
   isWebSearchEnabledForTenant,
@@ -290,6 +290,7 @@ export async function validateAgentSpec({
   configurationStore,
   previousSpec,
   agentId,
+  modelRouting,
 }: {
   spec: AgentSpec;
   tenant_id: string;
@@ -304,9 +305,17 @@ export async function validateAgentSpec({
   configurationStore: IConfigurationStore;
   previousSpec: AgentSpec | undefined;
   agentId: string | undefined;
+  /** This process's model routing config. `auto` is rejected when this tenant's routing is off. */
+  modelRouting?: TrueFoundryModelRouting | undefined;
 }): Promise<void> {
-  // `auto` names no model: the root's model is routed on each turn.
-  if (spec.model.name !== AUTO_MODEL) {
+  // `auto` names no catalog model. It is only valid when this tenant routes models.
+  if (spec.model.name === AUTO_MODEL) {
+    if (enabledTenantModelRouting(modelRouting, tenant_id) === undefined) {
+      throw new HTTPException(422, {
+        message: 'Model "auto" requires model routing to be enabled for this tenant',
+      });
+    }
+  } else {
     const resolved = await getModelDetails({
       tenant_id,
       name: spec.model.name,

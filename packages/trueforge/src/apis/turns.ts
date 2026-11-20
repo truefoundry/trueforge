@@ -79,7 +79,11 @@ import {
   type RequestContext,
   type ResolveRequestContext,
 } from '../auth/identity';
-import configuration, { isTrueFoundryModeEnabled, type TrueFoundryModelRouting } from '../config';
+import configuration, {
+  enabledTenantModelRouting,
+  trueFoundryModelRouting,
+  type TrueFoundryModelRouting,
+} from '../config';
 import type { IAccessControlStore } from '../db/accessControlStore';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import { EmptyCapabilitiesStore, type ICapabilitiesStore } from '../db/capabilitiesStore';
@@ -375,8 +379,11 @@ function turnModelRouting(input: {
   turnMetadata: TurnMetadata;
 }): ModelRouterDeps | undefined {
   const { routing, tenant_id, modelProviderStore, turnMetadata } = input;
-  const tenantRouting = routing?.tenants[tenant_id];
-  if (routing === undefined || tenantRouting?.enabled !== 'on') {
+  if (routing === undefined) {
+    return undefined;
+  }
+  const tenantRouting = enabledTenantModelRouting(routing, tenant_id);
+  if (tenantRouting === undefined) {
     return undefined;
   }
   // Resolved on first use, so turns that route no thread skip the lookup.
@@ -819,7 +826,7 @@ async function prepareTurnExecution<TTransaction>(input: {
     agentStore: input.deps.agentStore,
     modelProviderStore: input.deps.modelProviderStore,
     modelRouting: turnModelRouting({
-      routing: isTrueFoundryModeEnabled(configuration) ? configuration.TRUEFOUNDRY_MODEL_ROUTING : undefined,
+      routing: trueFoundryModelRouting(),
       tenant_id: input.session.tenant_id,
       modelProviderStore: input.deps.modelProviderStore,
       turnMetadata,

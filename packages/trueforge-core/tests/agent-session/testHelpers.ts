@@ -21,6 +21,8 @@ import type {
   RawAssistantMessageWithUsage,
 } from '../../src/core/llm/LLMTypes';
 import { getEmptyUsage } from '../../src/core/llm/LLMTypes';
+import type { ModelParams } from '../../src/core/llm/model';
+import type { ModelRouterDeps } from '../../src/core/modelRouting/router';
 import type { ModelSnapshot } from '../../src/core/runtime/AgentThread.types';
 import { getEmptyCurrentContextUsage } from '../../src/core/runtime/contextUsage';
 import type { Sandbox } from '../../src/core/sandbox/Sandbox';
@@ -39,7 +41,7 @@ export const TEST_ACTIVE_EXECUTOR_ID = 'test-executor';
 export function makeAgentSpec(
   overrides: {
     instructions?: string;
-    model?: { name: string };
+    model?: { name: string; params?: { temperature?: number } };
     config?: {
       iteration_limit?: number;
       sandbox?: { enabled: boolean; file_downloads?: boolean; environment_name?: string };
@@ -103,18 +105,26 @@ export function makeTestResolver<TTurnCustom extends object = Record<string, nev
   llmCreate?: ILLM['create'];
   /** When set, resolveSandbox rejects with this error — simulates a createTurn resolution failure. */
   failResolveWith?: Error;
+  /** Catalog defaults merged onto a resolved model's params. */
+  defaultModelParams?: ModelParams;
+  /** When set, threads can be model-routed. */
+  modelRouting?: ModelRouterDeps;
+  /** Called with each catalog model name the turn resolves. */
+  onModel?: (name: string) => void;
 }): ITurnResourceResolver<TTurnCustom> {
   const llm = makeMockILLM({
     create: options?.llmCreate ?? jest.fn().mockImplementation(() => emptyLlmStream(options?.usage)),
   });
   const base = new TurnResourceResolver<TTurnCustom>({
-    modelRouting: undefined,
-    llm: () =>
-      Promise.resolve({
+    modelRouting: options?.modelRouting,
+    llm: name => {
+      options?.onModel?.(name);
+      return Promise.resolve({
         modelClient: llm,
-        defaultModelParams: {},
+        defaultModelParams: options?.defaultModelParams ?? {},
         providerType: undefined,
-      }),
+      });
+    },
     mcp: id => {
       if (id === TRUEFORGE_MCP_ID) {
         return Promise.resolve(undefined);
@@ -146,7 +156,7 @@ export function makeTestResolver<TTurnCustom extends object = Record<string, nev
       return base.logger;
     },
     createTracing: () => base.createTracing(),
-    modelRouting: undefined,
+    modelRouting: base.modelRouting,
     resolveAgentSpec: input => base.resolveAgentSpec(input),
     resolveSandbox: input => {
       if (options.failResolveWith) {
