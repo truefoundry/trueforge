@@ -339,7 +339,8 @@ describe('ScheduleFormDrawer', () => {
     await waitFor(() => {
       expect(createScheduleRun).toHaveBeenCalledWith({ scheduleId: 'new' });
     });
-    expect(screen.getByText('Test run started')).toBeInTheDocument();
+    // The banner lands a render after the call resolves.
+    expect(await screen.findByText('Test run started')).toBeInTheDocument();
     expect(screen.getByText('Manual test')).toBeInTheDocument();
   });
 

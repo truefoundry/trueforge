@@ -2,6 +2,7 @@
  * Server-wide shared Zod field schemas and refinements.
  */
 import { z } from '@hono/zod-openapi';
+import configuration from '../config';
 
 /**
  * Shared local resource name (agents, skills, MCP, models, schedules).
@@ -26,8 +27,24 @@ export const NameSchema = z
 export type ResourceName = z.infer<typeof NameSchema>;
 
 export const PAGE_LIMIT = 25;
-/** Session/turn event list page size (default = max). */
-export const EVENTS_PAGE_LIMIT = 100;
+/** Session/turn event list page size; default and max are read from config per request, so not baked into OpenAPI. */
+export const EventsPageLimitQuerySchema = z.coerce
+  .number()
+  .int()
+  .min(1)
+  .superRefine((limit, ctx) => {
+    const max = configuration.LIST_EVENTS_PAGE_LIMIT_MAX;
+    if (limit > max) {
+      ctx.addIssue({
+        code: 'custom',
+        message: `limit must be at most ${String(max)}`,
+      });
+    }
+  })
+  .optional()
+  .transform(limit => limit ?? configuration.LIST_EVENTS_PAGE_LIMIT_MAX)
+  .describe('Page size. Defaults to and is capped at the server-configured maximum.');
+
 /** List-agents page size. */
 export const AGENTS_PAGE_DEFAULT = 50;
 export const AGENTS_PAGE_LIMIT = 100;

@@ -20,8 +20,16 @@ const DEFAULT_CAPABILITIES = {
   data: {
     sandbox: { enabled: true },
     skill: { enabled: true },
-    settings: { enabled: true },
+    settings: {
+      modelProviders: { enabled: true, manageProviders: true },
+      mcpServers: { enabled: true, manageProviders: true },
+      skills: { enabled: true, manageProviders: true },
+      sandboxProviders: { enabled: true, manageProviders: true },
+      webSearch: { enabled: true, manageProviders: true },
+      memoryProviders: { enabled: true, manageProviders: true },
+    },
     webSearch: { enabled: false },
+    sessionSharing: { granularity: 'tenant' },
   },
 } satisfies AgentBuilderCapabilitiesResponse;
 

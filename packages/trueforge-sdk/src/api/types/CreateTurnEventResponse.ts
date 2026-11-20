@@ -4,5 +4,5 @@ import type * as TrueForge from "../index.js";
 
 export interface CreateTurnEventResponse {
     /** Events with server-minted `id` and `created_at`, in request order. */
-    data: TrueForge.CreateTurnEventResponseDataItem[];
+    data: TrueForge.TurnUserEvent[];
 }

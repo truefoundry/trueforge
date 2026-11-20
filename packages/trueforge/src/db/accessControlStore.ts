@@ -1,5 +1,5 @@
 /** Access grants on sessions. Rows are removed with their session. */
-import type { CreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
+import type { Subject } from '@truefoundry/trueforge-core/agent-session';
 import type { SessionGrantSubject, SessionGrantSubjectType } from '../schemas/sessionGrant';
 
 export interface AccessGrantRecord {
@@ -7,7 +7,7 @@ export interface AccessGrantRecord {
   session_id: string;
   subject_type: SessionGrantSubjectType;
   subject_id: string;
-  granted_by_subject: CreatedBySubject;
+  granted_by_subject: Subject;
   /** ISO-8601 UTC instant. */
   created_at: string;
 }
@@ -17,7 +17,7 @@ export interface CreateAccessGrantsInput {
   session_id: string;
   /** Non-empty and de-duplicated by the caller. */
   subjects: SessionGrantSubject[];
-  granted_by_subject: CreatedBySubject;
+  granted_by_subject: Subject;
 }
 
 export interface ListAccessGrantsInput {

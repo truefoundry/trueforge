@@ -53,7 +53,7 @@ function createStore(
   };
   const store = new TrueFoundrySkillStore({
     client,
-    context: {
+    requestContext: {
       tenant_id: TENANT,
       subject: { id: 'user-1', type: 'user', display_name: 'user-1' },
       roles: [],

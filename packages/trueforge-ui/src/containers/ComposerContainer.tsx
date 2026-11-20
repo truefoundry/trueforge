@@ -2,12 +2,13 @@
 
 import { ComposerPrimitive, useAui, useAuiState } from '@assistant-ui/react';
 import { useTrueForgeAgentSpec, useTrueForgeCancel } from '@truefoundry/trueforge-assistant-ui-runtime';
-import { useRef, type KeyboardEvent } from 'react';
+import { useRef, useState, type KeyboardEvent } from 'react';
 
 import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '../analytics/events.js';
 import { withSessionProps } from '../analytics/sessionProps.js';
-import { DraftCatalogProvider } from '../atoms/draft/DraftCatalogProvider.js';
+import { DraftCatalogProvider, useDraftCatalog } from '../atoms/draft/DraftCatalogProvider.js';
+import { useResolveDraftSandboxEnvironment } from '../atoms/environments/useResolveDraftSandboxEnvironment.js';
 import { useComposerBusyState } from '../hooks/useComposerBusyState.js';
 import { useComposerPauseView } from '../hooks/useComposerPauseView.js';
 import { useActiveSessionCanManage } from '../hooks/useResourcePermissions.js';
@@ -31,23 +32,27 @@ export function canSubmitComposer({
   hasAttachments,
   requiresModel,
   hasModel,
+  isBlocked = false,
 }: {
   disabled: boolean;
   hasText: boolean;
   hasAttachments: boolean;
   requiresModel: boolean;
   hasModel: boolean;
+  isBlocked?: boolean;
 }): boolean {
-  return !disabled && (hasText || hasAttachments) && (!requiresModel || hasModel);
+  return !disabled && !isBlocked && (hasText || hasAttachments) && (!requiresModel || hasModel);
 }
 
 function ComposerBody({
   placeholder,
   connectedToBanner = false,
+  sendBlockedReason,
 }: {
   placeholder: string;
   /** Flatten top radius/border so pause chrome sits flush above. */
   connectedToBanner?: boolean;
+  sendBlockedReason?: string;
 }) {
   const ComposerShell = useSlot('ComposerShell');
   const aui = useAui();
@@ -67,9 +72,18 @@ function ComposerBody({
   const cancel = useTrueForgeCancel();
   const toaster = useToasterOptional();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const cancellingRef = useRef(false);
   // Running/pause no longer lock the input — only session permissions do.
   const disabled = !canManageSession;
-  const canSubmit = canSubmitComposer({ disabled, hasText, hasAttachments, requiresModel, hasModel });
+  const canSubmit = canSubmitComposer({
+    disabled,
+    hasText,
+    hasAttachments,
+    requiresModel,
+    hasModel,
+    isBlocked: sendBlockedReason != null,
+  });
   const shellAgent =
     shell?.mode.status === 'active' ? { agentId: shell.mode.agentId, agentName: shell.mode.agentName } : {};
   const submit = () => {
@@ -179,13 +193,23 @@ function ComposerBody({
             canSubmit={canSubmit}
             hasContent={hasContent}
             isRunning={isBusy}
+            isCancelling={isCancelling}
+            blockedReason={sendBlockedReason}
             onSubmit={submit}
             onCancel={
               canManageSession
                 ? () => {
+                    if (cancellingRef.current) return;
+                    cancellingRef.current = true;
+                    setIsCancelling(true);
                     track(AnalyticsEvents.Message.CANCELLED, withSessionProps(undefined, { sessionId, ...shellAgent }));
                     resetBusy();
-                    void cancel();
+                    void cancel()
+                      .catch(() => undefined)
+                      .finally(() => {
+                        cancellingRef.current = false;
+                        setIsCancelling(false);
+                      });
                   }
                 : undefined
             }
@@ -194,6 +218,33 @@ function ComposerBody({
         </ComposerPrimitive.Root>
       </ComposerPrimitive.AttachmentDropzone>
     </>
+  );
+}
+
+function MutableDraftComposer({
+  placeholder,
+  connectedToBanner = false,
+}: {
+  placeholder: string;
+  connectedToBanner?: boolean;
+}) {
+  const { pending: sandboxPending } = useResolveDraftSandboxEnvironment();
+  const { agentSpec } = useTrueForgeAgentSpec();
+  const { loaded: modelsLoaded, loading: modelsLoading } = useDraftCatalog();
+  const hasModel = Boolean(agentSpec?.model?.name?.trim());
+  const sendBlockedReason =
+    !hasModel && (!modelsLoaded || modelsLoading)
+      ? 'Loading models…'
+      : sandboxPending
+        ? 'Preparing sandbox…'
+        : undefined;
+
+  return (
+    <ComposerBody
+      placeholder={placeholder}
+      connectedToBanner={connectedToBanner}
+      sendBlockedReason={sendBlockedReason}
+    />
   );
 }
 
@@ -222,7 +273,7 @@ function ComposerWithOptionalDraft({
             ComposerRightSection: usesDefaultRightSection ? DraftComposerRightSection : parentRightSection,
           }}
         >
-          <ComposerBody placeholder={placeholder} connectedToBanner={connectedToBanner} />
+          <MutableDraftComposer placeholder={placeholder} connectedToBanner={connectedToBanner} />
         </SlotsProvider>
       </DraftCatalogProvider>
     );

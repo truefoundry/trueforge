@@ -121,6 +121,8 @@ export type { MonacoEditorCoreProps } from './atoms/MonacoEditorCore.js';
 export { preloadMonaco } from './atoms/monacoPreload.js';
 export { OpenUiFenceBlock } from './atoms/OpenUiFenceBlock.js';
 export type { OpenUiFenceBlockProps } from './atoms/OpenUiFenceBlock.js';
+export { ResumeUnavailable } from './atoms/ResumeUnavailable.js';
+export type { ResumeUnavailableProps } from './atoms/ResumeUnavailable.js';
 export { SandboxArtifactDownload } from './atoms/SandboxArtifactDownload.js';
 export type { SandboxArtifactDownloadProps } from './atoms/SandboxArtifactDownload.js';
 export { ScrollToBottomButton } from './atoms/ScrollToBottomButton.js';
@@ -165,6 +167,8 @@ export type {
   McpServer as McpAuthServer,
 } from './atoms/adapters/McpAuthPromptAdapter.js';
 export type { ReasoningCardProps } from './atoms/adapters/ReasoningCardAdapter.js';
+export { StepTree, StepTreeItem } from './atoms/agent-chat/StepTree.js';
+export type { StepTreeItemProps, StepTreeProps } from './atoms/agent-chat/StepTree.js';
 export { AttachmentCard, USER_MESSAGE_ATTACHMENT_PREVIEW_REM } from './atoms/AttachmentCard.js';
 export type { AttachmentCardProps, AttachmentCardSize } from './atoms/AttachmentCard.js';
 export { AttachmentPickerButton } from './atoms/AttachmentPickerButton.js';
@@ -179,8 +183,6 @@ export type {
 } from './atoms/ComposerSections.js';
 export { ComposerShell } from './atoms/ComposerShell.js';
 export type { ComposerShellProps } from './atoms/ComposerShell.js';
-export { ResumeUnavailable } from './atoms/ResumeUnavailable.js';
-export type { ResumeUnavailableProps } from './atoms/ResumeUnavailable.js';
 export { SandboxToolCallCard } from './atoms/SandboxToolCallCard.js';
 export type { SandboxToolCallCardProps } from './atoms/SandboxToolCallCard.js';
 export { SubAgentCard } from './atoms/SubAgentCard.js';
@@ -281,6 +283,7 @@ export {
   useTrueForgeAgentSpec,
   useTrueForgeApprovals,
   useTrueForgeCancel,
+  useTrueForgeContinueMcpAuth,
   useTrueForgeDownloadSandboxFile,
   useTrueForgeHistoryPagination,
   useTrueForgeMcpAuth,
@@ -383,13 +386,13 @@ export type {
   ConnectorConfigBase,
   ConnectorState,
   CreateConnectorRequest,
+  CreateMemoryProviderRequest,
   CreateModelProviderRequest,
   CreateSandboxProviderRequest,
   CreateSessionRequest,
   CreateSkillRequest,
   CreateSkillRequestBase,
   CreateWebSearchProviderRequest,
-  CreatedBySubject,
   DefinedSkill,
   GithubSkill,
   ImportGithubSkillRequest,
@@ -400,6 +403,9 @@ export type {
   ListSessionsOrder,
   ListSessionsParams,
   McpServerMount,
+  MemoryCatalogServer,
+  MemoryProviderBase,
+  MemoryProviderCatalogEntry,
   Model,
   ModelCatalogServer,
   ModelEntry,
@@ -434,6 +440,7 @@ export type {
   SkillCatalogServer,
   SkillConfigBase,
   SkillMount,
+  Subject,
   ToolBase,
   Turn,
   TurnDoneMetrics,
@@ -442,6 +449,7 @@ export type {
   TurnStreamData,
   TurnStreamingEvent,
   UpdateConnectorRequest,
+  UpdateMemoryProviderRequest,
   UpdateModelProviderRequest,
   UpdateSandboxProviderRequest,
   UpdateSessionRequest,

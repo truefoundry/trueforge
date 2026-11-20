@@ -5,7 +5,7 @@ import { useMemo, type ReactNode } from 'react';
 import { Doughnut } from 'react-chartjs-2';
 
 import type { SessionMetricBarDatum } from '../../utils/buildSessionMetrics.js';
-import { formatCostUsd } from '../../utils/sessionDisplayFormat.js';
+import { formatCostUsd, formatExactTokenCount } from '../../utils/sessionDisplayFormat.js';
 
 ChartJS.register(ArcElement);
 
@@ -82,6 +82,52 @@ export function StackedProportionBar({
             <span className="size-2 shrink-0 rounded-sm" style={{ backgroundColor: item.color }} />
             <span className="min-w-0 flex-1 truncate text-text-secondary">{item.label}</span>
             <span className="font-semibold text-text-primary">{formatValue(item.value)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function TokenUsageTooltip({
+  totalTokens,
+  inputTokens,
+  outputTokens,
+  cacheReadTokens,
+  cacheWriteTokens,
+  inputBreakdown,
+}: {
+  totalTokens: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  inputBreakdown: SessionMetricBarDatum[];
+}) {
+  const hasInputBreakdown = inputBreakdown.some(item => item.value > 0);
+  const rows = [
+    { label: 'Output tokens', value: outputTokens },
+    { label: 'Cache read', value: cacheReadTokens },
+    { label: 'Cache write', value: cacheWriteTokens },
+  ] as const;
+  return (
+    <div className="w-60 px-1 py-1 text-xs text-text-primary">
+      <div className="font-medium">{`${formatExactTokenCount(totalTokens)} total tokens`}</div>
+      <div className="mt-1 text-text-secondary">
+        {`${formatExactTokenCount(inputTokens)} input · ${formatExactTokenCount(outputTokens)} output`}
+      </div>
+      {hasInputBreakdown ? (
+        <div className="mt-3">
+          <div className="mb-2 font-medium text-text-secondary">Input breakdown</div>
+          <StackedProportionBar data={inputBreakdown} formatValue={formatExactTokenCount} />
+        </div>
+      ) : null}
+      <div className="my-3 border-t border-border" aria-hidden="true" />
+      <div className="flex flex-col gap-2">
+        {rows.map(row => (
+          <div key={row.label} className="flex items-center justify-between gap-4">
+            <span className="text-text-secondary">{row.label}</span>
+            <span className="font-medium text-text-primary">{formatExactTokenCount(row.value)}</span>
           </div>
         ))}
       </div>

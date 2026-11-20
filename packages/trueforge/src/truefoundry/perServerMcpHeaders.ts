@@ -1,37 +1,16 @@
-import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
+import { decodePerServerMcpHeaders, McpHeaderMapSchema } from '../runtime/perServerMcpHeaders';
 
-/**
- * Per-MCP-server request headers, keyed by server name.
- *
- * TrueForge authenticates the whole turn as one caller, so every MCP connection would otherwise
- * present that same identity. This carries the identity each individual server should see —
- * typically the end user behind the caller, for a server that resolves its own permissions.
- */
-export const X_TFG_MCP_HEADERS = 'x-tfg-mcp-headers';
+/** A virtual MCP's `x-tfg-mcp-headers` entry: one header map per underlying server. */
+const VirtualMcpHeadersSchema = z.record(z.string().min(1), McpHeaderMapSchema);
 
-const PerServerMcpHeadersSchema = z.record(z.string().min(1), z.record(z.string().min(1), z.string()));
+const TrueFoundryPerServerMcpHeadersSchema = z.record(
+  z.string().min(1),
+  z.union([McpHeaderMapSchema, VirtualMcpHeadersSchema]),
+);
 
-export type PerServerMcpHeaders = z.infer<typeof PerServerMcpHeadersSchema>;
+export type TrueFoundryPerServerMcpHeaders = z.infer<typeof TrueFoundryPerServerMcpHeadersSchema>;
 
-/**
- * Rejects a malformed value rather than dropping it: the alternative to failing is running a user's
- * tool calls under the caller's own identity, which is the thing these headers exist to prevent.
- * An absent header is the caller's to interpret.
- */
-export function parsePerServerMcpHeaders(raw: string): PerServerMcpHeaders {
-  let decoded: unknown;
-  try {
-    decoded = JSON.parse(raw);
-  } catch (error) {
-    throw new HTTPException(400, { message: `${X_TFG_MCP_HEADERS} must be a JSON object`, cause: error });
-  }
-
-  const parsed = PerServerMcpHeadersSchema.safeParse(decoded);
-  if (!parsed.success) {
-    throw new HTTPException(400, {
-      message: `${X_TFG_MCP_HEADERS} must map each MCP server name to a header map`,
-    });
-  }
-  return parsed.data;
+export function parseTrueFoundryPerServerMcpHeaders(raw: string): TrueFoundryPerServerMcpHeaders {
+  return decodePerServerMcpHeaders({ raw, schema: TrueFoundryPerServerMcpHeadersSchema });
 }

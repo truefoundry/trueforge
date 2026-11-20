@@ -24,8 +24,10 @@ import { paginateWithCursorGuard } from './pagination';
 import {
   connectRemoteMcp,
   DEFAULT_MAX_MCP_RESPONSE_BYTES,
+  isAuthError,
   isSessionExpiredError,
   type RemoteMcpConnection,
+  type RemoteMcpFetch,
   type RemoteMcpTransportType,
 } from './remoteMcpClient';
 
@@ -39,20 +41,22 @@ function redactUrlForTrace(url: string): string {
   }
 }
 
-/** What a headers resolver returns: the headers to send, or a signal that auth is required. */
-export type ResolveHeadersResult = { headers: Record<string, string> } | { authRequired: MCPAuthRequired };
+/**
+ * What a headers resolver returns: the headers to send, or a signal that auth is required.
+ * On a 401, `onUnauthorized` may offer a way to start authorization consent. Without the hook, the 401 fails.
+ */
+export type ResolveHeadersResult =
+  | { headers: Record<string, string>; onUnauthorized?: () => Promise<MCPAuthRequired> }
+  | { authRequired: MCPAuthRequired };
 
 /** Static headers, or a resolver (invoked at connect) returning headers or signalling auth-required. */
 export type RemoteMcpHeaders = Record<string, string> | (() => Promise<ResolveHeadersResult>);
-
-/** A configured MCP server resolved for a turn: where to connect, plus the server identity deferred tools show. */
 export interface McpConnection {
+  name: string;
+  description: string;
   url: string;
   headers?: RemoteMcpHeaders;
-  server: {
-    name: string;
-    description: string;
-  };
+  fetchFn?: RemoteMcpFetch;
 }
 
 type ExecuteResult<T> = { result: T; wasInitialized: MCPServerInitInfo | undefined } | AuthRequiredResponse;
@@ -68,14 +72,15 @@ export class RemoteMCP implements ToolSource {
   readonly serverClass: McpServerClass = 'remote';
   readonly description?: string | undefined;
 
-  private readonly url: string;
-  private readonly headers: RemoteMcpHeaders;
+  private readonly connection: McpConnection;
   private readonly signal: AbortSignal;
   private readonly logger: Logger;
   private readonly tracing: AgentTracing;
   private readonly requestTimeoutMs: number;
   private readonly connectTimeoutMs: number;
   private readonly maxResponseBytes: number;
+  /** When true, tool_info.type is `truefoundry-system` instead of `mcp`. */
+  private readonly isSystem: boolean;
   // Redacted display url for trace spans (derived from url; unused when tracing is a no-op).
   private readonly traceUrl: string;
 
@@ -90,11 +95,8 @@ export class RemoteMCP implements ToolSource {
   private pendingClose: RemoteMcpConnection | undefined;
 
   constructor(params: {
-    name: string;
     id: string;
-    description?: string | undefined;
-    url: string;
-    headers: RemoteMcpHeaders;
+    connection: McpConnection;
     logger: Logger;
     tracing?: AgentTracing | undefined;
     sessionId?: string | undefined;
@@ -103,21 +105,22 @@ export class RemoteMCP implements ToolSource {
     connectTimeoutMs: number;
     maxResponseBytes?: number | undefined;
     signal: AbortSignal;
+    isSystem?: boolean;
   }) {
-    this.name = params.name;
+    this.name = params.connection.name;
     this.id = params.id;
-    this.description = params.description;
-    this.url = params.url;
-    this.headers = params.headers;
+    this.description = params.connection.description;
+    this.connection = params.connection;
     this.signal = params.signal;
     this.sessionId = params.sessionId;
     this.resolvedTransportType = params.transportType;
     this.requestTimeoutMs = params.requestTimeoutMs;
     this.connectTimeoutMs = params.connectTimeoutMs;
     this.maxResponseBytes = params.maxResponseBytes ?? DEFAULT_MAX_MCP_RESPONSE_BYTES;
+    this.isSystem = params.isSystem ?? false;
     this.logger = params.logger;
     this.tracing = params.tracing ?? NOOP_AGENT_TRACING;
-    this.traceUrl = redactUrlForTrace(params.url);
+    this.traceUrl = redactUrlForTrace(params.connection.url);
   }
 
   getSessionId(): string | undefined {
@@ -171,10 +174,10 @@ export class RemoteMCP implements ToolSource {
   }
 
   private async resolveHeaders(): Promise<ResolveHeadersResult> {
-    if (typeof this.headers !== 'function') {
-      return { headers: this.headers };
+    if (typeof this.connection.headers !== 'function') {
+      return { headers: this.connection.headers ?? {} };
     }
-    return await this.headers();
+    return await this.connection.headers();
   }
 
   private async executeWithSessionRetry<T>(
@@ -187,7 +190,40 @@ export class RemoteMCP implements ToolSource {
     if ('authRequired' in headersResult) {
       return { authRequired: headersResult.authRequired };
     }
-    return this.connectAndRun(headersResult.headers, operation, true);
+    let used: RemoteMcpConnection | undefined;
+    const tracked = (connection: RemoteMcpConnection): Promise<T> => {
+      used = connection;
+      return operation(connection);
+    };
+    try {
+      return await this.connectAndRun(headersResult.headers, tracked, true);
+    } catch (error) {
+      let authRequired: MCPAuthRequired | undefined = undefined;
+      try {
+        if (isAuthError(error)) {
+          // Start consent on a 401 if the headers resolver offers a hook.
+          authRequired = await headersResult.onUnauthorized?.();
+        }
+      } catch (recoveryError) {
+        // Rethrow the recovery error unchanged so its status survives, with the 401 it replaced as
+        // `cause` — error logging already walks that chain.
+        if (recoveryError instanceof Error && recoveryError.cause === undefined) {
+          recoveryError.cause = error;
+        }
+        throw recoveryError;
+      }
+      if (authRequired === undefined) {
+        throw error;
+      }
+      // Reset only the rejected connection; a failed connect still leaves the old session and tools.
+      if (used !== undefined) {
+        await this.resetConnection(used);
+      } else if (!this.isConnected) {
+        this.sessionId = undefined;
+        this.cachedTools = undefined;
+      }
+      return { authRequired };
+    }
   }
 
   private async connectAndRun<T>(
@@ -290,7 +326,7 @@ export class RemoteMCP implements ToolSource {
   toolCallInfo(params: CallToolRequest['params'], _resolveUnderlyingTool?: boolean): Promise<InternalToolCallInfo> {
     void _resolveUnderlyingTool;
     return Promise.resolve({
-      type: 'mcp',
+      type: this.isSystem ? 'truefoundry-system' : 'mcp',
       original_tool_name: params.name,
       mcp_server_id: this.id,
       mcp_server_name: this.name,
@@ -318,8 +354,9 @@ export class RemoteMCP implements ToolSource {
           async span => {
             const conn = await this.observe('initialize', () =>
               connectRemoteMcp({
-                url: this.url,
+                url: this.connection.url,
                 headers,
+                ...(this.connection.fetchFn === undefined ? {} : { fetch: this.connection.fetchFn }),
                 sessionId: this.sessionId ?? undefined,
                 // Hint from a prior connect
                 knownTransportType: this.resolvedTransportType,

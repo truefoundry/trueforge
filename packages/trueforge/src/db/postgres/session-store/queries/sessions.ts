@@ -1,14 +1,14 @@
 import {
-  CreatedBySubjectSchema,
   SessionLastTurnDetailsSchema,
   SessionMetadataSchema,
   SessionSourceSchema,
+  SubjectSchema,
   type AgentSpec,
-  type CreatedBySubject,
   type SessionLastTurnDetails,
   type SessionMetadata,
   type SessionMetrics,
   type SessionSource,
+  type Subject,
 } from '@truefoundry/trueforge-core/agent-session';
 import type { SessionRecord } from '@truefoundry/trueforge-core/agent-session/models/SessionRecord';
 import type {
@@ -16,6 +16,7 @@ import type {
   DeleteSessionInput,
   GetOwnedIdsInput,
   GetSessionByExternalIdInput,
+  GetSessionByIdInput,
   GetSessionInput,
   ListSessionsInput,
   UpdateSessionInput,
@@ -61,7 +62,7 @@ function parseSessionMetadata(value: unknown): SessionMetadata {
 function mapRowToSessionRecord(row: {
   tenant_id: string;
   session_id: string;
-  created_by_subject: CreatedBySubject;
+  created_by_subject: Subject;
   source: SessionSource | null;
   agent_id: string | null;
   agent_name: string | null;
@@ -79,7 +80,7 @@ function mapRowToSessionRecord(row: {
   return {
     tenant_id: row.tenant_id,
     session_id: row.session_id,
-    created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
+    created_by_subject: SubjectSchema.parse(row.created_by_subject),
     source: SessionSourceSchema.nullable().parse(row.source),
     agent: sessionAgentFromColumns({
       session_id: row.session_id,
@@ -156,6 +157,20 @@ export async function getSession(
     .where('tenant_id', '=', input.tenant_id)
     .where('session_id', '=', input.session_id)
     .executeTakeFirst();
+
+  if (row === undefined) {
+    return undefined;
+  }
+
+  return mapRowToSessionRecord(row);
+}
+
+/** Internal execution lookup when the session id is the only trusted input. */
+export async function getSessionById(
+  db: Kysely<Database>,
+  input: GetSessionByIdInput,
+): Promise<ProtoSessionRecord | undefined> {
+  const row = await db.selectFrom('session').selectAll().where('session_id', '=', input.session_id).executeTakeFirst();
 
   if (row === undefined) {
     return undefined;

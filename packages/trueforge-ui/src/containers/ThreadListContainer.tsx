@@ -1,5 +1,6 @@
 'use client';
 
+import { useThreadIsRunning } from '@assistant-ui/core/react';
 import {
   ThreadListItemByIndexProvider,
   ThreadListItemMorePrimitive,
@@ -17,20 +18,30 @@ import { AgentHistoryFilterButton } from '../atoms/AgentHistoryFilterButton.js';
 import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
 import { useCompactLayout } from '../atoms/lib/CompactLayoutContext.js';
+import { SESSION_LIST_FIRST_PAGE_LIMIT, sessionListPollIntervalMs } from '../atoms/lib/sessionListPoll.js';
 import {
   canReuseMutableShell,
+  isNewerActivityAt,
+  laterActivityAt,
   readThreadAgentName,
   readThreadIsMutable,
+  readThreadLastActivityAt,
+  readThreadLastTurnStatus,
+  threadCustomWithLastTurnStatus,
   threadListIndicesByRecency,
   threadListItemIsMutable,
 } from '../atoms/lib/threadListMeta.js';
 import { useIsMobile } from '../atoms/lib/useIsMobile.js';
 import { BottomSheet } from '../atoms/primitives/BottomSheet.js';
+import ConfirmDeleteDialog from '../atoms/primitives/ConfirmDeleteDialog.js';
+import { RailTooltip } from '../atoms/primitives/Tooltip.js';
 import { RenameSessionModal } from '../atoms/RenameSessionModal.js';
 import { useResourcePermissions } from '../hooks/useResourcePermissions.js';
+import { useSessionListStatusPoll } from '../hooks/useSessionListStatusPoll.js';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalServer } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
+import { sessionListStartTimestamp } from '../server/types.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { useToasterOptional } from './ToasterContainer.js';
 
@@ -38,7 +49,7 @@ import { useToasterOptional } from './ToasterContainer.js';
  * Simplified relative to the reference: renders threads in a single flat list
  * rather than grouping them by Today/Yesterday/Earlier.
  *
- * Delete uses assistant-ui ThreadListItemPrimitive.Delete / ThreadListItemMorePrimitive
+ * Delete asks for confirmation, then calls `aui.threadListItem().delete()`
  * (adapter.delete → server.deleteSession). Rename opens RenameSessionModal via
  * aui.threadListItem().rename (adapter.rename → server.renameSession) when
  * `renameSession` is implemented. Mobile/compact keeps a BottomSheet chrome.
@@ -46,6 +57,7 @@ import { useToasterOptional } from './ToasterContainer.js';
 export type ThreadListContainerProps = {
   /** Called after New chat or selecting a row — used by stack/drawer chrome. */
   onThreadOpen?: () => void;
+  onCollapseRecentHistory?: () => void;
   /**
    * `recent-history` hides navigation and lists only persisted sessions.
    * `mobile-drawer` shows New Chat + Agents Library, then persisted sessions (no Sessions/Schedules).
@@ -111,8 +123,10 @@ function ThreadListItemActionsMenu({
 
   const deleteButton = canDelete ? (
     <PermissionGuard allowed={!deleteDisabled}>
-      <ThreadListItemPrimitive.Delete
+      <button
+        type="button"
         className={deleteItemClass}
+        disabled={deleteDisabled}
         onClick={() => {
           if (deleteDisabled) return;
           setSheetOpen(false);
@@ -121,7 +135,7 @@ function ThreadListItemActionsMenu({
       >
         <Icon name="trash" className="size-3.5" />
         Delete
-      </ThreadListItemPrimitive.Delete>
+      </button>
     </PermissionGuard>
   ) : null;
 
@@ -204,6 +218,8 @@ function ThreadListItemRow({
   const custom = useAuiState(s => s.threadListItem.custom);
   const mainThreadId = useAuiState(s => s.threads.mainThreadId);
   const agentName = readThreadAgentName(custom);
+  const lastTurnStatus = readThreadLastTurnStatus(custom);
+  const activityAt = laterActivityAt(lastMessageAt, readThreadLastActivityAt(custom));
   const showRename = canRenameSession && remoteId != null;
   const showDelete = canDeleteSession && remoteId != null;
   const showActions = showRename || showDelete;
@@ -216,6 +232,7 @@ function ThreadListItemRow({
     shell?.environmentsOpen === true;
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameSaving, setRenameSaving] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const displayTitle = title ?? 'New Chat';
 
@@ -276,7 +293,8 @@ function ThreadListItemRow({
         title={displayTitle}
         active={id === mainThreadId && !sidebarNavOpen}
         agentName={agentName}
-        lastMessageAt={lastMessageAt}
+        {...(lastTurnStatus == null ? {} : { lastTurnStatus })}
+        {...(activityAt == null ? {} : { lastMessageAt: activityAt })}
         onSelect={() => {
           track(
             AnalyticsEvents.Session.SELECTED,
@@ -318,13 +336,30 @@ function ThreadListItemRow({
               canDelete={showDelete}
               deleteDisabled={deleteDisabled}
               onRename={() => setRenameOpen(true)}
-              onDelete={() => {
-                track(AnalyticsEvents.Session.DELETED, withSessionProps(undefined, { sessionId: remoteId, agentName }));
-              }}
+              onDelete={() => setDeleteOpen(true)}
             />
           ) : undefined
         }
       />
+      {deleteOpen ? (
+        <ConfirmDeleteDialog
+          title="Delete chat"
+          description={`“${displayTitle}” will be permanently deleted. This cannot be undone.`}
+          confirmLabel="Delete"
+          onCancel={() => setDeleteOpen(false)}
+          onConfirm={() => {
+            setDeleteOpen(false);
+            void Promise.resolve(aui.threadListItem().delete()).then(
+              () => {
+                track(AnalyticsEvents.Session.DELETED, withSessionProps(undefined, { sessionId: remoteId, agentName }));
+              },
+              (caught: unknown) => {
+                toaster?.showError(caught);
+              },
+            );
+          }}
+        />
+      ) : null}
       <RenameSessionModal
         open={renameOpen}
         initialTitle={title ?? ''}
@@ -410,15 +445,7 @@ const THREAD_LIST_VIEWPORT_SLOT = 'aui_thread-list-viewport';
 /** How close to the bottom (px) before the next sessions page is fetched. */
 const LOAD_MORE_BOTTOM_PX = 80;
 
-function RecentChatsSection({
-  children,
-  viewportRef,
-  hideScrollbar,
-}: {
-  children: ReactNode;
-  viewportRef: Ref<HTMLDivElement>;
-  hideScrollbar: boolean;
-}) {
+function RecentChatsHeading({ onCollapse }: { onCollapse?: () => void }) {
   const shell = useOptionalShellMode();
   const activeRemoteId = useAuiState(s => s.threadListItem.remoteId);
   const historyFilterIntent = shell?.historyAgentFilter?.intent;
@@ -434,15 +461,58 @@ function RecentChatsSection({
     shell?.historyAgentFilter == null ? 'Chat History' : `Chats for ${shell.historyAgentFilter.agentName}`;
 
   return (
+    <div className="flex w-full min-w-0 items-center gap-1">
+      <h2 className="min-w-0 flex-1 truncate px-1.5 text-sm font-medium text-text-secondary">{heading}</h2>
+      {showFilter ? <AgentHistoryFilterButton /> : null}
+      {onCollapse != null ? (
+        <RailTooltip content="Close chat history">
+          <button
+            type="button"
+            aria-label="Close chat history"
+            aria-expanded={true}
+            className={auiButtonClass({
+              variant: 'ghost',
+              size: 'icon',
+              className: 'size-7 shrink-0 text-text-secondary hover:bg-ghost-button-hover hover:text-ghost-button-text',
+            })}
+            onClick={onCollapse}
+          >
+            <Icon name="panel-left" className="size-3.5" />
+          </button>
+        </RailTooltip>
+      ) : null}
+    </div>
+  );
+}
+
+function RecentChatsSection({
+  children,
+  viewportRef,
+  hideScrollbar,
+  showHeading = true,
+  onCollapse,
+}: {
+  children: ReactNode;
+  viewportRef: Ref<HTMLDivElement>;
+  hideScrollbar: boolean;
+  /** When false, the title lives in ThreadListShell's header (recent-history desktop column). */
+  showHeading?: boolean;
+  onCollapse?: () => void;
+}) {
+  return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex shrink-0 items-center gap-1 px-1 py-1">
-        <h2 className="min-w-0 flex-1 truncate px-1.5 py-1 text-sm font-medium text-text-secondary">{heading}</h2>
-        {showFilter ? <AgentHistoryFilterButton /> : null}
-      </div>
+      {showHeading ? (
+        <div className="flex shrink-0 items-center gap-1 px-1 py-1">
+          <RecentChatsHeading onCollapse={onCollapse} />
+        </div>
+      ) : null}
       <div
         ref={viewportRef}
         data-slot={THREAD_LIST_VIEWPORT_SLOT}
-        className={cn('flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto', hideScrollbar && 'aui-scrollbar-hidden')}
+        className={cn(
+          'relative flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto',
+          hideScrollbar && 'aui-scrollbar-hidden',
+        )}
       >
         {children}
       </div>
@@ -450,7 +520,11 @@ function RecentChatsSection({
   );
 }
 
-export function ThreadListContainer({ onThreadOpen, variant = 'default' }: ThreadListContainerProps = {}) {
+export function ThreadListContainer({
+  onThreadOpen,
+  onCollapseRecentHistory,
+  variant = 'default',
+}: ThreadListContainerProps = {}) {
   const aui = useAui();
   const server = useOptionalServer();
   const track = useTrackAnalytics();
@@ -475,8 +549,11 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
   const hasMoreRef = useRef(hasMore);
   const auiRef = useRef(aui);
   const selectionRef = useRef(0);
+  const mainThreadIsRunning = useThreadIsRunning();
+  const mainThreadIsRunningRef = useRef(mainThreadIsRunning);
   hasMoreRef.current = hasMore;
   auiRef.current = aui;
+  mainThreadIsRunningRef.current = mainThreadIsRunning;
 
   const showNewChat = shell?.isNewChatEnabled !== false;
   const isIdle = shell?.mode.status === 'idle';
@@ -489,6 +566,60 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
     [threadItems],
   );
   const { allows } = useResourcePermissions({ resourceType: 'session', resourceIds: remoteSessionIds });
+
+  // ponytail: first-page-only poll — rows past page 1 (or stuck server turns) never refresh;
+  // upgrade via per-session status endpoint or server push.
+  const lastTurnStatusPollIntervalMs = useMemo(() => {
+    if (isIdle || isLoading || server == null) return null;
+    return sessionListPollIntervalMs(threadItems.map(item => readThreadLastTurnStatus(item.custom)));
+  }, [isIdle, isLoading, server, threadItems]);
+
+  const listSessionsAgentId = shell?.listSessionsAgentId;
+  useSessionListStatusPoll({
+    intervalMs: lastTurnStatusPollIntervalMs,
+    poll: useCallback(async () => {
+      if (server == null) return;
+      // Capture at request time: an in-flight listSessions started while the live turn
+      // was running must not write stale `running` back after sync clears the main row.
+      const startedWhileMainRunning = mainThreadIsRunningRef.current;
+      try {
+        const page = await server.listSessions({
+          createdByMe: true,
+          limit: SESSION_LIST_FIRST_PAGE_LIMIT,
+          startTimestamp: sessionListStartTimestamp(),
+          ...(listSessionsAgentId == null || listSessionsAgentId.length === 0 ? {} : { agentId: listSessionsAgentId }),
+        });
+
+        const statusByRemoteId = new Map(
+          page.data.map(
+            session =>
+              [session.id, { status: session.lastTurnDetails?.state.status, updatedAt: session.updatedAt }] as const,
+          ),
+        );
+        const threadsState = auiRef.current.threads().getState();
+        const mainThreadId = threadsState.mainThreadId;
+        for (const item of threadsState.threadItems) {
+          // Sync owns the main row for the live turn (and for any poll that began during it).
+          // Polls that start after the turn ends may refresh main if getSession fails.
+          if (item.id === mainThreadId && (startedWhileMainRunning || mainThreadIsRunningRef.current)) {
+            continue;
+          }
+          if (item.remoteId == null || !statusByRemoteId.has(item.remoteId)) continue;
+          const polled = statusByRemoteId.get(item.remoteId);
+          if (polled == null) continue;
+          const prevStatus = readThreadLastTurnStatus(item.custom);
+          const prevActivity = readThreadLastActivityAt(item.custom) ?? item.lastMessageAt;
+          if (polled.status === prevStatus && !isNewerActivityAt(polled.updatedAt, prevActivity)) continue;
+          void auiRef.current
+            .threads()
+            .item({ id: item.id })
+            .updateCustom(threadCustomWithLastTurnStatus(item.custom, polled.status ?? null, polled.updatedAt));
+        }
+      } catch {
+        // Keep showing the last known status on transient poll failures.
+      }
+    }, [listSessionsAgentId, server]),
+  });
 
   // Fill an underflowing viewport; once it scrolls, paginate only near the bottom.
   // Re-measure after commit (threadIds / hasMore) instead of rAF-chaining, which
@@ -577,31 +708,38 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
     );
   }
 
-  const header =
-    variant === 'recent-history' ? null : (
-      <div className="flex flex-col gap-1">
-        {showNewChat ? <ThreadListNewButton onClick={handleNewChat} /> : null}
-        <div
-          className="contents"
-          onClick={() => {
-            if (isMobileDrawer) onThreadOpen?.();
-          }}
-        >
-          <AgentsLibraryButton />
-        </div>
-        {isMobileDrawer ? null : (
-          <>
-            <SessionsBrowserButton />
-            <SchedulesButton />
-            <EnvironmentsButton />
-          </>
-        )}
+  const isRecentHistory = variant === 'recent-history';
+  const header = isRecentHistory ? (
+    <RecentChatsHeading onCollapse={onCollapseRecentHistory} />
+  ) : (
+    <div className="flex w-full flex-col gap-1 py-2">
+      {showNewChat ? <ThreadListNewButton onClick={handleNewChat} /> : null}
+      <div
+        className="contents"
+        onClick={() => {
+          if (isMobileDrawer) onThreadOpen?.();
+        }}
+      >
+        <AgentsLibraryButton />
       </div>
-    );
+      {isMobileDrawer ? null : (
+        <>
+          <SessionsBrowserButton />
+          <SchedulesButton />
+          <EnvironmentsButton />
+        </>
+      )}
+    </div>
+  );
 
   return (
     <ThreadListShell header={header}>
-      <RecentChatsSection viewportRef={viewportRef} hideScrollbar={isPersistedHistory}>
+      <RecentChatsSection
+        viewportRef={viewportRef}
+        hideScrollbar={isPersistedHistory}
+        showHeading={!isRecentHistory}
+        onCollapse={isRecentHistory ? onCollapseRecentHistory : undefined}
+      >
         {listBody}
         {!isIdle && hasMore ? <div className="h-4 shrink-0" aria-hidden /> : null}
       </RecentChatsSection>

@@ -451,7 +451,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-primary-bg">
+    <div className="flex h-full min-h-0 flex-col bg-card-bg">
       <PageHeader
         title={agentId === undefined ? 'Agent Schedules' : undefined}
         end={
@@ -551,8 +551,8 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
           </div>
         ) : (
           <div className="overflow-hidden rounded-lg border border-border">
-            <Table className="min-w-240">
-              <TableHeader>
+            <Table className="min-w-240 bg-card-bg">
+              <TableHeader className="bg-card-bg">
                 <TableRow className="hover:bg-transparent">
                   <TableHead>Schedule Name</TableHead>
                   <TableHead>Task</TableHead>

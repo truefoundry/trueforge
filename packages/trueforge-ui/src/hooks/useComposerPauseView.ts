@@ -38,10 +38,8 @@ export function useComposerPauseView(): ComposerPauseView {
   const { pending: approvalsPending } = useTrueForgeApprovals();
   const customActionRenderers = useOptionalCustomActionRenderers();
 
-  if (mcpPending) {
-    return { kind: 'mcp' };
-  }
-
+  // Tool input (ask-user / approval) before MCP auth: when both are open,
+  // show "N tools need your input" first; Connect appears after those clear.
   const firstPending = toolResponsesPending[0];
   if (firstPending != null) {
     const toolName = firstPending.toolName;
@@ -53,6 +51,10 @@ export function useComposerPauseView(): ComposerPauseView {
 
   if (approvalsPending.length > 0) {
     return { kind: 'approval' };
+  }
+
+  if (mcpPending) {
+    return { kind: 'mcp' };
   }
 
   return { kind: 'compose' };

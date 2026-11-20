@@ -1,12 +1,14 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { SUPPORTED_REASONING_EFFORTS } from '@truefoundry/trueforge-core/core';
 import type { McpCatalog } from '../catalog/McpCatalog';
+import type { MemoryCatalog } from '../catalog/MemoryCatalog';
 import type { ModelCatalog } from '../catalog/ModelCatalog';
 import type { SandboxCatalog } from '../catalog/SandboxCatalog';
 import type { SkillCatalog } from '../catalog/SkillCatalog';
 import type { WebSearchCatalog } from '../catalog/WebSearchCatalog';
 import {
   listMcpServerCatalogRoute,
+  listMemoryProviderCatalogRoute,
   listModelProviderCatalogRoute,
   listSandboxProviderCatalogRoute,
   listSkillCatalogRoute,
@@ -20,6 +22,7 @@ export interface CatalogRouterDeps {
   skillCatalog: SkillCatalog;
   sandboxCatalog: SandboxCatalog;
   webSearchCatalog: WebSearchCatalog;
+  memoryCatalog: MemoryCatalog;
 }
 
 export function createCatalogRouter(deps: CatalogRouterDeps) {
@@ -50,11 +53,16 @@ export function createCatalogRouter(deps: CatalogRouterDeps) {
     return c.json({ data: [...deps.webSearchCatalog.list()] }, 200);
   };
 
+  const listMemoryProvidersHandler: RouteHandler<typeof listMemoryProviderCatalogRoute> = c => {
+    return c.json({ data: [...deps.memoryCatalog.list()] }, 200);
+  };
+
   const router = new OpenAPIHono();
   router.openapi(listModelProviderCatalogRoute, listModelProvidersHandler);
   router.openapi(listMcpServerCatalogRoute, listMcpServersHandler);
   router.openapi(listSkillCatalogRoute, listSkillsHandler);
   router.openapi(listSandboxProviderCatalogRoute, listSandboxProvidersHandler);
   router.openapi(listWebSearchProviderCatalogRoute, listWebSearchProvidersHandler);
+  router.openapi(listMemoryProviderCatalogRoute, listMemoryProvidersHandler);
   return router;
 }

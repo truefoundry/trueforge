@@ -3,7 +3,7 @@ import type { CatalogServer } from '@/server/types.js';
 import { useExternalStoreRuntime, type ThreadMessageLike } from '@assistant-ui/react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { createMockAgentUIServer, createMockCatalog } from '../server/mockServer.js';
+import { createMockAgentUIServer, createMockCatalog, tenantSessionSharing } from '../server/mockServer.js';
 
 vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
   trueForgeAttachmentAdapter: {},
@@ -45,9 +45,10 @@ vi.mock('@/plugins/trueforge-agent-server-adapter/index.js', () => ({
     createMockAgentUIServer({
       getCapabilities: async () => ({
         data: {
-          sandbox: { enabled: true },
+          sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
-          settings: { enabled: true },
+          sessionSharing: tenantSessionSharing,
+          settings: allSettingsSections(true),
         },
       }),
     }),
@@ -65,6 +66,7 @@ import { WidgetVisibilityProvider } from '@/layouts/WidgetVisibilityContext.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
+import { allSettingsSections } from '../server/settingsCapabilityFixture.js';
 import { RuntimeHarness } from './RuntimeHarness.js';
 
 function mockServer(catalog?: CatalogServer) {
@@ -156,14 +158,18 @@ describe('TrueForgeUI', () => {
 
     const avatar = await screen.findByLabelText('Ada Lovelace');
     expect(avatar.querySelector('[data-slot="avatar-fallback"]')).toHaveTextContent(/^A$/);
-    expect(avatar).toHaveTextContent('Ada Lovelace');
     if (layout === 'sidebar') {
+      // Desktop rail is icon-only; name stays on aria-label / title.
+      expect(avatar).not.toHaveTextContent('Ada Lovelace');
       expect(avatar.closest('aside')).not.toBeNull();
-      expect(avatar).toHaveClass('w-14.5');
-    } else if (layout === 'drawer') {
-      expect(avatar.closest('header')).not.toBeNull();
+      expect(avatar).toHaveClass('size-9');
     } else {
-      expect(avatar.closest('footer')).not.toBeNull();
+      expect(avatar).toHaveTextContent('Ada Lovelace');
+      if (layout === 'drawer') {
+        expect(avatar.closest('header')).not.toBeNull();
+      } else {
+        expect(avatar.closest('footer')).not.toBeNull();
+      }
     }
   });
 
@@ -182,9 +188,8 @@ describe('TrueForgeUI', () => {
       fireEvent.click(await screen.findByRole('button', { name: 'Open chat' }));
     }
 
-    expect(await screen.findByTestId('custom-user-avatar')).toHaveTextContent(
-      layout === 'sidebar' ? 'labeled user' : 'compact user',
-    );
+    // Sidebar rail passes iconOnly (not labeled); other layouts use the default compact chrome.
+    expect(await screen.findByTestId('custom-user-avatar')).toHaveTextContent('compact user');
   });
 
   it('keeps the widget open across mutable runtime remounts', async () => {
@@ -231,11 +236,18 @@ describe('TrueForgeUI', () => {
   it('keeps composer catalogs cached when starting a new chat', async () => {
     const getCapabilities = vi
       .fn()
-      .mockResolvedValueOnce({ data: { sandbox: { enabled: true }, skill: { enabled: true } } })
       .mockResolvedValueOnce({
         data: {
-          sandbox: { enabled: false },
+          sandbox: { enabled: true, environments: { enabled: true } },
+          skill: { enabled: true },
+          sessionSharing: tenantSessionSharing,
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          sandbox: { enabled: false, environments: { enabled: false } },
           skill: { enabled: false, reason: 'Select Sandbox first' },
+          sessionSharing: tenantSessionSharing,
         },
       });
     const getModels = vi.fn(async () => []);
@@ -266,7 +278,7 @@ describe('TrueForgeUI', () => {
       expect(getMcp).toHaveBeenCalledTimes(1);
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (0)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (1)' }));
     fireEvent.click(screen.getByRole('button', { name: /Skills/ }));
     expect(await screen.findByRole('status')).toHaveTextContent('Select Sandbox first');
   });
@@ -578,7 +590,7 @@ describe('SidebarLayout', () => {
       fireEvent.click(
         within(screen.getByRole('dialog', { name: 'Navigation' })).getByRole('button', { name: /^Agents/ }),
       );
-      const agentsHeading = await screen.findByRole('heading', { name: 'Agents' });
+      const agentsHeading = await screen.findByRole('heading', { name: 'Agents Registry' });
       expect(agentsHeading.previousElementSibling).toBe(screen.getByRole('button', { name: 'Navigation' }));
     } finally {
       Object.defineProperty(window, 'matchMedia', { configurable: true, value: originalMatchMedia });
@@ -635,7 +647,7 @@ describe('SidebarLayout', () => {
     expect(screen.queryByText('Acme')).not.toBeInTheDocument();
   });
 
-  it('shows a permanent labeled rail with New Chat and no expand control', () => {
+  it('shows a permanent icon-only rail with New Chat and no expand control', () => {
     const { container } = render(
       <SlotsProvider theme={{ brand: { mode: 'icon-title', name: 'Acme', icon: '/acme.svg' } }}>
         <RuntimeHarness messages={[]}>
@@ -648,8 +660,9 @@ describe('SidebarLayout', () => {
 
     expect(container.querySelector('aside img')).toHaveAttribute('src', '/acme.svg');
     expect(screen.queryByText('Acme')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Start new chat' })).toBeInTheDocument();
-    expect(screen.getByText('New Chat')).toBeInTheDocument();
+    const newChat = screen.getByRole('button', { name: 'Start new chat' });
+    expect(newChat).toBeInTheDocument();
+    expect(newChat).not.toHaveTextContent('New Chat');
     expect(screen.getByRole('link', { name: 'Documentation' })).toHaveAttribute('href', 'https://trueforge.dev');
     expect(screen.queryByRole('button', { name: /^(Collapse|Expand) sidebar$/ })).not.toBeInTheDocument();
   });
@@ -683,8 +696,9 @@ describe('SidebarLayout', () => {
 
     const recentChats = screen.getByRole('complementary', { name: 'Recent chats' });
     expect(recentChats).toHaveClass('hidden', 'md:flex');
-    expect(recentChats.parentElement?.previousElementSibling?.tagName).toBe('HEADER');
-    expect(screen.getAllByText('New Chat')).toHaveLength(2);
+    // History shares the padded shell with the chat column; the header sits beside history, not above it.
+    expect(recentChats.nextElementSibling?.querySelector('header')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'New Chat' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Start new agent' }));
     await waitFor(() => {
@@ -825,9 +839,10 @@ describe('SidebarLayout', () => {
             catalog: stubCatalog,
             getCapabilities: async () => ({
               data: {
-                sandbox: { enabled: true },
+                sandbox: { enabled: true, environments: { enabled: true } },
                 skill: { enabled: true },
-                settings: { enabled: false },
+                sessionSharing: tenantSessionSharing,
+                settings: allSettingsSections(false),
               },
             }),
           })}

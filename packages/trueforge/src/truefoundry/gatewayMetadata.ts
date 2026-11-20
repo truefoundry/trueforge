@@ -109,7 +109,7 @@ export function gatewayMetadataHeadersForTurn(turnMetadata: TurnMetadata | undef
   };
 }
 
-function headerValue(headers: Record<string, string> | undefined, name: string): string | undefined {
+export function headerValue(headers: Record<string, string> | undefined, name: string): string | undefined {
   if (headers === undefined) {
     return undefined;
   }

@@ -20,7 +20,6 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read
-      pull-requests: read
     outputs:
       packages: ${{ steps.packages.outputs.list }}
       chart: ${{ steps.filter.outputs.chart }}
@@ -29,11 +28,17 @@ jobs:
     steps:
       - name: Check out repository code
         uses: actions/checkout@v7
+        with:
+          # Full history so paths-filter can git-diff against the PR/merge-group base
+          # without calling the GitHub API (org IP allowlists block api.github.com).
+          fetch-depth: 0
 
       - name: Detect path changes
         uses: dorny/paths-filter@v4.0.3
         id: filter
         with:
+          # Empty token forces local git diff instead of pulls.listFiles.
+          token: ''
           # Shared roots on every package filter so path-gated tests still run when:
           # - package.json: root test:* entrypoints change
           # - pnpm-workspace.yaml: workspace membership/graph changes
@@ -135,8 +140,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Refresh main branch reference
-        run: git fetch --no-tags origin main
+      - name: Refresh base branch reference
+        env:
+          BASE_REF: ${{ github.base_ref || github.event.merge_group.base_ref }}
+        run: |
+          base_branch="${BASE_REF#refs/heads/}"
+          git fetch --no-tags origin "+refs/heads/${base_branch}:refs/remotes/origin/${base_branch}"
+          echo "MIGRATION_BASE_REF=origin/${base_branch}" >> "$GITHUB_ENV"
 
       - name: Check migration ordering
         run: bash scripts/check-migration-order.sh
@@ -280,7 +290,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:17-alpine
+        image: postgres:13-alpine
         env:
           POSTGRES_USER: proto
           POSTGRES_PASSWORD: proto

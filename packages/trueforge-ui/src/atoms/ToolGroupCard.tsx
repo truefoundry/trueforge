@@ -1,67 +1,61 @@
 import type { ReactNode } from 'react';
 
-import { Icon } from '../icons/Icon.js';
 import { useSlot } from '../theme/SlotsProvider.js';
+import { AgentStepRow, type AgentStepStatus } from './agent-chat/AgentStepRow.js';
 import { cn } from './lib/cn.js';
 
 export type ToolGroupCardProps = {
   toolCallCount: number;
   expanded: boolean;
+  status?: AgentStepStatus;
+  /** @deprecated Use `status="running"`. Kept because older slot overrides still pass `active`. */
   active?: boolean;
   onToggle: () => void;
   children: ReactNode;
   className?: string;
+  dataTestPrefix?: string;
 };
 
 export function ToolGroupCard({
   toolCallCount,
   expanded,
+  status,
   active = false,
   onToggle,
   children,
   className,
+  dataTestPrefix,
 }: ToolGroupCardProps) {
-  const Accordion = useSlot('Accordion');
-  const AccordionSummary = useSlot('AccordionSummary');
-  const AccordionDetails = useSlot('AccordionDetails');
-  const label = `${toolCallCount} tool ${toolCallCount === 1 ? 'call' : 'calls'}`;
+  const StepTree = useSlot('StepTree');
+  const label = `${toolCallCount} tool calls in parallel`;
+  const resolvedStatus: AgentStepStatus = status ?? (active ? 'running' : 'idle');
 
   return (
-    <Accordion
+    <div
       data-slot="tool-group-card"
-      expanded={expanded}
-      onChange={() => onToggle()}
-      background="transparent"
-      className={cn('aui-tool-group-card group/tool-group w-full', className)}
-      sx={{ margin: 0, border: 'none', boxShadow: 'none' }}
+      className={cn('aui-tool-group-card min-w-0', className)}
+      data-testid={dataTestPrefix ? `${dataTestPrefix}-tool-group-card` : undefined}
     >
-      <AccordionSummary
-        hideIcon
-        disableRipple
-        sx={{
-          padding: 0,
-          minHeight: 0,
-          '&.Mui-expanded': { minHeight: 0 },
-          '&:hover': { backgroundColor: 'transparent' },
-          '& .MuiAccordionSummary-content': { margin: 0, width: '100%' },
-        }}
-      >
-        <div className="text-text-secondary hover:text-text-primary flex origin-left items-center gap-2 py-1.5 text-sm transition-[color,scale] active:scale-[0.98]">
-          {active && <Icon name="loader" className="size-3 shrink-0 animate-spin [animation-duration:0.6s]" />}
-          <span className="text-xs font-medium">{label}</span>
-          <Icon
-            name="chevron-down"
-            className={cn(
-              'size-3 shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]',
-              expanded ? 'rotate-0' : '-rotate-90',
-            )}
-          />
-        </div>
-      </AccordionSummary>
-      <AccordionDetails sx={{ padding: 0 }}>
-        <div className="mt-1 flex flex-col gap-2 text-text-primary">{children}</div>
-      </AccordionDetails>
-    </Accordion>
+      <AgentStepRow
+        icon="wrench"
+        iconVariant="muted"
+        title={label}
+        titleClassName="text-text-secondary"
+        expandable
+        expanded={expanded}
+        onToggle={onToggle}
+        status={resolvedStatus}
+        showConnector={false}
+        dataTestPrefix={dataTestPrefix}
+      />
+      {/* The tree renders outside the row's indented body so its line sits under this row's chevron; its branches
+          reach under the wrench so each child's chevron lines up with the group icon. */}
+      {expanded && (
+        <StepTree className="mt-1" branchesReachParentIcon>
+          {children}
+        </StepTree>
+      )}
+    </div>
   );
 }
 

@@ -6,6 +6,7 @@ import type { HistoryAgentIntent } from '../utils/historyAgentSearch.js';
 import { replaceSessionShareSearch } from '../utils/sessionShareUrl.js';
 import {
   freshAgentBuilderSeed,
+  memoryPreferenceToStore,
   readDraftSpecPreferences,
   selectDraftSpecPreferences,
   webSearchPreferenceToStore,
@@ -14,7 +15,10 @@ import {
   writeDraftSpecPreferences,
   type DraftPreferenceKind,
 } from './draftSpecPreferences.js';
+import { useServerQueryClient } from './queryClient.js';
+import { queryKeys } from './queryKeys.js';
 import {
+  hasAnySettingsSectionEnabled,
   isEnvironmentsChromeEnabled,
   isSchedulesChromeEnabled,
   isSessionsChromeEnabled,
@@ -80,7 +84,7 @@ export type SelectLibraryAgentRequest = {
   agentSpec?: AgentSpec;
 };
 
-export type SettingsSection = 'models' | 'connectors' | 'skills' | 'sandbox' | 'web-search';
+export type SettingsSection = 'appearance' | 'models' | 'connectors' | 'skills' | 'sandbox' | 'web-search' | 'memory';
 
 export type HistoryAgentFilter = {
   agentId?: string;
@@ -254,6 +258,7 @@ export function ShellModeProvider({
   initialSettingsOpen?: boolean;
   children: ReactNode;
 }) {
+  const queryClient = useServerQueryClient();
   const capabilities = useServerCapabilities();
   const capabilitiesPending = !useServerCapabilitiesSettled();
   const catalog = useOptionalCatalogServer();
@@ -296,7 +301,10 @@ export function ShellModeProvider({
   const sessionsEnabled = isSessionsChromeEnabled({ sessions: sessionsServer });
   const schedulesEnabled = isSchedulesChromeEnabled({ schedules: scheduleServer });
   const schedulesOpen = schedulesEnabled && schedulesOpenState;
-  const environmentsEnabled = isEnvironmentsChromeEnabled({ sandboxEnvironments: sandboxEnvironmentServer });
+  const environmentsEnabled = isEnvironmentsChromeEnabled({
+    sandboxEnvironments: sandboxEnvironmentServer,
+    capabilities,
+  });
   const environmentsOpen = environmentsEnabled && environmentsOpenState;
   const libraryOpen = isLibraryEnabled && libraryOpenState;
   const sessionsOpen = sessionsEnabled && sessionsOpenState;
@@ -429,11 +437,12 @@ export function ShellModeProvider({
     [environmentsEnabled, setSessionsOpen],
   );
 
+  const settingsCapability = capabilities?.settings;
   useEffect(() => {
-    if (catalog == null || capabilities?.settings?.enabled === false) {
+    if (catalog == null || !hasAnySettingsSectionEnabled(settingsCapability)) {
       setSettingsOpenState(false);
     }
-  }, [capabilities?.settings?.enabled, catalog]);
+  }, [settingsCapability, catalog]);
 
   useEffect(() => {
     if (!sessionsEnabled) {
@@ -455,8 +464,11 @@ export function ShellModeProvider({
   }, [environmentsEnabled]);
 
   const invalidateAgentsList = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.agents.all() });
+    // Detail and code-snippet reads are not under the library list key.
+    void queryClient.invalidateQueries({ queryKey: queryKeys.agentDetails.all() });
     setAgentsListEpoch(n => n + 1);
-  }, []);
+  }, [queryClient]);
 
   const invalidateEnvironmentsList = useCallback(() => {
     setEnvironmentsListEpoch(n => n + 1);
@@ -603,6 +615,8 @@ export function ShellModeProvider({
 
   const sandboxEnabled = capabilities?.sandbox.enabled;
   const webSearchEnabled = capabilities?.webSearch?.enabled;
+  // Capabilities omit memory when no provider is configured, which means unavailable.
+  const memoryEnabled = capabilities == null ? undefined : (capabilities.memory?.enabled ?? false);
 
   const openDraft = useCallback(() => {
     if (!isComposerEnabled) return;
@@ -681,9 +695,14 @@ export function ShellModeProvider({
   useEffect(() => {
     prevWebSearchEnabledRef.current = webSearchEnabled;
   }, [webSearchEnabled]);
+  const prevMemoryEnabledRef = useRef(memoryEnabled);
+  useEffect(() => {
+    prevMemoryEnabledRef.current = memoryEnabled;
+  }, [memoryEnabled]);
   const rememberDraftSpec = useCallback(
     (agentSpec: AgentSpec, kind: DraftPreferenceKind = 'chat') => {
       const previousWebSearchEnabled = prevWebSearchEnabledRef.current;
+      const previousMemoryEnabled = prevMemoryEnabledRef.current;
       const selected = selectDraftSpecPreferences(agentSpec, kind);
       const withSandbox = kind === 'agent' ? withCapabilitiesSandbox(selected, sandboxEnabled) : selected;
       const aligned = withCapabilitiesWebSearch({
@@ -691,13 +710,22 @@ export function ShellModeProvider({
         webSearchEnabled,
         kind,
       });
-      const preferences = webSearchPreferenceToStore({
+      const webSearchPreferences = webSearchPreferenceToStore({
         spec: aligned,
         webSearchEnabled,
         previousWebSearchEnabled,
         capabilitiesPending,
         kind,
       });
+      const preferences =
+        kind === 'agent'
+          ? memoryPreferenceToStore({
+              spec: webSearchPreferences,
+              memoryEnabled,
+              previousMemoryEnabled,
+              capabilitiesPending,
+            })
+          : webSearchPreferences;
       if (kind === 'chat') {
         chatSeedRef.current = preferences;
       } else {
@@ -707,17 +735,22 @@ export function ShellModeProvider({
           webSearchEnabled,
           kind: 'agent',
         });
-        agentSeedRef.current = webSearchPreferenceToStore({
-          spec: agentAligned,
-          webSearchEnabled,
-          previousWebSearchEnabled,
+        agentSeedRef.current = memoryPreferenceToStore({
+          spec: webSearchPreferenceToStore({
+            spec: agentAligned,
+            webSearchEnabled,
+            previousWebSearchEnabled,
+            capabilitiesPending,
+            kind: 'agent',
+          }),
+          memoryEnabled,
+          previousMemoryEnabled,
           capabilitiesPending,
-          kind: 'agent',
         });
       }
       writeDraftSpecPreferences(kind, preferences);
     },
-    [sandboxEnabled, webSearchEnabled, capabilitiesPending],
+    [sandboxEnabled, webSearchEnabled, memoryEnabled, capabilitiesPending],
   );
 
   const openHistorySession = useCallback(

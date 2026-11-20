@@ -69,8 +69,8 @@ describe('Markdown', () => {
     const openSpy = vi.spyOn(window, 'open').mockReturnValue(null);
     render(<Markdown content="See [docs](https://example.com/docs) for details." />);
     const link = screen.getByRole('link', { name: 'docs' });
-    // Unapproved external destinations stay off href so middle-click / context-menu cannot bypass.
-    expect(link).toHaveAttribute('href', '#');
+    // Real href so copy keeps destinations; activation still goes through the confirm dialog.
+    expect(link).toHaveAttribute('href', 'https://example.com/docs');
     expect(link).toHaveAttribute('target', '_blank');
     expect(link).toHaveAttribute('rel', 'noopener noreferrer');
     expect(link).not.toHaveAttribute('node');
@@ -93,7 +93,7 @@ describe('Markdown', () => {
     const openSpy = vi.spyOn(window, 'open').mockReturnValue(null);
     render(<Markdown content="See [cdn](//cdn.example.com/a) for details." />);
     const link = screen.getByRole('link', { name: 'cdn' });
-    expect(link).toHaveAttribute('href', '#');
+    expect(link).toHaveAttribute('href', '//cdn.example.com/a');
 
     fireEvent(link, new MouseEvent('auxclick', { bubbles: true, cancelable: true, button: 1 }));
     expect(openSpy).not.toHaveBeenCalled();
@@ -135,7 +135,7 @@ describe('Markdown', () => {
     fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(screen.getByRole('button', { name: 'Open link' }));
     expect(openSpy).toHaveBeenCalledTimes(1);
-    expect(link).toHaveAttribute('href', '#');
+    expect(link).toHaveAttribute('href', 'https://example.com/docs');
 
     fireEvent.click(link);
     expect(screen.queryByRole('dialog', { name: 'Open external link' })).not.toBeInTheDocument();

@@ -25,8 +25,10 @@ import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { formatRelativeTime } from '../lib/dateFormat.js';
 import { PageHeader } from '../PageHeader.js';
+import { Badge } from '../primitives/Badge.js';
 import { Button } from '../primitives/Button.js';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../primitives/Dialog.js';
+import ConfirmDeleteDialog from '../primitives/ConfirmDeleteDialog.js';
+import { DropdownMenu, DropdownMenuItem } from '../primitives/DropdownMenu.js';
 import SearchInput from '../primitives/SearchInput.js';
 import { Skeleton } from '../primitives/Skeleton.js';
 import {
@@ -40,12 +42,7 @@ import {
   TableTokenPagination,
 } from '../primitives/Table.js';
 import { Tooltip } from '../primitives/Tooltip.js';
-import {
-  formatNetworkingSummary,
-  formatResourcesSummary,
-  isEnvironmentReadOnly,
-  isReservedEnvironmentName,
-} from './environmentDisplay.js';
+import { formatNetworkingSummary, formatResourcesSummary, isReservedEnvironmentName } from './environmentDisplay.js';
 import { EnvironmentFormDrawer } from './EnvironmentFormDrawer.js';
 import { EnvironmentStatusBadge } from './EnvironmentStatusBadge.js';
 
@@ -61,6 +58,91 @@ function clampPageSize(size: number): number {
 
 function nonEmptyToken(token: string | undefined): string | undefined {
   return token === undefined || token === '' ? undefined : token;
+}
+
+/**
+ * Why each row action is unavailable, or undefined when it can be used. Every action stays in the
+ * menu so the set on offer does not shift between rows; the reason is what explains the greying.
+ *
+ * MANAGE and DELETE are admin-only (same gate as tenant CREATE). The reserved name and
+ * `isDefault` say what the row allows; those carve-outs are enforced by the API too.
+ */
+function environmentRowActionReasons({
+  environment,
+  canManage,
+  canDelete,
+  canSetDefault,
+}: {
+  environment: SandboxEnvironment;
+  canManage: boolean;
+  canDelete: boolean;
+  /** Admin: tenant `sandbox_environment` CREATE (same role as New Environment). */
+  canSetDefault: boolean;
+}): {
+  edit: string | undefined;
+  setDefault: string | undefined;
+  toggleEnabled: string | undefined;
+  delete: string | undefined;
+} {
+  const noManage = canManage ? undefined : 'You do not have permission to manage this environment.';
+  const reserved = isReservedEnvironmentName(environment.name);
+  return {
+    edit: reserved ? 'This environment is provided by the platform and cannot be edited.' : noManage,
+    setDefault:
+      noManage ??
+      (!canSetDefault
+        ? 'Only admins can choose the default environment.'
+        : environment.isDefault
+          ? 'Already the default.'
+          : !environment.enabled
+            ? 'Enable the environment before making it the default.'
+            : environment.status !== 'ready'
+              ? 'Only a ready environment can be the default.'
+              : undefined),
+    toggleEnabled:
+      noManage ??
+      (environment.isDefault && environment.enabled
+        ? 'The default environment cannot be disabled. Make another one the default first.'
+        : undefined),
+    delete: reserved
+      ? 'This environment is provided by the platform and cannot be deleted.'
+      : environment.isDefault
+        ? 'The default environment cannot be deleted. Make another one the default first.'
+        : canDelete
+          ? undefined
+          : 'You do not have permission to delete this environment.',
+  };
+}
+
+/** A row action that stays visible when unavailable, greyed out and explaining itself on hover. */
+function EnvironmentActionItem({
+  label,
+  icon,
+  reason,
+  className,
+  onClick,
+}: {
+  label: string;
+  icon: string;
+  /** Why the action is unavailable; when set the item is disabled and shows this on hover. */
+  reason: string | undefined;
+  className?: string;
+  onClick: () => void;
+}) {
+  const item = (
+    <DropdownMenuItem className={cn('whitespace-nowrap', className)} disabled={reason !== undefined} onClick={onClick}>
+      <Icon name={icon} className="size-3.5" />
+      {label}
+    </DropdownMenuItem>
+  );
+  // The tooltip hangs off a wrapping span: a disabled item takes no mouse events of its own.
+  return reason === undefined ? (
+    item
+  ) : (
+    <Tooltip content={reason} side="left" className="max-w-xs whitespace-normal text-left" interactive={false}>
+      <span className="block w-full">{item}</span>
+    </Tooltip>
+  );
 }
 
 export type EnvironmentsPageProps = Record<string, never>;
@@ -221,7 +303,8 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
 
   // Derived live so the drawer gains Save once permissions load after it was opened.
   const drawerReadOnly =
-    drawer.kind === 'edit' && isEnvironmentReadOnly(drawer.environment, allows(drawer.environment.id, 'MANAGE'));
+    drawer.kind === 'edit' &&
+    (isReservedEnvironmentName(drawer.environment.name) || !allows(drawer.environment.id, 'MANAGE'));
 
   const hasPageNav = nextPageToken != null || previousPageToken != null || environments.length > 0;
   const showSkeleton = loading && environments.length === 0;
@@ -249,6 +332,17 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
     }
   };
 
+  const applyFlagChange = async ({ change, title }: { change: () => Promise<unknown>; title: string }) => {
+    try {
+      await change();
+      toaster?.showSuccess({ title });
+      shell?.invalidateEnvironmentsList();
+      void loadEnvironments({ token: pageToken, size: pageSize });
+    } catch (caught) {
+      toaster?.showError(caught);
+    }
+  };
+
   return (
     <div className="flex h-full min-h-0 flex-col bg-primary-bg">
       <PageHeader
@@ -258,10 +352,20 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
             <div className="w-64">
               <SearchInput query={nameQuery} setQuery={setNameQuery} placeholder="Search environments by name" />
             </div>
-            <Button.Primary type="button" onClick={openCreate} disabled={!canCreateSandboxEnvironment}>
-              <Icon name="plus" className="size-3.5" />
-              New Environment
-            </Button.Primary>
+            <Tooltip
+              content={
+                canCreateSandboxEnvironment || createPermissionLoading
+                  ? undefined
+                  : 'Only admins can create sandbox environments'
+              }
+            >
+              <span className="inline-flex">
+                <Button.Primary type="button" onClick={openCreate} disabled={!canCreateSandboxEnvironment}>
+                  <Icon name="plus" className="size-3.5" />
+                  New Environment
+                </Button.Primary>
+              </span>
+            </Tooltip>
           </>
         }
       />
@@ -303,6 +407,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="w-96 max-w-96">Name</TableHead>
+                  <TableHead>Availability</TableHead>
                   <TableHead>Build Status</TableHead>
                   <TableHead>Resources</TableHead>
                   <TableHead>Networking</TableHead>
@@ -312,9 +417,12 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
               </TableHeader>
               <TableBody>
                 {filtered.map(env => {
-                  const canManage = !isReservedEnvironmentName(env.name) && allows(env.id, 'MANAGE');
-                  const canDelete = !isReservedEnvironmentName(env.name) && allows(env.id, 'DELETE');
-                  const readOnly = isEnvironmentReadOnly(env, canManage);
+                  const actions = environmentRowActionReasons({
+                    environment: env,
+                    canManage: allows(env.id, 'MANAGE'),
+                    canDelete: allows(env.id, 'DELETE'),
+                    canSetDefault: canCreateSandboxEnvironment,
+                  });
                   return (
                     <TableRow
                       key={env.id}
@@ -323,7 +431,20 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
                     >
                       <TableCell className="w-96 max-w-96">
                         <div className="flex flex-col gap-0.5">
-                          <span className="truncate font-medium text-text-primary">{env.name}</span>
+                          <span className="flex min-w-0 items-center gap-2">
+                            <span className="truncate font-medium text-text-primary">{env.name}</span>
+                            {env.isDefault ? (
+                              <Tooltip
+                                content="Agents that do not pick an environment run in this one."
+                                className="max-w-xs whitespace-normal text-left"
+                                triggerClassName="shrink-0"
+                              >
+                                <Badge variant="info" shape="pill">
+                                  Default
+                                </Badge>
+                              </Tooltip>
+                            ) : null}
+                          </span>
                           {env.description.length > 0 ? (
                             <Tooltip
                               content={env.description}
@@ -336,6 +457,12 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
                         </div>
                       </TableCell>
                       <TableCell>
+                        <Badge variant={env.enabled ? 'success' : 'outline'} shape="pill" dot>
+                          {env.enabled ? 'Enabled' : 'Disabled'}
+                        </Badge>
+                      </TableCell>
+                      {/* Status tooltip can include a copy control; don't open edit on that click. */}
+                      <TableCell onClick={event => event.stopPropagation()}>
                         <EnvironmentStatusBadge status={env.status} statusReason={env.statusReason} />
                       </TableCell>
                       <TableCell className="text-sm text-text-secondary">
@@ -344,23 +471,63 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
                       <TableCell className="text-sm text-text-secondary">
                         {formatNetworkingSummary(env.manifest.networking)}
                       </TableCell>
-                      <TableCell className="text-sm text-text-secondary">
-                        {readOnly ? '—' : formatRelativeTime(env.updatedAt)}
-                      </TableCell>
-                      <TableCell>
-                        {canDelete ? (
-                          <button
-                            type="button"
-                            className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
-                            aria-label={`Delete ${env.name}`}
-                            onClick={event => {
-                              event.stopPropagation();
-                              setPendingDelete(env);
-                            }}
-                          >
-                            <Icon name="trash" className="size-3.5 text-failure-bg" />
-                          </button>
-                        ) : null}
+                      <TableCell className="text-sm text-text-secondary">{formatRelativeTime(env.updatedAt)}</TableCell>
+                      {/* Swallow here, not on the trigger: the trigger's own click must reach
+                          the menu wrapper, and portal menu items still bubble through React. */}
+                      <TableCell onClick={event => event.stopPropagation()}>
+                        <DropdownMenu
+                          align="end"
+                          className="min-w-48"
+                          trigger={
+                            <button
+                              type="button"
+                              className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+                              aria-label={`Actions for ${env.name}`}
+                            >
+                              <Icon name="ellipsis-vertical" className="size-3.5" />
+                            </button>
+                          }
+                        >
+                          <EnvironmentActionItem
+                            label="Edit"
+                            icon="pencil"
+                            reason={actions.edit}
+                            onClick={() => setDrawer({ kind: 'edit', environment: env })}
+                          />
+                          <EnvironmentActionItem
+                            label="Set as default"
+                            icon="check"
+                            reason={actions.setDefault}
+                            onClick={() =>
+                              void applyFlagChange({
+                                change: () => environmentServer.setDefaultEnvironment({ name: env.name }),
+                                title: `“${env.name}” is now the default`,
+                              })
+                            }
+                          />
+                          <EnvironmentActionItem
+                            label={env.enabled ? 'Disable' : 'Enable'}
+                            icon={env.enabled ? 'circle-xmark' : 'circle-check'}
+                            reason={actions.toggleEnabled}
+                            onClick={() =>
+                              void applyFlagChange({
+                                change: () =>
+                                  environmentServer.setEnvironmentEnabled({
+                                    name: env.name,
+                                    enabled: !env.enabled,
+                                  }),
+                                title: env.enabled ? 'Environment disabled' : 'Environment enabled',
+                              })
+                            }
+                          />
+                          <EnvironmentActionItem
+                            label="Delete"
+                            icon="trash"
+                            className="text-failure-bg focus-visible:text-failure-bg"
+                            reason={actions.delete}
+                            onClick={() => setPendingDelete(env)}
+                          />
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   );
@@ -401,25 +568,20 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
         }}
       />
 
-      <Dialog open={pendingDelete != null} onOpenChange={open => !open && setPendingDelete(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete environment</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-text-secondary">
-            Delete <span className="font-medium text-text-primary">{pendingDelete?.name}</span>? This cannot be undone.
-            Delete fails if any agent still references the environment.
-          </p>
-          <DialogFooter>
-            <Button.Secondary type="button" onClick={() => setPendingDelete(null)}>
-              Cancel
-            </Button.Secondary>
-            <Button.Primary type="button" onClick={() => void handleDelete()}>
-              Delete
-            </Button.Primary>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {pendingDelete != null ? (
+        <ConfirmDeleteDialog
+          title="Delete environment"
+          description={
+            <>
+              Delete <span className="font-medium text-text-primary">{pendingDelete.name}</span>? This cannot be undone.
+              Delete fails if any agent still references the environment.
+            </>
+          }
+          confirmLabel="Delete"
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={() => void handleDelete()}
+        />
+      ) : null}
     </div>
   );
 }

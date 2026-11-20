@@ -1,5 +1,114 @@
 # @truefoundry/trueforge-core
 
+## 0.185.0
+
+### Patch Changes
+
+- a966ce0: Round context token counts up to whole numbers in backend context compaction events.
+- 660f649: Remove the deprecated session `shared` field and PATCH sharing flow in favor of access grants, and drop the unused `session.shared` database column. Rename the exported `CreatedBySubject` schema/type to `Subject` without changing creator fields. These API and type removals are breaking changes for consumers.
+- 475c0c2: Add POST `/api/internal/sessions/{session_id}/turns` (service API key): non-streaming body, getSessionById, requires external_id + non-null source (skips memory ingest), SessionSource `service` arm.
+- cadd0d1: Add the built-in TrueForge MCP server for managing agents and supporting resources from draft sessions.
+- 1998de5: Turns now pause, instead of finishing, while waiting for user input such as tool approvals, questions, or MCP authentication. The same turn resumes once every required interaction is answered. Clients send those answers as events on the paused turn and can reconnect to its event stream at any point.
+
+  - While a turn is paused, its cost and time so far stay visible. Time spent waiting on the user does not count. Cancelling a paused turn still shows its final cost and time.
+  - Conversations that were already waiting on the user stay waiting after upgrade, with the same cost, time, and status.
+  - The chat shows a waiting notice instead of a running indicator while a turn is paused or cannot continue.
+  - A conversation is saved to memory only after it finishes, not while it is waiting on the user.
+  - Creating a turn requires a user message. Omitting `input` or sending an empty message is rejected.
+  - Sending a new message while a sub-agent is waiting runs that message, instead of leaving the turn stuck.
+  - A conversation paused longer than the memory window is still saved once it finishes.
+  - An old `pause_timeout_ms` memory setting is ignored, instead of stopping startup.
+
+  Breaking changes for package consumers:
+
+  - `@truefoundry/trueforge-assistant-ui-runtime`: `useTrueForgeResumeMcpAuth` is renamed to `useTrueForgeContinueMcpAuth`, and `findCurrentPausedAssistantMessage` to `findPausedAssistantMessage`. `collectRequiredActionInputs`, `collectApprovalInputs`, `toTrueForgeApprovalInputs`, `collectResponseInputs`, and `TOOL_RESPONSE_THREAD_ID_CUSTOM_KEY` are removed; answer approvals and questions with `useTrueForgeRespondToToolApproval` and `useTrueForgeRespondToToolResponse` instead.
+  - Custom chat servers must implement `sendTurnEvents` to deliver answers to a paused turn. `CreateTurnRequest.input` is required.
+  - `@truefoundry/trueforge-ui`: `ToolApprovalContainer` takes `approvalId` and `onRespond` instead of `options` and `onSelectOption`.
+
+- 63ab385: A session's `updated_at` now moves when its turn pauses, so a conversation waiting on the user rises in the session list. It still moves again when the turn finishes.
+- c5dea02: The built-in TrueForge MCP now uses the same id and name, `trueforge:mcp`, and labels its tools as `truefoundry-system` instead of `mcp`.
+- c5dea02: Bump high/critical dependency advisories where possible (node-forge, follow-redirects, body-parser, js-yaml, brace-expansion, source-map-js, launch-editor) and upgrade Jest to 30.
+
+## 0.185.0-rc.2
+
+### Patch Changes
+
+- c5dea02: The built-in TrueForge MCP now uses the same id and name, `trueforge:mcp`, and labels its tools as `truefoundry-system` instead of `mcp`.
+- c5dea02: Bump high/critical dependency advisories where possible (node-forge, follow-redirects, body-parser, js-yaml, brace-expansion, source-map-js, launch-editor) and upgrade Jest to 30.
+
+## 0.185.0-rc.1
+
+### Patch Changes
+
+- a966ce0: Round context token counts up to whole numbers in backend context compaction events.
+- 660f649: Remove the deprecated session `shared` field and PATCH sharing flow in favor of access grants, and drop the unused `session.shared` database column. Rename the exported `CreatedBySubject` schema/type to `Subject` without changing creator fields. These API and type removals are breaking changes for consumers.
+- 475c0c2: Add POST `/api/internal/sessions/{session_id}/turns` (service API key): non-streaming body, getSessionById, requires external_id + non-null source (skips memory ingest), SessionSource `service` arm.
+- cadd0d1: Add the built-in TrueForge MCP server for managing agents and supporting resources from draft sessions.
+- 1998de5: Turns now pause, instead of finishing, while waiting for user input such as tool approvals, questions, or MCP authentication. The same turn resumes once every required interaction is answered. Clients send those answers as events on the paused turn and can reconnect to its event stream at any point.
+
+  - While a turn is paused, its cost and time so far stay visible. Time spent waiting on the user does not count. Cancelling a paused turn still shows its final cost and time.
+  - Conversations that were already waiting on the user stay waiting after upgrade, with the same cost, time, and status.
+  - The chat shows a waiting notice instead of a running indicator while a turn is paused or cannot continue.
+  - A conversation is saved to memory only after it finishes, not while it is waiting on the user.
+  - Creating a turn requires a user message. Omitting `input` or sending an empty message is rejected.
+  - Sending a new message while a sub-agent is waiting runs that message, instead of leaving the turn stuck.
+  - A conversation paused longer than the memory window is still saved once it finishes.
+  - An old `pause_timeout_ms` memory setting is ignored, instead of stopping startup.
+
+  Breaking changes for package consumers:
+
+  - `@truefoundry/trueforge-assistant-ui-runtime`: `useTrueForgeResumeMcpAuth` is renamed to `useTrueForgeContinueMcpAuth`, and `findCurrentPausedAssistantMessage` to `findPausedAssistantMessage`. `collectRequiredActionInputs`, `collectApprovalInputs`, `toTrueForgeApprovalInputs`, `collectResponseInputs`, and `TOOL_RESPONSE_THREAD_ID_CUSTOM_KEY` are removed; answer approvals and questions with `useTrueForgeRespondToToolApproval` and `useTrueForgeRespondToToolResponse` instead.
+  - Custom chat servers must implement `sendTurnEvents` to deliver answers to a paused turn. `CreateTurnRequest.input` is required.
+  - `@truefoundry/trueforge-ui`: `ToolApprovalContainer` takes `approvalId` and `onRespond` instead of `options` and `onSelectOption`.
+
+- 63ab385: A session's `updated_at` now moves when its turn pauses, so a conversation waiting on the user rises in the session list. It still moves again when the turn finishes.
+
+## 0.184.0
+
+### Patch Changes
+
+- e05589c: Add long-term memory to chat sessions.
+
+  - On a session's first turn, the user's memory summary is added once as a hidden message, capped at about 1,000 tokens.
+  - UI chats and sessions on agents with `config.memory.enabled` get `memory_search` and `memory_add` tools on the main agent only; `memory_add` runs only when the user asks to remember something.
+  - Memory works in TrueFoundry mode only, behind the `TRUEFOUNDRY_MEMORY_*` settings and the tenant allowlist.
+  - Saving an agent or inline spec that turns memory on while it is unavailable for the deployment or tenant returns 422.
+
+- 379d26a: Default the model HTTP header timeout to 20 seconds in the core client and server configuration. Keep the model body timeout at 120 seconds and preserve the environment override.
+- 9c116a9: Prepend `user-agent: trueforge/<version>` on model and MCP outbound fetches (via `OutboundFetchOptions.userAgent`) and on ServiceFoundry server calls so TrueFoundry can identify TrueForge traffic and its version.
+- 033a3c1: Add long-term memory ingestion behind `TRUEFOUNDRY_MEMORY_ENABLED` (TrueFoundry mode only, off by default), configured like the shared sandbox with `TRUEFOUNDRY_MEMORY_PROVIDER` (`zep`), `TRUEFOUNDRY_MEMORY_API_KEY` an optional `TRUEFOUNDRY_MEMORY_SERVER_URL` and optional `TRUEFOUNDRY_MEMORY_SETTINGS` JSON for the loop, for the tenants in `TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST` (every tenant when it is empty). Only ids reach Zep, never a user's or agent's name: Zep users map back to TrueForge users through their metadata. A `memory-ingest` controller loop sends finished UI chats, and sessions on registry agents whose manifest enables memory, to Zep: user messages, `ask_user_question` answers and the final agent reply (context only). Progress is kept in a new `memory_ingest_cursor` table. Export `ASK_USER_QUESTION_TOOL_NAME` from core.
+
+## 0.184.0-rc.1
+
+### Patch Changes
+
+- e05589c: Add long-term memory to chat sessions.
+
+  - On a session's first turn, the user's memory summary is added once as a hidden message, capped at about 1,000 tokens.
+  - UI chats and sessions on agents with `config.memory.enabled` get `memory_search` and `memory_add` tools on the main agent only; `memory_add` runs only when the user asks to remember something.
+  - Memory works in TrueFoundry mode only, behind the `TRUEFOUNDRY_MEMORY_*` settings and the tenant allowlist.
+  - Saving an agent or inline spec that turns memory on while it is unavailable for the deployment or tenant returns 422.
+
+- 379d26a: Default the model HTTP header timeout to 20 seconds in the core client and server configuration. Keep the model body timeout at 120 seconds and preserve the environment override.
+- 9c116a9: Prepend `user-agent: trueforge/<version>` on model and MCP outbound fetches (via `OutboundFetchOptions.userAgent`) and on ServiceFoundry server calls so TrueFoundry can identify TrueForge traffic and its version.
+- 033a3c1: Add long-term memory ingestion behind `TRUEFOUNDRY_MEMORY_ENABLED` (TrueFoundry mode only, off by default), configured like the shared sandbox with `TRUEFOUNDRY_MEMORY_PROVIDER` (`zep`), `TRUEFOUNDRY_MEMORY_API_KEY` an optional `TRUEFOUNDRY_MEMORY_SERVER_URL` and optional `TRUEFOUNDRY_MEMORY_SETTINGS` JSON for the loop, for the tenants in `TRUEFOUNDRY_MEMORY_TENANT_ALLOWLIST` (every tenant when it is empty). Only ids reach Zep, never a user's or agent's name: Zep users map back to TrueForge users through their metadata. A `memory-ingest` controller loop sends finished UI chats, and sessions on registry agents whose manifest enables memory, to Zep: user messages, `ask_user_question` answers and the final agent reply (context only). Progress is kept in a new `memory_ingest_cursor` table. Export `ASK_USER_QUESTION_TOOL_NAME` from core.
+
+## 0.183.0
+
+### Patch Changes
+
+- e7c661a: Sandbox instructions now tell the model to save fetched remote content to a file before grepping or filtering.
+- 4d0c0f9: Session grants now give read access, and sharing with everyone in the tenant is a `tenant` grant. `Session.shared` reflects the tenant grant, and the deprecated `PATCH /sessions/{id} { shared }` now grants or revokes it. Adds the `session_sharing.enabled` capability.
+- a718e71: Accept `x-tfg-tools` as an array of MCP tool definitions (`inputSchema`, optional `outputSchema`) on a TrueFoundry-mode turn. The header is read by a per-request store and mounted on the main thread through `TurnResourceResolver`. Local tool lists keep `outputSchema` and `annotations`.
+
+## 0.183.0-rc.1
+
+### Patch Changes
+
+- e7c661a: Sandbox instructions now tell the model to save fetched remote content to a file before grepping or filtering.
+- 4d0c0f9: Session grants now give read access, and sharing with everyone in the tenant is a `tenant` grant. `Session.shared` reflects the tenant grant, and the deprecated `PATCH /sessions/{id} { shared }` now grants or revokes it. Adds the `session_sharing.enabled` capability.
+- a718e71: Accept `x-tfg-tools` as an array of MCP tool definitions (`inputSchema`, optional `outputSchema`) on a TrueFoundry-mode turn. The header is read by a per-request store and mounted on the main thread through `TurnResourceResolver`. Local tool lists keep `outputSchema` and `annotations`.
+
 ## 0.182.0
 
 ### Patch Changes

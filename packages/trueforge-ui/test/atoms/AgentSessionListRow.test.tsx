@@ -118,4 +118,48 @@ describe('AgentSessionListRow', () => {
     expect(loadScheduleName).toHaveBeenCalledTimes(1);
     expect(loadScheduleName).toHaveBeenCalledWith('sched-1');
   });
+
+  it('shimmers the title when running and hides the status dot', () => {
+    const { container } = render(<AgentSessionListRow {...baseProps} lastTurnStatus="running" />);
+
+    expect(screen.getByText('Hello session')).toHaveClass('aui-text-shimmer');
+    expect(container.querySelector('[data-slot="session-status-dot"]')).not.toBeInTheDocument();
+  });
+
+  it('shows a blinking paused status dot after the title when activity is recent', () => {
+    const { container } = render(
+      <AgentSessionListRow {...baseProps} lastActivityAt={new Date().toISOString()} lastTurnStatus="paused" />,
+    );
+
+    const pausedDot = container.querySelector('[data-slot="session-status-dot"]');
+    expect(pausedDot?.querySelector('.bg-warning-bg')).toBeInTheDocument();
+    expect(pausedDot?.querySelector('.motion-safe\\:animate-ping')).toBeInTheDocument();
+    expect(screen.getByText('Waiting for input', { selector: '.sr-only' })).toBeInTheDocument();
+  });
+
+  it('hides the paused status dot when activity is older than 48 hours', () => {
+    const { container } = render(
+      <AgentSessionListRow {...baseProps} lastActivityAt="2026-01-02T00:00:00.000Z" lastTurnStatus="paused" />,
+    );
+
+    expect(container.querySelector('[data-slot="session-status-dot"]')).not.toBeInTheDocument();
+    expect(screen.getByText('Waiting for input', { selector: '.sr-only' })).toBeInTheDocument();
+  });
+
+  it('shows a failure icon for error and hides cancelled', () => {
+    const { container: errorContainer } = render(<AgentSessionListRow {...baseProps} lastTurnStatus="error" />);
+    expect(errorContainer.querySelector('[data-slot="session-status-dot"]')).not.toBeInTheDocument();
+    expect(errorContainer.querySelector('[data-slot="session-status-failed"]')).toBeInTheDocument();
+    expect(screen.getByText('Failed', { selector: '.sr-only' })).toBeInTheDocument();
+
+    const { container: cancelledContainer } = render(<AgentSessionListRow {...baseProps} lastTurnStatus="cancelled" />);
+    expect(cancelledContainer.querySelector('[data-slot="session-status-dot"]')).not.toBeInTheDocument();
+    expect(cancelledContainer.querySelector('[data-slot="session-status-failed"]')).not.toBeInTheDocument();
+  });
+
+  it('hides the status dot when last turn is done', () => {
+    const { container } = render(<AgentSessionListRow {...baseProps} lastTurnStatus="done" />);
+
+    expect(container.querySelector('[data-slot="session-status-dot"]')).not.toBeInTheDocument();
+  });
 });

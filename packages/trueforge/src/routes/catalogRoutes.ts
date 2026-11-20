@@ -5,6 +5,7 @@
 import { createRoute } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import { GetMcpServerCatalogResponseSchema } from '../schemas/mcpCatalog';
+import { GetMemoryProviderCatalogResponseSchema } from '../schemas/memoryCatalog';
 import { GetModelProviderCatalogResponseSchema } from '../schemas/modelCatalog';
 import { GetSandboxProviderCatalogResponseSchema } from '../schemas/sandboxCatalog';
 import { GetSkillCatalogResponseSchema } from '../schemas/skillCatalog';
@@ -86,6 +87,26 @@ export const listSandboxProviderCatalogRoute = createRoute({
     200: {
       content: { 'application/json': { schema: GetSandboxProviderCatalogResponseSchema } },
       description: 'Shipped sandbox-provider presets.',
+    },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Not authenticated.',
+    },
+  },
+});
+
+export const listMemoryProviderCatalogRoute = createRoute({
+  method: 'get',
+  path: '/memory-providers',
+  tags: [OpenApiTag.MEMORY],
+  summary: 'List memory providers',
+  description: 'Shipped memory provider presets.',
+  'x-fern-sdk-group-name': ['catalogs', 'memoryProviders'],
+  'x-fern-sdk-method-name': 'list',
+  responses: {
+    200: {
+      content: { 'application/json': { schema: GetMemoryProviderCatalogResponseSchema } },
+      description: 'Shipped memory provider presets.',
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

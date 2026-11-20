@@ -1,10 +1,11 @@
 import type { Turn } from './server/index.js';
+import { EVENT_TYPE } from './server/index.js';
 
 export function extractTurnUserText(input: Turn['input']): string | undefined {
   const parts: string[] = [];
   let hasUserMessage = false;
   for (const item of input ?? []) {
-    if (item.type !== 'user.message') {
+    if (item.type !== EVENT_TYPE.USER_MESSAGE) {
       continue;
     }
     hasUserMessage = true;

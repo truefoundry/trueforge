@@ -1,13 +1,13 @@
 'use client';
 
-import type { CreatedBySubject } from '../server/types.js';
+import type { Subject } from '../server/types.js';
 import { createdByLabel } from '../utils/createdBySubject.js';
 import { getUserInitials } from './UserAvatar.js';
 import { Avatar, AvatarFallback } from './primitives/Avatar.js';
 import { Tooltip } from './primitives/Tooltip.js';
 
 export type CreatedByCellProps = {
-  subject: CreatedBySubject | undefined;
+  subject: Subject | undefined;
 };
 
 /** Avatar + truncated label for a Created-by table cell. */

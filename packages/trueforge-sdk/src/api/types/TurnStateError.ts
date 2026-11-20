@@ -7,7 +7,6 @@ export interface TurnStateError {
     completedAt: string;
     /** Human-readable error message. */
     message: string;
-    /** Optional billable aggregate for work done before the error. */
-    metrics?: TrueForge.TurnStateErrorMetrics;
+    metrics?: TrueForge.TurnMetrics;
     status: "error";
 }

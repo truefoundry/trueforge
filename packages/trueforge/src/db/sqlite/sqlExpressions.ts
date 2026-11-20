@@ -3,6 +3,7 @@
  * JSON authority: SQLite JSON1 — bind text via jsonb(?); read via json(column).
  * ParseJSONResultsPlugin parses top-level json() columns only (see createSqliteDb).
  */
+import type { TurnMetricsCheckpoint } from '@truefoundry/trueforge-core/agent-session/schemas/turn';
 import { sql, type Expression, type RawBuilder, type SelectQueryBuilder } from 'kysely';
 import type { Database } from './types';
 
@@ -17,6 +18,11 @@ export function jsonbBind(value: unknown): RawBuilder<string> {
  */
 export function jsonbSet(column: Expression<unknown>, path: string, value: unknown): RawBuilder<string> {
   return sql`jsonb_set(${column}, ${path}, ${jsonbBind(value)})`;
+}
+
+/** Set `metrics`, `active_duration_ms`, and `running_since` in one `jsonb_set`. */
+export function jsonbSetTurnMetrics(column: Expression<unknown>, metrics: TurnMetricsCheckpoint): RawBuilder<string> {
+  return sql`jsonb_set(${column}, '$.metrics', ${jsonbBind(metrics.metrics)}, '$.active_duration_ms', ${jsonbBind(metrics.active_duration_ms)}, '$.running_since', ${jsonbBind(metrics.running_since)})`;
 }
 
 /**

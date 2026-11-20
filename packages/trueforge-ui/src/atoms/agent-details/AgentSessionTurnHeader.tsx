@@ -1,37 +1,11 @@
 'use client';
 
 import { Icon } from '../../icons/Icon.js';
+import { toInputBreakdownBarData } from '../../utils/buildSessionMetrics.js';
 import { formatCostUsd, formatDurationMs, formatTokenCount } from '../../utils/sessionDisplayFormat.js';
 import { LightTooltip } from '../primitives/Tooltip.js';
+import { TokenUsageTooltip } from './AgentSessionMetricCharts.js';
 import type { AgentSessionTurnHeaderProps } from './types.js';
-
-function TurnTokenBreakdownTooltip({
-  inputTokens,
-  outputTokens,
-  cachedTokens,
-}: {
-  inputTokens: number;
-  outputTokens: number;
-  cachedTokens: number;
-}) {
-  const rows = [
-    { label: 'Input', value: inputTokens },
-    { label: 'Output', value: outputTokens },
-    { label: 'Cached', value: cachedTokens },
-  ] as const;
-  return (
-    <div className="min-w-28 px-2 py-1.5 text-xs text-text-primary">
-      <div className="flex flex-col gap-1">
-        {rows.map(row => (
-          <div key={row.label} className="flex items-center justify-between gap-4">
-            <span className="text-text-secondary">{row.label}</span>
-            <span className="tabular-nums font-medium text-text-primary">{formatTokenCount(row.value)}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 export function AgentSessionTurnHeader({
   turnNumber,
@@ -39,15 +13,26 @@ export function AgentSessionTurnHeader({
   inputTokens,
   outputTokens,
   cachedTokens,
+  cacheReadTokens,
+  cacheWriteTokens,
+  inputTokensBreakdown,
   durationMs,
   totalCostInUsd,
   modelName,
 }: AgentSessionTurnHeaderProps) {
   const hasMetrics = totalTokens != null || durationMs != null || totalCostInUsd != null || modelName != null;
-  const hasTokenBreakdown = inputTokens != null || outputTokens != null || cachedTokens != null;
-  const breakdownInput = inputTokens ?? 0;
+  const hasTokenBreakdown =
+    inputTokens != null ||
+    outputTokens != null ||
+    cachedTokens != null ||
+    cacheReadTokens != null ||
+    cacheWriteTokens != null;
+  const hasCacheSplit = cacheReadTokens != null || cacheWriteTokens != null;
+  const breakdownCacheRead = cacheReadTokens ?? 0;
+  const breakdownCacheWrite = cacheWriteTokens ?? 0;
   const breakdownOutput = outputTokens ?? 0;
-  const breakdownCached = cachedTokens ?? 0;
+  const cacheInInput = hasCacheSplit ? breakdownCacheRead + breakdownCacheWrite : (cachedTokens ?? 0);
+  const breakdownInput = (inputTokens ?? 0) + cacheInInput;
 
   const tokensTrigger =
     totalTokens != null ? (
@@ -56,7 +41,7 @@ export function AgentSessionTurnHeader({
         className="inline-flex items-center gap-1 rounded-sm text-inherit"
         aria-label={
           hasTokenBreakdown
-            ? `Tokens ${formatTokenCount(totalTokens)}. Input ${formatTokenCount(breakdownInput)}, Output ${formatTokenCount(breakdownOutput)}, Cached ${formatTokenCount(breakdownCached)}`
+            ? `Tokens ${formatTokenCount(totalTokens)}. Input ${formatTokenCount(breakdownInput)}, Output ${formatTokenCount(breakdownOutput)}, Cache read ${formatTokenCount(breakdownCacheRead)}, Cache write ${formatTokenCount(breakdownCacheWrite)}`
             : `Tokens ${formatTokenCount(totalTokens)}`
         }
       >
@@ -83,10 +68,13 @@ export function AgentSessionTurnHeader({
             hasTokenBreakdown ? (
               <LightTooltip
                 title={
-                  <TurnTokenBreakdownTooltip
+                  <TokenUsageTooltip
+                    totalTokens={totalTokens ?? 0}
                     inputTokens={breakdownInput}
                     outputTokens={breakdownOutput}
-                    cachedTokens={breakdownCached}
+                    cacheReadTokens={breakdownCacheRead}
+                    cacheWriteTokens={breakdownCacheWrite}
+                    inputBreakdown={inputTokensBreakdown == null ? [] : toInputBreakdownBarData(inputTokensBreakdown)}
                   />
                 }
                 side="bottom"

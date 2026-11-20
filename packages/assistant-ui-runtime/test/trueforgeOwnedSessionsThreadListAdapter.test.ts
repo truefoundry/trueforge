@@ -96,6 +96,27 @@ describe('createTrueForgeOwnedSessionsThreadListAdapter', () => {
     expect(result.threads[0]?.title).toBe('anthropic/claude-sonnet-4-6');
   });
 
+  it('stamps lastTurnStatus onto thread custom when lastTurnDetails is present', async () => {
+    const listSessions = vi.fn().mockResolvedValue({
+      data: [
+        {
+          ...mockNamedSession('s1', 'Running chat', '2026-06-30T12:00:00.000Z'),
+          lastTurnDetails: { id: 'turn-1', state: { status: 'running' } },
+        },
+      ],
+    });
+    const server = mockServer({ listSessions, getSession: vi.fn() });
+
+    const adapter = createTrueForgeOwnedSessionsThreadListAdapter({ server });
+    const result = await adapter.list();
+
+    expect(result.threads[0]?.custom).toEqual({
+      isMutable: false,
+      agentName: 'my-agent',
+      lastTurnStatus: 'running',
+    });
+  });
+
   it('rename persists title when renameSession is present', async () => {
     const renameSession = vi.fn().mockResolvedValue(undefined);
     const adapter = createTrueForgeOwnedSessionsThreadListAdapter({
