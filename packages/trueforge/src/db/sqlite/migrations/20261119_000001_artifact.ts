@@ -31,7 +31,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         version INTEGER NOT NULL,
         status TEXT NOT NULL,
         entrypoint TEXT NOT NULL,
-        created_by_turn_id TEXT NOT NULL,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         PRIMARY KEY (artifact_id, version),
