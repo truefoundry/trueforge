@@ -380,13 +380,13 @@ interface BeginTurnExecutionParams<TTransaction> {
 function turnModelRouting(input: {
   routing: TrueFoundryModelRouting | undefined;
   /** The tenant's Auto mode switch; off turns every kind of routing off. */
-  tenantAllowsAuto: boolean;
+  isAutoAllowed: boolean;
   tenant_id: string;
   modelProviderStore: IModelProviderStore;
   turnMetadata: TurnMetadata;
 }): ModelRouterDeps | undefined {
   const { routing, tenant_id, modelProviderStore, turnMetadata } = input;
-  if (routing === undefined || !input.tenantAllowsAuto) {
+  if (routing === undefined || !input.isAutoAllowed) {
     return undefined;
   }
   const tenantRouting = enabledTenantModelRouting(routing, tenant_id);
@@ -794,7 +794,7 @@ async function prepareTurnExecution<TTransaction>(input: {
 }> {
   assertGatewayMetadataRequestHeaders(input.requestHeaders);
   const abortController = new AbortController();
-  const [webSearchProvider, memoryCapability, tenantAllowsAuto] = await Promise.all([
+  const [webSearchProvider, memoryCapability, isAutoAllowed] = await Promise.all([
     resolveWebSearchProvider({
       tenant_id: input.session.tenant_id,
       store: input.deps.webSearchProviderStore,
@@ -833,7 +833,7 @@ async function prepareTurnExecution<TTransaction>(input: {
     modelProviderStore: input.deps.modelProviderStore,
     modelRouting: turnModelRouting({
       routing: trueFoundryModelRouting(),
-      tenantAllowsAuto,
+      isAutoAllowed,
       tenant_id: input.session.tenant_id,
       modelProviderStore: input.deps.modelProviderStore,
       turnMetadata,
