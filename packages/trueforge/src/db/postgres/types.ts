@@ -665,7 +665,6 @@ export interface ArtifactVersionTable {
   version: number;
   status: ArtifactVersionStatus;
   entrypoint: string;
-  created_by_turn_id: string;
   created_at: Date;
   updated_at: Date;
 }

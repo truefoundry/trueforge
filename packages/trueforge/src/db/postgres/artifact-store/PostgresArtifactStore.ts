@@ -42,7 +42,6 @@ function toVersionRecord(row: Selectable<ArtifactVersionTable>): ArtifactVersion
     version: row.version,
     status: row.status,
     entrypoint: row.entrypoint,
-    created_by_turn_id: row.created_by_turn_id,
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
   };
@@ -134,7 +133,6 @@ export class PostgresArtifactStore implements IArtifactStore<Transaction<Databas
           version: max_version + 1,
           status: 'pending',
           entrypoint: input.entrypoint,
-          created_by_turn_id: input.created_by_turn_id,
           created_at: now(),
           updated_at: now(),
         })
