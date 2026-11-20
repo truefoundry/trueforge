@@ -8,5 +8,7 @@ export const SessionMetadata: core.serialization.Schema<serializers.SessionMetad
     core.serialization.record(core.serialization.string(), core.serialization.string());
 
 export declare namespace SessionMetadata {
-    export type Raw = Record<string, string>;
+    export type Raw = {
+        [key: string]: string;
+    };
 }

@@ -1,7 +1,7 @@
 # TrueForge Python Library
 
 [![fern shield](https://img.shields.io/badge/%F0%9F%8C%BF-Built%20with%20Fern-brightgreen)](https://buildwithfern.com?utm_source=github&utm_medium=github&utm_campaign=readme&utm_source=Truefoundry%2FPython)
-[![pypi](https://img.shields.io/pypi/v/trueforge_sdk)](https://pypi.python.org/pypi/trueforge_sdk)
+[![pypi](https://img.shields.io/pypi/v/trueforge-sdk)](https://pypi.python.org/pypi/trueforge-sdk)
 
 API client for the TrueForge Agent Harness Server: a self-hosted runtime that executes agent turns and streams them over Server-Sent Events.
 
@@ -32,7 +32,7 @@ API reference documentation is available [here](https://trueforge.dev/api/use-ag
 ## Installation
 
 ```sh
-pip install trueforge_sdk
+pip install trueforge-sdk
 ```
 
 ## Reference
@@ -158,21 +158,11 @@ The SDK is instrumented with automatic retries with exponential backoff. A reque
 as the request is deemed retryable and the number of retry attempts has not grown larger than the configured
 retry limit (default: 2).
 
-Which status codes are retried depends on the `retryStatusCodes` generator configuration:
-
-**`legacy`** (current default): retries on
+A request is deemed retryable when any of the following HTTP status codes is returned:
 - [408](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/408) (Timeout)
 - [409](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409) (Conflict)
 - [429](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429) (Too Many Requests)
 - [5XX](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#server_error_responses) (All server errors, including 500)
-
-**`recommended`**: retries on
-- [408](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/408) (Timeout)
-- [409](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409) (Conflict)
-- [429](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429) (Too Many Requests)
-- [502](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/502) (Bad Gateway)
-- [503](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503) (Service Unavailable)
-- [504](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/504) (Gateway Timeout)
 
 Use the `max_retries` request option to configure this behavior.
 
