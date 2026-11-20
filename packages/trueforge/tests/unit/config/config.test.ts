@@ -1,5 +1,5 @@
 import type { ServerConfiguration } from '../../../src/config';
-import { buildRedisStandaloneUrl, getPublicUiBasePath } from '../../../src/config';
+import { buildRedisStandaloneUrl, getPublicUiBasePath, parseTrueFoundryModelRouting } from '../../../src/config';
 import {
   hasTrueFoundrySandboxProviderConfig,
   resolveTrueFoundrySandboxProviderConfig,
@@ -205,5 +205,19 @@ describe('buildRedisStandaloneUrl', () => {
 
   it('leaves IPv4 hosts unbracketed', () => {
     expect(buildRedisStandaloneUrl({ ...base, host: '127.0.0.1' })).toBe('redis://127.0.0.1:6379/0');
+  });
+});
+
+describe('parseTrueFoundryModelRouting', () => {
+  it('returns undefined when unset', () => {
+    expect(parseTrueFoundryModelRouting(undefined)).toBeUndefined();
+    expect(parseTrueFoundryModelRouting('  ')).toBeUndefined();
+  });
+
+  it('reads the per-tenant enabled flag', () => {
+    const parsed = parseTrueFoundryModelRouting(
+      JSON.stringify({ tenants: { internal: { enabled: 'on', decision_model: 'typesafe/jev-1.13.0' } } }),
+    );
+    expect(parsed?.tenants['internal']).toEqual({ enabled: 'on', decision_model: 'typesafe/jev-1.13.0' });
   });
 });

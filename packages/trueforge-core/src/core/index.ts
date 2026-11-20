@@ -116,12 +116,13 @@ export type {
 } from './llm/VercelAILLM';
 
 // Decision model contracts
-export type { Decision, DecisionModelCreateParams, IDecisionModel } from './decision/IDecisionModel';
+export type { Decision, DecisionModel, DecisionModelCreateParams, IDecisionModel } from './decision/IDecisionModel';
 export { OpenAIDecisionModel } from './decision/OpenAIDecisionModel';
 
 // Model routing
 export { DEFAULT_ROUTING_QUESTION, type RoutingCategory, type RoutingQuestion } from './modelRouting/question';
 export {
+  AUTO_MODEL,
   createModelRouter,
   selectModel,
   type ModelRouterDeps,

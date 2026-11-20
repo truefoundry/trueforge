@@ -49,7 +49,8 @@ export type AgentHarnessErrorCode =
   | 'agent_sandbox_required'
   | 'tool_name_collision'
   | 'mcp_connection_failed'
-  | 'capability_state_error';
+  | 'capability_state_error'
+  | 'auto_model_unavailable';
 
 export class AgentHarnessError extends Error {
   constructor(

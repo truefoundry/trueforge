@@ -1,14 +1,44 @@
-import type { Decision, DecisionModelCreateParams } from '../decision/IDecisionModel';
+import type { Decision, DecisionInputMessage, DecisionModelCreateParams } from '../decision/IDecisionModel';
+import { estimateCharactersForTokens, estimateTokensForString } from '../llm/usage';
 import type { RoutingQuestion } from './question';
 
-/** Keeps the decision request under the gateway's body limit. */
-const TASK_CHARS = 8_000;
 const TRUNCATION_MARKER = '\n\n[…]\n\n';
+/** Context window assumed when the catalog does not list the decision model's. */
+const DEFAULT_CONTEXT_TOKENS = 64_000;
 
-/** Keeps the start and the end of a long task, where its setup and its actual request usually are. */
-function truncateMiddle(text: string): string {
-  const half = Math.floor((TASK_CHARS - TRUNCATION_MARKER.length) / 2);
+/** Keeps the start and the end of a long text, where its setup and its actual request usually are. */
+function truncateMiddle(text: string, maxChars: number): string {
+  const half = Math.floor((maxChars - TRUNCATION_MARKER.length) / 2);
   return `${text.slice(0, half)}${TRUNCATION_MARKER}${text.slice(-half)}`;
+}
+
+function truncateTask(task: string, maxChars: number): string {
+  return task.length > maxChars ? truncateMiddle(task, maxChars) : task;
+}
+
+/** The newest messages that fit in `maxChars`. The latest is always kept, and cut from the middle if it alone is too long. */
+function truncateMessages(messages: DecisionInputMessage[], maxChars: number): DecisionInputMessage[] {
+  const kept: DecisionInputMessage[] = [];
+  let used = 0;
+  let truncated = false;
+  for (let index = messages.length - 1; index >= 0; index--) {
+    let message = messages[index];
+    if (message === undefined) {
+      continue;
+    }
+    const size = JSON.stringify(message).length;
+    if (kept.length > 0 && used + size > maxChars) {
+      truncated = true;
+      break;
+    }
+    if (kept.length === 0 && size > maxChars && typeof message.content === 'string') {
+      message = { ...message, content: truncateMiddle(message.content, maxChars) };
+      truncated = true;
+    }
+    kept.unshift(message);
+    used += size;
+  }
+  return truncated ? kept : messages;
 }
 
 export interface Classification {
@@ -17,26 +47,28 @@ export interface Classification {
   details: Record<string, unknown>;
 }
 
-/** The decision request for routing; `isTruncated` when a long task was cut from the middle. */
+/**
+ * The decision request for routing. Input is trimmed to the classifier's context window: a task keeps its start and
+ * its end, and a conversation keeps its newest messages. `isTruncated` when anything was cut.
+ */
 export function classificationRequest(
-  input: DecisionModelCreateParams['input'],
+  input: string | DecisionInputMessage[],
   question: RoutingQuestion,
+  contextLength: number | undefined,
 ): { body: DecisionModelCreateParams; isTruncated: boolean } {
-  const isTruncated = typeof input === 'string' && input.length > TASK_CHARS;
-  return {
-    body: {
-      input: isTruncated ? truncateMiddle(input) : input,
-      questions: [
-        {
-          type: 'choice',
-          name: 'category',
-          instructions: question.instructions,
-          choices: Object.entries(question.categories).map(([value, description]) => ({ value, description })),
-        },
-      ],
+  const questions: DecisionModelCreateParams['questions'] = [
+    {
+      type: 'choice',
+      name: 'category',
+      instructions: question.instructions,
+      choices: Object.entries(question.categories).map(([value, description]) => ({ value, description })),
     },
-    isTruncated,
-  };
+  ];
+  const maxChars = estimateCharactersForTokens(
+    (contextLength ?? DEFAULT_CONTEXT_TOKENS) - estimateTokensForString(JSON.stringify(questions)),
+  );
+  const fitted = typeof input === 'string' ? truncateTask(input, maxChars) : truncateMessages(input, maxChars);
+  return { body: { input: fitted, questions }, isTruncated: fitted !== input };
 }
 
 /** The category the decision model chose, or undefined when it gave none. */
