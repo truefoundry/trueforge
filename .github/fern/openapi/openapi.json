@@ -5596,6 +5596,10 @@
             "description": "Unique identifier for the event (monotonic ULID).",
             "type": "string"
           },
+          "is_error": {
+            "description": "Whether the tool execution returned an error.",
+            "type": "boolean"
+          },
           "thread_id": {
             "description": "Thread that owns the tool call.",
             "type": "string"

@@ -19,6 +19,11 @@ class ToolResponseEvent(UncheckedBaseModel):
     Unique identifier for the event (monotonic ULID).
     """
 
+    is_error: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Whether the tool execution returned an error.
+    """
+
     thread_id: str = pydantic.Field()
     """
     Thread that owns the tool call.
