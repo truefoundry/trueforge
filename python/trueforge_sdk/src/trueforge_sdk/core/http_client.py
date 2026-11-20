@@ -57,6 +57,75 @@ def get_keepalive_socket_options(
     return opts
 
 
+def _get_environment_proxies() -> typing.Dict[str, typing.Optional[str]]:
+    # httpx skips HTTP(S)_PROXY / ALL_PROXY / NO_PROXY whenever a custom transport is
+    # passed, so the keepalive default rebuilds those env-derived mounts itself, using
+    # httpx's own resolver to keep identical semantics (incl. NO_PROXY bypass rules).
+    try:
+        from httpx._utils import get_environment_proxies
+    except (ImportError, AttributeError):
+        return {}
+    return get_environment_proxies()
+
+
+def get_keepalive_proxy_mounts(
+    idle: int = 60,
+    intvl: int = 30,
+    cnt: int = 5,
+) -> typing.Dict[str, typing.Optional[httpx.BaseTransport]]:
+    """
+    Build ``httpx.Client(mounts=...)`` entries for the proxies configured in the environment,
+    each carrying the TCP keepalive socket options. ``None`` entries are NO_PROXY bypasses
+    that fall back to the client's default transport.
+    """
+    socket_options = get_keepalive_socket_options(idle=idle, intvl=intvl, cnt=cnt)
+    return {
+        pattern: None if url is None else httpx.HTTPTransport(proxy=httpx.Proxy(url=url), socket_options=socket_options)
+        for pattern, url in _get_environment_proxies().items()
+    }
+
+
+def get_async_keepalive_proxy_mounts(
+    idle: int = 60,
+    intvl: int = 30,
+    cnt: int = 5,
+) -> typing.Dict[str, typing.Optional[httpx.AsyncBaseTransport]]:
+    """Async counterpart of ``get_keepalive_proxy_mounts`` for ``httpx.AsyncClient(mounts=...)``."""
+    socket_options = get_keepalive_socket_options(idle=idle, intvl=intvl, cnt=cnt)
+    return {
+        pattern: None
+        if url is None
+        else httpx.AsyncHTTPTransport(proxy=httpx.Proxy(url=url), socket_options=socket_options)
+        for pattern, url in _get_environment_proxies().items()
+    }
+
+
+# The Retry-After date parsing in _parse_retry_after is adapted from urllib3 1.26
+# (https://github.com/urllib3/urllib3/blob/1.26.x/src/urllib3/util/retry.py), used under the following license:
+#
+# MIT License
+#
+# Copyright (c) 2008-2020 Andrey Petrov and contributors (see CONTRIBUTORS.txt)
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+
 def _parse_retry_after(response_headers: httpx.Headers) -> typing.Optional[float]:
     """
     This function parses the `Retry-After` header in a HTTP response and returns the number of seconds to wait.
