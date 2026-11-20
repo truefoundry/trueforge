@@ -179,7 +179,7 @@ describe('auto model selection', () => {
 
     const stored = await store.getTurn({ session_id: 's1', turn_id: turn.id });
     expect(names).toEqual([HAIKU]);
-    expect(stored?.snapshot.threads[MAIN_THREAD_ID]?.model).toBe(HAIKU);
+    expect(stored?.snapshot.threads[MAIN_THREAD_ID]?.model).toEqual({ name: HAIKU, effort: 'low' });
     expect(bodies[0]).toMatchObject({ max_tokens: 128, reasoning_effort: 'low' });
     expect(bodies[0]).not.toHaveProperty('temperature');
     expect(route.calls).toHaveLength(1);
@@ -273,8 +273,7 @@ describe('auto model selection', () => {
 
     expect(route.calls).toHaveLength(0);
     expect(names).toEqual([HAIKU]);
-    expect(bodies[0]).toMatchObject({ max_tokens: 128 });
-    expect(bodies[0]).not.toHaveProperty('reasoning_effort');
+    expect(bodies[0]).toMatchObject({ max_tokens: 128, reasoning_effort: 'low' });
     expect(bodies[0]).not.toHaveProperty('temperature');
   });
 

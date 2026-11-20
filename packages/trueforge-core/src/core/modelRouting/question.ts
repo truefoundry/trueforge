@@ -1,5 +1,4 @@
 export interface RoutingQuestion {
-  /** Asked about either input: a single task, or the latest user message of a conversation. */
   instructions: string;
   categories: { direct: string; fixed_steps: string; adaptive: string };
 }

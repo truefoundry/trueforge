@@ -3,6 +3,7 @@
  */
 import { AgentHarnessError } from '../core/errors';
 import { newEventId, type TurnUserEvent, type UserMessage } from '../core/events/schema';
+import { SUPPORTED_REASONING_EFFORTS } from '../core/llm/VercelAILLM';
 import { routingConversation } from '../core/modelRouting/conversation';
 import { AUTO_MODEL, createModelRouter, type RoutedModel, type RouteInput } from '../core/modelRouting/router';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
@@ -115,8 +116,7 @@ function specForRoutedModel(spec: AgentSpec, routed: RoutedModel | undefined): A
   if (routed === undefined) {
     return spec;
   }
-  const params = routed.effort === undefined ? {} : { reasoning_effort: routed.effort };
-  return { ...spec, model: { name: routed.model, params } };
+  return { ...spec, model: { name: routed.model, params: { reasoning_effort: routed.effort } } };
 }
 
 export class SessionHandle<
@@ -527,7 +527,7 @@ export class SessionHandle<
 
   /**
    * The root's model when its spec asks for `auto`, else undefined. A new turn routes on the conversation and the new
-   * user input; a rebuilt turn resumes on the model its root ran on.
+   * user input; a rebuilt turn resumes on the model and effort its root ran on.
    */
   private async autoRoutedModel(input: {
     spec: AgentSpec;
@@ -539,12 +539,17 @@ export class SessionHandle<
       return undefined;
     }
     const previousRoot = input.previous?.snapshot.threads[MAIN_THREAD_ID];
-    // If rebuilding a paused turn, resume on the model it ran on.
+    // If rebuilding a paused turn, resume on the model and effort it ran on.
     if (input.newUserInput === undefined) {
-      if (previousRoot?.model == null) {
+      const saved = previousRoot?.model;
+      if (saved == null) {
         throw new AgentHarnessError('auto_model_unavailable', 'This paused turn has no saved model to resume on');
       }
-      return { model: previousRoot.model.name, effort: undefined };
+      const effort = SUPPORTED_REASONING_EFFORTS.find(candidate => candidate === saved.effort);
+      if (effort === undefined) {
+        throw new AgentHarnessError('auto_model_unavailable', 'This paused turn has no saved effort to resume on');
+      }
+      return { model: saved.name, effort };
     }
     // If creating a new turn, route on the conversation and the new user input.
     if (input.routeModel === undefined) {
