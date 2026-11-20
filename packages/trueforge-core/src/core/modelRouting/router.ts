@@ -60,6 +60,10 @@ export function selectModel(input: {
   };
 }
 
+function isRoutingCategory(category: string): category is RoutingCategory {
+  return Object.hasOwn(ROUTING_CLUSTERS, category);
+}
+
 export interface ModelRouterDeps {
   /** Decides the task's category, e.g. Jev. */
   classifier: IDecisionModel;
@@ -110,10 +114,10 @@ export function createModelRouter(
         return { reason: 'decision_error', routed: undefined, fields: { answers: decision.answers } };
       }
       const classified = { category: classification.category, ...classification.details };
-      if (!Object.hasOwn(ROUTING_CLUSTERS, classification.category)) {
+      if (!isRoutingCategory(classification.category)) {
         return { reason: 'decision_error', routed: undefined, fields: classified };
       }
-      const selection = selectModel({ category: classification.category as RoutingCategory, models: userModels });
+      const selection = selectModel({ category: classification.category, models: userModels });
       if (selection === undefined) {
         return { reason: 'model_unavailable', routed: undefined, fields: classified };
       }
