@@ -479,7 +479,7 @@ describe('RemoteMCP + ToolSet', () => {
       servers: [{ id: 'inline-id-123', name: 'my-inline', auth_url: 'https://auth.example/consent' }],
     };
     const server = makeServer({
-      headers: () => Promise.resolve({ headers: {}, authRequiredOnUnauthorized: () => Promise.resolve(authRequired) }),
+      headers: () => Promise.resolve({ headers: {}, onUnauthorized: () => Promise.resolve(authRequired) }),
     });
 
     await expect(server.listTools()).resolves.toEqual({ authRequired });
@@ -491,7 +491,7 @@ describe('RemoteMCP + ToolSet', () => {
       servers: [{ id: 'inline-id-123', name: 'my-inline', auth_url: 'https://auth.example/consent' }],
     };
     const server = makeServer({
-      headers: () => Promise.resolve({ headers: {}, authRequiredOnUnauthorized: () => Promise.resolve(authRequired) }),
+      headers: () => Promise.resolve({ headers: {}, onUnauthorized: () => Promise.resolve(authRequired) }),
     });
 
     await server.listTools();
@@ -505,7 +505,7 @@ describe('RemoteMCP + ToolSet', () => {
   it('throws the 401 when the resolver offers no consent', async () => {
     installFakeConnection({ connectError: new McpConnectionError('upstream 401', 401) });
     const server = makeServer({
-      headers: () => Promise.resolve({ headers: {}, authRequiredOnUnauthorized: () => Promise.resolve(undefined) }),
+      headers: () => Promise.resolve({ headers: {} }),
     });
 
     await expect(server.listTools()).rejects.toMatchObject({ statusCode: 401 });
@@ -514,8 +514,7 @@ describe('RemoteMCP + ToolSet', () => {
   it('propagates the resolver error when the consent lookup fails', async () => {
     installFakeConnection({ connectError: new McpConnectionError('upstream 401', 401) });
     const server = makeServer({
-      headers: () =>
-        Promise.resolve({ headers: {}, authRequiredOnUnauthorized: () => Promise.reject(new Error('lookup failed')) }),
+      headers: () => Promise.resolve({ headers: {}, onUnauthorized: () => Promise.reject(new Error('lookup failed')) }),
     });
 
     await expect(server.listTools()).rejects.toMatchObject({

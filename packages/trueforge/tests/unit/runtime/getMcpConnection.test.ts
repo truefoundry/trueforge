@@ -168,7 +168,7 @@ describe('getMcpConnection', () => {
     }
     await expect(connection.headers()).resolves.toEqual({
       headers: { Authorization: 'Bearer live-access' },
-      authRequiredOnUnauthorized: expect.any(Function),
+      onUnauthorized: expect.any(Function),
     });
   });
 
