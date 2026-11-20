@@ -6,7 +6,7 @@ import { useTrackAnalytics } from '@/analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '@/analytics/events.js';
 
 import { useDraftCatalog } from '@/atoms/draft/DraftCatalogProvider.js';
-import { auiButtonClass } from '@/atoms/lib/buttonClasses.js';
+import { auiButtonClass, shellSelectedClassName } from '@/atoms/lib/buttonClasses.js';
 import { cn } from '@/atoms/lib/cn.js';
 import { useCompactLayout } from '@/atoms/lib/CompactLayoutContext.js';
 import { isMobileNavDrawerOpen } from '@/atoms/lib/isMobileNavDrawerOpen.js';
@@ -133,7 +133,7 @@ const TruefoundrySettingsBuilder = ({ headerStart }: { headerStart?: ReactNode }
   if (!settingsOpen || !catalog) return null;
 
   return (
-    <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-x-hidden bg-primary-bg">
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-x-hidden bg-card-bg">
       <PageHeader
         title="Settings"
         start={
@@ -173,7 +173,8 @@ const TruefoundrySettingsBuilder = ({ headerStart }: { headerStart?: ReactNode }
                 // Narrow panels cannot fit fixed-width tabs, so tabs split the row instead.
                 compact ? 'min-w-0 flex-1 justify-center gap-1.5 px-1.5' : 'shrink-0',
                 section === item.id
-                  ? 'bg-primary-button-bg/10 text-primary-button-bg'
+                  ? // Same fill + gradient stroke as an active chat-history row.
+                    shellSelectedClassName
                   : 'text-text-secondary hover:bg-ghost-button-hover/60 hover:text-text-primary',
               )}
               onClick={() => {

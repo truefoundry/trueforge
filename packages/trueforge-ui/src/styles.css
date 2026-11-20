@@ -46,14 +46,15 @@
     --color-gray-800: #27272a;
     --color-gray-850: #18181b;
     --color-gray-1000: #09090b;
+    --color-indigo-200: #c7d2fe;
     --color-indigo-500: #6366f1;
     --color-red-500: #ef4444;
 
-    --sidebar-bg: var(--color-white);
+    --sidebar-bg: #fafcff;
     --topbar-bg: var(--color-white);
-    --primary-bg: var(--color-white);
+    --primary-bg: #fafcff;
     --secondary-bg: var(--color-gray-100);
-    --border: var(--color-gray-250);
+    --border: #e0ecfd;
     --input-box-bg: var(--color-white);
     --input-border: var(--color-gray-250);
     --text-primary: var(--color-gray-1000);
@@ -95,6 +96,13 @@
     /* Light: primary base + lighter flash (secondary→primary reads as a darkening pulse). */
     --text-shimmer-base: var(--text-primary);
     --text-shimmer-highlight: var(--color-gray-300);
+    /* Active rail / chat-history row: fill + indigo-200 stroke (Tailwind). */
+    --shell-selected-bg: var(--secondary-button-hover);
+    --shell-selected-stroke-start: var(--color-indigo-200);
+    --shell-selected-stroke-end: var(--color-indigo-200);
+    /* Composer hairline (light): faded primary → solid primary, top → bottom. */
+    --composer-stroke-start: color-mix(in oklab, var(--primary-button-bg) 25%, transparent);
+    --composer-stroke-end: var(--primary-button-bg);
   }
 
   .aui-theme-root *,
@@ -126,8 +134,8 @@
     --topbar-bg: var(--color-gray-200);
     --primary-bg: var(--color-gray-200);
     --secondary-bg: var(--color-gray-250);
-    --border: var(--color-gray-275);
-    --input-box-bg: var(--color-gray-150);
+    --border: var(--color-gray-250);
+    --input-box-bg: var(--color-gray-200);
     --input-border: var(--color-gray-275);
     --text-primary: var(--color-gray-1000);
     --text-secondary: var(--color-gray-600);
@@ -166,7 +174,71 @@
     /* Dark: muted base + bright flash (same contrast direction as before). */
     --text-shimmer-base: var(--text-secondary);
     --text-shimmer-highlight: var(--text-primary);
+    /* Figma active chrome: fill #343439, stroke light→dark (#71717A → #3F3F46). */
+    --shell-selected-bg: var(--secondary-button-hover);
+    --shell-selected-stroke-start: var(--color-gray-500);
+    --shell-selected-stroke-end: var(--color-gray-300);
+    /* Figma composer stroke flipped 180°: zinc-600 (#52525B) → #3F3F46, top → bottom. */
+    --composer-stroke-start: var(--color-gray-400);
+    --composer-stroke-end: var(--color-gray-300);
   }
+}
+
+/**
+ * Composer shell: theme surface + vertical gradient hairline stroke.
+ * padding-box paints the fill; border-box bleeds the ramp into the transparent border.
+ * Light: 1px (original). Dark: Figma 0.5px stroke weight.
+ */
+[data-slot='aui_composer-shell'] {
+  border-width: 0.0625rem;
+  background:
+    linear-gradient(var(--input-box-bg), var(--input-box-bg)) padding-box,
+    linear-gradient(to bottom, var(--composer-stroke-start), var(--composer-stroke-end)) border-box;
+  background-origin: border-box;
+}
+
+.aui-theme-root.dark [data-slot='aui_composer-shell'] {
+  border-width: 0.03125rem;
+}
+
+/**
+ * Secondary button: indigo-500 fills left → right on hover.
+ * background-color stays the resting surface; the gradient grows over it.
+ */
+.aui-secondary-button-fill {
+  background-color: var(--secondary-button-bg);
+  background-image: linear-gradient(var(--color-indigo-500), var(--color-indigo-500));
+  background-repeat: no-repeat;
+  background-position: left center;
+  background-size: 0% 100%;
+  transition-property: background-size, color, border-color, opacity;
+  transition-duration: 120ms;
+  transition-timing-function: cubic-bezier(0.1, 0, 0, 1);
+}
+
+.aui-secondary-button-fill:hover:not(:disabled) {
+  background-size: 100% 100%;
+  border-color: var(--color-indigo-500);
+  color: var(--color-white);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aui-secondary-button-fill {
+    transition: none;
+  }
+}
+
+/**
+ * Selected rail control / chat-history row: theme fill with 0.5px inside
+ * gradient stroke (top → bottom).
+ */
+.aui-shell-selected,
+.aui-shell-selected:hover {
+  background:
+    linear-gradient(var(--shell-selected-bg), var(--shell-selected-bg)) padding-box,
+    linear-gradient(180deg, var(--shell-selected-stroke-start) 0%, var(--shell-selected-stroke-end) 100%) border-box;
+  border: 0.03125rem solid transparent;
+  color: var(--text-primary);
 }
 
 /*
