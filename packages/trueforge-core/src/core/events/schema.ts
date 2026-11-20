@@ -289,6 +289,7 @@ export const ToolResponseEventSchema = LLMToolMessageSchema.omit({ role: true })
     id: EventIdSchema,
     thread_id: z.string().describe('Thread that owns the tool call.'),
     created_at: z.string().describe('ISO 8601 event timestamp.'),
+    is_error: z.boolean().optional().describe('Whether the tool execution returned an error.'),
   })
   .openapi('ToolResponseEvent');
 

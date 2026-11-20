@@ -7,6 +7,7 @@ export type AssistantContentPart = ThreadAssistantMessagePart;
 
 export interface ToolCallContext {
   toolResults?: ReadonlyMap<string, string>;
+  toolResultErrors?: ReadonlyMap<string, boolean>;
   pendingApprovals?: ReadonlyMap<string, { id: string }>;
   approvalDecisions?: ReadonlyMap<string, { id: string; approved: boolean; reason?: string }>;
   pendingResponses?: ReadonlyMap<string, PendingResponseRef>;
@@ -85,7 +86,7 @@ function toolCallToPart(toolCall: SdkToolCall, context?: ToolCallContext): ToolC
   }
 
   let result: ToolCallPart['result'];
-  let isError = false;
+  let isError = context?.toolResultErrors?.get(toolCall.id) === true;
   if (toolResult !== undefined) {
     result = toolResult === '' ? true : toolResult;
   } else if (approvalDecision?.approved === false) {

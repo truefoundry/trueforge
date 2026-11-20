@@ -37,9 +37,9 @@ describe('executeToolCalls', () => {
     expect(toolCallResults[0]?.message.content).toContain('Failed to parse tool call arguments as JSON');
   });
 
-  it('keeps failure false when the tool result is an error', async () => {
+  it('preserves returned tool errors without marking them as thrown failures', async () => {
     const toolSet = makeMockIMCPServer({ name: 'srv', preload: true });
-    toolSet.callTool = jest.fn(() => Promise.resolve(toolResultResponse({ text: 'bad', isError: true })));
+    toolSet.callTool = jest.fn(() => Promise.resolve(toolResultResponse({ text: 'search failed', isError: true })));
     const toolMapping = new Map<string, MappedMCPTool>([['search', { toolSet, originalToolName: 'search' }]]);
 
     const { toolCallResults } = await executeToolCalls({
@@ -66,5 +66,8 @@ describe('executeToolCalls', () => {
     });
 
     expect(toolCallResults[0]?.failure).toBe(false);
+    expect(toolCallResults[0]?.isError).toBe(true);
+    expect(toolCallResults[0]?.message.content).toContain('"error"');
+    expect(toolCallResults[0]?.message.content).toContain('search failed');
   });
 });
