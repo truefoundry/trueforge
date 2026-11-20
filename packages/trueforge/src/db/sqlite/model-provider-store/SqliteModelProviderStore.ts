@@ -3,7 +3,7 @@ import type { ModelProviderManifest } from '../../../schemas/modelProvider';
 import {
   flattenProviderModels,
   ModelProviderNameConflictError,
-  type CatalogModel,
+  type AvailableModelWithCatalogInfo,
   type CreateModelProviderInput,
   type DeleteModelProviderInput,
   type GetModelProviderForUpdateInput,
@@ -143,7 +143,10 @@ export class SqliteModelProviderStore implements IModelProviderStore<Transaction
     return Promise.resolve({});
   }
 
-  async listModels(input: ListModelProvidersInput, transaction?: Transaction<Database>): Promise<CatalogModel[]> {
+  async listModels(
+    input: ListModelProvidersInput,
+    transaction?: Transaction<Database>,
+  ): Promise<AvailableModelWithCatalogInfo[]> {
     return flattenProviderModels(await this.listProviders(input, transaction));
   }
 }

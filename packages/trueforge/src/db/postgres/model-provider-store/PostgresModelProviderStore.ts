@@ -2,7 +2,7 @@ import type { Kysely, Selectable, Transaction } from 'kysely';
 import {
   flattenProviderModels,
   ModelProviderNameConflictError,
-  type CatalogModel,
+  type AvailableModelWithCatalogInfo,
   type CreateModelProviderInput,
   type DeleteModelProviderInput,
   type GetModelProviderForUpdateInput,
@@ -141,7 +141,10 @@ export class PostgresModelProviderStore implements IModelProviderStore<Transacti
     return Promise.resolve({});
   }
 
-  async listModels(input: ListModelProvidersInput, transaction?: Transaction<Database>): Promise<CatalogModel[]> {
+  async listModels(
+    input: ListModelProvidersInput,
+    transaction?: Transaction<Database>,
+  ): Promise<AvailableModelWithCatalogInfo[]> {
     return flattenProviderModels(await this.listProviders(input, transaction));
   }
 }

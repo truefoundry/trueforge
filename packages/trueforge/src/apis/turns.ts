@@ -394,10 +394,7 @@ function turnModelRouting(input: {
   return {
     classifier: { create: async (body, options) => (await resolveDecisionModel()).create(body, options) },
     question: { instructions: routing.instructions, categories: routing.categories },
-    listModels: async () => {
-      const models = await modelProviderStore.listModels({ tenant_id, include_catalog_info: true });
-      return models.map(model => ({ name: model.name, canonicalModel: model.canonical_model, cost: model.cost }));
-    },
+    listModels: () => modelProviderStore.listModels({ tenant_id, include_catalog_info: true }),
   };
 }
 

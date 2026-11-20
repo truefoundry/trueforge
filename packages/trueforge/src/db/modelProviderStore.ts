@@ -3,6 +3,7 @@
  * `ModelProviderManifest` document. Implementations: Postgres, Sqlite, and
  * TrueFoundry (read-only ServiceFoundry server listing).
  */
+import type { RoutableModel } from '@truefoundry/trueforge-core/core';
 import type { ResourceName } from '../schemas/common';
 import type { AvailableModel, ModelProperties, ModelProviderManifest } from '../schemas/modelProvider';
 import type { TurnMetadata } from './turnMetadata';
@@ -23,13 +24,8 @@ export interface ListModelProvidersInput {
   include_catalog_info?: boolean;
 }
 
-/** A listed model with its catalog info; both fields are undefined unless listed with `include_catalog_info` by a store that has them. */
-export interface CatalogModel extends AvailableModel {
-  /** Provider-neutral model id, e.g. `anthropic/claude-haiku-5-5`. */
-  canonical_model: string | undefined;
-  /** Blended USD per million tokens: 0.75 × input + 0.25 × output. */
-  cost: number | undefined;
-}
+/** A listed model; the catalog fields are undefined unless listed with `include_catalog_info` by a store that has them. */
+export interface AvailableModelWithCatalogInfo extends AvailableModel, RoutableModel {}
 
 export interface GetModelProviderInput {
   tenant_id: string;
@@ -89,7 +85,7 @@ export interface IModelProviderStore<TTransaction = never> {
   /** Removes one provider and every model it declares. Resolves `false` when no row matched. */
   deleteProvider(input: DeleteModelProviderInput, transaction?: TTransaction): Promise<boolean>;
   /** Flattens manifests into the FQN read view for GET /models. */
-  listModels(input: ListModelProvidersInput, transaction?: TTransaction): Promise<CatalogModel[]>;
+  listModels(input: ListModelProvidersInput, transaction?: TTransaction): Promise<AvailableModelWithCatalogInfo[]>;
   /** Extra headers for a model invoke. */
   resolveInvokeHeaders(input: {
     record: ModelProviderRecord;
@@ -113,7 +109,7 @@ export function modelPropertiesWarning(input: { properties: ModelProperties }): 
 }
 
 /** Application-side flatten shared by both store implementations. */
-export function flattenProviderModels(records: ModelProviderRecord[]): CatalogModel[] {
+export function flattenProviderModels(records: ModelProviderRecord[]): AvailableModelWithCatalogInfo[] {
   return records.flatMap(record =>
     record.manifest.models.map(model => {
       const warning = modelPropertiesWarning({ properties: model.properties });
@@ -123,7 +119,7 @@ export function flattenProviderModels(records: ModelProviderRecord[]): CatalogMo
         provider: { name: record.name },
         properties: model.properties,
         ...(warning === undefined ? {} : { warning }),
-        canonical_model: undefined,
+        canonicalModel: undefined,
         cost: undefined,
       };
     }),

@@ -3,7 +3,7 @@ import type { RequestContext } from '../auth/identity';
 import type { AgentRecord } from '../db/agentStore';
 import {
   flattenProviderModels,
-  type CatalogModel,
+  type AvailableModelWithCatalogInfo,
   type CreateModelProviderInput,
   type DeleteModelProviderInput,
   type GetModelProviderForUpdateInput,
@@ -98,7 +98,10 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
     return trueFoundryManaged();
   }
 
-  async listModels(input: ListModelProvidersInput, transaction?: TTransaction): Promise<CatalogModel[]> {
+  async listModels(
+    input: ListModelProvidersInput,
+    transaction?: TTransaction,
+  ): Promise<AvailableModelWithCatalogInfo[]> {
     void transaction;
     const { records, models } = await this.#records({ tenant_id: input.tenant_id });
     const listed = flattenProviderModels(records);
