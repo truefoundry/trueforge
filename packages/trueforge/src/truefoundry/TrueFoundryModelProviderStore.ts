@@ -105,7 +105,7 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
     void transaction;
     const { records, models } = await this.#records({ tenant_id: input.tenant_id });
     const listed = flattenProviderModels(records);
-    if (input.include_catalog_info !== true) {
+    if (input.has_catalog_info !== true) {
       return listed;
     }
     const catalogByName = new Map(models.map(model => [`${model.accountName}/${model.modelName}`, model.catalog]));

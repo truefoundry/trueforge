@@ -21,10 +21,10 @@ export interface ModelProviderRecord {
 export interface ListModelProvidersInput {
   tenant_id: string;
   /** Fill in the catalog fields; only a store with a model catalog (TrueFoundry) has them. */
-  include_catalog_info?: boolean;
+  has_catalog_info?: boolean;
 }
 
-/** A listed model; the catalog fields are undefined unless listed with `include_catalog_info` by a store that has them. */
+/** A listed model; the catalog fields are undefined unless listed with `has_catalog_info` by a store that has them. */
 export interface AvailableModelWithCatalogInfo extends AvailableModel, RoutableModel {}
 
 export interface GetModelProviderInput {

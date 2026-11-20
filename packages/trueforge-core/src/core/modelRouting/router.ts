@@ -144,7 +144,7 @@ export function createModelRouter(
     logger.info('model routing', {
       thread_id: route.threadId,
       latency_ms: Date.now() - startedMs,
-      input_truncated: request.truncated,
+      input_truncated: request.isTruncated,
       reason: outcome.reason,
       ...outcome.fields,
     });

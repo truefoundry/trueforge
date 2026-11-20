@@ -123,8 +123,8 @@ describe('createModelRouter', () => {
 describe('classification', () => {
   it('keeps the start and the end of a long task', () => {
     const task = `START${'x'.repeat(20_000)}END`;
-    const { body, truncated } = classificationRequest(task, DEFAULT_ROUTING_QUESTION);
-    expect(truncated).toBe(true);
+    const { body, isTruncated } = classificationRequest(task, DEFAULT_ROUTING_QUESTION);
+    expect(isTruncated).toBe(true);
     expect(typeof body.input === 'string' && body.input.length <= 8_000).toBe(true);
     expect(body.input).toEqual(expect.stringMatching(/^START[\s\S]*END$/));
   });

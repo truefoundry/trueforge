@@ -17,15 +17,15 @@ export interface Classification {
   details: Record<string, unknown>;
 }
 
-/** The decision request for routing; `truncated` when a long task was cut from the middle. */
+/** The decision request for routing; `isTruncated` when a long task was cut from the middle. */
 export function classificationRequest(
   input: DecisionModelCreateParams['input'],
   question: RoutingQuestion,
-): { body: DecisionModelCreateParams; truncated: boolean } {
-  const truncated = typeof input === 'string' && input.length > TASK_CHARS;
+): { body: DecisionModelCreateParams; isTruncated: boolean } {
+  const isTruncated = typeof input === 'string' && input.length > TASK_CHARS;
   return {
     body: {
-      input: truncated ? truncateMiddle(input) : input,
+      input: isTruncated ? truncateMiddle(input) : input,
       questions: [
         {
           type: 'choice',
@@ -35,7 +35,7 @@ export function classificationRequest(
         },
       ],
     },
-    truncated,
+    isTruncated,
   };
 }
 

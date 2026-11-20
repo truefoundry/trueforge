@@ -89,7 +89,7 @@ export interface TrueFoundryEnabledModel {
   accountName: string;
   modelName: string;
   properties: ModelProperties;
-  /** Returned only when models are listed with `include_catalog_info`. */
+  /** Returned only when models are listed with `has_catalog_info`. */
   catalog: Pick<RoutableModel, 'canonicalModel' | 'cost'>;
 }
 
