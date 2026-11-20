@@ -2,4 +2,4 @@
 "@truefoundry/trueforge": patch
 ---
 
-Add `GET /api/v1/artifacts` and `GET /api/v1/artifacts/{slug}` to list and get artifacts.
+Add `GET /api/v1/artifacts` to list the caller's artifacts.

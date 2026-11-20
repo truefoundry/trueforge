@@ -32,7 +32,6 @@ export const ListArtifactsRequestQuerySchema = z
   })
   .openapi('ListArtifactsRequestQuery');
 
-export const GetArtifactResponseSchema = z.object({ data: ArtifactSchema }).openapi('GetArtifactResponse');
 export const ListArtifactsResponseSchema = z
   .object({
     data: z.array(ArtifactSchema),

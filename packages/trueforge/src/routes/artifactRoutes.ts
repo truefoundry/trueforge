@@ -2,19 +2,11 @@
  * Artifact route definitions (mounted at /api/v1/artifacts).
  * Handlers are registered in apis/artifacts.ts.
  */
-import { createRoute, z } from '@hono/zod-openapi';
-import {
-  GetArtifactResponseSchema,
-  ListArtifactsRequestQuerySchema,
-  ListArtifactsResponseSchema,
-} from '../schemas/artifact';
+import { createRoute } from '@hono/zod-openapi';
+import { ListArtifactsRequestQuerySchema, ListArtifactsResponseSchema } from '../schemas/artifact';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import { TOKEN_PAGINATION } from './fernExtensions';
 import { OpenApiTag } from './openapiTags';
-
-const ArtifactSlugParamsSchema = z.object({
-  slug: z.string().min(1).describe('Artifact slug.'),
-});
 
 export const listArtifactsRoute = createRoute({
   method: 'get',
@@ -40,33 +32,6 @@ export const listArtifactsRoute = createRoute({
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Unauthenticated.',
-    },
-  },
-});
-
-export const getArtifactRoute = createRoute({
-  method: 'get',
-  path: '/{slug}',
-  tags: [OpenApiTag.ARTIFACTS],
-  summary: 'Get an artifact',
-  description: 'Get an artifact created by the caller, by slug.',
-  'x-fern-sdk-group-name': ['artifacts'],
-  'x-fern-sdk-method-name': 'get',
-  request: {
-    params: ArtifactSlugParamsSchema,
-  },
-  responses: {
-    200: {
-      content: { 'application/json': { schema: GetArtifactResponseSchema } },
-      description: 'The artifact.',
-    },
-    401: {
-      content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Unauthenticated.',
-    },
-    404: {
-      content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Not found.',
     },
   },
 });
