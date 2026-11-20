@@ -253,6 +253,34 @@ describe('SchedulesPage', () => {
     });
   });
 
+  it('does not apply the previous page cursor while a new page size is loading', async () => {
+    let resolveSized: (page: { data: Schedule[] }) => void = () => undefined;
+    const listSchedules = vi.fn(async (params: { limit?: number; pageToken?: string }) => {
+      if (params.limit === 25) {
+        return new Promise<{ data: Schedule[] }>(resolve => {
+          resolveSized = resolve;
+        });
+      }
+      return { data: sampleSchedules, nextPageToken: 'page-2' };
+    });
+    renderPage(sampleSchedules, {}, listSchedules);
+
+    expect(await screen.findByText('daily-digest')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Rows per page' }));
+    fireEvent.click(screen.getByRole('option', { name: '25' }));
+
+    const nextPage = screen.getByRole('button', { name: 'Next page' });
+    expect(nextPage).toBeDisabled();
+    fireEvent.click(nextPage);
+
+    await act(async () => {
+      resolveSized({ data: sampleSchedules });
+    });
+    expect(listSchedules.mock.calls.some(([params]) => params?.limit === 25 && params.pageToken === 'page-2')).toBe(
+      false,
+    );
+  });
+
   it('ignores run history returned for a stale schedules page', async () => {
     let resolveFirstRuns: (runs: ScheduleRun[]) => void = () => undefined;
     const listSchedules = vi
@@ -350,6 +378,36 @@ describe('SchedulesPage', () => {
     expect(screen.getByPlaceholderText('Search schedules by name')).toHaveValue('daily-digest');
     expect(scheduleServer.getSchedule).toHaveBeenCalledWith({ id: 's1' });
     expect(scheduleServer.listSchedules).not.toHaveBeenCalled();
+  });
+
+  it('hides the previous pinned schedule while the next one loads', async () => {
+    window.history.replaceState(null, '', '/schedules?scheduleId=s1');
+    const current = sampleSchedules[0];
+    if (current === undefined) throw new Error('expected sample schedule');
+    const next: Schedule = { ...current, id: 's2', name: 'weekly-digest' };
+    let resolveNext: (schedule: Schedule) => void = () => undefined;
+    renderPage([], {
+      getSchedule: vi.fn(async ({ id }: { id: string }) => {
+        if (id === 's2') {
+          return new Promise<Schedule>(resolve => {
+            resolveNext = resolve;
+          });
+        }
+        return current;
+      }),
+    });
+
+    expect(await screen.findByText('daily-digest')).toBeInTheDocument();
+    window.history.pushState(null, '', '/schedules?scheduleId=s2');
+    fireEvent(window, new PopStateEvent('popstate'));
+
+    expect(screen.queryByText('daily-digest')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Actions for daily-digest' })).not.toBeInTheDocument();
+
+    await act(async () => {
+      resolveNext(next);
+    });
+    expect(await screen.findByText('weekly-digest')).toBeInTheDocument();
   });
 
   it('fills the search box from the pinned schedule when the URL has no name', async () => {
@@ -660,6 +718,41 @@ describe('SchedulesPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
 
     expect(await screen.findByText('delete failed')).toBeInTheDocument();
+  });
+
+  it('keeps a failed run list as an error instead of an empty success', async () => {
+    const listScheduleRuns = vi.fn(async () => {
+      throw new Error('runs down');
+    });
+    let queryClient: ReturnType<typeof useServerQueryClient> | undefined;
+    function Capture() {
+      queryClient = useServerQueryClient();
+      return <SchedulesPage />;
+    }
+    render(
+      <ServerProvider
+        server={createMockAgentUIServer({
+          searchAgents: vi.fn(async () => ({ data: [] })),
+          schedules: {
+            listSchedules: vi.fn(async () => ({ data: sampleSchedules })),
+            getSchedule: vi.fn(),
+            createSchedule: vi.fn(),
+            updateSchedule: vi.fn(),
+            deleteSchedule: vi.fn(),
+            listScheduleRuns,
+            createScheduleRun: vi.fn(),
+          },
+        })}
+      >
+        <ToasterProvider>
+          <Capture />
+        </ToasterProvider>
+      </ServerProvider>,
+    );
+
+    expect(await screen.findByText("Couldn't load runs")).toBeInTheDocument();
+    if (queryClient == null) throw new Error('query client missing');
+    expect(queryClient.getQueryState(queryKeys.schedules.runs('s1'))?.status).toBe('error');
   });
 
   it('keeps pagination when name filter matches nothing on the current page', async () => {

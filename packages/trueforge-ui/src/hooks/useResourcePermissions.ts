@@ -39,10 +39,6 @@ function permissionBatches(resourceIds: string[]): string[][] {
 
 type PermissionsById = Record<string, ResourcePermission[]>;
 
-type PermissionsQueryMeta = {
-  server: PermissionsServer;
-};
-
 export function useResourcePermissions({
   resourceType,
   resourceIds,
@@ -71,14 +67,11 @@ export function useResourcePermissions({
       enabled,
       // Keep prior grants while an expanded id set loads; drop them across server swaps (fail closed).
       placeholderData: (previousData, previousQuery) => {
-        const previousServer = (previousQuery?.meta as PermissionsQueryMeta | undefined)?.server;
-        if (previousServer !== server) return undefined;
-        if (previousQuery != null && queryKeys.permissions.listResourceType(previousQuery.queryKey) !== resourceType) {
-          return undefined;
-        }
+        if (previousQuery == null || previousQuery.meta?.server !== server) return undefined;
+        if (queryKeys.permissions.listResourceType(previousQuery.queryKey) !== resourceType) return undefined;
         return previousData;
       },
-      meta: server == null ? undefined : ({ server } satisfies PermissionsQueryMeta),
+      meta: server == null ? undefined : { server },
     },
     queryClient,
   );

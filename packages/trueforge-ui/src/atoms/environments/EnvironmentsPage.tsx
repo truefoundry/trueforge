@@ -191,8 +191,9 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
   );
 
   const environments = listQuery.data?.data ?? EMPTY_ENVIRONMENTS;
-  const nextPageToken = nonEmptyToken(listQuery.data?.nextPageToken);
-  const previousPageToken = nonEmptyToken(listQuery.data?.previousPageToken);
+  const listSettled = !listQuery.isPlaceholderData;
+  const nextPageToken = listSettled ? nonEmptyToken(listQuery.data?.nextPageToken) : undefined;
+  const previousPageToken = listSettled ? nonEmptyToken(listQuery.data?.previousPageToken) : undefined;
   const loading = listQuery.isPending || listQuery.isPlaceholderData;
   const error =
     listQuery.error != null && environments.length === 0

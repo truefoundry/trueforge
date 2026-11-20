@@ -235,7 +235,6 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
         return scheduleServer.getSchedule({ id: scheduleId });
       },
       enabled: pinned,
-      placeholderData: keepPreviousData,
     },
     queryClient,
   );
@@ -251,12 +250,13 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
 
   const schedules = useMemo(() => {
     if (pinned) {
-      return detailQuery.data != null ? [detailQuery.data] : EMPTY_SCHEDULES;
+      return detailQuery.data?.id === scheduleId ? [detailQuery.data] : EMPTY_SCHEDULES;
     }
     return listQuery.data?.data ?? EMPTY_SCHEDULES;
-  }, [detailQuery.data, listQuery.data?.data, pinned]);
-  const nextPageToken = pinned ? undefined : nonEmptyToken(listQuery.data?.nextPageToken);
-  const previousPageToken = pinned ? undefined : nonEmptyToken(listQuery.data?.previousPageToken);
+  }, [detailQuery.data, listQuery.data?.data, pinned, scheduleId]);
+  const listSettled = !listQuery.isPlaceholderData;
+  const nextPageToken = pinned || !listSettled ? undefined : nonEmptyToken(listQuery.data?.nextPageToken);
+  const previousPageToken = pinned || !listSettled ? undefined : nonEmptyToken(listQuery.data?.previousPageToken);
   const activeQuery = pinned ? detailQuery : listQuery;
   const loading = activeQuery.isPending || activeQuery.isPlaceholderData;
   const error =
@@ -275,20 +275,14 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
     {
       queries: scheduleIds.map(id => ({
         queryKey: queryKeys.schedules.runs(id),
-        queryFn: async (): Promise<ScheduleRun[]> => {
-          try {
-            return await scheduleServer.listScheduleRuns({ scheduleId: id });
-          } catch {
-            return EMPTY_RUNS;
-          }
-        },
+        queryFn: () => scheduleServer.listScheduleRuns({ scheduleId: id }),
         placeholderData: keepPreviousData,
       })),
     },
     queryClient,
   );
   const runsByScheduleId = useMemo(() => {
-    const map = new Map<string, { runs: ScheduleRun[]; pending: boolean }>();
+    const map = new Map<string, { runs: ScheduleRun[]; pending: boolean; failed: boolean }>();
     for (let index = 0; index < scheduleIds.length; index += 1) {
       const id = scheduleIds[index];
       if (id === undefined) continue;
@@ -296,6 +290,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
       map.set(id, {
         runs: query?.data ?? EMPTY_RUNS,
         pending: query?.isPending === true && query.data === undefined,
+        failed: query?.isError === true && query.data === undefined,
       });
     }
     return map;
@@ -600,6 +595,8 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
                       <TableCell>
                         {runsState?.pending === true ? (
                           <span className="text-text-secondary text-sm">…</span>
+                        ) : runsState?.failed === true ? (
+                          <span className="text-text-secondary text-sm">Couldn't load runs</span>
                         ) : (
                           <ScheduleLastRunsCell
                             runs={runsState?.runs ?? EMPTY_RUNS}
