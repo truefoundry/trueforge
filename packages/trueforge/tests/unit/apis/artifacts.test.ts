@@ -58,14 +58,18 @@ describe('artifacts router', () => {
     expect(await listTitles('title=report')).toEqual(['Q3 Report']);
   });
 
-  it('filters by updated_at range', async () => {
+  it('filters by last-updated or created range', async () => {
     const boundary = encodeURIComponent(new Date(Date.parse(report.updated_at) + 1).toISOString());
-    expect(await listTitles(`updated_since=${boundary}`)).toEqual(['Roadmap']);
-    expect(await listTitles(`updated_before=${boundary}`)).toEqual(['Q3 Report']);
+    expect(await listTitles(`last_updated_from=${boundary}`)).toEqual(['Roadmap']);
+    expect(await listTitles(`last_updated_to=${boundary}`)).toEqual(['Q3 Report']);
+    expect(await listTitles(`created_from=${boundary}`)).toEqual(['Roadmap']);
+    expect(await listTitles(`created_to=${boundary}`)).toEqual(['Q3 Report']);
   });
 
-  it('rejects an invalid page token or timestamp', async () => {
+  it('rejects an invalid page token, timestamp, or combined time ranges', async () => {
     expect((await app.request('/?page_token=not-a-token')).status).toBe(400);
-    expect((await app.request('/?updated_since=yesterday')).status).toBe(400);
+    expect((await app.request('/?last_updated_from=yesterday')).status).toBe(400);
+    const now = encodeURIComponent(new Date().toISOString());
+    expect((await app.request(`/?last_updated_from=${now}&created_to=${now}`)).status).toBe(400);
   });
 });
