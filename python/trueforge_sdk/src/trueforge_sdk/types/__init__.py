@@ -19,6 +19,7 @@ if typing.TYPE_CHECKING:
     from .approval_allow import ApprovalAllow
     from .approval_decision import ApprovalDecision
     from .approval_deny import ApprovalDeny
+    from .artifact import Artifact
     from .ask_user_questions_config import AskUserQuestionsConfig
     from .available_mcp_server import AvailableMcpServer
     from .available_model import AvailableModel
@@ -80,6 +81,7 @@ if typing.TYPE_CHECKING:
     from .generative_ui_config import GenerativeUiConfig
     from .get_agent_code_snippets_response import GetAgentCodeSnippetsResponse
     from .get_agent_response import GetAgentResponse
+    from .get_artifact_response import GetArtifactResponse
     from .get_available_mcp_server_response import GetAvailableMcpServerResponse
     from .get_capabilities_response import GetCapabilitiesResponse
     from .get_configuration_response import GetConfigurationResponse
@@ -111,6 +113,7 @@ if typing.TYPE_CHECKING:
     from .large_tool_response_config import LargeToolResponseConfig
     from .legacy_turn_input_item import LegacyTurnInputItem
     from .list_agents_response import ListAgentsResponse
+    from .list_artifacts_response import ListArtifactsResponse
     from .list_available_mcp_servers_response import ListAvailableMcpServersResponse
     from .list_available_models_response import ListAvailableModelsResponse
     from .list_available_skills_response import ListAvailableSkillsResponse
@@ -318,6 +321,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ApprovalAllow": ".approval_allow",
     "ApprovalDecision": ".approval_decision",
     "ApprovalDeny": ".approval_deny",
+    "Artifact": ".artifact",
     "AskUserQuestionsConfig": ".ask_user_questions_config",
     "AvailableMcpServer": ".available_mcp_server",
     "AvailableModel": ".available_model",
@@ -379,6 +383,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "GenerativeUiConfig": ".generative_ui_config",
     "GetAgentCodeSnippetsResponse": ".get_agent_code_snippets_response",
     "GetAgentResponse": ".get_agent_response",
+    "GetArtifactResponse": ".get_artifact_response",
     "GetAvailableMcpServerResponse": ".get_available_mcp_server_response",
     "GetCapabilitiesResponse": ".get_capabilities_response",
     "GetConfigurationResponse": ".get_configuration_response",
@@ -410,6 +415,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "LargeToolResponseConfig": ".large_tool_response_config",
     "LegacyTurnInputItem": ".legacy_turn_input_item",
     "ListAgentsResponse": ".list_agents_response",
+    "ListArtifactsResponse": ".list_artifacts_response",
     "ListAvailableMcpServersResponse": ".list_available_mcp_servers_response",
     "ListAvailableModelsResponse": ".list_available_models_response",
     "ListAvailableSkillsResponse": ".list_available_skills_response",
@@ -641,6 +647,7 @@ __all__ = [
     "ApprovalAllow",
     "ApprovalDecision",
     "ApprovalDeny",
+    "Artifact",
     "AskUserQuestionsConfig",
     "AvailableMcpServer",
     "AvailableModel",
@@ -702,6 +709,7 @@ __all__ = [
     "GenerativeUiConfig",
     "GetAgentCodeSnippetsResponse",
     "GetAgentResponse",
+    "GetArtifactResponse",
     "GetAvailableMcpServerResponse",
     "GetCapabilitiesResponse",
     "GetConfigurationResponse",
@@ -733,6 +741,7 @@ __all__ = [
     "LargeToolResponseConfig",
     "LegacyTurnInputItem",
     "ListAgentsResponse",
+    "ListArtifactsResponse",
     "ListAvailableMcpServersResponse",
     "ListAvailableModelsResponse",
     "ListAvailableSkillsResponse",

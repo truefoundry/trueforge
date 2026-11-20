@@ -55,6 +55,17 @@
             },
             "default": "./dist/esm/api/resources/agents/exports.mjs"
         },
+        "./artifacts": {
+            "import": {
+                "types": "./dist/esm/api/resources/artifacts/exports.d.mts",
+                "default": "./dist/esm/api/resources/artifacts/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/artifacts/exports.d.ts",
+                "default": "./dist/cjs/api/resources/artifacts/exports.js"
+            },
+            "default": "./dist/esm/api/resources/artifacts/exports.mjs"
+        },
         "./auth": {
             "import": {
                 "types": "./dist/esm/api/resources/auth/exports.d.mts",
