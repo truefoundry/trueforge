@@ -1,7 +1,7 @@
 import type { Subject } from '@truefoundry/trueforge-core/agent-session';
 import { ulid } from 'ulid';
 import type { IArtifactStore, ListArtifactsInput } from '../../src/db/artifactStore';
-import { MAX_SESSION_TITLE_LENGTH } from '../../src/schemas/session';
+import { MAX_TITLE_LENGTH } from '../../src/schemas/common';
 
 const TENANT = 'default';
 const OTHER_TENANT = 'other';
@@ -12,8 +12,10 @@ const LIST_DEFAULTS: ListArtifactsInput = {
   created_by_subject_id: SUBJECT.subject_id,
   created_by_session_id: undefined,
   title: undefined,
-  updated_since: undefined,
-  updated_before: undefined,
+  last_updated_from: undefined,
+  last_updated_to: undefined,
+  created_from: undefined,
+  created_to: undefined,
   limit: 10,
   page_token: undefined,
 };
@@ -21,6 +23,11 @@ const LIST_DEFAULTS: ListArtifactsInput = {
 /** Keeps `updated_at` distinct between consecutive writes. */
 async function tick(): Promise<void> {
   await new Promise(resolve => setTimeout(resolve, 5));
+}
+
+/** Postgres keeps microseconds that the millisecond wire timestamp drops; `tick` keeps writes further apart. */
+function justAfter(timestamp: string): Date {
+  return new Date(Date.parse(timestamp) + 1);
 }
 
 /** Callers MUST `jest.mock('ulid')` with a pass-through `jest.fn` so ids can be pinned. */
@@ -56,7 +63,7 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     return data.map(a => a.title).sort();
   }
 
-  it('creates and gets an artifact by its generated slug', async () => {
+  it('creates an artifact with a generated slug', async () => {
     const created = await createArtifact();
     expect(created).toEqual(
       expect.objectContaining({
@@ -67,8 +74,7 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
       }),
     );
     expect(created.slug).toBe(`q3-report-${created.id.slice(-6)}`);
-    expect(await getStore().getArtifact({ tenant_id: TENANT, slug: created.slug })).toEqual(created);
-    expect(await getStore().getArtifact({ tenant_id: OTHER_TENANT, slug: created.slug })).toBeUndefined();
+    expect((await getStore().listArtifacts(LIST_DEFAULTS)).data).toEqual([created]);
   });
 
   it('cleans the title into a URL-safe slug', async () => {
@@ -76,19 +82,19 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     expect(accented.title).toBe('Café --  Sales_Report!! (Q3)');
     expect(accented.slug).toBe(`cafe-salesreport-q3-${accented.id.slice(-6)}`);
     const symbols = await createArtifact({ title: 'a/b & c' });
-    expect(symbols.slug).toBe(`ab-and-c-${symbols.id.slice(-6)}`);
+    expect(symbols.slug).toBe(`ab-c-${symbols.id.slice(-6)}`);
+    const currency = await createArtifact({ title: 'Cost €5 & 10%' });
+    expect(currency.slug).toBe(`cost-5-10-${currency.id.slice(-6)}`);
     const nonLatin = await createArtifact({ title: 'レポート' });
     expect(nonLatin.slug).toBe(nonLatin.id.slice(-6));
   });
 
   it('caps the title length', async () => {
-    const longest = await createArtifact({ title: 'a'.repeat(MAX_SESSION_TITLE_LENGTH) });
-    expect(longest.slug).toHaveLength(MAX_SESSION_TITLE_LENGTH + 7);
-    const expanded = await createArtifact({ title: '€'.repeat(MAX_SESSION_TITLE_LENGTH) });
-    expect(expanded.slug).toHaveLength(MAX_SESSION_TITLE_LENGTH + 7);
-    await expect(createArtifact({ title: 'a'.repeat(MAX_SESSION_TITLE_LENGTH + 1) })).rejects.toBeInstanceOf(
-      RangeError,
-    );
+    const longest = await createArtifact({ title: 'a'.repeat(MAX_TITLE_LENGTH) });
+    expect(longest.slug).toHaveLength(MAX_TITLE_LENGTH + 1);
+    const expanded = await createArtifact({ title: 'ß'.repeat(MAX_TITLE_LENGTH) });
+    expect(expanded.slug).toHaveLength(MAX_TITLE_LENGTH + 1);
+    await expect(createArtifact({ title: 'a'.repeat(MAX_TITLE_LENGTH + 1) })).rejects.toBeInstanceOf(RangeError);
     await expect(createArtifact({ title: '   ' })).rejects.toBeInstanceOf(RangeError);
   });
 
@@ -96,7 +102,6 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     const first = await createArtifact();
     const second = await createArtifact();
     expect(second.slug).not.toBe(first.slug);
-    expect(await getStore().getArtifact({ tenant_id: TENANT, slug: second.slug })).toEqual(second);
   });
 
   it('rejects a duplicate slug in the tenant but allows it in another tenant', async () => {
@@ -151,16 +156,37 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     expect(await listTitles({ title: 'missing' })).toEqual([]);
   });
 
-  it('filters the list by updated_at range', async () => {
+  it('filters the list by inclusive last-updated range', async () => {
     const older = await createArtifact({ title: 'older' });
     await tick();
     const newer = await createArtifact({ title: 'newer' });
+    await tick();
+    await createVersion(older.id, 'u1');
     const newerUpdatedAt = new Date(newer.updated_at);
-    expect(await listTitles({ updated_since: newerUpdatedAt })).toEqual(['newer']);
-    expect(await listTitles({ updated_before: newerUpdatedAt })).toEqual(['older']);
+    expect(await listTitles({ last_updated_from: newerUpdatedAt })).toEqual(['newer', 'older']);
+    expect(await listTitles({ last_updated_to: justAfter(newer.updated_at) })).toEqual(['newer']);
     expect(
-      await listTitles({ updated_since: new Date(older.updated_at), updated_before: new Date(older.updated_at) }),
-    ).toEqual([]);
+      await listTitles({ last_updated_from: newerUpdatedAt, last_updated_to: justAfter(newer.updated_at) }),
+    ).toEqual(['newer']);
+  });
+
+  it('filters the list by inclusive created range', async () => {
+    const older = await createArtifact({ title: 'older' });
+    await tick();
+    const newer = await createArtifact({ title: 'newer' });
+    await tick();
+    await createVersion(older.id, 'u1');
+    expect(await listTitles({ created_from: new Date(newer.created_at) })).toEqual(['newer']);
+    expect(await listTitles({ created_to: justAfter(older.created_at) })).toEqual(['older']);
+    expect(
+      await listTitles({ created_from: new Date(older.created_at), created_to: justAfter(older.created_at) }),
+    ).toEqual(['older']);
+  });
+
+  it('rejects combining the last-updated and created ranges', async () => {
+    await expect(listTitles({ last_updated_from: new Date(), created_to: new Date() })).rejects.toThrow(
+      'Pass only one of the last_updated or created time ranges',
+    );
   });
 
   it('creates monotonic versions and advances latest_version and updated_at', async () => {
@@ -171,7 +197,7 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     const v1 = await createVersion(artifact.id, 'u1');
     const v2 = await createVersion(artifact.id, 'u2');
     expect([v1.version, v2.version]).toEqual([1, 2]);
-    const updated = await store.getArtifact({ tenant_id: TENANT, slug: artifact.slug });
+    const updated = (await store.listArtifacts(LIST_DEFAULTS)).data.find(a => a.id === artifact.id);
     expect(updated?.latest_version).toBe(2);
     expect(updated?.updated_at).toBe(v2.created_at);
     expect(Date.parse(updated?.updated_at ?? '')).toBeGreaterThan(Date.parse(artifact.updated_at));
@@ -202,6 +228,6 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     expect(
       await store.getVersion({ tenant_id: OTHER_TENANT, artifact_id: artifact.id, version: v1.version }),
     ).toBeUndefined();
-    expect((await store.getArtifact({ tenant_id: TENANT, slug: artifact.slug }))?.latest_version).toBe(1);
+    expect((await store.listArtifacts(LIST_DEFAULTS)).data[0]?.latest_version).toBe(1);
   });
 }

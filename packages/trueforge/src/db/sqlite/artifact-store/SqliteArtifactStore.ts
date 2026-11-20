@@ -5,12 +5,12 @@ import {
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import { sql, type ExpressionBuilder, type Kysely } from 'kysely';
 import {
+  listArtifactsTimeRange,
   newArtifactIdentity,
   type ArtifactRecord,
   type ArtifactVersionRecord,
   type CreateArtifactInput,
   type CreateArtifactVersionInput,
-  type GetArtifactInput,
   type GetArtifactVersionInput,
   type IArtifactStore,
   type ListArtifactsInput,
@@ -72,16 +72,6 @@ export class SqliteArtifactStore implements IArtifactStore {
     return toArtifactRecord(row);
   }
 
-  async getArtifact(input: GetArtifactInput): Promise<ArtifactRecord | undefined> {
-    const row = await this.#db
-      .selectFrom('artifact')
-      .select(recordColumns)
-      .where('tenant_id', '=', input.tenant_id)
-      .where('slug', '=', input.slug)
-      .executeTakeFirst();
-    return row === undefined ? undefined : toArtifactRecord(row);
-  }
-
   async listArtifacts(input: ListArtifactsInput): Promise<{ data: ArtifactRecord[]; pagination: TokenPagination }> {
     const offset = decodeOffsetPageToken(input.page_token);
     let query = this.#db
@@ -93,13 +83,15 @@ export class SqliteArtifactStore implements IArtifactStore {
       query = query.where('created_by_session_id', '=', input.created_by_session_id);
     }
     if (input.title !== undefined) {
+      // Case-insensitive title substring search.
       query = query.where(sql<boolean>`instr(lower(title), lower(${input.title})) > 0`);
     }
-    if (input.updated_since !== undefined) {
-      query = query.where('updated_at', '>=', input.updated_since.toISOString());
+    const range = listArtifactsTimeRange(input);
+    if (range?.from !== undefined) {
+      query = query.where(range.column, '>=', range.from.toISOString());
     }
-    if (input.updated_before !== undefined) {
-      query = query.where('updated_at', '<', input.updated_before.toISOString());
+    if (range?.to !== undefined) {
+      query = query.where(range.column, '<=', range.to.toISOString());
     }
     const rows = await query
       .orderBy('updated_at', 'desc')
@@ -112,7 +104,6 @@ export class SqliteArtifactStore implements IArtifactStore {
   }
 
   async createVersion(input: CreateArtifactVersionInput): Promise<ArtifactVersionRecord | undefined> {
-    // SQLite transactions are BEGIN IMMEDIATE, so version writes for one artifact already serialise.
     return this.#db.transaction().execute(async db => {
       const artifact = await db
         .selectFrom('artifact')
