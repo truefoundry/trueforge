@@ -25,7 +25,7 @@ describe('Button', () => {
     expect(button).toBe(ref.current);
     expect(button).toHaveAttribute('type', 'button');
     expect(button).toHaveAttribute('data-track', 'save');
-    expect(button).toHaveClass('border', 'h-8', 'host-button');
+    expect(button).toHaveClass('border', 'h-8', 'host-button', 'aui-secondary-button-fill');
     expect(button.className).toMatch(/\[&_svg\]:size-3\.5/);
 
     fireEvent.click(button);
