@@ -123,9 +123,12 @@ export function runSkillStoreContractSuite(getStore: () => ISkillStore): void {
           { name: 'web-artifacts', preload: false },
           { name: 'algorithmic-art', preload: false },
         ],
+        agent_id: undefined,
       }),
     ).resolves.toBeUndefined();
-    await expect(store.validateAgentSkills({ tenant_id: TENANT, skills: [] })).resolves.toBeUndefined();
+    await expect(
+      store.validateAgentSkills({ tenant_id: TENANT, skills: [], agent_id: undefined }),
+    ).resolves.toBeUndefined();
     await expect(
       store.validateAgentSkills({
         tenant_id: TENANT,
@@ -133,6 +136,7 @@ export function runSkillStoreContractSuite(getStore: () => ISkillStore): void {
           { name: 'algorithmic-art', preload: false },
           { name: 'missing', preload: false },
         ],
+        agent_id: undefined,
       }),
     ).rejects.toMatchObject({
       status: 422,
@@ -191,8 +195,10 @@ export function runSkillStoreContractSuite(getStore: () => ISkillStore): void {
     const store = getStore();
     await store.upsertSkill({ tenant_id: TENANT, name: 'algorithmic-art', manifest: manifest() });
     const skills = [{ name: 'algorithmic-art', preload: false }];
-    await expect(store.validateAgentSkills({ tenant_id: TENANT, skills })).resolves.toBeUndefined();
-    await expect(store.resolveTurnSkills({ tenant_id: TENANT, skills })).resolves.toEqual([
+    await expect(
+      store.validateAgentSkills({ tenant_id: TENANT, skills, agent_id: undefined }),
+    ).resolves.toBeUndefined();
+    await expect(store.resolveTurnSkills({ tenant_id: TENANT, skills, agent_id: undefined })).resolves.toEqual([
       {
         type: 'git',
         name: 'algorithmic-art',
@@ -211,6 +217,7 @@ export function runSkillStoreContractSuite(getStore: () => ISkillStore): void {
       store.validateAgentSkills({
         tenant_id: TENANT,
         skills: [{ name: 'algorithmic-art', preload: true }],
+        agent_id: undefined,
       }),
     ).rejects.toMatchObject({
       status: 422,

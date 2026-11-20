@@ -107,6 +107,7 @@ describe('TrueFoundrySkillStore', () => {
       store.validateAgentSkills({
         tenant_id: TENANT,
         skills: [{ name: 'agent-skill:acme/team-a/echo:3', preload: false }],
+        agent_id: undefined,
       }),
     ).resolves.toBeUndefined();
     expect(client.resolveAgentSkillVersions).toHaveBeenCalledWith({
@@ -131,6 +132,7 @@ describe('TrueFoundrySkillStore', () => {
           { name: 'agent-skill:acme/team-a/echo:3', preload: false },
           { name: 'agent-skill:acme/team-a/missing:1', preload: false },
         ],
+        agent_id: undefined,
       }),
     ).rejects.toMatchObject({
       status: 422,
@@ -140,7 +142,7 @@ describe('TrueFoundrySkillStore', () => {
 
   it('validateAgentSkills is a no-op for an empty skill list', async () => {
     const { store, client } = createStore();
-    await store.validateAgentSkills({ tenant_id: TENANT, skills: [] });
+    await store.validateAgentSkills({ tenant_id: TENANT, skills: [], agent_id: undefined });
     expect(client.resolveAgentSkillVersions).not.toHaveBeenCalled();
   });
 
@@ -254,7 +256,7 @@ describe('TrueFoundrySkillStore', () => {
     expect(records[0]?.name).toBe('agent-skill:acme/team-a/echo:3');
   });
 
-  it('validateAgentSkills uses the caller token on resolve', async () => {
+  it('validateAgentSkills uses the service API key on resolve', async () => {
     const { store, client } = createStore();
     client.resolveAgentSkillVersions.mockResolvedValue([
       {
@@ -266,9 +268,10 @@ describe('TrueFoundrySkillStore', () => {
     await store.validateAgentSkills({
       tenant_id: TENANT,
       skills: [{ name: 'agent-skill:acme/team-a/echo:3', preload: false }],
+      agent_id: 'agt_1',
     });
     expect(client.resolveAgentSkillVersions).toHaveBeenCalledWith({
-      accessToken: ACCESS_TOKEN,
+      accessToken: 'tfy-api-key',
       skills: [{ fqn: 'agent-skill:acme/team-a/echo:3' }],
     });
   });
@@ -288,6 +291,7 @@ describe('TrueFoundrySkillStore', () => {
       store.resolveTurnSkills({
         tenant_id: TENANT,
         skills: [{ name: 'agent-skill:acme/team-a/echo:3', preload: true }],
+        agent_id: undefined,
       }),
     ).resolves.toEqual([
       {

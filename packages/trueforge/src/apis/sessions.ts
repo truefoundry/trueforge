@@ -379,6 +379,7 @@ function validateSessionSpec<TTransaction>({
     memoryProviderStore: deps.memoryProviderStore,
     configurationStore: deps.configurationStore,
     previousSpec,
+    agentId: runAsAgent?.id,
   });
 }
 

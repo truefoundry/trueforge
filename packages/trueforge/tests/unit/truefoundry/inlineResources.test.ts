@@ -380,11 +380,13 @@ describe('InlineSkillStore', () => {
       { name: 'agent-skill:acme/team-a/echo:3', preload: false },
     ];
 
-    await expect(store.validateAgentSkills({ tenant_id: 'default', skills })).rejects.toMatchObject({
+    await expect(
+      store.validateAgentSkills({ tenant_id: 'default', skills, agent_id: undefined }),
+    ).rejects.toMatchObject({
       status: 422,
       message: 'Unknown skill "agent-skill:acme/team-a/echo:3" — not present in x-tfg-skills',
     });
-    await expect(store.resolveTurnSkills({ tenant_id: 'default', skills })).rejects.toMatchObject({
+    await expect(store.resolveTurnSkills({ tenant_id: 'default', skills, agent_id: undefined })).rejects.toMatchObject({
       status: 422,
       message: 'Unknown skill "agent-skill:acme/team-a/echo:3" — not present in x-tfg-skills',
     });

@@ -101,6 +101,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       tenant_id: requestContext.tenant_id,
       created_by_subject_id: requestContext.subject.id,
       previousSpec: undefined,
+      agentId: undefined,
     });
     try {
       const record = await deps.resolveAgentStore(c).createAgent({
@@ -211,6 +212,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       tenant_id: requestContext.tenant_id,
       created_by_subject_id: requestContext.subject.id,
       previousSpec: undefined,
+      agentId: undefined,
     });
     const record = await deps.resolveAgentStore(c).updateAgent({
       tenant_id: requestContext.tenant_id,
