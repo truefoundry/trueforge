@@ -31,7 +31,7 @@ import type { Logger } from 'winston';
 import { z } from 'zod';
 import type { Authorizer } from '../auth/authorizer';
 import { createdBySubjectFromRequestContext, type RequestContext, type ResolveRequestContext } from '../auth/identity';
-import configuration from '../config';
+import configuration, { trueFoundryModelRouting } from '../config';
 import type { AccessGrantRecord, IAccessControlStore } from '../db/accessControlStore';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import type { IConfigurationStore } from '../db/configurationStore';
@@ -379,6 +379,7 @@ function validateSessionSpec<TTransaction>({
     memoryProviderStore: deps.memoryProviderStore,
     configurationStore: deps.configurationStore,
     previousSpec,
+    modelRouting: trueFoundryModelRouting(),
   });
 }
 

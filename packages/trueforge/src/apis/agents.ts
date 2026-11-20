@@ -7,7 +7,7 @@ import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { Authorizer } from '../auth/authorizer';
 import { createdBySubjectFromRequestContext, type ResolveRequestContext } from '../auth/identity';
-import configuration from '../config';
+import configuration, { trueFoundryModelRouting } from '../config';
 import {
   AgentExternalIdConflictError,
   AgentNameConflictError,
@@ -101,6 +101,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       tenant_id: requestContext.tenant_id,
       created_by_subject_id: requestContext.subject.id,
       previousSpec: undefined,
+      modelRouting: trueFoundryModelRouting(),
     });
     try {
       const record = await deps.resolveAgentStore(c).createAgent({
@@ -211,6 +212,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       tenant_id: requestContext.tenant_id,
       created_by_subject_id: requestContext.subject.id,
       previousSpec: undefined,
+      modelRouting: trueFoundryModelRouting(),
     });
     const record = await deps.resolveAgentStore(c).updateAgent({
       tenant_id: requestContext.tenant_id,

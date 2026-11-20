@@ -1558,6 +1558,22 @@ export function isTrueFoundryModeEnabled(
   return !config.STANDALONE && config.TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL !== undefined;
 }
 
+/** Model routing config in TrueFoundry mode. Undefined in standalone mode. */
+export function trueFoundryModelRouting(
+  config: ServerConfiguration = configuration,
+): TrueFoundryModelRouting | undefined {
+  return isTrueFoundryModeEnabled(config) ? config.TRUEFOUNDRY_MODEL_ROUTING : undefined;
+}
+
+/** The tenant's routing entry when that tenant has model routing on. */
+export function enabledTenantModelRouting(routing: TrueFoundryModelRouting | undefined, tenant_id: string) {
+  const tenant = routing?.tenants[tenant_id];
+  if (tenant?.enabled !== 'on') {
+    return undefined;
+  }
+  return tenant;
+}
+
 /** Runtime auth/integration mode for this process. */
 export enum TrueForgeAuthMode {
   Standalone = 'standalone',
