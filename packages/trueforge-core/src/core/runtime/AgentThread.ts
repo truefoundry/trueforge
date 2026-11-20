@@ -1324,6 +1324,13 @@ export class AgentThread {
     });
     const contextAssistantMessage = toContextAssistantMessage(assistantMessage);
     const finishReason = result.value.finish_reason;
+    if (finishReason === 'incomplete') {
+      this.logger.warn('Provider closed the model stream without a finish reason', {
+        thread_id: this.threadId,
+        model: this.model.name,
+        output_tokens: result.value.usage.output_tokens,
+      });
+    }
     const agentAssistantMessage = buildModelMessageEvent({
       assistantMessage: await enrichAssistantMessage({
         assistantMessage: result.value.output,

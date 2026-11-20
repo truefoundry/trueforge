@@ -103,4 +103,14 @@ describe('AgentThread finish reason errors', () => {
     const done = await runUntilDone({ finishReason, modelParams });
     expect(done).toMatchObject({ status: 'error', error });
   });
+
+  // The provider hung up without saying why, but what it sent is still an answer worth keeping.
+  it('finishes the turn with the partial output when the finish reason is incomplete', async () => {
+    const done = await runUntilDone({ finishReason: 'incomplete', modelParams: undefined });
+
+    expect(done).toMatchObject({
+      status: 'done',
+      output: { content: 'partial', finish_reason: 'incomplete' },
+    });
+  });
 });

@@ -9,7 +9,7 @@ T_Result = typing.TypeVar("T_Result")
 
 class FinishReason(enum.StrEnum):
     """
-    Why the model stopped generating.
+    Why the model stopped generating; `incomplete` when the provider never sent a reason.
     """
 
     STOP = "stop"
@@ -17,6 +17,7 @@ class FinishReason(enum.StrEnum):
     TOOL_CALLS = "tool_calls"
     CONTENT_FILTER = "content_filter"
     FUNCTION_CALL = "function_call"
+    INCOMPLETE = "incomplete"
     _UNKNOWN = "__FINISHREASON_UNKNOWN__"
     """
     This member is used for forward compatibility. If the value is not recognized by the enum, it will be stored here, and the raw value is accessible through `.value`.
@@ -35,6 +36,7 @@ class FinishReason(enum.StrEnum):
         tool_calls: typing.Callable[[], T_Result],
         content_filter: typing.Callable[[], T_Result],
         function_call: typing.Callable[[], T_Result],
+        incomplete: typing.Callable[[], T_Result],
         _unknown_member: typing.Callable[[str], T_Result],
     ) -> T_Result:
         if self is FinishReason.STOP:
@@ -47,4 +49,6 @@ class FinishReason(enum.StrEnum):
             return content_filter()
         if self is FinishReason.FUNCTION_CALL:
             return function_call()
+        if self is FinishReason.INCOMPLETE:
+            return incomplete()
         return _unknown_member(self._value_)

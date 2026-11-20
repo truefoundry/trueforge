@@ -5,8 +5,8 @@ import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 
 export const FinishReason: core.serialization.Schema<serializers.FinishReason.Raw, TrueForge.FinishReason> =
-    core.serialization.enum_(["stop", "length", "tool_calls", "content_filter", "function_call"]);
+    core.serialization.enum_(["stop", "length", "tool_calls", "content_filter", "function_call", "incomplete"]);
 
 export declare namespace FinishReason {
-    export type Raw = "stop" | "length" | "tool_calls" | "content_filter" | "function_call";
+    export type Raw = "stop" | "length" | "tool_calls" | "content_filter" | "function_call" | "incomplete";
 }

@@ -1527,13 +1527,14 @@
         "type": "object"
       },
       "FinishReason": {
-        "description": "Why the model stopped generating.",
+        "description": "Why the model stopped generating; `incomplete` when the provider never sent a reason.",
         "enum": [
           "stop",
           "length",
           "tool_calls",
           "content_filter",
-          "function_call"
+          "function_call",
+          "incomplete"
         ],
         "type": "string"
       },

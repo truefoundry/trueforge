@@ -8,6 +8,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import type { OpenAICompatibleProviderOptions } from '@ai-sdk/openai-compatible';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import type { JSONObject } from '@ai-sdk/provider';
+import { InvalidResponseDataError } from '@ai-sdk/provider';
 import type { ProviderOptions, ReasoningPart } from '@ai-sdk/provider-utils';
 import type {
   AssistantContent,
@@ -1165,8 +1166,10 @@ export function mapFinishReason(reason: FinishReason): RawAssistantMessageWithUs
       return 'tool_calls';
     case 'content-filter':
       return 'content_filter';
-    // No harness equivalent for these — fall back to 'stop'.
+    // Reached only once a stream error was tolerated, since any other one is thrown before this.
     case 'error':
+      return 'incomplete';
+    // The provider did report an ending, just not one the harness models.
     case 'other':
       return 'stop';
     default: {
@@ -1315,7 +1318,8 @@ export async function* mapStreamToChunks({
     return block;
   };
   let finalUsage: CompletionUsage = getEmptyUsage();
-  let finalFinishReason: RawAssistantMessageWithUsage['finish_reason'] = 'stop';
+  // Only a `finish-step` can promote this: a stream that stops before one really is incomplete.
+  let finalFinishReason: RawAssistantMessageWithUsage['finish_reason'] = 'incomplete';
 
   for await (const part of stream) {
     switch (part.type) {
@@ -1455,6 +1459,17 @@ export async function* mapStreamToChunks({
 
       case 'error': {
         const raw = part.error;
+        // A stream that closes without a finish reason is reported as an error part, after which
+        // the adapter still emits `finish`. What already arrived is a usable answer, so keep it and
+        // let `finish-step` mark it `incomplete`. A response with nothing in it is still a failure.
+        const hasOutput =
+          accumulatedText.length > 0 ||
+          accumulatedReasoning.length > 0 ||
+          accumulatedThinking.length > 0 ||
+          toolCallStates.size > 0;
+        if (InvalidResponseDataError.isInstance(raw) && hasOutput) {
+          break;
+        }
         const message = describeStreamError(raw);
         // Preserve the original stream error as cause; toast/turn use .message only.
         const cause = raw instanceof Error ? raw : new Error(message);
