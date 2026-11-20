@@ -142,7 +142,6 @@ export class SqliteArtifactStore implements IArtifactStore<Transaction<Database>
         .values({
           artifact_id: artifact.id,
           version,
-          entrypoint: input.entrypoint,
           storage_prefix: input.storage_prefix,
           total_bytes: input.total_bytes,
           created_at: timestamp,

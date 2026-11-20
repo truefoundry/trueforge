@@ -489,7 +489,6 @@ export interface ArtifactTable {
 export interface ArtifactVersionTable {
   artifact_id: string;
   version: number;
-  entrypoint: string;
   storage_prefix: string;
   total_bytes: number;
   created_at: string;

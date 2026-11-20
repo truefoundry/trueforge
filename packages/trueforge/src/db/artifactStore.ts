@@ -18,7 +18,6 @@ export interface ArtifactRecord {
 export interface ArtifactVersionRecord {
   artifact_id: string;
   version: number;
-  entrypoint: string;
   /** Object-store prefix holding the version's files. */
   storage_prefix: string;
   total_bytes: number;
@@ -49,7 +48,6 @@ export interface ListArtifactsInput {
 export interface CreateArtifactVersionInput {
   tenant_id: string;
   artifact_id: string;
-  entrypoint: string;
   storage_prefix: string;
   total_bytes: number;
 }

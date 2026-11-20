@@ -20,7 +20,6 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     const version = await getStore().createVersion({
       tenant_id: TENANT,
       artifact_id: artifactId,
-      entrypoint: 'index.html',
       storage_prefix: `artifacts/${TENANT}/${artifactId}/${uploadId}/`,
       total_bytes: 100,
     });
@@ -81,7 +80,6 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     expect(await store.getVersion({ tenant_id: TENANT, artifact_id: artifact.id, version: 1 })).toEqual(v1);
     expect(v1).toEqual(
       expect.objectContaining({
-        entrypoint: 'index.html',
         storage_prefix: `artifacts/${TENANT}/${artifact.id}/u1/`,
         total_bytes: 100,
       }),
@@ -97,7 +95,6 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
       await store.createVersion({
         tenant_id: OTHER_TENANT,
         artifact_id: artifact.id,
-        entrypoint: 'index.html',
         storage_prefix: 'p/',
         total_bytes: 1,
       }),
