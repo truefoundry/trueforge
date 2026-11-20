@@ -66,13 +66,13 @@ export type DraftModelReasoningControls = {
 };
 
 function ReasoningEffortEditTrigger({
-  editing,
-  pinned,
+  isEditing,
+  isPinned,
   onEdit,
 }: {
-  editing: boolean;
+  isEditing: boolean;
   /** Otherwise revealed on row hover or focus (always visible below md, where hover is unreliable). */
-  pinned: boolean;
+  isPinned: boolean;
   onEdit: (row: HTMLElement) => void;
 }) {
   const open = (event: SyntheticEvent<HTMLElement>) => {
@@ -88,10 +88,10 @@ function ReasoningEffortEditTrigger({
       tabIndex={0}
       aria-label="Edit reasoning effort"
       aria-haspopup="menu"
-      aria-expanded={editing}
+      aria-expanded={isEditing}
       className={cn(
         'text-text-secondary hover:text-text-primary hover:bg-ghost-button-hover inline-flex size-5 shrink-0 items-center justify-center rounded',
-        !pinned && 'md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100',
+        !isPinned && 'md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100',
       )}
       onClick={open}
       onKeyDown={event => {
@@ -251,7 +251,7 @@ export function DraftModelCatalogPanel({
                     const active = selectedName ? model.name === selectedName : filtered[0] === model;
                     const warning = model.warning?.trim();
                     const effortLabel = showHeading ? reasoning?.effortLabel(model) : undefined;
-                    const editing = reasoning?.editingName === model.name;
+                    const isEditing = reasoning?.editingName === model.name;
                     return (
                       <button
                         key={model.id || model.name}
@@ -265,7 +265,7 @@ export function DraftModelCatalogPanel({
                             ? showHeading
                               ? listActiveClass
                               : 'bg-primary-button-bg/10 text-primary-button-bg'
-                            : cn('hover:bg-ghost-button-hover', editing && 'bg-ghost-button-hover'),
+                            : cn('hover:bg-ghost-button-hover', isEditing && 'bg-ghost-button-hover'),
                         )}
                         onClick={() => onSelect(model)}
                       >
@@ -276,8 +276,8 @@ export function DraftModelCatalogPanel({
                               <>
                                 <span className="text-text-secondary shrink-0 text-xs">{effortLabel}</span>
                                 <ReasoningEffortEditTrigger
-                                  editing={editing}
-                                  pinned={active || editing}
+                                  isEditing={isEditing}
+                                  isPinned={active || isEditing}
                                   onEdit={row => reasoning.onEdit(model, row)}
                                 />
                               </>
