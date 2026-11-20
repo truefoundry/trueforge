@@ -1,7 +1,7 @@
 import type { RemoteMcpHeaders, ResolveHeadersResult } from '@truefoundry/trueforge-core/core';
 import { beginMcpAuthorization, isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
 import type { IOAuthTokenStore, OAuthClientRecord } from '../mcp/auth/types';
-import { withServerOverrideHeaders, type PerServerMcpHeaders } from '../runtime/perServerMcpHeaders';
+import { hasAuthorizationHeader, mergeServerHeaders, type PerServerMcpHeaders } from '../runtime/perServerMcpHeaders';
 import { resolveConfiguredMcpRequestHeaders, resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
 import {
   McpServerNotFoundError,
@@ -67,14 +67,36 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
     turnMetadata?: TurnMetadata;
   }): RemoteMcpHeaders {
     const { record } = input;
-    return withServerOverrideHeaders({
-      serverOverrideHeaders: this.#perServerHeaders[record.name],
-      storeHeaders: this.#resolveStoreHeaders(input),
-      configuredHeaders: resolveConfiguredMcpRequestHeaders(record.manifest),
-    });
+    const overrideServerHeaders = this.#perServerHeaders[record.name];
+    // Authorization in x-tfg-mcp-headers is the credential sent to the MCP. Skip the DCR token, and
+    // attach no 401 hook, so a rejection fails instead of starting consent.
+    if (overrideServerHeaders !== undefined && hasAuthorizationHeader(overrideServerHeaders)) {
+      const configuredHeaders = resolveConfiguredMcpRequestHeaders(record.manifest);
+      return mergeServerHeaders({ base: configuredHeaders, override: overrideServerHeaders });
+    }
+    const resolveHeaders = this.#buildResolveHeaders(input);
+    if (overrideServerHeaders === undefined) {
+      return resolveHeaders;
+    }
+    return async () => {
+      let resolvedHeaders: ResolveHeadersResult;
+      if (typeof resolveHeaders === 'function') {
+        resolvedHeaders = await resolveHeaders();
+      } else {
+        resolvedHeaders = { headers: resolveHeaders };
+      }
+      if ('authRequired' in resolvedHeaders) {
+        return resolvedHeaders;
+      }
+      return {
+        ...resolvedHeaders,
+        headers: mergeServerHeaders({ base: resolvedHeaders.headers, override: overrideServerHeaders }),
+      };
+    };
   }
 
-  #resolveStoreHeaders(input: { record: McpServerRecord; userRef: string }): RemoteMcpHeaders {
+  /** DCR token (or consent before connect), otherwise the static manifest headers. No 401 hook unless DCR. */
+  #buildResolveHeaders(input: { record: McpServerRecord; userRef: string }): RemoteMcpHeaders {
     const { record, userRef } = input;
     if (record.manifest.auth?.type === 'dcr') {
       return async (): Promise<ResolveHeadersResult> => {
@@ -98,7 +120,7 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
         return {
           headers: result.headers,
           // On a 401, start DCR consent; the stored token stays until the callback replaces it.
-          authRequiredOnUnauthorized: async () => {
+          onUnauthorized: async () => {
             const authorizationUrl = await beginMcpAuthorization({
               tokenStore: this.#tokenStore,
               mcpServerStore: this.#store,
