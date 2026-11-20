@@ -3,8 +3,8 @@ import type { MCPServerInitInfo, ThreadOverwriteContextEvent, TurnUserEvent } fr
 import type {
   AgentThreadSnapshot,
   ContextMessage,
+  ModelSnapshot,
   SubAgentCompletion,
-  ThreadModel,
 } from '../../core/runtime/AgentThread.types';
 import type { CurrentContextUsage } from '../../core/runtime/contextUsage';
 import type { AgentThreadMetrics } from '../../core/runtime/metrics';
@@ -145,7 +145,7 @@ export interface CreateTurnInput<TTurnCustom extends object = Record<string, nev
    */
   capability_states: ThreadCapabilityStateInit[];
   /** Model the main thread runs on in this turn, including effort; written to its row every turn. */
-  main_thread_model: ThreadModel | null;
+  main_thread_model: ModelSnapshot | null;
   /** Set only if session.title is NULL (first write wins). */
   update_session_title_if_not_exist: string | null;
 }

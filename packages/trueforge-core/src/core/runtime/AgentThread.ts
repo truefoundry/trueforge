@@ -63,7 +63,7 @@ import type { HarnessSandbox, SandboxInfo } from '../sandbox/Sandbox';
 import type { AgentTracing } from '../tracing/AgentTracing';
 import { describeUnknownError, extractErrorLogFields, isReportableError } from '../util/errorLogFields';
 import type { AgentDefinition } from './AgentDefinition';
-import { threadModelFromAgent, type AgentModel } from './AgentModel';
+import { modelSnapshotFromAgent, type AgentModel } from './AgentModel';
 import type {
   AgentThreadConstructorInput,
   AgentThreadRuntimeSendBatch,
@@ -934,7 +934,7 @@ export class AgentThread {
       current_context_usage: this.currentContextUsage,
       parent: this.parent ?? null,
       agent_info: this.agentInfo ?? null,
-      model: threadModelFromAgent(this.model),
+      model: modelSnapshotFromAgent(this.model),
       completion: this.preComputedCompletion ?? null,
       pending_mcp_auth: this.pendingMCPAuth,
       capability_state,

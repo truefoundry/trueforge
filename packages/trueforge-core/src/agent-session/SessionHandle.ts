@@ -3,7 +3,7 @@
  */
 import { newEventId, type TurnUserEvent, type UserMessage } from '../core/events/schema';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
-import { threadModelFromAgent } from '../core/runtime/AgentModel';
+import { modelSnapshotFromAgent } from '../core/runtime/AgentModel';
 import { AgentThread } from '../core/runtime/AgentThread';
 import type { AgentThreadAppendContext, AgentThreadSnapshot } from '../core/runtime/AgentThread.types';
 import { AgentThreadOrchestrator } from '../core/runtime/AgentThreadOrchestrator';
@@ -257,7 +257,7 @@ export class SessionHandle<
           thread_id,
           capability_state: thread.toSnapshot().capability_state,
         })),
-        main_thread_model: mainThread === undefined ? null : threadModelFromAgent(mainThread.model),
+        main_thread_model: mainThread === undefined ? null : modelSnapshotFromAgent(mainThread.model),
         update_session_title_if_not_exist: input.update_session_title_if_not_exist ?? null,
       });
 
