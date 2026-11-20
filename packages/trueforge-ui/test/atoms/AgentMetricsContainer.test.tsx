@@ -66,23 +66,90 @@ describe('AgentMetricsContainer', () => {
 
   it('loads the default 24-hour range and reloads a custom range', async () => {
     const getMeters = vi.fn(async (_request: AgentMetricRangeRequest) => [
-      { name: 'total_turns', aggregateValue: 30, description: 'Total turns', unit: 'count' },
-      { name: 'avg_turns_per_session', aggregateValue: 2.5, description: 'Avg turns / session', unit: 'count' },
-      { name: 'total_sessions', aggregateValue: 12, description: 'Total sessions', unit: 'count' },
+      {
+        name: 'total_turns',
+        aggregateValue: 30,
+        createdByMeAggregateValue: 4,
+        description: 'Total turns',
+        unit: 'count',
+      },
+      {
+        name: 'avg_turns_per_session',
+        aggregateValue: 2.5,
+        createdByMeAggregateValue: 2,
+        description: 'Avg turns / session',
+        unit: 'count',
+      },
+      {
+        name: 'total_sessions',
+        aggregateValue: 12,
+        createdByMeAggregateValue: 2,
+        description: 'Total sessions',
+        unit: 'count',
+      },
       {
         name: 'cost_per_session_in_usd',
         aggregateValue: 0.104,
+        createdByMeAggregateValue: 0.1,
         description: 'Total cost / total sessions',
         unit: '$',
       },
-      { name: 'total_cost_in_usd', aggregateValue: 1.248, description: 'Total cost', unit: '$' },
-      { name: 'min_turns_per_session', aggregateValue: 1, description: 'Min turns', unit: 'count' },
-      { name: 'median_turns_per_session', aggregateValue: 2, description: 'Median turns', unit: 'count' },
-      { name: 'max_turns_per_session', aggregateValue: 5, description: 'Max turns', unit: 'count' },
-      { name: 'min_session_duration_ms', aggregateValue: 3_885, description: 'Min duration', unit: 'ms' },
-      { name: 'median_session_duration_ms', aggregateValue: 3_981, description: 'Median duration', unit: 'ms' },
-      { name: 'p95_session_duration_ms', aggregateValue: 4_561, description: 'P95 duration', unit: 'ms' },
-      { name: 'max_session_duration_ms', aggregateValue: 4_625, description: 'Max duration', unit: 'ms' },
+      {
+        name: 'total_cost_in_usd',
+        aggregateValue: 1.248,
+        createdByMeAggregateValue: 0.2,
+        description: 'Total cost',
+        unit: '$',
+      },
+      {
+        name: 'min_turns_per_session',
+        aggregateValue: 1,
+        createdByMeAggregateValue: 1,
+        description: 'Min turns',
+        unit: 'count',
+      },
+      {
+        name: 'median_turns_per_session',
+        aggregateValue: 2,
+        createdByMeAggregateValue: 2,
+        description: 'Median turns',
+        unit: 'count',
+      },
+      {
+        name: 'max_turns_per_session',
+        aggregateValue: 5,
+        createdByMeAggregateValue: 3,
+        description: 'Max turns',
+        unit: 'count',
+      },
+      {
+        name: 'min_session_duration_ms',
+        aggregateValue: 3_885,
+        createdByMeAggregateValue: 3_900,
+        description: 'Min duration',
+        unit: 'ms',
+      },
+      {
+        name: 'median_session_duration_ms',
+        aggregateValue: 3_981,
+        createdByMeAggregateValue: 3_950,
+        description: 'Median duration',
+        unit: 'ms',
+      },
+      {
+        name: 'p95_session_duration_ms',
+        aggregateValue: 4_561,
+        createdByMeAggregateValue: 4_400,
+        description: 'P95 duration',
+        unit: 'ms',
+      },
+      {
+        name: 'max_session_duration_ms',
+        aggregateValue: 4_625,
+        createdByMeAggregateValue: 4_500,
+        description: 'Max duration',
+        unit: 'ms',
+      },
     ]);
     const getChartData = vi.fn(async (_request: AgentMetricChartDataRequest): Promise<AgentMetricChartData> => ({
       step: '3600',
@@ -141,6 +208,33 @@ describe('AgentMetricsContainer', () => {
       endTimestamp: '2026-08-21T00:00:00.000Z',
       chartName: 'sessions_over_time',
     });
+  });
+
+  it('falls back to the caller numbers when agent-wide values are withheld', async () => {
+    renderMetrics({
+      getCharts: vi.fn(async () => []),
+      getMeters: vi.fn(async () => [
+        {
+          name: 'total_cost_in_usd',
+          aggregateValue: null,
+          createdByMeAggregateValue: 0.5,
+          description: 'Total cost',
+          unit: '$',
+        },
+        {
+          name: 'median_session_duration_ms',
+          aggregateValue: null,
+          createdByMeAggregateValue: 3_500,
+          description: 'Median duration',
+          unit: 'ms',
+        },
+      ]),
+      getChartData: vi.fn(async () => ({ step: '3600', graphs: [] })),
+    });
+
+    expect(await screen.findByText('$0.5000')).toBeInTheDocument();
+    const durationStatistics = screen.getByRole('region', { name: 'Duration statistics' });
+    expect(within(durationStatistics).getAllByText('3.5').length).toBeGreaterThan(0);
   });
 
   it('shows empty states when the server returns no metrics', async () => {
