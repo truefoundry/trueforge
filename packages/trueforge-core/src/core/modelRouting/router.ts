@@ -21,8 +21,8 @@ export interface RoutableModel {
 
 export interface RoutedModel {
   model: string;
-  /** Reasoning effort the thread should run at; undefined keeps the model's default. */
-  effort: ReasoningEffort | undefined;
+  /** Reasoning effort the thread runs at. */
+  effort: ReasoningEffort;
 }
 
 interface Selection {
