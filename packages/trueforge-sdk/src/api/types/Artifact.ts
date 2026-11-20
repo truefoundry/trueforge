@@ -6,8 +6,7 @@ export interface Artifact {
     createdAt: Date;
     createdBySessionId: string;
     createdBySubject: TrueForge.Subject;
-    id: string;
-    /** Highest committed version; 0 before the first commit. */
+    /** Latest version. */
     latestVersion: number;
     slug: string;
     title: string;

@@ -514,7 +514,7 @@ client.agents.delete(
 <dl>
 <dd>
 
-List artifacts created by the caller, most recently updated first.
+List artifacts created by the caller, most recently updated first. Optionally filter by session, title substring, or `updated_at` range.
 </dd>
 </dl>
 </dd>
@@ -561,6 +561,54 @@ client.artifacts.list()
 <dd>
 
 **page_token:** `typing.Optional[str]` — Opaque token from a previous response `next_page_token`.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**created_by_session_id:** `typing.Optional[str]` — When set, only artifacts created in this session are returned.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**title:** `typing.Optional[str]` — Case-insensitive substring match on artifact title.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**last_updated_from:** `typing.Optional[datetime.datetime]` — Inclusive lower bound on `updated_at` (ISO-8601 / RFC 3339). Cannot be combined with `created_from` or `created_to`.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**last_updated_to:** `typing.Optional[datetime.datetime]` — Inclusive upper bound on `updated_at` (ISO-8601 / RFC 3339). Cannot be combined with `created_from` or `created_to`.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**created_from:** `typing.Optional[datetime.datetime]` — Inclusive lower bound on `created_at` (ISO-8601 / RFC 3339). Cannot be combined with `last_updated_from` or `last_updated_to`.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**created_to:** `typing.Optional[datetime.datetime]` — Inclusive upper bound on `created_at` (ISO-8601 / RFC 3339). Cannot be combined with `last_updated_from` or `last_updated_to`.
     
 </dd>
 </dl>
