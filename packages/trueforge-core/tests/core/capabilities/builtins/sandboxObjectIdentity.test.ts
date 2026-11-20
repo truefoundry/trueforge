@@ -20,6 +20,7 @@ function makeToolResult(toolSet: IToolSet, name: string): ToolCallResult {
       originalToolName: name,
     },
     failure: false,
+    isError: false,
     isStructuredContent: false,
     completedAt: new Date().toISOString(),
   };

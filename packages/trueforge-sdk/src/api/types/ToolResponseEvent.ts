@@ -6,6 +6,8 @@ export interface ToolResponseEvent {
     createdAt: string;
     /** Unique identifier for the event (monotonic ULID). */
     id: string;
+    /** Whether the tool execution returned an error. */
+    isError?: boolean;
     /** Thread that owns the tool call. */
     threadId: string;
     /** Id of the tool call this message responds to. */

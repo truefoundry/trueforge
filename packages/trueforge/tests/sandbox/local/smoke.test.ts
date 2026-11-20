@@ -2031,6 +2031,17 @@ async function main(): Promise<void> {
     assert.match(flood.error, /buffered output exceeded/);
     console.log(`ok: oversized stdout is terminal (${String(MAX_OUTPUT_BYTES)} byte cap)`);
 
+    const slow = await provider.exec({
+      sandboxId,
+      command: "printf 'started\\n'; sleep 30",
+      timeoutSeconds: 1,
+    });
+    assert.equal(slow.success, false);
+    if (slow.success) throw new Error('unreachable');
+    assert.match(slow.error, /timed out after 1s/);
+    assert.match(slow.error, /started/);
+    console.log('ok: exec timeout is reported as a failure with partial output');
+
     assert.match(provider.getToolResultDumpDir(), /tool-results$/);
     assert.match(provider.getGitCredentialsPath(), /\.git-credentials$/);
     console.log('ok: dump/git credential paths');

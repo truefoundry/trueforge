@@ -136,6 +136,7 @@ export interface ToolResponseEvent {
   threadId: string;
   toolCallId: string;
   content: string;
+  isError?: boolean;
   createdAt: string;
 }
 

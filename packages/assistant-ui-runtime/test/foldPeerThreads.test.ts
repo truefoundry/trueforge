@@ -416,6 +416,42 @@ describe('foldPeerThreads', () => {
     expect(toolCall.interrupt).toBeUndefined();
   });
 
+  it('projects tool.response error metadata onto the completed tool call', () => {
+    const state = new PeerThreadFoldState();
+    ingestTurnEvent(
+      state,
+      modelMessage({
+        id: 'model-error',
+        threadId: ROOT_THREAD_ID,
+        toolCalls: [
+          {
+            id: 'sandbox-1',
+            type: 'function',
+            function: { name: 'sandbox_exec', arguments: '{}' },
+          },
+        ],
+      }),
+    );
+
+    ingestTurnEvent(state, {
+      type: 'tool.response',
+      id: 'response-error',
+      createdAt,
+      threadId: ROOT_THREAD_ID,
+      toolCallId: 'sandbox-1',
+      content: '{"error":"Sandbox initialization failed: Invalid credentials"}',
+      isError: true,
+    });
+
+    const toolCall = buildRootAssistantContent(state).find(part => part.type === 'tool-call');
+    expect(toolCall?.type).toBe('tool-call');
+    if (toolCall?.type !== 'tool-call') {
+      return;
+    }
+    expect(toolCall.result).toBe('{"error":"Sandbox initialization failed: Invalid credentials"}');
+    expect(toolCall.isError).toBe(true);
+  });
+
   function seedPendingApproval(): PeerThreadFoldState {
     const state = new PeerThreadFoldState();
     ingestTurnEvent(

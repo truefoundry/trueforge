@@ -182,7 +182,7 @@ export const ToolCallContainer: ToolCallMessagePartComponent = part => {
   const showApproval = isRequiresAction && hasPendingToolApproval(part.approval);
 
   const durationText = elapsedMs === undefined ? undefined : formatDuration(elapsedMs);
-  const status = toStatus(part.status?.type);
+  const status = part.isError === true ? 'error' : toStatus(part.status?.type);
   const onToggle = () => setExpanded(prev => !prev);
   const expandSubAgent = useCallback(() => setExpanded(true), []);
   useRegisterApprovalExpand(isSubAgent ? part.toolCallId : '', expandSubAgent);
@@ -307,6 +307,7 @@ export const ToolCallContainer: ToolCallMessagePartComponent = part => {
           icon="mcp-server"
           expanded={expanded}
           onToggle={onToggle}
+          status={status}
           awaiting={status === 'running'}
           awaitingText={durationText ?? 'Awaiting Response…'}
           showResponseLine={status !== 'running' && !!resultDisplay.data}
@@ -330,6 +331,7 @@ export const ToolCallContainer: ToolCallMessagePartComponent = part => {
         icon="mcp-server"
         expanded={expanded}
         onToggle={onToggle}
+        status={status}
         awaiting={status === 'running'}
         awaitingText={durationText ?? 'Awaiting Response…'}
         showResponseLine={status !== 'running' && resultDisplay.data !== undefined}
@@ -353,6 +355,7 @@ export const ToolCallContainer: ToolCallMessagePartComponent = part => {
       toolName={part.toolName}
       expanded={expanded}
       onToggle={onToggle}
+      status={status}
       awaiting={status === 'running'}
       awaitingText={durationText ?? 'Awaiting Response…'}
       showResponseLine={status !== 'running' && resultDisplay.data !== undefined}
