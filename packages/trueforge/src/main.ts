@@ -166,7 +166,7 @@ interface ServerPersistence<TTransaction> {
   accessControlStore: IAccessControlStore<TTransaction>;
   /** extra pre-resolved stores for scheduled runs */
   agentStore: IAgentStore<TTransaction>;
-  artifactStore: IArtifactStore<TTransaction>;
+  artifactStore: IArtifactStore;
   destroyDb: () => Promise<void>;
   mcpOAuthStore: IMcpServerWithAuthStore<TTransaction>;
   /** Connected Redis (client + mode) for distributed peering; undefined in standalone. */
