@@ -1,4 +1,5 @@
 import type { Subject, TokenPagination } from '@truefoundry/trueforge-core/agent-session';
+import slugify from 'slugify';
 import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
 import { newId } from '../utils/id';
 
@@ -81,12 +82,10 @@ export function newArtifactIdentity(rawTitle: string): { id: string; title: stri
   }
   const id = newId();
   const suffix = id.slice(-SLUG_ID_SUFFIX_LENGTH);
-  const base = title
-    .normalize('NFKD')
-    .replace(/\p{M}/gu, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+  // slugify spells out symbols (`€` -> `euro`), so the cleaned title can outgrow the title cap.
+  const base = slugify(title, { lower: true, strict: true, trim: true })
+    .slice(0, MAX_SESSION_TITLE_LENGTH)
+    .replace(/-+$/, '');
   return { id, title, slug: base === '' ? suffix : `${base}-${suffix}` };
 }
 

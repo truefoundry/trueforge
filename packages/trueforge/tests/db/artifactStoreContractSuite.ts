@@ -74,7 +74,9 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
   it('cleans the title into a URL-safe slug', async () => {
     const accented = await createArtifact({ title: '  Café --  Sales_Report!! (Q3)  ' });
     expect(accented.title).toBe('Café --  Sales_Report!! (Q3)');
-    expect(accented.slug).toBe(`cafe-sales-report-q3-${accented.id.slice(-6)}`);
+    expect(accented.slug).toBe(`cafe-salesreport-q3-${accented.id.slice(-6)}`);
+    const symbols = await createArtifact({ title: 'a/b & c' });
+    expect(symbols.slug).toBe(`ab-and-c-${symbols.id.slice(-6)}`);
     const nonLatin = await createArtifact({ title: 'レポート' });
     expect(nonLatin.slug).toBe(nonLatin.id.slice(-6));
   });
@@ -82,6 +84,8 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
   it('caps the title length', async () => {
     const longest = await createArtifact({ title: 'a'.repeat(MAX_SESSION_TITLE_LENGTH) });
     expect(longest.slug).toHaveLength(MAX_SESSION_TITLE_LENGTH + 7);
+    const expanded = await createArtifact({ title: '€'.repeat(MAX_SESSION_TITLE_LENGTH) });
+    expect(expanded.slug).toHaveLength(MAX_SESSION_TITLE_LENGTH + 7);
     await expect(createArtifact({ title: 'a'.repeat(MAX_SESSION_TITLE_LENGTH + 1) })).rejects.toBeInstanceOf(
       RangeError,
     );
