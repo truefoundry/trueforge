@@ -29,7 +29,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       CREATE TABLE artifact_version (
         artifact_id TEXT NOT NULL,
         version INTEGER NOT NULL,
-        entrypoint TEXT NOT NULL,
         storage_prefix TEXT NOT NULL,
         total_bytes INTEGER NOT NULL,
         created_at TEXT NOT NULL,

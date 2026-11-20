@@ -29,7 +29,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .createTable('artifact_version')
     .addColumn('artifact_id', 'text', col => col.notNull())
     .addColumn('version', 'integer', col => col.notNull())
-    .addColumn('entrypoint', 'text', col => col.notNull())
     .addColumn('storage_prefix', 'text', col => col.notNull())
     .addColumn('total_bytes', 'bigint', col => col.notNull())
     .addColumn('created_at', 'timestamptz', col => col.notNull())
