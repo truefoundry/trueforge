@@ -16,8 +16,9 @@ import { useServerCapabilities } from '../../server/ServerContext.js';
 import { useShellMode } from '../../server/ShellModeContext.js';
 import type { AgentSkill, AgentSpec, ConnectorState, ModelSelection } from '../../server/types.js';
 import { mountName } from '../lib/mountName.js';
+import { AUTO_MODEL, keepsAutoModel } from './autoModel.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
-import { modelPatchWithReasoningEffort } from './reasoningEffort.js';
+import { hasReasoningEfforts, modelPatchWithReasoningEffort } from './reasoningEffort.js';
 import { skillFamilyId } from './SkillVersionSelector.js';
 
 function readDraftSandboxEnabled(spec: AgentSpec): boolean | undefined {
@@ -74,16 +75,20 @@ export function reconcileDraftSpecPreferences({
   skills,
   connectors,
   skillsEnabled,
+  keepAutoModel,
 }: {
   agentSpec: AgentSpec;
   models: ModelSelection[];
   skills: AgentSkill[];
   connectors: ConnectorState[];
   skillsEnabled: boolean | undefined;
+  keepAutoModel: boolean;
 }): Partial<AgentSpec> {
   const update: Partial<AgentSpec> = {};
   const selectedModel = agentSpec.model.name.trim();
-  if (!models.some(model => model.name === selectedModel)) {
+  const modelAvailable =
+    selectedModel === AUTO_MODEL ? keepAutoModel : models.some(model => model.name === selectedModel);
+  if (!modelAvailable) {
     const fallback = models[0];
     if (fallback !== undefined) {
       update.model = modelPatchWithReasoningEffort(
@@ -224,6 +229,7 @@ export function DraftSpecPreferenceBridge() {
   const webSearchEnabled = capabilities?.webSearch?.enabled;
   // Capabilities omit memory when no provider is configured, which means unavailable.
   const memoryEnabled = capabilities == null ? undefined : (capabilities.memory?.enabled ?? false);
+  const keepAutoModel = keepsAutoModel(capabilities);
   const prevWebSearchEnabledRef = useRef(webSearchEnabled);
   const prevMemoryEnabledRef = useRef(memoryEnabled);
   const { models, skills, connectors, loaded, error, ensureLoaded } = useDraftCatalog();
@@ -237,9 +243,32 @@ export function DraftSpecPreferenceBridge() {
   // An existing chat or a saved agent keeps the web search it was stored with, matching
   // the server: the tenant switch gates turning web search on, not keeping it on.
   const editsStoredSpec = preferenceKind === 'chat' ? draftSessionId != null : boundAgentId != null;
+  const previousModelNameRef = useRef<string | null>(null);
   useEffect(() => {
     if (isPlainDraft) ensureLoaded();
   }, [ensureLoaded, isPlainDraft]);
+
+  useEffect(() => {
+    if (!isMutableDraft) {
+      previousModelNameRef.current = null;
+      return;
+    }
+    const selected = models.find(model => model.name === agentSpec?.model.name);
+    if (agentSpec == null || selected === undefined) return;
+    const previousName = previousModelNameRef.current;
+    previousModelNameRef.current = selected.name;
+    // Clear a sticky effort only when the selection changes onto a model with no efforts.
+    // An effort set while staying on the current model is explicit.
+    if (!canReconcileLiveSpec || updateAgentSpec == null) return;
+    if (previousName === null || previousName === selected.name) return;
+    if (
+      hasReasoningEfforts(selected.properties.reasoningEfforts) ||
+      agentSpec.model.params?.reasoningEffort === undefined
+    ) {
+      return;
+    }
+    updateAgentSpec({ model: modelPatchWithReasoningEffort(selected.name, agentSpec.model.params, undefined) });
+  }, [agentSpec, canReconcileLiveSpec, isMutableDraft, models, updateAgentSpec]);
 
   useEffect(() => {
     if (isPlainDraft && canReconcileLiveSpec && agentSpec != null) {
@@ -337,6 +366,7 @@ export function DraftSpecPreferenceBridge() {
       skills,
       connectors,
       skillsEnabled: capabilities?.skill.enabled,
+      keepAutoModel,
     });
     if (Object.keys(update).length > 0) {
       updateAgentSpec(update);
@@ -348,6 +378,7 @@ export function DraftSpecPreferenceBridge() {
     connectors,
     error,
     isPlainDraft,
+    keepAutoModel,
     loaded,
     models,
     skills,

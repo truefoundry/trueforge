@@ -143,7 +143,15 @@ describe('DraftModelSelector', () => {
     fireEvent.click(trigger);
 
     const listbox = screen.getByRole('listbox', { name: 'Select model' });
-    expect(within(listbox).getAllByRole('option')).toHaveLength(2);
+    expect(
+      within(listbox)
+        .getAllByRole('option')
+        .map(option => option.textContent),
+    ).toEqual([
+      expect.stringContaining('Auto'),
+      expect.stringContaining('gpt-4.1'),
+      expect.stringContaining('claude-3.7-sonnet'),
+    ]);
     expect(within(listbox).getByText(/128K context/)).toBeInTheDocument();
     const providerGroups = within(listbox).getAllByRole('group');
     expect(providerGroups).toHaveLength(2);
@@ -197,6 +205,51 @@ describe('DraftModelSelector', () => {
         name: 'openai/gpt-4.1',
         params: { maxTokens: 512, reasoningEffort: undefined },
       },
+    });
+  });
+
+  it('shows row efforts and sets one from the Reasoning menu, selecting that model', async () => {
+    renderSelector();
+
+    const trigger = await screen.findByRole('button', { name: 'Select model' });
+    await waitFor(() => expect(trigger).toHaveTextContent('gpt-4.1'));
+    fireEvent.click(trigger);
+
+    const listbox = screen.getByRole('listbox', { name: 'Select model' });
+    const plain = within(listbox).getByRole('option', { name: /gpt-4.1/i });
+    expect(within(plain).queryByRole('button', { name: 'Edit reasoning effort' })).toBeNull();
+    const reasoning = within(listbox).getByRole('option', { name: /claude-3.7-sonnet/i });
+    expect(reasoning).toHaveTextContent('High');
+
+    fireEvent.click(within(reasoning).getByRole('button', { name: 'Edit reasoning effort' }));
+    expect(updateAgentSpec).not.toHaveBeenCalled();
+    const menu = screen.getByRole('menu', { name: 'Reasoning effort' });
+    expect(
+      within(menu)
+        .getAllByRole('menuitemradio')
+        .map(item => item.textContent),
+    ).toEqual(['Default', 'Low', 'High']);
+    expect(within(menu).getByRole('menuitemradio', { name: 'High' })).toHaveAttribute('aria-checked', 'true');
+
+    fireEvent.click(within(menu).getByRole('menuitemradio', { name: 'Low' }));
+    expect(updateAgentSpec).toHaveBeenCalledWith({
+      model: { name: 'anthropic/claude-3.7-sonnet', params: { maxTokens: 512, reasoningEffort: 'low' } },
+    });
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('clears reasoningEffort when Default is chosen', async () => {
+    agentSpec = { model: { name: 'anthropic/claude-3.7-sonnet', params: { maxTokens: 512, reasoningEffort: 'high' } } };
+    renderSelector();
+
+    const trigger = await screen.findByRole('button', { name: 'Select model' });
+    await waitFor(() => expect(trigger).toHaveTextContent('claude-3.7-sonnet'));
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit reasoning effort' }));
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Default' }));
+
+    expect(updateAgentSpec).toHaveBeenCalledWith({
+      model: { name: 'anthropic/claude-3.7-sonnet', params: { maxTokens: 512, reasoningEffort: undefined } },
     });
   });
 

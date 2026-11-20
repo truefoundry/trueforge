@@ -221,3 +221,36 @@ describe('DraftSpecPreferenceBridge memory', () => {
     await expectMemoryUntouched();
   });
 });
+
+describe('DraftSpecPreferenceBridge reasoning effort', () => {
+  it('clears a sticky effort only once the selection moves onto a model without efforts', async () => {
+    agentSpec = { model: { name: 'plain', params: { reasoningEffort: 'high' } } };
+    draftSessionId = undefined;
+    const server = createMockAgentUIServer({
+      getModels: async () => [
+        { id: 'reasoning', name: 'reasoning', provider: { name: 'P' }, properties: { reasoningEfforts: ['high'] } },
+        { id: 'plain', name: 'plain', provider: { name: 'P' }, properties: {} },
+      ],
+    });
+    const tree = () => (
+      <ServerProvider server={server}>
+        <DraftCatalogProvider>
+          <DraftSpecPreferenceBridge />
+        </DraftCatalogProvider>
+      </ServerProvider>
+    );
+    const { rerender } = render(tree());
+    await new Promise(resolve => setTimeout(resolve, 50));
+    const clearsEffort = expect.objectContaining({
+      model: { name: 'plain', params: { reasoningEffort: undefined } },
+    });
+    expect(updateAgentSpec).not.toHaveBeenCalledWith(clearsEffort);
+
+    agentSpec = { model: { name: 'reasoning', params: { reasoningEffort: 'high' } } };
+    rerender(tree());
+    agentSpec = { model: { name: 'plain', params: { reasoningEffort: 'high' } } };
+    rerender(tree());
+
+    await waitFor(() => expect(updateAgentSpec).toHaveBeenCalledWith(clearsEffort));
+  });
+});

@@ -1,12 +1,13 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, type SyntheticEvent } from 'react';
 import { Icon } from '../../icons/Icon.js';
 import type { ModelSelection } from '../../server/types.js';
 import { cn } from '../lib/cn.js';
 import { auiInputClass } from '../lib/inputClasses.js';
 import { CatalogLogo } from '../primitives/CatalogLogo.js';
 import { Tooltip, type TooltipSide } from '../primitives/Tooltip.js';
+import { AUTO_MODEL, AUTO_MODEL_LABEL, AUTO_MODEL_UNAVAILABLE_HINT } from './autoModel.js';
 import { DraftCatalogEmptyState } from './DraftCatalogEmptyState.js';
 import { modelMatchesQuery, normalizeModelSearchText } from './modelSearch.js';
 
@@ -16,6 +17,7 @@ function monogram(value: string): string {
 }
 
 export function displayModelLabel(modelName: string): string {
+  if (modelName === AUTO_MODEL) return AUTO_MODEL_LABEL;
   const slash = modelName.lastIndexOf('/');
   return slash >= 0 ? modelName.slice(slash + 1) : modelName;
 }
@@ -51,6 +53,56 @@ export function ProviderMark({ logo, label, className }: { logo?: string; label:
   );
 }
 
+export type DraftAutoModelOption = {
+  enabled: boolean;
+  onSelect: () => void;
+};
+
+export type DraftModelReasoningControls = {
+  /** `undefined` hides the effort label and its edit control for that row. */
+  effortLabel: (model: ModelSelection) => string | undefined;
+  editingName: string | undefined;
+  onEdit: (model: ModelSelection, row: HTMLElement) => void;
+};
+
+function ReasoningEffortEditTrigger({
+  editing,
+  pinned,
+  onEdit,
+}: {
+  editing: boolean;
+  /** Otherwise revealed on row hover or focus (always visible below md, where hover is unreliable). */
+  pinned: boolean;
+  onEdit: (row: HTMLElement) => void;
+}) {
+  const open = (event: SyntheticEvent<HTMLElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const row = event.currentTarget.closest<HTMLElement>('[role="option"]');
+    if (row) onEdit(row);
+  };
+  // A <button> cannot nest inside the option button, so this is a focusable span.
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      aria-label="Edit reasoning effort"
+      aria-haspopup="menu"
+      aria-expanded={editing}
+      className={cn(
+        'text-text-secondary hover:text-text-primary hover:bg-ghost-button-hover inline-flex size-5 shrink-0 items-center justify-center rounded',
+        !pinned && 'md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100',
+      )}
+      onClick={open}
+      onKeyDown={event => {
+        if (event.key === 'Enter' || event.key === ' ') open(event);
+      }}
+    >
+      <Icon name="pencil" className="size-3" />
+    </span>
+  );
+}
+
 type ProviderSection = { name: string; logo?: string; models: ModelSelection[] };
 
 function groupModelsByProvider(models: ModelSelection[]): ProviderSection[] {
@@ -80,6 +132,8 @@ export function DraftModelCatalogPanel({
   onSelect,
   onOpenSettings,
   listboxId,
+  autoOption,
+  reasoning,
   showHeading = true,
   showSearch = true,
 }: {
@@ -91,6 +145,10 @@ export function DraftModelCatalogPanel({
   onSelect: (model: ModelSelection) => void;
   onOpenSettings?: () => void;
   listboxId: string;
+  /** Listed above the providers when set. */
+  autoOption: DraftAutoModelOption | undefined;
+  /** Inline effort label and edit control per row; list layout (`showHeading`) only. */
+  reasoning: DraftModelReasoningControls | undefined;
   showHeading?: boolean;
   showSearch?: boolean;
 }) {
@@ -100,13 +158,15 @@ export function DraftModelCatalogPanel({
     [models, needle],
   );
   const sections = groupModelsByProvider(filtered);
+  const showAuto = autoOption !== undefined && normalizeModelSearchText(AUTO_MODEL_LABEL).includes(needle);
+  const autoActive = selectedName === AUTO_MODEL;
   const detailedGridClass = 'grid-cols-[minmax(0,1fr)_5rem_1rem]';
+  const listActiveClass = 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text';
 
   return (
     <>
       {showSearch && (
         <div className="border-b border-border px-3 py-2">
-          {showHeading ? <p className="text-text-primary mb-2 text-sm font-normal">Select model</p> : null}
           <label className="relative block">
             <Icon
               name="search"
@@ -116,7 +176,7 @@ export function DraftModelCatalogPanel({
               type="search"
               value={query}
               onChange={event => onQueryChange(event.target.value)}
-              placeholder="Search"
+              placeholder="Search models"
               className={auiInputClass('h-8 py-1 pr-2 pl-7')}
               autoFocus
             />
@@ -137,6 +197,30 @@ export function DraftModelCatalogPanel({
           </div>
         ) : null}
         <div id={listboxId} role="listbox" aria-label="Select model" className="flex flex-col p-1">
+          {showAuto ? (
+            <>
+              <button
+                type="button"
+                role="option"
+                aria-selected={autoActive}
+                disabled={!autoOption.enabled}
+                className={cn(
+                  'flex w-full items-center rounded-md px-2 py-2 text-left text-sm',
+                  autoActive ? listActiveClass : 'hover:bg-ghost-button-hover',
+                  !autoOption.enabled && 'cursor-default opacity-50 hover:bg-transparent',
+                )}
+                onClick={autoOption.onSelect}
+              >
+                <span className="min-w-0">
+                  <span className="block truncate font-normal">{AUTO_MODEL_LABEL}</span>
+                  {autoOption.enabled ? null : (
+                    <span className="text-text-secondary mt-0.5 block text-[10px]">{AUTO_MODEL_UNAVAILABLE_HINT}</span>
+                  )}
+                </span>
+              </button>
+              <div aria-hidden className="mx-2 my-1 border-t border-border" />
+            </>
+          ) : null}
           {filtered.length === 0 ? (
             <DraftCatalogEmptyState
               loading={loading}
@@ -164,6 +248,8 @@ export function DraftModelCatalogPanel({
                   {section.models.map(model => {
                     const active = selectedName ? model.name === selectedName : filtered[0] === model;
                     const warning = model.warning?.trim();
+                    const effortLabel = showHeading ? reasoning?.effortLabel(model) : undefined;
+                    const editing = reasoning?.editingName === model.name;
                     return (
                       <button
                         key={model.id || model.name}
@@ -171,14 +257,30 @@ export function DraftModelCatalogPanel({
                         role="option"
                         aria-selected={active}
                         className={cn(
-                          'w-full items-center rounded-md px-2 py-2 text-left text-sm',
-                          showHeading ? 'flex' : cn('grid gap-2', detailedGridClass),
-                          active ? 'bg-primary-button-bg/10 text-primary-button-bg' : 'hover:bg-ghost-button-hover',
+                          'group w-full items-center rounded-md px-2 py-2 text-left text-sm',
+                          showHeading ? 'flex gap-2' : cn('grid gap-2', detailedGridClass),
+                          active
+                            ? showHeading
+                              ? listActiveClass
+                              : 'bg-primary-button-bg/10 text-primary-button-bg'
+                            : cn('hover:bg-ghost-button-hover', editing && 'bg-ghost-button-hover'),
                         )}
                         onClick={() => onSelect(model)}
                       >
                         <span className="min-w-0">
-                          <span className="block truncate font-normal">{displayModelLabel(model.name)}</span>
+                          <span className="flex min-w-0 items-center gap-1.5">
+                            <span className="min-w-0 truncate font-normal">{displayModelLabel(model.name)}</span>
+                            {reasoning !== undefined && effortLabel !== undefined ? (
+                              <>
+                                <span className="text-text-secondary shrink-0 text-xs">{effortLabel}</span>
+                                <ReasoningEffortEditTrigger
+                                  editing={editing}
+                                  pinned={active || editing}
+                                  onEdit={row => reasoning.onEdit(model, row)}
+                                />
+                              </>
+                            ) : null}
+                          </span>
                           {showHeading &&
                           (model.properties.contextLength !== undefined ||
                             model.properties.maxOutputTokens !== undefined) ? (
@@ -203,9 +305,8 @@ export function DraftModelCatalogPanel({
                               : formatTokens(model.properties.contextLength)}
                           </span>
                         ) : null}
-                        {active && showHeading ? <Icon name="check" className="ml-auto size-3.5" /> : null}
                         {warning ? (
-                          <span className={cn('flex items-center justify-end', showHeading && !active && 'ml-auto')}>
+                          <span className={cn('flex items-center justify-end', showHeading && 'ml-auto')}>
                             <ModelWarningMark warning={warning} />
                           </span>
                         ) : !showHeading ? (
