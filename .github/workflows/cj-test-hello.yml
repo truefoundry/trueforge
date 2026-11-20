@@ -1,0 +1,16 @@
+name: CJ Test Hello
+
+on:
+  push:
+    branches:
+      - cj-test-tok-commit
+
+permissions: {}
+
+jobs:
+  hello:
+    name: Echo Hello
+    runs-on: ubuntu-latest
+    steps:
+      - name: Echo Hello
+        run: echo "Hello"
