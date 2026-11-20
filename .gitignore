@@ -1,8 +1,5 @@
 node_modules/
 dist/
-# Vendored dorny/paths-filter runtime (see .github/actions/paths-filter/VENDOR.md)
-!.github/actions/paths-filter/dist/
-!.github/actions/paths-filter/dist/**
 *.tgz
 !vendor/*.tgz
 .DS_Store
