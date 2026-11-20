@@ -343,7 +343,7 @@ export interface ServerDeps<TTransaction> {
   /** DB singleton, or the env-backed shared store in TrueFoundry mode. */
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   scheduleStore: IScheduleStore<TTransaction>;
-  artifactStore: IArtifactStore<TTransaction>;
+  artifactStore: IArtifactStore;
   sessionMetricsStore: ISessionMetricsStore;
   sessions: Sessions<TTransaction>;
   sessionStore: ISessionStore<TTransaction>;

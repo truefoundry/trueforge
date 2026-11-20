@@ -6,8 +6,8 @@ import type { ArtifactRecord, IArtifactStore } from '../db/artifactStore';
 import { listArtifactsRoute } from '../routes/artifactRoutes';
 import type { Artifact } from '../schemas/artifact';
 
-export interface ArtifactsRouterDeps<TTransaction> {
-  artifactStore: IArtifactStore<TTransaction>;
+export interface ArtifactsRouterDeps {
+  artifactStore: IArtifactStore;
   resolveRequestContext: ResolveRequestContext;
 }
 
@@ -24,7 +24,7 @@ function toWireArtifact(record: ArtifactRecord): Artifact {
   };
 }
 
-export function createArtifactsRouter<TTransaction>(deps: ArtifactsRouterDeps<TTransaction>) {
+export function createArtifactsRouter(deps: ArtifactsRouterDeps) {
   const listHandler: RouteHandler<typeof listArtifactsRoute> = async c => {
     const query = c.req.valid('query');
     const requestContext = deps.resolveRequestContext(c);
