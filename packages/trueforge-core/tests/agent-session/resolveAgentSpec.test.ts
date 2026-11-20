@@ -15,6 +15,7 @@ import {
 describe('TurnResourceResolver.resolveAgentSpec', () => {
   it('fails closed when deps.agent is not wired for a named lookup', async () => {
     const resolver = new TurnResourceResolver({
+      modelRouting: undefined,
       llm: () =>
         Promise.resolve({
           modelClient: makeMockILLM(),
@@ -34,6 +35,7 @@ describe('TurnResourceResolver.resolveAgentSpec', () => {
 describe('TurnResourceResolver.resolveAgentDefinition', () => {
   it('allows existing model resolvers to omit an unknown context length', async () => {
     const resolver = new TurnResourceResolver({
+      modelRouting: undefined,
       llm: () =>
         Promise.resolve({
           modelClient: makeMockILLM(),
@@ -70,6 +72,7 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
     },
   ])('$name', async ({ resolvedModelParams, agentModelParams, expected }) => {
     const resolver = new TurnResourceResolver({
+      modelRouting: undefined,
       llm: () =>
         Promise.resolve({
           modelClient: makeMockILLM(),
