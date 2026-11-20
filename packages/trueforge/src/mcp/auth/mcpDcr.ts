@@ -177,7 +177,7 @@ export async function createMcpOAuthClient(params: {
 
 /**
  * Returns the stored OAuth client for `serverId`, or discovers + DCR-registers and persists one.
- * Used from `resolveMcpAuth` only — callers that already hold the client should pass it through.
+ * Callers that already hold the client should pass it to `buildMcpAuthorizationUrl` directly.
  */
 export async function ensureMcpClientRegistered(params: {
   mcpServerStore: IOAuthClientStore;
@@ -237,6 +237,39 @@ export async function buildMcpAuthorizationUrl(params: {
   return { authorizationUrl: started.authorizationUrl, state };
 }
 
+/**
+ * Ensures a DCR client exists for the server, then builds the authorize URL and stores the pending
+ * PKCE row. Shared by the pre-connect consent path and the 401 recovery path.
+ */
+export async function beginMcpAuthorization(params: {
+  tokenStore: IOAuthTokenStore;
+  mcpServerStore: IOAuthClientStore;
+  serverId: string;
+  userRef: string;
+  mcpServerUrl: string;
+  mcpServerName: string;
+  clientName: string;
+  returnTo?: string;
+}): Promise<URL> {
+  const client = await ensureMcpClientRegistered({
+    mcpServerStore: params.mcpServerStore,
+    serverId: params.serverId,
+    mcpServerUrl: params.mcpServerUrl,
+    mcpServerName: params.mcpServerName,
+    clientName: params.clientName,
+  });
+  const { authorizationUrl } = await buildMcpAuthorizationUrl({
+    tokenStore: params.tokenStore,
+    client,
+    serverId: params.serverId,
+    userRef: params.userRef,
+    mcpServerUrl: params.mcpServerUrl,
+    mcpServerName: params.mcpServerName,
+    ...(params.returnTo !== undefined ? { returnTo: params.returnTo } : {}),
+  });
+  return authorizationUrl;
+}
+
 export async function resolveMcpAuth(params: {
   tokenStore: IOAuthTokenStore;
   mcpServerStore: IOAuthClientStore;
@@ -279,13 +312,14 @@ export async function resolveMcpAuth(params: {
   if (token) {
     await params.tokenStore.deleteToken(tokenKey);
   }
-  const { authorizationUrl: authUrl } = await buildMcpAuthorizationUrl({
+  const authUrl = await beginMcpAuthorization({
     tokenStore: params.tokenStore,
-    client,
+    mcpServerStore: params.mcpServerStore,
     serverId: params.serverId,
     userRef: params.userRef,
     mcpServerUrl: params.mcpServerUrl,
     mcpServerName: params.mcpServerName,
+    clientName: params.clientName,
     ...(params.returnTo !== undefined ? { returnTo: params.returnTo } : {}),
   });
   return { authUrl };
