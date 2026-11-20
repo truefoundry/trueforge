@@ -16,9 +16,7 @@ env:
 jobs:
   upload-grype:
     name: Upload Grype results
-    runs-on:
-      group: large-runner-group
-      labels: "gh-large-linux-2c."
+    runs-on: ubuntu-latest
     permissions:
       actions: read
       contents: read
