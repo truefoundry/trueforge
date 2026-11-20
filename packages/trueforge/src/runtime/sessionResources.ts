@@ -304,7 +304,7 @@ export async function validateAgentSpec({
   configurationStore: IConfigurationStore;
   previousSpec: AgentSpec | undefined;
   /** This process's model routing config. `auto` is rejected when this tenant's routing is off. */
-  modelRouting?: TrueFoundryModelRouting | undefined;
+  modelRouting: TrueFoundryModelRouting | undefined;
 }): Promise<void> {
   // `auto` names no catalog model. It is only valid when this tenant routes models.
   if (spec.model.name === AUTO_MODEL) {
