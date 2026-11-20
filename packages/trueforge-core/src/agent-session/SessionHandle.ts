@@ -2,6 +2,7 @@
  * Bound session handle: starts turns via {@link SessionHandle.createTurn}.
  */
 import { newEventId, type TurnUserEvent, type UserMessage } from '../core/events/schema';
+import { createModelRouter } from '../core/modelRouting/router';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import { modelSnapshotFromAgent } from '../core/runtime/AgentModel';
 import { AgentThread } from '../core/runtime/AgentThread';
@@ -604,22 +605,33 @@ export class SessionHandle<
     sandbox: HarnessSandbox | undefined;
     tracing: AgentTracing;
   }): CreateDynamicSubAgentThread {
+    const { modelRouting, logger } = input.resolver;
+    const routeModel = modelRouting === undefined ? undefined : createModelRouter(modelRouting, logger);
     return async params => {
-      const { definition, model, extraCapabilities } = await input.resolver.resolveAgentDefinition({
+      // Route from the delegated task: the classifier requires the name and input to classify the task.
+      const task = `Name: ${params.request.name}\n\nTask:\n${params.request.input}`;
+      const routed = await routeModel?.({ threadId: params.threadId, input: task });
+      const request = routed === undefined ? params.request : { ...params.request, model: routed.model };
+
+      const resolved = await input.resolver.resolveAgentDefinition({
         spec: input.spec,
-        agent_info: params.request,
+        agent_info: request,
         previousTurn: input.previous,
         signal: params.signal,
         tracing: input.tracing,
       });
       // Model override (request.model) is resolved inside resolveAgentDefinition into `model`.
-      const childDefinition: AgentDefinition = {
-        ...definition,
-        toolSets: params.parentDefinition.toolSets ?? definition.toolSets,
+      const model =
+        routed === undefined
+          ? resolved.model
+          : { ...resolved.model, params: { ...resolved.model.params, reasoning_effort: routed.effort } };
+      const definition: AgentDefinition = {
+        ...resolved.definition,
+        toolSets: params.parentDefinition.toolSets ?? resolved.definition.toolSets,
         // The delegated task goes in as the initial user message; the sub-agent
         // system prompt is SUB_AGENT_IDENTITY (added by AgentThread.buildInstruction).
         instruction: undefined,
-        messages: [{ role: 'user', content: params.request.input }],
+        messages: [{ role: 'user', content: request.input }],
         // Sub-agents should return free-form summaries to the parent, not the user-facing structured response.
         responseFormat: undefined,
       };
@@ -633,16 +645,16 @@ export class SessionHandle<
           webSearchProvider: input.resolver.webSearchProvider,
           logger: input.resolver.logger,
         }),
-        ...(extraCapabilities ?? []),
+        ...(resolved.extraCapabilities ?? []),
       ];
       return new AgentThread({
-        definition: childDefinition,
+        definition,
         model,
         threadId: params.threadId,
-        title: params.request.name,
+        title: request.name,
         sandbox: input.sandbox,
         parent: params.parent,
-        agentInfo: params.request,
+        agentInfo: request,
         capabilities,
         tracing: input.tracing,
         logger: input.resolver.logger,

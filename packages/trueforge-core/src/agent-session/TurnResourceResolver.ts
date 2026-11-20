@@ -14,6 +14,7 @@ import {
   DEFAULT_REQUIRE_APPROVAL_FOR_TOOLS,
 } from '../core/mcp/toolSelectors';
 import { ToolSet } from '../core/mcp/ToolSet';
+import type { ModelRouterDeps } from '../core/modelRouting/router';
 import type { AgentModel } from '../core/runtime/AgentModel';
 import type { AgentInfo } from '../core/runtime/AgentThread.types';
 import type { HarnessSandbox, SandboxInfo } from '../core/sandbox/Sandbox';
@@ -85,6 +86,7 @@ export class TurnResourceResolver<
   readonly #models = new Map<string, Promise<ResolvedModel>>();
   #sandbox?: HarnessSandbox | undefined;
   readonly maxParallelSubAgents?: number;
+  readonly modelRouting: ModelRouterDeps | undefined;
 
   constructor(
     protected readonly deps: {
@@ -115,6 +117,8 @@ export class TurnResourceResolver<
        * `resolveAgentDefinition` without calling `super` does not mount them.
        */
       rootCapabilities?: (() => readonly AgentCapability[]) | undefined;
+      /** Inputs for routing a thread to a model; undefined to not route. */
+      modelRouting: ModelRouterDeps | undefined;
       /** Forwarded to RemoteMCP / AgentThread (required by their constructors). */
       logger: Logger;
     },
@@ -122,6 +126,7 @@ export class TurnResourceResolver<
     if (deps.maxParallelSubAgents !== undefined) {
       this.maxParallelSubAgents = deps.maxParallelSubAgents;
     }
+    this.modelRouting = deps.modelRouting;
   }
 
   get webSearchProvider(): IWebSearchProvider | undefined {

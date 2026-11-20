@@ -1,4 +1,5 @@
 import type {
+  AvailableModelWithCatalogInfo,
   CreateModelProviderInput,
   DeleteModelProviderInput,
   GetModelProviderForUpdateInput,
@@ -9,7 +10,6 @@ import type {
   UpsertModelProviderInput,
 } from '../db/modelProviderStore';
 import type { TurnMetadata } from '../db/turnMetadata';
-import type { AvailableModel } from '../schemas/modelProvider';
 import { gatewayMetadataHeadersForTurn } from './gatewayMetadata';
 import type { InlineModelProviders } from './inlineResources';
 
@@ -60,7 +60,7 @@ export class InlineModelProviderStore<TTransaction = never> implements IModelPro
     return this.#inner.deleteProvider(input, transaction);
   }
 
-  listModels(input: ListModelProvidersInput, transaction?: TTransaction): Promise<AvailableModel[]> {
+  listModels(input: ListModelProvidersInput, transaction?: TTransaction): Promise<AvailableModelWithCatalogInfo[]> {
     return this.#inner.listModels(input, transaction);
   }
 
