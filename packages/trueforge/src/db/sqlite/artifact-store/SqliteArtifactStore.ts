@@ -5,7 +5,6 @@ import {
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import { sql, type ExpressionBuilder, type Kysely } from 'kysely';
 import {
-  listArtifactsTimeRange,
   newArtifactIdentity,
   type ArtifactRecord,
   type ArtifactVersionRecord,
@@ -86,12 +85,20 @@ export class SqliteArtifactStore implements IArtifactStore {
       // Case-insensitive title substring search.
       query = query.where(sql<boolean>`instr(lower(title), lower(${input.title})) > 0`);
     }
-    const range = listArtifactsTimeRange(input);
-    if (range?.from !== undefined) {
-      query = query.where(range.column, '>=', range.from.toISOString());
-    }
-    if (range?.to !== undefined) {
-      query = query.where(range.column, '<=', range.to.toISOString());
+    if (input.last_updated_from !== undefined || input.last_updated_to !== undefined) {
+      if (input.last_updated_from !== undefined) {
+        query = query.where('updated_at', '>=', input.last_updated_from.toISOString());
+      }
+      if (input.last_updated_to !== undefined) {
+        query = query.where('updated_at', '<=', input.last_updated_to.toISOString());
+      }
+    } else {
+      if (input.created_from !== undefined) {
+        query = query.where('created_at', '>=', input.created_from.toISOString());
+      }
+      if (input.created_to !== undefined) {
+        query = query.where('created_at', '<=', input.created_to.toISOString());
+      }
     }
     const rows = await query
       .orderBy('updated_at', 'desc')

@@ -87,18 +87,6 @@ export function newArtifactIdentity(rawTitle: string): { id: string; title: stri
   return { id, title, slug: base === '' ? suffix : `${base}-${suffix}` };
 }
 
-export function listArtifactsTimeRange(
-  input: Pick<ListArtifactsInput, 'last_updated_from' | 'last_updated_to' | 'created_from' | 'created_to'>,
-): { column: 'updated_at' | 'created_at'; from: Date | undefined; to: Date | undefined } | undefined {
-  if (input.last_updated_from !== undefined || input.last_updated_to !== undefined) {
-    return { column: 'updated_at', from: input.last_updated_from, to: input.last_updated_to };
-  }
-  if (input.created_from !== undefined || input.created_to !== undefined) {
-    return { column: 'created_at', from: input.created_from, to: input.created_to };
-  }
-  return undefined;
-}
-
 export interface IArtifactStore {
   /** Generates the id and slug from the title (see `newArtifactIdentity`). */
   createArtifact(input: CreateArtifactInput): Promise<ArtifactRecord>;
