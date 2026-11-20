@@ -2,6 +2,7 @@
  * Stream processing: usage/finish-reason normalisation and the
  * TextStreamPart → ExtendedChatCompletionChunk mapper.
  */
+import { InvalidResponseDataError } from '@ai-sdk/provider';
 import type {
   FinishReason,
   LanguageModelUsage,
@@ -61,6 +62,14 @@ function makeFinishStep(
 
 async function* makeStream(parts: TextStreamPart<ToolSet>[]): AsyncGenerator<TextStreamPart<ToolSet>> {
   for (const part of parts) yield part;
+}
+
+/** What `@ai-sdk/openai-compatible` enqueues when the stream closes with no finish reason. */
+function missingFinishReasonError(): InvalidResponseDataError {
+  return new InvalidResponseDataError({
+    data: undefined,
+    message: 'Response stream ended without a finish reason.',
+  });
 }
 
 async function drainStream(
@@ -169,7 +178,7 @@ describe('mapFinishReason', () => {
     ['length', 'length'],
     ['tool-calls', 'tool_calls'],
     ['content-filter', 'content_filter'],
-    ['error', 'stop'],
+    ['error', 'incomplete'],
     ['other', 'stop'],
   ];
 
@@ -642,6 +651,67 @@ describe('mapStreamToChunks', () => {
         }),
       ),
     ).rejects.toMatchObject({ message: 'upstream error', cause });
+  });
+
+  // `@ai-sdk/openai-compatible` reports a stream that closed with no finish reason this way, then
+  // still emits `finish-step`. The text the provider did send is a usable answer.
+  it('keeps the streamed output when the provider closed without a finish reason', async () => {
+    const { final } = await drainStream(
+      mapStreamToChunks({
+        stream: makeStream([
+          { type: 'text-delta', id: 'txt-0', text: 'partial answer' },
+          { type: 'error', error: missingFinishReasonError() },
+          makeFinishStep('error'),
+        ]),
+        chunkMeta: CHUNK_META,
+      }),
+    );
+
+    expect(final.output.content).toBe('partial answer');
+    expect(final.finish_reason).toBe('incomplete');
+  });
+
+  it('keeps tool calls streamed before the provider closed without a finish reason', async () => {
+    const { final } = await drainStream(
+      mapStreamToChunks({
+        stream: makeStream([
+          { type: 'tool-input-start', id: 'call-1', toolName: 'search' },
+          { type: 'tool-input-delta', id: 'call-1', delta: '{"q":"hi"}' },
+          { type: 'error', error: missingFinishReasonError() },
+          makeFinishStep('error'),
+        ]),
+        chunkMeta: CHUNK_META,
+      }),
+    );
+
+    expect(final.output.tool_calls).toEqual([
+      { id: 'call-1', type: 'function', function: { name: 'search', arguments: '{"q":"hi"}' } },
+    ]);
+    expect(final.finish_reason).toBe('incomplete');
+  });
+
+  it('rejects when the provider closed without a finish reason and sent nothing at all', async () => {
+    const cause = missingFinishReasonError();
+    await expect(
+      drainStream(
+        mapStreamToChunks({
+          stream: makeStream([{ type: 'error', error: cause }, makeFinishStep('error')]),
+          chunkMeta: CHUNK_META,
+        }),
+      ),
+    ).rejects.toMatchObject({ message: cause.message, cause });
+  });
+
+  it('reports a stream that ends before any finish-step as incomplete', async () => {
+    const { final } = await drainStream(
+      mapStreamToChunks({
+        stream: makeStream([{ type: 'text-delta', id: 'txt-0', text: 'cut off' }]),
+        chunkMeta: CHUNK_META,
+      }),
+    );
+
+    expect(final.output.content).toBe('cut off');
+    expect(final.finish_reason).toBe('incomplete');
   });
 
   it('rejects on an abort part rather than returning the partial message as a clean stop', async () => {

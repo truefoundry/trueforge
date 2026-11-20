@@ -1,5 +1,6 @@
 import type { ThreadAssistantMessagePart } from '@assistant-ui/core';
 import type { PendingResponseRef } from './foldPeerThreads.js';
+import { INCOMPLETE_RESPONSE_DATA_NAME } from './incompleteResponse.js';
 import { extractImagePartsFromModelMessage } from './modelMessageImageContent.js';
 import type { ModelMessageEvent } from './server/index.js';
 
@@ -144,6 +145,11 @@ export function buildAssistantContent(message: ModelMessageEvent, context?: Tool
   parts.push(...extractImagePartsFromModelMessage(message));
   for (const toolCall of message.toolCalls ?? []) {
     parts.push(toolCallToPart(toolCall, context));
+  }
+  // The provider closed the stream without saying why, so everything above is whatever arrived
+  // before it went away. The turn still succeeds; the notice trails the content it qualifies.
+  if (message.finishReason === 'incomplete') {
+    parts.push({ type: 'data', name: INCOMPLETE_RESPONSE_DATA_NAME, data: {} });
   }
   return parts;
 }

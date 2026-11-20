@@ -9,7 +9,7 @@ export function finishReasonErrorMessage({
   outputTokens,
   maxOutputTokens,
 }: {
-  finishReason: FinishReason | null;
+  finishReason: FinishReason;
   outputTokens: number;
   maxOutputTokens: number | undefined;
 }): string | undefined {

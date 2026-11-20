@@ -90,6 +90,8 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'HistoryLoaderContainer',
   'IS_CREATE_AGENT_METADATA_KEY',
   'Icon',
+  'IncompleteResponseBanner',
+  'IncompleteResponseContainer',
   'MCP_AUTH_POPUP_CHANNEL',
   'ScheduleFormDrawer',
   'ScheduleFormFields',
