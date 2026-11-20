@@ -7,6 +7,8 @@ import { AnalyticsEvents } from '../../analytics/events.js';
 import { useToasterOptional } from '../../containers/ToasterContainer.js';
 import { useResourcePermissions } from '../../hooks/useResourcePermissions.js';
 import { Icon } from '../../icons/Icon.js';
+import { useServerQueryClient } from '../../server/queryClient.js';
+import { queryKeys } from '../../server/queryKeys.js';
 import { isSessionsChromeEnabled } from '../../server/serverChrome.js';
 import { useOptionalAgentSessionsServer, useScheduleServer, useServer } from '../../server/ServerContext.js';
 import { libraryAgentId, useOptionalShellMode } from '../../server/ShellModeContext.js';
@@ -160,6 +162,10 @@ function ScheduleRowActions({
 
 export function SchedulesPage({ agentId }: SchedulesPageProps) {
   const scheduleServer = useScheduleServer();
+  const queryClient = useServerQueryClient();
+  const invalidateScheduleQueries = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.schedules.all() });
+  }, [queryClient]);
   const server = useServer();
   const toaster = useToasterOptional();
   const track = useTrackAnalytics();
@@ -393,6 +399,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
     const nextStatus: ScheduleStatus = schedule.status === 'active' ? 'paused' : 'active';
     try {
       await scheduleServer.updateSchedule({ ...schedule, status: nextStatus });
+      invalidateScheduleQueries();
       track(AnalyticsEvents.Schedule.TOGGLED, {
         schedule_id: schedule.id,
         agent_id: schedule.agentId,
@@ -437,6 +444,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
     setPendingDelete(null);
     try {
       await scheduleServer.deleteSchedule({ id: schedule.id });
+      invalidateScheduleQueries();
       track(AnalyticsEvents.Schedule.DELETED, { schedule_id: schedule.id, agent_id: schedule.agentId });
       resetToFirstPage();
     } catch (caught) {
@@ -674,7 +682,10 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
           onOpenChange={open => {
             if (!open) setDrawer({ kind: 'closed' });
           }}
-          onSaved={() => resetToFirstPage()}
+          onSaved={() => {
+            invalidateScheduleQueries();
+            resetToFirstPage();
+          }}
         />
       ) : null}
       {drawer.kind === 'edit' ? (
@@ -685,9 +696,15 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
           onOpenChange={open => {
             if (!open) setDrawer({ kind: 'closed' });
           }}
-          onSaved={() =>
-            void loadSchedules({ token: pageToken, size: pageSize, agentId: agentFilter, pinnedScheduleId: scheduleId })
-          }
+          onSaved={() => {
+            invalidateScheduleQueries();
+            void loadSchedules({
+              token: pageToken,
+              size: pageSize,
+              agentId: agentFilter,
+              pinnedScheduleId: scheduleId,
+            });
+          }}
         />
       ) : null}
       {pendingDelete != null ? (
