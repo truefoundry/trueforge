@@ -138,10 +138,13 @@ describe('UserMessageContainer', () => {
     expect(screen.getByText(/\d{1,2}:\d{2}:\d{2}/)).toBeInTheDocument();
   });
 
-  it('hides the action bar while the thread is running', () => {
+  it('keeps copy and hides edit/retry while the thread is running', () => {
     renderUserMessage([{ role: 'user', content: 'hello', id: 'turn-1-user' }], {
       isRunning: true,
     });
+    // Runtime may also mount a trailing empty user placeholder while running.
+    expect(screen.getAllByRole('button', { name: 'Copy' }).length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
   });
 });
