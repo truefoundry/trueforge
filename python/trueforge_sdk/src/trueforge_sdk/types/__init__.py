@@ -236,7 +236,6 @@ if typing.TYPE_CHECKING:
     from .session_sharing_capability_granularity import SessionSharingCapabilityGranularity
     from .session_source import SessionSource
     from .session_source_schedule import SessionSourceSchedule
-    from .session_source_service import SessionSourceService
     from .session_source_type import SessionSourceType
     from .settings_capability import SettingsCapability
     from .settings_capability_section import SettingsCapabilitySection
@@ -535,7 +534,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SessionSharingCapabilityGranularity": ".session_sharing_capability_granularity",
     "SessionSource": ".session_source",
     "SessionSourceSchedule": ".session_source_schedule",
-    "SessionSourceService": ".session_source_service",
     "SessionSourceType": ".session_source_type",
     "SettingsCapability": ".settings_capability",
     "SettingsCapabilitySection": ".settings_capability_section",
@@ -858,7 +856,6 @@ __all__ = [
     "SessionSharingCapabilityGranularity",
     "SessionSource",
     "SessionSourceSchedule",
-    "SessionSourceService",
     "SessionSourceType",
     "SettingsCapability",
     "SettingsCapabilitySection",
