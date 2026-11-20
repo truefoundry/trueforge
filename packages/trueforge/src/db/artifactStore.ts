@@ -42,13 +42,10 @@ export interface ListArtifactsInput {
   created_by_session_id: string | undefined;
   /** Case-insensitive substring match. */
   title: string | undefined;
-  /**
-   * Inclusive `updated_at` bounds. Only one time range applies at a time: setting a
-   * `last_updated_*` and a `created_*` bound together throws.
-   */
+  /** Inclusive `updated_at` bounds; take priority over the created range. */
   last_updated_from: Date | undefined;
   last_updated_to: Date | undefined;
-  /** Inclusive `created_at` bounds. */
+  /** Inclusive `created_at` bounds; ignored when a last-updated bound is set. */
   created_from: Date | undefined;
   created_to: Date | undefined;
   limit: number;
@@ -90,19 +87,13 @@ export function newArtifactIdentity(rawTitle: string): { id: string; title: stri
   return { id, title, slug: base === '' ? suffix : `${base}-${suffix}` };
 }
 
-/** Throws when both the last-updated and created ranges are set. */
 export function listArtifactsTimeRange(
   input: Pick<ListArtifactsInput, 'last_updated_from' | 'last_updated_to' | 'created_from' | 'created_to'>,
 ): { column: 'updated_at' | 'created_at'; from: Date | undefined; to: Date | undefined } | undefined {
-  const lastUpdated = input.last_updated_from !== undefined || input.last_updated_to !== undefined;
-  const created = input.created_from !== undefined || input.created_to !== undefined;
-  if (lastUpdated && created) {
-    throw new Error('Pass only one of the last_updated or created time ranges');
-  }
-  if (lastUpdated) {
+  if (input.last_updated_from !== undefined || input.last_updated_to !== undefined) {
     return { column: 'updated_at', from: input.last_updated_from, to: input.last_updated_to };
   }
-  if (created) {
+  if (input.created_from !== undefined || input.created_to !== undefined) {
     return { column: 'created_at', from: input.created_from, to: input.created_to };
   }
   return undefined;
