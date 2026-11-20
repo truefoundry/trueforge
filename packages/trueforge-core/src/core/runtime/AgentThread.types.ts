@@ -208,7 +208,7 @@ export interface AgentThreadSnapshot {
   current_context_usage: CurrentContextUsage;
   parent: AgentParent | null;
   agent_info: AgentInfo | null;
-  /** Model the thread runs on, recorded when the thread is created. A rebuilt subagent runs on it; the root follows its spec for now. */
+  /** Model the thread runs on: the main thread's is recorded every turn, a subagent's when it's created. A rebuilt subagent runs on it; the root follows its spec for now. */
   model: string | null;
   completion: SubAgentCompletion | null;
   pending_mcp_auth: boolean;

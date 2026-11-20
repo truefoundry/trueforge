@@ -3,7 +3,11 @@ import {
   type LegacyTurnInputItem,
   type SessionMetrics,
 } from '@truefoundry/trueforge-core/agent-session';
-import type { TurnRecord, TurnSnapshot } from '@truefoundry/trueforge-core/agent-session/models/TurnRecord';
+import {
+  MAIN_THREAD_ID,
+  type TurnRecord,
+  type TurnSnapshot,
+} from '@truefoundry/trueforge-core/agent-session/models/TurnRecord';
 import {
   isNonTerminalTurnState,
   type TerminalTurnState,
@@ -121,6 +125,7 @@ export interface CreateTurnInput {
     thread_id: string;
     capability_state: CapabilityState | null;
   }[];
+  main_thread_model: string | null;
   last_activity_timestamp_ms: number;
   update_session_title_if_not_exist: string | null;
   mcp_servers: Record<string, MCPServerInitInfo> | null;
@@ -687,6 +692,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
           ...parent.checkpoint,
           ...(completion !== undefined ? { completion } : {}),
           pending_mcp_auth: false,
+          model: parent.thread_id === MAIN_THREAD_ID ? input.main_thread_model : parent.checkpoint.model,
         };
         turnThreadRows.push({
           session_id: input.session_id,

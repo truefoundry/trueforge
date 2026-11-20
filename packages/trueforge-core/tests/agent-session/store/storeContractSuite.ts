@@ -1670,6 +1670,27 @@ export function runStoreContractSuite<TTransaction>(
       expect(mustGet(afterSecond).metrics.total_turns).toBe(2);
     });
 
+    it("records the main thread's model for each turn, without carrying the previous one", async () => {
+      const store = createStore();
+      await seedSession(store);
+      const modelOf = async (turnId: string) =>
+        mustGet(await store.getTurn({ session_id: sessionId, turn_id: turnId })).snapshot.threads[MAIN_THREAD_ID]
+          ?.model;
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1', main_thread_model: 'acct/model-a' }));
+      await finishTurn(store, 'turn-1');
+      await store.createTurn(
+        makeCreateTurnInput({
+          sessionId,
+          turnId: 'turn-2',
+          previousTurnId: 'turn-1',
+          firstTurnId: 'turn-1',
+          main_thread_model: 'acct/model-b',
+        }),
+      );
+      expect(await modelOf('turn-1')).toBe('acct/model-a');
+      expect(await modelOf('turn-2')).toBe('acct/model-b');
+    });
+
     it('keeps the model of a thread added mid-turn', async () => {
       const store = createStore();
       await seedSession(store);

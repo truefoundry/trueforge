@@ -4,7 +4,11 @@ import {
   type SessionLastTurnDetails,
   type SessionMetrics,
 } from '@truefoundry/trueforge-core/agent-session';
-import type { TurnRecord, TurnSnapshot } from '@truefoundry/trueforge-core/agent-session/models/TurnRecord';
+import {
+  MAIN_THREAD_ID,
+  type TurnRecord,
+  type TurnSnapshot,
+} from '@truefoundry/trueforge-core/agent-session/models/TurnRecord';
 import {
   isNonTerminalTurnState,
   type TerminalTurnState,
@@ -117,6 +121,7 @@ export interface CreateTurnInput {
     thread_id: string;
     capability_state: CapabilityState | null;
   }[];
+  main_thread_model: string | null;
   last_activity_timestamp_ms: number;
   update_session_title_if_not_exist: string | null;
   mcp_servers: Record<string, MCPServerInitInfo> | null;
@@ -704,6 +709,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
           // Do not carry an MCP-auth pause into a new successor turn. Start it unblocked so
           // initialization can emit a new mcp.auth_required event if auth is still missing.
           pending_mcp_auth: false,
+          model: pt.thread_id === MAIN_THREAD_ID ? input.main_thread_model : pt.checkpoint.model,
         };
         turnThreadRows.push({
           session_id: input.session_id,
