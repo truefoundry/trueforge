@@ -13,6 +13,7 @@ export * from "./ApprovalDecision.js";
 export * from "./ApprovalDeny.js";
 export * from "./AskUserQuestionsConfig.js";
 export * from "./AutoCapability.js";
+export * from "./AutoConfiguration.js";
 export * from "./AvailableMcpServer.js";
 export * from "./AvailableModel.js";
 export * from "./AvailableModelProvider.js";

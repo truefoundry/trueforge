@@ -5,8 +5,9 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 import type { CustomProviderDraft } from '@/containers/SettingsBuilder/CustomModelProviderForm.js';
 import ModelSettings from '@/containers/SettingsBuilder/ModelSettings.js';
 import { ServerProvider } from '@/server/ServerContext.js';
-import type { ModelProviderBase, UpdateModelProviderRequest } from '@/server/types.js';
-import { createMockAgentUIServer, createMockCatalog } from '../../server/mockServer.js';
+import type { ConfigurationServer, ModelProviderBase, UpdateModelProviderRequest } from '@/server/types.js';
+import { createMockAgentUIServer, createMockCatalog, tenantSessionSharing } from '../../server/mockServer.js';
+import { allSettingsSections } from '../../server/settingsCapabilityFixture.js';
 
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function showModal() {
@@ -153,5 +154,90 @@ describe('ModelSettings removal', () => {
 
     await screen.findByText('gpt-4-1');
     expect(screen.queryByRole('button', { name: 'Remove gpt-4-1' })).toBeNull();
+  });
+});
+
+describe('ModelSettings Auto mode switch', () => {
+  const autoOn = { webSearch: { enabled: true }, memory: { enabled: true }, auto: { enabled: true } };
+
+  function renderAutoSettings({
+    auto,
+    manageProviders = true,
+    configuration,
+  }: {
+    auto: { enabled: boolean } | undefined;
+    manageProviders?: boolean;
+    configuration: ConfigurationServer;
+  }) {
+    const listModelProviders = vi.fn(async () => [builtInProvider]);
+    const getCapabilities = vi.fn(async () => ({
+      data: {
+        sandbox: { enabled: true },
+        skill: { enabled: true },
+        sessionSharing: tenantSessionSharing,
+        settings: { ...allSettingsSections(true), modelProviders: { enabled: true, manageProviders } },
+        ...(auto ? { auto } : {}),
+      },
+    }));
+    const server = createMockAgentUIServer({
+      catalog: createMockCatalog({
+        modelCatalog: {
+          getModelProviderCatalog: async () => [],
+          listModelProviders,
+          createModelProvider: vi.fn(),
+          updateModelProvider: vi.fn(),
+        },
+      }),
+      configuration,
+      getCapabilities,
+    });
+    render(
+      <ServerProvider server={server}>
+        <ModelSettings />
+      </ServerProvider>,
+    );
+    return { getCapabilities, listModelProviders };
+  }
+
+  it('saves only the Auto mode switch and refreshes capabilities so the picker updates', async () => {
+    const updateConfiguration = vi.fn(async () => ({ ...autoOn, auto: { enabled: false } }));
+    const { getCapabilities } = renderAutoSettings({
+      auto: { enabled: true },
+      configuration: { getConfiguration: async () => autoOn, updateConfiguration },
+    });
+
+    const toggle = await screen.findByRole('switch', { name: 'Allow Auto mode' });
+    expect(toggle).toHaveAttribute('aria-checked', 'true');
+    await waitFor(() => expect(getCapabilities).toHaveBeenCalled());
+    const callsBeforeSave = getCapabilities.mock.calls.length;
+    toggle.click();
+
+    await waitFor(() => expect(updateConfiguration).toHaveBeenCalledWith({ auto: { enabled: false } }));
+    await waitFor(() =>
+      expect(screen.getByRole('switch', { name: 'Allow Auto mode' })).toHaveAttribute('aria-checked', 'false'),
+    );
+    expect(getCapabilities.mock.calls.length).toBeGreaterThan(callsBeforeSave);
+  });
+
+  it('shows only the switch when the platform owns the providers', async () => {
+    const { listModelProviders } = renderAutoSettings({
+      auto: { enabled: true },
+      manageProviders: false,
+      configuration: { getConfiguration: async () => autoOn, updateConfiguration: vi.fn() },
+    });
+
+    await screen.findByRole('switch', { name: 'Allow Auto mode' });
+    expect(screen.queryByRole('button', { name: /Add Custom Provider/ })).toBeNull();
+    expect(listModelProviders).not.toHaveBeenCalled();
+  });
+
+  it('shows no switch when the server does not set up Auto mode', async () => {
+    renderAutoSettings({
+      auto: undefined,
+      configuration: { getConfiguration: async () => autoOn, updateConfiguration: vi.fn() },
+    });
+
+    await screen.findByText('gpt-4-1');
+    expect(screen.queryByRole('switch', { name: 'Allow Auto mode' })).toBeNull();
   });
 });

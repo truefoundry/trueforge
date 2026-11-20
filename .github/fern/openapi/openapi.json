@@ -345,9 +345,27 @@
         "type": "object"
       },
       "AutoCapability": {
+        "description": "Present only when model routing is set up for the tenant; absent means Auto mode settings are hidden.",
         "properties": {
           "enabled": {
-            "description": "Whether Auto mode can be selected: the user has at least one model in every routing cluster.",
+            "description": "Whether Auto mode can be selected: the tenant allows it and the user has the models it picks from.",
+            "type": "boolean"
+          },
+          "reason": {
+            "description": "Present when Auto mode is unavailable. Explains why.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "type": "object"
+      },
+      "AutoConfiguration": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "description": "Whether this tenant may use Auto mode, which picks a model for each turn and each subagent.",
             "type": "boolean"
           }
         },
@@ -518,7 +536,6 @@
           "skill",
           "settings",
           "web_search",
-          "auto",
           "session_sharing"
         ],
         "type": "object"
@@ -1006,6 +1023,9 @@
       "ConfigurationManifest": {
         "additionalProperties": false,
         "properties": {
+          "auto": {
+            "$ref": "#/components/schemas/AutoConfiguration"
+          },
           "memory": {
             "$ref": "#/components/schemas/MemoryConfiguration"
           },
@@ -1015,13 +1035,17 @@
         },
         "required": [
           "web_search",
-          "memory"
+          "memory",
+          "auto"
         ],
         "type": "object"
       },
       "ConfigurationManifestPatch": {
         "additionalProperties": false,
         "properties": {
+          "auto": {
+            "$ref": "#/components/schemas/AutoConfiguration"
+          },
           "memory": {
             "$ref": "#/components/schemas/MemoryConfiguration"
           },

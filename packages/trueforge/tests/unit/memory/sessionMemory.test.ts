@@ -85,7 +85,7 @@ function tenantMemory({
   };
   const storedConfiguration = (tenantId: string) => ({
     tenant_id: tenantId,
-    manifest: { web_search: { enabled: true }, memory: { enabled: tenantEnabled } },
+    manifest: { web_search: { enabled: true }, memory: { enabled: tenantEnabled }, auto: { enabled: true } },
     updated_at: '2026-10-01T00:00:00.000Z',
   });
   const configurationStore: IConfigurationStore = {

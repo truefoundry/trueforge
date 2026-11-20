@@ -25,5 +25,5 @@ export const AUTO_MODEL_UNAVAILABLE_HINT = 'Auto mode is not available for now';
 
 /** Auto stays selected while capabilities load, and is dropped once they say it can't be picked. */
 export function keepsAutoModel(capabilities: AgentBuilderCapabilitiesResponse['data'] | null): boolean {
-  return capabilities == null || capabilities.auto.enabled;
+  return capabilities == null || capabilities.auto?.enabled === true;
 }

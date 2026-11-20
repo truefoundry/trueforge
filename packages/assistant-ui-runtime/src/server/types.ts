@@ -602,10 +602,10 @@ export interface AgentBuilderCapabilitiesResponse {
     /** Absent when the host does not offer memory, which hides memory settings; `reason` explains a locked toggle. */
     memory?: { enabled: boolean; reason?: string };
     /**
-     * Whether Auto mode can be selected in the model picker. Enabled when model routing is on and the user has a model
-     * in every routing cluster.
+     * Absent when the host does not set up model routing, which hides Auto mode and its settings switch. Enabled when
+     * the tenant allows Auto mode and the user has the models it picks from; `reason` explains why it is unavailable.
      */
-    auto: { enabled: boolean };
+    auto?: { enabled: boolean; reason?: string };
     /** Finest supported sharing scope; `subject` allows invite-by-user as well as tenant-wide sharing. */
     sessionSharing: { granularity: 'tenant' | 'subject' };
   };
@@ -1097,12 +1097,14 @@ export interface TenantConfigurationSwitch {
 export interface TenantConfiguration {
   webSearch: TenantConfigurationSwitch;
   memory: TenantConfigurationSwitch;
+  auto: TenantConfigurationSwitch;
 }
 
 export interface UpdateTenantConfigurationRequest {
   /** Omit a switch to leave it as stored. */
   webSearch?: TenantConfigurationSwitch;
   memory?: TenantConfigurationSwitch;
+  auto?: TenantConfigurationSwitch;
 }
 
 /**

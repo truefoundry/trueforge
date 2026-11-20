@@ -67,8 +67,10 @@ const AutoCapabilitySchema = z
   .object({
     enabled: z
       .boolean()
-      .describe('Whether Auto mode can be selected: the user has at least one model in every routing cluster.'),
+      .describe('Whether Auto mode can be selected: the tenant allows it and the user has the models it picks from.'),
+    reason: z.string().optional().describe('Present when Auto mode is unavailable. Explains why.'),
   })
+  .describe('Present only when model routing is set up for the tenant; absent means Auto mode settings are hidden.')
   .openapi('AutoCapability');
 
 const SessionSharingCapabilitySchema = z
@@ -90,7 +92,7 @@ const CapabilitiesDataSchema = z
     settings: SettingsCapabilitySchema,
     web_search: WebSearchCapabilitySchema,
     memory: MemoryCapabilitySchema.optional(),
-    auto: AutoCapabilitySchema,
+    auto: AutoCapabilitySchema.optional(),
     session_sharing: SessionSharingCapabilitySchema,
   })
   .openapi('CapabilitiesData');

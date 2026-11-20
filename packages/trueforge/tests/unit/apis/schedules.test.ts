@@ -74,6 +74,7 @@ function stubTurnExecutionDeps(
     sessions: new Sessions({ sessionStore }),
     sessionStore,
     webSearchProviderStore: {} as never,
+    configurationStore: {} as never,
   };
 }
 

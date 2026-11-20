@@ -8,9 +8,18 @@ from ..core.unchecked_base_model import UncheckedBaseModel
 
 
 class AutoCapability(UncheckedBaseModel):
+    """
+    Present only when model routing is set up for the tenant; absent means Auto mode settings are hidden.
+    """
+
     enabled: bool = pydantic.Field()
     """
-    Whether Auto mode can be selected: the user has at least one model in every routing cluster.
+    Whether Auto mode can be selected: the tenant allows it and the user has the models it picks from.
+    """
+
+    reason: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Present when Auto mode is unavailable. Explains why.
     """
 
     if IS_PYDANTIC_V2:

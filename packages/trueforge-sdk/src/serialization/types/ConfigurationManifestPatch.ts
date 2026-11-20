@@ -3,6 +3,7 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
+import { AutoConfiguration } from "./AutoConfiguration.js";
 import { MemoryConfiguration } from "./MemoryConfiguration.js";
 import { WebSearchConfiguration } from "./WebSearchConfiguration.js";
 
@@ -10,12 +11,14 @@ export const ConfigurationManifestPatch: core.serialization.ObjectSchema<
     serializers.ConfigurationManifestPatch.Raw,
     TrueForge.ConfigurationManifestPatch
 > = core.serialization.object({
+    auto: AutoConfiguration.optional(),
     memory: MemoryConfiguration.optional(),
     webSearch: core.serialization.property("web_search", WebSearchConfiguration.optional()),
 });
 
 export declare namespace ConfigurationManifestPatch {
     export interface Raw {
+        auto?: AutoConfiguration.Raw | null;
         memory?: MemoryConfiguration.Raw | null;
         web_search?: WebSearchConfiguration.Raw | null;
     }
