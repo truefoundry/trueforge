@@ -603,6 +603,7 @@ export class SessionHandle<
     const { modelRouting, logger } = input.resolver;
     const routeModel = modelRouting === undefined ? undefined : createModelRouter(modelRouting, logger);
     return async params => {
+      // Route from the delegated task: the classifier requires the name and input to classify the task.
       const task = `Name: ${params.request.name}\n\nTask:\n${params.request.input}`;
       const routed = await routeModel?.({ threadId: params.threadId, input: task });
       const request = routed === undefined ? params.request : { ...params.request, model: routed.model };
