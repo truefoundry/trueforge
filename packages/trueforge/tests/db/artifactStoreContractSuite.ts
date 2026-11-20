@@ -104,6 +104,8 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     expect(second.slug).not.toBe(first.slug);
   });
 
+  // Only exercises the DB unique constraint: ids are pinned to force a shared slug.
+  // Generated slugs carry a random id suffix, so real creates don't collide.
   it('rejects a duplicate slug in the tenant but allows it in another tenant', async () => {
     const pinnedIds = ['01JAAAAAAAAAAAAAAAAAQ3SUFX', '01JBBBBBBBBBBBBBBBBBQ3SUFX', '01JCCCCCCCCCCCCCCCCCQ3SUFX'];
     for (const id of pinnedIds) {
