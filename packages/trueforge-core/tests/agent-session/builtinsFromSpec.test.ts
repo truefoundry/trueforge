@@ -11,16 +11,13 @@ import {
   WEB_SEARCH_TOOL_NAME,
   buildWebSearchInstruction,
 } from '../../src/core/capabilities/builtins/WebSearch';
-import type { AgentDefinition } from '../../src/core/runtime/AgentDefinition';
+import type { AgentModel } from '../../src/core/runtime/AgentModel';
 import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
 import { WebSearchProviders, type IWebSearchProvider } from '../../src/core/web-search/WebSearchProvider';
 import { TEST_MODEL_NAME, makeMockILLM, makeSilentLogger } from '../core/harnessMocks';
 
-function makeDefinition(): AgentDefinition {
-  return {
-    modelClient: makeMockILLM(),
-    modelName: TEST_MODEL_NAME,
-  };
+function makeModel(): AgentModel {
+  return { client: makeMockILLM(), name: TEST_MODEL_NAME };
 }
 
 function runBuiltins(input: {
@@ -30,7 +27,7 @@ function runBuiltins(input: {
 }): ReturnType<typeof builtinsFromSpec> {
   return builtinsFromSpec({
     spec: input.spec,
-    definition: makeDefinition(),
+    model: makeModel(),
     isChild: input.isChild ?? false,
     sandboxAvailable: false,
     tracing: NOOP_AGENT_TRACING,

@@ -1,6 +1,7 @@
 import type { Logger } from 'winston';
 import type { AgentCapability } from '../core/capabilities/AgentCapability';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
+import type { AgentModel } from '../core/runtime/AgentModel';
 import type { AgentInfo } from '../core/runtime/AgentThread.types';
 import type { HarnessSandbox, SandboxInfo } from '../core/sandbox/Sandbox';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
@@ -11,6 +12,7 @@ import type { AgentSpec } from './schemas/agentSpec';
 /** Result of {@link ITurnResourceResolver.resolveAgentDefinition}. */
 export interface ResolvedAgentDefinition {
   definition: AgentDefinition;
+  model: AgentModel;
   extraCapabilities?: AgentCapability[] | undefined;
 }
 

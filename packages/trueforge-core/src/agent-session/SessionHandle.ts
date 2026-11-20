@@ -3,6 +3,7 @@
  */
 import { newEventId, type TurnUserEvent, type UserMessage } from '../core/events/schema';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
+import { modelSnapshotFromAgent } from '../core/runtime/AgentModel';
 import { AgentThread } from '../core/runtime/AgentThread';
 import type { AgentThreadAppendContext, AgentThreadSnapshot } from '../core/runtime/AgentThread.types';
 import { AgentThreadOrchestrator } from '../core/runtime/AgentThreadOrchestrator';
@@ -247,6 +248,7 @@ export class SessionHandle<
         },
       };
 
+      const mainThread = agentThreads.get(MAIN_THREAD_ID);
       await this.store.createTurn({
         turn: turnInit,
         new_threads,
@@ -255,6 +257,7 @@ export class SessionHandle<
           thread_id,
           capability_state: thread.toSnapshot().capability_state,
         })),
+        main_thread_model: mainThread === undefined ? null : modelSnapshotFromAgent(mainThread.model),
         update_session_title_if_not_exist: input.update_session_title_if_not_exist ?? null,
       });
 
@@ -509,6 +512,7 @@ export class SessionHandle<
         const previousThreadSnapshot = snapshots?.[threadId];
         const resolved = await input.resolver.resolveAgentDefinition({
           spec: input.spec,
+          // A subagent's agent_info carries the model and effort it ran on; the root has none and follows its spec.
           agent_info: previousThreadSnapshot?.agent_info ?? undefined,
           previousTurn: input.previous,
           signal: input.signal,
@@ -560,12 +564,12 @@ export class SessionHandle<
     tracing: AgentTracing;
     resolvedDefinition: ResolvedAgentDefinition;
   }): AgentThread {
-    const { definition, extraCapabilities } = input.resolvedDefinition;
+    const { definition, model, extraCapabilities } = input.resolvedDefinition;
     const isChild = Boolean(input.previousThreadSnapshot?.parent);
     const capabilities = [
       ...builtinsFromSpec({
         spec: input.spec,
-        definition,
+        model,
         isChild,
         sandboxAvailable: Boolean(input.sandbox),
         tracing: input.tracing,
@@ -576,6 +580,7 @@ export class SessionHandle<
     ];
     return new AgentThread({
       definition,
+      model,
       threadId: input.threadId,
       title: input.previousThreadSnapshot?.agent_info?.name ?? (isChild ? input.threadId : 'main'),
       sandbox: input.sandbox,
@@ -600,15 +605,14 @@ export class SessionHandle<
     tracing: AgentTracing;
   }): CreateDynamicSubAgentThread {
     return async params => {
-      const { definition, extraCapabilities } = await input.resolver.resolveAgentDefinition({
+      const { definition, model, extraCapabilities } = await input.resolver.resolveAgentDefinition({
         spec: input.spec,
         agent_info: params.request,
         previousTurn: input.previous,
         signal: params.signal,
         tracing: input.tracing,
       });
-      // Model override (request.model) is resolved inside resolveAgentDefinition
-      // into modelClient — do not re-label a stale client here.
+      // Model override (request.model) is resolved inside resolveAgentDefinition into `model`.
       const childDefinition: AgentDefinition = {
         ...definition,
         toolSets: params.parentDefinition.toolSets ?? definition.toolSets,
@@ -622,7 +626,7 @@ export class SessionHandle<
       const capabilities = [
         ...builtinsFromSpec({
           spec: input.spec,
-          definition: childDefinition,
+          model,
           isChild: true,
           sandboxAvailable: Boolean(input.sandbox),
           tracing: input.tracing,
@@ -633,6 +637,7 @@ export class SessionHandle<
       ];
       return new AgentThread({
         definition: childDefinition,
+        model,
         threadId: params.threadId,
         title: params.request.name,
         sandbox: input.sandbox,

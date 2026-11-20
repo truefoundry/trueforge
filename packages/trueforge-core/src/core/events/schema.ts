@@ -65,6 +65,10 @@ export const AgentInfoSchema = z
     name: z.string().describe('Display name of the dynamic subagent.'),
     input: z.string().describe('Input prompt passed to the subagent.'),
     model: z.string().min(1).optional().describe('Optional model override for the subagent.'),
+    reasoning_effort: z
+      .string()
+      .optional()
+      .describe('Reasoning effort the resolved model runs at. Omitted when none was resolved.'),
   })
   .openapi('AgentInfo');
 
