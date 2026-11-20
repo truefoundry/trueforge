@@ -6,7 +6,6 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.pagination import AsyncPager, SyncPager
 from ..core.request_options import RequestOptions
 from ..types.artifact import Artifact
-from ..types.get_artifact_response import GetArtifactResponse
 from ..types.list_artifacts_response import ListArtifactsResponse
 from .raw_client import AsyncRawArtifactsClient, RawArtifactsClient
 
@@ -68,38 +67,6 @@ class ArtifactsClient:
             yield page
         """
         return self._raw_client.list(limit=limit, page_token=page_token, request_options=request_options)
-
-    def get(self, *, slug: str, request_options: typing.Optional[RequestOptions] = None) -> GetArtifactResponse:
-        """
-        Get an artifact created by the caller, by slug.
-
-        Parameters
-        ----------
-        slug : str
-            Artifact slug.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        GetArtifactResponse
-            The artifact.
-
-        Examples
-        --------
-        from trueforge_sdk import TrueForge
-
-        client = TrueForge(
-            token="YOUR_TOKEN",
-            base_url="https://yourhost.com/path/to/api",
-        )
-        client.artifacts.get(
-            slug="slug",
-        )
-        """
-        _response = self._raw_client.get(slug=slug, request_options=request_options)
-        return _response.data
 
 
 class AsyncArtifactsClient:
@@ -168,43 +135,3 @@ class AsyncArtifactsClient:
         asyncio.run(main())
         """
         return await self._raw_client.list(limit=limit, page_token=page_token, request_options=request_options)
-
-    async def get(self, *, slug: str, request_options: typing.Optional[RequestOptions] = None) -> GetArtifactResponse:
-        """
-        Get an artifact created by the caller, by slug.
-
-        Parameters
-        ----------
-        slug : str
-            Artifact slug.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        GetArtifactResponse
-            The artifact.
-
-        Examples
-        --------
-        import asyncio
-
-        from trueforge_sdk import AsyncTrueForge
-
-        client = AsyncTrueForge(
-            token="YOUR_TOKEN",
-            base_url="https://yourhost.com/path/to/api",
-        )
-
-
-        async def main() -> None:
-            await client.artifacts.get(
-                slug="slug",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.get(slug=slug, request_options=request_options)
-        return _response.data

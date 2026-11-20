@@ -1649,17 +1649,6 @@
         ],
         "type": "object"
       },
-      "GetArtifactResponse": {
-        "properties": {
-          "data": {
-            "$ref": "#/components/schemas/Artifact"
-          }
-        },
-        "required": [
-          "data"
-        ],
-        "type": "object"
-      },
       "GetAvailableMCPServerResponse": {
         "properties": {
           "data": {
@@ -8167,64 +8156,6 @@
           "artifacts"
         ],
         "x-fern-sdk-method-name": "list"
-      }
-    },
-    "/api/v1/artifacts/{slug}": {
-      "get": {
-        "description": "Get an artifact created by the caller, by slug.",
-        "parameters": [
-          {
-            "description": "Artifact slug.",
-            "in": "path",
-            "name": "slug",
-            "required": true,
-            "schema": {
-              "description": "Artifact slug.",
-              "minLength": 1,
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetArtifactResponse"
-                }
-              }
-            },
-            "description": "The artifact."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Unauthenticated."
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Not found."
-          }
-        },
-        "summary": "Get an artifact",
-        "tags": [
-          "Artifacts"
-        ],
-        "x-fern-sdk-group-name": [
-          "artifacts"
-        ],
-        "x-fern-sdk-method-name": "get"
       }
     },
     "/api/v1/auth/callback": {
