@@ -238,6 +238,22 @@ describe('DraftModelSelector', () => {
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
   });
 
+  it("shows the selected model's reasoning effort next to its name", async () => {
+    agentSpec = { model: { name: 'anthropic/claude-3.7-sonnet', params: { reasoningEffort: 'high' } } };
+    renderSelector();
+
+    const trigger = await screen.findByRole('button', { name: 'Select model' });
+    await waitFor(() => expect(trigger).toHaveTextContent('claude-3.7-sonnetHigh'));
+  });
+
+  it('shows no reasoning effort for a selected model without efforts', async () => {
+    renderSelector();
+
+    const trigger = await screen.findByRole('button', { name: 'Select model' });
+    await waitFor(() => expect(trigger).toHaveTextContent('gpt-4.1'));
+    expect(trigger).not.toHaveTextContent('Medium');
+  });
+
   it('clears reasoningEffort when Default is chosen', async () => {
     agentSpec = { model: { name: 'anthropic/claude-3.7-sonnet', params: { maxTokens: 512, reasoningEffort: 'high' } } };
     renderSelector();

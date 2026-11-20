@@ -1,5 +1,5 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
-import { canRouteEveryCategory, extractErrorLogFields } from '@truefoundry/trueforge-core/core';
+import { canRouteEveryCategory } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
 import type { Logger } from 'winston';
 import { areCatalogSettingsAvailable, hasAdminRole, type ResolveRequestContext } from '../auth/identity';
@@ -65,25 +65,21 @@ function settingsCapability({
   };
 }
 
-/** Auto needs model routing on for the tenant and a model the user has in every routing cluster. */
+/**
+ * Auto needs model routing on for the tenant and a model the user has in every routing cluster. A failed listing
+ * fails the request, so clients keep their last known capabilities instead of dropping a selected Auto.
+ */
 async function isAutoModelAvailable({
   tenant_id,
   store,
-  logger,
 }: {
   tenant_id: string;
   store: IModelProviderStore;
-  logger: Logger;
 }): Promise<boolean> {
   if (enabledTenantModelRouting(trueFoundryModelRouting(), tenant_id) === undefined) {
     return false;
   }
-  try {
-    return canRouteEveryCategory(await store.listModels({ tenant_id, has_catalog_info: true }));
-  } catch (error) {
-    logger.warn('Listing models for the Auto capability failed', extractErrorLogFields(error));
-    return false;
-  }
+  return canRouteEveryCategory(await store.listModels({ tenant_id, has_catalog_info: true }));
 }
 
 export function createCapabilitiesRouter<TTransaction>(deps: {
@@ -134,7 +130,6 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
       isAutoModelAvailable({
         tenant_id: requestContext.tenant_id,
         store: deps.resolveModelProviderStore(c),
-        logger: deps.logger,
       }),
     ]);
 

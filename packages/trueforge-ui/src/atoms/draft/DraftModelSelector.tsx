@@ -92,6 +92,10 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
     model.name === selectedName
       ? currentEffort
       : resolveReasoningEffort(model.properties.reasoningEfforts, currentEffort);
+  const selectedEffortLabel =
+    selected !== undefined && hasReasoningEfforts(selected.properties.reasoningEfforts)
+      ? reasoningEffortLabel(currentEffort)
+      : undefined;
   const label = selected
     ? displayModelLabel(selected.name)
     : selectedName
@@ -219,6 +223,9 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
             <ProviderMark logo={selected?.provider.logo} label={account} className="size-4 text-xs" />
           )}
           <span className="truncate">{label}</span>
+          {selectedEffortLabel !== undefined ? (
+            <span className="text-text-secondary shrink-0 font-normal">{selectedEffortLabel}</span>
+          ) : null}
           <Icon name="chevron-down" className="size-3.5 shrink-0 opacity-60" />
         </button>
       </Tooltip>
