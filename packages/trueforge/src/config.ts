@@ -1140,8 +1140,8 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
   TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS: Record<string, string[]>;
   /**
    * Optional model routing for subagents and `auto` root agents (TrueFoundry mode only). JSON object with optional
-   * `instructions` and `categories` overriding the decision model's question, and per-tenant entries:
-   * `enabled` (`off` | `on`) and the tenant's decision model. Unset, or a tenant not listed → off.
+   * `categories` overriding what each routing category means, and per-tenant entries: `enabled` (`off` | `on`) and
+   * the tenant's decision model. Unset, or a tenant not listed → off.
    * Env: `TRUEFOUNDRY_MODEL_ROUTING`.
    */
   TRUEFOUNDRY_MODEL_ROUTING: TrueFoundryModelRouting | undefined;
@@ -1564,8 +1564,8 @@ export function trueFoundryModelRouting(
 }
 
 /** The tenant's routing entry when that tenant has model routing on. */
-export function enabledTenantModelRouting(routing: TrueFoundryModelRouting | undefined, tenant_id: string) {
-  const tenant = routing?.tenants[tenant_id];
+export function enabledTenantModelRouting(routing: TrueFoundryModelRouting | undefined, tenantId: string) {
+  const tenant = routing?.tenants[tenantId];
   if (tenant?.enabled !== 'on') {
     return undefined;
   }

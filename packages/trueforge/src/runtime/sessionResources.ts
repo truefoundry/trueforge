@@ -315,6 +315,11 @@ export async function validateAgentSpec({
         message: 'Model "auto" requires model routing to be enabled for this tenant',
       });
     }
+    if (spec.model.params !== undefined && Object.keys(spec.model.params).length > 0) {
+      throw new HTTPException(422, {
+        message: 'Model "auto" does not accept model params',
+      });
+    }
   } else {
     const resolved = await getModelDetails({
       tenant_id,
