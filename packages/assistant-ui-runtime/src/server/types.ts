@@ -601,6 +601,11 @@ export interface AgentBuilderCapabilitiesResponse {
     webSearch?: { enabled: boolean; reason?: string };
     /** Absent when the host does not offer memory, which hides memory settings; `reason` explains a locked toggle. */
     memory?: { enabled: boolean; reason?: string };
+    /**
+     * Whether Auto mode can be selected in the model picker. Enabled when model routing is on and the user has a model
+     * in every routing cluster; absent means Auto mode cannot be selected.
+     */
+    auto?: { enabled: boolean };
     /** Finest supported sharing scope; `subject` allows invite-by-user as well as tenant-wide sharing. */
     sessionSharing: { granularity: 'tenant' | 'subject' };
   };

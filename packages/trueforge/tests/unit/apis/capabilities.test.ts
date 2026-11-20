@@ -14,6 +14,7 @@ import type { IConfigurationStore } from '../../../src/db/configurationStore';
 import type { IMemoryProviderStore } from '../../../src/db/memoryProviderStore';
 import type { ISandboxEnvironmentStore, SandboxEnvironmentWithVersion } from '../../../src/db/sandboxEnvironmentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
+import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { EmptyUserStore, type IUserStore } from '../../../src/db/userStore';
 import type { IWebSearchProviderStore } from '../../../src/db/webSearchProviderStore';
 import { setCachedLocalSandboxSupport } from '../../../src/sandbox/localRuntime';
@@ -149,6 +150,7 @@ describe('capabilities routers', () => {
         webSearchProviderStore: webSearchStore ?? emptyWebSearchStore,
         configurationStore,
         memoryProviderStore: memoryStore,
+        resolveModelProviderStore: () => new SqliteModelProviderStore(db),
         userStore,
         withTransaction: (() => {
           const run = <T>(callback: (trx: never) => Promise<T>): Promise<T> =>
@@ -182,6 +184,7 @@ describe('capabilities routers', () => {
         settings: ALL_SETTINGS_ON,
         web_search: { enabled: false, reason: NO_PROVIDER_REASON },
         memory: { enabled: true },
+        auto: { enabled: false },
         session_sharing: { granularity: 'tenant' },
       },
     });
@@ -296,6 +299,7 @@ describe('capabilities routers', () => {
         settings: ALL_SETTINGS_ON,
         web_search: { enabled: false, reason: NO_PROVIDER_REASON },
         memory: { enabled: true },
+        auto: { enabled: false },
         session_sharing: { granularity: 'tenant' },
       },
     });
@@ -315,6 +319,7 @@ describe('capabilities routers', () => {
         settings: ALL_SETTINGS_ON,
         web_search: { enabled: false, reason: NO_PROVIDER_REASON },
         memory: { enabled: true },
+        auto: { enabled: false },
         session_sharing: { granularity: 'tenant' },
       },
     });
@@ -528,6 +533,7 @@ describe('capabilities routers', () => {
           webSearchProviderStore: emptyWebSearchStore,
           configurationStore: allOnConfigurationStore,
           memoryProviderStore: zepMemoryStore,
+          resolveModelProviderStore: () => new SqliteModelProviderStore(db),
           userStore: new EmptyUserStore(),
           withTransaction: (() => {
             const run = <T>(callback: (trx: never) => Promise<T>): Promise<T> =>
@@ -557,6 +563,7 @@ describe('capabilities routers', () => {
           settings: ALL_SETTINGS_ON,
           web_search: { enabled: false, reason: NO_PROVIDER_REASON },
           memory: { enabled: true },
+          auto: { enabled: false },
           session_sharing: { granularity: 'tenant' },
         },
       });
@@ -578,6 +585,7 @@ describe('capabilities routers', () => {
           settings: ALL_SETTINGS_OFF,
           web_search: { enabled: false, reason: NO_PROVIDER_REASON },
           memory: { enabled: true },
+          auto: { enabled: false },
           session_sharing: { granularity: 'tenant' },
         },
       });

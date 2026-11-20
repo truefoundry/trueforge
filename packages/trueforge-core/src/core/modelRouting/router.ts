@@ -67,6 +67,13 @@ function isRoutingCategory(category: string): category is RoutingCategory {
   return Object.hasOwn(ROUTING_CLUSTERS, category);
 }
 
+/** True when every routing category has a model the user can be routed to. */
+export function canRouteEveryCategory(models: readonly RoutableModel[]): boolean {
+  return Object.keys(ROUTING_CLUSTERS)
+    .filter(isRoutingCategory)
+    .every(category => selectModel({ category, models }) !== undefined);
+}
+
 export interface ModelRouterDeps {
   /** The decision model that categorises the task, e.g. Jev; called on every route. */
   classifier: () => Promise<DecisionModel>;

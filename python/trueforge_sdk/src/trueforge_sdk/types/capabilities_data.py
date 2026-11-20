@@ -5,6 +5,7 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
+from .auto_capability import AutoCapability
 from .memory_capability import MemoryCapability
 from .sandbox_capability import SandboxCapability
 from .session_sharing_capability import SessionSharingCapability
@@ -14,6 +15,7 @@ from .web_search_capability import WebSearchCapability
 
 
 class CapabilitiesData(UncheckedBaseModel):
+    auto: AutoCapability
     memory: typing.Optional[MemoryCapability] = None
     sandbox: SandboxCapability
     session_sharing: SessionSharingCapability
