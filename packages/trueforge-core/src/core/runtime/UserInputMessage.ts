@@ -89,7 +89,7 @@ export function buildUploadedFilesAnnouncement(
 }
 
 /** Filename and content type of each file named by an uploaded-files announcement. Empty for any other text. */
-export function uploadedFilesInAnnouncement(text: string): { filename: string; mime: string }[] {
+export function extractUploadedFilesInAnnouncement(text: string): { filename: string; mime: string }[] {
   const files: { filename: string; mime: string }[] = [];
   let filename: string | undefined;
   for (const line of text.split('\n')) {

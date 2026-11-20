@@ -1,10 +1,10 @@
-import type { DecisionModelCreateParams } from '../decision/IDecisionModel';
+import type { DecisionInputMessage } from '../decision/IDecisionModel';
 import type { UserMessage } from '../events/schema';
 import type { InternalEnrichedAssistantMessage, LLMUserMessage } from '../llm/LLMTypes';
 import { parseMimeFromDataUri } from '../llm/VercelAILLM';
 import type { ContextMessage } from '../runtime/AgentThread.types';
 import { isInternalSystemMessage, SYSTEM_TAG_START } from '../runtime/contextUtils';
-import { uploadedFilesInAnnouncement } from '../runtime/UserInputMessage';
+import { extractUploadedFilesInAnnouncement } from '../runtime/UserInputMessage';
 
 type MessageContent = LLMUserMessage['content'] | InternalEnrichedAssistantMessage['content'] | UserMessage['content'];
 
@@ -22,7 +22,7 @@ function attachedFileNote(name: string | undefined, mime: string | undefined): s
 }
 
 function textFromInternal(text: string): string {
-  return uploadedFilesInAnnouncement(text)
+  return extractUploadedFilesInAnnouncement(text)
     .map(file => attachedFileNote(file.filename, file.mime))
     .join('\n');
 }
@@ -59,8 +59,11 @@ function textOf(content: MessageContent): string {
  * A thread's conversation as the classifier sees it: user and assistant text in order, then the latest user input.
  * Tool calls, tool results, approvals and internal system messages are left out. Attachments are named, not inlined.
  */
-export function routingConversation(context: readonly ContextMessage[], latest: readonly UserMessage[]) {
-  const messages: Exclude<DecisionModelCreateParams['input'], string> = [];
+export function routingConversation(
+  context: readonly ContextMessage[],
+  latest: readonly UserMessage[],
+): DecisionInputMessage[] {
+  const messages: DecisionInputMessage[] = [];
   const add = (role: 'user' | 'assistant', text: string) => {
     const trimmed = text.trim();
     if (trimmed.length > 0) {

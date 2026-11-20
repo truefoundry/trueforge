@@ -406,8 +406,7 @@ function turnModelRouting(input: {
   return {
     classifier: resolveDecisionModel,
     question: {
-      instructions: routing.instructions,
-      conversationInstructions: DEFAULT_ROUTING_QUESTION.conversationInstructions,
+      instructions: DEFAULT_ROUTING_QUESTION.instructions,
       categories: routing.categories,
     },
     listModels: () => modelProviderStore.listModels({ tenant_id, has_catalog_info: true }),

@@ -149,9 +149,7 @@ describe('classification', () => {
     expect(isTruncated).toBe(true);
     expect(Array.isArray(body.input) && body.input.length < conversation.length).toBe(true);
     expect(Array.isArray(body.input) && body.input.at(-1)).toEqual(conversation.at(-1));
-    expect(body.questions[0]).toEqual(
-      expect.objectContaining({ instructions: DEFAULT_ROUTING_QUESTION.conversationInstructions }),
-    );
+    expect(body.questions[0]).toEqual(expect.objectContaining({ instructions: DEFAULT_ROUTING_QUESTION.instructions }));
   });
 
   it('reads the category, or nothing when the decision has none', () => {

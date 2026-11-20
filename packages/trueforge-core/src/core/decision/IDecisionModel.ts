@@ -1,7 +1,7 @@
-import type { Decision, DecisionCreateParams } from 'openai/resources/decisions';
+import type { Decision, DecisionCreateParams, DecisionInputMessage } from 'openai/resources/decisions';
 import type { LLMRequestOptions } from '../llm/ILLM';
 
-export type { Decision };
+export type { Decision, DecisionInputMessage };
 
 /** `model` comes from the bound client's provider config. */
 export type DecisionModelCreateParams = Omit<DecisionCreateParams, 'model'>;

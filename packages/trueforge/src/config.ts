@@ -159,8 +159,6 @@ export function parseOidcAllowedEmails(raw: string | undefined): string[] {
 const RoutingDescriptionSchema = z.string().trim().min(1);
 
 const TrueFoundryModelRoutingSchema = z.object({
-  /** The decision model's question; defaults to the tested wording. */
-  instructions: RoutingDescriptionSchema.default(DEFAULT_ROUTING_QUESTION.instructions),
   /** What each category means to the decision model; all three or none. */
   categories: z
     .object({

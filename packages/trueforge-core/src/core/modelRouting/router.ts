@@ -1,5 +1,5 @@
 import type { Logger } from 'winston';
-import type { DecisionModel, DecisionModelCreateParams } from '../decision/IDecisionModel';
+import type { DecisionInputMessage, DecisionModel } from '../decision/IDecisionModel';
 import { type ReasoningEffort, SUPPORTED_REASONING_EFFORTS } from '../llm/VercelAILLM';
 import { describeUnknownError } from '../util/errorLogFields';
 import { classificationRequest, readClassification } from './classification';
@@ -78,7 +78,7 @@ export interface ModelRouterDeps {
 export interface RouteInput {
   threadId: string;
   /** What to classify: text, or an ordered list of messages. */
-  input: DecisionModelCreateParams['input'];
+  input: string | DecisionInputMessage[];
 }
 
 interface Outcome {
