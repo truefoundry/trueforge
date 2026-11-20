@@ -548,7 +548,7 @@ export class SessionHandle<
     }
     // If creating a new turn, route on the conversation and the new user input.
     if (input.routeModel === undefined) {
-      throw new AgentHarnessError('auto_model_unavailable', 'Auto model selection needs model routing for this tenant');
+      throw new AgentHarnessError('auto_model_unavailable', 'Auto mode is turned off for this tenant');
     }
     const routed = await input.routeModel({
       threadId: MAIN_THREAD_ID,

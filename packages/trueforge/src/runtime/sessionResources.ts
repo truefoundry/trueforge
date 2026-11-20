@@ -17,6 +17,7 @@ import { join } from 'node:path';
 import type { Logger } from 'winston';
 import configuration, { enabledTenantModelRouting, type TrueFoundryModelRouting } from '../config';
 import {
+  isAutoEnabledForTenant,
   isMemoryEnabledForTenant,
   isWebSearchEnabledForTenant,
   type IConfigurationStore,
@@ -40,6 +41,8 @@ import {
 } from '../sandbox/providerUtils';
 import type { ReasoningEffort } from '../schemas/modelProvider';
 import { hasConfiguredWebSearchProvider } from '../websearch/providers';
+
+export const AUTO_MODE_TURNED_OFF_MESSAGE = 'Auto mode is turned off for this tenant';
 
 /** Split `provider/model` FQN. Returns undefined when the shape is not exactly one slash. */
 export function parseModelFqn(name: string): { providerName: string; modelName: string } | undefined {
@@ -306,7 +309,7 @@ export async function validateAgentSpec({
   /** This process's model routing config. `auto` is rejected when this tenant's routing is off. */
   modelRouting: TrueFoundryModelRouting | undefined;
 }): Promise<void> {
-  // `auto` names no catalog model. It is only valid when this tenant routes models.
+  // `auto` names no catalog model. It is only valid when this tenant routes models and allows Auto mode.
   if (spec.model.name === AUTO_MODEL) {
     if (enabledTenantModelRouting(modelRouting, tenant_id) === undefined) {
       throw new HTTPException(422, {
@@ -317,6 +320,9 @@ export async function validateAgentSpec({
       throw new HTTPException(422, {
         message: 'Model "auto" does not accept model params',
       });
+    }
+    if (!(await isAutoEnabledForTenant({ tenant_id, store: configurationStore }))) {
+      throw new HTTPException(422, { message: AUTO_MODE_TURNED_OFF_MESSAGE });
     }
   } else {
     const resolved = await getModelDetails({

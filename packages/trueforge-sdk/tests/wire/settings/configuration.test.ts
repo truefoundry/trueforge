@@ -11,7 +11,7 @@ describe("ConfigurationClient", () => {
 
         const rawResponseBody = {
             data: {
-                manifest: { memory: { enabled: true }, web_search: { enabled: true } },
+                manifest: { auto: { enabled: true }, memory: { enabled: true }, web_search: { enabled: true } },
                 updated_at: "2024-01-15T09:30:00Z",
             },
         };
@@ -28,6 +28,9 @@ describe("ConfigurationClient", () => {
         expect(response).toEqual({
             data: {
                 manifest: {
+                    auto: {
+                        enabled: true,
+                    },
                     memory: {
                         enabled: true,
                     },
@@ -84,7 +87,7 @@ describe("ConfigurationClient", () => {
         const rawRequestBody = { manifest: {} };
         const rawResponseBody = {
             data: {
-                manifest: { memory: { enabled: true }, web_search: { enabled: true } },
+                manifest: { auto: { enabled: true }, memory: { enabled: true }, web_search: { enabled: true } },
                 updated_at: "2024-01-15T09:30:00Z",
             },
         };
@@ -104,6 +107,9 @@ describe("ConfigurationClient", () => {
         expect(response).toEqual({
             data: {
                 manifest: {
+                    auto: {
+                        enabled: true,
+                    },
                     memory: {
                         enabled: true,
                     },

@@ -229,7 +229,11 @@ describe('TruefoundrySettingsBuilder', () => {
     const server = createMockAgentUIServer({
       catalog: createMockCatalog({}),
       configuration: {
-        getConfiguration: async () => ({ webSearch: { enabled: true }, memory: { enabled: true } }),
+        getConfiguration: async () => ({
+          webSearch: { enabled: true },
+          memory: { enabled: true },
+          auto: { enabled: true },
+        }),
         updateConfiguration: unavailable,
       },
       getCapabilities: async () => ({
@@ -258,7 +262,11 @@ describe('TruefoundrySettingsBuilder', () => {
     const server = createMockAgentUIServer({
       catalog: createMockCatalog({}),
       configuration: {
-        getConfiguration: async () => ({ webSearch: { enabled: true }, memory: { enabled: true } }),
+        getConfiguration: async () => ({
+          webSearch: { enabled: true },
+          memory: { enabled: true },
+          auto: { enabled: true },
+        }),
         updateConfiguration: unavailable,
       },
     });
@@ -273,7 +281,11 @@ describe('TruefoundrySettingsBuilder', () => {
     const server = createMockAgentUIServer({
       catalog: createMockCatalog({}),
       configuration: {
-        getConfiguration: async () => ({ webSearch: { enabled: true }, memory: { enabled: true } }),
+        getConfiguration: async () => ({
+          webSearch: { enabled: true },
+          memory: { enabled: true },
+          auto: { enabled: true },
+        }),
         updateConfiguration: unavailable,
       },
       getCapabilities: async () => ({

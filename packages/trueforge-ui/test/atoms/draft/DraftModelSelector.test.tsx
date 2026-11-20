@@ -134,6 +134,29 @@ describe('DraftModelSelector', () => {
     expect(screen.getByRole('tooltip')).toHaveTextContent(longName);
   });
 
+  it('lists Auto when the server offers it, disabled with its reason while the tenant has it off', async () => {
+    const reason = 'Auto mode is turned off for this tenant - an admin can turn it back on in settings.';
+    const base = createMockAgentUIServer();
+    renderSelector(
+      {},
+      {
+        getModels: async () => models,
+        getCapabilities: async () => {
+          const { data } = await base.getCapabilities();
+          return { data: { ...data, auto: { enabled: false, reason } } };
+        },
+      },
+    );
+
+    const trigger = await screen.findByRole('button', { name: 'Select model' });
+    await waitFor(() => expect(trigger).toHaveTextContent('gpt-4.1'));
+    fireEvent.click(trigger);
+
+    const auto = await screen.findByRole('option', { name: /Auto/ });
+    expect(auto).toBeDisabled();
+    expect(auto).toHaveTextContent(reason);
+  });
+
   it('filters models and updates the agent spec when a model is selected', async () => {
     renderSelector();
 
@@ -147,11 +170,7 @@ describe('DraftModelSelector', () => {
       within(listbox)
         .getAllByRole('option')
         .map(option => option.textContent),
-    ).toEqual([
-      expect.stringContaining('Auto'),
-      expect.stringContaining('gpt-4.1'),
-      expect.stringContaining('claude-3.7-sonnet'),
-    ]);
+    ).toEqual([expect.stringContaining('gpt-4.1'), expect.stringContaining('claude-3.7-sonnet')]);
     expect(within(listbox).getByText(/128K context/)).toBeInTheDocument();
     const providerGroups = within(listbox).getAllByRole('group');
     expect(providerGroups).toHaveLength(2);

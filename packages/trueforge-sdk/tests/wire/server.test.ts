@@ -11,7 +11,7 @@ describe("ServerClient", () => {
 
         const rawResponseBody = {
             data: {
-                auto: { enabled: true },
+                auto: { enabled: true, reason: "reason" },
                 memory: { enabled: true, reason: "reason" },
                 sandbox: { enabled: true, environments: { enabled: true } },
                 session_sharing: { granularity: "tenant" },
@@ -41,6 +41,7 @@ describe("ServerClient", () => {
             data: {
                 auto: {
                     enabled: true,
+                    reason: "reason",
                 },
                 memory: {
                     enabled: true,

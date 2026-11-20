@@ -57,7 +57,11 @@ function renderSettings(
 describe('WebSearchSettings tenant switch', () => {
   it('shows the switch on and lists providers when the tenant allows web search', async () => {
     renderSettings({
-      getConfiguration: async () => ({ webSearch: { enabled: true }, memory: { enabled: true } }),
+      getConfiguration: async () => ({
+        webSearch: { enabled: true },
+        memory: { enabled: true },
+        auto: { enabled: true },
+      }),
       updateConfiguration: unavailable,
     });
 
@@ -68,7 +72,11 @@ describe('WebSearchSettings tenant switch', () => {
 
   it('hides the provider list while the tenant switch is off', async () => {
     renderSettings({
-      getConfiguration: async () => ({ webSearch: { enabled: false }, memory: { enabled: true } }),
+      getConfiguration: async () => ({
+        webSearch: { enabled: false },
+        memory: { enabled: true },
+        auto: { enabled: true },
+      }),
       updateConfiguration: unavailable,
     });
 
@@ -81,7 +89,11 @@ describe('WebSearchSettings tenant switch', () => {
 
   it('says the switch can be turned back on while it is off', async () => {
     renderSettings({
-      getConfiguration: async () => ({ webSearch: { enabled: false }, memory: { enabled: true } }),
+      getConfiguration: async () => ({
+        webSearch: { enabled: false },
+        memory: { enabled: true },
+        auto: { enabled: true },
+      }),
       updateConfiguration: unavailable,
     });
 
@@ -94,7 +106,11 @@ describe('WebSearchSettings tenant switch', () => {
   it('drops the provider sentence when the platform owns providers', async () => {
     renderSettings(
       {
-        getConfiguration: async () => ({ webSearch: { enabled: false }, memory: { enabled: true } }),
+        getConfiguration: async () => ({
+          webSearch: { enabled: false },
+          memory: { enabled: true },
+          auto: { enabled: true },
+        }),
         updateConfiguration: unavailable,
       },
       { manageProviders: false },
@@ -105,9 +121,17 @@ describe('WebSearchSettings tenant switch', () => {
   });
 
   it('asks before turning web search off, then saves and re-renders from the response', async () => {
-    const updateConfiguration = vi.fn(async () => ({ webSearch: { enabled: false }, memory: { enabled: true } }));
+    const updateConfiguration = vi.fn(async () => ({
+      webSearch: { enabled: false },
+      memory: { enabled: true },
+      auto: { enabled: true },
+    }));
     renderSettings({
-      getConfiguration: async () => ({ webSearch: { enabled: true }, memory: { enabled: true } }),
+      getConfiguration: async () => ({
+        webSearch: { enabled: true },
+        memory: { enabled: true },
+        auto: { enabled: true },
+      }),
       updateConfiguration,
     });
 
@@ -133,7 +157,11 @@ describe('WebSearchSettings tenant switch', () => {
   it('leaves web search on when the turn-off confirmation is cancelled', async () => {
     const updateConfiguration = vi.fn(unavailable);
     renderSettings({
-      getConfiguration: async () => ({ webSearch: { enabled: true }, memory: { enabled: true } }),
+      getConfiguration: async () => ({
+        webSearch: { enabled: true },
+        memory: { enabled: true },
+        auto: { enabled: true },
+      }),
       updateConfiguration,
     });
 
@@ -147,9 +175,17 @@ describe('WebSearchSettings tenant switch', () => {
   });
 
   it('turns web search back on without a confirmation', async () => {
-    const updateConfiguration = vi.fn(async () => ({ webSearch: { enabled: true }, memory: { enabled: true } }));
+    const updateConfiguration = vi.fn(async () => ({
+      webSearch: { enabled: true },
+      memory: { enabled: true },
+      auto: { enabled: true },
+    }));
     renderSettings({
-      getConfiguration: async () => ({ webSearch: { enabled: false }, memory: { enabled: true } }),
+      getConfiguration: async () => ({
+        webSearch: { enabled: false },
+        memory: { enabled: true },
+        auto: { enabled: true },
+      }),
       updateConfiguration,
     });
 
@@ -176,7 +212,11 @@ describe('WebSearchSettings tenant switch', () => {
     const listWebSearchProviders = vi.fn(async () => []);
     renderSettings(
       {
-        getConfiguration: async () => ({ webSearch: { enabled: true }, memory: { enabled: true } }),
+        getConfiguration: async () => ({
+          webSearch: { enabled: true },
+          memory: { enabled: true },
+          auto: { enabled: true },
+        }),
         updateConfiguration: unavailable,
       },
       { manageProviders: false, catalog: { ...webSearchCatalog, listWebSearchProviders } },
@@ -190,8 +230,11 @@ describe('WebSearchSettings tenant switch', () => {
   });
 
   it('waits for the switch before listing providers, so an off tenant never flashes them', async () => {
-    let resolveConfiguration: (value: { webSearch: { enabled: boolean }; memory: { enabled: boolean } }) => void = () =>
-      undefined;
+    let resolveConfiguration: (value: {
+      webSearch: { enabled: boolean };
+      memory: { enabled: boolean };
+      auto: { enabled: boolean };
+    }) => void = () => undefined;
     renderSettings({
       getConfiguration: () =>
         new Promise(resolve => {
@@ -204,7 +247,7 @@ describe('WebSearchSettings tenant switch', () => {
       expect(screen.queryByText('Parallel')).not.toBeInTheDocument();
     });
 
-    resolveConfiguration({ webSearch: { enabled: true }, memory: { enabled: true } });
+    resolveConfiguration({ webSearch: { enabled: true }, memory: { enabled: true }, auto: { enabled: true } });
     expect(await screen.findByText('Parallel')).toBeInTheDocument();
   });
 });

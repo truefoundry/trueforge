@@ -21,6 +21,7 @@ if typing.TYPE_CHECKING:
     from .approval_deny import ApprovalDeny
     from .ask_user_questions_config import AskUserQuestionsConfig
     from .auto_capability import AutoCapability
+    from .auto_configuration import AutoConfiguration
     from .available_mcp_server import AvailableMcpServer
     from .available_model import AvailableModel
     from .available_model_provider import AvailableModelProvider
@@ -321,6 +322,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ApprovalDeny": ".approval_deny",
     "AskUserQuestionsConfig": ".ask_user_questions_config",
     "AutoCapability": ".auto_capability",
+    "AutoConfiguration": ".auto_configuration",
     "AvailableMcpServer": ".available_mcp_server",
     "AvailableModel": ".available_model",
     "AvailableModelProvider": ".available_model_provider",
@@ -645,6 +647,7 @@ __all__ = [
     "ApprovalDeny",
     "AskUserQuestionsConfig",
     "AutoCapability",
+    "AutoConfiguration",
     "AvailableMcpServer",
     "AvailableModel",
     "AvailableModelProvider",

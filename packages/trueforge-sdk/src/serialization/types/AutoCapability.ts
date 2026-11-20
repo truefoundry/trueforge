@@ -7,10 +7,12 @@ import type * as serializers from "../index.js";
 export const AutoCapability: core.serialization.ObjectSchema<serializers.AutoCapability.Raw, TrueForge.AutoCapability> =
     core.serialization.object({
         enabled: core.serialization.boolean(),
+        reason: core.serialization.string().optional(),
     });
 
 export declare namespace AutoCapability {
     export interface Raw {
         enabled: boolean;
+        reason?: string | null;
     }
 }
