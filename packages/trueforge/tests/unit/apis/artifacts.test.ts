@@ -3,7 +3,7 @@ import { createdBySubjectFromRequestContext, STANDALONE_REQUEST_CONTEXT } from '
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteArtifactStore } from '../../../src/db/sqlite/artifact-store/SqliteArtifactStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
-import { GetArtifactResponseSchema, ListArtifactsResponseSchema } from '../../../src/schemas/artifact';
+import { ListArtifactsResponseSchema } from '../../../src/schemas/artifact';
 import { mountWithErrorHandler } from '../mountWithErrorHandler';
 
 describe('artifacts router', () => {
@@ -48,15 +48,5 @@ describe('artifacts router', () => {
 
   it('rejects an invalid page token', async () => {
     expect((await app.request('/?page_token=not-a-token')).status).toBe(400);
-  });
-
-  it('gets an artifact by slug', async () => {
-    const response = await app.request('/a');
-    expect(response.status).toBe(200);
-    expect(GetArtifactResponseSchema.parse(await response.json()).data.slug).toBe('a');
-  });
-
-  it.each(['missing', 'not-mine'])('returns 404 for %s', async slug => {
-    expect((await app.request(`/${slug}`)).status).toBe(404);
   });
 });
