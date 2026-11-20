@@ -29,28 +29,12 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       CREATE TABLE artifact_version (
         artifact_id TEXT NOT NULL,
         version INTEGER NOT NULL,
-        status TEXT NOT NULL,
         entrypoint TEXT NOT NULL,
+        storage_prefix TEXT NOT NULL,
+        total_bytes INTEGER NOT NULL,
         created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
         PRIMARY KEY (artifact_id, version),
         FOREIGN KEY (artifact_id) REFERENCES artifact (id) ON DELETE CASCADE
-      ) STRICT
-    `.execute(trx);
-
-    await sql`CREATE INDEX artifact_version_status_idx ON artifact_version (artifact_id, status)`.execute(trx);
-
-    await sql`
-      CREATE TABLE artifact_file (
-        artifact_id TEXT NOT NULL,
-        version INTEGER NOT NULL,
-        path TEXT NOT NULL,
-        size_bytes INTEGER NOT NULL,
-        storage_key TEXT NOT NULL,
-        sha256 TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        PRIMARY KEY (artifact_id, version, path),
-        FOREIGN KEY (artifact_id, version) REFERENCES artifact_version (artifact_id, version) ON DELETE CASCADE
       ) STRICT
     `.execute(trx);
   });
@@ -60,7 +44,6 @@ export async function down(db: Kysely<unknown>): Promise<void> {
   await sql`PRAGMA foreign_keys = OFF`.execute(db);
   try {
     await db.transaction().execute(async trx => {
-      await sql`DROP TABLE IF EXISTS artifact_file`.execute(trx);
       await sql`DROP TABLE IF EXISTS artifact_version`.execute(trx);
       await sql`DROP TABLE IF EXISTS artifact`.execute(trx);
     });

@@ -29,41 +29,19 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .createTable('artifact_version')
     .addColumn('artifact_id', 'text', col => col.notNull())
     .addColumn('version', 'integer', col => col.notNull())
-    .addColumn('status', 'text', col => col.notNull())
     .addColumn('entrypoint', 'text', col => col.notNull())
+    .addColumn('storage_prefix', 'text', col => col.notNull())
+    .addColumn('total_bytes', 'bigint', col => col.notNull())
     .addColumn('created_at', 'timestamptz', col => col.notNull())
-    .addColumn('updated_at', 'timestamptz', col => col.notNull())
     .addPrimaryKeyConstraint('artifact_version_pkey', ['artifact_id', 'version'])
     .addForeignKeyConstraint('artifact_version_artifact_id_fkey', ['artifact_id'], 'artifact', ['id'], fk =>
       fk.onDelete('cascade'),
-    )
-    .execute();
-
-  await sql`CREATE INDEX artifact_version_status_idx ON artifact_version (artifact_id, status)`.execute(db);
-
-  await db.schema
-    .createTable('artifact_file')
-    .addColumn('artifact_id', 'text', col => col.notNull())
-    .addColumn('version', 'integer', col => col.notNull())
-    .addColumn('path', 'text', col => col.notNull())
-    .addColumn('size_bytes', 'bigint', col => col.notNull())
-    .addColumn('storage_key', 'text', col => col.notNull())
-    .addColumn('sha256', 'text', col => col.notNull())
-    .addColumn('created_at', 'timestamptz', col => col.notNull())
-    .addPrimaryKeyConstraint('artifact_file_pkey', ['artifact_id', 'version', 'path'])
-    .addForeignKeyConstraint(
-      'artifact_file_version_fkey',
-      ['artifact_id', 'version'],
-      'artifact_version',
-      ['artifact_id', 'version'],
-      fk => fk.onDelete('cascade'),
     )
     .execute();
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
   await sql`SET LOCAL lock_timeout = '5s'`.execute(db);
-  await db.schema.dropTable('artifact_file').ifExists().execute();
   await db.schema.dropTable('artifact_version').ifExists().execute();
   await db.schema.dropTable('artifact').ifExists().execute();
 }

@@ -2,4 +2,4 @@
 "@truefoundry/trueforge": patch
 ---
 
-Add `artifact`, `artifact_version`, and `artifact_file` tables.
+Add `artifact` and `artifact_version` tables.
