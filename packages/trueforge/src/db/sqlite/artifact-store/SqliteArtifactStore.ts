@@ -140,7 +140,6 @@ export class SqliteArtifactStore implements IArtifactStore<Transaction<Database>
           version: max_version + 1,
           status: 'pending',
           entrypoint: input.entrypoint,
-          created_by_turn_id: input.created_by_turn_id,
           created_at: timestamp,
           updated_at: timestamp,
         })

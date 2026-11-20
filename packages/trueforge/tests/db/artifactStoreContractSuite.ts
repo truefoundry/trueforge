@@ -34,7 +34,6 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
       tenant_id: TENANT,
       artifact_id: artifactId,
       entrypoint: 'index.html',
-      created_by_turn_id: 'turn-1',
     });
     if (version === undefined) {
       throw new Error('Expected version to be created');
@@ -106,9 +105,7 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     ).toBeUndefined();
 
     const fetched = await store.getVersion({ tenant_id: TENANT, artifact_id: artifact.id, version: 2 });
-    expect(fetched).toEqual(
-      expect.objectContaining({ status: 'committed', entrypoint: 'index.html', created_by_turn_id: 'turn-1' }),
-    );
+    expect(fetched).toEqual(expect.objectContaining({ status: 'committed', entrypoint: 'index.html' }));
     expect(fetched?.files).toHaveLength(files.length);
     for (const f of files) {
       expect(fetched?.files).toContainEqual(expect.objectContaining(f));
@@ -137,7 +134,6 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
         tenant_id: OTHER_TENANT,
         artifact_id: artifact.id,
         entrypoint: 'index.html',
-        created_by_turn_id: 'turn-1',
       }),
     ).toBeUndefined();
     expect(await store.commitVersion({ ...key, files: [] })).toBeUndefined();

@@ -32,7 +32,6 @@ export interface ArtifactVersionRecord {
   version: number;
   status: ArtifactVersionStatus;
   entrypoint: string;
-  created_by_turn_id: string;
   /** ISO-8601 UTC instant. */
   created_at: string;
   /** ISO-8601 UTC instant. */
@@ -67,7 +66,6 @@ export interface CreateArtifactVersionInput {
   tenant_id: string;
   artifact_id: string;
   entrypoint: string;
-  created_by_turn_id: string;
 }
 
 export interface ArtifactVersionKey {
