@@ -11,9 +11,12 @@
  * A bug in either boundary would not be caught by unit tests alone; these cross-layer tests close
  * that gap for every provider that has a replay token.
  */
+import { convertToOpenAICompatibleChatMessages } from '@ai-sdk/openai-compatible/internal';
+import type { LanguageModelV4Prompt } from '@ai-sdk/provider';
 import type { LanguageModelUsage, ProviderMetadata, StepResultPerformance, TextStreamPart, ToolSet } from 'ai';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat';
 import type { ExtendedChatCompletionChunk, RawAssistantMessageWithUsage } from '../../../src/core/llm/LLMTypes';
+import { createThinkingBlocksMetadataExtractor } from '../../../src/core/llm/openAICompatibleReasoning';
 import {
   mapStreamToChunks,
   toAssistantModelMessage,
@@ -32,7 +35,10 @@ function makeUsage(): LanguageModelUsage {
   };
 }
 
-function makeFinishStep(finishReason: 'stop' | 'tool-calls'): TextStreamPart<ToolSet> {
+function makeFinishStep(
+  finishReason: 'stop' | 'tool-calls',
+  providerMetadata?: ProviderMetadata,
+): TextStreamPart<ToolSet> {
   const performance: StepResultPerformance = {
     effectiveOutputTokensPerSecond: 0,
     outputTokensPerSecond: undefined,
@@ -50,7 +56,7 @@ function makeFinishStep(finishReason: 'stop' | 'tool-calls'): TextStreamPart<Too
     performance,
     finishReason,
     rawFinishReason: undefined,
-    providerMetadata: undefined,
+    providerMetadata,
   };
 }
 
@@ -324,5 +330,308 @@ describe('google-gemini reasoning replay round-trip', () => {
     const reasoningPart = (replayMsg.content as Array<{ type: string }>).find(p => p.type === 'reasoning');
     expect(reasoningPart).toBeDefined();
     expect(reasoningPart).not.toHaveProperty('providerOptions');
+  });
+});
+
+describe('truefoundry reasoning replay, on the shape the TFY gateway actually sends', () => {
+  const SIGNATURE = 'EuMDCpoCCBMQAhgCKkDSGVGyihyHKHDq';
+  const THINKING = 'Plan: table first, then the tool.';
+
+  /**
+   * The gateway streams reasoning unsigned via `reasoning_content`, then restates it consolidated
+   * and signed in a trailing chunk. @ai-sdk/openai-compatible surfaces only the former as stream
+   * parts; the latter reaches us as finish-step metadata via the TrueFoundry metadata extractor.
+   */
+  function gatewayStream(finishReason: 'stop' | 'tool-calls', signed: boolean) {
+    return makeStream([
+      { type: 'reasoning-start', id: 'r1' },
+      { type: 'reasoning-delta', id: 'r1', text: THINKING },
+      { type: 'reasoning-end', id: 'r1' },
+      { type: 'tool-input-start', id: 'call-tf1', toolName: 'get_current_datetime' },
+      { type: 'tool-input-delta', id: 'call-tf1', delta: '{}' },
+      makeFinishStep(
+        finishReason,
+        signed
+          ? {
+              openaiCompatibleThinking: {
+                thinking_blocks: [{ type: 'thinking', thinking: THINKING, signature: SIGNATURE }],
+              },
+            }
+          : undefined,
+      ),
+    ]);
+  }
+
+  /**
+   * Replay through `toAssistantModelMessage` and on to the exact message the adapter puts on the
+   * wire. `ModelMessage` is wider than the converter's prompt type, so the parts are narrowed
+   * rather than asserted across.
+   */
+  function toWireMessage({
+    output,
+    source,
+    provider = 'truefoundry',
+    providerName = 'truefoundry',
+  }: {
+    output: RawAssistantMessageWithUsage['output'];
+    source: string;
+    provider?: VercelAIProviderName;
+    providerName?: string;
+  }) {
+    const assistantMsg: Extract<ChatCompletionMessageParam, { role: 'assistant' }> = {
+      role: 'assistant',
+      content: null,
+      ...(output.tool_calls !== undefined ? { tool_calls: output.tool_calls } : {}),
+    };
+    Reflect.set(assistantMsg, 'thinking_blocks', output.thinking_blocks);
+    Reflect.set(assistantMsg, 'source', source);
+    const replayed = toAssistantModelMessage({ msg: assistantMsg, provider, providerName });
+    if (typeof replayed.content === 'string') {
+      throw new Error('expected structured assistant content');
+    }
+    const content = replayed.content.flatMap(part =>
+      part.type === 'reasoning' || part.type === 'text' || part.type === 'tool-call' ? [part] : [],
+    );
+    const prompt: LanguageModelV4Prompt = [
+      {
+        role: 'assistant',
+        content,
+        ...(replayed.providerOptions !== undefined ? { providerOptions: replayed.providerOptions } : {}),
+      },
+    ];
+    return convertToOpenAICompatibleChatMessages(prompt, { providerOptionsKey: 'truefoundry' })[0];
+  }
+
+  /**
+   * Capture and replay joined end to end, with the real extractor in the middle: raw gateway
+   * chunks in, outbound gateway message out. Every other test here hand-writes the metadata the
+   * extractor would have produced, so none of them would catch the two sides naming it differently.
+   */
+  it('round-trips raw gateway chunks through the real extractor and back onto the wire', async () => {
+    const extractor = createThinkingBlocksMetadataExtractor().createStreamExtractor();
+    extractor.processChunk({ choices: [{ index: 0, delta: { role: 'assistant', content: '' } }] });
+    extractor.processChunk({ choices: [{ index: 0, delta: { reasoning_content: THINKING } }] });
+    extractor.processChunk({ choices: [{ index: 0, delta: { reasoning_signature: SIGNATURE } }] });
+    extractor.processChunk({
+      choices: [
+        { index: 0, delta: { thinking_blocks: [{ type: 'thinking', thinking: THINKING, signature: SIGNATURE }] } },
+      ],
+    });
+
+    const { output } = await drainStream(
+      mapStreamToChunks({
+        stream: makeStream([
+          { type: 'reasoning-start', id: 'r1' },
+          { type: 'reasoning-delta', id: 'r1', text: THINKING },
+          { type: 'reasoning-end', id: 'r1' },
+          { type: 'tool-input-start', id: 'call-tf1', toolName: 'get_current_datetime' },
+          { type: 'tool-input-delta', id: 'call-tf1', delta: '{}' },
+          makeFinishStep('tool-calls', extractor.buildMetadata()),
+        ]),
+        chunkMeta: CHUNK_META,
+      }),
+    );
+
+    expect(output.thinking_blocks).toEqual([{ type: 'thinking', thinking: THINKING, signature: SIGNATURE }]);
+    expect(toWireMessage({ output, source: 'truefoundry/truefoundry/claude-sonnet-5' })).toMatchObject({
+      thinking_blocks: [{ type: 'thinking', thinking: THINKING, signature: SIGNATURE }],
+    });
+  });
+
+  it('carries the signature from finish-step metadata onto the outbound gateway message', async () => {
+    const { output } = await drainStream(
+      mapStreamToChunks({ stream: gatewayStream('tool-calls', true), chunkMeta: CHUNK_META }),
+    );
+
+    expect(output.thinking_blocks).toEqual([{ type: 'thinking', thinking: THINKING, signature: SIGNATURE }]);
+
+    const wire = toWireMessage({ output, source: 'truefoundry/truefoundry/claude-sonnet-5' });
+
+    expect(wire).toEqual({
+      role: 'assistant',
+      content: null,
+      thinking_blocks: [{ type: 'thinking', thinking: THINKING, signature: SIGNATURE }],
+      tool_calls: [{ id: 'call-tf1', type: 'function', function: { name: 'get_current_datetime', arguments: '{}' } }],
+    });
+    // Sending both would hand the gateway the same reasoning twice, once unsigned.
+    expect(wire).not.toHaveProperty('reasoning_content');
+  });
+
+  it('falls back to plain reasoning_content when the gateway signs nothing', async () => {
+    const { output } = await drainStream(
+      mapStreamToChunks({ stream: gatewayStream('stop', false), chunkMeta: CHUNK_META }),
+    );
+
+    expect(output.thinking_blocks?.[0]).not.toHaveProperty('signature');
+
+    const wire = toWireMessage({ output, source: 'truefoundry/truefoundry/claude-sonnet-5' });
+    expect(wire).toMatchObject({ reasoning_content: THINKING });
+    expect(wire).not.toHaveProperty('thinking_blocks');
+  });
+
+  it('replays a signed block that shares the array with a redacted one', async () => {
+    const mixed = [
+      { type: 'redacted_thinking', data: 'opaque-payload' },
+      { type: 'thinking', thinking: THINKING, signature: SIGNATURE },
+    ];
+    const { output } = await drainStream(
+      mapStreamToChunks({
+        stream: makeStream([
+          { type: 'reasoning-start', id: 'r1' },
+          { type: 'reasoning-delta', id: 'r1', text: THINKING },
+          { type: 'reasoning-end', id: 'r1' },
+          makeFinishStep('stop', { openaiCompatibleThinking: { thinking_blocks: mixed } }),
+        ]),
+        chunkMeta: CHUNK_META,
+      }),
+    );
+
+    // Rejecting the redacted entry would take the signed block with it and unsign the replay.
+    expect(output.thinking_blocks).toEqual(mixed);
+    expect(toWireMessage({ output, source: 'truefoundry/truefoundry/claude-sonnet-5' })).toMatchObject({
+      thinking_blocks: mixed,
+    });
+  });
+
+  it('does not replay blocks signed by a different configured provider', async () => {
+    const { output } = await drainStream(
+      mapStreamToChunks({ stream: gatewayStream('stop', true), chunkMeta: CHUNK_META }),
+    );
+
+    const wire = toWireMessage({ output, source: 'truefoundry/other-gateway/claude-sonnet-5' });
+    expect(wire).not.toHaveProperty('thinking_blocks');
+    expect(wire).toMatchObject({ reasoning_content: THINKING });
+  });
+
+  // Any gateway on the compatible adapter sends this shape, so replay cannot be keyed to one type.
+  it.each(['custom', 'fireworks', 'zai', 'together'] as const)('replays signed blocks for %s too', async provider => {
+    const { output } = await drainStream(
+      mapStreamToChunks({ stream: gatewayStream('stop', true), chunkMeta: CHUNK_META }),
+    );
+
+    const wire = toWireMessage({
+      output,
+      source: `${provider}/litellm/claude-sonnet-5`,
+      provider,
+      providerName: 'litellm',
+    });
+
+    expect(wire).toMatchObject({
+      thinking_blocks: [{ type: 'thinking', thinking: THINKING, signature: SIGNATURE }],
+    });
+    expect(wire).not.toHaveProperty('reasoning_content');
+  });
+});
+
+// ─────────── Switching provider or model between turns ───────────
+
+/**
+ * A session can change model between turns, so replay has to cope with history signed by whoever
+ * answered last. A signature is only meaningful to the provider that issued it: replaying one
+ * across providers is at best ignored and at worst rejected, so it must be dropped.
+ */
+describe('replaying history after the session switches provider', () => {
+  const SIGNATURE = 'sig-from-previous-turn';
+  const THINKING = 'Plan formed on the previous turn.';
+
+  function replay({
+    blocks,
+    source,
+    provider,
+    providerName,
+  }: {
+    blocks: unknown;
+    source: string;
+    provider: VercelAIProviderName;
+    providerName: string;
+  }) {
+    const assistantMsg: Extract<ChatCompletionMessageParam, { role: 'assistant' }> = {
+      role: 'assistant',
+      content: null,
+    };
+    Reflect.set(assistantMsg, 'thinking_blocks', blocks);
+    Reflect.set(assistantMsg, 'source', source);
+    const replayed = toAssistantModelMessage({ msg: assistantMsg, provider, providerName });
+    if (typeof replayed.content === 'string') {
+      throw new Error('expected structured assistant content');
+    }
+    // Narrowed here: the caller only ever needs the reasoning parts and the message-level options.
+    const reasoning = replayed.content.flatMap(part => (part.type === 'reasoning' ? [part] : []));
+    return { providerOptions: replayed.providerOptions, reasoning };
+  }
+
+  const signedBlocks = [{ type: 'thinking', thinking: THINKING, signature: SIGNATURE }];
+
+  // Gateway history replayed to a native adapter: the blocks must not ride along on the message.
+  it.each(['anthropic', 'openai', 'google-gemini'] as const)(
+    'drops gateway-signed blocks when the next turn runs on %s',
+    provider => {
+      const replayed = replay({
+        blocks: signedBlocks,
+        source: 'truefoundry/tfy-gateway/claude-sonnet-5',
+        provider,
+        providerName: provider,
+      });
+
+      expect(replayed.providerOptions).toBeUndefined();
+      expect(replayed.reasoning.map(part => part.text)).toEqual([THINKING]);
+      expect(replayed.reasoning[0]).not.toHaveProperty('providerOptions');
+    },
+  );
+
+  // Native history replayed to a gateway: no message-level blocks, and the text survives as plain
+  // reasoning the compatible adapter will flatten into `reasoning_content`.
+  it.each(['anthropic', 'openai'] as const)('drops %s-signed blocks when the next turn runs on a gateway', provider => {
+    const replayed = replay({
+      blocks: signedBlocks,
+      source: `${provider}/${provider}/some-model`,
+      provider: 'truefoundry',
+      providerName: 'tfy-gateway',
+    });
+
+    expect(replayed.providerOptions).toBeUndefined();
+    const prompt: LanguageModelV4Prompt = [{ role: 'assistant', content: replayed.reasoning }];
+    const wire = convertToOpenAICompatibleChatMessages(prompt, { providerOptionsKey: 'truefoundry' })[0];
+    expect(wire).not.toHaveProperty('thinking_blocks');
+    expect(wire).toMatchObject({ reasoning_content: THINKING });
+  });
+
+  // Both sides take message-level blocks, which is exactly why the type has to be checked: the
+  // replay would otherwise be well-formed and silently carry another gateway's signature.
+  it('drops blocks when the session switches to a gateway of another type', () => {
+    const replayed = replay({
+      blocks: signedBlocks,
+      source: 'truefoundry/shared-gateway/claude-sonnet-5',
+      provider: 'fireworks',
+      providerName: 'shared-gateway',
+    });
+
+    expect(replayed.providerOptions).toBeUndefined();
+    expect(replayed.reasoning.map(part => part.text)).toEqual([THINKING]);
+  });
+
+  // Two gateways of the same type are still two different issuers.
+  it('drops blocks when only the configured provider name changes', () => {
+    const replayed = replay({
+      blocks: signedBlocks,
+      source: 'truefoundry/gateway-a/claude-sonnet-5',
+      provider: 'truefoundry',
+      providerName: 'gateway-b',
+    });
+
+    expect(replayed.providerOptions).toBeUndefined();
+  });
+
+  // Same issuer, different model. The signature is replayed, which is what lets a turn keep its
+  // plan; whether the provider accepts a signature across models is the provider's call.
+  it('still replays blocks when only the model changes on the same provider', () => {
+    const replayed = replay({
+      blocks: signedBlocks,
+      source: 'truefoundry/tfy-gateway/claude-sonnet-5',
+      provider: 'truefoundry',
+      providerName: 'tfy-gateway',
+    });
+
+    expect(replayed.providerOptions).toEqual({ openaiCompatible: { thinking_blocks: signedBlocks } });
   });
 });
