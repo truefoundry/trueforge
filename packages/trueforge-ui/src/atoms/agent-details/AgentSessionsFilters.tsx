@@ -19,11 +19,20 @@ import { auiInputClass } from '../lib/inputClasses.js';
 import { auiSelectMenuClass, auiSelectOptionClass, auiSelectTriggerClass } from '../lib/selectClasses.js';
 import { findLibraryAgent } from '../lib/useSearchAgentsList.js';
 import { Button } from '../primitives/Button.js';
+import { PopoverSelect } from '../primitives/PopoverSelect.js';
+
+const SESSION_SCOPE_OPTIONS = [
+  { label: 'All sessions', value: 'all' },
+  { label: 'My sessions', value: 'mine' },
+] as const;
 
 export type AgentSessionsFiltersProps = {
   agentId: string | null;
   timeRange: SessionTimeRange;
   onAgentChange: (agentId: string | null) => void;
+  /** When set, shows the All / My sessions dropdown. Omitted on surfaces that only reuse the time control. */
+  createdByMe?: boolean;
+  onCreatedByMeChange?: (createdByMe: boolean) => void;
   onTimeRangeChange: (range: SessionTimeRange) => void;
   showAgentFilter?: boolean;
   showCustomTimeRange?: boolean;
@@ -35,6 +44,8 @@ export function AgentSessionsFilters({
   agentId,
   timeRange,
   onAgentChange,
+  createdByMe = false,
+  onCreatedByMeChange,
   onTimeRangeChange,
   showAgentFilter = true,
   showCustomTimeRange = true,
@@ -138,6 +149,16 @@ export function AgentSessionsFilters({
               [libraryAgentId(agent)]: agent.name,
             }));
           }}
+        />
+      ) : null}
+      {onCreatedByMeChange != null ? (
+        <PopoverSelect
+          aria-label="Show sessions"
+          className="shrink-0"
+          menuClassName="min-w-40"
+          options={SESSION_SCOPE_OPTIONS}
+          value={createdByMe ? 'mine' : 'all'}
+          onValueChange={value => onCreatedByMeChange(value === 'mine')}
         />
       ) : null}
       <div className="relative" ref={popoverRef}>

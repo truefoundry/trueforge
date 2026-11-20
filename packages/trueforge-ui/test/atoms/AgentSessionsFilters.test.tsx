@@ -137,4 +137,55 @@ describe('AgentSessionsFilters', () => {
 
     expect(screen.queryByRole('button', { name: 'Reload sessions' })).not.toBeInTheDocument();
   });
+
+  it('filters to sessions created by the current user', () => {
+    const onCreatedByMeChange = vi.fn();
+    render(
+      <AgentSessionsFilters
+        agentId={null}
+        timeRange={{ startTs: 1, endTs: 2 }}
+        onAgentChange={() => undefined}
+        onTimeRangeChange={() => undefined}
+        onCreatedByMeChange={onCreatedByMeChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show sessions' }));
+    fireEvent.click(screen.getByRole('option', { name: 'My sessions' }));
+    expect(onCreatedByMeChange).toHaveBeenCalledWith(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Show sessions' }));
+    fireEvent.click(screen.getByRole('option', { name: 'All sessions' }));
+    expect(onCreatedByMeChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it('marks the active scope as pressed', () => {
+    render(
+      <AgentSessionsFilters
+        agentId={null}
+        timeRange={{ startTs: 1, endTs: 2 }}
+        onAgentChange={() => undefined}
+        onTimeRangeChange={() => undefined}
+        createdByMe
+        onCreatedByMeChange={() => undefined}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show sessions' }));
+    expect(screen.getByRole('option', { name: 'My sessions' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('option', { name: 'All sessions' })).toHaveAttribute('aria-selected', 'false');
+  });
+
+  it('hides the creator filter when the page does not handle it', () => {
+    render(
+      <AgentSessionsFilters
+        agentId={null}
+        timeRange={{ startTs: 1, endTs: 2 }}
+        onAgentChange={() => undefined}
+        onTimeRangeChange={() => undefined}
+        showAgentFilter={false}
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: 'Show sessions' })).not.toBeInTheDocument();
+  });
 });
