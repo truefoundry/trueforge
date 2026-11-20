@@ -183,10 +183,15 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     ).toEqual(['older']);
   });
 
-  it('rejects combining the last-updated and created ranges', async () => {
-    await expect(listTitles({ last_updated_from: new Date(), created_to: new Date() })).rejects.toThrow(
-      'Pass only one of the last_updated or created time ranges',
-    );
+  it('applies the last-updated range and ignores the created range when both are set', async () => {
+    const older = await createArtifact({ title: 'older' });
+    await tick();
+    const newer = await createArtifact({ title: 'newer' });
+    await tick();
+    const updated = await createVersion(older.id, 'u1');
+    expect(
+      await listTitles({ last_updated_from: new Date(updated.created_at), created_from: new Date(newer.created_at) }),
+    ).toEqual(['older']);
   });
 
   it('creates monotonic versions and advances latest_version and updated_at', async () => {
