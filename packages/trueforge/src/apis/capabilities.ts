@@ -1,12 +1,16 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
+import { canRouteEveryCategory } from '@truefoundry/trueforge-core/core';
+import type { Context } from 'hono';
 import type { Logger } from 'winston';
 import { areCatalogSettingsAvailable, hasAdminRole, type ResolveRequestContext } from '../auth/identity';
+import { enabledTenantModelRouting, trueFoundryModelRouting } from '../config';
 import {
   isMemoryEnabledForTenant,
   isWebSearchEnabledForTenant,
   type IConfigurationStore,
 } from '../db/configurationStore';
 import type { IMemoryProviderStore } from '../db/memoryProviderStore';
+import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { WithTransaction } from '../db/transaction';
 import type { IUserStore } from '../db/userStore';
@@ -61,11 +65,29 @@ function settingsCapability({
   };
 }
 
+/**
+ * Auto needs model routing on for the tenant and a model the user has in every routing cluster. A failed listing
+ * fails the request, so clients keep their last known capabilities instead of dropping a selected Auto.
+ */
+async function isAutoModelAvailable({
+  tenant_id,
+  store,
+}: {
+  tenant_id: string;
+  store: IModelProviderStore;
+}): Promise<boolean> {
+  if (enabledTenantModelRouting(trueFoundryModelRouting(), tenant_id) === undefined) {
+    return false;
+  }
+  return canRouteEveryCategory(await store.listModels({ tenant_id, has_catalog_info: true }));
+}
+
 export function createCapabilitiesRouter<TTransaction>(deps: {
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
   webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
   configurationStore: IConfigurationStore;
   memoryProviderStore: IMemoryProviderStore<TTransaction>;
+  resolveModelProviderStore: (c: Context) => IModelProviderStore<TTransaction>;
   userStore: IUserStore;
   withTransaction: WithTransaction<TTransaction>;
   logger: Logger;
@@ -88,7 +110,7 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
           (await deps.sandboxEnvironmentStore.getDefaultEnvironment({ tenant_id: requestContext.tenant_id }))?.version
             .status,
         );
-    const [hasProvider, tenantAllowsWebSearch, tenantAllowsMemory, hasMemoryProvider] = await Promise.all([
+    const [hasProvider, tenantAllowsWebSearch, tenantAllowsMemory, hasMemoryProvider, autoEnabled] = await Promise.all([
       hasConfiguredWebSearchProvider({
         tenant_id: requestContext.tenant_id,
         store: deps.webSearchProviderStore,
@@ -104,6 +126,10 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
       hasConfiguredMemoryProvider({
         tenant_id: requestContext.tenant_id,
         store: deps.memoryProviderStore,
+      }),
+      isAutoModelAvailable({
+        tenant_id: requestContext.tenant_id,
+        store: deps.resolveModelProviderStore(c),
       }),
     ]);
 
@@ -146,6 +172,7 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
           }),
           web_search: webSearchResponse,
           ...(memoryResponse && { memory: memoryResponse }),
+          auto: { enabled: autoEnabled },
           session_sharing: sessionSharing,
         },
       },

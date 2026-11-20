@@ -123,6 +123,7 @@ export { OpenAIDecisionModel } from './decision/OpenAIDecisionModel';
 export { DEFAULT_ROUTING_QUESTION, type RoutingCategory, type RoutingQuestion } from './modelRouting/question';
 export {
   AUTO_MODEL,
+  canRouteEveryCategory,
   createModelRouter,
   selectModel,
   type ModelRouterDeps,
