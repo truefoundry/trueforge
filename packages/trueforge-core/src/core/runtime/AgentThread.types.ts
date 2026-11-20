@@ -38,11 +38,11 @@ import type { CurrentContextUsage } from './contextUsage';
 export type { AgentInfo, AgentParent };
 
 /** Model a thread ran on, including the effort the router returned with that name. */
-export const ThreadModelSchema = z.object({
+export const ModelSnapshotSchema = z.object({
   name: z.string(),
   effort: z.string().nullable(),
 });
-export type ThreadModel = z.infer<typeof ThreadModelSchema>;
+export type ModelSnapshot = z.infer<typeof ModelSnapshotSchema>;
 
 /** Canonical string constants for internal (non-wire) orchestration event `type` fields. */
 export const InternalEventType = {
@@ -216,7 +216,7 @@ export interface AgentThreadSnapshot {
   parent: AgentParent | null;
   agent_info: AgentInfo | null;
   /** Model and effort this thread resolved to. Updated every turn for the main thread, and set when a subagent is created. */
-  model: ThreadModel | null;
+  model: ModelSnapshot | null;
   completion: SubAgentCompletion | null;
   pending_mcp_auth: boolean;
   /** Cross-turn capability KV. Keys: capability.state.key; `tfy.` reserved for builtins. */

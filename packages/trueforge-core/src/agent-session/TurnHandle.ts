@@ -23,7 +23,7 @@ import {
   type InternalMCPAuthRequiredEvent,
   type InternalThreadDoneEvent,
   type InternalTurnStateEvent,
-  type ThreadModel,
+  type ModelSnapshot,
 } from '../core/runtime/AgentThread.types';
 import type { AgentThreadOrchestrator } from '../core/runtime/AgentThreadOrchestrator';
 import { getEmptyCurrentContextUsage } from '../core/runtime/contextUsage';
@@ -760,7 +760,7 @@ export class TurnHandle<TTransaction = never, TTurnCustom extends object = Recor
 
       case HarnessEventType.THREAD_CREATED: {
         const { model, reasoning_effort } = event.agent_info;
-        const threadModel: ThreadModel | null =
+        const modelSnapshot: ModelSnapshot | null =
           model === undefined ? null : { name: model, effort: reasoning_effort ?? null };
         await this.writeStore('append', () =>
           this.store.withTransaction(async transaction => {
@@ -772,7 +772,7 @@ export class TurnHandle<TTransaction = never, TTurnCustom extends object = Recor
                     thread_id: event.thread_id,
                     parent: event.parent,
                     agent_info: event.agent_info,
-                    model: threadModel,
+                    model: modelSnapshot,
                     context: [],
                     current_context_usage: getEmptyCurrentContextUsage(),
                     completion: null,
