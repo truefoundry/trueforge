@@ -173,6 +173,7 @@ export function buildAgentSessionShareUrl({
     agentId: agentId == null || agentId.length === 0 ? null : agentId,
     ...(view === undefined ? {} : { view }),
     timeRange: createdAt == null ? undefined : sessionTimeRangeFromCreatedAt(createdAt),
+    createdByMe: null,
   });
   return url.toString();
 }
