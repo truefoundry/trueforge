@@ -1,6 +1,6 @@
 import type { Subject, TokenPagination } from '@truefoundry/trueforge-core/agent-session';
 import slugify from 'slugify';
-import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
+import { MAX_TITLE_LENGTH } from '../schemas/common';
 import { newId } from '../utils/id';
 
 export interface ArtifactRecord {
@@ -30,15 +30,10 @@ export interface ArtifactVersionRecord {
 
 export interface CreateArtifactInput {
   tenant_id: string;
-  /** Trimmed; 1 to `MAX_SESSION_TITLE_LENGTH` characters. */
+  /** Trimmed; 1 to `MAX_TITLE_LENGTH` characters. */
   title: string;
   created_by_subject: Subject;
   created_by_session_id: string;
-}
-
-export interface GetArtifactInput {
-  tenant_id: string;
-  slug: string;
 }
 
 export interface ListArtifactsInput {
@@ -47,10 +42,15 @@ export interface ListArtifactsInput {
   created_by_session_id: string | undefined;
   /** Case-insensitive substring match. */
   title: string | undefined;
-  /** Inclusive lower bound on `updated_at`. */
-  updated_since: Date | undefined;
-  /** Exclusive upper bound on `updated_at`. */
-  updated_before: Date | undefined;
+  /**
+   * Inclusive `updated_at` bounds. Only one time range applies at a time: setting a
+   * `last_updated_*` and a `created_*` bound together throws.
+   */
+  last_updated_from: Date | undefined;
+  last_updated_to: Date | undefined;
+  /** Inclusive `created_at` bounds. */
+  created_from: Date | undefined;
+  created_to: Date | undefined;
   limit: number;
   page_token: string | undefined;
 }
@@ -68,31 +68,49 @@ export interface GetArtifactVersionInput {
   version: number;
 }
 
-/** ULID tail chars are random; head chars are the timestamp and repeat for ~17 minutes. */
+/** Length of ULID characters appended at the end of cleaned title to get slug */
 const SLUG_ID_SUFFIX_LENGTH = 6;
 
 /**
  * New artifact id and `<cleaned-title>-<id suffix>` slug. Throws `RangeError` when the trimmed
- * title is empty or longer than `MAX_SESSION_TITLE_LENGTH`.
+ * title is empty or longer than `MAX_TITLE_LENGTH`.
  */
 export function newArtifactIdentity(rawTitle: string): { id: string; title: string; slug: string } {
   const title = rawTitle.trim();
-  if (title.length === 0 || title.length > MAX_SESSION_TITLE_LENGTH) {
-    throw new RangeError(`Artifact title must be 1-${String(MAX_SESSION_TITLE_LENGTH)} characters`);
+  if (title.length === 0 || title.length > MAX_TITLE_LENGTH) {
+    throw new RangeError(`Artifact title must be 1-${String(MAX_TITLE_LENGTH)} characters`);
   }
   const id = newId();
   const suffix = id.slice(-SLUG_ID_SUFFIX_LENGTH);
-  // slugify spells out symbols (`€` -> `euro`), so the cleaned title can outgrow the title cap.
-  const base = slugify(title, { lower: true, strict: true, trim: true })
-    .slice(0, MAX_SESSION_TITLE_LENGTH)
+  // Drop symbols slugify would spell out (`€` -> `euro`, `&` -> `and`). Transliteration can still
+  // lengthen letters (`ß` -> `ss`), so the cleaned title is capped after slugify.
+  const base = slugify(title.replace(/[\p{S}%&]/gu, ' '), { lower: true, strict: true, trim: true })
+    .slice(0, MAX_TITLE_LENGTH - SLUG_ID_SUFFIX_LENGTH)
     .replace(/-+$/, '');
   return { id, title, slug: base === '' ? suffix : `${base}-${suffix}` };
+}
+
+/** Throws when both the last-updated and created ranges are set. */
+export function listArtifactsTimeRange(
+  input: Pick<ListArtifactsInput, 'last_updated_from' | 'last_updated_to' | 'created_from' | 'created_to'>,
+): { column: 'updated_at' | 'created_at'; from: Date | undefined; to: Date | undefined } | undefined {
+  const lastUpdated = input.last_updated_from !== undefined || input.last_updated_to !== undefined;
+  const created = input.created_from !== undefined || input.created_to !== undefined;
+  if (lastUpdated && created) {
+    throw new Error('Pass only one of the last_updated or created time ranges');
+  }
+  if (lastUpdated) {
+    return { column: 'updated_at', from: input.last_updated_from, to: input.last_updated_to };
+  }
+  if (created) {
+    return { column: 'created_at', from: input.created_from, to: input.created_to };
+  }
+  return undefined;
 }
 
 export interface IArtifactStore {
   /** Generates the id and slug from the title (see `newArtifactIdentity`). */
   createArtifact(input: CreateArtifactInput): Promise<ArtifactRecord>;
-  getArtifact(input: GetArtifactInput): Promise<ArtifactRecord | undefined>;
   /** Most recently updated first. */
   listArtifacts(input: ListArtifactsInput): Promise<{ data: ArtifactRecord[]; pagination: TokenPagination }>;
   /**

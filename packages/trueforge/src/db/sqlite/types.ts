@@ -469,7 +469,7 @@ export interface OAuthPendingAuthorizationTable {
 }
 
 /**
- * Mirrors Postgres `artifact`. PRIMARY KEY (id); UNIQUE (tenant_id, slug).
+ * PRIMARY KEY (id); UNIQUE (tenant_id, slug).
  */
 export interface ArtifactTable {
   id: string;
@@ -484,7 +484,7 @@ export interface ArtifactTable {
 }
 
 /**
- * Mirrors Postgres `artifact_version`. PRIMARY KEY (artifact_id, version).
+ * PRIMARY KEY (artifact_id, version); FK → artifact ON DELETE CASCADE.
  */
 export interface ArtifactVersionTable {
   artifact_id: string;

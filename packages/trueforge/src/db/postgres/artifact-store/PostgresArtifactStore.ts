@@ -5,12 +5,12 @@ import {
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import { sql, type Kysely, type Selectable, type Transaction } from 'kysely';
 import {
+  listArtifactsTimeRange,
   newArtifactIdentity,
   type ArtifactRecord,
   type ArtifactVersionRecord,
   type CreateArtifactInput,
   type CreateArtifactVersionInput,
-  type GetArtifactInput,
   type GetArtifactVersionInput,
   type IArtifactStore,
   type ListArtifactsInput,
@@ -66,16 +66,6 @@ export class PostgresArtifactStore implements IArtifactStore {
     return toArtifactRecord(row);
   }
 
-  async getArtifact(input: GetArtifactInput): Promise<ArtifactRecord | undefined> {
-    const row = await this.#db
-      .selectFrom('artifact')
-      .selectAll()
-      .where('tenant_id', '=', input.tenant_id)
-      .where('slug', '=', input.slug)
-      .executeTakeFirst();
-    return row === undefined ? undefined : toArtifactRecord(row);
-  }
-
   async listArtifacts(input: ListArtifactsInput): Promise<{ data: ArtifactRecord[]; pagination: TokenPagination }> {
     const offset = decodeOffsetPageToken(input.page_token);
     let query = this.#db
@@ -87,13 +77,15 @@ export class PostgresArtifactStore implements IArtifactStore {
       query = query.where('created_by_session_id', '=', input.created_by_session_id);
     }
     if (input.title !== undefined) {
+      // Case-insensitive title substring search.
       query = query.where(sql<boolean>`position(lower(${input.title}) in lower(title)) > 0`);
     }
-    if (input.updated_since !== undefined) {
-      query = query.where('updated_at', '>=', input.updated_since);
+    const range = listArtifactsTimeRange(input);
+    if (range?.from !== undefined) {
+      query = query.where(range.column, '>=', range.from);
     }
-    if (input.updated_before !== undefined) {
-      query = query.where('updated_at', '<', input.updated_before);
+    if (range?.to !== undefined) {
+      query = query.where(range.column, '<=', range.to);
     }
     const rows = await query
       .orderBy('updated_at', 'desc')

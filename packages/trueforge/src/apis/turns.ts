@@ -123,7 +123,7 @@ import {
   resolveSandboxProvider,
 } from '../runtime/sessionResources';
 import { restoreTurnEventLog } from '../runtime/turnEventLogRestore';
-import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
+import { MAX_TITLE_LENGTH } from '../schemas/common';
 import { assertGatewayMetadataRequestHeaders, X_TFY_METADATA } from '../truefoundry/gatewayMetadata';
 import { X_TFG_MCP, X_TFG_MODELS, X_TFG_SKILLS, X_TFG_TOOLS } from '../truefoundry/inlineResources';
 import { newId } from '../utils/id';
@@ -555,7 +555,7 @@ function createTurnResolver(deps: {
 const titleSegmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 
 /**
- * Caps a title at {@link MAX_SESSION_TITLE_LENGTH} UTF-16 units without splitting a
+ * Caps a title at {@link MAX_TITLE_LENGTH} UTF-16 units without splitting a
  * grapheme cluster: clusters that would cross the cap (emoji with skin tones or
  * ZWJ sequences, which read as one unit but span several) are dropped whole.
  */
@@ -563,7 +563,7 @@ function truncateSessionTitle(title: string): string {
   let truncated = '';
   let length = 0;
   for (const { segment } of titleSegmenter.segment(title)) {
-    if (length + segment.length > MAX_SESSION_TITLE_LENGTH) {
+    if (length + segment.length > MAX_TITLE_LENGTH) {
       break;
     }
     truncated += segment;
@@ -574,7 +574,7 @@ function truncateSessionTitle(title: string): string {
 
 /**
  * Derives a session title from the first user message of the first turn. Returns the
- * trimmed text (capped at {@link MAX_SESSION_TITLE_LENGTH}) or `undefined` when no usable
+ * trimmed text (capped at {@link MAX_TITLE_LENGTH}) or `undefined` when no usable
  * text is present (for example, a file-only message).
  */
 export function deriveSessionTitle(input: UserMessage[] | undefined): string | undefined {
