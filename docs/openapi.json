@@ -344,11 +344,8 @@
           "created_by_subject": {
             "$ref": "#/components/schemas/Subject"
           },
-          "id": {
-            "type": "string"
-          },
           "latest_version": {
-            "description": "Highest committed version; 0 before the first commit.",
+            "description": "Latest version.",
             "type": "integer"
           },
           "slug": {
@@ -363,7 +360,6 @@
           }
         },
         "required": [
-          "id",
           "slug",
           "title",
           "latest_version",
@@ -8051,7 +8047,7 @@
     },
     "/api/v1/artifacts": {
       "get": {
-        "description": "List artifacts created by the caller, most recently updated first.",
+        "description": "List artifacts created by the caller, most recently updated first. Optionally filter by session, title substring, or `updated_at` range.",
         "parameters": [
           {
             "description": "Page size. Defaults to 25",
@@ -8073,6 +8069,72 @@
             "required": false,
             "schema": {
               "description": "Opaque token from a previous response `next_page_token`.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "When set, only artifacts created in this session are returned.",
+            "in": "query",
+            "name": "created_by_session_id",
+            "required": false,
+            "schema": {
+              "description": "When set, only artifacts created in this session are returned.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Case-insensitive substring match on artifact title.",
+            "in": "query",
+            "name": "title",
+            "required": false,
+            "schema": {
+              "description": "Case-insensitive substring match on artifact title.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Inclusive lower bound on `updated_at` (ISO-8601 / RFC 3339). Cannot be combined with `created_from` or `created_to`.",
+            "in": "query",
+            "name": "last_updated_from",
+            "required": false,
+            "schema": {
+              "description": "Inclusive lower bound on `updated_at` (ISO-8601 / RFC 3339). Cannot be combined with `created_from` or `created_to`.",
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Inclusive upper bound on `updated_at` (ISO-8601 / RFC 3339). Cannot be combined with `created_from` or `created_to`.",
+            "in": "query",
+            "name": "last_updated_to",
+            "required": false,
+            "schema": {
+              "description": "Inclusive upper bound on `updated_at` (ISO-8601 / RFC 3339). Cannot be combined with `created_from` or `created_to`.",
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Inclusive lower bound on `created_at` (ISO-8601 / RFC 3339). Cannot be combined with `last_updated_from` or `last_updated_to`.",
+            "in": "query",
+            "name": "created_from",
+            "required": false,
+            "schema": {
+              "description": "Inclusive lower bound on `created_at` (ISO-8601 / RFC 3339). Cannot be combined with `last_updated_from` or `last_updated_to`.",
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Inclusive upper bound on `created_at` (ISO-8601 / RFC 3339). Cannot be combined with `last_updated_from` or `last_updated_to`.",
+            "in": "query",
+            "name": "created_to",
+            "required": false,
+            "schema": {
+              "description": "Inclusive upper bound on `created_at` (ISO-8601 / RFC 3339). Cannot be combined with `last_updated_from` or `last_updated_to`.",
+              "format": "date-time",
               "type": "string"
             }
           }

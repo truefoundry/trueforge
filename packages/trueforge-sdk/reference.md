@@ -429,7 +429,7 @@ await client.agents.delete("agent_id");
 <dl>
 <dd>
 
-List artifacts created by the caller, most recently updated first.
+List artifacts created by the caller, most recently updated first. Optionally filter by session, title substring, or `updated_at` range.
 </dd>
 </dl>
 </dd>

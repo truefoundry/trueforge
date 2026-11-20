@@ -13,10 +13,9 @@ class Artifact(UncheckedBaseModel):
     created_at: dt.datetime
     created_by_session_id: str
     created_by_subject: Subject
-    id: str
     latest_version: int = pydantic.Field()
     """
-    Highest committed version; 0 before the first commit.
+    Latest version.
     """
 
     slug: str
