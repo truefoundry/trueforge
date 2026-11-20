@@ -509,7 +509,10 @@ function RecentChatsSection({
       <div
         ref={viewportRef}
         data-slot={THREAD_LIST_VIEWPORT_SLOT}
-        className={cn('flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto', hideScrollbar && 'aui-scrollbar-hidden')}
+        className={cn(
+          'relative flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto',
+          hideScrollbar && 'aui-scrollbar-hidden',
+        )}
       >
         {children}
       </div>

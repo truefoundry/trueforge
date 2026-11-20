@@ -9,10 +9,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { AgentConfigEditor } from '../atoms/draft/AgentConfigEditors.js';
 import { useAgentConfigInstructions } from '../atoms/draft/AgentConfigInstructionsContext.js';
+import { withInitialUserMessages } from '../atoms/draft/agentConfigMessages.js';
 import type { AgentInstructionsDraft } from '../atoms/draft/AgentInstructionsDrawer.js';
 import { useDraftCatalog } from '../atoms/draft/DraftCatalogProvider.js';
-import { withInitialUserMessages } from '../atoms/draft/agentConfigMessages.js';
 import { useResourcePermissions } from '../hooks/useResourcePermissions.js';
+import { CATALOG_STALE_TIME_MS, useServerQueryClient } from '../server/queryClient.js';
+import { queryKeys } from '../server/queryKeys.js';
 import { useOptionalServer, useServerCapabilities } from '../server/ServerContext.js';
 import { shellIsCreateAgent, useShellMode } from '../server/ShellModeContext.js';
 import type { AgentSpec, ConnectorState, McpToolSelection } from '../server/types.js';
@@ -30,6 +32,7 @@ export function AgentConfigDrawerContainer({ showClose = false }: { showClose?: 
   });
   const canManageAgent = allows(agentId, 'MANAGE');
   const server = useOptionalServer();
+  const queryClient = useServerQueryClient();
   const capabilities = useServerCapabilities();
   const catalog = useDraftCatalog();
   const AgentConfigPanel = useSlot('AgentConfigPanel');
@@ -123,16 +126,26 @@ export function AgentConfigDrawerContainer({ showClose = false }: { showClose?: 
 
   const loadMcpTools = useCallback(
     async (connectorId: string): Promise<McpToolSelection[]> => {
-      if (server?.getMcpTools === undefined) return [];
-      return server.getMcpTools({ connectorId });
+      const getMcpTools = server?.getMcpTools;
+      if (server == null || getMcpTools === undefined) return [];
+      return queryClient.fetchQuery({
+        queryKey: queryKeys.catalog.mcpTools(connectorId),
+        queryFn: () => getMcpTools.call(server, { connectorId }),
+        staleTime: CATALOG_STALE_TIME_MS,
+      });
     },
-    [server],
+    [queryClient, server],
   );
   const loadMcpConnector = useCallback(
     async (connectorId: string): Promise<ConnectorState | undefined> => {
-      return server?.getMcpConnector?.({ connectorId });
+      const getMcpConnector = server?.getMcpConnector;
+      if (server == null || getMcpConnector === undefined) return undefined;
+      return queryClient.fetchQuery({
+        queryKey: queryKeys.catalog.mcpConnector(connectorId),
+        queryFn: () => getMcpConnector.call(server, { connectorId }),
+      });
     },
-    [server],
+    [queryClient, server],
   );
 
   if (!isBuilder || agentSpec === null || (showClose && !shell.agentConfigOpen)) {

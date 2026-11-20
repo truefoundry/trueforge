@@ -43,6 +43,35 @@ describe('AgentSteps grouping', () => {
     expect(screen.queryByText('first_tool')).not.toBeInTheDocument();
   });
 
+  it('does not open Agent steps for a question that is still waiting', () => {
+    renderMultiToolMessage([
+      {
+        type: 'tool-call',
+        toolCallId: 'q',
+        toolName: 'ask_user_question',
+        args: {},
+        argsText: JSON.stringify({ question: 'Which role?', options: ['A'] }),
+      },
+    ]);
+    expect(screen.queryByText('Agent steps')).not.toBeInTheDocument();
+  });
+
+  it('counts a real tool and skips the pending question after it', () => {
+    renderMultiToolMessage([
+      { type: 'tool-call', toolCallId: '1', toolName: 'first_tool', args: {}, result: 'a' },
+      {
+        type: 'tool-call',
+        toolCallId: 'q',
+        toolName: 'ask_user_question',
+        args: {},
+        argsText: JSON.stringify({ question: 'Which role?', options: ['A'] }),
+      },
+    ]);
+    expect(screen.getByText(/1 tool call/)).toBeInTheDocument();
+    expect(screen.queryByText(/2 tool calls/)).not.toBeInTheDocument();
+    expect(screen.getByText('first_tool')).toBeInTheDocument();
+  });
+
   it('uses singular label for exactly one tool call in the group', () => {
     renderMultiToolMessage([{ type: 'tool-call', toolCallId: '1', toolName: 'first_tool', args: {} }]);
     expect(screen.getByText('Agent steps')).toBeInTheDocument();
