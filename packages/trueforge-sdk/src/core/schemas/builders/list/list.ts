@@ -52,7 +52,9 @@ function validateAndTransformArray<Raw, Parsed>(
         if (item.ok) {
             result.push(item.value);
         } else {
-            errors.push(...item.errors);
+            for (const error of item.errors) {
+                errors.push(error);
+            }
         }
     }
 
