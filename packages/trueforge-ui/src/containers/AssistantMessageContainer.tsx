@@ -14,13 +14,14 @@ import { withSessionProps } from '../analytics/sessionProps.js';
 import { useSlowActivityLabel } from '../hooks/useSlowActivityLabel.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { useSlot } from '../theme/SlotsProvider.js';
-import { computeAgentStepsSplit } from '../utils/computeAgentStepsSplit.js';
+import { computeAgentStepsSplit, countAgentSteps } from '../utils/computeAgentStepsSplit.js';
 import {
   isParallelToolGroupPart,
   parallelGroupKeyForPart,
   readParallelToolGroups,
 } from '../utils/parallelToolGroups.js';
 import { loaderActivityKey, loaderActivityProgress, resolveLoaderLabel } from '../utils/resolveActivityLabel.js';
+import { ASK_USER_TOOL_NAME } from '../utils/toolCallParsing.js';
 import { AgentStepsContainer } from './AgentStepsContainer.js';
 import { AssistantLeafPartContainer } from './AssistantLeafPartContainer.js';
 import { AssistantTextContainer } from './AssistantTextContainer.js';
@@ -83,7 +84,13 @@ export function AssistantMessageContainer() {
     isCancelled && !isSessionReplay && cancellationReason === TURN_CANCELLATION_REASON.CANCELLED_FOR_NEXT_TURN;
   const cancelledBanner = isCancelled && !hideCancelled ? cancellationLabel(cancellationReason) : undefined;
 
-  const { cutIndex, hasFinal, toolCount, thinkingCount } = computeAgentStepsSplit(parts, isMessageRunning);
+  const stepParts = parts.map(p => ({
+    type: p.type,
+    text: p.type === 'text' ? p.text : undefined,
+    name: p.type === 'data' ? p.name : undefined,
+    hidden: isAskUserTool(p),
+  }));
+  const { cutIndex, hasFinal } = computeAgentStepsSplit(stepParts, isMessageRunning);
 
   // Built-in indicator modes hide the loader while reasoning streams; we want it there too.
   // Hide when resume is unavailable (message stays "running" but no events arrive) or the
@@ -105,6 +112,9 @@ export function AssistantMessageContainer() {
     }
 
     if (index < cutIndex) {
+      // Ask-user stays outside Agent steps. Answered cards stay visible; a pending
+      // question is owned by the composer and must not count as an empty tool call.
+      if (isAskUserTool(part)) return null;
       if (part.type === 'reasoning') {
         return ['group-agentSteps', 'group-reasoning'];
       }
@@ -138,12 +148,14 @@ export function AssistantMessageContainer() {
         <MessagePrimitive.GroupedParts groupBy={groupBy} indicator="never">
           {({ part, children }) => {
             switch (part.type) {
-              case 'group-agentSteps':
+              case 'group-agentSteps': {
+                const { toolCount, thinkingCount } = countAgentSteps(part.indices.flatMap(i => stepParts[i] ?? []));
                 return (
                   <AgentStepsContainer toolCount={toolCount} thinkingCount={thinkingCount} hasFinal={hasFinal}>
                     {children}
                   </AgentStepsContainer>
                 );
+              }
               case 'group-reasoning':
                 return <ReasoningContainer group={part as ThreadGroupPart} />;
               case 'text': {
@@ -175,4 +187,8 @@ export function AssistantMessageContainer() {
       </AssistantMessageBubble>
     </MessagePrimitive.Root>
   );
+}
+
+function isAskUserTool(part: PartState): boolean {
+  return part.type === 'tool-call' && part.toolName === ASK_USER_TOOL_NAME;
 }

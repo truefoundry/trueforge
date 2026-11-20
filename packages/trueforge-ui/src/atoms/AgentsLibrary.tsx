@@ -663,6 +663,7 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
       sessionId: null,
       view: null,
       timeRange: null,
+      createdByMe: null,
     });
     shell.openLibraryAgent(agentId);
   };
@@ -735,6 +736,7 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
                   sessionId: null,
                   view: null,
                   timeRange: null,
+                  createdByMe: null,
                 });
                 shell.openLibraryAgent(agentId);
               },
