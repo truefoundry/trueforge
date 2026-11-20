@@ -207,6 +207,7 @@ export const ToolCallContainer: ToolCallMessagePartComponent = part => {
           ]}
           onSubmit={() => {}}
           readOnly
+          className="mb-2"
         />
       );
     }
