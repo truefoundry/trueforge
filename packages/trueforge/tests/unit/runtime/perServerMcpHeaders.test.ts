@@ -1,10 +1,12 @@
 import { HTTPException } from 'hono/http-exception';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import type { McpServerRecord } from '../../../src/db/mcpServerStore';
+import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import { InMemoryOAuthTokenStore } from '../../../src/mcp/auth/inMemoryStores';
+import type { OAuthClientRecord } from '../../../src/mcp/auth/types';
 import { parsePerServerMcpHeaders } from '../../../src/runtime/perServerMcpHeaders';
 
 describe('parsePerServerMcpHeaders', () => {
@@ -93,7 +95,7 @@ describe('McpServerWithAuthStore.resolveInvokeHeaders', () => {
     }
     await expect(resolve()).resolves.toEqual({
       headers: { Authorization: 'Bearer stored', 'X-End-User': 'alice' },
-      authRequiredOnUnauthorized: expect.any(Function),
+      onUnauthorized: expect.any(Function),
     });
     await db.destroy();
   });
@@ -122,6 +124,64 @@ describe('McpServerWithAuthStore.resolveInvokeHeaders', () => {
     }
     await expect(resolve()).resolves.toEqual({
       headers: { Authorization: 'Bearer server', 'X-Tenant': 'caller' },
+    });
+    await db.destroy();
+  });
+
+  it('skips DCR when the override spells authorization in another casing', async () => {
+    const db = createSqliteDb(':memory:');
+    const store = new McpServerWithAuthStore({
+      store: new SqliteMcpServerStore(db),
+      tokenStore: new SqliteOAuthTokenStore(db),
+      clientName: 'test-client',
+      perServerHeaders: { 'oauth-mcp': { authorization: 'Bearer user', 'x-extra': '1' } },
+    });
+
+    expect(store.resolveInvokeHeaders({ record: ossRecord, userRef: 'user-1' })).toEqual({
+      authorization: 'Bearer user',
+      'x-extra': '1',
+    });
+    await db.destroy();
+  });
+
+  it('returns authRequired before connect when DCR has no token and the override has no Authorization', async () => {
+    const db = createSqliteDb(':memory:');
+    await migrateSqliteToLatest(db);
+    const store = new McpServerWithAuthStore({
+      store: new SqliteMcpServerStore(db),
+      tokenStore: new InMemoryOAuthTokenStore(),
+      clientName: 'test-client',
+      perServerHeaders: { 'oauth-mcp': { 'X-End-User': 'alice' } },
+    });
+    const record = await store.upsertServer({
+      tenant_id: ossRecord.tenant_id,
+      name: ossRecord.name,
+      manifest: ossRecord.manifest,
+    });
+    const client: OAuthClientRecord = {
+      server: {
+        authorizationEndpoint: 'https://auth.example.com/authorize',
+        tokenEndpoint: 'https://auth.example.com/token',
+        codeChallengeMethodsSupported: ['S256'],
+      },
+      client: { clientId: 'cached-client', clientSecret: 'cached-secret' },
+    };
+    await store.saveClient({ id: record.id, record: client });
+
+    const resolve = store.resolveInvokeHeaders({ record, userRef: 'user-1' });
+    if (typeof resolve !== 'function') {
+      throw new Error('expected a headers resolver');
+    }
+    await expect(resolve()).resolves.toEqual({
+      authRequired: {
+        servers: [
+          {
+            id: 'oauth-mcp',
+            name: 'oauth-mcp',
+            auth_url: expect.stringContaining('https://auth.example.com/authorize'),
+          },
+        ],
+      },
     });
     await db.destroy();
   });

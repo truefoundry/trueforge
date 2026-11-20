@@ -304,17 +304,17 @@ describe('TrueFoundryMcpServerStore', () => {
 
     async function consentOn401(store: TrueFoundryMcpServerStore, record: McpServerRecord = dcrRecord()) {
       const resolved = await invoke(store, record);
-      if (!('headers' in resolved) || resolved.authRequiredOnUnauthorized === undefined) {
+      if (!('headers' in resolved) || resolved.onUnauthorized === undefined) {
         throw new Error('expected a 401 consent hook');
       }
-      return resolved.authRequiredOnUnauthorized();
+      return resolved.onUnauthorized();
     }
 
     it('returns the gateway Bearer without calling authorize up front', async () => {
       const { store, client } = createStore();
       await expect(invoke(store)).resolves.toEqual({
         headers: { Authorization: `Bearer ${ACCESS_TOKEN}` },
-        authRequiredOnUnauthorized: expect.any(Function),
+        onUnauthorized: expect.any(Function),
       });
       expect(client.getMcpAuthorize).not.toHaveBeenCalled();
     });
@@ -383,7 +383,7 @@ describe('TrueFoundryMcpServerStore', () => {
           [X_TFY_METADATA]: expect.any(String),
           [X_TFY_CONVERSATION_ID]: 'sess-1',
         },
-        authRequiredOnUnauthorized: expect.any(Function),
+        onUnauthorized: expect.any(Function),
       });
       if (!('headers' in resolved) || resolved.headers === undefined) {
         throw new Error('expected invoke headers');
@@ -398,7 +398,7 @@ describe('TrueFoundryMcpServerStore', () => {
           Authorization: `Bearer ${ACCESS_TOKEN}`,
           [ACTOR_AUTHORIZATION_HEADER]: `Bearer ${ACTOR_TOKEN}`,
         },
-        authRequiredOnUnauthorized: expect.any(Function),
+        onUnauthorized: expect.any(Function),
       });
       client.getMcpAuthorize.mockResolvedValue({
         status: 'auth_required',
@@ -414,7 +414,7 @@ describe('TrueFoundryMcpServerStore', () => {
       const { store, client } = createStore({ agent: AGENT, userCredential: null });
       await expect(invoke(store)).resolves.toEqual({
         headers: { Authorization: `Bearer ${SUBJECT_TOKEN}` },
-        authRequiredOnUnauthorized: expect.any(Function),
+        onUnauthorized: expect.any(Function),
       });
       client.getMcpAuthorize.mockResolvedValue({
         status: 'auth_required',
@@ -531,8 +531,8 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
       return resolve();
     };
 
-    await expect(resolveFor('tfy-docs-mcp')).resolves.toHaveProperty('authRequiredOnUnauthorized');
-    await expect(resolveFor('tfy-platform-mcp')).resolves.not.toHaveProperty('authRequiredOnUnauthorized');
+    await expect(resolveFor('tfy-docs-mcp')).resolves.toHaveProperty('onUnauthorized');
+    await expect(resolveFor('tfy-platform-mcp')).resolves.not.toHaveProperty('onUnauthorized');
   });
 
   it('never calls authorize for a caller Authorization', async () => {
