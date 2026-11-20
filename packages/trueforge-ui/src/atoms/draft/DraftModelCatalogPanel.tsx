@@ -222,12 +222,14 @@ export function DraftModelCatalogPanel({
             </>
           ) : null}
           {filtered.length === 0 ? (
-            <DraftCatalogEmptyState
-              loading={loading}
-              emptyLabel="No models"
-              settingsTarget="Models"
-              onOpenSettings={onOpenSettings}
-            />
+            showAuto ? null : (
+              <DraftCatalogEmptyState
+                loading={loading}
+                emptyLabel="No models"
+                settingsTarget="Models"
+                onOpenSettings={onOpenSettings}
+              />
+            )
           ) : (
             sections.map((section, sectionIndex) => {
               const headingId = `${listboxId}-provider-${sectionIndex}`;

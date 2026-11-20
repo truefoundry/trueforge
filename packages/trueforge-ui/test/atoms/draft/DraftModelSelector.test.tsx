@@ -269,6 +269,58 @@ describe('DraftModelSelector', () => {
     });
   });
 
+  describe('with Auto available', () => {
+    const withAuto: Partial<AgentUIServer> = {
+      getModels: async () => models,
+      getCapabilities: async () => ({
+        data: {
+          sandbox: { enabled: true, environments: { enabled: true } },
+          skill: { enabled: true },
+          sessionSharing: tenantSessionSharing,
+          settings: allSettingsSections(true),
+          auto: { enabled: true },
+        },
+      }),
+    };
+
+    it('unsets every model param when Auto is selected', async () => {
+      renderSelector({}, withAuto);
+
+      const trigger = await screen.findByRole('button', { name: 'Select model' });
+      await waitFor(() => expect(trigger).toHaveTextContent('gpt-4.1'));
+      fireEvent.click(trigger);
+      const auto = await screen.findByRole('option', { name: /Auto/ });
+      await waitFor(() => expect(auto).toBeEnabled());
+      fireEvent.click(auto);
+
+      expect(updateAgentSpec).toHaveBeenCalledWith({
+        model: {
+          name: 'auto',
+          params: {
+            maxTokens: undefined,
+            reasoningEffort: undefined,
+            temperature: undefined,
+            topP: undefined,
+            topK: undefined,
+            parallelToolCalls: undefined,
+          },
+        },
+      });
+    });
+
+    it('shows no empty state when the search only matches Auto', async () => {
+      renderSelector({}, withAuto);
+
+      const trigger = await screen.findByRole('button', { name: 'Select model' });
+      await waitFor(() => expect(trigger).toHaveTextContent('gpt-4.1'));
+      fireEvent.click(trigger);
+      fireEvent.change(screen.getByPlaceholderText('Search models'), { target: { value: 'auto' } });
+
+      expect(screen.getByRole('option', { name: /Auto/ })).toBeInTheDocument();
+      expect(screen.queryByText('No models')).toBeNull();
+    });
+  });
+
   it('uses the first catalog model when the runtime has no draft spec', async () => {
     agentSpec = undefined;
     renderSelector();
