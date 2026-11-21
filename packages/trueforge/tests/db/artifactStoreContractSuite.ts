@@ -12,10 +12,6 @@ const LIST_DEFAULTS: ListArtifactsInput = {
   created_by_subject_id: SUBJECT.subject_id,
   created_by_session_id: undefined,
   title: undefined,
-  last_updated_from: undefined,
-  last_updated_to: undefined,
-  created_from: undefined,
-  created_to: undefined,
   limit: 10,
   page_token: undefined,
 };
@@ -23,11 +19,6 @@ const LIST_DEFAULTS: ListArtifactsInput = {
 /** Keeps `updated_at` distinct between consecutive writes. */
 async function tick(): Promise<void> {
   await new Promise(resolve => setTimeout(resolve, 5));
-}
-
-/** Postgres keeps microseconds that the millisecond wire timestamp drops; `tick` keeps writes further apart. */
-function justAfter(timestamp: string): Date {
-  return new Date(Date.parse(timestamp) + 1);
 }
 
 /** Callers MUST `jest.mock('ulid')` with a pass-through `jest.fn` so ids can be pinned. */
@@ -156,44 +147,6 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     expect(await listTitles({ title: 'rep' })).toEqual(['Quarterly Report']);
     expect(await listTitles({ title: 'MAP' })).toEqual(['Roadmap']);
     expect(await listTitles({ title: 'missing' })).toEqual([]);
-  });
-
-  it('filters the list by inclusive last-updated range', async () => {
-    const older = await createArtifact({ title: 'older' });
-    await tick();
-    const newer = await createArtifact({ title: 'newer' });
-    await tick();
-    await createVersion(older.id, 'u1');
-    const newerUpdatedAt = new Date(newer.updated_at);
-    expect(await listTitles({ last_updated_from: newerUpdatedAt })).toEqual(['newer', 'older']);
-    expect(await listTitles({ last_updated_to: justAfter(newer.updated_at) })).toEqual(['newer']);
-    expect(
-      await listTitles({ last_updated_from: newerUpdatedAt, last_updated_to: justAfter(newer.updated_at) }),
-    ).toEqual(['newer']);
-  });
-
-  it('filters the list by inclusive created range', async () => {
-    const older = await createArtifact({ title: 'older' });
-    await tick();
-    const newer = await createArtifact({ title: 'newer' });
-    await tick();
-    await createVersion(older.id, 'u1');
-    expect(await listTitles({ created_from: new Date(newer.created_at) })).toEqual(['newer']);
-    expect(await listTitles({ created_to: justAfter(older.created_at) })).toEqual(['older']);
-    expect(
-      await listTitles({ created_from: new Date(older.created_at), created_to: justAfter(older.created_at) }),
-    ).toEqual(['older']);
-  });
-
-  it('applies the last-updated range and ignores the created range when both are set', async () => {
-    const older = await createArtifact({ title: 'older' });
-    await tick();
-    const newer = await createArtifact({ title: 'newer' });
-    await tick();
-    const updated = await createVersion(older.id, 'u1');
-    expect(
-      await listTitles({ last_updated_from: new Date(updated.created_at), created_from: new Date(newer.created_at) }),
-    ).toEqual(['older']);
   });
 
   it('creates monotonic versions and advances latest_version and updated_at', async () => {

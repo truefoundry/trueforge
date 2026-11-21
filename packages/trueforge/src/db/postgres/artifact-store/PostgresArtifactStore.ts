@@ -79,21 +79,6 @@ export class PostgresArtifactStore implements IArtifactStore {
       // Case-insensitive title substring search.
       query = query.where(sql<boolean>`position(lower(${input.title}) in lower(title)) > 0`);
     }
-    if (input.last_updated_from !== undefined || input.last_updated_to !== undefined) {
-      if (input.last_updated_from !== undefined) {
-        query = query.where('updated_at', '>=', input.last_updated_from);
-      }
-      if (input.last_updated_to !== undefined) {
-        query = query.where('updated_at', '<=', input.last_updated_to);
-      }
-    } else {
-      if (input.created_from !== undefined) {
-        query = query.where('created_at', '>=', input.created_from);
-      }
-      if (input.created_to !== undefined) {
-        query = query.where('created_at', '<=', input.created_to);
-      }
-    }
     const rows = await query
       .orderBy('updated_at', 'desc')
       .orderBy('id')

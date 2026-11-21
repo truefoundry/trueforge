@@ -42,12 +42,6 @@ export interface ListArtifactsInput {
   created_by_session_id: string | undefined;
   /** Case-insensitive substring match. */
   title: string | undefined;
-  /** Inclusive `updated_at` bounds; take priority over the created range. */
-  last_updated_from: Date | undefined;
-  last_updated_to: Date | undefined;
-  /** Inclusive `created_at` bounds; ignored when a last-updated bound is set. */
-  created_from: Date | undefined;
-  created_to: Date | undefined;
   limit: number;
   page_token: string | undefined;
 }
