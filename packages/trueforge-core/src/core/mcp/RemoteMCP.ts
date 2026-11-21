@@ -93,7 +93,7 @@ export class RemoteMCP implements ToolSource {
   private cachedTools?: AgentToolSchema[] | undefined;
   private inflight = 0;
   private pendingClose: RemoteMcpConnection | undefined;
-  /** Set when the turn drops this source. A connect that finishes afterward must not keep the GET open. */
+  /** Set by close() when the turn drops this source. */
   private closed = false;
 
   constructor(params: {
@@ -130,8 +130,8 @@ export class RemoteMCP implements ToolSource {
   }
 
   /**
-   * When the turn ends, SSE still holds a GET until the client is closed. Dropping this object
-   * waits for that GET to time out. Idempotent; never throws.
+   * Closes this remote MCP connection and its transport.
+   * Idempotent; never throws.
    */
   async close(): Promise<void> {
     this.closed = true;
