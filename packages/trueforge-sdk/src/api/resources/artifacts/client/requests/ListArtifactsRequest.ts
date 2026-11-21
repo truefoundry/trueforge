@@ -13,12 +13,4 @@ export interface ListArtifactsRequest {
     createdBySessionId?: string;
     /** Case-insensitive substring match on artifact title. */
     title?: string;
-    /** Inclusive lower bound on `updated_at` (ISO-8601 / RFC 3339). Cannot be combined with `created_from` or `created_to`. */
-    lastUpdatedFrom?: Date;
-    /** Inclusive upper bound on `updated_at` (ISO-8601 / RFC 3339). Cannot be combined with `created_from` or `created_to`. */
-    lastUpdatedTo?: Date;
-    /** Inclusive lower bound on `created_at` (ISO-8601 / RFC 3339). Cannot be combined with `last_updated_from` or `last_updated_to`. */
-    createdFrom?: Date;
-    /** Inclusive upper bound on `created_at` (ISO-8601 / RFC 3339). Cannot be combined with `last_updated_from` or `last_updated_to`. */
-    createdTo?: Date;
 }
