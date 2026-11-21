@@ -8127,50 +8127,6 @@
               "minLength": 1,
               "type": "string"
             }
-          },
-          {
-            "description": "Inclusive lower bound on `updated_at` (ISO-8601 / RFC 3339). Cannot be combined with `created_from` or `created_to`.",
-            "in": "query",
-            "name": "last_updated_from",
-            "required": false,
-            "schema": {
-              "description": "Inclusive lower bound on `updated_at` (ISO-8601 / RFC 3339). Cannot be combined with `created_from` or `created_to`.",
-              "format": "date-time",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Inclusive upper bound on `updated_at` (ISO-8601 / RFC 3339). Cannot be combined with `created_from` or `created_to`.",
-            "in": "query",
-            "name": "last_updated_to",
-            "required": false,
-            "schema": {
-              "description": "Inclusive upper bound on `updated_at` (ISO-8601 / RFC 3339). Cannot be combined with `created_from` or `created_to`.",
-              "format": "date-time",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Inclusive lower bound on `created_at` (ISO-8601 / RFC 3339). Cannot be combined with `last_updated_from` or `last_updated_to`.",
-            "in": "query",
-            "name": "created_from",
-            "required": false,
-            "schema": {
-              "description": "Inclusive lower bound on `created_at` (ISO-8601 / RFC 3339). Cannot be combined with `last_updated_from` or `last_updated_to`.",
-              "format": "date-time",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Inclusive upper bound on `created_at` (ISO-8601 / RFC 3339). Cannot be combined with `last_updated_from` or `last_updated_to`.",
-            "in": "query",
-            "name": "created_to",
-            "required": false,
-            "schema": {
-              "description": "Inclusive upper bound on `created_at` (ISO-8601 / RFC 3339). Cannot be combined with `last_updated_from` or `last_updated_to`.",
-              "format": "date-time",
-              "type": "string"
-            }
           }
         ],
         "responses": {

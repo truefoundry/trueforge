@@ -44,25 +44,12 @@ export class ArtifactsClient {
             async (
                 request: TrueForge.ListArtifactsRequest,
             ): Promise<core.WithRawResponse<TrueForge.ListArtifactsResponse>> => {
-                const {
-                    limit = 25,
-                    pageToken,
-                    createdBySessionId,
-                    title,
-                    lastUpdatedFrom,
-                    lastUpdatedTo,
-                    createdFrom,
-                    createdTo,
-                } = request;
+                const { limit = 25, pageToken, createdBySessionId, title } = request;
                 const _queryParams: Record<string, unknown> = {
                     limit,
                     page_token: pageToken,
                     created_by_session_id: createdBySessionId,
                     title,
-                    last_updated_from: lastUpdatedFrom != null ? lastUpdatedFrom?.toISOString() : undefined,
-                    last_updated_to: lastUpdatedTo != null ? lastUpdatedTo?.toISOString() : undefined,
-                    created_from: createdFrom != null ? createdFrom?.toISOString() : undefined,
-                    created_to: createdTo != null ? createdTo?.toISOString() : undefined,
                 };
                 const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
                 const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
