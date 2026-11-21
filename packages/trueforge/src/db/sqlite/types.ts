@@ -466,6 +466,32 @@ export interface OAuthPendingAuthorizationTable {
   created_at: string;
 }
 
+/**
+ * PRIMARY KEY (id); UNIQUE (tenant_id, slug).
+ */
+export interface ArtifactTable {
+  id: string;
+  tenant_id: string;
+  slug: string;
+  title: string;
+  latest_version: number;
+  created_by_subject: JsonbColumn<Subject>;
+  created_by_session_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * PRIMARY KEY (artifact_id, version); FK → artifact ON DELETE CASCADE.
+ */
+export interface ArtifactVersionTable {
+  artifact_id: string;
+  version: number;
+  storage_prefix: string;
+  total_bytes: number;
+  created_at: string;
+}
+
 export interface Database {
   session: SessionTable;
   access_control: AccessControlTable;
@@ -492,4 +518,6 @@ export interface Database {
   mcp_server: McpServerTable;
   oauth_token: OAuthTokenTable;
   oauth_pending_authorization: OAuthPendingAuthorizationTable;
+  artifact: ArtifactTable;
+  artifact_version: ArtifactVersionTable;
 }

@@ -642,6 +642,32 @@ export interface OAuthPendingAuthorizationTable {
 }
 
 /**
+ * PRIMARY KEY (id); UNIQUE (tenant_id, slug).
+ */
+export interface ArtifactTable {
+  id: string;
+  tenant_id: string;
+  slug: string;
+  title: string;
+  latest_version: number;
+  created_by_subject: JSONColumnType<Subject, Subject, Subject>;
+  created_by_session_id: string;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/**
+ * PRIMARY KEY (artifact_id, version); FK → artifact ON DELETE CASCADE.
+ */
+export interface ArtifactVersionTable {
+  artifact_id: string;
+  version: number;
+  storage_prefix: string;
+  total_bytes: number;
+  created_at: Date;
+}
+
+/**
  * Write-heat summary: `turn_thread` is the one deliberately-hot table with its hot
  * columns (`context_ids`, `current_context_usage`) isolated from the pointer-carried
  * big ones (`agent_info`, `checkpoint`); `session`, `turn`, and
@@ -680,4 +706,6 @@ export interface Database {
   mcp_server: McpServerTable;
   oauth_token: OAuthTokenTable;
   oauth_pending_authorization: OAuthPendingAuthorizationTable;
+  artifact: ArtifactTable;
+  artifact_version: ArtifactVersionTable;
 }
