@@ -58,11 +58,11 @@ A **sandbox environment** is a reusable blueprint for the sandboxes your agents 
 Open **Envs** in the sidebar to see your environments and create new ones. Each row shows its build status, resources, networking, and when it was last updated.
 
 <Note>
-  A reserved **default** environment is created for you when you configure the provider. It uses the platform image and the name `default`, with 1 CPU, 1 GB of memory, and 3 GB of disk. You cannot create or delete an environment named `default`.
+  A reserved environment is created for you when you configure the provider. It uses the [platform sandbox image](https://github.com/truefoundry/trueforge/blob/main/packages/trueforge-core/scripts/sandbox/sandbox.Dockerfile) and the name `trueforge-sandbox-env`, with 1 CPU, 1 GB of memory, and 3 GB of disk. You cannot create or delete an environment named `trueforge-sandbox-env`.
 </Note>
 
-<Frame caption="The Environments page: the reserved default environment, plus any you create.">
-  ![The Environments page listing the default environment with its build status (Ready), resources, and networking](/images/sandbox-environments.png)
+<Frame caption="The Environments page: the reserved trueforge-sandbox-env environment, plus any you create.">
+  ![The Environments page listing the trueforge-sandbox-env environment with its build status (Ready), resources, and networking](/images/sandbox-environments.png)
 </Frame>
 
 ### Creating an environment
@@ -157,7 +157,7 @@ When sandbox is enabled and the provider supports environments (Daytona), this f
 ```
 
 <Frame caption="The agent's Environment selector in Runtime Config, with a Manage Environments link.">
-  ![The Runtime Config drawer with the Sandbox section expanded, showing an Environment dropdown set to default, a Manage Environments link, and a File downloads toggle](/images/sandbox-environment-select.png)
+  ![The Runtime Config drawer with the Sandbox section expanded, showing an Environment dropdown set to trueforge-sandbox-env, a Manage Environments link, and a File downloads toggle](/images/sandbox-environment-select.png)
 </Frame>
 
 ## Lifecycle
