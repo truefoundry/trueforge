@@ -1,6 +1,5 @@
 import { createArtifactsRouter } from '../../../src/apis/artifacts';
 import { createdBySubjectFromRequestContext, STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
-import type { ArtifactRecord } from '../../../src/db/artifactStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteArtifactStore } from '../../../src/db/sqlite/artifact-store/SqliteArtifactStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -9,7 +8,6 @@ import { mountWithErrorHandler } from '../mountWithErrorHandler';
 
 describe('artifacts router', () => {
   let app: ReturnType<typeof mountWithErrorHandler>;
-  let report: ArtifactRecord;
 
   async function listTitles(query: string): Promise<string[]> {
     const response = await app.request(`/?${query}`);
@@ -27,8 +25,7 @@ describe('artifacts router', () => {
       tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
       created_by_subject: createdBySubjectFromRequestContext(STANDALONE_REQUEST_CONTEXT),
     };
-    report = await artifactStore.createArtifact({ ...mine, title: 'Q3 Report', created_by_session_id: 'session-1' });
-    await new Promise(resolve => setTimeout(resolve, 5));
+    await artifactStore.createArtifact({ ...mine, title: 'Q3 Report', created_by_session_id: 'session-1' });
     await artifactStore.createArtifact({ ...mine, title: 'Roadmap', created_by_session_id: 'session-2' });
     await artifactStore.createArtifact({
       ...mine,
@@ -58,18 +55,7 @@ describe('artifacts router', () => {
     expect(await listTitles('title=report')).toEqual(['Q3 Report']);
   });
 
-  it('filters by last-updated or created range', async () => {
-    const boundary = encodeURIComponent(new Date(Date.parse(report.updated_at) + 1).toISOString());
-    expect(await listTitles(`last_updated_from=${boundary}`)).toEqual(['Roadmap']);
-    expect(await listTitles(`last_updated_to=${boundary}`)).toEqual(['Q3 Report']);
-    expect(await listTitles(`created_from=${boundary}`)).toEqual(['Roadmap']);
-    expect(await listTitles(`created_to=${boundary}`)).toEqual(['Q3 Report']);
-  });
-
-  it('rejects an invalid page token, timestamp, or combined time ranges', async () => {
+  it('rejects an invalid page token', async () => {
     expect((await app.request('/?page_token=not-a-token')).status).toBe(400);
-    expect((await app.request('/?last_updated_from=yesterday')).status).toBe(400);
-    const now = encodeURIComponent(new Date().toISOString());
-    expect((await app.request(`/?last_updated_from=${now}&created_to=${now}`)).status).toBe(400);
   });
 });

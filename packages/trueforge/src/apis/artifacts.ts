@@ -33,10 +33,6 @@ export function createArtifactsRouter(deps: ArtifactsRouterDeps) {
         created_by_subject_id: requestContext.subject.id,
         created_by_session_id: query.created_by_session_id,
         title: query.title,
-        last_updated_from: query.last_updated_from,
-        last_updated_to: query.last_updated_to,
-        created_from: query.created_from,
-        created_to: query.created_to,
         limit: query.limit,
         page_token: query.page_token,
       });

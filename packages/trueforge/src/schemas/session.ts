@@ -8,7 +8,7 @@ import {
   SessionSourceTypeSchema,
   TokenPaginationSchema,
 } from '@truefoundry/trueforge-core/agent-session';
-import { IsoTimestampQueryParam, MAX_TITLE_LENGTH, NameSchema, PAGE_LIMIT } from './common';
+import { MAX_TITLE_LENGTH, NameSchema, PAGE_LIMIT } from './common';
 import { foldDeepObjectQueryParam } from './deepObjectQuery';
 
 /** Create arm: bind by unique registry agent name. */
@@ -69,6 +69,12 @@ export const UpdateSessionRequestSchema = z
   .openapi('UpdateSessionRequest');
 
 export type { Session } from '@truefoundry/trueforge-core/agent-session';
+
+/** Wire ISO-8601 (RFC 3339, offsets allowed) → Date for the store. */
+const IsoTimestampQueryParam = z.iso
+  .datetime({ offset: true })
+  .openapi({ type: 'string', format: 'date-time' })
+  .transform(s => new Date(s));
 
 /** Max metadata equality filters on list sessions (clause-budget style). */
 export const LIST_SESSIONS_METADATA_FILTER_MAX_KEYS = 10;
