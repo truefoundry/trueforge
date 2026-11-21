@@ -331,6 +331,45 @@
         ],
         "type": "object"
       },
+      "Artifact": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "created_by_session_id": {
+            "type": "string"
+          },
+          "created_by_subject": {
+            "$ref": "#/components/schemas/Subject"
+          },
+          "latest_version": {
+            "description": "Latest version.",
+            "type": "integer"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "title",
+          "latest_version",
+          "created_by_subject",
+          "created_by_session_id",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
       "AskUserQuestionsConfig": {
         "default": {
           "enabled": true
@@ -2132,6 +2171,24 @@
           "data": {
             "items": {
               "$ref": "#/components/schemas/Agent"
+            },
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/TokenPagination"
+          }
+        },
+        "required": [
+          "data",
+          "pagination"
+        ],
+        "type": "object"
+      },
+      "ListArtifactsResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/Artifact"
             },
             "type": "array"
           },
@@ -7988,6 +8045,103 @@
         "x-fern-sdk-method-name": "get_code_snippets"
       }
     },
+    "/api/v1/artifacts": {
+      "get": {
+        "description": "List artifacts created by the caller, most recently updated first. Optionally filter by session, title substring, or `updated_at` range.",
+        "parameters": [
+          {
+            "description": "Page size. Defaults to 25",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "description": "Page size. Defaults to 25",
+              "maximum": 25,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque token from a previous response `next_page_token`.",
+            "in": "query",
+            "name": "page_token",
+            "required": false,
+            "schema": {
+              "description": "Opaque token from a previous response `next_page_token`.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "When set, only artifacts created in this session are returned.",
+            "in": "query",
+            "name": "created_by_session_id",
+            "required": false,
+            "schema": {
+              "description": "When set, only artifacts created in this session are returned.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Case-insensitive substring match on artifact title.",
+            "in": "query",
+            "name": "title",
+            "required": false,
+            "schema": {
+              "description": "Case-insensitive substring match on artifact title.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListArtifactsResponse"
+                }
+              }
+            },
+            "description": "Paginated artifacts."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid query parameters or page token."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthenticated."
+          }
+        },
+        "summary": "List artifacts",
+        "tags": [
+          "Artifacts"
+        ],
+        "x-fern-pagination": {
+          "cursor": "$request.page_token",
+          "next_cursor": "$response.pagination.next_page_token",
+          "results": "$response.data"
+        },
+        "x-fern-sdk-group-name": [
+          "artifacts"
+        ],
+        "x-fern-sdk-method-name": "list"
+      }
+    },
     "/api/v1/auth/callback": {
       "get": {
         "description": "Browser-redirect target hit by the identity provider after login, never called directly by SDK consumers. In local/single-binary mode, redirects straight back into the app.",
@@ -12967,6 +13121,9 @@
     },
     {
       "name": "Agent Sessions"
+    },
+    {
+      "name": "Artifacts"
     }
   ],
   "webhooks": {}

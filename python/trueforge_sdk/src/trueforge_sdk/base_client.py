@@ -10,6 +10,7 @@ from .core.logging import LogConfig, Logger
 
 if typing.TYPE_CHECKING:
     from .agents.client import AgentsClient, AsyncAgentsClient
+    from .artifacts.client import ArtifactsClient, AsyncArtifactsClient
     from .auth.client import AsyncAuthClient, AuthClient
     from .catalogs.client import AsyncCatalogsClient, CatalogsClient
     from .internal.client import AsyncInternalClient, InternalClient
@@ -101,6 +102,7 @@ class BaseTrueForge:
         )
         self._internal: typing.Optional[InternalClient] = None
         self._agents: typing.Optional[AgentsClient] = None
+        self._artifacts: typing.Optional[ArtifactsClient] = None
         self._auth: typing.Optional[AuthClient] = None
         self._server: typing.Optional[ServerClient] = None
         self._mcp_servers: typing.Optional[McpServersClient] = None
@@ -128,6 +130,14 @@ class BaseTrueForge:
 
             self._agents = AgentsClient(client_wrapper=self._client_wrapper)
         return self._agents
+
+    @property
+    def artifacts(self):
+        if self._artifacts is None:
+            from .artifacts.client import ArtifactsClient  # noqa: E402
+
+            self._artifacts = ArtifactsClient(client_wrapper=self._client_wrapper)
+        return self._artifacts
 
     @property
     def auth(self):
@@ -316,6 +326,7 @@ class AsyncBaseTrueForge:
         )
         self._internal: typing.Optional[AsyncInternalClient] = None
         self._agents: typing.Optional[AsyncAgentsClient] = None
+        self._artifacts: typing.Optional[AsyncArtifactsClient] = None
         self._auth: typing.Optional[AsyncAuthClient] = None
         self._server: typing.Optional[AsyncServerClient] = None
         self._mcp_servers: typing.Optional[AsyncMcpServersClient] = None
@@ -343,6 +354,14 @@ class AsyncBaseTrueForge:
 
             self._agents = AsyncAgentsClient(client_wrapper=self._client_wrapper)
         return self._agents
+
+    @property
+    def artifacts(self):
+        if self._artifacts is None:
+            from .artifacts.client import AsyncArtifactsClient  # noqa: E402
+
+            self._artifacts = AsyncArtifactsClient(client_wrapper=self._client_wrapper)
+        return self._artifacts
 
     @property
     def auth(self):

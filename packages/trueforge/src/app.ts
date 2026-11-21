@@ -11,6 +11,7 @@ import { randomUUID } from 'node:crypto';
 import type { Configuration } from 'openid-client';
 import type { Logger } from 'winston';
 import { createAgentsRouter } from './apis/agents';
+import { createArtifactsRouter } from './apis/artifacts';
 import { createAuthRouter } from './apis/auth';
 import { createCapabilitiesRouter } from './apis/capabilities';
 import { createCatalogRouter } from './apis/catalog';
@@ -52,6 +53,7 @@ import type { WebSearchCatalog } from './catalog/WebSearchCatalog';
 import configuration, { getPublicUiBasePath, getTrueForgeAuthMode, TrueForgeAuthMode } from './config';
 import type { IAccessControlStore } from './db/accessControlStore';
 import type { AgentRecord, IAgentStore } from './db/agentStore';
+import type { IArtifactStore } from './db/artifactStore';
 import type { IConfigurationStore } from './db/configurationStore';
 import type { IMcpServerWithAuthStore } from './db/mcpServerStore';
 import type { IMemoryProviderStore } from './db/memoryProviderStore';
@@ -341,6 +343,7 @@ export interface ServerDeps<TTransaction> {
   /** DB singleton, or the env-backed shared store in TrueFoundry mode. */
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   scheduleStore: IScheduleStore<TTransaction>;
+  artifactStore: IArtifactStore;
   sessionMetricsStore: ISessionMetricsStore;
   sessions: Sessions<TTransaction>;
   sessionStore: ISessionStore<TTransaction>;
@@ -554,6 +557,10 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       }),
       authMiddleware,
     ),
+  );
+  app.route(
+    '/api/v1/artifacts',
+    withAuth(createArtifactsRouter({ artifactStore: deps.artifactStore, resolveRequestContext }), authMiddleware),
   );
   // Registered before /api/v1/settings: tenant-wide switches are admin-gated in every mode,
   // while the catalog settings below stay closed in TrueFoundry mode.
