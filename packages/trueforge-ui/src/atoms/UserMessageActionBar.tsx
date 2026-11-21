@@ -7,6 +7,8 @@ import { IconButton } from './primitives/IconButton.js';
 
 export type UserMessageActionBarProps = {
   isCopied: boolean;
+  /** When true, only timestamp + Copy (e.g. while the thread is running). */
+  copyOnly?: boolean;
   editDisabled?: boolean;
   retryDisabled?: boolean;
   createdAt?: Date | string;
@@ -20,6 +22,7 @@ const actionBtnClass = 'h-6 w-6 text-text-secondary hover:text-text-primary [&_s
 
 export function UserMessageActionBar({
   isCopied,
+  copyOnly,
   editDisabled,
   retryDisabled,
   createdAt,
@@ -33,26 +36,30 @@ export function UserMessageActionBar({
   return (
     <div className={cn('aui-user-action-bar-root animate-in fade-in flex items-center gap-1 duration-200', className)}>
       <MessageTimestamp createdAt={createdAt} className="mr-1" />
-      <IconButton
-        aria-label="Try again"
-        tooltip="Try again"
-        variant="ghost"
-        className={actionBtnClass}
-        disabled={retryDisabled}
-        onClick={onRetry}
-      >
-        <Icon name="rotate-right" size="0.875em" />
-      </IconButton>
-      <IconButton
-        aria-label="Edit"
-        tooltip="Edit"
-        variant="ghost"
-        className={actionBtnClass}
-        disabled={editDisabled}
-        onClick={onEdit}
-      >
-        <Icon name="pencil" size="0.875em" />
-      </IconButton>
+      {!copyOnly ? (
+        <>
+          <IconButton
+            aria-label="Try again"
+            tooltip="Try again"
+            variant="ghost"
+            className={actionBtnClass}
+            disabled={retryDisabled}
+            onClick={onRetry}
+          >
+            <Icon name="rotate-right" size="0.875em" />
+          </IconButton>
+          <IconButton
+            aria-label="Edit"
+            tooltip="Edit"
+            variant="ghost"
+            className={actionBtnClass}
+            disabled={editDisabled}
+            onClick={onEdit}
+          >
+            <Icon name="pencil" size="0.875em" />
+          </IconButton>
+        </>
+      ) : null}
       <IconButton aria-label="Copy" tooltip="Copy" variant="ghost" className={actionBtnClass} onClick={onCopy}>
         <Icon name={isCopied ? 'check' : 'clone'} size="0.875em" />
       </IconButton>

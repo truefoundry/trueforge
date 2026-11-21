@@ -24,6 +24,7 @@ import { paginateWithCursorGuard } from './pagination';
 import {
   connectRemoteMcp,
   DEFAULT_MAX_MCP_RESPONSE_BYTES,
+  isAuthError,
   isSessionExpiredError,
   type RemoteMcpConnection,
   type RemoteMcpFetch,
@@ -40,8 +41,13 @@ function redactUrlForTrace(url: string): string {
   }
 }
 
-/** What a headers resolver returns: the headers to send, or a signal that auth is required. */
-export type ResolveHeadersResult = { headers: Record<string, string> } | { authRequired: MCPAuthRequired };
+/**
+ * What a headers resolver returns: the headers to send, or a signal that auth is required.
+ * On a 401, `onUnauthorized` may offer a way to start authorization consent. Without the hook, the 401 fails.
+ */
+export type ResolveHeadersResult =
+  | { headers: Record<string, string>; onUnauthorized?: () => Promise<MCPAuthRequired> }
+  | { authRequired: MCPAuthRequired };
 
 /** Static headers, or a resolver (invoked at connect) returning headers or signalling auth-required. */
 export type RemoteMcpHeaders = Record<string, string> | (() => Promise<ResolveHeadersResult>);
@@ -210,7 +216,40 @@ export class RemoteMCP implements ToolSource {
     if ('authRequired' in headersResult) {
       return { authRequired: headersResult.authRequired };
     }
-    return this.connectAndRun(headersResult.headers, operation, true);
+    let used: RemoteMcpConnection | undefined;
+    const tracked = (connection: RemoteMcpConnection): Promise<T> => {
+      used = connection;
+      return operation(connection);
+    };
+    try {
+      return await this.connectAndRun(headersResult.headers, tracked, true);
+    } catch (error) {
+      let authRequired: MCPAuthRequired | undefined = undefined;
+      try {
+        if (isAuthError(error)) {
+          // Start consent on a 401 if the headers resolver offers a hook.
+          authRequired = await headersResult.onUnauthorized?.();
+        }
+      } catch (recoveryError) {
+        // Rethrow the recovery error unchanged so its status survives, with the 401 it replaced as
+        // `cause` — error logging already walks that chain.
+        if (recoveryError instanceof Error && recoveryError.cause === undefined) {
+          recoveryError.cause = error;
+        }
+        throw recoveryError;
+      }
+      if (authRequired === undefined) {
+        throw error;
+      }
+      // Reset only the rejected connection; a failed connect still leaves the old session and tools.
+      if (used !== undefined) {
+        await this.resetConnection(used);
+      } else if (!this.isConnected) {
+        this.sessionId = undefined;
+        this.cachedTools = undefined;
+      }
+      return { authRequired };
+    }
   }
 
   private async connectAndRun<T>(

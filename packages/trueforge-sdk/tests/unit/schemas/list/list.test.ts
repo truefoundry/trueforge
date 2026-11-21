@@ -38,4 +38,13 @@ describe("list", () => {
             },
         ],
     );
+
+    it("does not overflow the stack when a nested item has many errors", () => {
+        const schema = list(list(string()));
+        const result = schema.parse([new Array(200_000).fill(42)]);
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+            expect(result.errors).toHaveLength(200_000);
+        }
+    });
 });

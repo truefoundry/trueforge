@@ -1,12 +1,16 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { keepPreviousData, useQueries } from '@tanstack/react-query';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { useServerQueryClient } from '../../server/queryClient.js';
+import { queryKeys } from '../../server/queryKeys.js';
 import { useOptionalAgentMetricsServer } from '../../server/ServerContext.js';
-import type { AgentMetricMeter, AgentMetricPoint, AgentMetricsServer } from '../../server/types.js';
+import type { AgentMetricChartData, AgentMetricMeter, AgentMetricPoint } from '../../server/types.js';
 import { DEFAULT_SESSION_TIME_WINDOW_MS } from '../../utils/sessionShareUrl.js';
 
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const MS_PER_MINUTE = 60 * 1000;
+const MS_PER_DAY = 24 * 60 * MS_PER_MINUTE;
 /** Daily cost series length. Meters use the session time window below. */
 export const AGENT_LIBRARY_SPARKLINE_DAYS = 14;
 /** Day count of `DEFAULT_SESSION_TIME_WINDOW_MS`, which the library meters query uses. */
@@ -39,63 +43,35 @@ function chartPoints(points: readonly AgentMetricPoint[] | undefined): AgentLibr
   }));
 }
 
-function unavailableUsage(): AgentLibraryUsageStats {
+type UsageQueries = {
+  meters: { data: AgentMetricMeter[] | undefined; isError: boolean; isPending: boolean } | undefined;
+  chart: { data: AgentMetricChartData | undefined; isError: boolean; isPending: boolean } | undefined;
+};
+
+/** `undefined` until every enabled request for the agent settles, so each row paints once. */
+function usageFromQueries({ meters, chart }: UsageQueries): AgentLibraryUsageStats | undefined {
+  if (meters?.isPending === true || chart?.isPending === true) return undefined;
+  const meterRows = meters?.data;
   return {
-    totalSessions: null,
-    totalCostUsd: null,
-    costPerSessionUsd: null,
-    dailyPoints: null,
+    totalSessions: meterRows == null ? null : meterValue(meterRows, 'total_sessions'),
+    totalCostUsd: meterRows == null ? null : meterValue(meterRows, 'total_cost_in_usd'),
+    costPerSessionUsd: meterRows == null ? null : meterValue(meterRows, 'cost_per_session_in_usd'),
+    dailyPoints: chart?.data == null ? null : chartPoints(chart.data.graphs[0]?.graphLines[0]?.values),
   };
 }
 
-async function loadUsageForAgent({
-  agentId,
-  metrics,
-  metersStart,
-  metersEnd,
-  sparklineStart,
-  sparklineEnd,
-}: {
-  agentId: string;
-  metrics: AgentMetricsServer;
-  metersStart: string;
-  metersEnd: string;
-  sparklineStart: string;
-  sparklineEnd: string;
-}): Promise<AgentLibraryUsageStats> {
-  const metersPromise = metrics
-    .getMeters({
-      agentId,
-      startTimestamp: metersStart,
-      endTimestamp: metersEnd,
-    })
-    .then(
-      meters => ({ ok: true as const, meters }),
-      () => ({ ok: false as const }),
-    );
+function requireServer<T>(server: T | null): T {
+  if (server == null) throw new Error('Usage stats require a server port.');
+  return server;
+}
 
-  const chartPromise = metrics
-    .getChartData({
-      agentId,
-      startTimestamp: sparklineStart,
-      endTimestamp: sparklineEnd,
-      chartName: CHART_NAME,
-    })
-    .then(
-      data => ({ ok: true as const, data }),
-      () => ({ ok: false as const }),
-    );
-
-  const [metersResult, chartResult] = await Promise.all([metersPromise, chartPromise]);
-
-  const meters = metersResult.ok ? metersResult.meters : [];
-  const dailyPoints = chartResult.ok ? chartPoints(chartResult.data.graphs[0]?.graphLines[0]?.values) : null;
-
+/** Rolling windows end on a minute boundary so reopening the library within a minute reuses cached stats. */
+function usageWindow(): { metersStart: string; sparklineStart: string; end: string } {
+  const now = Math.floor(Date.now() / MS_PER_MINUTE) * MS_PER_MINUTE;
   return {
-    totalSessions: metersResult.ok ? meterValue(meters, 'total_sessions') : null,
-    totalCostUsd: metersResult.ok ? meterValue(meters, 'total_cost_in_usd') : null,
-    costPerSessionUsd: metersResult.ok ? meterValue(meters, 'cost_per_session_in_usd') : null,
-    dailyPoints,
+    metersStart: new Date(now - DEFAULT_SESSION_TIME_WINDOW_MS).toISOString(),
+    sparklineStart: new Date(now - SPARKLINE_WINDOW_MS).toISOString(),
+    end: new Date(now).toISOString(),
   };
 }
 
@@ -116,63 +92,64 @@ export function useAgentLibraryUsageStats({
   metricsEnabled: boolean;
 } {
   const metrics = useOptionalAgentMetricsServer();
+  const queryClient = useServerQueryClient();
   const metricsEnabled = metrics != null;
-  const [usageByAgentId, setUsageByAgentId] = useState<Map<string, AgentLibraryUsageStats>>(() => new Map());
-  const agentIdsKey = agentIds.join('\0');
-  const loadedIdsKeyRef = useRef<string | null>(null);
+  const [range, setRange] = useState(usageWindow);
+  const ids = useMemo(() => [...new Set(agentIds)], [agentIds]);
 
+  const metersQueries = useQueries(
+    {
+      queries: ids.map(agentId => {
+        const request = { agentId, startTimestamp: range.metersStart, endTimestamp: range.end };
+        return {
+          queryKey: queryKeys.metrics.meters(request),
+          queryFn: () => requireServer(metrics).getMeters(request),
+          enabled: metricsEnabled,
+          placeholderData: keepPreviousData,
+        };
+      }),
+    },
+    queryClient,
+  );
+  const chartQueries = useQueries(
+    {
+      queries: ids.map(agentId => {
+        const request = {
+          agentId,
+          startTimestamp: range.sparklineStart,
+          endTimestamp: range.end,
+          chartName: CHART_NAME,
+        };
+        return {
+          queryKey: queryKeys.metrics.chartData(request),
+          queryFn: () => requireServer(metrics).getChartData(request),
+          enabled: metricsEnabled,
+          placeholderData: keepPreviousData,
+        };
+      }),
+    },
+    queryClient,
+  );
+
+  // The library bumps refreshKey after agent changes; move the window up to now, keeping rows'
+  // previous numbers until the new window loads.
+  const lastRefreshKeyRef = useRef(refreshKey);
   useEffect(() => {
-    const ids = agentIdsKey.length === 0 ? [] : agentIdsKey.split('\0');
-    if (ids.length === 0 || metrics == null) {
-      loadedIdsKeyRef.current = agentIdsKey;
-      setUsageByAgentId(prev => (prev.size === 0 ? prev : new Map()));
-      return;
-    }
+    if (lastRefreshKeyRef.current === refreshKey) return;
+    lastRefreshKeyRef.current = refreshKey;
+    setRange(usageWindow());
+  }, [refreshKey]);
 
-    // Keep the previous page's numbers across a refresh so rows don't flash
-    // skeletons. A new id set has nothing worth keeping.
-    if (loadedIdsKeyRef.current !== agentIdsKey) {
-      loadedIdsKeyRef.current = agentIdsKey;
-      setUsageByAgentId(prev => (prev.size === 0 ? prev : new Map()));
-    }
-
-    let cancelled = false;
-    const now = Date.now();
-    const metersEnd = new Date(now).toISOString();
-    const metersStart = new Date(now - DEFAULT_SESSION_TIME_WINDOW_MS).toISOString();
-    const sparklineStart = new Date(now - SPARKLINE_WINDOW_MS).toISOString();
-
-    for (const agentId of ids) {
-      void loadUsageForAgent({
-        agentId,
-        metrics,
-        metersStart,
-        metersEnd,
-        sparklineStart,
-        sparklineEnd: metersEnd,
-      })
-        .then(stats => {
-          if (cancelled) return;
-          setUsageByAgentId(prev => {
-            const next = new Map(prev);
-            next.set(agentId, stats);
-            return next;
-          });
-        })
-        .catch(() => {
-          if (cancelled) return;
-          setUsageByAgentId(prev => {
-            const next = new Map(prev);
-            next.set(agentId, unavailableUsage());
-            return next;
-          });
-        });
-    }
-
-    return () => {
-      cancelled = true;
-    };
-  }, [agentIdsKey, metrics, refreshKey]);
+  const usageByAgentId = new Map<string, AgentLibraryUsageStats>();
+  if (metricsEnabled) {
+    ids.forEach((agentId, index) => {
+      const usage = usageFromQueries({
+        meters: metersQueries[index],
+        chart: chartQueries[index],
+      });
+      if (usage != null) usageByAgentId.set(agentId, usage);
+    });
+  }
 
   return { usageByAgentId, metricsEnabled };
 }
