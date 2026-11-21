@@ -3,7 +3,6 @@
  * Per-session counters (`SessionMetrics`) stay in trueforge-core.
  */
 import { z } from '@hono/zod-openapi';
-import { IsoTimestampQueryParam } from './common';
 
 /** Max inclusive created_at window for session metrics aggregation (30 days). */
 export const MAX_SESSION_METRICS_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
@@ -106,6 +105,12 @@ export const SessionMetricsChartDataResponseSchema = z
   })
   .strict()
   .openapi('SessionMetricsChartDataResponse');
+
+/** Wire ISO-8601 (RFC 3339, offsets allowed) → Date for metrics window bounds. */
+const IsoTimestampQueryParam = z.iso
+  .datetime({ offset: true })
+  .openapi({ type: 'string', format: 'date-time' })
+  .transform(s => new Date(s));
 
 const GetSessionMetricsRequestQueryObjectSchema = z.object({
   agent_id: z.string().min(1).max(64).describe('Named agent identifier.'),
