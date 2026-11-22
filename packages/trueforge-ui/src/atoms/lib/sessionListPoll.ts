@@ -4,7 +4,7 @@ import type { TurnStatus } from '../../server/types.js';
 export const SESSION_LIST_FIRST_PAGE_LIMIT = 20;
 
 /** Cadence while any listed row is running or paused. */
-export const SESSION_LIST_POLL_INTERVAL_MS = 5_000;
+export const SESSION_LIST_POLL_INTERVAL_MS = 30_000;
 
 /** Poll interval for live last-turn status, or `null` when nothing needs polling. */
 export function sessionListPollIntervalMs(statuses: ReadonlyArray<TurnStatus | undefined | null>): number | null {
