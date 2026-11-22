@@ -10,7 +10,6 @@ import type { AgentSessionDetailHeaderProps } from './types.js';
 
 export { buildAgentSessionShareUrl } from '../../utils/sessionShareUrl.js';
 
-// Sessions saved before the metadata migration still carry `is_create_agent`.
 const HIDDEN_METADATA_KEYS = new Set([
   'is_create_agent',
   IS_CREATE_AGENT_METADATA_KEY,
