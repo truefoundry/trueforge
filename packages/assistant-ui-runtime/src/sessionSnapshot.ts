@@ -63,6 +63,8 @@ export type SessionTurnRecord = Pick<Turn, 'id' | 'createdAt' | 'state' | 'input
   sandboxId?: string | undefined;
   /** MCP authorization requirement still open on this turn. */
   pendingMcpAuth?: McpAuthRequiredEvent | undefined;
+  /** Parent turn. `null` is a root. Omit when the parent is not known yet. */
+  previousTurnId?: string | null;
 };
 
 export interface RequiredActionsOverlay {
@@ -129,6 +131,31 @@ export function createEmptySessionSnapshot(): SessionSnapshot {
   };
 }
 
+/**
+ * Parent id safe to store on a turn record.
+ * `null` and `"none"` are a root. `"auto"` is unresolved and stays omitted.
+ */
+export function sessionRecordPreviousTurnId(previousTurnId: string | null | undefined): string | null | undefined {
+  if (previousTurnId === undefined || previousTurnId === 'auto') {
+    return undefined;
+  }
+  if (previousTurnId === null || previousTurnId === 'none') {
+    return null;
+  }
+  return previousTurnId;
+}
+
+/** Spread into a turn record. Omitted when the parent is still unresolved. */
+export function previousTurnIdRecordFields(
+  previousTurnId: string | null | undefined,
+): { previousTurnId: string | null } | undefined {
+  const stored = sessionRecordPreviousTurnId(previousTurnId);
+  if (stored === undefined) {
+    return undefined;
+  }
+  return { previousTurnId: stored };
+}
+
 export function turnToSessionRecord(turn: Turn): SessionTurnRecord {
   const userText = extractTurnUserText(turn.input);
   return {
@@ -137,6 +164,7 @@ export function turnToSessionRecord(turn: Turn): SessionTurnRecord {
     createdAt: turn.createdAt,
     state: turn.state,
     input: turn.input ?? [],
+    ...(previousTurnIdRecordFields(turn.previousTurnId) ?? {}),
   };
 }
 
@@ -157,6 +185,7 @@ export function sessionEventsToSessionRecord(
     input: createdEvent.input ?? [],
     rootModelMessageIds,
     ...(sandboxId != null ? { sandboxId } : {}),
+    ...(previousTurnIdRecordFields(createdEvent.previousTurnId) ?? {}),
   };
 }
 

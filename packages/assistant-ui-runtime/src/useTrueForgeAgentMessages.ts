@@ -26,6 +26,7 @@ import {
   prependOlderSessionHistory,
   projectSessionMessages,
   resolveGatewayBranchPreviousTurnIdForTurn,
+  rewindLoadedSnapshotThroughTurn,
   rootModelMessageIdsSinceBaseline,
   userMessageContentToText,
 } from './convertTurnMessages.js';
@@ -41,6 +42,7 @@ import type { AssistantContentPart } from './modelMessageContent.js';
 import { findPausedAssistantMessage } from './requiredActionInputs.js';
 import {
   createEmptySessionSnapshot,
+  previousTurnIdRecordFields,
   replaceSessionSnapshot,
   STREAM_SEGMENT_STATUS,
   streamSegmentStatus,
@@ -152,6 +154,17 @@ function cancelScheduledAnimationFrame(frame: number | null): void {
   }
 }
 
+/** Copy a resolved parent onto a committed turn. Leave an existing parent in place. */
+function committedParentFields(
+  turn: { id: string; previousTurnId?: string | null },
+  running: Turn | undefined,
+): { previousTurnId: string | null } | undefined {
+  if (turn.previousTurnId !== undefined || running?.id !== turn.id) {
+    return undefined;
+  }
+  return previousTurnIdRecordFields(running.previousTurnId);
+}
+
 function commitActiveStream(snapshot: SessionSnapshot): SessionSnapshot {
   const active = snapshot.activeStream;
   const terminalState = active?.update.turnState;
@@ -180,6 +193,7 @@ function commitActiveStream(snapshot: SessionSnapshot): SessionSnapshot {
               state: terminalState,
               rootModelMessageIds,
               ...(activeSandboxId != null ? { sandboxId: activeSandboxId } : {}),
+              ...(committedParentFields(turn, snapshot.runningTurn) ?? {}),
             }
           : turn,
       ),
@@ -199,6 +213,9 @@ function commitActiveStream(snapshot: SessionSnapshot): SessionSnapshot {
     ...(snapshot.pendingUser ? { userText: userMessageContentToText(snapshot.pendingUser.content) } : {}),
     rootModelMessageIds,
     ...(activeSandboxId != null ? { sandboxId: activeSandboxId } : {}),
+    ...(snapshot.runningTurn?.id === active.turnId
+      ? (previousTurnIdRecordFields(snapshot.runningTurn.previousTurnId) ?? {})
+      : {}),
   };
 
   return replaceSessionSnapshot(snapshot, {
@@ -326,6 +343,7 @@ function abandonInFlightClientTurn(
                 state: cancelledState,
                 rootModelMessageIds,
                 ...(activeSandboxId != null ? { sandboxId: activeSandboxId } : {}),
+                ...(committedParentFields(turn, snapshot.runningTurn) ?? {}),
               }
             : turn,
         ),
@@ -343,6 +361,9 @@ function abandonInFlightClientTurn(
       ...(snapshot.pendingUser ? { userText: userMessageContentToText(snapshot.pendingUser.content) } : {}),
       rootModelMessageIds,
       ...(activeSandboxId != null ? { sandboxId: activeSandboxId } : {}),
+      ...(snapshot.runningTurn?.id === active.turnId
+        ? (previousTurnIdRecordFields(snapshot.runningTurn.previousTurnId) ?? {})
+        : {}),
     };
 
     return replaceSessionSnapshot(snapshot, {
@@ -425,6 +446,7 @@ function finalizeLocallyCancelledTurn(snapshot: SessionSnapshot): SessionSnapsho
     input: openTurn.input ?? [],
     ...(userText.length > 0 ? { userText } : {}),
     rootModelMessageIds: [],
+    ...(previousTurnIdRecordFields(openTurn.previousTurnId) ?? {}),
   };
 
   return replaceSessionSnapshot(abandoned, {
@@ -1022,7 +1044,7 @@ export function useTrueForgeAgentMessages({
         // SSE event arrives.
         const turnIdRef: { current: string } = { current: turnId };
 
-        const handleGatewayTurnId = (gatewayTurnId: string) => {
+        const handleGatewayTurnId = (gatewayTurnId: string, eventPreviousTurnId?: string | null) => {
           const oldId = turnIdRef.current;
           gatewayTurnAccepted.current = true;
           turnIdRef.current = gatewayTurnId;
@@ -1031,7 +1053,10 @@ export function useTrueForgeAgentMessages({
             const runningTurn: Turn = {
               id: gatewayTurnId,
               sessionId: conversationSessionId,
-              previousTurnId: options.previousTurnId ?? (isFirstTurnInSession ? 'none' : 'auto'),
+              previousTurnId:
+                eventPreviousTurnId !== undefined
+                  ? eventPreviousTurnId
+                  : (options.previousTurnId ?? (isFirstTurnInSession ? 'none' : 'auto')),
               input: [{ type: EVENT_TYPE.USER_MESSAGE, content: options.userMessage }],
               state: { status: TURN_STATUS.RUNNING },
               createdAt: pendingUser?.createdAt.toISOString() ?? new Date().toISOString(),
@@ -1543,19 +1568,26 @@ export function useTrueForgeAgentMessages({
           activeSessionId,
           resolveConversationSessionIdRef.current,
         );
-        previousTurnId = await resolveGatewayBranchPreviousTurnIdForTurn(server, conversationSessionId, turnId);
-        // Rewind to the exact parent used for the new branch. Using the
-        // previous item from listTurns could select an abandoned branch.
-        rewound = await buildSnapshotThroughTurn(
-          server,
-          conversationSessionId,
-          previousTurnId === 'none' ? null : previousTurnId,
-        );
+        committed = commitActiveStream(snapshotRef.current);
+        const localRewind = rewindLoadedSnapshotThroughTurn(committed, turnId);
+        if (localRewind != null) {
+          previousTurnId = localRewind.previousTurnId;
+          rewound = localRewind.snapshot;
+        } else {
+          // Parent is not in memory. The server walk follows parent links, so
+          // list order cannot be used in its place.
+          previousTurnId = await resolveGatewayBranchPreviousTurnIdForTurn(server, conversationSessionId, turnId);
+          rewound = await buildSnapshotThroughTurn(
+            server,
+            conversationSessionId,
+            previousTurnId === 'none' ? null : previousTurnId,
+          );
+          committed = commitActiveStream(snapshotRef.current);
+        }
         // The server supersedes the open turn when the branch is created; only
         // detach the client stream so its late updates cannot overwrite the rewind.
         ++streamGenerationRef.current;
         abortControllerRef.current?.abort();
-        committed = commitActiveStream(snapshotRef.current);
         createdAtByMessageIdRef.current = new Map();
         // Keep the ref aligned before awaiting sendTurn so any intermediate
         // reads (and the atomic pendingUser apply) see the rewound history.

@@ -30,10 +30,10 @@ export async function* streamTurnContent(
   groupRootBaseline?: readonly string[],
   /**
    * Called once with the turn ID as soon as it becomes available (first
-   * `turn.created` SSE event). Use this to reconcile the locally-generated
-   * optimistic ID with the real turn ID.
+   * `turn.created` SSE event), plus that event's parent id when present.
+   * Use this to reconcile the locally-generated optimistic ID with the real turn ID.
    */
-  onTurnIdAvailable?: (turnId: string) => void,
+  onTurnIdAvailable?: (turnId: string, previousTurnId?: string | null) => void,
   onSequenceNumber?: (sequenceNumber: number) => void,
   onSubscribeCursor?: (cursor: TurnSubscribeCursor) => void,
 ): AsyncGenerator<TurnStreamUpdate> {
@@ -45,9 +45,9 @@ export async function* streamTurnContent(
   }
 
   let turnIdNotified = false;
-  const notifyTurnId = (turnId: string) => {
+  const notifyTurnId = (turnId: string, previousTurnId?: string | null) => {
     if (!turnIdNotified) {
-      onTurnIdAvailable?.(turnId);
+      onTurnIdAvailable?.(turnId, previousTurnId);
       turnIdNotified = true;
     }
   };

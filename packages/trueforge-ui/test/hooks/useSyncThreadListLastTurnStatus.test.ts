@@ -27,6 +27,9 @@ vi.mock('@/server/ServerContext.js', () => ({
 
 import { useSyncThreadListLastTurnStatus } from '@/hooks/useSyncThreadListLastTurnStatus.js';
 
+const completeAssistant = { role: 'assistant', status: { type: 'complete' } };
+const pausedAssistant = { role: 'assistant', status: { type: 'requires-action' } };
+
 describe('useSyncThreadListLastTurnStatus', () => {
   beforeEach(() => {
     useThreadIsRunning.mockReturnValue(false);
@@ -37,6 +40,7 @@ describe('useSyncThreadListLastTurnStatus', () => {
     useAuiState.mockImplementation((selector: (state: unknown) => unknown) =>
       selector({
         threadListItem: { remoteId: 'sess-1' },
+        thread: { messages: [] },
       }),
     );
   });
@@ -62,6 +66,7 @@ describe('useSyncThreadListLastTurnStatus', () => {
     useAuiState.mockImplementation((selector: (state: unknown) => unknown) =>
       selector({
         threadListItem: { remoteId: undefined },
+        thread: { messages: [] },
       }),
     );
     useThreadIsRunning.mockReturnValue(true);
@@ -72,6 +77,72 @@ describe('useSyncThreadListLastTurnStatus', () => {
     });
 
     expect(updateCustom).not.toHaveBeenCalled();
+  });
+
+  it('clears a paused dot once the live assistant message no longer needs input', async () => {
+    getState.mockReturnValue({ custom: { isMutable: true, lastTurnStatus: 'paused' } });
+    useAuiState.mockImplementation((selector: (state: unknown) => unknown) =>
+      selector({
+        threadListItem: { remoteId: 'sess-1' },
+        thread: { messages: [completeAssistant] },
+      }),
+    );
+
+    renderHook(() => useSyncThreadListLastTurnStatus());
+
+    await waitFor(() => {
+      expect(updateCustom).toHaveBeenCalledWith(
+        expect.objectContaining({ isMutable: true, lastActivityAt: expect.any(String) }),
+      );
+    });
+    expect(updateCustom.mock.calls[0]?.[0]).not.toHaveProperty('lastTurnStatus');
+    expect(getSession).not.toHaveBeenCalled();
+  });
+
+  it('keeps the paused dot while the live assistant message still needs input', async () => {
+    getState.mockReturnValue({ custom: { isMutable: true, lastTurnStatus: 'paused' } });
+    useAuiState.mockImplementation((selector: (state: unknown) => unknown) =>
+      selector({
+        threadListItem: { remoteId: 'sess-1' },
+        thread: { messages: [pausedAssistant] },
+      }),
+    );
+
+    renderHook(() => useSyncThreadListLastTurnStatus());
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(updateCustom).not.toHaveBeenCalled();
+  });
+
+  it('does not write a stale paused getSession back after the transcript has finished', async () => {
+    getState.mockReturnValue({ custom: { isMutable: true, lastTurnStatus: 'running' } });
+    getSession.mockResolvedValue({
+      id: 'sess-1',
+      updatedAt: '2026-11-16T12:00:01.000Z',
+      lastTurnDetails: { id: 'turn-1', state: { status: 'paused' } },
+    });
+    useAuiState.mockImplementation((selector: (state: unknown) => unknown) =>
+      selector({
+        threadListItem: { remoteId: 'sess-1' },
+        thread: { messages: [completeAssistant] },
+      }),
+    );
+
+    useThreadIsRunning.mockReturnValue(true);
+    const { rerender } = renderHook(() => useSyncThreadListLastTurnStatus());
+    updateCustom.mockClear();
+
+    useThreadIsRunning.mockReturnValue(false);
+    rerender();
+
+    await waitFor(() => {
+      expect(getSession).toHaveBeenCalledWith({ sessionId: 'sess-1' });
+    });
+    expect(updateCustom).toHaveBeenCalledWith({ isMutable: true });
+    expect(updateCustom).not.toHaveBeenCalledWith(expect.objectContaining({ lastTurnStatus: 'paused' }));
   });
 
   it('does not re-stamp when the row is already running', async () => {
@@ -134,6 +205,7 @@ describe('useSyncThreadListLastTurnStatus', () => {
     useAuiState.mockImplementation((selector: (state: unknown) => unknown) =>
       selector({
         threadListItem: { remoteId: 'sess-2' },
+        thread: { messages: [] },
       }),
     );
     useThreadIsRunning.mockReturnValue(false);
@@ -174,6 +246,7 @@ describe('useSyncThreadListLastTurnStatus', () => {
     useAuiState.mockImplementation((selector: (state: unknown) => unknown) =>
       selector({
         threadListItem: { remoteId: 'sess-1', lastMessageAt: new Date('2026-11-16T12:00:00.000Z') },
+        thread: { messages: [] },
       }),
     );
     rerender();
