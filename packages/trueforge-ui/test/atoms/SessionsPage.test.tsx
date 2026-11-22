@@ -41,6 +41,7 @@ const draftRow: SessionListEntry = {
 
 type ListSessionsRequest = {
   agentId?: string;
+  createdByMe?: boolean;
   startTimestamp?: string;
   endTimestamp?: string;
 };
@@ -159,6 +160,7 @@ describe('SessionsPage', () => {
       }),
     );
     expect(request?.agentId).toBeUndefined();
+    expect(request?.createdByMe).toBeUndefined();
     expect(request?.startTimestamp).toBeDefined();
     expect(request?.endTimestamp).toBeDefined();
     if (request?.startTimestamp == null || request.endTimestamp == null) {
@@ -168,6 +170,20 @@ describe('SessionsPage', () => {
     expect(window.location.search).toContain('view=sessions');
     expect(screen.getByRole('button', { name: 'Last 30 days' })).toBeInTheDocument();
     expect(screen.getByRole('separator', { name: 'Resize session list' })).toHaveClass('w-0');
+  });
+
+  it('lists only the current user sessions when Created by is Me', async () => {
+    window.history.replaceState(null, '', '/?view=sessions&createdByMe=true');
+    const { listSessions } = renderPage();
+    expect(await screen.findByText('Named session')).toBeInTheDocument();
+    expect(listSessions).toHaveBeenCalledWith(expect.objectContaining({ createdByMe: true }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show sessions' }));
+    fireEvent.click(screen.getByRole('option', { name: 'All sessions' }));
+    await waitFor(() => {
+      expect(listSessions).toHaveBeenLastCalledWith(expect.not.objectContaining({ createdByMe: true }));
+    });
+    expect(window.location.search).not.toContain('createdByMe');
   });
 
   it('labels sessions created by a schedule run', async () => {

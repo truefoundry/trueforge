@@ -204,7 +204,7 @@ describe('AgentsLibrary', () => {
     renderLibrary(<LibraryHarness onSelectAgent={onSelectAgent} />, { server, track });
 
     fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
-    expect(screen.getByRole('heading', { name: 'Agents' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Agents Registry' })).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Try agent alpha-agent' })).toBeInTheDocument();
     });
@@ -219,7 +219,7 @@ describe('AgentsLibrary', () => {
     );
     expect(track.mock.calls.some(call => call[0] === AnalyticsEvents.Library.CLOSED)).toBe(false);
     await waitFor(() => {
-      expect(screen.queryByRole('heading', { name: 'Agents' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'Agents Registry' })).not.toBeInTheDocument();
     });
   });
 
@@ -453,7 +453,7 @@ describe('AgentsLibrary', () => {
         intent: 'create',
       });
     });
-    expect(screen.getByRole('heading', { name: 'Agents' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Agents Registry' })).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: 'Clone Agent' })).not.toBeInTheDocument();
     });
@@ -498,7 +498,7 @@ describe('AgentsLibrary', () => {
     await waitFor(() => {
       expect(deleteAgent).toHaveBeenCalledWith({ agentName: 'writer' });
     });
-    expect(screen.getByRole('heading', { name: 'Agents' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Agents Registry' })).toBeInTheDocument();
   });
 
   it('shows model and tools summary under a Configuration column with tooltips', async () => {
@@ -633,10 +633,10 @@ describe('AgentsLibrary', () => {
     renderLibrary(<LibraryHarness />, { track });
 
     fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
-    expect(screen.getByRole('heading', { name: 'Agents' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Agents Registry' })).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: 'Escape' });
-    expect(screen.queryByRole('heading', { name: 'Agents' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Agents Registry' })).not.toBeInTheDocument();
     expect(track).toHaveBeenCalledWith(AnalyticsEvents.Library.CLOSED, undefined);
   });
 });
@@ -655,7 +655,7 @@ describe('AgentsLibraryButton', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: /Agents/ }));
-    expect(screen.getByRole('heading', { name: 'Agents' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Agents Registry' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Agents/ })).toHaveAttribute('aria-current', 'page');
     expect(track).toHaveBeenCalledWith(AnalyticsEvents.Library.OPENED, undefined);
     fireEvent.click(screen.getByRole('button', { name: /Agents/ }));
@@ -908,10 +908,11 @@ describe('AgentsLibraryButton', () => {
     });
     await screen.findByRole('button', { name: 'Try agent agent-00' });
 
+    // A revisited page is served from the cache.
+    const callsBeforeRevisit = searchAgents.mock.calls.length;
     fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
-    await waitFor(() => {
-      expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 10, pageToken: 'tok_2' });
-    });
+    await screen.findByRole('button', { name: 'Try agent agent-10' });
+    expect(searchAgents).toHaveBeenCalledTimes(callsBeforeRevisit);
 
     // PopoverSelect: open rows-per-page and pick 25
     fireEvent.click(screen.getByRole('button', { name: 'Rows per page' }));

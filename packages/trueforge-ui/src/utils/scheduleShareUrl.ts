@@ -92,6 +92,7 @@ export function writeOpenSchedulesForAgentSearch({ agentId, isNew }: { agentId: 
     tab: null,
     view: null,
     timeRange: null,
+    createdByMe: null,
   });
   writeScheduleShareSearch(url.searchParams, {
     agent: agentId,
@@ -112,6 +113,7 @@ export function writeOpenScheduleByIdSearch({ id, name }: { id: string; name: st
     tab: null,
     view: null,
     timeRange: null,
+    createdByMe: null,
   });
   writeScheduleShareSearch(url.searchParams, { agent: null, status: null, q: name, isNew: null, scheduleId: id });
   window.history.replaceState(window.history.state, '', url);
