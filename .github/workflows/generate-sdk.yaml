@@ -38,7 +38,9 @@ permissions:
 jobs:
   generate:
     name: Generate OpenAPI and SDKs
-    runs-on: ubuntu-latest
+    runs-on:
+      group: public-runner-group
+      labels: "gh-pb-runners-2c"
     timeout-minutes: 30
     # Bot pushes from this workflow would otherwise re-enter forever.
     # github-actions[bot]: legacy GITHUB_TOKEN pushes (if any still land).

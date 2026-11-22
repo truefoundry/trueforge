@@ -62,7 +62,9 @@ permissions: {}
 jobs:
   version-release:
     name: Version packages for the release
-    runs-on: ubuntu-latest
+    runs-on:
+      group: public-runner-group
+      labels: "gh-pb-runners-2c"
     timeout-minutes: 30
     outputs:
       # Every downstream job checks this out; actions/checkout's default ref is
@@ -340,7 +342,9 @@ jobs:
   resolve-image:
     name: Resolve image identity
     needs: [version-release]
-    runs-on: ubuntu-latest
+    runs-on:
+      group: public-runner-group
+      labels: "gh-pb-runners-2c"
     timeout-minutes: 10
     outputs:
       app_version: ${{ steps.resolve.outputs.app_version }}
@@ -529,7 +533,9 @@ jobs:
       && needs.version-release.outputs.final_minor == 'true'
       && needs.release-chart.result == 'success'
       && inputs.dry_run != true }} # DRY-RUN (temporary)
-    runs-on: ubuntu-latest
+    runs-on:
+      group: public-runner-group
+      labels: "gh-pb-runners-2c"
     timeout-minutes: 60
     continue-on-error: true
     permissions:
