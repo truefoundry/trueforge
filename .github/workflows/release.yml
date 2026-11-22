@@ -81,6 +81,7 @@ jobs:
         with:
           client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
           private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
+          permission-contents: write
 
       - name: Check out repo
         uses: actions/checkout@v7
@@ -547,6 +548,8 @@ jobs:
         with:
           client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
           private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
 
       - name: Check out repo
         uses: actions/checkout@v7
