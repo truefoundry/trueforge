@@ -1,7 +1,7 @@
 import { sql, type Kysely } from 'kysely';
 
 /**
- * SQLite mirror of postgres/migrations/20261120_000001_session_tfg_is_create_agent.ts.
+ * SQLite mirror of postgres/migrations/20261123_000001_session_tfg_is_create_agent.ts.
  * `json_quote` keeps the value a JSON string. The text `true` is itself valid JSON and would otherwise be stored as a boolean.
  */
 export async function up<TDatabase>(db: Kysely<TDatabase>): Promise<void> {
