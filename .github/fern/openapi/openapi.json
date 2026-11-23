@@ -351,15 +351,15 @@
           "created_by_subject": {
             "$ref": "#/components/schemas/Subject"
           },
-          "id": {
-            "type": "string"
-          },
-          "latest_entry_point": {
+          "entry_point": {
             "description": "Latest version's default file to render, as a path relative to the version. Null before the first version.",
             "type": [
               "string",
               "null"
             ]
+          },
+          "id": {
+            "type": "string"
           },
           "latest_version": {
             "description": "Latest version.",
@@ -377,7 +377,7 @@
           "id",
           "name",
           "latest_version",
-          "latest_entry_point",
+          "entry_point",
           "created_by_subject",
           "created_by_session_id",
           "created_by_agent_id",

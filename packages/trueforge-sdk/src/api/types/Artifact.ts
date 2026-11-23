@@ -8,9 +8,9 @@ export interface Artifact {
     createdByAgentId: string | null;
     createdBySessionId: string;
     createdBySubject: TrueForge.Subject;
-    id: string;
     /** Latest version's default file to render, as a path relative to the version. Null before the first version. */
-    latestEntryPoint: string | null;
+    entryPoint: string | null;
+    id: string;
     /** Latest version. */
     latestVersion: number;
     name: string;
