@@ -503,6 +503,7 @@ function createTurnResolver(deps: {
           : await skillStore.resolveTurnSkills({
               tenant_id,
               skills,
+              agent_id: undefined,
             });
       const carriedSandboxId = existingSandboxIdForProvider({
         existingSandboxId,
