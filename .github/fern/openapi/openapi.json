@@ -8097,7 +8097,7 @@
     },
     "/api/v1/artifacts": {
       "get": {
-        "description": "List artifacts created by the caller, most recently updated first. Optionally filter by session, agent, or title substring.",
+        "description": "List artifacts created by the caller, most recently updated first. Optionally filter by session or title substring.",
         "parameters": [
           {
             "description": "Page size. Defaults to 25",
@@ -8129,17 +8129,6 @@
             "required": false,
             "schema": {
               "description": "When set, only artifacts created in this session are returned.",
-              "minLength": 1,
-              "type": "string"
-            }
-          },
-          {
-            "description": "When set, only artifacts created by this agent are returned.",
-            "in": "query",
-            "name": "created_by_agent_id",
-            "required": false,
-            "schema": {
-              "description": "When set, only artifacts created by this agent are returned.",
               "minLength": 1,
               "type": "string"
             }

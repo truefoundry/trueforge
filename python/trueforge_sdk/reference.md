@@ -502,7 +502,7 @@ client.agents.delete(
 </details>
 
 ## Artifacts
-<details><summary><code>client.artifacts.<a href="src/trueforge_sdk/artifacts/client.py#L28-L88">list</a>(...) -> ListArtifactsResponse</code></summary>
+<details><summary><code>client.artifacts.<a href="src/trueforge_sdk/artifacts/client.py#L28-L83">list</a>(...) -> ListArtifactsResponse</code></summary>
 <dl>
 <dd>
 
@@ -514,7 +514,7 @@ client.agents.delete(
 <dl>
 <dd>
 
-List artifacts created by the caller, most recently updated first. Optionally filter by session, agent, or title substring.
+List artifacts created by the caller, most recently updated first. Optionally filter by session or title substring.
 </dd>
 </dl>
 </dd>
@@ -569,14 +569,6 @@ client.artifacts.list()
 <dd>
 
 **created_by_session_id:** `typing.Optional[str]` — When set, only artifacts created in this session are returned.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**created_by_agent_id:** `typing.Optional[str]` — When set, only artifacts created by this agent are returned.
     
 </dd>
 </dl>
