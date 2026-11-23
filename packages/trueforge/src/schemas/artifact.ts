@@ -15,6 +15,10 @@ export const ArtifactSchema = z
       ),
     created_by_subject: SubjectSchema,
     created_by_session_id: z.string(),
+    created_by_agent_id: z
+      .string()
+      .nullable()
+      .describe('Registry agent of the creating session. Null when the session used an inline agent spec.'),
     created_at: z.iso.datetime(),
     updated_at: z.iso.datetime(),
   })
@@ -39,6 +43,11 @@ export const ListArtifactsRequestQuerySchema = z
       .min(1)
       .optional()
       .describe('When set, only artifacts created in this session are returned.'),
+    created_by_agent_id: z
+      .string()
+      .min(1)
+      .optional()
+      .describe('When set, only artifacts created by this agent are returned.'),
     title: z.string().trim().min(1).optional().describe('Case-insensitive substring match on artifact title.'),
   })
   .openapi('ListArtifactsRequestQuery');

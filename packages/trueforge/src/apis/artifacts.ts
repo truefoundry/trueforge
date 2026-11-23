@@ -19,6 +19,7 @@ function toWireArtifact(record: ArtifactRecord): Artifact {
     entry_point: record.entry_point,
     created_by_subject: record.created_by_subject,
     created_by_session_id: record.created_by_session_id,
+    created_by_agent_id: record.created_by_agent_id,
     created_at: record.created_at,
     updated_at: record.updated_at,
   };
@@ -33,6 +34,7 @@ export function createArtifactsRouter(deps: ArtifactsRouterDeps) {
         tenant_id: requestContext.tenant_id,
         created_by_subject_id: requestContext.subject.id,
         created_by_session_id: query.created_by_session_id,
+        created_by_agent_id: query.created_by_agent_id,
         title: query.title,
         limit: query.limit,
         page_token: query.page_token,
