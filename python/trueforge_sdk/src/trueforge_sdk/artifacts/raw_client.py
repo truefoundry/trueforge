@@ -27,11 +27,12 @@ class RawArtifactsClient:
         limit: typing.Optional[int] = 25,
         page_token: typing.Optional[str] = None,
         created_by_session_id: typing.Optional[str] = None,
+        created_by_agent_id: typing.Optional[str] = None,
         title: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[Artifact, ListArtifactsResponse]:
         """
-        List artifacts created by the caller, most recently updated first. Optionally filter by session or title substring.
+        List artifacts created by the caller, most recently updated first. Optionally filter by session, agent, or title substring.
 
         Parameters
         ----------
@@ -43,6 +44,9 @@ class RawArtifactsClient:
 
         created_by_session_id : typing.Optional[str]
             When set, only artifacts created in this session are returned.
+
+        created_by_agent_id : typing.Optional[str]
+            When set, only artifacts created by this agent are returned.
 
         title : typing.Optional[str]
             Case-insensitive substring match on artifact title.
@@ -62,6 +66,7 @@ class RawArtifactsClient:
                 "limit": limit,
                 "page_token": page_token,
                 "created_by_session_id": created_by_session_id,
+                "created_by_agent_id": created_by_agent_id,
                 "title": title,
             },
             request_options=request_options,
@@ -85,6 +90,7 @@ class RawArtifactsClient:
                         limit=limit,
                         page_token=_parsed_next,
                         created_by_session_id=created_by_session_id,
+                        created_by_agent_id=created_by_agent_id,
                         title=title,
                         request_options=request_options,
                     )
@@ -131,11 +137,12 @@ class AsyncRawArtifactsClient:
         limit: typing.Optional[int] = 25,
         page_token: typing.Optional[str] = None,
         created_by_session_id: typing.Optional[str] = None,
+        created_by_agent_id: typing.Optional[str] = None,
         title: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[Artifact, ListArtifactsResponse]:
         """
-        List artifacts created by the caller, most recently updated first. Optionally filter by session or title substring.
+        List artifacts created by the caller, most recently updated first. Optionally filter by session, agent, or title substring.
 
         Parameters
         ----------
@@ -147,6 +154,9 @@ class AsyncRawArtifactsClient:
 
         created_by_session_id : typing.Optional[str]
             When set, only artifacts created in this session are returned.
+
+        created_by_agent_id : typing.Optional[str]
+            When set, only artifacts created by this agent are returned.
 
         title : typing.Optional[str]
             Case-insensitive substring match on artifact title.
@@ -166,6 +176,7 @@ class AsyncRawArtifactsClient:
                 "limit": limit,
                 "page_token": page_token,
                 "created_by_session_id": created_by_session_id,
+                "created_by_agent_id": created_by_agent_id,
                 "title": title,
             },
             request_options=request_options,
@@ -191,6 +202,7 @@ class AsyncRawArtifactsClient:
                             limit=limit,
                             page_token=_parsed_next,
                             created_by_session_id=created_by_session_id,
+                            created_by_agent_id=created_by_agent_id,
                             title=title,
                             request_options=request_options,
                         )

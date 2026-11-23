@@ -8,6 +8,7 @@ import { Subject } from "./Subject.js";
 export const Artifact: core.serialization.ObjectSchema<serializers.Artifact.Raw, TrueForge.Artifact> =
     core.serialization.object({
         createdAt: core.serialization.property("created_at", core.serialization.date()),
+        createdByAgentId: core.serialization.property("created_by_agent_id", core.serialization.string().nullable()),
         createdBySessionId: core.serialization.property("created_by_session_id", core.serialization.string()),
         createdBySubject: core.serialization.property("created_by_subject", Subject),
         entryPoint: core.serialization.property("entry_point", core.serialization.string().nullable()),
@@ -20,6 +21,7 @@ export const Artifact: core.serialization.ObjectSchema<serializers.Artifact.Raw,
 export declare namespace Artifact {
     export interface Raw {
         created_at: string;
+        created_by_agent_id?: string | null;
         created_by_session_id: string;
         created_by_subject: Subject.Raw;
         entry_point?: string | null;

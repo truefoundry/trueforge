@@ -23,7 +23,7 @@ export class ArtifactsClient {
     }
 
     /**
-     * List artifacts created by the caller, most recently updated first. Optionally filter by session or title substring.
+     * List artifacts created by the caller, most recently updated first. Optionally filter by session, agent, or title substring.
      *
      * @param {TrueForge.ListArtifactsRequest} request
      * @param {ArtifactsClient.RequestOptions} requestOptions - Request-specific configuration.
@@ -44,11 +44,12 @@ export class ArtifactsClient {
             async (
                 request: TrueForge.ListArtifactsRequest,
             ): Promise<core.WithRawResponse<TrueForge.ListArtifactsResponse>> => {
-                const { limit = 25, pageToken, createdBySessionId, title } = request;
+                const { limit = 25, pageToken, createdBySessionId, createdByAgentId, title } = request;
                 const _queryParams: Record<string, unknown> = {
                     limit,
                     page_token: pageToken,
                     created_by_session_id: createdBySessionId,
+                    created_by_agent_id: createdByAgentId,
                     title,
                 };
                 const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();

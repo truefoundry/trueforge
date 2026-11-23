@@ -11,6 +11,11 @@ from .subject import Subject
 
 class Artifact(UncheckedBaseModel):
     created_at: dt.datetime
+    created_by_agent_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Registry agent of the creating session. Null when the session used an inline agent spec.
+    """
+
     created_by_session_id: str
     created_by_subject: Subject
     entry_point: typing.Optional[str] = pydantic.Field(default=None)

@@ -11,6 +11,8 @@ export interface ListArtifactsRequest {
     pageToken?: string;
     /** When set, only artifacts created in this session are returned. */
     createdBySessionId?: string;
+    /** When set, only artifacts created by this agent are returned. */
+    createdByAgentId?: string;
     /** Case-insensitive substring match on artifact title. */
     title?: string;
 }

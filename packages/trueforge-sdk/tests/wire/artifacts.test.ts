@@ -13,6 +13,7 @@ describe("ArtifactsClient", () => {
             data: [
                 {
                     created_at: "2024-01-15T09:30:00Z",
+                    created_by_agent_id: "created_by_agent_id",
                     created_by_session_id: "created_by_session_id",
                     created_by_subject: {
                         subject_display_name: "subject_display_name",
@@ -41,6 +42,7 @@ describe("ArtifactsClient", () => {
             data: [
                 {
                     createdAt: new Date("2024-01-15T09:30:00.000Z"),
+                    createdByAgentId: "created_by_agent_id",
                     createdBySessionId: "created_by_session_id",
                     createdBySubject: {
                         subjectDisplayName: "subject_display_name",
