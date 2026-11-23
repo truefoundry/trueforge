@@ -8,6 +8,7 @@ export interface ThreadCreatedEvent {
     createdAt: string;
     /** Unique identifier for the event (monotonic ULID). */
     id: string;
+    model?: TrueForge.ModelSnapshot;
     parent: TrueForge.AgentParent;
     /** Id of the new thread. */
     threadId: string;

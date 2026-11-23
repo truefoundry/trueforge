@@ -69,10 +69,12 @@ describe('AgentThread model.message reasoning_content', () => {
       tracing: NOOP_AGENT_TRACING,
       logger: silentLogger,
       definition: {
-        modelClient,
-        modelName: TEST_MODEL_NAME,
         instruction: 'test',
         toolSets: [],
+      },
+      model: {
+        client: modelClient,
+        name: TEST_MODEL_NAME,
       },
       context: [{ role: 'user', content: 'hi' }],
     });

@@ -15,8 +15,8 @@ import {
 } from '../core/mcp/toolSelectors';
 import { ToolSet } from '../core/mcp/ToolSet';
 import type { ModelRouterDeps } from '../core/modelRouting/router';
-import type { AgentDefinition } from '../core/runtime/AgentDefinition';
-import type { AgentInfo } from '../core/runtime/AgentThread.types';
+import type { AgentModel } from '../core/runtime/AgentModel';
+import type { AgentInfo, ModelSnapshot } from '../core/runtime/AgentThread.types';
 import type { HarnessSandbox, SandboxInfo } from '../core/sandbox/Sandbox';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
 import { NOOP_AGENT_TRACING } from '../core/tracing/NoopAgentTracing';
@@ -40,6 +40,19 @@ export type TurnSandboxFactory = (input: {
 
 function specWantsSandbox(spec: AgentSpec): boolean {
   return spec.config.sandbox.enabled;
+}
+
+/** A saved effort replaces the freshly resolved one. `null` means the thread ran with none. */
+function applySavedEffort(baseParams: ModelParams, effort: string | null | undefined): ModelParams {
+  if (effort === undefined) {
+    return baseParams;
+  }
+  if (effort === null) {
+    const params = { ...baseParams };
+    delete params.reasoning_effort;
+    return params;
+  }
+  return { ...baseParams, reasoning_effort: effort };
 }
 
 /** Runtime id and display name of the built-in TrueForge management MCP. */
@@ -74,7 +87,7 @@ function toSelectors(entry: {
 interface ResolvedModel {
   modelClient: ILLM;
   defaultModelParams: ModelParams;
-  modelProperties?: AgentDefinition['modelProperties'];
+  modelProperties?: AgentModel['properties'];
   /** Explicit `undefined` when the host has no provider label for the model call series. */
   providerType: VercelAIProviderName | undefined;
 }
@@ -211,6 +224,7 @@ export class TurnResourceResolver<
   async resolveAgentDefinition(input: {
     spec: AgentSpec;
     agent_info?: AgentInfo | undefined;
+    model: ModelSnapshot | undefined;
     previousTurn?: TurnRecord<TTurnCustom> | undefined;
     signal: AbortSignal;
     tracing: AgentTracing;
@@ -257,26 +271,31 @@ export class TurnResourceResolver<
       ...(trueforgeToolSet === undefined ? [] : [{ systemToolSets: [trueforgeToolSet] }]),
       ...(agentInfo === undefined ? (this.deps.rootCapabilities?.() ?? []) : []),
     ];
-    // Sub-agents may request a different catalog model via agent_info.model;
-    // resolve that name so modelClient matches the override (not just a label).
-    const modelName = agentInfo?.model ?? spec.model.name;
+    // A routed or resumed snapshot wins, then a requested override, then the spec model.
+    const modelName = input.model?.name ?? agentInfo?.model ?? spec.model.name;
     const resolvedModel = await this.getModel(modelName);
+    // The spec's params belong to its own model; another model runs on its defaults.
+    // A routed or saved snapshot replaces that effort, including an explicit none.
+    const baseParams =
+      modelName === spec.model.name
+        ? { ...resolvedModel.defaultModelParams, ...spec.model.params }
+        : { ...resolvedModel.defaultModelParams, parallel_tool_calls: true };
+    const params = applySavedEffort(baseParams, input.model?.effort);
     return {
-      definition: {
-        modelClient: resolvedModel.modelClient,
-        modelName,
+      model: {
+        client: resolvedModel.modelClient,
+        name: modelName,
         ...(resolvedModel.providerType !== undefined ? { providerType: resolvedModel.providerType } : {}),
-        modelProperties: resolvedModel.modelProperties,
+        properties: resolvedModel.modelProperties,
+        params,
+      },
+      definition: {
         // Sub-agents receive the delegated task as a user message; their system
         // prompt is SUB_AGENT_IDENTITY (added by AgentThread), not user instructions.
         instruction: agentInfo ? undefined : spec.instructions,
         messages: agentInfo
           ? [{ role: 'user' as const, content: agentInfo.input }]
           : spec.messages?.map(m => ({ role: 'user' as const, content: m.content })),
-        modelParams: {
-          ...resolvedModel.defaultModelParams,
-          ...spec.model.params,
-        },
         // Sub-agents should return free-form summaries to the parent, not the user-facing structured response.
         responseFormat: agentInfo ? undefined : spec.response_format,
         iterationLimit: spec.config.iteration_limit,

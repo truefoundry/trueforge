@@ -7,7 +7,10 @@
 export { ModelParamsSchema, ModelSchema } from './llm/model';
 export type { Model, ModelParams } from './llm/model';
 export type { AgentDefinition } from './runtime/AgentDefinition';
+export { modelSnapshotFromAgent } from './runtime/AgentModel';
+export type { AgentModel } from './runtime/AgentModel';
 export { AgentThread } from './runtime/AgentThread';
+export { ModelSnapshotSchema } from './runtime/AgentThread.types';
 export type {
   AgentInfo,
   AgentParent,
@@ -17,6 +20,7 @@ export type {
   AgentThreadEvent,
   AgentThreadExecutionEvent,
   AgentThreadExecutionResult,
+  ModelSnapshot,
   SubAgentCompletion,
 } from './runtime/AgentThread.types';
 export { AgentThreadOrchestrator, DEFAULT_MAX_PARALLEL_SUB_AGENTS } from './runtime/AgentThreadOrchestrator';

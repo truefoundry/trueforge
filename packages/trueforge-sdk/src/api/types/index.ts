@@ -161,6 +161,7 @@ export * from "./ModelParams.js";
 export * from "./ModelProperties.js";
 export * from "./ModelProviderAuth.js";
 export * from "./ModelProviderManifest.js";
+export * from "./ModelSnapshot.js";
 export * from "./MoonshotModelProvider.js";
 export * from "./OpenAiModelProvider.js";
 export * from "./ParallelWebSearchProviderAuth.js";
