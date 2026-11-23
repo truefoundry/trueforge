@@ -3362,6 +3362,27 @@
           }
         ]
       },
+      "ModelSnapshot": {
+        "description": "Model and effort the new thread runs on.",
+        "properties": {
+          "effort": {
+            "description": "Reasoning effort for that model. Null when none was resolved.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "Resolved model name, `provider/model`.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "effort"
+        ],
+        "type": "object"
+      },
       "MoonshotModelProvider": {
         "additionalProperties": false,
         "properties": {
@@ -5255,6 +5276,9 @@
           "id": {
             "description": "Unique identifier for the event (monotonic ULID).",
             "type": "string"
+          },
+          "model": {
+            "$ref": "#/components/schemas/ModelSnapshot"
           },
           "parent": {
             "$ref": "#/components/schemas/AgentParent"
