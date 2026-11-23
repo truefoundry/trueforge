@@ -49,6 +49,11 @@ export function Dialog({
       aria-label={ariaLabel}
       aria-labelledby={ariaLabelledBy}
       onClick={handleBackdropClick}
+      onCancel={event => {
+        event.preventDefault();
+        event.stopPropagation();
+        onOpenChange(false);
+      }}
       className={cn(
         'm-auto max-h-[90dvh] w-full max-w-lg rounded-lg bg-card-bg p-0 text-text-primary shadow-lg',
         'backdrop:bg-[var(--overlay)]',

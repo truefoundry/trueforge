@@ -4829,6 +4829,15 @@
         "additionalProperties": false,
         "properties": {
           "aggregate_value": {
+            "description": "Value across every session on the agent, or null when the caller may not see other users sessions.",
+            "minimum": 0,
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "created_by_me_aggregate_value": {
+            "description": "Value across the sessions the caller created.",
             "minimum": 0,
             "type": "number"
           },
@@ -4859,6 +4868,7 @@
         "required": [
           "name",
           "aggregate_value",
+          "created_by_me_aggregate_value",
           "description",
           "unit"
         ],

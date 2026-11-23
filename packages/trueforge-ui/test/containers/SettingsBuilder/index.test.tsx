@@ -40,6 +40,10 @@ vi.mock('@/containers/SettingsBuilder/MemorySettings.js', () => ({
   default: () => <div>Memory settings content</div>,
 }));
 
+vi.mock('@/containers/SettingsBuilder/AppearanceSettings.js', () => ({
+  default: () => <div>Appearance settings content</div>,
+}));
+
 async function unavailable(): Promise<never> {
   throw new Error('Unexpected settings section call');
 }
@@ -135,9 +139,19 @@ describe('TruefoundrySettingsBuilder', () => {
 
     expect(screen.getByRole('button', { name: 'Models' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('button', { name: 'Connectors' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Appearance' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Skills' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Sandbox' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Web search' })).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Model settings content')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Appearance' }));
+    await waitFor(() => {
+      expect(screen.getByText('Appearance settings content')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Models' }));
     await waitFor(() => {
       expect(screen.getByText('Model settings content')).toBeInTheDocument();
     });

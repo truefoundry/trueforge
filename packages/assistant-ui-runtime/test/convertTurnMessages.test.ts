@@ -29,18 +29,25 @@ import {
   projectSessionMessages,
   repositoryItemsFromMessages,
   resolveGatewayBranchPreviousTurnIdForTurn,
+  rewindLoadedSnapshotThroughTurn,
   streamTurnEvents,
   TurnStreamDisconnectedError,
   turnStreamUpdateToAssistantMessage,
 } from '../src/convertTurnMessages.js';
-import { buildRootAssistantContent, ingestTurnEvent, PeerThreadFoldState } from '../src/foldPeerThreads.js';
+import {
+  buildRootAssistantContent,
+  findFirstPendingApprovalThreadId,
+  ingestTurnEvent,
+  PeerThreadFoldState,
+} from '../src/foldPeerThreads.js';
 import { MESSAGE_CUSTOM_KEY } from '../src/messageCustomMetadata.js';
 import { findPausedAssistantMessage } from '../src/requiredActionInputs.js';
 import {
   createEmptySessionSnapshot,
   replaceSessionSnapshot,
-  type SessionSnapshot,
+  sessionEventsToSessionRecord,
   turnToSessionRecord,
+  type SessionSnapshot,
 } from '../src/sessionSnapshot.js';
 import { applyUserToolResponsesToFold, toolResponseStatus } from '../src/toolResponse.js';
 import type { TurnStreamUpdate, TurnSubscribeCursor } from '../src/turnStreamUpdate.js';
@@ -5474,5 +5481,183 @@ describe('resolveGatewayBranchPreviousTurnIdForTurn', () => {
     const server = mockServerWithTurns([t2, t1]);
 
     await expect(resolveGatewayBranchPreviousTurnIdForTurn(server, SESSION_ID, 't2')).resolves.toBe('t1');
+  });
+});
+
+describe('rewindLoadedSnapshotThroughTurn', () => {
+  function linearTurns(): TurnFixture[] {
+    return [
+      mockTurn({
+        id: 't1',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        previousTurnId: null,
+        input: [{ type: 'user.message', content: 'first' }],
+        events: [modelMessage({ id: 'm1', threadId: ROOT_THREAD_ID, content: 'reply 1' })],
+      }),
+      mockTurn({
+        id: 't2',
+        createdAt: '2026-01-01T00:01:00.000Z',
+        previousTurnId: 't1',
+        input: [{ type: 'user.message', content: 'second' }],
+        events: [modelMessage({ id: 'm2', threadId: ROOT_THREAD_ID, content: 'reply 2' })],
+      }),
+      mockTurn({
+        id: 't3',
+        createdAt: '2026-01-01T00:02:00.000Z',
+        previousTurnId: 't2',
+        input: [{ type: 'user.message', content: 'third' }],
+        events: [modelMessage({ id: 'm3', threadId: ROOT_THREAD_ID, content: 'reply 3' })],
+      }),
+    ];
+  }
+
+  it('keeps previousTurnId on a turn built from turn.created', () => {
+    const record = sessionEventsToSessionRecord(
+      't2',
+      {
+        type: 'turn.created',
+        id: 'created-t2',
+        turnId: 't2',
+        previousTurnId: 't1',
+        createdAt,
+      },
+      {
+        type: 'turn.done',
+        id: 'done-t2',
+        createdAt,
+        state: { status: 'done', requiredActions: [], completedAt: createdAt },
+      },
+      ['m2'],
+    );
+    expect(record.previousTurnId).toBe('t1');
+  });
+
+  it('rewinds to the loaded parent and drops the retried reply', async () => {
+    const snapshot = await buildSnapshotFromSessionEvents(mockServerWithTurns(linearTurns()), SESSION_ID);
+    const rewound = rewindLoadedSnapshotThroughTurn(snapshot, 't3');
+
+    expect(rewound?.previousTurnId).toBe('t2');
+    expect(rewound?.snapshot.turns.map(turn => turn.id)).toEqual(['t1', 't2']);
+    expect(projectSessionMessages(rewound?.snapshot ?? snapshot).map(message => message.id)).toEqual([
+      't1-user',
+      't1-assistant',
+      't2-user',
+      't2-assistant',
+    ]);
+    expect(rewound?.snapshot.historyEvents?.some(item => item.turnId === 't3')).toBe(false);
+    expect(rewound?.snapshot.runningTurn).toBeUndefined();
+    expect(rewound?.snapshot.requiredActions.approvals.size).toBe(0);
+  });
+
+  it('follows the stored parent when a later turn sits between it and the retry', async () => {
+    const [t1, t2] = linearTurns();
+    const snapshot = await buildSnapshotFromSessionEvents(mockServerWithTurns([t1!, t2!]), SESSION_ID);
+    const decoy = snapshot.turns[0];
+    if (decoy == null) {
+      throw new Error('expected a loaded turn');
+    }
+    const withDecoy = replaceSessionSnapshot(snapshot, {
+      turns: [
+        decoy,
+        {
+          ...decoy,
+          id: 't-later',
+          previousTurnId: 't-other',
+          rootModelMessageIds: [],
+          userText: 'later',
+        },
+        snapshot.turns[1] ?? decoy,
+      ],
+    });
+
+    const rewound = rewindLoadedSnapshotThroughTurn(withDecoy, 't2');
+    expect(rewound?.snapshot.turns.map(turn => turn.id)).toEqual(['t1']);
+  });
+
+  it('returns null when the parent id is missing, auto, or not loaded', async () => {
+    const snapshot = await buildSnapshotFromSessionEvents(mockServerWithTurns(linearTurns()), SESSION_ID);
+    expect(snapshot.turns.some(turn => turn.id === 't3')).toBe(true);
+    const withoutParent = replaceSessionSnapshot(snapshot, {
+      turns: snapshot.turns.map(turn => {
+        if (turn.id !== 't3') {
+          return turn;
+        }
+        const rest = { ...turn };
+        delete rest.previousTurnId;
+        return rest;
+      }),
+    });
+    expect(rewindLoadedSnapshotThroughTurn(withoutParent, 't3')).toBeNull();
+
+    const autoParent = replaceSessionSnapshot(snapshot, {
+      turns: snapshot.turns.map(turn => (turn.id === 't3' ? { ...turn, previousTurnId: 'auto' } : turn)),
+    });
+    expect(rewindLoadedSnapshotThroughTurn(autoParent, 't3')).toBeNull();
+
+    const unloadedParent = replaceSessionSnapshot(snapshot, {
+      turns: snapshot.turns.map(turn => (turn.id === 't3' ? { ...turn, previousTurnId: 't-missing' } : turn)),
+    });
+    expect(rewindLoadedSnapshotThroughTurn(unloadedParent, 't3')).toBeNull();
+  });
+
+  it('returns an empty turn list when retrying a root', async () => {
+    const snapshot = await buildSnapshotFromSessionEvents(mockServerWithTurns(linearTurns()), SESSION_ID);
+    const rewound = rewindLoadedSnapshotThroughTurn(snapshot, 't1');
+    expect(rewound?.previousTurnId).toBe('none');
+    expect(rewound?.snapshot.turns).toHaveLength(0);
+  });
+
+  it('drops a retried turn sub-agent and its pending approval', async () => {
+    const parent = mockTurn({
+      id: 't1',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      previousTurnId: null,
+      input: [{ type: 'user.message', content: 'first' }],
+      events: [modelMessage({ id: 'm1', threadId: ROOT_THREAD_ID, content: 'reply 1' })],
+    });
+    const spawn = mockTurn({
+      id: 't2',
+      createdAt: '2026-01-01T00:01:00.000Z',
+      previousTurnId: 't1',
+      input: [{ type: 'user.message', content: 'spawn' }],
+      events: [
+        modelMessage({
+          id: 'root-spawn',
+          threadId: ROOT_THREAD_ID,
+          content: 'spawning',
+          toolCalls: [
+            {
+              id: 'spawn-1',
+              type: 'function',
+              function: { name: 'create_sub_agent', arguments: '{}' },
+            },
+          ],
+        }),
+        threadCreated({
+          id: 't-created',
+          threadId: 'child-1',
+          title: 'Research agent',
+          agentInfo: { type: 'dynamic', name: 'researcher', input: 'do research' },
+          parent: { threadId: ROOT_THREAD_ID, toolCallId: 'spawn-1' },
+        }),
+        approvalRequired({
+          id: 'approval-1',
+          threadId: ROOT_THREAD_ID,
+          toolCalls: [{ id: 'spawn-1', sourceEventId: 'root-spawn' }],
+        }),
+      ],
+    });
+    const snapshot = await buildSnapshotFromSessionEvents(mockServerWithTurns([parent, spawn]), SESSION_ID);
+    expect(snapshot.fold.threads.has('child-1')).toBe(true);
+    expect(findFirstPendingApprovalThreadId(snapshot.fold)).toBe(ROOT_THREAD_ID);
+
+    const rewound = rewindLoadedSnapshotThroughTurn(snapshot, 't2');
+    expect(rewound?.snapshot.turns.map(turn => turn.id)).toEqual(['t1']);
+    expect(rewound?.snapshot.fold.threads.has('child-1')).toBe(false);
+    expect(findFirstPendingApprovalThreadId(rewound?.snapshot.fold ?? snapshot.fold)).toBeUndefined();
+    expect(projectSessionMessages(rewound?.snapshot ?? snapshot).map(message => message.id)).toEqual([
+      't1-user',
+      't1-assistant',
+    ]);
   });
 });

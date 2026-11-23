@@ -204,7 +204,7 @@ describe('AgentsLibrary', () => {
     renderLibrary(<LibraryHarness onSelectAgent={onSelectAgent} />, { server, track });
 
     fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
-    expect(screen.getByRole('heading', { name: 'Agents' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Agents Registry' })).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Try agent alpha-agent' })).toBeInTheDocument();
     });
@@ -219,7 +219,7 @@ describe('AgentsLibrary', () => {
     );
     expect(track.mock.calls.some(call => call[0] === AnalyticsEvents.Library.CLOSED)).toBe(false);
     await waitFor(() => {
-      expect(screen.queryByRole('heading', { name: 'Agents' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'Agents Registry' })).not.toBeInTheDocument();
     });
   });
 
@@ -453,7 +453,7 @@ describe('AgentsLibrary', () => {
         intent: 'create',
       });
     });
-    expect(screen.getByRole('heading', { name: 'Agents' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Agents Registry' })).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: 'Clone Agent' })).not.toBeInTheDocument();
     });
@@ -498,7 +498,7 @@ describe('AgentsLibrary', () => {
     await waitFor(() => {
       expect(deleteAgent).toHaveBeenCalledWith({ agentName: 'writer' });
     });
-    expect(screen.getByRole('heading', { name: 'Agents' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Agents Registry' })).toBeInTheDocument();
   });
 
   it('shows model and tools summary under a Configuration column with tooltips', async () => {
@@ -633,10 +633,10 @@ describe('AgentsLibrary', () => {
     renderLibrary(<LibraryHarness />, { track });
 
     fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
-    expect(screen.getByRole('heading', { name: 'Agents' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Agents Registry' })).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: 'Escape' });
-    expect(screen.queryByRole('heading', { name: 'Agents' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Agents Registry' })).not.toBeInTheDocument();
     expect(track).toHaveBeenCalledWith(AnalyticsEvents.Library.CLOSED, undefined);
   });
 });
@@ -655,7 +655,7 @@ describe('AgentsLibraryButton', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: /Agents/ }));
-    expect(screen.getByRole('heading', { name: 'Agents' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Agents Registry' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Agents/ })).toHaveAttribute('aria-current', 'page');
     expect(track).toHaveBeenCalledWith(AnalyticsEvents.Library.OPENED, undefined);
     fireEvent.click(screen.getByRole('button', { name: /Agents/ }));
@@ -908,10 +908,11 @@ describe('AgentsLibraryButton', () => {
     });
     await screen.findByRole('button', { name: 'Try agent agent-00' });
 
+    // A revisited page is served from the cache.
+    const callsBeforeRevisit = searchAgents.mock.calls.length;
     fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
-    await waitFor(() => {
-      expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 10, pageToken: 'tok_2' });
-    });
+    await screen.findByRole('button', { name: 'Try agent agent-10' });
+    expect(searchAgents).toHaveBeenCalledTimes(callsBeforeRevisit);
 
     // PopoverSelect: open rows-per-page and pick 25
     fireEvent.click(screen.getByRole('button', { name: 'Rows per page' }));
@@ -952,9 +953,27 @@ describe('AgentsLibraryButton', () => {
 
   it('shows sessions, spend, sparkline, and last run when metrics and sessions are available', async () => {
     const getMeters = vi.fn(async () => [
-      { name: 'total_sessions', aggregateValue: 12, description: 'Total sessions', unit: 'count' },
-      { name: 'total_cost_in_usd', aggregateValue: 4.5, description: 'Total cost', unit: '$' },
-      { name: 'cost_per_session_in_usd', aggregateValue: 0.375, description: 'Cost per session', unit: '$' },
+      {
+        name: 'total_sessions',
+        aggregateValue: 12,
+        createdByMeAggregateValue: 3,
+        description: 'Total sessions',
+        unit: 'count',
+      },
+      {
+        name: 'total_cost_in_usd',
+        aggregateValue: 4.5,
+        createdByMeAggregateValue: 1.2,
+        description: 'Total cost',
+        unit: '$',
+      },
+      {
+        name: 'cost_per_session_in_usd',
+        aggregateValue: 0.375,
+        createdByMeAggregateValue: 0.4,
+        description: 'Cost per session',
+        unit: '$',
+      },
     ]);
     const getChartData = vi.fn(async () => ({
       step: '86400',
@@ -1001,7 +1020,7 @@ describe('AgentsLibraryButton', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
 
     expect(await screen.findByRole('columnheader', { name: 'Sessions, 30d' })).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: 'Spend, 30d' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Your / Total Spend, 30d' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Daily, 14d' })).toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: 'Last run' })).not.toBeInTheDocument();
 
@@ -1011,8 +1030,9 @@ describe('AgentsLibraryButton', () => {
     });
 
     expect(await screen.findByLabelText('12 sessions')).toBeInTheDocument();
-    expect(screen.getByText('$4.50')).toBeInTheDocument();
-    expect(screen.getByText('$0.38 / session')).toBeInTheDocument();
+    expect(screen.getByLabelText('Your spend $1.20')).toBeInTheDocument();
+    expect(screen.getByLabelText('Total spend $4.50')).toBeInTheDocument();
+    expect(screen.getByText('$0.38 per session')).toBeInTheDocument();
     const sparkline = screen.getByRole('img', { name: 'Daily spend over 14 days for metrics-agent' });
     expect(sparkline).toHaveClass('text-success-bg');
     fireEvent.mouseMove(sparkline, { clientX: 0, clientY: 8 });
@@ -1024,5 +1044,45 @@ describe('AgentsLibraryButton', () => {
     expect(await screen.findByRole('tooltip')).toHaveTextContent(utcDay);
     expect(screen.getByRole('tooltip')).toHaveTextContent('$0.10');
     expect(listSessions).not.toHaveBeenCalledWith(expect.objectContaining({ agentId: 'metrics-agent', limit: 1 }));
+  });
+
+  it('dashes the total spend when the viewer may not see other users sessions', async () => {
+    const getMeters = vi.fn(async () => [
+      {
+        name: 'total_sessions',
+        aggregateValue: null,
+        createdByMeAggregateValue: 3,
+        description: 'Total sessions',
+        unit: 'count',
+      },
+      {
+        name: 'total_cost_in_usd',
+        aggregateValue: null,
+        createdByMeAggregateValue: 1.2,
+        description: 'Total cost',
+        unit: '$',
+      },
+      {
+        name: 'cost_per_session_in_usd',
+        aggregateValue: null,
+        createdByMeAggregateValue: 0.4,
+        description: 'Cost per session',
+        unit: '$',
+      },
+    ]);
+    const server = createMockAgentUIServer({
+      searchAgents: vi.fn(async () => ({
+        data: [{ name: 'metrics-agent', agentId: 'metrics-agent', agentSpec: { model: { name: 'openai/gpt-4.1' } } }],
+      })),
+      metrics: createMockAgentMetricsServer({ getMeters }),
+    });
+
+    renderLibrary(<LibraryHarness />, { server });
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
+
+    expect(await screen.findByLabelText('Your spend $1.20')).toBeInTheDocument();
+    expect(screen.getByLabelText('Total spend unavailable for metrics-agent')).toHaveTextContent('—');
+    expect(screen.getByLabelText('3 sessions')).toBeInTheDocument();
+    expect(screen.getByText('$0.40 per session')).toBeInTheDocument();
   });
 });
