@@ -1,11 +1,11 @@
 import type {
-  AvailableModelWithCatalogInfo,
   CreateModelProviderInput,
   DeleteModelProviderInput,
   GetModelProviderForUpdateInput,
   GetModelProviderInput,
   IModelProviderStore,
   ListModelProvidersInput,
+  ModelInfo,
   ModelProviderRecord,
   UpsertModelProviderInput,
 } from '../db/modelProviderStore';
@@ -60,7 +60,7 @@ export class InlineModelProviderStore<TTransaction = never> implements IModelPro
     return this.#inner.deleteProvider(input, transaction);
   }
 
-  listModels(input: ListModelProvidersInput, transaction?: TTransaction): Promise<AvailableModelWithCatalogInfo[]> {
+  listModels(input: ListModelProvidersInput, transaction?: TTransaction): Promise<ModelInfo[]> {
     return this.#inner.listModels(input, transaction);
   }
 

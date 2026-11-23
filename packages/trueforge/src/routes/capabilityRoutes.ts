@@ -63,6 +63,14 @@ const MemoryCapabilitySchema = z
   .describe('Present only when the tenant has a memory provider; absent means memory settings are hidden.')
   .openapi('MemoryCapability');
 
+const AutoCapabilitySchema = z
+  .object({
+    enabled: z
+      .boolean()
+      .describe('Whether Auto mode can be selected: the user has at least one model in every routing cluster.'),
+  })
+  .openapi('AutoCapability');
+
 const SessionSharingCapabilitySchema = z
   .object({
     granularity: z
@@ -82,6 +90,7 @@ const CapabilitiesDataSchema = z
     settings: SettingsCapabilitySchema,
     web_search: WebSearchCapabilitySchema,
     memory: MemoryCapabilitySchema.optional(),
+    auto: AutoCapabilitySchema,
     session_sharing: SessionSharingCapabilitySchema,
   })
   .openapi('CapabilitiesData');

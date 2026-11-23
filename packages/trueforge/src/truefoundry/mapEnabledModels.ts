@@ -1,4 +1,4 @@
-import { type RoutableModel, SUPPORTED_REASONING_EFFORTS } from '@truefoundry/trueforge-core/core';
+import { SUPPORTED_REASONING_EFFORTS } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
 import configuration, { isTrueFoundryModeEnabled } from '../config';
@@ -78,7 +78,10 @@ function toBlendedCost(metadata: IntegrationMetadata | undefined): number | unde
     : (0.75 * cost.input_cost_per_token + 0.25 * cost.output_cost_per_token) * 1e6;
 }
 
-function toCatalogInfo(metadata: IntegrationMetadata | undefined): TrueFoundryEnabledModel['catalog'] {
+function integrationModelInfo(metadata: IntegrationMetadata | undefined): {
+  canonicalModel: string | undefined;
+  cost: number | undefined;
+} {
   return {
     canonicalModel: metadata?.canonical_model ?? undefined,
     cost: toBlendedCost(metadata),
@@ -89,8 +92,10 @@ export interface TrueFoundryEnabledModel {
   accountName: string;
   modelName: string;
   properties: ModelProperties;
-  /** Returned only when models are listed with `has_catalog_info`. */
-  catalog: Pick<RoutableModel, 'canonicalModel' | 'cost'>;
+  /** Provider-neutral model id from the integration metadata. */
+  canonicalModel: string | undefined;
+  /** Blended USD per million tokens from the integration's default-region cost. */
+  cost: number | undefined;
 }
 
 /** `modelTypes` defaults to chat only, so listings never show models agents can't run on. */
@@ -109,7 +114,7 @@ export function mapEnabledModels(input: {
       accountName: integration.providerAccount.name,
       modelName: integration.name,
       properties: toProperties(integration.metadata),
-      catalog: toCatalogInfo(integration.metadata),
+      ...integrationModelInfo(integration.metadata),
     });
   }
   return models;

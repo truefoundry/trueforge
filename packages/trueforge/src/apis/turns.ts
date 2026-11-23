@@ -33,6 +33,7 @@ import {
 } from '@truefoundry/trueforge-core/agent-session';
 import type {
   AgentCapability,
+  DecisionModel,
   IWebSearchProvider,
   McpConnection,
   ModelRouterDeps,
@@ -77,7 +78,11 @@ import {
   type RequestContext,
   type ResolveRequestContext,
 } from '../auth/identity';
-import configuration, { isTrueFoundryModeEnabled, type TrueFoundryModelRouting } from '../config';
+import configuration, {
+  enabledTenantModelRouting,
+  trueFoundryModelRouting,
+  type TrueFoundryModelRouting,
+} from '../config';
 import type { IAccessControlStore } from '../db/accessControlStore';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import { EmptyCapabilitiesStore, type ICapabilitiesStore } from '../db/capabilitiesStore';
@@ -373,28 +378,36 @@ function turnModelRouting(input: {
   turnMetadata: TurnMetadata;
 }): ModelRouterDeps | undefined {
   const { routing, tenant_id, modelProviderStore, turnMetadata } = input;
-  const tenantRouting = routing?.tenants[tenant_id];
-  if (routing === undefined || tenantRouting?.subagent !== 'on') {
+  if (routing === undefined) {
+    return undefined;
+  }
+  const tenantRouting = enabledTenantModelRouting(routing, tenant_id);
+  if (tenantRouting === undefined) {
     return undefined;
   }
   // Resolved on first use, so turns that route no thread skip the lookup.
-  let decisionModel: Promise<OpenAIDecisionModel> | undefined;
+  let decisionModel: Promise<DecisionModel> | undefined;
   const resolveDecisionModel = () => {
     decisionModel ??= getModelDetails({
       tenant_id,
       name: tenantRouting.decision_model,
       store: modelProviderStore,
       turnMetadata,
-    }).then(resolved => new OpenAIDecisionModel(resolved.providerConfig));
+    }).then(resolved => ({
+      client: new OpenAIDecisionModel(resolved.providerConfig),
+      properties: { contextLength: resolved.modelProperties?.contextLength },
+    }));
     decisionModel.catch(() => {
       decisionModel = undefined;
     });
     return decisionModel;
   };
   return {
-    classifier: { create: async (body, options) => (await resolveDecisionModel()).create(body, options) },
-    question: { instructions: routing.instructions, categories: routing.categories },
-    listModels: () => modelProviderStore.listModels({ tenant_id, has_catalog_info: true }),
+    classifier: resolveDecisionModel,
+    question: {
+      categories: routing.categories,
+    },
+    listModels: () => modelProviderStore.listModels({ tenant_id }),
   };
 }
 
@@ -810,7 +823,7 @@ async function prepareTurnExecution<TTransaction>(input: {
     agentStore: input.deps.agentStore,
     modelProviderStore: input.deps.modelProviderStore,
     modelRouting: turnModelRouting({
-      routing: isTrueFoundryModeEnabled(configuration) ? configuration.TRUEFOUNDRY_MODEL_ROUTING : undefined,
+      routing: trueFoundryModelRouting(),
       tenant_id: input.session.tenant_id,
       modelProviderStore: input.deps.modelProviderStore,
       turnMetadata,
@@ -1157,6 +1170,7 @@ export function getTurnExecutionError(error: unknown): TurnExecutionError | unde
       case 'invalid_send_input':
       case 'agent_sandbox_required':
       case 'tool_name_collision':
+      case 'auto_model_unavailable':
         return { status: 422, message: error.message };
       case 'capability_state_error':
       case 'mcp_connection_failed':

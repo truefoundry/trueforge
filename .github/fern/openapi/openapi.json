@@ -399,6 +399,18 @@
         },
         "type": "object"
       },
+      "AutoCapability": {
+        "properties": {
+          "enabled": {
+            "description": "Whether Auto mode can be selected: the user has at least one model in every routing cluster.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "type": "object"
+      },
       "AvailableMCPServer": {
         "additionalProperties": false,
         "properties": {
@@ -534,6 +546,9 @@
       },
       "CapabilitiesData": {
         "properties": {
+          "auto": {
+            "$ref": "#/components/schemas/AutoCapability"
+          },
           "memory": {
             "$ref": "#/components/schemas/MemoryCapability"
           },
@@ -558,6 +573,7 @@
           "skill",
           "settings",
           "web_search",
+          "auto",
           "session_sharing"
         ],
         "type": "object"

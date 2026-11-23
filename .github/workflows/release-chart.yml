@@ -91,18 +91,19 @@ jobs:
       HELM_REGISTRY_URL: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_REGISTRY_URL }}
       HELM_CHART_REPOSITORY: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_HELM_REPOSITORY }}
     steps:
-      # App token: GITHUB_TOKEN often cannot push to a protected branch.
-      - id: app-token
-        uses: actions/create-github-app-token@v3
-        with:
-          client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
-          private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
+      # TEMPORARY: App token mint disabled; using GITHUB_TOKEN.
+      # - id: app-token
+      #   uses: actions/create-github-app-token@v3
+      #   with:
+      #     client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
+      #     private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
 
       - name: Check out
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          token: ${{ steps.app-token.outputs.token }}
+          # TEMPORARY: was steps.app-token.outputs.token
+          token: ${{ github.token }}
 
       - name: Install yq
         run: |

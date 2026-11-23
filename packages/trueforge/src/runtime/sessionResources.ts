@@ -1,5 +1,6 @@
 import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import {
+  AUTO_MODEL,
   Sandbox,
   SkillMounter,
   type AgentModel,
@@ -14,7 +15,7 @@ import {
 import { HTTPException } from 'hono/http-exception';
 import { join } from 'node:path';
 import type { Logger } from 'winston';
-import configuration from '../config';
+import configuration, { enabledTenantModelRouting, type TrueFoundryModelRouting } from '../config';
 import {
   isMemoryEnabledForTenant,
   isWebSearchEnabledForTenant,
@@ -289,6 +290,7 @@ export async function validateAgentSpec({
   configurationStore,
   previousSpec,
   agentId,
+  modelRouting,
 }: {
   spec: AgentSpec;
   tenant_id: string;
@@ -303,19 +305,35 @@ export async function validateAgentSpec({
   configurationStore: IConfigurationStore;
   previousSpec: AgentSpec | undefined;
   agentId: string | undefined;
+  /** This process's model routing config. `auto` is rejected when this tenant's routing is off. */
+  modelRouting: TrueFoundryModelRouting | undefined;
 }): Promise<void> {
-  const resolved = await getModelDetails({
-    tenant_id,
-    name: spec.model.name,
-    store: modelProviderStore,
-  });
-  const reasoningEffort = spec.model.params?.reasoning_effort;
-  if (reasoningEffort !== undefined) {
-    const efforts = resolved.reasoningEfforts;
-    if (efforts && efforts.length > 0 && !efforts.some(effort => effort === reasoningEffort)) {
+  // `auto` names no catalog model. It is only valid when this tenant routes models.
+  if (spec.model.name === AUTO_MODEL) {
+    if (enabledTenantModelRouting(modelRouting, tenant_id) === undefined) {
       throw new HTTPException(422, {
-        message: `Reasoning effort "${reasoningEffort}" is not supported by model "${spec.model.name}"`,
+        message: 'Model "auto" requires model routing to be enabled for this tenant',
       });
+    }
+    if (spec.model.params !== undefined && Object.keys(spec.model.params).length > 0) {
+      throw new HTTPException(422, {
+        message: 'Model "auto" does not accept model params',
+      });
+    }
+  } else {
+    const resolved = await getModelDetails({
+      tenant_id,
+      name: spec.model.name,
+      store: modelProviderStore,
+    });
+    const reasoningEffort = spec.model.params?.reasoning_effort;
+    if (reasoningEffort !== undefined) {
+      const efforts = resolved.reasoningEfforts;
+      if (efforts && efforts.length > 0 && !efforts.some(effort => effort === reasoningEffort)) {
+        throw new HTTPException(422, {
+          message: `Reasoning effort "${reasoningEffort}" is not supported by model "${spec.model.name}"`,
+        });
+      }
     }
   }
 
