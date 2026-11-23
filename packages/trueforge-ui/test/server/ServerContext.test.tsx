@@ -152,6 +152,7 @@ describe('ServerProvider', () => {
     const seeded = {
       sandbox: { enabled: true, environments: { enabled: true } },
       skill: { enabled: false },
+      auto: { enabled: false },
       sessionSharing: tenantSessionSharing,
     };
     const getCapabilities = vi.fn(async () => ({

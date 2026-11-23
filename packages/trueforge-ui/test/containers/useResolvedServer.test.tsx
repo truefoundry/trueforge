@@ -100,6 +100,7 @@ describe('useResolvedServer', () => {
     const capabilities = {
       sandbox: { enabled: false, environments: { enabled: false } },
       skill: { enabled: true },
+      auto: { enabled: false },
       sessionSharing: tenantSessionSharing,
     };
     const { result } = renderHook(() =>
