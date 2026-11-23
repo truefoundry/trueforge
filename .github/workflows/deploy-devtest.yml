@@ -16,7 +16,37 @@ jobs:
   sync:
     name: Pin SHA and push
     runs-on: ubuntu-latest
+    # Replaces the workflow-level `contents: read` for this job, so it has to be
+    # restated alongside id-token, which is the OIDC token Tailscale exchanges.
+    permissions:
+      contents: read
+      id-token: write
     steps:
+      # FIRST STEP, DELIBERATELY. Every GitHub call below is made with a GitHub
+      # App installation token, and an App token is filtered by the org IP allow
+      # list -- which a hosted runner's ephemeral address is not on. Joining the
+      # tailnet routes this job's GitHub traffic through the app connector, so
+      # GitHub sees the connector's allow-listed IP instead.
+      #
+      # The very next step is the first such call, so joining any later is too
+      # late. Do not move this below app-token.
+      #
+      # The credential is pinned three ways on the Tailscale side
+      # (truefoundry/tailscale-platform, terraform/tailnet/default.auto.tfvars):
+      # this repo, refs/heads/main, and THIS workflow file. A dispatch from
+      # another branch, or this step copied into another workflow, gets a 403.
+      #
+      # tag:ci-github-egress reaches the connector and nothing else in the
+      # tailnet -- no cluster. Traffic to anything outside the connector's domain
+      # list (Artifactory, ECR, npm) is not routed and still goes direct.
+      - name: Join the tailnet for GitHub egress
+        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
+        with:
+          oauth-client-id: ${{ vars.TS_CI_DEVTEST_CLIENT_ID }}
+          audience: ${{ vars.TS_CI_DEVTEST_AUDIENCE }}
+          tags: tag:ci-github-egress
+          hostname: gh-trueforge-devtest-${{ github.run_id }}
+
       - id: app-token
         uses: actions/create-github-app-token@v3
         with:
