@@ -131,6 +131,7 @@ export {
   AUTO_MODEL,
   createModelRouter,
   selectModel,
+  type ModelRouter,
   type ModelRouterDeps,
   type RoutableModel,
   type RouteInput,

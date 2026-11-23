@@ -14,7 +14,7 @@ import {
   DEFAULT_REQUIRE_APPROVAL_FOR_TOOLS,
 } from '../core/mcp/toolSelectors';
 import { ToolSet } from '../core/mcp/ToolSet';
-import type { ModelRouterDeps } from '../core/modelRouting/router';
+import { createModelRouter, type ModelRouter, type ModelRouterDeps } from '../core/modelRouting/router';
 import type { AgentModel } from '../core/runtime/AgentModel';
 import type { AgentInfo, ModelSnapshot } from '../core/runtime/AgentThread.types';
 import type { HarnessSandbox, SandboxInfo } from '../core/sandbox/Sandbox';
@@ -99,7 +99,7 @@ export class TurnResourceResolver<
   readonly #models = new Map<string, Promise<ResolvedModel>>();
   #sandbox?: HarnessSandbox | undefined;
   readonly maxParallelSubAgents?: number;
-  readonly modelRouting: ModelRouterDeps | undefined;
+  readonly routeModel: ModelRouter | undefined;
 
   constructor(
     protected readonly deps: {
@@ -139,7 +139,7 @@ export class TurnResourceResolver<
     if (deps.maxParallelSubAgents !== undefined) {
       this.maxParallelSubAgents = deps.maxParallelSubAgents;
     }
-    this.modelRouting = deps.modelRouting;
+    this.routeModel = deps.modelRouting === undefined ? undefined : createModelRouter(deps.modelRouting, deps.logger);
   }
 
   get webSearchProvider(): IWebSearchProvider | undefined {

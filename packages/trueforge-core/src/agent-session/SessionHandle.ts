@@ -6,7 +6,7 @@ import { newEventId, type TurnUserEvent, type UserMessage } from '../core/events
 import { SUPPORTED_REASONING_EFFORTS } from '../core/llm/VercelAILLM';
 import { routingConversation } from '../core/modelRouting/conversation';
 import { CONVERSATION_ROUTING_INSTRUCTIONS, TASK_ROUTING_INSTRUCTIONS } from '../core/modelRouting/question';
-import { AUTO_MODEL, createModelRouter, type RoutedModel, type RouteInput } from '../core/modelRouting/router';
+import { AUTO_MODEL, type ModelRouter, type RoutedModel } from '../core/modelRouting/router';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import { modelSnapshotFromAgent } from '../core/runtime/AgentModel';
 import { AgentThread } from '../core/runtime/AgentThread';
@@ -464,13 +464,11 @@ export class SessionHandle<
       tracing,
     });
 
-    const { modelRouting } = input.resolver;
-    const routeModel = modelRouting === undefined ? undefined : createModelRouter(modelRouting, input.resolver.logger);
     const rootModel = await this.autoRoutedModel({
       spec,
       previous: input.previous,
       newUserInput: input.newUserInput,
-      routeModel,
+      routeModel: input.resolver.routeModel,
     });
 
     const definitionsByThreadId = await this.resolveAgentDefinitions({
@@ -504,7 +502,6 @@ export class SessionHandle<
       resolver: input.resolver,
       previous: input.previous,
       spec,
-      routeModel,
       rootModel,
       sandbox,
       tracing,
@@ -534,7 +531,7 @@ export class SessionHandle<
     spec: AgentSpec;
     previous: TurnRecord<TTurnCustom> | undefined;
     newUserInput: UserMessage[] | undefined;
-    routeModel: ((route: RouteInput) => Promise<RoutedModel | undefined>) | undefined;
+    routeModel: ModelRouter | undefined;
   }): Promise<RoutedModel | undefined> {
     if (input.spec.model.name !== AUTO_MODEL) {
       return undefined;
@@ -675,7 +672,6 @@ export class SessionHandle<
     resolver: ITurnResourceResolver<TTurnCustom>;
     previous: TurnRecord<TTurnCustom> | undefined;
     spec: AgentSpec;
-    routeModel: ((route: RouteInput) => Promise<RoutedModel | undefined>) | undefined;
     /** The root's auto-selected model and effort; a subagent the router can't place runs on it. */
     rootModel: RoutedModel | undefined;
     sandbox: HarnessSandbox | undefined;
@@ -685,7 +681,7 @@ export class SessionHandle<
       // Route from the delegated task: the classifier requires the name and input to classify the task.
       const task = `Name: ${params.request.name}\n\nTask:\n${params.request.input}`;
       const routed =
-        (await input.routeModel?.({
+        (await input.resolver.routeModel?.({
           threadId: params.threadId,
           input: task,
           instructions: TASK_ROUTING_INSTRUCTIONS,
