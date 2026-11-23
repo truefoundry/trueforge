@@ -129,6 +129,7 @@ export {
 } from './modelRouting/question';
 export {
   AUTO_MODEL,
+  canRouteEveryCategory,
   createModelRouter,
   selectModel,
   type ModelRouterDeps,

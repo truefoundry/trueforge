@@ -411,6 +411,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         webSearchProviderStore: deps.webSearchProviderStore,
         configurationStore: deps.configurationStore,
         memoryProviderStore: deps.memoryProviderStore,
+        resolveModelProviderStore: c => deps.resolveModelProviderStore({ c }),
         userStore: deps.userStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,

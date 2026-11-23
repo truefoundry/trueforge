@@ -87,6 +87,7 @@ function SettingsCatalogProvider({
         data: {
           sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
+          auto: { enabled: false },
           sessionSharing: tenantSessionSharing,
           settings: allSettingsSections(settingsEnabled),
         },

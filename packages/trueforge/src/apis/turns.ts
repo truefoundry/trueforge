@@ -407,7 +407,7 @@ function turnModelRouting(input: {
     question: {
       categories: routing.categories,
     },
-    listModels: () => modelProviderStore.listModels({ tenant_id, has_catalog_info: true }),
+    listModels: () => modelProviderStore.listModels({ tenant_id }),
   };
 }
 
