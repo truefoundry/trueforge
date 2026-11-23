@@ -106,6 +106,7 @@ describe('validateAgentSpec', () => {
       memoryProviderStore: new SqliteMemoryProviderStore(db),
       configurationStore: new SqliteConfigurationStore(db),
       previousSpec: undefined,
+      agentId: undefined,
     };
   }
 
