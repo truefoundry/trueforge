@@ -63,7 +63,7 @@ const X_TFY_MCP_HEADERS = 'x-tfy-mcp-headers';
  * TODO: add an env var for the public UI path prefix (do not keep deriving mount path from
  * `PUBLIC_BASE_URL`) so tenant origin and path are independently configurable.
  */
-export function resolveAuthorizeRedirectURL(input: { returnTo?: string; publicBaseUrl: string }): string {
+export function resolveAuthorizeRedirectURL(input: { returnTo: string; publicBaseUrl: string }): string {
   try {
     const origin = new URL(input.publicBaseUrl).origin;
     const publicBase = new URL(getPublicUiBasePath(), `${origin}/`);
@@ -252,15 +252,19 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
     if (record === undefined) {
       throw new McpServerNotFoundError(input.name);
     }
-    const publicBaseUrl = await this.#client.getTenantControlPlaneUrl({ tenantName: input.tenant_id });
+    const returnTo = input.returnTo;
+    const redirectURL =
+      returnTo === undefined
+        ? undefined
+        : resolveAuthorizeRedirectURL({
+            returnTo: returnTo,
+            publicBaseUrl: await this.#client.getTenantControlPlaneUrl({ tenantName: input.tenant_id }),
+          });
     const gatewayAuthorization = await this.#resolveGatewayAuthorization();
     return this.#client.getMcpAuthorize({
       accessToken: gatewayAuthorization.subjectToken,
       mcpServerId: record.id,
-      redirectURL: resolveAuthorizeRedirectURL({
-        publicBaseUrl,
-        ...(input.returnTo !== undefined ? { returnTo: input.returnTo } : {}),
-      }),
+      ...(redirectURL !== undefined ? { redirectURL } : {}),
     });
   }
 
