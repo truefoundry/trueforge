@@ -176,7 +176,7 @@ export function runMemoryIngestStoreContractSuite<TTransaction>(
   });
 
   it('never lists agent-builder chats, even from the UI', async () => {
-    await createSession({ session_id: 'builder', metadata: { ...UI, is_create_agent: 'true' } });
+    await createSession({ session_id: 'builder', metadata: { ...UI, 'tfg.is_create_agent': 'true' } });
     await addTurn({ session_id: 'builder', turn_id: 't1' });
     await createSession({ session_id: 'ui' });
     await addTurn({ session_id: 'ui', turn_id: 't1' });

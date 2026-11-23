@@ -20,7 +20,7 @@ import type { Database } from '../types';
 
 const agentMemoryEnabled = sql<number>`json_type(a.manifest, ${sql.lit(`$.${AGENT_MEMORY_ENABLED_PATH.join('.')}`)}) IS 'true'`;
 const tfgSource = sql<string | null>`json_extract(s.metadata, '$."tfg.source"')`;
-const createAgentSession = sql<number>`json_extract(s.metadata, '$."is_create_agent"') IS 'true'`;
+const createAgentSession = sql<number>`json_extract(s.metadata, '$."tfg.is_create_agent"') IS 'true'`;
 /**
  * `turn.input` as JSON text with only text parts kept in array content: file parts carry inline
  * base64, and ingestion sends text only, so attachments never leave the database.

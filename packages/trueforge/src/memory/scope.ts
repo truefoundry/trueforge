@@ -7,8 +7,8 @@ export const DEFAULT_MEMORY_AGENT_KEY = 'trueforge';
 /** UI "new chat" sessions carry `metadata['tfg.source'] = 'ui'`. */
 export const UI_SESSION_SOURCE = 'ui';
 
-/** Agent-builder chats carry `metadata['is_create_agent'] = 'true'`. */
-export const CREATE_AGENT_SESSION_METADATA_KEY = 'is_create_agent';
+/** Agent-builder chats carry `metadata['tfg.is_create_agent'] = 'true'`. */
+export const CREATE_AGENT_SESSION_METADATA_KEY = 'tfg.is_create_agent';
 
 export type MemoryScopeType = 'default' | 'agent';
 
@@ -32,7 +32,7 @@ export interface MemoryScopeSession {
   agentMemoryEnabled: boolean;
   /** `metadata['tfg.source']`, when present. */
   tfgSource: string | null;
-  /** Agent-builder chat (`metadata['is_create_agent'] = 'true'`). */
+  /** Agent-builder chat (`metadata['tfg.is_create_agent'] = 'true'`). */
   createAgentSession: boolean;
 }
 
