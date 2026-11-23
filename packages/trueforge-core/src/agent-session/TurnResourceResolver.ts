@@ -271,12 +271,11 @@ export class TurnResourceResolver<
       ...(trueforgeToolSet === undefined ? [] : [{ systemToolSets: [trueforgeToolSet] }]),
       ...(agentInfo === undefined ? (this.deps.rootCapabilities?.() ?? []) : []),
     ];
-    // Sub-agents may request a different catalog model via agent_info.model;
-    // resolve that name so the model's client matches the override (not just a label).
+    // A routed or resumed snapshot wins, then a requested override, then the spec model.
     const modelName = input.model?.name ?? agentInfo?.model ?? spec.model.name;
     const resolvedModel = await this.getModel(modelName);
-    // The spec's params are set for its own model; any other model runs on its own defaults.
-    // A saved snapshot replaces that effort, including an explicit none.
+    // The spec's params belong to its own model; another model runs on its defaults.
+    // A routed or saved snapshot replaces that effort, including an explicit none.
     const baseParams =
       modelName === spec.model.name
         ? { ...resolvedModel.defaultModelParams, ...spec.model.params }
