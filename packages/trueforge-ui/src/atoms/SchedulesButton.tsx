@@ -13,6 +13,7 @@ import {
   sidebarRailButtonClassName,
 } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
+import { ShellLink } from './primitives/ShellLink.js';
 import { RailTooltip } from './primitives/Tooltip.js';
 
 export type SchedulesButtonProps = {
@@ -28,11 +29,11 @@ export function SchedulesButton({ className, compact = false }: SchedulesButtonP
   const enabled = isSchedulesChromeEnabled({ schedules: scheduleServer }) && shell != null;
   const open = shell?.schedulesOpen === true;
 
-  if (!enabled) return null;
+  if (!enabled || shell == null) return null;
 
-  const button = (
-    <button
-      type="button"
+  const control = (
+    <ShellLink
+      place={{ type: 'schedules' }}
       aria-label={compact ? 'Schedules' : undefined}
       aria-current={open ? 'page' : undefined}
       className={auiButtonClass({
@@ -45,7 +46,7 @@ export function SchedulesButton({ className, compact = false }: SchedulesButtonP
           open && shellRailSelectedClassName,
         ),
       })}
-      onClick={() => {
+      onNavigate={() => {
         if (!open) track(AnalyticsEvents.Schedule.PAGE_OPENED);
         shell.setSchedulesOpen(!open);
       }}
@@ -57,12 +58,12 @@ export function SchedulesButton({ className, compact = false }: SchedulesButtonP
           <Icon name="chevron-right" className="ml-auto size-3.5 shrink-0 opacity-60" />
         </>
       )}
-    </button>
+    </ShellLink>
   );
 
   return (
     <div className={cn('relative min-w-0', compact ? 'flex justify-center' : 'w-full', className)}>
-      {compact ? <RailTooltip content="Schedules">{button}</RailTooltip> : button}
+      {compact ? <RailTooltip content="Schedules">{control}</RailTooltip> : control}
     </div>
   );
 }

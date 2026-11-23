@@ -99,6 +99,26 @@ export function buildPath(place: RoutePlace, routes: ResolvedRoutes): string | n
 }
 
 /**
+ * Relative href (path + search) for a shell place. Includes `routes.basename`
+ * and clears place-owned share query keys. `null` when the place has no URL.
+ */
+export function buildPlaceHref({
+  place,
+  routes,
+  search = typeof window === 'undefined' ? '' : window.location.search,
+}: {
+  place: RoutePlace;
+  routes: ResolvedRoutes;
+  search?: string;
+}): string | null {
+  const path = buildPath(place, routes);
+  if (path == null) return null;
+  const basename = routes.basename.endsWith('/') ? routes.basename.slice(0, -1) : routes.basename;
+  const pathname = `${basename}${path}` || '/';
+  return `${pathname}${sanitizeSearchForPlace(place, search)}`;
+}
+
+/**
  * Absolute href that boots the shell on a history session (`/sessions/:id`).
  * Includes `routes.basename` and clears place-owned share query keys.
  */
@@ -111,12 +131,13 @@ export function buildSessionResumeHref({
   routes: ResolvedRoutes;
   href?: string;
 }): string | null {
-  const sessionPath = buildPath({ type: 'session', sessionId }, routes);
-  if (sessionPath == null) return null;
+  const place: RoutePlace = { type: 'session', sessionId };
+  const relative = buildPlaceHref({ place, routes, search: new URL(href).search });
+  if (relative == null) return null;
   const url = new URL(href);
-  const basename = routes.basename.endsWith('/') ? routes.basename.slice(0, -1) : routes.basename;
-  url.pathname = `${basename}${sessionPath}` || '/';
-  url.search = sanitizeSearchForPlace({ type: 'session', sessionId }, url.search);
+  const qIndex = relative.indexOf('?');
+  url.pathname = qIndex === -1 ? relative : relative.slice(0, qIndex);
+  url.search = qIndex === -1 ? '' : relative.slice(qIndex);
   url.hash = '';
   return url.toString();
 }
@@ -190,10 +211,12 @@ export function sanitizeSearchForPlace(place: RoutePlace, search: string): strin
     clearEnvironmentShareSearch(params);
     clearLibraryShareSearch(params);
     if (share.tab === 'schedules') {
+      // Pin + filters owned by the embedded Schedules tab (same as global /schedules).
       writeScheduleShareSearch(params, {
         status: scheduleShare.status,
         q: scheduleShare.q,
         isNew: scheduleShare.isNew,
+        scheduleId: scheduleShare.scheduleId,
       });
     }
   } else if (place.type === 'schedules') {

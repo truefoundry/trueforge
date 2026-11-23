@@ -27,6 +27,7 @@ import {
 import { AgentOverflowMenu } from './AgentOverflowMenu.js';
 import { CreatedByCell } from './CreatedByCell.js';
 import { EmptyScreen, EmptyScreenQueryHighlight } from './EmptyScreen.js';
+import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 import { isMobileNavDrawerOpen } from './lib/isMobileNavDrawerOpen.js';
 import { mountName } from './lib/mountName.js';
@@ -36,6 +37,7 @@ import { useSearchAgentsList } from './lib/useSearchAgentsList.js';
 import { PageHeader } from './PageHeader.js';
 import { Button } from './primitives/Button.js';
 import SearchInput from './primitives/SearchInput.js';
+import { ShellLink } from './primitives/ShellLink.js';
 import { Skeleton } from './primitives/Skeleton.js';
 import {
   DEFAULT_TABLE_PAGE_SIZE,
@@ -78,6 +80,8 @@ export type AgentLibraryRowProps = {
   onOpenSchedules?: () => void;
   onCreateSchedule?: () => void;
   onOpen?: () => void;
+  /** Agent id for the library detail deep link when `onOpen` is set. */
+  openAgentId?: string;
   onTry: () => void;
   onEdit: () => void;
   onManageSchedules?: () => void;
@@ -146,15 +150,26 @@ function AgentNameContent({
   description,
   createdBySubject,
   onOpen,
+  openAgentId,
 }: {
   name: string;
   description: string | null;
   createdBySubject?: Subject;
   onOpen?: () => void;
+  openAgentId?: string;
 }) {
   const nameNode =
     onOpen == null ? (
       <span className="text-text-primary block truncate font-medium">{name}</span>
+    ) : openAgentId != null ? (
+      <ShellLink
+        place={{ type: 'libraryAgent', agentId: openAgentId }}
+        className="block max-w-full cursor-pointer text-left"
+        aria-label={`Open ${name}`}
+        onNavigate={onOpen}
+      >
+        <span className="text-text-primary block truncate font-medium">{name}</span>
+      </ShellLink>
     ) : (
       <button
         type="button"
@@ -373,6 +388,7 @@ export function AgentLibraryRow({
   onOpenSchedules,
   onCreateSchedule,
   onOpen,
+  openAgentId,
   onTry,
   onEdit,
   onManageSchedules,
@@ -419,10 +435,15 @@ export function AgentLibraryRow({
 
   const tryButton = (
     <PermissionGuard allowed={canUseAgent}>
-      <Button.Secondary type="button" aria-label={`Try agent ${agent.name}`} size="large" onClick={onTry}>
+      <ShellLink
+        place={{ type: 'agent', agentName: agent.name }}
+        aria-label={`Try agent ${agent.name}`}
+        className={auiButtonClass({ variant: 'secondary', size: 'large' })}
+        onNavigate={onTry}
+      >
         <Icon name="play" className="size-3.5" />
         Try
-      </Button.Secondary>
+      </ShellLink>
     </PermissionGuard>
   );
 
@@ -442,6 +463,7 @@ export function AgentLibraryRow({
       description={description}
       {...(agent.createdBySubject != null ? { createdBySubject: agent.createdBySubject } : {})}
       {...(onOpen != null ? { onOpen } : {})}
+      {...(openAgentId != null ? { openAgentId } : {})}
     />
   );
 
@@ -730,6 +752,7 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
           : {})}
         {...(canOpenAgentDetails && agentId != null
           ? {
+              openAgentId: agentId,
               onOpen: () => {
                 track(AnalyticsEvents.Library.AGENT_DETAILS_OPENED, {
                   agent_id: agentId,

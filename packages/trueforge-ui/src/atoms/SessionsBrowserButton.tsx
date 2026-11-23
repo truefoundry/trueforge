@@ -7,7 +7,11 @@ import { Icon } from '../icons/Icon.js';
 import { useOptionalAgentSessionsServer } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { isSessionsChromeEnabled } from '../server/serverChrome.js';
-import { defaultSessionTimeRange, readSessionShareSearch } from '../utils/sessionShareUrl.js';
+import {
+  defaultSessionTimeRange,
+  readSessionShareSearch,
+  sessionsBrowserOpenSearch,
+} from '../utils/sessionShareUrl.js';
 import {
   auiButtonClass,
   shellRailSelectedClassName,
@@ -15,6 +19,7 @@ import {
   sidebarRailButtonClassName,
 } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
+import { ShellLink } from './primitives/ShellLink.js';
 import { RailTooltip } from './primitives/Tooltip.js';
 
 export type SessionsBrowserButtonProps = {
@@ -30,11 +35,12 @@ export function SessionsBrowserButton({ className, compact = false }: SessionsBr
   const sessionsOpen = shell?.sessionsOpen === true;
   const enabled = isSessionsChromeEnabled({ sessions: sessionsServer }) && shell != null;
 
-  if (!enabled) return null;
+  if (!enabled || shell == null) return null;
 
-  const button = (
-    <button
-      type="button"
+  const control = (
+    <ShellLink
+      place={{ type: 'sessionsBrowser' }}
+      search={sessionsBrowserOpenSearch()}
       aria-label={compact ? 'Sessions' : undefined}
       aria-current={sessionsOpen ? 'page' : undefined}
       className={auiButtonClass({
@@ -47,7 +53,7 @@ export function SessionsBrowserButton({ className, compact = false }: SessionsBr
           sessionsOpen && shellRailSelectedClassName,
         ),
       })}
-      onClick={() => {
+      onNavigate={() => {
         if (!sessionsOpen) {
           track(AnalyticsEvents.SessionsBrowser.OPENED);
           const share = readSessionShareSearch(window.location.search);
@@ -68,12 +74,12 @@ export function SessionsBrowserButton({ className, compact = false }: SessionsBr
           <Icon name="chevron-right" className="ml-auto size-3.5 shrink-0 opacity-60" />
         </>
       )}
-    </button>
+    </ShellLink>
   );
 
   return (
     <div className={cn('relative min-w-0', compact ? 'flex justify-center' : 'w-full', className)}>
-      {compact ? <RailTooltip content="Sessions">{button}</RailTooltip> : button}
+      {compact ? <RailTooltip content="Sessions">{control}</RailTooltip> : control}
     </div>
   );
 }

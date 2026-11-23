@@ -330,7 +330,7 @@ describe('withRouter end to end', () => {
       />,
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Sessions' }));
+    fireEvent.click(await screen.findByRole('link', { name: 'Sessions' }));
 
     await waitFor(() => {
       expect(window.location.pathname).toBe('/sessions');

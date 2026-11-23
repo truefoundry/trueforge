@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 
 import { Icon } from '../../icons/Icon.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
@@ -20,8 +20,34 @@ import {
 } from '../lib/threadListMeta.js';
 import { Avatar, AvatarFallback } from '../primitives/Avatar.js';
 import { DropdownMenu, DropdownMenuItem } from '../primitives/DropdownMenu.js';
+import { ShellLink } from '../primitives/ShellLink.js';
 import { Tooltip } from '../primitives/Tooltip.js';
 import type { AgentSessionListRowProps } from './types.js';
+
+function SessionSelectSurface({
+  href,
+  onSelect,
+  className,
+  children,
+}: {
+  href?: string;
+  onSelect: () => void;
+  className: string;
+  children: ReactNode;
+}) {
+  if (href != null) {
+    return (
+      <ShellLink href={href} onNavigate={onSelect} className={className}>
+        {children}
+      </ShellLink>
+    );
+  }
+  return (
+    <button type="button" onClick={onSelect} className={className}>
+      {children}
+    </button>
+  );
+}
 
 export function AgentSessionListRow({
   title,
@@ -33,6 +59,7 @@ export function AgentSessionListRow({
   createdBySubject,
   active,
   onSelect,
+  href,
   onRequestDelete,
   canDelete = true,
   onOpenSchedule,
@@ -71,7 +98,11 @@ export function AgentSessionListRow({
       )}
     >
       <div className="flex items-center gap-2 px-4 pt-3">
-        <button type="button" onClick={onSelect} className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
+        <SessionSelectSurface
+          {...(href == null ? {} : { href })}
+          onSelect={onSelect}
+          className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
+        >
           <span className={cn('truncate text-sm font-medium text-text-primary', running && 'aui-text-shimmer')}>
             {title}
           </span>
@@ -102,6 +133,7 @@ export function AgentSessionListRow({
                               aria-label={`View schedule ${scheduleName.name}`}
                               className="text-primary-button-bg inline-flex shrink-0 cursor-pointer"
                               onClick={event => {
+                                event.preventDefault();
                                 event.stopPropagation();
                                 if (scheduleId != null && scheduleName.name != null) {
                                   onOpenSchedule({ id: scheduleId, name: scheduleName.name });
@@ -130,7 +162,7 @@ export function AgentSessionListRow({
               </span>
             </Tooltip>
           ) : null}
-        </button>
+        </SessionSelectSurface>
         {onRequestDelete != null ? (
           <div
             className={cn(
@@ -171,9 +203,9 @@ export function AgentSessionListRow({
         ) : null}
       </div>
 
-      <button
-        type="button"
-        onClick={onSelect}
+      <SessionSelectSurface
+        {...(href == null ? {} : { href })}
+        onSelect={onSelect}
         className="flex w-full items-end justify-between gap-2 px-4 pt-2 pb-3 text-left text-xs text-text-secondary"
       >
         <span className="flex min-w-0 items-center gap-1.5">
@@ -198,7 +230,7 @@ export function AgentSessionListRow({
           </Tooltip>
         </span>
         <span className="shrink-0 tabular-nums">{formatSessionListMetrics(metrics)}</span>
-      </button>
+      </SessionSelectSurface>
     </div>
   );
 }

@@ -39,6 +39,8 @@ import { RenameSessionModal } from '../atoms/RenameSessionModal.js';
 import { useResourcePermissions } from '../hooks/useResourcePermissions.js';
 import { useSessionListStatusPoll } from '../hooks/useSessionListStatusPoll.js';
 import { Icon } from '../icons/Icon.js';
+import { buildPlaceHref } from '../routing/paths.js';
+import { useOptionalResolvedRoutes } from '../routing/ResolvedRoutesContext.js';
 import { useOptionalServer } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { sessionListStartTimestamp } from '../server/types.js';
@@ -206,6 +208,7 @@ function ThreadListItemRow({
   const aui = useAui();
   const shell = useOptionalShellMode();
   const server = useOptionalServer();
+  const routes = useOptionalResolvedRoutes();
   const runtimeKeyRef = useRef(shell?.runtimeKey);
   runtimeKeyRef.current = shell?.runtimeKey;
   const track = useTrackAnalytics();
@@ -213,6 +216,10 @@ function ThreadListItemRow({
   const ThreadListRow = useSlot('ThreadListRow');
   const id = useAuiState(s => s.threadListItem.id);
   const remoteId = useAuiState(s => s.threadListItem.remoteId);
+  const sessionHref =
+    remoteId != null && routes != null
+      ? buildPlaceHref({ place: { type: 'session', sessionId: remoteId }, routes })
+      : null;
   const title = useAuiState(s => s.threadListItem.title);
   const lastMessageAt = useAuiState(s => s.threadListItem.lastMessageAt);
   const custom = useAuiState(s => s.threadListItem.custom);
@@ -294,6 +301,7 @@ function ThreadListItemRow({
         active={id === mainThreadId && !sidebarNavOpen}
         agentName={agentName}
         {...(lastTurnStatus == null ? {} : { lastTurnStatus })}
+        {...(sessionHref == null ? {} : { href: sessionHref })}
         {...(activityAt == null ? {} : { lastMessageAt: activityAt })}
         onSelect={() => {
           track(

@@ -13,6 +13,7 @@ import {
   sidebarRailButtonClassName,
 } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
+import { ShellLink } from './primitives/ShellLink.js';
 import { RailTooltip } from './primitives/Tooltip.js';
 
 export type EnvironmentsButtonProps = {
@@ -30,11 +31,11 @@ export function EnvironmentsButton({ className, compact = false }: EnvironmentsB
     isEnvironmentsChromeEnabled({ sandboxEnvironments: sandboxEnvironmentServer, capabilities }) && shell != null;
   const open = shell?.environmentsOpen === true;
 
-  if (!enabled) return null;
+  if (!enabled || shell == null) return null;
 
-  const button = (
-    <button
-      type="button"
+  const control = (
+    <ShellLink
+      place={{ type: 'environments' }}
       aria-label={compact ? 'Environments' : undefined}
       aria-current={open ? 'page' : undefined}
       className={auiButtonClass({
@@ -47,7 +48,7 @@ export function EnvironmentsButton({ className, compact = false }: EnvironmentsB
           open && shellRailSelectedClassName,
         ),
       })}
-      onClick={() => {
+      onNavigate={() => {
         if (!open) track(AnalyticsEvents.Environment.PAGE_OPENED);
         shell.setEnvironmentsOpen(!open);
       }}
@@ -59,12 +60,12 @@ export function EnvironmentsButton({ className, compact = false }: EnvironmentsB
           <Icon name="chevron-right" className="ml-auto size-3.5 shrink-0 opacity-60" />
         </>
       )}
-    </button>
+    </ShellLink>
   );
 
   return (
     <div className={cn('relative min-w-0', compact ? 'flex justify-center' : 'w-full', className)}>
-      {compact ? <RailTooltip content="Environments">{button}</RailTooltip> : button}
+      {compact ? <RailTooltip content="Environments">{control}</RailTooltip> : control}
     </div>
   );
 }

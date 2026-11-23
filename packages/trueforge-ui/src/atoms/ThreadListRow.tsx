@@ -15,12 +15,15 @@ import {
   lastTurnStatusLabel,
 } from './lib/threadListMeta.js';
 import { useIsMobile } from './lib/useIsMobile.js';
+import { ShellLink } from './primitives/ShellLink.js';
 import { Tooltip } from './primitives/Tooltip.js';
 
 export type ThreadListRowProps = {
   title: string;
   active: boolean;
   onSelect: () => void;
+  /** Session deep-link href for right-click / open-in-new-tab. */
+  href?: string;
   /** Named-agent label under the title (from session.agentName). */
   agentName?: string;
   /** Last-turn status for trailing status dot / running title shimmer. */
@@ -78,6 +81,7 @@ export function ThreadListRow({
   title,
   active,
   onSelect,
+  href,
   agentName,
   lastTurnStatus,
   lastMessageAt,
@@ -97,6 +101,31 @@ export function ThreadListRow({
   // Paused → status dot; running → jumping dots; otherwise relative age.
   const relative = !running && statusDotClass == null ? age : undefined;
   const hasTrailing = running || relative != null || statusDotClass != null || actions != null;
+  const titleClassName = auiButtonClass({
+    variant: 'ghost',
+    className: cn(
+      '!justify-start h-auto min-h-8 min-w-0 flex-1 overflow-hidden rounded-[0.5rem] px-2.5 py-1.5 text-left font-normal shadow-none',
+      'bg-transparent hover:bg-transparent hover:text-inherit',
+      active ? 'text-text-primary' : 'text-inherit',
+    ),
+  });
+  const titleContent = (
+    <span className="min-w-0 flex-1">
+      <span className="flex min-w-0 items-center gap-1.5">
+        <span className={cn('truncate text-sm font-normal text-text-primary', running && 'aui-text-shimmer')}>
+          {title}
+        </span>
+        {/* Mobile: keep the paused/error dot next to the title when actions own the trailing slot. */}
+        {statusDotClass != null && actions != null ? (
+          <span data-slot="session-status-dot" className="shrink-0 md:hidden">
+            <StatusDot className="size-1.5" colorClassName={statusDotClass} pulse={paused} />
+          </span>
+        ) : null}
+        {statusLabel != null ? <span className="sr-only">{statusLabel}</span> : null}
+      </span>
+      {agentName != null ? <ThreadListAgentName agentName={agentName} /> : null}
+    </span>
+  );
 
   const row = (
     <div
@@ -108,35 +137,25 @@ export function ThreadListRow({
         className,
       )}
     >
-      <button
-        type="button"
-        onClick={onSelect}
-        style={{ borderRadius: 'var(--thread-list-item-radius, 0.5rem)' }}
-        className={auiButtonClass({
-          variant: 'ghost',
-          className: cn(
-            '!justify-start h-auto min-h-8 min-w-0 flex-1 overflow-hidden rounded-[0.5rem] px-2.5 py-1.5 text-left font-normal shadow-none',
-            'bg-transparent hover:bg-transparent hover:text-inherit',
-            active ? 'text-text-primary' : 'text-inherit',
-          ),
-        })}
-      >
-        <span className="min-w-0 flex-1">
-          <span className="flex min-w-0 items-center gap-1.5">
-            <span className={cn('truncate text-sm font-normal text-text-primary', running && 'aui-text-shimmer')}>
-              {title}
-            </span>
-            {/* Mobile: keep the paused dot next to the title when actions own the trailing slot. */}
-            {statusDotClass != null && actions != null ? (
-              <span data-slot="session-status-dot" className="shrink-0 md:hidden">
-                <StatusDot className="size-1.5" colorClassName={statusDotClass} pulse={paused} />
-              </span>
-            ) : null}
-            {statusLabel != null ? <span className="sr-only">{statusLabel}</span> : null}
-          </span>
-          {agentName != null ? <ThreadListAgentName agentName={agentName} /> : null}
-        </span>
-      </button>
+      {href != null ? (
+        <ShellLink
+          href={href}
+          onNavigate={onSelect}
+          style={{ borderRadius: 'var(--thread-list-item-radius, 0.5rem)' }}
+          className={titleClassName}
+        >
+          {titleContent}
+        </ShellLink>
+      ) : (
+        <button
+          type="button"
+          onClick={onSelect}
+          style={{ borderRadius: 'var(--thread-list-item-radius, 0.5rem)' }}
+          className={titleClassName}
+        >
+          {titleContent}
+        </button>
+      )}
       {hasTrailing ? (
         <div className="relative mr-1 size-7 shrink-0">
           {statusDotClass != null ? (

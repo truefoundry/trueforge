@@ -4,9 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SchedulesPage } from '@/atoms/schedules/SchedulesPage.js';
 import { ToasterProvider } from '@/containers/ToasterContainer.js';
+import { resolveRoutesConfig } from '@/routing/paths.js';
+import { ResolvedRoutesProvider } from '@/routing/ResolvedRoutesContext.js';
 import { useServerQueryClient } from '@/server/queryClient.js';
 import { queryKeys } from '@/server/queryKeys.js';
 import { ServerProvider } from '@/server/ServerContext.js';
+import { ShellModeProvider } from '@/server/ShellModeContext.js';
 import type {
   AgentUIServer,
   ListPermissionsResponse,
@@ -15,7 +18,7 @@ import type {
   ScheduleRun,
   ScheduleServer,
 } from '@/server/types.js';
-import { createMockAgentUIServer } from '../../server/mockServer.js';
+import { createMockAgentSessionsServer, createMockAgentUIServer } from '../../server/mockServer.js';
 
 const sampleSchedules: Schedule[] = [
   {
@@ -70,7 +73,7 @@ function renderPage(
   overrides: Partial<ScheduleServer> = {},
   listImpl?: ScheduleServer['listSchedules'],
   searchAgents?: AgentUIServer['searchAgents'],
-  options: { agentId?: string; permissions?: PermissionsServer } = {},
+  options: { agentId?: string; permissions?: PermissionsServer; withRoutes?: boolean } = {},
 ) {
   const scheduleServer: ScheduleServer = {
     listSchedules: vi.fn(
@@ -91,13 +94,23 @@ function renderPage(
     searchAgents: searchAgents ?? vi.fn(async () => ({ data: [{ name: 'demo-agent', agentId: 'demo-agent' }] })),
     schedules: scheduleServer,
     ...(options.permissions == null ? {} : { permissions: options.permissions }),
+    ...(options.withRoutes ? { sessions: createMockAgentSessionsServer() } : {}),
   });
-  render(
+  const page = (
     <ServerProvider server={server}>
       <ToasterProvider>
         <SchedulesPage {...(options.agentId == null ? {} : { agentId: options.agentId })} />
       </ToasterProvider>
-    </ServerProvider>,
+    </ServerProvider>
+  );
+  if (!options.withRoutes) {
+    render(page);
+    return { scheduleServer, searchAgents: server.searchAgents };
+  }
+  render(
+    <ResolvedRoutesProvider routes={resolveRoutesConfig()}>
+      <ShellModeProvider>{page}</ShellModeProvider>
+    </ResolvedRoutesProvider>,
   );
   return { scheduleServer, searchAgents: server.searchAgents };
 }
@@ -557,6 +570,37 @@ describe('SchedulesPage', () => {
     });
     fireEvent.mouseEnter(screen.getByLabelText(/Failed run at/i));
     expect(await screen.findByText('Reason: The agent service rejected the scheduled run.')).toBeInTheDocument();
+  });
+
+  it('keeps host params on the new-tab href of a run session chip', async () => {
+    window.history.replaceState(null, '', '/schedules?theme=dark');
+    renderPage(
+      sampleSchedules,
+      {
+        listScheduleRuns: vi.fn(async (): Promise<ScheduleRun[]> => [
+          {
+            id: 'run-ok',
+            scheduleId: 's1',
+            name: 'manual-abc',
+            scheduledFor: '2024-06-02T10:00:00.000Z',
+            status: 'triggered',
+            triggeredAt: '2024-06-02T10:00:01.000Z',
+            triggeredBy: 'alice',
+            sessionId: 'sess-1',
+          },
+        ]),
+      },
+      undefined,
+      undefined,
+      { withRoutes: true },
+    );
+
+    const chip = await screen.findByRole('link', { name: /Open session for/ });
+    const href = new URL(chip.getAttribute('href') ?? '', 'http://localhost');
+    expect(href.pathname).toBe('/sessions');
+    expect(href.searchParams.get('theme')).toBe('dark');
+    expect(href.searchParams.get('sessionId')).toBe('sess-1');
+    expect(href.searchParams.get('view')).toBe('sessions');
   });
 
   it('runs a schedule now from the table actions', async () => {
