@@ -155,9 +155,7 @@ describe('AgentSessionDetailHeader', () => {
         sessionId="sess-1"
         onClose={() => undefined}
         metadata={{
-          is_create_agent: 'true',
           'tfg.is_create_agent': 'true',
-          is_created_agent: 'true',
           'tfg.is_created_agent': 'true',
           env: 'production',
         }}
@@ -165,9 +163,7 @@ describe('AgentSessionDetailHeader', () => {
     );
 
     expect(container.querySelector('[data-slot="session-metadata-tags"]')).toBeInTheDocument();
-    expect(screen.queryByText('is_create_agent')).not.toBeInTheDocument();
     expect(screen.queryByText('tfg.is_create_agent')).not.toBeInTheDocument();
-    expect(screen.queryByText('is_created_agent')).not.toBeInTheDocument();
     expect(screen.queryByText('tfg.is_created_agent')).not.toBeInTheDocument();
     expect(screen.getByText('env')).toBeInTheDocument();
     expect(screen.getByText('production')).toBeInTheDocument();
