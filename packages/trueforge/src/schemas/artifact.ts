@@ -7,6 +7,12 @@ export const ArtifactSchema = z
     slug: z.string(),
     title: z.string(),
     latest_version: z.number().int().describe('Latest version.'),
+    entry_point: z
+      .string()
+      .nullable()
+      .describe(
+        "Latest version's default file to render, as a path relative to the version. Null before the first version.",
+      ),
     created_by_subject: SubjectSchema,
     created_by_session_id: z.string(),
     created_at: z.iso.datetime(),

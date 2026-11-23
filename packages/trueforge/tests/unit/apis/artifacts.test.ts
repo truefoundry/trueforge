@@ -25,7 +25,17 @@ describe('artifacts router', () => {
       tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
       created_by_subject: createdBySubjectFromRequestContext(STANDALONE_REQUEST_CONTEXT),
     };
-    await artifactStore.createArtifact({ ...mine, title: 'Q3 Report', created_by_session_id: 'session-1' });
+    const report = await artifactStore.createArtifact({
+      ...mine,
+      title: 'Q3 Report',
+      created_by_session_id: 'session-1',
+    });
+    await artifactStore.createVersion({
+      tenant_id: report.tenant_id,
+      artifact_id: report.id,
+      entry_point: 'report/index.html',
+      total_bytes: 1,
+    });
     await artifactStore.createArtifact({ ...mine, title: 'Roadmap', created_by_session_id: 'session-2' });
     await artifactStore.createArtifact({
       ...mine,
@@ -44,7 +54,10 @@ describe('artifacts router', () => {
     const second = ListArtifactsResponseSchema.parse(
       await (await app.request(`/?limit=1&page_token=${first.pagination.next_page_token ?? ''}`)).json(),
     );
-    expect([...first.data, ...second.data].map(a => a.title).sort()).toEqual(['Q3 Report', 'Roadmap']);
+    expect([...first.data, ...second.data].map(a => [a.title, a.entry_point]).sort()).toEqual([
+      ['Q3 Report', 'report/index.html'],
+      ['Roadmap', null],
+    ]);
   });
 
   it('filters by created_by_session_id', async () => {

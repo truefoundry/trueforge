@@ -16,6 +16,7 @@ function toWireArtifact(record: ArtifactRecord): Artifact {
     slug: record.slug,
     title: record.title,
     latest_version: record.latest_version,
+    entry_point: record.entry_point,
     created_by_subject: record.created_by_subject,
     created_by_session_id: record.created_by_session_id,
     created_at: record.created_at,
