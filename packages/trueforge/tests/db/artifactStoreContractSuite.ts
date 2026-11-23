@@ -12,7 +12,6 @@ const LIST_DEFAULTS: ListArtifactsInput = {
   tenant_id: TENANT,
   created_by_subject_id: SUBJECT.subject_id,
   created_by_session_id: undefined,
-  created_by_agent_id: undefined,
   title: undefined,
   limit: 10,
   page_token: undefined,
@@ -149,18 +148,6 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     await createArtifact({ title: 'two', sessionId: 'session-2' });
     expect(await listTitles({ created_by_session_id: 'session-2' })).toEqual(['two']);
     expect(await listTitles({ created_by_session_id: 'session-3' })).toEqual([]);
-  });
-
-  it('filters the list by agent', async () => {
-    await createArtifact({ title: 'one', sessionId: 'session-1', agentId: AGENT_ID });
-    await createArtifact({ title: 'two', sessionId: 'session-2', agentId: AGENT_ID });
-    await createArtifact({ title: 'three', sessionId: 'session-3', agentId: 'agent-2' });
-    await createArtifact({ title: 'inline', sessionId: 'session-4', agentId: null });
-    expect(await listTitles({ created_by_agent_id: AGENT_ID })).toEqual(['one', 'two']);
-    expect(await listTitles({ created_by_agent_id: 'agent-2' })).toEqual(['three']);
-    expect(await listTitles({ created_by_agent_id: AGENT_ID, created_by_session_id: 'session-2' })).toEqual(['two']);
-    expect(await listTitles({ created_by_agent_id: 'agent-2', created_by_session_id: 'session-1' })).toEqual([]);
-    expect(await listTitles({ created_by_agent_id: 'agent-3' })).toEqual([]);
   });
 
   it('filters the list by case-insensitive title substring', async () => {

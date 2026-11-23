@@ -86,9 +86,6 @@ export class PostgresArtifactStore implements IArtifactStore {
     if (input.created_by_session_id !== undefined) {
       query = query.where('created_by_session_id', '=', input.created_by_session_id);
     }
-    if (input.created_by_agent_id !== undefined) {
-      query = query.where('created_by_agent_id', '=', input.created_by_agent_id);
-    }
     if (input.title !== undefined) {
       // Case-insensitive title substring search.
       query = query.where(sql<boolean>`position(lower(${input.title}) in lower(title)) > 0`);
