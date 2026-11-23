@@ -59,9 +59,9 @@ function renderSelector(
   );
 }
 
-function expectOnlyDisabledAutoOption() {
+async function expectOnlyDisabledAutoOption() {
   const listbox = screen.getByRole('listbox', { name: 'Select model' });
-  const options = within(listbox).getAllByRole('option');
+  const options = await within(listbox).findAllByRole('option');
   expect(options).toHaveLength(1);
   expect(options[0]).toHaveTextContent('Auto');
   expect(options[0]).toBeDisabled();
@@ -180,7 +180,11 @@ describe('DraftModelSelector', () => {
       within(listbox)
         .getAllByRole('option')
         .map(option => option.textContent),
-    ).toEqual([expect.stringContaining('gpt-4.1'), expect.stringContaining('claude-3.7-sonnet')]);
+    ).toEqual([
+      expect.stringContaining('Auto'),
+      expect.stringContaining('gpt-4.1'),
+      expect.stringContaining('claude-3.7-sonnet'),
+    ]);
     expect(within(listbox).getByText(/128K context/)).toBeInTheDocument();
     const providerGroups = within(listbox).getAllByRole('group');
     expect(providerGroups).toHaveLength(2);
@@ -443,7 +447,7 @@ describe('DraftModelSelector', () => {
     );
 
     fireEvent.click(await screen.findByRole('button', { name: 'Select model' }));
-    expectOnlyDisabledAutoOption();
+    await expectOnlyDisabledAutoOption();
     expect(screen.queryByRole('button', { name: 'Configure model' })).not.toBeInTheDocument();
   });
 
@@ -451,7 +455,7 @@ describe('DraftModelSelector', () => {
     renderSelector({}, { getModels: async () => [] });
 
     fireEvent.click(await screen.findByRole('button', { name: 'Select model' }));
-    expectOnlyDisabledAutoOption();
+    await expectOnlyDisabledAutoOption();
     expect(screen.queryByRole('button', { name: 'Configure model' })).not.toBeInTheDocument();
   });
 });

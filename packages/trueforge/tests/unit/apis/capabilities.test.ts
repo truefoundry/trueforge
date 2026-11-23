@@ -9,10 +9,11 @@ import { createAuthMiddleware } from '../../../src/auth/middleware';
 import { disableOidcAuth, enableOidcAuth, initOidc } from '../../../src/auth/oidc';
 import { OidcAuthenticator } from '../../../src/auth/oidcAuthenticator';
 import { StandaloneAuthenticator } from '../../../src/auth/standaloneAuthenticator';
-import * as configModule from '../../../src/config';
 import configuration, { parseTrueFoundryModelRouting, type OIDCConfig } from '../../../src/config';
 import type { IConfigurationStore } from '../../../src/db/configurationStore';
 import type { IMemoryProviderStore } from '../../../src/db/memoryProviderStore';
+import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
+import type { IModelProviderStore } from '../../../src/db/modelProviderStore';
 import type { ISandboxEnvironmentStore, SandboxEnvironmentWithVersion } from '../../../src/db/sandboxEnvironmentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
@@ -109,6 +110,7 @@ describe('capabilities routers', () => {
     tenantAutoEnabled = true,
     hasMemoryProvider = true,
     userStore = new EmptyUserStore(),
+    modelProviderStore,
   }: {
     authenticator?: Authenticator;
     webSearchStore?: IWebSearchProviderStore;
@@ -117,6 +119,7 @@ describe('capabilities routers', () => {
     tenantAutoEnabled?: boolean;
     hasMemoryProvider?: boolean;
     userStore?: IUserStore;
+    modelProviderStore?: IModelProviderStore;
   } = {}): OpenAPIHono {
     const db = createSqliteDb(':memory:');
     const emptyWebSearchStore: IWebSearchProviderStore = {
@@ -158,7 +161,7 @@ describe('capabilities routers', () => {
         webSearchProviderStore: webSearchStore ?? emptyWebSearchStore,
         configurationStore,
         memoryProviderStore: memoryStore,
-        resolveModelProviderStore: () => new SqliteModelProviderStore(db),
+        resolveModelProviderStore: () => modelProviderStore ?? new SqliteModelProviderStore(db),
         userStore,
         withTransaction: (() => {
           const run = <T>(callback: (trx: never) => Promise<T>): Promise<T> =>
@@ -275,8 +278,21 @@ describe('capabilities routers', () => {
       JSON.stringify({ tenants: { default: { enabled: 'on', decision_model: 'typesafe/jev-1.13.0' } } }),
     );
 
+    const routingKeys = ['STANDALONE', 'TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', 'TRUEFOUNDRY_MODEL_ROUTING'] as const;
+    let previousRouting: Map<(typeof routingKeys)[number], unknown> | undefined;
+
+    function enableModelRouting() {
+      previousRouting = new Map(routingKeys.map(key => [key, Reflect.get(configuration, key)]));
+      Reflect.set(configuration, 'STANDALONE', false);
+      Reflect.set(configuration, 'TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', 'http://sfy.example');
+      Reflect.set(configuration, 'TRUEFOUNDRY_MODEL_ROUTING', routingForDefaultTenant);
+    }
+
     afterEach(() => {
-      jest.restoreAllMocks();
+      for (const [key, value] of previousRouting ?? []) {
+        Reflect.set(configuration, key, value);
+      }
+      previousRouting = undefined;
     });
 
     it('omits auto when model routing is not set up for the tenant', async () => {
@@ -288,7 +304,7 @@ describe('capabilities routers', () => {
 
     it('reports auto disabled with a reason when the tenant turned it off', async () => {
       disableOidcAuth();
-      jest.spyOn(configModule, 'trueFoundryModelRouting').mockReturnValue(routingForDefaultTenant);
+      enableModelRouting();
       const response = await makeRouter({ tenantAutoEnabled: false }).request('/');
       expect(response.status).toBe(200);
       expect(await response.json()).toMatchObject({
@@ -298,8 +314,10 @@ describe('capabilities routers', () => {
 
     it('reports auto unavailable when the tenant allows it but has no models to route to', async () => {
       disableOidcAuth();
-      jest.spyOn(configModule, 'trueFoundryModelRouting').mockReturnValue(routingForDefaultTenant);
-      const response = await makeRouter().request('/');
+      enableModelRouting();
+      const db = createSqliteDb(':memory:');
+      await migrateSqliteToLatest(db);
+      const response = await makeRouter({ modelProviderStore: new SqliteModelProviderStore(db) }).request('/');
       expect(response.status).toBe(200);
       expect(await response.json()).toMatchObject({
         data: { auto: { enabled: false, reason: 'Auto mode is not available for now' } },
