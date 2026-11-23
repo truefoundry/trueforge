@@ -55,7 +55,6 @@ function settingsCapability({
   ownsCatalogs: boolean;
   /** In TrueFoundry mode, true when the platform's env offers memory to the tenant. */
   hasMemoryProvider: boolean;
-  /** True when the env sets up model routing for the tenant, so its Auto mode switch applies. */
   hasModelRouting: boolean;
 }) {
   const canManageProviders = ownsCatalogs && isAdmin;

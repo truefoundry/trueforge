@@ -91,7 +91,6 @@ export interface ScheduleTurnExecutionDeps<TTransaction> {
   /** Previous-turn cancel, and rebuilding a missing event stream. */
   sessionStore: Pick<ISessionStore<TTransaction>, 'getTurn' | 'listTurnEvents'>;
   webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
-  /** Tenant switches read during a turn: the Auto mode switch gates model routing. */
   configurationStore: IConfigurationStore;
 }
 

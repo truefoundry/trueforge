@@ -16,7 +16,6 @@ const AutoModeSetting = () => {
   const toaster = useToasterOptional();
   const track = useTrackAnalytics();
 
-  // `null` until the switch loads, so the control is not rendered half-known.
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

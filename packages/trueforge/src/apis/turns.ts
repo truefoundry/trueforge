@@ -203,7 +203,6 @@ export interface TurnExecutionStores<TTransaction = never> {
   skillStore: Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'>;
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
-  /** Tenant switches read during a turn: the Auto mode switch gates model routing. */
   configurationStore: IConfigurationStore;
   /** Undefined for sessions that never use memory (scheduled runs). */
   memory: TenantMemoryDeps | undefined;
@@ -265,7 +264,6 @@ export type BeginTurnExecutionDeps<TTransaction> = Pick<
   sandboxProviderStore: ISandboxProviderStore;
   webSearchProviderStore: IWebSearchProviderStore;
   skillStore: Pick<ISkillStore, 'resolveTurnSkills'>;
-  /** Tenant switches read during a turn: the Auto mode switch gates model routing. */
   configurationStore: IConfigurationStore;
   /** Undefined for sessions that never use memory (scheduled runs). */
   memory: TenantMemoryDeps | undefined;
@@ -378,7 +376,6 @@ interface BeginTurnExecutionParams<TTransaction> {
 /** This turn's model routing inputs, or undefined when routing is off for the tenant or its Auto mode switch is off. */
 function turnModelRouting(input: {
   routing: TrueFoundryModelRouting | undefined;
-  /** The tenant's Auto mode switch; off turns every kind of routing off. */
   isAutoAllowed: boolean;
   tenant_id: string;
   modelProviderStore: IModelProviderStore;
@@ -2472,7 +2469,6 @@ export interface InternalSessionTurnsDeps<TTransaction = never> {
   sessions: Sessions<TTransaction>;
   sessionStore: Pick<ISessionStore<TTransaction>, 'getTurn' | 'listTurnEvents'>;
   webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
-  /** Tenant switches read during a turn: the Auto mode switch gates model routing. */
   configurationStore: IConfigurationStore;
 }
 
