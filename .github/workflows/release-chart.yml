@@ -17,7 +17,7 @@ name: Publish Helm chart
 # is a hard failure (same chart version, different content), and a chart version
 # already in the registry skips the push.
 #
-# Manual runs: `gh workflow run release-chart.yml --ref <workflow-file-ref>`.
+# Manual runs: `gh workflow run release-chart.yml --ref release-vX.Y.Z`.
 # --ref is the workflow file GitHub runs (branch or tag, not a SHA).
 # `branch` is the git branch that receives Chart.yaml / values.yaml.
 # Empty app_version / image_tag keep Chart.yaml appVersion and values.yaml
@@ -79,6 +79,7 @@ jobs:
   publish-chart:
     name: Publish Helm chart
     runs-on: ubuntu-latest
+    environment: trueforge-internal
     timeout-minutes: 20
     # Job-level so it also applies when this workflow is called from release.yml.
     concurrency:
@@ -86,24 +87,17 @@ jobs:
       cancel-in-progress: false
     permissions:
       contents: write
+      id-token: write
     env:
       CHART_DIR: charts/trueforge
       HELM_REGISTRY_URL: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_REGISTRY_URL }}
       HELM_CHART_REPOSITORY: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_HELM_REPOSITORY }}
     steps:
-      # TEMPORARY: App token mint disabled; using GITHUB_TOKEN.
-      # - id: app-token
-      #   uses: actions/create-github-app-token@v3
-      #   with:
-      #     client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
-      #     private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
-
       - name: Check out
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          # TEMPORARY: was steps.app-token.outputs.token
-          token: ${{ github.token }}
+          persist-credentials: true
 
       - name: Install yq
         run: |
@@ -214,17 +208,36 @@ jobs:
             echo "::warning::could not confirm ${CHART_NAME}:${VERSION} is absent from the registry; attempting the push"
           fi
 
+      - name: Join the tailnet for GitHub egress
+        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
+        with:
+          oauth-client-id: ${{ secrets.TS_CI_CLIENT_ID }}
+          audience: ${{ secrets.TS_CI_AUDIENCE }}
+          tags: tag:ci-github-egress
+          hostname: gh-trueforge-chart-${{ github.run_id }}
+
+      - id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
+          private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
+          permission-contents: write
+
       - name: Commit chart metadata and tag
         env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
           VERSION: ${{ steps.resolve.outputs.chart_version }}
           APP_VERSION: ${{ steps.resolve.outputs.app_version }}
           IMAGE_TAG: ${{ steps.resolve.outputs.image_tag }}
           BRANCH: ${{ steps.resolve.outputs.branch }}
           DRY_RUN: ${{ inputs.dry_run }} # DRY-RUN (temporary)
+          HUSKY: '0'
         run: |
           set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          gh auth setup-git
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${APP_SLUG}[bot]@users.noreply.github.com"
 
           CHART_TAG="charts/trueforge@${VERSION}"
           VTAG="v${VERSION}"
@@ -304,6 +317,11 @@ jobs:
 
           for attempt in 1 2 3; do
             git add "$CHART_DIR/Chart.yaml" "$CHART_DIR/values.yaml"
+            if [ -n "$(git diff --name-only)" ] || [ -n "$(git ls-files --others --exclude-standard)" ]; then
+              echo "::error::chart commit left files outside Chart.yaml and values.yaml"
+              git status --porcelain
+              exit 1
+            fi
             if git diff --staged --quiet; then
               # Re-run: origin/<branch> already carries this version's metadata.
               echo "Chart metadata on $BRANCH already matches $VERSION; nothing to commit"
