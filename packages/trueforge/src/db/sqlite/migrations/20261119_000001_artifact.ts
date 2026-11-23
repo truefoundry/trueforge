@@ -25,6 +25,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         ON artifact (tenant_id, json_extract(created_by_subject, '$.subject_id'), updated_at DESC, id)
     `.execute(trx);
     await sql`CREATE INDEX artifact_session_idx ON artifact (tenant_id, created_by_session_id)`.execute(trx);
+    await sql`CREATE INDEX artifact_agent_idx ON artifact (tenant_id, created_by_agent_id)`.execute(trx);
     await sql`
       CREATE TABLE artifact_version (
         artifact_id TEXT NOT NULL,
