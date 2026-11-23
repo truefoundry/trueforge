@@ -351,21 +351,21 @@
           "created_by_subject": {
             "$ref": "#/components/schemas/Subject"
           },
-          "entry_point": {
+          "id": {
+            "type": "string"
+          },
+          "latest_entry_point": {
             "description": "Latest version's default file to render, as a path relative to the version. Null before the first version.",
             "type": [
               "string",
               "null"
             ]
           },
-          "id": {
-            "type": "string"
-          },
           "latest_version": {
             "description": "Latest version.",
             "type": "integer"
           },
-          "title": {
+          "name": {
             "type": "string"
           },
           "updated_at": {
@@ -375,9 +375,9 @@
         },
         "required": [
           "id",
-          "title",
+          "name",
           "latest_version",
-          "entry_point",
+          "latest_entry_point",
           "created_by_subject",
           "created_by_session_id",
           "created_by_agent_id",
@@ -8150,12 +8150,12 @@
             }
           },
           {
-            "description": "Case-insensitive substring match on artifact title.",
+            "description": "Case-insensitive substring match on artifact name.",
             "in": "query",
             "name": "name",
             "required": false,
             "schema": {
-              "description": "Case-insensitive substring match on artifact title.",
+              "description": "Case-insensitive substring match on artifact name.",
               "minLength": 1,
               "type": "string"
             }

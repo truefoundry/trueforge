@@ -11,6 +11,6 @@ export interface ListArtifactsRequest {
     pageToken?: string;
     /** When set, only artifacts created in this session are returned. */
     createdBySessionId?: string;
-    /** Case-insensitive substring match on artifact title. */
+    /** Case-insensitive substring match on artifact name. */
     name?: string;
 }

@@ -576,7 +576,7 @@ client.artifacts.list()
 <dl>
 <dd>
 
-**name:** `typing.Optional[str]` — Case-insensitive substring match on artifact title.
+**name:** `typing.Optional[str]` — Case-insensitive substring match on artifact name.
     
 </dd>
 </dl>

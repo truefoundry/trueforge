@@ -45,7 +45,7 @@ class RawArtifactsClient:
             When set, only artifacts created in this session are returned.
 
         name : typing.Optional[str]
-            Case-insensitive substring match on artifact title.
+            Case-insensitive substring match on artifact name.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -149,7 +149,7 @@ class AsyncRawArtifactsClient:
             When set, only artifacts created in this session are returned.
 
         name : typing.Optional[str]
-            Case-insensitive substring match on artifact title.
+            Case-insensitive substring match on artifact name.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.

@@ -8,11 +8,11 @@ export interface Artifact {
     createdByAgentId: string | null;
     createdBySessionId: string;
     createdBySubject: TrueForge.Subject;
-    /** Latest version's default file to render, as a path relative to the version. Null before the first version. */
-    entryPoint: string | null;
     id: string;
+    /** Latest version's default file to render, as a path relative to the version. Null before the first version. */
+    latestEntryPoint: string | null;
     /** Latest version. */
     latestVersion: number;
-    title: string;
+    name: string;
     updatedAt: Date;
 }
