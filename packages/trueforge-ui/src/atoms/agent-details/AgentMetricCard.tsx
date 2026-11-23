@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react';
 
 import { Icon } from '../../icons/Icon.js';
+import { visibleMeterValue } from '../../utils/agentMetricValues.js';
 import { formatCostUsd, formatDurationMs } from '../../utils/sessionDisplayFormat.js';
 import { cn } from '../lib/cn.js';
 import type { AgentMetricCardProps } from './types.js';
@@ -39,7 +40,7 @@ export function AgentMetricCard({ meter }: AgentMetricCardProps) {
         </span>
       </div>
       <p className="text-4xl font-bold tabular-nums text-text-primary">
-        {formatMeterValue(meter.aggregateValue, meter.unit)}
+        {formatMeterValue(visibleMeterValue(meter), meter.unit)}
       </p>
     </section>
   );
