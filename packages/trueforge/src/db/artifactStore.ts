@@ -10,6 +10,8 @@ export interface ArtifactRecord {
   title: string;
   /** Highest version; 0 until the first version. */
   latest_version: number;
+  /** Latest version's `entry_point`; null until the first version. */
+  entry_point: string | null;
   created_by_subject: Subject;
   created_by_session_id: string;
   /** ISO-8601 UTC instant. */
@@ -21,6 +23,8 @@ export interface ArtifactRecord {
 export interface ArtifactVersionRecord {
   artifact_id: string;
   version: number;
+  /** Path of the default file to render, relative to `storage_prefix`. */
+  entry_point: string;
   /** Object-store prefix holding the version's files. */
   storage_prefix: string;
   total_bytes: number;
@@ -49,6 +53,7 @@ export interface ListArtifactsInput {
 export interface CreateArtifactVersionInput {
   tenant_id: string;
   artifact_id: string;
+  entry_point: string;
   storage_prefix: string;
   total_bytes: number;
 }

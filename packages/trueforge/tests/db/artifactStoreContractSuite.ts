@@ -40,6 +40,7 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     const version = await getStore().createVersion({
       tenant_id: TENANT,
       artifact_id: artifactId,
+      entry_point: `${uploadId}/index.html`,
       storage_prefix: `artifacts/${TENANT}/${artifactId}/${uploadId}/`,
       total_bytes: 100,
     });
@@ -61,6 +62,7 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
         tenant_id: TENANT,
         title: 'Q3 report',
         latest_version: 0,
+        entry_point: null,
         created_by_subject: SUBJECT,
       }),
     );
@@ -159,6 +161,7 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     expect([v1.version, v2.version]).toEqual([1, 2]);
     const updated = (await store.listArtifacts(LIST_DEFAULTS)).data.find(a => a.id === artifact.id);
     expect(updated?.latest_version).toBe(2);
+    expect(updated?.entry_point).toBe('u2/index.html');
     expect(updated?.updated_at).toBe(v2.created_at);
     expect(Date.parse(updated?.updated_at ?? '')).toBeGreaterThan(Date.parse(artifact.updated_at));
     expect((await store.listArtifacts(LIST_DEFAULTS)).data.map(a => a.id)).toEqual([artifact.id, untouched.id]);
@@ -166,6 +169,7 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     expect(await store.getVersion({ tenant_id: TENANT, artifact_id: artifact.id, version: 1 })).toEqual(v1);
     expect(v1).toEqual(
       expect.objectContaining({
+        entry_point: 'u1/index.html',
         storage_prefix: `artifacts/${TENANT}/${artifact.id}/u1/`,
         total_bytes: 100,
       }),
@@ -181,6 +185,7 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
       await store.createVersion({
         tenant_id: OTHER_TENANT,
         artifact_id: artifact.id,
+        entry_point: 'index.html',
         storage_prefix: 'p/',
         total_bytes: 1,
       }),

@@ -17,13 +17,14 @@ import {
 import { json, now } from '../sqlExpressions';
 import type { ArtifactTable, ArtifactVersionTable, Database } from '../types';
 
-function toArtifactRecord(row: Selectable<ArtifactTable>): ArtifactRecord {
+function toArtifactRecord(row: Selectable<ArtifactTable> & { entry_point: string | null }): ArtifactRecord {
   return {
     id: row.id,
     tenant_id: row.tenant_id,
     slug: row.slug,
     title: row.title,
     latest_version: row.latest_version,
+    entry_point: row.entry_point,
     created_by_subject: SubjectSchema.parse(row.created_by_subject),
     created_by_session_id: row.created_by_session_id,
     created_at: row.created_at.toISOString(),
@@ -35,6 +36,7 @@ function toVersionRecord(row: Selectable<ArtifactVersionTable>): ArtifactVersion
   return {
     artifact_id: row.artifact_id,
     version: row.version,
+    entry_point: row.entry_point,
     storage_prefix: row.storage_prefix,
     total_bytes: row.total_bytes,
     created_at: row.created_at.toISOString(),
@@ -62,7 +64,7 @@ export class PostgresArtifactStore implements IArtifactStore {
       })
       .returningAll()
       .executeTakeFirstOrThrow();
-    return toArtifactRecord(row);
+    return toArtifactRecord({ ...row, entry_point: null });
   }
 
   async listArtifacts(input: ListArtifactsInput): Promise<{ data: ArtifactRecord[]; pagination: TokenPagination }> {
@@ -70,6 +72,14 @@ export class PostgresArtifactStore implements IArtifactStore {
     let query = this.#db
       .selectFrom('artifact')
       .selectAll()
+      .select(eb =>
+        eb
+          .selectFrom('artifact_version')
+          .select('artifact_version.entry_point')
+          .whereRef('artifact_version.artifact_id', '=', 'artifact.id')
+          .whereRef('artifact_version.version', '=', 'artifact.latest_version')
+          .as('entry_point'),
+      )
       .where('tenant_id', '=', input.tenant_id)
       .where(sql`created_by_subject->>'subject_id'`, '=', input.created_by_subject_id);
     if (input.created_by_session_id !== undefined) {
@@ -101,6 +111,7 @@ export class PostgresArtifactStore implements IArtifactStore {
         .values({
           artifact_id: artifact.id,
           version,
+          entry_point: input.entry_point,
           storage_prefix: input.storage_prefix,
           total_bytes: input.total_bytes,
           created_at: now(),

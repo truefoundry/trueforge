@@ -38,6 +38,7 @@ function toArtifactRecord(row: {
   slug: string;
   title: string;
   latest_version: number;
+  entry_point: string | null;
   created_by_subject: Subject;
   created_by_session_id: string;
   created_at: string;
@@ -68,14 +69,22 @@ export class SqliteArtifactStore implements IArtifactStore {
       })
       .returning(recordColumns)
       .executeTakeFirstOrThrow();
-    return toArtifactRecord(row);
+    return toArtifactRecord({ ...row, entry_point: null });
   }
 
   async listArtifacts(input: ListArtifactsInput): Promise<{ data: ArtifactRecord[]; pagination: TokenPagination }> {
     const offset = decodeOffsetPageToken(input.page_token);
     let query = this.#db
       .selectFrom('artifact')
-      .select(recordColumns)
+      .select(eb => [
+        ...recordColumns(eb),
+        eb
+          .selectFrom('artifact_version')
+          .select('artifact_version.entry_point')
+          .whereRef('artifact_version.artifact_id', '=', 'artifact.id')
+          .whereRef('artifact_version.version', '=', 'artifact.latest_version')
+          .as('entry_point'),
+      ])
       .where('tenant_id', '=', input.tenant_id)
       .where(sql`json_extract(created_by_subject, '$.subject_id')`, '=', input.created_by_subject_id);
     if (input.created_by_session_id !== undefined) {
@@ -113,6 +122,7 @@ export class SqliteArtifactStore implements IArtifactStore {
         .values({
           artifact_id: artifact.id,
           version,
+          entry_point: input.entry_point,
           storage_prefix: input.storage_prefix,
           total_bytes: input.total_bytes,
           created_at: timestamp,
