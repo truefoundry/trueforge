@@ -3,6 +3,7 @@ import { createdBySubjectFromRequestContext, STANDALONE_REQUEST_CONTEXT } from '
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteArtifactStore } from '../../../src/db/sqlite/artifact-store/SqliteArtifactStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
+import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteSessionStore';
 import { ListArtifactsResponseSchema } from '../../../src/schemas/artifact';
 import { mountWithErrorHandler } from '../mountWithErrorHandler';
 
@@ -25,6 +26,18 @@ describe('artifacts router', () => {
       tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
       created_by_subject: createdBySubjectFromRequestContext(STANDALONE_REQUEST_CONTEXT),
     };
+    const sessionStore = new SqliteSessionStore(db);
+    for (const session_id of ['session-1', 'session-2']) {
+      await sessionStore.createSession({
+        ...mine,
+        session_id,
+        agent: { type: 'reference', id: 'agent-1', name: 'Agent' },
+        custom: null,
+        metadata: {},
+        external_id: null,
+        source: null,
+      });
+    }
     const report = await artifactStore.createArtifact({
       ...mine,
       title: 'Q3 Report',
