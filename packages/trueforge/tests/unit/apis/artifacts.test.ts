@@ -63,9 +63,7 @@ describe('artifacts router', () => {
     const second = ListArtifactsResponseSchema.parse(
       await (await app.request(`/?limit=1&page_token=${first.pagination.next_page_token ?? ''}`)).json(),
     );
-    expect(
-      [...first.data, ...second.data].map(a => [a.name, a.latest_entry_point, a.created_by_agent_id]).sort(),
-    ).toEqual([
+    expect([...first.data, ...second.data].map(a => [a.name, a.entry_point, a.created_by_agent_id]).sort()).toEqual([
       ['Q3 Report', 'report/index.html', 'agent-1'],
       ['Roadmap', null, null],
     ]);

@@ -16,7 +16,7 @@ function toWireArtifact(record: ArtifactRecord): Artifact {
     id: record.id,
     name: record.name,
     latest_version: record.latest_version,
-    latest_entry_point: record.latest_entry_point,
+    entry_point: record.latest_entry_point,
     created_by_subject: record.created_by_subject,
     created_by_session_id: record.created_by_session_id,
     created_by_agent_id: record.created_by_agent_id,

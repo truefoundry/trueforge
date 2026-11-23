@@ -7,7 +7,7 @@ export const ArtifactSchema = z
     id: z.string(),
     name: z.string(),
     latest_version: z.number().int().describe('Latest version.'),
-    latest_entry_point: z
+    entry_point: z
       .string()
       .nullable()
       .describe(
