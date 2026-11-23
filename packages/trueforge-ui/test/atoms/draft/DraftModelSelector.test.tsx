@@ -59,6 +59,16 @@ function renderSelector(
   );
 }
 
+function expectOnlyDisabledAutoOption() {
+  const listbox = screen.getByRole('listbox', { name: 'Select model' });
+  const options = within(listbox).getAllByRole('option');
+  expect(options).toHaveLength(1);
+  expect(options[0]).toHaveTextContent('Auto');
+  expect(options[0]).toBeDisabled();
+  expect(within(listbox).queryByRole('group')).toBeNull();
+  expect(screen.queryByText('No models')).toBeNull();
+}
+
 describe('DraftModelSelector', () => {
   beforeEach(() => {
     agentSpec = {
@@ -417,15 +427,15 @@ describe('DraftModelSelector', () => {
     );
 
     fireEvent.click(await screen.findByRole('button', { name: 'Select model' }));
-    await waitFor(() => expect(screen.getByText('No models')).toBeInTheDocument());
+    expectOnlyDisabledAutoOption();
     expect(screen.queryByRole('button', { name: 'Configure model' })).not.toBeInTheDocument();
   });
 
-  it('shows No models when the catalog is not configured', async () => {
+  it('lists only a disabled Auto option when the catalog is not configured', async () => {
     renderSelector({}, { getModels: async () => [] });
 
     fireEvent.click(await screen.findByRole('button', { name: 'Select model' }));
-    await waitFor(() => expect(screen.getByText('No models')).toBeInTheDocument());
+    expectOnlyDisabledAutoOption();
     expect(screen.queryByRole('button', { name: 'Configure model' })).not.toBeInTheDocument();
   });
 });
