@@ -93,19 +93,11 @@ jobs:
       HELM_REGISTRY_URL: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_REGISTRY_URL }}
       HELM_CHART_REPOSITORY: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_HELM_REPOSITORY }}
     steps:
-      # App token: GITHUB_TOKEN often cannot push to a protected branch.
-      - id: app-token
-        uses: actions/create-github-app-token@v3
-        with:
-          client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
-          private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
-          permission-contents: write
-
       - name: Check out
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          token: ${{ steps.app-token.outputs.token }}
+          # GITHUB_TOKEN for fetches below; App token is minted only before push.
 
       - name: Install yq
         run: |
@@ -216,8 +208,17 @@ jobs:
             echo "::warning::could not confirm ${CHART_NAME}:${VERSION} is absent from the registry; attempting the push"
           fi
 
+      # App token: GITHUB_TOKEN often cannot push to a protected branch.
+      - id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
+          private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
+          permission-contents: write
+
       - name: Commit chart metadata and tag
         env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           VERSION: ${{ steps.resolve.outputs.chart_version }}
           APP_VERSION: ${{ steps.resolve.outputs.app_version }}
           IMAGE_TAG: ${{ steps.resolve.outputs.image_tag }}
@@ -225,6 +226,7 @@ jobs:
           DRY_RUN: ${{ inputs.dry_run }} # DRY-RUN (temporary)
         run: |
           set -euo pipefail
+          gh auth setup-git
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 

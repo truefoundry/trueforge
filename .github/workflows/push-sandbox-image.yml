@@ -58,17 +58,7 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - id: app-token
-        uses: actions/create-github-app-token@v3
-        with:
-          client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
-          private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
-          permission-contents: write
-          permission-pull-requests: write
-
       - uses: actions/checkout@v7
-        with:
-          token: ${{ steps.app-token.outputs.token }}
 
       - id: image
         env:
@@ -93,19 +83,52 @@ jobs:
       - if: steps.pin-uri.outputs.changed == 'true'
         run: bash scripts/changeset-sandbox-image.sh
 
-      - uses: peter-evans/create-pull-request@v8
+      # App token so the pin PR push triggers ci.yml (GITHUB_TOKEN pushes do not).
+      - id: app-token
+        if: steps.pin-uri.outputs.changed == 'true'
+        uses: actions/create-github-app-token@v3
         with:
-          # GitHub will not start new workflow runs from GITHUB_TOKEN (anti-recursion).
-          # ci.yml would never run (or sit approval-required); required checks stay
-          # pending and this pin PR cannot merge. An App token is treated as a user.
-          token: ${{ steps.app-token.outputs.token }}
-          branch: release-sandbox-image
-          base: main
-          commit-message: 'chore: update sandbox image ${{ github.sha }}'
-          title: 'chore: update sandbox image ${{ github.sha }}'
-          body: |
-            Pushed `${{ steps.image.outputs.uri }}`. Merge so `release.yml` can publish the pin.
-            Existing tenants stay on `build_metadata`.
-          add-paths: |
-            packages/trueforge-core/src/core/sandbox/sandboxImage.json
-            .changeset
+          client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
+          private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Open sandbox image pin PR
+        if: steps.pin-uri.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          IMAGE_URI: ${{ steps.image.outputs.uri }}
+          SHA: ${{ github.sha }}
+          PIN_BRANCH: release-sandbox-image
+          HUSKY: '0'
+        run: |
+          set -euo pipefail
+          gh auth setup-git
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$PIN_BRANCH"
+          git add packages/trueforge-core/src/core/sandbox/sandboxImage.json .changeset
+          git commit -m "chore: update sandbox image ${SHA}"
+          git push --force origin "HEAD:refs/heads/${PIN_BRANCH}"
+
+          find_pr() {
+            gh pr list --repo "$GITHUB_REPOSITORY" --head "$PIN_BRANCH" \
+              --base main --state open --json number --jq '.[0].number // empty'
+          }
+          PR="$(find_pr)"
+          if [ -z "$PR" ]; then
+            gh pr create \
+              --repo "$GITHUB_REPOSITORY" \
+              --base main \
+              --head "$PIN_BRANCH" \
+              --title "chore: update sandbox image ${SHA}" \
+              --body "Pushed \`${IMAGE_URI}\`. Merge so \`release.yml\` can publish the pin.
+          Existing tenants stay on \`build_metadata\`."
+            PR="$(find_pr)"
+          fi
+          if [ -z "$PR" ]; then
+            echo "::error::could not open or find the sandbox image pin PR"
+            exit 1
+          fi
+          echo "Opened pin PR #${PR}"
+          echo "Pin PR: #${PR}" >> "$GITHUB_STEP_SUMMARY"

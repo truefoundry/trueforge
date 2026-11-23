@@ -68,28 +68,21 @@ jobs:
     timeout-minutes: 30
     outputs:
       # Every downstream job checks this out; actions/checkout's default ref is
-      # the pre-version SHA from the dispatch.
-      sha: ${{ steps.commit.outputs.sha }}
-      final_minor: ${{ steps.commit.outputs.final_minor }}
+      # the pre-version SHA from the dispatch. sha comes from the push when we
+      # committed, otherwise from the no-op dirty check.
+      sha: ${{ steps.commit.outputs.sha || steps.version-dirty.outputs.sha }}
+      final_minor: ${{ steps.version-dirty.outputs.final_minor }}
       mode: ${{ steps.select-mode.outputs.mode }}
       publish-plan-artifact-id: ${{ steps.select-mode.outputs.publish-plan-artifact-id }}
     permissions:
       contents: write
     steps:
-      - id: app-token
-        uses: actions/create-github-app-token@v3
-        with:
-          client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
-          private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
-          permission-contents: write
-
       - name: Check out repo
         uses: actions/checkout@v7
         with:
           # Full history so `changeset version` can write CHANGELOG from commits.
           fetch-depth: 0
           persist-credentials: false
-          token: ${{ steps.app-token.outputs.token }}
 
       - uses: pnpm/action-setup@v6
 
@@ -110,13 +103,11 @@ jobs:
           node scripts/prepare-release.mjs
           pnpm run version
 
-      - name: Commit versions to the release branch
-        id: commit
+      - name: Decide whether a version commit is needed
+        id: version-dirty
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          RELEASE_BRANCH: ${{ github.ref_name }}
           TFY_CHART_VERSION: ${{ inputs.tfy_chart_version }}
-          HUSKY: '0'
+          RELEASE_BRANCH: ${{ github.ref_name }}
         run: |
           set -euo pipefail
 
@@ -131,11 +122,31 @@ jobs:
 
           if [ -z "$(git status --porcelain)" ]; then
             SHA="$(git rev-parse HEAD)"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "sha=$SHA" >> "$GITHUB_OUTPUT"
             echo "Nothing to version; releasing ${RELEASE_BRANCH} at $SHA"
-            exit 0
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
+      - id: app-token
+        if: steps.version-dirty.outputs.changed == 'true'
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
+          private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - name: Commit versions to the release branch
+        id: commit
+        if: steps.version-dirty.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          RELEASE_BRANCH: ${{ github.ref_name }}
+          TFY_CHART_VERSION: ${{ inputs.tfy_chart_version }}
+          HUSKY: '0'
+        run: |
+          set -euo pipefail
           gh auth setup-git
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -543,20 +554,13 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - id: app-token
-        uses: actions/create-github-app-token@v3
-        with:
-          client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
-          private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
-          permission-contents: write
-          permission-pull-requests: write
-
       - name: Check out repo
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          persist-credentials: false
-          token: ${{ steps.app-token.outputs.token }}
+          # Keep GITHUB_TOKEN for the fetches in the build step; App token is
+          # minted only when there is a drain PR to open.
+          persist-credentials: true
 
       - name: Build the back-merge commit
         id: build
@@ -599,6 +603,15 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "Back-merge changelogs for ${TFY_CHART_VERSION}"
+
+      - id: app-token
+        if: steps.build.outputs.changed == 'true'
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
+          private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
 
       - name: Open and merge the back-merge PR
         if: steps.build.outputs.changed == 'true'
