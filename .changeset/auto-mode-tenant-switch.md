@@ -6,4 +6,4 @@
 '@truefoundry/trueforge-sdk': patch
 ---
 
-Add a tenant switch for Auto mode, on by default, on the Models settings page. Admins reach the page in TrueFoundry mode when model routing is set up for the tenant; provider editing stays with the platform there. Turning it off turns off all model routing for the tenant: Auto leaves the model picker, `auto` specs are rejected, chats that already use Auto fail their next turn with "Auto mode is turned off for this tenant", and subagents run on their parent's model. `GET /api/v1/capabilities` leaves `auto` out when routing isn't set up for the tenant and gives a `reason` when it is unavailable. The configuration manifest adds `auto: { enabled }`.
+Add a tenant switch for Auto mode, on by default, on the Models settings page. Turning it off turns off model routing for the tenant: `auto` specs are rejected and subagents run on their parent's model. `GET /api/v1/capabilities` omits `auto` when routing isn't set up and gives a `reason` when Auto is unavailable. The configuration manifest adds `auto: { enabled }`.
