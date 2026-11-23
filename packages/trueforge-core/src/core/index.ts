@@ -104,7 +104,27 @@ export type { AgentMetadata, ILLM, LLMCreateParams, LLMCreateParamsStreaming, LL
 export { ResponseFormatSchema, toOpenAIResponseFormat } from './llm/responseFormat';
 export type { ResponseFormat } from './llm/responseFormat';
 export { SUPPORTED_REASONING_EFFORTS, VERCEL_AI_PROVIDER_NAMES, VercelAILLM } from './llm/VercelAILLM';
-export type { VercelAILLMConfig, VercelAIProviderConfig, VercelAIProviderName } from './llm/VercelAILLM';
+export type {
+  ReasoningEffort,
+  VercelAILLMConfig,
+  VercelAIProviderConfig,
+  VercelAIProviderName,
+} from './llm/VercelAILLM';
+
+// Decision model contracts
+export type { Decision, DecisionModelCreateParams, IDecisionModel } from './decision/IDecisionModel';
+export { OpenAIDecisionModel } from './decision/OpenAIDecisionModel';
+
+// Model routing
+export { DEFAULT_ROUTING_QUESTION, type RoutingCategory, type RoutingQuestion } from './modelRouting/question';
+export {
+  createModelRouter,
+  selectModel,
+  type ModelRouterDeps,
+  type RoutableModel,
+  type RouteInput,
+  type RoutedModel,
+} from './modelRouting/router';
 
 // Event contracts
 export {
