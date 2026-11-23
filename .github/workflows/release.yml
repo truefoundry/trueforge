@@ -74,11 +74,12 @@ jobs:
     permissions:
       contents: write
     steps:
-      - id: app-token
-        uses: actions/create-github-app-token@v3
-        with:
-          client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
-          private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
+      # TEMPORARY: App token mint disabled; using GITHUB_TOKEN.
+      # - id: app-token
+      #   uses: actions/create-github-app-token@v3
+      #   with:
+      #     client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
+      #     private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
 
       - name: Check out repo
         uses: actions/checkout@v7
@@ -86,7 +87,8 @@ jobs:
           # Full history so `changeset version` can write CHANGELOG from commits.
           fetch-depth: 0
           persist-credentials: false
-          token: ${{ steps.app-token.outputs.token }}
+          # TEMPORARY: was steps.app-token.outputs.token
+          token: ${{ github.token }}
 
       - uses: pnpm/action-setup@v6
 
@@ -110,7 +112,8 @@ jobs:
       - name: Commit versions to the release branch
         id: commit
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          # TEMPORARY: was steps.app-token.outputs.token
+          GH_TOKEN: ${{ github.token }}
           RELEASE_BRANCH: ${{ github.ref_name }}
           TFY_CHART_VERSION: ${{ inputs.tfy_chart_version }}
           HUSKY: '0'
@@ -535,18 +538,20 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - id: app-token
-        uses: actions/create-github-app-token@v3
-        with:
-          client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
-          private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
+      # TEMPORARY: App token mint disabled; using GITHUB_TOKEN.
+      # - id: app-token
+      #   uses: actions/create-github-app-token@v3
+      #   with:
+      #     client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
+      #     private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
 
       - name: Check out repo
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
-          token: ${{ steps.app-token.outputs.token }}
+          # TEMPORARY: was steps.app-token.outputs.token
+          token: ${{ github.token }}
 
       - name: Build the back-merge commit
         id: build
@@ -590,10 +595,12 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "Back-merge changelogs for ${TFY_CHART_VERSION}"
 
-      - name: Open and merge the back-merge PR
+      # TEMPORARY: open the drain PR only (auto-merge commented out below).
+      - name: Open the back-merge PR
         if: steps.build.outputs.changed == 'true'
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          # TEMPORARY: was steps.app-token.outputs.token
+          GH_TOKEN: ${{ github.token }}
           BACK_MERGE_BRANCH: back-merge/v${{ inputs.tfy_chart_version }}
           TFY_CHART_VERSION: ${{ inputs.tfy_chart_version }}
         run: |
@@ -620,17 +627,20 @@ jobs:
             exit 1
           fi
 
+          echo "Opened back-merge PR #${PR}; merge it manually onto main."
+
+          # TEMPORARY: auto-merge disabled.
           # "Nothing to back-merge" was already handled above, so anything that
           # stops this PR landing is reported loudly: silently skipping the
           # drain leaves main re-consuming the backlog on the next line.
-          gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --squash --delete-branch --admin \
-            || echo "merge command failed; verifying PR state (it may already be merged)"
-          STATE="$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json state --jq .state)"
-          if [ "$STATE" != "MERGED" ]; then
-            echo "::error::back-merge PR #${PR} did not merge (state=${STATE})"
-            exit 1
-          fi
-          echo "Back-merged into main via #${PR}"
+          # gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --squash --delete-branch --admin \
+          #   || echo "merge command failed; verifying PR state (it may already be merged)"
+          # STATE="$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json state --jq .state)"
+          # if [ "$STATE" != "MERGED" ]; then
+          #   echo "::error::back-merge PR #${PR} did not merge (state=${STATE})"
+          #   exit 1
+          # fi
+          # echo "Back-merged into main via #${PR}"
 
       # The steps above annotate their own known failures, but a step dying
       # under `set -euo pipefail` does not. The release is already published at
