@@ -26,6 +26,9 @@ export const NameSchema = z
 
 export type ResourceName = z.infer<typeof NameSchema>;
 
+/** Session titles and artifact names; matches auto-derived titles from the first user message on turn 1. */
+export const MAX_TITLE_LENGTH = 50;
+
 export const PAGE_LIMIT = 25;
 /** Session/turn event list page size; default and max are read from config per request, so not baked into OpenAPI. */
 export const EventsPageLimitQuerySchema = z.coerce

@@ -100,6 +100,7 @@ function renderRuntimeFields({
       data: {
         sandbox: { enabled: true, environments: { enabled: true } },
         skill: { enabled: true },
+        auto: { enabled: false },
         sessionSharing: tenantSessionSharing,
         ...(webSearch === undefined ? {} : { webSearch }),
         ...(memory === undefined ? {} : { memory }),

@@ -12,6 +12,7 @@ function resolverWith(
   } = {},
 ): TurnResourceResolver {
   return new TurnResourceResolver({
+    modelRouting: undefined,
     llm: () =>
       Promise.resolve({
         modelClient: makeMockILLM(),
@@ -40,8 +41,14 @@ describe('TurnResourceResolver rootCapabilities', () => {
     const signal = new AbortController().signal;
     const spec = makeAgentSpec();
 
-    const root = await resolver.resolveAgentDefinition({ spec, signal, tracing });
-    const nested = await resolver.resolveAgentDefinition({ spec, signal, tracing, agent_info: child });
+    const root = await resolver.resolveAgentDefinition({ spec, signal, tracing, model: undefined });
+    const nested = await resolver.resolveAgentDefinition({
+      spec,
+      signal,
+      tracing,
+      agent_info: child,
+      model: undefined,
+    });
 
     expect(root.extraCapabilities).toEqual([capability]);
     expect(nested.extraCapabilities).toBeUndefined();
@@ -52,6 +59,7 @@ describe('TurnResourceResolver rootCapabilities', () => {
     const resolver = resolverWith({ rootCapabilities: () => [] });
     const resolved = await resolver.resolveAgentDefinition({
       spec: makeAgentSpec(),
+      model: undefined,
       signal: new AbortController().signal,
       tracing: resolver.createTracing(),
     });
@@ -61,6 +69,7 @@ describe('TurnResourceResolver rootCapabilities', () => {
 
   it('mounts the TrueForge MCP on root and child threads', async () => {
     const resolver = new TurnResourceResolver({
+      modelRouting: undefined,
       llm: () =>
         Promise.resolve({
           modelClient: makeMockILLM(),
@@ -85,8 +94,14 @@ describe('TurnResourceResolver rootCapabilities', () => {
     const signal = new AbortController().signal;
     const spec = makeAgentSpec();
 
-    const root = await resolver.resolveAgentDefinition({ spec, signal, tracing });
-    const nested = await resolver.resolveAgentDefinition({ spec, signal, tracing, agent_info: child });
+    const root = await resolver.resolveAgentDefinition({ spec, signal, tracing, model: undefined });
+    const nested = await resolver.resolveAgentDefinition({
+      spec,
+      signal,
+      tracing,
+      agent_info: child,
+      model: undefined,
+    });
 
     expect(root.extraCapabilities?.[0]?.systemToolSets?.[0]?.id).toBe(TRUEFORGE_MCP_ID);
     expect(nested.extraCapabilities?.[0]?.systemToolSets?.[0]?.id).toBe(TRUEFORGE_MCP_ID);
@@ -95,6 +110,7 @@ describe('TurnResourceResolver rootCapabilities', () => {
 
   it('restores TrueForge MCP approval policies from the previous turn', async () => {
     const resolver = new TurnResourceResolver({
+      modelRouting: undefined,
       llm: () =>
         Promise.resolve({
           modelClient: makeMockILLM(),
@@ -125,6 +141,7 @@ describe('TurnResourceResolver rootCapabilities', () => {
 
     const resolved = await resolver.resolveAgentDefinition({
       spec: makeAgentSpec(),
+      model: undefined,
       previousTurn,
       signal: new AbortController().signal,
       tracing: resolver.createTracing(),
@@ -136,6 +153,7 @@ describe('TurnResourceResolver rootCapabilities', () => {
 
   it('keeps direct capability sources distinct from configured MCPs with the same display name', async () => {
     const resolver = new TurnResourceResolver({
+      modelRouting: undefined,
       llm: () =>
         Promise.resolve({
           modelClient: makeMockILLM(),
@@ -176,6 +194,7 @@ describe('TurnResourceResolver rootCapabilities', () => {
 
     const resolved = await resolver.resolveAgentDefinition({
       spec,
+      model: undefined,
       signal: new AbortController().signal,
       tracing: resolver.createTracing(),
     });
@@ -189,6 +208,7 @@ describe('TurnResourceResolver rootCapabilities', () => {
     const resolver = resolverWith();
     const resolved = await resolver.resolveAgentDefinition({
       spec: makeAgentSpec(),
+      model: undefined,
       signal: new AbortController().signal,
       tracing: resolver.createTracing(),
     });

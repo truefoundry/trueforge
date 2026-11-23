@@ -110,9 +110,11 @@ async function registeredToolNames(input: {
     logger: silentLogger,
     capabilities: input.capabilities,
     definition: {
-      modelClient: { create, createNonStream: jest.fn() },
-      modelName: TEST_MODEL_NAME,
       toolSets: input.toolSets ?? [],
+    },
+    model: {
+      client: { create, createNonStream: jest.fn() },
+      name: TEST_MODEL_NAME,
     },
     context: [{ role: 'user', content: 'hi' }],
   });

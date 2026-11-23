@@ -19,7 +19,9 @@ if typing.TYPE_CHECKING:
     from .approval_allow import ApprovalAllow
     from .approval_decision import ApprovalDecision
     from .approval_deny import ApprovalDeny
+    from .artifact import Artifact
     from .ask_user_questions_config import AskUserQuestionsConfig
+    from .auto_capability import AutoCapability
     from .available_mcp_server import AvailableMcpServer
     from .available_model import AvailableModel
     from .available_model_provider import AvailableModelProvider
@@ -111,6 +113,7 @@ if typing.TYPE_CHECKING:
     from .large_tool_response_config import LargeToolResponseConfig
     from .legacy_turn_input_item import LegacyTurnInputItem
     from .list_agents_response import ListAgentsResponse
+    from .list_artifacts_response import ListArtifactsResponse
     from .list_available_mcp_servers_response import ListAvailableMcpServersResponse
     from .list_available_models_response import ListAvailableModelsResponse
     from .list_available_skills_response import ListAvailableSkillsResponse
@@ -169,6 +172,7 @@ if typing.TYPE_CHECKING:
     from .model_properties import ModelProperties
     from .model_provider_auth import ModelProviderAuth
     from .model_provider_manifest import ModelProviderManifest
+    from .model_snapshot import ModelSnapshot
     from .moonshot_model_provider import MoonshotModelProvider
     from .open_ai_model_provider import OpenAiModelProvider
     from .parallel_web_search_provider_auth import ParallelWebSearchProviderAuth
@@ -318,7 +322,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ApprovalAllow": ".approval_allow",
     "ApprovalDecision": ".approval_decision",
     "ApprovalDeny": ".approval_deny",
+    "Artifact": ".artifact",
     "AskUserQuestionsConfig": ".ask_user_questions_config",
+    "AutoCapability": ".auto_capability",
     "AvailableMcpServer": ".available_mcp_server",
     "AvailableModel": ".available_model",
     "AvailableModelProvider": ".available_model_provider",
@@ -410,6 +416,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "LargeToolResponseConfig": ".large_tool_response_config",
     "LegacyTurnInputItem": ".legacy_turn_input_item",
     "ListAgentsResponse": ".list_agents_response",
+    "ListArtifactsResponse": ".list_artifacts_response",
     "ListAvailableMcpServersResponse": ".list_available_mcp_servers_response",
     "ListAvailableModelsResponse": ".list_available_models_response",
     "ListAvailableSkillsResponse": ".list_available_skills_response",
@@ -468,6 +475,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ModelProperties": ".model_properties",
     "ModelProviderAuth": ".model_provider_auth",
     "ModelProviderManifest": ".model_provider_manifest",
+    "ModelSnapshot": ".model_snapshot",
     "MoonshotModelProvider": ".moonshot_model_provider",
     "OpenAiModelProvider": ".open_ai_model_provider",
     "ParallelWebSearchProviderAuth": ".parallel_web_search_provider_auth",
@@ -641,7 +649,9 @@ __all__ = [
     "ApprovalAllow",
     "ApprovalDecision",
     "ApprovalDeny",
+    "Artifact",
     "AskUserQuestionsConfig",
+    "AutoCapability",
     "AvailableMcpServer",
     "AvailableModel",
     "AvailableModelProvider",
@@ -733,6 +743,7 @@ __all__ = [
     "LargeToolResponseConfig",
     "LegacyTurnInputItem",
     "ListAgentsResponse",
+    "ListArtifactsResponse",
     "ListAvailableMcpServersResponse",
     "ListAvailableModelsResponse",
     "ListAvailableSkillsResponse",
@@ -791,6 +802,7 @@ __all__ = [
     "ModelProperties",
     "ModelProviderAuth",
     "ModelProviderManifest",
+    "ModelSnapshot",
     "MoonshotModelProvider",
     "OpenAiModelProvider",
     "ParallelWebSearchProviderAuth",

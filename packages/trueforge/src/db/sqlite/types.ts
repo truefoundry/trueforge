@@ -24,6 +24,7 @@ import type {
   ContextMessage,
   JsonValue,
   MCPServerInitInfo,
+  ModelSnapshot,
   SandboxInfo,
   SubAgentCompletion,
 } from '@truefoundry/trueforge-core/core';
@@ -54,6 +55,7 @@ export interface TurnThreadCheckpoint {
   parent: AgentParent | null;
   completion: SubAgentCompletion | null;
   pending_mcp_auth: boolean;
+  model: ModelSnapshot | null;
 }
 
 /** Turn-level checkpoint — threads live in `turn_thread`; only owned top-level keys remain. */
@@ -466,6 +468,33 @@ export interface OAuthPendingAuthorizationTable {
   created_at: string;
 }
 
+/**
+ * PRIMARY KEY (id).
+ */
+export interface ArtifactTable {
+  id: string;
+  tenant_id: string;
+  name: string;
+  latest_version: number;
+  latest_entry_point: string | null;
+  created_by_subject: JsonbColumn<Subject>;
+  created_by_session_id: string;
+  created_by_agent_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * PRIMARY KEY (artifact_id, version); FK → artifact ON DELETE CASCADE.
+ */
+export interface ArtifactVersionTable {
+  artifact_id: string;
+  version: number;
+  entry_point: string;
+  total_bytes: number;
+  created_at: string;
+}
+
 export interface Database {
   session: SessionTable;
   access_control: AccessControlTable;
@@ -492,4 +521,6 @@ export interface Database {
   mcp_server: McpServerTable;
   oauth_token: OAuthTokenTable;
   oauth_pending_authorization: OAuthPendingAuthorizationTable;
+  artifact: ArtifactTable;
+  artifact_version: ArtifactVersionTable;
 }

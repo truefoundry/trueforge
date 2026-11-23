@@ -2,6 +2,7 @@
 
 import { useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 
+import { roundedPolylinePath } from './lib/roundedPolylinePath.js';
 import {
   AGENT_LIBRARY_METERS_WINDOW_DAYS,
   AGENT_LIBRARY_SPARKLINE_DAYS,
@@ -10,6 +11,9 @@ import {
 } from './lib/useAgentLibraryUsageStats.js';
 import { Skeleton } from './primitives/Skeleton.js';
 import { Tooltip } from './primitives/Tooltip.js';
+
+/** Softens sparkline peaks without drifting far from the sampled day values. */
+const SPARKLINE_CORNER_RADIUS = 1.75;
 
 /** Listing spend (e.g. $151.85). */
 function formatLibraryCostUsd(costInUsd: number): string {
@@ -31,9 +35,18 @@ function formatSparklineDay(iso: string): string {
 
 export const agentLibraryUsageLabels = {
   sessions: `Sessions, ${String(AGENT_LIBRARY_METERS_WINDOW_DAYS)}d`,
-  spend: `Spend, ${String(AGENT_LIBRARY_METERS_WINDOW_DAYS)}d`,
+  spend: `Your / Total Spend, ${String(AGENT_LIBRARY_METERS_WINDOW_DAYS)}d`,
   daily: `Daily, ${String(AGENT_LIBRARY_SPARKLINE_DAYS)}d`,
 } as const;
+
+/** Stands in for a value the server withheld or could not produce. */
+const UNAVAILABLE_VALUE = '—';
+
+function spendTooltipContent(hasTotal: boolean): string {
+  return hasTotal
+    ? "Your spend / spend across every user's sessions on this agent."
+    : 'Your spend. The agent-wide total is only visible to people who manage this agent.';
+}
 
 function nearestSparklineIndex({
   clientX,
@@ -94,7 +107,7 @@ function AgentLibrarySparkline({
     const y = height - padY - (Math.max(0, point.value) / span) * (height - padY * 2);
     return { x, y };
   });
-  const polyline = coords.map(({ x, y }) => `${String(x)},${String(y)}`).join(' ');
+  const path = roundedPolylinePath({ points: coords, radius: SPARKLINE_CORNER_RADIUS });
   const hoverPoint = hover != null ? points[hover.index] : null;
   const hoverCoord = hover != null ? coords[hover.index] : null;
 
@@ -132,13 +145,13 @@ function AgentLibrarySparkline({
         onMouseMove={onMouseMove}
         onMouseLeave={() => setHover(null)}
       >
-        <polyline
+        <path
           fill="none"
           stroke="currentColor"
           strokeWidth="1.5"
           strokeLinejoin="round"
           strokeLinecap="round"
-          points={polyline}
+          d={path}
         />
         {hoverCoord != null ? (
           <>
@@ -213,20 +226,40 @@ export function AgentSpendCell({
       </div>
     );
   }
-  if (usage?.totalCostUsd == null) {
+  if (usage?.createdByMeCostUsd == null) {
     return (
       <span className="text-text-secondary text-sm" aria-label={`Spend unavailable for ${agentName}`}>
-        —
+        {UNAVAILABLE_VALUE}
       </span>
     );
   }
+  const hasTotal = usage.totalCostUsd != null;
+  const yourSpend = formatLibraryCostUsd(usage.createdByMeCostUsd);
   return (
-    <div className="flex min-w-0 flex-col gap-0.5">
-      <span className="text-text-primary text-sm font-medium">{formatLibraryCostUsd(usage.totalCostUsd)}</span>
-      {usage.costPerSessionUsd != null ? (
-        <span className="text-text-secondary text-xs">{formatLibraryCostUsd(usage.costPerSessionUsd)} / session</span>
-      ) : null}
-    </div>
+    <Tooltip content={spendTooltipContent(hasTotal)} className="max-w-xs whitespace-normal text-left">
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="text-text-primary text-sm font-medium">
+          <span aria-label={`Your spend ${yourSpend}`}>{yourSpend}</span>
+          <span aria-hidden className="text-text-secondary">
+            {' / '}
+          </span>
+          {usage.totalCostUsd == null ? (
+            <span className="text-text-secondary" aria-label={`Total spend unavailable for ${agentName}`}>
+              {UNAVAILABLE_VALUE}
+            </span>
+          ) : (
+            <span aria-label={`Total spend ${formatLibraryCostUsd(usage.totalCostUsd)}`}>
+              {formatLibraryCostUsd(usage.totalCostUsd)}
+            </span>
+          )}
+        </span>
+        {usage.costPerSessionUsd != null ? (
+          <span className="text-text-secondary text-xs">
+            {formatLibraryCostUsd(usage.costPerSessionUsd)} per session
+          </span>
+        ) : null}
+      </span>
+    </Tooltip>
   );
 }
 

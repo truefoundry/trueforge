@@ -331,6 +331,61 @@
         ],
         "type": "object"
       },
+      "Artifact": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "created_by_agent_id": {
+            "description": "Registry agent of the creating session. Null when the session used an inline agent spec.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_by_session_id": {
+            "type": "string"
+          },
+          "created_by_subject": {
+            "$ref": "#/components/schemas/Subject"
+          },
+          "entry_point": {
+            "description": "Latest version's default file to render, as a path relative to the version. Null before the first version.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "latest_version": {
+            "description": "Latest version.",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "latest_version",
+          "entry_point",
+          "created_by_subject",
+          "created_by_session_id",
+          "created_by_agent_id",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
       "AskUserQuestionsConfig": {
         "default": {
           "enabled": true
@@ -342,6 +397,18 @@
             "type": "boolean"
           }
         },
+        "type": "object"
+      },
+      "AutoCapability": {
+        "properties": {
+          "enabled": {
+            "description": "Whether Auto mode can be selected: the user has at least one model in every routing cluster.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
         "type": "object"
       },
       "AvailableMCPServer": {
@@ -479,6 +546,9 @@
       },
       "CapabilitiesData": {
         "properties": {
+          "auto": {
+            "$ref": "#/components/schemas/AutoCapability"
+          },
           "memory": {
             "$ref": "#/components/schemas/MemoryCapability"
           },
@@ -503,6 +573,7 @@
           "skill",
           "settings",
           "web_search",
+          "auto",
           "session_sharing"
         ],
         "type": "object"
@@ -2145,6 +2216,24 @@
         ],
         "type": "object"
       },
+      "ListArtifactsResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/Artifact"
+            },
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/TokenPagination"
+          }
+        },
+        "required": [
+          "data",
+          "pagination"
+        ],
+        "type": "object"
+      },
       "ListAvailableMCPServersResponse": {
         "properties": {
           "data": {
@@ -3361,6 +3450,27 @@
             "$ref": "#/components/schemas/CustomModelProvider"
           }
         ]
+      },
+      "ModelSnapshot": {
+        "description": "Model and effort the new thread runs on.",
+        "properties": {
+          "effort": {
+            "description": "Reasoning effort for that model. Null when none was resolved.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "Resolved model name, `provider/model`.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "effort"
+        ],
+        "type": "object"
       },
       "MoonshotModelProvider": {
         "additionalProperties": false,
@@ -4829,6 +4939,15 @@
         "additionalProperties": false,
         "properties": {
           "aggregate_value": {
+            "description": "Value across every session on the agent, or null when the caller may not see other users sessions.",
+            "minimum": 0,
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "created_by_me_aggregate_value": {
+            "description": "Value across the sessions the caller created.",
             "minimum": 0,
             "type": "number"
           },
@@ -4859,6 +4978,7 @@
         "required": [
           "name",
           "aggregate_value",
+          "created_by_me_aggregate_value",
           "description",
           "unit"
         ],
@@ -5245,6 +5365,9 @@
           "id": {
             "description": "Unique identifier for the event (monotonic ULID).",
             "type": "string"
+          },
+          "model": {
+            "$ref": "#/components/schemas/ModelSnapshot"
           },
           "parent": {
             "$ref": "#/components/schemas/AgentParent"
@@ -7986,6 +8109,103 @@
           "agents"
         ],
         "x-fern-sdk-method-name": "get_code_snippets"
+      }
+    },
+    "/api/v1/artifacts": {
+      "get": {
+        "description": "List artifacts created by the caller, most recently updated first. Optionally filter by session or name substring.",
+        "parameters": [
+          {
+            "description": "Page size. Defaults to 25",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "description": "Page size. Defaults to 25",
+              "maximum": 25,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque token from a previous response `next_page_token`.",
+            "in": "query",
+            "name": "page_token",
+            "required": false,
+            "schema": {
+              "description": "Opaque token from a previous response `next_page_token`.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "When set, only artifacts created in this session are returned.",
+            "in": "query",
+            "name": "created_by_session_id",
+            "required": false,
+            "schema": {
+              "description": "When set, only artifacts created in this session are returned.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Case-insensitive substring match on artifact name.",
+            "in": "query",
+            "name": "name",
+            "required": false,
+            "schema": {
+              "description": "Case-insensitive substring match on artifact name.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListArtifactsResponse"
+                }
+              }
+            },
+            "description": "Paginated artifacts."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid query parameters or page token."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthenticated."
+          }
+        },
+        "summary": "List artifacts",
+        "tags": [
+          "Artifacts"
+        ],
+        "x-fern-pagination": {
+          "cursor": "$request.page_token",
+          "next_cursor": "$response.pagination.next_page_token",
+          "results": "$response.data"
+        },
+        "x-fern-sdk-group-name": [
+          "artifacts"
+        ],
+        "x-fern-sdk-method-name": "list"
       }
     },
     "/api/v1/auth/callback": {
@@ -12967,6 +13187,9 @@
     },
     {
       "name": "Agent Sessions"
+    },
+    {
+      "name": "Artifacts"
     }
   ],
   "webhooks": {}

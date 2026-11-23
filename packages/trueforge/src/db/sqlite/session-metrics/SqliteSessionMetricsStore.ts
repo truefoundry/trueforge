@@ -2,7 +2,7 @@ import type { Kysely } from 'kysely';
 import type { SessionMetricsChartDataResponse, SessionMetricsMeterResponse } from '../../../schemas/sessionMetrics';
 import type {
   GetSessionMetricsChartDataInput,
-  GetSessionMetricsInput,
+  GetSessionMetricsMetersInput,
   ISessionMetricsStore,
 } from '../../sessionMetricsStore';
 import type { Database } from '../types';
@@ -14,7 +14,7 @@ import {
 export class SqliteSessionMetricsStore implements ISessionMetricsStore {
   constructor(private readonly db: Kysely<Database>) {}
 
-  getSessionMetricsMeters(input: GetSessionMetricsInput): Promise<SessionMetricsMeterResponse> {
+  getSessionMetricsMeters(input: GetSessionMetricsMetersInput): Promise<SessionMetricsMeterResponse> {
     return getSessionMetricsMetersQuery(this.db, input);
   }
 

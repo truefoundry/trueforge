@@ -50,11 +50,13 @@ async function runUntilDone({
     tracing: NOOP_AGENT_TRACING,
     logger: silentLogger,
     definition: {
-      modelClient,
-      modelName: TEST_MODEL_NAME,
       instruction: 'test',
       toolSets: [],
-      ...(modelParams !== undefined ? { modelParams } : {}),
+    },
+    model: {
+      client: modelClient,
+      name: TEST_MODEL_NAME,
+      ...(modelParams !== undefined ? { params: modelParams } : {}),
     },
     context: [{ role: 'user', content: 'hi' }],
   });
