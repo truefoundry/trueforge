@@ -201,21 +201,13 @@
   border-width: 0.03125rem;
 }
 
-/**
- * Secondary button: indigo-500 fills on hover with no animation.
- * background-color stays the resting surface; the gradient covers it instantly.
- */
+/** Secondary button: indigo-500 fill on hover, applied instantly. */
 .aui-secondary-button-fill {
   background-color: var(--secondary-button-bg);
-  background-image: linear-gradient(var(--color-indigo-500), var(--color-indigo-500));
-  background-repeat: no-repeat;
-  background-position: left center;
-  background-size: 0% 100%;
-  transition: none;
 }
 
 .aui-secondary-button-fill:hover:not(:disabled) {
-  background-size: 100% 100%;
+  background-color: var(--color-indigo-500);
   border-color: var(--color-indigo-500);
   color: var(--color-white);
 }
