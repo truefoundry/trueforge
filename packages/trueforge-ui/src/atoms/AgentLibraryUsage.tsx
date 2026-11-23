@@ -2,6 +2,7 @@
 
 import { useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 
+import { roundedPolylinePath } from './lib/roundedPolylinePath.js';
 import {
   AGENT_LIBRARY_METERS_WINDOW_DAYS,
   AGENT_LIBRARY_SPARKLINE_DAYS,
@@ -10,6 +11,9 @@ import {
 } from './lib/useAgentLibraryUsageStats.js';
 import { Skeleton } from './primitives/Skeleton.js';
 import { Tooltip } from './primitives/Tooltip.js';
+
+/** Softens sparkline peaks without drifting far from the sampled day values. */
+const SPARKLINE_CORNER_RADIUS = 1.75;
 
 /** Listing spend (e.g. $151.85). */
 function formatLibraryCostUsd(costInUsd: number): string {
@@ -103,7 +107,7 @@ function AgentLibrarySparkline({
     const y = height - padY - (Math.max(0, point.value) / span) * (height - padY * 2);
     return { x, y };
   });
-  const polyline = coords.map(({ x, y }) => `${String(x)},${String(y)}`).join(' ');
+  const path = roundedPolylinePath({ points: coords, radius: SPARKLINE_CORNER_RADIUS });
   const hoverPoint = hover != null ? points[hover.index] : null;
   const hoverCoord = hover != null ? coords[hover.index] : null;
 
@@ -141,13 +145,13 @@ function AgentLibrarySparkline({
         onMouseMove={onMouseMove}
         onMouseLeave={() => setHover(null)}
       >
-        <polyline
+        <path
           fill="none"
           stroke="currentColor"
           strokeWidth="1.5"
           strokeLinejoin="round"
           strokeLinecap="round"
-          points={polyline}
+          d={path}
         />
         {hoverCoord != null ? (
           <>

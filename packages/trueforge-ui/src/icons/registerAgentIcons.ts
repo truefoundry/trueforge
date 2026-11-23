@@ -8,6 +8,7 @@ import BrainRegularIcon from './brain-regular.svg';
 import CompareIcon from './compare.svg';
 import EmptyIcon from './empty.svg';
 import McpServerIcon from './mcp-server.svg';
+import MessageAi3LineIcon from './message-ai-3-line.svg';
 import SearchGlobeIcon from './search-globe.svg';
 import TrueForgeLogomarkDarkIcon from './trueforge-logomark-dark.svg';
 import TrueForgeLogomarkLightIcon from './trueforge-logomark-light.svg';
@@ -20,6 +21,7 @@ registerIcons({
   // Prefer the custom agent glyph over Lucide Bot for bot/robot aliases.
   bot: Agent2Icon as unknown as SvgIcon,
   robot: Agent2Icon as unknown as SvgIcon,
+  'message-ai-3-line': MessageAi3LineIcon as unknown as SvgIcon,
   compare: CompareIcon as unknown as SvgIcon,
   ai: AiIcon as unknown as SvgIcon,
   searchGlobe: SearchGlobeIcon as unknown as SvgIcon,
