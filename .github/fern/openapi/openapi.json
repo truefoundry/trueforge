@@ -344,6 +344,13 @@
           "created_by_subject": {
             "$ref": "#/components/schemas/Subject"
           },
+          "entry_point": {
+            "description": "Latest version's default file to render, as a path relative to the version. Null before the first version.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "latest_version": {
             "description": "Latest version.",
             "type": "integer"
@@ -363,6 +370,7 @@
           "slug",
           "title",
           "latest_version",
+          "entry_point",
           "created_by_subject",
           "created_by_session_id",
           "created_at",

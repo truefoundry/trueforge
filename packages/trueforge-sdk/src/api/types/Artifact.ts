@@ -6,6 +6,8 @@ export interface Artifact {
     createdAt: Date;
     createdBySessionId: string;
     createdBySubject: TrueForge.Subject;
+    /** Latest version's default file to render, as a path relative to the version. Null before the first version. */
+    entryPoint: string | null;
     /** Latest version. */
     latestVersion: number;
     slug: string;

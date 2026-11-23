@@ -13,6 +13,11 @@ class Artifact(UncheckedBaseModel):
     created_at: dt.datetime
     created_by_session_id: str
     created_by_subject: Subject
+    entry_point: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Latest version's default file to render, as a path relative to the version. Null before the first version.
+    """
+
     latest_version: int = pydantic.Field()
     """
     Latest version.
