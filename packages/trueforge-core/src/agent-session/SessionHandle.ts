@@ -511,10 +511,13 @@ export class SessionHandle<
     await Promise.all(
       threadIds.map(async threadId => {
         const previousThreadSnapshot = snapshots?.[threadId];
+        const agentInfo = previousThreadSnapshot?.agent_info ?? undefined;
+        const savedModel = previousThreadSnapshot?.model ?? null;
         const resolved = await input.resolver.resolveAgentDefinition({
           spec: input.spec,
-          // A subagent's agent_info carries the model and effort it ran on; the root has none and follows its spec.
-          agent_info: previousThreadSnapshot?.agent_info ?? undefined,
+          // agent_info is the original request. A subagent resumes on its saved model; the root follows its spec.
+          agent_info: agentInfo,
+          model: agentInfo !== undefined && savedModel !== null ? savedModel : undefined,
           previousTurn: input.previous,
           signal: input.signal,
           tracing: input.tracing,
@@ -611,27 +614,23 @@ export class SessionHandle<
       // Route from the delegated task: the classifier requires the name and input to classify the task.
       const task = `Name: ${params.request.name}\n\nTask:\n${params.request.input}`;
       const routed = await routeModel?.({ threadId: params.threadId, input: task });
-      const request = routed === undefined ? params.request : { ...params.request, model: routed.model };
 
-      const { definition, model: resolvedModel, extraCapabilities } = await input.resolver.resolveAgentDefinition({
+      const { definition, model, extraCapabilities } = await input.resolver.resolveAgentDefinition({
         spec: input.spec,
-        agent_info: request,
+        agent_info: params.request,
+        model: routed === undefined ? undefined : { name: routed.model, effort: routed.effort },
         previousTurn: input.previous,
         signal: params.signal,
         tracing: input.tracing,
       });
-      // Model override (request.model) is resolved inside resolveAgentDefinition into `model`.
-      const model =
-        routed === undefined
-          ? resolvedModel
-          : { ...resolvedModel, params: { ...resolvedModel.params, reasoning_effort: routed.effort } };
+      // The routed model, else the request's model override, is resolved inside resolveAgentDefinition into `model`.
       const childDefinition: AgentDefinition = {
         ...definition,
         toolSets: params.parentDefinition.toolSets ?? definition.toolSets,
         // The delegated task goes in as the initial user message; the sub-agent
         // system prompt is SUB_AGENT_IDENTITY (added by AgentThread.buildInstruction).
         instruction: undefined,
-        messages: [{ role: 'user', content: request.input }],
+        messages: [{ role: 'user', content: params.request.input }],
         // Sub-agents should return free-form summaries to the parent, not the user-facing structured response.
         responseFormat: undefined,
       };
@@ -651,10 +650,10 @@ export class SessionHandle<
         definition: childDefinition,
         model,
         threadId: params.threadId,
-        title: request.name,
+        title: params.request.name,
         sandbox: input.sandbox,
         parent: params.parent,
-        agentInfo: request,
+        agentInfo: params.request,
         capabilities,
         tracing: input.tracing,
         logger: input.resolver.logger,

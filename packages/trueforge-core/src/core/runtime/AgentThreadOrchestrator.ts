@@ -20,6 +20,7 @@ import { getOperationMetrics } from '../observability/operationMetrics';
 import type { AgentExecutionTrace, AgentTracing } from '../tracing/AgentTracing';
 import { onSignalAbort } from '../util/abort';
 import { mergeAsyncGenerators, signalable, type Signalable } from '../util/promiseUtils';
+import { modelSnapshotFromAgent } from './AgentModel';
 import { AgentThread } from './AgentThread';
 import {
   InternalEventType,
@@ -579,13 +580,8 @@ export class AgentThreadOrchestrator {
         yield {
           type: EventType.THREAD_CREATED,
           id: newEventId(),
-          agent_info: {
-            type: 'dynamic',
-            name: chunk.agent_info.name,
-            input: chunk.agent_info.input,
-            model: subAgentThread.model.name,
-            reasoning_effort: subAgentThread.model.params?.reasoning_effort,
-          },
+          agent_info: chunk.agent_info,
+          model: modelSnapshotFromAgent(subAgentThread.model),
           created_at: new Date().toISOString(),
           parent,
           title: chunk.agent_info.name,

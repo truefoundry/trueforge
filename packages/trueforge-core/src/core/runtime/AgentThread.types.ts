@@ -2,31 +2,33 @@ import type { Logger } from 'winston';
 import { z } from 'zod';
 import type { AgentCapability, CapabilityState, JsonValue } from '../capabilities/AgentCapability';
 import type { RegisteredPassthroughEvent, WithRegisteredPassthrough } from '../events/PassthroughEvents';
-import type {
-  AgentInfo,
-  AgentOutputEvent,
-  AgentParent,
-  ApprovalDecisionMessage,
-  BaseMCPAuthRequiredEvent,
-  MCPInitializeEvent,
-  MCPServerAuthInfo,
-  MCPServerInitInfo,
-  ModelMessageDeltaEvent,
-  ModelMessageEvent,
-  SandboxCreatedEvent,
-  ThreadContextCompactionFinishedEvent,
-  ThreadContextCompactionStartedEvent,
-  ThreadCreatedEvent,
-  ThreadOverwriteContextEvent,
-  ThreadStateError,
-  ToolApprovalRequiredEvent,
-  ToolResponseEvent,
-  ToolResponseRequiredEvent,
-  UserMCPAuthContinueEvent,
-  UserMessage,
-  UserToolApprovalEvent,
-  UserToolApprovalPolicyEvent,
-  UserToolResponseEvent,
+import {
+  ModelSnapshotSchema,
+  type AgentInfo,
+  type AgentOutputEvent,
+  type AgentParent,
+  type ApprovalDecisionMessage,
+  type BaseMCPAuthRequiredEvent,
+  type MCPInitializeEvent,
+  type MCPServerAuthInfo,
+  type MCPServerInitInfo,
+  type ModelMessageDeltaEvent,
+  type ModelMessageEvent,
+  type ModelSnapshot,
+  type SandboxCreatedEvent,
+  type ThreadContextCompactionFinishedEvent,
+  type ThreadContextCompactionStartedEvent,
+  type ThreadCreatedEvent,
+  type ThreadOverwriteContextEvent,
+  type ThreadStateError,
+  type ToolApprovalRequiredEvent,
+  type ToolResponseEvent,
+  type ToolResponseRequiredEvent,
+  type UserMCPAuthContinueEvent,
+  type UserMessage,
+  type UserToolApprovalEvent,
+  type UserToolApprovalPolicyEvent,
+  type UserToolResponseEvent,
 } from '../events/schema';
 import type { InternalEnrichedAssistantMessage, LLMToolMessage, LLMUserMessage } from '../llm/LLMTypes';
 import type { HarnessSandbox } from '../sandbox/Sandbox';
@@ -35,14 +37,8 @@ import type { AgentDefinition } from './AgentDefinition';
 import type { AgentModel } from './AgentModel';
 import type { CurrentContextUsage } from './contextUsage';
 
+export { ModelSnapshotSchema, type ModelSnapshot };
 export type { AgentInfo, AgentParent };
-
-/** Model a thread ran on, including the effort the router returned with that name. */
-export const ModelSnapshotSchema = z.object({
-  name: z.string(),
-  effort: z.string().nullable(),
-});
-export type ModelSnapshot = z.infer<typeof ModelSnapshotSchema>;
 
 /** Canonical string constants for internal (non-wire) orchestration event `type` fields. */
 export const InternalEventType = {

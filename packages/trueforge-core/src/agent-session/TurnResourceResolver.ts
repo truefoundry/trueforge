@@ -16,7 +16,7 @@ import {
 import { ToolSet } from '../core/mcp/ToolSet';
 import type { ModelRouterDeps } from '../core/modelRouting/router';
 import type { AgentModel } from '../core/runtime/AgentModel';
-import type { AgentInfo } from '../core/runtime/AgentThread.types';
+import type { AgentInfo, ModelSnapshot } from '../core/runtime/AgentThread.types';
 import type { HarnessSandbox, SandboxInfo } from '../core/sandbox/Sandbox';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
 import { NOOP_AGENT_TRACING } from '../core/tracing/NoopAgentTracing';
@@ -40,6 +40,19 @@ export type TurnSandboxFactory = (input: {
 
 function specWantsSandbox(spec: AgentSpec): boolean {
   return spec.config.sandbox.enabled;
+}
+
+/** A saved effort replaces the freshly resolved one. `null` means the thread ran with none. */
+function applySavedEffort(baseParams: ModelParams, effort: string | null | undefined): ModelParams {
+  if (effort === undefined) {
+    return baseParams;
+  }
+  if (effort === null) {
+    const params = { ...baseParams };
+    delete params.reasoning_effort;
+    return params;
+  }
+  return { ...baseParams, reasoning_effort: effort };
 }
 
 /** Runtime id and display name of the built-in TrueForge management MCP. */
@@ -211,6 +224,7 @@ export class TurnResourceResolver<
   async resolveAgentDefinition(input: {
     spec: AgentSpec;
     agent_info?: AgentInfo | undefined;
+    model: ModelSnapshot | undefined;
     previousTurn?: TurnRecord<TTurnCustom> | undefined;
     signal: AbortSignal;
     tracing: AgentTracing;
@@ -259,17 +273,15 @@ export class TurnResourceResolver<
     ];
     // Sub-agents may request a different catalog model via agent_info.model;
     // resolve that name so the model's client matches the override (not just a label).
-    const modelName = agentInfo?.model ?? spec.model.name;
+    const modelName = input.model?.name ?? agentInfo?.model ?? spec.model.name;
     const resolvedModel = await this.getModel(modelName);
     // The spec's params are set for its own model; any other model runs on its own defaults.
-    // A rebuilt subagent passes the effort it ran on through `agent_info.reasoning_effort`.
-    const params =
+    // A saved snapshot replaces that effort, including an explicit none.
+    const baseParams =
       modelName === spec.model.name
         ? { ...resolvedModel.defaultModelParams, ...spec.model.params }
         : { ...resolvedModel.defaultModelParams, parallel_tool_calls: true };
-    if (agentInfo?.reasoning_effort !== undefined) {
-      params.reasoning_effort = agentInfo.reasoning_effort;
-    }
+    const params = applySavedEffort(baseParams, input.model?.effort);
     return {
       model: {
         client: resolvedModel.modelClient,

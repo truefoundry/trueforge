@@ -3,7 +3,7 @@ import type { AgentCapability } from '../core/capabilities/AgentCapability';
 import type { ModelRouterDeps } from '../core/modelRouting/router';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import type { AgentModel } from '../core/runtime/AgentModel';
-import type { AgentInfo } from '../core/runtime/AgentThread.types';
+import type { AgentInfo, ModelSnapshot } from '../core/runtime/AgentThread.types';
 import type { HarnessSandbox, SandboxInfo } from '../core/sandbox/Sandbox';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
 import type { IWebSearchProvider } from '../core/web-search/WebSearchProvider';
@@ -62,6 +62,7 @@ export interface ITurnResourceResolver<TTurnCustom extends object = Record<strin
   resolveAgentDefinition(input: {
     spec: AgentSpec;
     agent_info?: AgentInfo | undefined;
+    model: ModelSnapshot | undefined;
     previousTurn?: TurnRecord<TTurnCustom> | undefined;
     signal: AbortSignal;
     tracing: AgentTracing;

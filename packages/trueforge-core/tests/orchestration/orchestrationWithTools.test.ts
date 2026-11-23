@@ -47,7 +47,8 @@ const EXPECTED_EVENTS = [
   {
     type: EventType.THREAD_CREATED,
     title: 'worker',
-    agent_info: { name: 'worker', model: CHILD_MODEL },
+    agent_info: { name: 'worker' },
+    model: { name: CHILD_MODEL, effort: null },
     parent: { thread_id: ROOT_ID, tool_call_id: TOOL_CALL_ID },
   },
   { type: EventType.MODEL_MESSAGE, thread_id: expect.any(String) },

@@ -52,6 +52,7 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
 
     const { model } = await resolver.resolveAgentDefinition({
       spec: makeAgentSpec(),
+      model: undefined,
       signal: new AbortController().signal,
       tracing: resolver.createTracing(),
     });
@@ -96,6 +97,7 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
 
     const { model } = await resolver.resolveAgentDefinition({
       spec,
+      model: undefined,
       signal: new AbortController().signal,
       tracing: resolver.createTracing(),
     });
@@ -118,6 +120,7 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
     },
   ])('$name', async ({ resolvedModelParams, expected }) => {
     const resolver = new TurnResourceResolver({
+      modelRouting: undefined,
       llm: () =>
         Promise.resolve({
           modelClient: makeMockILLM(),
@@ -136,11 +139,42 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
     const { model } = await resolver.resolveAgentDefinition({
       spec,
       agent_info: { type: 'dynamic', name: 'worker', input: 'task', model: 'provider/other' },
+      model: undefined,
       signal: new AbortController().signal,
       tracing: resolver.createTracing(),
     });
 
     expect(model.params).toEqual(expected);
+  });
+
+  it('resumes a subagent on the saved model and effort', async () => {
+    const resolver = new TurnResourceResolver({
+      modelRouting: undefined,
+      llm: () =>
+        Promise.resolve({
+          modelClient: makeMockILLM(),
+          defaultModelParams: { max_tokens: 4096, reasoning_effort: 'low' },
+          providerType: undefined,
+        }),
+      mcp: () => Promise.resolve(undefined),
+      mcpRequestTimeoutMs: 1_000,
+      mcpConnectTimeoutMs: 1_000,
+      logger: makeSilentLogger(),
+    });
+    const spec = AgentSpecSchema.parse({
+      model: { name: 'provider/model', params: { max_tokens: 8192, reasoning_effort: 'high' } },
+    });
+
+    const { model } = await resolver.resolveAgentDefinition({
+      spec,
+      agent_info: { type: 'dynamic', name: 'worker', input: 'task', model: 'provider/requested' },
+      model: { name: 'provider/routed', effort: 'medium' },
+      signal: new AbortController().signal,
+      tracing: resolver.createTracing(),
+    });
+
+    expect(model.name).toBe('provider/routed');
+    expect(model.params).toEqual({ max_tokens: 4096, parallel_tool_calls: true, reasoning_effort: 'medium' });
   });
 });
 
@@ -201,7 +235,7 @@ describe('SessionHandle rebuild', () => {
           context: [],
           current_context_usage: getEmptyCurrentContextUsage(),
           parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'tc1' },
-          agent_info: { type: 'dynamic', name: 'child', input: 'task', model: 'acct/routed', reasoning_effort: 'high' },
+          agent_info: { type: 'dynamic', name: 'child', input: 'task', model: 'acct/requested' },
           model: { name: 'acct/routed', effort: 'high' },
           completion: null,
           pending_mcp_auth: false,
@@ -227,11 +261,8 @@ describe('SessionHandle rebuild', () => {
     const calls = resolveAgentDefinition.mock.calls.map(([input]) => input);
     expect(calls).toContainEqual(
       expect.objectContaining({
-        agent_info: expect.objectContaining({
-          name: 'child',
-          model: 'acct/routed',
-          reasoning_effort: 'high',
-        }),
+        agent_info: expect.objectContaining({ name: 'child', model: 'acct/requested' }),
+        model: { name: 'acct/routed', effort: 'high' },
       }),
     );
     expect(calls.map(call => call.agent_info)).toContainEqual(undefined);
