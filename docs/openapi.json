@@ -8089,7 +8089,7 @@
     },
     "/api/v1/artifacts": {
       "get": {
-        "description": "List artifacts created by the caller, most recently updated first. Optionally filter by session, title substring, or `updated_at` range.",
+        "description": "List artifacts created by the caller, most recently updated first. Optionally filter by session or title substring.",
         "parameters": [
           {
             "description": "Page size. Defaults to 25",

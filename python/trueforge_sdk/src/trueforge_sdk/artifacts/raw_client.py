@@ -31,7 +31,7 @@ class RawArtifactsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[Artifact, ListArtifactsResponse]:
         """
-        List artifacts created by the caller, most recently updated first. Optionally filter by session, title substring, or `updated_at` range.
+        List artifacts created by the caller, most recently updated first. Optionally filter by session or title substring.
 
         Parameters
         ----------
@@ -135,7 +135,7 @@ class AsyncRawArtifactsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[Artifact, ListArtifactsResponse]:
         """
-        List artifacts created by the caller, most recently updated first. Optionally filter by session, title substring, or `updated_at` range.
+        List artifacts created by the caller, most recently updated first. Optionally filter by session or title substring.
 
         Parameters
         ----------

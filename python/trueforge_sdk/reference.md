@@ -514,7 +514,7 @@ client.agents.delete(
 <dl>
 <dd>
 
-List artifacts created by the caller, most recently updated first. Optionally filter by session, title substring, or `updated_at` range.
+List artifacts created by the caller, most recently updated first. Optionally filter by session or title substring.
 </dd>
 </dl>
 </dd>

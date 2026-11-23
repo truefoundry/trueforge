@@ -23,7 +23,7 @@ export class ArtifactsClient {
     }
 
     /**
-     * List artifacts created by the caller, most recently updated first. Optionally filter by session, title substring, or `updated_at` range.
+     * List artifacts created by the caller, most recently updated first. Optionally filter by session or title substring.
      *
      * @param {TrueForge.ListArtifactsRequest} request
      * @param {ArtifactsClient.RequestOptions} requestOptions - Request-specific configuration.
