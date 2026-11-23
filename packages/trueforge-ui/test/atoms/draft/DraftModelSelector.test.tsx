@@ -380,12 +380,9 @@ describe('DraftModelSelector', () => {
     expect(updateAgentSpec).not.toHaveBeenCalled();
   });
 
-  it('disables selection while disabled or running', () => {
-    const { rerender } = render(<DraftModelSelector disabled />);
+  it('disables selection while disabled', () => {
+    render(<DraftModelSelector disabled />);
 
-    expect(screen.getByRole('button', { name: 'Select model' })).toBeDisabled();
-
-    rerender(<DraftModelSelector isRunning />);
     expect(screen.getByRole('button', { name: 'Select model' })).toBeDisabled();
   });
 

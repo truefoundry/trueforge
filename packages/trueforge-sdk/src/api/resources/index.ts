@@ -1,5 +1,7 @@
 export * from "./agents/client/requests/index.js";
 export * as agents from "./agents/index.js";
+export * from "./artifacts/client/requests/index.js";
+export * as artifacts from "./artifacts/index.js";
 export * as auth from "./auth/index.js";
 export * as catalogs from "./catalogs/index.js";
 export * from "./internal/client/requests/index.js";
