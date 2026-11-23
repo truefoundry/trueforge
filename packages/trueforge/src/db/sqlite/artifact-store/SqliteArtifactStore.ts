@@ -22,8 +22,9 @@ function recordColumns(eb: ExpressionBuilder<Database, 'artifact'>) {
   return [
     'id' as const,
     'tenant_id' as const,
-    'title' as const,
+    'name' as const,
     'latest_version' as const,
+    'latest_entry_point' as const,
     jsonText<Subject>(eb.ref('created_by_subject')).as('created_by_subject'),
     'created_by_session_id' as const,
     'created_by_agent_id' as const,
@@ -35,9 +36,9 @@ function recordColumns(eb: ExpressionBuilder<Database, 'artifact'>) {
 function toArtifactRecord(row: {
   id: string;
   tenant_id: string;
-  title: string;
+  name: string;
   latest_version: number;
-  entry_point: string | null;
+  latest_entry_point: string | null;
   created_by_subject: Subject;
   created_by_session_id: string;
   created_by_agent_id: string | null;
@@ -59,7 +60,7 @@ export class SqliteArtifactStore implements IArtifactStore {
     const row = await this.#db
       .insertInto('artifact')
       .values({
-        ...newArtifactIdentity(input.title),
+        ...newArtifactIdentity(input.name),
         tenant_id: input.tenant_id,
         latest_version: 0,
         created_by_subject: jsonbBind(input.created_by_subject),
@@ -70,30 +71,22 @@ export class SqliteArtifactStore implements IArtifactStore {
       })
       .returning(recordColumns)
       .executeTakeFirstOrThrow();
-    return toArtifactRecord({ ...row, entry_point: null });
+    return toArtifactRecord(row);
   }
 
   async listArtifacts(input: ListArtifactsInput): Promise<{ data: ArtifactRecord[]; pagination: TokenPagination }> {
     const offset = decodeOffsetPageToken(input.page_token);
     let query = this.#db
       .selectFrom('artifact')
-      .select(eb => [
-        ...recordColumns(eb),
-        eb
-          .selectFrom('artifact_version')
-          .select('artifact_version.entry_point')
-          .whereRef('artifact_version.artifact_id', '=', 'artifact.id')
-          .whereRef('artifact_version.version', '=', 'artifact.latest_version')
-          .as('entry_point'),
-      ])
+      .select(recordColumns)
       .where('tenant_id', '=', input.tenant_id)
       .where(sql`json_extract(created_by_subject, '$.subject_id')`, '=', input.created_by_subject_id);
     if (input.created_by_session_id !== undefined) {
       query = query.where('created_by_session_id', '=', input.created_by_session_id);
     }
-    if (input.title !== undefined) {
-      // Case-insensitive title substring search.
-      query = query.where(sql<boolean>`instr(lower(title), lower(${input.title})) > 0`);
+    if (input.name !== undefined) {
+      // Case-insensitive name substring search.
+      query = query.where(sql<boolean>`instr(lower(name), lower(${input.name})) > 0`);
     }
     const rows = await query
       .orderBy('updated_at', 'desc')
@@ -131,7 +124,7 @@ export class SqliteArtifactStore implements IArtifactStore {
         .executeTakeFirstOrThrow();
       await db
         .updateTable('artifact')
-        .set({ latest_version: version, updated_at: timestamp })
+        .set({ latest_version: version, latest_entry_point: input.entry_point, updated_at: timestamp })
         .where('id', '=', artifact.id)
         .execute();
       return row;

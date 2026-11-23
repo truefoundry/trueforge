@@ -11,7 +11,7 @@ const LIST_DEFAULTS: ListArtifactsInput = {
   tenant_id: TENANT,
   created_by_subject_id: SUBJECT.subject_id,
   created_by_session_id: undefined,
-  title: undefined,
+  name: undefined,
   limit: 10,
   page_token: undefined,
 };
@@ -24,13 +24,13 @@ async function tick(): Promise<void> {
 export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): void {
   async function createArtifact({
     tenantId = TENANT,
-    title = 'Q3 report',
+    name = 'Q3 report',
     sessionId = 'session-1',
     agentId = AGENT_ID,
-  }: { tenantId?: string; title?: string; sessionId?: string; agentId?: string | null } = {}) {
+  }: { tenantId?: string; name?: string; sessionId?: string; agentId?: string | null } = {}) {
     return getStore().createArtifact({
       tenant_id: tenantId,
-      title,
+      name,
       created_by_subject: SUBJECT,
       created_by_session_id: sessionId,
       created_by_agent_id: agentId,
@@ -50,53 +50,53 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     return version;
   }
 
-  async function listTitles(filters: Partial<ListArtifactsInput>): Promise<string[]> {
+  async function listNames(filters: Partial<ListArtifactsInput>): Promise<string[]> {
     const { data } = await getStore().listArtifacts({ ...LIST_DEFAULTS, ...filters });
-    return data.map(a => a.title).sort();
+    return data.map(a => a.name).sort();
   }
 
   it('creates an artifact', async () => {
-    const created = await createArtifact({ title: '  Q3 report  ' });
+    const created = await createArtifact({ name: '  Q3 report  ' });
     expect(created).toEqual(
       expect.objectContaining({
         tenant_id: TENANT,
-        title: 'Q3 report',
+        name: 'Q3 report',
         latest_version: 0,
-        entry_point: null,
+        latest_entry_point: null,
         created_by_subject: SUBJECT,
         created_by_session_id: 'session-1',
         created_by_agent_id: AGENT_ID,
       }),
     );
     expect((await getStore().listArtifacts(LIST_DEFAULTS)).data).toEqual([created]);
-    const inline = await createArtifact({ title: 'inline', agentId: null });
+    const inline = await createArtifact({ name: 'inline', agentId: null });
     expect(inline.created_by_agent_id).toBeNull();
   });
 
-  it('caps the title length', async () => {
-    const longest = await createArtifact({ title: 'a'.repeat(MAX_TITLE_LENGTH) });
-    expect(longest.title).toHaveLength(MAX_TITLE_LENGTH);
-    await expect(createArtifact({ title: 'a'.repeat(MAX_TITLE_LENGTH + 1) })).rejects.toBeInstanceOf(RangeError);
-    await expect(createArtifact({ title: '   ' })).rejects.toBeInstanceOf(RangeError);
+  it('caps the name length', async () => {
+    const longest = await createArtifact({ name: 'a'.repeat(MAX_TITLE_LENGTH) });
+    expect(longest.name).toHaveLength(MAX_TITLE_LENGTH);
+    await expect(createArtifact({ name: 'a'.repeat(MAX_TITLE_LENGTH + 1) })).rejects.toBeInstanceOf(RangeError);
+    await expect(createArtifact({ name: '   ' })).rejects.toBeInstanceOf(RangeError);
   });
 
-  it('allows artifacts with the same title', async () => {
+  it('allows artifacts with the same name', async () => {
     const first = await createArtifact();
     const second = await createArtifact();
     expect(second.id).not.toBe(first.id);
-    expect(await listTitles({})).toEqual(['Q3 report', 'Q3 report']);
+    expect(await listNames({})).toEqual(['Q3 report', 'Q3 report']);
   });
 
   it("lists the subject's artifacts in the tenant with pagination", async () => {
     const store = getStore();
-    const titles = ['a', 'b', 'c'];
-    for (const title of titles) {
-      await createArtifact({ title });
+    const names = ['a', 'b', 'c'];
+    for (const name of names) {
+      await createArtifact({ name });
     }
     await createArtifact({ tenantId: OTHER_TENANT });
     await store.createArtifact({
       tenant_id: TENANT,
-      title: 'other',
+      name: 'other',
       created_by_subject: { ...SUBJECT, subject_id: 'someone-else' },
       created_by_session_id: 'session-2',
       created_by_agent_id: AGENT_ID,
@@ -111,35 +111,35 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     });
     expect(second.data).toHaveLength(1);
     expect(second.pagination.next_page_token).toBeUndefined();
-    expect([...first.data, ...second.data].map(a => a.title).sort()).toEqual(titles);
+    expect([...first.data, ...second.data].map(a => a.name).sort()).toEqual(names);
   });
 
   it('filters the list by session', async () => {
-    await createArtifact({ title: 'one', sessionId: 'session-1' });
-    await createArtifact({ title: 'two', sessionId: 'session-2' });
-    expect(await listTitles({ created_by_session_id: 'session-2' })).toEqual(['two']);
-    expect(await listTitles({ created_by_session_id: 'session-3' })).toEqual([]);
+    await createArtifact({ name: 'one', sessionId: 'session-1' });
+    await createArtifact({ name: 'two', sessionId: 'session-2' });
+    expect(await listNames({ created_by_session_id: 'session-2' })).toEqual(['two']);
+    expect(await listNames({ created_by_session_id: 'session-3' })).toEqual([]);
   });
 
-  it('filters the list by case-insensitive title substring', async () => {
-    await createArtifact({ title: 'Quarterly Report' });
-    await createArtifact({ title: 'Roadmap' });
-    expect(await listTitles({ title: 'rep' })).toEqual(['Quarterly Report']);
-    expect(await listTitles({ title: 'MAP' })).toEqual(['Roadmap']);
-    expect(await listTitles({ title: 'missing' })).toEqual([]);
+  it('filters the list by case-insensitive name substring', async () => {
+    await createArtifact({ name: 'Quarterly Report' });
+    await createArtifact({ name: 'Roadmap' });
+    expect(await listNames({ name: 'rep' })).toEqual(['Quarterly Report']);
+    expect(await listNames({ name: 'MAP' })).toEqual(['Roadmap']);
+    expect(await listNames({ name: 'missing' })).toEqual([]);
   });
 
-  it('creates monotonic versions and advances latest_version and updated_at', async () => {
+  it('creates monotonic versions and advances latest_version, latest_entry_point and updated_at', async () => {
     const store = getStore();
     const artifact = await createArtifact();
-    const untouched = await createArtifact({ title: 'untouched' });
+    const untouched = await createArtifact({ name: 'untouched' });
     await tick();
     const v1 = await createVersion({ artifactId: artifact.id, entryPoint: 'index.html' });
     const v2 = await createVersion({ artifactId: artifact.id, entryPoint: 'report/index.html' });
     expect([v1.version, v2.version]).toEqual([1, 2]);
     const updated = (await store.listArtifacts(LIST_DEFAULTS)).data.find(a => a.id === artifact.id);
     expect(updated?.latest_version).toBe(2);
-    expect(updated?.entry_point).toBe('report/index.html');
+    expect(updated?.latest_entry_point).toBe('report/index.html');
     expect(updated?.updated_at).toBe(v2.created_at);
     expect(Date.parse(updated?.updated_at ?? '')).toBeGreaterThan(Date.parse(artifact.updated_at));
     expect((await store.listArtifacts(LIST_DEFAULTS)).data.map(a => a.id)).toEqual([artifact.id, untouched.id]);
