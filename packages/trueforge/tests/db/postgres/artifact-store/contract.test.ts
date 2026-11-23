@@ -4,11 +4,6 @@ import { PostgresArtifactStore } from '../../../../src/db/postgres/artifact-stor
 import { runArtifactStoreContractSuite } from '../../artifactStoreContractSuite';
 import { createPostgresTestDatabase, type PostgresTestDatabase } from '../testDatabase';
 
-jest.mock('ulid', () => {
-  const actual = jest.requireActual<typeof import('ulid')>('ulid');
-  return { ...actual, ulid: jest.fn(actual.ulid) };
-});
-
 const describePg = process.env['PG_STORE_TESTS_ENABLED'] === '1' ? describe : describe.skip;
 
 describePg('PostgresArtifactStore (IArtifactStore contract)', () => {

@@ -22,7 +22,6 @@ function recordColumns(eb: ExpressionBuilder<Database, 'artifact'>) {
   return [
     'id' as const,
     'tenant_id' as const,
-    'slug' as const,
     'title' as const,
     'latest_version' as const,
     jsonText<Subject>(eb.ref('created_by_subject')).as('created_by_subject'),
@@ -36,7 +35,6 @@ function recordColumns(eb: ExpressionBuilder<Database, 'artifact'>) {
 function toArtifactRecord(row: {
   id: string;
   tenant_id: string;
-  slug: string;
   title: string;
   latest_version: number;
   entry_point: string | null;

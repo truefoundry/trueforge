@@ -21,7 +21,6 @@ function toArtifactRecord(row: Selectable<ArtifactTable> & { entry_point: string
   return {
     id: row.id,
     tenant_id: row.tenant_id,
-    slug: row.slug,
     title: row.title,
     latest_version: row.latest_version,
     entry_point: row.entry_point,

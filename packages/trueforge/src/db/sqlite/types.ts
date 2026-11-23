@@ -469,12 +469,11 @@ export interface OAuthPendingAuthorizationTable {
 }
 
 /**
- * PRIMARY KEY (id); UNIQUE (tenant_id, slug).
+ * PRIMARY KEY (id).
  */
 export interface ArtifactTable {
   id: string;
   tenant_id: string;
-  slug: string;
   title: string;
   latest_version: number;
   created_by_subject: JsonbColumn<Subject>;

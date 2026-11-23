@@ -1,5 +1,4 @@
 import type { Subject } from '@truefoundry/trueforge-core/agent-session';
-import { ulid } from 'ulid';
 import type { IArtifactStore, ListArtifactsInput } from '../../src/db/artifactStore';
 import { MAX_TITLE_LENGTH } from '../../src/schemas/common';
 
@@ -22,7 +21,6 @@ async function tick(): Promise<void> {
   await new Promise(resolve => setTimeout(resolve, 5));
 }
 
-/** Callers MUST `jest.mock('ulid')` with a pass-through `jest.fn` so ids can be pinned. */
 export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): void {
   async function createArtifact({
     tenantId = TENANT,
@@ -57,8 +55,8 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     return data.map(a => a.title).sort();
   }
 
-  it('creates an artifact with a generated slug', async () => {
-    const created = await createArtifact();
+  it('creates an artifact', async () => {
+    const created = await createArtifact({ title: '  Q3 report  ' });
     expect(created).toEqual(
       expect.objectContaining({
         tenant_id: TENANT,
@@ -70,50 +68,23 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
         created_by_agent_id: AGENT_ID,
       }),
     );
-    expect(created.slug).toBe(`q3-report-${created.id.slice(-6)}`);
     expect((await getStore().listArtifacts(LIST_DEFAULTS)).data).toEqual([created]);
     const inline = await createArtifact({ title: 'inline', agentId: null });
     expect(inline.created_by_agent_id).toBeNull();
   });
 
-  it('cleans the title into a URL-safe slug', async () => {
-    const accented = await createArtifact({ title: '  Café --  Sales_Report!! (Q3)  ' });
-    expect(accented.title).toBe('Café --  Sales_Report!! (Q3)');
-    expect(accented.slug).toBe(`cafe-salesreport-q3-${accented.id.slice(-6)}`);
-    const symbols = await createArtifact({ title: 'a/b & c' });
-    expect(symbols.slug).toBe(`ab-c-${symbols.id.slice(-6)}`);
-    const currency = await createArtifact({ title: 'Cost €5 & 10%' });
-    expect(currency.slug).toBe(`cost-5-10-${currency.id.slice(-6)}`);
-    const nonLatin = await createArtifact({ title: 'レポート' });
-    expect(nonLatin.slug).toBe(nonLatin.id.slice(-6));
-  });
-
   it('caps the title length', async () => {
     const longest = await createArtifact({ title: 'a'.repeat(MAX_TITLE_LENGTH) });
-    expect(longest.slug).toHaveLength(MAX_TITLE_LENGTH + 1);
-    const expanded = await createArtifact({ title: 'ß'.repeat(MAX_TITLE_LENGTH) });
-    expect(expanded.slug).toHaveLength(MAX_TITLE_LENGTH + 1);
+    expect(longest.title).toHaveLength(MAX_TITLE_LENGTH);
     await expect(createArtifact({ title: 'a'.repeat(MAX_TITLE_LENGTH + 1) })).rejects.toBeInstanceOf(RangeError);
     await expect(createArtifact({ title: '   ' })).rejects.toBeInstanceOf(RangeError);
   });
 
-  it('gives artifacts with the same title distinct slugs', async () => {
+  it('allows artifacts with the same title', async () => {
     const first = await createArtifact();
     const second = await createArtifact();
-    expect(second.slug).not.toBe(first.slug);
-  });
-
-  // Only exercises the DB unique constraint: ids are pinned to force a shared slug.
-  // Generated slugs carry a random id suffix, so real creates don't collide.
-  it('rejects a duplicate slug in the tenant but allows it in another tenant', async () => {
-    const pinnedIds = ['01JAAAAAAAAAAAAAAAAAQ3SUFX', '01JBBBBBBBBBBBBBBBBBQ3SUFX', '01JCCCCCCCCCCCCCCCCCQ3SUFX'];
-    for (const id of pinnedIds) {
-      jest.mocked(ulid).mockReturnValueOnce(id);
-    }
-    const first = await createArtifact();
-    await expect(createArtifact()).rejects.toThrow();
-    const otherTenant = await createArtifact({ tenantId: OTHER_TENANT });
-    expect(otherTenant.slug).toBe(first.slug);
+    expect(second.id).not.toBe(first.id);
+    expect(await listTitles({})).toEqual(['Q3 report', 'Q3 report']);
   });
 
   it("lists the subject's artifacts in the tenant with pagination", async () => {
