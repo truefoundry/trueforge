@@ -4,6 +4,7 @@ import type { ComponentType } from 'react';
 
 import type { AgentMetricMeter } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
+import { visibleMeterValue } from '../../utils/agentMetricValues.js';
 import { Skeleton } from '../primitives/Skeleton.js';
 import type { AgentMetricChartProps, AgentMetricStatisticsProps, AgentMetricsViewProps } from './types.js';
 
@@ -28,7 +29,8 @@ function formatStatisticValue({
   durationInSeconds: boolean;
 }): string {
   if (meter == null) return '—';
-  return statisticNumberFormatter.format(durationInSeconds ? meter.aggregateValue / 1_000 : meter.aggregateValue);
+  const value = visibleMeterValue(meter);
+  return statisticNumberFormatter.format(durationInSeconds ? value / 1_000 : value);
 }
 
 export function AgentMetricStatistics({ meters }: AgentMetricStatisticsProps) {

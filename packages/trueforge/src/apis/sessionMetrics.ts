@@ -12,7 +12,7 @@ import {
   getSessionMetricsChartsRoute,
   getSessionMetricsMetersRoute,
 } from '../routes/sessionMetricsRoutes';
-import { resolveManagedAgentIds } from './agentAccess';
+import { canReadAgentAggregates } from './agentAccess';
 
 export interface InternalMetricsRouterDeps {
   sessionMetricsStore: ISessionMetricsStore;
@@ -27,15 +27,17 @@ export function createInternalMetricsRouter(deps: InternalMetricsRouterDeps) {
   const getSessionMetricsMetersHandler: RouteHandler<typeof getSessionMetricsMetersRoute> = async c => {
     const query = c.req.valid('query');
     const requestContext = deps.resolveRequestContext(c);
-    const managedAgentIds = await resolveManagedAgentIds({
+    const includeTotal = await canReadAgentAggregates({
       store: deps.resolveAgentStore(c),
       context: requestContext,
       authorizer: deps.authorizer,
+      agent_id: query.agent_id,
     });
     const metrics = await deps.sessionMetricsStore.getSessionMetricsMeters({
       tenant_id: requestContext.tenant_id,
       agent_id: query.agent_id,
-      created_by_subject_id: managedAgentIds.includes(query.agent_id) ? undefined : requestContext.subject.id,
+      subject_id: requestContext.subject.id,
+      include_total: includeTotal,
       start_timestamp: query.start_timestamp,
       end_timestamp: query.end_timestamp,
     });
@@ -49,15 +51,16 @@ export function createInternalMetricsRouter(deps: InternalMetricsRouterDeps) {
   const getSessionMetricsChartsDataHandler: RouteHandler<typeof getSessionMetricsChartsDataRoute> = async c => {
     const query = c.req.valid('query');
     const requestContext = deps.resolveRequestContext(c);
-    const managedAgentIds = await resolveManagedAgentIds({
+    const includeEveryone = await canReadAgentAggregates({
       store: deps.resolveAgentStore(c),
       context: requestContext,
       authorizer: deps.authorizer,
+      agent_id: query.agent_id,
     });
     const chartData = await deps.sessionMetricsStore.getSessionMetricsChartData({
       tenant_id: requestContext.tenant_id,
       agent_id: query.agent_id,
-      created_by_subject_id: managedAgentIds.includes(query.agent_id) ? undefined : requestContext.subject.id,
+      created_by_subject_id: includeEveryone ? undefined : requestContext.subject.id,
       start_timestamp: query.start_timestamp,
       end_timestamp: query.end_timestamp,
       chart_name: query.chart_name,
