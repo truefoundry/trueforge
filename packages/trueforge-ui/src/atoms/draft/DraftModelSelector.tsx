@@ -51,7 +51,9 @@ export function DraftModelSelector({ disabled }: DraftModelSelectorProps) {
   const isMobile = useIsMobile();
   const compactLayout = useCompactLayout();
   const settingsChromeEnabled = isSettingsChromeEnabled({ catalog, capabilities });
-  const showConfigureSettingsCta = loaded && models.length === 0 && settingsChromeEnabled && shell != null;
+  const canManageModelProviders = capabilities?.settings?.modelProviders?.manageProviders === true;
+  const showConfigureSettingsCta =
+    loaded && models.length === 0 && settingsChromeEnabled && canManageModelProviders && shell != null;
   const seededDefaultModelRef = useRef<string | null>(null);
   const isAutoModelKept = keepsAutoModel(capabilities);
 

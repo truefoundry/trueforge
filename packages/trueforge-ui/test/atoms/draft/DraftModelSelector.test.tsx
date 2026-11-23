@@ -451,6 +451,29 @@ describe('DraftModelSelector', () => {
     expect(screen.queryByRole('button', { name: 'Configure model' })).not.toBeInTheDocument();
   });
 
+  it('keeps the model picker when the caller cannot manage model providers', async () => {
+    renderSelector(
+      {},
+      {
+        getModels: async () => [],
+        catalog: createMockCatalog(),
+        getCapabilities: async () => ({
+          data: {
+            sandbox: { enabled: true, environments: { enabled: true } },
+            skill: { enabled: true },
+            auto: { enabled: false },
+            sessionSharing: tenantSessionSharing,
+            settings: { ...allSettingsSections(true), modelProviders: { enabled: true, manageProviders: false } },
+          },
+        }),
+      },
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Select model' }));
+    await expectOnlyDisabledAutoOption();
+    expect(screen.queryByRole('button', { name: 'Configure model' })).not.toBeInTheDocument();
+  });
+
   it('lists only a disabled Auto option when the catalog is not configured', async () => {
     renderSelector({}, { getModels: async () => [] });
 
