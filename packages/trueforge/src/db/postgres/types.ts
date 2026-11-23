@@ -649,8 +649,9 @@ export interface OAuthPendingAuthorizationTable {
 export interface ArtifactTable {
   id: string;
   tenant_id: string;
-  title: string;
+  name: string;
   latest_version: number;
+  latest_entry_point: string | null;
   created_by_subject: JSONColumnType<Subject, Subject, Subject>;
   created_by_session_id: string;
   created_by_agent_id: string | null;

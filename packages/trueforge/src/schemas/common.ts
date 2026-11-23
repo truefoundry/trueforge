@@ -26,7 +26,7 @@ export const NameSchema = z
 
 export type ResourceName = z.infer<typeof NameSchema>;
 
-/** Session and artifact titles; matches auto-derived titles from the first user message on turn 1. */
+/** Session titles and artifact names; matches auto-derived titles from the first user message on turn 1. */
 export const MAX_TITLE_LENGTH = 50;
 
 export const PAGE_LIMIT = 25;

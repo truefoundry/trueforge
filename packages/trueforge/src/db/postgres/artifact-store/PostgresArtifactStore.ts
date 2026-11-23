@@ -17,13 +17,13 @@ import {
 import { json, now } from '../sqlExpressions';
 import type { ArtifactTable, ArtifactVersionTable, Database } from '../types';
 
-function toArtifactRecord(row: Selectable<ArtifactTable> & { entry_point: string | null }): ArtifactRecord {
+function toArtifactRecord(row: Selectable<ArtifactTable>): ArtifactRecord {
   return {
     id: row.id,
     tenant_id: row.tenant_id,
-    title: row.title,
+    name: row.name,
     latest_version: row.latest_version,
-    entry_point: row.entry_point,
+    latest_entry_point: row.latest_entry_point,
     created_by_subject: SubjectSchema.parse(row.created_by_subject),
     created_by_session_id: row.created_by_session_id,
     created_by_agent_id: row.created_by_agent_id,
@@ -53,7 +53,7 @@ export class PostgresArtifactStore implements IArtifactStore {
     const row = await this.#db
       .insertInto('artifact')
       .values({
-        ...newArtifactIdentity(input.title),
+        ...newArtifactIdentity(input.name),
         tenant_id: input.tenant_id,
         latest_version: 0,
         created_by_subject: json(input.created_by_subject),
@@ -64,7 +64,7 @@ export class PostgresArtifactStore implements IArtifactStore {
       })
       .returningAll()
       .executeTakeFirstOrThrow();
-    return toArtifactRecord({ ...row, entry_point: null });
+    return toArtifactRecord(row);
   }
 
   async listArtifacts(input: ListArtifactsInput): Promise<{ data: ArtifactRecord[]; pagination: TokenPagination }> {
@@ -72,22 +72,14 @@ export class PostgresArtifactStore implements IArtifactStore {
     let query = this.#db
       .selectFrom('artifact')
       .selectAll()
-      .select(eb =>
-        eb
-          .selectFrom('artifact_version')
-          .select('artifact_version.entry_point')
-          .whereRef('artifact_version.artifact_id', '=', 'artifact.id')
-          .whereRef('artifact_version.version', '=', 'artifact.latest_version')
-          .as('entry_point'),
-      )
       .where('tenant_id', '=', input.tenant_id)
       .where(sql`created_by_subject->>'subject_id'`, '=', input.created_by_subject_id);
     if (input.created_by_session_id !== undefined) {
       query = query.where('created_by_session_id', '=', input.created_by_session_id);
     }
-    if (input.title !== undefined) {
-      // Case-insensitive title substring search.
-      query = query.where(sql<boolean>`position(lower(${input.title}) in lower(title)) > 0`);
+    if (input.name !== undefined) {
+      // Case-insensitive name substring search.
+      query = query.where(sql<boolean>`position(lower(${input.name}) in lower(name)) > 0`);
     }
     const rows = await query
       .orderBy('updated_at', 'desc')
@@ -119,7 +111,7 @@ export class PostgresArtifactStore implements IArtifactStore {
         .executeTakeFirstOrThrow();
       await db
         .updateTable('artifact')
-        .set({ latest_version: version, updated_at: now() })
+        .set({ latest_version: version, latest_entry_point: input.entry_point, updated_at: now() })
         .where('id', '=', artifact.id)
         .execute();
       return toVersionRecord(row);
