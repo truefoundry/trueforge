@@ -654,6 +654,7 @@ export interface ArtifactTable {
   latest_version: number;
   created_by_subject: JSONColumnType<Subject, Subject, Subject>;
   created_by_session_id: string;
+  created_by_agent_id: string | null;
   created_at: Date;
   updated_at: Date;
 }

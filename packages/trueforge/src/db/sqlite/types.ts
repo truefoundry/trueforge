@@ -479,6 +479,7 @@ export interface ArtifactTable {
   latest_version: number;
   created_by_subject: JsonbColumn<Subject>;
   created_by_session_id: string;
+  created_by_agent_id: string | null;
   created_at: string;
   updated_at: string;
 }

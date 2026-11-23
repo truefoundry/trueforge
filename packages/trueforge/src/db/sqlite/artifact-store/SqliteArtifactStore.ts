@@ -5,6 +5,7 @@ import {
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import { sql, type ExpressionBuilder, type Kysely } from 'kysely';
 import {
+  ArtifactSessionNotFoundError,
   newArtifactIdentity,
   type ArtifactRecord,
   type ArtifactVersionRecord,
@@ -27,6 +28,7 @@ function recordColumns(eb: ExpressionBuilder<Database, 'artifact'>) {
     'latest_version' as const,
     jsonText<Subject>(eb.ref('created_by_subject')).as('created_by_subject'),
     'created_by_session_id' as const,
+    'created_by_agent_id' as const,
     'created_at' as const,
     'updated_at' as const,
   ];
@@ -41,6 +43,7 @@ function toArtifactRecord(row: {
   entry_point: string | null;
   created_by_subject: Subject;
   created_by_session_id: string;
+  created_by_agent_id: string | null;
   created_at: string;
   updated_at: string;
 }): ArtifactRecord {
@@ -55,21 +58,34 @@ export class SqliteArtifactStore implements IArtifactStore {
   }
 
   async createArtifact(input: CreateArtifactInput): Promise<ArtifactRecord> {
-    const timestamp = nowIso();
-    const row = await this.#db
-      .insertInto('artifact')
-      .values({
-        ...newArtifactIdentity(input.title),
-        tenant_id: input.tenant_id,
-        latest_version: 0,
-        created_by_subject: jsonbBind(input.created_by_subject),
-        created_by_session_id: input.created_by_session_id,
-        created_at: timestamp,
-        updated_at: timestamp,
-      })
-      .returning(recordColumns)
-      .executeTakeFirstOrThrow();
-    return toArtifactRecord({ ...row, entry_point: null });
+    const identity = newArtifactIdentity(input.title);
+    return this.#db.transaction().execute(async db => {
+      const session = await db
+        .selectFrom('session')
+        .select('agent_id')
+        .where('tenant_id', '=', input.tenant_id)
+        .where('session_id', '=', input.created_by_session_id)
+        .executeTakeFirst();
+      if (session === undefined) {
+        throw new ArtifactSessionNotFoundError({ tenant_id: input.tenant_id, session_id: input.created_by_session_id });
+      }
+      const timestamp = nowIso();
+      const row = await db
+        .insertInto('artifact')
+        .values({
+          ...identity,
+          tenant_id: input.tenant_id,
+          latest_version: 0,
+          created_by_subject: jsonbBind(input.created_by_subject),
+          created_by_session_id: input.created_by_session_id,
+          created_by_agent_id: session.agent_id,
+          created_at: timestamp,
+          updated_at: timestamp,
+        })
+        .returning(recordColumns)
+        .executeTakeFirstOrThrow();
+      return toArtifactRecord({ ...row, entry_point: null });
+    });
   }
 
   async listArtifacts(input: ListArtifactsInput): Promise<{ data: ArtifactRecord[]; pagination: TokenPagination }> {
