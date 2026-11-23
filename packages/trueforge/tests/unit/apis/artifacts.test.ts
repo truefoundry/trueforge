@@ -14,7 +14,7 @@ describe('artifacts router', () => {
     const response = await app.request(`/?${query}`);
     expect(response.status).toBe(200);
     return ListArtifactsResponseSchema.parse(await response.json())
-      .data.map(a => a.title)
+      .data.map(a => a.name)
       .sort();
   }
 
@@ -28,7 +28,7 @@ describe('artifacts router', () => {
     };
     const report = await artifactStore.createArtifact({
       ...mine,
-      title: 'Q3 Report',
+      name: 'Q3 Report',
       created_by_session_id: 'session-1',
       created_by_agent_id: 'agent-1',
     });
@@ -41,13 +41,13 @@ describe('artifacts router', () => {
     });
     await artifactStore.createArtifact({
       ...mine,
-      title: 'Roadmap',
+      name: 'Roadmap',
       created_by_session_id: 'session-2',
       created_by_agent_id: null,
     });
     await artifactStore.createArtifact({
       ...mine,
-      title: 'not mine',
+      name: 'not mine',
       created_by_subject: { ...mine.created_by_subject, subject_id: 'someone-else' },
       created_by_session_id: 'session-1',
       created_by_agent_id: 'agent-1',
@@ -63,11 +63,13 @@ describe('artifacts router', () => {
     const second = ListArtifactsResponseSchema.parse(
       await (await app.request(`/?limit=1&page_token=${first.pagination.next_page_token ?? ''}`)).json(),
     );
-    expect([...first.data, ...second.data].map(a => [a.title, a.entry_point, a.created_by_agent_id]).sort()).toEqual([
+    expect(
+      [...first.data, ...second.data].map(a => [a.name, a.latest_entry_point, a.created_by_agent_id]).sort(),
+    ).toEqual([
       ['Q3 Report', 'report/index.html', 'agent-1'],
       ['Roadmap', null, null],
     ]);
-    expect([...first.data, ...second.data].find(a => a.title === 'Q3 Report')?.id).toBe(reportId);
+    expect([...first.data, ...second.data].find(a => a.name === 'Q3 Report')?.id).toBe(reportId);
   });
 
   it('filters by created_by_session_id', async () => {

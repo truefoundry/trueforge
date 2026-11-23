@@ -14,9 +14,9 @@ export interface ArtifactsRouterDeps {
 function toWireArtifact(record: ArtifactRecord): Artifact {
   return {
     id: record.id,
-    title: record.title,
+    name: record.name,
     latest_version: record.latest_version,
-    entry_point: record.entry_point,
+    latest_entry_point: record.latest_entry_point,
     created_by_subject: record.created_by_subject,
     created_by_session_id: record.created_by_session_id,
     created_by_agent_id: record.created_by_agent_id,
@@ -34,7 +34,7 @@ export function createArtifactsRouter(deps: ArtifactsRouterDeps) {
         tenant_id: requestContext.tenant_id,
         created_by_subject_id: requestContext.subject.id,
         created_by_session_id: query.created_by_session_id,
-        title: query.name,
+        name: query.name,
         limit: query.limit,
         page_token: query.page_token,
       });

@@ -5,9 +5,9 @@ import { PAGE_LIMIT } from './common';
 export const ArtifactSchema = z
   .object({
     id: z.string(),
-    title: z.string(),
+    name: z.string(),
     latest_version: z.number().int().describe('Latest version.'),
-    entry_point: z
+    latest_entry_point: z
       .string()
       .nullable()
       .describe(
@@ -43,7 +43,7 @@ export const ListArtifactsRequestQuerySchema = z
       .min(1)
       .optional()
       .describe('When set, only artifacts created in this session are returned.'),
-    name: z.string().trim().min(1).optional().describe('Case-insensitive substring match on artifact title.'),
+    name: z.string().trim().min(1).optional().describe('Case-insensitive substring match on artifact name.'),
   })
   .openapi('ListArtifactsRequestQuery');
 
