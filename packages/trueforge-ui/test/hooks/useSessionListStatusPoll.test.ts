@@ -52,6 +52,32 @@ describe('useSessionListStatusPoll', () => {
     expect(poll).toHaveBeenCalledTimes(1);
   });
 
+  it('does not start another poll while the previous one is still running', async () => {
+    let resolvePoll: () => void = () => undefined;
+    const poll = vi.fn(
+      () =>
+        new Promise<void>(resolve => {
+          resolvePoll = resolve;
+        }),
+    );
+    renderHook(() => useSessionListStatusPoll({ intervalMs: 10_000, poll }));
+
+    expect(poll).toHaveBeenCalledTimes(1);
+    act(() => {
+      vi.advanceTimersByTime(30_000);
+    });
+    expect(poll).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolvePoll();
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(10_000);
+    });
+    expect(poll).toHaveBeenCalledTimes(2);
+  });
+
   it('does nothing when intervalMs is null', () => {
     const poll = vi.fn();
     renderHook(() => useSessionListStatusPoll({ intervalMs: null, poll }));
