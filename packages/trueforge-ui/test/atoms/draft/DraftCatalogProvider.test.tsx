@@ -135,6 +135,7 @@ describe('DraftCatalogProvider', () => {
       skills: [{ id: 'available-skill', name: 'Available skill' }],
       connectors: [{ id: 'available-mcp', name: 'Available MCP' }],
       skillsEnabled: true,
+      isAutoModelKept: false,
     });
 
     expect(update).toEqual({
@@ -154,6 +155,7 @@ describe('DraftCatalogProvider', () => {
       skills: [],
       connectors: [{ id: 'available-mcp', name: 'Available MCP' }],
       skillsEnabled: true,
+      isAutoModelKept: false,
     });
 
     expect(update).toEqual({ mcpServers: [{ name: 'Available MCP' }] });
@@ -169,6 +171,7 @@ describe('DraftCatalogProvider', () => {
       skills: [{ id: 'skill', name: 'Skill' }],
       connectors: [],
       skillsEnabled: false,
+      isAutoModelKept: false,
     });
 
     expect(update.skills).toEqual([]);
@@ -184,6 +187,7 @@ describe('DraftCatalogProvider', () => {
       skills: [{ id: 'agent-skill:acme/team/echo:3', name: 'echo' }],
       connectors: [],
       skillsEnabled: true,
+      isAutoModelKept: false,
     });
 
     expect(update).toEqual({
@@ -202,6 +206,7 @@ describe('DraftCatalogProvider', () => {
       skills: [{ id: 'agent-skill:acme/team/echo:3', name: 'echo' }],
       connectors: [],
       skillsEnabled: true,
+      isAutoModelKept: false,
     });
 
     expect(update).toEqual({});
@@ -217,6 +222,7 @@ describe('DraftCatalogProvider', () => {
       skills: [{ id: 'agent-skill:acme/team/echo:3', name: 'echo' }],
       connectors: [],
       skillsEnabled: true,
+      isAutoModelKept: false,
     });
 
     expect(update).toEqual({
@@ -235,6 +241,7 @@ describe('DraftCatalogProvider', () => {
       skills: [],
       connectors: [],
       skillsEnabled: false,
+      isAutoModelKept: false,
     });
 
     expect(update).toEqual({});

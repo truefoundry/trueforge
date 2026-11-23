@@ -115,6 +115,7 @@ describe('ShellModeProvider', () => {
         data: {
           sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
+          auto: { enabled: false },
           sessionSharing: tenantSessionSharing,
           settings: allSettingsSections(false),
         },
@@ -602,6 +603,7 @@ describe('ShellModeProvider', () => {
       data: {
         sandbox: { enabled: true, environments: { enabled: true } },
         skill: { enabled: true },
+        auto: { enabled: false },
         sessionSharing: tenantSessionSharing,
         settings: allSettingsSections(true),
         webSearch: { enabled: true },
@@ -641,6 +643,7 @@ describe('ShellModeProvider', () => {
       data: {
         sandbox: { enabled: true, environments: { enabled: true } },
         skill: { enabled: true },
+        auto: { enabled: false },
         sessionSharing: tenantSessionSharing,
         settings: allSettingsSections(true),
         webSearch: { enabled: false },
@@ -1176,6 +1179,7 @@ describe('ShellModeProvider', () => {
       data: {
         sandbox: { enabled: true, environments: { enabled: true } },
         skill: { enabled: true },
+        auto: { enabled: false },
         sessionSharing: tenantSessionSharing,
       },
     }));
@@ -1201,6 +1205,7 @@ describe('ShellModeProvider', () => {
       data: {
         sandbox: { enabled: false, environments: { enabled: false } },
         skill: { enabled: false },
+        auto: { enabled: false },
         sessionSharing: tenantSessionSharing,
       },
     }));

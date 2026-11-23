@@ -169,6 +169,8 @@ export function AgentModelEditorContent({
           query=""
           onQueryChange={onQueryChange}
           listboxId={listboxId}
+          autoOption={undefined}
+          reasoning={undefined}
           showHeading={false}
           showSearch={false}
           onSelect={model => onChange({ ...spec, model: modelForSelection(spec, model) })}
@@ -209,6 +211,8 @@ export function AgentModelEditorContent({
             query={query}
             onQueryChange={onQueryChange}
             listboxId={listboxId}
+            autoOption={undefined}
+            reasoning={undefined}
             showHeading={false}
             showSearch={false}
             onSelect={model => onChange({ ...spec, model: modelForSelection(spec, model) })}

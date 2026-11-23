@@ -76,7 +76,7 @@ function validatePublicFilename(filename: string): void {
   }
 }
 
-function buildUploadedFilesAnnouncement(
+export function buildUploadedFilesAnnouncement(
   files: { filename: string; path: string; mime: string; size: number }[],
 ): string {
   const entries = files
@@ -86,6 +86,27 @@ function buildUploadedFilesAnnouncement(
     )
     .join('\n\n');
   return internalSystemTag(`Uploaded files (${String(files.length)}):\n${entries}`);
+}
+
+/** Filename and content type of each file named by an uploaded-files announcement. Empty for any other text. */
+export function extractUploadedFilesInAnnouncement(text: string): { filename: string; mime: string }[] {
+  const files: { filename: string; mime: string }[] = [];
+  let filename: string | undefined;
+  for (const line of text.split('\n')) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('filename:')) {
+      filename = trimmed.slice('filename:'.length).trim();
+      continue;
+    }
+    if (trimmed.startsWith('mime:') && filename !== undefined && filename.length > 0) {
+      const mime = trimmed.slice('mime:'.length).trim();
+      if (mime.length > 0) {
+        files.push({ filename, mime });
+      }
+      filename = undefined;
+    }
+  }
+  return files;
 }
 
 function partitionContent(parts: readonly AgentUserContentPart[]): {

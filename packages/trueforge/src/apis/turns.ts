@@ -33,6 +33,7 @@ import {
 } from '@truefoundry/trueforge-core/agent-session';
 import type {
   AgentCapability,
+  DecisionModel,
   IWebSearchProvider,
   McpConnection,
   ModelRouterDeps,
@@ -77,7 +78,11 @@ import {
   type RequestContext,
   type ResolveRequestContext,
 } from '../auth/identity';
-import configuration, { isTrueFoundryModeEnabled, type TrueFoundryModelRouting } from '../config';
+import configuration, {
+  enabledTenantModelRouting,
+  trueFoundryModelRouting,
+  type TrueFoundryModelRouting,
+} from '../config';
 import type { IAccessControlStore } from '../db/accessControlStore';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import { EmptyCapabilitiesStore, type ICapabilitiesStore } from '../db/capabilitiesStore';
@@ -123,7 +128,7 @@ import {
   resolveSandboxProvider,
 } from '../runtime/sessionResources';
 import { restoreTurnEventLog } from '../runtime/turnEventLogRestore';
-import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
+import { MAX_TITLE_LENGTH } from '../schemas/common';
 import { assertGatewayMetadataRequestHeaders, X_TFY_METADATA } from '../truefoundry/gatewayMetadata';
 import { X_TFG_MCP, X_TFG_MODELS, X_TFG_SKILLS, X_TFG_TOOLS } from '../truefoundry/inlineResources';
 import { newId } from '../utils/id';
@@ -373,28 +378,36 @@ function turnModelRouting(input: {
   turnMetadata: TurnMetadata;
 }): ModelRouterDeps | undefined {
   const { routing, tenant_id, modelProviderStore, turnMetadata } = input;
-  const tenantRouting = routing?.tenants[tenant_id];
-  if (routing === undefined || tenantRouting?.subagent !== 'on') {
+  if (routing === undefined) {
+    return undefined;
+  }
+  const tenantRouting = enabledTenantModelRouting(routing, tenant_id);
+  if (tenantRouting === undefined) {
     return undefined;
   }
   // Resolved on first use, so turns that route no thread skip the lookup.
-  let decisionModel: Promise<OpenAIDecisionModel> | undefined;
+  let decisionModel: Promise<DecisionModel> | undefined;
   const resolveDecisionModel = () => {
     decisionModel ??= getModelDetails({
       tenant_id,
       name: tenantRouting.decision_model,
       store: modelProviderStore,
       turnMetadata,
-    }).then(resolved => new OpenAIDecisionModel(resolved.providerConfig));
+    }).then(resolved => ({
+      client: new OpenAIDecisionModel(resolved.providerConfig),
+      properties: { contextLength: resolved.modelProperties?.contextLength },
+    }));
     decisionModel.catch(() => {
       decisionModel = undefined;
     });
     return decisionModel;
   };
   return {
-    classifier: { create: async (body, options) => (await resolveDecisionModel()).create(body, options) },
-    question: { instructions: routing.instructions, categories: routing.categories },
-    listModels: () => modelProviderStore.listModels({ tenant_id, has_catalog_info: true }),
+    classifier: resolveDecisionModel,
+    question: {
+      categories: routing.categories,
+    },
+    listModels: () => modelProviderStore.listModels({ tenant_id }),
   };
 }
 
@@ -555,7 +568,7 @@ function createTurnResolver(deps: {
 const titleSegmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 
 /**
- * Caps a title at {@link MAX_SESSION_TITLE_LENGTH} UTF-16 units without splitting a
+ * Caps a title at {@link MAX_TITLE_LENGTH} UTF-16 units without splitting a
  * grapheme cluster: clusters that would cross the cap (emoji with skin tones or
  * ZWJ sequences, which read as one unit but span several) are dropped whole.
  */
@@ -563,7 +576,7 @@ function truncateSessionTitle(title: string): string {
   let truncated = '';
   let length = 0;
   for (const { segment } of titleSegmenter.segment(title)) {
-    if (length + segment.length > MAX_SESSION_TITLE_LENGTH) {
+    if (length + segment.length > MAX_TITLE_LENGTH) {
       break;
     }
     truncated += segment;
@@ -574,7 +587,7 @@ function truncateSessionTitle(title: string): string {
 
 /**
  * Derives a session title from the first user message of the first turn. Returns the
- * trimmed text (capped at {@link MAX_SESSION_TITLE_LENGTH}) or `undefined` when no usable
+ * trimmed text (capped at {@link MAX_TITLE_LENGTH}) or `undefined` when no usable
  * text is present (for example, a file-only message).
  */
 export function deriveSessionTitle(input: UserMessage[] | undefined): string | undefined {
@@ -810,7 +823,7 @@ async function prepareTurnExecution<TTransaction>(input: {
     agentStore: input.deps.agentStore,
     modelProviderStore: input.deps.modelProviderStore,
     modelRouting: turnModelRouting({
-      routing: isTrueFoundryModeEnabled(configuration) ? configuration.TRUEFOUNDRY_MODEL_ROUTING : undefined,
+      routing: trueFoundryModelRouting(),
       tenant_id: input.session.tenant_id,
       modelProviderStore: input.deps.modelProviderStore,
       turnMetadata,
@@ -1157,6 +1170,7 @@ export function getTurnExecutionError(error: unknown): TurnExecutionError | unde
       case 'invalid_send_input':
       case 'agent_sandbox_required':
       case 'tool_name_collision':
+      case 'auto_model_unavailable':
         return { status: 422, message: error.message };
       case 'capability_state_error':
       case 'mcp_connection_failed':
