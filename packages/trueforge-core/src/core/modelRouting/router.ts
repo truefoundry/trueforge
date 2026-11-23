@@ -82,8 +82,6 @@ export interface RouteInput {
   instructions: string;
 }
 
-export type ModelRouter = (route: RouteInput) => Promise<RoutedModel | undefined>;
-
 interface Outcome {
   reason: 'picked' | 'decision_error' | 'model_unavailable';
   routed: RoutedModel | undefined;
@@ -94,7 +92,10 @@ interface Outcome {
  * Routes threads to a model: classify the task, then pick the cheapest pair in that cluster. Never throws; resolves to
  * undefined when it can't pick one, and the caller keeps its own model.
  */
-export function createModelRouter(deps: ModelRouterDeps, logger: Logger): ModelRouter {
+export function createModelRouter(
+  deps: ModelRouterDeps,
+  logger: Logger,
+): (route: RouteInput) => Promise<RoutedModel | undefined> {
   let models: Promise<RoutableModel[]> | undefined;
 
   return async route => {

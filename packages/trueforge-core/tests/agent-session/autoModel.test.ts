@@ -11,7 +11,6 @@ import { createEmptyAgentThreadMetrics } from '../../src/core/runtime/metrics';
 import { createSubAgentStream, textReplyStream } from '../orchestration/helpers/helpers';
 import {
   makeAgentSpec,
-  makeCreateTurnInput,
   makePausedTurnState,
   makeTestResolver,
   makeTurnUpdateEvent,
@@ -275,26 +274,6 @@ describe('auto model selection', () => {
     expect(names).toEqual([HAIKU]);
     expect(bodies[0]).toMatchObject({ max_tokens: 128, reasoning_effort: 'low' });
     expect(bodies[0]).not.toHaveProperty('temperature');
-  });
-
-  // Updated in the fallback PR: a rebuild with no saved model routes again instead of rejecting the turn.
-  it('rejects a rebuilt auto turn that has no saved model', async () => {
-    const { store, session } = await createSession(autoSpec);
-    const turnId = mintTestTurnId();
-    await store.createTurn(makeCreateTurnInput({ sessionId: 's1', turnId }));
-    await pause(store, turnId);
-
-    await expect(
-      session.rebuildTurn({
-        turn_id: turnId,
-        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
-        abortController: new AbortController(),
-        resolver: makeTestResolver({ modelRouting: routing().deps }),
-      }),
-    ).rejects.toMatchObject({
-      code: 'auto_model_unavailable',
-      message: 'This paused turn has no saved model to resume on',
-    } satisfies Partial<AgentHarnessError>);
   });
 
   it('runs a routed subagent on its own model and effort, dropping the spec params', async () => {

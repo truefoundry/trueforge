@@ -14,7 +14,12 @@ import {
   DEFAULT_REQUIRE_APPROVAL_FOR_TOOLS,
 } from '../core/mcp/toolSelectors';
 import { ToolSet } from '../core/mcp/ToolSet';
-import { createModelRouter, type ModelRouter, type ModelRouterDeps } from '../core/modelRouting/router';
+import {
+  createModelRouter,
+  type ModelRouterDeps,
+  type RouteInput,
+  type RoutedModel,
+} from '../core/modelRouting/router';
 import type { AgentModel } from '../core/runtime/AgentModel';
 import type { AgentInfo, ModelSnapshot } from '../core/runtime/AgentThread.types';
 import type { HarnessSandbox, SandboxInfo } from '../core/sandbox/Sandbox';
@@ -99,7 +104,7 @@ export class TurnResourceResolver<
   readonly #models = new Map<string, Promise<ResolvedModel>>();
   #sandbox?: HarnessSandbox | undefined;
   readonly maxParallelSubAgents?: number;
-  readonly routeModel: ModelRouter | undefined;
+  readonly routeModel: ((route: RouteInput) => Promise<RoutedModel | undefined>) | undefined;
 
   constructor(
     protected readonly deps: {
