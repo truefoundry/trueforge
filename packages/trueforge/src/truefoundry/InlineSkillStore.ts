@@ -67,12 +67,12 @@ export class InlineSkillStore<TTransaction = never> implements ISkillStore<TTran
   async validateAgentSkills(input: AgentSkillsInput, _transaction?: TTransaction): Promise<void> {
     void _transaction;
     this.#assertNamesInInline(input.skills.map(skill => skill.name));
-    await validateGitAgentSkills(this, { tenant_id: input.tenant_id, skills: input.skills });
+    await validateGitAgentSkills(this, input);
   }
 
   async resolveTurnSkills(input: AgentSkillsInput): Promise<SkillMount[]> {
     this.#assertNamesInInline(input.skills.map(skill => skill.name));
-    return resolveGitTurnSkills(this, { tenant_id: input.tenant_id, skills: input.skills });
+    return resolveGitTurnSkills(this, input);
   }
 
   #assertNamesInInline(names: readonly string[]): void {

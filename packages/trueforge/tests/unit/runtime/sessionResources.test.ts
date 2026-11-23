@@ -106,6 +106,7 @@ describe('validateAgentSpec', () => {
       memoryProviderStore: new SqliteMemoryProviderStore(db),
       configurationStore: new SqliteConfigurationStore(db),
       previousSpec: undefined,
+      agentId: undefined,
     };
   }
 
@@ -843,6 +844,7 @@ describe('validateAgentSpec', () => {
     expect(validateAgentSkills).toHaveBeenCalledWith({
       tenant_id: 'default',
       skills: [{ name: 'agent-skill:acme/team-a/echo:3', preload: false }],
+      agent_id: undefined,
     });
   });
 
