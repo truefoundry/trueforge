@@ -603,9 +603,9 @@ export interface AgentBuilderCapabilitiesResponse {
     memory?: { enabled: boolean; reason?: string };
     /**
      * Whether Auto mode can be selected in the model picker. Enabled when model routing is on and the user has a model
-     * in every routing cluster; absent means Auto mode cannot be selected.
+     * in every routing cluster.
      */
-    auto?: { enabled: boolean };
+    auto: { enabled: boolean };
     /** Finest supported sharing scope; `subject` allows invite-by-user as well as tenant-wide sharing. */
     sessionSharing: { granularity: 'tenant' | 'subject' };
   };

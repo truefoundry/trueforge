@@ -408,6 +408,7 @@ describe('DraftModelSelector', () => {
           data: {
             sandbox: { enabled: true, environments: { enabled: true } },
             skill: { enabled: true },
+            auto: { enabled: false },
             sessionSharing: tenantSessionSharing,
             settings: allSettingsSections(false),
           },

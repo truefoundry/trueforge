@@ -160,7 +160,7 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
       }}
       listboxId={menuId}
       autoOption={{
-        enabled: capabilities?.auto?.enabled === true,
+        enabled: capabilities?.auto.enabled === true,
         onSelect: () => commit(AUTO_MODEL_PATCH),
       }}
       reasoning={{

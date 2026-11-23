@@ -95,6 +95,7 @@ function renderSelector({
         data: {
           sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
+          auto: { enabled: false },
           sessionSharing: tenantSessionSharing,
         },
       })),
@@ -302,6 +303,7 @@ describe('DraftCompositeSelector', () => {
         data: {
           sandbox: { enabled: false, environments: { enabled: false } },
           skill: { enabled: false, reason: 'Skills run in a sandbox, which is not configured.' },
+          auto: { enabled: false },
           sessionSharing: tenantSessionSharing,
         },
       }),
@@ -323,6 +325,7 @@ describe('DraftCompositeSelector', () => {
         data: {
           sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: false, reason: 'Skills are not available.' },
+          auto: { enabled: false },
           sessionSharing: tenantSessionSharing,
         },
       }),
@@ -350,6 +353,7 @@ describe('DraftCompositeSelector', () => {
         data: {
           sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
+          auto: { enabled: false },
           sessionSharing: tenantSessionSharing,
           settings: allSettingsSections(false),
         },
@@ -377,6 +381,7 @@ describe('DraftCompositeSelector', () => {
         data: {
           sandbox: { enabled: false, environments: { enabled: false } },
           skill: { enabled: false, reason: 'Skills run in a sandbox, which is not configured.' },
+          auto: { enabled: false },
           sessionSharing: tenantSessionSharing,
         },
       }),
@@ -602,6 +607,7 @@ describe('DraftCompositeSelector', () => {
         data: {
           sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
+          auto: { enabled: false },
           sessionSharing: tenantSessionSharing,
           webSearch: { enabled: true },
         },
@@ -658,6 +664,7 @@ describe('DraftCompositeSelector', () => {
         data: {
           sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
+          auto: { enabled: false },
           sessionSharing: tenantSessionSharing,
           webSearch: { enabled: false },
         },
@@ -699,6 +706,7 @@ describe('DraftCompositeSelector', () => {
         data: {
           sandbox: { enabled: true },
           skill: { enabled: true },
+          auto: { enabled: false },
           sessionSharing: tenantSessionSharing,
           webSearch: { enabled: false, reason: 'Web search is turned off for this tenant.' },
         },
@@ -721,6 +729,7 @@ describe('DraftCompositeSelector', () => {
         data: {
           sandbox: { enabled: true },
           skill: { enabled: true },
+          auto: { enabled: false },
           sessionSharing: tenantSessionSharing,
           webSearch: { enabled: false },
         },
@@ -751,6 +760,7 @@ describe('DraftCompositeSelector', () => {
         data: {
           sandbox: { enabled: true },
           skill: { enabled: true },
+          auto: { enabled: false },
           sessionSharing: tenantSessionSharing,
           webSearch: { enabled: true },
         },

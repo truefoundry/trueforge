@@ -42,6 +42,7 @@ function renderSettings(
       data: {
         sandbox: { enabled: true },
         skill: { enabled: true },
+        auto: { enabled: false },
         sessionSharing: tenantSessionSharing,
         settings: { ...sections, webSearch: { enabled: true, manageProviders } },
       },
