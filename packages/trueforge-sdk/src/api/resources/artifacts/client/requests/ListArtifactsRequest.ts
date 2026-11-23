@@ -12,5 +12,5 @@ export interface ListArtifactsRequest {
     /** When set, only artifacts created in this session are returned. */
     createdBySessionId?: string;
     /** Case-insensitive substring match on artifact title. */
-    title?: string;
+    name?: string;
 }

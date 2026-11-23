@@ -514,7 +514,7 @@ client.agents.delete(
 <dl>
 <dd>
 
-List artifacts created by the caller, most recently updated first. Optionally filter by session or title substring.
+List artifacts created by the caller, most recently updated first. Optionally filter by session or name substring.
 </dd>
 </dl>
 </dd>
@@ -576,7 +576,7 @@ client.artifacts.list()
 <dl>
 <dd>
 
-**title:** `typing.Optional[str]` — Case-insensitive substring match on artifact title.
+**name:** `typing.Optional[str]` — Case-insensitive substring match on artifact title.
     
 </dd>
 </dl>
