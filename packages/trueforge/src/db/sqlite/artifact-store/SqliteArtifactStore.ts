@@ -123,7 +123,6 @@ export class SqliteArtifactStore implements IArtifactStore {
           artifact_id: artifact.id,
           version,
           entry_point: input.entry_point,
-          storage_prefix: input.storage_prefix,
           total_bytes: input.total_bytes,
           created_at: timestamp,
         })

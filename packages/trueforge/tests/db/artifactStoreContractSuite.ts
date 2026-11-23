@@ -36,12 +36,11 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     });
   }
 
-  async function createVersion(artifactId: string, uploadId: string) {
+  async function createVersion({ artifactId, entryPoint }: { artifactId: string; entryPoint: string }) {
     const version = await getStore().createVersion({
       tenant_id: TENANT,
       artifact_id: artifactId,
-      entry_point: `${uploadId}/index.html`,
-      storage_prefix: `artifacts/${TENANT}/${artifactId}/${uploadId}/`,
+      entry_point: entryPoint,
       total_bytes: 100,
     });
     if (version === undefined) {
@@ -156,12 +155,12 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     const artifact = await createArtifact();
     const untouched = await createArtifact({ title: 'untouched' });
     await tick();
-    const v1 = await createVersion(artifact.id, 'u1');
-    const v2 = await createVersion(artifact.id, 'u2');
+    const v1 = await createVersion({ artifactId: artifact.id, entryPoint: 'index.html' });
+    const v2 = await createVersion({ artifactId: artifact.id, entryPoint: 'report/index.html' });
     expect([v1.version, v2.version]).toEqual([1, 2]);
     const updated = (await store.listArtifacts(LIST_DEFAULTS)).data.find(a => a.id === artifact.id);
     expect(updated?.latest_version).toBe(2);
-    expect(updated?.entry_point).toBe('u2/index.html');
+    expect(updated?.entry_point).toBe('report/index.html');
     expect(updated?.updated_at).toBe(v2.created_at);
     expect(Date.parse(updated?.updated_at ?? '')).toBeGreaterThan(Date.parse(artifact.updated_at));
     expect((await store.listArtifacts(LIST_DEFAULTS)).data.map(a => a.id)).toEqual([artifact.id, untouched.id]);
@@ -169,8 +168,7 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     expect(await store.getVersion({ tenant_id: TENANT, artifact_id: artifact.id, version: 1 })).toEqual(v1);
     expect(v1).toEqual(
       expect.objectContaining({
-        entry_point: 'u1/index.html',
-        storage_prefix: `artifacts/${TENANT}/${artifact.id}/u1/`,
+        entry_point: 'index.html',
         total_bytes: 100,
       }),
     );
@@ -180,13 +178,12 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
   it('hides versions from other tenants', async () => {
     const store = getStore();
     const artifact = await createArtifact();
-    const v1 = await createVersion(artifact.id, 'u1');
+    const v1 = await createVersion({ artifactId: artifact.id, entryPoint: 'index.html' });
     expect(
       await store.createVersion({
         tenant_id: OTHER_TENANT,
         artifact_id: artifact.id,
         entry_point: 'index.html',
-        storage_prefix: 'p/',
         total_bytes: 1,
       }),
     ).toBeUndefined();

@@ -23,10 +23,8 @@ export interface ArtifactRecord {
 export interface ArtifactVersionRecord {
   artifact_id: string;
   version: number;
-  /** Path of the default file to render, relative to `storage_prefix`. */
+  /** Path of the default file to render, relative to the version's files. */
   entry_point: string;
-  /** Object-store prefix holding the version's files. */
-  storage_prefix: string;
   total_bytes: number;
   /** ISO-8601 UTC instant. */
   created_at: string;
@@ -54,7 +52,6 @@ export interface CreateArtifactVersionInput {
   tenant_id: string;
   artifact_id: string;
   entry_point: string;
-  storage_prefix: string;
   total_bytes: number;
 }
 
@@ -92,7 +89,7 @@ export interface IArtifactStore {
   /** Most recently updated first. */
   listArtifacts(input: ListArtifactsInput): Promise<{ data: ArtifactRecord[]; pagination: TokenPagination }>;
   /**
-   * Atomically inserts the next version for files already uploaded under `storage_prefix` and
+   * Atomically inserts the next version for files already uploaded for it and
    * advances `latest_version` and `updated_at`. Undefined when the artifact is not in the tenant.
    */
   createVersion(input: CreateArtifactVersionInput): Promise<ArtifactVersionRecord | undefined>;

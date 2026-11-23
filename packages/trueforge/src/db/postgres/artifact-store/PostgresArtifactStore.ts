@@ -37,7 +37,6 @@ function toVersionRecord(row: Selectable<ArtifactVersionTable>): ArtifactVersion
     artifact_id: row.artifact_id,
     version: row.version,
     entry_point: row.entry_point,
-    storage_prefix: row.storage_prefix,
     total_bytes: row.total_bytes,
     created_at: row.created_at.toISOString(),
   };
@@ -112,7 +111,6 @@ export class PostgresArtifactStore implements IArtifactStore {
           artifact_id: artifact.id,
           version,
           entry_point: input.entry_point,
-          storage_prefix: input.storage_prefix,
           total_bytes: input.total_bytes,
           created_at: now(),
         })
