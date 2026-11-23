@@ -1,0 +1,40 @@
+name: Generate SDK
+
+# Push to main (and manual dispatch). The custom-runner job mints the App
+# token and commits generated output. Pull request checks are generate-sdk-check.yml.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/trueforge/src/**'
+      - 'packages/trueforge/scripts/**'
+      - 'packages/trueforge-core/src/**'
+      - '.github/fern/**'
+      - '.github/workflows/generate-sdk.yml'
+      - '.github/workflows/custom-runners/generate-sdk.yml'
+      - 'scripts/generate-sdk.sh'
+
+concurrency:
+  group: generate-sdk-${{ github.ref_name }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  generate:
+    name: Generate OpenAPI and SDKs
+    # Bot pushes from this workflow would otherwise re-enter forever.
+    # github-actions[bot] covers a GITHUB_TOKEN push. trueforge-dev-bot[bot] is
+    # this App's slug.
+    if: >
+      github.actor != 'github-actions[bot]' &&
+      github.actor != 'trueforge-dev-bot[bot]'
+    uses: ./.github/workflows/custom-runners/generate-sdk.yml@main
+    permissions:
+      contents: write
+    secrets: inherit
+    with:
+      checkout_ref: ${{ github.sha }}
+      base_sha: ${{ github.event.before }}
+      branch: ${{ github.ref_name }}

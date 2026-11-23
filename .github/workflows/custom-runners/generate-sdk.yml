@@ -1,0 +1,154 @@
+name: Generate SDK on custom runners
+
+on:
+  workflow_call:
+    inputs:
+      checkout_ref:
+        description: Commit to regenerate from
+        required: true
+        type: string
+      base_sha:
+        description: Commit the OpenAPI inputs are diffed against. Empty regenerates.
+        required: false
+        type: string
+        default: ""
+      branch:
+        description: Branch to push generated output to
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  guard:
+    name: Assert caller
+    runs-on:
+      group: public-runner-group
+      labels: "gh-pb-runners-2c"
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Check out caller assert
+        uses: actions/checkout@v7
+        with:
+          repository: truefoundry/trueforge
+          ref: refs/heads/main
+          persist-credentials: false
+          sparse-checkout: .github/actions/assert-custom-runner-caller
+
+      - name: Assert caller
+        uses: ./.github/actions/assert-custom-runner-caller
+        with:
+          allowed_workflows: |
+            .github/workflows/generate-sdk.yml
+          job_workflow_ref: ${{ job.workflow_ref }}
+          reusable_ref: truefoundry/trueforge/.github/workflows/custom-runners/generate-sdk.yml@refs/heads/main
+
+  work:
+    name: Generate OpenAPI and SDKs
+    needs: [guard]
+    runs-on:
+      group: public-runner-group
+      labels: "gh-pb-runners-2c"
+    environment: github-write
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.checkout_ref }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build trueforge-core
+        run: pnpm --filter @truefoundry/trueforge-core build
+
+      - name: Write OpenAPI document
+        run: pnpm --filter @truefoundry/trueforge openapi:write
+
+      - name: Decide whether the SDK needs regenerating
+        id: decide
+        env:
+          BASE_SHA: ${{ inputs.base_sha }}
+        run: |
+          set -euo pipefail
+
+          reason=""
+          if [ -n "$(git status --porcelain -- .github/fern/openapi/openapi.json docs/openapi.json)" ]; then
+            reason="the OpenAPI document changed"
+          elif ! git rev-parse --verify --quiet "${BASE_SHA}^{commit}" >/dev/null; then
+            reason="there is no base commit to compare against"
+          elif ! git diff --quiet "$BASE_SHA" HEAD -- .github/fern/generators.yml .github/fern/fern.config.json scripts/generate-sdk.sh; then
+            reason="the generator config changed"
+          fi
+
+          if [ -n "$reason" ]; then
+            echo "Regenerating: $reason."
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Skipping: the OpenAPI document and generator config are unchanged."
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate OpenAPI document and SDKs
+        if: steps.decide.outputs.needed == 'true'
+        env:
+          FERN_TOKEN: ${{ secrets.FERN_TOKEN }}
+        run: pnpm sdk:generate
+
+      - id: app-token
+        if: steps.decide.outputs.needed == 'true'
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
+          private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - name: Commit generated output
+        if: steps.decide.outputs.needed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          BRANCH: ${{ inputs.branch }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          HUSKY: '0'
+        run: |
+          set -euo pipefail
+
+          if [ -z "$(git status --porcelain -- .github/fern/openapi docs/openapi.json packages/trueforge-sdk python/trueforge_sdk pnpm-lock.yaml)" ]; then
+            echo "OpenAPI document and SDKs are already up to date."
+            exit 0
+          fi
+
+          gh auth setup-git
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${APP_SLUG}[bot]@users.noreply.github.com"
+
+          # Bot-authored sdk diffs need a changeset; the PR author never touches this commit.
+          # Skip packages/trueforge-sdk/.fern — Fern metadata only, not a consumer-facing change.
+          if [ -n "$(git status --porcelain -- packages/trueforge-sdk ':!packages/trueforge-sdk/.fern')" ]; then
+            pnpm changeset:sdk-regen
+          fi
+
+          git add .github/fern/openapi docs/openapi.json packages/trueforge-sdk python/trueforge_sdk pnpm-lock.yaml .changeset
+          if [ -n "$(git diff --name-only)" ] || [ -n "$(git ls-files --others --exclude-standard)" ]; then
+            echo "::error::SDK commit left files outside the generated trees"
+            git status --porcelain
+            exit 1
+          fi
+          git commit -m "Regenerate OpenAPI document and SDKs"
+          git push origin "HEAD:refs/heads/$BRANCH"

@@ -1,0 +1,128 @@
+name: Open sandbox image pin on custom runners
+
+on:
+  workflow_call:
+    inputs:
+      checkout_ref:
+        description: Commit whose sandbox image was just pushed
+        required: true
+        type: string
+      image_uri:
+        description: Pushed image URI
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  guard:
+    name: Assert caller
+    runs-on:
+      group: public-runner-group
+      labels: "gh-pb-runners-2c"
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Check out caller assert
+        uses: actions/checkout@v7
+        with:
+          repository: truefoundry/trueforge
+          ref: refs/heads/main
+          persist-credentials: false
+          sparse-checkout: .github/actions/assert-custom-runner-caller
+
+      - name: Assert caller
+        uses: ./.github/actions/assert-custom-runner-caller
+        with:
+          allowed_workflows: |
+            .github/workflows/push-sandbox-image.yml
+          job_workflow_ref: ${{ job.workflow_ref }}
+          reusable_ref: truefoundry/trueforge/.github/workflows/custom-runners/sandbox-pin.yml@refs/heads/main
+
+  work:
+    name: Open SANDBOX_IMAGE_URI pin PR
+    needs: [guard]
+    runs-on:
+      group: public-runner-group
+      labels: "gh-pb-runners-2c"
+    environment: github-write
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.checkout_ref }}
+
+      - name: Write sandboxImage.json
+        id: pin-uri
+        env:
+          IMAGE_URI: ${{ inputs.image_uri }}
+        run: |
+          set -euo pipefail
+          path=packages/trueforge-core/src/core/sandbox/sandboxImage.json
+          jq -n --arg uri "$IMAGE_URI" '{uri: $uri}' >"$path"
+          if git diff --quiet -- "$path"; then
+            echo "changed=false" >>"$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >>"$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.pin-uri.outputs.changed == 'true'
+        run: bash scripts/changeset-sandbox-image.sh
+
+      - id: app-token
+        if: steps.pin-uri.outputs.changed == 'true'
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
+          private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Open and auto-merge the pin PR
+        if: steps.pin-uri.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          IMAGE_URI: ${{ inputs.image_uri }}
+          SHA: ${{ inputs.checkout_ref }}
+          PIN_BRANCH: release-sandbox-image
+          HUSKY: '0'
+        run: |
+          set -euo pipefail
+          gh auth setup-git
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${APP_SLUG}[bot]@users.noreply.github.com"
+          git checkout -B "$PIN_BRANCH"
+          git add packages/trueforge-core/src/core/sandbox/sandboxImage.json .changeset
+          if [ -n "$(git diff --name-only)" ] || [ -n "$(git ls-files --others --exclude-standard)" ]; then
+            echo "::error::sandbox pin left files outside sandboxImage.json and .changeset"
+            git status --porcelain
+            exit 1
+          fi
+          git commit -m "chore: update sandbox image ${SHA}"
+          git push --force origin "HEAD:refs/heads/${PIN_BRANCH}"
+
+          find_pr() {
+            gh pr list --repo "$GITHUB_REPOSITORY" --head "$PIN_BRANCH" \
+              --base main --state open --json number --jq '.[0].number // empty'
+          }
+          PR="$(find_pr)"
+          if [ -z "$PR" ]; then
+            gh pr create \
+              --repo "$GITHUB_REPOSITORY" \
+              --base main \
+              --head "$PIN_BRANCH" \
+              --title "chore: update sandbox image ${SHA}" \
+              --body "Pushed \`${IMAGE_URI}\`. Merge so \`release.yml\` can publish the pin.
+          Existing tenants stay on \`build_metadata\`."
+            PR="$(find_pr)"
+          fi
+          if [ -z "$PR" ]; then
+            echo "::error::could not open or find the sandbox image pin PR"
+            exit 1
+          fi
+          gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --squash --auto
+          echo "Pin PR: #${PR}" >> "$GITHUB_STEP_SUMMARY"

@@ -200,10 +200,11 @@ peeled commit SHA (`git rev-parse HEAD`), not an annotated-tag object.
 
 [`release.yml`](.github/workflows/release.yml) builds/pushes `{appVersion}-{shortSha}`
 from the root [`Dockerfile`](Dockerfile), then calls
-[`release-chart.yml`](.github/workflows/release-chart.yml) (`workflow_call`) with
-`branch` set to the `release-vX.Y.Z` branch the workflow is running on,
-`chart_version`, `app_version`, and `image_tag`. The chart workflow does not
-build images.
+[`custom-runners/publish-chart.yml`](.github/workflows/custom-runners/publish-chart.yml)
+with `branch` set to the `release-vX.Y.Z` branch the workflow is running on,
+`chart_version`, `app_version`, and `image_tag`. Manual dispatch stays on
+[`release-chart.yml`](.github/workflows/release-chart.yml), which calls that same
+workflow. The chart workflow does not build images.
 
 `--ref` selects which workflow file GitHub runs. `branch` is the git branch that
 receives `Chart.yaml` / `values.yaml`.

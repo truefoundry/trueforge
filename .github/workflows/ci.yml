@@ -16,9 +16,7 @@ concurrency:
 jobs:
   detect-changes:
     name: Detect Changes
-    runs-on:
-      group: public-runner-group
-      labels: "gh-pb-runners-2c"
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       contents: read

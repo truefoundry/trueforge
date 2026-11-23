@@ -1,0 +1,166 @@
+name: Release version on custom runners
+
+on:
+  workflow_call:
+    inputs:
+      checkout_ref:
+        description: Commit to version
+        required: true
+        type: string
+      tfy_chart_version:
+        description: Chart version X.Y.Z or X.Y.Z-rc.N
+        required: true
+        type: string
+      release_branch:
+        description: Release branch name
+        required: true
+        type: string
+    outputs:
+      sha:
+        description: Version commit, or the checkout SHA when nothing changed
+        value: ${{ jobs.work.outputs.sha }}
+      final_minor:
+        description: True when the chart version is X.Y.0
+        value: ${{ jobs.work.outputs.final_minor }}
+      mode:
+        description: Changesets publish mode
+        value: ${{ jobs.work.outputs.mode }}
+      publish-plan-artifact-id:
+        description: Changesets publish plan artifact
+        value: ${{ jobs.work.outputs.publish-plan-artifact-id }}
+
+permissions: {}
+
+jobs:
+  guard:
+    name: Assert caller
+    runs-on:
+      group: public-runner-group
+      labels: "gh-pb-runners-2c"
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Check out caller assert
+        uses: actions/checkout@v7
+        with:
+          repository: truefoundry/trueforge
+          ref: refs/heads/main
+          persist-credentials: false
+          sparse-checkout: .github/actions/assert-custom-runner-caller
+
+      - name: Assert caller
+        uses: ./.github/actions/assert-custom-runner-caller
+        with:
+          allowed_workflows: |
+            .github/workflows/release.yml
+          job_workflow_ref: ${{ job.workflow_ref }}
+          reusable_ref: truefoundry/trueforge/.github/workflows/custom-runners/release-version.yml@refs/heads/main
+
+  work:
+    name: Version packages for the release
+    needs: [guard]
+    runs-on:
+      group: public-runner-group
+      labels: "gh-pb-runners-2c"
+    environment: github-write
+    timeout-minutes: 30
+    outputs:
+      sha: ${{ steps.commit.outputs.sha || steps.version-dirty.outputs.sha }}
+      final_minor: ${{ steps.version-dirty.outputs.final_minor }}
+      mode: ${{ steps.select-mode.outputs.mode }}
+      publish-plan-artifact-id: ${{ steps.select-mode.outputs.publish-plan-artifact-id }}
+    permissions:
+      contents: write
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.checkout_ref }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Prepare release and version packages
+        env:
+          TFY_CHART_VERSION: ${{ inputs.tfy_chart_version }}
+          RELEASE_BRANCH: ${{ inputs.release_branch }}
+          FERN_TOKEN: ${{ secrets.FERN_TOKEN }}
+        run: |
+          node scripts/prepare-release.mjs
+          pnpm run version
+
+      - name: Decide whether a version commit is needed
+        id: version-dirty
+        env:
+          TFY_CHART_VERSION: ${{ inputs.tfy_chart_version }}
+          RELEASE_BRANCH: ${{ inputs.release_branch }}
+        run: |
+          set -euo pipefail
+
+          # Only a final minor drains main. A hotfix (X.Y.Z, Z>0) must not:
+          # its changeset still sits on main from the source PR and belongs in
+          # the next minor's changelog too.
+          if [[ "$TFY_CHART_VERSION" =~ ^[0-9]+\.[0-9]+\.0$ ]]; then
+            echo "final_minor=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "final_minor=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [ -z "$(git status --porcelain)" ]; then
+            SHA="$(git rev-parse HEAD)"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+            echo "Nothing to version; releasing ${RELEASE_BRANCH} at $SHA"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - id: app-token
+        if: steps.version-dirty.outputs.changed == 'true'
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
+          private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - name: Commit versions to the release branch
+        id: commit
+        if: steps.version-dirty.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          RELEASE_BRANCH: ${{ inputs.release_branch }}
+          TFY_CHART_VERSION: ${{ inputs.tfy_chart_version }}
+          HUSKY: '0'
+        run: |
+          set -euo pipefail
+          gh auth setup-git
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${APP_SLUG}[bot]@users.noreply.github.com"
+          # Version output only: package metadata, changelogs, changesets, and
+          # the SDK regen version.mjs stages when the SDK version moves.
+          git add packages .changeset python/trueforge_sdk .github/fern/openapi docs/openapi.json pnpm-lock.yaml
+          if [ -n "$(git diff --name-only)" ] || [ -n "$(git ls-files --others --exclude-standard)" ]; then
+            echo "::error::version commit left files outside the versioned paths"
+            git status --porcelain
+            exit 1
+          fi
+          git commit -m "Version Packages for ${TFY_CHART_VERSION}"
+          git push origin "HEAD:${RELEASE_BRANCH}"
+          SHA="$(git rev-parse HEAD)"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "Committed versions for ${TFY_CHART_VERSION} as $SHA"
+
+      - name: Select Changesets mode
+        id: select-mode
+        uses: changesets/action/select-mode@v2

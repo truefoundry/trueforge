@@ -1,0 +1,78 @@
+name: Check generated SDK
+
+# Pull requests only. Regenerates the OpenAPI document without Fern and fails
+# if that document is dirty. Fern's SDK generators need FERN_TOKEN, which lives
+# on the github-write environment and is not available here; the main push
+# workflow regenerates the SDKs.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'packages/trueforge/src/**'
+      - 'packages/trueforge/scripts/**'
+      - 'packages/trueforge-core/src/**'
+      - '.github/fern/**'
+      - '.github/workflows/generate-sdk-check.yml'
+      - '.github/workflows/generate-sdk.yml'
+      - 'scripts/generate-sdk.sh'
+
+concurrency:
+  group: generate-sdk-check-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check OpenAPI document
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out pull request head
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build trueforge-core
+        run: pnpm --filter @truefoundry/trueforge-core build
+
+      - name: Write OpenAPI document
+        run: pnpm --filter @truefoundry/trueforge openapi:write
+
+      - name: Fail if the OpenAPI document is dirty
+        run: |
+          set -euo pipefail
+          dirty="$(git status --porcelain -- .github/fern/openapi docs/openapi.json)"
+          if [ -z "$dirty" ]; then
+            echo "OpenAPI document is up to date."
+            echo "SDK generators are checked on push to main (they need FERN_TOKEN)."
+            exit 0
+          fi
+          {
+            echo "### OpenAPI document is out of date"
+            echo
+            echo "Run \`pnpm --filter @truefoundry/trueforge openapi:write\` and commit the result."
+            echo "SDK output is regenerated on main, where Fern can run."
+            echo
+            echo '```'
+            echo "$dirty"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "$dirty"
+          echo "::error::OpenAPI document is dirty."
+          exit 1

@@ -1,0 +1,55 @@
+name: Assert custom runner caller
+description: Fail unless a truefoundry/trueforge allowlisted workflow called this reusable file at main.
+
+inputs:
+  allowed_workflows:
+    description: Newline-separated caller paths, such as .github/workflows/release.yml
+    required: true
+  reusable_ref:
+    description: Expected job.workflow_ref (this file at refs/heads/main)
+    required: true
+  job_workflow_ref:
+    description: job.workflow_ref of the job running this action
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Assert caller
+      shell: bash
+      env:
+        ALLOWED: ${{ inputs.allowed_workflows }}
+        REUSABLE_REF: ${{ inputs.reusable_ref }}
+        CALLER_REF: ${{ github.workflow_ref }}
+        REPO: ${{ github.repository }}
+        JOB_REF: ${{ inputs.job_workflow_ref }}
+      run: |
+        set -euo pipefail
+        if [ "$REPO" != "truefoundry/trueforge" ]; then
+          echo "::error::caller repository is ${REPO}, expected truefoundry/trueforge"
+          exit 1
+        fi
+        if [ "$JOB_REF" != "$REUSABLE_REF" ]; then
+          echo "::error::job.workflow_ref is '${JOB_REF}', expected '${REUSABLE_REF}'"
+          exit 1
+        fi
+        # github.workflow_ref is the caller: owner/repo/<path>@refs/...
+        caller_path="${CALLER_REF#${REPO}/}"
+        caller_path="${caller_path%%@*}"
+        found=false
+        while IFS= read -r line; do
+          line="${line#"${line%%[![:space:]]*}"}"
+          line="${line%"${line##*[![:space:]]}"}"
+          if [ -z "$line" ]; then
+            continue
+          fi
+          if [ "$line" = "$caller_path" ]; then
+            found=true
+            break
+          fi
+        done <<< "$ALLOWED"
+        if [ "$found" != "true" ]; then
+          echo "::error::caller ${caller_path} is not allowlisted for this runner workflow"
+          exit 1
+        fi
+        echo "Caller ${caller_path} is allowlisted."

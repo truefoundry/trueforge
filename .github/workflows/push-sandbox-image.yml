@@ -51,84 +51,11 @@ jobs:
     name: Open SANDBOX_IMAGE_URI pin PR
     if: github.ref == 'refs/heads/main'
     needs: [build]
-    runs-on:
-      group: public-runner-group
-      labels: "gh-pb-runners-2c"
+    uses: ./.github/workflows/custom-runners/sandbox-pin.yml@main
     permissions:
       contents: write
       pull-requests: write
-    steps:
-      - uses: actions/checkout@v7
-
-      - id: image
-        env:
-          REPO: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_REPOSITORY }}
-          SHA: ${{ github.sha }}
-        run: echo "uri=${REPO}/trueforge-sandbox:${SHA}" >> "$GITHUB_OUTPUT"
-
-      - name: Write sandboxImage.json
-        id: pin-uri
-        env:
-          IMAGE_URI: ${{ steps.image.outputs.uri }}
-        run: |
-          set -euo pipefail
-          path=packages/trueforge-core/src/core/sandbox/sandboxImage.json
-          jq -n --arg uri "$IMAGE_URI" '{uri: $uri}' >"$path"
-          if git diff --quiet -- "$path"; then
-            echo "changed=false" >>"$GITHUB_OUTPUT"
-          else
-            echo "changed=true" >>"$GITHUB_OUTPUT"
-          fi
-
-      - if: steps.pin-uri.outputs.changed == 'true'
-        run: bash scripts/changeset-sandbox-image.sh
-
-      # App token so the pin PR push triggers ci.yml (GITHUB_TOKEN pushes do not).
-      - id: app-token
-        if: steps.pin-uri.outputs.changed == 'true'
-        uses: actions/create-github-app-token@v3
-        with:
-          client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
-          private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
-          permission-contents: write
-          permission-pull-requests: write
-
-      - name: Open sandbox image pin PR
-        if: steps.pin-uri.outputs.changed == 'true'
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          IMAGE_URI: ${{ steps.image.outputs.uri }}
-          SHA: ${{ github.sha }}
-          PIN_BRANCH: release-sandbox-image
-          HUSKY: '0'
-        run: |
-          set -euo pipefail
-          gh auth setup-git
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -B "$PIN_BRANCH"
-          git add packages/trueforge-core/src/core/sandbox/sandboxImage.json .changeset
-          git commit -m "chore: update sandbox image ${SHA}"
-          git push --force origin "HEAD:refs/heads/${PIN_BRANCH}"
-
-          find_pr() {
-            gh pr list --repo "$GITHUB_REPOSITORY" --head "$PIN_BRANCH" \
-              --base main --state open --json number --jq '.[0].number // empty'
-          }
-          PR="$(find_pr)"
-          if [ -z "$PR" ]; then
-            gh pr create \
-              --repo "$GITHUB_REPOSITORY" \
-              --base main \
-              --head "$PIN_BRANCH" \
-              --title "chore: update sandbox image ${SHA}" \
-              --body "Pushed \`${IMAGE_URI}\`. Merge so \`release.yml\` can publish the pin.
-          Existing tenants stay on \`build_metadata\`."
-            PR="$(find_pr)"
-          fi
-          if [ -z "$PR" ]; then
-            echo "::error::could not open or find the sandbox image pin PR"
-            exit 1
-          fi
-          echo "Opened pin PR #${PR}"
-          echo "Pin PR: #${PR}" >> "$GITHUB_STEP_SUMMARY"
+    secrets: inherit
+    with:
+      checkout_ref: ${{ github.sha }}
+      image_uri: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_REPOSITORY }}/trueforge-sandbox:${{ github.sha }}

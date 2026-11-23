@@ -9,56 +9,15 @@ concurrency:
   group: deploy-devtest
   cancel-in-progress: true
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   sync:
     name: Pin SHA and push
-    runs-on:
-      group: public-runner-group
-      labels: "gh-pb-runners-2c"
-    steps:
-      - id: app-token
-        uses: actions/create-github-app-token@v3
-        with:
-          client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
-          private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
-          permission-contents: write
-          owner: truefoundry
-          repositories: trueforge-devtest-deployment
-
-      - uses: actions/checkout@v7
-        with:
-          repository: truefoundry/trueforge-devtest-deployment
-          token: ${{ steps.app-token.outputs.token }}
-
-      - name: Install yq
-        run: |
-          sudo wget -q https://github.com/mikefarah/yq/releases/download/v4.53.3/yq_linux_amd64 -O /usr/bin/yq
-          sudo chmod +x /usr/bin/yq
-
-      - name: Pin trueforge SHA and push
-        env:
-          SHA: ${{ github.sha }}
-          BRANCH: ${{ github.ref_name }}
-          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
-        run: |
-          set -euo pipefail
-          for f in trueforge.truefoundry.yaml trueforge-controller.truefoundry.yaml trueforge-clone-tfy-sandbox.truefoundry.yaml; do
-            yq -i '
-              .image.build_source.ref = strenv(SHA) |
-              .image.build_source.branch_name = strenv(BRANCH)
-            ' "$f"
-          done
-
-          git config user.name "${APP_SLUG}[bot]"
-          git config user.email "${APP_SLUG}[bot]@users.noreply.github.com"
-          git add trueforge.truefoundry.yaml trueforge-controller.truefoundry.yaml trueforge-clone-tfy-sandbox.truefoundry.yaml
-          if git diff --cached --quiet; then
-            echo "Already pinned at $SHA"
-            exit 0
-          fi
-          git commit -m "chore: pin trueforge@${SHA}"
-          git push
-          echo "Pinned trueforge@\`$SHA\` on main" >> "$GITHUB_STEP_SUMMARY"
+    uses: ./.github/workflows/custom-runners/deploy-devtest.yml@main
+    permissions:
+      contents: read
+    secrets: inherit
+    with:
+      sha: ${{ github.sha }}
+      branch: ${{ github.ref_name }}

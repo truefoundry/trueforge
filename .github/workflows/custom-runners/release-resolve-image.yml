@@ -1,0 +1,116 @@
+name: Resolve release image on custom runners
+
+on:
+  workflow_call:
+    inputs:
+      checkout_ref:
+        description: Version commit to resolve
+        required: true
+        type: string
+      chart_version:
+        description: Chart version whose tag decides build vs skip
+        required: true
+        type: string
+    outputs:
+      app_version:
+        description: App version, empty when the chart tag already exists
+        value: ${{ jobs.work.outputs.app_version }}
+      image_tag:
+        description: Image tag, empty when the chart tag already exists
+        value: ${{ jobs.work.outputs.image_tag }}
+      image:
+        description: build or skip
+        value: ${{ jobs.work.outputs.image }}
+
+permissions: {}
+
+jobs:
+  guard:
+    name: Assert caller
+    runs-on:
+      group: public-runner-group
+      labels: "gh-pb-runners-2c"
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Check out caller assert
+        uses: actions/checkout@v7
+        with:
+          repository: truefoundry/trueforge
+          ref: refs/heads/main
+          persist-credentials: false
+          sparse-checkout: .github/actions/assert-custom-runner-caller
+
+      - name: Assert caller
+        uses: ./.github/actions/assert-custom-runner-caller
+        with:
+          allowed_workflows: |
+            .github/workflows/release.yml
+          job_workflow_ref: ${{ job.workflow_ref }}
+          reusable_ref: truefoundry/trueforge/.github/workflows/custom-runners/release-resolve-image.yml@refs/heads/main
+
+  work:
+    name: Resolve image identity
+    needs: [guard]
+    runs-on:
+      group: public-runner-group
+      labels: "gh-pb-runners-2c"
+    environment: github-write
+    timeout-minutes: 10
+    outputs:
+      app_version: ${{ steps.resolve.outputs.app_version }}
+      image_tag: ${{ steps.resolve.outputs.image_tag }}
+      image: ${{ steps.resolve.outputs.image }}
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.checkout_ref }}
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Resolve image identity
+        id: resolve
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CHART_VERSION: ${{ inputs.chart_version }}
+        run: |
+          set -euo pipefail
+          SEMVER='^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'
+          APP_VERSION=$(node -p "require('./packages/trueforge/package.json').version")
+          if [[ -z "$APP_VERSION" || "$APP_VERSION" == "undefined" ]] || ! printf '%s' "$APP_VERSION" | grep -Eq "$SEMVER"; then
+            echo "app_version '$APP_VERSION' is not a semver-like version" >&2
+            exit 1
+          fi
+          IMAGE_TAG="${APP_VERSION}-$(git rev-parse --short=7 HEAD)"
+
+          # matching-refs, not git/ref: a miss returns 200 + [], so "absent" is
+          # distinguishable from an API error. It is a prefix match, hence the
+          # exact-.ref filter. git ls-remote is unavailable here because the
+          # checkout runs with persist-credentials: false.
+          TAG="charts/trueforge@${CHART_VERSION}"
+          FOUND=$(gh api "repos/${GITHUB_REPOSITORY}/git/matching-refs/tags/${TAG}" \
+            --jq "[.[] | select(.ref == \"refs/tags/${TAG}\")] | length")
+          if [[ "$FOUND" == "0" ]]; then
+            echo "image=build" >> "$GITHUB_OUTPUT"
+            echo "app_version=$APP_VERSION" >> "$GITHUB_OUTPUT"
+            echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+            echo "$TAG does not exist; building image $IMAGE_TAG"
+            exit 0
+          fi
+
+          # Re-run of an already-cut version. The tagged commit names the image
+          # that belongs to this chart version; rebuilding under a new SHA would
+          # make the same chart version disagree with itself. Empty outputs tell
+          # the chart job to keep the values already on the branch.
+          echo "image=skip" >> "$GITHUB_OUTPUT"
+          echo "app_version=" >> "$GITHUB_OUTPUT"
+          echo "image_tag=" >> "$GITHUB_OUTPUT"
+          echo "$TAG already exists; reusing the image the tagged commit references"

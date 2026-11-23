@@ -1,0 +1,176 @@
+name: Back-merge changelogs on custom runners
+
+on:
+  workflow_call:
+    inputs:
+      checkout_ref:
+        description: Commit to start from
+        required: true
+        type: string
+      release_sha:
+        description: Version commit whose changelogs move back to main
+        required: true
+        type: string
+      tfy_chart_version:
+        description: Chart version used in the branch and PR title
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  guard:
+    name: Assert caller
+    runs-on:
+      group: public-runner-group
+      labels: "gh-pb-runners-2c"
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Check out caller assert
+        uses: actions/checkout@v7
+        with:
+          repository: truefoundry/trueforge
+          ref: refs/heads/main
+          persist-credentials: false
+          sparse-checkout: .github/actions/assert-custom-runner-caller
+
+      - name: Assert caller
+        uses: ./.github/actions/assert-custom-runner-caller
+        with:
+          allowed_workflows: |
+            .github/workflows/release.yml
+          job_workflow_ref: ${{ job.workflow_ref }}
+          reusable_ref: truefoundry/trueforge/.github/workflows/custom-runners/release-back-merge.yml@refs/heads/main
+
+  work:
+    name: Back-merge changelogs to main
+    needs: [guard]
+    runs-on:
+      group: public-runner-group
+      labels: "gh-pb-runners-2c"
+    environment: github-write
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.checkout_ref }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Build the back-merge commit
+        id: build
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          TFY_CHART_VERSION: ${{ inputs.tfy_chart_version }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          git fetch --no-tags origin "$RELEASE_SHA"
+
+          # Consumed = present at the branch cut, absent on the release branch
+          # now. After `changeset pre exit` that covers both the files deleted
+          # outright and the ones that passed through .changeset/pre/.
+          # ls-tree is non-recursive on purpose: .changeset/pre/ contents are
+          # release-branch-only state and must not be listed.
+          base="$(git merge-base origin/main "$RELEASE_SHA")"
+          list() {
+            git ls-tree --name-only "$1" .changeset/ | grep '\.md$' | grep -v '/README\.md$' | sort
+          }
+          consumed="$(comm -23 <(list "$base") <(list "$RELEASE_SHA") || true)"
+
+          git checkout -B "back-merge/v${TFY_CHART_VERSION}" origin/main
+          if [ -n "$consumed" ]; then
+            printf '%s\n' "$consumed" | xargs -r git rm -q --ignore-unmatch --
+            printf 'dropping consumed changesets:\n%s\n' "$consumed"
+          fi
+
+          changelogs="$(git ls-tree --name-only -r "$RELEASE_SHA" packages/ | grep '/CHANGELOG\.md$' || true)"
+          if [ -n "$changelogs" ]; then
+            printf '%s\n' "$changelogs" | xargs -r git checkout "$RELEASE_SHA" --
+          fi
+
+          if git diff --staged --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "main already carries this line's changesets and changelogs"
+            exit 0
+          fi
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - id: app-token
+        if: steps.build.outputs.changed == 'true'
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
+          private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Commit the back-merge
+        if: steps.build.outputs.changed == 'true'
+        env:
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          TFY_CHART_VERSION: ${{ inputs.tfy_chart_version }}
+          HUSKY: '0'
+        run: |
+          set -euo pipefail
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${APP_SLUG}[bot]@users.noreply.github.com"
+          if [ -n "$(git diff --name-only)" ] || [ -n "$(git ls-files --others --exclude-standard)" ]; then
+            echo "::error::back-merge left unstaged files outside the consumed changesets and changelogs"
+            git status --porcelain
+            exit 1
+          fi
+          git commit -m "Back-merge changelogs for ${TFY_CHART_VERSION}"
+
+      - name: Open and merge the back-merge PR
+        if: steps.build.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          BACK_MERGE_BRANCH: back-merge/v${{ inputs.tfy_chart_version }}
+          TFY_CHART_VERSION: ${{ inputs.tfy_chart_version }}
+        run: |
+          set -euo pipefail
+          gh auth setup-git
+          git push --force origin "HEAD:refs/heads/${BACK_MERGE_BRANCH}"
+
+          find_pr() {
+            gh pr list --repo "$GITHUB_REPOSITORY" --head "$BACK_MERGE_BRANCH" \
+              --base main --state open --json number --jq '.[0].number // empty'
+          }
+          PR="$(find_pr)"
+          if [ -z "$PR" ]; then
+            gh pr create \
+              --repo "$GITHUB_REPOSITORY" \
+              --base main \
+              --head "$BACK_MERGE_BRANCH" \
+              --title "Back-merge changelogs for ${TFY_CHART_VERSION}" \
+              --body "Drains the changesets consumed by release-v${TFY_CHART_VERSION} and carries that line's packages/*/CHANGELOG.md back to main. No version field moves: main stays at 0.0.0."
+            PR="$(find_pr)"
+          fi
+          if [ -z "$PR" ]; then
+            echo "::error::could not open or find the back-merge PR"
+            exit 1
+          fi
+
+          # --auto waits for required checks instead of failing while they are still pending.
+          gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --squash --auto
+          read -r STATE QUEUED < <(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json state,autoMergeRequest --jq '[.state, (.autoMergeRequest != null | tostring)] | @tsv')
+          if [ "$STATE" = "MERGED" ] || [ "$QUEUED" = "true" ]; then
+            echo "Back-merge PR #${PR} state=${STATE} auto=${QUEUED}"
+          else
+            echo "::error::back-merge PR #${PR} did not merge or queue (state=${STATE})"
+            exit 1
+          fi
+
+      - name: Report back-merge failure
+        if: failure()
+        env:
+          TFY_CHART_VERSION: ${{ inputs.tfy_chart_version }}
+        run: |
+          echo "::error::back-merge to main failed for ${TFY_CHART_VERSION}; main still carries this line's consumed changesets. Re-dispatch this release to retry the drain."
