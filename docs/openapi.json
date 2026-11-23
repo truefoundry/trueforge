@@ -358,12 +358,12 @@
               "null"
             ]
           },
+          "id": {
+            "type": "string"
+          },
           "latest_version": {
             "description": "Latest version.",
             "type": "integer"
-          },
-          "slug": {
-            "type": "string"
           },
           "title": {
             "type": "string"
@@ -374,7 +374,7 @@
           }
         },
         "required": [
-          "slug",
+          "id",
           "title",
           "latest_version",
           "entry_point",

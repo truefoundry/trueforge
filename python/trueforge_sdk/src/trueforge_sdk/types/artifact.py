@@ -23,12 +23,12 @@ class Artifact(UncheckedBaseModel):
     Latest version's default file to render, as a path relative to the version. Null before the first version.
     """
 
+    id: str
     latest_version: int = pydantic.Field()
     """
     Latest version.
     """
 
-    slug: str
     title: str
     updated_at: dt.datetime
 

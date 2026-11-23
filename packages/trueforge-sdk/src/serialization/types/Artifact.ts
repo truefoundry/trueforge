@@ -12,8 +12,8 @@ export const Artifact: core.serialization.ObjectSchema<serializers.Artifact.Raw,
         createdBySessionId: core.serialization.property("created_by_session_id", core.serialization.string()),
         createdBySubject: core.serialization.property("created_by_subject", Subject),
         entryPoint: core.serialization.property("entry_point", core.serialization.string().nullable()),
+        id: core.serialization.string(),
         latestVersion: core.serialization.property("latest_version", core.serialization.number()),
-        slug: core.serialization.string(),
         title: core.serialization.string(),
         updatedAt: core.serialization.property("updated_at", core.serialization.date()),
     });
@@ -25,8 +25,8 @@ export declare namespace Artifact {
         created_by_session_id: string;
         created_by_subject: Subject.Raw;
         entry_point?: string | null;
+        id: string;
         latest_version: number;
-        slug: string;
         title: string;
         updated_at: string;
     }

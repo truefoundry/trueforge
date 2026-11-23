@@ -10,9 +10,9 @@ export interface Artifact {
     createdBySubject: TrueForge.Subject;
     /** Latest version's default file to render, as a path relative to the version. Null before the first version. */
     entryPoint: string | null;
+    id: string;
     /** Latest version. */
     latestVersion: number;
-    slug: string;
     title: string;
     updatedAt: Date;
 }
