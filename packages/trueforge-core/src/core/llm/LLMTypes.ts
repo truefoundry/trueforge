@@ -32,7 +32,10 @@ export const RedactedThinkingBlockSchema = z
   })
   .openapi('RedactedThinkingBlock');
 
-export const ThinkingBlockUnionSchema = z.union([ThinkingBlockSchema, RedactedThinkingBlockSchema]);
+export const ThinkingBlockUnionSchema = z.discriminatedUnion('type', [
+  ThinkingBlockSchema,
+  RedactedThinkingBlockSchema,
+]);
 
 export const InternalToolCallInfoSchema = z.object({
   type: z.enum(['truefoundry-system', 'mcp']).describe('Whether the tool is a system tool or MCP tool.'),
@@ -153,6 +156,7 @@ export const FinishReasonSchema = ChatCompletionChunkFinishReasonSchema.openapi(
 
 export type ThinkingBlock = z.infer<typeof ThinkingBlockSchema>;
 export type RedactedThinkingBlock = z.infer<typeof RedactedThinkingBlockSchema>;
+export type ThinkingBlockUnion = z.infer<typeof ThinkingBlockUnionSchema>;
 export type InternalToolCallInfo = z.infer<typeof InternalToolCallInfoSchema>;
 export type TrueFoundrySystemToolInfo = z.infer<typeof TrueFoundrySystemToolInfoSchema>;
 export type MCPToolInfo = z.infer<typeof MCPToolInfoSchema>;

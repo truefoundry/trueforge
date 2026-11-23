@@ -40,18 +40,18 @@ describe('orchestration: mocked LLM and no tools', () => {
   it('sends a user message and finishes the thread with a text reply', async () => {
     const thread = new AgentThread({
       definition: {
-        modelClient: {
-          create: jest.fn().mockImplementation(() => textReplyStream(REPLY)),
-          createNonStream: jest.fn().mockImplementation(() => textReplyStream(REPLY)),
-        },
-        modelName: TEST_MODEL_NAME,
-
         instruction: INSTRUCTION,
         messages: undefined,
-        modelParams: undefined,
         responseFormat: undefined,
         iterationLimit: undefined,
         toolSets: undefined,
+      },
+      model: {
+        client: {
+          create: jest.fn().mockImplementation(() => textReplyStream(REPLY)),
+          createNonStream: jest.fn().mockImplementation(() => textReplyStream(REPLY)),
+        },
+        name: TEST_MODEL_NAME,
       },
       threadId: THREAD_ID,
       title: 'orchestration',
@@ -90,6 +90,6 @@ describe('orchestration: mocked LLM and no tools', () => {
     expect(outcome.events).toMatchObject(EXPECTED_EVENTS);
     expect(outcome.result).toMatchObject(OUTPUT);
     expect(outcome.result.root_agent_error).toBeUndefined();
-    expect(llmCreateInputs(thread.definition.modelClient)).toMatchObject(EXPECTED_LLM_INPUT);
+    expect(llmCreateInputs(thread.model.client)).toMatchObject(EXPECTED_LLM_INPUT);
   });
 });

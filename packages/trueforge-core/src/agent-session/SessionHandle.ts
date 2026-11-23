@@ -2,7 +2,9 @@
  * Bound session handle: starts turns via {@link SessionHandle.createTurn}.
  */
 import { newEventId, type TurnUserEvent, type UserMessage } from '../core/events/schema';
+import { createModelRouter } from '../core/modelRouting/router';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
+import { modelSnapshotFromAgent } from '../core/runtime/AgentModel';
 import { AgentThread } from '../core/runtime/AgentThread';
 import type { AgentThreadAppendContext, AgentThreadSnapshot } from '../core/runtime/AgentThread.types';
 import { AgentThreadOrchestrator } from '../core/runtime/AgentThreadOrchestrator';
@@ -247,6 +249,7 @@ export class SessionHandle<
         },
       };
 
+      const mainThread = agentThreads.get(MAIN_THREAD_ID);
       await this.store.createTurn({
         turn: turnInit,
         new_threads,
@@ -255,6 +258,7 @@ export class SessionHandle<
           thread_id,
           capability_state: thread.toSnapshot().capability_state,
         })),
+        main_thread_model: mainThread === undefined ? null : modelSnapshotFromAgent(mainThread.model),
         update_session_title_if_not_exist: input.update_session_title_if_not_exist ?? null,
       });
 
@@ -507,9 +511,13 @@ export class SessionHandle<
     await Promise.all(
       threadIds.map(async threadId => {
         const previousThreadSnapshot = snapshots?.[threadId];
+        const agentInfo = previousThreadSnapshot?.agent_info ?? undefined;
+        const savedModel = previousThreadSnapshot?.model ?? null;
         const resolved = await input.resolver.resolveAgentDefinition({
           spec: input.spec,
-          agent_info: previousThreadSnapshot?.agent_info ?? undefined,
+          // agent_info is the original request. A subagent resumes on its saved model; the root follows its spec.
+          agent_info: agentInfo,
+          model: agentInfo !== undefined && savedModel !== null ? savedModel : undefined,
           previousTurn: input.previous,
           signal: input.signal,
           tracing: input.tracing,
@@ -560,12 +568,12 @@ export class SessionHandle<
     tracing: AgentTracing;
     resolvedDefinition: ResolvedAgentDefinition;
   }): AgentThread {
-    const { definition, extraCapabilities } = input.resolvedDefinition;
+    const { definition, model, extraCapabilities } = input.resolvedDefinition;
     const isChild = Boolean(input.previousThreadSnapshot?.parent);
     const capabilities = [
       ...builtinsFromSpec({
         spec: input.spec,
-        definition,
+        model,
         isChild,
         sandboxAvailable: Boolean(input.sandbox),
         tracing: input.tracing,
@@ -576,6 +584,7 @@ export class SessionHandle<
     ];
     return new AgentThread({
       definition,
+      model,
       threadId: input.threadId,
       title: input.previousThreadSnapshot?.agent_info?.name ?? (isChild ? input.threadId : 'main'),
       sandbox: input.sandbox,
@@ -599,16 +608,22 @@ export class SessionHandle<
     sandbox: HarnessSandbox | undefined;
     tracing: AgentTracing;
   }): CreateDynamicSubAgentThread {
+    const { modelRouting, logger } = input.resolver;
+    const routeModel = modelRouting === undefined ? undefined : createModelRouter(modelRouting, logger);
     return async params => {
-      const { definition, extraCapabilities } = await input.resolver.resolveAgentDefinition({
+      // Route from the delegated task: the classifier requires the name and input to classify the task.
+      const task = `Name: ${params.request.name}\n\nTask:\n${params.request.input}`;
+      const routed = await routeModel?.({ threadId: params.threadId, input: task });
+
+      const { definition, model, extraCapabilities } = await input.resolver.resolveAgentDefinition({
         spec: input.spec,
         agent_info: params.request,
+        model: routed === undefined ? undefined : { name: routed.model, effort: routed.effort },
         previousTurn: input.previous,
         signal: params.signal,
         tracing: input.tracing,
       });
-      // Model override (request.model) is resolved inside resolveAgentDefinition
-      // into modelClient — do not re-label a stale client here.
+      // The routed model, else the request's model override, is resolved inside resolveAgentDefinition into `model`.
       const childDefinition: AgentDefinition = {
         ...definition,
         toolSets: params.parentDefinition.toolSets ?? definition.toolSets,
@@ -622,7 +637,7 @@ export class SessionHandle<
       const capabilities = [
         ...builtinsFromSpec({
           spec: input.spec,
-          definition: childDefinition,
+          model,
           isChild: true,
           sandboxAvailable: Boolean(input.sandbox),
           tracing: input.tracing,
@@ -633,6 +648,7 @@ export class SessionHandle<
       ];
       return new AgentThread({
         definition: childDefinition,
+        model,
         threadId: params.threadId,
         title: params.request.name,
         sandbox: input.sandbox,

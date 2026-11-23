@@ -3,6 +3,7 @@
  * `ModelProviderManifest` document. Implementations: Postgres, Sqlite, and
  * TrueFoundry (read-only ServiceFoundry server listing).
  */
+import type { RoutableModel } from '@truefoundry/trueforge-core/core';
 import type { ResourceName } from '../schemas/common';
 import type { AvailableModel, ModelProperties, ModelProviderManifest } from '../schemas/modelProvider';
 import type { TurnMetadata } from './turnMetadata';
@@ -19,7 +20,12 @@ export interface ModelProviderRecord {
 
 export interface ListModelProvidersInput {
   tenant_id: string;
+  /** Fill in the catalog fields; only a store with a model catalog (TrueFoundry) has them. */
+  has_catalog_info?: boolean;
 }
+
+/** A listed model; the catalog fields are undefined unless listed with `has_catalog_info` by a store that has them. */
+export interface AvailableModelWithCatalogInfo extends AvailableModel, RoutableModel {}
 
 export interface GetModelProviderInput {
   tenant_id: string;
@@ -79,7 +85,7 @@ export interface IModelProviderStore<TTransaction = never> {
   /** Removes one provider and every model it declares. Resolves `false` when no row matched. */
   deleteProvider(input: DeleteModelProviderInput, transaction?: TTransaction): Promise<boolean>;
   /** Flattens manifests into the FQN read view for GET /models. */
-  listModels(input: ListModelProvidersInput, transaction?: TTransaction): Promise<AvailableModel[]>;
+  listModels(input: ListModelProvidersInput, transaction?: TTransaction): Promise<AvailableModelWithCatalogInfo[]>;
   /** Extra headers for a model invoke. */
   resolveInvokeHeaders(input: {
     record: ModelProviderRecord;
@@ -103,7 +109,7 @@ export function modelPropertiesWarning(input: { properties: ModelProperties }): 
 }
 
 /** Application-side flatten shared by both store implementations. */
-export function flattenProviderModels(records: ModelProviderRecord[]): AvailableModel[] {
+export function flattenProviderModels(records: ModelProviderRecord[]): AvailableModelWithCatalogInfo[] {
   return records.flatMap(record =>
     record.manifest.models.map(model => {
       const warning = modelPropertiesWarning({ properties: model.properties });
@@ -113,6 +119,8 @@ export function flattenProviderModels(records: ModelProviderRecord[]): Available
         provider: { name: record.name },
         properties: model.properties,
         ...(warning === undefined ? {} : { warning }),
+        canonicalModel: undefined,
+        cost: undefined,
       };
     }),
   );

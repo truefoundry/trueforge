@@ -163,6 +163,7 @@ export function runStoreContractSuite<TTransaction>(
               current_context_usage: getEmptyCurrentContextUsage(),
               parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'tc1' },
               agent_info: { type: 'dynamic', name: 'child', input: 'task' },
+              model: null,
               completion: null,
               pending_mcp_auth: false,
               capability_state: null,
@@ -1669,6 +1670,59 @@ export function runStoreContractSuite<TTransaction>(
       expect(mustGet(afterSecond).metrics.total_turns).toBe(2);
     });
 
+    it("records the main thread's model for each turn, without carrying the previous one", async () => {
+      const store = createStore();
+      await seedSession(store);
+      const modelOf = async (turnId: string) =>
+        mustGet(await store.getTurn({ session_id: sessionId, turn_id: turnId })).snapshot.threads[MAIN_THREAD_ID]
+          ?.model;
+      await store.createTurn(
+        makeCreateTurnInput({
+          sessionId,
+          turnId: 'turn-1',
+          main_thread_model: { name: 'acct/model-a', effort: null },
+        }),
+      );
+      await finishTurn(store, 'turn-1');
+      await store.createTurn(
+        makeCreateTurnInput({
+          sessionId,
+          turnId: 'turn-2',
+          previousTurnId: 'turn-1',
+          firstTurnId: 'turn-1',
+          main_thread_model: { name: 'acct/model-b', effort: 'high' },
+        }),
+      );
+      expect(await modelOf('turn-1')).toEqual({ name: 'acct/model-a', effort: null });
+      expect(await modelOf('turn-2')).toEqual({ name: 'acct/model-b', effort: 'high' });
+    });
+
+    it('keeps the model of a thread added mid-turn', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      await store.addThreads({
+        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        threads: [
+          {
+            thread_id: 'child',
+            context: [],
+            current_context_usage: getEmptyCurrentContextUsage(),
+            parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'tc1' },
+            agent_info: { type: 'dynamic', name: 'child', input: 'task', model: 'acct/model-c' },
+            model: { name: 'acct/model-c', effort: null },
+            completion: null,
+            pending_mcp_auth: false,
+            capability_state: null,
+          },
+        ],
+      });
+      const turn = mustGet(await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' }));
+      expect(turn.snapshot.threads['child']?.model).toEqual({ name: 'acct/model-c', effort: null });
+    });
+
     it('update_session_title_if_not_exist sets once and never overwrites', async () => {
       const store = createStore();
       await seedSession(store);
@@ -1903,6 +1957,7 @@ export function runStoreContractSuite<TTransaction>(
           turnId: 't1',
           new_threads: [
             {
+              model: null,
               thread_id: MAIN_THREAD_ID,
               parent: null,
               agent_info: null,
@@ -1960,8 +2015,9 @@ export function runStoreContractSuite<TTransaction>(
           sessionId,
           turnId: 't1',
           new_threads: [
-            { thread_id: MAIN_THREAD_ID, parent: null, agent_info: null },
+            { thread_id: MAIN_THREAD_ID, parent: null, agent_info: null, model: null },
             {
+              model: null,
               thread_id: 'child',
               parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'tc-child' },
               agent_info: { type: 'dynamic', name: 'worker', input: 'task' },
@@ -2142,16 +2198,19 @@ export function runStoreContractSuite<TTransaction>(
           turnId: 't1',
           new_threads: [
             {
+              model: null,
               thread_id: MAIN_THREAD_ID,
               parent: null,
               agent_info: null,
             },
             {
+              model: null,
               thread_id: 'child-a',
               parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'tc-a' },
               agent_info: { type: 'dynamic', name: 'child-a', input: 'task-a' },
             },
             {
+              model: null,
               thread_id: 'child-b',
               parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'tc-b' },
               agent_info: { type: 'dynamic', name: 'child-b', input: 'task-b' },
@@ -2332,6 +2391,7 @@ export function runStoreContractSuite<TTransaction>(
                 current_context_usage: getEmptyCurrentContextUsage(),
                 parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'tc1' },
                 agent_info: { type: 'dynamic', name: 'child', input: 'do work' },
+                model: null,
                 completion: null,
                 pending_mcp_auth: false,
                 capability_state: null,
@@ -2499,6 +2559,7 @@ export function runStoreContractSuite<TTransaction>(
                 current_context_usage: getEmptyCurrentContextUsage(),
                 parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'tc1' },
                 agent_info: { type: 'dynamic', name: 'child', input: 'do work' },
+                model: null,
                 completion: null,
                 pending_mcp_auth: false,
                 capability_state: null,
@@ -3616,6 +3677,7 @@ export function runStoreContractSuite<TTransaction>(
             current_context_usage: getEmptyCurrentContextUsage(),
             parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'tc1' },
             agent_info: { type: 'dynamic', name: 'child', input: 'do work' },
+            model: null,
             completion: null,
             pending_mcp_auth: false,
             capability_state: null,
@@ -3759,6 +3821,7 @@ export function runStoreContractSuite<TTransaction>(
           turnId: 't1',
           new_threads: [
             {
+              model: null,
               thread_id: MAIN_THREAD_ID,
               parent: null,
               agent_info: null,
@@ -4404,6 +4467,7 @@ export function runStoreContractSuite<TTransaction>(
                 current_context_usage: getEmptyCurrentContextUsage(),
                 parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'tc1' },
                 agent_info: { type: 'dynamic', name: 'child', input: 'task' },
+                model: null,
                 completion: null,
                 pending_mcp_auth: false,
                 capability_state: null,

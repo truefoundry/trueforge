@@ -27,6 +27,7 @@ function resolverWith(sessionStartMemory: string | undefined, requests: ChatComp
     }),
   });
   return new TurnResourceResolver({
+    modelRouting: undefined,
     llm: () => Promise.resolve({ modelClient: llm, defaultModelParams: {}, providerType: undefined }),
     mcp: () => Promise.resolve(undefined),
     mcpRequestTimeoutMs: 1_000,

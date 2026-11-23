@@ -2,38 +2,42 @@ import type { Logger } from 'winston';
 import { z } from 'zod';
 import type { AgentCapability, CapabilityState, JsonValue } from '../capabilities/AgentCapability';
 import type { RegisteredPassthroughEvent, WithRegisteredPassthrough } from '../events/PassthroughEvents';
-import type {
-  AgentInfo,
-  AgentOutputEvent,
-  AgentParent,
-  ApprovalDecisionMessage,
-  BaseMCPAuthRequiredEvent,
-  MCPInitializeEvent,
-  MCPServerAuthInfo,
-  MCPServerInitInfo,
-  ModelMessageDeltaEvent,
-  ModelMessageEvent,
-  SandboxCreatedEvent,
-  ThreadContextCompactionFinishedEvent,
-  ThreadContextCompactionStartedEvent,
-  ThreadCreatedEvent,
-  ThreadOverwriteContextEvent,
-  ThreadStateError,
-  ToolApprovalRequiredEvent,
-  ToolResponseEvent,
-  ToolResponseRequiredEvent,
-  UserMCPAuthContinueEvent,
-  UserMessage,
-  UserToolApprovalEvent,
-  UserToolApprovalPolicyEvent,
-  UserToolResponseEvent,
+import {
+  ModelSnapshotSchema,
+  type AgentInfo,
+  type AgentOutputEvent,
+  type AgentParent,
+  type ApprovalDecisionMessage,
+  type BaseMCPAuthRequiredEvent,
+  type MCPInitializeEvent,
+  type MCPServerAuthInfo,
+  type MCPServerInitInfo,
+  type ModelMessageDeltaEvent,
+  type ModelMessageEvent,
+  type ModelSnapshot,
+  type SandboxCreatedEvent,
+  type ThreadContextCompactionFinishedEvent,
+  type ThreadContextCompactionStartedEvent,
+  type ThreadCreatedEvent,
+  type ThreadOverwriteContextEvent,
+  type ThreadStateError,
+  type ToolApprovalRequiredEvent,
+  type ToolResponseEvent,
+  type ToolResponseRequiredEvent,
+  type UserMCPAuthContinueEvent,
+  type UserMessage,
+  type UserToolApprovalEvent,
+  type UserToolApprovalPolicyEvent,
+  type UserToolResponseEvent,
 } from '../events/schema';
 import type { InternalEnrichedAssistantMessage, LLMToolMessage, LLMUserMessage } from '../llm/LLMTypes';
 import type { HarnessSandbox } from '../sandbox/Sandbox';
 import type { AgentTracing } from '../tracing/AgentTracing';
 import type { AgentDefinition } from './AgentDefinition';
+import type { AgentModel } from './AgentModel';
 import type { CurrentContextUsage } from './contextUsage';
 
+export { ModelSnapshotSchema, type ModelSnapshot };
 export type { AgentInfo, AgentParent };
 
 /** Canonical string constants for internal (non-wire) orchestration event `type` fields. */
@@ -207,6 +211,8 @@ export interface AgentThreadSnapshot {
   current_context_usage: CurrentContextUsage;
   parent: AgentParent | null;
   agent_info: AgentInfo | null;
+  /** Model and effort this thread resolved to. Updated every turn for the main thread, and set when a subagent is created. */
+  model: ModelSnapshot | null;
   completion: SubAgentCompletion | null;
   pending_mcp_auth: boolean;
   /** Cross-turn capability KV. Keys: capability.state.key; `tfy.` reserved for builtins. */
@@ -215,6 +221,7 @@ export interface AgentThreadSnapshot {
 
 export interface AgentThreadConstructorInput {
   definition: AgentDefinition;
+  model: AgentModel;
   threadId: string;
   title: string;
   parent?: AgentParent | undefined;

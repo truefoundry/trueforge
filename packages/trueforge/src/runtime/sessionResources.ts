@@ -2,7 +2,7 @@ import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import {
   Sandbox,
   SkillMounter,
-  type AgentDefinition,
+  type AgentModel,
   type AgentTracing,
   type DaytonaSandboxEnvironment,
   type McpConnection,
@@ -70,7 +70,7 @@ export async function getModelDetails({
 }): Promise<{
   providerConfig: VercelAIProviderConfig;
   defaultModelParams: ModelParams;
-  modelProperties: AgentDefinition['modelProperties'];
+  modelProperties: AgentModel['properties'];
   reasoningEfforts: ReasoningEffort[] | undefined;
 }> {
   const parsed = parseModelFqn(name);
@@ -288,6 +288,7 @@ export async function validateAgentSpec({
   memoryProviderStore,
   configurationStore,
   previousSpec,
+  agentId,
 }: {
   spec: AgentSpec;
   tenant_id: string;
@@ -301,6 +302,7 @@ export async function validateAgentSpec({
   memoryProviderStore: IMemoryProviderStore;
   configurationStore: IConfigurationStore;
   previousSpec: AgentSpec | undefined;
+  agentId: string | undefined;
 }): Promise<void> {
   const resolved = await getModelDetails({
     tenant_id,
@@ -338,7 +340,11 @@ export async function validateAgentSpec({
 
   const requestedSkills = spec.skills ?? [];
   if (requestedSkills.length > 0) {
-    await skillStore.validateAgentSkills({ tenant_id, skills: requestedSkills });
+    await skillStore.validateAgentSkills({
+      tenant_id,
+      skills: requestedSkills,
+      agent_id: agentId,
+    });
   }
 
   const wantsSandbox = spec.config.sandbox.enabled;

@@ -1,4 +1,4 @@
-import { SUPPORTED_REASONING_EFFORTS } from '@truefoundry/trueforge-core/core';
+import { type RoutableModel, SUPPORTED_REASONING_EFFORTS } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
 import configuration, { isTrueFoundryModeEnabled } from '../config';
@@ -9,6 +9,13 @@ const ModelParamSchema = z.object({
   supportedValues: z.array(z.string()).optional(),
 });
 
+const RegionCostSchema = z.object({
+  region: z.string().nullish(),
+  input_cost_per_token: z.number(),
+  output_cost_per_token: z.number(),
+});
+
+// Routing-only fields fall back to undefined on an unexpected shape, so they can never break listing.
 const MetadataSchema = z.object({
   limits: z
     .object({
@@ -19,6 +26,8 @@ const MetadataSchema = z.object({
     })
     .optional(),
   params: z.array(ModelParamSchema).optional(),
+  canonical_model: z.string().nullish().catch(undefined),
+  costs: z.array(RegionCostSchema.nullable().catch(null)).optional().catch(undefined),
 });
 
 const IntegrationSchema = z.object({
@@ -61,23 +70,46 @@ function toProperties(metadata: IntegrationMetadata | undefined): ModelPropertie
   };
 }
 
+/** Blended USD per million tokens from the default (`*` region) cost, weighted 3:1 input to output. */
+function toBlendedCost(metadata: IntegrationMetadata | undefined): number | undefined {
+  const cost = metadata?.costs?.find(entry => entry?.region === '*');
+  return cost === undefined || cost === null
+    ? undefined
+    : (0.75 * cost.input_cost_per_token + 0.25 * cost.output_cost_per_token) * 1e6;
+}
+
+function toCatalogInfo(metadata: IntegrationMetadata | undefined): TrueFoundryEnabledModel['catalog'] {
+  return {
+    canonicalModel: metadata?.canonical_model ?? undefined,
+    cost: toBlendedCost(metadata),
+  };
+}
+
 export interface TrueFoundryEnabledModel {
   accountName: string;
   modelName: string;
   properties: ModelProperties;
+  /** Returned only when models are listed with `has_catalog_info`. */
+  catalog: Pick<RoutableModel, 'canonicalModel' | 'cost'>;
 }
 
-export function mapEnabledModels(input: { integrations: readonly unknown[] }): TrueFoundryEnabledModel[] {
+/** `modelTypes` defaults to chat only, so listings never show models agents can't run on. */
+export function mapEnabledModels(input: {
+  integrations: readonly unknown[];
+  modelTypes?: readonly string[];
+}): TrueFoundryEnabledModel[] {
+  const modelTypes = input.modelTypes ?? ['chat'];
   const models: TrueFoundryEnabledModel[] = [];
   for (const row of input.integrations) {
     const integration = IntegrationSchema.parse(row);
-    if (!integration.manifest.model_types?.includes('chat')) {
+    if (!integration.manifest.model_types?.some(type => modelTypes.includes(type))) {
       continue;
     }
     models.push({
       accountName: integration.providerAccount.name,
       modelName: integration.name,
       properties: toProperties(integration.metadata),
+      catalog: toCatalogInfo(integration.metadata),
     });
   }
   return models;

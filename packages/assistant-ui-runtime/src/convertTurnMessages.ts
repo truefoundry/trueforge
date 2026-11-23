@@ -53,8 +53,10 @@ import type { AssistantContentPart } from './modelMessageContent.js';
 import { extractImageUrlFromUserContentItem, imageUrlToAttachment } from './modelMessageImageContent.js';
 import {
   createEmptySessionSnapshot,
+  emptyRequiredActionsOverlay,
   replaceSessionSnapshot,
   sessionEventsToSessionRecord,
+  sessionRecordPreviousTurnId,
   STREAM_SEGMENT_STATUS,
   turnToSessionRecord,
   type ProjectSessionMessagesOptions,
@@ -1693,6 +1695,214 @@ export async function buildSnapshotFromSession(
   });
 }
 
+function droppedRootMessageIds(snapshot: SessionSnapshot, keptTurnIds: ReadonlySet<string>): Set<string> {
+  const dropped = new Set<string>();
+  for (const turn of snapshot.turns) {
+    if (keptTurnIds.has(turn.id)) {
+      continue;
+    }
+    for (const messageId of turn.rootModelMessageIds ?? []) {
+      dropped.add(messageId);
+    }
+  }
+  for (const [messageId, messageTurnId] of snapshot.fold.modelMessageTurnIds) {
+    if (!keptTurnIds.has(messageTurnId)) {
+      dropped.add(messageId);
+    }
+  }
+  return dropped;
+}
+
+function rootEventBelongsToDroppedTurn(
+  event: TurnEvent,
+  droppedMessageIds: ReadonlySet<string>,
+  droppedToolCallIds: ReadonlySet<string>,
+): boolean {
+  if (event.type === EVENT_TYPE.TOOL_APPROVAL_REQUIRED || event.type === EVENT_TYPE.TOOL_RESPONSE_REQUIRED) {
+    return event.toolCalls.some(call => droppedMessageIds.has(call.sourceEventId) || droppedToolCallIds.has(call.id));
+  }
+  if (
+    event.type === EVENT_TYPE.TOOL_RESPONSE ||
+    event.type === EVENT_TYPE.USER_TOOL_APPROVAL ||
+    event.type === EVENT_TYPE.USER_TOOL_RESPONSE
+  ) {
+    return droppedToolCallIds.has(event.toolCallId);
+  }
+  return false;
+}
+
+/** Drop a retried turn's root messages and the sub-agent threads hanging off them. */
+function stripDroppedTurnsFromFold(fold: PeerThreadFoldState, droppedMessageIds: ReadonlySet<string>): void {
+  if (droppedMessageIds.size === 0) {
+    return;
+  }
+  const root = fold.threads.get(ROOT_THREAD_ID);
+  const droppedToolCallIds = new Set<string>();
+  if (root != null) {
+    for (const messageId of droppedMessageIds) {
+      const event = root.events.get(messageId);
+      if (event?.type !== EVENT_TYPE.MODEL_MESSAGE) {
+        continue;
+      }
+      for (const call of event.toolCalls ?? []) {
+        droppedToolCallIds.add(call.id);
+      }
+    }
+    for (const event of root.events.values()) {
+      if (event.type !== EVENT_TYPE.TOOL_APPROVAL_REQUIRED && event.type !== EVENT_TYPE.TOOL_RESPONSE_REQUIRED) {
+        continue;
+      }
+      for (const call of event.toolCalls) {
+        if (droppedMessageIds.has(call.sourceEventId)) {
+          droppedToolCallIds.add(call.id);
+        }
+      }
+    }
+  }
+
+  const droppedThreads = new Set<string>();
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const [threadId, link] of fold.threadParents) {
+      if (droppedThreads.has(threadId)) {
+        continue;
+      }
+      const hangsOffDroppedRootTool = link.parentThreadId === ROOT_THREAD_ID && droppedToolCallIds.has(link.toolCallId);
+      if (hangsOffDroppedRootTool || droppedThreads.has(link.parentThreadId)) {
+        droppedThreads.add(threadId);
+        changed = true;
+      }
+    }
+  }
+
+  for (const threadId of droppedThreads) {
+    const bucket = fold.threads.get(threadId);
+    if (bucket != null) {
+      for (const messageId of bucket.modelMessageIds) {
+        fold.modelMessageTurnIds.delete(messageId);
+      }
+    }
+    fold.threads.delete(threadId);
+    fold.threadParents.delete(threadId);
+  }
+
+  if (root == null) {
+    return;
+  }
+
+  root.modelMessageIds = root.modelMessageIds.filter(id => !droppedMessageIds.has(id));
+  for (const messageId of droppedMessageIds) {
+    root.events.delete(messageId);
+    fold.modelMessageTurnIds.delete(messageId);
+  }
+  const staleEventIds: string[] = [];
+  for (const [eventId, event] of root.events) {
+    if (rootEventBelongsToDroppedTurn(event, droppedMessageIds, droppedToolCallIds)) {
+      staleEventIds.push(eventId);
+    }
+  }
+  for (const eventId of staleEventIds) {
+    root.events.delete(eventId);
+  }
+  for (const toolCallId of droppedToolCallIds) {
+    root.pendingApprovals.delete(toolCallId);
+    root.pendingResponses.delete(toolCallId);
+    root.approvalDecisions.delete(toolCallId);
+    root.toolResults.delete(toolCallId);
+  }
+}
+
+/**
+ * Turns on the parent chain of `parentId`, including that parent.
+ * `null` when the chain is incomplete, so the caller refetches from the server.
+ */
+function keptTurnsThroughParent(
+  turns: readonly SessionTurnRecord[],
+  parentId: string | null,
+): SessionTurnRecord[] | null {
+  if (parentId == null) {
+    return [];
+  }
+  const turnsById = new Map(turns.map(turn => [turn.id, turn]));
+  const chain: SessionTurnRecord[] = [];
+  const seen = new Set<string>();
+  let cursor: string | null = parentId;
+  while (cursor != null) {
+    if (seen.has(cursor)) {
+      return null;
+    }
+    seen.add(cursor);
+    const turn = turnsById.get(cursor);
+    if (turn == null) {
+      return null;
+    }
+    const parent = sessionRecordPreviousTurnId(turn.previousTurnId);
+    if (parent === undefined) {
+      return null;
+    }
+    chain.push(turn);
+    cursor = parent;
+  }
+  chain.reverse();
+  return chain;
+}
+
+function loadedRetriedTurnParent(snapshot: SessionSnapshot, turnId: string): string | null | undefined {
+  const record = snapshot.turns.find(turn => turn.id === turnId);
+  const running = snapshot.runningTurn?.id === turnId ? snapshot.runningTurn : undefined;
+  if (record == null && running == null) {
+    return undefined;
+  }
+  if (record?.previousTurnId !== undefined) {
+    return sessionRecordPreviousTurnId(record.previousTurnId);
+  }
+  if (running != null) {
+    return sessionRecordPreviousTurnId(running.previousTurnId);
+  }
+  return undefined;
+}
+
+/**
+ * Rewinds a snapshot that already holds the retried turn and its parent.
+ * Returns null when the parent id or the parent transcript is not loaded.
+ * `previousTurnId` is `"none"` for a root retry.
+ */
+export function rewindLoadedSnapshotThroughTurn(
+  snapshot: SessionSnapshot,
+  turnId: string,
+): { snapshot: SessionSnapshot; previousTurnId: string } | null {
+  const parentId = loadedRetriedTurnParent(snapshot, turnId);
+  if (parentId === undefined) {
+    return null;
+  }
+  const kept = keptTurnsThroughParent(snapshot.turns, parentId);
+  if (kept == null) {
+    return null;
+  }
+  const keptTurnIds = new Set(kept.map(turn => turn.id));
+  const fold = prependFoldState(new PeerThreadFoldState(), snapshot.fold);
+  stripDroppedTurnsFromFold(fold, droppedRootMessageIds(snapshot, keptTurnIds));
+  const rewound = replaceSessionSnapshot(snapshot, {
+    fold,
+    turns: kept,
+    requiredActions: emptyRequiredActionsOverlay(),
+    ...(snapshot.historyEvents != null
+      ? { historyEvents: snapshot.historyEvents.filter(item => keptTurnIds.has(item.turnId)) }
+      : {}),
+  });
+  delete rewound.runningTurn;
+  delete rewound.activeStream;
+  delete rewound.pendingUser;
+  delete rewound.pendingMcpAuth;
+  delete rewound.groupRootBaseline;
+  delete rewound.unstable_resume;
+  return {
+    snapshot: rewound,
+    previousTurnId: parentId ?? 'none',
+  };
+}
+
 /**
  * Rebuilds the conversation through `anchorTurnId`, including that turn.
  * The server follows parent links from the anchor, so turns from abandoned
@@ -1946,7 +2156,7 @@ export async function* streamTurnEvents(
   stream: AsyncIterable<TurnStreamData>,
   foldState: PeerThreadFoldState,
   groupRootBaseline?: readonly string[],
-  onTurnIdAvailable?: (turnId: string) => void,
+  onTurnIdAvailable?: (turnId: string, previousTurnId?: string | null) => void,
   onSequenceNumber?: (sequenceNumber: number) => void,
   onSubscribeCursor?: (cursor: TurnSubscribeCursor) => void,
   turnId?: string,
@@ -2053,7 +2263,7 @@ export async function* streamTurnEvents(
     }
 
     if (event.type === EVENT_TYPE.TURN_CREATED) {
-      onTurnIdAvailable?.(event.turnId);
+      onTurnIdAvailable?.(event.turnId, event.previousTurnId);
       continue;
     }
 

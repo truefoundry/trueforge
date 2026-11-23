@@ -405,6 +405,7 @@ describe('TurnHandle.stream()', () => {
     const closeSpy = jest.spyOn(sandbox, 'close').mockResolvedValue(undefined);
     const logger = makeSilentLogger();
     const resolver = new TurnResourceResolver({
+      modelRouting: undefined,
       llm: () =>
         Promise.resolve({
           modelClient: makeMockILLM({ create: jest.fn().mockImplementation(() => emptyLlmStream()) }),
@@ -477,6 +478,7 @@ describe('TurnResourceResolver caches', () => {
         expect(a).toBe(b);
       }
     })({
+      modelRouting: undefined,
       llm: () =>
         Promise.resolve({
           modelClient: makeMockILLM(),
@@ -507,6 +509,7 @@ describe('TurnResourceResolver caches', () => {
         expect(a).toBe(b);
       }
     })({
+      modelRouting: undefined,
       llm: async () => {
         llmCalls += 1;
         await new Promise(r => setTimeout(r, 10));
@@ -531,6 +534,7 @@ describe('TurnResourceResolver caches', () => {
     let sandboxCreates = 0;
     const logger = makeSilentLogger();
     const resolver = new TurnResourceResolver({
+      modelRouting: undefined,
       llm: () =>
         Promise.resolve({
           modelClient: makeMockILLM({ create: jest.fn().mockImplementation(() => emptyLlmStream()) }),
