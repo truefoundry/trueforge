@@ -4,7 +4,7 @@ import { PAGE_LIMIT } from './common';
 
 export const ArtifactSchema = z
   .object({
-    slug: z.string(),
+    id: z.string(),
     title: z.string(),
     latest_version: z.number().int().describe('Latest version.'),
     entry_point: z

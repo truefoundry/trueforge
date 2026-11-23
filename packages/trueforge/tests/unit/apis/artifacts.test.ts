@@ -8,6 +8,7 @@ import { mountWithErrorHandler } from '../mountWithErrorHandler';
 
 describe('artifacts router', () => {
   let app: ReturnType<typeof mountWithErrorHandler>;
+  let reportId: string;
 
   async function listTitles(query: string): Promise<string[]> {
     const response = await app.request(`/?${query}`);
@@ -31,6 +32,7 @@ describe('artifacts router', () => {
       created_by_session_id: 'session-1',
       created_by_agent_id: 'agent-1',
     });
+    reportId = report.id;
     await artifactStore.createVersion({
       tenant_id: report.tenant_id,
       artifact_id: report.id,
@@ -65,6 +67,7 @@ describe('artifacts router', () => {
       ['Q3 Report', 'report/index.html', 'agent-1'],
       ['Roadmap', null, null],
     ]);
+    expect([...first.data, ...second.data].find(a => a.title === 'Q3 Report')?.id).toBe(reportId);
   });
 
   it('filters by created_by_session_id', async () => {
