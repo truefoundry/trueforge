@@ -21,7 +21,6 @@ export interface RoutableModel {
 
 export interface RoutedModel {
   model: string;
-  /** Reasoning effort the thread runs at. */
   effort: ReasoningEffort;
 }
 
@@ -79,6 +78,8 @@ export interface RouteInput {
   threadId: string;
   /** What to classify: text, or an ordered list of messages. */
   input: string | DecisionInputMessage[];
+  /** The caller writes this for a task or for a conversation. */
+  instructions: string;
 }
 
 interface Outcome {
@@ -107,7 +108,12 @@ export function createModelRouter(
         throw error;
       });
       const classifier = await deps.classifier();
-      const request = classificationRequest(route.input, deps.question, classifier.properties.contextLength);
+      const request = classificationRequest({
+        input: route.input,
+        question: deps.question,
+        instructions: route.instructions,
+        contextLength: classifier.properties.contextLength,
+      });
       isTruncated = request.isTruncated;
       const [userModels, decision] = await Promise.all([
         models,

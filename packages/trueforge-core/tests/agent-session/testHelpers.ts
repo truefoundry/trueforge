@@ -105,11 +105,8 @@ export function makeTestResolver<TTurnCustom extends object = Record<string, nev
   llmCreate?: ILLM['create'];
   /** When set, resolveSandbox rejects with this error — simulates a createTurn resolution failure. */
   failResolveWith?: Error;
-  /** Catalog defaults merged onto a resolved model's params. */
   defaultModelParams?: ModelParams;
-  /** When set, threads can be model-routed. */
   modelRouting?: ModelRouterDeps;
-  /** Called with each catalog model name the turn resolves. */
   onModel?: (name: string) => void;
 }): ITurnResourceResolver<TTurnCustom> {
   const llm = makeMockILLM({

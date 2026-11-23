@@ -41,7 +41,6 @@ import type {
 } from '@truefoundry/trueforge-core/core';
 import {
   AgentHarnessError,
-  DEFAULT_ROUTING_QUESTION,
   existingSandboxIdForProvider,
   extractErrorLogFields,
   getOperationMetrics,
@@ -406,7 +405,6 @@ function turnModelRouting(input: {
   return {
     classifier: resolveDecisionModel,
     question: {
-      instructions: DEFAULT_ROUTING_QUESTION.instructions,
       categories: routing.categories,
     },
     listModels: () => modelProviderStore.listModels({ tenant_id, has_catalog_info: true }),

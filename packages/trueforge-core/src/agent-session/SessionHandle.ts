@@ -5,6 +5,7 @@ import { AgentHarnessError } from '../core/errors';
 import { newEventId, type TurnUserEvent, type UserMessage } from '../core/events/schema';
 import { SUPPORTED_REASONING_EFFORTS } from '../core/llm/VercelAILLM';
 import { routingConversation } from '../core/modelRouting/conversation';
+import { CONVERSATION_ROUTING_INSTRUCTIONS, TASK_ROUTING_INSTRUCTIONS } from '../core/modelRouting/question';
 import { AUTO_MODEL, createModelRouter, type RoutedModel, type RouteInput } from '../core/modelRouting/router';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import { modelSnapshotFromAgent } from '../core/runtime/AgentModel';
@@ -539,7 +540,6 @@ export class SessionHandle<
       return undefined;
     }
     const previousRoot = input.previous?.snapshot.threads[MAIN_THREAD_ID];
-    // If rebuilding a paused turn, resume on the model and effort it ran on.
     if (input.newUserInput === undefined) {
       const saved = previousRoot?.model;
       if (saved == null) {
@@ -551,13 +551,13 @@ export class SessionHandle<
       }
       return { model: saved.name, effort };
     }
-    // If creating a new turn, route on the conversation and the new user input.
     if (input.routeModel === undefined) {
       throw new AgentHarnessError('auto_model_unavailable', 'Auto model selection needs model routing for this tenant');
     }
     const routed = await input.routeModel({
       threadId: MAIN_THREAD_ID,
       input: routingConversation(previousRoot?.context ?? [], input.newUserInput),
+      instructions: CONVERSATION_ROUTING_INSTRUCTIONS,
     });
     if (routed === undefined) {
       throw new AgentHarnessError('auto_model_unavailable', 'Auto model selection could not choose a model');
@@ -684,7 +684,12 @@ export class SessionHandle<
     return async params => {
       // Route from the delegated task: the classifier requires the name and input to classify the task.
       const task = `Name: ${params.request.name}\n\nTask:\n${params.request.input}`;
-      const routed = (await input.routeModel?.({ threadId: params.threadId, input: task })) ?? input.rootModel;
+      const routed =
+        (await input.routeModel?.({
+          threadId: params.threadId,
+          input: task,
+          instructions: TASK_ROUTING_INSTRUCTIONS,
+        })) ?? input.rootModel;
 
       const { definition, model, extraCapabilities } = await input.resolver.resolveAgentDefinition({
         spec: specForRoutedModel(input.spec, routed),
