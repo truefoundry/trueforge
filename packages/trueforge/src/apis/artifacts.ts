@@ -34,7 +34,7 @@ export function createArtifactsRouter(deps: ArtifactsRouterDeps) {
         tenant_id: requestContext.tenant_id,
         created_by_subject_id: requestContext.subject.id,
         created_by_session_id: query.created_by_session_id,
-        title: query.title,
+        title: query.name,
         limit: query.limit,
         page_token: query.page_token,
       });

@@ -74,8 +74,8 @@ describe('artifacts router', () => {
     expect(await listTitles('created_by_session_id=session-2')).toEqual(['Roadmap']);
   });
 
-  it('filters by title substring', async () => {
-    expect(await listTitles('title=report')).toEqual(['Q3 Report']);
+  it('filters by name substring', async () => {
+    expect(await listTitles('name=report')).toEqual(['Q3 Report']);
   });
 
   it('rejects an invalid page token', async () => {
