@@ -23,6 +23,7 @@ describe('createTrueForgeServer', () => {
       data: {
         sandbox: { enabled: true, environments: { enabled: true } },
         skill: { enabled: true },
+        auto: { enabled: false },
         sessionSharing: tenantSessionSharing,
       },
     };
@@ -193,6 +194,7 @@ describe('createTrueForgeServer', () => {
         data: {
           sandbox: { enabled: false, environments: { enabled: false } },
           skill: { enabled: false },
+          auto: { enabled: false },
           sessionSharing: tenantSessionSharing,
         },
       }),

@@ -68,6 +68,16 @@ export const AgentInfoSchema = z
   })
   .openapi('AgentInfo');
 
+/** Model and effort a thread resolved to. */
+export const ModelSnapshotSchema = z
+  .object({
+    name: z.string().describe('Resolved model name, `provider/model`.'),
+    effort: z.string().nullable().describe('Reasoning effort for that model. Null when none was resolved.'),
+  })
+  .openapi('ModelSnapshot');
+
+export type ModelSnapshot = z.infer<typeof ModelSnapshotSchema>;
+
 export const ApprovalDecisionAllowSchema = z
   .object({ status: z.literal('allow').describe('Allow the pending tool call(s).') })
   .openapi('ApprovalAllow');
@@ -297,6 +307,7 @@ export const ThreadCreatedEventSchema = z
     type: z.literal(EventType.THREAD_CREATED).describe('A dynamic subagent thread was created.'),
     id: EventIdSchema,
     agent_info: AgentInfoSchema,
+    model: ModelSnapshotSchema.optional().describe('Model and effort the new thread runs on.'),
     created_at: z.string().describe('ISO 8601 event timestamp.'),
     parent: AgentParentSchema,
     thread_id: z.string().describe('Id of the new thread.'),

@@ -344,6 +344,18 @@
         },
         "type": "object"
       },
+      "AutoCapability": {
+        "properties": {
+          "enabled": {
+            "description": "Whether Auto mode can be selected: the user has at least one model in every routing cluster.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "type": "object"
+      },
       "AvailableMCPServer": {
         "additionalProperties": false,
         "properties": {
@@ -479,6 +491,9 @@
       },
       "CapabilitiesData": {
         "properties": {
+          "auto": {
+            "$ref": "#/components/schemas/AutoCapability"
+          },
           "memory": {
             "$ref": "#/components/schemas/MemoryCapability"
           },
@@ -503,6 +518,7 @@
           "skill",
           "settings",
           "web_search",
+          "auto",
           "session_sharing"
         ],
         "type": "object"
@@ -3362,6 +3378,27 @@
           }
         ]
       },
+      "ModelSnapshot": {
+        "description": "Model and effort the new thread runs on.",
+        "properties": {
+          "effort": {
+            "description": "Reasoning effort for that model. Null when none was resolved.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "Resolved model name, `provider/model`.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "effort"
+        ],
+        "type": "object"
+      },
       "MoonshotModelProvider": {
         "additionalProperties": false,
         "properties": {
@@ -5255,6 +5292,9 @@
           "id": {
             "description": "Unique identifier for the event (monotonic ULID).",
             "type": "string"
+          },
+          "model": {
+            "$ref": "#/components/schemas/ModelSnapshot"
           },
           "parent": {
             "$ref": "#/components/schemas/AgentParent"

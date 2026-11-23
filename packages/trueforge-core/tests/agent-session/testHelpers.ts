@@ -21,6 +21,9 @@ import type {
   RawAssistantMessageWithUsage,
 } from '../../src/core/llm/LLMTypes';
 import { getEmptyUsage } from '../../src/core/llm/LLMTypes';
+import type { ModelParams } from '../../src/core/llm/model';
+import type { ModelRouterDeps } from '../../src/core/modelRouting/router';
+import type { ModelSnapshot } from '../../src/core/runtime/AgentThread.types';
 import { getEmptyCurrentContextUsage } from '../../src/core/runtime/contextUsage';
 import type { Sandbox } from '../../src/core/sandbox/Sandbox';
 import { makeMockILLM, makeSilentLogger, TEST_MODEL, TEST_MODEL_NAME } from '../core/harnessMocks';
@@ -38,7 +41,7 @@ export const TEST_ACTIVE_EXECUTOR_ID = 'test-executor';
 export function makeAgentSpec(
   overrides: {
     instructions?: string;
-    model?: { name: string };
+    model?: { name: string; params?: { temperature?: number } };
     config?: {
       iteration_limit?: number;
       sandbox?: { enabled: boolean; file_downloads?: boolean; environment_name?: string };
@@ -102,18 +105,23 @@ export function makeTestResolver<TTurnCustom extends object = Record<string, nev
   llmCreate?: ILLM['create'];
   /** When set, resolveSandbox rejects with this error — simulates a createTurn resolution failure. */
   failResolveWith?: Error;
+  defaultModelParams?: ModelParams;
+  modelRouting?: ModelRouterDeps;
+  onModel?: (name: string) => void;
 }): ITurnResourceResolver<TTurnCustom> {
   const llm = makeMockILLM({
     create: options?.llmCreate ?? jest.fn().mockImplementation(() => emptyLlmStream(options?.usage)),
   });
   const base = new TurnResourceResolver<TTurnCustom>({
-    modelRouting: undefined,
-    llm: () =>
-      Promise.resolve({
+    modelRouting: options?.modelRouting,
+    llm: name => {
+      options?.onModel?.(name);
+      return Promise.resolve({
         modelClient: llm,
-        defaultModelParams: {},
+        defaultModelParams: options?.defaultModelParams ?? {},
         providerType: undefined,
-      }),
+      });
+    },
     mcp: id => {
       if (id === TRUEFORGE_MCP_ID) {
         return Promise.resolve(undefined);
@@ -145,7 +153,7 @@ export function makeTestResolver<TTurnCustom extends object = Record<string, nev
       return base.logger;
     },
     createTracing: () => base.createTracing(),
-    modelRouting: undefined,
+    routeModel: base.routeModel,
     resolveAgentSpec: input => base.resolveAgentSpec(input),
     resolveSandbox: input => {
       if (options.failResolveWith) {
@@ -195,6 +203,7 @@ export function makeTurnUpdateEvent(state: NonTerminalTurnState): TurnUpdateEven
 }
 
 const defaultRootThread: NewThreadInit = {
+  model: null,
   thread_id: MAIN_THREAD_ID,
   parent: null,
   agent_info: null,
@@ -212,6 +221,7 @@ export function makeCreateTurnInput(input: {
     completion?: TurnContextAppend['completion'];
   })[];
   capability_states?: CreateTurnInput['capability_states'];
+  main_thread_model?: ModelSnapshot;
   update_session_title_if_not_exist?: string;
 }): CreateTurnInput {
   const turn = makeRunningTurnRecord({
@@ -232,6 +242,7 @@ export function makeCreateTurnInput(input: {
       completion: append.completion ?? null,
     })),
     capability_states: input.capability_states ?? [{ thread_id: MAIN_THREAD_ID, capability_state: null }],
+    main_thread_model: input.main_thread_model ?? null,
     update_session_title_if_not_exist: input.update_session_title_if_not_exist ?? null,
   };
 }
@@ -281,6 +292,7 @@ export function makeRunningTurnRecord(input: {
           current_context_usage: getEmptyCurrentContextUsage(),
           parent: null,
           agent_info: null,
+          model: null,
           completion: null,
           pending_mcp_auth: false,
           capability_state: null,

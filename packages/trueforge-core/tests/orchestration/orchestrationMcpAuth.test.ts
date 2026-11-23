@@ -32,17 +32,18 @@ function makeAuthBlockedThread(threadId: string): AgentThread {
   };
   const input: AgentThreadConstructorInput = {
     definition: {
-      modelClient: {
-        create: jest.fn(() => textReplyStream(`${threadId} done`)),
-        createNonStream: jest.fn(),
-      },
-      modelName: TEST_MODEL_NAME,
       instruction: undefined,
       messages: [{ role: 'user', content: 'continue' }],
-      modelParams: undefined,
       responseFormat: undefined,
       iterationLimit: undefined,
       toolSets: undefined,
+    },
+    model: {
+      client: {
+        create: jest.fn(() => textReplyStream(`${threadId} done`)),
+        createNonStream: jest.fn(),
+      },
+      name: TEST_MODEL_NAME,
     },
     threadId,
     title: threadId,
@@ -121,7 +122,7 @@ describe('orchestration: MCP auth continuation', () => {
     while (!step.done) {
       step = await withTimeout(iterator.next(), 1_000, 'MCP-auth resumed completion');
     }
-    expect(first.definition.modelClient.create).toHaveBeenCalledTimes(1);
-    expect(second.definition.modelClient.create).toHaveBeenCalledTimes(1);
+    expect(first.model.client.create).toHaveBeenCalledTimes(1);
+    expect(second.model.client.create).toHaveBeenCalledTimes(1);
   });
 });

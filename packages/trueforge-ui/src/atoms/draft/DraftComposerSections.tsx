@@ -11,7 +11,6 @@ import { auiButtonClass } from '../lib/buttonClasses.js';
 import { useCompactLayout } from '../lib/CompactLayoutContext.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
 import { Tooltip } from '../primitives/Tooltip.js';
-import { DraftReasoningEffortSelector } from './DraftReasoningEffortSelector.js';
 
 export function DraftComposerLeftSection({ disabled, onAttach }: ComposerLeftSectionProps) {
   const shell = useOptionalShellMode();
@@ -81,7 +80,6 @@ export function DraftComposerRightSection({ disabled }: ComposerRightSectionProp
   return (
     <div className="flex min-w-0 items-center gap-1">
       {!isBuilder ? <DraftModelSelector disabled={disabled} /> : null}
-      <DraftReasoningEffortSelector disabled={disabled} />
     </div>
   );
 }
