@@ -12,7 +12,13 @@ import type {
 
 export type ResolvedServerState =
   | { status: 'loading'; server: null; error: null }
-  | { status: 'ready'; server: AgentUIServer; error: null }
+  | {
+      status: 'ready';
+      server: AgentUIServer;
+      error: null;
+      /** Present when the built-in config included a host-loaded capabilities snapshot. */
+      capabilities?: AgentBuilderCapabilitiesResponse['data'];
+    }
   | { status: 'error'; server: null; error: unknown };
 
 /** Fallback when an older runtime adapter omits `getCapabilities`. */
@@ -102,6 +108,7 @@ export function useResolvedServer(
   const trueforgeFetch = builtIn?.fetch;
   const catalog = builtIn?.catalog;
   const permissions = builtIn?.permissions;
+  const capabilitiesSeed = builtIn?.capabilities;
 
   const [state, setState] = useState<ResolvedServerState>(() => {
     if (directServer) {
@@ -138,6 +145,7 @@ export function useResolvedServer(
             status: 'ready',
             server: toAgentUIServer(server, undefined, undefined),
             error: null,
+            ...(capabilitiesSeed == null ? {} : { capabilities: capabilitiesSeed }),
           });
         } catch (error: unknown) {
           onError?.(error);
@@ -153,7 +161,7 @@ export function useResolvedServer(
     return () => {
       cancelled = true;
     };
-  }, [directServer, trueforgeBaseUrl, trueforgeToken, trueforgeFetch, catalog, permissions, onError]);
+  }, [directServer, trueforgeBaseUrl, trueforgeToken, trueforgeFetch, catalog, permissions, capabilitiesSeed, onError]);
 
   return state;
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { CanCreateAgentProvider } from '../hooks/useCanCreateAgent.js';
 import {
@@ -31,7 +31,16 @@ const ServerCapabilitiesContext = createContext<{
   refresh: () => void;
 } | null>(null);
 
-export function ServerProvider({ server, children }: { server: AgentUIServer; children: ReactNode }) {
+export function ServerProvider({
+  server,
+  capabilities,
+  children,
+}: {
+  server: AgentUIServer;
+  /** Host-loaded flags. Skips the mount capabilities request until a later refresh. */
+  capabilities?: AgentBuilderCapabilitiesResponse['data'];
+  children: ReactNode;
+}) {
   const [queryClient] = useState(createServerQueryClient);
   useMountServerQueryClient(queryClient);
   const [scope, setScope] = useState({ server, generation: 0 });
@@ -43,19 +52,39 @@ export function ServerProvider({ server, children }: { server: AgentUIServer; ch
   }
   return (
     <ServerQueryClientContext.Provider value={queryClient}>
-      <ServerScope server={server}>{children}</ServerScope>
+      <ServerScope server={server} capabilities={capabilities}>
+        {children}
+      </ServerScope>
     </ServerQueryClientContext.Provider>
   );
 }
 
-function ServerScope({ server, children }: { server: AgentUIServer; children: ReactNode }) {
+function ServerScope({
+  server,
+  capabilities: capabilitiesSeed,
+  children,
+}: {
+  server: AgentUIServer;
+  capabilities?: AgentBuilderCapabilitiesResponse['data'];
+  children: ReactNode;
+}) {
   const queryClient = useServerQueryClient();
+  // Captured once so a re-render does not move the seed's timestamp and mark it stale.
+  const seededAtRef = useRef<number | undefined>(undefined);
+  if (capabilitiesSeed != null && seededAtRef.current == null) {
+    seededAtRef.current = Date.now();
+  }
+  const seededAt = seededAtRef.current;
   const capabilitiesQuery = useQuery(
     {
       queryKey: queryKeys.capabilities(),
       queryFn: async () => (await server.getCapabilities()).data,
       // After a server swap, keep the previous flags until the new ones load so gated chrome does not flicker closed.
       placeholderData: keepPreviousData,
+      // A host that already loaded capabilities (boot) should not pay for the same request on mount.
+      ...(capabilitiesSeed == null || seededAt == null
+        ? {}
+        : { initialData: capabilitiesSeed, initialDataUpdatedAt: seededAt }),
     },
     queryClient,
   );
@@ -68,7 +97,8 @@ function ServerScope({ server, children }: { server: AgentUIServer; children: Re
   }, [queryClient]);
 
   const capabilities = capabilitiesQuery.data ?? null;
-  const capabilitiesSettled = capabilitiesQuery.isFetched;
+  // initialData is success data that has not been fetched, so isFetched stays false until a refresh.
+  const capabilitiesSettled = capabilitiesQuery.isSuccess || capabilitiesQuery.isFetched;
   const capabilitiesValue = useMemo(
     () => ({ capabilities, settled: capabilitiesSettled, refresh: refreshCapabilities }),
     [capabilities, capabilitiesSettled, refreshCapabilities],

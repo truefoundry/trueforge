@@ -370,7 +370,7 @@ export function TrueForgeUIShell(props: TrueForgeUIShellProps) {
     <SlotsProvider overrides={overrides} theme={theme}>
       <CurrentUserProvider currentUser={currentUser}>
         <CustomActionRenderersProvider renderers={customActionRenderers}>
-          <ServerProvider server={server}>
+          <ServerProvider server={server} capabilities={resolved.capabilities}>
             {resolvedRoutes != null ? (
               <ResolvedRoutesProvider routes={resolvedRoutes}>{visibilityTree}</ResolvedRoutesProvider>
             ) : (

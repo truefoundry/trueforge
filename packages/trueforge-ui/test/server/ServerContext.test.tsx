@@ -147,6 +147,43 @@ describe('ServerProvider', () => {
     expect(result.current.capabilities).toEqual(initialCapabilities);
   });
 
+  it('uses seeded capabilities without fetching until refresh', async () => {
+    const seeded = {
+      sandbox: { enabled: true, environments: { enabled: true } },
+      skill: { enabled: false },
+      sessionSharing: tenantSessionSharing,
+    };
+    const getCapabilities = vi.fn(async () => ({
+      data: {
+        ...seeded,
+        skill: { enabled: true },
+      },
+    }));
+    const server = createMockAgentUIServer({ getCapabilities });
+    const { result } = renderHook(
+      () => ({
+        capabilities: useServerCapabilities(),
+        settled: useServerCapabilitiesSettled(),
+        refresh: useOptionalRefreshServerCapabilities(),
+      }),
+      {
+        wrapper: ({ children }) => (
+          <ServerProvider server={server} capabilities={seeded}>
+            {children}
+          </ServerProvider>
+        ),
+      },
+    );
+
+    expect(result.current.settled).toBe(true);
+    expect(result.current.capabilities).toEqual(seeded);
+    expect(getCapabilities).not.toHaveBeenCalled();
+
+    act(() => result.current.refresh?.());
+    await waitFor(() => expect(getCapabilities).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(result.current.capabilities).toEqual({ ...seeded, skill: { enabled: true } }));
+  });
+
   it('settles when the initial capabilities request fails', async () => {
     const server = createMockAgentUIServer({
       getCapabilities: async () => {
