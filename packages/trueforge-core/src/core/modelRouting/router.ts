@@ -107,7 +107,8 @@ export function createModelRouter(
         models = undefined;
         throw error;
       });
-      const classifier = await deps.classifier();
+      // Awaited together so a catalog failure is handled while the classifier is still starting.
+      const [userModels, classifier] = await Promise.all([models, deps.classifier()]);
       const request = classificationRequest({
         input: route.input,
         question: deps.question,
@@ -115,12 +116,9 @@ export function createModelRouter(
         contextLength: classifier.properties.contextLength,
       });
       isTruncated = request.isTruncated;
-      const [userModels, decision] = await Promise.all([
-        models,
-        classifier.client.create(request.body, {
-          metadata: { 'tfg.thread_id': route.threadId },
-        }),
-      ]);
+      const decision = await classifier.client.create(request.body, {
+        metadata: { 'tfg.thread_id': route.threadId },
+      });
       const classification = readClassification(decision);
       if (classification === undefined) {
         return { reason: 'decision_error', routed: undefined, fields: { answers: decision.answers } };

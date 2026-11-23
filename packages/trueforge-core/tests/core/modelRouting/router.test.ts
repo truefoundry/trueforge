@@ -116,6 +116,40 @@ describe('createModelRouter', () => {
     await expect(route({ create: () => Promise.reject(new Error('HTTP 403')) })).resolves.toBeUndefined();
   });
 
+  it('picks nothing when listing models fails while the classifier is still starting', async () => {
+    const unhandled: unknown[] = [];
+    const onUnhandled = (error: unknown) => {
+      unhandled.push(error);
+    };
+    process.on('unhandledRejection', onUnhandled);
+    let releaseClassifier: () => void = () => undefined;
+    const classifierStarted = new Promise<void>(resolve => {
+      releaseClassifier = resolve;
+    });
+    try {
+      const pending = createModelRouter(
+        {
+          classifier: () =>
+            classifierStarted.then(() => ({
+              client: classifiesAs('direct'),
+              properties: { contextLength: 16_000 },
+            })),
+          question: DEFAULT_ROUTING_QUESTION,
+          listModels: () => Promise.reject(new Error('catalog down')),
+        },
+        logger,
+      )(routeInput);
+      releaseClassifier();
+      await expect(pending).resolves.toBeUndefined();
+      await new Promise<void>(resolve => {
+        setImmediate(resolve);
+      });
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.off('unhandledRejection', onUnhandled);
+    }
+  });
+
   it('lists the models once per router', async () => {
     const listModels = jest.fn(() => Promise.resolve(models));
     const routeModel = createModelRouter(
